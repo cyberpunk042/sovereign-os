@@ -22,9 +22,9 @@ pub const SCHEMA_VERSION: &str = "1.0.0";
 pub enum HardwareTarget {
     /// Ryzen 9 9900X — Conductor / Pulse role.
     CpuPulse,
-    /// RTX 3090 24GB — Logic Engine role (ROCm).
-    #[serde(rename = "rocm-3090")]
-    Rocm3090,
+    /// RTX 4090 24GB — Logic Engine role (ROCm).
+    #[serde(rename = "rocm-4090")]
+    Rocm4090,
     /// Blackwell PRO 6000 96GB — Oracle Core.
     BlackwellOracle,
     /// External cloud provider.
@@ -121,7 +121,7 @@ impl HardwareTarget {
     pub fn canonical_role(self) -> SrpRole {
         match self {
             HardwareTarget::CpuPulse => SrpRole::Conductor,
-            HardwareTarget::Rocm3090 => SrpRole::Logic,
+            HardwareTarget::Rocm4090 => SrpRole::Logic,
             HardwareTarget::BlackwellOracle => SrpRole::Oracle,
             HardwareTarget::Cloud => SrpRole::External,
             HardwareTarget::NoHardware => SrpRole::Inert,
@@ -142,8 +142,8 @@ impl HardwareRegistry {
                 driver: "linux-6.18".into(),
             },
             HardwareRecord {
-                target: HardwareTarget::Rocm3090,
-                vendor: "NVIDIA RTX 3090".into(),
+                target: HardwareTarget::Rocm4090,
+                vendor: "NVIDIA RTX 4090".into(),
                 vram_gb: 24,
                 role: SrpRole::Logic,
                 latency_tier: LatencyTier::Brisk,
@@ -190,7 +190,7 @@ impl HardwareRegistry {
         }
         let required = [
             HardwareTarget::CpuPulse,
-            HardwareTarget::Rocm3090,
+            HardwareTarget::Rocm4090,
             HardwareTarget::BlackwellOracle,
             HardwareTarget::Cloud,
             HardwareTarget::NoHardware,
@@ -248,7 +248,7 @@ mod tests {
         assert_eq!(r.records.len(), 5);
         for t in [
             HardwareTarget::CpuPulse,
-            HardwareTarget::Rocm3090,
+            HardwareTarget::Rocm4090,
             HardwareTarget::BlackwellOracle,
             HardwareTarget::Cloud,
             HardwareTarget::NoHardware,
@@ -263,7 +263,7 @@ mod tests {
             HardwareTarget::CpuPulse.canonical_role(),
             SrpRole::Conductor
         );
-        assert_eq!(HardwareTarget::Rocm3090.canonical_role(), SrpRole::Logic);
+        assert_eq!(HardwareTarget::Rocm4090.canonical_role(), SrpRole::Logic);
         assert_eq!(
             HardwareTarget::BlackwellOracle.canonical_role(),
             SrpRole::Oracle
@@ -323,8 +323,8 @@ mod tests {
             "\"cpu-pulse\""
         );
         assert_eq!(
-            serde_json::to_string(&HardwareTarget::Rocm3090).unwrap(),
-            "\"rocm-3090\""
+            serde_json::to_string(&HardwareTarget::Rocm4090).unwrap(),
+            "\"rocm-4090\""
         );
         assert_eq!(
             serde_json::to_string(&HardwareTarget::BlackwellOracle).unwrap(),

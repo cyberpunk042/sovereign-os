@@ -147,8 +147,9 @@ fn fmt_bytes_iec(n: i64) -> String {
         v /= 1024;
         i += 1;
     }
-    let s = format!("{} {}", v, units[i]);
-    if neg { format!("-{}", s) } else { s }
+    let unit = units[i];
+    let s = format!("{v} {unit}");
+    if neg { format!("-{s}") } else { s }
 }
 
 fn fmt_duration_ms(n: i64) -> String {
@@ -161,15 +162,15 @@ fn fmt_duration_ms(n: i64) -> String {
     let s = ms / 1000;
     ms %= 1000;
     let body = if h > 0 {
-        format!("{}h {:02}m {:02}s", h, m, s)
+        format!("{h}h {m:02}m {s:02}s")
     } else if m > 0 {
-        format!("{}m {:02}s", m, s)
+        format!("{m}m {s:02}s")
     } else if s > 0 {
-        format!("{}s", s)
+        format!("{s}s")
     } else {
-        format!("{}ms", ms)
+        format!("{ms}ms")
     };
-    if neg { format!("-{}", body) } else { body }
+    if neg { format!("-{body}") } else { body }
 }
 
 #[cfg(test)]

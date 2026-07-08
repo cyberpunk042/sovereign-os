@@ -1,0 +1,81 @@
+# Selfdef SDD-073 socket-fd revocation Prometheus alerting rules.
+# Fires on textfile metrics from selfdef-socket-fd-revocations-textfile
+# (selfdef MS4a commit). Extends the IPS-octet observability set
+# to the nonet with the prior 19th..26th siblings.
+
+groups:
+  - name: selfdef-socket-fd-revocations
+    interval: 30s
+    rules:
+
+      - alert: SelfdefSocketFdRevocationsTextfileEmitFailed
+        expr: selfdef_socket_fd_revocations_textfile_emit_failed > 0
+        for: 5m
+        labels:
+          severity: critical
+          subsystem: selfdef-socket-fd-revocations
+          sfr_link: observer-fault
+        annotations:
+          summary: "Selfdef socket-fd revocations observer fault on {{ $labels.instance }}"
+          description: "Wrapper failure for 5+ minutes. SDD-073 enforcement visibility lost."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefsocketfdrevocationstextfileemitfailed-critical"
+
+      - alert: SelfdefSocketFdRevocationsObserverSilent
+        expr: time() - selfdef_socket_fd_revocations_last_run_unix > 300
+        for: 2m
+        labels:
+          severity: critical
+          subsystem: selfdef-socket-fd-revocations
+          sfr_link: observer-silent
+        annotations:
+          summary: "Selfdef socket-fd revocations observer silent on {{ $labels.instance }}"
+          description: "Timer hasn't fired in 5+ minutes."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefsocketfdrevocationsobserversilent-critical"
+
+      - alert: SelfdefSocketFdRevocationsStateDirMissing
+        expr: selfdef_socket_fd_revocations_state_dir_present == 0
+        for: 10m
+        labels:
+          severity: critical
+          subsystem: selfdef-socket-fd-revocations
+          sfr_link: state-dir-missing
+        annotations:
+          summary: "socket-fd-revocations state-dir absent on {{ $labels.instance }} — SDD-073 enforcement OFFLINE"
+          description: "/var/lib/selfdef/socket-fd-revocations not present for 10+ minutes. SDD-073 per-connection-axis IPS primitive cannot persist state. Operator action: systemctl status selfdefd && systemctl restart selfdefd."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefsocketfdrevocationsstatedirmissing-critical"
+
+      - alert: SelfdefSocketFdRevocationsPendingRestoreBacklog
+        expr: selfdef_socket_fd_revocations_pending_restores > 5
+        for: 30m
+        labels:
+          severity: warning
+          subsystem: selfdef-socket-fd-revocations
+          sfr_link: pending-backlog
+        annotations:
+          summary: "{{ $value }} pending socket-fd-restore decisions on {{ $labels.instance }} for 30m"
+          description: "Operator engagement with the cockpit socket-fd-revocations-queue card needed."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefsocketfdrevocationspendingrestorebacklog-warning"
+
+      - alert: SelfdefSocketFdRevocationsStaleHandleRising
+        expr: selfdef_socket_fd_revocations_stale_count > 3
+        for: 15m
+        labels:
+          severity: warning
+          subsystem: selfdef-socket-fd-revocations
+          sfr_link: stale-rising
+        annotations:
+          summary: "{{ $value }} stale (inode-race) handles on {{ $labels.instance }} for 15m"
+          description: "Inode-race detection is firing repeatedly — the target process is rapidly closing/reopening fds, or the event detection→action latency is too high. Operator review of correlator timing recommended."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefsocketfdrevocationsstalehandlerising-warning"
+
+      - alert: SelfdefSocketFdRevocationsActiveHigh
+        expr: selfdef_socket_fd_revocations_active_count > 20
+        for: 1h
+        labels:
+          severity: warning
+          subsystem: selfdef-socket-fd-revocations
+          sfr_link: active-high
+        annotations:
+          summary: "{{ $value }} active socket-fd revocations on {{ $labels.instance }} for 1h"
+          description: "Likely large-scale connection-severance scenario. The per-connection axis primitive max-duration is 4h at operator-overridden tier (shortest of the IPS spine)."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefsocketfdrevocationsactivehigh-warning"

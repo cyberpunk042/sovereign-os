@@ -1,0 +1,14 @@
+[Unit]
+Description=sovereign-os wattage+heat trend tick, every minute (E1.M36)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/hooks/recurrent/wattage-heat-trend-tick.sh
+
+[Timer]
+# Per-minute cadence so the rolling trend window (default 5 samples) fills
+# in ~5 min and lines up with the wattage + thermal samplers on one timeline.
+OnBootSec=2min
+OnUnitActiveSec=1min
+Persistent=true
+Unit=sovereign-wattage-heat-trend.service
+
+[Install]
+WantedBy=timers.target

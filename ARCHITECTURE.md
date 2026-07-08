@@ -42,7 +42,7 @@
 
    Fourth repo:
    ┌───────────────────────┐
-   │  root-ghostproxy      │   currently dormant
+   │  root-ghostproxy      │   active (endpoint mode; SDD-046)
    └───────────────────────┘
 ```
 
@@ -53,7 +53,7 @@
 | **`cyberpunk042/sovereign-os`** (this) | Builds the OS image; specifies profile schema; provides lifecycle-management tools. |
 | **`cyberpunk042/devops-solutions-information-hub`** | Synthesizes the knowledge baseline; owns the SAIN-01 milestone + 11 epics + L1–L3 layers. Authoritative for architectural design decisions ABOUT the OS. |
 | **`cyberpunk042/selfdef`** | Provides the security daemon that RUNS on the produced OS (agent-guard Tetragon module + 12 notifier channels + persistent escalations). Authoritative for runtime-defense decisions. |
-| **`cyberpunk042/root-ghostproxy`** | Dormant. Receives /view + /questions skill installs and infrastructure-of-thought primitives; no active product surface. |
+| **`cyberpunk042/root-ghostproxy`** | Active as an endpoint-mode consumption dependency (SDD-046, since 2026-07-03): supplies the AI-agent safety envelope (Claude Code + opencode machine-level hooks + integrity sentinel) installed on SAIN-01 nodes via its own `install.sh --profile base --mode endpoint`. Proxy/IPS half (L2 bridge, Suricata/PolarProxy) stays DISABLED per operator directive. Authoritative for the AI-agent tool-call safety policy. Previously dormant (received /view + /questions skill installs in a prior arc). |
 
 Full boundary semantics — what flows, what doesn't, what cross-references
 are allowed — live in [`docs/sdd/001-cross-repo-boundaries.md`](docs/sdd/001-cross-repo-boundaries.md).
@@ -66,16 +66,16 @@ Each epic owns one operational domain (Single Responsibility Principle):
 
 | Epic | Domain | What it delivers | Sovereign-os tier |
 |---|---|---|---|
-| **E100** Hardware Foundation | physical iron + PCIe topology | 9900X / ProArt X870E / Blackwell 96 GB / 3090 24 GB / 256 GB DDR5 / dual NVMe / 10 GbE + 2.5 GbE assembled and `friction-audit`-clean | (operator-side procurement) |
+| **E100** Hardware Foundation | physical iron + PCIe topology | 9900X / ProArt X870E / Blackwell 96 GB / 4090 24 GB / 256 GB DDR5 / dual NVMe / 10 GbE + 2.5 GbE assembled and `friction-audit`-clean | (operator-side procurement) |
 | **E101** Sovereign OS Build | custom Zen-5-tuned kernel + Debian 13 image | Bootable `.iso` with `-march=znver5` kernel; identity injected; ZFS-DKMS + NVIDIA 560+ drivers | Foundation + Infrastructure |
 | **E102** ZFS Storage Layout | three-dataset stratification on RAID 0 NVMe | `tank/models` (1M lz4) · `tank/context` (16k zstd-9 copies=2 `sync=always`) · `tank/agents` (128k zstd-3); ARC clamped 128 GB | Foundation + Features |
-| **E103** VFIO Isolation | RTX 3090 → `vfio-pci`; Blackwell host-resident | GRUB `vfio-pci.ids=10de:2204,10de:1ad8`; AMD IOMMU pass-through; clean group separation | Foundation + Features |
+| **E103** VFIO Isolation | RTX 4090 → `vfio-pci`; Blackwell host-resident | GRUB `vfio-pci.ids=10de:2684,10de:22ba`; AMD IOMMU pass-through; clean group separation | Foundation + Features |
 | **E104** Tetragon + Guardian | kernel eBPF perimeter + Python supervisor | `TracingPolicy` (~4-binary `sys_execve` allowlist); `guardian-core` daemon; ZFS audit log | Foundation + Features |
 | **E105** Network Segregation | dual-NIC split + VLAN 100/200 | Intel 2.5 GbE → mgmt VLAN 100; Marvell 10 GbE → data VLAN 200 (MTU 9000, no default GW) | Foundation + Features |
 | **E106** Pulse Vector Runtime | bitnet.cpp ternary inference pinned CCD 0 | Pulse module runs `microsoft/bitnet-b1.58-2B-4T` (or 3B) on cores 0-5; ≥5 tok/sec | Features |
 | **E107** Weaver State Fabric | atomic-state-write + 4 context files + gRPC | Race-free state transitions on `IDENTITY.md` / `SOUL.md` / `AGENTS.md` / `CLAUDE.md`; Podman sub-agents reach Weaver via gRPC | Features |
 | **E108** Load-Balancing Profiles | three runtime profiles | Ultra-Sovereign Efficiency · Asymmetric-Burst · Deep-Context-Synthesis; profile-switch via documented mechanism | Features |
-| **E109** DFlash Integration | block-diffusion speculative decoding on Blackwell + 3090 | vLLM v0.20.1+ with DFlash drafts; ≥3× speedup on code/math | Features |
+| **E109** DFlash Integration | block-diffusion speculative decoding on Blackwell + 4090 | vLLM v0.20.1+ with DFlash drafts; ≥3× speedup on code/math | Features |
 | **E110** Model Catalog | resident-deploy on Blackwell 96 GB | Ling-2.6-flash (MIT, MoE 107B) and/or Nemotron-3-Nano-Omni (33B Mamba-Transformer multimodal) | Features |
 
 Dependency graph + critical path are documented in the milestone file.
@@ -108,7 +108,7 @@ stage has its own concerns, scripts, configs, tests:
 
 ### 3. Post-install (first boot)
 - Service activation (systemd ordering: ZFS → Tetragon → guardian-core → podman → application services)
-- GPU driver binding (host driver for Blackwell; vfio-pci for RTX 3090 per **E103**)
+- GPU driver binding (host driver for Blackwell; vfio-pci for RTX 4090 per **E103**)
 - Network split activation (per **E105**)
 - ZFS dataset bring-up + first-boot health check (per **E102**)
 - Tetragon `TracingPolicy` load + guardian-core start (per **E104**)

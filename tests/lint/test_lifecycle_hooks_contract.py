@@ -180,6 +180,49 @@ def test_during_install_hooks_have_step_id():
         )
 
 
+# A success-class result label (the op completed) vs a fail-class one (a
+# failure path reported it). `refused-*` counts as fail-class — it's an
+# observed, deliberate non-success terminal (e.g. zfs-arc-clamp).
+_SUCCESS_RESULT = re.compile(
+    r'result=\\?"(success|configured|applied|loaded|enabled)\\?"'
+    r'|_metric\s+(success|configured|applied|loaded)\b'
+)
+_FAIL_RESULT = re.compile(
+    r'result=\\?"(fail|refused[\w-]*)\\?"|_metric\s+fail\b'
+)
+
+
+def test_during_install_hooks_have_success_fail_metric_symmetry():
+    """Fail-symmetry: a during-install hook that emits a success-class
+    metric AND has an explicit `exit 1` failure path MUST also emit a
+    fail-class result.
+
+    A during-install hook records its failure reason in state/log, but the
+    `during_install_*_total` series an operator dashboard alerts on showed
+    only result="success" for several hooks (zfs-pool-create's create
+    branches, zfs-datasets-create's create loop, mok-enroll's openssl /
+    mokutil paths) — so a failed install was invisible as the mere ABSENCE
+    of a success sample. These touch real disks + secure-boot keys; a silent
+    install failure is exactly what must NOT happen.
+
+    Hooks with no explicit `exit 1` failure path (pure idempotent
+    configurators that only ever succeed) are out of scope.
+    """
+    for name in DURING_INSTALL_HOOKS:
+        body = _read(DURING_INSTALL_DIR / name)
+        if "exit 1" not in body:
+            continue  # no failure path → symmetry rule doesn't apply
+        if not _SUCCESS_RESULT.search(body):
+            continue  # reports purely via state_step_* / no success metric
+        assert _FAIL_RESULT.search(body), (
+            f"during-install hook {name} emits a success-class metric and "
+            f"has an exit-1 failure path but never a fail-class result — a "
+            f"failed install would be invisible in during_install_*_total "
+            f'(only the absence of success). Emit result="fail" on the '
+            f"failure path(s)."
+        )
+
+
 # --- DECOMMISSION contract (SACROSANCT safety) ---
 
 

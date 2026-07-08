@@ -46,6 +46,11 @@ def _spawn_api(port: int):
         "NETWORK_EDGE_API_BIND": "127.0.0.1",
         "NETWORK_EDGE_API_PORT": str(port),
         "SOVEREIGN_OS_METRICS_DIR": "/tmp/sovereign-os-test-metrics",
+        # Short-circuit OPNsense detection in test — avoids the multi-second
+        # TCP-probe path that caused CI-only TimeoutError on /detect +
+        # /opnsense/status + /opnsense/capabilities endpoints. Honored by
+        # scripts/operator/network-topology.py:detect_opnsense_state().
+        "SOVEREIGN_OS_OPNSENSE_DISABLE": "1",
         "PATH": "/usr/bin:/bin",
     }
     proc = subprocess.Popen(

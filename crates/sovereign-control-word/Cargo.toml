@@ -1,0 +1,18 @@
+[package]
+name = "sovereign-control-word"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "M002 control-word injected logic — a 64-bit control word per branch packing opcode + precision selector + flags + operand into typed bitfields. The deterministic bit-level microcode that gates each branch's behavior; exact encode/decode."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }

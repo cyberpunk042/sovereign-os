@@ -1,0 +1,19 @@
+[package]
+name = "sovereign-semantic-checkpoint"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "E0450 — Semantic Checkpoints: raw process checkpoint is not enough; an agent checkpoint needs semantic state. The 10 fields (container/process + filesystem snapshot + workflow node + branch state + open tool futures + memory refs + risk state + cost-so-far + expected next action + human gate state) — 'continuity with meaning'."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

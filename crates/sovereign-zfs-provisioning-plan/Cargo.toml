@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-zfs-provisioning-plan"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "M068 M01141/M01142 — emit the ordered zpool create + zfs create/set command plan for the canonical tank layout, setting only the properties that differ from the inherited ZFS/pool defaults (recordsize!=128k, compression!=lz4, sync!=standard) so the provisioning script stays minimal and readable."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+thiserror = { workspace = true }
+sovereign-zfs-dataset-layout = { path = "../sovereign-zfs-dataset-layout" }
+
+[dev-dependencies]
+serde_json = { workspace = true }

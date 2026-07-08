@@ -140,56 +140,6 @@ SURFACE_IDS = [s["id"] for s in SURFACES]
 # accuracy. "waivers" enumerate surfaces the module legitimately doesn't
 # ship on with operator-named rationale.
 MODULE_COVERAGE = {
-    "cpu-features": {
-        "shipped_in": "D-24-cpu-features (cockpit panel — deep AVX-512 capability + workload-fit + advisory; reuses avx512-advisor)",
-        "surfaces": ["core", "api", "webapp", "service"],
-        "waivers": {
-            "cli":       "not applicable — CLI is `scripts/hardware/avx512-advisor.py`",
-            "tui":       "not applicable — cockpit web panel, not an interactive TUI",
-            "dashboard": "not applicable — the webapp IS this panel's operator dashboard",
-            "mcp":       "not applicable — read-only render of the shared advisor",
-        },
-    },
-    "models-catalog": {
-        "shipped_in": "D-23-models-catalog (cockpit panel — the canonical model registry by SRP tier; reuses the model-health load_catalog core)",
-        "surfaces": ["core", "api", "webapp", "service"],
-        "waivers": {
-            "cli":       "not applicable — CLI is `sovereign-osctl models` on the shared catalog",
-            "tui":       "not applicable — cockpit web panel, not an interactive TUI",
-            "dashboard": "not applicable — the webapp IS this panel's operator dashboard",
-            "mcp":       "not applicable — read-only render of the shared catalog reader",
-        },
-    },
-    "lm-orchestration": {
-        "shipped_in": "D-21-lm-orchestration (cockpit panel — profiles + model→hardware assignment grid + AVX-512/GPU capabilities; reuses the model-health core + runtime-modes profile lister)",
-        "surfaces": ["core", "api", "webapp", "service"],
-        "waivers": {
-            "cli":       "not applicable — CLI is `sovereign-osctl model-health` + `runtime-modes` on the shared cores",
-            "tui":       "not applicable — cockpit web panel, not an interactive TUI",
-            "dashboard": "not applicable — the webapp IS this panel's operator dashboard",
-            "mcp":       "not applicable — read-only render of shared cores",
-        },
-    },
-    "lm-status-operability": {
-        "shipped_in": "D-22-lm-status-operability (cockpit panel — per-device LM status + operability + render-only chat; reuses the model-health core)",
-        "surfaces": ["core", "api", "webapp", "service"],
-        "waivers": {
-            "cli":       "not applicable — CLI is `sovereign-osctl model-health` on the shared core",
-            "tui":       "not applicable — cockpit web panel, not an interactive TUI",
-            "dashboard": "not applicable — the webapp IS this panel's operator dashboard",
-            "mcp":       "not applicable — read-only render of the shared model-health core",
-        },
-    },
-    "selfdef-management": {
-        "shipped_in": "D-25-selfdef-management (cockpit panel — READ-ONLY consumer view of the selfdef IPS: on/off enablement + M060 mirror-chain health + links to the 6 domain panels D-13..D-18; reuses the m060-health probe() consumer proxy — R10212)",
-        "surfaces": ["core", "api", "webapp", "service"],
-        "waivers": {
-            "cli":       "not applicable — the selfdef producer owns the CLI (`sovereign-osctl selfdef {status,on,off}`); this READ-ONLY consumer never mutates",
-            "tui":       "not applicable — cockpit web panel, not an interactive TUI",
-            "dashboard": "not applicable — the webapp IS this panel's operator dashboard",
-            "mcp":       "not applicable — read-only render of the shared m060-health consumer proxy",
-        },
-    },
     "auth-tier": {
         "shipped_in": "R450 (E11.M7) + R484 (E11.M7+ Grafana dashboard) + R501 (E11.M7++ read-only REST API + systemd service) + R502 (E11.M7++ MCP surface) + R503 (E11.M7++ webapp surface)",
         "surfaces": ["core", "cli", "dashboard", "api", "service", "mcp", "webapp"],
@@ -338,6 +288,61 @@ MODULE_COVERAGE = {
             "dashboard": "not applicable — the webapp surface IS the dashboard for M060 cross-repo mirrors (the master-dashboard aggregator is the §1g 'dashboard' surface for sovereign-os-native modules; per-mirror Grafana panels duplicate the webapp's read-only render of the same selfdef-published JSON)",
         },
     },
+    "lm-orchestration": {
+        "shipped_in": "D-21-lm-orchestration (cockpit panel — profiles + model→hardware assignment grid + AVX-512/GPU capabilities; reuses the model-health core + runtime-modes profile lister)",
+        "surfaces": ["core", "api", "webapp", "service"],
+        "waivers": {
+            "cli":       "not applicable — CLI is `sovereign-osctl model-health` + `runtime-modes` on the shared cores",
+            "tui":       "not applicable — cockpit web panel, not an interactive TUI",
+            "dashboard": "not applicable — the webapp IS this panel's operator dashboard",
+            "mcp":       "not applicable — read-only render of shared cores",
+        },
+    },
+
+    "lm-status-operability": {
+        "shipped_in": "D-22-lm-status-operability (cockpit panel — per-device LM status + operability + render-only chat; reuses the model-health core)",
+        "surfaces": ["core", "api", "webapp", "service"],
+        "waivers": {
+            "cli":       "not applicable — CLI is `sovereign-osctl model-health` on the shared core",
+            "tui":       "not applicable — cockpit web panel, not an interactive TUI",
+            "dashboard": "not applicable — the webapp IS this panel's operator dashboard",
+            "mcp":       "not applicable — read-only render of the shared model-health core",
+        },
+    },
+
+    "models-catalog": {
+        "shipped_in": "D-23-models-catalog (cockpit panel — the canonical model registry by SRP tier; reuses the model-health load_catalog core)",
+        "surfaces": ["core", "api", "webapp", "service"],
+        "waivers": {
+            "cli":       "not applicable — CLI is `sovereign-osctl models` on the shared catalog",
+            "tui":       "not applicable — cockpit web panel, not an interactive TUI",
+            "dashboard": "not applicable — the webapp IS this panel's operator dashboard",
+            "mcp":       "not applicable — read-only render of the shared catalog reader",
+        },
+    },
+
+    "cpu-features": {
+        "shipped_in": "D-24-cpu-features (cockpit panel — deep AVX-512 capability + workload-fit + advisory; reuses avx512-advisor)",
+        "surfaces": ["core", "api", "webapp", "service"],
+        "waivers": {
+            "cli":       "not applicable — CLI is `scripts/hardware/avx512-advisor.py`",
+            "tui":       "not applicable — cockpit web panel, not an interactive TUI",
+            "dashboard": "not applicable — the webapp IS this panel's operator dashboard",
+            "mcp":       "not applicable — read-only render of the shared advisor",
+        },
+    },
+
+    "selfdef-management": {
+        "shipped_in": "D-25-selfdef-management (cockpit panel — READ-ONLY consumer view of the selfdef IPS: on/off enablement + M060 mirror-chain health + links to the 6 domain panels D-13..D-18; reuses the m060-health probe() consumer proxy — R10212)",
+        "surfaces": ["core", "api", "webapp", "service"],
+        "waivers": {
+            "cli":       "not applicable — the selfdef producer owns the CLI (`sovereign-osctl selfdef {status,on,off}`); this READ-ONLY consumer never mutates",
+            "tui":       "not applicable — cockpit web panel, not an interactive TUI",
+            "dashboard": "not applicable — the webapp IS this panel's operator dashboard",
+            "mcp":       "not applicable — read-only render of the shared m060-health consumer proxy",
+        },
+    },
+
 }
 
 KNOWN_MODULES = list(MODULE_COVERAGE.keys())

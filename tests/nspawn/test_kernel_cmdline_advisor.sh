@@ -33,7 +33,11 @@ import json, sys
 d = json.loads(sys.stdin.read())
 names = {r['name'] for r in d['recommended']}
 must = {'iommu', 'amd_iommu', 'transparent_hugepage', 'mitigations',
-        'nvme.poll_queues', 'rcu_nocbs', 'preempt'}
+        'nvme.poll_queues', 'rcu_nocbs', 'preempt',
+        # Operator-named in E1.M30 ('nohz_full, isolcpus') — the
+        # CPU-isolation triad completing rcu_nocbs. Locked so the advisor
+        # can't silently drop an operator-named param (anti-minimization).
+        'isolcpus', 'nohz_full'}
 missing = must - names
 assert not missing, missing
 # Every entry has rationale + axis + operator_caveat.
@@ -41,7 +45,7 @@ for r in d['recommended']:
     assert 'rationale' in r and r['rationale']
     assert 'axis' in r
 " || fail "catalog coverage"
-pass "2. default catalog covers iommu/amd_iommu/thp/mitigations/nvme/rcu_nocbs/preempt"
+pass "2. default catalog covers the operator-named set incl. isolcpus + nohz_full (CPU-isolation triad)"
 
 # ── 3. parse_proc_cmdline handles key=value AND bare flags ──
 python3 -c "

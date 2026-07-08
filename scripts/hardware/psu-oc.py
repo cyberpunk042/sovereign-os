@@ -193,18 +193,24 @@ def effective_budget(spec: dict | None, cfg: dict) -> dict[str, Any]:
 
 
 def projection_call_oc_headroom(oc_enabled: bool) -> dict[str, Any] | None:
-    """Compose with R292 oc-headroom — feed an overlay snippet so the
-    headroom calc reflects current OC-mode posture."""
+    """Compose with R292 oc-headroom for the dual-GPU headroom projection.
+
+    NOTE (mandate E1.M33 + this module's own spec): this PSU's OC mode is a
+    multi-rail->single-rail consolidation — it does NOT shift the SUSTAINED
+    total budget (rated_oc_mode_watts == rated_standard_watts), so the
+    oc-headroom `psu_oc_mode_multiplier` is 1.0 in BOTH OC postures. The OC
+    benefit is per-rail / GPU-OC ceiling (handled by the psu-oc-mode recipe
+    matrix, R313), not a total-budget multiplier. `oc_enabled` is kept in
+    the signature for callers/telemetry, but it does not change the
+    sustained-budget overlay — feeding a >1.0 multiplier here would
+    over-state headroom (the unsafe direction).
+    """
     import tempfile
     bin_path = REPO_ROOT / "scripts" / "hardware" / "oc-headroom.py"
     if not bin_path.is_file():
         return None
-    # Temp overlay flipping psu_oc_mode_multiplier per oc_enabled.
-    body = (
-        "psu_oc_mode_multiplier = 1.0\n"
-        if not oc_enabled
-        else "psu_oc_mode_multiplier = 1.0\n"
-    )
+    _ = oc_enabled  # retained for signature/telemetry; see docstring.
+    body = "psu_oc_mode_multiplier = 1.0\n"
     with tempfile.NamedTemporaryFile(
         mode="w", suffix=".toml", delete=False
     ) as fh:

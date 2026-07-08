@@ -1,0 +1,34 @@
+[package]
+name = "sovereign-serve"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "A cost-aware serving orchestrator: for each request it checks the completion cache (a hit costs nothing), estimates complexity for routing, enforces the token budget before generating, runs the model, then records usage and caches the result. The decision path that ties the complexity, cache, and token-meter crates into one $0-aware serve() call. Composes sovereign-complexity, sovereign-completion-cache, and sovereign-token-meter."
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "sovereign-serve"
+path = "src/main.rs"
+
+[dependencies]
+thiserror = { workspace = true }
+sovereign-complexity = { path = "../sovereign-complexity" }
+sovereign-completion-cache = { path = "../sovereign-completion-cache" }
+sovereign-token-meter = { path = "../sovereign-token-meter" }
+sovereign-llm = { path = "../sovereign-llm" }
+sovereign-tokenizer = { path = "../sovereign-tokenizer" }
+sovereign-decoder-stack = { path = "../sovereign-decoder-stack" }
+sovereign-transformer-block = { path = "../sovereign-transformer-block" }
+sovereign-ffn = { path = "../sovereign-ffn" }
+sovereign-rmsnorm = { path = "../sovereign-rmsnorm" }
+sovereign-sampler = { path = "../sovereign-sampler" }
+sovereign-secret-scan = { path = "../sovereign-secret-scan" }
+sovereign-pii-redact = { path = "../sovereign-pii-redact" }
+sovereign-toxicity = { path = "../sovereign-toxicity" }
+sovereign-context-budget = { path = "../sovereign-context-budget" }

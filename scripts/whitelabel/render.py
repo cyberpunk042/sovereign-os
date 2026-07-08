@@ -218,14 +218,19 @@ def emit_for_mkosi(cs: Changeset, out_dir: pathlib.Path) -> None:
     skeleton.mkdir(parents=True, exist_ok=True)
     extra.mkdir(parents=True, exist_ok=True)
 
-    # pre_build_files → mkosi.skeleton (overlaid before chroot is sealed)
+    # pre_build_files → mkosi.extra. NOT skeleton: skeleton trees copy in
+    # BEFORE package installation, so base-files stomped /etc/issue +
+    # /etc/os-release back to Debian's — the first boot-proven image
+    # greeted the operator with 'Debian GNU/Linux 13', not the whitelabel
+    # (caught by the serial-console smoke test, 2026-06-12). Extra trees
+    # copy AFTER package installation: the whitelabel wins.
     for surface_path, content in cs.pre_build_files.items():
         # Surface path is absolute (/etc/...); strip leading slash for overlay-relative
         rel = surface_path.lstrip("/")
-        target = skeleton / rel
+        target = extra / rel
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(content)
-        print(f"  + skeleton: {surface_path}")
+        print(f"  + identity (extra): {surface_path}")
 
     # pre_build_overlays → mkosi.extra (overlaid late)
     for surface_path, src_dir in cs.pre_build_overlays.items():

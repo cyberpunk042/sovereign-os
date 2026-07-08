@@ -71,7 +71,7 @@ DEFAULT_PROBES: list[dict[str, Any]] = [
     {"name": "board-advisor",    "axis": "hardware",
      "script": "scripts/hardware/board-advisor-x870e-creator.py", "args": ["status", "--json"]},
     {"name": "gpu-wattage",      "axis": "hardware",
-     "script": "scripts/hardware/gpu-wattage.py", "args": ["budget", "--json"]},
+     "script": "scripts/hardware/gpu-wattage-catalog.py", "args": ["budget", "--json"]},
     {"name": "cpu-hotswap",      "axis": "hardware",
      "script": "scripts/hardware/cpu-hotswap.py", "args": ["status", "--json"]},
     {"name": "xmp-oc-room",      "axis": "hardware",
@@ -97,7 +97,7 @@ DEFAULT_PROBES: list[dict[str, Any]] = [
     {"name": "apc-profile",      "axis": "lifecycle",
      "script": "scripts/hardware/apc-default-profile.py", "args": ["list", "--json"]},
     {"name": "battery-ladder",   "axis": "lifecycle",
-     "script": "scripts/hardware/battery-ladder.py", "args": ["status", "--json"]},
+     "script": "scripts/power/battery-escalation-ladder.py", "args": ["simulate", "--json"]},
 
     # ── kernel + hardening ───────────────────────────────
     {"name": "kernel-cmdline",   "axis": "kernel",
@@ -213,7 +213,10 @@ def render_snapshot_human(doc: dict) -> str:
             verdict = ""
             out = p.get("output") or {}
             if isinstance(out, dict):
-                verdict = out.get("verdict") or ""
+                # autohealth `status` nests verdict under last_tick.
+                verdict = (out.get("verdict")
+                           or (out.get("last_tick") or {}).get("verdict")
+                           or "")
             lines.append(f"    [{mark}] {p['name']:24s}  "
                           f"rc={p.get('rc')}  {p['duration_ms']:>4d}ms  "
                           f"verdict={verdict}")

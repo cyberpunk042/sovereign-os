@@ -1,0 +1,18 @@
+[package]
+name = "sovereign-arg-schema"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Lightweight argument schemas for tool calls: declare a tool's required and optional fields with their JSON types and validate an extracted argument object against them, collecting every violation. The typing layer between json-extract and tool-dispatch that turns a model's free-form JSON into checked, structured tool arguments."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }

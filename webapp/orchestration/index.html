@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sovereign-os · thinking router / orchestration</title>
+<meta name="x-sovereign-module" content="orchestration-webapp">
+<meta name="x-sovereign-shipped-in" content="SDD-045 §5 (Phase E) — net-new Orchestration dashboard">
+<meta name="x-sovereign-standing-rule" content="We do not minimize anything.">
+<style>
+  :root{
+    --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --accent:#9bd1ff;
+    --good:#7ad17a; --bad:#ff7676; --warn:#e6c062;
+    --panel:#171717; --border:#262626;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:14px;line-height:1.5}
+  body{padding:1.2rem;max-width:1100px;margin:0 auto}
+  h1{font-size:1.4rem;margin:0 0 .2rem 0;font-weight:600}
+  h2{font-size:1rem;margin:1.6rem 0 .4rem 0;font-weight:600;color:var(--accent)}
+  .sub{color:var(--muted);margin-bottom:1rem;font-size:.85rem}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.9rem 1rem;margin:.6rem 0}
+  .row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center}
+  .stat{flex:1 1 150px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.6rem .8rem}
+  .stat .k{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em}
+  .stat .v{font-size:1.3rem;margin-top:.1rem}
+  table{width:100%;border-collapse:collapse;font-size:.82rem}
+  th,td{text-align:left;padding:.35rem .5rem;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:.74rem;text-transform:uppercase;letter-spacing:.04em}
+  tr:last-child td{border-bottom:none}
+  .num{text-align:right;font-variant-numeric:tabular-nums}
+  .pill{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.7rem;background:var(--border)}
+  .pill.pulse{background:#13303d;color:var(--accent)}
+  .pill.logic{background:#143d14;color:var(--good)}
+  .pill.oracle{background:#3a3410;color:var(--warn)}
+  .muted{color:var(--muted)} .mono{font-family:var(--mono)}
+  code{background:var(--panel);border:1px solid var(--border);border-radius:3px;padding:0 .3rem;font-size:.9em}
+  .status{font-size:.75rem} .status.ok{color:var(--good)} .status.bad{color:var(--bad)}
+  footer{margin-top:2rem;color:var(--muted);font-size:.75rem;border-top:1px solid var(--border);padding-top:.8rem}
+  .standing-rule{color:var(--accent);font-style:italic;margin-top:.4rem}
+</style>
+</head>
+<body>
+<h1>thinking router / orchestration</h1>
+<p class="sub">
+  How a request is routed across the Genesis Trinity (SDD-011, 7-axis) and
+  escalated through the thinking pipeline (CoT → validator → self-consistency
+  → MoE, per the active runtime profile). <span id="status" class="status">loading…</span>
+</p>
+
+<div class="row" id="stats"></div>
+
+<h2>routing rules (SDD-011)</h2>
+<div class="panel">
+  <table>
+    <thead><tr><th class="num">#</th><th>match</th><th>→ tier</th></tr></thead>
+    <tbody id="rules"><tr><td colspan="3" class="muted">loading…</td></tr></tbody>
+  </table>
+</div>
+
+<h2>live routing (by tier · class · task-type)</h2>
+<div class="panel" id="metrics"><span class="muted">loading…</span></div>
+
+<h2>thinking / escalation modes</h2>
+<div class="panel muted">
+  Escalation policy is per runtime profile (<code>thinking_policy</code>). Switch
+  the runtime mode below, or edit the policy with
+  <code>sovereign-osctl trinity profile show &lt;id&gt;</code> /
+  <code>router plan "&lt;prompt&gt;" --think</code>. The web never mutates it —
+  use the Controls surface to copy the exact command.
+</div>
+
+
+<!-- SDD-045 Phase C — control surface (INLINED per the single-file doctrine).
+     Renders config/control-systems.yaml (served at /control-systems): the
+     global controls (profile / dashboard on-off / auth tier) + the modes &
+     feature toggles that govern THIS panel. Read-only: each control copies
+     its exact sovereign-osctl command. Canonical source (lockstep-linted):
+     webapp/_shared/control-surface.{css,js}. -->
+<h2>controls — profiles, modes &amp; feature toggles</h2>
+<div id="control-surface" class="cs-grid"><div class="cs-empty">loading controls…</div></div>
+<style>
+/* webapp/_shared/control-surface.css — SDD-045 shared control-surface.
+ * Renders the control-systems registry (profiles / modes / feature toggles)
+ * as a grid of control cards. Monochrome, framework-free; inherits the
+ * panel palette variables (--bg/--fg/--muted/--accent/--border/--mono). */
+.cs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: .5rem; }
+.cs-card {
+  display: flex; flex-direction: column; gap: .35rem;
+  padding: .6rem .75rem; border: 1px solid var(--border, #262626);
+  border-radius: .4rem; background: rgba(255, 255, 255, .02);
+}
+.cs-head { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.cs-label { font-weight: 600; flex: 1; }
+.cs-kind {
+  font-size: .7rem; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--muted, #888); border: 1px solid var(--border, #262626);
+  border-radius: 3px; padding: 0 .35rem;
+}
+.cs-global {
+  font-size: .7rem; color: var(--accent, #9bd1ff);
+  border: 1px solid var(--accent, #9bd1ff); border-radius: 3px; padding: 0 .35rem;
+}
+.cs-desc { color: var(--muted, #888); font-size: .8rem; line-height: 1.45; }
+.cs-opts { display: flex; flex-wrap: wrap; gap: .3rem; }
+.cs-opt { font-size: .72rem; background: var(--border, #262626); border-radius: 3px; padding: 1px 6px; }
+.cs-cmd {
+  font-family: var(--mono, ui-monospace, monospace); font-size: .74rem;
+  text-align: left; color: var(--fg, #e6e6e6); background: var(--bg, #0e0e0e);
+  border: 1px solid var(--border, #262626); border-radius: 3px;
+  padding: .25rem .4rem; cursor: pointer; overflow-x: auto; white-space: nowrap;
+}
+.cs-cmd:hover { border-color: var(--accent, #9bd1ff); }
+.cs-empty { color: var(--muted, #888); }
+</style>
+<script>
+/* webapp/_shared/control-surface.js — SDD-045 shared control-surface renderer.
+ *
+ * Renders the control-systems registry (config/control-systems.yaml, served
+ * as GET /control-systems) — the operator's "everything can be turned on and
+ * off + tons of modes and profiles" — as a grid of control cards. Reused by
+ * every dashboard so each becomes a CONTROL surface.
+ *
+ * Web is READ-ONLY: each control shows its options and copies its exact
+ * `change_cli` for the operator to run. It NEVER mutates privileged state
+ * (§1g / hardening lint). No framework, no CDN — a single same-origin file.
+ *
+ * Usage:
+ *   const n = SovereignControlSurface.render(el, systems, {
+ *     filterSlug: 'runtime-modes',   // only global + systems governing this slug
+ *     onCopy: (cmd) => showToast(cmd) // optional copy callback
+ *   });
+ */
+(function (global) {
+  "use strict";
+
+  function esc(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  function render(containerEl, systems, opts) {
+    opts = opts || {};
+    var slug = opts.filterSlug || null;
+    var list = (systems || []).filter(function (s) {
+      if (!slug) return true;                       // no filter → all systems
+      return s.scope === "global" ||                // globals show everywhere
+        (s.applies_to || []).indexOf(slug) >= 0;    // + systems governing slug
+    });
+    var html = list.map(function (s) {
+      var pills = (s.options || []).map(function (o) {
+        return '<span class="cs-opt">' + esc(o) + "</span>";
+      }).join("");
+      var change = esc(s.change_cli || "");
+      return '<div class="cs-card cs-' + esc(s.kind) + '">'
+        + '<div class="cs-head">'
+        + '<span class="cs-label">' + esc(s.label) + "</span>"
+        + '<span class="cs-kind">' + esc(s.kind) + "</span>"
+        + (s.scope === "global" ? '<span class="cs-global">global</span>' : "")
+        + "</div>"
+        + '<div class="cs-desc">' + esc(s.description) + "</div>"
+        + '<div class="cs-opts">' + pills + "</div>"
+        + (change
+            ? '<button class="cs-cmd" data-cmd="' + change
+              + '" title="click to copy the operator command">$ ' + change + "</button>"
+            : "")
+        + "</div>";
+    }).join("");
+    containerEl.innerHTML = html || '<div class="cs-empty">(no controls for this surface)</div>';
+    Array.prototype.forEach.call(containerEl.querySelectorAll(".cs-cmd"), function (b) {
+      b.addEventListener("click", function () {
+        var cmd = b.getAttribute("data-cmd");
+        if (navigator.clipboard) navigator.clipboard.writeText(cmd);
+        if (typeof opts.onCopy === "function") opts.onCopy(cmd);
+      });
+    });
+    return list.length;
+  }
+
+  // Convenience: fetch /control-systems (same-origin) and render.
+  function load(containerEl, opts) {
+    return fetch("/control-systems", { headers: { Accept: "application/json" } })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data && data.error) {
+          containerEl.innerHTML = '<div class="cs-empty">controls unavailable: '
+            + esc(data.error) + "</div>";
+          return 0;
+        }
+        return render(containerEl, (data && data.systems) || [], opts);
+      })
+      .catch(function (e) {
+        containerEl.innerHTML = '<div class="cs-empty">controls unavailable: '
+          + esc(e && e.message) + "</div>";
+        return 0;
+      });
+  }
+
+  global.SovereignControlSurface = { render: render, load: load };
+})(window);
+</script>
+<script>SovereignControlSurface.load(document.getElementById('control-surface'),{filterSlug:'orchestration'});</script>
+
+<footer>
+  <div>SDD-045 §5 · data: <code>GET /orchestration.json</code> ← <code>router rules|metrics --json</code> (SDD-011/016)</div>
+  <div class="standing-rule">"We do not minimize anything." — operator §1g standing rule</div>
+</footer>
+
+<script>
+"use strict";
+const el = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;" }[c]));
+
+function counts(obj, title) {
+  const entries = Object.entries(obj || {});
+  if (!entries.length) return '<div class="muted">' + esc(title) + ': none recorded yet</div>';
+  return '<div style="margin-bottom:.4rem"><b>' + esc(title) + '</b></div><div class="row">'
+    + entries.map(([k, v]) => '<div class="stat"><div class="k">' + esc(k) + '</div><div class="v">' + esc(v) + '</div></div>').join("")
+    + '</div>';
+}
+
+async function load() {
+  try {
+    const r = await fetch("/orchestration.json", { headers: { Accept: "application/json" } });
+    const d = await r.json();
+    const rules = (d.rules && d.rules.rules) || [];
+    const m = d.metrics || {};
+    if (d.rules && d.rules.error) throw new Error(d.rules.error);
+    el("status").textContent = "live ✓ — " + rules.length + " routing rules";
+    el("status").className = "status ok";
+    el("stats").innerHTML =
+      '<div class="stat"><div class="k">routing rules</div><div class="v">' + rules.length + '</div></div>'
+      + '<div class="stat"><div class="k">tiers seen</div><div class="v">' + Object.keys(m.tier_counts||{}).length + '</div></div>'
+      + '<div class="stat"><div class="k">task types</div><div class="v">' + Object.keys(m.task_type_counts||{}).length + '</div></div>';
+    el("rules").innerHTML = rules.map(rl =>
+      '<tr><td class="num">' + esc(rl.n) + '</td><td class="mono">' + esc(rl.match) + '</td>'
+      + '<td><span class="pill ' + esc(rl.tier) + '">' + esc(rl.tier) + '</span></td></tr>'
+    ).join("") || '<tr><td colspan="3" class="muted">no rules</td></tr>';
+    el("metrics").innerHTML = counts(m.tier_counts, "by tier")
+      + counts(m.class_counts, "by class") + counts(m.task_type_counts, "by task-type");
+  } catch (e) {
+    el("status").textContent = "live ✗ — " + e.message;
+    el("status").className = "status bad";
+    el("rules").innerHTML = '<tr><td colspan="3" class="bad">orchestration unavailable: ' + esc(e.message) + '</td></tr>';
+  }
+}
+load();
+</script>
+</body>
+</html>

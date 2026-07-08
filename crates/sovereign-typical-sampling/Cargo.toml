@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-typical-sampling"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Locally typical sampling (Meister et al.): keep the smallest set of tokens whose surprisal is closest to the distribution's conditional entropy and whose probability sums to a target mass, then sample from those. A truncation method distinct from top-k / top-p / min-p, aimed at more human-like, less degenerate generation."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

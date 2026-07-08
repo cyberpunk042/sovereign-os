@@ -1,0 +1,18 @@
+[package]
+name = "sovereign-completion-cache"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "An LRU cache for model completions keyed by (prompt, params): identical deterministic requests hit the cache instead of re-running the model, so repeats cost nothing — the cheapest form of $0 inference. Tracks hit/miss stats and bounds memory by evicting the least-recently-used entry."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+sovereign-embed = { path = "../sovereign-embed" }

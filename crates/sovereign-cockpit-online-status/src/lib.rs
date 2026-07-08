@@ -102,10 +102,10 @@ impl OnlineStatus {
         let elapsed = now_ms.saturating_sub(self.last_heartbeat_ms);
         if elapsed >= self.offline_after_ms as u64 {
             self.status = Status::Offline;
-            self.reason = format!("no heartbeat for {}ms", elapsed);
+            self.reason = format!("no heartbeat for {elapsed}ms");
         } else if elapsed >= self.reconnect_after_ms as u64 {
             self.status = Status::Reconnecting;
-            self.reason = format!("reconnecting ({}ms since last heartbeat)", elapsed);
+            self.reason = format!("reconnecting ({elapsed}ms since last heartbeat)");
         } else {
             self.status = Status::Online;
             self.reason.clear();

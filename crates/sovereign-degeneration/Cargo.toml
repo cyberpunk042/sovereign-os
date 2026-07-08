@@ -1,0 +1,18 @@
+[package]
+name = "sovereign-degeneration"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Generation-degeneration detection: flags the loop/repeat collapse that decoding can fall into, by measuring the longest repeated substring (via a suffix array), the distinct-n-gram ratio (rep-n), and the fraction of text covered by repeats. A runtime quality gate for catching degenerate output. Composes sovereign-suffix-array."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+sovereign-suffix-array = { path = "../sovereign-suffix-array" }

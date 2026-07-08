@@ -1,0 +1,36 @@
+[package]
+name = "sovereign-retrieval"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Lexical retrieval for grounding the agent: a deterministic document store that ranks documents by term-overlap with a query, plus a RagResponder that retrieves the top-k documents for each prompt and injects them as context before generation. Retrieval-augmented generation for the agent loop. Composes sovereign-agent-loop."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+sovereign-agent-loop = { path = "../sovereign-agent-loop" }
+sovereign-embed = { path = "../sovereign-embed" }
+sovereign-chunker = { path = "../sovereign-chunker" }
+sovereign-minhash = { path = "../sovereign-minhash" }
+sovereign-lsh = { path = "../sovereign-lsh" }
+sovereign-bm25 = { path = "../sovereign-bm25" }
+sovereign-rank-fusion = { path = "../sovereign-rank-fusion" }
+sovereign-rerank = { path = "../sovereign-rerank" }
+sovereign-injection-detect = { path = "../sovereign-injection-detect" }
+sovereign-keywords = { path = "../sovereign-keywords" }
+sovereign-hnsw = { path = "../sovereign-hnsw" }
+sovereign-binary-quant = { path = "../sovereign-binary-quant" }
+sovereign-ivf = { path = "../sovereign-ivf" }
+sovereign-simhash = { path = "../sovereign-simhash" }
+sovereign-matryoshka = { path = "../sovereign-matryoshka" }
+sovereign-vptree = { path = "../sovereign-vptree" }
+sovereign-bktree = { path = "../sovereign-bktree" }
+sovereign-ivf-pq = { path = "../sovereign-ivf-pq" }
+sovereign-mmr = { path = "../sovereign-mmr" }

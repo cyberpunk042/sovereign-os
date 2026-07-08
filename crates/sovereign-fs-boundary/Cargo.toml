@@ -1,0 +1,19 @@
+[package]
+name = "sovereign-fs-boundary"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "E0123 / M00231 — Filesystem Boundary: the /ai-exchange/{inbox,outbox,artifacts} exchange directories and the host import-validation pipeline (parse / scan / diff / policy-check / oracle-review-if-needed / commit)."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

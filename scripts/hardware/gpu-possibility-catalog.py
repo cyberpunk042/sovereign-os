@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """scripts/hardware/gpu-possibility-catalog.py — R295 (E1.M23).
 
-Operator-named (§1b mandate row, verbatim): "RTX 3090 details and
+Operator-named (§1b mandate row, verbatim): "RTX 4090 details and
 possibilities established and non-established, same for the RTX Pro
 6000 and the CPU and AVX512". Closes E1.M23 — operator-pull catalog
 of per-card capabilities, partitioned by ESTABLISHED (the operator
@@ -10,7 +10,7 @@ has confirmed this works on the SAIN-01 stack) vs NON-ESTABLISHED
 
 The catalog is operator-readable + extensible via overlay. Each entry
 binds:
-  - card (RTX 3090 / RTX PRO 6000)
+  - card (RTX 4090 / RTX PRO 6000)
   - capability (e.g. "FP16 inference at 80 TFLOPS", "INT8 tensor cores",
                 "NVLink between cards")
   - status: established | non-established
@@ -56,12 +56,12 @@ SDD_VECTOR = "E1.M23"
 
 # ── Default GPU possibility catalog (operator-overlay replaces) ────
 #
-# Seeded with the operator's §1b dual-rig (RTX 3090 + RTX PRO 6000)
+# Seeded with the operator's §1b dual-rig (RTX 4090 + RTX PRO 6000)
 # capabilities + status. Operator extends / corrects via overlay.
 DEFAULT_CATALOG: list[dict[str, Any]] = [
-    # ── RTX 3090 (Ampere, 24 GB GDDR6X) ─────────────────────────
+    # ── RTX 4090 (Ampere, 24 GB GDDR6X) ─────────────────────────
     {
-        "card": "RTX 3090",
+        "card": "RTX 4090",
         "capability": "FP16 / BF16 inference via Tensor Cores",
         "status": "established",
         "evidence": "shipped via R244 fine_tune + R232 eval; "
@@ -71,7 +71,7 @@ DEFAULT_CATALOG: list[dict[str, Any]] = [
         "related_sdd": "scripts/models/fine_tune.py",
     },
     {
-        "card": "RTX 3090",
+        "card": "RTX 4090",
         "capability": "INT8 inference via Tensor Cores",
         "status": "established",
         "evidence": "vllm + TensorRT path uses INT8 tensor cores; "
@@ -81,29 +81,29 @@ DEFAULT_CATALOG: list[dict[str, Any]] = [
         "related_sdd": "scripts/inference/dflash-wrap.sh",
     },
     {
-        "card": "RTX 3090",
+        "card": "RTX 4090",
         "capability": "FP8 tensor cores (Hopper feature)",
         "status": "non-established",
         "evidence": "Ampere lacks FP8 tensor cores — this is "
                     "structurally absent. Listed for explicit "
-                    "operator-pull surface ('what RTX 3090 CAN'T do').",
+                    "operator-pull surface ('what RTX 4090 CAN'T do').",
         "related_round": None,
         "related_mandate_module": None,
         "related_sdd": None,
     },
     {
-        "card": "RTX 3090",
-        "capability": "NVLink to second card (with RTX 3090)",
+        "card": "RTX 4090",
+        "capability": "NVLink to second card (with RTX 4090)",
         "status": "non-established",
-        "evidence": "operator has only one RTX 3090 — NVLink would "
+        "evidence": "operator has only one RTX 4090 — NVLink would "
                     "require a second matching card. The RTX PRO 6000 "
-                    "isn't NVLink-compatible with the 3090.",
+                    "isn't NVLink-compatible with the 4090.",
         "related_round": None,
         "related_mandate_module": "E1.M13",
         "related_sdd": "docs/sdd/029-hardware-stack-consolidation.md",
     },
     {
-        "card": "RTX 3090",
+        "card": "RTX 4090",
         "capability": "tensor-parallel inference SPLIT with RTX PRO 6000",
         "status": "non-established",
         "evidence": "asymmetric VRAM (24 GB + 98 GB) + non-NVLink "
@@ -114,10 +114,10 @@ DEFAULT_CATALOG: list[dict[str, Any]] = [
         "related_sdd": "scripts/hardware/gpu-card-advisor.py",
     },
     {
-        "card": "RTX 3090",
+        "card": "RTX 4090",
         "capability": "ECC memory",
         "status": "non-established",
-        "evidence": "RTX 3090 (GeForce SKU) lacks ECC. Operator "
+        "evidence": "RTX 4090 (GeForce SKU) lacks ECC. Operator "
                     "workloads requiring ECC need to land on the "
                     "RTX PRO 6000 (Blackwell pro SKU has ECC).",
         "related_round": None,
@@ -201,6 +201,60 @@ DEFAULT_CATALOG: list[dict[str, Any]] = [
                     "RTX PRO 6000 (workstation) doesn't ship MIG. "
                     "Listed explicitly so operator doesn't plan "
                     "for it.",
+        "related_round": None,
+        "related_mandate_module": None,
+        "related_sdd": None,
+    },
+
+    # ── CPU / AVX-512 (operator §1b: "...and the CPU and AVX512") ──
+    # The operator's board is the X870E Creator (AM5; Ryzen 7000/8000/9000
+    # = Zen 4 / Zen 5), which implements AVX-512 — AMD's first desktop
+    # AVX-512 generation, including the BF16 + VNNI sub-extensions.
+    {
+        "card": "CPU (AVX-512)",
+        "capability": "AVX-512 base ISA present (Zen 4 / Zen 5)",
+        "status": "established",
+        "evidence": "Operator's X870E Creator board (board-advisor-x870e-"
+                    "creator.py) takes Ryzen 7000/8000/9000 = Zen 4/5, the "
+                    "first AMD desktop cores with AVX-512; selfdef SDD-017 "
+                    "hardware probe reports avx512_present.",
+        "related_round": "R272",
+        "related_mandate_module": "E1.M23",
+        "related_sdd": "scripts/hardware/board-advisor-x870e-creator.py",
+    },
+    {
+        "card": "CPU (AVX-512)",
+        "capability": "AVX-512 BF16 + VNNI sub-extensions",
+        "status": "established",
+        "evidence": "Zen 4/5 ship AVX512_BF16 + AVX512_VNNI; the selfdef "
+                    "SDD-017 hardware probe detects avx512_bf16 / "
+                    "avx512_vnni and sovereign-os consumes them via "
+                    "scripts/models/selfdef-models.py for CPU-offload "
+                    "model parametrization.",
+        "related_round": "R272",
+        "related_mandate_module": "E1.M23",
+        "related_sdd": "scripts/models/selfdef-models.py",
+    },
+    {
+        "card": "CPU (AVX-512)",
+        "capability": "AVX-512 sustained-load power model (+~25 W)",
+        "status": "established",
+        "evidence": "R272 quantified AVX-512 sustained execution as ~25 W "
+                    "extra on the PSU budget; used live by "
+                    "scripts/hardware/xmp-oc-room-advisor.py "
+                    "(avx512_load_extra_w).",
+        "related_round": "R272",
+        "related_mandate_module": "E1.M23",
+        "related_sdd": "scripts/hardware/xmp-oc-room-advisor.py",
+    },
+    {
+        "card": "CPU (AVX-512)",
+        "capability": "Intel AMX (Advanced Matrix Extensions)",
+        "status": "non-established",
+        "evidence": "AMX is an Intel-only ISA (Sapphire Rapids+ Xeon); it is "
+                    "structurally absent on the operator's AMD Zen rig. "
+                    "Listed explicitly so operator doesn't plan a CPU-AMX "
+                    "inference path on this hardware.",
         "related_round": None,
         "related_mandate_module": None,
         "related_sdd": None,

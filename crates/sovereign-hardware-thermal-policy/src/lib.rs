@@ -105,7 +105,7 @@ impl ThermalThresholds {
 
 impl ThermalPolicy {
     /// Canonical thresholds — silicon-typical defaults.
-    /// CPU: 75/88/95. RDNA 3090: 78/85/95. Blackwell: 80/90/105.
+    /// CPU: 75/88/95. RDNA 4090: 78/85/95. Blackwell: 80/90/105.
     /// Cloud + NoHardware are always Cool (255/255/255 sentinels).
     pub fn canonical() -> Self {
         let thresholds = vec![
@@ -116,7 +116,7 @@ impl ThermalPolicy {
                 shutdown_c: 95,
             },
             ThermalThresholds {
-                target: HardwareTarget::Rocm3090,
+                target: HardwareTarget::Rocm4090,
                 warn_c: 78,
                 throttle_c: 85,
                 shutdown_c: 95,
@@ -156,7 +156,7 @@ impl ThermalPolicy {
         }
         let required = [
             HardwareTarget::CpuPulse,
-            HardwareTarget::Rocm3090,
+            HardwareTarget::Rocm4090,
             HardwareTarget::BlackwellOracle,
             HardwareTarget::Cloud,
             HardwareTarget::NoHardware,

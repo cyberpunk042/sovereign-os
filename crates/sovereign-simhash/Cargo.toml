@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-simhash"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "SimHash near-duplicate fingerprinting: collapse a document's features into a single 64-bit signature by random-hyperplane projection, so similarity is read off the Hamming distance between fingerprints — near-duplicates share most bits. A compact single-word alternative to MinHash for fast dedup and clustering by cosine-like similarity."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

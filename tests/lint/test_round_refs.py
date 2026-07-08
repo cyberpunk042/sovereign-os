@@ -26,9 +26,28 @@ import re
 import subprocess
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MANDATE = (REPO_ROOT / "docs" / "standing-directives"
            / "2026-05-17-operator-mandate.md")
+
+
+def _is_shallow_clone() -> bool:
+    """True when this checkout is shallow. Recent rounds (R350+) live in
+    recent commit messages; under a shallow clone the backing commit may
+    sit outside the fetch window, so its absence is a `fetch-depth`
+    artifact rather than a missing/fabricated round. CI's schema-lint job
+    pins `fetch-depth: 0`, keeping this fabrication-catch full-strength
+    there; this guard only spares local/shallow sandboxes a false-fail."""
+    try:
+        cp = subprocess.run(
+            ["git", "rev-parse", "--is-shallow-repository"],
+            capture_output=True, text=True, timeout=10, cwd=REPO_ROOT,
+        )
+    except Exception:
+        return False
+    return cp.returncode == 0 and cp.stdout.strip() == "true"
 
 
 def _git_commits_in_history() -> set[str]:
@@ -125,6 +144,12 @@ def test_recent_rounds_in_commit_history():
             if n >= 350:
                 cited_recent.add(r)
     missing = sorted(cited_recent - commits, key=int)
+    if missing and _is_shallow_clone():
+        pytest.skip(
+            "shallow clone — recent-round backing commits may sit "
+            "outside the fetch window; fabrication-catch runs "
+            "full-strength in CI (schema-lint pins fetch-depth: 0)"
+        )
     assert not missing, (
         f"mandate cites R<N> values not in commit history: {missing}. "
         f"Either the commits got lost or the mandate row is "

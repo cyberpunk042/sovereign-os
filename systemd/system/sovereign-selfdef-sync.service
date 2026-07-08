@@ -1,0 +1,46 @@
+[Unit]
+Description=selfdef checkout freshness check + gated update (SDD-001)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/hooks/recurrent/selfdef-sync.sh
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/sovereign-os/scripts/hooks/recurrent/selfdef-sync.sh
+TimeoutStartSec=300s
+StandardOutput=journal
+StandardError=journal
+# Defense-in-depth — default mode is report-only (git fetch into the
+# selfdef checkout + metrics output); APPLY mode is gated behind
+# SOVEREIGN_OS_CONFIRM_SELFDEF_SYNC=YES and is meant to be run manually,
+# not by this timer-driven unit.
+# HARDENING-WAIVER: ProtectHome is read-only (not true) — the selfdef
+# checkout this hook git-fetches lives under a home directory
+# (SOVEREIGN_OS_SELFDEF_DIR defaults to ${HOME}/selfdef); ProtectHome=true
+# mounts /root + /home inaccessible, which ReadWritePaths cannot punch
+# through, blinding the freshness check on every real deployment.
+# read-only + the ReadWritePaths grant below is the tightest working set.
+# Every other R171 directive is applied.
+ProtectSystem=strict
+ProtectHome=read-only
+RestrictNamespaces=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+# git fetch must write the checkout's .git; '-' tolerates an absent
+# checkout (the hook then reports result=absent and exits cleanly).
+# Override SOVEREIGN_OS_SELFDEF_DIR + this path via drop-in if the
+# checkout lives elsewhere.
+ReadWritePaths=-/root/selfdef
+# StateDirectory CREATES /var/lib/sovereign-os (a bare ReadWritePaths
+# entry without '-' refuses to spawn when the dir is missing —
+# status=226/NAMESPACE on the first host bring-up 2026-06-12).
+StateDirectory=sovereign-os
+ReadWritePaths=-/var/lib/node_exporter/textfile_collector
+NoNewPrivileges=true
+PrivateTmp=true

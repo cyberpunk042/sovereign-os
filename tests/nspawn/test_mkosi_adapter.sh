@@ -22,6 +22,16 @@ fi
 tmpdir="$(mktemp -d)"
 trap 'rm -rf "${tmpdir}"' EXIT
 
+# The profile's secure_boot=signed posture makes the adapter require operator
+# key env vars (SDD-015: real keys are NEVER in the repo or CI). Placeholder
+# files satisfy the presence gate — the adapter only embeds the key *paths*
+# into the emitted conf; mkosi validates the key material at build time. Same
+# pattern as tests/nspawn/test_image_sign_gates.sh. The SecureBoot assertions
+# below then verify the posture is actually carried into mkosi.conf.
+export SOVEREIGN_OS_MOK_KEY="${tmpdir}/ci-mok.key"
+export SOVEREIGN_OS_MOK_CERT="${tmpdir}/ci-mok.crt"
+touch "${SOVEREIGN_OS_MOK_KEY}" "${SOVEREIGN_OS_MOK_CERT}"
+
 # Run the adapter
 "${__REPO_ROOT}/scripts/build/adapters/mkosi-emit.sh" "${profile_file}" "${tmpdir}" >/dev/null
 
@@ -79,9 +89,12 @@ else
   ko "profile config missing Packages= directive"
 fi
 
-# Profile-specific packages from sain-01 — verify a few representative ones
+# Profile-specific packages from sain-01 — verify a few representative ones.
+# tetragon is deliberately excluded: not in the Debian archive, installs at
+# first boot from Cilium's tarball (see profiles/sain-01.yaml + the
+# tetragon-policy-load hook).
 if [ "${PROFILE}" = "sain-01" ]; then
-  for pkg in podman tetragon zfsutils-linux; do
+  for pkg in podman zfsutils-linux; do
     if grep -q "  ${pkg}\|    ${pkg}" "${profile_conf}"; then
       ok "profile config includes package: ${pkg}"
     else
@@ -96,14 +109,36 @@ if [ "${PROFILE}" = "sain-01" ]; then
     ok "kernel-image properly excluded from Packages= (ships via mkosi.extra)"
   fi
 
-  # Deny-list packages must NOT be ACTIVE entries in the Packages= directive.
-  # mkosi-emit.sh writes them as '# explicitly NOT installed: <pkg>' comments
-  # for operator visibility — those are fine. Real entries are indented
-  # without a '#' prefix.
-  if grep -E '^\s+(popularity-contest|apport|whoopsie|snapd|ubuntu-advantage-tools)\b' "${profile_conf}"; then
-    ko "deny-list package present as active entry in Packages="
+  # Deny-list enforcement (sovereignty): denied packages must NOT appear in the
+  # Packages= (install) block. Extract that block by directive so an indented
+  # entry is attributed correctly.
+  pkgs_block="$(awk '/^Packages=/{f=1;next} /^[A-Za-z#[]/{f=0} f' "${profile_conf}")"
+  if printf '%s\n' "${pkgs_block}" | grep -qE '^\s+(popularity-contest|apport|whoopsie|snapd|ubuntu-advantage-tools)\b'; then
+    ko "deny-list package present as an ACTIVE entry in Packages="
   else
-    ok "deny-list packages absent from active Packages= (comments-only is allowed)"
+    ok "deny-list packages absent from the active Packages= install block"
+  fi
+  # Enforcement is NOT via mkosi RemovePackages= (apt purge hard-errors on
+  # Ubuntu-only names absent from the Debian archive — killed the first real
+  # build 2026-06-10). It is a distro-agnostic purge-if-present dpkg loop in
+  # mkosi.postinst.chroot instead. Verify that mechanism actually carries the
+  # denied names.
+  postinst="${tmpdir}/mkosi.postinst.chroot"
+  if [ -f "${postinst}" ] \
+     && grep -q "dpkg --purge" "${postinst}" \
+     && grep -qE 'snapd|apport|whoopsie' "${postinst}"; then
+    ok "deny-list enforced via postinst purge-if-present (distro-agnostic, actually purges)"
+  else
+    ko "deny-list NOT enforced — no purge-if-present loop carrying the denied names in mkosi.postinst.chroot"
+  fi
+
+  # kernel.modules.load_at_boot must be enforced via /etc/modules-load.d/ in the
+  # image overlay (not left to implicit load paths).
+  mld_file="${tmpdir}/mkosi.extra/etc/modules-load.d/sovereign-os.conf"
+  if [ -f "${mld_file}" ] && grep -qx "zfs" "${mld_file}" && grep -qx "vfio_pci" "${mld_file}"; then
+    ok "kernel.modules.load_at_boot enforced via modules-load.d overlay"
+  else
+    ko "kernel.modules.load_at_boot NOT enforced (missing modules-load.d overlay)"
   fi
 
   # KernelCommandLine should contain vfio-pci.ids

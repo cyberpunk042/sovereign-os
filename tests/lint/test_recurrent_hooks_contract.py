@@ -2,8 +2,8 @@
 consistency (7th bidirectional-consistency lint).
 
 Extends R387-R411 operational-artifact pinning to:
-  scripts/hooks/recurrent/      (11 timer-driven hooks)
-  systemd/system/sovereign-*.timer  (11 timer units)
+  scripts/hooks/recurrent/      (16 timer-driven hooks)
+  systemd/system/sovereign-*.timer  (16 timer units)
 
 Each recurrent hook runs on a systemd timer cadence and emits a Layer B
 metric snapshot. They form the operator-named operational telemetry +
@@ -18,8 +18,12 @@ maintenance + alerting cadence:
   security-update-check  — daily 02:30 (security patch posture)
   tetragon-policy-verify — hourly      (security perimeter check)
   thermal-watch          — 5min        (chassis/CPU/GPU thermal sample)
+  memory-pressure-sample — 1min        (PSI / OOM Layer B sample, E1.M15)
+  wattage-heat-trend-tick— 1min        (wattage+heat trend verdict, E1.M36)
   wattage-sample         — daily 04:15 (RAPL/IPMI wattage sample)
   zfs-scrub              — weekly Sun  (ZFS pool scrub kick)
+  selfdef-sync           — weekly Sun  (selfdef checkout freshness, SDD-001)
+  root-ghostproxy-verify — weekly Sun  (AI-agent envelope drift verify, SDD-046)
 
 7th bidirectional-consistency lint:
   Every hook in scripts/hooks/recurrent/ MUST have a matching timer
@@ -47,12 +51,17 @@ EXPECTED_RECURRENT_HOOKS = [
     "alerts-check.sh",
     "backup-snapshot.sh",
     "log-rotate.sh",
+    "memory-pressure-sample.sh",
     "model-catalog-sync.sh",
     "notify-dispatch.sh",
     "power-shutdown-guard.sh",
+    "root-ghostproxy-verify.sh",
     "security-update-check.sh",
+    "selfdef-sync.sh",
+    "sovereign-telemetry-textfile.sh",
     "tetragon-policy-verify.sh",
     "thermal-watch.sh",
+    "wattage-heat-trend-tick.sh",
     "wattage-sample.sh",
     "zfs-scrub.sh",
 ]
@@ -64,15 +73,29 @@ HOOK_TO_TIMER_SLUG = {
     "alerts-check.sh": "sovereign-alerts-check",
     "backup-snapshot.sh": "sovereign-backup-snapshot",
     "log-rotate.sh": "sovereign-log-rotate",
+    "memory-pressure-sample.sh": "sovereign-memory-pressure-sample",
     "model-catalog-sync.sh": "sovereign-models-sync",
     "notify-dispatch.sh": "sovereign-notify-dispatch",
     "power-shutdown-guard.sh": "sovereign-power-shutdown-guard",
+    "root-ghostproxy-verify.sh": "sovereign-ghostproxy-verify",
     "security-update-check.sh": "sovereign-security-update-check",
+    "selfdef-sync.sh": "sovereign-selfdef-sync",
+    "sovereign-telemetry-textfile.sh": "sovereign-telemetry-textfile",
     "tetragon-policy-verify.sh": "sovereign-tetragon-verify",
     "thermal-watch.sh": "sovereign-thermal-watch",
+    "wattage-heat-trend-tick.sh": "sovereign-wattage-heat-trend",
     "wattage-sample.sh": "sovereign-wattage-sample",
     "zfs-scrub.sh": "sovereign-zfs-scrub",
 }
+
+# Hooks that legitimately do NOT follow the shell-lib convention (source
+# common.sh + observability.sh + emit_metric_set via bash). `sovereign-telemetry
+# -textfile.sh` is a BINARY wrapper: it runs the `sovereign-telemetry` Rust
+# binary in --prometheus mode, which emits the metrics AND atomically writes the
+# textfile itself — so the shell wrapper neither needs the shell libs nor an
+# emit_metric_set call. It is still a real recurrent hook (counted + timer/service
+# + cadence checked above), just not a shell-convention one.
+SHELL_CONVENTION_EXEMPT = {"sovereign-telemetry-textfile.sh"}
 
 
 def _read(p: Path) -> str:
@@ -85,18 +108,19 @@ def test_all_recurrent_hooks_exist():
         p = RECURRENT_DIR / name
         assert p.is_file(), (
             f"recurrent hook missing: {p} (operator-named cadence "
-            f"contract — 11-hook telemetry/maintenance set)"
+            f"contract — 16-hook telemetry/maintenance set)"
         )
 
 
 def test_hook_count_matches_expected():
-    """Exactly 11 recurrent hooks. Drift adding ungated hooks or
+    """Exactly 16 recurrent hooks (15 shell-convention + 1 binary wrapper,
+    sovereign-telemetry-textfile). Drift adding ungated hooks or
     removing operator-named cadence breaks the contract."""
     actual = sorted(p.name for p in RECURRENT_DIR.glob("*.sh"))
     expected = sorted(EXPECTED_RECURRENT_HOOKS)
     assert actual == expected, (
         f"recurrent hook set drift: actual={actual} vs "
-        f"expected={expected} (operator-named 11-hook cadence)"
+        f"expected={expected} (operator-named 16-hook cadence; 16th = root-ghostproxy-verify per SDD-046)"
     )
 
 
@@ -146,6 +170,65 @@ def test_every_timer_references_existing_service():
         )
 
 
+# A timer's [Timer] section MUST carry at least one of these — otherwise the
+# unit loads but has no trigger and NEVER fires (the recurrent hook silently
+# never runs). systemd's real-time + monotonic timer directives.
+_TRIGGER_DIRECTIVES = (
+    "OnCalendar",
+    "OnBootSec",
+    "OnStartupSec",
+    "OnActiveSec",
+    "OnUnitActiveSec",
+    "OnUnitInactiveSec",
+)
+
+
+def test_every_timer_has_a_firing_trigger():
+    """Every .timer MUST declare at least one firing trigger. The file's own
+    contract is that "each recurrent hook runs on a systemd timer cadence" —
+    but wiring tests (service exists, ExecStart present) all pass even if a
+    timer lost its OnCalendar/OnBootSec, in which case the unit loads but
+    never fires and the safety hook silently never runs. This is the
+    verification gate for that declared cadence."""
+    trigger_re = re.compile(
+        r"^\s*(" + "|".join(_TRIGGER_DIRECTIVES) + r")=\S",
+        re.M,
+    )
+    for timer in sorted(SYSTEMD_DIR.glob("sovereign-*.timer")):
+        body = _read(timer)
+        assert trigger_re.search(body), (
+            f"timer {timer.name} has no firing trigger "
+            f"({'/'.join(_TRIGGER_DIRECTIVES)}) — it would load but NEVER "
+            f"fire, so its recurrent hook silently never runs"
+        )
+
+
+# --- Operator-doc completeness: the ongoing-maintenance doc must mirror
+#     the canonical timer set ---
+
+ONGOING_DOC = REPO_ROOT / "docs" / "src" / "lifecycle" / "ongoing.md"
+
+
+def test_ongoing_doc_lists_every_recurrent_timer():
+    """The operator-facing "Recurrent hooks (systemd timers)" table in
+    docs/src/lifecycle/ongoing.md MUST list every canonical timer. The doc
+    had silently drifted to 3 of 13 — an operator reading it to learn what
+    runs on their host saw a quarter of the maintenance/telemetry cadence,
+    the exact minimization §1g forbids. Lock the operator-doc ⇄ canonical
+    timer-set coverage so it can't under-represent the cadence again."""
+    if not ONGOING_DOC.is_file():
+        return  # doc layout changed; structural lints cover that elsewhere
+    body = ONGOING_DOC.read_text(encoding="utf-8")
+    listed = set(re.findall(r"sovereign-[a-z-]+\.timer", body))
+    canonical = {f"{slug}.timer" for slug in HOOK_TO_TIMER_SLUG.values()}
+    missing = sorted(canonical - listed)
+    assert not missing, (
+        f"docs/src/lifecycle/ongoing.md does not list recurrent timer(s) "
+        f"{missing} — the operator-facing maintenance table must mirror the "
+        f"canonical {len(canonical)}-timer cadence (HOOK_TO_TIMER_SLUG)"
+    )
+
+
 def test_every_service_invokes_existing_hook():
     """Every recurrent .service unit MUST invoke an actual hook script
     via ExecStart=. Drift = service starts but does nothing."""
@@ -171,6 +254,8 @@ def test_every_service_invokes_existing_hook():
 
 def test_every_hook_sources_common_lib():
     for name in EXPECTED_RECURRENT_HOOKS:
+        if name in SHELL_CONVENTION_EXEMPT:
+            continue
         body = _read(RECURRENT_DIR / name)
         assert "build/lib/common.sh" in body, (
             f"recurrent hook {name} missing build/lib/common.sh source "
@@ -182,6 +267,8 @@ def test_every_hook_sources_observability_lib():
     """All recurrent hooks emit metrics, so all MUST source the
     observability lib (provides emit_metric / emit_metric_set)."""
     for name in EXPECTED_RECURRENT_HOOKS:
+        if name in SHELL_CONVENTION_EXEMPT:
+            continue
         body = _read(RECURRENT_DIR / name)
         assert "build/lib/observability.sh" in body, (
             f"recurrent hook {name} missing observability.sh source "
@@ -196,6 +283,8 @@ def test_every_hook_emits_metric_set():
     that accepts --emit-metrics flag (operator pattern for hooks whose
     sampler lives in scripts/hardware/)."""
     for name in EXPECTED_RECURRENT_HOOKS:
+        if name in SHELL_CONVENTION_EXEMPT:
+            continue  # binary wrapper: the sovereign-telemetry binary emits
         body = _read(RECURRENT_DIR / name)
         has_metric = (
             "emit_metric_set" in body

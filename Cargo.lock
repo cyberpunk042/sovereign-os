@@ -208,11 +208,258 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-agent-loop"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-tool-dispatch",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-agent-runtime"
+version = "0.1.0"
+dependencies = [
+ "sovereign-agent-loop",
+ "sovereign-decoder-stack",
+ "sovereign-ffn",
+ "sovereign-llm",
+ "sovereign-rmsnorm",
+ "sovereign-sampler",
+ "sovereign-stop-sequence",
+ "sovereign-tokenizer",
+ "sovereign-tool-dispatch",
+ "sovereign-transformer-block",
+]
+
+[[package]]
+name = "sovereign-aho-corasick"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-aimd-limiter"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-alias-sampler"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-answer-extract"
+version = "0.1.0"
+
+[[package]]
+name = "sovereign-arg-schema"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-attention"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-balanced-constrain"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-bandit"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-base-os"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-beam-search"
+version = "0.1.0"
+dependencies = [
+ "sovereign-decoder-stack",
+ "sovereign-ffn",
+ "sovereign-rmsnorm",
+ "sovereign-sampler",
+ "sovereign-transformer-block",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-best-of-n"
+version = "0.1.0"
+
+[[package]]
+name = "sovereign-bin-packing"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-binary-quant"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-bitlinear-core"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-bitops"
+version = "0.1.0"
+
+[[package]]
+name = "sovereign-bktree"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-edit-distance",
+]
+
+[[package]]
+name = "sovereign-bloom"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-bm25"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-bounded-block"
+version = "0.1.0"
+dependencies = [
+ "sovereign-attention",
+ "sovereign-ffn",
+ "sovereign-kv-window",
+ "sovereign-linear",
+ "sovereign-quant-block",
+ "sovereign-rmsnorm",
+ "sovereign-rope",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-bpe-train"
+version = "0.1.0"
+dependencies = [
+ "sovereign-tokenizer",
+]
+
+[[package]]
+name = "sovereign-branch-tree"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-calc"
+version = "0.1.0"
+dependencies = [
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cfg-grammar"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-cgroup-systemd"
 version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-chat"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-chat-template",
+ "sovereign-decoder-stack",
+ "sovereign-ffn",
+ "sovereign-llm",
+ "sovereign-rmsnorm",
+ "sovereign-sampler",
+ "sovereign-stop-sequence",
+ "sovereign-tokenizer",
+ "sovereign-transformer-block",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-chat-template"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-checkpoint"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "sovereign-llm",
  "thiserror",
 ]
 
@@ -223,6 +470,26 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+]
+
+[[package]]
+name = "sovereign-chunker"
+version = "0.1.0"
+
+[[package]]
+name = "sovereign-circuit-breaker"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-classification-metrics"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -3864,6 +4131,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-views"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-cockpit-vim-mode-indicator"
 version = "0.1.0"
 dependencies = [
@@ -3999,6 +4274,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-codegen-pipeline"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-cognitive-compiler"
 version = "0.1.0"
 dependencies = [
@@ -4008,7 +4291,93 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-community-detect"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-completion-cache"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-embed",
+]
+
+[[package]]
+name = "sovereign-complexity"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-confidence-calibration"
+version = "0.1.0"
+
+[[package]]
+name = "sovereign-config-resolver"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-consistent-hash"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-context-budget"
+version = "0.1.0"
+dependencies = [
+ "sovereign-tokenizer",
+]
+
+[[package]]
+name = "sovereign-context-pack"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-continuity-levels"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-continuity-manager"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-continuous-batch"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-paged-kv",
+]
+
+[[package]]
+name = "sovereign-control-word"
 version = "0.1.0"
 dependencies = [
  "serde",
@@ -4043,6 +4412,88 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+]
+
+[[package]]
+name = "sovereign-cortex"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-attention",
+ "sovereign-bitlinear-core",
+ "sovereign-branch-tree",
+ "sovereign-control-word",
+ "sovereign-hrm-runtime",
+ "sovereign-lora-foundry",
+ "sovereign-memory-os",
+ "sovereign-nvfp4-runtime",
+ "sovereign-replay-ledger",
+ "sovereign-router-7axis",
+ "sovereign-spec-decode",
+ "sovereign-srp-scheduler",
+ "sovereign-symbolic-plan",
+ "sovereign-trinity",
+ "sovereign-value-plane",
+ "sovereign-world-model",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-count-min"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-cpu-dispatch"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-cpu-topology"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-crdt"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-cuckoo-filter"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cusum"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-dag-schedule"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -4092,6 +4543,84 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-data-plane"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-ddsketch"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-decode-loop"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-attention",
+ "sovereign-rope",
+ "sovereign-sampler",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-decoder-layer"
+version = "0.1.0"
+dependencies = [
+ "sovereign-ffn",
+ "sovereign-linear",
+ "sovereign-mha-block",
+ "sovereign-quant-block",
+ "sovereign-rmsnorm",
+ "sovereign-transformer-block",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-decoder-stack"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-dry-sampler",
+ "sovereign-ffn",
+ "sovereign-gumbel",
+ "sovereign-logit-mask",
+ "sovereign-logit-pipeline",
+ "sovereign-repetition-penalty",
+ "sovereign-rmsnorm",
+ "sovereign-sampler",
+ "sovereign-transformer-block",
+ "sovereign-typical-sampling",
+ "sovereign-xtc-sampler",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-degeneration"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-suffix-array",
+]
+
+[[package]]
+name = "sovereign-diversity"
+version = "0.1.0"
+dependencies = [
+ "sovereign-text-eval",
+]
+
+[[package]]
 name = "sovereign-doctrinal-preservation"
 version = "0.1.0"
 dependencies = [
@@ -4123,6 +4652,34 @@ dependencies = [
  "sovereign-doctrinal-preservation",
  "sovereign-execution-mode-registry",
  "thiserror",
+]
+
+[[package]]
+name = "sovereign-dry-sampler"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-edit-align"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-edit-distance"
+version = "0.1.0"
+
+[[package]]
+name = "sovereign-embed"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -4166,6 +4723,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-execution-env"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-execution-mode-registry"
 version = "0.1.0"
 dependencies = [
@@ -4175,12 +4740,76 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-fenwick"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-ffn"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-format-mask"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-logit-mask",
+ "sovereign-sampler",
+]
+
+[[package]]
+name = "sovereign-fs-boundary"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-gateway"
 version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+]
+
+[[package]]
+name = "sovereign-gatewayd"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-cortex",
+ "sovereign-gateway",
+ "sovereign-router-7axis",
+ "sovereign-srp-scheduler",
+ "sovereign-value-plane",
+]
+
+[[package]]
+name = "sovereign-graph-path"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-gumbel"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -4225,6 +4854,47 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-harness-layers"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-heavy-hitters"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-count-min",
+]
+
+[[package]]
+name = "sovereign-hibernation"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-histogram"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-hnsw"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-holderpo"
 version = "0.1.0"
 dependencies = [
@@ -4234,12 +4904,196 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-holt-winters"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-hrm-runtime"
 version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+]
+
+[[package]]
+name = "sovereign-huffman"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-hyperloglog"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-inference-demo"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "sovereign-agent-loop",
+ "sovereign-agent-runtime",
+ "sovereign-aimd-limiter",
+ "sovereign-arg-schema",
+ "sovereign-attention",
+ "sovereign-balanced-constrain",
+ "sovereign-bandit",
+ "sovereign-beam-search",
+ "sovereign-bin-packing",
+ "sovereign-bitlinear-core",
+ "sovereign-bitops",
+ "sovereign-bloom",
+ "sovereign-bounded-block",
+ "sovereign-bpe-train",
+ "sovereign-calc",
+ "sovereign-checkpoint",
+ "sovereign-choice-envelope",
+ "sovereign-circuit-breaker",
+ "sovereign-codegen-pipeline",
+ "sovereign-community-detect",
+ "sovereign-config-resolver",
+ "sovereign-consistent-hash",
+ "sovereign-context-pack",
+ "sovereign-continuous-batch",
+ "sovereign-conversation-fork-event",
+ "sovereign-conversation-search-index",
+ "sovereign-conversation-thread",
+ "sovereign-crdt",
+ "sovereign-cuckoo-filter",
+ "sovereign-cusum",
+ "sovereign-dag-schedule",
+ "sovereign-ddsketch",
+ "sovereign-decode-loop",
+ "sovereign-decoder-layer",
+ "sovereign-decoder-stack",
+ "sovereign-degeneration",
+ "sovereign-doctrinal-preservation",
+ "sovereign-doctrine-citation",
+ "sovereign-embed",
+ "sovereign-eval-result-summary",
+ "sovereign-eval-suite-catalog",
+ "sovereign-execution-mode-registry",
+ "sovereign-fenwick",
+ "sovereign-ffn",
+ "sovereign-format-mask",
+ "sovereign-graph-path",
+ "sovereign-heavy-hitters",
+ "sovereign-histogram",
+ "sovereign-holt-winters",
+ "sovereign-huffman",
+ "sovereign-hyperloglog",
+ "sovereign-injection-detect",
+ "sovereign-interval-schedule",
+ "sovereign-interval-tree",
+ "sovereign-isotonic",
+ "sovereign-json-schema-grammar",
+ "sovereign-jsonl",
+ "sovereign-kalman",
+ "sovereign-knapsack",
+ "sovereign-kv-budget",
+ "sovereign-kv-cache",
+ "sovereign-language-detect",
+ "sovereign-learning-signals",
+ "sovereign-levenshtein-automaton",
+ "sovereign-line-diff",
+ "sovereign-linear",
+ "sovereign-llm",
+ "sovereign-load-balance",
+ "sovereign-local-align",
+ "sovereign-logit-mask",
+ "sovereign-logit-pipeline",
+ "sovereign-markdown-strip",
+ "sovereign-merkle-tree",
+ "sovereign-mha-block",
+ "sovereign-mirostat",
+ "sovereign-mode-default-policy",
+ "sovereign-moe-gate",
+ "sovereign-ngram-speculative",
+ "sovereign-no-repeat-ngram",
+ "sovereign-nvfp4-runtime",
+ "sovereign-online-regression",
+ "sovereign-p2-quantile",
+ "sovereign-p2c-balance",
+ "sovereign-pagerank",
+ "sovereign-perplexity",
+ "sovereign-policy-input",
+ "sovereign-precision-profile",
+ "sovereign-prefix-cache",
+ "sovereign-profile-bundles",
+ "sovereign-prompt-history-ring",
+ "sovereign-prompt-rationale",
+ "sovereign-prompt-template-registry",
+ "sovereign-provider-catalog",
+ "sovereign-quant-block",
+ "sovereign-quant-calibration",
+ "sovereign-quant-llm",
+ "sovereign-quant-model",
+ "sovereign-readability",
+ "sovereign-rendezvous-hash",
+ "sovereign-repetition-penalty",
+ "sovereign-reservoir",
+ "sovereign-retrieval",
+ "sovereign-retrieval-metrics",
+ "sovereign-retry",
+ "sovereign-rmsnorm",
+ "sovereign-roaring-bitmap",
+ "sovereign-rolling-hash",
+ "sovereign-rope",
+ "sovereign-rope-scaling",
+ "sovereign-routing-decision-log",
+ "sovereign-routing-preference",
+ "sovereign-running-stats",
+ "sovereign-runtime-reactions",
+ "sovereign-sampler",
+ "sovereign-segment-tree",
+ "sovereign-semantic-checkpoint",
+ "sovereign-semantic-chunk",
+ "sovereign-semver",
+ "sovereign-significance",
+ "sovereign-six-pillars",
+ "sovereign-skill-library",
+ "sovereign-space-saving",
+ "sovereign-speculative",
+ "sovereign-sprt",
+ "sovereign-sse-parse",
+ "sovereign-suffix-automaton",
+ "sovereign-task-lifecycle",
+ "sovereign-task-map",
+ "sovereign-tdigest",
+ "sovereign-telemetry-backend",
+ "sovereign-text-edit",
+ "sovereign-tokenizer",
+ "sovereign-tool-call-parse",
+ "sovereign-tool-catalog",
+ "sovereign-tool-dispatch",
+ "sovereign-tool-invocation-record",
+ "sovereign-toxicity",
+ "sovereign-transformer-block",
+ "sovereign-trust-boundaries",
+ "sovereign-typed-state",
+ "sovereign-ulid",
+ "sovereign-unigram-tokenizer",
+ "sovereign-varint",
+ "sovereign-vector-clock",
+ "sovereign-viterbi",
+ "sovereign-watermark",
+ "sovereign-weighted-reservoir",
+ "sovereign-wer",
+ "sovereign-wordpiece",
+ "sovereign-workflow-graph",
+ "sovereign-workspace-folder-registry",
 ]
 
 [[package]]
@@ -4261,6 +5115,41 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-injection-detect"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-aho-corasick",
+ "sovereign-classification-metrics",
+]
+
+[[package]]
+name = "sovereign-intake"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-trace-context",
+]
+
+[[package]]
+name = "sovereign-interval-schedule"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-interval-tree"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-intervention-class-mirror"
 version = "0.1.0"
 dependencies = [
@@ -4268,6 +5157,251 @@ dependencies = [
  "serde_json",
  "thiserror",
 ]
+
+[[package]]
+name = "sovereign-isotonic"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-ivf"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-kmeans",
+]
+
+[[package]]
+name = "sovereign-ivf-pq"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-kmeans",
+ "sovereign-product-quantization",
+]
+
+[[package]]
+name = "sovereign-jaro-winkler"
+version = "0.1.0"
+
+[[package]]
+name = "sovereign-json-extract"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-json-repair"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-json-schema-grammar"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-cfg-grammar",
+]
+
+[[package]]
+name = "sovereign-jsonl"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-kalman"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-keywords"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-kmeans"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-knapsack"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-kv-budget"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-kv-cache"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-kv-window"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-attention",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-language-detect"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-learning-signals"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-levenshtein-automaton"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-line-diff"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-linear"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-bitlinear-core",
+ "sovereign-nvfp4-runtime",
+ "sovereign-vnni",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-llm"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-answer-extract",
+ "sovereign-best-of-n",
+ "sovereign-confidence-calibration",
+ "sovereign-context-budget",
+ "sovereign-decoder-stack",
+ "sovereign-degeneration",
+ "sovereign-diversity",
+ "sovereign-dry-sampler",
+ "sovereign-ffn",
+ "sovereign-json-extract",
+ "sovereign-json-schema-grammar",
+ "sovereign-logit-mask",
+ "sovereign-logprobs",
+ "sovereign-perplexity",
+ "sovereign-pii-redact",
+ "sovereign-prompt-compress",
+ "sovereign-regex-constrain",
+ "sovereign-repetition-penalty",
+ "sovereign-rmsnorm",
+ "sovereign-sampler",
+ "sovereign-secret-scan",
+ "sovereign-self-consistency",
+ "sovereign-semantic-cache",
+ "sovereign-token-grammar-mask",
+ "sovereign-token-healing",
+ "sovereign-tokenizer",
+ "sovereign-toxicity",
+ "sovereign-transformer-block",
+ "sovereign-typical-sampling",
+ "sovereign-xtc-sampler",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-load-balance"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-local-align"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-logit-mask"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-sampler",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-logit-pipeline"
+version = "0.1.0"
+dependencies = [
+ "sovereign-logit-mask",
+ "sovereign-no-repeat-ngram",
+ "sovereign-sampler",
+]
+
+[[package]]
+name = "sovereign-logprobs"
+version = "0.1.0"
 
 [[package]]
 name = "sovereign-lora-foundry"
@@ -4279,12 +5413,82 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-lsh"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-minhash",
+ "sovereign-union-find",
+]
+
+[[package]]
+name = "sovereign-markdown-strip"
+version = "0.1.0"
+
+[[package]]
+name = "sovereign-matryoshka"
+version = "0.1.0"
+
+[[package]]
 name = "sovereign-memory-os"
 version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+]
+
+[[package]]
+name = "sovereign-merkle-tree"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-mha"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-attention",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-mha-block"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-ffn",
+ "sovereign-linear",
+ "sovereign-mha",
+ "sovereign-nvfp4-runtime",
+ "sovereign-quant-block",
+ "sovereign-rmsnorm",
+ "sovereign-rope",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-minhash"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-mirostat"
+version = "0.1.0"
+dependencies = [
+ "rand",
+ "rand_chacha",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -4295,6 +5499,10 @@ dependencies = [
  "serde_json",
  "thiserror",
 ]
+
+[[package]]
+name = "sovereign-mmr"
+version = "0.1.0"
 
 [[package]]
 name = "sovereign-mode-default-policy"
@@ -4327,6 +5535,67 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-module-facets"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-moe-gate"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-network-boundary"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-network-zerotrust"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-ngram-lm"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-alias-sampler",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-ngram-speculative"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-no-repeat-ngram"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-logit-mask",
+ "sovereign-sampler",
+]
+
+[[package]]
 name = "sovereign-nvfp4-runtime"
 version = "0.1.0"
 dependencies = [
@@ -4339,12 +5608,102 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-observability-events"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-trace-context",
+]
+
+[[package]]
 name = "sovereign-observability-fabric"
 version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+]
+
+[[package]]
+name = "sovereign-online-regression"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-p2-quantile"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-p2c-balance"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-paged-kv"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-pagerank"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-pcie-topology"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-perplexity"
+version = "0.1.0"
+dependencies = [
+ "sovereign-decoder-layer",
+ "sovereign-decoder-stack",
+ "sovereign-ffn",
+ "sovereign-linear",
+ "sovereign-quant-block",
+ "sovereign-quant-model",
+ "sovereign-rmsnorm",
+ "sovereign-sampler",
+ "sovereign-transformer-block",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-pii-redact"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-policy-input"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -4357,11 +5716,49 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-precision-profile"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-linear",
+]
+
+[[package]]
+name = "sovereign-prefix-cache"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-pressure-reactions"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-hardware-load-sample",
+ "sovereign-hardware-registry",
+ "sovereign-pressure-sensors",
+]
+
+[[package]]
 name = "sovereign-pressure-sensors"
 version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-product-quantization"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-kmeans",
  "thiserror",
 ]
 
@@ -4373,6 +5770,10 @@ dependencies = [
  "serde_json",
  "thiserror",
 ]
+
+[[package]]
+name = "sovereign-prompt-compress"
+version = "0.1.0"
 
 [[package]]
 name = "sovereign-prompt-history-ring"
@@ -4418,6 +5819,122 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-quant-block"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-attention",
+ "sovereign-ffn",
+ "sovereign-linear",
+ "sovereign-rmsnorm",
+ "sovereign-rope",
+ "sovereign-transformer-block",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-quant-calibration"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-linear",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-quant-llm"
+version = "0.1.0"
+dependencies = [
+ "sovereign-decoder-layer",
+ "sovereign-ffn",
+ "sovereign-linear",
+ "sovereign-logit-mask",
+ "sovereign-mha-block",
+ "sovereign-quant-block",
+ "sovereign-quant-model",
+ "sovereign-rmsnorm",
+ "sovereign-sampler",
+ "sovereign-stream-decode",
+ "sovereign-tokenizer",
+ "sovereign-transformer-block",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-quant-model"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-decoder-layer",
+ "sovereign-ffn",
+ "sovereign-linear",
+ "sovereign-logit-mask",
+ "sovereign-mha-block",
+ "sovereign-quant-block",
+ "sovereign-rmsnorm",
+ "sovereign-sampler",
+ "sovereign-transformer-block",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-rank-fusion"
+version = "0.1.0"
+
+[[package]]
+name = "sovereign-rate-limit"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-readability"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-sentence-split",
+]
+
+[[package]]
+name = "sovereign-regex-constrain"
+version = "0.1.0"
+dependencies = [
+ "sovereign-logit-mask",
+ "sovereign-regex-nfa",
+]
+
+[[package]]
+name = "sovereign-regex-nfa"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-rendezvous-hash"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-repetition-penalty"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-replay-bookmark-set"
 version = "0.1.0"
 dependencies = [
@@ -4452,12 +5969,126 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-replay-ledger"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-replay-playback-rate"
 version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+]
+
+[[package]]
+name = "sovereign-rerank"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-reservoir"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-resource-control"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-retrieval"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-agent-loop",
+ "sovereign-binary-quant",
+ "sovereign-bktree",
+ "sovereign-bm25",
+ "sovereign-chunker",
+ "sovereign-embed",
+ "sovereign-hnsw",
+ "sovereign-injection-detect",
+ "sovereign-ivf",
+ "sovereign-ivf-pq",
+ "sovereign-keywords",
+ "sovereign-lsh",
+ "sovereign-matryoshka",
+ "sovereign-minhash",
+ "sovereign-mmr",
+ "sovereign-rank-fusion",
+ "sovereign-rerank",
+ "sovereign-simhash",
+ "sovereign-vptree",
+]
+
+[[package]]
+name = "sovereign-retrieval-metrics"
+version = "0.1.0"
+
+[[package]]
+name = "sovereign-retry"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-rmsnorm"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-roaring-bitmap"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-rolling-hash"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-rope"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-rope-scaling"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -4492,12 +6123,199 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-running-stats"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-runtime-reactions"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-sampler"
+version = "0.1.0"
+dependencies = [
+ "rand",
+ "rand_chacha",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-sandbox-profile"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-save-state"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-secret-scan"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-segment-tree"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-self-consistency"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-semantic-cache"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-embed",
+]
+
+[[package]]
+name = "sovereign-semantic-checkpoint"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-semantic-chunk"
+version = "0.1.0"
+dependencies = [
+ "sovereign-embed",
+ "sovereign-sentence-split",
+]
+
+[[package]]
+name = "sovereign-semver"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-sentence-split"
+version = "0.1.0"
+
+[[package]]
+name = "sovereign-serve"
+version = "0.1.0"
+dependencies = [
+ "sovereign-completion-cache",
+ "sovereign-complexity",
+ "sovereign-context-budget",
+ "sovereign-decoder-stack",
+ "sovereign-ffn",
+ "sovereign-llm",
+ "sovereign-pii-redact",
+ "sovereign-rmsnorm",
+ "sovereign-sampler",
+ "sovereign-secret-scan",
+ "sovereign-token-meter",
+ "sovereign-tokenizer",
+ "sovereign-toxicity",
+ "sovereign-transformer-block",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-significance"
+version = "0.1.0"
+
+[[package]]
+name = "sovereign-simhash"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-six-pillars"
 version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+]
+
+[[package]]
+name = "sovereign-skill-library"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-space-saving"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-spec-decode"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-speculative"
+version = "0.1.0"
+dependencies = [
+ "sovereign-decoder-stack",
+ "sovereign-ffn",
+ "sovereign-ngram-lm",
+ "sovereign-rmsnorm",
+ "sovereign-sampler",
+ "sovereign-spec-decode",
+ "sovereign-transformer-block",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-sprt"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -4511,6 +6329,164 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-sse-parse"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-stop-sequence"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-stream-decode"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-tokenizer",
+]
+
+[[package]]
+name = "sovereign-suffix-array"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-suffix-automaton"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-symbolic-plan"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-task-lifecycle"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-task-map"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-tdigest"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-telemetry"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-hardware-load-sample",
+ "sovereign-hardware-registry",
+ "sovereign-hardware-thermal-policy",
+ "sovereign-observability-fabric",
+ "sovereign-pressure-reactions",
+ "sovereign-pressure-sensors",
+]
+
+[[package]]
+name = "sovereign-telemetry-backend"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-text-edit"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-text-eval"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-token-grammar-mask"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-cfg-grammar",
+]
+
+[[package]]
+name = "sovereign-token-healing"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-token-meter"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-tokenizer"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-tool-call-parse"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-json-repair",
+]
+
+[[package]]
 name = "sovereign-tool-catalog"
 version = "0.1.0"
 dependencies = [
@@ -4518,6 +6494,18 @@ dependencies = [
  "serde_json",
  "sovereign-execution-mode-registry",
  "sovereign-profile-bundles",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-tool-dispatch"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-edit-distance",
+ "sovereign-jaro-winkler",
+ "sovereign-trie",
  "thiserror",
 ]
 
@@ -4534,12 +6522,99 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-toxicity"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-aho-corasick",
+]
+
+[[package]]
+name = "sovereign-trace-context"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-transformer-block"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-attention",
+ "sovereign-ffn",
+ "sovereign-rmsnorm",
+ "sovereign-rope",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-trie"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-trinity"
 version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+]
+
+[[package]]
+name = "sovereign-trust-boundaries"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-typed-state"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-trace-context",
+]
+
+[[package]]
+name = "sovereign-typical-sampling"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-ulid"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-unigram-tokenizer"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-union-find"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -4552,6 +6627,126 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-varint"
+version = "0.1.0"
+
+[[package]]
+name = "sovereign-vector-clock"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-viterbi"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-vm-channel"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-vm-workload"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-vnni"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-vptree"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-watermark"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-weighted-reservoir"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-wer"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-edit-align",
+]
+
+[[package]]
+name = "sovereign-whitelabel"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-wordpiece"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-worker-fleet"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-worker-status-word",
+]
+
+[[package]]
+name = "sovereign-worker-status-word"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-workflow-graph"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-workspace-folder-registry"
 version = "0.1.0"
 dependencies = [
@@ -4561,12 +6756,56 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-world-model"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-xtc-sampler"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-zfs-commit-gate"
 version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+]
+
+[[package]]
+name = "sovereign-zfs-dataset-layout"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-zfs-provisioning-plan"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-zfs-dataset-layout",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-zfs-snapshot-policy"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

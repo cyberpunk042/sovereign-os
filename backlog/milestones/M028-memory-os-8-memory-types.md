@@ -16,7 +16,7 @@
 | E0263 | Temporal Memory — what-was-true-then / what-is-true-now / what-changed / who-contradicted / when-last-verified; many facts change (preferred model / repo test command / current branch / API version / user preference / project architecture / dependency behavior) | 8238–8264 |
 | E0264 | Memory Admission + Lifecycle — value-driven admission (store-if / ignore-if rules) + 11-stage lifecycle (observe → classify → quarantine → link → score → store raw → extract facts → verify → promote → decay/archive); plugs into Value Plane | 8266–8308 |
 | E0265 | RLM + SLM + Reward memory roles — RLM memory navigator (queries/scripts/child calls); SLM cheap maintenance (extract / tag / dedup / topic / edges / classify-failure / summarize); Reward memory = local experience base; memory = compressed experience (skill = crystallized memory / profile = crystallized preference / routing policy = crystallized performance) | 8310–8385 |
-| E0266 | On-workstation hardware mapping + Memory Query Pipeline — RAM hot / NVMe-ZFS cold / Blackwell deep synthesis / 3090 extraction-reranking-SLM-tagging-edges / AVX-512 metadata-bitset-freshness-trust-candidate-packing; 8-step query (intent → AVX bitset → sketch popcount → embed/rerank → graph expand → temporal validate → RLM recursive → oracle synthesis); smarter than top-k vectors | 8387–8422 |
+| E0266 | On-workstation hardware mapping + Memory Query Pipeline — RAM hot / NVMe-ZFS cold / Blackwell deep synthesis / 4090 extraction-reranking-SLM-tagging-edges / AVX-512 metadata-bitset-freshness-trust-candidate-packing; 8-step query (intent → AVX bitset → sketch popcount → embed/rerank → graph expand → temporal validate → RLM recursive → oracle synthesis); smarter than top-k vectors | 8387–8422 |
 | E0267 | Profiles Affect Memory + new architecture component "Memory Operating System" + key line "Intelligence improves when memory stops being recall and becomes adaptive state" | 8423–8474 |
 
 ## Modules (M00459–M00475)
@@ -38,7 +38,7 @@
 | M00471 | Memory lifecycle — 11-stage pipeline (observe / classify / quarantine / link / score / store raw / extract facts / verify / promote / decay / archive) | 8295–8308 | E0264 |
 | M00472 | RLM memory navigator — gets memory environment; writes queries/scripts; spawns child calls over slices; returns composed answer | 8312–8331 | E0265 |
 | M00473 | SLM memory janitor — 7 cheap maintenance jobs (extract / tag / dedup / topic-label / graph-edge propose / classify-failure / summarize) | 8336–8345 | E0265 |
-| M00474 | Memory hardware mapping — RAM hot / NVMe-ZFS cold / Blackwell deep synthesis / 3090 extraction-rerank-tag-edges / AVX-512 metadata-bitset-filter | 8389–8406 | E0266 |
+| M00474 | Memory hardware mapping — RAM hot / NVMe-ZFS cold / Blackwell deep synthesis / 4090 extraction-rerank-tag-edges / AVX-512 metadata-bitset-filter | 8389–8406 | E0266 |
 | M00475 | 8-step Memory Query Pipeline — intent / AVX bitset filter / sketch popcount / embedding rerank / graph expansion / temporal validation / RLM recursive / oracle synthesis | 8408–8421 | E0266 |
 
 ## Features (F02296–F02380)
@@ -279,7 +279,7 @@
 | R04732 | Hardware mapping — RAM stores hot memory metadata / active graph / indexes / embeddings cache | 8392–8393 | M00474 | non-negotiable | true | 10 |
 | R04733 | Hardware mapping — NVMe/ZFS stores raw episodes / replay logs / documents / model artifacts / snapshots | 8395–8396 | M00474 | non-negotiable | true | 10 |
 | R04734 | Hardware mapping — Blackwell does deep synthesis / conflict resolution / high-value memory promotion | 8398–8399 | M00474 | non-negotiable | true | 10 |
-| R04735 | Hardware mapping — 3090 does memory extraction / reranking / SLM tagging / graph edge proposals | 8401–8402 | M00474 | non-negotiable | true | 10 |
+| R04735 | Hardware mapping — 4090 does memory extraction / reranking / SLM tagging / graph edge proposals | 8401–8402 | M00474 | non-negotiable | true | 10 |
 | R04736 | Hardware mapping — AVX-512 CPU does metadata scans / bitset intersections / freshness-trust filters / candidate packing | 8404–8405 | M00474 | non-negotiable | true | 10 |
 | R04737 | Memory Query Pipeline step 1 — Intent → memory need | 8411 | M00475 | non-negotiable | true | 10 |
 | R04738 | Memory Query Pipeline step 2 — AVX-512 bitset filter | 8412 | M00475 | non-negotiable | true | 10 |

@@ -1,0 +1,12 @@
+[Unit]
+Description=Weekly root-ghostproxy endpoint-envelope drift verify (SDD-046)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/hooks/recurrent/root-ghostproxy-verify.sh
+
+[Timer]
+OnCalendar=Sun 06:00:00
+RandomizedDelaySec=1800
+Persistent=true
+Unit=sovereign-ghostproxy-verify.service
+
+[Install]
+WantedBy=timers.target

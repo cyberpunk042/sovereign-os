@@ -37,6 +37,7 @@ Layer B metrics:
   sovereign_os_auditor_neutralization_total{result}
   sovereign_os_auditor_event_parse_total{outcome}
   sovereign_os_auditor_last_neutralization_timestamp
+  sovereign_os_auditor_stream_eof_total
 """
 
 from __future__ import annotations
@@ -224,7 +225,19 @@ def main() -> int:
         sys.stderr.write(f"[FATAL STRUCTURAL FRICTION] {e}\n")
         return 1
 
-    return 0
+    # The read loop only falls through on end-of-file — Tetragon dropped
+    # the stream (e.g. an OPNsense/SD-WAN interface re-shuffle bouncing
+    # the management path). Exiting 0 here would hide the blinding of the
+    # containment loop; exit nonzero so the systemd restart is recorded
+    # as a failure-recovery, per the dump's dropout-prevention verbatim
+    # ("instantly restart the security loop if the local UNIX socket
+    # encounters an end-of-file (EOF) exception").
+    sys.stderr.write(
+        f"[EOF] tetragon event stream at {SOCKET_PATH} closed — "
+        f"perimeter blind; exiting for systemd restart\n"
+    )
+    _emit_metric("sovereign_os_auditor_stream_eof_total", 1)
+    return 1
 
 
 if __name__ == "__main__":

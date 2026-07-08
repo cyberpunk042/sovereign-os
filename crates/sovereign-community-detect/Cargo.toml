@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-community-detect"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Graph community detection by label propagation: each node iteratively adopts the most common label among its neighbours until the partition stabilizes, finding densely-connected groups in near-linear time, plus a modularity score to judge the partition's quality. For clustering a knowledge graph into communities (GraphRAG) and grouping related entities or documents."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

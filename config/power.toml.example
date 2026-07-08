@@ -18,13 +18,19 @@ atx_revision = "3.1"
 overclock_mode_supported = true
 overclock_mode_enabled   = false   # flip after enabling via PSU switch
 
-# R259: when overclock_mode_enabled=true the SUSTAINED budget gets
-# multiplied by this factor (default 1.10 = +10%). be Quiet! Dark
-# Power Pro 13's OC mode advertises a transient peak above this, but
-# sustained is conservatively ~10% above rated. Bump to 1.15 if you
-# have verified your cooling + airflow handle the heat, OR drop to
-# 1.05 for a more conservative posture.
-overclock_multiplier     = 1.10
+# R259: when overclock_mode_enabled=true the SUSTAINED budget is
+# multiplied by this factor. DEFAULT 1.0 = NO sustained lift.
+#
+# This matches the operator-mandated reference PSU (mandate E1.M33 +
+# psu-oc.py): the be Quiet! Dark Power Pro 13's OC switch is a multi-rail
+# -> single-rail consolidation. It lets ONE rail (e.g. GPU) draw closer to
+# the existing total + lifts the PEAK/transient envelope (ATX 3.1), but it
+# does NOT raise the SUSTAINED total budget. Per-rail / GPU-OC headroom is
+# `psu-oc` / `oc-headroom`'s job, not a sustained multiplier here.
+#
+# Leave at 1.0 unless your specific PSU's datasheet states OC mode raises
+# the SUSTAINED rating; only then set it to that ratio (and verify cooling).
+overclock_multiplier     = 1.0
 
 # Sustained budget derating: PSU rated W × this factor is the watt
 # budget the script uses for the headroom calculation. 0.85 is the
@@ -43,6 +49,12 @@ tdp_watts = 170
 
 # ─── Graceful-shutdown profile when on UPS battery ───
 [graceful_shutdown]
+# Arm the power-shutdown-guard hook via config (SDD-029 gate 2). When
+# true, a `critical` UPS verdict triggers a graceful shutdown WITHOUT
+# needing the SOVEREIGN_OS_POWER_SHUTDOWN_ARMED=YES env var. Default
+# false: the host warns loudly but never auto-shuts-down until you
+# opt in here (or via the env var).
+enabled = false
 # When battery_charge drops to this %, fire the shutdown.
 battery_critical_pct = 15
 # When battery time_left drops to this many minutes, surface a warn.

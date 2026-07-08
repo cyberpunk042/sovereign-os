@@ -48,6 +48,28 @@ runtime_profile_get_tier_field() {
 
   YAML_FILE="${yaml}" TIER="${tier}" FIELD="${field}" python3 - <<'PY'
 import os, yaml
+from pathlib import Path
+
+
+def _resolve_intent(alloc):
+    """SDD-043 Phase 2/3: an allocation may bind its model by tier_intent
+    instead of a literal `model`. Resolve it at launch via the VRAM-aware
+    selector so intent-driven (generated) profiles actually start."""
+    intent = alloc.get("tier_intent")
+    if not intent:
+        return None
+    repo_root = Path(os.environ["YAML_FILE"]).resolve().parents[2]
+    sel_path = repo_root / "scripts" / "models" / "select-by-intent.py"
+    if not sel_path.is_file():
+        return None
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("select_by_intent", sel_path)
+    m = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(m)
+    chosen = m.select(m.load_catalog(), intent, tier=alloc.get("tier"))
+    return chosen["id"] if chosen else None
+
+
 try:
     with open(os.environ["YAML_FILE"]) as f:
         data = yaml.safe_load(f) or {}
@@ -57,6 +79,11 @@ try:
             v = alloc.get(os.environ["FIELD"])
             if v is not None:
                 print(v)
+            elif os.environ["FIELD"] == "model":
+                # No literal model → resolve tier_intent (Phase 2/3).
+                r = _resolve_intent(alloc)
+                if r:
+                    print(r)
             break
 except Exception:
     pass

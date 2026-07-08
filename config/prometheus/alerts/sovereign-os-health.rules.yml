@@ -1,0 +1,399 @@
+# sovereign-os operational-health Prometheus alerting rules.
+#
+# These alerts fire on the Layer-B textfile metrics the sovereign-os
+# RECURRENT HOOKS emit into node_exporter's textfile_collector. Until now
+# the only sovereign_os_* alerts shipped were the four-watchdog (selfdef
+# mirror), M060 chain-health, MS022 SSE-quota, and sovereign-telemetry
+# surfaces — the OS's OWN core health metrics (hardware-integrity gate,
+# security perimeter, ZFS pool, state-fabric backups) were SCRAPED but
+# NEVER ALERTED. A failing friction audit, a downed Tetragon fence, a
+# degraded pool, or stalled backups produced no page — the operator only
+# found out by eyeballing a dashboard. This file closes that gap.
+#
+# Each expr references a metric a recurrent hook actually emits (kept in
+# lockstep with the emitters by tests/lint/test_sovereign_os_health_alerts_contract.py):
+#   sovereign_os_friction_audit_failures{profile}            friction-audit-runtime.sh
+#   sovereign_os_perimeter_status                            tetragon-policy-verify.sh
+#   sovereign_os_perimeter_verify_last_run_timestamp         tetragon-policy-verify.sh
+#   sovereign_os_zfs_pool_health{pool}                       zfs-scrub.sh
+#   sovereign_os_zfs_scrub_last_run_timestamp{pool}          zfs-scrub.sh
+#   sovereign_os_snapshot_last_created_timestamp{dataset}    backup-snapshot.sh
+#   sovereign_os_selfdef_sync_behind_commits                 selfdef-sync.sh
+#   sovereign_os_selfdef_sync_result{result}                         (same)
+#   sovereign_os_selfdef_sync_last_run_timestamp                     (same)
+#   sovereign_os_ghostproxy_endpoint_verify_result{result}   root-ghostproxy-verify.sh
+#   sovereign_os_ghostproxy_endpoint_verify_last_run_timestamp       (same)
+#
+# Drop into the Prometheus rule_files config:
+#   rule_files:
+#     - /etc/prometheus/alerts/sovereign-os-health.rules.yml
+groups:
+  - name: sovereign-os-health
+    rules:
+      # The runtime hardware-integrity gate found one or more FAILING checks
+      # (GPU lane width < x8, GPUs sharing an IOMMU group, RAM below the
+      # profile minimum, or a degraded ZFS pool). Per master spec §5.1 a
+      # friction failure is "CRITICAL ARCHITECTURAL FRICTION" — the box is
+      # not running the hardware the profile was validated against.
+      - alert: SovereignOsFrictionAuditFailing
+        expr: sovereign_os_friction_audit_failures > 0
+        for: 0m
+        labels:
+          severity: critical
+          subsystem: hardware
+        annotations:
+          summary: "sovereign-os friction audit FAILING on {{ $labels.instance }} ({{ $value }} failing check(s), profile {{ $labels.profile }})"
+          description: >
+            sovereign_os_friction_audit_failures is {{ $value }} for profile
+            {{ $labels.profile }} — the runtime hardware-integrity gate
+            (friction-audit-runtime) detected at least one hard failure: a GPU
+            below its expected x8 link width, the primary + VFIO GPUs sharing
+            an IOMMU group, installed RAM under the profile minimum, or a
+            degraded ZFS pool. The host is not running the validated hardware
+            shape; VFIO passthrough / bifurcation may be silently broken.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#sovereignosfrictionauditfailing-critical"
+
+      # The Tetragon kernel-fence policy is not loaded (drift / down / missing).
+      # While this holds the security perimeter (sovereign-kernel-fence) is OFF
+      # and kernel-level execution is unconstrained.
+      - alert: SovereignOsPerimeterDown
+        expr: sovereign_os_perimeter_status < 1
+        for: 2m
+        labels:
+          severity: critical
+          subsystem: perimeter
+        annotations:
+          summary: "sovereign-os security perimeter DOWN on {{ $labels.instance }}"
+          description: >
+            sovereign_os_perimeter_status is 0 — the tetragon-policy-verify hook
+            could not confirm the sovereign-kernel-fence TracingPolicy is loaded
+            (tetragon inactive, the policy file is missing, or no load record in
+            this boot's journal). The kernel-level execution fence is OFF;
+            treat as a security-availability incident. Cross-check the
+            PERIMETER_* entries in the security audit log.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#sovereignosperimeterdown-critical"
+
+      # The daily perimeter verifier hasn't reported in over two days — the
+      # fence might be down with nobody checking. Distinct from PerimeterDown:
+      # that needs a fresh status=0; this catches the verifier itself going
+      # silent (timer dead / host wedged).
+      - alert: SovereignOsPerimeterVerifierSilent
+        expr: time() - sovereign_os_perimeter_verify_last_run_timestamp > 172800
+        for: 10m
+        labels:
+          severity: warning
+          subsystem: perimeter
+        annotations:
+          summary: "sovereign-os perimeter verifier silent on {{ $labels.instance }} (no run in >2d)"
+          description: >
+            sovereign_os_perimeter_verify_last_run_timestamp is more than two
+            days old — the daily tetragon-policy-verify timer has not run. The
+            perimeter status you see may be stale; the fence could be down
+            without SovereignOsPerimeterDown firing on fresh data. Check the
+            sovereign-tetragon-verify.timer and the host's clock.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#sovereignosperimeterverifiersilent-warning"
+
+      # A ZFS pool is not ONLINE (DEGRADED / FAULTED / UNAVAIL). The
+      # snapshot-replicate sovereignty strategy assumes a healthy pool; a
+      # degraded pool is a live data-integrity risk for the state-fabric.
+      - alert: SovereignOsZfsPoolDegraded
+        expr: sovereign_os_zfs_pool_health < 1
+        for: 1m
+        labels:
+          severity: critical
+          subsystem: storage
+        annotations:
+          summary: "sovereign-os ZFS pool {{ $labels.pool }} not ONLINE on {{ $labels.instance }}"
+          description: >
+            sovereign_os_zfs_pool_health{pool="{{ $labels.pool }}"} is 0 — the
+            pool is DEGRADED / FAULTED / UNAVAIL or absent. On the default
+            RAID-0 sain-01 layout there is no redundancy, so a degraded vdev is
+            a data-loss risk: the irreplaceable state-fabric (tank/context)
+            lives here. Run `zpool status -x`, identify the affected vdev, and
+            follow the storage friction runbook before writing more state.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#sovereignoszfspooldegraded-critical"
+
+      # The weekly scrub hasn't completed in over two weeks — latent on-disk
+      # corruption (bit-rot) goes undetected without periodic scrubs.
+      - alert: SovereignOsZfsScrubOverdue
+        expr: time() - sovereign_os_zfs_scrub_last_run_timestamp > 1209600
+        for: 10m
+        labels:
+          severity: warning
+          subsystem: storage
+        annotations:
+          summary: "sovereign-os ZFS scrub overdue for pool {{ $labels.pool }} on {{ $labels.instance }} (>2 weeks)"
+          description: >
+            sovereign_os_zfs_scrub_last_run_timestamp{pool="{{ $labels.pool }}"}
+            is more than two weeks old — the weekly zfs-scrub has not run, so
+            latent checksum errors (bit-rot) on the NVMe are not being detected
+            or repaired. Check the sovereign-zfs-scrub.timer; kick a manual
+            `zpool scrub {{ $labels.pool }}` if the host was off through the
+            scheduled window.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#sovereignoszfsscruboverdue-warning"
+
+      # The daily state-fabric snapshot hasn't been taken in over two days —
+      # the SDD-017 point-in-time recovery window is going stale.
+      - alert: SovereignOsBackupSnapshotStale
+        expr: time() - sovereign_os_snapshot_last_created_timestamp > 172800
+        for: 10m
+        labels:
+          severity: warning
+          subsystem: storage
+        annotations:
+          summary: "sovereign-os state-fabric snapshot stale for {{ $labels.dataset }} on {{ $labels.instance }} (>2d)"
+          description: >
+            sovereign_os_snapshot_last_created_timestamp{dataset="{{ $labels.dataset }}"}
+            is more than two days old — the daily backup-snapshot of the
+            irreplaceable state-fabric (SDD-017) has not run. Each missed day
+            widens the gap between now and the latest recoverable point. Check
+            the sovereign-backup-snapshot.timer and that the dataset still
+            exists; a failing `zfs snapshot` (pool full / held) also stalls it.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#sovereignosbackupsnapshotstale-warning"
+
+      # Pending security-only upgrades have been available for a sustained
+      # window — the host is running known-vulnerable packages. The `> 0`
+      # comparison excludes the -1 "check could not determine" sentinel.
+      - alert: SovereignOsSecurityUpdatesPending
+        expr: sovereign_os_security_updates_available > 0
+        for: 6h
+        labels:
+          severity: warning
+          subsystem: security
+        annotations:
+          summary: "sovereign-os has {{ $value }} pending security update(s) on {{ $labels.instance }}"
+          description: >
+            sovereign_os_security_updates_available is {{ $value }} — security-only
+            upgrades (Debian-Security origin) have been pending for over 6h. The
+            host is running packages with published vulnerabilities. Apply them
+            (`apt-get -y --only-upgrade install` the security set, or the
+            operator's patch workflow) and reboot if a kernel/libc update
+            landed. The gauge clears on the next daily check once 0 remain.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#sovereignossecurityupdatespending-warning"
+
+      # The daily security-update check hasn't reported in over two days — the
+      # patch posture is unknown (the gauge you see may be stale, or a -1
+      # sentinel from a check that can't reach the security suite).
+      - alert: SovereignOsSecurityUpdateCheckStale
+        expr: time() - sovereign_os_security_update_check_last_run_timestamp > 172800
+        for: 10m
+        labels:
+          severity: warning
+          subsystem: security
+        annotations:
+          summary: "sovereign-os security-update check silent on {{ $labels.instance }} (no run in >2d)"
+          description: >
+            sovereign_os_security_update_check_last_run_timestamp is more than
+            two days old — the daily security-update-check has not run, so the
+            pending-updates gauge is stale and the patch posture is unknown.
+            Check the sovereign-security-update-check.timer and that apt can
+            reach the security suite (a -1 sovereign_os_security_updates_available
+            means the check ran but couldn't determine the count).
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#sovereignossecurityupdatecheckstale-warning"
+
+      # A hardware sensor is at/above its profile CRITICAL threshold (sain-01:
+      # 95C). This is the thermal-watch hook path (R172, per-sensor, profile
+      # thresholds) — distinct from the sovereign-telemetry dispatcher verdict
+      # (SovereignTelemetryThermalShutdown). Sustained critical risks throttling
+      # or thermal damage.
+      - alert: SovereignOsThermalCritical
+        expr: sovereign_os_thermal_severity{level="critical"} > 0
+        for: 2m
+        labels:
+          severity: critical
+          subsystem: hardware
+        annotations:
+          summary: "sovereign-os sensor {{ $labels.sensor }} at CRITICAL temperature on {{ $labels.instance }}"
+          description: >
+            sovereign_os_thermal_severity{sensor="{{ $labels.sensor }}",level="critical"}
+            is 1 — the sensor has held at or above its profile critical threshold
+            for 2m+ (thermal-watch R172). The host risks thermal throttling and,
+            sustained, hardware damage. Reduce load (halt inference, drop the GPU
+            power limit) and restore cooling (airflow, fan curve). Cross-check the
+            absolute temp in sovereign_os_thermal_celsius{sensor="{{ $labels.sensor }}"}.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#sovereignosthermalcritical-critical"
+
+      # The 5-minute thermal monitor has gone silent — thermal blind spot. A
+      # sensor could be cooking with no critical alert firing on fresh data.
+      - alert: SovereignOsThermalWatchSilent
+        expr: time() - sovereign_os_thermal_last_run_unix > 1800
+        for: 5m
+        labels:
+          severity: warning
+          subsystem: hardware
+        annotations:
+          summary: "sovereign-os thermal monitor silent on {{ $labels.instance }} (no run in >30m)"
+          description: >
+            sovereign_os_thermal_last_run_unix is more than 30 minutes old — the
+            5-minute thermal-watch monitor has not run, so the per-sensor
+            temperature + severity gauges are stale and SovereignOsThermalCritical
+            cannot fire on fresh data. Check the sovereign-thermal-watch.timer and
+            that the hwmon / nvidia-smi sensors are still readable.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#sovereignosthermalwatchsilent-warning"
+
+      # The power-shutdown guard actually issued shutdown(8) — the UPS hit a
+      # critical state and the host is going down NOW. This is the discrete
+      # "it fired" event (distinct from the verdict gauge below).
+      - alert: SovereignOsPowerShutdownGuardFired
+        expr: sovereign_os_power_shutdown_guard_fired > 0
+        for: 0m
+        labels:
+          severity: critical
+          subsystem: power
+        annotations:
+          summary: "sovereign-os power-shutdown guard FIRED on {{ $labels.instance }} — host is shutting down"
+          description: >
+            sovereign_os_power_shutdown_guard_fired is 1 — the power-shutdown
+            guard reached a confirmed critical UPS state while armed and issued
+            shutdown(8). The host is powering off to protect the state-fabric
+            from an unclean loss. Expect the instance to go down; on return,
+            confirm the UPS recovered (`sovereign_os_power_shutdown_guard_verdict`
+            back to 0) before re-arming.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#sovereignospowershutdownguardfired-critical"
+
+      # UPS at a critical state (verdict code 2) — imminent power loss. Pages
+      # before the guard fires shutdown so the operator can intervene (or
+      # confirm a graceful shutdown is the right call).
+      - alert: SovereignOsPowerUpsCritical
+        expr: sovereign_os_power_shutdown_guard_verdict == 2
+        for: 1m
+        labels:
+          severity: critical
+          subsystem: power
+        annotations:
+          summary: "sovereign-os UPS at CRITICAL on {{ $labels.instance }} (imminent power loss)"
+          description: >
+            sovereign_os_power_shutdown_guard_verdict is 2 (critical) — the UPS
+            reports a critical battery/runtime state. If the guard is armed it
+            will issue shutdown shortly (see SovereignOsPowerShutdownGuardFired).
+            Restore mains power or reduce load; verdict codes: 0=ok 1=attention
+            2=critical 3=no-ups 9=error.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#sovereignospowerupscritical-critical"
+
+      # Processes were killed by the OOM killer in the recent window — the host
+      # ran out of memory. increase() over 15m catches NEW kills (the gauge's
+      # cgroup component is cumulative; increase handles reboots/resets).
+      - alert: SovereignOsMemoryOomKills
+        expr: increase(sovereign_os_memory_oom_kill_count[15m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          subsystem: memory
+        annotations:
+          summary: "sovereign-os OOM kills on {{ $labels.instance }} ({{ $value }} in 15m)"
+          description: >
+            sovereign_os_memory_oom_kill_count rose in the last 15m — the kernel
+            OOM-killer terminated one or more processes because the host ran out
+            of memory (cgroup memory.events oom_kill + journal scan). A killed
+            inference / daemon / collector may have left work half-done. Identify
+            the memory hog (`journalctl -k | grep -i 'killed process'`), reduce
+            the working set (batch size, model size, concurrent jobs), or add RAM.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#sovereignosmemoryoomkills-critical"
+
+      # The selfdef (IPS) checkout has been behind upstream for a sustained
+      # window — the operator is running stale defense modules / mirror
+      # schemas. The weekly selfdef-sync hook reports drift; APPLY is gated
+      # (SOVEREIGN_OS_CONFIRM_SELFDEF_SYNC=YES), so this page is the nudge
+      # to run the gated update.
+      - alert: SovereignOsSelfdefCheckoutBehind
+        expr: sovereign_os_selfdef_sync_behind_commits > 0
+        for: 24h
+        labels:
+          severity: warning
+          subsystem: security
+        annotations:
+          summary: "sovereign-os selfdef checkout {{ $value }} commit(s) behind upstream on {{ $labels.instance }}"
+          description: >
+            sovereign_os_selfdef_sync_behind_commits is {{ $value }} — the
+            selfdef (IPS) checkout has been behind its upstream for over a day
+            past the weekly check. Stale defense modules and mirror schemas
+            keep running, but the operator is not receiving the latest IPS
+            updates (SDD-001: selfdef RUNS, sovereign-os only keeps the
+            checkout fresh). Run the gated update:
+            SOVEREIGN_OS_CONFIRM_SELFDEF_SYNC=YES selfdef-sync.sh.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#sovereignosselfdefcheckoutbehind-warning"
+
+      # The selfdef checkout is in a state the sync hook cannot resolve
+      # (diverged from upstream) or is missing entirely (absent) — fast-
+      # forward updates are impossible until the operator intervenes.
+      - alert: SovereignOsSelfdefCheckoutUnhealthy
+        expr: sovereign_os_selfdef_sync_result{result=~"diverged|absent"} == 1
+        for: 1h
+        labels:
+          severity: warning
+          subsystem: security
+        annotations:
+          summary: "sovereign-os selfdef checkout {{ $labels.result }} on {{ $labels.instance }}"
+          description: >
+            sovereign_os_selfdef_sync_result reports {{ $labels.result }} —
+            either no selfdef checkout exists at SOVEREIGN_OS_SELFDEF_DIR
+            (absent) or the local tree has diverged from upstream and the
+            fast-forward-only sync refuses to touch it (diverged). The IPS
+            keeps running its installed version, but no further updates can
+            land until the checkout is restored or the divergence is resolved
+            manually in the selfdef working tree.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#sovereignosselfdefcheckoutunhealthy-warning"
+
+      # The weekly selfdef-sync hasn't reported in over two weeks — the
+      # freshness gauges above are stale and the IPS update posture is
+      # unknown.
+      - alert: SovereignOsSelfdefSyncStale
+        expr: time() - sovereign_os_selfdef_sync_last_run_timestamp > 1209600
+        for: 10m
+        labels:
+          severity: warning
+          subsystem: security
+        annotations:
+          summary: "sovereign-os selfdef-sync silent on {{ $labels.instance }} (no run in >2 weeks)"
+          description: >
+            sovereign_os_selfdef_sync_last_run_timestamp is more than two weeks
+            old — the weekly selfdef freshness check has not run, so the
+            behind-commits gauge is stale and the operator's IPS update posture
+            is unknown. Check the sovereign-selfdef-sync.timer and that the
+            checkout at SOVEREIGN_OS_SELFDEF_DIR is reachable from the unit's
+            sandbox (ReadWritePaths).
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#sovereignosselfdefsyncstale-warning"
+
+      # The root-ghostproxy AI-agent safety envelope (SDD-046 — endpoint
+      # mode, proxy half OFF) has drifted from its spec, or the checkout
+      # the weekly verify runs against is missing. The envelope keeps
+      # running as-installed, but drift means the machine-level Claude
+      # Code / opencode safety policy no longer matches what
+      # root-ghostproxy's installer would deploy.
+      - alert: SovereignOsGhostproxyEnvelopeUnhealthy
+        expr: sovereign_os_ghostproxy_endpoint_verify_result{result=~"drift|absent"} == 1
+        for: 1h
+        labels:
+          severity: warning
+          subsystem: security
+        annotations:
+          summary: "sovereign-os root-ghostproxy envelope {{ $labels.result }} on {{ $labels.instance }}"
+          description: >
+            sovereign_os_ghostproxy_endpoint_verify_result reports
+            {{ $labels.result }} — either the deployed AI-agent safety
+            envelope no longer matches root-ghostproxy's spec (drift) or
+            no checkout exists at SOVEREIGN_OS_ROOT_GHOSTPROXY_DIR
+            (absent). Remediation is gated (SDD-046): re-run the install
+            hook with SOVEREIGN_OS_CONFIRM_GHOSTPROXY_INSTALL=YES. The
+            proxy half stays OFF — the hook pins --mode endpoint.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#sovereignosghostproxyenvelopeunhealthy-warning"
+
+      # The weekly root-ghostproxy verify hasn't reported in over two
+      # weeks — the drift gauge above is stale and the AI-agent envelope
+      # posture is unknown.
+      - alert: SovereignOsGhostproxyVerifyStale
+        expr: time() - sovereign_os_ghostproxy_endpoint_verify_last_run_timestamp > 1209600
+        for: 10m
+        labels:
+          severity: warning
+          subsystem: security
+        annotations:
+          summary: "sovereign-os root-ghostproxy verify silent on {{ $labels.instance }} (no run in >2 weeks)"
+          description: >
+            sovereign_os_ghostproxy_endpoint_verify_last_run_timestamp is
+            more than two weeks old — the weekly AI-agent envelope drift
+            check has not run, so the operator's endpoint-safety posture
+            is unknown. Check sovereign-ghostproxy-verify.timer and that
+            the checkout at SOVEREIGN_OS_ROOT_GHOSTPROXY_DIR is reachable
+            from the unit's sandbox.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#sovereignosghostproxyverifystale-warning"

@@ -36,25 +36,31 @@ for k in ('current', 'target', 'verdict'):
 pass "2. recommend verb returns same shape as status"
 
 # ── 3. derive_target picks min of available probe recs ────
+# NOTE: R296 thermal-oc-budget contributes via its VERDICT (critical /
+# pull-oc-now -> 1.0; *-watch / both-tight -> min(current,1.05)), NOT a
+# numeric `recommended` block — feeding {'recommended': …} here would be a
+# value R296 never emits, so the thermal leg must be exercised by verdict.
 python3 -c "
 import importlib.util, json
 spec = importlib.util.spec_from_file_location('h', 'scripts/hardware/heat-oc-autothrottle.py')
 m = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(m)
-# Monkey-patch probes to simulate different recommendation values.
-m.probe_thermal_oc = lambda: {'recommended': {'gpu_oc_multiplier': 1.10}}
+# Thermal critical -> 1.0 (wins the min); mem-damper -> 1.05.
+m.probe_thermal_oc = lambda: {'verdict': 'critical'}
 m.probe_mem_damper = lambda: {'recommended_oc_multiplier': 1.05}
 m.probe_xmp_oc_room = lambda: {'verdict': 'has-budget'}
 m.probe_oc_headroom_current = lambda: 1.15
 r = m.derive_target(dict(m.DEFAULTS))
-# min of (1.10, 1.05) = 1.05; current 1.15 → damping needed.
-assert r['target'] == 1.05, r
+# min of (thermal 1.0, mem 1.05) = 1.0; current 1.15 → damping needed.
+assert r['target'] == 1.0, r
 assert r['current'] == 1.15
 assert r['verdict'] == 'damping-recommended', r
 assert r['rc'] == 1
+# Thermal leg genuinely contributed (not silently dropped).
+assert any(s['probe'].startswith('R296') for s in r['sources']), r
 print('PASS')
 " || fail "derive_target min"
-pass "3. derive_target picks min of (thermal, mem-damper) recommendations"
+pass "3. derive_target picks min of (thermal-verdict, mem-damper) recommendations"
 
 # ── 4. damping_floor prevents below-stock damping ──────────
 python3 -c "
@@ -62,14 +68,14 @@ import importlib.util
 spec = importlib.util.spec_from_file_location('h', 'scripts/hardware/heat-oc-autothrottle.py')
 m = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(m)
-m.probe_thermal_oc = lambda: {'recommended': {'gpu_oc_multiplier': 0.8}}
+m.probe_thermal_oc = lambda: {'verdict': 'critical'}        # -> 1.0
 m.probe_mem_damper = lambda: {'recommended_oc_multiplier': 0.5}
 m.probe_xmp_oc_room = lambda: {'verdict': 'has-budget'}
 m.probe_oc_headroom_current = lambda: 1.10
 cfg = dict(m.DEFAULTS)
 cfg['damping_floor'] = 1.0
 r = m.derive_target(cfg)
-# Both candidates below 1.0; floor clamps to 1.0.
+# min candidate 0.5 is below the floor; floor clamps to 1.0.
 assert r['target'] == 1.0, r
 print('PASS')
 " || fail "damping floor"
@@ -81,7 +87,7 @@ import importlib.util
 spec = importlib.util.spec_from_file_location('h', 'scripts/hardware/heat-oc-autothrottle.py')
 m = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(m)
-m.probe_thermal_oc = lambda: {'recommended': {'gpu_oc_multiplier': 1.0}}
+m.probe_thermal_oc = lambda: {'verdict': 'safe'}            # -> no contribution
 m.probe_mem_damper = lambda: {'recommended_oc_multiplier': 1.0}
 m.probe_xmp_oc_room = lambda: {'verdict': 'has-budget'}
 m.probe_oc_headroom_current = lambda: 1.0
@@ -91,6 +97,32 @@ assert r['rc'] == 0
 print('PASS')
 " || fail "no damping"
 pass "5. no-damping-needed when target = current (rc=0)"
+
+# ── 5b. REGRESSION: thermal verdict actually drives the throttle ──
+# Locks the full R296 verdict -> target contract. Before this, derive_target
+# read thermal['recommended']['gpu_oc_multiplier'] (a field R296 never emits),
+# so the 'heat-tied' throttle silently ignored every real thermal reading.
+python3 -c "
+import importlib.util
+spec = importlib.util.spec_from_file_location('h', 'scripts/hardware/heat-oc-autothrottle.py')
+m = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(m)
+m.probe_mem_damper = lambda: None
+m.probe_xmp_oc_room = lambda: None
+m.probe_oc_headroom_current = lambda: 1.15
+cases = {'critical': 1.0, 'pull-oc-now': 1.0,
+         'both-tight': 1.05, 'thermal-watch': 1.05, 'psu-watch': 1.05,
+         'safe': 1.15, 'thermal-probe-unavailable': 1.15}
+for tv, exp in cases.items():
+    m.probe_thermal_oc = lambda tv=tv: {'verdict': tv}
+    r = m.derive_target(dict(m.DEFAULTS))
+    assert abs(r['target'] - exp) < 1e-6, (tv, r['target'], exp)
+    contributed = any(s['probe'].startswith('R296') for s in r['sources'])
+    # safe / unavailable must NOT contribute; everything else must.
+    assert contributed == (tv not in ('safe', 'thermal-probe-unavailable')), (tv, r['sources'])
+print('PASS')
+" || fail "thermal verdict drives throttle"
+pass "5b. thermal verdict drives the heat-tied throttle (critical/pull-oc-now→1.0, *-watch→1.05, safe→hold)"
 
 # ── 6. apply without ANY gates → dry-run (does not write) ──
 state=$(mktemp -u)

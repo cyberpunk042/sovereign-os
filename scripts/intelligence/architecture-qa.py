@@ -168,7 +168,7 @@ ARCHITECTURE_GOTCHAS: list[dict[str, Any]] = [
                      "internal high-speed PCIe lanes coming off the "
                      "Ryzen 9 9900X CPU. When you operate a dual GPU "
                      "layout (e.g., matching your future NVIDIA RTX PRO "
-                     "6000 Blackwell with your current RTX 3090), the "
+                     "6000 Blackwell with your current RTX 4090), the "
                      "physical top two PCIe 5.0 slots drop down from "
                      "an isolated x16 lanes execution mode to a shared "
                      "x8 / x8 execution topology."),
@@ -415,7 +415,7 @@ ARCHITECTURE_CONCEPTS: list[dict[str, Any]] = [
                          "small context blocks. Executing this on the "
                          "CPU via AVX-512 prevents constant small-"
                          "kernel context-switching on the GPUs. "
-                         "The Logic Engine (GPU 0 - RTX 3090): Heavy-"
+                         "The Logic Engine (GPU 0 - RTX 4090): Heavy-"
                          "duty parsing, regular expression extraction, "
                          "structural JSON compilation, and fast text "
                          "embedding generation. Mid-scale quantized "
@@ -436,7 +436,7 @@ ARCHITECTURE_CONCEPTS: list[dict[str, Any]] = [
                          "quantization degradation allows for absolute "
                          "accuracy during complex system optimization."),
         "tags": ["srp", "conductor", "logic-engine", "oracle-core",
-                 "blackwell", "rtx-3090", "rtx-pro-6000", "q4_k_m",
+                 "blackwell", "rtx-4090", "rtx-pro-6000", "q4_k_m",
                  "iq4_nl", "fp16", "podman", "bitnet-cpp"],
         "spec_ref": "master spec §17.1 verbatim (Layered Responsibility Mapping)",
     },
@@ -530,7 +530,7 @@ ARCHITECTURE_CONCEPTS: list[dict[str, Any]] = [
                          "VRAM as a tiered execution fabric. Primary "
                          "Reasoning: Hosted on the 96GB Blackwell "
                          "(Direct Host). Speculative Decoding: Smaller "
-                         "draft models run on the 24GB 3090 (VFIO "
+                         "draft models run on the 24GB 4090 (VFIO "
                          "Sandbox). State Persistence: The 9900X "
                          "manages the 'Vibe' by updating state files "
                          "in the tank/context ZFS dataset, ensuring "
@@ -543,7 +543,7 @@ ARCHITECTURE_CONCEPTS: list[dict[str, Any]] = [
         "tags": ["vibe-manager", "120gb-vram", "tiered-execution",
                  "primary-reasoning", "speculative-decoding", "vfio-sandbox",
                  "state-persistence", "tank-context", "atomic-writes",
-                 "9900x", "blackwell-96gb", "rtx-3090-24gb"],
+                 "9900x", "blackwell-96gb", "rtx-4090-24gb"],
         "spec_ref": "master spec §5 + §7 verbatim (Operational Logic / Vibe Manager)",
     },
     {
@@ -683,7 +683,7 @@ ARCHITECTURE_CONCEPTS: list[dict[str, Any]] = [
                          "isolation); GPU Primary RTX PRO 6000 Blackwell "
                          "(96GB) (Rationale: Primary inference engine; "
                          "96GB VRAM for large-scale model residence); "
-                         "GPU Secondary RTX 3090 (24GB) (Rationale: "
+                         "GPU Secondary RTX 4090 (24GB) (Rationale: "
                          "Sandbox isolation; speculative decoding or "
                          "security agent offloading); Memory 256GB DDR5 "
                          "(Initial: 128GB) (Rationale: High-capacity "
@@ -703,7 +703,7 @@ ARCHITECTURE_CONCEPTS: list[dict[str, Any]] = [
                          "1600W ATX 3.1 Compliant 80 Plus Titanium. "
                          "PCIe & Storage Topology: "
                          "Lane Symmetry Slot 1 (Blackwell) and Slot 2 "
-                         "(3090) must operate in x8/x8 mode. Critical "
+                         "(4090) must operate in x8/x8 mode. Critical "
                          "Constraint: The M.2_2 slot must remain empty. "
                          "Occupying M.2_2 triggers bifurcation that "
                          "drops Slot 2 to x4, compromising the "
@@ -711,7 +711,7 @@ ARCHITECTURE_CONCEPTS: list[dict[str, Any]] = [
                          "in ZFS RAID 0 for maximum sequential "
                          "throughput (31.5 GB/s target)."),
         "tags": ["hardware", "ryzen-9-9900x", "asus-proart",
-                 "x870e-creator", "rtx-pro-6000", "rtx-3090", "96gb",
+                 "x870e-creator", "rtx-pro-6000", "rtx-4090", "96gb",
                  "24gb", "256gb-ddr5", "marvell-aqc113c", "10gbe",
                  "pcie-5", "m2_2-empty", "x8-x8", "magician-symmetry",
                  "zfs-raid-0", "31.5gb-s"],

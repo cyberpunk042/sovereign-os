@@ -11,13 +11,13 @@
 | E0020 | AMD Ryzen 9 9900X Zen 5 — single-cycle native 512-bit AVX-512 | 215 |
 | E0021 | ASUS ProArt X870E-Creator — dual PCIe 5.0 x8/x8 symmetric / IOMMU topology for VFIO | 216 |
 | E0022 | RTX PRO 6000 Blackwell (96 GB GDDR7) Oracle Core — large model residence / FP16 unquantized | 217 |
-| E0023 | RTX 3090 (24 GB GDDR6X) Logic Engine — VFIO-isolated sandbox / speculative decoding | 218 |
+| E0023 | RTX 4090 (24 GB GDDR6X) Logic Engine — VFIO-isolated sandbox / speculative decoding | 218 |
 | E0024 | 256 GB DDR5 (initial 128 GB) — system context + ZFS ARC headroom | 219 |
 | E0025 | 2× NVMe PCIe 5.0 in ZFS RAID-0 — 31.5 GB/s sequential target | 220 |
 | E0026 | Marvell AQC113C 10GbE + Intel I226-V 2.5GbE — asymmetric VLAN (mgmt vs data) | 221 |
 | E0027 | PCIe lane-sharing trap — PCIEX16(G5)_2 shares lanes with M.2_2 | 243–252 |
-| E0028 | Better layout — Blackwell x8 + 3090 x8 + M.2_1 x4 + chipset NVMe x4 | 258–266 |
-| E0029 | Power envelope — 600W Blackwell + 350W 3090 + 120W CPU + 80–150W board/NVMe/fans | 348–353 |
+| E0028 | Better layout — Blackwell x8 + 4090 x8 + M.2_1 x4 + chipset NVMe x4 | 258–266 |
+| E0029 | Power envelope — 600W Blackwell + 350W 4090 + 120W CPU + 80–150W board/NVMe/fans | 348–353 |
 | E0030 | 1600W PSU minimum / 2000W quiet headroom | 355 |
 | E0031 | CUDA bare-metal PCIe P2P incompatible with IOMMU on Linux | 597 |
 
@@ -28,11 +28,11 @@
 | M00029 | 9900X CPUID detection — Zen 5 family + AVX-512 family flag verification | 215 | E0020 |
 | M00030 | Zen 5 vs Zen 4 datapath — single-cycle full-width 512-bit vs double-pumped 256-bit | 215 | E0020 |
 | M00031 | ProArt X870E-Creator slot map — PCIEX16_1 / PCIEX16_2 / M.2_1 / M.2_2 / M.2_3 / M.2_4 | 216 | E0021 |
-| M00032 | IOMMU group probe — verify Blackwell + 3090 in distinct groups | 216 | E0021 |
+| M00032 | IOMMU group probe — verify Blackwell + 4090 in distinct groups | 216 | E0021 |
 | M00033 | Blackwell Oracle resident-model policy — keep model warm, large KV unquantized | 217 | E0022 |
 | M00034 | Blackwell hardware spec — 96 GB GDDR7 / 1.8 TB/s / PCIe Gen 5 / MIG / FP4 Tensor Cores / 600W | 267 | E0022 |
-| M00035 | 3090 Logic Engine — VFIO-isolated sandbox / draft model / speculative decoding | 218 | E0023 |
-| M00036 | 3090 hardware spec — 24 GB GDDR6X / PCIe Gen 4 / ~350W | 218 | E0023 |
+| M00035 | 4090 Logic Engine — VFIO-isolated sandbox / draft model / speculative decoding | 218 | E0023 |
+| M00036 | 4090 hardware spec — 24 GB GDDR6X / PCIe Gen 4 / ~350W | 218 | E0023 |
 | M00037 | DDR5 256 GB capacity — workstation feel; 128 GB intermediate | 219 | E0024 |
 | M00038 | DDR5 4-DIMM topology — ProArt X870E-Creator board max | 331 | E0024 |
 | M00039 | NVMe PCIe 5.0 x4 + x4 = 31.5 GB/s theoretical sequential | 220 | E0025 |
@@ -70,7 +70,7 @@
 | F00192 | Metric `sovereign_os_hardware_pcie_slot_width{slot}` | 216 | M00031 | observability_metric | true |
 | F00193 | Metric `sovereign_os_hardware_iommu_group_count` | 216 | M00032 | observability_metric | true |
 | F00194 | Test — friction-audit verifies x8/x8 GPU lane symmetry | 216 | M00031 | test | true |
-| F00195 | Test — friction-audit verifies Blackwell + 3090 in distinct IOMMU groups | 216 | M00032 | test | true |
+| F00195 | Test — friction-audit verifies Blackwell + 4090 in distinct IOMMU groups | 216 | M00032 | test | true |
 | F00196 | Lifecycle hook — first-boot abort if M.2_2 populated AND dual-GPU symmetry required | 245–252 | M00044 | lifecycle_hook | true |
 | F00197 | Composite — friction-audit composite (PCIe + IOMMU + slot map) | 216 | composite: [M00031, M00032, M00044] | capability | true |
 | F00198 | Blackwell oracle resident-model warm-keep | 217 | M00033 | mode | true |
@@ -87,18 +87,18 @@
 | F00209 | Test — Blackwell FP4 Tensor Cores accessible via TensorRT | 267 | M00034 | test | true |
 | F00210 | Lifecycle hook — Blackwell pre-load model warm-up | 217 | M00033 | lifecycle_hook | true |
 | F00211 | Lifecycle hook — Blackwell post-evict model cool-down | 217 | M00033 | lifecycle_hook | true |
-| F00212 | 3090 VFIO isolation mode | 218 | M00035 | mode | true |
-| F00213 | Profile knob — `gpu_3090_vfio_enabled` | 218 | M00035 | profile | true |
-| F00214 | Env var `SOVEREIGN_GPU_3090_VFIO_ENABLED` | 218 | M00035 | env_var | true |
-| F00215 | CLI `sovereign-osctl hardware gpu 3090 status` | 218 | M00035 | cli_verb | true |
-| F00216 | Dashboard surface — 3090 scout card (VRAM / draft tokens/sec / VFIO state / temp / power) | 218 | M00035 | dashboard | true |
-| F00217 | API `GET /v1/hardware/gpu/3090` | 218 | M00035 | api_endpoint | true |
-| F00218 | Metric `sovereign_os_gpu_3090_vram_used_bytes` | 218 | M00036 | observability_metric | true |
-| F00219 | Metric `sovereign_os_gpu_3090_vfio_active` (0/1) | 218 | M00035 | observability_metric | true |
-| F00220 | Test — 3090 bind to vfio-pci at boot | 218 | M00035 | test | true |
-| F00221 | Test — 3090 unbind from vfio-pci for host use | 218 | M00035 | test | true |
-| F00222 | Lifecycle hook — 3090 pre-VFIO-bind release host nvidia driver | 218 | M00035 | lifecycle_hook | true |
-| F00223 | Lifecycle hook — 3090 post-VFIO-unbind reload host nvidia driver | 218 | M00035 | lifecycle_hook | true |
+| F00212 | 4090 VFIO isolation mode | 218 | M00035 | mode | true |
+| F00213 | Profile knob — `gpu_4090_vfio_enabled` | 218 | M00035 | profile | true |
+| F00214 | Env var `SOVEREIGN_GPU_4090_VFIO_ENABLED` | 218 | M00035 | env_var | true |
+| F00215 | CLI `sovereign-osctl hardware gpu 4090 status` | 218 | M00035 | cli_verb | true |
+| F00216 | Dashboard surface — 4090 scout card (VRAM / draft tokens/sec / VFIO state / temp / power) | 218 | M00035 | dashboard | true |
+| F00217 | API `GET /v1/hardware/gpu/4090` | 218 | M00035 | api_endpoint | true |
+| F00218 | Metric `sovereign_os_gpu_4090_vram_used_bytes` | 218 | M00036 | observability_metric | true |
+| F00219 | Metric `sovereign_os_gpu_4090_vfio_active` (0/1) | 218 | M00035 | observability_metric | true |
+| F00220 | Test — 4090 bind to vfio-pci at boot | 218 | M00035 | test | true |
+| F00221 | Test — 4090 unbind from vfio-pci for host use | 218 | M00035 | test | true |
+| F00222 | Lifecycle hook — 4090 pre-VFIO-bind release host nvidia driver | 218 | M00035 | lifecycle_hook | true |
+| F00223 | Lifecycle hook — 4090 post-VFIO-unbind reload host nvidia driver | 218 | M00035 | lifecycle_hook | true |
 | F00224 | Memory capacity discovery — total RAM / per-DIMM size / channels | 219 | M00037 | capability | false |
 | F00225 | Profile knob — `ram_capacity_target_gib = 128 \| 256` | 219 | M00037 | profile | true |
 | F00226 | Env var `SOVEREIGN_RAM_CAPACITY_TARGET_GIB` | 219 | M00037 | env_var | true |
@@ -181,7 +181,7 @@
 | R00383 | Metric `sovereign_os_hardware_pcie_slot_width` labeled by slot name | 216 | F00192 | non-negotiable | false | 10 |
 | R00384 | Metric `sovereign_os_hardware_iommu_group_count` is gauge | 216 | F00193 | non-negotiable | false | 10 |
 | R00385 | friction-audit verifies PCIEX16_1 = x8 electrical / PCIEX16_2 = x8 electrical | 216 | F00194 | non-negotiable | false | 10 |
-| R00386 | friction-audit verifies Blackwell IOMMU group ≠ 3090 IOMMU group | 216 | F00195 | non-negotiable | false | 10 |
+| R00386 | friction-audit verifies Blackwell IOMMU group ≠ 4090 IOMMU group | 216 | F00195 | non-negotiable | false | 10 |
 | R00387 | Lifecycle hook first-boot aborts if M.2_2 populated AND `dual_gpu_symmetry_required = true` | 245–252 | F00196 | non-negotiable | true | 10 |
 | R00388 | Composite friction-audit requires modules M00031 + M00032 + M00044 | 216 | F00197 | non-negotiable | false | 10 |
 | R00389 | Blackwell warm-keep mode opt-in via profile | 217 | F00198 | non-negotiable | true | 10 |
@@ -199,18 +199,18 @@
 | R00401 | Test — Blackwell FP4 Tensor Core inference via TensorRT-LLM | 267 | F00209 | non-negotiable | true | 10 |
 | R00402 | Lifecycle hook Blackwell pre-load runs `vllm cache warm` | 217 | F00210 | non-negotiable | true | 10 |
 | R00403 | Lifecycle hook Blackwell post-evict frees VRAM and emits OTel span | 217 | F00211 | non-negotiable | true | 10 |
-| R00404 | 3090 VFIO isolation opt-in via profile | 218 | F00212 | non-negotiable | true | 10 |
-| R00405 | Profile `gpu_3090_vfio_enabled` accepts boolean | 218 | F00213 | non-negotiable | true | 10 |
-| R00406 | Env var `SOVEREIGN_GPU_3090_VFIO_ENABLED` accepts boolean | 218 | F00214 | non-negotiable | true | 10 |
-| R00407 | CLI `sovereign-osctl hardware gpu 3090 status` returns JSON | 218 | F00215 | non-negotiable | true | 10 |
-| R00408 | Dashboard 3090 card shows VRAM / draft tokens/sec / VFIO state / temp / power | 218 | F00216 | non-negotiable | true | 10 |
-| R00409 | API `/v1/hardware/gpu/3090` returns JSON | 218 | F00217 | non-negotiable | true | 10 |
-| R00410 | Metric `sovereign_os_gpu_3090_vram_used_bytes` is Prometheus gauge | 218 | F00218 | non-negotiable | false | 10 |
-| R00411 | Metric `sovereign_os_gpu_3090_vfio_active` is Prometheus gauge 0/1 | 218 | F00219 | non-negotiable | false | 10 |
-| R00412 | Test — 3090 binds to vfio-pci at boot when `GRUB_CMDLINE_LINUX` includes `vfio-pci.ids=10de:2204,10de:1ad8` | 218 | F00220 | non-negotiable | true | 10 |
-| R00413 | Test — 3090 unbind/rebind works without reboot | 218 | F00221 | non-negotiable | true | 10 |
-| R00414 | Lifecycle hook 3090 pre-VFIO-bind releases host nvidia driver via `echo` to `unbind` sysfs | 218 | F00222 | non-negotiable | true | 10 |
-| R00415 | Lifecycle hook 3090 post-VFIO-unbind reloads host nvidia driver | 218 | F00223 | non-negotiable | true | 10 |
+| R00404 | 4090 VFIO isolation opt-in via profile | 218 | F00212 | non-negotiable | true | 10 |
+| R00405 | Profile `gpu_4090_vfio_enabled` accepts boolean | 218 | F00213 | non-negotiable | true | 10 |
+| R00406 | Env var `SOVEREIGN_GPU_4090_VFIO_ENABLED` accepts boolean | 218 | F00214 | non-negotiable | true | 10 |
+| R00407 | CLI `sovereign-osctl hardware gpu 4090 status` returns JSON | 218 | F00215 | non-negotiable | true | 10 |
+| R00408 | Dashboard 4090 card shows VRAM / draft tokens/sec / VFIO state / temp / power | 218 | F00216 | non-negotiable | true | 10 |
+| R00409 | API `/v1/hardware/gpu/4090` returns JSON | 218 | F00217 | non-negotiable | true | 10 |
+| R00410 | Metric `sovereign_os_gpu_4090_vram_used_bytes` is Prometheus gauge | 218 | F00218 | non-negotiable | false | 10 |
+| R00411 | Metric `sovereign_os_gpu_4090_vfio_active` is Prometheus gauge 0/1 | 218 | F00219 | non-negotiable | false | 10 |
+| R00412 | Test — 4090 binds to vfio-pci at boot when `GRUB_CMDLINE_LINUX` includes `vfio-pci.ids=10de:2684,10de:22ba` | 218 | F00220 | non-negotiable | true | 10 |
+| R00413 | Test — 4090 unbind/rebind works without reboot | 218 | F00221 | non-negotiable | true | 10 |
+| R00414 | Lifecycle hook 4090 pre-VFIO-bind releases host nvidia driver via `echo` to `unbind` sysfs | 218 | F00222 | non-negotiable | true | 10 |
+| R00415 | Lifecycle hook 4090 post-VFIO-unbind reloads host nvidia driver | 218 | F00223 | non-negotiable | true | 10 |
 | R00416 | RAM discovery via dmidecode | 219 | F00224 | non-negotiable | false | 10 |
 | R00417 | Profile `ram_capacity_target_gib` accepts 128 / 256 | 219 | F00225 | non-negotiable | true | 10 |
 | R00418 | Env var `SOVEREIGN_RAM_CAPACITY_TARGET_GIB` accepts 128 / 256 | 219 | F00226 | non-negotiable | true | 10 |
@@ -248,15 +248,15 @@
 | R00450 | PSU minimum rating = 1600W | 355 | E0030 | non-negotiable | true | 10 |
 | R00451 | PSU recommended rating = 2000W | 355 | E0030 | preferable | true | 10 |
 | R00452 | Blackwell power budget = 600W under load | 350 | E0029 | non-negotiable | false | 10 |
-| R00453 | 3090 power budget = 350W under load | 351 | E0029 | non-negotiable | false | 10 |
+| R00453 | 4090 power budget = 350W under load | 351 | E0029 | non-negotiable | false | 10 |
 | R00454 | 9900X power budget = 120W TDP (higher under PBO) | 352 | E0029 | non-negotiable | false | 10 |
 | R00455 | Board + NVMe + fans budget = 80–150W | 353 | E0029 | non-negotiable | false | 10 |
 | R00456 | CUDA bare-metal PCIe P2P unsupported with IOMMU on Linux — design implication | 597 | E0031 | non-negotiable | false | 10 |
-| R00457 | 3090 VFIO design — treat as separate machine behind RPC boundary | 597 | E0031 | non-negotiable | false | 10 |
+| R00457 | 4090 VFIO design — treat as separate machine behind RPC boundary | 597 | E0031 | non-negotiable | false | 10 |
 | R00458 | Cross-GPU transport — compact symbols only (tokens/scores/ids/summaries/intents/patch summaries) | 526–536 | E0031 | non-negotiable | false | 10 |
 | R00459 | Cross-GPU transport — avoid KV tensors / activations / layer-split / constant sync | 540–547 | E0031 | non-negotiable | false | 10 |
 | R00460 | Blackwell first PCIe 5.0 slot at x8 electrical width | 259 | E0028 | non-negotiable | false | 10 |
-| R00461 | 3090 second PCIe slot at x8 electrical via Gen 5 chassis path | 260 | E0028 | non-negotiable | false | 10 |
+| R00461 | 4090 second PCIe slot at x8 electrical via Gen 5 chassis path | 260 | E0028 | non-negotiable | false | 10 |
 | R00462 | NVMe hot tier at M.2_1 PCIe 5.0 x4 | 261 | E0028 | non-negotiable | false | 10 |
 | R00463 | NVMe bulk at M.2_3 / M.2_4 PCIe 4.0 x4 via chipset | 262 | E0028 | non-negotiable | false | 10 |
 | R00464 | Friction-audit pass criterion — x8/x8 GPU + IOMMU groups distinct + cppc preferred-CCD identified + MOK key generated | 216 | F00197 | non-negotiable | false | 10 |
@@ -293,7 +293,7 @@
 | R00495 | Personalization — operator-defined PCIe slot priority order | 216 | F00186 | non-negotiable | true | 10 |
 | R00496 | Personalization — operator-defined IOMMU group remapping (advanced) | 216 | F00187 | preferable | true | 10 |
 | R00497 | Personalization — operator-defined Blackwell warm-keep model list | 217 | F00198 | non-negotiable | true | 10 |
-| R00498 | Personalization — operator-defined 3090 VFIO bind-id list | 218 | F00212 | non-negotiable | true | 10 |
+| R00498 | Personalization — operator-defined 4090 VFIO bind-id list | 218 | F00212 | non-negotiable | true | 10 |
 | R00499 | Personalization — operator-defined CPU core pinning for hardware probe | 215 | M00029 | preferable | true | 10 |
 | R00500 | Composite — hardware-watch composite alerts on any subsystem degradation | 213–565 | composite: [M00029, M00031, M00033, M00035, M00039, M00041] | capability | true |
 | R00501 | Composite — hardware-watch emits one OTel span per subsystem per minute | 213–565 | composite: [M00029, M00031, M00033, M00035, M00039, M00041] | non-negotiable | false | 10 |

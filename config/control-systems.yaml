@@ -61,7 +61,7 @@ systems:
     change_cli: "sovereign-osctl trinity profile switch <id>"
     state_path: "/run/sovereign-os/active-runtime-mode"
     privileged: true
-    applies_to: [runtime-modes, trinity, d-01-active-sessions, d-03-model-health, router, orchestration, d-21-lm-orchestration, d-22-lm-status-operability]
+    applies_to: [runtime-modes, trinity, d-01-active-sessions, d-03-model-health, router, orchestration]
     refs: [schemas/runtime-profile.schema.yaml, SDD-043]
 
   # ── 3. Flex-profiles — per-allocation runtime deltas ─────────────────
@@ -80,7 +80,7 @@ systems:
     change_cli: "sovereign-osctl profiles flex set <key> <value>"
     state_path: "/var/lib/sovereign-os/flex-profile.json"
     privileged: false
-    applies_to: [runtime-modes, d-02-profile-choices, d-03-model-health, trinity, d-21-lm-orchestration]
+    applies_to: [runtime-modes, d-02-profile-choices, d-03-model-health, trinity]
     refs: [scripts/hardware/profile-flex.py]
 
   # ── 4. CPU modes — scaling governor ──────────────────────────────────
@@ -99,7 +99,7 @@ systems:
     change_cli: "sovereign-osctl cpu-mode set <mode>"
     state_path: "/sys/devices/system/cpu/cpu*/cpufreq/scaling_governor"
     privileged: true
-    applies_to: [runtime-modes, d-09-hardware-pressure, cpu-features, d-21-lm-orchestration]
+    applies_to: [runtime-modes, d-09-hardware-pressure, cpu-features]
     refs: [scripts/hardware/cpu-mode.py]
 
   # ── 5. GPU modes — power policy ──────────────────────────────────────
@@ -117,7 +117,7 @@ systems:
     change_cli: "sovereign-osctl gpu-mode set <mode>"
     state_path: "/etc/sovereign-os/gpu-policy.toml"
     privileged: true
-    applies_to: [runtime-modes, d-09-hardware-pressure, d-21-lm-orchestration]
+    applies_to: [runtime-modes, d-09-hardware-pressure]
     refs: [config/gpu-policy.toml.example]
 
   # ── 6. Dashboard toggles — every dashboard on/off (global) ───────────
@@ -209,7 +209,7 @@ systems:
     change_cli: "sovereign-osctl inference {start|stop|restart} <tier>"
     state_path: "systemd (sovereign-{pulse,logic-engine,oracle-core,router} units)"
     privileged: true
-    applies_to: [trinity, router, d-03-model-health, d-21-lm-orchestration, d-22-lm-status-operability]
+    applies_to: [trinity, router, d-03-model-health]
     refs: [SDD-011]
 
   # ── 11. Workload knobs — inference-latency primitives ────────────────

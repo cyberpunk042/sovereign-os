@@ -1,0 +1,15 @@
+[package]
+name = "sovereign-prompt-compress"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Selective context compression: drop the most predictable (low-surprisal) tokens and keep the informative ones to fit a token budget, preserving order — the LLMLingua approach to cutting long-context cost. Works from per-token log-probabilities or an entropy/budget target."
+
+[lints]
+workspace = true
+
+[dependencies]

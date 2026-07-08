@@ -1,0 +1,18 @@
+[package]
+name = "sovereign-kmeans"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "K-means clustering (Lloyd's algorithm) with k-means++ seeding over f32 vectors: partition points into k clusters by iteratively assigning each to its nearest centroid and recomputing centroids, reporting assignments, centroids, and inertia. Seeded and deterministic — for clustering embeddings, building quantization codebooks, and semantic grouping."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }

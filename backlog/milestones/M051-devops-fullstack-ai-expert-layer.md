@@ -12,9 +12,9 @@
 | E0489 | Hot Data Layout — "The AVX core should never chase object graphs"; bad pattern `Vec<Branch { id, score, risk, flags, ... }>`; good = SoA arrays branch_id[] + score_q16[] + risk_u8[] + budget_u16[] + flags_u64[] + route_u8[] + model_id_u16[] + memory_ref_u64[] + kv_ref_u64[]; "lets AVX-512 operate on many branch states at once"; hot loop = load 8-64 state elements → compare budgets → merge policy masks → score candidates → compress survivors → enqueue model/tool work; "This is the deterministic engine" | 15408–15446 |
 | E0490 | CPU Feature Dispatch — "Do not compile one binary and hope"; 4 build dispatch paths: scalar baseline / AVX2 path / AVX-512 generic path / Zen5 AVX-512 path; "Runtime CPUID picks the path"; Zen5 path uses `-march=znver5` + `-O3 or targeted optimization` + LTO for hot library + profile-guided optimization later; "Keep the AVX engine as a separate library, probably Rust with C/C++ intrinsics where needed, or C++ core with safe bindings. The rest of the system can be higher-level" | 15450–15476 |
 | E0491 | Blackwell Oracle Plane — "The RTX PRO 6000 96GB is the crown"; "Its job is not to serve every request. Its job is to stay loaded with high-value model state"; 6 uses: large oracle model / final code review / long-context synthesis / RLM parent calls / high-risk decision verification / model compression/FP8/FP4 experiments; GPU should receive: dense batches / high-value branches / distilled context / shared prefixes / verification candidates — "Not random noise"; "The scheduler's duty is to protect the oracle" | 15480–15510 |
-| E0492 | 3090 Scout Plane — "The 3090 is not 'lesser.' It is a different organ"; 9 uses: small language models / draft models / embeddings / rerankers / GUI-perception / classification / tool-plan generation / cheap branch expansion / sandbox model work; "If VFIO-isolated, treat it as a separate local machine. Compact messages only" | 15514–15538 |
-| E0493 | Memory Hierarchy — 6-tier: ZMM registers (nanosecond policy state) / CPU cache (branch-memory metadata) / RAM (active memory graph + context arenas + ZFS ARC) / Blackwell VRAM (oracle weights + hot KV/context) / 3090 VRAM (scout weights + embeddings + perception) / NVMe-ZFS (raw traces + snapshots + model artifacts + cold memory); "The runtime must know where things are"; memory item 8-field schema: text/blob ref / embedding ref / bitset metadata / trust / freshness / privacy class / KV-cache refs / last-use stats | 15542–15580 |
-| E0494 | DevOps Services + Slices — 9 systemd services: sovereign-gateway.service / blackwell-oracle.service / scout-3090.service / avx-cortex.service / memory-os.service / policy-engine.service / eval-worker.service / sandbox-manager.service / otel-collector.service; 5 systemd slices: ai-critical.slice / ai-models.slice / ai-sandbox.slice / ai-evals.slice / ai-background.slice; "Then cgroup v2 can enforce CPU/memory/IO budgets" | 15584–15612 |
+| E0492 | 4090 Scout Plane — "The 4090 is not 'lesser.' It is a different organ"; 9 uses: small language models / draft models / embeddings / rerankers / GUI-perception / classification / tool-plan generation / cheap branch expansion / sandbox model work; "If VFIO-isolated, treat it as a separate local machine. Compact messages only" | 15514–15538 |
+| E0493 | Memory Hierarchy — 6-tier: ZMM registers (nanosecond policy state) / CPU cache (branch-memory metadata) / RAM (active memory graph + context arenas + ZFS ARC) / Blackwell VRAM (oracle weights + hot KV/context) / 4090 VRAM (scout weights + embeddings + perception) / NVMe-ZFS (raw traces + snapshots + model artifacts + cold memory); "The runtime must know where things are"; memory item 8-field schema: text/blob ref / embedding ref / bitset metadata / trust / freshness / privacy class / KV-cache refs / last-use stats | 15542–15580 |
+| E0494 | DevOps Services + Slices — 9 systemd services: sovereign-gateway.service / blackwell-oracle.service / scout-4090.service / avx-cortex.service / memory-os.service / policy-engine.service / eval-worker.service / sandbox-manager.service / otel-collector.service; 5 systemd slices: ai-critical.slice / ai-models.slice / ai-sandbox.slice / ai-evals.slice / ai-background.slice; "Then cgroup v2 can enforce CPU/memory/IO budgets" | 15584–15612 |
 | E0495 | Container Strategy — Podman/Quadlet for persistent services + sandboxes; NVIDIA CDI exposes GPUs declaratively to containers (docs.nvidia.com/datacenter/cloud-native/container-toolkit/1.14.4/cdi-support.html + docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html); 6 container classes: model server containers / tool sandboxes / eval runners / browser/GUI agents / build/test environments / memory/index services; "Do not throw everything into Kubernetes by default. Single-node systemd + Podman is a better workstation-first base. Kubernetes can be a later profile" | 15616–15640 |
 | E0496 | Policy + Observability + Fullstack + AI Expert layers — Section 9 Policy & Observability: every action emits trace data; OTel GenAI conventions provide shared language for model spans, token usage, provider/model info, agent spans; 8 policy checkpoints (model call / tool call / memory write / file write / network access / cloud provider call / adapter load / sandbox escape risk); OPA/Cedar/OpenFGA relevant; "policy is runtime law, not documentation" — Section 10 Fullstack Layer: local dashboard (profiles + costs + traces + model health + memory + approvals) + CLI (run + resume + inspect + rollback + switch profile) + API (Anthropic-first + OpenAI-compatible shim) + IDE/agent clients (Claude Code + Cline + OpenCode + local tools); "Fullstack here is not marketing UI. It is cockpit design"; cockpit must show 7 things (what is running / what it costs / what it can touch / what it changed / what is waiting for approval / what can be resumed / what can be rolled back) — Section 11 AI Expert Layer: 6 model types (LLM synthesis / SLM cheap reflex / RLM recursive context / RM-PRM value-process scoring / VLM perception / LoRA adapters); "runtime routes to them by profile, context, risk, cost, and eval history" | 15644–15700 |
 | E0497 | The Core Engineering Law + Architect view + operator vision-recap directive — Section 12 Core Engineering Law: "Cloud providers optimize for average users at fleet scale. / Sovereign-OS optimizes for one user, one machine, one memory, one workflow, with total continuity. / That is the advantage."; 6-line architect view — machine should feel like: an OS kernel for intelligence / a lab for models / a cockpit for user choice / a harness for safe action / a memory system for continuity / a devops platform for local autonomy; "That is the architect's view"; operator directive — "Remember what we are doing. lets make sure we dont or didn't lose anything and that the vision or visions I should say is/are clear. The ultimate AI workstation with so many features and intelligence and fine-tuning" | 15702–15705 |
@@ -31,9 +31,9 @@
 | M00855 | 4-path CPU dispatch — scalar baseline / AVX2 / AVX-512 generic / Zen5 AVX-512 + runtime CPUID dispatch + Zen5 flags (-march=znver5 + LTO + PGO) | 15456–15476 | E0490 |
 | M00856 | Blackwell 6-use catalog — large oracle / final code review / long-context synthesis / RLM parent / high-risk verification / FP8-FP4 experiments | 15486–15500 | E0491 |
 | M00857 | Blackwell input policy — dense batches / high-value branches / distilled context / shared prefixes / verification candidates ("not random noise"); "scheduler's duty is to protect the oracle" | 15504–15510 | E0491 |
-| M00858 | 3090 9-use catalog — SLM / draft / embeddings / rerankers / GUI-perception / classification / tool-plan / cheap branch expansion / sandbox model work | 15520–15534 | E0492 |
-| M00859 | VFIO-isolated 3090 — treat as separate local machine; compact messages only | 15538 | E0492 |
-| M00860 | 6-tier memory hierarchy — ZMM / CPU cache / RAM / Blackwell VRAM / 3090 VRAM / NVMe-ZFS | 15546–15568 | E0493 |
+| M00858 | 4090 9-use catalog — SLM / draft / embeddings / rerankers / GUI-perception / classification / tool-plan / cheap branch expansion / sandbox model work | 15520–15534 | E0492 |
+| M00859 | VFIO-isolated 4090 — treat as separate local machine; compact messages only | 15538 | E0492 |
+| M00860 | 6-tier memory hierarchy — ZMM / CPU cache / RAM / Blackwell VRAM / 4090 VRAM / NVMe-ZFS | 15546–15568 | E0493 |
 | M00861 | 8-field memory item schema — text/blob ref + embedding ref + bitset metadata + trust + freshness + privacy class + KV/cache refs + last-use stats | 15572–15580 | E0493 |
 | M00862 | 9-service systemd catalog + 5-slice cgroup v2 hierarchy | 15588–15612 | E0494 |
 | M00863 | 6-container-class catalog + Podman-Quadlet + NVIDIA-CDI + "Single-node systemd+Podman better than K8s default" | 15620–15640 | E0495 |
@@ -97,13 +97,13 @@
 | F04300 | "This is the deterministic engine" | 15446 | E0489 |
 | F04301 | Section 3 header — "CPU Feature Dispatch" + 4 build paths + Zen5 path flags + library architecture | 15450–15476 | M00855 |
 | F04302 | Section 4 header — "Blackwell Oracle Plane" + "RTX PRO 6000 96GB is the crown" + 6 uses + scheduler protects oracle | 15480–15510 | M00856 + M00857 |
-| F04303 | Section 5 header — "3090 Scout Plane" + 9 uses + VFIO-isolated stance | 15514–15538 | M00858 + M00859 |
+| F04303 | Section 5 header — "4090 Scout Plane" + 9 uses + VFIO-isolated stance | 15514–15538 | M00858 + M00859 |
 | F04304 | Section 6 header — "Memory Hierarchy" + 6-tier + 8-field memory item | 15542–15580 | M00860 + M00861 |
 | F04305 | Memory tier — ZMM registers (nanosecond policy state) | 15548 | M00860 |
 | F04306 | Memory tier — CPU cache (branch/memory metadata) | 15550 | M00860 |
 | F04307 | Memory tier — RAM (active memory graph + context arenas + ZFS ARC) | 15552 | M00860 |
 | F04308 | Memory tier — Blackwell VRAM (oracle weights + hot KV/context) | 15554 | M00860 |
-| F04309 | Memory tier — 3090 VRAM (scout weights + embeddings + perception) | 15556 | M00860 |
+| F04309 | Memory tier — 4090 VRAM (scout weights + embeddings + perception) | 15556 | M00860 |
 | F04310 | Memory tier — NVMe/ZFS (raw traces + snapshots + model artifacts + cold memory) | 15558 | M00860 |
 | F04311 | Memory item field — text/blob ref | 15572 | M00861 |
 | F04312 | Memory item field — embedding ref | 15573 | M00861 |
@@ -116,7 +116,7 @@
 | F04319 | Section 7 header — "DevOps Services" + 9 systemd services + 5 systemd slices + "cgroup v2 can enforce CPU/memory/IO budgets" | 15584–15612 | M00862 |
 | F04320 | systemd service — sovereign-gateway.service | 15588 | M00862 |
 | F04321 | systemd service — blackwell-oracle.service | 15589 | M00862 |
-| F04322 | systemd service — scout-3090.service | 15590 | M00862 |
+| F04322 | systemd service — scout-4090.service | 15590 | M00862 |
 | F04323 | systemd service — avx-cortex.service | 15591 | M00862 |
 | F04324 | systemd service — memory-os.service | 15592 | M00862 |
 | F04325 | systemd service — policy-engine.service | 15593 | M00862 |
@@ -216,26 +216,26 @@
 | R08579 | Blackwell input — verification candidates | 15508 | M00857 | non-negotiable | false | 10 |
 | R08580 | "Not random noise" | 15510 | M00857 | non-negotiable | false | 10 |
 | R08581 | "The scheduler's duty is to protect the oracle" | 15510 | M00857 | non-negotiable | false | 10 |
-| R08582 | Section 5 header — "3090 Scout Plane" | 15514 | F04303 | non-negotiable | false | 10 |
-| R08583 | Doctrine — "The 3090 is not 'lesser'. It is a different organ" | 15516 | F04303 | non-negotiable | false | 10 |
-| R08584 | 3090 use — small language models | 15520 | M00858 | non-negotiable | false | 10 |
-| R08585 | 3090 use — draft models | 15521 | M00858 | non-negotiable | false | 10 |
-| R08586 | 3090 use — embeddings | 15522 | M00858 | non-negotiable | false | 10 |
-| R08587 | 3090 use — rerankers | 15523 | M00858 | non-negotiable | false | 10 |
-| R08588 | 3090 use — GUI/perception | 15524 | M00858 | non-negotiable | false | 10 |
-| R08589 | 3090 use — classification | 15525 | M00858 | non-negotiable | false | 10 |
-| R08590 | 3090 use — tool-plan generation | 15526 | M00858 | non-negotiable | false | 10 |
-| R08591 | 3090 use — cheap branch expansion | 15527 | M00858 | non-negotiable | false | 10 |
-| R08592 | 3090 use — sandbox model work | 15528 | M00858 | non-negotiable | false | 10 |
-| R08593 | VFIO-isolated 3090 — treat as separate local machine | 15536 | M00859 | non-negotiable | false | 10 |
-| R08594 | VFIO-isolated 3090 — compact messages only | 15538 | M00859 | non-negotiable | false | 10 |
+| R08582 | Section 5 header — "4090 Scout Plane" | 15514 | F04303 | non-negotiable | false | 10 |
+| R08583 | Doctrine — "The 4090 is not 'lesser'. It is a different organ" | 15516 | F04303 | non-negotiable | false | 10 |
+| R08584 | 4090 use — small language models | 15520 | M00858 | non-negotiable | false | 10 |
+| R08585 | 4090 use — draft models | 15521 | M00858 | non-negotiable | false | 10 |
+| R08586 | 4090 use — embeddings | 15522 | M00858 | non-negotiable | false | 10 |
+| R08587 | 4090 use — rerankers | 15523 | M00858 | non-negotiable | false | 10 |
+| R08588 | 4090 use — GUI/perception | 15524 | M00858 | non-negotiable | false | 10 |
+| R08589 | 4090 use — classification | 15525 | M00858 | non-negotiable | false | 10 |
+| R08590 | 4090 use — tool-plan generation | 15526 | M00858 | non-negotiable | false | 10 |
+| R08591 | 4090 use — cheap branch expansion | 15527 | M00858 | non-negotiable | false | 10 |
+| R08592 | 4090 use — sandbox model work | 15528 | M00858 | non-negotiable | false | 10 |
+| R08593 | VFIO-isolated 4090 — treat as separate local machine | 15536 | M00859 | non-negotiable | false | 10 |
+| R08594 | VFIO-isolated 4090 — compact messages only | 15538 | M00859 | non-negotiable | false | 10 |
 | R08595 | Section 6 header — "Memory Hierarchy" | 15542 | F04304 | non-negotiable | false | 10 |
 | R08596 | "Think like this" — 6-tier framing | 15544 | F04304 | non-negotiable | false | 10 |
 | R08597 | Memory tier — ZMM registers (nanosecond policy state) | 15548 | F04305 | non-negotiable | false | 10 |
 | R08598 | Memory tier — CPU cache (branch/memory metadata) | 15550 | F04306 | non-negotiable | false | 10 |
 | R08599 | Memory tier — RAM (active memory graph + context arenas + ZFS ARC) | 15552 | F04307 | non-negotiable | false | 10 |
 | R08600 | Memory tier — Blackwell VRAM (oracle weights + hot KV/context) | 15554 | F04308 | non-negotiable | false | 10 |
-| R08601 | Memory tier — 3090 VRAM (scout weights + embeddings + perception) | 15556 | F04309 | non-negotiable | false | 10 |
+| R08601 | Memory tier — 4090 VRAM (scout weights + embeddings + perception) | 15556 | F04309 | non-negotiable | false | 10 |
 | R08602 | Memory tier — NVMe/ZFS (raw traces + snapshots + model artifacts + cold memory) | 15558 | F04310 | non-negotiable | false | 10 |
 | R08603 | "The runtime must know where things are" | 15568 | M00860 | non-negotiable | false | 10 |
 | R08604 | Memory item — text/blob ref | 15572 | F04311 | non-negotiable | false | 10 |
@@ -249,7 +249,7 @@
 | R08612 | Section 7 header — "DevOps Services" | 15584 | F04319 | non-negotiable | false | 10 |
 | R08613 | systemd service — sovereign-gateway.service | 15588 | F04320 | non-negotiable | false | 10 |
 | R08614 | systemd service — blackwell-oracle.service | 15589 | F04321 | non-negotiable | false | 10 |
-| R08615 | systemd service — scout-3090.service | 15590 | F04322 | non-negotiable | false | 10 |
+| R08615 | systemd service — scout-4090.service | 15590 | F04322 | non-negotiable | false | 10 |
 | R08616 | systemd service — avx-cortex.service | 15591 | F04323 | non-negotiable | false | 10 |
 | R08617 | systemd service — memory-os.service | 15592 | F04324 | non-negotiable | false | 10 |
 | R08618 | systemd service — policy-engine.service | 15593 | F04325 | non-negotiable | false | 10 |
@@ -304,11 +304,11 @@
 | R08667 | Architect view — OS kernel for intelligence + lab for models + cockpit for user choice + harness for safe action + memory system for continuity + devops platform for local autonomy | 15706–15716 | M00866 | non-negotiable | false | 10 |
 | R08668 | "That is the architect's view" | 15716 | M00866 | non-negotiable | false | 10 |
 | R08669 | Operator directive — "Remember what we are doing. lets make sure we dont or didn't lose anything and that the vision or visions I should say is/are clear. The ultimate AI workstation with so many features and intelligence and fine-tuning" | 15705 | E0497 | non-negotiable | false | 10 |
-| R08670 | Composite — M051 (10 epics / 17 modules / 85 features / 170 reqs) catalogs DevOps + Fullstack + AI-expert deep architecture dive: AVX-512 Cortex (13 Zen 5 instruction groups + 8 CPU surfaces + CPU-vs-GPU design rule) + Hot Data Layout (SoA 9-array + 6-step hot loop "deterministic engine") + CPU Feature Dispatch (4 build paths + Zen5 -march=znver5+LTO+PGO + separate AVX library) + Blackwell Oracle Plane ("crown" + 6 uses + 5 input policy + "scheduler protects the oracle") + 3090 Scout Plane (9 uses + VFIO-isolated stance) + Memory Hierarchy (6-tier ZMM→NVMe + 8-field memory item schema) + DevOps Services (9 systemd services + 5 systemd slices + cgroup v2 budgets) + Container Strategy (Podman+Quadlet + NVIDIA CDI + 6 container classes + "single-node systemd+Podman better than K8s default") + Policy+Observability (8 policy checkpoints + OTel GenAI + "policy is runtime law not documentation") + Fullstack Layer (cockpit-design 4-entry-points + 7-thing cockpit show list) + AI Expert Layer (6 model types) + Core Engineering Law 3-line ("Cloud providers optimize for average users at fleet scale. Sovereign-OS optimizes for one user, one machine, one memory, one workflow, with total continuity. That is the advantage.") + 6-line architect view + operator vision-recap directive "ultimate AI workstation with so many features and intelligence and fine-tuning" | 15362–15716 | E0488-E0497 | non-negotiable | false | 10 |
+| R08670 | Composite — M051 (10 epics / 17 modules / 85 features / 170 reqs) catalogs DevOps + Fullstack + AI-expert deep architecture dive: AVX-512 Cortex (13 Zen 5 instruction groups + 8 CPU surfaces + CPU-vs-GPU design rule) + Hot Data Layout (SoA 9-array + 6-step hot loop "deterministic engine") + CPU Feature Dispatch (4 build paths + Zen5 -march=znver5+LTO+PGO + separate AVX library) + Blackwell Oracle Plane ("crown" + 6 uses + 5 input policy + "scheduler protects the oracle") + 4090 Scout Plane (9 uses + VFIO-isolated stance) + Memory Hierarchy (6-tier ZMM→NVMe + 8-field memory item schema) + DevOps Services (9 systemd services + 5 systemd slices + cgroup v2 budgets) + Container Strategy (Podman+Quadlet + NVIDIA CDI + 6 container classes + "single-node systemd+Podman better than K8s default") + Policy+Observability (8 policy checkpoints + OTel GenAI + "policy is runtime law not documentation") + Fullstack Layer (cockpit-design 4-entry-points + 7-thing cockpit show list) + AI Expert Layer (6 model types) + Core Engineering Law 3-line ("Cloud providers optimize for average users at fleet scale. Sovereign-OS optimizes for one user, one machine, one memory, one workflow, with total continuity. That is the advantage.") + 6-line architect view + operator vision-recap directive "ultimate AI workstation with so many features and intelligence and fine-tuning" | 15362–15716 | E0488-E0497 | non-negotiable | false | 10 |
 
 ## Sub-requirements accounting
 
-- 170 requirements covering: Section 1 AVX-512 Cortex (13 instruction groups + 8 CPU surfaces + 2-line design rule) (R08501–R08529) + Section 2 Hot Data Layout (SoA 9-array + 6-step hot loop) (R08530–R08550) + Section 3 CPU Feature Dispatch (4 paths + Zen5 flags + library architecture) (R08551–R08564) + Section 4 Blackwell Oracle Plane (6 uses + 5 inputs + scheduler duty) (R08565–R08581) + Section 5 3090 Scout Plane (9 uses + VFIO-isolated stance) (R08582–R08594) + Section 6 Memory Hierarchy (6-tier + 8-field memory item) (R08595–R08611) + Section 7 DevOps Services (9 services + 5 slices + cgroup v2 budgets) (R08612–R08627) + Section 8 Container Strategy (Podman+Quadlet + NVIDIA CDI + 6 classes + K8s-as-later-profile doctrine) (R08628–R08641) + Sections 9+10+11 Policy+Observability + Fullstack + AI Expert (8 policy checkpoints + OTel GenAI + 4-entry cockpit + 7-thing show list + 6 model types) (R08642–R08663) + Section 12 Core Engineering Law 3-line + architect view 6-line + operator vision directive (R08664–R08669) + composite (R08670)
+- 170 requirements covering: Section 1 AVX-512 Cortex (13 instruction groups + 8 CPU surfaces + 2-line design rule) (R08501–R08529) + Section 2 Hot Data Layout (SoA 9-array + 6-step hot loop) (R08530–R08550) + Section 3 CPU Feature Dispatch (4 paths + Zen5 flags + library architecture) (R08551–R08564) + Section 4 Blackwell Oracle Plane (6 uses + 5 inputs + scheduler duty) (R08565–R08581) + Section 5 4090 Scout Plane (9 uses + VFIO-isolated stance) (R08582–R08594) + Section 6 Memory Hierarchy (6-tier + 8-field memory item) (R08595–R08611) + Section 7 DevOps Services (9 services + 5 slices + cgroup v2 budgets) (R08612–R08627) + Section 8 Container Strategy (Podman+Quadlet + NVIDIA CDI + 6 classes + K8s-as-later-profile doctrine) (R08628–R08641) + Sections 9+10+11 Policy+Observability + Fullstack + AI Expert (8 policy checkpoints + OTel GenAI + 4-entry cockpit + 7-thing show list + 6 model types) (R08642–R08663) + Section 12 Core Engineering Law 3-line + architect view 6-line + operator vision directive (R08664–R08669) + composite (R08670)
 - Source range 15362–15716 yields 354 lines; 170 R-rows represent ~48% line-coverage at the verbatim-citation level
 - Project boundary — M051 is sovereign-os architect/engineer/DevOps/fullstack/AI-expert deep architecture scope; selfdef IPS-side substrate (MS001–MS032) realizes the hardware-execution + DevOps + observability + policy planes; cross-repo binding via MS007 typed-mirror crates
 
@@ -319,7 +319,7 @@
 - 9-SoA Hot Data Layout + 6-step hot loop — extends M050 9-SoA columnar (branch_id/control_word/risk/budget/score/route/memory_ref/kv_ref/flags) with concrete element-type annotations (score_q16/risk_u8/budget_u16/flags_u64/route_u8/model_id_u16/memory_ref_u64/kv_ref_u64)
 - 4-path CPU Feature Dispatch — extends M044 AVX runtime build matrix (portable scalar/AVX2/AVX-512 Zen5/runtime CPUID dispatch) with explicit Zen5 build flags
 - Blackwell Oracle Plane 6 uses — refines M043 Blackwell-as-Context-Sovereign (5 roles) + M050 Blackwell 7-role with "scheduler protects oracle" + 5-input policy
-- 3090 Scout Plane 9 uses — refines M043 3090-as-Cognitive-Scratchpad (8 uses) + M050 3090 7-role with VFIO-isolated stance
+- 4090 Scout Plane 9 uses — refines M043 4090-as-Cognitive-Scratchpad (8 uses) + M050 4090 7-role with VFIO-isolated stance
 - 6-tier Memory Hierarchy — refines M028 Memory OS 8-type taxonomy + M050 9-SoA columnar with explicit hardware-tier mapping
 - 9 systemd services + 5 systemd slices — extends M045 Linux as intelligence governor's 7 systemd-unit examples with concrete service catalog
 - Container Strategy — refines M048 Module 3 Container/Sandbox Fabric (Podman Quadlet + NVIDIA CDI + 5-rule pattern + 8 sandbox profiles) with 6 container classes + "K8s as later profile" doctrine
@@ -328,5 +328,5 @@
 - AI Expert 6 model types — finalizes M026 SLM swarm + RLM engine taxonomy (LLM/SLM/RLM/RM/PRM/VLM/LoRA)
 - Core Engineering Law 3-line — synthesizes M050 Design Law 6-line into operator-quotable axiom
 - Architect View 6-line — synthesizes prior milestones into 6-thing identity (OS kernel + lab + cockpit + harness + memory system + DevOps platform)
-- Selfdef integration — selfdef MS010 hardware-tune-cache + MS028 bitnet + MS029 slm-cpu-loop + MS030 tensor-parallel + MS031 wasm-aot-cache realize the AVX-512 Cortex + 4-path dispatch + Blackwell + 3090 + memory hierarchy; selfdef MS017 + MS019 + MS020 + MS027 realize the DevOps 9-service + 5-slice + policy 8-checkpoint stack; selfdef MS022 + MS023 + MS024 + MS025 + MS032 realize Container Strategy + sandbox tiers; cross-repo binding via MS007 typed-mirror crates
+- Selfdef integration — selfdef MS010 hardware-tune-cache + MS028 bitnet + MS029 slm-cpu-loop + MS030 tensor-parallel + MS031 wasm-aot-cache realize the AVX-512 Cortex + 4-path dispatch + Blackwell + 4090 + memory hierarchy; selfdef MS017 + MS019 + MS020 + MS027 realize the DevOps 9-service + 5-slice + policy 8-checkpoint stack; selfdef MS022 + MS023 + MS024 + MS025 + MS032 realize Container Strategy + sandbox tiers; cross-repo binding via MS007 typed-mirror crates
 - Operator references: docs.amd.com AMD64 Architecture Programmer's Manual + docs.amd.com Software Optimization Guide for AMD Family 1Ah CPUs (Zen 5) + docs.nvidia.com Container Toolkit CDI specs + docs.podman.io Podman Quadlet + opentelemetry.io GenAI conventions + OPA/Cedar/OpenFGA documentation + Anthropic API spec + OpenAI Chat Completions API spec + web search "AMD Zen 5 AVX-512 supported instruction sets VNNI BF16 VP2INTERSECT VBMI2 official docs"

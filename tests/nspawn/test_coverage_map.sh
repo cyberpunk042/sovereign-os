@@ -94,20 +94,20 @@ assert d['shipped_count'] >= 25
 " || fail "audit shape"
 pass "5. audit rc=0 (no TODO); ≥25 shipped axes"
 
-# ── 6. show A-04 (GPU details) cites RTX 3090 + RTX Pro 6000 + AVX512
+# ── 6. show A-04 (GPU details) cites RTX 4090 + RTX Pro 6000 + AVX512
 out="$(python3 "${CM}" show A-04 --json || true)"
 echo "${out}" | python3 -c "
 import json, sys
 d = json.loads(sys.stdin.read())
 a = d['axis']
 av = a['axis_verbatim']
-assert 'RTX 3090' in av
+assert 'RTX 4090' in av
 assert 'RTX Pro 6000' in av
 assert 'AVX512' in av
 assert 'gpu-card-advisor' in ' '.join(a['implementing_verbs'])
 assert 'avx512-advisor' in ' '.join(a['implementing_verbs'])
 " || fail "A-04 GPU axis"
-pass "6. show A-04 — RTX 3090 + RTX Pro 6000 + AVX512 verbatim + binds gpu-card-advisor + avx512-advisor"
+pass "6. show A-04 — RTX 4090 + RTX Pro 6000 + AVX512 verbatim + binds gpu-card-advisor + avx512-advisor"
 
 # ── 7. show A-22 (PSU/APC integration) cites operator's exact "schedule/planifest/graceful"
 out="$(python3 "${CM}" show A-22 --json || true)"

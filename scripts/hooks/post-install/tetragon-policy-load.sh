@@ -26,10 +26,21 @@ load_profile "${SOVEREIGN_OS_PROFILE}"
 
 log_step_header "${STEP_ID}" "load Tetragon sovereign-kernel-fence policy"
 
+# Emit on EVERY terminal path. tetragon is the kernel-fence security boundary
+# (SIGKILL on unauthorized execve); a silently-failed load means the fence is
+# NOT active, so a failure must be VISIBLE as result="fail" — not merely the
+# absence of a result="loaded" sample (which is indistinguishable from "the
+# hook never ran").
+emit_tetragon_metric() {
+  emit_metric sovereign_os_post_install_tetragon_policy_load_total 1 \
+    "profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"$1\""
+}
+
 require_root
 
 if ! command -v tetragon >/dev/null 2>&1; then
   log_error "tetragon binary not found; install via profile packages"
+  emit_tetragon_metric fail
   exit 1
 fi
 
@@ -86,6 +97,7 @@ if command -v systemctl >/dev/null 2>&1; then
   systemctl enable tetragon 2>&1 | sed 's/^/  /' || true
   systemctl restart tetragon 2>&1 | sed 's/^/  /' || {
     log_error "tetragon failed to start; check 'journalctl -u tetragon'"
+    emit_tetragon_metric fail
     exit 1
   }
   # Verify active
@@ -93,10 +105,10 @@ if command -v systemctl >/dev/null 2>&1; then
     log_info "tetragon active; policy loaded"
   else
     log_error "tetragon not active after restart"
+    emit_tetragon_metric fail
     exit 1
   fi
 fi
 
-emit_metric sovereign_os_post_install_tetragon_policy_load_total 1 \
-  "profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"loaded\""
+emit_tetragon_metric loaded
 log_info "${STEP_ID} complete"

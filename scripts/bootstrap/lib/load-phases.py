@@ -19,6 +19,11 @@ Exit codes:
 from __future__ import annotations
 
 import sys
+
+# NOTE: see load-verify-grid.py for the SIGPIPE handling discussion —
+# the SIG_DFL reset was wrong-direction; relying on Python's default
+# (raise BrokenPipeError) + the try/except wrap at the entry-point is
+# the correct fix.
 from pathlib import Path
 
 try:
@@ -58,4 +63,17 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    # See load-verify-grid.py for the rationale: SIGPIPE handler reset
+    # above is insufficient because Python's buffered-stdout writes
+    # don't trigger SIGPIPE until interpreter shutdown's final flush.
+    # Wrap the entry-point to swallow BrokenPipeError silently.
+    try:
+        rc = main()
+        sys.stdout.flush()
+        sys.exit(rc)
+    except BrokenPipeError:
+        try:
+            sys.stdout.close()
+        except Exception:
+            pass
+        sys.exit(0)

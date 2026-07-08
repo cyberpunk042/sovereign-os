@@ -36,7 +36,7 @@ must = [
     '96GB Blackwell',
     '(Direct Host)',
     'Speculative Decoding',
-    '24GB 3090',
+    '24GB 4090',
     '(VFIO Sandbox)',
     'State Persistence',
     '9900X',

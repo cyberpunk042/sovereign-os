@@ -34,6 +34,7 @@ import argparse
 import json
 import os
 import sys
+import tempfile
 import time
 import tomllib
 from datetime import datetime, timezone
@@ -106,7 +107,15 @@ def toggles(path: Path = DASHBOARDS_TOML) -> dict[str, Any]:
 
 
 def _write_toggles(overrides: dict[str, bool], path: Path = DASHBOARDS_TOML) -> None:
-    """Write the [dashboards] table. Creates the parent dir if needed."""
+    """Write the [dashboards] table. Creates the parent dir if needed.
+
+    Written ATOMICALLY (temp file in the same dir → fsync → os.replace). A
+    plain truncate-then-write would, on a crash or a full disk mid-write,
+    leave a truncated dashboards.toml — which `_read_toggles_raw` parses as
+    {} (everything defaults ENABLED), silently discarding every explicit
+    operator `disable`. os.replace guarantees the target is only ever the
+    old complete file or the new complete file, never a partial.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     lines = [
         "# /etc/sovereign-os/dashboards.toml — operator dashboard on/off toggles",
@@ -118,7 +127,24 @@ def _write_toggles(overrides: dict[str, bool], path: Path = DASHBOARDS_TOML) -> 
     ]
     for slug in sorted(overrides):
         lines.append(f"{slug} = {'true' if overrides[slug] else 'false'}")
-    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    content = "\n".join(lines) + "\n"
+    fd, tmp_name = tempfile.mkstemp(
+        dir=str(path.parent), prefix=f"{path.name}.", suffix=".tmp"
+    )
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(content)
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(tmp_name, path)  # atomic on POSIX (same filesystem)
+    except BaseException:
+        # A failed write must NOT leave the temp turd behind or touch the
+        # existing target — the operator's prior toggles stay intact.
+        try:
+            os.unlink(tmp_name)
+        except OSError:
+            pass
+        raise
 
 
 def _emit_ocsf_5001(slug: str, enabled: bool, rationale: str) -> bool:

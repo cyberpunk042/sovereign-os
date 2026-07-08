@@ -55,6 +55,7 @@ def test_api_dry_run_validates():
     assert "/health" in result.stdout
     assert "/version" in result.stdout
     assert "/discover" in result.stdout
+    assert "/catalog" in result.stdout  # SDD-045 Phase B — described global view
 
 
 def _free_port() -> int:
@@ -166,6 +167,51 @@ def test_api_endpoint_toggles():
         assert by["router"]["toggleable"] is False and by["router"]["enabled"] is True
         # default (no toml) → everything enabled
         assert data["disabled_count"] == 0
+    finally:
+        proc.terminate()
+        proc.wait(timeout=2.0)
+
+
+def test_api_endpoint_catalog():
+    """SDD-045 Phase B — the described global view. GET /catalog serves the
+    described dashboard-catalog so the webapp renders a REAL description next
+    to every label (the operator's 'where are the descriptions' fix). Every
+    dashboard entry MUST carry a substantive description; categories MUST be
+    defined; nothing ships as a bare slug."""
+    proc, port = _start_daemon()
+    try:
+        status, data = _get_json(port, "/catalog")
+        assert status == 200
+        assert not data.get("error"), f"/catalog errored: {data.get('error')}"
+        assert data["dashboard_count"] == len(data["dashboards"])
+        assert data["category_count"] == len(data["categories"])
+        # every category has label + blurb
+        for c in data["categories"]:
+            assert c.get("id") and c.get("label") and c.get("blurb"), (
+                f"catalog category missing id/label/blurb: {c}"
+            )
+        cat_ids = {c["id"] for c in data["categories"]}
+        # every dashboard has a substantive description + a known category
+        for d in data["dashboards"]:
+            assert len((d.get("description") or "").strip()) >= 30, (
+                f"/catalog entry {d.get('slug')!r} has no real description"
+            )
+            assert d.get("category") in cat_ids, (
+                f"/catalog entry {d.get('slug')!r} references undefined "
+                f"category {d.get('category')!r}"
+            )
+            # planned (no panel) surfaces MUST expose the CLI that reaches
+            # them today — never a dead reference (standing rule: no minimizing)
+            if not d.get("path"):
+                assert d.get("cli"), (
+                    f"/catalog planned entry {d.get('slug')!r} has no cli:"
+                )
+        # the sacrosanct Trinity surface must be present + described
+        trinity = next((d for d in data["dashboards"]
+                        if d.get("slug") == "trinity"), None)
+        assert trinity and trinity.get("description"), (
+            "/catalog missing described 'trinity' entry"
+        )
     finally:
         proc.terminate()
         proc.wait(timeout=2.0)

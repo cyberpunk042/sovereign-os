@@ -11,13 +11,13 @@
 | E0408 | Re-centering — operator pulls AI back from filename-defining trajectory; "My job here is not to domesticate the vision into filenames too early; it is to keep bridging metal, models, systems research, and real operating consequences"; "Re-centered: the bridge is **hardware-aware intelligence scheduling**" | 12643 + 12656 + 12672 |
 | E0409 | New serving research — "The newest serving research is screaming one thing: the frontier bottleneck is no longer only 'can the model reason?'"; 6 frontier questions: Where is the context? / Where is the KV cache? / Which hardware owns the next step? / Is this request prefill-heavy or decode-heavy? / Can we reuse prior work? / Is this worth oracle compute? | 12676–12690 |
 | E0410 | External research anchors — NVIDIA Dynamo "KV-cache-aware routing" (docs.nvidia.com/dynamo/v-0-9-0/user-guides/kv-cache-aware-routing) + Ray Serve "prefill/decode disaggregation" (docs.ray.io/en/latest/serve/llm/architecture/serving-patterns/prefill-decode.html) + Together CPD "cache-aware disaggregated inference" (together.ai/blog/cache-aware-disaggregated-inference); "Together AI's CPD work claims cache-aware prefill/decode routing can improve long-context serving by routing around KV locality"; "That is extremely relevant" | 12692–12699 |
-| E0411 | Cloud-vs-station translation — cloud/datacenter (5-layer: prefill pool / decode pool / KV transfer fabric / many GPUs / routing by cache locality) vs station (4-layer: Blackwell=resident oracle context+long-context verification+final synthesis / 3090=scout/draft/rerank/perception/sandbox / Ryzen AVX-512=route by task+risk+budget+prefix-cache availability+profile / RAM-ZFS=warm/cold context+replay+memory maps+artifacts); "Do not blindly copy datacenter disaggregation"; "Without NVLink/fabric, moving KV tensors around can become poison"; principle is gold (4 rules: route to where useful context already lives / avoid recomputing prefill / reuse stable prefixes / separate cheap exploration from expensive verification) | 12706–12734 |
-| E0412 | Hyper feature — Context Residency (first-class runtime idea); 6 KV types resident: system prompt KV / tool schema KV / repo map KV / project policy KV / user preference KV / active task KV; "If Blackwell already has the right prefix hot, keep using it. If a branch only needs cheap exploration, send symbolic context to the 3090 instead. If context is cold, CPU decides whether prefill is worth it"; "This is how hardware becomes intelligence" | 12736–12758 |
-| E0413 | Hyper feature — AVX-512 Routing Brain — CPU keeps hot metadata (10 fields: request_id / profile / risk / budget / model_role / context_hash / kv_ref / cache_hit_prob / expected_value / privacy_flags); bulk-evaluates (8 decisions: use_local / use_cloud / use_blackwell / use_3090 / use_sandbox / reuse_context / require_oracle / require_human); "That is the Goldilocks layer. Not too much compute, not too little. Exactly enough" | 12760–12792 |
+| E0411 | Cloud-vs-station translation — cloud/datacenter (5-layer: prefill pool / decode pool / KV transfer fabric / many GPUs / routing by cache locality) vs station (4-layer: Blackwell=resident oracle context+long-context verification+final synthesis / 4090=scout/draft/rerank/perception/sandbox / Ryzen AVX-512=route by task+risk+budget+prefix-cache availability+profile / RAM-ZFS=warm/cold context+replay+memory maps+artifacts); "Do not blindly copy datacenter disaggregation"; "Without NVLink/fabric, moving KV tensors around can become poison"; principle is gold (4 rules: route to where useful context already lives / avoid recomputing prefill / reuse stable prefixes / separate cheap exploration from expensive verification) | 12706–12734 |
+| E0412 | Hyper feature — Context Residency (first-class runtime idea); 6 KV types resident: system prompt KV / tool schema KV / repo map KV / project policy KV / user preference KV / active task KV; "If Blackwell already has the right prefix hot, keep using it. If a branch only needs cheap exploration, send symbolic context to the 4090 instead. If context is cold, CPU decides whether prefill is worth it"; "This is how hardware becomes intelligence" | 12736–12758 |
+| E0413 | Hyper feature — AVX-512 Routing Brain — CPU keeps hot metadata (10 fields: request_id / profile / risk / budget / model_role / context_hash / kv_ref / cache_hit_prob / expected_value / privacy_flags); bulk-evaluates (8 decisions: use_local / use_cloud / use_blackwell / use_4090 / use_sandbox / reuse_context / require_oracle / require_human); "That is the Goldilocks layer. Not too much compute, not too little. Exactly enough" | 12760–12792 |
 | E0414 | Hyper feature — Blackwell As Context Sovereign — RTX PRO 6000 Blackwell official page (nvidia.com/en-us/products/workstations/professional-desktop-gpus/rtx-pro-6000) positions it for agentic AI and FP4 AI workloads; with 96GB VRAM real value is NOT just "bigger model" but 5 things: keep valuable context resident / verify branches in batches / host high-quality oracle model / run long-context synthesis / serve as final commit judge; "The Blackwell should not answer every tiny request. It should preserve the expensive mental state" | 12794–12814 |
-| E0415 | Hyper feature — 3090 As Cognitive Scratchpad — 8 uses: draft branches / SLM workers / embeddings / rerankers / failure classifiers / GUI-perception models / sandboxed experiments / cheap RLM child calls; "It can be wrong. That is fine. The CPU filters. Blackwell verifies" | 12816–12832 |
+| E0415 | Hyper feature — 4090 As Cognitive Scratchpad — 8 uses: draft branches / SLM workers / embeddings / rerankers / failure classifiers / GUI-perception models / sandboxed experiments / cheap RLM child calls; "It can be wrong. That is fine. The CPU filters. Blackwell verifies" | 12816–12832 |
 | E0416 | Hyper feature — KV-Aware Profiles — profiles affect context policy (6 bundles): fast (shallow context + low prefill + scout-first) / careful (reuse project KV + oracle verification) / deep (MAP phase + long context + RLM recursion) / private (local-only + no cloud + strict memory exposure) / autonomous (persistent session + replay + rollback + evals) / experimental (sandboxed + wide branches + no auto-commit); "That is not 'mode fluff.' It changes hardware behavior" | 12834–12866 |
-| E0417 | Bridge formula — "research concept → hardware policy → real user choice" with 2 examples (Research: KV-aware routing improves serving / Hardware policy: keep stable project context hot on Blackwell / User-visible choice: "Careful code mode" spends more VRAM/context to avoid repeated re-understanding; Research: prefill/decode disaggregation helps at scale / Hardware policy: do not move KV across weak links unless measured + emulate disaggregation by role separation instead / User-visible choice: "Fast scout mode" uses 3090 for drafts + Blackwell only for verification); Breakthrough line — "The machine's intelligence is not only in model weights. It is in **placement**" (6 placement dimensions: which thought lives where / which context stays hot / which branch gets verified / which memory gets promoted / which model gets trusted / which action gets committed); 8 things to care about (KV locality / prefix reuse / prefill cost / decode cost / cache hit rate / batch shape / context residency / hardware placement); living resource model (9 dimensions: compute / memory / KV / risk / cost / latency / privacy / reversibility / confidence); "That is how sovereignty becomes practical rather than decorative" | 12878–12940 |
+| E0417 | Bridge formula — "research concept → hardware policy → real user choice" with 2 examples (Research: KV-aware routing improves serving / Hardware policy: keep stable project context hot on Blackwell / User-visible choice: "Careful code mode" spends more VRAM/context to avoid repeated re-understanding; Research: prefill/decode disaggregation helps at scale / Hardware policy: do not move KV across weak links unless measured + emulate disaggregation by role separation instead / User-visible choice: "Fast scout mode" uses 4090 for drafts + Blackwell only for verification); Breakthrough line — "The machine's intelligence is not only in model weights. It is in **placement**" (6 placement dimensions: which thought lives where / which context stays hot / which branch gets verified / which memory gets promoted / which model gets trusted / which action gets committed); 8 things to care about (KV locality / prefix reuse / prefill cost / decode cost / cache hit rate / batch shape / context residency / hardware placement); living resource model (9 dimensions: compute / memory / KV / risk / cost / latency / privacy / reversibility / confidence); "That is how sovereignty becomes practical rather than decorative" | 12878–12940 |
 
 ## Modules (M00714–M00730)
 
@@ -30,13 +30,13 @@
 | M00718 | External research anchor — Ray Serve prefill/decode disaggregation | 12693 | E0410 |
 | M00719 | External research anchor — Together CPD cache-aware disaggregated inference | 12695 | E0410 |
 | M00720 | Cloud reference architecture — 5-layer (prefill pool / decode pool / KV transfer fabric / many GPUs / routing by cache locality) | 12706–12712 | E0411 |
-| M00721 | Station translation — 4-layer (Blackwell / 3090 / Ryzen AVX-512 / RAM-ZFS) | 12716–12728 | E0411 |
+| M00721 | Station translation — 4-layer (Blackwell / 4090 / Ryzen AVX-512 / RAM-ZFS) | 12716–12728 | E0411 |
 | M00722 | 4 principles — route to useful context + avoid recomputing prefill + reuse stable prefixes + separate cheap exploration from expensive verification | 12730–12734 | E0411 |
 | M00723 | Context Residency hyper feature — 6 KV types resident (system prompt / tool schema / repo map / project policy / user pref / active task) | 12736–12752 | E0412 |
 | M00724 | AVX-512 Routing Brain — 10 hot-metadata fields | 12762–12774 | E0413 |
 | M00725 | AVX-512 Routing Brain — 8 bulk-eval decisions | 12778–12790 | E0413 |
 | M00726 | Blackwell as Context Sovereign — 5 things (keep context resident / verify branches in batches / host oracle / long-context synthesis / final commit judge) | 12798–12810 | E0414 |
-| M00727 | 3090 as Cognitive Scratchpad — 8 uses | 12818–12830 | E0415 |
+| M00727 | 4090 as Cognitive Scratchpad — 8 uses | 12818–12830 | E0415 |
 | M00728 | KV-Aware Profiles — 6 bundles (fast / careful / deep / private / autonomous / experimental) | 12838–12862 | E0416 |
 | M00729 | Bridge formula — research concept → hardware policy → real user choice (2 worked examples) | 12878–12908 | E0417 |
 | M00730 | Living resource model — 9 dimensions (compute / memory / KV / risk / cost / latency / privacy / reversibility / confidence) + 6 placement dimensions + 8 care-about list | 12920–12940 | E0417 |
@@ -68,7 +68,7 @@
 | F03591 | Cloud version — many GPUs | 12710 | M00720 |
 | F03592 | Cloud version — routing by cache locality | 12711 | M00720 |
 | F03593 | Station — Blackwell role = resident oracle context + long-context verification + final synthesis | 12717–12719 | M00721 |
-| F03594 | Station — 3090 role = scout/draft/rerank/perception/sandbox | 12720–12722 | M00721 |
+| F03594 | Station — 4090 role = scout/draft/rerank/perception/sandbox | 12720–12722 | M00721 |
 | F03595 | Station — Ryzen AVX-512 role = route by task + risk + budget + prefix/cache availability + profile | 12723–12726 | M00721 |
 | F03596 | Station — RAM/ZFS role = warm/cold context + replay + memory maps + artifacts | 12727–12729 | M00721 |
 | F03597 | "Do not blindly copy datacenter disaggregation" | 12731 | E0411 |
@@ -86,7 +86,7 @@
 | F03609 | KV type resident — user preference KV | 12746 | M00723 |
 | F03610 | KV type resident — active task KV | 12747 | M00723 |
 | F03611 | Residency rule — "If Blackwell already has the right prefix hot, keep using it" | 12750 | M00723 |
-| F03612 | Residency rule — "If a branch only needs cheap exploration, send symbolic context to the 3090 instead" | 12751 | M00723 |
+| F03612 | Residency rule — "If a branch only needs cheap exploration, send symbolic context to the 4090 instead" | 12751 | M00723 |
 | F03613 | Residency rule — "If context is cold, CPU decides whether prefill is worth it" | 12752 | M00723 |
 | F03614 | Closing statement — "This is how hardware becomes intelligence" | 12758 | E0412 |
 | F03615 | Hyper feature header — AVX-512 Routing Brain | 12760 | E0413 |
@@ -104,7 +104,7 @@
 | F03627 | Bulk-eval decision — use_local | 12780 | M00725 |
 | F03628 | Bulk-eval decision — use_cloud | 12781 | M00725 |
 | F03629 | Bulk-eval decision — use_blackwell | 12782 | M00725 |
-| F03630 | Bulk-eval decision — use_3090 | 12783 | M00725 |
+| F03630 | Bulk-eval decision — use_4090 | 12783 | M00725 |
 | F03631 | Bulk-eval decision — use_sandbox | 12784 | M00725 |
 | F03632 | Bulk-eval decision — reuse_context | 12785 | M00725 |
 | F03633 | Bulk-eval decision — require_oracle | 12786 | M00725 |
@@ -120,15 +120,15 @@
 | F03643 | Blackwell role — serve as final commit judge | 12808 | M00726 |
 | F03644 | Blackwell mandate — "should not answer every tiny request" | 12812 | E0414 |
 | F03645 | Blackwell mandate — "should preserve the expensive mental state" | 12814 | E0414 |
-| F03646 | 3090 use — draft branches | 12820 | M00727 |
-| F03647 | 3090 use — SLM workers | 12821 | M00727 |
-| F03648 | 3090 use — embeddings | 12822 | M00727 |
-| F03649 | 3090 use — rerankers | 12823 | M00727 |
-| F03650 | 3090 use — failure classifiers | 12824 | M00727 |
-| F03651 | 3090 use — GUI/perception models | 12825 | M00727 |
-| F03652 | 3090 use — sandboxed experiments | 12826 | M00727 |
-| F03653 | 3090 use — cheap RLM child calls | 12827 | M00727 |
-| F03654 | 3090 doctrine — "It can be wrong. That is fine. The CPU filters. Blackwell verifies" | 12832 | E0415 |
+| F03646 | 4090 use — draft branches | 12820 | M00727 |
+| F03647 | 4090 use — SLM workers | 12821 | M00727 |
+| F03648 | 4090 use — embeddings | 12822 | M00727 |
+| F03649 | 4090 use — rerankers | 12823 | M00727 |
+| F03650 | 4090 use — failure classifiers | 12824 | M00727 |
+| F03651 | 4090 use — GUI/perception models | 12825 | M00727 |
+| F03652 | 4090 use — sandboxed experiments | 12826 | M00727 |
+| F03653 | 4090 use — cheap RLM child calls | 12827 | M00727 |
+| F03654 | 4090 doctrine — "It can be wrong. That is fine. The CPU filters. Blackwell verifies" | 12832 | E0415 |
 | F03655 | KV-Aware Profiles header + 6 bundles + "not mode fluff. It changes hardware behavior" + Bridge formula 2 examples + Breakthrough placement line + 8 care-about items + 9-dimension resource model + "how sovereignty becomes practical rather than decorative" | 12834–12940 | M00728 + M00729 + M00730 + E0416 + E0417 |
 
 ## Requirements (R07141–R07310)
@@ -167,11 +167,11 @@
 | R07170 | Station — Blackwell = resident oracle context | 12717 | F03593 | non-negotiable | false | 10 |
 | R07171 | Station — Blackwell = long-context verification | 12718 | F03593 | non-negotiable | false | 10 |
 | R07172 | Station — Blackwell = final synthesis | 12719 | F03593 | non-negotiable | false | 10 |
-| R07173 | Station — 3090 = scout | 12720 | F03594 | non-negotiable | false | 10 |
-| R07174 | Station — 3090 = draft | 12720 | F03594 | non-negotiable | false | 10 |
-| R07175 | Station — 3090 = rerank | 12721 | F03594 | non-negotiable | false | 10 |
-| R07176 | Station — 3090 = perception | 12721 | F03594 | non-negotiable | false | 10 |
-| R07177 | Station — 3090 = sandbox | 12722 | F03594 | non-negotiable | false | 10 |
+| R07173 | Station — 4090 = scout | 12720 | F03594 | non-negotiable | false | 10 |
+| R07174 | Station — 4090 = draft | 12720 | F03594 | non-negotiable | false | 10 |
+| R07175 | Station — 4090 = rerank | 12721 | F03594 | non-negotiable | false | 10 |
+| R07176 | Station — 4090 = perception | 12721 | F03594 | non-negotiable | false | 10 |
+| R07177 | Station — 4090 = sandbox | 12722 | F03594 | non-negotiable | false | 10 |
 | R07178 | Station — Ryzen AVX-512 = route by task | 12723 | F03595 | non-negotiable | false | 10 |
 | R07179 | Station — Ryzen AVX-512 = route by risk | 12724 | F03595 | non-negotiable | false | 10 |
 | R07180 | Station — Ryzen AVX-512 = route by budget | 12725 | F03595 | non-negotiable | false | 10 |
@@ -196,7 +196,7 @@
 | R07199 | KV resident type — user preference KV | 12746 | F03609 | non-negotiable | false | 10 |
 | R07200 | KV resident type — active task KV | 12747 | F03610 | non-negotiable | false | 10 |
 | R07201 | Residency rule — "If Blackwell already has the right prefix hot, keep using it" | 12750 | F03611 | non-negotiable | false | 10 |
-| R07202 | Residency rule — "If a branch only needs cheap exploration, send symbolic context to the 3090 instead" | 12751 | F03612 | non-negotiable | false | 10 |
+| R07202 | Residency rule — "If a branch only needs cheap exploration, send symbolic context to the 4090 instead" | 12751 | F03612 | non-negotiable | false | 10 |
 | R07203 | Residency rule — "If context is cold, CPU decides whether prefill is worth it" | 12752 | F03613 | non-negotiable | false | 10 |
 | R07204 | Statement — "This is how hardware becomes intelligence" | 12758 | F03614 | non-negotiable | false | 10 |
 | R07205 | Hyper feature label — AVX-512 Routing Brain | 12760 | F03615 | non-negotiable | false | 10 |
@@ -215,7 +215,7 @@
 | R07218 | Bulk-eval decision — use_local | 12780 | F03627 | non-negotiable | false | 10 |
 | R07219 | Bulk-eval decision — use_cloud | 12781 | F03628 | non-negotiable | false | 10 |
 | R07220 | Bulk-eval decision — use_blackwell | 12782 | F03629 | non-negotiable | false | 10 |
-| R07221 | Bulk-eval decision — use_3090 | 12783 | F03630 | non-negotiable | false | 10 |
+| R07221 | Bulk-eval decision — use_4090 | 12783 | F03630 | non-negotiable | false | 10 |
 | R07222 | Bulk-eval decision — use_sandbox | 12784 | F03631 | non-negotiable | false | 10 |
 | R07223 | Bulk-eval decision — reuse_context | 12785 | F03632 | non-negotiable | false | 10 |
 | R07224 | Bulk-eval decision — require_oracle | 12786 | F03633 | non-negotiable | false | 10 |
@@ -235,17 +235,17 @@
 | R07238 | Blackwell role — serve as final commit judge | 12808 | F03643 | non-negotiable | false | 10 |
 | R07239 | Blackwell mandate — "should not answer every tiny request" | 12812 | F03644 | non-negotiable | false | 10 |
 | R07240 | Blackwell mandate — "should preserve the expensive mental state" | 12814 | F03645 | non-negotiable | false | 10 |
-| R07241 | Hyper feature label — 3090 As Cognitive Scratchpad | 12816 | E0415 | non-negotiable | false | 10 |
-| R07242 | 3090 use — draft branches | 12820 | F03646 | non-negotiable | false | 10 |
-| R07243 | 3090 use — SLM workers | 12821 | F03647 | non-negotiable | false | 10 |
-| R07244 | 3090 use — embeddings | 12822 | F03648 | non-negotiable | false | 10 |
-| R07245 | 3090 use — rerankers | 12823 | F03649 | non-negotiable | false | 10 |
-| R07246 | 3090 use — failure classifiers | 12824 | F03650 | non-negotiable | false | 10 |
-| R07247 | 3090 use — GUI/perception models | 12825 | F03651 | non-negotiable | false | 10 |
-| R07248 | 3090 use — sandboxed experiments | 12826 | F03652 | non-negotiable | false | 10 |
-| R07249 | 3090 use — cheap RLM child calls | 12827 | F03653 | non-negotiable | false | 10 |
-| R07250 | 3090 doctrine — "It can be wrong. That is fine" | 12832 | F03654 | non-negotiable | false | 10 |
-| R07251 | 3090 doctrine — "The CPU filters. Blackwell verifies" | 12832 | F03654 | non-negotiable | false | 10 |
+| R07241 | Hyper feature label — 4090 As Cognitive Scratchpad | 12816 | E0415 | non-negotiable | false | 10 |
+| R07242 | 4090 use — draft branches | 12820 | F03646 | non-negotiable | false | 10 |
+| R07243 | 4090 use — SLM workers | 12821 | F03647 | non-negotiable | false | 10 |
+| R07244 | 4090 use — embeddings | 12822 | F03648 | non-negotiable | false | 10 |
+| R07245 | 4090 use — rerankers | 12823 | F03649 | non-negotiable | false | 10 |
+| R07246 | 4090 use — failure classifiers | 12824 | F03650 | non-negotiable | false | 10 |
+| R07247 | 4090 use — GUI/perception models | 12825 | F03651 | non-negotiable | false | 10 |
+| R07248 | 4090 use — sandboxed experiments | 12826 | F03652 | non-negotiable | false | 10 |
+| R07249 | 4090 use — cheap RLM child calls | 12827 | F03653 | non-negotiable | false | 10 |
+| R07250 | 4090 doctrine — "It can be wrong. That is fine" | 12832 | F03654 | non-negotiable | false | 10 |
+| R07251 | 4090 doctrine — "The CPU filters. Blackwell verifies" | 12832 | F03654 | non-negotiable | false | 10 |
 | R07252 | Hyper feature label — KV-Aware Profiles | 12834 | M00728 | non-negotiable | false | 10 |
 | R07253 | Profile fast — shallow context | 12840 | M00728 | non-negotiable | false | 10 |
 | R07254 | Profile fast — low prefill | 12840 | M00728 | non-negotiable | false | 10 |
@@ -274,7 +274,7 @@
 | R07277 | Bridge example 2 — Research: prefill/decode disaggregation helps at scale | 12892 | M00729 | non-negotiable | false | 10 |
 | R07278 | Bridge example 2 — Hardware policy: do not move KV across weak links unless measured | 12894 | M00729 | non-negotiable | false | 10 |
 | R07279 | Bridge example 2 — Hardware policy: emulate disaggregation by role separation instead | 12895 | M00729 | non-negotiable | false | 10 |
-| R07280 | Bridge example 2 — User choice: "Fast scout mode" uses 3090 for drafts, Blackwell only for verification | 12897 | M00729 | non-negotiable | false | 10 |
+| R07280 | Bridge example 2 — User choice: "Fast scout mode" uses 4090 for drafts, Blackwell only for verification | 12897 | M00729 | non-negotiable | false | 10 |
 | R07281 | Breakthrough line — "machine's intelligence is not only in model weights. It is in placement" | 12906 | E0417 | non-negotiable | false | 10 |
 | R07282 | Placement dimension — which thought lives where | 12910 | E0417 | non-negotiable | false | 10 |
 | R07283 | Placement dimension — which context stays hot | 12911 | E0417 | non-negotiable | false | 10 |
@@ -304,18 +304,18 @@
 | R07307 | "Your projects can expose infinite choice, yes. But underneath those choices, the station needs a living resource model" | 12920 | M00730 | non-negotiable | false | 10 |
 | R07308 | External research — heterogeneous LLM serving CPU GPU scheduling KV cache routing agent systems (2026 search) | 12692 | E0410 | non-negotiable | false | 10 |
 | R07309 | AVX-512 Routing Brain serves as the Goldilocks router; the 8 bulk-eval decisions are the per-request output of the AVX cortex hot path (M039 extension to runtime) | 12790 + cross-ref M039 | M00725 | non-negotiable | false | 10 |
-| R07310 | Composite — M043 (10 epics / 17 modules / 85 features / 170 reqs) catalogs the bridge layer = hardware-aware intelligence scheduling: 6 frontier questions + 3 external research anchors (NVIDIA Dynamo + Ray Serve + Together CPD) + cloud-vs-station translation (5-layer vs 4-layer) + 4 datacenter-disaggregation principles + Context Residency hyper feature (6 KV types + 3 residency rules + "hardware becomes intelligence") + AVX-512 Routing Brain hyper feature (10 hot-metadata fields + 8 bulk-eval decisions + Goldilocks layer) + Blackwell Context Sovereign hyper feature (5 roles + "preserve the expensive mental state") + 3090 Cognitive Scratchpad hyper feature (8 uses + "CPU filters Blackwell verifies") + KV-Aware Profiles hyper feature (6 bundles + "changes hardware behavior") + bridge formula (research → hardware policy → user choice + 2 worked examples) + Breakthrough placement line (6 placement dimensions) + 8 care-about items + 9-dimension living resource model + "sovereignty becomes practical rather than decorative" | 12614–12944 | E0408-E0417 | non-negotiable | false | 10 |
+| R07310 | Composite — M043 (10 epics / 17 modules / 85 features / 170 reqs) catalogs the bridge layer = hardware-aware intelligence scheduling: 6 frontier questions + 3 external research anchors (NVIDIA Dynamo + Ray Serve + Together CPD) + cloud-vs-station translation (5-layer vs 4-layer) + 4 datacenter-disaggregation principles + Context Residency hyper feature (6 KV types + 3 residency rules + "hardware becomes intelligence") + AVX-512 Routing Brain hyper feature (10 hot-metadata fields + 8 bulk-eval decisions + Goldilocks layer) + Blackwell Context Sovereign hyper feature (5 roles + "preserve the expensive mental state") + 4090 Cognitive Scratchpad hyper feature (8 uses + "CPU filters Blackwell verifies") + KV-Aware Profiles hyper feature (6 bundles + "changes hardware behavior") + bridge formula (research → hardware policy → user choice + 2 worked examples) + Breakthrough placement line (6 placement dimensions) + 8 care-about items + 9-dimension living resource model + "sovereignty becomes practical rather than decorative" | 12614–12944 | E0408-E0417 | non-negotiable | false | 10 |
 
 ## Sub-requirements accounting
 
-- 170 requirements covering: operator re-centering rebuke (R07141–R07148) + 6 frontier questions (R07149–R07156) + 3 external research URLs + claims (R07157–R07164) + cloud 5-layer vs station 4-layer (R07165–R07186) + 2 cautions + 4 principles (R07187–R07192) + Context Residency hyper feature + 6 KV types + 3 residency rules + closing (R07193–R07204) + AVX-512 Routing Brain + 10 hot-metadata fields + 8 bulk-eval decisions + Goldilocks (R07205–R07227) + Blackwell Context Sovereign + URL + 5 roles + 2 mandates (R07228–R07240) + 3090 Cognitive Scratchpad + 8 uses + doctrine (R07241–R07251) + 6 KV-aware profiles + "not mode fluff" (R07252–R07272) + bridge formula + 2 examples (R07273–R07280) + breakthrough placement + 6 dimensions + closing (R07281–R07288) + 8 care-about + 9-dimension resource model + sovereignty (R07289–R07307) + research-anchor cross-ref + composite (R07308–R07310)
+- 170 requirements covering: operator re-centering rebuke (R07141–R07148) + 6 frontier questions (R07149–R07156) + 3 external research URLs + claims (R07157–R07164) + cloud 5-layer vs station 4-layer (R07165–R07186) + 2 cautions + 4 principles (R07187–R07192) + Context Residency hyper feature + 6 KV types + 3 residency rules + closing (R07193–R07204) + AVX-512 Routing Brain + 10 hot-metadata fields + 8 bulk-eval decisions + Goldilocks (R07205–R07227) + Blackwell Context Sovereign + URL + 5 roles + 2 mandates (R07228–R07240) + 4090 Cognitive Scratchpad + 8 uses + doctrine (R07241–R07251) + 6 KV-aware profiles + "not mode fluff" (R07252–R07272) + bridge formula + 2 examples (R07273–R07280) + breakthrough placement + 6 dimensions + closing (R07281–R07288) + 8 care-about + 9-dimension resource model + sovereignty (R07289–R07307) + research-anchor cross-ref + composite (R07308–R07310)
 - Source range 12614–12944 yields 330 lines; 170 R-rows represent ~52% line-coverage at the verbatim-citation level (web-search trace lines + redundant operator re-prompt echo excluded)
 - Project boundary — M043 is sovereign-os runtime scheduler/scheduling-policy scope; selfdef does NOT own intelligence scheduling (its scope is host-defense/IPS surface); cross-repo binding via MS007 typed-mirror crates if hardware-policy schemas need IPS-side audit
 
 ## Cross-references
 
 - Adjacent dump-range milestones: M042 choice architecture (12094–12614) / M044 Sovereign-OS substrate Debian-13 Ubuntu-24 (dump 13307–13546; gap 12944–13307 likely covered by M043 backward-sweep)
-- Plane integration — M043 supersedes/extends M039 AVX-512 cortex hot path (AVX cortex now serves as the 8-bulk-eval-decision Goldilocks router); M040 hyper features (4 new hyper features added: Context Residency / AVX-512 Routing Brain / Blackwell Context Sovereign / 3090 Cognitive Scratchpad / KV-Aware Profiles); M025 Cognitive Compiler (compiles bridge-formula research→hardware→user-choice into DAG); M026 SLM swarm + M027 Value Plane (3090 hosts SLM workers; reward vector influences require_oracle decision); M028 Memory OS (KV resident types align with Memory Plane); M032 Cloud Expert Plane (use_cloud bulk-eval decision); M035 Frontier inference-time intelligence (Blackwell-as-context-sovereign extends Frontier 9-layer Runtime Shape); M042 Choice Architecture (KV-aware profiles + bridge formula realize choice envelopes in hardware)
+- Plane integration — M043 supersedes/extends M039 AVX-512 cortex hot path (AVX cortex now serves as the 8-bulk-eval-decision Goldilocks router); M040 hyper features (4 new hyper features added: Context Residency / AVX-512 Routing Brain / Blackwell Context Sovereign / 4090 Cognitive Scratchpad / KV-Aware Profiles); M025 Cognitive Compiler (compiles bridge-formula research→hardware→user-choice into DAG); M026 SLM swarm + M027 Value Plane (4090 hosts SLM workers; reward vector influences require_oracle decision); M028 Memory OS (KV resident types align with Memory Plane); M032 Cloud Expert Plane (use_cloud bulk-eval decision); M035 Frontier inference-time intelligence (Blackwell-as-context-sovereign extends Frontier 9-layer Runtime Shape); M042 Choice Architecture (KV-aware profiles + bridge formula realize choice envelopes in hardware)
 - Cross-repo binding — bridge formula research→hardware-policy→user-choice may surface via MS007 surface-manifest typed-mirror crate (the user-choice layer is the operator-facing dashboard surface)
-- Hardware reality — Ryzen 9 9900X Zen 5 AVX-512 + RTX PRO 6000 Blackwell 96GB GDDR7 + RTX 3090 24GB + ProArt X870E-Creator + ZFS + 10GbE+2.5GbE; this is the substrate on which the 4-layer station model executes
+- Hardware reality — Ryzen 9 9900X Zen 5 AVX-512 + RTX PRO 6000 Blackwell 96GB GDDR7 + RTX 4090 24GB + ProArt X870E-Creator + ZFS + 10GbE+2.5GbE; this is the substrate on which the 4-layer station model executes
 - Operator references: docs.nvidia.com/dynamo/v-0-9-0/user-guides/kv-cache-aware-routing + docs.ray.io/en/latest/serve/llm/architecture/serving-patterns/prefill-decode.html + together.ai/blog/cache-aware-disaggregated-inference + nvidia.com/en-us/products/workstations/professional-desktop-gpus/rtx-pro-6000 + 2026 heterogeneous LLM serving CPU GPU scheduling KV cache routing agent systems (web search)

@@ -1,0 +1,18 @@
+[package]
+name = "sovereign-cuckoo-filter"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cuckoo filter: approximate set membership that, unlike a Bloom filter, supports deletion — stores small fingerprints in a cuckoo-hash table with two candidate buckets per item and relocates on collision. For sliding-window 'seen recently' sets where items must expire, with a tunable false-positive rate and no false negatives for present items."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }

@@ -1,0 +1,81 @@
+# Selfdef SDD-074 process-env scrub Prometheus alerting rules.
+# Fires on textfile metrics from selfdef-env-scrubs-textfile
+# (selfdef MS4a commit). Extends the IPS-nonet observability set
+# to the dectet with the prior 19th..27th siblings.
+
+groups:
+  - name: selfdef-env-scrubs
+    interval: 30s
+    rules:
+
+      - alert: SelfdefEnvScrubsTextfileEmitFailed
+        expr: selfdef_env_scrubs_textfile_emit_failed > 0
+        for: 5m
+        labels:
+          severity: critical
+          subsystem: selfdef-env-scrubs
+          es_link: observer-fault
+        annotations:
+          summary: "Selfdef env-scrubs observer fault on {{ $labels.instance }}"
+          description: "Wrapper failure for 5+ minutes. SDD-074 enforcement visibility lost."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefenvscrubstextfileemitfailed-critical"
+
+      - alert: SelfdefEnvScrubsObserverSilent
+        expr: time() - selfdef_env_scrubs_last_run_unix > 300
+        for: 2m
+        labels:
+          severity: critical
+          subsystem: selfdef-env-scrubs
+          es_link: observer-silent
+        annotations:
+          summary: "Selfdef env-scrubs observer silent on {{ $labels.instance }}"
+          description: "Timer hasn't fired in 5+ minutes."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefenvscrubsobserversilent-critical"
+
+      - alert: SelfdefEnvScrubsStateDirMissing
+        expr: selfdef_env_scrubs_state_dir_present == 0
+        for: 10m
+        labels:
+          severity: critical
+          subsystem: selfdef-env-scrubs
+          es_link: state-dir-missing
+        annotations:
+          summary: "env-scrubs state-dir absent on {{ $labels.instance }} — SDD-074 enforcement OFFLINE"
+          description: "/var/lib/selfdef/env-scrubs not present for 10+ minutes. SDD-074 in-memory secret-residency-axis IPS primitive cannot persist state. Operator action: systemctl status selfdefd && systemctl restart selfdefd."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefenvscrubsstatedirmissing-critical"
+
+      - alert: SelfdefEnvScrubsPendingRestoreBacklog
+        expr: selfdef_env_scrubs_pending_restores > 5
+        for: 30m
+        labels:
+          severity: warning
+          subsystem: selfdef-env-scrubs
+          es_link: pending-backlog
+        annotations:
+          summary: "{{ $value }} pending env-scrub restore decisions on {{ $labels.instance }} for 30m"
+          description: "Operator engagement with the cockpit env-scrubs-queue card needed."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefenvscrubspendingrestorebacklog-warning"
+
+      - alert: SelfdefEnvScrubsNoMatchHigh
+        expr: selfdef_env_scrubs_no_match_count > 3
+        for: 30m
+        labels:
+          severity: warning
+          subsystem: selfdef-env-scrubs
+          es_link: no-match-high
+        annotations:
+          summary: "{{ $value }} env-scrub NoMatch handles on {{ $labels.instance }} for 30m"
+          description: "Multiple scrub requests targeted processes without the named vars — likely rule misconfiguration or stale process model. Operator review."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefenvscrubsnomatchhigh-warning"
+
+      - alert: SelfdefEnvScrubsVarsScrubbedHigh
+        expr: selfdef_env_scrubs_vars_scrubbed_total > 50
+        for: 1h
+        labels:
+          severity: warning
+          subsystem: selfdef-env-scrubs
+          es_link: vars-high
+        annotations:
+          summary: "{{ $value }} variables scrubbed across active handles on {{ $labels.instance }} for 1h"
+          description: "Large-scale credential-rotation propagation. Verify rotation workflow + secret-broker fetch latency."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefenvscrubsvarsscrubbedhigh-warning"

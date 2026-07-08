@@ -3,7 +3,7 @@
 Extends R387-R401 operational-artifact pinning to the three §17.1
 Trinity-side runtime start scripts:
   scripts/inference/start-pulse.sh         (Pulse / bitnet.cpp / CCD 0)
-  scripts/inference/start-logic-engine.sh  (Logic Engine / RTX 3090 / VFIO)
+  scripts/inference/start-logic-engine.sh  (Logic Engine / RTX 4090 / VFIO)
   scripts/inference/start-oracle-core.sh   (Oracle Core / Blackwell / vLLM)
 
 These scripts encode the operator-named SRP Trinity. R397 pinned the
@@ -14,7 +14,7 @@ in the START SCRIPTS, not in the units.
 
 Master spec §17.1 verbatim Trinity binding (operator-named):
   - Pulse        → bitnet.cpp, ternary, CCD 0 cores 0-5, port 8081
-  - Logic Engine → RTX 3090 (VFIO-bound), vLLM / llama_cpp, port 8082
+  - Logic Engine → RTX 4090 (VFIO-bound), vLLM / llama_cpp, port 8082
   - Oracle Core  → RTX PRO 6000 Blackwell, vLLM, fp8 KV, port 8083
 
 Layer B metric label invariants (SDD-016):
@@ -198,18 +198,18 @@ def test_pulse_uses_taskset_for_pinning():
     )
 
 
-# --- Logic Engine specific: RTX 3090 + VFIO + vLLM ---
+# --- Logic Engine specific: RTX 4090 + VFIO + vLLM ---
 
 
-def test_logic_engine_references_rtx_3090_or_vfio():
+def test_logic_engine_references_rtx_4090_or_vfio():
     body = _read(LOGIC)
-    has_3090 = (
-        "RTX 3090" in body or "3090" in body or "VFIO" in body
+    has_4090 = (
+        "RTX 4090" in body or "4090" in body or "VFIO" in body
         or "vfio" in body
     )
-    assert has_3090, (
-        "start-logic-engine.sh missing RTX 3090 / VFIO reference "
-        "(operator-named §17.1 — Logic Engine on VFIO-bound 3090)"
+    assert has_4090, (
+        "start-logic-engine.sh missing RTX 4090 / VFIO reference "
+        "(operator-named §17.1 — Logic Engine on VFIO-bound 4090)"
     )
 
 
@@ -222,7 +222,7 @@ def test_logic_engine_supports_vllm_backend():
 
 
 def test_logic_engine_supports_llama_cpp_fallback():
-    """Operator-named fallback: llama_cpp when vLLM unavailable on 3090.
+    """Operator-named fallback: llama_cpp when vLLM unavailable on 4090.
     Drift losing this fallback silently strands Logic Engine on debug
     hardware."""
     body = _read(LOGIC)

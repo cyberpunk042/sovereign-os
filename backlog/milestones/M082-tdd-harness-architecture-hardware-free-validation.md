@@ -118,7 +118,7 @@ Sovereign-OS is an image-build project — it produces a bootable artifact (Debi
 | F06877 | L4 layer — runtime budget: ≤ 1800 seconds wall-clock on standard CI runner | budget |
 | F06878 | L4 layer — runs on merge to main OR via label trigger | macro-arc 268–269 |
 | F06879 | L5 layer — hardware-conformance tests gated on matching hardware presence | macro-arc 239 |
-| F06880 | L5 layer — SAIN-01 hardware detector (ProArt X870E-Creator + znver5 + Marvell 10GbE + Intel 2.5GbE + RTX 3090 ×2) | macro-arc 239 + sain-01 §1 |
+| F06880 | L5 layer — SAIN-01 hardware detector (ProArt X870E-Creator + znver5 + Marvell 10GbE + Intel 2.5GbE + RTX 4090 ×2) | macro-arc 239 + sain-01 §1 |
 | F06881 | L5 layer — runs only when hw detected; skipped with reason logged when absent | macro-arc 239 + UX |
 | F06882 | L5 layer — VFIO passthrough verification: nvidia-smi inside guest sees the GPU | macro-arc 239 + sain-01 §4.3 |
 | F06883 | L5 layer — AVX-512 verification: VPDPBUSD instruction available + cycle-accurate (cross-ref M074) | macro-arc 239 + M074 |
@@ -245,7 +245,7 @@ Sovereign-OS is an image-build project — it produces a bootable artifact (Debi
 | R13714 | L4 layer — runs on merge to main OR via label trigger | F06878 |
 | R13715 | L4 layer — flake = 2 retries with bisect-on-retry-fail | F06902 |
 | R13716 | L5 layer — hardware-conformance gated on matching hardware presence | F06879 |
-| R13717 | L5 layer — SAIN-01 detector: ProArt X870E-Creator + znver5 + Marvell 10GbE + Intel 2.5GbE + RTX 3090 ×2 | F06880 + sain-01 §1 |
+| R13717 | L5 layer — SAIN-01 detector: ProArt X870E-Creator + znver5 + Marvell 10GbE + Intel 2.5GbE + RTX 4090 ×2 | F06880 + sain-01 §1 |
 | R13718 | L5 layer — runs only when hw detected; skipped with reason logged when absent | F06881 |
 | R13719 | L5 layer — VFIO passthrough verification: nvidia-smi inside guest sees the GPU | F06882 + sain-01 §4.3 |
 | R13720 | L5 layer — AVX-512 verification: VPDPBUSD instruction available + cycle-accurate (M074 binding) | F06883 + M074 |

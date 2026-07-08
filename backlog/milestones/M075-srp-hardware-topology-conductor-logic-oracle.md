@@ -14,7 +14,7 @@
 |---|---|---|
 | E0718 | Vibe Managing Orchestration Harness — top-level coordinator | dump 816 |
 | E0719 | Conductor Agent — CPU bound — SRP: Routing & State Fabric | dump 822-823, 826-829 |
-| E0720 | Logic Engine — GPU 0 RTX 3090 — SRP: Ingestion & Translation | dump 823-824, 830-833 |
+| E0720 | Logic Engine — GPU 0 RTX 4090 — SRP: Ingestion & Translation | dump 823-824, 830-833 |
 | E0721 | Oracle Core — GPU 1 Blackwell PRO 6000 — SRP: Long-Term Deep Reasoning | dump 824, 834-837 |
 | E0722 | Conductor runtime — natively compiled 1-bit/Ternary BitNet via bitnet.cpp pinned to high-priority CPU cores | dump 827 |
 | E0723 | Logic runtime — mid-scale quantized models (Llama-3-70B Q4_K_M or IQ4_NL) in Podman container | dump 831-832 |
@@ -29,7 +29,7 @@
 |---|---|---|
 | M01241 | sovereign-srp-vibe-managing-harness | dump 816 |
 | M01242 | sovereign-srp-conductor-agent (CPU bound) | dump 822-829 |
-| M01243 | sovereign-srp-logic-engine (GPU 0 RTX 3090) | dump 823, 830-833 |
+| M01243 | sovereign-srp-logic-engine (GPU 0 RTX 4090) | dump 823, 830-833 |
 | M01244 | sovereign-srp-oracle-core (GPU 1 Blackwell) | dump 824, 834-837 |
 | M01245 | sovereign-srp-conductor-bitnet-runtime | dump 827 + cross-ref M073 |
 | M01246 | sovereign-srp-logic-podman-bridge | dump 832 |
@@ -83,7 +83,7 @@
 | F06237 | Logic runtime — example: Llama-3-70B IQ4_NL | dump 832 |
 | F06238 | Logic runtime — managed via dedicated Podman container bridge | dump 832 |
 | F06239 | Logic justification — balances throughput against 24GB VRAM ceiling | dump 833 |
-| F06240 | Logic — RTX 3090 24GB GDDR6X target | dump 823 + cross-ref M044 |
+| F06240 | Logic — RTX 4090 24GB GDDR6X target | dump 823 + cross-ref M044 |
 | F06241 | Logic — composes with sovereign-os scout role per M058 | cross-ref M058 |
 | F06242 | Logic — composes with M068 ZFS tank/models for model storage | cross-ref M068 |
 | F06243 | Oracle Core — (SRP: Long-Term Deep Reasoning) | dump 824 |
@@ -128,8 +128,8 @@
 | F06282 | CLI — `sovereign srp route <task>` shows SRP routing decision | architecture |
 | F06283 | CLI — `sovereign srp metrics` per-agent metrics | architecture |
 | F06284 | CLI — all srp subcommands emit M049 trace | cross-ref M049 |
-| F06285 | Composition — composes with M044 substrate (Ryzen 9 9900X + RTX 3090 + Blackwell 96GB) | cross-ref M044 |
-| F06286 | Composition — composes with M058 hardware-aware scheduler (Blackwell oracle / 3090 scout / CPU cortex roles) | cross-ref M058 |
+| F06285 | Composition — composes with M044 substrate (Ryzen 9 9900X + RTX 4090 + Blackwell 96GB) | cross-ref M044 |
+| F06286 | Composition — composes with M058 hardware-aware scheduler (Blackwell oracle / 4090 scout / CPU cortex roles) | cross-ref M058 |
 | F06287 | Composition — composes with M066 Trinity (Conductor=Pulse, Logic=scout, Oracle=oracle mapping) | cross-ref M066 |
 | F06288 | Composition — composes with M076 3 load-balancing profiles (operationalize SRP per workload) | cross-ref M076 (pending) |
 | F06289 | Boundary — SRP topology = sovereign-os runtime; selfdef IPS enforces boundaries via MS036/MS038 | operator standing direction + cross-ref selfdef MS036 + MS038 |
@@ -174,7 +174,7 @@
 | R12443 | Logic runtime — example Llama-3-70B IQ4_NL | dump 832 | F06237 | non-negotiable | false | 10 |
 | R12444 | Logic runtime — managed via dedicated Podman container bridge | dump 832 | F06238 | non-negotiable | false | 10 |
 | R12445 | Logic justification — balances throughput against 24GB VRAM ceiling | dump 833 | F06239 | non-negotiable | false | 10 |
-| R12446 | Logic — RTX 3090 24GB GDDR6X target | dump 823 + cross-ref M044 | F06240 | non-negotiable | false | 10 |
+| R12446 | Logic — RTX 4090 24GB GDDR6X target | dump 823 + cross-ref M044 | F06240 | non-negotiable | false | 10 |
 | R12447 | Logic — composes with sovereign-os scout role per M058 | cross-ref M058 | F06241 | non-negotiable | false | 10 |
 | R12448 | Logic — composes with M068 ZFS tank/models for model storage | cross-ref M068 | F06242 | non-negotiable | false | 10 |
 | R12449 | Logic — composes with M070 CCD 1 host cores 10-11 for IRQ routing | cross-ref M070 | F06240 | non-negotiable | false | 10 |
@@ -240,7 +240,7 @@
 | R12509 | CLI — `sovereign srp override <task> <agent>` operator-overrides routing (signed) | cross-ref selfdef MS003 | F06263 | non-negotiable | false | 10 |
 | R12510 | CLI — all srp subcommands emit M049 trace | cross-ref M049 | F06284 | non-negotiable | false | 10 |
 | R12511 | CLI — `--json` flag returns structured output | architecture | F06281 | non-negotiable | false | 10 |
-| R12512 | Composition — composes with M044 substrate (Ryzen + 3090 + Blackwell hardware) | cross-ref M044 | F06285 | non-negotiable | false | 10 |
+| R12512 | Composition — composes with M044 substrate (Ryzen + 4090 + Blackwell hardware) | cross-ref M044 | F06285 | non-negotiable | false | 10 |
 | R12513 | Composition — composes with M058 hardware-aware scheduler | cross-ref M058 | F06286 | non-negotiable | false | 10 |
 | R12514 | Composition — composes with M066 Trinity (Conductor=Pulse / Logic=scout / Oracle=oracle) | cross-ref M066 | F06287 | non-negotiable | false | 10 |
 | R12515 | Composition — composes with M067 kernel build (FP16 + AVX-512) | cross-ref M067 | F06463 | non-negotiable | false | 10 |
@@ -316,12 +316,12 @@ Every R-row carries 10 hard non-negotiable sub-requirements. Total = 170 R × 10
 
 ## Cross-references
 
-- **M044** — substrate (Ryzen + RTX 3090 + Blackwell 96GB)
+- **M044** — substrate (Ryzen + RTX 4090 + Blackwell 96GB)
 - **M048** — modules map (Compute Fabric + Sandbox Fabric)
 - **M049** — observability + trace pipeline
 - **M055** — failure modes (SRP violation taxonomy)
 - **M057** — 12-step task lifecycle (Map step picks SRP agent)
-- **M058** — hardware-aware scheduler (Blackwell oracle / 3090 scout / CPU cortex roles)
+- **M058** — hardware-aware scheduler (Blackwell oracle / 4090 scout / CPU cortex roles)
 - **M059** — peace machine close (super-model = whole governed machine)
 - **M060** — cockpit + dashboards (D-01 / D-03 / D-09 / D-10 / D-19)
 - **M066** — Trinity Framework Genesis (Conductor=Pulse / Logic=scout / Oracle=oracle)
@@ -358,7 +358,7 @@ total_sub_requirements: 1700
 source_dump_lines: 812-837 (Section 17: Single Responsibility Principle Orchestration Topology)
 three_agents:
   conductor: { srp: "Routing & State Fabric", hardware: "Host CPU Threads", runtime: "bitnet.cpp on AVX-512 ternary" }
-  logic_engine: { srp: "Ingestion & Translation", hardware: "RTX 3090 24GB", runtime: "Llama-3-70B Q4_K_M / IQ4_NL in Podman" }
+  logic_engine: { srp: "Ingestion & Translation", hardware: "RTX 4090 24GB", runtime: "Llama-3-70B Q4_K_M / IQ4_NL in Podman" }
   oracle_core: { srp: "Long-Term Deep Reasoning", hardware: "RTX PRO 6000 Blackwell 96GB", runtime: "FP16 uncompromised models" }
 harness_root: "Vibe Managing Orchestration Harness"
 typed_mirror_crate: sovereign-srp-topology-mirror

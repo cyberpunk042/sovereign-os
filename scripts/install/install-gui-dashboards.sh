@@ -1,0 +1,131 @@
+#!/usr/bin/env bash
+# scripts/install/install-gui-dashboards.sh — GUI desktop + dashboards, ON by default.
+#
+# Operator directive 2026-07-02 (verbatim):
+#   "lets make with GUI by default when we install at the root of the machine,
+#    I will keep Debian 13 GUI to explore the dashboards and lets make sure we
+#    have them running by default and that I can easily find them on a fresh
+#    install."
+#
+# This REVERSES the prior non-GUI-by-default stance (R225, scripts/dashboard/serve.py)
+# specifically for the root-of-machine install. It:
+#   1. installs a Debian 13 desktop environment (GNOME by default) + a browser
+#   2. deploys the dashboard app tree to /usr/local/lib/sovereign-os
+#   3. installs + enables the dashboard services so they run on boot (loopback)
+#   4. drops a discoverable "Sovereign Dashboards" launcher into the app menu,
+#      the desktop, and login autostart — so a fresh install lands you one click
+#      from the hub at http://127.0.0.1:8100/
+#
+# Idempotent — re-running is safe. Runs both inside the install chroot (offline
+# systemctl enable via wants-symlink) and on a live booted system.
+#
+# Tunable env:
+#   SOVEREIGN_OS_SRC          repo source tree (default: two levels up from here)
+#   SOVEREIGN_OS_LIB          deploy prefix   (default: /usr/local/lib/sovereign-os)
+#   SOVEREIGN_OS_DESKTOP      gnome | minimal | none   (default: gnome)
+#   SOVEREIGN_OS_DASHBOARD_PORT   hub port    (default: 8100)
+set -euo pipefail
+
+SRC="${SOVEREIGN_OS_SRC:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+PREFIX_LIB="${SOVEREIGN_OS_LIB:-/usr/local/lib/sovereign-os}"
+DESKTOP_ENV="${SOVEREIGN_OS_DESKTOP:-gnome}"
+DASH_PORT="${SOVEREIGN_OS_DASHBOARD_PORT:-8100}"
+SKEL="/etc/skel"
+
+red()  { printf '\033[31m%s\033[0m\n' "$*"; }
+grn()  { printf '\033[32m%s\033[0m\n' "$*"; }
+info() { printf '  %s\n' "$*"; }
+step() { printf '\n\033[36m━━━ %s\033[0m\n' "$*"; }
+
+[ "$(id -u)" -eq 0 ] || { red "must run as root: sudo $0"; exit 1; }
+[ -d "${SRC}/webapp" ] || { red "ABORT: ${SRC}/webapp not found (set SOVEREIGN_OS_SRC)"; exit 1; }
+
+# ── (1) desktop environment ──
+step "1/5 desktop environment (${DESKTOP_ENV})"
+if [ "${DESKTOP_ENV}" = none ]; then
+  info "SOVEREIGN_OS_DESKTOP=none — skipping desktop install (headless dashboards only)"
+else
+  export DEBIAN_FRONTEND=noninteractive
+  case "${DESKTOP_ENV}" in
+    gnome)
+      # gnome-core = a lean but complete GNOME (shell + gdm3 + settings). Swap
+      # for task-gnome-desktop if you want the full default Debian app set.
+      apt-get install -y --no-install-recommends gnome-core gdm3 firefox-esr xdg-utils
+      ;;
+    minimal)
+      apt-get install -y --no-install-recommends xfce4 lightdm firefox-esr xdg-utils
+      ;;
+    *)
+      red "ABORT: unknown SOVEREIGN_OS_DESKTOP='${DESKTOP_ENV}' (gnome|minimal|none)"; exit 1
+      ;;
+  esac
+  # Boot into the GUI. In a chroot without systemd as PID 1 this is a no-op we
+  # tolerate — the display-manager package already wires graphical.target.
+  if systemctl set-default graphical.target 2>/dev/null; then
+    info "default target → graphical.target"
+  else
+    info "set-default deferred (no running systemd); display manager still enabled by its package"
+  fi
+fi
+
+# ── (2) deploy the dashboard app tree ──
+# build-configurator-api.py resolves REPO = parents[2], so it must live at
+# ${PREFIX_LIB}/scripts/operator/... and read ${PREFIX_LIB}/{webapp,profiles,config}.
+step "2/5 deploy dashboard app tree → ${PREFIX_LIB}"
+mkdir -p "${PREFIX_LIB}"
+for d in scripts webapp profiles config; do
+  if [ -d "${SRC}/${d}" ]; then
+    mkdir -p "${PREFIX_LIB}/${d}"
+    cp -a "${SRC}/${d}/." "${PREFIX_LIB}/${d}/"
+    info "deployed ${d}/"
+  fi
+done
+
+# ── (3) install + enable the dashboard services ──
+step "3/5 install + enable dashboard services (loopback)"
+enable_unit() { # <unit> — enable via systemctl, else offline wants-symlink
+  local unit="$1"
+  install -m 644 "${SRC}/systemd/system/${unit}" /etc/systemd/system/
+  if systemctl enable "${unit}" 2>/dev/null; then
+    info "enabled ${unit}"
+  else
+    mkdir -p /etc/systemd/system/multi-user.target.wants
+    ln -sf "/etc/systemd/system/${unit}" \
+      "/etc/systemd/system/multi-user.target.wants/${unit}"
+    info "enabled ${unit} (offline wants-symlink)"
+  fi
+}
+enable_unit sovereign-dashboards.service
+[ -f "${SRC}/systemd/system/sovereign-master-dashboard-api.service" ] \
+  && enable_unit sovereign-master-dashboard-api.service
+
+# ── (4) discoverable launcher: app menu + desktop + login autostart ──
+step "4/5 discoverable launcher (app menu · desktop · autostart)"
+LAUNCHER="${SRC}/share/applications/sovereign-dashboards.desktop"
+install -Dm644 "${LAUNCHER}" /usr/share/applications/sovereign-dashboards.desktop
+info "app menu    : /usr/share/applications/sovereign-dashboards.desktop"
+# every new user gets it auto-opened at login + an icon on the desktop
+install -Dm644 "${LAUNCHER}" "${SKEL}/.config/autostart/sovereign-dashboards.desktop"
+info "autostart   : ${SKEL}/.config/autostart/ (opens the hub at login)"
+install -Dm755 "${LAUNCHER}" "${SKEL}/Desktop/sovereign-dashboards.desktop"
+info "desktop icon: ${SKEL}/Desktop/"
+# refresh the app-menu cache when running on a live system
+command -v update-desktop-database >/dev/null 2>&1 \
+  && update-desktop-database /usr/share/applications >/dev/null 2>&1 || true
+
+# ── (5) done ──
+step "5/5 done"
+grn "GUI + dashboards installed."
+cat <<EOF
+
+  Desktop     : ${DESKTOP_ENV} (boots to graphical.target)
+  Dashboards  : running on boot, loopback only
+  Entry point : http://127.0.0.1:${DASH_PORT}/   ← the hub (every panel + /panels/ index)
+  Find it     : "Sovereign Dashboards" in the app menu, on the desktop,
+                and auto-opened on first login.
+
+  Expose beyond loopback (headless / LAN / tailscale) by dropping an override:
+    /etc/systemd/system/sovereign-dashboards.service.d/bind.conf
+      [Service]
+      Environment=BUILD_CONFIGURATOR_API_BIND=0.0.0.0
+EOF

@@ -9,7 +9,7 @@
 #   1. `mcp-aggregate manifest --json` emits valid JSON with the
 #      expected schema (round, schema_version, sources, tools[]).
 #   2. The local tool set covers EVERY axis the operator named in §1b
-#      (hardware, GPU 3090 + RTX PRO 6000, CPU mode, PSU/UPS, XMP,
+#      (hardware, GPU 4090 + RTX PRO 6000, CPU mode, PSU/UPS, XMP,
 #      BIOS / ASUS X870E, network/DNS/reverse-proxy, kernel, pcie,
 #      health/insights, dashboard, AVX-512/ZMM ternary). Missing axis
 #      = failed test = future-round forcing function.
@@ -71,7 +71,7 @@ pass "2. cross-axis coverage (every §1b-named axis has ≥1 MCP tool)"
 
 # Hardware-specific name-level checks (so renaming a tool breaks
 # the test on purpose, not silently).
-for name in hardware gpu-watch gpu-card-advisor cpu-mode bios-info \
+for name in hardware-inventory gpu-watch gpu-card-advisor cpu-mode bios-info \
             ram-advisor power-status zmm-ternary wasm-aot \
             memory-pressure pcie-policy virt-info kernel \
             network dns-advisor reverse-proxy perimeter \

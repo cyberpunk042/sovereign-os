@@ -1,0 +1,18 @@
+[package]
+name = "sovereign-tokenizer"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Byte-level BPE tokenizer: encodes text to token ids by starting from raw bytes and greedily applying the highest-priority merge rule until none remain, and decodes ids back to bytes. The input/output boundary of the decode stack — every byte has an id, so encoding is lossless and round-trips exactly."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }

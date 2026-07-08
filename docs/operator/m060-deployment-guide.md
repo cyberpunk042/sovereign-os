@@ -2112,6 +2112,1863 @@ systemctl restart systemd-journald
 # Or chase the cause (see Runaway runbook above).
 ```
 
+### Action-surface alert runbook (SDD-070..078 + MFA/token revocations)
+
+The 11 selfdef responder action-surface alert families (`config/prometheus/alerts/selfdef-{apparmor-profile-pivots,bpf-map-element-clears,capability-drops,env-scrubs,kernel-keyring-evictions,mfa-grant-revocations,mount-bindings,netns-isolations,process-tree-freezes,socket-fd-revocations,token-revocations}.rules.yml`) each carry per-alert `runbook_url` anchors into this guide. Every alert below corresponds to one entry; the `test_action_surface_alert_runbook_coverage` lint locks the rules↔runbook anchors in lockstep so a page never lands on a missing section. All four observer-health alerts (TextfileEmitFailed / ObserverSilent / StateDirMissing / PendingRestoreBacklog) share a diagnosis shape across families; the action-specific high-watermark alerts are unique per surface. These are the consumer-side runbooks for selfdef's producer responder surfaces (proper-responsibility boundary: selfdef emits the textfile gauges, sovereign-os owns the alerts + operator runbooks).
+
+#### SelfdefApparmorProfilePivotsTextfileEmitFailed (critical)
+
+**Meaning:** Wrapper failure for 5+ minutes. SDD-077 enforcement visibility lost at the MAC policy axis.
+
+**Diagnosis:**
+
+```bash
+# The textfile wrapper that writes selfdef_apparmor_profile_pivots gauges is failing.
+systemctl status selfdef-apparmor-profile-pivots-textfile.service
+journalctl -u selfdef-apparmor-profile-pivots-textfile.service --since '15 min ago' | tail -40
+# Confirm the node_exporter textfile dir is writable by the selfdef uid:
+sudo -u selfdef ls -ld /var/lib/node_exporter/textfile_collector
+```
+
+**Fix:** clear the underlying wrapper error (most often a permissions or disk-space fault on the textfile dir), then `systemctl restart selfdef-apparmor-profile-pivots-textfile.timer`. The sentinel clears on the next successful emit.
+
+
+#### SelfdefApparmorProfilePivotsObserverSilent (critical)
+
+**Meaning:** Timer hasn't fired in 5+ minutes.
+
+**Diagnosis:**
+
+```bash
+# The selfdef-apparmor-profile-pivots observer timer has not run recently (state is going stale).
+systemctl list-timers 'selfdef-apparmor-profile-pivots-textfile.timer' --all
+systemctl status selfdef-apparmor-profile-pivots-textfile.timer
+ls -la /var/lib/node_exporter/textfile_collector/selfdef-apparmor-profile-pivots.prom
+```
+
+**Fix:** `systemctl enable --now selfdef-apparmor-profile-pivots-textfile.timer`. If the timer is active but not firing, check for a wedged prior run with `systemctl status selfdef-apparmor-profile-pivots-textfile.service` and reset it.
+
+
+#### SelfdefApparmorProfilePivotsStateDirMissing (critical)
+
+**Meaning:** /var/lib/selfdef/apparmor-profile-pivots not present for 10+ minutes. SDD-077 MAC-policy-axis IPS primitive cannot persist state. Operator action: systemctl status selfdefd && systemctl restart selfdefd.
+
+**Diagnosis:**
+
+```bash
+# The enforcement state directory is absent — the action surface cannot persist state.
+ls -ld /var/lib/selfdef/apparmor-profile-pivots
+systemctl status selfdefd
+journalctl -u selfdefd --since '15 min ago' | grep -iE 'error|panic|state'
+```
+
+**Fix:** `systemctl restart selfdefd` — the daemon recreates its state dirs at start. If `/var/lib/selfdef/apparmor-profile-pivots` stays absent after restart, the daemon is failing earlier in boot; read its journal for the prior fault.
+
+
+#### SelfdefApparmorProfilePivotsPendingRestoreBacklog (warning)
+
+**Meaning:** Operator engagement with the cockpit apparmor-profile-pivots-queue card needed. NOTE: AppArmor profile pivots are one-way at the kernel level — restore is queue-clear + audit only; operator must restart the process under its original profile via the init system to recover.
+
+**Diagnosis:**
+
+```bash
+# Operator-restore decisions are queuing on the selfdef-apparmor-profile-pivots surface.
+# Read the pending count straight from the published gauge:
+grep '^selfdef_apparmor_profile_pivots_pending_restores ' /var/lib/node_exporter/textfile_collector/selfdef-apparmor-profile-pivots.prom
+# ...or query selfdef_apparmor_profile_pivots_pending_restores in Prometheus/Grafana, or open the cockpit card for this surface.
+```
+
+**Fix:** engage the cockpit queue for this surface and resolve (restore or confirm) the pending decisions. The backlog is operator-action-required, not a daemon fault.
+
+
+#### SelfdefApparmorProfilePivotsDeniedHigh (warning)
+
+**Meaning:** Multiple pivot requests targeted processes whose current profile forbids change_profile to the requested target. Likely rule misconfiguration or attempt to pivot already-strict processes. Operator review.
+
+**Diagnosis:**
+
+```bash
+# Sustained high reading on selfdef_apparmor_profile_pivots_denied_count. Confirm whether this is an active
+# incident-response scenario or a correlator/config drift.
+grep -E '^selfdef_apparmor_profile_pivots_denied_count' /var/lib/node_exporter/textfile_collector/selfdef-apparmor-profile-pivots.prom
+# ...or query selfdef_apparmor_profile_pivots_denied_count in Prometheus/Grafana over the alert window.
+journalctl -u selfdefd --since '1 hour ago' | grep -iE 'apparmor.profile.pivots'
+```
+
+**Fix:** if this matches a known incident response, no action — the surface is doing its job; acknowledge the page. If unexpected, investigate the driving events in the cockpit and the selfdef journal before relaxing the threshold.
+
+
+#### SelfdefApparmorProfilePivotsQuarantineStrictHigh (warning)
+
+**Meaning:** Per-target-profile breakdown shows many processes pivoted into selfdef-quarantine-strict simultaneously. Could indicate a wide-scope incident response or rule misfire. Investigate correlator events.
+
+**Diagnosis:**
+
+```bash
+# Sustained high reading on selfdef_apparmor_profile_pivots_by_target_profile. Confirm whether this is an active
+# incident-response scenario or a correlator/config drift.
+grep -E '^selfdef_apparmor_profile_pivots_by_target_profile' /var/lib/node_exporter/textfile_collector/selfdef-apparmor-profile-pivots.prom
+# ...or query selfdef_apparmor_profile_pivots_by_target_profile in Prometheus/Grafana over the alert window.
+journalctl -u selfdefd --since '1 hour ago' | grep -iE 'apparmor.profile.pivots'
+```
+
+**Fix:** if this matches a known incident response, no action — the surface is doing its job; acknowledge the page. If unexpected, investigate the driving events in the cockpit and the selfdef journal before relaxing the threshold.
+
+
+#### SelfdefApparmorProfilePivotsNoTargetHigh (warning)
+
+**Meaning:** Pivot requests reference profiles not loaded in the kernel. Operator should run `apparmor_status` to inventory loaded profiles and either load the missing profiles via `apparmor_parser` or update the rule configuration.
+
+**Diagnosis:**
+
+```bash
+# Sustained high reading on selfdef_apparmor_profile_pivots_no_target_count. Confirm whether this is an active
+# incident-response scenario or a correlator/config drift.
+grep -E '^selfdef_apparmor_profile_pivots_no_target_count' /var/lib/node_exporter/textfile_collector/selfdef-apparmor-profile-pivots.prom
+# ...or query selfdef_apparmor_profile_pivots_no_target_count in Prometheus/Grafana over the alert window.
+journalctl -u selfdefd --since '1 hour ago' | grep -iE 'apparmor.profile.pivots'
+```
+
+**Fix:** if this matches a known incident response, no action — the surface is doing its job; acknowledge the page. If unexpected, investigate the driving events in the cockpit and the selfdef journal before relaxing the threshold.
+
+
+#### SelfdefBpfMapElementClearsTextfileEmitFailed (critical)
+
+**Meaning:** Wrapper failure for 5+ minutes. SDD-078 enforcement visibility lost at the eBPF map state axis.
+
+**Diagnosis:**
+
+```bash
+# The textfile wrapper that writes selfdef_bpf_map_element_clears gauges is failing.
+systemctl status selfdef-bpf-map-element-clears-textfile.service
+journalctl -u selfdef-bpf-map-element-clears-textfile.service --since '15 min ago' | tail -40
+# Confirm the node_exporter textfile dir is writable by the selfdef uid:
+sudo -u selfdef ls -ld /var/lib/node_exporter/textfile_collector
+```
+
+**Fix:** clear the underlying wrapper error (most often a permissions or disk-space fault on the textfile dir), then `systemctl restart selfdef-bpf-map-element-clears-textfile.timer`. The sentinel clears on the next successful emit.
+
+
+#### SelfdefBpfMapElementClearsObserverSilent (critical)
+
+**Meaning:** Timer hasn't fired in 5+ minutes.
+
+**Diagnosis:**
+
+```bash
+# The selfdef-bpf-map-element-clears observer timer has not run recently (state is going stale).
+systemctl list-timers 'selfdef-bpf-map-element-clears-textfile.timer' --all
+systemctl status selfdef-bpf-map-element-clears-textfile.timer
+ls -la /var/lib/node_exporter/textfile_collector/selfdef-bpf-map-element-clears.prom
+```
+
+**Fix:** `systemctl enable --now selfdef-bpf-map-element-clears-textfile.timer`. If the timer is active but not firing, check for a wedged prior run with `systemctl status selfdef-bpf-map-element-clears-textfile.service` and reset it.
+
+
+#### SelfdefBpfMapElementClearsStateDirMissing (critical)
+
+**Meaning:** /var/lib/selfdef/bpf-map-element-clears not present for 10+ minutes. SDD-078 eBPF-map-state-axis IPS primitive cannot persist state. Operator action: systemctl status selfdefd && systemctl restart selfdefd.
+
+**Diagnosis:**
+
+```bash
+# The enforcement state directory is absent — the action surface cannot persist state.
+ls -ld /var/lib/selfdef/bpf-map-element-clears
+systemctl status selfdefd
+journalctl -u selfdefd --since '15 min ago' | grep -iE 'error|panic|state'
+```
+
+**Fix:** `systemctl restart selfdefd` — the daemon recreates its state dirs at start. If `/var/lib/selfdef/bpf-map-element-clears` stays absent after restart, the daemon is failing earlier in boot; read its journal for the prior fault.
+
+
+#### SelfdefBpfMapElementClearsPendingRestoreBacklog (warning)
+
+**Meaning:** Operator engagement with the cockpit bpf-map-element-clears-queue card needed. NOTE: BPF map element clears are one-way at the kernel level — selfdef did not snapshot prior values; restore is queue-clear + audit only. The owning BPF program's control plane must re-add elements.
+
+**Diagnosis:**
+
+```bash
+# Operator-restore decisions are queuing on the selfdef-bpf-map-element-clears surface.
+# Read the pending count straight from the published gauge:
+grep '^selfdef_bpf_map_element_clears_pending_restores ' /var/lib/node_exporter/textfile_collector/selfdef-bpf-map-element-clears.prom
+# ...or query selfdef_bpf_map_element_clears_pending_restores in Prometheus/Grafana, or open the cockpit card for this surface.
+```
+
+**Fix:** engage the cockpit queue for this surface and resolve (restore or confirm) the pending decisions. The backlog is operator-action-required, not a daemon fault.
+
+
+#### SelfdefBpfMapElementClearsAccessDeniedHigh (warning)
+
+**Meaning:** Multiple clear requests denied by the kernel (EPERM/EACCES). Either the target maps set BPF_F_RDONLY or selfdef lacks CAP_BPF/CAP_SYS_ADMIN. Operator action: check map_flags via `bpftool map show id <N>` and verify selfdefd's capabilities.
+
+**Diagnosis:**
+
+```bash
+# Sustained high reading on selfdef_bpf_map_element_clears_access_denied_count. Confirm whether this is an active
+# incident-response scenario or a correlator/config drift.
+grep -E '^selfdef_bpf_map_element_clears_access_denied_count' /var/lib/node_exporter/textfile_collector/selfdef-bpf-map-element-clears.prom
+# ...or query selfdef_bpf_map_element_clears_access_denied_count in Prometheus/Grafana over the alert window.
+journalctl -u selfdefd --since '1 hour ago' | grep -iE 'bpf.map.element.clears'
+```
+
+**Fix:** if this matches a known incident response, no action — the surface is doing its job; acknowledge the page. If unexpected, investigate the driving events in the cockpit and the selfdef journal before relaxing the threshold.
+
+
+#### SelfdefBpfMapElementClearsElementsClearedHigh (warning)
+
+**Meaning:** Large element-cleared count suggests one or more All-scope clears against large maps. Verify the operator intent matches the wipe scope; consider whether the owning BPF program's defaults will safely re-populate.
+
+**Diagnosis:**
+
+```bash
+# Sustained high reading on selfdef_bpf_map_element_clears_elements_cleared_total. Confirm whether this is an active
+# incident-response scenario or a correlator/config drift.
+grep -E '^selfdef_bpf_map_element_clears_elements_cleared_total' /var/lib/node_exporter/textfile_collector/selfdef-bpf-map-element-clears.prom
+# ...or query selfdef_bpf_map_element_clears_elements_cleared_total in Prometheus/Grafana over the alert window.
+journalctl -u selfdefd --since '1 hour ago' | grep -iE 'bpf.map.element.clears'
+```
+
+**Fix:** if this matches a known incident response, no action — the surface is doing its job; acknowledge the page. If unexpected, investigate the driving events in the cockpit and the selfdef journal before relaxing the threshold.
+
+
+#### SelfdefBpfMapElementClearsAmbiguousNameAny (warning)
+
+**Meaning:** name:<x> resolved to >1 BPF map. Operator action: update the rule to use the pinned path (/sys/fs/bpf/<name>) or id:<u32> for the intended map. AmbiguousName fires on any occurrence because it indicates a rule-config error, not an attack signal.
+
+**Diagnosis:**
+
+```bash
+# Sustained high reading on selfdef_bpf_map_element_clears_ambiguous_name_count. Confirm whether this is an active
+# incident-response scenario or a correlator/config drift.
+grep -E '^selfdef_bpf_map_element_clears_ambiguous_name_count' /var/lib/node_exporter/textfile_collector/selfdef-bpf-map-element-clears.prom
+# ...or query selfdef_bpf_map_element_clears_ambiguous_name_count in Prometheus/Grafana over the alert window.
+journalctl -u selfdefd --since '1 hour ago' | grep -iE 'bpf.map.element.clears'
+```
+
+**Fix:** if this matches a known incident response, no action — the surface is doing its job; acknowledge the page. If unexpected, investigate the driving events in the cockpit and the selfdef journal before relaxing the threshold.
+
+
+#### SelfdefCapabilityDropsTextfileEmitFailed (critical)
+
+**Meaning:** Wrapper failure for 5+ minutes. SDD-075 enforcement visibility lost.
+
+**Diagnosis:**
+
+```bash
+# The textfile wrapper that writes selfdef_capability_drops gauges is failing.
+systemctl status selfdef-capability-drops-textfile.service
+journalctl -u selfdef-capability-drops-textfile.service --since '15 min ago' | tail -40
+# Confirm the node_exporter textfile dir is writable by the selfdef uid:
+sudo -u selfdef ls -ld /var/lib/node_exporter/textfile_collector
+```
+
+**Fix:** clear the underlying wrapper error (most often a permissions or disk-space fault on the textfile dir), then `systemctl restart selfdef-capability-drops-textfile.timer`. The sentinel clears on the next successful emit.
+
+
+#### SelfdefCapabilityDropsObserverSilent (critical)
+
+**Meaning:** Timer hasn't fired in 5+ minutes.
+
+**Diagnosis:**
+
+```bash
+# The selfdef-capability-drops observer timer has not run recently (state is going stale).
+systemctl list-timers 'selfdef-capability-drops-textfile.timer' --all
+systemctl status selfdef-capability-drops-textfile.timer
+ls -la /var/lib/node_exporter/textfile_collector/selfdef-capability-drops.prom
+```
+
+**Fix:** `systemctl enable --now selfdef-capability-drops-textfile.timer`. If the timer is active but not firing, check for a wedged prior run with `systemctl status selfdef-capability-drops-textfile.service` and reset it.
+
+
+#### SelfdefCapabilityDropsStateDirMissing (critical)
+
+**Meaning:** /var/lib/selfdef/capability-drops not present for 10+ minutes. SDD-075 per-process-privilege-set-axis IPS primitive cannot persist state. Operator action: systemctl status selfdefd && systemctl restart selfdefd.
+
+**Diagnosis:**
+
+```bash
+# The enforcement state directory is absent — the action surface cannot persist state.
+ls -ld /var/lib/selfdef/capability-drops
+systemctl status selfdefd
+journalctl -u selfdefd --since '15 min ago' | grep -iE 'error|panic|state'
+```
+
+**Fix:** `systemctl restart selfdefd` — the daemon recreates its state dirs at start. If `/var/lib/selfdef/capability-drops` stays absent after restart, the daemon is failing earlier in boot; read its journal for the prior fault.
+
+
+#### SelfdefCapabilityDropsPendingRestoreBacklog (warning)
+
+**Meaning:** Operator engagement with the cockpit capability-drops-queue card needed. NOTE: capability drops are irreversible at kernel level — restore is queue-clear + audit only; operator must restart the process to recover the cap.
+
+**Diagnosis:**
+
+```bash
+# Operator-restore decisions are queuing on the selfdef-capability-drops surface.
+# Read the pending count straight from the published gauge:
+grep '^selfdef_capability_drops_pending_restores ' /var/lib/node_exporter/textfile_collector/selfdef-capability-drops.prom
+# ...or query selfdef_capability_drops_pending_restores in Prometheus/Grafana, or open the cockpit card for this surface.
+```
+
+**Fix:** engage the cockpit queue for this surface and resolve (restore or confirm) the pending decisions. The backlog is operator-action-required, not a daemon fault.
+
+
+#### SelfdefCapabilityDropsRedundantHigh (warning)
+
+**Meaning:** Multiple drop requests targeted processes that didn't hold the named caps — likely rule misconfiguration or stale process model. Operator review.
+
+**Diagnosis:**
+
+```bash
+# Sustained high reading on selfdef_capability_drops_redundant_count. Confirm whether this is an active
+# incident-response scenario or a correlator/config drift.
+grep -E '^selfdef_capability_drops_redundant_count' /var/lib/node_exporter/textfile_collector/selfdef-capability-drops.prom
+# ...or query selfdef_capability_drops_redundant_count in Prometheus/Grafana over the alert window.
+journalctl -u selfdefd --since '1 hour ago' | grep -iE 'capability.drops'
+```
+
+**Fix:** if this matches a known incident response, no action — the surface is doing its job; acknowledge the page. If unexpected, investigate the driving events in the cockpit and the selfdef journal before relaxing the threshold.
+
+
+#### SelfdefCapabilityDropsNetAdminHigh (warning)
+
+**Meaning:** Per-cap breakdown shows multiple processes losing CAP_NET_ADMIN simultaneously. Could indicate a coordinated attack on network-config caps; investigate correlator events.
+
+**Diagnosis:**
+
+```bash
+# Sustained high reading on selfdef_capability_drops_by_cap. Confirm whether this is an active
+# incident-response scenario or a correlator/config drift.
+grep -E '^selfdef_capability_drops_by_cap' /var/lib/node_exporter/textfile_collector/selfdef-capability-drops.prom
+# ...or query selfdef_capability_drops_by_cap in Prometheus/Grafana over the alert window.
+journalctl -u selfdefd --since '1 hour ago' | grep -iE 'capability.drops'
+```
+
+**Fix:** if this matches a known incident response, no action — the surface is doing its job; acknowledge the page. If unexpected, investigate the driving events in the cockpit and the selfdef journal before relaxing the threshold.
+
+
+#### SelfdefEnvScrubsTextfileEmitFailed (critical)
+
+**Meaning:** Wrapper failure for 5+ minutes. SDD-074 enforcement visibility lost.
+
+**Diagnosis:**
+
+```bash
+# The textfile wrapper that writes selfdef_env_scrubs gauges is failing.
+systemctl status selfdef-env-scrubs-textfile.service
+journalctl -u selfdef-env-scrubs-textfile.service --since '15 min ago' | tail -40
+# Confirm the node_exporter textfile dir is writable by the selfdef uid:
+sudo -u selfdef ls -ld /var/lib/node_exporter/textfile_collector
+```
+
+**Fix:** clear the underlying wrapper error (most often a permissions or disk-space fault on the textfile dir), then `systemctl restart selfdef-env-scrubs-textfile.timer`. The sentinel clears on the next successful emit.
+
+
+#### SelfdefEnvScrubsObserverSilent (critical)
+
+**Meaning:** Timer hasn't fired in 5+ minutes.
+
+**Diagnosis:**
+
+```bash
+# The selfdef-env-scrubs observer timer has not run recently (state is going stale).
+systemctl list-timers 'selfdef-env-scrubs-textfile.timer' --all
+systemctl status selfdef-env-scrubs-textfile.timer
+ls -la /var/lib/node_exporter/textfile_collector/selfdef-env-scrubs.prom
+```
+
+**Fix:** `systemctl enable --now selfdef-env-scrubs-textfile.timer`. If the timer is active but not firing, check for a wedged prior run with `systemctl status selfdef-env-scrubs-textfile.service` and reset it.
+
+
+#### SelfdefEnvScrubsStateDirMissing (critical)
+
+**Meaning:** /var/lib/selfdef/env-scrubs not present for 10+ minutes. SDD-074 in-memory secret-residency-axis IPS primitive cannot persist state. Operator action: systemctl status selfdefd && systemctl restart selfdefd.
+
+**Diagnosis:**
+
+```bash
+# The enforcement state directory is absent — the action surface cannot persist state.
+ls -ld /var/lib/selfdef/env-scrubs
+systemctl status selfdefd
+journalctl -u selfdefd --since '15 min ago' | grep -iE 'error|panic|state'
+```
+
+**Fix:** `systemctl restart selfdefd` — the daemon recreates its state dirs at start. If `/var/lib/selfdef/env-scrubs` stays absent after restart, the daemon is failing earlier in boot; read its journal for the prior fault.
+
+
+#### SelfdefEnvScrubsPendingRestoreBacklog (warning)
+
+**Meaning:** Operator engagement with the cockpit env-scrubs-queue card needed.
+
+**Diagnosis:**
+
+```bash
+# Operator-restore decisions are queuing on the selfdef-env-scrubs surface.
+# Read the pending count straight from the published gauge:
+grep '^selfdef_env_scrubs_pending_restores ' /var/lib/node_exporter/textfile_collector/selfdef-env-scrubs.prom
+# ...or query selfdef_env_scrubs_pending_restores in Prometheus/Grafana, or open the cockpit card for this surface.
+```
+
+**Fix:** engage the cockpit queue for this surface and resolve (restore or confirm) the pending decisions. The backlog is operator-action-required, not a daemon fault.
+
+
+#### SelfdefEnvScrubsNoMatchHigh (warning)
+
+**Meaning:** Multiple scrub requests targeted processes without the named vars — likely rule misconfiguration or stale process model. Operator review.
+
+**Diagnosis:**
+
+```bash
+# Sustained high reading on selfdef_env_scrubs_no_match_count. Confirm whether this is an active
+# incident-response scenario or a correlator/config drift.
+grep -E '^selfdef_env_scrubs_no_match_count' /var/lib/node_exporter/textfile_collector/selfdef-env-scrubs.prom
+# ...or query selfdef_env_scrubs_no_match_count in Prometheus/Grafana over the alert window.
+journalctl -u selfdefd --since '1 hour ago' | grep -iE 'env.scrubs'
+```
+
+**Fix:** if this matches a known incident response, no action — the surface is doing its job; acknowledge the page. If unexpected, investigate the driving events in the cockpit and the selfdef journal before relaxing the threshold.
+
+
+#### SelfdefEnvScrubsVarsScrubbedHigh (warning)
+
+**Meaning:** Large-scale credential-rotation propagation. Verify rotation workflow + secret-broker fetch latency.
+
+**Diagnosis:**
+
+```bash
+# Sustained high reading on selfdef_env_scrubs_vars_scrubbed_total. Confirm whether this is an active
+# incident-response scenario or a correlator/config drift.
+grep -E '^selfdef_env_scrubs_vars_scrubbed_total' /var/lib/node_exporter/textfile_collector/selfdef-env-scrubs.prom
+# ...or query selfdef_env_scrubs_vars_scrubbed_total in Prometheus/Grafana over the alert window.
+journalctl -u selfdefd --since '1 hour ago' | grep -iE 'env.scrubs'
+```
+
+**Fix:** if this matches a known incident response, no action — the surface is doing its job; acknowledge the page. If unexpected, investigate the driving events in the cockpit and the selfdef journal before relaxing the threshold.
+
+
+#### SelfdefKernelKeyringEvictionsTextfileEmitFailed (critical)
+
+**Meaning:** Wrapper failure for 5+ minutes. SDD-076 enforcement visibility lost at the kernel-keyring axis.
+
+**Diagnosis:**
+
+```bash
+# The textfile wrapper that writes selfdef_kernel_keyring_evictions gauges is failing.
+systemctl status selfdef-kernel-keyring-evictions-textfile.service
+journalctl -u selfdef-kernel-keyring-evictions-textfile.service --since '15 min ago' | tail -40
+# Confirm the node_exporter textfile dir is writable by the selfdef uid:
+sudo -u selfdef ls -ld /var/lib/node_exporter/textfile_collector
+```
+
+**Fix:** clear the underlying wrapper error (most often a permissions or disk-space fault on the textfile dir), then `systemctl restart selfdef-kernel-keyring-evictions-textfile.timer`. The sentinel clears on the next successful emit.
+
+
+#### SelfdefKernelKeyringEvictionsObserverSilent (critical)
+
+**Meaning:** Timer hasn't fired in 5+ minutes.
+
+**Diagnosis:**
+
+```bash
+# The selfdef-kernel-keyring-evictions observer timer has not run recently (state is going stale).
+systemctl list-timers 'selfdef-kernel-keyring-evictions-textfile.timer' --all
+systemctl status selfdef-kernel-keyring-evictions-textfile.timer
+ls -la /var/lib/node_exporter/textfile_collector/selfdef-kernel-keyring-evictions.prom
+```
+
+**Fix:** `systemctl enable --now selfdef-kernel-keyring-evictions-textfile.timer`. If the timer is active but not firing, check for a wedged prior run with `systemctl status selfdef-kernel-keyring-evictions-textfile.service` and reset it.
+
+
+#### SelfdefKernelKeyringEvictionsStateDirMissing (critical)
+
+**Meaning:** /var/lib/selfdef/kernel-keyring-evictions not present for 10+ minutes. SDD-076 kernel-keyring-axis IPS primitive cannot persist state. Operator action: systemctl status selfdefd && systemctl restart selfdefd.
+
+**Diagnosis:**
+
+```bash
+# The enforcement state directory is absent — the action surface cannot persist state.
+ls -ld /var/lib/selfdef/kernel-keyring-evictions
+systemctl status selfdefd
+journalctl -u selfdefd --since '15 min ago' | grep -iE 'error|panic|state'
+```
+
+**Fix:** `systemctl restart selfdefd` — the daemon recreates its state dirs at start. If `/var/lib/selfdef/kernel-keyring-evictions` stays absent after restart, the daemon is failing earlier in boot; read its journal for the prior fault.
+
+
+#### SelfdefKernelKeyringEvictionsPendingRestoreBacklog (warning)
+
+**Meaning:** Operator engagement with the cockpit kernel-keyring-evictions-queue card needed. NOTE: kernel keyring entries that have been invalidated/unlinked are gone — restore is queue-clear + audit only; operator must re-provision the key material to recover.
+
+**Diagnosis:**
+
+```bash
+# Operator-restore decisions are queuing on the selfdef-kernel-keyring-evictions surface.
+# Read the pending count straight from the published gauge:
+grep '^selfdef_kernel_keyring_evictions_pending_restores ' /var/lib/node_exporter/textfile_collector/selfdef-kernel-keyring-evictions.prom
+# ...or query selfdef_kernel_keyring_evictions_pending_restores in Prometheus/Grafana, or open the cockpit card for this surface.
+```
+
+**Fix:** engage the cockpit queue for this surface and resolve (restore or confirm) the pending decisions. The backlog is operator-action-required, not a daemon fault.
+
+
+#### SelfdefKernelKeyringEvictionsNotFoundHigh (warning)
+
+**Meaning:** Multiple eviction requests targeted keys that didn't exist in the named keyring — likely rule misconfiguration, stale spec, or attacker pre-clearing keys. Operator review.
+
+**Diagnosis:**
+
+```bash
+# Sustained high reading on selfdef_kernel_keyring_evictions_not_found_count. Confirm whether this is an active
+# incident-response scenario or a correlator/config drift.
+grep -E '^selfdef_kernel_keyring_evictions_not_found_count' /var/lib/node_exporter/textfile_collector/selfdef-kernel-keyring-evictions.prom
+# ...or query selfdef_kernel_keyring_evictions_not_found_count in Prometheus/Grafana over the alert window.
+journalctl -u selfdefd --since '1 hour ago' | grep -iE 'kernel.keyring.evictions'
+```
+
+**Fix:** if this matches a known incident response, no action — the surface is doing its job; acknowledge the page. If unexpected, investigate the driving events in the cockpit and the selfdef journal before relaxing the threshold.
+
+
+#### SelfdefKernelKeyringEvictionsUserKeyHigh (warning)
+
+**Meaning:** Per-type breakdown shows multiple user-type kernel keys evicted simultaneously. User keys typically hold per-session credentials (Kerberos TGT, etc.); coordinated eviction could indicate credential-rotation suppression. Investigate correlator events.
+
+**Diagnosis:**
+
+```bash
+# Sustained high reading on selfdef_kernel_keyring_evictions_by_type. Confirm whether this is an active
+# incident-response scenario or a correlator/config drift.
+grep -E '^selfdef_kernel_keyring_evictions_by_type' /var/lib/node_exporter/textfile_collector/selfdef-kernel-keyring-evictions.prom
+# ...or query selfdef_kernel_keyring_evictions_by_type in Prometheus/Grafana over the alert window.
+journalctl -u selfdefd --since '1 hour ago' | grep -iE 'kernel.keyring.evictions'
+```
+
+**Fix:** if this matches a known incident response, no action — the surface is doing its job; acknowledge the page. If unexpected, investigate the driving events in the cockpit and the selfdef journal before relaxing the threshold.
+
+
+#### SelfdefMfaGrantRevocationsTextfileEmitFailed (critical)
+
+**Meaning:** Wrapper failure for 5+ minutes. SDD-069 enforcement visibility lost.
+
+**Diagnosis:**
+
+```bash
+# The textfile wrapper that writes selfdef_mfa_grant_revocations gauges is failing.
+systemctl status selfdef-mfa-grant-revocations-textfile.service
+journalctl -u selfdef-mfa-grant-revocations-textfile.service --since '15 min ago' | tail -40
+# Confirm the node_exporter textfile dir is writable by the selfdef uid:
+sudo -u selfdef ls -ld /var/lib/node_exporter/textfile_collector
+```
+
+**Fix:** clear the underlying wrapper error (most often a permissions or disk-space fault on the textfile dir), then `systemctl restart selfdef-mfa-grant-revocations-textfile.timer`. The sentinel clears on the next successful emit.
+
+
+#### SelfdefMfaGrantRevocationsObserverSilent (critical)
+
+**Meaning:** Timer hasn't fired in 5+ minutes.
+
+**Diagnosis:**
+
+```bash
+# The selfdef-mfa-grant-revocations observer timer has not run recently (state is going stale).
+systemctl list-timers 'selfdef-mfa-grant-revocations-textfile.timer' --all
+systemctl status selfdef-mfa-grant-revocations-textfile.timer
+ls -la /var/lib/node_exporter/textfile_collector/selfdef-mfa-grant-revocations.prom
+```
+
+**Fix:** `systemctl enable --now selfdef-mfa-grant-revocations-textfile.timer`. If the timer is active but not firing, check for a wedged prior run with `systemctl status selfdef-mfa-grant-revocations-textfile.service` and reset it.
+
+
+#### SelfdefMfaGrantRevocationsStateDirMissing (critical)
+
+**Meaning:** /var/lib/selfdef/mfa-grant-revocations not present for 10+ minutes. SDD-069 MFA-grant revocation cannot persist state. Operator action: systemctl status selfdefd && systemctl restart selfdefd.
+
+**Diagnosis:**
+
+```bash
+# The enforcement state directory is absent — the action surface cannot persist state.
+ls -ld /var/lib/selfdef/mfa-grant-revocations
+systemctl status selfdefd
+journalctl -u selfdefd --since '15 min ago' | grep -iE 'error|panic|state'
+```
+
+**Fix:** `systemctl restart selfdefd` — the daemon recreates its state dirs at start. If `/var/lib/selfdef/mfa-grant-revocations` stays absent after restart, the daemon is failing earlier in boot; read its journal for the prior fault.
+
+
+#### SelfdefMfaGrantRevocationsPendingRestoreBacklog (warning)
+
+**Meaning:** Operator engagement with the cockpit mfa-grant-revocations-queue card needed.
+
+**Diagnosis:**
+
+```bash
+# Operator-restore decisions are queuing on the selfdef-mfa-grant-revocations surface.
+# Read the pending count straight from the published gauge:
+grep '^selfdef_mfa_grant_revocations_pending_restores ' /var/lib/node_exporter/textfile_collector/selfdef-mfa-grant-revocations.prom
+# ...or query selfdef_mfa_grant_revocations_pending_restores in Prometheus/Grafana, or open the cockpit card for this surface.
+```
+
+**Fix:** engage the cockpit queue for this surface and resolve (restore or confirm) the pending decisions. The backlog is operator-action-required, not a daemon fault.
+
+
+#### SelfdefMfaGrantRevocationsActiveHigh (warning)
+
+**Meaning:** Likely incident-response scenario.
+
+**Diagnosis:**
+
+```bash
+# Sustained high reading on selfdef_mfa_grant_revocations_active_count. Confirm whether this is an active
+# incident-response scenario or a correlator/config drift.
+grep -E '^selfdef_mfa_grant_revocations_active_count' /var/lib/node_exporter/textfile_collector/selfdef-mfa-grant-revocations.prom
+# ...or query selfdef_mfa_grant_revocations_active_count in Prometheus/Grafana over the alert window.
+journalctl -u selfdefd --since '1 hour ago' | grep -iE 'mfa.grant.revocations'
+```
+
+**Fix:** if this matches a known incident response, no action — the surface is doing its job; acknowledge the page. If unexpected, investigate the driving events in the cockpit and the selfdef journal before relaxing the threshold.
+
+
+#### SelfdefMountBindingsTextfileEmitFailed (critical)
+
+**Meaning:** Wrapper failure for 5+ minutes. SDD-071 enforcement visibility lost.
+
+**Diagnosis:**
+
+```bash
+# The textfile wrapper that writes selfdef_mount_bindings gauges is failing.
+systemctl status selfdef-mount-bindings-textfile.service
+journalctl -u selfdef-mount-bindings-textfile.service --since '15 min ago' | tail -40
+# Confirm the node_exporter textfile dir is writable by the selfdef uid:
+sudo -u selfdef ls -ld /var/lib/node_exporter/textfile_collector
+```
+
+**Fix:** clear the underlying wrapper error (most often a permissions or disk-space fault on the textfile dir), then `systemctl restart selfdef-mount-bindings-textfile.timer`. The sentinel clears on the next successful emit.
+
+
+#### SelfdefMountBindingsObserverSilent (critical)
+
+**Meaning:** Timer hasn't fired in 5+ minutes.
+
+**Diagnosis:**
+
+```bash
+# The selfdef-mount-bindings observer timer has not run recently (state is going stale).
+systemctl list-timers 'selfdef-mount-bindings-textfile.timer' --all
+systemctl status selfdef-mount-bindings-textfile.timer
+ls -la /var/lib/node_exporter/textfile_collector/selfdef-mount-bindings.prom
+```
+
+**Fix:** `systemctl enable --now selfdef-mount-bindings-textfile.timer`. If the timer is active but not firing, check for a wedged prior run with `systemctl status selfdef-mount-bindings-textfile.service` and reset it.
+
+
+#### SelfdefMountBindingsStateDirMissing (critical)
+
+**Meaning:** /var/lib/selfdef/mount-bindings not present for 10+ minutes. SDD-071 filesystem-binding-axis IPS primitive cannot persist state. Operator action: systemctl status selfdefd && systemctl restart selfdefd.
+
+**Diagnosis:**
+
+```bash
+# The enforcement state directory is absent — the action surface cannot persist state.
+ls -ld /var/lib/selfdef/mount-bindings
+systemctl status selfdefd
+journalctl -u selfdefd --since '15 min ago' | grep -iE 'error|panic|state'
+```
+
+**Fix:** `systemctl restart selfdefd` — the daemon recreates its state dirs at start. If `/var/lib/selfdef/mount-bindings` stays absent after restart, the daemon is failing earlier in boot; read its journal for the prior fault.
+
+
+#### SelfdefMountBindingsPendingRebindBacklog (warning)
+
+**Meaning:** Operator engagement with the cockpit mount-bindings-queue card needed.
+
+**Diagnosis:**
+
+```bash
+# Operator-restore decisions are queuing on the selfdef-mount-bindings surface.
+# Read the pending count straight from the published gauge:
+grep '^selfdef_mount_bindings_pending_rebinds ' /var/lib/node_exporter/textfile_collector/selfdef-mount-bindings.prom
+# ...or query selfdef_mount_bindings_pending_rebinds in Prometheus/Grafana, or open the cockpit card for this surface.
+```
+
+**Fix:** engage the cockpit queue for this surface and resolve (restore or confirm) the pending decisions. The backlog is operator-action-required, not a daemon fault.
+
+
+#### SelfdefMountBindingsActiveHigh (warning)
+
+**Meaning:** Likely container-escape investigation scenario; the filesystem-binding axis is the shortest-duration IPS primitive (max 6h even at operator-overridden).
+
+**Diagnosis:**
+
+```bash
+# Sustained high reading on selfdef_mount_bindings_active_count. Confirm whether this is an active
+# incident-response scenario or a correlator/config drift.
+grep -E '^selfdef_mount_bindings_active_count' /var/lib/node_exporter/textfile_collector/selfdef-mount-bindings.prom
+# ...or query selfdef_mount_bindings_active_count in Prometheus/Grafana over the alert window.
+journalctl -u selfdefd --since '1 hour ago' | grep -iE 'mount.bindings'
+```
+
+**Fix:** if this matches a known incident response, no action — the surface is doing its job; acknowledge the page. If unexpected, investigate the driving events in the cockpit and the selfdef journal before relaxing the threshold.
+
+
+#### SelfdefNetnsIsolationsTextfileEmitFailed (critical)
+
+**Meaning:** Wrapper failure for 5+ minutes. SDD-070 enforcement visibility lost.
+
+**Diagnosis:**
+
+```bash
+# The textfile wrapper that writes selfdef_netns_isolations gauges is failing.
+systemctl status selfdef-netns-isolations-textfile.service
+journalctl -u selfdef-netns-isolations-textfile.service --since '15 min ago' | tail -40
+# Confirm the node_exporter textfile dir is writable by the selfdef uid:
+sudo -u selfdef ls -ld /var/lib/node_exporter/textfile_collector
+```
+
+**Fix:** clear the underlying wrapper error (most often a permissions or disk-space fault on the textfile dir), then `systemctl restart selfdef-netns-isolations-textfile.timer`. The sentinel clears on the next successful emit.
+
+
+#### SelfdefNetnsIsolationsObserverSilent (critical)
+
+**Meaning:** Timer hasn't fired in 5+ minutes.
+
+**Diagnosis:**
+
+```bash
+# The selfdef-netns-isolations observer timer has not run recently (state is going stale).
+systemctl list-timers 'selfdef-netns-isolations-textfile.timer' --all
+systemctl status selfdef-netns-isolations-textfile.timer
+ls -la /var/lib/node_exporter/textfile_collector/selfdef-netns-isolations.prom
+```
+
+**Fix:** `systemctl enable --now selfdef-netns-isolations-textfile.timer`. If the timer is active but not firing, check for a wedged prior run with `systemctl status selfdef-netns-isolations-textfile.service` and reset it.
+
+
+#### SelfdefNetnsIsolationsStateDirMissing (critical)
+
+**Meaning:** /var/lib/selfdef/netns-isolations not present for 10+ minutes. SDD-070 kernel-containment cannot persist state. Operator action: systemctl status selfdefd && systemctl restart selfdefd.
+
+**Diagnosis:**
+
+```bash
+# The enforcement state directory is absent — the action surface cannot persist state.
+ls -ld /var/lib/selfdef/netns-isolations
+systemctl status selfdefd
+journalctl -u selfdefd --since '15 min ago' | grep -iE 'error|panic|state'
+```
+
+**Fix:** `systemctl restart selfdefd` — the daemon recreates its state dirs at start. If `/var/lib/selfdef/netns-isolations` stays absent after restart, the daemon is failing earlier in boot; read its journal for the prior fault.
+
+
+#### SelfdefNetnsIsolationsPendingReleaseBacklog (warning)
+
+**Meaning:** Operator engagement with the cockpit netns-isolations-queue card needed.
+
+**Diagnosis:**
+
+```bash
+# Operator-restore decisions are queuing on the selfdef-netns-isolations surface.
+# Read the pending count straight from the published gauge:
+grep '^selfdef_netns_isolations_pending_releases ' /var/lib/node_exporter/textfile_collector/selfdef-netns-isolations.prom
+# ...or query selfdef_netns_isolations_pending_releases in Prometheus/Grafana, or open the cockpit card for this surface.
+```
+
+**Fix:** engage the cockpit queue for this surface and resolve (restore or confirm) the pending decisions. The backlog is operator-action-required, not a daemon fault.
+
+
+#### SelfdefNetnsIsolationsActiveHigh (warning)
+
+**Meaning:** Likely large-scale incident-response scenario; the kernel-containment axis is the shortest-duration IPS primitive.
+
+**Diagnosis:**
+
+```bash
+# Sustained high reading on selfdef_netns_isolations_active_count. Confirm whether this is an active
+# incident-response scenario or a correlator/config drift.
+grep -E '^selfdef_netns_isolations_active_count' /var/lib/node_exporter/textfile_collector/selfdef-netns-isolations.prom
+# ...or query selfdef_netns_isolations_active_count in Prometheus/Grafana over the alert window.
+journalctl -u selfdefd --since '1 hour ago' | grep -iE 'netns.isolations'
+```
+
+**Fix:** if this matches a known incident response, no action — the surface is doing its job; acknowledge the page. If unexpected, investigate the driving events in the cockpit and the selfdef journal before relaxing the threshold.
+
+
+#### SelfdefProcessTreeFreezesTextfileEmitFailed (critical)
+
+**Meaning:** Wrapper failure for 5+ minutes. SDD-072 enforcement visibility lost.
+
+**Diagnosis:**
+
+```bash
+# The textfile wrapper that writes selfdef_process_tree_freezes gauges is failing.
+systemctl status selfdef-process-tree-freezes-textfile.service
+journalctl -u selfdef-process-tree-freezes-textfile.service --since '15 min ago' | tail -40
+# Confirm the node_exporter textfile dir is writable by the selfdef uid:
+sudo -u selfdef ls -ld /var/lib/node_exporter/textfile_collector
+```
+
+**Fix:** clear the underlying wrapper error (most often a permissions or disk-space fault on the textfile dir), then `systemctl restart selfdef-process-tree-freezes-textfile.timer`. The sentinel clears on the next successful emit.
+
+
+#### SelfdefProcessTreeFreezesObserverSilent (critical)
+
+**Meaning:** Timer hasn't fired in 5+ minutes.
+
+**Diagnosis:**
+
+```bash
+# The selfdef-process-tree-freezes observer timer has not run recently (state is going stale).
+systemctl list-timers 'selfdef-process-tree-freezes-textfile.timer' --all
+systemctl status selfdef-process-tree-freezes-textfile.timer
+ls -la /var/lib/node_exporter/textfile_collector/selfdef-process-tree-freezes.prom
+```
+
+**Fix:** `systemctl enable --now selfdef-process-tree-freezes-textfile.timer`. If the timer is active but not firing, check for a wedged prior run with `systemctl status selfdef-process-tree-freezes-textfile.service` and reset it.
+
+
+#### SelfdefProcessTreeFreezesStateDirMissing (critical)
+
+**Meaning:** /var/lib/selfdef/process-tree-freezes not present for 10+ minutes. SDD-072 process-graph-axis IPS primitive cannot persist state. Operator action: systemctl status selfdefd && systemctl restart selfdefd.
+
+**Diagnosis:**
+
+```bash
+# The enforcement state directory is absent — the action surface cannot persist state.
+ls -ld /var/lib/selfdef/process-tree-freezes
+systemctl status selfdefd
+journalctl -u selfdefd --since '15 min ago' | grep -iE 'error|panic|state'
+```
+
+**Fix:** `systemctl restart selfdefd` — the daemon recreates its state dirs at start. If `/var/lib/selfdef/process-tree-freezes` stays absent after restart, the daemon is failing earlier in boot; read its journal for the prior fault.
+
+
+#### SelfdefProcessTreeFreezesPendingThawBacklog (warning)
+
+**Meaning:** Operator engagement with the cockpit process-tree-freezes-queue card needed.
+
+**Diagnosis:**
+
+```bash
+# Operator-restore decisions are queuing on the selfdef-process-tree-freezes surface.
+# Read the pending count straight from the published gauge:
+grep '^selfdef_process_tree_freezes_pending_thaws ' /var/lib/node_exporter/textfile_collector/selfdef-process-tree-freezes.prom
+# ...or query selfdef_process_tree_freezes_pending_thaws in Prometheus/Grafana, or open the cockpit card for this surface.
+```
+
+**Fix:** engage the cockpit queue for this surface and resolve (restore or confirm) the pending decisions. The backlog is operator-action-required, not a daemon fault.
+
+
+#### SelfdefProcessTreeFreezesFrozenPidCountHigh (warning)
+
+**Meaning:** Sum of pids frozen across all active SDD-072 handles >100 — likely fork-bomb or large-worker-pool incident. Operator review.
+
+**Diagnosis:**
+
+```bash
+# Sustained high reading on selfdef_process_tree_freezes_frozen_pid_count. Confirm whether this is an active
+# incident-response scenario or a correlator/config drift.
+grep -E '^selfdef_process_tree_freezes_frozen_pid_count' /var/lib/node_exporter/textfile_collector/selfdef-process-tree-freezes.prom
+# ...or query selfdef_process_tree_freezes_frozen_pid_count in Prometheus/Grafana over the alert window.
+journalctl -u selfdefd --since '1 hour ago' | grep -iE 'process.tree.freezes'
+```
+
+**Fix:** if this matches a known incident response, no action — the surface is doing its job; acknowledge the page. If unexpected, investigate the driving events in the cockpit and the selfdef journal before relaxing the threshold.
+
+
+#### SelfdefProcessTreeFreezesActiveHigh (warning)
+
+**Meaning:** Likely multi-incident response scenario. The process-graph axis primitive max-duration is 8h at operator-overridden tier.
+
+**Diagnosis:**
+
+```bash
+# Sustained high reading on selfdef_process_tree_freezes_active_count. Confirm whether this is an active
+# incident-response scenario or a correlator/config drift.
+grep -E '^selfdef_process_tree_freezes_active_count' /var/lib/node_exporter/textfile_collector/selfdef-process-tree-freezes.prom
+# ...or query selfdef_process_tree_freezes_active_count in Prometheus/Grafana over the alert window.
+journalctl -u selfdefd --since '1 hour ago' | grep -iE 'process.tree.freezes'
+```
+
+**Fix:** if this matches a known incident response, no action — the surface is doing its job; acknowledge the page. If unexpected, investigate the driving events in the cockpit and the selfdef journal before relaxing the threshold.
+
+
+#### SelfdefSocketFdRevocationsTextfileEmitFailed (critical)
+
+**Meaning:** Wrapper failure for 5+ minutes. SDD-073 enforcement visibility lost.
+
+**Diagnosis:**
+
+```bash
+# The textfile wrapper that writes selfdef_socket_fd_revocations gauges is failing.
+systemctl status selfdef-socket-fd-revocations-textfile.service
+journalctl -u selfdef-socket-fd-revocations-textfile.service --since '15 min ago' | tail -40
+# Confirm the node_exporter textfile dir is writable by the selfdef uid:
+sudo -u selfdef ls -ld /var/lib/node_exporter/textfile_collector
+```
+
+**Fix:** clear the underlying wrapper error (most often a permissions or disk-space fault on the textfile dir), then `systemctl restart selfdef-socket-fd-revocations-textfile.timer`. The sentinel clears on the next successful emit.
+
+
+#### SelfdefSocketFdRevocationsObserverSilent (critical)
+
+**Meaning:** Timer hasn't fired in 5+ minutes.
+
+**Diagnosis:**
+
+```bash
+# The selfdef-socket-fd-revocations observer timer has not run recently (state is going stale).
+systemctl list-timers 'selfdef-socket-fd-revocations-textfile.timer' --all
+systemctl status selfdef-socket-fd-revocations-textfile.timer
+ls -la /var/lib/node_exporter/textfile_collector/selfdef-socket-fd-revocations.prom
+```
+
+**Fix:** `systemctl enable --now selfdef-socket-fd-revocations-textfile.timer`. If the timer is active but not firing, check for a wedged prior run with `systemctl status selfdef-socket-fd-revocations-textfile.service` and reset it.
+
+
+#### SelfdefSocketFdRevocationsStateDirMissing (critical)
+
+**Meaning:** /var/lib/selfdef/socket-fd-revocations not present for 10+ minutes. SDD-073 per-connection-axis IPS primitive cannot persist state. Operator action: systemctl status selfdefd && systemctl restart selfdefd.
+
+**Diagnosis:**
+
+```bash
+# The enforcement state directory is absent — the action surface cannot persist state.
+ls -ld /var/lib/selfdef/socket-fd-revocations
+systemctl status selfdefd
+journalctl -u selfdefd --since '15 min ago' | grep -iE 'error|panic|state'
+```
+
+**Fix:** `systemctl restart selfdefd` — the daemon recreates its state dirs at start. If `/var/lib/selfdef/socket-fd-revocations` stays absent after restart, the daemon is failing earlier in boot; read its journal for the prior fault.
+
+
+#### SelfdefSocketFdRevocationsPendingRestoreBacklog (warning)
+
+**Meaning:** Operator engagement with the cockpit socket-fd-revocations-queue card needed.
+
+**Diagnosis:**
+
+```bash
+# Operator-restore decisions are queuing on the selfdef-socket-fd-revocations surface.
+# Read the pending count straight from the published gauge:
+grep '^selfdef_socket_fd_revocations_pending_restores ' /var/lib/node_exporter/textfile_collector/selfdef-socket-fd-revocations.prom
+# ...or query selfdef_socket_fd_revocations_pending_restores in Prometheus/Grafana, or open the cockpit card for this surface.
+```
+
+**Fix:** engage the cockpit queue for this surface and resolve (restore or confirm) the pending decisions. The backlog is operator-action-required, not a daemon fault.
+
+
+#### SelfdefSocketFdRevocationsStaleHandleRising (warning)
+
+**Meaning:** Inode-race detection is firing repeatedly — the target process is rapidly closing/reopening fds, or the event detection→action latency is too high. Operator review of correlator timing recommended.
+
+**Diagnosis:**
+
+```bash
+# Sustained high reading on selfdef_socket_fd_revocations_stale_count. Confirm whether this is an active
+# incident-response scenario or a correlator/config drift.
+grep -E '^selfdef_socket_fd_revocations_stale_count' /var/lib/node_exporter/textfile_collector/selfdef-socket-fd-revocations.prom
+# ...or query selfdef_socket_fd_revocations_stale_count in Prometheus/Grafana over the alert window.
+journalctl -u selfdefd --since '1 hour ago' | grep -iE 'socket.fd.revocations'
+```
+
+**Fix:** if this matches a known incident response, no action — the surface is doing its job; acknowledge the page. If unexpected, investigate the driving events in the cockpit and the selfdef journal before relaxing the threshold.
+
+
+#### SelfdefSocketFdRevocationsActiveHigh (warning)
+
+**Meaning:** Likely large-scale connection-severance scenario. The per-connection axis primitive max-duration is 4h at operator-overridden tier (shortest of the IPS spine).
+
+**Diagnosis:**
+
+```bash
+# Sustained high reading on selfdef_socket_fd_revocations_active_count. Confirm whether this is an active
+# incident-response scenario or a correlator/config drift.
+grep -E '^selfdef_socket_fd_revocations_active_count' /var/lib/node_exporter/textfile_collector/selfdef-socket-fd-revocations.prom
+# ...or query selfdef_socket_fd_revocations_active_count in Prometheus/Grafana over the alert window.
+journalctl -u selfdefd --since '1 hour ago' | grep -iE 'socket.fd.revocations'
+```
+
+**Fix:** if this matches a known incident response, no action — the surface is doing its job; acknowledge the page. If unexpected, investigate the driving events in the cockpit and the selfdef journal before relaxing the threshold.
+
+
+#### SelfdefTokenRevocationsTextfileEmitFailed (critical)
+
+**Meaning:** Wrapper failure for 5+ minutes. SDD-068 enforcement visibility lost.
+
+**Diagnosis:**
+
+```bash
+# The textfile wrapper that writes selfdef_token_revocations gauges is failing.
+systemctl status selfdef-token-revocations-textfile.service
+journalctl -u selfdef-token-revocations-textfile.service --since '15 min ago' | tail -40
+# Confirm the node_exporter textfile dir is writable by the selfdef uid:
+sudo -u selfdef ls -ld /var/lib/node_exporter/textfile_collector
+```
+
+**Fix:** clear the underlying wrapper error (most often a permissions or disk-space fault on the textfile dir), then `systemctl restart selfdef-token-revocations-textfile.timer`. The sentinel clears on the next successful emit.
+
+
+#### SelfdefTokenRevocationsObserverSilent (critical)
+
+**Meaning:** Timer hasn't fired in 5+ minutes. SDD-068 state stale.
+
+**Diagnosis:**
+
+```bash
+# The selfdef-token-revocations observer timer has not run recently (state is going stale).
+systemctl list-timers 'selfdef-token-revocations-textfile.timer' --all
+systemctl status selfdef-token-revocations-textfile.timer
+ls -la /var/lib/node_exporter/textfile_collector/selfdef-token-revocations.prom
+```
+
+**Fix:** `systemctl enable --now selfdef-token-revocations-textfile.timer`. If the timer is active but not firing, check for a wedged prior run with `systemctl status selfdef-token-revocations-textfile.service` and reset it.
+
+
+#### SelfdefTokenRevocationsStateDirMissing (critical)
+
+**Meaning:** /var/lib/selfdef/token-revocations not present for 10+ minutes. SDD-068 API/web-token revocation cannot persist state; revoke-tokens calls cannot land. Operator action: systemctl status selfdefd && systemctl restart selfdefd.
+
+**Diagnosis:**
+
+```bash
+# The enforcement state directory is absent — the action surface cannot persist state.
+ls -ld /var/lib/selfdef/token-revocations
+systemctl status selfdefd
+journalctl -u selfdefd --since '15 min ago' | grep -iE 'error|panic|state'
+```
+
+**Fix:** `systemctl restart selfdefd` — the daemon recreates its state dirs at start. If `/var/lib/selfdef/token-revocations` stays absent after restart, the daemon is failing earlier in boot; read its journal for the prior fault.
+
+
+#### SelfdefTokenRevocationsPendingRestoreBacklog (warning)
+
+**Meaning:** More than 5 pending operator-restore decisions sustained 30+ minutes. Operator engagement with the cockpit token-revocations-queue card needed.
+
+**Diagnosis:**
+
+```bash
+# Operator-restore decisions are queuing on the selfdef-token-revocations surface.
+# Read the pending count straight from the published gauge:
+grep '^selfdef_token_revocations_pending_restores ' /var/lib/node_exporter/textfile_collector/selfdef-token-revocations.prom
+# ...or query selfdef_token_revocations_pending_restores in Prometheus/Grafana, or open the cockpit card for this surface.
+```
+
+**Fix:** engage the cockpit queue for this surface and resolve (restore or confirm) the pending decisions. The backlog is operator-action-required, not a daemon fault.
+
+
+#### SelfdefTokenRevocationsActiveHigh (warning)
+
+**Meaning:** More than 10 active token-revocations sustained 1+ hour. Likely incident-response scenario or correlator misconfig. Investigate.
+
+**Diagnosis:**
+
+```bash
+# Sustained high reading on selfdef_token_revocations_active_count. Confirm whether this is an active
+# incident-response scenario or a correlator/config drift.
+grep -E '^selfdef_token_revocations_active_count' /var/lib/node_exporter/textfile_collector/selfdef-token-revocations.prom
+# ...or query selfdef_token_revocations_active_count in Prometheus/Grafana over the alert window.
+journalctl -u selfdefd --since '1 hour ago' | grep -iE 'token.revocations'
+```
+
+**Fix:** if this matches a known incident response, no action — the surface is doing its job; acknowledge the page. If unexpected, investigate the driving events in the cockpit and the selfdef journal before relaxing the threshold.
+
+
+### IPS-quartet action-surface runbook (SDD-065 blockset / SDD-066 quarantine / SDD-067 revocations)
+
+Sibling to the SDD-068+ action-surface runbook above — these three earlier IPS responder families (`selfdef-{blockset,quarantine,revocations}.rules.yml`) had per-family structural contract tests but their `runbook_url` anchors pointed at missing sections. Each alert below now resolves; the generic `test_alert_runbook_anchor_coverage` lint keeps every alert family's anchors honest.
+
+#### SelfdefBlocksetTextfileEmitFailed (critical)
+
+**Meaning:** Wrapper failure for 5+ minutes. SDD-065 enforcement- layer visibility lost.
+
+**Diagnosis:**
+
+```bash
+# The textfile wrapper that writes selfdef_blockset gauges is failing.
+systemctl status selfdef-blockset-textfile.service
+journalctl -u selfdef-blockset-textfile.service --since '15 min ago' | tail -40
+# Confirm the node_exporter textfile dir is writable by the selfdef uid:
+sudo -u selfdef ls -ld /var/lib/node_exporter/textfile_collector
+```
+
+**Fix:** clear the underlying wrapper error (most often a permissions or disk-space fault on the textfile dir), then `systemctl restart selfdef-blockset-textfile.timer`. The sentinel clears on the next successful emit.
+
+
+#### SelfdefBlocksetObserverSilent (critical)
+
+**Meaning:** Timer hasn't fired in 5+ minutes. Enforcement-layer state stale.
+
+**Diagnosis:**
+
+```bash
+# The selfdef-blockset observer timer has not run recently (state is going stale).
+systemctl list-timers 'selfdef-blockset-textfile.timer' --all
+systemctl status selfdef-blockset-textfile.timer
+ls -la /var/lib/node_exporter/textfile_collector/selfdef-blockset.prom
+```
+
+**Fix:** `systemctl enable --now selfdef-blockset-textfile.timer`. If the timer is active but not firing, check for a wedged prior run with `systemctl status selfdef-blockset-textfile.service` and reset it.
+
+
+#### SelfdefBlocksetTableMissing (critical)
+
+**Meaning:** selfdef-blocks nftables table is not present for 10+ minutes. SDD-065 IP-block enforcement cannot operate. Either selfdefd hasn't started, or its bootstrap was denied by CAP_NET_ADMIN policy. Operator action: `systemctl status selfdefd`, check `journalctl -u selfdefd | grep blockset`, then re-bootstrap via `selfdefctl init` (MS3+) or manual `nft -f /usr/share/selfdef/blockset-bootstrap.nft`.
+
+**Diagnosis:**
+
+```bash
+# The kernel resource this action surface depends on (nftables set/table or
+# cgroup slice) is absent — enforcement cannot land. Honest-offline sentinel.
+# Confirm via the published gauge:
+grep -E '^selfdef_blockset_present' /var/lib/node_exporter/textfile_collector/selfdef-blockset.prom
+systemctl status selfdefd
+journalctl -u selfdefd --since '15 min ago' | grep -iE 'error|panic|nft|cgroup|slice'
+```
+
+**Fix:** `systemctl restart selfdefd` — the daemon re-creates its nftables set/table (or cgroup slice) at start. If it stays absent, the daemon is failing earlier in boot or the kernel lacks the required subsystem; read the selfdefd journal for the prior fault.
+
+
+#### SelfdefBlocksetTotalHigh (warning)
+
+**Meaning:** {{ $value }} blocked IPs sustained 1+ hour. Investigate via `selfdefctl block-ip --list` (MS3+) and the paired auth-events / fail2ban dashboards for source ASN concentration.
+
+**Diagnosis:**
+
+```bash
+# Sustained high reading on selfdef_blockset_total_count. Confirm whether this is an active
+# incident-response scenario or a correlator/config drift.
+grep -E '^selfdef_blockset_total_count' /var/lib/node_exporter/textfile_collector/selfdef-blockset.prom
+# ...or query selfdef_blockset_total_count in Prometheus/Grafana over the alert window.
+journalctl -u selfdefd --since '1 hour ago' | grep -iE 'blockset'
+```
+
+**Fix:** if this matches a known incident response, no action — the surface is doing its job; acknowledge the page. If unexpected, investigate the driving events in the cockpit and the selfdef journal before relaxing the threshold.
+
+
+#### SelfdefQuarantineTextfileEmitFailed (critical)
+
+**Meaning:** Wrapper failure for 5+ minutes. SDD-066 enforcement- layer visibility lost.
+
+**Diagnosis:**
+
+```bash
+# The textfile wrapper that writes selfdef_quarantine gauges is failing.
+systemctl status selfdef-quarantine-textfile.service
+journalctl -u selfdef-quarantine-textfile.service --since '15 min ago' | tail -40
+# Confirm the node_exporter textfile dir is writable by the selfdef uid:
+sudo -u selfdef ls -ld /var/lib/node_exporter/textfile_collector
+```
+
+**Fix:** clear the underlying wrapper error (most often a permissions or disk-space fault on the textfile dir), then `systemctl restart selfdef-quarantine-textfile.timer`. The sentinel clears on the next successful emit.
+
+
+#### SelfdefQuarantineObserverSilent (critical)
+
+**Meaning:** Timer hasn't fired in 5+ minutes. SDD-066 state stale.
+
+**Diagnosis:**
+
+```bash
+# The selfdef-quarantine observer timer has not run recently (state is going stale).
+systemctl list-timers 'selfdef-quarantine-textfile.timer' --all
+systemctl status selfdef-quarantine-textfile.timer
+ls -la /var/lib/node_exporter/textfile_collector/selfdef-quarantine.prom
+```
+
+**Fix:** `systemctl enable --now selfdef-quarantine-textfile.timer`. If the timer is active but not firing, check for a wedged prior run with `systemctl status selfdef-quarantine-textfile.service` and reset it.
+
+
+#### SelfdefQuarantineSliceMissing (critical)
+
+**Meaning:** /sys/fs/cgroup/selfdef.slice not present for 10+ minutes. SDD-066 process-quarantine enforcement cannot operate. Either selfdefd hasn't started or its slice was deleted. Operator action: `systemctl status selfdefd`, then `systemctl restart selfdefd`.
+
+**Diagnosis:**
+
+```bash
+# The kernel resource this action surface depends on (nftables set/table or
+# cgroup slice) is absent — enforcement cannot land. Honest-offline sentinel.
+# Confirm via the published gauge:
+grep -E '^selfdef_quarantine_slice_present' /var/lib/node_exporter/textfile_collector/selfdef-quarantine.prom
+systemctl status selfdefd
+journalctl -u selfdefd --since '15 min ago' | grep -iE 'error|panic|nft|cgroup|slice'
+```
+
+**Fix:** `systemctl restart selfdefd` — the daemon re-creates its nftables set/table (or cgroup slice) at start. If it stays absent, the daemon is failing earlier in boot or the kernel lacks the required subsystem; read the selfdefd journal for the prior fault.
+
+
+#### SelfdefQuarantineActiveHigh (warning)
+
+**Meaning:** More than 10 quarantine-*.scope entries sustained 30+ minutes. Operator decision queue probably backlogged. Inspect via the cockpit quarantine-queue card and `selfdefctl release-pid` or `selfdefctl kill-quarantined` per entry.
+
+**Diagnosis:**
+
+```bash
+# Sustained high reading on selfdef_quarantine_active_count. Confirm whether this is an active
+# incident-response scenario or a correlator/config drift.
+grep -E '^selfdef_quarantine_active_count' /var/lib/node_exporter/textfile_collector/selfdef-quarantine.prom
+# ...or query selfdef_quarantine_active_count in Prometheus/Grafana over the alert window.
+journalctl -u selfdefd --since '1 hour ago' | grep -iE 'quarantine'
+```
+
+**Fix:** if this matches a known incident response, no action — the surface is doing its job; acknowledge the page. If unexpected, investigate the driving events in the cockpit and the selfdef journal before relaxing the threshold.
+
+
+#### SelfdefRevocationsTextfileEmitFailed (critical)
+
+**Meaning:** Wrapper failure for 5+ minutes. SDD-067 enforcement- layer visibility lost.
+
+**Diagnosis:**
+
+```bash
+# The textfile wrapper that writes selfdef_revocations gauges is failing.
+systemctl status selfdef-revocations-textfile.service
+journalctl -u selfdef-revocations-textfile.service --since '15 min ago' | tail -40
+# Confirm the node_exporter textfile dir is writable by the selfdef uid:
+sudo -u selfdef ls -ld /var/lib/node_exporter/textfile_collector
+```
+
+**Fix:** clear the underlying wrapper error (most often a permissions or disk-space fault on the textfile dir), then `systemctl restart selfdef-revocations-textfile.timer`. The sentinel clears on the next successful emit.
+
+
+#### SelfdefRevocationsObserverSilent (critical)
+
+**Meaning:** Timer hasn't fired in 5+ minutes. SDD-067 state stale.
+
+**Diagnosis:**
+
+```bash
+# The selfdef-revocations observer timer has not run recently (state is going stale).
+systemctl list-timers 'selfdef-revocations-textfile.timer' --all
+systemctl status selfdef-revocations-textfile.timer
+ls -la /var/lib/node_exporter/textfile_collector/selfdef-revocations.prom
+```
+
+**Fix:** `systemctl enable --now selfdef-revocations-textfile.timer`. If the timer is active but not firing, check for a wedged prior run with `systemctl status selfdef-revocations-textfile.service` and reset it.
+
+
+#### SelfdefRevocationsStateDirMissing (critical)
+
+**Meaning:** /var/lib/selfdef/revocations not present for 10+ minutes. SDD-067 session-revocation enforcement cannot operate; revoke-sessions calls cannot persist state. Operator action: `systemctl status selfdefd`, then `systemctl restart selfdefd`.
+
+**Diagnosis:**
+
+```bash
+# The enforcement state directory is absent — the action surface cannot persist state.
+ls -ld /var/lib/selfdef/revocations
+systemctl status selfdefd
+journalctl -u selfdefd --since '15 min ago' | grep -iE 'error|panic|state'
+```
+
+**Fix:** `systemctl restart selfdefd` — the daemon recreates its state dirs at start. If `/var/lib/selfdef/revocations` stays absent after restart, the daemon is failing earlier in boot; read its journal for the prior fault.
+
+
+#### SelfdefRevocationsPendingRestoreBacklog (warning)
+
+**Meaning:** More than 5 pending operator-restore decisions sustained 30+ minutes. Operator engagement with the cockpit revocations-queue card needed. Inspect via `python3 scripts/cockpit/revocations-queue.py`.
+
+**Diagnosis:**
+
+```bash
+# Operator-restore decisions are queuing on the selfdef-revocations surface.
+# Read the pending count straight from the published gauge:
+grep '^selfdef_revocations_pending_restores ' /var/lib/node_exporter/textfile_collector/selfdef-revocations.prom
+# ...or query selfdef_revocations_pending_restores in Prometheus/Grafana, or open the cockpit card for this surface.
+```
+
+**Fix:** engage the cockpit queue for this surface and resolve (restore or confirm) the pending decisions. The backlog is operator-action-required, not a daemon fault.
+
+
+#### SelfdefRevocationsActiveHigh (warning)
+
+**Meaning:** More than 10 active session-revocations sustained 1+ hour. Likely incident-response scenario or operator-misconfigured correlator rule. Investigate.
+
+**Diagnosis:**
+
+```bash
+# Sustained high reading on selfdef_revocations_active_count. Confirm whether this is an active
+# incident-response scenario or a correlator/config drift.
+grep -E '^selfdef_revocations_active_count' /var/lib/node_exporter/textfile_collector/selfdef-revocations.prom
+# ...or query selfdef_revocations_active_count in Prometheus/Grafana over the alert window.
+journalctl -u selfdefd --since '1 hour ago' | grep -iE 'revocations'
+```
+
+**Fix:** if this matches a known incident response, no action — the surface is doing its job; acknowledge the page. If unexpected, investigate the driving events in the cockpit and the selfdef journal before relaxing the threshold.
+
+
+### selfdef hot-store retention runbook (SDD-081)
+
+#### SelfdefStoreRetentionStalled (warning)
+
+**Meaning:** `selfdef_store_retention_enabled == 1` (the operator set
+`hot_retention_days > 0`) but `selfdef_store_retention_sweeps_total` has
+not advanced in over 13 hours — more than two of the daemon's 6-hour
+sweep ticks. The retention loop that prunes events past the horizon is
+not running, so the hot SQLite store (`selfdef_store_events`) will grow
+unbounded and eventually pressure the disk — the exact F-2026-016
+outcome retention exists to prevent. A host that deliberately keeps
+events forever (`hot_retention_days = 0`) sets the gauge to 0 and never
+fires this alert.
+
+**Diagnosis:**
+
+```bash
+# 1. Is selfdefd up and exposing the retention series?
+curl -s --unix-socket /run/selfdef.sock http://localhost/metrics \
+  | grep selfdef_store_retention
+# 2. Is retention actually enabled in config?
+grep -E '^hot_retention_days' /etc/selfdef/selfdef.toml
+# 3. Did the retention loop announce itself / log a sweep?
+journalctl -u selfdefd --since '13 hours ago' | grep -i 'SD-R retention'
+```
+
+**Fix:** if `selfdef_store_retention_enabled` is 1 but no sweep line
+appears in the journal, the daemon's retention task is wedged or the
+daemon is unhealthy — `systemctl restart selfdefd` and confirm a
+`SD-R retention: sweep loop running` line plus the sweep counter
+advancing within a tick. If retention should be OFF for this host, set
+`hot_retention_days = 0` (the alert then stops firing by design).
+
+### sovereign-telemetry alerts (M045 E0430 / M013)
+
+These fire on the `sovereign-telemetry` probe's gauges, emitted every minute to
+the node_exporter textfile collector by the `sovereign-telemetry-textfile` hook.
+
+#### SovereignTelemetryThermalShutdown (critical)
+
+**Meaning:** `sovereign_thermal_any_shutdown > 0` — at least one hardware target
+crossed its thermal-policy shutdown threshold. The scheduler should already be
+refusing dispatch onto it; act before thermal damage.
+
+**Diagnosis:**
+
+```bash
+# Which target(s) are in shutdown?
+cat /var/lib/node_exporter/textfile_collector/sovereign-os*.prom \
+  | grep -E 'sovereign_thermal_(any_shutdown|verdict)'
+# Live temps + fan state
+sovereign-osctl thermals 2>/dev/null || sensors
+```
+
+**Fix:** reduce load (halt inference / drop GPU power limit) and restore cooling
+(airflow, fan curve). The gauge clears once temps fall back under the policy
+threshold on the next probe tick.
+
+#### SovereignTelemetryHighSystemPressure (warning)
+
+**Meaning:** `sovereign_pressure_axis{axis="cpu|memory|io"} >= 0.8` for 5m — the
+kernel stalled on that resource for most of the window (PSI). The E0431 adaptive
+reaction for the axis should be active.
+
+**Diagnosis:**
+
+```bash
+cat /var/lib/node_exporter/textfile_collector/sovereign-os*.prom \
+  | grep -E 'sovereign_(pressure_axis|adaptive_reaction_active)'
+cat /proc/pressure/{cpu,memory,io}
+```
+
+**Fix:** if the adaptive reaction is active but pressure persists, reduce load
+per the reaction (branch width, batch size, cold scans). Sustained memory
+pressure with no reaction means the E0431 reactor is wedged — restart it.
+
+#### SovereignTelemetryInvalidSnapshot (warning)
+
+**Meaning:** `sovereign_telemetry_valid < 1` — the probe produced a snapshot that
+failed its own canonical invariants (axis/target counts, ranges, registry
+capacity). Decisions derived from it (thermal verdicts, adaptive reactions) are
+untrustworthy.
+
+**Diagnosis:**
+
+```bash
+# Run the probe directly to see the validation failure
+sovereign-telemetry --prometheus 2>&1 | grep -E 'sovereign_telemetry_(valid|probe_failed)'
+# Confirm the binary version on the probe host
+sovereign-telemetry --version 2>/dev/null
+```
+
+**Fix:** a `sovereign_telemetry_probe_failed 1` sentinel alongside means the
+probe couldn't read the hardware at all — check the host. A persistent
+`valid=0` with a working probe points to a version/contract skew; reinstall the
+matching `sovereign-telemetry` build.
+
+### sovereign-os operational-health alerts
+
+These fire on the Layer-B textfile metrics the sovereign-os **recurrent hooks**
+emit (`sovereign-os-health.rules.yml`) — the OS's own hardware-integrity gate,
+security perimeter, ZFS pool, and state-fabric backups. They were scraped but
+unalerted until this rule set; a failing audit / downed fence / degraded pool /
+stalled backup now pages instead of waiting to be noticed on a dashboard.
+
+Deploy them alongside the other rule files:
+
+```bash
+sudo install -m 0644 \
+    config/prometheus/alerts/sovereign-os-health.rules.yml \
+    /etc/prometheus/alerts/
+# Add to /etc/prometheus/prometheus.yml under rule_files:
+#   - /etc/prometheus/alerts/sovereign-os-health.rules.yml
+sudo systemctl reload prometheus
+# Verify Prometheus picked up the group:
+#   curl -s http://127.0.0.1:9090/api/v1/rules \
+#     | jq '.data.groups[] | select(.name == "sovereign-os-health")'
+```
+
+These metrics require the recurrent-hook timers to be active (the audit,
+tetragon-policy-verify, zfs-scrub, and backup-snapshot units) — without them the
+gauges never refresh and the staleness alerts will (correctly) fire.
+
+#### SovereignOsFrictionAuditFailing (critical)
+
+**Meaning:** `sovereign_os_friction_audit_failures > 0` — the runtime
+hardware-integrity gate (`friction-audit-runtime`) found a hard failure: a GPU
+below x8 link width, primary + VFIO GPUs sharing an IOMMU group, RAM under the
+profile minimum, or a degraded ZFS pool. Master spec §5.1 calls this CRITICAL
+ARCHITECTURAL FRICTION — the host is not the validated hardware shape.
+
+**Diagnosis:**
+
+```bash
+# Re-run the audit to see WHICH checks failed (FAIL lines)
+SOVEREIGN_OS_PROFILE=sain-01 bash scripts/hooks/post-install/friction-audit-runtime.sh
+# Or read the last emitted gauges
+grep -E 'sovereign_os_friction_audit_(failures|warnings)' \
+  /var/lib/node_exporter/textfile_collector/sovereign-os*.prom
+```
+
+**Fix:** address the specific FAIL — reseat the GPU / fix bifurcation for a lane
+shortfall, move the VFIO GPU to a separate IOMMU group, add RAM, or treat a
+degraded pool per `SovereignOsZfsPoolDegraded` below. The gauge clears on the
+next audit run once `failures` returns to 0.
+
+#### SovereignOsPerimeterDown (critical)
+
+**Meaning:** `sovereign_os_perimeter_status < 1` — `tetragon-policy-verify` could
+not confirm the `sovereign-kernel-fence` TracingPolicy is loaded (tetragon
+inactive, policy file missing, or no load record this boot). The kernel-level
+execution fence is OFF: a security-availability incident.
+
+**Diagnosis:**
+
+```bash
+systemctl is-active tetragon
+ls -l /etc/tetragon/tracing-policies/sovereign-kernel-fence.yaml
+journalctl -u tetragon -b | grep -i sovereign-kernel-fence | tail
+tail -n 20 /mnt/vault/context/security_audit.log   # PERIMETER_* entries
+```
+
+**Fix:** start tetragon (`systemctl start tetragon`), restore the policy file
+(re-run `tetragon-policy-load`), and confirm the load record appears in the
+journal. The gauge returns to 1 on the next verifier run once the fence is back.
+
+#### SovereignOsPerimeterVerifierSilent (warning)
+
+**Meaning:** `time() - sovereign_os_perimeter_verify_last_run_timestamp > 2d` —
+the daily `tetragon-policy-verify` timer has not run, so the perimeter status
+you see may be stale (the fence could be down without `SovereignOsPerimeterDown`
+firing on fresh data).
+
+**Diagnosis:**
+
+```bash
+systemctl status sovereign-tetragon-verify.timer
+systemctl list-timers | grep tetragon-verify
+timedatectl   # confirm the clock isn't skewed
+```
+
+**Fix:** re-enable / start the timer; if the host was powered off through the
+window, run the verifier once by hand. The alert clears on the next run.
+
+#### SovereignOsZfsPoolDegraded (critical)
+
+**Meaning:** `sovereign_os_zfs_pool_health < 1` — the pool is DEGRADED / FAULTED
+/ UNAVAIL (or absent). On the default RAID-0 sain-01 layout there is no
+redundancy, so a degraded vdev is a data-loss risk — the irreplaceable
+state-fabric (`tank/context`) lives here.
+
+**Diagnosis:**
+
+```bash
+zpool status -x
+zpool status -v "${SOVEREIGN_OS_POOL_NAME:-tank}"   # per-vdev errors
+```
+
+**Fix:** identify the failing device, stop writing new state, and — because
+RAID-0 has no self-heal — recover from the most recent `tank/context` snapshot /
+replica per SDD-017 before replacing the device. Do NOT scrub-and-hope a FAULTED
+RAID-0 vdev back into service.
+
+#### SovereignOsZfsScrubOverdue (warning)
+
+**Meaning:** `time() - sovereign_os_zfs_scrub_last_run_timestamp > 2 weeks` — the
+weekly `zfs-scrub` has not completed, so latent checksum errors (bit-rot) on the
+NVMe are going undetected.
+
+**Diagnosis:**
+
+```bash
+systemctl status sovereign-zfs-scrub.timer
+zpool status "${SOVEREIGN_OS_POOL_NAME:-tank}" | grep -i scrub
+```
+
+**Fix:** re-enable the timer; kick a manual `zpool scrub
+${SOVEREIGN_OS_POOL_NAME:-tank}` if the host missed its scheduled window. The
+alert clears when a scrub completes and the timestamp refreshes.
+
+#### SovereignOsBackupSnapshotStale (warning)
+
+**Meaning:** `time() - sovereign_os_snapshot_last_created_timestamp > 2d` — the
+daily `backup-snapshot` of the state-fabric (SDD-017) has not run; each missed
+day widens the gap to the latest recoverable point.
+
+**Diagnosis:**
+
+```bash
+systemctl status sovereign-backup-snapshot.timer
+zfs list -t snapshot -o name,creation "${SOVEREIGN_OS_SNAPSHOT_DATASET:-tank/context}" | tail
+zpool list "${SOVEREIGN_OS_POOL_NAME:-tank}"   # a full pool blocks snapshots
+```
+
+**Fix:** re-enable the timer; confirm the dataset exists and the pool has free
+space (a held snapshot or full pool makes `zfs snapshot` fail). Take one by hand
+to close the gap; the alert clears on the next successful snapshot.
+
+#### SovereignOsSecurityUpdatesPending (warning)
+
+**Meaning:** `sovereign_os_security_updates_available > 0` for >6h — security-only
+upgrades (Debian-Security origin) have been pending; the host is running packages
+with published vulnerabilities. (`> 0` excludes the `-1` "could not determine"
+sentinel.)
+
+**Diagnosis:**
+
+```bash
+# What's pending from the security suite
+apt-get -s -o Dir::Etc::SourceParts=- upgrade 2>/dev/null | grep -iE '^Inst.*security' || \
+  grep security_updates /var/lib/node_exporter/textfile_collector/sovereign-os*.prom
+```
+
+**Fix:** apply the security set (the operator's patch workflow, or
+`apt-get update && apt-get -y upgrade` scoped to the security suite) and reboot
+if a kernel/libc/microcode update landed. The gauge clears on the next daily
+check once 0 remain. A persistent value despite patching points at a pinned /
+held package — inspect `apt-mark showhold`.
+
+#### SovereignOsSecurityUpdateCheckStale (warning)
+
+**Meaning:** `time() - sovereign_os_security_update_check_last_run_timestamp > 2d`
+— the daily security-update check has not run, so the pending-updates gauge is
+stale and the patch posture is unknown.
+
+**Diagnosis:**
+
+```bash
+systemctl status sovereign-security-update-check.timer
+# A -1 gauge means the check ran but couldn't reach/parse the security suite
+grep security_updates_available /var/lib/node_exporter/textfile_collector/sovereign-os*.prom
+```
+
+**Fix:** re-enable the timer; confirm apt can reach the Debian-Security suite
+(network / mirror / sources.list). Run the check by hand to refresh the gauge.
+The alert clears once the timestamp updates within the window.
+
+#### SovereignOsThermalCritical (critical)
+
+**Meaning:** `sovereign_os_thermal_severity{level="critical"} > 0` for 2m+ — a
+sensor is at/above its profile critical threshold (sain-01: 95 °C). This is the
+thermal-watch hook path (R172, per-sensor), distinct from
+`SovereignTelemetryThermalShutdown` (the dispatcher verdict). Sustained critical
+risks throttling and, eventually, thermal damage.
+
+**Diagnosis:**
+
+```bash
+grep -E 'sovereign_os_thermal_(severity|celsius)' \
+  /var/lib/node_exporter/textfile_collector/sovereign-os*.prom
+sensors 2>/dev/null; nvidia-smi --query-gpu=temperature.gpu --format=csv 2>/dev/null
+```
+
+**Fix:** reduce load (halt inference, drop the GPU power limit:
+`nvidia-smi -pl <watts>`) and restore cooling (airflow, fan curve, dust). The
+gauge clears on the next 5-minute tick once the sensor falls back below its
+critical threshold. A sensor stuck critical with light load points at a failed
+fan / pump or a seating issue.
+
+#### SovereignOsThermalWatchSilent (warning)
+
+**Meaning:** `time() - sovereign_os_thermal_last_run_unix > 30m` — the 5-minute
+thermal monitor has not run, so the per-sensor gauges are stale and
+`SovereignOsThermalCritical` cannot fire on fresh data (a thermal blind spot).
+
+**Diagnosis:**
+
+```bash
+systemctl status sovereign-thermal-watch.timer
+systemctl list-timers | grep thermal-watch
+ls /sys/class/hwmon/ ; nvidia-smi -L 2>/dev/null   # are sensors readable?
+```
+
+**Fix:** re-enable / start the timer; if hwmon or nvidia-smi stopped exposing
+sensors, restore the sensor stack (kernel module / driver). The alert clears
+once the monitor runs and refreshes the timestamp.
+
+#### SovereignOsPowerShutdownGuardFired (critical)
+
+**Meaning:** `sovereign_os_power_shutdown_guard_fired > 0` — the power-shutdown
+guard reached a confirmed critical UPS state while armed and issued
+`shutdown(8)`. The host is powering off NOW to protect the state-fabric from an
+unclean loss.
+
+**Diagnosis:**
+
+```bash
+# (post-recovery) confirm the UPS state and that the fire was warranted
+grep -E 'sovereign_os_power_shutdown_guard_(fired|verdict)' \
+  /var/lib/node_exporter/textfile_collector/sovereign-os*.prom
+journalctl -u sovereign-power-shutdown-guard.service -n 50
+```
+
+**Fix:** the shutdown is intentional protection — let it complete. On return,
+restore mains power, confirm `sovereign_os_power_shutdown_guard_verdict` is back
+to 0 (ok), and re-arm the guard. A spurious fire points at a misreporting UPS or
+a too-aggressive critical threshold.
+
+#### SovereignOsPowerUpsCritical (critical)
+
+**Meaning:** `sovereign_os_power_shutdown_guard_verdict == 2` (critical) — the UPS
+reports a critical battery/runtime state; power loss is imminent. Pages before
+the guard fires shutdown so the operator can intervene.
+
+**Diagnosis:**
+
+```bash
+grep sovereign_os_power_shutdown_guard_verdict \
+  /var/lib/node_exporter/textfile_collector/sovereign-os*.prom
+# verdict codes: 0=ok 1=attention 2=critical 3=no-ups 9=error
+upsc 2>/dev/null || apcaccess 2>/dev/null   # whichever UPS client is installed
+```
+
+**Fix:** restore mains power or shed load to extend runtime. If a graceful
+shutdown is the right call, let the armed guard fire (see
+SovereignOsPowerShutdownGuardFired). The alert clears when the verdict returns
+below 2.
+
+#### SovereignOsMemoryOomKills (critical)
+
+**Meaning:** `increase(sovereign_os_memory_oom_kill_count[15m]) > 0` — the kernel
+OOM-killer terminated one or more processes in the last 15 minutes because the
+host ran out of memory. A killed inference / daemon / collector may have left
+work half-done.
+
+**Diagnosis:**
+
+```bash
+journalctl -k | grep -i 'killed process' | tail
+grep -E 'sovereign_os_memory_(oom_kill_count|available_pct|psi_full_avg10_pct)' \
+  /var/lib/node_exporter/textfile_collector/sovereign-os*.prom
+```
+
+**Fix:** identify the memory hog and reduce the working set (batch size, model
+size, concurrent jobs), add RAM, or set per-service memory limits so a single
+job can't starve the host. Restart anything the OOM-killer took down. The alert
+clears once 15m pass with no new kills.
+
+#### SovereignOsSelfdefCheckoutBehind (warning)
+
+**Meaning:** `sovereign_os_selfdef_sync_behind_commits > 0` for over a day — the
+selfdef (IPS) checkout is behind its upstream. The installed defense modules
+keep running, but the operator is not receiving the latest IPS updates
+(SDD-001: selfdef RUNS, sovereign-os only keeps the checkout fresh).
+
+**Diagnosis:**
+
+```bash
+systemctl status sovereign-selfdef-sync.timer
+git -C "${SOVEREIGN_OS_SELFDEF_DIR:-$HOME/selfdef}" log --oneline HEAD..@{upstream} | head
+```
+
+**Fix:** run the gated update —
+`SOVEREIGN_OS_CONFIRM_SELFDEF_SYNC=YES scripts/hooks/recurrent/selfdef-sync.sh`
+(fast-forward-only pull + selfdef `make build` + `systemctl try-restart
+'selfdef*'`). The gauge clears on the next weekly check once 0 commits remain.
+
+#### SovereignOsSelfdefCheckoutUnhealthy (warning)
+
+**Meaning:** `sovereign_os_selfdef_sync_result{result=~"diverged|absent"} == 1` —
+either no selfdef checkout exists at `SOVEREIGN_OS_SELFDEF_DIR` (absent) or the
+local tree diverged from upstream and the fast-forward-only sync refuses to
+touch it (diverged). No further IPS updates can land until resolved.
+
+**Diagnosis:**
+
+```bash
+ls -d "${SOVEREIGN_OS_SELFDEF_DIR:-$HOME/selfdef}/.git"
+git -C "${SOVEREIGN_OS_SELFDEF_DIR:-$HOME/selfdef}" status -sb
+```
+
+**Fix:** for *absent*, clone selfdef to the expected path (or point
+`SOVEREIGN_OS_SELFDEF_DIR` + the unit's `ReadWritePaths` drop-in at the real
+checkout). For *diverged*, resolve manually in the selfdef working tree
+(rebase or reset local commits), then re-run the hook.
+
+#### SovereignOsSelfdefSyncStale (warning)
+
+**Meaning:** `time() - sovereign_os_selfdef_sync_last_run_timestamp > 2 weeks` —
+the weekly selfdef-sync has not reported, so the behind-commits gauge is stale
+and the IPS update posture is unknown.
+
+**Diagnosis:**
+
+```bash
+systemctl status sovereign-selfdef-sync.timer sovereign-selfdef-sync.service
+journalctl -u sovereign-selfdef-sync.service -n 50
+```
+
+**Fix:** re-enable the timer; if the unit fails on sandboxing, confirm the
+checkout path is covered by the service's `ReadWritePaths`. The alert clears
+when the next run refreshes the timestamp.
+
+#### SovereignOsGhostproxyEnvelopeUnhealthy (warning)
+
+**Meaning:** `sovereign_os_ghostproxy_endpoint_verify_result{result=~"drift|absent"} == 1` —
+the root-ghostproxy AI-agent safety envelope (SDD-046: machine-level Claude
+Code + opencode hooks, agent brain, integrity sentinel — endpoint mode, proxy
+half OFF) either no longer matches its upstream spec (*drift*) or the weekly
+verify found no checkout at `SOVEREIGN_OS_ROOT_GHOSTPROXY_DIR` (*absent*). The
+envelope keeps running as-installed, but AI-agent sessions on the host are
+governed by a policy that root-ghostproxy's installer would no longer produce.
+
+**Diagnosis:**
+
+```bash
+systemctl status sovereign-ghostproxy-verify.timer sovereign-ghostproxy-verify.service
+cd "${SOVEREIGN_OS_ROOT_GHOSTPROXY_DIR:-$HOME/root-ghostproxy}" && ./install.sh --check --profile base --mode endpoint
+```
+
+**Fix:** for *drift*, re-apply the envelope through the gated install hook —
+`SOVEREIGN_OS_CONFIRM_GHOSTPROXY_INSTALL=YES scripts/hooks/post-install/root-ghostproxy-endpoint-install.sh`
+(idempotent; backs up out-of-sync files; the hook pins `--mode endpoint`, so
+the proxy/IPS half stays OFF per the operator directive). For *absent*, clone
+root-ghostproxy to the expected path (or point
+`SOVEREIGN_OS_ROOT_GHOSTPROXY_DIR` at the real checkout). The gauge clears on
+the next weekly verify.
+
+#### SovereignOsGhostproxyVerifyStale (warning)
+
+**Meaning:** `time() - sovereign_os_ghostproxy_endpoint_verify_last_run_timestamp > 2 weeks` —
+the weekly AI-agent envelope drift verify has not reported, so the drift gauge
+is stale and the endpoint-safety posture is unknown.
+
+**Diagnosis:**
+
+```bash
+systemctl status sovereign-ghostproxy-verify.timer sovereign-ghostproxy-verify.service
+journalctl -u sovereign-ghostproxy-verify.service -n 50
+```
+
+**Fix:** re-enable the timer; if the unit fails on sandboxing, confirm the
+checkout + deployed envelope paths are readable under the service's
+`ProtectHome=read-only` sandbox. The alert clears when the next run refreshes
+the timestamp.
+
+### sovereign-os auditor alerts (Tetragon-dropout resilience, M084)
+
+These fire on the guardian's textfile metrics (`sovereign-os-auditor.prom`).
+Deploy `config/prometheus/alerts/sovereign-os-auditor.rules.yml` alongside the
+other rule files.
+
+#### SovereignOsAuditorStreamEofChurn (warning)
+
+**Meaning:** `increase(sovereign_os_auditor_stream_eof_total[30m]) >= 3` — the
+guardian's Tetragon event stream hit end-of-file three or more times in 30
+minutes. One EOF is self-healing (`BindsTo=tetragon.service` +
+`Restart=always` close the perimeter-blind window in ~1–2s, with `[EOF]`
+journal evidence); churn means the management path is flapping — the
+transposition dump's OPNsense/SD-WAN interface re-shuffle gotcha — and the
+containment loop is being blinded repeatedly.
+
+**Diagnosis:**
+
+```bash
+# How often, and when
+journalctl -u sovereign-guardian-core | grep -F '[EOF]' | tail
+systemctl status sovereign-guardian-core tetragon
+# Is the management interface bouncing? (lease drops / re-shuffles)
+journalctl -u systemd-networkd --since -1h | tail -50
+sovereign-osctl perimeter status 2>/dev/null
+```
+
+**Fix:** the guardian is recovering itself — the work is on the network side.
+Stabilize the management-path lease/interface behavior at the OPNsense/SD-WAN
+firewall (static lease for the management NIC, avoid interface re-shuffles on
+the VLAN carrying Tetragon log streams). The alert clears once 30m pass with
+fewer than 3 dropouts.
+
+### sovereign-gatewayd alerts (never-cloud-spill tripwire)
+
+These fire on the gauges `sovereign-gatewayd` serves directly on `GET /metrics`
+(no textfile collector — scrape the daemon's HTTP address). The daemon is
+local-first by construction: every request is forced `allow_cloud = false`
+before it reaches the router, and the process-lifetime ledger counts any
+decision that nonetheless routed to the cloud plane. These alerts make that
+sovereignty invariant page instead of sitting unread in a ledger.
+
+Deploy alongside the other rule files and add a scrape job for the daemon:
+
+```bash
+sudo cp config/prometheus/alerts/sovereign-gatewayd.rules.yml /etc/prometheus/alerts/
+# /etc/prometheus/prometheus.yml
+#   rule_files:
+#     - /etc/prometheus/alerts/sovereign-gatewayd.rules.yml
+#   scrape_configs:
+#     - job_name: sovereign-gatewayd
+#       static_configs: [{targets: ["127.0.0.1:8787"]}]
+sudo systemctl reload prometheus
+```
+
+#### SovereignGatewayCloudSpill (critical)
+
+**Meaning:** `sovereign_gateway_never_cloud_spill_holds < 1` — the daemon's own
+tripwire reports that at least one decision in this process's lifetime routed
+to the cloud plane. This must never happen: the gateway forces
+`allow_cloud = false` on every request before routing, so a spill means the
+sovereignty boundary itself is broken, not merely a misconfigured client.
+
+**Diagnosis:**
+
+```bash
+# How many spills, and what else the ledger saw
+curl -s 127.0.0.1:8787/admin/ledger
+curl -s 127.0.0.1:8787/metrics | grep -E 'sovereign_gateway_(cloud_spills_total|never_cloud_spill_holds)'
+# Confirm the daemon's safety posture (health carries the invariant too)
+curl -s 127.0.0.1:8787/health
+```
+
+**Fix:** treat as an incident, not a tuning knob. Stop new traffic if needed,
+capture `/admin/ledger`, and find what produced a cloud-plane verdict despite
+`force_local` — a router/scheduler regression or a tampered build are the
+plausible causes; there is no legitimate one. The gauge stays 0 for the life of
+the process (the spill already happened); after the root cause is fixed,
+restarting the daemon re-arms the tripwire at 1.
+
+#### SovereignGatewayTripwireUnmonitored (warning)
+
+**Meaning:** `absent(sovereign_gateway_never_cloud_spill_holds) == 1` for 10m —
+Prometheus has no current sample of the tripwire gauge. An invariant you cannot
+see is not being enforced from the operator's seat: the daemon is down, the
+scrape job is missing/broken, or the bind address changed.
+
+**Diagnosis:**
+
+```bash
+systemctl status sovereign-gatewayd
+curl -s 127.0.0.1:8787/health        # daemon up + serving?
+curl -s 127.0.0.1:9090/api/v1/targets | grep -A3 sovereign-gatewayd
+```
+
+**Fix:** restart the daemon if it is down (`systemctl restart
+sovereign-gatewayd`); otherwise repair the scrape config (job name, address,
+`SOVEREIGN_GATEWAY_ADDR` override). The alert clears as soon as the gauge is
+scraped again.
+
 ## Project-boundary discipline (MS043 R10212)
 
 - IPS state mutation lives in **selfdef only** (selfdefd + selfdefctl +

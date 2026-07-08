@@ -211,7 +211,7 @@ def test_live_build_distribution_trixie():
 
 
 def test_live_build_amd64_architecture():
-    """Operator-named architecture: amd64 (sain-01 Zen 5 + 3090 +
+    """Operator-named architecture: amd64 (sain-01 Zen 5 + 4090 +
     Blackwell). Drift to i386 or arm64 silently produces wrong-arch
     image for SAIN-01."""
     body = _read(LIVE_BUILD_EMIT)

@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# sovereign-telemetry textfile writer (M045 E0430 / M013).
+#
+# Runs the `sovereign-telemetry` probe in --prometheus mode and writes its
+# exposition ATOMICALLY (tmp + rename) to the node_exporter textfile_collector
+# directory, so a scrape never sees a half-written file. Honest-offline: if the
+# probe fails, a `sovereign_telemetry_probe_failed 1` sentinel is published
+# instead of a stale or empty file, matching the codebase's textfile_emit
+# doctrine.
+#
+# LAYER-B-WAIVER: this hook IS a Layer-B emitter, but via the `sovereign-telemetry`
+# binary (--prometheus mode writes the exposition to the textfile collector
+# directly), not the shell emit_metric helper — so it deliberately does not
+# source observability.sh or call emit_metric_set.
+set -euo pipefail
+
+# Binary discovery: explicit override → on PATH (Makefile installs to
+# $(PREFIX)/bin, normally on PATH) → the /opt layout default.
+if [[ -n "${SOVEREIGN_TELEMETRY_BIN:-}" ]]; then
+    BIN="$SOVEREIGN_TELEMETRY_BIN"
+elif BIN="$(command -v sovereign-telemetry 2>/dev/null)"; then
+    :
+else
+    BIN="/opt/sovereign-os/bin/sovereign-telemetry"
+fi
+OUT_DIR="${TEXTFILE_DIR:-/var/lib/node_exporter/textfile_collector}"
+OUT="${OUT_DIR}/sovereign-telemetry.prom"
+
+tmp="$(mktemp "${OUT}.XXXXXX")"
+trap 'rm -f "$tmp"' EXIT
+
+if "$BIN" --prometheus >"$tmp" 2>/dev/null; then
+    chmod 0644 "$tmp"
+    mv -f "$tmp" "$OUT"
+else
+    {
+        printf '# HELP sovereign_telemetry_probe_failed 1 when the probe could not sample.\n'
+        printf '# TYPE sovereign_telemetry_probe_failed gauge\n'
+        printf 'sovereign_telemetry_probe_failed 1\n'
+    } >"$tmp"
+    chmod 0644 "$tmp"
+    mv -f "$tmp" "$OUT"
+    exit 1
+fi

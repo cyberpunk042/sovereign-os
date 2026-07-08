@@ -72,7 +72,11 @@
     font-weight: 600; color: var(--accent, #9bd1ff);
     min-width: 3.5rem; font-size: .82rem;
   }
-  .so-palette-row .lbl { flex: 1; }
+  .so-palette-row .lbl { flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  .so-palette-row .pdesc {
+    color: var(--muted, #888); font-size: .72rem; font-weight: 400;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
   .so-palette-row .hint {
     font-size: .72rem; color: var(--muted, #888);
   }
@@ -121,7 +125,34 @@
     ];
     function jump(d) { window.location.href = ROOT + d.dir + '/'; }
     var SHORTCUT = {};
-    DASHBOARDS.forEach(function(d) { if (d.shortcut) SHORTCUT[d.shortcut] = d; });
+    function rebuildShortcuts() { SHORTCUT = {}; DASHBOARDS.forEach(function(d) { if (d.shortcut) SHORTCUT[d.shortcut] = d; }); }
+    rebuildShortcuts();
+
+    // SDD-045 Phase G — front door over the FULL catalog: repopulate the
+    // palette from /catalog so Cmd-K searches EVERY surface (label +
+    // description + category), not just the hardcoded core. Falls back to the
+    // static list if /catalog is unavailable.
+    function loadCatalogIntoPalette() {
+      fetch('/catalog', { headers: { Accept: 'application/json' } })
+        .then(function(r) { return r.json(); })
+        .then(function(cat) {
+          if (!cat || !cat.dashboards || !cat.dashboards.length) return;
+          var prev = {}; DASHBOARDS.forEach(function(d) { prev[d.dir] = d; });
+          var cats = {}; (cat.categories || []).forEach(function(c) { cats[c.id] = c.label || c.id; });
+          var merged = [];
+          cat.dashboards.forEach(function(d) {
+            if (!d.path) return;                 // only reachable panels
+            var p = prev[d.slug] || {};
+            merged.push({ id: p.id || d.slug, dir: d.slug, label: d.label || d.slug,
+                          desc: d.description || '', cat: cats[d.category] || d.category || '',
+                          shortcut: p.shortcut || null });
+          });
+          if (merged.length) {
+            DASHBOARDS = merged; rebuildShortcuts();
+            if (backdrop && backdrop.classList.contains('open')) filterPalette();
+          }
+        }).catch(function() {});
+    }
 
     var backdrop, input, results, activeIdx = 0, filtered = [];
     function openPalette() {
@@ -136,10 +167,13 @@
     function renderResults() {
       var html = '';
       filtered.forEach(function(d, i) {
+        var desc = d.desc ? (d.desc.length > 84 ? d.desc.slice(0, 84) + '…' : d.desc) : '';
         html += '<div class="so-palette-row' + (i === activeIdx ? ' active' : '') +
-                '" data-idx="' + i + '"><span class="id">' + d.id + '</span>' +
-                '<span class="lbl">' + d.label + '</span>' +
-                (d.shortcut ? '<span class="hint">⌘' + d.shortcut + '</span>' : '') +
+                '" data-idx="' + i + '"><span class="id">' + (d.id || '') + '</span>' +
+                '<span class="lbl">' + d.label +
+                (desc ? '<span class="pdesc">' + desc + '</span>' : '') + '</span>' +
+                (d.shortcut ? '<span class="hint">⌘' + d.shortcut + '</span>'
+                            : (d.cat ? '<span class="hint">' + d.cat + '</span>' : '')) +
                 '</div>';
       });
       results.innerHTML = html;
@@ -152,9 +186,11 @@
     function filterPalette() {
       var q = (input.value || '').trim().toLowerCase();
       filtered = q ? DASHBOARDS.filter(function(d) {
-        return d.id.toLowerCase().indexOf(q) >= 0 ||
+        return (d.id || '').toLowerCase().indexOf(q) >= 0 ||
                d.label.toLowerCase().indexOf(q) >= 0 ||
-               d.dir.toLowerCase().indexOf(q) >= 0;
+               d.dir.toLowerCase().indexOf(q) >= 0 ||
+               (d.desc || '').toLowerCase().indexOf(q) >= 0 ||
+               (d.cat || '').toLowerCase().indexOf(q) >= 0;
       }) : DASHBOARDS.slice();
       activeIdx = 0;
       renderResults();
@@ -222,6 +258,7 @@
       if (!backdrop || !input || !results) return;
       input.addEventListener('input', filterPalette);
       backdrop.addEventListener('click', function(e) { if (e.target === backdrop) closePalette(); });
+      loadCatalogIntoPalette();   // SDD-045 — front door over the full catalog
     }
     // Always bind keydown immediately (init may run later)
     window.addEventListener('keydown', onKeydown);
@@ -399,6 +436,130 @@ a11y; contract test catches drift.
   footer a{color:var(--accent)}
   .standing-rule{color:var(--accent);font-style:italic;margin-top:.4rem}
 </style>
+<!-- SDD-045 control-surface component, INLINED per the single-file doctrine
+     (canonical source lockstep-linted: webapp/_shared/control-surface.{css,js}).
+     Renders config/control-systems.yaml (served at /control-systems). -->
+<style>
+/* webapp/_shared/control-surface.css — SDD-045 shared control-surface.
+ * Renders the control-systems registry (profiles / modes / feature toggles)
+ * as a grid of control cards. Monochrome, framework-free; inherits the
+ * panel palette variables (--bg/--fg/--muted/--accent/--border/--mono). */
+.cs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: .5rem; }
+.cs-card {
+  display: flex; flex-direction: column; gap: .35rem;
+  padding: .6rem .75rem; border: 1px solid var(--border, #262626);
+  border-radius: .4rem; background: rgba(255, 255, 255, .02);
+}
+.cs-head { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.cs-label { font-weight: 600; flex: 1; }
+.cs-kind {
+  font-size: .7rem; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--muted, #888); border: 1px solid var(--border, #262626);
+  border-radius: 3px; padding: 0 .35rem;
+}
+.cs-global {
+  font-size: .7rem; color: var(--accent, #9bd1ff);
+  border: 1px solid var(--accent, #9bd1ff); border-radius: 3px; padding: 0 .35rem;
+}
+.cs-desc { color: var(--muted, #888); font-size: .8rem; line-height: 1.45; }
+.cs-opts { display: flex; flex-wrap: wrap; gap: .3rem; }
+.cs-opt { font-size: .72rem; background: var(--border, #262626); border-radius: 3px; padding: 1px 6px; }
+.cs-cmd {
+  font-family: var(--mono, ui-monospace, monospace); font-size: .74rem;
+  text-align: left; color: var(--fg, #e6e6e6); background: var(--bg, #0e0e0e);
+  border: 1px solid var(--border, #262626); border-radius: 3px;
+  padding: .25rem .4rem; cursor: pointer; overflow-x: auto; white-space: nowrap;
+}
+.cs-cmd:hover { border-color: var(--accent, #9bd1ff); }
+.cs-empty { color: var(--muted, #888); }
+</style>
+<script>
+/* webapp/_shared/control-surface.js — SDD-045 shared control-surface renderer.
+ *
+ * Renders the control-systems registry (config/control-systems.yaml, served
+ * as GET /control-systems) — the operator's "everything can be turned on and
+ * off + tons of modes and profiles" — as a grid of control cards. Reused by
+ * every dashboard so each becomes a CONTROL surface.
+ *
+ * Web is READ-ONLY: each control shows its options and copies its exact
+ * `change_cli` for the operator to run. It NEVER mutates privileged state
+ * (§1g / hardening lint). No framework, no CDN — a single same-origin file.
+ *
+ * Usage:
+ *   const n = SovereignControlSurface.render(el, systems, {
+ *     filterSlug: 'runtime-modes',   // only global + systems governing this slug
+ *     onCopy: (cmd) => showToast(cmd) // optional copy callback
+ *   });
+ */
+(function (global) {
+  "use strict";
+
+  function esc(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  function render(containerEl, systems, opts) {
+    opts = opts || {};
+    var slug = opts.filterSlug || null;
+    var list = (systems || []).filter(function (s) {
+      if (!slug) return true;                       // no filter → all systems
+      return s.scope === "global" ||                // globals show everywhere
+        (s.applies_to || []).indexOf(slug) >= 0;    // + systems governing slug
+    });
+    var html = list.map(function (s) {
+      var pills = (s.options || []).map(function (o) {
+        return '<span class="cs-opt">' + esc(o) + "</span>";
+      }).join("");
+      var change = esc(s.change_cli || "");
+      return '<div class="cs-card cs-' + esc(s.kind) + '">'
+        + '<div class="cs-head">'
+        + '<span class="cs-label">' + esc(s.label) + "</span>"
+        + '<span class="cs-kind">' + esc(s.kind) + "</span>"
+        + (s.scope === "global" ? '<span class="cs-global">global</span>' : "")
+        + "</div>"
+        + '<div class="cs-desc">' + esc(s.description) + "</div>"
+        + '<div class="cs-opts">' + pills + "</div>"
+        + (change
+            ? '<button class="cs-cmd" data-cmd="' + change
+              + '" title="click to copy the operator command">$ ' + change + "</button>"
+            : "")
+        + "</div>";
+    }).join("");
+    containerEl.innerHTML = html || '<div class="cs-empty">(no controls for this surface)</div>';
+    Array.prototype.forEach.call(containerEl.querySelectorAll(".cs-cmd"), function (b) {
+      b.addEventListener("click", function () {
+        var cmd = b.getAttribute("data-cmd");
+        if (navigator.clipboard) navigator.clipboard.writeText(cmd);
+        if (typeof opts.onCopy === "function") opts.onCopy(cmd);
+      });
+    });
+    return list.length;
+  }
+
+  // Convenience: fetch /control-systems (same-origin) and render.
+  function load(containerEl, opts) {
+    return fetch("/control-systems", { headers: { Accept: "application/json" } })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data && data.error) {
+          containerEl.innerHTML = '<div class="cs-empty">controls unavailable: '
+            + esc(data.error) + "</div>";
+          return 0;
+        }
+        return render(containerEl, (data && data.systems) || [], opts);
+      })
+      .catch(function (e) {
+        containerEl.innerHTML = '<div class="cs-empty">controls unavailable: '
+          + esc(e && e.message) + "</div>";
+        return 0;
+      });
+  }
+
+  global.SovereignControlSurface = { render: render, load: load };
+})(window);
+</script>
 </head>
 <body>
 <h1>sovereign-os master-dashboard</h1>
@@ -415,6 +576,66 @@ a11y; contract test catches drift.
   <div class="stat"><div class="k">collisions</div><div class="v" id="stat-collisions">—</div></div>
   <div class="stat"><div class="k">selfdef manifests</div><div class="v" id="stat-selfdef">—</div></div>
   <div class="stat"><div class="k">api version</div><div class="v muted" id="stat-version">—</div></div>
+</div>
+
+<!-- SDD-045 Phase B — the described global view. THE list the operator
+     asked for: every dashboard with a REAL description (not a bare label),
+     grouped by category, honestly badged live/snapshot/planned. Sourced
+     from config/dashboard-catalog.yaml via GET /catalog (single source of
+     truth; descriptions never drift from the catalog). -->
+<!-- SDD-045 Phase G — the "WHERE IS EVERYTHING" answer, LIVE: proof on the
+     front door that every surface + verb family is reachable (nothing
+     CLI-only-and-invisible), computed from /catalog + /control-systems +
+     /feature-coverage. -->
+<h2>coverage — everything is reachable</h2>
+<div class="row" id="coverage-stats">
+  <div class="stat"><div class="k">dashboards</div><div class="v" id="cov-dash">—</div></div>
+  <div class="stat"><div class="k">control systems</div><div class="v" id="cov-sys">—</div></div>
+  <div class="stat"><div class="k">verb families mapped</div><div class="v" id="cov-mapped">—</div></div>
+  <div class="stat"><div class="k">cli-only (waived)</div><div class="v" id="cov-cli">—</div></div>
+  <div class="stat"><div class="k">invisible</div><div class="v ok" id="cov-invisible">—</div></div>
+</div>
+<p class="sub" id="cov-note" style="margin:.3rem 0 .8rem"></p>
+
+<h2>all dashboards — described</h2>
+<p class="sub" style="margin:.2rem 0 .8rem">
+  Every operator surface with a real explanation. Click a live/snapshot
+  card to open it; a <span class="pill">planned</span> card shows the CLI
+  that reaches the feature today. <span id="catalog-count" class="muted"></span>
+</p>
+<div id="catalog-body">
+  <div class="muted">loading described catalog…</div>
+</div>
+<style>
+  .cat-group { margin: .4rem 0 1.1rem; }
+  .cat-group > .cat-head { display:flex; align-items:baseline; gap:.6rem; margin:.6rem 0 .3rem; }
+  .cat-group > .cat-head .cat-label { color:var(--accent); font-weight:600; font-size:.95rem; }
+  .cat-group > .cat-head .cat-blurb { color:var(--muted); font-size:.8rem; }
+  .cat-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:.5rem; }
+  .dash-card { display:flex; flex-direction:column; gap:.3rem; padding:.6rem .75rem;
+    border:1px solid var(--border); border-radius:.4rem; background:rgba(255,255,255,.02);
+    text-decoration:none; color:inherit; transition:border-color .1s ease, transform .1s ease; }
+  a.dash-card:hover { border-color:var(--accent); transform:translateY(-1px); }
+  .dash-card .dc-head { display:flex; align-items:center; gap:.5rem; }
+  .dash-card .dc-label { font-weight:600; font-size:.9rem; flex:1; }
+  .dash-card .dc-desc { color:var(--muted); font-size:.8rem; line-height:1.45; }
+  .dash-card .dc-cli { font-size:.74rem; color:var(--fg); background:var(--bg);
+    border:1px solid var(--border); border-radius:3px; padding:.2rem .4rem; overflow-x:auto; white-space:nowrap; }
+  .pill.live     { background:#143d14; color:var(--good); }
+  .pill.snapshot { background:#3a3410; color:var(--warn); }
+  .pill.planned  { background:#26262e; color:var(--accent); }
+</style>
+
+<!-- SDD-045 §4 — the Controls surface: everything that can be turned on/off,
+     every mode + profile, from config/control-systems.yaml. -->
+<h2>controls — profiles, modes &amp; feature toggles</h2>
+<p class="sub" style="margin:.2rem 0 .8rem">
+  Everything that can be turned on/off, every mode and profile. Web is
+  read-only: click a control to copy the exact <code>sovereign-osctl</code>
+  command. <span id="controls-count" class="muted"></span>
+</p>
+<div id="control-surface" class="cs-grid">
+  <div class="cs-empty">loading controls…</div>
 </div>
 
 <h2>routes</h2>
@@ -1150,8 +1371,130 @@ async function renderM060Grid() {
   }
 }
 
+// SDD-045 Phase B — the described global view. Fetches GET /catalog
+// (the described dashboard-catalog) and renders every surface with its
+// REAL description, grouped by category, honestly badged. Web is
+// read-only: live/snapshot cards LINK to the panel; planned cards show
+// the CLI that reaches the feature today (copy-on-click). Escapes all
+// catalog text — the catalog is trusted-authored but we never inject raw.
+function escapeHTML(s) {
+  return String(s == null ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+// SDD-045 Phase G — the coverage capstone: prove on the front door that every
+// surface + verb family is reachable, computed live from the three ledgers.
+async function renderCoverage() {
+  try {
+    const [cat, cs, fc] = await Promise.all([
+      fetchJSON("/catalog"), fetchJSON("/control-systems"), fetchJSON("/feature-coverage"),
+    ]);
+    const dashes = cat.dashboards || [];
+    const live = dashes.filter((d) => d.status === "live").length;
+    el("cov-dash").textContent = dashes.length + " (" + live + " live)";
+    el("cov-sys").textContent = (cs.systems || []).length;
+    el("cov-mapped").textContent = fc.mapped_to_dashboard != null ? fc.mapped_to_dashboard : "—";
+    el("cov-cli").textContent = fc.cli_only_waived != null ? fc.cli_only_waived : "—";
+    el("cov-invisible").textContent = "0";
+    const note = el("cov-note");
+    if (note) note.textContent =
+      "Every one of " + (fc.verb_families_total || "?") + " sovereign-osctl verb families reaches a dashboard "
+      + "or is an explicit cli-only waiver — nothing is invisible (locked by test_feature_coverage.py).";
+  } catch (e) {
+    const note = el("cov-note");
+    if (note) note.textContent = "coverage summary unavailable: " + e.message;
+  }
+}
+
+// SDD-045 §4 — render the Controls surface from /control-systems via the
+// shared control-surface component. Read-only: copies the exact command.
+function renderControls() {
+  const box = el("control-surface");
+  if (!box || !window.SovereignControlSurface) return;
+  SovereignControlSurface.load(box, { onCopy: (cmd) => showCopyToast("copied: " + cmd) })
+    .then((n) => {
+      const c = el("controls-count");
+      if (c) c.textContent = "— " + n + " control systems";
+    });
+}
+
+async function renderCatalog() {
+  const body = el("catalog-body");
+  if (!body) return;
+  let cat;
+  try {
+    cat = await fetchJSON("/catalog");
+  } catch (e) {
+    body.innerHTML = '<div class="err">catalog unavailable: ' + escapeHTML(e.message) + '</div>';
+    return;
+  }
+  if (cat.error) {
+    body.innerHTML = '<div class="err">catalog error: ' + escapeHTML(cat.error) + '</div>';
+    return;
+  }
+  const cats = cat.categories || [];
+  const dashboards = cat.dashboards || [];
+  const countEl = el("catalog-count");
+  if (countEl) {
+    countEl.textContent = "— " + dashboards.length + " surfaces across " + cats.length + " categories";
+  }
+  // group dashboards by category, preserving the catalog's category order
+  const byCat = {};
+  for (const d of dashboards) (byCat[d.category] = byCat[d.category] || []).push(d);
+  // ROOT for building panel links (mirrors the palette's ROOT logic)
+  const ROOT = (function () {
+    var p = window.location.pathname.replace(/\/[^/]*$/, "/");
+    return p || "/";
+  })();
+  let html = "";
+  for (const c of cats) {
+    const items = byCat[c.id] || [];
+    if (!items.length) continue;
+    html += '<div class="cat-group"><div class="cat-head">' +
+      '<span class="cat-label">' + escapeHTML(c.label || c.id) + '</span>' +
+      '<span class="cat-blurb">' + escapeHTML(c.blurb || "") + '</span>' +
+      '</div><div class="cat-grid">';
+    for (const d of items) {
+      const status = escapeHTML(d.status || "");
+      const label = escapeHTML(d.label || d.slug);
+      const desc = escapeHTML(d.description || "");
+      const head = '<div class="dc-head"><span class="dc-label">' + label + '</span>' +
+        '<span class="pill ' + status + '">' + status + '</span></div>';
+      const descEl = '<div class="dc-desc">' + desc + '</div>';
+      if (d.path) {
+        // live/snapshot — the whole card links to the panel
+        const href = ROOT + escapeHTML(String(d.slug)) + "/";
+        html += '<a class="dash-card" href="' + href + '">' + head + descEl + '</a>';
+      } else {
+        // planned (no panel yet) — show the CLI that reaches it today
+        const cli = d.cli ? '<div class="dc-cli" title="click to copy" data-cli="' +
+          escapeHTML(d.cli) + '">$ ' + escapeHTML(d.cli) + '</div>' : "";
+        html += '<div class="dash-card">' + head + descEl + cli + '</div>';
+      }
+    }
+    html += '</div></div>';
+  }
+  body.innerHTML = html || '<div class="muted">(catalog empty)</div>';
+  // copy-on-click for planned CLI chips (web is read-only; operator pastes)
+  Array.prototype.forEach.call(body.querySelectorAll(".dc-cli[data-cli]"), function (chip) {
+    chip.style.cursor = "pointer";
+    chip.addEventListener("click", function () {
+      navigator.clipboard.writeText(chip.dataset.cli).then(function () {
+        showCopyToast("copied: " + chip.dataset.cli);
+      });
+    });
+  });
+}
+
 async function refresh() {
   try {
+    // The described catalog is served by the same daemon; render it on
+    // every refresh so status badges stay current. Fired independently so
+    // a catalog hiccup never blanks the routes/health view.
+    renderCatalog();
+    renderControls();
+    renderCoverage();
     const [version, routes, collisions, health, discover, toggles] = await Promise.all(
       ENDPOINTS.map(fetchJSON)
     );

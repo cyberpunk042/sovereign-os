@@ -1,0 +1,24 @@
+[package]
+name = "sovereign-decoder-layer"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "A uniform DecoderLayer contract over the decoder-block family (f32 transformer-block, precision-selectable quant-block, multi-head GQA mha-block) plus a heterogeneous LayerStack runner — so one model can mix precisions and head layouts per layer, the mixed-precision assignment quant-calibration recommends. Composes sovereign-transformer-block, sovereign-quant-block, and sovereign-mha-block."
+
+[lints]
+workspace = true
+
+[dependencies]
+thiserror = { workspace = true }
+sovereign-transformer-block = { path = "../sovereign-transformer-block" }
+sovereign-quant-block = { path = "../sovereign-quant-block" }
+sovereign-mha-block = { path = "../sovereign-mha-block" }
+
+[dev-dependencies]
+sovereign-rmsnorm = { path = "../sovereign-rmsnorm" }
+sovereign-ffn = { path = "../sovereign-ffn" }
+sovereign-linear = { path = "../sovereign-linear" }

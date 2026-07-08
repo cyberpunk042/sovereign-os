@@ -96,7 +96,7 @@ import json, sys
 d = json.loads(sys.stdin.read())
 # Operator §1b drop named these by SKU — they MUST surface in topic content
 text = json.dumps(d)
-for must in ('CMK128GX5M2B6400C42', 'SMT2200C', 'RTX 3090',
+for must in ('CMK128GX5M2B6400C42', 'SMT2200C', 'RTX 4090',
              'RTX PRO 6000', 'Ryzen 9 9900X', 'be Quiet! Dark Power Pro',
              'ASUS', 'X870E-CREATOR'):
     assert must in text, f'topic catalog missing operator-verbatim: {must}'

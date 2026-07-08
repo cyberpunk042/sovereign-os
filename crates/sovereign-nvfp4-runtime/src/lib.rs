@@ -32,6 +32,15 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod linear;
+pub mod rht;
+
+pub use linear::{
+    LinearError, QuantMatrix, RhtQuantMatrix, TwoDQuantMatrix, dense_f32_matvec,
+    relative_frobenius_error,
+};
+pub use rht::{RhtError, fwht, random_signs, rht_forward, rht_inverse};
+
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -212,6 +221,27 @@ pub fn quantize_block_rne(values: &[f32; BLOCK_SIZE]) -> QuantBlock {
     QuantBlock { scale, elements }
 }
 
+/// Quantize a 16-value f32 block with **stochastic** element rounding — the
+/// training-path recipe (NVFP4-XL/XXL). The block scale is deterministic
+/// (as in [`quantize_block_rne`]); only the per-element E2M1 rounding is
+/// stochastic, so it is *unbiased*: `E[dequantize] = scale · (value/scale)`.
+/// Averaged over many draws the reconstruction has no systematic
+/// rounding bias, which is what makes low-bit *training* converge.
+pub fn quantize_block_stochastic<R: rand::Rng>(
+    rng: &mut R,
+    values: &[f32; BLOCK_SIZE],
+) -> QuantBlock {
+    let max_abs = values.iter().copied().map(f32::abs).fold(0.0_f32, f32::max);
+    let scale_f = if max_abs > 0.0 { max_abs / 3.0 } else { 1.0 };
+    let scale = E4m3::from_f32_rne(scale_f);
+    let inv = if scale_f > 0.0 { 1.0 / scale_f } else { 0.0 };
+    let mut elements = [E2m1::default(); BLOCK_SIZE];
+    for (i, v) in values.iter().enumerate() {
+        elements[i] = quantize_stochastic(rng, v * inv);
+    }
+    QuantBlock { scale, elements }
+}
+
 /// Dequantize a block back to f32.
 pub fn dequantize_block(b: &QuantBlock) -> [f32; BLOCK_SIZE] {
     let s = b.scale.to_f32();
@@ -320,6 +350,32 @@ impl RuntimeConfig {
         }
         Ok(())
     }
+
+    /// Whether a named layer is kept in **high precision** (un-quantized)
+    /// under the selective-HP recipe — the actionable per-layer decision a
+    /// model loader uses to pick FP16/F32 over NVFP4 for sensitive layers
+    /// (typically embeddings + `lm_head`, where 4-bit hurts most).
+    ///
+    /// Selective-HP only applies when the recipe enables it
+    /// ([`Recipe::selective_hp_layers`] `> 0`); otherwise every layer is
+    /// quantized and this returns `false`.
+    pub fn is_high_precision(&self, layer: &str) -> bool {
+        self.recipe.selective_hp_layers() > 0
+            && self.high_precision_layers.iter().any(|l| l == layer)
+    }
+
+    /// Verify every declared high-precision layer exists in `model_layers`,
+    /// so a typo'd selective-HP entry fails loudly at load instead of
+    /// silently quantizing a layer the operator meant to protect
+    /// ([`RuntimeError::HpLayerMissing`]).
+    pub fn check_high_precision_layers(&self, model_layers: &[String]) -> Result<(), RuntimeError> {
+        for hp in &self.high_precision_layers {
+            if !model_layers.iter().any(|l| l == hp) {
+                return Err(RuntimeError::HpLayerMissing(hp.clone()));
+            }
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -329,8 +385,80 @@ mod tests {
     use rand_chacha::ChaCha20Rng;
 
     #[test]
+    fn selective_hp_decision_is_actionable() {
+        // Default config keeps embeddings + lm_head in high precision.
+        let cfg = RuntimeConfig::default();
+        assert!(cfg.is_high_precision("embed.in"));
+        assert!(cfg.is_high_precision("embed.out"));
+        assert!(cfg.is_high_precision("lm_head"));
+        // ...and quantizes everything else.
+        assert!(!cfg.is_high_precision("decoder.0.ffn.down"));
+        assert!(!cfg.is_high_precision("decoder.3.attn.q"));
+    }
+
+    #[test]
+    fn high_precision_layers_must_exist_in_model() {
+        let cfg = RuntimeConfig::default();
+        let full = [
+            "embed.in".to_string(),
+            "embed.out".to_string(),
+            "lm_head".to_string(),
+            "decoder.0".to_string(),
+        ];
+        assert!(cfg.check_high_precision_layers(&full).is_ok());
+        // A model missing a protected layer fails loudly (a typo would
+        // otherwise silently quantize a layer the operator meant to keep).
+        let missing = ["embed.in".to_string()];
+        let err = cfg.check_high_precision_layers(&missing).unwrap_err();
+        assert!(matches!(err, RuntimeError::HpLayerMissing(name) if name == "embed.out"));
+    }
+
+    #[test]
     fn block_size_is_16() {
         assert_eq!(BLOCK_SIZE, 16);
+    }
+
+    #[test]
+    fn stochastic_rounding_is_unbiased_vs_rne() {
+        // A block whose scaled magnitudes land between E2M1 grid points, so
+        // round-to-nearest carries a systematic bias.
+        let mut block = [0.0f32; BLOCK_SIZE];
+        for (i, v) in block.iter_mut().enumerate() {
+            *v = 0.7 + 0.13 * (i as f32);
+        }
+        let rne = dequantize_block(&quantize_block_rne(&block));
+
+        // Average many independent stochastic quantizations of the same block.
+        let mut rng = ChaCha20Rng::seed_from_u64(0x5701_4A11);
+        let n = 4000usize;
+        let mut mean = [0.0f64; BLOCK_SIZE];
+        for _ in 0..n {
+            let dq = dequantize_block(&quantize_block_stochastic(&mut rng, &block));
+            for (m, &d) in mean.iter_mut().zip(&dq) {
+                *m += d as f64;
+            }
+        }
+        for m in &mut mean {
+            *m /= n as f64;
+        }
+
+        // L2 error to the original: the stochastic ensemble mean (unbiased)
+        // beats the deterministically-biased RNE reconstruction.
+        let l2_err = |recon: &dyn Fn(usize) -> f64| -> f64 {
+            (0..BLOCK_SIZE)
+                .map(|i| {
+                    let d = block[i] as f64 - recon(i);
+                    d * d
+                })
+                .sum::<f64>()
+                .sqrt()
+        };
+        let rne_err = l2_err(&|i| rne[i] as f64);
+        let stoch_err = l2_err(&|i| mean[i]);
+        assert!(
+            stoch_err < rne_err,
+            "stochastic mean ({stoch_err}) not better than RNE ({rne_err})"
+        );
     }
 
     #[test]

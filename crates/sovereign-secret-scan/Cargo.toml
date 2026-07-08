@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-secret-scan"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Detect leaked secrets in text: known-prefix credentials (AWS access keys, GitHub/Slack tokens, private-key headers) plus a high-Shannon-entropy heuristic for unrecognized API keys. Returns typed findings with spans and a redacted copy — a guard against credentials leaking into logs, prompts, or anything sent off the device."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

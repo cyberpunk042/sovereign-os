@@ -10,12 +10,16 @@ that doesn't match operator intent.
 R387 pins specific operator-verbatim strings in sain-01.yaml so
 silent drift fails at push.
 
-Pinned content:
-  - §2.2 KCFLAGS string (full 7-flag list with -march=znver5 + 6
-    -mavx512* flags + -O3 -pipe -mabm -madx)
+Pinned content (revised 2026-06-10 after the first real hardware build —
+the original §2.2 avx512-KCFLAGS list caused early boot failures because
+the kernel cannot use vector ISA, and avx512_fp16 is absent on the
+physical 9900X; the secondary GPU procured is an RTX 4090, not the
+originally-spec'd RTX 4090):
+  - §2.2 KCFLAGS string (11-flag list: -march=znver5 + 6 -mno-* vector
+    ISA opt-outs + -O3 -pipe -mabm -madx)
   - §2.2 KCPPFLAGS (-march=znver5)
   - §1.1 hardware SKUs: Ryzen 9 9900X / RTX PRO 6000 Blackwell /
-    RTX 3090 / ASUS ProArt X870E-CREATOR / Marvell AQC113C
+    RTX 4090 / ASUS ProArt X870E-CREATOR / Marvell AQC113C
   - §1.2 PCIe rule: M.2_2 slot empty constraint mentioned
 """
 from __future__ import annotations
@@ -36,29 +40,43 @@ def test_sain01_profile_exists():
 
 
 def test_kcflags_verbatim_preserved():
-    """Master spec §2.2 KCFLAGS MUST appear verbatim in profile."""
+    """§2.2 KCFLAGS MUST appear verbatim in profile — as revised
+    2026-06-10 (first real build): the kernel cannot use vector ISA
+    (no kernel_fpu_begin around compiler-emitted SIMD), so the original
+    -mavx512* list SIGILL'd at early boot. The operator-approved list
+    now EXPLICITLY OPTS OUT of every vector ISA tier."""
     body = _read_profile()
-    # Operator-verbatim §2.2 KCFLAGS string
+    # Operator-verbatim §2.2 KCFLAGS string (11 flags, 2026-06-10)
     must_have = [
         "-march=znver5",
+        "-mno-mmx",
+        "-mno-sse",
+        "-mno-sse2",
+        "-mno-avx",
+        "-mno-avx2",
+        "-mno-avx512f",
         "-O3",
         "-pipe",
         "-mabm",
         "-madx",
-        "-mavx512f",
-        "-mavx512dq",
-        "-mavx512bw",
-        "-mavx512vl",
-        "-mavx512bf16",
-        "-mavx512fp16",
     ]
     missing = [f for f in must_have if f not in body]
     assert not missing, (
         f"profiles/sain-01.yaml KCFLAGS missing operator-verbatim §2.2 "
-        f"flags: {missing}. The operator's exact 11-flag list MUST be "
-        f"preserved in the build profile so make bindeb-pkg emits a "
-        f"kernel matching operator intent."
+        f"flags: {missing}. The operator's exact 11-flag list (revised "
+        f"2026-06-10 — kernel builds must disable vector ISA to avoid "
+        f"early-boot SIGILL) MUST be preserved so make bindeb-pkg emits "
+        f"a kernel matching operator intent."
     )
+    # Guard against the original avx512-enabling list silently coming
+    # back: no -mavx512* may appear on the KCFLAGS line itself.
+    for line in body.splitlines():
+        if "KCFLAGS" in line:
+            assert "-mavx512" not in line, (
+                f"KCFLAGS line re-enables avx512 ({line!r}) — the kernel "
+                f"cannot use vector ISA; this caused the 2026-06-10 "
+                f"early-boot failure"
+            )
 
 
 def test_kcppflags_verbatim_preserved():
@@ -86,7 +104,7 @@ def test_hardware_skus_present():
     sku_alternatives = [
         ("Ryzen 9 9900X", "znver5"),          # CPU (verbatim OR znver5)
         ("RTX PRO 6000", "rtx-pro-6000"),    # primary GPU (Blackwell)
-        ("RTX 3090", "rtx-3090"),             # secondary GPU
+        ("RTX 4090", "rtx-4090"),             # secondary GPU (procured 2026-06-10; replaced the spec'd 3090)
         ("ProArt X870E", "x870e"),            # motherboard
         ("Marvell AQC113C", "marvell"),       # 10GbE NIC vendor
     ]
@@ -113,15 +131,28 @@ def test_kernel_version_target():
 
 
 def test_avx512_extensions_complete():
-    """All 6 -mavx512* extensions present (count check; not just any
-    one of them — operator's exact list of 6)."""
-    body = _read_profile()
-    avx512_flags = ["-mavx512f", "-mavx512dq", "-mavx512bw",
-                     "-mavx512vl", "-mavx512bf16", "-mavx512fp16"]
-    present = [f for f in avx512_flags if f in body]
-    assert len(present) == 6, (
-        f"expected all 6 -mavx512* extensions; only {len(present)} present: "
-        f"{present}. Missing: {set(avx512_flags) - set(present)}"
+    """All 6 required avx512 CPU features present in the profile's
+    hardware.cpu.features.required list (count check; not just any one
+    of them — operator's exact list of 6, revised 2026-06-10:
+    avx512_fp16 OUT — verified absent on the physical 9900X, AVX512-FP16
+    is Intel-only; avx512_vnni IN). Userspace still gets the full AVX-512
+    feature set; only the KERNEL build opts out of vector ISA."""
+    import yaml
+
+    profile = yaml.safe_load(_read_profile())
+    required = profile["hardware"]["cpu"]["features"]["required"]
+    expected = {"avx512f", "avx512_vnni", "avx512_bf16",
+                "avx512dq", "avx512bw", "avx512vl"}
+    missing = expected - set(required)
+    assert not missing, (
+        f"expected all 6 required avx512 CPU features; missing: "
+        f"{sorted(missing)} (required list: {required})"
+    )
+    assert "avx512_fp16" not in required, (
+        "avx512_fp16 re-entered features.required — it is ABSENT on the "
+        "physical 9900X (verified /proc/cpuinfo 2026-06-10; Intel-only "
+        "extension) and requiring it would fail the friction audit on "
+        "the operator's own hardware"
     )
 
 
@@ -148,11 +179,11 @@ def test_dual_gpu_present():
         or "rtx-pro-6000" in body_lower
     )
     secondary_present = (
-        "rtx 3090" in body_lower
-        or "rtx-3090" in body_lower
+        "rtx 4090" in body_lower
+        or "rtx-4090" in body_lower
     )
     assert primary_present, "primary GPU (RTX PRO 6000 / Blackwell) missing"
-    assert secondary_present, "secondary GPU (RTX 3090) missing"
+    assert secondary_present, "secondary GPU (RTX 4090) missing"
 
 
 def test_m2_2_empty_constraint_documented():

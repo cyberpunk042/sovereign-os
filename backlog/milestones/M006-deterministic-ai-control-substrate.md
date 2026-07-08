@@ -13,7 +13,7 @@
 |---|---|---|
 | E0047 | 64-bit control word per branch — route 0..3 / task 4..7 / budget 8..15 / risk 16..23 / tool 24..31 / grammar 32..39 / memory 40..47 / spec_depth 48..55 / lifecycle 56..63 | 1071–1081 |
 | E0048 | Deterministic Cortex Runtime v0 — branch arena + queue + grammar + tool perm + memory admission + verifier + replay + metrics | 1112–1123 |
-| E0049 | Main loop — user task / branch records / 3090 propose / CPU filter / Blackwell verify / commit / memory update | 1126–1138 |
+| E0049 | Main loop — user task / branch records / 4090 propose / CPU filter / Blackwell verify / commit / memory update | 1126–1138 |
 | E0050 | CPU as deterministic law — masks invalid tokens / rejects forbidden tools / expires branches / enforces schema / admits memory / decides GPU routing | 1098–1104 |
 
 ## Modules (M00079–M00095) — 17 modules
@@ -21,7 +21,7 @@
 | Mod ID | Phrase | Dump line | Parent epic |
 |---|---|---|---|
 | M00079 | RTX PRO 6000 plane — deep probabilistic engine / target model / verifier / final synthesis | 1042–1046 | E0047 |
-| M00080 | RTX 3090 plane — draft / scout / embeddings / reranker / vision-tool / sandbox cognition | 1048–1054 | E0047 |
+| M00080 | RTX 4090 plane — draft / scout / embeddings / reranker / vision-tool / sandbox cognition | 1048–1054 | E0047 |
 | M00081 | Ryzen AVX-512 plane — deterministic executive / grammar engine / branch scheduler / memory policy / tool law / risk masks / replay state | 1056–1063 | E0047 |
 | M00082 | AVX-512 population evaluation — 8 × u64 branches / 64 × u8 states / 512 boolean flags per ZMM | 1085–1090 | E0047 |
 | M00083 | DCR Branch Arena — allocator for active branches | 1112 | E0048 |
@@ -34,7 +34,7 @@
 | M00090 | DCR Metrics Emitter — Prometheus + OTel | 1119 | E0048 |
 | M00091 | Main loop step 1 — user task enters control plane | 1130 | E0049 |
 | M00092 | Main loop step 2 — CPU creates branch records with control words | 1131 | E0049 |
-| M00093 | Main loop step 3 — 3090 proposes cheap continuations / summaries / embeddings / tool plans | 1132 | E0049 |
+| M00093 | Main loop step 3 — 4090 proposes cheap continuations / summaries / embeddings / tool plans | 1132 | E0049 |
 | M00094 | Main loop step 4 — CPU filters / ranks / masks candidates | 1133 | E0049 |
 | M00095 | Main loop step 5 — RTX PRO verifies high-value steps; step 6 commit; step 7 memory update | 1134–1138 | E0049 |
 
@@ -264,10 +264,10 @@
 | R00980 | Main loop step 1 — also accept request via local CLI | 1130 | M00091 | non-negotiable | true | 10 |
 | R00981 | Main loop step 2 — CPU creates branch records via DCR Branch Arena | 1131 | M00092 | non-negotiable | false | 10 |
 | R00982 | Main loop step 2 — initial control word seeded from profile defaults | 1131 | M00092 | non-negotiable | false | 10 |
-| R00983 | Main loop step 3 — 3090 produces cheap continuations | 1132 | M00093 | non-negotiable | false | 10 |
-| R00984 | Main loop step 3 — 3090 produces summaries when context > budget | 1132 | M00093 | non-negotiable | false | 10 |
-| R00985 | Main loop step 3 — 3090 produces embeddings on demand | 1132 | M00093 | non-negotiable | false | 10 |
-| R00986 | Main loop step 3 — 3090 produces tool plans for routed branches | 1132 | M00093 | non-negotiable | false | 10 |
+| R00983 | Main loop step 3 — 4090 produces cheap continuations | 1132 | M00093 | non-negotiable | false | 10 |
+| R00984 | Main loop step 3 — 4090 produces summaries when context > budget | 1132 | M00093 | non-negotiable | false | 10 |
+| R00985 | Main loop step 3 — 4090 produces embeddings on demand | 1132 | M00093 | non-negotiable | false | 10 |
+| R00986 | Main loop step 3 — 4090 produces tool plans for routed branches | 1132 | M00093 | non-negotiable | false | 10 |
 | R00987 | Main loop step 4 — CPU filters via constraint automata | 1133 | M00094 | non-negotiable | false | 10 |
 | R00988 | Main loop step 4 — CPU ranks via reward vector | 1133 | M00094 | non-negotiable | false | 10 |
 | R00989 | Main loop step 4 — CPU masks via grammar mask + tool policy mask + safety mask + schema mask + route mask | 1133 | M00094 | non-negotiable | false | 10 |

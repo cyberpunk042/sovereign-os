@@ -83,21 +83,33 @@ case "${topology}" in
     # shellcheck disable=SC2086
     zpool create -o ashift=12 -O atime=off -O xattr=sa -O acltype=posixacl \
       -O compression=lz4 -O canmount=off \
-      -m none "${SOVEREIGN_OS_POOL_NAME}" ${devices}
+      -m none "${SOVEREIGN_OS_POOL_NAME}" ${devices} || {
+      log_error "zpool create failed (topology=${topology}, devices=${devices}) — device busy, existing signature, or bad path"
+      emit_pool_metric fail
+      exit 1
+    }
     ;;
   raid1)
     log_info "creating pool ${SOVEREIGN_OS_POOL_NAME} (mirror) on: ${SOVEREIGN_OS_POOL_DEVICES}"
     # shellcheck disable=SC2086
     zpool create -o ashift=12 -O atime=off -O xattr=sa -O acltype=posixacl \
       -O compression=lz4 -O canmount=off \
-      -m none "${SOVEREIGN_OS_POOL_NAME}" mirror ${SOVEREIGN_OS_POOL_DEVICES}
+      -m none "${SOVEREIGN_OS_POOL_NAME}" mirror ${SOVEREIGN_OS_POOL_DEVICES} || {
+      log_error "zpool create (mirror) failed on: ${SOVEREIGN_OS_POOL_DEVICES} — device busy, existing signature, or bad path"
+      emit_pool_metric fail
+      exit 1
+    }
     ;;
   raidz|raidz2|raidz3)
     log_info "creating pool ${SOVEREIGN_OS_POOL_NAME} (${topology}) on: ${SOVEREIGN_OS_POOL_DEVICES}"
     # shellcheck disable=SC2086
     zpool create -o ashift=12 -O atime=off -O xattr=sa -O acltype=posixacl \
       -O compression=lz4 -O canmount=off \
-      -m none "${SOVEREIGN_OS_POOL_NAME}" "${topology}" ${SOVEREIGN_OS_POOL_DEVICES}
+      -m none "${SOVEREIGN_OS_POOL_NAME}" "${topology}" ${SOVEREIGN_OS_POOL_DEVICES} || {
+      log_error "zpool create (${topology}) failed on: ${SOVEREIGN_OS_POOL_DEVICES} — too few devices for ${topology}, device busy, or existing signature"
+      emit_pool_metric fail
+      exit 1
+    }
     ;;
   *)
     log_error "unsupported topology: ${topology}"

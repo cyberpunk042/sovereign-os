@@ -1,0 +1,19 @@
+[package]
+name = "sovereign-mirostat"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Mirostat v2 adaptive sampling: instead of a fixed top-k/top-p cut, it targets a surprise level (tau) by truncating tokens whose surprise exceeds a running threshold mu and nudging mu after each draw toward the target — keeping output perplexity roughly constant over a generation. A feedback-controlled decoder, distinct from the static sampler."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+rand = { workspace = true }
+rand_chacha = { workspace = true }

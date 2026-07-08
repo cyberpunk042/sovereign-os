@@ -369,7 +369,7 @@ sovereign-osctl architecture-qa show C-22   # Debian-as-Ark framing
 
 # Drill into specific operator-demand axis:
 sovereign-osctl coverage show A-31  # operator mindset/workflow contract
-sovereign-osctl coverage show A-04  # GPU details RTX 3090/Pro 6000/AVX512
+sovereign-osctl coverage show A-04  # GPU details RTX 4090/Pro 6000/AVX512
 ```
 
 ## Open questions for next arc

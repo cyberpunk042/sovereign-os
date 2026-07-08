@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-online-regression"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Online simple linear regression: fit a least-squares line to a stream of (x, y) points incrementally, in constant memory, tracking slope, intercept, correlation, and R-squared without storing the data. Supports weighted and removable samples. For live trend estimation and extrapolation — latency vs load, throughput drift, cost vs tokens — updated one observation at a time."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

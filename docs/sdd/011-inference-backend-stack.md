@@ -13,7 +13,7 @@ The operator's overnight directive (verbatim):
 
 > "I dont even know if we can stick with LocalAI I think would limite us, but you will find the answers and the solutions."
 
-LocalAI is a unifying abstraction (single OpenAI-compatible API, multi-backend dispatch). For a general-purpose deployment this is excellent ergonomics. For SAIN-01 — where the architectural value comes from **directly exploiting hardware-native idioms** (Zen 5 single-cycle 512-bit AVX-512 + VNNI for ternary inference on CPU; Blackwell + 3090 for GPU; VFIO sandbox; DFlash block-diffusion drafts on code/math) — an abstraction layer can become friction:
+LocalAI is a unifying abstraction (single OpenAI-compatible API, multi-backend dispatch). For a general-purpose deployment this is excellent ergonomics. For SAIN-01 — where the architectural value comes from **directly exploiting hardware-native idioms** (Zen 5 single-cycle 512-bit AVX-512 + VNNI for ternary inference on CPU; Blackwell + 4090 for GPU; VFIO sandbox; DFlash block-diffusion drafts on code/math) — an abstraction layer can become friction:
 
 - LocalAI's backend matrix may not expose `bitnet.cpp`'s I2_S/TL2 kernels with Zen-5-specific tuning
 - vLLM's DFlash integration uses substrate-specific spec-dec plumbing that LocalAI may flatten
@@ -34,15 +34,15 @@ Each: what it is · best fit · weaknesses for SAIN-01 · score on SAIN-01-speci
 **Weakness for SAIN-01.**
 - Abstraction can hide bitnet.cpp's specific I2_S/TL2 kernel choice on Zen 5
 - DFlash integration is vLLM-native; LocalAI may not expose the draft-model wiring
-- The SRP Trinity wants explicit per-tier routing (Pulse=CPU/bitnet, Logic Engine=3090/quantized, Oracle Core=Blackwell/full-precision); LocalAI flattens this
+- The SRP Trinity wants explicit per-tier routing (Pulse=CPU/bitnet, Logic Engine=4090/quantized, Oracle Core=Blackwell/full-precision); LocalAI flattens this
 
 **Verdict.** Acceptable for the `old-workstation` profile (uniformity helps). Not recommended for `sain-01` (loses the architectural advantage).
 
-### Candidate 1 — vLLM (Blackwell + 3090 GPU path)
+### Candidate 1 — vLLM (Blackwell + 4090 GPU path)
 
 **What.** Datacenter-grade GPU inference server. Native OpenAI-compatible API. First-class speculative decoding (EAGLE/MEDUSA/DFlash). Tensor-parallel + pipeline-parallel. PagedAttention.
 
-**Best fit.** SAIN-01's **Oracle Core** (Blackwell 96 GB resident; Ling/Nemotron at BF16) and **Logic Engine** (3090 24 GB; quantized mid-scale + DFlash drafts).
+**Best fit.** SAIN-01's **Oracle Core** (Blackwell 96 GB resident; Ling/Nemotron at BF16) and **Logic Engine** (4090 24 GB; quantized mid-scale + DFlash drafts).
 
 **Weakness.** Heavy (Python + CUDA + many deps). Not for CPU-only path. Boot time non-trivial.
 
@@ -66,7 +66,7 @@ Each: what it is · best fit · weaknesses for SAIN-01 · score on SAIN-01-speci
 
 **Weakness.** Spec-dec less mature than vLLM. No DFlash. Vulkan backend exists but operator has flagged complications.
 
-**Verdict.** **Secondary backend** — recommended on the 3090 for non-DFlash Q4 workloads; **primary for old-workstation**.
+**Verdict.** **Secondary backend** — recommended on the 4090 for non-DFlash Q4 workloads; **primary for old-workstation**.
 
 ### Candidate 4 — SGLang (structured-output / agentic path)
 
@@ -94,9 +94,9 @@ Each: what it is · best fit · weaknesses for SAIN-01 · score on SAIN-01-speci
 |---|---|---|---|---|---|---|
 | AVX-512 VNNI ternary | ✗ (abstracted) | ✗ | ★★★★★ | ★★ | ✗ | ✗ |
 | DFlash block-diffusion | ★ (uncertain) | ★★★★★ | ✗ | ✗ | ★★★ | ✗ |
-| Tensor-parallel Blackwell+3090 | ★★★ | ★★★★★ | ✗ | ★★★ | ★★★★ | ★★ |
+| Tensor-parallel Blackwell+4090 | ★★★ | ★★★★★ | ✗ | ★★★ | ★★★★ | ★★ |
 | Constrained / structured output | ★★★ | ★★★ | ✗ | ★★ | ★★★★★ | ★★ |
-| VFIO sandbox compat (3090 isolated) | ★★★★ | ★★★★★ | n/a (CPU) | ★★★★ | ★★★★ | ★★★★ |
+| VFIO sandbox compat (4090 isolated) | ★★★★ | ★★★★★ | n/a (CPU) | ★★★★ | ★★★★ | ★★★★ |
 | Pulse latency (sub-ms branching) | ✗ | ✗ | ★★★★★ | ★★★ | ✗ | ✗ |
 | Operator-direct observability | ★ | ★★★★ | ★★★★ | ★★★★ | ★★★★ | ★★★ |
 | Sovereignty (no phone-home) | ★★★ | ★★★★ | ★★★★★ | ★★★★★ | ★★★★ | ★★★★ |
@@ -113,12 +113,12 @@ Each: what it is · best fit · weaknesses for SAIN-01 · score on SAIN-01-speci
               ▼                        ▼                        ▼
      ┌──────────────────┐  ┌──────────────────┐    ┌──────────────────┐
      │  Pulse (CCD 0)   │  │ Logic Engine     │    │  Oracle Core     │
-     │  bitnet.cpp      │  │  vLLM on 3090    │    │  vLLM on Blackwell│
+     │  bitnet.cpp      │  │  vLLM on 4090    │    │  vLLM on Blackwell│
      │  cores 0-5 pin   │  │  (VFIO bind 8GB+)│    │  (BF16 full)     │
      │  TL2 kernels     │  │  + llama.cpp     │    │  + DFlash drafts │
      │                  │  │   fallback (Q4) │    │  for code/math   │
      └──────────────────┘  └──────────────────┘    └──────────────────┘
-            CPU                   3090 VFIO              Blackwell host
+            CPU                   4090 VFIO              Blackwell host
             sub-ms                3-6× DFlash             1M ctx Nemotron
             branching             on code/math            (or Ling MoE)
 ```
@@ -134,7 +134,7 @@ Each: what it is · best fit · weaknesses for SAIN-01 · score on SAIN-01-speci
 
 | Profile | Pulse | Logic Engine | Oracle Core | Notes |
 |---|---|---|---|---|
-| `sain-01` (default) | bitnet.cpp | vLLM (3090 VFIO) + llama.cpp fallback | vLLM (Blackwell) + DFlash | Per Trinity SRP |
+| `sain-01` (default) | bitnet.cpp | vLLM (4090 VFIO) + llama.cpp fallback | vLLM (Blackwell) + DFlash | Per Trinity SRP |
 | `old-workstation` | n/a (no AVX-512) | llama.cpp (8 GB GPU) | n/a | LocalAI acceptable here for uniformity |
 | `minimal` / `headless` (reserved) | n/a | none | none | inference disabled by default |
 | `developer` (reserved) | optional | llama.cpp or Ollama | none | dev convenience |
@@ -164,7 +164,7 @@ If operator wants a single OpenAI endpoint for non-sovereign-os clients (Cursor 
 - **Q11-A** — Should the router be Python (fast iteration) or Go (single binary)? Default: Python; revisit if startup-time matters.
 - **Q11-B** — Should the router speak the full OpenAI API or just chat-completions? Default: chat + embeddings minimum.
 - **Q11-C** — How does the router authenticate? Local-only (`localhost:8080`) vs token-gated for remote? Default local-only.
-- **Q11-D** — vLLM in podman vs systemd-native? Podman for VFIO isolation on the 3090; systemd-native for Blackwell host. Default: hybrid.
+- **Q11-D** — vLLM in podman vs systemd-native? Podman for VFIO isolation on the 4090; systemd-native for Blackwell host. Default: hybrid.
 - **Q11-E** — Should the router emit Prometheus metrics for per-backend selection counts? Yes (Q-013 observability tier).
 
 ## Concrete scaffold shipped with this SDD
@@ -177,7 +177,7 @@ This PR lands a working scaffold for the direct-stack architecture:
 - `scripts/inference/backends/vllm.py` — vLLM adapter (CUDA_VISIBLE_DEVICES per tier)
 - `scripts/inference/backends/llama_cpp.py` — llama.cpp adapter (GGUF fallback)
 - `scripts/inference/start-pulse.sh` — start the Pulse module (bitnet.cpp pinned to CCD 0)
-- `scripts/inference/start-logic-engine.sh` — start Logic Engine (vLLM on 3090 via podman + VFIO)
+- `scripts/inference/start-logic-engine.sh` — start Logic Engine (vLLM on 4090 via podman + VFIO)
 - `scripts/inference/start-oracle-core.sh` — start Oracle Core (vLLM on Blackwell)
 - `scripts/inference/INDEX.md` — overview
 

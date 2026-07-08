@@ -1,0 +1,27 @@
+[package]
+name = "sovereign-mha-block"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "The production decoder block: multi-head attention with grouped-query (GQA/MQA) KV sharing, per-head RoPE, precision-selectable projections (f32/ternary/NVFP4), and a SwiGLU FFN, in the pre-norm + residual structure. This is the block real models actually run — many query heads, fewer KV heads, low-bit weights. Composes sovereign-mha, sovereign-rope, sovereign-rmsnorm, sovereign-ffn, and sovereign-linear."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+sovereign-mha = { path = "../sovereign-mha" }
+sovereign-rope = { path = "../sovereign-rope" }
+sovereign-rmsnorm = { path = "../sovereign-rmsnorm" }
+sovereign-ffn = { path = "../sovereign-ffn" }
+sovereign-linear = { path = "../sovereign-linear" }
+sovereign-nvfp4-runtime = { path = "../sovereign-nvfp4-runtime" }
+
+[dev-dependencies]
+sovereign-quant-block = { path = "../sovereign-quant-block" }

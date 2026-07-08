@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-consistent-hash"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Consistent hashing with virtual nodes: map keys (requests, cache shards, sessions) to nodes on a hash ring so that adding or removing a node only relocates a small fraction of keys, not the whole keyspace. For sharding KV cache and routing requests across workers with minimal reshuffling."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

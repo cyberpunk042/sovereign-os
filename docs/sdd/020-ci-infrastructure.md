@@ -27,9 +27,27 @@ runners, no operator-machine CI, no third-party services.
 | Job | Layer | What it runs |
 |---|---|---|
 | `schema-lint` | Layer 1 | pytest tests/schema + tests/lint (~25 cases) |
+| `cross-repo-lint` | Layer 1b | checks out `cyberpunk042/selfdef` as a sibling and runs the `$SELFDEF_REPO_ROOT`-gated contract tests against it |
 | `unit` | Layer 2 | pytest tests/unit (~51 cases) |
 | `layer3-stage-acceptance` | Layer 3 | 19 nspawn-style bash test scripts (~250+ assertions) |
 | `shellcheck` | static analysis | shellcheck against scripts/ (warning-only currently) |
+
+### Cross-repo contract enforcement (`cross-repo-lint`)
+
+The cockpit consumes selfdef's `/metrics` series + scheduler decisions, so
+a set of `tests/lint/test_selfdef_*` and `*_lockstep_contract` gates assert
+that every `selfdef_*` series our dashboards/alerts reference is really
+emitted by selfdef, and that threshold/schema values stay in lockstep.
+Those gates **skip** unless `$SELFDEF_REPO_ROOT` points at a selfdef
+checkout — so before this job existed they skipped in every CI run (false
+confidence: a selfdef rename could flat-line a cockpit panel and CI stayed
+green). The `cross-repo-lint` job checks selfdef out read-only (no token —
+public-ish, like selfdef's own info-hub checkout) and runs exactly the
+`$SELFDEF_REPO_ROOT`-gated files, selected dynamically so new gates
+auto-enrol. The checkout is `continue-on-error`: if it fails (token /
+visibility), the gates fall back to their skip path — no regression. The
+mirror direction (selfdef asserting *it* emits what our cockpit references,
+plus runbook-binding) lives symmetrically in selfdef's `coherence` job.
 
 `.github/workflows/mdbook-build.yml` (every push + PR):
 - builds mdbook (validation only — no publish step; SDD-002 keeps

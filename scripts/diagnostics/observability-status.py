@@ -677,6 +677,339 @@ def probe_blockset(metrics_url: str) -> dict[str, Any]:
     }
 
 
+def probe_capability_drops(metrics_url: str) -> dict[str, Any]:
+    metrics = _fetch_metrics(metrics_url)
+    if metrics is None:
+        return {"status": "unreachable", "summary": "node_exporter down"}
+    out = probe_textfile_observer(
+        metrics, "selfdef_capability_drops", "capability-drops",
+    )
+    if out["status"] != "OK":
+        return out
+    present = _gauge(metrics, "selfdef_capability_drops_state_dir_present")
+    active = _gauge(metrics, "selfdef_capability_drops_active_count")
+    redundant = _gauge(metrics, "selfdef_capability_drops_redundant_count")
+    caps_dropped = _gauge(metrics, "selfdef_capability_drops_caps_dropped_total")
+    pending = _gauge(metrics, "selfdef_capability_drops_pending_restores")
+    if present == 0:
+        return {"status": "FAIL",
+                "summary": "state-dir absent (SDD-075 enforcement OFFLINE)"}
+    if pending is not None and pending > 5:
+        return {"status": "WARN",
+                "summary": f"{int(pending)} pending capability-drop restore decisions"}
+    if redundant is not None and redundant > 3:
+        return {"status": "WARN",
+                "summary": f"{int(redundant)} Redundant handles — rule misconfig review"}
+    if caps_dropped is not None and caps_dropped > 30:
+        return {"status": "WARN",
+                "summary": f"{int(caps_dropped)} caps dropped — large-scale enforcement"}
+    if active is not None and active > 10:
+        return {"status": "WARN",
+                "summary": f"{int(active)} active capability-drops > 10"}
+    return {
+        "status": "OK",
+        "summary": f"{int(active) if active is not None else 0} handles · "
+                   f"{int(caps_dropped) if caps_dropped is not None else 0} caps · "
+                   f"{int(redundant) if redundant is not None else 0} redundant · "
+                   f"{int(pending) if pending is not None else 0} pending · "
+                   "enforcement online",
+    }
+
+
+def probe_bpf_map_element_clears(metrics_url: str) -> dict[str, Any]:
+    metrics = _fetch_metrics(metrics_url)
+    if metrics is None:
+        return {"status": "unreachable", "summary": "node_exporter down"}
+    out = probe_textfile_observer(
+        metrics, "selfdef_bpf_map_element_clears", "bpf-map-element-clears",
+    )
+    if out["status"] != "OK":
+        return out
+    present = _gauge(metrics, "selfdef_bpf_map_element_clears_state_dir_present")
+    active = _gauge(metrics, "selfdef_bpf_map_element_clears_active_count")
+    map_not_found = _gauge(metrics, "selfdef_bpf_map_element_clears_map_not_found_count")
+    ambiguous = _gauge(metrics, "selfdef_bpf_map_element_clears_ambiguous_name_count")
+    denied = _gauge(metrics, "selfdef_bpf_map_element_clears_access_denied_count")
+    elements = _gauge(metrics, "selfdef_bpf_map_element_clears_elements_cleared_total")
+    pending = _gauge(metrics, "selfdef_bpf_map_element_clears_pending_restores")
+    if present == 0:
+        return {"status": "FAIL",
+                "summary": "state-dir absent (SDD-078 enforcement OFFLINE)"}
+    if ambiguous is not None and ambiguous > 0:
+        return {"status": "WARN",
+                "summary": f"{int(ambiguous)} AmbiguousName handles — rule-config error (use path: or id: to disambiguate)"}
+    if pending is not None and pending > 5:
+        return {"status": "WARN",
+                "summary": f"{int(pending)} pending bpf-map-element-clear restore decisions"}
+    if denied is not None and denied > 3:
+        return {"status": "WARN",
+                "summary": f"{int(denied)} BpfMapAccessDenied handles — CAP_BPF or map_flags review"}
+    if map_not_found is not None and map_not_found > 3:
+        return {"status": "WARN",
+                "summary": f"{int(map_not_found)} MapNotFound handles — stale rule config or unloaded maps"}
+    if elements is not None and elements > 1000:
+        return {"status": "WARN",
+                "summary": f"{int(elements)} BPF map elements cleared — mass-wipe scope review"}
+    if active is not None and active > 10:
+        return {"status": "WARN",
+                "summary": f"{int(active)} active bpf-map-element-clears > 10"}
+    return {
+        "status": "OK",
+        "summary": f"{int(active) if active is not None else 0} handles · "
+                   f"{int(elements) if elements is not None else 0} elements · "
+                   f"{int(denied) if denied is not None else 0} denied · "
+                   f"{int(pending) if pending is not None else 0} pending · "
+                   "enforcement online",
+    }
+
+
+def probe_apparmor_profile_pivots(metrics_url: str) -> dict[str, Any]:
+    metrics = _fetch_metrics(metrics_url)
+    if metrics is None:
+        return {"status": "unreachable", "summary": "node_exporter down"}
+    out = probe_textfile_observer(
+        metrics, "selfdef_apparmor_profile_pivots", "apparmor-profile-pivots",
+    )
+    if out["status"] != "OK":
+        return out
+    present = _gauge(metrics, "selfdef_apparmor_profile_pivots_state_dir_present")
+    active = _gauge(metrics, "selfdef_apparmor_profile_pivots_active_count")
+    denied = _gauge(metrics, "selfdef_apparmor_profile_pivots_denied_count")
+    no_target = _gauge(metrics, "selfdef_apparmor_profile_pivots_no_target_count")
+    stale = _gauge(metrics, "selfdef_apparmor_profile_pivots_stale_count")
+    pending = _gauge(metrics, "selfdef_apparmor_profile_pivots_pending_restores")
+    if present == 0:
+        return {"status": "FAIL",
+                "summary": "state-dir absent (SDD-077 enforcement OFFLINE)"}
+    if pending is not None and pending > 5:
+        return {"status": "WARN",
+                "summary": f"{int(pending)} pending apparmor-profile-pivot restore decisions"}
+    if denied is not None and denied > 3:
+        return {"status": "WARN",
+                "summary": f"{int(denied)} Denied handles — rule misconfig or stricter-profile review"}
+    if no_target is not None and no_target > 1:
+        return {"status": "WARN",
+                "summary": f"{int(no_target)} NoTarget handles — profile not loaded in kernel"}
+    if stale is not None and stale > 3:
+        return {"status": "WARN",
+                "summary": f"{int(stale)} Stale handles — pid-dies-before-write race"}
+    if active is not None and active > 10:
+        return {"status": "WARN",
+                "summary": f"{int(active)} active apparmor-profile-pivots > 10"}
+    return {
+        "status": "OK",
+        "summary": f"{int(active) if active is not None else 0} handles · "
+                   f"{int(denied) if denied is not None else 0} denied · "
+                   f"{int(no_target) if no_target is not None else 0} no-target · "
+                   f"{int(pending) if pending is not None else 0} pending · "
+                   "enforcement online",
+    }
+
+
+def probe_kernel_keyring_evictions(metrics_url: str) -> dict[str, Any]:
+    metrics = _fetch_metrics(metrics_url)
+    if metrics is None:
+        return {"status": "unreachable", "summary": "node_exporter down"}
+    out = probe_textfile_observer(
+        metrics, "selfdef_kernel_keyring_evictions", "kernel-keyring-evictions",
+    )
+    if out["status"] != "OK":
+        return out
+    present = _gauge(metrics, "selfdef_kernel_keyring_evictions_state_dir_present")
+    active = _gauge(metrics, "selfdef_kernel_keyring_evictions_active_count")
+    not_found = _gauge(metrics, "selfdef_kernel_keyring_evictions_not_found_count")
+    keys_evicted = _gauge(metrics, "selfdef_kernel_keyring_evictions_keys_evicted_total")
+    pending = _gauge(metrics, "selfdef_kernel_keyring_evictions_pending_restores")
+    if present == 0:
+        return {"status": "FAIL",
+                "summary": "state-dir absent (SDD-076 enforcement OFFLINE)"}
+    if pending is not None and pending > 5:
+        return {"status": "WARN",
+                "summary": f"{int(pending)} pending kernel-keyring-eviction restore decisions"}
+    if not_found is not None and not_found > 3:
+        return {"status": "WARN",
+                "summary": f"{int(not_found)} NotFound handles — rule misconfig or stale-spec review"}
+    if keys_evicted is not None and keys_evicted > 30:
+        return {"status": "WARN",
+                "summary": f"{int(keys_evicted)} keys evicted — large-scale credential rotation"}
+    if active is not None and active > 10:
+        return {"status": "WARN",
+                "summary": f"{int(active)} active kernel-keyring-evictions > 10"}
+    return {
+        "status": "OK",
+        "summary": f"{int(active) if active is not None else 0} handles · "
+                   f"{int(keys_evicted) if keys_evicted is not None else 0} keys · "
+                   f"{int(not_found) if not_found is not None else 0} not-found · "
+                   f"{int(pending) if pending is not None else 0} pending · "
+                   "enforcement online",
+    }
+
+
+def probe_env_scrubs(metrics_url: str) -> dict[str, Any]:
+    metrics = _fetch_metrics(metrics_url)
+    if metrics is None:
+        return {"status": "unreachable", "summary": "node_exporter down"}
+    out = probe_textfile_observer(
+        metrics, "selfdef_env_scrubs", "env-scrubs",
+    )
+    if out["status"] != "OK":
+        return out
+    present = _gauge(metrics, "selfdef_env_scrubs_state_dir_present")
+    active = _gauge(metrics, "selfdef_env_scrubs_active_count")
+    no_match = _gauge(metrics, "selfdef_env_scrubs_no_match_count")
+    vars_scrubbed = _gauge(metrics, "selfdef_env_scrubs_vars_scrubbed_total")
+    pending = _gauge(metrics, "selfdef_env_scrubs_pending_restores")
+    if present == 0:
+        return {"status": "FAIL",
+                "summary": "state-dir absent (SDD-074 enforcement OFFLINE)"}
+    if pending is not None and pending > 5:
+        return {"status": "WARN",
+                "summary": f"{int(pending)} pending env-scrub restore decisions"}
+    if no_match is not None and no_match > 3:
+        return {"status": "WARN",
+                "summary": f"{int(no_match)} NoMatch handles — rule misconfig review"}
+    if vars_scrubbed is not None and vars_scrubbed > 50:
+        return {"status": "WARN",
+                "summary": f"{int(vars_scrubbed)} vars scrubbed — large-scale rotation"}
+    if active is not None and active > 10:
+        return {"status": "WARN",
+                "summary": f"{int(active)} active env-scrubs > 10"}
+    return {
+        "status": "OK",
+        "summary": f"{int(active) if active is not None else 0} handles · "
+                   f"{int(vars_scrubbed) if vars_scrubbed is not None else 0} vars · "
+                   f"{int(no_match) if no_match is not None else 0} no-match · "
+                   f"{int(pending) if pending is not None else 0} pending · "
+                   "enforcement online",
+    }
+
+
+def probe_socket_fd_revocations(metrics_url: str) -> dict[str, Any]:
+    metrics = _fetch_metrics(metrics_url)
+    if metrics is None:
+        return {"status": "unreachable", "summary": "node_exporter down"}
+    out = probe_textfile_observer(
+        metrics, "selfdef_socket_fd_revocations", "socket-fd-revocations",
+    )
+    if out["status"] != "OK":
+        return out
+    present = _gauge(metrics, "selfdef_socket_fd_revocations_state_dir_present")
+    active = _gauge(metrics, "selfdef_socket_fd_revocations_active_count")
+    stale = _gauge(metrics, "selfdef_socket_fd_revocations_stale_count")
+    pending = _gauge(metrics, "selfdef_socket_fd_revocations_pending_restores")
+    if present == 0:
+        return {"status": "FAIL",
+                "summary": "state-dir absent (SDD-073 enforcement OFFLINE)"}
+    if pending is not None and pending > 5:
+        return {"status": "WARN",
+                "summary": f"{int(pending)} pending socket-fd-restore decisions"}
+    if stale is not None and stale > 3:
+        return {"status": "WARN",
+                "summary": f"{int(stale)} stale (inode-race) handles — correlator latency review"}
+    if active is not None and active > 20:
+        return {"status": "WARN",
+                "summary": f"{int(active)} active socket-fd revocations > 20"}
+    return {
+        "status": "OK",
+        "summary": f"{int(active) if active is not None else 0} active · "
+                   f"{int(stale) if stale is not None else 0} stale · "
+                   f"{int(pending) if pending is not None else 0} pending · "
+                   "enforcement online",
+    }
+
+
+def probe_process_tree_freezes(metrics_url: str) -> dict[str, Any]:
+    metrics = _fetch_metrics(metrics_url)
+    if metrics is None:
+        return {"status": "unreachable", "summary": "node_exporter down"}
+    out = probe_textfile_observer(
+        metrics, "selfdef_process_tree_freezes", "process-tree-freezes",
+    )
+    if out["status"] != "OK":
+        return out
+    present = _gauge(metrics, "selfdef_process_tree_freezes_state_dir_present")
+    active = _gauge(metrics, "selfdef_process_tree_freezes_active_count")
+    pending = _gauge(metrics, "selfdef_process_tree_freezes_pending_thaws")
+    frozen_pids = _gauge(metrics, "selfdef_process_tree_freezes_frozen_pid_count")
+    if present == 0:
+        return {"status": "FAIL",
+                "summary": "state-dir absent (SDD-072 enforcement OFFLINE)"}
+    if pending is not None and pending > 5:
+        return {"status": "WARN",
+                "summary": f"{int(pending)} pending process-tree-thaw decisions"}
+    if frozen_pids is not None and frozen_pids > 100:
+        return {"status": "WARN",
+                "summary": f"{int(frozen_pids)} frozen pids (fork-bomb-scale)"}
+    if active is not None and active > 10:
+        return {"status": "WARN",
+                "summary": f"{int(active)} active process-tree freezes > 10"}
+    return {
+        "status": "OK",
+        "summary": f"{int(active) if active is not None else 0} handles · "
+                   f"{int(frozen_pids) if frozen_pids is not None else 0} frozen pids · "
+                   f"{int(pending) if pending is not None else 0} pending · "
+                   "enforcement online",
+    }
+
+
+def probe_mount_bindings(metrics_url: str) -> dict[str, Any]:
+    metrics = _fetch_metrics(metrics_url)
+    if metrics is None:
+        return {"status": "unreachable", "summary": "node_exporter down"}
+    out = probe_textfile_observer(
+        metrics, "selfdef_mount_bindings", "mount-bindings",
+    )
+    if out["status"] != "OK":
+        return out
+    present = _gauge(metrics, "selfdef_mount_bindings_state_dir_present")
+    active = _gauge(metrics, "selfdef_mount_bindings_active_count")
+    pending = _gauge(metrics, "selfdef_mount_bindings_pending_rebinds")
+    if present == 0:
+        return {"status": "FAIL",
+                "summary": "state-dir absent (SDD-071 enforcement OFFLINE)"}
+    if pending is not None and pending > 5:
+        return {"status": "WARN",
+                "summary": f"{int(pending)} pending mount-rebind decisions"}
+    if active is not None and active > 10:
+        return {"status": "WARN",
+                "summary": f"{int(active)} active mount-binding unbinds > 10"}
+    return {
+        "status": "OK",
+        "summary": f"{int(active) if active is not None else 0} active · "
+                   f"{int(pending) if pending is not None else 0} pending · "
+                   "enforcement online",
+    }
+
+
+def probe_netns_isolations(metrics_url: str) -> dict[str, Any]:
+    metrics = _fetch_metrics(metrics_url)
+    if metrics is None:
+        return {"status": "unreachable", "summary": "node_exporter down"}
+    out = probe_textfile_observer(
+        metrics, "selfdef_netns_isolations", "netns-isolations",
+    )
+    if out["status"] != "OK":
+        return out
+    present = _gauge(metrics, "selfdef_netns_isolations_state_dir_present")
+    active = _gauge(metrics, "selfdef_netns_isolations_active_count")
+    pending = _gauge(metrics, "selfdef_netns_isolations_pending_releases")
+    if present == 0:
+        return {"status": "FAIL",
+                "summary": "state-dir absent (SDD-070 enforcement OFFLINE)"}
+    if pending is not None and pending > 5:
+        return {"status": "WARN",
+                "summary": f"{int(pending)} pending netns-release decisions"}
+    if active is not None and active > 10:
+        return {"status": "WARN",
+                "summary": f"{int(active)} active netns-isolations > 10"}
+    return {
+        "status": "OK",
+        "summary": f"{int(active) if active is not None else 0} active · "
+                   f"{int(pending) if pending is not None else 0} pending · "
+                   "enforcement online",
+    }
+
+
 def probe_mfa_grant_revocations(metrics_url: str) -> dict[str, Any]:
     metrics = _fetch_metrics(metrics_url)
     if metrics is None:
@@ -810,6 +1143,12 @@ VERTICALS = (
     "nftables", "cron", "sshd_config", "package_state",
     "journal_disk", "blockset", "quarantine", "revocations",
     "token_revocations", "mfa_grant_revocations",
+    "netns_isolations", "mount_bindings",
+    "process_tree_freezes", "socket_fd_revocations",
+    "env_scrubs", "capability_drops",
+    "kernel_keyring_evictions",
+    "apparmor_profile_pivots",
+    "bpf_map_element_clears",
 )
 
 
@@ -838,11 +1177,20 @@ def collect(args: argparse.Namespace) -> dict[str, dict[str, Any]]:
         "revocations":   probe_revocations(args.node_exporter_url),
         "token_revocations": probe_token_revocations(args.node_exporter_url),
         "mfa_grant_revocations": probe_mfa_grant_revocations(args.node_exporter_url),
+        "netns_isolations": probe_netns_isolations(args.node_exporter_url),
+        "mount_bindings": probe_mount_bindings(args.node_exporter_url),
+        "process_tree_freezes": probe_process_tree_freezes(args.node_exporter_url),
+        "socket_fd_revocations": probe_socket_fd_revocations(args.node_exporter_url),
+        "env_scrubs": probe_env_scrubs(args.node_exporter_url),
+        "capability_drops": probe_capability_drops(args.node_exporter_url),
+        "kernel_keyring_evictions": probe_kernel_keyring_evictions(args.node_exporter_url),
+        "apparmor_profile_pivots": probe_apparmor_profile_pivots(args.node_exporter_url),
+        "bpf_map_element_clears": probe_bpf_map_element_clears(args.node_exporter_url),
     }
 
 
 def render_table(results: dict[str, dict[str, Any]]) -> str:
-    lines = ["sovereign-os observability status — 23 verticals",
+    lines = ["sovereign-os observability status — 32 verticals",
              f"{'─' * 22} {'─' * 60}"]
     for v in VERTICALS:
         r = results[v]
@@ -873,6 +1221,15 @@ def render_table(results: dict[str, dict[str, Any]]) -> str:
             "revocations":       "revocations (SDD-067)",
             "token_revocations": "token-revocations (SDD-068)",
             "mfa_grant_revocations": "mfa-grant-revocations (SDD-069)",
+            "netns_isolations":  "netns-isolations (SDD-070)",
+            "mount_bindings":    "mount-bindings (SDD-071)",
+            "process_tree_freezes": "process-tree-freezes (SDD-072)",
+            "socket_fd_revocations": "socket-fd-revocations (SDD-073)",
+            "env_scrubs":          "env-scrubs (SDD-074)",
+            "capability_drops":    "capability-drops (SDD-075)",
+            "kernel_keyring_evictions": "kernel-keyring-evictions (SDD-076)",
+            "apparmor_profile_pivots": "apparmor-profile-pivots (SDD-077)",
+            "bpf_map_element_clears": "bpf-map-element-clears (SDD-078)",
         }[v]
         lines.append(f"{label:<22} {marker}  {r['summary']}")
     lines.append(f"{'─' * 22} {'─' * 60}")

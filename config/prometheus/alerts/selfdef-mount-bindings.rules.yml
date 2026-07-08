@@ -1,0 +1,69 @@
+# Selfdef SDD-071 mount-binding unbind Prometheus alerting rules.
+# Fires on textfile metrics from selfdef-mount-bindings-textfile
+# (selfdef MS4a commit). Extends the IPS-hexet observability set
+# to the septet with the prior 19th..24th siblings.
+
+groups:
+  - name: selfdef-mount-bindings
+    interval: 30s
+    rules:
+
+      - alert: SelfdefMountBindingsTextfileEmitFailed
+        expr: selfdef_mount_bindings_textfile_emit_failed > 0
+        for: 5m
+        labels:
+          severity: critical
+          subsystem: selfdef-mount-bindings
+          mount_link: observer-fault
+        annotations:
+          summary: "Selfdef mount-bindings observer fault on {{ $labels.instance }}"
+          description: "Wrapper failure for 5+ minutes. SDD-071 enforcement visibility lost."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefmountbindingstextfileemitfailed-critical"
+
+      - alert: SelfdefMountBindingsObserverSilent
+        expr: time() - selfdef_mount_bindings_last_run_unix > 300
+        for: 2m
+        labels:
+          severity: critical
+          subsystem: selfdef-mount-bindings
+          mount_link: observer-silent
+        annotations:
+          summary: "Selfdef mount-bindings observer silent on {{ $labels.instance }}"
+          description: "Timer hasn't fired in 5+ minutes."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefmountbindingsobserversilent-critical"
+
+      - alert: SelfdefMountBindingsStateDirMissing
+        expr: selfdef_mount_bindings_state_dir_present == 0
+        for: 10m
+        labels:
+          severity: critical
+          subsystem: selfdef-mount-bindings
+          mount_link: state-dir-missing
+        annotations:
+          summary: "mount-bindings state-dir absent on {{ $labels.instance }} — SDD-071 enforcement OFFLINE"
+          description: "/var/lib/selfdef/mount-bindings not present for 10+ minutes. SDD-071 filesystem-binding-axis IPS primitive cannot persist state. Operator action: systemctl status selfdefd && systemctl restart selfdefd."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefmountbindingsstatedirmissing-critical"
+
+      - alert: SelfdefMountBindingsPendingRebindBacklog
+        expr: selfdef_mount_bindings_pending_rebinds > 5
+        for: 30m
+        labels:
+          severity: warning
+          subsystem: selfdef-mount-bindings
+          mount_link: pending-backlog
+        annotations:
+          summary: "{{ $value }} pending mount-binding rebind decisions on {{ $labels.instance }} for 30m"
+          description: "Operator engagement with the cockpit mount-bindings-queue card needed."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefmountbindingspendingrebindbacklog-warning"
+
+      - alert: SelfdefMountBindingsActiveHigh
+        expr: selfdef_mount_bindings_active_count > 10
+        for: 1h
+        labels:
+          severity: warning
+          subsystem: selfdef-mount-bindings
+          mount_link: active-high
+        annotations:
+          summary: "{{ $value }} active mount-bindings unbinds on {{ $labels.instance }} for 1h"
+          description: "Likely container-escape investigation scenario; the filesystem-binding axis is the shortest-duration IPS primitive (max 6h even at operator-overridden)."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefmountbindingsactivehigh-warning"

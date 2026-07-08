@@ -1,0 +1,19 @@
+[package]
+name = "sovereign-config-resolver"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "E0476 / M00827 — Configuration Continuity: the 7 layered config types (hardware/os/runtime/policy/workflow/user/project) resolved per action by precedence, encoding the 5 conflict-resolution rules. 'The runtime resolves these layers per action … that prevents flexibility from becoming chaos.'"
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

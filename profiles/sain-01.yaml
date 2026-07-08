@@ -38,19 +38,38 @@ hardware:
     march: znver5
     features:
       required:
-        - avx512f
-        - avx512_vnni
-        - avx512_bf16
-        - avx512_fp16
+        # avx512_fp16 removed 2026-06-10: verified absent on the physical
+        # 9900X (/proc/cpuinfo) — AVX512-FP16 is Intel-only (Sapphire
+        # Rapids+); Zen 5 ships BF16 but not FP16. Requiring it (and the
+        # former -mavx512fp16 KCFLAG) would SIGILL on the target itself.
+        # SDD-043: the tiered AVX-512 exploitation surface — every flag
+        # verified PRESENT on the physical 9900X (/proc/cpuinfo 2026-07-02).
+        # T1 foundation
+        - avx512f          # VPTERNLOG{D,Q}, VPCOMPRESS{D,Q}
+        - avx512cd         # VPCONFLICT / VPLZCNTD
         - avx512dq
         - avx512bw
         - avx512vl
+        # T2 compute
+        - avx512_vnni      # VPDPBUSD — INT8 fused MAC
+        - avx512_bf16      # VDPBF16PS — BF16 dot
+        - avx512_vpopcntdq # VPOPCNT{D,Q} — vector popcount (ternary accelerator)
+        - avx512_vp2intersect # VP2INTERSECT{D,Q} — set-intersection masks
+        - avx512ifma       # VPMADD52 — 52-bit integer FMA
+        # T3 byte/permute
+        - avx512vbmi       # VPERMB — 64-byte table permute (token permute)
+        - avx512_vbmi2     # VPSHLDV / VPCOMPRESSB / VPEXPANDB
+        - avx512_bitalg    # VPOPCNT{B,W} / VPSHUFBITQMB
       preferred:
+        - gfni       # GF2P8AFFINEQB — Galois-field affine bit transforms
+        - vaes       # vector AES
+        - vpclmulqdq # vector carryless multiply
         - sha_ni
-        - avxvnni
+        - avx_vnni   # kernel /proc/cpuinfo flag name (was 'avxvnni')
         - movdiri
         - movdir64b
         - prefetchi
+        - popcnt     # scalar population count — ternary/BitNet path (sovereign-bitops)
     cores:
       physical: 12
       threads: 24
@@ -62,17 +81,19 @@ hardware:
 
   gpu:
     - vendor: nvidia
-      model: rtx-pro-6000-blackwell
-      pci_id: "10de:????"
+      model: rtx-pro-6000-blackwell-max-q
+      pci_id: "10de:2bb4"   # GB202GL — verified via lspci -nn on the physical host 2026-06-10
+      audio_fn: "10de:22e8"
       vram_gb: 96
       role: primary
       driver: nvidia-560-open
+      tdp_watts: 300   # Max-Q (300W) edition — NOT the 600W workstation card
     - vendor: nvidia
-      model: rtx-3090
-      pci_id: "10de:2204"
+      model: rtx-4090
+      pci_id: "10de:2684"
       vram_gb: 24
       role: vfio
-      vfio_companion: "10de:1ad8"
+      vfio_companion: "10de:22ba"
 
   memory:
     minimum_gb: 128
@@ -138,7 +159,7 @@ hardware:
       - description: "M.2_2 must remain empty to preserve x8/x8 GPU bifurcation (PCIEX16_2 shares lanes with M.2_2)"
         check: m2_2_empty
         severity: blocker
-      - description: "Blackwell + 3090 must be in distinct IOMMU groups for clean VFIO binding"
+      - description: "Blackwell + 4090 must be in distinct IOMMU groups for clean VFIO binding"
         check: iommu_groups_distinct
         severity: blocker
 
@@ -147,20 +168,32 @@ kernel:
   version_minimum: "6.12"
   packaging: bindeb-pkg
   compile_flags:
-    KCFLAGS: "-march=znver5 -O3 -pipe -mabm -madx -mavx512f -mavx512dq -mavx512bw -mavx512vl -mavx512bf16 -mavx512fp16"
+    # NO VECTOR ISA IN KERNEL CODEGEN — root cause of the first boot
+    # failure (2026-06-10, #UD in the first microseconds, firmware fell
+    # back to the old OS): kernel code must never use FPU/vector regs
+    # outside kernel_fpu_begin(), and at early boot XCR0 isn't configured
+    # so the first compiler-emitted EVEX instruction traps. KCFLAGS lands
+    # AFTER the kernel's protective -mno-sse/-mno-avx flags, and even bare
+    # -march=znver5 re-implies AVX-512 — so the vector families are
+    # explicitly re-disabled here. Zen 5 scheduling + scalar ISA (ABM,
+    # ADX, BMI) stay. AVX-512 belongs to USERSPACE (Pulse/BitNet/vLLM)
+    # and the kernel's own hand-written FPU-managed crypto paths.
+    KCFLAGS: "-march=znver5 -mno-mmx -mno-sse -mno-sse2 -mno-avx -mno-avx2 -mno-avx512f -O3 -pipe -mabm -madx"
     KCPPFLAGS: "-march=znver5"
     KBUILD_BUILD_USER: "sovereign-os"
     KBUILD_BUILD_HOST: "sovereign-os"
   config:
+    # Reconciled against a real 6.12 olddefconfig (first build, 2026-06-10):
+    #   ATLANTIC → AQTION (driver dir is 'atlantic', Kconfig symbol is AQTION)
+    #   ZFS removed — out-of-tree, built by zfs-dkms from packages (no CONFIG_ZFS upstream)
+    #   AMD_IOMMU_V2 removed — folded into core AMD_IOMMU in kernel 6.7
+    #   SECURITY_BPF_LSM removed — not a Kconfig symbol; BPF_LSM is the real one
     enable:
-      - ATLANTIC
-      - ZFS
+      - AQTION
       - VFIO_PCI
       - VFIO_IOMMU_TYPE1
       - INTEL_IOMMU
       - AMD_IOMMU
-      - AMD_IOMMU_V2
-      - SECURITY_BPF_LSM
       - BPF_LSM
       - KVM_AMD
       - KVM_INTEL
@@ -171,8 +204,13 @@ kernel:
       - quiet
       - splash
       - "loglevel=3"
+      # serial console: systemd auto-spawns serial-getty@ttyS0, whose
+      # /etc/issue banner gives the QEMU smoke test (step 09) a real
+      # userspace marker instead of a warn-skip — and gives ops a serial
+      # console on hardware. First green button build, 2026-06-12.
+      - "console=ttyS0"
     vfio:
-      - "vfio-pci.ids=10de:2204,10de:1ad8"
+      - "vfio-pci.ids=10de:2684,10de:22ba"
       - "amd_iommu=on"
       - "iommu=pt"
       - "pcie_aspm=off"
@@ -198,16 +236,28 @@ packages:
     - jq
     - ca-certificates
   profile:
+    # Reconciled against the real trixie snapshot archive (verified by
+    # grepping the pinned snapshot's Packages indices, 2026-06-10):
+    #   nvidia-open-kernel-dkms — correct name, lives in non-free (the
+    #     original failure was the missing archive component, not the name)
+    #   nvidia-container-toolkit removed — not in the Debian archive;
+    #     installs at first boot from NVIDIA's libnvidia-container repo
+    #     (operator-deps / first-boot layer)
+    #   tetragon removed — not in the Debian archive; installs at first
+    #     boot from Cilium's release tarball (tetragon-policy-load hook
+    #     documents the dependency)
+    # KNOWN LIMITATION: trixie ships nvidia 550.163, which predates the
+    # Blackwell GB202 (PRO 6000 Max-Q). The image builds + boots; the
+    # primary GPU needs a ≥570 driver at first boot (backports or NVIDIA
+    # repo — same first-boot layer as nvidia-container-toolkit).
     - linux-image-${KERNEL_VERSION}-znver5
     - linux-headers-${KERNEL_VERSION}-znver5
     - nvidia-open-kernel-dkms
     - nvidia-driver
     - nvidia-smi
-    - nvidia-container-toolkit
     - zfsutils-linux
     - zfs-dkms
     - podman
-    - tetragon
     - mokutil
     - sbsigntool
   deny:
@@ -244,9 +294,9 @@ hooks:
       type: validation
       script: scripts/hooks/post-install/friction-audit-runtime.sh
       mandatory: true
-    - id: vfio-bind-3090
+    - id: vfio-bind-4090
       type: setup
-      script: scripts/hooks/post-install/vfio-bind-3090.sh
+      script: scripts/hooks/post-install/vfio-bind-4090.sh
       mandatory: true
     - id: network-vlan-config
       type: network
@@ -268,6 +318,16 @@ hooks:
       type: interactive
       script: scripts/hooks/post-install/first-login-assistant.sh
       mandatory: false
+    # SDD-046 — root-ghostproxy endpoint AI-agent safety envelope
+    # (proxy mode DISABLED per operator directive 2026-07-03; mode
+    # pinned endpoint inside the hook — auto-detect would promote this
+    # dual-NIC host to bridge). Triple-gated: report-only until
+    # SOVEREIGN_OS_CONFIRM_GHOSTPROXY_INSTALL=YES. mandatory: false
+    # per Q-046-001 (checkout may not exist at first boot).
+    - id: root-ghostproxy-endpoint-install
+      type: security
+      script: scripts/hooks/post-install/root-ghostproxy-endpoint-install.sh
+      mandatory: false
 
   post_install_recurrent:
     - id: zfs-scrub
@@ -282,6 +342,14 @@ hooks:
       type: maintenance
       schedule: daily
       script: scripts/hooks/recurrent/model-catalog-sync.sh
+    - id: selfdef-sync
+      type: maintenance
+      schedule: weekly
+      script: scripts/hooks/recurrent/selfdef-sync.sh
+    - id: root-ghostproxy-verify
+      type: security
+      schedule: weekly
+      script: scripts/hooks/recurrent/root-ghostproxy-verify.sh
 
   decommission:
     - id: secure-wipe-context

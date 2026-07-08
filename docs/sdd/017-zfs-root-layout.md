@@ -117,7 +117,14 @@ options zfs zfs_arc_min=<bytes>
 
 Default for sain-01 (256GB DDR5): cap ARC at 64GB
 (`zfs_arc_max=68719476736`), giving ~192GB to the inference stack.
-Operator overrides via `SOVEREIGN_OS_ZFS_ARC_MAX_BYTES`.
+
+Operator overrides (both honored by the `zfs-arc-clamp` post-install hook;
+`_BYTES` takes precedence when both are set):
+
+- `SOVEREIGN_OS_ZFS_ARC_MAX_BYTES` — byte-precise (matches `zfs_arc_max`'s
+  native unit), e.g. `68719476736` for 64 GiB.
+- `SOVEREIGN_OS_ARC_MAX_GB` — convenience form in whole GiB (e.g. `64`);
+  the hook's default is `128`.
 
 ## Profile-conditioned variations
 

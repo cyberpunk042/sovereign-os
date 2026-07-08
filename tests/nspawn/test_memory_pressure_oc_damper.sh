@@ -68,13 +68,18 @@ print('PASS')
 " || fail "synthetic critical"
 pass "4. R269 verdict=critical → dampen-fully (recommended_oc_multiplier=1.0, rc=2)"
 
-# ── 5. Synthetic WARN → dampen-by-1 ─────────────────────────
+# ── 5. Synthetic ATTENTION → dampen-by-1 ─────────────────────────
+# REGRESSION: R269 (memory-pressure.py) emits its mild tier as "attention",
+# never "warn". This test previously fed verdict='warn' — a value R269 never
+# produces — so it passed against fictional input while the damper's real
+# `== "warn"` check silently dead-ended on every real "attention" reading
+# (only "critical" ever dampened). Drive the REAL R269 vocabulary here.
 python3 -c "
 import importlib.util
 spec = importlib.util.spec_from_file_location('damp', 'scripts/hardware/memory-pressure-oc-damper.py')
 m = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(m)
-memp = {'verdict': 'warn', 'metrics': {'psi_full_avg10_pct': 40.0}}
+memp = {'verdict': 'attention', 'metrics': {'psi_full_avg10_pct': 40.0}}
 oc = {'verdict': 'headroom-safe',
       'config': {'gpu_oc_multiplier': 1.15},
       'headroom': {'gpu_oc_multiplier': 1.15}}
@@ -84,8 +89,8 @@ assert rec['rc'] == 1
 # 1.15 - 0.05 = 1.10
 assert abs(rec['recommended_oc_multiplier'] - 1.10) < 0.01
 print('PASS')
-" || fail "synthetic warn"
-pass "5. R269 verdict=warn → dampen-by-1 (1.15 - 0.05 = 1.10, rc=1)"
+" || fail "synthetic attention"
+pass "5. R269 verdict=attention → dampen-by-1 (1.15 - 0.05 = 1.10, rc=1)"
 
 # ── 6. Synthetic OK → no-dampening ───────────────────────────
 python3 -c "

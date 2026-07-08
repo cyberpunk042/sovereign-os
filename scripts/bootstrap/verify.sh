@@ -252,7 +252,12 @@ for id in 01 02 03 04 05 06; do
     PASS) pass_count=$((pass_count + 1)); marker="✓" ;;
     FAIL) fail_count=$((fail_count + 1)); marker="✗" ;;
     SKIP) skip_count=$((skip_count + 1)); marker="—" ;;
-    *)    marker="?" ;;
+    # An indeterminate result (a check that didn't set PASS/FAIL/SKIP — e.g. a
+    # future check-function bug) is an ANOMALY. Master spec §22: "if any check
+    # reports an anomaly, the node enters lock-state" — fail-safe, count it as a
+    # FAIL rather than letting an unknown result silently pass the gate.
+    *)    fail_count=$((fail_count + 1)); marker="?"
+          DETAILS[$id]="indeterminate result '${res}' — treated as FAIL (fail-safe)" ;;
   esac
   printf "  %-4s %-25s %s %-5s %s\n" "${id}" "${CHECK_NAMES[$id]}" "${marker}" "${res}" "${DETAILS[$id]}"
   emit_metric sovereign_os_bootstrap_check_total 1 \

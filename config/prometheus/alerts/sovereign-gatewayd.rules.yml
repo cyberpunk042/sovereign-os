@@ -1,0 +1,62 @@
+# sovereign-gatewayd Prometheus alerting rules — the never-cloud-spill
+# sovereignty tripwire, paged.
+#
+# The gateway daemon serves these series itself on `GET /metrics` (no
+# textfile collector; scrape the daemon's HTTP address directly):
+#
+#   sovereign_gateway_never_cloud_spill_holds   1 while the invariant holds
+#   sovereign_gateway_cloud_spills_total        decisions routed to the cloud plane
+#   sovereign_gateway_requests_total            inference requests handled
+#
+# The daemon forces `allow_cloud = false` on every request before routing
+# (local-first by construction), so the holds-gauge dropping to 0 means the
+# sovereignty boundary itself failed — an incident, never a tuning knob.
+#
+# Drop into the Prometheus rule_files config and scrape the daemon:
+#   rule_files:
+#     - /etc/prometheus/alerts/sovereign-gatewayd.rules.yml
+#   scrape_configs:
+#     - job_name: sovereign-gatewayd
+#       static_configs: [{targets: ["127.0.0.1:8787"]}]
+groups:
+  - name: sovereign-gatewayd
+    rules:
+      # The daemon's own tripwire: a decision routed to the cloud plane
+      # despite force_local. No `for:` — one confirmed scrape pages; the
+      # spill already happened and cannot un-happen for this process.
+      - alert: SovereignGatewayCloudSpill
+        expr: sovereign_gateway_never_cloud_spill_holds < 1
+        labels:
+          severity: critical
+          subsystem: gateway
+        annotations:
+          summary: "sovereign-gatewayd: never-cloud-spill invariant BROKEN on {{ $labels.instance }}"
+          description: >
+            sovereign_gateway_never_cloud_spill_holds is 0 — at least one
+            decision in this daemon's lifetime routed to the cloud plane even
+            though the gateway forces allow_cloud=false on every request.
+            This is a sovereignty-boundary failure, not load or tuning: read
+            /admin/ledger for the spill count, find the router/scheduler
+            regression (or tampered build) that produced a cloud verdict, and
+            only then restart the daemon to re-arm the tripwire.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#sovereigngatewaycloudspill-critical"
+
+      # The tripwire going dark is itself a finding: an invariant nobody can
+      # see is not enforced from the operator's seat. 10m tolerates a restart
+      # or a transient scrape miss without paging.
+      - alert: SovereignGatewayTripwireUnmonitored
+        expr: absent(sovereign_gateway_never_cloud_spill_holds) == 1
+        for: 10m
+        labels:
+          severity: warning
+          subsystem: gateway
+        annotations:
+          summary: "sovereign-gatewayd: never-cloud-spill tripwire has no current samples"
+          description: >
+            Prometheus has had no sample of
+            sovereign_gateway_never_cloud_spill_holds for 10m — the daemon is
+            down, the sovereign-gatewayd scrape job is missing/broken, or the
+            bind address changed. Until scraping resumes, a cloud spill would
+            go unpaged. Check systemctl status sovereign-gatewayd, the
+            daemon's /health, and the Prometheus target list.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#sovereigngatewaytripwireunmonitored-warning"

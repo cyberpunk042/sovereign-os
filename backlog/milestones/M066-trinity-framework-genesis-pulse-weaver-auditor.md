@@ -24,7 +24,7 @@
 | E0644 | Chronological synthesis — 5 phases (Basic Automation → Deep Logic → Contextual Sandboxing → Total System Defense → Sovereign Synthesis) | dump 983-986 |
 | E0645 | Project boundary — Pulse + Weaver live in sovereign-os runtime; Auditor implementation in selfdef MS044 | architecture + operator standing direction "Respect the projects" |
 | E0646 | Cohesive lineage — software modules required specialized hardware; hardware required custom stripped-down OS | dump 987 |
-| E0647 | "Vibe Managing Platform" — completed node: 9900X + 96GB Blackwell + Isolated 3090 | dump 985 |
+| E0647 | "Vibe Managing Platform" — completed node: 9900X + 96GB Blackwell + Isolated 4090 | dump 985 |
 
 ## Modules (M01105-M01121)
 
@@ -86,7 +86,7 @@
 | F05557 | The Weaver → physical: Rootless Podman Container Architecture | dump 970 |
 | F05558 | The Weaver → physical: Asymmetric Load-Balancing Profiles | dump 970 |
 | F05559 | The Weaver → physical: pins lightweight specialized sub-agents to specific CPU cores | dump 971 |
-| F05560 | The Weaver → physical: separates them into sandboxed RTX 3090 via VFIO | dump 971 |
+| F05560 | The Weaver → physical: separates them into sandboxed RTX 4090 via VFIO | dump 971 |
 | F05561 | The Weaver → physical: streams state changes into synchronous ZFS storage vault | dump 971 |
 | F05562 | The Weaver → cross-ref forward: M068 ZFS Storage Architecture (pending) | cross-ref M068 (pending) |
 | F05563 | The Weaver → cross-ref forward: M070 Dual-CCD topology (pending) | cross-ref M070 (pending) |
@@ -114,7 +114,7 @@
 | F05585 | Chronological synthesis — Phase 03: Contextual Sandboxing (Weaver + ZFS recordsize tuning) | dump 985 |
 | F05586 | Chronological synthesis — Phase 04: Total System Defense (Auditor + Tetragon eBPF policies) | dump 985 |
 | F05587 | Chronological synthesis — Phase 05: Sovereign Synthesis (Vibe Managing Platform — completed node) | dump 985 |
-| F05588 | Completed node — 9900X + 96GB Blackwell + Isolated 3090 | dump 985 |
+| F05588 | Completed node — 9900X + 96GB Blackwell + Isolated 4090 | dump 985 |
 | F05589 | Cohesive lineage — software modules required specialized hardware topology | dump 987 |
 | F05590 | Cohesive lineage — hardware required custom stripped-down OS configuration | dump 987 |
 | F05591 | Cohesive lineage — prevents standard distribution bloat causing execution friction | dump 987 |
@@ -180,7 +180,7 @@
 | R11086 | The Weaver → physical: Rootless Podman Container Architecture | dump 970 | F05557 | non-negotiable | false | 10 |
 | R11087 | The Weaver → physical: Asymmetric Load-Balancing Profiles | dump 970 | F05558 | non-negotiable | false | 10 |
 | R11088 | The Weaver → physical: pins lightweight sub-agents to specific CPU cores | dump 971 | F05559 | non-negotiable | false | 10 |
-| R11089 | The Weaver → physical: separates sub-agents into sandboxed RTX 3090 via VFIO | dump 971 | F05560 | non-negotiable | false | 10 |
+| R11089 | The Weaver → physical: separates sub-agents into sandboxed RTX 4090 via VFIO | dump 971 | F05560 | non-negotiable | false | 10 |
 | R11090 | The Weaver → physical: streams state changes into synchronous ZFS storage vault | dump 971 | F05561 | non-negotiable | false | 10 |
 | R11091 | The Weaver → physical: never drags down primary host interface | dump 971 | F05557 | non-negotiable | false | 10 |
 | R11092 | The Weaver → cross-ref forward: M068 ZFS Storage Architecture (pending) | cross-ref M068 (pending) | F05562 | non-negotiable | false | 10 |
@@ -219,7 +219,7 @@
 | R11125 | Chronological — Phase 04 hardware: Active deployment of native Tetragon eBPF Policies | dump 985 | F05586 | non-negotiable | false | 10 |
 | R11126 | Chronological — Phase 05: Sovereign Synthesis paradigm | dump 985 | F05587 | non-negotiable | false | 10 |
 | R11127 | Chronological — Phase 05 engine: Vibe Managing Platform | dump 985 | F05587 | non-negotiable | false | 10 |
-| R11128 | Chronological — Phase 05 hardware: completed node 9900X + 96GB Blackwell + Isolated 3090 | dump 985 | F05588 | non-negotiable | false | 10 |
+| R11128 | Chronological — Phase 05 hardware: completed node 9900X + 96GB Blackwell + Isolated 4090 | dump 985 | F05588 | non-negotiable | false | 10 |
 | R11129 | Cohesive lineage — software modules required hardware topology | dump 987 | F05589 | non-negotiable | false | 10 |
 | R11130 | Cohesive lineage — hardware required custom OS configuration | dump 987 | F05590 | non-negotiable | false | 10 |
 | R11131 | Cohesive lineage — prevents distribution bloat causing execution friction | dump 987 | F05591 | non-negotiable | false | 10 |
@@ -248,7 +248,7 @@
 | R11154 | Dashboard — Trinity narrative version tracked in /etc/sovereign-os/trinity-narrative.md | architecture | F05604 | non-negotiable | false | 10 |
 | R11155 | Dashboard — trinity-narrative.md signed via MS003 | cross-ref selfdef MS003 | F05604 | non-negotiable | false | 10 |
 | R11156 | Composition — Trinity composes with M048 modules map (compute fabric + sandbox fabric + ZFS = Trinity manifestation) | cross-ref M048 | F05565 | non-negotiable | false | 10 |
-| R11157 | Composition — Trinity composes with M058 hardware-aware scheduler (Pulse on CPU + Weaver on GPU 3090 + Auditor on host) | cross-ref M058 | F05550 | non-negotiable | false | 10 |
+| R11157 | Composition — Trinity composes with M058 hardware-aware scheduler (Pulse on CPU + Weaver on GPU 4090 + Auditor on host) | cross-ref M058 | F05550 | non-negotiable | false | 10 |
 | R11158 | Composition — Trinity composes with M063 SFIF phases (Trinity = Foundation+Infrastructure conceptual lineage) | cross-ref M063 | F05587 | non-negotiable | false | 10 |
 | R11159 | Composition — Trinity composes with M064 Debian-as-Ark (Trinity drove substrate customization need) | cross-ref M064 | F05590 | non-negotiable | false | 10 |
 | R11160 | Composition — Trinity composes with M059 peace machine close (Trinity = original sovereignty design) | cross-ref M059 | F05528 | non-negotiable | false | 10 |
@@ -322,7 +322,7 @@ Every R-row carries 10 hard non-negotiable sub-requirements. Total = 170 R × 10
 - **M044** — sovereign-os substrate (Trinity hardware manifestation)
 - **M048** — modules map (Trinity → compute fabric + sandbox fabric + ZFS)
 - **M049** — observability + trace pipeline
-- **M058** — hardware-aware scheduler (Pulse-AVX / Weaver-3090 / Auditor-host routing)
+- **M058** — hardware-aware scheduler (Pulse-AVX / Weaver-4090 / Auditor-host routing)
 - **M059** — peace machine close (Trinity = original sovereignty design)
 - **M060** — cockpit + dashboards (D-00 surfaces Trinity Phase, D-19 super-model)
 - **M063** — SFIF discipline (Trinity informs Foundation + Infrastructure phases)
@@ -365,7 +365,7 @@ chronological_phases:
   - 02: Deep Logic Optimization (Pulse + AVX-512)
   - 03: Contextual Sandboxing (Weaver + ZFS recordsize)
   - 04: Total System Defense (Auditor + Tetragon)
-  - 05: Sovereign Synthesis (Vibe Managing Platform = 9900X + 96GB Blackwell + Isolated 3090)
+  - 05: Sovereign Synthesis (Vibe Managing Platform = 9900X + 96GB Blackwell + Isolated 4090)
 typed_mirror_crate: sovereign-trinity-genesis-mirror
 catalog_status:
   sovereign_os: 66/66 milestones

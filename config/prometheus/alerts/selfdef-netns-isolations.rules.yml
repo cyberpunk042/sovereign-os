@@ -1,0 +1,69 @@
+# Selfdef SDD-070 netns-isolation Prometheus alerting rules.
+# Fires on textfile metrics from selfdef-netns-isolations-
+# textfile (selfdef MS4a commit). Extends the IPS-pentet
+# observability set to the hexet with the prior 19th/20th/21st/22nd/23rd siblings.
+
+groups:
+  - name: selfdef-netns-isolations
+    interval: 30s
+    rules:
+
+      - alert: SelfdefNetnsIsolationsTextfileEmitFailed
+        expr: selfdef_netns_isolations_textfile_emit_failed > 0
+        for: 5m
+        labels:
+          severity: critical
+          subsystem: selfdef-netns-isolations
+          netns_link: observer-fault
+        annotations:
+          summary: "Selfdef netns-isolations observer fault on {{ $labels.instance }}"
+          description: "Wrapper failure for 5+ minutes. SDD-070 enforcement visibility lost."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefnetnsisolationstextfileemitfailed-critical"
+
+      - alert: SelfdefNetnsIsolationsObserverSilent
+        expr: time() - selfdef_netns_isolations_last_run_unix > 300
+        for: 2m
+        labels:
+          severity: critical
+          subsystem: selfdef-netns-isolations
+          netns_link: observer-silent
+        annotations:
+          summary: "Selfdef netns-isolations observer silent on {{ $labels.instance }}"
+          description: "Timer hasn't fired in 5+ minutes."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefnetnsisolationsobserversilent-critical"
+
+      - alert: SelfdefNetnsIsolationsStateDirMissing
+        expr: selfdef_netns_isolations_state_dir_present == 0
+        for: 10m
+        labels:
+          severity: critical
+          subsystem: selfdef-netns-isolations
+          netns_link: state-dir-missing
+        annotations:
+          summary: "netns-isolations state-dir absent on {{ $labels.instance }} — SDD-070 enforcement OFFLINE"
+          description: "/var/lib/selfdef/netns-isolations not present for 10+ minutes. SDD-070 kernel-containment cannot persist state. Operator action: systemctl status selfdefd && systemctl restart selfdefd."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefnetnsisolationsstatedirmissing-critical"
+
+      - alert: SelfdefNetnsIsolationsPendingReleaseBacklog
+        expr: selfdef_netns_isolations_pending_releases > 5
+        for: 30m
+        labels:
+          severity: warning
+          subsystem: selfdef-netns-isolations
+          netns_link: pending-backlog
+        annotations:
+          summary: "{{ $value }} pending netns-isolation release decisions on {{ $labels.instance }} for 30m"
+          description: "Operator engagement with the cockpit netns-isolations-queue card needed."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefnetnsisolationspendingreleasebacklog-warning"
+
+      - alert: SelfdefNetnsIsolationsActiveHigh
+        expr: selfdef_netns_isolations_active_count > 10
+        for: 1h
+        labels:
+          severity: warning
+          subsystem: selfdef-netns-isolations
+          netns_link: active-high
+        annotations:
+          summary: "{{ $value }} active netns-isolations on {{ $labels.instance }} for 1h"
+          description: "Likely large-scale incident-response scenario; the kernel-containment axis is the shortest-duration IPS primitive."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefnetnsisolationsactivehigh-warning"

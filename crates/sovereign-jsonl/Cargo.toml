@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-jsonl"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "JSON Lines (newline-delimited JSON) reading and writing: parse one JSON value per line tolerantly (skipping blanks, reporting bad lines), serialize values back to JSONL, and a streaming reader that buffers partial chunks across reads. For ingesting eval datasets and emitting structured, append-friendly logs."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

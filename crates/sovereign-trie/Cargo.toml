@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-trie"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "A prefix trie over strings: insert words and query exact membership, prefix existence, and all completions of a prefix (sorted). The autocomplete / prefix-routing primitive — what powers tool-name completion and command matching."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

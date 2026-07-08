@@ -1,0 +1,15 @@
+[Unit]
+Description=sovereign-os memory-pressure / OOM sampler, every minute (E1.M15)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/hooks/recurrent/memory-pressure-sample.sh
+
+[Timer]
+# Per-minute cadence: memory pressure during inference batches can spike to
+# OOM in seconds; 60s density matches the wattage sampler so power + memory
+# pressure line up on the same dashboard timeline.
+OnBootSec=2min
+OnUnitActiveSec=1min
+Persistent=true
+Unit=sovereign-memory-pressure-sample.service
+
+[Install]
+WantedBy=timers.target

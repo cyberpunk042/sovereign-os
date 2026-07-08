@@ -1,5 +1,5 @@
 {
-  "_comment": "sovereign-os IPS host overview — operator-at-a-glance cockpit consolidating ALL 8 observability verticals shipped to date (M060 + MS022 + four-watchdog + modules + daemon-process + AppArmor + auth-events + systemd-units). Consumes the cross-vertical recording rules from config/prometheus/rules/sovereign-os-observability-rollup.yml (commit 594fd02) plus per-vertical headline gauges from the 8 selfdef-side textfile observers. Single-pane-of-glass — operators see the IPS host's entire defensive posture without drilling into per-vertical dashboards. Project boundary R10212: pure read-only observability composition.",
+  "_comment": "sovereign-os IPS host overview — operator-at-a-glance cockpit, now extended with the IPS-dectet enforcement-layer rollup (SDD-065..074 = 10 primitives). Original 8 observability verticals (M060 + MS022 + four-watchdog + modules + daemon-process + AppArmor + auth-events + systemd-units) remain. The new IPS-dectet rollup row consolidates active-enforcement count, pending-operator-decision count, observer-wedged count, and per-primitive active-count timeseries. Single-pane-of-glass — operators see the IPS host's entire defensive posture (observation + enforcement) without drilling into per-vertical dashboards. Project boundary R10212: pure read-only observability composition. Original recording-rules commit anchor: 594fd02 (preserved per audit-trail discipline).",
   "annotations": {"list": []},
   "editable": true,
   "fiscalYearStartMonth": 0,
@@ -14,7 +14,24 @@
     {"title": "daemon-process", "url": "/d/sovereign-os-selfdef-daemon-process", "type": "link", "icon": "external link"},
     {"title": "AppArmor", "url": "/d/sovereign-os-selfdef-apparmor", "type": "link", "icon": "external link"},
     {"title": "auth-events", "url": "/d/sovereign-os-selfdef-auth-events", "type": "link", "icon": "external link"},
-    {"title": "systemd-units", "url": "/d/sovereign-os-selfdef-systemd-units", "type": "link", "icon": "external link"}
+    {"title": "systemd-units", "url": "/d/sovereign-os-selfdef-systemd-units", "type": "link", "icon": "external link"},
+    {"title": "── IPS QUATTUORDECTET (SDD-065..078) ──", "url": "/d/sovereign-os-overview", "type": "link", "icon": "external link"},
+    {"title": "SDD-065 blockset (network)", "url": "/d/sovereign-os-selfdef-blockset", "type": "link", "icon": "external link"},
+    {"title": "SDD-066 quarantine (process)", "url": "/d/sovereign-os-selfdef-quarantine", "type": "link", "icon": "external link"},
+    {"title": "SDD-067 revocations (shell-session)", "url": "/d/sovereign-os-selfdef-revocations", "type": "link", "icon": "external link"},
+    {"title": "SDD-068 token-revocations (API)", "url": "/d/sovereign-os-selfdef-token-revocations", "type": "link", "icon": "external link"},
+    {"title": "SDD-069 mfa-grant-revocations (identity)", "url": "/d/sovereign-os-selfdef-mfa-grant-revocations", "type": "link", "icon": "external link"},
+    {"title": "SDD-070 netns-isolations (kernel)", "url": "/d/sovereign-os-selfdef-netns-isolations", "type": "link", "icon": "external link"},
+    {"title": "SDD-071 mount-bindings (filesystem)", "url": "/d/sovereign-os-selfdef-mount-bindings", "type": "link", "icon": "external link"},
+    {"title": "SDD-072 process-tree-freezes (graph)", "url": "/d/sovereign-os-selfdef-process-tree-freezes", "type": "link", "icon": "external link"},
+    {"title": "SDD-073 socket-fd-revocations (per-connection)", "url": "/d/sovereign-os-selfdef-socket-fd-revocations", "type": "link", "icon": "external link"},
+    {"title": "SDD-074 env-scrubs (in-memory secrets)", "url": "/d/sovereign-os-selfdef-env-scrubs", "type": "link", "icon": "external link"},
+    {"title": "SDD-075 capability-drops (per-process privilege)", "url": "/d/sovereign-os-selfdef-capability-drops", "type": "link", "icon": "external link"},
+    {"title": "SDD-076 kernel-keyring-evictions (kernel-keyring)", "url": "/d/sovereign-os-selfdef-kernel-keyring-evictions", "type": "link", "icon": "external link"},
+    {"title": "SDD-077 apparmor-profile-pivots (MAC policy)", "url": "/d/sovereign-os-selfdef-apparmor-profile-pivots", "type": "link", "icon": "external link"},
+    {"title": "SDD-078 bpf-map-element-clears (eBPF map state)", "url": "/d/sovereign-os-selfdef-bpf-map-element-clears", "type": "link", "icon": "external link"},
+    {"title": "── MS048 RUNTIME-ROUTING LAYER ──", "url": "/d/sovereign-os-overview", "type": "link", "icon": "external link"},
+    {"title": "MS048 Goldilocks Scheduler", "url": "/d/sovereign-os-selfdef-scheduler", "type": "link", "icon": "external link"}
   ],
   "panels": [
     {
@@ -157,6 +174,111 @@
       ],
       "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 3, "custom": {"drawStyle": "line", "lineInterpolation": "stepAfter", "lineWidth": 2, "fillOpacity": 30}, "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": 0}, {"color": "yellow", "value": 2}, {"color": "green", "value": 3}]}}},
       "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12}
+    },
+    {
+      "type": "row",
+      "title": "IPS quattuordectet (SDD-065..078) — enforcement layer rollup",
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 20},
+      "collapsed": false
+    },
+    {
+      "type": "stat",
+      "title": "active enforcements (sum across 14 IPS primitives)",
+      "description": "Total active handles across blockset + quarantine + revocations + token-revocations + mfa-grant-revocations + netns-isolations + mount-bindings + process-tree-freezes + socket-fd-revocations + env-scrubs + capability-drops + kernel-keyring-evictions + apparmor-profile-pivots + bpf-map-element-clears. Spike = active incident response.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "(selfdef_blockset_v4_count or vector(0)) + (selfdef_blockset_v6_count or vector(0)) + (selfdef_quarantine_active_count or vector(0)) + (selfdef_revocations_active_count or vector(0)) + (selfdef_token_revocations_active_count or vector(0)) + (selfdef_mfa_grant_revocations_active_count or vector(0)) + (selfdef_netns_isolations_active_count or vector(0)) + (selfdef_mount_bindings_active_count or vector(0)) + (selfdef_process_tree_freezes_active_count or vector(0)) + (selfdef_socket_fd_revocations_active_count or vector(0)) + (selfdef_env_scrubs_active_count or vector(0)) + (selfdef_capability_drops_active_count or vector(0)) + (selfdef_kernel_keyring_evictions_active_count or vector(0)) + (selfdef_apparmor_profile_pivots_active_count or vector(0)) + (selfdef_bpf_map_element_clears_active_count or vector(0))", "refId": "A"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none", "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 20}, {"color": "red", "value": 100}]}}},
+      "gridPos": {"h": 4, "w": 8, "x": 0, "y": 21}
+    },
+    {
+      "type": "stat",
+      "title": "pending operator decisions (sum across queues)",
+      "description": "Total pending operator decisions across all 14 IPS-quattuordectet cockpit queues. Drives operator attention to the cockpit cards.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "(selfdef_quarantine_pending_releases or vector(0)) + (selfdef_revocations_pending_restores or vector(0)) + (selfdef_token_revocations_pending_restores or vector(0)) + (selfdef_mfa_grant_revocations_pending_restores or vector(0)) + (selfdef_netns_isolations_pending_releases or vector(0)) + (selfdef_mount_bindings_pending_rebinds or vector(0)) + (selfdef_process_tree_freezes_pending_thaws or vector(0)) + (selfdef_socket_fd_revocations_pending_restores or vector(0)) + (selfdef_env_scrubs_pending_restores or vector(0)) + (selfdef_capability_drops_pending_restores or vector(0)) + (selfdef_kernel_keyring_evictions_pending_restores or vector(0)) + (selfdef_apparmor_profile_pivots_pending_restores or vector(0)) + (selfdef_bpf_map_element_clears_pending_restores or vector(0))", "refId": "A"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none", "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 5}, {"color": "red", "value": 30}]}}},
+      "gridPos": {"h": 4, "w": 8, "x": 8, "y": 21}
+    },
+    {
+      "type": "stat",
+      "title": "enforcement-layer observers wedged (out of 14)",
+      "description": "Count of IPS-quattuordectet textfile observers reporting *_textfile_emit_failed > 0. Baseline is 0; any > 0 means the enforcement-layer observability is partially blind.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "(selfdef_quarantine_textfile_emit_failed or vector(0)) + (selfdef_revocations_textfile_emit_failed or vector(0)) + (selfdef_token_revocations_textfile_emit_failed or vector(0)) + (selfdef_mfa_grant_revocations_textfile_emit_failed or vector(0)) + (selfdef_netns_isolations_textfile_emit_failed or vector(0)) + (selfdef_mount_bindings_textfile_emit_failed or vector(0)) + (selfdef_process_tree_freezes_textfile_emit_failed or vector(0)) + (selfdef_socket_fd_revocations_textfile_emit_failed or vector(0)) + (selfdef_env_scrubs_textfile_emit_failed or vector(0)) + (selfdef_capability_drops_textfile_emit_failed or vector(0)) + (selfdef_kernel_keyring_evictions_textfile_emit_failed or vector(0)) + (selfdef_apparmor_profile_pivots_textfile_emit_failed or vector(0)) + (selfdef_bpf_map_element_clears_textfile_emit_failed or vector(0))", "refId": "A"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 14, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": 0}, {"color": "yellow", "value": 1}, {"color": "red", "value": 3}]}}},
+      "gridPos": {"h": 4, "w": 8, "x": 16, "y": 21}
+    },
+    {
+      "type": "timeseries",
+      "title": "per-primitive active-count over time",
+      "description": "Each IPS primitive's active_count plotted separately so operator can identify which axis is firing in an incident.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "selfdef_blockset_v4_count + selfdef_blockset_v6_count", "legendFormat": "blockset (SDD-065)", "refId": "A"},
+        {"expr": "selfdef_quarantine_active_count", "legendFormat": "quarantine (SDD-066)", "refId": "B"},
+        {"expr": "selfdef_revocations_active_count", "legendFormat": "revocations (SDD-067)", "refId": "C"},
+        {"expr": "selfdef_token_revocations_active_count", "legendFormat": "token-revocations (SDD-068)", "refId": "D"},
+        {"expr": "selfdef_mfa_grant_revocations_active_count", "legendFormat": "mfa-grant-revocations (SDD-069)", "refId": "E"},
+        {"expr": "selfdef_netns_isolations_active_count", "legendFormat": "netns-isolations (SDD-070)", "refId": "F"},
+        {"expr": "selfdef_mount_bindings_active_count", "legendFormat": "mount-bindings (SDD-071)", "refId": "G"},
+        {"expr": "selfdef_process_tree_freezes_active_count", "legendFormat": "process-tree-freezes (SDD-072)", "refId": "H"},
+        {"expr": "selfdef_socket_fd_revocations_active_count", "legendFormat": "socket-fd-revocations (SDD-073)", "refId": "I"},
+        {"expr": "selfdef_env_scrubs_active_count", "legendFormat": "env-scrubs (SDD-074)", "refId": "J"},
+        {"expr": "selfdef_capability_drops_active_count", "legendFormat": "capability-drops (SDD-075)", "refId": "K"},
+        {"expr": "selfdef_kernel_keyring_evictions_active_count", "legendFormat": "kernel-keyring-evictions (SDD-076)", "refId": "L"},
+        {"expr": "selfdef_apparmor_profile_pivots_active_count", "legendFormat": "apparmor-profile-pivots (SDD-077)", "refId": "M"},
+        {"expr": "selfdef_bpf_map_element_clears_active_count", "legendFormat": "bpf-map-element-clears (SDD-078)", "refId": "N"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none", "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 10}}},
+      "gridPos": {"h": 10, "w": 24, "x": 0, "y": 25}
+    },
+    {
+      "type": "row",
+      "title": "MS048 Goldilocks Scheduler — runtime routing layer (peer of the IPS enforcement layer above)",
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 35},
+      "collapsed": false
+    },
+    {
+      "type": "stat",
+      "title": "scheduler observer healthy",
+      "description": "1 = selfdef-scheduler-textfile observer fresh + write-succeeded. 0 = wedged. Architectural peer of the per-IPS textfile_emit_failed sentinels.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "1 - selfdef_scheduler_textfile_emit_failed", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1, "mappings": [{"type": "value", "options": {"0": {"text": "WEDGED"}, "1": {"text": "OK"}}}], "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": 0}, {"color": "green", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 36}
+    },
+    {
+      "type": "stat",
+      "title": "scheduler substrates healthy (of 3)",
+      "description": "PSI + DCGM + human-gate. 3 = all healthy (substrate-trio fully feeds the scheduler); 0 = all blind (scheduler operating without ground-truth signal). Red at 0, yellow 1-2, green 3.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "3 - selfdef_scheduler_substrate_degraded_count", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 3, "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": 0}, {"color": "yellow", "value": 1}, {"color": "green", "value": 3}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 36}
+    },
+    {
+      "type": "stat",
+      "title": "scheduler backpressure surfaces firing (of 6)",
+      "description": "cpu + ram + io + Blackwell VRAM + 4090 busy + human-gate-high. The scheduler is throttling autonomous routing while ≥1 surface fires.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_scheduler_cpu_pressure + selfdef_scheduler_ram_pressure + selfdef_scheduler_io_pressure + selfdef_scheduler_blackwell_vram_high + selfdef_scheduler_gpu3090_busy + selfdef_scheduler_human_gate_queue_high", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 6, "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 1}, {"color": "red", "value": 3}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 36}
+    },
+    {
+      "type": "stat",
+      "title": "human-gate queue depth (across 14 IPS queues)",
+      "description": "Sum of pending operator-decision queue entries across the 14 IPS primitives. Same datum as the per-IPS pending_restores rollup above, surfaced via the scheduler's human-gate source for routing-decision context.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_scheduler_human_gate_queue_depth", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 5}, {"color": "red", "value": 10}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 36}
     }
   ],
   "refresh": "30s",

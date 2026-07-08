@@ -1,0 +1,18 @@
+[package]
+name = "sovereign-replay-ledger"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "M012 storage & replay plane — an append-only, hash-chained replay ledger: each entry chains the previous entry's hash, so the whole log is tamper-evident and replayable. The integrity-backed log the replay cursor/bookmark crates navigate over."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }

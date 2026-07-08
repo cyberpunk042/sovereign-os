@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-sse-parse"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Streaming Server-Sent Events parser: feed it response chunks as they arrive and it yields complete events (event/data/id/retry fields, multi-line data joined with newlines), buffering partial events across chunk boundaries. For consuming the SSE wire format that streaming LLM APIs use."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

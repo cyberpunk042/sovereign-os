@@ -1,0 +1,18 @@
+[package]
+name = "sovereign-precision-profile"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "A declarative, opt-in/opt-out precision plan for the decoder stack: a serde-able profile that maps each layer (and named high-precision projections) to an execution Precision (f32 / ternary / NVFP4 / INT8-VNNI) plus per-tier AVX-512 exploitation flags, with named presets and an f32 default that opts out of all quantization. Nothing is hardcoded — the runtime resolves precision per layer from the profile. Composes sovereign-linear."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+sovereign-linear = { path = "../sovereign-linear" }

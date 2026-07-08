@@ -1,0 +1,106 @@
+# Selfdef MS048 Goldilocks Scheduler Prometheus alerting rules.
+# Consumes selfdef-scheduler-textfile gauges (selfdef MS048 M01168 + M01174).
+# Architectural peer of the 14 IPS observer rules already on
+# IPS-host-overview — same "wrapper sentinel" + "observer-silent" +
+# per-axis pattern.
+
+groups:
+  - name: selfdef-scheduler
+    interval: 30s
+    rules:
+
+      - alert: SelfdefSchedulerTextfileEmitFailed
+        expr: selfdef_scheduler_textfile_emit_failed > 0
+        for: 5m
+        labels:
+          severity: critical
+          subsystem: selfdef-scheduler
+          cd_link: observer-fault
+        annotations:
+          summary: "Selfdef scheduler observer fault on {{ $labels.instance }}"
+          description: "Wrapper failure for 5+ minutes. MS048 Goldilocks Scheduler observability lost — neither Prometheus textfile nor OCSF JSONL is updating."
+          runbook_url: "https://github.com/cyberpunk042/selfdef/blob/main/docs/operator/ms048-scheduler-failure-modes.md#2-textfile-emit-failed"
+
+      - alert: SelfdefSchedulerObserverSilent
+        expr: time() - selfdef_scheduler_last_run_unix > 300
+        for: 2m
+        labels:
+          severity: critical
+          subsystem: selfdef-scheduler
+          cd_link: observer-silent
+        annotations:
+          summary: "Selfdef scheduler observer silent on {{ $labels.instance }}"
+          description: "selfdef-scheduler-textfile.timer hasn't fired in 5+ minutes. Substrate→cockpit observability path broken."
+          runbook_url: "https://github.com/cyberpunk042/selfdef/blob/main/docs/operator/ms048-scheduler-failure-modes.md#3-observer-silent"
+
+      - alert: SelfdefSchedulerAllSubstratesDegraded
+        expr: selfdef_scheduler_substrate_degraded_count == 3
+        for: 10m
+        labels:
+          severity: critical
+          subsystem: selfdef-scheduler
+          cd_link: substrate-blind
+        annotations:
+          summary: "Selfdef scheduler operating BLIND on {{ $labels.instance }} — all 3 substrate sources degraded"
+          description: "PSI + DCGM + human-gate all reporting Unavailable or Errored for 10+ minutes. MS048 scheduler cannot observe any backpressure surface. Operator action: check /proc/pressure, nvidia driver, /var/lib/selfdef/ state root."
+          runbook_url: "https://github.com/cyberpunk042/selfdef/blob/main/docs/operator/ms048-scheduler-failure-modes.md#4-all-substrates-blind"
+
+      - alert: SelfdefSchedulerSubstrateDegraded
+        expr: selfdef_scheduler_substrate_degraded_count > 0 and selfdef_scheduler_substrate_degraded_count < 3
+        for: 30m
+        labels:
+          severity: warning
+          subsystem: selfdef-scheduler
+          cd_link: substrate-partial
+        annotations:
+          summary: "{{ $value }} of 3 selfdef-scheduler substrates degraded on {{ $labels.instance }} for 30m"
+          description: "Partial substrate degradation — see selfdef_scheduler_substrate_status labels for the per-source reason (kind=unavailable|errored, reason=human-readable). Some backpressure surfaces still fed; some blind."
+          runbook_url: "https://github.com/cyberpunk042/selfdef/blob/main/docs/operator/ms048-scheduler-failure-modes.md#5-partial-substrate-degradation"
+
+      - alert: SelfdefSchedulerBlackwellVramExhaustion
+        expr: selfdef_scheduler_blackwell_vram_high == 1 and (selfdef_scheduler_cpu_pressure == 1 or selfdef_scheduler_ram_pressure == 1)
+        for: 5m
+        labels:
+          severity: critical
+          subsystem: selfdef-scheduler
+          cd_link: blackwell-exhaustion
+        annotations:
+          summary: "Blackwell VRAM + host pressure on {{ $labels.instance }} — critical exhaustion pattern"
+          description: "MS048 R11193 backpressure table critical pattern: Blackwell VRAM threshold crossed AND (CPU OR RAM) pressure also firing. Oracle GPU saturated while host can't keep up. Operator action: throttle inference requests via MS040 profile (private or careful) until pressure clears."
+          runbook_url: "https://github.com/cyberpunk042/selfdef/blob/main/docs/operator/ms048-scheduler-failure-modes.md#6-blackwell--host-pressure"
+
+      - alert: SelfdefSchedulerHumanGateQueueHigh
+        expr: selfdef_scheduler_human_gate_queue_depth > 10
+        for: 30m
+        labels:
+          severity: warning
+          subsystem: selfdef-scheduler
+          cd_link: human-gate-backlog
+        annotations:
+          summary: "{{ $value }} pending operator decisions on {{ $labels.instance }} for 30m — human-gate backlog"
+          description: "Sum of pending operator-restore decisions across all 14 IPS primitives is high. Operator engagement with the cockpit pending-queue cards needed — the scheduler will defer autonomous routing per peace-machine clause 'sovereign enough that intelligence remains in the user's hands'."
+          runbook_url: "https://github.com/cyberpunk042/selfdef/blob/main/docs/operator/ms048-scheduler-failure-modes.md#7-human-gate-backlog"
+
+      - alert: SelfdefSchedulerHighHibernateRate
+        expr: selfdef_scheduler_decisions_in_ring > 0 and (selfdef_scheduler_decisions_hibernate / selfdef_scheduler_decisions_in_ring) > 0.5
+        for: 15m
+        labels:
+          severity: warning
+          subsystem: selfdef-scheduler
+          cd_link: scheduler-deferring
+        annotations:
+          summary: "Over half of recent selfdef-scheduler decisions deferred (Hibernate) on {{ $labels.instance }}"
+          description: "More than 50% of the decisions in the ring window routed to Hibernate for 15+ minutes — the Key Scheduling Law is refusing to commit (high risk under a verifying profile with the oracle tier unavailable, or all compute tiers under backpressure). The scheduler is correctly deferring per the peace-machine clause 'sovereign enough that intelligence remains in the user's hands', but sustained deferral means real work is not being routed. Operator action: clear backpressure (free Blackwell VRAM / reduce host pressure) OR resolve the human-gate queue OR relax the active MS040 profile so verification-gated work can proceed."
+          runbook_url: "https://github.com/cyberpunk042/selfdef/blob/main/docs/operator/ms048-scheduler-failure-modes.md#12-sustained-routing-deferral-high-hibernate-rate"
+
+      - alert: SelfdefSchedulerMultipleBackpressureFiring
+        expr: (selfdef_scheduler_cpu_pressure + selfdef_scheduler_ram_pressure + selfdef_scheduler_io_pressure + selfdef_scheduler_blackwell_vram_high + selfdef_scheduler_gpu3090_busy + selfdef_scheduler_human_gate_queue_high) >= 3
+        for: 15m
+        labels:
+          severity: warning
+          subsystem: selfdef-scheduler
+          cd_link: multi-surface-pressure
+        annotations:
+          summary: "{{ $value }} of 6 backpressure surfaces firing on {{ $labels.instance }} for 15m"
+          description: "Multiple resource axes under pressure simultaneously. Scheduler is throttling autonomous routing. Operator review of workload + profile selection (eight-axis choice surface — fast/careful, scout/oracle, etc.) may be warranted."
+          runbook_url: "https://github.com/cyberpunk042/selfdef/blob/main/docs/operator/ms048-scheduler-failure-modes.md#8-multiple-backpressure-surfaces-firing"

@@ -1,0 +1,18 @@
+[package]
+name = "sovereign-vnni"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "AVX-512 VNNI (VPDPBUSD) INT8 fusion (M074) — the fused 4-way unsigned×signed byte multiply-accumulate into i32, plus an INT8 matvec built on it. Pure-Rust reference whose numerics match the hardware VPDPBUSD path; the INT8 compute kernel beside the ternary (bitlinear) and 4-bit (nvfp4) kernels."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }

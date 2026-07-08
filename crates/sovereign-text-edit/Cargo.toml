@@ -1,0 +1,18 @@
+[package]
+name = "sovereign-text-edit"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Precise find-and-replace text editing: apply edits that each require their target to occur exactly once (rejecting ambiguous or missing matches), the safe edit model a code-editing agent uses to change a file without clobbering the wrong spot. The apply side of the line-diff."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }

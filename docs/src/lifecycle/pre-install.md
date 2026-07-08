@@ -27,7 +27,7 @@ profile doesn't require this gate), or FAILs (with a remediation hint).
 |---|---|---|
 | `friction-audit-spec.sh` | Validates profile YAML internal consistency (CPU march/features, GPU role coherence, storage roles, vfio_companion, motherboard PCIe constraints) | always runs |
 | `preflight-network.sh` | DNS resolves the Debian mirror + huggingface.co; HTTP 200 from `<mirror>/debian/dists/<release>/Release`; default route present | always runs; can skip HF via `SOVEREIGN_OS_PREFLIGHT_SKIP_HF=1` |
-| `preflight-tpm.sh` | TPM2 device node + tpm2-tools + UEFI vars + MOK key/cert coherence | SKIPs unless `kernel.cmdline.secure_boot=true` |
+| `preflight-tpm.sh` | TPM2 device node + tpm2-tools + UEFI vars + MOK key/cert coherence | Runs for `kernel.cmdline.secure_boot` = `signed` or `shim` (SDD-015 enum); SKIPs for `none`/unset |
 | `preflight-storage.sh` | Each declared storage device size-class matches lsblk reality; zpool/zfs tooling present for zfs-tiered layouts; >10GB writable disk available | always runs; size-mismatches WARN (not FAIL) |
 
 Run the full preflight against the active profile:

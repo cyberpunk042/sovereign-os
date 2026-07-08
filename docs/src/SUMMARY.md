@@ -10,6 +10,9 @@
 - [Install runbook (SAIN-01)](./install-runbook.md)
 - [Verbatim-preservation surface (SDD-037)](./verbatim-surface.md)
 - [§1g 8-surface delivery contract (SDD-039)](./verbatim-surface.md#c-28--1g-8-surface-delivery-contract-r453-anchor--sdd-039-doctrine)
+- [Flexible tiered feature+model exploitation (SDD-043)](../sdd/043-flexible-tiered-feature-model-exploitation.md)
+- [Unified dashboard surface (SDD-044)](../sdd/044-unified-dashboard-surface.md)
+- [Dashboard control-surface buildout (SDD-045)](../sdd/045-dashboard-control-surface-buildout.md)
 
 # The 10-PR foundation phase
 
@@ -54,5 +57,6 @@
 - [Build pipeline](./ops/build.md)
 - [Image installation](./ops/install.md)
 - [Lifecycle management](./ops/manage.md)
+- [Managing THIS OS (run-on-host)](./ops/run-on-host.md)
 - [Profile authoring](./ops/profiles.md)
 - [Whitelabel authoring](./ops/whitelabel.md)

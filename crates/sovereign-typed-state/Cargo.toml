@@ -1,0 +1,20 @@
+[package]
+name = "sovereign-typed-state"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "E0557 — the Critical Data Flow Law: 'Text is not the system state. Text is payload inside typed state.' The real task state as 8 typed components (frames/routes/policies/memory_refs/tool_observations/eval_results/commits/traces). Integrates sovereign-trace-context for traces + commits."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+sovereign-trace-context = { path = "../sovereign-trace-context" }
+
+[dev-dependencies]
+serde_json = { workspace = true }

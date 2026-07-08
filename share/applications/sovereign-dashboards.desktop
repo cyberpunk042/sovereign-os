@@ -1,0 +1,16 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Sovereign Dashboards
+GenericName=Operator Dashboards
+Comment=Open the sovereign-os dashboard hub (master-dashboard + every D-NN panel)
+# Opens the panel hub served by sovereign-dashboards.service on loopback.
+# xdg-open hands off to the operator's default browser (Debian 13 GNOME
+# ships one). The hub at :8100 statically serves every webapp/ panel and a
+# discovery index at /panels/, so this single entry reaches them all.
+Exec=xdg-open http://127.0.0.1:8100/
+Terminal=false
+Icon=utilities-system-monitor
+Categories=System;Monitor;Network;
+Keywords=sovereign;dashboard;cockpit;panel;operator;monitor;
+StartupNotify=false

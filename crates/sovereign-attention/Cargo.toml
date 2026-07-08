@@ -1,0 +1,18 @@
+[package]
+name = "sovereign-attention"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Numerically-stable scaled-dot-product attention engine: the naive full-softmax kernel plus the online-softmax (FlashAttention) recurrence that computes the identical result in one streaming pass without ever materializing the score row, and an incremental decode-time accumulator that attends a query against a growing KV cache one token at a time."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }

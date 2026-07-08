@@ -40,7 +40,7 @@ Plan-agent PR 6 ships:
 - It's the operator's procured-hardware target per the SAIN-01
   milestone (info-hub `wiki/backlog/milestones/sain-01-sovereign-node.md`).
 - Hardware spec is **fully known** (E100 + L1 syntheses): 9900X +
-  RTX Pro 6000 Blackwell 96 GB + RTX 3090 24 GB + 256 GB DDR5 + dual
+  RTX Pro 6000 Blackwell 96 GB + RTX 4090 24 GB + 256 GB DDR5 + dual
   PCIe 5 NVMe + Marvell AQC113C 10 GbE + Intel I226-V 2.5 GbE on
   ASUS ProArt X870E-Creator.
 - Exercises **every schema block**: identity / hardware (CPU

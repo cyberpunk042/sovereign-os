@@ -199,6 +199,29 @@ else
   ko "operator override didn't win"
 fi
 
+# ---------- SDD-043: tier_intent resolves to a concrete model at launch ----------
+# A generated (intent-driven) profile has no literal `model`; the lib must
+# resolve it via scripts/models/select-by-intent.py so start scripts work.
+GEN="${__REPO_ROOT}/scripts/operator/generate-runtime-profile.py"
+INTENT_YAML="${__REPO_ROOT}/profiles/runtime/_test_intent_honoring.yaml"
+if [ -x "${GEN}" ]; then
+  "${GEN}" --hardware sain-01 --strategy high-concurrency \
+    --out "${INTENT_YAML}" --no-validate >/dev/null 2>&1 || true
+  sed -i 's/^  id: .*/  id: _test_intent_honoring/' "${INTENT_YAML}" 2>/dev/null || true
+  set +e
+  resolved="$(bash -c ". '${LIB}'; SOVEREIGN_OS_RUNTIME_PROFILE=_test_intent_honoring \
+    runtime_profile_get_tier_field oracle model" 2>/dev/null)"
+  set -e
+  rm -f "${INTENT_YAML}"
+  if [ -n "${resolved}" ] && [[ "${resolved}" != *tier_intent* ]]; then
+    ok "tier_intent oracle resolved to a concrete model at launch (${resolved})"
+  else
+    ko "tier_intent did not resolve to a model (got: '${resolved}')"
+  fi
+else
+  ok "generator absent — tier_intent resolution test skipped"
+fi
+
 # ---------- result ----------
 echo
 total=$((pass + fail))

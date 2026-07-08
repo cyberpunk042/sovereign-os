@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-retry"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Retry with exponential backoff and deterministic jitter: computes the delay schedule (base * multiplier^attempt, capped), decides whether to retry, and runs a fallible operation with an injectable sleep so the policy is fully testable. The resilience primitive for an agent calling flaky tools or networks."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

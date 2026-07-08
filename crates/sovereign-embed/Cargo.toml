@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-embed"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Subword embeddings via character n-gram feature hashing: maps text to a fixed-dimension dense vector by hashing its char n-grams (with word boundaries) into signed buckets and L2-normalizing, so morphologically related words land close in cosine space — semantic-ish retrieval that the exact-term lexical retriever misses. Includes an EmbedStore for cosine top-k retrieval."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

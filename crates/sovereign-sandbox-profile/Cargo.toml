@@ -1,0 +1,19 @@
+[package]
+name = "sovereign-sandbox-profile"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "E0461 / M00804 — the 8 container/sandbox-fabric profiles (read-only-repo / write-workspace / network-denied / network-docs-only / gpu-scout / no-gpu / vm-isolated / vfio-4090), grouped by the dimension each controls (filesystem / network / gpu / isolation)."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

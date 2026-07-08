@@ -1,0 +1,86 @@
+{
+  "_comment": "sovereign-os selfdef SDD-072 process-tree-freezes dashboard. Extends the IPS-septet observability set to octet (#39 blockset + #40 quarantine + #41 revocations + #42 token-revocations + #43 mfa-grant-revocations + #44 netns-isolations + #45 mount-bindings + #46 this dashboard) at the process-graph containment axis.",
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {"title": "SDD-072 spec", "url": "https://github.com/cyberpunk042/selfdef/blob/main/docs/sdd/072-process-tree-freeze-action-surface.md", "type": "link", "icon": "external link"},
+    {"title": "blockset (SDD-065)", "url": "/d/sovereign-os-selfdef-blockset", "type": "link", "icon": "external link"},
+    {"title": "quarantine (SDD-066)", "url": "/d/sovereign-os-selfdef-quarantine", "type": "link", "icon": "external link"},
+    {"title": "revocations (SDD-067)", "url": "/d/sovereign-os-selfdef-revocations", "type": "link", "icon": "external link"},
+    {"title": "token-revocations (SDD-068)", "url": "/d/sovereign-os-selfdef-token-revocations", "type": "link", "icon": "external link"},
+    {"title": "mfa-grant-revocations (SDD-069)", "url": "/d/sovereign-os-selfdef-mfa-grant-revocations", "type": "link", "icon": "external link"},
+    {"title": "netns-isolations (SDD-070)", "url": "/d/sovereign-os-selfdef-netns-isolations", "type": "link", "icon": "external link"},
+    {"title": "mount-bindings (SDD-071)", "url": "/d/sovereign-os-selfdef-mount-bindings", "type": "link", "icon": "external link"}
+  ],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "process-tree-freezes state-dir present",
+      "description": "Red at 0 = SDD-072 enforcement OFFLINE.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_process_tree_freezes_state_dir_present", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1, "mappings": [{"type": "value", "options": {"0": {"text": "OFFLINE"}, "1": {"text": "OK"}}}], "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": 0}, {"color": "green", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "active process-tree freezes (handles)",
+      "description": "Yellow at 10. Process-graph containment axis — handles, not pids.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_process_tree_freezes_active_count", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 10}, {"color": "red", "value": 50}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "frozen pids (sum across handles)",
+      "description": "Yellow at 100 (fork-bomb-scale). One handle covers many pids.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_process_tree_freezes_frozen_pid_count", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 100}, {"color": "red", "value": 1000}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "observer sentinel",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_process_tree_freezes_textfile_emit_failed", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": 0}, {"color": "red", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0}
+    },
+    {
+      "type": "timeseries",
+      "title": "process-tree state — handles vs frozen-pids vs pending-thaws",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "selfdef_process_tree_freezes_active_count", "legendFormat": "active handles", "refId": "A"},
+        {"expr": "selfdef_process_tree_freezes_frozen_pid_count", "legendFormat": "frozen pids", "refId": "B"},
+        {"expr": "selfdef_process_tree_freezes_pending_thaws", "legendFormat": "pending thaws", "refId": "C"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none"}},
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 4}
+    },
+    {
+      "type": "timeseries",
+      "title": "state-dir presence over time",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_process_tree_freezes_state_dir_present", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1}},
+      "gridPos": {"h": 6, "w": 24, "x": 0, "y": 12}
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["sovereign-os", "selfdef", "process-tree-freezes", "sdd-072", "IPS-spine", "security", "enforcement-layer", "ips-octet", "process-graph"],
+  "templating": {"list": []},
+  "time": {"from": "now-24h", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "sovereign-os — selfdef SDD-072 process-tree-freezes (process-graph containment layer)",
+  "uid": "sovereign-os-selfdef-process-tree-freezes",
+  "version": 1,
+  "weekStart": ""
+}

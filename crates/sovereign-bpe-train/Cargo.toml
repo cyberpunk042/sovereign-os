@@ -1,0 +1,16 @@
+[package]
+name = "sovereign-bpe-train"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Byte-pair-encoding training: learns merge rules from a corpus by iteratively fusing the most frequent adjacent symbol pair, producing a ready-to-use byte-level tokenizer. The training counterpart to sovereign-tokenizer (which only applies merges). Composes sovereign-tokenizer."
+
+[lints]
+workspace = true
+
+[dependencies]
+sovereign-tokenizer = { path = "../sovereign-tokenizer" }

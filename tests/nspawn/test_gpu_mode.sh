@@ -67,7 +67,7 @@ assert 'no Layer B signals' in d['reason'], d
 # ---- auto with high GPU draw → sustained ----
 mkdir -p "${TMP}/heavy"
 cat > "${TMP}/heavy/sovereign-os-gpu-watch.prom" <<'PROM'
-sovereign_os_gpu_power_draw_watts{gpu="3090",idx="0"} 280
+sovereign_os_gpu_power_draw_watts{gpu="4090",idx="0"} 280
 PROM
 out="$(SOVEREIGN_OS_METRICS_DIR="${TMP}/heavy" python3 "${SCRIPT}" auto --json)"
 echo "${out}" | python3 -c "
@@ -82,8 +82,8 @@ assert '280' in d['reason'], d
 # ---- auto with sustained-warning fired → sustained (regardless of draw) ----
 mkdir -p "${TMP}/warn"
 cat > "${TMP}/warn/sovereign-os-gpu-watch.prom" <<'PROM'
-sovereign_os_gpu_power_draw_watts{gpu="3090",idx="0"} 90
-sovereign_os_gpu_sustained_draw_warning{gpu="3090",idx="0"} 1
+sovereign_os_gpu_power_draw_watts{gpu="4090",idx="0"} 90
+sovereign_os_gpu_sustained_draw_warning{gpu="4090",idx="0"} 1
 PROM
 out="$(SOVEREIGN_OS_METRICS_DIR="${TMP}/warn" python3 "${SCRIPT}" auto --json)"
 echo "${out}" | python3 -c "
@@ -99,7 +99,7 @@ assert d['signals']['gpu_sustained_warn_active'] is True, d
 # ---- auto with mid draw → balanced ----
 mkdir -p "${TMP}/mid"
 cat > "${TMP}/mid/sovereign-os-gpu-watch.prom" <<'PROM'
-sovereign_os_gpu_power_draw_watts{gpu="3090",idx="0"} 140
+sovereign_os_gpu_power_draw_watts{gpu="4090",idx="0"} 140
 PROM
 out="$(SOVEREIGN_OS_METRICS_DIR="${TMP}/mid" python3 "${SCRIPT}" auto --json)"
 echo "${out}" | python3 -c "

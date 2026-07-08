@@ -1,0 +1,15 @@
+[package]
+name = "sovereign-jaro-winkler"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Jaro and Jaro-Winkler string similarity: a transposition-aware match score in [0,1] that rewards shared characters within a sliding window and boosts strings sharing a common prefix. Strong on short strings and names where edit distance is coarse — a complement to Levenshtein for fuzzy matching and ranking."
+
+[lints]
+workspace = true
+
+[dependencies]

@@ -88,7 +88,7 @@ CANONICAL_FIXTURE: dict = {
             },
             {
                 "vram_bytes": 25769803776,
-                "model_hint": "NVIDIA GeForce RTX 3090",
+                "model_hint": "NVIDIA GeForce RTX 4090",
                 "power_limit_watts": 350,
                 "power_draw_watts": 180,
             },

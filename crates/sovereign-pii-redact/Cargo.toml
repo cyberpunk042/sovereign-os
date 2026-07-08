@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-pii-redact"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Detect and redact personally identifiable information from text: emails, US SSNs, IPv4 addresses, and credit-card numbers (validated with the Luhn checksum to cut false positives). Returns typed detections with spans and a redacted copy — a privacy gate for logging, telemetry, and anything leaving the device."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

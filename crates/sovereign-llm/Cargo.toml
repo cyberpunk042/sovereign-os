@@ -1,0 +1,50 @@
+[package]
+name = "sovereign-llm"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "The end-to-end sovereign LLM runtime: ties the byte-level BPE tokenizer to the decoder-only transformer stack so you can go straight from a text prompt to generated text. tokenizer.encode -> decoder-stack.generate -> tokenizer.decode, deterministic per seed. The runnable text-to-text capstone of the inference engine. Composes sovereign-tokenizer and sovereign-decoder-stack."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+sovereign-tokenizer = { path = "../sovereign-tokenizer" }
+sovereign-decoder-stack = { path = "../sovereign-decoder-stack" }
+sovereign-logit-mask = { path = "../sovereign-logit-mask" }
+sovereign-sampler = { path = "../sovereign-sampler" }
+sovereign-perplexity = { path = "../sovereign-perplexity" }
+sovereign-prompt-compress = { path = "../sovereign-prompt-compress" }
+sovereign-diversity = { path = "../sovereign-diversity" }
+sovereign-degeneration = { path = "../sovereign-degeneration" }
+sovereign-answer-extract = { path = "../sovereign-answer-extract" }
+sovereign-secret-scan = { path = "../sovereign-secret-scan" }
+sovereign-pii-redact = { path = "../sovereign-pii-redact" }
+sovereign-toxicity = { path = "../sovereign-toxicity" }
+sovereign-logprobs = { path = "../sovereign-logprobs" }
+sovereign-json-extract = { path = "../sovereign-json-extract" }
+sovereign-regex-constrain = { path = "../sovereign-regex-constrain" }
+sovereign-token-healing = { path = "../sovereign-token-healing" }
+sovereign-json-schema-grammar = { path = "../sovereign-json-schema-grammar" }
+sovereign-token-grammar-mask = { path = "../sovereign-token-grammar-mask" }
+sovereign-context-budget = { path = "../sovereign-context-budget" }
+sovereign-xtc-sampler = { path = "../sovereign-xtc-sampler" }
+sovereign-dry-sampler = { path = "../sovereign-dry-sampler" }
+sovereign-repetition-penalty = { path = "../sovereign-repetition-penalty" }
+sovereign-typical-sampling = { path = "../sovereign-typical-sampling" }
+sovereign-semantic-cache = { path = "../sovereign-semantic-cache" }
+sovereign-self-consistency = { path = "../sovereign-self-consistency" }
+sovereign-best-of-n = { path = "../sovereign-best-of-n" }
+sovereign-confidence-calibration = { path = "../sovereign-confidence-calibration" }
+
+[dev-dependencies]
+sovereign-transformer-block = { path = "../sovereign-transformer-block" }
+sovereign-rmsnorm = { path = "../sovereign-rmsnorm" }
+sovereign-ffn = { path = "../sovereign-ffn" }

@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sovereign-os · models &amp; catalog</title>
+<meta name="x-sovereign-module" content="models-catalog-webapp">
+<meta name="x-sovereign-shipped-in" content="SDD-045 §5 (Phase E) — net-new Models dashboard">
+<meta name="x-sovereign-standing-rule" content="We do not minimize anything.">
+<style>
+  :root{
+    --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --accent:#9bd1ff;
+    --good:#7ad17a; --bad:#ff7676; --warn:#e6c062;
+    --panel:#171717; --border:#262626;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:14px;line-height:1.5}
+  body{padding:1.2rem;max-width:1200px;margin:0 auto}
+  h1{font-size:1.4rem;margin:0 0 .2rem 0;font-weight:600}
+  h2{font-size:1rem;margin:1.6rem 0 .4rem 0;font-weight:600;color:var(--accent)}
+  .sub{color:var(--muted);margin-bottom:1rem;font-size:.85rem}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.9rem 1rem;margin:.6rem 0}
+  .row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center}
+  .stat{flex:1 1 150px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.6rem .8rem}
+  .stat .k{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em}
+  .stat .v{font-size:1.3rem;margin-top:.1rem}
+  table{width:100%;border-collapse:collapse;font-size:.82rem;margin-top:.4rem}
+  th,td{text-align:left;padding:.35rem .5rem;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:.74rem;text-transform:uppercase;letter-spacing:.04em;cursor:pointer}
+  tr:last-child td{border-bottom:none}
+  .num{text-align:right;font-variant-numeric:tabular-nums}
+  .pill{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.7rem;background:var(--border)}
+  .pill.pulse{background:#13303d;color:var(--accent)}
+  .pill.logic{background:#143d14;color:var(--good)}
+  .pill.oracle{background:#3a3410;color:var(--warn)}
+  .pill.real{background:#143d14;color:var(--good)}
+  .pill.aspirational{background:#3a3410;color:var(--warn)}
+  .pill.confirm{background:#3d1414;color:var(--bad)}
+  .muted{color:var(--muted)}
+  select,input{font-family:var(--mono);background:var(--panel);color:var(--fg);border:1px solid var(--border);padding:.3rem .5rem;border-radius:3px}
+  label{font-size:.78rem;color:var(--muted);display:flex;gap:.3rem;align-items:center}
+  .status{font-size:.75rem}
+  .status.ok{color:var(--good)}
+  .status.bad{color:var(--bad)}
+  code{background:var(--panel);border:1px solid var(--border);border-radius:3px;padding:0 .3rem;font-size:.9em}
+  footer{margin-top:2rem;color:var(--muted);font-size:.75rem;border-top:1px solid var(--border);padding-top:.8rem}
+  .standing-rule{color:var(--accent);font-style:italic;margin-top:.4rem}
+</style>
+</head>
+<body>
+<h1>models &amp; catalog</h1>
+<p class="sub">
+  The full model catalog across The Genesis Trinity (master-spec §17 · Pulse /
+  Logic / Oracle) — every class, quantization, size and purpose, VRAM-aware.
+  <span id="status" class="status">loading…</span>
+</p>
+
+<div class="row" id="stats"></div>
+
+<h2>filter</h2>
+<div class="panel">
+  <div class="row">
+    <label>tier <select id="f-tier"><option value="">all</option></select></label>
+    <label>class <select id="f-class"><option value="">all</option></select></label>
+    <label>quant <select id="f-quant"><option value="">all</option></select></label>
+    <label>purpose <select id="f-purpose"><option value="">all</option></select></label>
+    <label>status <select id="f-status"><option value="">all</option></select></label>
+    <label>max VRAM <input id="f-vram" type="number" min="0" step="1" style="width:5rem" placeholder="GiB"></label>
+    <span class="spacer" style="flex:1"></span>
+    <span class="muted" id="count"></span>
+  </div>
+</div>
+
+<h2>models</h2>
+<div class="panel">
+  <table>
+    <thead><tr>
+      <th data-k="id">id</th><th data-k="tier">tier</th><th data-k="class">class</th>
+      <th data-k="quantization">quant</th><th data-k="size_class">size</th>
+      <th data-k="purpose">purpose</th><th class="num" data-k="vram_gib_min">VRAM</th>
+      <th class="num" data-k="context_window_tokens">ctx</th><th data-k="status">status</th>
+    </tr></thead>
+    <tbody id="rows"><tr><td colspan="9" class="muted">loading…</td></tr></tbody>
+  </table>
+</div>
+
+
+<!-- SDD-045 Phase C — control surface (INLINED per the single-file doctrine).
+     Renders config/control-systems.yaml (served at /control-systems): the
+     global controls (profile / dashboard on-off / auth tier) + the modes &
+     feature toggles that govern THIS panel. Read-only: each control copies
+     its exact sovereign-osctl command. Canonical source (lockstep-linted):
+     webapp/_shared/control-surface.{css,js}. -->
+<h2>controls — profiles, modes &amp; feature toggles</h2>
+<div id="control-surface" class="cs-grid"><div class="cs-empty">loading controls…</div></div>
+<style>
+/* webapp/_shared/control-surface.css — SDD-045 shared control-surface.
+ * Renders the control-systems registry (profiles / modes / feature toggles)
+ * as a grid of control cards. Monochrome, framework-free; inherits the
+ * panel palette variables (--bg/--fg/--muted/--accent/--border/--mono). */
+.cs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: .5rem; }
+.cs-card {
+  display: flex; flex-direction: column; gap: .35rem;
+  padding: .6rem .75rem; border: 1px solid var(--border, #262626);
+  border-radius: .4rem; background: rgba(255, 255, 255, .02);
+}
+.cs-head { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.cs-label { font-weight: 600; flex: 1; }
+.cs-kind {
+  font-size: .7rem; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--muted, #888); border: 1px solid var(--border, #262626);
+  border-radius: 3px; padding: 0 .35rem;
+}
+.cs-global {
+  font-size: .7rem; color: var(--accent, #9bd1ff);
+  border: 1px solid var(--accent, #9bd1ff); border-radius: 3px; padding: 0 .35rem;
+}
+.cs-desc { color: var(--muted, #888); font-size: .8rem; line-height: 1.45; }
+.cs-opts { display: flex; flex-wrap: wrap; gap: .3rem; }
+.cs-opt { font-size: .72rem; background: var(--border, #262626); border-radius: 3px; padding: 1px 6px; }
+.cs-cmd {
+  font-family: var(--mono, ui-monospace, monospace); font-size: .74rem;
+  text-align: left; color: var(--fg, #e6e6e6); background: var(--bg, #0e0e0e);
+  border: 1px solid var(--border, #262626); border-radius: 3px;
+  padding: .25rem .4rem; cursor: pointer; overflow-x: auto; white-space: nowrap;
+}
+.cs-cmd:hover { border-color: var(--accent, #9bd1ff); }
+.cs-empty { color: var(--muted, #888); }
+</style>
+<script>
+/* webapp/_shared/control-surface.js — SDD-045 shared control-surface renderer.
+ *
+ * Renders the control-systems registry (config/control-systems.yaml, served
+ * as GET /control-systems) — the operator's "everything can be turned on and
+ * off + tons of modes and profiles" — as a grid of control cards. Reused by
+ * every dashboard so each becomes a CONTROL surface.
+ *
+ * Web is READ-ONLY: each control shows its options and copies its exact
+ * `change_cli` for the operator to run. It NEVER mutates privileged state
+ * (§1g / hardening lint). No framework, no CDN — a single same-origin file.
+ *
+ * Usage:
+ *   const n = SovereignControlSurface.render(el, systems, {
+ *     filterSlug: 'runtime-modes',   // only global + systems governing this slug
+ *     onCopy: (cmd) => showToast(cmd) // optional copy callback
+ *   });
+ */
+(function (global) {
+  "use strict";
+
+  function esc(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  function render(containerEl, systems, opts) {
+    opts = opts || {};
+    var slug = opts.filterSlug || null;
+    var list = (systems || []).filter(function (s) {
+      if (!slug) return true;                       // no filter → all systems
+      return s.scope === "global" ||                // globals show everywhere
+        (s.applies_to || []).indexOf(slug) >= 0;    // + systems governing slug
+    });
+    var html = list.map(function (s) {
+      var pills = (s.options || []).map(function (o) {
+        return '<span class="cs-opt">' + esc(o) + "</span>";
+      }).join("");
+      var change = esc(s.change_cli || "");
+      return '<div class="cs-card cs-' + esc(s.kind) + '">'
+        + '<div class="cs-head">'
+        + '<span class="cs-label">' + esc(s.label) + "</span>"
+        + '<span class="cs-kind">' + esc(s.kind) + "</span>"
+        + (s.scope === "global" ? '<span class="cs-global">global</span>' : "")
+        + "</div>"
+        + '<div class="cs-desc">' + esc(s.description) + "</div>"
+        + '<div class="cs-opts">' + pills + "</div>"
+        + (change
+            ? '<button class="cs-cmd" data-cmd="' + change
+              + '" title="click to copy the operator command">$ ' + change + "</button>"
+            : "")
+        + "</div>";
+    }).join("");
+    containerEl.innerHTML = html || '<div class="cs-empty">(no controls for this surface)</div>';
+    Array.prototype.forEach.call(containerEl.querySelectorAll(".cs-cmd"), function (b) {
+      b.addEventListener("click", function () {
+        var cmd = b.getAttribute("data-cmd");
+        if (navigator.clipboard) navigator.clipboard.writeText(cmd);
+        if (typeof opts.onCopy === "function") opts.onCopy(cmd);
+      });
+    });
+    return list.length;
+  }
+
+  // Convenience: fetch /control-systems (same-origin) and render.
+  function load(containerEl, opts) {
+    return fetch("/control-systems", { headers: { Accept: "application/json" } })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data && data.error) {
+          containerEl.innerHTML = '<div class="cs-empty">controls unavailable: '
+            + esc(data.error) + "</div>";
+          return 0;
+        }
+        return render(containerEl, (data && data.systems) || [], opts);
+      })
+      .catch(function (e) {
+        containerEl.innerHTML = '<div class="cs-empty">controls unavailable: '
+          + esc(e && e.message) + "</div>";
+        return 0;
+      });
+  }
+
+  global.SovereignControlSurface = { render: render, load: load };
+})(window);
+</script>
+<script>SovereignControlSurface.load(document.getElementById('control-surface'),{filterSlug:'models-catalog'});</script>
+
+<footer>
+  <div>SDD-045 §5 · data: <code>GET /models-catalog.json</code> ← <code>models/catalog.yaml</code> ·
+    operator CLI: <code>sovereign-osctl models {list,query,select,pull,verify}</code></div>
+  <div class="standing-rule">"We do not minimize anything." — operator §1g standing rule</div>
+</footer>
+
+<script>
+"use strict";
+let MODELS = [], sortK = "id", sortAsc = true;
+const el = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;" }[c]));
+
+async function load() {
+  try {
+    const r = await fetch("/models-catalog.json", { headers: { Accept: "application/json" } });
+    const d = await r.json();
+    if (d.error) throw new Error(d.error);
+    MODELS = (d.catalog && d.catalog.models) || [];
+    el("status").textContent = "live ✓ — " + MODELS.length + " models";
+    el("status").className = "status ok";
+    buildFilters(); renderStats(); render();
+  } catch (e) {
+    el("status").textContent = "live ✗ — " + e.message;
+    el("status").className = "status bad";
+    el("rows").innerHTML = '<tr><td colspan="9" class="bad">catalog unavailable: ' + esc(e.message) + '</td></tr>';
+  }
+}
+
+function uniq(key, flat) {
+  const s = new Set();
+  MODELS.forEach(m => {
+    const v = m[key];
+    if (Array.isArray(v) && flat) v.forEach(x => s.add(x));
+    else if (v != null) s.add(v);
+  });
+  return [...s].sort();
+}
+
+function buildFilters() {
+  const fill = (id, vals) => { const sel = el(id); vals.forEach(v => { const o = document.createElement("option"); o.value = v; o.textContent = v; sel.appendChild(o); }); };
+  fill("f-tier", uniq("tier")); fill("f-class", uniq("class")); fill("f-quant", uniq("quantization"));
+  fill("f-purpose", uniq("purpose", true)); fill("f-status", uniq("status"));
+  ["f-tier","f-class","f-quant","f-purpose","f-status","f-vram"].forEach(id => el(id).addEventListener("input", render));
+  document.querySelectorAll("th[data-k]").forEach(th => th.addEventListener("click", () => {
+    const k = th.dataset.k; sortAsc = sortK === k ? !sortAsc : true; sortK = k; render();
+  }));
+}
+
+function renderStats() {
+  const byTier = {};
+  MODELS.forEach(m => { byTier[m.tier] = (byTier[m.tier]||0)+1; });
+  const real = MODELS.filter(m => m.status === "verified-real").length;
+  const cards = [
+    ["models", MODELS.length], ["pulse", byTier.pulse||0], ["logic", byTier.logic||0],
+    ["oracle", byTier.oracle||0], ["verified-real", real],
+  ];
+  el("stats").innerHTML = cards.map(([k,v]) => '<div class="stat"><div class="k">'+k+'</div><div class="v">'+v+'</div></div>').join("");
+}
+
+function filtered() {
+  const t = el("f-tier").value, c = el("f-class").value, q = el("f-quant").value,
+        p = el("f-purpose").value, s = el("f-status").value, vram = parseFloat(el("f-vram").value);
+  return MODELS.filter(m =>
+    (!t || m.tier === t) && (!c || m.class === c) && (!q || m.quantization === q) &&
+    (!p || (m.purpose||[]).indexOf(p) >= 0) && (!s || m.status === s) &&
+    (isNaN(vram) || (m.vram_gib_min != null && m.vram_gib_min <= vram))
+  );
+}
+
+function render() {
+  const rows = filtered().sort((a,b) => {
+    let x = a[sortK], y = b[sortK];
+    if (Array.isArray(x)) x = x.join(","); if (Array.isArray(y)) y = y.join(",");
+    if (x == null) x = ""; if (y == null) y = "";
+    const r = (typeof x === "number" && typeof y === "number") ? x - y : String(x).localeCompare(String(y));
+    return sortAsc ? r : -r;
+  });
+  el("count").textContent = rows.length + " / " + MODELS.length;
+  const stMap = { "verified-real":"real", "aspirational":"aspirational", "operator-must-confirm":"confirm" };
+  el("rows").innerHTML = rows.map(m =>
+    "<tr><td><code>"+esc(m.id)+"</code></td>"
+    + '<td><span class="pill '+esc(m.tier)+'">'+esc(m.tier)+"</span></td>"
+    + "<td>"+esc(m.class)+"</td><td>"+esc(m.quantization)+"</td><td>"+esc(m.size_class)+"</td>"
+    + '<td class="muted">'+esc((m.purpose||[]).join(", "))+"</td>"
+    + '<td class="num">'+(m.vram_gib_min != null ? esc(m.vram_gib_min) : "—")+"</td>"
+    + '<td class="num">'+(m.context_window_tokens != null ? esc(m.context_window_tokens.toLocaleString()) : "—")+"</td>"
+    + '<td><span class="pill '+(stMap[m.status]||"")+'">'+esc(m.status)+"</span></td></tr>"
+  ).join("") || '<tr><td colspan="9" class="muted">no models match the filter</td></tr>';
+}
+
+load();
+</script>
+</body>
+</html>

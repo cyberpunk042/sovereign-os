@@ -144,15 +144,23 @@ state_step_should_run() {
 }
 
 state_inputs_hash() {
-  # state_inputs_hash <files...> → emits sha256 hex
-  # Used by step scripts to compute a content-fingerprint of their
-  # inputs (profile yaml, whitelabel yaml, schema file, etc.).
-  local files=("$@")
-  if command -v sha256sum >/dev/null 2>&1; then
-    cat -- "${files[@]}" 2>/dev/null | sha256sum | awk '{print $1}'
-  else
-    cat -- "${files[@]}" 2>/dev/null | shasum -a 256 | awk '{print $1}'
-  fi
+  # state_inputs_hash <files-or-literals...> → emits sha256 hex
+  # Each arg naming a readable file is hashed by content; any other arg
+  # is folded in as a literal fingerprint term (e.g. "epoch=1718000000").
+  # The cat-only version died under `set -euo pipefail` when step 04
+  # passed an epoch literal — caught by the first real build, 2026-06-10.
+  local arg
+  {
+    for arg in "$@"; do
+      if [ -f "${arg}" ]; then
+        cat -- "${arg}"
+      else
+        printf '%s\n' "${arg}"
+      fi
+    done
+  } | {
+    if command -v sha256sum >/dev/null 2>&1; then sha256sum; else shasum -a 256; fi
+  } | awk '{print $1}'
 }
 
 state_reset() {

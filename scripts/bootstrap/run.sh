@@ -180,7 +180,7 @@ else
   echo
   echo "  --apply is intentionally not wired this round: Phase III-V"
   echo "  artifacts are destructive (zfs-pool-create wipes NVMe, vfio-bind"
-  echo "  detaches the 3090, tetragon-policy-load installs kernel BPF)."
+  echo "  detaches the 4090, tetragon-policy-load installs kernel BPF)."
   echo "  Real execution lives at Layer 5 on the SAIN-01 box behind"
   echo "  SOVEREIGN_OS_CONFIRM_DESTROY=YES + interactive prompt."
 fi

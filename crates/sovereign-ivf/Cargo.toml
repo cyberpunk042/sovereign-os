@@ -1,0 +1,18 @@
+[package]
+name = "sovereign-ivf"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Inverted-file (IVF) approximate nearest-neighbour index: a k-means coarse quantizer partitions the vector space into Voronoi cells, each vector lands in a posting list, and a query scans only the few cells nearest its centroid (n_probe). The cluster-based counterpart to graph-based HNSW and the front half of IVF-PQ — sub-linear semantic search that trades a tunable slice of recall for large speedups over brute force."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+sovereign-kmeans = { path = "../sovereign-kmeans" }

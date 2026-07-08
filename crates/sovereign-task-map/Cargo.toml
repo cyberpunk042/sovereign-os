@@ -1,0 +1,19 @@
+[package]
+name = "sovereign-task-map"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "E0551 — Map (lifecycle step 4): the 4 domain-specific maps (code / research / GUI / OS-admin) and the components each gathers. 'MAP prevents blind action.'"
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

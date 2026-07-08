@@ -1,0 +1,18 @@
+[package]
+name = "sovereign-symbolic-plan"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "M031 Symbolic Planning plane — a STRIPS/PDDL forward planner (BFS over grounded actions with precondition/add/delete effects) plus plan verification ('prove things before acting'). Facts are a 64-bit set; pure-Rust reference. The bones the dump says give models formal structure."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }

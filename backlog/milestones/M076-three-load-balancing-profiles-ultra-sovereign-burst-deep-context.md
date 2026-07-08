@@ -315,7 +315,7 @@ Every R-row carries 10 hard non-negotiable sub-requirements. Total = 170 R × 10
 
 ## Cross-references
 
-- **M044** — substrate (Ryzen + RTX 3090 + Blackwell)
+- **M044** — substrate (Ryzen + RTX 4090 + Blackwell)
 - **M048** — modules map (Compute Fabric)
 - **M049** — observability + trace pipeline
 - **M055** — failure modes (allocation conflict taxonomy)

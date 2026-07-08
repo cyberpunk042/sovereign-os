@@ -77,11 +77,11 @@ EXPECTED_STRUCTURAL_BELOW_8 = {
     "audit-mirror",      # 6/8 — same M060 cross-repo mirror pattern
     "quarantine-mirror", # 6/8 — same M060 cross-repo mirror pattern
     "trust-mirror",      # 6/8 — same M060 cross-repo mirror pattern
-    "lm-status-operability",  # 4/8 — cockpit panel over the shared model-health core (cli/tui/dashboard/mcp n/a)
-    "lm-orchestration",       # 4/8 — cockpit panel over model-health + runtime-modes cores (cli/tui/dashboard/mcp n/a)
-    "models-catalog",         # 4/8 — cockpit panel over the shared load_catalog core (cli/tui/dashboard/mcp n/a)
-    "cpu-features",           # 4/8 — cockpit panel over the shared avx512-advisor (cli/tui/dashboard/mcp n/a)
-    "selfdef-management",     # 4/8 — READ-ONLY consumer cockpit over the m060-health proxy (cli/tui/dashboard/mcp n/a — R10212)
+    "lm-orchestration",       # 4/8 — cockpit panel over model-health + runtime cores (cli/tui/dashboard/mcp n/a)
+    "lm-status-operability",  # 4/8 — cockpit panel over the model-health core (cli/tui/dashboard/mcp n/a)
+    "models-catalog",         # 4/8 — cockpit panel over the load_catalog core (cli/tui/dashboard/mcp n/a)
+    "cpu-features",           # 4/8 — cockpit panel over avx512-advisor (cli/tui/dashboard/mcp n/a)
+    "selfdef-management",     # 4/8 — READ-ONLY consumer cockpit over m060-health proxy (cli/tui/dashboard/mcp n/a — R10212)
 }
 
 

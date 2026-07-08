@@ -27,7 +27,19 @@ PROFILE="${1:-sain-01}"
 profile_file="${__REPO_ROOT}/profiles/${PROFILE}.yaml"
 [ -f "${profile_file}" ] || { echo "FAIL: profile missing"; exit 1; }
 
-# ----------- baseline emit: no env vars set ---------------
+# The profile's secure_boot=signed posture makes mkosi-emit require operator
+# key env vars (SDD-015: real keys are NEVER in the repo/CI). Placeholder
+# files satisfy the presence gate — the adapter only embeds the key *paths*.
+# Same pattern as tests/nspawn/test_image_sign_gates.sh. ("No env vars set"
+# below still means no SDD-019 reproducibility inputs — the key env is
+# orthogonal build-signing config, not a reproducibility input.)
+__keydir="$(mktemp -d)"
+trap 'rm -rf "${__keydir}"' EXIT
+export SOVEREIGN_OS_MOK_KEY="${__keydir}/ci-mok.key"
+export SOVEREIGN_OS_MOK_CERT="${__keydir}/ci-mok.crt"
+touch "${SOVEREIGN_OS_MOK_KEY}" "${SOVEREIGN_OS_MOK_CERT}"
+
+# ----------- baseline emit: no reproducibility env vars set ---------------
 
 tmp_baseline="$(mktemp -d)"
 ( unset SOURCE_DATE_EPOCH DEBIAN_SNAPSHOT

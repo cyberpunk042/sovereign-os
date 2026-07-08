@@ -36,10 +36,14 @@ for _cand in "${_lib_candidates[@]}"; do
   [ -z "${_cand}" ] && continue
   if [ -f "${_cand}/lib/common.sh" ]; then
     if [ "${_cand}" = "${__SCRIPT_DIR}/build" ]; then
-      __REPO_ROOT="${__SCRIPT_DIR}/.."
+      __REPO_ROOT="$(cd "${__SCRIPT_DIR}/.." && pwd)"
     else
       __REPO_ROOT="${_cand}"
     fi
+    # Pass the detected root DOWN to common.sh — its own derivation
+    # assumes the in-repo layout and resolves to /usr on an installed
+    # system (the silent-doctor bug, 2026-06-12).
+    export SOVEREIGN_OS_ROOT="${__REPO_ROOT}"
     # shellcheck source=/dev/null
     . "${_cand}/lib/common.sh"
     break
@@ -81,6 +85,10 @@ COMMANDS:
   profiles active              Show active profile id
   profiles switch <id>         Swap active profile (flags items requiring rebuild)
   profiles validate            Schema-validate all profiles (raw + resolved)
+  profiles generate-runtime <os-profile> <strategy> [--out <path>]
+                               SDD-043: generate a runtime profile from hardware +
+                               strategy (efficiency | high-concurrency | deep-context).
+                               tier_intent allocations, validated + catalog-resolved.
 
   whitelabel show              Show active whitelabel branding
   whitelabel apply <id>        Re-render whitelabel surfaces on the running system
@@ -91,6 +99,14 @@ COMMANDS:
   perimeter verify             Run perimeter integrity audit
   perimeter reload             Reload Tetragon TracingPolicies
 
+  selfdef status               selfdef (IPS) on/off dashboard: checkout · units · mirror
+  selfdef on | off             Enable+start / stop+disable all selfdef units (root)
+  selfdef start|stop|restart   Runtime lifecycle without changing enablement (root)
+  selfdef logs [N]             Tail the selfdef guardian journal
+  selfdef sync                 Refresh the selfdef checkout (freshness/gated update, SDD-001)
+  selfdef doctor               Run selfdef's own doctor (or freshness sync)
+  selfdef install-units        Wire selfdef's shipped systemd units into /etc/systemd/system (root)
+
   models docs [--check|--stdout]  Regenerate docs/src/model-catalog.md (R206, SDD-028 pattern)
   models query [--class C] [--tier T] [--purpose P] [--size-class S] [--quantization Q] [--status S] [--max-vram N] [--min-context N] [--engine E] [--base-model B] [--json]
                                R213: filter catalog by R212 taxonomy
@@ -99,6 +115,9 @@ COMMANDS:
   models suggest --list        R214: profile-aware suggester — flags
                                aspirational + VRAM-overrun allocations
                                + suggests smaller-quant alternatives
+  models select --class C[,C] --vram N [--tier T] [--purpose P] [--json]
+                               SDD-043: VRAM-aware pick — best model of a
+                               class that fits N GiB (the tier_intent engine)
   models info <slug> [--json]  R231 (SDD-026 Z-2): LM-Studio-equivalent
                                rich detail for one catalog model
                                (class / quant / size / params / vram /
@@ -475,6 +494,9 @@ COMMANDS:
 
   router status                R516 router surface (SDD-011) — service + listen check
   router classify <prompt>     Show routing decision for a prompt (delegates to inference route)
+  router plan <prompt> [--task-type T] [--think] [--json]
+                               SDD-043: full thinking-orchestration plan — route tier +
+                               escalation (CoT · validator · self-consistency · MoE)
   router rules                 Print the 5 routing rules verbatim (SDD-011)
   router metrics               R517 — routing decision counts from Layer B textfile
   router watch                 R516 refresh-loop TUI (router + 4 tiers at a glance)
@@ -551,6 +573,18 @@ COMMANDS:
                                --confirm-curl-shell (defense-in-depth).
                                First cross-script consumer of the
                                R283 operator-overlay helper (SDD-030).
+  operator-rules status|apply|capture|compat [--dry-run] [--json]
+                               Retain + re-apply the operator's Claude
+                               Code interaction rules (operator-is-driver,
+                               words-sacrosanct, do-not-minimize, …) across
+                               a fresh flash. Versioned in
+                               assets/operator-memory/; applied to
+                               ~/.claude/projects/<project>/memory/. status
+                               shows drift; apply re-installs (fresh-flash
+                               resume); capture versions live edits; compat
+                               checks path-disjointness vs root-ghostproxy.
+                               sovereign-os-owned — works with NO opt-in to
+                               root-ghostproxy.
   mcp-aggregate manifest [--upstream-selfdef H:P] [--config P] [--json|--human]
   mcp-aggregate probe-upstream H:P [--timeout SECS] [--json]
                                R286 (E7.M5 / SDD-031): cross-repo
@@ -1357,8 +1391,15 @@ cmd_doctor() {
   echo
 
   # Load profile so profile_field can read SOVEREIGN_OS_PROFILE_FILE
-  # (its python3 subshell reads it via os.environ).
-  load_profile "${SOVEREIGN_OS_PROFILE}" 2>/dev/null || true
+  # (its python3 subshell reads it via os.environ). Guard with an
+  # existence test: load_profile exit(1)s on a missing file and `|| true`
+  # cannot rescue an explicit exit — doctor must degrade, not die
+  # (silent-death bug, first installed run 2026-06-12).
+  if [ -f "${SOVEREIGN_OS_PROFILES_DIR:-/nonexistent}/${SOVEREIGN_OS_PROFILE}.yaml" ]; then
+    load_profile "${SOVEREIGN_OS_PROFILE}" 2>/dev/null || true
+  else
+    echo "  ⚠ profile ${SOVEREIGN_OS_PROFILE:-?} not found under ${SOVEREIGN_OS_PROFILES_DIR:-unset} — profile-aware checks degraded"
+  fi
 
   # Profile-aware: which checks apply?
   local layout secure_boot
@@ -1699,6 +1740,16 @@ PY
       shift || true
       "${__REPO_ROOT}/scripts/hardware/profile-flex.py" "${sub2}" "$@"
       ;;
+    generate-runtime)
+      # SDD-043 Phase 3: generate a runtime profile from an OS profile's
+      # hardware + a strategy. Emits tier_intent allocations sized to the
+      # declared GPUs/CPU, validated + catalog-resolved before it prints.
+      local hw="${1:?usage: profiles generate-runtime <os-profile> <efficiency|high-concurrency|deep-context> [--out <path>]}"
+      local strat="${2:?usage: profiles generate-runtime <os-profile> <efficiency|high-concurrency|deep-context> [--out <path>]}"
+      shift 2 || true
+      python3 "${__REPO_ROOT}/scripts/operator/generate-runtime-profile.py" \
+        --hardware "${hw}" --strategy "${strat}" "$@"
+      ;;
     *)
       log_error "unknown profiles subcommand: ${sub}"
       cmd_help
@@ -1809,6 +1860,116 @@ cmd_whitelabel() {
 }
 
 # ------------------------------ perimeter ------------------------------------
+
+# List installed selfdef unit names (services + timers + guardian-core).
+_selfdef_units() {
+  systemctl list-unit-files --no-legend --no-pager 'selfdef*' 'guardian-core*' 2>/dev/null \
+    | awk '{print $1}' | grep -E '\.(service|timer)$' || true
+}
+
+# selfdef lifecycle management (SDD-001: selfdef RUNS from its own repo;
+# sovereign-os keeps the checkout fresh + renders the mirror READ-ONLY.
+# This surface manages the LIFECYCLE of selfdef's own shipped units —
+# on/off/status/logs — without mutating selfdef's internal state.)
+cmd_selfdef() {
+  local sub="${1:-status}"
+  shift || true
+  : "${SOVEREIGN_OS_SELFDEF_DIR:=${HOME}/selfdef}"
+
+  case "${sub}" in
+    status)
+      local co="ABSENT" units n_units n_en n_act verdict mirror="absent"
+      [ -d "${SOVEREIGN_OS_SELFDEF_DIR}/.git" ] && co="present (${SOVEREIGN_OS_SELFDEF_DIR})"
+      units="$(_selfdef_units)"
+      n_units="$(printf '%s\n' "${units}" | grep -c . || true)"
+      n_en=0; n_act=0
+      if [ "${n_units}" -gt 0 ]; then
+        while read -r u; do
+          [ -z "$u" ] && continue
+          systemctl is-enabled --quiet "$u" 2>/dev/null && n_en=$((n_en+1))
+          systemctl is-active  --quiet "$u" 2>/dev/null && n_act=$((n_act+1))
+        done <<< "${units}"
+      fi
+      for d in /run/sovereign-os/selfdef-mirror /etc/selfdef; do
+        [ -d "$d" ] && mirror="$d"
+      done
+      if [ "${n_units}" -eq 0 ]; then verdict="OFF — no selfdef units installed"
+      elif [ "${n_act}" -eq 0 ]; then verdict="OFF — installed but stopped"
+      elif [ "${n_act}" -lt "${n_units}" ]; then verdict="PARTIAL — ${n_act}/${n_units} active"
+      else verdict="ON — ${n_act}/${n_units} active"; fi
+      echo "selfdef status"
+      echo "=============="
+      echo
+      echo "  checkout:  ${co}"
+      command -v selfdef >/dev/null 2>&1 && echo "  binary:    $(command -v selfdef)" || echo "  binary:    (not on PATH — build via 'make -C ${SOVEREIGN_OS_SELFDEF_DIR} build')"
+      echo "  units:     ${n_units} installed · ${n_en} enabled · ${n_act} active"
+      echo "  mirror:    ${mirror}"
+      echo
+      echo "  ${verdict}"
+      [ "${n_units}" -eq 0 ] && echo "  → install units:  sovereign-osctl selfdef install-units   (then: selfdef on)"
+      ;;
+    install-units)
+      # Bridge: copy selfdef's SHIPPED units into /etc/systemd/system so
+      # they can be enabled. selfdef's BINARIES still come from its own
+      # build (SDD-001) — this only wires the unit files.
+      require_root
+      local src="${SOVEREIGN_OS_SELFDEF_DIR}/packaging/systemd"
+      [ -d "$src" ] || { log_error "no selfdef units at ${src} (is the checkout present?)"; return 1; }
+      local n=0
+      for f in "${src}"/*.service "${src}"/*.timer; do
+        [ -f "$f" ] || continue
+        install -m 644 "$f" /etc/systemd/system/ && n=$((n+1))
+      done
+      systemctl daemon-reload
+      log_info "installed ${n} selfdef unit file(s) → /etc/systemd/system"
+      log_warn "selfdef BINARIES come from its own build (SDD-001):"
+      log_warn "  make -C ${SOVEREIGN_OS_SELFDEF_DIR} build   # then: sovereign-osctl selfdef on"
+      ;;
+    on|enable)
+      require_root
+      local units; units="$(_selfdef_units)"
+      [ -n "${units}" ] || { log_error "no selfdef units installed — run: sovereign-osctl selfdef install-units"; return 1; }
+      while read -r u; do [ -n "$u" ] && systemctl enable --now "$u"; done <<< "${units}"
+      log_info "selfdef ON"; cmd_selfdef status
+      ;;
+    off|disable)
+      require_root
+      local units; units="$(_selfdef_units)"
+      [ -n "${units}" ] || { log_warn "no selfdef units installed — nothing to disable"; return 0; }
+      while read -r u; do [ -n "$u" ] && systemctl disable --now "$u"; done <<< "${units}"
+      log_info "selfdef OFF"
+      ;;
+    start|stop|restart)
+      require_root
+      local units; units="$(_selfdef_units)"
+      [ -n "${units}" ] || { log_error "no selfdef units installed"; return 1; }
+      # shellcheck disable=SC2086
+      systemctl "${sub}" ${units}
+      log_info "selfdef ${sub} issued"
+      ;;
+    logs)
+      journalctl -u 'selfdef*' -u 'guardian-core*' -n "${1:-50}" --no-pager 2>/dev/null \
+        || log_error "no selfdef journal (units installed?)"
+      ;;
+    sync)
+      SOVEREIGN_OS_SELFDEF_DIR="${SOVEREIGN_OS_SELFDEF_DIR}" \
+        "${__REPO_ROOT}/scripts/hooks/recurrent/selfdef-sync.sh"
+      ;;
+    doctor)
+      if systemctl list-unit-files --no-legend 'selfdef-doctor*' 2>/dev/null | grep -q .; then
+        require_root; systemctl start selfdef-doctor.service && journalctl -u selfdef-doctor.service -n 30 --no-pager
+      else
+        log_warn "selfdef-doctor unit not installed; falling back to freshness sync"
+        cmd_selfdef sync
+      fi
+      ;;
+    *)
+      log_error "unknown selfdef subcommand: ${sub}"
+      echo "usage: sovereign-osctl selfdef {status|on|off|start|stop|restart|logs|sync|doctor|install-units}" >&2
+      exit 2
+      ;;
+  esac
+}
 
 cmd_perimeter() {
   local sub="${1:-status}"
@@ -1972,6 +2133,12 @@ cmd_models() {
       # suggest smaller-quantization alternatives.
       "${__REPO_ROOT}/scripts/models/suggest-by-profile.py" "$@"
       ;;
+    select)
+      # SDD-043 Phase 2: VRAM-aware tier_intent resolution — "give me the
+      # best model of class C that fits N GiB". The engine behind
+      # tier_intent-driven runtime profiles.
+      "${__REPO_ROOT}/scripts/models/select-by-intent.py" "$@"
+      ;;
     info)
       # R231 (SDD-026 Z-2): LM-Studio-equivalent rich detail for one
       # catalog model — every field the YAML declares (class /
@@ -2068,6 +2235,11 @@ cmd_audit() {
         esac
       done
       local manifest="${1:-}"
+      # Accept the artifacts DIRECTORY too — the operator naturally passes
+      # build/<profile>/output (first green button-build, 2026-06-12).
+      if [ -n "${manifest}" ] && [ -d "${manifest}" ]; then
+        manifest="${manifest%/}/build-provenance.json"
+      fi
       if [ -z "${manifest}" ]; then
         for candidate in \
           "/var/lib/sovereign-os/build-provenance.json" \
@@ -3197,10 +3369,10 @@ EOF
     exit $?
   fi
 
-  # Cached-.prom path: read the latest sovereign-thermal.prom written
-  # by the timer.
+  # Cached-.prom path: read the latest sovereign-os-thermal-watch.prom
+  # written by the timer.
   : "${SOVEREIGN_OS_METRICS_DIR:=/var/lib/node_exporter/textfile_collector}"
-  local prom="${SOVEREIGN_OS_METRICS_DIR}/sovereign-thermal.prom"
+  local prom="${SOVEREIGN_OS_METRICS_DIR}/sovereign-os-thermal-watch.prom"
   if [ ! -f "${prom}" ]; then
     echo "no cached thermal readings yet at ${prom}"
     echo "  run 'sovereign-osctl thermals --probe' for a live read,"
@@ -3988,6 +4160,13 @@ cmd_router() {
       ;;
     classify)
       cmd_inference route "$@"
+      ;;
+    plan)
+      # SDD-043 Phase 4: full thinking-orchestration plan for a prompt —
+      # route tier + escalation (CoT / validator / self-consistency / MoE).
+      local prompt="${1:?usage: router plan <prompt> [--task-type T] [--think] [--json]}"
+      shift || true
+      python3 "${__REPO_ROOT}/scripts/inference/thinking-plan.py" --prompt "${prompt}" "$@"
       ;;
     rules)
       _router_rules
@@ -5602,7 +5781,18 @@ cmd_install() {
       # All gates passed — execute
       log_info "writing ${image} → ${device} (this will take several minutes)"
       if command -v dd >/dev/null 2>&1; then
-        sudo dd if="${image}" of="${device}" bs=4M status=progress conv=fsync
+        # Guard dd explicitly. Under set -e a failed write (I/O error, device
+        # yanked mid-write, write-protect, sudo denied) would abort the CLI with
+        # only dd's raw stderr — leaving the operator without the one fact that
+        # matters at THE most destructive moment: the target is now PARTIALLY
+        # WRITTEN and must NOT be booted. Surface that explicitly, and don't
+        # claim "complete" on a failed dump.
+        if ! sudo dd if="${image}" of="${device}" bs=4M status=progress conv=fsync; then
+          log_error "dd FAILED writing ${image} → ${device}"
+          log_error "  ${device} is now PARTIALLY WRITTEN / UNBOOTABLE — do NOT boot from it."
+          log_error "  resolve the dd error (I/O, write-protect, device present?) and re-run the install."
+          return 1
+        fi
         log_info "image dump complete"
         log_info "sync'ing disk..."
         sudo sync
@@ -6208,11 +6398,15 @@ shift || true
 case "${cmd}" in
   status)        cmd_status "$@" ;;
   overview)      cmd_overview "$@" ;;
-  doctor)        cmd_doctor "$@" ;;
+  # `|| exit` keeps doctor's nonzero exit (FAIL report) without firing the
+  # lib's ERR trap — a failing health report is a finding, not a crash
+  # (spurious "command failed: 'return 1'" on first installed run 2026-06-12).
+  doctor)        cmd_doctor "$@" || exit $? ;;
   assistant)     cmd_assistant "$@" ;;
   profiles)      cmd_profiles "$@" ;;
   whitelabel)    cmd_whitelabel "$@" ;;
   perimeter)     cmd_perimeter "$@" ;;
+  selfdef)       cmd_selfdef "$@" ;;
   models)        cmd_models "$@" ;;
   audit)         cmd_audit "$@" ;;
   hooks)         cmd_hooks "$@" ;;
@@ -6401,6 +6595,22 @@ case "${cmd}" in
         ;;
       *)
         log_error "unknown operator-deps subverb: ${sub} (available: list, plan, apply)"
+        exit 2
+        ;;
+    esac
+    ;;
+  operator-rules)
+    # Retain + re-apply the operator's Claude Code interaction rules across a
+    # fresh flash (sovereign-os-owned; store = assets/operator-memory/; live =
+    # ~/.claude/projects/<project>/memory/). Disjoint from root-ghostproxy.
+    sub="${1:-status}"
+    shift || true
+    case "${sub}" in
+      status|apply|capture|compat)
+        "${__REPO_ROOT}/scripts/operator/operator-rules.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown operator-rules subverb: ${sub} (available: status, apply, capture, compat)"
         exit 2
         ;;
     esac

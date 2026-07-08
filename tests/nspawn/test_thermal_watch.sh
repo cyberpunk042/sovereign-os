@@ -111,7 +111,7 @@ grep -q "critical" "${WORK}/critical.txt" \
   && ok "critical severity printed" || ko "critical missing"
 
 # ---------- emit-metrics: writes textfile collector .prom ----------
-METRICS="${WORK}/metrics/sovereign-thermal.prom"
+METRICS="${WORK}/metrics/sovereign-os-thermal-watch.prom"
 set +e
 python3 "${SCRIPT}" \
   --hwmon-dir "${WORK}/hwmon" \

@@ -35,6 +35,25 @@ def _readme() -> str:
     return README.read_text(encoding="utf-8")
 
 
+def test_every_dashboard_json_is_listed_in_readme():
+    """The README's dashboard index is the operator's "what dashboards
+    exist?" surface. It had drifted to 17 of 59 — an operator browsing it
+    couldn't discover 42 dashboards (incl. every selfdef-consumer cockpit
+    dashboard), the exact minimization §1g forbids. Lock the index ⇄
+    on-disk dashboard-set coverage: every `*.json` in the dashboards dir
+    must be named in the README so a new dashboard can't ship invisible."""
+    import re
+    dash_dir = README.parent
+    on_disk = {p.name for p in dash_dir.glob("*.json")}
+    listed = set(re.findall(r"sovereign-os[a-z0-9-]*\.json", _readme()))
+    missing = sorted(on_disk - listed)
+    assert not missing, (
+        f"README does not list dashboard(s) {missing} — the dashboards "
+        f"index must name every *.json in {dash_dir} so operators can "
+        f"discover them (don't ship a dashboard invisible to the index)"
+    )
+
+
 def test_readme_surface_map_row_anchors_r546():
     """The surface-map row MUST anchor R546 — operators scanning the
     table see at-a-glance that the verb-stat coverage was expanded."""

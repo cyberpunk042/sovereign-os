@@ -11,13 +11,13 @@
 | E0268 | Computer-use intelligence — bridge from "thinking system" to "acting system"; the station grows hands and eyes | 8490–8492 |
 | E0269 | Research substrate — Microsoft Fara-7B agentic SLM (145K trajectories / 1M steps) / OmniParser V2 (screenshots → structured interactable elements) / ActionEngine (state-machine memory; 95% on Reddit WebArena; 1 LLM call; 11.8x cost reduction; 2x latency reduction) / GUI-R1 + ShowUI VLA models / OSWorld+WebArena+ScreenSpot benchmarks | 8494–8501 |
 | E0270 | The Computer-Use Plane — 3 layers (Perception screenshot→UI-elements→bboxes→semantic-labels; Planning task→current-UI→action-plan/state-machine; Execution click/type/scroll/hotkey/file/browser under policy) | 8502–8533 |
-| E0271 | Hardware placement — 3090 eyes/reflexes (Fara-7B/OmniParser/GUI-SLM/vision-action scout); Blackwell strategic judgment (task reasoning / recovery / final verification); CPU AVX-512 motor control law (state machine / action policy / bbox filter / permission checks / replay / dup-state detection); RAM/ZFS UI maps + trajectories + screenshots + action logs + learned workflows | 8535–8557 |
+| E0271 | Hardware placement — 4090 eyes/reflexes (Fara-7B/OmniParser/GUI-SLM/vision-action scout); Blackwell strategic judgment (task reasoning / recovery / final verification); CPU AVX-512 motor control law (state machine / action policy / bbox filter / permission checks / replay / dup-state detection); RAM/ZFS UI maps + trajectories + screenshots + action logs + learned workflows | 8535–8557 |
 | E0272 | GUI State As Data + typed Action — JSON schema (window/url/elements[].{id,type,text,bbox,interactable,risk}); typed actions (action/target_id/reason/requires_confirmation); 6 runtime checks (target exists / interactable / action allowed / risk acceptable / credential-payment-destructive state / human gate needed) | 8559–8601 |
 | E0273 | State-Machine Memory — repeated workflows learned (login→credentials→dashboard→search-results→detail→export-dialog→downloaded-file); each state has 5 attributes (recognition features / allowed actions / expected transitions / failure handlers / risk flags); intelligence crystallizing into procedure | 8602–8629 |
 | E0274 | Computer-Use Profiles — 6-tier (observe_only / assistive / supervised / sandbox / autonomous_low_risk / high_risk); "profiles matter deeply here. A GUI agent can do real harm" | 8631–8653 |
 | E0275 | Action Policy Bits — 64-bit capability word (bits 0..7 action type / 8..15 target class / 16..23 risk / 24..31 environment / 32..39 confidence / 40..47 step budget / 48..55 human gate state / 56..63 audit flags) + AVX-512 batch evaluation (allowed = confidence_ok & target_valid & permission_ok & not_high_risk_without_gate) | 8654–8677 |
 | E0276 | RLM for GUI + Reward Plane for GUI + GUI verifier — RLM stores UI environment (screenshots / parsed elements / DOM-a11y tree / action history / state machine / observations); recursively inspects (which screen had export / what changed after settings / which path led to dialog / shortest safe path); 8-metric trajectory scoring; Fara CUAVerifierBench; GUI verifier scores 5 questions (valid / toward-goal / safe / efficient / consent) | 8678–8729 |
-| E0277 | Replay Mandatory + The Proper Exploit + new architecture component "Computer-Use Plane" (8-item) + key line "Computer-use intelligence is not clicking. It is converting visual chaos into typed state transitions under policy" + 7-component plug map (SLM reflexes / RLM long-horizon nav / PRM-RM trajectory value / AVX-512 action law + scheduling / Blackwell judgment / 3090 perception-action scout / ZFS replay+learning) | 8731–8802 |
+| E0277 | Replay Mandatory + The Proper Exploit + new architecture component "Computer-Use Plane" (8-item) + key line "Computer-use intelligence is not clicking. It is converting visual chaos into typed state transitions under policy" + 7-component plug map (SLM reflexes / RLM long-horizon nav / PRM-RM trajectory value / AVX-512 action law + scheduling / Blackwell judgment / 4090 perception-action scout / ZFS replay+learning) | 8731–8802 |
 
 ## Modules (M00476–M00492)
 
@@ -70,11 +70,11 @@
 | F02403 | Better move step 3 — act programmatically | 8528 | M00479 | composite | false |
 | F02404 | Better move step 4 — only re-query model when state changes or uncertainty rises | 8529 | M00479 | composite | false |
 | F02405 | "That is what ActionEngine is pointing toward" | 8532 | M00479 | composite | false |
-| F02406 | Hardware — 3090 runs Fara-7B / OmniParser / GUI SLM / vision-action scout | 8537–8538 | E0271 | composite | true |
+| F02406 | Hardware — 4090 runs Fara-7B / OmniParser / GUI SLM / vision-action scout | 8537–8538 | E0271 | composite | true |
 | F02407 | Hardware — Blackwell does high-level task reasoning / recovery / final verification | 8540–8541 | E0271 | composite | true |
 | F02408 | Hardware — CPU AVX-512 does UI state machine / action policy / bounding-box filtering / permission checks / replay / duplicate state detection | 8543–8549 | E0271 | composite | true |
 | F02409 | Hardware — RAM/ZFS stores UI maps / trajectories / screenshots / action logs / learned workflows | 8551–8552 | E0271 | composite | true |
-| F02410 | "3090 becomes the eyes and reflexes" | 8555 | E0271 | composite | false |
+| F02410 | "4090 becomes the eyes and reflexes" | 8555 | E0271 | composite | false |
 | F02411 | "CPU becomes motor control law" | 8556 | E0271 | composite | false |
 | F02412 | "Blackwell becomes strategic judgment" | 8557 | E0271 | composite | false |
 | F02413 | GUI state field — window | 8565 | M00480 | composite | false |
@@ -129,7 +129,7 @@
 | F02462 | "This is long-horizon computer use" | 8702 | E0276 | composite | false |
 | F02463 | Reward — trajectory scoring metric: task progress | 8709 | E0276 | composite | false |
 | F02464 | Reward — wrong click penalty | 8710 | E0276 | composite | false |
-| F02465 | Composite — Computer-Use Plane architecture component (8 sub-parts: screen parser / GUI state model / action planner / policy gate / executor / trajectory memory / GUI verifier / state-machine learner) + key line "Computer-use intelligence is not clicking. It is converting visual chaos into typed state transitions under policy" + 7-component plug map (SLM reflexes / RLM long-horizon UI history nav / PRM-RM trajectory value / AVX-512 action law + scheduling / Blackwell judgment / 3090 perception-action scout / ZFS replay+learning) — station has eyes, hands, memory, law, and judgment | 8771–8802 | E0277 | composite | false |
+| F02465 | Composite — Computer-Use Plane architecture component (8 sub-parts: screen parser / GUI state model / action planner / policy gate / executor / trajectory memory / GUI verifier / state-machine learner) + key line "Computer-use intelligence is not clicking. It is converting visual chaos into typed state transitions under policy" + 7-component plug map (SLM reflexes / RLM long-horizon UI history nav / PRM-RM trajectory value / AVX-512 action law + scheduling / Blackwell judgment / 4090 perception-action scout / ZFS replay+learning) — station has eyes, hands, memory, law, and judgment | 8771–8802 | E0277 | composite | false |
 
 ## Requirements (R04761–R04930)
 
@@ -153,7 +153,7 @@
 | R04776 | Better-move step 3 — act programmatically | 8528 | F02403 | non-negotiable | false | 10 |
 | R04777 | Better-move step 4 — only re-query model when state changes or uncertainty rises | 8529 | F02404 | non-negotiable | false | 10 |
 | R04778 | Better-move pattern is what ActionEngine is pointing toward | 8532 | M00479 | non-negotiable | false | 10 |
-| R04779 | Hardware mapping — 3090 runs Fara-7B / OmniParser / GUI SLM / vision-action scout | 8537–8538 | F02406 | non-negotiable | true | 10 |
+| R04779 | Hardware mapping — 4090 runs Fara-7B / OmniParser / GUI SLM / vision-action scout | 8537–8538 | F02406 | non-negotiable | true | 10 |
 | R04780 | Hardware mapping — Blackwell runs high-level task reasoning / recovery / final verification | 8540–8541 | F02407 | non-negotiable | true | 10 |
 | R04781 | Hardware mapping — CPU AVX-512 runs UI state machine | 8544 | F02408 | non-negotiable | true | 10 |
 | R04782 | Hardware mapping — CPU AVX-512 runs action policy | 8545 | F02408 | non-negotiable | true | 10 |
@@ -162,7 +162,7 @@
 | R04785 | Hardware mapping — CPU AVX-512 runs replay | 8548 | F02408 | non-negotiable | true | 10 |
 | R04786 | Hardware mapping — CPU AVX-512 runs duplicate state detection | 8549 | F02408 | non-negotiable | true | 10 |
 | R04787 | Hardware mapping — RAM/ZFS stores UI maps / trajectories / screenshots / action logs / learned workflows | 8551–8552 | F02409 | non-negotiable | true | 10 |
-| R04788 | 3090 = eyes and reflexes | 8555 | F02410 | non-negotiable | false | 10 |
+| R04788 | 4090 = eyes and reflexes | 8555 | F02410 | non-negotiable | false | 10 |
 | R04789 | CPU = motor control law | 8556 | F02411 | non-negotiable | false | 10 |
 | R04790 | Blackwell = strategic judgment | 8557 | F02412 | non-negotiable | false | 10 |
 | R04791 | A screen should become structured state | 8561 | M00480 | non-negotiable | false | 10 |
@@ -282,12 +282,12 @@
 | R04905 | Plug map — PRM/RM = trajectory value | 8795 | E0277 | non-negotiable | false | 10 |
 | R04906 | Plug map — AVX-512 = action law and scheduling | 8796 | E0277 | non-negotiable | false | 10 |
 | R04907 | Plug map — Blackwell = high-level judgment | 8797 | E0277 | non-negotiable | false | 10 |
-| R04908 | Plug map — 3090 = perception/action scout | 8798 | E0277 | non-negotiable | false | 10 |
+| R04908 | Plug map — 4090 = perception/action scout | 8798 | E0277 | non-negotiable | false | 10 |
 | R04909 | Plug map — ZFS = replay and learning | 8799 | E0277 | non-negotiable | false | 10 |
 | R04910 | "Now the station has eyes, hands, memory, law, and judgment" | 8802 | E0277 | non-negotiable | false | 10 |
 | R04911 | Computer-Use Plane integrates with Value Plane (M027) — trajectory scoring + reward | 8704–8717 | E0276 | non-negotiable | false | 10 |
 | R04912 | Computer-Use Plane integrates with Memory Plane (M028) — trajectory memory + state-machine memory | 8602–8628 + 8760 | E0273 + E0277 | non-negotiable | false | 10 |
-| R04913 | Computer-Use Plane integrates with SLM swarm (M026) — Fara-7B is the SLM tier; 3090-resident | 8537–8538 + 8793 | E0271 | non-negotiable | false | 10 |
+| R04913 | Computer-Use Plane integrates with SLM swarm (M026) — Fara-7B is the SLM tier; 4090-resident | 8537–8538 + 8793 | E0271 | non-negotiable | false | 10 |
 | R04914 | Computer-Use Plane integrates with RLM engine (M026) — RLM is the long-horizon UI history navigator | 8794 | E0276 | non-negotiable | false | 10 |
 | R04915 | Computer-Use Plane integrates with RM/PRM judges (M026) — PRM/RM trajectory scoring | 8795 | E0276 | non-negotiable | false | 10 |
 | R04916 | Computer-Use Plane integrates with AVX-512 reward scheduling (M027 E0255) — APB bit evaluation | 8669–8676 | E0275 | non-negotiable | false | 10 |

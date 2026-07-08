@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-json-extract"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Robust JSON extraction from model output: scans text for the first balanced JSON object or array — correctly ignoring braces inside strings and escapes — and returns its span or parses it to a serde_json Value. The boundary that turns a model's prose-wrapped JSON (tool arguments, structured answers) into usable data."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde_json = { workspace = true }
+thiserror = { workspace = true }

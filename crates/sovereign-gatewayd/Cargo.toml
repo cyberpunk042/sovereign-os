@@ -1,0 +1,26 @@
+[package]
+name = "sovereign-gatewayd"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "The first persistent runnable service: promotes the one-shot sovereign-cortex engine into a long-lived daemon behind the M048 Module 4 sovereign-gateway contract. Newline-delimited JSON over TCP/stdio; one process-wide learning Cortex (memory persists + learns across requests, M016); a live cost/route ledger (gateway surface 6); the never-cloud-spill safety invariant tracked as a process tripwire. Doctrine: 'client → Sovereign Gateway → local/cloud/model router'. Provides the `sovereign-gatewayd` binary."
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "sovereign-gatewayd"
+path = "src/main.rs"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+sovereign-cortex = { path = "../sovereign-cortex" }
+sovereign-gateway = { path = "../sovereign-gateway" }
+sovereign-router-7axis = { path = "../sovereign-router-7axis" }
+sovereign-srp-scheduler = { path = "../sovereign-srp-scheduler" }
+sovereign-value-plane = { path = "../sovereign-value-plane" }

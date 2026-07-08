@@ -230,7 +230,7 @@ def cmd_plan(args: argparse.Namespace) -> int:
         vram_warning = (
             f"base vram_gib_min={base_vram} + method requires "
             f"{required} → estimate {base_vram + required} GiB; "
-            f"single-3090 (24 GiB) insufficient — use --device cuda:1 (6000 Blackwell) "
+            f"single-4090 (24 GiB) insufficient — use --device cuda:1 (6000 Blackwell) "
             f"or reduce batch_size / use QLoRA"
         )
 

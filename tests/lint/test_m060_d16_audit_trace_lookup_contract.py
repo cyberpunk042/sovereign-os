@@ -56,7 +56,7 @@ def _fixture_with_spans(trace_ids: list[str]) -> dict:
             "profile": "careful",
             "model": "qwen3-coder-32b",
             "provider": "local-cuda",
-            "hardware": "3090_logic",
+            "hardware": "4090_logic",
             "tokens_prompt": 100,
             "tokens_completion": 50,
             "latency_ms": 1500,

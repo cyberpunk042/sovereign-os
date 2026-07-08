@@ -1,0 +1,20 @@
+[package]
+name = "sovereign-telemetry-backend"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Operator-overrideable telemetry sink selection matching the applied profile schema observability.telemetry_sink (prometheus-local / otel / none, SDD-004 Q-013 + SDD-016): token parsing for the SOVEREIGN_TELEMETRY_SINK env var and the --telemetry-sink CLI flag, plus the CLI > env > profile > default resolution precedence."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

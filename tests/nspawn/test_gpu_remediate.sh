@@ -61,9 +61,9 @@ import json, sys
 print(json.dumps({
     "gpus": [
         {
-            "idx": 0, "name": "FakeGPU-3090",
+            "idx": 0, "name": "FakeGPU-4090",
             "power_limit_watts": 350.0, "power_draw_watts": 250.0,
-            "policed": True, "policy_hint": "3090",
+            "policed": True, "policy_hint": "4090",
             "deviance_watts": 50.0, "sustained_draw_warning": False,
             "flags": ["power_limit 350W is above safe_limit 300W"],
             "fix_command": "nvidia-smi -i 0 -pl 300",

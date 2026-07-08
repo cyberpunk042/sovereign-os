@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-bandit"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Multi-armed bandit selection: epsilon-greedy, UCB1, and Thompson sampling over arms with online reward updates, for learning which model, prompt, or strategy performs best while still exploring. Seeded and deterministic — the adaptive-routing core for a system that improves with use."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

@@ -239,7 +239,18 @@ _MINIMIZE_DOCTRINE_ECHO_RE = re.compile(
     r"|\bnot\s+(?:a|the|an)\s+minimi[sz](?:e|ation|ing)\b"
     r"|\bnot\s+minimi[sz](?:ation|ing)\b"
     r"|\bminimi[sz]ation[\s-]+(?:to|by|as)\b"
-    r"|\banti[\s-]?minimi[sz]ation\b",
+    r"|\banti[\s-]?minimi[sz]ation\b"
+    # R491: doctrine-echo phrasing that NAMES what §1g forbids — comments,
+    # docstrings, and gate rationales of the form "the minimization §1g
+    # forbids" / "the exact minimization §1g forbids" / "minimization the
+    # §1g rule forbids". These DESCRIBE the practice in order to forbid it
+    # (the gate is preventing it) — not admissions. Tied to the literal
+    # "forbid" so it can't overshoot a real admission (which never pairs
+    # "minimization" with "forbid"). Plus the reflexive "itself a
+    # minimization" (base-catalog: "from a hardening catalog is itself a
+    # minimization") — discussing the concept, not confessing one.
+    r"|\bminimi[sz]ation\b[^.\n]{0,40}\bforbid"
+    r"|\bitself\s+(?:a|an)\s+minimi[sz]ation\b",
     re.IGNORECASE,
 )
 _MINIMIZE_SED_SENTINEL_RE = re.compile(

@@ -28,6 +28,7 @@ Workload fit table — each workload requires a specific extension set:
 
 CLI:
   avx512-advisor.py probe [--json]      raw feature flags + extension map
+  avx512-advisor.py tiers [--json]      M085 three-tier note → flag/Zen5/host/engine
   avx512-advisor.py workloads [--json]  fit verdict per AI workload
   avx512-advisor.py advisory [--json]   actionable hints for missing extensions
 """
@@ -56,6 +57,7 @@ AVX512_FLAGS = {
     "IFMA":     "Integer Fused Multiply-Add (52-bit)",
     "VBMI":     "Vector Byte Manipulation",
     "VBMI2":   "Vector Byte Manipulation 2",
+    "VP2INTERSECT": "Two-register token intersection (membership masks)",
     "BITALG":  "Bit Algorithms",
     "VPOPCNTDQ": "Population Count Doubleword/Quadword",
     "VAES":     "Vector AES (4× parallel AES rounds)",
@@ -78,9 +80,63 @@ FLAG_LOWERCASE.update({
     "IFMA": "avx512_ifma",
     "VBMI": "avx512_vbmi",
     "VBMI2": "avx512_vbmi2",
+    "VP2INTERSECT": "avx512_vp2intersect",
     "BITALG": "avx512_bitalg",
     "VPOPCNTDQ": "avx512_vpopcntdq",
+    # VAES / VPCLMULQDQ / GFNI are AVX-512-capable but are SEPARATE CPUID bits:
+    # the kernel exposes them in /proc/cpuinfo WITHOUT the `avx512` prefix. The
+    # computed default above ("avx512vaes" etc.) never matches, so without these
+    # explicit entries the advisor reported them missing on a CPU (e.g. Zen5)
+    # that actually has them.
+    "VAES": "vaes",
+    "VPCLMULQDQ": "vpclmulqdq",
+    "GFNI": "gfni",
 })
+
+
+# The operator's AVX-512 three-tier note (2026-07-02, M085): each tier names a
+# concrete instruction; this maps it → the sub-extension flag that provides it →
+# whether Zen 5 (the SAIN-01 baseline) has that flag → its status in the Rust
+# engine. VP2INTERSECT is the single exception: Intel shipped it once (Tiger
+# Lake) then removed it and AMD never implemented it, so on Zen 5 the T2
+# token-correlation op has NO hardware and can only ever run as a scalar
+# fallback. `engine` values: "wired" = runs in the model path; "scalar-ref" =
+# semantically-exact portable reference, not yet a SIMD/consumer path.
+TIER_INSTRUCTIONS: list[dict[str, Any]] = [
+    {"tier": "T1", "role": "Quantisation & Dot Product",
+     "instruction": "VPDPBUSD", "operator_mnemonic": "VPDPBUSD", "flag": "VNNI",
+     "engine": "wired", "note": "Precision::Int8 hot path (sovereign-vnni MatI8)"},
+    {"tier": "T1", "role": "Quantisation & Dot Product",
+     "instruction": "VDPBF16PS", "operator_mnemonic": "VPDOTBF16PLUS", "flag": "BF16",
+     "engine": "wired", "note": "Precision::Bf16 (sovereign-vnni MatBf16)"},
+    {"tier": "T2", "role": "Bitwise Logic & Attention",
+     "instruction": "VPTERNLOGD/Q", "operator_mnemonic": "VPTERNLOGD/Q", "flag": "F",
+     "engine": "scalar-ref", "note": "3-input LUT (sovereign-bitops::vpternlog)"},
+    {"tier": "T2", "role": "Bitwise Logic & Attention",
+     "instruction": "VP2INTERSECTD/Q", "operator_mnemonic": "VP2INTERSECTD/Q",
+     "flag": "VP2INTERSECT", "engine": "scalar-ref",
+     "note": "no Zen 5 hardware — scalar only (sovereign-bitops::intersect)"},
+    {"tier": "T3", "role": "Structure, Prune & KV-Cache",
+     "instruction": "VPERMB", "operator_mnemonic": "VPERMB", "flag": "VBMI",
+     "engine": "scalar-ref", "note": "64-byte permute (sovereign-bitops::vpermb)"},
+    {"tier": "T3", "role": "Structure, Prune & KV-Cache",
+     "instruction": "VPSHLDVQ", "operator_mnemonic": "VPSHLDV", "flag": "VBMI2",
+     "engine": "scalar-ref", "note": "funnel shift (sovereign-bitops::vpshldv)"},
+    {"tier": "T3", "role": "Structure, Prune & KV-Cache",
+     "instruction": "VPCOMPRESSB/VPEXPANDB", "operator_mnemonic": "VPCOMPRESSB/VPEXPANDB",
+     "flag": "VBMI2", "engine": "scalar-ref",
+     "note": "compact/expand live slots (sovereign-bitops::compress/expand)"},
+    {"tier": "margin", "role": "Pop count (ternary/mask)",
+     "instruction": "VPOPCNTD/Q", "operator_mnemonic": "VPOPCNT", "flag": "VPOPCNTDQ",
+     "engine": "scalar-ref", "note": "dword/qword popcount (sovereign-bitops::popcount)"},
+    {"tier": "margin", "role": "Pop count (ternary/mask)",
+     "instruction": "VPOPCNTB/W", "operator_mnemonic": "VPOPCNT", "flag": "BITALG",
+     "engine": "scalar-ref", "note": "byte/word popcount — ternary masks"},
+]
+
+# Zen 5 (znver5, SAIN-01 baseline) presence per note-relevant flag. Every flag
+# the note uses is native on Zen 5 EXCEPT VP2INTERSECT (see above).
+ZEN5_ABSENT_FLAGS = {"VP2INTERSECT"}
 
 
 # Workload fit table: workload → required flags.
@@ -129,6 +185,17 @@ WORKLOAD_FIT: dict[str, dict[str, Any]] = {
         "required": ["F", "VL", "GFNI"],
         "summary": "Galois-field rotations for hash + erasure-coding kernels.",
         "operator_note": "Some Reed-Solomon RAID parity implementations use this.",
+    },
+    "token-intersect-attention": {
+        "required": ["F", "VL", "VP2INTERSECT"],
+        "summary": "One-op token-set intersection for attention (T2, M085).",
+        "operator_note": "NO Zen 5 hardware — VP2INTERSECT is Intel-Tiger-Lake-only "
+                         "and removed; sovereign-os runs the scalar fallback.",
+    },
+    "kv-cache-compaction": {
+        "required": ["F", "VL", "BW", "VBMI2"],
+        "summary": "Compact/expand live KV-cache + token slots (T3, M085).",
+        "operator_note": "VPCOMPRESSB/VPEXPANDB + VPSHLDV structure ops; Zen 5 native.",
     },
 }
 
@@ -243,6 +310,38 @@ def cmd_workloads(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_tiers(args: argparse.Namespace) -> int:
+    """The M085 three-tier AVX-512 note → per-instruction flag, Zen-5 verdict,
+    detected-on-this-host verdict, and engine status."""
+    ext = detect_avx512_extensions()
+    rows: list[dict[str, Any]] = []
+    for i in TIER_INSTRUCTIONS:
+        flag = i["flag"]
+        rows.append({
+            **i,
+            "cpuinfo_flag": FLAG_LOWERCASE[flag],
+            "zen5": flag not in ZEN5_ABSENT_FLAGS,
+            "present_on_host": ext.get(flag, False),
+        })
+    out = {
+        "round": "M085",
+        "vector": "avx512-tiers (three-tier instruction exploitation)",
+        "tiers": rows,
+    }
+    if args.json:
+        print(json.dumps(out, indent=2))
+        return 0
+    print("── sovereign-os avx512-advisor tiers (M085 three-tier note) ──")
+    print(f"  {'tier':<6} {'instruction':<22} {'flag':<20} zen5 host engine")
+    for r in rows:
+        z = "✓" if r["zen5"] else "✗"
+        h = "✓" if r["present_on_host"] else "·"
+        print(f"  {r['tier']:<6} {r['instruction']:<22} {r['cpuinfo_flag']:<20}  {z}    {h}   {r['engine']}")
+    print("\n  ✗ zen5 = no hardware for that op on the SAIN-01 baseline "
+          "(VP2INTERSECT: Intel-only + removed) → scalar fallback only.")
+    return 0
+
+
 def cmd_advisory(args: argparse.Namespace) -> int:
     ext = detect_avx512_extensions()
     advisories: list[str] = []
@@ -316,6 +415,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub = p.add_subparsers(dest="verb", required=True)
     for name, fn, helptxt in [
         ("probe", cmd_probe, "raw extension flag map"),
+        ("tiers", cmd_tiers, "M085 three-tier note → flag/Zen5/host/engine"),
         ("workloads", cmd_workloads, "per-workload fit verdict"),
         ("advisory", cmd_advisory, "operator-actionable hints"),
     ]:

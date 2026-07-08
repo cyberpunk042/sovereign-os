@@ -85,14 +85,14 @@ import json, sys
 d = json.loads(sys.stdin.read())
 assert d['ok'] is True
 assert d['min_vram_gib'] >= 24
-# Either RTX 3090 (exactly 24) or PRO 6000 (>24) — both fit
+# Either RTX 4090 (exactly 24) or PRO 6000 (>24) — both fit
 assert d['fits_on_gpu_index'] in (0, 1)
 assert 'autoawq' in d['command'].lower()
 " || fail "awq"
 pass "6. plan quantize-awq-int4 → fits a 24+ GiB GPU + autoawq command"
 
 # ── 7. plan with --target-gpu N enforces explicit GPU choice ────────
-# AWQ needs 24 GiB; declared GPU 0 is RTX 3090 (24 GiB, fits exactly).
+# AWQ needs 24 GiB; declared GPU 0 is RTX 4090 (24 GiB, fits exactly).
 out="$(python3 "${BUILD}" plan qwen2.5-7b --recipe quantize-awq-int4 \
     --target-gpu 0 --json || true)"
 echo "${out}" | python3 -c "
@@ -100,9 +100,9 @@ import json, sys
 d = json.loads(sys.stdin.read())
 assert d['ok'] is True
 assert d['fits_on_gpu_index'] == 0
-assert 'RTX 3090' in d['fits_on_gpu_model']
+assert 'RTX 4090' in d['fits_on_gpu_model']
 " || fail "target gpu 0"
-pass "7. plan --target-gpu 0 → AWQ INT4 fits the 3090 (exact 24 GiB)"
+pass "7. plan --target-gpu 0 → AWQ INT4 fits the 4090 (exact 24 GiB)"
 
 # ── 8. plan unknown recipe → rc=1 + structured error ────────────────
 rc=0

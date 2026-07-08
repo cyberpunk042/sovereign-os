@@ -47,10 +47,7 @@ CLI_MIRROR_ALERT_NAMES = {
 
 # Per-domain alerts for the M060 chain-wide doctor textfile
 # (selfdef_m060_doctor_* series shipped by selfdef-m060-doctor.timer
-# in selfdef commit ce58154 + follow-up D-12/D-16 coverage close,
-# selfdef commit 82014d6). Cover all 8 mirror domains in aggregate:
-# D-02 active-profile / D-12 rules / D-13 grants / D-14 capability-tokens
-# / D-15 sandboxes / D-16 audit-chain / D-17 quarantine / D-18 trust-scores.
+# in selfdef commit ce58154). Cover all 6 mirror domains in aggregate.
 MIRROR_DOMAIN_ALERT_NAMES = {
     "M060MirrorDomainChainDegraded",
     "M060MirrorDomainChainBroken",

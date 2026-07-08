@@ -80,8 +80,8 @@ pub enum Profile {
 pub enum Route {
     /// RTX PRO 6000 Blackwell (oracle tier)
     Blackwell,
-    /// RTX 3090 (scout tier)
-    Rtx3090,
+    /// RTX 4090 (scout tier)
+    Rtx4090,
     /// Ryzen 9900X AVX-512 (deterministic cortex)
     Cpu,
     /// Hybrid — work split across tiers
@@ -114,7 +114,7 @@ pub struct AxisScores {
 pub struct BackpressureState {
     /// Blackwell VRAM ≥ 90%
     pub blackwell_vram_high: bool,
-    /// RTX 3090 GPU busy ≥ 80%
+    /// RTX 4090 GPU busy ≥ 80%
     pub gpu3090_busy: bool,
     /// CPU PSI > 50%
     pub cpu_pressure: bool,
@@ -385,7 +385,7 @@ impl Panel {
     fn render_backpressure_rows(&self, bp: BackpressureState) -> Vec<RenderRow> {
         let surfaces: [(&str, bool, &str); 6] = [
             ("Blackwell VRAM", bp.blackwell_vram_high, "blackwell-vram"),
-            ("RTX 3090 GPU", bp.gpu3090_busy, "gpu3090"),
+            ("RTX 4090 GPU", bp.gpu3090_busy, "gpu3090"),
             ("CPU PSI", bp.cpu_pressure, "cpu-psi"),
             ("RAM PSI", bp.ram_pressure, "ram-psi"),
             ("IO PSI", bp.io_pressure, "io-psi"),

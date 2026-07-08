@@ -225,7 +225,7 @@
 | R01107 | Personalization — operator-defined tool gate decision policy via YAML | 1497–1517 | F00595 | non-negotiable | true | 10 |
 | R01108 | Branch lifecycle step 1 Spawn — create branch from user task | 1281 | M00098 | non-negotiable | false | 10 |
 | R01109 | Branch lifecycle step 2 Retrieve — pull relevant memory/code/context | 1284 | M00098 | non-negotiable | false | 10 |
-| R01110 | Branch lifecycle step 3 Draft — 3090 proposes several continuations or plans | 1287 | M00098 | non-negotiable | false | 10 |
+| R01110 | Branch lifecycle step 3 Draft — 4090 proposes several continuations or plans | 1287 | M00098 | non-negotiable | false | 10 |
 | R01111 | Branch lifecycle step 4 Filter — CPU applies grammar / budget / risk / permissions / duplication masks | 1290 | M00098 | non-negotiable | false | 10 |
 | R01112 | Branch lifecycle step 5 Verify — RTX PRO validates or improves high-value branches | 1294 | M00098 | non-negotiable | false | 10 |
 | R01113 | Branch lifecycle step 6 Act — tool calls happen only if CPU policy allows | 1297 | M00098 | non-negotiable | false | 10 |
@@ -285,7 +285,7 @@
 | R01167 | CPU memory op `admit this memory` | 1473 | M00111 | non-negotiable | false | 10 |
 | R01168 | CPU memory op `evict this one` | 1474 | M00111 | non-negotiable | false | 10 |
 | R01169 | CPU memory op `summarize this cluster` | 1475 | M00111 | non-negotiable | false | 10 |
-| R01170 | CPU memory op `ask 3090 to rerank` | 1476 | M00111 | non-negotiable | false | 10 |
+| R01170 | CPU memory op `ask 4090 to rerank` | 1476 | M00111 | non-negotiable | false | 10 |
 | R01171 | CPU memory op `ask oracle to resolve conflict` | 1477 | M00111 | non-negotiable | false | 10 |
 | R01172 | Tool intent JSON schema — tool / intent / command / writes / network | 1486–1494 | M00112 | non-negotiable | false | 10 |
 | R01173 | Tool gate check — permission bits | 1498 | M00112 | non-negotiable | false | 10 |

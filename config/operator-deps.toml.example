@@ -25,6 +25,9 @@ install = [
     "lm-sensors",   # thermal-watch
     "apcupsd",      # UPS interop (R252 power-status)
     "wasmtime",     # R281 Wasm-AOT pipeline (if packaged)
+    "zfsutils-linux",  # zpool + zfs userland — required by zfs-tiered profiles (preflight-storage)
+    "nodejs",       # Node runtime — required by the [npm] claude-code global (dev workstation)
+    "npm",          # npm — installs @anthropic-ai/claude-code
 ]
 
 # ─── Python pip packages ───

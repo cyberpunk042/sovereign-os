@@ -23,6 +23,8 @@ RestrictRealtime=true
 RestrictSUIDSGID=true
 RestrictNamespaces=true
 LockPersonality=true
-ReadWritePaths=/root/.sovereign-os /home /var/log
+# '-' = tolerate an absent /root/.sovereign-os: a bare entry refuses to
+# spawn the unit (226/NAMESPACE) on hosts where the dir doesn't exist yet.
+ReadWritePaths=-/root/.sovereign-os /home /var/log
 NoNewPrivileges=true
 PrivateTmp=true

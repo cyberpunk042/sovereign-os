@@ -23,6 +23,11 @@ RestrictRealtime=true
 RestrictSUIDSGID=true
 RestrictNamespaces=true
 LockPersonality=true
-ReadWritePaths=/var/lib/sovereign-os /var/log/sovereign-os
+# StateDirectory/LogsDirectory CREATE their /var dirs; '-' tolerates
+# absent host paths — a bare ReadWritePaths entry refuses to spawn the
+# unit (226/NAMESPACE) on hosts missing the dir (first host bring-up
+# 2026-06-12).
+StateDirectory=sovereign-os
+LogsDirectory=sovereign-os
 NoNewPrivileges=true
 PrivateTmp=true

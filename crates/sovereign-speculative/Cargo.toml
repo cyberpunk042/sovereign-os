@@ -1,0 +1,25 @@
+[package]
+name = "sovereign-speculative"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Speculative decoding over real models: a cheap draft model proposes K tokens, the target model verifies them, and the longest matching prefix (plus one free corrected/bonus token) is committed each round. Greedy verification is lossless — the output is identical to decoding the target alone, just faster. Composes sovereign-decoder-stack (Clone-able models let the draft propose without committing)."
+
+[lints]
+workspace = true
+
+[dependencies]
+thiserror = { workspace = true }
+sovereign-decoder-stack = { path = "../sovereign-decoder-stack" }
+sovereign-spec-decode = { path = "../sovereign-spec-decode" }
+sovereign-sampler = { path = "../sovereign-sampler" }
+sovereign-ngram-lm = { path = "../sovereign-ngram-lm" }
+
+[dev-dependencies]
+sovereign-transformer-block = { path = "../sovereign-transformer-block" }
+sovereign-rmsnorm = { path = "../sovereign-rmsnorm" }
+sovereign-ffn = { path = "../sovereign-ffn" }

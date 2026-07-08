@@ -61,12 +61,28 @@ case "${kernel_source}" in
     pinned_tag="${SOVEREIGN_OS_KERNEL_TAG:-v${kernel_version_minimum}}"
     if [ -d "${target}/.git" ]; then
       log_info "kernel repo already cloned at ${target} — fetching"
-      git -C "${target}" fetch --tags --depth 1
+      git -C "${target}" fetch --tags --depth 1 || {
+        log_error "git fetch failed on existing kernel repo at ${target} (remote unreachable)"
+        emit_metric sovereign_os_build_step_kernel_fetch_total 1 \
+          "profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"fail\""
+        state_step_fail "${STEP_ID}" "kernel-fetch-failed"
+        exit 1
+      }
     else
       log_info "cloning ${SOVEREIGN_OS_KERNEL_REMOTE} → ${target} (shallow, tag=${pinned_tag})"
       git clone --depth 1 --branch "${pinned_tag}" "${SOVEREIGN_OS_KERNEL_REMOTE}" "${target}" || {
         log_warn "shallow clone of ${pinned_tag} failed; falling back to default branch"
-        git clone --depth 1 "${SOVEREIGN_OS_KERNEL_REMOTE}" "${target}"
+        # The fallback clone was bare: if it ALSO failed, set -e aborted the step
+        # with NO state_step_fail and NO metric — a total clone failure (remote
+        # down, bad tag, disk full) was invisible to both the state machine and
+        # the observability surface. Guard it like every other terminal path.
+        git clone --depth 1 "${SOVEREIGN_OS_KERNEL_REMOTE}" "${target}" || {
+          log_error "kernel clone failed for both tag=${pinned_tag} and default branch (remote unreachable or disk full)"
+          emit_metric sovereign_os_build_step_kernel_fetch_total 1 \
+            "profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"fail\""
+          state_step_fail "${STEP_ID}" "kernel-clone-failed"
+          exit 1
+        }
       }
     fi
     # Record the resolved commit SHA — pinned + verifiable per SDD-019.
@@ -80,6 +96,8 @@ case "${kernel_source}" in
     ;;
   xanmod|liquorix)
     log_error "kernel source '${kernel_source}' not yet implemented (Stage-2+)"
+    emit_metric sovereign_os_build_step_kernel_fetch_total 1 \
+      "profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"fail\""
     state_step_fail "${STEP_ID}" "unsupported-kernel-source"
     exit 1
     ;;
@@ -88,6 +106,8 @@ case "${kernel_source}" in
     ;;
   *)
     log_error "unknown kernel.source value: ${kernel_source}"
+    emit_metric sovereign_os_build_step_kernel_fetch_total 1 \
+      "profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"fail\""
     state_step_fail "${STEP_ID}" "unknown-kernel-source"
     exit 1
     ;;

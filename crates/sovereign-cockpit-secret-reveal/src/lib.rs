@@ -114,7 +114,7 @@ impl SecretReveal {
                 }
                 let masked = "•".repeat(n - t);
                 let tail: String = chars[n - t..].iter().collect();
-                format!("{}{}", masked, tail)
+                format!("{masked}{tail}")
             }
         }
     }

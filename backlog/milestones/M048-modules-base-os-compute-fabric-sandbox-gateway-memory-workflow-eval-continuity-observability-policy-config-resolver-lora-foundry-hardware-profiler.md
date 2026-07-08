@@ -10,8 +10,8 @@
 |---|---|---|
 | E0458 | Continuity Principle — "Now we think in modules, continuity, and configuration surfaces. Not static config files as the goal, but modules as living organs of Sovereign-OS"; "Every module must answer" 7 questions: How does it start? / How does it stop? / How does it recover? / How does it checkpoint? / How does it expose cost/risk? / How does the user choose its behavior? / How does it prove what happened?; "That is the continuity standard" | 14420–14442 |
 | E0459 | Module 1: Base OS Module — Debian 13 / Ubuntu 24 base; 10 responsibilities (kernel / firmware / NVIDIA drivers / AppArmor / cgroup v2 / systemd / ZFS / LUKS / networking / VFIO-IOMMU); 5 config modes (stable / ai-driver-latest / secure / developer / offline); "OS base must be reproducible enough to rebuild, but flexible enough for NVIDIA reality"; "Nix-style systems prove the value of reproducible configuration and rollback, while Debian/Ubuntu give the practical AI driver base"; Chezmoi supports encrypted dotfiles with age/gpg/git-crypt + password manager integration (chezmoi.io/user-guide/encryption); principle "declarative where it protects continuity / imperative where hardware reality demands adaptation" | 14446–14490 |
-| E0460 | Module 2: Compute Fabric — 4 compute workers: blackwell-oracle / 3090-scout / cpu-avx-cortex / cloud-optional; each worker exposes 7 capabilities (capabilities / model roles / current load / memory pressure / cost estimate / privacy class / available precision); Hyper feature: dynamic placement — "same task can route: local SLM / 3090 scout / Blackwell oracle / cloud Anthropic / cloud OpenAI / human gate"; "The user chooses profile; runtime chooses exact placement" | 14494–14534 |
-| E0461 | Module 3: Container/Sandbox Fabric — Podman Quadlet runs Podman containers under systemd declaratively (docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html); NVIDIA Container Toolkit supports CDI specs for exposing NVIDIA devices to Podman/CRI-O/containerd (docs.nvidia.com/datacenter/cloud-native/container-toolkit/1.14.4/cdi-support.html); clean pattern (agent containers as systemd-managed units / GPU access through CDI when allowed / rootless where possible / rootful only when needed / resource limits through cgroup v2); 8 sandbox profiles (read-only repo / write-workspace / network-denied / network-docs-only / gpu-scout / no-gpu / vm-isolated / vfio-3090) | 14538–14580 |
+| E0460 | Module 2: Compute Fabric — 4 compute workers: blackwell-oracle / 4090-scout / cpu-avx-cortex / cloud-optional; each worker exposes 7 capabilities (capabilities / model roles / current load / memory pressure / cost estimate / privacy class / available precision); Hyper feature: dynamic placement — "same task can route: local SLM / 4090 scout / Blackwell oracle / cloud Anthropic / cloud OpenAI / human gate"; "The user chooses profile; runtime chooses exact placement" | 14494–14534 |
+| E0461 | Module 3: Container/Sandbox Fabric — Podman Quadlet runs Podman containers under systemd declaratively (docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html); NVIDIA Container Toolkit supports CDI specs for exposing NVIDIA devices to Podman/CRI-O/containerd (docs.nvidia.com/datacenter/cloud-native/container-toolkit/1.14.4/cdi-support.html); clean pattern (agent containers as systemd-managed units / GPU access through CDI when allowed / rootless where possible / rootful only when needed / resource limits through cgroup v2); 8 sandbox profiles (read-only repo / write-workspace / network-denied / network-docs-only / gpu-scout / no-gpu / vm-isolated / vfio-4090) | 14538–14580 |
 | E0462 | Module 4: Gateway — Anthropic-first; exposes 6 surfaces (Anthropic Messages-compatible API / OpenAI-compatible API shim / MCP bridge / Claude Code integration / OpenCode-Cline compatibility / cost and route ledger); Hyper feature: provider inversion — "Instead of tools owning provider keys: client → Sovereign Gateway → local/cloud/model router"; gateway owns 7 responsibilities (cost / privacy / redaction / routing / profiles / approval / tracing) | 14584–14610 |
 | E0463 | Module 5+6: Memory OS + Workflow Compiler — Memory OS 8 memory types (working / episodic / semantic / procedural / temporal graph / value memory / KV-prefix cache / artifact memory) + 4 continuity rules (raw trace never destroyed without policy / summaries are derived not truth / memory writes gated by trust / user can inspect-remove-export) + Hyper feature memory-as-tools (6 calls: search / write / link / verify / forget / promote); Workflow Compiler input (7: user goal / profile / environment map / policy / model registry / tool catalog / hardware pressure) → output (7: workflow DAG / tool calls / model calls / checkpoints / human gates / evals / commit conditions) + Hyper feature adaptive recompile ("If tests fail or context changes: do not blindly continue. re-map / re-plan / re-route") | 14614–14674 |
 | E0464 | Module 7+8: Eval/Value + Continuity Manager — Eval Plane scores every run on 10 dimensions (correctness / evidence / test pass / schema validity / risk / cost / latency / human burden / reversibility / learning value); profile weights for 8 modes (fast / careful / offline / research / autonomous / production / experimental / communication-peace); Continuity Manager — "sleeper module" — uses (ZFS snapshots / Podman-CRIU checkpoints / workflow hibernation / context compaction / model server warm pools / session resume); Podman supports checkpoint/restore with CRIU (use experimentally for warm CPU/tool sandboxes; for GPU/model state rely more on warm services and KV/context references); 8 continuity states (active / paused / hibernated / checkpointed / archived / quarantined / promoted / rolled back) | 14678–14720 |
@@ -25,11 +25,11 @@
 |---|---|---|---|
 | M00799 | Continuity 7-question standard — start / stop / recover / checkpoint / expose cost+risk / user choice / proof | 14428–14438 | E0458 |
 | M00800 | Module 1: Base OS — Debian 13 / Ubuntu 24 base with 10 responsibilities + 5 config modes + declarative-vs-imperative principle | 14448–14488 | E0459 |
-| M00801 | Module 2: Compute Fabric — 4 workers (blackwell-oracle / 3090-scout / cpu-avx-cortex / cloud-optional) | 14498–14506 | E0460 |
+| M00801 | Module 2: Compute Fabric — 4 workers (blackwell-oracle / 4090-scout / cpu-avx-cortex / cloud-optional) | 14498–14506 | E0460 |
 | M00802 | Compute worker capability schema — 7 fields (capabilities / model roles / current load / memory pressure / cost estimate / privacy class / available precision) | 14510–14518 | E0460 |
 | M00803 | Hyper feature — dynamic placement (6 routing destinations) | 14522–14532 | E0460 |
 | M00804 | Module 3: Container/Sandbox Fabric — Podman Quadlet + NVIDIA CDI + 5-rule clean pattern | 14542–14564 | E0461 |
-| M00805 | Sandbox profile catalog — 8 profiles (read-only repo / write-workspace / network-denied / network-docs-only / gpu-scout / no-gpu / vm-isolated / vfio-3090) | 14570–14578 | E0461 |
+| M00805 | Sandbox profile catalog — 8 profiles (read-only repo / write-workspace / network-denied / network-docs-only / gpu-scout / no-gpu / vm-isolated / vfio-4090) | 14570–14578 | E0461 |
 | M00806 | Module 4: Gateway — Anthropic-first with 6 surface protocols + 7-responsibility provider-inversion ownership | 14586–14608 | E0462 |
 | M00807 | Module 5: Memory OS — 8 memory types + 4 continuity rules + 6 memory-as-tools calls | 14616–14644 | E0463 |
 | M00808 | Module 6: Workflow Compiler — 7-input + 7-output + adaptive-recompile hyper feature | 14648–14672 | E0463 |
@@ -82,7 +82,7 @@
 | F04030 | Base OS principle — "imperative where hardware reality demands adaptation" | 14488 | M00800 |
 | F04031 | Module 2 — Compute Fabric | 14494 | M00801 |
 | F04032 | Compute worker — blackwell-oracle | 14498 | M00801 |
-| F04033 | Compute worker — 3090-scout | 14499 | M00801 |
+| F04033 | Compute worker — 4090-scout | 14499 | M00801 |
 | F04034 | Compute worker — cpu-avx-cortex | 14500 | M00801 |
 | F04035 | Compute worker — cloud-optional | 14501 | M00801 |
 | F04036 | Capability — capabilities (advertised feature set) | 14510 | M00802 |
@@ -94,7 +94,7 @@
 | F04042 | Capability — available precision | 14516 | M00802 |
 | F04043 | Hyper feature — dynamic placement | 14520 | M00803 |
 | F04044 | Routing destination — local SLM | 14524 | M00803 |
-| F04045 | Routing destination — 3090 scout | 14525 | M00803 |
+| F04045 | Routing destination — 4090 scout | 14525 | M00803 |
 | F04046 | Routing destination — Blackwell oracle | 14526 | M00803 |
 | F04047 | Routing destination — cloud Anthropic | 14527 | M00803 |
 | F04048 | Routing destination — cloud OpenAI | 14528 | M00803 |
@@ -118,7 +118,7 @@
 | F04066 | Sandbox profile — gpu-scout | 14574 | M00805 |
 | F04067 | Sandbox profile — no-gpu | 14575 | M00805 |
 | F04068 | Sandbox profile — vm-isolated | 14576 | M00805 |
-| F04069 | Sandbox profile — vfio-3090 | 14577 | M00805 |
+| F04069 | Sandbox profile — vfio-4090 | 14577 | M00805 |
 | F04070 | Module 4 — Gateway (Anthropic-first) | 14584–14586 | M00806 |
 | F04071 | Gateway surface — Anthropic Messages-compatible API | 14590 | M00806 |
 | F04072 | Gateway surface — OpenAI-compatible API shim | 14591 | M00806 |
@@ -175,7 +175,7 @@
 | R08028 | Base OS principle — "imperative where hardware reality demands adaptation" | 14488 | F04030 | non-negotiable | false | 10 |
 | R08029 | Module 2 — Compute Fabric | 14494 | F04031 | non-negotiable | false | 10 |
 | R08030 | Compute worker — blackwell-oracle | 14498 | F04032 | non-negotiable | false | 10 |
-| R08031 | Compute worker — 3090-scout | 14499 | F04033 | non-negotiable | false | 10 |
+| R08031 | Compute worker — 4090-scout | 14499 | F04033 | non-negotiable | false | 10 |
 | R08032 | Compute worker — cpu-avx-cortex | 14500 | F04034 | non-negotiable | false | 10 |
 | R08033 | Compute worker — cloud-optional | 14501 | F04035 | non-negotiable | false | 10 |
 | R08034 | Worker capability — capabilities | 14510 | F04036 | non-negotiable | false | 10 |
@@ -187,7 +187,7 @@
 | R08040 | Worker capability — available precision | 14516 | F04042 | non-negotiable | false | 10 |
 | R08041 | Hyper feature — dynamic placement | 14520 | F04043 | non-negotiable | false | 10 |
 | R08042 | Routing destination — local SLM | 14524 | F04044 | non-negotiable | false | 10 |
-| R08043 | Routing destination — 3090 scout | 14525 | F04045 | non-negotiable | false | 10 |
+| R08043 | Routing destination — 4090 scout | 14525 | F04045 | non-negotiable | false | 10 |
 | R08044 | Routing destination — Blackwell oracle | 14526 | F04046 | non-negotiable | false | 10 |
 | R08045 | Routing destination — cloud Anthropic | 14527 | F04047 | non-negotiable | false | 10 |
 | R08046 | Routing destination — cloud OpenAI | 14528 | F04048 | non-negotiable | false | 10 |
@@ -213,7 +213,7 @@
 | R08066 | Sandbox profile — gpu-scout | 14574 | F04066 | non-negotiable | false | 10 |
 | R08067 | Sandbox profile — no-gpu | 14575 | F04067 | non-negotiable | false | 10 |
 | R08068 | Sandbox profile — vm-isolated | 14576 | F04068 | non-negotiable | false | 10 |
-| R08069 | Sandbox profile — vfio-3090 | 14577 | F04069 | non-negotiable | false | 10 |
+| R08069 | Sandbox profile — vfio-4090 | 14577 | F04069 | non-negotiable | false | 10 |
 | R08070 | Module 4 — Gateway | 14584 | F04070 | non-negotiable | false | 10 |
 | R08071 | Gateway — Anthropic-first | 14586 | F04070 | non-negotiable | false | 10 |
 | R08072 | Gateway surface — Anthropic Messages-compatible API | 14590 | F04071 | non-negotiable | false | 10 |
@@ -316,7 +316,7 @@
 
 - Adjacent dump-range milestones: M047 Continuity — CRIU + ZFS + warm sandboxes + hibernated thought (14107–14402) / M049 Continuity through observability and policy (next; dump 14812–15120)
 - Module 1 Base OS — overlays M044 Sovereign-OS substrate Debian-13 Ubuntu-24 + adds Chezmoi user-config continuity
-- Module 2 Compute Fabric — extends M043 Bridge layer hardware-aware intelligence scheduling 4-layer station translation (Blackwell/3090/AVX-512/RAM-ZFS) with 7-capability schema + dynamic placement
+- Module 2 Compute Fabric — extends M043 Bridge layer hardware-aware intelligence scheduling 4-layer station translation (Blackwell/4090/AVX-512/RAM-ZFS) with 7-capability schema + dynamic placement
 - Module 3 Container/Sandbox Fabric — refines M045 Linux as intelligence governor's sandbox vectors with Podman Quadlet + NVIDIA CDI specifics; 8 sandbox profiles align with M042 Choice Architecture envelopes
 - Module 4 Gateway — realizes M034 Anthropic-first Gateway + M033 Compatibility Gateway via provider-inversion pattern; M046 LoRA foundry vault-proxy pattern (LiteLLM sidecar) consumed here
 - Module 5 Memory OS — extends M028 Memory OS 8-type taxonomy with 4 continuity rules + 6 memory-as-tools calls

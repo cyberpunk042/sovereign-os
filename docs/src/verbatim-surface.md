@@ -60,7 +60,7 @@ _spec ref: master spec §13 (Q4 verbatim)_
 
 ### G-01 — Dual GPU Lane Asymmetry & Bandwidth Throttle
 
-**Context:** The ASUS ProArt X870E-Creator motherboard shares internal high-speed PCIe lanes coming off the Ryzen 9 9900X CPU. When you operate a dual GPU layout (e.g., matching your future NVIDIA RTX PRO 6000 Blackwell with your current RTX 3090), the physical top two PCIe 5.0 slots drop down from an isolated x16 lanes execution mode to a shared x8 / x8 execution topology.
+**Context:** The ASUS ProArt X870E-Creator motherboard shares internal high-speed PCIe lanes coming off the Ryzen 9 9900X CPU. When you operate a dual GPU layout (e.g., matching your future NVIDIA RTX PRO 6000 Blackwell with your current RTX 4090), the physical top two PCIe 5.0 slots drop down from an isolated x16 lanes execution mode to a shared x8 / x8 execution topology.
 
 **Gotcha:** If an agent tries to load a sprawling model across both cards simultaneously, data passing through the PCIe system bus will experience increased latency compared to a single slot execution layout.
 
@@ -137,7 +137,7 @@ _spec ref: master spec Block 6 §Modules 1/2/3 verbatim_
 
 ### C-06 — Layered Responsibility Mapping (Conductor / Logic Engine / Oracle Core)
 
-The Conductor Agent (CPU Bound): Evaluates incoming user intent, updates CLAUDE.md, enforces state rules in SOUL.md, and branches the operational tree. Runtime Selection: Natively compiled 1-bit / Ternary BitNet models executing via bitnet.cpp pinned directly to high-priority CPU cores. Justification: State orchestration requires instantaneous branching and low latency for small context blocks. Executing this on the CPU via AVX-512 prevents constant small-kernel context-switching on the GPUs. The Logic Engine (GPU 0 - RTX 3090): Heavy-duty parsing, regular expression extraction, structural JSON compilation, and fast text embedding generation. Mid-scale quantized models (e.g., Llama-3-70B running at a highly dense Q4_K_M or IQ4_NL quantization profile) managed via a dedicated Podman container bridge. Justification: Balances high processing throughput against the physical constraint of a 24GB VRAM ceiling. The Oracle Core (GPU 1 - Blackwell PRO 6000): Extended, multi-turn recursive reasoning, complex architectural analysis, codebase validation, and large historical context verification. Full-precision FP16 or uncompromised high-precision models utilizing the massive 96GB Blackwell memory pool. Justification: Complete freedom from quantization degradation allows for absolute accuracy during complex system optimization.
+The Conductor Agent (CPU Bound): Evaluates incoming user intent, updates CLAUDE.md, enforces state rules in SOUL.md, and branches the operational tree. Runtime Selection: Natively compiled 1-bit / Ternary BitNet models executing via bitnet.cpp pinned directly to high-priority CPU cores. Justification: State orchestration requires instantaneous branching and low latency for small context blocks. Executing this on the CPU via AVX-512 prevents constant small-kernel context-switching on the GPUs. The Logic Engine (GPU 0 - RTX 4090): Heavy-duty parsing, regular expression extraction, structural JSON compilation, and fast text embedding generation. Mid-scale quantized models (e.g., Llama-3-70B running at a highly dense Q4_K_M or IQ4_NL quantization profile) managed via a dedicated Podman container bridge. Justification: Balances high processing throughput against the physical constraint of a 24GB VRAM ceiling. The Oracle Core (GPU 1 - Blackwell PRO 6000): Extended, multi-turn recursive reasoning, complex architectural analysis, codebase validation, and large historical context verification. Full-precision FP16 or uncompromised high-precision models utilizing the massive 96GB Blackwell memory pool. Justification: Complete freedom from quantization degradation allows for absolute accuracy during complex system optimization.
 
 _spec ref: master spec §17.1 verbatim (Layered Responsibility Mapping)_
 
@@ -161,7 +161,7 @@ _spec ref: master spec §11 verbatim (Consolidated Execution Strategy)_
 
 ### C-11 — Operational Logic / Vibe Manager (120GB total VRAM tiered execution fabric)
 
-The orchestration layer treats the 120GB total VRAM as a tiered execution fabric. Primary Reasoning: Hosted on the 96GB Blackwell (Direct Host). Speculative Decoding: Smaller draft models run on the 24GB 3090 (VFIO Sandbox). State Persistence: The 9900X manages the 'Vibe' by updating state files in the tank/context ZFS dataset, ensuring atomic writes and data integrity. The context management of your multi-agent architecture is driven by a highly specific file-state matrix mapped to the high-safety ZFS dataset (tank/context) with strict synchronization enforcement.
+The orchestration layer treats the 120GB total VRAM as a tiered execution fabric. Primary Reasoning: Hosted on the 96GB Blackwell (Direct Host). Speculative Decoding: Smaller draft models run on the 24GB 4090 (VFIO Sandbox). State Persistence: The 9900X manages the 'Vibe' by updating state files in the tank/context ZFS dataset, ensuring atomic writes and data integrity. The context management of your multi-agent architecture is driven by a highly specific file-state matrix mapped to the high-safety ZFS dataset (tank/context) with strict synchronization enforcement.
 
 _spec ref: master spec §5 + §7 verbatim (Operational Logic / Vibe Manager)_
 
@@ -191,7 +191,7 @@ _spec ref: master spec §3 + §4.1 verbatim (Storage Architecture + Tuning Matri
 
 ### C-16 — Hardware Infrastructure Table (operator-verbatim 6-row spec)
 
-Section 1.1 Core Components — operator-verbatim hardware table: CPU AMD Ryzen 9 9900X (Rationale: Single-cycle AVX-512 (512-bit data path) for orchestration throughput); Motherboard ASUS ProArt X870E-Creator (Rationale: Dual PCIe 5.0 lanes; IOMMU topology support for VFIO isolation); GPU Primary RTX PRO 6000 Blackwell (96GB) (Rationale: Primary inference engine; 96GB VRAM for large-scale model residence); GPU Secondary RTX 3090 (24GB) (Rationale: Sandbox isolation; speculative decoding or security agent offloading); Memory 256GB DDR5 (Initial: 128GB) (Rationale: High-capacity system context for ZFS ARC and GGUF offloading); Networking Marvell AQC113C 10GbE (Rationale: Native high-speed model ingestion from local storage). Management NIC: Intel I226-V 2.5GbE (per §8 secure-management interface). Operator §1b hardware-spec drops additional SKUs: RAM Corsair Vengeance DDR5 CMK128GX5M2B6400C42 (2x64GB×2 kits → 4 DIMMs = 256GB at 6400MHz CL42-52-52-104 1.35V Intel XMP 3.0); NVMe 2x Samsung 990 EVO Plus 2TB PCIe Gen4 x4 / Gen5 x2; UPS APC Smart-UPS 2200VA 1980W LCD Tower SmartConnect 20A 120V SMT2200C; PSU be Quiet! Dark Power Pro 13 1600W ATX 3.1 Compliant 80 Plus Titanium. PCIe & Storage Topology: Lane Symmetry Slot 1 (Blackwell) and Slot 2 (3090) must operate in x8/x8 mode. Critical Constraint: The M.2_2 slot must remain empty. Occupying M.2_2 triggers bifurcation that drops Slot 2 to x4, compromising the 'Magician' symmetry. Storage: 2x PCIe 5.0 NVMe in ZFS RAID 0 for maximum sequential throughput (31.5 GB/s target).
+Section 1.1 Core Components — operator-verbatim hardware table: CPU AMD Ryzen 9 9900X (Rationale: Single-cycle AVX-512 (512-bit data path) for orchestration throughput); Motherboard ASUS ProArt X870E-Creator (Rationale: Dual PCIe 5.0 lanes; IOMMU topology support for VFIO isolation); GPU Primary RTX PRO 6000 Blackwell (96GB) (Rationale: Primary inference engine; 96GB VRAM for large-scale model residence); GPU Secondary RTX 4090 (24GB) (Rationale: Sandbox isolation; speculative decoding or security agent offloading); Memory 256GB DDR5 (Initial: 128GB) (Rationale: High-capacity system context for ZFS ARC and GGUF offloading); Networking Marvell AQC113C 10GbE (Rationale: Native high-speed model ingestion from local storage). Management NIC: Intel I226-V 2.5GbE (per §8 secure-management interface). Operator §1b hardware-spec drops additional SKUs: RAM Corsair Vengeance DDR5 CMK128GX5M2B6400C42 (2x64GB×2 kits → 4 DIMMs = 256GB at 6400MHz CL42-52-52-104 1.35V Intel XMP 3.0); NVMe 2x Samsung 990 EVO Plus 2TB PCIe Gen4 x4 / Gen5 x2; UPS APC Smart-UPS 2200VA 1980W LCD Tower SmartConnect 20A 120V SMT2200C; PSU be Quiet! Dark Power Pro 13 1600W ATX 3.1 Compliant 80 Plus Titanium. PCIe & Storage Topology: Lane Symmetry Slot 1 (Blackwell) and Slot 2 (4090) must operate in x8/x8 mode. Critical Constraint: The M.2_2 slot must remain empty. Occupying M.2_2 triggers bifurcation that drops Slot 2 to x4, compromising the 'Magician' symmetry. Storage: 2x PCIe 5.0 NVMe in ZFS RAID 0 for maximum sequential throughput (31.5 GB/s target).
 
 _spec ref: master spec §1 + §1.1 + §1.2 verbatim (Hardware Infrastructure)_
 
@@ -315,7 +315,7 @@ Every operator-stated demand mapped to ≥1 implementing verb.
 
 **Notes**: R307 cpu-hotswap pinned mode + R338 workload-mode coordinator + R340 adoption.
 
-### ✓ A-04 — GPU too, watts, RTX 3090 details and possibilities established and non-establish
+### ✓ A-04 — GPU too, watts, RTX 4090 details and possibilities established and non-establish
 
 **Status**: ✓ shipped
 **Source**: hook drop 2026-05-17
@@ -326,7 +326,7 @@ Every operator-stated demand mapped to ≥1 implementing verb.
   - `sovereign-osctl psu-oc-mode`
   - `sovereign-osctl avx512-advisor`
 
-**Notes**: R271 gpu-card-advisor + R272 avx512 + R294 psu-oc-mode + R303 gpu-wattage; inventory-catalog R317 surfaces RTX 3090 / RTX PRO 6000 / Ryzen 9 9900X specifics.
+**Notes**: R271 gpu-card-advisor + R272 avx512 + R294 psu-oc-mode + R303 gpu-wattage; inventory-catalog R317 surfaces RTX 4090 / RTX PRO 6000 / Ryzen 9 9900X specifics.
 
 ### ✓ A-05 — autohealth and doctor
 

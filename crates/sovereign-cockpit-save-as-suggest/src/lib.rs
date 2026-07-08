@@ -44,9 +44,9 @@ pub fn suggest(base: &str, ext: &str, existing: &BTreeSet<String>) -> Result<Str
     }
     let make = |suffix: &str| {
         if ext.is_empty() {
-            format!("{}{}", base, suffix)
+            format!("{base}{suffix}")
         } else {
-            format!("{}{}.{}", base, suffix, ext)
+            format!("{base}{suffix}.{ext}")
         }
     };
     let primary = make("");
@@ -55,7 +55,7 @@ pub fn suggest(base: &str, ext: &str, existing: &BTreeSet<String>) -> Result<Str
     }
     let mut n: u32 = 2;
     loop {
-        let cand = make(&format!("-{}", n));
+        let cand = make(&format!("-{n}"));
         if !existing.contains(&cand) {
             return Ok(cand);
         }

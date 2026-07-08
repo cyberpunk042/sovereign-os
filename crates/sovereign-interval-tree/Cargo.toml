@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-interval-tree"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Interval tree for overlap and point-stabbing queries: from a set of intervals, find all that contain a point or overlap a query range in output-sensitive time via a center-point recursive structure. For reservation and scheduling conflict detection, time-window lookups, and range tagging — distinct from a segment tree, which aggregates over index ranges rather than querying arbitrary intervals."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

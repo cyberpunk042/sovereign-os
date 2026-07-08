@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-binary-quant"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Binary (1-bit) embedding quantization: replace each float component with its sign packed into u64 words, shrinking an embedding 32x, and compare with Hamming distance (a fast proxy for cosine after centering). For memory-frugal billion-scale vector search with a full-precision rerank step. Distinct from codebook (PQ) and scalar quantization."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

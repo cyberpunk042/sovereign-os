@@ -60,7 +60,7 @@
 | M00028 | IOMMU topology for VFIO | 216 | E0021 |
 | M00029 | RTX PRO 6000 Blackwell — Oracle Core / FP16-unquantized | 217 | E0022 |
 | M00030 | RTX PRO 6000 Blackwell — 1.8 TB/s + PCIe Gen 5 + MIG + FP4-capable 5th-gen Tensor Cores | 267 | E0022 |
-| M00031 | RTX 3090 — Logic Engine — VFIO-isolated sandbox / speculative decoding | 218 | E0023 |
+| M00031 | RTX 4090 — Logic Engine — VFIO-isolated sandbox / speculative decoding | 218 | E0023 |
 | M00032 | 256GB DDR5 — high system context + ZFS ARC headroom | 219 | E0024 |
 | M00033 | 2× NVMe PCIe 5.0 ZFS RAID-0 — 31.5 GB/s sequential target | 220 | E0025 |
 | M00034 | Marvell AQC113C 10GbE — data plane | 221 | E0026 |
@@ -69,7 +69,7 @@
 | M00037 | PCIEX16(G5)_2 shares lanes with M.2_2 | 245 | E0027 |
 | M00038 | M.2_2 populated forces Slot 1 x8 and Slot 2 x4 | 248–252 | E0027 |
 | M00039 | RTX PRO 6000 Blackwell PCIe 5.0 x8 layout | 259 | E0028 |
-| M00040 | RTX 3090 PCIe 4.0 x8 electrically via second Gen 5 slot | 260 | E0028 |
+| M00040 | RTX 4090 PCIe 4.0 x8 electrically via second Gen 5 slot | 260 | E0028 |
 | M00041 | NVMe hot tier M.2_1 PCIe 5.0 x4 | 261 | E0028 |
 | M00042 | NVMe bulk/scratch M.2_3/M.2_4 PCIe 4.0 x4 via chipset | 262 | E0028 |
 | M00043 | 1600W PSU minimum / 2000W quiet headroom | 355 | E0030 |
@@ -80,14 +80,14 @@
 | Mod ID | Phrase | Dump line | Parent epic |
 |---|---|---|---|
 | M00045 | Oracle Core — RTX PRO 6000 — main LLM / long context / final verification / high-quality generation / large embedding-vision model | 415–421 | E0032 |
-| M00046 | Scout — RTX 3090 — disposable cognition / draft / small fast coding model / embedding / reranker / vision / policy / classifier / sandbox / experimental quantized models | 425–436 | E0033 |
+| M00046 | Scout — RTX 4090 — disposable cognition / draft / small fast coding model / embedding / reranker / vision / policy / classifier / sandbox / experimental quantized models | 425–436 | E0033 |
 | M00047 | Vector Arbiter — Ryzen 9900X AVX-512 — branchy sparse rule-heavy stateful intelligence | 440–466 | E0034 |
 | M00048 | u64 lane fields — agent type / confidence / budget / risk / memory pointer / flags / grammar / mode | 458–465 | E0034 |
 | M00049 | Memory Plane — 256 GB RAM working memory + queues + context arena | 519 | E0035 |
 | M00050 | Storage Plane — NVMe + ZFS replay + datasets + checkpoints + cold memory | 522 | E0036 |
 | M00051 | Move tokens / branch summaries / retrieved chunks / tool results / embedding neighborhoods / risk labels / grammar states / search frontier updates | 526–536 | E0037 |
 | M00052 | Avoid moving large activation tensors / huge KV caches / layer-by-layer split / constant cross-GPU sync | 540–547 | E0037 |
-| M00053 | Token generation loop — 3090 drafts 8-64 / CPU scores-rules-filters-routes / RTX PRO verifies surviving chunks / CPU updates branch state | 470–476 | E0038 |
+| M00053 | Token generation loop — 4090 drafts 8-64 / CPU scores-rules-filters-routes / RTX PRO verifies surviving chunks / CPU updates branch state | 470–476 | E0038 |
 | M00054 | Batching policy — bad token-by-token / good chunks of 16 tokens × N branches | 480–488 | E0038 |
 | M00055 | Per-branch contract masks — citations / code-only mode / no tools / preserve JSON grammar / risky alternative / compress memory / N-step termination | 492–502 | E0039 |
 | M00056 | Bitset routing capacity — 512 candidates per ZMM vector | 935–943 | E0040 |
@@ -97,20 +97,20 @@
 
 | Mod ID | Phrase | Dump line | Parent epic |
 |---|---|---|---|
-| M00058 | Inference Plane — RTX PRO 6000 target/oracle + RTX 3090 draft/scout/side | 729–734 | (M005) |
+| M00058 | Inference Plane — RTX PRO 6000 target/oracle + RTX 4090 draft/scout/side | 729–734 | (M005) |
 | M00059 | Control Plane — Ryzen AVX-512 service — branch state / masks / budgets / routing / scoring | 736–739 | (M005) |
 | M00060 | Memory Plane — RAM arenas + vector index + context cache + ZFS replay logs | 741–744 | (M005) |
 | M00061 | Tool Plane — shell / browser / code editor / documents / databases / sandboxes | 746–747 | (M005) |
 | M00062 | Branch struct — id / parent_id / control / score / budget / memory_ref / constraint_mask / rng | 752–760 | E0041 |
 | M00063 | Scheduler tick — decrement budgets / drop dead / boost / route oracle / route scout / grammar / merge / admit-evict memory | 779–787 | E0043 |
 | M00064 | 8-bit control word fields — model route / task type / max speculation / risk / tool perms / memory policy / grammar mode / priority / lifecycle | 793–805 | E0042 |
-| M00065 | 3090 proposal format — N tokens + confidence + grammar state + tool intent | 810–812 | E0042 |
+| M00065 | 4090 proposal format — N tokens + confidence + grammar state + tool intent | 810–812 | E0042 |
 | M00066 | CPU decision format — no shell / keep N tokens / oracle for X / embedding around Y / kill branch Z | 815–820 | E0042 |
 | M00067 | Oracle scarce + high-value — first big win | 826 | E0046 |
-| M00068 | Cheap cognition services on 3090 — draft / embedding / reranker / small code / vision / classifier / preference / summarizer / tool-risk | 829–839 | E0046 |
-| M00069 | Specialist market on 3090 — CPU as exchange | 842–845 | E0046 |
-| M00070 | Request lifecycle — user / root branch / context candidates / 3090 rerank-summarize-expand / CPU packs prompt / RTX PRO generates / 3090 drafts ahead / CPU validates / RTX PRO finalizes / memory logs | 850–860 | E0046 |
-| M00071 | Coding workflow split — 3090 grep+small-patch+speculation+test-classification / CPU dep-graph+risk-scoring+scheduling+grammar+merge / RTX PRO architectural reasoning+final review+hard bug+long-context | 862–882 | E0046 |
+| M00068 | Cheap cognition services on 4090 — draft / embedding / reranker / small code / vision / classifier / preference / summarizer / tool-risk | 829–839 | E0046 |
+| M00069 | Specialist market on 4090 — CPU as exchange | 842–845 | E0046 |
+| M00070 | Request lifecycle — user / root branch / context candidates / 4090 rerank-summarize-expand / CPU packs prompt / RTX PRO generates / 4090 drafts ahead / CPU validates / RTX PRO finalizes / memory logs | 850–860 | E0046 |
+| M00071 | Coding workflow split — 4090 grep+small-patch+speculation+test-classification / CPU dep-graph+risk-scoring+scheduling+grammar+merge / RTX PRO architectural reasoning+final review+hard bug+long-context | 862–882 | E0046 |
 | M00072 | Auditable trace — input / chunks / drafts / oracle / tool calls / patches / tests / final | 898–907 | E0045 |
 | M00073 | Deterministic JSON FSM tracked on CPU | 916 | E0044 |
 | M00074 | Tool call masking on CPU | 917 | E0044 |
@@ -121,13 +121,13 @@
 | Mod ID | Phrase | Dump line | Parent epic |
 |---|---|---|---|
 | M00076 | RTX PRO 6000 plane — deep probabilistic engine / target model / verifier / final synthesis | 1042–1046 | (M006) |
-| M00077 | RTX 3090 plane — draft / scout / embeddings / reranker / vision-tool / sandbox cognition | 1048–1054 | (M006) |
+| M00077 | RTX 4090 plane — draft / scout / embeddings / reranker / vision-tool / sandbox cognition | 1048–1054 | (M006) |
 | M00078 | Ryzen AVX-512 plane — deterministic executive / grammar engine / branch scheduler / memory policy / tool law / risk masks / replay state | 1056–1063 | (M006) |
 | M00079 | 64-bit control word per branch — route 0..3 / task class 4..7 / budget-TTL 8..15 / risk class 16..23 / tool permissions 24..31 / grammar state 32..39 / memory policy 40..47 / speculation depth 48..55 / lifecycle flags 56..63 | 1071–1081 | E0047 |
 | M00080 | AVX-512 population evaluation — 8 × u64 branches / 64 × u8 states / 512 boolean flags per ZMM | 1085–1090 | E0047 |
 | M00081 | CPU rules — invalid token masks / forbidden tool rejection / branch expiry / schema enforcement / memory admission / GPU routing | 1098–1104 | E0050 |
 | M00082 | Deterministic layer service in Rust/C++ — branch arena / candidate queue / grammar JSON automata / tool permission engine / memory admission / speculation verifier / replay log writer / metrics emitter | 1112–1123 | E0048 |
-| M00083 | Main loop — user task / branch records / 3090 cheap candidates / CPU filter / RTX PRO verify / commit / memory update | 1126–1138 | E0049 |
+| M00083 | Main loop — user task / branch records / 4090 cheap candidates / CPU filter / RTX PRO verify / commit / memory update | 1126–1138 | E0049 |
 | M00084 | Replay log entry — input / state bits / model candidates / CPU masks / accepted transition / tool call / result / next state | 1140–1151 | E0049 |
 | M00085 | Structured outputs guided decoding — xgrammar / guidance / choices / regex / JSON schema | 1158 | (M006) |
 | M00086 | Speculative decoding — TensorRT-LLM / vLLM / llama.cpp | 1160–1162 | (M006) |
@@ -171,7 +171,7 @@
 | M00114 | 64-bit mini rule tables — `decision = (rule_word >> condition) & 1` | 1777–1818 | E0064 |
 | M00115 | Two-level rule tables — `rule_id = control & 0xFF` → `rule_table[rule_id][event_class]` | 1820–1836 | E0065 |
 | M00116 | Probabilistic models + deterministic acceptance — `accept = oracle & grammar & tool & budget & memory` | 1841–1856 | E0066 |
-| M00117 | Branch prediction analogy — 3090 predictor / RTX PRO retirement / AVX reorder buffer + commit | 1866–1884 | E0067 |
+| M00117 | Branch prediction analogy — 4090 predictor / RTX PRO retirement / AVX reorder buffer + commit | 1866–1884 | E0067 |
 | M00118 | Sketches per branch — u64 semantic / u64 lexical / u64 tool | 1892–1898 | E0068 |
 | M00119 | popcount(query_sketch & memory_sketch) overlap | 1900–1905 | E0068 |
 | M00120 | SIMD FSMs — JSON / tool-call schema / shell command policy / code patch format | 1912–1944 | E0069 |

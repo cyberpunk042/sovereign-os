@@ -49,6 +49,7 @@ L3 test can curl without spawning a separate process).
 from __future__ import annotations
 
 import argparse
+import hmac
 import html
 import json
 import os
@@ -300,6 +301,176 @@ def card_mfa_grant_revocations_queue() -> dict[str, Any]:
         "data": data,
     }
 
+
+def card_netns_isolations_queue() -> dict[str, Any]:
+    """SDD-070 MS5b — pending operator-release queue for the
+    selfdef netns-isolation action layer. Sixth in the IPS-hexet
+    paired-decision queue family (kernel-containment axis)."""
+    cockpit_script = REPO_ROOT / "scripts" / "cockpit" / "netns-isolations-queue.py"
+    data = _run_json_at(cockpit_script, []) or {"queue": [], "count": 0}
+    return {
+        "id": "netns-isolations-queue",
+        "title": "SDD-070 — pending netns-isolation release decisions",
+        "data": data,
+    }
+
+
+def card_mount_bindings_queue() -> dict[str, Any]:
+    """SDD-071 MS5b — pending operator-rebind queue for the selfdef
+    mount-binding unbind action layer. Seventh in the IPS-septet
+    paired-decision queue family (filesystem-binding axis)."""
+    cockpit_script = REPO_ROOT / "scripts" / "cockpit" / "mount-bindings-queue.py"
+    data = _run_json_at(cockpit_script, []) or {"queue": [], "count": 0}
+    return {
+        "id": "mount-bindings-queue",
+        "title": "SDD-071 — pending mount-binding rebind decisions",
+        "data": data,
+    }
+
+
+def card_process_tree_freezes_queue() -> dict[str, Any]:
+    """SDD-072 MS5b — pending operator-thaw queue for the selfdef
+    process-tree freeze action layer. Eighth in the IPS-octet
+    paired-decision queue family (process-graph containment axis)."""
+    cockpit_script = REPO_ROOT / "scripts" / "cockpit" / "process-tree-freezes-queue.py"
+    data = _run_json_at(cockpit_script, []) or {"queue": [], "count": 0}
+    return {
+        "id": "process-tree-freezes-queue",
+        "title": "SDD-072 — pending process-tree thaw decisions",
+        "data": data,
+    }
+
+
+def card_socket_fd_revocations_queue() -> dict[str, Any]:
+    """SDD-073 MS5b — pending operator-restore queue for the selfdef
+    socket-fd revocation action layer. Ninth in the IPS-nonet
+    paired-decision queue family (per-connection severance axis)."""
+    cockpit_script = REPO_ROOT / "scripts" / "cockpit" / "socket-fd-revocations-queue.py"
+    data = _run_json_at(cockpit_script, []) or {"queue": [], "count": 0}
+    return {
+        "id": "socket-fd-revocations-queue",
+        "title": "SDD-073 — pending socket-fd-revocation restore decisions",
+        "data": data,
+    }
+
+
+def card_env_scrubs_queue() -> dict[str, Any]:
+    """SDD-074 MS5b — pending operator-restore queue for the selfdef
+    process-env scrub action layer. Tenth in the IPS-dectet
+    paired-decision queue family (in-memory secret-residency axis)."""
+    cockpit_script = REPO_ROOT / "scripts" / "cockpit" / "env-scrubs-queue.py"
+    data = _run_json_at(cockpit_script, []) or {"queue": [], "count": 0}
+    return {
+        "id": "env-scrubs-queue",
+        "title": "SDD-074 — pending env-scrub restore decisions",
+        "data": data,
+    }
+
+
+def card_capability_drops_queue() -> dict[str, Any]:
+    """SDD-075 MS5b — pending operator-restore queue for the selfdef
+    per-process capability-drop action layer. Eleventh in the
+    IPS-undectet paired-decision queue family (per-process privilege-
+    set axis). Restore is queue-clear + audit only — capability
+    drops are irreversible at the kernel level; operator must
+    restart the process to recover the dropped capability."""
+    cockpit_script = REPO_ROOT / "scripts" / "cockpit" / "capability-drops-queue.py"
+    data = _run_json_at(cockpit_script, []) or {"queue": [], "count": 0}
+    return {
+        "id": "capability-drops-queue",
+        "title": "SDD-075 — pending capability-drop restore decisions",
+        "data": data,
+    }
+
+
+def card_bpf_map_element_clears_queue() -> dict[str, Any]:
+    """SDD-078 MS5b — pending operator-restore queue for the selfdef
+    eBPF map element clear action layer. Fourteenth in the
+    IPS-quattuordectet paired-decision queue family (eBPF map state
+    axis). Restore is queue-clear + audit only — BPF map element
+    clears are one-way at the kernel level; selfdef did not snapshot
+    prior values; the owning BPF program's control plane must re-add
+    elements through its normal data path."""
+    cockpit_script = REPO_ROOT / "scripts" / "cockpit" / "bpf-map-element-clears-queue.py"
+    data = _run_json_at(cockpit_script, []) or {"queue": [], "count": 0}
+    return {
+        "id": "bpf-map-element-clears-queue",
+        "title": "SDD-078 — pending bpf-map-element-clear restore decisions",
+        "data": data,
+    }
+
+
+def card_apparmor_profile_pivots_queue() -> dict[str, Any]:
+    """SDD-077 MS5b — pending operator-restore queue for the selfdef
+    AppArmor live profile-pivot action layer. Thirteenth in the
+    IPS-tridectet paired-decision queue family (MAC policy axis).
+    Restore is queue-clear + audit only — AppArmor profile pivots
+    are one-way at the kernel level; operator must restart the
+    process under its original profile via the init system to
+    recover."""
+    cockpit_script = REPO_ROOT / "scripts" / "cockpit" / "apparmor-profile-pivots-queue.py"
+    data = _run_json_at(cockpit_script, []) or {"queue": [], "count": 0}
+    return {
+        "id": "apparmor-profile-pivots-queue",
+        "title": "SDD-077 — pending apparmor-profile-pivot restore decisions",
+        "data": data,
+    }
+
+
+def card_scheduler_status() -> dict[str, Any]:
+    """MS048 M01166 — Goldilocks Scheduler status card. Reads the
+    selfdef MS048 textfile (M01174 binary writes it every 60s) and
+    surfaces the substrate trio + backpressure state + per-source
+    health in the cockpit.
+
+    Peer (not part) of the IPS-quattuordectet queue cards: the
+    scheduler is the runtime-routing layer; the 14 IPS axes are the
+    enforcement layer. Both contribute to the workstation at
+    different architectural altitudes per Peace Machine + Core Law.
+
+    Returns a single composite card with status badge
+    (OK | DEGRADED | PRESSURED | BLIND | SILENT | WEDGED), the
+    per-substrate health rows, the measurement values, and the
+    backpressure-firing list. When the textfile is missing/stale,
+    the card honestly reports WEDGED / SILENT rather than fabricating
+    zeros (per the honest-offline doctrine the 14 IPS observers
+    already follow)."""
+    cockpit_script = REPO_ROOT / "scripts" / "cockpit" / "scheduler-status.py"
+    data = _run_json_at(cockpit_script, []) or {
+        "status": "WEDGED",
+        "measurements": {},
+        "state": {},
+        "substrate_health": {},
+        "substrate_degraded_count": 3,
+        "last_run_unix": 0,
+        "textfile_emit_failed": True,
+        # MS048 decision metrics — empty when the cockpit script is
+        # unreachable, matching scheduler-status.py's own WEDGED fallback so
+        # the card data shape is identical whether the script succeeds or fails.
+        "decisions": {"in_ring": 0, "hibernate": 0, "by_route": {}},
+    }
+    return {
+        "id": "scheduler-status",
+        "title": "MS048 — Goldilocks Scheduler status (runtime routing layer)",
+        "data": data,
+    }
+
+
+def card_kernel_keyring_evictions_queue() -> dict[str, Any]:
+    """SDD-076 MS5b — pending operator-restore queue for the selfdef
+    kernel-keyring eviction action layer. Twelfth in the
+    IPS-duodectet paired-decision queue family (kernel-keyring axis).
+    Restore is queue-clear + audit only — kernel-keyring entries that
+    were invalidated/unlinked are gone; operator must re-provision
+    the key material (re-fetch TGT, re-register session key, etc.)
+    to recover."""
+    cockpit_script = REPO_ROOT / "scripts" / "cockpit" / "kernel-keyring-evictions-queue.py"
+    data = _run_json_at(cockpit_script, []) or {"queue": [], "count": 0}
+    return {
+        "id": "kernel-keyring-evictions-queue",
+        "title": "SDD-076 — pending kernel-keyring-eviction restore decisions",
+        "data": data,
+    }
 
 
 def card_flex() -> dict[str, Any]:
@@ -1426,6 +1597,16 @@ CARDS = [
     card_revocations_queue,
     card_token_revocations_queue,
     card_mfa_grant_revocations_queue,
+    card_netns_isolations_queue,
+    card_mount_bindings_queue,
+    card_process_tree_freezes_queue,
+    card_socket_fd_revocations_queue,
+    card_env_scrubs_queue,
+    card_capability_drops_queue,
+    card_kernel_keyring_evictions_queue,
+    card_apparmor_profile_pivots_queue,
+    card_bpf_map_element_clears_queue,
+    card_scheduler_status,
     card_gpu,
     card_network,
     card_cpu,
@@ -1538,7 +1719,29 @@ def render_html(cards: list[dict[str, Any]]) -> str:
 
 
 def gather_all() -> list[dict[str, Any]]:
-    return [c() for c in CARDS]
+    # Isolate per-card failures. The dashboard is the operator's single-pane
+    # cockpit and every card already degrades honestly when ITS subsystem is
+    # down (scheduler → WEDGED, health → default fallback, …). But this
+    # aggregator had no isolation: a card that *raises* (e.g. a subprocess
+    # emitting an unexpected shape the card's post-processing doesn't fully
+    # guard) would take down the WHOLE page and /api/health, not just itself.
+    # Catch per card and substitute an explicit error card so one failing
+    # subsystem can never blank the entire cockpit.
+    out: list[dict[str, Any]] = []
+    for c in CARDS:
+        card_id = c.__name__.removeprefix("card_")
+        try:
+            out.append(c())
+        except Exception as e:  # noqa: BLE001 — cockpit must survive any one card
+            out.append({
+                "id": card_id,
+                "title": f"{card_id} (error)",
+                "data": {
+                    "error": f"{type(e).__name__}: {e}",
+                    "card_failed": True,
+                },
+            })
+    return out
 
 
 # ── R289 (E4.M9): dashboard editable forms for module configuration ──
@@ -1903,7 +2106,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
             )
             return False
         auth = self.headers.get("Authorization", "")
-        if not auth.startswith("Bearer ") or auth[len("Bearer "):] != expected:
+        # Constant-time compare (hmac.compare_digest) so the Bearer-token
+        # check can't be byte-by-byte timing-attacked — `!=` short-circuits
+        # on the first differing byte and leaks the token over repeated
+        # probes (the dashboard may be exposed via `--bind 0.0.0.0`).
+        presented = auth[len("Bearer "):] if auth.startswith("Bearer ") else ""
+        if not auth.startswith("Bearer ") or not hmac.compare_digest(
+            presented, expected
+        ):
             self._send_json(
                 {
                     "error": "unauthorized",
@@ -2012,7 +2222,18 @@ class DashboardHandler(BaseHTTPRequestHandler):
         for c in CARDS:
             card_id = c.__name__.removeprefix("card_")
             if path == f"/api/{card_id}":
-                self._send_json(c())
+                try:
+                    self._send_json(c())
+                except Exception as e:  # noqa: BLE001 — return a clean error, not a broken socket
+                    self._send_json(
+                        {
+                            "id": card_id,
+                            "error": f"{type(e).__name__}: {e}",
+                            "card_failed": True,
+                            "round": "R225",
+                        },
+                        status=500,
+                    )
                 return
         self._send_json(
             {"error": "not found", "path": path, "round": "R225"},
@@ -2082,6 +2303,22 @@ def main() -> int:
         )
     print(f"# R225 sovereign-os dashboard serving http://{host}:{port}/")
     print(f"# R250 auth: {auth_banner}")
+    # R250 foot-gun guard: no-auth is safe on loopback (the SEED default
+    # bind) but OPEN to the network on an exposed bind. Warn loudly so an
+    # operator who `--bind 0.0.0.0` without dashboard-auth.toml sees that the
+    # dashboard is reachable + unauthenticated (reverse-proxy auth IS a valid
+    # pattern, so warn rather than refuse).
+    if AUTH_CONFIG is None and host not in (
+        "127.0.0.1", "::1", "localhost", "",
+    ):
+        print(
+            f"# R250 WARNING: dashboard bound to {host} (non-loopback) with "
+            f"NO authentication — it is reachable + UNAUTHENTICATED on the "
+            f"network. Configure /etc/sovereign-os/dashboard-auth.toml "
+            f"(allow_ips + token) or put it behind an authenticating reverse "
+            f"proxy before exposing it.",
+            file=sys.stderr,
+        )
     try:
         if args.once:
             srv.handle_request()

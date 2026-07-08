@@ -1,0 +1,47 @@
+# Selfdef SDD-081 hot-store retention observability alerting rules.
+#
+# Fires on series the selfdef daemon exposes DIRECTLY at /metrics
+# (selfdef-api Metrics — not a textfile wrapper):
+#   selfdef_store_retention_enabled    gauge  (1 when hot_retention_days>0)
+#   selfdef_store_retention_sweeps_total counter (sweeps run, every 6h)
+#   selfdef_store_retention_pruned_total counter (events deleted, cumulative)
+#   selfdef_store_events               gauge  (live hot-store size)
+#
+# SDD-081 (selfdef): the retention sweep enforces hot_retention_days so
+# the hot SQLite store stays bounded. This alert pages when retention is
+# ENABLED but not actually running — distinguished from the opt-out case
+# by the _enabled gauge so a host that deliberately keeps events forever
+# never false-pages.
+
+groups:
+  - name: selfdef-store-retention
+    interval: 30s
+    rules:
+
+      - alert: SelfdefStoreRetentionStalled
+        # Retention is on (operator set hot_retention_days>0) but the sweep
+        # counter has not advanced in >13h — more than two of the 6h sweep
+        # ticks. The hot store will grow unbounded → eventual disk pressure
+        # (the very F-2026-016 outcome retention exists to prevent). The
+        # `_enabled == 1` guard means a host that opted out (enabled=0,
+        # sweeps stay 0 by design) never matches.
+        expr: |
+          selfdef_store_retention_enabled == 1
+          and
+          increase(selfdef_store_retention_sweeps_total[13h]) == 0
+        for: 30m
+        labels:
+          severity: warning
+          subsystem: selfdef-store-retention
+          retention_link: stalled
+        annotations:
+          summary: "selfdef hot-store retention stalled on {{ $labels.instance }} (enabled but no sweep in >13h)"
+          description: >
+            selfdef_store_retention_enabled=1 but
+            selfdef_store_retention_sweeps_total has not advanced in over
+            13 hours (the sweep cadence is 6h). hot_retention_days is set
+            but the daemon's retention loop is not pruning, so the hot
+            store (selfdef_store_events) will grow without bound and
+            eventually pressure the disk. Check the daemon is running and
+            its retention loop is alive.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefstoreretentionstalled-warning"

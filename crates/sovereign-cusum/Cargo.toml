@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-cusum"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "CUSUM change-point detection: a two-sided cumulative-sum monitor that raises an alarm when a metric stream drifts persistently above or below its target, while ignoring ordinary noise. For watching latency, acceptance rate, or output quality and reacting when behavior shifts."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

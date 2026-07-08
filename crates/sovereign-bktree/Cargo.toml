@@ -1,0 +1,18 @@
+[package]
+name = "sovereign-bktree"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "A BK-tree for fuzzy string lookup: a metric tree over Levenshtein distance that finds all terms within an edit radius of a query while pruning most of the dictionary via the triangle inequality — so spell-correction and 'did you mean' stay fast as the vocabulary grows, instead of scanning every term. Composes sovereign-edit-distance."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+sovereign-edit-distance = { path = "../sovereign-edit-distance" }

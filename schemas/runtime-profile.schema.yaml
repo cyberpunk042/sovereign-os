@@ -50,7 +50,12 @@ properties:
             - agent_id
             - target_hardware
             - engine
-            - model
+          # SDD-043 Phase 2 (Q-2 answered): an allocation binds its model
+          # EITHER by a hardcoded `model` id OR by a `tier_intent` block the
+          # VRAM-aware selector resolves against the catalog — exactly one.
+          oneOf:
+            - required: [model]
+            - required: [tier_intent]
           properties:
             agent_id:
               type: string
@@ -87,6 +92,8 @@ properties:
               enum: [bitnet.cpp, vllm, vllm-vulkan, llama.cpp]
             model:
               type: string
+            tier_intent:
+              $ref: "#/$defs/tier-intent"
             runtime_invocation:
               type: string
 
@@ -109,7 +116,94 @@ properties:
         type: object
         additionalProperties: true
 
+      thinking_policy:
+        $ref: "#/$defs/thinking-policy"
+
 $defs:
+  thinking-policy:
+    description: |
+      SDD-043 Phase 4 — per-profile orchestration policy for the thinking
+      router (scripts/inference/thinking-plan.py). Declares WHEN a request
+      escalates into a thinking flow and WHICH primitives compose it —
+      chain-of-thought, a Validator pass/tier, self-consistency, MoE.
+      Sparse: any omitted field falls back to the shipped DEFAULT_POLICY,
+      so a profile overrides only what it wants. Nothing is cemented.
+    type: object
+    additionalProperties: false
+    properties:
+      escalate:
+        type: object
+        additionalProperties: false
+        properties:
+          task_types: {type: array, items: {type: string}}
+          tiers: {type: array, items: {type: string}}
+          explicit_flag: {type: string}
+      think:
+        type: object
+        additionalProperties: false
+        properties:
+          enabled: {type: boolean}
+          model_class:
+            type: array
+            items:
+              type: string
+              enum: [llm, slm, rlm, ternary-lm, lora-adapter, embed, vision,
+                     multimodal, code, mixture, speculative, reranker]
+      validate:
+        type: object
+        additionalProperties: false
+        properties:
+          mode: {type: string, enum: [pass, tier, "off"]}   # quote off — YAML would read it as false
+          model_class:
+            type: array
+            items: {type: string}
+      self_consistency:
+        type: object
+        additionalProperties: false
+        properties:
+          samples: {type: integer, minimum: 1}
+      moe:
+        type: object
+        additionalProperties: false
+        properties:
+          enabled: {type: boolean}
+          top_k: {type: integer, minimum: 1}
+
+  tier-intent:
+    description: |
+      SDD-043 Phase 2 — declare a tier's model by INTENT instead of a
+      hardcoded id. scripts/models/select-by-intent.py resolves this
+      against models/catalog.yaml to the best concrete model +
+      quantization that fits the VRAM budget, so 20+ OS×GPU1×GPU2 combos
+      need not hand-pin every model per profile.
+    type: object
+    required: [class, vram_budget_gib]
+    additionalProperties: false
+    properties:
+      class:
+        description: Acceptable model classes, in preference order.
+        type: array
+        minItems: 1
+        items:
+          type: string
+          enum: [llm, slm, rlm, ternary-lm, lora-adapter, embed, vision,
+                 multimodal, code, mixture, speculative, reranker]
+      vram_budget_gib:
+        description: Max VRAM (GiB) the selector may spend on this tier.
+        type: number
+        exclusiveMinimum: 0
+      purpose:
+        description: Optional purpose tags the model must satisfy (any-of).
+        type: array
+        items: {type: string}
+      min_context_tokens:
+        type: integer
+        minimum: 1
+      prefer:
+        description: verified-real (default) selects live HF models first.
+        type: string
+        enum: [verified-real, any]
+
   gpu-state:
     type: object
     required: [mode, command]

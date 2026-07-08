@@ -1,0 +1,19 @@
+[package]
+name = "sovereign-pcie-topology"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "M003 — ASUS ProArt X870E-Creator PCIe topology: the 6-slot map, the lane-sharing trap (PCIEX16_2 shares lanes with M.2_2), and the recommended layout (Blackwell x8 + 4090 x8 + M.2_1 x4 + chipset NVMe). Detects lane-sharing conflicts before they bite."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

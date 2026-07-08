@@ -1,0 +1,20 @@
+[package]
+name = "sovereign-stream-decode"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Incremental UTF-8 decoding for token streaming: feed token bytes one chunk at a time and it emits the valid-UTF-8 prefix immediately while buffering any trailing incomplete multi-byte sequence until it completes. The streaming-output boundary that lets a byte-level tokenizer emit text token-by-token without splitting a character."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+sovereign-tokenizer = { path = "../sovereign-tokenizer" }

@@ -104,7 +104,7 @@ fn walk(v: &Value, path: &str, label: &str, depth: u32, vw: &JsonViewer, out: &m
     let preview = match v {
         Value::Object(o) => format!("{{{} field(s)}}", o.len()),
         Value::Array(a) => format!("[{} item(s)]", a.len()),
-        Value::String(s) => format!("{:?}", s),
+        Value::String(s) => format!("{s:?}"),
         Value::Number(n) => n.to_string(),
         Value::Bool(b) => b.to_string(),
         Value::Null => "null".into(),
@@ -121,14 +121,14 @@ fn walk(v: &Value, path: &str, label: &str, depth: u32, vw: &JsonViewer, out: &m
         match v {
             Value::Object(o) => {
                 for (k, child) in o {
-                    let child_path = format!("{}.{}", path, k);
+                    let child_path = format!("{path}.{k}");
                     walk(child, &child_path, k, depth + 1, vw, out);
                 }
             }
             Value::Array(a) => {
                 for (i, child) in a.iter().enumerate() {
-                    let child_path = format!("{}[{}]", path, i);
-                    let lbl = format!("[{}]", i);
+                    let child_path = format!("{path}[{i}]");
+                    let lbl = format!("[{i}]");
                     walk(child, &child_path, &lbl, depth + 1, vw, out);
                 }
             }

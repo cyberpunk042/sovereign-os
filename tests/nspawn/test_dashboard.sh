@@ -97,7 +97,12 @@ else
   fi
 fi
 
-# Wait for the --once server to exit
+# Reap the server. The --once server only self-exits AFTER it serves a
+# request; if curl above failed to connect (slow bind / port race under CI
+# load), the server is still alive waiting for a request that never comes,
+# so a bare `wait` would block forever and the CI job gets cancelled at the
+# timeout. Kill-then-wait makes teardown hang-proof regardless.
+kill "${SRV_PID}" 2>/dev/null || true
 wait "${SRV_PID}" 2>/dev/null || true
 
 # ---- /api/health endpoint via a second --once invocation ----
@@ -120,17 +125,44 @@ if grep -q "serving" /tmp/r225-api.log; then
   if [ "${curl_rc}" -eq 0 ]; then
     ok "GET /api/health returned 200"
     python3 - /tmp/r225-api.json <<'PY' 2>/dev/null \
-      && ok "JSON shape: cards[20] + round + sdd_vector" \
+      && ok "JSON shape: cards[40] + round + sdd_vector" \
       || ko "JSON shape wrong"
 import json, sys
 d = json.load(open(sys.argv[1]))
 assert d["round"] == "R225"
 assert d["sdd_vector"] == "SDD-026 Z-1"
 assert isinstance(d["cards"], list)
-# R225 SEED ships with 6 cards; R226 + R227 + R235 + R238 + R241(×2) + R243 + R247(×2) + R254(×2) + R261 + R300 add 13 more.
-assert len(d["cards"]) == 20, f"expected 20 cards, got {len(d['cards'])}"
+# R225 SEED ships with 6 cards; R226 + R227 + R235 + R238 + R241(×2) +
+# R243 + R247(×2) + R254(×2) + R261 + R300 added 13 more (→ 20 total).
+# Subsequent rounds added 20 more cards: 14 IPS-quattuordectet enforcement-
+# queue cards (blockset, quarantine, revocations, token_revocations,
+# mfa_grant_revocations, netns_isolations, mount_bindings, process_tree_
+# freezes, socket_fd_revocations, env_scrubs, capability_drops, kernel_
+# keyring_evictions, apparmor_profile_pivots, bpf_map_element_clears) +
+# 6 operator-UX cards (morning_brief, scheduler_status, module_state,
+# guide, model_adapt, model_build). Per Hard Rule 4a (Adding ≠
+# discarding) the lock-list bumps additively to 40.
+assert len(d["cards"]) == 40, f"expected 40 cards, got {len(d['cards'])}"
 ids = {c["id"] for c in d["cards"]}
-assert ids == {"gpu", "network", "cpu", "fs", "raid", "flex", "health", "models", "insights", "install_paths", "services", "kernel", "toolchains", "fine_tune", "events", "power", "bios", "virt", "dependency_state", "operator-posture"}, ids
+expected = {
+    # Original 20
+    "gpu", "network", "cpu", "fs", "raid", "flex", "health", "models",
+    "insights", "install_paths", "services", "kernel", "toolchains",
+    "fine_tune", "events", "power", "bios", "virt", "dependency_state",
+    "operator-posture",
+    # IPS-quattuordectet queue cards (14) — SDD-065..078 enforcement layer
+    "blockset-queue", "quarantine-queue", "revocations-queue",
+    "token-revocations-queue", "mfa-grant-revocations-queue",
+    "netns-isolations-queue", "mount-bindings-queue",
+    "process-tree-freezes-queue", "socket-fd-revocations-queue",
+    "env-scrubs-queue", "capability-drops-queue",
+    "kernel-keyring-evictions-queue", "apparmor-profile-pivots-queue",
+    "bpf-map-element-clears-queue",
+    # Operator-UX expansion (6)
+    "morning_brief", "scheduler-status", "module_state", "guide",
+    "model_adapt", "model_build",
+}
+assert ids == expected, f"id-set drift: missing={expected-ids} extra={ids-expected}"
 PY
   else
     ko "curl GET /api/health failed (rc=${curl_rc})"
@@ -138,6 +170,8 @@ PY
 else
   ko "second server failed to bind"
 fi
+# Hang-proof teardown (see the first --once server above).
+kill "${SRV_PID}" 2>/dev/null || true
 wait "${SRV_PID}" 2>/dev/null || true
 
 # ---- usage error: bad --bind ----
@@ -167,6 +201,33 @@ set -e
   || ko "expected rc=2 on unknown subverb, got ${rc}"
 
 rm -f /tmp/r225-*
+
+# ---- per-card fault isolation: one raising card must not blank the page ----
+# gather_all() aggregates every card for `/` and `/api/health`. A single card
+# that RAISES (unexpected subprocess shape, transient error) must degrade to
+# an explicit error card — never take down the whole cockpit.
+set +e
+iso_out="$(python3 -c "
+import importlib.util
+spec = importlib.util.spec_from_file_location('serve', '${SCRIPT}')
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+def card_goodtest(): return {'id':'goodtest','title':'Good','data':{'ok':True}}
+def card_boomtest(): raise KeyError('simulated unexpected shape')
+m.CARDS = [card_goodtest, card_boomtest]
+out = m.gather_all()                       # must NOT raise
+ids = {c['id']: c for c in out}
+assert ids['goodtest']['data']['ok'] is True
+assert ids['boomtest']['data'].get('card_failed') is True
+assert 'KeyError' in ids['boomtest']['data']['error']
+print('ISOLATED')
+" 2>&1)"
+rc=$?
+set -e
+if [ "${rc}" -eq 0 ] && grep -q "ISOLATED" <<< "${iso_out}"; then
+  ok "gather_all isolates a raising card (cockpit survives; error card shown)"
+else
+  ko "gather_all did NOT isolate a raising card (rc=${rc}): ${iso_out}"
+fi
 
 echo
 total=$((pass + fail))

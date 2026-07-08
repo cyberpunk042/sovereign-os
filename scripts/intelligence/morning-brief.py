@@ -143,10 +143,19 @@ def probe_autohealth(timeout: int) -> dict[str, Any]:
         return {"available": False, "severity": None,
                 "error": res.get("stderr_text", "")[:200]}
     d = res["json"]
-    sev = (d.get("severity") or d.get("verdict")
+    # R308 autohealth `status` returns the cached latest tick under
+    # `last_tick`; the health verdict + severity_counts live THERE, not at
+    # the top level. (Was reading top-level severity/verdict/tick_id —
+    # which `status` never emits — so the brief always showed severity=None
+    # despite real findings.)
+    last = d.get("last_tick") if isinstance(d.get("last_tick"), dict) else {}
+    sev = (last.get("verdict") or d.get("severity") or d.get("verdict")
            or d.get("worst_severity"))
-    return {"available": True, "rc": res["rc"],
-            "severity": sev, "tick": d.get("tick_id") or d.get("tick")}
+    counts = (last.get("severity_counts")
+              if isinstance(last.get("severity_counts"), dict) else None)
+    tick = d.get("tick_count") or last.get("tick_at") or d.get("tick")
+    return {"available": True, "rc": res["rc"], "severity": sev,
+            "severity_counts": counts, "tick": tick}
 
 
 # ── Topic suggestion ──────────────────────────────────────────────
@@ -198,8 +207,16 @@ def build_brief(cfg: dict) -> dict[str, Any]:
             critical_signals.append(
                 f"next-action: {r.get('verb') or r.get('title') or 'unnamed'}"
             )
-    if ah.get("severity", "") in ("critical", "high"):
-        critical_signals.append(f"autohealth severity={ah['severity']}")
+    # autohealth's verdict vocabulary is "critical-findings" /
+    # "attention-findings" / "all-clear" (NOT "critical"/"high"); escalate
+    # on the critical verdict OR any critical in severity_counts. (Was
+    # matching "critical"/"high" — vocabulary mismatch meant a
+    # critical-findings host never reached the critical-signals list.)
+    ah_counts = ah.get("severity_counts") or {}
+    if (ah.get("severity") in ("critical-findings", "critical", "high")
+            or (isinstance(ah_counts, dict)
+                and int(ah_counts.get("critical") or 0) > 0)):
+        critical_signals.append(f"autohealth: {ah.get('severity')}")
     if ms["attention_count"] > 0:
         # module attention is informational; only count it critical when
         # the module is 'running-without-overlay' (operator running stock)
@@ -278,7 +295,14 @@ def render_human(brief: dict) -> str:
     # Autohealth section
     ah = secs["autohealth"]
     if ah.get("available"):
-        lines.append(f"  autohealth: severity={ah['severity']} "
+        counts = ah.get("severity_counts")
+        counts_str = ""
+        if isinstance(counts, dict):
+            counts_str = " [" + " ".join(
+                f"{k}={counts[k]}" for k in ("critical", "attention",
+                                             "informational")
+                if k in counts) + "]"
+        lines.append(f"  autohealth: severity={ah['severity']}{counts_str} "
                       f"(tick={ah.get('tick')})")
     else:
         lines.append("  autohealth: (unavailable)")

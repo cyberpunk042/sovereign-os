@@ -132,7 +132,7 @@ grep -q "R216 host-budget override active" "${WORK}/r216.txt" \
 grep -q "8.0 GiB, 8.0 GiB" "${WORK}/r216.txt" \
   && ok "R216 budgets shown in banner" || ko "no budget values"
 
-# Translator allocation default is 21 GiB (3090); 8-GiB override
+# Translator allocation default is 21 GiB (4090); 8-GiB override
 # should now flag VRAM overrun on the translator too.
 grep -q "VRAM requirement 24 GiB exceeds allocation limit 8.0 GiB" "${WORK}/r216.txt" \
   && ok "R216 overrides translator default limit (21→8 GiB)" \

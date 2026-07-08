@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-ngram-speculative"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Prompt-lookup speculative drafting: propose the model's next tokens with no draft model by finding the most recent earlier occurrence of the last few tokens in the context and reusing what followed. Pairs with a verification step (accept the matching prefix) to speed up repetitive generation for free."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

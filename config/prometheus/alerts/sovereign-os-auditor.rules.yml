@@ -1,0 +1,39 @@
+# sovereign-os auditor (Guardian) Prometheus alerting rules — the
+# Tetragon-dropout resilience layer (M084; transposition dump 761-765).
+#
+# Fires on the guardian's textfile metrics (scripts/auditor/guardian-core.py
+# → node_exporter textfile_collector, sovereign-os-auditor.prom):
+#
+#   sovereign_os_auditor_stream_eof_total   Tetragon stream EOF dropouts
+#
+# A single EOF is self-healing: BindsTo= + Restart=always close the
+# perimeter-blind window in ~1-2s and the journal carries the [EOF]
+# evidence. What must page is CHURN — repeated dropouts mean the
+# management path is flapping (the dump's OPNsense/SD-WAN interface
+# re-shuffle scenario) and the containment loop is being blinded over
+# and over.
+#
+# Drop into the Prometheus rule_files config:
+#   rule_files:
+#     - /etc/prometheus/alerts/sovereign-os-auditor.rules.yml
+groups:
+  - name: sovereign-os-auditor
+    rules:
+      - alert: SovereignOsAuditorStreamEofChurn
+        expr: increase(sovereign_os_auditor_stream_eof_total[30m]) >= 3
+        for: 5m
+        labels:
+          severity: warning
+          subsystem: auditor
+        annotations:
+          summary: "sovereign-os auditor: Tetragon stream dropped {{ $value }} times in 30m on {{ $labels.instance }}"
+          description: >
+            The guardian's Tetragon event stream hit end-of-file 3+ times in
+            the last 30 minutes. Each dropout is auto-recovered (BindsTo +
+            Restart=always), but churn at this rate means the management
+            path is flapping — the transposition dump's OPNsense/SD-WAN
+            interface re-shuffle gotcha — and the real-time exploit
+            containment loop is repeatedly blinded for ~1-2s windows.
+            Investigate the firewall/lease behavior on the management VLAN
+            before treating the perimeter as continuously enforced.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#sovereignosauditorstreameofchurn-warning"

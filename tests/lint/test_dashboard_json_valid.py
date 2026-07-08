@@ -45,14 +45,24 @@ def test_dashboard_has_minimum_shape(dash: pathlib.Path):
 
 @pytest.mark.parametrize("dash", _dashboards(), ids=lambda p: p.name)
 def test_dashboard_uses_sovereign_os_metrics(dash: pathlib.Path):
-    """Each dashboard references either sovereign_os_* metrics (native
-    control-plane gauges) OR selfdef_* metrics (cross-project mirror
-    dashboards consuming the selfdef-emitted gauges per R10212
-    read-only doctrine: sovereign-os consumes, selfdef enforces)."""
+    """Each dashboard references a sanctioned metric family: sovereign_os_*
+    (native control-plane gauges), selfdef_* (cross-project mirror dashboards
+    consuming the selfdef-emitted gauges per R10212 read-only doctrine:
+    sovereign-os consumes, selfdef enforces), sovereign_telemetry_* (the
+    dedicated `sovereign-telemetry` probe binary's namespace, M045/M013), OR
+    sovereign_gateway_* (the `sovereign-gatewayd` daemon's own GET /metrics
+    namespace — served over HTTP by the daemon itself, scraped directly;
+    same dedicated-binary precedent as sovereign_telemetry_*)."""
     text = dash.read_text()
-    assert ("sovereign_os_" in text) or ("selfdef_" in text), (
-        f"{dash.name}: doesn't reference any sovereign_os_* nor "
-        f"selfdef_* metric — is this dashboard tagged correctly?"
+    assert (
+        ("sovereign_os_" in text)
+        or ("selfdef_" in text)
+        or ("sovereign_telemetry_" in text)
+        or ("sovereign_gateway_" in text)
+    ), (
+        f"{dash.name}: doesn't reference any sovereign_os_* / selfdef_* / "
+        f"sovereign_telemetry_* / sovereign_gateway_* metric — is this "
+        f"dashboard tagged correctly?"
     )
 
 

@@ -19,7 +19,7 @@ tags > substring-match in body):
   ── results for '<needle>' (N matches across 3 catalogs) ──
     [concept C-04]  Dual-CCD Infinity Fabric cross-die penalty
                      → sovereign-osctl architecture-qa show C-04
-    [axis A-04]      GPU watts, RTX 3090 details ...
+    [axis A-04]      GPU watts, RTX 4090 details ...
                      → sovereign-osctl coverage show A-04
     [layer hardware] into the hardware
                      → sovereign-osctl layers show hardware

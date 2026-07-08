@@ -1,0 +1,12 @@
+[Unit]
+Description=Weekly selfdef checkout freshness check (SDD-001)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/hooks/recurrent/selfdef-sync.sh
+
+[Timer]
+OnCalendar=Sun 05:30:00
+RandomizedDelaySec=1800
+Persistent=true
+Unit=sovereign-selfdef-sync.service
+
+[Install]
+WantedBy=timers.target

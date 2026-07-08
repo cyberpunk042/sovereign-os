@@ -4,9 +4,10 @@
 # Pre-install TPM2 + MOK enrollment readiness check. Runs from the
 # live-USB / installer environment BEFORE writing to the target disk.
 #
-# Profile-aware: if the active profile declares
-#   kernel.cmdline.secure_boot: true
-# this hook is required to PASS. Otherwise it emits SKIP and exits 0.
+# Profile-aware: if the active profile declares a secure-boot posture that needs
+# a TPM + key enrollment —
+#   kernel.cmdline.secure_boot: signed   (or)  shim   (SDD-015 enum)
+# this hook is required to PASS. For posture none/unset it emits SKIP, exits 0.
 #
 # What it validates (when secure_boot is required):
 #   • /dev/tpm0 or /dev/tpmrm0 present
@@ -34,13 +35,21 @@ log_step_header "${STEP_ID}" "TPM2 + MOK enrollment readiness (profile=${SOVEREI
 
 secure_boot="$(profile_field kernel.cmdline.secure_boot)"
 
-if [ "${secure_boot}" != "true" ]; then
-  log_info "  SKIP — profile.kernel.cmdline.secure_boot != true (got: '${secure_boot:-unset}')"
-  log_info "${STEP_ID}: SKIP"
-  exit 0
-fi
-
-log_info "  secure_boot=true — TPM checks required"
+# SDD-015 posture enum is none/shim/signed (NOT 'true'). TPM + key-enrollment
+# readiness is required for the postures that actually enroll keys (signed, shim);
+# none/unset needs no TPM. The previous '!= true' check matched no real posture
+# value, so this preflight ALWAYS skipped — secure-boot installs proceeded with
+# zero TPM/UEFI readiness validation.
+case "${secure_boot}" in
+  signed | shim)
+    log_info "  secure_boot=${secure_boot} — TPM + UEFI readiness checks required"
+    ;;
+  *)
+    log_info "  SKIP — secure_boot is '${secure_boot:-unset}' (not signed/shim; no TPM preflight needed)"
+    log_info "${STEP_ID}: SKIP"
+    exit 0
+    ;;
+esac
 
 if [ -n "${SOVEREIGN_OS_DRY_RUN:-}" ]; then
   log_info "DRY-RUN — would check:"

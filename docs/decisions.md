@@ -95,7 +95,7 @@ execution scaffold; operator can re-scope any PR at any gate.
 ### D-003 — 2026-05-16 — SAIN-01 is the default profile; old-workstation is the alternate (schema-first, multi-profile from day 1)
 
 **Decision**: The default OS profile is `sain-01` (Ryzen 9 9900X + RTX
-PRO 6000 Blackwell + RTX 3090 + 256 GB DDR5 + dual PCIe 5 NVMe + Marvell
+PRO 6000 Blackwell + RTX 4090 + 256 GB DDR5 + dual PCIe 5 NVMe + Marvell
 10 GbE + Intel 2.5 GbE on ASUS ProArt X870E-Creator). The alternate
 declared-from-day-1 profile is `old-workstation` (11 GB RAM + 8 GB GPU
 class). Future profiles (`minimal`, `developer`, `headless`) are
@@ -796,6 +796,54 @@ them defensively; adding/removing rules in either is a code-only change
 covered by the existing L3 tests.
 
 **Linked**: direct-to-main commits (Round 106 + Round 111) on 2026-05-16.
+
+---
+
+### D-019 — 2026-07-03 — root-ghostproxy activated as endpoint-mode dependency; proxy half stays disabled (SDD-046)
+
+**Decision**: `cyberpunk042/root-ghostproxy` moves from dormant to
+consumed on sovereign-os nodes, in **endpoint mode only** — per the
+operator directive (verbatim, sacrosanct): *"Lets prepare
+root-ghostproxy for sovereign-os usage, we will use use the repo
+without the proxy mode enabled."* The binding consumes the sister
+repo's own installer (`install.sh --profile base --mode endpoint`) via
+two SAIN-01 lifecycle hooks: `root-ghostproxy-endpoint-install`
+(first-boot, triple-gated — report-only until
+`SOVEREIGN_OS_CONFIRM_GHOSTPROXY_INSTALL=YES`) and
+`root-ghostproxy-verify` (weekly recurrent, read-only `--check` drift
+witness). The mode is PINNED endpoint inside the hooks and is NOT
+env-overridable: root-ghostproxy's `--mode auto` promotes multi-NIC
+hosts to bridge, and SAIN-01 has two NICs — auto-detection on the
+target would silently enable the proxy/IPS half the operator directed
+OFF.
+
+**Why**: The operator directed root-ghostproxy's preparation for
+sovereign-os usage (root-ghostproxy PR #3, merged 2026-07-03, ships
+the upstream consumption guide + a 10/10 endpoint-mode regression
+test). SDD-001 had scoped the re-activation out ("Does NOT decide how
+root-ghostproxy re-activates"); SDD-046 decides it. Composition with
+selfdef is complementary, not overlapping: root-ghostproxy governs the
+AI-agent TOOL-CALL surface; selfdef governs the OS RUNTIME-DEFENSE
+surface (Tetragon perimeter, notifiers, escalations).
+
+**Affected items**: `docs/sdd/046-root-ghostproxy-endpoint-binding.md`
+(new) + `scripts/hooks/post-install/root-ghostproxy-endpoint-install.sh`
+(new) + `scripts/hooks/recurrent/root-ghostproxy-verify.sh` (new) +
+`profiles/sain-01.yaml` hooks wiring +
+`tests/lint/test_root_ghostproxy_binding_contract.py` (13 assertions) +
+status rows in README.md / ARCHITECTURE.md / docs/src/xrepo/direction.md
+/ docs/src/architecture.md + SDD-001 repo-table annotation. Metrics:
+`sovereign_os_ghostproxy_endpoint_install_result` +
+`sovereign_os_ghostproxy_endpoint_verify_result` + timestamps.
+
+**Reversibility**: high — the install hook is `mandatory: false` and
+report-only by default; removing the profile wiring restores the
+pre-binding state. The proxy half was never touched (endpoint mode is
+a runtime selection in the sister repo, not a fork).
+
+**Linked**: SDD-046 Q-046-001..004 (open); root-ghostproxy PR #3;
+operator-directive verbatim log `cyberpunk042/root-ghostproxy
+wiki/log/2026-07-03-sovereign-os-endpoint-prep-directive.md`.
 
 ---
 

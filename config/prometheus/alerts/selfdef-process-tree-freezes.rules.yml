@@ -1,0 +1,81 @@
+# Selfdef SDD-072 process-tree freeze Prometheus alerting rules.
+# Fires on textfile metrics from selfdef-process-tree-freezes-textfile
+# (selfdef MS4a commit). Extends the IPS-septet observability set
+# to the octet with the prior 19th..25th siblings.
+
+groups:
+  - name: selfdef-process-tree-freezes
+    interval: 30s
+    rules:
+
+      - alert: SelfdefProcessTreeFreezesTextfileEmitFailed
+        expr: selfdef_process_tree_freezes_textfile_emit_failed > 0
+        for: 5m
+        labels:
+          severity: critical
+          subsystem: selfdef-process-tree-freezes
+          ptf_link: observer-fault
+        annotations:
+          summary: "Selfdef process-tree freezes observer fault on {{ $labels.instance }}"
+          description: "Wrapper failure for 5+ minutes. SDD-072 enforcement visibility lost."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefprocesstreefreezestextfileemitfailed-critical"
+
+      - alert: SelfdefProcessTreeFreezesObserverSilent
+        expr: time() - selfdef_process_tree_freezes_last_run_unix > 300
+        for: 2m
+        labels:
+          severity: critical
+          subsystem: selfdef-process-tree-freezes
+          ptf_link: observer-silent
+        annotations:
+          summary: "Selfdef process-tree freezes observer silent on {{ $labels.instance }}"
+          description: "Timer hasn't fired in 5+ minutes."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefprocesstreefreezesobserversilent-critical"
+
+      - alert: SelfdefProcessTreeFreezesStateDirMissing
+        expr: selfdef_process_tree_freezes_state_dir_present == 0
+        for: 10m
+        labels:
+          severity: critical
+          subsystem: selfdef-process-tree-freezes
+          ptf_link: state-dir-missing
+        annotations:
+          summary: "process-tree-freezes state-dir absent on {{ $labels.instance }} — SDD-072 enforcement OFFLINE"
+          description: "/var/lib/selfdef/process-tree-freezes not present for 10+ minutes. SDD-072 process-graph-axis IPS primitive cannot persist state. Operator action: systemctl status selfdefd && systemctl restart selfdefd."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefprocesstreefreezesstatedirmissing-critical"
+
+      - alert: SelfdefProcessTreeFreezesPendingThawBacklog
+        expr: selfdef_process_tree_freezes_pending_thaws > 5
+        for: 30m
+        labels:
+          severity: warning
+          subsystem: selfdef-process-tree-freezes
+          ptf_link: pending-backlog
+        annotations:
+          summary: "{{ $value }} pending process-tree thaw decisions on {{ $labels.instance }} for 30m"
+          description: "Operator engagement with the cockpit process-tree-freezes-queue card needed."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefprocesstreefreezespendingthawbacklog-warning"
+
+      - alert: SelfdefProcessTreeFreezesFrozenPidCountHigh
+        expr: selfdef_process_tree_freezes_frozen_pid_count > 100
+        for: 30m
+        labels:
+          severity: warning
+          subsystem: selfdef-process-tree-freezes
+          ptf_link: frozen-pids-high
+        annotations:
+          summary: "{{ $value }} frozen pids on {{ $labels.instance }} for 30m (fork-bomb-scale containment)"
+          description: "Sum of pids frozen across all active SDD-072 handles >100 — likely fork-bomb or large-worker-pool incident. Operator review."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefprocesstreefreezesfrozenpidcounthigh-warning"
+
+      - alert: SelfdefProcessTreeFreezesActiveHigh
+        expr: selfdef_process_tree_freezes_active_count > 10
+        for: 1h
+        labels:
+          severity: warning
+          subsystem: selfdef-process-tree-freezes
+          ptf_link: active-high
+        annotations:
+          summary: "{{ $value }} active process-tree freezes on {{ $labels.instance }} for 1h"
+          description: "Likely multi-incident response scenario. The process-graph axis primitive max-duration is 8h at operator-overridden tier."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefprocesstreefreezesactivehigh-warning"

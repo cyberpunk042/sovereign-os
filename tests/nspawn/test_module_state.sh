@@ -175,6 +175,30 @@ python3 "${MS}" recommend --etc-dir "${all_configured}" --json >/dev/null 2>&1 |
 [[ "${rc}" == 0 ]] || fail "expected rc=0 when all configured; got rc=${rc}"
 pass "12. fully-configured fleet → recommend rc=0 (no operator-attention items)"
 
+# ── 13. disk→catalog completeness: a shipped example NOT in the catalog
+#        is auto-discovered, so the "not configured" answer can never
+#        silently omit a module (§1g anti-minimization backstop). ────────
+probe="zz-l3-uncatalogued-probe"
+probe_ex="${REPO_ROOT}/config/${probe}.toml.example"
+cleanup_probe() { rm -f "${probe_ex}"; }
+trap cleanup_probe EXIT
+printf 'probe = true\n' > "${probe_ex}"
+out="$(python3 "${MS}" list --etc-dir "${empty_etc:-$(mktemp -d)}" --json || true)"
+echo "${out}" | python3 -c "
+import json, sys
+d = json.loads(sys.stdin.read())
+names = {s['module'] for s in d['modules']}
+assert '${probe}' in names, 'uncatalogued example was silently dropped'
+probe = next(s for s in d['modules'] if s['module'] == '${probe}')
+assert probe['has_example_config'] is True, probe
+assert probe['verdict'] == 'installed-not-configured', probe
+assert probe['configure_verb'].endswith(
+    '${probe}.toml'), probe['configure_verb']
+" || fail "auto-discovery backstop"
+cleanup_probe
+trap - EXIT
+pass "13. uncatalogued shipped example is auto-discovered (disk→catalog completeness)"
+
 # Cleanup
 rm -rf "${empty_etc}" "${configured_etc}" "${all_configured}"
 

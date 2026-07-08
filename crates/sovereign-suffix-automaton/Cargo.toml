@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-suffix-automaton"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Suffix automaton: the minimal deterministic automaton recognizing every substring of a string, built online in linear time. Answers substring membership in O(pattern), counts the distinct substrings of the text in O(n), and finds the longest common substring with another string in one pass. For substring search, near-duplicate and overlap analysis, and string indexing — distinct from a suffix array."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

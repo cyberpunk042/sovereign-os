@@ -72,7 +72,7 @@ DEFAULTS = {
     # Headroom-from-tjmax that triggers "thermal-critical"
     # (operator must drop OC profile NOW).
     "cpu_tjmax_critical_margin_c": 5,
-    # GPU thresholds — Blackwell PRO 6000 + Ampere 3090 both spec'd
+    # GPU thresholds — Blackwell PRO 6000 + Ampere 4090 both spec'd
     # for sustained ~83 °C, throttle around 88 °C.
     "gpu_temp_watch_c": 80,
     "gpu_temp_critical_c": 87,

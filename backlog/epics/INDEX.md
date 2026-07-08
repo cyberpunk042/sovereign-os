@@ -52,13 +52,13 @@
 | E0020 | AMD Ryzen 9 9900X Zen 5 single-cycle 512-bit AVX-512 | 215 |
 | E0021 | ASUS ProArt X870E-Creator dual PCIe 5.0 x8/x8 | 216 |
 | E0022 | RTX PRO 6000 Blackwell 96GB GDDR7 oracle | 217 |
-| E0023 | RTX 3090 24GB GDDR6X VFIO-isolated logic engine | 218 |
+| E0023 | RTX 4090 24GB GDDR6X VFIO-isolated logic engine | 218 |
 | E0024 | 256GB DDR5 across 4 DIMMs | 219 |
 | E0025 | 2× NVMe PCIe 5.0 in ZFS RAID-0 | 220 |
 | E0026 | Marvell AQC113C 10GbE + Intel I226-V 2.5GbE asymmetric VLAN | 221 |
 | E0027 | PCIe lane-sharing trap — M.2_2 vs Slot 2 x4 | 243–252 |
-| E0028 | Better layout — Blackwell x8 + 3090 x8 + M.2_1 x4 + chipset NVMe | 258–266 |
-| E0029 | 600W Blackwell + 350W 3090 + 120W CPU power envelope | 348–353 |
+| E0028 | Better layout — Blackwell x8 + 4090 x8 + M.2_1 x4 + chipset NVMe | 258–266 |
+| E0029 | 600W Blackwell + 350W 4090 + 120W CPU power envelope | 348–353 |
 | E0030 | 1600W PSU minimum, 2000W for quiet headroom | 355 |
 | E0031 | CUDA bare-metal PCIe P2P incompatible with IOMMU | 597 |
 
@@ -67,12 +67,12 @@
 | Epic ID | Phrase | Dump line |
 |---|---|---|
 | E0032 | Oracle Core = RTX PRO 6000 — deep resident model | 590 |
-| E0033 | Scout = RTX 3090 — draft / sandbox / side models | 591 |
+| E0033 | Scout = RTX 4090 — draft / sandbox / side models | 591 |
 | E0034 | Vector Arbiter = Ryzen 9900X AVX-512 control plane | 592 |
 | E0035 | Memory Plane = 256GB DDR5 working memory + queues + context arena | 593 |
 | E0036 | Storage Plane = NVMe/ZFS replay + datasets + checkpoints + cold memory | 594 |
 | E0037 | Move decisions / tokens / summaries — not tensors / KV / activations | 526–545 |
-| E0038 | Speculative decoding pipeline — 3090 drafts → CPU filters → Blackwell verifies | 470–488 |
+| E0038 | Speculative decoding pipeline — 4090 drafts → CPU filters → Blackwell verifies | 470–488 |
 | E0039 | Constraint automata — model = creative engine, CPU = deterministic law | 911–933 |
 | E0040 | Bitset routing — 512 candidates per vector | 935–943 |
 
@@ -85,7 +85,7 @@
 | E0043 | AVX-512 scheduler tick — decrement / drop / boost / route / merge / admit / evict | 776–787 |
 | E0044 | Constraint automata — JSON / grammar / tool / shell-command / patch FSMs | 911–913 |
 | E0045 | Auditable replay log — input / chunks / drafts / oracle / tools / patches / tests / final | 898–907 |
-| E0046 | Three big wins — oracle calls scarce / 3090 specialists / CPU constraint automata | 826–933 |
+| E0046 | Three big wins — oracle calls scarce / 4090 specialists / CPU constraint automata | 826–933 |
 
 ### M006 — Deterministic AI control substrate (dump 995–1228)
 
@@ -93,7 +93,7 @@
 |---|---|---|
 | E0047 | Control word — route / task / budget / risk / permissions / grammar / memory / spec_depth / flags | 1071–1081 |
 | E0048 | Deterministic Cortex Runtime — branch arena + token queue + grammar automata + tool perm engine + memory admission + verifier + replay + metrics | 1112–1123 |
-| E0049 | Main loop — control plane / 3090 propose / CPU filter / Blackwell verify / commit / memory update | 1126–1138 |
+| E0049 | Main loop — control plane / 4090 propose / CPU filter / Blackwell verify / commit / memory update | 1126–1138 |
 | E0050 | CPU masks invalid tokens / rejects forbidden tools / expires branches / enforces schema / admits memory / decides GPU routing | 1098–1104 |
 
 ### M007 — Execution model — branch primitive + AVX-512 scheduler (dump 1228–1600)
@@ -121,7 +121,7 @@
 | E0064 | Mini lookup tables inside 64 bits | 1777–1818 |
 | E0065 | Two-level rule tables — rule_id → rule_table[rule_id][event_class] | 1820–1836 |
 | E0066 | Speculative execution with deterministic commit | 1838–1860 |
-| E0067 | Branch prediction analogy — 3090 predictor / Blackwell retirement / AVX reorder-commit | 1862–1886 |
+| E0067 | Branch prediction analogy — 4090 predictor / Blackwell retirement / AVX reorder-commit | 1862–1886 |
 | E0068 | Bloom filters / sketches — popcount(query & memory) | 1888–1908 |
 | E0069 | SIMD finite-state machines — JSON / tool-call / shell / patch | 1910–1944 |
 | E0070 | Cheapest-first filter cascade — lifecycle / budget / route / grammar / duplicate / cheap-score / oracle | 1946–1961 |
@@ -135,7 +135,7 @@
 | E0073 | Hot vs cold layer — hot bitsets/masks/state, cold prompt/text | 2069–2085 |
 | E0074 | Bit-order of 64-bit branch control word | 2089–2105 |
 | E0075 | Scheduler tick — load 8 / extract / compute alive / compute permission / compute oracle-needed / compress / enqueue | 2107–2118 |
-| E0076 | Speculative CPU analogy — 3090 predictor / Blackwell retirement / Ryzen reorder-commit | 2123–2137 |
+| E0076 | Speculative CPU analogy — 4090 predictor / Blackwell retirement / Ryzen reorder-commit | 2123–2137 |
 | E0077 | Concrete advanced tricks — VPTERNLOG / k-mask / compress / 64-bit LUT / token-mask AND / sketches before embeddings | 2150–2235 |
 
 ### M010 — Deterministic data plane — simdjson + Hyperscan + CRoaring (dump 2249–2459)
@@ -214,8 +214,8 @@
 | Epic ID | Phrase | Dump line |
 |---|---|---|
 | E0129 | Four trust zones — Host Control / Oracle / Scout-Sandbox / Disposable | 3403–3416 |
-| E0130 | 3090 as isolation boundary — quarantined cognition engine | 3420–3434 |
-| E0131 | 3090 VFIO good workloads — draft / experiments / browsing / planning / file inspection / vision / code execution / dependency installs / patches | 3424–3436 |
+| E0130 | 4090 as isolation boundary — quarantined cognition engine | 3420–3434 |
+| E0131 | 4090 VFIO good workloads — draft / experiments / browsing / planning / file inspection / vision / code execution / dependency installs / patches | 3424–3436 |
 | E0132 | Communication boundary — virtio-vsock / gRPC over vsock / Unix socket proxy / explicit exchange dirs | 3453–3461 |
 | E0133 | Host↔VM message types — DraftRequest / DraftResult / EmbeddingRequest / RerankResult / VisionResult / ToolPlan / RiskAssessment / PatchProposal | 3464–3473 |
 | E0134 | Capability words — allowed_tools / fs_scope / network_scope / max_runtime / max_memory / output_type / trust_level / flags | 3493–3503 |
@@ -254,7 +254,7 @@
 | E0157 | Skill schema — name / inputs / preconditions / commands / risk / side_effects / success_metric | 4161–4172 |
 | E0158 | Skill promotion pipeline — candidate / sandbox / validation / oracle review / user approval / draft / promote after evidence | 4181–4191 |
 | E0159 | Policy update record — condition_mask / old_policy / new_policy / evidence_count / success_delta / approved_by / rollback_ref | 4216–4225 |
-| E0160 | LATS tree search with hardware awareness — 3090 expands / CPU prunes / Blackwell evaluates frontier / ZFS logs | 4229–4264 |
+| E0160 | LATS tree search with hardware awareness — 4090 expands / CPU prunes / Blackwell evaluates frontier / ZFS logs | 4229–4264 |
 | E0161 | Tree node fields — state_hash / parent / score / visit_count / risk / budget / kv_ref / tool_state | 4243–4253 |
 | E0162 | ReWOO batched-observation pattern — plan / batch / collect / synthesize once | 4267–4296 |
 | E0163 | Learning Plane mutates — branch policies / routing thresholds / retrieval filters / prompt templates / skill library / cache admission / tool schemas / human gate thresholds | 4334–4344 |
@@ -273,10 +273,10 @@
 | E0171 | AMD AVX-512 instruction families — F / BW / DQ / VL / VNNI / VPOPCNTDQ / BITALG / VBMI / VBMI2 / BF16 / IFMA / VP2INTERSECT / GFNI / AVX-VNNI | 4457 |
 | E0172 | Vectorized control fabric — VPTERNLOG / VPOPCNTDQ / VP2INTERSECT / VBMI-VBMI2 / VNNI-BF16 / compress-expand-kmasks | 4459–4479 |
 | E0173 | Ultimate Station Layer 1 Oracle — best model on RTX PRO 6000 | 4488 |
-| E0174 | Layer 2 Scout — Nano / Flash / small coder / perception on 3090 | 4492 |
+| E0174 | Layer 2 Scout — Nano / Flash / small coder / perception on 4090 | 4492 |
 | E0175 | Layer 3 Deterministic Cortex — AVX-512 branch engine | 4496 |
 | E0176 | Layer 4 Memory Hierarchy — VRAM KV / RAM context / ZFS replay / model library | 4500 |
-| E0177 | Layer 5 Isolation — VFIO 3090 / host commits | 4505 |
+| E0177 | Layer 5 Isolation — VFIO 4090 / host commits | 4505 |
 | E0178 | Layer 6 Observability — DCGM / OTel / eBPF / Prometheus | 4510 |
 | E0179 | Model portfolio role classification — Oracle / Executor / Perception / Scout / Verifier / Retriever / Fallback | 4519–4540 |
 | E0180 | Dynamic routing decisions — fast plan / visual / final review / 500 memories / schema JSON / risky shell | 4544–4551 |
@@ -292,7 +292,7 @@
 | E0185 | Compact artifacts on the wire — tokens / candidate ids / summaries / scores / hashes / local KV refs | 4718–4727 |
 | E0186 | Three serving modes — Low-Latency Interactive / Agentic Batch / Long-Context Workbench | 4737–4786 |
 | E0187 | KV-aware routing inputs — model_id / tokenizer_id / prompt_hashes / kv_ref_candidates / branch_parent / cache_policy | 4793–4812 |
-| E0188 | Service-level speculative parallelism — 3090 predicts / CPU prunes / Blackwell verifies | 4816–4843 |
+| E0188 | Service-level speculative parallelism — 4090 predicts / CPU prunes / Blackwell verifies | 4816–4843 |
 | E0189 | 9 separate queues — oracle_prefill / oracle_decode / oracle_verify / scout_draft / scout_rerank / perception / embedding / tool_intent / human_gate | 4848–4860 |
 | E0190 | Batching rules — same model / same tokenizer / same schema / compatible max_tokens / similar context / cache affinity | 4876–4892 |
 | E0191 | Multi-backend abstraction — Generate / Embed / Rerank / Perceive / Verify | 4912–4922 |
@@ -358,7 +358,7 @@
 | E0231 | Frame can be — thought / branch / tool call / model request / workflow step / memory write / verification / REPL exec / candidate answer | 6099–6109 |
 | E0232 | Frame Loop — READ / ROUTE / EVALUATE / OBSERVE / COMMIT / LOOP | 6116–6133 |
 | E0233 | System-level MoE — frame → AVX-512 router → GPU / model / tool / human / memory expert | 6167–6175 |
-| E0234 | Expert set — Blackwell oracle / 3090 scout / Nano perception / embedding / reranker / Python REPL / shell sandbox / simdjson / Hyperscan / ZFS replay / human approval | 6178–6190 |
+| E0234 | Expert set — Blackwell oracle / 4090 scout / Nano perception / embedding / reranker / Python REPL / shell sandbox / simdjson / Hyperscan / ZFS replay / human approval | 6178–6190 |
 | E0235 | AVX-512 router masks — alive / tool / oracle / scout / repl / memory / human | 6199–6207 |
 | E0236 | Compressed dense queues — oracle / scout / repl / tool / human / memory | 6211–6217 |
 | E0237 | CoT becomes data — hypotheses / tool intents as typed objects | 6222–6244 |
@@ -369,7 +369,7 @@
 
 | Epic ID | Phrase | Dump line |
 |---|---|---|
-| E0240 | 6 execution tiers — Tier 0 Pure Logic / Tier 1 WASM / Tier 2 Deno / Tier 3 Python REPL / Tier 4 Containers-microVMs / Tier 5 VFIO 3090 VM | 6426–6450 |
+| E0240 | 6 execution tiers — Tier 0 Pure Logic / Tier 1 WASM / Tier 2 Deno / Tier 3 Python REPL / Tier 4 Containers-microVMs / Tier 5 VFIO 4090 VM | 6426–6450 |
 | E0241 | Multiple REPLs — math / Python / Deno-TS / SQL / shell / browser / simulation / WASM plugin | 6465–6473 |
 | E0242 | REPL capability descriptor — name / runtime / allow_net / allow_read / allow_write / allow_run / max_time_ms / output_schema | 6478–6490 |
 | E0243 | WASM tool ABI primitives — parse / score / filter / transform / validate | 6501–6505 |
@@ -507,7 +507,7 @@
 | E0345 | OSWorld / WebArena / ScreenSpot benchmarks | 8500 |
 | E0346 | Three-layer Computer-Use Plane — Perception / Planning / Execution | 8508–8517 |
 | E0347 | Perceive once + build UI state machine + act programmatically + re-query on uncertainty | 8524–8532 |
-| E0348 | 3090 perception + Blackwell strategic + CPU motor control + RAM/ZFS UI maps | 8537–8555 |
+| E0348 | 4090 perception + Blackwell strategic + CPU motor control + RAM/ZFS UI maps | 8537–8555 |
 | E0349 | GUI state JSON — window / url / elements id / type / text / bbox / interactable / risk | 8563–8579 |
 | E0350 | GUI action JSON — action / target_id / reason / requires_confirmation | 8583–8590 |
 | E0351 | Runtime checks — target exists / interactable / action allowed / risk acceptable / credential/payment/destructive / human gate | 8592–8601 |

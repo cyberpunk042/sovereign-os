@@ -10,7 +10,7 @@ for the rationale of the seed set.
 
 | id | name | status | hardware target | maintainer | mixins |
 |---|---|---|---|---|---|
-| [`sain-01`](sain-01.yaml) | SAIN-01 AI Workstation | draft | Zen 5 + RTX Pro 6000 + RTX 3090 + dual NVMe ZFS + dual NIC | cyberpunk042 | role-workstation, whitelabel-default, observability-tier-1 |
+| [`sain-01`](sain-01.yaml) | SAIN-01 AI Workstation | draft | Zen 5 + RTX Pro 6000 + RTX 4090 + dual NVMe ZFS + dual NIC | cyberpunk042 | role-workstation, whitelabel-default, observability-tier-1 |
 | [`old-workstation`](old-workstation.yaml) | Old Workstation (constrained-hardware alternate) | draft | ~4 cores + ~11 GB DDR4 + 8 GB GPU + SATA SSD | cyberpunk042 | role-workstation, whitelabel-default, observability-tier-1 |
 | [`minimal`](minimal.yaml) | Minimal (headless / VM baseline) | draft | generic x86-64-v3 · 2c/4t · 4 GB RAM · no GPU · virtio-blk root · ext4 | cyberpunk042 | role-headless, whitelabel-default |
 | [`developer`](developer.yaml) | Developer Workstation | draft | generic x86-64-v3 · 4c/8t · 16 GB RAM · optional GPU · nvme-pcie-4 single · ext4 | cyberpunk042 | role-developer, whitelabel-default, observability-tier-1 |

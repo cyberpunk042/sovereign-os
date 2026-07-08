@@ -18,6 +18,10 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod cycle;
+
+pub use cycle::{CycleError, CycleStage, StageReport, TrinityCycle};
+
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -45,7 +49,7 @@ impl TrinityRole {
     pub fn substrate(self) -> &'static str {
         match self {
             TrinityRole::Pulse => "ryzen-9-9900x-avx512",
-            TrinityRole::Weaver => "podman-vfio-3090-blackwell",
+            TrinityRole::Weaver => "podman-vfio-4090-blackwell",
             TrinityRole::Auditor => "tetragon-ebpf",
         }
     }
@@ -220,7 +224,7 @@ mod tests {
         assert_eq!(TrinityRole::Pulse.substrate(), "ryzen-9-9900x-avx512");
         assert_eq!(
             TrinityRole::Weaver.substrate(),
-            "podman-vfio-3090-blackwell"
+            "podman-vfio-4090-blackwell"
         );
         assert_eq!(TrinityRole::Auditor.substrate(), "tetragon-ebpf");
     }

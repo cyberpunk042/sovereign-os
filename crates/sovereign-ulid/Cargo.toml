@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-ulid"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "ULID generation: 128-bit identifiers as a 48-bit millisecond timestamp plus 80 bits of randomness, encoded in 26 Crockford base32 characters that sort lexicographically by creation time. Monotonic within a millisecond. For request and trace ids that are unique, time-ordered, and URL-safe — a sortable alternative to UUIDs."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

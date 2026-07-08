@@ -1,0 +1,18 @@
+[package]
+name = "sovereign-wer"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Word Error Rate and Character Error Rate: the transcription/ASR metric (substitutions + insertions + deletions over reference length) with the full S/I/D breakdown, built on edit-script alignment. For scoring transcription, normalization, and any reference-vs-hypothesis text comparison. Composes sovereign-edit-align."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+sovereign-edit-align = { path = "../sovereign-edit-align" }

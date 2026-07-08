@@ -246,7 +246,7 @@
 | R01979 | Storage roadmap Phase 3 — custom KV block store | 2974 | E0098 | preferable | true | 10 |
 | R01980 | Storage roadmap Phase 4 — SPDK only if profiling proves kernel/filesystem overhead dominates | 2975 | E0098 | preferable | true | 10 |
 | R01981 | Do not start with the dragon — earn it | 2978 | E0098 | non-negotiable | false | 10 |
-| R01982 | Full machine has Inference Plane (Blackwell oracle + 3090 scout/specialists) | 2985–2987 | E0105 | non-negotiable | false | 10 |
+| R01982 | Full machine has Inference Plane (Blackwell oracle + 4090 scout/specialists) | 2985–2987 | E0105 | non-negotiable | false | 10 |
 | R01983 | Full machine has Control Plane (AVX-512 branch/policy/grammar engine) | 2989–2990 | E0105 | non-negotiable | false | 10 |
 | R01984 | Full machine has Memory Plane (semantic memory, embeddings, bitmaps, KV refs) | 2992–2993 | E0105 | non-negotiable | false | 10 |
 | R01985 | Full machine has Storage Plane (ZFS datasets, replay ledger, snapshots, cache tiers) | 2995–2996 | E0105 | non-negotiable | false | 10 |

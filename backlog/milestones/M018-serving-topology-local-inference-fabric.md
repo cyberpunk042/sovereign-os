@@ -15,7 +15,7 @@
 | E0160 | The Split — hardware split vs phase split; do NOT layer-split a single model across two non-NVLink GPUs | 4696–4735 |
 | E0161 | Three Serving Modes — A Low-Latency Interactive / B Agentic Batch / C Long-Context Workbench | 4737–4785 |
 | E0162 | KV-Aware Routing — route by cache, not just load | 4787–4814 |
-| E0163 | Speculative Parallelism — service-level not just model-level; 3090 ahead / Blackwell verifying / CPU packed queues | 4816–4843 |
+| E0163 | Speculative Parallelism — service-level not just model-level; 4090 ahead / Blackwell verifying / CPU packed queues | 4816–4843 |
 | E0164 | Queue Design — 9 named queues + per-queue 6-axis weight | 4845–4872 |
 | E0165 | Batching Rules + Backend Strategy + Abstraction Layer — multi-backend abstraction surface | 4874–4922 |
 | E0166 | Model Fit Reality + Final Serving Fabric + "Model server dumb / runtime smart" rule | 4924–4990 |
@@ -25,16 +25,16 @@
 | Mod ID | Phrase | Dump line | Parent epic |
 |---|---|---|---|
 | M00285 | Serving role — Oracle Server (RTX PRO 6000, large model, final verification, synthesis, long context) | 4670–4673 | E0159 |
-| M00286 | Serving role — Scout Server (RTX 3090 or VM, draft model, small agent, reranker, perception, speculative expansion) | 4675–4677 | E0159 |
-| M00287 | Serving role — Perception Server (optional, 3090, Nemotron Nano Omni screen/doc/audio/video understanding) | 4679–4681 | E0159 |
-| M00288 | Serving role — Embedding/Rerank Server (3090 or CPU, memory retrieval support) | 4683–4685 | E0159 |
+| M00286 | Serving role — Scout Server (RTX 4090 or VM, draft model, small agent, reranker, perception, speculative expansion) | 4675–4677 | E0159 |
+| M00287 | Serving role — Perception Server (optional, 4090, Nemotron Nano Omni screen/doc/audio/video understanding) | 4679–4681 | E0159 |
+| M00288 | Serving role — Embedding/Rerank Server (4090 or CPU, memory retrieval support) | 4683–4685 | E0159 |
 | M00289 | Serving role — Control Runtime (CPU AVX-512, receives user task, chooses routes, owns branch state) | 4687–4689 | E0159 |
 | M00290 | Serving role — KV/Memory Service (RAM/ZFS, content-addressed KV refs, prompt blocks, cache metadata) | 4691–4693 | E0159 |
-| M00291 | Mode A Low-Latency Interactive — CPU retrieves context → 3090 drafts/reranks → Blackwell generates → CPU enforces structured output/tools (chat / coding help / command planning) | 4741–4754 | E0161 |
-| M00292 | Mode B Agentic Batch — CPU spawns branch frontier → 3090 expands many options → CPU compresses+prunes → Blackwell verifies frontier winners → tools execute transactionally (coding/research/automation agents) | 4756–4770 | E0161 |
-| M00293 | Mode C Long-Context Workbench — CPU builds content-addressed context → KV cache + prefix reuse aggressively → Blackwell prefill = expensive asset → 3090 handles summaries+retrieval (repo-wide / documents / audits) | 4772–4785 | E0161 |
+| M00291 | Mode A Low-Latency Interactive — CPU retrieves context → 4090 drafts/reranks → Blackwell generates → CPU enforces structured output/tools (chat / coding help / command planning) | 4741–4754 | E0161 |
+| M00292 | Mode B Agentic Batch — CPU spawns branch frontier → 4090 expands many options → CPU compresses+prunes → Blackwell verifies frontier winners → tools execute transactionally (coding/research/automation agents) | 4756–4770 | E0161 |
+| M00293 | Mode C Long-Context Workbench — CPU builds content-addressed context → KV cache + prefix reuse aggressively → Blackwell prefill = expensive asset → 4090 handles summaries+retrieval (repo-wide / documents / audits) | 4772–4785 | E0161 |
 | M00294 | Request envelope for routing — model_id / tokenizer_id / prompt_hashes / kv_ref_candidates / branch_parent / cache_policy | 4801–4810 | E0162 |
-| M00295 | Speculation triangle — 3090 ahead / Blackwell verifying / CPU packed queues | 4839–4842 | E0163 |
+| M00295 | Speculation triangle — 4090 ahead / Blackwell verifying / CPU packed queues | 4839–4842 | E0163 |
 | M00296 | Nine named queues — oracle_prefill / oracle_decode / oracle_verify / scout_draft / scout_rerank / perception / embedding / tool_intent / human_gate | 4849–4858 | E0164 |
 | M00297 | Per-queue 6-axis weight — priority / deadline / batchability / risk / cache_affinity / model_affinity | 4862–4870 | E0164 |
 | M00298 | Batching rule positives + negatives — same model/tokenizer/schema/max-tokens/context-length/cache-affinity vs latency-critical-vs-huge / different-grammar-mask / high-risk-tool-boundary / will-evict-valuable-KV | 4876–4891 | E0165 |
@@ -51,12 +51,12 @@
 | F01448 | Env var `SOVEREIGN_SERVING_MODE` | 4737–4785 | E0161 | env_var | true |
 | F01449 | CLI `--serving-mode <mode>` | 4737–4785 | E0161 | cli_verb | true |
 | F01450 | Mode A pipeline node — CPU retrieves context | 4748 | M00291 | composite | false |
-| F01451 | Mode A pipeline node — 3090 drafts / reranks | 4749 | M00291 | composite | false |
+| F01451 | Mode A pipeline node — 4090 drafts / reranks | 4749 | M00291 | composite | false |
 | F01452 | Mode A pipeline node — Blackwell generates | 4750 | M00291 | composite | false |
 | F01453 | Mode A pipeline node — CPU enforces structured output / tools | 4751 | M00291 | composite | false |
 | F01454 | Mode A target — chat / coding help / command planning | 4754 | M00291 | composite | true |
 | F01455 | Mode B pipeline node — CPU spawns branch frontier | 4763 | M00292 | composite | false |
-| F01456 | Mode B pipeline node — 3090 expands many options | 4764 | M00292 | composite | false |
+| F01456 | Mode B pipeline node — 4090 expands many options | 4764 | M00292 | composite | false |
 | F01457 | Mode B pipeline node — CPU compresses and prunes | 4765 | M00292 | composite | false |
 | F01458 | Mode B pipeline node — Blackwell verifies frontier winners | 4766 | M00292 | composite | false |
 | F01459 | Mode B pipeline node — tools execute transactionally | 4767 | M00292 | composite | false |
@@ -64,7 +64,7 @@
 | F01461 | Mode C pipeline node — CPU builds content-addressed context | 4779 | M00293 | composite | false |
 | F01462 | Mode C pipeline node — KV cache / prefix reuse aggressively | 4780 | M00293 | composite | false |
 | F01463 | Mode C pipeline node — Blackwell prefill is treated as expensive asset | 4781 | M00293 | composite | false |
-| F01464 | Mode C pipeline node — 3090 handles summaries and retrieval | 4782 | M00293 | composite | false |
+| F01464 | Mode C pipeline node — 4090 handles summaries and retrieval | 4782 | M00293 | composite | false |
 | F01465 | Mode C target — repo-wide work / documents / audits | 4785 | M00293 | composite | true |
 | F01466 | Disaggregated serving — split prefill vs decode | 4660 | E0157 | mode | true |
 | F01467 | Disaggregated KV transfer — NIXL / UCX | 4660 | E0157 | mode | true |
@@ -80,7 +80,7 @@
 | F01477 | KV-aware routing question — Which KV blocks are reusable? | 4796 | E0162 | composite | false |
 | F01478 | KV-aware routing question — Which branch shares parent context? | 4797 | E0162 | composite | false |
 | F01479 | KV-aware routing question — Which context block is expensive to rebuild? | 4798 | E0162 | composite | false |
-| F01480 | Speculation triangle — 3090 should almost always be working ahead | 4840 | M00295 | composite | false |
+| F01480 | Speculation triangle — 4090 should almost always be working ahead | 4840 | M00295 | composite | false |
 | F01481 | Speculation triangle — Blackwell should almost always be verifying or generating | 4841 | M00295 | composite | false |
 | F01482 | Speculation triangle — CPU should almost always have packed queues ready | 4842 | M00295 | composite | false |
 | F01483 | Queue — `oracle_prefill_queue` | 4850 | M00296 | data_model | false |
@@ -123,7 +123,7 @@
 | F01520 | Final Serving Fabric — Control Runtime owns task graph, branches, policy, queues | 4948–4950 | M00301 | composite | false |
 | F01521 | Final Serving Fabric — Model Gateway abstracts vLLM/SGLang/TRT-LLM/llama.cpp | 4951–4952 | M00301 | composite | false |
 | F01522 | Final Serving Fabric — Cache Router tracks KV/prefix/model affinity | 4954–4955 | M00301 | composite | false |
-| F01523 | Final Serving Fabric — GPU Workers (blackwell-oracle / 3090-scout / 3090-perception / cpu-rerank fallback) | 4957–4961 | M00301 | composite | false |
+| F01523 | Final Serving Fabric — GPU Workers (blackwell-oracle / 4090-scout / 4090-perception / cpu-rerank fallback) | 4957–4961 | M00301 | composite | false |
 | F01524 | Final Serving Fabric — Tool Workers (sandboxed, gated, replayed) | 4963–4964 | M00301 | composite | false |
 | F01525 | Final Serving Fabric — Telemetry feeds queue weights and routing | 4966–4967 | M00301 | composite | false |
 | F01526 | API `POST /v1/route` — returns chosen-server + reason for a request envelope | 4787–4814 | E0162 | api_endpoint | true |
@@ -146,9 +146,9 @@
 | R02898 | Strong design is NOT "one server process" | 4664 | E0158 | non-negotiable | false | 10 |
 | R02899 | Strong design is a local inference fabric | 4666 | E0158 | non-negotiable | false | 10 |
 | R02900 | Role — Oracle Server (RTX PRO 6000, large model, final verification, synthesis, long context) | 4671–4673 | M00285 | non-negotiable | false | 10 |
-| R02901 | Role — Scout Server (RTX 3090 or VM, draft model, small agent model, reranker, perception, speculative expansion) | 4675–4677 | M00286 | non-negotiable | false | 10 |
-| R02902 | Role — Perception Server (optional, 3090, Nemotron Nano Omni screen/doc/audio/video understanding) | 4679–4681 | M00287 | non-negotiable | false | 10 |
-| R02903 | Role — Embedding/Rerank Server (3090 or CPU, memory retrieval support) | 4683–4685 | M00288 | non-negotiable | false | 10 |
+| R02901 | Role — Scout Server (RTX 4090 or VM, draft model, small agent model, reranker, perception, speculative expansion) | 4675–4677 | M00286 | non-negotiable | false | 10 |
+| R02902 | Role — Perception Server (optional, 4090, Nemotron Nano Omni screen/doc/audio/video understanding) | 4679–4681 | M00287 | non-negotiable | false | 10 |
+| R02903 | Role — Embedding/Rerank Server (4090 or CPU, memory retrieval support) | 4683–4685 | M00288 | non-negotiable | false | 10 |
 | R02904 | Role — Control Runtime (CPU AVX-512, receives user task, chooses routes, owns branch state) | 4687–4689 | M00289 | non-negotiable | false | 10 |
 | R02905 | Role — KV/Memory Service (RAM/ZFS, content-addressed KV refs, prompt blocks, cache metadata) | 4691–4693 | M00290 | non-negotiable | false | 10 |
 | R02906 | Two kinds of split — hardware split vs phase split | 4700–4706 | E0160 | non-negotiable | false | 10 |
@@ -167,13 +167,13 @@
 | R02919 | Avoid moving layer outputs | 4734 | E0160 | non-negotiable | false | 10 |
 | R02920 | Mode A — Low-Latency Interactive — fastest good answer | 4744–4745 | M00291 | non-negotiable | false | 10 |
 | R02921 | Mode A flow — CPU retrieves context | 4748 | M00291 | non-negotiable | false | 10 |
-| R02922 | Mode A flow — 3090 drafts / reranks | 4749 | M00291 | non-negotiable | false | 10 |
+| R02922 | Mode A flow — 4090 drafts / reranks | 4749 | M00291 | non-negotiable | false | 10 |
 | R02923 | Mode A flow — Blackwell generates | 4750 | M00291 | non-negotiable | false | 10 |
 | R02924 | Mode A flow — CPU enforces structured output / tools | 4751 | M00291 | non-negotiable | false | 10 |
 | R02925 | Mode A target — chat / coding help / command planning | 4754 | M00291 | non-negotiable | true | 10 |
 | R02926 | Mode B — Agentic Batch — many branches / tool loops | 4759–4760 | M00292 | non-negotiable | false | 10 |
 | R02927 | Mode B flow — CPU spawns branch frontier | 4763 | M00292 | non-negotiable | false | 10 |
-| R02928 | Mode B flow — 3090 expands many options | 4764 | M00292 | non-negotiable | false | 10 |
+| R02928 | Mode B flow — 4090 expands many options | 4764 | M00292 | non-negotiable | false | 10 |
 | R02929 | Mode B flow — CPU compresses and prunes | 4765 | M00292 | non-negotiable | false | 10 |
 | R02930 | Mode B flow — Blackwell verifies frontier winners | 4766 | M00292 | non-negotiable | false | 10 |
 | R02931 | Mode B flow — tools execute transactionally | 4767 | M00292 | non-negotiable | false | 10 |
@@ -182,7 +182,7 @@
 | R02934 | Mode C flow — CPU builds content-addressed context | 4779 | M00293 | non-negotiable | false | 10 |
 | R02935 | Mode C flow — KV cache / prefix reuse aggressively | 4780 | M00293 | non-negotiable | false | 10 |
 | R02936 | Mode C flow — Blackwell prefill is treated as expensive asset | 4781 | M00293 | non-negotiable | false | 10 |
-| R02937 | Mode C flow — 3090 handles summaries and retrieval | 4782 | M00293 | non-negotiable | false | 10 |
+| R02937 | Mode C flow — 4090 handles summaries and retrieval | 4782 | M00293 | non-negotiable | false | 10 |
 | R02938 | Mode C target — repo-wide work / documents / audits | 4785 | M00293 | non-negotiable | true | 10 |
 | R02939 | KV-aware routing is a serious optimization | 4789 | E0162 | non-negotiable | false | 10 |
 | R02940 | Scheduler asks — Which server already has this prefix hot? | 4794 | E0162 | non-negotiable | false | 10 |
@@ -200,11 +200,11 @@
 | R02952 | That is what modern serving stacks are converging toward | 4814 | E0162 | non-negotiable | false | 10 |
 | R02953 | Speculation is service-level, not only model-level | 4818 | E0163 | non-negotiable | false | 10 |
 | R02954 | Classic — draft model predicts tokens / target model verifies | 4823–4825 | E0163 | non-negotiable | false | 10 |
-| R02955 | Workstation version — 3090 predicts branches / plans / token continuations | 4830 | E0163 | non-negotiable | false | 10 |
+| R02955 | Workstation version — 4090 predicts branches / plans / token continuations | 4830 | E0163 | non-negotiable | false | 10 |
 | R02956 | Workstation version — CPU prunes with deterministic law | 4831 | E0163 | non-negotiable | false | 10 |
 | R02957 | Workstation version — Blackwell verifies in chunks | 4832 | E0163 | non-negotiable | false | 10 |
 | R02958 | SPECTRE-style — preserve draft-target overlap rather than making one wait | 4835 | E0163 | non-negotiable | false | 10 |
-| R02959 | 3090 should almost always be working ahead | 4840 | M00295 | non-negotiable | false | 10 |
+| R02959 | 4090 should almost always be working ahead | 4840 | M00295 | non-negotiable | false | 10 |
 | R02960 | Blackwell should almost always be verifying or generating | 4841 | M00295 | non-negotiable | false | 10 |
 | R02961 | CPU should almost always have packed queues ready | 4842 | M00295 | non-negotiable | false | 10 |
 | R02962 | Queue — oracle_prefill_queue | 4850 | M00296 | non-negotiable | false | 10 |
@@ -257,7 +257,7 @@
 | R03009 | Final shape — Control Runtime owns task graph, branches, policy, queues | 4948–4950 | M00301 | non-negotiable | false | 10 |
 | R03010 | Final shape — Model Gateway abstracts vLLM/SGLang/TRT-LLM/llama.cpp servers | 4951–4952 | M00301 | non-negotiable | false | 10 |
 | R03011 | Final shape — Cache Router tracks KV/prefix/model affinity | 4954–4955 | M00301 | non-negotiable | false | 10 |
-| R03012 | Final shape — GPU Workers (blackwell-oracle, 3090-scout, 3090-perception, cpu-rerank fallback) | 4957–4961 | M00301 | non-negotiable | false | 10 |
+| R03012 | Final shape — GPU Workers (blackwell-oracle, 4090-scout, 4090-perception, cpu-rerank fallback) | 4957–4961 | M00301 | non-negotiable | false | 10 |
 | R03013 | Final shape — Tool Workers (sandboxed, gated, replayed) | 4963–4964 | M00301 | non-negotiable | false | 10 |
 | R03014 | Final shape — Telemetry feeds queue weights and routing | 4966–4967 | M00301 | non-negotiable | false | 10 |
 | R03015 | Rule — The model server should be dumb | 4973 | M00301 | non-negotiable | false | 10 |
@@ -287,7 +287,7 @@
 | R03039 | Test — Mode A interactive end-to-end on sample chat task | 4741–4754 | M00291 | non-negotiable | false | 10 |
 | R03040 | Test — Mode B agentic-batch end-to-end on sample coding agent task | 4756–4770 | M00292 | non-negotiable | false | 10 |
 | R03041 | Test — Mode C long-context end-to-end on sample repo-wide task | 4772–4785 | M00293 | non-negotiable | false | 10 |
-| R03042 | Test — speculation triangle keeps 3090 working ahead while Blackwell verifies (overlap > 0 for sample workload) | 4840–4842 | M00295 | non-negotiable | false | 10 |
+| R03042 | Test — speculation triangle keeps 4090 working ahead while Blackwell verifies (overlap > 0 for sample workload) | 4840–4842 | M00295 | non-negotiable | false | 10 |
 | R03043 | Test — KV-aware routing picks server with hot prefix when multiple candidates exist | 4794 | E0162 | non-negotiable | false | 10 |
 | R03044 | Test — KV-aware routing prefers matching tokenizer when multiple candidates exist | 4795 | E0162 | non-negotiable | false | 10 |
 | R03045 | Test — KV-aware routing reuses KV blocks when reusable | 4796 | E0162 | non-negotiable | false | 10 |
@@ -301,7 +301,7 @@
 | R03053 | Backend toggle persists across daemon restart | 4441–4453 | F01394 | non-negotiable | true | 10 |
 | R03054 | Composite — Serving Fabric integrates with M013 observability (queue + cache + telemetry metrics) | 4966–4967 | M00301 | non-negotiable | false | 10 |
 | R03055 | Composite — Serving Fabric integrates with M011 KV memory hierarchy (cache router shares L1/L2/L3 view) | 4954–4955 | M00301 | non-negotiable | false | 10 |
-| R03056 | Composite — Serving Fabric integrates with M014 isolation (3090 perception/scout speak via VFIO host channels) | 4675–4681 | E0160 | non-negotiable | false | 10 |
+| R03056 | Composite — Serving Fabric integrates with M014 isolation (4090 perception/scout speak via VFIO host channels) | 4675–4681 | E0160 | non-negotiable | false | 10 |
 | R03057 | Composite — Serving Fabric integrates with M017 model registry (per-role model + per-precision binding) | 4900–4910 | M00299 | non-negotiable | false | 10 |
 | R03058 | Composite — Serving Fabric integrates with M015 programming plane (Tool Workers are Tool Nodes) | 4963–4964 | M00301 | non-negotiable | false | 10 |
 | R03059 | Composite — Serving Fabric integrates with M016 learning plane (telemetry → queue-weight feedback loop) | 4966–4967 | M00301 | non-negotiable | false | 10 |

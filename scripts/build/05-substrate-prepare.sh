@@ -24,7 +24,22 @@ emit_substrate_metric() {
     "substrate=\"${SOVEREIGN_OS_SUBSTRATE}\",profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"$1\""
 }
 
-inputs_hash="$(state_inputs_hash "${BASH_SOURCE[0]}" "${SOVEREIGN_OS_PROFILE_FILE}")"
+# The emitted config is a function of the ADAPTER CODE and the env knobs
+# below, not just this step + the profile: a fixed emitter (or a changed
+# snapshot pin / signing key / root-password posture) silently reused the
+# stale build/<profile>/mkosi.conf because none of them were hashed —
+# the 2026-06-12 Run-console build failed on main-only apt AFTER the
+# repos fix landed, because step 05 skipped itself.
+adapter_for_hash="${__SCRIPT_DIR}/adapters/${SOVEREIGN_OS_SUBSTRATE}-emit.sh"
+inputs_hash="$(state_inputs_hash "${BASH_SOURCE[0]}" "${SOVEREIGN_OS_PROFILE_FILE}" \
+  "${adapter_for_hash}" \
+  "snapshot=${DEBIAN_SNAPSHOT:-}" \
+  "epoch=${SOURCE_DATE_EPOCH:-}" \
+  "sb_key=${SOVEREIGN_OS_PK_KEY:-${SOVEREIGN_OS_MOK_KEY:-}}" \
+  "root_pw=$([ -n "${SOVEREIGN_OS_ROOT_PASSWORD:-}" ] && echo set || echo unset)" \
+  "bake_dev=${SOVEREIGN_OS_BAKE_DEV_TOOLS:-}" \
+  "bake_selfdef=${SOVEREIGN_OS_BAKE_SELFDEF:-}" \
+  "node_major=${SOVEREIGN_OS_NODE_MAJOR:-22}")"
 
 if ! state_step_should_run "${STEP_ID}" "${inputs_hash}"; then
   log_info "step ${STEP_ID} already completed with matching inputs — skipping"

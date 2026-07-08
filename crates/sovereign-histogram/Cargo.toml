@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-histogram"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "A bucketed histogram for latency/size distributions: record values into configurable buckets in constant memory and query percentiles (p50/p95/p99) and bucket counts. The percentile companion to running-stats — what you watch for SLOs, not just the mean."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

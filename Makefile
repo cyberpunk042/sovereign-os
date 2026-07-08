@@ -6,7 +6,7 @@ SHELL := /bin/bash
 PROFILE ?= sain-01
 
 .PHONY: help setup validate lint unit l3 l3-fast test smoke dry-run \
-        preflight ci all clean dashboards-lint install uninstall
+        preflight ci all clean dashboards-lint install uninstall bins panel bootstrap
 
 .DEFAULT_GOAL := help
 
@@ -23,6 +23,18 @@ help:  ## Show this help
 
 setup:  ## One-command fresh-clone bootstrap (git hooks + deps + smoke)
 	scripts/setup.sh
+
+panel:  ## Start the operator panels (build configurator :8100 + runtime dashboard :8443) — no sudo
+	scripts/operator/panel.sh
+
+bootstrap:  ## One command: enable apt components + install ALL build-host deps (zfs, mkosi, qemu…). Self-sudo.
+	scripts/install/bootstrap-host.sh
+
+dev-setup:  ## Dev workstation: node + Claude Code + Claude VS Code extension + ~/.claude (GUI-aware)
+	scripts/install/dev-workstation.sh
+
+provision:  ## Resume setup in ONE command: bootstrap + dev tools + selfdef(build+enable) + operator-deps (idempotent)
+	scripts/install/provision.sh
 
 validate:  ## Validate all profiles against schema + mixin merger
 	scripts/validate-profiles.sh
@@ -103,8 +115,35 @@ install:  ## Install sovereign-osctl + manpage to PREFIX (default: /usr/local)
 	@echo "  $(DESTDIR)$(SOVEREIGN_OS_LIB)/  (lib + hooks + profiles + inference + whitelabel)"
 	@echo "  $(DESTDIR)$(PREFIX)/share/man/man1/sovereign-osctl.1  (if pandoc)"
 
-uninstall:  ## Remove sovereign-osctl + manpage from PREFIX
+# SDD-043 Phase 1: the Rust binaries compile for the active profile's CPU
+# ISA (VNNI/BF16/popcnt/… derived from hardware.cpu.features by
+# scripts/build/cpu-features.py), so the inference crates actually exploit
+# the declared hardware. Set SOVEREIGN_OS_BINS_TUNE=0 for a portable build
+# (e.g. cross-host CI, or a build host that isn't the target CPU).
+SOVEREIGN_OS_BINS_TUNE ?= 1
+
+bins:  ## Build + install the Rust binaries (CPU-tuned for PROFILE) to PREFIX/bin
+	@if [ "$(SOVEREIGN_OS_BINS_TUNE)" = "1" ]; then \
+	   tune="$$(scripts/build/cpu-features.py --profile $(PROFILE) --verify)"; \
+	   echo "Building Rust binaries (release) — CPU-tuned for $(PROFILE):"; \
+	   echo "  RUSTFLAGS += $$tune"; \
+	 else tune=""; echo "Building Rust binaries (release) — portable (SOVEREIGN_OS_BINS_TUNE=0)"; fi; \
+	 RUSTFLAGS="$${RUSTFLAGS:+$$RUSTFLAGS }$$tune" \
+	   cargo build --release -p sovereign-telemetry -p sovereign-resource-control -p sovereign-gatewayd
+	@install -d "$(DESTDIR)$(PREFIX)/bin"
+	@install -m 755 target/release/sovereign-telemetry "$(DESTDIR)$(PREFIX)/bin/sovereign-telemetry"
+	@install -m 755 target/release/sovereign-resource-control "$(DESTDIR)$(PREFIX)/bin/sovereign-resource-control"
+	@install -m 755 target/release/sovereign-gatewayd "$(DESTDIR)$(PREFIX)/bin/sovereign-gatewayd"
+	@echo "Installed:"
+	@echo "  $(DESTDIR)$(PREFIX)/bin/sovereign-telemetry        (sovereign-telemetry-textfile.timer)"
+	@echo "  $(DESTDIR)$(PREFIX)/bin/sovereign-resource-control"
+	@echo "  $(DESTDIR)$(PREFIX)/bin/sovereign-gatewayd         (sovereign-gatewayd.service)"
+
+uninstall:  ## Remove sovereign-osctl + manpage + the `bins` binaries from PREFIX
 	@rm -f  "$(DESTDIR)$(PREFIX)/bin/sovereign-osctl"
 	@rm -f  "$(DESTDIR)$(PREFIX)/share/man/man1/sovereign-osctl.1"
 	@rm -rf "$(DESTDIR)$(SOVEREIGN_OS_LIB)"
-	@echo "Uninstalled sovereign-osctl + lib + manpage from PREFIX=$(PREFIX)"
+	@rm -f  "$(DESTDIR)$(PREFIX)/bin/sovereign-telemetry"
+	@rm -f  "$(DESTDIR)$(PREFIX)/bin/sovereign-resource-control"
+	@rm -f  "$(DESTDIR)$(PREFIX)/bin/sovereign-gatewayd"
+	@echo "Uninstalled sovereign-osctl + lib + manpage + bins from PREFIX=$(PREFIX)"

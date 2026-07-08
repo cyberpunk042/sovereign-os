@@ -150,7 +150,7 @@ def test_health_endpoint_matches_dashboard_contract():
             d = json.loads(r.read())
         # The d-03 webapp refresh() reads exactly these shapes.
         assert set(d) >= {"summary", "roles", "models", "kvcache", "heatmap"}
-        for k in ("total", "blackwell", "rtx3090", "cpu"):
+        for k in ("total", "blackwell", "rtx4090", "cpu"):
             assert k in d["summary"]
         for role in ("conductor", "logic", "oracle"):
             assert role in d["roles"]

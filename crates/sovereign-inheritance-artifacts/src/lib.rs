@@ -38,7 +38,7 @@ pub enum ArtifactKind {
     Policy,
     /// MODEL_REGISTRY.yaml — local/cloud model roles + eval scores.
     ModelRegistry,
-    /// HARDWARE_PROFILES.yaml — Blackwell/3090/AVX/ZFS/VFIO/MIG modes.
+    /// HARDWARE_PROFILES.yaml — Blackwell/4090/AVX/ZFS/VFIO/MIG modes.
     HardwareProfiles,
     /// EVALS.yaml — trace/tool/task/quality/cost/risk evals.
     Evals,
@@ -80,7 +80,7 @@ impl ArtifactKind {
             ArtifactKind::Profiles => "user-selectable operating modes",
             ArtifactKind::Policy => "hard constraints + capability gates",
             ArtifactKind::ModelRegistry => "local-cloud-model roles + eval scores",
-            ArtifactKind::HardwareProfiles => "Blackwell/3090/AVX/ZFS/VFIO/MIG modes",
+            ArtifactKind::HardwareProfiles => "Blackwell/4090/AVX/ZFS/VFIO/MIG modes",
             ArtifactKind::Evals => "trace tool task quality cost risk evals",
         }
     }

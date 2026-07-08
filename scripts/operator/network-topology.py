@@ -337,6 +337,18 @@ def detect_vpn_bridge() -> dict:
 
 def detect_opnsense_state() -> dict:
     """OPNsense reachability + API connectivity tier."""
+    # Operator escape hatch: SOVEREIGN_OS_OPNSENSE_DISABLE=1 short-circuits
+    # the entire detection (gateway lookup + TCP probe of ports 443/80/22)
+    # so an operator who knowingly has no upstream OPNsense — or a CI
+    # environment that lacks network egress to the runner's gateway —
+    # gets an instant tier="disabled" instead of multi-second probing.
+    if os.environ.get("SOVEREIGN_OS_OPNSENSE_DISABLE", "") in ("1", "true", "yes"):
+        return {
+            "tier": "disabled",
+            "host": None,
+            "reason": "SOVEREIGN_OS_OPNSENSE_DISABLE set",
+        }
+
     host = os.environ.get("SOVEREIGN_OS_OPNSENSE_HOST", "")
     api_key = os.environ.get("SOVEREIGN_OS_OPNSENSE_API_KEY", "")
     api_secret = os.environ.get("SOVEREIGN_OS_OPNSENSE_API_SECRET", "")

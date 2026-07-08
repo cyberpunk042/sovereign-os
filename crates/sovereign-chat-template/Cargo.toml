@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-chat-template"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Chat templating across model formats: render a list of system/user/assistant messages into the exact prompt string a given model expects — ChatML (<|im_start|>), Llama-2 ([INST]/<<SYS>>), Alpaca (### Instruction), or a custom per-role spec — with an optional generation prompt suffix. The apply_chat_template step for the inference engine."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

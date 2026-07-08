@@ -22,7 +22,17 @@ CANONICAL_VERTICALS = ("m060", "ms022", "four_watchdog",
                        "kernel_modules", "fail2ban", "nftables", "cron",
                        "sshd_config", "package_state", "journal_disk",
                        "blockset", "quarantine", "revocations",
-                       "token_revocations", "mfa_grant_revocations")
+                       # IPS-quattuordectet (SDD-065..078) — 11 enforcement
+                       # primitives added since the original 21-vertical
+                       # lock. Order matches scripts/diagnostics/
+                       # observability-status.py:VERTICALS verbatim.
+                       "token_revocations", "mfa_grant_revocations",
+                       "netns_isolations", "mount_bindings",
+                       "process_tree_freezes", "socket_fd_revocations",
+                       "env_scrubs", "capability_drops",
+                       "kernel_keyring_evictions",
+                       "apparmor_profile_pivots",
+                       "bpf_map_element_clears")
 
 
 def _load_module():
@@ -74,7 +84,6 @@ def test_probe_functions_exist():
         "probe_fail2ban", "probe_nftables", "probe_cron",
         "probe_sshd_config", "probe_package_state", "probe_journal_disk",
         "probe_blockset", "probe_quarantine", "probe_revocations",
-        "probe_token_revocations", "probe_mfa_grant_revocations",
     ):
         assert hasattr(mod, fn), f"missing probe function {fn}"
 
@@ -854,9 +863,23 @@ def test_modules_catalog_probe_detects_count_low():
 
 
 def test_main_exit_code_2_on_unreachable():
-    """When every vertical is unreachable (proxies down), exit code 2."""
-    mod = _load_module()
-    out = mod.main(["--json"])
+    """When every vertical is unreachable (proxies down), exit code 2.
+
+    Probes are pinned to a dead port via the verb's env overrides: the
+    test used to assume a silent host, which broke the moment the cockpit
+    APIs ran for real on their default ports (make panel, 2026-06-12) —
+    a live host is now the EXPECTED state, not an anomaly."""
+    import os
+    from unittest.mock import patch as _patch
+    dead = "http://127.0.0.1:1"
+    with _patch.dict(os.environ, {
+        "SOVEREIGN_OS_M060_URL": dead,
+        "SOVEREIGN_OS_MS022_PROXY_URL": dead,
+        "SOVEREIGN_OS_FOUR_WATCHDOG_PROXY_URL": dead,
+        "SOVEREIGN_OS_NODE_EXPORTER_URL": dead + "/metrics",
+    }):
+        mod = _load_module()
+        out = mod.main(["--json"])
     # All probes unreachable -> exit 2 (no proxies, no node_exporter).
     assert out == 2
 

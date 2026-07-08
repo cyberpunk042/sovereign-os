@@ -87,7 +87,7 @@ pub enum PromptError {
 }
 
 fn key(subject: &str, cap: &str) -> String {
-    format!("{}||{}", subject, cap)
+    format!("{subject}||{cap}")
 }
 
 impl PermissionPrompt {

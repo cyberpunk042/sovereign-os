@@ -150,7 +150,7 @@ python3 "${__REPO_ROOT}/scripts/whitelabel/render.py" \
   --out "${mkosi_dir}" \
   --substrate mkosi >/dev/null
 
-mkosi_osrelease="${mkosi_dir}/mkosi.skeleton/etc/os-release"
+mkosi_osrelease="${mkosi_dir}/mkosi.extra/etc/os-release"
 if [ -f "${mkosi_osrelease}" ] && [ -f "${os_release}" ]; then
   if diff -q "${mkosi_osrelease}" "${os_release}" >/dev/null 2>&1; then
     ok "substrate-agnostic: /etc/os-release content identical for mkosi + live-build"

@@ -17,6 +17,7 @@ the load-bearing piece — dashboards are convenience.
 | `sovereign-os-inference.json` | sovereign-os inference | Per-tier route rate + cumulative · last decision age · backend start success/fail/skip counts |
 | `sovereign-os-install.json` | sovereign-os install lifecycle | during-install + post-install audit: rootfs-format · pool-create · datasets-create · MOK enroll · friction-audit failures/warnings · VFIO bind · NVIDIA bind · ARC max bytes · Tetragon policy · network VLAN · shell setup · image-sign per posture · friction-audit last-run age |
 | `sovereign-os-thermals.json` | sovereign-os thermal observability (R176) | last-tick age · breach_total · hottest sensor · critical count · per-sensor time series · current-status table · breach-count rolling chart · selfdef-daemon hardware probe panel (when SD-R22 [hardware_probe].enabled) |
+| `sovereign-os-telemetry.json` | sovereign-os telemetry — pressure / load / thermal / reactions (M045 E0430 / M013) | `sovereign_telemetry_*` probe-binary gauges: probe validity + backend + failure sentinel, written every minute to the node_exporter textfile collector by `sovereign-telemetry-textfile` |
 | `sovereign-os-auth-tier.json` | sovereign-os auth-tier (R484, E11.M7+) | per-tier query counters across the 6-tier §1g ladder (no-auth / basic / advanced / social / enterprise / network-level) · query rate per tier + per verb · result distribution · current-state tier × dashboard table · §1g verbatim text panel with ladder definition |
 | `sovereign-os-edge-firewall.json` | sovereign-os edge-firewall (R485, E11.M9+) | per-candidate query counters across the 4-class §1g ladder (nftables-baseline / fail2ban / crowdsec / suricata) · install-failures stat · query rate per candidate + per verb · result distribution · verb × candidate × result histogram · §1g verbatim text panel quoting the 'pay the performance price' rationale |
 | `sovereign-os-network-edge.json` | sovereign-os network-edge (R486, E11.M8+) | per-verb query counters (detect / opnsense_status / opnsense_capabilities / interfaces / nat_chain / watch) · OPNsense reachability tier time series (unavailable / reachable / authenticated / full-api) · result distribution · verb × result histogram · §1g verbatim text panel with two-NAT-hop chain + OPNsense capability-unlock ladder |
@@ -30,6 +31,61 @@ the load-bearing piece — dashboards are convenience.
 | `sovereign-os-auditor.json` | sovereign-os auditor (R497, master spec §§ 10, 17) | total / success neutralization counters · last-violation-age freshness stat · total-events-parsed stat · per-result neutralization rate (5m) across the 4+ outcome vocabulary (success / kill-failed / no-container-id / dry-run / *+audit-log-fail) · per-outcome event-parse rate across the 3-outcome vocabulary (trigger / benign / bad-json) · cumulative neutralizations per result barchart · cumulative parse-outcomes barchart · auditor decision matrix table · §§ 10/17 verbatim text panel with the Immutable Gatekeeper protocol (Tetragon eBPF tail → podman kill → atomic audit-log append) + Genesis Trinity placement + § 10.1 trigger predicate verbatim + service-management CLI + env-var ladder + 'we do not minimize anything' standing rule |
 | `sovereign-os-weaver.json` | sovereign-os weaver (R496, master spec § 21) | total / success atomic-write counters · distinct-state-files stat · freshest-commit-age stat across the 4-file fabric (IDENTITY / SOUL / AGENTS / CLAUDE) · per-file × per-result write rate (5m) · cumulative writes per file × result barchart · per-file payload bytes time series · per-file last-commit age table · §21 verbatim text panel with the Atomic State Transition Protocol (O_DIRECT / O_SYNC / O_TRUNC / 4K-aligned / atomic rename) + ZFS prerequisites + 4-file ladder + 'we do not minimize anything' standing rule |
 | `sovereign-os-router.json` | sovereign-os router (R495, SDD-011+ R161 R215) | total-routes + last-route freshness + distinct-task-types + distinct-model-classes stats · per-tier route rate (5m) · per-task-type route rate across the 4-class R161 taxonomy (code / math / conversational / creative) · per-model-class route rate across the 13-class R215 taxonomy (llm / slm / rlm / ternary-lm / lora-adapter / embed / vision / multimodal / code / mixture / speculative / reranker / (unspecified)) · cumulative routes per tier barchart · tier × task-type decision matrix · §1g verbatim text panel with R161 task-type + R215 model-class taxonomies + 6-surface signal-flow + 'we do not minimize anything' standing rule |
+| `sovereign-os-gatewayd.json` | sovereign-os — gateway daemon (never-cloud-spill) | The `sovereign-gatewayd` daemon's own `GET /metrics` namespace (`sovereign_gateway_*`, scraped directly over HTTP — not textfile): the **never-cloud-spill tripwire** stat (headline; pairs with the SovereignGatewayCloudSpill / SovereignGatewayTripwireUnmonitored alerts) · cloud-spill counter · live surfaces · request + dry-run rates · decisions by disposition (committed/refused/learned) · routing per SRP role · M030 World-Model prior agreement ratio · force_local doctrine text panel. |
+| `sovereign-os-four-watchdog.json` | sovereign-os — four-watchdog (IPS spine) | MS027 four-watchdog rollup consumed from selfdef — worst-severity gauge + per-watchdog (friction-audit / perimeter / guardian / scheduler) severity, the cockpit's fastest IPS-health signal. |
+| `sovereign-os-ips-host-overview.json` | sovereign-os — IPS host overview (single-pane-of-glass) | One-screen selfdef IPS host health: event/finding rates, store size, four-watchdog, responder + detection summaries. |
+| `sovereign-os-m060-cli-mirror.json` | sovereign-os — M060 D-CLI mirror chain | Per-artifact M060 D-CLI mirror publish counters + last-publish age for the cross-repo mirror-export loop. |
+| `sovereign-os-m060-mirror-domains.json` | sovereign-os — M060 mirror domains (chain-wide) | Chain-wide M060 mirror domain health — per-domain publish success/failure + staleness. |
+| `sovereign-os-ms022-sse-quota.json` | sovereign-os — MS022 SSE subscriber quota | Global + per-token SSE subscriber counts vs caps + saturation, backing the MS022 quota alerts. |
+| `sovereign-os-predicate-coverage.json` | sovereign-os — Predicate coverage (R197) | R197 predicate-coverage counters across the verification grid. |
+| `sovereign-os-wasm-aot.json` | sovereign-os — Wasm-AOT bridge (R180) | R180 Wasm-AOT bridge build + cache metrics. |
+
+
+### selfdef-consumer cockpit dashboards (35)
+
+The IPS cockpit consumes selfdef's `/metrics` + textfile series — one
+dashboard per selfdef metric family. Each `sovereign-os-selfdef-<family>.json`
+renders that family's panels; the producer side is selfdef, validated in
+lockstep by `tests/lint/test_selfdef_dashboard_metrics_lockstep.py` (opt-in
+`$SELFDEF_REPO_ROOT`).
+
+| File | Dashboard |
+|---|---|
+| `sovereign-os-selfdef-apparmor-profile-pivots.json` | sovereign-os — selfdef SDD-077 apparmor-profile-pivots (MAC policy axis) |
+| `sovereign-os-selfdef-apparmor.json` | sovereign-os — selfdef AppArmor enforcement |
+| `sovereign-os-selfdef-audit-chain.json` | selfdef — audit-chain integrity (tamper detection) |
+| `sovereign-os-selfdef-auth-events.json` | sovereign-os — selfdef auth events (brute-force detection) |
+| `sovereign-os-selfdef-blockset.json` | sovereign-os — selfdef SDD-065 blockset (enforcement layer) |
+| `sovereign-os-selfdef-bpf-map-element-clears.json` | sovereign-os — selfdef SDD-078 bpf-map-element-clears (eBPF map state axis) |
+| `sovereign-os-selfdef-capability-drops.json` | sovereign-os — selfdef SDD-075 capability-drops (per-process privilege-set layer) |
+| `sovereign-os-selfdef-cron.json` | sovereign-os — selfdef cron + systemd timers (persistence detection) |
+| `sovereign-os-selfdef-daemon-process.json` | sovereign-os — selfdefd daemon process-state |
+| `sovereign-os-selfdef-detection-stream.json` | selfdef — IPS detection stream (events + findings) |
+| `sovereign-os-selfdef-disk-usage.json` | sovereign-os — selfdef disk usage (disk-fill detection) |
+| `sovereign-os-selfdef-env-scrubs.json` | sovereign-os — selfdef SDD-074 env-scrubs (in-memory secret-residency layer) |
+| `sovereign-os-selfdef-fail2ban.json` | sovereign-os — selfdef fail2ban (defensive-response) |
+| `sovereign-os-selfdef-journal-disk.json` | sovereign-os — selfdef systemd-journal disk usage |
+| `sovereign-os-selfdef-kernel-keyring-evictions.json` | sovereign-os — selfdef SDD-076 kernel-keyring-evictions (kernel-keyring axis) |
+| `sovereign-os-selfdef-kernel-modules.json` | sovereign-os — selfdef kernel modules (rootkit detection) |
+| `sovereign-os-selfdef-listening-sockets.json` | sovereign-os — selfdef listening sockets (backdoor detection) |
+| `sovereign-os-selfdef-mfa-grant-revocations.json` | sovereign-os — selfdef SDD-069 MFA-grant revocations (enforcement layer) |
+| `sovereign-os-selfdef-modules.json` | sovereign-os — selfdef module-catalog |
+| `sovereign-os-selfdef-mount-bindings.json` | sovereign-os — selfdef SDD-071 mount-bindings (filesystem-binding layer) |
+| `sovereign-os-selfdef-netns-isolations.json` | sovereign-os — selfdef SDD-070 netns-isolations (kernel-containment layer) |
+| `sovereign-os-selfdef-nftables.json` | sovereign-os — selfdef nftables + conntrack (kernel perimeter) |
+| `sovereign-os-selfdef-package-state.json` | sovereign-os — selfdef apt/dpkg package state (patch freshness) |
+| `sovereign-os-selfdef-process-tree-freezes.json` | sovereign-os — selfdef SDD-072 process-tree-freezes (process-graph containment layer) |
+| `sovereign-os-selfdef-quarantine.json` | sovereign-os — selfdef SDD-066 quarantine (enforcement layer) |
+| `sovereign-os-selfdef-responder-fleet.json` | selfdef — IPS responder fleet (active + pending, all surfaces) |
+| `sovereign-os-selfdef-revocations.json` | sovereign-os — selfdef SDD-067 revocations (enforcement layer) |
+| `sovereign-os-selfdef-scheduler.json` | sovereign-os — selfdef MS048 Goldilocks Scheduler |
+| `sovereign-os-selfdef-socket-fd-revocations.json` | sovereign-os — selfdef SDD-073 socket-fd-revocations (per-connection severance layer) |
+| `sovereign-os-selfdef-sshd-config.json` | sovereign-os — selfdef sshd-config (SSH hardening baseline) |
+| `sovereign-os-selfdef-storage-mounts.json` | selfdef — storage mounts (per-mount usage) |
+| `sovereign-os-selfdef-store-retention.json` | selfdef — hot-store retention (SDD-081) |
+| `sovereign-os-selfdef-systemd-units.json` | sovereign-os — selfdef systemd units (silent-failure detection) |
+| `sovereign-os-selfdef-time-sync.json` | sovereign-os — selfdef time sync (clock-drift detection) |
+| `sovereign-os-selfdef-token-revocations.json` | sovereign-os — selfdef SDD-068 token revocations (enforcement layer) |
 
 ## Import (one-time, per dashboard)
 
@@ -59,6 +115,7 @@ panel queries lock to them.
 - `sovereign_os_build_step_bootstrap_forge_total{profile,result}`
 - `sovereign_os_build_step_kernel_fetch_total{profile,result}`
 - `sovereign_os_build_step_kernel_config_total{profile,result}`
+- `sovereign_os_build_step_kernel_config_missing_symbols{profile}` — count of profile-required kernel symbols dropped by `make olddefconfig` (0 = all required CONFIG_* present; >0 = the built kernel lacks declared capabilities)
 - `sovereign_os_build_step_kernel_compile_total{profile,result}`
 - `sovereign_os_build_step_substrate_total{profile,substrate,result}`
 - `sovereign_os_build_step_render_total{profile,result}`
@@ -115,6 +172,13 @@ panel queries lock to them.
 - `sovereign_os_models_catalog_total_bytes`
 - `sovereign_os_models_catalog_resident_count`
 - `sovereign_os_models_catalog_last_run_timestamp`
+- `sovereign_os_selfdef_sync_behind_commits` — commits the selfdef (IPS) checkout is behind upstream at the last weekly freshness check
+- `sovereign_os_selfdef_sync_result{result}` — one-hot outcome of the last selfdef-sync run (current / behind / updated / absent / diverged)
+- `sovereign_os_selfdef_sync_last_run_timestamp`
+- `sovereign_os_ghostproxy_endpoint_install_result{result}` — one-hot outcome of the first-boot root-ghostproxy endpoint-envelope install hook (report-only / installed / install-failed / absent); proxy half stays OFF per SDD-046
+- `sovereign_os_ghostproxy_endpoint_install_last_run_timestamp`
+- `sovereign_os_ghostproxy_endpoint_verify_result{result}` — one-hot outcome of the weekly read-only AI-agent envelope drift verify (current / drift / absent), upstream `install.sh --check --mode endpoint`
+- `sovereign_os_ghostproxy_endpoint_verify_last_run_timestamp`
 - `sovereign_os_meta_alert_count{level}` — count of derived alerts by level (ALERT/WARN) from the hourly alerts-check
 - `sovereign_os_meta_alert_by_metric{metric,level}` — per-(metric,level) histogram of derived alerts; lets operators graph which underlying metric is the noisiest
 - `sovereign_os_meta_alerts_check_last_run_timestamp`
@@ -125,6 +189,7 @@ panel queries lock to them.
 - `sovereign_os_power_shutdown_guard_last_run_timestamp` — R253: timestamp of the most recent UPS-battery shutdown-guard tick (operators alert on staleness vs the per-minute timer when on UPS power).
 - `sovereign_os_power_shutdown_guard_advisory_rc` — R253: rc from the R252 `power-status advisories` call (0=ok/no-ups, 1=critical, 2=usage-error).
 - `sovereign_os_power_shutdown_guard_verdict` — R253: encoded verdict (0=ok, 1=attention, 2=critical, 3=no-ups, 9=error). Operators alert when this transitions to 2.
+- `sovereign_os_power_shutdown_guard_fired` — R253: 1 iff this run actually fired `shutdown(8)` (critical + armed + not dry-run), else 0. Distinguishes a real auto-poweroff from critical-but-not-armed (which verdict=2 alone can't). Operators alert on `== 1` (a host is gracefully powering off on UPS battery).
 - `sovereign_os_power_estimated_load_watts` — R258: live aggregate of R219 GPU draw + declared CPU TDP + overhead, sampled every minute.
 - `sovereign_os_power_headroom_watts` — R258: PSU sustained budget minus estimated load — operators alert when this goes negative.
 - `sovereign_os_power_utilization_pct` — R258: estimated load as percent of PSU sustained budget — operators alert at ≥85% sustained.
@@ -133,6 +198,18 @@ panel queries lock to them.
 - `sovereign_os_thermal_severity{sensor,level}` — 1 if `<sensor>` is currently at `<level>` ∈ {ok, warn, critical}, 0 otherwise. Thresholds are profile-aware (sain-01: warn≥85 crit≥95; headless: warn≥75 crit≥85; GPU sensors: warn≥85 crit≥95 regardless of profile).
 - `sovereign_os_thermal_breach_total` — count of sensors at WARN+CRITICAL on the last tick. Operator-facing "is anything overheating right now?" gauge.
 - `sovereign_os_thermal_last_run_unix` — timestamp of the most recent thermal-watch tick (operators alert on staleness).
+- `sovereign_os_memory_available_pct` — E1.M15: RAM available as percent of total (MemAvailable/MemTotal), sampled every minute by `sovereign-memory-pressure-sample.timer`. Operators alert when this drops below ~15%.
+- `sovereign_os_memory_swap_used_pct` — E1.M15: swap used as percent of total swap (0 when no swap). Sustained high swap on an inference host signals memory exhaustion.
+- `sovereign_os_memory_psi_some_avg60_pct` — E1.M15: PSI some-stall avg60 for memory (`/proc/pressure/memory`); `-1` when PSI is unavailable (pre-4.20 kernel). Operators alert at >20% sustained.
+- `sovereign_os_memory_psi_full_avg10_pct` — E1.M15: PSI full-stall avg10 for memory; `-1` when unavailable. `full>0` means EVERY task stalled on memory — alert immediately.
+- `sovereign_os_memory_oom_kill_count` — E1.M15: OOM kills observed (cgroup v2 `memory.events` oom_kill + journal scan). Any increase is operator-attention.
+- `sovereign_os_memory_pressure_verdict` — E1.M15: 0=ok 1=attention 2=critical -1=unavailable (matches `memory-pressure.py status` verdict). Operators alert when this transitions to 2.
+- `sovereign_os_memory_sample_last_run_timestamp` — E1.M15: timestamp of the most recent memory-pressure sample (operators alert on staleness vs the per-minute timer).
+- `sovereign_os_wattage_heat_trend_verdict` — E1.M36: overall wattage+heat trend, 0=stable 1=climbing 2=climbing-fast -1=insufficient/unknown, ticked every minute by `sovereign-wattage-heat-trend.timer`. Operators alert when this reaches 2.
+- `sovereign_os_wattage_heat_trend_wattage` — E1.M36: PSU wattage trend code (same 0/1/2/-1 scale). Wattage climbing-fast while gpu_temp lags = power rising faster than heat dissipates (pre-throttle warning).
+- `sovereign_os_wattage_heat_trend_cpu_temp` — E1.M36: CPU temperature trend code (same scale).
+- `sovereign_os_wattage_heat_trend_gpu_temp` — E1.M36: GPU temperature trend code (same scale).
+- `sovereign_os_wattage_heat_trend_last_run_timestamp` — E1.M36: timestamp of the most recent trend tick (operators alert on staleness vs the per-minute timer).
 
 ### GPU power policy (R219 / SDD-026 Z-5 — scripts/hardware/gpu-watch.py)
 
@@ -172,6 +249,7 @@ Auditor (Tetragon eBPF event-loop guardian; master spec § 10):
 - `sovereign_os_auditor_neutralization_total{result}` — `podman kill` outcomes per perimeter violation (success/kill-failed/no-container-id/dry-run)
 - `sovereign_os_auditor_event_parse_total{outcome}` — Tetragon event parse classification (trigger/benign/bad-json)
 - `sovereign_os_auditor_last_neutralization_timestamp` — last neutralization event
+- `sovereign_os_auditor_stream_eof_total` — Tetragon event-stream EOF dropouts (the OPNsense/SD-WAN reconfig gotcha, dump 761-765); each is a perimeter-blind window closed by the systemd failure-restart
 
 ### Inference fabric extensions (R156-R157)
 

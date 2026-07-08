@@ -1,0 +1,16 @@
+[package]
+name = "sovereign-calc"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "A safe arithmetic expression evaluator: a dependency-free recursive-descent parser for +, -, *, /, parentheses, unary minus, and decimals, with correct precedence and typed errors. The real calculator tool an agent calls instead of trusting a language model to do arithmetic."
+
+[lints]
+workspace = true
+
+[dependencies]
+thiserror = { workspace = true }

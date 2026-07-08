@@ -9,12 +9,12 @@
 | Epic ID | Phrase | Dump line |
 |---|---|---|
 | E0032 | Oracle Core = RTX PRO 6000 — deep resident model / final verification / high-quality generation | 590 |
-| E0033 | Scout = RTX 3090 — draft / sandbox / side models | 591 |
+| E0033 | Scout = RTX 4090 — draft / sandbox / side models | 591 |
 | E0034 | Vector Arbiter = Ryzen 9900X AVX-512 — control plane | 592 |
 | E0035 | Memory Plane = 256GB DDR5 — working memory + queues + context arena | 593 |
 | E0036 | Storage Plane = NVMe/ZFS — replay + datasets + checkpoints + cold memory | 594 |
 | E0037 | Move decisions/tokens/summaries — not tensors/KV/activations | 526–545 |
-| E0038 | Speculative decoding pipeline — 3090 drafts → CPU filters → Blackwell verifies | 470–488 |
+| E0038 | Speculative decoding pipeline — 4090 drafts → CPU filters → Blackwell verifies | 470–488 |
 | E0039 | Constraint automata — model = creative engine / CPU = deterministic law | 911–933 |
 | E0040 | Bitset routing — 512 candidate memories per ZMM | 935–943 |
 
@@ -26,8 +26,8 @@
 | M00046 | Oracle Core epistemic role — final synthesis / hard reasoning / high-risk verification / long-context | 1390–1404 | E0032 |
 | M00047 | Oracle Core avoid-list — cheap classification / trivial rewrites / noisy branch expansion / repeated boilerplate prefill | 18055–18060 | E0032 |
 | M00048 | Scout role — draft tokens / candidate branches / embeddings / rerank scores / tool decisions / vision captions / classification labels / summaries | 619–627 | E0033 |
-| M00049 | Scout work-ahead invariant — 3090 dreams / RTX PRO judges | 985–989 | E0033 |
-| M00050 | Scout backpressure — reduce branch width when 3090 busy | 18181–18186 | E0033 |
+| M00049 | Scout work-ahead invariant — 4090 dreams / RTX PRO judges | 985–989 | E0033 |
+| M00050 | Scout backpressure — reduce branch width when 4090 busy | 18181–18186 | E0033 |
 | M00051 | Vector Arbiter / Cortex — branch state + masks + budgets + routing + scoring | 731–739 | E0034 |
 | M00052 | Cortex u64 lane field assignments — agent type / confidence / budget / risk / memory pointer / flags / grammar / mode | 456–465 | E0034 |
 | M00053 | Cortex law — invalid token masks / forbidden tool rejection / branch expiry / schema enforcement / memory admission / GPU routing | 1098–1104 | E0034 |
@@ -37,7 +37,7 @@
 | M00057 | Storage Plane RAID-0 caveat — scratch / cache / datasets / artifacts only | 343–344 | E0036 |
 | M00058 | Boundary transport policy — compact symbols only (tokens / scores / refs / summaries) | 526–536 | E0037 |
 | M00059 | Boundary transport prohibition — KV tensors / activations / layer-split / constant sync | 540–547 | E0037 |
-| M00060 | Speculative decode chunk loop — 3090 drafts N tokens × N branches / CPU filter / RTX PRO verify | 480–488 | E0038 |
+| M00060 | Speculative decode chunk loop — 4090 drafts N tokens × N branches / CPU filter / RTX PRO verify | 480–488 | E0038 |
 | M00061 | Per-branch contract masks — citations / code-mode / no-tools / JSON-grammar / risky-alternative / compress / N-step terminate | 492–502 | E0039 |
 
 ## Features (F00256–F00340) — 85 features
@@ -80,7 +80,7 @@
 | F00289 | Metric `sovereign_os_scout_draft_tokens_per_sec` | 619 | M00048 | observability_metric | true |
 | F00290 | Metric `sovereign_os_scout_draft_acceptance_rate` | 619 | M00048 | observability_metric | true |
 | F00291 | Metric `sovereign_os_scout_rejection_reason{reason}` | 619 | M00048 | observability_metric | true |
-| F00292 | Test — Scout works ahead when 3090 idle | 985–989 | M00049 | test | true |
+| F00292 | Test — Scout works ahead when 4090 idle | 985–989 | M00049 | test | true |
 | F00293 | Test — Scout reduces branch width under backpressure | 18181–18186 | M00050 | test | true |
 | F00294 | Lifecycle hook — pre-Scout draft enforce per-branch budget | 619 | M00048 | lifecycle_hook | true |
 | F00295 | Lifecycle hook — post-Scout draft emit OTel span | 619 | M00048 | lifecycle_hook | true |
@@ -171,7 +171,7 @@
 | R00545 | Metric `sovereign_os_scout_draft_tokens_per_sec` is Prometheus counter | 619 | F00289 | non-negotiable | false | 10 |
 | R00546 | Metric `sovereign_os_scout_draft_acceptance_rate` is Prometheus gauge | 619 | F00290 | non-negotiable | false | 10 |
 | R00547 | Metric `sovereign_os_scout_rejection_reason` is Prometheus counter labeled by reason | 619 | F00291 | non-negotiable | false | 10 |
-| R00548 | Test — Scout produces drafts when 3090 idle and oracle busy | 985–989 | F00292 | non-negotiable | false | 10 |
+| R00548 | Test — Scout produces drafts when 4090 idle and oracle busy | 985–989 | F00292 | non-negotiable | false | 10 |
 | R00549 | Test — Scout draft width reduces under backpressure | 18181–18186 | F00293 | non-negotiable | false | 10 |
 | R00550 | Lifecycle hook `pre-Scout draft` enforces per-branch budget | 619 | F00294 | non-negotiable | true | 10 |
 | R00551 | Lifecycle hook `post-Scout draft` emits OTel span with token count + latency | 619 | F00295 | non-negotiable | false | 10 |

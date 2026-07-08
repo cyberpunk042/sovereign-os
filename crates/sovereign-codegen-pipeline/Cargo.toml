@@ -1,0 +1,19 @@
+[package]
+name = "sovereign-codegen-pipeline"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "E0216 — Generated Code Path: the 7-step pipeline (propose → validate-caps → run-in-tier → capture-io → validate-schema → attach-trace → commit-or-reject) and the 5-rung promotion ladder (ad-hoc → sandboxed-script → tested-tool → WASM-plugin → trusted-primitive), with ordered advance + no-skip promotion."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

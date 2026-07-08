@@ -1,0 +1,19 @@
+[package]
+name = "sovereign-execution-env"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "E0553 — Execute + Observe (lifecycle steps 7-8): the 9 bounded execution environments (model server / REPL / shell / container / VM / browser / memory service / symbolic planner / policy engine) with isolation levels, and the 10 observation categories that are ground truth for the workflow."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

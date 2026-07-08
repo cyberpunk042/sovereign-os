@@ -1,0 +1,19 @@
+[package]
+name = "sovereign-lsh"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Locality-sensitive hashing over MinHash signatures: split each signature into bands, hash each band, and treat items that collide in any band as near-duplicate candidates — so you find similar documents in roughly linear time instead of comparing every pair. The index layer that turns sovereign-minhash signatures into actual deduplication."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+sovereign-minhash = { path = "../sovereign-minhash" }
+sovereign-union-find = { path = "../sovereign-union-find" }

@@ -33,10 +33,17 @@ if ! confirm "Securely wipe ${SOVEREIGN_OS_CONTEXT_PATH}? THIS DESTROYS state-fa
 fi
 
 if [ -d "${SOVEREIGN_OS_CONTEXT_PATH}" ]; then
-  # Find all files; shred each then unlink
-  find "${SOVEREIGN_OS_CONTEXT_PATH}" -type f -print0 | xargs -0 -r shred -u -n 3 -z 2>&1 | tail -10
+  # IMPORTANT: shred / in-place overwrite does NOT securely erase on ZFS. ZFS is
+  # copy-on-write, compressed (zstd-9), and keeps copies=2 + snapshots — an
+  # overwrite writes NEW blocks and leaves the originals (and the second copy,
+  # and any snapshot) intact on the NVMe. Worse, each shred pass writes MORE
+  # copies of the sensitive state-fabric to disk. So this step does an honest
+  # LOGICAL removal only; TRUE block erasure on this unencrypted pool is the
+  # device-level hardware secure-erase in secure-wipe.sh (nvme format --ses=1 /
+  # blkdiscard), the only method effective against ZFS CoW.
+  find "${SOVEREIGN_OS_CONTEXT_PATH}" -type f -print0 | xargs -0 -r rm -f 2>&1 | tail -10
   find "${SOVEREIGN_OS_CONTEXT_PATH}" -depth -type d -empty -delete 2>/dev/null || true
-  log_info "state-fabric files shredded"
+  log_info "state-fabric files removed (logical) — block-level secure erasure is performed by secure-wipe.sh (nvme secure-erase); shred is ineffective on ZFS CoW"
 fi
 
 # Snapshot destroy (if ZFS)

@@ -19,6 +19,13 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+# NOTE: do NOT reset SIGPIPE handler to SIG_DFL here. Python's default
+# SIGPIPE behavior is "raise BrokenPipeError on the next I/O" — which is
+# exactly what the try/except below catches. Resetting to SIG_DFL would
+# instead kill the process with exit code 141 (SIGPIPE = signal 13 + 128),
+# which under `set -euo pipefail` (the nspawn test invocation mode) fails
+# the pipeline. The earlier b9a3bf4 attempted SIG_DFL — wrong direction.
+
 try:
     import yaml  # type: ignore
 except ImportError:
@@ -52,4 +59,22 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    # Wrap the entry-point so that a BrokenPipeError raised during
+    # interpreter shutdown's final stdout flush (which the SIGPIPE
+    # handler reset above cannot intercept because Python buffers writes
+    # to a pipe and only flushes at exit) is swallowed silently. CI
+    # Ubuntu Python 3.12 raises BrokenPipeError on flush after the
+    # consumer (`head -1`) closes the pipe — this prevents the script
+    # from exiting non-zero on a normal pipe-consumer.
+    try:
+        rc = main()
+        sys.stdout.flush()
+        sys.exit(rc)
+    except BrokenPipeError:
+        # Redirect stdout to /dev/null so the interpreter's shutdown-time
+        # flush doesn't raise BrokenPipeError again.
+        try:
+            sys.stdout.close()
+        except Exception:
+            pass
+        sys.exit(0)

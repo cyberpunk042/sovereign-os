@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sovereign-os · CPU / AVX-512 choice</title>
+<meta name="x-sovereign-module" content="cpu-features-webapp">
+<meta name="x-sovereign-shipped-in" content="SDD-045 §5 (Phase E) — net-new CPU/AVX-512 dashboard">
+<meta name="x-sovereign-standing-rule" content="We do not minimize anything.">
+<style>
+  :root{
+    --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --accent:#9bd1ff;
+    --good:#7ad17a; --bad:#ff7676; --warn:#e6c062;
+    --panel:#171717; --border:#262626;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:14px;line-height:1.5}
+  body{padding:1.2rem;max-width:1100px;margin:0 auto}
+  h1{font-size:1.4rem;margin:0 0 .2rem 0;font-weight:600}
+  h2{font-size:1rem;margin:1.6rem 0 .4rem 0;font-weight:600;color:var(--accent)}
+  .sub{color:var(--muted);margin-bottom:1rem;font-size:.85rem}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.9rem 1rem;margin:.6rem 0}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:.4rem}
+  .ext{display:flex;align-items:baseline;gap:.5rem;padding:.4rem .55rem;border:1px solid var(--border);border-radius:4px;background:rgba(255,255,255,.02)}
+  .ext .flag{font-weight:600;min-width:3.5rem}
+  .ext .s{color:var(--muted);font-size:.78rem;flex:1}
+  .ext.yes{border-color:#1f7a3a}
+  .ext.no{border-color:#7a3a1f;opacity:.7}
+  .dot{width:.5rem;height:.5rem;border-radius:50%;flex-shrink:0}
+  .dot.yes{background:var(--good)} .dot.no{background:var(--bad)}
+  table{width:100%;border-collapse:collapse;font-size:.82rem}
+  th,td{text-align:left;padding:.35rem .5rem;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:.74rem;text-transform:uppercase;letter-spacing:.04em}
+  tr:last-child td{border-bottom:none}
+  .pill{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.7rem;background:var(--border)}
+  .pill.fit{background:#143d14;color:var(--good)} .pill.nofit{background:#3d1414;color:var(--bad)}
+  .muted{color:var(--muted)} .mono{font-family:var(--mono)}
+  code{background:var(--panel);border:1px solid var(--border);border-radius:3px;padding:0 .3rem;font-size:.9em}
+  .status{font-size:.75rem} .status.ok{color:var(--good)} .status.bad{color:var(--bad)}
+  footer{margin-top:2rem;color:var(--muted);font-size:.75rem;border-top:1px solid var(--border);padding-top:.8rem}
+  .standing-rule{color:var(--accent);font-style:italic;margin-top:.4rem}
+</style>
+</head>
+<body>
+<h1>CPU / AVX-512 choice</h1>
+<p class="sub">
+  Which AVX-512 / VNNI / BF16 extensions THIS CPU exposes, and how they map to
+  the AI workloads they enable (R272 · master-spec §17 Pulse tier). Probed live
+  from the running processor. <span id="status" class="status">loading…</span>
+</p>
+
+<div id="cpu" class="panel muted">probing…</div>
+
+<h2>extensions</h2>
+<div id="extensions" class="grid"><div class="muted">loading…</div></div>
+
+<h2>AI workload fit</h2>
+<div class="panel">
+  <table>
+    <thead><tr><th>workload</th><th>fit</th><th>required</th><th>missing</th><th>note</th></tr></thead>
+    <tbody id="workloads"><tr><td colspan="5" class="muted">loading…</td></tr></tbody>
+  </table>
+</div>
+
+<h2>advisory</h2>
+<div id="advisory" class="panel muted">loading…</div>
+
+
+<!-- SDD-045 Phase C — control surface (INLINED per the single-file doctrine).
+     Renders config/control-systems.yaml (served at /control-systems): the
+     global controls (profile / dashboard on-off / auth tier) + the modes &
+     feature toggles that govern THIS panel. Read-only: each control copies
+     its exact sovereign-osctl command. Canonical source (lockstep-linted):
+     webapp/_shared/control-surface.{css,js}. -->
+<h2>controls — profiles, modes &amp; feature toggles</h2>
+<div id="control-surface" class="cs-grid"><div class="cs-empty">loading controls…</div></div>
+<style>
+/* webapp/_shared/control-surface.css — SDD-045 shared control-surface.
+ * Renders the control-systems registry (profiles / modes / feature toggles)
+ * as a grid of control cards. Monochrome, framework-free; inherits the
+ * panel palette variables (--bg/--fg/--muted/--accent/--border/--mono). */
+.cs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: .5rem; }
+.cs-card {
+  display: flex; flex-direction: column; gap: .35rem;
+  padding: .6rem .75rem; border: 1px solid var(--border, #262626);
+  border-radius: .4rem; background: rgba(255, 255, 255, .02);
+}
+.cs-head { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.cs-label { font-weight: 600; flex: 1; }
+.cs-kind {
+  font-size: .7rem; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--muted, #888); border: 1px solid var(--border, #262626);
+  border-radius: 3px; padding: 0 .35rem;
+}
+.cs-global {
+  font-size: .7rem; color: var(--accent, #9bd1ff);
+  border: 1px solid var(--accent, #9bd1ff); border-radius: 3px; padding: 0 .35rem;
+}
+.cs-desc { color: var(--muted, #888); font-size: .8rem; line-height: 1.45; }
+.cs-opts { display: flex; flex-wrap: wrap; gap: .3rem; }
+.cs-opt { font-size: .72rem; background: var(--border, #262626); border-radius: 3px; padding: 1px 6px; }
+.cs-cmd {
+  font-family: var(--mono, ui-monospace, monospace); font-size: .74rem;
+  text-align: left; color: var(--fg, #e6e6e6); background: var(--bg, #0e0e0e);
+  border: 1px solid var(--border, #262626); border-radius: 3px;
+  padding: .25rem .4rem; cursor: pointer; overflow-x: auto; white-space: nowrap;
+}
+.cs-cmd:hover { border-color: var(--accent, #9bd1ff); }
+.cs-empty { color: var(--muted, #888); }
+</style>
+<script>
+/* webapp/_shared/control-surface.js — SDD-045 shared control-surface renderer.
+ *
+ * Renders the control-systems registry (config/control-systems.yaml, served
+ * as GET /control-systems) — the operator's "everything can be turned on and
+ * off + tons of modes and profiles" — as a grid of control cards. Reused by
+ * every dashboard so each becomes a CONTROL surface.
+ *
+ * Web is READ-ONLY: each control shows its options and copies its exact
+ * `change_cli` for the operator to run. It NEVER mutates privileged state
+ * (§1g / hardening lint). No framework, no CDN — a single same-origin file.
+ *
+ * Usage:
+ *   const n = SovereignControlSurface.render(el, systems, {
+ *     filterSlug: 'runtime-modes',   // only global + systems governing this slug
+ *     onCopy: (cmd) => showToast(cmd) // optional copy callback
+ *   });
+ */
+(function (global) {
+  "use strict";
+
+  function esc(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  function render(containerEl, systems, opts) {
+    opts = opts || {};
+    var slug = opts.filterSlug || null;
+    var list = (systems || []).filter(function (s) {
+      if (!slug) return true;                       // no filter → all systems
+      return s.scope === "global" ||                // globals show everywhere
+        (s.applies_to || []).indexOf(slug) >= 0;    // + systems governing slug
+    });
+    var html = list.map(function (s) {
+      var pills = (s.options || []).map(function (o) {
+        return '<span class="cs-opt">' + esc(o) + "</span>";
+      }).join("");
+      var change = esc(s.change_cli || "");
+      return '<div class="cs-card cs-' + esc(s.kind) + '">'
+        + '<div class="cs-head">'
+        + '<span class="cs-label">' + esc(s.label) + "</span>"
+        + '<span class="cs-kind">' + esc(s.kind) + "</span>"
+        + (s.scope === "global" ? '<span class="cs-global">global</span>' : "")
+        + "</div>"
+        + '<div class="cs-desc">' + esc(s.description) + "</div>"
+        + '<div class="cs-opts">' + pills + "</div>"
+        + (change
+            ? '<button class="cs-cmd" data-cmd="' + change
+              + '" title="click to copy the operator command">$ ' + change + "</button>"
+            : "")
+        + "</div>";
+    }).join("");
+    containerEl.innerHTML = html || '<div class="cs-empty">(no controls for this surface)</div>';
+    Array.prototype.forEach.call(containerEl.querySelectorAll(".cs-cmd"), function (b) {
+      b.addEventListener("click", function () {
+        var cmd = b.getAttribute("data-cmd");
+        if (navigator.clipboard) navigator.clipboard.writeText(cmd);
+        if (typeof opts.onCopy === "function") opts.onCopy(cmd);
+      });
+    });
+    return list.length;
+  }
+
+  // Convenience: fetch /control-systems (same-origin) and render.
+  function load(containerEl, opts) {
+    return fetch("/control-systems", { headers: { Accept: "application/json" } })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data && data.error) {
+          containerEl.innerHTML = '<div class="cs-empty">controls unavailable: '
+            + esc(data.error) + "</div>";
+          return 0;
+        }
+        return render(containerEl, (data && data.systems) || [], opts);
+      })
+      .catch(function (e) {
+        containerEl.innerHTML = '<div class="cs-empty">controls unavailable: '
+          + esc(e && e.message) + "</div>";
+        return 0;
+      });
+  }
+
+  global.SovereignControlSurface = { render: render, load: load };
+})(window);
+</script>
+<script>SovereignControlSurface.load(document.getElementById('control-surface'),{filterSlug:'cpu-features'});</script>
+
+<footer>
+  <div>SDD-045 §5 · data: <code>GET /cpu-avx.json</code> ← <code>scripts/hardware/avx512-advisor.py</code> (R272) ·
+    build flags: <code>scripts/build/cpu-features.py</code></div>
+  <div class="standing-rule">"We do not minimize anything." — operator §1g standing rule</div>
+</footer>
+
+<script>
+"use strict";
+const el = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;" }[c]));
+
+async function load() {
+  try {
+    const r = await fetch("/cpu-avx.json", { headers: { Accept: "application/json" } });
+    const d = await r.json();
+    const probe = d.probe || {}, wl = d.workloads || {}, adv = d.advisory || {};
+    if (probe.error) throw new Error(probe.error);
+    el("status").textContent = "live ✓";
+    el("status").className = "status ok";
+    el("cpu").className = "panel";
+    el("cpu").innerHTML = "<b>" + esc(probe.cpu_model || "unknown CPU") + "</b> · AVX-512 "
+      + (probe.avx512_supported ? '<span class="pill fit">supported</span>' : '<span class="pill nofit">absent</span>');
+    // extensions
+    const exts = probe.extensions || [];
+    el("extensions").innerHTML = exts.map(e =>
+      '<div class="ext ' + (e.present ? "yes" : "no") + '"><span class="dot ' + (e.present ? "yes":"no") + '"></span>'
+      + '<span class="flag">' + esc(e.flag) + '</span><span class="s">' + esc(e.summary || e.cpuinfo_flag) + '</span></div>'
+    ).join("") || '<div class="muted">no extension data</div>';
+    // workloads
+    const rows = wl.workloads || [];
+    el("workloads").innerHTML = rows.map(w =>
+      "<tr><td><code>" + esc(w.workload) + "</code></td>"
+      + '<td>' + (w.fits ? '<span class="pill fit">fits</span>' : '<span class="pill nofit">no</span>') + "</td>"
+      + '<td class="mono muted">' + esc((w.required_flags||[]).join(" ")) + "</td>"
+      + '<td class="mono">' + (((w.missing_flags||[]).length) ? '<span style="color:var(--bad)">'+esc(w.missing_flags.join(" "))+'</span>' : '—') + "</td>"
+      + '<td class="muted">' + esc(w.summary || "") + "</td></tr>"
+    ).join("") || '<tr><td colspan="5" class="muted">no workload data</td></tr>';
+    // advisory
+    const advs = adv.advisories || [];
+    if (advs.length) {
+      el("advisory").className = "panel";
+      el("advisory").innerHTML = "<div>severity: <b>" + esc(adv.severity || "—") + "</b></div><ul>"
+        + advs.map(a => "<li>" + esc(typeof a === "string" ? a : (a.message || JSON.stringify(a))) + "</li>").join("") + "</ul>";
+    } else {
+      el("advisory").innerHTML = '<span class="ok" style="color:var(--good)">✓ no missing extensions — all workloads have what they need</span>';
+    }
+  } catch (e) {
+    el("status").textContent = "live ✗ — " + e.message;
+    el("status").className = "status bad";
+    el("cpu").innerHTML = '<span style="color:var(--bad)">AVX probe unavailable: ' + esc(e.message) + '</span>';
+  }
+}
+load();
+</script>
+</body>
+</html>

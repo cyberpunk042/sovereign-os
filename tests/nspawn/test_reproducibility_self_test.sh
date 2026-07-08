@@ -33,6 +33,17 @@ profile_file="${__REPO_ROOT}/profiles/${PROFILE}.yaml"
 mkosi_emit="${__REPO_ROOT}/scripts/build/adapters/mkosi-emit.sh"
 lb_emit="${__REPO_ROOT}/scripts/build/adapters/live-build-emit.sh"
 
+# The profile's secure_boot=signed posture makes mkosi-emit require operator
+# key env vars (SDD-015: real keys are NEVER in the repo/CI). Placeholder
+# files satisfy the presence gate — the adapter embeds only the key *paths*,
+# and every invocation below uses the SAME path, so the reproducibility hash
+# comparisons are unaffected. Same pattern as test_image_sign_gates.sh.
+__keydir="$(mktemp -d)"
+trap 'rm -rf "${__keydir}"' EXIT
+export SOVEREIGN_OS_MOK_KEY="${__keydir}/ci-mok.key"
+export SOVEREIGN_OS_MOK_CERT="${__keydir}/ci-mok.crt"
+touch "${SOVEREIGN_OS_MOK_KEY}" "${SOVEREIGN_OS_MOK_CERT}"
+
 # Hash a directory tree (sorted by relative path; canonical)
 hash_tree() {
   (cd "$1" && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum) \

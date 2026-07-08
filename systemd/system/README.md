@@ -7,7 +7,7 @@ files to `/etc/sovereign-os/inference-*.env`.
 | Unit | Tier | Default port |
 |---|---|---|
 | `sovereign-pulse.service` | Pulse (bitnet.cpp on CCD 0) | 8081 |
-| `sovereign-logic-engine.service` | Logic Engine (vLLM on 3090 VFIO) | 8082 |
+| `sovereign-logic-engine.service` | Logic Engine (vLLM on 4090 VFIO) | 8082 |
 | `sovereign-oracle-core.service` | Oracle Core (vLLM + DFlash on Blackwell) | 8083 |
 | `sovereign-router.service` | OpenAI-compatible front | 8080 |
 

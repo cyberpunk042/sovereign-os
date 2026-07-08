@@ -1,0 +1,18 @@
+[package]
+name = "sovereign-self-consistency"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Self-consistency decoding: draw several answers (varying the seed), normalize them, and return the majority vote with its agreement fraction — trading extra compute for reliability on reasoning tasks. Generic over any answer generator, so it wraps the real runtime or a scripted one."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }

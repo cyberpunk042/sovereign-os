@@ -18,7 +18,7 @@ gives you a **Sovereign AI Node** — the architecture from the master
 spec at [`docs/src/sain-01-master-spec.md`](docs/src/sain-01-master-spec.md):
 
 > CPU: AMD Ryzen 9 9900X · Zen 5 · single-cycle 512-bit AVX-512.
-> GPUs: RTX PRO 6000 Blackwell (96GB) + RTX 3090 (24GB VFIO).
+> GPUs: RTX PRO 6000 Blackwell Max-Q (96GB, 300W) + RTX 4090 (24GB VFIO).
 > Storage: 2× NVMe PCIe 5.0 in ZFS RAID-0, tiered datasets.
 > Networking: 10GbE data + 2.5GbE mgmt, VLAN-asymmetric.
 > Software trinity: **Pulse** (Wasm-to-AVX-512 AOT + BitNet ternary)
@@ -31,7 +31,7 @@ Reproducible builds (same inputs → same bytes). No phone-home defaults.
 Layer A/B/C observability without Grafana/Alertmanager required.
 
 If you don't have SAIN-01 hardware, you can still build:
-- `old-workstation` (constrained dev box: single 3090, ext4)
+- `old-workstation` (constrained dev box: single 4090, ext4)
 - `minimal` (VM baseline, useful for trying the pipeline)
 - `developer` (polyglot dev workstation)
 - `headless` (bare-metal server with auditd/fail2ban/chrony)
@@ -81,6 +81,13 @@ cd sovereign-os
 #    (profile · substrate · secure-boot posture · encryption · whitelabel),
 #    sets up the dev environment, runs preflight.
 scripts/onboard.sh
+
+# 2b. (optional) Prefer to point-and-click the choices? Launch the build
+#     configurator dashboard — pick profile / kernel / modules / CPU features /
+#     packages / prepackaged tools (Claude Code, OpenCode, …) and it GENERATES
+#     the exact `orchestrate.sh` command + overlay.yaml + operator-deps.toml.
+#     Read-only, loopback-bound; it never builds anything itself.
+python3 scripts/operator/build-configurator-api.py   # then open http://127.0.0.1:8100/
 
 # 3. Validate the build plan without running anything
 SOVEREIGN_OS_PROFILE=sain-01 scripts/build/orchestrate.sh run --dry-run
@@ -173,7 +180,7 @@ Every PR in this repo is reviewed against these.
 | **`cyberpunk042/sovereign-os`** (this) | BUILDS the OS — image generation + customization + lifecycle tools |
 | [`cyberpunk042/selfdef`](https://github.com/cyberpunk042/selfdef) | RUNS on the OS — security daemon (Tetragon + agent-guard + notifier channels) |
 | [`cyberpunk042/devops-solutions-information-hub`](https://github.com/cyberpunk042/devops-solutions-information-hub) | SYNTHESIZES knowledge — wiki second-brain; SAIN-01 master spec lives here |
-| `cyberpunk042/root-ghostproxy` | dormant |
+| `cyberpunk042/root-ghostproxy` | GOVERNS AI agents on the OS — endpoint-mode safety envelope (proxy half disabled; SDD-046) |
 
 ---
 

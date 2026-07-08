@@ -324,7 +324,7 @@ The target hardware boots. Post-install hooks run in order. The
 first-login assistant walks the operator through final customization.
 
 By the end you have:
-- VFIO 3090 bound (sain-01)
+- VFIO 4090 bound (sain-01)
 - Network VLANs configured (target → master spec § 8 values after R158)
 - Tetragon perimeter active
 - Hardening drop-ins applied (auditd/fail2ban/unattended/sshd/pwquality per SDD-024)
@@ -334,7 +334,7 @@ By the end you have:
 
 ```
 friction-audit-runtime    — confirms x8/x8 lanes · ZFS health · AVX-512 present
-vfio-bind-3090            — binds 3090 to vfio-pci (master spec § 4.3)
+vfio-bind-4090            — binds 4090 to vfio-pci (master spec § 4.3)
 network-vlan-config       — applies asymmetric VLAN (master spec § 8; opinionated per R158)
 tetragon-policy-load      — loads sovereign-kernel-fence (master spec § 6)
 arc-clamp-128gb           — clamps ZFS ARC to 128GB (master spec § 4.2)
@@ -366,7 +366,7 @@ with `sovereign-osctl assistant full` (force) or `assistant reset`.
 | Failure | Recovery |
 |---|---|
 | Friction-audit FAIL on PCIe x8/x8 | Power down · verify M.2_2 is empty · check BIOS bifurcation setting |
-| VFIO bind FAIL | Check kernel cmdline has `vfio-pci.ids=10de:2204,10de:1ad8` · `dmesg` for IOMMU group issues |
+| VFIO bind FAIL | Check kernel cmdline has `vfio-pci.ids=10de:2684,10de:22ba` · `dmesg` for IOMMU group issues |
 | Tetragon FAIL | `systemctl status tetragon` · `journalctl -u tetragon` |
 | Hardening apply FAIL on sshd reload | `sshd -t` first — the hook gates reload behind sshd_config validation |
 

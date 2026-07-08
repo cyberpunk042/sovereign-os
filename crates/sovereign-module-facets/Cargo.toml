@@ -1,0 +1,19 @@
+[package]
+name = "sovereign-module-facets"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "E0477 / M00828 — Continuity of Control: the uniform module interface. Every module MUST expose 6 facets (state / events / policy hooks / profile knobs / rollback story / learning signal). A descriptor + completeness validator so no module is unobservable, uncontrollable, or unrollback-able."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

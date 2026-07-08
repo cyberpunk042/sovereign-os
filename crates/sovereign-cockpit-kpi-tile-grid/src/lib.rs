@@ -190,7 +190,7 @@ impl KpiTileGrid {
         let t = self.tiles.get(id)?;
         let v = t.value?;
         let decimals = t.decimals as usize;
-        let formatted = format!("{:.*}", decimals, v);
+        let formatted = format!("{v:.decimals$}");
         if t.unit.is_empty() {
             Some(formatted)
         } else {

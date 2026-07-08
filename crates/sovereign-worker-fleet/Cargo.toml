@@ -1,0 +1,20 @@
+[package]
+name = "sovereign-worker-fleet"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Fleet health summary over many worker status words (M00212). Read-only observability aggregation: worst load/memory/thermal/queue across the fleet, error/flag counts, and a fleet pressure verdict for the scheduler + cockpit."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+sovereign-worker-status-word = { path = "../sovereign-worker-status-word" }
+
+[dev-dependencies]
+serde_json = { workspace = true }

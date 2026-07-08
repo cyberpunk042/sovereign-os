@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-rendezvous-hash"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Rendezvous (highest-random-weight) hashing: assign each key to the node scoring highest for it, so adding or removing a node only reassigns that node's share of keys and nothing else moves. Weight-aware for heterogeneous capacity, and select_k gives a stable ordered fallback list for replication — distinct from consistent-hash rings (no virtual nodes needed) and load-based balancing."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

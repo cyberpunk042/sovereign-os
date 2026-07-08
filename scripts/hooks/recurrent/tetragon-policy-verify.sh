@@ -55,13 +55,26 @@ if [ ! -f "${policy}" ]; then
 fi
 
 # Spot-check that policy is loaded (tetragon doesn't expose easy
-# listing; we just verify the daemon's stdout contains the policy
-# name in recent journal)
-if journalctl -u tetragon -n 100 2>/dev/null | grep -q "sovereign-kernel-fence"; then
-  log_info "policy 'sovereign-kernel-fence' loaded (journal evidence)"
+# listing; we just verify the daemon's journal records the policy load).
+# Scan THIS BOOT's journal (-b), not the last 100 lines (-n 100): the
+# policy-load message is logged once at tetragon startup, so on any
+# long-running host it has long scrolled past the last 100 lines and the
+# old check emitted perimeter_status=0 (false "drift/down") on a perfectly
+# healthy system. `-b` finds the one-time load message regardless of how
+# much tetragon has logged since; `grep -q` short-circuits on first match.
+if journalctl -u tetragon -b 2>/dev/null | grep -q "sovereign-kernel-fence"; then
+  log_info "policy 'sovereign-kernel-fence' loaded (journal evidence this boot)"
   emit_perimeter_status 1
 else
-  log_warn "no journal evidence of policy load in last 100 lines"
+  # No load record this boot — record the drift in the forensic audit log like
+  # the sibling drift cases above (they all write PERIMETER_*). Kept non-fatal
+  # (no exit 1) because this remains a journal heuristic: if tetragon ever
+  # changes its load-message wording the grep could miss a genuinely-loaded
+  # policy, and a hard-fail there would false-alarm. The status=0 gauge +
+  # audit-log line are the signals; a hard listing check (tetra tracingpolicy
+  # list) would be the upgrade if/when that CLI is guaranteed present.
+  log_warn "no journal evidence of policy load this boot"
+  echo "$(date -u --iso-8601=seconds) PERIMETER_DRIFT no policy-load record this boot" >> "${SOVEREIGN_OS_AUDIT_LOG}" 2>/dev/null || true
   emit_perimeter_status 0
 fi
 
