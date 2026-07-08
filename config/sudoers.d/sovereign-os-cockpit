@@ -58,7 +58,11 @@ Cmnd_Alias SOVEREIGN_OS_COCKPIT = \
     /usr/local/bin/sovereign-osctl adapters demote *, \
     /usr/local/bin/sovereign-osctl adapters rollback *, \
     /usr/local/bin/sovereign-osctl memory-changes approve *, \
-    /usr/local/bin/sovereign-osctl memory-changes reject *
+    /usr/local/bin/sovereign-osctl memory-changes reject *, \
+    /usr/local/bin/sovereign-osctl sessions hibernate *, \
+    /usr/local/bin/sovereign-osctl sessions resume *, \
+    /usr/local/bin/sovereign-osctl sessions kill *, \
+    /usr/local/bin/sovereign-osctl sessions hibernate-all --confirm
 
 # Granted to the OPERATOR USER (the account the panel APIs + agent run as), per
 # operator-sudoers.sh's model — NOT a dedicated service account. `%operator` is

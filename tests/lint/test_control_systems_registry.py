@@ -26,6 +26,7 @@ EXPECTED_IDS = {
     "approvals-decide", "model-load", "model-unload", "model-warm",
     "snapshot-create", "snapshot-prune", "rollback-recent",
     "adapter-decide", "memory-decide",
+    "session-decide", "session-hibernate-all",
 }
 VALID_KINDS = {"profile", "mode", "toggle", "lifecycle"}
 VALID_SCOPES = {"global", "scoped"}

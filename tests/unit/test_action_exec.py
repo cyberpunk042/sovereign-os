@@ -33,7 +33,7 @@ AE = _load()
 
 def test_registry_loads_all_controls():
     reg = AE.load_registry()
-    assert len(reg) == 26, f"expected 26 controls, got {sorted(reg)}"
+    assert len(reg) == 28, f"expected 28 controls, got {sorted(reg)}"
 
 
 def test_selfdef_owned_matches_registry_state_path():
@@ -51,7 +51,7 @@ def test_selfdef_owned_matches_registry_state_path():
 
 def test_classification_local_and_2_proxy():
     c = AE.owned_controls()
-    assert len(c["local"]) == 24 and c["proxy"] == ["perimeter", "selfdef"]
+    assert len(c["local"]) == 26 and c["proxy"] == ["perimeter", "selfdef"]
     assert "selfdef" not in c["local"] and "perimeter" not in c["local"]
 
 
