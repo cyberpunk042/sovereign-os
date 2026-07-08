@@ -1,0 +1,57 @@
+# config/agent/m062-macro-arc-10-pr-scaffold.yaml
+# ============================================================================
+# M062 "Macro-Arc 10-PR Foundation Scaffold (Stage 1)" — the foundation-plan
+# CONTRACT. Materializes the milestone spec (backlog/milestones/M062-...; source
+# raw/dumps/2026-05-16-sovereign-os-macro-arc-plan.md): the 10-PR foundation
+# scaffold (E0598-E0607), the 5 stage gates (M01047-M01051), the critical-decisions
+# surface + trade-off analysis (M01052/M01053). No invention — every entry traces
+# to a module + dump line range.
+#
+# Doctrinal anchors (dump 5/7/329): "The sovereign-os repo's first 6-10 PRs deliver
+# a disciplined foundation for an SDD/TDD-governed OS-build pipeline — not a working
+# build" / "mechanisms are specified before scripts are written, and tests are
+# scaffolded before mechanisms are executed" / "Each gate is an ExitPlanMode-style
+# checkpoint where execution pauses, operator reviews, and explicitly authorizes
+# the next phase. No PR opens past a gate without operator sign-off". Operator
+# standing 2026-05-19: "following the proper workflow and respect of SFIF and
+# second-brain knowledge" — SFIF discipline (M063) layers ON TOP of this scaffold.
+# Ties: this is the macro-arc that the earlier SDD ledger (SDD-000 charter, the
+# 5-layer TDD harness SDD-008/009) instantiates; PR5/PR6 profile schema is the
+# runtime-profile family; the 5 gates are the propose->approve->execute boundary.
+# STATUS: spec-materialization (SDD+TDD — the 10-PR foundation macro-arc).
+# Locked to spec by tests/lint/test_m062_macro_arc_10_pr_scaffold.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M062
+source_dump: "raw/dumps/2026-05-16-sovereign-os-macro-arc-plan.md (405 lines)"
+
+doctrinal_anchor: "The sovereign-os repo's first 6-10 PRs deliver a disciplined foundation for an SDD/TDD-governed OS-build pipeline — not a working build"
+sdd_tdd_ordering: "mechanisms are specified before scripts are written, and tests are scaffolded before mechanisms are executed"
+gate_doctrine: "Each gate is an ExitPlanMode-style checkpoint where execution pauses, operator reviews, and explicitly authorizes the next phase. No PR opens past a gate without operator sign-off"
+
+# ── E0598-E0607 — the 10-PR foundation scaffold — VERBATIM ──
+prs:
+  - {pr: 1, module: M01037, name: "Repo genesis + charter stub (no build code)", lines: "19-44"}
+  - {pr: 2, module: M01038, name: "ARCHITECTURE.md + cross-repo reference map", lines: "46-63"}
+  - {pr: 3, module: M01039, name: "mdbook layout + MCP config template", lines: "65-82"}
+  - {pr: 4, module: M01040, name: "Substrate survey SDD (research-only)", lines: "84-117"}
+  - {pr: 5, module: M01041, name: "Profile schema SDD", lines: "119-141"}
+  - {pr: 6, module: M01042, name: "SAIN-01 + old-workstation schema-conformant profile stubs", lines: "143-168"}
+  - {pr: 7, module: M01043, name: "Whitelabel audit SDD", lines: "170-197"}
+  - {pr: 8, module: M01044, name: "Whitelabel mechanism SDD", lines: "199-218"}
+  - {pr: 9, module: M01045, name: "TDD harness SDD", lines: "220-256"}
+  - {pr: 10, module: M01046, name: "TDD harness scaffold + first passing tests + Stage Gate 5", lines: "258-282"}
+
+# ── stage gates (M01047-M01051, dump 82/117/168/218/282) — VERBATIM ──
+stage_gates:
+  - {gate: 1, module: M01047, dump_line: 82}
+  - {gate: 2, module: M01048, dump_line: 117}
+  - {gate: 3, module: M01049, dump_line: 168}
+  - {gate: 4, module: M01050, dump_line: 218}
+  - {gate: 5, module: M01051, dump_line: 282}
+
+# ── critical-decisions surface + trade-off analysis (M01052/M01053) — VERBATIM ──
+governance_surfaces:
+  critical_decisions: {module: M01052, lines: "284-300"}
+  trade_off_analysis: {module: M01053, lines: "302-319"}
