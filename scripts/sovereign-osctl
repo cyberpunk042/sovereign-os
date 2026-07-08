@@ -8138,8 +8138,28 @@ case "${cmd}" in
     # to the promotion registry (per-adapter status + MS041 triple-gate +
     # eval gain + NVFP4 recipe (M077) + promotion/rollback history). Read-only;
     # the sovereign-adapters-api daemon serves the D-11 cockpit dashboard from
-    # this same core. Verbs: inventory / list / history (+ --json).
-    "${__REPO_ROOT}/scripts/inference/adapter-foundry.py" "$@"
+    # this same core. READ verbs (inventory / list / history) → adapter-foundry.py
+    # (never mutates). WRITE verbs (promote / demote / rollback / register, SDD-051)
+    # → adapter-decide.py: transition the promotion registry (MS041 triple-gate on
+    # promote) + record a durable, audited decision. Decisions are --confirm +
+    # operator-key + type-to-confirm gated (via the cockpit exec daemon) and DRY-RUN
+    # by default; MS003 signing is deferred to selfdef ("unsigned-pending-MS003").
+    # The sovereign-adapters-api daemon stays read-only (405) — the ONLY write path
+    # is control-exec-api → `adapters promote|demote|rollback`.
+    sub="${1:-inventory}"
+    shift || true
+    case "${sub}" in
+      inventory|list|history)
+        "${__REPO_ROOT}/scripts/inference/adapter-foundry.py" "${sub}" "$@"
+        ;;
+      promote|demote|rollback|register)
+        "${__REPO_ROOT}/scripts/inference/adapter-decide.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown adapters subverb: ${sub} (available: inventory, list, history, promote, demote, rollback, register)"
+        exit 2
+        ;;
+    esac
     ;;
   evals)
     # M060 D-10 (R10106-R10108): eval-history aggregation — reads the

@@ -645,9 +645,11 @@ async function refresh() {
     </tr>`).join('') : '<tr><td colspan="9" class="muted">no adapters match filter</td></tr>';
 
   tbody.querySelectorAll('button[data-action]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      // NEUTRALIZED (operator directive: no phantom/broken actions) — `sovereign adapter` is not a real sovereign-osctl verb (planned).
-      alert('This action is planned — not yet available in sovereign-osctl.\n\nNothing was copied. Tracked for a future release; real controls execute from the Controls rail below.');
+    btn.addEventListener('click', () => {
+      // SDD-051 — promote/demote/rollback EXECUTE via the R10274 control rail
+      // (operator-key + type-to-confirm gated; promote enforces the MS041
+      // triple-gate). Web itself never mutates (R10212).
+      jumpToControl('adapter-decide');
     });
   });
 
@@ -696,15 +698,52 @@ async function refresh() {
   }
 }
 
+// SDD-051 — scroll to a functional control in the rail + highlight it. The
+// adapter-decide control EXECUTES via the R10274 control-exec-api rail
+// (operator-key + type-to-confirm gated); web itself never mutates (R10212).
+function jumpToControl(cid) {
+  const s = document.getElementById('control-surface');
+  const c = s && s.querySelector('[data-cid="' + cid + '"]');
+  (c || s || document.body).scrollIntoView({ behavior: 'smooth', block: 'center' });
+  if (c) {
+    c.style.outline = '2px solid var(--accent,#9bd1ff)';
+    setTimeout(() => { c.style.outline = ''; }, 1600);
+  }
+}
+
 $('refresh-btn').addEventListener('click', refresh);
 $('apply-btn').addEventListener('click', refresh);
-$('train-btn').addEventListener('click', async () => {
-  // NEUTRALIZED (operator directive: no phantom/broken actions) — `sovereign adapter` is not a real sovereign-osctl verb (planned).
-      alert('This action is planned — not yet available in sovereign-osctl.\n\nNothing was copied. Tracked for a future release; real controls execute from the Controls rail below.');
+// SDD-051 — train is the heavy M046 LoRA training pipeline (Stage 3, not a
+// synchronous control). Honest status, no fake command.
+$('train-btn').addEventListener('click', () => {
+  alert('Train new adapter runs the M046 LoRA Foundry training pipeline — a '
+    + 'long-running, resource-heavy job deferred to a follow-up (SDD-051 Stage 3). '
+    + 'Once an adapter is trained + its MS041 gates pass, promote it from the '
+    + 'Controls rail below (adapter-decide).');
 });
+// SDD-051 — export is a real client-side CSV built from the live inventory
+// (a read; no host mutation).
 $('export-btn').addEventListener('click', async () => {
-  // NEUTRALIZED (operator directive: no phantom/broken actions) — `sovereign adapter` is not a real sovereign-osctl verb (planned).
-      alert('This action is planned — not yet available in sovereign-osctl.\n\nNothing was copied. Tracked for a future release; real controls execute from the Controls rail below.');
+  const s = await fetchAdapters();
+  const rows = s.adapters || [];
+  const cols = ['id', 'base_model', 'precision', 'training', 'status',
+                'eval_gain_pct', 'gates.snapshot', 'gates.test_eval',
+                'gates.oracle', 'gates.human'];
+  const cell = (v) => {
+    const str = v == null ? '' : String(v);
+    return /[",\n]/.test(str) ? '"' + str.replace(/"/g, '""') + '"' : str;
+  };
+  const get = (a, col) => col.startsWith('gates.') ? (a.gates || {})[col.slice(6)] : a[col];
+  const csv = [cols.join(',')]
+    .concat(rows.map(a => cols.map(c => cell(get(a, c))).join(',')))
+    .join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'adapter-inventory-' + new Date().toISOString().slice(0, 10) + '.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
 });
 
 try {
