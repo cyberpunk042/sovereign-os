@@ -288,6 +288,36 @@ def _print(obj: Any) -> None:
     print(json.dumps(obj, indent=2))
 
 
+def apply(to: str, confirm: bool = False) -> dict[str, Any]:
+    """R10100 — apply a ZFS rollback (DESTRUCTIVE: `zfs rollback -r <snap>`
+    discards everything newer than the snapshot). DRY-RUN unless --confirm AND
+    SOVEREIGN_OS_DRY_RUN is not set. `to=latest` resolves the most recent
+    snapshot; any other value is resolved against the live `zfs list` inventory
+    by full name OR tag — so the raw '/' snapshot path is expanded HERE, never
+    passed through the exec-daemon's arg allowlist (which forbids '/'). The
+    cockpit control offers `--to latest` (the common undo); arbitrary-snapshot
+    rollback stays a manual CLI op."""
+    dry = (not confirm) or os.environ.get("SOVEREIGN_OS_DRY_RUN") == "1"
+    snaps = collect_snapshots()
+    if to == "latest":
+        target = snaps[0]["id"] if snaps else None
+    else:
+        target = next((s["id"] for s in snaps if to in (s["id"], s["tag"])), None)
+    if dry:
+        why = "no --confirm" if not confirm else "SOVEREIGN_OS_DRY_RUN=1"
+        return {"verb": "apply", "to": to, "resolved": target, "dry_run": True,
+                "would_run": ["zfs", "rollback", "-r", target or f"<unresolved:{to}>"],
+                "note": f"DRY-RUN ({why}) — DESTRUCTIVE; apply is --confirm + "
+                        "MS003 operator-key + type-to-confirm gated"}
+    if target is None:
+        return {"verb": "apply", "to": to, "ok": False, "resolved": None,
+                "error": f"no snapshot resolved for {to!r} "
+                f"({'empty zfs inventory' if not snaps else 'unknown snapshot'})"}
+    out = _run(["zfs", "rollback", "-r", target], timeout=120)
+    return {"verb": "apply", "to": to, "resolved": target,
+            "ok": out is not None, "ran": ["zfs", "rollback", "-r", target]}
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="rollback-points core (M060 D-08)")
     sub = p.add_subparsers(dest="cmd")
@@ -298,12 +328,18 @@ def main(argv: list[str] | None = None) -> int:
     pv.add_argument("--json", action="store_true")
     cm = sub.add_parser("commits")
     cm.add_argument("--json", action="store_true")
+    ap = sub.add_parser("apply")
+    ap.add_argument("--to", required=True)
+    ap.add_argument("--confirm", action="store_true")
+    ap.add_argument("--json", action="store_true")
     args = p.parse_args(argv)
     cmd = args.cmd or "snapshot"
     if cmd == "preview":
         _print(preview(args.to))
     elif cmd == "commits":
         _print(_git_log(since="24 hours ago", limit=50))
+    elif cmd == "apply":
+        _print(apply(args.to, confirm=args.confirm))
     else:
         _print(snapshot())
     return 0

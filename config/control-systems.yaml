@@ -328,3 +328,25 @@ systems:
     privileged: false
     applies_to: [d-05-traces]
     refs: [scripts/observability/trace-store.py]
+
+  # ── 17. Rollback apply — ZFS rollback to the latest snapshot (D-08) ──
+  - id: rollback-apply
+    kind: lifecycle
+    scope: scoped
+    label: "Rollback (latest)"
+    description: >-
+      Apply a ZFS rollback to the LATEST snapshot (R10100) — the destructive
+      `zfs rollback -r` that discards everything newer than that snapshot. The
+      common one-click undo. DRY-RUN by default; the real rollback is --confirm
+      + operator-key + type-to-confirm gated and needs
+      SOVEREIGN_OS_ACTION_EXEC_LIVE. Arbitrary-snapshot rollback stays a manual
+      CLI op (the safe fallback — snapshot paths carry '/' the exec allowlist
+      forbids).
+    options: [latest]
+    options_cli: "sovereign-osctl rollback snapshot"
+    state_cli: "sovereign-osctl rollback snapshot"
+    change_cli: "sovereign-osctl rollback apply --to latest --confirm"
+    state_path: "ZFS snapshots (rpool/tank) + git commit history"
+    privileged: true
+    applies_to: [d-08-rollback-points]
+    refs: [scripts/lifecycle/rollback-points.py]
