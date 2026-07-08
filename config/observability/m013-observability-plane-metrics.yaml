@@ -1,0 +1,124 @@
+# config/observability/m013-observability-plane-metrics.yaml
+# ============================================================================
+# M013 "Observability as control input" — the observability-plane METRIC
+# CONTRACT. Materializes the metric sets specified in
+# `backlog/milestones/M013-observability-as-control-input.md` (modules
+# M00201-M00206, extracted verbatim from raw dump lines 3076-3154) into a
+# structured, consumable registry — the canonical metric-name contract the
+# future exporters emit and the dashboards / alerts / feedback-loop scheduler
+# (M00207-M00211) consume. No invention: every metric name below traces to a
+# milestone module + dump line range.
+#
+# STATUS: spec-materialization (SDD+TDD spec-driven — the contract exists before
+# the runtime that emits it, per the SDD-000 charter). Not yet wired to a live
+# exporter; that is implementation work gated on the inference runtime + GPU
+# hardware. Locked to the M013 spec by tests/lint/test_m013_observability_plane_metrics.py.
+#
+# Naming: Prometheus convention `sovereign_os_<plane>_<subject>_<unit>`. `tier`
+# maps to the M075 SRP topology (oracle=GPU1 Blackwell, scout/logic=GPU0,
+# conductor=CPU deterministic layer) using M013's own oracle/scout terms.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M013
+source_dump_lines: "3076-3154"
+
+metric_sets:
+  # ── M00201 — Observability Plane metric set (the sixth plane, E0108) ──
+  - module: M00201
+    plane: observability
+    dump_lines: "3076-3087"
+    description: >-
+      The Observability Plane baseline set — GPU telemetry, CPU counters,
+      AVX-512 engine timing, KV cache hit/miss, branch acceptance, speculative
+      success, tool failure, memory retrieval quality, ZFS+IO latency, replay
+      log throughput.
+    metrics:
+      - {name: sovereign_os_obs_gpu_telemetry, type: gauge, unit: ratio}
+      - {name: sovereign_os_obs_cpu_counters, type: counter, unit: events}
+      - {name: sovereign_os_obs_avx512_engine_timing_us, type: histogram, unit: microseconds}
+      - {name: sovereign_os_obs_kv_cache_hit_ratio, type: gauge, unit: ratio}
+      - {name: sovereign_os_obs_branch_acceptance_ratio, type: gauge, unit: ratio}
+      - {name: sovereign_os_obs_speculative_success_ratio, type: gauge, unit: ratio}
+      - {name: sovereign_os_obs_tool_failures_total, type: counter, unit: failures}
+      - {name: sovereign_os_obs_memory_retrieval_quality, type: gauge, unit: ratio}
+      - {name: sovereign_os_obs_zfs_io_latency_ms, type: histogram, unit: milliseconds}
+      - {name: sovereign_os_obs_replay_log_throughput, type: gauge, unit: records_per_second}
+
+  # ── M00202 — Blackwell oracle metric set (tier: oracle / GPU1) ──
+  - module: M00202
+    plane: inference
+    tier: oracle
+    dump_lines: "3095-3104"
+    description: The Blackwell oracle GPU metric set.
+    metrics:
+      - {name: sovereign_os_oracle_utilization, type: gauge, unit: ratio}
+      - {name: sovereign_os_oracle_vram_used_bytes, type: gauge, unit: bytes}
+      - {name: sovereign_os_oracle_memory_bandwidth, type: gauge, unit: bytes_per_second}
+      - {name: sovereign_os_oracle_batch_tokens, type: gauge, unit: tokens}
+      - {name: sovereign_os_oracle_prefill_time_ms, type: histogram, unit: milliseconds}
+      - {name: sovereign_os_oracle_decode_time_ms, type: histogram, unit: milliseconds}
+      - {name: sovereign_os_oracle_idle_ms, type: gauge, unit: milliseconds}
+      - {name: sovereign_os_oracle_verification_accept_rate, type: gauge, unit: ratio}
+
+  # ── M00203 — 4090 scout metric set (tier: scout / GPU0) ──
+  - module: M00203
+    plane: inference
+    tier: scout
+    dump_lines: "3108-3115"
+    description: The 4090 scout / draft-model GPU metric set.
+    metrics:
+      - {name: sovereign_os_scout_utilization, type: gauge, unit: ratio}
+      - {name: sovereign_os_scout_draft_tokens_per_sec, type: gauge, unit: tokens_per_second}
+      - {name: sovereign_os_scout_draft_acceptance_rate, type: gauge, unit: ratio}
+      - {name: sovereign_os_scout_draft_rejection_reason, type: counter, unit: events}
+      - {name: sovereign_os_scout_rerank_latency_ms, type: histogram, unit: milliseconds}
+      - {name: sovereign_os_scout_embedding_batch_size, type: gauge, unit: items}
+
+  # ── M00204 — CPU deterministic-layer metric set (tier: conductor / CPU) ──
+  - module: M00204
+    plane: control
+    tier: conductor
+    dump_lines: "3119-3130"
+    description: The CPU deterministic-layer (branch scheduler) metric set.
+    metrics:
+      - {name: sovereign_os_cpu_branches_active, type: gauge, unit: branches}
+      - {name: sovereign_os_cpu_branches_killed_budget_total, type: counter, unit: branches}
+      - {name: sovereign_os_cpu_branches_killed_policy_total, type: counter, unit: branches}
+      - {name: sovereign_os_cpu_branches_killed_grammar_total, type: counter, unit: branches}
+      - {name: sovereign_os_cpu_branches_sent_oracle_total, type: counter, unit: branches}
+      - {name: sovereign_os_cpu_branches_sent_scout_total, type: counter, unit: branches}
+      - {name: sovereign_os_cpu_avx_scheduler_tick_us, type: histogram, unit: microseconds}
+      - {name: sovereign_os_cpu_mask_compute_us, type: histogram, unit: microseconds}
+      - {name: sovereign_os_cpu_json_validate_us, type: histogram, unit: microseconds}
+      - {name: sovereign_os_cpu_policy_scan_us, type: histogram, unit: microseconds}
+
+  # ── M00205 — KV / memory metric set ──
+  - module: M00205
+    plane: memory
+    dump_lines: "3134-3144"
+    description: The KV-cache + memory-retrieval metric set.
+    metrics:
+      - {name: sovereign_os_kv_hit_rate, type: gauge, unit: ratio}
+      - {name: sovereign_os_kv_prefix_hit_rate, type: gauge, unit: ratio}
+      - {name: sovereign_os_kv_nonprefix_hit_rate, type: gauge, unit: ratio}
+      - {name: sovereign_os_kv_evictions_total, type: counter, unit: entries}
+      - {name: sovereign_os_kv_offload_bytes, type: gauge, unit: bytes}
+      - {name: sovereign_os_kv_context_prefill_saved_ms, type: gauge, unit: milliseconds}
+      - {name: sovereign_os_kv_memory_candidates_before_filter, type: gauge, unit: candidates}
+      - {name: sovereign_os_kv_memory_candidates_after_bitset, type: gauge, unit: candidates}
+      - {name: sovereign_os_kv_memory_candidates_after_rerank, type: gauge, unit: candidates}
+
+  # ── M00206 — Tool metric set (E0114 "no unobserved side effects") ──
+  - module: M00206
+    plane: tool
+    dump_lines: "3148-3154"
+    description: >-
+      The tool-execution metric set — the observability substrate for E0114
+      "No unobserved side effects" (every tool intent + side effect is metered).
+    metrics:
+      - {name: sovereign_os_tool_intents_generated_total, type: counter, unit: intents}
+      - {name: sovereign_os_tool_intents_rejected_total, type: counter, unit: intents}
+      - {name: sovereign_os_tool_intents_user_confirmed_total, type: counter, unit: intents}
+      - {name: sovereign_os_tool_failures_total, type: counter, unit: failures}
+      - {name: sovereign_os_tool_side_effects_committed_total, type: counter, unit: side_effects}
