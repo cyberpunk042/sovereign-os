@@ -143,3 +143,28 @@ def test_nonprivileged_dry_run_needs_no_key():
 def test_default_dry_run_is_safe():
     """Importing the module must not enable live execution by default."""
     assert AE._DEFAULT_DRY_RUN is True
+
+
+# ── observability ────────────────────────────────────────────────────────────
+
+@pytest.mark.parametrize("cid,args,confirm,outcome", [
+    ("selfdef", {"verb": "on"}, True, "boundary-reject"),
+    ("cpu-mode", {"mode": "balanced; rm -rf /"}, False, "validation-reject"),
+    ("no-such", {}, False, "unknown-control"),
+    ("flex-profile", {"key": "kv_cache_dtype", "value": "fp8"}, False, "dry-run"),
+])
+def test_metric_emitted_per_outcome(tmp_path, monkeypatch, cid, args, confirm, outcome):
+    monkeypatch.setenv("SOVEREIGN_OS_METRICS_DIR", str(tmp_path))
+    AE.execute(cid, args, confirm=confirm, dry_run=True)
+    prom = (tmp_path / "sovereign-os-cockpit-action-exec.prom").read_text()
+    assert AE._METRIC_NAME in prom
+    assert f'outcome="{outcome}"' in prom
+    assert f'control_id="{cid}"' in prom
+
+
+def test_confirm_required_metric(tmp_path, monkeypatch):
+    monkeypatch.setenv("SOVEREIGN_OS_METRICS_DIR", str(tmp_path))
+    monkeypatch.setattr(AE, "operator_key_loaded", lambda: True)
+    AE.execute("cpu-mode", {"mode": "balanced"}, confirm=False, dry_run=True)
+    prom = (tmp_path / "sovereign-os-cockpit-action-exec.prom").read_text()
+    assert 'outcome="confirm-required"' in prom

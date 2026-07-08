@@ -87,7 +87,9 @@ Three gaps sit between "copy the command" and "execute the feature":
   `scripts/operator/_action_exec.py`: loads the registry; hard-rejects the 2
   selfdef-owned controls; validates placeholders; gates privileged on key +
   confirm; executes via `_privileged_argv()` (mechanism-isolated `sudo -n`);
-  single-flight lock; OCSF-5001 audit. DRY_RUN by default (import changes nothing).
+  single-flight lock; OCSF-5001 audit span + a Prometheus counter
+  (`sovereign_os_operator_cockpit_action_total{control_id,outcome}`) for
+  operability. DRY_RUN by default (import changes nothing).
   `config/sudoers.d/sovereign-os-cockpit` DRAFT (visudo-clean). Tests:
   `tests/unit/test_action_exec.py` (23) + `tests/lint/test_cockpit_action_exec_sudoers.py`
   (4 drift-guards). **Touches no live daemon/systemd unit.**

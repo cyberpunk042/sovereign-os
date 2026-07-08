@@ -176,6 +176,25 @@ def _privileged_argv(argv: list[str], privileged: bool) -> list[str]:
     return argv
 
 
+_METRIC_NAME = "sovereign_os_operator_cockpit_action_total"
+
+
+def _emit_metric(control_id: str, outcome: str) -> None:
+    """Best-effort Prometheus counter to the node_exporter textfile collector so
+    the operator has observability into cockpit action attempts + rejects
+    (outcome ∈ executed / dry-run / boundary-reject / validation-reject /
+    confirm-required / key-missing / busy / error / unknown-control). Reads
+    SOVEREIGN_OS_METRICS_DIR at call time; never raises."""
+    metrics_dir = os.environ.get(
+        "SOVEREIGN_OS_METRICS_DIR", "/var/lib/node_exporter/textfile_collector")
+    try:
+        os.makedirs(metrics_dir, exist_ok=True)
+        with open(os.path.join(metrics_dir, "sovereign-os-cockpit-action-exec.prom"), "a") as f:
+            f.write(f'{_METRIC_NAME}{{control_id="{control_id}",outcome="{outcome}"}} 1\n')
+    except OSError:
+        pass
+
+
 def _emit_audit(control_id: str, argv: list[str], exit_code: int | None,
                 actor: str, dry_run: bool) -> None:
     """Best-effort OCSF-5001 (Configuration Change) style audit span to the
@@ -214,6 +233,7 @@ def execute(control_id: str, args: dict[str, str] | None = None, *,
     reg = load_registry()
     control = reg.get(control_id)
     if control is None:
+        _emit_metric(control_id, "unknown-control")
         return {"ok": False, "code": 404, "control_id": control_id,
                 "error": f"unknown control {control_id!r}",
                 "known": sorted(reg)}
@@ -221,6 +241,7 @@ def execute(control_id: str, args: dict[str, str] | None = None, *,
     # ── hard R10212 boundary — selfdef-owned NEVER executes locally ──
     if control_id in SELFDEF_OWNED:
         argv, _ = resolve_argv(control, args)
+        _emit_metric(control_id, "boundary-reject")
         return {
             "ok": False, "code": 409, "boundary": True, "control_id": control_id,
             "error": ("selfdef-owned control — sovereign-os is the READ-ONLY "
@@ -232,16 +253,19 @@ def execute(control_id: str, args: dict[str, str] | None = None, *,
 
     argv, err = resolve_argv(control, args)
     if err:
+        _emit_metric(control_id, "validation-reject")
         return {"ok": False, "code": 400, "control_id": control_id, "error": err,
                 "options": control.get("options")}
 
     privileged = bool(control.get("privileged"))
     if privileged:
         if not operator_key_loaded():
+            _emit_metric(control_id, "key-missing")
             return {"ok": False, "code": 403, "control_id": control_id,
                     "error": "privileged control requires the operator key to be "
                              "loaded (MS003 presence gate)"}
         if not confirm:
+            _emit_metric(control_id, "confirm-required")
             return {"ok": False, "code": 403, "control_id": control_id,
                     "confirm_required": True, "argv": argv,
                     "error": "privileged control requires explicit confirm=true "
@@ -249,24 +273,29 @@ def execute(control_id: str, args: dict[str, str] | None = None, *,
 
     run_argv = _privileged_argv(argv, privileged)
     if dry_run:
+        _emit_metric(control_id, "dry-run")
         return {"ok": True, "code": 200, "control_id": control_id, "dry_run": True,
                 "argv": argv, "would_run": run_argv}
 
     if not _RUN_LOCK.acquire(blocking=False):
+        _emit_metric(control_id, "busy")
         return {"ok": False, "code": 409, "control_id": control_id,
                 "error": "another cockpit action is already running"}
     try:
         proc = subprocess.run(run_argv, cwd=_REPO_ROOT, capture_output=True,
                               text=True, timeout=timeout, check=False)
         _emit_audit(control_id, argv, proc.returncode, actor, dry_run=False)
+        _emit_metric(control_id, "executed" if proc.returncode == 0 else "error")
         return {"ok": proc.returncode == 0, "code": 200 if proc.returncode == 0 else 500,
                 "control_id": control_id, "argv": argv, "dry_run": False,
                 "exit_code": proc.returncode,
                 "stdout": proc.stdout[-4000:], "stderr": proc.stderr[-2000:]}
     except subprocess.TimeoutExpired:
+        _emit_metric(control_id, "error")
         return {"ok": False, "code": 504, "control_id": control_id, "argv": argv,
                 "error": f"action timed out after {timeout}s"}
     except OSError as e:
+        _emit_metric(control_id, "error")
         return {"ok": False, "code": 500, "control_id": control_id, "argv": argv,
                 "error": f"exec failed: {e}"}
     finally:
