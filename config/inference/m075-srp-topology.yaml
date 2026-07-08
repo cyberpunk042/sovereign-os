@@ -1,0 +1,66 @@
+# config/inference/m075-srp-topology.yaml
+# ============================================================================
+# M075 "SRP hardware topology mapping (Conductor on CPU / Logic on GPU 0 / Oracle
+# on GPU 1)" — the orchestration-topology CONTRACT. Materializes the milestone
+# spec (backlog/milestones/M075-...; source raw/dumps/2026-05-15-sain-01-master-
+# spec-...md Section 17 lines 812-851): the Vibe Managing harness (E0718), the 3
+# SRP agents mapped to hardware (E0719-E0721) with per-agent runtime (E0722-E0724)
+# and justification (E0725-E0727). No invention — every entry traces to a module +
+# dump line range.
+#
+# Doctrinal anchors (dump 813/814): "we map the Single Responsibility Principle
+# (SRP) directly to physical hardware layers" / "An agent should possess only one
+# operational domain, and its runtime framework must align perfectly with the
+# hardware best suited for that domain". Ties: this is the M075 SRP topology behind
+# the D-21/D-22 cockpit panels (Model 0/1/2 = Oracle GPU1 / Logic GPU0 / Conductor
+# CPU); the Conductor is M066's Pulse running M073's ternary bitnet.cpp on M070's
+# CCD 0; the Oracle is M050/M058's Blackwell oracle plane; the harness is M048's
+# Compute Fabric. R12530 (SRP topology = sovereign-os runtime owns) is
+# non-negotiable — nothing routes through AICP or selfdef.
+# STATUS: spec-materialization (SDD+TDD — the SRP hardware orchestration topology).
+# Locked to spec by tests/lint/test_m075_srp_topology.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M075
+source_dump_lines: "812-851"
+
+doctrinal_anchor: "we map the Single Responsibility Principle (SRP) directly to physical hardware layers — an agent should possess only one operational domain, and its runtime framework must align perfectly with the hardware best suited for that domain"
+
+harness:
+  module: M01241
+  name: "Vibe Managing Orchestration Harness"
+  role: "top-level coordinator (root)"
+
+# ── E0719-E0727 — the 3 SRP agents (M01242/M01243/M01244) — VERBATIM ──
+agents:
+  - id: Conductor
+    module: M01242
+    hardware: "CPU"
+    srp_domain: "Routing & State Fabric"
+    runtime: "natively compiled 1-bit/Ternary BitNet via bitnet.cpp pinned to high-priority CPU cores"
+    justification: "state orchestration requires instantaneous branching + low latency for small context blocks; prevents small-kernel context-switching on GPUs"
+
+  - id: "Logic Engine"
+    module: M01243
+    hardware: "GPU 0 RTX 4090"
+    srp_domain: "Ingestion & Translation"
+    runtime: "mid-scale quantized models (Llama-3-70B Q4_K_M or IQ4_NL) in Podman container"
+    justification: "balances throughput against 24GB VRAM ceiling"
+
+  - id: "Oracle Core"
+    module: M01244
+    hardware: "GPU 1 Blackwell PRO 6000"
+    srp_domain: "Long-Term Deep Reasoning"
+    runtime: "full-precision FP16 or uncompromised models in 96GB Blackwell pool"
+    justification: "complete freedom from quantization degradation for absolute accuracy"
+
+# ── topology branches (dump 818-820) — VERBATIM ──
+topology_branches:
+  - {branch: "Host CPU Threads", holds: "Vector Pipeline + AVX-512/bitnet.cpp + State Routing & Logs"}
+  - {branch: "Local GPU 0", holds: "High-Speed VRAM + Exclusively quantized + Intermediate Context"}
+  - {branch: "Local GPU 1", holds: "Massive VRAM Silicon + Un-quantized/FP16 + Deep In-Context Memory"}
+
+decay_prevention:
+  module: M01252
+  rule: "SRP boundary enforced to prevent code maintenance decay"
