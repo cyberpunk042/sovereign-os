@@ -33,6 +33,7 @@ EXPECTED_HANDOFFS = [
     "004-operator-friction-audit.md",
     "005-master-spec-materialization-arc.md",
     "006-verbatim-preservation-arc.md",
+    "007-cockpit-functional-execution-arc.md",
 ]
 
 
