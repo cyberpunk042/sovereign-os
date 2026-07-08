@@ -1,0 +1,139 @@
+# config/agent/m053-implementation-build-phases.yaml
+# ============================================================================
+# M053 "Implementation language — 11 build phases (Phase 0..10)" — the
+# implementation-roadmap CONTRACT. Materializes the milestone spec (backlog/
+# milestones/M053-..., dump 15915-16493): the 3 intelligence organs + 7 enabling
+# subsystems (E0509), the Core Runtime Sentence (E0510), the thin vertical slice
+# (E0511), the 10-term Shared Vocabulary (E0512), the 9 Core Data Objects +
+# 6-property module standard (E0513), and the 11 build phases (Phase 0..10) +
+# 10-step Critical Build Order + final guiding question (E0514-E0517). No
+# invention — every entry traces to a module + dump line range.
+#
+# Operator directive 15915 (sacrosanct): "start talking more in language to
+# transpose all this in a future implementation conversation. making sure we
+# output enough details and reasonings. we are about to do complex things". Core
+# Runtime Sentence (dump 16016): "Models propose; the runtime commits". Ties: this
+# is the buildable roadmap for M052's vision — Phase 0 validates M050's hardware,
+# Phase 1-2 build M048's Gateway + Compute Fabric organs, Phase 7 is M051's AVX
+# cortex, Phase 8 is M046's LoRA foundry, Phase 9 is M047's continuity. The
+# critical build order gates each phase on the prior (useful at every stage).
+# STATUS: spec-materialization (SDD+TDD — the 11-phase implementation roadmap).
+# Locked to spec by tests/lint/test_m053_implementation_build_phases.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M053
+source_dump_lines: "15915-16493"
+
+framing: "a user-sovereign AI workstation runtime — a hardware-aware intelligence substrate that routes work across local GPUs, CPU AVX-512 logic, tools, sandboxes, memory, and optional cloud providers under explicit user profiles and policies"
+
+# ── E0509 — 3 intelligence organs + 7 enabling subsystems (M00886/M00887) — VERBATIM ──
+intelligence_organs:
+  - {organ: "Blackwell Oracle", role: "High-quality, high-cost, high-context reasoning"}
+  - {organ: "4090 Scout", role: "Cheap, fast, speculative, sandboxable intelligence"}
+  - {organ: "AVX-512 Cortex", role: "Deterministic scheduling, policy, masks, memory filtering, and workflow state"}
+enabling_subsystems:
+  - {subsystem: Gateway, role: "lets external tools call the system"}
+  - {subsystem: Policy, role: "decides what is allowed"}
+  - {subsystem: Memory, role: "gives continuity"}
+  - {subsystem: Workflow, role: "gives structure"}
+  - {subsystem: Sandbox, role: "makes action safe"}
+  - {subsystem: Observability, role: "makes behavior legible"}
+  - {subsystem: Evals, role: "make improvement measurable"}
+
+# ── E0510 — Core Runtime Sentence (M00888, dump 16016-16030) — VERBATIM ──
+core_runtime_sentence:
+  module: M00888
+  sentence: "Models propose; the runtime commits"
+  model_proposes: [text, code, "tool calls", "memory writes", "file edits",
+                   "cloud calls", "workflow transitions"]
+  runtime_decides: [allowed, routed, verified, sandboxed, escalated, committed, rejected]
+
+# ── E0511 — thin vertical slice (M00889/M00890, dump 16040-16066) — VERBATIM ──
+vertical_slice:
+  doctrine: "Do not begin by building every feature. Begin with a thin vertical slice"
+  steps: ["Client request", "local gateway", "profile resolution", "model route",
+          "tool/policy trace", "response", "replay record"]
+  later_additions: [memory, sandboxes, evals, "AVX hot path", "LoRA/model lab"]
+
+# ── E0512 — 10-term Shared Vocabulary (M00891, dump 16076-16106) — VERBATIM ──
+shared_vocabulary:
+  module: M00891
+  terms:
+    - {term: Profile, definition: "user-facing operating mode, e.g. fast/private/careful/autonomous"}
+    - {term: Policy, definition: "hard authorization and safety rules"}
+    - {term: Route, definition: "selected execution path across models/tools/hardware"}
+    - {term: Frame, definition: "unit of cognitive work or state transition"}
+    - {term: Trace, definition: "observed execution history"}
+    - {term: Commit, definition: "accepted state change or side effect"}
+    - {term: Memory, definition: "governed persistent knowledge, not raw chat history"}
+    - {term: Oracle, definition: "expensive high-quality model route"}
+    - {term: Scout, definition: "cheap speculative model route"}
+    - {term: Cortex, definition: "deterministic CPU-side scheduler/policy engine"}
+
+# ── E0513 — 9 Core Data Objects + 6-property module standard (M00892/M00893) — VERBATIM ──
+core_data_objects:
+  module: M00892
+  objects:
+    - {object: Request, shape: "client input + metadata + requested profile"}
+    - {object: Profile, shape: "weights and defaults for cost/risk/quality/privacy/autonomy"}
+    - {object: PolicyDecision, shape: "allow / deny / ask / sandbox / escalate"}
+    - {object: ModelRoute, shape: "provider, model, hardware target, precision, adapter, budget"}
+    - {object: Frame, shape: "branch state, workflow node, risk, budget, refs"}
+    - {object: ToolIntent, shape: "requested action, capabilities, side effects, rollback"}
+    - {object: TraceEvent, shape: "what happened, when, by whom, cost, result"}
+    - {object: MemoryRef, shape: "pointer to governed memory with trust/privacy/freshness"}
+    - {object: EvalResult, shape: "quality/cost/risk/outcome score"}
+module_exposure_standard:
+  module: M00893
+  properties: [state, configuration, events, "policy hooks", observability, "fallback behavior"]
+  doctrine: "If a module cannot explain what it did, it is not ready for autonomy"
+
+# ── E0514-E0517 — the 11 build phases (Phase 0..10) — VERBATIM ──
+build_phases:
+  - {phase: 0, name: "Platform Truth", goal: "Know what the machine actually is",
+     validate: ["CPU flags", "GPU topology", "Driver stack", "Storage", "OS security"],
+     output: "hardware capability report", note: "This prevents fantasy architecture"}
+  - {phase: 1, name: "Gateway Spine", goal: "Make existing tools talk to the station",
+     anthropic_first: ["/v1/messages", "/v1/models", "basic streaming", "model aliases",
+                       "profile selection", "trace id per request"],
+     model_aliases: ["jean/local-fast", "jean/oracle", "jean/private"],
+     note: "The important part is owning the front door"}
+  - {phase: 2, name: "Model Fabric", goal: "Run multiple local model roles",
+     services: ["Blackwell oracle server", "4090 scout server", "embedding/rerank service",
+                "model registry", "health checks"],
+     note: "Do not chase too many models at first. Establish the pattern"}
+  - {phase: 3, name: "Policy And Trace", goal: "Every action becomes observable and governed",
+     note: "Even before sophisticated policy, the shape matters"}
+  - {phase: 4, name: "Sandbox Execution", goal: "Let agents act without trusting them blindly",
+     rule: "tool intent is not execution"}
+  - {phase: 5, name: "Memory And MAP", goal: "Make the station situated",
+     first_memory: ["What tests exist?", "What commands worked?", "What failed last time?",
+                    "Which files matter?", "What did the user prefer?"]}
+  - {phase: 6, name: "Evals And Goldilocks", goal: "Make adaptation measurable",
+     scoring: [correctness, "test pass", "schema validity", latency, cost, risk,
+               "human intervention", "rollback needed"],
+     note: "This is where 'adaptive' stops being a slogan"}
+  - {phase: 7, name: "AVX-512 Cortex", goal: "Move hot deterministic work into optimized CPU paths",
+     targets: ["branch table filtering", "memory bitset intersection", "policy mask fusion",
+               "candidate compression", "reward-vector scoring", "token/schema mask operations"],
+     note: "Do not start here. Start after data shapes stabilize. This phase turns architecture into performance"}
+  - {phase: 8, name: "Model Lab And LoRA Foundry", goal: "Make the station evolve",
+     rule: "No adapter becomes a profile default until evals prove it"}
+  - {phase: 9, name: "Continuity", goal: "Let work survive time",
+     elements: ["workflow hibernation", "ZFS snapshot per risky action", "sandbox checkpoints",
+                "warm model sessions", "resume tokens", "long-running task state"],
+     note: "This makes the system feel alive"}
+  - {phase: 10, name: "Full Cockpit", goal: "Let the user see and steer everything",
+     ui_surfaces: ["active sessions", "profile choices", "model health", "costs", "traces",
+                   "pending approvals", "memory changes", "rollback points", "hardware pressure",
+                   "eval history", "adapter status"],
+     note: "This is fullstack, but serious fullstack: the cockpit of an intelligence machine"}
+
+# ── E0517 — Critical Build Order + final guiding question (M00900, 16462-16493) — VERBATIM ──
+critical_build_order:
+  module: M00900
+  order: ["know hardware", "own gateway", "route models", "trace everything", "gate tools",
+          "add memory", "add evals", "optimize with AVX", "adapt with LoRA", "deepen continuity"]
+  note: "That order keeps the system useful at every stage"
+  guiding_question: "What is the smallest vertical slice that increases sovereignty, intelligence, or continuity?"
