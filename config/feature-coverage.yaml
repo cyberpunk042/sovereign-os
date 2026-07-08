@@ -60,7 +60,7 @@ coverage:
   d-02-profile-choices:
     [profiles, profile-mirror, hooks, overlay-drift, module-state]
   d-04-costs:
-    [costs]
+    [costs, cost-policy]
   d-12-networking:
     [network, network-stack, network-topology, dns-advisor, net-perf, services,
      services-advisor, reverse-proxy, notify]

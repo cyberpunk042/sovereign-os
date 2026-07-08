@@ -8102,9 +8102,18 @@ case "${cmd}" in
     # per-span `cost` attribute of the M049 span log, aggregating daily /
     # project / MS040-profile / model spend + 30-day trend + end-of-day
     # forecast. Read-only; the sovereign-costs-api daemon serves the D-04
-    # cockpit dashboard from this same core. Verbs: summary / policy / today
-    # (+ --json).
+    # cockpit dashboard from this same core. Verbs: summary / policy / today /
+    # export {csv|json} (+ --json). Read-only — the WRITE side is `cost-policy`.
     "${__REPO_ROOT}/scripts/observability/cost-tracker.py" "$@"
+    ;;
+  cost-policy)
+    # M060 D-04 write surface — flip cloud_enabled in
+    # /etc/sovereign-os/cost-policy.toml so the operator can HALT (or resume) all
+    # cloud spend from the cockpit. DRY-RUN by default; a real write needs
+    # --confirm (baked into the control-systems change_cli) AND, via the exec
+    # daemon, the operator key + type-to-confirm + SOVEREIGN_OS_ACTION_EXEC_LIVE.
+    # Verbs: show / halt-cloud / resume-cloud.
+    "${__REPO_ROOT}/scripts/observability/cost-policy.py" "$@"
     ;;
   adapters)
     # M060 D-11 (R10109-R10111): LoRA adapter inventory + promotion status —

@@ -288,3 +288,23 @@ systems:
     privileged: false
     applies_to: [d-04-costs]
     refs: [scripts/observability/cost-tracker.py]
+
+  # ── 15. Cost policy — halt / resume cloud spend (D-04 write) ─────────
+  - id: cost-policy
+    kind: toggle
+    scope: scoped
+    label: "Cloud Spend"
+    description: >-
+      Halt or resume ALL cloud spend by flipping cloud_enabled in
+      /etc/sovereign-os/cost-policy.toml (the D-04 write surface). halt-cloud
+      stops every cloud backend immediately; resume-cloud re-enables it. DRY-RUN
+      by default; the real write is operator-key + type-to-confirm gated and
+      needs SOVEREIGN_OS_ACTION_EXEC_LIVE.
+    options: [halt-cloud, resume-cloud]
+    options_cli: "sovereign-osctl cost-policy show"
+    state_cli: "sovereign-osctl costs policy"
+    change_cli: "sovereign-osctl cost-policy {halt-cloud|resume-cloud} --confirm"
+    state_path: "/etc/sovereign-os/cost-policy.toml"
+    privileged: true
+    applies_to: [d-04-costs]
+    refs: [scripts/observability/cost-policy.py]
