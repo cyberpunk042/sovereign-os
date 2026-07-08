@@ -76,10 +76,10 @@ Three gaps sit between "copy the command" and "execute the feature":
 
 | Q | Question | Options | Status |
 |---|---|---|---|
-| Q-047-A | The sudoer strategy mechanism | **(A)** `sudoers.d` NOPASSWD allowlist for a dedicated `sovereign-cockpit` user (`sudo -n`, non-interactive — recommended); (B) root privileged-helper daemon over a UNIX socket; (C) interactive `pkexec`/polkit; (D) operator already added a sudoer artifact (need path) | **open** — Phase-0 default is (A) |
+| Q-047-A | The sudoer strategy mechanism | **(A)** NOPASSWD sudoers allowlist run as the operator user; (B) root helper daemon; (C) interactive `pkexec`; (D) operator already added a sudoer artifact | **answered (evidence, 2026-07-08)** — option **D**: the strategy is `scripts/operator/operator-sudoers.sh` (already on `main`), which generates `/etc/sudoers.d/sovereign-os-operator` granting the **operator user** (that the panel APIs + agent run as) a scoped `Cmnd_Alias SOVEREIGN_OS_OPS` NOPASSWD allowlist (today: diagnostics + image-inspection only, absolute paths, never `ALL`; contract locked by `tests/lint/test_operator_sudoers.py` + `test_root_password_gate.py`). The functional-execution work **extends that generator** with a controls bucket (the 9 sovereign-os-owned `sovereign-osctl <verb>` commands as a second scoped alias) — NOT a parallel hand-authored file. |
 | Q-047-B | selfdef-owned controls (selfdef/perimeter/D-12..D-18) | Stay a signed proxy to selfdef (recommended, preserves R10212 producer/consumer) vs execute locally | **open** — default: stay proxy |
-| Q-047-C | systemd privilege trade-off for mechanism (A) | The `*-api` units run `NoNewPrivileges=true` (blocks `sudo`); (A) needs `User=sovereign-cockpit` + dropping it. Accept the trade-off? vs (B)/(C) which avoid it | **open** |
-| Q-047-D | Landing strategy | The dev branch is an unrelated history vs `main` (234 crates behind, CI drift). Recreate the branch from `origin/main` + re-apply the clean deliverable, vs patch the drift in place | **open** |
+| Q-047-C | systemd privilege model | Whether a dedicated user / `NoNewPrivileges` change is needed | **answered (evidence, 2026-07-08)** — **no** dedicated user and **no** `NoNewPrivileges` drop: the panels run **as the operator user** (per `operator-sudoers.sh`), so `_action_exec` runs `sudo -n sovereign-osctl <verb>` as that user against the extended allowlist. Supersedes the Phase-0 draft's `sovereign-cockpit` dedicated-user assumption. |
+| Q-047-D | Landing strategy | The dev branch is an unrelated history vs a fast-moving `main`; CI merges surface main's newer code the behind-branch lacks (proven: my `mkosi-emit.sh` is the old `Format=none`; main is the fixed `Format=ext4`). Only 67 files differ (40 added = my clean deliverable; the rest are main-ahead modifications + main-only files INCLUDING `operator-sudoers.sh`). Recreate the branch from `origin/main` + re-apply the 40-file deliverable (reconciled to extend `operator-sudoers.sh`), vs patch drift against a moving target | **open (strongly recommend recreate)** — it also brings in `operator-sudoers.sh` (the real sudoer strategy this SDD builds on) |
 
 ## Way forward
 
@@ -90,9 +90,17 @@ Three gaps sit between "copy the command" and "execute the feature":
   single-flight lock; OCSF-5001 audit span + a Prometheus counter
   (`sovereign_os_operator_cockpit_action_total{control_id,outcome}`) for
   operability. DRY_RUN by default (import changes nothing).
-  `config/sudoers.d/sovereign-os-cockpit` DRAFT (visudo-clean). Tests:
-  `tests/unit/test_action_exec.py` (23) + `tests/lint/test_cockpit_action_exec_sudoers.py`
-  (4 drift-guards). **Touches no live daemon/systemd unit.**
+  Tests: `tests/unit/test_action_exec.py` (30) +
+  `tests/lint/test_cockpit_action_exec_sudoers.py` (4 drift-guards). **Touches no
+  live daemon/systemd unit.**
+  **Reconciliation (post-recreate, per Q-047-A/C answers):** the Phase-0
+  `config/sudoers.d/sovereign-os-cockpit` DRAFT (dedicated `sovereign-cockpit`
+  user, parallel file) is SUPERSEDED — replace it by extending
+  `scripts/operator/operator-sudoers.sh`'s generator with a `SOVEREIGN_OS_COCKPIT`
+  controls alias (the 9 owned `sovereign-osctl` verbs) for the **operator user**,
+  and point `_action_exec` at that. The `_action_exec.py` core (validation,
+  boundary, gating, metric, audit) is unchanged; only the sudoers artifact + user
+  model reconcile to main's pattern.
 - **Phase 1 — shared control-surface execute (gated on Q-047-A/C).** Extend
   `webapp/_shared/control-surface.js` with an Execute button (+ confirm gate) and
   a sovereign-os-owned `/api/control/execute` endpoint on the owning daemons; Copy
