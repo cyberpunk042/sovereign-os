@@ -168,3 +168,31 @@ def test_confirm_required_metric(tmp_path, monkeypatch):
     AE.execute("cpu-mode", {"mode": "balanced"}, confirm=False, dry_run=True)
     prom = (tmp_path / "sovereign-os-cockpit-action-exec.prom").read_text()
     assert 'outcome="confirm-required"' in prom
+
+
+def test_audit_span_canonical_schema_and_log(tmp_path, monkeypatch):
+    """The OCSF-5001 audit span lands in the canonical M049 span log
+    (SOVEREIGN_OS_SPAN_STORE) with the same schema dashboard-toggles emits, so
+    the D-05/D-16 audit surfaces see cockpit actions."""
+    import json as _json
+    span_log = tmp_path / "spans.jsonl"
+    monkeypatch.setenv("SOVEREIGN_OS_SPAN_STORE", str(span_log))
+    AE._emit_audit("cpu-mode", ["sovereign-osctl", "cpu-mode", "set", "balanced"],
+                   exit_code=0, actor="operator", dry_run=False)
+    rec = _json.loads(span_log.read_text().strip())
+    assert rec["operation"] == "cockpit_action"
+    assert rec["ocsf_class"] == "5001"
+    assert rec["ocsf_payload"]["class_uid"] == 5001
+    assert rec["ocsf_payload"]["control_id"] == "cpu-mode"
+    assert rec["severity"] == "info"
+    # schema parity with dashboard-toggles emitter
+    for k in ("trace_id", "span_id", "start_ts", "duration_ms", "actor",
+              "profile", "attributes", "schema_version"):
+        assert k in rec
+
+
+def test_audit_span_skipped_on_dry_run(tmp_path, monkeypatch):
+    span_log = tmp_path / "spans.jsonl"
+    monkeypatch.setenv("SOVEREIGN_OS_SPAN_STORE", str(span_log))
+    AE._emit_audit("cpu-mode", ["x"], exit_code=0, actor="operator", dry_run=True)
+    assert not span_log.exists()

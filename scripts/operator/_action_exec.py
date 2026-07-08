@@ -36,6 +36,7 @@ import re
 import subprocess
 import threading
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -197,22 +198,39 @@ def _emit_metric(control_id: str, outcome: str) -> None:
 
 def _emit_audit(control_id: str, argv: list[str], exit_code: int | None,
                 actor: str, dry_run: bool) -> None:
-    """Best-effort OCSF-5001 (Configuration Change) style audit span to the
-    span log. Never raises. Mirrors scripts/manifest/dashboard-toggles.py."""
+    """Best-effort OCSF-5001 (Configuration Change) audit span into the SAME
+    M049 span log the D-05 traces + D-16 audit dashboards read
+    (SOVEREIGN_OS_SPAN_STORE), in the canonical span schema used by
+    scripts/manifest/dashboard-toggles.py — so cockpit-executed actions appear
+    in the existing audit pipeline, not a sidecar log. Never raises."""
     if dry_run:
         return
+    span_log = Path(os.environ.get(
+        "SOVEREIGN_OS_SPAN_STORE", "/var/log/sovereign-os/spans.jsonl"))
+    now = datetime.now(tz=timezone.utc)
+    ms = int(time.time() * 1000)
+    span = {
+        "trace_id": f"cockpit-action-{ms:x}",
+        "span_id": f"ca-{control_id}-{ms:x}",
+        "parent_span_id": None,
+        "operation": "cockpit_action",
+        "start_ts": now.isoformat(),
+        "duration_ms": 0,
+        "severity": "info" if exit_code == 0 else "error",
+        "actor": actor,
+        "profile": os.environ.get("SOVEREIGN_OS_ACTIVE_PROFILE", "private"),
+        "ocsf_class": "5001",
+        "ocsf_payload": {"class_uid": 5001, "activity": "Update",
+                         "control_id": control_id, "argv": argv,
+                         "exit_code": exit_code,
+                         "status": "r10274-signed-execute"},
+        "attributes": {"control_id": control_id, "exit_code": exit_code},
+        "schema_version": "1.0.0",
+    }
     try:
-        span_dir = Path(os.environ.get(
-            "SOVEREIGN_OS_SPAN_DIR", "/run/sovereign-os/spans"))
-        span_dir.mkdir(parents=True, exist_ok=True)
-        rec = {
-            "class_uid": 5001, "class_name": "Configuration Change",
-            "activity": "Update", "control_id": control_id,
-            "argv": argv, "exit_code": exit_code, "actor": actor,
-            "source": "cockpit-action-exec", "status": "r10274-signed-execute",
-        }
-        with (span_dir / "cockpit-actions.jsonl").open("a") as f:
-            f.write(json.dumps(rec) + "\n")
+        span_log.parent.mkdir(parents=True, exist_ok=True)
+        with span_log.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(span) + "\n")
     except OSError:
         pass
 
