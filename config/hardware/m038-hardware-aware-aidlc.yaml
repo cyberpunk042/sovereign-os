@@ -1,0 +1,52 @@
+# config/hardware/m038-hardware-aware-aidlc.yaml
+# ============================================================================
+# M038 "Hardware-aware AIDLC" — the SAIN-01 hardware CONTRACT. Materializes the
+# milestone spec (backlog/milestones/M038-..., dump 10991-11055): the hardware
+# inventory (E0359), the Hardware Law + CUDA IOMMU note (E0360), and the compiler
+# target + AVX-512 instruction map (E0361). No invention — every entry traces to
+# a module + dump line range.
+#
+# Ties: the inventory is the crates/sovereign-hardware-registry hardware; the
+# Hardware Law ("GPUs are separate experts") IS M075 SRP topology; the AVX-512
+# instruction map is M008 bit-level-cheats + M074 AVX-512-VNNI + cockpit D-24.
+# NOTE: this materializes the M038 spec inventory (RTX 4090); the shipped registry
+# crate pins GPU0=RTX 3090 — reconciliation is a registry+M075 decision (flagged).
+# STATUS: spec-materialization (SDD+TDD — hardware contract).
+# Locked to spec by tests/lint/test_m038_hardware_aware_aidlc.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M038
+source_dump_lines: "10991-11055"
+
+# ── E0359 — hardware inventory (M00629-M00632, dump 10991-11012) — VERBATIM ──
+hardware_inventory:
+  - {module: M00629, component: "Ryzen 9 9900X", spec: "12C/24T Zen 5; AVX-512 control fabric"}
+  - {module: M00630, component: "RTX PRO 6000 Blackwell", spec: "96GB GDDR7; PCIe Gen5; FP4-capable 5th-gen Tensor Cores; 1.8TB/s bandwidth"}
+  - {module: M00631, component: "RTX 4090", spec: "24GB GDDR6X; PCIe Gen4"}
+  - {module: M00632, component: "ProArt X870E-Creator", spec: "first two PCIe 5.0 x16 as x16 or x8/x8, lane-sharing caveats around M.2"}
+
+# ── E0360 — Hardware Law (M00633, dump 11016-11018) — VERBATIM ──
+hardware_law:
+  module: M00633
+  law: "Do not pretend the two GPUs are one memory pool. Use them as separate experts."
+
+# ── E0360 — CUDA Linux IOMMU note (M00634, dump 11021) — VERBATIM ──
+iommu_note:
+  module: M00634
+  note: "CUDA Linux does NOT support IOMMU-enabled bare-metal PCIe peer-to-peer memory copy; IOMMU IS supported for VM passthrough with VFIO"
+
+# ── E0361 — compiler target (M00635, dump 11031) — VERBATIM ──
+compiler_target:
+  module: M00635
+  march: "znver5"
+
+# ── E0361 — the 7 AVX-512 instruction families (M00636-M00642, dump 11036-11055) ──
+avx512_instructions:
+  - {module: M00636, instr: k-masks, use: "branch validity, permission routing, grammar states"}
+  - {module: M00637, instr: VPTERNLOG, use: "fused policy logic"}
+  - {module: M00638, instr: "VPCOMPRESS/VPEXPAND", use: "pack alive branches into dense queues"}
+  - {module: M00639, instr: VPOPCNTDQ, use: "memory sketch scoring, bitset overlap"}
+  - {module: M00640, instr: VP2INTERSECT, use: "candidate/memory/tool-set intersection"}
+  - {module: M00641, instr: "VBMI/VBMI2", use: "byte/token-class manipulation"}
+  - {module: M00642, instr: "VNNI/BF16", use: "small CPU-side scoring or classifier kernels"}
