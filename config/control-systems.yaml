@@ -249,3 +249,23 @@ systems:
     privileged: true
     applies_to: [d-09-hardware-pressure]
     refs: [scripts/hooks/recurrent/zfs-scrub.sh]
+
+  # ── 13. Model eval — run a benchmark against a model (R232) ──────────
+  - id: eval-run
+    kind: lifecycle
+    scope: scoped
+    label: "Model Eval"
+    description: >-
+      Run a benchmark evaluation (R232) against a model — pick a model slug and a
+      benchmark (mmlu / humaneval / gsm8k) and dispatch the lm-eval harness via
+      `sovereign-osctl models eval run`. DRY-RUN by default (emits the exact
+      harness command it would run); a real run consumes GPU and appends JSONL
+      eval history.
+    options: [mmlu, humaneval, gsm8k]
+    options_cli: "sovereign-osctl models eval list-benchmarks"
+    state_cli: "sovereign-osctl models eval history --limit 5"
+    change_cli: "sovereign-osctl models eval run <slug> --benchmark <benchmark>"
+    state_path: "eval history JSONL (R232 · scripts/observability/eval-tracker.py)"
+    privileged: true
+    applies_to: [d-10-eval-history]
+    refs: [scripts/models/eval.py]
