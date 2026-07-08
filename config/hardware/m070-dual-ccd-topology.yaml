@@ -1,0 +1,58 @@
+# config/hardware/m070-dual-ccd-topology.yaml
+# ============================================================================
+# M070 "Dual-CCD cache topology + core pinning (CCD 0 = Pulse / CCD 1 = Weaver+
+# Auditor+Host)" — the microarchitecture CONTRACT. Materializes the milestone spec
+# (backlog/milestones/M070-...; source raw/dumps/2026-05-15-sain-01-master-spec-...md
+# Section 19 lines 1013-1037): the physical bottleneck (E0668), the two CCDs
+# (E0669/E0670), the core-isolation SRP strategy (E0671), the 3 CCD allocations
+# (E0672-E0674), and CCD-aware scheduling/memory/IO (E0675-E0677). No invention —
+# every entry traces to a module + dump line range.
+#
+# Doctrinal anchors (dump 1014/1020): "the Ryzen 9 9900X... utilizes a dual-CCD
+# (Core Complex Die) design" / "To achieve 'Magician' grade efficiency, we
+# physically partition the processor's architecture along the CCD boundaries,
+# matching the Single Responsibility Principle (SRP) of your software trinity".
+# Note: M069 slot (Guardian Daemon) moved to selfdef MS044 per "Respect the
+# projects". Ties: the CCD allocation maps M066's Trinity (Pulse/Weaver/Auditor)
+# onto physical dies; enforced via M045's cgroup v2 cpuset + M058's scheduler;
+# the Pulse CCD 0 runs M073's ternary bitnet.cpp + M067's AVX-512 vector path.
+# STATUS: spec-materialization (SDD+TDD — the dual-CCD core-pinning IaC).
+# Locked to spec by tests/lint/test_m070_dual_ccd_topology.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M070
+source_dump_lines: "1013-1037"
+
+# ── E0668 — physical bottleneck (dump 1016-1018) — VERBATIM ──
+bottleneck:
+  cause: "cross-CCD pipe traverses AMD Infinity Fabric"
+  effects: ["immediate L3 cache miss", "massive cross-die latency penalty"]
+  example: "Conductor on Core 2 -> compilation runtime on Core 8"
+
+# ── E0669/E0670 — the two CCDs (M01156, dump 1015-1016) — VERBATIM ──
+ccds:
+  - {ccd: 0, cores: "0-5", threads: "0-11", l3_cache: "local 32MB"}
+  - {ccd: 1, cores: "6-11", threads: "12-23", l3_cache: "isolated 32MB"}
+
+# ── E0671 — core-isolation SRP strategy (M01169, dump 1020-1021) — VERBATIM ──
+strategy:
+  module: M01169
+  approach: "physically partition the processor along CCD boundaries, matching the SRP of the software trinity (M066 Pulse/Weaver/Auditor)"
+  goal: "'Magician' grade efficiency"
+
+# ── E0672-E0674 — the 3 CCD allocations (M01157/M01158/M01159, dump 1024-1026) — VERBATIM ──
+allocations:
+  - {tenant: "The Pulse", module: M01157, ccd: 0, cores: "0-5", threads: "0-11",
+     thread_mask: "0xfff",
+     duties: "high-speed AVX-512 vector processing; 1-bit bitnet.cpp matrix lookups; local runtime compilation (Wasm AOT)"}
+  - {tenant: "The Weaver + Auditor", module: M01158, ccd: 1, cores: "6-9", threads: "12-19",
+     thread_mask: "0xff000"}
+  - {tenant: "System Host / OS Base", module: M01159, ccd: 1, cores: "10-11", threads: "20-23",
+     thread_mask: "0xf00000"}
+
+# ── E0675-E0677 — CCD-aware scheduling/memory/IO (M01160-M01165) — VERBATIM ──
+ccd_aware:
+  scheduling: {module: M01160, mechanism: "taskset / cgroup v2 cpuset enforcement"}
+  memory_placement: {module: M01162, mechanism: "NUMA-style affinity (CCD-local L3 first)"}
+  io_routing: {module: M01165, mechanism: "drivers + interrupts pinned to System Host CCD 1 cores"}
