@@ -679,27 +679,55 @@ async function refresh() {
       <td><button data-adapter="${escapeHtml(c.adapter_id)}" data-action="promote">promote (signed)</button></td>
     </tr>`).join('') || '<tr><td colspan="6" class="muted">no adapters pending promotion</td></tr>';
   ctbody.querySelectorAll('button[data-action="promote"]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      // NEUTRALIZED (operator directive: no phantom/broken actions) — `sovereign adapter` is not a real sovereign-osctl verb (planned).
-      alert('This action is planned — not yet available in sovereign-osctl.\n\nNothing was copied. Tracked for a future release; real controls execute from the Controls rail below.');
+    btn.addEventListener('click', () => {
+      // SDD-054 — adapter promotion EXECUTES via the R10274 control rail
+      // (adapter-decide, SDD-051; now also rendered on D-10). The MS041 triple-gate
+      // is enforced engine-side. Web itself never mutates (R10212).
+      jumpToControl('adapter-decide');
     });
   });
 }
 
+// SDD-054 — scroll to a functional control in the rail + highlight it. Controls
+// EXECUTE via the R10274 control-exec-api rail (operator-key + type-to-confirm
+// gated); web itself never mutates (R10212).
+function jumpToControl(cid) {
+  const s = document.getElementById('control-surface');
+  const c = s && s.querySelector('[data-cid="' + cid + '"]');
+  (c || s || document.body).scrollIntoView({ behavior: 'smooth', block: 'center' });
+  if (c) {
+    c.style.outline = '2px solid var(--accent,#9bd1ff)';
+    setTimeout(() => { c.style.outline = ''; }, 1600);
+  }
+}
+
 $('refresh-btn').addEventListener('click', refresh);
 $('apply-btn').addEventListener('click', refresh);
-$('run-suite-btn').addEventListener('click', () => {
-  // FUNCTIONAL — "Model Eval" is now a real control (config/control-systems.yaml,
-  // sovereign-osctl models eval run). Jump to it in the Controls rail, where the
-  // operator picks a slug + benchmark and Executes (dry-run default, key+confirm).
-  const surf = document.getElementById('control-surface');
-  const card = surf && surf.querySelector('[data-cid="eval-run"]');
-  (card || surf).scrollIntoView({ behavior: 'smooth', block: 'center' });
-  if (card) { card.style.outline = '2px solid var(--accent, #9bd1ff)'; setTimeout(() => { card.style.outline = ''; }, 1600); }
-});
+// FUNCTIONAL — "Model Eval" is a real control (eval-run, SDD-047 PR #25). Jump to
+// it in the Controls rail, where the operator picks a slug + benchmark and
+// Executes (dry-run default, operator-key + type-to-confirm).
+$('run-suite-btn').addEventListener('click', () => jumpToControl('eval-run'));
+// SDD-054 — export is a real client-side CSV built from the live eval summary
+// (a read; no host mutation).
 $('export-btn').addEventListener('click', async () => {
-  // NEUTRALIZED (operator directive: no phantom/broken actions) — `sovereign eval` is not a real sovereign-osctl verb (planned).
-      alert('This action is planned — not yet available in sovereign-osctl.\n\nNothing was copied. Tracked for a future release; real controls execute from the Controls rail below.');
+  const s = await fetchEvals();
+  const rows = (s.tasks || []);
+  const cols = ['task', 'task_class', 'run_count', 'pass_pct', 'last_run_ts'];
+  const cell = (v) => {
+    const str = v == null ? '' : String(v);
+    return /[",\n]/.test(str) ? '"' + str.replace(/"/g, '""') + '"' : str;
+  };
+  const get = (r, c) => c === 'task_class' ? (r.task_class ?? r.class) : r[c];
+  const csv = [cols.join(',')]
+    .concat(rows.map(r => cols.map(c => cell(get(r, c))).join(',')))
+    .join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'eval-history-' + new Date().toISOString().slice(0, 10) + '.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
 });
 
 try {

@@ -517,7 +517,7 @@ systems:
     change_cli: "sovereign-osctl adapters {promote|demote|rollback} <id> --confirm"
     state_path: "adapter promotion registry /var/lib/sovereign-os/adapters/registry.json"
     privileged: true
-    applies_to: [d-11-adapter-status]
+    applies_to: [d-11-adapter-status, d-10-eval-history]
     refs: [scripts/inference/adapter-decide.py]
 
   # ── 26. Memory-change decision — approve/reject a pending change (D-07, SDD-052) ──
