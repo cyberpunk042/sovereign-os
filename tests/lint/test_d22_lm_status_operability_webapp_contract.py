@@ -110,12 +110,15 @@ def test_webapp_fetches_only_same_origin_endpoints():
 
 
 def test_webapp_advertises_read_only_endpoints():
-    """The webapp must wire against the read-only lm-status endpoints;
-    mutation verbs stay CLI-only (R10212). No POST fetch target may leak."""
+    """D-22's OWN operability surface stays read-only — its lm-status endpoints
+    are GET, and its Actions clipboard-copy MS003-signed CLI verbs (R10212).
+    The only mutating request in the page is the inlined shared control-surface
+    component's sanctioned exec POST to the dedicated control-exec-api
+    (/api/control/execute) — R10274 — which is allowlisted + confirm/key-gated +
+    DRY_RUN-default; it is NOT a D-22-specific mutation endpoint."""
     body = WEBAPP_HTML.read_text(encoding="utf-8")
     assert "/api/lm-status/devices" in body
-    # No mutating fetch — every fetch() is a GET of a same-origin read endpoint,
-    # and no /set-style verb is a fetch target.
+    # D-22's own surface never posts to a lm-status mutation verb.
     assert re.search(r'fetch\(\s*["\']/(set|apply|mutate)', body) is None, (
         "webapp leaks a mutation verb as fetch() target (R10212 violation)"
     )
@@ -123,9 +126,16 @@ def test_webapp_advertises_read_only_endpoints():
     assert "navigator.clipboard.writeText" in body, (
         "operability Actions must clipboard-copy MS003-signed CLI verbs"
     )
-    assert "method:" not in body or "'POST'" not in body, (
-        "webapp must not issue a POST"
-    )
+    # The ONLY mutating request permitted is the shared component's sanctioned
+    # exec endpoint; no D-22-specific POST/PUT/DELETE fetch may leak.
+    for m in re.finditer(r'fetch\(\s*["\']([^"\']+)["\']', body):
+        assert m.group(1).startswith("/"), "non-same-origin fetch"
+    stray = re.search(r'method:\s*["\'](POST|PUT|DELETE|PATCH)["\']', body)
+    if stray:
+        assert "/api/control/execute" in body, (
+            "the only permitted mutating request is the sanctioned "
+            "control-exec-api exec POST (/api/control/execute)"
+        )
 
 
 def test_api_daemon_serves_webapp_path():

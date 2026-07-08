@@ -229,3 +229,23 @@ systems:
     privileged: true
     applies_to: [runtime-modes, d-09-hardware-pressure]
     refs: [scripts/intelligence/workload-knobs.py]
+
+  # ── 12. Maintenance — on-demand host maintenance actions ─────────────
+  - id: maintenance
+    kind: lifecycle
+    scope: scoped
+    label: "Maintenance"
+    description: >-
+      On-demand host maintenance actions dispatched by `sovereign-osctl
+      maintenance` — trigger a ZFS scrub of the tank pool now, rotate logs,
+      take a snapshot, run the security-update check, sync the model catalog,
+      cross-check the selfdef perimeter mirror, or evaluate alert rules. Each
+      is the real recurrent-hook run, on demand instead of on its timer.
+    options: [scrub, arc-status, log-rotate, snapshot, security-check, models-sync, perimeter-check, alerts-check]
+    options_cli: "sovereign-osctl maintenance list"
+    state_cli: "sovereign-osctl maintenance list"
+    change_cli: "sovereign-osctl maintenance {scrub|arc-status|log-rotate|snapshot|security-check|models-sync|perimeter-check|alerts-check}"
+    state_path: "systemd (recurrent hooks) + tank pool"
+    privileged: true
+    applies_to: [d-09-hardware-pressure]
+    refs: [scripts/hooks/recurrent/zfs-scrub.sh]

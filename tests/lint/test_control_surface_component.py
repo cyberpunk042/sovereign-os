@@ -46,11 +46,36 @@ def test_component_is_same_origin_only():
         assert host not in body, f"control-surface.js references external {host!r}"
 
 
-def test_component_is_read_only():
+def test_component_executes_via_sanctioned_endpoint_and_keeps_copy_fallback():
+    """R10274: the control-surface now EXECUTES a control (the sanctioned
+    same-origin control-exec-api POST) while keeping the copyable command as a
+    labelled fallback. R10212 is preserved by test_component_preserves_boundary
+    below (proxy-only controls get no execute) — the web still never
+    *arbitrarily* mutates; it posts only to the one allowlisted exec daemon."""
     body = JS_SRC.read_text(encoding="utf-8")
-    assert "clipboard" in body, "component must copy the change_cli to clipboard"
-    assert not re.search(r'method:\s*["\'](POST|PUT|DELETE|PATCH)', body), (
-        "control-surface.js must not issue mutating HTTP requests"
+    # copy fallback stays
+    assert "clipboard" in body, "component must keep the change_cli copy fallback"
+    # the ONLY mutating request is the sanctioned same-origin exec endpoint
+    assert "/api/control/execute" in body, (
+        "control-surface.js must POST to the sanctioned same-origin control-exec-api"
+    )
+    posts = re.findall(r'method:\s*["\'](POST|PUT|DELETE|PATCH)["\']', body)
+    assert posts == ["POST"], (
+        f"control-surface.js must issue exactly one POST (to the exec daemon), got {posts}"
+    )
+
+
+def test_component_preserves_boundary():
+    """R10212: selfdef/perimeter are signed-proxy ONLY — the component must
+    render no execute affordance for them. The client boundary set must mirror
+    the server's _action_exec.SELFDEF_OWNED (strict equality drift-guarded in
+    tests/lint/test_control_surface_execute_boundary.py)."""
+    body = JS_SRC.read_text(encoding="utf-8")
+    assert "PROXY_ONLY" in body and '"selfdef"' in body and '"perimeter"' in body, (
+        "component must carry the selfdef/perimeter proxy-only boundary"
+    )
+    assert "execute_local" in body and "isProxyOnly" in body, (
+        "component must gate the execute affordance on the proxy-only boundary"
     )
 
 
