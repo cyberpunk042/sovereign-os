@@ -508,12 +508,12 @@ a11y; contract test catches drift.
 
 <h2>actions <span class="muted" style="font-size:.75rem;font-weight:400">— web emits CLI only; daemon executes after MS003 signature (MS043 R10212)</span></h2>
 <div class="row">
-  <button onclick="emit('sovereignctl memory diff --base ' + diffBase + ' --head ' + diffHead)">copy: diff snapshot</button>
-  <button onclick="emit('sovereignctl memory promote --memory-id <id>')">copy: promote</button>
-  <button onclick="emit('sovereignctl memory pin --memory-id <id> --ttl 24h')">copy: pin (24h)</button>
-  <button class="danger" onclick="emit('sovereignctl memory forget --memory-id <id> --confirm')">copy: forget (destructive, R10184)</button>
-  <button onclick="emit('sovereignctl memory snapshot --tag pre-edit')">copy: snapshot before edit</button>
-  <button onclick="emit('sovereignctl memory undo --change-id <id>')">copy: undo (R10185)</button>
+  <button onclick="emit('sovereignctl memory diff --base ' + diffBase + ' --head ' + diffHead)">planned: diff snapshot</button>
+  <button onclick="emit('sovereignctl memory promote --memory-id <id>')">planned: promote</button>
+  <button onclick="emit('sovereignctl memory pin --memory-id <id> --ttl 24h')">planned: pin (24h)</button>
+  <button class="danger" onclick="emit('sovereignctl memory forget --memory-id <id> --confirm')">planned: forget (destructive, R10184)</button>
+  <button onclick="emit('sovereignctl memory snapshot --tag pre-edit')">planned: snapshot before edit</button>
+  <button onclick="emit('sovereignctl memory undo --change-id <id>')">planned: undo (R10185)</button>
 </div>
 
 <div class="footer">
@@ -631,7 +631,11 @@ a11y; contract test catches drift.
 
   // copy-to-clipboard helper (web NEVER mutates; emits CLI string only)
   function emit(cmd) {
-    navigator.clipboard.writeText(cmd).then(() => showToast('copied: ' + cmd.slice(0, 48) + (cmd.length > 48 ? '…' : '')));
+    // NEUTRALIZED (operator directive: no phantom/broken actions) — every button
+    // here referenced `sovereignctl memory …`, which is not a real binary/verb
+    // (sovereign-osctl has no memory CLI). Copy nothing; state it is planned.
+    void cmd;
+    showToast('planned — memory ops have no sovereign-osctl CLI yet (nothing copied)');
   }
   function showToast(msg) {
     const t = document.getElementById('toast');

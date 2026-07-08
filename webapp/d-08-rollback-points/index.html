@@ -492,19 +492,19 @@ a11y; contract test catches drift.
   <div style="font-size:.78rem;margin-bottom:.5rem">target: <code id="preview-target">—</code> · <span class="muted">preview computes ZFS receive plan + reverts MS041 commits between HEAD and snapshot. NO side effects.</span></div>
   <div class="preview-box" id="preview-box"></div>
   <div style="margin-top:.5rem">
-    <button class="warn" onclick="copyApply()">copy: rollback-apply (R10100, MS003-signature gated)</button>
+    <button class="warn" onclick="copyApply()">planned: rollback-apply (R10100, MS003-signature gated)</button>
     <span class="muted" style="margin-left:.5rem;font-size:.74rem">↑ destructive · operator-signed CLI required</span>
   </div>
 </div>
 
 <h2>actions <span class="muted" style="font-size:.75rem;font-weight:400">— web emits CLI only; daemon executes after MS003 signature (MS043 R10212)</span></h2>
 <div class="row">
-  <button onclick="emit('sovereignctl snapshot list --all')">copy: list all snapshots</button>
-  <button onclick="emit('sovereignctl snapshot create --dataset rpool/sovereign-os --tag manual-' + new Date().toISOString().slice(0,10))">copy: create manual snapshot</button>
-  <button onclick="emit('sovereignctl rollback preview --to <snapshot>')">copy: rollback preview</button>
-  <button class="danger" onclick="emit('sovereignctl rollback apply --to <snapshot> --confirm')">copy: rollback apply (destructive)</button>
-  <button onclick="emit('sovereignctl snapshot prune --retain-days 14')">copy: prune (retain 14d)</button>
-  <button onclick="emit('sovereignctl commit log --signed-only --since 24h')">copy: signed commit log</button>
+  <button onclick="emit('sovereignctl snapshot list --all')">planned: list all snapshots</button>
+  <button onclick="emit('sovereignctl snapshot create --dataset rpool/sovereign-os --tag manual-' + new Date().toISOString().slice(0,10))">planned: create manual snapshot</button>
+  <button onclick="emit('sovereignctl rollback preview --to <snapshot>')">planned: rollback preview</button>
+  <button class="danger" onclick="emit('sovereignctl rollback apply --to <snapshot> --confirm')">planned: rollback apply (destructive)</button>
+  <button onclick="emit('sovereignctl snapshot prune --retain-days 14')">planned: prune (retain 14d)</button>
+  <button onclick="emit('sovereignctl commit log --signed-only --since 24h')">planned: signed commit log</button>
 </div>
 
 <div class="footer">
@@ -650,7 +650,12 @@ a11y; contract test catches drift.
 
   // copy-to-clipboard helper (web NEVER mutates; emits CLI string only)
   function emit(cmd) {
-    navigator.clipboard.writeText(cmd).then(() => showToast('copied: ' + cmd.slice(0, 60) + (cmd.length > 60 ? '…' : '')));
+    // NEUTRALIZED (operator directive: no phantom/broken actions) — every button
+    // here referenced `sovereignctl snapshot/rollback/commit …`; `sovereignctl`
+    // is not a real binary and these subverbs/commit are absent from
+    // sovereign-osctl. Copy nothing; state the feature is planned.
+    void cmd;
+    showToast('planned — snapshot/rollback ops have no sovereign-osctl CLI yet (nothing copied)');
   }
   function showToast(msg) {
     const t = document.getElementById('toast');

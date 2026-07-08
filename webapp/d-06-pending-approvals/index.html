@@ -630,14 +630,10 @@ async function handleAction(action, id) {
     return;
   }
   const verb = action === 'approve' ? 'approve' : action === 'deny' ? 'deny' : 'defer';
-  const cmd = `sovereign ${verb} ${id}`;
-  // Copy command to clipboard + show instruction (no automatic mutation from web surface)
-  try {
-    await navigator.clipboard.writeText(cmd);
-    alert(`Command copied to clipboard:\n\n  ${cmd}\n\nRun in terminal with operator MS003 key loaded.\n\nWeb surface never executes mutations directly — MS043 R10212 requires operator key upload OR CLI invocation.`);
-  } catch (e) {
-    prompt(`Copy + run this command with operator MS003 key:`, cmd);
-  }
+  // NEUTRALIZED (operator directive: no phantom/broken actions) — `sovereign
+  // approve/deny/defer` is not a real sovereign-osctl verb (approval signing has
+  // no CLI yet). Copy nothing; state the feature is planned. (id: ${id})
+  alert(`Approval "${verb}" is planned — sovereign-osctl has no approve/deny/defer verb yet.\n\nNothing was copied. Tracked for a future release.`);
 }
 
 $('refresh-btn').addEventListener('click', refresh);
