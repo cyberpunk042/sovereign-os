@@ -25,6 +25,7 @@ EXPECTED_IDS = {
     "costs-export", "cost-policy", "trace-replay", "rollback-apply",
     "approvals-decide", "model-load", "model-unload", "model-warm",
     "snapshot-create", "snapshot-prune", "rollback-recent",
+    "adapter-decide",
 }
 VALID_KINDS = {"profile", "mode", "toggle", "lifecycle"}
 VALID_SCOPES = {"global", "scoped"}

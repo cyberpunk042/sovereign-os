@@ -53,7 +53,10 @@ Cmnd_Alias SOVEREIGN_OS_COCKPIT = \
     /usr/local/bin/sovereign-osctl models warm *, \
     /usr/local/bin/sovereign-osctl rollback create --dataset *, \
     /usr/local/bin/sovereign-osctl rollback prune --retain-days *, \
-    /usr/local/bin/sovereign-osctl rollback apply --to *
+    /usr/local/bin/sovereign-osctl rollback apply --to *, \
+    /usr/local/bin/sovereign-osctl adapters promote *, \
+    /usr/local/bin/sovereign-osctl adapters demote *, \
+    /usr/local/bin/sovereign-osctl adapters rollback *
 
 # Granted to the OPERATOR USER (the account the panel APIs + agent run as), per
 # operator-sudoers.sh's model — NOT a dedicated service account. `%operator` is

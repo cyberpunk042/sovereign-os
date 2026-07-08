@@ -495,3 +495,27 @@ systems:
     privileged: true
     applies_to: [d-08-rollback-points]
     refs: [scripts/lifecycle/rollback-points.py]
+
+  # ── 25. Adapter decision — promote/demote/rollback a LoRA adapter (D-11, SDD-051) ──
+  - id: adapter-decide
+    kind: lifecycle
+    scope: scoped
+    label: "Adapter Decision"
+    description: >-
+      Decide a LoRA adapter's promotion state (SDD-051) — promote (pending →
+      active, REQUIRES the MS041 triple-gate: snapshot + test/eval +
+      oracle-or-human all passed), demote (active → pending), or rollback (→
+      rolled-back). Pick the verb and an adapter id. Promote refuses unless the
+      high-risk gate is met (no panel override — a forced promotion is a manual
+      registry edit). DRY-RUN by default; the real decision is operator-key +
+      type-to-confirm gated. Recorded to a durable ledger + an OCSF-5001 audit
+      span (D-05/D-16). MS003 signing is delegated to selfdef
+      (signature unsigned-pending-MS003).
+    options: [promote, demote, rollback]
+    options_cli: "sovereign-osctl adapters inventory"
+    state_cli: "sovereign-osctl adapters inventory"
+    change_cli: "sovereign-osctl adapters {promote|demote|rollback} <id> --confirm"
+    state_path: "adapter promotion registry /var/lib/sovereign-os/adapters/registry.json"
+    privileged: true
+    applies_to: [d-11-adapter-status]
+    refs: [scripts/inference/adapter-decide.py]
