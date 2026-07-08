@@ -703,9 +703,8 @@ $('clear-btn').addEventListener('click', () => {
 });
 $('refresh-btn').addEventListener('click', refresh);
 $('replay-verify-btn').addEventListener('click', async () => {
-  const cmd = 'sovereign trace replay-verify --window 24h';
-  try { await navigator.clipboard.writeText(cmd); alert(`Command copied:\n\n  ${cmd}\n\nRuns MS009 replay validator against MS003 signature chain. Requires operator key for full chain depth.`); }
-  catch (e) { prompt('Copy + run:', cmd); }
+  // NEUTRALIZED (operator directive: no phantom/broken actions) — `sovereign trace` is not a real sovereign-osctl verb (planned).
+      alert('This action is planned — not yet available in sovereign-osctl.\n\nNothing was copied. Tracked for a future release; real controls execute from the Controls rail below.');
 });
 $('search-input').addEventListener('keydown', e => { if (e.key === 'Enter') refresh(); });
 

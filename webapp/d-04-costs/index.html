@@ -636,14 +636,12 @@ async function refresh() {
 
 $('refresh-btn').addEventListener('click', refresh);
 $('halt-btn').addEventListener('click', async () => {
-  const cmd = 'sovereign cost-policy halt-cloud --rationale "<operator-rationale>"';
-  try { await navigator.clipboard.writeText(cmd); alert(`Cloud-halt cmd copied (operator-signed):\n\n  ${cmd}\n\nSets cloud_enabled=false across all profiles immediately. Reversible via cost-policy unhalt-cloud.`); }
-  catch (e) { prompt('Copy + run:', cmd); }
+  // NEUTRALIZED (operator directive: no phantom/broken actions) — `sovereign cost-policy` is not a real sovereign-osctl verb (planned).
+      alert('This action is planned — not yet available in sovereign-osctl.\n\nNothing was copied. Tracked for a future release; real controls execute from the Controls rail below.');
 });
 $('export-btn').addEventListener('click', async () => {
-  const cmd = 'sovereign costs export --window 30d --format csv > costs-30d.csv';
-  try { await navigator.clipboard.writeText(cmd); alert(`Export cmd copied:\n\n  ${cmd}`); }
-  catch (e) { prompt('Copy + run:', cmd); }
+  // NEUTRALIZED (operator directive: no phantom/broken actions) — `sovereign costs` is not a real sovereign-osctl verb (planned).
+      alert('This action is planned — not yet available in sovereign-osctl.\n\nNothing was copied. Tracked for a future release; real controls execute from the Controls rail below.');
 });
 
 document.addEventListener('keydown', e => { if ((e.metaKey||e.ctrlKey) && e.key === '5') { e.preventDefault(); refresh(); } });

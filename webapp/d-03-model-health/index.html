@@ -679,19 +679,16 @@ async function refresh() {
 
 $('refresh-btn').addEventListener('click', refresh);
 $('load-model-btn').addEventListener('click', async () => {
-  const cmd = 'sovereign model load <model-id> --role <conductor|logic|oracle> --precision <ternary|fp8|nvfp4|fp16|bf16>';
-  try { await navigator.clipboard.writeText(cmd); alert(`Load model cmd template copied:\n\n  ${cmd}\n\nOperator MS003-signed. Role assignment per M075 SRP topology.`); }
-  catch (e) { prompt('Copy + run:', cmd); }
+  // NEUTRALIZED (operator directive: no phantom/broken actions) — `sovereign model` is not a real sovereign-osctl verb (planned).
+      alert('This action is planned — not yet available in sovereign-osctl.\n\nNothing was copied. Tracked for a future release; real controls execute from the Controls rail below.');
 });
 $('unload-idle-btn').addEventListener('click', async () => {
-  const cmd = 'sovereign model unload --idle-for 30m --dry-run';
-  try { await navigator.clipboard.writeText(cmd); alert(`Idle unload cmd copied (dry-run first):\n\n  ${cmd}\n\nRemove --dry-run to apply.`); }
-  catch (e) { prompt('Copy + run:', cmd); }
+  // NEUTRALIZED (operator directive: no phantom/broken actions) — `sovereign model` is not a real sovereign-osctl verb (planned).
+      alert('This action is planned — not yet available in sovereign-osctl.\n\nNothing was copied. Tracked for a future release; real controls execute from the Controls rail below.');
 });
 $('warm-kv-btn').addEventListener('click', async () => {
-  const cmd = 'sovereign kv-cache warm --profile deep-context-synthesis --dtype fp8';
-  try { await navigator.clipboard.writeText(cmd); alert(`KV warm cmd copied:\n\n  ${cmd}\n\nM076 Profile 3 Deep Context Synthesis. M077 supports --dtype nvfp4 for 2× VRAM savings.`); }
-  catch (e) { prompt('Copy + run:', cmd); }
+  // NEUTRALIZED (operator directive: no phantom/broken actions) — `sovereign kv-cache` is not a real sovereign-osctl verb (planned).
+      alert('This action is planned — not yet available in sovereign-osctl.\n\nNothing was copied. Tracked for a future release; real controls execute from the Controls rail below.');
 });
 
 document.addEventListener('keydown', e => { if ((e.metaKey||e.ctrlKey) && e.key === '4') { e.preventDefault(); refresh(); } });

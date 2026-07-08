@@ -680,9 +680,8 @@ async function refresh() {
     </tr>`).join('') || '<tr><td colspan="6" class="muted">no adapters pending promotion</td></tr>';
   ctbody.querySelectorAll('button[data-action="promote"]').forEach(btn => {
     btn.addEventListener('click', async () => {
-      const cmd = `sovereign adapter promote ${btn.dataset.adapter} --rationale "<operator-rationale>"`;
-      try { await navigator.clipboard.writeText(cmd); alert(`Promotion cmd copied (operator-signed, MS041 triple-gate):\n\n  ${cmd}`); }
-      catch (e) { prompt('Copy + run:', cmd); }
+      // NEUTRALIZED (operator directive: no phantom/broken actions) — `sovereign adapter` is not a real sovereign-osctl verb (planned).
+      alert('This action is planned — not yet available in sovereign-osctl.\n\nNothing was copied. Tracked for a future release; real controls execute from the Controls rail below.');
     });
   });
 }
@@ -690,14 +689,12 @@ async function refresh() {
 $('refresh-btn').addEventListener('click', refresh);
 $('apply-btn').addEventListener('click', refresh);
 $('run-suite-btn').addEventListener('click', async () => {
-  const cmd = 'sovereign eval run --suite math+alfworld+arc --window 24h';
-  try { await navigator.clipboard.writeText(cmd); alert(`Cmd copied:\n\n  ${cmd}\n\nRequires operator MS003 signature. Composes with M048 Eval-Value + M078 HölderPO benchmark runners.`); }
-  catch (e) { prompt('Copy + run:', cmd); }
+  // NEUTRALIZED (operator directive: no phantom/broken actions) — `sovereign eval` is not a real sovereign-osctl verb (planned).
+      alert('This action is planned — not yet available in sovereign-osctl.\n\nNothing was copied. Tracked for a future release; real controls execute from the Controls rail below.');
 });
 $('export-btn').addEventListener('click', async () => {
-  const cmd = 'sovereign eval export --window 30d --format csv > evals-30d.csv';
-  try { await navigator.clipboard.writeText(cmd); alert(`Export cmd copied:\n\n  ${cmd}`); }
-  catch (e) { prompt('Copy + run:', cmd); }
+  // NEUTRALIZED (operator directive: no phantom/broken actions) — `sovereign eval` is not a real sovereign-osctl verb (planned).
+      alert('This action is planned — not yet available in sovereign-osctl.\n\nNothing was copied. Tracked for a future release; real controls execute from the Controls rail below.');
 });
 
 try {

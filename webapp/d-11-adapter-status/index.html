@@ -646,9 +646,8 @@ async function refresh() {
 
   tbody.querySelectorAll('button[data-action]').forEach(btn => {
     btn.addEventListener('click', async () => {
-      const cmd = `sovereign adapter ${btn.dataset.action} ${btn.dataset.id} --rationale "<operator-rationale>"`;
-      try { await navigator.clipboard.writeText(cmd); alert(`Cmd copied (MS003-signed):\n\n  ${cmd}\n\nRequires MS041 triple-gate for promote/demote.`); }
-      catch (e) { prompt('Copy + run:', cmd); }
+      // NEUTRALIZED (operator directive: no phantom/broken actions) — `sovereign adapter` is not a real sovereign-osctl verb (planned).
+      alert('This action is planned — not yet available in sovereign-osctl.\n\nNothing was copied. Tracked for a future release; real controls execute from the Controls rail below.');
     });
   });
 
@@ -700,14 +699,12 @@ async function refresh() {
 $('refresh-btn').addEventListener('click', refresh);
 $('apply-btn').addEventListener('click', refresh);
 $('train-btn').addEventListener('click', async () => {
-  const cmd = 'sovereign adapter train --base <model> --method <sft|rl-grpo|rl-holderpo> --rationale "<...>"';
-  try { await navigator.clipboard.writeText(cmd); alert(`Train cmd template copied:\n\n  ${cmd}\n\nM078 HölderPO method targets 54.9% math + 93.8% ALFWorld. M077 NVFP4 path reduces VRAM 4× vs BF16.`); }
-  catch (e) { prompt('Copy + run:', cmd); }
+  // NEUTRALIZED (operator directive: no phantom/broken actions) — `sovereign adapter` is not a real sovereign-osctl verb (planned).
+      alert('This action is planned — not yet available in sovereign-osctl.\n\nNothing was copied. Tracked for a future release; real controls execute from the Controls rail below.');
 });
 $('export-btn').addEventListener('click', async () => {
-  const cmd = 'sovereign adapter export --format csv > adapters-inventory.csv';
-  try { await navigator.clipboard.writeText(cmd); alert(`Export cmd copied:\n\n  ${cmd}`); }
-  catch (e) { prompt('Copy + run:', cmd); }
+  // NEUTRALIZED (operator directive: no phantom/broken actions) — `sovereign adapter` is not a real sovereign-osctl verb (planned).
+      alert('This action is planned — not yet available in sovereign-osctl.\n\nNothing was copied. Tracked for a future release; real controls execute from the Controls rail below.');
 });
 
 try {

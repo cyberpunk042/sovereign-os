@@ -614,10 +614,13 @@ async function refresh() {
 }
 
 $('refresh-btn').addEventListener('click', refresh);
-$('hibernate-all-btn').addEventListener('click', async () => {
-  const cmd = 'sovereign hibernate --all --rationale "<operator-rationale>"';
-  try { await navigator.clipboard.writeText(cmd); alert(`Command copied:\n\n  ${cmd}\n\nRequires MS003 operator signature.`); }
-  catch (e) { prompt('Copy + run:', cmd); }
+// NEUTRALIZED (operator directive: no phantom/broken actions) — `sovereign
+// hibernate` is not a real sovereign-osctl verb (session hibernation has no CLI
+// yet). The button no longer copies a non-existent command; it states the
+// feature is planned. Real controls execute from the Controls rail below.
+$('hibernate-all-btn').setAttribute('title', 'planned — not yet available in sovereign-osctl');
+$('hibernate-all-btn').addEventListener('click', () => {
+  alert('Hibernate-all is planned — sovereign-osctl has no hibernate verb yet.\n\nNothing was copied. Tracked for a future release.');
 });
 
 document.addEventListener('keydown', (e) => {
