@@ -1,0 +1,38 @@
+# config/hardware/m008-bit-level-cheats.yaml
+# ============================================================================
+# M008 "Bit-level cheats — AVX-512 features as AI infrastructure" — the
+# bit-cheats CONTRACT. Materializes the milestone spec (backlog/milestones/
+# M008-...; source raw/dumps/2026-05-18-...AVX-plus-plus.md lines 1601-2015): the
+# 13 bit-level "cheats" that turn AVX-512 instructions into AI control
+# infrastructure (E0059-E0071). No invention — every entry traces to a module +
+# dump line range.
+#
+# Ties: these 13 cheats are the instruction-level toolkit behind M002's control
+# word, M004/M006's cortex law, and M085's three-tier instruction program —
+# VPTERNLOG (cheat 2) is M085's T2 LUT; VPCOMPRESS (cheat 4) is M085's T3
+# compaction; popcount overlap (cheat 10) is M086's VPOPCNT path; the SIMD FSMs
+# (cheat 11) are M005's constraint automata. The three representations (cheat 13)
+# are M057's "text is payload inside typed state" law.
+# STATUS: spec-materialization (SDD+TDD — the 13 AVX-512 bit-level cheats).
+# Locked to spec by tests/lint/test_m008_bit_level_cheats.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M008
+source_dump_lines: "1601-2015"
+
+# ── E0059-E0071 — the 13 bit-level cheats (M00113-M00126) — VERBATIM ──
+cheats:
+  - {n: 1, epic: E0059, module: M00113, name: "Bitfields as microcode", detail: "control word = executable policy"}
+  - {n: 2, epic: E0060, module: M00114, name: "Ternary logic instruction", detail: "VPTERNLOG fuses policy logic (fused boolean)"}
+  - {n: 3, epic: E0061, module: M00115, name: "k-mask registers as decision vectors", detail: "k1-k7 routing planes"}
+  - {n: 4, epic: E0062, module: M00116, name: "Compress/expand as scheduler weapon", detail: "VPCOMPRESS packs alive branches into dense GPU batches (sparse to dense)"}
+  - {n: 5, epic: E0063, module: M00117, name: "Bitset token law", detail: "128k vocab = 16KB = 250 vector chunks (grammar / tool / safety / schema / route)"}
+  - {n: 6, epic: E0064, module: M00118, name: "Mini lookup tables inside 64 bits", detail: "decision = (rule_word >> condition) & 1"}
+  - {n: 7, epic: E0065, module: M00119, name: "Two-level rule tables", detail: "rule_id -> cached table[rule_id][event_class]"}
+  - {n: 8, epic: E0066, module: M00120, name: "Speculative execution with deterministic commit", detail: "accept = oracle & grammar & tool & budget & memory"}
+  - {n: 9, epic: E0067, module: M00121, name: "Branch prediction analogy", detail: "4090 predictor / Blackwell retirement / AVX reorder-commit"}
+  - {n: 10, epic: E0068, module: M00122, name: "Bloom filters / sketches", detail: "popcount(query & memory)"}
+  - {n: 11, epic: E0069, module: M00123, name: "SIMD finite-state machines", detail: "8-branches-at-once FSM"}
+  - {n: 12, epic: E0070, module: M00125, name: "Cheapest-first filter cascade", detail: "lifecycle / budget / route-tool / grammar / duplicate / cheap-model / oracle"}
+  - {n: 13, epic: E0071, module: M00126, name: "Three representations", detail: "dense numeric / bitfield law / text payload"}
