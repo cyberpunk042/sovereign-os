@@ -81,6 +81,10 @@ dashboards:
      description: "A unified change log across 6 sources (apt/dpkg/shell/osctl/events/modules) — 'what changed since I last looked?'", refs: [R448]}
   - {slug: build-configurator, category: hardware, label: "Build Configurator", path: /build-configurator/, api: sovereign-build-configurator-api, status: live,
      description: "Compose an OS image (or manage this host) and RUN the build — the Run console (validate/preflight/BUILD, bake toggles). The one page that actually builds sovereign-os.", refs: [SDD-043]}
+  - {slug: emulate, category: hardware, label: "Emulate (QEMU)", path: /emulate/, api: sovereign-emulate-api, status: live,
+     description: "Boot a built image in a throwaway QEMU VM before flashing — interactive serial console, configurable QEMU options (uefi/direct boot, kvm/tcg, cpu/mem, snapshot), auto-login. Catches a broken image in a VM, never on the USB key.", refs: [SDD-008, SDD-045]}
+  - {slug: flash, category: hardware, label: "Flash to USB", path: /flash/, api: sovereign-flash-api, status: live,
+     description: "Write a built image onto a removable disk from the panel — a safety-classified device picker (system disks hard-protected), type-to-arm confirm, and live dd progress. Shells the gated sovereign-osctl install image; never raw dd.", refs: [SDD-045]}
 
   # ── Security & selfdef ──────────────────────────────────────────────
   - {slug: selfdef-management, category: security, label: "selfdef (IPS) Management", path: /selfdef-management/, status: live,

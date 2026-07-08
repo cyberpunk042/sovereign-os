@@ -99,6 +99,22 @@ enable_unit sovereign-dashboards.service
 [ -f "${SRC}/systemd/system/sovereign-master-dashboard-api.service" ] \
   && enable_unit sovereign-master-dashboard-api.service
 
+# Deploy-ONLY (copy, do not enable) the execution-surface panels — flash +
+# emulate. They carry the hardened posture for the lint, but their privileged
+# actions (dd via pkexec · QEMU/KVM) do NOT work under the systemd sandbox;
+# they are meant to be launched from the operator panel session, where
+# scripts/operator/panel.sh runs the .py directly (no sandbox) and discovers
+# the port from these unit files. Copying (not enabling) makes them
+# discoverable without a half-working boot service.
+deploy_unit_only() { # <unit> — install the file, never enable
+  local unit="$1"
+  [ -f "${SRC}/systemd/system/${unit}" ] || return 0
+  install -m 644 "${SRC}/systemd/system/${unit}" /etc/systemd/system/
+  info "deployed ${unit} (operator-launched via panel.sh — not auto-enabled)"
+}
+deploy_unit_only sovereign-flash-api.service
+deploy_unit_only sovereign-emulate-api.service
+
 # ── (4) discoverable launcher: app menu + desktop + login autostart ──
 step "4/5 discoverable launcher (app menu · desktop · autostart)"
 LAUNCHER="${SRC}/share/applications/sovereign-dashboards.desktop"

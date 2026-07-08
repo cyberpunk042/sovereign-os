@@ -1,0 +1,59 @@
+[Unit]
+Description=Sovereign flash API + panel — write a built image to a USB disk (gated)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/operator/flash-api.py
+# Serves webapp/flash/ + /flash.json (safety-classified device picker) and
+# executes the flash via the gated `sovereign-osctl install image` (never raw
+# dd; six gates; the system disks can never be selected).
+#
+# LAUNCH MODEL (matches the build-configurator / sovereign-dashboards hub):
+# this unit carries the hardened defense-in-depth posture below and exists so
+# `scripts/operator/panel.sh` can DISCOVER the port (it greps Environment=
+# …PORT= here) and so a read-only serving instance can run. The DESTRUCTIVE
+# flash needs real root — raw dd is deliberately NOT in the operator sudoers
+# allow-list. Under this sandbox (NoNewPrivileges=true) it CANNOT elevate, so
+# the actual flash runs from the operator panel launched as root:
+#     sudo -E scripts/operator/panel.sh
+# where panel.sh runs this .py directly (no systemd sandbox) and dd runs as
+# root. Plan (dry-run) works in either context. Do NOT enable this as a boot
+# service expecting the flash button to fire — that path is the operator's.
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/usr/local/lib/sovereign-os
+ExecStart=/usr/bin/python3 /usr/local/lib/sovereign-os/scripts/operator/flash-api.py
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+# Loopback-by-default — operator-§1g exposure decision is theirs. To expose
+# beyond loopback, drop /etc/systemd/system/sovereign-flash-api.service.d/bind.conf:
+#   [Service]
+#   Environment=FLASH_API_BIND=0.0.0.0
+Environment=FLASH_API_BIND=127.0.0.1
+Environment=FLASH_API_PORT=8122
+
+# R171 defense-in-depth (Layer-1 lint enforced). Serving + device-list surface
+# is read-only; the destructive path is the gated CLI run under operator root.
+ProtectSystem=strict
+ProtectHome=true
+ProtectClock=true
+ProtectHostname=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+ReadWritePaths=/var/lib/node_exporter/textfile_collector
+NoNewPrivileges=true
+PrivateTmp=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sovereign-os · emulate (QEMU)</title>
+<meta name="x-sovereign-module" content="emulate-webapp">
+<meta name="x-sovereign-shipped-in" content="SDD-045 · flash + emulate operator panels">
+<meta name="x-sovereign-standing-rule" content="We do not minimize anything.">
+<style>
+  :root{
+    --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --accent:#9bd1ff;
+    --good:#7ad17a; --bad:#ff7676; --warn:#e6c062;
+    --panel:#171717; --border:#262626;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:14px;line-height:1.5}
+  body{padding:1.2rem;max-width:1160px;margin:0 auto}
+  h1{font-size:1.4rem;margin:0 0 .2rem 0;font-weight:600}
+  h2{font-size:1rem;margin:1.6rem 0 .4rem 0;font-weight:600;color:var(--accent)}
+  .sub{color:var(--muted);margin-bottom:1rem;font-size:.85rem}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.9rem 1rem;margin:.6rem 0}
+  .row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center}
+  .muted{color:var(--muted)}
+  select,input,button{font-family:var(--mono);background:var(--panel);color:var(--fg);border:1px solid var(--border);padding:.35rem .6rem;border-radius:3px}
+  button{cursor:pointer}
+  button:hover:not(:disabled){border-color:var(--accent)}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  button.danger{border-color:var(--bad);color:var(--bad)}
+  button.go{border-color:var(--good);color:var(--good)}
+  label{font-size:.82rem;color:var(--muted);display:flex;gap:.4rem;align-items:center}
+  code{background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:0 .3rem;font-size:.9em}
+  .status{font-size:.75rem}
+  .status.ok{color:var(--good)} .status.bad{color:var(--bad)} .status.warn{color:var(--warn)}
+  .cap{display:inline-block;font-size:.7rem;border:1px solid var(--border);border-radius:3px;padding:0 .4rem;margin-right:.3rem}
+  .cap.on{color:var(--good);border-color:var(--good)} .cap.off{color:var(--bad);border-color:var(--bad)}
+  #console{background:#050505;border:1px solid var(--border);border-radius:4px;padding:.7rem .8rem;font-size:.8rem;line-height:1.4;white-space:pre-wrap;word-break:break-word;height:52vh;overflow:auto;margin:.4rem 0;outline:none}
+  #console:focus{border-color:var(--accent)}
+  #console.live{border-color:var(--good)}
+  .keys button{font-size:.74rem;padding:.25rem .5rem}
+  .dot{display:inline-block;width:.6rem;height:.6rem;border-radius:50%;background:var(--muted);margin-right:.3rem;vertical-align:middle}
+  .dot.on{background:var(--good)} .dot.off{background:var(--bad)}
+  footer{margin-top:2rem;color:var(--muted);font-size:.75rem;border-top:1px solid var(--border);padding-top:.8rem}
+  .standing-rule{color:var(--accent);font-style:italic;margin-top:.4rem}
+</style>
+</head>
+<body>
+<h1>emulate (QEMU)</h1>
+<p class="sub">
+  Boot a built image in a throwaway VM before you flash it — the guest disk is
+  attached with <code>-snapshot</code> so the <code>.raw</code> you will write
+  stays pristine. Fully interactive serial console; the image never touches the
+  USB key. <span id="status" class="status">loading…</span>
+</p>
+
+<h2>options</h2>
+<div class="panel">
+  <div class="row" style="margin-bottom:.5rem">
+    <label>image
+      <select id="image"><option value="">— no built image found —</option></select>
+    </label>
+    <span id="caps" class="muted"></span>
+  </div>
+  <div class="row">
+    <label>boot
+      <select id="boot">
+        <option value="uefi">uefi — OVMF → systemd-boot → signed UKI (the real chain)</option>
+        <option value="direct">direct — verbose kernel+initrd (strips quiet; every service)</option>
+      </select>
+    </label>
+    <label>accel
+      <select id="accel">
+        <option value="auto">auto</option>
+        <option value="kvm">kvm (host)</option>
+        <option value="tcg">tcg (-cpu max)</option>
+      </select>
+    </label>
+    <label>vCPUs <input id="smp" type="number" min="1" max="64" value="2" style="width:4rem"></label>
+    <label>memory <input id="mem" value="4G" style="width:5rem"></label>
+    <label><input id="snapshot" type="checkbox" checked> snapshot (discard writes)</label>
+    <label><input id="noreboot" type="checkbox" checked> no-reboot</label>
+  </div>
+  <div class="row" style="margin-top:.5rem">
+    <label style="flex:1">extra kernel cmdline (direct boot)
+      <input id="cmdline" placeholder="e.g. systemd.unit=rescue.target" style="flex:1;min-width:16rem" autocomplete="off" spellcheck="false">
+    </label>
+  </div>
+</div>
+
+<h2>vm</h2>
+<div class="panel">
+  <div class="row">
+    <button id="btn-start" class="go">▶ Start VM</button>
+    <button id="btn-stop" class="danger" disabled>■ Stop VM</button>
+    <span class="status"><span id="vm-dot" class="dot off"></span><span id="vm-state">stopped</span></span>
+  </div>
+
+  <div id="console" tabindex="0" aria-label="serial console — click to focus, then type to send keystrokes to the VM">click ▶ Start VM to boot, then click here and type — keystrokes go straight to the guest serial console.</div>
+
+  <div class="row keys" style="margin-bottom:.4rem">
+    <input id="line" placeholder="type a line + Enter (or click the console and type live)" style="flex:1;min-width:14rem" autocomplete="off" spellcheck="false" disabled>
+    <button data-key="enter" disabled>⏎ Enter</button>
+    <button data-key="ctrl-c" disabled>^C</button>
+    <button data-key="ctrl-d" disabled>^D</button>
+    <button data-key="ctrl-a" disabled>^A</button>
+    <button data-key="tab" disabled>⇥ Tab</button>
+    <button data-key="esc" disabled>Esc</button>
+    <button data-key="up" disabled>↑</button>
+    <button data-key="down" disabled>↓</button>
+  </div>
+  <div class="row">
+    <label>login <input id="login-user" value="root" style="width:6rem"></label>
+    <label>password <input id="login-pass" type="password" placeholder="root password" style="width:10rem"></label>
+    <button id="btn-login" disabled>⇱ Auto-login</button>
+    <span class="muted" style="font-size:.74rem">watches the console for the prompt, then types — password stays in your browser + loopback only</span>
+  </div>
+</div>
+
+
+<!-- SDD-045 Phase C — control surface (INLINED per the single-file doctrine).
+     Renders config/control-systems.yaml (served at /control-systems): the
+     global controls (profile / dashboard on-off / auth tier) + the modes &
+     feature toggles that govern THIS panel. Read-only: each control copies
+     its exact sovereign-osctl command. Canonical source (lockstep-linted):
+     webapp/_shared/control-surface.{css,js}. -->
+<h2>controls — profiles, modes &amp; feature toggles</h2>
+<div id="control-surface" class="cs-grid"><div class="cs-empty">loading controls…</div></div>
+<style>
+/* webapp/_shared/control-surface.css — SDD-045 shared control-surface.
+ * Renders the control-systems registry (profiles / modes / feature toggles)
+ * as a grid of control cards. Monochrome, framework-free; inherits the
+ * panel palette variables (--bg/--fg/--muted/--accent/--border/--mono). */
+.cs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: .5rem; }
+.cs-card {
+  display: flex; flex-direction: column; gap: .35rem;
+  padding: .6rem .75rem; border: 1px solid var(--border, #262626);
+  border-radius: .4rem; background: rgba(255, 255, 255, .02);
+}
+.cs-head { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.cs-label { font-weight: 600; flex: 1; }
+.cs-kind {
+  font-size: .7rem; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--muted, #888); border: 1px solid var(--border, #262626);
+  border-radius: 3px; padding: 0 .35rem;
+}
+.cs-global {
+  font-size: .7rem; color: var(--accent, #9bd1ff);
+  border: 1px solid var(--accent, #9bd1ff); border-radius: 3px; padding: 0 .35rem;
+}
+.cs-desc { color: var(--muted, #888); font-size: .8rem; line-height: 1.45; }
+.cs-opts { display: flex; flex-wrap: wrap; gap: .3rem; }
+.cs-opt { font-size: .72rem; background: var(--border, #262626); border-radius: 3px; padding: 1px 6px; }
+.cs-cmd {
+  font-family: var(--mono, ui-monospace, monospace); font-size: .74rem;
+  text-align: left; color: var(--fg, #e6e6e6); background: var(--bg, #0e0e0e);
+  border: 1px solid var(--border, #262626); border-radius: 3px;
+  padding: .25rem .4rem; cursor: pointer; overflow-x: auto; white-space: nowrap;
+}
+.cs-cmd:hover { border-color: var(--accent, #9bd1ff); }
+.cs-empty { color: var(--muted, #888); }
+</style>
+<script>
+/* webapp/_shared/control-surface.js — SDD-045 shared control-surface renderer.
+ *
+ * Renders the control-systems registry (config/control-systems.yaml, served
+ * as GET /control-systems) — the operator's "everything can be turned on and
+ * off + tons of modes and profiles" — as a grid of control cards. Reused by
+ * every dashboard so each becomes a CONTROL surface.
+ *
+ * Web is READ-ONLY: each control shows its options and copies its exact
+ * `change_cli` for the operator to run. It NEVER mutates privileged state
+ * (§1g / hardening lint). No framework, no CDN — a single same-origin file.
+ *
+ * Usage:
+ *   const n = SovereignControlSurface.render(el, systems, {
+ *     filterSlug: 'runtime-modes',   // only global + systems governing this slug
+ *     onCopy: (cmd) => showToast(cmd) // optional copy callback
+ *   });
+ */
+(function (global) {
+  "use strict";
+
+  function esc(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  function render(containerEl, systems, opts) {
+    opts = opts || {};
+    var slug = opts.filterSlug || null;
+    var list = (systems || []).filter(function (s) {
+      if (!slug) return true;                       // no filter → all systems
+      return s.scope === "global" ||                // globals show everywhere
+        (s.applies_to || []).indexOf(slug) >= 0;    // + systems governing slug
+    });
+    var html = list.map(function (s) {
+      var pills = (s.options || []).map(function (o) {
+        return '<span class="cs-opt">' + esc(o) + "</span>";
+      }).join("");
+      var change = esc(s.change_cli || "");
+      return '<div class="cs-card cs-' + esc(s.kind) + '">'
+        + '<div class="cs-head">'
+        + '<span class="cs-label">' + esc(s.label) + "</span>"
+        + '<span class="cs-kind">' + esc(s.kind) + "</span>"
+        + (s.scope === "global" ? '<span class="cs-global">global</span>' : "")
+        + "</div>"
+        + '<div class="cs-desc">' + esc(s.description) + "</div>"
+        + '<div class="cs-opts">' + pills + "</div>"
+        + (change
+            ? '<button class="cs-cmd" data-cmd="' + change
+              + '" title="click to copy the operator command">$ ' + change + "</button>"
+            : "")
+        + "</div>";
+    }).join("");
+    containerEl.innerHTML = html || '<div class="cs-empty">(no controls for this surface)</div>';
+    Array.prototype.forEach.call(containerEl.querySelectorAll(".cs-cmd"), function (b) {
+      b.addEventListener("click", function () {
+        var cmd = b.getAttribute("data-cmd");
+        if (navigator.clipboard) navigator.clipboard.writeText(cmd);
+        if (typeof opts.onCopy === "function") opts.onCopy(cmd);
+      });
+    });
+    return list.length;
+  }
+
+  // Convenience: fetch /control-systems (same-origin) and render.
+  function load(containerEl, opts) {
+    return fetch("/control-systems", { headers: { Accept: "application/json" } })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data && data.error) {
+          containerEl.innerHTML = '<div class="cs-empty">controls unavailable: '
+            + esc(data.error) + "</div>";
+          return 0;
+        }
+        return render(containerEl, (data && data.systems) || [], opts);
+      })
+      .catch(function (e) {
+        containerEl.innerHTML = '<div class="cs-empty">controls unavailable: '
+          + esc(e && e.message) + "</div>";
+        return 0;
+      });
+  }
+
+  global.SovereignControlSurface = { render: render, load: load };
+})(window);
+</script>
+<script>SovereignControlSurface.load(document.getElementById('control-surface'),{filterSlug:'emulate'});</script>
+
+<footer>
+  <div>data: <code>GET /emulate.json</code> · lifecycle: <code>POST /api/emulate/{start,input,login,stop}</code> ·
+    console: <code>GET /api/emulate/console</code> (live-follow) · QEMU modeled on <code>09-image-verify.sh</code></div>
+  <div class="standing-rule">"We do not minimize anything." — operator §1g standing rule</div>
+</footer>
+
+<script>
+"use strict";
+const el = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;" }[c]));
+let DATA = { images: [], caps: {}, defaults: {} };
+let consoleReader = null, statusTimer = null, following = false;
+
+async function load() {
+  try {
+    const r = await fetch("/emulate.json", { headers: { Accept: "application/json" } });
+    DATA = await r.json();
+    const c = DATA.caps || {};
+    el("status").textContent = "live ✓ — " + DATA.images.length + " image(s)";
+    el("status").className = "status ok";
+    el("caps").innerHTML =
+      `<span class="cap ${c.qemu?'on':'off'}">qemu ${c.qemu?esc(c.qemu_version):'absent'}</span>`
+      + `<span class="cap ${c.kvm?'on':'off'}">kvm ${c.kvm?'yes':'no'}</span>`
+      + `<span class="cap ${c.ovmf?'on':'off'}">ovmf ${c.ovmf?'yes':'no'}</span>`;
+    renderImages();
+    // apply server defaults
+    const d = DATA.defaults || {};
+    if (d.mem) el("mem").value = d.mem;
+    if (d.smp) el("smp").value = d.smp;
+    reflectVm(DATA.vm || {});
+    if (DATA.vm && DATA.vm.running) startFollowing();
+    startStatusPoll();
+  } catch (e) {
+    el("status").textContent = "live ✗ — " + e.message;
+    el("status").className = "status bad";
+  }
+}
+
+function renderImages() {
+  const sel = el("image"); sel.innerHTML = "";
+  if (!DATA.images.length) { sel.innerHTML = '<option value="">— no built image found —</option>'; return; }
+  DATA.images.forEach(im => {
+    const o = document.createElement("option");
+    o.value = im.path;
+    o.textContent = `${im.profile}/${im.name} · ${im.size_human}` + (im.direct_boot ? "" : " (no direct-boot artifacts)");
+    o.dataset.direct = im.direct_boot ? "1" : "";
+    sel.appendChild(o);
+  });
+}
+
+function reflectVm(vm) {
+  const run = !!vm.running;
+  el("vm-dot").className = "dot " + (run ? "on" : "off");
+  el("vm-state").textContent = run
+    ? `running · pid ${vm.pid} · ${vm.opts && vm.opts.accel_effective || "?"} · ${vm.opts && vm.opts.boot || "?"} · up ${vm.uptime_s}s`
+    : (vm.exit_code != null ? `stopped (exit ${vm.exit_code})` : "stopped");
+  el("btn-start").disabled = run;
+  el("btn-stop").disabled = !run;
+  el("btn-login").disabled = !run;
+  el("line").disabled = !run;
+  document.querySelectorAll(".keys button[data-key]").forEach(b => b.disabled = !run);
+  el("console").classList.toggle("live", run);
+}
+
+async function refreshStatus() {
+  try { reflectVm(await (await fetch("/api/emulate/status")).json()); } catch (e) {}
+}
+function startStatusPoll() { if (!statusTimer) statusTimer = setInterval(refreshStatus, 2500); }
+
+async function startVM() {
+  const body = {
+    image: el("image").value,
+    boot: el("boot").value,
+    accel: el("accel").value,
+    smp: parseInt(el("smp").value, 10) || 2,
+    mem: el("mem").value.trim() || "4G",
+    snapshot: el("snapshot").checked,
+    no_reboot: el("noreboot").checked,
+    cmdline: el("cmdline").value.trim(),
+  };
+  if (!body.image) { alert("select a built image first"); return; }
+  el("console").textContent = "";
+  el("btn-start").disabled = true;
+  try {
+    const r = await fetch("./api/emulate/start", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const j = await r.json();
+    if (!r.ok) { el("console").textContent = "✗ " + (j.error || r.status) + (j.fix ? "\n→ " + j.fix : ""); el("btn-start").disabled = false; return; }
+    el("console").textContent = `▶ VM started · pid ${j.pid} · accel ${j.accel} · boot ${j.boot}\n\n`;
+    await refreshStatus();
+    startFollowing();
+    el("console").focus();
+  } catch (e) {
+    el("console").textContent = "✗ start failed: " + e.message; el("btn-start").disabled = false;
+  }
+}
+
+async function startFollowing() {
+  if (following) return; following = true;
+  try {
+    const r = await fetch("./api/emulate/console");
+    consoleReader = r.body.getReader();
+    const dec = new TextDecoder();
+    const pane = el("console");
+    for (;;) {
+      const { done, value } = await consoleReader.read();
+      if (done) break;
+      const atBottom = pane.scrollHeight - pane.scrollTop - pane.clientHeight < 40;
+      pane.textContent += dec.decode(value, { stream: true });
+      if (atBottom) pane.scrollTop = pane.scrollHeight;
+    }
+  } catch (e) { /* stream ended / VM stopped */ }
+  finally { following = false; consoleReader = null; refreshStatus(); }
+}
+
+async function sendInput(payload) {
+  try {
+    await fetch("./api/emulate/input", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+  } catch (e) {}
+}
+
+async function stopVM() {
+  el("btn-stop").disabled = true;
+  await fetch("./api/emulate/stop", { method: "POST" });
+  setTimeout(refreshStatus, 600);
+}
+
+async function autoLogin() {
+  await fetch("./api/emulate/login", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ user: el("login-user").value.trim() || "root", password: el("login-pass").value }) });
+  el("console").focus();
+}
+
+// wiring
+el("btn-start").addEventListener("click", startVM);
+el("btn-stop").addEventListener("click", stopVM);
+el("btn-login").addEventListener("click", autoLogin);
+el("boot").addEventListener("change", () => {
+  // direct boot needs vmlinuz/initrd; warn if the chosen image lacks them
+  const opt = el("image").selectedOptions[0];
+  if (el("boot").value === "direct" && opt && !opt.dataset.direct)
+    el("status").innerHTML = '<span class="status warn">this image has no *.vmlinuz/*.initrd beside it — direct boot will fail; use uefi</span>';
+});
+el("line").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") { e.preventDefault(); sendInput({ data: el("line").value + "\r" }); el("line").value = ""; }
+});
+document.querySelectorAll(".keys button[data-key]").forEach(b =>
+  b.addEventListener("click", () => { sendInput({ key: b.dataset.key }); el("console").focus(); }));
+
+// real-terminal feel: focus the console and type — every keystroke is sent
+const NAMED = { Enter: "enter", Tab: "tab", Escape: "esc", Backspace: "backspace",
+  ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right" };
+el("console").addEventListener("keydown", (e) => {
+  if (el("btn-stop").disabled) return;   // no VM
+  if (e.ctrlKey && e.key.length === 1) {
+    const code = e.key.toLowerCase().charCodeAt(0) - 96;
+    if (code >= 1 && code <= 26) { e.preventDefault(); sendInput({ data: String.fromCharCode(code) }); return; }
+  }
+  if (NAMED[e.key]) { e.preventDefault(); sendInput({ key: NAMED[e.key] }); return; }
+  if (e.key.length === 1 && !e.metaKey && !e.altKey && !e.ctrlKey) { e.preventDefault(); sendInput({ data: e.key }); }
+});
+
+load();
+</script>
+</body>
+</html>
