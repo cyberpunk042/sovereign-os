@@ -1,0 +1,131 @@
+# config/inference/m043-hardware-aware-scheduling.yaml
+# ============================================================================
+# M043 "Bridge layer — hardware-aware intelligence scheduling" — the scheduling
+# CONTRACT. Materializes the milestone spec (backlog/milestones/M043-..., dump
+# 12614-12944): the 6 frontier questions (E0409), the 3 external research anchors
+# (E0410), the cloud-vs-station translation + 4 principles (E0411), and the 5
+# hyper features — Context Residency (E0412), AVX-512 Routing Brain (E0413),
+# Blackwell Context Sovereign (E0414), 4090 Cognitive Scratchpad (E0415),
+# KV-Aware Profiles (E0416) — plus the bridge formula + placement + living
+# resource model (E0417). No invention — every entry traces to module + dump lines.
+#
+# Operator directive 12643 (sacrosanct): "you are not here to define those files
+# you are here to be the bridge between the hardware the tech and the real world
+# and research and advancing". This is the placement layer: intelligence lives in
+# WHERE thought runs, not only in weights. Ties: the AVX-512 Routing Brain's 8
+# bulk-eval decisions are the runtime output of M039's AVX cortex hot path; the
+# 6 KV resident types align with M028 Memory OS; the bridge formula realizes
+# M042's choice envelopes in hardware.
+# STATUS: spec-materialization (SDD+TDD — the hardware-aware scheduler).
+# Locked to spec by tests/lint/test_m043_hardware_aware_scheduling.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M043
+source_dump_lines: "12614-12944"
+
+bridge_mandate: "hardware-aware intelligence scheduling"
+
+# ── E0409 — the 6 frontier questions (M00716, dump 12682-12687) — VERBATIM ──
+frontier_questions:
+  module: M00716
+  questions: ["Where is the context?", "Where is the KV cache?",
+              "Which hardware owns the next step?",
+              "Is this request prefill-heavy or decode-heavy?",
+              "Can we reuse prior work?", "Is this worth oracle compute?"]
+
+# ── E0410 — 3 external research anchors (M00717-M00719, dump 12693-12695) — VERBATIM ──
+research_anchors:
+  - {module: M00717, source: "NVIDIA Dynamo", concept: "KV-cache-aware routing"}
+  - {module: M00718, source: "Ray Serve", concept: "prefill/decode disaggregation"}
+  - {module: M00719, source: "Together CPD", concept: "cache-aware disaggregated inference"}
+
+# ── E0411 — cloud-vs-station translation + 4 principles (M00720-M00722) — VERBATIM ──
+cloud_reference:
+  module: M00720
+  layers: ["prefill pool", "decode pool", "KV transfer fabric", "many GPUs",
+           "routing by cache locality"]
+station_translation:
+  module: M00721
+  layers:
+    - {tier: Blackwell, role: "resident oracle context + long-context verification + final synthesis"}
+    - {tier: "4090", role: "scout/draft/rerank/perception/sandbox"}
+    - {tier: "Ryzen AVX-512", role: "route by task + risk + budget + prefix/cache availability + profile"}
+    - {tier: "RAM-ZFS", role: "warm/cold context + replay + memory maps + artifacts"}
+scheduling_principles:
+  module: M00722
+  caution: "Without NVLink/fabric, moving KV tensors around can become poison"
+  principles: ["route to where useful context already lives", "avoid recomputing prefill",
+               "reuse stable prefixes",
+               "separate cheap exploration from expensive verification"]
+
+# ── E0412 — Context Residency hyper feature (M00723, dump 12742-12758) — VERBATIM ──
+context_residency:
+  module: M00723
+  note: "first-class runtime idea"
+  resident_kv_types: ["system prompt KV", "tool schema KV", "repo map KV",
+                       "project policy KV", "user preference KV", "active task KV"]
+  residency_rules:
+    - "If Blackwell already has the right prefix hot, keep using it"
+    - "If a branch only needs cheap exploration, send symbolic context to the 4090 instead"
+    - "If context is cold, CPU decides whether prefill is worth it"
+  closing: "This is how hardware becomes intelligence"
+
+# ── E0413 — AVX-512 Routing Brain hyper feature (M00724/M00725, 12764-12792) — VERBATIM ──
+avx512_routing_brain:
+  hot_metadata_fields: [request_id, profile, risk, budget, model_role, context_hash,
+                        kv_ref, cache_hit_prob, expected_value, privacy_flags]
+  bulk_eval_decisions: [use_local, use_cloud, use_blackwell, use_4090, use_sandbox,
+                        reuse_context, require_oracle, require_human]
+  goldilocks: "Not too much compute, not too little. Exactly enough"
+
+# ── E0414 — Blackwell As Context Sovereign hyper feature (M00726, 12804-12814) — VERBATIM ──
+blackwell_context_sovereign:
+  module: M00726
+  roles: ["keep valuable context resident", "verify branches in batches",
+          "host high-quality oracle model", "run long-context synthesis",
+          "serve as final commit judge"]
+  mandate: "should not answer every tiny request. It should preserve the expensive mental state"
+
+# ── E0415 — 4090 As Cognitive Scratchpad hyper feature (M00727, 12820-12832) — VERBATIM ──
+scratchpad_4090:
+  module: M00727
+  uses: ["draft branches", "SLM workers", "embeddings", "rerankers",
+         "failure classifiers", "GUI/perception models", "sandboxed experiments",
+         "cheap RLM child calls"]
+  doctrine: "It can be wrong. That is fine. The CPU filters. Blackwell verifies"
+
+# ── E0416 — KV-Aware Profiles hyper feature (M00728, dump 12838-12866) — VERBATIM ──
+kv_aware_profiles:
+  module: M00728
+  note: "not mode fluff. It changes hardware behavior"
+  bundles:
+    - {profile: fast, policy: ["shallow context", "low prefill", "scout-first"]}
+    - {profile: careful, policy: ["reuse project KV", "oracle verification"]}
+    - {profile: deep, policy: ["MAP phase", "long context", "RLM recursion"]}
+    - {profile: private, policy: ["local-only", "no cloud", "strict memory exposure"]}
+    - {profile: autonomous, policy: ["persistent session", "replay", "rollback", "evals"]}
+    - {profile: experimental, policy: ["sandboxed", "wide branches", "no auto-commit"]}
+
+# ── E0417 — bridge formula + placement + living resource model (M00729/M00730) — VERBATIM ──
+bridge_formula:
+  module: M00729
+  formula: "research concept -> hardware policy -> real user choice"
+  examples:
+    - {research: "KV-aware routing improves serving",
+       hardware_policy: "keep stable project context hot on Blackwell",
+       user_choice: "Careful code mode spends more VRAM/context to avoid repeated re-understanding"}
+    - {research: "prefill/decode disaggregation helps at scale",
+       hardware_policy: "do not move KV across weak links unless measured; emulate disaggregation by role separation instead",
+       user_choice: "Fast scout mode uses 4090 for drafts, Blackwell only for verification"}
+placement:
+  breakthrough: "The machine's intelligence is not only in model weights. It is in placement"
+  dimensions: ["which thought lives where", "which context stays hot",
+               "which branch gets verified", "which memory gets promoted",
+               "which model gets trusted", "which action gets committed"]
+  care_about: ["KV locality", "prefix reuse", "prefill cost", "decode cost",
+               "cache hit rate", "batch shape", "context residency", "hardware placement"]
+living_resource_model:
+  module: M00730
+  dimensions: [compute, memory, KV, risk, cost, latency, privacy, reversibility, confidence]
+  closing: "That is how sovereignty becomes practical rather than decorative"
