@@ -499,12 +499,13 @@ a11y; contract test catches drift.
 
 <h2>actions <span class="muted" style="font-size:.75rem;font-weight:400">— web emits CLI only; daemon executes after MS003 signature (MS043 R10212)</span></h2>
 <div class="row">
-  <button onclick="emit('sovereignctl snapshot list --all')">planned: list all snapshots</button>
-  <button onclick="emit('sovereignctl snapshot create --dataset rpool/sovereign-os --tag manual-' + new Date().toISOString().slice(0,10))">planned: create manual snapshot</button>
-  <button onclick="emit('sovereignctl rollback preview --to <snapshot>')">planned: rollback preview</button>
-  <button class="danger" onclick="(function(){var s=document.getElementById('control-surface'),c=s&&s.querySelector('[data-cid=&quot;rollback-apply&quot;]');(c||s).scrollIntoView({behavior:'smooth',block:'center'});if(c){c.style.outline='2px solid var(--accent,#9bd1ff)';setTimeout(function(){c.style.outline='';},1600);}})()">rollback (latest) — via Controls rail ↓</button>
-  <button onclick="emit('sovereignctl snapshot prune --retain-days 14')">planned: prune (retain 14d)</button>
-  <button onclick="emit('sovereignctl commit log --signed-only --since 24h')">planned: signed commit log</button>
+  <button onclick="load()">refresh snapshot inventory</button>
+  <button onclick="jumpToControl('snapshot-create')">create manual snapshot — via Controls rail ↓</button>
+  <button onclick="previewLatest()">preview latest rollback</button>
+  <button class="danger" onclick="jumpToControl('rollback-apply')">rollback (latest) — via Controls rail ↓</button>
+  <button class="danger" onclick="jumpToControl('rollback-recent')">rollback to recent snapshot — via Controls rail ↓</button>
+  <button onclick="jumpToControl('snapshot-prune')">prune snapshots — via Controls rail ↓</button>
+  <button onclick="document.getElementById('timeline').scrollIntoView({behavior:'smooth',block:'center'})">view MS041 commit timeline</button>
 </div>
 
 <div class="footer">
@@ -579,7 +580,7 @@ a11y; contract test catches drift.
         <td><code>${s.tag}</code></td>
         <td>
           <button onclick="preview('${s.id}')">preview</button>
-          <button onclick="emit('sovereignctl snapshot diff --from ${s.id} --to HEAD')">diff</button>
+          <button onclick="jumpToControl('rollback-recent')">rollback →</button>
         </td>
       `;
       tb.appendChild(tr);
@@ -641,11 +642,10 @@ a11y; contract test catches drift.
   }
 
   function copyApply() {
-    if (!currentPreview) {
-      showToast('preview a snapshot first');
-      return;
-    }
-    emit(`sovereignctl rollback apply --to ${currentPreview} --confirm`);
+    // SDD-050 — rollback executes via the R10274 control rail, not a copied CLI:
+    // "Rollback (latest)" one-click OR "Rollback (recent snapshot)" picklist.
+    // Route to the recent-snapshot control (the arbitrary-target path).
+    jumpToControl('rollback-recent');
   }
 
   // copy-to-clipboard helper (web NEVER mutates; emits CLI string only)
@@ -663,6 +663,28 @@ a11y; contract test catches drift.
     t.classList.add('show');
     clearTimeout(showToast._h);
     showToast._h = setTimeout(() => t.classList.remove('show'), 1800);
+  }
+
+  // SDD-050 — scroll to a functional control in the rail + highlight it. The
+  // snapshot create/prune + recent-rollback controls EXECUTE via the R10274
+  // control-exec-api rail (operator-key + type-to-confirm gated); web itself
+  // never mutates (R10212).
+  function jumpToControl(cid) {
+    const s = document.getElementById('control-surface');
+    const c = s && s.querySelector('[data-cid="' + cid + '"]');
+    (c || s || document.body).scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (c) {
+      c.style.outline = '2px solid var(--accent,#9bd1ff)';
+      setTimeout(() => { c.style.outline = ''; }, 1600);
+    } else {
+      showToast('control "' + cid + '" — open the Controls rail below');
+    }
+  }
+  // Preview the newest snapshot (the generic "preview latest" action) via the
+  // live read API.
+  function previewLatest() {
+    if (seed.snapshots && seed.snapshots.length) preview(seed.snapshots[0].id);
+    else showToast('no snapshots in the live inventory yet');
   }
 
   // Cmd-9 / Ctrl-9 keyboard shortcut per R10101
