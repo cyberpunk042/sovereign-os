@@ -1,0 +1,63 @@
+# config/observability/m079-activation-steering-interpretability.yaml
+# ============================================================================
+# M079 "Activation steering interpretability surface (white-box vs black-box
+# intervention class)" — the interpretability-safety CONTRACT. Materializes the
+# milestone spec (backlog/milestones/M079-...; source arXiv 2604.09839 "Steered
+# LLM Activations are Non-Surjective"): the intervention-class taxonomy (E0758),
+# the surjectivity formalism (E0759), the formal proof (E0760), empirical
+# validation (E0761), eval-protocol separation (E0762), the use-case bounds
+# (E0763/E0764), and the integrations (E0765-E0767). No invention — verbatim
+# quotes preserved; provenance via HF MCP paper_search 2026-05-19 (hf.co/papers/
+# 2604.09839).
+#
+# Doctrinal anchor (arXiv 2604.09839 verbatim): "Under practical assumptions, we
+# prove that activation steering pushes the residual stream off the manifold of
+# states reachable from discrete prompts. Almost surely, no prompt can reproduce
+# the same internal behavior induced by steering... we caution against interpreting
+# the ease and success of activation steering as evidence of prompt-based
+# interpretability or vulnerability, and argue for evaluation protocols that
+# explicitly decouple white-box and black-box interventions". CATALOG POSITIONING:
+# M049/M048/selfdef-MS039/MS042 have NO explicit interpretability/intervention-class
+# surface; M079 adds a formal intervention-class taxonomy the runtime tracks per
+# interaction. The eval-protocol separation is non-negotiable: a WB-steering
+# jailbreak proves NOTHING about prompt-based (BB) vulnerability. R10212 boundary —
+# the Guardian/authority/tool-authority integrations are selfdef-owned; sovereign-os
+# supplies the intervention-class taxonomy the mirrors consume.
+# STATUS: spec-materialization (SDD+TDD — the intervention-class interpretability surface).
+# Locked to spec by tests/lint/test_m079_activation_steering_interpretability.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M079
+source: "arXiv 2604.09839 (Steered LLM Activations are Non-Surjective)"
+
+# ── E0758 — intervention-class taxonomy (M01309) — VERBATIM ──
+intervention_classes:
+  module: M01309
+  classes: ["black-box prompt", "white-box activation-steer", "white-box weight-edit"]
+
+# ── E0759/E0760 — surjectivity formalism + proof (M01310/M01311) — VERBATIM ──
+surjectivity:
+  module: M01310
+  formalism: "activation steering pushes the residual stream off the manifold of states reachable from discrete prompts"
+  proof: "almost surely, no prompt can reproduce the same internal behavior induced by steering"
+
+# ── E0761 — empirical validation (arXiv 2604.09839) — VERBATIM ──
+empirical_validation: "illustrated empirically across three widely used LLMs"
+
+# ── E0762 — eval-protocol separation (M01315) — VERBATIM (non-negotiable) ──
+eval_protocol_separation:
+  module: M01315
+  rule: "evaluation protocols must explicitly decouple white-box and black-box interventions"
+  formal_separation: "a formal separation between white-box steerability and black-box prompting"
+
+# ── E0763/E0764 — use-case bounds (M01316/M01317) — VERBATIM ──
+use_case_bounds:
+  interpretability: {module: M01316, bound: "probing truthfulness via steering != prompt-based interpretability"}
+  safety: {module: M01317, bound: "activation-steering jailbreak != prompt-based vulnerability"}
+
+# ── E0765-E0767 — integrations (M01323/M01324/M01325) — VERBATIM (selfdef-owned) ──
+integrations:
+  guardian: {module: M01323, ref: "selfdef MS044", scope: "distinguish WB-attack vs BB-attack in policy YAML"}
+  tool_authority: {module: M01324, ref: "selfdef MS042", scope: "new declaration field interpretability_intervention_class"}
+  authority_levels: {module: M01325, ref: "selfdef MS039", scope: "WB activation-steer = L4-tier authority (bounded execution)"}
