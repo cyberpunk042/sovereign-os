@@ -1,0 +1,64 @@
+# config/agent/m064-debian-as-ark.yaml
+# ============================================================================
+# M064 "'Debian as Ark' framing + Q-016 distro-base reconsideration" — the
+# substrate-philosophy CONTRACT. Materializes the milestone spec (backlog/
+# milestones/M064-...; source raw/dumps/2026-05-16-sovereign-os-macro-arc-plan.md
+# lines 396-399): the "Debian as Ark" doctrinal frame (E0618), the working
+# hypothesis (E0619), honest alternative evaluation + trade-off documentation
+# (E0620/E0621), the Q-016 open question + timeline + resolution (E0622-E0624),
+# and the substrate evaluation criteria + operator decision authority
+# (E0625-E0627). No invention — every entry traces to a module + dump line range.
+#
+# Operator standing direction 2026-05-16 (verbatim, sacrosanct): "'Debian as Ark'
+# framing: Debian 13 is the starting boat, not the destination... Working
+# hypothesis: stay on Debian + customize the boat. Alternatives evaluated
+# honestly; trade-offs documented either way". Ties: this layers ON TOP of M044
+# (Debian 13 / Ubuntu 24 substrate) and gates M062 PR 4 (substrate survey SDD);
+# the customization path (znver5 kernel M067, ZFS-root M068, Tetragon eBPF MS044)
+# is the SFIF Infrastructure phase (M063). Q-016 stays OPEN — operator picks at
+# Stage Gate 2, never SDD (propose->approve->execute boundary preserved).
+# STATUS: spec-materialization (SDD+TDD — substrate philosophy + open-question gate).
+# Locked to spec by tests/lint/test_m064_debian_as_ark.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M064
+source_dump_lines: "396-399"
+
+# ── E0618 — "Debian as Ark" doctrinal frame (M01071, dump 396) — VERBATIM ──
+debian_as_ark:
+  module: M01071
+  doctrine: "Debian 13 is the starting boat, not the destination"
+  destination: "AI workstation OS (sovereign-os)"
+  provides: "starting kernel/userland/package-manager"
+
+# ── E0619 — working hypothesis (M01073, dump 397) — VERBATIM ──
+working_hypothesis:
+  module: M01073
+  hypothesis: "stay on Debian + customize the boat"
+  customizations: ["-march=znver5 kernel build (M067)", "ZFS-root (M068)",
+                   "Tetragon eBPF + guardian (MS044)"]
+  driven_by: "SFIF Infrastructure phase (M063)"
+
+# ── E0620/E0621 — alternative evaluation + trade-off documentation — VERBATIM ──
+alternative_survey:
+  module: M01074
+  principle: "every alternative substrate compared without bias"
+  candidates: ["Ubuntu 24 LTS", "Fedora Workstation / Silverblue", "NixOS (declarative, atomic)",
+               "Arch Linux (rolling, customizable)", "Gentoo (source-based, AVX-512 tuning native)",
+               "openSUSE Tumbleweed (rolling with snapshot rollback)", "Alpine (minimal, musl-based)",
+               "Void Linux (runit init, alternative to systemd)", "bespoke buildroot-based custom distro"]
+  trade_off_documentation: "both stay + switch paths documented either way"
+
+# ── E0622-E0624 — Q-016 open question + timeline + resolution (M01076-M01078) — VERBATIM ──
+q_016:
+  module: M01076
+  question: "substrate-base reconsideration — would switching from Debian 13 to another base unlock material new potential that we'd lose by staying?"
+  open_through: "PR 4 substrate survey"
+  resolved_at: "Stage Gate 2 alongside Q-001 (substrate tooling)"
+
+# ── E0625-E0627 — evaluation criteria + operator decision authority — VERBATIM ──
+evaluation_criteria:
+  material_new_potential: {module: M01080}
+  loss_by_staying: {module: M01081}
+operator_decision_authority: "operator picks, never SDD"
