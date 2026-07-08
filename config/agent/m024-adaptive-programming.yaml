@@ -1,0 +1,64 @@
+# config/agent/m024-adaptive-programming.yaml
+# ============================================================================
+# M024 "Adaptive programming — profiles as reward weights" — the adaptive-router
+# CONTRACT. Materializes the milestone spec (backlog/milestones/M024-..., dump
+# 6672-7000): the adaptive recipe schema (E0221), the profile registry + 9-axis
+# weighting (E0222/E0223), the 6 intelligence budget tiers (E0224), the 9-stage
+# compiler pipeline (E0225), the 5 registries (E0226), and the adaptive router +
+# vectorized plan selector (E0227). No invention — every entry traces to a module
+# + dump line range.
+#
+# The 5 registries realize the live models/catalog.yaml (cockpit D-23) + M017
+# model registry at the adaptive layer; the budget tiers connect to M015's
+# per-node budget field.
+# STATUS: spec-materialization (SDD+TDD — precedes the adaptive compiler).
+# Locked to spec by tests/lint/test_m024_adaptive_programming.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M024
+source_dump_lines: "6672-7000"
+
+# ── E0224 — the 6 intelligence budget tiers (M00392-M00397, dump 6759-6776) ──
+budget_tiers:
+  - {module: M00392, tier: reflex}
+  - {module: M00393, tier: normal}
+  - {module: M00394, tier: deliberate}
+  - {module: M00395, tier: research}
+  - {module: M00396, tier: autonomous}
+  - {module: M00397, tier: scientific}
+
+# ── E0225 — the 9-stage compiler pipeline (M00398, dump 6795-6806) — VERBATIM ORDER ──
+compiler_pipeline:
+  module: M00398
+  stages: [user-intent, task-classifier, constraints, recipe, routing,
+           workflow-graph, capability-plan, execution, eval-and-memory-update]
+
+# ── E0226 — the 5 registries (M00399-M00403, dump 6822-6836) — VERBATIM fields ──
+registries:
+  - {module: M00399, name: Model Registry, fields: [name, size, modality, context, speed, quality, memory_cost, backend, trust]}
+  - {module: M00400, name: Tool Registry, fields: [schema, capabilities, side_effects, sandbox_tier, success_stats]}
+  - {module: M00401, name: Recipe Registry, fields: [workflow_graph, defaults, tunable_parameters, eval_suite]}
+  - {module: M00402, name: Memory Registry, fields: [sources, freshness, trust, embeddings, bitsets, replay_refs]}
+  - {module: M00403, name: Eval Registry, fields: [test_sets, assertions, metrics, failure_cases, regression_baselines]}
+
+# ── E0222 — profile registry (M00390) + E0223 — 9-axis weighting (M00391) ──
+profile_registry:
+  module: M00390
+  living_policy_entry_count: 10           # dump gives count; entries per-profile
+weighting_set:
+  module: M00391
+  axis_count: 9                           # 9-axis weighting per profile
+
+# ── E0227 — adaptive router 11-input / 7-output (M00404, dump 6842-6868) ──
+adaptive_router:
+  module: M00404
+  input_count: 11
+  output_count: 7
+
+# ── E0227 — AVX-512 vectorized plan selector (M00405, dump 6895-6935) ──
+plan_selector:
+  module: M00405
+  candidate_plan_field_count: 9
+  eligibility_mask_field_count: 5
+  utility_score_term_count: 6
