@@ -1,0 +1,147 @@
+# config/agent/m042-choice-architecture.yaml
+# ============================================================================
+# M042 "Choice architecture — sovereignty as policy-composable" — the choice-
+# architecture CONTRACT. Materializes the milestone spec (backlog/milestones/
+# M042-..., dump 12094-12614): the 6 pillars (E0398), the 7-step methodology +
+# definitions (E0399), the 7 map types + 6 inheritance contracts + vault-proxy +
+# 7-axis routing + 8-slot model lab (E0400), the choice envelope (E0404), the 4
+# profile bundles + profile/policy/choice distinction (E0405), the 8 inheritance
+# artifacts (E0406), the 8 transparency questions + 8 negotiation axes (E0407).
+# No invention — every entry traces to a module + dump line range.
+#
+# Operator directive 12365 (sacrosanct): "selfdef and sovereign-os my two project
+# are flexible and the user choses what he want. at every stage". This is the
+# choice-compiler layer: each boundary exposes a choice envelope; the user owns
+# choices + memory + policy + cost + exposure. Ties: choice envelopes drive M025
+# Cognitive Compiler; the 8 inheritance artifacts seed the downstream catalog;
+# selfdef MS017 agent-guard enforces the POLICY.yaml subset (R10212 preserved).
+# STATUS: spec-materialization (SDD+TDD — the choice compiler / sovereignty layer).
+# Locked to spec by tests/lint/test_m042_choice_architecture.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M042
+source_dump_lines: "12094-12614"
+
+# ── E0398 — the 6 pillars (M00697-M00702, dump 12111-12116) — VERBATIM ──
+pillars:
+  - {module: M00697, pillar: "MAP / map-before-act"}
+  - {module: M00698, pillar: "Spec + workflow orchestration"}
+  - {module: M00699, pillar: "Agent harness engineering"}
+  - {module: M00700, pillar: "Routing + cost-aware model selection"}
+  - {module: M00701, pillar: "Sandboxes + secrets isolation"}
+  - {module: M00702, pillar: "Model compression + hardware-aware model lab"}
+
+# ── E0399 — 7-step methodology + definitions (M00703, dump 12139-12165) — VERBATIM ──
+methodology:
+  module: M00703
+  steps:
+    - {step: MAP, definition: "understand environment before action"}
+    - {step: SPEC, definition: "define intended behavior and constraints"}
+    - {step: TEST, definition: "executable truth / TDD / regression checks"}
+    - {step: ACT, definition: "model/tool/workflow execution"}
+    - {step: EVAL, definition: "trajectory, cost, quality, risk, latency"}
+    - {step: COMMIT, definition: "gated side effects, snapshots, review"}
+    - {step: LEARN, definition: "update memory, model registry, profiles, skills"}
+
+# ── E0400 — the 7 map types (M00704, dump 12183-12189) — VERBATIM ──
+map_types:
+  module: M00704
+  doctrine: "Do not let agents learn the environment only by failing through it. Build a map first"
+  maps: [repo, test, tool, risk, memory, "GUI-world", dependency]
+
+# ── E0400 — 6 inheritance contracts (Symphony) (M00705, dump 12196-12201) — VERBATIM ──
+inheritance_contracts:
+  module: M00705
+  doctrine: "Workflow belongs in version-controlled repo artifacts"
+  contracts: ["SPEC.md", "WORKFLOW.md", "PROFILES.yaml", "EVALS.yaml", "POLICY.yaml", "MODEL_REGISTRY.yaml"]
+
+# ── E0400 — vault-proxy pattern (M00706, dump 12210-12215) — VERBATIM ──
+vault_proxy:
+  module: M00706
+  doctrine: "agent sessions need real isolation, persistent sandboxes, and secret protection"
+  agents_get_stub_keys: ["Claude Code", "OpenCode", "Cline"]
+  jean_gateway_owns: ["real keys", "cost", "policy", "routing"]
+
+# ── E0400 — 7-axis routing (M00707, dump 12219-12226) — VERBATIM ──
+routing_axes:
+  module: M00707
+  doctrine: "many prompts do not deserve the expensive model"
+  axes: ["simple/complex", "private/public", "safe/risky", "coding/research/gui",
+         "local/cloud", "fast/careful", "cheap/oracle"]
+
+# ── E0400/E0402 — model qualification lab (M00708, dump 12234-12241) — VERBATIM ──
+model_lab:
+  module: M00708
+  doctrine: "build a model qualification lab"
+  not: "download model, hope"
+  slots: ["BF16 baseline", FP8, GPTQ, SmoothQuant, AWQ, "NVFP4-MXFP4 when stable",
+          "KV quantization", "profile-specific evals"]
+  fast_blt_rules: ["reduce forward passes", "speculate cheaply", "verify carefully",
+                   "avoid memory bandwidth waste"]
+
+# ── E0402 — North Star + "Evidence-driven autonomy" (dump 12264-12286) — VERBATIM ──
+north_star:
+  components: ["Anthropic-first API gateway", "deterministic AVX-512 control plane",
+               "Blackwell oracle", "4090 scout/sandbox", "model portfolio lab",
+               "MAP/SPEC/TDD workflow compiler", "sandboxed execution",
+               "trace-based evals", "memory/replay/learning"]
+  phrase: "Evidence-driven autonomy"
+  definition: "Not pure agent freedom. Not rigid workflow prison. A system that maps, specifies, tests, acts, evaluates, commits, and learns, using the right amount of intelligence for the task"
+
+# ── E0403 — choice architecture / policy-composable (dump 12372-12395) — VERBATIM ──
+choice_architecture:
+  doctrine: "runtime should not be opinionated in the usual product sense. It should be policy-composable"
+  boundary_choices: ["local or cloud", "fast or careful", "private or shared",
+                     "automatic or gated", "cheap or best", "sandbox or host",
+                     "scout or oracle", "spec-first or exploratory",
+                     "TDD strict or prototype"]
+  closing: "That is sovereignty"
+
+# ── E0404 — choice envelope + 3-domain examples (M00709, dump 12400-12442) — VERBATIM ──
+choice_envelope:
+  module: M00709
+  schema: [domain, options, default, requires]
+  examples:
+    - {domain: model_route,
+       options: [local_scout, local_oracle, cloud_anthropic, cloud_openai],
+       default: local_oracle,
+       requires: {cloud_anthropic: [user_approval, cost_budget, privacy_clearance]}}
+    - {domain: execution, options: [dry_run, sandbox, vm, host], default: sandbox}
+    - {domain: development_mode,
+       options: [exploratory, spec_driven, tdd, spec_plus_tdd, production_verified]}
+  closing: "the system becomes a choice compiler"
+
+# ── E0405 — 4 profile bundles + distinction (M00710/M00711, dump 12448-12491) — VERBATIM ──
+profile_bundles:
+  module: M00710
+  note: "the user can override any axis"
+  bundles:
+    - {profile: private, axes: ["local models", "no network", "no cloud", "sandbox tools"]}
+    - {profile: careful, axes: ["map first", "spec required", "tests required", "oracle review"]}
+    - {profile: fast, axes: ["scout first", "shallow map", "minimal verification"]}
+    - {profile: sovereign, axes: ["user-visible gates", "local memory ownership",
+                                  "explicit external calls", "replay always on"]}
+profile_policy_choice:
+  module: M00711
+  profile: "starting posture"
+  policy: "enforced boundary"
+  choice: "user agency"
+
+# ── E0406 — 8 inheritance artifacts (M00712, dump 12500-12513) — VERBATIM ──
+inheritance_artifacts:
+  module: M00712
+  doctrine: "this is how the conversation becomes executable memory"
+  artifacts: ["VISION.md", "ARCHITECTURE.md", "METHODOLOGY.md", "PROFILES.yaml",
+              "POLICY.yaml", "MODEL_REGISTRY.yaml", "HARDWARE_PROFILES.yaml", "EVALS.yaml"]
+
+# ── E0407 — 8 transparency questions + 8 negotiation axes (M00713, 12530-12613) — VERBATIM ──
+legible_control:
+  module: M00713
+  principle: "sovereign-os should not merely protect the user. It should give the user legible control over intelligence"
+  transparency_questions: ["What is being asked?", "Who is being asked?",
+                           "What context is exposed?", "What cost is incurred?",
+                           "What can change?", "What can be rolled back?",
+                           "What was learned?", "What becomes memory?"]
+  final_phrase: "User-sovereign adaptive intelligence runtime"
+  negotiation_axes: [capability, control, cost, privacy, speed, quality, autonomy, reversibility]
