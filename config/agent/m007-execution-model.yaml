@@ -1,0 +1,71 @@
+# config/agent/m007-execution-model.yaml
+# ============================================================================
+# M007 "Execution model — branch primitive + AVX-512 scheduler" — the
+# execution-model CONTRACT. Materializes the milestone spec (backlog/milestones/
+# M007-...; source raw/dumps/2026-05-18-...AVX-plus-plus.md lines 1228-1600): the
+# branch primitive (E0051), the 8-step branch loop (E0052), the SoA branch state
+# arrays + per-tick ops (E0053), the composable control word + branch queries
+# (E0054), the epistemic roles (E0055), memory typing (E0056), the MemoryRef
+# struct (E0057), and the transactional tool call (E0058). No invention — every
+# entry traces to a module + dump line range.
+#
+# AVX++ CANON UPDATE 2026-05-19 (M061): interpreted under canonical later
+# definitions — Authority Levels 0..6 (ADDITIVE, home M056), Scheduler-as-policy-
+# layer (BREAKING, home M058). Ties: the 8-step branch loop is the precursor of
+# M057's 12-step task lifecycle; the 5 epistemic roles are M075's SRP; the SoA
+# arrays are M050/M051's hot-path SoA; the MemoryRef struct is M054's MemoryRef
+# interface; the transactional tool call is M054's Tool 4-state pipeline.
+# STATUS: spec-materialization (SDD+TDD — the branch/scheduler execution model).
+# Locked to spec by tests/lint/test_m007_execution_model.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M007
+source_dump_lines: "1228-1600"
+canon_note: "M061 pins Scheduler-as-policy-layer (BREAKING, home M058) + Authority Levels (ADDITIVE, home M056)"
+
+# ── E0051 — branch primitive (M00096) — VERBATIM ──
+branch_primitive:
+  module: M00096
+  definition: "live hypothesis with deterministic metadata"
+
+# ── E0052 — 8-step branch loop (M00098, dump 1280-1304) — VERBATIM ──
+branch_loop:
+  module: M00098
+  steps: [Spawn, Retrieve, Draft, Filter, Verify, Act, Commit, Learn]
+
+# ── E0053 — SoA branch state arrays + per-tick ops (M00099/M00100) — VERBATIM ──
+soa_arrays:
+  module: M00099
+  arrays: [id, control, budget, score, flags, grammar, memory, route]
+per_tick_ops:
+  module: M00100
+  masks: ["budget decrement", dead_mask, risk_mask, oracle_mask, scout_mask, tool_mask, merge_mask]
+
+# ── E0054 — composable control word + branch queries (M00103/M00104) — VERBATIM ──
+control_word_fields: [route, task, risk, permissions, grammar, priority, spec_depth, flags]
+branch_queries:
+  module: M00104
+  queries: ["shell-allowed", "file-write-allowed", "JSON-required", "verification-required",
+            "speculative-only", "network-allowed"]
+psychological_shift: "instructions become data / policy becomes bits / reasoning becomes state transitions"
+
+# ── E0055 — epistemic roles, 5 (M00106-M00110, dump 1390-1434) — VERBATIM ──
+epistemic_roles:
+  - {role: Oracle, scope: "final reasoning, hard synthesis, verification, architecture, long context"}
+  - {role: Verifier, scope: "checks claims, code diffs, tool plans; may be oracle with different prompt"}
+  - {role: Scout, scope: "cheap exploration / draft continuations"}
+  - {role: Specialists, scope: "embeddings / rerank / code-local / vision / classification / safety-risk"}
+  - {role: Law, scope: "FSMs / grammar / token masks / permission masks / deterministic tests / scheduler / replay"}
+
+# ── E0056 — memory typing, 6 (dump 1444-1451) — VERBATIM ──
+memory_types: [episodic, semantic, procedural, project, policy, trace]
+
+# ── E0057 — MemoryRef struct, 8 fields (M00111, dump 1456-1465) — VERBATIM ──
+memory_ref:
+  module: M00111
+  fields: [id, type, embedding_ref, trust, freshness, access_count, decay, flags]
+
+# ── E0058 — transactional tool call (dump 1480-1517) — VERBATIM ──
+transactional_tool_call:
+  flow: "intent -> CPU permission check -> execute/ask/rewrite/reject/sandbox"
