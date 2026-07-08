@@ -639,9 +639,13 @@ $('halt-btn').addEventListener('click', async () => {
   // NEUTRALIZED (operator directive: no phantom/broken actions) — `sovereign cost-policy` is not a real sovereign-osctl verb (planned).
       alert('This action is planned — not yet available in sovereign-osctl.\n\nNothing was copied. Tracked for a future release; real controls execute from the Controls rail below.');
 });
-$('export-btn').addEventListener('click', async () => {
-  // NEUTRALIZED (operator directive: no phantom/broken actions) — `sovereign costs` is not a real sovereign-osctl verb (planned).
-      alert('This action is planned — not yet available in sovereign-osctl.\n\nNothing was copied. Tracked for a future release; real controls execute from the Controls rail below.');
+$('export-btn').addEventListener('click', () => {
+  // FUNCTIONAL — "Costs Export" is now a real control (sovereign-osctl costs
+  // export {csv|json}). Jump to it in the Controls rail (read-only export).
+  const surf = document.getElementById('control-surface');
+  const card = surf && surf.querySelector('[data-cid="costs-export"]');
+  (card || surf).scrollIntoView({ behavior: 'smooth', block: 'center' });
+  if (card) { card.style.outline = '2px solid var(--accent, #9bd1ff)'; setTimeout(() => { card.style.outline = ''; }, 1600); }
 });
 
 document.addEventListener('keydown', e => { if ((e.metaKey||e.ctrlKey) && e.key === '5') { e.preventDefault(); refresh(); } });

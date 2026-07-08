@@ -269,3 +269,22 @@ systems:
     privileged: true
     applies_to: [d-10-eval-history]
     refs: [scripts/models/eval.py]
+
+  # ── 14. Costs export — read-only spend-history export (D-04) ──────────
+  - id: costs-export
+    kind: lifecycle
+    scope: scoped
+    label: "Costs Export"
+    description: >-
+      Export the 30-day cloud-spend history (D-04) — pick csv (date,spend rows)
+      or json (the full aggregation model) and dispatch `sovereign-osctl costs
+      export`. Read-only; writes the export to stdout and mutates nothing (not
+      privileged, no sudo).
+    options: [csv, json]
+    options_cli: "sovereign-osctl costs summary"
+    state_cli: "sovereign-osctl costs today"
+    change_cli: "sovereign-osctl costs export {csv|json}"
+    state_path: "M049 span log (read-only aggregation)"
+    privileged: false
+    applies_to: [d-04-costs]
+    refs: [scripts/observability/cost-tracker.py]
