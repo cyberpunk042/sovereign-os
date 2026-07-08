@@ -508,12 +508,12 @@ a11y; contract test catches drift.
 
 <h2>actions <span class="muted" style="font-size:.75rem;font-weight:400">— web emits CLI only; daemon executes after MS003 signature (MS043 R10212)</span></h2>
 <div class="row">
-  <button onclick="emit('sovereignctl memory diff --base ' + diffBase + ' --head ' + diffHead)">planned: diff snapshot</button>
-  <button onclick="emit('sovereignctl memory promote --memory-id <id>')">planned: promote</button>
-  <button onclick="emit('sovereignctl memory pin --memory-id <id> --ttl 24h')">planned: pin (24h)</button>
-  <button class="danger" onclick="emit('sovereignctl memory forget --memory-id <id> --confirm')">planned: forget (destructive, R10184)</button>
-  <button onclick="emit('sovereignctl memory snapshot --tag pre-edit')">planned: snapshot before edit</button>
-  <button onclick="emit('sovereignctl memory undo --change-id <id>')">planned: undo (R10185)</button>
+  <button onclick="load()">refresh diff (live)</button>
+  <button onclick="jumpToControl('memory-decide')">promote — sign off pending change ↓</button>
+  <button onclick="jumpToControl('memory-decide')">pin — sign off pending change ↓</button>
+  <button class="danger" onclick="showToast('forget (R10184, destructive) is Stage 3 — refuse-by-default; override via the logged CLI `sovereign-osctl memory-changes ... --force`')">forget (Stage 3 — destructive, R10184)</button>
+  <button onclick="showToast('snapshot-before-edit is a Stage 3 follow-up (needs the M028 memory-entry store)')">snapshot before edit (Stage 3)</button>
+  <button onclick="showToast('undo (R10185) is a Stage 3 follow-up (needs a change-ledger)')">undo (Stage 3 — R10185)</button>
 </div>
 
 <div class="footer">
@@ -582,8 +582,8 @@ a11y; contract test catches drift.
         <td class="num">${escapeHtml(p.delta)}</td>
         <td class="muted">${escapeHtml(p.requester)}</td>
         <td>
-          <button onclick="emit('sovereignctl memory approve --change-id ${escapeHtml(p.id)}')">approve</button>
-          <button class="danger" onclick="emit('sovereignctl memory reject --change-id ${escapeHtml(p.id)}')">reject</button>
+          <button onclick="jumpToControl('memory-decide')">approve</button>
+          <button class="danger" onclick="jumpToControl('memory-decide')">reject</button>
         </td>
       `;
       pc.appendChild(tr);
@@ -628,6 +628,19 @@ a11y; contract test catches drift.
       f.title = 'active trust dims: ' + dims;
     });
   });
+
+  // SDD-052 — scroll to a functional control in the rail + highlight it. The
+  // memory-decide control EXECUTES via the R10274 control-exec-api rail
+  // (operator-key + type-to-confirm gated); web itself never mutates (R10212).
+  function jumpToControl(cid) {
+    const s = document.getElementById('control-surface');
+    const c = s && s.querySelector('[data-cid="' + cid + '"]');
+    (c || s || document.body).scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (c) {
+      c.style.outline = '2px solid var(--accent,#9bd1ff)';
+      setTimeout(() => { c.style.outline = ''; }, 1600);
+    }
+  }
 
   // copy-to-clipboard helper (web NEVER mutates; emits CLI string only)
   function emit(cmd) {

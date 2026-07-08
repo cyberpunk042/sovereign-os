@@ -8222,9 +8222,30 @@ case "${cmd}" in
     # the M028 Memory OS published state (per-type counts across the 8 memory
     # types, 11-stage admission-lifecycle occupancy, graph diff, pending
     # promote/pin/forget queue + MS039 7 trust dimensions). Read-only; the
-    # sovereign-memory-changes-api daemon serves the D-07 cockpit dashboard
-    # from this same core. Verbs: snapshot / types / lifecycle (+ --json).
-    "${__REPO_ROOT}/scripts/intelligence/memory-changes.py" "$@"
+    # sovereign-memory-changes-api daemon serves the D-07 cockpit dashboard from
+    # this same core. READ verbs (snapshot / types / lifecycle) → memory-changes.py
+    # (never mutates). WRITE verbs (approve / reject / request, SDD-052) →
+    # memory-decide.py: sign off a pending M028 change (approve applies promote/pin;
+    # a pending forget is refused — Stage 3) + record a durable, audited decision.
+    # Decisions are --confirm + operator-key + type-to-confirm gated (via the
+    # cockpit exec daemon) and DRY-RUN by default; MS003 signing is deferred to
+    # selfdef ("unsigned-pending-MS003"). The sovereign-memory-changes-api daemon
+    # stays read-only (405) — the ONLY write path is control-exec-api →
+    # `memory-changes approve|reject`.
+    sub="${1:-snapshot}"
+    shift || true
+    case "${sub}" in
+      snapshot|types|lifecycle)
+        "${__REPO_ROOT}/scripts/intelligence/memory-changes.py" "${sub}" "$@"
+        ;;
+      approve|reject|request)
+        "${__REPO_ROOT}/scripts/intelligence/memory-decide.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown memory-changes subverb: ${sub} (available: snapshot, types, lifecycle, approve, reject, request)"
+        exit 2
+        ;;
+    esac
     ;;
   grants-mirror)
     # M060 D-13 (R10114-R10115): READ-ONLY consumer of the selfdef grants

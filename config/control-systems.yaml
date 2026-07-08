@@ -519,3 +519,25 @@ systems:
     privileged: true
     applies_to: [d-11-adapter-status]
     refs: [scripts/inference/adapter-decide.py]
+
+  # ── 26. Memory-change decision — approve/reject a pending change (D-07, SDD-052) ──
+  - id: memory-decide
+    kind: lifecycle
+    scope: scoped
+    label: "Memory-Change Decision"
+    description: >-
+      Sign off a pending M028 Memory-OS change (SDD-052) — approve (apply the
+      change's op: promote or pin; a pending forget is refused — Stage 3,
+      refuse-by-default with a logged CLI --force override) or reject (discard the
+      pending change). Pick the verb and a change id (mc-<hex>). DRY-RUN by
+      default; the real decision is operator-key + type-to-confirm gated. Recorded
+      to a durable ledger + an OCSF-5001 audit span (D-05/D-16). MS003 signing is
+      delegated to selfdef (signature unsigned-pending-MS003).
+    options: [approve, reject]
+    options_cli: "sovereign-osctl memory-changes snapshot"
+    state_cli: "sovereign-osctl memory-changes snapshot"
+    change_cli: "sovereign-osctl memory-changes {approve|reject} <id> --confirm"
+    state_path: "Memory OS state /run/sovereign-os/memory.json (pending queue)"
+    privileged: true
+    applies_to: [d-07-memory-changes]
+    refs: [scripts/intelligence/memory-decide.py]

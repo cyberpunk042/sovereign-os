@@ -56,7 +56,9 @@ Cmnd_Alias SOVEREIGN_OS_COCKPIT = \
     /usr/local/bin/sovereign-osctl rollback apply --to *, \
     /usr/local/bin/sovereign-osctl adapters promote *, \
     /usr/local/bin/sovereign-osctl adapters demote *, \
-    /usr/local/bin/sovereign-osctl adapters rollback *
+    /usr/local/bin/sovereign-osctl adapters rollback *, \
+    /usr/local/bin/sovereign-osctl memory-changes approve *, \
+    /usr/local/bin/sovereign-osctl memory-changes reject *
 
 # Granted to the OPERATOR USER (the account the panel APIs + agent run as), per
 # operator-sudoers.sh's model — NOT a dedicated service account. `%operator` is
