@@ -21,7 +21,7 @@ CATALOG = REPO / "config" / "dashboard-catalog.yaml"
 EXPECTED_IDS = {
     "os-profile", "runtime-mode", "flex-profile", "cpu-mode", "gpu-mode",
     "dashboard-toggle", "auth-tier", "selfdef", "perimeter",
-    "inference-tier", "workload-knobs",
+    "inference-tier", "workload-knobs", "maintenance",
 }
 VALID_KINDS = {"profile", "mode", "toggle", "lifecycle"}
 VALID_SCOPES = {"global", "scoped"}
@@ -51,7 +51,7 @@ def test_registry_present_and_parses():
     assert r.get("systems"), "registry has no systems"
 
 
-def test_all_eleven_systems_present():
+def test_all_systems_present():
     ids = {s["id"] for s in _systems()}
     assert ids == EXPECTED_IDS, (
         f"registry systems drifted: missing={sorted(EXPECTED_IDS - ids)} "

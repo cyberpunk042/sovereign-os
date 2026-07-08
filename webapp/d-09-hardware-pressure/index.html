@@ -722,8 +722,8 @@ async function refresh() {
 
 $('refresh-btn').addEventListener('click', refresh);
 $('scrub-btn').addEventListener('click', async () => {
-  const cmd = 'sovereign zfs scrub tank';
-  try { await navigator.clipboard.writeText(cmd); alert(`Command copied:\n\n  ${cmd}\n\nRequires operator MS003 signature. Runs zpool scrub on tank/ — verify integrity end-to-end.`); }
+  const cmd = 'sovereign-osctl maintenance scrub';
+  try { await navigator.clipboard.writeText(cmd); alert(`Command copied:\n\n  ${cmd}\n\nOr Execute it from the Maintenance control above (Controls rail). Requires operator MS003 signature. Runs zpool scrub on tank/ — verify integrity end-to-end.`); }
   catch (e) { prompt('Copy + run:', cmd); }
 });
 $('dcgm-export-btn').addEventListener('click', async () => {

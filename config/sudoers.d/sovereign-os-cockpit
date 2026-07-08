@@ -26,7 +26,8 @@
 # SOVEREIGN_OS_OPERATOR_USER); the literal below is a placeholder for preview.
 # ============================================================================
 
-# ── The 9 sovereign-os-OWNED control verbs (config/control-systems.yaml) ──
+# ── The 10 sovereign-os-OWNED control verbs (config/control-systems.yaml) ──
+# selfdef + perimeter are DELIBERATELY absent (R10212: proxy-only, never granted).
 Cmnd_Alias SOVEREIGN_OS_COCKPIT = \
     /usr/local/bin/sovereign-osctl profiles switch *, \
     /usr/local/bin/sovereign-osctl trinity profile switch *, \
@@ -39,7 +40,8 @@ Cmnd_Alias SOVEREIGN_OS_COCKPIT = \
     /usr/local/bin/sovereign-osctl inference start *, \
     /usr/local/bin/sovereign-osctl inference stop *, \
     /usr/local/bin/sovereign-osctl inference restart *, \
-    /usr/local/bin/sovereign-osctl workload-knobs set *
+    /usr/local/bin/sovereign-osctl workload-knobs set *, \
+    /usr/local/bin/sovereign-osctl maintenance *
 
 # Granted to the OPERATOR USER (the account the panel APIs + agent run as), per
 # operator-sudoers.sh's model — NOT a dedicated service account. `%operator` is
