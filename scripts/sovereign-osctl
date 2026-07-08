@@ -8146,14 +8146,29 @@ case "${cmd}" in
     "${__REPO_ROOT}/scripts/lifecycle/session-registry.py" "$@"
     ;;
   approvals)
-    # M060 D-06 (R10088-R10092): operator approval-queue + stage-gate core —
-    # reads the lifecycle/authority engine's pending approval queue + M065 Five
-    # Stage Gate state (SG1-SG5) + MS003 operator-key presence (never reads the
-    # key material). Operator-controlled axiom: "No PR opens past a gate without
-    # operator sign-off." Read-only; the sovereign-approvals-api daemon serves
-    # the D-06 cockpit dashboard from this same core. Verbs: pending / gates /
-    # key (+ --json).
-    "${__REPO_ROOT}/scripts/lifecycle/approval-queue.py" "$@"
+    # M060 D-06 (R10088-R10092): operator approval-queue + stage-gate core.
+    # READ verbs (pending / gates / key) → approval-queue.py (never mutates, never
+    # reads key material). WRITE verbs (approve / deny / defer / request, SDD-048)
+    # → approval-decide.py: transition the M065 SG1-SG5 gate + record a durable,
+    # audited decision. Decisions are --confirm + operator-key + type-to-confirm
+    # gated (via the cockpit exec daemon) and DRY-RUN by default; MS003 signing is
+    # deferred to selfdef (signature "unsigned-pending-MS003"). The
+    # sovereign-approvals-api daemon stays read-only (405) — the ONLY write path is
+    # control-exec-api → `approvals approve|deny|defer`.
+    sub="${1:-pending}"
+    shift || true
+    case "${sub}" in
+      pending|gates|key)
+        "${__REPO_ROOT}/scripts/lifecycle/approval-queue.py" "${sub}" "$@"
+        ;;
+      approve|deny|defer|request)
+        "${__REPO_ROOT}/scripts/lifecycle/approval-decide.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown approvals subverb: ${sub} (available: pending, gates, key, approve, deny, defer, request)"
+        exit 2
+        ;;
+    esac
     ;;
   rollback)
     # M060 D-08 (R10097-R10101): ZFS-snapshot + commit-history rollback-points —

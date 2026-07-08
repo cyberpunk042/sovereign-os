@@ -622,18 +622,41 @@ async function refresh() {
 }
 
 async function handleAction(action, id) {
-  // All mutating actions require MS003 signature via CLI. Web surface
-  // surfaces the action but the actual signing happens in `sovereign approve`
-  // or `selfdef stage-gate sign-off` per MS043 R10210-R10211.
   if (action === 'inspect') {
     location.hash = `#approval-${id}`;
     return;
   }
+  // FUNCTIONAL (SDD-048) — approve/deny/defer are now real controls. Execute the
+  // decision through the sanctioned control-exec-api (the R10274 write daemon);
+  // approvals-api itself stays read-only. DRY-RUN by default; operator-key +
+  // type-to-confirm gated server-side (403 → prompt). Signature deferred to
+  // selfdef MS003.
   const verb = action === 'approve' ? 'approve' : action === 'deny' ? 'deny' : 'defer';
-  // NEUTRALIZED (operator directive: no phantom/broken actions) — `sovereign
-  // approve/deny/defer` is not a real sovereign-osctl verb (approval signing has
-  // no CLI yet). Copy nothing; state the feature is planned. (id: ${id})
-  alert(`Approval "${verb}" is planned — sovereign-osctl has no approve/deny/defer verb yet.\n\nNothing was copied. Tracked for a future release.`);
+  async function post(confirm) {
+    const r = await fetch('/api/control/execute', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ control_id: 'approvals-decide', args: { verb, id }, confirm })
+    });
+    return { status: r.status, body: await r.json().catch(() => ({})) };
+  }
+  try {
+    let res = await post(false);
+    if (res.status === 403 && !res.body.confirm_required) {
+      // operator key present but confirm needed → type-to-confirm, then re-post
+      const typed = window.prompt(`Confirm ${verb} of approval ${id}? Type "${verb}" to proceed:`);
+      if (typed && typed.trim() === verb) res = await post(true);
+      else { alert('Not confirmed — no decision recorded.'); return; }
+    }
+    const b = res.body || {};
+    if (res.status === 200 && b.dry_run) alert(`DRY-RUN: would ${verb} ${id} → ${b.would && b.would.status}. (Enable live mode to apply.)`);
+    else if (res.status === 200) alert(`${verb} recorded for ${id} (status ${b.status}${b.gate_signed ? ', gate ' + b.gate_signed + ' signed' : ''}).`);
+    else if (res.status === 403) alert(`Blocked: ${b.error || 'operator key + confirmation required'}.`);
+    else if (res.status === 405 || res.status === 409) alert('Execution not available on this origin — run `sovereign-osctl approvals ' + verb + ' ' + id + ' --confirm` from the terminal.');
+    else alert(`Error ${res.status}: ${b.error || 'decision failed'}.`);
+  } catch (e) {
+    alert('Exec endpoint unreachable — run `sovereign-osctl approvals ' + verb + ' ' + id + ' --confirm` from the terminal.');
+  }
+  if (typeof refresh === 'function') try { refresh(); } catch (e) { /* noop */ }
 }
 
 $('refresh-btn').addEventListener('click', refresh);

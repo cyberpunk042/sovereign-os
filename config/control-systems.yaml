@@ -350,3 +350,24 @@ systems:
     privileged: true
     applies_to: [d-08-rollback-points]
     refs: [scripts/lifecycle/rollback-points.py]
+
+  # ── 18. Approval decision — approve/deny/defer a queued approval (D-06) ──
+  - id: approvals-decide
+    kind: lifecycle
+    scope: scoped
+    label: "Approval Decision"
+    description: >-
+      Decide a pending operator approval (SDD-048) — approve (sign the M065 SGn
+      gate), deny (record rejected, gate stays pending), or defer (re-queue with a
+      defer-until). Pick the verb and an approval id (or `latest` = most urgent).
+      DRY-RUN by default; the real decision is operator-key + type-to-confirm
+      gated. Recorded to a durable ledger + an OCSF-5001 audit span (D-05/D-16).
+      MS003 signing is delegated to selfdef (signature unsigned-pending-MS003).
+    options: [approve, deny, defer, latest]
+    options_cli: "sovereign-osctl approvals pending"
+    state_cli: "sovereign-osctl approvals pending"
+    change_cli: "sovereign-osctl approvals {approve|deny|defer} <id> --confirm"
+    state_path: "/run/sovereign-os/approvals.json + approval-decisions.jsonl (M065 SG1-SG5)"
+    privileged: true
+    applies_to: [d-06-pending-approvals]
+    refs: [scripts/lifecycle/approval-decide.py]
