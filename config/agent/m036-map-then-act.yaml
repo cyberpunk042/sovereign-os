@@ -1,0 +1,63 @@
+# config/agent/m036-map-then-act.yaml
+# ============================================================================
+# M036 "MAP — map-then-act paradigm" — the map-then-act + SDLC-governance
+# CONTRACT. Materializes the milestone spec (backlog/milestones/M036-..., dump
+# 10426-10582): the MAP 3 steps + SDLC formal sequence (E0339), the Symphony
+# spec-governance artifacts (E0340), the agent eval signal catalog +
+# Goldilocks-with-evals (E0341), the Adaptive Router builder (E0343), and the
+# Model Lab benchmark + score-by-profile catalogs (E0344). No invention — every
+# entry traces to a module + dump line range.
+#
+# META: the Symphony spec-governance (SPEC.md / WORKFLOW.md / TESTS / EVALS /
+# PROFILES) mirrors sovereign-os's OWN SDD+TDD methodology (SDD-000 charter) —
+# the same spec-driven discipline this materialization pass follows.
+# STATUS: spec-materialization (SDD+TDD — precedes the MAP runtime).
+# Locked to spec by tests/lint/test_m036_map_then_act.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M036
+source_dump_lines: "10426-10582"
+
+# ── E0339 — MAP 3 steps (M00595-M00597, dump 10426-10428) — VERBATIM ──
+map_steps:
+  module_range: "M00595-M00597"
+  steps: [global-exploration, task-specific-map, knowledge-augmented-execution]
+
+# ── E0339 — SDLC formal sequence (M00598, dump 10452) — VERBATIM ORDER ──
+sdlc_sequence:
+  module: M00598
+  stages: [SPEC, MAP, PLAN, ACT, TEST, EVAL, COMMIT, LEARN]
+
+# ── E0340 — Symphony spec governance (M00599-M00603, dump 10473-10477) — VERBATIM ──
+spec_governance:
+  module_range: "M00599-M00603"
+  artifacts:
+    - {module: M00599, artifact: SPEC.md, role: "product/architecture intent"}
+    - {module: M00600, artifact: WORKFLOW.md, role: "local agent policy"}
+    - {module: M00601, artifact: TESTS, role: "executable truth"}
+    - {module: M00602, artifact: EVALS, role: "quality envelope"}
+    - {module: M00603, artifact: PROFILES, role: "adaptive behavior modes"}
+
+# ── E0341 — agent eval signal catalog (M00604, dump 10487-10497) — VERBATIM ──
+eval_signals:
+  module: M00604
+  signals: [trace, trajectory, tool_calls, env_before_after, test_results, cost,
+            latency, model_route, human_interventions, pass_fail_reason]
+
+# ── E0341 — Goldilocks-with-evals (M00605, dump 10504-10508) — VERBATIM ──
+goldilocks_with_evals:
+  module: M00605
+  principle: "not too cheap / slow / risky / overpowered; just enough intelligence for task"
+
+# ── E0344 — Model Lab benchmark catalog (M00607, dump 10562-10568) — VERBATIM ──
+model_lab_benchmarks:
+  module: M00607
+  quantizations: ["BF16/FP16-baseline", FP8, "GPTQ-W4A16", "SmoothQuant-W8A8",
+                  "KV-cache-quantization", "NVFP4-MXFP4"]
+
+# ── E0344 — Model Lab score-by-profile catalog (M00608, dump 10574-10582) — VERBATIM ──
+model_lab_scores:
+  module: M00608
+  metrics: [coding_quality, tool_call_reliability, json_schema_validity, latency,
+            vram, tokens_per_sec, energy, eval_pass_rate]
