@@ -1,0 +1,131 @@
+# config/hardware/m051-devops-fullstack-ai-expert.yaml
+# ============================================================================
+# M051 "DevOps + Fullstack + AI expert layer" — the engineering-detail CONTRACT.
+# Materializes the milestone spec (backlog/milestones/M051-..., dump 15362-15705):
+# the AVX-512 Cortex (E0488), Hot Data Layout (E0489), CPU Feature Dispatch
+# (E0490), Blackwell Oracle Plane (E0491), 4090 Scout Plane (E0492), Memory
+# Hierarchy (E0493), DevOps Services + Slices (E0494), Container Strategy (E0495),
+# Policy+Observability+Fullstack+AI-Expert layers (E0496), and the Core
+# Engineering Law + architect view (E0497). No invention — every entry traces to
+# a module + dump line range.
+#
+# Operator directive 15705 (sacrosanct): "The ultimate AI workstation with so
+# many features and intelligence and fine-tuning". Core Engineering Law (dump
+# 15702): "Cloud providers optimize for average users at fleet scale. Sovereign-OS
+# optimizes for one user, one machine, one memory, one workflow, with total
+# continuity. That is the advantage." Ties: the 9-array SoA + hot loop is the
+# concrete engineering of M050's columnar hot data; the 9 systemd services realize
+# M045's agent lifecycle; the AI Expert 6 model types feed M042's router.
+# STATUS: spec-materialization (SDD+TDD — the DevOps/fullstack/AI-expert engineering).
+# Locked to spec by tests/lint/test_m051_devops_fullstack_ai_expert.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M051
+source_dump_lines: "15362-15705"
+
+# ── E0488 — AVX-512 Cortex (M00850/M00851/M00852, dump 15376-15404) — VERBATIM ──
+avx512_cortex:
+  instruction_groups: [AVX512F, BW, DQ, VL, VNNI, VPOPCNTDQ, BITALG, "VBMI/VBMI2",
+                       BF16, IFMA, VP2INTERSECT, GFNI, "AVX-VNNI"]
+  cpu_owns: [bitsets, routing, "branch tables", "token masks", "policy masks",
+             "memory metadata", "reward vectors", "workflow state"]
+  design_rule: "Anything tiny, branchy, sparse, permissioned, or stateful belongs on CPU. Anything dense, neural, matrix-heavy belongs on GPU"
+
+# ── E0489 — Hot Data Layout (M00853/M00854, dump 15422-15446) — VERBATIM ──
+hot_data_layout:
+  doctrine: "The AVX core should never chase object graphs"
+  bad_pattern: "Vec<Branch { id, score, risk, flags, ... }>"
+  soa_arrays: ["branch_id[]", "score_q16[]", "risk_u8[]", "budget_u16[]", "flags_u64[]",
+               "route_u8[]", "model_id_u16[]", "memory_ref_u64[]", "kv_ref_u64[]"]
+  hot_loop: ["load 8-64 state elements", "compare budgets", "merge policy masks",
+             "score candidates", "compress survivors", "enqueue model/tool work"]
+  closing: "This is the deterministic engine"
+
+# ── E0490 — CPU Feature Dispatch (M00855, dump 15456-15476) — VERBATIM ──
+cpu_feature_dispatch:
+  module: M00855
+  doctrine: "Do not compile one binary and hope. Runtime CPUID picks the path"
+  build_paths: ["scalar baseline", "AVX2 path", "AVX-512 generic path", "Zen5 AVX-512 path"]
+  zen5_flags: ["-march=znver5", "-O3 or targeted optimization", "LTO for hot library",
+               "profile-guided optimization later"]
+  library_note: "Keep the AVX engine as a separate library, probably Rust with C/C++ intrinsics where needed, or C++ core with safe bindings"
+
+# ── E0491 — Blackwell Oracle Plane (M00856/M00857, dump 15486-15510) — VERBATIM ──
+blackwell_oracle_plane:
+  crown: "The RTX PRO 6000 96GB is the crown; its job is to stay loaded with high-value model state"
+  uses: ["large oracle model", "final code review", "long-context synthesis",
+         "RLM parent calls", "high-risk decision verification",
+         "model compression/FP8/FP4 experiments"]
+  should_receive: ["dense batches", "high-value branches", "distilled context",
+                   "shared prefixes", "verification candidates"]
+  duty: "The scheduler's duty is to protect the oracle"
+
+# ── E0492 — 4090 Scout Plane (M00858/M00859, dump 15520-15538) — VERBATIM ──
+scout_plane_4090:
+  doctrine: "The 4090 is not 'lesser.' It is a different organ"
+  uses: ["small language models", "draft models", "embeddings", "rerankers",
+         "GUI-perception", "classification", "tool-plan generation",
+         "cheap branch expansion", "sandbox model work"]
+  vfio_note: "If VFIO-isolated, treat it as a separate local machine. Compact messages only"
+
+# ── E0493 — Memory Hierarchy (M00860/M00861, dump 15548-15580) — VERBATIM ──
+memory_hierarchy:
+  tiers:
+    - {tier: "ZMM registers", holds: "nanosecond policy state"}
+    - {tier: "CPU cache", holds: "branch-memory metadata"}
+    - {tier: "RAM", holds: "active memory graph + context arenas + ZFS ARC"}
+    - {tier: "Blackwell VRAM", holds: "oracle weights + hot KV/context"}
+    - {tier: "4090 VRAM", holds: "scout weights + embeddings + perception"}
+    - {tier: "NVMe-ZFS", holds: "raw traces + snapshots + model artifacts + cold memory"}
+  memory_item_schema: ["text/blob ref", "embedding ref", "bitset metadata", "trust",
+                       "freshness", "privacy class", "KV-cache refs", "last-use stats"]
+
+# ── E0494 — DevOps Services + Slices (M00862, dump 15588-15612) — VERBATIM ──
+devops_services:
+  module: M00862
+  services: ["sovereign-gateway.service", "blackwell-oracle.service", "scout-4090.service",
+             "avx-cortex.service", "memory-os.service", "policy-engine.service",
+             "eval-worker.service", "sandbox-manager.service", "otel-collector.service"]
+  slices: ["ai-critical.slice", "ai-models.slice", "ai-sandbox.slice",
+           "ai-evals.slice", "ai-background.slice"]
+  note: "Then cgroup v2 can enforce CPU/memory/IO budgets"
+
+# ── E0495 — Container Strategy (M00863, dump 15620-15640) — VERBATIM ──
+container_strategy:
+  module: M00863
+  base: "Podman/Quadlet for persistent services + sandboxes; NVIDIA CDI exposes GPUs declaratively"
+  container_classes: ["model server containers", "tool sandboxes", "eval runners",
+                      "browser/GUI agents", "build/test environments",
+                      "memory/index services"]
+  doctrine: "Do not throw everything into Kubernetes by default. Single-node systemd + Podman is a better workstation-first base. Kubernetes can be a later profile"
+
+# ── E0496 — Policy + Observability + Fullstack + AI Expert (M00864, 15648-15700) — VERBATIM ──
+policy_and_observability:
+  module: M00864
+  policy_checkpoints: ["model call", "tool call", "memory write", "file write",
+                       "network access", "cloud provider call", "adapter load",
+                       "sandbox escape risk"]
+  policy_doctrine: "policy is runtime law, not documentation"
+fullstack_cockpit:
+  doctrine: "Fullstack here is not marketing UI. It is cockpit design"
+  cockpit_shows: ["what is running", "what it costs", "what it can touch",
+                  "what it changed", "what is waiting for approval",
+                  "what can be resumed", "what can be rolled back"]
+ai_expert_layer:
+  model_types: ["LLM synthesis", "SLM cheap reflex", "RLM recursive context",
+                "RM-PRM value-process scoring", "VLM perception", "LoRA adapters"]
+  routing: "runtime routes to them by profile, context, risk, cost, and eval history"
+
+# ── E0497 — Core Engineering Law + architect view (M00865/M00866, 15702-15716) — VERBATIM ──
+core_engineering_law:
+  module: M00865
+  lines: ["Cloud providers optimize for average users at fleet scale.",
+          "Sovereign-OS optimizes for one user, one machine, one memory, one workflow, with total continuity.",
+          "That is the advantage."]
+architect_view:
+  module: M00866
+  machine_should_feel_like: ["an OS kernel for intelligence", "a lab for models",
+                             "a cockpit for user choice", "a harness for safe action",
+                             "a memory system for continuity",
+                             "a devops platform for local autonomy"]

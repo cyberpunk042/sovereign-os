@@ -1,0 +1,55 @@
+# config/inference/m076-load-balancing-profiles.yaml
+# ============================================================================
+# M076 "Three load-balancing profiles (Ultra-Sovereign Efficiency /
+# High-Concurrency Burst / Deep Context Synthesis)" — the runtime-profile
+# CONTRACT. Materializes the milestone spec (backlog/milestones/M076-...; source
+# raw/dumps/2026-05-15-sain-01-master-spec-...md Section 18 lines 852-926): the 3
+# workload-aware runtime profiles (E0728-E0737), each with purpose + hardware
+# allocation + orchestration vector. No invention — every entry traces to a module
+# + dump line range.
+#
+# Doctrinal anchor (dump 853): "To implement this architecture deterministically,
+# you must construct explicit runtime configuration profiles. These profiles are
+# ingested by the orchestration layer to dynamically balance model deployment
+# across your hardware based on current workload demands". Ties: this is the
+# spec-source for the profiles/runtime/*.yaml family (verbatim-locked to EXACTLY
+# these 3 M076 profiles by test_runtime_profiles_verbatim — do NOT add a 4th here);
+# the D-21 cockpit Profiles row renders these; Profile 1 pins M075's Conductor to
+# M070's CCD-0 cores; the M041 orchestration-intent family (D-21) is a SEPARATE
+# axis authored under profiles/orchestration/ (not these load-balancing profiles).
+# STATUS: spec-materialization (SDD+TDD — the 3 workload-aware runtime profiles).
+# Locked to spec by tests/lint/test_m076_load_balancing_profiles.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M076
+source_dump_lines: "852-926"
+
+doctrinal_anchor: "explicit runtime configuration profiles ingested by the orchestration layer to dynamically balance model deployment across your hardware based on current workload demands"
+
+# ── E0728-E0737 — the 3 load-balancing profiles (M01258/M01259/M01260) — VERBATIM ──
+profiles:
+  - id: 1
+    module: M01258
+    name: "Ultra-Sovereign Efficiency Mode"
+    focus: "CPU Focused"
+    purpose: "continuous background state monitoring + log auditing + autonomous maintenance (near-zero power draw)"
+    allocation: "Conductor pinned to CPU cores 0-7, executes BitNet-b1.58-3B via bitnet.cpp; GPUs into low-power sleep states (nvidia-smi -pm 1, core clocks throttled); no scheduling across physical CCD boundary"
+    orchestration: 'taskset -c 0-7 bitnet-cli -m ./models/bitnet_b1_58_3b/ggml-model-i2.gguf --threads 8 --memory-f32'
+
+  - id: 2
+    module: M01259
+    name: "High-Concurrency Agent Burst Mode"
+    focus: "Asymmetric Load Balancing"
+    purpose: "multiple specialist sub-agents on an extensive code repository simultaneously"
+    allocation: "conductor_01 (CPU cores 0-11, BitNet-b1.58-13B) + translator_01 (cuda:0 22GB, vllm-vulkan, Qwen-32B-Ternary-Quant) + deep_reasoner_01 (cuda:1 94GB, llama.cpp, DeepSeek-R1-Distill-Llama-70B-FP16)"
+    strategy: "host CPU coordinates state tracking; workloads strictly distributed per VRAM + compute generation"
+
+  - id: 3
+    module: M01260
+    name: "Deep Context Synthesis Mode"
+    focus: "Unified Memory Span"
+    purpose: "reading whole-system telemetry / parsing entire application source files"
+    allocation: "layers 0-30 pinned to GPU 0 / layers 31-80 pinned to GPU 1 / KV Cache 4-bit width"
+    strategy: "chain dual GPUs via unified memory OR optimized layer split maps; CPU runs streaming tokenizers only"
+    orchestration: 'podman run --device nvidia.com/gpu=all ... --tensor-parallel-size 2 --pipeline-parallel-size 1 --gpu-memory-utilization 0.95 --kv-cache-dtype fp8'

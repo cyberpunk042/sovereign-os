@@ -1,0 +1,53 @@
+# config/hardware/m039-avx512-cortex-hot-path.yaml
+# ============================================================================
+# M039 "AVX-512 cortex hot path" — the hot-path CONTRACT. Materializes the
+# milestone spec (backlog/milestones/M039-..., dump 11191-11265): the Zen 5
+# clocking + workload shape (E0369), the 9 hot-path SoA arrays + Zen 5 lane counts
+# (E0370), the "CPU is the goldilocks brainstem" principle (E0371), and the
+# AVX-512-ops-to-station-roles mapping (E0372). No invention — every entry traces
+# to a module + dump line range.
+#
+# Ties: the 9 SoA arrays are the concrete layout behind M021/M027's hot-state SoA;
+# the ops-to-roles mapping instantiates M010's SIMD libraries + M038's instruction
+# families on the M075 Conductor (CPU) tier.
+# STATUS: spec-materialization (SDD+TDD — the hot-path memory layout).
+# Locked to spec by tests/lint/test_m039_avx512_cortex_hot_path.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M039
+source_dump_lines: "11191-11265"
+
+# ── E0369 — Zen 5 clocking + workload shape (M00646/M00647) — VERBATIM ──
+zen5_clocking:
+  module: M00646
+  note: "Zen 5 adaptive clocking — NOT crude fixed AVX-512 offsets (per Chips and Cheese)"
+workload_shape:
+  module: M00647
+  shape: "bursts (NOT one giant burn forever)"
+
+# ── E0370 — the 9 hot-path SoA arrays (M00648-M00656, dump 11209-11217) — VERBATIM ──
+hot_path_soa:
+  module_range: "M00648-M00656"
+  arrays: [branch_id, control_u64, budget_u16, risk_u8, score_q16, route_u8,
+           model_id_u16, memory_ref_u64, kv_ref_u64]
+
+# ── E0370 — Zen 5 lane counts (M00657, dump 11222-11227) — VERBATIM ──
+zen5_lane_counts:
+  module: M00657
+  lanes: {u64: 8, u32: 16, u16: 32, u8: 64, boolean_flags: 512}
+
+# ── E0371 — the brainstem principle (M00658, dump 11242) — VERBATIM ──
+brainstem_principle:
+  module: M00658
+  statement: "CPU is the goldilocks brainstem"
+
+# ── E0372 — AVX-512 ops mapped to station roles (M00659, dump 11251-11265) — VERBATIM ──
+ops_to_roles:
+  module: M00659
+  mapping:
+    - {op: simdjson, role: parsing}
+    - {op: VP2INTERSECT, role: intersections}
+    - {op: VPOPCNTDQ, role: sketch-scoring}
+    - {op: VPTERNLOG, role: policy-fusion}
+    - {op: VPCOMPRESS, role: sparse-to-dense-pack}

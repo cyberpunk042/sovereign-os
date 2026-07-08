@@ -1,0 +1,148 @@
+# config/execution/m057-task-lifecycle.yaml
+# ============================================================================
+# M057 "Data flow and lifecycle — 12-step task lifecycle" — the lifecycle
+# CONTRACT. Materializes the milestone spec (backlog/milestones/M057-..., dump
+# 17532-17914): the 12-step Task Lifecycle (E0548) with per-step detail
+# (E0549-E0556), and the Critical Data Flow Law + end-to-end example (E0557). No
+# invention — every entry traces to a module + dump line range.
+#
+# Framing (dump 17538): "how a real task moves through the station from user
+# intent to durable learning". Critical Data Flow Law (dump 17882): "Text is not
+# the system state. Text is payload inside typed state". Ties: this 12-step flow
+# is the runtime realization of M053's MAP->SPEC->TEST->ACT->EVAL->COMMIT->LEARN
+# loop; each step consumes M054's typed interfaces (Step 1-2 Gateway, Step 3
+# Profile Resolver, Step 6 Router, Step 7-8 Tool, Step 9 Eval, Step 12 Workflow);
+# the failure surfaces at every step map to M055's 10 taxonomies; commit gates
+# enforce M056's authority levels.
+# STATUS: spec-materialization (SDD+TDD — the 12-step task lifecycle).
+# Locked to spec by tests/lint/test_m057_task_lifecycle.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M057
+source_dump_lines: "17532-17914"
+
+# ── E0548-E0556 — the 12-step Task Lifecycle — VERBATIM ──
+lifecycle_steps:
+  - {step: 1, name: Intake}
+  - {step: 2, name: Normalize}
+  - {step: 3, name: "Profile Resolve"}
+  - {step: 4, name: Map}
+  - {step: 5, name: "Plan / Compile"}
+  - {step: 6, name: Route}
+  - {step: 7, name: Execute}
+  - {step: 8, name: Observe}
+  - {step: 9, name: Evaluate}
+  - {step: 10, name: "Commit / Rollback"}
+  - {step: 11, name: Learn}
+  - {step: 12, name: "Resume / Archive"}
+
+# ── E0549 — Step 1 Intake (M00953) — VERBATIM ──
+intake:
+  module: M00953
+  sources: ["Claude Code", "Cline", "OpenCode", "local dashboard", "CLI", "MCP", "API",
+            "scheduled automation", "file watcher", "human voice-text later"]
+  gateway_fields: [request_id, trace_id, client_id, profile_hint, privacy_context, budget_hint]
+
+# ── E0550 — Step 2 Normalize + Step 3 Profile Resolve (M00954/M00955) — VERBATIM ──
+normalize:
+  module: M00954
+  external_formats: ["Anthropic message", "OpenAI chat", "MCP tool call", "CLI task", "GUI action"]
+  target: RuntimeRequest
+  note: "This keeps clients replaceable"
+profile_resolve:
+  module: M00955
+  postures: [fast, careful, private, offline, research, autonomous, experimental, production]
+  resolved_fields: ["cost limit", "cloud permission", "sandbox level", "memory depth",
+                    "oracle requirement", "test requirement", "human gate threshold"]
+
+# ── E0551 — Step 4 Map, 4 domain maps (M00956, dump 17660-17698) — VERBATIM ──
+map:
+  module: M00956
+  doctrine: "MAP prevents blind action"
+  domain_maps:
+    - {domain: code, includes: "repo structure + language/framework + test commands + dependency graph + recent failures + relevant files + project policy"}
+    - {domain: research, includes: "source landscape + claim types + freshness requirements + citation needs"}
+    - {domain: GUI, includes: "screen elements + state machine + allowed actions + risk zones"}
+    - {domain: "OS/admin", includes: "service state + logs + hardware pressure + rollback points + permissions"}
+
+# ── E0552 — Step 5 Plan/Compile + Step 6 Route (M00957/M00958) — VERBATIM ──
+plan_compile:
+  module: M00957
+  node_types: ["model call", "tool call", "memory read", "test run", "policy gate",
+               "human gate", "eval", "commit"]
+  recompile: "The plan is not fixed forever. It can recompile after observations"
+route:
+  module: M00958
+  examples:
+    - {node: "draft patch", target: "4090 scout"}
+    - {node: "hard diagnosis", target: "Blackwell oracle"}
+    - {node: "memory filter", target: "AVX cortex"}
+    - {node: "file read", target: "tool sandbox"}
+    - {node: "test run", target: "container"}
+    - {node: "private final answer", target: "local-only model"}
+    - {node: "high-stakes external claim", target: "cloud optional only if approved"}
+  factors: [profile, cost, latency, risk, "hardware pressure", "cache/KV state",
+            "model eval history", privacy]
+
+# ── E0553 — Step 7 Execute + Step 8 Observe (M00959/M00960) — VERBATIM ──
+execute:
+  module: M00959
+  environments: ["model server", "REPL", "shell", "container", "VM", "browser",
+                 "memory service", "symbolic planner", "policy engine"]
+  note: "Every execution emits trace events"
+observe:
+  module: M00960
+  categories: ["stdout/stderr", "exit code", "files changed", "network touched",
+               "tokens used", "latency", "GPU/CPU pressure", "model output",
+               "tool output", "test results"]
+  note: "Observation is ground truth for the workflow"
+
+# ── E0554 — Step 9 Evaluate + Step 10 Commit/Rollback (M00961/M00962) — VERBATIM ──
+evaluate:
+  module: M00961
+  axes: [tests, "schema validation", "policy compliance", "trajectory quality", cost,
+         risk, "user satisfaction", "oracle/verifier score"]
+  outcomes: [continue, retry, escalate, rollback, commit]
+commit_rollback:
+  module: M00962
+  commit_evidence_code: ["diff valid", "tests pass or failure understood", "snapshot exists",
+                         "policy allows write", "review gate satisfied"]
+  rollback_steps: [rollback, "archive branch", "store failure", "replan"]
+  note: "ZFS snapshots make this practical"
+
+# ── E0555 — Step 11 Learn (M00963, dump 17840-17858) — VERBATIM ──
+learn:
+  module: M00963
+  before_weights: ["store trace", "update memory", "update route statistics", "add eval case",
+                   "promote skill", "adjust profile defaults", "tag model failure"]
+  later_with_weights: ["curate dataset", "train LoRA", "evaluate adapter", "promote adapter"]
+
+# ── E0556 — Step 12 Resume/Archive (M00964, dump 17866-17878) — VERBATIM ──
+resume_archive:
+  module: M00964
+  states: [active, paused, waiting_user, waiting_tool, hibernated, completed, failed,
+           rolled_back, archived]
+  resume_requires: ["trace summary", "current state", "open risks", "next action", "staleness check"]
+
+# ── E0557 — Critical Data Flow Law + end-to-end example (M00965-M00968) — VERBATIM ──
+data_flow_law:
+  module: M00965
+  law: "Text is not the system state. Text is payload inside typed state"
+  real_state: [frames, routes, policies, "memory refs", "tool observations",
+               "eval results", commits, traces]
+  closing: "This is what makes the system programmable and continuous"
+end_to_end_example:
+  module: M00967
+  user_input: "fix failing parser test"
+  flow:
+    - {stage: Intake, detail: "Claude Code request enters gateway"}
+    - {stage: Profile, detail: "careful_code"}
+    - {stage: Map, detail: "inspect repo, detect test runner, find parser files"}
+    - {stage: Compile, detail: "read files -> run targeted test -> draft patch -> verify -> apply -> retest"}
+    - {stage: Route, detail: "4090 drafts / AVX filters / Blackwell reviews / container tests"}
+    - {stage: Observe, detail: "test output + diff + changed files"}
+    - {stage: Evaluate, detail: "tests pass + no forbidden files + cost acceptable"}
+    - {stage: Commit, detail: "snapshot + apply diff + trace record"}
+    - {stage: Learn, detail: "store command + failure pattern + useful files"}
+  closing: "That is the practical flow"

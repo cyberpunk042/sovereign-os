@@ -1,0 +1,77 @@
+# config/inference/m077-nvfp4-pipeline.yaml
+# ============================================================================
+# M077 "NVFP4 pretraining + inference pipeline (Blackwell-native 4-bit, RHT + 2D
+# quantization + stochastic rounding + selective high-precision)" — the
+# 4-bit-training CONTRACT. Materializes the milestone spec (backlog/milestones/
+# M077-...; source arXiv 2509.25149 "Pretraining Large Language Models with NVFP4"
+# NVIDIA + companion arXiv 2505.19115): the NVFP4 format (E0738), the 4 method
+# components RHT/2D-quant/stochastic-rounding/selective-high-precision
+# (E0739-E0742), the hardware target (E0743), the training + inference pipelines
+# (E0744/E0745), the LoRA path (E0746), and ecosystem awareness (E0747). No
+# invention — verbatim quotes preserved; provenance via HF MCP paper_search
+# (authenticated user jfortin) 2026-05-19.
+#
+# Doctrinal anchor (arXiv 2509.25149 verbatim): "we introduce a novel approach for
+# stable and accurate training of large language models (LLMs) using the NVFP4
+# format. Our method integrates Random Hadamard transforms (RHT) to bound
+# block-level outliers, employs a two-dimensional quantization scheme for
+# consistent representations across both the forward and backward passes, utilizes
+# stochastic rounding for unbiased gradient estimation, and incorporates selective
+# high-precision layers". CATALOG POSITIONING: NVFP4 is NOT a replacement for
+# M073 BitNet ternary — ternary is 1-bit CPU-inference-first (Pulse, Profile 1);
+# NVFP4 is 4-bit Blackwell-native PRETRAINING + Oracle-Core inference (M075 Oracle,
+# Profile 3). Per operator "you cannot invent crap, you cannot re-invent" — this
+# is a hardware-fact capability derived from NVIDIA's published technique.
+# STATUS: spec-materialization (SDD+TDD — the NVFP4 4-bit training/inference pipeline).
+# Locked to spec by tests/lint/test_m077_nvfp4_pipeline.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M077
+source: "arXiv 2509.25149 (NVIDIA) + companion arXiv 2505.19115"
+
+# ── E0738 — NVFP4 format spec (M01275/M01276, arXiv 2505.19115) — VERBATIM ──
+nvfp4_format:
+  module: M01275
+  element_format: "E2M1 (4-bit floating-point per parameter)"
+  block_size: 16
+  block_scale_format: "E4M3 (FP8)"
+  spec_quote: "each block of 16 FP4 values (E2M1) shares a scale represented in E4M3, provides optimal results"
+
+# ── E0739-E0742 — the 4 method components (M01277-M01280, arXiv 2509.25149) — VERBATIM ──
+method_components:
+  - {component: "Random Hadamard transforms (RHT)", module: M01277, purpose: "bound block-level outliers"}
+  - {component: "two-dimensional quantization scheme", module: M01278, purpose: "consistent representations across both the forward and backward passes"}
+  - {component: "stochastic rounding", module: M01279, purpose: "unbiased gradient estimation"}
+  - {component: "selective high-precision layers", module: M01280, purpose: "escape hatch for sensitivity-bound layers"}
+
+# ── E0743 — hardware target (M01283) — VERBATIM ──
+hardware_target:
+  module: M01283
+  gpu: "NVIDIA Blackwell (RTX PRO 6000 96GB per M044 substrate)"
+  cuda_arch: "sm_120"
+
+# ── E0744/E0745 — training + inference pipelines (M01281/M01282/M01285) — VERBATIM ──
+training_pipeline:
+  fwd: {module: M01281}
+  bwd: {module: M01282}
+  scope: "fully NVFP4 forward + backward pass"
+inference_pipeline:
+  module: M01285
+  scope: "NVFP4 weight + activation quantization at serving time"
+
+# ── E0746 — LoRA Foundry NVFP4 path (M01287, Quartet II) — VERBATIM ──
+lora_path:
+  module: M01287
+  scope: "adapter training in 4-bit (M046 extension, Quartet II integration)"
+
+# ── E0747 — ecosystem awareness (arXiv companions) — VERBATIM ──
+ecosystem:
+  alternative_recipes: ["Quartet II", "IF4 (Adaptive Block-Scaled)", "Four Over Six", "nGPT-NVFP4"]
+  blackwell_speedup: "4.2x speedup over BF16 on Blackwell (Quartet II benchmark)"
+
+# ── validation (M01284, arXiv 2509.25149) — VERBATIM ──
+validation:
+  module: M01284
+  run: "12-billion-parameter model on 10 trillion tokens — the longest publicly documented training run in 4-bit precision to date"
+  result: "training loss and downstream task accuracies comparable to an FP8 baseline"

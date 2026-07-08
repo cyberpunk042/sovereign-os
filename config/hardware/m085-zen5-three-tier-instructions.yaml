@@ -1,0 +1,68 @@
+# config/hardware/m085-zen5-three-tier-instructions.yaml
+# ============================================================================
+# M085 "Zen 5 AVX-512 three-tier instruction exploitation (T1 quant/dot · T2
+# bitwise/attention · T3 structure/prune/KV)" — the instruction-tier CONTRACT.
+# Materializes the milestone spec (backlog/milestones/M085-...; source: operator
+# handwritten note uploaded 2026-07-02): the 3 instruction tiers (E0808-E0813),
+# the margin popcount + PAM-3 path (E0814/E0815), and precision-as-flexible-profile
+# (E0816). No invention — operator's verbatim French labels preserved; the
+# VPDOTBF16PLUS -> VDPBF16PS transcription mapping preserved per sacrosanct-words.
+#
+# Doctrinal anchor (operator note, verbatim structure): "9900X (Zen 5) -> Dual
+# Native 512-bit Pipes" driving three tiers — T1 "Moteur de Quantisation & Dot
+# Product (VNNI)", T2 "Logique Bitwise & Attention (Ternary/Mask)", T3
+# "Structuration, Elagage & KV-Cache (VBMI/CD)". Transcription note: the operator's
+# mnemonic VPDOTBF16PLUS denotes BF16 dot-product-accumulate; the shipping x86
+# instruction is VDPBF16PS under avx512_bf16 (the name used in crates/sovereign-vnni).
+# Ties: codified in crates/sovereign-vnni (T1) + crates/sovereign-bitops (T2/T3) +
+# crates/sovereign-linear (Precision::Int8) + crates/sovereign-inference-demo (live
+# 4-precision stack); refines M073 ternary + M074 VNNI + M077 NVFP4 into named
+# tiers on M075's Conductor. Operator 2026-07-02: "everything is flexible ... options
+# and opt in and out and profiles".
+# STATUS: spec-materialization (SDD+TDD — the Zen 5 3-tier instruction program).
+# Locked to spec by tests/lint/test_m085_zen5_three_tier_instructions.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M085
+source: "operator handwritten note uploaded 2026-07-02"
+
+driver: "9900X (Zen 5) -> Dual Native 512-bit Pipes"
+
+# ── E0808-E0813 — the 3 instruction tiers — VERBATIM (operator French labels) ──
+tiers:
+  - id: T1
+    label: "Moteur de Quantisation & Dot Product (VNNI)"
+    crate: "crates/sovereign-vnni"
+    instructions:
+      - {mnemonic: "VPDPBUSD", purpose: "Calcul matriciel INT8 (cycle unique)"}
+      - {mnemonic: "VPDOTBF16PLUS", x86: "VDPBF16PS", flag: "avx512_bf16", purpose: "Multiplication floues BF16 (dot-product-accumulate)"}
+  - id: T2
+    label: "Logique Bitwise & Attention (Ternary/Mask)"
+    crate: "crates/sovereign-bitops"
+    instructions:
+      - {mnemonic: "VPTERNLOGD/Q", purpose: "Fusion de logique 3-en-1 (LUT)"}
+      - {mnemonic: "VP2INTERSECTD/Q", purpose: "Correlation de tokens en 1 cycle"}
+  - id: T3
+    label: "Structuration, Elagage & KV-Cache (VBMI/CD)"
+    crate: "crates/sovereign-bitops"
+    instructions:
+      - {mnemonic: "VPERMB/VPSHLDV", purpose: "Alignement & shuffling de tokens"}
+      - {mnemonic: "VPCOMPRESSB/VPEXPANDB", purpose: "Compactage dynamique"}
+
+# ── E0814/E0815 — margin (popcount + PAM-3 GDDR7) — VERBATIM ──
+margin:
+  popcount: "VPOPCNT + VPTERNLOG (ternary/mask kernels)"
+  signal: "Pulse Amplitude Modulation (PAM-3) GDDR7 (memory-substrate property; catalog-only)"
+
+# ── E0816 — precision as flexible profile (operator 2026-07-02) — VERBATIM ──
+precision_profile:
+  crate: "crates/sovereign-precision-profile::PrecisionProfile"
+  shape: "declarative per-layer precision + per-tier flags, f32-default opt-out, presets, serde"
+  operator_directive: "everything is flexible ... options and opt in and out and profiles"
+
+# ── runtime status (built vs awaiting-consumer vs catalog-only) — VERBATIM ──
+runtime_status:
+  built_and_running: ["E0808 INT8", "E0809 BF16", "E0812 VPERMB/VPSHLDV", "E0813 VPCOMPRESS/VPEXPAND"]
+  built_awaiting_consumer: ["E0810 VPTERNLOG", "E0811 VP2INTERSECT", "E0814 popcount"]
+  catalog_only: ["E0815 PAM-3/GDDR7"]

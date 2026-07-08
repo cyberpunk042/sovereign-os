@@ -1,0 +1,56 @@
+# config/inference/m004-oracle-scout-arbiter.yaml
+# ============================================================================
+# M004 "Oracle / Scout / Vector Arbiter role split" — the 5-plane role CONTRACT.
+# Materializes the milestone spec (backlog/milestones/M004-...; source raw/dumps/
+# 2026-05-18-...AVX-plus-plus.md lines 566-722): the 5 planes/roles (E0032-E0036),
+# the boundary transport policy (E0037), the speculative-decoding pipeline
+# (E0038), the constraint-automata principle (E0039), and bitset routing (E0040).
+# No invention — every entry traces to a module + dump line range.
+#
+# Ties: this is the early role-split that M075 refines into the named SRP topology
+# (Conductor/Logic/Oracle); the boundary transport policy (compact symbols only) is
+# M043/M050's compact-move-vs-avoid-move discipline; the cortex lane fields are the
+# u64 control word of M002; the speculative-decoding pipeline is M083's DFlash path.
+# STATUS: spec-materialization (SDD+TDD — the 5-plane Oracle/Scout/Arbiter roles).
+# Locked to spec by tests/lint/test_m004_oracle_scout_arbiter.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M004
+source_dump_lines: "566-722"
+
+# ── E0032-E0036 — the 5 planes/roles (M00045-M00056) — VERBATIM ──
+planes:
+  - {role: "Oracle Core", hardware: "RTX PRO 6000", duty: "deep resident model / final verification / high-quality generation"}
+  - {role: "Scout", hardware: "RTX 4090", duty: "draft / sandbox / side models"}
+  - {role: "Vector Arbiter", hardware: "Ryzen 9900X AVX-512", duty: "control plane / cortex"}
+  - {role: "Memory Plane", hardware: "256GB DDR5", duty: "working memory + queues + context arena"}
+  - {role: "Storage Plane", hardware: "NVMe/ZFS", duty: "replay + datasets + checkpoints + cold memory"}
+
+# ── E0037 — boundary transport policy (M00058/M00059, dump 526-547) — VERBATIM ──
+boundary_transport:
+  move: ["tokens", "scores", "refs", "summaries"]
+  prohibit: ["KV tensors", "activations", "layer-split", "constant sync"]
+
+# ── E0038 — speculative decoding pipeline (M00060, dump 470-488) — VERBATIM ──
+speculative_decoding:
+  module: M00060
+  pipeline: "4090 drafts N tokens x N branches -> CPU filter -> RTX PRO verify"
+
+# ── E0039 — constraint automata (M00061, dump 911-933) — VERBATIM ──
+constraint_automata:
+  principle: "model = creative engine / CPU = deterministic law"
+  per_branch_contract_masks: ["citations", "code-mode", "no-tools", "JSON-grammar",
+                              "risky-alternative", "compress", "N-step terminate"]
+
+# ── E0040 — bitset routing (dump 935-943) — VERBATIM ──
+bitset_routing: "512 candidate memories per ZMM"
+
+# ── E0034 — cortex lane fields + law (M00052/M00053, dump 456-465 + 1098-1104) — VERBATIM ──
+cortex_lane_fields:
+  module: M00052
+  fields: ["agent type", "confidence", "budget", "risk", "memory pointer", "flags", "grammar", "mode"]
+cortex_law:
+  module: M00053
+  enforces: ["invalid token masks", "forbidden tool rejection", "branch expiry",
+             "schema enforcement", "memory admission", "GPU routing"]

@@ -1,0 +1,61 @@
+# config/agent/m065-stage-gates.yaml
+# ============================================================================
+# M065 "Five Stage Gates SG1-SG5 + ExitPlanMode checkpoint ritual" — the
+# gate-governance CONTRACT. Materializes the milestone spec (backlog/milestones/
+# M065-...; source raw/dumps/2026-05-16-sovereign-os-macro-arc-plan.md lines
+# 321-330 + per-gate detail): the 5 stage gates SG1-SG5 (E0628-E0632), the
+# ExitPlanMode-style checkpoint ritual (E0633), the no-PR-past-unsigned-gate hard
+# rule (E0634), the sign-off audit trail + transport (E0635/E0636), and
+# gate-blocked parallel work (E0637). No invention — every entry traces to a
+# module + dump line range.
+#
+# Doctrinal anchor (dump 329): "Each gate is an ExitPlanMode-style checkpoint where
+# execution pauses, operator reviews, and explicitly authorizes the next phase. No
+# PR opens past a gate without operator sign-off". Ties: the 5 gates are the
+# propose->approve->execute boundary over M062's 10-PR macro-arc + M063's SFIF
+# phases; SG2 resolves M064's Q-016; every gate sign-off is MS003-signed + emits
+# M049 trace + OCSF-5001 (R10212 boundary preserved — sovereign-os owns the gate
+# ritual, selfdef MS003 provides the chain-of-trust transport as a consumed service).
+# STATUS: spec-materialization (SDD+TDD — the SG1-SG5 gate ritual governance).
+# Locked to spec by tests/lint/test_m065_stage_gates.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M065
+source_dump_lines: "321-330,79-82,113-117,167-168,217-218,281-282"
+
+doctrinal_anchor: "Each gate is an ExitPlanMode-style checkpoint where execution pauses, operator reviews, and explicitly authorizes the next phase. No PR opens past a gate without operator sign-off"
+
+# ── E0628-E0632 — the 5 stage gates SG1-SG5 (M01088-M01092) — VERBATIM ──
+stage_gates:
+  - {gate: SG1, module: M01088, after_pr: 3, scope: "structural foundation review",
+     detail: "operator confirms repo rhythm matches selfdef; authorizes substantive-SDD phase (PRs 4-8)"}
+  - {gate: SG2, module: M01089, after_pr: 4, scope: "substrate decision",
+     detail: "operator picks tooling + resolves Q-016 (distro-base) + Q-001 (substrate tooling); no code-bearing PR until substrate locked"}
+  - {gate: SG3, module: M01090, after_pr: 6, scope: "schema lock-in",
+     detail: "schema may be revised once instances reveal gaps; locked thereafter (operator-signed override only)"}
+  - {gate: SG4, module: M01091, after_pr: 8, scope: "whitelabel mechanism + legal posture confirmed",
+     detail: "operator OPTIONALLY supplies actual brand identity (name + palette + logo)"}
+  - {gate: SG5, module: M01092, after_pr: 10, scope: "foundation-complete gate",
+     detail: "authorizes Stage 2 — first actual build scripts"}
+
+# ── E0633 — ExitPlanMode-style checkpoint ritual (M01093, dump 328-329) — VERBATIM ──
+checkpoint_ritual:
+  module: M01093
+  steps: ["execution pauses", "operator reviews", "explicitly authorizes"]
+
+# ── E0634 — no-PR-past-unsigned-gate hard rule (M01099, dump 330) — VERBATIM ──
+hard_rule:
+  module: M01099
+  rule: "no PR opens past a gate without operator sign-off"
+
+# ── E0635/E0636 — sign-off audit trail + transport (M01098/M01097) — VERBATIM ──
+sign_off:
+  audit_recorded: "timestamp + actor + rationale"
+  transport: "signed via selfdef MS003 chain-of-trust"
+  emits: "OCSF Configuration Change class 5001 + M049 trace"
+
+# ── E0637 — gate-blocked parallel work (M01100, dump 8) — VERBATIM ──
+parallel_work:
+  module: M01100
+  rule: "alternative work CAN proceed in parallel where dependency-permitting"

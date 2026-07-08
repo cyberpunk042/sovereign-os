@@ -1,0 +1,44 @@
+[Unit]
+Description=Sovereign model-catalog read-only API + D-23 dashboard host
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/operator/models-catalog-api.py
+# Read-only observation surface: reuses the shared catalog reader
+# (scripts/inference/model-health.py load_catalog) to render the canonical
+# model registry (models/catalog.yaml) grouped by SRP tier. There is NO
+# mutation surface — model lifecycle is signed `sovereign-osctl models …`
+# CLI verbs, never web mutations (R10212).
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/lib/sovereign-os/scripts/operator/models-catalog-api.py
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+Environment=MODELS_CATALOG_API_BIND=127.0.0.1
+Environment=MODELS_CATALOG_API_PORT=8123
+
+# R171 defense-in-depth (Layer-1 lint enforced). Read-only HTTP surface;
+# reads models/catalog.yaml + appends the metrics textfile.
+ProtectSystem=strict
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/lib/node_exporter/textfile_collector
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+
+[Install]
+WantedBy=multi-user.target

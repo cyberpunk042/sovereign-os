@@ -1,0 +1,68 @@
+# config/agent/m005-agent-runtime-planes.yaml
+# ============================================================================
+# M005 "Agent runtime — four planes (Inference / Control / Memory / Tool)" — the
+# agent-runtime CONTRACT. Materializes the milestone spec (backlog/milestones/
+# M005-...; source raw/dumps/2026-05-18-...AVX-plus-plus.md lines 723-993): the
+# branch struct (E0041), the branch lifecycle states (E0042), the AVX-512
+# scheduler tick (E0043), the constraint-automata FSMs (E0044), the auditable
+# replay log (E0045), and the three big wins (E0046). No invention — every entry
+# traces to a module + dump line range.
+#
+# AVX++ CANON UPDATE 2026-05-19 (M061): this milestone is interpreted under the
+# canonical later definitions — Core Law (CLARIFYING), Authority Levels 0..6
+# (ADDITIVE, canonical home M056), Scheduler-as-policy-layer (BREAKING, canonical
+# home M058). Ties: the branch struct's 8 u64 fields are M002's control-word lane
+# layout; the scheduler tick is the runtime realization of M058's Goldilocks
+# scheduler; the constraint FSMs are M004's constraint automata; the specialist
+# market on the 4090 is M075's Logic/Scout.
+# STATUS: spec-materialization (SDD+TDD — the branch/scheduler/FSM agent runtime).
+# Locked to spec by tests/lint/test_m005_agent_runtime_planes.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M005
+source_dump_lines: "723-993"
+canon_note: "M061 pins Scheduler-as-policy-layer (BREAKING, home M058) + Authority Levels (ADDITIVE, home M056)"
+
+# ── E0041 — branch struct, 8 u64 fields (M00062, dump 752-760) — VERBATIM ──
+branch_struct:
+  module: M00062
+  fields: [id, parent_id, control, score, budget, memory_ref, constraint_mask, rng]
+
+# ── E0042 — branch lifecycle states, 9 (M00063, dump 1260-1271) — VERBATIM ──
+lifecycle_states:
+  module: M00063
+  states: [drafted, verified, merged, killed, expanded, routed, summarized,
+           "tool-executed", committed]
+
+# ── E0043 — AVX-512 scheduler tick, 7 ops (M00064, dump 776-787) — VERBATIM ──
+scheduler_tick:
+  module: M00064
+  ops: [decrement, drop, boost, route, merge, admit, evict]
+
+# ── E0041 — control-word field layout, 9 fields (M00065, dump 793-805) — VERBATIM ──
+control_word_fields:
+  module: M00065
+  fields:
+    - {name: "model route", bits: "0..3"}
+    - {name: "task type", bits: "4..7"}
+    - {name: "max speculation", bits: "8..15"}
+    - {name: "risk", bits: "16..23"}
+    - {name: "tool perms", bits: "24..31"}
+    - {name: "memory policy", bits: "32..39"}
+    - {name: "grammar mode", bits: "40..47"}
+    - {name: "priority", bits: "48..55"}
+    - {name: "lifecycle flags", bits: "56..63"}
+
+# ── E0044 — constraint-automata FSMs, 5 (M00074/M00075/M00076, dump 911-913) — VERBATIM ──
+constraint_fsms:
+  fsms: ["JSON", "grammar", "tool", "shell-command", "patch"]
+  runs_on: "CPU (deterministic)"
+
+# ── E0045 — auditable replay log, 8 stages (M00073, dump 898-907) — VERBATIM ──
+replay_log:
+  module: M00073
+  stages: [input, chunks, drafts, oracle, "tool calls", patches, tests, final]
+
+# ── E0046 — three big wins (M00068/M00069/M00074, dump 826-933) — VERBATIM ──
+three_big_wins: ["oracle calls scarce", "4090 specialists", "CPU constraint automata"]

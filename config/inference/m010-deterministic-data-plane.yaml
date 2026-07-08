@@ -1,0 +1,59 @@
+# config/inference/m010-deterministic-data-plane.yaml
+# ============================================================================
+# M010 "Deterministic data plane" — the SIMD data-processing CONTRACT.
+# Materializes the milestone spec (backlog/milestones/M010-..., dump 2273-2449):
+# the 3 SIMD libraries (E0078), the token-law masks (E0081), the AVX-512 branch
+# primitives (E0080), the memory bitmap index + six-sketch row (E0082), the
+# 8-stage tool-call transaction (E0083), and the CPU-pipeline runtime stages
+# (E0084). No invention — every entry traces to a module + dump line range.
+#
+# Ties: the 8-stage tool-call transaction (M00162) is the deterministic
+# validation the M014 tool sandboxes + scripts/operator/_action_exec.py enforce;
+# the token-law masks feed M013's sovereign_cpu_mask_compute_us / json_validate_us.
+# STATUS: spec-materialization (SDD+TDD — precedes the runtime).
+# Locked to spec by tests/lint/test_m010_deterministic_data_plane.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M010
+source_dump_lines: "2273-2449"
+
+# ── E0078 — the 3 SIMD libraries (M00147-M00149, dump 2273-2285) ──
+simd_libraries:
+  - {module: M00147, library: simdjson, path: "AVX-512", role: "JSON / tool-call validation (gigabytes/sec)"}
+  - {module: M00148, library: Hyperscan, path: "AVX-512", role: "regex / policy matching (SIMD automata)"}
+  - {module: M00149, library: CRoaring, path: "AVX2/AVX-512", role: "memory-set intersection (compressed bitmaps)"}
+
+# ── E0081 — Token Law Engine masks (M00150/M00155, dump 2349-2351) — VERBATIM ──
+token_law_masks:
+  module: M00155
+  masks: [grammar, schema, tool, safety]     # composed over the vocab bitset
+
+# ── E0080 — AVX-512 branch primitives (M00151-M00152, dump 2321-2331) ──
+avx512_branch_primitives:
+  - {module: M00151, primitive: VPCONFLICT, use: "duplicate detection in vectorized hash/table updates"}
+  - {module: M00152, primitive: "VPCOMPRESS/VPEXPAND", use: "pack active branches into dense GPU batches"}
+
+# ── E0082 — memory bitmap index (M00158, dump 2358-2360) — VERBATIM dims ──
+memory_bitmap_index:
+  module: M00158
+  intersect_dimensions: [project, topic, freshness, trust, permissions]
+
+# ── E0082 — memory-item six-sketch row (M00161, dump 2398-2404) — VERBATIM ──
+memory_item_sketch:
+  module: M00161
+  row_width: u64
+  fields: [topic, entity, tool, trust_flags, freshness, permissions]
+
+# ── E0083 — tool-call 8-stage transaction (M00162, dump 2412-2421) — VERBATIM ──
+# The deterministic gate M014 sandboxes + _action_exec.py enforce, in order.
+tool_call_transaction:
+  module: M00162
+  stages: [parse-json, validate-schema, scan-policy, check-permission-bits,
+           check-workspace-bounds, check-branch-budget, classify-risk,
+           commit-or-reject]
+
+# ── E0084 — CPU-pipeline runtime stages (M00163, dump 2431-2449) — VERBATIM ──
+cpu_pipeline_stages:
+  module: M00163
+  stages: [Fetch, Decode, Execute, Validate, Retire, Commit]

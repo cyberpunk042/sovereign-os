@@ -1,0 +1,64 @@
+# config/agent/m029-computer-use.yaml
+# ============================================================================
+# M029 "Computer-Use plane — perception + planning + execution" — the
+# computer-use CONTRACT. Materializes the milestone spec
+# (backlog/milestones/M029-..., dump 8509-8646): the 3 layers + perceive-once
+# doctrine (E0270), the GUI-state + typed-action JSON + runtime gate predicates
+# (E0272), the state-machine memory (E0273), and the 5 autonomy profiles (E0274).
+# No invention — every entry traces to a module + dump line range.
+#
+# The 6 gate predicates gate through M010's tool transaction; the 5 autonomy
+# profiles map to M014 trust zones + the cockpit human-gate; human-gate-needed =
+# M015's Human Gate Node.
+# STATUS: spec-materialization (SDD+TDD — precedes the computer-use runtime).
+# Locked to spec by tests/lint/test_m029_computer_use.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M029
+source_dump_lines: "8509-8646"
+
+# ── E0270 — the 3 layers (M00476-M00478, dump 8509-8516) — VERBATIM ──
+layers:
+  - {module: M00476, layer: Perception, does: "screenshot → UI elements → bounding boxes → semantic labels"}
+  - {module: M00477, layer: Planning, does: "task → current UI state → action plan / state machine"}
+  - {module: M00478, layer: Execution, does: "click / type / scroll / hotkey / upload / download / browser actions under policy"}
+
+# ── E0270 — perceive-once doctrine (M00479, dump 8523-8532) — VERBATIM ──
+perceive_once_doctrine:
+  module: M00479
+  rule: "build UI state machine; act programmatically; only re-query model on state change or rising uncertainty"
+
+# ── E0272 — GUI State JSON shape (M00480, dump 8563-8578) — VERBATIM ──
+gui_state_json:
+  module: M00480
+  shape: "{window, url, elements: [{id, type, text, bbox, interactable, risk}]}"
+  element_fields: [id, type, text, bbox, interactable, risk]
+
+# ── E0272 — Typed Action JSON (M00481, dump 8580-8589) — VERBATIM ──
+typed_action_json:
+  module: M00481
+  fields: [action, target_id, reason, requires_confirmation]
+
+# ── E0272 — runtime gate predicates (M00482, dump 8591-8600) — 6 VERBATIM ──
+runtime_gate_predicates:
+  module: M00482
+  predicates: [target-exists, target-interactable, action-allowed, risk-acceptable,
+               credential-payment-destructive-state, human-gate-needed]
+
+# ── E0273 — state-machine memory + state attributes (M00483/M00484) — VERBATIM ──
+state_machine_memory:
+  module: M00483
+  example_sequence: "login → credentials → dashboard → search → detail → export → downloaded"
+state_attributes:
+  module: M00484
+  attributes: [recognition-features, allowed-actions, expected-transitions,
+               failure-handlers, risk-flags]
+
+# ── E0274 — the 5 autonomy profiles (M00485-M00489, dump 8633-8646) — VERBATIM ──
+autonomy_profiles:
+  - {module: M00485, profile: observe_only, allows: "screenshot/parse, no actions"}
+  - {module: M00486, profile: assistive, allows: "suggest actions, user clicks"}
+  - {module: M00487, profile: supervised, allows: "agent acts, asks before risky steps"}
+  - {module: M00488, profile: sandbox, allows: "agent acts freely in VM/browser sandbox"}
+  - {module: M00489, profile: autonomous_low_risk, allows: "repetitive non-sensitive tasks"}

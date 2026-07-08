@@ -1,0 +1,61 @@
+# config/observability/m013-bit-control-and-tracing.yaml
+# ============================================================================
+# M013 "Observability as control input" — E0111 "Bit-level control with
+# telemetry" (worker status word + branch-routing masks, modules M00212-M00214)
+# + E0112 "Tracing is crucial" (trace mapping, module M00215). Materialized from
+# the milestone spec (dump 3194-3242).
+#
+# FIDELITY: the routing-mask boolean expressions (M00213/M00214) and the trace
+# mapping (M00215) are VERBATIM from the dump. The status-word FIELDS (M00212)
+# are verbatim; the per-field bit WIDTHS are `proposed: true` — an agent-drafted
+# allocation (SB-095: flagged agent-draft, operator-revisable), since the dump
+# specifies the 8 fields + "64-bit" but not exact bit positions.
+#
+# STATUS: spec-materialization (SDD+TDD — precedes the runtime). Locked to the
+# spec by tests/lint/test_m013_observability_plane_metrics.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M013
+
+# ── M00212 — Worker 64-bit status word (E0111, dump 3194-3205) ──
+# Fields VERBATIM; bit widths agent-PROPOSED (8 bits/field = 64), operator-revisable.
+worker_status_word:
+  module: M00212
+  dump_lines: "3194-3205"
+  width_bits: 64
+  bit_layout_proposed: true          # SB-095 agent-draft flag
+  fields:
+    - {name: load,        offset: 0,  bits: 8}
+    - {name: memory,      offset: 8,  bits: 8}
+    - {name: thermal,     offset: 16, bits: 8}
+    - {name: queue,       offset: 24, bits: 8}
+    - {name: error,       offset: 32, bits: 8}
+    - {name: health,      offset: 40, bits: 8}
+    - {name: policy_mode, offset: 48, bits: 8}
+    - {name: flags,       offset: 56, bits: 8}
+
+# ── M00213/M00214 — Branch-routing masks (E0111, dump 3211-3227) — VERBATIM ──
+branch_routing_masks:
+  - id: route_to_oracle
+    module: M00213
+    dump_lines: "3211-3217"
+    expression: "value_high & oracle_healthy & not_vram_pressure & branch_needs_verification"
+    terms: [value_high, oracle_healthy, not_vram_pressure, branch_needs_verification]
+  - id: route_to_scout
+    module: M00214
+    dump_lines: "3221-3227"
+    expression: "scout_healthy & low_risk & draft_expected_useful & branch_budget_ok"
+    terms: [scout_healthy, low_risk, draft_expected_useful, branch_budget_ok]
+
+# ── M00215 — Trace mapping (E0112, dump 3238-3242) — VERBATIM ──
+# The OCSF-5001 spans emitted by scripts/operator/_action_exec.py already conform
+# to this trace/span hierarchy for cockpit actions (span_id = tool call level).
+trace_mapping:
+  module: M00215
+  dump_lines: "3238-3242"
+  levels:
+    - {id: trace_id,  maps_to: "user request"}
+    - {id: span_id,   maps_to: "branch step / model call / tool call"}
+    - {id: branch_id, maps_to: "runtime object"}
+    - {id: commit_id, maps_to: "accepted transition"}

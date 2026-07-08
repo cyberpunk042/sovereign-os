@@ -1,0 +1,69 @@
+# config/agent/m028-memory-os.yaml
+# ============================================================================
+# M028 "Memory OS — 8 memory types" — the memory CONTRACT. Materializes the
+# milestone spec (backlog/milestones/M028-..., dump 8158-8331): the memory types
+# + ground-truth preservation layer (E0260/E0261), the MemoryItem struct +
+# hot/cold split (E0262), the temporal-memory query verbs (E0263), the admission
+# rules + 11-stage lifecycle (E0264), and the RLM memory navigator (E0265). No
+# invention — every entry traces to a module + dump line range.
+#
+# NOTE: the milestone TITLE says "8 memory types"; the module table names 7
+# explicitly (M00459-M00465) + the ground-truth preservation layer (M00466). The
+# 7 named types are materialized verbatim; NO 8th type name is fabricated (the
+# 8th is recorded as the count discrepancy for dump-extraction).
+#
+# KV Memory (type 7) = M011's KV hierarchy; Value Memory (type 6) = M026/M027
+# reward; the lifecycle's quarantine/verify = M014 filesystem import pipeline.
+# STATUS: spec-materialization (SDD+TDD — precedes the memory OS).
+# Locked to spec by tests/lint/test_m028_memory_os.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M028
+source_dump_lines: "8158-8331"
+
+# ── E0260 — the memory types (M00459-M00465, dump 8158-8177) — 7 NAMED VERBATIM ──
+memory_types:
+  - {type: 1, module: M00459, name: Working Memory, holds: "current task / active branches / local facts / tool outputs"}
+  - {type: 2, module: M00460, name: Episodic Memory, holds: "full traces / conversations / task attempts / failures / user corrections"}
+  - {type: 3, module: M00461, name: Semantic Memory, holds: "distilled facts / concepts / summaries / project knowledge"}
+  - {type: 4, module: M00462, name: Procedural Memory, holds: "skills / workflows / command recipes / successful tool sequences"}
+  - {type: 5, module: M00463, name: Temporal Graph Memory, holds: "entities / relationships / timestamps / changing facts"}
+  - {type: 6, module: M00464, name: Value Memory, holds: "what worked / what failed / which model/tool/profile succeeded"}
+  - {type: 7, module: M00465, name: KV Memory, holds: "cached model prefixes / reusable prompt blocks / context blocks"}
+title_says_eight: true       # 7 named above; 8th type name NOT fabricated (dump-extract)
+
+# ── E0261 — ground-truth preservation layer (M00466, dump 8190-8200) — VERBATIM ──
+ground_truth_layer:
+  module: M00466
+  layers: [raw-episode, derived-facts, summary, graph-edges, embeddings,
+           bitset-metadata, trust-score, freshness]
+
+# ── E0262 — MemoryItem struct, 10 uint64_t fields (M00467, dump 8208-8220) — VERBATIM ──
+memory_item:
+  module: M00467
+  field_type: uint64_t
+  fields: [id, type, source_ref, time_range, trust, freshness, topic_sketch,
+           entity_sketch, value_score, flags]
+
+# ── E0263 — temporal-memory query verbs (M00469, dump 8254-8262) — VERBATIM ──
+temporal_query_verbs:
+  module: M00469
+  verbs: [true-then, true-now, changed, contradicted-by, last-verified]
+
+# ── E0264 — admission rules (M00470, dump 8272-8289) ──
+admission_rules:
+  module: M00470
+  store_if_trigger_count: 8
+  ignore_if: [transient, low-trust, duplicate, noisy, unverified]
+
+# ── E0264 — memory lifecycle 11-stage pipeline (M00471, dump 8295-8308) — VERBATIM ORDER ──
+memory_lifecycle:
+  module: M00471
+  stages: [observe, classify, quarantine, link, score, store-raw, extract-facts,
+           verify, promote, decay, archive]
+
+# ── E0265 — RLM memory navigator (M00472, dump 8312-8331) — VERBATIM ──
+rlm_memory_navigator:
+  module: M00472
+  behavior: "gets memory environment; writes queries/scripts; spawns child calls over slices; returns composed answer"

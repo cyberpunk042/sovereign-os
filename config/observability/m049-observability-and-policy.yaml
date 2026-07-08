@@ -1,0 +1,132 @@
+# config/observability/m049-observability-and-policy.yaml
+# ============================================================================
+# M049 "Continuity through observability and policy" — the observability+policy
+# CONTRACT. Materializes the milestone spec (backlog/milestones/M049-..., dump
+# 14812-15120): the Observability Fabric + OTel GenAI conventions + 16-event
+# taxonomy + 13-field span (E0469/E0470), self-hosted observability (E0471),
+# Telemetry As Control (E0472), the Policy Fabric (E0473), Intent-Based Policy
+# (E0474), Policy-Aware Memory (E0475), Configuration Continuity (E0476), and
+# Continuity Of Control + 13-module map + per-module 6-exposure standard (E0477).
+# No invention — every entry traces to a module + dump line range.
+#
+# Operator directive 14812 (sacrosanct): "Think of every modules and features and
+# configurations and continuity of what we are doing". Doctrine (dump 14834): the
+# system must be "more legible" than cloud. KEY LINE (dump 15116): "Continuity is
+# preserving the chain from intent to action to consequence to learning". Ties:
+# the 16-event / 13-field span schema is the OCSF-5001 span emitted by
+# scripts/operator/_action_exec.py to SOVEREIGN_OS_SPAN_STORE; the Policy Fabric
+# is the enforcement backbone behind R10212's producer/consumer boundary and
+# R10274's signed-mutation gate; the 13-module map extends M048's 10 organs with
+# Policy Fabric + Config Resolver + Hardware Profiler.
+# STATUS: spec-materialization (SDD+TDD — the observability + policy backbone).
+# Locked to spec by tests/lint/test_m049_observability_and_policy.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M049
+source_dump_lines: "14812-15120"
+
+legibility_doctrine: "Every module must leave traces that can feed adaptation"
+
+# ── E0469 — OTel GenAI conventions (M00817, dump 14848-14860) — VERBATIM ──
+otel_genai:
+  module: M00817
+  conventions: ["model calls", "agent/framework spans", "events", "metrics",
+                "token usage fields", "provider/model attributes"]
+  note: "Sovereign-OS can make AI work observable using an open standard, not vendor lock-in"
+
+# ── E0470 — 16-event taxonomy + 13-field span (M00818/M00819) — VERBATIM ──
+event_taxonomy:
+  module: M00818
+  events: [model_call, tool_call, memory_read, memory_write, route_decision,
+           policy_decision, sandbox_start, sandbox_stop, test_run, eval_score,
+           checkpoint, rollback, human_gate, cloud_call, cost_event]
+span_fields:
+  module: M00819
+  fields: [profile, model, provider, hardware, tokens, latency, cost, risk,
+           memory_refs, tool_refs, policy_result, branch_id, trace_id]
+  note: "A task no longer disappears when the answer is done. It becomes part of the system's experience"
+
+# ── E0471 — self-hosted observability (M00820, dump 14904-14922) — VERBATIM ──
+self_hosted:
+  module: M00820
+  langfuse: "self-hostable + OTel ingestion + token usage + cost tracking + prompts + datasets + scores"
+  phoenix: "self-hostable + OTel/OpenInference-based + tracing/evaluation of LLM apps"
+  short_term: "OTel collector + Phoenix/Langfuse-style UI"
+  long_term: "native sovereign trace store tied to memory/evals/policy"
+  doctrine: "Do not lock into a UI. Lock into trace semantics"
+
+# ── E0472 — Telemetry As Control (M00821, dump 14934-14956) — VERBATIM ──
+telemetry_as_control:
+  module: M00821
+  doctrine: "Most observability tools show you what happened after the fact. Your system should use telemetry in real time"
+  reactions:
+    - {trigger: "cost spike", action: "downgrade profile or ask user"}
+    - {trigger: "tool failure repeats", action: "stop branch + re-map"}
+    - {trigger: "model hallucination pattern detected", action: "require oracle/test verifier"}
+    - {trigger: "memory retrieval low quality", action: "widen map + rerank + ask user"}
+    - {trigger: "GPU pressure high", action: "reduce branch width"}
+    - {trigger: "human gates too frequent", action: "improve policy defaults + batch approvals"}
+  closing: "This is the difference between logging and intelligence"
+
+# ── E0473 — Policy Fabric (M00822/M00823, dump 14964-15000) — VERBATIM ──
+policy_fabric:
+  module: M00822
+  engines:
+    - {engine: "OPA/Rego", role: "broad policy-as-code + flexible + good for infrastructure"}
+    - {engine: Cedar, role: "authorization decisions + readable user/action/resource policies"}
+    - {engine: OpenFGA, role: "relationship permissions + user/project/team/resource graphs"}
+  decisions: ["Can this model see this context?", "Can this agent use this tool?",
+              "Can this workflow call cloud?", "Can this sandbox access network?",
+              "Can this memory be written?", "Can this action mutate files?",
+              "Can this result be committed?"]
+
+# ── E0474 — Intent-Based Policy (M00824, dump 15008-15038) — VERBATIM ──
+intent_based_policy:
+  module: M00824
+  classic: "Can subject do action on object?"
+  agent: "Can subject do action on object for this intent under this profile?"
+  input_fields: [subject, action, resource, intent, profile, risk, "model/provider",
+                 "context sensitivity", "side effect class", "user approval state"]
+  closing: "That is sovereignty"
+
+# ── E0475 — Policy-Aware Memory (M00825/M00826, dump 15048-15064) — VERBATIM ──
+policy_aware_memory:
+  doctrine: "Memory is not neutral"
+  sensitivity_classes: [private, "project-local", "cloud-forbidden", "time-limited",
+                        "user-only", quarantined, verified, derived, raw]
+  policy_check: ["memory sensitivity <= model clearance", "provider allowed",
+                 "profile allows exposure", "intent matches"]
+  closing: "This is how local memory becomes safe enough to be rich"
+
+# ── E0476 — Configuration Continuity (M00827/M00828, dump 15072-15094) — VERBATIM ──
+configuration_continuity:
+  doctrine: "Configuration is not just settings. It is the continuity of choice"
+  layered_config:
+    - {layer: "hardware config", holds: "GPUs + PCIe + MIG + VFIO + drivers"}
+    - {layer: "OS config", holds: "AppArmor + cgroups + ZFS + networking + LUKS"}
+    - {layer: "runtime config", holds: "models + providers + profiles + routes"}
+    - {layer: "policy config", holds: "permissions + gates + cloud + secrets + memory exposure"}
+    - {layer: "workflow config", holds: "MAP/SPEC/TDD/EVAL rules"}
+    - {layer: "user config", holds: "preferences + cost limits + communication style"}
+    - {layer: "project config", holds: "repo rules + tests + allowed tools + memory scope"}
+  conflict_resolution: ["hard policy beats profile", "project policy beats generic profile",
+                        "user approval can elevate only within hard limits",
+                        "offline mode beats cloud route",
+                        "sandbox requirement beats host convenience"]
+  closing: "That prevents flexibility from becoming chaos"
+
+# ── E0477 — Continuity Of Control + 13-module map + 6-exposure (M00829-M00832) — VERBATIM ──
+continuity_of_control:
+  module: M00829
+  sovereign_os_gives: [history, policy, "hardware state", "tool state", "user intent", rollback]
+module_map:
+  module: M00830
+  modules: ["Base OS", "Compute Fabric", "Sandbox Fabric", "Gateway", "Memory OS",
+            "Workflow Compiler", "Eval-Value Plane", "Continuity Manager",
+            "Observability Fabric", "Policy Fabric", "Config Resolver",
+            "LoRA-Adaptation Foundry", "Hardware Profiler"]
+per_module_exposure:
+  module: M00831
+  standard: [state, events, "policy hooks", "profile knobs", "rollback story", "learning signal"]
+key_line: "Continuity is not remembering everything. Continuity is preserving the chain from intent to action to consequence to learning"

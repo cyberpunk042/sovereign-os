@@ -1,0 +1,58 @@
+# config/agent/m035-frontier-runtime-shape.yaml
+# ============================================================================
+# M035 "Frontier — inference-time intelligence" — the RUNTIME-SHAPE CAPSTONE.
+# Materializes the milestone spec (backlog/milestones/M035-..., dump 10168-10306):
+# the 5 intelligence budget tiers (E0331), the hardware mapping + 9-axis cost
+# ledger + stopping rule (E0333/E0334), and the 9-LAYER runtime shape (E0335) that
+# UNIFIES the entire M010-M034 materialized stack. No invention — every entry
+# traces to a module + dump line range.
+#
+# Each of the 9 layers maps to a milestone this session materialized (see
+# `maps_to`). Per R05900, the Profile System reuses the M033/M034 alias trick
+# (claude-jean-reflex .. claude-jean-high-assurance).
+# STATUS: spec-materialization (SDD+TDD — the capstone runtime shape).
+# Locked to spec by tests/lint/test_m035_frontier_runtime_shape.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M035
+source_dump_lines: "10168-10306"
+
+# ── E0331 — the 5 intelligence budget tiers (M00578-M00582, dump 10168-10181) ──
+budget_tiers:
+  - {module: M00578, tier: reflex, plan: "SLM / local fast model"}
+  - {module: M00579, tier: deliberate, plan: "scout + oracle + validation"}
+  - {module: M00580, tier: deep, plan: "tree search + reward model + tools"}
+  - {module: M00581, tier: autonomous, plan: "workflow + memory + world model + rollback"}
+  - {module: M00582, tier: high-assurance, plan: "formal checks + multiple verifiers + human gate"}
+
+# ── E0335 — the 9-layer runtime shape (M00586-M00594, dump 10281-10306) — VERBATIM ──
+# Each layer maps to a milestone materialized this session.
+runtime_layers:
+  - {layer: 1, module: M00586, name: "Anthropic-first Gateway", maps_to: M034}
+  - {layer: 2, module: M00587, name: "Cognitive Compiler", maps_to: M025}
+  - {layer: 3, module: M00588, name: "AVX-512 Cortex", maps_to: M010}
+  - {layer: 4, module: M00589, name: "Model Fabric", maps_to: "M017/M026"}
+  - {layer: 5, module: M00590, name: "World Model", maps_to: M030}
+  - {layer: 6, module: M00591, name: "Execution Plane", maps_to: M023}
+  - {layer: 7, module: M00592, name: "Memory OS", maps_to: M028}
+  - {layer: 8, module: M00593, name: "Observability", maps_to: M013}
+  - {layer: 9, module: M00594, name: "Profile System", maps_to: "M024/M033/M034"}
+
+# ── E0334 — 9-axis cost ledger (M00584, dump 10248-10257) — VERBATIM ──
+cost_ledger:
+  module: M00584
+  axes: [tokens, gpu_seconds, cloud_dollars, energy_estimate, latency, cache_hits,
+         branch_acceptance, tool_retries, oracle_calls]
+
+# ── E0334 — stopping rule (M00585, dump 10268-10274) — VERBATIM ──
+stopping_rule:
+  module: M00585
+  conditions: [confidence-high-enough, verification-passed, marginal-gain-low,
+               budget-exhausted, risk-requires-human]
+
+# ── E0335/R05900 — Profile System aliases (claude-jean-*) ──
+profile_system_aliases:
+  module: M00594
+  aliases: [claude-jean-reflex, claude-jean-deliberate, claude-jean-deep,
+            claude-jean-autonomous, claude-jean-high-assurance]

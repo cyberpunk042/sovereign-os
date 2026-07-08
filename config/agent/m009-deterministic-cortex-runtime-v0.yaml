@@ -1,0 +1,79 @@
+# config/agent/m009-deterministic-cortex-runtime-v0.yaml
+# ============================================================================
+# M009 "Deterministic Cortex Runtime v0 (full spec)" — the DCR-v0-full CONTRACT.
+# Materializes the milestone spec (backlog/milestones/M009-...; source raw/dumps/
+# 2026-05-18-...AVX-plus-plus.md lines 2016-2249): the AVX-512 feature catalog
+# (E0072), hot-vs-cold layer separation (E0073), the 64-bit branch control word
+# bit order (E0074), the scheduler tick algorithm (E0075), the speculative-CPU
+# analogy (E0076), and the concrete advanced tricks (E0077). No invention — every
+# entry traces to a module + dump line range.
+#
+# AVX++ CANON UPDATE 2026-05-19 (M061): interpreted under canonical later
+# definitions — Core Law (CLARIFYING), Scheduler-as-policy-layer (BREAKING, home
+# M058). Ties: this is the full-spec capstone of the M002-M008 cortex arc; the
+# 8-feature catalog is M085/M086's instruction program; the hot-vs-cold split is
+# M051's memory hierarchy + M057's "text is payload inside typed state"; the
+# scheduler tick is M058's Goldilocks scheduler; the propose-commit invariant is
+# M053's "Models propose; the runtime commits".
+# STATUS: spec-materialization (SDD+TDD — the Deterministic Cortex Runtime v0 full spec).
+# Locked to spec by tests/lint/test_m009_deterministic_cortex_runtime_v0.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M009
+source_dump_lines: "2016-2249"
+canon_note: "M061 pins Core Law (CLARIFYING) + Scheduler-as-policy-layer (BREAKING, home M058)"
+
+# ── E0072 — AVX-512 feature catalog, 8 (M00130-M00137, dump 2056-2065) — VERBATIM ──
+feature_catalog:
+  - {feature: "VPTERNLOG", use: "fused boolean policy logic"}
+  - {feature: "VPCOMPRESS", use: "pack active branches into dense GPU batches"}
+  - {feature: "VPEXPAND", use: "unpack dense batches"}
+  - {feature: "VPOPCNTDQ", use: "sketch overlap / memory filters / bit counting"}
+  - {feature: "VP2INTERSECT", use: "set intersection / candidate matching when CPUID confirms"}
+  - {feature: "VBMI", use: "byte-bit manipulation for token classes"}
+  - {feature: "VBMI2", use: "compact masks"}
+  - {feature: "k-masks", use: "branch validity / permissions / routing"}
+
+# ── E0073 — hot vs cold layer separation (M00138/M00139, dump 2070-2086) — VERBATIM ──
+tiers:
+  hot: ["branch state", "control words", "masks", "budgets", "risk bits",
+        "grammar states", "memory refs", "sketches"]
+  cold: ["actual prompt text", "documents", "code chunks", "long traces"]
+
+# ── E0074 — 64-bit branch control word bit order (M00140/M00141, dump 2093-2105) — VERBATIM ──
+control_word:
+  bits: 64
+  fields:
+    - {name: route, bits: "0..3"}
+    - {name: task, bits: "4..7"}
+    - {name: lifecycle, bits: "8..15"}
+    - {name: budget, bits: "16..23"}
+    - {name: risk, bits: "24..31"}
+    - {name: grammar, bits: "32..39"}
+    - {name: memory, bits: "40..47"}
+    - {name: spec_depth, bits: "48..55"}
+    - {name: flags, bits: "56..63"}
+  bit_order_rationale: "most frequently tested fields packed low"
+
+# ── E0075 — scheduler tick algorithm, 7 steps (M00142, dump 2110-2118) — VERBATIM ──
+scheduler_tick:
+  module: M00142
+  steps: ["load 8", "extract route+task+budget+risk", "compute alive mask",
+          "compute permission mask", "compute oracle-needed mask",
+          "compress survivors", "enqueue dense batches"]
+
+# ── E0076 — speculative-CPU analogy + invariant (M00143/M00144, dump 2126-2146) — VERBATIM ──
+speculative_cpu_analogy:
+  module: M00143
+  mapping:
+    - {cpu_stage: predictor, hardware: "RTX 4090"}
+    - {cpu_stage: retirement, hardware: "RTX PRO"}
+    - {cpu_stage: "reorder+commit", hardware: "Ryzen"}
+    - {cpu_stage: "architectural state", hardware: "RAM+ZFS"}
+  invariant: "models propose transitions / deterministic runtime commits transitions"
+
+# ── E0077 — concrete advanced tricks (M00145/M00146, dump 2156-2235) — VERBATIM ──
+advanced_tricks:
+  vpternlog_fusion: "commit = (oracle_ok & grammar_ok) | (trusted_fast_path & low_risk)"
+  sketches_first: "sketches-before-embeddings cheap deterministic rejection"

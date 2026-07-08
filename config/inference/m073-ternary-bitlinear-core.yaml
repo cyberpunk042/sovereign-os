@@ -1,0 +1,78 @@
+# config/inference/m073-ternary-bitlinear-core.yaml
+# ============================================================================
+# M073 "1-bit (ternary) logic + BitLinear Core ({-1, 0, +1} ~ 1.58 bits/
+# parameter)" — the low-bit-paradigm CONTRACT. Materializes the milestone spec
+# (backlog/milestones/M073-...; source raw/dumps/2026-05-15-sain-01-master-spec-...md
+# Section 15 lines 770-797): the ternary weight set (E0698), the 1.58-bit storage
+# (E0699), multiplication elimination (E0700), the energy + profile shift
+# (E0701/E0702), the BitLinear core (E0703), ternary packing (E0704), the
+# frameworks (E0705), and the AVX-512 LUT ops (E0706). No invention — every entry
+# traces to a module + dump line range.
+#
+# Doctrinal anchors (dump 777/779/783/791): "The integration of 1-bit (ternary)
+# weights completely upends traditional Von Neumann execution bottlenecks" /
+# "pioneered by architectures like Microsoft's BitNet b1.58—restricts every single
+# weight parameter... to a discrete ternary set: {-1, 0, +1}" / "representing three
+# distinct states requires a minimum storage width of log_2(3) ~ 1.585 bits per
+# parameter" / "By substituting expensive floating-point multiplications with basic
+# integer additions and subtractions, the computation becomes vastly more
+# energy-efficient". Ties: the BitLinear core runs on M066's Pulse (CCD 0 per M070)
+# via M067's AVX-512 native execution path; it is the "1-bit bitnet.cpp matrix
+# lookups" duty of the Pulse allocation.
+# STATUS: spec-materialization (SDD+TDD — the ternary BitLinear inference core).
+# Locked to spec by tests/lint/test_m073_ternary_bitlinear_core.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M073
+source_dump_lines: "770-797"
+
+# ── E0698 — ternary weight set (M01207, dump 779-781) — VERBATIM ──
+ternary_weight_set:
+  module: M01207
+  lineage: "BitNet b1.58 (Microsoft)"
+  set: [-1, 0, 1]
+
+# ── E0699 — 1.58-bit storage (M01218, dump 783) — VERBATIM ──
+storage:
+  module: M01218
+  bits_per_parameter: "log2(3) ~ 1.585"
+  reason: "representing three distinct states requires a minimum storage width of log2(3)"
+
+# ── E0700 — multiplication elimination (M01209/M01210/M01211, dump 786-789) — VERBATIM ──
+multiplication_elimination:
+  principle: "shifts multiplication -> conditional allocation"
+  mapping:
+    - {weight: 1, op: "activation added to accumulator"}
+    - {weight: -1, op: "activation subtracted from accumulator"}
+    - {weight: 0, op: "No-Op, bypassed entirely"}
+
+# ── E0701/E0702 — energy + profile shift (M01216/M01217, dump 791) — VERBATIM ──
+energy_shift:
+  substitution: "floating-point multiplications replaced with integer add/sub"
+  result: "vastly more energy-efficient"
+profile_shift:
+  away_from: "raw TFLOPS throughput"
+  toward: ["memory bandwidth optimization", "instruction pipeline optimization"]
+
+# ── E0703 — BitLinear core (M01208, dump 778) — VERBATIM ──
+bitlinear_core:
+  module: M01208
+  replaces: ["standard linear projection layers", "GEMM (Floating-Point General Matrix Multiplication)"]
+  eliminates: "GPU Tensor Core + CPU FPU saturation"
+
+# ── E0704 — ternary packing (M01212, dump 794) — VERBATIM ──
+packing:
+  module: M01212
+  bits_per_parameter: 2
+  note: "byte boundary alignment in host RAM"
+
+# ── E0705 — frameworks (M01214/M01215, dump 794-795) — VERBATIM ──
+frameworks:
+  names: ["bitnet.cpp", "T-MAC"]
+  property: "no de-quantization at execution"
+
+# ── E0706 — AVX-512 LUT ops (M01213, dump 795) — VERBATIM ──
+lut_operations:
+  module: M01213
+  mechanism: "Bit-wise Lookup Table (LUT) matrix operations via AVX-512 vector path"

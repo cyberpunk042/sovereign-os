@@ -1,0 +1,142 @@
+# config/agent/m054-typed-interfaces.yaml
+# ============================================================================
+# M054 "11 typed interfaces — Gateway / Profile Resolver / Router / Model Adapter
+# / Policy / Tool / Memory / Workflow / Eval / Observability / AVX Cortex" — the
+# typed-contract CONTRACT. Materializes the milestone spec (backlog/milestones/
+# M054-..., dump 16493-16896): the 11 typed interface contracts (E0519-E0525) and
+# the Architectural Replaceability Rule (E0526). No invention — every entry traces
+# to a module + dump line range.
+#
+# Framing (dump 16498): "interfaces are what keep the system flexible... avoid one
+# giant agent blob... a set of services that communicate through typed contracts".
+# Rule (dump 16886): "The contracts remain" — each module is replaceable behind
+# its typed interface. Ties: these 11 typed contracts are the service boundaries
+# for M053's 11 build phases; the RuntimeRequest/ResolvedProfile/ExecutionRoute/
+# PolicyDecision/ToolIntent/MemoryItem/EvalResult objects extend M053's 9 Core
+# Data Objects into per-interface schemas; the AVX Cortex interface is the
+# internal-acceleration boundary of M051's cortex ("works without AVX, just slower").
+# STATUS: spec-materialization (SDD+TDD — the 11 typed service contracts).
+# Locked to spec by tests/lint/test_m054_typed_interfaces.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M054
+source_dump_lines: "16493-16896"
+
+doctrine: "interfaces are what keep the system flexible — avoid one giant agent blob; a set of services that communicate through typed contracts"
+
+# ── E0519-E0525 — the 11 typed interfaces — VERBATIM ──
+interfaces:
+  # Interface 1 — Gateway (M00904, dump 16512-16542)
+  - id: 1
+    module: M00904
+    name: Gateway
+    inputs: ["Anthropic Messages", "OpenAI-compatible", "CLI", "UI", "MCP/tool"]
+    output: RuntimeRequest
+    output_fields: [request_id, client_id, profile_hint, model_alias, messages,
+                    attachments, tools, privacy_context, budget, streaming]
+    responsibility: "should not do deep reasoning; normalize, authenticate, rate-limit, trace, and hand off"
+
+  # Interface 2 — Profile Resolver (M00905, dump 16552-16580)
+  - id: 2
+    module: M00905
+    name: "Profile Resolver"
+    inputs: ["RuntimeRequest", "project context", "user defaults", "hardware state", "policy state"]
+    output: ResolvedProfile
+    output_fields: [privacy_mode, quality_target, latency_target, cost_limit,
+                    autonomy_level, sandbox_level, cloud_permission, oracle_requirement,
+                    memory_depth, eval_level]
+    note: "This is the first place user sovereignty becomes executable"
+
+  # Interface 3 — Router (M00906, dump 16588-16618)
+  - id: 3
+    module: M00906
+    name: Router
+    inputs: ["ResolvedProfile", "task classification", "model registry",
+             "hardware telemetry", "cache/KV state", "cost ledger"]
+    output: ExecutionRoute
+    output_fields: [primary_model, fallback_model, scout_model, oracle_model,
+                    embedding_model, hardware_target, precision, adapter, max_tokens,
+                    reasoning_budget, verification_required]
+    route_reason_example: "local-only profile; chose 4090 scout for draft and Blackwell oracle for final verification"
+
+  # Interface 4 — Model Adapter (M00907, dump 16628-16648)
+  - id: 4
+    module: M00907
+    name: "Model Adapter"
+    verbs: [generate, embed, rerank, verify, perceive]
+    backends: [vLLM, SGLang, "TensorRT-LLM", "llama.cpp", "Anthropic cloud",
+               "OpenAI cloud", "custom local server"]
+    rule: "No workflow should depend directly on a vendor SDK"
+
+  # Interface 5 — Policy (M00908, dump 16652-16684)
+  - id: 5
+    module: M00908
+    name: Policy
+    inputs: [actor, intent, action, resource, profile, risk, context_sensitivity, side_effect_class]
+    decision_values: [allow, deny, ask_user, sandbox, escalate_to_oracle, require_snapshot, require_test]
+    call_sites: ["cloud call", "tool call", "file write", "memory write",
+                 "network access", "adapter activation", "commit"]
+
+  # Interface 6 — Tool (M00909, dump 16688-16708)
+  - id: 6
+    module: M00909
+    name: Tool
+    pipeline: [ToolIntent, PolicyDecision, ToolExecution, ToolObservation]
+    metadata_fields: [tool_id, input_schema, output_schema, capabilities_required,
+                      side_effects, risk_class, sandbox_required, timeout, rollback_strategy]
+    substrates: [shell, browser, filesystem, Python, Deno, WASM, database, API, GUI, future]
+
+  # Interface 7 — Memory (M00910, dump 16716-16734)
+  - id: 7
+    module: M00910
+    name: Memory
+    verbs: [search, read, write, promote, forget]
+    item_fields: [trust, freshness, privacy, source, type, value_score, raw_ref, derived_refs]
+
+  # Interface 8 — Workflow (M00911, dump 16746-16770)
+  - id: 8
+    module: M00911
+    name: Workflow
+    doctrine: "A workflow is a durable graph"
+    run_scope: [nodes, edges, frames, checkpoints, evals, "pending gates"]
+    node_types: [model, tool, memory, policy, eval, human_gate, checkpoint, commit]
+    operations: [pause, resume, cancel, fork, merge, rollback, recompile]
+
+  # Interface 9 — Eval (M00912, dump 16774-16792)
+  - id: 9
+    module: M00912
+    name: Eval
+    inputs: [trace, "task goal", outputs, "tool observations", tests, profile]
+    scores: [success, correctness, evidence, risk, cost, latency, test_pass,
+             schema_valid, human_burden, learning_value]
+    note: "Evals feed the router and model registry"
+
+  # Interface 10 — Observability (M00913, dump 16800-16812)
+  - id: 10
+    module: M00913
+    name: Observability
+    required_fields: [trace_id, span_id, parent_span_id, event_type, module,
+                      timestamp, profile, cost, risk, status]
+    enablement: [debugging, "cost tracking", replay, learning, auditing, "user trust"]
+
+  # Interface 11 — AVX Cortex (M00914, dump 16822-16856)
+  - id: 11
+    module: M00914
+    name: "AVX Cortex"
+    doctrine: "internal acceleration module, not the whole runtime"
+    inputs: [BranchTable, MemoryMetaTable, PolicyMaskTable, CandidateTable, RewardTable]
+    operations: [filter_alive, score_candidates, intersect_memory, merge_policy_masks,
+                 compress_ready, route_batches]
+    output: ["dense queues", "masks", "scores", "selected ids"]
+    portability: "The rest of the system should work without AVX, just slower. That keeps it portable and testable"
+
+# ── E0526 — Architectural Replaceability Rule (M00915/M00916, dump 16860-16886) — VERBATIM ──
+replaceability_rule:
+  module: M00915
+  doctrine: "Each module should be replaceable"
+  examples: ["Replace vLLM with SGLang", "Replace local model with cloud",
+             "Replace OPA with Cedar", "Replace Langfuse with Phoenix",
+             "Replace Podman with VM", "Replace scalar scheduler with AVX scheduler"]
+  invariant: "The contracts remain"
+  closing: "That is how the system stays sovereign and future-proof"

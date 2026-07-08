@@ -45,6 +45,16 @@ dashboards:
      description: "The 12-step task lifecycle per live operator session (init → inference → response → validation → cleanup).", refs: [M057]}
   - {slug: d-03-model-health, category: trinity, label: "D-03 Model Health", path: /d-03-model-health/, api: sovereign-model-health-api, status: live,
      description: "Per-tier inference health — SRP role, GPU binding, KV-cache pressure, latency. The live-serving view (distinct from the catalog).", refs: []}
+  - {slug: d-21-lm-orchestration, category: models, label: "D-21 LM Orchestration", path: /d-21-lm-orchestration/, api: sovereign-lm-orchestration-api, status: live,
+     description: "Profiles + model→hardware assignment grid (GPU0/GPU1/CPU0 = Logic/Oracle/Conductor per M075) + CPU AVX-512 / GPU capability panel. Read-only: Apply copies the signed profile verb.", refs: [M075, M076, R10212]}
+  - {slug: d-24-cpu-features, category: models, label: "D-24 CPU Features", path: /d-24-cpu-features/, api: sovereign-cpu-features-api, status: live,
+     description: "The deep AVX-512 capability view — extension map, per-AI-workload fit verdict, and advisory. Reuses avx512-advisor. Distinct from D-21 Features-CPU summary.", refs: [M008, M074]}
+  - {slug: d-23-models-catalog, category: models, label: "D-23 Model Catalog", path: /d-23-models-catalog/, api: sovereign-models-catalog-api, status: live,
+     description: "The canonical model registry (models/catalog.yaml) browsed by SRP tier — id, class, engine, precision, params, context, license, purpose, status. The portfolio view (distinct from D-03 live health).", refs: [M017, M075]}
+  - {slug: d-22-lm-status-operability, category: models, label: "D-22 LM Status & Operability", path: /d-22-lm-status-operability/, api: sovereign-lm-status-operability-api, status: live,
+     description: "Per-device (CPU0/GPU0/GPU1) Model 0/1/2 status + History|Selected latency + operability Actions/Tests + render-only Chat. Reuses the model-health core; Actions copy signed CLI verbs.", refs: [M075, R10212]}
+  - {slug: d-25-selfdef-management, category: security, label: "D-25 Self-Defense Management", path: /d-25-selfdef-management/, api: sovereign-selfdef-management-api, status: live,
+     description: "READ-ONLY consumer view (R10212) of the selfdef IPS — on/off enablement + M060 mirror-chain health + links to the 6 domain panels (D-13..D-18). Derives state via the m060-health probe() proxy; on/off is a clipboard-copied signed CLI verb.", refs: [M060, R10212, SDD-001]}
   - {slug: d-05-traces, category: trinity, label: "D-05 Traces", path: /d-05-traces/, api: sovereign-traces-api, status: snapshot,
      description: "Distributed span search — 13-field trace tree, OCSF export. Debug why a request went where it did.", refs: [M049]}
 

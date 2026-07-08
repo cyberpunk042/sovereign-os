@@ -1,0 +1,115 @@
+# config/agent/m052-vision-recap.yaml
+# ============================================================================
+# M052 "Vision recap — Ultimate AI Workstation" — the vision-recap CONTRACT.
+# Materializes the milestone spec (backlog/milestones/M052-..., dump 15705-15915):
+# the highest-level definition (E0499), the Hardware Vision (E0500), the OS Vision
+# (E0501), the Runtime Vision (E0502), the Intelligence Vision (E0503), the
+# Continuity Vision (E0504), the Fine-Tuning Vision (E0505), the Sovereign Vision
+# (E0506), and the core definition + implementation transition (E0507). No
+# invention — every entry traces to a module + dump line range.
+#
+# Operator directive 15705 (sacrosanct): "The ultimate AI workstation with so many
+# features and intelligence and fine-tuning". Core definition (dump 15940): "A
+# user-sovereign, hardware-aware, adaptive AI workstation that turns local compute,
+# memory, tools, and models into a continuous intelligence environment". This is
+# the interlocking-vision recap that binds M038-M051 into one whole — it is the
+# canonical cross-check that "we dont or didn't lose anything". Ties: every prior
+# materialized contract (M038 hardware / M042 choice / M044 substrate / M046 LoRA
+# / M048 organs / M050 architecture / M051 engineering) is one facet of this recap.
+# STATUS: spec-materialization (SDD+TDD — the ultimate-AI-workstation vision recap).
+# Locked to spec by tests/lint/test_m052_vision_recap.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M052
+source_dump_lines: "15705-15915"
+
+confirmation: "We have not lost it. The vision is clear, and it has multiple interlocking forms"
+
+# ── E0499 — highest-level definition (M00868, dump 15716-15724) — VERBATIM ──
+highest_level_definition:
+  module: M00868
+  components: ["hardware-aware intelligence OS", "sovereign user control",
+               "local model ecology", "deterministic runtime", "memory/continuity",
+               "safe execution", "adaptive learning",
+               "later fine-tuning / LoRA / retraining"]
+
+# ── E0500 — Hardware Vision, 5 tiers (M00869-M00873, dump 15732-15780) — VERBATIM ──
+hardware_vision:
+  - {module: M00869, tier: "Ryzen 9900X / Zen 5 AVX-512",
+     roles: ["deterministic cortex", "branch scheduling", "policy masks",
+             "token/schema masks", "memory bitsets", "routing", "eval scoring", "workflow state"]}
+  - {module: M00870, tier: "RTX PRO 6000 Blackwell 96GB",
+     roles: ["oracle", "large resident models", "long-context synthesis",
+             "final verification", "FP8/FP4 model lab", "high-risk reasoning"]}
+  - {module: M00871, tier: "RTX 4090 24GB",
+     roles: ["scout", "SLM swarm", "embeddings/rerankers", "perception/GUI",
+             "draft/speculation", "sandboxed experiments"]}
+  - {module: M00872, tier: "256GB RAM",
+     roles: ["active memory graph", "context arenas", "ZFS ARC", "warm caches"]}
+  - {module: M00873, tier: "NVMe + ZFS",
+     roles: ["snapshots", "replay", "rollback", "model artifacts", "datasets", "eval history"]}
+
+# ── E0501 — OS Vision, 10 primitives (M00874, dump 15788-15806) — VERBATIM ──
+os_vision:
+  module: M00874
+  base: "Debian 13 / Ubuntu 24 base as Sovereign-OS"
+  primitives: [systemd, "cgroup v2", AppArmor, eBPF, "LUKS+TPM+FIDO2",
+               "Podman+Quadlet", "VFIO+IOMMU", ZFS, OpenTelemetry, DCGM]
+  doctrine: "The OS is not just a platform. It governs intelligence"
+
+# ── E0502 — Runtime Vision (M00875/M00876, dump 15814-15838) — VERBATIM ──
+runtime_vision:
+  design_law: ["Models propose", "Runtime routes", "AVX-512 enforces", "Tools prove",
+               "ZFS remembers", "User chooses"]
+  loop: [MAP, SPEC, TEST, ACT, EVAL, COMMIT, LEARN]
+  note: "But flexible, not locked"
+  profile_bundles: [fast, careful, private, offline, research, autonomous,
+                    experimental, production, "communication-peace"]
+
+# ── E0503 — Intelligence Vision, model ecology (M00877, dump 15850-15864) — VERBATIM ──
+intelligence_vision:
+  module: M00877
+  doctrine: "Not one model. A model ecology"
+  model_types:
+    - {type: LLM, role: "deep reasoning / synthesis"}
+    - {type: SLM, role: "fast reflexes / tool use / classification"}
+    - {type: RLM, role: "recursive context navigation"}
+    - {type: "RM-PRM", role: "reward and process scoring"}
+    - {type: VLM, role: "GUI, documents, perception"}
+    - {type: "LoRA-adapters", role: "project/user/domain specialization"}
+  super_model: "The 'super-model' is the routed system, not a single checkpoint"
+
+# ── E0504 — Continuity Vision, 11 types (M00878, dump 15872-15890) — VERBATIM ──
+continuity_vision:
+  module: M00878
+  types: ["workflow checkpoints", "ZFS snapshots", "sandbox restore", "memory graph",
+          "trace history", "warm model services", "KV/prefix reuse", "eval lineage",
+          "adapter lineage", "user preferences", "project history"]
+  closing: "Cloud has scale. This has situated intelligence"
+
+# ── E0505 — Fine-Tuning Vision (M00880, dump 15898-15914) — VERBATIM ──
+fine_tuning_vision:
+  module: M00880
+  before_training: [profiles, routing, memory, evals, "workflow adaptation",
+                    "prompt/program optimization", "model selection"]
+  then: ["curated traces", datasets, LoRAs, "multi-LoRA serving", "adapter evals",
+         "specialist SLMs", "eventual retraining/distillation"]
+  doctrine: "Fine-tuning is not the first step. It is what crystallizes proven behavior"
+
+# ── E0506 — Sovereign Vision, 9 boundary choices (M00881, dump 15926-15936) — VERBATIM ──
+sovereign_vision:
+  module: M00881
+  premise: "At every boundary, the user can choose"
+  boundary_choices: ["local or cloud", "scout or oracle", "sandbox or host",
+                     "fast or careful", "manual or autonomous", "private or shared",
+                     "cheap or best", "spec-first or exploratory", "test-first or prototype"]
+  closing: "This is not a war machine. It is a peace machine: logic, communication, reversibility, consent, and intelligence everywhere"
+
+# ── E0507 — core definition + implementation transition (M00882/M00883) — VERBATIM ──
+core_definition:
+  module: M00882
+  statement: "A user-sovereign, hardware-aware, adaptive AI workstation that turns local compute, memory, tools, and models into a continuous intelligence environment"
+implementation_transition:
+  module: M00883
+  directive: "now lets start talking more in language to transpose all this in a future implementation conversation. making sure we output enough details and reasonings. we are about to do complex things"

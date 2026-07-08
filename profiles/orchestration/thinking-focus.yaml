@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=../../schemas/orchestration-profile.schema.yaml
+#
+# Orchestration-intent profile (D-21). Workload intent: thinking / reasoning.
+schema_version: "1.0.0"
+orchestration_profile:
+  id: thinking-focus
+  name: "Thinking Focus"
+  description: |
+    Optimized for deep reasoning. Oracle (GPU 1 Blackwell) runs the reasoning
+    model as the primary; Conductor (CPU) orchestrates; Logic (GPU 0) is idle to
+    free VRAM. Use for architecture analysis, long-context reasoning, planning.
+  intent: thinking
+  hardware_profile_compat: [sain-01]
+  allocations:
+    - {agent_id: conductor_01,  tier: pulse,  role: conductor, target_hardware: cpu,     core_mask: "0-7", engine: bitnet.cpp, model: BitNet-b1.58-3B,                    active: true}
+    - {agent_id: logic_idle,    tier: logic,  role: logic,     target_hardware: "cuda:0",                   engine: vllm,       model: Qwen-32B-Ternary-Quant,             active: false}
+    - {agent_id: oracle_reason, tier: oracle, role: oracle,    target_hardware: "cuda:1",                   engine: vllm,       model: DeepSeek-R1-Distill-Llama-70B-FP16, active: true}
+  observability:
+    primary_metric: sovereign_os_inference_route_total{tier="oracle"}

@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=../../schemas/orchestration-profile.schema.yaml
+#
+# Orchestration-intent profile (D-21). SEPARATE family from the §18 runtime
+# load-balancing profiles (profiles/runtime/). Workload intent: full three-tier
+# orchestration — every SRP tier carries its role concurrently.
+schema_version: "1.0.0"
+orchestration_profile:
+  id: full-orchestration
+  name: "Full orchestration"
+  description: |
+    All three SRP tiers active at once — Conductor (CPU/bitnet ternary) drives
+    orchestration, Logic (GPU 0) runs code/vision, Oracle (GPU 1 Blackwell) runs
+    deep reasoning. Maximum breadth; use when a task spans coding + reasoning +
+    fast CPU steps simultaneously.
+  intent: full-orchestration
+  hardware_profile_compat: [sain-01]
+  allocations:
+    - {agent_id: conductor_01, tier: pulse,  role: conductor, target_hardware: cpu,    core_mask: "0-7",  engine: bitnet.cpp, model: BitNet-b1.58-3B,                    active: true}
+    - {agent_id: logic_01,     tier: logic,  role: logic,     target_hardware: "cuda:0",                    engine: vllm,       model: Qwen3-Coder-32B-Instruct,           active: true}
+    - {agent_id: oracle_01,    tier: oracle, role: oracle,    target_hardware: "cuda:1",                    engine: vllm,       model: DeepSeek-R1-Distill-Llama-70B-FP16, active: true}
+  observability:
+    primary_metric: sovereign_os_inference_route_total

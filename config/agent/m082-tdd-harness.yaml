@@ -1,0 +1,68 @@
+# config/agent/m082-tdd-harness.yaml
+# ============================================================================
+# M082 "TDD Harness Architecture — hardware-free validation (macro-arc PRs 9 +
+# 10)" — the test-harness CONTRACT. Materializes the milestone spec (backlog/
+# milestones/M082-...; source raw/dumps/2026-05-16-sovereign-os-macro-arc-plan.md
+# PR 9 lines 229-257 + PR 10 lines 260-285): the 5-layer test pyramid (E0788), the
+# virtualization stack (E0789), per-stage invariants (E0790), discovery/CI/flake
+# policy (E0791), the test catalog (E0792), scaffold deliverables (E0793), the CI
+# workflow (E0794), the bootstrap + stage-2 stub SDDs (E0795/E0796), and Stage Gate
+# 5 (E0797). No invention — every entry traces to a module + dump line range.
+#
+# Doctrinal anchors (macro-arc dump 232/235/239): "Specify how an image-build
+# pipeline gets unit-, stage-, and integration-tested without hardware" /
+# "Schema/lint tests — Pure CI. No virtualization" / "Hardware-conformance tests —
+# gated tests that only run when matching hardware is present". Operator standing
+# 2026-05-19: "work in SDD and TDD". CI MAPPING: this is the spec behind the actual
+# CI — Layer 1 (schema+lint) = the `test` workflow's `pytest tests/schema tests/
+# lint` (the layer this whole milestone-materialization run is verify-gated
+# against); Layer 3 (stage acceptance nspawn-style) = the `layer 3` check that runs
+# `make lint` + mkosi build (currently RED on the branch-divergence blocker Q-047-D,
+# unrelated to config/lint additions). PROJECT BOUNDARY: sovereign-os ONLY — selfdef
+# has its own MS020/MS045; both repos run the SAME 5-layer methodology independently.
+# STATUS: spec-materialization (SDD+TDD — the 5-layer image-build test harness).
+# Locked to spec by tests/lint/test_m082_tdd_harness.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M082
+source_dump_lines: "229-285"
+
+# ── E0788 — the 5-layer test pyramid (M01369/M01374/M01378/M01381/M01384) — VERBATIM ──
+test_pyramid:
+  - {layer: 1, name: "schema/lint", module: M01369, virtualization: "none (pure CI)"}
+  - {layer: 2, name: "unit", module: M01374, virtualization: "mocked filesystem + apt + dpkg"}
+  - {layer: 3, name: "stage acceptance", module: M01378, virtualization: "chroot / systemd-nspawn (pre/during/post-install)"}
+  - {layer: 4, name: "integration", module: M01381, virtualization: "full image boot in QEMU"}
+  - {layer: 5, name: "hardware-conformance", module: M01384, virtualization: "gated on real SAIN-01 hardware (procurement gate)"}
+
+# ── E0789 — virtualization stack (M01379/M01380/M01382/M01383) — VERBATIM ──
+virtualization_stack: ["chroot", "systemd-nspawn", "QEMU (system)", "qemu-user"]
+
+# ── E0790 — per-stage invariants (dump 245-246) — VERBATIM ──
+per_stage_invariants: ["pre-install", "during-install", "post-install-first-boot"]
+
+# ── E0791 — discovery + CI + flake policy (dump 247) — VERBATIM ──
+test_conventions:
+  covers: ["test discovery", "naming convention", "CI execution model", "flake policy"]
+
+# ── E0792 — test catalog (dump 248) — VERBATIM ──
+test_catalog: ["tests/INDEX.md", "tests/README.md"]
+
+# ── E0793/E0794 — scaffold deliverables + CI workflow (dump 263-269) — VERBATIM ──
+scaffold_deliverables: ["tests/schema/", "tests/lint/", "tests/chroot/scaffold.sh",
+                        "tests/nspawn/scaffold.sh", "tests/qemu/scaffold.sh",
+                        ".github/workflows/test.yml"]
+ci_workflow:
+  every_pr: "schema + lint"
+  on_merge_or_label: "chroot / nspawn / qemu"
+
+# ── E0795/E0796 — bootstrap + stage-2 stub SDDs (dump 270-274) — VERBATIM ──
+sdd_docs:
+  bootstrap: "docs/sdd/009-test-harness-bootstrap.md (what scaffold delivers + what it explicitly does NOT)"
+  stage_2_stub: "docs/sdd/010-stage-2-stub.md (placeholder for Stage 2 actual build-script PR)"
+
+# ── E0797 — Stage Gate 5, foundation-complete (dump 280-283) — VERBATIM ──
+stage_gate_5:
+  name: "foundation-complete gate"
+  scope: "operator reviews the full 10-PR arc holistically; Stage 2 (actual build scripts) authorized ONLY after this gate"

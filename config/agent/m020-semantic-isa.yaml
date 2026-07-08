@@ -1,0 +1,69 @@
+# config/agent/m020-semantic-isa.yaml
+# ============================================================================
+# M020 "Orchestration without captivity — semantic ISA" — the orchestration
+# CONTRACT. Materializes the milestone spec (backlog/milestones/M020-..., dump
+# 5390-5622): the framework adapters (E0179), the Arbiter-K substrate (E0180),
+# the 10 own primitives + adapter surface (E0181), the 8 orchestration operators
+# (E0182), and the Semantic ISA instruction set + per-instruction contract
+# (E0186). No invention — every entry traces to a module + dump line range.
+#
+# "Without captivity": own the primitives + ISA; adapt to external frameworks,
+# never marry one. Ties: the 8 orchestration operators = M019 recipes at the
+# operator layer + cockpit D-21 orchestration; HANDOFF/human-gate connect to the
+# cockpit; CALL_TOOL routes through M010's tool transaction.
+# STATUS: spec-materialization (SDD+TDD — precedes the orchestration kernel).
+# Locked to spec by tests/lint/test_m020_semantic_isa.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M020
+source_dump_lines: "5390-5622"
+
+# ── E0181 — the 10 own primitives (M00325, dump 5408-5419) — VERBATIM ──
+own_primitives:
+  module: M00325
+  primitives: [Agent, Tool, Branch, Message, MemoryRef, Capability, Policy,
+               Checkpoint, Commit, Trace]
+
+# ── E0179 — framework adapters (M00320-M00323, dump 5390-5393) ──
+framework_adapters:
+  - {module: M00320, framework: Semantic Kernel, patterns: "sequential / concurrent / handoff / group-chat / Magentic"}
+  - {module: M00321, framework: CrewAI Flows, patterns: "Crews (autonomous) vs Flows (controlled event-driven)"}
+  - {module: M00322, framework: AutoGen, patterns: "multi-agent conversation"}
+  - {module: M00323, framework: OpenAI Swarm, patterns: "agents / tools / routines / handoffs (educational, not production)"}
+
+# ── E0180 — Arbiter-K substrate (M00324, dump 5394) — VERBATIM ──
+arbiter_k:
+  module: M00324
+  principle: "wrap probabilistic models inside a deterministic kernel"
+
+# ── E0181 — adapter surface (M00326, dump 5424-5430) — VERBATIM ──
+adapter_surface:
+  module: M00326
+  frameworks: [LangGraph, CrewAI, AutoGen, Semantic Kernel]
+  gateways: ["OpenAI-compatible gateway"]
+  backends: [NIM, vLLM, SGLang, TensorRT-LLM]
+
+# ── E0182 — the 8 orchestration operators (M00327-M00334, dump 5439-5461) ──
+orchestration_operators:
+  - {module: M00327, op: sequential, form: "A → B → C"}
+  - {module: M00328, op: concurrent, form: "A, B, C in parallel"}
+  - {module: M00329, op: handoff, form: "A delegates to B by rule"}
+  - {module: M00330, op: debate, form: "A and B disagree, C judges"}
+  - {module: M00331, op: cascade, form: "small → medium → oracle if needed"}
+  - {module: M00332, op: tree-search, form: "expand → score → prune → verify"}
+  - {module: M00333, op: swarm, form: "many specialists, manager routes"}
+  - {module: M00334, op: human-gate, form: "pause → inspect → resume"}
+
+# ── E0186 — Semantic ISA instruction set (M00335, dump 5595-5611) — VERBATIM ──
+semantic_isa:
+  module: M00335
+  instructions: [OBSERVE, RETRIEVE, DRAFT, VERIFY, CRITIQUE, PLAN, CALL_TOOL,
+                 WRITE_MEMORY, REQUEST_APPROVAL, COMMIT, ROLLBACK, HANDOFF,
+                 SPAWN_BRANCH, MERGE_BRANCH, KILL_BRANCH]
+
+# ── E0186 — per-instruction contract (M00336, dump 5615-5622) — VERBATIM ──
+instruction_contract:
+  module: M00336
+  fields: [required_capabilities, input_schema, output_schema, side_effect_level,
+           checkpoint_behavior, risk_class]

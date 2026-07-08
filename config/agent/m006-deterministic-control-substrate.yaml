@@ -1,0 +1,73 @@
+# config/agent/m006-deterministic-control-substrate.yaml
+# ============================================================================
+# M006 "Deterministic AI control substrate" — the DCR CONTRACT. Materializes the
+# milestone spec (backlog/milestones/M006-...; source raw/dumps/2026-05-18-...AVX-
+# plus-plus.md lines 995-1228): the 64-bit control word (E0047), the Deterministic
+# Cortex Runtime v0 components (E0048), the main loop (E0049), and CPU-as-
+# deterministic-law (E0050). No invention — every entry traces to a module + dump
+# line range.
+#
+# AVX++ CANON UPDATE 2026-05-19 (M061): interpreted under canonical later
+# definitions — Core Law (CLARIFYING), Commit Authority deterministic-vs-earned
+# (BREAKING-FOR-LAYERING, canonical home M056). Ties: this is the v0 of the
+# deterministic control substrate that M009 gives the full spec for; the 3 planes
+# are M004/M075's Oracle/Scout/Arbiter; the control word extends M002/M005; the
+# DCR components (grammar FSM, tool-perm, memory-admission, verifier, replay,
+# metrics) are the M054-interface precursors; CPU-as-law is M004's cortex law.
+# STATUS: spec-materialization (SDD+TDD — the Deterministic Cortex Runtime v0).
+# Locked to spec by tests/lint/test_m006_deterministic_control_substrate.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M006
+source_dump_lines: "995-1228"
+canon_note: "M061 pins Commit Authority deterministic-vs-earned (BREAKING-FOR-LAYERING, home M056)"
+
+# ── E0047 — 64-bit control word, 9 fields (dump 1071-1081) — VERBATIM ──
+control_word:
+  bits: 64
+  fields:
+    - {name: route, bits: "0..3"}
+    - {name: task, bits: "4..7"}
+    - {name: budget, bits: "8..15"}
+    - {name: risk, bits: "16..23"}
+    - {name: tool, bits: "24..31"}
+    - {name: grammar, bits: "32..39"}
+    - {name: memory, bits: "40..47"}
+    - {name: spec_depth, bits: "48..55"}
+    - {name: lifecycle, bits: "56..63"}
+
+# ── E0047 — 3 planes (M00079/M00080/M00081, dump 1042-1063) — VERBATIM ──
+planes:
+  - {plane: "RTX PRO 6000", role: "deep probabilistic engine / target model / verifier / final synthesis"}
+  - {plane: "RTX 4090", role: "draft / scout / embeddings / reranker / vision-tool / sandbox cognition"}
+  - {plane: "Ryzen AVX-512", role: "deterministic executive / grammar engine / branch scheduler / memory policy / tool law / risk masks / replay state"}
+
+# ── E0047 — AVX-512 population evaluation (M00082, dump 1085-1090) — VERBATIM ──
+population_evaluation: "8 x u64 branches / 64 x u8 states / 512 boolean flags per ZMM"
+
+# ── E0048 — Deterministic Cortex Runtime v0, 8 components (M00083-M00090) — VERBATIM ──
+dcr_components:
+  - {component: "Branch Arena", module: M00083, role: "allocator for active branches"}
+  - {component: "Token Candidate Queue", module: M00084, role: "typed candidate transitions"}
+  - {component: "Grammar/JSON Automata", module: M00085, role: "FSMs per branch"}
+  - {component: "Tool Permission Engine", module: M00086, role: "per-branch tool capability mask evaluation"}
+  - {component: "Memory Admission Policy", module: M00087, role: "admit/evict gating"}
+  - {component: "Speculation Verifier", module: M00088, role: "verify accepted transitions"}
+  - {component: "Replay Log Writer", module: M00089, role: "append-only typed transition log"}
+  - {component: "Metrics Emitter", module: M00090, role: "Prometheus + OTel"}
+
+# ── E0049 — main loop, 7 steps (M00091-M00095, dump 1130-1138) — VERBATIM ──
+main_loop:
+  steps:
+    - "user task enters control plane"
+    - "CPU creates branch records with control words"
+    - "4090 proposes cheap continuations / summaries / embeddings / tool plans"
+    - "CPU filters / ranks / masks candidates"
+    - "RTX PRO verifies high-value steps"
+    - "commit"
+    - "memory update"
+
+# ── E0050 — CPU as deterministic law, 6 (M00081, dump 1098-1104) — VERBATIM ──
+cpu_law: ["masks invalid tokens", "rejects forbidden tools", "expires branches",
+          "enforces schema", "admits memory", "decides GPU routing"]

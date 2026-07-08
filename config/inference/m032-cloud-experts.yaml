@@ -1,0 +1,64 @@
+# config/inference/m032-cloud-experts.yaml
+# ============================================================================
+# M032 "Cloud Expert plane — OpenAI + Anthropic as remote experts" — the
+# cloud-router CONTRACT. Materializes the milestone spec
+# (backlog/milestones/M032-..., dump 9519-9679): the local-owns/cloud-provides
+# split + invariant (E0301), the OpenAI + Anthropic adapters (E0299/E0300), the
+# Model Router YAML + selection axes (E0303), and the providers/ adapter tree
+# (E0305). No invention — every entry traces to a module + dump line range.
+#
+# The "Remote models propose, Local runtime commits" invariant IS M014's
+# VM-propose/host-commit at the cloud boundary; the Model Router extends M017's
+# portfolio + the live models/catalog.yaml (cockpit D-23). NOTE (M00537): Claude
+# models are discovered DYNAMICALLY via the models-list API, never hardcoded —
+# the same discipline sovereign-os applies project-wide.
+# STATUS: spec-materialization (SDD+TDD — precedes the cloud router).
+# Locked to spec by tests/lint/test_m032_cloud_experts.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M032
+source_dump_lines: "9519-9679"
+
+# ── E0301 — local-owns / cloud-provides / invariant (M00527-M00529) — VERBATIM ──
+boundary:
+  local_owns:
+    module: M00527
+    owns: [state, policy, memory, replay, tools, commit]
+  cloud_provides:
+    module: M00528
+    provides: [expert-generation, verification, coding, reasoning, vision, research]
+  invariant:
+    module: M00529
+    rule: "Remote models propose. Local runtime commits."
+
+# ── E0299 — OpenAI adapters (M00530-M00533, dump 9519-9522) — VERBATIM ──
+openai_adapters:
+  - {module: M00530, capability: "Responses API (recommended unified primitive)"}
+  - {module: M00531, capability: "Structured Outputs (JSON Schema adherence)"}
+  - {module: M00532, capability: "model family — GPT-5.2 / GPT-5 mini / GPT-5 nano (GPT-5.2 for coding+agentic)"}
+  - {module: M00533, capability: "Agents SDK (tools / handoffs / streaming / tracing)"}
+
+# ── E0300 — Anthropic adapters (M00534-M00537, dump 9526-9529) — VERBATIM ──
+anthropic_adapters:
+  - {module: M00534, capability: "extended thinking with tool use"}
+  - {module: M00535, capability: "prompt caching (short + longer durations for stable prefixes / system / tool schemas)"}
+  - {module: M00536, capability: "structured output support in Agent SDK"}
+  - {module: M00537, capability: "models-list API — discover models DYNAMICALLY, NOT hardcoded"}
+
+# ── E0303 — Model Router YAML 9-field schema (M00538, dump 9600-9615) — VERBATIM ──
+model_router_schema:
+  module: M00538
+  fields: [id, provider, role, strengths, locality, privacy, cost, latency, supports]
+
+# ── E0303 — router selection 8 axes (M00539, dump 9636-9644) — VERBATIM ──
+router_selection_axes:
+  module: M00539
+  axes: [privacy, cost, latency, risk, task_type, local_model_confidence,
+         cloud_availability, user_profile]
+
+# ── E0305 — providers/ adapter tree, 6 modules (M00540, dump 9673-9679) — VERBATIM ──
+provider_adapters:
+  module: M00540
+  adapters: [openai_adapter, anthropic_adapter, local_vllm_adapter, sglang_adapter,
+             trtllm_adapter, llama_cpp_adapter]

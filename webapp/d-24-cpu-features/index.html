@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sovereign-os D-24 cpu features</title>
+<meta name="x-sovereign-module" content="d-24-cpu-features-webapp">
+<meta name="x-sovereign-shipped-in" content="D-24-cpu-features">
+<meta name="x-sovereign-standing-rule" content="We do not minimize anything.">
+<meta name="x-sovereign-catalog-source" content="reuses scripts/hardware/avx512-advisor.py (probe/workloads/advisory)">
+<script>
+  (function(){
+    var KEY = 'sovereign-os.personalization', SCHEMA_V = 1;
+    var DEF = { schema: SCHEMA_V, theme: 'auto', accent: '#9bd1ff', font_scale: 1 };
+    var p;
+    try { var raw = localStorage.getItem(KEY); p = raw ? JSON.parse(raw) : null; if (!p || p.schema !== SCHEMA_V) p = null; } catch(e) { p = null; }
+    if (!p) p = DEF;
+    var resolved = (p.theme === 'dark' || p.theme === 'light') ? p.theme
+      : ((window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark');
+    document.documentElement.setAttribute('data-theme', resolved);
+    document.documentElement.style.setProperty('--so-accent', p.accent || DEF.accent);
+    document.documentElement.style.setProperty('--accent', p.accent || DEF.accent);
+    document.documentElement.style.setProperty('--font-scale', String(p.font_scale || 1));
+  })();
+</script>
+<style>
+  :root {
+    --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --panel:#171717;
+    --border:#262626; --mono:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; --accent:#9bd1ff; --good:#7ad17a; --warn:#e6c062;
+    --bad:#ff7676; --font-scale:1;
+  }
+  html[data-theme="light"] { --bg:#f6f6f6; --fg:#0e0e0e; --muted:#555; --panel:#ffffff; --border:#d8d8d8; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font-family: var(--mono); font-size: calc(14px * var(--font-scale)); line-height:1.5; }
+  header { padding:1rem 1.25rem; border-bottom:1px solid var(--border); }
+  h1 { margin:0; font-size:1.1rem; }
+  h1 .sub { color:var(--muted); font-weight:400; font-size:.8rem; margin-left:.5rem; }
+  main { padding:1rem 1.25rem; max-width:1100px; }
+  h2 { font-size:.9rem; margin:1.2rem 0 .4rem; color:var(--accent); }
+  .banner { font-size:.78rem; color:var(--muted); margin:.5rem 0; }
+  .muted { color:var(--muted); }
+  code { color:var(--accent); }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:.3rem; }
+  .ext { border:1px solid var(--border); border-radius:4px; padding:.3rem .5rem; font-size:.78rem; display:flex; justify-content:space-between; gap:.5rem; }
+  .yes { color:var(--good); } .no { color:var(--bad); }
+  table { width:100%; border-collapse:collapse; font-size:.8rem; }
+  th, td { text-align:left; padding:.3rem .5rem; border-bottom:1px solid var(--border); }
+  th { color:var(--muted); font-weight:600; }
+  .fit-yes { color:var(--good); } .fit-no { color:var(--warn); }
+  .sev-ok { color:var(--good); } .sev-warn { color:var(--warn); } .sev-critical { color:var(--bad); }
+  footer { padding:1rem 1.25rem; border-top:1px solid var(--border); color:var(--muted); font-size:.75rem; }
+</style>
+</head>
+<body>
+<header>
+  <h1>D-24 · CPU Features
+    <span class="sub">AVX-512 extension map · per-AI-workload fit · advisory (reuses avx512-advisor)</span></h1>
+</header>
+<main>
+  <div class="banner" id="data-source-banner">connecting to <code>/api/cpu-features/probe</code>…</div>
+  <div class="banner" id="cpu-summary"></div>
+  <h2>AVX-512 extensions</h2>
+  <div class="grid2" id="extensions"></div>
+  <h2>Per-AI-workload fit</h2>
+  <div id="workloads"></div>
+  <h2>Advisory</h2>
+  <div id="advisory"></div>
+  <p class="banner" id="last-fetch"></p>
+</main>
+<footer>
+  sovereign-os cockpit · D-24 · read-only capability observation (nothing to mutate).
+  Operator §1g standing rule (sacrosanct): <strong>We do not minimize anything.</strong>
+</footer>
+<script>
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  function render(probe, workloads, advisory) {
+    $('cpu-summary').innerHTML = probe.error
+      ? '<span class="no">advisor error: '+esc(probe.error)+'</span>'
+      : `<code>${esc(probe.cpu_model||'?')}</code> · AVX-512 ${probe.avx512_supported ? '<span class="yes">supported</span>' : '<span class="no">absent</span>'}`;
+    $('extensions').innerHTML = (probe.extensions || []).map(e =>
+      `<div class="ext"><span><code>${esc(e.flag)}</code> <span class="muted">${esc(e.summary||'')}</span></span><span class="${e.present ? 'yes' : 'no'}">${e.present ? '✓' : '—'}</span></div>`
+    ).join('') || '<div class="muted">no extension data</div>';
+    $('workloads').innerHTML = (workloads.workloads || []).length ? (
+      `<div class="banner"><strong>${workloads.fitting_workload_count ?? 0}</strong> / ${workloads.workload_count ?? 0} workloads fit</div>` +
+      '<table><thead><tr><th>Workload</th><th>Fit</th><th>Why</th></tr></thead><tbody>' +
+      workloads.workloads.map(w => `<tr><td>${esc(w.workload || w.name || '?')}</td><td class="${w.fits ? 'fit-yes' : 'fit-no'}">${w.fits ? 'FIT' : 'gap'}</td><td class="muted">${esc(w.reason || w.note || '')}</td></tr>`).join('') +
+      '</tbody></table>')
+      : '<div class="muted">no workload data</div>';
+    const sev = advisory.severity || 'ok';
+    $('advisory').innerHTML = `<div class="banner">severity: <span class="sev-${esc(sev)}">${esc(sev.toUpperCase())}</span></div>` +
+      ((advisory.advisories || []).length
+        ? '<ul>' + advisory.advisories.map(a => `<li class="muted">${esc(typeof a === 'string' ? a : (a.message || a.hint || JSON.stringify(a)))}</li>`).join('') + '</ul>'
+        : '<div class="muted">no advisories — capabilities meet the AI workload floor</div>');
+  }
+
+  async function fetchJson(path) { const r = await fetch(path, {credentials:'same-origin'}); if (!r.ok) throw new Error('HTTP '+r.status); return r.json(); }
+
+  async function refresh() {
+    try {
+      const [probe, workloads, advisory] = await Promise.all([
+        fetchJson('/api/cpu-features/probe'), fetchJson('/api/cpu-features/workloads'), fetchJson('/api/cpu-features/advisory')]);
+      $('data-source-banner').innerHTML = 'consuming <code>/api/cpu-features/{probe,workloads,advisory}</code>';
+      render(probe, workloads, advisory);
+    } catch (e) { $('data-source-banner').innerHTML = 'cannot reach the cpu-features API daemon <span class="muted">('+esc(e.message)+')</span>'; }
+    $('last-fetch').textContent = 'last fetch: ' + new Date().toLocaleTimeString();
+  }
+
+  try { const es = new EventSource('/api/cpu-features/stream'); es.addEventListener('features-change', refresh); es.addEventListener('error', () => setInterval(refresh, 60000)); }
+  catch (e) { setInterval(refresh, 60000); }
+  refresh();
+</script>
+
+<!-- SDD-045 shared control-surface (inlined verbatim). -->
+<section style="max-width:1100px;padding:0 1.25rem 1rem"><h2>Controls · features &amp; profiles</h2>
+<div id="control-surface" class="cs-grid"><div class="cs-empty">loading controls…</div></div></section>
+<style>
+/* webapp/_shared/control-surface.css — SDD-045 shared control-surface.
+ * Renders the control-systems registry (profiles / modes / feature toggles)
+ * as a grid of control cards. Monochrome, framework-free; inherits the
+ * panel palette variables (--bg/--fg/--muted/--accent/--border/--mono). */
+.cs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: .5rem; }
+.cs-card {
+  display: flex; flex-direction: column; gap: .35rem;
+  padding: .6rem .75rem; border: 1px solid var(--border, #262626);
+  border-radius: .4rem; background: rgba(255, 255, 255, .02);
+}
+.cs-head { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.cs-label { font-weight: 600; flex: 1; }
+.cs-kind {
+  font-size: .7rem; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--muted, #888); border: 1px solid var(--border, #262626);
+  border-radius: 3px; padding: 0 .35rem;
+}
+.cs-global {
+  font-size: .7rem; color: var(--accent, #9bd1ff);
+  border: 1px solid var(--accent, #9bd1ff); border-radius: 3px; padding: 0 .35rem;
+}
+.cs-desc { color: var(--muted, #888); font-size: .8rem; line-height: 1.45; }
+.cs-opts { display: flex; flex-wrap: wrap; gap: .3rem; }
+.cs-opt { font-size: .72rem; background: var(--border, #262626); border-radius: 3px; padding: 1px 6px; }
+.cs-cmd {
+  font-family: var(--mono, ui-monospace, monospace); font-size: .74rem;
+  text-align: left; color: var(--fg, #e6e6e6); background: var(--bg, #0e0e0e);
+  border: 1px solid var(--border, #262626); border-radius: 3px;
+  padding: .25rem .4rem; cursor: pointer; overflow-x: auto; white-space: nowrap;
+}
+.cs-cmd:hover { border-color: var(--accent, #9bd1ff); }
+.cs-empty { color: var(--muted, #888); }
+</style>
+<script>
+/* webapp/_shared/control-surface.js — SDD-045 shared control-surface renderer.
+ *
+ * Renders the control-systems registry (config/control-systems.yaml, served
+ * as GET /control-systems) — the operator's "everything can be turned on and
+ * off + tons of modes and profiles" — as a grid of control cards. Reused by
+ * every dashboard so each becomes a CONTROL surface.
+ *
+ * Web is READ-ONLY: each control shows its options and copies its exact
+ * `change_cli` for the operator to run. It NEVER mutates privileged state
+ * (§1g / hardening lint). No framework, no CDN — a single same-origin file.
+ *
+ * Usage:
+ *   const n = SovereignControlSurface.render(el, systems, {
+ *     filterSlug: 'runtime-modes',   // only global + systems governing this slug
+ *     onCopy: (cmd) => showToast(cmd) // optional copy callback
+ *   });
+ */
+(function (global) {
+  "use strict";
+
+  function esc(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  function render(containerEl, systems, opts) {
+    opts = opts || {};
+    var slug = opts.filterSlug || null;
+    var list = (systems || []).filter(function (s) {
+      if (!slug) return true;                       // no filter → all systems
+      return s.scope === "global" ||                // globals show everywhere
+        (s.applies_to || []).indexOf(slug) >= 0;    // + systems governing slug
+    });
+    var html = list.map(function (s) {
+      var pills = (s.options || []).map(function (o) {
+        return '<span class="cs-opt">' + esc(o) + "</span>";
+      }).join("");
+      var change = esc(s.change_cli || "");
+      return '<div class="cs-card cs-' + esc(s.kind) + '">'
+        + '<div class="cs-head">'
+        + '<span class="cs-label">' + esc(s.label) + "</span>"
+        + '<span class="cs-kind">' + esc(s.kind) + "</span>"
+        + (s.scope === "global" ? '<span class="cs-global">global</span>' : "")
+        + "</div>"
+        + '<div class="cs-desc">' + esc(s.description) + "</div>"
+        + '<div class="cs-opts">' + pills + "</div>"
+        + (change
+            ? '<button class="cs-cmd" data-cmd="' + change
+              + '" title="click to copy the operator command">$ ' + change + "</button>"
+            : "")
+        + "</div>";
+    }).join("");
+    containerEl.innerHTML = html || '<div class="cs-empty">(no controls for this surface)</div>';
+    Array.prototype.forEach.call(containerEl.querySelectorAll(".cs-cmd"), function (b) {
+      b.addEventListener("click", function () {
+        var cmd = b.getAttribute("data-cmd");
+        if (navigator.clipboard) navigator.clipboard.writeText(cmd);
+        if (typeof opts.onCopy === "function") opts.onCopy(cmd);
+      });
+    });
+    return list.length;
+  }
+
+  // Convenience: fetch /control-systems (same-origin) and render.
+  function load(containerEl, opts) {
+    return fetch("/control-systems", { headers: { Accept: "application/json" } })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data && data.error) {
+          containerEl.innerHTML = '<div class="cs-empty">controls unavailable: '
+            + esc(data.error) + "</div>";
+          return 0;
+        }
+        return render(containerEl, (data && data.systems) || [], opts);
+      })
+      .catch(function (e) {
+        containerEl.innerHTML = '<div class="cs-empty">controls unavailable: '
+          + esc(e && e.message) + "</div>";
+        return 0;
+      });
+  }
+
+  global.SovereignControlSurface = { render: render, load: load };
+})(window);
+</script>
+<script>
+(function(){
+  var el = document.getElementById("control-surface");
+  if (el && window.SovereignControlSurface) { SovereignControlSurface.load(el, {filterSlug:'d-24-cpu-features'}); }
+})();
+</script>
+</body>
+</html>

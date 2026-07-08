@@ -1,0 +1,137 @@
+# config/security/m056-trust-boundaries-and-authority.yaml
+# ============================================================================
+# M056 "Trust boundaries and authority — 7 authority levels / 5 trust rings" — the
+# authority-model CONTRACT. Materializes the milestone spec (backlog/milestones/
+# M056-..., dump 17215-17532): the Authority Model + 7 actor scopes (E0538), the
+# 7 Authority Levels (E0539), the 5 Trust Rings (E0540), contextual Model Trust
+# (E0541), Cloud Trust (E0542), Memory Trust 7 levels (E0543), Commit Authority
+# (E0544), Tool Authority (E0545), User Authority (E0546), and Authority + Profiles
+# + Key Rule (E0547). No invention — every entry traces to a module + dump line range.
+#
+# Doctrine (dump 17222): "Nothing should have ambient authority". Critical
+# invariant (dump 17268): "A model can request authority. It cannot grant itself
+# authority". Key Rule (dump 17522): "Authority follows evidence". Ties: the 7
+# authority levels + 5 trust rings are the security lattice enforced by M049's
+# Policy Fabric + M054's Policy interface; the 8 commit types are the gated
+# side-effects behind R10274's signed-mutation path; the R10212 producer/consumer
+# boundary is Ring-4/Cloud-scoped — cockpit stays Ring-2 consumer, selfdef is producer.
+# STATUS: spec-materialization (SDD+TDD — the trust + authority security model).
+# Locked to spec by tests/lint/test_m056_trust_boundaries_and_authority.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M056
+source_dump_lines: "17215-17532"
+
+# ── E0538 — Authority Model + 7 actor scopes (M00935/M00936/M00937) — VERBATIM ──
+authority_model:
+  doctrine: "Nothing should have ambient authority"
+  actor_scopes:
+    - {actor: User, owns: "goals, approval, memory rights, external exposure"}
+    - {actor: Runtime, owns: "state, routing, policy, commit"}
+    - {actor: Models, owns: "propose text, plans, tool intents, memory writes"}
+    - {actor: Tools, owns: "execute bounded operations"}
+    - {actor: Sandboxes, owns: "contain risky execution"}
+    - {actor: Cloud, owns: "optional external expert, never default owner"}
+    - {actor: Memory, owns: "governed resource, not automatic prompt stuffing"}
+  critical_invariant: "A model can request authority. It cannot grant itself authority"
+
+# ── E0539 — the 7 Authority Levels (M00938, dump 17272-17298) — VERBATIM ──
+authority_levels:
+  module: M00938
+  levels:
+    - {level: 0, name: Observe, meaning: "read-only, no side effects"}
+    - {level: 1, name: Suggest, meaning: "propose actions, no execution"}
+    - {level: 2, name: Simulate, meaning: "run in sandbox, no host mutation"}
+    - {level: 3, name: Prepare, meaning: "generate diff/plan/command, pending approval"}
+    - {level: 4, name: "Execute bounded", meaning: "allowed tool action within policy"}
+    - {level: 5, name: Commit, meaning: "mutate project/host state after gates"}
+    - {level: 6, name: Persist, meaning: "write memory, profile, policy, or adapter changes"}
+  note: "Different profiles allow different maximum levels"
+
+# ── E0540 — the 5 Trust Rings (M00940, dump 17310-17338) — VERBATIM ──
+trust_rings:
+  module: M00940
+  rings:
+    - {ring: 0, name: "Sovereign Kernel", holds: "policy, gateway, replay, memory authority"}
+    - {ring: 1, name: "Trusted Local Services", holds: "model servers, memory service, eval service"}
+    - {ring: 2, name: "Sandboxed Agents", holds: "tool workers, build/test containers, browser agents"}
+    - {ring: 3, name: "Experimental/Untrusted", holds: "unknown code, external downloads, risky web tasks"}
+    - {ring: 4, name: "Cloud/External", holds: "remote APIs, external services, internet"}
+  transition_rule: "Movement between rings requires explicit policy"
+
+# ── E0541 — contextual Model Trust (M00942, dump 17344-17376) — VERBATIM ──
+model_trust:
+  module: M00942
+  doctrine: "A model is not globally trusted or untrusted. It has trust by role"
+  role_examples:
+    - "trusted for summarizing logs / not trusted for committing code"
+    - "trusted for draft patch / not trusted for final review"
+    - "trusted for private local context / not trusted for cloud exposure"
+    - "trusted for JSON extraction / not trusted for shell planning"
+  trust_dimensions: [coding, tool_use, schema_validity, privacy, reasoning, perception,
+                     latency, cost, domain]
+
+# ── E0542 — Cloud Trust (M00943, dump 17388-17408) — VERBATIM ──
+cloud_trust:
+  module: M00943
+  doctrine: "Cloud is not forbidden. It is scoped"
+  allowed: ["public docs", "high-level reasoning", "redacted summaries",
+            "optional critique", "user-approved oracle calls"]
+  restricted: [secrets, "private source", "personal memory", credentials,
+               "raw traces", "proprietary data"]
+  enforcement: "The gateway enforces this"
+
+# ── E0543 — Memory Trust 7 levels (M00944, dump 17418-17448) — VERBATIM ──
+memory_trust:
+  module: M00944
+  levels:
+    - {level: raw_observation, note: "highest provenance, maybe noisy"}
+    - {level: derived_summary, note: "useful, lossy"}
+    - {level: model_reflection, note: "low authority until verified"}
+    - {level: user_statement, note: "high preference authority"}
+    - {level: test_result, note: "high technical authority"}
+    - {level: external_claim, note: "requires source/freshness"}
+    - {level: cloud_generated, note: "useful, but exposure-marked"}
+  note: "The runtime should know what kind of memory it is using"
+
+# ── E0544 — Commit Authority (M00945, dump 17454-17484) — VERBATIM ──
+commit_authority:
+  module: M00945
+  definition: "A commit is any durable change"
+  commit_types: ["file write", "memory write", "policy update", "profile update",
+                 "adapter promotion", "cloud exposure log", "tool side effect",
+                 "workflow completion"]
+  every_commit_needs: [actor, reason, "policy decision", "rollback status", "trace reference"]
+  high_risk_needs: [snapshot, "test/eval", "oracle or human gate"]
+
+# ── E0545 — Tool Authority (M00946, dump 17492-17506) — VERBATIM ──
+tool_authority:
+  module: M00946
+  declaration: ["read paths", "write paths", "network domains", "environment variables",
+                "secret access", "expected side effects", "rollback"]
+  mismatch_rule: "If declaration and observed behavior differ, the runtime should flag it"
+  mismatch_example: "declared read-only / observed opened socket / result block+quarantine+trace"
+
+# ── E0546 — User Authority (M00947, dump 17514-17528) — VERBATIM ──
+user_authority:
+  module: M00947
+  good_overrides: ["allow cloud for one redacted request", "allow network docs-only for this task",
+                   "allow file write after snapshot"]
+  dangerous_overrides: ["give agent all secrets forever", "disable tracing globally",
+                        "auto-commit high-risk changes"]
+  doctrine: "The system can allow expert mode, but it should make blast radius explicit"
+
+# ── E0547 — Authority + Profiles + Key Rule (M00948-M00951, dump 17494-17530) — VERBATIM ──
+authority_and_profiles:
+  profile_bindings:
+    - {profile: private, cap: "max-local-observe-suggest"}
+    - {profile: fast, cap: "bounded-execute-safe-tools"}
+    - {profile: careful, cap: "oracle-test-gates"}
+    - {profile: autonomous, cap: "execute-bounded-tasks-predeclared-gates"}
+    - {profile: experimental, cap: "high-exploration-zero-host-commit"}
+    - {profile: production, cap: "strict-commit-gates-strong-trace-rollback"}
+  key_rule: "Authority follows evidence"
+  earned_authority_checks: ["valid schema", "safe policy", "successful sandbox",
+                            "tests pass", "oracle agrees", "user approves"]
+  conclusion: "capable because authority is granular / safe because authority is earned and observable"

@@ -12,6 +12,7 @@ exactly where the project sits and what to do next.
 | 2026-05-16 | [004-operator-friction-audit.md](004-operator-friction-audit.md) | (companion to 003 — honest critical review of operator-journey friction) |
 | 2026-05-17 | [005-master-spec-materialization-arc.md](005-master-spec-materialization-arc.md) | 004 (master-spec materialization arc — predecessor to verbatim-preservation work in 006) |
 | 2026-05-18 | [006-verbatim-preservation-arc.md](006-verbatim-preservation-arc.md) | 005 (R355-R380 verbatim-preservation contract mechanization — 26 rounds, 82 catalogued items, 67 L1 assertions across 8 lints, 20 real bugs caught, SDD-037 codified) |
+| 2026-07-08 | [007-cockpit-functional-execution-arc.md](007-cockpit-functional-execution-arc.md) | 006 (cockpit functional execution — SDD-047 / R10274: panels EXECUTE via the sudoer strategy, manual command the fallback; Phase 0 shipped + verified — `_action_exec.py` + DRAFT sudoers + observability metric + M049 audit coherence; mechanism resolved from evidence to `operator-sudoers.sh`; Phases 1-3 + Prod gated on the Q-047-D branch-recreate decision) |
 
 Handoffs land at:
 

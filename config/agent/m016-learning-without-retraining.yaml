@@ -1,0 +1,90 @@
+# config/agent/m016-learning-without-retraining.yaml
+# ============================================================================
+# M016 "Learning without retraining" — the experience/reflexion/skill CONTRACT.
+# Materializes the milestone spec (backlog/milestones/M016-..., dump 4037-4344):
+# the pre-fine-tune learning surface (E0138), the Experience record + cold
+# reflection fields (E0139), the failure-code taxonomy + episode scan (E0140),
+# the 6-stage Reflexion pipeline (E0141), the skill registry + YAML contract
+# (E0142), the 6-stage skill-promotion pipeline (E0143), the policy-update record
+# (E0144), and the Learning Plane / 8th plane (E0145). No invention — every entry
+# traces to a module + dump line range.
+#
+# Ties: the failure-code taxonomy classifies the exit codes of M010's tool-call
+# transaction + scripts/operator/_action_exec.py; the Learning Plane extends
+# M015's 7-plane system to 8 (mutates human-gate thresholds among others).
+# STATUS: spec-materialization (SDD+TDD — precedes the learning runtime).
+# Locked to spec by tests/lint/test_m016_learning_without_retraining.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M016
+source_dump_lines: "4037-4344"
+
+# ── E0138 — pre-fine-tune learning surface (M00250, dump 4037-4046) ──
+learning_surface:
+  module: M00250
+  surfaces: [experience-memory, policy-updates, prompt-program-optimization,
+             skill-libraries, routing, cache, failure-taxonomies]
+
+# ── E0139 — Experience record bitfield (M00251, dump 4054-4064) — VERBATIM ──
+experience_record:
+  module: M00251
+  fields: [task_type, branch_policy, model_route, tool_mask, outcome,
+           failure_code, latency_bucket, artifact_ref]
+
+# ── E0139 — cold natural-language reflection fields (M00252, dump 4069-4076) ──
+reflection_fields:
+  module: M00252
+  questions: ["What failed", "What fixed it", "Which tool was useful",
+              "Which memory mattered", "Which branch was waste",
+              "What should be tried first next time"]
+
+# ── E0140 — failure-code taxonomy (M00253, dump 4087-4097) — VERBATIM (hex) ──
+failure_codes:
+  module: M00253
+  codes:
+    - {code: 0x01, name: invalid_schema}
+    - {code: 0x02, name: bad_tool_args}
+    - {code: 0x03, name: test_failed}
+    - {code: 0x04, name: missing_context}
+    - {code: 0x05, name: hallucinated_api}
+    - {code: 0x06, name: permission_denied}
+    - {code: 0x07, name: timeout}
+    - {code: 0x08, name: duplicate_branch}
+    - {code: 0x09, name: low_oracle_agreement}
+    - {code: 0x0A, name: user_rejected}
+
+# ── E0141 — Reflexion pipeline (M00255-M00260, dump 4120-4125) — 6 stages ORDER ──
+reflexion_pipeline:
+  stages:
+    - {module: M00255, stage: collect-objective-outcome}
+    - {module: M00256, stage: classify-failure-code}
+    - {module: M00257, stage: generate-short-reflection}
+    - {module: M00258, stage: validate-reflection-against-trace}
+    - {module: M00259, stage: store-typed-lesson-plus-text}
+    - {module: M00260, stage: retrieve-only-when-matching-conditions}
+
+# ── E0142 — skill YAML contract (M00262, dump 4161-4173) — VERBATIM ──
+skill_contract:
+  module: M00262
+  fields: [name, inputs, preconditions, commands, risk, side_effects, success_metric]
+
+# ── E0143 — skill-promotion 6-stage pipeline (M00263, dump 4181-4188) — ORDER ──
+skill_promotion_pipeline:
+  module: M00263
+  stages: [candidate, sandbox, deterministic-validation, oracle-review,
+           user-approval-if-risky, store-as-draft-then-promote-after-repeated-success]
+
+# ── E0144 — policy-update record (M00264, dump 4217-4224) — VERBATIM ──
+policy_update_record:
+  module: M00264
+  fields: [condition_mask, old_policy, new_policy, evidence_count, success_delta,
+           approved_by, rollback_ref]
+
+# ── E0145 — Learning Plane (8th plane) (M00267, dump 4316-4344) — VERBATIM ──
+learning_plane:
+  module: M00267
+  plane_number: 8
+  mutates: [branch-policies, routing-thresholds, retrieval-filters,
+            prompt-program-templates, skill-library, cache-admission,
+            tool-schemas, human-gate-thresholds]

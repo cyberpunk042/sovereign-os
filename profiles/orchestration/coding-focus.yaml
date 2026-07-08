@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=../../schemas/orchestration-profile.schema.yaml
+#
+# Orchestration-intent profile (D-21). Workload intent: coding.
+schema_version: "1.0.0"
+orchestration_profile:
+  id: coding-focus
+  name: "Coding Focus"
+  description: |
+    Optimized for code generation + editing. Logic (GPU 0) runs the coder model
+    as the primary; Conductor (CPU) handles fast orchestration/tooling steps;
+    Oracle (GPU 1) is idle to leave headroom. Use for day-to-day coding sessions.
+  intent: coding
+  hardware_profile_compat: [sain-01]
+  allocations:
+    - {agent_id: conductor_01, tier: pulse, role: conductor, target_hardware: cpu,     core_mask: "0-7", engine: bitnet.cpp, model: BitNet-b1.58-3B,          active: true}
+    - {agent_id: logic_coder,  tier: logic, role: logic,     target_hardware: "cuda:0",                   engine: vllm,       model: Qwen3-Coder-32B-Instruct, active: true}
+    - {agent_id: oracle_idle,  tier: oracle, role: oracle,   target_hardware: "cuda:1",                   engine: vllm,       model: DeepSeek-V3-Quant,        active: false}
+  observability:
+    primary_metric: sovereign_os_inference_route_total{tier="logic"}

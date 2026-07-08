@@ -1,0 +1,68 @@
+# config/hardware/m074-avx512-vnni-fusion.yaml
+# ============================================================================
+# M074 "AVX-512 VNNI hardware fusion (512-bit ZMM / 64x INT8 / VPDPBUSD
+# single-cycle / LUT matrix ops)" — the hardware-fusion CONTRACT. Materializes the
+# milestone spec (backlog/milestones/M074-...; source raw/dumps/2026-05-15-sain-01-
+# master-spec-...md Section 16 lines 798-811): the Zen 5 true 512-bit ZMM (E0708),
+# the ZMM register layout (E0709/E0710), the VNNI extension (E0711), the VPDPBUSD
+# single-cycle MAC (E0712), the LUT matrix ops (E0713), CPU-local inference +
+# throughput (E0714/E0715), PCIe bypass (E0716), and boot verification (E0717). No
+# invention — every entry traces to a module + dump line range.
+#
+# Doctrinal anchors (dump 798/808/810): "the Ryzen 9 9900X lies in its
+# single-cycle, native AVX-512 (Zen 5) implementation... Zen 5 exposes true 512-bit
+# wide ZMM registers" / "Using the VNNI (Vector Neural Network Instructions)
+# extension... multiple INT8 activations are multiplied by packed ternary weights
+# and accumulated into 32-bit destination registers in a fraction of a clock cycle"
+# / "speeds matching or exceeding human reading rates (5-12 tokens/sec... bypassing
+# the PCIe bus bottleneck entirely and leaving your GPU memory unencumbered". Ties:
+# this is the hardware execution path for M073's ternary BitLinear core, running
+# on M066's Pulse (CCD 0, M070); boot-verified by M072's Check 01 (avx512_vnni +
+# avx512_bf16 in /proc/cpuinfo).
+# STATUS: spec-materialization (SDD+TDD — the AVX-512 VNNI ternary fusion path).
+# Locked to spec by tests/lint/test_m074_avx512_vnni_fusion.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M074
+source_dump_lines: "798-811"
+
+# ── E0708 — Zen 5 true 512-bit ZMM (M01226, dump 798-800) — VERBATIM ──
+zen5_zmm:
+  module: M01226
+  claim: "Zen 5 exposes true 512-bit wide ZMM registers (single-cycle, native AVX-512)"
+  legacy_contrast: "legacy architectures double-pump two 256-bit execution units to emulate a 512-bit instruction"
+
+# ── E0709/E0710 — ZMM register layout (M01227/M01228, dump 803-806) — VERBATIM ──
+zmm_layout:
+  width_bits: 512
+  packings:
+    - {elements: 64, type: "8-bit integer (INT8)"}
+    - {elements: 128, type: "4-bit packed activation snippets (BitNet v2)"}
+
+# ── E0711/E0712 — VNNI extension + VPDPBUSD (M01224/M01225, dump 808-809) — VERBATIM ──
+vnni:
+  module: M01224
+  extension: "VNNI (Vector Neural Network Instructions), native to the AVX-512 instruction block"
+vpdpbusd:
+  module: M01225
+  operation: "multiple INT8 activations multiplied by packed ternary weights, accumulated into 32-bit destination registers"
+  speed: "a fraction of a clock cycle"
+  equivalence: "single-instruction Multiply-Accumulate (FMA-equivalent)"
+
+# ── E0713 — LUT matrix ops (M01229, dump 795 + 808) — VERBATIM ──
+lut_matrix_ops:
+  module: M01229
+  property: "no de-quantization to FP at execution; leverages AVX-512 vector path; composes with M073 ternary packing"
+
+# ── E0714-E0716 — CPU-local inference + throughput + PCIe bypass (M01230/M01231) — VERBATIM ──
+cpu_local_inference:
+  module: M01231
+  throughput: "5-12 tokens/sec (matching/exceeding human reading rate)"
+  parameter_scale: "high parameter scales supported"
+  pcie_bypass: "bypasses the PCIe bus bottleneck entirely, leaving GPU memory unencumbered"
+
+# ── E0717 — boot verification (M01233, cross-ref M072) — VERBATIM ──
+boot_verification:
+  module: M01233
+  rule: "M072 Check 01 confirms avx512_vnni + avx512_bf16 present in /proc/cpuinfo"

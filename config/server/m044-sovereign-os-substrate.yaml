@@ -1,0 +1,144 @@
+# config/server/m044-sovereign-os-substrate.yaml
+# ============================================================================
+# M044 "Sovereign-OS substrate — Debian 13 / Ubuntu 24" — the substrate CONTRACT.
+# Materializes the milestone spec (backlog/milestones/M044-..., dump 13307-13546):
+# the sovereign substrate definition (E0418), Debian 13 + Ubuntu 24.04 reality
+# (E0419/E0420), the two-personalities profile choice (E0421), the peace machine
+# frame (E0422), the security substrate (E0423), secrets + identity (E0424),
+# NVIDIA reality (E0425), kernel/compiler + AVX build matrix (E0426), and the 8
+# Sovereign-OS Planes + 8 accountability questions + peace-machine composition
+# (E0427). No invention — every entry traces to a module + dump line range.
+#
+# Operator directive 13309 (sacrosanct): "its a 'war' machine.. or rather
+# anti-war... it a peace, full communication and logic and intelligence
+# everywhere". KEY LINE (dump 13544-13546): "Sovereign-OS is not a distro with AI
+# installed. It is an operating environment where intelligence is permissioned,
+# observable, reversible, and user-chosen". The selfdef IPS substrate (MS025
+# detect-host) runs ON TOP of this Debian-13/Ubuntu-24 base as an installed
+# package (R10212 boundary — selfdef is producer, sovereign-os is the ground).
+# STATUS: spec-materialization (SDD+TDD — the sovereign OS substrate).
+# Locked to spec by tests/lint/test_m044_sovereign_os_substrate.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M044
+source_dump_lines: "13307-13546"
+
+# ── E0418 — sovereign substrate definition (M00732, dump 13332) — VERBATIM ──
+sovereign_substrate:
+  module: M00732
+  not: "just 'Linux'"
+  properties: ["package policy", "kernel behavior", "GPU driver reality",
+               "sandbox security", "filesystem truth", "user-controlled communication"]
+
+# ── E0419/E0420 — Debian 13 + Ubuntu 24.04 reality (M00733/M00734) — VERBATIM ──
+base_os:
+  debian_13:
+    module: M00733
+    codename: Trixie
+    support: "full support through 2028, LTS through 2030"
+    kernel: "Linux 6.12 LTS"
+    gcc: "14.2"
+    python: "3.13"
+  ubuntu_2404:
+    module: M00734
+    role: "corporate/stable AI workstation path"
+    kernel: "6.8 initially"
+    gcc: "14"
+    glibc: "2.39"
+    maintenance: "5 years to May 2029, optional extended support"
+
+# ── E0421 — two-personalities profile choice (M00735, dump 13350-13360) — VERBATIM ──
+two_personalities:
+  module: M00735
+  debian: ["stable", "clean", "sovereign", "less vendor magic", "excellent base for controlled systems"]
+  ubuntu: ["easier NVIDIA/CUDA ecosystem", "enterprise tooling", "AppArmor defaults", "broad vendor support"]
+  note: "That is not a contradiction. It is a profile choice"
+
+# ── E0422 — peace machine frame (M00736/M00737, dump 13372-13396) — VERBATIM ──
+peace_machine:
+  framing: "Anti-war is the better term. The system is not a war machine in purpose. It is a coordination machine"
+  coordination_properties: [communication, translation, logic, verification, planning,
+                            memory, trust, consent, "conflict reduction", "shared understanding"]
+  accountable_ai_model: ["AI proposes", "Policy checks", "Tools execute in bounded space",
+                         "Traces record", "User can inspect", "System learns"]
+  closing: "That is peace through legibility"
+
+# ── E0423 — security substrate (M00738/M00739, dump 13412-13434) — VERBATIM ──
+security_substrate:
+  apparmor_note: "Ubuntu documents restricted unprivileged user namespaces via AppArmor in 24.04, limiting what unconfined apps can do inside user namespaces"
+  sandbox_vectors: ["rootless Podman", "bubblewrap", "Deno permissions",
+                    "browser sandboxes", "Claude Code / tool sandboxes", "VMs"]
+  profile_bundles:
+    - {profile: secure, policy: "restrictive user namespaces + AppArmor enforced"}
+    - {profile: developer, policy: "allow specific sandbox frameworks"}
+    - {profile: agent-lab, policy: "controlled exceptions for Podman + bubblewrap + browser + VM"}
+    - {profile: high-risk, policy: "move to VM/microVM instead of loosening host"}
+  note: "Security is not one setting. It is a user-visible operating mode"
+
+# ── E0424 — secrets + identity (M00740/M00741, dump 13442-13458) — VERBATIM ──
+secrets_and_identity:
+  doctrine: "A peace/intelligence OS must guard secrets like a body guards organs"
+  controls: ["LUKS2 full disk encryption", "TPM2/FIDO2 unlock options",
+             "per-project secrets", "vault proxy + stub credentials",
+             "redaction before cloud", "cost ledger", "network egress policy"]
+  cryptenroll:
+    module: M00741
+    tool: "systemd-cryptenroll"
+    enrolls: ["TPM2", "FIDO2", "PKCS#11"]
+    into: "LUKS2 volumes"
+  identity_triad: ["user presence", "device identity", "encrypted memory of the system"]
+
+# ── E0425 — NVIDIA reality (M00742/M00743, dump 13466-13486) — VERBATIM ──
+nvidia_reality:
+  driver_listing:
+    module: M00742
+    device: "RTX PRO 6000 Blackwell Server Edition"
+    driver: "590.48.01"
+    base: "Debian 13 data center driver listing"
+  driver_profile_abstraction:
+    module: M00743
+    core_base: "Debian-like sovereign policy"
+    ai_driver_profile: "Ubuntu/NVIDIA-friendly stack where needed"
+
+# ── E0426 — kernel/compiler + AVX build matrix (M00744, dump 13500-13506) — VERBATIM ──
+kernel_and_compiler:
+  zen5_note: "Zen 5 wants modern kernel and compiler; GCC has znver5 targeting in the GCC 14 era, which matters for compiling the AVX-512 deterministic core"
+  avx_build_matrix:
+    module: M00744
+    paths: ["portable scalar baseline", "AVX2 path", "AVX-512 Zen5 path", "runtime CPUID dispatch"]
+    doctrine: "Never assume. Detect"
+
+# ── E0427 — 8 Sovereign-OS Planes (M00745, dump 13512-13534) — VERBATIM ──
+sovereign_os_planes:
+  module: M00745
+  planes:
+    - {plane: Kernel, components: "Linux 6.8/6.12+ + IOMMU + VFIO + cgroups2 + namespaces + io_uring"}
+    - {plane: Security, components: "AppArmor + LUKS2 + TPM-FIDO2 + seccomp + capabilities + network policy"}
+    - {plane: Compute, components: "NVIDIA driver-CUDA + ROC-free clarity + AVX-512 CPU core + model runtimes"}
+    - {plane: Storage, components: "ZFS snapshots + datasets + replay + rollback + ARC"}
+    - {plane: Sandbox, components: "Podman-rootless + bubblewrap + Deno + Python venvs + VMs + VFIO 4090"}
+    - {plane: Gateway, components: "Anthropic-first API + OpenAI-compatible shim + MCP + Claude Code hooks"}
+    - {plane: Observability, components: "journald + OpenTelemetry + DCGM + eBPF + Prometheus-Grafana"}
+    - {plane: Choice, components: "secure / dev / research / autonomous / offline / cloud-hybrid"}
+
+# ── E0427 — 8 accountability questions (M00746, dump 13536-13542) — VERBATIM ──
+accountability_questions:
+  module: M00746
+  questions: ["Who asked?", "Which model/tool acted?", "What context was exposed?",
+              "What permission allowed it?", "What did it cost?", "What changed?",
+              "Can it be rolled back?", "Should it become memory?"]
+
+# ── E0427 — key line + 6-component peace machine (M00747, dump 13544-13546) — VERBATIM ──
+key_line: "Sovereign-OS is not a distro with AI installed. It is an operating environment where intelligence is permissioned, observable, reversible, and user-chosen"
+peace_machine_composition:
+  module: M00747
+  substrate:
+    - "Debian 13/Ubuntu 24 gives the ground"
+    - "Zen 5 AVX-512 gives deterministic law"
+    - "Blackwell gives deep local cognition"
+    - "4090/VFIO gives safe experimentation"
+    - "ZFS gives memory and rollback"
+    - "AppArmor/LUKS/cgroups give boundaries"
+    - "the gateway gives communication"
+  doctrine: "powerful enough to act, disciplined enough to explain itself"

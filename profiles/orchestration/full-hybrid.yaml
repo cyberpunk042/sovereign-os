@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=../../schemas/orchestration-profile.schema.yaml
+#
+# Orchestration-intent profile (D-21). Workload intent: full hybrid (all tiers +
+# router helpers for RAG/draft/rerank).
+schema_version: "1.0.0"
+orchestration_profile:
+  id: full-hybrid
+  name: "Full Hybrid"
+  description: |
+    Every tier active PLUS the router helpers (embed / rerank / speculative
+    draft) co-resident on the Logic GPU. The maximum-utilization intent — all
+    hardware engaged, mixed workloads. Use for heavy multi-modal agentic runs.
+  intent: full-hybrid
+  hardware_profile_compat: [sain-01]
+  allocations:
+    - {agent_id: conductor_01, tier: pulse,  role: conductor, target_hardware: cpu,     core_mask: "0-7", engine: bitnet.cpp, model: BitNet-b1.58-3B,                    active: true}
+    - {agent_id: logic_coder,  tier: logic,  role: logic,     target_hardware: "cuda:0",                   engine: vllm,       model: Qwen3-Coder-32B-Instruct,           active: true}
+    - {agent_id: oracle_reason,tier: oracle, role: oracle,    target_hardware: "cuda:1",                   engine: vllm,       model: DeepSeek-R1-Distill-Llama-70B-FP16, active: true}
+    - {agent_id: router_embed, tier: router, role: logic,     target_hardware: "cuda:0",                   engine: vllm,       model: nomic-embed-text-v2-moe,            active: true}
+  observability:
+    primary_metric: sovereign_os_inference_route_total

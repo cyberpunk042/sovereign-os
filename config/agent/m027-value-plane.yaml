@@ -1,0 +1,70 @@
+# config/agent/m027-value-plane.yaml
+# ============================================================================
+# M027 "Value plane — reward vector + PRM as branch critic" — the value/reward
+# CONTRACT. Materializes the milestone spec (backlog/milestones/M027-..., dump
+# 7752-7932): the PRM substrates (E0249), the Value-Plane 7-question contract
+# (E0250), the 12-axis reward vector + profile weights (E0251), the PRM
+# branch-critic I/O + authority law (E0252), the 9 search modes (E0253), the
+# adaptive compute ladder + budget formula (E0254), and the AVX-512 reward Hot
+# SoA (E0255). No invention — every entry traces to a module + dump line range.
+#
+# The 12-axis reward vector EXTENDS M026's 8-axis (backward-sweep additive); PRM
+# branch-critic feeds M013's feedback loop; authority law (PRM proposes / CPU
+# applies / Oracle verifies) mirrors M014's VM-propose/host-commit.
+# STATUS: spec-materialization (SDD+TDD — precedes the value plane).
+# Locked to spec by tests/lint/test_m027_value_plane.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M027
+source_dump_lines: "7752-7932"
+
+# ── E0250 — Value Plane 7-question contract (M00447, dump 7763-7773) — VERBATIM ──
+value_plane_questions:
+  module: M00447
+  questions: [thought-expand, branch-correct, tool-plan-safe, memory-trustworthy,
+              answer-return, profile-choose, compute-justified]
+
+# ── E0251 — 12-axis reward vector (M00448, dump 7783-7796) — VERBATIM ──
+reward_vector_12axis:
+  module: M00448
+  axes: [correctness, evidence, schema_validity, tool_success, test_success, risk,
+         latency, cost, novelty, user_preference, cache_reuse, confidence_calibration]
+
+# ── E0252 — PRM branch-critic I/O (M00450/M00451, dump 7822-7839) — VERBATIM ──
+prm_branch_critic:
+  inputs_module: M00450
+  inputs: [branch_state, partial_reasoning, tool_observations, memory_evidence, candidate_next_step]
+  outputs_module: M00451
+  outputs: [step_score, risk_score, uncertainty, failure_mode, suggested_next_action]
+
+# ── E0252 — reward-model authority law (M00452, dump 7845-7849) — VERBATIM ──
+authority_law:
+  module: M00452
+  law: "PRM proposes value / CPU applies law / Oracle verifies high-stakes commitments"
+
+# ── E0253 — the 9 search modes (M00453, dump 7855-7883) — VERBATIM ──
+search_modes:
+  module: M00453
+  modes: [Greedy, Best-of-N, Self-consistency, Beam, Diverse-beam, MCTS,
+          RLM-recursion, Debate, Program-of-thought]
+
+# ── E0254 — adaptive compute ladder (M00454, dump 7894-7909) — VERBATIM ──
+adaptive_compute_ladder:
+  module: M00454
+  rungs:
+    - {difficulty: easy, plan: "SLM + validation"}
+    - {difficulty: medium, plan: "scout + oracle"}
+    - {difficulty: hard, plan: "branch-search + PRM + tools"}
+    - {difficulty: long-context, plan: "RLM + memory + oracle"}
+    - {difficulty: high-risk, plan: "oracle + verifier + human gate"}
+
+# ── E0254 — intelligence-budget formula (M00455, dump 7913-7914) — VERBATIM ──
+intelligence_budget_formula:
+  module: M00455
+  formula: "expected_gain > compute_cost + latency_penalty + risk_penalty"
+
+# ── E0255 — AVX-512 reward-guided 7-array Hot SoA (M00456, dump 7925-7932) — VERBATIM ──
+reward_hot_soa:
+  module: M00456
+  arrays: [score_q16, risk_u8, uncertainty_u8, cost_u8, latency_u8, depth_u8, flags_u64]

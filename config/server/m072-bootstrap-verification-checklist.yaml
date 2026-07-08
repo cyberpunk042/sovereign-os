@@ -1,0 +1,62 @@
+# config/server/m072-bootstrap-verification-checklist.yaml
+# ============================================================================
+# M072 "Master Bootstrap Verification Checklist (6-phase operational grid)" — the
+# pre-deployment validation CONTRACT. Materializes the milestone spec (backlog/
+# milestones/M072-...; source raw/dumps/2026-05-15-sain-01-master-spec-...md
+# Section 22 lines 1091-1100): the 6 mandatory checks with target subsystem +
+# intended state + invocation (E0688-E0693), the lock-state behavior + manual
+# clear (E0694/E0695), the pre-execution gate (E0696), and SFIF/Stage-Gate
+# integration (E0697). No invention — every entry traces to a module + dump line
+# range.
+#
+# Doctrinal anchor (dump 1091): "Before passing command execution over to your
+# active development workflows, the downstream agent must pass this mandatory
+# operational grid. If any check reports an anomaly, the node enters lock-state
+# until manually cleared by the Architect". Ties: Check 01 verifies M067's AVX-512
+# kernel; Check 02 M044's ProArt x8/x8 bifurcation; Check 03 M068's ZFS ARC bound;
+# Check 05 verifies selfdef MS044's Guardian Daemon (Tetragon) is up (R10212
+# boundary — sovereign-os CHECKS the Tetragon socket, selfdef OWNS the daemon).
+# The checklist gates the Infrastructure->Features SFIF transition (M063/M065).
+# STATUS: spec-materialization (SDD+TDD — the bootstrap verification grid).
+# Locked to spec by tests/lint/test_m072_bootstrap_verification_checklist.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M072
+source_dump_lines: "1091-1100"
+
+doctrinal_anchor: "If any check reports an anomaly, the node enters lock-state until manually cleared by the Architect"
+
+# ── E0688-E0693 — the 6 mandatory checks (M01190-M01195) — VERBATIM ──
+checks:
+  - {check: "01", module: M01190, subsystem: "Microcode/ISA",
+     intended: "avx512_vnni + avx512_bf16 present in /proc/cpuinfo",
+     invocation: 'grep --color=always -E "avx512_vnni | avx512_bf16" /proc/cpuinfo'}
+  - {check: "02", module: M01191, subsystem: "Bus Geometry",
+     intended: "dual PCIe slots at Link Speed Gen 4/5 x8",
+     invocation: 'lspci -vvv | grep -i "LnkSta: Speed"'}
+  - {check: "03", module: M01192, subsystem: "Linux Memory",
+     intended: "ZFS ARC restricted to 137438953472 bytes (128GB)",
+     invocation: "arcstat -s c"}
+  - {check: "04", module: M01193, subsystem: "Driver Fabric",
+     intended: "NVIDIA 560+ open kernel modules operating",
+     invocation: 'modinfo nvidia | grep -i "license"'}
+  - {check: "05", module: M01194, subsystem: "Security Core",
+     intended: "Tetragon local UNIX socket active + streaming",
+     invocation: "ls -la /var/run/tetragon/tetragon.events"}
+  - {check: "06", module: M01195, subsystem: "Network Line",
+     intended: "interface enp5s0 operational at jumbo MTU 9000",
+     invocation: 'ip link show enp5s0 | grep -i "mtu 9000"'}
+
+# ── E0694/E0695 — lock-state behavior + manual clear (M01198/M01199) — VERBATIM ──
+lock_state:
+  on_anomaly: "node enters lock-state on any anomaly"
+  manual_clear: "only the Architect (operator) can clear lock-state"
+
+# ── E0696 — pre-execution gate (M01196) — VERBATIM ──
+pre_execution_gate: "checklist runs before workflows handed over"
+
+# ── E0697 — SFIF + Stage-Gate integration (M01206) — VERBATIM ──
+sfif_integration:
+  module: M01206
+  rule: "checklist gates the Infrastructure -> Features transition (M063 + M065)"

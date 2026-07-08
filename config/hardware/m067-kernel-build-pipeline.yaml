@@ -1,0 +1,78 @@
+# config/hardware/m067-kernel-build-pipeline.yaml
+# ============================================================================
+# M067 "Custom kernel build pipeline (-march=znver5 / GCC 14 / Linux 6.12 /
+# bindeb-pkg)" — the kernel-build CONTRACT. Materializes the milestone spec
+# (backlog/milestones/M067-...; source raw/dumps/2026-05-15-sain-01-master-spec-...md
+# Phase II lines 651-676 + 498-510): the toolchain (E0649), vanilla fetch (E0650),
+# config hardening (E0651), compilation invocation (E0652), host deployment
+# (E0653), AVX-512 subset (E0654), GGML backend flags (E0655), bindeb-pkg output
+# (E0656), and reproducibility (E0657). No invention — every entry traces to a
+# module + dump line range.
+#
+# Doctrinal anchors (dump 593/504/670): "Phase II (The Engine): Build the custom
+# Kernel 6.12 in tmpfs using the precise compiler flags... -march=znver5" /
+# CFLAGS "-march=znver5 -mavx512f -mavx512dq -mavx512bw -mavx512vl -mavx512bf16
+# -mavx512fp16" / "make -j$(nproc) KCFLAGS='-march=znver5 -O3' KCPPFLAGS=
+# '-march=znver5 -O3' bindeb-pkg". PROJECT BOUNDARY (R10212): this catalogs ONLY
+# the kernel build pipeline (sovereign-os substrate); the Guardian Daemon
+# (Tetragon eBPF loop) belongs in selfdef MS044. Ties: this is the "customize the
+# boat" znver5-kernel path from M064's working hypothesis, the concrete Pulse
+# hardware manifestation from M066, and an SFIF Infrastructure-phase deliverable
+# (M063). Every kernel build is MS003-signed + recorded in docs/decisions.md.
+# STATUS: spec-materialization (SDD+TDD — the znver5 kernel build IaC).
+# Locked to spec by tests/lint/test_m067_kernel_build_pipeline.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M067
+source_dump_lines: "651-676,498-510"
+
+# ── E0649 — toolchain, 13 packages (M01122, dump 658-660) — VERBATIM ──
+toolchain:
+  module: M01122
+  packages: ["build-essential", "libncurses-dev", "bison", "flex", "libssl-dev",
+             "libelf-dev", "xz-utils", "git", "bc", "systemd-dev", "pahole",
+             "gcc-14", "g++-14"]
+
+# ── E0650 — vanilla fetch into tmpfs (M01123/M01124, dump 663) — VERBATIM ──
+source_fetch:
+  kernel: "Linux 6.12+ LTS from kernel.org"
+  build_mount: "isolated tmpfs RAM mount (eliminates NVMe write cycles during compilation)"
+
+# ── E0651 — config hardening (M01125/M01126, dump 665-666) — VERBATIM ──
+config_hardening:
+  module: M01125
+  strip_legacy: ["amateur radio", "obsolete filesystems", "debug options"]
+
+# ── E0654 — CFLAGS + AVX-512 subset (M01130, dump 504) — VERBATIM ──
+cflags: "-march=znver5 -mavx512f -mavx512dq -mavx512bw -mavx512vl -mavx512bf16 -mavx512fp16"
+avx512_subset:
+  module: M01130
+  subsets: ["F", "DQ", "BW", "VL", "BF16", "FP16"]
+
+# ── E0652 — compilation invocation (M01127, dump 668-670) — VERBATIM ──
+compilation:
+  module: M01127
+  invocation: 'make -j$(nproc) KCFLAGS="-march=znver5 -O3" KCPPFLAGS="-march=znver5 -O3" bindeb-pkg'
+  kcflags: "-march=znver5 -O3"
+  kcppflags: "-march=znver5 -O3"
+
+# ── E0655 — GGML backend force-flags (M01131, dump 508-510) — VERBATIM ──
+ggml_flags:
+  module: M01131
+  flags: ["GGML_AVX512", "GGML_AVX512_VBMI", "GGML_AVX512_VNNI"]
+
+# ── E0656 — bindeb-pkg output (M01128, dump 672-674) — VERBATIM ──
+build_output:
+  module: M01128
+  debs: ["linux-image-6.12.*-znver5_*.deb", "linux-headers-6.12.*-znver5_*.deb"]
+
+# ── E0653 — host target deployment (M01129, dump 672-674) — VERBATIM ──
+deployment:
+  module: M01129
+  action: "install custom .deb images"
+
+# ── E0657 — reproducibility (M01132) — VERBATIM ──
+reproducibility:
+  module: M01132
+  rule: "every kernel build signed via MS003 + recorded in docs/decisions.md"

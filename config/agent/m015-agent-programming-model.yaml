@@ -1,0 +1,80 @@
+# config/agent/m015-agent-programming-model.yaml
+# ============================================================================
+# M015 "Agent programming model" — the workflow/agent CONTRACT. Materializes the
+# milestone spec (backlog/milestones/M015-..., dump 3726-3992): the workflow
+# graph + canonical workflow (E0128), the AgentState struct + typed output
+# envelopes (E0129), the 5 node classes (E0130), the human-gate display/actions
+# (E0131), the optimization metric set + tuning surface (E0132), the Agent DSL
+# (E0133), the vectorized graph scheduler (E0134), and the 7-plane system (E0135).
+# No invention — every entry traces to a module + dump line range.
+#
+# Ties: the human-gate (M00242-M00244) is the operator-in-the-loop pattern the
+# sovereign-os cockpit + sovereign-cockpit-destructive-confirm implement; the 5
+# node classes map to M014 trust zones; the Tool Node gates through M010's
+# 8-stage tool-call transaction.
+# STATUS: spec-materialization (SDD+TDD — precedes the agent runtime).
+# Locked to spec by tests/lint/test_m015_agent_programming_model.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M015
+source_dump_lines: "3726-3992"
+
+# ── E0128 — canonical workflow (M00234, dump 3735-3748) — VERBATIM ORDER ──
+canonical_workflow:
+  module: M00234
+  stages: [Intake, Classify, Retrieve, DraftPlan, PolicyCheck, OracleReview,
+           ToolIntent, "HumanGate?", ExecuteSandbox, ValidateResult, Commit,
+           SummarizeMemory]
+
+# ── E0128 — per-node contract (M00235, dump 3752-3761) — VERBATIM ──
+node_contract:
+  module: M00235
+  fields: [input_schema, output_schema, allowed_tools, risk_level, budget,
+           model_route, cache_policy, checkpoint_policy]
+
+# ── E0129 — AgentState Rust struct (M00236, dump 3769-3781) — VERBATIM ──
+agent_state:
+  module: M00236
+  fields: [task_id, branch_id, control, risk, budget, memory_refs, kv_refs,
+           tool_intents, artifacts, trace_id]
+
+# ── E0129 — typed model-output envelopes (M00237, dump 3787-3793) — VERBATIM ──
+output_envelopes:
+  module: M00237
+  types: [PlanProposal, ToolIntent, PatchProposal, MemoryWrite,
+          VerificationResult, FinalAnswer]
+
+# ── E0130 — the 5 node classes (M00238-M00242, dump 3802-3816) ──
+node_classes:
+  - {class: 1, module: M00238, name: Deterministic Node, exec: "pure CPU logic, parsers, masks, policy, validation"}
+  - {class: 2, module: M00239, name: Scout Node, exec: "4090 model, cheap exploration/proposals"}
+  - {class: 3, module: M00240, name: Oracle Node, exec: "Blackwell model, expensive synthesis/verification"}
+  - {class: 4, module: M00241, name: Tool Node, exec: "shell/browser/file/API, always gated"}
+  - {class: 5, module: M00242, name: Human Gate Node, exec: "explicit pause/resume with full context"}
+
+# ── E0131 — human-gate display + actions (M00243/M00244, dump 3826-3847) ──
+human_gate:
+  display_module: M00243
+  display: [what-the-agent-wants, why, files-tools-network-involved, risk-bits,
+            expected-side-effects, rollback-plan, diff-or-command-preview,
+            model-confidence, policy-reason]
+  actions_module: M00244
+  actions: [approve, deny, edit, route-to-sandbox, ask-oracle-to-review,
+            lower-raise-permission]
+
+# ── E0132 — optimization metric set + tuning surface (M00245/M00246) ──
+optimization:
+  metrics_module: M00245
+  metrics: [task-success, tool-rejection-rate, oracle-calls-per-task, latency,
+            user-interventions, test-pass-rate, rollback-rate,
+            branch-acceptance-rate, kv-reuse, memory-usefulness]
+  tuning_module: M00246
+  tuning_surface: [scout-model-selection, speculation-depth, retrieval-thresholds,
+                   prompt-templates, grammar-strictness, oracle-review-thresholds,
+                   tool-approval-policies, cache-admission]
+
+# ── E0135 — the 7-plane system (M00249, dump 3970-3992) — VERBATIM ──
+seven_plane_system:
+  module: M00249
+  planes: [Inference, Control, Memory, Storage, Tool, Observability, Programming]

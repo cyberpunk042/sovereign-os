@@ -1,0 +1,79 @@
+# config/hardware/m002-control-word-logic.yaml
+# ============================================================================
+# M002 "32/64-bit injected logic / control word per branch" — the control-word
+# CONTRACT. Materializes the milestone spec (backlog/milestones/M002-...; source
+# raw/dumps/2026-05-18-the-ultimate-exploitation-of-the-tech-stack-AVX-plus-plus.md
+# lines 118-212): the 64-bit control-word bitfield layout (E0011), branchless
+# masked-op execution (E0012), the 64-entry boolean LUT (E0013), the per-branch
+# micro-rule table (E0014), the ZMM state/memory/rule/random layout (E0015),
+# variable-shift tradeoff (E0016), and the 32/64/128-bit rule words (E0017-E0019).
+# No invention — every entry traces to a module + dump line range.
+#
+# Ties: the control word is the u64 carried in M050/M051's hot-path SoA
+# (control_u64 / control_word[]) and filtered by M039's AVX cortex; the branchless
+# masked ops are the deterministic policy-fusion of M051's cortex; the 64-entry
+# LUT is the VPTERNLOG path of M085's T2 tier. This is the foundational bit-logic
+# primitive beneath the whole deterministic control substrate (M006/M009).
+# STATUS: spec-materialization (SDD+TDD — the per-branch control-word bit logic).
+# Locked to spec by tests/lint/test_m002_control_word_logic.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M002
+source_dump_lines: "118-212"
+
+# ── E0015 — u64 lane fields (M00012, dump 124-129) — VERBATIM ──
+lane_fields:
+  module: M00012
+  fields: [state_lo, state_hi, control, scratch]
+
+# ── E0011 — 64-bit control-word bit layout (M00013, dump 136-143) — VERBATIM ──
+control_word_layout:
+  module: M00013
+  bits: 64
+  fields:
+    - {name: mode, bits: "0..3"}
+    - {name: event, bits: "4..7"}
+    - {name: intensity, bits: "8..15"}
+    - {name: cooldown, bits: "16..23"}
+    - {name: neighborhood, bits: "24..31"}
+    - {name: paramA, bits: "32..47"}
+    - {name: paramB, bits: "48..63"}
+
+# ── E0012 — branchless masked-op execution (M00014/M00015, dump 146-154) — VERBATIM ──
+branchless_execution:
+  decision: "mask = (mode == 3)"
+  apply: "masked AVX-512 ops per lane"
+
+# ── E0013 — 64-entry boolean LUT (M00016/M00017, dump 158-170) — VERBATIM ──
+boolean_lut:
+  module: M00017
+  condition_bits: "6-bit condition = neighbor + stress + damage + random bits"
+  lookup: "(rule_word >> 6-bit-condition) & 1"
+  entries: 64
+
+# ── E0014 — per-branch micro-rule table (M00018, dump 173-177) — VERBATIM ──
+micro_rule_table:
+  module: M00018
+  note: "per-lane DNA — rule embedded inside state"
+
+# ── E0015 — ZMM layout + round update (M00019/M00020, dump 182-197) — VERBATIM ──
+zmm_layout:
+  module: M00019
+  registers:
+    - {reg: zmm0, holds: state}
+    - {reg: zmm1, holds: memory}
+    - {reg: zmm2, holds: rule}
+    - {reg: zmm3, holds: "random/feed"}
+round_update:
+  module: M00020
+  steps: [extract, decision, apply, "update memory", "advance RNG"]
+
+# ── E0016 — variable-shift tradeoff (M00021, dump 199) — VERBATIM ──
+variable_shift_tradeoff: "variable per-lane shifts cost more than AND/XOR/OR"
+
+# ── E0017-E0019 — 32/64/128-bit rule words (M00022/M00023/M00024, dump 204-206) — VERBATIM ──
+rule_words:
+  - {bits: 32, condition_bits: 5, entries: 32, note: "table inside u32"}
+  - {bits: 64, condition_bits: 6, entries: 64, note: "table inside u64"}
+  - {bits: 128, note: "128-bit rule across two u64 limbs"}

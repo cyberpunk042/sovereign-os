@@ -1,0 +1,68 @@
+# config/storage/m012-storage-and-replay-plane.yaml
+# ============================================================================
+# M012 "Storage and replay plane" — the storage-substrate CONTRACT. Materializes
+# the milestone spec (backlog/milestones/M012-..., dump 2729-3022): the 4 storage
+# classes (E0099), the ZFS dataset layout (E0100), the append-only replay-log
+# record (E0102), the bit-level columnar runtime state (E0103), and the 6 named
+# memory indexes (E0104). No invention — every entry traces to a module + dump
+# line range.
+#
+# NOTE (spec↔impl gap to reconcile): the real install-time
+# scripts/hooks/during-install/zfs-pool-create.sh creates `tank/{models,context,
+# agents}`; the M012 spec (M00185-M00192) names `tank/{models,datasets,
+# runtime/replay,runtime/cache,runtime/kv,workspaces,checkpoints,snapshots}`.
+# This contract materializes the SPEC; harmonizing the installer to it is
+# implementation work (flagged, not resolved here).
+#
+# STATUS: spec-materialization (SDD+TDD — the contract precedes the pool).
+# Locked to spec by tests/lint/test_m012_storage_and_replay.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M012
+source_dump_lines: "2744-2935"
+
+# ── E0099 — the 4 storage classes (M00181-M00184, dump 2760-2771) ──
+storage_classes:
+  - {class: 1, module: M00181, name: Immutable Artifacts, contents: "model files / datasets / source docs / checkpoints"}
+  - {class: 2, module: M00182, name: Replay Logs, contents: "branch transitions / model outputs / tool intents / accepted commits"}
+  - {class: 3, module: M00183, name: Hot Caches, contents: "KV tiers / parsed schemas / token masks / embeddings / memory indexes"}
+  - {class: 4, module: M00184, name: Workspace State, contents: "repos / generated code / documents / experiments"}
+
+# ── E0100 — ZFS dataset layout (M00185-M00192, dump 2791-2820) ──
+zfs_datasets:
+  - {dataset: tank/models,          module: M00185, properties: "zstd/lz4, readonly-ish, large recordsize"}
+  - {dataset: tank/datasets,        module: M00186, properties: "large recordsize, compression by data type"}
+  - {dataset: tank/runtime/replay,  module: M00187, properties: "append-heavy, snapshot often, checksum matters"}
+  - {dataset: tank/runtime/cache,   module: M00188, properties: "disposable, can be rebuilt, aggressive pruning"}
+  - {dataset: tank/runtime/kv,      module: M00189, properties: "large binary blocks, versioned by model/tokenizer hash"}
+  - {dataset: tank/workspaces,      module: M00190, properties: "snapshots before agent edits"}
+  - {dataset: tank/checkpoints,     module: M00191, properties: "checkpoint storage"}
+  - {dataset: tank/snapshots,       module: M00192, properties: "snapshot storage"}
+
+# ── E0102 — append-only replay-log record (M00193, dump 2843-2856) ──
+# The AI ledger. Fields VERBATIM. (VM-propose/host-commit chain lands here as
+# the "commit" per M014 M00224.)
+replay_log_record:
+  module: M00193
+  append_only: true
+  fields: [branch_id, parent_id, state_before, candidate_ref, policy_mask,
+           grammar_state, model, accepted, tool_intent, timestamp]
+
+# ── E0103 — bit-level columnar runtime state (M00194, dump 2889-2894) ──
+columnar_runtime_state:
+  module: M00194
+  columns: [branch_id, score_q16, risk_u8, control_u64, memory_ref_u64]
+
+# ── E0104 — memory-index plane, 6 named indexes (M00195, dump 2904-2911) ──
+memory_indexes:
+  module: M00195
+  indexes: [content-hash, embedding, bitmap-metadata, replay-transition,
+            tool-result, KV-block-hash]
+
+# ── E0101 — sacred-vs-disposable distinction (dump 2823-2835) ──
+retention_policy:
+  sacred: [replay-log, source-if-local]
+  valuable_but_disposable: [KV-cache]
+  rebuildable: [embeddings]
+  redownloadable: [models]

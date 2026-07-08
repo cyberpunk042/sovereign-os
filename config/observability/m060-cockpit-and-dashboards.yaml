@@ -1,0 +1,120 @@
+# config/observability/m060-cockpit-and-dashboards.yaml
+# ============================================================================
+# M060 "Cockpit + 20+ dashboards + UX surface" — the cockpit/UX CONTRACT.
+# Materializes the milestone spec (backlog/milestones/M060-..., dump 581 +
+# 3290-3325 + 9979-10000 + 14760-14780 + 15315-16466): the dashboard philosophy
+# 9 operational questions (E0578), the 21-dashboard catalog D-00..D-20
+# (E0579-E0582), the CLI surface (E0583), the API surface (E0584), the IDE client
+# surface (E0585), the 3-level configuration surfaces (E0586), and UX coherence
+# (E0587). No invention — every entry traces to a module/feature + dump line range.
+#
+# Doctrinal anchors (dump 3299/15643/16466): "A dashboard should not show vanity
+# graphs" / "Fullstack here is not marketing UI. It is cockpit design" / "the
+# cockpit of an intelligence machine". Operator standing direction 2026-05-19
+# (verbatim, sacrosanct): "there is over 20 dashboards and a main one and
+# everything can be turned on and off and there are also a tons of modes and
+# profiles" / "you cannot re-invent what UX mean". PROJECT BOUNDARY (R10212): the
+# selfdef mirror dashboards (D-12..D-18) are READ-ONLY consumers of selfdef IPS
+# state via MS007 typed-mirror crates — sovereign-os NEVER mutates selfdef; the
+# on/off controls for those stay signed-proxy (R10274). This contract is the spec
+# behind the deployed cockpit panels; every dashboard is toggleable (R10129),
+# toggle state persisted + MS003-signed + emits M049 trace + OCSF-5001.
+# STATUS: spec-materialization (SDD+TDD — the cockpit + dashboard + UX surface).
+# Locked to spec by tests/lint/test_m060_cockpit_and_dashboards.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M060
+source_dump_lines: "581,3290-3325,9979-10000,14760-14780,15315-16466"
+
+# ── E0578 — dashboard philosophy, 9 operational questions (dump 3304-3314) — VERBATIM ──
+dashboard_philosophy:
+  doctrine: "A dashboard should not show vanity graphs"
+  operational_questions: ["Is the Blackwell idle?", "Is the 4090 helping?",
+                          "Is speculation worth it?", "Are token masks expensive?",
+                          "Is KV reuse saving prefill?", "Are tools being rejected too often?",
+                          "Are branches dying for useful reasons?",
+                          "Is storage latency hurting context?",
+                          "Is the system becoming more efficient over time?"]
+
+# ── E0579-E0582 — the 21-dashboard catalog D-00..D-20 — VERBATIM ──
+# D-12..D-18 are selfdef READ-ONLY mirrors via MS007 (R10212 producer/consumer boundary).
+dashboards:
+  - {id: "D-00", module: M01003, name: "main-index", scope: sovereign-os}
+  - {id: "D-01", module: M01004, name: "active-sessions", scope: sovereign-os}
+  - {id: "D-02", module: M01005, name: "profile-choices", scope: sovereign-os}
+  - {id: "D-03", module: M01006, name: "model-health", scope: sovereign-os}
+  - {id: "D-04", module: M01007, name: "costs", scope: sovereign-os}
+  - {id: "D-05", module: M01008, name: "traces", scope: sovereign-os}
+  - {id: "D-06", module: M01009, name: "pending-approvals", scope: sovereign-os}
+  - {id: "D-07", module: M01010, name: "memory-changes", scope: sovereign-os}
+  - {id: "D-08", module: M01011, name: "rollback-points", scope: sovereign-os}
+  - {id: "D-09", module: M01012, name: "hardware-pressure", scope: sovereign-os}
+  - {id: "D-10", module: M01013, name: "eval-history", scope: sovereign-os}
+  - {id: "D-11", module: M01014, name: "adapter-status", scope: sovereign-os}
+  - {id: "D-12", feature: F05069, name: "networking", scope: "selfdef-mirror-readonly"}
+  - {id: "D-13", feature: F05070, name: "filesystem-grants", scope: "selfdef-mirror-readonly"}
+  - {id: "D-14", feature: F05071, name: "capability-tokens", scope: "selfdef-mirror-readonly"}
+  - {id: "D-15", feature: F05072, name: "sandboxes", scope: "selfdef-mirror-readonly"}
+  - {id: "D-16", feature: F05073, name: "audit-cycles", scope: "selfdef-mirror-readonly"}
+  - {id: "D-17", feature: F05074, name: "quarantine", scope: "selfdef-mirror-readonly"}
+  - {id: "D-18", feature: F05075, name: "trust-scores", scope: "selfdef-mirror-readonly"}
+  - {id: "D-19", feature: F05076, name: "super-model-manifest", scope: sovereign-os}
+  - {id: "D-20", feature: F05077, name: "peace-machine-health", scope: sovereign-os}
+
+# ── E0580 — Phase 10 cockpit must-show, 7 views (dump 15645-15660) — VERBATIM ──
+cockpit_must_show:
+  views: ["running", "cost", "can-touch", "changed", "approval-waiting",
+          "resumable", "rollback-points"]
+
+# ── E0581 — Phase 10 UI surfaces, 11 (dump 16450-16466) — VERBATIM ──
+ui_surfaces:
+  surfaces: ["active sessions", "profile choices", "model health", "costs", "traces",
+             "pending approvals", "memory changes", "rollback points",
+             "hardware pressure", "eval history", "adapter status"]
+
+# ── E0582 — local dashboard secondary panels, 6-item (dump 15625-15630) — VERBATIM ──
+local_dashboard_panels:
+  panels: [profiles, costs, traces, "model health", memory, approvals]
+
+# ── E0583 — CLI surface, 5 verbs (dump 15634-15640) — VERBATIM ──
+cli_surface:
+  verbs:
+    - {verb: "sovereign run <task>", does: "invokes a task"}
+    - {verb: "sovereign resume <session-id>", does: "resumes a hibernated session"}
+    - {verb: "sovereign inspect <trace-id>", does: "opens trace detail"}
+    - {verb: "sovereign rollback <commit-id>", does: "rolls back a commit"}
+    - {verb: "sovereign profile <name>", does: "switches active profile"}
+
+# ── E0584 — API surface (dump 9979-10000) — VERBATIM ──
+api_surface:
+  anthropic_first_primary: ["POST /v1/messages", "GET /v1/models",
+                            "POST /v1/messages/count_tokens", "SSE streaming events",
+                            "tool_use / tool_result blocks"]
+  openai_compatible_secondary: ["POST /v1/chat/completions", "POST /v1/responses",
+                               "POST /v1/embeddings", "GET /v1/models"]
+
+# ── E0585 — IDE/agent client surface (dump 15648-15665) — VERBATIM ──
+ide_clients:
+  clients: ["Claude Code", "Cline", "OpenCode"]
+  mechanism: "point at local gateway via base_url override"
+
+# ── E0586 — 3-level configuration surfaces (dump 14760-14780) — VERBATIM ──
+configuration_surfaces:
+  levels:
+    - {level: User, exposes: "simple profiles + prompts"}
+    - {level: "Power user", exposes: "toggles + budgets + allowed providers + sandbox levels"}
+    - {level: System, exposes: "policy + hardware profile + routing weights + eval thresholds"}
+
+# ── E0587 — UX coherence (operator standing direction 2026-05-19 + dump 6789) — VERBATIM ──
+ux_coherence:
+  standards: ["keyboard shortcuts", "dark mode", "accessibility", "responsive layout",
+              "personalization"]
+  operator_direction: "you cannot re-invent what UX mean"
+
+# ── dashboard toggle contract (R10129-R10132) — VERBATIM ──
+dashboard_toggle:
+  everything_on_off: "every dashboard can be turned on/off"
+  state_path: "/etc/sovereign-os/dashboards.toml"
+  signed_via: "selfdef MS003"
+  emits: "M049 trace + OCSF Configuration Change class 5001"

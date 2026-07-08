@@ -1,0 +1,38 @@
+[Unit]
+Description=Sovereign CPU-features read-only API + D-24 dashboard host
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/operator/cpu-features-api.py
+# Read-only capability observation: reuses scripts/hardware/avx512-advisor.py
+# (probe/workloads/advisory) to render the deep AVX-512 capability view.
+# Nothing to mutate — pure hardware-capability observation (R10212).
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/lib/sovereign-os/scripts/operator/cpu-features-api.py
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+Environment=CPU_FEATURES_API_BIND=127.0.0.1
+Environment=CPU_FEATURES_API_PORT=8124
+ProtectSystem=strict
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/lib/node_exporter/textfile_collector
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,62 @@
+# config/agent/m078-holderpo-grpo.yaml
+# ============================================================================
+# M078 "HolderPO + GRPO post-training pipeline (Holder-mean token aggregation +
+# dynamic-p annealing)" — the RL-post-training CONTRACT. Materializes the
+# milestone spec (backlog/milestones/M078-...; source arXiv 2605.12058 "Holder
+# Policy Optimisation" + GRPO baseline): the GRPO baseline (E0748), the HolderPO
+# framework (E0749), the Holder parameter p (E0750), the theoretical proof
+# (E0751), the dynamic annealing (E0752), the benchmarks (E0753/E0754), and the
+# integrations (E0755-E0757). No invention — verbatim quotes preserved; provenance
+# via HF MCP paper_search 2026-05-19 (hf.co/papers/2605.12058).
+#
+# Doctrinal anchors (arXiv 2605.12058 verbatim): "We propose HolderPO, a
+# generalised policy optimisation framework unifying token-level probability
+# aggregation via the Holder mean. By explicitly modulating the parameter p, our
+# framework provides continuous control over the trade-off between gradient
+# concentration and variance bounds" / "a larger p concentrates the gradient to
+# amplify sparse learning signals, whereas a smaller p strictly bounds gradient
+# variance". CATALOG POSITIONING: M046 LoRA Foundry + M048 Eval-Value mention RL
+# lightly; M078 adds two concrete PUBLISHED RL algorithms (GRPO baseline +
+# HolderPO) as operator-selectable adapter-promotion paths. Per operator "you
+# cannot invent crap" — cataloging peer-reviewed algorithms, not inventing RL.
+# STATUS: spec-materialization (SDD+TDD — the HolderPO/GRPO post-training pipeline).
+# Locked to spec by tests/lint/test_m078_holderpo_grpo.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M078
+source: "arXiv 2605.12058 (Holder Policy Optimisation) + GRPO baseline"
+
+# ── E0748 — GRPO baseline (M01292/M01293) — VERBATIM ──
+grpo_baseline:
+  module: M01292
+  name: "Group Relative Policy Optimisation (GRPO)"
+  mechanism: "estimating advantages across a group of sampled trajectories"
+  limitation: "relying on a fixed aggregation mechanism fundamentally limits the algorithm's adaptability"
+
+# ── E0749/E0750 — HolderPO framework + p parameter (M01294/M01295) — VERBATIM ──
+holderpo:
+  module: M01294
+  framework: "a generalised policy optimisation framework unifying token-level probability aggregation via the Holder mean"
+  parameter_p: "explicitly modulating the parameter p provides continuous control over the trade-off between gradient concentration and variance bounds"
+
+# ── E0751 — theoretical proof (M01296/M01297) — VERBATIM ──
+theoretical_proof:
+  large_p: {module: M01296, effect: "concentrates the gradient to amplify sparse learning signals"}
+  small_p: {module: M01297, effect: "strictly bounds gradient variance"}
+
+# ── E0752 — dynamic annealing (M01298) — VERBATIM ──
+dynamic_annealing:
+  module: M01298
+  algorithm: "progressively schedules p across the training lifecycle"
+
+# ── E0753/E0754 — benchmarks (M01300/M01301) — VERBATIM ──
+benchmarks:
+  math: "state-of-the-art average accuracy of 54.9% across multiple mathematical benchmarks (7.2% relative gain over standard GRPO)"
+  alfworld: "93.8% success rate on ALFWorld"
+
+# ── E0755-E0757 — integrations (M01302/M01303) — VERBATIM ──
+integrations:
+  lora_foundry: {module: M01302, ref: "M046", scope: "RL fine-tune adapter via HolderPO"}
+  eval_value: {module: M01303, ref: "M048", scope: "reward signal per trajectory"}
+  learn_step: {ref: "M057 step 11 Learn", scope: "HolderPO as one of multiple Learn paths"}

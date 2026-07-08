@@ -1,0 +1,127 @@
+# config/server/m045-linux-intelligence-governor.yaml
+# ============================================================================
+# M045 "Linux as intelligence governor — cgroup v2 / systemd / PSI / eBPF" — the
+# governor CONTRACT. Materializes the milestone spec (backlog/milestones/M045-...,
+# dump 13546-13825): the 8 OS primitives (E0428), Linux Resource Intelligence
+# (E0429), Pressure As Sensation (E0430), adaptive reactions (E0431), eBPF As
+# Truth Sensor (E0432), Systemd As Agent Lifecycle Manager (E0433), Sovereign
+# Profiles As OS Profiles (E0434), Hardware Meets OS (E0435), and the anti-war
+# 8-virtue-to-primitive mapping (E0436). No invention — every entry traces to a
+# module + dump line range.
+#
+# Operator directive 13825 (sacrosanct): "we will make this even better than the
+# cloud provider... so much better... even before I train and retrain and adapt
+# weights and add my LORAs". This is the enforcement layer for M042/M043's
+# profiles + M044's 8 planes: cgroup v2 + systemd make "profiles become real OS
+# behavior"; PSI + DCGM sense pressure; eBPF observes reality-over-claims. Ties:
+# the 5 sovereign profiles enforce M042's choice bundles at the OS layer; the
+# AgentRM lifecycle maps to M028 Memory OS + M029 Computer-Use sandbox scopes.
+# STATUS: spec-materialization (SDD+TDD — the OS intelligence governor).
+# Locked to spec by tests/lint/test_m045_linux_intelligence_governor.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M045
+source_dump_lines: "13546-13825"
+
+# ── E0428 — the 8 OS primitives (M00748-M00755, dump 13568-13594) — VERBATIM ──
+os_primitives:
+  - {module: M00748, primitive: "cgroup v2", role: "resource control"}
+  - {module: M00749, primitive: systemd, role: "lifecycle / service boundaries / slices / scopes"}
+  - {module: M00750, primitive: PSI, role: "pressure sensing CPU/memory/IO"}
+  - {module: M00751, primitive: "eBPF / LSM", role: "observation + possible enforcement"}
+  - {module: M00752, primitive: AppArmor, role: "mandatory access boundaries"}
+  - {module: M00753, primitive: namespaces, role: "isolation"}
+  - {module: M00754, primitive: ZFS, role: "rollback + durable memory"}
+  - {module: M00755, primitive: "LUKS/TPM/FIDO2", role: "identity + sealed storage"}
+substrate_note: "This is not incidental. This is the peace-machine substrate"
+
+# ── E0429 — Linux Resource Intelligence (M00756/M00757, dump 13604-13632) — VERBATIM ──
+resource_intelligence:
+  systemd_knobs: [CPUWeight, MemoryMax, IOWeight, "task limits", slices, scopes]
+  workload_boundaries:
+    - {unit: "oracle.service", policy: "high GPU priority + memory protected + no random shell access"}
+    - {unit: "scout.slice", policy: "medium CPU/GPU + can be killed/restarted freely"}
+    - {unit: "sandbox.slice", policy: "strict memory + IO + network + time limits"}
+    - {unit: "eval.slice", policy: "low priority + background"}
+    - {unit: "gateway.service", policy: "protected + always-on + small trusted surface"}
+  note: "This is how 'profiles' become real OS behavior"
+
+# ── E0430 — Pressure As Sensation (M00758/M00759, dump 13640-13660) — VERBATIM ──
+pressure_sensing:
+  psi_note: "PSI reports time tasks stalled because of CPU/memory/IO pressure via /proc/pressure/*"
+  pressure_questions: ["CPU pressure", "Memory pressure", "IO pressure", "GPU pressure",
+                       "Human-attention pressure", "Cost pressure"]
+  pressure_sources:
+    - {source: PSI, gives: "system pressure"}
+    - {source: DCGM, gives: "GPU pressure"}
+    - {source: runtime, gives: "cost and attention pressure"}
+
+# ── E0431 — adaptive intelligence reactions (M00760, dump 13664-13688) — VERBATIM ──
+adaptive_reactions:
+  module: M00760
+  rules:
+    - {trigger: "memory pressure high", actions: ["hibernate branches", "shrink context", "evict low-value KV/cache"]}
+    - {trigger: "IO pressure high", actions: ["stop cold memory scans", "delay replay compaction", "prefer RAM-hot context"]}
+    - {trigger: "CPU pressure high", actions: ["reduce branch width", "move reranking to 4090", "defer evals"]}
+    - {trigger: "GPU oracle idle", actions: ["increase verification batch"]}
+    - {trigger: "4090 idle", actions: ["widen scout speculation"]}
+  closing: "This is adaptive intelligence grounded in the OS"
+
+# ── E0432 — eBPF As Truth Sensor (M00751, dump 13704-13714) — VERBATIM ──
+ebpf_truth_sensor:
+  lsm_note: "eBPF LSM programs attach to Linux Security Module hooks and allow/deny operations such as socket creation depending on policy"
+  truth_pattern:
+    model_claims: "I only read files"
+    ebpf_observes: "process opened network socket"
+    runtime: ["block", "log", "alert", "quarantine"]
+  peace_feature: "This is a peace feature: reality over claims"
+  caution: "Use eBPF carefully. It is powerful and sharp. But as an observability/enforcement layer for high-risk agent sandboxes, it fits"
+
+# ── E0433 — Systemd As Agent Lifecycle Manager (M00761, dump 13724-13740) — VERBATIM ──
+agent_lifecycle:
+  module: M00761
+  doctrine: "Agent sessions should not be loose processes. They should be scopes/services"
+  unit_examples: ["agent-session@123.service", "agent-sandbox@abc.scope",
+                  "model-server@blackwell.service", "model-server@scout.service",
+                  "gateway.service", "memory-os.service", "eval-worker.slice"]
+  os_operations: [start, stop, restart, limit, observe, journal, "kill zombies", "freeze/hibernate"]
+  agentrm_mapping: "This maps directly to the AgentRM idea of scheduling, zombie reaping, and context lifecycle management"
+
+# ── E0434 — Sovereign Profiles As OS Profiles (M00762, dump 13746-13766) — VERBATIM ──
+enforceable_profiles:
+  module: M00762
+  doctrine: "User choice becomes enforceable. These are not prompt styles. They are OS policies + runtime policies"
+  profiles:
+    - {profile: "Offline Peace Mode", policy: "network egress denied + cloud providers disabled + local models only"}
+    - {profile: "Research Mode", policy: "network allowed through gateway + citations required + cost tracked"}
+    - {profile: "Autonomous Code Mode", policy: "sandbox required + ZFS snapshot before writes + tests required before commit"}
+    - {profile: "High-Risk Mode", policy: "VM/microVM only + no host filesystem write + human gate for promotion"}
+    - {profile: "Fast Local Mode", policy: "4090 scout first + shallow memory + oracle only if confidence low"}
+
+# ── E0435 — Hardware Meets OS (M00763, dump 13772-13788) — VERBATIM ──
+hardware_meets_os:
+  module: M00763
+  mappings:
+    - {hardware: "AVX-512", os_role: "fast policy and scheduling decisions"}
+    - {hardware: "cgroup-systemd", os_role: "enforce resource decisions"}
+    - {hardware: "PSI-DCGM", os_role: "sense pressure"}
+    - {hardware: "AppArmor-eBPF", os_role: "observe and constrain behavior"}
+    - {hardware: "ZFS", os_role: "make action reversible"}
+    - {hardware: "VFIO", os_role: "hard isolate the 4090 sandbox"}
+    - {hardware: "Gateway", os_role: "make all model-API communication auditable"}
+  bridge: "hardware capability becomes social trust only when the OS can govern it"
+
+# ── E0436 — anti-war 8-virtue-to-primitive mapping (M00764, dump 13804-13818) — VERBATIM ──
+anti_war_virtues:
+  module: M00764
+  mappings:
+    - {virtue: clarity, meaning: "explain what is happening", primitive: "traces/dashboard"}
+    - {virtue: consent, meaning: "ask when boundaries matter", primitive: "human gates/profiles"}
+    - {virtue: reversibility, meaning: "rollback when possible", primitive: "ZFS/snapshots"}
+    - {virtue: proportionality, meaning: "spend just enough intelligence", primitive: "scheduler/profiles"}
+    - {virtue: containment, meaning: "risky action stays sandboxed", primitive: "cgroups/AppArmor/VMs"}
+    - {virtue: memory, meaning: "learn from harm and success", primitive: "memory OS/replay"}
+    - {virtue: communication, meaning: "translate between humans systems models tools", primitive: "Anthropic-first gateway/MCP"}
+    - {virtue: truth, meaning: "tests traces observations not vibes", primitive: "tests/eBPF/PSI/evals"}
+  key_line: "an environment where intelligence can act without becoming opaque power"

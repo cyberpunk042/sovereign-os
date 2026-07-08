@@ -1,0 +1,81 @@
+# config/inference/m083-dflash-speculative-decoding.yaml
+# ============================================================================
+# M083 "DFlash speculative decoding fast-path (task-type-gated 3x decode
+# acceleration)" — the speculative-decoding CONTRACT. Materializes the milestone
+# spec (backlog/milestones/M083-...; source raw/dumps/2026-05-15-sain-01-master-
+# spec-...md lines 1115-1131 + SDD-026): the operator addition (E0798), the
+# task-type-conditional gain (E0799), the introspection mandate (E0800), the gated
+# wrapper (E0801), operator override knobs (E0802), per-backend integration
+# (E0803), graceful degradation (E0804), Layer A/B observability (E0805), the
+# router task-type signal (E0806), and Layer-5 validation (E0807). No invention —
+# verbatim operator text preserved; cross-ref arXiv:2602.06036 (Z-Lab).
+#
+# Doctrinal anchor (dump 1119, operator verbatim): "And there is also Dflash I
+# recently learned about that somehow with code task on model that fit in memory
+# like any functional model in general it can work 3 times faster, does not work
+# on creative tasks in general but interesting topic and place of introspection
+# and knowledge". Cross-ref arXiv:2602.06036 "DFlash: Block Diffusion for Flash
+# Speculative Decoding" — operator's "3x on code, not creative" matches the paper
+# (highest gains on math/code, moderate on conversational). Ties: DFlash is a
+# fast-path sibling of M073 ternary + M074 VNNI, layered on top of Pulse/Logic
+# (M075); the router task-type signal is M057's Step 3/6; observability feeds M049.
+# STATUS: spec-materialization (SDD+TDD — the DFlash task-type-gated fast path).
+# Locked to spec by tests/lint/test_m083_dflash_speculative_decoding.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M083
+source_dump_lines: "1115-1131"
+
+# ── E0798/E0799 — operator addition + task-type gain (dump 1119) — VERBATIM ──
+operator_text: "with code task on model that fit in memory like any functional model in general it can work 3 times faster, does not work on creative tasks in general but interesting topic and place of introspection and knowledge"
+task_type_gain:
+  module: M01396
+  speedup: "3x on code (+math per paper)"
+  does_not_work_on: "creative tasks"
+paper_cross_ref: "arXiv:2602.06036 DFlash: Block Diffusion for Flash Speculative Decoding (Z-Lab)"
+
+# ── E0800 — introspection mandate (M01411) — VERBATIM ──
+introspection:
+  module: M01411
+  mandate: "the integration must surface its decision to the operator (operator's exact phrasing preserved in runtime decision reasons)"
+
+# ── E0801 — gated wrapper (M01395) — VERBATIM ──
+gated_wrapper:
+  module: M01395
+  script: "scripts/inference/dflash-wrap.sh"
+  shape: "argv-prefix wrapper, gating BEFORE the backend sees argv"
+
+# ── E0802 — operator override knobs (M01397) — VERBATIM ──
+override_knobs:
+  module: M01397
+  enable: "DFLASH_ENABLE_OVERRIDE"
+  disable: "DFLASH_DISABLE_OVERRIDE"
+  precedence: "DISABLE wins when both set"
+
+# ── E0803 — per-backend integration (M01398/M01399/M01400) — VERBATIM ──
+backend_bindings:
+  - {backend: vllm, module: M01398, argv: '--speculative-config ''{"method":"dflash",...}'''}
+  - {backend: llama_cpp, module: M01399, argv: "--draft-model ${DFLASH_PATH}/draft.gguf"}
+  - {backend: transformers, module: M01400, env: "PYTHONPATH=${DFLASH_PATH} generation strategy"}
+
+# ── E0804 — graceful degradation (M01401) — VERBATIM ──
+graceful_degradation:
+  module: M01401
+  rule: "absent install -> vanilla decoding + clearly-tagged downshift, never a hard failure"
+
+# ── E0805 — Layer A/B observability (M01402/M01403) — VERBATIM ──
+observability:
+  layer_b_counters: {module: M01402, metric: "sovereign_os_dflash_*"}
+  layer_a_journal: {module: M01403, sink: "journald decision+reason log (SDD-016 pipeline)"}
+
+# ── E0806 — router task-type signal (M01404, R161) — VERBATIM ──
+router_signal:
+  module: M01404
+  classifier: "classify_task_type"
+  header: "X-Sovereign-Task-Type"
+
+# ── E0807 — Layer-5 empirical validation (M01405, out-of-scope forward) — VERBATIM ──
+layer5_validation:
+  module: M01405
+  scope: "benchmark the 3x claim on the operator's real code+math workload (hardware-required; catalogued forward)"

@@ -1,0 +1,53 @@
+# config/agent/m030-world-model.yaml
+# ============================================================================
+# M030 "World Model plane — state / action / transition" — the world-model
+# CONTRACT. Materializes the milestone spec (backlog/milestones/M030-..., dump
+# 8858-9134): the 13 world elements (E0281), the tier catalog (E0283), the
+# AVX-512 hot-metadata + 6-mask catalog (E0284), the World Model Plane sub-parts
+# (E0287), and the Ultimate Loop 9-step runtime (E0287). No invention — every
+# entry traces to a module + dump line range; where an array count exceeds the
+# named fields, count is recorded (no fabrication).
+#
+# The Ultimate Loop is the capstone runtime unifying M010-M029; the 6 masks
+# (safe_to_simulate/needs_sandbox/needs_human/...) route through M014 sandboxes +
+# M015 human-gate + M027 rollback.
+# STATUS: spec-materialization (SDD+TDD — precedes the world-model runtime).
+# Locked to spec by tests/lint/test_m030_world_model.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M030
+source_dump_lines: "8858-9134"
+
+# ── E0281 — the 13 world elements (M00493-M00505, dump 8858-8870) — VERBATIM ──
+world_elements:
+  module_range: "M00493-M00505"
+  elements: [filesystem, codebase, terminal, browser, GUI, documents, databases,
+             network-services, VM-sandbox, model-serving-stack, ZFS-snapshots,
+             user-preferences, project-state]
+
+# ── E0283 — tier catalog (M00506, dump 8929-8944) — VERBATIM ──
+tier_catalog:
+  module: M00506
+  tiers: [Deterministic, Learned-Local, Language, Simulated, Human]
+
+# ── E0284 — AVX-512 6-mask catalog + hot metadata arrays (M00507, dump 8957-8979) ──
+mask_catalog:
+  module: M00507
+  masks: [safe_to_simulate, needs_sandbox, needs_human, needs_oracle, can_commit, should_rollback]
+hot_metadata_arrays:
+  module: M00507
+  array_count: 8          # module says 8-array; 6 named in features F02520-F02525
+  named_arrays: [state_id, action_id, risk, confidence, predicted_success, rollback_available]
+
+# ── E0287 — World Model Plane 7 sub-parts (M00508, dump 9109-9118) — VERBATIM ──
+world_model_plane:
+  module: M00508
+  sub_parts: [state-representation, action-schemas, transition-predictors,
+              simulator-sandbox-hooks, success-failure-detectors, rollback-planner,
+              learned-transition-memory]
+
+# ── E0287 — The Ultimate Loop, 9-step runtime (M00509, dump 9122-9134) — VERBATIM ORDER ──
+ultimate_loop:
+  module: M00509
+  steps: [observe, generate, predict, score, simulate, act, observe, update, commit]

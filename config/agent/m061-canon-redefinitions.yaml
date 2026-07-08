@@ -1,0 +1,111 @@
+# config/agent/m061-canon-redefinitions.yaml
+# ============================================================================
+# M061 "AVX++ canon update — backward-sweep redefinitions (2026-05-19)" — the
+# canon-pin CONTRACT. Materializes the milestone spec (backlog/milestones/
+# M061-...): the 6 redefinitions where later sections of the 18341-line AVX++ dump
+# REDEFINE earlier sections (E0588-E0593), plus the patch passes A/B/C and catalog
+# hygiene closure (E0594-E0597). No invention — every entry traces to a module +
+# dump line range.
+#
+# Operator standing direction 2026-05-18 (verbatim, sacrosanct): "layered: new
+# direction ON TOP OF prior direction — never discarded" / "when you reach the end
+# of the avx-plus-plus document you will have to review / go backward a bit since
+# it redefine some of the things". This milestone PINS the later (canonical)
+# definition for each redefinition, ADDS superseding rows (additive, not
+# destructive), CROSS-REFERENCES the affected earlier milestones, and PRESERVES
+# all earlier R-rows verbatim. Ties: each canonical definition is the one this
+# session already materialized — Profiles/Authority/Trust/Commit -> M056; Core
+# Law -> M050/M052/M059; Scheduler -> M058. This contract is the drift-guard that
+# keeps the earlier materialized milestones (M010-M037) interpreted under the
+# canonical later definitions.
+# STATUS: spec-materialization (SDD+TDD — the canon-redefinition drift-guard).
+# Locked to spec by tests/lint/test_m061_canon_redefinitions.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M061
+source_dump_lines: "full 18341-line reverse-pass review"
+
+preservation_doctrine: "layered: new direction ON TOP OF prior direction — never discarded"
+
+# ── E0588-E0593 — the 6 redefinitions — VERBATIM ──
+redefinitions:
+  - id: 1
+    module: M01020
+    subject: Profiles
+    severity: breaking
+    historical: "memory-lens (temporal validation / shallow memory / local-only augmentation / associative broadness)"
+    historical_lines: "8420-8440"
+    canonical: "authority-gate (6 profiles with explicit max authority levels per envelope)"
+    canonical_lines: "17468-17488"
+    affected: ["sovereign-os M016", "sovereign-os M017", "selfdef MS010"]
+    canonical_home: M056
+
+  - id: 2
+    module: M01021
+    subject: "Core Law"
+    severity: clarifying
+    historical: "5-line variants (missing 'CPU enforces')"
+    historical_lines: "15350-15355, 15789-15794"
+    canonical: "6-line: Models propose / Runtime routes / CPU enforces / Tools prove / ZFS remembers / User chooses"
+    canonical_lines: "18299-18305"
+    affected: ["sovereign-os M050", "sovereign-os M052"]
+    canonical_home: M059
+
+  - id: 3
+    module: M01022
+    subject: "Authority Levels 0..6"
+    severity: additive
+    historical: "implicit everywhere"
+    historical_lines: "dispersed"
+    canonical: "explicit ladder (Observe / Suggest / Simulate / Prepare / Execute bounded / Commit / Persist)"
+    canonical_lines: "17252-17272"
+    affected: ["sovereign-os M056"]
+    canonical_home: M056
+
+  - id: 4
+    module: M01023
+    subject: "Trust Rings 0..4"
+    severity: additive
+    historical: "dispersed"
+    historical_lines: "dispersed"
+    canonical: "explicit topology (Sovereign Kernel / Trusted Local Services / Sandboxed Agents / Experimental-Untrusted / Cloud-External)"
+    canonical_lines: "17280-17302"
+    affected: ["sovereign-os M056"]
+    canonical_home: M056
+
+  - id: 5
+    module: M01024
+    subject: Scheduler
+    severity: breaking
+    historical: "component (mentioned at 312, 677, 1325)"
+    historical_lines: "312, 677, 1325"
+    canonical: "first-class policy layer (the Goldilocks scheduler)"
+    canonical_lines: "17914-18268"
+    affected: ["sovereign-os M043"]
+    canonical_home: M058
+
+  - id: 6
+    module: M01025
+    subject: "Commit Authority"
+    severity: breaking
+    historical: "deterministic substrate"
+    historical_lines: "1527, 1858, 2139, 2155, 2319"
+    canonical: "evidence-earned authority"
+    canonical_lines: "17389-17421"
+    affected: ["sovereign-os M014", "sovereign-os M056"]
+    canonical_home: M056
+
+# ── E0594-E0596 — patch passes A/B/C (M01027-M01029) — VERBATIM ──
+patch_passes:
+  - {pass: A, module: M01027, name: "affected-milestone canon-update annotations"}
+  - {pass: B, module: M01028, name: "typed-mirror crate version bumps (MS007 ecosystem)"}
+  - {pass: C, module: M01029, name: "schema_version bumps on contract-breaking mirrors"}
+
+# ── E0597 — catalog hygiene closure (M01035/M01036) — VERBATIM ──
+closure:
+  supersedes_recorder: M01030
+  doctrinal_preservation: M01034
+  prior_dump_review_planner: M01035
+  sdd_tdd_readiness_gate: M01036
+  statement: "backward-sweep complete, prior-dump review next"

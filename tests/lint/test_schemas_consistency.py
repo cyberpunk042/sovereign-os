@@ -43,6 +43,7 @@ EXPECTED_SCHEMAS = [
     "runtime-profile",
     "whitelabel",
     "model-catalog",
+    "orchestration-profile",
 ]
 
 

@@ -1,0 +1,70 @@
+# config/agent/m026-slm-swarm-rlm-judges.yaml
+# ============================================================================
+# M026 "SLM swarm + RLM engine + RM/PRM judges" — the model-role + reward
+# CONTRACT. Materializes the milestone spec (backlog/milestones/M026-..., dump
+# 7427-7640): the 3 model roles + judge classes (E0240/E0241), the 11-role SLM
+# swarm (E0242), the RLM loop + RLM-vs-RAG (E0243), the hardware mapping (E0244),
+# the RLM subcall control word + bulk-law (E0245), and the reward taxonomy +
+# reward vector + profile weights (E0246). No invention — every entry traces to a
+# module + dump line range.
+#
+# The LLM/SLM/RLM roles + judges sit above M017's model portfolio; the reward
+# vector feeds M024's profile reward-weights; RM/PRM judges gate M019's
+# anti-delusion law.
+# STATUS: spec-materialization (SDD+TDD — precedes the swarm/RLM runtime).
+# Locked to spec by tests/lint/test_m026_slm_swarm_rlm_judges.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M026
+source_dump_lines: "7427-7640"
+
+# ── E0240 — the 3 model roles (M00423-M00425, dump 7427-7433) — VERBATIM ──
+model_roles:
+  - {module: M00423, role: LLM, use: "big oracle / synthesis / hard reasoning / final judgment"}
+  - {module: M00424, role: SLM, use: "cheap repeated agentic actions / routing / tool calls / classification / local reflexes"}
+  - {module: M00425, role: RLM, use: "recursive context processor / long-horizon decomposer / self-calling REPL worker"}
+
+# ── E0241 — judge classes (M00426, dump 7439-7440) — VERBATIM ──
+judge_classes:
+  module: M00426
+  classes: [RM, RRM, PRM]
+  purposes: [reward, "process scoring", "candidate ranking", "branch value estimation"]
+
+# ── E0242 — SLM swarm, 11 named roles (M00427, dump 7449-7461) — VERBATIM ──
+slm_swarm:
+  module: M00427
+  roles: [intent-classifier, tool-call-planner, JSON-fixer, schema-selector,
+          risk-tagger, memory-router, branch-summarizer, patch-scout,
+          GUI-perception-helper, query-reformulator, test-failure-classifier]
+
+# ── E0243 — RLM 6-step loop (M00428, dump 7491-7499) — VERBATIM ORDER ──
+rlm_loop:
+  module: M00428
+  steps: [read-task, inspect-external-context-via-code, spawn-sub-call-on-relevant-slice,
+          aggregate-result, repeat, return-answer]
+
+# ── E0243 — RLM vs RAG distinction (M00429, dump 7503-7504) — VERBATIM ──
+rlm_vs_rag:
+  module: M00429
+  distinction: "RAG retrieves FOR the model; RLM lets the model NAVIGATE context as an environment"
+
+# ── E0245 — RLM subcall 8-field control word (M00434, dump 7543-7552) — VERBATIM ──
+rlm_subcall_control_word:
+  module: M00434
+  fields: [parent_id, depth, context_slice_ref, question_ref, budget, uncertainty,
+           reward_score, visited_hash]
+
+# ── E0246 — 4-reward-source taxonomy (M00436, dump 7575-7587) — VERBATIM ──
+reward_sources:
+  module: M00436
+  sources:
+    - {source: rule, examples: "schema valid / tests pass / citation exists"}
+    - {source: process, examples: "reasoning step quality / tool plan quality"}
+    - {source: model, examples: "RRM judge score"}
+    - {source: system, examples: "latency / cost / cache reuse / risk"}
+
+# ── E0246 — reward vector 8-field (M00437, dump 7592-7601) — VERBATIM ──
+reward_vector:
+  module: M00437
+  fields: [correctness, evidence, risk, cost, latency, novelty, reuse, user_preference]

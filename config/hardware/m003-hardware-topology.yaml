@@ -1,0 +1,49 @@
+# config/hardware/m003-hardware-topology.yaml
+# ============================================================================
+# M003 "Hardware topology + PCIe lane discipline" — the topology CONTRACT.
+# Materializes the milestone spec (backlog/milestones/M003-...; source raw/dumps/
+# 2026-05-18-...AVX-plus-plus.md lines 213-565): the hardware inventory
+# (E0020-E0026), the PCIe lane-sharing trap (E0027), the better layout (E0028),
+# the power envelope + PSU (E0029/E0030), and the CUDA-P2P-vs-IOMMU note (E0031).
+# No invention — every entry traces to a module + dump line range.
+#
+# Ties: this is the physical substrate M044/M050/M075 map roles onto; the PCIe
+# lane trap + x8/x8 bifurcation is verified by M072's Check 02; the VFIO-isolated
+# 4090 is M066's Weaver sandbox; the ZFS RAID-0 is M068's tank pool base; the
+# asymmetric VLAN is M084's Zero-Trust perimeter.
+# STATUS: spec-materialization (SDD+TDD — the SAIN-01 hardware topology + PCIe discipline).
+# Locked to spec by tests/lint/test_m003_hardware_topology.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M003
+source_dump_lines: "213-565"
+
+# ── E0020-E0026 — hardware inventory (M00029-M00043) — VERBATIM ──
+inventory:
+  - {component: "AMD Ryzen 9 9900X Zen 5", spec: "single-cycle native 512-bit AVX-512 (not double-pumped 256-bit)"}
+  - {component: "ASUS ProArt X870E-Creator", spec: "dual PCIe 5.0 x8/x8 symmetric / IOMMU topology for VFIO"}
+  - {component: "RTX PRO 6000 Blackwell", spec: "96 GB GDDR7 / 1.8 TB/s / PCIe Gen 5 / MIG / FP4 Tensor Cores / 600W — Oracle Core"}
+  - {component: "RTX 4090", spec: "24 GB GDDR6X / PCIe Gen 4 / ~350W — Logic Engine, VFIO-isolated sandbox"}
+  - {component: "256 GB DDR5", spec: "system context + ZFS ARC headroom (initial 128 GB; 4-DIMM board max)"}
+  - {component: "2x NVMe PCIe 5.0", spec: "ZFS RAID-0, 31.5 GB/s sequential target (scratch/cache/datasets/artifacts only — RAID 0 is not durability)"}
+  - {component: "Marvell AQC113C 10GbE + Intel I226-V 2.5GbE", spec: "asymmetric VLAN (10GbE data / 2.5GbE management)"}
+
+# ── E0027 — PCIe lane-sharing trap (M00031, dump 243-252) — VERBATIM ──
+lane_trap: "PCIEX16(G5)_2 shares lanes with M.2_2"
+
+# ── E0028 — better layout (dump 258-266) — VERBATIM ──
+better_layout: "Blackwell x8 + 4090 x8 + M.2_1 x4 + chipset NVMe x4"
+
+# ── E0029/E0030 — power envelope + PSU (dump 348-355) — VERBATIM ──
+power_envelope:
+  draws: ["600W Blackwell", "350W 4090", "120W CPU", "80-150W board/NVMe/fans"]
+  psu: "1600W minimum / 2000W quiet headroom"
+
+# ── E0031 — CUDA P2P vs IOMMU (dump 597) — VERBATIM ──
+p2p_iommu_note: "CUDA bare-metal PCIe P2P incompatible with IOMMU on Linux"
+
+# ── NIC drivers (M00041/M00042, dump 221) — VERBATIM ──
+nic_drivers:
+  - {nic: "Marvell AQC113C 10GbE", driver: "atlantic"}
+  - {nic: "Intel I226-V 2.5GbE", driver: "igc"}
