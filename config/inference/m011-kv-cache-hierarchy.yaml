@@ -1,0 +1,72 @@
+# config/inference/m011-kv-cache-hierarchy.yaml
+# ============================================================================
+# M011 "KV cache as memory hierarchy" — the KV-cache CONTRACT. Materializes the
+# milestone spec (backlog/milestones/M011-..., dump 2491-2697): the cache tier
+# hierarchy (E0087), the KvBlockMeta SoA row + SIMD scan predicates (E0088), the
+# content-addressing + tool-schema prefill caches (E0089), the speculative-tree
+# TokenNode row (E0090), the branch-row KV refs (E0091), the memory-admission
+# bitfield (E0092), and the Deterministic Cortex Runtime organs (E0093). No
+# invention — every entry traces to a module + dump line range. Struct FIELDS
+# are verbatim; the memory-admission bit widths are `proposed: true` (SB-095).
+#
+# Ties to M012 (tank/runtime/kv dataset = the cold KV tier) + M013
+# (sovereign_kv_* metrics observe this hierarchy).
+# STATUS: spec-materialization (SDD+TDD — precedes the runtime).
+# Locked to spec by tests/lint/test_m011_kv_cache_hierarchy.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M011
+source_dump_lines: "2491-2697"
+
+# ── E0087 — the cache tier hierarchy (M00164-M00167, dump 2491-2494) ──
+cache_hierarchy:
+  - {tier: "L1/L2", module: M00164, medium: "VRAM KV cache"}
+  - {tier: "L3", module: M00165, medium: "System RAM / page cache"}
+  - {tier: "cold", module: M00166, medium: "NVMe ZFS (replay / persisted context)"}
+  - {tier: "controller", module: M00167, medium: "CPU AVX-512"}
+
+# ── E0088 — KvBlockMeta 64-byte SoA row (M00169, dump 2517-2528) — VERBATIM ──
+kv_block_meta:
+  module: M00169
+  row_bytes: 64
+  layout: SoA
+  fields: [hash_hi, hash_lo, model_id, token_range, trust_flags, heat, last_used, owner_policy]
+
+# ── E0088 — SIMD scan predicates over KvBlockMeta (M00170, dump 2530-2540) ──
+simd_scan_predicates:
+  module: M00170
+  predicates: [same-model, same-tokenizer, block-hash-match, allowed-for-session,
+               hot-enough, stale-enough]
+
+# ── E0089 — content-addressing (M00173, dump 2568-2572) — VERBATIM ──
+content_addressing:
+  module: M00173
+  hash_inputs: [model_id, tokenizer_id, prompt_bytes, schema_version]
+
+# ── E0089 — tool-schema prefill caches (M00171, dump 2549-2556) ──
+tool_schema_kv_caches:
+  module: M00171
+  caches: [system, tool, project, repo, user, grammar]
+
+# ── E0090 — speculative-tree TokenNode row (M00175, dump 2589-2598) — VERBATIM ──
+token_node:
+  module: M00175
+  fields: [token, parent, depth, child_mask, score, flags]
+
+# ── E0091 — branch row carries KV refs (M00177, dump 2618-2626) — VERBATIM ──
+branch_row:
+  module: M00177
+  fields: [branch_id, parent_branch_id, kv_prefix_ref, kv_delta_ref, control_word, budget, score]
+
+# ── E0092 — memory-admission policy bitfield (M00179, dump 2673-2680) ──
+memory_admission_bitfield:
+  module: M00179
+  bit_layout_proposed: true          # SB-095 agent-draft flag
+  fields: [cache-tier, trust, reuse-count, token-cost, owner-session, flags]
+
+# ── E0093 — Deterministic Cortex Runtime organs (M00180, dump 2687-2697) ──
+cortex_runtime_organs:
+  module: M00180
+  organs: [Branch, Policy, Grammar, Memory-Router, Speculation, Tool-Gate,
+           Replay-Log, KV-Cache-Controller]
