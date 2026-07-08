@@ -1,0 +1,77 @@
+# config/server/m081-whitelabel-architecture.yaml
+# ============================================================================
+# M081 "Whitelabel Architecture — Debian surface audit + declarative rebrand
+# mechanism" — the whitelabel CONTRACT. Materializes the milestone spec (backlog/
+# milestones/M081-...; source raw/dumps/2026-05-16-sovereign-os-macro-arc-plan.md
+# PR 7 lines 174-199 + PR 8 lines 202-227): the Debian surface audit (E0778), the
+# categorization taxonomy (E0779), legal obligations (E0780), the whitelabel
+# profile schema (E0781), per-surface rendering strategies (E0782), lifecycle
+# staging (E0783), evolvability (E0784), the legal-compliance validator (E0785),
+# the default placeholder (E0786), and Stage Gate 4 (E0787). No invention — every
+# entry traces to a module + dump line range.
+#
+# Doctrinal anchors (macro-arc dump 191/208/210/213): "Each surface categorized:
+# must-rebrand, should-rebrand, may-leave, must-not-touch (legal/license
+# obligations — Debian trademark, GPL attribution, etc.)" / "Mechanism shape:
+# declarative whitelabel-profile YAML referenced by main profiles" / "Per-surface
+# strategy: template-substitution vs file-overlay vs package-replacement vs
+# build-time-flag" / "Legal compliance binding: enforce the 'must-not-touch' list
+# from PR 7 at validation time". PROJECT BOUNDARY: sovereign-os ONLY — IPS (selfdef)
+# is brand-neutral; sovereign-os is the whitelabel-capable runtime + image-build
+# identity layer. Ties: this is M062's PR 7 + PR 8 (reviewed together at M065's
+# SG4); the whitelabel profile is referenced by M076's main profiles; the substrate
+# is M064's Debian-13 boat. Operator standing 2026-05-19: "DO NOT MINIMIZE".
+# STATUS: spec-materialization (SDD+TDD — the whitelabel audit + rebrand mechanism).
+# Locked to spec by tests/lint/test_m081_whitelabel_architecture.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M081
+source_dump_lines: "174-227"
+
+# ── E0778 — Debian surface audit, 9 surfaces (M01343-M01351) — VERBATIM ──
+audit_surfaces:
+  - {surface: filesystem, module: M01343, examples: "/etc/os-release + filesystem references"}
+  - {surface: "package-mgr", module: M01344, examples: "DPKG vendor / APT sources / dpkg-vendor / lsb_release"}
+  - {surface: boot, module: M01345, examples: "GRUB theme + Plymouth + kernel boot logo + systemd boot banner"}
+  - {surface: installer, module: M01346, examples: "debian-installer / Calamares / preseed banner"}
+  - {surface: desktop, module: M01347, examples: "GDM/SDDM/LightDM + default wallpaper + GNOME/KDE about"}
+  - {surface: kernel, module: M01348, examples: "/proc/version + uname -a + kernel package naming"}
+  - {surface: docs, module: M01349, examples: "man pages + /usr/share/doc/ + default README"}
+  - {surface: network, module: M01350, examples: "hostname pattern + NTP/DNS pool + APT mirror"}
+  - {surface: telemetry, module: M01351, examples: "popcon / apport / phone-home defaults"}
+
+# ── E0779 — categorization taxonomy (M01352, dump 191) — VERBATIM ──
+categorization:
+  module: M01352
+  categories: ["must-rebrand", "should-rebrand", "may-leave", "must-not-touch"]
+
+# ── E0780 — legal obligations (M01353, dump 192) — VERBATIM ──
+legal_obligations:
+  module: M01353
+  requirements: ["Debian trademark", "DFSG", "GPL attribution"]
+
+# ── E0781 — whitelabel profile schema (M01354/M01355, dump 208-216) — VERBATIM ──
+whitelabel_schema:
+  module: M01354
+  schema_file: "schemas/whitelabel.schema.yaml"
+  shape: "declarative whitelabel-profile YAML referenced by main profiles"
+
+# ── E0782 — per-surface rendering strategies (M01357-M01361, dump 210) — VERBATIM ──
+rendering_strategies:
+  module: M01357
+  strategies: ["template-substitution", "file-overlay", "package-replacement", "build-time-flag"]
+
+# ── E0783 — lifecycle staging (dump 211) — VERBATIM ──
+lifecycle_staging: ["pre-build patches", "install-time substitutions", "first-boot scripts"]
+
+# ── E0784 — evolvability (dump 212) — VERBATIM ──
+evolvability: "swap whitelabel without re-building the entire image (where possible)"
+
+# ── E0785 — legal-compliance validator (dump 213) — VERBATIM ──
+legal_validator:
+  rule: "enforce the 'must-not-touch' list from PR 7 at validation time"
+
+# ── E0786/E0787 — default placeholder + Stage Gate 4 (dump 217/222-224) — VERBATIM ──
+default_placeholder: "no brand committed; operator decides later"
+stage_gate_4: "operator reviews audit + mechanism together; brand-name commit optional"
