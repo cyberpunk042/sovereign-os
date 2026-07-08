@@ -249,3 +249,104 @@ systems:
     privileged: true
     applies_to: [d-09-hardware-pressure]
     refs: [scripts/hooks/recurrent/zfs-scrub.sh]
+
+  # ── 13. Model eval — run a benchmark against a model (R232) ──────────
+  - id: eval-run
+    kind: lifecycle
+    scope: scoped
+    label: "Model Eval"
+    description: >-
+      Run a benchmark evaluation (R232) against a model — pick a model slug and a
+      benchmark (mmlu / humaneval / gsm8k) and dispatch the lm-eval harness via
+      `sovereign-osctl models eval run`. DRY-RUN by default (emits the exact
+      harness command it would run); a real run consumes GPU and appends JSONL
+      eval history.
+    options: [mmlu, humaneval, gsm8k]
+    options_cli: "sovereign-osctl models eval list-benchmarks"
+    state_cli: "sovereign-osctl models eval history --limit 5"
+    change_cli: "sovereign-osctl models eval run <slug> --benchmark <benchmark>"
+    state_path: "eval history JSONL (R232 · scripts/observability/eval-tracker.py)"
+    privileged: true
+    applies_to: [d-10-eval-history]
+    refs: [scripts/models/eval.py]
+
+  # ── 14. Costs export — read-only spend-history export (D-04) ──────────
+  - id: costs-export
+    kind: lifecycle
+    scope: scoped
+    label: "Costs Export"
+    description: >-
+      Export the 30-day cloud-spend history (D-04) — pick csv (date,spend rows)
+      or json (the full aggregation model) and dispatch `sovereign-osctl costs
+      export`. Read-only; writes the export to stdout and mutates nothing (not
+      privileged, no sudo).
+    options: [csv, json]
+    options_cli: "sovereign-osctl costs summary"
+    state_cli: "sovereign-osctl costs today"
+    change_cli: "sovereign-osctl costs export {csv|json}"
+    state_path: "M049 span log (read-only aggregation)"
+    privileged: false
+    applies_to: [d-04-costs]
+    refs: [scripts/observability/cost-tracker.py]
+
+  # ── 15. Cost policy — halt / resume cloud spend (D-04 write) ─────────
+  - id: cost-policy
+    kind: toggle
+    scope: scoped
+    label: "Cloud Spend"
+    description: >-
+      Halt or resume ALL cloud spend by flipping cloud_enabled in
+      /etc/sovereign-os/cost-policy.toml (the D-04 write surface). halt-cloud
+      stops every cloud backend immediately; resume-cloud re-enables it. DRY-RUN
+      by default; the real write is operator-key + type-to-confirm gated and
+      needs SOVEREIGN_OS_ACTION_EXEC_LIVE.
+    options: [halt-cloud, resume-cloud]
+    options_cli: "sovereign-osctl cost-policy show"
+    state_cli: "sovereign-osctl costs policy"
+    change_cli: "sovereign-osctl cost-policy {halt-cloud|resume-cloud} --confirm"
+    state_path: "/etc/sovereign-os/cost-policy.toml"
+    privileged: true
+    applies_to: [d-04-costs]
+    refs: [scripts/observability/cost-policy.py]
+
+  # ── 16. Trace replay-verify — MS009 integrity check (D-05) ───────────
+  - id: trace-replay
+    kind: lifecycle
+    scope: scoped
+    label: "Trace Replay-Verify"
+    description: >-
+      Replay-verify a trace (MS009) — re-read its spans and check integrity: all
+      13 M049 keys present, every span signed, chronological ordering, and parent
+      linkage resolvable within the trace. Read-only; `latest` verifies the most
+      recent trace. Emits a per-check verdict and mutates nothing (not
+      privileged, no sudo).
+    options: [latest]
+    options_cli: "sovereign-osctl traces summary"
+    state_cli: "sovereign-osctl traces summary"
+    change_cli: "sovereign-osctl traces replay-verify <trace-id>"
+    state_path: "M049 span log (read-only replay)"
+    privileged: false
+    applies_to: [d-05-traces]
+    refs: [scripts/observability/trace-store.py]
+
+  # ── 17. Rollback apply — ZFS rollback to the latest snapshot (D-08) ──
+  - id: rollback-apply
+    kind: lifecycle
+    scope: scoped
+    label: "Rollback (latest)"
+    description: >-
+      Apply a ZFS rollback to the LATEST snapshot (R10100) — the destructive
+      `zfs rollback -r` that discards everything newer than that snapshot. The
+      common one-click undo. DRY-RUN by default; the real rollback is --confirm
+      + operator-key + type-to-confirm gated and needs
+      SOVEREIGN_OS_ACTION_EXEC_LIVE. Arbitrary-snapshot rollback stays a manual
+      CLI op (the safe fallback — snapshot paths carry '/' the exec allowlist
+      forbids).
+    options: [latest]
+    options_cli: "sovereign-osctl rollback snapshot"
+    state_cli: "sovereign-osctl rollback snapshot"
+    change_cli: "sovereign-osctl rollback apply --to latest --confirm"
+    state_path: "ZFS snapshots (rpool/tank) + git commit history"
+    privileged: true
+    applies_to: [d-08-rollback-points]
+    refs: [scripts/lifecycle/rollback-points.py]

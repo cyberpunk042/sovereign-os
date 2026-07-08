@@ -138,6 +138,7 @@ def test_every_example_has_corresponding_overlay_call():
         "power",              # consumed via systemd env file
         "ram",                # consumed via R257 memory-profile
         "shutdown-manifest",  # consumed by R262 drain manifest
+        "cost-policy",        # read via tomllib by cost-tracker.py + cost-policy.py
     }
     for f in _existing_examples():
         stem = f.stem.replace(".toml", "")

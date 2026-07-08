@@ -21,7 +21,8 @@ CATALOG = REPO / "config" / "dashboard-catalog.yaml"
 EXPECTED_IDS = {
     "os-profile", "runtime-mode", "flex-profile", "cpu-mode", "gpu-mode",
     "dashboard-toggle", "auth-tier", "selfdef", "perimeter",
-    "inference-tier", "workload-knobs", "maintenance",
+    "inference-tier", "workload-knobs", "maintenance", "eval-run",
+    "costs-export", "cost-policy", "trace-replay", "rollback-apply",
 }
 VALID_KINDS = {"profile", "mode", "toggle", "lifecycle"}
 VALID_SCOPES = {"global", "scoped"}

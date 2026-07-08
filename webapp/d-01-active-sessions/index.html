@@ -561,19 +561,12 @@ function renderSessions(sessions) {
   });
 }
 
-async function handleAction(action, id) {
-  // Web surface never mutates directly; copy CLI command per MS043 R10212
-  const cmd = {
-    hibernate: `sovereign hibernate ${id}`,
-    resume: `sovereign resume ${id}`,
-    kill: `sovereign kill ${id}`,
-  }[action];
-  try {
-    await navigator.clipboard.writeText(cmd);
-    alert(`Command copied:\n\n  ${cmd}\n\nRun with operator MS003 key loaded.\nMS047 CRIU + ZFS continuity engages on hibernate/resume.`);
-  } catch (e) {
-    prompt(`Copy + run this command:`, cmd);
-  }
+function handleAction(action, id) {
+  // NEUTRALIZED (operator directive: no phantom/broken actions) — session
+  // hibernate/resume/kill have NO sovereign-osctl verb yet (the M057 CRIU+ZFS
+  // session-lifecycle engine is not built; session-registry.py is a pure
+  // reader). Copy nothing; state the feature is planned. (id: ${id})
+  alert(`Session "${action}" is planned — sovereign-osctl has no session-lifecycle verb yet (pending the M057 engine).\n\nNothing was copied. Tracked for a future release.`);
 }
 
 function renderDataSourceBanner(ok, errMsg) {

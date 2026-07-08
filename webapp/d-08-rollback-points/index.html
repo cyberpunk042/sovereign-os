@@ -502,7 +502,7 @@ a11y; contract test catches drift.
   <button onclick="emit('sovereignctl snapshot list --all')">planned: list all snapshots</button>
   <button onclick="emit('sovereignctl snapshot create --dataset rpool/sovereign-os --tag manual-' + new Date().toISOString().slice(0,10))">planned: create manual snapshot</button>
   <button onclick="emit('sovereignctl rollback preview --to <snapshot>')">planned: rollback preview</button>
-  <button class="danger" onclick="emit('sovereignctl rollback apply --to <snapshot> --confirm')">planned: rollback apply (destructive)</button>
+  <button class="danger" onclick="(function(){var s=document.getElementById('control-surface'),c=s&&s.querySelector('[data-cid=&quot;rollback-apply&quot;]');(c||s).scrollIntoView({behavior:'smooth',block:'center'});if(c){c.style.outline='2px solid var(--accent,#9bd1ff)';setTimeout(function(){c.style.outline='';},1600);}})()">rollback (latest) — via Controls rail ↓</button>
   <button onclick="emit('sovereignctl snapshot prune --retain-days 14')">planned: prune (retain 14d)</button>
   <button onclick="emit('sovereignctl commit log --signed-only --since 24h')">planned: signed commit log</button>
 </div>

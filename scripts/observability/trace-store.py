@@ -200,6 +200,51 @@ def get_trace(trace_id: str, store: Path = SPAN_STORE) -> dict[str, Any]:
     return {"trace_id": trace_id, "spans": spans}
 
 
+def replay_verify(trace_id: str, store: Path = SPAN_STORE) -> dict[str, Any]:
+    """MS009 replay-verify (D-05): re-read a trace's spans and verify integrity —
+    all 13 M049 fields present, a signature present on every span, chronological
+    ordering, and every parent_span_id resolvable within the trace. Read-only;
+    emits a per-check verdict. Signature CRYPTO verification is greenfield (needs
+    the MS003 key chain); this verifies the structural + provenance-PRESENCE
+    invariants over the real span log. `latest` resolves the most recent trace."""
+    if trace_id == "latest":
+        spans_all = load_spans(store)
+        if spans_all:
+            newest = max(spans_all, key=lambda s: _coerce_start_ms(s.get("start_ts")) or 0.0)
+            trace_id = newest.get("trace_id") or trace_id
+    spans = get_trace(trace_id, store)["spans"]
+    checks: list[dict[str, Any]] = []
+    checks.append({"name": "trace-exists", "ok": bool(spans),
+                   "detail": f"{len(spans)} span(s)"})
+    if not spans:
+        return {"trace_id": trace_id, "span_count": 0, "checks": checks, "verdict": "fail"}
+    # M049 normalises every span to carry all 13 keys (missing → null), so the
+    # invariant is KEY presence, not value non-null (a root span's
+    # parent_span_id is validly null).
+    incomplete = [s.get("span_id") for s in spans
+                  if any(f not in s for f in SPAN_FIELDS)]
+    checks.append({"name": "field-completeness", "ok": not incomplete,
+                   "detail": "all 13 M049 keys present" if not incomplete
+                   else f"{len(incomplete)} span(s) missing key(s)"})
+    unsigned = [s.get("span_id") for s in spans if not s.get("signature")]
+    checks.append({"name": "signature-present", "ok": not unsigned,
+                   "detail": "every span carries a signature" if not unsigned
+                   else f"{len(unsigned)} unsigned span(s)"})
+    starts = [_coerce_start_ms(s.get("start_ts")) or 0.0 for s in spans]
+    ordered = all(starts[i] <= starts[i + 1] for i in range(len(starts) - 1))
+    checks.append({"name": "chronological", "ok": ordered,
+                   "detail": "start_ts monotonic non-decreasing"})
+    ids = {s.get("span_id") for s in spans}
+    dangling = [s.get("span_id") for s in spans
+                if s.get("parent_span_id") and s.get("parent_span_id") not in ids]
+    checks.append({"name": "parent-linkage", "ok": not dangling,
+                   "detail": "all parent_span_id refs resolve within the trace"
+                   if not dangling else f"{len(dangling)} dangling parent ref(s)"})
+    verdict = "ok" if all(c["ok"] for c in checks) else "fail"
+    return {"trace_id": trace_id, "span_count": len(spans),
+            "checks": checks, "verdict": verdict}
+
+
 def store_signature() -> tuple[int, float]:
     """(size_bytes, mtime) of the span store, or (0, 0.0) when absent — used
     by the SSE stream to emit `span-added` only when the log actually grows."""
@@ -229,12 +274,17 @@ def main(argv: list[str] | None = None) -> int:
     sm = sub.add_parser("summary")
     sm.add_argument("--window", type=int, default=3600)
     sm.add_argument("--json", action="store_true")
+    rv = sub.add_parser("replay-verify")
+    rv.add_argument("trace_id")
+    rv.add_argument("--json", action="store_true")
     args = p.parse_args(argv)
     cmd = args.cmd or "summary"
     if cmd == "spans":
         _print(query_spans(args.q, args.severity, args.ocsf_class, args.window))
     elif cmd == "trace":
         _print(get_trace(args.trace_id))
+    elif cmd == "replay-verify":
+        _print(replay_verify(args.trace_id))
     else:
         window = getattr(args, "window", 3600)
         _print(query_spans("", "", "", window)["summary"])

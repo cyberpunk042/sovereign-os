@@ -688,9 +688,14 @@ async function refresh() {
 
 $('refresh-btn').addEventListener('click', refresh);
 $('apply-btn').addEventListener('click', refresh);
-$('run-suite-btn').addEventListener('click', async () => {
-  // NEUTRALIZED (operator directive: no phantom/broken actions) — `sovereign eval` is not a real sovereign-osctl verb (planned).
-      alert('This action is planned — not yet available in sovereign-osctl.\n\nNothing was copied. Tracked for a future release; real controls execute from the Controls rail below.');
+$('run-suite-btn').addEventListener('click', () => {
+  // FUNCTIONAL — "Model Eval" is now a real control (config/control-systems.yaml,
+  // sovereign-osctl models eval run). Jump to it in the Controls rail, where the
+  // operator picks a slug + benchmark and Executes (dry-run default, key+confirm).
+  const surf = document.getElementById('control-surface');
+  const card = surf && surf.querySelector('[data-cid="eval-run"]');
+  (card || surf).scrollIntoView({ behavior: 'smooth', block: 'center' });
+  if (card) { card.style.outline = '2px solid var(--accent, #9bd1ff)'; setTimeout(() => { card.style.outline = ''; }, 1600); }
 });
 $('export-btn').addEventListener('click', async () => {
   // NEUTRALIZED (operator directive: no phantom/broken actions) — `sovereign eval` is not a real sovereign-osctl verb (planned).

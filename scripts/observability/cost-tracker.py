@@ -247,18 +247,33 @@ def _print(obj: Any) -> None:
     print(json.dumps(obj, indent=2))
 
 
+def export(fmt: str = "csv") -> str:
+    """Read-only export of the 30-day spend history (D-04 export button).
+    csv → date,spend_usd rows; json → the full summary model. No mutation."""
+    s = summary()
+    if fmt == "json":
+        return json.dumps(s, indent=2)
+    lines = ["date,spend_usd"]
+    lines += [f"{row['date']},{row['spend']}" for row in s.get("trend", [])]
+    return "\n".join(lines)
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="cost aggregation core (M060 D-04)")
     sub = p.add_subparsers(dest="cmd")
     for name in ("summary", "policy", "today"):
         sp = sub.add_parser(name)
         sp.add_argument("--json", action="store_true")
+    ex = sub.add_parser("export")
+    ex.add_argument("fmt", nargs="?", choices=("csv", "json"), default="csv")
     args = p.parse_args(argv)
     cmd = args.cmd or "summary"
     if cmd == "policy":
         _print(load_policy())
     elif cmd == "today":
         _print(summary()["today"])
+    elif cmd == "export":
+        print(export(args.fmt))
     else:
         _print(summary())
     return 0

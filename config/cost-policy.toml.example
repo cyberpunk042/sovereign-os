@@ -1,0 +1,23 @@
+# config/cost-policy.toml.example — operator cost policy (D-04).
+#
+# Copy to /etc/sovereign-os/cost-policy.toml (or point SOVEREIGN_OS_COST_POLICY
+# at it). Read by scripts/observability/cost-tracker.py; the `cloud_enabled`
+# flag is flipped by `sovereign-osctl cost-policy {halt-cloud|resume-cloud}`.
+# Absent keys fall back to sovereign-safe defaults (cloud OFF, approval required,
+# private paths never leave the box).
+
+# Master cloud switch. false = HALT all cloud spend (sovereign default).
+cloud_enabled = false
+
+# Require operator approval before any cloud call (even when cloud_enabled).
+cloud_requires_approval = true
+
+# Daily / per-request spend ceilings in USD. Unset (commented) = no ceiling.
+# daily_budget_usd = 5.0
+# per_request_max_usd = 0.50
+
+# Paths whose prompts NEVER leave the box, regardless of cloud_enabled.
+private_paths_never_cloud = true
+
+# Prompt logging policy: local_only | none | full.
+log_prompts = "local_only"
