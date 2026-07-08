@@ -114,6 +114,35 @@
     });
   }
 
+  // Inline type-to-confirm gate for privileged controls (replaces window.prompt
+  // — accessible, on-palette, non-blocking). Type the control id, Confirm →
+  // re-execute with confirm:true; Cancel/mismatch → no execution.
+  function askConfirm(card, sys, opts) {
+    var result = card.querySelector(".cs-result");
+    var host = card.querySelector(".cs-confirm");
+    if (!host) {
+      host = document.createElement("div");
+      host.className = "cs-confirm";
+      card.insertBefore(host, result);
+    }
+    host.innerHTML =
+      '<span class="cs-confirm-msg">privileged — type <code>' + esc(sys.id) + "</code> to confirm</span>"
+      + '<input class="cs-arg cs-confirm-in" placeholder="' + esc(sys.id) + '" aria-label="type ' + esc(sys.id) + ' to confirm">'
+      + '<button type="button" class="cs-exec cs-confirm-ok">Confirm</button>'
+      + '<button type="button" class="cs-cmd cs-confirm-cancel">Cancel</button>';
+    var inp = host.querySelector(".cs-confirm-in");
+    if (inp.focus) inp.focus();
+    function done(ok) {
+      var typed = (inp.value || "").trim();
+      if (host.parentNode) host.parentNode.removeChild(host);
+      if (ok && typed === sys.id) execAction(card, sys, opts, true);
+      else setResult(result, "warn", "confirmation " + (ok ? "mismatch" : "cancelled") + " — not executed");
+    }
+    host.querySelector(".cs-confirm-ok").addEventListener("click", function () { done(true); });
+    host.querySelector(".cs-confirm-cancel").addEventListener("click", function () { done(false); });
+    inp.addEventListener("keydown", function (e) { if (e.key === "Enter") done(true); });
+  }
+
   function execAction(card, sys, opts, confirmed) {
     var result = card.querySelector(".cs-result");
     var args = collectArgs(card);
@@ -130,12 +159,8 @@
           // operator key is not loaded). Surface the reason; do NOT re-prompt.
           setResult(result, "warn", b.error || "not permitted (operator key required)");
         } else {
-          // privileged control — type-to-confirm ONCE, then re-execute confirm:true
-          var typed = global.prompt
-            ? global.prompt('Privileged control "' + sys.label + '". Type "' + sys.id + '" to confirm:')
-            : null;
-          if (typed && typed.trim() === sys.id) execAction(card, sys, opts, true);
-          else setResult(result, "warn", "confirmation required — not executed");
+          // privileged control — inline type-to-confirm gate, ONCE
+          askConfirm(card, sys, opts);
         }
       } else if (res.status === 409) {
         setResult(result, "warn", "signed-proxy only (R10212) — command copied");

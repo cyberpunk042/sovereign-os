@@ -80,4 +80,14 @@
 .cs-result.warn { color: #e0b050; }
 .cs-result.err { color: #e06a6a; }
 .cs-result.muted { color: var(--muted, #888); }
+/* inline type-to-confirm gate for privileged controls */
+.cs-confirm {
+  display: flex; flex-wrap: wrap; align-items: center; gap: .35rem;
+  padding: .35rem .4rem; margin-top: .1rem;
+  border: 1px dashed var(--accent, #9bd1ff); border-radius: 4px;
+}
+.cs-confirm-msg { font-size: .72rem; color: var(--muted, #888); }
+.cs-confirm-msg code { color: var(--fg, #e6e6e6); }
+.cs-confirm-in { max-width: 14ch; }
+.cs-confirm-cancel { flex: 0 0 auto; }
 .cs-empty { color: var(--muted, #888); }

@@ -749,6 +749,16 @@ refresh();
 .cs-result.warn { color: #e0b050; }
 .cs-result.err { color: #e06a6a; }
 .cs-result.muted { color: var(--muted, #888); }
+/* inline type-to-confirm gate for privileged controls */
+.cs-confirm {
+  display: flex; flex-wrap: wrap; align-items: center; gap: .35rem;
+  padding: .35rem .4rem; margin-top: .1rem;
+  border: 1px dashed var(--accent, #9bd1ff); border-radius: 4px;
+}
+.cs-confirm-msg { font-size: .72rem; color: var(--muted, #888); }
+.cs-confirm-msg code { color: var(--fg, #e6e6e6); }
+.cs-confirm-in { max-width: 14ch; }
+.cs-confirm-cancel { flex: 0 0 auto; }
 .cs-empty { color: var(--muted, #888); }
 </style>
 <script>
@@ -868,6 +878,35 @@ refresh();
     });
   }
 
+  // Inline type-to-confirm gate for privileged controls (replaces window.prompt
+  // — accessible, on-palette, non-blocking). Type the control id, Confirm →
+  // re-execute with confirm:true; Cancel/mismatch → no execution.
+  function askConfirm(card, sys, opts) {
+    var result = card.querySelector(".cs-result");
+    var host = card.querySelector(".cs-confirm");
+    if (!host) {
+      host = document.createElement("div");
+      host.className = "cs-confirm";
+      card.insertBefore(host, result);
+    }
+    host.innerHTML =
+      '<span class="cs-confirm-msg">privileged — type <code>' + esc(sys.id) + "</code> to confirm</span>"
+      + '<input class="cs-arg cs-confirm-in" placeholder="' + esc(sys.id) + '" aria-label="type ' + esc(sys.id) + ' to confirm">'
+      + '<button type="button" class="cs-exec cs-confirm-ok">Confirm</button>'
+      + '<button type="button" class="cs-cmd cs-confirm-cancel">Cancel</button>';
+    var inp = host.querySelector(".cs-confirm-in");
+    if (inp.focus) inp.focus();
+    function done(ok) {
+      var typed = (inp.value || "").trim();
+      if (host.parentNode) host.parentNode.removeChild(host);
+      if (ok && typed === sys.id) execAction(card, sys, opts, true);
+      else setResult(result, "warn", "confirmation " + (ok ? "mismatch" : "cancelled") + " — not executed");
+    }
+    host.querySelector(".cs-confirm-ok").addEventListener("click", function () { done(true); });
+    host.querySelector(".cs-confirm-cancel").addEventListener("click", function () { done(false); });
+    inp.addEventListener("keydown", function (e) { if (e.key === "Enter") done(true); });
+  }
+
   function execAction(card, sys, opts, confirmed) {
     var result = card.querySelector(".cs-result");
     var args = collectArgs(card);
@@ -884,12 +923,8 @@ refresh();
           // operator key is not loaded). Surface the reason; do NOT re-prompt.
           setResult(result, "warn", b.error || "not permitted (operator key required)");
         } else {
-          // privileged control — type-to-confirm ONCE, then re-execute confirm:true
-          var typed = global.prompt
-            ? global.prompt('Privileged control "' + sys.label + '". Type "' + sys.id + '" to confirm:')
-            : null;
-          if (typed && typed.trim() === sys.id) execAction(card, sys, opts, true);
-          else setResult(result, "warn", "confirmation required — not executed");
+          // privileged control — inline type-to-confirm gate, ONCE
+          askConfirm(card, sys, opts);
         }
       } else if (res.status === 409) {
         setResult(result, "warn", "signed-proxy only (R10212) — command copied");
