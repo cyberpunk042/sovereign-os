@@ -1,0 +1,76 @@
+# config/agent/m025-cognitive-compiler.yaml
+# ============================================================================
+# M025 "Cognitive Compiler — intent to DAG" — the intent-compiler CONTRACT.
+# Materializes the milestone spec (backlog/milestones/M025-..., dump 7021-7316):
+# the substrates (E0229), the compiler I/O contracts + DAG node schema (E0231),
+# the 5-profile catalog (E0232), symbolic futures (E0233), the DAG-aware vector
+# scheduler + ready queues (E0234), the BFCL-V4 failure taxonomy + tool-use
+# profile (E0235), the adaptive recompile triggers (E0236), and the 10-stage
+# compiler pipeline (E0237). No invention — every entry traces to a module + dump
+# line range.
+#
+# Extends M024's compiler pipeline (9→10 stages, backward-sweep additive); the
+# DAG node's model_role realizes M075 SRP; ready_human_gate = the cockpit.
+# STATUS: spec-materialization (SDD+TDD — precedes the compiler).
+# Locked to spec by tests/lint/test_m025_cognitive_compiler.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M025
+source_dump_lines: "7021-7316"
+
+# ── E0231 — compiler I/O contracts (M00410/M00411, dump 7039-7053) — VERBATIM ──
+compiler_inputs:
+  module: M00410
+  inputs: [user_goal, policies, available_tools, model_registry, memory_state,
+           hardware_telemetry, risk_profile]
+compiler_outputs:
+  module: M00411
+  outputs: [typed_workflow_dag, capability_plan, model_routing_plan, cache_plan,
+            eval_verification_plan]
+
+# ── E0231 — DAG node schema (M00412, dump 7061-7090) — VERBATIM ──
+dag_node:
+  module: M00412
+  fields: [id, type, depends_on, parallel, output, model_role, sandbox]
+
+# ── E0232 — 5-profile catalog (M00413, dump 7099-7126) — VERBATIM ──
+profile_catalog:
+  module: M00413
+  profiles: [Fast, Careful, Exploratory, Private, Autonomous]
+
+# ── E0234 — DAG-aware vector scheduler, 8 ready-node axes (M00416, dump 7174-7183) ──
+scheduler_ready_axes:
+  module: M00416
+  axes: [dependency_satisfied, capability_allowed, budget_ok, risk_ok,
+         sandbox_available, model_available, cache_affinity, priority]
+
+# ── E0234 — dense ready queues (M00417, dump 7189-7196) — VERBATIM ──
+ready_queues:
+  module: M00417
+  queues: [ready_model_oracle, ready_model_scout, ready_tool_read,
+           ready_tool_sandbox, ready_repl, ready_human_gate]
+
+# ── E0235 — BFCL V4 8-failure taxonomy (M00418, dump 7205-7213) — VERBATIM ──
+failure_taxonomy:
+  module: M00418
+  failures: [wrong-function, wrong-argument, wrong-order, lost-context,
+             ignoring-prior-tool-output, format-drift, unnecessary-tool-call,
+             missing-tool-call]
+
+# ── E0235 — per-model tool-use profile YAML (M00419, dump 7217-7226) — VERBATIM ──
+tool_use_profile:
+  module: M00419
+  fields: [single_call, multi_turn, parallel_call, json_strictness,
+           argument_precision, needs_schema_examples]
+
+# ── E0236 — adaptive recompile triggers (M00420, dump 7271-7276) — VERBATIM ──
+recompile_triggers:
+  module: M00420
+  triggers: [test-failed, missing-file, tool-denied, oracle-disagreement, memory-conflict]
+
+# ── E0237 — the 10-stage compiler pipeline (M00421, dump 7287-7316) — VERBATIM ORDER ──
+compiler_pipeline:
+  module: M00421
+  stages: [Intent-Parse, Context-Build, Plan-Synthesis, Plan-Validation,
+           Plan-Optimization, Execution, Observation, Recompile, Commit, Learn]
