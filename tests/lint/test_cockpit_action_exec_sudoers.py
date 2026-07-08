@@ -47,8 +47,9 @@ def _verb_prefix(change_cli: str) -> str:
 def test_sudoers_present_and_draft():
     assert SUDOERS.is_file(), f"missing {SUDOERS}"
     body = SUDOERS.read_text()
-    assert "DRAFT" in body and "OPERATOR-REVIEW-PENDING" in body, (
-        "the sudoers allowlist must stay marked DRAFT until operator review")
+    assert "DRAFT" in body and "SUPERSEDED" in body, (
+        "the sudoers allowlist must stay marked DRAFT (preview of the "
+        "operator-sudoers.sh controls-bucket extension) until it is folded in")
 
 
 def test_every_sovereign_os_owned_verb_is_allowlisted():

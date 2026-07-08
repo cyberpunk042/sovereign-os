@@ -1,34 +1,33 @@
-# config/sudoers.d/sovereign-os-cockpit — DRAFT, OPERATOR-REVIEW-PENDING
+# config/sudoers.d/sovereign-os-cockpit — DRAFT / PREVIEW (SUPERSEDED-BY design)
 # ============================================================================
-# The "sudoer strategy" (mechanism A) that lets cockpit panel daemons EXECUTE
-# sovereign-os-owned control verbs non-interactively, realizing R10274 (the
-# signed-mutation-proxy path) instead of only copying the command. The manual
-# `sovereign-osctl …` command stays the documented fallback.
+# ⚠ This is the PREVIEW of the controls-bucket NOPASSWD allowlist that lets the
+# cockpit panels EXECUTE sovereign-os-owned control verbs (realizing R10274; the
+# manual `sovereign-osctl …` command stays the fallback).
 #
-# INSTALL TARGET: /etc/sudoers.d/sovereign-os-cockpit  (mode 0440, root:root)
-# Validate before install:  visudo -cf config/sudoers.d/sovereign-os-cockpit
+# CANONICAL HOME (per SDD-047 Q-047-A/C, answered from evidence 2026-07-08):
+# this content BELONGS as an added bucket in the existing generator
+# `scripts/operator/operator-sudoers.sh` (on `main`), NOT a hand-authored file.
+# That generator already grants the OPERATOR USER — the user the panel APIs +
+# the AI agent run as — a scoped `Cmnd_Alias SOVEREIGN_OS_OPS` (diagnostics +
+# image-inspection). The functional-execution work adds a SECOND scoped alias
+# (`SOVEREIGN_OS_COCKPIT`, below) for the 9 sovereign-os-OWNED control verbs.
+# On branch-recreate-from-main this file is replaced by extending that script;
+# `_action_exec.py` then runs `sudo -n sovereign-osctl <verb>` as the operator
+# user (no dedicated user, no `NoNewPrivileges` change — Q-047-C).
 #
-# ⚠ REVIEW BEFORE WIRING ANY DAEMON — three load-bearing decisions are yours:
-#   1. The runas user. This grants a DEDICATED, unprivileged service account
-#      `sovereign-cockpit` NOPASSWD for a FIXED verb allowlist — never a human
-#      login, never ALL. The `*-api` systemd units must then run
-#      `User=sovereign-cockpit` and DROP `NoNewPrivileges=true` (it currently
-#      blocks sudo). That hardening trade-off is the security-critical change
-#      and must be your explicit call.
-#   2. The allowlist scope. ONLY the 9 sovereign-os-OWNED controls are listed.
-#      selfdef + perimeter are DELIBERATELY ABSENT — they are selfdef-owned and
-#      stay a signed proxy to the selfdef producer (R10212). Never add them here.
-#   3. Two-gate defence. sudoers `*` is fnmatch (does NOT cross `/`) and pins
-#      only the fixed verb PREFIX. The PRIMARY gate is `_action_exec.py`, which
-#      validates every placeholder value against the control's `options`
-#      allowlist / a strict no-metacharacter regex BEFORE invoking sudo. This
-#      file is the second gate — a defence-in-depth binary+verb allowlist.
+# INSTALL TARGET (once folded in): /etc/sudoers.d/sovereign-os-operator (0440)
+# Validate:  visudo -cf config/sudoers.d/sovereign-os-cockpit
+#
+# Two-gate defence (unchanged): `_action_exec.py` validates every placeholder
+# against the control's `options` allowlist / a strict no-metacharacter regex
+# BEFORE sudo; this allowlist is the second gate. selfdef + perimeter are
+# DELIBERATELY ABSENT — selfdef-owned, they stay a signed proxy (R10212).
+# The operator user is resolved by operator-sudoers.sh (SUDO_USER / repo owner /
+# SOVEREIGN_OS_OPERATOR_USER); the literal below is a placeholder for preview.
 # ============================================================================
 
 # ── The 9 sovereign-os-OWNED control verbs (config/control-systems.yaml) ──
-# One entry per control's `change_cli`; the trailing `*` is the validated
-# placeholder slot. selfdef + perimeter are NOT here (R10212 boundary).
-Cmnd_Alias SOVEREIGN_COCKPIT_ACTIONS = \
+Cmnd_Alias SOVEREIGN_OS_COCKPIT = \
     /usr/local/bin/sovereign-osctl profiles switch *, \
     /usr/local/bin/sovereign-osctl trinity profile switch *, \
     /usr/local/bin/sovereign-osctl profiles flex set *, \
@@ -42,8 +41,7 @@ Cmnd_Alias SOVEREIGN_COCKPIT_ACTIONS = \
     /usr/local/bin/sovereign-osctl inference restart *, \
     /usr/local/bin/sovereign-osctl workload-knobs set *
 
-# The dedicated cockpit service account — NOPASSWD, allowlist only.
-sovereign-cockpit ALL=(root) NOPASSWD: SOVEREIGN_COCKPIT_ACTIONS
-
-# Daemon runs without a controlling TTY — sudo must not require one.
-Defaults:sovereign-cockpit !requiretty
+# Granted to the OPERATOR USER (the account the panel APIs + agent run as), per
+# operator-sudoers.sh's model — NOT a dedicated service account. `%operator` is
+# a preview placeholder; the generator substitutes the resolved operator user.
+sovereign-os-operator ALL=(root) NOPASSWD: SOVEREIGN_OS_COCKPIT
