@@ -1,0 +1,123 @@
+# config/hardware/m050-heterogeneous-intelligence-system.yaml
+# ============================================================================
+# M050 "Architect and Engineer seat — heterogeneous intelligence system" — the
+# architecture-capstone CONTRACT. Materializes the milestone spec (backlog/
+# milestones/M050-..., dump 15120-15362): the 7-component hardware mapping
+# (E0479), the 5-layer core architecture (E0480), the AVX-512 role (E0481), the
+# columnar hot-data layout + bulk masks (E0482), the GPU roles (E0483), the
+# DevOps stack (E0484), the AI Runtime Loop (E0485), the Fullstack Surface
+# (E0486), and the 6-line Design Law + cloud-vs-station advantage (E0487). No
+# invention — every entry traces to a module + dump line range.
+#
+# Operator directive 15120 (sacrosanct): "Now lets return to the archtecture. the
+# AVX, the whole hardware and stack. return to the Architect and Engineer seet and
+# software and devops specialist and fullstacka and AI expert". Design Law (dump
+# 15370): "Models propose. Runtime routes. CPU enforces. Tools prove. ZFS
+# remembers. User chooses." Ties: this is the whole-system architecture that
+# composes M038-M049 — the 9-SoA layout extends M039's hot-path SoA; the 5-layer
+# stack overlays M048's 10 organs; the AI Runtime Loop is M042/M045's methodology.
+# STATUS: spec-materialization (SDD+TDD — the heterogeneous-intelligence architecture).
+# Locked to spec by tests/lint/test_m050_heterogeneous_intelligence_system.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M050
+source_dump_lines: "15120-15362"
+
+doctrine: "heterogeneous intelligence system, not a 'PC that runs models'"
+
+# ── E0479 — 7-component hardware mapping (M00834-M00840, dump 15130-15142) — VERBATIM ──
+hardware_mapping:
+  - {module: M00834, component: "Ryzen 9900X AVX-512", role: "deterministic control plane"}
+  - {module: M00835, component: "RTX PRO 6000 96GB", role: "oracle / resident high-value cognition"}
+  - {module: M00836, component: "RTX 4090 24GB", role: "scout / sandbox / SLM / perception / draft engine"}
+  - {module: M00837, component: "256GB RAM", role: "active memory + context arena + ZFS ARC"}
+  - {module: M00838, component: "NVMe + ZFS", role: "replay + snapshots + model cache + rollback"}
+  - {module: M00839, component: "Debian/Ubuntu base", role: "sovereign OS substrate"}
+  - {module: M00840, component: "Anthropic gateway", role: "external/client compatibility layer"}
+
+# ── E0480 — 5-layer core architecture (M00841, dump 15150-15182) — VERBATIM ──
+core_architecture:
+  module: M00841
+  layers:
+    - {layer: Clients, holds: "Claude Code, OpenCode, Cline, local UI, CLI, APIs"}
+    - {layer: Gateway, holds: "Anthropic-first facade + OpenAI-compatible shim + cost ledger + provider routing + policy/redaction"}
+    - {layer: "Cognitive Runtime", holds: "workflow compiler + branch scheduler + profile resolver + memory router + eval/value engine + tool gate"}
+    - {layer: "Hardware Execution", holds: "Blackwell oracle + 4090 scout/sandbox + AVX-512 control engine + container/VM/REPL tools"}
+    - {layer: Persistence, holds: "ZFS snapshots + replay logs + memory graph + model registry + eval history"}
+
+# ── E0481 — the AVX-512 role, 9 use cases (M00842, dump 15194-15202) — VERBATIM ──
+avx512_role:
+  module: M00842
+  doctrine: "The CPU is not 'backup compute.' It is the logic accelerator"
+  use_cases: ["branch filtering", "policy masks", "permission checks",
+              "memory bitset search", "tool routing", "schema/token mask fusion",
+              "candidate compression", "reward-vector scoring", "workflow state transitions"]
+
+# ── E0482 — columnar hot data + bulk masks (M00843/M00844, dump 15216-15240) — VERBATIM ──
+columnar_hot_data:
+  module: M00843
+  soa_arrays: ["branch_id[]", "control_word[]", "risk[]", "budget[]", "score[]",
+               "route[]", "memory_ref[]", "kv_ref[]", "flags[]"]
+bulk_eval_masks:
+  module: M00844
+  masks: [alive_mask, tool_allowed_mask, oracle_needed_mask, sandbox_required_mask,
+          memory_hit_mask, commit_allowed_mask]
+  note: "This is where deterministic AI infrastructure becomes fast"
+
+# ── E0483 — GPU roles (M00845, dump 15250-15300) — VERBATIM ──
+gpu_roles:
+  module: M00845
+  doctrine: "Do not fuse the GPUs mentally"
+  blackwell: ["large oracle model", "final synthesis", "long-context verification",
+              "high-risk code review", "deep RLM parent calls", "FP8/FP4 model lab"]
+  gpu_4090: ["SLM swarm", "draft/speculative decoding", "embeddings/reranking",
+             "perception/GUI", "failure classification", "sandboxed experiments",
+             "cheap branch expansion"]
+  compact_move: ["tokens", "scores", "branch refs", "memory ids", "tool intents", "patch summaries"]
+  avoid_move: ["KV tensors", "activations", "layer-split traffic", "huge intermediate states"]
+
+# ── E0484 — DevOps stack (M00846, dump 15304-15327) — VERBATIM ──
+devops_stack:
+  module: M00846
+  doctrine: "Use Linux primitives as first-class architecture"
+  primitives:
+    - {primitive: systemd, role: "service lifecycle + watchdogs + slices"}
+    - {primitive: "cgroup v2", role: "CPU/memory/IO/PID budgets"}
+    - {primitive: "AppArmor+seccomp", role: "sandbox boundaries"}
+    - {primitive: eBPF, role: "truth sensor for file/network/process behavior"}
+    - {primitive: ZFS, role: "snapshots + rollback + replay + clone workspaces"}
+    - {primitive: "Podman/Quadlet", role: "systemd-managed containers"}
+    - {primitive: VFIO, role: "hard isolate 4090 when needed"}
+  profile_bundles: [fast, careful, private, offline, research, autonomous, production, experimental]
+
+# ── E0485 — AI Runtime Loop (M00847, dump 15330-15346) — VERBATIM ──
+ai_runtime_loop:
+  module: M00847
+  steps:
+    - {step: MAP, definition: "inspect environment, repo, tools, memory, risk"}
+    - {step: SPEC, definition: "define intended behavior and constraints"}
+    - {step: TEST, definition: "generate or select executable truth"}
+    - {step: ACT, definition: "route work to scout/oracle/tools"}
+    - {step: EVAL, definition: "judge outcome, trajectory, cost, risk"}
+    - {step: COMMIT, definition: "gated write, snapshot, replay"}
+    - {step: LEARN, definition: "update memory, routing, profiles, later LoRAs"}
+
+# ── E0486 — Fullstack Surface, 5 entry points (M00848, dump 15354-15364) — VERBATIM ──
+fullstack_surface:
+  module: M00848
+  entry_points:
+    - {surface: "local web dashboard", exposes: "traces + costs + profiles + model health + approvals"}
+    - {surface: CLI, exposes: "run task + inspect trace + resume session + switch profile"}
+    - {surface: API, exposes: "Anthropic-compatible primary + OpenAI-compatible secondary"}
+    - {surface: "MCP/tools", exposes: "controlled capability layer"}
+    - {surface: "Project integration", exposes: "Claude Code / Cline / OpenCode point at local gateway"}
+
+# ── E0487 — Design Law + cloud-vs-station (M00849, dump 15370-15384) — VERBATIM ──
+design_law:
+  module: M00849
+  lines: ["Models propose.", "Runtime routes.", "CPU enforces.", "Tools prove.",
+          "ZFS remembers.", "User chooses."]
+  station_advantage: [locality, continuity, "hardware control", "private context",
+                      rollback, "user sovereignty"]
+  closing: "The cloud has scale. This machine has locality, continuity, hardware control, private context, rollback, and user sovereignty. That is how it becomes better for real work"
