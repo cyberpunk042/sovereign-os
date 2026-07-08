@@ -1,0 +1,83 @@
+# config/inference/m017-model-portfolio-strategy.yaml
+# ============================================================================
+# M017 "Model portfolio strategy" — the model-portfolio CONTRACT. Materializes
+# the milestone spec (backlog/milestones/M017-..., dump 4374-4629): the hardware
+# role bindings (E0150), the Blackwell precision ladder (E0151), the 4 serving
+# backends (E0152), the Zen 5 AVX-512 group (E0153), the 7-role model taxonomy +
+# telemetry-driven scheduler + model-registry field contract (E0155). No
+# invention — every entry traces to a module + dump line range.
+#
+# Ties: this is the strategy behind the live models/catalog.yaml (cockpit D-23),
+# the SDD-011 serving stack, and the AVX-512 features (M008 / cockpit D-24). The
+# role bindings realize the M075 SRP topology (oracle=GPU1, scout/logic=GPU0,
+# conductor=CPU) at the model-selection layer.
+# STATUS: spec-materialization (SDD+TDD — precedes full portfolio rollout).
+# Locked to spec by tests/lint/test_m017_model_portfolio_strategy.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M017
+source_dump_lines: "4374-4629"
+
+# ── E0150 — hardware role bindings (M00271-M00273, dump 4400-4422) ──
+role_bindings:
+  - tier: Blackwell
+    module: M00271
+    role: "oracle verification + final synthesis + long-context resident sessions"
+    models: "Ling-2.6-flash FP8/INT4/BF16 + Nemotron 3 Super/Ultra NVFP4 + Kimi/Qwen/DeepSeek large MoE quantized"
+  - tier: "4090"
+    module: M00272
+    role: "cheap exploration / draft / reranker / embedding / vision / tool-use scout"
+    models: "Nemotron 3 Nano / Nano Omni + Qwen small coder / reranker / embedding / vision / draft"
+  - tier: "Ryzen 9900X AVX-512"
+    module: M00273
+    role: "grammar masks / branch scheduler / KV-cache controller / bitset retrieval / policy engine / tool gate / telemetry-driven routing"
+    models: "(deterministic CPU logic — no model)"
+
+# ── E0151 — Blackwell precision ladder (M00274, dump 4433-4437) — VERBATIM ──
+precision_ladder:
+  module: M00274
+  levels:
+    - {precision: "BF16/FP16", use: quality}
+    - {precision: "FP8", use: balanced}
+    - {precision: "NVFP4-MXFP4", use: "Blackwell-native compression for larger MoE"}
+
+# ── E0152 — the 4 serving backends (M00275-M00278, dump 4442-4452) ──
+serving_backends:
+  - {module: M00275, backend: vLLM, note: "flexible serving, batching, prefix caching, broad model support"}
+  - {module: M00276, backend: SGLang, note: "agent/program-style serving, RadixAttention, structured workflows"}
+  - {module: M00277, backend: TensorRT-LLM, note: "highest-performance NVIDIA path"}
+  - {module: M00278, backend: llama.cpp, note: "fallback, CPU/GPU hybrid, GGUF, quick experiments"}
+
+# ── E0153 — Zen 5 AVX-512 group (M00279, dump 4457) — VERBATIM (AMD64 Jan 2026) ──
+zen5_avx512_group:
+  module: M00279
+  extensions: [AVX512F, AVX512BW, AVX512DQ, AVX512VL, AVX512VNNI, AVX512VPOPCNTDQ,
+               AVX512BITALG, AVX512VBMI, AVX512VBMI2, AVX512BF16, AVX512IFMA,
+               AVX512VP2INTERSECT, GFNI, AVX-VNNI]
+
+# ── E0155 — 7-role model taxonomy (M00281, dump 4519-4540) — VERBATIM ──
+role_taxonomy:
+  module: M00281
+  roles: [Oracle, Executor, Perception, Scout, Verifier, Retriever, Fallback]
+
+# ── E0155 — telemetry-driven scheduler routing (M00282, dump 4587-4605) ──
+telemetry_scheduler_rules:
+  module: M00282
+  rules:
+    - {when: "task.visual", route: "Nano Omni"}
+    - {when: "task.agentic_fast", route: "Ling-Nemotron-Nano"}
+    - {when: "risk.high-or-commit.final", route: "oracle"}
+    - {when: "output.structured", route: "grammar+mask"}
+    - {when: "branch.low_value", route: "scout or kill"}
+    - {when: "oracle_idle", route: "batch+verification"}
+
+# ── E0155 — YAML model-registry field contract (M00283, dump 4555-4583) — VERBATIM ──
+model_registry_fields:
+  module: M00283
+  per_model_fields: [role, strengths, gpu, precision, context_policy]
+
+# ── E0155 — the big-insight thesis (M00284, dump 4607-4629) ──
+thesis:
+  module: M00284
+  statement: "model-router-with-deterministic-infrastructure — hot-swappable workers inside a deterministic replayable vectorized environment"
