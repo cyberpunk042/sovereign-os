@@ -1,0 +1,50 @@
+# config/agent/m037-evidence-driven-autonomy.yaml
+# ============================================================================
+# M037 "Spec / TDD / agent evals as evidence-driven autonomy" — the
+# evidence-anchor CONTRACT. Materializes the milestone spec
+# (backlog/milestones/M037-..., dump 10747-10862): the 7 truth anchors (E0349),
+# the methodology sequence (E0350), the 5 Goldilocks profiles (E0351), and the
+# project-specific tests catalog (E0352). No invention — every entry traces to a
+# module + dump line range.
+#
+# META: the 7 truth anchors + the 8-type test catalog ARE the evidence discipline
+# sovereign-os enforces (SDD-000 charter SDD+TDD, SDD-008/009 5-layer harness) —
+# and the same discipline this materialization pass follows (every contract
+# lint-locked to its milestone spec). The 5 Goldilocks profiles extend M035's
+# budget tiers + M036's PROFILES.
+# STATUS: spec-materialization (SDD+TDD — precedes the autonomy runtime).
+# Locked to spec by tests/lint/test_m037_evidence_driven_autonomy.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M037
+source_dump_lines: "10747-10862"
+
+# ── E0349 — the 7 truth anchors (M00612-M00618, dump 10747-10753) — VERBATIM ──
+truth_anchors:
+  - {module: M00612, anchor: SPEC.md, behavior: "intended behavior"}
+  - {module: M00613, anchor: TESTS, behavior: "executable behavior"}
+  - {module: M00614, anchor: WORKFLOW.md, behavior: "process behavior"}
+  - {module: M00615, anchor: EVALS.yaml, behavior: "quality behavior"}
+  - {module: M00616, anchor: PROFILE.yaml, behavior: "operating behavior"}
+  - {module: M00617, anchor: MAP.json, behavior: "environment behavior"}
+  - {module: M00618, anchor: TRACE.log, behavior: "observed behavior"}
+
+# ── E0350 — methodology sequence (M00619, dump 10791) — VERBATIM ORDER ──
+methodology_sequence:
+  module: M00619
+  stages: [Map, Specify, Test, Act, Evaluate, Commit, Learn]
+
+# ── E0351 — the 5 Goldilocks profiles (M00620-M00624, dump 10801-10836) — VERBATIM ──
+goldilocks_profiles:
+  - {module: M00620, profile: Reflex, shape: "light map / no full spec / local model / fast answer / minimal tests"}
+  - {module: M00621, profile: Careful, shape: "map repo+env / write+update spec / generate tests / implement / run validation / oracle review"}
+  - {module: M00622, profile: Experimental, shape: "wide branches / sandbox only / no commit / high novelty / save learnings"}
+  - {module: M00623, profile: Production, shape: "strict spec / TDD required / property tests / security checks / human gate / rollback plan"}
+  - {module: M00624, profile: Autonomous, shape: "issue/task driven / isolated workspace / persistent session / retry+recover / report packet"}
+
+# ── E0352 — project-specific tests catalog (M00625, dump 10855-10862) — VERBATIM ──
+tests_catalog:
+  module: M00625
+  test_types: [unit, integration, property, snapshot, lint-type, security,
+               performance, agent-trajectory]
