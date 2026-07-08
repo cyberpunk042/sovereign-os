@@ -16,7 +16,7 @@
   }
   *{box-sizing:border-box}
   html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:14px;line-height:1.5}
-  body{padding:1.2rem;max-width:1160px;margin:0 auto}
+  body{padding:1.2rem;max-width:1180px;margin:0 auto}
   h1{font-size:1.4rem;margin:0 0 .2rem 0;font-weight:600}
   h2{font-size:1rem;margin:1.6rem 0 .4rem 0;font-weight:600;color:var(--accent)}
   .sub{color:var(--muted);margin-bottom:1rem;font-size:.85rem}
@@ -35,12 +35,31 @@
   .status.ok{color:var(--good)} .status.bad{color:var(--bad)} .status.warn{color:var(--warn)}
   .cap{display:inline-block;font-size:.7rem;border:1px solid var(--border);border-radius:3px;padding:0 .4rem;margin-right:.3rem}
   .cap.on{color:var(--good);border-color:var(--good)} .cap.off{color:var(--bad);border-color:var(--bad)}
-  #console{background:#050505;border:1px solid var(--border);border-radius:4px;padding:.7rem .8rem;font-size:.8rem;line-height:1.4;white-space:pre-wrap;word-break:break-word;height:52vh;overflow:auto;margin:.4rem 0;outline:none}
-  #console:focus{border-color:var(--accent)}
-  #console.live{border-color:var(--good)}
+
+  /* terminal */
+  .term-wrap{position:relative;margin:.4rem 0}
+  #console{background:#050505;border:1px solid var(--border);border-radius:6px;padding:.7rem .85rem;font-size:.82rem;line-height:1.35;white-space:pre-wrap;word-break:break-word;height:52vh;overflow:auto;outline:none;color:#cfe9cf;tab-size:8}
+  #console:focus{border-color:var(--good);box-shadow:0 0 0 1px var(--good) inset}
+  #console.live{border-color:#2a5a2a}
+  .term-bar{display:flex;gap:.4rem;align-items:center;flex-wrap:wrap;margin:.3rem 0}
+  .term-bar .spacer{flex:1}
+  .term-bar button{font-size:.74rem;padding:.22rem .5rem}
+  .focus-hint{position:absolute;top:.5rem;right:.7rem;font-size:.7rem;color:var(--muted);background:#000a;padding:.1rem .45rem;border-radius:3px;pointer-events:none;opacity:.9}
   .keys button{font-size:.74rem;padding:.25rem .5rem}
   .dot{display:inline-block;width:.6rem;height:.6rem;border-radius:50%;background:var(--muted);margin-right:.3rem;vertical-align:middle}
   .dot.on{background:var(--good)} .dot.off{background:var(--bad)}
+
+  /* login */
+  .login-box{border:1px solid var(--border);border-radius:5px;padding:.7rem .85rem;background:rgba(255,255,255,.015)}
+  input.field-error{border-color:var(--bad)!important;box-shadow:0 0 0 1px var(--bad) inset;animation:shake .3s}
+  @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-3px)}75%{transform:translateX(3px)}}
+  .badge{display:inline-flex;align-items:center;gap:.3rem;font-size:.74rem;border:1px solid var(--border);border-radius:12px;padding:.1rem .55rem}
+  .badge.wait{color:var(--warn);border-color:var(--warn)}
+  .badge.go{color:var(--accent);border-color:var(--accent)}
+  .badge.ok{color:var(--good);border-color:var(--good)}
+  .badge.bad{color:var(--bad);border-color:var(--bad)}
+  .spin{display:inline-block;width:.7rem;height:.7rem;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
   footer{margin-top:2rem;color:var(--muted);font-size:.75rem;border-top:1px solid var(--border);padding-top:.8rem}
   .standing-rule{color:var(--accent);font-style:italic;margin-top:.4rem}
 </style>
@@ -90,15 +109,41 @@
 
 <h2>vm</h2>
 <div class="panel">
-  <div class="row">
+  <div class="row" style="margin-bottom:.5rem">
     <button id="btn-start" class="go">▶ Start VM</button>
     <button id="btn-stop" class="danger" disabled>■ Stop VM</button>
     <span class="status"><span id="vm-dot" class="dot off"></span><span id="vm-state">stopped</span></span>
   </div>
 
-  <div id="console" tabindex="0" aria-label="serial console — click to focus, then type to send keystrokes to the VM">click ▶ Start VM to boot, then click here and type — keystrokes go straight to the guest serial console.</div>
+  <div class="login-box" style="margin-bottom:.55rem">
+    <div class="row">
+      <strong style="font-size:.82rem;color:var(--fg)">login</strong>
+      <label>user <input id="login-user" value="root" style="width:6rem"></label>
+      <label>password <input id="login-pass" type="password" placeholder="root password" style="width:11rem" autocomplete="off"></label>
+      <button id="btn-login">⇱ Log in now</button>
+      <label title="When on, the moment the VM shows a login prompt it types the user + password for you."><input id="auto-login" type="checkbox"> auto-login on boot</label>
+      <span id="login-badge" class="badge" style="display:none"></span>
+    </div>
+    <div class="muted" style="font-size:.73rem;margin-top:.35rem">
+      the password stays in your browser + loopback only · it is typed into the guest, never stored ·
+      default for the sain-01 image is <code>root</code> / the bootstrap password you built with
+    </div>
+  </div>
 
-  <div class="row keys" style="margin-bottom:.4rem">
+  <div class="term-bar">
+    <button id="btn-copy" title="copy the whole console">⧉ Copy</button>
+    <button id="btn-download" title="download the console log">⭳ Download</button>
+    <button id="btn-clear" title="clear the console view (does not touch the VM)">⌫ Clear</button>
+    <label style="font-size:.74rem"><input id="autoscroll" type="checkbox" checked> autoscroll</label>
+    <span class="spacer"></span>
+    <span class="muted" id="copy-note" style="font-size:.72rem"></span>
+  </div>
+  <div class="term-wrap">
+    <div id="console" tabindex="0" aria-label="serial console — click to focus, then type to send keystrokes to the VM">click ▶ Start VM to boot, then click the console and type — keystrokes go straight to the guest.</div>
+    <span class="focus-hint" id="focus-hint">click to type</span>
+  </div>
+
+  <div class="row keys" style="margin:.4rem 0">
     <input id="line" placeholder="type a line + Enter (or click the console and type live)" style="flex:1;min-width:14rem" autocomplete="off" spellcheck="false" disabled>
     <button data-key="enter" disabled>⏎ Enter</button>
     <button data-key="ctrl-c" disabled>^C</button>
@@ -108,12 +153,6 @@
     <button data-key="esc" disabled>Esc</button>
     <button data-key="up" disabled>↑</button>
     <button data-key="down" disabled>↓</button>
-  </div>
-  <div class="row">
-    <label>login <input id="login-user" value="root" style="width:6rem"></label>
-    <label>password <input id="login-pass" type="password" placeholder="root password" style="width:10rem"></label>
-    <button id="btn-login" disabled>⇱ Auto-login</button>
-    <span class="muted" style="font-size:.74rem">watches the console for the prompt, then types — password stays in your browser + loopback only</span>
   </div>
 </div>
 
@@ -545,7 +584,48 @@
 const el = (id) => document.getElementById(id);
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;" }[c]));
 let DATA = { images: [], caps: {}, defaults: {} };
-let consoleReader = null, statusTimer = null, following = false;
+let following = false, statusTimer = null;
+
+/* ── stateful terminal model ──────────────────────────────────────────────
+   Parses the RAW serial stream a byte at a time through a tiny VT state machine
+   so escape sequences are stripped even when split across network chunks (the
+   old per-chunk cleaner leaked '[01;01H' garbage). Handles CR overwrite so the
+   'Password: \r\r\n' prompt renders clean, LF newlines, BS, and TAB. */
+const Term = (function () {
+  let lines = [""], col = 0, esc = 0;   // esc: 0 normal,1 after-ESC,2 CSI,3 OSC,4 charset,5 OSC-ST
+  const MAX = 4000;
+  function put(ch) {
+    let line = lines[lines.length - 1];
+    if (col < line.length) line = line.slice(0, col) + ch + line.slice(col + 1);
+    else line = line + " ".repeat(col - line.length) + ch;
+    lines[lines.length - 1] = line; col++;
+  }
+  function feed(s) {
+    for (let i = 0; i < s.length; i++) {
+      const c = s[i], code = s.charCodeAt(i);
+      if (esc === 1) { esc = (c === "[") ? 2 : (c === "]") ? 3 : (c === "(" || c === ")") ? 4 : 0; continue; }
+      if (esc === 2) { if (code >= 0x40 && code <= 0x7e) esc = 0; continue; }          // CSI … final
+      if (esc === 3) { if (code === 0x07) esc = 0; else if (c === "\x1b") esc = 5; continue; } // OSC … BEL/ST
+      if (esc === 5) { esc = 0; continue; }                                            // OSC ST tail
+      if (esc === 4) { esc = 0; continue; }                                            // charset select
+      if (c === "\x1b") { esc = 1; continue; }
+      if (c === "\r") { col = 0; continue; }
+      if (c === "\n") { lines.push(""); col = 0; if (lines.length > MAX) lines.splice(0, lines.length - MAX); continue; }
+      if (c === "\b") { if (col > 0) col--; continue; }
+      if (c === "\t") { const n = 8 - (col % 8); for (let k = 0; k < n; k++) put(" "); continue; }
+      if (code < 0x20 || code === 0x7f) continue;   // drop other control bytes (incl BEL)
+      put(c);
+    }
+  }
+  return { feed, text: () => lines.join("\n"), clear: () => { lines = [""]; col = 0; esc = 0; } };
+})();
+
+function renderConsole() {
+  const pane = el("console");
+  const atBottom = pane.scrollHeight - pane.scrollTop - pane.clientHeight < 40;
+  pane.textContent = Term.text();
+  if (el("autoscroll").checked && atBottom) pane.scrollTop = pane.scrollHeight;
+}
 
 async function load() {
   try {
@@ -555,11 +635,10 @@ async function load() {
     el("status").textContent = "live ✓ — " + DATA.images.length + " image(s)";
     el("status").className = "status ok";
     el("caps").innerHTML =
-      `<span class="cap ${c.qemu?'on':'off'}">qemu ${c.qemu?esc(c.qemu_version):'absent'}</span>`
-      + `<span class="cap ${c.kvm?'on':'off'}">kvm ${c.kvm?'yes':'no'}</span>`
-      + `<span class="cap ${c.ovmf?'on':'off'}">ovmf ${c.ovmf?'yes':'no'}</span>`;
+      `<span class="cap ${c.qemu ? 'on' : 'off'}">qemu ${c.qemu ? esc(c.qemu_version) : 'absent'}</span>`
+      + `<span class="cap ${c.kvm ? 'on' : 'off'}">kvm ${c.kvm ? 'yes' : 'no'}</span>`
+      + `<span class="cap ${c.ovmf ? 'on' : 'off'}">ovmf ${c.ovmf ? 'yes' : 'no'}</span>`;
     renderImages();
-    // apply server defaults
     const d = DATA.defaults || {};
     if (d.mem) el("mem").value = d.mem;
     if (d.smp) el("smp").value = d.smp;
@@ -584,6 +663,25 @@ function renderImages() {
   });
 }
 
+const LOGIN_UI = {
+  "idle":              null,
+  "starting":          ["go",   "starting…", true],
+  "waiting-for-prompt":["wait", "waiting for the login prompt…", true],
+  "sent-username":     ["go",   "sent username →", true],
+  "sent-password":     ["go",   "sent password →", true],
+  "success":           ["ok",   "✓ logged in", false],
+  "incorrect":         ["bad",  "✗ password rejected", false],
+  "timeout":           ["bad",  "✗ login timed out", false],
+};
+function reflectLogin(st) {
+  const b = el("login-badge"), ui = LOGIN_UI[st];
+  if (!ui) { b.style.display = "none"; return; }
+  b.style.display = "inline-flex";
+  b.className = "badge " + ui[0];
+  b.innerHTML = (ui[2] ? '<span class="spin"></span>' : "") + esc(ui[1]);
+  if (st === "incorrect") { flagPassword("wrong password — check it and try again"); }
+}
+
 function reflectVm(vm) {
   const run = !!vm.running;
   el("vm-dot").className = "dot " + (run ? "on" : "off");
@@ -596,38 +694,50 @@ function reflectVm(vm) {
   el("line").disabled = !run;
   document.querySelectorAll(".keys button[data-key]").forEach(b => b.disabled = !run);
   el("console").classList.toggle("live", run);
+  if (vm.login_status) reflectLogin(vm.login_status);
 }
 
 async function refreshStatus() {
   try { reflectVm(await (await fetch("/api/emulate/status")).json()); } catch (e) {}
 }
-function startStatusPoll() { if (!statusTimer) statusTimer = setInterval(refreshStatus, 2500); }
+function startStatusPoll() { if (!statusTimer) statusTimer = setInterval(refreshStatus, 1500); }
+
+function flagPassword(msg) {
+  const p = el("login-pass");
+  p.classList.remove("field-error"); void p.offsetWidth; p.classList.add("field-error");
+  p.focus();
+  if (msg) { el("copy-note").textContent = ""; el("login-badge").style.display = "inline-flex"; }
+}
 
 async function startVM() {
   const body = {
-    image: el("image").value,
-    boot: el("boot").value,
-    accel: el("accel").value,
-    smp: parseInt(el("smp").value, 10) || 2,
-    mem: el("mem").value.trim() || "4G",
-    snapshot: el("snapshot").checked,
-    no_reboot: el("noreboot").checked,
+    image: el("image").value, boot: el("boot").value, accel: el("accel").value,
+    smp: parseInt(el("smp").value, 10) || 2, mem: el("mem").value.trim() || "4G",
+    snapshot: el("snapshot").checked, no_reboot: el("noreboot").checked,
     cmdline: el("cmdline").value.trim(),
   };
   if (!body.image) { alert("select a built image first"); return; }
-  el("console").textContent = "";
+  // if auto-login is armed but the password is empty, warn early (still boot)
+  if (el("auto-login").checked && !el("login-pass").value) {
+    flagPassword();
+    el("copy-note").textContent = "auto-login needs the root password — fill it, then it fires on the prompt";
+  }
+  Term.clear(); renderConsole();
   el("btn-start").disabled = true;
   try {
     const r = await fetch("./api/emulate/start", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     const j = await r.json();
-    if (!r.ok) { el("console").textContent = "✗ " + (j.error || r.status) + (j.fix ? "\n→ " + j.fix : ""); el("btn-start").disabled = false; return; }
-    el("console").textContent = `▶ VM started · pid ${j.pid} · accel ${j.accel} · boot ${j.boot}\n\n`;
+    if (!r.ok) { Term.feed("\n✗ " + (j.error || r.status) + (j.fix ? "\n→ " + j.fix : "") + "\n"); renderConsole(); el("btn-start").disabled = false; return; }
+    Term.feed(`▶ VM started · pid ${j.pid} · accel ${j.accel} · boot ${j.boot}\n\n`); renderConsole();
     await refreshStatus();
     startFollowing();
     el("console").focus();
+    // armed + password present → fire the (server-side) auto-login now; the
+    // driver waits for the prompt itself and reports status back.
+    if (el("auto-login").checked && el("login-pass").value) doLogin(true);
   } catch (e) {
-    el("console").textContent = "✗ start failed: " + e.message; el("btn-start").disabled = false;
+    Term.feed("\n✗ start failed: " + e.message + "\n"); renderConsole(); el("btn-start").disabled = false;
   }
 }
 
@@ -635,18 +745,15 @@ async function startFollowing() {
   if (following) return; following = true;
   try {
     const r = await fetch("./api/emulate/console");
-    consoleReader = r.body.getReader();
-    const dec = new TextDecoder();
-    const pane = el("console");
+    const reader = r.body.getReader(), dec = new TextDecoder();
     for (;;) {
-      const { done, value } = await consoleReader.read();
+      const { done, value } = await reader.read();
       if (done) break;
-      const atBottom = pane.scrollHeight - pane.scrollTop - pane.clientHeight < 40;
-      pane.textContent += dec.decode(value, { stream: true });
-      if (atBottom) pane.scrollTop = pane.scrollHeight;
+      Term.feed(dec.decode(value, { stream: true }));
+      renderConsole();
     }
   } catch (e) { /* stream ended / VM stopped */ }
-  finally { following = false; consoleReader = null; refreshStatus(); }
+  finally { following = false; refreshStatus(); }
 }
 
 async function sendInput(payload) {
@@ -662,7 +769,15 @@ async function stopVM() {
   setTimeout(refreshStatus, 600);
 }
 
-async function autoLogin() {
+async function doLogin(fromAuto) {
+  if (!el("login-pass").value) {
+    flagPassword();
+    el("copy-note").textContent = "enter the root password first";
+    if (!fromAuto) el("login-pass").focus();
+    return;
+  }
+  el("login-pass").classList.remove("field-error");
+  reflectLogin("starting");
   await fetch("./api/emulate/login", {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ user: el("login-user").value.trim() || "root", password: el("login-pass").value }) });
@@ -672,9 +787,9 @@ async function autoLogin() {
 // wiring
 el("btn-start").addEventListener("click", startVM);
 el("btn-stop").addEventListener("click", stopVM);
-el("btn-login").addEventListener("click", autoLogin);
+el("btn-login").addEventListener("click", () => doLogin(false));
+el("login-pass").addEventListener("input", () => el("login-pass").classList.remove("field-error"));
 el("boot").addEventListener("change", () => {
-  // direct boot needs vmlinuz/initrd; warn if the chosen image lacks them
   const opt = el("image").selectedOptions[0];
   if (el("boot").value === "direct" && opt && !opt.dataset.direct)
     el("status").innerHTML = '<span class="status warn">this image has no *.vmlinuz/*.initrd beside it — direct boot will fail; use uefi</span>';
@@ -684,6 +799,24 @@ el("line").addEventListener("keydown", (e) => {
 });
 document.querySelectorAll(".keys button[data-key]").forEach(b =>
   b.addEventListener("click", () => { sendInput({ key: b.dataset.key }); el("console").focus(); }));
+
+// console toolbar
+el("btn-copy").addEventListener("click", async () => {
+  try { await navigator.clipboard.writeText(Term.text()); el("copy-note").textContent = "copied ✓"; }
+  catch (e) { el("copy-note").textContent = "copy blocked — select + Ctrl-C"; }
+  setTimeout(() => el("copy-note").textContent = "", 2500);
+});
+el("btn-download").addEventListener("click", () => {
+  const blob = new Blob([Term.text()], { type: "text/plain" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = "sain-console.log"; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+el("btn-clear").addEventListener("click", () => { Term.clear(); renderConsole(); });
+
+// focus hint
+el("console").addEventListener("focus", () => el("focus-hint").style.display = "none");
+el("console").addEventListener("blur", () => el("focus-hint").style.display = "");
 
 // real-terminal feel: focus the console and type — every keystroke is sent
 const NAMED = { Enter: "enter", Tab: "tab", Escape: "esc", Backspace: "backspace",

@@ -46,6 +46,7 @@ from __future__ import annotations
 
 import json
 import os
+import pty
 import re
 import shutil
 import signal
@@ -183,6 +184,11 @@ class VM:
         self.total = 0            # monotonic count of all bytes ever produced
         self.vars_file: str | None = None
         self.reader: threading.Thread | None = None
+        self.master: int | None = None   # PTY master fd bridging the guest serial
+        # auto-login driver state, surfaced to the panel so it can show what the
+        # login attempt is doing: idle / waiting / sent-username / sent-password
+        # / success / incorrect / timeout / no-login-driver
+        self.login_status = "idle"
 
     def running(self) -> bool:
         return self.proc is not None and self.proc.poll() is None
@@ -197,6 +203,7 @@ class VM:
                 "exit_code": self.exit_code,
                 "opts": self.opts,
                 "console_bytes": self.total,
+                "login_status": self.login_status,
             }
 
     def build_argv(self, opts: dict) -> tuple[list[str], str | None]:
@@ -260,9 +267,21 @@ class VM:
             if self.running():
                 raise RuntimeError("a VM is already running — stop it first")
             argv, vars_file = self.build_argv(opts)
-            proc = subprocess.Popen(
-                argv, cwd=REPO, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT, bufsize=0, start_new_session=True)
+            # Back the guest serial with a real PTY, not a plain pipe. QEMU's
+            # `-serial stdio` then gets a genuine terminal, so the guest's
+            # agetty/login see proper tty semantics — the password prompt (echo
+            # off, termios) works and interactive input is delivered. A plain
+            # pipe left login stuck at the prompt (verified: pipe boot froze at
+            # 'localhost login:', PTY boot reaches a root shell). We drive the
+            # master fd for both read (console) and write (keystrokes).
+            master, slave = pty.openpty()
+            try:
+                proc = subprocess.Popen(
+                    argv, cwd=REPO, stdin=slave, stdout=slave, stderr=slave,
+                    start_new_session=True, close_fds=True)
+            finally:
+                os.close(slave)
+            self.master = master
             self.proc = proc
             self.argv = argv
             self.opts = {k: v for k, v in opts.items() if not k.startswith("_")}
@@ -272,16 +291,18 @@ class VM:
             self.vars_file = vars_file
             self.log = bytearray()
             self.total = 0
+            self.login_status = "idle"
             self.reader = threading.Thread(target=self._read_loop, args=(proc,), daemon=True)
             self.reader.start()
             return proc.pid
 
     def _read_loop(self, proc):
-        fd = proc.stdout.fileno()
+        master = self.master
         while True:
             try:
-                chunk = os.read(fd, 65536)
+                chunk = os.read(master, 65536)
             except OSError:
+                # PTY master returns EIO once the slave (QEMU) closes — normal exit
                 break
             if not chunk:
                 break
@@ -295,6 +316,10 @@ class VM:
         with self.cond:
             self.exit_code = rc
             self.cond.notify_all()
+        try:
+            os.close(master)
+        except OSError:
+            pass
         if self.vars_file:
             try:
                 os.unlink(self.vars_file)
@@ -303,13 +328,12 @@ class VM:
 
     def write(self, data: bytes) -> bool:
         with self.lock:
-            if not self.running() or not self.proc.stdin:
+            if not self.running() or self.master is None:
                 return False
             try:
-                self.proc.stdin.write(data)
-                self.proc.stdin.flush()
+                os.write(self.master, data)
                 return True
-            except (OSError, BrokenPipeError):
+            except OSError:
                 return False
 
     def stop(self) -> bool:
@@ -397,6 +421,11 @@ class Handler(BaseHTTPRequestHandler):
         return self._send(404, json.dumps({"error": "not found", "path": path}))
 
     def _stream_console(self):
+        # Send the guest serial bytes RAW (ANSI and all). Cleaning here, per
+        # network chunk, split escape sequences across chunk boundaries and
+        # leaked garbage like '[01;01H' (the ESC byte stripped, the tail left).
+        # The browser strips/renders statefully instead, which never splits a
+        # sequence. (Fixes the console garbage reported 2026-07-08.)
         self.send_response(200)
         self.send_header("Content-Type", "text/plain; charset=utf-8")
         self.send_header("Cache-Control", "no-store")
@@ -408,7 +437,7 @@ class Handler(BaseHTTPRequestHandler):
             sent = VMGR.total
         try:
             if tail:
-                self.wfile.write(self._clean(tail))
+                self.wfile.write(tail)
                 self.wfile.flush()
             while True:
                 with VMGR.cond:
@@ -430,7 +459,7 @@ class Handler(BaseHTTPRequestHandler):
                 if note:
                     self.wfile.write(note)
                 if chunk:
-                    self.wfile.write(self._clean(chunk))
+                    self.wfile.write(chunk)
                     self.wfile.flush()
                 if done and VMGR.total == sent:
                     self.wfile.write(f"\n■ VM exited (code {ec})\n".encode())
@@ -517,9 +546,11 @@ class Handler(BaseHTTPRequestHandler):
         return self._send(200 if ok else 500, json.dumps({"sent": ok, "bytes": len(data)}))
 
     def _login(self):
-        """Server-side auto-login: watch the console for the login prompt,
-        type the user, then the password when prompted. The password comes
-        from the request (the panel's field) — never baked in."""
+        """Server-side auto-login: watch the console for the login prompt, type
+        the user, then the password when prompted, and REPORT the outcome via
+        VMGR.login_status (waiting → sent-username → sent-password → success |
+        incorrect | timeout) so the panel can show exactly what happened. The
+        password comes from the request (the panel's field) — never baked in."""
         body = self._read_json_body() or {}
         user = str(body.get("user", "root"))
         password = str(body.get("password", ""))
@@ -528,28 +559,49 @@ class Handler(BaseHTTPRequestHandler):
         if not VMGR.running():
             return self._send(409, json.dumps({"error": "no VM is running"}))
 
+        def strip(b):
+            return CTRL_RE.sub(b"", ANSI_RE.sub(b"", b)).decode("utf-8", "replace")
+
         def driver():
             deadline = time.time() + 150
-            with VMGR.cond:
-                sent = VMGR.total
+            # seen=-1 so the FIRST pass inspects the CURRENT buffer without
+            # waiting: the login prompt is usually already sitting idle (no new
+            # bytes are coming until we type), so blocking on "new output" would
+            # hang forever. Only after we've consumed the current state do we
+            # wait for the guest's reply (echo + Password:).
+            seen = -1
             sent_user = sent_pass = False
+            VMGR.login_status = "waiting-for-prompt"
             while time.time() < deadline and VMGR.running():
                 with VMGR.cond:
-                    while VMGR.total == sent and VMGR.running():
-                        VMGR.cond.wait(timeout=2.0)
-                    sent = VMGR.total
-                    tail = CTRL_RE.sub(b"", ANSI_RE.sub(b"", bytes(VMGR.log)))[-240:].decode("utf-8", "replace")
+                    while VMGR.total == seen and VMGR.running():
+                        VMGR.cond.wait(timeout=1.0)
+                    seen = VMGR.total
+                    full = strip(bytes(VMGR.log))
+                    tail, recent = full[-240:], full[-500:]
+                # outcomes take priority over re-prompting
+                if sent_pass and re.search(r"(?im)login incorrect", recent):
+                    VMGR.login_status = "incorrect"
+                    return
+                if sent_pass and re.search(r"(?m)(\S+@\S+:.*[#$]|~[#$])\s*$", tail):
+                    VMGR.login_status = "success"
+                    return
                 if not sent_user and re.search(r"login:\s*$", tail):
                     time.sleep(0.4)
                     VMGR.write((user + "\r").encode())
                     sent_user = True
-                    time.sleep(0.6)
+                    VMGR.login_status = "sent-username"
+                    time.sleep(0.7)
                 elif sent_user and not sent_pass and re.search(r"(?i)password:\s*$", tail):
                     time.sleep(0.4)
                     VMGR.write((password + "\r").encode())
                     sent_pass = True
-                    return
+                    VMGR.login_status = "sent-password"
+                    time.sleep(0.7)
+            if VMGR.login_status not in ("success", "incorrect"):
+                VMGR.login_status = "timeout"
 
+        VMGR.login_status = "starting"
         threading.Thread(target=driver, daemon=True).start()
         return self._send(200, json.dumps({"login_driver": "started", "user": user}))
 

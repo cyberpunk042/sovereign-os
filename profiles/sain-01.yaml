@@ -218,9 +218,18 @@ kernel:
   modules:
     blacklist:
       - nouveau
+    # Force-load ONLY modules that always succeed regardless of hardware.
+    # nvidia was REMOVED (2026-07-08): force-loading it at boot makes
+    # systemd-modules-load HARD-FAIL on any GPU-less boot (every QEMU/emulator
+    # run — "could not insert 'nvidia_current_open': No such device") which
+    # leaves the whole system `degraded` on every boot. On real hardware nvidia
+    # autoloads by PCI modalias (alias pci:v000010DE… nvidia) the moment the GPU
+    # is present, so force-loading is redundant there and fatal in a VM. Early
+    # KMS is handled instead by the GPU-gated sovereign-nvidia-kms.service
+    # (emitted by mkosi-emit), which loads nvidia-drm modeset=1 ONLY when a
+    # 10de GPU exists — so the emulator boots clean AND the workstation gets KMS.
     load_at_boot:
       - zfs
-      - nvidia
       - vfio_pci
 
 packages:
@@ -267,6 +276,32 @@ packages:
     - motd-news-config
     - snapd
     - ubuntu-advantage-tools
+
+# ── prepacking: what gets BAKED into the image at build time so a flashed
+#    SAIN-01 boots to a ready, self-hosting workstation (operator directive
+#    2026-07-08: "prepack it well — I don't want to do everything manually
+#    after boot"). Read by scripts/build/adapters/mkosi-emit.sh, which stages
+#    the trees into mkosi.extra and runs scripts/build/provision-bake.sh inside
+#    the image at postinst. Posture 'installed-off' = software present but the
+#    security daemons (selfdef / ghostproxy) are NOT started — the operator
+#    flips them on (SDD gates preserved).
+provisioning:
+  operator:
+    username: operator
+    # same bootstrap password as root (SOVEREIGN_OS_ROOT_PASSWORD) so the
+    # operator can log in at the console immediately; root login stays enabled.
+    password_from_root: true
+    shell: /bin/bash
+    groups: [sudo, podman, render, video, adm]
+    home_repo: sovereign-os        # checkout/symlink of /opt/sovereign-os in ~operator
+  bake:
+    repo: true                     # stage the sovereign-os tree (+ .git + origin) → /opt/sovereign-os
+    dev_tools: true                # node + @anthropic-ai/claude-code (global)
+    selfdef: true                  # stage ~/selfdef → /opt/selfdef, build, install units
+    root_ghostproxy: true          # stage ~/root-ghostproxy → /opt/root-ghostproxy, install (endpoint)
+    dashboards: true               # deploy panels + enable sovereign-dashboards.service
+  firstboot: true                  # install + enable sovereign-firstboot.target + hardware hooks
+  posture: installed-off           # selfdef + ghostproxy installed but NOT started on boot
 
 hooks:
   pre_install:

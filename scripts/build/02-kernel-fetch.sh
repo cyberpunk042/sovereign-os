@@ -61,13 +61,25 @@ case "${kernel_source}" in
     pinned_tag="${SOVEREIGN_OS_KERNEL_TAG:-v${kernel_version_minimum}}"
     if [ -d "${target}/.git" ]; then
       log_info "kernel repo already cloned at ${target} — fetching"
-      git -C "${target}" fetch --tags --depth 1 || {
-        log_error "git fetch failed on existing kernel repo at ${target} (remote unreachable)"
-        emit_metric sovereign_os_build_step_kernel_fetch_total 1 \
-          "profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"fail\""
-        state_step_fail "${STEP_ID}" "kernel-fetch-failed"
-        exit 1
-      }
+      # A prior build may own this repo as a DIFFERENT user (e.g. root) — mark it
+      # safe so git doesn't refuse with 'dubious ownership'. Idempotent.
+      git config --global --add safe.directory "${target}" 2>/dev/null || true
+      if ! git -C "${target}" fetch --tags --depth 1; then
+        # The source is ALREADY here. A failed fetch — offline snapshot mirror,
+        # unreachable remote, or a read-only/foreign-owned clone — must NOT sink
+        # the build: this step's job is to ENSURE the kernel source exists, not
+        # to require network on every re-run. Proceed with the existing clone so
+        # long as it resolves a HEAD; only hard-fail on a genuinely broken repo.
+        if git -C "${target}" rev-parse --verify HEAD >/dev/null 2>&1; then
+          log_warn "git fetch failed (offline / foreign-owned repo) — using the existing clone at ${target}"
+        else
+          log_error "kernel repo at ${target} is unusable (fetch failed AND no resolvable HEAD)"
+          emit_metric sovereign_os_build_step_kernel_fetch_total 1 \
+            "profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"fail\""
+          state_step_fail "${STEP_ID}" "kernel-fetch-failed"
+          exit 1
+        fi
+      fi
     else
       log_info "cloning ${SOVEREIGN_OS_KERNEL_REMOTE} → ${target} (shallow, tag=${pinned_tag})"
       git clone --depth 1 --branch "${pinned_tag}" "${SOVEREIGN_OS_KERNEL_REMOTE}" "${target}" || {

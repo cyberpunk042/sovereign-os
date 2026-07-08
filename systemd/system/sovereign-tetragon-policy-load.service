@@ -2,6 +2,9 @@
 Description=sovereign-os Tetragon TracingPolicy load (one-shot, first boot)
 Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/hooks/post-install/tetragon-policy-load.sh
 ConditionFirstBoot=yes
+# SAIN-01 bare-metal hardware setup — skip cleanly on a VM/emulator (no target
+# GPU / dual-NIC / ZFS pool to touch). Runs on the real machine (not virtualized).
+ConditionVirtualization=no
 After=tetragon.service zfs.target
 Wants=tetragon.service zfs.target
 PartOf=sovereign-firstboot.target
@@ -27,7 +30,7 @@ RestrictRealtime=true
 RestrictSUIDSGID=true
 RestrictNamespaces=true
 LockPersonality=true
-ReadWritePaths=/etc/tetragon /mnt/vault/context /var/lib/sovereign-os
+ReadWritePaths=-/etc/tetragon -/mnt/vault/context /var/lib/sovereign-os
 NoNewPrivileges=true
 PrivateTmp=true
 

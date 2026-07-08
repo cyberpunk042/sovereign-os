@@ -23,7 +23,7 @@ mkdir -p "${out_dir}"/{mkosi.conf.d,mkosi.skeleton,mkosi.extra,mkosi.repart}
 
 # Use python to translate YAML → mkosi .conf (INI-style)
 SOVEREIGN_OS_PROFILE_FILE="${profile_yaml}" python3 - "${out_dir}" <<'PY'
-import os, sys, yaml, pathlib, textwrap
+import os, sys, yaml, pathlib, textwrap, shutil, subprocess
 
 out_dir = pathlib.Path(sys.argv[1])
 with open(os.environ["SOVEREIGN_OS_PROFILE_FILE"]) as f:
@@ -43,6 +43,45 @@ debian_snapshot = os.environ.get("DEBIAN_SNAPSHOT", "")
 bake_dev_tools = bool(os.environ.get("SOVEREIGN_OS_BAKE_DEV_TOOLS"))
 bake_selfdef = bool(os.environ.get("SOVEREIGN_OS_BAKE_SELFDEF"))
 node_major = os.environ.get("SOVEREIGN_OS_NODE_MAJOR", "22")
+
+# ── prepacking (profiles/<id>.yaml provisioning:) — bake the operator user +
+#    repo + selfdef + ghostproxy + dashboards + firstboot INTO the image so a
+#    flashed SAIN-01 boots to a ready workstation (operator directive
+#    2026-07-08). The profile can DEFAULT the bakes on; env still forces on.
+prov = (p.get("provisioning") or {})
+prov_bake = (prov.get("bake") or {})
+prov_operator = (prov.get("operator") or {})
+bake_dev_tools = bake_dev_tools or bool(prov_bake.get("dev_tools"))
+bake_selfdef = bake_selfdef or bool(prov_bake.get("selfdef"))
+bake_repo = bool(prov_bake.get("repo"))
+bake_ghostproxy = bool(prov_bake.get("root_ghostproxy"))
+bake_dashboards = bool(prov_bake.get("dashboards"))
+bake_firstboot = bool(prov.get("firstboot"))
+posture = prov.get("posture", "installed-off")
+run_provision = bool(prov) and (bake_repo or bool(prov_operator))
+
+repo_root = pathlib.Path(os.environ["SOVEREIGN_OS_PROFILE_FILE"]).resolve().parents[1]
+
+
+def _stage_tree(src, dest, excludes):
+    """rsync a build-host tree into the image overlay (mkosi.extra), pruning the
+    heavy/irrelevant dirs. Best-effort: a missing rsync or source is logged, not
+    fatal — an un-prepacked image still boots (root-only base)."""
+    src = pathlib.Path(src)
+    if not src.is_dir():
+        print(f"mkosi-emit: prepack source {src} absent — skipping", file=sys.stderr)
+        return False
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    args = ["rsync", "-a", "--delete"]
+    for e in excludes:
+        args += ["--exclude", e]
+    args += [f"{src}/", f"{dest}/"]
+    try:
+        subprocess.run(args, check=True)
+        return True
+    except (OSError, subprocess.SubprocessError) as e:
+        print(f"mkosi-emit: staging {src} → {dest} failed: {e}", file=sys.stderr)
+        return False
 
 # Build distribution repository block. The component list is
 # UNCONDITIONAL: main alone strands the GPU/ZFS stack — nvidia-* live in
@@ -221,7 +260,12 @@ if bake_selfdef:
         if tool not in all_packages:
             all_packages.append(tool)
 if bake_dev_tools:
-    for tool in ("curl", "ca-certificates"):
+    # nodejs from the PINNED SNAPSHOT (trixie ships 20.19.2 — identical to the
+    # build host's node), so Claude Code runs OFFLINE. The build has no external
+    # network (mirror is snapshot.debian.org only), which is exactly why the old
+    # NodeSource/npm-registry bake silently failed. curl/ca-certs kept for the
+    # operator's own post-flash use.
+    for tool in ("curl", "ca-certificates", "nodejs"):
         if tool not in all_packages:
             all_packages.append(tool)
 
@@ -292,34 +336,90 @@ bake_block = ""
 if bake_dev_tools:
     bake_block += textwrap.dedent("""\
 
-        # ---- dev tools (SOVEREIGN_OS_BAKE_DEV_TOOLS): Claude Code on node >=%(nn)s ----
-        echo "postinst: baking dev tools (node %(nn)s + claude-code)" >&2
-        if command -v curl >/dev/null 2>&1; then
-            curl -fsSL "https://deb.nodesource.com/setup_%(nn)s.x" | bash - \\
-                2>&1 || echo "postinst: NodeSource setup failed (non-fatal)" >&2
-            apt-get install -y nodejs 2>&1 || echo "postinst: nodejs install failed (non-fatal)" >&2
-            command -v npm >/dev/null 2>&1 && { npm install -g @anthropic-ai/claude-code \\
-                2>&1 || echo "postinst: claude-code install failed (non-fatal)" >&2; }
+        # ---- dev tools (SOVEREIGN_OS_BAKE_DEV_TOOLS): Claude Code, OFFLINE ----
+        # nodejs is a snapshot package (installed above). The claude-code global
+        # npm tree + `claude` launcher were STAGED from the build host into
+        # /usr/local (no network at postinst — nodesource/registry unreachable).
+        # Just verify node + (re)link the launcher.
+        if command -v node >/dev/null 2>&1; then
+            echo "postinst: node $(node --version 2>/dev/null) present" >&2
+            if [ -d /usr/local/lib/node_modules/@anthropic-ai/claude-code ]; then
+                ln -sf ../lib/node_modules/@anthropic-ai/claude-code/bin/claude.exe /usr/local/bin/claude
+                echo "postinst: Claude Code baked (offline) — /usr/local/bin/claude" >&2
+            else
+                echo "postinst: claude-code not staged (host lacked it?) — skipped (non-fatal)" >&2
+            fi
         else
-            echo "postinst: curl missing — dev-tools bake skipped (non-fatal)" >&2
+            echo "postinst: node missing — Claude Code bake skipped (non-fatal)" >&2
         fi
-        """) % {"nn": node_major}
+        """)
 if bake_selfdef:
+    # BUILD selfdef always (so the flashed image ships it ready). Whether its
+    # systemd fleet is INSTALLED into /etc/systemd/system is posture-gated.
     bake_block += textwrap.dedent("""\
 
-        # ---- selfdef (SOVEREIGN_OS_BAKE_SELFDEF): build + install its units ----
-        # Source staged into /opt/selfdef by step 07. Build here so the flashed
-        # image ships selfdef ready to enable (no manual compile). Non-fatal.
+        # ---- selfdef (SOVEREIGN_OS_BAKE_SELFDEF): build ----
         if [ -d /opt/selfdef ] && command -v cargo >/dev/null 2>&1; then
             echo "postinst: building selfdef in /opt/selfdef" >&2
             ( cd /opt/selfdef && make build ) 2>&1 \\
                 || echo "postinst: selfdef build failed (non-fatal)" >&2
-            for u in /opt/selfdef/packaging/systemd/*.service /opt/selfdef/packaging/systemd/*.timer; do
-                [ -f "$u" ] && install -m 644 "$u" /etc/systemd/system/ 2>/dev/null || true
-            done
-            echo "postinst: selfdef units installed — enable via 'sovereign-osctl selfdef on'" >&2
         else
-            echo "postinst: selfdef not staged or cargo absent — bake skipped (non-fatal)" >&2
+            echo "postinst: selfdef not staged or cargo absent — build skipped (non-fatal)" >&2
+        fi
+        """)
+    if posture != "installed-off":
+        # 'everything-enabled' posture: install the units so preset-all enables them.
+        bake_block += textwrap.dedent("""\
+            if [ -d /opt/selfdef/packaging/systemd ]; then
+                for u in /opt/selfdef/packaging/systemd/*.service /opt/selfdef/packaging/systemd/*.timer; do
+                    [ -f "$u" ] && install -m 644 "$u" /etc/systemd/system/ 2>/dev/null || true
+                done
+                echo "postinst: selfdef units installed (posture)" >&2
+            fi
+            """)
+    else:
+        # 'installed-off' (the default): DO NOT install the units. mkosi's
+        # preset-all enables every unit in /etc/systemd/system that carries
+        # [Install]; the selfdef fleet (daemon + doctors + guardian + ~30 timers
+        # + sovereign-guard) would then be auto-enabled and FAIL on boot (no
+        # /etc/selfdef config, no target hardware for the guard). Leaving the
+        # units in /opt/selfdef keeps them out of preset-all's reach; the
+        # operator installs + enables them with `sovereign-osctl selfdef on`
+        # (install-units + on). (Caught by QEMU emulation, 2026-07-08.)
+        bake_block += textwrap.dedent("""\
+            echo "postinst: selfdef built — units staged in /opt/selfdef (installed-off; turn on with 'sovereign-osctl selfdef on')" >&2
+            """)
+
+# ---- prepacking: run provision-bake.sh (operator user + repo wiring +
+#      ghostproxy + dashboards + firstboot). Runs LAST in the postinst, after
+#      the dev-tools/selfdef bakes, so node/claude + selfdef are already in.
+#      The script lives in the STAGED repo (/opt/sovereign-os). ----
+provision_block = ""
+if run_provision:
+    _op = prov_operator
+    _groups = ",".join(_op.get("groups", ["sudo", "podman", "render", "video", "adm"]))
+    provision_block = textwrap.dedent(f"""\
+
+        # ---- prepack SAIN-01: operator user + repo + ghostproxy + dashboards + firstboot ----
+        if [ -x /opt/sovereign-os/scripts/build/provision-bake.sh ]; then
+            echo "postinst: prepacking (provision-bake)" >&2
+            env \\
+              SOVEREIGN_OS_PROFILE="{profile_id}" \\
+              SOVEREIGN_OS_IMAGE_REPO="/opt/sovereign-os" \\
+              SOVEREIGN_OS_OPERATOR_USER="{_op.get('username', 'operator')}" \\
+              SOVEREIGN_OS_OPERATOR_GROUPS="{_groups}" \\
+              SOVEREIGN_OS_OPERATOR_SHELL="{_op.get('shell', '/bin/bash')}" \\
+              SOVEREIGN_OS_OPERATOR_HOME_REPO="{_op.get('home_repo', 'sovereign-os')}" \\
+              SOVEREIGN_OS_OPERATOR_PASSWORD_FROM_ROOT="{'1' if _op.get('password_from_root', True) else '0'}" \\
+              SOVEREIGN_OS_POSTURE="{posture}" \\
+              SOVEREIGN_OS_BAKE_SELFDEF="{'1' if bake_selfdef else ''}" \\
+              SOVEREIGN_OS_BAKE_GHOSTPROXY="{'1' if bake_ghostproxy else ''}" \\
+              SOVEREIGN_OS_BAKE_DASHBOARDS="{'1' if bake_dashboards else ''}" \\
+              SOVEREIGN_OS_BAKE_FIRSTBOOT="{'1' if bake_firstboot else ''}" \\
+              bash /opt/sovereign-os/scripts/build/provision-bake.sh 2>&1 \\
+                || echo "postinst: provision-bake returned nonzero (non-fatal)" >&2
+        else
+            echo "postinst: provision-bake.sh not staged — image stays root-only base" >&2
         fi
         """)
 
@@ -365,14 +465,27 @@ postinst.write_text(textwrap.dedent("""\
             exit 1
         fi
     fi
-    """) + deny_block + bake_block)
+
+    # ---- neutralize the nvidia driver's own GPU force-loader ----
+    # The nvidia package ships /etc/modules-load.d/nvidia.conf (a symlink to
+    # /etc/nvidia/current-open/nvidia-load.conf) that force-loads nvidia-drm at
+    # boot. On a GPU-less boot that fails ('No such device') and takes the whole
+    # systemd-modules-load unit down with it → the system boots `degraded`. Drop
+    # it — early KMS is handled device-gated by sovereign-nvidia-kms.service and
+    # nvidia autoloads by PCI modalias on real hardware. (QEMU emulation
+    # 2026-07-08: this was the failure the operator saw as the build "crashing".)
+    rm -f /etc/modules-load.d/nvidia.conf
+    """) + deny_block + bake_block + provision_block)
 postinst.chmod(0o755)
 
 # ---- kernel.modules.load_at_boot → /etc/modules-load.d/ (mkosi.extra overlay) ----
-# The profile declares which modules must load at boot (zfs / nvidia / vfio_pci),
-# but nothing wrote them to systemd's modules-load.d, so it relied entirely on
+# The profile declares which modules must load at boot (zfs / vfio_pci), but
+# nothing wrote them to systemd's modules-load.d, so it relied entirely on
 # implicit load paths (initramfs / udev / softdep). Emit the canonical config so
-# the declared policy is actually enforced.
+# the declared policy is actually enforced. ONLY hardware-agnostic modules
+# belong here — anything that binds a device (nvidia) HARD-FAILS the whole
+# systemd-modules-load unit on a boot where the device is absent (every VM /
+# emulator boot → `degraded`). GPU KMS is loaded device-gated instead (below).
 load_at_boot = ((p.get("kernel") or {}).get("modules") or {}).get("load_at_boot") or []
 if load_at_boot:
     mld = out_dir / "mkosi.extra" / "etc" / "modules-load.d"
@@ -381,6 +494,97 @@ if load_at_boot:
         f"# kernel.modules.load_at_boot (profile {profile_id})\n"
         + "\n".join(load_at_boot) + "\n"
     )
+
+# ---- GPU-gated KMS loader (mkosi.extra overlay) ----
+# nvidia was pulled out of modules-load.d (it can't insert without a GPU →
+# systemd-modules-load fails → the box boots `degraded` in every emulator run,
+# the "crash" the operator saw). On real hardware nvidia autoloads by PCI
+# modalias, but early KMS (nvidia-drm modeset=1, needed for a clean graphical
+# boot) still wants an explicit load. Do it DEVICE-GATED: this oneshot loads
+# nvidia-drm ONLY when a 10de GPU is present and ALWAYS exits 0 — so the
+# workstation gets KMS and a GPU-less VM stays clean. Pure /bin/sh + sysfs, no
+# pciutils dependency. (Caught by QEMU emulation, 2026-07-08.)
+kms_svc = (out_dir / "mkosi.extra" / "etc" / "systemd" / "system"
+           / "sovereign-nvidia-kms.service")
+kms_svc.parent.mkdir(parents=True, exist_ok=True)
+kms_svc.write_text(textwrap.dedent("""\
+    [Unit]
+    Description=Sovereign OS — load NVIDIA KMS (nvidia-drm) when a GPU is present
+    Documentation=man:modprobe(8)
+    After=systemd-modules-load.service
+    # Skip entirely on a GPU-less boot (VM/emulator): no 10de vendor in sysfs.
+    ConditionPathExistsGlob=/sys/bus/pci/devices/*/vendor
+
+    [Service]
+    Type=oneshot
+    RemainAfterExit=yes
+    # exit 0 no matter what — never fail the boot; the modeset load is best-effort.
+    ExecStart=/bin/sh -c 'for v in /sys/bus/pci/devices/*/vendor; do [ "$(cat "$v" 2>/dev/null)" = "0x10de" ] && { modprobe nvidia-drm modeset=1 2>/dev/null; break; }; done; exit 0'
+
+    [Install]
+    WantedBy=multi-user.target
+    """))
+# enable it declaratively (wants-symlink; survives preset-all)
+kms_wants = (out_dir / "mkosi.extra" / "etc" / "systemd" / "system"
+             / "multi-user.target.wants" / "sovereign-nvidia-kms.service")
+kms_wants.parent.mkdir(parents=True, exist_ok=True)
+if kms_wants.is_symlink() or kms_wants.exists():
+    kms_wants.unlink()
+kms_wants.symlink_to("/etc/systemd/system/sovereign-nvidia-kms.service")
+
+# ---- prepacking: stage the source trees into the image (mkosi.extra) ----
+# Copied into the image BEFORE the postinst runs, so provision-bake.sh (invoked
+# from the postinst) finds them at /opt. The repo INCLUDES .git so the booted
+# box is git-connected at the flashed commit; build/ + target/ + caches pruned.
+extra_opt = out_dir / "mkosi.extra" / "opt"
+if bake_repo:
+    # NB: '/build/' is ANCHORED (leading slash) so it prunes only the top-level
+    # 2.4 GB build output — an unanchored 'build/' would also eat scripts/build/
+    # (orchestrate + provision-bake) and break the on-image repo. target/ +
+    # node_modules stay unanchored (they legitimately appear under crates/*, etc.)
+    if _stage_tree(repo_root, extra_opt / "sovereign-os",
+                   ["/build/", "target/", "node_modules/", ".venv/", "venv/",
+                    "__pycache__/", "*.pyc", ".mypy_cache/", ".pytest_cache/"]):
+        print(f"mkosi-emit: staged repo → /opt/sovereign-os (incl .git)", file=sys.stderr)
+def _find_checkout(env_var, name):
+    """Locate a sibling-repo checkout ROBUSTLY. The build usually runs as root
+    (step 08 signs), so ~/ = /root — but the checkouts live in the operator's
+    home next to sovereign-os. Try, in order: explicit env, sibling-of-repo
+    (works no matter who builds), $SUDO_USER's home, then ~/. (Sibling-of-repo
+    is why selfdef/ghostproxy were SKIPPED in the first prepacked build —
+    ~/selfdef resolved to /root/selfdef, absent.)"""
+    cands = []
+    if os.environ.get(env_var):
+        cands.append(pathlib.Path(os.environ[env_var]))
+    cands.append(repo_root.parent / name)                    # /home/<op>/selfdef
+    if os.environ.get("SUDO_USER"):
+        cands.append(pathlib.Path("/home") / os.environ["SUDO_USER"] / name)
+    cands.append(pathlib.Path.home() / name)
+    for c in cands:
+        if c.is_dir():
+            return c
+    return cands[0]  # doesn't exist anywhere — _stage_tree logs the skip
+
+
+if bake_selfdef:
+    _stage_tree(_find_checkout("SOVEREIGN_OS_SELFDEF_DIR", "selfdef"),
+                extra_opt / "selfdef", ["target/", ".git/", "node_modules/"])
+if bake_ghostproxy:
+    _stage_tree(_find_checkout("SOVEREIGN_OS_GHOSTPROXY_DIR", "root-ghostproxy"),
+                extra_opt / "root-ghostproxy", ["target/", "node_modules/"])
+if bake_dev_tools:
+    # Offline Claude Code: stage the build host's global npm tree (@anthropic-ai/
+    # claude-code — pure JS, no version-sensitive native addons, ~473 MB) so it
+    # runs on the snapshot's nodejs at boot. The postinst links /usr/local/bin/
+    # claude. (The build has no npm-registry access — this replaces the network
+    # bake that silently failed; 2026-07-08.)
+    _nm = pathlib.Path("/usr/local/lib/node_modules")
+    if (_nm / "@anthropic-ai" / "claude-code").is_dir():
+        if _stage_tree(_nm, out_dir / "mkosi.extra" / "usr" / "local" / "lib" / "node_modules", []):
+            print("mkosi-emit: staged Claude Code (offline) → /usr/local/lib/node_modules", file=sys.stderr)
+    else:
+        print("mkosi-emit: build host has no global claude-code — dev-tools claude not baked", file=sys.stderr)
+
 
 # ---- mask systemd-networkd-wait-online (mkosi.extra overlay) ----
 # systemd-networkd is enabled but the image ships NO .network config — the
