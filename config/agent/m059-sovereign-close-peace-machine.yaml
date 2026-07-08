@@ -1,0 +1,82 @@
+# config/agent/m059-sovereign-close-peace-machine.yaml
+# ============================================================================
+# M059 "Sovereign close — the peace machine" — the closing-manifesto CONTRACT.
+# Materializes the milestone spec (backlog/milestones/M059-..., dump 18268-18341):
+# the sovereign workstation definition (E0568), the substrate bindings (E0569),
+# the Core Law 6-line (E0570), situated intelligence (E0571), the runtime loop
+# (E0572), the 8 user-choice dimensions (E0573), the adaptation ladder
+# (E0574/E0575), the super-model definition (E0576), and the peace-machine
+# properties (E0577). No invention — every entry traces to a module + dump line
+# range. This is the closing arc of the AVX++ research dump (M041-M059).
+#
+# Doctrinal anchor (dump 18272): "an ultimate sovereign AI workstation: not just a
+# machine that runs models, but a local intelligence operating environment where
+# hardware, software, memory, tools, workflows, and user choice become one
+# system". Super-model (dump 18335): "The super-model is not one checkpoint. The
+# super-model is the whole governed machine". Peace machine (dump 18338): "powerful
+# enough to act, disciplined enough to explain itself, reversible enough to trust,
+# flexible enough to evolve, and sovereign enough that intelligence remains in the
+# user's hands". Ties: this manifesto is the capstone binding every prior
+# materialized contract (M038-M058) into "one system"; the Core Law restates
+# M050/M052's Design Law; the substrate bindings restate M050's hardware mapping.
+# STATUS: spec-materialization (SDD+TDD — the sovereign-close peace-machine manifesto).
+# Locked to spec by tests/lint/test_m059_sovereign_close_peace_machine.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M059
+source_dump_lines: "18268-18341"
+
+# ── E0568 — sovereign workstation definition (dump 18272-18278) — VERBATIM ──
+definition:
+  statement: "an ultimate sovereign AI workstation: not just a machine that runs models, but a local intelligence operating environment where hardware, software, memory, tools, workflows, and user choice become one system"
+
+# ── E0569 — substrate bindings (M00994-M00999, dump 18280-18299) — VERBATIM ──
+substrate_bindings:
+  - {module: M00994, component: "Ryzen 9900X AVX-512", role: "deterministic cortex — policy, routing, masks, memory search, branch scheduling"}
+  - {module: M00995, component: "RTX PRO 6000 Blackwell", role: "oracle — large resident models, long context, final reasoning"}
+  - {module: M00996, component: "RTX 4090", role: "scout — drafts, small models, embeddings, perception"}
+  - {module: M00997, component: "RAM + ZFS + NVMe", role: "continuity — memory, snapshots, replay, rollback"}
+  - {module: M00998, component: "Debian 13 / Ubuntu 24", role: "sovereign OS substrate"}
+  - {module: M00999, component: "Gateway", role: "Anthropic-first, OpenAI-compatible, Claude Code/Cline/OpenCode-ready"}
+
+# ── E0570 — Core Law 6-line (M00987, dump 18299-18305) — VERBATIM ──
+core_law:
+  module: M00987
+  lines: ["Models propose.", "Runtime routes.", "CPU enforces.", "Tools prove.",
+          "ZFS remembers.", "User chooses."]
+
+# ── E0571 — situated intelligence (M00988, dump 18307-18313) — VERBATIM ──
+situated_intelligence:
+  module: M00988
+  signals: [repos, tests, memory, hardware, policies, cost, continuity, rollback, consent]
+  claim: "situated intelligence beats cloud"
+
+# ── E0572 — runtime loop (M00989, dump 18315-18318) — VERBATIM ──
+runtime_loop:
+  module: M00989
+  steps: [MAP, SPEC, TEST, ACT, EVAL, COMMIT, LEARN]
+
+# ── E0573 — 8 user-choice dimensions (M00990, dump 18320-18328) — VERBATIM ──
+user_choice_dimensions:
+  module: M00990
+  dimensions: ["fast/careful", "local/cloud", "scout/oracle", "sandbox/host",
+               "manual/autonomous", "private/shared", "cheap/best", "exploratory/spec-driven"]
+
+# ── E0574/E0575 — adaptation ladder (M00991, dump 18330-18333) — VERBATIM ──
+adaptation_ladder:
+  module: M00991
+  pre_fine_tune: [routing, memory, evals, profiles, workflows, "tool feedback"]
+  post_crystallization: "LoRAs and retraining crystallize proven behavior into weights"
+
+# ── E0576 — super-model definition (M00992, dump 18335-18336) — VERBATIM ──
+super_model:
+  module: M00992
+  definition: "The super-model is not one checkpoint. The super-model is the whole governed machine"
+
+# ── E0577 — peace-machine properties (M00993, dump 18338-18341) — VERBATIM ──
+peace_machine:
+  module: M00993
+  properties: ["powerful enough to act", "disciplined enough to explain itself",
+               "reversible enough to trust", "flexible enough to evolve",
+               "sovereign enough that intelligence remains in the user's hands"]
