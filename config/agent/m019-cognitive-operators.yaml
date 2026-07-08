@@ -1,0 +1,69 @@
+# config/agent/m019-cognitive-operators.yaml
+# ============================================================================
+# M019 "Intelligence creation — composable cognitive operators" — the
+# cognitive-operator CONTRACT. Materializes the milestone spec
+# (backlog/milestones/M019-..., dump 5058-5357): the 12-operator registry +
+# recipes (E0169), the intelligence-as-search hardware mapping (E0170), the
+# router inputs/outputs (E0171), the composable recipes (E0172), the
+# anti-delusion law (E0173), the candidate/branch fields (E0174), and the Final
+# Shape Deterministic Cortex Runtime (E0177). No invention — every entry traces
+# to a module + dump line range.
+#
+# Ties: composes over M015's node classes + M010's tool transaction; the
+# anti-delusion law's oracle-final + test-execution requirements land in M012's
+# replay ledger; the Human Gate component = the cockpit + M015 human-gate.
+# STATUS: spec-materialization (SDD+TDD — precedes the cortex runtime).
+# Locked to spec by tests/lint/test_m019_cognitive_operators.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M019
+source_dump_lines: "5058-5357"
+
+# ── E0169 — the 12 cognitive operators (M00302, dump 5058-5070) — VERBATIM ──
+cognitive_operators:
+  module: M00302
+  operators: [route, draft, debate, verify, decompose, retrieve, simulate,
+              reflect, vote, merge, compress, commit]
+
+# ── E0172 — composable recipes (M00310-M00316, dump 5176-5198) ──
+recipes:
+  - {module: M00310, name: Fast Executor, graph: "scout → deterministic checks → answer"}
+  - {module: M00311, name: Careful Oracle, graph: "retrieve → oracle → verifier → answer"}
+  - {module: M00312, name: Debate, graph: "scout A + scout B + oracle critic → merge"}
+  - {module: M00313, name: Tree Search, graph: "expand N → score → expand top K → verify"}
+  - {module: M00314, name: Cascade, graph: "small model first → escalate only if confidence/risk demands"}
+  - {module: M00315, name: Perception Loop, graph: "Nano Omni → state extractor → action planner → tool gate"}
+  - {module: M00316, name: Code Repair, graph: "test failure → retrieve symbols → patch candidates → test → reflect"}
+
+# ── E0171 — router inputs (M00308, dump 5141-5152) — VERBATIM ──
+router_inputs:
+  module: M00308
+  inputs: [task_type, risk, latency_target, required_modality, context_size,
+           tool_requirement, estimated_difficulty, privacy_level, cache_state,
+           current_gpu_load, past_success_stats]
+
+# ── E0171 — router outputs (M00309, dump 5156-5164) — VERBATIM ──
+router_outputs:
+  module: M00309
+  outputs: [model_choice, precision, backend, speculation_depth, debate_width,
+            oracle_threshold, human_gate_threshold, cache_policy]
+
+# ── E0173 — anti-delusion law, 8 requirements (M00317, dump 5207-5215) — VERBATIM ──
+anti_delusion_law:
+  module: M00317
+  requirements: [diversity, evidence, independent-model, external-tool,
+                 source-citation, test-execution, schema, oracle-final]
+
+# ── E0174 — candidate/branch fields (M00318, dump 5229-5240) — VERBATIM ──
+candidate_fields:
+  module: M00318
+  fields: [source_model, recipe_id, evidence_mask, agreement_mask,
+           disagreement_mask, verification_state, risk, cost, latency, score]
+
+# ── E0177 — Final Shape Deterministic Cortex Runtime (M00319, dump 5346-5357) ──
+final_cortex_shape:
+  module: M00319
+  components: [Model Registry, Router-Cascade, Branch Graph, Debate-Ensemble,
+               Tree Search, Tool Gate, Memory+KV, Replay Ledger, Skill Library,
+               Observability Feedback, Human Gate]
