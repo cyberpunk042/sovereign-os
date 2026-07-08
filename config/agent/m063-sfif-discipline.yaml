@@ -1,0 +1,65 @@
+# config/agent/m063-sfif-discipline.yaml
+# ============================================================================
+# M063 "SFIF discipline — Scaffold -> Foundation -> Infrastructure -> Features" —
+# the SFIF-governance CONTRACT. Materializes the milestone spec (backlog/
+# milestones/M063-...; source raw/dumps/2026-05-16-sovereign-os-macro-arc-plan.md
+# lines 389-396): the 5 SFIF phases mapped to PR ranges (E0608-E0612), the IaC
+# Quality Bar (E0613/E0614), the SFIF transition gates + cross-repo applicability
+# + audit trail (E0615-E0617). No invention — every entry traces to a module +
+# dump line range.
+#
+# Doctrinal anchors (dump 390/392): "SFIF discipline: the arc itself follows
+# Scaffold -> Foundation -> Infrastructure -> Features. PRs 1-3 = Scaffold; PRs
+# 4-8 = Foundation; PRs 9-10 begin Infrastructure; Stage 2 onwards delivers
+# Infrastructure + Features" / "IaC quality bar: every PR must deliver high-quality
+# scripts + libs + configuration + easily tweakable + customisable + env-var-driven
+# + restart-from-state. Build pipeline is resumable + observable, not one-shot".
+# Operator standing 2026-05-19 (sacrosanct): "following the proper workflow and
+# respect of SFIF and second-brain knowledge". Ties: SFIF layers ON TOP of M062's
+# 10-PR macro-arc — it labels each PR with its SFIF phase; the IaC quality bar is
+# the per-PR acceptance gate; cross-repo applicability binds selfdef + sovereign-os
+# + info-hub under one discipline (R10212 boundary preserved — each repo owns its
+# own SFIF arc).
+# STATUS: spec-materialization (SDD+TDD — the SFIF phase-discipline governance).
+# Locked to spec by tests/lint/test_m063_sfif_discipline.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M063
+source_dump_lines: "389-396"
+
+doctrinal_anchor: "SFIF discipline: the arc itself follows Scaffold -> Foundation -> Infrastructure -> Features. PRs 1-3 = Scaffold; PRs 4-8 = Foundation; PRs 9-10 begin Infrastructure; Stage 2 onwards delivers Infrastructure + Features"
+
+# ── E0608-E0612 — the 5 SFIF phases mapped to PR ranges (M01054-M01058) — VERBATIM ──
+sfif_phases:
+  - {phase: 1, module: M01054, name: Scaffold, prs: "1-3",
+     delivers: "repo genesis / architecture / docs pipeline"}
+  - {phase: 2, module: M01055, name: Foundation, prs: "4-8",
+     delivers: "substrate / profile schema / instances / whitelabel audit / whitelabel mechanism"}
+  - {phase: 3, module: M01056, name: "Infrastructure begins", prs: "9-10",
+     delivers: "TDD harness spec + scaffold"}
+  - {phase: 4, module: M01057, name: "Infrastructure continues", prs: "Stage 2+",
+     delivers: "build scripts / image generation / first installable artifact"}
+  - {phase: 5, module: M01058, name: Features, prs: "Stage 3+",
+     delivers: "actual OS features layer on infrastructure"}
+
+# ── E0613/E0614 — IaC Quality Bar (M01060-M01068, dump 392-393) — VERBATIM ──
+iac_quality_bar:
+  module: M01060
+  per_pr_checklist: [scripts, libs, configuration, "easily tweakable", customisable,
+                     "env-var-driven", "restart-from-state"]
+  pipeline_properties: [resumable, observable]
+  doctrine: "Build pipeline is resumable + observable, not one-shot"
+
+# ── E0615-E0617 — transition gates + cross-repo + audit trail (M01059/M01069/M01070) — VERBATIM ──
+transition_gates:
+  module: M01059
+  rule: "phase-to-phase transitions are operator-acknowledged"
+cross_repo_applicability:
+  module: M01069
+  repos: [selfdef, "sovereign-os", "info-hub"]
+  basis: "per 'second-brain knowledge'"
+audit_trail:
+  module: M01070
+  rule: "every PR labeled with SFIF phase + IaC quality bar checklist passed"
+  emits: "M049 trace + selfdef MS026 OCSF"
