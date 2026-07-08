@@ -1,0 +1,117 @@
+# config/agent/m046-runtime-adaptation-lora-foundry.yaml
+# ============================================================================
+# M046 "Beat the cloud — runtime adaptation + LoRA foundry" — the adaptation
+# CONTRACT. Materializes the milestone spec (backlog/milestones/M046-..., dump
+# 13825-14107): the cloud-vs-local doctrine + local advantage (E0438/E0439), the
+# 12-mechanism runtime adaptation (E0440), the 4 LoRA serving anchors (E0441),
+# LoRA As Profiles (E0442), Do Not Merge Too Early (E0443), Adapter Memory
+# (E0444), the 6-stage adaptation progression (E0445), LoRA hardware mapping
+# (E0446), and Better Than Cloud + Peace Machine + Hyper Loop (E0447). No
+# invention — every entry traces to a module + dump line range.
+#
+# Operator directive 13825/14107 (sacrosanct): "we will make this even better
+# than the cloud provider... even before I train and retrain and adapt weights
+# and add my LORAs" + "Think of hyper features and continuity". Doctrine: runtime
+# adaptation comes BEFORE fine-tuning; "situated intelligence" beats "raw model".
+# Ties: the adapter foundry consumes M042's profiles + M028 Memory OS traces;
+# the Hyper Loop composes M037 evidence-driven autonomy + M043 hardware-aware
+# scheduling into a closed learn-loop.
+# STATUS: spec-materialization (SDD+TDD — the runtime-adaptation / LoRA foundry).
+# Locked to spec by tests/lint/test_m046_runtime_adaptation_lora_foundry.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M046
+source_dump_lines: "13825-14107"
+
+# ── E0439 — the local advantage (M00765/M00766/M00767, dump 13862-13898) — VERBATIM ──
+local_advantage:
+  cloud_sees: ["a request", "maybe some uploaded context", "generic tools",
+               "generic policy", "provider memory if enabled"]
+  station_sees: ["the repo", "the tests", "the shell", "the GUI",
+                 "the filesystem history", "the ZFS snapshots", "the prior traces",
+                 "the hardware pressure", "the model registry", "the user preferences",
+                 "the local memory graph", "the workflow contracts", "the cost ledger"]
+  doctrine: "The cloud may have stronger raw models. You can have stronger situated intelligence"
+
+# ── E0440 — 12-mechanism runtime adaptation (M00768/M00769, dump 13906-13934) — VERBATIM ──
+runtime_adaptation:
+  mechanisms: [routing, profiles, memory, retrieval, "workflow choice",
+               "test execution", "agent evals", "spec/TDD contracts",
+               "tool affordances", "context maps", "reward scoring", "trace learning"]
+  doctrine: "Fine-tuning changes weights. Runtime adaptation changes behavior. Runtime adaptation comes first"
+
+# ── E0441 — the 4 LoRA serving anchors (M00770-M00773, dump 13944-13954) — VERBATIM ──
+lora_serving_anchors:
+  - {module: M00770, source: vLLM, concept: "serve LoRA adapters + dynamic load/unload at runtime"}
+  - {module: M00771, source: SGLang, concept: "multi-adapter in one batch (S-LoRA/Punica)"}
+  - {module: M00772, source: S-LoRA, concept: "unified paging for many adapters + KV cache"}
+  - {module: M00773, source: "Ray Serve", concept: "multi-LoRA for multiple domains/users/tasks from one backend"}
+
+# ── E0442 — LoRA As Profiles (M00774/M00775, dump 13966-13988) — VERBATIM ──
+lora_as_profiles:
+  candidate_adapters: ["selfdef/security LoRA", "sovereign-os/admin LoRA",
+                       "coding-style LoRA", "spec-driven LoRA", "TDD/review LoRA",
+                       "communication/mediation LoRA", "domain-specific LoRA",
+                       "user-preference LoRA"]
+  runtime_actions: ["use base model", "use adapter A", "use adapter B",
+                    "stack-merge adapters if supported", "route to specialist model instead",
+                    "ask oracle instead"]
+  note: "This is adapter governance"
+
+# ── E0443 — Do Not Merge Too Early (M00776/M00777, dump 13998-14014) — VERBATIM ──
+merge_timing:
+  caution: "Dynamic adapters preserve flexibility. Merged models can be faster/simpler, but they are less flexible and can explode disk/VRAM workflows, especially with quantized bases"
+  adoption_modes:
+    - {mode: development, policy: "dynamic LoRA adapters"}
+    - {mode: "production stable", policy: "maybe merged adapter if evals prove it"}
+    - {mode: "model lab", policy: "compare base vs adapter vs merged vs quantized"}
+  adapter_principles: ["Adapters are behavioral overlays", "Profiles decide overlays",
+                       "Evals promote overlays"]
+
+# ── E0444 — Adapter Memory (M00778, dump 14020-14036) — VERBATIM ──
+adapter_memory:
+  module: M00778
+  crystallization: ["Memory learns behavior", "Evals validate behavior",
+                    "LoRA crystallizes behavior into weights"]
+  pipeline: ["trace collection", "success/failure examples", "curated dataset",
+             "adapter training", "eval gate", "profile assignment", "monitored deployment"]
+
+# ── E0445 — 6-stage adaptation progression (M00779, dump 14044-14058) — VERBATIM ──
+adaptation_progression:
+  module: M00779
+  stages:
+    - {stage: 1, name: "prompt/profile adaptation"}
+    - {stage: 2, name: "memory/retrieval adaptation"}
+    - {stage: 3, name: "workflow/router adaptation"}
+    - {stage: 4, name: "LoRA/domain adaptation"}
+    - {stage: 5, name: "deeper fine-tuning/retraining"}
+    - {stage: 6, name: "model distillation / specialist SLM creation"}
+  note: "This is the correct order"
+
+# ── E0446 — LoRA hardware mapping (M00780, dump 14066-14080) — VERBATIM ──
+lora_hardware_mapping:
+  module: M00780
+  roles:
+    - {hardware: Blackwell, role: "base oracle + high-value adapters + multi-LoRA serving when stable + FP8-FP4 experiments"}
+    - {hardware: "4090", role: "train small LoRAs / QLoRA experiments + serve scout adapters + domain-reflex models"}
+    - {hardware: "CPU AVX-512", role: "adapter routing + profile matching + eval filtering + dataset curation metadata + trace selection"}
+    - {hardware: ZFS, role: "dataset lineage + adapter versions + eval results + rollback"}
+  note: "The station becomes an adapter foundry"
+
+# ── E0447 — Better Than Cloud + Peace Machine + Hyper Loop (M00781, 14090-14105) — VERBATIM ──
+better_than_cloud:
+  capabilities: ["use private local context fully", "run tests and tools locally",
+                 "keep raw traces private", "adapt profiles to the user",
+                 "control cloud spending", "route across local-cloud models",
+                 "use LoRAs per project-domain", "retain ZFS-backed replay",
+                 "enforce local policies", "operate offline", "explain every action",
+                 "rollback side effects"]
+peace_machine_lora_specializations: ["clearer communication", "less escalation",
+                                     "better mediation", "better technical rigor",
+                                     "better self-defense workflows",
+                                     "better project-specific coding style",
+                                     "better review discipline", "coherence"]
+hyper_loop:
+  steps: [Observe, Adapt, Evaluate, Crystallize, Govern, Repeat]
+  closing: "That is how the local station evolves past generic cloud behavior before a single full retrain"
