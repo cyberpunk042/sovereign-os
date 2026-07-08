@@ -1,0 +1,55 @@
+# config/hardware/m086-avx512-simd-lift-plan.yaml
+# ============================================================================
+# M086 "AVX-512 scalar-reference -> real-SIMD lift plan (per flag)" — the
+# SIMD-acceleration CONTRACT. Materializes the milestone spec (backlog/milestones/
+# M086-...; source: operator review request 2026-07-02 "i wanna see all the
+# CPU/kernel flag and all the work needed" + "fix everything"): the 9-flag
+# inventory, the 5-step lift (identical shape per flag), and the 5 epics
+# E0817-E0821 with status. No invention — the flag inventory is the authoritative
+# CPU-feature map for M085's note instructions.
+#
+# Doctrinal anchor (milestone): M085 shipped semantically-exact PORTABLE SCALAR
+# references (all crates #![forbid(unsafe_code)]); M086 is the plan to turn each
+# into an actual std::arch hardware kernel, gated by detected capability. Key
+# fact: avx512_vp2intersect is the one flag with NO hardware on Zen 5 (Intel
+# Tiger-Lake-only, since removed; AMD never implemented) — it stays scalar-only
+# forever on the SAIN-01 baseline. Ties: this is the SIMD layer beneath M085's
+# three tiers; the capability gate is M085's PrecisionProfile::Tiers; T1 (VNNI +
+# BF16) is already wired (M074/M085), so the SIMD dispatcher lands those two first.
+# STATUS: spec-materialization (SDD+TDD — the per-flag scalar->SIMD lift plan).
+# Locked to spec by tests/lint/test_m086_avx512_simd_lift_plan.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M086
+source: "operator review request 2026-07-02"
+
+# ── the 9-flag inventory (8 core + VPOPCNT-as-two) — VERBATIM ──
+flag_inventory:
+  - {n: 1, flag: "avx512f", instruction: "VPTERNLOGD/Q", tier: T2, zen5: true, engine: "scalar-ref (bitops::vpternlog)", intrinsic: "_mm512_ternarylogic_epi64"}
+  - {n: 2, flag: "avx512bw", instruction: "(prereq for byte permute/compress)", tier: "-", zen5: true, engine: "-", intrinsic: "enables #5/#6 byte-granular paths"}
+  - {n: 3, flag: "avx512_vnni", instruction: "VPDPBUSD", tier: T1, zen5: true, engine: "wired (Precision::Int8)", intrinsic: "_mm512_dpbusd_epi32"}
+  - {n: 4, flag: "avx512_bf16", instruction: "VDPBF16PS (VPDOTBF16PLUS)", tier: T1, zen5: true, engine: "wired (Precision::Bf16)", intrinsic: "_mm512_dpbf16_ps"}
+  - {n: 5, flag: "avx512_vbmi", instruction: "VPERMB", tier: T3, zen5: true, engine: "scalar-ref (bitops::vpermb)", intrinsic: "_mm512_permutexvar_epi8"}
+  - {n: 6, flag: "avx512_vbmi2", instruction: "VPSHLDVQ, VPCOMPRESSB/VPEXPANDB", tier: T3, zen5: true, engine: "scalar-ref (bitops::vpshldv/compress/expand)", intrinsic: "_mm512_shldv_epi64, _mm512_mask_compress_epi8/_mm512_mask_expand_epi8"}
+  - {n: 7, flag: "avx512_vp2intersect", instruction: "VP2INTERSECTD/Q", tier: T2, zen5: false, engine: "scalar-ref (bitops::intersect)", intrinsic: "none — no Zen 5 hardware; scalar is the permanent path"}
+  - {n: 8, flag: "avx512_vpopcntdq", instruction: "VPOPCNTD/Q", tier: margin, zen5: true, engine: "scalar-ref (bitops::popcount)", intrinsic: "_mm512_popcnt_epi64"}
+  - {n: 9, flag: "avx512_bitalg", instruction: "VPOPCNTB/W", tier: margin, zen5: true, engine: "scalar-ref", intrinsic: "_mm512_popcnt_epi8"}
+
+vp2intersect_note: "avx512_vp2intersect has NO hardware on Zen 5 (Intel Tiger-Lake-only, since removed; AMD never implemented) — stays scalar-only forever on the SAIN-01 baseline"
+
+# ── the 5-step lift (identical shape per flag) — VERBATIM ──
+five_step_lift:
+  - {step: 1, name: "Intrinsic kernel", detail: "std::arch::x86_64 behind #[cfg(target_feature)]; unsafe, so in a NEW sibling -simd crate, never in the #![forbid(unsafe_code)] reference crates"}
+  - {step: 2, name: "Runtime dispatch", detail: "std::arch::is_x86_feature_detected! chooses SIMD vs scalar per call so one binary runs everywhere"}
+  - {step: 3, name: "Build flags", detail: "release build with -C target-cpu=znver5 / +avx512vnni,+avx512_bf16,+avx512vbmi2,..."}
+  - {step: 4, name: "Differential tests", detail: "the existing scalar unit tests become the oracle: SIMD output must equal scalar bit-for-bit"}
+  - {step: 5, name: "Capability + profile gate", detail: "avx512-advisor detected caps + PrecisionProfile.Tiers opt-in decide whether the SIMD path is used (wiring exists; dispatcher #2 is the missing link)"}
+
+# ── the 5 epics E0817-E0821 with status — VERBATIM ──
+epics:
+  - {id: E0817, name: "Flag inventory + avx512-advisor tiers verb", status: done}
+  - {id: E0818, name: "Precision::Bf16 — T1 BF16 becomes a wired precision", status: done}
+  - {id: E0819, name: "Capability gate — Tiers::detect() + PrecisionProfile::gated_by", status: done}
+  - {id: E0820, name: "SIMD dispatcher — sibling -simd crate with is_x86_feature_detected! dispatch (VNNI + BF16 first)", status: open}
+  - {id: E0821, name: "Engine build flags — -C target-cpu=znver5 release profile for the Rust engine", status: open}
