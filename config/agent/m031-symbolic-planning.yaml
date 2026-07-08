@@ -1,0 +1,60 @@
+# config/agent/m031-symbolic-planning.yaml
+# ============================================================================
+# M031 "Symbolic Planning plane — PDDL / SAT-SMT / LTL" — the symbolic-planning
+# CONTRACT. Materializes the milestone spec (backlog/milestones/M031-..., dump
+# 9188-9326): the 7 Symbolic Plane sub-parts (E0290), the PDDL planning
+# compilation Objects/Predicates/Actions (E0292), the LTL property catalog
+# (E0293), and the predicate bitset + action mask catalog + AVX-512 applicability
+# formula (E0294). No invention — every entry traces to a module + dump line range.
+#
+# The symbolic plane sits beside M010's deterministic data plane; the action
+# masks + applicability formula are the AVX-512 planner over M025's DAG; the
+# human_approved predicate = the cockpit human-gate.
+# STATUS: spec-materialization (SDD+TDD — precedes the symbolic planner).
+# Locked to spec by tests/lint/test_m031_symbolic_planning.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M031
+source_dump_lines: "9188-9326"
+
+# ── E0290 — the 7 Symbolic Plane sub-parts (M00510-M00516, dump 9188-9194) ──
+symbolic_plane_subparts:
+  module_range: "M00510-M00516"
+  subparts: [PDDL-planners, SAT-SMT-solvers, "Prolog/Datalog-rules",
+             temporal-logic-monitors, finite-state-machines, type-schema-checkers,
+             policy-engines]
+
+# ── E0292 — PDDL planning compilation (M00517-M00519, dump 9248-9268) — VERBATIM ──
+planning_compilation:
+  objects:
+    module: M00517
+    items: [repo, files, test_cmd, patch, network_permission]
+  predicates:
+    module: M00518
+    items: [inspected, dependencies_present, tests_run, failure_known, patch_valid, network_allowed]
+  actions:
+    module: M00519
+    items: [inspect_repo, infer_test_command, run_tests, analyze_failure,
+            draft_patch, apply_patch, rerun_tests, request_network]
+
+# ── E0294 — predicate bitset, 8 predicates (M00521, dump 9299-9309) — VERBATIM ──
+predicate_bitset:
+  module: M00521
+  predicates: [inspected_repo, tests_known, failure_known, patch_exists,
+               patch_valid, rollback_exists, network_allowed, human_approved]
+
+# ── E0294 — action mask catalog (M00522, dump 9313-9318) — VERBATIM ──
+action_mask_catalog:
+  module: M00522
+  masks: [precondition_mask, add_effect_mask, delete_effect_mask, forbidden_mask]
+
+# ── E0294 — AVX-512 applicability formula (M00523, dump 9322-9326) — VERBATIM ──
+applicability_formula:
+  module: M00523
+  formula: "(state & precondition_mask) == precondition_mask & (state & forbidden_mask) == 0"
+
+# ── E0293 — LTL-style property catalog (M00520, dump 9279-9285) ──
+ltl_property_catalog:
+  module: M00520
+  example_rule_count: 5
