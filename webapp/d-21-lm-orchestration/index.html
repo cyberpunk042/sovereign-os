@@ -171,13 +171,23 @@
     ).join('') : '<div class="muted">no GPU telemetry (nvidia-smi absent or no GPU)</div>';
   }
 
-  // Apply = clipboard-copy the signed verb-chain for the selected profile
-  // (R10212: web NEVER mutates SRP topology).
-  $('apply-btn').addEventListener('click', () => {
-    const p = PROFILES.find(x => (x.id || x.mode_id) === selectedProfile);
-    const cmd = (p && p.apply_cmd) || `sovereign-osctl trinity profile switch ${selectedProfile || '<profile>'}`;
-    copyCmd(cmd, `Apply — MS003-signed profile verb copied (R10212 read-only cockpit):`);
-  });
+  // SDD-055 — scroll to a functional control in the rail + highlight it. Controls
+  // EXECUTE via the R10274 control-exec-api rail (operator-key + type-to-confirm
+  // gated); web itself never mutates (R10212).
+  function jumpToControl(cid) {
+    const s = document.getElementById('control-surface');
+    const c = s && s.querySelector('[data-cid="' + cid + '"]');
+    (c || s || document.body).scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (c) {
+      c.style.outline = '2px solid var(--accent,#9bd1ff)';
+      setTimeout(() => { c.style.outline = ''; }, 1600);
+    }
+  }
+
+  // SDD-055 — Apply EXECUTES via the R10274 control rail (runtime-mode = trinity
+  // profile switch; now rendered on D-21). Pick the profile in the control card
+  // and Execute (dry-run default, operator-key + type-to-confirm). R10212 intact.
+  $('apply-btn').addEventListener('click', () => jumpToControl('runtime-mode'));
 
   async function fetchJson(path) {
     const res = await fetch(path, {credentials:'same-origin'});

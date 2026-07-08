@@ -61,7 +61,7 @@ systems:
     change_cli: "sovereign-osctl trinity profile switch <id>"
     state_path: "/run/sovereign-os/active-runtime-mode"
     privileged: true
-    applies_to: [runtime-modes, trinity, d-01-active-sessions, d-03-model-health, router, orchestration]
+    applies_to: [runtime-modes, trinity, d-01-active-sessions, d-03-model-health, router, orchestration, d-21-lm-orchestration, d-22-lm-status-operability]
     refs: [schemas/runtime-profile.schema.yaml, SDD-043]
 
   # ── 3. Flex-profiles — per-allocation runtime deltas ─────────────────
@@ -209,7 +209,7 @@ systems:
     change_cli: "sovereign-osctl inference {start|stop|restart} <tier>"
     state_path: "systemd (sovereign-{pulse,logic-engine,oracle-core,router} units)"
     privileged: true
-    applies_to: [trinity, router, d-03-model-health]
+    applies_to: [trinity, router, d-03-model-health, d-21-lm-orchestration, d-22-lm-status-operability]
     refs: [SDD-011]
 
   # ── 11. Workload knobs — inference-latency primitives ────────────────
@@ -267,7 +267,7 @@ systems:
     change_cli: "sovereign-osctl models eval run <slug> --benchmark <benchmark>"
     state_path: "eval history JSONL (R232 · scripts/observability/eval-tracker.py)"
     privileged: true
-    applies_to: [d-10-eval-history]
+    applies_to: [d-10-eval-history, d-22-lm-status-operability]
     refs: [scripts/models/eval.py]
 
   # ── 14. Costs export — read-only spend-history export (D-04) ──────────
