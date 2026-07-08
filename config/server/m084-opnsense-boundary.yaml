@@ -1,0 +1,69 @@
+# config/server/m084-opnsense-boundary.yaml
+# ============================================================================
+# M084 "OPNsense/SD-WAN boundary contract + Tetragon-dropout resilience
+# (Zero-Trust dual-NIC perimeter)" — the network-perimeter CONTRACT. Materializes
+# the milestone spec (backlog/milestones/M084-...; source raw/dumps/2026-05-15-
+# sain-01-master-spec-...md lines 420-424 + 456-475 + 761-765): the Zero-Trust
+# dual-NIC boundary (E0808), OPNsense as perimeter authority (E0809), VLAN 100/200
+# (E0810/E0811), the no-outbound-WAN rule (E0812), the Tetragon-dropout gotcha
+# (E0813), the dropout prevention BindsTo + EOF routine (E0814/E0815), the
+# read-only firewall interface contract (E0816), and reconfiguration observability
+# (E0817). No invention — verbatim gotcha/prevention preserved; dropout prevention
+# already SHIPPED in commit 47632d0.
+#
+# Doctrinal anchors (dump 762/764/765, verbatim): "If Tetragon drops its connection
+# to the system logging pipeline during a network reconfiguration event, the
+# guardian-core script will stall on its read loop, blinding your real-time exploit
+# containment system" / "The guardian-core.service systemd unit file must include
+# explicit service binding controls (BindsTo=tetragon.service) and include health
+# checking routines that instantly restart the security loop if the local UNIX
+# socket encounters an end-of-file (EOF) exception". PROJECT BOUNDARY (R10212):
+# OPNsense is the EDGE firewall — sovereign-os observes it READ-ONLY (never
+# configures it); the Tetragon guardian pairs with selfdef MS044/MS047 (selfdef
+# owns the IPS enforcement; sovereign-os owns the security-loop-resilience unit +
+# the NIC-role/VLAN boundary map). Ties: extends M003/M044 hardware topology;
+# dropout metrics feed M049; guardian-silent alert is M055's failure taxonomy.
+# STATUS: spec-materialization (SDD+TDD — the Zero-Trust perimeter + guardian resilience).
+# Locked to spec by tests/lint/test_m084_opnsense_boundary.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M084
+source_dump_lines: "420-424,456-475,761-765"
+
+# ── E0808/E0809 — Zero-Trust dual-NIC boundary + OPNsense authority (M01412/M01415) ──
+boundary:
+  doctrine: "network traffic is physically segregated at the hardware boundary (Zero-Trust OPNsense / SD-WAN core architecture)"
+  perimeter_authority: "OPNsense Core Router / SD-WAN Firewall"
+
+# ── E0810/E0811 — VLAN 100/200 (M01413/M01414, dump 460-475) — VERBATIM ──
+vlans:
+  - {vlan: 100, nic: "Intel I226-V 2.5GbE", plane: "management/telemetry",
+     carries: "host SSH · Tetragon log streams · system updates"}
+  - {vlan: 200, nic: "Marvell AQC113C 10GbE", plane: "model ingestion/storage",
+     carries: "isolated container bridge · model weight pulls (NAS) · no outbound WAN"}
+
+# ── E0812 — no-outbound-WAN rule (M01414) — VERBATIM ──
+data_plane_rule: "no outbound WAN for the data plane (container bridge isolated; NAS-only pulls)"
+
+# ── E0813 — Tetragon-dropout gotcha (M01420, dump 762-764) — VERBATIM ──
+dropout_gotcha:
+  module: M01420
+  cause: "interface re-shuffle / lease-drop -> system loopback hooks used by the Tetragon socket stream experience buffer disconnects"
+  effect: "guardian-core script stalls on its read loop, blinding the real-time exploit containment system"
+
+# ── E0814/E0815 — dropout prevention (M01417/M01418/M01419, SHIPPED 47632d0) — VERBATIM ──
+dropout_prevention:
+  bindsto: {module: M01417, unit_directive: "BindsTo=tetragon.service"}
+  eof_sentinel: {module: M01418, rule: "EOF fall-through -> nonzero exit + journal evidence (never silently returns 0)"}
+  restart_loop: {module: M01419, unit_directive: "Restart=always + RestartSec=1"}
+  shipped_commit: "47632d0"
+
+# ── E0816 — read-only firewall interface contract (M01415) — VERBATIM (R10212) ──
+firewall_observation:
+  module: M01415
+  contract: "sovereign-os <-> OPNsense observation surface is READ-ONLY (reachability tiers; never configures the firewall)"
+
+# ── E0817 — reconfiguration observability (M01420/M01421) — VERBATIM ──
+reconfig_observability:
+  rule: "interface re-shuffles / lease-drop events must be operator-visible (guardian restart + stream-loss counters)"
