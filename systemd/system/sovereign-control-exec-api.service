@@ -1,0 +1,58 @@
+[Unit]
+Description=Sovereign cockpit control-exec API — the sanctioned R10274 mutation endpoint
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/operator/control-exec-api.py
+# The ONE write endpoint of the cockpit. Every per-panel *-api daemon stays
+# read-only (405 on writes). This daemon mutates ONLY through the deterministic
+# scripts/operator/_action_exec.py primitive: allowlisted control-id, options-
+# validated placeholders, R10212 hard boundary (selfdef/perimeter never execute
+# locally — they stay a signed proxy), operator-key + type-to-confirm gate on
+# privileged controls, OCSF-5001 audit span, single-flight lock.
+#
+# SHIPPED SAFE: DRY_RUN by default. This unit does NOT set
+# SOVEREIGN_OS_ACTION_EXEC_LIVE, so every /api/control/execute is a dry-run that
+# changes no host state. LIVE mode is an EXPLICIT operator decision — see the
+# commented drop-in below. It requires (a) running as the operator user that
+# owns the scoped NOPASSWD sudoers grant (scripts/operator/operator-sudoers.sh),
+# and (b) relaxing NoNewPrivileges so `sudo -n <verb>` works. Until then the unit
+# stays hardened + dry-run.
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/lib/sovereign-os/scripts/operator/control-exec-api.py
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+# Loopback-by-default — operator-§1g exposure decision is theirs.
+Environment=CONTROL_EXEC_API_BIND=127.0.0.1
+Environment=CONTROL_EXEC_API_PORT=8130
+
+# R171 defense-in-depth (Layer-1 lint enforced). Hardened + dry-run by default.
+ProtectSystem=strict
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/lib/node_exporter/textfile_collector /var/log/sovereign-os
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+
+# ── LIVE-mode operator drop-in (NOT enabled here — operator decision) ──
+# Create /etc/systemd/system/sovereign-control-exec-api.service.d/live.conf with:
+#   [Service]
+#   User=<operator-user-with-NOPASSWD-cockpit-grant>
+#   Environment=SOVEREIGN_OS_ACTION_EXEC_LIVE=1
+#   NoNewPrivileges=false
+# Only then do sovereign-os-owned privileged controls actually execute. selfdef/
+# perimeter remain proxy-only regardless (R10212, enforced in the primitive).
+
+[Install]
+WantedBy=multi-user.target
