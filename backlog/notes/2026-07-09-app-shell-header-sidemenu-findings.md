@@ -1,6 +1,6 @@
 # App-shell (header + sidemenu + Assistant mode) — planning findings — 2026-07-09
 
-Source: operator directive 2026-07-09 (verbatim in [SDD-066](../../docs/sdd/066-cockpit-app-shell-header-sidemenu-assistant.md) §0.1). Inspiration operator-named: `devops-control-plane` `src/ui/web/templates/partials/_nav.html`. Deliverable this pass: **plan/SDD, stop for review** (no code).
+Source: operator directive 2026-07-09 (verbatim in [SDD-067](../../docs/sdd/067-cockpit-app-shell-header-sidemenu-assistant.md) §0.1). Inspiration operator-named: `devops-control-plane` `src/ui/web/templates/partials/_nav.html`. Deliverable this pass: **plan/SDD, stop for review** (no code).
 
 ## Research findings (grounded)
 
@@ -25,12 +25,12 @@ Source: operator directive 2026-07-09 (verbatim in [SDD-066](../../docs/sdd/066-
 
 Elevate the invisible ⌘K/⌘1..0 weave into an **always-present app-shell** — a top header (brand · breadcrumb · status · ⌘K · theme · ✦Assist) + a grouped collapsible sidemenu + an Assistant drawer — distributed as the **5th canonical per-panel snippet** via a new generator (`scripts/webapp/sync-app-shell.py`) and a new contract test (`tests/lint/test_app_shell_contract.py`), reusing the personalization theme keys, the palette catalog, and the design grammar; nothing server-mutating, nothing that breaks the existing four snippets.
 
-## Staged rollout (spec in SDD-066 §4)
+## Staged rollout (spec in SDD-067 §4)
 
 Stage 0 (this pass, done): SDD + note → **review gate**. Stage 1: shell + generator + contract test on 2 reference panels. Stage 2: Assistant drawer on the 2. Stage 3: sweep all ~52. Stage 4: catalog-driven grouping + polish.
 
 ## Open questions for next session
 
-Q-066-A group taxonomy source (catalog-driven vs static) · Q-066-B sidemenu default state + persistence key · Q-066-C system-wide status/approvals roll-up source · Q-066-D assistant content authoring · Q-066-E which panels (incl. meta/audit?) · Q-066-F live-LLM assistant = flagged future decision (network / trust tension). See SDD-066 §5.
+Q-067-A group taxonomy source (catalog-driven vs static) · Q-067-B sidemenu default state + persistence key · Q-067-C system-wide status/approvals roll-up source · Q-067-D assistant content authoring · Q-067-E which panels (incl. meta/audit?) · Q-067-F live-LLM assistant = flagged future decision (network / trust tension). See SDD-067 §5.
 
 Operator standing direction honored: *additive, never discarding* — this builds ON the four existing snippets + the design grammar; it replaces none of them.
