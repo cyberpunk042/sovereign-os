@@ -660,65 +660,7 @@ a11y; contract test catches drift.
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
-<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
-<script>
-window.SO_ASSIST = [
-  {
-    "sel": "#theme-control",
-    "title": "Theme (R10137)",
-    "msg": "Dark / light / auto for the whole cockpit — applied before paint, no flash.",
-    "more": "This is the canonical theme control; the header's theme toggle writes the SAME localStorage pref, so the two never disagree. Client-side only — your preference never leaves the browser."
-  },
-  {
-    "sel": "#accent-control",
-    "title": "Accent color (R10140)",
-    "msg": "The accent palette that drives every panel's primary/active highlight.",
-    "more": "Accent is a token (--accent) the whole design grammar reads, so changing it re-tints the app-shell, buttons, and active menu item consistently. Pick a swatch or set a custom hex below."
-  },
-  {
-    "sel": "#accent-custom",
-    "title": "Custom accent",
-    "msg": "Enter a custom accent hex (#rrggbb).",
-    "more": "Beyond the preset swatches — any valid 6-digit hex. Applied as the --accent token across all panels; the pattern gate ensures it's a real color before it takes effect."
-  },
-  {
-    "sel": "#accent-apply",
-    "title": "Apply accent",
-    "msg": "Apply the entered custom accent.",
-    "more": "Commits the custom hex to the personalization pref so every cockpit surface re-tints. Client-side only — stored in localStorage, never sent anywhere."
-  },
-  {
-    "sel": "#scale-control",
-    "title": "Typography scale (R10141)",
-    "msg": "Global text scale for readability.",
-    "more": "Scales type across all panels via the --font-scale token. Set once here; every cockpit surface honours it because they all read the same personalization pref pre-paint."
-  },
-  {
-    "sel": "#reset-btn",
-    "title": "Reset to defaults",
-    "msg": "Restore theme, accent, and scale to defaults.",
-    "more": "Clears your personalization back to the shipped defaults — the way out if a custom accent or scale made things hard to read."
-  },
-  {
-    "sel": "#export-btn",
-    "title": "Export as JSON",
-    "msg": "Copy the personalization preferences as JSON.",
-    "more": "Hands you your theme/accent/scale settings as portable JSON — to back up, share, or apply on another browser. Client-side; it's your data, exported by you."
-  },
-  {
-    "sel": "#toast",
-    "title": "Applied confirmation",
-    "msg": "Confirms a personalization change was applied.",
-    "more": "Acknowledges the pref was written and applied across the cockpit — the changes take effect immediately and persist in localStorage."
-  },
-  {
-    "sel": "#control-surface",
-    "title": "Controls — profiles, modes & toggles",
-    "msg": "The per-panel control rail for personalization.",
-    "more": "Every control here is client-side (localStorage), never a server mutation — personalization is the one purely-local surface, distinct from the signed-CLI controls elsewhere."
-  }
-];
-</script>
+
 
 <h1>Personalization</h1>
 <div class="sub">M060 R10137 (theme) + R10140 (accent) + R10141 (typography) — operator-configurable cockpit UX. <a href="../master-dashboard/">D-00 main</a></div>
@@ -1327,5 +1269,65 @@ window.SO_ASSIST = [
 </script>
 <script>SovereignControlSurface.load(document.getElementById('control-surface'),{filterSlug:'personalization'});</script>
 
+
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#theme-control",
+    "title": "Theme (R10137)",
+    "msg": "Dark / light / auto for the whole cockpit — applied before paint, no flash.",
+    "more": "This is the canonical theme control; the header's theme toggle writes the SAME localStorage pref, so the two never disagree. Client-side only — your preference never leaves the browser."
+  },
+  {
+    "sel": "#accent-control",
+    "title": "Accent color (R10140)",
+    "msg": "The accent palette that drives every panel's primary/active highlight.",
+    "more": "Accent is a token (--accent) the whole design grammar reads, so changing it re-tints the app-shell, buttons, and active menu item consistently. Pick a swatch or set a custom hex below."
+  },
+  {
+    "sel": "#accent-custom",
+    "title": "Custom accent",
+    "msg": "Enter a custom accent hex (#rrggbb).",
+    "more": "Beyond the preset swatches — any valid 6-digit hex. Applied as the --accent token across all panels; the pattern gate ensures it's a real color before it takes effect."
+  },
+  {
+    "sel": "#accent-apply",
+    "title": "Apply accent",
+    "msg": "Apply the entered custom accent.",
+    "more": "Commits the custom hex to the personalization pref so every cockpit surface re-tints. Client-side only — stored in localStorage, never sent anywhere."
+  },
+  {
+    "sel": "#scale-control",
+    "title": "Typography scale (R10141)",
+    "msg": "Global text scale for readability.",
+    "more": "Scales type across all panels via the --font-scale token. Set once here; every cockpit surface honours it because they all read the same personalization pref pre-paint."
+  },
+  {
+    "sel": "#reset-btn",
+    "title": "Reset to defaults",
+    "msg": "Restore theme, accent, and scale to defaults.",
+    "more": "Clears your personalization back to the shipped defaults — the way out if a custom accent or scale made things hard to read."
+  },
+  {
+    "sel": "#export-btn",
+    "title": "Export as JSON",
+    "msg": "Copy the personalization preferences as JSON.",
+    "more": "Hands you your theme/accent/scale settings as portable JSON — to back up, share, or apply on another browser. Client-side; it's your data, exported by you."
+  },
+  {
+    "sel": "#toast",
+    "title": "Applied confirmation",
+    "msg": "Confirms a personalization change was applied.",
+    "more": "Acknowledges the pref was written and applied across the cockpit — the changes take effect immediately and persist in localStorage."
+  },
+  {
+    "sel": "#control-surface",
+    "title": "Controls — profiles, modes & toggles",
+    "msg": "The per-panel control rail for personalization.",
+    "more": "Every control here is client-side (localStorage), never a server mutation — personalization is the one purely-local surface, distinct from the signed-CLI controls elsewhere."
+  }
+];
+</script>
 </body>
 </html>

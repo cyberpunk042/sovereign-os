@@ -693,101 +693,7 @@ a11y; contract test catches drift.
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
-<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
-<script>
-window.SO_ASSIST = [
-  {
-    "sel": "#stats",
-    "title": "Firewall posture summary",
-    "msg": "The host firewall audit roll-up — candidates, local/upstream tier, recommendations.",
-    "more": "This is host self-defence (distinct from the selfdef IPS mirror). It reads the current firewall state and rates it against the §1g enforcement ladder — the strip is the at-a-glance verdict. Note: apply/wizard stay CLI-only (operator §17 sovereignty boundary)."
-  },
-  {
-    "sel": "#stat-candidates",
-    "title": "Candidates",
-    "msg": "How many enforcement candidates are available to install.",
-    "more": "The count of firewall layers (nftables/fail2ban/crowdsec/suricata) you could add. Candidates aren't active — they're the menu of what would strengthen the posture."
-  },
-  {
-    "sel": "#stat-local",
-    "title": "Local tier",
-    "msg": "The current local firewall enforcement tier.",
-    "more": "How hardened the host's own firewall is right now — where it sits on the §1g 4-class ladder. The number the recommendations aim to raise."
-  },
-  {
-    "sel": "#stat-upstream",
-    "title": "Upstream tier",
-    "msg": "The upstream (edge) enforcement tier.",
-    "more": "The protection level at the network edge, upstream of this host. Together with the local tier it's the layered-defence picture — a weak local tier matters less behind a strong edge, and vice versa."
-  },
-  {
-    "sel": "#stat-recs",
-    "title": "Recommendations",
-    "msg": "How many improvements are recommended for the current state.",
-    "more": "The count of concrete steps that would raise the posture. Non-zero means there's headroom to harden; the recommendations table names each."
-  },
-  {
-    "sel": "#stat-version",
-    "title": "API version",
-    "msg": "The edge-firewall API version.",
-    "more": "Stamps the audit build so the tiers and recommendations tie to a known version of the firewall contract."
-  },
-  {
-    "sel": "#state-body",
-    "title": "Local + upstream state",
-    "msg": "The current state of the host and edge firewall stacks.",
-    "more": "The detail behind the tier numbers — which layers (nftables, fail2ban, crowdsec, suricata) are up locally and what the upstream edge provides. The raw posture the ladder grades."
-  },
-  {
-    "sel": "#ladder-body",
-    "title": "Enforcement ladder (§1g 4-class)",
-    "msg": "The 4-class enforcement-candidate ladder — each rung a stronger firewall posture.",
-    "more": "The §1g 4-class model of firewall strength: each rung adds a defence layer. This shows which rungs are met and which are candidates — the gap between current and hardened posture."
-  },
-  {
-    "sel": "#recs-tbody",
-    "title": "Recommendations",
-    "msg": "What to add for the current state — id, label, perf cost, rationale.",
-    "more": "Recommendations, not auto-actions: each names a layer to install, its performance cost, and why it helps. Installing is a deliberate CLI step; this tells you what's worth it and what it costs."
-  },
-  {
-    "sel": "#plan-select",
-    "title": "Plan candidate",
-    "msg": "Pick a candidate to preview its install plan.",
-    "more": "Selects which recommendation to render a read-only install plan for — so you see exactly what adding that layer would do before touching the host firewall."
-  },
-  {
-    "sel": "#plan-btn",
-    "title": "Render plan",
-    "msg": "Render the read-only install plan for the selected candidate.",
-    "more": "Plan-first discipline: preview the exact steps without running them. The one thing you don't want to misconfigure remotely is the firewall — this shows the change before you commit."
-  },
-  {
-    "sel": "#plan-body",
-    "title": "Install plan",
-    "msg": "The rendered read-only install plan.",
-    "more": "The concrete steps the selected candidate's install would perform — reviewable before you run the signed CLI. Read-only; the panel plans, the operator executes."
-  },
-  {
-    "sel": "#refresh-btn",
-    "title": "Refresh now",
-    "msg": "Re-audit the firewall posture.",
-    "more": "Re-reads local and upstream state to refresh the tiers and recommendations. Read-only — it audits, it changes nothing."
-  },
-  {
-    "sel": "#last-refresh",
-    "title": "Last refresh",
-    "msg": "When the posture was last audited (auto every 30s).",
-    "more": "Freshness of the tier numbers — a stale audit can lag a firewall layer you just installed or that just failed."
-  },
-  {
-    "sel": "#control-surface",
-    "title": "Controls — profiles, modes & toggles",
-    "msg": "The per-panel control rail for firewall posture.",
-    "more": "Every control copies its exact sovereign-osctl verb (§1g / R10212) — apply and wizard stay CLI-only per the §17 sovereignty boundary; the web previews, it never mutates the firewall."
-  }
-];
-</script>
+
 <h1>sovereign-os edge-firewall</h1>
 <p class="sub">
   Operator-§1g 4-class enforcement-candidate ladder — workstation-side firewall state + recommendations.
@@ -1426,6 +1332,102 @@ document.getElementById("refresh-btn").addEventListener("click", refresh);
 document.getElementById("plan-btn").addEventListener("click", renderPlan);
 refresh();
 setInterval(refresh, 30000);
+</script>
+
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#stats",
+    "title": "Firewall posture summary",
+    "msg": "The host firewall audit roll-up — candidates, local/upstream tier, recommendations.",
+    "more": "This is host self-defence (distinct from the selfdef IPS mirror). It reads the current firewall state and rates it against the §1g enforcement ladder — the strip is the at-a-glance verdict. Note: apply/wizard stay CLI-only (operator §17 sovereignty boundary)."
+  },
+  {
+    "sel": "#stat-candidates",
+    "title": "Candidates",
+    "msg": "How many enforcement candidates are available to install.",
+    "more": "The count of firewall layers (nftables/fail2ban/crowdsec/suricata) you could add. Candidates aren't active — they're the menu of what would strengthen the posture."
+  },
+  {
+    "sel": "#stat-local",
+    "title": "Local tier",
+    "msg": "The current local firewall enforcement tier.",
+    "more": "How hardened the host's own firewall is right now — where it sits on the §1g 4-class ladder. The number the recommendations aim to raise."
+  },
+  {
+    "sel": "#stat-upstream",
+    "title": "Upstream tier",
+    "msg": "The upstream (edge) enforcement tier.",
+    "more": "The protection level at the network edge, upstream of this host. Together with the local tier it's the layered-defence picture — a weak local tier matters less behind a strong edge, and vice versa."
+  },
+  {
+    "sel": "#stat-recs",
+    "title": "Recommendations",
+    "msg": "How many improvements are recommended for the current state.",
+    "more": "The count of concrete steps that would raise the posture. Non-zero means there's headroom to harden; the recommendations table names each."
+  },
+  {
+    "sel": "#stat-version",
+    "title": "API version",
+    "msg": "The edge-firewall API version.",
+    "more": "Stamps the audit build so the tiers and recommendations tie to a known version of the firewall contract."
+  },
+  {
+    "sel": "#state-body",
+    "title": "Local + upstream state",
+    "msg": "The current state of the host and edge firewall stacks.",
+    "more": "The detail behind the tier numbers — which layers (nftables, fail2ban, crowdsec, suricata) are up locally and what the upstream edge provides. The raw posture the ladder grades."
+  },
+  {
+    "sel": "#ladder-body",
+    "title": "Enforcement ladder (§1g 4-class)",
+    "msg": "The 4-class enforcement-candidate ladder — each rung a stronger firewall posture.",
+    "more": "The §1g 4-class model of firewall strength: each rung adds a defence layer. This shows which rungs are met and which are candidates — the gap between current and hardened posture."
+  },
+  {
+    "sel": "#recs-tbody",
+    "title": "Recommendations",
+    "msg": "What to add for the current state — id, label, perf cost, rationale.",
+    "more": "Recommendations, not auto-actions: each names a layer to install, its performance cost, and why it helps. Installing is a deliberate CLI step; this tells you what's worth it and what it costs."
+  },
+  {
+    "sel": "#plan-select",
+    "title": "Plan candidate",
+    "msg": "Pick a candidate to preview its install plan.",
+    "more": "Selects which recommendation to render a read-only install plan for — so you see exactly what adding that layer would do before touching the host firewall."
+  },
+  {
+    "sel": "#plan-btn",
+    "title": "Render plan",
+    "msg": "Render the read-only install plan for the selected candidate.",
+    "more": "Plan-first discipline: preview the exact steps without running them. The one thing you don't want to misconfigure remotely is the firewall — this shows the change before you commit."
+  },
+  {
+    "sel": "#plan-body",
+    "title": "Install plan",
+    "msg": "The rendered read-only install plan.",
+    "more": "The concrete steps the selected candidate's install would perform — reviewable before you run the signed CLI. Read-only; the panel plans, the operator executes."
+  },
+  {
+    "sel": "#refresh-btn",
+    "title": "Refresh now",
+    "msg": "Re-audit the firewall posture.",
+    "more": "Re-reads local and upstream state to refresh the tiers and recommendations. Read-only — it audits, it changes nothing."
+  },
+  {
+    "sel": "#last-refresh",
+    "title": "Last refresh",
+    "msg": "When the posture was last audited (auto every 30s).",
+    "more": "Freshness of the tier numbers — a stale audit can lag a firewall layer you just installed or that just failed."
+  },
+  {
+    "sel": "#control-surface",
+    "title": "Controls — profiles, modes & toggles",
+    "msg": "The per-panel control rail for firewall posture.",
+    "more": "Every control copies its exact sovereign-osctl verb (§1g / R10212) — apply and wizard stay CLI-only per the §17 sovereignty boundary; the web previews, it never mutates the firewall."
+  }
+];
 </script>
 </body>
 </html>

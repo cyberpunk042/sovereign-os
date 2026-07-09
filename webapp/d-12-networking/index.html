@@ -709,101 +709,7 @@ a11y; contract test catches drift.
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
-<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
-<script>
-window.SO_ASSIST = [
-  {
-    "sel": "#datasource-banner",
-    "title": "Live vs snapshot",
-    "msg": "Green = /api/d-12/snapshot is answering live; muted = the baked snapshot.",
-    "more": "This is a READ-ONLY selfdef-rules-mirror consumer (R10113). Muted means the mirror isn't publishing — the rules are still enforced on the IPS side, you just can't see them live here."
-  },
-  {
-    "sel": "#ds-label",
-    "title": "Data-source state",
-    "msg": "Which source the page reads — live rules mirror or snapshot.",
-    "more": "live / snapshot / unknown for the nftables mirror. sovereign-os never runs nft or edits rules — this is observability of what selfdef enforces."
-  },
-  {
-    "sel": "#ds-detail",
-    "title": "Reachability detail",
-    "msg": "The reason behind the state — fetching, reachable, or absent.",
-    "more": "Turns 'snapshot' into a diagnosis of whether the rules mirror is publishing, slow, or down."
-  },
-  {
-    "sel": "#ds-last",
-    "title": "Fetch freshness",
-    "msg": "When the mirrored ruleset was last pulled.",
-    "more": "Freshness of the rules view — a stale timestamp means the enforced rules may have changed selfdef-side without this reflecting it yet."
-  },
-  {
-    "sel": "#ring-traffic",
-    "title": "Per-ring traffic",
-    "msg": "Rule distribution and traffic across the MS039 Ring 0..4 perimeter.",
-    "more": "The rings are concentric trust zones. Watching allow/deny/log per ring tells you where traffic is actually being stopped — and whether a rule is doing anything or just sitting there."
-  },
-  {
-    "sel": "#s-rules",
-    "title": "nftables rules",
-    "msg": "Total rules across the Ring 0-4 chains.",
-    "more": "The size of the enforced ruleset, mirrored from selfdef (MS039). This is the firewall the IPS runs; sovereign-os reflects it read-only."
-  },
-  {
-    "sel": "#s-packets",
-    "title": "Packets matched",
-    "msg": "Total packets matched across all rings.",
-    "more": "The activity level of the ruleset — how much traffic the rules are actually touching. Rings with zero matches have rules that aren't firing."
-  },
-  {
-    "sel": "#s-bytes",
-    "title": "Bytes matched",
-    "msg": "Total bytes matched across all rings.",
-    "more": "The volume companion to packet count — a few large flows vs many small ones read differently. Together they show what the perimeter is processing."
-  },
-  {
-    "sel": "#s-pending",
-    "title": "Pending L3",
-    "msg": "Rules awaiting L3 programming.",
-    "more": "Rules declared but not yet programmed into the L3 dataplane — the gap between intended and enforced. Non-zero means some rules aren't live yet on the IPS side."
-  },
-  {
-    "sel": "#s-rings",
-    "title": "Rings",
-    "msg": "How many MS039 trust rings are represented.",
-    "more": "The count of active trust zones in the ruleset — the perimeter's structure. Each ring is a concentric trust boundary the rules enforce."
-  },
-  {
-    "sel": "#s-mirror",
-    "title": "Mirror status",
-    "msg": "Whether the selfdef-rules-mirror is publishing.",
-    "more": "Online means the rules view is live; offline means the rules are still enforced on the IPS but not visible here until the publisher returns (MS007 typed-mirror crate #1 of 9)."
-  },
-  {
-    "sel": "#ring-filters",
-    "title": "Ring filters",
-    "msg": "Filter the ruleset by trust ring (0..4).",
-    "more": "Narrows the rules table to one ring — the way to audit, say, only Ring 4 (outermost/exposure) rules without the rest."
-  },
-  {
-    "sel": "#rules-tbody",
-    "title": "nftables ruleset",
-    "msg": "The mirrored rules — packets, bytes, actions per rule (selfdef-rules-mirror).",
-    "more": "The read-only rules view: each rule with its match counters. sovereign-os never edits these (R10113/R10212) — rules are added/removed via selfdefctl + operator MS003; this is the window, not the switch."
-  },
-  {
-    "sel": "#toast",
-    "title": "Copy confirmation",
-    "msg": "Confirms a CLI verb was copied — web is a read-only mirror consumer.",
-    "more": "Any action copies its signed selfdefctl verb for operator MS003 execution (R10113). This toast confirms the command is on your clipboard; no rule was added or removed here."
-  },
-  {
-    "sel": "#control-surface",
-    "title": "Controls — profiles, modes & toggles",
-    "msg": "The per-panel control rail for the networking mirror.",
-    "more": "Every control copies its exact selfdefctl verb (§1g / R10212) — nftables rules are owned and mutated by selfdef, never from this web view."
-  }
-];
-</script>
+
 
 <h1>D-12 — networking <span class="badge-mirror" style="font-size:.7rem">read-only via selfdef-rules-mirror</span></h1>
 <div class="sub">Ring 0..4 traffic visualization · MS038 network boundary · MS024 nftables ruleset · eBPF telemetry — <a href="../master-dashboard/">D-00 main</a></div>
@@ -1450,5 +1356,101 @@ window.SO_ASSIST = [
 </script>
 <script>SovereignControlSurface.load(document.getElementById('control-surface'),{filterSlug:'d-12-networking'});</script>
 
+
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#datasource-banner",
+    "title": "Live vs snapshot",
+    "msg": "Green = /api/d-12/snapshot is answering live; muted = the baked snapshot.",
+    "more": "This is a READ-ONLY selfdef-rules-mirror consumer (R10113). Muted means the mirror isn't publishing — the rules are still enforced on the IPS side, you just can't see them live here."
+  },
+  {
+    "sel": "#ds-label",
+    "title": "Data-source state",
+    "msg": "Which source the page reads — live rules mirror or snapshot.",
+    "more": "live / snapshot / unknown for the nftables mirror. sovereign-os never runs nft or edits rules — this is observability of what selfdef enforces."
+  },
+  {
+    "sel": "#ds-detail",
+    "title": "Reachability detail",
+    "msg": "The reason behind the state — fetching, reachable, or absent.",
+    "more": "Turns 'snapshot' into a diagnosis of whether the rules mirror is publishing, slow, or down."
+  },
+  {
+    "sel": "#ds-last",
+    "title": "Fetch freshness",
+    "msg": "When the mirrored ruleset was last pulled.",
+    "more": "Freshness of the rules view — a stale timestamp means the enforced rules may have changed selfdef-side without this reflecting it yet."
+  },
+  {
+    "sel": "#ring-traffic",
+    "title": "Per-ring traffic",
+    "msg": "Rule distribution and traffic across the MS039 Ring 0..4 perimeter.",
+    "more": "The rings are concentric trust zones. Watching allow/deny/log per ring tells you where traffic is actually being stopped — and whether a rule is doing anything or just sitting there."
+  },
+  {
+    "sel": "#s-rules",
+    "title": "nftables rules",
+    "msg": "Total rules across the Ring 0-4 chains.",
+    "more": "The size of the enforced ruleset, mirrored from selfdef (MS039). This is the firewall the IPS runs; sovereign-os reflects it read-only."
+  },
+  {
+    "sel": "#s-packets",
+    "title": "Packets matched",
+    "msg": "Total packets matched across all rings.",
+    "more": "The activity level of the ruleset — how much traffic the rules are actually touching. Rings with zero matches have rules that aren't firing."
+  },
+  {
+    "sel": "#s-bytes",
+    "title": "Bytes matched",
+    "msg": "Total bytes matched across all rings.",
+    "more": "The volume companion to packet count — a few large flows vs many small ones read differently. Together they show what the perimeter is processing."
+  },
+  {
+    "sel": "#s-pending",
+    "title": "Pending L3",
+    "msg": "Rules awaiting L3 programming.",
+    "more": "Rules declared but not yet programmed into the L3 dataplane — the gap between intended and enforced. Non-zero means some rules aren't live yet on the IPS side."
+  },
+  {
+    "sel": "#s-rings",
+    "title": "Rings",
+    "msg": "How many MS039 trust rings are represented.",
+    "more": "The count of active trust zones in the ruleset — the perimeter's structure. Each ring is a concentric trust boundary the rules enforce."
+  },
+  {
+    "sel": "#s-mirror",
+    "title": "Mirror status",
+    "msg": "Whether the selfdef-rules-mirror is publishing.",
+    "more": "Online means the rules view is live; offline means the rules are still enforced on the IPS but not visible here until the publisher returns (MS007 typed-mirror crate #1 of 9)."
+  },
+  {
+    "sel": "#ring-filters",
+    "title": "Ring filters",
+    "msg": "Filter the ruleset by trust ring (0..4).",
+    "more": "Narrows the rules table to one ring — the way to audit, say, only Ring 4 (outermost/exposure) rules without the rest."
+  },
+  {
+    "sel": "#rules-tbody",
+    "title": "nftables ruleset",
+    "msg": "The mirrored rules — packets, bytes, actions per rule (selfdef-rules-mirror).",
+    "more": "The read-only rules view: each rule with its match counters. sovereign-os never edits these (R10113/R10212) — rules are added/removed via selfdefctl + operator MS003; this is the window, not the switch."
+  },
+  {
+    "sel": "#toast",
+    "title": "Copy confirmation",
+    "msg": "Confirms a CLI verb was copied — web is a read-only mirror consumer.",
+    "more": "Any action copies its signed selfdefctl verb for operator MS003 execution (R10113). This toast confirms the command is on your clipboard; no rule was added or removed here."
+  },
+  {
+    "sel": "#control-surface",
+    "title": "Controls — profiles, modes & toggles",
+    "msg": "The per-panel control rail for the networking mirror.",
+    "more": "Every control copies its exact selfdefctl verb (§1g / R10212) — nftables rules are owned and mutated by selfdef, never from this web view."
+  }
+];
+</script>
 </body>
 </html>

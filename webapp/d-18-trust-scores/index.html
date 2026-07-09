@@ -712,119 +712,7 @@ a11y; contract test catches drift.
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
-<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
-<script>
-window.SO_ASSIST = [
-  {
-    "sel": "#mirror-status-banner",
-    "title": "Mirror status",
-    "msg": "Whether the selfdef trust-scores mirror is publishing (online) or absent (offline).",
-    "more": "This panel is a READ-ONLY reflection of selfdef's trust-scores (MS007 typed-mirror crate #7 of 9). Offline means the mirror isn't publishing — selfdef is still enforcing trust-scores on the IPS side, you just can't see it here until the bridge returns."
-  },
-  {
-    "sel": "#mirror-state-label",
-    "title": "Mirror state",
-    "msg": "The one-word verdict — online / offline.",
-    "more": "The quick read on whether this trust-scores view is live. sovereign-os never mutates it — score adjust/decay (R10212) happens selfdef-side via signed CLI, so this is purely an observability signal."
-  },
-  {
-    "sel": "#mirror-state-detail",
-    "title": "Mirror detail",
-    "msg": "The reason behind the mirror state.",
-    "more": "Explains an offline mirror — the producer is down or unreachable, distinct from the underlying data having a problem. Turns 'offline' into something actionable."
-  },
-  {
-    "sel": "#mirror-last-update",
-    "title": "Mirror last update",
-    "msg": "When the producer's snapshot was captured (ISO captured_at).",
-    "more": "Freshness of the reflected data. A stale timestamp means selfdef hasn't published a new trust-scores snapshot recently — the values are last-known, not live; score adjust/decay (R10212) via selfdefctl updates the source."
-  },
-  {
-    "sel": "#mirror-schema-version",
-    "title": "Mirror schema version",
-    "msg": "The schema version of the mirrored snapshot.",
-    "more": "Stamps the contract shape so the fields are interpreted against a known version — the thing to cite if the mirror's shape ever disagrees with the panel."
-  },
-  {
-    "sel": "#b-trusted",
-    "title": "Trusted (≥ 800)",
-    "msg": "Tools scoring ≥ 800 — Tier A/B, auto-approve eligible.",
-    "more": "The top trust band. A tool here has earned auto-approval eligibility through consistent, declaration-matching behaviour — the system extends it the most autonomy. The mean beside it shows how deep in the band they sit."
-  },
-  {
-    "sel": "#b-watched",
-    "title": "Watched (500–799)",
-    "msg": "Tools scoring 500–799 — telemetry retained, profile-gated.",
-    "more": "The middle band: trusted enough to run but watched — full telemetry kept and profile gates applied. The 'prove it' band where behaviour is still being established."
-  },
-  {
-    "sel": "#b-suspect",
-    "title": "Suspect (200–499)",
-    "msg": "Tools scoring 200–499 — operator-ask, Tier C/D escalation.",
-    "more": "Low trust: actions escalate to operator-ask and run in higher sandbox tiers (C/D). A tool here has a history of mismatches or is unproven — the system won't act on its behalf unattended."
-  },
-  {
-    "sel": "#b-untrusted",
-    "title": "Untrusted (< 200)",
-    "msg": "Tools scoring below 200 — auto-quarantine, forfeit candidate.",
-    "more": "The bottom band. A tool here is auto-quarantined (D-17) and a candidate for forfeit — trust has collapsed through repeated violations. Effectively barred until it earns its way back up."
-  },
-  {
-    "sel": "#s-total",
-    "title": "Total tools",
-    "msg": "How many tools are being trust-tracked.",
-    "more": "The full population under trust evaluation — every tool the system scores. The denominator for the band breakdown above."
-  },
-  {
-    "sel": "#s-mean",
-    "title": "Mean score",
-    "msg": "Average trust score across all tools.",
-    "more": "The system's overall trust temperature. A falling mean means the tool population is drifting toward suspicion — a fleet-level signal distinct from any single tool."
-  },
-  {
-    "sel": "#s-down",
-    "title": "Trending down",
-    "msg": "Tools whose last 5 deltas net negative.",
-    "more": "The early-warning list — tools losing trust over their recent evaluations, before they've dropped a band. Catching a downward trend here is cheaper than reacting after auto-quarantine."
-  },
-  {
-    "sel": "#s-exec",
-    "title": "Executions (24h)",
-    "msg": "Successful tool executions in the last 24h.",
-    "more": "The activity that feeds scoring — successful, declaration-matching runs raise trust. Volume context for the score deltas."
-  },
-  {
-    "sel": "#s-miss",
-    "title": "Mismatches (24h)",
-    "msg": "Declaration-drift mismatches in the last 24h.",
-    "more": "The trust-eroding events — actions that didn't match the tool's declaration (MS042). Each mismatch pushes score down; a spike here explains a band drop and feeds quarantine (D-17)."
-  },
-  {
-    "sel": "#band-filters",
-    "title": "Band filters",
-    "msg": "Filter per-tool scores by trust band.",
-    "more": "Narrows the tool table to one band — e.g. only suspect/untrusted, to focus on the tools the system is worried about."
-  },
-  {
-    "sel": "#tool-tbody",
-    "title": "Per-tool scores",
-    "msg": "Each tool with its score, match/reliability, and actions.",
-    "more": "The trust ledger — per tool, its score and behaviour history. Score adjust/decay is applied selfdef-side via signed CLI; the web only reflects (R10212). This is the evidence behind each band placement."
-  },
-  {
-    "sel": "#toast",
-    "title": "Copy confirmation",
-    "msg": "Confirms a CLI verb was copied — web is a read-only mirror consumer.",
-    "more": "Any action copies its signed selfdefctl verb for operator MS003 execution. This toast confirms the command is on your clipboard; no score was adjusted here (R10212)."
-  },
-  {
-    "sel": "#control-surface",
-    "title": "Controls — profiles, modes & toggles",
-    "msg": "The per-panel control rail for the trust-scores mirror.",
-    "more": "Every control copies its exact selfdefctl verb (§1g / R10212) — scores are adjusted/decayed on the IPS side, never from this web view."
-  }
-];
-</script>
+
 
 <h1>D-18 — trust scores <span class="badge-mirror" style="font-size:.7rem">read-only via selfdef-trust-score-mirror</span></h1>
 <div class="sub">per-tool trust score history · 0..1000 fixed-point · 4-band classification · MS042 telemetry input · MS040 profile evaluation — <a href="../master-dashboard/">D-00 main</a></div>
@@ -1503,5 +1391,119 @@ window.SO_ASSIST = [
 </script>
 <script>SovereignControlSurface.load(document.getElementById('control-surface'),{filterSlug:'d-18-trust-scores'});</script>
 
+
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#mirror-status-banner",
+    "title": "Mirror status",
+    "msg": "Whether the selfdef trust-scores mirror is publishing (online) or absent (offline).",
+    "more": "This panel is a READ-ONLY reflection of selfdef's trust-scores (MS007 typed-mirror crate #7 of 9). Offline means the mirror isn't publishing — selfdef is still enforcing trust-scores on the IPS side, you just can't see it here until the bridge returns."
+  },
+  {
+    "sel": "#mirror-state-label",
+    "title": "Mirror state",
+    "msg": "The one-word verdict — online / offline.",
+    "more": "The quick read on whether this trust-scores view is live. sovereign-os never mutates it — score adjust/decay (R10212) happens selfdef-side via signed CLI, so this is purely an observability signal."
+  },
+  {
+    "sel": "#mirror-state-detail",
+    "title": "Mirror detail",
+    "msg": "The reason behind the mirror state.",
+    "more": "Explains an offline mirror — the producer is down or unreachable, distinct from the underlying data having a problem. Turns 'offline' into something actionable."
+  },
+  {
+    "sel": "#mirror-last-update",
+    "title": "Mirror last update",
+    "msg": "When the producer's snapshot was captured (ISO captured_at).",
+    "more": "Freshness of the reflected data. A stale timestamp means selfdef hasn't published a new trust-scores snapshot recently — the values are last-known, not live; score adjust/decay (R10212) via selfdefctl updates the source."
+  },
+  {
+    "sel": "#mirror-schema-version",
+    "title": "Mirror schema version",
+    "msg": "The schema version of the mirrored snapshot.",
+    "more": "Stamps the contract shape so the fields are interpreted against a known version — the thing to cite if the mirror's shape ever disagrees with the panel."
+  },
+  {
+    "sel": "#b-trusted",
+    "title": "Trusted (≥ 800)",
+    "msg": "Tools scoring ≥ 800 — Tier A/B, auto-approve eligible.",
+    "more": "The top trust band. A tool here has earned auto-approval eligibility through consistent, declaration-matching behaviour — the system extends it the most autonomy. The mean beside it shows how deep in the band they sit."
+  },
+  {
+    "sel": "#b-watched",
+    "title": "Watched (500–799)",
+    "msg": "Tools scoring 500–799 — telemetry retained, profile-gated.",
+    "more": "The middle band: trusted enough to run but watched — full telemetry kept and profile gates applied. The 'prove it' band where behaviour is still being established."
+  },
+  {
+    "sel": "#b-suspect",
+    "title": "Suspect (200–499)",
+    "msg": "Tools scoring 200–499 — operator-ask, Tier C/D escalation.",
+    "more": "Low trust: actions escalate to operator-ask and run in higher sandbox tiers (C/D). A tool here has a history of mismatches or is unproven — the system won't act on its behalf unattended."
+  },
+  {
+    "sel": "#b-untrusted",
+    "title": "Untrusted (< 200)",
+    "msg": "Tools scoring below 200 — auto-quarantine, forfeit candidate.",
+    "more": "The bottom band. A tool here is auto-quarantined (D-17) and a candidate for forfeit — trust has collapsed through repeated violations. Effectively barred until it earns its way back up."
+  },
+  {
+    "sel": "#s-total",
+    "title": "Total tools",
+    "msg": "How many tools are being trust-tracked.",
+    "more": "The full population under trust evaluation — every tool the system scores. The denominator for the band breakdown above."
+  },
+  {
+    "sel": "#s-mean",
+    "title": "Mean score",
+    "msg": "Average trust score across all tools.",
+    "more": "The system's overall trust temperature. A falling mean means the tool population is drifting toward suspicion — a fleet-level signal distinct from any single tool."
+  },
+  {
+    "sel": "#s-down",
+    "title": "Trending down",
+    "msg": "Tools whose last 5 deltas net negative.",
+    "more": "The early-warning list — tools losing trust over their recent evaluations, before they've dropped a band. Catching a downward trend here is cheaper than reacting after auto-quarantine."
+  },
+  {
+    "sel": "#s-exec",
+    "title": "Executions (24h)",
+    "msg": "Successful tool executions in the last 24h.",
+    "more": "The activity that feeds scoring — successful, declaration-matching runs raise trust. Volume context for the score deltas."
+  },
+  {
+    "sel": "#s-miss",
+    "title": "Mismatches (24h)",
+    "msg": "Declaration-drift mismatches in the last 24h.",
+    "more": "The trust-eroding events — actions that didn't match the tool's declaration (MS042). Each mismatch pushes score down; a spike here explains a band drop and feeds quarantine (D-17)."
+  },
+  {
+    "sel": "#band-filters",
+    "title": "Band filters",
+    "msg": "Filter per-tool scores by trust band.",
+    "more": "Narrows the tool table to one band — e.g. only suspect/untrusted, to focus on the tools the system is worried about."
+  },
+  {
+    "sel": "#tool-tbody",
+    "title": "Per-tool scores",
+    "msg": "Each tool with its score, match/reliability, and actions.",
+    "more": "The trust ledger — per tool, its score and behaviour history. Score adjust/decay is applied selfdef-side via signed CLI; the web only reflects (R10212). This is the evidence behind each band placement."
+  },
+  {
+    "sel": "#toast",
+    "title": "Copy confirmation",
+    "msg": "Confirms a CLI verb was copied — web is a read-only mirror consumer.",
+    "more": "Any action copies its signed selfdefctl verb for operator MS003 execution. This toast confirms the command is on your clipboard; no score was adjusted here (R10212)."
+  },
+  {
+    "sel": "#control-surface",
+    "title": "Controls — profiles, modes & toggles",
+    "msg": "The per-panel control rail for the trust-scores mirror.",
+    "more": "Every control copies its exact selfdefctl verb (§1g / R10212) — scores are adjusted/decayed on the IPS side, never from this web view."
+  }
+];
+</script>
 </body>
 </html>

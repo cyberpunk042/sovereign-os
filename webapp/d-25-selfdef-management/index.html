@@ -346,71 +346,7 @@
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
-<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
-<script>
-window.SO_ASSIST = [
-  {
-    "sel": "#data-source-banner",
-    "title": "Live vs snapshot",
-    "msg": "Whether the selfdef view is live (/api/selfdef) or a snapshot (R10212).",
-    "more": "D-25 is a READ-ONLY consumer of the selfdef IPS — on/off state + M060 mirror-chain health. Muted means the daemon is unreachable; selfdef is still enforcing, you just can't see its state live here."
-  },
-  {
-    "sel": "#sd-enablement",
-    "title": "IPS enablement",
-    "msg": "selfdef on/off — the intrusion-prevention system's live enablement.",
-    "more": "selfdef is the whole self-defence layer (the 6 mirror panels D-13..D-18 + perimeter). This is the master read; on/off is toggled via a signed CLI verb, never directly from the web."
-  },
-  {
-    "sel": "#sd-detail",
-    "title": "Enablement detail",
-    "msg": "Detail behind the on/off state.",
-    "more": "The specifics of selfdef's current state — which components are engaged. Context for the master enablement read."
-  },
-  {
-    "sel": "#sd-oncli",
-    "title": "On/off via CLI",
-    "msg": "The signed CLI verb that toggles selfdef.",
-    "more": "Because the web is read-only (R10212), enabling/disabling the IPS is a signed operator action — this shows the exact command. The panel reflects state; the CLI changes it."
-  },
-  {
-    "sel": "#m060-state",
-    "title": "M060 chain state",
-    "msg": "Health of the M060 mirror-chain that feeds the security panels.",
-    "more": "M060 is the mirror-producer chain publishing selfdef's typed views to sovereign-os. If the chain is unhealthy, D-13..D-18 go stale even though selfdef itself is still enforcing — this is the single 'is the bridge up' signal."
-  },
-  {
-    "sel": "#m060-fresh",
-    "title": "Chain freshness",
-    "msg": "Whether the mirror chain's data is current.",
-    "more": "A healthy chain with stale data means the mirrors published once then went quiet — the security views are present but no longer live. Freshness matters as much as up/down."
-  },
-  {
-    "sel": "#m060-age",
-    "title": "Newest artifact age",
-    "msg": "Age of the newest mirror artifact.",
-    "more": "How recently the chain published — the concrete freshness number. A growing age is the early sign a mirror producer has stopped emitting."
-  },
-  {
-    "sel": "#mirror-panels",
-    "title": "Per-domain security panels",
-    "msg": "Links into the 6 domain mirror consumers (D-13..D-18).",
-    "more": "Each per-domain panel consumes one selfdef mirror read-only. This is the navigation hub — open a domain (grants, tokens, sandboxes, audit, quarantine, trust) for its detail. D-25 is the one place to see the whole IPS at once."
-  },
-  {
-    "sel": "#last-fetch",
-    "title": "Last fetch",
-    "msg": "When the selfdef state was last read.",
-    "more": "Freshness of the on/off and chain-health view — check before trusting the current state, especially after a CLI toggle."
-  },
-  {
-    "sel": "#control-surface",
-    "title": "Controls — self-defense",
-    "msg": "The per-panel control rail for selfdef management.",
-    "more": "Every control copies its exact sovereign-osctl / selfdefctl verb (§1g / R10212) — selfdef on/off and mirror operations are signed CLI actions, never mutated from the web."
-  }
-];
-</script>
+
 <header>
   <h1>D-25 · Self-Defense Management
     <span class="sub">READ-ONLY consumer view of the selfdef IPS · on/off + M060 mirror-chain health (R10212)</span></h1>
@@ -905,6 +841,72 @@ window.SO_ASSIST = [
   var el = document.getElementById("control-surface");
   if (el && window.SovereignControlSurface) { SovereignControlSurface.load(el, {filterSlug:'selfdef-management'}); }
 })();
+</script>
+
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#data-source-banner",
+    "title": "Live vs snapshot",
+    "msg": "Whether the selfdef view is live (/api/selfdef) or a snapshot (R10212).",
+    "more": "D-25 is a READ-ONLY consumer of the selfdef IPS — on/off state + M060 mirror-chain health. Muted means the daemon is unreachable; selfdef is still enforcing, you just can't see its state live here."
+  },
+  {
+    "sel": "#sd-enablement",
+    "title": "IPS enablement",
+    "msg": "selfdef on/off — the intrusion-prevention system's live enablement.",
+    "more": "selfdef is the whole self-defence layer (the 6 mirror panels D-13..D-18 + perimeter). This is the master read; on/off is toggled via a signed CLI verb, never directly from the web."
+  },
+  {
+    "sel": "#sd-detail",
+    "title": "Enablement detail",
+    "msg": "Detail behind the on/off state.",
+    "more": "The specifics of selfdef's current state — which components are engaged. Context for the master enablement read."
+  },
+  {
+    "sel": "#sd-oncli",
+    "title": "On/off via CLI",
+    "msg": "The signed CLI verb that toggles selfdef.",
+    "more": "Because the web is read-only (R10212), enabling/disabling the IPS is a signed operator action — this shows the exact command. The panel reflects state; the CLI changes it."
+  },
+  {
+    "sel": "#m060-state",
+    "title": "M060 chain state",
+    "msg": "Health of the M060 mirror-chain that feeds the security panels.",
+    "more": "M060 is the mirror-producer chain publishing selfdef's typed views to sovereign-os. If the chain is unhealthy, D-13..D-18 go stale even though selfdef itself is still enforcing — this is the single 'is the bridge up' signal."
+  },
+  {
+    "sel": "#m060-fresh",
+    "title": "Chain freshness",
+    "msg": "Whether the mirror chain's data is current.",
+    "more": "A healthy chain with stale data means the mirrors published once then went quiet — the security views are present but no longer live. Freshness matters as much as up/down."
+  },
+  {
+    "sel": "#m060-age",
+    "title": "Newest artifact age",
+    "msg": "Age of the newest mirror artifact.",
+    "more": "How recently the chain published — the concrete freshness number. A growing age is the early sign a mirror producer has stopped emitting."
+  },
+  {
+    "sel": "#mirror-panels",
+    "title": "Per-domain security panels",
+    "msg": "Links into the 6 domain mirror consumers (D-13..D-18).",
+    "more": "Each per-domain panel consumes one selfdef mirror read-only. This is the navigation hub — open a domain (grants, tokens, sandboxes, audit, quarantine, trust) for its detail. D-25 is the one place to see the whole IPS at once."
+  },
+  {
+    "sel": "#last-fetch",
+    "title": "Last fetch",
+    "msg": "When the selfdef state was last read.",
+    "more": "Freshness of the on/off and chain-health view — check before trusting the current state, especially after a CLI toggle."
+  },
+  {
+    "sel": "#control-surface",
+    "title": "Controls — self-defense",
+    "msg": "The per-panel control rail for selfdef management.",
+    "more": "Every control copies its exact sovereign-osctl / selfdefctl verb (§1g / R10212) — selfdef on/off and mirror operations are signed CLI actions, never mutated from the web."
+  }
+];
 </script>
 </body>
 </html>

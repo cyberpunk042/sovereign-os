@@ -713,143 +713,7 @@ a11y; contract test catches drift.
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
-<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
-<script>
-window.SO_ASSIST = [
-  {
-    "sel": "#mirror-status-banner",
-    "title": "Mirror status",
-    "msg": "Whether the selfdef capability-tokens mirror is publishing (online) or absent (offline).",
-    "more": "This panel is a READ-ONLY reflection of selfdef's capability-tokens (MS007 typed-mirror crate #3 of 9). Offline means the mirror isn't publishing — selfdef is still enforcing capability-tokens on the IPS side, you just can't see it here until the bridge returns."
-  },
-  {
-    "sel": "#mirror-state-label",
-    "title": "Mirror state",
-    "msg": "The one-word verdict — online / offline.",
-    "more": "The quick read on whether this capability-tokens view is live. sovereign-os never mutates it — mint/revoke (R10117) happens selfdef-side via signed CLI, so this is purely an observability signal."
-  },
-  {
-    "sel": "#mirror-state-detail",
-    "title": "Mirror detail",
-    "msg": "The reason behind the mirror state.",
-    "more": "Explains an offline mirror — the producer is down or unreachable, distinct from the underlying data having a problem. Turns 'offline' into something actionable."
-  },
-  {
-    "sel": "#mirror-last-update",
-    "title": "Mirror last update",
-    "msg": "When the producer's snapshot was captured (ISO captured_at).",
-    "more": "Freshness of the reflected data. A stale timestamp means selfdef hasn't published a new capability-tokens snapshot recently — the values are last-known, not live; mint/revoke (R10117) via selfdefctl updates the source."
-  },
-  {
-    "sel": "#mirror-schema-version",
-    "title": "Mirror schema version",
-    "msg": "The schema version of the mirrored snapshot.",
-    "more": "Stamps the contract shape so the fields are interpreted against a known version — the thing to cite if the mirror's shape ever disagrees with the panel."
-  },
-  {
-    "sel": "#r0-active",
-    "title": "Ring 0 — kernel-equiv",
-    "msg": "Active tokens at Ring 0 (kernel-equivalent, the selfdef daemon).",
-    "more": "The innermost trust ring (MS039 R09430) — kernel-equivalent authority held by the selfdef daemon itself. Tokens here are the most powerful; the count should be tiny and every one accounted for."
-  },
-  {
-    "sel": "#r1-active",
-    "title": "Ring 1 — Guardian+audit",
-    "msg": "Active tokens at Ring 1 (Guardian + audit, signed bins).",
-    "more": "The enforcement/observability ring — Guardian and the audit chain, running signed binaries. High trust, one step out from kernel-equivalent."
-  },
-  {
-    "sel": "#r2-active",
-    "title": "Ring 2 — operator-signed CLI",
-    "msg": "Active tokens at Ring 2 (operator-signed CLI).",
-    "more": "The operator's authority ring — signed CLI actions. This is where MS003-signed operator commands act; tokens here represent human-authorised power."
-  },
-  {
-    "sel": "#r3-active",
-    "title": "Ring 3 — sandboxed agent",
-    "msg": "Active tokens at Ring 3 (sandboxed agent).",
-    "more": "The confined-execution ring — agents running in sandboxes (D-15). Meaningful but bounded authority; the ring most tokens legitimately live in during normal work."
-  },
-  {
-    "sel": "#r4-active",
-    "title": "Ring 4 — untrusted/quarantine",
-    "msg": "Active tokens at Ring 4 (untrusted / quarantined).",
-    "more": "The outermost ring — untrusted or quarantined subjects with minimal authority. Tokens here are the ones under the most suspicion; pairs with D-17 quarantine."
-  },
-  {
-    "sel": "#s-active",
-    "title": "Active tokens",
-    "msg": "Total active capability tokens across all rings.",
-    "more": "The full count of live authority in the system. Each token is a bundle of capabilities (decoded below); this is how much delegated power is currently outstanding."
-  },
-  {
-    "sel": "#s-pending",
-    "title": "Pending",
-    "msg": "Tokens awaiting MS003 signature.",
-    "more": "Tokens requested but not yet signed into force — the authority queue. They confer nothing until an operator signs; this is what's waiting on that."
-  },
-  {
-    "sel": "#s-quarantined",
-    "title": "Quarantined",
-    "msg": "Tokens quarantined on MS042 mismatch.",
-    "more": "Tokens pulled because their behaviour didn't match their declaration (MS042). A quarantined token is suspected authority — see D-17 for the mismatch detail."
-  },
-  {
-    "sel": "#s-attention",
-    "title": "Attention",
-    "msg": "Pending + quarantined tokens needing a look.",
-    "more": "The roll-up of tokens not cleanly active — the single number saying there's a token decision or investigation waiting."
-  },
-  {
-    "sel": "#s-roots",
-    "title": "Root tokens",
-    "msg": "Tokens with no parent (roots of the inheritance graph).",
-    "more": "Root tokens aren't derived from another — they're issued directly, not inherited. They anchor the inheritance graph below; a root token is authority created, not delegated, so each deserves scrutiny."
-  },
-  {
-    "sel": "#ring-filters",
-    "title": "Ring filters",
-    "msg": "Filter active tokens by ring (0..4).",
-    "more": "Narrows the token table to one trust ring — the way to audit, say, only Ring 0 tokens where the highest authority lives."
-  },
-  {
-    "sel": "#tokens-tbody",
-    "title": "Active tokens",
-    "msg": "Each token with its state, parent, and actions.",
-    "more": "The token ledger — state and parentage per token. Parent links to the inheritance graph; actions copy signed selfdefctl verbs (read-only web, R10117). Click a token to decode its capability bits."
-  },
-  {
-    "sel": "#bit-target",
-    "title": "Selected token",
-    "msg": "The token currently loaded into the bit decoder.",
-    "more": "Names which token's capability_word is being inspected below — the anchor for the bit grid. Click any token to load it here."
-  },
-  {
-    "sel": "#bit-grid",
-    "title": "capability_word bit decoder",
-    "msg": "Per-bit decode of the selected token's capability word.",
-    "more": "A capability token is a bitfield — each bit is one specific power. This grid decodes exactly which capabilities the token grants, so 'what can this token do' is answered bit-by-bit rather than guessed."
-  },
-  {
-    "sel": "#inheritance-graph",
-    "title": "Inheritance graph",
-    "msg": "The parent-child token derivation graph (F04146).",
-    "more": "Tokens derive from tokens — a child can never exceed its parent's authority. This graph shows the delegation tree, so you can trace any token back to the root authority it flows from."
-  },
-  {
-    "sel": "#toast",
-    "title": "Copy confirmation",
-    "msg": "Confirms a CLI verb was copied — web is a read-only mirror consumer.",
-    "more": "Any action copies its signed selfdefctl verb for operator MS003 execution (R10117). This toast confirms the command is on your clipboard; no token was minted or revoked here."
-  },
-  {
-    "sel": "#control-surface",
-    "title": "Controls — profiles, modes & toggles",
-    "msg": "The per-panel control rail for the tokens mirror.",
-    "more": "Every control copies its exact selfdefctl verb (§1g / R10212) — tokens are minted/revoked on the IPS side, never from this web view."
-  }
-];
-</script>
+
 
 <h1>D-14 — capability tokens <span class="badge-mirror" style="font-size:.7rem">read-only via selfdef-capability-mirror</span></h1>
 <div class="sub">64-bit capability_word · MS039 Ring 0..4 trust topology · L0..L6 authority levels · F04146 parent-child inheritance — <a href="../master-dashboard/">D-00 main</a></div>
@@ -1546,5 +1410,143 @@ window.SO_ASSIST = [
 </script>
 <script>SovereignControlSurface.load(document.getElementById('control-surface'),{filterSlug:'d-14-capability-tokens'});</script>
 
+
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#mirror-status-banner",
+    "title": "Mirror status",
+    "msg": "Whether the selfdef capability-tokens mirror is publishing (online) or absent (offline).",
+    "more": "This panel is a READ-ONLY reflection of selfdef's capability-tokens (MS007 typed-mirror crate #3 of 9). Offline means the mirror isn't publishing — selfdef is still enforcing capability-tokens on the IPS side, you just can't see it here until the bridge returns."
+  },
+  {
+    "sel": "#mirror-state-label",
+    "title": "Mirror state",
+    "msg": "The one-word verdict — online / offline.",
+    "more": "The quick read on whether this capability-tokens view is live. sovereign-os never mutates it — mint/revoke (R10117) happens selfdef-side via signed CLI, so this is purely an observability signal."
+  },
+  {
+    "sel": "#mirror-state-detail",
+    "title": "Mirror detail",
+    "msg": "The reason behind the mirror state.",
+    "more": "Explains an offline mirror — the producer is down or unreachable, distinct from the underlying data having a problem. Turns 'offline' into something actionable."
+  },
+  {
+    "sel": "#mirror-last-update",
+    "title": "Mirror last update",
+    "msg": "When the producer's snapshot was captured (ISO captured_at).",
+    "more": "Freshness of the reflected data. A stale timestamp means selfdef hasn't published a new capability-tokens snapshot recently — the values are last-known, not live; mint/revoke (R10117) via selfdefctl updates the source."
+  },
+  {
+    "sel": "#mirror-schema-version",
+    "title": "Mirror schema version",
+    "msg": "The schema version of the mirrored snapshot.",
+    "more": "Stamps the contract shape so the fields are interpreted against a known version — the thing to cite if the mirror's shape ever disagrees with the panel."
+  },
+  {
+    "sel": "#r0-active",
+    "title": "Ring 0 — kernel-equiv",
+    "msg": "Active tokens at Ring 0 (kernel-equivalent, the selfdef daemon).",
+    "more": "The innermost trust ring (MS039 R09430) — kernel-equivalent authority held by the selfdef daemon itself. Tokens here are the most powerful; the count should be tiny and every one accounted for."
+  },
+  {
+    "sel": "#r1-active",
+    "title": "Ring 1 — Guardian+audit",
+    "msg": "Active tokens at Ring 1 (Guardian + audit, signed bins).",
+    "more": "The enforcement/observability ring — Guardian and the audit chain, running signed binaries. High trust, one step out from kernel-equivalent."
+  },
+  {
+    "sel": "#r2-active",
+    "title": "Ring 2 — operator-signed CLI",
+    "msg": "Active tokens at Ring 2 (operator-signed CLI).",
+    "more": "The operator's authority ring — signed CLI actions. This is where MS003-signed operator commands act; tokens here represent human-authorised power."
+  },
+  {
+    "sel": "#r3-active",
+    "title": "Ring 3 — sandboxed agent",
+    "msg": "Active tokens at Ring 3 (sandboxed agent).",
+    "more": "The confined-execution ring — agents running in sandboxes (D-15). Meaningful but bounded authority; the ring most tokens legitimately live in during normal work."
+  },
+  {
+    "sel": "#r4-active",
+    "title": "Ring 4 — untrusted/quarantine",
+    "msg": "Active tokens at Ring 4 (untrusted / quarantined).",
+    "more": "The outermost ring — untrusted or quarantined subjects with minimal authority. Tokens here are the ones under the most suspicion; pairs with D-17 quarantine."
+  },
+  {
+    "sel": "#s-active",
+    "title": "Active tokens",
+    "msg": "Total active capability tokens across all rings.",
+    "more": "The full count of live authority in the system. Each token is a bundle of capabilities (decoded below); this is how much delegated power is currently outstanding."
+  },
+  {
+    "sel": "#s-pending",
+    "title": "Pending",
+    "msg": "Tokens awaiting MS003 signature.",
+    "more": "Tokens requested but not yet signed into force — the authority queue. They confer nothing until an operator signs; this is what's waiting on that."
+  },
+  {
+    "sel": "#s-quarantined",
+    "title": "Quarantined",
+    "msg": "Tokens quarantined on MS042 mismatch.",
+    "more": "Tokens pulled because their behaviour didn't match their declaration (MS042). A quarantined token is suspected authority — see D-17 for the mismatch detail."
+  },
+  {
+    "sel": "#s-attention",
+    "title": "Attention",
+    "msg": "Pending + quarantined tokens needing a look.",
+    "more": "The roll-up of tokens not cleanly active — the single number saying there's a token decision or investigation waiting."
+  },
+  {
+    "sel": "#s-roots",
+    "title": "Root tokens",
+    "msg": "Tokens with no parent (roots of the inheritance graph).",
+    "more": "Root tokens aren't derived from another — they're issued directly, not inherited. They anchor the inheritance graph below; a root token is authority created, not delegated, so each deserves scrutiny."
+  },
+  {
+    "sel": "#ring-filters",
+    "title": "Ring filters",
+    "msg": "Filter active tokens by ring (0..4).",
+    "more": "Narrows the token table to one trust ring — the way to audit, say, only Ring 0 tokens where the highest authority lives."
+  },
+  {
+    "sel": "#tokens-tbody",
+    "title": "Active tokens",
+    "msg": "Each token with its state, parent, and actions.",
+    "more": "The token ledger — state and parentage per token. Parent links to the inheritance graph; actions copy signed selfdefctl verbs (read-only web, R10117). Click a token to decode its capability bits."
+  },
+  {
+    "sel": "#bit-target",
+    "title": "Selected token",
+    "msg": "The token currently loaded into the bit decoder.",
+    "more": "Names which token's capability_word is being inspected below — the anchor for the bit grid. Click any token to load it here."
+  },
+  {
+    "sel": "#bit-grid",
+    "title": "capability_word bit decoder",
+    "msg": "Per-bit decode of the selected token's capability word.",
+    "more": "A capability token is a bitfield — each bit is one specific power. This grid decodes exactly which capabilities the token grants, so 'what can this token do' is answered bit-by-bit rather than guessed."
+  },
+  {
+    "sel": "#inheritance-graph",
+    "title": "Inheritance graph",
+    "msg": "The parent-child token derivation graph (F04146).",
+    "more": "Tokens derive from tokens — a child can never exceed its parent's authority. This graph shows the delegation tree, so you can trace any token back to the root authority it flows from."
+  },
+  {
+    "sel": "#toast",
+    "title": "Copy confirmation",
+    "msg": "Confirms a CLI verb was copied — web is a read-only mirror consumer.",
+    "more": "Any action copies its signed selfdefctl verb for operator MS003 execution (R10117). This toast confirms the command is on your clipboard; no token was minted or revoked here."
+  },
+  {
+    "sel": "#control-surface",
+    "title": "Controls — profiles, modes & toggles",
+    "msg": "The per-panel control rail for the tokens mirror.",
+    "more": "Every control copies its exact selfdefctl verb (§1g / R10212) — tokens are minted/revoked on the IPS side, never from this web view."
+  }
+];
+</script>
 </body>
 </html>

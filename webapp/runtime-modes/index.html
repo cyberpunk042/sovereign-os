@@ -351,47 +351,7 @@
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
-<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
-<script>
-window.SO_ASSIST = [
-  {
-    "sel": "#active-mode-banner",
-    "title": "Active runtime mode",
-    "msg": "Which runtime mode is currently in effect (M076).",
-    "more": "A mode is a whole posture: pick one and it drives core pinning, GPU power, and model allocation together. The active mode explains a lot of D-09's numbers — an efficiency mode caps GPU power, a concurrency mode spreads cores."
-  },
-  {
-    "sel": "#active-mode-label",
-    "title": "Active mode label",
-    "msg": "The name of the mode currently active.",
-    "more": "The one-word read of the box's posture — ultra-sovereign-efficiency / high-concurrency / deep-context. When behaviour surprises you, check this first."
-  },
-  {
-    "sel": "#active-mode-marker-hint",
-    "title": "Mode marker hint",
-    "msg": "Whether the active-mode marker file is present.",
-    "more": "The mode is signalled by a marker file at runtime. 'no marker' means no mode is explicitly set — the box is on defaults. The hint explains where that marker lives."
-  },
-  {
-    "sel": "#active-mode-marker-path",
-    "title": "Mode marker path",
-    "msg": "The path of the active-runtime-mode marker (/run/sovereign-os/active-runtime-mode).",
-    "more": "The exact file the panel reads to know the active mode. A mode switch writes this marker; the path is here so you can verify the source of truth behind the banner."
-  },
-  {
-    "sel": "#modes-grid",
-    "title": "Runtime modes",
-    "msg": "The M076 mode grid — efficiency / concurrency / deep-context postures.",
-    "more": "The menu of runtime postures (master-spec §18). Each is a coordinated set of core pinning, GPU power, and model allocation. This grid is where you compare them; the banner shows which is live. Switching is a signed CLI action."
-  },
-  {
-    "sel": "#control-surface",
-    "title": "Controls — profiles, modes & toggles",
-    "msg": "The per-panel control rail for runtime modes.",
-    "more": "Every control copies its exact sovereign-osctl verb (§1g / R10212), never executing from the web — a mode switch is a signed CLI action that rewrites the marker file."
-  }
-];
-</script>
+
 
 <h1>Runtime modes <span class="muted" style="font-size:.85rem; color:var(--muted);">M076</span></h1>
 <p class="subtitle">
@@ -950,5 +910,47 @@ setInterval(tick, 30000);
 </script>
 <script>SovereignControlSurface.load(document.getElementById('control-surface'),{filterSlug:'runtime-modes'});</script>
 
+
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#active-mode-banner",
+    "title": "Active runtime mode",
+    "msg": "Which runtime mode is currently in effect (M076).",
+    "more": "A mode is a whole posture: pick one and it drives core pinning, GPU power, and model allocation together. The active mode explains a lot of D-09's numbers — an efficiency mode caps GPU power, a concurrency mode spreads cores."
+  },
+  {
+    "sel": "#active-mode-label",
+    "title": "Active mode label",
+    "msg": "The name of the mode currently active.",
+    "more": "The one-word read of the box's posture — ultra-sovereign-efficiency / high-concurrency / deep-context. When behaviour surprises you, check this first."
+  },
+  {
+    "sel": "#active-mode-marker-hint",
+    "title": "Mode marker hint",
+    "msg": "Whether the active-mode marker file is present.",
+    "more": "The mode is signalled by a marker file at runtime. 'no marker' means no mode is explicitly set — the box is on defaults. The hint explains where that marker lives."
+  },
+  {
+    "sel": "#active-mode-marker-path",
+    "title": "Mode marker path",
+    "msg": "The path of the active-runtime-mode marker (/run/sovereign-os/active-runtime-mode).",
+    "more": "The exact file the panel reads to know the active mode. A mode switch writes this marker; the path is here so you can verify the source of truth behind the banner."
+  },
+  {
+    "sel": "#modes-grid",
+    "title": "Runtime modes",
+    "msg": "The M076 mode grid — efficiency / concurrency / deep-context postures.",
+    "more": "The menu of runtime postures (master-spec §18). Each is a coordinated set of core pinning, GPU power, and model allocation. This grid is where you compare them; the banner shows which is live. Switching is a signed CLI action."
+  },
+  {
+    "sel": "#control-surface",
+    "title": "Controls — profiles, modes & toggles",
+    "msg": "The per-panel control rail for runtime modes.",
+    "more": "Every control copies its exact sovereign-osctl verb (§1g / R10212), never executing from the web — a mode switch is a signed CLI action that rewrites the marker file."
+  }
+];
+</script>
 </body>
 </html>

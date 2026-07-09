@@ -400,59 +400,7 @@
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
-<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
-<script>
-window.SO_ASSIST = [
-  {
-    "sel": "#data-source-banner",
-    "title": "Live vs snapshot",
-    "msg": "Whether per-device model status is live (/api/lm-status/devices) or a snapshot.",
-    "more": "Device status changes as models load/serve — a snapshot could show a stale binding. Muted means the daemon is unreachable and you're reading last-known."
-  },
-  {
-    "sel": "#devices",
-    "title": "Per-device status",
-    "msg": "Model status per device (CPU0/GPU0/GPU1) — slot, role, util, VRAM, source (M075 SRP).",
-    "more": "The operability view: each device with the model it's serving, its role (Conductor/Logic/Oracle), and live util/VRAM. This is where you confirm the intended model is bound to the right device and healthy."
-  },
-  {
-    "sel": "#selected-summary",
-    "title": "Chat targets",
-    "msg": "Which device(s) the chat will address.",
-    "more": "The loopback LM chat sends a prompt to the selected device(s). This names the current targets — pick a device above to direct the chat at a specific model/tier."
-  },
-  {
-    "sel": "#chat-log",
-    "title": "Chat log",
-    "msg": "The render-only conversation with the selected device(s).",
-    "more": "The loopback LM chat (SDD-062) — a read-compute path: it sends a prompt and renders the reply, the ONE sanctioned POST. It's for probing a model's operability, not a general assistant; output is render-only."
-  },
-  {
-    "sel": "#chat-input",
-    "title": "Chat prompt",
-    "msg": "The prompt to send to the selected device(s).",
-    "more": "Type a probe prompt here — a quick way to confirm a bound model actually responds and how. Directed at whichever device(s) the target summary shows."
-  },
-  {
-    "sel": "#chat-send",
-    "title": "Send",
-    "msg": "Send the prompt to the selected device(s).",
-    "more": "Dispatches the prompt via the sanctioned loopback read-compute POST (SDD-062). Unlike other cockpit actions this does invoke the model — but only to render a reply, it mutates no state."
-  },
-  {
-    "sel": "#last-fetch",
-    "title": "Last fetch",
-    "msg": "When device status was last read.",
-    "more": "Freshness of the per-device view — check before trusting the bindings, especially after a load/unload elsewhere."
-  },
-  {
-    "sel": "#control-surface",
-    "title": "Controls — features & profiles",
-    "msg": "The per-panel control rail — features and profiles for serving.",
-    "more": "Every control copies its exact sovereign-osctl verb (§1g / R10212); operability Actions copy signed CLI verbs. Only the chat's read-compute POST invokes a model, and only to render."
-  }
-];
-</script>
+
 <header>
   <h1>D-22 · Language Model Status &amp; Operability
     <span class="sub">per-device model status · operability actions · chat (M075 SRP topology)</span></h1>
@@ -1122,6 +1070,60 @@ window.SO_ASSIST = [
     SovereignControlSurface.load(el, {filterSlug:'d-22-lm-status-operability'});
   }
 })();
+</script>
+
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#data-source-banner",
+    "title": "Live vs snapshot",
+    "msg": "Whether per-device model status is live (/api/lm-status/devices) or a snapshot.",
+    "more": "Device status changes as models load/serve — a snapshot could show a stale binding. Muted means the daemon is unreachable and you're reading last-known."
+  },
+  {
+    "sel": "#devices",
+    "title": "Per-device status",
+    "msg": "Model status per device (CPU0/GPU0/GPU1) — slot, role, util, VRAM, source (M075 SRP).",
+    "more": "The operability view: each device with the model it's serving, its role (Conductor/Logic/Oracle), and live util/VRAM. This is where you confirm the intended model is bound to the right device and healthy."
+  },
+  {
+    "sel": "#selected-summary",
+    "title": "Chat targets",
+    "msg": "Which device(s) the chat will address.",
+    "more": "The loopback LM chat sends a prompt to the selected device(s). This names the current targets — pick a device above to direct the chat at a specific model/tier."
+  },
+  {
+    "sel": "#chat-log",
+    "title": "Chat log",
+    "msg": "The render-only conversation with the selected device(s).",
+    "more": "The loopback LM chat (SDD-062) — a read-compute path: it sends a prompt and renders the reply, the ONE sanctioned POST. It's for probing a model's operability, not a general assistant; output is render-only."
+  },
+  {
+    "sel": "#chat-input",
+    "title": "Chat prompt",
+    "msg": "The prompt to send to the selected device(s).",
+    "more": "Type a probe prompt here — a quick way to confirm a bound model actually responds and how. Directed at whichever device(s) the target summary shows."
+  },
+  {
+    "sel": "#chat-send",
+    "title": "Send",
+    "msg": "Send the prompt to the selected device(s).",
+    "more": "Dispatches the prompt via the sanctioned loopback read-compute POST (SDD-062). Unlike other cockpit actions this does invoke the model — but only to render a reply, it mutates no state."
+  },
+  {
+    "sel": "#last-fetch",
+    "title": "Last fetch",
+    "msg": "When device status was last read.",
+    "more": "Freshness of the per-device view — check before trusting the bindings, especially after a load/unload elsewhere."
+  },
+  {
+    "sel": "#control-surface",
+    "title": "Controls — features & profiles",
+    "msg": "The per-panel control rail — features and profiles for serving.",
+    "more": "Every control copies its exact sovereign-osctl verb (§1g / R10212); operability Actions copy signed CLI verbs. Only the chat's read-compute POST invokes a model, and only to render."
+  }
+];
 </script>
 </body>
 </html>

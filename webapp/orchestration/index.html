@@ -330,41 +330,7 @@
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
-<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
-<script>
-window.SO_ASSIST = [
-  {
-    "sel": "#status",
-    "title": "Orchestration status",
-    "msg": "State of the thinking-router / orchestration view.",
-    "more": "The thinking-router classifies each prompt and routes it, with per-profile escalation (CoT → Validator → self-consistency → MoE per the active runtime profile). This banner says whether the orchestration data loaded."
-  },
-  {
-    "sel": "#stats",
-    "title": "Orchestration summary",
-    "msg": "Roll-up of routing rules and live routing activity.",
-    "more": "The at-a-glance view before the detail — how many rules are active and how much routing is happening. The header for the rules and metrics below."
-  },
-  {
-    "sel": "#rules",
-    "title": "Routing rules (SDD-011)",
-    "msg": "The 7-axis routing rules that decide which tier answers a prompt.",
-    "more": "Seven axes (class, task-type, complexity…) classify a request and route it. This is the policy; the metrics beside it show where requests actually landed, so you can see rule vs reality."
-  },
-  {
-    "sel": "#metrics",
-    "title": "Live routing",
-    "msg": "Which tier / class / task-type requests actually landed on.",
-    "more": "The feedback loop for the rules: if everything escalates to the Oracle tier, either the rules or the prompts are heavier than intended. Where the per-profile escalation (CoT → Validator → self-consistency → MoE) shows its cost."
-  },
-  {
-    "sel": "#control-surface",
-    "title": "Controls — profiles, modes & toggles",
-    "msg": "The per-panel control rail for orchestration.",
-    "more": "Every control copies its exact sovereign-osctl verb (§1g / R10212), never executing from the web — routing rules change via CLI."
-  }
-];
-</script>
+
 <h1>thinking router / orchestration</h1>
 <p class="sub">
   How a request is routed across the Genesis Trinity (SDD-011, 7-axis) and
@@ -855,6 +821,42 @@ async function load() {
   }
 }
 load();
+</script>
+
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#status",
+    "title": "Orchestration status",
+    "msg": "State of the thinking-router / orchestration view.",
+    "more": "The thinking-router classifies each prompt and routes it, with per-profile escalation (CoT → Validator → self-consistency → MoE per the active runtime profile). This banner says whether the orchestration data loaded."
+  },
+  {
+    "sel": "#stats",
+    "title": "Orchestration summary",
+    "msg": "Roll-up of routing rules and live routing activity.",
+    "more": "The at-a-glance view before the detail — how many rules are active and how much routing is happening. The header for the rules and metrics below."
+  },
+  {
+    "sel": "#rules",
+    "title": "Routing rules (SDD-011)",
+    "msg": "The 7-axis routing rules that decide which tier answers a prompt.",
+    "more": "Seven axes (class, task-type, complexity…) classify a request and route it. This is the policy; the metrics beside it show where requests actually landed, so you can see rule vs reality."
+  },
+  {
+    "sel": "#metrics",
+    "title": "Live routing",
+    "msg": "Which tier / class / task-type requests actually landed on.",
+    "more": "The feedback loop for the rules: if everything escalates to the Oracle tier, either the rules or the prompts are heavier than intended. Where the per-profile escalation (CoT → Validator → self-consistency → MoE) shows its cost."
+  },
+  {
+    "sel": "#control-surface",
+    "title": "Controls — profiles, modes & toggles",
+    "msg": "The per-panel control rail for orchestration.",
+    "more": "Every control copies its exact sovereign-osctl verb (§1g / R10212), never executing from the web — routing rules change via CLI."
+  }
+];
 </script>
 </body>
 </html>

@@ -340,53 +340,7 @@
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
-<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
-<script>
-window.SO_ASSIST = [
-  {
-    "sel": "#data-source-banner",
-    "title": "Live vs snapshot",
-    "msg": "Whether CPU features are live-probed (/api/cpu-features/probe) or a snapshot.",
-    "more": "Features are read from the running processor — a snapshot is usually fine (they don't change), but muted means the probe is unreachable and the map may be baked-in defaults."
-  },
-  {
-    "sel": "#cpu-summary",
-    "title": "CPU summary",
-    "msg": "The detected CPU and its overall AVX-512 posture.",
-    "more": "Which processor this is and its high-level capability — the header for the deep extension map below. Distinct from D-21's Features-CPU summary in that this is the full advisory view."
-  },
-  {
-    "sel": "#extensions",
-    "title": "AVX-512 extension map",
-    "msg": "The deep per-extension view of this CPU's AVX-512 capability.",
-    "more": "The full map (F/VL/BW/VNNI/BF16/VPOPCNTDQ…), reusing avx512-advisor. Where you confirm a specific instruction set is present before pinning a workload that depends on it."
-  },
-  {
-    "sel": "#workloads",
-    "title": "Per-workload fit",
-    "msg": "Whether each AI workload is a good fit for this CPU's features.",
-    "more": "The advisor turns raw flags into a verdict: 'this box can/can't accelerate X'. VNNI/BF16 present → int8/bf16 inference is cheap; absent → slower paths. That verdict is what a runtime profile should honour."
-  },
-  {
-    "sel": "#advisory",
-    "title": "Advisory",
-    "msg": "The advisor's recommendation based on the detected features.",
-    "more": "The actionable conclusion — how to exploit (or work around) this CPU's AVX-512 profile for the Pulse ternary path. The 'so what' beyond the raw extension list."
-  },
-  {
-    "sel": "#last-fetch",
-    "title": "Last fetch",
-    "msg": "When the CPU features were last probed.",
-    "more": "Freshness of the probe — a stale read predates any microcode/kernel change, though the ISA itself is fixed hardware."
-  },
-  {
-    "sel": "#control-surface",
-    "title": "Controls — features & profiles",
-    "msg": "The per-panel control rail — features and profiles.",
-    "more": "Every control copies its exact sovereign-osctl verb (§1g / R10212), never executing from the web — feature exploitation is set at build/profile time (see build-configurator KCFLAGS)."
-  }
-];
-</script>
+
 <header>
   <h1>D-24 · CPU Features
     <span class="sub">AVX-512 extension map · per-AI-workload fit · advisory (reuses avx512-advisor)</span></h1>
@@ -861,6 +815,54 @@ window.SO_ASSIST = [
   var el = document.getElementById("control-surface");
   if (el && window.SovereignControlSurface) { SovereignControlSurface.load(el, {filterSlug:'d-24-cpu-features'}); }
 })();
+</script>
+
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#data-source-banner",
+    "title": "Live vs snapshot",
+    "msg": "Whether CPU features are live-probed (/api/cpu-features/probe) or a snapshot.",
+    "more": "Features are read from the running processor — a snapshot is usually fine (they don't change), but muted means the probe is unreachable and the map may be baked-in defaults."
+  },
+  {
+    "sel": "#cpu-summary",
+    "title": "CPU summary",
+    "msg": "The detected CPU and its overall AVX-512 posture.",
+    "more": "Which processor this is and its high-level capability — the header for the deep extension map below. Distinct from D-21's Features-CPU summary in that this is the full advisory view."
+  },
+  {
+    "sel": "#extensions",
+    "title": "AVX-512 extension map",
+    "msg": "The deep per-extension view of this CPU's AVX-512 capability.",
+    "more": "The full map (F/VL/BW/VNNI/BF16/VPOPCNTDQ…), reusing avx512-advisor. Where you confirm a specific instruction set is present before pinning a workload that depends on it."
+  },
+  {
+    "sel": "#workloads",
+    "title": "Per-workload fit",
+    "msg": "Whether each AI workload is a good fit for this CPU's features.",
+    "more": "The advisor turns raw flags into a verdict: 'this box can/can't accelerate X'. VNNI/BF16 present → int8/bf16 inference is cheap; absent → slower paths. That verdict is what a runtime profile should honour."
+  },
+  {
+    "sel": "#advisory",
+    "title": "Advisory",
+    "msg": "The advisor's recommendation based on the detected features.",
+    "more": "The actionable conclusion — how to exploit (or work around) this CPU's AVX-512 profile for the Pulse ternary path. The 'so what' beyond the raw extension list."
+  },
+  {
+    "sel": "#last-fetch",
+    "title": "Last fetch",
+    "msg": "When the CPU features were last probed.",
+    "more": "Freshness of the probe — a stale read predates any microcode/kernel change, though the ISA itself is fixed hardware."
+  },
+  {
+    "sel": "#control-surface",
+    "title": "Controls — features & profiles",
+    "msg": "The per-panel control rail — features and profiles.",
+    "more": "Every control copies its exact sovereign-osctl verb (§1g / R10212), never executing from the web — feature exploitation is set at build/profile time (see build-configurator KCFLAGS)."
+  }
+];
 </script>
 </body>
 </html>

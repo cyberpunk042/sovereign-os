@@ -338,77 +338,7 @@
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
-<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
-<script>
-window.SO_ASSIST = [
-  {
-    "sel": "#status",
-    "title": "UPS status",
-    "msg": "State of the APC Smart-UPS — power source and battery.",
-    "more": "Live from the APC Smart-UPS over NUT/Modbus. The UPS is the box's power safety net; below the runtime threshold, SAIN-01 powers down orderly on its own. This banner is the at-a-glance power state."
-  },
-  {
-    "sel": "#shutdown-banner",
-    "title": "Graceful shutdown",
-    "msg": "The orderly-poweroff posture that protects the box on a long outage.",
-    "more": "An unclean power loss can corrupt ZFS state mid-write. This posture ensures the node shuts down properly while battery remains — the difference between a clean reboot and a recovery. It's the safety this whole panel exists for."
-  },
-  {
-    "sel": "#line-state",
-    "title": "Power source",
-    "msg": "on-line (mains) vs on-battery — where the box draws power now.",
-    "more": "'on-battery' starts the runtime clock: if it drops below the threshold, the graceful soft-shutdown kicks in and powers the node down cleanly rather than letting it hard-cut. The single most important number during an outage."
-  },
-  {
-    "sel": "#model",
-    "title": "UPS model",
-    "msg": "The connected APC Smart-UPS model.",
-    "more": "Confirms which UPS is reporting — the device the runtime and threshold figures come from over NUT/Modbus."
-  },
-  {
-    "sel": "#source",
-    "title": "Power detail",
-    "msg": "Detail on the current power source.",
-    "more": "The specifics behind on-line/on-battery — voltage/state as reported by the UPS. Context for the power-source verdict."
-  },
-  {
-    "sel": "#stats",
-    "title": "UPS telemetry",
-    "msg": "Battery %, runtime, and load from the UPS.",
-    "more": "Read-only over power-status + NUT upsc. Runtime is the number that matters during an outage — it's your budget before graceful shutdown triggers. Load shows how hard the box is pulling on the battery."
-  },
-  {
-    "sel": "#arm-badge",
-    "title": "Shutdown armed",
-    "msg": "Whether the graceful-shutdown guard is armed.",
-    "more": "Armed means the guard is watching runtime and will act at the threshold. Disarmed means no automatic protection — an outage would risk an unclean cut. The safety-net's own on/off state."
-  },
-  {
-    "sel": "#shut-min",
-    "title": "Shutdown threshold",
-    "msg": "The battery-runtime minutes below which orderly poweroff triggers.",
-    "more": "When runtime drops under this, the box shuts down cleanly on its own. Checked every minute by the guard — set high enough that a clean shutdown completes before the battery is exhausted."
-  },
-  {
-    "sel": "#thresholds",
-    "title": "Guard",
-    "msg": "The sovereign-power-shutdown-guard that enforces the threshold.",
-    "more": "The daemon that checks battery runtime every minute and triggers the graceful shutdown. This names it and its state — the mechanism behind the arm badge and threshold."
-  },
-  {
-    "sel": "#verdict-line",
-    "title": "Shutdown verdict",
-    "msg": "The current verdict — safe, or how close to shutdown.",
-    "more": "The live read of whether the box is comfortably powered or approaching the threshold. During an outage this is the countdown to protective shutdown."
-  },
-  {
-    "sel": "#control-surface",
-    "title": "Controls — profiles, modes & toggles",
-    "msg": "The per-panel control rail for the UPS.",
-    "more": "Every control copies its exact sovereign-osctl verb (§1g / R10212) — the shutdown guard is configured via signed CLI, never from the web."
-  }
-];
-</script>
+
 <h1>UPS · APC Smart-UPS</h1>
 <p class="sub">
   Live power state from the APC Smart-UPS (SMT2200C SmartConnect) via NUT
@@ -967,6 +897,78 @@ function card(k, v, cls){ return `<div class="stat ${cls||''}"><div class="k">${
 
 load();
 setInterval(load, 5000);
+</script>
+
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#status",
+    "title": "UPS status",
+    "msg": "State of the APC Smart-UPS — power source and battery.",
+    "more": "Live from the APC Smart-UPS over NUT/Modbus. The UPS is the box's power safety net; below the runtime threshold, SAIN-01 powers down orderly on its own. This banner is the at-a-glance power state."
+  },
+  {
+    "sel": "#shutdown-banner",
+    "title": "Graceful shutdown",
+    "msg": "The orderly-poweroff posture that protects the box on a long outage.",
+    "more": "An unclean power loss can corrupt ZFS state mid-write. This posture ensures the node shuts down properly while battery remains — the difference between a clean reboot and a recovery. It's the safety this whole panel exists for."
+  },
+  {
+    "sel": "#line-state",
+    "title": "Power source",
+    "msg": "on-line (mains) vs on-battery — where the box draws power now.",
+    "more": "'on-battery' starts the runtime clock: if it drops below the threshold, the graceful soft-shutdown kicks in and powers the node down cleanly rather than letting it hard-cut. The single most important number during an outage."
+  },
+  {
+    "sel": "#model",
+    "title": "UPS model",
+    "msg": "The connected APC Smart-UPS model.",
+    "more": "Confirms which UPS is reporting — the device the runtime and threshold figures come from over NUT/Modbus."
+  },
+  {
+    "sel": "#source",
+    "title": "Power detail",
+    "msg": "Detail on the current power source.",
+    "more": "The specifics behind on-line/on-battery — voltage/state as reported by the UPS. Context for the power-source verdict."
+  },
+  {
+    "sel": "#stats",
+    "title": "UPS telemetry",
+    "msg": "Battery %, runtime, and load from the UPS.",
+    "more": "Read-only over power-status + NUT upsc. Runtime is the number that matters during an outage — it's your budget before graceful shutdown triggers. Load shows how hard the box is pulling on the battery."
+  },
+  {
+    "sel": "#arm-badge",
+    "title": "Shutdown armed",
+    "msg": "Whether the graceful-shutdown guard is armed.",
+    "more": "Armed means the guard is watching runtime and will act at the threshold. Disarmed means no automatic protection — an outage would risk an unclean cut. The safety-net's own on/off state."
+  },
+  {
+    "sel": "#shut-min",
+    "title": "Shutdown threshold",
+    "msg": "The battery-runtime minutes below which orderly poweroff triggers.",
+    "more": "When runtime drops under this, the box shuts down cleanly on its own. Checked every minute by the guard — set high enough that a clean shutdown completes before the battery is exhausted."
+  },
+  {
+    "sel": "#thresholds",
+    "title": "Guard",
+    "msg": "The sovereign-power-shutdown-guard that enforces the threshold.",
+    "more": "The daemon that checks battery runtime every minute and triggers the graceful shutdown. This names it and its state — the mechanism behind the arm badge and threshold."
+  },
+  {
+    "sel": "#verdict-line",
+    "title": "Shutdown verdict",
+    "msg": "The current verdict — safe, or how close to shutdown.",
+    "more": "The live read of whether the box is comfortably powered or approaching the threshold. During an outage this is the countdown to protective shutdown."
+  },
+  {
+    "sel": "#control-surface",
+    "title": "Controls — profiles, modes & toggles",
+    "msg": "The per-panel control rail for the UPS.",
+    "more": "Every control copies its exact sovereign-osctl verb (§1g / R10212) — the shutdown guard is configured via signed CLI, never from the web."
+  }
+];
 </script>
 </body>
 </html>

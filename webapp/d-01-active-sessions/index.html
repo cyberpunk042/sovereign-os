@@ -697,83 +697,7 @@ a11y; contract test catches drift.
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
-<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
-<script>
-window.SO_ASSIST = [
-  {
-    "sel": "#datasource-banner",
-    "title": "Live vs snapshot",
-    "msg": "Green = /api/sessions/active is answering live; muted = the baked snapshot.",
-    "more": "Session state changes constantly — a snapshot could show a session as active that's since ended. Muted means the sessions daemon is unreachable and you're reading last-known."
-  },
-  {
-    "sel": "#ds-state-label",
-    "title": "Data-source state",
-    "msg": "Which source the page reads — live sessions daemon or snapshot.",
-    "more": "live / snapshot / unknown. 'unknown' means the health probe itself failed, distinct from a clean snapshot fallback."
-  },
-  {
-    "sel": "#ds-state-detail",
-    "title": "Reachability detail",
-    "msg": "The reason behind the state — reachable, timeout, or endpoint absent.",
-    "more": "Turns 'snapshot' into a diagnosis of whether the sessions API is down, slow, or not started."
-  },
-  {
-    "sel": "#ds-last-update",
-    "title": "Fetch freshness",
-    "msg": "When the shown session list was pulled.",
-    "more": "Sessions start and end continuously — check this before assuming a session is or isn't running."
-  },
-  {
-    "sel": "#active-count",
-    "title": "Active",
-    "msg": "How many operator sessions are running right now.",
-    "more": "Live work in progress — each is an operator/agent session walking the M057 12-step lifecycle. The core load number for the box."
-  },
-  {
-    "sel": "#hibernated-count",
-    "title": "Hibernated",
-    "msg": "How many sessions are hibernated (parked).",
-    "more": "Sessions frozen to free resources without losing state — resumable later. A hibernation-heavy picture means work is queued but paused, often under resource pressure (D-09)."
-  },
-  {
-    "sel": "#blocked-count",
-    "title": "Blocked",
-    "msg": "How many sessions are blocked.",
-    "more": "Sessions stalled on something — a dependency, an approval (D-06), a resource. Non-zero is where to look when work isn't progressing; blocked ≠ failed, but it's not moving."
-  },
-  {
-    "sel": "#branch-count",
-    "title": "Total branches",
-    "msg": "Total reasoning branches across all sessions (M057).",
-    "more": "Sessions can fan out into parallel branches during the 12-step lifecycle. This is the aggregate exploration width — high branch counts consume compute (cross-ref D-09 backpressure that narrows branch width)."
-  },
-  {
-    "sel": "#sessions-tbody",
-    "title": "Sessions",
-    "msg": "Each session — SRP agent, started, ETA, branches, actions.",
-    "more": "The live session ledger. SRP agent names which role is running it; ETA and branches show progress and width. Actions (hibernate/resume/kill) are staged as signed CLI verbs — the web surfaces, the daemon executes."
-  },
-  {
-    "sel": "#refresh-btn",
-    "title": "Refresh now",
-    "msg": "Re-poll active sessions.",
-    "more": "A fresh read of the session list instead of waiting for the auto-poll. Read-only."
-  },
-  {
-    "sel": "#hibernate-all-btn",
-    "title": "Hibernate all (operator-signed)",
-    "msg": "Stages hibernation of every session — copies the signed CLI verb.",
-    "more": "The bulk park action — freeze all sessions to reclaim resources (e.g. before maintenance). R10212: the panel stages the signed command, the daemon executes it; sessions resume with state intact."
-  },
-  {
-    "sel": "#control-surface",
-    "title": "Controls — profiles, modes & toggles",
-    "msg": "The per-panel control rail for sessions.",
-    "more": "Every control copies its exact sovereign-osctl verb (§1g / R10212) — hibernate/resume/kill are signed operator actions, never mutated from the web alone."
-  }
-];
-</script>
+
 
 <h1>D-01 — active sessions</h1>
 <div class="sub">M057 12-step task lifecycle per session — <span class="kbd">Cmd-2</span> · <a href="../master-dashboard/">D-00 main</a></div>
@@ -1422,5 +1346,83 @@ refresh();
 </script>
 <script>SovereignControlSurface.load(document.getElementById('control-surface'),{filterSlug:'d-01-active-sessions'});</script>
 
+
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#datasource-banner",
+    "title": "Live vs snapshot",
+    "msg": "Green = /api/sessions/active is answering live; muted = the baked snapshot.",
+    "more": "Session state changes constantly — a snapshot could show a session as active that's since ended. Muted means the sessions daemon is unreachable and you're reading last-known."
+  },
+  {
+    "sel": "#ds-state-label",
+    "title": "Data-source state",
+    "msg": "Which source the page reads — live sessions daemon or snapshot.",
+    "more": "live / snapshot / unknown. 'unknown' means the health probe itself failed, distinct from a clean snapshot fallback."
+  },
+  {
+    "sel": "#ds-state-detail",
+    "title": "Reachability detail",
+    "msg": "The reason behind the state — reachable, timeout, or endpoint absent.",
+    "more": "Turns 'snapshot' into a diagnosis of whether the sessions API is down, slow, or not started."
+  },
+  {
+    "sel": "#ds-last-update",
+    "title": "Fetch freshness",
+    "msg": "When the shown session list was pulled.",
+    "more": "Sessions start and end continuously — check this before assuming a session is or isn't running."
+  },
+  {
+    "sel": "#active-count",
+    "title": "Active",
+    "msg": "How many operator sessions are running right now.",
+    "more": "Live work in progress — each is an operator/agent session walking the M057 12-step lifecycle. The core load number for the box."
+  },
+  {
+    "sel": "#hibernated-count",
+    "title": "Hibernated",
+    "msg": "How many sessions are hibernated (parked).",
+    "more": "Sessions frozen to free resources without losing state — resumable later. A hibernation-heavy picture means work is queued but paused, often under resource pressure (D-09)."
+  },
+  {
+    "sel": "#blocked-count",
+    "title": "Blocked",
+    "msg": "How many sessions are blocked.",
+    "more": "Sessions stalled on something — a dependency, an approval (D-06), a resource. Non-zero is where to look when work isn't progressing; blocked ≠ failed, but it's not moving."
+  },
+  {
+    "sel": "#branch-count",
+    "title": "Total branches",
+    "msg": "Total reasoning branches across all sessions (M057).",
+    "more": "Sessions can fan out into parallel branches during the 12-step lifecycle. This is the aggregate exploration width — high branch counts consume compute (cross-ref D-09 backpressure that narrows branch width)."
+  },
+  {
+    "sel": "#sessions-tbody",
+    "title": "Sessions",
+    "msg": "Each session — SRP agent, started, ETA, branches, actions.",
+    "more": "The live session ledger. SRP agent names which role is running it; ETA and branches show progress and width. Actions (hibernate/resume/kill) are staged as signed CLI verbs — the web surfaces, the daemon executes."
+  },
+  {
+    "sel": "#refresh-btn",
+    "title": "Refresh now",
+    "msg": "Re-poll active sessions.",
+    "more": "A fresh read of the session list instead of waiting for the auto-poll. Read-only."
+  },
+  {
+    "sel": "#hibernate-all-btn",
+    "title": "Hibernate all (operator-signed)",
+    "msg": "Stages hibernation of every session — copies the signed CLI verb.",
+    "more": "The bulk park action — freeze all sessions to reclaim resources (e.g. before maintenance). R10212: the panel stages the signed command, the daemon executes it; sessions resume with state intact."
+  },
+  {
+    "sel": "#control-surface",
+    "title": "Controls — profiles, modes & toggles",
+    "msg": "The per-panel control rail for sessions.",
+    "more": "Every control copies its exact sovereign-osctl verb (§1g / R10212) — hibernate/resume/kill are signed operator actions, never mutated from the web alone."
+  }
+];
+</script>
 </body>
 </html>
