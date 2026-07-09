@@ -41,8 +41,20 @@ END = "<!-- APP-SHELL:END M067 -->"
 # time; only listed panels are touched — the rest stay exactly as they are.
 # Keep in lockstep with tests/lint/test_app_shell_contract.py.
 ADOPTED_PANELS = [
-    "master-dashboard",
-    "d-04-costs",
+    "anti-minimization-audit", "auditor", "auth-tier", "build-configurator",
+    "compliance", "cpu-features", "d-01-active-sessions", "d-02-profile-choices",
+    "d-03-model-health", "d-04-costs", "d-05-traces", "d-06-pending-approvals",
+    "d-07-memory-changes", "d-08-rollback-points", "d-09-hardware-pressure",
+    "d-10-eval-history", "d-11-adapter-status", "d-12-networking",
+    "d-13-filesystem-grants", "d-14-capability-tokens", "d-15-sandboxes",
+    "d-16-audit", "d-17-quarantine", "d-18-trust-scores",
+    "d-19-super-model-manifest", "d-20-peace-machine-health",
+    "d-21-lm-orchestration", "d-22-lm-status-operability", "d-23-models-catalog",
+    "d-24-cpu-features", "d-25-selfdef-management", "doc-coverage",
+    "edge-firewall", "emulate", "flash", "global-history", "master-dashboard",
+    "models-catalog", "network-edge", "orchestration", "personalization",
+    "profile-generation", "router", "runtime-modes", "selfdef-management",
+    "surface-map", "trinity", "ups", "ux-design-audit", "weaver",
 ]
 
 _BLOCK_RE = re.compile(re.escape(BEGIN) + r".*?" + re.escape(END), re.DOTALL)

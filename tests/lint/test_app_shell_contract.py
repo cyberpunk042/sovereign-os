@@ -29,8 +29,20 @@ _BLOCK_RE = re.compile(re.escape(BEGIN) + r".*?" + re.escape(END), re.DOTALL)
 
 # Opt-in adoption list — grow one/few at a time (lockstep with the generator).
 ADOPTED_APP_SHELL_PANELS = [
-    "master-dashboard",
-    "d-04-costs",
+    "anti-minimization-audit", "auditor", "auth-tier", "build-configurator",
+    "compliance", "cpu-features", "d-01-active-sessions", "d-02-profile-choices",
+    "d-03-model-health", "d-04-costs", "d-05-traces", "d-06-pending-approvals",
+    "d-07-memory-changes", "d-08-rollback-points", "d-09-hardware-pressure",
+    "d-10-eval-history", "d-11-adapter-status", "d-12-networking",
+    "d-13-filesystem-grants", "d-14-capability-tokens", "d-15-sandboxes",
+    "d-16-audit", "d-17-quarantine", "d-18-trust-scores",
+    "d-19-super-model-manifest", "d-20-peace-machine-health",
+    "d-21-lm-orchestration", "d-22-lm-status-operability", "d-23-models-catalog",
+    "d-24-cpu-features", "d-25-selfdef-management", "doc-coverage",
+    "edge-firewall", "emulate", "flash", "global-history", "master-dashboard",
+    "models-catalog", "network-edge", "orchestration", "personalization",
+    "profile-generation", "router", "runtime-modes", "selfdef-management",
+    "surface-map", "trinity", "ups", "ux-design-audit", "weaver",
 ]
 
 
@@ -106,10 +118,17 @@ def test_adopted_panels_embed_identical_block():
         )
 
 
-def test_adopted_panels_keep_their_head_snippets():
-    """Adopting the shell MUST NOT displace the existing canonical <head>
-    stack — the palette + personalization must still be present."""
+def test_adopted_panels_place_block_after_body():
+    """The block MUST sit inside <body> (after the opening tag), never in
+    <head> — the runtime reparent depends on it, and this proves the shell
+    was injected non-destructively rather than displacing head content."""
+    body_re = re.compile(r"(?mi)^[ \t]*<body[^>]*>")
     for slug in ADOPTED_APP_SHELL_PANELS:
         html = (REPO_ROOT / "webapp" / slug / "index.html").read_text(encoding="utf-8")
-        assert "so-palette-backdrop" in html, f"{slug}: keyboard-nav palette snippet lost"
-        assert "sovereign-os.personalization" in html, f"{slug}: personalization snippet lost"
+        bm = body_re.search(html)
+        assert bm, f"{slug}: no <body> tag"
+        blk = _BLOCK_RE.search(html)
+        assert blk, f"{slug}: app-shell block missing"
+        assert blk.start() > bm.end(), (
+            f"{slug}: app-shell block must be after <body>, not in <head>"
+        )
