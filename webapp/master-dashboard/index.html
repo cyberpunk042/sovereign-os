@@ -1140,6 +1140,23 @@ a11y; contract test catches drift.
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#catalog-count",
+    "title": "Panels indexed",
+    "msg": "How many cockpit panels this hub knows about — the front-door count over the full catalog.",
+    "more": "Master-dashboard is the aggregator: it discovers every panel, its route, and its health. If this number looks low, a panel's API daemon is unreachable and it fell out of the live catalog — check the routes section below."
+  },
+  {
+    "sel": "#apparmor-banner",
+    "title": "AppArmor enforcement",
+    "msg": "Whether the host's AppArmor mandatory-access-control is enforcing — a top-level trust signal.",
+    "more": "'enforce' means profiles are actively confining processes; 'complain' logs but does not block; unloaded means no MAC. On a sovereign node you want enforce. This mirrors host state read-only — you change it from the OS, not this panel."
+  }
+];
+</script>
 <h1>sovereign-os master-dashboard</h1>
 <p class="sub">
   Operator-§1g aggregator — Trinity tiers + router + Grafana + selfdef cross-repo manifests under a single super-dashboard.

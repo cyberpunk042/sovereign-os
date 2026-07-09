@@ -712,6 +712,29 @@ a11y; contract test catches drift.
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#critical-count",
+    "title": "Critical approvals",
+    "msg": "High-severity actions waiting for a human yes/no right now.",
+    "more": "These gate real state changes. A non-zero critical count means the fleet is paused on you — clearing it (or explicitly denying) is what unblocks the sessions in D-01 that are waiting here."
+  },
+  {
+    "sel": "#approvals-list",
+    "title": "The approval queue",
+    "msg": "Every action awaiting operator decision, newest first.",
+    "more": "Approvals flow through the five M065 stage gates (below). The autonomous profile can batch-approve; every other profile decides one at a time — the deliberate friction that keeps a sovereign node operator-driven."
+  },
+  {
+    "sel": "#datasource-banner",
+    "title": "Live vs snapshot",
+    "msg": "Green = the approvals daemon is reachable and this queue is live; muted = the baked snapshot.",
+    "more": "Approvals are the one place a stale view is dangerous — always confirm the banner is live before acting on the queue."
+  }
+];
+</script>
 
 <h1>D-06 — pending approvals</h1>
 <div class="sub">operator-controlled axiom — <span class="kbd">Cmd-7</span> · <a href="../master-dashboard/">D-00 main</a> · <a href="../d-02-profile-choices/">D-02 profiles</a></div>
