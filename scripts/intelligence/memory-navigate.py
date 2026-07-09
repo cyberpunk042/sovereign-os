@@ -19,10 +19,10 @@ Pipeline (R04701-R04704):
   3. child calls — one bounded prompt.run() per selected slice → a per-slice finding.
   4. compose    — a final prompt.run() over the findings → the answer.
 
-M00469 temporal verbs (`--verb`), mapped to REAL substrate, HONEST-DEFER where absent
-(SB-077): changed (updated!=created) / true-then --at T (created<=T) / true-now
-(state==active) / last-verified (the `verified` bool + `updated` caveat — no verified_at
-timestamp exists) / contradicted-by (HONEST-DEFER empty — no contradiction edge-kind).
+M00469 temporal verbs (`--verb`), mapped to REAL substrate (SB-077): changed
+(updated!=created) / true-then --at T (created<=T) / true-now (state==active) /
+last-verified (verified entries, newest `verified_at` first — SDD-101) / contradicted-by
+(active entries carrying a `contradicts` edge, optionally to `--at <mem-id>` — SDD-101).
 
 READ-COMPUTE: this NEVER mutates the store (no _atomic_write(STORE), no ledger, no
 reconcile) — the store is byte-identical after a navigate. HONEST-DEFER (SB-077): an
@@ -170,16 +170,25 @@ def _temporal(verb: str, pool: list[dict[str, Any]], at: str | None) -> dict[str
                 "note": "created<=T over active entries; point-in-time state is limited "
                 "to the forget/undo ledger (partial substrate)"}
     if verb == "last-verified":
-        return {"entries": [e for e in pool if e.get("verified") is True],
-                "note": "the `verified` flag is a bool — no verified_at timestamp exists "
-                "in the store, so this reports verified-ness, not a verification time "
-                "(honest partial substrate, SB-077)"}
+        # SDD-101 — the janitor's verify effect now stamps `verified_at`; report the
+        # real verification time, newest first (entries without a timestamp sort last).
+        verified = [e for e in pool if e.get("verified") is True]
+        verified.sort(key=lambda e: str(e.get("verified_at") or ""), reverse=True)
+        return {"entries": verified,
+                "note": "verified entries, newest verified_at first (SDD-101)"}
     if verb == "contradicted-by":
-        # No `contradicts` edge-kind / contradiction substrate exists (edges are
-        # kind:"related" only) — HONEST-DEFER, never fabricate a contradiction.
-        return {"deferred": True, "entries": [],
-                "reason": "no contradiction edges in store (edges are kind:'related' "
-                "only); a `contradicts` edge-kind is Stage-N"}
+        # SDD-101 — the `contradict` janitor job now writes `contradicts` edges;
+        # return active entries carrying one (optionally to the `--at <mem-id>` target).
+        # A REAL result (empty when there genuinely are none — honest, not deferred).
+        def _contradicts(e: dict[str, Any]) -> bool:
+            edges = e.get("edges")
+            if not isinstance(edges, list):
+                return False
+            return any(isinstance(x, dict) and x.get("kind") == "contradicts"
+                       and (at is None or x.get("to") == at) for x in edges)
+        return {"entries": [e for e in pool if _contradicts(e)],
+                "note": (f"active entries with a `contradicts` edge to {at}" if at
+                         else "active entries carrying a `contradicts` edge (SDD-101)")}
     return {"usage": f"unknown temporal verb {verb!r} (use {list(_TEMPORAL_VERBS)})"}
 
 
