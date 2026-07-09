@@ -496,6 +496,7 @@ COMMANDS:
   inference stop <tier>        Stop a tier
   inference restart <tier>     Restart a tier
   inference route <prompt>     Show which tier the router would pick for a sample request
+  inference prompt <text>      Run a single prompt through the router (streams tokens; SDD-062 M058)
   inference logs <tier>        Tail systemd journal for the tier
 
   router status                R516 router surface (SDD-011) — service + listen check
@@ -6311,6 +6312,17 @@ from router import classify
 body = {"model": "auto", "messages": [{"role": "user", "content": """${prompt}"""}]}
 print(f"would route to: {classify(body)}")
 PY
+      ;;
+
+    prompt)
+      # SDD-062 (M058): the real single-prompt inference verb — routes the operator
+      # prompt through the LOOPBACK router /v1/chat/completions (which classify()s the
+      # tier + streams the backend body), streams tokens to stdout, and publishes the
+      # REAL measured tokens/sec to model-state.json (preserving the SDD-049 `loaded`
+      # set) so D-22's device grid shows live stats. A NON-MUTATING read-compute
+      # (R10212); honest error when the router/backend is unreachable (SB-077). The
+      # D-22 web chat proxy reuses this same engine.
+      "${__REPO_ROOT}/scripts/inference/prompt.py" "$@"
       ;;
 
     health)
