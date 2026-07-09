@@ -696,16 +696,88 @@ a11y; contract test catches drift.
 <script>
 window.SO_ASSIST = [
   {
+    "sel": "#stats",
+    "title": "Network-edge summary",
+    "msg": "The edge topology roll-up — interfaces, NAT layers, VPN, OPNsense tier, capabilities.",
+    "more": "The edge is where this box meets the network: OPNsense bridge, ISP NAT, VPN. This strip is the at-a-glance map. Note: the edge hardware is outside the sovereign-os boundary (operator §17) — this observes it, it doesn't manage it."
+  },
+  {
+    "sel": "#stat-ifaces",
+    "title": "Interfaces",
+    "msg": "How many network interfaces are present.",
+    "more": "The physical/logical NICs this box has — the first thing you need when something upstream breaks. Detail in the interface table below."
+  },
+  {
+    "sel": "#stat-nat",
+    "title": "NAT layers",
+    "msg": "How many NAT hops sit between this box and the open internet.",
+    "more": "Double/triple NAT is common on consumer ISP paths and changes what's reachable inbound. This count is why 'why can't I connect' often traces to the network path, not the firewall."
+  },
+  {
+    "sel": "#stat-vpn",
+    "title": "VPN bridge",
+    "msg": "The state of the VPN bridge at the edge.",
+    "more": "Whether the VPN tunnel that carries traffic in/out is up. A down VPN bridge reshapes reachability — a key input when diagnosing connectivity."
+  },
+  {
+    "sel": "#stat-tier",
+    "title": "OPNsense tier",
+    "msg": "The detected OPNsense capability tier.",
+    "more": "How capable the edge firewall (OPNsense) is — the tier drives what edge enforcement is available. Rated against the capability ladder below."
+  },
+  {
+    "sel": "#stat-caps",
+    "title": "Capabilities",
+    "msg": "How many edge capabilities were detected.",
+    "more": "The count of features the edge provides (routing, filtering, VPN, etc.). The capability ladder details which — the edge's contribution to layered defence."
+  },
+  {
+    "sel": "#stat-version",
+    "title": "API version",
+    "msg": "The network-edge API version.",
+    "more": "Stamps the detect build so the topology and capabilities tie to a known version."
+  },
+  {
     "sel": "#iface-tbody",
-    "title": "Interface state",
-    "msg": "Per-interface state — where the box actually sits in the network.",
-    "more": "The edge topology: OPNsense bridge, ISP NAT layers, VPN. This table is the physical/logical map of how traffic reaches this node, which is the first thing you need when something upstream breaks."
+    "title": "Interfaces",
+    "msg": "Per-interface name, state, MTU, and addresses.",
+    "more": "The interface map — where the box actually sits in the network. State and addresses here are the ground truth for tracing a connectivity problem to a specific NIC."
   },
   {
     "sel": "#nat-body",
-    "title": "ISP NAT layers",
-    "msg": "The NAT hops between this box and the open internet.",
-    "more": "Double/triple NAT is common on consumer ISP paths and it changes what is reachable inbound. Seeing the layers here explains a lot of 'why can't I connect' before you touch firewall rules."
+    "title": "NAT chain",
+    "msg": "The multi-NAT chain between this box and the internet.",
+    "more": "Each NAT hop on the path, made visible. Consumer ISP paths often stack several; seeing them explains inbound-reachability limits before you touch firewall rules."
+  },
+  {
+    "sel": "#caps-body",
+    "title": "OPNsense capability ladder",
+    "msg": "The edge firewall's capabilities, laddered.",
+    "more": "What the OPNsense edge can do, rung by rung. The higher the tier, the more edge enforcement is available to complement the host firewall (edge-firewall panel)."
+  },
+  {
+    "sel": "#detect-body",
+    "title": "Full detect bundle",
+    "msg": "The complete edge detection — VPN bridge, OPNsense state, operator-named edge hardware.",
+    "more": "The whole topology in one payload: bridge, edge firewall state, and the operator-named hardware. The comprehensive read when you need the full picture of how traffic reaches this node."
+  },
+  {
+    "sel": "#refresh-btn",
+    "title": "Refresh now",
+    "msg": "Re-detect the network edge.",
+    "more": "Re-probes interfaces, NAT, VPN, and OPNsense to refresh the topology. Read-only — it observes, it changes nothing (edge is outside the boundary)."
+  },
+  {
+    "sel": "#last-refresh",
+    "title": "Last refresh",
+    "msg": "When the edge was last detected (auto every 30s).",
+    "more": "Freshness of the topology — a stale detect can lag a link that just came up or dropped."
+  },
+  {
+    "sel": "#control-surface",
+    "title": "Controls — profiles, modes & toggles",
+    "msg": "The per-panel control rail for the network edge.",
+    "more": "Every control copies its exact sovereign-osctl verb (§1g / R10212) — the edge hardware is outside the sovereign-os boundary, so this observes it, it never mutates it."
   }
 ];
 </script>

@@ -714,16 +714,100 @@ a11y; contract test catches drift.
 <script>
 window.SO_ASSIST = [
   {
-    "sel": "#preview-box",
-    "title": "Rollback dry-run",
-    "msg": "A preview of exactly what a rollback to the selected point would change — before you commit to it.",
-    "more": "Rollback points are ZFS snapshots. The preview is the safety rail: it shows the delta so you never restore blind. Applying a rollback is a gated action; this panel is where you decide it is the right one."
+    "sel": "#datasource-banner",
+    "title": "Live vs snapshot",
+    "msg": "Green = /api/d-08/snapshot is answering live; muted = the baked snapshot.",
+    "more": "Rollback decisions need current snapshot data — a stale view could offer a recovery point that's since been pruned. Muted means the daemon is unreachable and you're reading last-known."
+  },
+  {
+    "sel": "#ds-state-label",
+    "title": "Data-source state",
+    "msg": "Which source the page reads — live rollback daemon or snapshot.",
+    "more": "live / snapshot / unknown. 'unknown' means the health probe itself failed, distinct from a clean snapshot fallback."
+  },
+  {
+    "sel": "#ds-state-detail",
+    "title": "Reachability detail",
+    "msg": "The reason behind the state — reachable, timeout, or endpoint absent.",
+    "more": "Turns 'snapshot' into a diagnosis of whether the rollback daemon is down, slow, or not started."
+  },
+  {
+    "sel": "#ds-last-update",
+    "title": "Fetch freshness",
+    "msg": "When the shown snapshot inventory was pulled.",
+    "more": "Snapshots are created and pruned continuously — check this before trusting a recovery point is still there."
+  },
+  {
+    "sel": "#s-snapshots",
+    "title": "ZFS snapshots",
+    "msg": "Total ZFS snapshots across all datasets (M068).",
+    "more": "Rollback points are ZFS snapshots — cheap, atomic point-in-time copies. This is how many recovery points exist right now across every dataset; the raw material for any rollback."
+  },
+  {
+    "sel": "#s-commits",
+    "title": "MS041 commits (24h)",
+    "msg": "Durable state changes committed in the last 24h.",
+    "more": "Each commit is a durable change with a signed receipt — the events a rollback would undo. Pairs with the timeline to show change vs recovery point over time."
   },
   {
     "sel": "#s-disk",
-    "title": "Snapshot disk use",
-    "msg": "Space held by the recovery snapshots.",
-    "more": "Snapshots are cheap until they are not — a growing figure here is retained history you can prune. It is the cost side of keeping many recovery points."
+    "title": "Disk used (snapshots)",
+    "msg": "Space held by the recovery snapshots (GiB).",
+    "more": "Snapshots are cheap until they're not — a growing figure here is retained history you can prune. The cost side of keeping many recovery points; watch it against the ZFS pool budget (D-09)."
+  },
+  {
+    "sel": "#s-oldest",
+    "title": "Oldest snapshot",
+    "msg": "Age of the oldest retained snapshot.",
+    "more": "How far back you can roll. A short window means limited recovery depth; a long one means more disk held. The retention horizon of your safety net."
+  },
+  {
+    "sel": "#s-last-rollback",
+    "title": "Last rollback",
+    "msg": "When a rollback was last applied (or never).",
+    "more": "The history of actually using the safety net. 'never' is normal and healthy; a recent rollback is a signal to check what went wrong that required it."
+  },
+  {
+    "sel": "#dataset-filters",
+    "title": "Dataset filters",
+    "msg": "Filter the snapshot inventory by ZFS dataset.",
+    "more": "Narrows the list to one dataset (context, state, models) — the way to find the right recovery point for a specific concern without scrolling all snapshots."
+  },
+  {
+    "sel": "#snapshots-tbody",
+    "title": "ZFS snapshot inventory",
+    "msg": "Each snapshot with its dataset, referenced size, tag, and actions.",
+    "more": "The recovery-point ledger. 'refer' is the data that snapshot pins; the tag names why it was taken. Actions (rollback) are staged as signed CLI verbs — the web previews, the daemon executes after MS003."
+  },
+  {
+    "sel": "#timeline",
+    "title": "Commit × snapshot timeline",
+    "msg": "Commit history overlaid on the snapshot timeline (last 24h).",
+    "more": "Shows changes and recovery points together, so you can pick a snapshot from BEFORE a bad commit. Each commit has a signed receipt; a past rollback shows as a rollback-apply — the visual map of what happened and where you can return to."
+  },
+  {
+    "sel": "#preview-target",
+    "title": "Rollback target",
+    "msg": "The snapshot a rollback preview is computed against.",
+    "more": "Names which recovery point you're evaluating. The preview below shows exactly what returning to THIS snapshot would change — pick deliberately."
+  },
+  {
+    "sel": "#preview-box",
+    "title": "Rollback dry-run",
+    "msg": "A preview of exactly what a rollback to the target would change — no side effects (R10099).",
+    "more": "The safety rail: it diffs HEAD against the snapshot and shows the delta before you commit to it. NO side effects — this computes, it does not restore. Applying is a separate gated, signed action."
+  },
+  {
+    "sel": "#toast",
+    "title": "Copy confirmation",
+    "msg": "Confirms a CLI verb was copied — web emits CLI only.",
+    "more": "A rollback mutates state, so it's operator-signed: the web copies the verb, the daemon executes after MS003 signature (MS043 R10212), with a receipt chain. This toast confirms the command is on your clipboard."
+  },
+  {
+    "sel": "#control-surface",
+    "title": "Controls — profiles, modes & toggles",
+    "msg": "The per-panel control rail for rollback behaviour.",
+    "more": "Every control copies its exact sovereign-osctl verb (§1g / R10212 / MS043) — a rollback is signed and executed by the daemon, never from this web view."
   }
 ];
 </script>

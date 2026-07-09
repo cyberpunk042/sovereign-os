@@ -719,22 +719,88 @@ a11y; contract test catches drift.
 <script>
 window.SO_ASSIST = [
   {
+    "sel": "#datasource-banner",
+    "title": "Live vs snapshot",
+    "msg": "Green = /api/approvals/pending is answering live; muted = the baked snapshot.",
+    "more": "The approval queue must be live — acting on a stale queue could approve something already resolved. Muted means the approvals daemon is unreachable and you're reading last-known."
+  },
+  {
+    "sel": "#ds-state-label",
+    "title": "Data-source state",
+    "msg": "Which source the page reads — live approvals daemon or snapshot.",
+    "more": "live / snapshot / unknown. 'unknown' means the health probe itself failed, distinct from a clean snapshot fallback."
+  },
+  {
+    "sel": "#ds-state-detail",
+    "title": "Reachability detail",
+    "msg": "The reason behind the state — reachable, timeout, or endpoint absent.",
+    "more": "Turns 'snapshot' into a diagnosis of whether the approvals API is down, slow, or not started."
+  },
+  {
+    "sel": "#ds-last-update",
+    "title": "Fetch freshness",
+    "msg": "When the shown queue was pulled.",
+    "more": "Approvals arrive continuously — check this before assuming the queue is empty or complete."
+  },
+  {
+    "sel": "#pending-count",
+    "title": "Pending",
+    "msg": "How many approvals are awaiting an operator decision.",
+    "more": "The size of the decision backlog. This is work the system paused because it needs the human — a growing number means autonomy is gated on you (cross-refs the human-gate backpressure in D-09)."
+  },
+  {
     "sel": "#critical-count",
-    "title": "Critical approvals",
-    "msg": "High-severity actions waiting for a human yes/no right now.",
-    "more": "These gate real state changes. A non-zero critical count means the fleet is paused on you — clearing it (or explicitly denying) is what unblocks the sessions in D-01 that are waiting here."
+    "title": "Critical",
+    "msg": "How many pending approvals are critical severity.",
+    "more": "The ones to act on first. Critical means the paused action is high-impact or time-sensitive — the queue is severity-sorted so these surface at the top."
+  },
+  {
+    "sel": "#high-count",
+    "title": "High",
+    "msg": "How many pending approvals are high severity.",
+    "more": "Serious but below critical — important decisions that shouldn't sit long. The second tier of the triage after criticals."
+  },
+  {
+    "sel": "#oldest-age",
+    "title": "Oldest",
+    "msg": "Age of the longest-waiting pending approval.",
+    "more": "How long the queue's most-stale item has waited. A large age means something important is stuck — the signal that approvals are accumulating faster than they're cleared."
+  },
+  {
+    "sel": "#gates-grid",
+    "title": "Five stage gates (M065)",
+    "msg": "The five stage gates an item passes through (M065).",
+    "more": "Approvals aren't a single yes/no — they flow through five gates. This grid shows occupancy at each, so you see where items pile up (e.g. all waiting at the operator-sign gate) and why."
   },
   {
     "sel": "#approvals-list",
-    "title": "The approval queue",
-    "msg": "Every action awaiting operator decision, newest first.",
-    "more": "Approvals flow through the five M065 stage gates (below). The autonomous profile can batch-approve; every other profile decides one at a time — the deliberate friction that keeps a sovereign node operator-driven."
+    "title": "Pending approval queue",
+    "msg": "The queued approvals — each with approve / deny / defer / inspect.",
+    "more": "The actual decisions waiting for you, severity-sorted. Each card carries the context to decide plus the four actions. Decisions are signed operator actions — the panel surfaces them, the CLI records them (MS040 R09427)."
   },
   {
-    "sel": "#datasource-banner",
-    "title": "Live vs snapshot",
-    "msg": "Green = the approvals daemon is reachable and this queue is live; muted = the baked snapshot.",
-    "more": "Approvals are the one place a stale view is dangerous — always confirm the banner is live before acting on the queue."
+    "sel": "#batch-approve-btn",
+    "title": "Batch-approve (autonomous only)",
+    "msg": "Batch-approve eligible items — autonomous profile only.",
+    "more": "Visible only under the autonomous profile: when approvals pile up, batching them keeps the operator in the loop without one-by-one friction (the human-gate backpressure response). A signed action; not available in stricter profiles."
+  },
+  {
+    "sel": "#refresh-btn",
+    "title": "Refresh now",
+    "msg": "Re-poll the approval queue.",
+    "more": "A fresh read of pending decisions instead of waiting for the auto-poll — useful after resolving a batch. Read-only."
+  },
+  {
+    "sel": "#key-status-btn",
+    "title": "Check MS003 operator key",
+    "msg": "Verify the operator's MS003 signing key is present and valid.",
+    "more": "Approvals are only actionable if the operator can sign them — this checks the MS003 key status. A missing/expired key means the queue can't be cleared until it's restored, so check here if signing fails."
+  },
+  {
+    "sel": "#control-surface",
+    "title": "Controls — profiles, modes & toggles",
+    "msg": "The per-panel control rail for approvals.",
+    "more": "Every control copies its exact sovereign-osctl verb (§1g / R10212) — approve/deny/defer are signed operator actions recorded via CLI, never mutated from the web alone."
   }
 ];
 </script>
