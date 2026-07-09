@@ -102,7 +102,7 @@ speculatively refactored.
 | Q-060-A | Purge surface — cockpit control vs CLI-only? | **answered (operator, 2026-07-09): CLI-only maintenance verb, NOT a control — a purge is irreversible (undo cannot restore a hard-removed entry), strictly more dangerous than forget, so it is not web-triggerable at all (matches the `sessions start` CLI-only doctrine).** |
 | Q-060-B | Retention default / override. | **answered (operator, 2026-07-09): 30d default (SDD-059 Q-059-C), `--older-than N` override.** |
 | Q-060-C | Entries source for the list. | **answered (operator, 2026-07-09): `store_list()` via a new `/api/d-07/entries` read endpoint; `memory-changes.py` stays a pure projection reader.** |
-| Q-060-D | Reconcile the `memory.json` projection counts on forget/purge? | **proposed: no — the real M028 admission-lifecycle producer reconciles the counts (Stage N, = Q-059-E).** |
+| Q-060-D | Reconcile the `memory.json` projection counts on forget/purge? | **answered (SDD-064, 2026-07-09): YES — `memory-store.reconcile()` recomputes memory.json counts+lifecycle FROM the store (preserving the memory-decide-owned pending/history), wired best-effort into forget/undo/purge/register + the admission engine. D-07's projection now reflects the real store.** |
 | Q-060-E | A purge scheduler / cron timer. | **proposed: Stage N (this SDD ships the verb only).** |
 
 ## Way forward

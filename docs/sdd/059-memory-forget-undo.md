@@ -87,7 +87,7 @@ stays a pure reader; `memory-changes-api.py` stays 405.
 | Q-059-B | forget surface. | **answered (operator, 2026-07-08): a `memory-forget` control that refuses without `--force` (CLI-only override).** |
 | Q-059-C | Retention / purge window. | **answered (SDD-060, 2026-07-09): a CLI-only `memory-changes purge --older-than Nd --confirm` maintenance verb hard-removes `state:forgotten` tombstones past the window (30d default) + marks the ledger change `purged`; `undo` gains a purged-guard. Not a cockpit control (irreversible).** |
 | Q-059-D | store ↔ memory.json projection reconciliation. | **proposed: the real M028 producer — Stage N.** |
-| Q-059-E | The real admission-lifecycle producer. | **proposed: Stage N.** |
+| Q-059-E | The real admission-lifecycle producer. | **answered (SDD-064, 2026-07-09): `scripts/intelligence/memory-admit.py` — the admission ENGINE (`admit` value-gates the 8 store-if/5 ignore-if triggers, mints at stage `observe`; `advance` walks the 11-stage lifecycle) + `memory-store.reconcile()` recomputes the memory.json projection FROM the store. GROUNDED (SB-077): observations are CLI/fixture-fed — no real memory source exists yet; the auto-observation event stream is a further Stage-N.** |
 
 ## Way forward
 
