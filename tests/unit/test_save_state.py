@@ -146,3 +146,27 @@ def test_restore_plan_from_manifest(env):
     assert r["ok"] is True and r["dry_run"] is True
     assert r["plan"]["criu-checkpoint"]["would_run"][:2] == ["criu", "restore"]
     assert "@save-s-pid-" in r["plan"]["zfs-snapshot"]["target"]
+
+
+# ── SDD-065 — per-session ZFS dataset preference ──────────────────────────────
+
+def test_zfs_layer_prefers_per_session_dataset_path(env, monkeypatch):
+    """A session carrying `dataset_path` (SDD-065 per-session child) snapshots THAT
+    dataset directly, not the shared enum dataset."""
+    reg = env / "sessions.json"
+    reg.write_text(json.dumps({"sessions": [
+        {"id": "s-ps", "state": "active", "dataset": "agents",
+         "dataset_path": "tank/agents/s-ps", "pid": 5555},
+    ]}))
+    r = SS.capture("s-ps")
+    zfs = r["layers"]["zfs-snapshot"]
+    assert zfs["dataset_path"] == "tank/agents/s-ps"
+    assert "dataset_key" not in zfs  # went the per-session path, not the enum
+    assert zfs["result"]["target"] == f"tank/agents/s-ps@{zfs['tag']}"
+
+
+def test_zfs_layer_enum_fallback_without_dataset_path(env):
+    """Without `dataset_path` the shared enum dataset is used (the SDD-057 default —
+    keeps the existing behavior)."""
+    zfs = SS.capture("s-a")["layers"]["zfs-snapshot"]
+    assert zfs["dataset_key"] == "agents" and "dataset_path" not in zfs

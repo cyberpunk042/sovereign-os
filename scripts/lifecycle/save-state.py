@@ -172,6 +172,20 @@ def _dataset_key(session: dict[str, Any]) -> str:
     return dk if dk in _rp._DATASETS else "agents"
 
 
+def _zfs_snapshot_path(dataset_path: str, tag: str, *, confirm: bool = False) -> dict[str, Any]:
+    """SDD-065 — snapshot a per-session ZFS dataset (`tank/agents/<id>`) DIRECTLY by
+    path (rollback-points.create only takes the fixed enum keys). Host-gated + DRY-RUN
+    default, mirroring rollback-points.create's live/dry logic."""
+    snap = f"{dataset_path}@{tag}"
+    dry = (not confirm) or os.environ.get("SOVEREIGN_OS_DRY_RUN") == "1"
+    if dry:
+        return {"verb": "snapshot", "dataset_path": dataset_path, "tag": tag,
+                "target": snap, "dry_run": True, "would_run": ["zfs", "snapshot", snap]}
+    out = _rp._run(["zfs", "snapshot", snap], timeout=60)
+    return {"verb": "snapshot", "dataset_path": dataset_path, "tag": tag, "target": snap,
+            "ok": out is not None, "ran": ["zfs", "snapshot", snap]}
+
+
 def _active_profile() -> str:
     env = os.environ.get("SOVEREIGN_OS_ACTIVE_PROFILE")
     if env:
@@ -227,11 +241,19 @@ def capture(session_id: str, *, actor: str = "operator", confirm: bool = False) 
                                 "note": "save-state event appended to the durable ledger"}
         captured.append("replay-log")
 
-        # ── zfs-snapshot (reuse SDD-050 rollback-points.create) ─────────────
-        dk = _dataset_key(session)
+        # ── zfs-snapshot ─────────────────────────────────────────────────────
+        # SDD-065: prefer the session's per-session dataset (`dataset_path`,
+        # tank/agents/<id>) when present → real per-session isolation; else the shared
+        # enum dataset via rollback-points.create (fallback — the SDD-057 default).
         tag = _tag_safe(f"save-{session_id}-{tsc}")
-        zres = _rp.create(dk, tag, confirm=confirm)
-        layers["zfs-snapshot"] = {"dataset_key": dk, "tag": tag, "result": zres}
+        dpath = session.get("dataset_path")
+        if dpath:
+            zres = _zfs_snapshot_path(dpath, tag, confirm=confirm)
+            layers["zfs-snapshot"] = {"dataset_path": dpath, "tag": tag, "result": zres}
+        else:
+            dk = _dataset_key(session)
+            zres = _rp.create(dk, tag, confirm=confirm)
+            layers["zfs-snapshot"] = {"dataset_key": dk, "tag": tag, "result": zres}
         if zres.get("ok") is False:
             missing.append("zfs-snapshot")
         else:
@@ -326,7 +348,11 @@ def restore(session_id: str, *, actor: str = "operator", confirm: bool = False) 
         plan["criu-checkpoint"] = {"note": "no checkpoint in the save-state (no target pid at capture)"}
 
     zfs = layers.get("zfs-snapshot", {})
-    if zfs.get("dataset_key") and zfs.get("tag"):
+    if zfs.get("dataset_path") and zfs.get("tag"):  # SDD-065 per-session dataset
+        target = f"{zfs['dataset_path']}@{zfs['tag']}"
+        ares = _rp.apply(target, confirm=confirm)
+        plan["zfs-snapshot"] = {"target": target, "result": ares}
+    elif zfs.get("dataset_key") and zfs.get("tag"):
         target = f"{_rp._DATASETS.get(zfs['dataset_key'], zfs['dataset_key'])}@{zfs['tag']}"
         ares = _rp.apply(target, confirm=confirm)
         plan["zfs-snapshot"] = {"target": target, "result": ares}
