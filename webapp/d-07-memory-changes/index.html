@@ -511,9 +511,9 @@ a11y; contract test catches drift.
   <button onclick="load()">refresh diff (live)</button>
   <button onclick="jumpToControl('memory-decide')">promote — sign off pending change ↓</button>
   <button onclick="jumpToControl('memory-decide')">pin — sign off pending change ↓</button>
-  <button class="danger" onclick="showToast('forget (R10184, destructive) is Stage 3 — refuse-by-default; override via the logged CLI `sovereign-osctl memory-changes ... --force`')">forget (Stage 3 — destructive, R10184)</button>
-  <button onclick="showToast('snapshot-before-edit is a Stage 3 follow-up (needs the M028 memory-entry store)')">snapshot before edit (Stage 3)</button>
-  <button onclick="showToast('undo (R10185) is a Stage 3 follow-up (needs a change-ledger)')">undo (Stage 3 — R10185)</button>
+  <button class="danger" onclick="jumpToControl('memory-forget')">forget (R10184, destructive) — via Controls rail ↓</button>
+  <button onclick="showToast('snapshot-before-edit is a Stage N follow-up (needs the M028 admission-lifecycle producer)')">snapshot before edit (Stage N)</button>
+  <button onclick="jumpToControl('memory-undo')">undo (R10185) — via Controls rail ↓</button>
 </div>
 
 <div class="footer">

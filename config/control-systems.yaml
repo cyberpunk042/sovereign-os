@@ -585,3 +585,47 @@ systems:
     privileged: true
     applies_to: [d-01-active-sessions]
     refs: [scripts/lifecycle/session-decide.py]
+
+  # ── 29. Memory forget — soft-delete a memory entry (D-07, SDD-059) ──
+  - id: memory-forget
+    kind: lifecycle
+    scope: scoped
+    label: "Forget Memory"
+    description: >-
+      Soft-delete an M028 memory entry (SDD-059, R10184) — tombstone it
+      (state → forgotten) + ledger the prior state so it can be restored. This is
+      REFUSE-BY-DEFAULT from the panel: forget is destructive, so the override
+      `--force` is a logged CLI-only escalation
+      (`sovereign-osctl memory-changes forget <id> --confirm --force`); the panel
+      button surfaces the refusal + the CLI remediation. undo (memory-undo)
+      restores a forgotten memory. DRY-RUN by default; operator-key +
+      type-to-confirm gated. MS003 signing delegated to selfdef
+      (signature unsigned-pending-MS003).
+    options: [forget]
+    options_cli: "sovereign-osctl memory-changes list"
+    state_cli: "sovereign-osctl memory-changes list"
+    change_cli: "sovereign-osctl memory-changes forget <id> --confirm"
+    state_path: "M028 memory-entry store /var/lib/sovereign-os/memory/store.json"
+    privileged: true
+    applies_to: [d-07-memory-changes]
+    refs: [scripts/intelligence/memory-store.py]
+
+  # ── 30. Memory undo — reverse a memory change (D-07, SDD-059) ──
+  - id: memory-undo
+    kind: lifecycle
+    scope: scoped
+    label: "Undo Memory Change"
+    description: >-
+      Reverse an M028 memory change (SDD-059, R10185) — restore a forgotten memory
+      to active by un-doing its ledger change. Non-destructive. Pick the change id
+      (chg-<hex>). DRY-RUN by default; operator-key + type-to-confirm gated.
+      Recorded to an OCSF-5001 audit span. MS003 signing delegated to selfdef
+      (signature unsigned-pending-MS003).
+    options: [undo]
+    options_cli: "sovereign-osctl memory-changes list"
+    state_cli: "sovereign-osctl memory-changes list"
+    change_cli: "sovereign-osctl memory-changes undo <id> --confirm"
+    state_path: "M028 memory change-ledger /var/lib/sovereign-os/memory/changes.json"
+    privileged: true
+    applies_to: [d-07-memory-changes]
+    refs: [scripts/intelligence/memory-store.py]
