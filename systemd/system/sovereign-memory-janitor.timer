@@ -1,0 +1,15 @@
+[Unit]
+Description=sovereign-os M028 SLM-janitor sweep (auto-enrich + bounded lifecycle advance ~every 10 min)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/hooks/recurrent/memory-janitor.sh
+
+[Timer]
+# Every 10 minutes + jitter — heavier than the observe stream (~5 min) since the sweep
+# makes SLM calls; walks admitted memories through the lifecycle up to `verify` (never
+# auto-promotes/archives).
+OnCalendar=*:0/10
+RandomizedDelaySec=45
+Persistent=true
+Unit=sovereign-memory-janitor.service
+
+[Install]
+WantedBy=timers.target

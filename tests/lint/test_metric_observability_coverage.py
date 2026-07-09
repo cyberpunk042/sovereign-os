@@ -93,6 +93,10 @@ EXEMPT_PATTERNS: list[tuple[str, str]] = [
      "memory observation-stream counter (run/admitted totals per tick, SDD-069); "
      "bookkeeping telemetry — auto-feeding the M028 admission value-gate from the "
      "span log is a self-population signal, not a paging health signal."),
+    (r"^sovereign_os_memory_janitor_[a-z0-9_]+$",
+     "memory SLM-janitor sweep counter (run/swept totals per tick, SDD-070); "
+     "bookkeeping telemetry — auto-enriching memories + a bounded lifecycle advance "
+     "is a maintenance signal, not a paging health signal."),
     (r"^sovereign_os_meta_alert(s)?_[a-z0-9_]+$",
      "alerts-check META-counter (the alert engine's own derived-alert tally); "
      "paging on it would be circular — surfaced on the meta-observability panel."),
