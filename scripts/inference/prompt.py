@@ -42,7 +42,10 @@ MODEL_STATE_PATH = Path(os.environ.get(
 MODEL_LATENCY_PATH = Path(os.environ.get(
     "SOVEREIGN_OS_MODEL_LATENCY", "/run/sovereign-os/model-latency.json"))
 MAX_PROMPT_CHARS = int(os.environ.get("SOVEREIGN_OS_MAX_PROMPT_CHARS", "8000"))
+MAX_CHAT_TURNS = int(os.environ.get("SOVEREIGN_OS_MAX_CHAT_TURNS", "8"))  # SDD-103
 DEFAULT_TIMEOUT = int(os.environ.get("SOVEREIGN_OS_PROMPT_TIMEOUT", "300"))
+
+_CHAT_ROLES = frozenset({"user", "assistant", "system"})
 
 # tier (router classify) → model-health role (model-state.json tokens_per_sec key).
 _TIER_ROLE = {"pulse": "conductor", "logic_engine": "logic", "logic": "logic",
@@ -104,21 +107,52 @@ def _stream_completion(body: dict[str, Any], timeout: int) -> Iterator[str]:
                 yield line[5:].strip()
 
 
-def run(text: str, *, stream: bool = True, timeout: int = DEFAULT_TIMEOUT,
+def _bound_messages(messages: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], str | None]:
+    """SDD-103 — validate + bound a multi-turn conversation for the router. Keeps only
+    `{role∈{user,assistant,system}, content:str}` turns (never injects a turn); trims to the
+    last MAX_CHAT_TURNS; rejects when the total content exceeds MAX_PROMPT_CHARS. Returns
+    (bounded_messages, error) — error is a string when the conversation is unusable."""
+    clean: list[dict[str, Any]] = []
+    for m in messages if isinstance(messages, list) else []:
+        if not isinstance(m, dict):
+            continue
+        role = m.get("role")
+        content = m.get("content")
+        if role in _CHAT_ROLES and isinstance(content, str) and content.strip():
+            clean.append({"role": role, "content": content})
+    if not clean:
+        return [], "no valid conversation turns (need {role,content})"
+    clean = clean[-MAX_CHAT_TURNS:]  # keep the most recent turns
+    if sum(len(m["content"]) for m in clean) > MAX_PROMPT_CHARS:
+        return [], f"conversation exceeds {MAX_PROMPT_CHARS} chars (bounded read-compute)"
+    return clean, None
+
+
+def run(text: str = "", *, messages: list[dict[str, Any]] | None = None,
+        stream: bool = True, timeout: int = DEFAULT_TIMEOUT,
         model: str = "auto") -> Iterator[dict[str, Any]]:
-    """Run a single prompt through the router. Yields event dicts:
-    {"type":"token","text":…} per delta, then a final
+    """Run a prompt through the router. `text` is a single user turn (back-compatible);
+    `messages` is a bounded multi-turn conversation (SDD-103) — when given it takes
+    precedence. Yields event dicts: {"type":"token","text":…} per delta, then a final
     {"type":"done","tokens":N,"elapsed_s":T,"tokens_per_sec":R,"tier":…}, or a single
     {"type":"error","error":…} on an unreachable/failed backend (never fabricated)."""
-    text = text or ""
-    if not text.strip():
-        yield {"type": "error", "error": "empty prompt"}
-        return
-    if len(text) > MAX_PROMPT_CHARS:
-        yield {"type": "error",
-               "error": f"prompt exceeds {MAX_PROMPT_CHARS} chars (bounded read-compute)"}
-        return
-    body = {"model": model, "messages": [{"role": "user", "content": text}],
+    if messages is not None:
+        turns, err = _bound_messages(messages)
+        if err is not None:
+            yield {"type": "error", "error": err}
+            return
+        chat = turns
+    else:
+        text = text or ""
+        if not text.strip():
+            yield {"type": "error", "error": "empty prompt"}
+            return
+        if len(text) > MAX_PROMPT_CHARS:
+            yield {"type": "error",
+                   "error": f"prompt exceeds {MAX_PROMPT_CHARS} chars (bounded read-compute)"}
+            return
+        chat = [{"role": "user", "content": text}]
+    body = {"model": model, "messages": chat,
             "stream": True, "stream_options": {"include_usage": True}}
     tier = _classify(body)
     started = time.monotonic()

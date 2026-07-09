@@ -321,11 +321,19 @@ class LmStatusAPIHandler(BaseHTTPRequestHandler):
             return
         try:
             req = json.loads(self.rfile.read(length).decode("utf-8"))
-            text = str(req.get("prompt", ""))
         except (json.JSONDecodeError, ValueError, UnicodeDecodeError):
-            self._send_json(400, {"error": "body must be JSON {prompt: <text>}"})
+            self._send_json(400, {"error": "body must be JSON {prompt} or {messages}"})
             _emit_metric("chat", "400")
             return
+        # SDD-103 — {messages:[{role,content}]} for multi-turn (bounded server-side);
+        # {prompt:text} stays a valid single-turn body (back-compat). The server holds
+        # NO conversation state — the client sends the bounded history each turn.
+        messages = req.get("messages")
+        if messages is not None and not isinstance(messages, list):
+            self._send_json(400, {"error": "messages must be a list of {role,content}"})
+            _emit_metric("chat", "400")
+            return
+        text = str(req.get("prompt", ""))
         self.send_response(200)
         self.send_header("Content-Type", "text/event-stream")
         self.send_header("Cache-Control", "no-cache")
@@ -334,7 +342,8 @@ class LmStatusAPIHandler(BaseHTTPRequestHandler):
         _emit_metric("chat", "open")
         done = None
         try:
-            for ev in _prompt.run(text):
+            for ev in (_prompt.run(messages=messages) if messages is not None
+                       else _prompt.run(text)):
                 self.wfile.write(
                     f"event: {ev['type']}\ndata: {json.dumps(ev)}\n\n".encode("utf-8"))
                 self.wfile.flush()
