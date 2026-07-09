@@ -151,22 +151,32 @@ _SLM_SPEC: dict[str, tuple[str, str, Callable[[str], Any]]] = {
 def _write_field(mem_id: str, field: str, value: Any, *, job: str,
                  actor: str) -> dict[str, Any]:
     """Additive per-entry field write (atomic + span + reconcile)."""
+    return _write_fields(mem_id, {field: value}, job=job, actor=actor)
+
+
+def _write_fields(mem_id: str, updates: dict[str, Any], *, job: str,
+                  actor: str) -> dict[str, Any]:
+    """Additive per-entry MULTI-field write (atomic + span + reconcile) — e.g. the
+    `verify` effect writes `verified` + `verified_at` (SDD-101) in one write."""
     with _store._WRITE_LOCK:
         store = _store._read_json(_store.STORE, {})
         ents = store.get("entries")
         if not isinstance(ents, dict) or mem_id not in ents:
             return {"ok": False, "code": 2, "id": mem_id,
                     "error": f"no memory entry resolved for {mem_id!r}"}
-        ents[mem_id][field] = value
+        for field, value in updates.items():
+            ents[mem_id][field] = value
         ents[mem_id]["updated"] = _store._now()
         try:
             _store._atomic_write(_store.STORE, store)
         except OSError as e:
             return {"ok": False, "code": 1, "id": mem_id, "error": f"write failed: {e}"}
-    _store._emit_span(f"janitor-{job}", mem_id, actor, {"field": field})
+    _store._emit_span(f"janitor-{job}", mem_id, actor, {"fields": list(updates)})
     _store._reconcile_safe()
-    return {"ok": True, "code": 200, "id": mem_id, "job": job, "field": field,
-            "value": value}
+    fields = list(updates)
+    return {"ok": True, "code": 200, "id": mem_id, "job": job,
+            "field": fields[0] if len(fields) == 1 else fields,
+            "value": updates[fields[0]] if len(fields) == 1 else updates}
 
 
 def _slm_one(job: str, mem_id: str, *, confirm: bool, actor: str = "operator") -> dict[str, Any]:
@@ -272,13 +282,22 @@ def _related_pairs() -> list[tuple[str, str]]:
     return pairs
 
 
-def _add_edge(ents: dict[str, Any], src: str, dst: str) -> bool:
+def _has_edge(entry: dict[str, Any], dst: str, kind: str) -> bool:
+    edges = entry.get("edges")
+    return isinstance(edges, list) and any(
+        isinstance(x, dict) and x.get("to") == dst and x.get("kind") == kind for x in edges)
+
+
+def _add_edge(ents: dict[str, Any], src: str, dst: str, kind: str = "related") -> bool:
+    """Additive graph edge, deduped by (to, kind) — an entry can be BOTH `related` AND
+    `contradicts` another (SDD-101)."""
     edges = ents[src].get("edges")
     if not isinstance(edges, list):
         edges = []
-    if any(isinstance(x, dict) and x.get("to") == dst for x in edges):
+    if any(isinstance(x, dict) and x.get("to") == dst and x.get("kind") == kind
+           for x in edges):
         return False
-    edges.append({"to": dst, "kind": "related"})
+    edges.append({"to": dst, "kind": kind})
     ents[src]["edges"] = edges
     return True
 
@@ -319,6 +338,60 @@ def edges(*, confirm: bool, actor: str = "operator") -> dict[str, Any]:
             "edges_added": added}
 
 
+def contradict(*, confirm: bool, actor: str = "janitor") -> dict[str, Any]:
+    """SDD-101 — the substrate producer for the M00469 `contradicted-by` navigator verb.
+    Deterministic candidate-pairing (active pairs sharing a topic / token-overlap — the
+    same _related_pairs same-subject candidates) + SLM CONFIRMATION (honest-defer): one
+    bounded `_slm` yes/no per candidate → on "yes" a bidirectional `contradicts` edge.
+    HONEST-DEFER (SB-077) — an unreachable router writes NO edge (never fabricates a
+    contradiction). Idempotent (an existing `contradicts` edge is not re-proposed)."""
+    ents0 = _store._entries()
+    # candidate pairs not already marked contradicts (idempotency pre-filter).
+    pairs = [(a, b) for a, b in _related_pairs()
+             if a in ents0 and b in ents0 and not _has_edge(ents0[a], b, "contradicts")]
+    dry, why = _dry(confirm)
+    if dry:
+        return {"ok": True, "code": 200, "job": "contradict", "dry_run": True,
+                "candidates": len(pairs),
+                "note": f"DRY-RUN ({why}) — would SLM-judge {len(pairs)} candidate pair(s)"}
+    confirmed: list[tuple[str, str]] = []
+    deferred = 0
+    for a, b in pairs:
+        r = _slm("Do these two memories contradict each other? Answer only 'yes' or "
+                 f"'no'.\nA: {ents0[a].get('summary', '')}\nB: {ents0[b].get('summary', '')}")
+        if not r.get("ok"):
+            deferred += 1  # honest-defer — no edge written
+            continue
+        if r["text"].strip().lower().startswith("yes"):
+            confirmed.append((a, b))
+    if not confirmed:
+        return {"ok": True, "code": 200, "job": "contradict", "linked": [], "count": 0,
+                "deferred": deferred,
+                "note": "no confirmed contradictions"
+                + (" (SLM honest-deferred)" if deferred else "")}
+    added = 0
+    with _store._WRITE_LOCK:
+        store = _store._read_json(_store.STORE, {})
+        ents = store.get("entries")
+        if not isinstance(ents, dict):
+            ents = {}
+        for a, b in confirmed:
+            if a in ents and b in ents:
+                added += _add_edge(ents, a, b, "contradicts")
+                added += _add_edge(ents, b, a, "contradicts")
+        store["entries"] = ents
+        try:
+            _store._atomic_write(_store.STORE, store)
+        except OSError as e:
+            return {"ok": False, "code": 1, "error": f"write failed: {e}"}
+    for a, b in confirmed:
+        _store._emit_span("janitor-contradict", a, actor, {"to": b})
+    _store._reconcile_safe()
+    return {"ok": True, "code": 200, "job": "contradict",
+            "linked": [{"a": a, "b": b} for a, b in confirmed], "count": len(confirmed),
+            "edges_added": added, "deferred": deferred}
+
+
 # ── advance-effects — run the current stage's job, then delegate the label bump ─
 
 def _edges_for(mem_id: str, *, confirm: bool, actor: str) -> dict[str, Any]:
@@ -332,8 +405,9 @@ _STAGE_EFFECT: dict[str, Callable[..., dict[str, Any]]] = {
     "link": _edges_for,
     "extract-facts": lambda mid, *, confirm, actor: _slm_one(
         "extract-facts", mid, confirm=confirm, actor=actor),
-    "verify": lambda mid, *, confirm, actor: _write_field(
-        mid, "verified", True, job="verify", actor=actor) if not _dry(confirm)[0]
+    "verify": lambda mid, *, confirm, actor: _write_fields(
+        mid, {"verified": True, "verified_at": _store._now()}, job="verify", actor=actor)
+        if not _dry(confirm)[0]
         else {"ok": True, "code": 200, "id": mid, "job": "verify", "dry_run": True},
     "promote": lambda mid, *, confirm, actor: _write_field(
         mid, "promoted", True, job="promote", actor=actor) if not _dry(confirm)[0]
@@ -402,6 +476,7 @@ def sweep(*, confirm: bool, actor: str = "janitor", stop: str | None = None,
     d = dedup(confirm=confirm, actor=actor)
     t = _run_per_entry("tag", None, all_=True, confirm=confirm, actor=actor)
     e = edges(confirm=confirm, actor=actor)
+    c = contradict(confirm=confirm, actor=actor)  # SDD-101 — SLM-confirmed, honest-defer
     # 2 + 3. per-entry SLM enrichment + bounded lifecycle advance.
     ents = _active(_store._entries())
     if limit is not None:
@@ -446,8 +521,9 @@ def sweep(*, confirm: bool, actor: str = "janitor", stop: str | None = None,
     return {"ok": True, "code": 200, "job": "sweep", "stop": stop,
             "swept": len(ents), "deduped": d.get("count", 0),
             "tagged": t.get("count", 0), "edged": e.get("count", 0),
-            "enriched": enriched, "advanced": advanced,
-            "verified_at_stop": verified, "deferred": deferred,
+            "contradicted": c.get("count", 0), "enriched": enriched,
+            "advanced": advanced, "verified_at_stop": verified,
+            "deferred": deferred + c.get("deferred", 0),
             "dry_run": _dry(confirm)[0]}
 
 
@@ -478,7 +554,7 @@ def _print(obj: Any) -> None:
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="M028 SLM memory janitor (SDD-066)")
     sub = ap.add_subparsers(dest="job")
-    for j in ("dedup", "edges"):
+    for j in ("dedup", "edges", "contradict"):
         p = sub.add_parser(j)
         p.add_argument("--confirm", action="store_true")
         p.add_argument("--actor", default="operator")
@@ -503,6 +579,8 @@ def main(argv: list[str] | None = None) -> int:
         r = dedup(confirm=args.confirm, actor=args.actor)
     elif job == "edges":
         r = edges(confirm=args.confirm, actor=args.actor)
+    elif job == "contradict":
+        r = contradict(confirm=args.confirm, actor=args.actor)
     elif job in _PER_ENTRY:
         r = _run_per_entry(job, args.id, all_=args.all_, confirm=args.confirm,
                            actor=args.actor)
@@ -511,8 +589,8 @@ def main(argv: list[str] | None = None) -> int:
     elif job == "sweep":
         r = sweep(confirm=args.confirm, actor=args.actor, stop=args.stop, limit=args.limit)
     else:
-        ap.error("a job is required: dedup|edges|tag|extract-facts|topic|summarize|"
-                 "classify|advance|sweep")
+        ap.error("a job is required: dedup|edges|contradict|tag|extract-facts|topic|"
+                 "summarize|classify|advance|sweep")
         return 2
     _print(r)
     return 0 if r.get("ok") else int(r.get("code", 1))

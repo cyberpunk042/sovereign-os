@@ -8367,7 +8367,11 @@ case "${cmd}" in
         # SDD-070: `sweep` is the recurrent-timer maintenance pass — global dedup/tag/edges
         # + SLM topic/summarize (honest-defer) + a BOUNDED lifecycle advance toward `verify`
         # (never auto-promotes/archives). Runs from sovereign-memory-janitor.timer (~10 min).
-        #   memory-changes janitor <dedup|edges|tag|extract-facts|topic|summarize|classify|advance|sweep> [id|--all] [--confirm]
+        # SDD-101: `contradict` proposes `contradicts` edges (deterministic candidate-
+        # pairing + SLM yes/no confirmation, honest-defer) — the substrate for the M00469
+        # `contradicted-by` navigator verb; the `verify` effect now also stamps `verified_at`
+        # (making `last-verified` report a real time). Both fold into `sweep`.
+        #   memory-changes janitor <dedup|edges|contradict|tag|extract-facts|topic|summarize|classify|advance|sweep> [id|--all] [--confirm]
         job="${1:-}"
         shift || true
         "${__REPO_ROOT}/scripts/intelligence/memory-janitor.py" "${job}" "$@"

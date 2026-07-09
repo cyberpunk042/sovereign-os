@@ -110,7 +110,7 @@ branch alongside `janitor)`).
 | Q-068-B | Surface. | **answered ("we do not minimize"): CLI + a read-only GET `/api/d-07/navigate` + a D-07 webapp query box.** |
 | Q-068-C | Temporal verbs. | **answered ("Include temporal verbs (M00469)"): fold the 5 verbs in, mapped to real substrate; `contradicted-by` + any timestamped `last-verified` honest-defer per SB-077.** |
 | Q-068-D | Compose transport. | **answered: non-streaming JSON GET (compose server-side); SSE-over-GET is a Stage-N option.** |
-| Q-068-E | Embeddings / rerank + the full M00475 8-step pipeline + a `contradicts` edge-kind + a `verified_at` timestamp. | **proposed: Stage-N (need a vector backend + new store substrate).** |
+| Q-068-E | Embeddings / rerank + the full M00475 8-step pipeline + a `contradicts` edge-kind + a `verified_at` timestamp. | **the `contradicts` edge-kind + `verified_at` half answered (SDD-101, 2026-07-09): a `contradict` janitor job (deterministic candidate-pairing + SLM confirmation, honest-defer) writes `contradicts` edges + the verify effect writes `verified_at`, so `contradicted-by` + `last-verified` become real.** Embeddings / rerank + the full M00475 8-step pipeline remain **proposed: Stage-N (need a vector backend).** |
 
 ## Non-goals (Stage N)
 

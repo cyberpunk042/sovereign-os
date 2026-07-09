@@ -344,3 +344,74 @@ def test_sweep_dry_run_mutates_nothing(store, monkeypatch):
 def test_sweep_unknown_stop_stage_rejected(store):
     _seed({"mem-a": _e("mem-a", 2, "x")})
     assert J.sweep(confirm=True, stop="bogus")["ok"] is False
+
+
+# ── verified_at + contradict (SDD-101 temporal substrate) ──────────────────────
+
+def test_verify_effect_stamps_verified_at(store, monkeypatch):
+    _seed({"mem-v": _e("mem-v", 2, "a memory", stage="verify")})
+    monkeypatch.setattr(J, "_prompt", None)
+    J.sweep(confirm=True)                       # runs the at-stop verify effect
+    e = S._entries()["mem-v"]
+    assert e["verified"] is True and isinstance(e.get("verified_at"), str) and e["verified_at"]
+
+
+def _seed_contradiction_pair():
+    _seed({
+        "mem-a": _e("mem-a", 2, "router failed on gpu one", stage="observe"),
+        "mem-b": _e("mem-b", 2, "router works fine on gpu one", stage="observe",
+                    created="2026-01-02T00:00:00+00:00"),
+    })
+    # give them a shared topic so they're a deterministic candidate pair.
+    for m in ("mem-a", "mem-b"):
+        d = S._entries(); d[m]["topic"] = "networking"
+        S._atomic_write(S.STORE, {"entries": d})
+
+
+def test_contradict_honest_defers_without_router(store, monkeypatch):
+    _seed_contradiction_pair()
+    monkeypatch.setattr(J, "_prompt", None)          # no engine → honest-defer
+    r = J.contradict(confirm=True)
+    assert r["ok"] and r["count"] == 0 and r["deferred"] >= 1   # SLM-deferred, no edge
+    assert not J._has_edge(S._entries()["mem-a"], "mem-b", "contradicts")  # never fabricated
+
+
+def test_contradict_writes_bidirectional_edge_on_slm_yes(store, monkeypatch):
+    _seed_contradiction_pair()
+    _fake_prompt(monkeypatch, {"type": "token", "text": "yes"}, {"type": "done"})
+    r = J.contradict(confirm=True)
+    assert r["count"] == 1
+    assert J._has_edge(S._entries()["mem-a"], "mem-b", "contradicts")
+    assert J._has_edge(S._entries()["mem-b"], "mem-a", "contradicts")   # bidirectional
+
+
+def test_contradict_no_edge_on_slm_no(store, monkeypatch):
+    _seed_contradiction_pair()
+    _fake_prompt(monkeypatch, {"type": "token", "text": "no"}, {"type": "done"})
+    assert J.contradict(confirm=True)["count"] == 0
+    assert not J._has_edge(S._entries()["mem-a"], "mem-b", "contradicts")
+
+
+def test_contradict_idempotent(store, monkeypatch):
+    _seed_contradiction_pair()
+    _fake_prompt(monkeypatch, {"type": "token", "text": "yes"}, {"type": "done"})
+    assert J.contradict(confirm=True)["count"] == 1
+    assert J.contradict(confirm=True)["count"] == 0   # existing contradicts edge not re-proposed
+
+
+def test_contradict_coexists_with_related_edge(store, monkeypatch):
+    # a pair can be BOTH `related` (edges job) AND `contradicts` — deduped by (to, kind).
+    _seed_contradiction_pair()
+    J.edges(confirm=True)                              # writes a `related` edge a<->b
+    _fake_prompt(monkeypatch, {"type": "token", "text": "yes"}, {"type": "done"})
+    J.contradict(confirm=True)
+    kinds = {x["kind"] for x in S._entries()["mem-a"]["edges"] if x["to"] == "mem-b"}
+    assert kinds == {"related", "contradicts"}
+
+
+def test_sweep_includes_contradict(store, monkeypatch):
+    _seed_contradiction_pair()
+    _fake_prompt(monkeypatch, {"type": "token", "text": "yes"}, {"type": "done"})
+    r = J.sweep(confirm=True)
+    assert r["contradicted"] == 1
+    assert J._has_edge(S._entries()["mem-a"], "mem-b", "contradicts")

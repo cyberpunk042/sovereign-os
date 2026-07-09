@@ -306,9 +306,10 @@ def test_navigate_endpoint_projects_the_store():
         # a temporal verb (changed → updated != created) over the same store.
         status2, d2 = _get(port, "/api/d-07/navigate?verb=changed&compose=0")
         assert status2 == 200 and [s["id"] for s in d2["slices"]] == ["mem-aa11"]
-        # contradicted-by honest-defers (no contradiction substrate) — never fabricated.
+        # contradicted-by is REAL (SDD-101 `contradicts` edge-kind); this store has no
+        # contradicts edges yet → an honest EMPTY result (not deferred, never fabricated).
         status3, d3 = _get(port, "/api/d-07/navigate?verb=contradicted-by")
-        assert status3 == 200 and d3["deferred"] is True and d3["count"] == 0
+        assert status3 == 200 and not d3.get("deferred") and d3["count"] == 0
     finally:
         proc.kill(); proc.wait(timeout=3); os.unlink(state); os.unlink(store)
 
