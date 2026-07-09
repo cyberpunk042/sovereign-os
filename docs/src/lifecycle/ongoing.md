@@ -37,6 +37,7 @@ Ordered most-frequent first:
 | `sovereign-wattage-heat-trend.timer` | Every minute | Wattage + heat trend-verdict tick (E1.M36) |
 | `sovereign-telemetry-textfile.timer` | Every minute | sovereign-telemetry probe → node_exporter textfile (M045 E0430 / M013) |
 | `sovereign-thermal-watch.timer` | Every 5 min | Chassis / CPU / GPU thermal sample (R172) |
+| `sovereign-session-reaper.timer` | Every 2 min | M057 session reaper — archive sessions whose process exited (SDD-065) |
 | `sovereign-alerts-check.timer` | Hourly | Alert derivation snapshot |
 | `sovereign-notify-dispatch.timer` | Hourly | Health-scan + notification fan-out (R229, Z-6) |
 | `sovereign-backup-snapshot.timer` | Daily 02:30 | State-fabric ZFS snapshot |

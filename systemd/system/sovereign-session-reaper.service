@@ -1,0 +1,28 @@
+[Unit]
+Description=sovereign-os M057 session reaper — archive sessions whose process has exited (SDD-065)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/hooks/recurrent/session-reap.sh
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/sovereign-os/scripts/hooks/recurrent/session-reap.sh
+TimeoutStartSec=60s
+StandardOutput=journal
+StandardError=journal
+# R171 defense-in-depth (Layer 1 lint enforced). Reads/writes the session registry
+# under /run + appends the decisions ledger + spans; no privileged ops.
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
+StateDirectory=sovereign-os
+ReadWritePaths=-/var/lib/node_exporter/textfile_collector
+NoNewPrivileges=true
+PrivateTmp=true

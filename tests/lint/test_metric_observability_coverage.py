@@ -85,6 +85,10 @@ EXEMPT_PATTERNS: list[tuple[str, str]] = [
     (r"^sovereign_os_models_catalog_[a-z0-9_]+$",
      "model-catalog inventory gauge (counts/bytes/last-run); dashboard-tier "
      "inventory state, not a health signal."),
+    (r"^sovereign_os_session_reaper_[a-z0-9_]+$",
+     "session-reaper janitor counter (run/reaped totals per tick, SDD-065); "
+     "bookkeeping telemetry — archiving an already-exited session is state "
+     "reconciliation, not a paging health signal."),
     (r"^sovereign_os_meta_alert(s)?_[a-z0-9_]+$",
      "alerts-check META-counter (the alert engine's own derived-alert tally); "
      "paging on it would be circular — surfaced on the meta-observability panel."),
