@@ -545,7 +545,10 @@ a11y; contract test catches drift.
       {id:'—', dir:'cpu-features', label:'cpu features (raw)', ico:'⊞'}]}
   ];
   var PANEL_HELP = {
-    'd-04-costs':'Per-session and per-model spend with budget thresholds. Read-only — nothing here executes on the server.'
+    'master-dashboard':'The cockpit front door — every panel, control, profile and mode in one place. The cards + control-surface link out to each surface; the sidemenu (← left) is the always-present index of the whole cockpit.',
+    'd-04-costs':'Per-session and per-model spend with budget thresholds, cost-by-profile / model / project breakdowns, and the operator-controlled cost policy. Read-only — nothing here executes on the server.',
+    'd-01-active-sessions':'Live agent sessions and their runtime state (pid, save-state, ZFS dataset). Read-only.',
+    'personalization':'Theme, accent and typography for the whole cockpit. The header theme toggle writes the SAME prefs shown here.'
   };
   var PKEY='sovereign-os.personalization', PSCHEMA=1;
   function loadPrefs(){ try{var r=localStorage.getItem(PKEY);var p=r?JSON.parse(r):null;if(!p||p.schema!==PSCHEMA)return{schema:PSCHEMA,theme:'auto',accent:'#9bd1ff',font_scale:1};return p;}catch(e){return{schema:PSCHEMA,theme:'auto',accent:'#9bd1ff',font_scale:1};} }
@@ -596,7 +599,7 @@ a11y; contract test catches drift.
       '<div class="so-assist-body">'+
         '<div class="so-assist-sec"><h4>This panel — '+title+'</h4><div>'+esc(help)+'</div></div>'+
         '<div class="so-assist-sec"><h4>Hovered element</h4><div id="so-assist-el"><span class="so-assist-hint">Hover any highlighted control and its explanation appears here.</span></div></div>'+
-        '<div class="so-assist-sec"><h4>Tour</h4><div class="so-assist-hint">Guided walkthrough — coming in Stage 2.</div></div>'+
+        '<div class="so-assist-sec"><h4>Tour</h4><button class="so-h-btn" id="so-tour-btn" style="border-color:var(--border,#262626)">▶ Start tour</button> <span class="so-assist-hint" id="so-tour-status"></span></div>'+
       '</div></aside>'));
   }
   function wire(){
@@ -623,6 +626,34 @@ a11y; contract test catches drift.
       t.addEventListener('focus',function(){show(t.getAttribute('data-assist'),t);});
       t.addEventListener('mouseleave',function(){clr(t);});
       t.addEventListener('blur',function(){clr(t);}); });
+    // ── guided tour: walk the panel's [data-assist] elements in order ──
+    var tour={list:[],i:-1,on:false}, tourBtn=document.getElementById('so-tour-btn'), tourStatus=document.getElementById('so-tour-status');
+    function reduced(){ return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
+    function tourClear(){ tour.list.forEach(function(e){ e.classList.remove('so-assist-hot'); }); }
+    function tourEnd(){ tour.on=false; tourClear(); box.classList.remove('hot');
+      box.innerHTML='<span class="so-assist-hint">Hover any highlighted control and its explanation appears here.</span>';
+      if(tourStatus) tourStatus.textContent=''; if(tourBtn) tourBtn.textContent='▶ Start tour'; }
+    function tourShow(i){ if(i<0||i>=tour.list.length){ tourEnd(); return; } tour.i=i; tourClear();
+      var e=tour.list[i]; e.classList.add('so-assist-hot');
+      if(e.scrollIntoView) e.scrollIntoView({block:'center', behavior: reduced()?'auto':'smooth'});
+      box.classList.add('hot');
+      box.innerHTML='<div style="margin-bottom:.5rem">'+esc(e.getAttribute('data-assist'))+'</div>'+
+        '<div style="display:flex;gap:.4rem;align-items:center">'+
+        '<button class="so-h-btn" id="so-tour-prev"'+(i===0?' disabled':'')+'>←</button>'+
+        '<button class="so-h-btn" id="so-tour-next">'+(i===tour.list.length-1?'done':'→')+'</button>'+
+        '<span class="so-assist-hint">step '+(i+1)+' / '+tour.list.length+'</span></div>';
+      var pv=document.getElementById('so-tour-prev'), nx=document.getElementById('so-tour-next');
+      if(pv) pv.addEventListener('click',function(){ tourShow(tour.i-1); });
+      if(nx) nx.addEventListener('click',function(){ tour.i===tour.list.length-1 ? tourEnd() : tourShow(tour.i+1); });
+    }
+    function tourStart(){ tour.list=Array.prototype.slice.call(document.querySelectorAll('#so-content [data-assist]'));
+      if(!tour.list.length){ if(tourStatus) tourStatus.textContent='no annotated elements on this panel yet.'; return; }
+      tour.on=true; document.body.classList.add('so-assist-open'); if(tourBtn) tourBtn.textContent='✕ End tour'; tourShow(0); }
+    if(tourBtn) tourBtn.addEventListener('click',function(){ tour.on ? tourEnd() : tourStart(); });
+    window.addEventListener('keydown',function(ev){ if(!tour.on) return;
+      if(ev.key==='ArrowRight'){ ev.preventDefault(); tour.i===tour.list.length-1 ? tourEnd() : tourShow(tour.i+1); }
+      else if(ev.key==='ArrowLeft'){ ev.preventDefault(); tourShow(Math.max(0,tour.i-1)); }
+      else if(ev.key==='Escape'){ ev.preventDefault(); tourEnd(); } });
   }
   function init(){
     var dir=curDir(), cur=findPanel(dir);
@@ -638,11 +669,11 @@ a11y; contract test catches drift.
 </script>
 <!-- APP-SHELL:END M067 -->
 
-<h1>D-04 — costs</h1>
+<h1 data-assist="D-04 costs — where every dollar goes. Read-only cockpit: budgets, per-request cost, and breakdowns by project / profile / model. Nothing here spends or executes; it observes.">D-04 — costs</h1>
 <div class="sub">daily budget + per-request + project/profile/model breakdowns + forecast — <span class="kbd">Cmd-5</span> · <a href="../master-dashboard/">D-00 main</a></div>
 
 <!-- Data-source status banner — visible operator signal that the dashboard's API daemon is reachable. -->
-<div id="datasource-banner" class="ds-banner unknown" role="status" aria-live="polite">
+<div id="datasource-banner" class="ds-banner unknown" role="status" aria-live="polite" data-assist="Live vs snapshot: green = the /api/costs daemon is reachable and these numbers are live; muted = you're seeing the baked snapshot. A panel must always say which it's on.">
   <span class="dot"></span>
   <strong id="ds-state-label">data source: ?</strong>
   <span id="ds-state-detail" class="muted">checking <code>/api/costs/summary</code>…</span>
@@ -662,7 +693,7 @@ a11y; contract test catches drift.
   .ds-banner .spacer { flex:1; }
 </style>
 
-<h2>today's budget (operator-configurable per profile)</h2>
+<h2 data-assist="Today's spend against the profile's daily budget. The bar fills toward the cap; amber/red as you approach it. Budgets are operator-set per profile — this panel shows, it does not enforce.">today's budget (operator-configurable per profile)</h2>
 <div class="row">
   <div class="stat" style="flex-basis:100%">
     <div class="k">today (UTC)</div>
@@ -701,7 +732,7 @@ a11y; contract test catches drift.
   </table>
 </div>
 
-<h2>cost by profile (MS040)</h2>
+<h2 data-assist="Spend per runtime profile (private / fast / careful / autonomous / experimental / production) over 1d / 7d / 30d. The 'cloud?' pill shows whether that profile may reach a paid cloud expert at all — private is local-only, so its cost is structurally $0.">cost by profile (MS040)</h2>
 <div class="panel">
   <table>
     <thead><tr><th>profile</th><th>cloud allowed</th><th class="num">today</th><th class="num">7d</th><th class="num">30d</th><th>routes</th></tr></thead>
@@ -716,7 +747,7 @@ a11y; contract test catches drift.
   </table>
 </div>
 
-<h2>cost by model</h2>
+<h2 data-assist="Spend attributed to each model. Local twin-GPU inference (BitNet / DeepSeek / Qwen / Ling) is $0 marginal — a non-zero row here means a paid remote expert was called; watch it for drift off local inference.">cost by model</h2>
 <div class="panel">
   <table>
     <thead><tr><th>model</th><th>role</th><th class="num">today</th><th class="num">tokens-in</th><th class="num">tokens-out</th><th class="num">$/Mtok</th></tr></thead>
@@ -733,7 +764,7 @@ a11y; contract test catches drift.
   <div class="muted" style="font-size:.72rem;margin-top:.3rem">each bar = one day; height proportional to spend; hover row for details</div>
 </div>
 
-<h2>cost policy (operator-controlled, dump 9885-9930 verbatim)</h2>
+<h2 data-assist="The operator-controlled cost guardrails (cloud_enabled, cloud_requires_approval, …). These are the actual policy values the router honors — shown here read-only; you change them from the profile / router surface, not from this panel.">cost policy (operator-controlled, dump 9885-9930 verbatim)</h2>
 <div class="panel">
   <table>
     <thead><tr><th>key</th><th>current value</th><th>source</th></tr></thead>
