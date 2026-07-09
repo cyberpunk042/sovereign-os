@@ -62,6 +62,18 @@ _UNSIGNED = "unsigned-pending-MS003"
 _VALID_TYPE = frozenset(range(1, 9))  # M028 E0260 — 8 memory types
 _WRITE_LOCK = threading.Lock()
 
+# SDD-064 — the D-07 projection reconciliation target (Q-059-D/Q-060-D closure).
+# memory.json is the aggregate projection the D-07 reader (memory-changes.py) renders;
+# reconcile() computes its counts + 11-stage lifecycle occupancy FROM the store.
+MEMORY_STATE = Path(os.environ.get(
+    "SOVEREIGN_OS_MEMORY_STATE", "/run/sovereign-os/memory.json"))
+# M028 8 memory types (E0260 + E0265) — store `type` int 1..8 → projection key.
+_MEMORY_TYPES = ("working", "episodic", "semantic", "procedural",
+                 "temporal", "value", "kv", "reward")
+# M028 11-stage admission lifecycle (M00471, verbatim order).
+_LIFECYCLE_STAGES = ("observe", "classify", "quarantine", "link", "score",
+                     "store-raw", "extract-facts", "verify", "promote", "decay", "archive")
+
 
 def _now() -> str:
     return datetime.now(tz=timezone.utc).isoformat()
@@ -129,6 +141,43 @@ def _changes() -> list[dict[str, Any]]:
     return ch if isinstance(ch, list) else []
 
 
+def reconcile() -> dict[str, Any]:
+    """SDD-064 — recompute the D-07 projection (memory.json `counts` + 11-stage
+    `lifecycle` occupancy) FROM the store, closing the Q-059-D/Q-060-D decoupling gap.
+    Counts only `active` (non-forgotten) entries. PRESERVES the memory-decide-owned
+    fields (pending / history / diffs / profile) via read-modify-write. Lock-free (it
+    reads the store + atomic-writes a DIFFERENT file, memory.json) so it never
+    re-enters the store `_WRITE_LOCK`."""
+    counts = {t: 0 for t in _MEMORY_TYPES}
+    lifecycle = {s: 0 for s in _LIFECYCLE_STAGES}
+    for e in _entries().values():
+        if not isinstance(e, dict) or e.get("state") != "active":
+            continue
+        ti = e.get("type")
+        if isinstance(ti, int) and 1 <= ti <= 8:
+            counts[_MEMORY_TYPES[ti - 1]] += 1
+        st = e.get("stage")
+        if st in lifecycle:
+            lifecycle[st] += 1
+    proj = _read_json(MEMORY_STATE, {})
+    if not isinstance(proj, dict):
+        proj = {}
+    proj["counts"] = counts           # replace the aggregate projection...
+    proj["lifecycle"] = lifecycle     # ...but preserve pending/history/diffs/profile
+    proj["reconciled_ts"] = _now()
+    _atomic_write(MEMORY_STATE, proj)
+    return {"ok": True, "code": 200, "counts": counts, "lifecycle": lifecycle}
+
+
+def _reconcile_safe() -> None:
+    """Best-effort projection refresh after a store mutation — a read-only cockpit
+    projection must NEVER break a store write."""
+    try:
+        reconcile()
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def register(mtype: int, *, summary: str = "", actor: str = "operator") -> dict[str, Any]:
     """Stage-1 minimal producer — mint an active memory entry. The real M028
     admission-lifecycle producer is Stage N."""
@@ -152,6 +201,7 @@ def register(mtype: int, *, summary: str = "", actor: str = "operator") -> dict[
             _atomic_write(STORE, store)
         except OSError as e:
             return {"ok": False, "code": 1, "error": f"store write failed: {e}"}
+    _reconcile_safe()
     return {"ok": True, "code": 200, "id": mid, "type": t, "state": "active"}
 
 
@@ -204,6 +254,7 @@ def forget(mem_id: str, *, actor: str = "operator", confirm: bool = False,
         except OSError as e:
             return {"ok": False, "code": 1, "id": mem_id, "error": f"write failed: {e}"}
         _emit_span("forget", mem_id, actor, {"change_id": cid})
+        _reconcile_safe()
         return {"ok": True, "code": 200, "verb": "forget", "id": mem_id,
                 "state": "forgotten", "change_id": cid, "signature": _UNSIGNED}
 
@@ -254,6 +305,7 @@ def undo(change_id: str, *, actor: str = "operator", confirm: bool = False) -> d
         except OSError as e:
             return {"ok": False, "code": 1, "id": change_id, "error": f"write failed: {e}"}
         _emit_span("undo", str(mem_id), actor, {"change_id": change_id})
+        _reconcile_safe()
         return {"ok": True, "code": 200, "verb": "undo", "id": change_id,
                 "mem_id": mem_id, "restored_state": prev_state, "signature": _UNSIGNED}
 
@@ -329,6 +381,7 @@ def purge(*, older_than_days: int = 30, confirm: bool = False,
             return {"ok": False, "code": 1, "error": f"write failed: {e}"}
         for mid in stale:
             _emit_span("purge", mid, actor, {"older_than_days": days})
+        _reconcile_safe()
         return {"ok": True, "code": 200, "verb": "purge", "dry_run": False,
                 "older_than_days": days, "purged": stale, "count": len(stale),
                 "signature": _UNSIGNED}
@@ -363,6 +416,7 @@ def main(argv: list[str] | None = None) -> int:
     pg.add_argument("--confirm", action="store_true")
     pg.add_argument("--actor", default="operator")
     sub.add_parser("list")
+    sub.add_parser("reconcile")
     args = ap.parse_args(argv)
     if args.cmd == "forget":
         r = forget(args.id, actor=args.actor, confirm=args.confirm, force=args.force)
@@ -374,8 +428,10 @@ def main(argv: list[str] | None = None) -> int:
         r = purge(older_than_days=args.older_than, confirm=args.confirm, actor=args.actor)
     elif args.cmd == "list":
         r = {"ok": True, "code": 200, "entries": store_list()}
+    elif args.cmd == "reconcile":
+        r = reconcile()
     else:
-        ap.error("a subverb is required: forget|undo|register|purge|list")
+        ap.error("a subverb is required: forget|undo|register|purge|list|reconcile")
         return 2
     _print(r)
     return 0 if r.get("ok") else int(r.get("code", 1))

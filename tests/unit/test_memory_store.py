@@ -222,3 +222,35 @@ def test_purge_negative_window_rejected(store):
 def test_purge_empty_store_ok(store):
     r = MS.purge(older_than_days=30, confirm=True)
     assert r["ok"] is True and r["count"] == 0
+
+
+# ── reconcile (SDD-064 — the D-07 projection, Q-059-D/Q-060-D closure) ────────
+
+def test_reconcile_counts_and_lifecycle_from_store(store, monkeypatch):
+    proj = store / "memory.json"
+    monkeypatch.setattr(MS, "MEMORY_STATE", proj)
+    MS.register(2, summary="ep")   # type 2 → episodic, stage store-raw
+    MS.register(3, summary="sem")  # type 3 → semantic
+    r = MS.reconcile()
+    assert r["ok"] and r["counts"]["episodic"] == 1 and r["counts"]["semantic"] == 1
+    d = json.loads(proj.read_text())
+    assert d["counts"]["episodic"] == 1 and d["lifecycle"]["store-raw"] == 2
+    assert "reconciled_ts" in d
+
+
+def test_reconcile_preserves_memory_decide_fields(store, monkeypatch):
+    proj = store / "memory.json"
+    proj.write_text(json.dumps({"pending": [{"id": "mc-9"}], "history": ["h"], "profile": "fast"}))
+    monkeypatch.setattr(MS, "MEMORY_STATE", proj)
+    MS.register(1, summary="wm")
+    MS.reconcile()
+    d = json.loads(proj.read_text())
+    assert d["pending"][0]["id"] == "mc-9" and d["history"] == ["h"] and d["profile"] == "fast"
+    assert d["counts"]["working"] == 1  # and the projection got refreshed
+
+
+def test_reconcile_best_effort_never_raises_the_verb(store, monkeypatch):
+    # an unwritable projection path must not break register (best-effort refresh)
+    monkeypatch.setattr(MS, "MEMORY_STATE", Path("/proc/nonexistent/memory.json"))
+    r = MS.register(2, summary="still ok")
+    assert r["ok"] is True  # the store write succeeded despite the reconcile failing
