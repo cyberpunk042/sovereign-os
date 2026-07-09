@@ -51,16 +51,23 @@ def test_at_least_30_sdds():
 
 
 def test_sdd_numbers_sequential_no_huge_gaps():
-    """Allow small gaps (operator may renumber) but flag huge ones."""
+    """WITHIN a session number-band (a hundreds-block, per docs/sdd/README.md +
+    SDD-100) SDD numbers stay tight (gap <= 5 — catches drift / a missed renumber).
+    Band BOUNDARIES (crossing hundreds — e.g. 071 → 100 into the recover-projects
+    band) are INTENTIONAL gaps and allowed: per-session bands (recover 100-199,
+    header-sidemenu 200-299, science 300-399, general 900+) keep the 3 parallel
+    sessions from colliding on SDD numbers."""
     files = _sdd_files()
     nums = sorted(
         int(re.match(r"^(\d{3})-", p.name).group(1)) for p in files
     )
     for i in range(len(nums) - 1):
-        gap = nums[i + 1] - nums[i]
-        assert gap <= 5, (
-            f"SDD numbering gap > 5 between {nums[i]:03d} and "
-            f"{nums[i+1]:03d} (possible drift / missed renumber)"
+        a, b = nums[i], nums[i + 1]
+        if a // 100 != b // 100:
+            continue  # band boundary — an intentional per-session gap
+        assert b - a <= 5, (
+            f"SDD numbering gap > 5 between {a:03d} and {b:03d} within a band "
+            f"(possible drift / missed renumber)"
         )
 
 
