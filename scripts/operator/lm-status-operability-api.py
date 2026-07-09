@@ -84,6 +84,19 @@ if _spec is None or _spec.loader is None:
 _core = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_core)
 
+# Import the SDD-062 single-prompt inference engine (the SAME engine the
+# `inference prompt` CLI verb uses) so the web chat and the CLI never drift.
+_PROMPT_PATH = _REPO_ROOT / "scripts" / "inference" / "prompt.py"
+_pspec = importlib.util.spec_from_file_location("_inference_prompt_engine", _PROMPT_PATH)
+_prompt = None
+if _pspec is not None and _pspec.loader is not None:
+    _prompt = importlib.util.module_from_spec(_pspec)
+    try:
+        _pspec.loader.exec_module(_prompt)
+    except Exception as _e:  # noqa: BLE001 — chat degrades to 503, never fails the daemon
+        sys.stderr.write(f"[warn] prompt engine unavailable ({_e}); chat → 503\n")
+        _prompt = None
+
 # Device slot → SRP role (M075). The panel's three device columns.
 DEVICES = [
     {"slot": "CPU0", "role": "conductor", "label": "Ryzen 9 9900X AM5 AVX-512"},
@@ -291,15 +304,69 @@ class LmStatusAPIHandler(BaseHTTPRequestHandler):
     def do_HEAD(self) -> None:  # noqa: N802
         self._send_json(200, {"status": "ok"})
 
+    def _send_chat(self) -> None:
+        """SDD-062 — the ONE sanctioned POST: a bounded, loopback-only inference-
+        query proxy. A chat completion is a NON-MUTATING read-compute to a local
+        model (no host/state mutation, no shell, no new process) — it streams token
+        deltas back as SSE. All actual state mutations stay 405 (below) + exec-rail-
+        only. SB-077: an unreachable backend streams an honest `error` event."""
+        if _prompt is None:
+            self._send_json(503, {"error": "inference prompt engine unavailable"})
+            _emit_metric("chat", "503")
+            return
+        length = int(self.headers.get("Content-Length") or 0)
+        if length <= 0 or length > 64_000:  # bounded request body
+            self._send_json(400, {"error": "missing or oversize JSON body {prompt}"})
+            _emit_metric("chat", "400")
+            return
+        try:
+            req = json.loads(self.rfile.read(length).decode("utf-8"))
+            text = str(req.get("prompt", ""))
+        except (json.JSONDecodeError, ValueError, UnicodeDecodeError):
+            self._send_json(400, {"error": "body must be JSON {prompt: <text>}"})
+            _emit_metric("chat", "400")
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("X-Sovereign-Module", "lm-status-operability-api")
+        self.end_headers()
+        _emit_metric("chat", "open")
+        done = None
+        try:
+            for ev in _prompt.run(text):
+                self.wfile.write(
+                    f"event: {ev['type']}\ndata: {json.dumps(ev)}\n\n".encode("utf-8"))
+                self.wfile.flush()
+                if ev["type"] == "done":
+                    done = ev
+        except (BrokenPipeError, ConnectionResetError, OSError):
+            return  # client went away mid-stream
+        # publish the REAL measured telemetry (only on a real completion).
+        if done and done.get("tokens"):
+            latency = done["elapsed_s"] * 1000.0 / done["tokens"]
+            try:
+                _prompt.publish_telemetry(done["tier"], done["tokens_per_sec"], latency)
+            except Exception:  # noqa: BLE001 — telemetry is best-effort
+                pass
+
     def _reject(self) -> None:
         self._send_json(405, {
             "error": "read-only surface — model/agent actions are MS003-signed "
-                     "CLI verbs, never web mutations (R10212)",
-            "allowed": ["GET", "HEAD"],
+                     "CLI verbs, never web mutations (R10212). The single exception "
+                     "is POST /api/lm-status/chat (a non-mutating inference read-"
+                     "compute to the loopback router, SDD-062).",
+            "allowed": ["GET", "HEAD", "POST /api/lm-status/chat"],
         })
         _emit_metric(self.command.lower(), "405")
 
-    def do_POST(self):    self._reject()  # noqa: E704 N802
+    def do_POST(self):  # noqa: N802
+        path = urllib.parse.urlsplit(self.path).path.rstrip("/") or "/"
+        if path == "/api/lm-status/chat":
+            self._send_chat()
+            return
+        self._reject()  # every other mutation stays 405 + exec-rail-only
+
     def do_PUT(self):     self._reject()  # noqa: E704 N802
     def do_DELETE(self):  self._reject()  # noqa: E704 N802
 

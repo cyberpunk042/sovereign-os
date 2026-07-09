@@ -130,14 +130,14 @@
       <span class="chip" data-slot="GPU1">GPU1</span>
     </div>
     <div class="chat-log" id="chat-log">
-      <p class="chat-msg muted">Render-only in this build (R10212 read-only cockpit): the composer
-      builds a signed inference invocation and <strong>copies it to the clipboard</strong> for the
-      operator to run. Live streaming is wired when an inference producer publishes
-      <code>/run/sovereign-os/model-state.json</code>.</p>
+      <p class="chat-msg muted">Live chat (SDD-062 M058): the prompt runs through the loopback
+      router (<code>/api/lm-status/chat</code> &rarr; <code>/v1/chat/completions</code>) and streams
+      tokens back here. A non-mutating inference read-compute (R10212); real telemetry feeds the
+      device grid. If no backend is running you'll see an honest "router unreachable" notice.</p>
     </div>
     <div class="composer">
       <textarea id="chat-input" placeholder="Prompt to the selected device(s)…"></textarea>
-      <button class="act" id="chat-send">Send (copy signed cmd)</button>
+      <button class="act" id="chat-send">Send</button>
     </div>
   </div>
   <p class="banner" id="last-fetch"></p>
@@ -277,14 +277,63 @@
     if (selected.has(c.dataset.slot)) selected.delete(c.dataset.slot); else selected.add(c.dataset.slot);
     renderSelected();
   }));
-  $('chat-send').addEventListener('click', () => {
-    const targets = selected.size ? [...selected].join(',') : 'CPU0';
-    // No single-prompt inference CLI exists yet (inference is
-    // start/stop/status/health per tier); live chat awaits the M058
-    // inference producer. Copy a real verb — the tier status for the
-    // selected devices — rather than a phantom command.
-    const cmd = `sovereign-osctl inference status   # targets: ${targets} — live chat pending the M058 inference producer`;
-    copyCmd(cmd, `Chat is render-only in this build (no inference CLI yet, R10212). Copied a real status verb:`);
+  function chatAppend(cls, text) {
+    const log = $('chat-log');
+    const p = document.createElement('p');
+    p.className = 'chat-msg ' + cls;
+    p.textContent = text;
+    log.appendChild(p);
+    log.scrollTop = log.scrollHeight;
+    return p;
+  }
+  // SDD-062 (M058) — live chat: POST the prompt to /api/lm-status/chat (a bounded,
+  // loopback-only, NON-MUTATING inference read-compute → the router), read the SSE
+  // token stream back, and render tokens as they arrive. Honest error on no backend.
+  async function sendChat() {
+    const btn = $('chat-send'), input = $('chat-input');
+    const text = (input.value || '').trim();
+    if (!text) return;
+    btn.disabled = true;
+    chatAppend('user', text);
+    input.value = '';
+    const out = chatAppend('assistant', '');
+    try {
+      const r = await fetch('/api/lm-status/chat', {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: text }),
+      });
+      if (!r.ok || !r.body) throw new Error('HTTP ' + r.status);
+      const reader = r.body.getReader();
+      const dec = new TextDecoder();
+      let buf = '';
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        // parse SSE frames: "event: <type>\ndata: <json>\n\n"
+        let sep;
+        while ((sep = buf.indexOf('\n\n')) >= 0) {
+          const frame = buf.slice(0, sep); buf = buf.slice(sep + 2);
+          const dm = frame.match(/data:\s*(.*)$/s);
+          if (!dm) continue;
+          let ev; try { ev = JSON.parse(dm[1]); } catch { continue; }
+          if (ev.type === 'token') { out.textContent += ev.text; $('chat-log').scrollTop = $('chat-log').scrollHeight; }
+          else if (ev.type === 'error') { out.className = 'chat-msg muted'; out.textContent = '⚠ ' + ev.error; }
+          else if (ev.type === 'done') { out.title = `${ev.tier} · ${ev.tokens} tok · ${ev.tokens_per_sec} tok/s`; }
+        }
+      }
+      if (!out.textContent) out.textContent = '(no response)';
+    } catch (e) {
+      out.className = 'chat-msg muted';
+      out.textContent = '⚠ chat failed: ' + e.message + ' (is the router running? sovereign-osctl inference start router)';
+    } finally {
+      btn.disabled = false;
+    }
+  }
+  $('chat-send').addEventListener('click', sendChat);
+  $('chat-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); sendChat(); }
   });
 
   async function fetchDevices() {
