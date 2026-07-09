@@ -698,22 +698,64 @@ a11y; contract test catches drift.
 <script>
 window.SO_ASSIST = [
   {
-    "sel": "#list-tbody",
-    "title": "Fabric contexts",
-    "msg": "The sandboxed execution contexts Weaver is managing.",
-    "more": "Weaver is the fabric layer — Podman/VFIO isolation where untrusted work runs, writing atomic state to tank/context on CCD1. Each row is a confined context; this is the containment half of the trinity."
+    "sel": "#stats",
+    "title": "Weaver summary",
+    "msg": "The state-fabric roll-up — version, state files, present, context dir.",
+    "more": "Weaver is the fabric layer (Podman/VFIO isolation) where untrusted work runs, writing atomic state to tank/context. This webapp closes the webapp surface of its §1g ladder (R536) — a read-only window. The strip is the at-a-glance fabric state."
   },
   {
-    "sel": "#stat-ctxdir",
-    "title": "State-fabric dir",
-    "msg": "The tank/context dataset Weaver writes atomic state into.",
-    "more": "State lives on ZFS (tank/context) so a context can be snapshotted and rolled back atomically — the mechanism behind D-08's recovery points. This confirms the fabric's state root is where it should be."
+    "sel": "#stat-version",
+    "title": "API version",
+    "msg": "The weaver API version.",
+    "more": "Stamps the weaver build so the live state-fabric inventory and the §7.1 spec catalog tie to a known version — the reference when the fabric's shape disagrees with the spec."
+  },
+  {
+    "sel": "#stat-count",
+    "title": "State files",
+    "msg": "How many state-fabric files are tracked.",
+    "more": "The count of atomic state files Weaver manages under tank/context. The size of the fabric's persistent state — what a context can be snapshotted and rolled back from (D-08)."
   },
   {
     "sel": "#stat-present",
     "title": "Fabric present",
-    "msg": "Whether the Weaver fabric is installed and available on this host.",
+    "msg": "Whether the Weaver fabric is installed and available.",
     "more": "Weaver is facultative like the other modules — 'not present' means untrusted GPU work simply has nowhere sandboxed to run, not that something broke."
+  },
+  {
+    "sel": "#stat-ctxdir",
+    "title": "Context dir",
+    "msg": "The tank/context dataset Weaver writes atomic state into.",
+    "more": "State lives on ZFS (tank/context) so a context can be snapshotted and rolled back atomically — the mechanism behind D-08's recovery points. This confirms the fabric's state root is where it should be."
+  },
+  {
+    "sel": "#last-refresh",
+    "title": "Last refresh",
+    "msg": "When the fabric inventory last refreshed.",
+    "more": "Freshness of the state-file list — a stale refresh can lag a context that just wrote or was released."
+  },
+  {
+    "sel": "#list-tbody",
+    "title": "Live state-fabric inventory",
+    "msg": "The live state files — file, present, size, modified (/list).",
+    "more": "The fabric's actual on-disk state right now: each atomic state file with its presence and size. This is the containment half of the trinity made concrete — what confined contexts have written to tank/context."
+  },
+  {
+    "sel": "#catalog-tbody",
+    "title": "Static spec catalog (§7.1)",
+    "msg": "The master-spec §7.1 catalog of expected state files (/state-files).",
+    "more": "What the spec SAYS should exist, vs the live inventory above (what DOES exist). Comparing the two shows drift — a spec'd state file missing from the live list, or vice versa. The operator-named reference for the fabric."
+  },
+  {
+    "sel": "#refresh-btn",
+    "title": "Refresh all",
+    "msg": "Re-read the state-fabric inventory and catalog.",
+    "more": "Refreshes both the live file list and the spec catalog. Read-only — it observes the fabric, it changes nothing."
+  },
+  {
+    "sel": "#control-surface",
+    "title": "Controls — profiles, modes & toggles",
+    "msg": "The per-panel control rail for the fabric.",
+    "more": "Every control copies its exact sovereign-osctl verb (§1g / R10212), never executing from the web — fabric operations are signed CLI actions."
   }
 ];
 </script>

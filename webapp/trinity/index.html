@@ -700,22 +700,70 @@ a11y; contract test catches drift.
 <script>
 window.SO_ASSIST = [
   {
-    "sel": "#tier-pulse",
-    "title": "Pulse tier",
-    "msg": "The CPU/AVX-512 ternary inference tier — health and model assignment.",
-    "more": "Trinity is the 3-tier runtime at a glance: Pulse (this), Weaver (sandboxed GPU fabric), Auditor (immutable gatekeeper). Pulse is the sovereign, always-available CPU path — it runs even with no GPU."
-  },
-  {
-    "sel": "#tier-auditor",
-    "title": "Auditor tier",
-    "msg": "The immutable gatekeeper tier — the perimeter that cannot be bypassed.",
-    "more": "The third leg of the trinity. Compute (Pulse/Weaver) is only trustworthy because Auditor is watching it — this tier's health is the difference between 'running' and 'running safely'."
+    "sel": "#stats",
+    "title": "Trinity summary",
+    "msg": "The 3-tier runtime roll-up — version, tiers, services active.",
+    "more": "Trinity is the runtime at a glance: Pulse (CPU/AVX-512 ternary), Weaver (sandboxed GPU fabric), Auditor (immutable gatekeeper). This strip says how many tiers are up. The profile switch stays CLI-only — never by this surface."
   },
   {
     "sel": "#stat-version",
     "title": "Trinity version",
     "msg": "The version of the trinity runtime shipped.",
-    "more": "Ties the three tiers to a super-model version — so you know the Pulse/Weaver/Auditor you are looking at is the set that was built together."
+    "more": "Ties the three tiers to a super-model version — so you know the Pulse/Weaver/Auditor you're looking at is the set that was built together (cross-ref D-19 manifest)."
+  },
+  {
+    "sel": "#stat-tiers",
+    "title": "Tiers",
+    "msg": "How many trinity tiers are defined.",
+    "more": "Should be three — Pulse, Weaver, Auditor. The structural count of the runtime's legs."
+  },
+  {
+    "sel": "#stat-active",
+    "title": "Services active",
+    "msg": "How many tier services are running.",
+    "more": "How many of the three legs are actually up. Compute (Pulse/Weaver) is only trustworthy because Auditor watches it — all three active is the healthy state."
+  },
+  {
+    "sel": "#last-refresh",
+    "title": "Last refresh",
+    "msg": "When trinity state last refreshed.",
+    "more": "Freshness of the tier health — a stale refresh can lag a tier that just came up or dropped."
+  },
+  {
+    "sel": "#tier-row",
+    "title": "The three tiers",
+    "msg": "Pulse, Weaver, Auditor — the runtime's three legs.",
+    "more": "The trinity in one row: the sovereign CPU path, the sandboxed GPU fabric, and the gatekeeper. Each tile is a tier's health; together they're whether the box is 'running' vs 'running safely'."
+  },
+  {
+    "sel": "#tier-pulse",
+    "title": "Pulse tier",
+    "msg": "The CPU/AVX-512 ternary inference tier — health and assignment.",
+    "more": "Pulse is the sovereign, always-available CPU path — it runs even with no GPU. The floor of the system's capability; if only Pulse is up, the box still serves inference on the ternary path."
+  },
+  {
+    "sel": "#tier-weaver",
+    "title": "Weaver tier",
+    "msg": "The sandboxed GPU fabric tier — confined execution.",
+    "more": "Weaver is the fabric layer (Podman/VFIO isolation) where untrusted work runs, writing atomic state to tank/context. The containment leg — its health is whether sandboxed GPU work has somewhere safe to run."
+  },
+  {
+    "sel": "#tier-auditor",
+    "title": "Auditor tier",
+    "msg": "The immutable gatekeeper tier — the perimeter that cannot be bypassed.",
+    "more": "The third leg. Compute (Pulse/Weaver) is only trustworthy because Auditor is watching it — this tier's health is the difference between 'running' and 'running safely'."
+  },
+  {
+    "sel": "#refresh-btn",
+    "title": "Refresh all",
+    "msg": "Re-read trinity tier state.",
+    "more": "Refreshes the three tiers' health. Read-only — it observes, it changes nothing; profile switches are CLI-only."
+  },
+  {
+    "sel": "#control-surface",
+    "title": "Controls — profiles, modes & toggles",
+    "msg": "The per-panel control rail for the trinity runtime.",
+    "more": "Every control copies its exact sovereign-osctl verb (§1g / R10212) — the trinity profile switch is a signed CLI action, never by this surface."
   }
 ];
 </script>
