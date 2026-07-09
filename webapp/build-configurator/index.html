@@ -552,22 +552,484 @@
 <script>
 window.SO_ASSIST = [
   {
-    "sel": "#bake-selfdef",
-    "title": "Bake: selfdef",
-    "msg": "Whether the selfdef IPS is baked into the image being composed.",
-    "more": "Bake toggles decide what ships in the built OS. selfdef baked = the node defends itself from first boot; left off = a leaner image you harden later."
+    "sel": "#src-status",
+    "title": "Data source",
+    "msg": "Whether the configurator is reading live host data or its built-in snapshot.",
+    "more": "The wizard walks every layer to generate a build. This says whether the defaults/options come from a live probe of this host or the baked-in snapshot — snapshot is fine for composing, but host-specific values (board, PSU) are best confirmed live."
   },
   {
-    "sel": "#bake-graceful",
-    "title": "Bake: graceful shutdown",
-    "msg": "Whether the graceful UPS soft-shutdown posture is baked in.",
-    "more": "With this on, the image ships the NUT/UPS orderly-poweroff behaviour (see the UPS panel) — the box shuts down cleanly on battery instead of hard-cutting."
+    "sel": "#btn-target",
+    "title": "Compose vs manage-host",
+    "msg": "Switch between composing a NEW build image and managing the running OS.",
+    "more": "Two modes: 'compose' designs an image to build/flash; 'manage host' operates the OS already running on this box. The same options mean different things in each — composing sets what WILL be, managing changes what IS."
+  },
+  {
+    "sel": "#btn-guide",
+    "title": "Guide me",
+    "msg": "Restart the step-by-step walkthrough of every section.",
+    "more": "The assistant tour: it walks you through the 12 build sections in order, explaining each choice. Use it the first time; the guide bar at the bottom drives it."
+  },
+  {
+    "sel": "#btn-xall",
+    "title": "Collapse all",
+    "msg": "Fold every section at once.",
+    "more": "Collapses all 12 sections to get an overview of the wizard, then expand only the ones you need. A navigation convenience for a long form."
+  },
+  {
+    "sel": "#intro-banner",
+    "title": "What this is",
+    "msg": "The build configurator — it composes a full image build across 12 layers, then emits the exact command to build it.",
+    "more": "This panel doesn't build anything itself; it assembles your choices (hardware, profile, kernel, packages, storage, network…) into a validated config and generates the orchestrate.sh command you run on the build host. Every option carries its own inline explanation."
+  },
+  {
+    "sel": "#host-banner",
+    "title": "Host runbook",
+    "msg": "Pointer to the run-on-host runbook and the host being managed.",
+    "more": "When in manage-host mode this names the running box and links docs/src/ops/run-on-host.md — the reference for operating the live OS rather than composing a fresh image."
+  },
+  {
+    "sel": "#bios-board-name",
+    "title": "Board name",
+    "msg": "The motherboard the BIOS checklist is written for (drives pcie_constraints).",
+    "more": "The BIOS preflight is board-specific — PCIe lane splits, above-4G decoding, and OC toggles differ per board. Naming it makes the printable checklist match the firmware screens you'll actually see."
+  },
+  {
+    "sel": "#bios-progress",
+    "title": "BIOS checklist progress",
+    "msg": "How many BIOS preflight items you've ticked.",
+    "more": "The firmware settings can't be read back from software once you're in the OS — so this paper-style checklist tracks that each was confirmed in the BIOS before boot. Progress toward a verified firmware baseline."
+  },
+  {
+    "sel": "#btn-print-bios",
+    "title": "Print BIOS sheet",
+    "msg": "Print the BIOS checklist — paper survives the firmware screens; this panel doesn't.",
+    "more": "You set BIOS values with no OS running, so a printed sheet is the only reference at the bench. This generates a tick-on-paper version of every firmware setting to confirm."
   },
   {
     "sel": "#bios-list",
-    "title": "BIOS / PSU preflight",
-    "msg": "The hardware preflight sheet — what to set before the first real build.",
-    "more": "This is the one page that actually builds sovereign-os; the preflight catches a mis-set BIOS/PSU before you burn a 30-minute build on it."
+    "title": "BIOS checklist",
+    "msg": "The per-setting firmware checklist to confirm in BIOS.",
+    "more": "Each row is a firmware setting (virtualization, above-4G, resizable BAR, OC toggles) to verify by hand. Getting these wrong is why a built image boots but VFIO or performance silently fails — the checklist catches it before flash."
+  },
+  {
+    "sel": "#psu-model",
+    "title": "PSU model",
+    "msg": "The power supply the headroom calculation is based on.",
+    "more": "The build's power budget (R292) is sized against your actual PSU. Naming the model anchors the headroom math — the difference between a stable OC and a box that resets under load."
+  },
+  {
+    "sel": "#psu-oc",
+    "title": "PSU OC mode switch",
+    "msg": "Whether the PSU's physical single-rail/OC switch is enabled.",
+    "more": "A hardware switch on the PSU itself — enabling it changes how power is delivered for overclocking. The wizard needs to know because it affects the power headroom budget below; it can't read the physical switch, so you confirm it here."
+  },
+  {
+    "sel": "#psu-explainer",
+    "title": "PSU OC explainer",
+    "msg": "What the PSU OC switch does and when to enable it.",
+    "more": "Explains the single-rail/multi-rail trade-off so the switch setting is an informed choice, not a guess — the context behind the toggle."
+  },
+  {
+    "sel": "#gpu-table",
+    "title": "GPU power table",
+    "msg": "Per-GPU power draw at 100% usage, feeding the PSU budget (R292).",
+    "more": "The R292 model sums CPU + GPUs + memory + chassis against the PSU rating. This table is the GPU half — each card's peak draw. Two high-power GPUs at 100% is the worst-case the budget must survive."
+  },
+  {
+    "sel": "#p-cpu",
+    "title": "CPU TDP",
+    "msg": "The CPU's thermal/power draw (Zen 5 9900X) for the budget.",
+    "more": "The CPU's contribution to total power. Part of the R292 sum — under-counting it is how a build ends up specifying more OC than the PSU can actually sustain."
+  },
+  {
+    "sel": "#p-chassis",
+    "title": "Chassis baseline",
+    "msg": "Baseline power for fans, motherboard, NVMe, and NICs.",
+    "more": "The always-on overhead beyond CPU/GPU — fans, board, storage, network. Small per-item but real; the budget includes it so headroom isn't overstated."
+  },
+  {
+    "sel": "#p-dimms",
+    "title": "DIMM count",
+    "msg": "Number of memory modules, for the power estimate.",
+    "more": "Memory draws real power, especially at high speed. Count × speed feeds the budget — more/faster DIMMs raise the floor the PSU must cover."
+  },
+  {
+    "sel": "#p-mts",
+    "title": "Memory speed (MT/s)",
+    "msg": "DIMM transfer rate — higher speed, higher power.",
+    "more": "Faster memory (and EXPO/XMP profiles) draws more and adds to instability risk if the PSU is marginal. Included so the headroom math reflects your actual RAM config."
+  },
+  {
+    "sel": "#p-gpuoc",
+    "title": "GPU OC multiplier",
+    "msg": "Overclock factor on GPU power (1.0 stock, 1.15 = +15%).",
+    "more": "Scales the GPU draw for an overclock — a +15% OC is +15% power, straight into the budget. The lever that most easily pushes total draw past a marginal PSU."
+  },
+  {
+    "sel": "#power-meter",
+    "title": "Power headroom meter",
+    "msg": "Total estimated draw vs the PSU rating.",
+    "more": "The verdict of the R292 budget: green means the PSU has headroom for your CPU+GPU+RAM+chassis+OC; near or over the line means reduce OC or upgrade the PSU before building for that config."
+  },
+  {
+    "sel": "#power-readout",
+    "title": "Power readout",
+    "msg": "The computed total watts and margin.",
+    "more": "The exact numbers behind the meter — estimated draw and remaining margin. What you cite when deciding whether an OC is safe on this PSU."
+  },
+  {
+    "sel": "#profiles",
+    "title": "Starting profile",
+    "msg": "The base flavor the build starts from.",
+    "more": "The profile is the whole starting shape — a bundle of sensible defaults for a use-case. You pick one and then customize; the mixins line below shows what it composed in."
+  },
+  {
+    "sel": "#profile-note",
+    "title": "Profile note",
+    "msg": "What the selected profile implies.",
+    "more": "Explains the chosen profile's intent and defaults so the downstream sections make sense — the profile pre-sets many of them."
+  },
+  {
+    "sel": "#mixins-line",
+    "title": "Composed mixins",
+    "msg": "The mixins the profile composed in.",
+    "more": "Profiles are assembled from reusable mixins (feature bundles). This shows exactly which ones are active, so you know what the profile brought before you override anything."
+  },
+  {
+    "sel": "#substrate",
+    "title": "Substrate",
+    "msg": "How the image is assembled (e.g. mkosi).",
+    "more": "The build substrate is the tool/method that assembles the image. It sets the ground rules for the rest — signing, partitioning, and what the other posture options can do."
+  },
+  {
+    "sel": "#secureboot",
+    "title": "Secure boot",
+    "msg": "Whether the image is signed for UEFI Secure Boot.",
+    "more": "Signing lets the firmware verify the boot chain — tamper-evidence from power-on. 'sign' produces a Secure-Boot-capable image; off trades that assurance for simplicity."
+  },
+  {
+    "sel": "#encryption",
+    "title": "Root encryption",
+    "msg": "Whether the root filesystem is encrypted.",
+    "more": "Encrypts data at rest so a stolen disk yields nothing. A core sovereignty control — 'none' is only appropriate for throwaway/test images, never a real deployment."
+  },
+  {
+    "sel": "#snapshot",
+    "title": "Debian snapshot",
+    "msg": "Pin the build to a Debian snapshot for reproducibility.",
+    "more": "Pinning to a dated snapshot makes the build reproducible — the same config yields the same image regardless of when you build it. The difference between 'works on my bench' and a deterministic artifact."
+  },
+  {
+    "sel": "#k-source",
+    "title": "Kernel source",
+    "msg": "Where the kernel comes from.",
+    "more": "Distro kernel vs a custom/tuned build. A custom source enables the -march and KCFLAGS optimizations below but takes longer to build — the trade between convenience and per-CPU performance."
+  },
+  {
+    "sel": "#k-version",
+    "title": "Kernel min version",
+    "msg": "The minimum kernel version required.",
+    "more": "Sets the floor for features the image depends on (newer scheduler, driver, or security support). The build asserts the kernel meets it so a too-old kernel can't silently ship."
+  },
+  {
+    "sel": "#k-march",
+    "title": "-march target",
+    "msg": "The CPU architecture the kernel is compiled for.",
+    "more": "Compiling for znver5 (Zen 5) lets the kernel use this exact CPU's instructions instead of a generic baseline — real performance, but the image then only runs on matching hardware. The core CPU-exploitation lever."
+  },
+  {
+    "sel": "#kcflags",
+    "title": "KCFLAGS",
+    "msg": "Kernel compile flags (editable) — feature exploitation.",
+    "more": "The compiler flags that turn on AVX-512/VNNI/BF16 code paths and tuning for this CPU. This is where the SDD-043 per-profile feature exploitation actually happens; editable so you can push or relax the optimization."
+  },
+  {
+    "sel": "#k-enable",
+    "title": "Kernel config — enable",
+    "msg": "Kernel features to enable in the config.",
+    "more": "Config options compiled into the kernel (namespaces, cgroups, security modules). Enabling the right set is what makes the sandbox, VFIO, and enforcement layers actually available at runtime."
+  },
+  {
+    "sel": "#k-microcode",
+    "title": "Microcode",
+    "msg": "CPU microcode included in the image.",
+    "more": "Ships the CPU vendor's microcode so errata and security fixes are applied at boot — the low-level stability/security patch layer beneath the kernel."
+  },
+  {
+    "sel": "#cmd-base",
+    "title": "Kernel cmdline — base",
+    "msg": "The base kernel command line for every boot.",
+    "more": "The always-applied boot parameters — the baseline the image boots with. Where global kernel behavior (mitigations, console, init) is set."
+  },
+  {
+    "sel": "#cmd-vfio",
+    "title": "Kernel cmdline — VFIO",
+    "msg": "Boot parameters that bind the passthrough GPU at boot (VFIO).",
+    "more": "VFIO claims a GPU at boot so it can be passed to a sandbox (Weaver's confined fabric). These parameters are why GPU 1 (Scout) is available for isolated work — miss them and passthrough silently fails."
+  },
+  {
+    "sel": "#tuning-preset",
+    "title": "Tuning preset",
+    "msg": "A kernel-tuning preset (R239 matrix — sysctl + cmdline hints).",
+    "more": "Picks a coherent set of sysctl and cmdline tunings for a workload shape (latency, throughput, isolation). The R239 matrix keeps the choices consistent rather than hand-tuning knobs that fight each other."
+  },
+  {
+    "sel": "#tuning-preview",
+    "title": "Tuning preview",
+    "msg": "The concrete sysctl/cmdline the preset expands to.",
+    "more": "Shows exactly what the preset will apply before you commit — the expanded knobs, so a tuning choice is transparent, not a black box."
+  },
+  {
+    "sel": "#cpu-required",
+    "title": "CPU features — required",
+    "msg": "Instruction-set features the build ASSERTS are present.",
+    "more": "The build fails if the target CPU lacks these — a hard contract that the image won't boot on hardware missing the ISA it was compiled for. Prevents shipping a znver5 image to a CPU that can't run it."
+  },
+  {
+    "sel": "#cpu-preferred",
+    "title": "CPU features — preferred",
+    "msg": "Features used if present, gracefully skipped if absent.",
+    "more": "Soft optimizations: the image uses them on capable CPUs and falls back otherwise. The portable half of feature exploitation, versus the hard 'required' assertions above."
+  },
+  {
+    "sel": "#mod-load",
+    "title": "Modules — load at boot",
+    "msg": "Kernel modules to load on boot.",
+    "more": "Explicitly loaded modules (drivers, filesystems, VFIO). Getting this right is why hardware works on first boot instead of needing manual modprobe."
+  },
+  {
+    "sel": "#mod-blacklist",
+    "title": "Modules — blacklist",
+    "msg": "Kernel modules kept from loading.",
+    "more": "Blacklisting stops unwanted drivers (e.g. the host GPU driver claiming a VFIO card, or a flaky module). A key part of making passthrough and a minimal attack surface work."
+  },
+  {
+    "sel": "#pkg-base",
+    "title": "Packages — base",
+    "msg": "The base apt package layer in every image.",
+    "more": "The foundational packages present regardless of profile. The common substrate the profile and deny layers add to or subtract from."
+  },
+  {
+    "sel": "#pkg-profile",
+    "title": "Packages — profile-specific",
+    "msg": "Packages the selected profile adds.",
+    "more": "The profile's own package set — what makes, say, an inference profile different from a minimal one. Layered on top of base."
+  },
+  {
+    "sel": "#pkg-deny",
+    "title": "Packages — deny",
+    "msg": "Packages explicitly kept OUT of the image.",
+    "more": "The deny layer shrinks attack surface by guaranteeing certain packages never ship — even if a dependency would pull them in. Sovereignty/minimalism enforced at build time."
+  },
+  {
+    "sel": "#pkg-placeholder-note",
+    "title": "Packages note",
+    "msg": "Guidance on the package layers.",
+    "more": "Explains how base/profile/deny compose so you don't add something in one layer that another removes — the ordering that decides the final package set."
+  },
+  {
+    "sel": "#tools-ai",
+    "title": "AI assistants (npm global)",
+    "msg": "Operator AI tools baked in via npm global (Claude Code, OpenCode; R284).",
+    "more": "Prepackages the operator's agent tooling into the image so it's present zero-touch after flash. Node 22 + Claude Code + OpenCode are the default — the box arrives ready to be operated by an assistant."
+  },
+  {
+    "sel": "#tools-apt",
+    "title": "Tools — apt",
+    "msg": "Operator tools installed via apt.",
+    "more": "The apt-sourced half of the operator toolkit — system utilities baked in so first boot is usable without manual installs."
+  },
+  {
+    "sel": "#tools-pip",
+    "title": "Tools — pip",
+    "msg": "Operator tools installed via pip.",
+    "more": "Python tooling baked in — the pip-sourced dependencies the operator scripts and panels need, present from first boot."
+  },
+  {
+    "sel": "#tools-curl",
+    "title": "Tools — curl|sh (gated)",
+    "msg": "Operator-trusted curl|sh installs, gated.",
+    "more": "Some tools only ship as curl|sh installers. These are operator-trusted and gated (not run blindly) — included deliberately with awareness that they execute remote scripts at build time."
+  },
+  {
+    "sel": "#st-layout",
+    "title": "Storage layout",
+    "msg": "The disk/partition layout for the image.",
+    "more": "Defines how disks are carved — the base for the ZFS tiered datasets below. The layout decides what can be snapshotted, encrypted, and tiered independently."
+  },
+  {
+    "sel": "#ds-table",
+    "title": "ZFS datasets",
+    "msg": "The tiered ZFS datasets (recordsize, compression, sync per dataset).",
+    "more": "Each dataset is tuned for its content — context/state with sync=always for durability, bulk data with big recordsize. This is where the storage behavior D-09 monitors is actually configured."
+  },
+  {
+    "sel": "#net-table",
+    "title": "Networking (zero-trust)",
+    "msg": "Per-role VLAN-asymmetric zero-trust network config.",
+    "more": "Defines each network role and its VLAN/firewall posture — asymmetric so management, workload, and exposure paths are separated. The build-time source of the perimeter the network panels reflect."
+  },
+  {
+    "sel": "#hooks-all",
+    "title": "Hooks",
+    "msg": "Lifecycle hooks — pre / during / first-boot / recurrent / decommission.",
+    "more": "Hooks run at defined points in the image's life. Some are LOCKED (the build refuses to skip them — safety-critical); optional ones toggle here. This is how the image self-configures and self-maintains without manual steps."
+  },
+  {
+    "sel": "#obs-sink",
+    "title": "Telemetry sink",
+    "msg": "Where observability data is sent (e.g. Prometheus).",
+    "more": "The destination for metrics/logs. Sets up the pipe that feeds the monitoring the dashboards read — local by default (sovereignty), pointable at an external collector if you choose."
+  },
+  {
+    "sel": "#obs-retention",
+    "title": "Log retention (days)",
+    "msg": "How long logs are kept.",
+    "more": "The retention window — longer aids forensics but costs disk (and the audit chain grows). A trade between investigative depth and storage the ZFS budget must absorb."
+  },
+  {
+    "sel": "#obs-endpoint",
+    "title": "Telemetry endpoint",
+    "msg": "The address the telemetry sink binds/points to.",
+    "more": "Defaults to loopback (127.0.0.1:9090) — sovereignty-clean, data stays on the box. Change it only to deliberately export to an external monitor."
+  },
+  {
+    "sel": "#wl-profile",
+    "title": "Whitelabel",
+    "msg": "Branding/whitelabel profile (layer A/B/C).",
+    "more": "Sets the branding the built image presents. A cosmetic layer over the same functional build — useful when producing images for different operators/deployments from one config."
+  },
+  {
+    "sel": "#sel-summary",
+    "title": "Selection summary",
+    "msg": "A live summary of every choice made across the 12 sections.",
+    "more": "The single readout of your whole build config as it stands — the thing to scan before generating, to confirm the composed image is what you intended."
+  },
+  {
+    "sel": "#sel-warnings",
+    "title": "Config warnings",
+    "msg": "Warnings about the current selections (conflicts, risks).",
+    "more": "Flags choices that fight each other or carry risk — an OC past PSU headroom, encryption off, a required feature the target CPU lacks. Address these before building; they're the wizard catching mistakes early."
+  },
+  {
+    "sel": "#run-console",
+    "title": "Run console",
+    "msg": "The build/preflight run console with live status.",
+    "more": "Where dry-run, preflight, and build execute and stream output. The status dot shows whether a run is idle, running, or finished — the operational heart of the panel once the config is set."
+  },
+  {
+    "sel": "#run-dry",
+    "title": "Dry run",
+    "msg": "orchestrate.sh run --dry — validate without building.",
+    "more": "Composes and validates the whole config, printing what a real build WOULD do, without producing an image. Always the first run — it catches config errors in seconds instead of 30 minutes in."
+  },
+  {
+    "sel": "#run-preflight",
+    "title": "Preflight",
+    "msg": "orchestrate.sh preflight — check the build host is ready.",
+    "more": "Verifies the build host has the tools, space, and permissions to build (needs sudo). The gate between 'config is valid' and 'this machine can actually build it'."
+  },
+  {
+    "sel": "#run-build",
+    "title": "BUILD image (~30 min)",
+    "msg": "orchestrate.sh run — the real build (needs sudo).",
+    "more": "The heavy operation: assembles the actual bootable image from your config (~30 min). Only run after dry-run and preflight are clean — this is the one that costs real time and disk."
+  },
+  {
+    "sel": "#run-cancel",
+    "title": "Cancel",
+    "msg": "Cancel the running build/preflight.",
+    "more": "Stops an in-progress run. A long build can be aborted here if you spot a config mistake mid-flight rather than waiting for it to finish."
+  },
+  {
+    "sel": "#run-status",
+    "title": "Run status",
+    "msg": "The current run state (idle / running / done / failed), with the status dot.",
+    "more": "The live verdict of the console — whether the last action is still going, succeeded, or failed. Pair with the log and errors panes for the detail."
+  },
+  {
+    "sel": "#bake-dev",
+    "title": "Bake dev tools",
+    "msg": "Include developer tooling in the image (zero-touch after flash).",
+    "more": "Bakes node 22 + Claude Code and friends into the image so the flashed box is immediately operable by an agent with no post-flash setup. A convenience toggle for operator-ready images."
+  },
+  {
+    "sel": "#bake-selfdef",
+    "title": "Bake selfdef",
+    "msg": "Include the selfdef IPS in the image.",
+    "more": "Bakes the intrusion-prevention layer (selfdef) into the build so the box ships self-defending. Uncheck only for a deliberately minimal image — selfdef is what feeds the security mirror panels."
+  },
+  {
+    "sel": "#bake-graceful",
+    "title": "Bake UPS + graceful shutdown",
+    "msg": "Include the UPS graceful-shutdown handling (good default).",
+    "more": "Bakes in the NUT/UPS integration so the box powers down cleanly on a long outage (the D-25/UPS behavior). A good default — uncheck only to build without UPS support, at the cost of unclean-shutdown risk."
+  },
+  {
+    "sel": "#run-log",
+    "title": "Run log",
+    "msg": "The live output stream from the current run.",
+    "more": "The full console output of dry-run/preflight/build — where you watch progress and read exactly what a step did. The record to capture when a build fails."
+  },
+  {
+    "sel": "#run-errors",
+    "title": "Run errors",
+    "msg": "Errors surfaced from the run, highlighted.",
+    "more": "Pulls the failures out of the log so you don't have to hunt for them — the fast path from 'build failed' to the specific cause."
+  },
+  {
+    "sel": "#out-cmd",
+    "title": "Build command",
+    "msg": "The exact orchestrate.sh command to run on the build host.",
+    "more": "The generated artifact of the whole wizard: the precise command that builds your composed image, to run on the build host (Debian 13). Copy it and run — the config becomes an image via this one line."
+  },
+  {
+    "sel": "#out-overlay",
+    "title": "Overlay output",
+    "msg": "The generated overlay config artifact.",
+    "more": "The composed overlay the build applies over the base — savable/copyable so the exact customization is captured as an artifact, not just clicks in a form."
+  },
+  {
+    "sel": "#out-deps",
+    "title": "Deps output",
+    "msg": "The generated dependency manifest.",
+    "more": "The list of what the build needs on the host — the dependency contract, exportable so the build host can be prepared ahead of time."
+  },
+  {
+    "sel": "#out-psu",
+    "title": "PSU output",
+    "msg": "The generated PSU/power budget artifact.",
+    "more": "The computed power budget (R292) as a savable artifact — the bench reference for the PSU headroom decision, printable alongside the BIOS sheet."
+  },
+  {
+    "sel": "#out-preflight",
+    "title": "Preflight output",
+    "msg": "The generated preflight result artifact.",
+    "more": "The saved preflight verdict — proof the build host was ready, captured for the record before the real build ran."
+  },
+  {
+    "sel": "#btn-print-bios-2",
+    "title": "Print (secondary)",
+    "msg": "Print the generated bench artifacts.",
+    "more": "A second print affordance for the output artifacts (BIOS/PSU/preflight sheets) — paper references that survive the firmware screens the panel can't reach."
+  },
+  {
+    "sel": "#guide-bar",
+    "title": "Assistant guide",
+    "msg": "The step-by-step tour bar — back / next / exit, with progress.",
+    "more": "Drives the guided walkthrough: it highlights each section in turn with a title and explanation, and tracks how far you are. The interactive companion to 'guide me' — the fastest way to learn the wizard."
+  },
+  {
+    "sel": "#print-sheet",
+    "title": "Printable sheet",
+    "msg": "The printable bench sheet — paper survives the firmware screens.",
+    "more": "The consolidated print output (BIOS + PSU + preflight) for use at the bench where no OS is running. The panel is unreachable during firmware setup; paper isn't."
+  },
+  {
+    "sel": "#control-surface",
+    "title": "Controls — profiles, modes & toggles",
+    "msg": "The per-panel control rail for the configurator.",
+    "more": "Every control copies its exact sovereign-osctl / orchestrate.sh verb (§1g / R10212), never executing a privileged build from the web — the build itself runs on the build host from the copied command."
   }
 ];
 </script>
