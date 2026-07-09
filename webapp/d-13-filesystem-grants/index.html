@@ -705,16 +705,106 @@ a11y; contract test catches drift.
 <script>
 window.SO_ASSIST = [
   {
-    "sel": "#grants-tbody",
-    "title": "Filesystem grants",
-    "msg": "Which paths are granted to whom — a read-only mirror of the selfdef IPS.",
-    "more": "sovereign-os never writes grants; the IPS (selfdef) owns them and publishes a typed mirror this panel reads. A grant that looks wrong is fixed selfdef-side, then reflected here."
+    "sel": "#mirror-status-banner",
+    "title": "Mirror status",
+    "msg": "Whether the selfdef filesystem/resource-grants mirror is publishing (online) or absent (offline).",
+    "more": "This panel is a READ-ONLY reflection of selfdef's filesystem/resource-grants (MS007 typed-mirror crate #2 of 9). Offline means the mirror isn't publishing — selfdef is still enforcing filesystem/resource-grants on the IPS side, you just can't see it here until the bridge returns."
+  },
+  {
+    "sel": "#mirror-state-label",
+    "title": "Mirror state",
+    "msg": "The one-word verdict — online / offline.",
+    "more": "The quick read on whether this filesystem/resource-grants view is live. sovereign-os never mutates it — grants signed/revoked (R10115) happens selfdef-side via signed CLI, so this is purely an observability signal."
+  },
+  {
+    "sel": "#mirror-state-detail",
+    "title": "Mirror detail",
+    "msg": "The reason behind the mirror state.",
+    "more": "Explains an offline mirror — the producer is down or unreachable, distinct from the underlying data having a problem. Turns 'offline' into something actionable."
+  },
+  {
+    "sel": "#mirror-last-update",
+    "title": "Mirror last update",
+    "msg": "When the producer's snapshot was captured (ISO captured_at).",
+    "more": "Freshness of the reflected data. A stale timestamp means selfdef hasn't published a new filesystem/resource-grants snapshot recently — the values are last-known, not live; grants signed/revoked (R10115) via selfdefctl updates the source."
+  },
+  {
+    "sel": "#mirror-schema-version",
+    "title": "Mirror schema version",
+    "msg": "The schema version of the mirrored snapshot.",
+    "more": "Stamps the contract shape so the fields are interpreted against a known version — the thing to cite if the mirror's shape ever disagrees with the panel."
   },
   {
     "sel": "#k-filesystem",
-    "title": "Filesystem domain",
-    "msg": "Summary of filesystem-domain grant activity across the perimeter rings.",
-    "more": "One of six selfdef domains (filesystem / network / sandbox / capability / communication / attention). These tiles are the at-a-glance roll-up; the table below is the detail."
+    "title": "Filesystem grants",
+    "msg": "Active grants for filesystem access (MS007 mirror snapshot).",
+    "more": "One of six grant kinds. A filesystem grant lets a subject touch specific paths — the read/write authority the sandbox and tools operate under. The count is how many are live right now."
+  },
+  {
+    "sel": "#k-network",
+    "title": "Network grants",
+    "msg": "Active grants for network access.",
+    "more": "Grants that permit outbound/inbound network for a subject — the egress authority. Watching these is watching what's allowed to talk to the outside."
+  },
+  {
+    "sel": "#k-capability",
+    "title": "Capability grants",
+    "msg": "Active capability grants.",
+    "more": "Grants of specific capabilities (the fine-grained powers decoded in D-14). This count is capability authority currently handed out across subjects."
+  },
+  {
+    "sel": "#k-communication",
+    "title": "Communication grants",
+    "msg": "Active inter-process/agent communication grants.",
+    "more": "Grants that let subjects talk to each other — the IPC/messaging authority. Controls which components may coordinate, a key isolation boundary."
+  },
+  {
+    "sel": "#k-sandbox",
+    "title": "Sandbox grants",
+    "msg": "Active sandbox grants.",
+    "more": "Grants tied to sandbox allocation (D-15) — the authority for confined execution. Pairs with the sandbox topology to show what's permitted to run isolated."
+  },
+  {
+    "sel": "#k-attention",
+    "title": "Needs attention",
+    "msg": "Grants that are pending or quarantined — needing a look.",
+    "more": "The roll-up of anything not cleanly active: pending approvals + quarantined grants. The single number that says 'there's a grant decision waiting for you'."
+  },
+  {
+    "sel": "#kind-filters",
+    "title": "Kind filters",
+    "msg": "Filter active grants by kind (filesystem / network / capability / …).",
+    "more": "Narrows the grants table to one kind so you can audit, say, only network grants without the rest. The kinds match the summary tiles above."
+  },
+  {
+    "sel": "#state-filter-label",
+    "title": "State filter",
+    "msg": "Filter grants by state — all / active / pending / …",
+    "more": "Cuts the table to a lifecycle state — e.g. only pending to see what's awaiting approval, or only active to audit what's currently in force."
+  },
+  {
+    "sel": "#grants-tbody",
+    "title": "Active grants (TTL)",
+    "msg": "Each active grant with its state, TTL countdown, and actions.",
+    "more": "The live grant ledger — subject, scope, and time-to-live counting down. TTL matters: grants expire, so a grant near zero is about to lapse. Actions copy signed selfdefctl verbs (read-only web, R10115)."
+  },
+  {
+    "sel": "#pending-tbody",
+    "title": "Pending approval",
+    "msg": "Grant requests awaiting operator approval — kind, scope, requester.",
+    "more": "Grants that can't self-issue: they queue here for a human. Approve/deny via signed selfdefctl + MS003, never from this web view — the panel surfaces the decision, the CLI makes it."
+  },
+  {
+    "sel": "#toast",
+    "title": "Copy confirmation",
+    "msg": "Confirms a CLI verb was copied — web is a read-only mirror consumer.",
+    "more": "Any action copies its signed selfdefctl verb for operator MS003 execution (R10115). This toast confirms the command is on your clipboard; nothing was granted or revoked here."
+  },
+  {
+    "sel": "#control-surface",
+    "title": "Controls — profiles, modes & toggles",
+    "msg": "The per-panel control rail for the grants mirror.",
+    "more": "Every control copies its exact selfdefctl verb (§1g / R10212) — grants are signed/revoked on the IPS side, never mutated from this web view."
   }
 ];
 </script>

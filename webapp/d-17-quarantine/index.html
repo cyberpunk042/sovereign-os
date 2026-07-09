@@ -715,16 +715,100 @@ a11y; contract test catches drift.
 <script>
 window.SO_ASSIST = [
   {
-    "sel": "#quar-tbody",
-    "title": "Quarantined items",
-    "msg": "What selfdef has isolated, and why.",
-    "more": "Quarantine is the IPS's response to a detected threat — the item is neutralised pending review. Read-only mirror; release/disposition happens selfdef-side."
-  },
-  {
     "sel": "#mirror-status-banner",
     "title": "Mirror status",
-    "msg": "Online/offline of the selfdef quarantine mirror.",
-    "more": "Offline means the view isn't live, not that quarantine lapsed — enforcement continues on the IPS regardless of whether this panel can see it."
+    "msg": "Whether the selfdef quarantine mirror is publishing (online) or absent (offline).",
+    "more": "This panel is a READ-ONLY reflection of selfdef's quarantine (MS007 typed-mirror crate #6 of 9). Offline means the mirror isn't publishing — selfdef is still enforcing quarantine on the IPS side, you just can't see it here until the bridge returns."
+  },
+  {
+    "sel": "#mirror-state-label",
+    "title": "Mirror state",
+    "msg": "The one-word verdict — online / offline.",
+    "more": "The quick read on whether this quarantine view is live. sovereign-os never mutates it — restore/forfeit (R10122) happens selfdef-side via signed CLI, so this is purely an observability signal."
+  },
+  {
+    "sel": "#mirror-state-detail",
+    "title": "Mirror detail",
+    "msg": "The reason behind the mirror state.",
+    "more": "Explains an offline mirror — the producer is down or unreachable, distinct from the underlying data having a problem. Turns 'offline' into something actionable."
+  },
+  {
+    "sel": "#mirror-last-update",
+    "title": "Mirror last update",
+    "msg": "When the producer's snapshot was captured (ISO captured_at).",
+    "more": "Freshness of the reflected data. A stale timestamp means selfdef hasn't published a new quarantine snapshot recently — the values are last-known, not live; restore/forfeit (R10122) via selfdefctl updates the source."
+  },
+  {
+    "sel": "#mirror-schema-version",
+    "title": "Mirror schema version",
+    "msg": "The schema version of the mirrored snapshot.",
+    "more": "Stamps the contract shape so the fields are interpreted against a known version — the thing to cite if the mirror's shape ever disagrees with the panel."
+  },
+  {
+    "sel": "#s-critical",
+    "title": "Critical",
+    "msg": "Critical-severity quarantines — declared RO but wrote (or worse).",
+    "more": "The most serious mismatches, shown first (descending). Critical means a subject violated a hard declaration — e.g. claimed read-only then wrote. These are the ones to look at before anything else."
+  },
+  {
+    "sel": "#s-major",
+    "title": "Major",
+    "msg": "Major-severity quarantines — declared FS-only but reached further.",
+    "more": "Serious but below critical — a subject exceeded its declared scope in a meaningful way (e.g. FS-only that touched network). Real violations, investigated after criticals."
+  },
+  {
+    "sel": "#s-minor",
+    "title": "Minor",
+    "msg": "Minor-severity quarantines — scope drift within the same class.",
+    "more": "Smaller deviations: drift within the same capability class. Often benign mis-scoping rather than attack, but still worth the record — the quarantine is the system being careful."
+  },
+  {
+    "sel": "#s-info",
+    "title": "Informational",
+    "msg": "Informational quarantines — declaration superset (over-declared).",
+    "more": "The subject declared MORE authority than it used — technically a mismatch, practically harmless. Flagged for tidiness (tighten the declaration) rather than danger."
+  },
+  {
+    "sel": "#s-released",
+    "title": "Released (24h)",
+    "msg": "Quarantines released in the last 24h (operator-signed).",
+    "more": "Subjects an operator reviewed and let back out, signed. The recovery side of quarantine — evidence the queue is being worked, not just accumulating."
+  },
+  {
+    "sel": "#s-forfeited",
+    "title": "Forfeited (24h)",
+    "msg": "Quarantines forfeited in the last 24h (image purged).",
+    "more": "The terminal outcome — a quarantined subject judged unsafe and destroyed (image purged). The decisive end of the block+quarantine+trace protocol when restore isn't warranted."
+  },
+  {
+    "sel": "#field-chart",
+    "title": "Top mismatch fields",
+    "msg": "Where mismatches are coming from — the most-violated declaration fields.",
+    "more": "Aggregates quarantines by which declared field was violated, so you see the systemic source — if one field dominates, the fix is upstream (a bad declaration template) rather than per-incident."
+  },
+  {
+    "sel": "#state-filters",
+    "title": "State filters",
+    "msg": "Filter active quarantines by state.",
+    "more": "Narrows the quarantine table to a state — e.g. only blocked, to focus on what's actively contained versus what's already resolved."
+  },
+  {
+    "sel": "#quar-tbody",
+    "title": "Active quarantine",
+    "msg": "Each quarantine with what's blocked, the mismatches, and actions.",
+    "more": "The live quarantine ledger under the block+quarantine+trace protocol — subject, what it's blocked from, and the specific mismatches that triggered it. Restore/forfeit via signed selfdefctl (read-only web, R10122)."
+  },
+  {
+    "sel": "#toast",
+    "title": "Copy confirmation",
+    "msg": "Confirms a CLI verb was copied — web is a read-only mirror consumer.",
+    "more": "Any action copies its signed selfdefctl verb for operator MS003 execution (R10122). This toast confirms the command is on your clipboard; nothing was restored or forfeited here."
+  },
+  {
+    "sel": "#control-surface",
+    "title": "Controls — profiles, modes & toggles",
+    "msg": "The per-panel control rail for the quarantine mirror.",
+    "more": "Every control copies its exact selfdefctl verb (§1g / R10212) — restore/forfeit happen on the IPS side, never from this web view."
   }
 ];
 </script>
