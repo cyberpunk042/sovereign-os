@@ -697,16 +697,184 @@ a11y; contract test catches drift.
 <script>
 window.SO_ASSIST = [
   {
-    "sel": "#matrix-tbody",
-    "title": "8-surface coverage",
-    "msg": "Which of the §1g 8 operator surfaces (core/cli/api/mcp/service/webapp/tui/dashboard) each module delivers.",
-    "more": "The mandate is that capability reaches the operator through real surfaces, not just code. This matrix is the audit of that — a module strong in core but empty in cli/webapp is powerful and unreachable."
+    "sel": "#stats",
+    "title": "Surface-map summary",
+    "msg": "The roll-up of the §1g 8-surface delivery audit — version, modules, surfaces, ceiling, gaps, selfdef manifests.",
+    "more": "The mandate is that capability reaches the operator through real surfaces, not just code. This strip is the front-door verdict on that; the detail (audit lives in the modules themselves, not this daemon) is broken out below."
+  },
+  {
+    "sel": "#stat-version",
+    "title": "API version",
+    "msg": "The surface-map API version.",
+    "more": "Stamps the audit build so the coverage numbers are tied to a known version of the surface contract."
+  },
+  {
+    "sel": "#stat-modules",
+    "title": "Tracked modules",
+    "msg": "How many modules the surface audit covers.",
+    "more": "The denominator of coverage — every module expected to deliver capability across the 8 surfaces. This is the population the matrix below grades."
+  },
+  {
+    "sel": "#stat-surfaces",
+    "title": "§1g surfaces",
+    "msg": "The count of operator-named §1g surfaces (the 8-surface contract).",
+    "more": "core / cli / tui / api / mcp / dashboard / webapp / service — the eight ways a capability can reach the operator. The R453 ladder below names each."
+  },
+  {
+    "sel": "#stat-ceiling",
+    "title": "At structural ceiling",
+    "msg": "Modules that deliver every surface that structurally applies to them.",
+    "more": "Not every module can hit all 8 (a mirror has no tui). 'At ceiling' means a module delivers every surface it CAN — the honest bar, distinct from raw full-8."
+  },
+  {
+    "sel": "#stat-below",
+    "title": "Below threshold",
+    "msg": "Modules delivering fewer surfaces than their threshold requires.",
+    "more": "The worklist — modules powerful in code but under-reachable. Each one is capability an operator can't get to through enough surfaces; the 'below threshold' table lists them."
+  },
+  {
+    "sel": "#stat-selfdef",
+    "title": "selfdef manifests",
+    "msg": "Cross-repo selfdef SurfaceManifests discovered (R462).",
+    "more": "selfdef publishes its own surface manifests; this counts how many sovereign-os found. It's the cross-repo half of the audit — the security repo's surfaces measured by the same contract."
+  },
+  {
+    "sel": "#last-refresh",
+    "title": "Last refresh",
+    "msg": "When the surface audit last recomputed.",
+    "more": "Freshness of the coverage numbers. The audit reads the modules themselves, so a stale refresh can lag a module that just added a surface."
+  },
+  {
+    "sel": "#milestone-stats",
+    "title": "Milestone rollup (R540)",
+    "msg": "The §1g 8-surface delivery contract rolled up to milestone level.",
+    "more": "The program-level view: how the whole module set is progressing toward full surface delivery, distinct from any single module's row."
+  },
+  {
+    "sel": "#ms-total",
+    "title": "Total modules",
+    "msg": "Total modules in the milestone rollup.",
+    "more": "The full population the milestone tracks — the base for the ceiling/full-8/future figures beside it."
+  },
+  {
+    "sel": "#ms-ceiling",
+    "title": "At structural ceiling",
+    "msg": "Milestone count of modules delivering every applicable surface.",
+    "more": "The realistic 'done' number — modules that reach every surface that makes sense for them. This is the metric the milestone is actually chasing, not raw full-8."
   },
   {
     "sel": "#ms-full8",
-    "title": "Full-8 modules",
-    "msg": "Modules that deliver on all eight surfaces.",
-    "more": "The gold standard of reachability. Most modules have a structural ceiling (a mirror has no tui); full-8 is reserved for the ones where every surface genuinely applies."
+    "title": "At full 8 surfaces",
+    "msg": "Modules delivering on all eight §1g surfaces.",
+    "more": "The gold standard of reachability — reserved for modules where every surface genuinely applies. Most have a lower structural ceiling, so this is a smaller, elite set."
+  },
+  {
+    "sel": "#ms-future",
+    "title": "Future-carrying",
+    "msg": "Modules carrying a future surface commitment.",
+    "more": "Modules with a surface planned but not yet delivered — tracked so the gap is explicit and scheduled, not silently dropped."
+  },
+  {
+    "sel": "#ms-historic",
+    "title": "Historic note",
+    "msg": "The historical context line for the milestone rollup.",
+    "more": "Where the milestone came from and how the numbers have moved — the provenance behind the current roll-up."
+  },
+  {
+    "sel": "#ms-fullset",
+    "title": "Full-set note",
+    "msg": "The note describing what the complete surface set requires.",
+    "more": "Spells out the full-8 definition so 'full set' isn't ambiguous — the exact contract a module must meet to count as fully reachable."
+  },
+  {
+    "sel": "#surfaces-row",
+    "title": "The 8 §1g surfaces",
+    "msg": "The R453 surface ladder — core, cli, tui, api, mcp, dashboard, webapp, service.",
+    "more": "Each tile shows how many modules deliver that surface. It's the per-surface health: a surface with few modules is a systemic gap (e.g. everything strong in core but weak in tui)."
+  },
+  {
+    "sel": "#surf-core",
+    "title": "core surface",
+    "msg": "How many modules deliver the core (library/engine) surface.",
+    "more": "core is the capability itself — the code. Nearly every module has it; a module WITHOUT core is a shell. This is the base the other seven surfaces expose."
+  },
+  {
+    "sel": "#surf-cli",
+    "title": "cli surface",
+    "msg": "How many modules deliver a CLI surface.",
+    "more": "The operator's primary hands-on surface — sovereign-osctl verbs. A capability with core but no cli is powerful and only reachable programmatically."
+  },
+  {
+    "sel": "#surf-tui",
+    "title": "tui surface",
+    "msg": "How many modules deliver a terminal-UI surface.",
+    "more": "The interactive terminal view. Not every capability warrants a tui (it's a common structural-ceiling exclusion), so a low count here is often expected, not a gap."
+  },
+  {
+    "sel": "#surf-api",
+    "title": "api surface",
+    "msg": "How many modules deliver an HTTP/API surface.",
+    "more": "The machine-consumable surface — what the dashboards and external tools read. A module with a dashboard but no api is usually mis-audited; the dashboard needs the api."
+  },
+  {
+    "sel": "#surf-mcp",
+    "title": "mcp surface",
+    "msg": "How many modules deliver an MCP tool surface.",
+    "more": "The agent-facing surface — capabilities exposed as MCP tools an AI can invoke. Growing this is how the box becomes controllable by an assistant, not just a human."
+  },
+  {
+    "sel": "#surf-dashboard",
+    "title": "dashboard surface",
+    "msg": "How many modules deliver a dashboard surface.",
+    "more": "The read-mostly operator view — the cockpit panels themselves. This audit is why every capability should surface here; a module missing its dashboard is invisible to an operator who lives in the cockpit."
+  },
+  {
+    "sel": "#surf-webapp",
+    "title": "webapp surface",
+    "msg": "How many modules deliver a webapp surface.",
+    "more": "The richer web control surface (beyond a read-only dashboard). Where an operator acts, within the copy-the-signed-verb boundary."
+  },
+  {
+    "sel": "#surf-service",
+    "title": "service surface",
+    "msg": "How many modules deliver a service (daemon/systemd) surface.",
+    "more": "The always-on surface — a capability running as a managed service rather than an on-demand invocation. Required for anything that must observe or react continuously."
+  },
+  {
+    "sel": "#matrix-tbody",
+    "title": "Module × surface matrix",
+    "msg": "Per-module surface coverage, sorted by largest gap first.",
+    "more": "The core audit grid: each module's eight-surface row, worst gaps at the top. This is where you see exactly which surface a strong module is missing — the actionable heart of the panel."
+  },
+  {
+    "sel": "#below-tbody",
+    "title": "Below-threshold modules",
+    "msg": "Modules under their surface threshold, with shortfall and future waivers.",
+    "more": "The prioritized worklist — each row names how many surfaces short a module is and whether a future waiver excuses it. Fixing these is what 'everything reachable' means."
+  },
+  {
+    "sel": "#waivers-tbody",
+    "title": "Explicit waivers",
+    "msg": "Per-module surface waivers with class and rationale.",
+    "more": "The honest record of deliberate exclusions — a module surface intentionally not delivered, with a stated reason. A waiver is a documented choice, not a silent gap; that distinction is the anti-minimization discipline."
+  },
+  {
+    "sel": "#selfdef-tbody",
+    "title": "selfdef SurfaceManifests (R462)",
+    "msg": "Cross-repo selfdef surface manifests and their status.",
+    "more": "The security repo audited by the same 8-surface contract. sovereign-os reads selfdef's published manifests read-only; this table proves the cross-repo surfaces are discoverable and current."
+  },
+  {
+    "sel": "#refresh-btn",
+    "title": "Refresh all",
+    "msg": "Recompute the whole surface audit now.",
+    "more": "Re-reads the modules and cross-repo manifests to refresh every coverage number. Read-only — it audits, it changes nothing."
+  },
+  {
+    "sel": "#control-surface",
+    "title": "Controls — profiles, modes & toggles",
+    "msg": "The per-panel control rail.",
+    "more": "Every control copies its exact sovereign-osctl verb (§1g / R10212), never executing from the web."
   }
 ];
 </script>

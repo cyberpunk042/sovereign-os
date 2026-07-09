@@ -713,16 +713,196 @@ a11y; contract test catches drift.
 <script>
 window.SO_ASSIST = [
   {
+    "sel": "#datasource-banner",
+    "title": "Live vs snapshot",
+    "msg": "Green = /api/traces/spans is answering live; muted = the baked snapshot.",
+    "more": "Traces are only useful when live — a debugging session on stale spans chases a request that already finished. Muted means the trace daemon is unreachable and you're reading the last committed set."
+  },
+  {
+    "sel": "#ds-state-label",
+    "title": "Data-source state",
+    "msg": "Which source the page reads — live trace daemon or snapshot.",
+    "more": "The one-word verdict behind the banner. Snapshot means the span tree you're inspecting may not reflect the request you're chasing right now."
+  },
+  {
+    "sel": "#ds-state-detail",
+    "title": "Reachability detail",
+    "msg": "The reason behind the state — reachable, timeout, or endpoint absent.",
+    "more": "Turns 'snapshot' into a diagnosis: a timeout points at load; absent points at the traces API not being started."
+  },
+  {
+    "sel": "#ds-last-update",
+    "title": "Fetch freshness",
+    "msg": "When the shown spans were last pulled.",
+    "more": "Spans accumulate continuously — check this before assuming a missing span means the request didn't happen; it may just be newer than the last fetch."
+  },
+  {
+    "sel": "#span-count",
+    "title": "Spans (last 1h)",
+    "msg": "How many trace spans were recorded in the last hour.",
+    "more": "The volume of instrumented activity — the size of the haystack you're searching. A sudden drop can mean tracing stopped emitting, not that the system went quiet."
+  },
+  {
+    "sel": "#error-count",
+    "title": "Error spans",
+    "msg": "How many spans in the window carried an error.",
+    "more": "The fast triage number: non-zero here is where to start. Each error span is a request that failed somewhere in its tree — filter to them to see the failing operation without reading every trace."
+  },
+  {
+    "sel": "#p95-lat",
+    "title": "p95 latency",
+    "msg": "95th-percentile span duration over the window.",
+    "more": "The tail that users feel as 'slow'. p95, not average — one blown p95 with a healthy median means intermittent stalls worth tracing to a specific span."
+  },
+  {
+    "sel": "#ocsf-count",
+    "title": "OCSF events",
+    "msg": "How many spans mapped to an OCSF security event in the window.",
+    "more": "OCSF is the open security-events schema. This counts spans that also carry security meaning (per MS026) — the overlap between tracing and the security audit, exportable to a SIEM."
+  },
+  {
+    "sel": "#search-input",
+    "title": "Span search",
+    "msg": "Free-text search over trace_id, operation, and attribute key/values.",
+    "more": "The primary way into a specific request — paste a trace_id to pull its whole tree, or search an operation name to find every span that ran it. Read-only query; it narrows, it changes nothing."
+  },
+  {
+    "sel": "#severity-select",
+    "title": "Severity filter",
+    "msg": "Narrow spans to a severity — all / warn / info.",
+    "more": "Cuts the noise when you only care about problems. Combine with the OCSF-class filter to isolate, e.g., warning-level detection findings."
+  },
+  {
+    "sel": "#ocsf-class-select",
+    "title": "OCSF class filter",
+    "msg": "Filter spans by OCSF event class (1001 / 1003 / 2004 / 4001 / 5001).",
+    "more": "Lets you view traces through the security lens — e.g. only Detection Findings (2004) or only Configuration Changes (5001). The taxonomy table below defines each class."
+  },
+  {
+    "sel": "#window-select",
+    "title": "Time window",
+    "msg": "The lookback window for the span search (1h … 7d).",
+    "more": "Widen it to catch an intermittent problem across the day; narrow it to focus on a just-now incident. Larger windows return more spans and search slower."
+  },
+  {
     "sel": "#apply-btn",
     "title": "Search spans",
-    "msg": "Run the distributed-trace search with the current filters.",
-    "more": "Traces answer 'why did this request go where it did'. Each span is a 13-field record; the search narrows the tree to the request you are chasing. Read-only — this queries, it never changes routing."
+    "msg": "Run the trace search with the current filters.",
+    "more": "Executes the query against the trace store. Read-only — it queries the span tree, it never changes routing or state."
+  },
+  {
+    "sel": "#clear-btn",
+    "title": "Clear filters",
+    "msg": "Reset the search box, severity, class, and window.",
+    "more": "Back to the default unfiltered view — useful after chasing one trace to start a fresh search without stale filters skewing results."
+  },
+  {
+    "sel": "#spans-tbody",
+    "title": "Span results",
+    "msg": "The matching spans — operation, duration, OCSF class, severity.",
+    "more": "Each row is one span; click it to load the full detail panel (tree + attributes + OCSF payload). Duration and severity here are the at-a-glance triage before you drill in."
+  },
+  {
+    "sel": "#ocsf-tbody",
+    "title": "OCSF 16-event taxonomy",
+    "msg": "The selfdef MS026 mapping — each OCSF class, its name, typical emitter, and count this window.",
+    "more": "This is how raw spans become security events an external SIEM understands. The five classes below cover the taxonomy sovereign-os emits; the count column shows how active each is right now."
+  },
+  {
+    "sel": "#ocsf-1001",
+    "title": "1001 System Activity",
+    "msg": "Kernel-level system events, typically from the L0 Observer.",
+    "more": "The baseline observability class — process/syscall-level activity the L0 Observer records. High volume here is normal; it's the substrate the higher classes are derived from."
+  },
+  {
+    "sel": "#ocsf-1003",
+    "title": "1003 Audit Activity",
+    "msg": "Audit events — L2 Simulate, gate evaluation, restore operations.",
+    "more": "The governance trail: gate decisions and restores land here. This class is what accountability reconstructs to prove a process was followed, distinct from a security alert."
+  },
+  {
+    "sel": "#ocsf-2004",
+    "title": "2004 Detection Finding",
+    "msg": "Security findings — Guardian SIGKILL, declaration mismatch, chain break.",
+    "more": "The class that actually means 'something was caught'. A 2004 event is the perimeter acting — a killed process, a broken audit chain. Non-zero here is where a security investigation starts."
+  },
+  {
+    "sel": "#ocsf-4001",
+    "title": "4001 Network Activity",
+    "msg": "Network events — Ring 4 cloud exposure, MS038 grants.",
+    "more": "Egress and exposure activity. Ring 4 is the outermost trust zone; a 4001 event is traffic reaching or leaving the box under a capability grant — the network audit surface."
+  },
+  {
+    "sel": "#ocsf-5001",
+    "title": "5001 Configuration Change",
+    "msg": "Config changes — L5 Commit, L6 Persist, profile transitions.",
+    "more": "The 'what changed' class: commits, persistence, profile switches. When behaviour shifts without an obvious cause, filtering to 5001 shows the configuration event that caused it."
+  },
+  {
+    "sel": "#refresh-btn",
+    "title": "Refresh",
+    "msg": "Re-poll the trace store now.",
+    "more": "A fresh span pull on demand instead of waiting for the auto-poll — useful right after reproducing an issue. Read-only."
+  },
+  {
+    "sel": "#replay-verify-btn",
+    "title": "MS009 replay verify (operator-signed)",
+    "msg": "Stages an MS009 replay-verification — copies the signed CLI verb, doesn't run from the web.",
+    "more": "Replay-verify re-executes a recorded trace to confirm its audit chain (MS009 + MS003) is intact and reproducible. It's a gated operation via osctl; the button hands you the exact command."
+  },
+  {
+    "sel": "#detail-panel",
+    "title": "Span detail",
+    "msg": "The full detail for the selected span — loads on click.",
+    "more": "The deep view of one span: its fields, its place in the trace tree, its raw attributes, and its OCSF payload. This is where a single request's whole story is assembled."
+  },
+  {
+    "sel": "#detail-close",
+    "title": "Close detail",
+    "msg": "Dismiss the span detail panel.",
+    "more": "Returns you to the results list to pick another span without the detail panel in the way."
+  },
+  {
+    "sel": "#detail-title",
+    "title": "Detail title",
+    "msg": "Names the span currently open in the detail panel.",
+    "more": "Confirms which span/operation you're inspecting — the anchor for the tree and attributes shown below it."
+  },
+  {
+    "sel": "#detail-fields",
+    "title": "Span fields",
+    "msg": "The structured 13-field record for the selected span.",
+    "more": "The canonical span fields (ids, timing, status, operation). This is the machine-readable core; the tree and attributes add context around it."
+  },
+  {
+    "sel": "#detail-tree",
+    "title": "Span tree",
+    "msg": "The parent/child span hierarchy for this trace.",
+    "more": "Where the request actually went — each child is a downstream call. A long or errored branch here is the concrete 'why it was slow / why it failed' the summary numbers hinted at."
+  },
+  {
+    "sel": "#detail-attrs",
+    "title": "Raw attributes",
+    "msg": "The span's raw attribute key/values.",
+    "more": "The unstructured detail an operation attached — the extra context that search matched on. Read these when the standard fields don't explain the behaviour."
   },
   {
     "sel": "#detail-ocsf",
-    "title": "OCSF export",
+    "title": "OCSF payload",
     "msg": "The selected span exported in OCSF schema.",
-    "more": "OCSF is the open security-events schema — exporting here lets a trace leave the cockpit for an external SIEM without reformatting. The cockpit produces the evidence; it does not decide what you do with it."
+    "more": "The security-schema view of this span — what an external SIEM would ingest. The cockpit produces the evidence; it does not decide what you do with it downstream."
+  },
+  {
+    "sel": "#trace-replay",
+    "title": "Trace replay control",
+    "msg": "Jumps to the replay control in the panel's control rail.",
+    "more": "A shortcut to the replay affordance — the same MS009 replay-verify, surfaced where the trace detail is, so you can act on the span you're viewing."
+  },
+  {
+    "sel": "#control-surface",
+    "title": "Controls — profiles, modes & toggles",
+    "msg": "The per-panel control rail for tracing behaviour.",
+    "more": "Every control copies its exact sovereign-osctl verb (§1g / R10212), never executing from the web — including the replay-verify gated action."
   }
 ];
 </script>
