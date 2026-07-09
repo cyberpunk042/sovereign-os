@@ -73,6 +73,30 @@ def test_personalization_page_uses_canonical_localstorage_key():
     )
 
 
+def test_personalization_page_supports_import():
+    """SDD-105 — the export→import round-trip is complete: the page ships a
+    validated paste-JSON import that reuses the existing apply chain and
+    honest-rejects invalid input (never partially-applies)."""
+    html = PERSONALIZATION.read_text(encoding="utf-8")
+    # the import UI: a button + a paste textarea + an apply button
+    assert 'id="import-btn"' in html, "personalization must ship an import button"
+    assert 'id="import-json"' in html and "textarea" in html, (
+        "personalization import must offer a paste textarea"
+    )
+    assert 'id="import-apply"' in html, "personalization import must have an apply button"
+    # validate-then-apply: parse + schema check + field validation
+    assert "JSON.parse" in html, "import must JSON.parse the pasted profile"
+    assert "SCHEMA_V" in html, "import must validate the schema version"
+    assert "#RRGGBB" in html.upper() or "[0-9a-fA-F]{6}" in html, (
+        "import must validate the accent hex"
+    )
+    # reuse the existing apply chain (no new apply logic)
+    for helper in ("applyPrefs(", "renderAll(", "savePrefs("):
+        assert helper in html, f"import must reuse {helper} (the existing apply chain)"
+    # symmetric to the existing clipboard export
+    assert "export-btn" in html, "the export half of the round-trip must remain"
+
+
 def test_personalization_page_is_client_side_only():
     """Server NEVER mutates prefs. The page must NOT POST/PUT/DELETE
     to any /api/ endpoint."""
