@@ -24,25 +24,30 @@ selfdef rules-mirror consumer**, exactly mirroring the D-13 grants-mirror patter
   R10113 + R10212 the nftables ruleset is **selfdef-owned**; sovereign-os observes it
   **read-only** (rules change only via `selfdefctl` + MS003 on the IPS side).
 
-## Grounded design — the D-13 grants-mirror pattern, for rules
+## Grounded design — reuse the existing canonical core + align the webapp
 
-selfdef publishes the ruleset through an MS007 typed-mirror artifact; sovereign-os
-**reads that published artifact and renders it read-only** (never runs `nft`). This
-is the exact pattern of `selfdef-grants-mirror` (D-13) / quarantine-mirror (D-17) /
-trust-mirror (D-18):
+**Discovery (2026-07-09):** `scripts/mirror/selfdef-rules-mirror.py` **already exists +
+is canonical and tested** (the M060 mirror suite — mcp-aggregate, m060-smoke, the osctl
+`rules-mirror` arm, the m060 cross-repo/mirror contracts). It reads the selfdef mirror
+(`SOVEREIGN_OS_SELFDEF_RULES_MIRROR`, default `/run/sovereign-os/selfdef-mirror/rules.json`)
+and `snapshot()` projects the CANONICAL schema: named MS039 rings (`sovereign_kernel /
+trusted_local / sandboxed / experimental / cloud_external`, R10246-R10250) + nft
+`dispositions` (accept/drop/reject/jump/continue/return) + `summaries[{ring,rule_count,
+total_bytes,total_packets,pending_l3}]` + `rules[{handle,rule_id,ring,table,chain,
+match_expr,disposition,priority,packets,bytes,installed_at,installed_by,signature}]` +
+`mirror_status(online/offline)`. Absent artifact → `offline` + empty (SB-077).
 
-### `scripts/mirror/selfdef-rules-mirror.py` — the read core
+BUT it has **no API daemon** (never served to any webapp), and the d-12-networking webapp
+renders a DIVERGENT inline `seed` (numeric `ring0-4`, `allow/deny` verdicts, `ringTraffic`
+bars, `denied`-egress, `fqdn/cidr` counts). Operator decision (2026-07-09): **reuse the
+canonical core + build the API daemon + align the webapp to the canonical schema** (do
+NOT fork the tested core's shape).
 
-- `RULES_MIRROR = env SOVEREIGN_OS_SELFDEF_RULES_MIRROR` (default
-  `/run/sovereign-os/selfdef-mirror/rules.json` — parallel to grants' `grants.json`).
-- `snapshot()` projects the `RulesMirrorSnapshot 1.0.0` shape the webapp renders:
-  `{schema_version, mirror_status(online/offline), mirror_source, captured_at,
-  ringTraffic[{ring,allow,deny}], summaries{rules,fqdn,cidr,attention},
-  rules[{handle,ring,chain,match,verdict,packets,bytes}], denied[{ts,ring,src,dst,
-  reason}], signature}`. RINGS = ring0..ring4; verdict ∈ {allow,deny,log}.
-- **Absent artifact → mirror_status="offline" + zeroed summaries + empty
-  ringTraffic/rules/denied** (the dashboard renders empty, honestly showing the
-  mirror isn't published yet — SB-077, never fabricates). stdlib-only, never crashes.
+So this increment does NOT author the core (it exists). It:
+- **reuses** `scripts/mirror/selfdef-rules-mirror.py` (canonical, unchanged);
+- **builds** the API daemon + **aligns** the d-12 webapp render to the canonical schema
+  (named rings, dispositions, per-ring `summaries` rows, the canonical `rules` fields —
+  dropping the divergent ringTraffic/denied/fqdn/cidr seed shape).
 
 ### `scripts/operator/rules-mirror-api.py` — the read-only daemon (port 8133)
 
@@ -88,10 +93,16 @@ trust-mirror (D-18):
 
 ## Way forward
 
-- **Stage 0 (this commit):** this SDD + INDEX + mandate E11.M30.
-- **Stage 1:** `scripts/mirror/selfdef-rules-mirror.py` + `tests/unit/test_selfdef_rules_mirror.py`.
-- **Stage 2:** `rules-mirror-api.py` + systemd unit + osctl arm + catalog/master-dashboard
-  registration + the d-12 webapp fetch wiring + `tests/lint/test_rules_mirror_api_contract.py`.
+- **Stage 0 (this commit):** this SDD + INDEX + mandate E11.M30. The canonical core
+  already exists (M060 mirror suite) — reused, not re-authored.
+- **Stage 1 (the wiring):** `scripts/operator/rules-mirror-api.py` (serves the canonical
+  core at `/api/d-12/snapshot` + `/stream`) + `sovereign-rules-mirror-api.service` +
+  catalog/master-dashboard registration + `tests/lint/test_rules_mirror_api_contract.py`.
+  (osctl `rules-mirror` already routes to the core — unchanged.)
+- **Stage 2 (align the webapp):** rewrite `webapp/d-12-networking/index.html` render to the
+  canonical schema (named rings / dispositions / per-ring summaries / canonical rule
+  fields), fetch `/api/d-12/snapshot`, banner mock→online/offline, `emit()` clipboard
+  `selfdefctl` actions stay.
 - **Stage N:** the selfdef-side publisher crate.
 
 ## Safety invariants

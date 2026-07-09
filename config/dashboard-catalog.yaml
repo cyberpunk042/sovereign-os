@@ -106,8 +106,8 @@ dashboards:
      description: "Host firewall posture — nftables / fail2ban / crowdsec / suricata state + install recommendations.", refs: []}
   - {slug: network-edge, category: security, label: "Network Edge", path: /network-edge/, api: sovereign-network-edge-api, status: live,
      description: "The edge topology — OPNsense bridge, ISP NAT layers, VPN, per-interface state. Where the box sits in the network.", refs: [R449]}
-  - {slug: d-12-networking, category: security, label: "D-12 Networking", path: /d-12-networking/, api: sovereign-network-edge-api, status: live,
-     description: "The cockpit networking view — VLAN-asymmetric zero-trust NICs, the mgmt/data plane split, per-interface addresses + routes.", refs: [master-spec §8]}
+  - {slug: d-12-networking, category: security, label: "D-12 Networking", path: /d-12-networking/, api: sovereign-rules-mirror-api, status: live,
+     description: "The cockpit networking view — the selfdef MS039 Ring-0-4 nftables rules mirror (read-only via selfdef-rules-mirror), per-ring rule counts + traffic + dispositions.", refs: [master-spec §8]}
   - {slug: d-06-pending-approvals, category: security, label: "D-06 Pending Approvals", path: /d-06-pending-approvals/, api: sovereign-approvals-api, status: live,
      description: "The operator approval queue + stage gates — actions waiting for a human yes/no.", refs: []}
   - {slug: d-07-memory-changes, category: security, label: "D-07 Memory Changes", path: /d-07-memory-changes/, api: sovereign-memory-changes-api, status: live,
