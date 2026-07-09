@@ -29,6 +29,7 @@ _BLOCK_RE = re.compile(re.escape(BEGIN) + r".*?" + re.escape(END), re.DOTALL)
 
 # Opt-in adoption list — grow one/few at a time (lockstep with the generator).
 ADOPTED_APP_SHELL_PANELS = [
+    "master-dashboard",
     "d-04-costs",
 ]
 
