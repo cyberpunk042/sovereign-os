@@ -698,22 +698,205 @@ a11y; contract test catches drift.
 <!-- SDD-200 Assistant gold data — hardcoded per-element hover intel for D-04. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077 (authored against the panel's real elements + cost model). -->
 <script>
   window.SO_ASSIST = [
-    { sel:'#req-count', title:'Requests today',
-      msg:'How many inference requests this profile served in the window.',
-      more:'Volume alone is free on local inference — cost only appears when a request escalates to a paid cloud expert. Read this next to “cloud fallbacks”: high requests + zero fallbacks = sovereign and $0.' },
-    { sel:'#avg-req-cost', title:'Average cost / request',
-      msg:'Total spend ÷ requests — your typical per-call cost.',
-      more:'For an all-local profile this should sit at $0.00. A non-zero average means routine cloud escalation; if that is not intended, tighten the profile’s cloud policy (see “cost policy” below) or route more classes to local tiers.' },
-    { sel:'#per-req-max', title:'Most expensive request',
-      msg:'The single priciest call in the window — your worst case, not your average.',
-      more:'A high max with a low average is one outlier: usually a huge-context cloud-expert prompt. Trace it in D-05 and decide whether that class should have stayed on a local tier. This is the number that catches a runaway prompt before it becomes a bill.' },
-    { sel:'#eod-forecast', title:'End-of-day forecast',
-      msg:'Projected spend by day’s end at the current burn rate.',
-      more:'A straight-line extrapolation from spend-so-far against the daily budget. When the forecast crosses the budget the today’s-budget bar turns amber/red — the early-warning that a profile is trending over before it actually breaches.' },
-    { sel:'#today-fill', title:'Budget burn',
-      msg:'Today’s spend as a share of the profile’s daily budget.',
-      more:'Budgets are operator-set per profile; this panel shows, it never enforces. The gate that actually stops spend lives in the router’s cost policy — this bar is the human-visible mirror of how close you are to it.' }
-  ];
+  {
+    "sel": "#datasource-banner",
+    "title": "Live vs snapshot",
+    "msg": "Green = /api/costs/summary is answering live; muted = the baked snapshot.",
+    "more": "A cost panel must always say which it's on — a budget decision made on stale spend is a decision made blind. Muted means the costs daemon is unreachable and today's figures may lag reality."
+  },
+  {
+    "sel": "#ds-state-label",
+    "title": "Data-source state",
+    "msg": "Which source the page reads — live costs daemon or snapshot.",
+    "more": "live / snapshot / unknown. 'unknown' means the health probe itself failed, a different problem from a clean snapshot fallback you can still read as last-known."
+  },
+  {
+    "sel": "#ds-state-detail",
+    "title": "Reachability detail",
+    "msg": "The reason behind the state — reachable, timeout, or endpoint absent.",
+    "more": "Turns 'snapshot' into a diagnosis of whether the costs API is down, slow, or simply not started before you trust the spend numbers."
+  },
+  {
+    "sel": "#ds-last-update",
+    "title": "Fetch freshness",
+    "msg": "When the shown cost summary was pulled.",
+    "more": "Spend accrues continuously — a value minutes old can understate today's burn. Read this before acting on the budget gauge."
+  },
+  {
+    "sel": "#today-spend",
+    "title": "Today's spend (UTC)",
+    "msg": "Cumulative spend so far today against the daily budget.",
+    "more": "The number that matters most — how much has been burned today. Paired with the budget beside it, it's the fill gauge that says how much runway remains before the daily cap."
+  },
+  {
+    "sel": "#today-budget",
+    "title": "Daily budget (USD)",
+    "msg": "The operator-configured daily budget for the active profile.",
+    "more": "Set per profile in cost policy (daily_budget_usd). This is the ceiling today's spend is measured against — the denominator of the budget gauge, controlled by the operator, not the system."
+  },
+  {
+    "sel": "#req-count",
+    "title": "Requests today",
+    "msg": "How many billable requests ran today.",
+    "more": "The volume side of cost — spend divided by this is the average request cost beside it. A spend spike with flat request count means requests got more expensive (bigger context / pricier model), not that traffic grew."
+  },
+  {
+    "sel": "#avg-req-cost",
+    "title": "Avg cost / request",
+    "msg": "Today's spend divided by request count.",
+    "more": "The unit economics — the lever to watch when optimizing. Rising avg cost points at model/context choices; the router (orchestration) is where you'd shift work to a cheaper tier."
+  },
+  {
+    "sel": "#per-req-max",
+    "title": "Per-request max (alert)",
+    "msg": "The most expensive single request today, against the alert threshold.",
+    "more": "The outlier guard — one runaway request (huge context, expensive model) can dominate a budget. per_request_max_usd (policy) is the alert line; this shows the worst offender so far."
+  },
+  {
+    "sel": "#eod-forecast",
+    "title": "Forecast end-of-day",
+    "msg": "Projected total spend by end of day at the current rate.",
+    "more": "The early-warning: if this exceeds the daily budget, you'll hit the cap before midnight. It's the number that tells you to throttle or halt cloud routes NOW rather than after the fact."
+  },
+  {
+    "sel": "#project-tbody",
+    "title": "Cost by project",
+    "msg": "Per-project spend across today / 7d / 30d, with profile and route.",
+    "more": "Attributes cost to the work that caused it — which project is expensive, on which profile, over which route. The first place to look when the total surprises you."
+  },
+  {
+    "sel": "#profile-tbody",
+    "title": "Cost by profile (MS040)",
+    "msg": "Spend per cost-profile, each with its cloud policy.",
+    "more": "The six MS040 profiles differ mainly in whether they may reach cloud — the biggest cost lever on the box. This table pairs each profile's spend with its cloud posture so you see cost and policy together."
+  },
+  {
+    "sel": "#prof-private-1d",
+    "title": "private profile",
+    "msg": "The private profile — local-only, never cloud (R10747).",
+    "more": "private paths are structurally forbidden from reaching cloud, so this profile's cost is essentially local compute (near-zero external spend). The safest, cheapest posture — 1d/7d/30d spend shown across its row."
+  },
+  {
+    "sel": "#prof-fast-1d",
+    "title": "fast profile",
+    "msg": "The fast profile — cloud allowed (yes).",
+    "more": "Optimized for latency, permitted to reach cloud models, so it's the higher-spend profile. Its 1d/7d/30d columns are where cloud cost shows up first; watch it against the daily budget."
+  },
+  {
+    "sel": "#prof-careful-1d",
+    "title": "careful profile",
+    "msg": "The careful profile — cloud allowed but gated.",
+    "more": "Cloud is permitted only through a gate (approval/threshold), trading a little friction for cost control. Spend here should be more deliberate than fast — each cloud call passed a check."
+  },
+  {
+    "sel": "#prof-auto-1d",
+    "title": "autonomous profile",
+    "msg": "The autonomous profile — cloud predeclared.",
+    "more": "For unattended work: cloud use is allowed but must be predeclared (budgeted up front), so autonomous runs can't quietly overspend. Its cost should track its declared envelope."
+  },
+  {
+    "sel": "#prof-exp-1d",
+    "title": "experimental profile",
+    "msg": "The experimental profile — sandbox only.",
+    "more": "Confined to the sandbox, so its spend is isolated from production budgets — a safe place for costly experiments that shouldn't touch the main envelope."
+  },
+  {
+    "sel": "#prof-prod-1d",
+    "title": "production profile",
+    "msg": "The production profile — strict cloud policy (R10454).",
+    "more": "The tightest posture: cloud only under strict rules. Production spend should be the most predictable and controlled — deviations here are the ones to investigate first."
+  },
+  {
+    "sel": "#model-tbody",
+    "title": "Cost by model",
+    "msg": "Per-model spend with tokens-in, tokens-out, and $/Mtok.",
+    "more": "The pricing detail — which model costs what per million tokens and how many tokens it consumed. The evidence for shifting a workload to a cheaper model or the local (zero-cost) tiers."
+  },
+  {
+    "sel": "#trend-chart",
+    "title": "30-day spend trend",
+    "msg": "Daily spend over the last month.",
+    "more": "The pattern behind the totals — a steady climb, a weekly spike, a one-off. Reading the shape tells you whether today's spend is normal or an anomaly worth halting."
+  },
+  {
+    "sel": "#policy-tbody",
+    "title": "Cost policy",
+    "msg": "The operator-controlled cost policy — key, current value, source (dump 9885-9930 verbatim).",
+    "more": "The rules that govern spend, dumped verbatim from the operator's config so they're auditable, not paraphrased. Each row below is one knob; the web shows them read-only (R10212) — you change them via the CLI."
+  },
+  {
+    "sel": "#pol-cloud",
+    "title": "cloud_enabled",
+    "msg": "Whether cloud routing is enabled at all (dump 9885 · R10747).",
+    "more": "The master switch for external spend. Off means the box is fully local (zero cloud cost); on means profiles that permit cloud can incur it. The single biggest cost/sovereignty control."
+  },
+  {
+    "sel": "#pol-approval",
+    "title": "cloud_requires_approval",
+    "msg": "Whether cloud calls need approval first.",
+    "more": "When true, cloud routing is gated on an operator decision (the careful-profile posture) — friction that prevents silent cloud overspend."
+  },
+  {
+    "sel": "#pol-daily",
+    "title": "daily_budget_usd",
+    "msg": "The daily spend ceiling (dump 9886).",
+    "more": "The cap the today-spend gauge measures against. Hitting it is what the end-of-day forecast warns about and what 'halt cloud routes' enforces in a panic."
+  },
+  {
+    "sel": "#pol-perreq",
+    "title": "per_request_max_usd",
+    "msg": "The per-request cost cap / alert (dump 9887 · R10075).",
+    "more": "Bounds any single request so one runaway call can't blow the budget. This is the threshold the per-request-max stat is compared against."
+  },
+  {
+    "sel": "#pol-private",
+    "title": "private_paths_never_cloud",
+    "msg": "Guarantees private paths never reach cloud (dump 9888 · R10081).",
+    "more": "The structural sovereignty guarantee behind the private profile — certain data is forbidden from leaving the box regardless of profile. A cost control that's really a privacy control."
+  },
+  {
+    "sel": "#pol-log",
+    "title": "log_prompts",
+    "msg": "Whether prompts are logged (dump 9889 · R10747).",
+    "more": "Governs whether prompt content is retained — a privacy/audit trade-off the operator owns. Verbatim from config so the setting is unambiguous."
+  },
+  {
+    "sel": "#refresh-btn",
+    "title": "Refresh",
+    "msg": "Re-poll the cost summary now.",
+    "more": "A fresh spend read on demand instead of waiting for the auto-poll — useful right after a heavy run. Read-only (MS043 R10212)."
+  },
+  {
+    "sel": "#halt-btn",
+    "title": "Halt cloud routes (panic)",
+    "msg": "Stages an emergency halt of all cloud routing — copies the signed CLI verb.",
+    "more": "The kill switch for runaway spend: when the forecast blows past budget, this stops cloud calls immediately. R10212 — it copies the signed osctl verb rather than executing from the web, but it's the fastest lever you have."
+  },
+  {
+    "sel": "#export-btn",
+    "title": "Copy 30d export cmd",
+    "msg": "Copies the command to export 30 days of cost data.",
+    "more": "Hands you the CLI to pull cost history out of the cockpit for external accounting or charting. The panel shows the trend; this gives you the raw data."
+  },
+  {
+    "sel": "#cost-policy",
+    "title": "Cost-policy control",
+    "msg": "Jumps to the cost-policy control in the panel's rail.",
+    "more": "A shortcut to where the policy knobs (budget, caps, cloud) are surfaced as copy-the-signed-verb controls — the actionable companion to the read-only policy table above."
+  },
+  {
+    "sel": "#costs-export",
+    "title": "Costs-export control",
+    "msg": "Jumps to the costs-export control in the panel's rail.",
+    "more": "A shortcut to the export affordance — the same 30d export, surfaced in the control rail."
+  },
+  {
+    "sel": "#control-surface",
+    "title": "Controls — profiles, modes & toggles",
+    "msg": "The per-panel control rail for cost behaviour.",
+    "more": "Every control copies its exact sovereign-osctl verb (§1g / R10212 / MS043), never executing from the web — including the budget, cloud-enable, and halt controls."
+  }
+];
 </script>
 
 <h1 data-assist="D-04 costs — where every dollar goes. Read-only cockpit: budgets, per-request cost, and breakdowns by project / profile / model. Nothing here spends or executes; it observes.">D-04 — costs</h1>
