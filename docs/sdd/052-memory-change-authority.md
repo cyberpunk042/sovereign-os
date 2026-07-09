@@ -61,7 +61,9 @@ The writer lives in a NEW `scripts/intelligence/memory-decide.py` (keeps
 `_VALID_PENDING_OP` / `snapshot`. Atomic `os.replace` write; durable
 `/var/log/sovereign-os/memory-decisions.jsonl` ledger; OCSF-5001 M049 span
 (D-05/D-16). A minimal `request <op> --mtype` producer mints `mc-<hex>` pending
-changes (the real M028 admission-lifecycle producers are Stage 4).
+changes (the real M028 admission-lifecycle producers are Stage 4). (Web-exposed via the
+R10274 exec-rail as the `memory-request` control as of **SDD-104** — the enqueue is an
+unprivileged intent, distinct from the privileged `memory-decide` that signs it.)
 
 ### MS003 signing (deferred, per the SDD-048/051 precedent)
 
