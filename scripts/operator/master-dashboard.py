@@ -286,6 +286,13 @@ DASHBOARD_ROUTES = {
         "label": "D-16 Audit Chain (read-only selfdef MS016 append-only mirror)",
         "source_repo": "selfdef-mirror",
     },
+    "rules-mirror": {
+        "port": 8133,
+        "healthz_path": "/healthz",
+        "subpath": "/rules-mirror/",
+        "label": "D-12 Networking (read-only selfdef MS039 Ring-0-4 nftables mirror)",
+        "source_repo": "selfdef-mirror",
+    },
 }
 
 KNOWN_SLUGS = list(DASHBOARD_ROUTES.keys())
@@ -552,6 +559,7 @@ _ROUTE_WEBAPP = {
     "super-model": "d-19-super-model-manifest",
     "peace-machine": "d-20-peace-machine-health",
     "audit-mirror": "d-16-audit",
+    "rules-mirror": "d-12-networking",
 }
 
 

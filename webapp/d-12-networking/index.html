@@ -425,17 +425,17 @@ a11y; contract test catches drift.
 <h1>D-12 — networking <span class="badge-mirror" style="font-size:.7rem">read-only via selfdef-rules-mirror</span></h1>
 <div class="sub">Ring 0..4 traffic visualization · MS038 network boundary · MS024 nftables ruleset · eBPF telemetry — <a href="../master-dashboard/">D-00 main</a></div>
 
-<!-- Data-source status banner — D-12 is currently mock-state; the producer at
-     /api/d-12/snapshot is not yet wired (operator should treat this view as a
-     UX preview, not live network state). -->
+<!-- Data-source status banner — wired to the live producer (SDD-063): fetches
+     /api/d-12/snapshot from the read-only rules-mirror API. Shows online when the
+     selfdef rules mirror is published, offline (empty) when it is not yet. -->
 <div id="datasource-banner" class="ds-banner unknown" role="status" aria-live="polite">
   <span class="dot"></span>
-  <strong>data source: mock</strong>
-  <span class="muted">
-    no <code>/api/d-12/snapshot</code> publisher wired yet — this view shows
-    seed data for UX. Live producer is the next D-12 increment.
+  <strong id="ds-label">data source: checking…</strong>
+  <span class="muted" id="ds-detail">
+    fetching <code>/api/d-12/snapshot</code> (READ-ONLY selfdef-rules-mirror consumer, R10113)
   </span>
   <span class="spacer"></span>
+  <span class="muted" id="ds-last"></span>
 </div>
 <style>
   .ds-banner { display:flex; align-items:center; gap:.6rem; padding:.55rem .85rem;
@@ -446,44 +446,48 @@ a11y; contract test catches drift.
   .ds-banner .spacer { flex:1; }
 </style>
 
-<h2>Ring 0..4 traffic distribution (last 5 min)</h2>
+<h2>MS039 Ring-0..4 rule distribution</h2>
 <div class="panel">
   <div id="ring-traffic"></div>
-  <div class="muted" style="font-size:.7rem;margin-top:.5rem">Ring 0 = kernel-equiv · Ring 1 = Guardian · Ring 2 = operator-CLI · Ring 3 = sandboxed agent · Ring 4 = untrusted</div>
+  <div class="muted" style="font-size:.7rem;margin-top:.5rem">Ring 0 <code>sovereign_kernel</code> · Ring 1 <code>trusted_local</code> · Ring 2 <code>sandboxed</code> · Ring 3 <code>experimental</code> · Ring 4 <code>cloud_external</code> — per-ring nftables rule counts + traffic (read-only mirror).</div>
 </div>
 
 <h2>summary</h2>
 <div class="row">
-  <div class="stat"><div class="k">active nftables rules</div><div class="v ok" id="s-rules">0</div><div class="u">across Ring 0-4 chains</div></div>
-  <div class="stat"><div class="k">allow events (5m)</div><div class="v ok" id="s-allow">0</div><div class="u">packets matched</div></div>
-  <div class="stat"><div class="k">deny events (5m)</div><div class="v bad" id="s-deny">0</div><div class="u">packets blocked</div></div>
-  <div class="stat"><div class="k">FQDN allowlist</div><div class="v" id="s-fqdn">0</div><div class="u">resolved entries</div></div>
-  <div class="stat"><div class="k">CIDR allowlist</div><div class="v" id="s-cidr">0</div><div class="u">/32..*/16 ranges</div></div>
-  <div class="stat"><div class="k">attention</div><div class="v warn" id="s-attn">0</div><div class="u">drift / TTL near expiry</div></div>
+  <div class="stat"><div class="k">nftables rules</div><div class="v ok" id="s-rules">0</div><div class="u">across the Ring 0-4 chains</div></div>
+  <div class="stat"><div class="k">packets matched</div><div class="v ok" id="s-packets">0</div><div class="u">total across rings</div></div>
+  <div class="stat"><div class="k">bytes matched</div><div class="v" id="s-bytes">0</div><div class="u">total across rings</div></div>
+  <div class="stat"><div class="k">pending L3</div><div class="v warn" id="s-pending">0</div><div class="u">rules awaiting L3 program</div></div>
+  <div class="stat"><div class="k">rings</div><div class="v" id="s-rings">0</div><div class="u">MS039 trust rings</div></div>
+  <div class="stat"><div class="k">mirror</div><div class="v" id="s-mirror">—</div><div class="u">selfdef-rules-mirror status</div></div>
 </div>
 
 <h2>nftables ruleset (selfdef-rules-mirror)</h2>
 <div class="panel">
   <div class="filters" id="ring-filters">
     <span style="font-size:.72rem;color:var(--muted)">ring:</span>
-    <div class="filter on" data-ring="ring0">Ring 0</div>
-    <div class="filter on" data-ring="ring1">Ring 1</div>
-    <div class="filter on" data-ring="ring2">Ring 2</div>
-    <div class="filter on" data-ring="ring3">Ring 3</div>
-    <div class="filter on" data-ring="ring4">Ring 4</div>
-    <span style="font-size:.72rem;color:var(--muted);margin-left:1rem">verdict:</span>
-    <div class="filter on" data-verdict="allow">allow</div>
-    <div class="filter on" data-verdict="deny">deny</div>
-    <div class="filter on" data-verdict="log">log</div>
+    <div class="filter on" data-ring="sovereign_kernel">Ring 0</div>
+    <div class="filter on" data-ring="trusted_local">Ring 1</div>
+    <div class="filter on" data-ring="sandboxed">Ring 2</div>
+    <div class="filter on" data-ring="experimental">Ring 3</div>
+    <div class="filter on" data-ring="cloud_external">Ring 4</div>
+    <span style="font-size:.72rem;color:var(--muted);margin-left:1rem">disposition:</span>
+    <div class="filter on" data-disposition="accept">accept</div>
+    <div class="filter on" data-disposition="drop">drop</div>
+    <div class="filter on" data-disposition="reject">reject</div>
+    <div class="filter on" data-disposition="jump">jump</div>
+    <div class="filter on" data-disposition="continue">continue</div>
+    <div class="filter on" data-disposition="return">return</div>
   </div>
   <table>
     <thead>
       <tr>
         <th>handle</th>
         <th>ring</th>
-        <th>chain</th>
+        <th>table/chain</th>
         <th>match</th>
-        <th>verdict</th>
+        <th>disposition</th>
+        <th class="num">prio</th>
         <th class="num">packets</th>
         <th class="num">bytes</th>
         <th>actions</th>
@@ -491,11 +495,6 @@ a11y; contract test catches drift.
     </thead>
     <tbody id="rules-tbody"></tbody>
   </table>
-</div>
-
-<h2>recent denied egress (eBPF tail)</h2>
-<div class="panel">
-  <div id="denied-stream" style="display:flex;flex-direction:column;gap:.1rem;max-height:200px;overflow-y:auto"></div>
 </div>
 
 <h2>actions <span class="muted" style="font-size:.75rem;font-weight:400">— web is READ-ONLY mirror consumer; rules added/removed via selfdefctl + operator MS003 (R10113)</span></h2>
@@ -516,110 +515,125 @@ a11y; contract test catches drift.
 <div class="toast" id="toast">copied</div>
 
 <script>
-  // -------- seed (publisher /api/d-12/snapshot when wired) ----------
-  // Schema mirrors selfdef-rules-mirror::RulesMirrorSnapshot 1.0.0
-  // No mutations from this surface — R10113 + R10212.
-  const seed = {
-    schema_version: "1.0.0",
-    captured_at: "2026-05-19T04:00Z",
-    ringTraffic: [
-      { ring: "ring0", allow: 84, deny: 0 },
-      { ring: "ring1", allow: 412, deny: 2 },
-      { ring: "ring2", allow: 1840, deny: 7 },
-      { ring: "ring3", allow: 612, deny: 23 },
-      { ring: "ring4", allow: 4, deny: 89 }
-    ],
-    summaries: {
-      rules: 47,
-      fqdn: 12,
-      cidr: 28,
-      attention: 3
-    },
-    rules: [
-      { handle: 100, ring: "ring0", chain: "ring0-egress", match: "ip daddr 127.0.0.1 udp dport 8125",       verdict: "allow", packets: 412, bytes: 47120 },
-      { handle: 101, ring: "ring1", chain: "ring1-egress", match: "ip6 daddr ::1 tcp dport 5432",            verdict: "allow", packets: 84,  bytes: 19200 },
-      { handle: 102, ring: "ring2", chain: "ring2-egress", match: "tcp dport 443 fqdn 'api.github.com'",     verdict: "allow", packets: 1840, bytes: 4_829_120 },
-      { handle: 103, ring: "ring2", chain: "ring2-egress", match: "tcp dport 443 fqdn 'api.anthropic.com'",  verdict: "allow", packets: 312, bytes: 2_148_000 },
-      { handle: 104, ring: "ring3", chain: "ring3-egress", match: "tcp dport 443 fqdn 'huggingface.co'",     verdict: "allow", packets: 412, bytes: 8_192_000 },
-      { handle: 105, ring: "ring3", chain: "ring3-egress", match: "tcp dport 443 fqdn 'pypi.org'",           verdict: "allow", packets: 184, bytes: 6_148_000 },
-      { handle: 106, ring: "ring4", chain: "ring4-egress", match: "ip daddr 0.0.0.0/0 ! ip daddr 127.0.0.1", verdict: "deny",  packets: 89,  bytes: 4452 },
-      { handle: 107, ring: "ring4", chain: "ring4-egress", match: "ip daddr 10.0.0.0/8",                     verdict: "log",   packets: 12,  bytes: 612 },
-      { handle: 108, ring: "ring3", chain: "ring3-egress", match: "tcp dport 22",                            verdict: "deny",  packets: 4,   bytes: 240 },
-      { handle: 109, ring: "ring2", chain: "ring2-egress", match: "tcp dport 443 fqdn 'cloud-internal.example.com'", verdict: "log", packets: 8, bytes: 4096 }
-    ],
-    denied: [
-      { ts: "04:00:12", ring: "ring4", src: "untrusted-bin:1234", dst: "evil.example.com:443", reason: "FQDN not in allowlist" },
-      { ts: "04:00:08", ring: "ring4", src: "untrusted-bin:1234", dst: "8.8.8.8:53",           reason: "Ring4 default-deny" },
-      { ts: "03:59:55", ring: "ring3", src: "agent-fp:5678",      dst: "registry.docker.io:443", reason: "FQDN not in Ring3 allowlist" },
-      { ts: "03:59:42", ring: "ring4", src: "untrusted-bin:1234", dst: "1.1.1.1:53",           reason: "Ring4 default-deny" },
-      { ts: "03:59:30", ring: "ring2", src: "operator-cli:9012",  dst: "cloud-internal.example.com:443", reason: "logged (allow but flagged for review)" },
-      { ts: "03:59:18", ring: "ring3", src: "agent-fp:5678",      dst: "ssh.cloud.example.com:22", reason: "tcp/22 not allowed for Ring3" },
-      { ts: "03:58:50", ring: "ring4", src: "untrusted-bin:1234", dst: "evil2.example.com:443", reason: "FQDN not in allowlist" }
-    ]
+  // SDD-063 — live READ-ONLY consumer of the selfdef rules mirror. Fetches
+  // /api/d-12/snapshot (schema: selfdef-rules-mirror::RulesMirrorSnapshot 1.0.0 —
+  // MS039 named rings + nft dispositions + per-ring summaries). No mutations from
+  // this surface — rules change via selfdefctl + MS003 on the IPS side (R10113/R10212).
+  const RING_LABEL = {
+    sovereign_kernel: 'Ring 0 · kernel', trusted_local: 'Ring 1 · local',
+    sandboxed: 'Ring 2 · sandbox', experimental: 'Ring 3 · experimental',
+    cloud_external: 'Ring 4 · cloud',
   };
+  let snap = { mirror_status: 'offline', summaries: [], rules: [] };
 
-  // ring traffic bars
-  const rt = document.getElementById('ring-traffic');
-  for (const r of seed.ringTraffic) {
-    const total = r.allow + r.deny;
-    const allowPct = total ? (r.allow / total) * 100 : 0;
-    const denyPct = total ? (r.deny / total) * 100 : 0;
-    const row = document.createElement('div');
-    row.className = 'ring-row';
-    row.innerHTML = `
-      <span class="name"><span class="pill ${r.ring}">${r.ring.toUpperCase()}</span></span>
-      <div class="bar">
-        <div class="fill allow" style="width:${allowPct}%">${r.allow > 0 ? r.allow : ''}</div>
-        <div class="fill deny" style="left:${allowPct}%;width:${denyPct}%">${r.deny > 0 ? r.deny : ''}</div>
-      </div>
-      <span class="counts"><span class="ok">${r.allow} allow</span> / <span class="bad">${r.deny} deny</span></span>
-    `;
-    rt.appendChild(row);
+  function escapeHtml(s) {
+    if (s == null) return '';
+    return String(s).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   }
 
-  // summary
-  document.getElementById('s-rules').textContent = seed.summaries.rules;
-  document.getElementById('s-allow').textContent = seed.ringTraffic.reduce((a, r) => a + r.allow, 0).toLocaleString();
-  document.getElementById('s-deny').textContent = seed.ringTraffic.reduce((a, r) => a + r.deny, 0).toLocaleString();
-  document.getElementById('s-fqdn').textContent = seed.summaries.fqdn;
-  document.getElementById('s-cidr').textContent = seed.summaries.cidr;
-  document.getElementById('s-attn').textContent = seed.summaries.attention;
+  function renderBanner() {
+    const b = document.getElementById('datasource-banner');
+    const online = snap.mirror_status === 'online';
+    b.classList.remove('unknown');
+    b.style.borderColor = online ? '#1f7a3f' : '#7a701f';
+    document.getElementById('ds-label').textContent = online ? 'data source: online' : 'data source: offline (mirror not published)';
+    document.getElementById('ds-detail').innerHTML = online
+      ? 'live <code>/api/d-12/snapshot</code> — READ-ONLY selfdef-rules-mirror consumer (R10113)'
+      : 'the selfdef rules mirror is not published yet — <code>/api/d-12/snapshot</code> returns empty (honest idle state)';
+    document.getElementById('ds-last').textContent = 'fetched ' + new Date().toLocaleTimeString();
+  }
+
+  function renderRingDistribution() {
+    const rt = document.getElementById('ring-traffic');
+    rt.innerHTML = '';
+    const rows = snap.summaries || [];
+    const max = Math.max(1, ...rows.map(s => s.rule_count || 0));
+    if (!rows.length) {
+      rt.innerHTML = '<div class="muted">no rings in the mirror — publisher offline</div>';
+      return;
+    }
+    for (const s of rows) {
+      const pct = ((s.rule_count || 0) / max) * 100;
+      const row = document.createElement('div');
+      row.className = 'ring-row';
+      row.innerHTML = `
+        <span class="name">${escapeHtml(RING_LABEL[s.ring] || s.ring)}</span>
+        <div class="bar"><div class="fill allow" style="width:${pct}%">${s.rule_count || ''}</div></div>
+        <span class="counts"><span class="ok">${(s.total_packets||0).toLocaleString()} pkts</span> / ${((s.total_bytes||0)/1024).toFixed(1)} KiB${s.pending_l3 ? ' · <span class="bad">'+s.pending_l3+' pending</span>' : ''}</span>
+      `;
+      rt.appendChild(row);
+    }
+  }
+
+  function renderSummary() {
+    const rows = snap.summaries || [];
+    const sum = (k) => rows.reduce((a, s) => a + (s[k] || 0), 0);
+    document.getElementById('s-rules').textContent = (snap.rules || []).length.toLocaleString();
+    document.getElementById('s-packets').textContent = sum('total_packets').toLocaleString();
+    document.getElementById('s-bytes').textContent = (sum('total_bytes') / 1024).toFixed(1) + ' KiB';
+    document.getElementById('s-pending').textContent = sum('pending_l3').toLocaleString();
+    document.getElementById('s-rings').textContent = rows.length;
+    document.getElementById('s-mirror').textContent = snap.mirror_status || '—';
+  }
 
   function renderRules() {
     const activeRings = new Set([...document.querySelectorAll('#ring-filters .filter.on[data-ring]')].map(f => f.dataset.ring));
-    const activeVerdicts = new Set([...document.querySelectorAll('#ring-filters .filter.on[data-verdict]')].map(f => f.dataset.verdict));
+    const activeDisp = new Set([...document.querySelectorAll('#ring-filters .filter.on[data-disposition]')].map(f => f.dataset.disposition));
     const tb = document.getElementById('rules-tbody');
     tb.innerHTML = '';
-    for (const r of seed.rules) {
-      if (!activeRings.has(r.ring) || !activeVerdicts.has(r.verdict)) continue;
+    const rules = snap.rules || [];
+    if (!rules.length) {
+      tb.innerHTML = '<tr><td colspan="9" class="muted">no rules in the mirror — the selfdef rules-mirror producer is offline (honest empty state)</td></tr>';
+      return;
+    }
+    for (const r of rules) {
+      if (!activeRings.has(r.ring) || !activeDisp.has(r.disposition)) continue;
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td class="muted">${r.handle}</td>
-        <td><span class="pill ${r.ring}">${r.ring.toUpperCase()}</span></td>
-        <td class="muted">${r.chain}</td>
-        <td><code>${r.match}</code></td>
-        <td><span class="pill ${r.verdict}">${r.verdict}</span></td>
-        <td class="num">${r.packets.toLocaleString()}</td>
-        <td class="num muted">${(r.bytes / 1024).toFixed(1)} KiB</td>
+        <td class="muted">${escapeHtml(r.handle)}</td>
+        <td>${escapeHtml(RING_LABEL[r.ring] || r.ring)}</td>
+        <td class="muted">${escapeHtml(r.table ? r.table + ' · ' : '')}${escapeHtml(r.chain)}</td>
+        <td><code>${escapeHtml(r.match_expr)}</code></td>
+        <td><span class="pill">${escapeHtml(r.disposition)}</span></td>
+        <td class="num muted">${escapeHtml(r.priority)}</td>
+        <td class="num">${(r.packets||0).toLocaleString()}</td>
+        <td class="num muted">${((r.bytes||0)/1024).toFixed(1)} KiB</td>
         <td>
-          <button onclick="emit('selfdefctl rule inspect --handle ${r.handle}')">inspect</button>
-          <button class="danger" onclick="emit('selfdefctl rule remove --handle ${r.handle}')">remove</button>
+          <button onclick="emit('selfdefctl rule inspect --handle ${escapeHtml(r.handle)}')">inspect</button>
+          <button class="danger" onclick="emit('selfdefctl rule remove --handle ${escapeHtml(r.handle)}')">remove</button>
         </td>
       `;
       tb.appendChild(tr);
     }
   }
-  renderRules();
+
+  function render() { renderBanner(); renderRingDistribution(); renderSummary(); renderRules(); }
+
+  function applySnapshot(s) { if (s && typeof s === 'object') { snap = s; render(); } }
+
+  async function load() {
+    try {
+      const r = await fetch('/api/d-12/snapshot', { credentials: 'same-origin' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      applySnapshot(await r.json());
+    } catch (e) { snap = { mirror_status: 'offline', summaries: [], rules: [] }; render(); }
+  }
+
   document.querySelectorAll('#ring-filters .filter').forEach(f => f.addEventListener('click', () => { f.classList.toggle('on'); renderRules(); }));
 
-  // denied stream
-  const ds = document.getElementById('denied-stream');
-  for (const d of seed.denied) {
-    const div = document.createElement('div');
-    div.className = 'nft-rule';
-    div.innerHTML = `<span class="muted">${d.ts}</span> <span class="pill ${d.ring}">${d.ring.toUpperCase()}</span> <span class="bad">${d.src}</span> → <span>${d.dst}</span> <span class="muted">· ${d.reason}</span>`;
-    ds.appendChild(div);
+  // SSE live refresh w/ 5s poll fallback (snapshot-only; no mutations)
+  let es;
+  function startSSE() {
+    try {
+      es = new EventSource('/api/d-12/stream');
+      es.addEventListener('snapshot', ev => { try { applySnapshot(JSON.parse(ev.data)); } catch {} });
+      es.onerror = () => { try { es.close(); } catch {} ; setTimeout(poll, 5000); };
+    } catch { setTimeout(poll, 5000); }
   }
+  function poll() { load(); setTimeout(poll, 5000); }
+
+  load();
+  startSSE();
 
   function emit(cmd) {
     navigator.clipboard.writeText(cmd).then(() => showToast('copied: ' + cmd.slice(0, 60) + (cmd.length > 60 ? '…' : '')));
