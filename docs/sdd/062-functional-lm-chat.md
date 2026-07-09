@@ -94,7 +94,7 @@ measured** rate/latency from actual completions, empty when no backend answered.
 | Q-062-B | R10212 framing for the chat POST. | **answered: a chat completion is a non-mutating read-compute to the loopback router; the one narrow POST; all state mutations stay 405 + exec-rail-only.** |
 | Q-062-C | Telemetry source. | **answered: real measured tokens/sec + latency from actual completions; honest-empty without a backend (SB-077).** |
 | Q-062-D | Which tier serves a chat prompt. | **proposed: the router's `classify()` per prompt (as `/v1/chat/completions` already does); default endpoint the router :8080.** |
-| Q-062-E | Multi-turn conversation history. | **proposed: single-turn now; conversation context/history is Stage N.** |
+| Q-062-E | Multi-turn conversation history. | **answered (SDD-103, 2026-07-09): bounded client-side multi-turn — `prompt.run(messages=…)` + `_send_chat {messages}` + a client-side conversation buffer; the server stays a stateless read-compute (R10212), the LM response still honest-defers (SB-077).** |
 
 ## Goals
 

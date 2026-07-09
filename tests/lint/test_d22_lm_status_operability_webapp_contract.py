@@ -265,6 +265,53 @@ def test_chat_endpoint_is_the_one_sanctioned_post():
         proc.wait(timeout=3)
 
 
+def test_webapp_sends_multiturn_messages_client_side():
+    """SDD-103 — the D-22 webapp keeps a client-side conversation buffer and POSTs the
+    bounded `{messages}` history (the server holds no state); a "New chat" clears it."""
+    html = WEBAPP_HTML.read_text(encoding="utf-8")
+    assert "chatHistory" in html and "messages: chatHistory" in html
+    assert "chat-new" in html and "function newChat" in html
+
+
+def test_chat_endpoint_accepts_multiturn_messages():
+    """SDD-103 — the chat endpoint accepts a {messages:[{role,content}]} multi-turn
+    body (in addition to {prompt}); with no backend it still opens the SSE stream with
+    an honest error (or 503). A malformed `messages` (not a list) is 400 — the server
+    holds no conversation state (client sends the bounded history each turn, R10212)."""
+    port = _free_port()
+    proc = _spawn_api(port)
+    try:
+        req = urllib.request.Request(
+            f"http://127.0.0.1:{port}/api/lm-status/chat", method="POST",
+            data=json.dumps({"messages": [
+                {"role": "user", "content": "hi"},
+                {"role": "assistant", "content": "hello"},
+                {"role": "user", "content": "again"}]}).encode(),
+            headers={"Content-Type": "application/json"})
+        code = None
+        try:
+            with urllib.request.urlopen(req, timeout=5) as r:
+                code = r.status
+        except urllib.error.HTTPError as e:
+            code = e.code
+        assert code in (200, 503), "the multi-turn chat body must be accepted (not 405/400)"
+
+        # a malformed `messages` (not a list) → 400
+        req2 = urllib.request.Request(
+            f"http://127.0.0.1:{port}/api/lm-status/chat", method="POST",
+            data=json.dumps({"messages": "not-a-list"}).encode(),
+            headers={"Content-Type": "application/json"})
+        bad = None
+        try:
+            urllib.request.urlopen(req2, timeout=3)
+        except urllib.error.HTTPError as e:
+            bad = e.code
+        assert bad == 400, "a malformed messages body must be 400"
+    finally:
+        proc.kill()
+        proc.wait(timeout=3)
+
+
 def test_api_daemon_version_advertises_webapp_surface():
     port = _free_port()
     proc = _spawn_api(port)
