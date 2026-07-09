@@ -89,7 +89,7 @@ dashboards:
      description: "The active OS profile mirrored read-only — hardware, kernel, packages, hooks in effect.", refs: []}
   - {slug: global-history, category: hardware, label: "Global History", path: /global-history/, api: sovereign-global-history-api, status: live,
      description: "A unified change log across 6 sources (apt/dpkg/shell/osctl/events/modules) — 'what changed since I last looked?'", refs: [R448]}
-  - {slug: build-configurator, category: hardware, label: "Build Configurator", path: /build-configurator/, api: sovereign-build-configurator-api, status: live,
+  - {slug: build-configurator, category: hardware, label: "Build Configurator", path: /build-configurator/, api: sovereign-dashboards, status: live,
      description: "Compose an OS image (or manage this host) and RUN the build — the Run console (validate/preflight/BUILD, bake toggles). The one page that actually builds sovereign-os.", refs: [SDD-043]}
   - {slug: emulate, category: hardware, label: "Emulate (QEMU)", path: /emulate/, api: sovereign-emulate-api, status: live,
      description: "Boot a built image in a throwaway QEMU VM before flashing — interactive serial console, configurable QEMU options (uefi/direct boot, kvm/tcg, cpu/mem, snapshot), auto-login. Catches a broken image in a VM, never on the USB key.", refs: [SDD-008, SDD-045]}

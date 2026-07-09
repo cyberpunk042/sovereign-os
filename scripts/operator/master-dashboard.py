@@ -154,7 +154,7 @@ DASHBOARD_ROUTES = {
         "source_repo": "sovereign-os",
     },
     "hardware-pressure": {
-        "port": 8097,
+        "port": 8131,
         "healthz_path": "/healthz",
         "subpath": "/hardware-pressure/",
         "label": "D-09 Hardware Pressure (PSI/CCD/GPU/ZFS/backpressure)",

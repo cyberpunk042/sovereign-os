@@ -63,7 +63,7 @@ power‑status · R253 shutdown‑guard · R262 schedule‑manifest · R228 noti
                                                                │  at every stage:
    ┌── WARN (all mediums, before + during) ──────────────────▼───────────────────┐
    │  notify send → file / webhook / ntfy(phone)  ·  wall  ·  /dev/console  ·     │
-   │  desktop notify-send  ·  UPS panel banner + countdown (:8124)                │
+   │  desktop notify-send  ·  UPS panel banner + countdown (:8128)                │
    └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -90,7 +90,7 @@ build toggle.
 | [`scripts/inference/router.py`](../../scripts/inference/router.py) | — | Flag‑gated **drain mode** (`/drain-status`, 503 new completions) | `sovereign-router.service` |
 | [`scripts/notify/dispatch.py`](../../scripts/notify/dispatch.py) | R228 | Notify fan‑out incl. the `send` verb → file/webhook/ntfy | on demand |
 | [`config/power.toml.example`](../../config/power.toml.example) | R252 | **Thresholds** (`[graceful_shutdown]`) → `/etc/sovereign-os/power.toml` | — |
-| [`webapp/ups/index.html`](../../webapp/ups/index.html) | — | Panel: live state + shutdown‑imminent banner + countdown (:8124) | `sovereign-ups-api` |
+| [`webapp/ups/index.html`](../../webapp/ups/index.html) | — | Panel: live state + shutdown‑imminent banner + countdown (:8128) | `sovereign-ups-api` |
 | [`profiles/sain-01.yaml`](../../profiles/sain-01.yaml) | — | Declares packages + `provisioning.power` (the master toggle + policy) | build/provision |
 
 ---
@@ -221,7 +221,7 @@ reused by the guard (before) and the manifest (during). Stages
 - **notify** → `sovereign-osctl notify send` → file / webhook / **ntfy (phone)**
 - **wall** → every logged‑in terminal · **/dev/console** → physical console
 - **notify‑send** → desktop bubbles in active X11/Wayland sessions
-- **UPS panel** → red "shutdown imminent" banner + countdown (`:8124`)
+- **UPS panel** → red "shutdown imminent" banner + countdown (`:8128`)
 
 ### Preview it without shutting down
 
@@ -243,7 +243,7 @@ systemctl is-active nut-server sovereign-power-shutdown-guard.timer
 ```
 
 **Healthy** = `ups.status OL` · `armed True · shutdown< 30 · warn< 45 min` · both
-`active`. Panel: `http://127.0.0.1:8124/` (operator‑launched via `panel.sh`).
+`active`. Panel: `http://127.0.0.1:8128/` (operator‑launched via `panel.sh`).
 
 ## 8. Tune the settings
 
@@ -291,7 +291,7 @@ NUT + guard + manifest install.
 | `sovereign_os_power_drain_inference_total{result}` | drain outcome (drained/timeout/no‑router) |
 
 Plus live UPS variables via NUT (`battery.charge`, `battery.runtime`, `ups.status`,
-`ups.load`, `ups.realpower`). Panel `:8124` renders them + the imminent banner. Full list: the
+`ups.load`, `ups.realpower`). Panel `:8128` renders them + the imminent banner. Full list: the
 [metric inventory](../observability/dashboards/README.md).
 
 ## 11. Troubleshooting

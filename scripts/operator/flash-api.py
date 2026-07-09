@@ -43,7 +43,7 @@ Endpoints:
 
 Env vars:
   FLASH_API_BIND   (default: 127.0.0.1)
-  FLASH_API_PORT   (default: 8122)
+  FLASH_API_PORT   (default: 8126)
 """
 from __future__ import annotations
 
@@ -58,7 +58,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 API_BIND = os.environ.get("FLASH_API_BIND", "127.0.0.1")
-API_PORT = int(os.environ.get("FLASH_API_PORT", "8122"))
+API_PORT = int(os.environ.get("FLASH_API_PORT", "8126"))
 VERSION = "0.1.0"
 
 REPO = Path(__file__).resolve().parents[2]

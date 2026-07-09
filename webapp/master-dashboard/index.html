@@ -94,9 +94,15 @@
 <script>
   (function(){
     var ROOT = (function(){
-      var p = window.location.pathname.replace(/\/$/, '');
-      var i = p.lastIndexOf('/');
-      return i > 0 ? p.slice(0, i + 1) : '/';
+      // Anchor on our OWN dir name so panel links are correct no matter how the
+      // page URL is formed — /master-dashboard/, /master-dashboard/index.html,
+      // or a sub-path mount (/cockpit/master-dashboard/). The old lastIndexOf
+      // heuristic returned '/master-dashboard/' whenever the URL carried a
+      // trailing filename, nesting every panel under it → the /master-dashboard/
+      // router/ bug. ROOT is the prefix BEFORE our dir (usually '/').
+      var p = window.location.pathname;
+      var i = p.indexOf('/master-dashboard');
+      return i >= 0 ? (p.slice(0, i) + '/') : '/';
     })();
     var DASHBOARDS = [
       { id: 'D-00', dir: 'master-dashboard',          label: 'master dashboard',         shortcut: '1' },
@@ -123,7 +129,9 @@
       { id: 'D-20', dir: 'd-20-peace-machine-health', label: 'peace-machine health',     shortcut: null },
       { id: 'cfg',  dir: 'personalization',            label: 'personalization',          shortcut: null },
     ];
-    function jump(d) { window.location.href = ROOT + d.dir + '/'; }
+    // Prefer the catalog's ABSOLUTE path (e.g. '/router/') when present; only
+    // fall back to reconstructing from ROOT for the hardcoded core panels.
+    function jump(d) { window.location.href = (d.path && d.path.charAt(0) === '/') ? d.path : (ROOT + d.dir + '/'); }
     var SHORTCUT = {};
     function rebuildShortcuts() { SHORTCUT = {}; DASHBOARDS.forEach(function(d) { if (d.shortcut) SHORTCUT[d.shortcut] = d; }); }
     rebuildShortcuts();
@@ -143,7 +151,7 @@
           cat.dashboards.forEach(function(d) {
             if (!d.path) return;                 // only reachable panels
             var p = prev[d.slug] || {};
-            merged.push({ id: p.id || d.slug, dir: d.slug, label: d.label || d.slug,
+            merged.push({ id: p.id || d.slug, dir: d.slug, path: d.path, label: d.label || d.slug,
                           desc: d.description || '', cat: cats[d.category] || d.category || '',
                           shortcut: p.shortcut || null });
           });
@@ -1727,10 +1735,14 @@ async function renderCatalog() {
   // group dashboards by category, preserving the catalog's category order
   const byCat = {};
   for (const d of dashboards) (byCat[d.category] = byCat[d.category] || []).push(d);
-  // ROOT for building panel links (mirrors the palette's ROOT logic)
+  // ROOT for building panel links — anchor on our own dir name so it's correct
+  // regardless of URL form (/master-dashboard/, .../index.html, sub-path mount).
+  // The old replace(/\/[^/]*$/,"/") returned '/master-dashboard/' for the dir
+  // URL, nesting every card link under it → the /master-dashboard/router/ bug.
   const ROOT = (function () {
-    var p = window.location.pathname.replace(/\/[^/]*$/, "/");
-    return p || "/";
+    var p = window.location.pathname;
+    var i = p.indexOf("/master-dashboard");
+    return i >= 0 ? (p.slice(0, i) + "/") : "/";
   })();
   let html = "";
   for (const c of cats) {
@@ -1748,8 +1760,12 @@ async function renderCatalog() {
         '<span class="pill ' + status + '">' + status + '</span></div>';
       const descEl = '<div class="dc-desc">' + desc + '</div>';
       if (d.path) {
-        // live/snapshot — the whole card links to the panel
-        const href = ROOT + escapeHTML(String(d.slug)) + "/";
+        // live/snapshot — the whole card links to the panel. Prefer the
+        // catalog's ABSOLUTE path (e.g. '/router/'); only fall back to
+        // ROOT+slug for entries lacking an absolute path.
+        const href = (String(d.path).charAt(0) === "/")
+          ? escapeHTML(String(d.path))
+          : (ROOT + escapeHTML(String(d.slug)) + "/");
         html += '<a class="dash-card" href="' + href + '">' + head + descEl + '</a>';
       } else {
         // planned (no panel yet) — show the CLI that reaches it today

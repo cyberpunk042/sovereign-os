@@ -32,7 +32,7 @@ StandardError=journal
 #   [Service]
 #   Environment=EMULATE_API_BIND=0.0.0.0
 Environment=EMULATE_API_BIND=127.0.0.1
-Environment=EMULATE_API_PORT=8123
+Environment=EMULATE_API_PORT=8127
 
 # R171 defense-in-depth (Layer-1 lint enforced). The serving surface is
 # read-only; the VM is driven from the operator's panel.sh session (above).

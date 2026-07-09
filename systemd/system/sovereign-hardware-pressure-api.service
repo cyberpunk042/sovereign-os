@@ -20,7 +20,7 @@ StandardError=journal
 #   [Service]
 #   Environment=HARDWARE_PRESSURE_API_BIND=0.0.0.0
 Environment=HARDWARE_PRESSURE_API_BIND=127.0.0.1
-Environment=HARDWARE_PRESSURE_API_PORT=8097
+Environment=HARDWARE_PRESSURE_API_PORT=8131
 
 # R171 defense-in-depth (Layer-1 lint enforced). Read-only HTTP surface;
 # probes read /proc/pressure + /sys + exec nvidia-smi/zpool (read-only) and

@@ -26,7 +26,7 @@ StandardError=journal
 #   [Service]
 #   Environment=UX_DESIGN_AUDIT_API_BIND=0.0.0.0
 Environment=UX_DESIGN_AUDIT_API_BIND=127.0.0.1
-Environment=UX_DESIGN_AUDIT_API_PORT=8100
+Environment=UX_DESIGN_AUDIT_API_PORT=8132
 
 # Defense-in-depth — read-only HTTP surface that walks the source tree
 # per /audit, /score, /report request (the R457 dimension auditors

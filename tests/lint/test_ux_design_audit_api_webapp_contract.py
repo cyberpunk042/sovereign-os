@@ -34,7 +34,7 @@ Sovereignty boundaries enforced by this contract:
     query; remediation lives in the audited modules themselves, NOT
     in this daemon
   - webapp is single-file, zero external deps, same-origin only
-  - loopback-bind default (port 8100, sister to trinity 8095 +
+  - loopback-bind default (port 8132, sister to trinity 8095 +
     router 8096 + compliance 8097 + anti-min 8098 + doc-coverage
     8099)
 """
@@ -115,8 +115,8 @@ def test_systemd_unit_present_and_hardened():
     assert "UX_DESIGN_AUDIT_API_BIND=127.0.0.1" in text, (
         "R530 unit must default-bind to loopback"
     )
-    assert "UX_DESIGN_AUDIT_API_PORT=8100" in text, (
-        "R530 unit must use port 8100 (sister to trinity-api 8095 + "
+    assert "UX_DESIGN_AUDIT_API_PORT=8132" in text, (
+        "R530 unit must use port 8132 (sister to trinity-api 8095 + "
         "router-api 8096 + compliance-api 8097 + anti-min-api 8098 + "
         "doc-coverage-api 8099)"
     )
@@ -207,7 +207,7 @@ class _DaemonHarness:
         self.proc = None
 
     def __enter__(self):
-        # Allocate a free loopback port to avoid colliding with 8100.
+        # Allocate a free loopback port to avoid colliding with 8132.
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.bind(("127.0.0.1", 0))
             self.port = s.getsockname()[1]

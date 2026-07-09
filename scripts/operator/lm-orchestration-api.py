@@ -37,7 +37,7 @@ fetches):
 
 Env (all overridable):
   LM_ORCH_API_BIND      (default 127.0.0.1)
-  LM_ORCH_API_PORT      (default 8121)
+  LM_ORCH_API_PORT      (default 8129)
   LM_ORCH_API_DRY_RUN   (set=1 → print config + exit)
   LM_ORCH_WEBAPP_PATH   (override the on-disk webapp asset)
   LM_ORCH_STREAM_INTERVAL (SSE push seconds, default 3.0)
@@ -57,7 +57,7 @@ from pathlib import Path
 from typing import Any
 
 API_BIND = os.environ.get("LM_ORCH_API_BIND", "127.0.0.1")
-API_PORT = int(os.environ.get("LM_ORCH_API_PORT", "8121"))
+API_PORT = int(os.environ.get("LM_ORCH_API_PORT", "8129"))
 DRY_RUN = bool(os.environ.get("LM_ORCH_API_DRY_RUN"))
 STREAM_INTERVAL = float(os.environ.get("LM_ORCH_STREAM_INTERVAL", "3.0"))
 CPUINFO_PATH = Path(os.environ.get("LM_ORCH_CPUINFO", "/proc/cpuinfo"))

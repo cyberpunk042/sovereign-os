@@ -23,7 +23,7 @@ StandardError=journal
 #   [Service]
 #   Environment=LM_ORCH_API_BIND=0.0.0.0
 Environment=LM_ORCH_API_BIND=127.0.0.1
-Environment=LM_ORCH_API_PORT=8121
+Environment=LM_ORCH_API_PORT=8129
 
 # R171 defense-in-depth (Layer-1 lint enforced). Read-only HTTP surface;
 # reads models/catalog.yaml + profiles/runtime/*.yaml + /proc/cpuinfo +

@@ -32,7 +32,7 @@ R521, anti-min R524, doc-coverage R527).
 
 Sovereignty (stdlib-only — zero added deps):
   - http.server.HTTPServer + BaseHTTPRequestHandler
-  - Loopback-bind by default (127.0.0.1, port 8100 — sister to the
+  - Loopback-bind by default (127.0.0.1, port 8132 — sister to the
     R515 trinity-api 8095 / R518 router-api 8096 / R521 compliance-
     api 8097 / R524 anti-min-api 8098 / R527 doc-coverage-api 8099)
   - Read-only verbs only — ux-design-audit has NO mutation verbs at
@@ -59,7 +59,7 @@ Layer-B metric (sister to R527 doc-coverage + R524 anti-min):
 
 Env vars (all overridable):
   UX_DESIGN_AUDIT_API_BIND     (default: 127.0.0.1)
-  UX_DESIGN_AUDIT_API_PORT     (default: 8100)
+  UX_DESIGN_AUDIT_API_PORT     (default: 8132)
   UX_DESIGN_AUDIT_WEBAPP_PATH  (default: <repo>/webapp/ux-design-audit/index.html)
   SOVEREIGN_OS_METRICS_DIR     (default: /var/lib/node_exporter/textfile_collector)
   UX_DESIGN_AUDIT_API_DRY_RUN  (default: unset; set to 1 = print and exit)
@@ -75,7 +75,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
 API_BIND = os.environ.get("UX_DESIGN_AUDIT_API_BIND", "127.0.0.1")
-API_PORT = int(os.environ.get("UX_DESIGN_AUDIT_API_PORT", "8100"))
+API_PORT = int(os.environ.get("UX_DESIGN_AUDIT_API_PORT", "8132"))
 DRY_RUN = bool(os.environ.get("UX_DESIGN_AUDIT_API_DRY_RUN"))
 
 METRICS_DIR = os.environ.get(

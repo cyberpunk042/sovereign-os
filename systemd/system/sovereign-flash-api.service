@@ -32,7 +32,7 @@ StandardError=journal
 #   [Service]
 #   Environment=FLASH_API_BIND=0.0.0.0
 Environment=FLASH_API_BIND=127.0.0.1
-Environment=FLASH_API_PORT=8122
+Environment=FLASH_API_PORT=8126
 
 # R171 defense-in-depth (Layer-1 lint enforced). Serving + device-list surface
 # is read-only; the destructive path is the gated CLI run under operator root.

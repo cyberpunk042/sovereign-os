@@ -21,7 +21,7 @@ Endpoints:
 
 Env vars:
   UPS_API_BIND   (default: 127.0.0.1)
-  UPS_API_PORT   (default: 8124)
+  UPS_API_PORT   (default: 8128)
 """
 from __future__ import annotations
 
@@ -35,7 +35,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 API_BIND = os.environ.get("UPS_API_BIND", "127.0.0.1")
-API_PORT = int(os.environ.get("UPS_API_PORT", "8124"))
+API_PORT = int(os.environ.get("UPS_API_PORT", "8128"))
 VERSION = "0.1.0"
 
 REPO = Path(__file__).resolve().parents[2]

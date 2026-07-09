@@ -40,7 +40,7 @@ Endpoints:
 
 Env vars:
   EMULATE_API_BIND   (default: 127.0.0.1)
-  EMULATE_API_PORT   (default: 8123)
+  EMULATE_API_PORT   (default: 8127)
 """
 from __future__ import annotations
 
@@ -59,7 +59,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 API_BIND = os.environ.get("EMULATE_API_BIND", "127.0.0.1")
-API_PORT = int(os.environ.get("EMULATE_API_PORT", "8123"))
+API_PORT = int(os.environ.get("EMULATE_API_PORT", "8127"))
 VERSION = "0.1.0"
 
 REPO = Path(__file__).resolve().parents[2]

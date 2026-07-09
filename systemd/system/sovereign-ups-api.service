@@ -24,7 +24,7 @@ StandardError=journal
 #   [Service]
 #   Environment=UPS_API_BIND=0.0.0.0
 Environment=UPS_API_BIND=127.0.0.1
-Environment=UPS_API_PORT=8124
+Environment=UPS_API_PORT=8128
 
 # R171 defense-in-depth (Layer-1 lint enforced). Read-only HTTP surface; shells
 # power-status.py + `upsc` (NUT upsd on 127.0.0.1:3493 → AF_INET) + systemctl.

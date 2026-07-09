@@ -18,11 +18,11 @@ UNITS = REPO / "systemd" / "system"
 # slug → (module-meta, data-endpoint, api-file, unit-file, port)
 PANELS = {
     "flash": ("flash-webapp", "/flash.json", "flash-api.py",
-              "sovereign-flash-api.service", "8122"),
+              "sovereign-flash-api.service", "8126"),
     "emulate": ("emulate-webapp", "/emulate.json", "emulate-api.py",
-                "sovereign-emulate-api.service", "8123"),
+                "sovereign-emulate-api.service", "8127"),
     "ups": ("ups-webapp", "/ups.json", "ups-api.py",
-            "sovereign-ups-api.service", "8124"),
+            "sovereign-ups-api.service", "8128"),
 }
 
 

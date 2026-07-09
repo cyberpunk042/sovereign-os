@@ -25,7 +25,7 @@ Endpoints (the exact contract webapp/d-09-hardware-pressure/index.html fetches):
 
 Env (all overridable):
   HARDWARE_PRESSURE_API_BIND     (default 127.0.0.1)
-  HARDWARE_PRESSURE_API_PORT     (default 8097)
+  HARDWARE_PRESSURE_API_PORT     (default 8131)
   HARDWARE_PRESSURE_API_DRY_RUN  (set=1 → print config + exit)
   HARDWARE_PRESSURE_WEBAPP_PATH  (override the on-disk webapp asset)
   HARDWARE_PRESSURE_STREAM_INTERVAL (SSE push seconds, default 2.0)
@@ -43,7 +43,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 API_BIND = os.environ.get("HARDWARE_PRESSURE_API_BIND", "127.0.0.1")
-API_PORT = int(os.environ.get("HARDWARE_PRESSURE_API_PORT", "8097"))
+API_PORT = int(os.environ.get("HARDWARE_PRESSURE_API_PORT", "8131"))
 DRY_RUN = bool(os.environ.get("HARDWARE_PRESSURE_API_DRY_RUN"))
 STREAM_INTERVAL = float(os.environ.get("HARDWARE_PRESSURE_STREAM_INTERVAL", "2.0"))
 API_VERSION = "1.0.0"
