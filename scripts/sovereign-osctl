@@ -8165,8 +8165,19 @@ case "${cmd}" in
       promote|demote|rollback|register)
         "${__REPO_ROOT}/scripts/inference/adapter-decide.py" "${sub}" "$@"
         ;;
+      gate)
+        # SDD-061 (M046): the GATE-PRODUCER — advance an adapter's MS041 gate from
+        # REAL evidence. `adapters gate {human|snapshot|eval|oracle} <id>` →
+        # adapter-gate.py: human = operator attestation (the sole cockpit control,
+        # adapter-gate-human); snapshot = a real ZFS rollback-point (SDD-050); eval =
+        # a real passing evals.jsonl record (D-10); oracle = an oracle-backend judge.
+        # SB-077: honest-defer (gate stays pending) when the evidence/backend is
+        # absent — never fabricates a pass. eval/snapshot/oracle are CLI-only
+        # (heavy/host-gated); only `gate human` is exec-rail-exposed. DRY-RUN default.
+        "${__REPO_ROOT}/scripts/inference/adapter-gate.py" "$@"
+        ;;
       *)
-        log_error "unknown adapters subverb: ${sub} (available: inventory, list, history, promote, demote, rollback, register)"
+        log_error "unknown adapters subverb: ${sub} (available: inventory, list, history, promote, demote, rollback, register, gate)"
         exit 2
         ;;
     esac

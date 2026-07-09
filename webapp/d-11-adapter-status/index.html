@@ -500,8 +500,8 @@ a11y; contract test catches drift.
     <span class="gate passed">oracle-or-human (sovereign-os Blackwell oracle OR operator)</span>
   </div>
   <table>
-    <thead><tr><th>adapter</th><th>snapshot</th><th>test/eval</th><th>oracle</th><th>human</th><th>composite</th></tr></thead>
-    <tbody id="gates-tbody"><tr><td colspan="6" class="muted">no adapters in pending state</td></tr></tbody>
+    <thead><tr><th>adapter</th><th>snapshot</th><th>test/eval</th><th>oracle</th><th>human</th><th>composite</th><th>actions</th></tr></thead>
+    <tbody id="gates-tbody"><tr><td colspan="7" class="muted">no adapters in pending state</td></tr></tbody>
   </table>
 </div>
 
@@ -663,8 +663,9 @@ async function refresh() {
       <td>${gateBadge(a.gates?.oracle || 'pending')}</td>
       <td>${gateBadge(a.gates?.human || 'pending')}</td>
       <td>${(a.gates?.snapshot === 'passed' && a.gates?.test_eval === 'passed' && (a.gates?.oracle === 'passed' || a.gates?.human === 'passed')) ? '<span class="pill ok">ready to promote</span>' : '<span class="pill warn">not yet</span>'}</td>
+      <td>${a.gates?.human === 'passed' ? '<span class="muted">human ✓</span>' : `<button onclick="jumpToControl('adapter-gate-human', '${escapeHtml(a.id)}')">sign off human gate ↓</button>`}</td>
     </tr>
-  `).join('') : '<tr><td colspan="6" class="muted">no adapters in pending state</td></tr>';
+  `).join('') : '<tr><td colspan="7" class="muted">no adapters in pending state</td></tr>';
 
   // NVFP4 inventory
   const nvfp4 = (s.adapters || []).filter(a => a.precision === 'nvfp4');
@@ -701,13 +702,23 @@ async function refresh() {
 // SDD-051 — scroll to a functional control in the rail + highlight it. The
 // adapter-decide control EXECUTES via the R10274 control-exec-api rail
 // (operator-key + type-to-confirm gated); web itself never mutates (R10212).
-function jumpToControl(cid) {
+function jumpToControl(cid, prefill) {
   const s = document.getElementById('control-surface');
   const c = s && s.querySelector('[data-cid="' + cid + '"]');
   (c || s || document.body).scrollIntoView({ behavior: 'smooth', block: 'center' });
   if (c) {
     c.style.outline = '2px solid var(--accent,#9bd1ff)';
     setTimeout(() => { c.style.outline = ''; }, 1600);
+    // SDD-061 — best-effort pre-fill the control card's id input so a per-row
+    // "sign off human gate ↓" click lands on adapter-gate-human with the adapter
+    // id already set. Guarded: the button still works if the card shape differs.
+    if (prefill) {
+      const inp = c.querySelector('input[type="text"], input[type="search"], input:not([type])');
+      if (inp) {
+        inp.value = prefill;
+        inp.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    }
   }
 }
 

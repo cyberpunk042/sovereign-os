@@ -629,3 +629,27 @@ systems:
     privileged: true
     applies_to: [d-07-memory-changes]
     refs: [scripts/intelligence/memory-store.py]
+
+  # ── 31. Adapter human gate — operator sign-off of the MS041 human gate (D-11, SDD-061) ──
+  - id: adapter-gate-human
+    kind: lifecycle
+    scope: scoped
+    label: "Sign Off Human Gate"
+    description: >-
+      Sign off the MS041 human gate for a LoRA adapter (SDD-061) — the operator
+      attests they reviewed the adapter, advancing gates.human to passed (the
+      oracle-OR-human third gate, so a real promote becomes reachable via snapshot
+      + test/eval + human). Pick an adapter id (mem the pending list). Real
+      evidence only — the attestation is the operator's own. DRY-RUN by default;
+      operator-key + type-to-confirm gated. Recorded to a durable ledger + an
+      OCSF-5001 audit span. The snapshot/eval/oracle gate-producers are CLI-only
+      (heavy / host-gated); only the human sign-off is a panel control. MS003
+      signing delegated to selfdef (signature unsigned-pending-MS003).
+    options: [human]
+    options_cli: "sovereign-osctl adapters inventory"
+    state_cli: "sovereign-osctl adapters inventory"
+    change_cli: "sovereign-osctl adapters gate human <id> --confirm"
+    state_path: "adapter promotion registry /var/lib/sovereign-os/adapters/registry.json"
+    privileged: true
+    applies_to: [d-11-adapter-status]
+    refs: [scripts/inference/adapter-gate.py]

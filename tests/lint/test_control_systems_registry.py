@@ -28,6 +28,7 @@ EXPECTED_IDS = {
     "adapter-decide", "memory-decide",
     "session-decide", "session-hibernate-all",
     "memory-forget", "memory-undo",
+    "adapter-gate-human",
 }
 VALID_KINDS = {"profile", "mode", "toggle", "lifecycle"}
 VALID_SCOPES = {"global", "scoped"}
