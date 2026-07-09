@@ -13,6 +13,7 @@ MS003-signed CLI verbs (MS043 R10212), never web mutations.
 
 Endpoints (the exact contract webapp/d-07-memory-changes/index.html fetches):
   GET /api/d-07/snapshot     full model (counts/lifecycle/diffs/pending)
+  GET /api/d-07/entries      the addressable M028 memory entries (SDD-060 list view)
   GET /api/d-07/stream       Server-Sent Events (snapshot events)
   GET /webapp/ | /webapp/index.html   the D-07 dashboard
   GET /version | /healthz | /
@@ -65,6 +66,33 @@ if _spec is None or _spec.loader is None:
 _core = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_core)
 
+# Import the memory-STORE (SDD-059/060) — the addressable mem-<id> entries, a SECOND
+# read source alongside the projection core. Used read-only (`store_list()`); the
+# core stays a pure projection reader. If the store module is unavailable the entries
+# endpoint degrades to an empty list (never a crash).
+_STORE_PATH = _REPO_ROOT / "scripts" / "intelligence" / "memory-store.py"
+_store = None
+try:
+    _store_spec = importlib.util.spec_from_file_location("_memorystore_core", _STORE_PATH)
+    if _store_spec is not None and _store_spec.loader is not None:
+        _store = importlib.util.module_from_spec(_store_spec)
+        _store_spec.loader.exec_module(_store)
+except Exception as _e:  # noqa: BLE001 — degrade to empty entries, never fail the daemon
+    sys.stderr.write(f"[warn] memory-store unavailable ({_e}); /api/d-07/entries → []\n")
+
+
+def _entries_payload() -> dict:
+    """The addressable M028 memory entries (SDD-060 list view). Read-only projection
+    of the store; empty-safe when the store module/file is absent."""
+    entries = []
+    if _store is not None:
+        try:
+            entries = _store.store_list()
+        except Exception:  # noqa: BLE001 — store read error → empty, never crash
+            entries = []
+    return {"schema_version": getattr(_core, "SCHEMA_VERSION", "1.0.0"),
+            "entries": entries}
+
 
 def _emit_metric(endpoint: str, result: str) -> None:
     if DRY_RUN:
@@ -85,6 +113,7 @@ def _version_payload() -> dict:
         "module": "d-07-memory-changes",
         "catalog_source": "M060 R10093-R10096 + M028 8 memory types + 11-stage lifecycle + MS039 7 trust dims",
         "core": str(_CORE_PATH),
+        "store": str(_STORE_PATH),
         "memory_state": str(_core.MEMORY_STATE),
         "webapp_path": str(WEBAPP_PATH),
         "surfaces": ["core", "cli", "api", "webapp", "service"],
@@ -167,13 +196,17 @@ class MemoryChangesAPIHandler(BaseHTTPRequestHandler):
                 self._send_json(200, _core.snapshot())
                 _emit_metric("snapshot", "ok")
                 return
+            if path == "/api/d-07/entries":
+                self._send_json(200, _entries_payload())
+                _emit_metric("entries", "ok")
+                return
         except Exception as e:  # noqa: BLE001
             self._send_json(500, {"error": str(e)})
             _emit_metric(path.lstrip("/") or "unknown", "500")
             return
         self._send_json(404, {
             "error": f"unknown endpoint: {path!r}",
-            "available": ["/api/d-07/snapshot", "/api/d-07/stream",
+            "available": ["/api/d-07/snapshot", "/api/d-07/entries", "/api/d-07/stream",
                           "/version", "/healthz", "/webapp/"],
         })
         _emit_metric(path.lstrip("/") or "unknown", "404")

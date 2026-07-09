@@ -85,7 +85,7 @@ stays a pure reader; `memory-changes-api.py` stays 405.
 |---|---|---|
 | Q-059-A | forget delete model. | **answered (operator, 2026-07-08): soft-delete (tombstone) + retention — undo restores; a later purge hard-removes.** |
 | Q-059-B | forget surface. | **answered (operator, 2026-07-08): a `memory-forget` control that refuses without `--force` (CLI-only override).** |
-| Q-059-C | Retention / purge window. | **proposed: purge tombstones older than 30d — Stage N.** |
+| Q-059-C | Retention / purge window. | **answered (SDD-060, 2026-07-09): a CLI-only `memory-changes purge --older-than Nd --confirm` maintenance verb hard-removes `state:forgotten` tombstones past the window (30d default) + marks the ledger change `purged`; `undo` gains a purged-guard. Not a cockpit control (irreversible).** |
 | Q-059-D | store ↔ memory.json projection reconciliation. | **proposed: the real M028 producer — Stage N.** |
 | Q-059-E | The real admission-lifecycle producer. | **proposed: Stage N.** |
 

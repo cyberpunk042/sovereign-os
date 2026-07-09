@@ -11,6 +11,7 @@ that minimal store + ledger and the two ops on top:
   memory-changes forget <mem-id> [--confirm] [--force]   R10184 — soft-delete a memory
   memory-changes undo   <chg-id> [--confirm]             R10185 — reverse a change
   memory-changes register --type N [--summary ...]       mint a memory entry (producer)
+  memory-changes purge  [--older-than N] [--confirm]     retention sweep (SDD-060, CLI-only)
 
 Model:
   - store  /var/lib/sovereign-os/memory/store.json  {entries:{<mem-id>:{id,type,
@@ -21,9 +22,10 @@ Model:
 `forget` is REFUSE-BY-DEFAULT: `--force` is a CLI-only escalation (SDD-052
 Q-052-B); the cockpit `memory-forget` control (change_cli has no `--force`) always
 refuses with a CLI remediation. `forget` SOFT-DELETES (tombstones `state:forgotten`
-+ ledgers the prior state) — it NEVER hard-removes, so `undo` can always restore
-(the retention purge is Stage N). `undo` reverses a ledger change (restores a
-tombstoned entry).
++ ledgers the prior state) — it NEVER hard-removes, so `undo` can always restore.
+`undo` reverses a ledger change (restores a tombstoned entry). `purge` (SDD-060) is
+the retention sweep that hard-removes `forgotten` tombstones past a window (marking
+the ledger change `purged`; `undo` then refuses) — CLI-only, IRREVERSIBLE.
 
 Safety: DRY-RUN unless --confirm AND SOVEREIGN_OS_DRY_RUN unset; the real store
 mutation runs live + operator-key + type-to-confirm gated. R10212: sovereign-os-
@@ -42,7 +44,7 @@ import secrets
 import sys
 import tempfile
 import threading
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -225,6 +227,9 @@ def undo(change_id: str, *, actor: str = "operator", confirm: bool = False) -> d
         if change.get("reversed"):
             return {"ok": False, "code": 2, "id": change_id,
                     "error": f"change {change_id!r} was already reversed"}
+        if change.get("purged"):
+            return {"ok": False, "code": 2, "id": change_id,
+                    "error": f"change {change_id!r} was purged (retention); cannot restore"}
         mem_id = change.get("mem_id")
         prev_state = (change.get("prev") or {}).get("state", "active")
         if (not confirm) or os.environ.get("SOVEREIGN_OS_DRY_RUN") == "1":
@@ -253,6 +258,82 @@ def undo(change_id: str, *, actor: str = "operator", confirm: bool = False) -> d
                 "mem_id": mem_id, "restored_state": prev_state, "signature": _UNSIGNED}
 
 
+def purge(*, older_than_days: int = 30, confirm: bool = False,
+          actor: str = "operator") -> dict[str, Any]:
+    """Retention sweep — HARD-REMOVE `state:forgotten` tombstones whose `updated`
+    is older than the window, marking each entry's non-reversed ledger forget-change
+    `purged` (the ledger is the audit record — never a deleted row). IRREVERSIBLE:
+    once purged, `undo` can no longer restore (SDD-060). Only touches `forgotten`
+    entries past the window — `active` + within-window tombstones are never removed;
+    an unparseable `updated` is treated as not-old (never purge on ambiguity).
+
+    CLI-ONLY maintenance verb (NOT a cockpit control — the web can never reach it).
+    DRY-RUN unless --confirm AND SOVEREIGN_OS_DRY_RUN unset."""
+    try:
+        days = int(older_than_days)
+    except (TypeError, ValueError):
+        return {"ok": False, "code": 2, "error": f"invalid --older-than {older_than_days!r}"}
+    if days < 0:
+        return {"ok": False, "code": 2, "error": f"--older-than must be >= 0, got {days}"}
+    cutoff = datetime.now(tz=timezone.utc) - timedelta(days=days)
+    with _WRITE_LOCK:
+        stale: list[str] = []
+        for mid, entry in _entries().items():
+            if entry.get("state") != "forgotten":
+                continue
+            upd = entry.get("updated")
+            try:
+                ts = datetime.fromisoformat(upd) if isinstance(upd, str) else None
+            except ValueError:
+                ts = None
+            if ts is None:
+                continue  # unparseable → treat as not-old (never purge on ambiguity)
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            if ts <= cutoff:
+                stale.append(mid)
+        if (not confirm) or os.environ.get("SOVEREIGN_OS_DRY_RUN") == "1":
+            why = "no --confirm" if not confirm else "SOVEREIGN_OS_DRY_RUN=1"
+            return {"ok": True, "code": 200, "verb": "purge", "dry_run": True,
+                    "older_than_days": days, "would_purge": stale, "count": len(stale),
+                    "note": f"DRY-RUN ({why}) — would hard-remove {len(stale)} tombstone(s) "
+                    "past retention (IRREVERSIBLE; undo cannot restore purged entries)"}
+        if not stale:
+            return {"ok": True, "code": 200, "verb": "purge", "dry_run": False,
+                    "older_than_days": days, "purged": [], "count": 0,
+                    "note": "no tombstones past retention"}
+        ts_now = _now()
+        store = _read_json(STORE, {})
+        sents = store.get("entries")
+        if not isinstance(sents, dict):
+            sents = {}
+        for mid in stale:
+            sents.pop(mid, None)
+        store["entries"] = sents
+        led = _read_json(CHANGES, {})
+        changes = led.get("changes")
+        if not isinstance(changes, list):
+            changes = []
+        stale_set = set(stale)
+        for c in changes:
+            if (isinstance(c, dict) and c.get("op") == "forget"
+                    and c.get("mem_id") in stale_set
+                    and not c.get("reversed") and not c.get("purged")):
+                c["purged"] = True
+                c["purged_ts"] = ts_now
+        led["changes"] = changes
+        try:
+            _atomic_write(STORE, store)
+            _atomic_write(CHANGES, led)
+        except OSError as e:
+            return {"ok": False, "code": 1, "error": f"write failed: {e}"}
+        for mid in stale:
+            _emit_span("purge", mid, actor, {"older_than_days": days})
+        return {"ok": True, "code": 200, "verb": "purge", "dry_run": False,
+                "older_than_days": days, "purged": stale, "count": len(stale),
+                "signature": _UNSIGNED}
+
+
 def store_list() -> list[dict[str, Any]]:
     return list(_entries().values())
 
@@ -277,6 +358,10 @@ def main(argv: list[str] | None = None) -> int:
     rg.add_argument("--type", type=int, required=True)
     rg.add_argument("--summary", default="")
     rg.add_argument("--actor", default="operator")
+    pg = sub.add_parser("purge")
+    pg.add_argument("--older-than", type=int, default=30, dest="older_than")
+    pg.add_argument("--confirm", action="store_true")
+    pg.add_argument("--actor", default="operator")
     sub.add_parser("list")
     args = ap.parse_args(argv)
     if args.cmd == "forget":
@@ -285,10 +370,12 @@ def main(argv: list[str] | None = None) -> int:
         r = undo(args.id, actor=args.actor, confirm=args.confirm)
     elif args.cmd == "register":
         r = register(args.type, summary=args.summary, actor=args.actor)
+    elif args.cmd == "purge":
+        r = purge(older_than_days=args.older_than, confirm=args.confirm, actor=args.actor)
     elif args.cmd == "list":
         r = {"ok": True, "code": 200, "entries": store_list()}
     else:
-        ap.error("a subverb is required: forget|undo|register|list")
+        ap.error("a subverb is required: forget|undo|register|purge|list")
         return 2
     _print(r)
     return 0 if r.get("ok") else int(r.get("code", 1))
