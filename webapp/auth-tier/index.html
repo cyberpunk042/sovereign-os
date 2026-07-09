@@ -694,16 +694,70 @@ a11y; contract test catches drift.
 <script>
 window.SO_ASSIST = [
   {
+    "sel": "#stats",
+    "title": "Auth-tier summary",
+    "msg": "The auth ladder roll-up — tiers, dashboards, pending upgrades, config.",
+    "more": "Governs who may reach what across the cockpit surfaces. This strip is the at-a-glance posture. Note: the tier-set verb stays CLI-only (operator §17 sovereignty boundary) — the web shows the policy, it doesn't change it."
+  },
+  {
+    "sel": "#stat-tiers",
+    "title": "Tiers",
+    "msg": "How many auth tiers are defined.",
+    "more": "The escalation of identity strength: no-auth → basic → advanced → social → enterprise → network. This count is the ladder's height — the policy the matrix maps surfaces onto."
+  },
+  {
+    "sel": "#stat-dashboards",
+    "title": "Dashboards",
+    "msg": "How many surfaces are mapped to a tier.",
+    "more": "Each cockpit surface requires a tier before it answers. This counts how many are mapped — the coverage of the auth policy across the cockpit."
+  },
+  {
+    "sel": "#stat-upgrades",
+    "title": "Upgrades pending",
+    "msg": "How many surfaces are recommended for a higher tier.",
+    "more": "Where policy is looser than recommended — a surface reachable at a lower tier than it should be. The worklist to tighten access, detailed in the matrix."
+  },
+  {
+    "sel": "#stat-config",
+    "title": "Config",
+    "msg": "The auth-tier configuration state.",
+    "more": "Whether the tier config is present and valid — the source of truth the ladder and matrix are read from."
+  },
+  {
+    "sel": "#stat-version",
+    "title": "API version",
+    "msg": "The auth-tier API version.",
+    "more": "Stamps the build so the ladder and matrix tie to a known version of the auth contract."
+  },
+  {
     "sel": "#ladder-body",
-    "title": "The 6-tier auth ladder",
-    "msg": "no-auth → basic → advanced → social → enterprise → network — the escalation of who may reach what.",
-    "more": "Each tier adds a stronger identity requirement. The ladder is the policy; the matrix (right) maps each cockpit surface to the tier it demands, so you can see exactly what an unauthenticated visitor can and cannot touch."
+    "title": "Tier ladder (§1g)",
+    "msg": "The operator-named auth tier ladder — no-auth up to network.",
+    "more": "The escalation of who may reach what: each tier adds a stronger identity requirement. This is the policy; the matrix maps each surface onto the tier it demands, so you see exactly what an unauthenticated visitor can touch."
   },
   {
     "sel": "#matrix-tbody",
-    "title": "Per-surface requirement",
-    "msg": "Which auth tier each surface requires before it will answer.",
-    "more": "This is where policy meets reality — a surface listed at 'no-auth' is reachable by anyone who can hit the port, so it had better be read-only. Mismatches here are the audit you actually care about."
+    "title": "Upgrade-priority matrix",
+    "msg": "Per-surface: current tier, recommended, gap, rationale.",
+    "more": "Where policy meets reality — a surface at 'no-auth' is reachable by anyone who can hit the port, so it had better be read-only. Mismatches (current below recommended) are the audit you actually care about, prioritized by gap."
+  },
+  {
+    "sel": "#refresh-btn",
+    "title": "Refresh now",
+    "msg": "Re-read the auth ladder and matrix.",
+    "more": "Refreshes the tier policy and per-surface mapping. Read-only — it observes, it changes nothing."
+  },
+  {
+    "sel": "#last-refresh",
+    "title": "Last refresh",
+    "msg": "When the auth audit last refreshed (auto every 30s).",
+    "more": "Freshness of the tier mapping — a stale refresh can lag a policy change made via CLI."
+  },
+  {
+    "sel": "#control-surface",
+    "title": "Controls — profiles, modes & toggles",
+    "msg": "The per-panel control rail for auth tiers.",
+    "more": "Every control copies its exact sovereign-osctl verb (§1g / R10212) — the tier-set verb stays CLI-only per the §17 sovereignty boundary."
   }
 ];
 </script>

@@ -696,22 +696,82 @@ a11y; contract test catches drift.
 <script>
 window.SO_ASSIST = [
   {
+    "sel": "#stats",
+    "title": "Auditor summary",
+    "msg": "The immutable gatekeeper's state — Tetragon, Guardian, audit log.",
+    "more": "Auditor is the always-on last line that cannot be bypassed. This webapp closes the webapp surface of its §1g ladder (R539) — a read-only window onto the perimeter. The strip is the at-a-glance 'is the gatekeeper up'."
+  },
+  {
+    "sel": "#stat-version",
+    "title": "API version",
+    "msg": "The auditor API version.",
+    "more": "Stamps the auditor build so the tier status and violation views tie to a known version of the gatekeeper contract — the reference when behaviour disagrees with what's shown."
+  },
+  {
     "sel": "#stat-tetragon",
     "title": "Tetragon perimeter",
     "msg": "State of the Tetragon eBPF enforcement — the kernel-level perimeter.",
-    "more": "Auditor is the always-on immutable gatekeeper: the last line that cannot be bypassed. Tetragon watches syscalls in-kernel, so a process cannot talk its way past it the way it might a userspace check."
+    "more": "Tetragon watches syscalls in-kernel, so a process can't talk its way past it the way it might a userspace check. This is the enforcement engine itself — if it's down, the perimeter isn't watching."
   },
   {
     "sel": "#stat-guardian",
-    "title": "Guardian daemon",
-    "msg": "Whether the Guardian violation-tail is running and watching.",
-    "more": "Guardian tails Tetragon's violations and reacts. If it is down, enforcement still happens in-kernel but the response/observability layer is blind — treat that as degraded, not safe."
+    "title": "Guardian service",
+    "msg": "Whether the Guardian daemon is running and tailing violations.",
+    "more": "Guardian tails Tetragon's violations and reacts. If it's down, enforcement still happens in-kernel but the response/observability layer is blind — treat that as degraded, not safe."
+  },
+  {
+    "sel": "#stat-log",
+    "title": "Audit log",
+    "msg": "State of the audit log the gatekeeper writes to.",
+    "more": "The tamper-evident record of what the perimeter caught (feeds D-16). A healthy log is what makes violations reviewable after the fact."
+  },
+  {
+    "sel": "#last-refresh",
+    "title": "Last refresh",
+    "msg": "When auditor state last refreshed.",
+    "more": "Freshness of the gatekeeper view — a stale refresh can lag a violation that just fired."
+  },
+  {
+    "sel": "#status-tbody",
+    "title": "Auditor tier status",
+    "msg": "The full /status of the Auditor tier.",
+    "more": "The detailed health of the gatekeeper tier — the components behind the summary dots. Where a degraded status resolves to a specific failing part."
+  },
+  {
+    "sel": "#last-violation-meta",
+    "title": "Last violation — meta",
+    "msg": "Metadata for the most recent perimeter violation.",
+    "more": "When and where the latest violation fired — the context around the line below. Freshness matters: an old 'last violation' means the perimeter's been quiet since."
   },
   {
     "sel": "#last-violation-line",
     "title": "Latest violation",
-    "msg": "The most recent perimeter violation Tetragon caught.",
-    "more": "A fresh violation is not necessarily an attack — it can be a mis-scoped process. But it IS the perimeter doing its job; read it before assuming the box is quiet."
+    "msg": "The most recent perimeter violation Tetragon caught (/last-violation).",
+    "more": "A fresh violation isn't necessarily an attack — it can be a mis-scoped process. But it IS the perimeter doing its job; read it before assuming the box is quiet."
+  },
+  {
+    "sel": "#history-meta",
+    "title": "Violation history — meta",
+    "msg": "Metadata for the violation history query.",
+    "more": "The window and count for the history below (/history?n=20) — the scope of what you're reviewing."
+  },
+  {
+    "sel": "#history-lines",
+    "title": "Violation history",
+    "msg": "The recent violation history (last 20).",
+    "more": "The perimeter's recent memory — a pattern here (repeated violations from one source) points at a persistent problem rather than a one-off. The trail for a security review."
+  },
+  {
+    "sel": "#refresh-btn",
+    "title": "Refresh all",
+    "msg": "Re-read auditor status and violations.",
+    "more": "Refreshes the gatekeeper state and violation views. Read-only — it observes the perimeter, it changes nothing."
+  },
+  {
+    "sel": "#control-surface",
+    "title": "Controls — profiles, modes & toggles",
+    "msg": "The per-panel control rail for the auditor.",
+    "more": "Every control copies its exact sovereign-osctl verb (§1g / R10212), never executing from the web — the perimeter is enforced in-kernel, not toggled here."
   }
 ];
 </script>

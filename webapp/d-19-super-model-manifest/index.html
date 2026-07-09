@@ -706,16 +706,82 @@ a11y; contract test catches drift.
 <script>
 window.SO_ASSIST = [
   {
-    "sel": "#ms-tbody",
-    "title": "Module manifest",
-    "msg": "The M001..M080 module table — what capabilities are actually shipped in the live super-model.",
-    "more": "The super-model is the sum of its modules. This table is the ground truth of 'what does this system currently know how to do', version-stamped — the thing every other panel's features trace back to."
+    "sel": "#datasource-banner",
+    "title": "Live vs snapshot",
+    "msg": "Green = /api/d-19/snapshot is answering live; muted = the baked snapshot.",
+    "more": "The manifest is the ground truth of what the system can do — a snapshot is usually fine (it changes only on a build), but muted means the newest module state may not be reflected."
+  },
+  {
+    "sel": "#ds-state-label",
+    "title": "Data-source state",
+    "msg": "Which source the page reads — live manifest daemon or snapshot.",
+    "more": "live / snapshot / unknown. 'unknown' means the health probe itself failed, distinct from a clean snapshot fallback."
+  },
+  {
+    "sel": "#ds-state-detail",
+    "title": "Reachability detail",
+    "msg": "The reason behind the state — reachable, timeout, or endpoint absent.",
+    "more": "Turns 'snapshot' into a diagnosis of whether the manifest API is down, slow, or not started."
+  },
+  {
+    "sel": "#ds-last-update",
+    "title": "Fetch freshness",
+    "msg": "When the shown manifest was pulled.",
+    "more": "Check before trusting the module table as current — a manifest predates any change made since it was built."
+  },
+  {
+    "sel": "#sm-version",
+    "title": "Super-model identity",
+    "msg": "The current super-model version (e.g. sovereign-os@2026.05.19-cdc9064).",
+    "more": "The super-model is the sum of its modules — this version stamps the exact capability set that's live. Every other panel's features trace back to this identity; it's what you cite when behaviour disagrees with docs."
+  },
+  {
+    "sel": "#sm-modules",
+    "title": "Milestones (M001..M080)",
+    "msg": "How many module-milestones the super-model comprises.",
+    "more": "The breadth of capability — how many of the M001..M080 modules are shipped in this super-model. The headline count of 'what this system knows how to do'."
+  },
+  {
+    "sel": "#sm-rrows",
+    "title": "R-rows",
+    "msg": "The count of requirement/rule rows behind the super-model.",
+    "more": "The R-rows are the fine-grained requirements the modules implement (~24,800). A measure of the specification depth beneath the module count — the detail the modules were built against."
+  },
+  {
+    "sel": "#sm-mirrors",
+    "title": "MS007 mirrors",
+    "msg": "How many of the 9 selfdef typed-mirror crates are present.",
+    "more": "The security bridge inventory — 9 of 9 means every selfdef mirror (D-13..D-18 etc.) is wired. Below 9 means a security domain's mirror is missing, so its panel would be blind."
+  },
+  {
+    "sel": "#sm-dashboards",
+    "title": "Dashboards",
+    "msg": "How many of the planned dashboards are shipped (e.g. 15 of 21).",
+    "more": "The cockpit's own coverage — how many panels exist vs planned. The gap is the dashboard buildout still owed (the work this very effort contributes to)."
   },
   {
     "sel": "#phase-bar",
-    "title": "Delivery phase",
-    "msg": "How far the super-model has progressed through its build phases.",
-    "more": "A quick read on maturity — how much of the planned capability set is live vs pending. Pairs with the module table for the detail."
+    "title": "Build-phase status (M053)",
+    "msg": "Progress through the M053 11 build phases.",
+    "more": "How far the super-model has progressed through its planned build phases — a quick read on maturity. Pairs with the module table for the per-module detail."
+  },
+  {
+    "sel": "#ms-filters",
+    "title": "Module filters",
+    "msg": "Filter the module-version table.",
+    "more": "Narrows the M001..M080 table by status or search — the way to find a specific module's version and state without scrolling all 80."
+  },
+  {
+    "sel": "#ms-tbody",
+    "title": "Module-version table",
+    "msg": "The M001..M080 modules — status, R-rows, tag.",
+    "more": "The ground truth of what's shipped: every module with its version-stamped status. This table is what 'the system currently knows how to do', module by module — the thing every feature elsewhere traces back to."
+  },
+  {
+    "sel": "#control-surface",
+    "title": "Controls — profiles, modes & toggles",
+    "msg": "The per-panel control rail for the manifest.",
+    "more": "Every control copies its exact sovereign-osctl verb (§1g / R10212), never executing from the web."
   }
 ];
 </script>
