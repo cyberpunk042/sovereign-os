@@ -150,8 +150,17 @@ def reconcile() -> dict[str, Any]:
     re-enters the store `_WRITE_LOCK`."""
     counts = {t: 0 for t in _MEMORY_TYPES}
     lifecycle = {s: 0 for s in _LIFECYCLE_STAGES}
+    # SDD-066 — the M00473 SLM-janitor coverage (additive; ground-truth-layer fields).
+    enriched = {"with_facts": 0, "with_topic": 0, "with_edges": 0,
+                "with_summary": 0, "duplicates": 0}
     for e in _entries().values():
-        if not isinstance(e, dict) or e.get("state") != "active":
+        if not isinstance(e, dict):
+            continue
+        # `duplicate` tombstones (SDD-066 dedup) are counted separately, not `active`.
+        if e.get("state") == "duplicate":
+            enriched["duplicates"] += 1
+            continue
+        if e.get("state") != "active":
             continue
         ti = e.get("type")
         if isinstance(ti, int) and 1 <= ti <= 8:
@@ -159,14 +168,24 @@ def reconcile() -> dict[str, Any]:
         st = e.get("stage")
         if st in lifecycle:
             lifecycle[st] += 1
+        if e.get("derived_facts"):
+            enriched["with_facts"] += 1
+        if e.get("topic"):
+            enriched["with_topic"] += 1
+        if e.get("edges"):
+            enriched["with_edges"] += 1
+        if e.get("summary_short"):
+            enriched["with_summary"] += 1
     proj = _read_json(MEMORY_STATE, {})
     if not isinstance(proj, dict):
         proj = {}
     proj["counts"] = counts           # replace the aggregate projection...
     proj["lifecycle"] = lifecycle     # ...but preserve pending/history/diffs/profile
+    proj["enriched"] = enriched       # SDD-066 additive janitor-coverage block
     proj["reconciled_ts"] = _now()
     _atomic_write(MEMORY_STATE, proj)
-    return {"ok": True, "code": 200, "counts": counts, "lifecycle": lifecycle}
+    return {"ok": True, "code": 200, "counts": counts, "lifecycle": lifecycle,
+            "enriched": enriched}
 
 
 def _reconcile_safe() -> None:

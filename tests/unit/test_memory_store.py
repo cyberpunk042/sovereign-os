@@ -254,3 +254,27 @@ def test_reconcile_best_effort_never_raises_the_verb(store, monkeypatch):
     monkeypatch.setattr(MS, "MEMORY_STATE", Path("/proc/nonexistent/memory.json"))
     r = MS.register(2, summary="still ok")
     assert r["ok"] is True  # the store write succeeded despite the reconcile failing
+
+
+def test_reconcile_projects_additive_enriched_block(store, monkeypatch):
+    # SDD-066 — reconcile projects the janitor-coverage `enriched` block additively,
+    # WITHOUT clobbering counts/lifecycle or the memory-decide-owned fields, and counts
+    # a `duplicate` tombstone separately (dropped from the active counts).
+    proj = store / "memory.json"
+    proj.write_text(json.dumps({"pending": [{"id": "mc-1"}], "profile": "fast"}))
+    monkeypatch.setattr(MS, "MEMORY_STATE", proj)
+    MS._atomic_write(MS.STORE, {"entries": {
+        "mem-a": {"id": "mem-a", "type": 2, "stage": "verify", "state": "active",
+                  "summary": "s", "created": "t", "updated": "t",
+                  "derived_facts": ["f"], "topic": "T", "edges": [{"to": "mem-b"}]},
+        "mem-b": {"id": "mem-b", "type": 2, "stage": "observe", "state": "duplicate",
+                  "summary": "s", "created": "t", "updated": "t", "dedup_of": "mem-a"},
+    }})
+    r = MS.reconcile()
+    assert r["enriched"]["with_facts"] == 1 and r["enriched"]["with_topic"] == 1
+    assert r["enriched"]["with_edges"] == 1 and r["enriched"]["duplicates"] == 1
+    d = json.loads(proj.read_text())
+    assert d["enriched"]["duplicates"] == 1
+    assert d["counts"]["episodic"] == 1               # only the active entry counted
+    assert d["lifecycle"]["verify"] == 1
+    assert d["pending"][0]["id"] == "mc-1" and d["profile"] == "fast"  # preserved
