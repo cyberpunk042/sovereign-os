@@ -710,6 +710,29 @@ a11y; contract test catches drift.
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#bit-grid",
+    "title": "Capability bitmap",
+    "msg": "Issued vs revoked capabilities as a bitfield — what each holder is allowed to do.",
+    "more": "Capabilities are least-privilege tokens: a set bit is a granted power. Read-only mirror of selfdef; a capability is minted or revoked on the IPS side, never from this panel."
+  },
+  {
+    "sel": "#inheritance-graph",
+    "title": "Capability inheritance",
+    "msg": "How capabilities flow from parent to child holders.",
+    "more": "Inheritance is where over-broad grants hide — a child inheriting more than it needs is the classic privilege-creep. This graph makes that visible."
+  },
+  {
+    "sel": "#mirror-state-label",
+    "title": "Mirror freshness",
+    "msg": "Whether the selfdef capability mirror is current or stale.",
+    "more": "A stale mirror means the IPS stopped publishing — treat the data as last-known, not live, until it recovers."
+  }
+];
+</script>
 
 <h1>D-14 — capability tokens <span class="badge-mirror" style="font-size:.7rem">read-only via selfdef-capability-mirror</span></h1>
 <div class="sub">64-bit capability_word · MS039 Ring 0..4 trust topology · L0..L6 authority levels · F04146 parent-child inheritance — <a href="../master-dashboard/">D-00 main</a></div>

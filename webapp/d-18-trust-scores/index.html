@@ -709,6 +709,23 @@ a11y; contract test catches drift.
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#b-trusted",
+    "title": "Trusted entities",
+    "msg": "How many entities currently sit in the trusted band.",
+    "more": "Trust scores drive policy: trusted entities get lighter gating, suspect ones get more. Read-only mirror of selfdef; scores are computed IPS-side from behaviour."
+  },
+  {
+    "sel": "#b-suspect",
+    "title": "Suspect entities",
+    "msg": "Entities flagged suspect by their trust score.",
+    "more": "A climbing suspect count is an early signal — these are the entities whose next actions will be gated hardest. Cross-reference D-17 if any get quarantined."
+  }
+];
+</script>
 
 <h1>D-18 — trust scores <span class="badge-mirror" style="font-size:.7rem">read-only via selfdef-trust-score-mirror</span></h1>
 <div class="sub">per-tool trust score history · 0..1000 fixed-point · 4-band classification · MS042 telemetry input · MS040 profile evaluation — <a href="../master-dashboard/">D-00 main</a></div>

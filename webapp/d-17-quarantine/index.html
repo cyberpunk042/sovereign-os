@@ -708,6 +708,23 @@ a11y; contract test catches drift.
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#quar-tbody",
+    "title": "Quarantined items",
+    "msg": "What selfdef has isolated, and why.",
+    "more": "Quarantine is the IPS's response to a detected threat — the item is neutralised pending review. Read-only mirror; release/disposition happens selfdef-side."
+  },
+  {
+    "sel": "#mirror-status-banner",
+    "title": "Mirror status",
+    "msg": "Online/offline of the selfdef quarantine mirror.",
+    "more": "Offline means the view isn't live, not that quarantine lapsed — enforcement continues on the IPS regardless of whether this panel can see it."
+  }
+];
+</script>
 
 <h1>D-17 — quarantine <span class="badge-mirror" style="font-size:.7rem">read-only via selfdef-quarantine-mirror</span></h1>
 <div class="sub">MS042 7-field declaration · declaration-vs-observed mismatch · 3-step block+quarantine+trace protocol — <a href="../master-dashboard/">D-00 main</a></div>

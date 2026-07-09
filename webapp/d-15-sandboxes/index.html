@@ -710,6 +710,23 @@ a11y; contract test catches drift.
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#alloc-tbody",
+    "title": "Active sandboxes",
+    "msg": "Running sandboxes and their isolation state — where untrusted work is confined.",
+    "more": "Sandboxes are the containment half of the trinity (Weaver). Each row is an isolated execution context; its state tells you whether confinement is intact. Read-only mirror of selfdef."
+  },
+  {
+    "sel": "#mirror-status-banner",
+    "title": "Mirror status",
+    "msg": "Online/offline of the selfdef sandbox mirror.",
+    "more": "Offline here doesn't mean sandboxes stopped — it means the mirror publisher is down and this view is not live. The isolation itself is enforced kernel-side regardless."
+  }
+];
+</script>
 
 <h1>D-15 — sandboxes <span class="badge-mirror" style="font-size:.7rem">read-only via selfdef-sandbox-mirror</span></h1>
 <div class="sub">MS036 4-tier classification · MS032 1-9 isolation primitives · CRIU checkpoint + ZFS clone + Firecracker microVM — <a href="../master-dashboard/">D-00 main</a></div>

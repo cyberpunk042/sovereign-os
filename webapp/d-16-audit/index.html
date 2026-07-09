@@ -710,6 +710,29 @@ a11y; contract test catches drift.
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#i-total",
+    "title": "Audit-chain entries",
+    "msg": "Total events in the append-only audit chain.",
+    "more": "The audit chain is tamper-evident: entries are hash-linked, so a missing or altered event breaks continuity. This is the count of what has been recorded."
+  },
+  {
+    "sel": "#i-verified",
+    "title": "Verified entries",
+    "msg": "How many chain entries verified against their hash links.",
+    "more": "Verified should equal total. A shortfall means the chain has an integrity break (see continuity/gap) — the strongest signal that something tried to cover its tracks."
+  },
+  {
+    "sel": "#i-continuous",
+    "title": "Chain continuity",
+    "msg": "Whether the hash chain is unbroken end-to-end.",
+    "more": "Continuous = tamper-evidence intact. A gap is not a cosmetic warning — it is the audit system telling you an event was removed or the log was truncated."
+  }
+];
+</script>
 
 <h1>D-16 — audit-chain <span class="badge-mirror" style="font-size:.7rem">read-only via selfdef-audit-mirror</span></h1>
 <div class="sub">MS016 append-only audit log · MS049 13-field span entries · MS026 OCSF taxonomy · MS003 verify-only signatures — <a href="../master-dashboard/">D-00 main</a></div>

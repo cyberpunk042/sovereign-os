@@ -335,6 +335,29 @@
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#arm",
+    "title": "Arm to flash",
+    "msg": "The type-to-confirm safety gate before any write.",
+    "more": "Flashing is destructive and irreversible. System disks are hard-protected out of the picker, and you must type to arm — the friction is deliberate, so a mis-click can't wipe the wrong disk."
+  },
+  {
+    "sel": "#btn-flash",
+    "title": "Flash",
+    "msg": "Writes the built image to the selected removable disk.",
+    "more": "This shells the gated sovereign-osctl install path with live dd progress — never a raw dd from the browser. The gate is what makes a web-triggered disk write safe."
+  },
+  {
+    "sel": "#btn-plan",
+    "title": "Plan (dry-run)",
+    "msg": "Preview exactly what the flash would do without writing.",
+    "more": "Always plan first: it shows the target device, size, and the command, so you confirm the disk is the USB key and not something you care about."
+  }
+];
+</script>
 <h1>flash to USB</h1>
 <p class="sub">
   Write a built sovereign-os image onto a removable disk — from here, not the
