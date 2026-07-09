@@ -102,7 +102,7 @@ relabeled + deferred to Stage 3.
 | Q-051-B | `train new adapter` scope. | **answered (operator, 2026-07-08): deferred to Stage 3 (heavy M046 pipeline); export-CSV wired client-side now.** |
 | Q-051-C | Target status names for demote / rollback. | **proposed: demote→`pending`, rollback→`rolled-back` (both in `_VALID_STATUS`). Operator may prefer a distinct `demoted` status.** |
 | Q-051-D | Adapter-id `/` fallback. | **proposed: `<id>` free `_SAFE_ID` arg now (catalog ids are clean). If a real id ever carries `/`, resolve it internally like model-load (SDD-049).** |
-| Q-051-E | Real MS003 signing + real gate-producers. | **proposed: Stage 4 — signature `unsigned-pending-MS003` until selfdef signs; gates stay operator/registry-advanced until the training pipeline feeds them.** |
+| Q-051-E | Real MS003 signing + real gate-producers. | **real gate-producers answered (SDD-061, 2026-07-09): `scripts/inference/adapter-gate.py` advances the MS041 gates from real evidence — `gate {human,snapshot,eval,oracle}` (human sign-off / SDD-050 rollback-point / a real `evals.jsonl` passing record / an oracle-backend judge), SB-077-safe (honest-defer when the harness/backend is absent); a real promote is reachable via snapshot + eval-record + human. MS003 signing STILL proposed Stage N — `unsigned-pending-MS003` until selfdef signs (never built in sovereign-os).** |
 
 ## Way forward
 
