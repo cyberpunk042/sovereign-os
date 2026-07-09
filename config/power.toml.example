@@ -48,16 +48,36 @@ model = "AMD Ryzen 9 9900X"
 tdp_watts = 170
 
 # ─── Graceful-shutdown profile when on UPS battery ───
+#
+# WHAT FIRES: the R253 power-shutdown-guard (per-minute timer) reads these
+# thresholds. On a `critical` verdict + armed, it does NOT bare-`poweroff` — it
+# runs the STAGED soft-exit in /etc/sovereign-os/shutdown-manifest.toml (announce
+# → drain inference / finish in-flight LLM messages → unload models → stop
+# services → sync → poweroff) and warns the operator across EVERY medium
+# (notify/phone · wall · console · desktop) before AND during.
+#
+# TUNE THE THRESHOLDS HERE (when to warn / when to shut down).
+# TUNE THE SEQUENCE (grace window, per-step timeouts, service order,
+#   poweroff-vs-reboot) in /etc/sovereign-os/shutdown-manifest.toml.
 [graceful_shutdown]
 # Arm the power-shutdown-guard hook via config (SDD-029 gate 2). When
-# true, a `critical` UPS verdict triggers a graceful shutdown WITHOUT
+# true, a `critical` UPS verdict triggers the graceful soft-exit WITHOUT
 # needing the SOVEREIGN_OS_POWER_SHUTDOWN_ARMED=YES env var. Default
 # false: the host warns loudly but never auto-shuts-down until you
-# opt in here (or via the env var).
+# opt in here (or via the env var). Provisioning sets this true when the
+# profile's provisioning.power.graceful_shutdown = true.
 enabled = false
 # When battery_charge drops to this %, fire the shutdown.
 battery_critical_pct = 15
-# When battery time_left drops to this many minutes, surface a warn.
-runtime_warn_minutes = 5
-# When battery time_left drops to this many minutes, fire the shutdown.
+# When battery time_left drops to this many minutes, FIRE the graceful shutdown.
+# (Provisioning sets this from the profile's provisioning.power.shutdown_minutes;
+#  SAIN-01 default = 30.)
 shutdown_minutes = 2
+# Start WARNING this many minutes BEFORE the shutdown threshold, so you get a
+# heads-up window to save work. Effective warn = shutdown_minutes + warn_lead.
+# (e.g. shutdown_minutes=30 + warn_lead=15 → you're warned at 45 min runtime.)
+warn_lead_minutes = 15
+# Legacy near-depletion warn floor (kept for back-compat). The effective warn
+# threshold is max(runtime_warn_minutes, shutdown_minutes + warn_lead_minutes),
+# so warnings ALWAYS precede the shutdown even if this is small.
+runtime_warn_minutes = 5

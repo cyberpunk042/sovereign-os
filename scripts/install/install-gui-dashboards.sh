@@ -72,14 +72,24 @@ fi
 # build-configurator-api.py resolves REPO = parents[2], so it must live at
 # ${PREFIX_LIB}/scripts/operator/... and read ${PREFIX_LIB}/{webapp,profiles,config}.
 step "2/5 deploy dashboard app tree → ${PREFIX_LIB}"
-mkdir -p "${PREFIX_LIB}"
-for d in scripts webapp profiles config; do
-  if [ -d "${SRC}/${d}" ]; then
-    mkdir -p "${PREFIX_LIB}/${d}"
-    cp -a "${SRC}/${d}/." "${PREFIX_LIB}/${d}/"
-    info "deployed ${d}/"
-  fi
-done
+if [ -d "${SRC}/.git" ]; then
+  # LIVE dev repo (has .git): symlink so an edit in the working tree is instantly
+  # live and the deploy can't drift stale (matches provision-bake's image model).
+  # A stale real-dir copy from an earlier `cp -a` install is replaced.
+  [ -L "${PREFIX_LIB}" ] || { [ -e "${PREFIX_LIB}" ] && rm -rf "${PREFIX_LIB}"; }
+  ln -sfn "${SRC}" "${PREFIX_LIB}"
+  info "linked ${PREFIX_LIB} → ${SRC} (live repo — no drift)"
+else
+  # Staged/image source (no .git): self-contained copy.
+  mkdir -p "${PREFIX_LIB}"
+  for d in scripts webapp profiles config; do
+    if [ -d "${SRC}/${d}" ]; then
+      mkdir -p "${PREFIX_LIB}/${d}"
+      cp -a "${SRC}/${d}/." "${PREFIX_LIB}/${d}/"
+      info "deployed ${d}/"
+    fi
+  done
+fi
 
 # ── (3) install + enable the dashboard services ──
 step "3/5 install + enable dashboard services (loopback)"

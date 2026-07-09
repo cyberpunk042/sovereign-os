@@ -465,6 +465,7 @@ def cmd_advisories(args: argparse.Namespace) -> int:
     critical_pct = float(profile.get("battery_critical_pct", 15))
     runtime_min_warn_min = float(profile.get("runtime_warn_minutes", 5))
     shutdown_min_min = float(profile.get("shutdown_minutes", 2))
+    warn_lead_min = float(profile.get("warn_lead_minutes", 15))
 
     # Validate the SAFETY-critical UPS thresholds. An out-of-range value
     # silently breaks the graceful-shutdown logic in a DANGEROUS direction:
@@ -492,6 +493,18 @@ def cmd_advisories(args: argparse.Namespace) -> int:
             f"is negative — IGNORED, using safe default 5."
         )
         runtime_min_warn_min = 5.0
+    if warn_lead_min < 0:
+        config_warnings.append(
+            f"[graceful_shutdown] warn_lead_minutes={warn_lead_min} is "
+            f"negative — IGNORED, using safe default 15."
+        )
+        warn_lead_min = 15.0
+    # The 'attention' heads-up MUST fire BEFORE the shutdown threshold so the
+    # operator gets a lead window to save work / react. With an aggressive
+    # shutdown_minutes (e.g. 30) the legacy runtime_warn_minutes (5) would fire
+    # AFTER shutdown — useless. So the effective warn threshold is the LATER of
+    # the two: max(runtime_warn_minutes, shutdown_minutes + warn_lead_minutes).
+    effective_warn_min = max(runtime_min_warn_min, shutdown_min_min + warn_lead_min)
     ups = detect_ups()
     bat_pct = (ups or {}).get("battery_charge_pct")
     runtime = (ups or {}).get("time_left_minutes")
@@ -511,6 +524,10 @@ def cmd_advisories(args: argparse.Namespace) -> int:
             "battery_critical_pct": critical_pct,
             "runtime_warn_minutes": runtime_min_warn_min,
             "shutdown_minutes": shutdown_min_min,
+            "warn_lead_minutes": warn_lead_min,
+            # Effective runtime (min) at which the 'attention' heads-up fires —
+            # always ≥ shutdown_minutes so warnings precede the shutdown.
+            "warn_at_minutes": effective_warn_min,
         },
         "ups_present": ups is not None,
         "live": {
@@ -543,11 +560,12 @@ def cmd_advisories(args: argparse.Namespace) -> int:
                 f"{shutdown_min_min} min — shutdown should trigger"
             )
             rc = 1
-        elif runtime is not None and runtime <= runtime_min_warn_min:
+        elif runtime is not None and runtime <= effective_warn_min:
             out["verdict"] = "attention"
             out["advisories"].append(
-                f"time_left {runtime:.1f} min — save work + prepare for "
-                "shutdown"
+                f"time_left {runtime:.1f} min ≤ warn threshold "
+                f"{effective_warn_min:.0f} min — graceful shutdown will fire at "
+                f"{shutdown_min_min:.0f} min; save work + prepare for shutdown"
             )
         else:
             out["verdict"] = "ok"

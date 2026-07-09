@@ -59,9 +59,17 @@ bake_dashboards = bool(prov_bake.get("dashboards"))
 bake_firstboot = bool(prov.get("firstboot"))
 posture = prov.get("posture", "installed-off")
 prov_power = (prov.get("power") or {})
-ups_enabled = bool(prov_power.get("ups"))
+# Master toggle for the whole UPS + graceful-shutdown feature (default ON).
+# Uncheck provisioning.power.enabled to build without any of it. The build
+# configurator's "UPS + graceful shutdown" checkbox forces it off by exporting
+# SOVEREIGN_OS_POWER_FEATURE=0 (env override wins over the profile default).
+power_feature_on = bool(prov_power.get("enabled", True))
+if os.environ.get("SOVEREIGN_OS_POWER_FEATURE") == "0":
+    power_feature_on = False
+ups_enabled = bool(prov_power.get("ups")) and power_feature_on
 ups_shutdown_min = int(prov_power.get("shutdown_minutes", 30))
-ups_arm = bool(prov_power.get("graceful_shutdown", True))
+ups_warn_lead = int(prov_power.get("warn_lead_minutes", 15))  # warn this long before shutdown
+ups_arm = bool(prov_power.get("graceful_shutdown", True)) and power_feature_on
 ups_host = str(prov_power.get("ups_host", "") or "")   # optional: pin the SmartConnect IP
 ups_slaveid = int(prov_power.get("slave_id", 1))       # NUT apc_modbus Modbus unit id
 run_provision = bool(prov) and (bake_repo or bool(prov_operator))
@@ -424,6 +432,7 @@ if run_provision:
               SOVEREIGN_OS_BAKE_FIRSTBOOT="{'1' if bake_firstboot else ''}" \\
               SOVEREIGN_OS_UPS="{'1' if ups_enabled else ''}" \\
               SOVEREIGN_OS_UPS_SHUTDOWN_MIN="{ups_shutdown_min}" \\
+              SOVEREIGN_OS_UPS_WARN_LEAD="{ups_warn_lead}" \\
               SOVEREIGN_OS_UPS_ARM="{'1' if ups_arm else ''}" \\
               SOVEREIGN_OS_UPS_HOST="{ups_host}" \\
               SOVEREIGN_OS_UPS_SLAVEID="{ups_slaveid}" \\

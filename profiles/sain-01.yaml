@@ -317,6 +317,8 @@ provisioning:
   # (skips the daemons on VMs); the ups-apc-setup first-boot hook auto-detects the
   # transport on real hardware — Modbus TCP (:502) → serial (/dev/ttyUSB) → USB-HID.
   power:
+    enabled: true                  # master toggle — UNCHECK to build WITHOUT UPS + graceful
+    #                              #   shutdown (mkosi-emit/provision-bake/provision.sh honor it)
     ups: apc-modbus                # NUT apc_modbus: Modbus TCP or serial, auto-detected
     ups_host: 192.168.1.69         # confirmed 2026-07-08: SMT2200C SmartConnect, MAC 28:29:86
     #                              #   (Schneider/APC), Modbus TCP :502 unit 1 verified live.
@@ -324,6 +326,7 @@ provisioning:
     #                              #   the LAN for an APC on :502. Best: give it a DHCP reservation.
     slave_id: 1                    # Modbus unit id (LCD ▸ TCP Settings ▸ Slave ID)
     shutdown_minutes: 30           # soft shutdown when battery runtime < 30 min
+    warn_lead_minutes: 15          # warn 15 min BEFORE that (→ heads-up at 45 min runtime)
     graceful_shutdown: true        # arm the guard (power.toml enabled = true)
 
 hooks:

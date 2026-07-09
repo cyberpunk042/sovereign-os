@@ -530,6 +530,61 @@ def cmd_state(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_send(args: argparse.Namespace) -> int:
+    """Fan an ARBITRARY operator message to ALL enabled channels (no dedup,
+    no health-scan). This is the ad-hoc push path used by the graceful-shutdown
+    warnings, the battery-escalation ladder, and the apc-default-profile — each
+    of which composes `sovereign-osctl notify send --severity S --message '…'`.
+    Unlike `dispatch` (transition-gated), every `send` delivers immediately."""
+    cfg_path = resolve_config_path(args.config)
+    config = load_config(cfg_path)
+    event = {
+        "probe": args.probe,
+        "severity": args.severity,
+        "round": "R228",
+        "vector": "manual send",
+        "detail": args.message,
+        "title": args.title or f"sovereign-os {args.severity}",
+        "flagged_items": [],
+        "transition": "manual",
+        "emitted_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    }
+    dry = bool(args.dry_run) or os.environ.get("SOVEREIGN_OS_DRY_RUN")
+    channels = enabled_channels(config)
+    if not channels:  # file sink is always-on even with a minimal/absent config
+        channels = [("file", {"enabled": True, "path": str(DEFAULT_FILE_SINK)})]
+    deliveries: list[dict[str, Any]] = []
+    any_failed = False
+    for name, ch_cfg in channels:
+        fn = CHANNEL_DELIVERERS.get(name)
+        if fn is None:
+            deliveries.append({"channel": name, "ok": False, "detail": "no deliverer"})
+            any_failed = True
+            continue
+        ok, detail = fn(ch_cfg, [event], dry_run=bool(dry))
+        deliveries.append({"channel": name, "ok": ok, "detail": detail})
+        if not ok:
+            any_failed = True
+    report = {
+        "round": "R228",
+        "vector": "SDD-026 Z-6 (manual send)",
+        "config_source": config.get("_source"),
+        "dry_run": bool(dry),
+        "severity": args.severity,
+        "message": args.message,
+        "deliveries": deliveries,
+    }
+    if args.json:
+        print(json.dumps(report, indent=2))
+    else:
+        print(f"── R228 notify send (severity={args.severity}, dry_run={bool(dry)}) ──")
+        print(f"  message: {args.message}")
+        for d in deliveries:
+            mark = "OK " if d["ok"] else "FAIL"
+            print(f"    {mark} {d['channel']:8s} {d['detail']}")
+    return 1 if any_failed else 0
+
+
 # ----------------------------------------------------------------- main
 
 
@@ -575,6 +630,20 @@ def build_parser() -> argparse.ArgumentParser:
     ps = sub.add_parser("state", help="dump dedup state")
     ps.add_argument("--json", action="store_true")
     ps.set_defaults(func=cmd_state)
+
+    pse = sub.add_parser(
+        "send", help="fan an arbitrary message to all enabled channels (no dedup)"
+    )
+    pse.add_argument("--message", required=True, help="the message body to deliver")
+    pse.add_argument(
+        "--severity", default="attention", choices=sorted(SEVERITY_ORDER),
+        help="severity (maps to ntfy priority; default attention)",
+    )
+    pse.add_argument("--title", default=None, help="optional title/subject line")
+    pse.add_argument("--probe", default="manual", help="source label (default: manual)")
+    pse.add_argument("--dry-run", action="store_true")
+    pse.add_argument("--json", action="store_true")
+    pse.set_defaults(func=cmd_send)
 
     return p
 

@@ -15,7 +15,13 @@
 
 set -euo pipefail
 
-__SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Resolve through symlinks so a symlinked entrypoint (e.g. /usr/local/bin/
+# sovereign-osctl → the repo) locates the REAL repo, not the symlink's dir. This
+# is what lets a dev host keep the operator CLI live-linked to the working tree
+# instead of a drifting `make install` copy. `readlink -f` is a no-op on a real
+# file, so the installed-copy case is unchanged.
+__SELF="$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || echo "${BASH_SOURCE[0]}")"
+__SCRIPT_DIR="$(cd "$(dirname "${__SELF}")" && pwd)"
 
 # Detect installation context: in-repo vs installed-system. Search
 # order (first hit wins):
@@ -894,6 +900,10 @@ COMMANDS:
                                R228: show configured channels + which
                                are enabled.
   notify state [--json]        R228: dump the dedup state file.
+  notify send --message M [--severity S] [--title T]
+                               R228: fan an ARBITRARY message to all enabled
+                               channels NOW (no dedup) — used by graceful
+                               shutdown + battery-ladder + apc-profile.
   dashboard serve [--bind HOST:PORT] [--once]
                                R225 (SDD-026 Z-1): HTTP dashboard SEED.
                                Aggregates all Z-vector cards into one
@@ -6988,11 +6998,11 @@ case "${cmd}" in
     sub="${1:-dispatch}"
     shift || true
     case "${sub}" in
-      dispatch|test|list-channels|state)
+      dispatch|test|list-channels|state|send)
         "${__REPO_ROOT}/scripts/notify/dispatch.py" "${sub}" "$@"
         ;;
       *)
-        log_error "unknown notify subverb: ${sub} (available: dispatch, test, list-channels, state)"
+        log_error "unknown notify subverb: ${sub} (available: dispatch, test, list-channels, state, send)"
         exit 2
         ;;
     esac

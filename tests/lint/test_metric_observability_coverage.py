@@ -136,6 +136,10 @@ EXEMPT_PATTERNS: list[tuple[str, str]] = [
     (r"^sovereign_os_power_shutdown_guard_(advisory_rc|last_run_timestamp)$",
      "power-guard diagnostic telemetry (probe rc + last-run); the paging "
      "signals are SovereignOsPowerShutdownGuardFired / SovereignOsPowerUpsCritical."),
+    (r"^sovereign_os_power_(graceful_warn|drain_inference)_total$",
+     "graceful soft-exit telemetry (warning fan-outs + inference-drain runs "
+     "DURING a shutdown episode); the paging signal is "
+     "SovereignOsPowerShutdownGuardFired, not each individual sub-step."),
 ]
 
 

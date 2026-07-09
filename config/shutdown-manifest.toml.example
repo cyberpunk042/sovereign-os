@@ -1,47 +1,116 @@
-# sovereign-os graceful-shutdown manifest — R262 / SDD-029 R262.
+# sovereign-os graceful-shutdown manifest — R262 / SDD-029 R262 + SDD-026 Z-18.
 #
-# Operator-named (verbatim, 2026-05-17 expansion): "graceful on all
-# levels, orderly".
+# Operator-named (verbatim): "graceful on all levels, orderly" (2026-05-17) and
+# "soft exit / graceful shutdown for all services and modules like a good system
+# that want to reboot properly and not disrupt the user" (2026-07-08).
 #
-# Ordered drain sequence the host runs when:
-#   - R253 power-shutdown-guard fires (UPS battery critical), OR
-#   - operator runs `sovereign-osctl power-shutdown apply --confirm`.
+# The ordered soft-exit the host runs when:
+#   - the R253 power-shutdown-guard fires (UPS battery/runtime critical + armed), OR
+#   - the operator runs `sovereign-osctl power-shutdown apply --confirm`.
 #
-# Each step has:
+# Each step:
 #   name         operator-readable label (logged + JSON-surfaced)
 #   kind         systemctl-stop / shell / sleep
-#   target       systemd unit name (for kind=systemctl-stop)
-#   cmd          shell command (for kind=shell; runs as root)
-#   seconds      duration (for kind=sleep)
+#   target       systemd unit (kind=systemctl-stop)
+#   cmd          shell command, runs as root (kind=shell)
+#   seconds      duration (kind=sleep)
 #   timeout_s    abort the step after N seconds (default 30)
-#   fail_action  continue / abort  (continue = log+next; abort = halt sequence)
+#   fail_action  continue (log + next) / abort (halt the sequence)
 #
-# RC semantics:
-#   apply rc=0  all steps ok (or dry-run)
-#   apply rc=1  ≥1 step failed (the JSON report names which)
-#   apply rc=2  manifest invalid OR --confirm/SOVEREIGN_OS_CONFIRM_DESTROY=YES missing
+# RC: apply rc=0 all ok/dry-run · rc=1 ≥1 step failed · rc=2 invalid/unconfirmed.
+#
+# SHAPE OF THE SEQUENCE (edit freely — this is the whole policy in one file):
+#   announce → grace window → DRAIN inference (finish in-flight) → stop router →
+#   UNLOAD models (free VRAM) → stop operator services → sync → final warn → poweroff
+#
+# To REBOOT instead of power off: change the last step's cmd to `systemctl reboot`.
+# To make it MORE aggressive: shrink the grace + drain timeouts. To make it gentler:
+# raise them (mind [meta].total_budget_seconds vs. your UPS runtime headroom).
 
 [meta]
-description           = "default Sovereign-OS graceful poweroff sequence"
-total_budget_seconds  = 180
+description           = "Sovereign-OS graceful soft-exit (warn · drain · unload · stop · poweroff)"
+total_budget_seconds  = 300
 
-# 1. Stop the inference router so no new requests start.
+# 1. Announce across EVERY medium (notify/phone · wall · console · desktop).
 [[steps]]
-name         = "drain-inference-router"
-kind         = "systemctl-stop"
-target       = "sovereign-inference-router.service"
-timeout_s    = 30
+name         = "announce-imminent"
+kind         = "shell"
+cmd          = "/opt/sovereign-os/scripts/power/graceful-warn.sh imminent 'UPS battery critical — starting graceful shutdown; save your work now'"
+timeout_s    = 20
 fail_action  = "continue"
 
-# 2. Stop the dashboard server (operator already on the failsafe path).
+# 2. Grace window so an interactive operator can react before anything stops.
+#    (The minutes-ahead heads-up already went out at the 'attention' verdict.)
 [[steps]]
-name         = "stop-dashboard"
+name         = "grace-window"
+kind         = "sleep"
+seconds      = 45
+timeout_s    = 60
+fail_action  = "continue"
+
+# 3. DRAIN the inference router: 503 new requests + wait for in-flight LLM
+#    messages to FINISH (bounded). No-op if inference isn't running.
+[[steps]]
+name         = "drain-inference-inflight"
+kind         = "shell"
+cmd          = "/opt/sovereign-os/scripts/power/drain-inference.sh 60"
+timeout_s    = 75
+fail_action  = "continue"
+
+# 4. Stop the router itself (no more proxying).
+[[steps]]
+name         = "stop-router"
 kind         = "systemctl-stop"
-target       = "sovereign-dashboard.service"
+target       = "sovereign-router.service"
+timeout_s    = 20
+fail_action  = "continue"
+
+# 5. UNLOAD models / stop inference backends — frees GPU VRAM cleanly.
+#    (logic-engine has ExecStop=`podman stop`; the others get a clean SIGTERM.)
+[[steps]]
+name         = "unload-oracle-core"
+kind         = "systemctl-stop"
+target       = "sovereign-oracle-core.service"
+timeout_s    = 45
+fail_action  = "continue"
+
+[[steps]]
+name         = "unload-logic-engine"
+kind         = "systemctl-stop"
+target       = "sovereign-logic-engine.service"
+timeout_s    = 45
+fail_action  = "continue"
+
+[[steps]]
+name         = "unload-pulse"
+kind         = "systemctl-stop"
+target       = "sovereign-pulse.service"
+timeout_s    = 20
+fail_action  = "continue"
+
+[[steps]]
+name         = "stop-nvidia-mps"
+kind         = "shell"
+cmd          = "systemctl stop sovereign-nvidia-mps.service 2>/dev/null || true"
 timeout_s    = 15
 fail_action  = "continue"
 
-# 3. Flush filesystem buffers + JSONL logs to disk.
+# 6. Stop operator-facing services (dashboards/panels) + sampling timers.
+[[steps]]
+name         = "stop-dashboards"
+kind         = "systemctl-stop"
+target       = "sovereign-dashboards.service"
+timeout_s    = 15
+fail_action  = "continue"
+
+[[steps]]
+name         = "stop-watchers"
+kind         = "shell"
+cmd          = "systemctl stop sovereign-gpu-watch.timer sovereign-thermal-watch.timer 2>/dev/null || true"
+timeout_s    = 15
+fail_action  = "continue"
+
+# 7. Flush filesystem buffers + JSONL logs to disk.
 [[steps]]
 name         = "flush-fs-buffers"
 kind         = "shell"
@@ -49,15 +118,7 @@ cmd          = "sync"
 timeout_s    = 30
 fail_action  = "continue"
 
-# 4. Stop GPU-watch + thermal-watch (clean Prometheus textfile dir).
-[[steps]]
-name         = "stop-watchers"
-kind         = "shell"
-cmd          = "systemctl stop sovereign-gpu-watch.timer sovereign-thermal-watch.timer || true"
-timeout_s    = 15
-fail_action  = "continue"
-
-# 5. Give 5 seconds for any in-flight Layer B metric emission to settle.
+# 8. Let in-flight Layer B metric emission settle.
 [[steps]]
 name         = "settle-metrics"
 kind         = "sleep"
@@ -65,9 +126,15 @@ seconds      = 5
 timeout_s    = 10
 fail_action  = "continue"
 
-# 6. The terminal step. systemctl poweroff is intentionally inside the
-#    manifest so operators can substitute it (e.g. with `reboot` for
-#    a planned restart) by editing this file.
+# 9. Final warning across all mediums: powering off now.
+[[steps]]
+name         = "announce-final"
+kind         = "shell"
+cmd          = "/opt/sovereign-os/scripts/power/graceful-warn.sh final 'powering off now — goodbye'"
+timeout_s    = 15
+fail_action  = "continue"
+
+# 10. Terminal step. Substitute `systemctl reboot` for a planned restart.
 [[steps]]
 name         = "poweroff"
 kind         = "shell"

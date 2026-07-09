@@ -380,10 +380,12 @@ properties:
         type: object
         additionalProperties: false
         properties:
+          enabled: { type: boolean }               # master toggle for UPS + graceful shutdown (default true)
           ups: { type: string }                    # e.g. apc-modbus
           ups_host: { type: string }               # optional: pin the SmartConnect IP
           slave_id: { type: integer, minimum: 0, maximum: 247 }  # Modbus unit id
           shutdown_minutes: { type: number, minimum: 0 }
+          warn_lead_minutes: { type: number, minimum: 0 }        # warn this long BEFORE shutdown
           graceful_shutdown: { type: boolean }
 
 $defs:

@@ -592,6 +592,7 @@
       <div style="display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:.5rem" title="Bake operator software INTO the image so a flashed box is self-contained (bigger image, zero-touch after flash)">
         <label class="chk" style="margin:0"><input type="checkbox" id="bake-dev"> bake dev tools <span class="muted small">(node 22 + Claude Code)</span></label>
         <label class="chk" style="margin:0"><input type="checkbox" id="bake-selfdef"> bake selfdef <span class="muted small">(built + ready to enable)</span></label>
+        <label class="chk" style="margin:0" title="UPS monitoring (NUT apc_modbus) + the staged graceful soft-exit (drain inference · finish in-flight · unload models · warn all mediums) armed at the profile's shutdown_minutes. A good default — uncheck to build without it."><input type="checkbox" id="bake-graceful" checked> UPS + graceful shutdown <span class="muted small">(default on)</span></label>
       </div>
       <pre class="out" id="run-log" style="max-height:280px; min-height:2.2rem; margin:0">(idle — output streams here live)</pre>
       <div class="banner danger" id="run-errors" style="display:none; margin:.55rem 0 0"></div>
@@ -1600,7 +1601,8 @@ function runAction(action){
     body: JSON.stringify({action: action, profile: state.profile,
                           snapshot: document.getElementById("snapshot").value || "",
                           bake_dev: document.getElementById("bake-dev").checked,
-                          bake_selfdef: document.getElementById("bake-selfdef").checked}),
+                          bake_selfdef: document.getElementById("bake-selfdef").checked,
+                          graceful_shutdown: document.getElementById("bake-graceful").checked}),
   }).then(function(r){
     if (!r.ok) return r.text().then(function(t){
       var msg = t; try { var j = JSON.parse(t); msg = j.error + (j.fix ? "\n→ " + j.fix : ""); } catch(e){}
@@ -1624,6 +1626,7 @@ function runAction(action){
 }
 document.getElementById("bake-dev").addEventListener("change", regenerate);
 document.getElementById("bake-selfdef").addEventListener("change", regenerate);
+document.getElementById("bake-graceful").addEventListener("change", regenerate);
 document.getElementById("run-dry").addEventListener("click", function(){ runAction("dry-run"); });
 document.getElementById("run-preflight").addEventListener("click", function(){ runAction("preflight"); });
 document.getElementById("run-build").addEventListener("click", function(){ runAction("build"); });

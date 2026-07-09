@@ -169,11 +169,19 @@ if [ "${SOVEREIGN_OS_UPS:-}" = "1" ]; then
   # (a) arm the sovereign graceful-shutdown guard via power.toml
   mkdir -p /etc/sovereign-os
   [ -f /etc/sovereign-os/power.toml ] || { [ -f "${REPO}/config/power.toml.example" ] && cp "${REPO}/config/power.toml.example" /etc/sovereign-os/power.toml; }
+  WARN_LEAD="${SOVEREIGN_OS_UPS_WARN_LEAD:-15}"
   if [ -f /etc/sovereign-os/power.toml ]; then
     [ "${SOVEREIGN_OS_UPS_ARM:-}" = "1" ] && sed -i -E 's|^[#[:space:]]*enabled[[:space:]]*=.*|enabled = true|' /etc/sovereign-os/power.toml
     sed -i -E "s|^[#[:space:]]*shutdown_minutes[[:space:]]*=.*|shutdown_minutes = ${SHUT_MIN}|" /etc/sovereign-os/power.toml
-    log "power.toml → graceful soft shutdown armed at runtime < ${SHUT_MIN} min"
+    sed -i -E "s|^[#[:space:]]*warn_lead_minutes[[:space:]]*=.*|warn_lead_minutes = ${WARN_LEAD}|" /etc/sovereign-os/power.toml
+    log "power.toml → graceful soft shutdown armed (shutdown < ${SHUT_MIN} min, warn ${WARN_LEAD} min ahead)"
   fi
+  # (a2) install the staged soft-exit manifest (announce → drain → unload →
+  #      stop → sync → poweroff). The guard runs `schedule-manifest apply` on it.
+  [ -f /etc/sovereign-os/shutdown-manifest.toml ] || \
+    { [ -f "${REPO}/config/shutdown-manifest.toml.example" ] \
+      && cp "${REPO}/config/shutdown-manifest.toml.example" /etc/sovereign-os/shutdown-manifest.toml \
+      && log "shutdown-manifest.toml installed (staged graceful soft-exit sequence)"; }
   # persist the UPS transport hints for the first-boot hook (read via the unit's
   # EnvironmentFile). Optional host pins the SmartConnect IP (else the hook scans).
   {

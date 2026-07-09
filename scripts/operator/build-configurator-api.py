@@ -931,6 +931,10 @@ class Handler(BaseHTTPRequestHandler):
                 bake_env["SOVEREIGN_OS_BAKE_DEV_TOOLS"] = "1"
             if body.get("bake_selfdef"):
                 bake_env["SOVEREIGN_OS_BAKE_SELFDEF"] = "1"
+            # "UPS + graceful shutdown" defaults ON; unchecking forces it off
+            # for this build (mkosi-emit honors SOVEREIGN_OS_POWER_FEATURE=0).
+            if body.get("graceful_shutdown") is False:
+                bake_env["SOVEREIGN_OS_POWER_FEATURE"] = "0"
         argv_fn, needs_root = RUN_ACTIONS[action]
         argv = argv_fn()
         elevation_note = ""

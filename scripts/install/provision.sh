@@ -61,13 +61,18 @@ echo -e "${bold}sovereign-os · provision (resume setup)${rst}${DRY_RUN:+  ${ylw
 [ -n "${DRY_RUN}" ] || mkdir -p "${MARKER_DIR}"
 
 # ── (1) host bootstrap: build-host toolchain + apt components ─────────
-step "[1/6] host bootstrap (build-host toolchain)"
+step "[1/6] host bootstrap (build-host toolchain + operator CLI link)"
 if skipped build; then warn "skipped (PROVISION_SKIP)"
 elif command -v mkosi >/dev/null 2>&1 && command -v zpool >/dev/null 2>&1; then
   ok "build-host toolchain already present"
 else
   run "scripts/install/bootstrap-host.sh${DRY_RUN:+ --dry-run}"
 fi
+# ALWAYS keep the operator CLI (`sovereign-osctl` on PATH) + deployed lib
+# live-linked to this working tree, so an edit here is instantly live and a stale
+# `make install` copy can't drift (the power-shutdown "schedule-manifest.py: No
+# such file" bug). Idempotent; runs even when `build` is skipped.
+run "scripts/install/link-operator-cli.sh"
 
 # ── (2) dev workstation: node + Claude Code + VS Code extension ───────
 step "[2/6] dev workstation (node + Claude Code + editor)"
@@ -125,15 +130,18 @@ elif [ -z "${DRY_RUN}" ] && ! command -v upsc >/dev/null 2>&1; then
   warn "NUT not installed (add nut-server + nut-client + nut-modbus to operator-deps.toml) — skipping"
 else
   # graceful-shutdown policy from the active profile's provisioning.power block
+  # (master toggle enabled · arm · shutdown_minutes · warn_lead_minutes)
   ups_prof="${SOVEREIGN_OS_PROFILE:-sain-01}"
   ups_pol="$(python3 -c "
 import yaml
 try: p=(yaml.safe_load(open('profiles/${ups_prof}.yaml')).get('provisioning') or {}).get('power') or {}
 except Exception: p={}
-print(1 if p.get('graceful_shutdown') else 0, int(p.get('shutdown_minutes',30)))" 2>/dev/null || echo '1 30')"
-  ups_arm="${ups_pol%% *}"; ups_min="${ups_pol##* }"
-  if [ -n "${DRY_RUN}" ]; then
-    echo -e "  ${cyn}dry-run\$${rst} arm power.toml (enabled=${ups_arm}, shutdown_minutes=${ups_min}) · install+enable guard timer · run detection hook"
+print(1 if p.get('enabled', True) else 0, 1 if p.get('graceful_shutdown') else 0, int(p.get('shutdown_minutes',30)), int(p.get('warn_lead_minutes',15)))" 2>/dev/null || echo '1 1 30 15')"
+  read -r ups_on ups_arm ups_min ups_lead <<< "${ups_pol}"
+  if [ "${ups_on}" != "1" ]; then
+    warn "provisioning.power.enabled=false in ${ups_prof} — UPS + graceful shutdown NOT provisioned"
+  elif [ -n "${DRY_RUN}" ]; then
+    echo -e "  ${cyn}dry-run\$${rst} arm power.toml (enabled=${ups_arm}, shutdown=${ups_min}m, warn_lead=${ups_lead}m) · install manifest + guard timer · run detection"
   else
     # (a) arm the graceful-shutdown guard (power.toml) — mirrors provision-bake §7a
     sudo_ mkdir -p /etc/sovereign-os
@@ -142,7 +150,11 @@ print(1 if p.get('graceful_shutdown') else 0, int(p.get('shutdown_minutes',30)))
       sudo_ sed -i -E 's|^[#[:space:]]*enabled[[:space:]]*=.*|enabled = true|' /etc/sovereign-os/power.toml
     fi
     sudo_ sed -i -E "s|^[#[:space:]]*shutdown_minutes[[:space:]]*=.*|shutdown_minutes = ${ups_min}|" /etc/sovereign-os/power.toml
-    # (b) install + enable the shutdown-guard timer (the soft-shutdown mechanism)
+    sudo_ sed -i -E "s|^[#[:space:]]*warn_lead_minutes[[:space:]]*=.*|warn_lead_minutes = ${ups_lead}|" /etc/sovereign-os/power.toml
+    # (b) install the staged soft-exit manifest (announce→drain→unload→stop→poweroff)
+    [ -f /etc/sovereign-os/shutdown-manifest.toml ] || \
+      sudo_ cp "${__REPO_ROOT}/config/shutdown-manifest.toml.example" /etc/sovereign-os/shutdown-manifest.toml 2>/dev/null || true
+    # (c) install + enable the shutdown-guard timer (the trigger)
     for f in sovereign-power-shutdown-guard.service sovereign-power-shutdown-guard.timer; do
       [ -f "${__REPO_ROOT}/systemd/system/${f}" ] && sudo_ install -m 644 "${__REPO_ROOT}/systemd/system/${f}" /etc/systemd/system/
     done
@@ -151,9 +163,9 @@ print(1 if p.get('graceful_shutdown') else 0, int(p.get('shutdown_minutes',30)))
       sudo_ systemctl enable --now sovereign-power-shutdown-guard.timer 2>/dev/null \
         || warn "could not enable power-shutdown-guard.timer (non-fatal)"
     fi
-    # (c) detect + configure the UPS transport, enable the NUT daemons
+    # (d) detect + configure the UPS transport, enable the NUT daemons
     sudo_ bash "${UPS_HOOK}" || warn "ups-apc-setup returned non-zero (non-fatal; re-runnable)"
-    ok "graceful shutdown armed=${ups_arm} at runtime < ${ups_min} min; guard timer installed"
+    ok "graceful soft-exit armed=${ups_arm} (shutdown <${ups_min}m, warn ${ups_lead}m ahead); manifest + guard timer installed"
   fi
 fi
 

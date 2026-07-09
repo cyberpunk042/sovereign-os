@@ -190,7 +190,9 @@ panel queries lock to them.
 - `sovereign_os_power_shutdown_guard_last_run_timestamp` — R253: timestamp of the most recent UPS-battery shutdown-guard tick (operators alert on staleness vs the per-minute timer when on UPS power).
 - `sovereign_os_power_shutdown_guard_advisory_rc` — R253: rc from the R252 `power-status advisories` call (0=ok/no-ups, 1=critical, 2=usage-error).
 - `sovereign_os_power_shutdown_guard_verdict` — R253: encoded verdict (0=ok, 1=attention, 2=critical, 3=no-ups, 9=error). Operators alert when this transitions to 2.
-- `sovereign_os_power_shutdown_guard_fired` — R253: 1 iff this run actually fired `shutdown(8)` (critical + armed + not dry-run), else 0. Distinguishes a real auto-poweroff from critical-but-not-armed (which verdict=2 alone can't). Operators alert on `== 1` (a host is gracefully powering off on UPS battery).
+- `sovereign_os_power_shutdown_guard_fired` — R253: 1 iff this run actually fired the graceful soft-exit (critical + armed + not dry-run), else 0. Distinguishes a real auto-poweroff from critical-but-not-armed (which verdict=2 alone can't). Operators alert on `== 1` (a host is gracefully powering off on UPS battery).
+- `sovereign_os_power_graceful_warn_total{stage,severity}` — SDD-026 Z-18: count of graceful-shutdown warnings fanned to all mediums (notify/wall/console/desktop) by `graceful-warn.sh`. `stage` ∈ {approaching, imminent, executing, final}; `severity` ∈ {attention, down}. Rises before + during a graceful shutdown.
+- `sovereign_os_power_drain_inference_total{result}` — SDD-026 Z-18: count of inference-drain runs by `drain-inference.sh` during a graceful shutdown (signals the router drain flag + waits for in-flight LLM messages to finish). `result` ∈ {drained, timeout, no-router, dry-run}.
 - `sovereign_os_power_estimated_load_watts` — R258: live aggregate of R219 GPU draw + declared CPU TDP + overhead, sampled every minute.
 - `sovereign_os_power_headroom_watts` — R258: PSU sustained budget minus estimated load — operators alert when this goes negative.
 - `sovereign_os_power_utilization_pct` — R258: estimated load as percent of PSU sustained budget — operators alert at ≥85% sustained.

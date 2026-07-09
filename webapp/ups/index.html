@@ -43,6 +43,10 @@
   th{color:var(--muted);font-weight:600;font-size:.72rem;text-transform:uppercase}
   footer{margin-top:2rem;color:var(--muted);font-size:.75rem;border-top:1px solid var(--border);padding-top:.8rem}
   .standing-rule{color:var(--accent);font-style:italic;margin-top:.4rem}
+  .banner{display:none;margin:.6rem 0;padding:.7rem .9rem;border-radius:8px;font-size:.9rem;border:1px solid transparent}
+  .banner.warn{background:rgba(220,160,20,.12);border-color:var(--warn);color:var(--warn)}
+  .banner.danger{background:rgba(220,60,60,.14);border-color:var(--bad);color:var(--bad)}
+  .banner strong{letter-spacing:.02em}
 </style>
 </head>
 <body>
@@ -54,6 +58,7 @@
   threshold, SAIN-01 powers down orderly on its own.
   <span id="status" class="status">loading…</span>
 </p>
+<div id="shutdown-banner" class="banner"></div>
 
 <h2>status</h2>
 <div class="panel">
@@ -282,15 +287,36 @@ function render(d) {
   el("thresholds").innerHTML = [
     ["soft shutdown at", g.shutdown_minutes != null ? g.shutdown_minutes + " min runtime left" : "—"],
     ["also shut down at", g.battery_critical_pct != null ? "≤ " + g.battery_critical_pct + "% battery" : "—"],
-    ["warn at", g.runtime_warn_minutes != null ? g.runtime_warn_minutes + " min runtime left" : "—"],
+    ["warn from", g.warn_at_minutes != null ? g.warn_at_minutes + " min runtime left" : (g.runtime_warn_minutes != null ? g.runtime_warn_minutes + " min" : "—")],
     ["guard active", d.nut_active ? "NUT upsd running" : "NUT upsd not active"],
     ["config", g.config_path || "—"],
   ].map(([k, v]) => `<tr><th>${esc(k)}</th><td>${v}</td></tr>`).join("");
 
   const verdict = d.verdict;
   el("verdict-line").innerHTML = verdict
-    ? "advisory verdict: <strong class='status " + (verdict === "critical" ? "bad" : verdict === "warn" ? "warn" : "ok") + "'>" + esc(verdict) + "</strong>"
+    ? "advisory verdict: <strong class='status " + (verdict === "critical" ? "bad" : verdict === "attention" ? "warn" : "ok") + "'>" + esc(verdict) + "</strong>"
     : (d.advisories && d.advisories.length ? "advisories: " + d.advisories.map(esc).join("; ") : "");
+
+  // ── shutdown-imminent banner + live countdown (client-side from runtime) ──
+  const banner = el("shutdown-banner");
+  const shutMin = g.shutdown_minutes;
+  if (onBatt && (verdict === "critical" || verdict === "attention") && tleft != null) {
+    const mins = Math.max(0, (shutMin != null ? tleft - shutMin : tleft));
+    const armed = g.enabled === true;
+    if (verdict === "critical") {
+      banner.className = "banner danger";
+      banner.innerHTML = armed
+        ? "⚡ <strong>GRACEFUL SHUTDOWN IMMINENT</strong> — on battery, ~" + tleft + " min runtime. Draining inference + unloading models, then powering off. Save your work."
+        : "⚡ <strong>UPS CRITICAL</strong> — ~" + tleft + " min runtime, but auto-shutdown is DISARMED. Shut down manually to avoid data loss.";
+    } else {
+      banner.className = "banner warn";
+      banner.innerHTML = "⚠ <strong>On UPS battery</strong> — ~" + tleft + " min runtime; graceful shutdown fires at " +
+        (shutMin != null ? shutMin + " min (≈" + mins.toFixed(0) + " min from now)" : "the configured threshold") + ". Save your work.";
+    }
+    banner.style.display = "";
+  } else if (banner) {
+    banner.style.display = "none";
+  }
 }
 function num(v){ return (v == null || v === "") ? null : (Math.round(parseFloat(v) * 10) / 10); }
 function card(k, v, cls){ return `<div class="stat ${cls||''}"><div class="k">${k}</div><div class="v">${v}</div></div>`; }

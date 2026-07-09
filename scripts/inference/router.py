@@ -69,6 +69,25 @@ _METRICS_DIR = pathlib.Path(
 _METRICS_FILE = _METRICS_DIR / "sovereign-os-inference-router.prom"
 _METRICS_DISABLED = os.environ.get("SOVEREIGN_OS_METRICS_DISABLE") == "1"
 
+# ---- graceful-drain gate (SDD-026 Z-18 — soft-exit for shutdown) ----------
+# When the graceful-shutdown orchestrator signals a drain (flag file present),
+# the router refuses NEW completion requests with 503 so IN-FLIGHT requests can
+# finish before backends are stopped ("LLM chat message finishing"). Absent the
+# flag this is a no-op — normal routing is completely unchanged (the flag is
+# created only by the shutdown sequence and removed on next boot / cancel).
+_DRAIN_FLAG = pathlib.Path(
+    os.environ.get("SOVEREIGN_OS_ROUTER_DRAIN_FLAG", "/run/sovereign-os/router-drain")
+)
+_INFLIGHT = 0
+_INFLIGHT_LOCK = threading.Lock()
+
+
+def _is_draining() -> bool:
+    try:
+        return _DRAIN_FLAG.exists()
+    except OSError:
+        return False
+
 # MS048 cross-repo: OPT-IN, ADVISORY-ONLY consultation of the selfdef
 # Goldilocks Scheduler. Default OFF — when off, routing is unchanged (the
 # runtime's own shape-based classify() is authoritative). When
@@ -352,6 +371,30 @@ class RouterHandler(http.server.BaseHTTPRequestHandler):
         log.info("%s - %s", self.client_address[0], format % args)
 
     def do_POST(self) -> None:  # noqa: N802
+        # Graceful-drain gate: when the shutdown orchestrator has signalled a
+        # drain, refuse NEW work (503 + Retry-After) so in-flight requests can
+        # finish. No effect in normal operation (flag file absent).
+        if _is_draining():
+            self.send_response(503)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Retry-After", "30")
+            self.end_headers()
+            self.wfile.write(
+                json.dumps(
+                    {"error": "router draining for graceful shutdown", "code": "draining"}
+                ).encode()
+            )
+            return
+        global _INFLIGHT
+        with _INFLIGHT_LOCK:
+            _INFLIGHT += 1
+        try:
+            self._do_post_inner()
+        finally:
+            with _INFLIGHT_LOCK:
+                _INFLIGHT -= 1
+
+    def _do_post_inner(self) -> None:
         length = int(self.headers.get("Content-Length", 0))
         raw = self.rfile.read(length)
         try:
@@ -429,12 +472,28 @@ class RouterHandler(http.server.BaseHTTPRequestHandler):
             self.send_error(502, f"backend unreachable: {target} ({e})")
 
     def do_GET(self) -> None:  # noqa: N802
-        # /healthz — router liveness
+        # /healthz — router liveness (also surfaces the drain posture)
         if self.path in ("/healthz", "/health"):
+            with _INFLIGHT_LOCK:
+                inflight = _INFLIGHT
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
-            self.wfile.write(json.dumps({"ok": True, "tiers": list(TIER_ENDPOINTS.keys())}).encode())
+            self.wfile.write(json.dumps({
+                "ok": True, "tiers": list(TIER_ENDPOINTS.keys()),
+                "draining": _is_draining(), "inflight": inflight,
+            }).encode())
+            return
+        # /drain-status — the shutdown orchestrator polls this until inflight==0
+        if self.path == "/drain-status":
+            with _INFLIGHT_LOCK:
+                inflight = _INFLIGHT
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "draining": _is_draining(), "inflight": inflight,
+            }).encode())
             return
         # /v1/models — aggregate from each backend (best-effort)
         if self.path == "/v1/models":
