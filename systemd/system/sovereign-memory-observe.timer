@@ -1,0 +1,14 @@
+[Unit]
+Description=sovereign-os M028 observation event stream (auto-feed memory admission ~every 5 min)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/hooks/recurrent/memory-observe.sh
+
+[Timer]
+# Every 5 minutes + small jitter — the Memory OS self-populates from real system events
+# (span-log observations flow into the M028 admission value-gate within ~5 min).
+OnCalendar=*:0/5
+RandomizedDelaySec=30
+Persistent=true
+Unit=sovereign-memory-observe.service
+
+[Install]
+WantedBy=timers.target

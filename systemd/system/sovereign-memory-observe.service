@@ -1,0 +1,30 @@
+[Unit]
+Description=sovereign-os M028 observation event stream — auto-feed memory admission from the OCSF span log (SDD-069)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/hooks/recurrent/memory-observe.sh
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/sovereign-os/scripts/hooks/recurrent/memory-observe.sh
+TimeoutStartSec=120s
+StandardOutput=journal
+StandardError=journal
+# R171 defense-in-depth (Layer 1 lint enforced). Reads the span log + writes the memory
+# store under /var/lib (StateDirectory); projection/span telemetry is best-effort. The
+# engine mutates the store via admit — CLI/timer-only, never a web control (R10212); no
+# privileged ops.
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
+StateDirectory=sovereign-os
+ReadWritePaths=-/var/lib/node_exporter/textfile_collector
+NoNewPrivileges=true
+PrivateTmp=true

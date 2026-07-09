@@ -178,6 +178,8 @@ panel queries lock to them.
 - `sovereign_os_selfdef_sync_last_run_timestamp`
 - `sovereign_os_session_reaper_run_total{result}` — SDD-065: pass/fail counter for each session-reaper tick (the `sovereign-session-reaper.timer`, ~every 2 min, runs `sessions reap` — archives `active` sessions whose tracked process has exited)
 - `sovereign_os_session_reaper_reaped_total{result}` — SDD-065: count of sessions archived by the last reaper tick (a session whose process exited without a clean `sessions stop` → `state:archived`)
+- `sovereign_os_memory_observe_run_total{result}` — SDD-069: pass/fail counter for each observation-stream tick (the `sovereign-memory-observe.timer`, ~every 5 min, runs `observe run` — tails the OCSF span log and feeds new events into the M028 admission value-gate)
+- `sovereign_os_memory_observe_admitted_total{result}` — SDD-069: count of memories admitted by the last observation tick (real span events mapped through the M028 value-gate; `^memory_` spans excluded — no feedback loop)
 - `sovereign_os_ghostproxy_endpoint_install_result{result}` — one-hot outcome of the first-boot root-ghostproxy endpoint-envelope install hook (report-only / installed / install-failed / absent); proxy half stays OFF per SDD-046
 - `sovereign_os_ghostproxy_endpoint_install_last_run_timestamp`
 - `sovereign_os_ghostproxy_endpoint_verify_result{result}` — one-hot outcome of the weekly read-only AI-agent envelope drift verify (current / drift / absent), upstream `install.sh --check --mode endpoint`

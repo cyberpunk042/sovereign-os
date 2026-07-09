@@ -8371,8 +8371,25 @@ case "${cmd}" in
         # whose $1 is a job name).
         "${__REPO_ROOT}/scripts/intelligence/memory-navigate.py" "$@"
         ;;
+      observe)
+        # SDD-069 (M028): the observation event stream — auto-feed admission from the ONE
+        # real event source, the OCSF span log (/var/log/sovereign-os/spans.jsonl). Tails
+        # it via a persisted cursor + maps each new span → a memory admission + feeds the
+        # existing admit value-gate (R04672 — not every observation becomes memory).
+        # COMPREHENSIVE mapping (session_reap→task-outcome/episodic, cockpit_action ok→
+        # tool-worked, fail→model-mistake, *_decision→preference, save-state→high-value-
+        # reuse, gate→task-outcome, toggle→preference, any error→model-mistake). Skips
+        # `^memory_` spans (NO feedback loop). Idempotent (cursor + admit's _is_duplicate).
+        # CLI/timer-ONLY — mutates the store via admit, so never a web control (R10212);
+        # DRY-RUN default (--confirm to mint; the sovereign-memory-observe.timer runs live).
+        # Honest-defer (SB-077): empty/absent span log → 0 admitted, never fabricates.
+        #   memory-changes observe run [--confirm] [--limit N] | observe status
+        # NB: the subverb ("observe") is already shifted off before this case — $@ holds
+        # the run/status subcommand + flags, so pass it straight through (no extra shift).
+        "${__REPO_ROOT}/scripts/intelligence/memory-observe.py" "$@"
+        ;;
       *)
-        log_error "unknown memory-changes subverb: ${sub} (available: snapshot, types, lifecycle, approve, reject, request, forget, undo, register, purge, list, reconcile, admit, advance, janitor, navigate)"
+        log_error "unknown memory-changes subverb: ${sub} (available: snapshot, types, lifecycle, approve, reject, request, forget, undo, register, purge, list, reconcile, admit, advance, janitor, navigate, observe)"
         exit 2
         ;;
     esac
