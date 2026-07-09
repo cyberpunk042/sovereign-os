@@ -723,7 +723,12 @@ a11y; contract test catches drift.
 <div class="panel">
   <button id="reset-btn">reset to defaults</button>
   <button id="export-btn">copy: export as JSON</button>
-  <span class="muted" style="margin-left:.7rem;font-size:.78rem">prefs live in <code>localStorage</code> on this browser only (per-device); never sent to the server (read-only doctrine).</span>
+  <button id="import-btn">import from JSON…</button>
+  <span class="muted" style="margin-left:.7rem;font-size:.78rem">prefs live in <code>localStorage</code> on this browser only (per-device); export copies the profile JSON, import loads a pasted profile; never sent to the server (read-only doctrine).</span>
+  <div id="import-box" style="display:none;margin-top:.7rem">
+    <textarea id="import-json" rows="5" spellcheck="false" placeholder='paste a personalization profile here, e.g. {"schema":1,"theme":"dark","accent":"#9bd1ff","font_scale":1}' style="width:100%;box-sizing:border-box;font-family:ui-monospace,monospace;font-size:.78rem;padding:.5rem;border:1px solid var(--border,#262626);border-radius:.4rem;background:var(--panel,#171717);color:inherit"></textarea>
+    <button id="import-apply" style="margin-top:.45rem">apply pasted prefs</button>
+  </div>
 </div>
 
 <div class="footer">
@@ -835,6 +840,31 @@ a11y; contract test catches drift.
   document.getElementById('export-btn').addEventListener('click', () => {
     const blob = JSON.stringify(prefs, null, 2);
     navigator.clipboard.writeText(blob).then(() => toast('copied JSON to clipboard'));
+  });
+
+  // Import — complete the export→import round-trip (SDD-105). Pure client-side;
+  // validate-then-apply, honest-reject (never partially-apply garbage — SB-077).
+  const VALID_THEMES = ['auto', 'dark', 'light'];
+  const VALID_SCALES = [0.85, 1, 1.15];
+  document.getElementById('import-btn').addEventListener('click', () => {
+    const box = document.getElementById('import-box');
+    const open = box.style.display !== 'none';
+    box.style.display = open ? 'none' : '';
+    if (!open) document.getElementById('import-json').focus();
+  });
+  document.getElementById('import-apply').addEventListener('click', () => {
+    let p;
+    try { p = JSON.parse(document.getElementById('import-json').value); }
+    catch (e) { toast('invalid JSON'); return; }
+    if (!p || typeof p !== 'object' || Array.isArray(p)) { toast('invalid JSON — expected an object'); return; }
+    if (p.schema !== SCHEMA_V) { toast('unknown schema — expected v1'); return; }
+    if ('theme' in p && VALID_THEMES.indexOf(p.theme) < 0) { toast('invalid theme — use auto/dark/light'); return; }
+    if ('accent' in p && !/^#[0-9a-fA-F]{6}$/.test(p.accent)) { toast('invalid accent — use #RRGGBB'); return; }
+    if ('font_scale' in p && VALID_SCALES.indexOf(Number(p.font_scale)) < 0) { toast('invalid font_scale — use 0.85/1/1.15'); return; }
+    // valid — merge onto DEFAULTS (mirrors loadPrefs) + reuse the existing apply chain
+    prefs = { ...DEFAULTS, ...p, font_scale: Number(('font_scale' in p) ? p.font_scale : DEFAULTS.font_scale) };
+    savePrefs(prefs); applyPrefs(prefs); renderAll(); toast('imported');
+    document.getElementById('import-box').style.display = 'none';
   });
 
   function toast(msg) {
@@ -1314,6 +1344,12 @@ window.SO_ASSIST = [
     "title": "Export as JSON",
     "msg": "Copy the personalization preferences as JSON.",
     "more": "Hands you your theme/accent/scale settings as portable JSON — to back up, share, or apply on another browser. Client-side; it's your data, exported by you."
+  },
+  {
+    "sel": "#import-btn",
+    "title": "Import from JSON",
+    "msg": "Load a pasted personalization profile (completes the export round-trip).",
+    "more": "Paste a profile JSON exported from another browser; it's validated (schema v1 + theme/accent/scale checked) before it applies — an invalid paste is rejected with a reason and nothing changes. Pure client-side, never sent to the server."
   },
   {
     "sel": "#toast",
