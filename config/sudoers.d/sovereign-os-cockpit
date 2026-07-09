@@ -59,6 +59,8 @@ Cmnd_Alias SOVEREIGN_OS_COCKPIT = \
     /usr/local/bin/sovereign-osctl adapters rollback *, \
     /usr/local/bin/sovereign-osctl memory-changes approve *, \
     /usr/local/bin/sovereign-osctl memory-changes reject *, \
+    /usr/local/bin/sovereign-osctl memory-changes forget *, \
+    /usr/local/bin/sovereign-osctl memory-changes undo *, \
     /usr/local/bin/sovereign-osctl sessions hibernate *, \
     /usr/local/bin/sovereign-osctl sessions resume *, \
     /usr/local/bin/sovereign-osctl sessions kill *, \

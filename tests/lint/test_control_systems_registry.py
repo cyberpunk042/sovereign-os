@@ -27,6 +27,7 @@ EXPECTED_IDS = {
     "snapshot-create", "snapshot-prune", "rollback-recent",
     "adapter-decide", "memory-decide",
     "session-decide", "session-hibernate-all",
+    "memory-forget", "memory-undo",
 }
 VALID_KINDS = {"profile", "mode", "toggle", "lifecycle"}
 VALID_SCOPES = {"global", "scoped"}
