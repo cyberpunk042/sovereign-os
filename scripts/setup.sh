@@ -32,9 +32,10 @@ failed=0
 # ----------- (1) git pre-commit hook ---------------
 
 if [ -z "${SOVEREIGN_OS_SETUP_SKIP_HOOKS:-}" ]; then
-  echo -e "${bold}[1/5] git pre-commit hook${reset}"
+  echo -e "${bold}[1/5] git hooks (pre-commit gate + post-merge/rebase warnings)${reset}"
   if [ -x "${__REPO_ROOT}/scripts/git-hooks/install.sh" ]; then
-    "${__REPO_ROOT}/scripts/git-hooks/install.sh" pre-commit
+    # all hooks: pre-commit (gate) + post-merge/post-rewrite (root-ownership warn)
+    "${__REPO_ROOT}/scripts/git-hooks/install.sh"
   else
     echo -e "  ${yellow}!${reset} scripts/git-hooks/install.sh not present — skipping"
   fi

@@ -130,6 +130,7 @@ touch "${mkosi_dir}/ci-mok.key" "${mkosi_dir}/ci-mok.crt"
 
 if SOVEREIGN_OS_MOK_KEY="${mkosi_dir}/ci-mok.key" \
    SOVEREIGN_OS_MOK_CERT="${mkosi_dir}/ci-mok.crt" \
+   SOVEREIGN_OS_ALLOW_LOCKED_ROOT=1 \
    "${__REPO_ROOT}/scripts/build/adapters/mkosi-emit.sh" "${profile_file}" "${mkosi_dir}" >/dev/null 2>&1; then
   ok "same profile YAML feeds BOTH adapters cleanly (substrate-agnostic invariant)"
 else

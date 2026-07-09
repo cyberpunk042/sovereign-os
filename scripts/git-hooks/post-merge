@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# scripts/git-hooks/post-merge — fires after `git pull` / `git merge`.
+# Warns (only) when the merge left root-owned files, i.e. git was run as root —
+# see scripts/git-hooks/lib/ownership-warn.sh for the why + the fix.
+set -uo pipefail
+root="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+# shellcheck source=lib/ownership-warn.sh
+. "${root}/scripts/git-hooks/lib/ownership-warn.sh" 2>/dev/null || exit 0
+ownership_warn "post-merge (git pull)"
+exit 0

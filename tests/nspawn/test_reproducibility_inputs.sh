@@ -37,6 +37,9 @@ __keydir="$(mktemp -d)"
 trap 'rm -rf "${__keydir}"' EXIT
 export SOVEREIGN_OS_MOK_KEY="${__keydir}/ci-mok.key"
 export SOVEREIGN_OS_MOK_CERT="${__keydir}/ci-mok.crt"
+# secure_boot=signed also trips the locked-root guard (82867d00); this is a
+# config-emission TEST that never boots, so declare the intentional-locked-root escape.
+export SOVEREIGN_OS_ALLOW_LOCKED_ROOT=1
 touch "${SOVEREIGN_OS_MOK_KEY}" "${SOVEREIGN_OS_MOK_CERT}"
 
 # ----------- baseline emit: no reproducibility env vars set ---------------

@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# scripts/git-hooks/post-rewrite — fires after `git rebase` / `git commit --amend`.
+# $1 is 'rebase' or 'amend'. Warns (only) when the rewrite left root-owned files,
+# i.e. git was run as root — see scripts/git-hooks/lib/ownership-warn.sh.
+set -uo pipefail
+root="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+# shellcheck source=lib/ownership-warn.sh
+. "${root}/scripts/git-hooks/lib/ownership-warn.sh" 2>/dev/null || exit 0
+ownership_warn "post-rewrite (${1:-rewrite})"
+exit 0

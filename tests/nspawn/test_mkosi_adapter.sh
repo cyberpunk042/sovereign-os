@@ -30,6 +30,9 @@ trap 'rm -rf "${tmpdir}"' EXIT
 # below then verify the posture is actually carried into mkosi.conf.
 export SOVEREIGN_OS_MOK_KEY="${tmpdir}/ci-mok.key"
 export SOVEREIGN_OS_MOK_CERT="${tmpdir}/ci-mok.crt"
+# secure_boot=signed also trips the locked-root guard (82867d00); this is a
+# config-emission TEST that never boots, so declare the intentional-locked-root escape.
+export SOVEREIGN_OS_ALLOW_LOCKED_ROOT=1
 touch "${SOVEREIGN_OS_MOK_KEY}" "${SOVEREIGN_OS_MOK_CERT}"
 
 # Run the adapter

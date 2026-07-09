@@ -36,6 +36,26 @@ Env vars:
 - `SOVEREIGN_OS_PRECOMMIT_FULL=1` — run the entire L3 suite (~30+
   seconds; matches CI exactly)
 
+### `post-merge` + `post-rewrite`
+
+Fire after `git pull` / `git merge` (`post-merge`) and after `git rebase` /
+`git commit --amend` (`post-rewrite`). They **warn** — never block — when the
+operation left git-**tracked** files owned by someone other than the repo owner,
+i.e. **git was run as root (`sudo git …`)**.
+
+Why it matters: `sudo git pull` writes the worktree as root, leaving root-owned
+files that block normal edits (`Permission denied`), silently drop tool writes,
+and break the build/panel tooling. One root pull once left 482 files `root:root`
+and stalled a whole session. The hook surfaces it immediately with the exact fix:
+
+```sh
+sudo chown -R <owner>:<group> <repo>
+```
+
+They are **silent when ownership is clean**, and deliberately ignore transient
+artifacts (`__pycache__/*.pyc`, `node_modules`, …) — only tracked files count.
+Shared logic lives in `lib/ownership-warn.sh` (sourced, never installed as a hook).
+
 ## Why?
 
 The sovereign-os repo runs direct-push-to-main per the operator's
@@ -52,7 +72,7 @@ after push. The pre-commit hook brings the gate forward so:
 ## Uninstall
 
 ```sh
-rm .git/hooks/pre-commit
+rm .git/hooks/pre-commit .git/hooks/post-merge .git/hooks/post-rewrite
 ```
 
 The hooks are symlinks; removing the link leaves the source in

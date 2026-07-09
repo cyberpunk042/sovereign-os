@@ -43,6 +43,9 @@ REPO_ROOT_ARG="${__REPO_ROOT}"
 # key *paths*. Same pattern as tests/nspawn/test_image_sign_gates.sh.
 export SOVEREIGN_OS_MOK_KEY="${tmp}/ci-mok.key"
 export SOVEREIGN_OS_MOK_CERT="${tmp}/ci-mok.crt"
+# secure_boot=signed also trips the locked-root guard (82867d00); this is a
+# config-emission TEST that never boots, so declare the intentional-locked-root escape.
+export SOVEREIGN_OS_ALLOW_LOCKED_ROOT=1
 touch "${SOVEREIGN_OS_MOK_KEY}" "${SOVEREIGN_OS_MOK_CERT}"
 
 # ----------- mkosi substrate (default) ---------------
