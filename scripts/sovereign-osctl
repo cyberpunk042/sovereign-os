@@ -8196,8 +8196,14 @@ case "${cmd}" in
       hibernate|resume|kill|hibernate-all)
         "${__REPO_ROOT}/scripts/lifecycle/session-decide.py" "${sub}" "$@"
         ;;
+      save-state|restore)
+        # SDD-057 (M047): capture / restore a session's 5-layer save-state (ZFS
+        # snapshot + CRIU checkpoint + replay log + memory record + profile state).
+        # DRY-RUN by default; the real zfs snapshot + criu dump run live + gated.
+        "${__REPO_ROOT}/scripts/lifecycle/save-state.py" "${sub}" "$@"
+        ;;
       *)
-        log_error "unknown sessions subverb: ${sub} (available: active, summary, steps, hibernate, resume, kill, hibernate-all)"
+        log_error "unknown sessions subverb: ${sub} (available: active, summary, steps, hibernate, resume, kill, hibernate-all, save-state, restore)"
         exit 2
         ;;
     esac

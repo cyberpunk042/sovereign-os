@@ -86,7 +86,7 @@ def _normalise(rec: dict[str, Any]) -> dict[str, Any]:
     # A present-but-unrecognised state passes through unchanged (honest — we
     # never relabel engine data); it renders muted and counts in no bucket.
     step = _clamp_step(rec.get("step"))
-    return {
+    out = {
         "id": str(rec.get("id", "?")),
         "kind": rec.get("kind", "task"),
         "profile": rec.get("profile", "private"),
@@ -98,6 +98,15 @@ def _normalise(rec: dict[str, Any]) -> dict[str, Any]:
         "eta_seconds": rec.get("eta_seconds"),
         "branch_count": rec.get("branch_count", 0),
     }
+    # SDD-057 (M047 save-state): read-only passthrough of the continuity fields the
+    # save-state orchestrator + the future M057 session-process runtime populate —
+    # `pid` (the CRIU checkpoint target) + `dataset` (the ZFS-snapshot dataset key).
+    # Surfaced only when present; the reader stays pure (never invents them).
+    if rec.get("pid") is not None:
+        out["pid"] = rec.get("pid")
+    if rec.get("dataset") is not None:
+        out["dataset"] = rec.get("dataset")
+    return out
 
 
 def list_sessions(registry: Path = SESSION_REGISTRY) -> list[dict[str, Any]]:

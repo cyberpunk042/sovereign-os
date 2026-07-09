@@ -56,6 +56,21 @@ SESSION_REGISTRY = _core.SESSION_REGISTRY
 TASK_STATES = _core.TASK_STATES
 SCHEMA_VERSION = _core.SCHEMA_VERSION
 
+# SDD-057 — the save-state orchestrator, loaded lazily (it imports rollback-points
+# + session-registry at module load; lazy-load keeps this reader's import cheap).
+_SAVE_STATE = None
+
+
+def _save_state_engine():
+    global _SAVE_STATE
+    if _SAVE_STATE is None:
+        p = Path(__file__).resolve().parent / "save-state.py"
+        spec = importlib.util.spec_from_file_location("_save_state_for_session_decide", p)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        _SAVE_STATE = mod
+    return _SAVE_STATE
+
 # durable append-only decisions ledger (/run is tmpfs → ephemeral; this is not).
 LEDGER = Path(os.environ.get(
     "SOVEREIGN_OS_SESSION_LEDGER",
@@ -196,8 +211,20 @@ def decide(session_id: str, verb: str, *, actor: str = "operator",
         except OSError as e:
             return {"ok": False, "code": 1, "id": session_id, "error": f"write failed: {e}"}
         _record(session_id, verb, new_state, actor, rationale, decided_ts)
-        return {"ok": True, "code": 200, "verb": verb, "id": session_id,
-                "state": new_state, "signature": _UNSIGNED}
+        result = {"ok": True, "code": 200, "verb": verb, "id": session_id,
+                  "state": new_state, "signature": _UNSIGNED}
+        # SDD-057 (M047 save-state) — hibernate captures the session's 5-layer
+        # save-state; resume restores it. Best-effort: a save-state failure does
+        # NOT undo the registry transition (the state change already committed);
+        # the outcome is attached for observability.
+        if verb in ("hibernate", "resume"):
+            try:
+                _ss = _save_state_engine()
+                fn = _ss.capture if verb == "hibernate" else _ss.restore
+                result["save_state"] = fn(session_id, actor=actor, confirm=True)
+            except Exception as e:  # noqa: BLE001 — best-effort; never break the transition
+                result["save_state"] = {"ok": False, "error": f"save-state {verb} failed: {e}"}
+        return result
 
 
 def hibernate_all(*, actor: str = "operator", rationale: str = "",
