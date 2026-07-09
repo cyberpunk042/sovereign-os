@@ -185,18 +185,48 @@ def test_verb_true_then_requires_at_and_filters_by_created(store):
     assert "temporal_note" in r
 
 
-def test_verb_last_verified(store):
-    _seed_router_set()
+def test_verb_last_verified_sorts_by_verified_at(store):
+    # SDD-101 — real verified_at timestamps, newest first.
+    _seed({
+        "mem-a": _e("mem-a", 2, "older verify", verified=True,
+                    verified_at="2026-01-01T00:00:00+00:00"),
+        "mem-b": _e("mem-b", 2, "newer verify", created="2026-01-02T00:00:00+00:00",
+                    verified=True, verified_at="2026-02-01T00:00:00+00:00"),
+        "mem-c": _e("mem-c", 2, "unverified", created="2026-01-03T00:00:00+00:00"),
+    })
     r = N.navigate("", verb="last-verified", compose=False)
-    assert [s["id"] for s in r["slices"]] == ["mem-a"]
-    assert "verified_at" in r["temporal_note"]   # honest caveat: no timestamp exists
+    assert [s["id"] for s in r["slices"]] == ["mem-b", "mem-a"]   # newest verified_at first
+    assert "SDD-101" in r["temporal_note"]
 
 
-def test_verb_contradicted_by_honest_defers(store):
-    _seed_router_set()
-    r = N.navigate("", verb="contradicted-by")
-    assert r["ok"] and r["deferred"] is True and r["count"] == 0
-    assert "contradiction" in r["reason"]        # substrate absent — never fabricated
+def test_verb_contradicted_by_returns_real_edges(store):
+    # SDD-101 — real result from `contradicts` edges (not deferred).
+    _seed({
+        "mem-a": _e("mem-a", 2, "router failed", edges=[{"to": "mem-b", "kind": "contradicts"}]),
+        "mem-b": _e("mem-b", 2, "router works", created="2026-01-02T00:00:00+00:00",
+                    edges=[{"to": "mem-a", "kind": "contradicts"}]),
+        "mem-c": _e("mem-c", 2, "unrelated", created="2026-01-03T00:00:00+00:00",
+                    edges=[{"to": "mem-a", "kind": "related"}]),
+    })
+    r = N.navigate("", verb="contradicted-by", compose=False)
+    assert not r.get("deferred")                      # real, not honest-defer
+    assert {s["id"] for s in r["slices"]} == {"mem-a", "mem-b"}   # mem-c (related-only) excluded
+
+
+def test_verb_contradicted_by_empty_is_honest_not_deferred(store):
+    _seed_router_set()   # no contradicts edges
+    r = N.navigate("", verb="contradicted-by", compose=False)
+    assert not r.get("deferred") and r["count"] == 0   # honestly empty, not "substrate absent"
+
+
+def test_verb_contradicted_by_target_filter(store):
+    _seed({
+        "mem-a": _e("mem-a", 2, "a", edges=[{"to": "mem-b", "kind": "contradicts"}]),
+        "mem-x": _e("mem-x", 2, "x", created="2026-01-02T00:00:00+00:00",
+                    edges=[{"to": "mem-z", "kind": "contradicts"}]),
+    })
+    r = N.navigate("", verb="contradicted-by", at="mem-b", compose=False)
+    assert [s["id"] for s in r["slices"]] == ["mem-a"]   # only the one contradicting mem-b
 
 
 def test_unknown_verb_rejected(store):
