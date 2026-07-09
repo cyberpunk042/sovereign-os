@@ -41,6 +41,7 @@ END = "<!-- APP-SHELL:END M067 -->"
 # time; only listed panels are touched — the rest stay exactly as they are.
 # Keep in lockstep with tests/lint/test_app_shell_contract.py.
 ADOPTED_PANELS = [
+    "master-dashboard",
     "d-04-costs",
 ]
 
