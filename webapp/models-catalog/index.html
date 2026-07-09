@@ -262,50 +262,63 @@
         grp.style.display=any?'':'none'; }); });
     var box=document.getElementById('so-assist-el');
     function openAssist(){ if(!document.body.classList.contains('so-assist-open')) document.body.classList.add('so-assist-open'); }
-    function showText(t,tg){ box.classList.add('hot'); box.textContent=t; if(tg)tg.classList.add('so-assist-hot'); openAssist(); }
-    function showPanel(p,tg){ box.classList.add('hot');
-      box.innerHTML='<div class="lbl">'+(p.id!=='—'?'<span class="id">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div>'+esc(p.desc||'')+'</div>';
-      if(tg)tg.classList.add('so-assist-hot'); openAssist(); }
     function clr(tg){ if(tg)tg.classList.remove('so-assist-hot'); }
-    // content elements the panel annotated
-    Array.prototype.forEach.call(document.querySelectorAll('#so-content [data-assist]'),function(t){
-      t.addEventListener('mouseenter',function(){showText(t.getAttribute('data-assist'),t);});
-      t.addEventListener('focus',function(){showText(t.getAttribute('data-assist'),t);});
-      t.addEventListener('mouseleave',function(){clr(t);});
-      t.addEventListener('blur',function(){clr(t);}); });
-    // every menu link explains its panel (assistant data)
+    function reduced(){ return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
+    // render a gold-data card {id?,title?,msg,more?} into the drawer
+    function renderCard(e,tg){ box.classList.add('hot');
+      var h='';
+      if(e.title) h+='<div class="lbl">'+(e.id?'<span class="id">'+esc(e.id)+'</span> ':'')+esc(e.title)+'</div>';
+      h+='<div>'+esc(e.msg||'')+'</div>';
+      if(e.more) h+='<button class="so-h-btn" id="so-more-btn" style="margin-top:.5rem;border-color:var(--border,#262626);font-size:.74rem">more ▾</button>'+
+        '<div id="so-more" style="display:none;margin-top:.4rem;color:var(--muted,#8a8a8a)">'+esc(e.more)+'</div>';
+      box.innerHTML=h;
+      var mb=document.getElementById('so-more-btn');
+      if(mb) mb.addEventListener('click',function(){ var d=document.getElementById('so-more'); var open=d.style.display!=='none'; d.style.display=open?'none':'block'; mb.textContent=open?'more ▾':'less ▲'; });
+      if(tg)tg.classList.add('so-assist-hot'); openAssist(); }
+    // ── unified gold-data target list: window.SO_ASSIST (selector→{title,msg,more}) ∪ inline [data-assist] ──
+    var TARGETS=[], seen=[];
+    function pushTarget(el,e){ if(!el||seen.indexOf(el)>=0) return; seen.push(el); TARGETS.push({el:el,title:e.title||'',msg:e.msg||'',more:e.more||''}); }
+    try { var SA=window.SO_ASSIST; if(SA&&SA.length) SA.forEach(function(e){ if(!e||!e.sel) return;
+      try { Array.prototype.forEach.call(document.querySelectorAll('#so-content '+e.sel),function(el){ pushTarget(el,e); }); } catch(x){} }); } catch(err){}
+    Array.prototype.forEach.call(document.querySelectorAll('#so-content [data-assist]'),function(el){ pushTarget(el,{msg:el.getAttribute('data-assist')}); });
+    TARGETS.sort(function(a,b){ var p=a.el.compareDocumentPosition(b.el); return (p&Node.DOCUMENT_POSITION_FOLLOWING)?-1:((p&Node.DOCUMENT_POSITION_PRECEDING)?1:0); });
+    TARGETS.forEach(function(t){
+      t.el.addEventListener('mouseenter',function(){renderCard(t,t.el);});
+      t.el.addEventListener('focus',function(){renderCard(t,t.el);});
+      t.el.addEventListener('mouseleave',function(){clr(t.el);});
+      t.el.addEventListener('blur',function(){clr(t.el);}); });
+    // every menu link explains its panel (catalog gold data)
     Array.prototype.forEach.call(document.querySelectorAll('.so-sm-item'),function(it){
-      var p=findPanel(it.dataset.dir); if(!p) return;
-      it.addEventListener('mouseenter',function(){showPanel(p,it);});
-      it.addEventListener('focus',function(){showPanel(p,it);});
+      var p=findPanel(it.dataset.dir); if(!p) return; var e={title:p.label,id:(p.id!=='—'?p.id:''),msg:p.desc};
+      it.addEventListener('mouseenter',function(){renderCard(e,it);});
+      it.addEventListener('focus',function(){renderCard(e,it);});
       it.addEventListener('mouseleave',function(){clr(it);});
       it.addEventListener('blur',function(){clr(it);}); });
-    // ── guided tour: walk the panel's [data-assist] elements in order ──
-    var tour={list:[],i:-1,on:false}, tourBtn=document.getElementById('so-tour-btn'), tourStatus=document.getElementById('so-tour-status');
-    function reduced(){ return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
-    function tourClear(){ tour.list.forEach(function(e){ e.classList.remove('so-assist-hot'); }); }
+    // ── guided tour: walk the unified gold-data targets in DOM order ──
+    var tour={i:-1,on:false}, tourBtn=document.getElementById('so-tour-btn'), tourStatus=document.getElementById('so-tour-status');
+    function tourClear(){ TARGETS.forEach(function(t){ t.el.classList.remove('so-assist-hot'); }); }
     function tourEnd(){ tour.on=false; tourClear(); box.classList.remove('hot');
       box.innerHTML='<span class="so-assist-hint">Hover a menu link or any highlighted control and its explanation appears here.</span>';
       if(tourStatus) tourStatus.textContent=''; if(tourBtn) tourBtn.textContent='▶ Start tour'; }
-    function tourShow(i){ if(i<0||i>=tour.list.length){ tourEnd(); return; } tour.i=i; tourClear();
-      var e=tour.list[i]; e.classList.add('so-assist-hot');
-      if(e.scrollIntoView) e.scrollIntoView({block:'center', behavior: reduced()?'auto':'smooth'});
+    function tourShow(i){ if(i<0||i>=TARGETS.length){ tourEnd(); return; } tour.i=i; tourClear();
+      var t=TARGETS[i]; t.el.classList.add('so-assist-hot');
+      if(t.el.scrollIntoView) t.el.scrollIntoView({block:'center', behavior: reduced()?'auto':'smooth'});
       box.classList.add('hot');
-      box.innerHTML='<div style="margin-bottom:.5rem">'+esc(e.getAttribute('data-assist'))+'</div>'+
+      box.innerHTML=(t.title?'<div class="lbl">'+esc(t.title)+'</div>':'')+'<div style="margin-bottom:.5rem">'+esc(t.msg||'')+'</div>'+
+        (t.more?'<div style="margin-bottom:.5rem;color:var(--muted,#8a8a8a)">'+esc(t.more)+'</div>':'')+
         '<div style="display:flex;gap:.4rem;align-items:center">'+
         '<button class="so-h-btn" id="so-tour-prev"'+(i===0?' disabled':'')+'>←</button>'+
-        '<button class="so-h-btn" id="so-tour-next">'+(i===tour.list.length-1?'done':'→')+'</button>'+
-        '<span class="so-assist-hint">step '+(i+1)+' / '+tour.list.length+'</span></div>';
+        '<button class="so-h-btn" id="so-tour-next">'+(i===TARGETS.length-1?'done':'→')+'</button>'+
+        '<span class="so-assist-hint">step '+(i+1)+' / '+TARGETS.length+'</span></div>';
       var pv=document.getElementById('so-tour-prev'), nx=document.getElementById('so-tour-next');
       if(pv) pv.addEventListener('click',function(){ tourShow(tour.i-1); });
-      if(nx) nx.addEventListener('click',function(){ tour.i===tour.list.length-1 ? tourEnd() : tourShow(tour.i+1); });
+      if(nx) nx.addEventListener('click',function(){ tour.i===TARGETS.length-1 ? tourEnd() : tourShow(tour.i+1); });
     }
-    function tourStart(){ tour.list=Array.prototype.slice.call(document.querySelectorAll('#so-content [data-assist]'));
-      if(!tour.list.length){ if(tourStatus) tourStatus.textContent='no annotated elements on this panel yet — the menu links (← left) each carry a description.'; return; }
+    function tourStart(){ if(!TARGETS.length){ if(tourStatus) tourStatus.textContent='no annotated elements on this panel yet — the menu links (← left) each carry a description.'; return; }
       tour.on=true; openAssist(); if(tourBtn) tourBtn.textContent='✕ End tour'; tourShow(0); }
     if(tourBtn) tourBtn.addEventListener('click',function(){ tour.on ? tourEnd() : tourStart(); });
     window.addEventListener('keydown',function(ev){ if(!tour.on) return;
-      if(ev.key==='ArrowRight'){ ev.preventDefault(); tour.i===tour.list.length-1 ? tourEnd() : tourShow(tour.i+1); }
+      if(ev.key==='ArrowRight'){ ev.preventDefault(); tour.i===TARGETS.length-1 ? tourEnd() : tourShow(tour.i+1); }
       else if(ev.key==='ArrowLeft'){ ev.preventDefault(); tourShow(Math.max(0,tour.i-1)); }
       else if(ev.key==='Escape'){ ev.preventDefault(); tourEnd(); } });
   }
