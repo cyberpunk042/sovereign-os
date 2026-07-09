@@ -711,29 +711,7 @@ a11y; contract test catches drift.
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
-<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
-<script>
-window.SO_ASSIST = [
-  {
-    "sel": "#diff-stream",
-    "title": "Memory-graph diff",
-    "msg": "What the agent's memory added, changed, or removed — across the 8 memory types.",
-    "more": "This is the Memory OS made visible: a diff, not a dump. New facts, corrected facts, and forgotten entries each show here so you can see how the agent's understanding is evolving, and catch a bad admission early."
-  },
-  {
-    "sel": "#lifecycle",
-    "title": "Lifecycle occupancy",
-    "msg": "How many entries sit at each stage of the 11-stage memory lifecycle.",
-    "more": "Entries walk observe → classify → … → archive. A pile-up at 'observe' means the janitor is not keeping up (or is deferring SLM work); healthy memory flows toward verify/promote."
-  },
-  {
-    "sel": "#datasource-banner",
-    "title": "Live vs snapshot",
-    "msg": "Green = the memory-changes daemon is reachable; muted = the baked snapshot.",
-    "more": "Memory is a projection reader here (read-only, 405 on mutations) — you forget/admit via the CLI, and this reflects the result."
-  }
-];
-</script>
+
 
 <h1>D-07 — memory changes</h1>
 <div class="sub">8 memory types · 11-stage admission lifecycle · graph diff · promote/forget/pin (signed) — <span class="kbd">Cmd-8</span> · <a href="../master-dashboard/">D-00 main</a></div>
@@ -1550,5 +1528,167 @@ window.SO_ASSIST = [
 </script>
 <script>SovereignControlSurface.load(document.getElementById('control-surface'),{filterSlug:'d-07-memory-changes'});</script>
 
+
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#datasource-banner",
+    "title": "Live vs snapshot",
+    "msg": "Green = the memory-changes daemon (/api/d-07/snapshot) is reachable; muted = the baked snapshot.",
+    "more": "Memory is a projection reader here (read-only, 405 on mutations) — you forget/admit via the CLI and this reflects the result. Muted means you're seeing the last committed memory state, not live."
+  },
+  {
+    "sel": "#ds-state-label",
+    "title": "Data-source state",
+    "msg": "Which source the page reads — live memory daemon or snapshot.",
+    "more": "live / snapshot / unknown for the memory daemon. 'unknown' means the health probe itself failed, which is distinct from a clean snapshot fallback you can still trust as last-known."
+  },
+  {
+    "sel": "#ds-state-detail",
+    "title": "Reachability detail",
+    "msg": "The reason behind the state — reachable, timeout, or endpoint absent.",
+    "more": "Turns 'snapshot' into a diagnosis of whether the memory daemon is down, timing out under load, or simply not started — so you know whether to wait, retry, or start the service."
+  },
+  {
+    "sel": "#ds-last-update",
+    "title": "Fetch freshness",
+    "msg": "When the shown memory snapshot was pulled.",
+    "more": "Memory evolves as the agent runs — check this before assuming a fact is/ isn't present; it may be newer than the last fetch."
+  },
+  {
+    "sel": "#t-working",
+    "title": "Working memory",
+    "msg": "KV-bounded working-set items — the agent's short-term scratch (M028 E0260).",
+    "more": "One of the 8 memory types. Working memory is transient and capacity-bounded; a pile-up here means the agent isn't consolidating into longer-term types fast enough."
+  },
+  {
+    "sel": "#t-episodic",
+    "title": "Episodic memory",
+    "msg": "Recorded episodes — what happened, as events.",
+    "more": "The narrative memory: sequences of experience the agent can replay. Distinct from semantic facts — episodic is 'this occurred', semantic is 'this is true'."
+  },
+  {
+    "sel": "#t-semantic",
+    "title": "Semantic memory",
+    "msg": "Facts — distilled, context-free knowledge.",
+    "more": "The agent's knowledge base: durable facts extracted from episodes. This is what a query resolves against; a bad fact here is what the forget/admit flow exists to correct."
+  },
+  {
+    "sel": "#t-procedural",
+    "title": "Procedural memory",
+    "msg": "Skills — learned how-to procedures.",
+    "more": "The 'how' memory: reusable procedures the agent has acquired. Growth here is capability accreting over time, distinct from facts."
+  },
+  {
+    "sel": "#t-temporal",
+    "title": "Temporal-graph memory",
+    "msg": "Nodes and edges in the time-aware knowledge graph.",
+    "more": "The memory that knows WHEN and in what order — the substrate SDD-101 extends with contradicts-edges and verified_at. It's how the agent reasons about change, not just current state."
+  },
+  {
+    "sel": "#t-value",
+    "title": "Value memory",
+    "msg": "Value-tagged items — what the agent has judged important.",
+    "more": "The salience layer: entries marked by worth, so eviction keeps high-value memory and drops noise. It's the input to the janitor's promote/forget decisions."
+  },
+  {
+    "sel": "#t-kv",
+    "title": "KV memory",
+    "msg": "Cache entries — the key/value fast store.",
+    "more": "The lookup cache — cheap exact-recall entries. Distinct from semantic facts: KV is addressable storage, semantic is reasoned knowledge."
+  },
+  {
+    "sel": "#t-reward",
+    "title": "Reward memory",
+    "msg": "Experience base — reward-tagged outcomes.",
+    "more": "The reinforcement layer: outcomes tagged with reward so the agent can learn what worked. Feeds behaviour tuning distinct from factual recall."
+  },
+  {
+    "sel": "#lifecycle",
+    "title": "11-stage admission lifecycle",
+    "msg": "Occupancy across the 11 stages an entry walks from observe to archive (M028 E0264).",
+    "more": "Every memory entry flows observe → classify → … → verify → promote → archive. A pile-up at an early stage means the janitor (or its SLM step) isn't keeping up; healthy memory flows toward verify/promote."
+  },
+  {
+    "sel": "#trust-filters",
+    "title": "7 trust-dimension filters",
+    "msg": "Filter the memory diff by the 7 trust dimensions (M060 R10095 + MS039).",
+    "more": "Memory isn't flat — each entry carries trust across seven dimensions (source, corroboration, recency, failure-relevance …). These filters let you inspect only, say, low-corroboration or failure-relevant memory."
+  },
+  {
+    "sel": "#profile-shape",
+    "title": "Profile shape",
+    "msg": "The trust-profile shape applied to the current view (e.g. private).",
+    "more": "Names the trust posture the diff is being read through — a stricter profile surfaces only high-trust memory, a permissive one shows everything. It's how the same store looks different to different consumers."
+  },
+  {
+    "sel": "#diff-scope",
+    "title": "Diff scope",
+    "msg": "Which memory types the current diff covers (e.g. all-types).",
+    "more": "Narrows the change view to specific memory types so you can watch, say, only semantic-fact churn without episodic noise."
+  },
+  {
+    "sel": "#diff-base",
+    "title": "Diff base version",
+    "msg": "The memory snapshot version the diff compares FROM.",
+    "more": "Memory is versioned (memos.vNNNN). Base is the 'before' — pair with head to define exactly which window of change you're inspecting."
+  },
+  {
+    "sel": "#diff-head",
+    "title": "Diff head version",
+    "msg": "The memory snapshot version the diff compares TO.",
+    "more": "The 'after' version. base→head is the change window; moving head forward shows more recent admissions and forgets."
+  },
+  {
+    "sel": "#diff-stream",
+    "title": "Memory-graph diff",
+    "msg": "What memory added, changed, or removed across the 8 types in the window.",
+    "more": "The Memory OS made visible — a diff, not a dump. New facts, corrected facts, forgotten entries each show here so you can watch understanding evolve and catch a bad admission early."
+  },
+  {
+    "sel": "#pending-changes",
+    "title": "Pending approval",
+    "msg": "Memory changes awaiting operator approval, with trust delta and requester.",
+    "more": "High-trust-impact memory edits don't apply silently — they queue here for a human. The trust delta shows how much a change would shift the entry's standing; you approve via the signed CLI, not this view."
+  },
+  {
+    "sel": "#memory-entries",
+    "title": "Addressable mem-<id> store",
+    "msg": "The M028 memory entries by id — state, summary, updated (SDD-060).",
+    "more": "The forget-target list: each mem-<id> is an addressable entry you can select to forget. This is the concrete store behind the type counts — where a specific bad fact is located and removed (via CLI)."
+  },
+  {
+    "sel": "#nav-q",
+    "title": "Memory query (RLM navigator)",
+    "msg": "Ask the memory store in natural language — the RLM navigator (M00472, SDD-068).",
+    "more": "A read-only query that selects memory slices and composes an answer via the local LM, with honest-defer when the LM is unreachable. It reads memory; it never mutates it (/api/d-07/navigate)."
+  },
+  {
+    "sel": "#nav-verb",
+    "title": "Temporal query verb",
+    "msg": "The M00469 temporal query verb the navigator uses.",
+    "more": "Selects HOW the navigator queries time — e.g. as-of a version, or across a window. It's what lets memory answer 'what did you believe then' vs 'what do you believe now', built on the temporal graph."
+  },
+  {
+    "sel": "#nav-result",
+    "title": "Navigator result",
+    "msg": "The navigator's composed, read-only answer.",
+    "more": "Where the RLM navigator's response lands. If the local LM is unreachable it honestly defers rather than fabricating — the answer is grounded in retrieved slices, not invented."
+  },
+  {
+    "sel": "#toast",
+    "title": "Copy confirmation",
+    "msg": "Confirms a CLI verb was copied to the clipboard.",
+    "more": "Because the web never mutates memory (MS043 R10212), every action copies its signed command — this toast is the acknowledgement that the verb is on your clipboard to run via osctl."
+  },
+  {
+    "sel": "#control-surface",
+    "title": "Controls — profiles, modes & toggles",
+    "msg": "The per-panel control rail for memory behaviour.",
+    "more": "Every control copies its exact sovereign-osctl verb (§1g / R10212 / MS043) — the web emits CLI only; the daemon executes after MS003 signature."
+  }
+];
+</script>
 </body>
 </html>

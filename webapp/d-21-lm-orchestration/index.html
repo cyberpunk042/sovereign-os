@@ -377,29 +377,7 @@
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
-<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
-<script>
-window.SO_ASSIST = [
-  {
-    "sel": "#grid",
-    "title": "Model → hardware grid",
-    "msg": "Which model runs on which device — the assignment that makes the three SRP roles physical.",
-    "more": "Per M075: Logic=GPU0, Oracle=GPU1, Conductor=CPU0. This grid is the profile's resolved allocation; a model on the wrong device (or unassigned) is usually a profile that didn't resolve against the current hardware."
-  },
-  {
-    "sel": "#apply-btn",
-    "title": "Apply profile",
-    "msg": "Stages the profile change — it copies the signed CLI verb, it does not mutate from the web.",
-    "more": "R10212: the cockpit shows and stages, the actual apply runs through the gated osctl path. That separation is why a dashboard can be trusted on a sovereign node — nothing here changes host state directly."
-  },
-  {
-    "sel": "#features-gpu",
-    "title": "GPU capability",
-    "msg": "The GPU feature panel feeding the assignment decisions.",
-    "more": "Read next to Features-CPU (AVX-512): together they say what this hardware can actually run, which bounds what a profile is allowed to assign."
-  }
-];
-</script>
+
 <header>
   <h1>D-21 · Language Model Orchestration
     <span class="sub">profiles · model→hardware assignment grid · capabilities (M075 SRP · M076 profiles)</span></h1>
@@ -948,6 +926,66 @@ window.SO_ASSIST = [
     SovereignControlSurface.load(el, {filterSlug:'d-21-lm-orchestration'});
   }
 })();
+</script>
+
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#data-source-banner",
+    "title": "Live vs snapshot",
+    "msg": "Whether the orchestration grid is live (/api/lm-orchestration/grid) or a snapshot.",
+    "more": "The model→hardware assignment must be live to be trusted — a snapshot could show an assignment that's since changed. Muted means the daemon is unreachable and you're reading last-known."
+  },
+  {
+    "sel": "#profiles-note",
+    "title": "Profiles note",
+    "msg": "What the LM orchestration profiles do.",
+    "more": "Explains the M076 profiles — each is a whole model→hardware allocation strategy. Picking one reshapes which model runs on which device; the note sets the context for the profile picker."
+  },
+  {
+    "sel": "#profiles",
+    "title": "LM profiles",
+    "msg": "The selectable orchestration profiles (M076).",
+    "more": "Each profile is a coherent assignment of models to hardware (GPU0/GPU1/CPU0 = Logic/Oracle/Conductor per M075). Select one to see its grid; Apply copies the signed verb-chain — the web never mutates the assignment."
+  },
+  {
+    "sel": "#apply-btn",
+    "title": "Apply profile",
+    "msg": "Copies the signed apply verb-chain for the selected profile.",
+    "more": "R10212: the cockpit stages, the gated osctl path executes. Applying an orchestration profile re-assigns models across devices — a signed operation, handed to you as a command rather than run from the browser."
+  },
+  {
+    "sel": "#grid",
+    "title": "Model → hardware grid",
+    "msg": "The model-to-hardware assignment grid (M075 SRP roles).",
+    "more": "The heart of the panel: which model sits on GPU0 (Logic), GPU1 (Oracle), CPU0 (Conductor) for the selected profile. This is the resolved allocation — what the runtime will actually do if you apply it."
+  },
+  {
+    "sel": "#features-cpu",
+    "title": "Features CPU (AVX-512)",
+    "msg": "The CPU's AVX-512 capabilities relevant to model placement.",
+    "more": "Which AVX-512 features the CPU exposes — the constraint on what the Conductor (CPU/Pulse) tier can accelerate. A profile that assigns ternary work to CPU depends on these being present."
+  },
+  {
+    "sel": "#features-gpu",
+    "title": "Features GPUs",
+    "msg": "The GPUs' capabilities relevant to model placement.",
+    "more": "What each GPU can do (VRAM, precision support) — the constraint on which models fit the Logic/Oracle slots. A profile can't assign a model a GPU can't hold; this is where you confirm the fit."
+  },
+  {
+    "sel": "#last-fetch",
+    "title": "Last fetch",
+    "msg": "When the orchestration grid was last read.",
+    "more": "Freshness of the assignment view — check before trusting the grid reflects the current runtime, especially after applying a profile."
+  },
+  {
+    "sel": "#control-surface",
+    "title": "Controls — features & profiles",
+    "msg": "The per-panel control rail — features and orchestration profiles.",
+    "more": "Every control copies its exact sovereign-osctl verb (§1g / R10212), never executing from the web — the orchestration profile is applied via the signed verb-chain."
+  }
+];
 </script>
 </body>
 </html>

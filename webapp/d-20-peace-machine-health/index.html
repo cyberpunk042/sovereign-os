@@ -709,29 +709,7 @@ a11y; contract test catches drift.
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
-<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
-<script>
-window.SO_ASSIST = [
-  {
-    "sel": "#p1-status",
-    "title": "Peace property #1",
-    "msg": "The verdict on the first of the M059 peace-machine's five properties.",
-    "more": "'Peace' is the top-level 'is the system at rest and trustworthy' signal — five properties that must all hold. A single red property drops the whole verdict; this is the one number an operator can glance at to know the box is OK."
-  },
-  {
-    "sel": "#exit-code",
-    "title": "Verdict exit code",
-    "msg": "The overall pass/fail of the five-property check.",
-    "more": "Zero = at peace. Non-zero names which property failed — the entry point to the specific panel (approvals, integrity, pressure…) that explains why."
-  },
-  {
-    "sel": "#last-run",
-    "title": "Last evaluated",
-    "msg": "When the peace verdict was last computed.",
-    "more": "A stale verdict is not a current 'all good' — check freshness before trusting the green. Peace is a snapshot, not a promise."
-  }
-];
-</script>
+
 
 <h1>D-20 — peace machine health</h1>
 <div class="sub">5 closing-manifesto properties live · M059 R09961-R09965 · <code>sovereign-os-peace-check</code> validator (R09980 / R09981 exit-0 iff all 5 pass) — <a href="../master-dashboard/">D-00 main</a></div>
@@ -1347,5 +1325,131 @@ window.SO_ASSIST = [
 </script>
 <script>SovereignControlSurface.load(document.getElementById('control-surface'),{filterSlug:'d-20-peace-machine-health'});</script>
 
+
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#datasource-banner",
+    "title": "Live vs snapshot",
+    "msg": "Green = /api/d-20/snapshot is answering live; muted = the baked snapshot.",
+    "more": "The peace verdict is only a current 'all good' if it's live. Muted means you're reading the last computed verdict — check freshness before trusting the green, since peace is a snapshot, not a promise."
+  },
+  {
+    "sel": "#ds-state-label",
+    "title": "Data-source state",
+    "msg": "Which source the page reads — live peace daemon or snapshot.",
+    "more": "live / snapshot / unknown. 'unknown' means the health probe itself failed, distinct from a clean snapshot fallback."
+  },
+  {
+    "sel": "#ds-state-detail",
+    "title": "Reachability detail",
+    "msg": "The reason behind the state — reachable, timeout, or endpoint absent.",
+    "more": "Turns 'snapshot' into a diagnosis of whether the peace validator is down, slow, or not started."
+  },
+  {
+    "sel": "#ds-last-update",
+    "title": "Fetch freshness",
+    "msg": "When the shown verdict was pulled.",
+    "more": "A stale verdict isn't a current all-clear — peace can change between runs. This is the freshness window on the green."
+  },
+  {
+    "sel": "#verdict",
+    "title": "Overall verdict",
+    "msg": "The top-level 'is the box at peace' signal — all 5 properties must hold.",
+    "more": "'Peace' is the single glance an operator needs: is the system at rest and trustworthy. A single red property drops the whole verdict — this is the aggregate, the five properties below are why."
+  },
+  {
+    "sel": "#p1-status",
+    "title": "Property 1 — Powerful",
+    "msg": "'Powerful enough to act' — is the compute there? (R09967).",
+    "more": "Backed by the Blackwell oracle + 4090 scout + AVX cortex (cross-ref M058). Peace requires capability, not just safety — a box that can't act isn't at peace, it's stuck. HEALTHY means the compute to do real work is present."
+  },
+  {
+    "sel": "#p1-checks",
+    "title": "Powerful — checks",
+    "msg": "The concrete checks behind the Powerful property.",
+    "more": "The evidence: the Blackwell/4090/AVX compute tiers are present and healthy (R09967). This is where a Powerful=unhealthy verdict points you — which compute leg is missing."
+  },
+  {
+    "sel": "#p2-status",
+    "title": "Property 2 — Disciplined",
+    "msg": "'Disciplined enough to explain itself' — is it observable? (R09968).",
+    "more": "Backed by M049 observability + selfdef MS033 policy trace. Peace requires that the box can account for what it did — an unobservable system can't be trusted even if it's behaving. HEALTHY means the audit/trace surfaces are live."
+  },
+  {
+    "sel": "#p2-checks",
+    "title": "Disciplined — checks",
+    "msg": "The concrete checks behind the Disciplined property.",
+    "more": "The evidence: observability (M049) and policy tracing (MS033) are functioning (R09968) — the box can explain every decision. Where a Disciplined failure localizes."
+  },
+  {
+    "sel": "#p3-status",
+    "title": "Property 3 — Reversible",
+    "msg": "'Reversible enough to trust' — can changes be undone? (R09969).",
+    "more": "Backed by M047 CRIU + ZFS snapshots + signed rollback. Peace requires an undo — you trust a system you can roll back. HEALTHY means the recovery points (D-08) and rollback path are intact."
+  },
+  {
+    "sel": "#p3-checks",
+    "title": "Reversible — checks",
+    "msg": "The concrete checks behind the Reversible property.",
+    "more": "The evidence: CRIU checkpoints, ZFS snapshots, and signed rollback are available (R09969) — every change has a proven undo. Where a Reversible failure points."
+  },
+  {
+    "sel": "#p4-status",
+    "title": "Property 4 — Flexible",
+    "msg": "'Flexible enough to evolve' — can it adapt? (R09970).",
+    "more": "Backed by M046 runtime adaptation + LoRA Foundry. Peace isn't stasis — a box that can't evolve decays. HEALTHY means the adaptation machinery (adapters, runtime tuning) is working."
+  },
+  {
+    "sel": "#p4-checks",
+    "title": "Flexible — checks",
+    "msg": "The concrete checks behind the Flexible property.",
+    "more": "The evidence: runtime adaptation and the LoRA Foundry (M046) are functioning (R09970) — the box can improve itself. Where a Flexible failure localizes."
+  },
+  {
+    "sel": "#p5-status",
+    "title": "Property 5 — Sovereign",
+    "msg": "'Intelligence remains in the user's hands' — operator control (R09965).",
+    "more": "The operator signs every L5+ commit; operator-controlled + selfdef MS003. The keystone property: no matter how capable, the box never acts beyond the operator's authority. HEALTHY means sovereignty holds — the human still decides."
+  },
+  {
+    "sel": "#p5-checks",
+    "title": "Sovereign — checks",
+    "msg": "The concrete checks behind the Sovereign property.",
+    "more": "The evidence: signing of every high-authority commit is enforced (R09965 + MS003) — intelligence stays in the user's hands. The property that makes the other four safe."
+  },
+  {
+    "sel": "#last-run",
+    "title": "Last validator run",
+    "msg": "When the peace validator last ran (/usr/bin/sovereign-os-peace-check --json).",
+    "more": "The verdict is computed by a real validator, not asserted. This is when it last ran — a stale timestamp means the green may not reflect the box's current state."
+  },
+  {
+    "sel": "#exit-code",
+    "title": "Verdict exit code",
+    "msg": "The validator's overall pass/fail exit code.",
+    "more": "Zero = at peace. Non-zero names which property failed — the machine-readable verdict behind the banner, and the entry point to the specific property that dropped."
+  },
+  {
+    "sel": "#validator-output",
+    "title": "Validator output",
+    "msg": "The raw JSON output of the peace-check run.",
+    "more": "The full evidence the verdict was derived from — every property's checks and values. Where you go when a property is red and you need the exact failing detail."
+  },
+  {
+    "sel": "#toast",
+    "title": "Copy confirmation",
+    "msg": "Confirms a CLI verb was copied (e.g. 1h journal).",
+    "more": "Actions copy their signed verb for operator execution — validator integration spans M048..M058 (R09980-R09982). This toast confirms the command is on your clipboard."
+  },
+  {
+    "sel": "#control-surface",
+    "title": "Controls — profiles, modes & toggles",
+    "msg": "The per-panel control rail for the peace machine.",
+    "more": "Every control copies its exact sovereign-osctl verb (§1g / R10212), never executing from the web — the validator runs via the signed CLI path."
+  }
+];
+</script>
 </body>
 </html>

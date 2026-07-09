@@ -713,23 +713,7 @@ a11y; contract test catches drift.
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
-<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
-<script>
-window.SO_ASSIST = [
-  {
-    "sel": "#alloc-tbody",
-    "title": "Active sandboxes",
-    "msg": "Running sandboxes and their isolation state — where untrusted work is confined.",
-    "more": "Sandboxes are the containment half of the trinity (Weaver). Each row is an isolated execution context; its state tells you whether confinement is intact. Read-only mirror of selfdef."
-  },
-  {
-    "sel": "#mirror-status-banner",
-    "title": "Mirror status",
-    "msg": "Online/offline of the selfdef sandbox mirror.",
-    "more": "Offline here doesn't mean sandboxes stopped — it means the mirror publisher is down and this view is not live. The isolation itself is enforced kernel-side regardless."
-  }
-];
-</script>
+
 
 <h1>D-15 — sandboxes <span class="badge-mirror" style="font-size:.7rem">read-only via selfdef-sandbox-mirror</span></h1>
 <div class="sub">MS036 4-tier classification · MS032 1-9 isolation primitives · CRIU checkpoint + ZFS clone + Firecracker microVM — <a href="../master-dashboard/">D-00 main</a></div>
@@ -1411,5 +1395,143 @@ window.SO_ASSIST = [
 </script>
 <script>SovereignControlSurface.load(document.getElementById('control-surface'),{filterSlug:'d-15-sandboxes'});</script>
 
+
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#mirror-status-banner",
+    "title": "Mirror status",
+    "msg": "Whether the selfdef sandbox-isolation mirror is publishing (online) or absent (offline).",
+    "more": "This panel is a READ-ONLY reflection of selfdef's sandbox-isolation (MS007 typed-mirror crate #4 of 9). Offline means the mirror isn't publishing — selfdef is still enforcing sandbox-isolation on the IPS side, you just can't see it here until the bridge returns."
+  },
+  {
+    "sel": "#mirror-state-label",
+    "title": "Mirror state",
+    "msg": "The one-word verdict — online / offline.",
+    "more": "The quick read on whether this sandbox-isolation view is live. sovereign-os never mutates it — allocate/checkpoint/release (R10119) happens selfdef-side via signed CLI, so this is purely an observability signal."
+  },
+  {
+    "sel": "#mirror-state-detail",
+    "title": "Mirror detail",
+    "msg": "The reason behind the mirror state.",
+    "more": "Explains an offline mirror — the producer is down or unreachable, distinct from the underlying data having a problem. Turns 'offline' into something actionable."
+  },
+  {
+    "sel": "#mirror-last-update",
+    "title": "Mirror last update",
+    "msg": "When the producer's snapshot was captured (ISO captured_at).",
+    "more": "Freshness of the reflected data. A stale timestamp means selfdef hasn't published a new sandbox-isolation snapshot recently — the values are last-known, not live; allocate/checkpoint/release (R10119) via selfdefctl updates the source."
+  },
+  {
+    "sel": "#mirror-schema-version",
+    "title": "Mirror schema version",
+    "msg": "The schema version of the mirrored snapshot.",
+    "more": "Stamps the contract shape so the fields are interpreted against a known version — the thing to cite if the mirror's shape ever disagrees with the panel."
+  },
+  {
+    "sel": "#A-running",
+    "title": "Tier A — read-only",
+    "msg": "Running Tier-A sandboxes — parsers, formatters, read-only queries (MS036).",
+    "more": "The lowest-isolation tier (graduated isolation): safe, read-only work like parsing and formatting. Cheap and permissive because it can't do damage — the default for trusted, side-effect-free tasks."
+  },
+  {
+    "sel": "#B-running",
+    "title": "Tier B — builds/edits",
+    "msg": "Running Tier-B sandboxes — tests, builds, package managers, file edits.",
+    "more": "The middle tier for work that writes: builds, tests, edits. More isolation than A because it can change state, but still routine trusted work."
+  },
+  {
+    "sel": "#C-running",
+    "title": "Tier C — installs/browser",
+    "msg": "Running Tier-C sandboxes — installs, unknown scripts, browser actions.",
+    "more": "Higher isolation for less-trusted actions: installing packages, running unknown scripts, browsing. Where the confinement starts to really matter — the work most likely to misbehave."
+  },
+  {
+    "sel": "#D-running",
+    "title": "Tier D — hostile",
+    "msg": "Running Tier-D sandboxes — untrusted binaries, unknown archives, hostile inputs.",
+    "more": "The maximum-isolation tier for genuinely dangerous work: untrusted binaries, hostile inputs. This is Weaver's tightest containment — anything here is assumed adversarial and boxed accordingly."
+  },
+  {
+    "sel": "#A-breakdown",
+    "title": "Tier A breakdown",
+    "msg": "Tier-A running / pending / checkpointed counts.",
+    "more": "The state split for Tier A — how many are live, queued, or CRIU-paused. The detail behind the tier's running count."
+  },
+  {
+    "sel": "#B-breakdown",
+    "title": "Tier B breakdown",
+    "msg": "Tier-B running / pending / checkpointed counts.",
+    "more": "The state split for Tier B — how many build/edit sandboxes are live, queued, or CRIU-checkpointed right now. The detail behind the tier's running count."
+  },
+  {
+    "sel": "#C-breakdown",
+    "title": "Tier C breakdown",
+    "msg": "Tier-C running / pending / checkpointed counts.",
+    "more": "The state split for Tier C — where install/script work sits across the lifecycle."
+  },
+  {
+    "sel": "#D-breakdown",
+    "title": "Tier D breakdown",
+    "msg": "Tier-D running / pending / checkpointed counts.",
+    "more": "The state split for Tier D — how many hostile-work sandboxes are live, queued, or CRIU-checkpointed. The containment status of the most dangerous tier."
+  },
+  {
+    "sel": "#r-mem",
+    "title": "Total resident memory",
+    "msg": "Total RAM across active sandboxes (MiB).",
+    "more": "The memory footprint of all confined work combined — what sandboxing costs on the host right now. Pairs with D-09's memory pressure."
+  },
+  {
+    "sel": "#r-cpu",
+    "title": "Aggregate CPU",
+    "msg": "Total CPU across active sandboxes (%).",
+    "more": "How much compute confined work is consuming in aggregate. High here with low host util elsewhere means the sandboxes are the load."
+  },
+  {
+    "sel": "#r-running",
+    "title": "Running allocations",
+    "msg": "How many sandbox allocations are live.",
+    "more": "The count of active confined contexts across all tiers — the size of the current sandbox population."
+  },
+  {
+    "sel": "#r-cp",
+    "title": "Checkpointed",
+    "msg": "Sandboxes paused via CRIU checkpoint.",
+    "more": "CRIU freezes a sandbox's full state to disk so it can resume later — paused, not gone. Checkpointing is how long-running or idle sandboxes are parked without losing their state."
+  },
+  {
+    "sel": "#r-quar",
+    "title": "Quarantined",
+    "msg": "Sandboxes quarantined on MS042 mismatch.",
+    "more": "Sandboxes pulled because behaviour diverged from declaration (MS042). A quarantined sandbox is suspected — see D-17 for the mismatch that triggered it."
+  },
+  {
+    "sel": "#tier-filters",
+    "title": "Tier filters",
+    "msg": "Filter allocations by tier (A..D).",
+    "more": "Narrows the allocation table to one isolation tier — the way to audit, say, only Tier D where the hostile work runs."
+  },
+  {
+    "sel": "#alloc-tbody",
+    "title": "Active allocations",
+    "msg": "Each sandbox allocation with CPU, TTL, and actions.",
+    "more": "The live sandbox ledger — resource use and time-to-live per allocation. Actions (allocate/checkpoint/release) copy signed selfdefctl verbs; the web only reflects (R10119)."
+  },
+  {
+    "sel": "#toast",
+    "title": "Copy confirmation",
+    "msg": "Confirms a CLI verb was copied — web is a read-only mirror consumer.",
+    "more": "Any action copies its signed selfdefctl verb for operator MS003 execution (R10119). This toast confirms the command is on your clipboard; no sandbox was allocated or released here."
+  },
+  {
+    "sel": "#control-surface",
+    "title": "Controls — profiles, modes & toggles",
+    "msg": "The per-panel control rail for the sandbox mirror.",
+    "more": "Every control copies its exact selfdefctl verb (§1g / R10212) — sandboxes are allocated/checkpointed/released on the IPS side, never from this web view."
+  }
+];
+</script>
 </body>
 </html>

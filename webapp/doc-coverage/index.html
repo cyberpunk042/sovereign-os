@@ -695,23 +695,7 @@ a11y; contract test catches drift.
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
-<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
-<script>
-window.SO_ASSIST = [
-  {
-    "sel": "#gaps-tbody",
-    "title": "Documentation gaps",
-    "msg": "Modules that shipped without the documentation they owe.",
-    "more": "Coverage is per-module and per-kind (README / man-page / SDD / mandate-row / metric-inventory). A gap here is a module you can run but cannot fully understand — the debt this panel exists to surface."
-  },
-  {
-    "sel": "#kind-sdd",
-    "title": "SDD coverage",
-    "msg": "How many modules have their SDD spec present.",
-    "more": "SDDs are the spec-driven record of why a thing was built. Missing SDD coverage means decisions live only in commits — the exact drift the doc-audit catches."
-  }
-];
-</script>
+
 <h1>sovereign-os doc-coverage</h1>
 <p class="sub">
   Operator-§1g doc-coverage — 6-doc-surface scan across operator-facing modules + R471 cross-repo selfdef discovery (R454 scanner).
@@ -1361,6 +1345,126 @@ async function refreshAll() {
 document.getElementById("refresh-btn").addEventListener("click", refreshAll);
 refreshAll();
 setInterval(refreshAll, 60000);
+</script>
+
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#stats",
+    "title": "Doc-coverage summary",
+    "msg": "The documentation audit roll-up — modules, doc surfaces, gaps, selfdef manifests.",
+    "more": "The source is the truth; this daemon scans the tree, it does not author. It checks each module against the 6 doc surfaces it owes and reports what's missing — a module you can run but can't fully understand is the debt this surfaces."
+  },
+  {
+    "sel": "#stat-version",
+    "title": "API version",
+    "msg": "The doc-coverage API version.",
+    "more": "Stamps the audit build so the coverage numbers tie to a known version of the doc contract."
+  },
+  {
+    "sel": "#stat-modules",
+    "title": "Tracked modules",
+    "msg": "How many modules the doc audit covers.",
+    "more": "The population graded for documentation — every module expected to carry its doc surfaces. The denominator of coverage."
+  },
+  {
+    "sel": "#stat-kinds",
+    "title": "Doc surfaces",
+    "msg": "The count of operator-named doc surfaces (the 6-kind ladder).",
+    "more": "readme / sdd / helptext / metric-inventory / mandate-row / man-page — the six ways a module documents itself. The R454 ladder below names each."
+  },
+  {
+    "sel": "#stat-gaps",
+    "title": "Modules below threshold",
+    "msg": "Modules under their doc-surface threshold (default 3).",
+    "more": "The worklist — modules missing enough doc surfaces to fall short. Each is capability that shipped without the understanding it owes; the gaps table lists them."
+  },
+  {
+    "sel": "#stat-selfdef",
+    "title": "selfdef manifests",
+    "msg": "Cross-repo selfdef DocManifests discovered (R471).",
+    "more": "The security repo audited by the same doc contract, read-only from its published manifests. The cross-repo half of doc coverage."
+  },
+  {
+    "sel": "#last-refresh",
+    "title": "Last refresh",
+    "msg": "When the doc audit last scanned the tree.",
+    "more": "Freshness of the coverage numbers — the audit reads the tree, so a stale scan can lag a just-added doc or a just-created gap."
+  },
+  {
+    "sel": "#kinds-row",
+    "title": "6 doc surfaces",
+    "msg": "The R454 ladder — the 6 operator-named documentation surfaces.",
+    "more": "Each tile shows how many modules deliver that doc kind. A surface with few modules is a systemic doc gap — e.g. lots of code but few metric-inventories."
+  },
+  {
+    "sel": "#kind-readme",
+    "title": "readme",
+    "msg": "How many modules carry a README.",
+    "more": "The front-door doc every module owes — what it is and how to use it. Missing README is the most basic doc gap."
+  },
+  {
+    "sel": "#kind-sdd",
+    "title": "sdd",
+    "msg": "How many modules have their SDD spec.",
+    "more": "SDDs are the spec-driven record of WHY a thing was built. Missing SDD coverage means decisions live only in commits — the drift this audit catches."
+  },
+  {
+    "sel": "#kind-helptext",
+    "title": "helptext",
+    "msg": "How many modules provide CLI helptext.",
+    "more": "The in-tool doc — what an operator sees at the command line. Missing helptext makes a capability hard to use even when it's reachable."
+  },
+  {
+    "sel": "#kind-metric-inventory",
+    "title": "metric-inventory",
+    "msg": "How many modules document their metrics.",
+    "more": "The catalogue of what a module emits — needed so dashboards and alerts can consume it. A metric with no inventory entry is data no one knows exists."
+  },
+  {
+    "sel": "#kind-mandate-row",
+    "title": "mandate-row",
+    "msg": "How many modules have their operator-mandate row.",
+    "more": "The mandate row ties a module to its operator commitment. Missing it means the module ships outside the mandate's accountability — undocumented in the contract sense."
+  },
+  {
+    "sel": "#kind-man-page",
+    "title": "man-page",
+    "msg": "How many modules provide a man page.",
+    "more": "The formal reference doc. Not every module warrants one (a common structural-ceiling exclusion), so a low count here is often expected rather than a gap."
+  },
+  {
+    "sel": "#matrix-tbody",
+    "title": "Doc-coverage matrix",
+    "msg": "Per-module doc coverage across the 6 surfaces, largest gap first.",
+    "more": "The core audit grid: each module's doc-surface row, worst gaps at the top. Where you see exactly which doc kind a module is missing — the actionable heart of the panel."
+  },
+  {
+    "sel": "#gaps-tbody",
+    "title": "Below-threshold modules",
+    "msg": "Modules under the doc threshold — docs present, shortfall, missing kinds.",
+    "more": "The prioritized doc worklist — how far short each module is and which surfaces it lacks. Closing these is what 'documented, not just shipped' means."
+  },
+  {
+    "sel": "#selfdef-tbody",
+    "title": "selfdef DocManifests (R471)",
+    "msg": "Cross-repo selfdef doc manifests and status.",
+    "more": "selfdef audited by the same doc contract, read-only from its manifests. Proves the doc discipline crosses the repo boundary."
+  },
+  {
+    "sel": "#refresh-btn",
+    "title": "Refresh all",
+    "msg": "Re-scan the tree for doc coverage.",
+    "more": "Re-reads the tree to refresh every coverage number. Read-only — it audits, it changes nothing."
+  },
+  {
+    "sel": "#control-surface",
+    "title": "Controls — profiles, modes & toggles",
+    "msg": "The per-panel control rail for the doc audit.",
+    "more": "Every control copies its exact sovereign-osctl verb (§1g / R10212), never executing from the web."
+  }
+];
 </script>
 </body>
 </html>

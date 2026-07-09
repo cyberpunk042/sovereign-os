@@ -709,29 +709,7 @@ a11y; contract test catches drift.
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
-<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
-<script>
-window.SO_ASSIST = [
-  {
-    "sel": "#active-profile",
-    "title": "Active OS profile",
-    "msg": "The profile currently in effect on this host, mirrored read-only.",
-    "more": "A profile is the whole shape of the box — hardware, kernel, packages, hooks. This panel shows what IS, not what you can change; you switch profiles from the OS/build side, and this reflects the result."
-  },
-  {
-    "sel": "#gates-body",
-    "title": "Profile gates",
-    "msg": "The conditions the active profile must satisfy to be considered in effect.",
-    "more": "Gates are why a profile is 'active' vs 'requested' — if a gate is unmet (a package missing, a hook not installed) the profile is not truly applied, and this is where that shows."
-  },
-  {
-    "sel": "#history-tbody",
-    "title": "Profile history",
-    "msg": "Past profile transitions on this host.",
-    "more": "The trail of what this box has been — useful when a behaviour changed and you need to know which profile switch caused it."
-  }
-];
-</script>
+
 
 <h1>D-02 — profile choices</h1>
 <div class="sub">six-profile authority selector + L0..L6 envelope + Ring 0..4 highlights — <span class="kbd">Cmd-3</span> · catalog <a href="../master-dashboard/">D-00 main</a></div>
@@ -1472,5 +1450,125 @@ refresh();
 </script>
 <script>SovereignControlSurface.load(document.getElementById('control-surface'),{filterSlug:'d-02-profile-choices'});</script>
 
+
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#mirror-status-banner",
+    "title": "Mirror status",
+    "msg": "Whether the profile mirror is publishing (online) or absent (offline).",
+    "more": "A read-only reflection of the active OS profile (default = MS040 R09535 Private). Offline means the mirror isn't publishing — the profile is still in force selfdef-side, you just can't see it here until the bridge returns."
+  },
+  {
+    "sel": "#mirror-state-label",
+    "title": "Mirror state",
+    "msg": "The one-word verdict — online / offline.",
+    "more": "The quick read on whether this profile view is live. Profiles are switched via signed CLI, never from here — this is observability only."
+  },
+  {
+    "sel": "#mirror-state-detail",
+    "title": "Mirror detail",
+    "msg": "The reason behind the mirror state.",
+    "more": "Explains an offline mirror — the producer is down or unreachable, distinct from the profile itself having a problem."
+  },
+  {
+    "sel": "#mirror-last-update",
+    "title": "Mirror last update",
+    "msg": "When the profile snapshot was captured (selfdefd runs).",
+    "more": "Freshness of the reflected profile state — a stale timestamp means no recent profile change was published, so the values are last-known."
+  },
+  {
+    "sel": "#mirror-schema-version",
+    "title": "Mirror schema version",
+    "msg": "The schema version of the profile snapshot.",
+    "more": "Stamps the contract shape so the profile fields are read against a known version — the thing to cite if the mirror's shape ever disagrees with what the panel renders."
+  },
+  {
+    "sel": "#active-profile",
+    "title": "Active profile",
+    "msg": "The OS profile currently in effect on this host.",
+    "more": "A profile is the whole authority + trust posture the box runs under — one of six MS040 profiles. This names which is live; everything below (ladder, rings, gates) reflects THIS profile's shape."
+  },
+  {
+    "sel": "#active-since",
+    "title": "Active since",
+    "msg": "When the current profile took effect.",
+    "more": "How long the box has held this posture. A recent switch explains a change in what's allowed; the history table records the transitions."
+  },
+  {
+    "sel": "#active-actor",
+    "title": "Activating actor",
+    "msg": "Who activated the current profile.",
+    "more": "Profiles change only by signed action — this names the actor who set it. Accountability: every posture change traces to a signer."
+  },
+  {
+    "sel": "#active-envelope",
+    "title": "L-envelope",
+    "msg": "The authority envelope (L-level ceiling) the active profile permits.",
+    "more": "The profile caps how high on the L0..L6 authority ladder actions may reach. The envelope is that ceiling — the single number bounding what this profile can do autonomously."
+  },
+  {
+    "sel": "#profiles-row",
+    "title": "Six profiles (MS040)",
+    "msg": "The six selectable profiles, each a distinct authority/trust posture.",
+    "more": "The full menu (private, fast, careful, autonomous, experimental, production) — each composes a different point on the authority ladder and trust rings. Switching profile reshapes what the whole box will do; this row is where you compare them."
+  },
+  {
+    "sel": "#ladder",
+    "title": "Authority ladder (L0..L6)",
+    "msg": "The current L0..L6 authority ladder per MS039 (Observe → Persist).",
+    "more": "Authority is graduated: L0 Observe is harmless, L6 Persist commits durable change. The active profile allows up to its envelope; this shows which rungs are permitted now — the model behind every allow/ask/deny decision."
+  },
+  {
+    "sel": "#ladder-legend",
+    "title": "Ladder legend",
+    "msg": "What each L-level (L0 Observe … L6 Persist) means.",
+    "more": "Decodes the ladder so a rung isn't just a number — it names the class of action each level authorizes, from read-only observation up to persistent commits."
+  },
+  {
+    "sel": "#rings",
+    "title": "Trust rings (Ring 0..4)",
+    "msg": "The current Ring 0..4 trust topology per MS039.",
+    "more": "The other axis of posture: concentric trust zones from Ring 0 (kernel-equiv) to Ring 4 (untrusted). Together with the authority ladder, the rings define who may exercise which authority — the full trust picture of the active profile (see D-14 for tokens)."
+  },
+  {
+    "sel": "#history-tbody",
+    "title": "Profile-change history",
+    "msg": "Past profile transitions — from→to, actor, rationale, signature.",
+    "more": "The signed trail of every posture change. When behaviour shifted, this is where you find which profile switch caused it and who authorised it — accountability for the box's stance over time."
+  },
+  {
+    "sel": "#gates-panel",
+    "title": "Predeclared gates",
+    "msg": "The gates the autonomous profile must satisfy (autonomous only).",
+    "more": "Visible only when the autonomous profile is active. Autonomous work can't run open-ended — it must predeclare its envelope through these gates, so unattended operation stays bounded and accountable."
+  },
+  {
+    "sel": "#gates-body",
+    "title": "Gate detail",
+    "msg": "The specific predeclared gates and their state.",
+    "more": "Each gate the autonomous profile committed to — the concrete bounds on unattended action. Empty/hidden for non-autonomous profiles, which don't operate unattended."
+  },
+  {
+    "sel": "#refresh-btn",
+    "title": "Refresh now",
+    "msg": "Re-poll the profile mirror.",
+    "more": "A fresh read of the active profile plus its authority-ladder and trust-ring state, instead of waiting for the auto-poll. Read-only — it re-reads, it changes nothing."
+  },
+  {
+    "sel": "#switch-btn",
+    "title": "Switch profile (operator-signed)",
+    "msg": "Stages a profile switch — copies the signed CLI verb, doesn't switch from the web.",
+    "more": "Changing profile reshapes the whole box's authority; it's a signed operator action via CLI, never a web click (R10212). The button hands you the exact command for the chosen profile."
+  },
+  {
+    "sel": "#control-surface",
+    "title": "Controls — profiles, modes & toggles",
+    "msg": "The per-panel control rail for profile behaviour.",
+    "more": "Every control copies its exact sovereign-osctl verb (§1g / R10212), never executing from the web — including the profile switch."
+  }
+];
+</script>
 </body>
 </html>

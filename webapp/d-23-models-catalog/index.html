@@ -349,23 +349,7 @@
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
-<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
-<script>
-window.SO_ASSIST = [
-  {
-    "sel": "#tiers",
-    "title": "Catalog by SRP tier",
-    "msg": "The canonical model registry browsed by role tier (Logic / Oracle / Conductor).",
-    "more": "This is the portfolio view (distinct from D-03's live health): every model's id, class, engine, precision, params, context, license, purpose, status — the menu of what CAN be run, backed by models/catalog.yaml."
-  },
-  {
-    "sel": "#summary",
-    "title": "Catalog summary",
-    "msg": "Roll-up of the registered models across tiers and classes.",
-    "more": "The at-a-glance count before you filter into the detail — how broad the local portfolio is."
-  }
-];
-</script>
+
 <header>
   <h1>D-23 · Model Catalog
     <span class="sub">the canonical model registry (models/catalog.yaml) by SRP tier — browse the portfolio</span></h1>
@@ -845,6 +829,42 @@ window.SO_ASSIST = [
     SovereignControlSurface.load(el, {filterSlug:'d-23-models-catalog'});
   }
 })();
+</script>
+
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#data-source-banner",
+    "title": "Live vs snapshot",
+    "msg": "Whether the catalog is live (/api/models-catalog/catalog) or a snapshot.",
+    "more": "The catalog reflects models/catalog.yaml — a snapshot is usually fine since it changes only on a catalog edit. Muted means the daemon is unreachable and you're reading the baked copy."
+  },
+  {
+    "sel": "#summary",
+    "title": "Catalog summary",
+    "msg": "Roll-up of the registered models across SRP tiers and classes.",
+    "more": "The at-a-glance portfolio size before you browse — how broad the local model registry is. This is the portfolio view (distinct from D-03's live serving health)."
+  },
+  {
+    "sel": "#tiers",
+    "title": "Catalog by SRP tier",
+    "msg": "The canonical model registry browsed by role tier (Logic / Oracle / Conductor).",
+    "more": "Every model's id, class, engine, precision, params, context, license, purpose, status — grouped by the SRP role it serves. Backed by models/catalog.yaml: the menu of what CAN be run, organized by where it fits in the trinity."
+  },
+  {
+    "sel": "#last-fetch",
+    "title": "Last fetch",
+    "msg": "When the catalog was last read.",
+    "more": "Freshness of the registry view — a stale fetch predates any catalog edit made since."
+  },
+  {
+    "sel": "#control-surface",
+    "title": "Controls — features & profiles",
+    "msg": "The per-panel control rail for the catalog.",
+    "more": "Every control copies its exact sovereign-osctl verb (§1g / R10212), never executing from the web — model selection is a signed CLI action."
+  }
+];
 </script>
 </body>
 </html>

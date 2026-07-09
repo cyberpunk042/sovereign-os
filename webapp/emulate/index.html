@@ -353,29 +353,7 @@
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
-<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
-<script>
-window.SO_ASSIST = [
-  {
-    "sel": "#accel",
-    "title": "Acceleration",
-    "msg": "kvm (hardware) vs tcg (software) emulation.",
-    "more": "kvm is near-native and needs virtualization support; tcg runs anywhere but slow. Use the throwaway VM to boot a freshly-built image before it ever touches a USB key."
-  },
-  {
-    "sel": "#boot",
-    "title": "Boot mode",
-    "msg": "UEFI vs direct-kernel boot for the emulated image.",
-    "more": "UEFI exercises the real boot path (what the hardware will do); direct boot is faster for iterating on userspace. Match it to what you're testing."
-  },
-  {
-    "sel": "#auto-login",
-    "title": "Auto-login",
-    "msg": "Whether the emulated guest logs in automatically.",
-    "more": "Convenient for a quick smoke test; leave it off when you're specifically validating the login/auth path."
-  }
-];
-</script>
+
 <h1>emulate (QEMU)</h1>
 <p class="sub">
   Boot a built image in a throwaway VM before you flash it — the guest disk is
@@ -1143,6 +1121,162 @@ el("console").addEventListener("keydown", (e) => {
 });
 
 load();
+</script>
+
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#status",
+    "title": "Emulator status",
+    "msg": "State of the QEMU emulation — the image boots in a VM with a live serial console; it never touches the USB key.",
+    "more": "emulate is the safe way to test a built image: QEMU runs it as a virtual machine so you can watch it boot and log in, without flashing hardware. This banner says whether the emulator is ready and whether a built image was found."
+  },
+  {
+    "sel": "#image",
+    "title": "Built image",
+    "msg": "The image file the VM will boot.",
+    "more": "Points at the artifact produced by the build. 'no built image found' means there's nothing to emulate yet — build first. This is the exact file that would also be flashed, so testing it here tests the real thing."
+  },
+  {
+    "sel": "#caps",
+    "title": "Image capabilities",
+    "msg": "The capabilities/flags baked into the built image.",
+    "more": "What the image actually contains (selfdef, graceful-shutdown, etc. per the build config). Confirms you're emulating the image you think you built before committing to a flash."
+  },
+  {
+    "sel": "#boot",
+    "title": "Boot mode",
+    "msg": "UEFI (OVMF firmware) vs direct kernel+initrd boot.",
+    "more": "UEFI boots the image the way real hardware would — the faithful test. Direct kernel+initrd is faster and strips 'quiet' to show every service starting — the debugging path when a boot hangs and you need to see where."
+  },
+  {
+    "sel": "#accel",
+    "title": "Acceleration",
+    "msg": "KVM hardware acceleration vs TCG software emulation vs auto.",
+    "more": "KVM uses the host CPU directly — near-native speed, needs virtualization support. TCG emulates in software — slower but works anywhere. 'auto' picks KVM if available; drop to TCG only when KVM isn't present."
+  },
+  {
+    "sel": "#smp",
+    "title": "vCPUs",
+    "msg": "How many virtual CPUs to give the VM (1-64).",
+    "more": "More vCPUs make the guest boot and run faster but consume host cores. For a quick boot test 2 is fine; raise it only if you're exercising concurrency in the guest."
+  },
+  {
+    "sel": "#mem",
+    "title": "Memory",
+    "msg": "RAM allocated to the VM.",
+    "more": "Give the guest enough to boot the full image — too little and services fail in ways that aren't real hardware faults. Sized in the options row; the default is a safe boot minimum."
+  },
+  {
+    "sel": "#snapshot",
+    "title": "Snapshot (discard writes)",
+    "msg": "Run the image read-only — writes are discarded on exit.",
+    "more": "Protects the built artifact: the VM can write during the test but nothing persists back to the image file. Leave it on for repeatable boot tests; turn it off only when you deliberately want the guest to keep state."
+  },
+  {
+    "sel": "#noreboot",
+    "title": "No-reboot",
+    "msg": "Stop the VM instead of rebooting when the guest reboots.",
+    "more": "So a guest reboot ends the session rather than looping — useful when you're testing first-boot behaviour and don't want it to cycle."
+  },
+  {
+    "sel": "#cmdline",
+    "title": "Kernel cmdline",
+    "msg": "Extra kernel command line for direct boot (e.g. systemd.unit=rescue).",
+    "more": "Only used in direct-boot mode — lets you drop into rescue, change the target unit, or pass debug flags to diagnose a boot problem you can't reach through normal UEFI boot."
+  },
+  {
+    "sel": "#btn-start",
+    "title": "Start VM",
+    "msg": "Boot the built image in QEMU with the chosen options.",
+    "more": "Launches the emulation — the serial console below comes alive as the guest boots. All local; nothing external, nothing flashed."
+  },
+  {
+    "sel": "#btn-stop",
+    "title": "Stop VM",
+    "msg": "Power off the running VM.",
+    "more": "Ends the emulation session. With snapshot on, any writes are discarded; the image file is untouched either way."
+  },
+  {
+    "sel": "#vm-state",
+    "title": "VM state",
+    "msg": "Whether the VM is running or stopped (with the status dot).",
+    "more": "The live run-state — the dot and label are the quick read of whether emulation is active before you interact with the console."
+  },
+  {
+    "sel": "#login-user",
+    "title": "Login user",
+    "msg": "The username to log into the guest with.",
+    "more": "Typically root — the account you'd use on the real box. Pairs with the password you baked into the build to reach a shell in the guest."
+  },
+  {
+    "sel": "#login-pass",
+    "title": "Login password",
+    "msg": "The bootstrap password built into the image.",
+    "more": "The password you set at build time — used here to log into the emulated guest. It's the same credential the real flashed device would have, so a successful login here validates the build's auth."
+  },
+  {
+    "sel": "#btn-login",
+    "title": "Log in now",
+    "msg": "Send the login credentials to the guest console.",
+    "more": "Types the user+password into the serial console for you — a shortcut past manual login once the guest reaches its prompt."
+  },
+  {
+    "sel": "#auto-login",
+    "title": "Auto-login on boot",
+    "msg": "Automatically log in when the guest reaches its login prompt.",
+    "more": "Skips manual login on every boot test — convenient for rapid iterate-and-reboot cycles. Off when you specifically want to test the login flow itself."
+  },
+  {
+    "sel": "#login-badge",
+    "title": "Login status badge",
+    "msg": "Indicates whether the auto/manual login succeeded.",
+    "more": "Confirms you actually reached a shell — the difference between 'the guest booted' and 'the guest booted AND auth works'."
+  },
+  {
+    "sel": "#btn-copy",
+    "title": "Copy console",
+    "msg": "Copy the serial console log to the clipboard.",
+    "more": "Grabs the full boot/console output for pasting into a bug report or diff — the record of exactly what the guest printed."
+  },
+  {
+    "sel": "#btn-download",
+    "title": "Download console log",
+    "msg": "Download the serial console log as a file.",
+    "more": "Saves the whole console session — useful for archiving a boot test or comparing two builds' boot sequences offline."
+  },
+  {
+    "sel": "#btn-clear",
+    "title": "Clear console",
+    "msg": "Clear the console view (does not touch the VM).",
+    "more": "Wipes the display only — the guest keeps running. Handy to reset the view before triggering the next action you want to observe cleanly."
+  },
+  {
+    "sel": "#autoscroll",
+    "title": "Autoscroll",
+    "msg": "Keep the console pinned to the newest output.",
+    "more": "On, the view follows live output; off, it stays put so you can read back through earlier boot lines without them scrolling away."
+  },
+  {
+    "sel": "#console",
+    "title": "Serial console",
+    "msg": "The live serial console — click it and type; keystrokes go straight to the guest.",
+    "more": "A real interactive terminal into the emulated machine: boot messages stream here and your keystrokes reach the guest shell. This is where you actually verify the image behaves, not just boots."
+  },
+  {
+    "sel": "#line",
+    "title": "Line input",
+    "msg": "Type a line and press Enter to send it to the guest.",
+    "more": "A convenience for sending whole commands to the console without the click-to-focus dance — type, Enter, and it goes to the guest as a line."
+  },
+  {
+    "sel": "#control-surface",
+    "title": "Controls — profiles, modes & toggles",
+    "msg": "The per-panel control rail for emulation.",
+    "more": "Every control copies its exact sovereign-osctl verb (§1g / R10212), never executing privileged host operations from the web."
+  }
+];
 </script>
 </body>
 </html>

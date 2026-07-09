@@ -431,29 +431,7 @@
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
-<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
-<script>
-window.SO_ASSIST = [
-  {
-    "sel": "#warp-state",
-    "title": "NVIDIA Warp status",
-    "msg": "Whether the differentiable particle-sim engine is present — on GPU (RTX PRO 6000) or CPU fallback.",
-    "more": "Warp is the one science tool that's integrated, not just cataloged: a differentiable particle simulator that runs on the GPU when present and falls back to CPU otherwise. 'off' here doesn't mean broken — it means Warp isn't installed on this host, and the particle tools simply have no engine to run."
-  },
-  {
-    "sel": "#catalog",
-    "title": "Science-tools catalog",
-    "msg": "The operator's non-LLM domain compute — DNA / protein / particle tools.",
-    "more": "Science is deliberately outside the AI runtime: these are domain simulators (biology, physics), not models. Most are cataloged (declared, discoverable) rather than live — the catalog is the honest menu of what this box can do beyond inference."
-  },
-  {
-    "sel": "#run-cmd",
-    "title": "Gated run command",
-    "msg": "Running a simulation is the signed CLI verb sovereign-osctl science run — never the web.",
-    "more": "R10212 holds here too: this panel shows and copies the command, it does not execute it. A sim can be heavy GPU work, so it goes through the gated osctl path where it can be authorised and traced, not fired from a browser."
-  }
-];
-</script>
+
 <h1>Science Tools · NVIDIA Warp</h1>
 <p class="sub">
   The operator's scientific catalog — <strong>DNA</strong>, <strong>protein</strong>,
@@ -887,6 +865,66 @@ document.getElementById("copy-run").addEventListener("click", function(){
 
 load();
 setInterval(load, 5000);
+</script>
+
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#status",
+    "title": "Science status",
+    "msg": "The operator's science catalog — DNA / protein / particle tools (NOT LLMs).",
+    "more": "Science is deliberately outside the AI runtime: these are domain simulators (biology, physics), not models. This banner says whether the science API is up and what's available — a distinct capability from inference."
+  },
+  {
+    "sel": "#warp-state",
+    "title": "NVIDIA Warp status",
+    "msg": "Whether the differentiable particle-sim engine is present — GPU (RTX PRO 6000) or CPU fallback.",
+    "more": "Warp is the one science tool that's integrated, not just cataloged: a differentiable particle simulator that runs on the GPU when present and falls back to CPU otherwise. 'off' means Warp isn't installed — the particle tools have no engine, not that something broke."
+  },
+  {
+    "sel": "#warp-version",
+    "title": "Warp version",
+    "msg": "The installed NVIDIA Warp version.",
+    "more": "Stamps which Warp build is present — the reference for what particle-sim features are available and for reproducing a simulation."
+  },
+  {
+    "sel": "#warp-stats",
+    "title": "Warp telemetry",
+    "msg": "Warp engine stats (device, capability).",
+    "more": "The runtime detail behind the status — which device Warp bound to and its capability. Confirms whether sims will run on GPU or fall back to the slower CPU path."
+  },
+  {
+    "sel": "#run-cmd",
+    "title": "Gated run command",
+    "msg": "Running a simulation is the signed CLI verb sovereign-osctl science run — never the web.",
+    "more": "R10212 holds here too: this panel shows and copies the command, it does not execute it. A sim can be heavy GPU work, so it goes through the gated osctl path where it's authorised and traced, not fired from a browser."
+  },
+  {
+    "sel": "#copy-run",
+    "title": "Copy run command",
+    "msg": "Copy the gated science-run command to the clipboard.",
+    "more": "Hands you the exact signed verb to run a simulation via the CLI — the read-only panel's way of enabling action without executing it."
+  },
+  {
+    "sel": "#copy-note",
+    "title": "Copy note",
+    "msg": "Confirms the run command was copied.",
+    "more": "Acknowledges the command is on your clipboard for CLI execution — the web never runs the sim itself."
+  },
+  {
+    "sel": "#catalog",
+    "title": "Science-tools catalog",
+    "msg": "The domain tools — tool, domain, kind, install, tiers, status.",
+    "more": "The honest menu of non-LLM domain compute this box can do: DNA / protein / particle tools. Most are cataloged (declared, discoverable) rather than live; Warp (particles) is the integrated one. What the box can do beyond inference."
+  },
+  {
+    "sel": "#control-surface",
+    "title": "Controls — science",
+    "msg": "The per-panel control rail for science tools.",
+    "more": "Every control copies its exact sovereign-osctl verb; the only sanctioned write path is the gated control-exec-api POST — the web surface itself never runs a simulation (R10212)."
+  }
+];
 </script>
 </body>
 </html>

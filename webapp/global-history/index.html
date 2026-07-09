@@ -691,23 +691,7 @@ a11y; contract test catches drift.
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
-<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
-<script>
-window.SO_ASSIST = [
-  {
-    "sel": "#ev-tbody",
-    "title": "Unified change log",
-    "msg": "'What changed since I last looked?' — one timeline across every source.",
-    "more": "Six sources merged: apt, dpkg, shell, osctl, events, modules. Instead of hunting six logs, this is the single answer to 'what happened on this box'. Read-only history."
-  },
-  {
-    "sel": "#src-tbody",
-    "title": "Sources",
-    "msg": "The six change-sources feeding the unified log, and their freshness.",
-    "more": "If a source is stale or silent, the unified timeline has a blind spot — this is where you confirm all six are reporting."
-  }
-];
-</script>
+
 <h1>sovereign-os global-history</h1>
 <p class="sub">
   Operator-§1g multi-source event surface — recent / summary / sources / delta across 6 source logs (<code>apt</code>, <code>dpkg</code>, <code>shell</code>, <code>osctl</code>, <code>events</code>, <code>modules</code>).
@@ -1326,6 +1310,96 @@ document.getElementById("recent-btn").addEventListener("click", refreshRecent);
 document.getElementById("since-sel").addEventListener("change", refreshRecent);
 refreshAll();
 setInterval(refreshAll, 30000);
+</script>
+
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#stats",
+    "title": "History summary",
+    "msg": "The unified change-log roll-up — sources, recent events, 7-day total.",
+    "more": "'What changed since I last looked?' — one timeline across every source. This strip is the at-a-glance activity level. Read-only for any operator-driven mutation discovery (there is none — this only observes)."
+  },
+  {
+    "sel": "#stat-version",
+    "title": "API version",
+    "msg": "The global-history API version.",
+    "more": "Stamps the global-history build so the source set and event counts tie to a known version — the reference when a source's shape or count disagrees with the timeline."
+  },
+  {
+    "sel": "#stat-sources",
+    "title": "Sources",
+    "msg": "How many change-sources are feeding the unified log.",
+    "more": "Six sources merged (apt, dpkg, shell, osctl, events, modules). This count is how many are reporting — fewer than six means a blind spot in the timeline."
+  },
+  {
+    "sel": "#stat-recent",
+    "title": "Recent events",
+    "msg": "Events in the current recent window.",
+    "more": "The volume of recent activity across all sources — the size of 'what just happened' before you filter into detail."
+  },
+  {
+    "sel": "#stat-summary",
+    "title": "7-day total",
+    "msg": "Total events over the last 7 days.",
+    "more": "The week's change volume — context for whether recent activity is normal or a spike. A quiet box has a low number here."
+  },
+  {
+    "sel": "#last-refresh",
+    "title": "Last refresh",
+    "msg": "When the unified log last refreshed.",
+    "more": "Freshness of the timeline — a stale refresh can miss the most recent change across the six sources."
+  },
+  {
+    "sel": "#src-tbody",
+    "title": "Sources",
+    "msg": "The six change-sources — path, exists, type, freshness.",
+    "more": "apt / dpkg / shell / osctl / events / modules. If a source is missing or stale, the unified timeline has a blind spot — this is where you confirm all six are reporting and current."
+  },
+  {
+    "sel": "#sum-tbody",
+    "title": "7-day summary",
+    "msg": "Per-source event count (7d), last event, availability.",
+    "more": "The week broken down by source — which source is noisy, which is quiet, when each last emitted. The way to spot a source that went silent unexpectedly."
+  },
+  {
+    "sel": "#since-sel",
+    "title": "Time window",
+    "msg": "The lookback window for recent events (1h … 7d).",
+    "more": "Widen to see the day's changes, narrow to focus on a just-now incident. Controls the recent-events table below."
+  },
+  {
+    "sel": "#limit-in",
+    "title": "Row limit",
+    "msg": "Maximum recent events to show (1-500).",
+    "more": "Caps the recent-events table so a busy window doesn't flood the view. Raise it when you need the full picture, lower it for a quick scan."
+  },
+  {
+    "sel": "#recent-btn",
+    "title": "Refresh recent",
+    "msg": "Re-query recent events with the current window and limit.",
+    "more": "Runs the recent-events query. Read-only — it reads the merged log, it changes nothing."
+  },
+  {
+    "sel": "#ev-tbody",
+    "title": "Recent events",
+    "msg": "The unified change log — timestamp, source, action, detail.",
+    "more": "'What happened on this box' in one place. Instead of hunting six logs, this is the single merged answer — each row is a change, tagged with which source saw it. Read-only history."
+  },
+  {
+    "sel": "#refresh-btn",
+    "title": "Refresh all",
+    "msg": "Refresh sources, summary, and recent events.",
+    "more": "Re-reads every source to refresh the whole timeline. Read-only — it observes, it changes nothing."
+  },
+  {
+    "sel": "#control-surface",
+    "title": "Controls — profiles, modes & toggles",
+    "msg": "The per-panel control rail for history.",
+    "more": "Every control copies its exact sovereign-osctl verb (§1g / R10212), never executing from the web."
+  }
+];
 </script>
 </body>
 </html>

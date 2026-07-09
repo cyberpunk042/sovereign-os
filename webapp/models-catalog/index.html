@@ -337,23 +337,7 @@
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
-<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
-<script>
-window.SO_ASSIST = [
-  {
-    "sel": "#rows",
-    "title": "The model catalog",
-    "msg": "All 68 models — ternary-lm / RLM / SLM / LLM / mixture, every quantization — with VRAM-aware selection.",
-    "more": "Backed by models/catalog.yaml. VRAM-aware means the catalog knows what fits your GPUs; the operator CLI (e.g. `models select --class rlm --vram 48`) is how a choice becomes a runtime assignment."
-  },
-  {
-    "sel": "#f-vram",
-    "title": "VRAM filter",
-    "msg": "Filter the catalog to models that fit a given VRAM budget.",
-    "more": "The practical question is rarely 'which model is best' but 'which good model fits GPU1' — this filter answers exactly that, so you never assign a model that will not load."
-  }
-];
-</script>
+
 <h1>models &amp; catalog</h1>
 <p class="sub">
   The full model catalog across The Genesis Trinity (master-spec §17 · Pulse /
@@ -898,6 +882,78 @@ function render() {
 }
 
 load();
+</script>
+
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#status",
+    "title": "Catalog status",
+    "msg": "State of the model catalog — every model by class, quantization, size, purpose, VRAM-aware.",
+    "more": "The portfolio view of what CAN run (distinct from D-03's live serving health). Backed by models/catalog.yaml — 68 models across ternary-lm/RLM/SLM/LLM/mixture. This banner says whether the catalog loaded."
+  },
+  {
+    "sel": "#stats",
+    "title": "Catalog summary",
+    "msg": "Roll-up of the registered models across classes and tiers.",
+    "more": "The at-a-glance count before you filter into the detail — how broad the local portfolio is. The denominator for the filters below."
+  },
+  {
+    "sel": "#f-tier",
+    "title": "Tier filter",
+    "msg": "Filter models by SRP role tier (Logic / Oracle / Conductor).",
+    "more": "Narrows the catalog to one role tier — the way to see, say, only Oracle-class models when choosing what to run on the heavy GPU."
+  },
+  {
+    "sel": "#f-class",
+    "title": "Class filter",
+    "msg": "Filter by model class — ternary-lm / RLM / SLM / LLM / mixture.",
+    "more": "Class decides the architecture and cost profile. Filtering by it isolates, e.g., only ternary-lm models for the CPU/Pulse path."
+  },
+  {
+    "sel": "#f-quant",
+    "title": "Quantization filter",
+    "msg": "Filter by quantization (the precision the weights are stored at).",
+    "more": "Quantization trades quality for VRAM — a 4-bit model fits far more than fp16. Filter by it to find models that fit a memory budget without hunting."
+  },
+  {
+    "sel": "#f-purpose",
+    "title": "Purpose filter",
+    "msg": "Filter by the model's intended purpose.",
+    "more": "Narrows to models suited to a task (reasoning, coding, embedding). The practical lens when you know what you need done, not which model."
+  },
+  {
+    "sel": "#f-status",
+    "title": "Status filter",
+    "msg": "Filter by model status (available / planned / …).",
+    "more": "Separates what's ready to run from what's catalogued-but-not-yet-present. Avoids picking a model you'd have to fetch first."
+  },
+  {
+    "sel": "#f-vram",
+    "title": "Max VRAM filter",
+    "msg": "Filter to models that fit a given VRAM budget (GiB).",
+    "more": "The practical question is rarely 'which model is best' but 'which good model fits GPU1' — this answers exactly that, so you never assign a model that won't load."
+  },
+  {
+    "sel": "#count",
+    "title": "Model count",
+    "msg": "How many models match the current filters.",
+    "more": "The size of the filtered set — confirms the filters narrowed to a workable shortlist rather than everything or nothing."
+  },
+  {
+    "sel": "#rows",
+    "title": "Model catalog",
+    "msg": "The models — class, quant, size, context, purpose, status.",
+    "more": "The full catalogue backed by models/catalog.yaml. Each row is a model you could run, with the specs that decide fit. The operator CLI (e.g. models select --class rlm --vram 48) is how a choice here becomes a runtime assignment."
+  },
+  {
+    "sel": "#control-surface",
+    "title": "Controls — profiles, modes & toggles",
+    "msg": "The per-panel control rail for the catalog.",
+    "more": "Every control copies its exact sovereign-osctl verb (§1g / R10212), never executing from the web — model selection is a signed CLI action."
+  }
+];
 </script>
 </body>
 </html>

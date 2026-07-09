@@ -695,23 +695,7 @@ a11y; contract test catches drift.
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
-<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
-<script>
-window.SO_ASSIST = [
-  {
-    "sel": "#cross-tbody",
-    "title": "Minimization findings",
-    "msg": "Every place scope was silently shrunk versus the operator mandate.",
-    "more": "The 'do not minimize' rule is load-bearing here — this table is where the audit calls out empty stubs, doc gaps, mandate TODOs, partial status, and skipped follow-ups. A clean table means the shipped surface matches what was promised."
-  },
-  {
-    "sel": "#pat-minimize-phrase",
-    "title": "Minimize-phrase hits",
-    "msg": "Occurrences of hedging language ('some', 'a few', 'etc.') where a complete enumeration was owed.",
-    "more": "Under-counting is minimization by another name. This pattern catches prose that summarised instead of listing all — the exact failure the mandate forbids."
-  }
-];
-</script>
+
 <h1>sovereign-os anti-minimization-audit</h1>
 <p class="sub">
   Operator-§1g anti-minimization-audit — 8-pattern source audit + R474 waiver enumeration + R466 cross-repo selfdef discovery (R456 aggregator).
@@ -1356,6 +1340,138 @@ async function refreshAll() {
 document.getElementById("refresh-btn").addEventListener("click", refreshAll);
 refreshAll();
 setInterval(refreshAll, 60000);
+</script>
+
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#stats",
+    "title": "Audit summary",
+    "msg": "The anti-minimization audit roll-up — findings, clean patterns, waivers, selfdef manifests.",
+    "more": "'Do not minimize' is a load-bearing operator rule. This audit scans the source tree for the 8 ways scope gets silently shrunk and reports them. Findings are operator-authored in-source markers, not daemon toggles — the daemon reads, it doesn't author."
+  },
+  {
+    "sel": "#stat-version",
+    "title": "API version",
+    "msg": "The audit API version.",
+    "more": "Stamps the audit build so the pattern set and findings are tied to a known version of the anti-minimization contract."
+  },
+  {
+    "sel": "#stat-total",
+    "title": "Total findings",
+    "msg": "Total minimization findings across all patterns.",
+    "more": "The size of the debt — every place the tree shows a silently-shrunk scope. Zero is the goal; a rising count is minimization creeping back in."
+  },
+  {
+    "sel": "#stat-clean",
+    "title": "Patterns clean",
+    "msg": "How many of the 8 patterns have zero findings.",
+    "more": "The inverse view — which anti-minimization patterns are fully satisfied. 8/8 clean means no detected minimization anywhere in the audited tree."
+  },
+  {
+    "sel": "#stat-waivers",
+    "title": "Active waivers",
+    "msg": "Operator-authored exemptions (R474).",
+    "more": "Some findings are deliberate and operator-waived — an explicit, in-source exemption with rationale. A waiver is an honest recorded choice, not a hidden gap; the count is how many are in force."
+  },
+  {
+    "sel": "#stat-selfdef",
+    "title": "selfdef manifests",
+    "msg": "Cross-repo selfdef AuditManifests discovered (R466).",
+    "more": "The security repo audited by the same anti-minimization contract. This counts how many of selfdef's audit manifests sovereign-os found — the cross-repo half."
+  },
+  {
+    "sel": "#last-refresh",
+    "title": "Last refresh",
+    "msg": "When the audit last scanned the tree.",
+    "more": "Freshness of the findings. The audit reads source markers, so a stale scan can lag a just-added stub or a just-fixed gap."
+  },
+  {
+    "sel": "#patterns-row",
+    "title": "8 anti-minimization patterns",
+    "msg": "The R456 ladder — the 8 operator-named ways scope gets silently shrunk.",
+    "more": "Each tile is one pattern with its finding count. Together they're the full taxonomy of minimization the audit hunts — a clean row across all eight is what 'we do not minimize' looks like in practice."
+  },
+  {
+    "sel": "#pat-todo-no-anchor",
+    "title": "todo-no-anchor",
+    "msg": "TODOs with no anchor tying them to a tracked item.",
+    "more": "A TODO that isn't linked to a backlog/mandate row is work quietly dropped — no one will find it again. This pattern flags orphaned intentions before they vanish."
+  },
+  {
+    "sel": "#pat-empty-stub",
+    "title": "empty-stub",
+    "msg": "Declared surfaces that ship as empty stubs.",
+    "more": "A function/panel/module that exists in name but does nothing — capability promised, not delivered. The classic minimization: it looks covered but isn't."
+  },
+  {
+    "sel": "#pat-skipped-no-followup",
+    "title": "skipped-no-followup",
+    "msg": "Skipped work with no follow-up recorded.",
+    "more": "Something deferred without a trace of when it'll be done — a silent skip. Flagged so 'we'll do it later' becomes an actual tracked commitment, not an evaporated one."
+  },
+  {
+    "sel": "#pat-surface-gap",
+    "title": "surface-gap",
+    "msg": "Capability that doesn't reach one of its owed surfaces.",
+    "more": "Code present but a §1g surface missing (cross-references D-surface-map). A capability an operator can't reach is minimized in practice even if the logic is complete."
+  },
+  {
+    "sel": "#pat-doc-gap",
+    "title": "doc-gap",
+    "msg": "Shipped capability missing its owed documentation.",
+    "more": "A module you can run but can't fully understand — the doc debt the doc-coverage panel tracks, surfaced here as a minimization pattern."
+  },
+  {
+    "sel": "#pat-mandate-todo",
+    "title": "mandate-todo",
+    "msg": "Mandate rows still marked TODO.",
+    "more": "Operator-mandate commitments not yet delivered. Surfacing these keeps the mandate honest — a TODO row is promised-but-undone, and this counts them."
+  },
+  {
+    "sel": "#pat-minimize-phrase",
+    "title": "minimize-phrase",
+    "msg": "Hedging language ('some', 'a few', 'etc.') where a full enumeration was owed.",
+    "more": "Under-counting is minimization by another name. This catches prose that summarized instead of listing all — the exact 'do not minimize' failure, in text."
+  },
+  {
+    "sel": "#pat-partial-status",
+    "title": "partial-status",
+    "msg": "Items marked partial without a completion path.",
+    "more": "'Partial' with no plan to finish is a stall dressed as progress. Flagged so partial states carry a route to done rather than sitting indefinitely."
+  },
+  {
+    "sel": "#waivers-tbody",
+    "title": "Active waivers",
+    "msg": "Operator-authored exemptions — file, line, anchor, rationale (R474).",
+    "more": "The honest record of deliberate exceptions: a finding the operator judged acceptable, with where it lives and why. In-source and signed — a waiver is accountable, unlike a silent omission."
+  },
+  {
+    "sel": "#cross-tbody",
+    "title": "Cross-module priority",
+    "msg": "Modules short on both axes (threshold = 3) — the worst offenders.",
+    "more": "Prioritizes by modules failing multiple patterns at once. Short on both axes means systemic minimization in one place — the highest-leverage cleanup targets."
+  },
+  {
+    "sel": "#selfdef-tbody",
+    "title": "selfdef AuditManifests (R466)",
+    "msg": "Cross-repo selfdef audit manifests and findings.",
+    "more": "selfdef audited by the same anti-minimization contract, read-only from its published manifests. Proves the discipline extends across the repo boundary, not just sovereign-os."
+  },
+  {
+    "sel": "#refresh-btn",
+    "title": "Refresh all",
+    "msg": "Re-scan the tree for minimization findings.",
+    "more": "Re-reads the in-source markers to refresh every pattern count. Read-only — it audits, it changes nothing."
+  },
+  {
+    "sel": "#control-surface",
+    "title": "Controls — profiles, modes & toggles",
+    "msg": "The per-panel control rail for the audit.",
+    "more": "Every control copies its exact sovereign-osctl verb (§1g / R10212), never executing from the web."
+  }
+];
 </script>
 </body>
 </html>

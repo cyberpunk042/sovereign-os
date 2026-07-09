@@ -338,29 +338,7 @@
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
-<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
-<script>
-window.SO_ASSIST = [
-  {
-    "sel": "#arm",
-    "title": "Arm to flash",
-    "msg": "The type-to-confirm safety gate before any write.",
-    "more": "Flashing is destructive and irreversible. System disks are hard-protected out of the picker, and you must type to arm — the friction is deliberate, so a mis-click can't wipe the wrong disk."
-  },
-  {
-    "sel": "#btn-flash",
-    "title": "Flash",
-    "msg": "Writes the built image to the selected removable disk.",
-    "more": "This shells the gated sovereign-osctl install path with live dd progress — never a raw dd from the browser. The gate is what makes a web-triggered disk write safe."
-  },
-  {
-    "sel": "#btn-plan",
-    "title": "Plan (dry-run)",
-    "msg": "Preview exactly what the flash would do without writing.",
-    "more": "Always plan first: it shows the target device, size, and the command, so you confirm the disk is the USB key and not something you care about."
-  }
-];
-</script>
+
 <h1>flash to USB</h1>
 <p class="sub">
   Write a built sovereign-os image onto a removable disk — from here, not the
@@ -977,6 +955,102 @@ el("btn-cancel").addEventListener("click", async () => {
 });
 
 load();
+</script>
+
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#status",
+    "title": "Flash status",
+    "msg": "State of the flasher — it writes only removable targets; system disks can never be selected.",
+    "more": "flash writes a built image to a USB key. The critical safety property: system disks are structurally excluded from the target list — you cannot accidentally overwrite the OS. This banner says whether the flasher is ready and an image was found."
+  },
+  {
+    "sel": "#image",
+    "title": "Image",
+    "msg": "The built image to be flashed.",
+    "more": "The artifact from the build (or emulate-tested image). 'no built image found' means build first — this is the exact bytes that will be written to the target device."
+  },
+  {
+    "sel": "#image-meta",
+    "title": "Image metadata",
+    "msg": "Details of the selected image (size, capabilities).",
+    "more": "What's in the image you're about to flash — size and baked capabilities. Confirm it's the image you intend before arming a destructive write."
+  },
+  {
+    "sel": "#devices",
+    "title": "Target device",
+    "msg": "The removable block devices you may flash to (system disks excluded).",
+    "more": "Only removable targets appear — the OS disks are probed and deliberately kept off the list. Pick the USB key here; if a device you expect is missing, it may be a system disk the flasher refuses to show."
+  },
+  {
+    "sel": "#btn-plan",
+    "title": "Plan (dry-run)",
+    "msg": "Preview the flash — writes nothing.",
+    "more": "Always run this first: it shows exactly what would be written to which device without touching anything. The dry-run is how you confirm the target and image before the irreversible step."
+  },
+  {
+    "sel": "#btn-flash",
+    "title": "Flash (destructive)",
+    "msg": "Write the image to the target — irreversible.",
+    "more": "The destructive write: it wipes the target and writes the image. Disabled until you type-to-arm (below). Uses a gated flash path, never a raw dd — but it still irreversibly overwrites the chosen device."
+  },
+  {
+    "sel": "#btn-cancel",
+    "title": "Cancel",
+    "msg": "Cancel an in-progress flash.",
+    "more": "Stops a running write. A partially-flashed key will be unbootable and must be re-flashed — cancel is for aborting a mistake caught early, not a clean undo."
+  },
+  {
+    "sel": "#run-status",
+    "title": "Run status",
+    "msg": "The current flash state (disarmed / planning / flashing / done).",
+    "more": "The live state of the operation — the quick read of whether a write is in progress. Pair with the run log for the detail."
+  },
+  {
+    "sel": "#arm",
+    "title": "Arm to flash",
+    "msg": "The type-to-confirm safety gate before a destructive write.",
+    "more": "The interlock: you must type the exact device path to arm the flash. This deliberate friction is what stops an accidental click from wiping the wrong device — the core safety of the panel."
+  },
+  {
+    "sel": "#arm-dev",
+    "title": "Arm — target device",
+    "msg": "The device that arming will irreversibly wipe.",
+    "more": "Names the exact device the flash will destroy, so what you're confirming is unambiguous. Read this against the physical key before typing to arm."
+  },
+  {
+    "sel": "#arm-fp",
+    "title": "Arm — fingerprint",
+    "msg": "The device fingerprint you're confirming.",
+    "more": "Extra identity for the target (size/model) so 'wipe /dev/sdX' is confirmed against the right physical device — not just a path that could have shifted between probes."
+  },
+  {
+    "sel": "#arm-input",
+    "title": "Arm confirmation input",
+    "msg": "Type the device path (/dev/sdX) to arm the flash.",
+    "more": "The type-to-confirm field — you must enter the exact device path to enable the destructive Flash button. Typing the wrong path leaves it disarmed; this is the last guard before irreversible writing."
+  },
+  {
+    "sel": "#arm-state",
+    "title": "Arm state",
+    "msg": "Whether the flash is armed or disarmed.",
+    "more": "disarmed = the Flash button is locked; armed = the typed path matched and Flash is enabled. The at-a-glance safety state before the destructive step."
+  },
+  {
+    "sel": "#run-log",
+    "title": "Run log",
+    "msg": "The flash/plan output stream.",
+    "more": "Where plan and flash print progress. 'no run yet — Plan first' is the safe starting state; during a flash this shows the write progress and any errors."
+  },
+  {
+    "sel": "#control-surface",
+    "title": "Controls — profiles, modes & toggles",
+    "msg": "The per-panel control rail for flashing.",
+    "more": "Every control copies its exact sovereign-osctl verb (§1g / R10212) — the flash runs through the gated path, never a raw dd, and system disks are never selectable."
+  }
+];
 </script>
 </body>
 </html>

@@ -697,23 +697,7 @@ a11y; contract test catches drift.
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
-<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
-<script>
-window.SO_ASSIST = [
-  {
-    "sel": "#candidates-tbody",
-    "title": "Eval candidates",
-    "msg": "Per-task / per-model evaluation results (mmlu, humaneval, gsm8k, …).",
-    "more": "Both white-box and black-box evals land here. A candidate is a model+adapter that has been scored; this table is the evidence D-11 uses to decide whether a fine-tune earns promotion."
-  },
-  {
-    "sel": "#bb-pass",
-    "title": "Black-box pass rate",
-    "msg": "How the candidate did on the black-box suite.",
-    "more": "Black-box evals treat the model as opaque (prompt in, answer graded) — the honest measure of whether it actually helps, independent of internals."
-  }
-];
-</script>
+
 
 <h1>D-10 — eval history</h1>
 <div class="sub">per-task pass/fail + per-model trend + adapter-promotion candidates — <span class="kbd">Cmd-K then 10</span> · <a href="../master-dashboard/">D-00 main</a></div>
@@ -1461,5 +1445,197 @@ refresh();
 </script>
 <script>SovereignControlSurface.load(document.getElementById('control-surface'),{filterSlug:'d-10-eval-history'});</script>
 
+
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#datasource-banner",
+    "title": "Live vs snapshot",
+    "msg": "Green = /api/evals/summary is answering live; muted = the baked snapshot.",
+    "more": "Eval history changes only when suites run, so snapshot is less risky here — but a muted banner still means the newest run may not be reflected yet."
+  },
+  {
+    "sel": "#ds-state-label",
+    "title": "Data-source state",
+    "msg": "Which source the page reads — live evals daemon or snapshot.",
+    "more": "live / snapshot / unknown for the evals source. 'unknown' means the health endpoint itself couldn't be reached — a different failure from a plain snapshot fallback."
+  },
+  {
+    "sel": "#ds-state-detail",
+    "title": "Reachability detail",
+    "msg": "The reason behind the state — reachable, timeout, or endpoint absent.",
+    "more": "Turns 'snapshot' into a diagnosis of whether the evals API is down or just slow."
+  },
+  {
+    "sel": "#ds-last-update",
+    "title": "Fetch freshness",
+    "msg": "When the shown eval summary was pulled.",
+    "more": "Tells you whether the latest suite run is included — important right after kicking off a benchmark."
+  },
+  {
+    "sel": "#total-runs",
+    "title": "Total eval runs (30d)",
+    "msg": "How many evaluation runs completed in the last 30 days.",
+    "more": "The activity level of the eval pipeline. This is the evidence base D-11 draws on to decide adapter promotions — more runs, more confidence in a score trend."
+  },
+  {
+    "sel": "#bb-pass",
+    "title": "Black-box pass rate",
+    "msg": "Pass rate across black-box evals (prompt in, answer graded).",
+    "more": "The honest, model-as-opaque measure — did it actually produce the right answer, independent of internals. This is the number that gates promotion when a fine-tune claims to help."
+  },
+  {
+    "sel": "#wb-pass",
+    "title": "White-box pass rate",
+    "msg": "Pass rate across white-box evals (internals/steering inspected).",
+    "more": "Complements black-box: white-box evals check HOW the model got there (activations, steering), catching models that pass by luck or shortcut. Both must hold for a trustworthy candidate."
+  },
+  {
+    "sel": "#candidate-count",
+    "title": "Promotion candidates",
+    "msg": "How many model+adapter candidates currently qualify for promotion.",
+    "more": "The shortlist feeding D-11's promotion gates — candidates whose eval gain is real enough to consider making active. Zero means nothing has earned promotion this window."
+  },
+  {
+    "sel": "#math-cur",
+    "title": "Math benchmark",
+    "msg": "Current black-box score on the math suite (M078 HölderPO target).",
+    "more": "A hard-reasoning benchmark — math is where shortcut-learning fails, so it's a strong signal of genuine capability. The sparkline beside it shows whether the score is trending up or regressing."
+  },
+  {
+    "sel": "#math-spark",
+    "title": "Math trend",
+    "msg": "Sparkline of the math score over recent runs.",
+    "more": "Direction matters more than the point value — a rising math trend is real improvement; a dip after a fine-tune is a regression to investigate before promoting."
+  },
+  {
+    "sel": "#alf-cur",
+    "title": "ALFWorld benchmark",
+    "msg": "Current black-box score on the ALFWorld agentic suite.",
+    "more": "An embodied/agentic task benchmark — tests multi-step planning in an environment, not single-shot answers. Strong here means the model can actually act, not just respond."
+  },
+  {
+    "sel": "#alf-spark",
+    "title": "ALFWorld trend",
+    "msg": "Sparkline of the ALFWorld score over recent runs.",
+    "more": "Tracks agentic capability across runs — a stable high trend is what you want before trusting a model with autonomous multi-step work."
+  },
+  {
+    "sel": "#arc1-cur",
+    "title": "ARC-1 benchmark",
+    "msg": "Current black-box score on ARC-AGI-1 (abstraction & reasoning).",
+    "more": "ARC measures fluid reasoning on novel puzzles — deliberately resistant to memorization. A meaningful score here is rare and a strong sign of genuine generalization."
+  },
+  {
+    "sel": "#arc1-spark",
+    "title": "ARC-1 trend",
+    "msg": "Sparkline of the ARC-1 score over recent runs.",
+    "more": "ARC scores move slowly and honestly — a sustained rise is real progress on generalization, not benchmark gaming."
+  },
+  {
+    "sel": "#arc2-cur",
+    "title": "ARC-2 benchmark",
+    "msg": "Current black-box score on ARC-AGI-2 (the harder successor).",
+    "more": "ARC-2 is deliberately much harder — low scores are expected across the field. It's the frontier signal: movement here is the most demanding evidence of reasoning gain."
+  },
+  {
+    "sel": "#arc2-spark",
+    "title": "ARC-2 trend",
+    "msg": "Sparkline of the ARC-2 score over recent runs.",
+    "more": "Even small upward movement on ARC-2 is significant given its difficulty — read it as a stretch metric, not a pass/fail bar."
+  },
+  {
+    "sel": "#sudoku-cur",
+    "title": "Sudoku benchmark",
+    "msg": "Current black-box score on the Sudoku suite (M080 HRM/TRM target).",
+    "more": "A constraint-satisfaction task with a verifiable answer — near-100% is achievable and expected for a capable model, so a dip here is a clear, unambiguous regression signal."
+  },
+  {
+    "sel": "#sudoku-spark",
+    "title": "Sudoku trend",
+    "msg": "Sparkline of the Sudoku score over recent runs.",
+    "more": "Because Sudoku is verifiable and near-ceiling, its trend is a sensitive early-warning: any sustained drop means something in the reasoning path broke."
+  },
+  {
+    "sel": "#steer-cur",
+    "title": "Steering eval",
+    "msg": "Current white-box steering result (disaggregated).",
+    "more": "A white-box probe of whether the model's internal representations can be steered as expected — an interpretability check, reported disaggregated because it's a profile, not a single pass rate."
+  },
+  {
+    "sel": "#steer-spark",
+    "title": "Steering trend",
+    "msg": "Sparkline of the steering result over recent runs.",
+    "more": "Tracks whether the model stays interpretable/steerable across fine-tunes — a capability you don't want to lose even as task scores rise."
+  },
+  {
+    "sel": "#task-filter",
+    "title": "Task filter",
+    "msg": "Filter the per-task trend by task name or trace_id.",
+    "more": "Zoom the trend table to one task or one eval run — the way into 'did THIS capability regress' rather than the aggregate."
+  },
+  {
+    "sel": "#class-filter",
+    "title": "Class filter",
+    "msg": "Narrow the trend to black-box only or white-box only.",
+    "more": "Separates the two eval modes so a BB gain isn't masking a WB regression (or vice versa) in the combined view."
+  },
+  {
+    "sel": "#window-filter",
+    "title": "Time window",
+    "msg": "Lookback window for the eval trend (7d / 30d).",
+    "more": "Widen to see a slow drift across a month; narrow to focus on the effect of a recent fine-tune."
+  },
+  {
+    "sel": "#apply-btn",
+    "title": "Apply filters",
+    "msg": "Run the per-task trend query with the current filters.",
+    "more": "Refreshes the task and window views. Read-only — it queries eval history, it never launches a run."
+  },
+  {
+    "sel": "#tasks-tbody",
+    "title": "Per-task eval trend",
+    "msg": "Per-task runs, pass %, trend, and last run.",
+    "more": "Where a regression localizes to a specific task — a task whose pass% dropped after a model change is the concrete evidence that change hurt something."
+  },
+  {
+    "sel": "#models-tbody",
+    "title": "Per-model score trend",
+    "msg": "Per-model eval average vs baseline, with trend (M046 LoRA Foundry).",
+    "more": "Ranks models/adapters by measured gain over baseline — the LoRA Foundry's report card. 'vs baseline' is the number that decides whether a fine-tune actually earned its keep."
+  },
+  {
+    "sel": "#candidates-tbody",
+    "title": "Adapter-promotion candidates",
+    "msg": "Model+adapter candidates with training, eval gain, gate state, and actions.",
+    "more": "The promotion shortlist. Gates advance only on real eval evidence (never fabricated); a candidate here has a measured gain but still must clear D-11's MS041 gates before going active."
+  },
+  {
+    "sel": "#refresh-btn",
+    "title": "Refresh",
+    "msg": "Re-poll the eval summary now.",
+    "more": "A fresh read after a suite finishes, instead of waiting for the auto-poll. Read-only."
+  },
+  {
+    "sel": "#run-suite-btn",
+    "title": "Run benchmark suite (operator-signed)",
+    "msg": "Stages a benchmark run — copies the signed CLI verb, doesn't run from the web.",
+    "more": "Eval suites are heavy GPU work; running one goes through the gated osctl path where it's authorised and scheduled against load. R10212 — the panel stages, it never launches from the browser."
+  },
+  {
+    "sel": "#export-btn",
+    "title": "Export 30d eval data (CSV)",
+    "msg": "Copies the command to export the last 30 days of eval results as CSV.",
+    "more": "Lets eval history leave the cockpit for external analysis. The panel shows the trends; this hands you the raw data to chart or archive elsewhere."
+  },
+  {
+    "sel": "#control-surface",
+    "title": "Controls — profiles, modes & toggles",
+    "msg": "The per-panel control rail for eval behaviour.",
+    "more": "Every control copies its exact sovereign-osctl verb (§1g / R10212), never executing from the web."
+  }
+];
+</script>
 </body>
 </html>

@@ -702,29 +702,7 @@ a11y; contract test catches drift.
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
-<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
-<script>
-window.SO_ASSIST = [
-  {
-    "sel": "#adapters-tbody",
-    "title": "Adapter inventory",
-    "msg": "Which LoRA fine-tunes are resident and which are active.",
-    "more": "Adapters are cheap specialisation on top of a base model. This shows what is loaded now; promotion from candidate → active flows through the MS041 gates below, gated on real eval evidence."
-  },
-  {
-    "sel": "#gates-tbody",
-    "title": "Promotion gates",
-    "msg": "The MS041 triple-gate an adapter must clear before it can be promoted.",
-    "more": "Gates advance only from real evidence (a passing eval, a snapshot, a human sign-off) — never fabricated. An adapter stuck 'pending' has not earned its gates yet; that is the system refusing to promote on faith."
-  },
-  {
-    "sel": "#apply-btn",
-    "title": "Promote adapter",
-    "msg": "Stages a promotion — it copies the signed CLI verb, it does not mutate from the web.",
-    "more": "R10212: the cockpit stages, the gated osctl path executes. The button is reachable only when the gates are green."
-  }
-];
-</script>
+
 
 <h1>D-11 — adapter status</h1>
 <div class="sub">LoRA Foundry inventory + MS041 triple-gate audit + rollback · <a href="../master-dashboard/">D-00 main</a> · <a href="../d-10-eval-history/">D-10 eval history</a></div>
@@ -1495,5 +1473,155 @@ refresh();
 </script>
 <script>SovereignControlSurface.load(document.getElementById('control-surface'),{filterSlug:'d-11-adapter-status'});</script>
 
+
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#datasource-banner",
+    "title": "Live vs snapshot",
+    "msg": "Green = /api/adapters/inventory is answering live; muted = the baked snapshot.",
+    "more": "Adapter state changes on load/promote/rollback — a snapshot may show an adapter as active that's since been rolled back. Muted means the inventory daemon is unreachable."
+  },
+  {
+    "sel": "#ds-state-label",
+    "title": "Data-source state",
+    "msg": "Which source the page reads — live adapter daemon or snapshot.",
+    "more": "live / snapshot / unknown. 'unknown' means the health probe itself failed, distinct from a clean snapshot fallback you can still read as last-known."
+  },
+  {
+    "sel": "#ds-state-detail",
+    "title": "Reachability detail",
+    "msg": "The reason behind the state — reachable, timeout, or endpoint absent.",
+    "more": "Turns 'snapshot' into a diagnosis of whether the adapters API is down, slow, or not started."
+  },
+  {
+    "sel": "#ds-last-update",
+    "title": "Fetch freshness",
+    "msg": "When the shown inventory was pulled.",
+    "more": "Check before assuming an adapter's state — a promotion or rollback newer than the last fetch won't show yet."
+  },
+  {
+    "sel": "#total-adapters",
+    "title": "Total adapters",
+    "msg": "How many LoRA adapters are known to the inventory.",
+    "more": "The full population — resident, pending, quarantined, rolled-back. Adapters are cheap specialization on a base model; this is how many the Foundry (M046) is tracking."
+  },
+  {
+    "sel": "#promoted-count",
+    "title": "Promoted (L6)",
+    "msg": "How many adapters reached L6 (fully promoted / active).",
+    "more": "L6 is the top of the promotion ladder — an adapter serving in production after clearing every gate. This count is the trusted, active fine-tune set."
+  },
+  {
+    "sel": "#pending-count",
+    "title": "Pending gates",
+    "msg": "How many adapters are waiting on promotion gates.",
+    "more": "Candidates that have a measured eval gain but haven't cleared the MS041 triple-gate below. Pending is the system refusing to promote on faith until the gates pass on real evidence."
+  },
+  {
+    "sel": "#vram-total",
+    "title": "Total VRAM (loaded)",
+    "msg": "VRAM currently held by loaded adapters.",
+    "more": "Adapters are small vs base models, but resident ones still cost VRAM. This is the memory footprint of the active adapter set — what competes with model VRAM on the serving GPUs."
+  },
+  {
+    "sel": "#base-filter",
+    "title": "Base-model filter",
+    "msg": "Filter adapters by the base model they attach to.",
+    "more": "Adapters are specialization on a specific base — this narrows the table to one base's adapters, the way you compare fine-tunes competing for the same model."
+  },
+  {
+    "sel": "#precision-filter",
+    "title": "Precision filter",
+    "msg": "Filter by adapter precision — NVFP4 (M077), ternary (M073), etc.",
+    "more": "Precision decides VRAM cost and portability. NVFP4 is 4-bit (big VRAM savings); this filter isolates one precision class to compare footprint vs quality."
+  },
+  {
+    "sel": "#training-filter",
+    "title": "Training-method filter",
+    "msg": "Filter by how the adapter was trained — RL-GRPO, RL-HölderPO (M078), etc.",
+    "more": "The training method shapes what the adapter learned. Filtering by it lets you compare, say, all HölderPO adapters — useful when a method is under evaluation."
+  },
+  {
+    "sel": "#status-filter",
+    "title": "Status filter",
+    "msg": "Filter by adapter status — active, pending, quarantined, rolled-back.",
+    "more": "Cuts the table to a lifecycle state — e.g. only quarantined adapters when investigating a bad promotion, or only rolled-back to review what failed."
+  },
+  {
+    "sel": "#apply-btn",
+    "title": "Apply filters",
+    "msg": "Run the adapter query with the current filters.",
+    "more": "Refreshes the inventory table to the selected base/precision/training/status. Read-only — it queries, it never promotes."
+  },
+  {
+    "sel": "#adapters-tbody",
+    "title": "Adapter inventory",
+    "msg": "The adapters by base model — status, gates, actions (M046 LoRA Foundry).",
+    "more": "The core table: which fine-tunes exist, their gate state, and per-row promote/demote/rollback (staged as signed CLI verbs). Promotion from candidate → active flows through the MS041 gates below on real eval evidence."
+  },
+  {
+    "sel": "#gates-tbody",
+    "title": "MS041 triple-gate",
+    "msg": "The high-risk triple-gate per pending adapter — oracle, human, composite.",
+    "more": "A high-risk adapter must clear three independent gates before promotion: an oracle (automated eval) check, a human sign-off, and a composite verdict. Gates advance only from real evidence, never fabricated — an adapter stuck here hasn't earned all three."
+  },
+  {
+    "sel": "#nvfp4-tbody",
+    "title": "NVFP4 4-bit inventory",
+    "msg": "The NVFP4 adapters (M077) with VRAM saved vs BF16 and base portability.",
+    "more": "NVFP4 is 4-bit quantized adapters — roughly a 4× VRAM saving over BF16, letting more specializations stay resident. The table shows each one's saving and whether it ports across bases."
+  },
+  {
+    "sel": "#history-tbody",
+    "title": "Promotions + rollbacks (30d)",
+    "msg": "Recent promotions and rollbacks — adapter, actor, rationale, signature.",
+    "more": "The audit trail of what went active and what got pulled, each signed. A rollback here with its rationale is the honest record of a fine-tune that looked good but failed in practice."
+  },
+  {
+    "sel": "#hrm-canon-status",
+    "title": "HRM canonical",
+    "msg": "The HRM reasoning model (M080) — trained on 1000 samples, no pre-training; not LoRA-compatible.",
+    "more": "HRM is a distinct model class, not a LoRA adapter — it can't be fine-tuned the same way, so it sits apart from the adapter inventory. This row is its live status; it's tracked here because it's part of the same reasoning-capability story (D-10 evals)."
+  },
+  {
+    "sel": "#hrm-text-1b-status",
+    "title": "HRM text 1B",
+    "msg": "The HRM text 1B variant — non-instruction-tuned, apache-2.0.",
+    "more": "A base HRM text model (not instruction-tuned, permissively licensed). Non-instruction-tuned means it's a raw capability base, not a chat model — status shown here for completeness of the M080 class."
+  },
+  {
+    "sel": "#hrm-trm-status",
+    "title": "HRM TRM",
+    "msg": "The HRM TRM variant — 2-layer (arXiv 2510.04871); not instruction-tuned.",
+    "more": "The Tiny Recursive Model variant — a 2-layer architecture from the cited paper. Part of the M080 HRM class the eval suite (D-10 sudoku/ARC) targets; not LoRA-compatible, tracked here as status only."
+  },
+  {
+    "sel": "#refresh-btn",
+    "title": "Refresh",
+    "msg": "Re-poll the adapter inventory now.",
+    "more": "A fresh read after a promote/rollback instead of waiting for the auto-poll. Read-only."
+  },
+  {
+    "sel": "#train-btn",
+    "title": "Train new adapter (operator-signed)",
+    "msg": "Stages a new adapter training run — copies the signed CLI verb.",
+    "more": "Training is heavy GPU work through the LoRA Foundry; it goes via the gated osctl path where it's authorised and scheduled. R10212 — the panel stages the command, it never launches training from the browser."
+  },
+  {
+    "sel": "#export-btn",
+    "title": "Export adapter inventory CSV",
+    "msg": "Copies the command to export the adapter inventory as CSV.",
+    "more": "Hands you the raw inventory for external tracking or comparison across builds — the data behind the tables, portable."
+  },
+  {
+    "sel": "#control-surface",
+    "title": "Controls — profiles, modes & toggles",
+    "msg": "The per-panel control rail for adapter behaviour.",
+    "more": "Every control copies its exact sovereign-osctl verb (§1g / R10212), never executing from the web — including train, promote, and rollback."
+  }
+];
+</script>
 </body>
 </html>

@@ -693,23 +693,7 @@ a11y; contract test catches drift.
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
-<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
-<script>
-window.SO_ASSIST = [
-  {
-    "sel": "#dimensions-row",
-    "title": "UX dimensions",
-    "msg": "The design-stage scoring across the panels — discoverable, readable-in-30s, clear next step, action budget, recoverable, operator-named.",
-    "more": "This is the audit that produced the app-shell grammar you are using: an action must be findable without reading, a page understandable at a glance. Each dimension is a lens the panels are graded against."
-  },
-  {
-    "sel": "#below-tbody",
-    "title": "Below-bar panels",
-    "msg": "Panels scoring under the UX bar on one or more dimensions.",
-    "more": "The worklist — where a panel hides its primary action, buries state, or offers no recovery. Fixing these is what 'gold standard' means for the cockpit's feel."
-  }
-];
-</script>
+
 <h1>sovereign-os ux-design-audit</h1>
 <p class="sub">
   Operator-§1g ux-design-audit &mdash; 6-UX-dimension live auditor across operator-facing modules + R464 cross-repo selfdef
@@ -1365,6 +1349,126 @@ async function refreshAll() {
 document.getElementById("refresh-btn").addEventListener("click", refreshAll);
 refreshAll();
 setInterval(refreshAll, 60000);
+</script>
+
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#stats",
+    "title": "UX-audit summary",
+    "msg": "The UX design audit roll-up — modules, dimensions, below-threshold, selfdef checklists.",
+    "more": "The score lives in the audited modules themselves, not this daemon. It grades each panel against the 6 UX dimensions this cockpit's grammar was built on — the audit that produced the app-shell you're using."
+  },
+  {
+    "sel": "#stat-version",
+    "title": "API version",
+    "msg": "The UX-audit API version.",
+    "more": "Stamps the audit build so the UX scores and dimension set tie to a known version of the UX contract — the reference when a score disagrees with a panel's actual behaviour."
+  },
+  {
+    "sel": "#stat-modules",
+    "title": "Tracked modules",
+    "msg": "How many modules/panels the UX audit covers.",
+    "more": "The population graded for UX — every surface expected to meet the design bar. The denominator of the scores."
+  },
+  {
+    "sel": "#stat-dimensions",
+    "title": "UX dimensions",
+    "msg": "The count of operator-named UX dimensions (the 6-dimension ladder).",
+    "more": "action-budget / discoverable / recoverable / next-step / operator-named / readable-30s — the six lenses a panel is graded against. The R457 ladder below names each."
+  },
+  {
+    "sel": "#stat-below",
+    "title": "Modules below threshold",
+    "msg": "Panels scoring under the UX threshold (default 4).",
+    "more": "The worklist — panels that hide their action, bury state, or offer no recovery. Fixing these is what 'gold standard' means for the cockpit's feel."
+  },
+  {
+    "sel": "#stat-selfdef",
+    "title": "selfdef checklists",
+    "msg": "Cross-repo selfdef UxChecklists discovered (R464).",
+    "more": "The security repo's surfaces graded by the same UX contract, read-only from its published checklists. The cross-repo half."
+  },
+  {
+    "sel": "#last-refresh",
+    "title": "Last refresh",
+    "msg": "When the UX audit last recomputed.",
+    "more": "Freshness of the scores — a stale scan can lag a just-improved (or just-regressed) panel."
+  },
+  {
+    "sel": "#dimensions-row",
+    "title": "6 UX dimensions",
+    "msg": "The R457 ladder — the 6 operator-named UX dimensions.",
+    "more": "Each tile shows how panels score on that lens. A dimension with many low scores is a systemic UX weakness across the cockpit, not a one-panel problem."
+  },
+  {
+    "sel": "#dim-action-budget",
+    "title": "action-budget",
+    "msg": "Does the panel keep the number of actions reasonable?",
+    "more": "Too many actions overwhelm; too few strand. This dimension grades whether a panel offers the right, bounded set of things to do — not a wall of buttons."
+  },
+  {
+    "sel": "#dim-discoverable",
+    "title": "discoverable",
+    "msg": "Can the primary action be found without reading?",
+    "more": "An action buried in prose fails discoverability. This grades whether what you're meant to do is visually obvious — findable at a glance, not hunted for."
+  },
+  {
+    "sel": "#dim-recoverable",
+    "title": "recoverable",
+    "msg": "Can the operator undo or recover from a mistake?",
+    "more": "A panel with no recovery is a trap. This grades whether actions are reversible or at least safe — the difference between confidence and fear when clicking."
+  },
+  {
+    "sel": "#dim-next-step",
+    "title": "next-step",
+    "msg": "Does the panel make the next action clear?",
+    "more": "After reading a panel, do you know what to do next? This grades whether the panel guides forward — a clear next step versus a dead end of numbers."
+  },
+  {
+    "sel": "#dim-operator-named",
+    "title": "operator-named",
+    "msg": "Does the panel use the operator's own vocabulary?",
+    "more": "Naming things as the operator names them (not internal jargon) is how a panel reads as built-for-you. This grades that alignment — sacrosanct-words discipline applied to UX."
+  },
+  {
+    "sel": "#dim-readable-30s",
+    "title": "readable-30s",
+    "msg": "Is the panel understandable in about 30 seconds?",
+    "more": "A panel you can't grasp quickly fails under pressure. This grades whether state is legible at a glance — the 30-second comprehension bar the whole cockpit aims for."
+  },
+  {
+    "sel": "#matrix-tbody",
+    "title": "UX score matrix",
+    "msg": "Per-module scores across the 6 dimensions, lowest score first.",
+    "more": "The core audit grid: each panel's dimension scores, worst first. Where you see exactly which lens a panel fails — the actionable heart of the UX audit."
+  },
+  {
+    "sel": "#below-tbody",
+    "title": "Below-bar panels",
+    "msg": "Panels under the UX threshold — score, shortfall, missing dimensions.",
+    "more": "The prioritized UX worklist — where a panel hides its primary action, buries state, or offers no recovery. This is the list the gold-standard pass works down."
+  },
+  {
+    "sel": "#selfdef-tbody",
+    "title": "selfdef UxChecklists (R464)",
+    "msg": "Cross-repo selfdef UX checklists and status.",
+    "more": "selfdef's surfaces graded by the same UX contract, read-only from its checklists. Proves the UX discipline crosses the repo boundary."
+  },
+  {
+    "sel": "#refresh-btn",
+    "title": "Refresh all",
+    "msg": "Recompute the UX audit.",
+    "more": "Re-reads the modules to refresh every score. Read-only — it audits, it changes nothing."
+  },
+  {
+    "sel": "#control-surface",
+    "title": "Controls — profiles, modes & toggles",
+    "msg": "The per-panel control rail for the UX audit.",
+    "more": "Every control copies its exact sovereign-osctl verb (§1g / R10212), never executing from the web."
+  }
+];
 </script>
 </body>
 </html>

@@ -713,29 +713,7 @@ a11y; contract test catches drift.
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
-<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
-<script>
-window.SO_ASSIST = [
-  {
-    "sel": "#i-total",
-    "title": "Audit-chain entries",
-    "msg": "Total events in the append-only audit chain.",
-    "more": "The audit chain is tamper-evident: entries are hash-linked, so a missing or altered event breaks continuity. This is the count of what has been recorded."
-  },
-  {
-    "sel": "#i-verified",
-    "title": "Verified entries",
-    "msg": "How many chain entries verified against their hash links.",
-    "more": "Verified should equal total. A shortfall means the chain has an integrity break (see continuity/gap) — the strongest signal that something tried to cover its tracks."
-  },
-  {
-    "sel": "#i-continuous",
-    "title": "Chain continuity",
-    "msg": "Whether the hash chain is unbroken end-to-end.",
-    "more": "Continuous = tamper-evidence intact. A gap is not a cosmetic warning — it is the audit system telling you an event was removed or the log was truncated."
-  }
-];
-</script>
+
 
 <h1>D-16 — audit-chain <span class="badge-mirror" style="font-size:.7rem">read-only via selfdef-audit-mirror</span></h1>
 <div class="sub">MS016 append-only audit log · MS049 13-field span entries · MS026 OCSF taxonomy · MS003 verify-only signatures — <a href="../master-dashboard/">D-00 main</a></div>
@@ -1466,5 +1444,155 @@ window.SO_ASSIST = [
 </script>
 <script>SovereignControlSurface.load(document.getElementById('control-surface'),{filterSlug:'d-16-audit'});</script>
 
+
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#mirror-status-banner",
+    "title": "Mirror status",
+    "msg": "Whether the selfdef audit mirror is publishing (online) or absent (offline).",
+    "more": "D-16 is a read-only reflection of selfdef's audit chain (typed-mirror crate #7 of 9). Offline means the mirror isn't publishing — the chain is still being built and enforced selfdef-side, you just can't see it here until the bridge returns."
+  },
+  {
+    "sel": "#mirror-state-label",
+    "title": "Mirror state",
+    "msg": "The one-word verdict — online / offline.",
+    "more": "The quick read on whether this audit view is live. Because sovereign-os has NO mutation surface on the chain, this is purely an observability signal — the chain's integrity is maintained by selfdef regardless."
+  },
+  {
+    "sel": "#mirror-state-detail",
+    "title": "Mirror detail",
+    "msg": "The reason behind the mirror state.",
+    "more": "Explains an offline mirror — the publisher is down or unreachable, distinct from the chain itself having a problem (which the integrity panel would show)."
+  },
+  {
+    "sel": "#mirror-last-update",
+    "title": "Mirror last update",
+    "msg": "When the mirror last published (chain is append-only, built by MS016).",
+    "more": "Freshness of the reflected audit data. The chain is append-only (MS016 R03567) so nothing is ever rewritten — a stale timestamp just means no new events have been mirrored, not that history changed."
+  },
+  {
+    "sel": "#mirror-schema-version",
+    "title": "Mirror schema version",
+    "msg": "The schema version of the mirrored audit data.",
+    "more": "Stamps the contract shape so the fields below are interpreted against a known version — the thing to cite if the mirror's shape ever disagrees with the panel."
+  },
+  {
+    "sel": "#integrity-panel",
+    "title": "Chain integrity",
+    "msg": "The SHA-256 hash-chain integrity check (MS016 R03567, append-only).",
+    "more": "Every audit event is hash-linked to the previous one, so any tampering breaks the chain. This panel is the proof the audit log is intact and complete — the foundation that makes every event below trustworthy as evidence."
+  },
+  {
+    "sel": "#i-continuous",
+    "title": "Continuity",
+    "msg": "Whether the hash chain is unbroken (verified) end to end.",
+    "more": "'verified' means every link checks — no gaps, no rewrites. A break here is the single most important audit signal: it means the tamper-evident guarantee failed and the log can't be trusted until reconciled."
+  },
+  {
+    "sel": "#i-total",
+    "title": "Total entries",
+    "msg": "How many entries are in the audit chain.",
+    "more": "The length of the append-only log. It only ever grows; a shrink would itself be a tamper signal the continuity check would catch."
+  },
+  {
+    "sel": "#i-verified",
+    "title": "Verified at",
+    "msg": "When integrity was last verified.",
+    "more": "Freshness of the integrity proof. A 'verified' continuity with an old timestamp means the last check passed but newer entries haven't been re-verified — check the age before trusting the green."
+  },
+  {
+    "sel": "#i-head",
+    "title": "Head hash",
+    "msg": "The hash of the newest chain entry.",
+    "more": "The chain's current tip — the value a verifier re-derives to confirm nothing after it was altered. It's the cryptographic anchor of the whole log's current state."
+  },
+  {
+    "sel": "#i-gap",
+    "title": "First gap",
+    "msg": "Where the first chain discontinuity is, if any.",
+    "more": "Normally hidden. If continuity fails, this pinpoints the entry where the chain first breaks — the exact location to investigate for tampering or corruption."
+  },
+  {
+    "sel": "#o-process",
+    "title": "Process activity",
+    "msg": "OCSF process-activity events — exec, spawn (MS026 taxonomy).",
+    "more": "One of the five OCSF categories the audit summarizes. Process events are the exec/spawn trail — the record of what ran, the substrate of most security investigations."
+  },
+  {
+    "sel": "#o-file",
+    "title": "File activity",
+    "msg": "OCSF file-activity events — read, write, access.",
+    "more": "The filesystem access trail. Spikes in write/access on sensitive paths are what a file-based investigation starts from — mapped to the OCSF file category."
+  },
+  {
+    "sel": "#o-network",
+    "title": "Network activity",
+    "msg": "OCSF network-activity events — dial, listen.",
+    "more": "Egress and listener events — who reached out, what opened a port. The network audit category, the counterpart to the perimeter panels."
+  },
+  {
+    "sel": "#o-host",
+    "title": "Host inventory",
+    "msg": "OCSF host-inventory events — snapshot, drift.",
+    "more": "Host-state events: inventory snapshots and drift from expected state. Drift here is configuration changing out from under the baseline — a quiet but important signal."
+  },
+  {
+    "sel": "#o-authority",
+    "title": "Authority decision",
+    "msg": "OCSF authority-decision events — grant, capability.",
+    "more": "The governance category: capability grants and authority decisions. This is where the audit records who was allowed to do what — the accountability spine."
+  },
+  {
+    "sel": "#p-allow",
+    "title": "allow",
+    "msg": "Count of policy decisions that resolved to allow (MS033 4-state).",
+    "more": "One of the four policy outcomes (R07731-R07734). allow is the normal path — the baseline; its ratio to deny/ask/sandbox is the shape of how permissive the box is behaving."
+  },
+  {
+    "sel": "#p-deny",
+    "title": "deny",
+    "msg": "Count of policy decisions that resolved to deny.",
+    "more": "The enforcement number — requests the policy blocked. A rising deny count is the perimeter actively refusing things; read it with the audit spans to see WHAT was denied."
+  },
+  {
+    "sel": "#p-ask",
+    "title": "ask",
+    "msg": "Count of policy decisions that resolved to ask (operator gate).",
+    "more": "Decisions the policy escalated to a human rather than deciding automatically. High ask volume means a lot is landing on the operator — a signal to tune policy or expect approval backlog (D-06)."
+  },
+  {
+    "sel": "#p-sandbox",
+    "title": "sandbox",
+    "msg": "Count of policy decisions routed to sandbox.",
+    "more": "The fourth outcome: neither allowed nor denied but confined to run under isolation (Weaver). The middle path for untrusted-but-useful work — contained rather than blocked."
+  },
+  {
+    "sel": "#cat-filters",
+    "title": "Category filters",
+    "msg": "Filter the recent-spans tail by OCSF category.",
+    "more": "Narrows the 13-field span tail to one category (process/file/network/host/authority) so you can read, e.g., only authority decisions without the process-event noise."
+  },
+  {
+    "sel": "#span-tbody",
+    "title": "Recent spans (13-field)",
+    "msg": "The bounded tail of recent audit entries — 13-field MS049 records, with latency, risk, and chain hash.",
+    "more": "The live end of the audit chain: each row is a full MS049 event including its chain hash, so you can trace an event AND confirm its place in the tamper-evident chain. Bounded tail — the newest events, not the whole log."
+  },
+  {
+    "sel": "#toast",
+    "title": "Copy confirmation",
+    "msg": "Confirms a CLI verb was copied — the chain is append-only, verify/export via selfdefctl only.",
+    "more": "There is NO web mutation surface on the audit chain (MS016 R03567). Any action copies its signed selfdefctl verb for operator MS003 execution — this toast confirms the command is on your clipboard, nothing was changed here."
+  },
+  {
+    "sel": "#control-surface",
+    "title": "Controls — profiles, modes & toggles",
+    "msg": "The per-panel control rail for the audit mirror.",
+    "more": "Every control copies its exact selfdefctl/sovereign-osctl verb — verify and export only, never mutation. The chain is append-only; the web reflects it, it cannot write to it."
+  }
+];
+</script>
 </body>
 </html>
