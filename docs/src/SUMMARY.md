@@ -13,6 +13,7 @@
 - [Flexible tiered feature+model exploitation (SDD-043)](../sdd/043-flexible-tiered-feature-model-exploitation.md)
 - [Unified dashboard surface (SDD-044)](../sdd/044-unified-dashboard-surface.md)
 - [Dashboard control-surface buildout (SDD-045)](../sdd/045-dashboard-control-surface-buildout.md)
+- [Cockpit app-shell — header + sidemenu + Assistant (SDD-067)](../sdd/067-cockpit-app-shell-header-sidemenu-assistant.md)
 
 # The 10-PR foundation phase
 

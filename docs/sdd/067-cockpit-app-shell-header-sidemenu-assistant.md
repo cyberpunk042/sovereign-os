@@ -1,8 +1,9 @@
-# SDD-066 — Cockpit app-shell: persistent header + collapsible sidemenu + Assistant mode
+# SDD-067 — Cockpit app-shell: persistent header + collapsible sidemenu + Assistant mode
 
 > Status: **draft** (planning — stop-for-review; no implementation this pass)
 > Owner: operator-supervised; agent-authored
 > Last updated: 2026-07-09
+> Closes findings: E11.M34 (mandate decomposition — cockpit app-shell doctrine)
 > Derived from: operator directive 2026-07-09 (this session, verbatim below);
 > inspiration operator-named — `devops-control-plane` `src/ui/web/templates/partials/_nav.html`;
 > builds ON the existing per-panel canonical snippet stack (SDD-040 cockpit bridge,
@@ -256,7 +257,7 @@ from the catalog.
 
 | Stage | Scope | Gate |
 |---|---|---|
-| **0 (this pass)** | SDD-066 + backlog note. **Stop for review.** | operator reviews this doc |
+| **0 (this pass)** | SDD-067 + backlog note. **Stop for review.** | operator reviews this doc |
 | **1** | Build `_shared/app-shell-snippet.html` + `scripts/webapp/sync-app-shell.py` + `tests/lint/test_app_shell_contract.py`; adopt on **2 reference panels** (D-00 master-dashboard + `build-configurator`, the grammar reference). | shell renders; palette/theme/a11y/responsive still green on both |
 | **2** | Assistant drawer: Panel help + hover `data-assist` + tour, on the 2 reference panels. | hover/focus help works; reduced-motion respected |
 | **3** | Sweep **all ~52 panels** via the generator; contract test green; a11y + responsive + reduced-motion regression across the sweep. | `test_app_shell_contract` + the other 4 contract tests all green |
@@ -268,19 +269,19 @@ from the catalog.
 
 | Q | Question | Proposed |
 |---|---|---|
-| Q-066-A | Sidemenu **group taxonomy** source. | Data-driven from `/catalog` M060 domain/purpose metadata, with the §3.3 table as static fallback (works `file://` / server-down). |
-| Q-066-B | Sidemenu **default state** + persistence key. | Default **collapsed** on desktop, **hidden** ≤1024px; persist under a personalization-adjacent key (fold into the existing personalization schema vs. a new key — operator's call). |
-| Q-066-C | Header **status / approvals roll-up**. | Per-panel status is local + already-known; a *system-wide* attention count needs `/catalog` or an approvals-count endpoint (D-06 `approvals-api.py` exists). Confirm the source or ship per-panel-only first. |
-| Q-066-D | Assistant **content authoring**. | Hand-authored `data-assist` for high-value controls + auto-derive Panel help from M060 text; do not block Stage 1 on full coverage. |
-| Q-066-E | Which panels get the shell. | All operator-facing cockpit panels; confirm whether meta/audit panels (`ux-design-audit`, `anti-minimization-audit`, `doc-coverage`) are in or out. |
-| Q-066-F | **Live-LLM Assistant** (Stage-N, out of scope now). | A real assistant chat wired to the ecosystem Per-Project AI Assistant / wiki-hub is a **future decision** — it introduces a network path (sovereignty-clean tension) + a trust/permission model. Flag, do not build. |
+| Q-067-A | Sidemenu **group taxonomy** source. | Data-driven from `/catalog` M060 domain/purpose metadata, with the §3.3 table as static fallback (works `file://` / server-down). |
+| Q-067-B | Sidemenu **default state** + persistence key. | Default **collapsed** on desktop, **hidden** ≤1024px; persist under a personalization-adjacent key (fold into the existing personalization schema vs. a new key — operator's call). |
+| Q-067-C | Header **status / approvals roll-up**. | Per-panel status is local + already-known; a *system-wide* attention count needs `/catalog` or an approvals-count endpoint (D-06 `approvals-api.py` exists). Confirm the source or ship per-panel-only first. |
+| Q-067-D | Assistant **content authoring**. | Hand-authored `data-assist` for high-value controls + auto-derive Panel help from M060 text; do not block Stage 1 on full coverage. |
+| Q-067-E | Which panels get the shell. | All operator-facing cockpit panels; confirm whether meta/audit panels (`ux-design-audit`, `anti-minimization-audit`, `doc-coverage`) are in or out. |
+| Q-067-F | **Live-LLM Assistant** (Stage-N, out of scope now). | A real assistant chat wired to the ecosystem Per-Project AI Assistant / wiki-hub is a **future decision** — it introduces a network path (sovereignty-clean tension) + a trust/permission model. Flag, do not build. |
 
 ---
 
 ## 6. Non-goals (Stage N)
 
 - **No live LLM / chat assistant** — Assistant mode here is client-side contextual
-  help only (Q-066-F is the future hook).
+  help only (Q-067-F is the future hook).
 - **No server-side rendering of chrome** and **no SPA conversion** — the multi-page,
   self-contained architecture stays; the shell is duplicated-by-generator, not a
   router.
