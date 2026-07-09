@@ -207,7 +207,11 @@ def decide(id_or_latest: str, verb: str, *, actor: str = "operator",
 def request(*, title: str, severity: str = "medium", gate: str = "L4→L5",
             actor: str = "operator", summary: str = "") -> dict[str, Any]:
     """Stage-2 minimal producer — mint an APR-<8hex> pending request. NOT
-    privileged, NOT a control, NOT web-exposed. Real producers are Stage 4."""
+    privileged. Web-exposed via the sanctioned R10274 exec-rail as the
+    `approvals-request` control (SDD-104, dry-run default) — an unprivileged
+    intent-enqueue, distinct from the privileged approve/deny that signs it; rich
+    free-text titles stay CLI (the exec `_SAFE_VALUE` allowlist forbids free text).
+    Real auto-producers are Stage 4."""
     if severity not in _VALID_SEVERITY:
         severity = "medium"
     rid = f"APR-{secrets.token_hex(4)}"

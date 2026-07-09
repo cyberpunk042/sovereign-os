@@ -26,7 +26,7 @@
 # SOVEREIGN_OS_OPERATOR_USER); the literal below is a placeholder for preview.
 # ============================================================================
 
-# ── The 10 sovereign-os-OWNED control verbs (config/control-systems.yaml) ──
+# ── The sovereign-os-OWNED control verbs (config/control-systems.yaml) ──
 # selfdef + perimeter are DELIBERATELY absent (R10212: proxy-only, never granted).
 Cmnd_Alias SOVEREIGN_OS_COCKPIT = \
     /usr/local/bin/sovereign-osctl profiles switch *, \
@@ -48,6 +48,7 @@ Cmnd_Alias SOVEREIGN_OS_COCKPIT = \
     /usr/local/bin/sovereign-osctl traces replay-verify *, \
     /usr/local/bin/sovereign-osctl rollback apply --to latest --confirm, \
     /usr/local/bin/sovereign-osctl approvals *, \
+    /usr/local/bin/sovereign-osctl approvals request --gate *, \
     /usr/local/bin/sovereign-osctl models load *, \
     /usr/local/bin/sovereign-osctl models unload *, \
     /usr/local/bin/sovereign-osctl models warm *, \
@@ -62,6 +63,7 @@ Cmnd_Alias SOVEREIGN_OS_COCKPIT = \
     /usr/local/bin/sovereign-osctl memory-changes reject *, \
     /usr/local/bin/sovereign-osctl memory-changes forget *, \
     /usr/local/bin/sovereign-osctl memory-changes undo *, \
+    /usr/local/bin/sovereign-osctl memory-changes request *, \
     /usr/local/bin/sovereign-osctl sessions hibernate *, \
     /usr/local/bin/sovereign-osctl sessions resume *, \
     /usr/local/bin/sovereign-osctl sessions kill *, \
