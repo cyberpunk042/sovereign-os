@@ -239,7 +239,7 @@ DEFAULT_TOPICS: list[dict[str, Any]] = [
             "ladder + the 1980W < 1600W+headroom caveat under dual-GPU peak."
         ),
         "layers": [
-            "1. UPS live state (R252 power-status ups; apcupsd / nut)",
+            "1. UPS live state (R252 power-status ups; NUT upsc / apc_modbus)",
             "2. Battery thresholds (R302 battery-ladder)",
             "3. APC profile + scheduled shutdown (R314 apc-profile)",
             "4. Default power-profiles (R293 power-profiles — "

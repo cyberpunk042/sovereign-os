@@ -66,7 +66,9 @@ script that:
 - Reads ONLY (no mutation in the probe; mutation lives in companion
   scripts like `gpu-remediate.py` or systemd hooks).
 - Degrades gracefully when underlying tools are absent (dmidecode /
-  lspci / apcaccess / upsc) — JSON shape stays consistent;
+  lspci / NUT `upsc` — the APC Smart-UPS SMT2200C SmartConnect is driven
+  by NUT's `apc_modbus` over Modbus TCP :502 or serial; `apcaccess` still
+  works if apcupsd is present) — JSON shape stays consistent;
   human render says "(unavailable)".
 
 ### 2. Operator-supplied configuration

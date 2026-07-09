@@ -269,6 +269,16 @@ packages:
     - podman
     - mokutil
     - sbsigntool
+    # APC Smart-UPS (SMT2200C, SmartConnect) monitoring via NUT + the apc_modbus
+    # driver (Modbus over TCP :502 on the embedded SmartConnect Ethernet port,
+    # OR Modbus RTU / serial over the DSD TECH SH-RJ50A USB→RJ50 cable — the
+    # USB-serial driver ftdi/ch341/cp210x/pl2303 is already in the znver5 kernel).
+    # Native USB-HID (051d) is covered by usbhid-ups, also shipped by NUT. Feeds
+    # power-status + the graceful soft-shutdown guard (runtime < 30 min).
+    - nut-server                   # upsd + core drivers (usbhid-ups, apcsmart)
+    - nut-client                   # upsc / upsmon / upsdrvctl
+    - nut-modbus                   # apc_modbus driver (Modbus TCP/serial) — SMT2200C SmartConnect
+                                   #   (Debian ships it split out; depends on libmodbus5)
   deny:
     - popularity-contest
     - apport
@@ -302,6 +312,19 @@ provisioning:
     dashboards: true               # deploy panels + enable sovereign-dashboards.service
   firstboot: true                  # install + enable sovereign-firstboot.target + hardware hooks
   posture: installed-off           # selfdef + ghostproxy installed but NOT started on boot
+  # APC Smart-UPS (SMT2200C, SmartConnect) power management. provision-bake arms
+  # the graceful soft-shutdown guard (power.toml) + lays down the NUT base config
+  # (skips the daemons on VMs); the ups-apc-setup first-boot hook auto-detects the
+  # transport on real hardware — Modbus TCP (:502) → serial (/dev/ttyUSB) → USB-HID.
+  power:
+    ups: apc-modbus                # NUT apc_modbus: Modbus TCP or serial, auto-detected
+    ups_host: 192.168.1.69         # confirmed 2026-07-08: SMT2200C SmartConnect, MAC 28:29:86
+    #                              #   (Schneider/APC), Modbus TCP :502 unit 1 verified live.
+    #                              #   Tried first; if the DHCP lease moves the hook re-scans
+    #                              #   the LAN for an APC on :502. Best: give it a DHCP reservation.
+    slave_id: 1                    # Modbus unit id (LCD ▸ TCP Settings ▸ Slave ID)
+    shutdown_minutes: 30           # soft shutdown when battery runtime < 30 min
+    graceful_shutdown: true        # arm the guard (power.toml enabled = true)
 
 hooks:
   pre_install:
@@ -333,6 +356,14 @@ hooks:
       type: setup
       script: scripts/hooks/post-install/vfio-bind-4090.sh
       mandatory: true
+    # APC Smart-UPS (SMT2200C, SmartConnect): NUT apc_modbus auto-detect —
+    # Modbus TCP (:502, SmartConnect Ethernet) → serial (/dev/ttyUSB, DSD TECH
+    # cable) → native USB-HID (051d), verifying comms via upsc. Feeds the
+    # graceful soft-shutdown at runtime < 30 min.
+    - id: ups-apc-setup
+      type: setup
+      script: scripts/hooks/post-install/ups-apc-setup.sh
+      mandatory: false
     - id: network-vlan-config
       type: network
       script: scripts/hooks/post-install/network-vlan-config.sh
@@ -385,6 +416,14 @@ hooks:
       type: security
       schedule: weekly
       script: scripts/hooks/recurrent/root-ghostproxy-verify.sh
+    # R253 (SDD-026) — every minute, check the UPS advisory (NUT upsc → power-
+    # status) and fire a GRACEFUL soft shutdown when battery runtime < 30 min.
+    # Armed via /etc/sovereign-os/power.toml [graceful_shutdown] (provisioning
+    # sets enabled=true, shutdown_minutes=30). No-op when no UPS is present.
+    - id: power-shutdown-guard
+      type: safety
+      schedule: minutely
+      script: scripts/hooks/recurrent/power-shutdown-guard.sh
 
   decommission:
     - id: secure-wipe-context

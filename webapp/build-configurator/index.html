@@ -777,7 +777,7 @@ var BAKED = {
     ],
     apt: [
       { pkg:"jq", on:true }, { pkg:"ripgrep", on:true }, { pkg:"fd-find", on:true },
-      { pkg:"dnsutils", on:true }, { pkg:"lm-sensors", on:true }, { pkg:"apcupsd", on:true },
+      { pkg:"dnsutils", on:true }, { pkg:"lm-sensors", on:true }, { pkg:"nut-server", on:true }, { pkg:"nut-client", on:true }, { pkg:"nut-modbus", on:true },
       { pkg:"wasmtime", on:true },
     ],
     pip: [
@@ -948,7 +948,7 @@ function hostLive(kind){
 var HOST_BIN_NAMES = {
   "@anthropic-ai/claude-code":"claude", "opencode-ai":"opencode",
   "fd-find":"fdfind", "lm-sensors":"sensors", "ripgrep":"rg",
-  "dnsutils":"dig", "apcupsd":"apcupsd",
+  "dnsutils":"dig", "nut-server":"upsd", "nut-client":"upsc",
 };
 /* recurrent hook id → systemd timer slug (mirror of the repo's
    HOOK_TO_TIMER_SLUG contract for the hooks this page surfaces) */
@@ -1812,7 +1812,9 @@ var GLOSSARY = {
   "fd-find": "Fast, friendly find replacement (fdfind).",
   "dnsutils": "dig + nslookup — dns-advisor and perf-baseline use dig.",
   "lm-sensors": "CPU/board temperature + fan sensors — thermal-watch reads these.",
-  "apcupsd": "APC UPS daemon — the R252 power-status integration.",
+  "nut-server": "NUT upsd + core drivers (usbhid-ups / apcsmart) — the R252 power-status / APC Smart-UPS integration.",
+  "nut-client": "NUT clients (upsc / upsmon / upsdrvctl) — power-status reads UPS state via upsc.",
+  "nut-modbus": "NUT apc_modbus driver — Modbus over TCP (:502) / serial for the SMT2200C SmartConnect (Debian ships it split out; needs libmodbus5).",
   "wasmtime": "WebAssembly runtime — Pulse's Wasm-to-AVX-512 AOT pipeline (R281).",
   "huggingface_hub": "Model up/downloads from Hugging Face (R242 toolchain).",
   "transformers": "Hugging Face reference runtime — workload-fit checks.",

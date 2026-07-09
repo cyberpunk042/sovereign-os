@@ -95,6 +95,8 @@ dashboards:
      description: "Boot a built image in a throwaway QEMU VM before flashing — interactive serial console, configurable QEMU options (uefi/direct boot, kvm/tcg, cpu/mem, snapshot), auto-login. Catches a broken image in a VM, never on the USB key.", refs: [SDD-008, SDD-045]}
   - {slug: flash, category: hardware, label: "Flash to USB", path: /flash/, api: sovereign-flash-api, status: live,
      description: "Write a built image onto a removable disk from the panel — a safety-classified device picker (system disks hard-protected), type-to-arm confirm, and live dd progress. Shells the gated sovereign-osctl install image; never raw dd.", refs: [SDD-045]}
+  - {slug: ups, category: hardware, label: "UPS (APC Smart-UPS)", path: /ups/, api: sovereign-ups-api, status: live,
+     description: "Live APC Smart-UPS (SMT2200C SmartConnect) state (battery %, runtime, load, on-line/on-battery) via NUT apc_modbus over Modbus TCP (:502) or serial, plus the graceful soft-shutdown posture — an orderly poweroff when battery runtime drops below 30 minutes. Read-only over power-status + NUT upsc.", refs: [SDD-026]}
 
   # ── Security & selfdef ──────────────────────────────────────────────
   - {slug: selfdef-management, category: security, label: "selfdef (IPS) Management", path: /selfdef-management/, status: live,

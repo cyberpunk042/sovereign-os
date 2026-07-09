@@ -23,7 +23,9 @@ install = [
     "fd-find",      # fast find
     "dnsutils",     # `dig` for dns-advisor + perf-baseline
     "lm-sensors",   # thermal-watch
-    "apcupsd",      # UPS interop (R252 power-status)
+    "nut-server",   # NUT upsd + core drivers (usbhid-ups / apcsmart) — APC Smart-UPS (R252/R253)
+    "nut-client",   # NUT upsc / upsmon / upsdrvctl — power-status reads UPS state via upsc
+    "nut-modbus",   # apc_modbus driver (Modbus TCP :502 / serial) — SMT2200C SmartConnect; Debian splits it out
     "wasmtime",     # R281 Wasm-AOT pipeline (if packaged)
     "zfsutils-linux",  # zpool + zfs userland — required by zfs-tiered profiles (preflight-storage)
     "nodejs",       # Node runtime — required by the [npm] claude-code global (dev workstation)

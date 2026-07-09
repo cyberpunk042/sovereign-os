@@ -21,6 +21,8 @@ PANELS = {
               "sovereign-flash-api.service", "8122"),
     "emulate": ("emulate-webapp", "/emulate.json", "emulate-api.py",
                 "sovereign-emulate-api.service", "8123"),
+    "ups": ("ups-webapp", "/ups.json", "ups-api.py",
+            "sovereign-ups-api.service", "8124"),
 }
 
 

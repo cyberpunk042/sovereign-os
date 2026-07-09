@@ -346,6 +346,46 @@ properties:
         type: string
         pattern: '^[0-9.]+:[0-9]+$'
 
+  # Prepacking: what gets BAKED into the image at build time (read by
+  # scripts/build/adapters/mkosi-emit.sh → scripts/build/provision-bake.sh).
+  provisioning:
+    type: object
+    additionalProperties: false
+    properties:
+      operator:
+        type: object
+        additionalProperties: false
+        properties:
+          username: { type: string }
+          password_from_root: { type: boolean }
+          shell: { type: string }
+          groups: { type: array, items: { type: string } }
+          home_repo: { type: string }
+      bake:
+        type: object
+        additionalProperties: false
+        properties:
+          repo: { type: boolean }
+          dev_tools: { type: boolean }
+          selfdef: { type: boolean }
+          root_ghostproxy: { type: boolean }
+          dashboards: { type: boolean }
+      firstboot: { type: boolean }
+      posture:
+        type: string
+        description: installed-off = software present but security daemons not started on boot.
+      # APC Smart-UPS / graceful soft-shutdown (SDD-026). NUT apc_modbus:
+      # Modbus over TCP (:502, SmartConnect) or serial, auto-detected.
+      power:
+        type: object
+        additionalProperties: false
+        properties:
+          ups: { type: string }                    # e.g. apc-modbus
+          ups_host: { type: string }               # optional: pin the SmartConnect IP
+          slave_id: { type: integer, minimum: 0, maximum: 247 }  # Modbus unit id
+          shutdown_minutes: { type: number, minimum: 0 }
+          graceful_shutdown: { type: boolean }
+
 $defs:
   hook:
     type: object
@@ -357,7 +397,7 @@ $defs:
         pattern: '^[a-z0-9][a-z0-9-]*$'
       type:
         type: string
-        enum: [validation, setup, security, secure-boot, network, interactive, maintenance, cleanup]
+        enum: [validation, setup, security, secure-boot, network, interactive, maintenance, cleanup, safety]
       script: { type: string }
       mandatory: { type: boolean }
       schedule:

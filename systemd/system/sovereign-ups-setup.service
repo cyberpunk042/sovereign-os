@@ -1,0 +1,43 @@
+[Unit]
+Description=sovereign-os APC UPS setup (one-shot, first boot)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/hooks/post-install/ups-apc-setup.sh
+ConditionFirstBoot=yes
+# SAIN-01 bare-metal hardware setup — skip cleanly on a VM/emulator (no serial
+# UPS cable to detect). Runs on the real machine (not virtualized).
+ConditionVirtualization=no
+After=sovereign-friction-audit.service
+PartOf=sovereign-firstboot.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+EnvironmentFile=-/etc/sovereign-os/active-profile.env
+EnvironmentFile=-/etc/sovereign-os/ups.env
+# Detects the SMT2200C SmartConnect transport via NUT apc_modbus — Modbus TCP
+# (:502, scanning the LAN or SOVEREIGN_OS_UPS_HOST) → serial (/dev/ttyUSB, DSD
+# TECH cable) → native USB-HID (usbhid-ups). Writes /etc/nut/* + verifies comms
+# via upsc, then enables the NUT daemons.
+ExecStart=/opt/sovereign-os/scripts/hooks/post-install/ups-apc-setup.sh
+StandardOutput=journal
+StandardError=journal
+# R171 defense-in-depth (Layer 1 lint enforced). Writes /etc/nut config; scans
+# the LAN + talks to upsd on 127.0.0.1:3493 (AF_INET/AF_INET6). systemctl
+# enable/restart is delegated to PID1, so the sandbox doesn't block the daemons.
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
+ReadWritePaths=/etc/nut -/run/nut -/var/lib/nut /var/lib/sovereign-os /var/log
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=sovereign-firstboot.target

@@ -50,7 +50,17 @@ def _advisories(config: Path | None = None) -> dict:
 
 
 def test_advisories_emits_thresholds_enabled():
-    doc = _advisories()
+    # Hermetic: point at a temp UNARMED config (no `enabled` line) so the test
+    # is independent of host state. Resolving with no --config would read a real
+    # /etc/sovereign-os/power.toml on a provisioned host (armed enabled=true),
+    # which is exactly the deployed state — the default must still be False here.
+    with tempfile.NamedTemporaryFile("w", suffix=".toml", delete=False) as f:
+        f.write("[graceful_shutdown]\nshutdown_minutes = 30\n")  # no `enabled` → default False
+        cfg = Path(f.name)
+    try:
+        doc = _advisories(cfg)
+    finally:
+        cfg.unlink(missing_ok=True)
     thresholds = doc.get("thresholds")
     assert isinstance(thresholds, dict), "advisories has no thresholds object"
     assert "enabled" in thresholds, (
@@ -59,8 +69,9 @@ def test_advisories_emits_thresholds_enabled():
         "reads it; without it, config-based arming silently never works."
     )
     assert thresholds["enabled"] is False, (
-        "with no config, thresholds.enabled must default to False (host "
-        "warns but never auto-shuts-down until explicitly armed)."
+        "with an unarmed config (no [graceful_shutdown] enabled), "
+        "thresholds.enabled must default to False (host warns but never "
+        "auto-shuts-down until explicitly armed)."
     )
 
 

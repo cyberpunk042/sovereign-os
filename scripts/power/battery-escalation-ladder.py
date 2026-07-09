@@ -167,7 +167,7 @@ def probe_ups_remaining_minutes() -> tuple[int | None, str | None]:
         doc = json.loads(r.stdout)
     except json.JSONDecodeError as e:
         return None, f"json parse: {e}"
-    # Try several possible field names — operator's apcupsd output varies.
+    # Try several possible field names — the UPS backend's output varies.
     for key in ("battery_runtime_minutes", "runtime_minutes",
                 "battery_minutes_remaining", "minutes_remaining"):
         if key in doc and isinstance(doc[key], (int, float)):

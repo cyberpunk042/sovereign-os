@@ -114,6 +114,7 @@ deploy_unit_only() { # <unit> — install the file, never enable
 }
 deploy_unit_only sovereign-flash-api.service
 deploy_unit_only sovereign-emulate-api.service
+deploy_unit_only sovereign-ups-api.service
 
 # ── (4) discoverable launcher: app menu + desktop + login autostart ──
 step "4/5 discoverable launcher (app menu · desktop · autostart)"

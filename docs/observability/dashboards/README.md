@@ -151,6 +151,7 @@ panel queries lock to them.
 - `sovereign_os_post_install_server_hardening_applied{profile}` — count of drop-in files actually applied on the last run
 - `sovereign_os_post_install_workstation_hardening_total{profile,result}` — apply-workstation-hardening hook (role-workstation profiles): success / dry-run / skipped / fail
 - `sovereign_os_post_install_workstation_hardening_applied{profile}` — count of drop-in files applied (workstation = 4 vs server = 5)
+- `sovereign_os_post_install_ups_setup_total{result,transport}` — R252/R253: outcome of the first-boot APC Smart-UPS (SMT2200C SmartConnect) detection via NUT `apc_modbus`. `result` ∈ {success, unreached}; `transport` ∈ {tcp (Modbus TCP :502, embedded SmartConnect port), serial (apc_modbus over the DSD TECH USB→RJ50 cable), native (usbhid-ups, USB HID 051d), none}. Operators alert on `result="unreached"` — the host booted with no UPS monitoring and the graceful soft-shutdown guard has no data source.
 - `sovereign_os_friction_audit_failures{profile}` — runtime friction-audit fails (lspci / IOMMU mismatch)
 - `sovereign_os_friction_audit_warnings{profile}`
 - `sovereign_os_friction_audit_last_run_timestamp{profile}`

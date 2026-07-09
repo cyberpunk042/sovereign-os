@@ -16,12 +16,13 @@
 #   2. dev workstation  node22 + Claude Code + VS Code ext     (dev-workstation.sh)
 #   3. selfdef          build + install units + enable         (auto — no manual compile)
 #   4. operator-deps    declared apt/pip/npm overlay           (operator-deps.py)
-#   5. operator-rules   re-apply Claude Code interaction rules (operator-rules.py)
-#   6. root-ghostproxy  OPTIONAL agent-safety env — endpoint mode, NO proxy (opt-out)
+#   5. ups / power      APC Smart-UPS via NUT apc_modbus        (ups-apc-setup.sh)
+#   6. operator-rules   re-apply Claude Code interaction rules (operator-rules.py)
+#   7. root-ghostproxy  OPTIONAL agent-safety env — endpoint mode, NO proxy (opt-out)
 #
 # Tunable env:
 #   PROVISION_DRY_RUN=1              preview
-#   PROVISION_SKIP="build,dev,selfdef,deps,rules,ghostproxy"  comma-list to skip
+#   PROVISION_SKIP="build,dev,selfdef,deps,ups,rules,ghostproxy"  comma-list to skip
 #   PROVISION_GHOSTPROXY=0           opt OUT of the default-on root-ghostproxy step
 #   SOVEREIGN_OS_SELFDEF_DIR=<path>     selfdef checkout (default ~/selfdef)
 #   SOVEREIGN_OS_GHOSTPROXY_DIR=<path>  root-ghostproxy checkout (default ~/root-ghostproxy)
@@ -98,20 +99,70 @@ if skipped deps; then warn "skipped (PROVISION_SKIP)"
 else
   deps="/etc/sovereign-os/operator-deps.toml"
   [ -f "${deps}" ] || deps="${__REPO_ROOT}/config/operator-deps.toml.example"
+  # operator-deps.py CLI: `--config <file> apply --confirm` (verb-based); it
+  # shells `apt-get install` directly so it needs root → run via sudo_.
   if [ -n "${DRY_RUN}" ]; then
-    echo -e "  ${cyn}dry-run\$${rst} python3 scripts/install/operator-deps.py --deps ${deps} --apply --confirm"
+    python3 scripts/install/operator-deps.py --config "${deps}" plan || true
   else
-    python3 scripts/install/operator-deps.py --deps "${deps}" --apply --confirm \
+    sudo_ python3 scripts/install/operator-deps.py --config "${deps}" apply --confirm \
       || warn "operator-deps returned non-zero (non-fatal; re-runnable)"
   fi
 fi
 
-# ── (5) operator rules: re-apply Claude Code interaction rules ───────
+# ── (5) UPS / power (APC Smart-UPS via NUT apc_modbus + graceful shutdown) ──
+# Running-host parity with provision-bake §7: (a) ARM the graceful soft-shutdown
+# guard in power.toml from the active profile's provisioning.power block, (b)
+# install + enable the shutdown-guard timer (its /opt/sovereign-os unit paths
+# resolve here via the /opt → repo symlink), (c) AUTO-DETECT the APC transport
+# (Modbus TCP :502 → serial → USB-HID) + enable the NUT daemons. Idempotent; a
+# no-op if NUT/UPS absent. Needs root. NUT comes from the step-4 overlay
+# (nut-server + nut-client + nut-modbus — the apc_modbus driver Debian splits out).
+step "[5/7] UPS / power (APC Smart-UPS — NUT apc_modbus + graceful shutdown)"
+UPS_HOOK="${__REPO_ROOT}/scripts/hooks/post-install/ups-apc-setup.sh"
+if skipped ups; then warn "skipped (PROVISION_SKIP)"
+elif [ ! -x "${UPS_HOOK}" ]; then warn "ups-apc-setup hook not present — skipping"
+elif [ -z "${DRY_RUN}" ] && ! command -v upsc >/dev/null 2>&1; then
+  warn "NUT not installed (add nut-server + nut-client + nut-modbus to operator-deps.toml) — skipping"
+else
+  # graceful-shutdown policy from the active profile's provisioning.power block
+  ups_prof="${SOVEREIGN_OS_PROFILE:-sain-01}"
+  ups_pol="$(python3 -c "
+import yaml
+try: p=(yaml.safe_load(open('profiles/${ups_prof}.yaml')).get('provisioning') or {}).get('power') or {}
+except Exception: p={}
+print(1 if p.get('graceful_shutdown') else 0, int(p.get('shutdown_minutes',30)))" 2>/dev/null || echo '1 30')"
+  ups_arm="${ups_pol%% *}"; ups_min="${ups_pol##* }"
+  if [ -n "${DRY_RUN}" ]; then
+    echo -e "  ${cyn}dry-run\$${rst} arm power.toml (enabled=${ups_arm}, shutdown_minutes=${ups_min}) · install+enable guard timer · run detection hook"
+  else
+    # (a) arm the graceful-shutdown guard (power.toml) — mirrors provision-bake §7a
+    sudo_ mkdir -p /etc/sovereign-os
+    [ -f /etc/sovereign-os/power.toml ] || sudo_ cp "${__REPO_ROOT}/config/power.toml.example" /etc/sovereign-os/power.toml
+    if [ "${ups_arm}" = "1" ]; then
+      sudo_ sed -i -E 's|^[#[:space:]]*enabled[[:space:]]*=.*|enabled = true|' /etc/sovereign-os/power.toml
+    fi
+    sudo_ sed -i -E "s|^[#[:space:]]*shutdown_minutes[[:space:]]*=.*|shutdown_minutes = ${ups_min}|" /etc/sovereign-os/power.toml
+    # (b) install + enable the shutdown-guard timer (the soft-shutdown mechanism)
+    for f in sovereign-power-shutdown-guard.service sovereign-power-shutdown-guard.timer; do
+      [ -f "${__REPO_ROOT}/systemd/system/${f}" ] && sudo_ install -m 644 "${__REPO_ROOT}/systemd/system/${f}" /etc/systemd/system/
+    done
+    sudo_ systemctl daemon-reload 2>/dev/null || true
+    if [ "${ups_arm}" = "1" ]; then
+      sudo_ systemctl enable --now sovereign-power-shutdown-guard.timer 2>/dev/null \
+        || warn "could not enable power-shutdown-guard.timer (non-fatal)"
+    fi
+    # (c) detect + configure the UPS transport, enable the NUT daemons
+    sudo_ bash "${UPS_HOOK}" || warn "ups-apc-setup returned non-zero (non-fatal; re-runnable)"
+    ok "graceful shutdown armed=${ups_arm} at runtime < ${ups_min} min; guard timer installed"
+  fi
+fi
+
+# ── (6) operator rules: re-apply Claude Code interaction rules ───────
 # The operator's behaviour rules live in per-project Claude memory, which a
 # fresh flash wipes. Re-apply them from the versioned store (self-contained —
 # NO dependency on root-ghostproxy). Idempotent; runs as the operator so the
 # rules land in the operator's ~/.claude, never /root.
-step "[5/6] operator rules (Claude Code interaction rules → ~/.claude memory)"
+step "[6/7] operator rules (Claude Code interaction rules → ~/.claude memory)"
 if skipped rules; then warn "skipped (PROVISION_SKIP)"
 elif [ -n "${DRY_RUN}" ]; then
   echo -e "  ${cyn}dry-run\$${rst} python3 scripts/operator/operator-rules.py apply  (as ${SUDO_USER:-$(id -un)})"
@@ -127,7 +178,7 @@ fi
 # opt-out (PROVISION_GHOSTPROXY=0), and skipped silently if not checked out —
 # everything works fine without it. Disjoint from our rules (it owns ~/.claude
 # global config; we own ~/.claude/projects/<project>/memory) so no collision.
-step "[6/6] root-ghostproxy (optional — endpoint mode, NO proxy)"
+step "[7/7] root-ghostproxy (optional — endpoint mode, NO proxy)"
 GHOSTPROXY_DIR="${SOVEREIGN_OS_GHOSTPROXY_DIR:-${HOME}/root-ghostproxy}"
 if skipped ghostproxy; then warn "skipped (PROVISION_SKIP)"
 elif [ "${PROVISION_GHOSTPROXY:-1}" != "1" ]; then warn "opt-out (PROVISION_GHOSTPROXY=0)"

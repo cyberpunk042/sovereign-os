@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sovereign-os · UPS (APC Smart-UPS)</title>
+<meta name="x-sovereign-module" content="ups-webapp">
+<meta name="x-sovereign-shipped-in" content="SDD-026 · APC Smart-UPS + graceful soft-shutdown panel">
+<meta name="x-sovereign-standing-rule" content="We do not minimize anything.">
+<style>
+  :root{
+    --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --accent:#9bd1ff;
+    --good:#7ad17a; --bad:#ff7676; --warn:#e6c062;
+    --panel:#171717; --border:#262626;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:14px;line-height:1.5}
+  body{padding:1.2rem;max-width:1100px;margin:0 auto}
+  h1{font-size:1.4rem;margin:0 0 .2rem 0;font-weight:600}
+  h2{font-size:1rem;margin:1.6rem 0 .4rem 0;font-weight:600;color:var(--accent)}
+  .sub{color:var(--muted);margin-bottom:1rem;font-size:.85rem}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.9rem 1rem;margin:.6rem 0}
+  .row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center}
+  .muted{color:var(--muted)}
+  code{background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:0 .3rem;font-size:.9em}
+  .status{font-size:.75rem}
+  .status.ok{color:var(--good)} .status.bad{color:var(--bad)} .status.warn{color:var(--warn)}
+  .stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.5rem;margin:.5rem 0}
+  .stat{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.7rem .9rem}
+  .stat .k{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em}
+  .stat .v{font-size:1.6rem;margin-top:.15rem;font-variant-numeric:tabular-nums}
+  .stat .v small{font-size:.9rem;color:var(--muted)}
+  .stat.good .v{color:var(--good)} .stat.warn .v{color:var(--warn)} .stat.bad .v{color:var(--bad)}
+  .bar{height:.55rem;border-radius:3px;background:var(--border);overflow:hidden;margin-top:.4rem}
+  .bar > i{display:block;height:100%;background:var(--good);transition:width .5s}
+  .badge{display:inline-flex;align-items:center;gap:.3rem;font-size:.74rem;border:1px solid var(--border);border-radius:12px;padding:.1rem .55rem}
+  .badge.ok{color:var(--good);border-color:var(--good)} .badge.bad{color:var(--bad);border-color:var(--bad)} .badge.warn{color:var(--warn);border-color:var(--warn)}
+  .dot{display:inline-block;width:.6rem;height:.6rem;border-radius:50%;background:var(--muted);margin-right:.35rem;vertical-align:middle}
+  .dot.on{background:var(--good)} .dot.batt{background:var(--warn)} .dot.off{background:var(--bad)}
+  table{width:100%;border-collapse:collapse;font-size:.82rem;margin-top:.3rem}
+  th,td{text-align:left;padding:.3rem .5rem;border-bottom:1px solid var(--border)}
+  th{color:var(--muted);font-weight:600;font-size:.72rem;text-transform:uppercase}
+  footer{margin-top:2rem;color:var(--muted);font-size:.75rem;border-top:1px solid var(--border);padding-top:.8rem}
+  .standing-rule{color:var(--accent);font-style:italic;margin-top:.4rem}
+</style>
+</head>
+<body>
+<h1>UPS · APC Smart-UPS</h1>
+<p class="sub">
+  Live power state from the APC Smart-UPS (SMT2200C SmartConnect) via NUT
+  <code>apc_modbus</code> — Modbus over TCP (:502) or serial — and the graceful
+  <strong>soft-shutdown</strong> posture. When battery runtime drops below the
+  threshold, SAIN-01 powers down orderly on its own.
+  <span id="status" class="status">loading…</span>
+</p>
+
+<h2>status</h2>
+<div class="panel">
+  <div class="row" style="margin-bottom:.3rem">
+    <span class="status"><span id="line-dot" class="dot off"></span><span id="line-state" style="font-size:.95rem">—</span></span>
+    <span class="muted" id="model"></span>
+    <span style="flex:1"></span>
+    <span class="muted" id="source"></span>
+  </div>
+  <div class="stats" id="stats"></div>
+</div>
+
+<h2>graceful soft-shutdown</h2>
+<div class="panel">
+  <div class="row">
+    <span id="arm-badge" class="badge">—</span>
+    <span class="muted">fires an orderly poweroff when battery runtime drops below
+      <strong id="shut-min">—</strong> min · checked every minute by
+      <code>sovereign-power-shutdown-guard</code></span>
+  </div>
+  <table>
+    <tbody id="thresholds"></tbody>
+  </table>
+  <div class="muted" id="verdict-line" style="font-size:.78rem;margin-top:.4rem"></div>
+  <div class="muted" style="font-size:.74rem;margin-top:.3rem">
+    arm/adjust: edit <code>/etc/sovereign-os/power.toml</code> <code>[graceful_shutdown]</code> ·
+    inspect: <code>sovereign-osctl power-status</code>
+  </div>
+</div>
+
+
+<!-- SDD-045 Phase C — control surface (INLINED per the single-file doctrine).
+     Renders config/control-systems.yaml (served at /control-systems): the
+     global controls (profile / dashboard on-off / auth tier) + the modes &
+     feature toggles that govern THIS panel. Read-only: each control copies
+     its exact sovereign-osctl command. Canonical source (lockstep-linted):
+     webapp/_shared/control-surface.{css,js}. -->
+<h2>controls — profiles, modes &amp; feature toggles</h2>
+<div id="control-surface" class="cs-grid"><div class="cs-empty">loading controls…</div></div>
+<style>
+/* webapp/_shared/control-surface.css — SDD-045 shared control-surface.
+ * Renders the control-systems registry (profiles / modes / feature toggles)
+ * as a grid of control cards. Monochrome, framework-free; inherits the
+ * panel palette variables (--bg/--fg/--muted/--accent/--border/--mono). */
+.cs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: .5rem; }
+.cs-card {
+  display: flex; flex-direction: column; gap: .35rem;
+  padding: .6rem .75rem; border: 1px solid var(--border, #262626);
+  border-radius: .4rem; background: rgba(255, 255, 255, .02);
+}
+.cs-head { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.cs-label { font-weight: 600; flex: 1; }
+.cs-kind {
+  font-size: .7rem; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--muted, #888); border: 1px solid var(--border, #262626);
+  border-radius: 3px; padding: 0 .35rem;
+}
+.cs-global {
+  font-size: .7rem; color: var(--accent, #9bd1ff);
+  border: 1px solid var(--accent, #9bd1ff); border-radius: 3px; padding: 0 .35rem;
+}
+.cs-desc { color: var(--muted, #888); font-size: .8rem; line-height: 1.45; }
+.cs-opts { display: flex; flex-wrap: wrap; gap: .3rem; }
+.cs-opt { font-size: .72rem; background: var(--border, #262626); border-radius: 3px; padding: 1px 6px; }
+.cs-cmd {
+  font-family: var(--mono, ui-monospace, monospace); font-size: .74rem;
+  text-align: left; color: var(--fg, #e6e6e6); background: var(--bg, #0e0e0e);
+  border: 1px solid var(--border, #262626); border-radius: 3px;
+  padding: .25rem .4rem; cursor: pointer; overflow-x: auto; white-space: nowrap;
+}
+.cs-cmd:hover { border-color: var(--accent, #9bd1ff); }
+.cs-empty { color: var(--muted, #888); }
+</style>
+<script>
+/* webapp/_shared/control-surface.js — SDD-045 shared control-surface renderer.
+ *
+ * Renders the control-systems registry (config/control-systems.yaml, served
+ * as GET /control-systems) — the operator's "everything can be turned on and
+ * off + tons of modes and profiles" — as a grid of control cards. Reused by
+ * every dashboard so each becomes a CONTROL surface.
+ *
+ * Web is READ-ONLY: each control shows its options and copies its exact
+ * `change_cli` for the operator to run. It NEVER mutates privileged state
+ * (§1g / hardening lint). No framework, no CDN — a single same-origin file.
+ *
+ * Usage:
+ *   const n = SovereignControlSurface.render(el, systems, {
+ *     filterSlug: 'runtime-modes',   // only global + systems governing this slug
+ *     onCopy: (cmd) => showToast(cmd) // optional copy callback
+ *   });
+ */
+(function (global) {
+  "use strict";
+
+  function esc(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  function render(containerEl, systems, opts) {
+    opts = opts || {};
+    var slug = opts.filterSlug || null;
+    var list = (systems || []).filter(function (s) {
+      if (!slug) return true;                       // no filter → all systems
+      return s.scope === "global" ||                // globals show everywhere
+        (s.applies_to || []).indexOf(slug) >= 0;    // + systems governing slug
+    });
+    var html = list.map(function (s) {
+      var pills = (s.options || []).map(function (o) {
+        return '<span class="cs-opt">' + esc(o) + "</span>";
+      }).join("");
+      var change = esc(s.change_cli || "");
+      return '<div class="cs-card cs-' + esc(s.kind) + '">'
+        + '<div class="cs-head">'
+        + '<span class="cs-label">' + esc(s.label) + "</span>"
+        + '<span class="cs-kind">' + esc(s.kind) + "</span>"
+        + (s.scope === "global" ? '<span class="cs-global">global</span>' : "")
+        + "</div>"
+        + '<div class="cs-desc">' + esc(s.description) + "</div>"
+        + '<div class="cs-opts">' + pills + "</div>"
+        + (change
+            ? '<button class="cs-cmd" data-cmd="' + change
+              + '" title="click to copy the operator command">$ ' + change + "</button>"
+            : "")
+        + "</div>";
+    }).join("");
+    containerEl.innerHTML = html || '<div class="cs-empty">(no controls for this surface)</div>';
+    Array.prototype.forEach.call(containerEl.querySelectorAll(".cs-cmd"), function (b) {
+      b.addEventListener("click", function () {
+        var cmd = b.getAttribute("data-cmd");
+        if (navigator.clipboard) navigator.clipboard.writeText(cmd);
+        if (typeof opts.onCopy === "function") opts.onCopy(cmd);
+      });
+    });
+    return list.length;
+  }
+
+  // Convenience: fetch /control-systems (same-origin) and render.
+  function load(containerEl, opts) {
+    return fetch("/control-systems", { headers: { Accept: "application/json" } })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data && data.error) {
+          containerEl.innerHTML = '<div class="cs-empty">controls unavailable: '
+            + esc(data.error) + "</div>";
+          return 0;
+        }
+        return render(containerEl, (data && data.systems) || [], opts);
+      })
+      .catch(function (e) {
+        containerEl.innerHTML = '<div class="cs-empty">controls unavailable: '
+          + esc(e && e.message) + "</div>";
+        return 0;
+      });
+  }
+
+  global.SovereignControlSurface = { render: render, load: load };
+})(window);
+</script>
+<script>SovereignControlSurface.load(document.getElementById('control-surface'),{filterSlug:'ups'});</script>
+
+<footer>
+  <div>data: <code>GET /ups.json</code> ← <code>scripts/hardware/power-status.py</code> (NUT <code>upsc</code>) ·
+    soft shutdown: <code>sovereign-power-shutdown-guard</code> (R253, SDD-026) · hardware: APC SMT2200C SmartConnect via NUT apc_modbus (TCP/serial)</div>
+  <div class="standing-rule">"We do not minimize anything." — operator §1g standing rule</div>
+</footer>
+
+<script>
+"use strict";
+const el = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;" }[c]));
+
+async function load() {
+  try {
+    const d = await (await fetch("/ups.json", { headers: { Accept: "application/json" } })).json();
+    render(d);
+    el("status").textContent = "live ✓ · refreshes every 5s";
+    el("status").className = "status ok";
+  } catch (e) {
+    el("status").textContent = "live ✗ — " + e.message;
+    el("status").className = "status bad";
+  }
+}
+
+function render(d) {
+  const ups = d.ups || {};
+  const detected = d.detected;
+  const st = (ups.status || "").toUpperCase();
+  // NUT ups.status is space-separated flags (OL/OB/LB/CHRG/DISCHRG…); also
+  // accept legacy apcupsd words (ONLINE/ONBATT/CHARGING) for safety.
+  const flags = st.split(/\s+/);
+  const onLine = flags.includes("OL") || st.includes("ONLINE") || flags.includes("CHRG") || st.includes("CHARGING");
+  const onBatt = flags.includes("OB") || st.includes("ONBATT") || flags.includes("DISCHRG") || st.includes("DISCHARG");
+  const lowBatt = flags.includes("LB") || st.includes("LOWBATT");
+
+  el("line-dot").className = "dot " + (!detected ? "off" : onBatt ? "batt" : onLine ? "on" : "off");
+  el("line-state").textContent = !detected
+    ? (d.upsc_present ? "no UPS communicating (upsd has no device)" : "NUT not installed / no UPS reachable")
+    : (onBatt ? (lowBatt ? "ON BATTERY · LOW" : "ON BATTERY") : onLine ? "on line power" : (ups.status || "unknown"));
+  el("line-state").className = "";
+  el("model").textContent = ups.model ? "· " + ups.model : "";
+  el("source").textContent = detected ? "source: " + (ups.source || "?") : (d.ups_error ? "(" + esc(d.ups_error).slice(0, 60) + ")" : "");
+
+  const charge = num(ups.battery_charge_pct);
+  const tleft = num(ups.time_left_minutes);
+  const load = num(ups.load_pct);
+  const shutMin = num((d.shutdown || {}).shutdown_minutes);
+  const cls = (v, warn, bad, inv) => v == null ? "" : inv ? (v <= bad ? "bad" : v <= warn ? "warn" : "good") : (v >= bad ? "bad" : v >= warn ? "warn" : "good");
+
+  el("stats").innerHTML = [
+    card("battery", charge == null ? "—" : charge + "<small>%</small>", cls(charge, 50, 20, true), charge),
+    card("runtime left", tleft == null ? "—" : tleft + "<small> min</small>",
+         tleft == null ? "" : (shutMin != null && tleft <= shutMin ? "bad" : tleft <= (shutMin || 30) * 1.5 ? "warn" : "good")),
+    card("load", load == null ? "—" : load + "<small>%</small>", cls(load, 70, 90)),
+    card("status", detected ? (onBatt ? "on&nbsp;batt" : "online") : "—", onBatt ? "warn" : detected ? "good" : ""),
+  ].join("");
+
+  // soft-shutdown arming
+  const g = d.shutdown || {};
+  const armed = g.enabled === true;
+  el("shut-min").textContent = g.shutdown_minutes != null ? g.shutdown_minutes : "?";
+  const b = el("arm-badge");
+  b.className = "badge " + (armed ? "ok" : "warn");
+  b.textContent = armed ? "✓ armed" : "⦸ disarmed (warn-only)";
+  el("thresholds").innerHTML = [
+    ["soft shutdown at", g.shutdown_minutes != null ? g.shutdown_minutes + " min runtime left" : "—"],
+    ["also shut down at", g.battery_critical_pct != null ? "≤ " + g.battery_critical_pct + "% battery" : "—"],
+    ["warn at", g.runtime_warn_minutes != null ? g.runtime_warn_minutes + " min runtime left" : "—"],
+    ["guard active", d.nut_active ? "NUT upsd running" : "NUT upsd not active"],
+    ["config", g.config_path || "—"],
+  ].map(([k, v]) => `<tr><th>${esc(k)}</th><td>${v}</td></tr>`).join("");
+
+  const verdict = d.verdict;
+  el("verdict-line").innerHTML = verdict
+    ? "advisory verdict: <strong class='status " + (verdict === "critical" ? "bad" : verdict === "warn" ? "warn" : "ok") + "'>" + esc(verdict) + "</strong>"
+    : (d.advisories && d.advisories.length ? "advisories: " + d.advisories.map(esc).join("; ") : "");
+}
+function num(v){ return (v == null || v === "") ? null : (Math.round(parseFloat(v) * 10) / 10); }
+function card(k, v, cls){ return `<div class="stat ${cls||''}"><div class="k">${k}</div><div class="v">${v}</div></div>`; }
+
+load();
+setInterval(load, 5000);
+</script>
+</body>
+</html>

@@ -156,5 +156,58 @@ if [ "${SOVEREIGN_OS_BAKE_FIRSTBOOT:-}" = "1" ] && [ -d "${REPO}/systemd/system"
   fi
 fi
 
+# ── 7. UPS / power (APC Smart-UPS SMT2200C SmartConnect, graceful shutdown) ─
+# Arms the graceful-shutdown guard (power.toml) + lays down the NUT base config.
+# The correct client for a SmartConnect Smart-UPS is NUT + the apc_modbus driver
+# (Modbus over TCP :502 on the embedded SmartConnect Ethernet port, OR Modbus
+# RTU / serial over the DSD TECH USB→RJ50 cable); native USB-HID falls back to
+# usbhid-ups. The ups-apc-setup first-boot hook DETECTS the transport, writes the
+# working ups.conf, verifies comms with upsc, and enables the daemons on real
+# hardware (skipped on VMs — no UPS in a guest).
+if [ "${SOVEREIGN_OS_UPS:-}" = "1" ]; then
+  SHUT_MIN="${SOVEREIGN_OS_UPS_SHUTDOWN_MIN:-30}"
+  # (a) arm the sovereign graceful-shutdown guard via power.toml
+  mkdir -p /etc/sovereign-os
+  [ -f /etc/sovereign-os/power.toml ] || { [ -f "${REPO}/config/power.toml.example" ] && cp "${REPO}/config/power.toml.example" /etc/sovereign-os/power.toml; }
+  if [ -f /etc/sovereign-os/power.toml ]; then
+    [ "${SOVEREIGN_OS_UPS_ARM:-}" = "1" ] && sed -i -E 's|^[#[:space:]]*enabled[[:space:]]*=.*|enabled = true|' /etc/sovereign-os/power.toml
+    sed -i -E "s|^[#[:space:]]*shutdown_minutes[[:space:]]*=.*|shutdown_minutes = ${SHUT_MIN}|" /etc/sovereign-os/power.toml
+    log "power.toml → graceful soft shutdown armed at runtime < ${SHUT_MIN} min"
+  fi
+  # persist the UPS transport hints for the first-boot hook (read via the unit's
+  # EnvironmentFile). Optional host pins the SmartConnect IP (else the hook scans).
+  {
+    printf '# sovereign-os — UPS transport hints for ups-apc-setup (first boot)\n'
+    [ -n "${SOVEREIGN_OS_UPS_HOST:-}" ] && printf 'SOVEREIGN_OS_UPS_HOST=%s\n' "${SOVEREIGN_OS_UPS_HOST}"
+    printf 'SOVEREIGN_OS_UPS_SLAVEID=%s\n' "${SOVEREIGN_OS_UPS_SLAVEID:-1}"
+  } > /etc/sovereign-os/ups.env
+  # (b) NUT base config (standalone, loopback). The device stanza + daemon enable
+  #     are the first-boot hook's job (after it detects the transport). Here we
+  #     lay the base down + skip the NUT daemons on VMs.
+  if [ -d /etc/nut ]; then
+    printf 'MODE=standalone\n' > /etc/nut/nut.conf
+    printf '# sovereign-os — loopback only (operator exposes deliberately)\nLISTEN 127.0.0.1 %s\nLISTEN ::1 %s\n' "${SOVEREIGN_OS_NUT_LISTEN_PORT:-3493}" "${SOVEREIGN_OS_NUT_LISTEN_PORT:-3493}" > /etc/nut/upsd.conf
+    # placeholder ups.conf — globals only, NO device stanza yet (upsd stays valid
+    # + driverless until ups-apc-setup writes the detected transport at first boot).
+    printf '# sovereign-os — device stanza written at first boot by ups-apc-setup\nmaxretry = 3\npollinterval = 5\n' > /etc/nut/ups.conf
+    for u in nut-server nut-monitor nut-driver-enumerator; do
+      mkdir -p "/etc/systemd/system/${u}.service.d"
+      printf '[Unit]\n# no UPS in a guest — skip cleanly (real SAIN-01 detects + enables at first boot)\nConditionVirtualization=no\n' > "/etc/systemd/system/${u}.service.d/10-sovereign-vm-skip.conf"
+    done
+    log "NUT base laid down (apc_modbus/usbhid-ups; standalone, loopback :${SOVEREIGN_OS_NUT_LISTEN_PORT:-3493}); ups-apc-setup detects the transport at first boot"
+  else
+    log "NUT not installed (/etc/nut absent) — UPS monitoring skipped (needs 'nut-server'+'nut-client' in profile packages)"
+  fi
+  # (c) install + arm the guard timer + the first-boot setup unit
+  for u in sovereign-power-shutdown-guard.service sovereign-power-shutdown-guard.timer sovereign-ups-setup.service; do
+    [ -f "${REPO}/systemd/system/${u}" ] && install -m 644 "${REPO}/systemd/system/${u}" /etc/systemd/system/ 2>/dev/null || true
+  done
+  systemctl enable sovereign-ups-setup.service >/dev/null 2>&1 || true
+  if [ "${SOVEREIGN_OS_UPS_ARM:-}" = "1" ]; then
+    systemctl enable sovereign-power-shutdown-guard.timer >/dev/null 2>&1 \
+      && log "power-shutdown-guard timer armed (minutely; soft shutdown < ${SHUT_MIN} min)" || true
+  fi
+fi
+
 log "done — operator=${OPERATOR} posture=${POSTURE}"
 exit 0

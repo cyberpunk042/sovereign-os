@@ -58,6 +58,12 @@ bake_ghostproxy = bool(prov_bake.get("root_ghostproxy"))
 bake_dashboards = bool(prov_bake.get("dashboards"))
 bake_firstboot = bool(prov.get("firstboot"))
 posture = prov.get("posture", "installed-off")
+prov_power = (prov.get("power") or {})
+ups_enabled = bool(prov_power.get("ups"))
+ups_shutdown_min = int(prov_power.get("shutdown_minutes", 30))
+ups_arm = bool(prov_power.get("graceful_shutdown", True))
+ups_host = str(prov_power.get("ups_host", "") or "")   # optional: pin the SmartConnect IP
+ups_slaveid = int(prov_power.get("slave_id", 1))       # NUT apc_modbus Modbus unit id
 run_provision = bool(prov) and (bake_repo or bool(prov_operator))
 
 repo_root = pathlib.Path(os.environ["SOVEREIGN_OS_PROFILE_FILE"]).resolve().parents[1]
@@ -416,6 +422,11 @@ if run_provision:
               SOVEREIGN_OS_BAKE_GHOSTPROXY="{'1' if bake_ghostproxy else ''}" \\
               SOVEREIGN_OS_BAKE_DASHBOARDS="{'1' if bake_dashboards else ''}" \\
               SOVEREIGN_OS_BAKE_FIRSTBOOT="{'1' if bake_firstboot else ''}" \\
+              SOVEREIGN_OS_UPS="{'1' if ups_enabled else ''}" \\
+              SOVEREIGN_OS_UPS_SHUTDOWN_MIN="{ups_shutdown_min}" \\
+              SOVEREIGN_OS_UPS_ARM="{'1' if ups_arm else ''}" \\
+              SOVEREIGN_OS_UPS_HOST="{ups_host}" \\
+              SOVEREIGN_OS_UPS_SLAVEID="{ups_slaveid}" \\
               bash /opt/sovereign-os/scripts/build/provision-bake.sh 2>&1 \\
                 || echo "postinst: provision-bake returned nonzero (non-fatal)" >&2
         else

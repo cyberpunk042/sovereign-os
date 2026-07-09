@@ -744,8 +744,8 @@ COMMANDS:
                                PSU + sustained budget (= rated W ×
                                derating). Operator-named "1600W ATX
                                3.1 / 80 Plus Titanium / OC mode".
-  power-status ups [--json]    R252: live UPS state via apcupsd
-                               (APC-branded) OR nut (NUT-compatible).
+  power-status ups [--json]    R252: live UPS state via NUT upsc
+                               (apc_modbus / usbhid-ups; any NUT UPS).
                                Surfaces battery_charge / time_left /
                                load_pct.
   power-status budget [--json] R252: PSU rated W vs estimated load
