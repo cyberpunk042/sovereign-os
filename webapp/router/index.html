@@ -700,22 +700,88 @@ a11y; contract test catches drift.
 <script>
 window.SO_ASSIST = [
   {
-    "sel": "#rules-tbody",
-    "title": "Router rules",
-    "msg": "The deterministic per-rule classification (SDD-011) deciding which tier answers.",
-    "more": "Deterministic is the point: the same prompt routes the same way every time. Pairs with the thinking-router planner (`router plan`) — this panel is the live rule set, the planner is the what-if."
+    "sel": "#stats",
+    "title": "Router summary",
+    "msg": "The thinking-router roll-up — service, listen address, version.",
+    "more": "The router (router.service at 127.0.0.1:8080) decides which tier answers a prompt (SDD-011). This strip confirms it's up and where. Rules change via CLI, never by this surface — the web observes routing, it doesn't reconfigure it."
   },
   {
-    "sel": "#metrics-tbody",
-    "title": "Routing metrics",
-    "msg": "Per-rule routing-decision counts.",
-    "more": "Which rules are actually firing. A rule with zero hits is either dead or shadowed by an earlier rule — this table is how you find it."
+    "sel": "#stat-version",
+    "title": "API version",
+    "msg": "The router API version.",
+    "more": "Stamps the build so the rules and metrics tie to a known version of the routing contract."
+  },
+  {
+    "sel": "#stat-service",
+    "title": "Router service",
+    "msg": "Whether router.service is running.",
+    "more": "The health of the routing daemon itself. If it's down, prompts have no classifier — this is the first thing to check when routing behaves oddly."
+  },
+  {
+    "sel": "#stat-listen",
+    "title": "Listen :8080",
+    "msg": "Whether the router is listening on 127.0.0.1:8080.",
+    "more": "Confirms the endpoint prompts are routed through is accepting connections. Loopback-only — sovereignty-clean, the router isn't network-exposed."
+  },
+  {
+    "sel": "#last-refresh",
+    "title": "Last refresh",
+    "msg": "When the router state last refreshed.",
+    "more": "Freshness of the rules and metrics — a stale refresh can lag a rule change made via CLI."
+  },
+  {
+    "sel": "#backend-row",
+    "title": "Backends",
+    "msg": "The three inference backends the router can dispatch to.",
+    "more": "Every routed request lands on one of three backends: Pulse (CPU/AVX-512 ternary), Logic-Engine (GPU), Oracle-Core (GPU). This row is their health; a down backend still gets classified requests but has nowhere to send them."
   },
   {
     "sel": "#backend-pulse",
     "title": "Pulse backend",
-    "msg": "Health of the Pulse (CPU/AVX-512 ternary) inference backend.",
-    "more": "One of the three backends the router can send to (Pulse / Logic-GPU0 / Oracle-GPU1). If a backend is down, the router's rules still classify but have nowhere to send — this is where that shows."
+    "msg": "Health of the Pulse (CPU/AVX-512 ternary) backend.",
+    "more": "The sovereign always-available CPU path — runs with no GPU. If Pulse is the only backend up, routing still works but everything falls to the ternary path; its health is the floor of the system's capability."
+  },
+  {
+    "sel": "#backend-logic",
+    "title": "Logic-Engine backend",
+    "msg": "Health of the Logic-Engine (GPU) backend.",
+    "more": "The mid GPU tier for structured reasoning (the 4090/Logic role). Down means the router can't dispatch Logic-class work — it escalates or falls back, which shows in the metrics."
+  },
+  {
+    "sel": "#backend-oracle",
+    "title": "Oracle-Core backend",
+    "msg": "Health of the Oracle-Core (GPU) backend.",
+    "more": "The heavy reasoning tier (the Blackwell/Oracle role). Down means no heavy-reasoning path — the router must decline or downgrade those requests. The most consequential backend to lose."
+  },
+  {
+    "sel": "#rules-table",
+    "title": "Routing rules (SDD-011)",
+    "msg": "The deterministic per-rule classification — first match wins.",
+    "more": "The rule set that decides which tier answers. Deterministic and ordered: the same prompt routes the same way every time, and the FIRST matching rule wins — so rule order matters. The policy behind every routing decision."
+  },
+  {
+    "sel": "#rules-tbody",
+    "title": "Rules",
+    "msg": "Each rule — number, match, tier.",
+    "more": "The ordered rules: what a prompt must match and which tier it routes to. Because first-match-wins, a broad rule high in the list can shadow a specific one below it — this is where you spot that."
+  },
+  {
+    "sel": "#metrics-tbody",
+    "title": "Route counts",
+    "msg": "Per-tier routed counts (Layer B textfile collector).",
+    "more": "The feedback loop for the rules: which tier requests actually landed on. If everything escalates to Oracle, either the rules or the prompts are heavier than intended — this is where rule vs reality shows."
+  },
+  {
+    "sel": "#refresh-btn",
+    "title": "Refresh all",
+    "msg": "Re-read router state, rules, and metrics.",
+    "more": "Refreshes backends, rules, and routed counts. Read-only — it observes routing, it changes nothing."
+  },
+  {
+    "sel": "#control-surface",
+    "title": "Controls — profiles, modes & toggles",
+    "msg": "The per-panel control rail for the router.",
+    "more": "Every control copies its exact sovereign-osctl verb (§1g / R10212) — routing rules are changed via CLI, never by this surface."
   }
 ];
 </script>

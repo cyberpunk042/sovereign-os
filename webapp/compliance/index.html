@@ -700,16 +700,112 @@ a11y; contract test catches drift.
 <script>
 window.SO_ASSIST = [
   {
-    "sel": "#selfdef-table",
-    "title": "Per-module compliance",
-    "msg": "Pass/fail of each module against the §1g/§1h operator mandate.",
-    "more": "Compliance is the aggregator: it does not test code, it verifies that the mandate's surfaces and instruments are actually present and green. A red row means a module shipped without meeting the contract it was held to."
+    "sel": "#stats",
+    "title": "Compliance summary",
+    "msg": "The §1g/§1h compliance roll-up — surface gaps, doc gaps, anti-min findings, UX below threshold.",
+    "more": "Compliance is the aggregator: it doesn't test code, it verifies the mandate's surfaces and instruments are present and green. This strip is the mandate-level verdict; the four instrument tiles below are where each number comes from."
+  },
+  {
+    "sel": "#stat-version",
+    "title": "API version",
+    "msg": "The compliance API version.",
+    "more": "Stamps the aggregator build so the instrument verdicts tie to a known version of the compliance contract."
+  },
+  {
+    "sel": "#stat-surface",
+    "title": "Surface gaps",
+    "msg": "Modules short on §1g surface coverage (from surface-map).",
+    "more": "Rolls up the surface-map instrument — capability that doesn't reach its owed surfaces. Non-zero means something powerful is under-reachable."
+  },
+  {
+    "sel": "#stat-doc",
+    "title": "Doc gaps",
+    "msg": "Modules short on documentation (from doc-coverage).",
+    "more": "Rolls up the doc-coverage instrument — shipped capability missing its owed docs. The understanding debt across the module set."
+  },
+  {
+    "sel": "#stat-amin",
+    "title": "Anti-min total",
+    "msg": "Total anti-minimization findings (from anti-minimization-audit).",
+    "more": "Rolls up the anti-minimization instrument — every silently-shrunk scope in the tree. The 'do not minimize' number, aggregated to mandate level."
+  },
+  {
+    "sel": "#stat-ux",
+    "title": "UX below threshold",
+    "msg": "Panels under the UX bar (from ux-design-audit).",
+    "more": "Rolls up the UX-audit instrument — surfaces that hide their action, bury state, or offer no recovery. The cockpit-feel debt."
+  },
+  {
+    "sel": "#last-refresh",
+    "title": "Last refresh",
+    "msg": "When compliance last aggregated the instruments.",
+    "more": "Freshness of the mandate verdict — a stale run can lag an instrument that just went green or red."
+  },
+  {
+    "sel": "#instr-row",
+    "title": "4 internal instruments",
+    "msg": "The §1g compliance ladder — the four internal audit instruments.",
+    "more": "Compliance is built ON four instruments, each itself a panel: surface-map, doc-coverage, anti-minimization-audit, ux-design-audit. This row shows each instrument's verdict; compliance is their roll-up."
+  },
+  {
+    "sel": "#instr-surface",
+    "title": "surface-map (R453)",
+    "msg": "The §1g 8-surface coverage instrument.",
+    "more": "One of the four instruments — whether capability reaches the operator through real surfaces. Green here means the surface-map audit passes; click through to D-surface-map for detail."
   },
   {
     "sel": "#instr-doc",
-    "title": "Doc-coverage instrument",
-    "msg": "Whether the documentation-coverage instrument passes for this run.",
-    "more": "One of the compliance instruments (doc / surface / ux / anti-minimize). Each instrument is itself a panel; compliance rolls their verdicts into one mandate-level view."
+    "title": "doc-coverage (R454)",
+    "msg": "The documentation-coverage instrument.",
+    "more": "One of the four instruments — whether shipped capability carries its owed docs. Green means the doc audit passes; the doc-coverage panel has the per-module detail."
+  },
+  {
+    "sel": "#instr-amin",
+    "title": "anti-minimization-audit (R456)",
+    "msg": "The anti-minimization instrument.",
+    "more": "One of the four instruments — whether scope is silently shrunk anywhere. Green means no minimization findings; the anti-minimization panel breaks it down by pattern."
+  },
+  {
+    "sel": "#instr-ux",
+    "title": "ux-design-audit (R457)",
+    "msg": "The UX design instrument.",
+    "more": "One of the four instruments — whether panels meet the UX bar. Green means no panels below threshold; the UX-audit panel has the per-dimension scores."
+  },
+  {
+    "sel": "#selfdef-table",
+    "title": "5 selfdef cross-repo axes",
+    "msg": "The §1h discovery ladder — five cross-repo selfdef compliance axes.",
+    "more": "Beyond the four internal instruments, compliance also discovers selfdef's own compliance across five axes (§1h). This is the cross-repo half — the security repo held to the same contract."
+  },
+  {
+    "sel": "#selfdef-tbody",
+    "title": "selfdef axes detail",
+    "msg": "Per-axis: available, discovered, aggregate.",
+    "more": "Each of the five §1h axes with what selfdef publishes vs what sovereign-os discovered. A gap here means a cross-repo compliance manifest is missing or stale."
+  },
+  {
+    "sel": "#worst-tbody",
+    "title": "Worst modules",
+    "msg": "Modules with the largest composite gap (lower = worse).",
+    "more": "Prioritizes by combined shortfall across all instruments — a module failing multiple axes at once. The highest-leverage compliance worklist."
+  },
+  {
+    "sel": "#history-tbody",
+    "title": "Compliance history",
+    "msg": "Recent compliance snapshots — timestamp, surface, doc, anti-min, UX.",
+    "more": "The trend of the four instrument verdicts over time. A regressing column shows compliance slipping in that dimension — the early signal before a mandate row goes red."
+  },
+  {
+    "sel": "#refresh-btn",
+    "title": "Refresh all",
+    "msg": "Re-aggregate the compliance instruments.",
+    "more": "Re-reads all four instruments plus the selfdef axes to refresh the mandate verdict. This refresh is the ONLY mutation in the module and stays CLI-only by design; the web view is read-only."
+  },
+  {
+    "sel": "#control-surface",
+    "title": "Controls — profiles, modes & toggles",
+    "msg": "The per-panel control rail for compliance.",
+    "more": "Every control copies its exact sovereign-osctl verb (§1g / R10212), never executing from the web."
   }
 ];
 </script>
