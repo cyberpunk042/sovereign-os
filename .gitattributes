@@ -1,0 +1,17 @@
+# SDD-100 — parallel-session conflict avoidance.
+#
+# Three sessions work sovereign-os in parallel, each on its own branch merging to
+# main. These append-only "registry" files get a new row per increment, so two
+# branches both appending "the next row" would 3-way-conflict on logically
+# independent rows. `merge=union` is git's built-in driver that keeps BOTH sides'
+# added lines on a merge — no manual conflict, no data loss. Paired with the
+# per-session number bands in docs/sdd/README.md (which guarantee distinct SDD /
+# E11.M## numbers), so union never produces a duplicate-numbered row.
+#
+# Only append-only markdown registries belong here — NEVER code or structured
+# files where interleaving two edits could corrupt syntax.
+docs/sdd/INDEX.md                                        merge=union
+docs/standing-directives/2026-05-17-operator-mandate.md  merge=union
+docs/src/lifecycle/ongoing.md                           merge=union
+docs/observability/dashboards/README.md                 merge=union
+docs/decisions.md                                       merge=union

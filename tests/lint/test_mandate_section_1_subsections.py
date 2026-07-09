@@ -210,17 +210,24 @@ def test_e11_modules_unique():
 
 
 def test_e11_modules_sequential():
-    """E11.M1, E11.M2, ... E11.MN with no gaps (initial decomposition)."""
+    """WITHIN each E11.M number-band (a hundreds-block, per docs/sdd/README.md +
+    SDD-100) the E11.M sequence has no INTERNAL gaps; band BOUNDARIES (e.g. M38 →
+    M100 into the recover-projects band) are the intentional per-session gaps that
+    keep the 3 parallel sessions from colliding on mandate-module numbers."""
     body = _read()
     e11_ids = re.findall(r"\| E11\.M(\d+) \|", body)
     if not e11_ids:
         return
     nums = sorted(int(i) for i in e11_ids)
-    expected = list(range(1, max(nums) + 1))
-    missing = set(expected) - set(nums)
-    assert not missing, (
-        f"E11.M sequence has gaps: missing {sorted(missing)}"
-    )
+    blocks: dict[int, list[int]] = {}
+    for n in nums:
+        blocks.setdefault(n // 100, []).append(n)
+    for blk, members in blocks.items():
+        lo, hi = min(members), max(members)
+        missing = set(range(lo, hi + 1)) - set(members)
+        assert not missing, (
+            f"E11.M band {blk}xx has internal gaps: missing {sorted(missing)}"
+        )
 
 
 # --- §1g key concretes section ---

@@ -24,7 +24,7 @@ This stage covers **everything that happens after first-boot, for the life of th
 
 ## Recurrent hooks (systemd timers)
 
-The full operator-named maintenance + telemetry cadence (19 timers; each
+The full operator-named maintenance + telemetry cadence (each timer
 fires a hook under `scripts/hooks/recurrent/` that emits a Layer B metric
 snapshot — see `docs/observability/dashboards/README.md` for the metrics).
 Ordered most-frequent first:
@@ -51,9 +51,11 @@ Ordered most-frequent first:
 | `sovereign-selfdef-sync.timer` | Weekly (Sun 05:30) | selfdef checkout freshness check (SDD-001) |
 | `sovereign-ghostproxy-verify.timer` | Weekly (Sun 06:00) | root-ghostproxy AI-agent envelope drift verify — read-only `--check`, endpoint mode (SDD-046) |
 
-This table is the operator-facing mirror of the canonical 19-hook cadence
-locked by `tests/lint/test_recurrent_hooks_contract.py`; adding or removing
-a recurrent hook means updating both.
+This table is the operator-facing mirror of the canonical recurrent-hook
+cadence locked by `tests/lint/test_recurrent_hooks_contract.py`
+(`EXPECTED_RECURRENT_HOOKS`); adding or removing a recurrent hook means
+updating both. (No hardcoded count — a magic integer is a shared value two
+parallel sessions would both bump; SDD-100.)
 
 ## Adding a new tool / service
 

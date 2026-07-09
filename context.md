@@ -308,6 +308,25 @@ Verbatim operator rules, never relax these:
 9. **"never include model identifier in commit messages / PR bodies / pushed artifacts"** — chat replies only.
 10. **"the AI does NOT decide when it's complete"** — operator-controlled session-end via `/goal`. Continue endlessly.
 
+## Parallel-session conventions (SDD-100 — 3 sessions at once)
+
+sovereign-os is worked by **3 sessions in parallel** (recover-projects / header-sidemenu /
+science-tools), each on its own branch merging to `main`. To stop the merge conflicts that
+recurred 2026-07-09 (the SDD-070 number collision + INDEX/mandate append conflicts):
+
+1. **Pick SDD-NNN / E11.M## numbers in YOUR session's band** — recover-projects **100–199**,
+   header-sidemenu **200–299**, science-tools **300–399**, general **900–999** (SDD + E11.M##).
+   The band table + "how to add an SDD" is [`docs/sdd/README.md`](docs/sdd/README.md). The
+   historical 064–071 / M32–M38 stay as-is; bands apply going forward. Never pick a number
+   outside your band — that's how collisions happen.
+2. **The append-only registries are `merge=union`** ([`.gitattributes`](.gitattributes)) —
+   `docs/sdd/INDEX.md`, the operator-mandate, `docs/src/lifecycle/ongoing.md`,
+   `docs/observability/dashboards/README.md`, `docs/decisions.md`. Two branches appending
+   different rows merge cleanly (both kept); you never hand-resolve a registry row conflict.
+3. **Don't hardcode registry counts** ("N recurrent hooks", "N timers") in prose or test
+   docstrings — a magic integer is a shared value two sessions both bump. The real assertions
+   are glob/set-based; keep prose count-free.
+
 ## Build/test hygiene (environment caveat — 2026-05-27)
 
 **DO NOT run `cargo test --workspace` / `cargo build --workspace` here.** This

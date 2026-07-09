@@ -114,22 +114,22 @@ def test_all_recurrent_hooks_exist():
         p = RECURRENT_DIR / name
         assert p.is_file(), (
             f"recurrent hook missing: {p} (operator-named cadence "
-            f"contract — 18-hook telemetry/maintenance set)"
+            f"contract — the EXPECTED_RECURRENT_HOOKS set)"
         )
 
 
 def test_hook_count_matches_expected():
-    """Exactly 19 recurrent hooks (18 shell-convention + 1 binary wrapper,
-    sovereign-telemetry-textfile). Drift adding ungated hooks or
-    removing operator-named cadence breaks the contract. (17th = session-reap
-    per SDD-065 — the M057 session reaper; 18th = memory-observe per SDD-069 —
-    the M028 observation event stream; 19th = memory-janitor per SDD-071 —
-    the recurrent SLM-janitor sweep.)"""
+    """The recurrent-hook set on disk EXACTLY matches EXPECTED_RECURRENT_HOOKS
+    (the shell-convention hooks + the sovereign-telemetry-textfile binary wrapper).
+    Drift — adding an ungated hook or removing an operator-named cadence — breaks
+    the contract. EXPECTED_RECURRENT_HOOKS is the single source of truth; no
+    hardcoded count is asserted (a magic integer is a shared value two parallel
+    sessions would both bump — SDD-100 de-magic)."""
     actual = sorted(p.name for p in RECURRENT_DIR.glob("*.sh"))
     expected = sorted(EXPECTED_RECURRENT_HOOKS)
     assert actual == expected, (
-        f"recurrent hook set drift: actual={actual} vs "
-        f"expected={expected} (operator-named cadence; 16th = root-ghostproxy-verify per SDD-046, 17th = session-reap per SDD-065, 18th = memory-observe per SDD-069, 19th = memory-janitor per SDD-071)"
+        f"recurrent hook set drift: actual={actual} vs expected={expected} "
+        f"(add/remove the hook in EXPECTED_RECURRENT_HOOKS + its timer/service)"
     )
 
 
