@@ -8276,15 +8276,18 @@ case "${cmd}" in
       approve|reject|request)
         "${__REPO_ROOT}/scripts/intelligence/memory-decide.py" "${sub}" "$@"
         ;;
-      forget|undo|register)
-        # SDD-059 (M028): the memory-entry store ops — forget (R10184, soft-delete,
+      forget|undo|register|purge|list)
+        # SDD-059/060 (M028): the memory-entry store ops — forget (R10184, soft-delete,
         # refuse-by-default + --force CLI-only) / undo (R10185, restore) / register
-        # (mint a memory entry). DRY-RUN by default; operator-key + type-to-confirm
-        # gated. The read core stays a pure reader; the API stays 405.
+        # (mint a memory entry) / purge (SDD-060 retention sweep — hard-remove
+        # forgotten tombstones past the window, IRREVERSIBLE) / list (the mem-<id>
+        # entries). DRY-RUN by default; operator-key + type-to-confirm gated. purge is
+        # CLI-ONLY maintenance — deliberately NOT a cockpit control (irreversible; the
+        # web can never reach it). The read core stays a pure reader; the API stays 405.
         "${__REPO_ROOT}/scripts/intelligence/memory-store.py" "${sub}" "$@"
         ;;
       *)
-        log_error "unknown memory-changes subverb: ${sub} (available: snapshot, types, lifecycle, approve, reject, request, forget, undo, register)"
+        log_error "unknown memory-changes subverb: ${sub} (available: snapshot, types, lifecycle, approve, reject, request, forget, undo, register, purge, list)"
         exit 2
         ;;
     esac

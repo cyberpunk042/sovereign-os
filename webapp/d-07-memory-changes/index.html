@@ -506,6 +506,22 @@ a11y; contract test catches drift.
   <tbody id="pending-changes"></tbody>
 </table>
 
+<h2>M028 memory entries <span class="muted" style="font-size:.75rem;font-weight:400">— the addressable <code>mem-&lt;id&gt;</code> store (SDD-060); pick an entry to forget ↓ · <code>/api/d-07/entries</code></span></h2>
+<table>
+  <thead>
+    <tr>
+      <th>mem-id</th>
+      <th>type</th>
+      <th>stage</th>
+      <th>state</th>
+      <th>summary</th>
+      <th>updated</th>
+      <th>actions</th>
+    </tr>
+  </thead>
+  <tbody id="memory-entries"></tbody>
+</table>
+
 <h2>actions <span class="muted" style="font-size:.75rem;font-weight:400">— web emits CLI only; daemon executes after MS003 signature (MS043 R10212)</span></h2>
 <div class="row">
   <button onclick="load()">refresh diff (live)</button>
@@ -530,6 +546,12 @@ a11y; contract test catches drift.
     counts: {}, profile: "private", lifecycle: [],
     diffBase: "—", diffHead: "—", diffs: [], pending: []
   };
+  // SDD-060 — the addressable M028 memory entries (separate read source: the store,
+  // via /api/d-07/entries; the snapshot above is the aggregate projection).
+  let entries = [];
+  // M028 8 memory types (E0260) — index 1..8 (the store's `type` int).
+  const MEMTYPES = ['—', 'working', 'episodic', 'semantic', 'procedural',
+                    'temporal', 'value', 'kv', 'reward'];
 
   function escapeHtml(s) {
     if (s == null) return '';
@@ -590,6 +612,48 @@ a11y; contract test catches drift.
     }
   }
 
+  function renderEntries() {
+    const tb = document.getElementById('memory-entries');
+    if (!tb) return;
+    tb.innerHTML = '';
+    if (!(entries || []).length) {
+      tb.innerHTML = '<tr><td colspan="7" class="muted">no memory entries in the store yet — the M028 admission-lifecycle producer seeds them (register mints one); this list surfaces the addressable <code>mem-&lt;id&gt;</code>s to forget</td></tr>';
+      return;
+    }
+    for (const e of entries) {
+      const tr = document.createElement('tr');
+      const forgotten = e.state === 'forgotten';
+      const stateClass = forgotten ? 'bad' : (e.state === 'active' ? 'ok' : 'warn');
+      const typeLbl = MEMTYPES[e.type] ? `${escapeHtml(MEMTYPES[e.type])} (${escapeHtml(e.type)})` : escapeHtml(e.type);
+      // active rows offer a forget button that jumps to the wired memory-forget
+      // control with the id pre-filled; forgotten rows show a muted note (already
+      // tombstoned — undo restores it via the memory-undo control).
+      const action = forgotten
+        ? '<span class="muted">forgotten — undo via the rail ↓</span>'
+        : `<button class="danger" onclick="jumpToControl('memory-forget', '${escapeHtml(e.id)}')">forget ↓</button>`;
+      tr.innerHTML = `
+        <td><code>${escapeHtml(e.id)}</code></td>
+        <td>${typeLbl}</td>
+        <td class="muted">${escapeHtml(e.stage)}</td>
+        <td><span class="pill ${stateClass}">${escapeHtml(e.state)}</span></td>
+        <td>${escapeHtml(e.summary)}</td>
+        <td class="muted">${escapeHtml(e.updated)}</td>
+        <td>${action}</td>
+      `;
+      tb.appendChild(tr);
+    }
+  }
+
+  async function loadEntries() {
+    try {
+      const r = await fetch('/api/d-07/entries', { credentials: 'same-origin' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const d = await r.json();
+      entries = Array.isArray(d.entries) ? d.entries : [];
+    } catch (e) { /* offline — keep the last-known entries (empty-safe) */ }
+    renderEntries();
+  }
+
   function renderDataSourceBanner(ok, errMsg) {
     const b = document.getElementById('datasource-banner'); if (!b) return;
     const label = document.getElementById('ds-state-label');
@@ -615,6 +679,7 @@ a11y; contract test catches drift.
     } catch (e) { errMsg = e.message; /* offline — keep empty-safe defaults */ }
     renderDataSourceBanner(ok, errMsg);
     render();
+    loadEntries();
   }
 
   // trust dim filters — toggle on/off, emit grep-style filter command on combine
@@ -632,13 +697,23 @@ a11y; contract test catches drift.
   // SDD-052 — scroll to a functional control in the rail + highlight it. The
   // memory-decide control EXECUTES via the R10274 control-exec-api rail
   // (operator-key + type-to-confirm gated); web itself never mutates (R10212).
-  function jumpToControl(cid) {
+  function jumpToControl(cid, prefill) {
     const s = document.getElementById('control-surface');
     const c = s && s.querySelector('[data-cid="' + cid + '"]');
     (c || s || document.body).scrollIntoView({ behavior: 'smooth', block: 'center' });
     if (c) {
       c.style.outline = '2px solid var(--accent,#9bd1ff)';
       setTimeout(() => { c.style.outline = ''; }, 1600);
+      // SDD-060 — best-effort pre-fill the control card's id input so a per-row
+      // "forget ↓" click lands on the wired control with the mem-id already set.
+      // Guarded: the list still works if the card's shape differs (no input found).
+      if (prefill) {
+        const inp = c.querySelector('input[type="text"], input[type="search"], input:not([type])');
+        if (inp) {
+          inp.value = prefill;
+          inp.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      }
     }
   }
 
@@ -683,6 +758,7 @@ a11y; contract test catches drift.
   }
   function poll() {
     fetch('/api/d-07/snapshot').then(r => r.json()).then(applySnapshot).catch(() => {});
+    loadEntries();
     setTimeout(poll, 5000);
   }
   function applySnapshot(s) {

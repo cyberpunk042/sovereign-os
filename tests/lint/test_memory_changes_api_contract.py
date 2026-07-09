@@ -63,7 +63,7 @@ def _free_port() -> int:
         return s.getsockname()[1]
 
 
-def _spawn_api(port: int, state: str):
+def _spawn_api(port: int, state: str, extra_env: dict | None = None):
     env = {
         "MEMORY_CHANGES_API_BIND": "127.0.0.1",
         "MEMORY_CHANGES_API_PORT": str(port),
@@ -71,6 +71,8 @@ def _spawn_api(port: int, state: str):
         "SOVEREIGN_OS_METRICS_DIR": "/tmp/sovereign-os-test-metrics",
         "PATH": "/usr/bin:/bin",
     }
+    if extra_env:
+        env.update(extra_env)
     proc = subprocess.Popen(
         ["python3", str(API_DAEMON)],
         env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -202,6 +204,77 @@ def test_snapshot_endpoint_matches_dashboard_contract():
         assert len(d["lifecycle"]) == 11
     finally:
         proc.kill(); proc.wait(timeout=3); os.unlink(state)
+
+
+def test_entries_endpoint_empty_safe():
+    """SDD-060 — /api/d-07/entries is read-only + empty-safe when no store exists."""
+    state = _write_state()
+    port = _free_port()
+    proc = _spawn_api(port, state, extra_env={
+        "SOVEREIGN_OS_MEMORY_STORE_DB": "/tmp/sovereign-os-no-store.json"})
+    try:
+        status, d = _get(port, "/api/d-07/entries")
+        assert status == 200
+        assert isinstance(d.get("entries"), list) and d["entries"] == []
+        assert "schema_version" in d
+    finally:
+        proc.kill(); proc.wait(timeout=3); os.unlink(state)
+
+
+def test_entries_endpoint_projects_the_store():
+    """SDD-060 — the entries endpoint surfaces the addressable mem-<id> store
+    (a SECOND read source; the snapshot projection is separate)."""
+    state = _write_state()
+    fd, store = tempfile.mkstemp(prefix="memory-store-", suffix=".json")
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        json.dump({"entries": {
+            "mem-aa11": {"id": "mem-aa11", "type": 3, "stage": "store-raw",
+                         "summary": "a semantic fact", "state": "active",
+                         "created": "2026-07-09T00:00:00+00:00",
+                         "updated": "2026-07-09T00:00:00+00:00"},
+            "mem-bb22": {"id": "mem-bb22", "type": 1, "stage": "store-raw",
+                         "summary": "a working note", "state": "forgotten",
+                         "created": "2026-07-09T00:00:00+00:00",
+                         "updated": "2026-07-09T00:00:00+00:00"},
+        }}, fh)
+    port = _free_port()
+    proc = _spawn_api(port, state, extra_env={"SOVEREIGN_OS_MEMORY_STORE_DB": store})
+    try:
+        status, d = _get(port, "/api/d-07/entries")
+        assert status == 200
+        ids = {e["id"] for e in d["entries"]}
+        assert ids == {"mem-aa11", "mem-bb22"}
+        states = {e["id"]: e["state"] for e in d["entries"]}
+        assert states["mem-aa11"] == "active" and states["mem-bb22"] == "forgotten"
+    finally:
+        proc.kill(); proc.wait(timeout=3); os.unlink(state); os.unlink(store)
+
+
+def test_entries_endpoint_readonly_post_rejected():
+    """SDD-060 — the new read endpoint keeps the surface read-only (POST → 405)."""
+    state = _write_state()
+    port = _free_port()
+    proc = _spawn_api(port, state)
+    try:
+        req = urllib.request.Request(
+            f"http://127.0.0.1:{port}/api/d-07/entries", method="POST", data=b"{}")
+        try:
+            urllib.request.urlopen(req, timeout=3)
+            raised = False
+        except urllib.error.HTTPError as e:
+            raised = (e.code == 405)
+        assert raised, "mutation on /api/d-07/entries must be rejected 405"
+    finally:
+        proc.kill(); proc.wait(timeout=3); os.unlink(state)
+
+
+def test_webapp_fetches_entries_endpoint():
+    """SDD-060 — the D-07 webapp must fetch the entries list."""
+    html = WEBAPP.read_text(encoding="utf-8")
+    assert "/api/d-07/entries" in html, "webapp must fetch /api/d-07/entries"
+    assert "loadEntries" in html and "memory-entries" in html
+    # the per-row forget button must jump to the wired control with the id prefilled
+    assert "jumpToControl('memory-forget', " in html
 
 
 def test_webapp_served():
