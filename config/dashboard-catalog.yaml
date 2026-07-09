@@ -58,7 +58,7 @@ dashboards:
      description: "Per-device (CPU0/GPU0/GPU1) Model 0/1/2 status + History|Selected latency + operability Actions/Tests + render-only Chat. Reuses the model-health core; Actions copy signed CLI verbs.", refs: [M075, R10212]}
   - {slug: d-25-selfdef-management, category: security, label: "D-25 Self-Defense Management", path: /d-25-selfdef-management/, api: sovereign-selfdef-management-api, status: live,
      description: "READ-ONLY consumer view (R10212) of the selfdef IPS — on/off enablement + M060 mirror-chain health + links to the 6 domain panels (D-13..D-18). Derives state via the m060-health probe() proxy; on/off is a clipboard-copied signed CLI verb.", refs: [M060, R10212, SDD-001]}
-  - {slug: d-05-traces, category: trinity, label: "D-05 Traces", path: /d-05-traces/, api: sovereign-traces-api, status: snapshot,
+  - {slug: d-05-traces, category: trinity, label: "D-05 Traces", path: /d-05-traces/, api: sovereign-traces-api, status: live,
      description: "Distributed span search — 13-field trace tree, OCSF export. Debug why a request went where it did.", refs: [M049]}
 
   # ── Models & Compute (mostly un-paneled — the gap you found) ─────────
