@@ -383,7 +383,7 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
-    def log_message(self, *a):
+    def log_message(self, *a):  # quiet loopback daemon; journal captures stderr
         pass
 
     def _clean(self, b: bytes) -> bytes:

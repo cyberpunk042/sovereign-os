@@ -48,54 +48,54 @@
 
 ### selfdef · MS001–MS048 (11,520 R-rows)
 
-- [MS001-selfdef-daemon-core](../selfdef/backlog/milestones/MS001-selfdef-daemon-core.md)  ·  240 R-rows  ·  MS001 — Selfdef daemon core — selfdef-core / selfdef-daemon / selfdef-bus / selfdef-config / selfdef-api / selfdef-cli
-- [MS002-collector-fabric](../selfdef/backlog/milestones/MS002-collector-fabric.md)  ·  240 R-rows  ·  MS002 — Collector fabric — auditd / journald / eBPF / Tetragon / Suricata / eventstream / canary
-- [MS003-correlator-store-responder-signing](../selfdef/backlog/milestones/MS003-correlator-store-responder-signing.md)  ·  240 R-rows  ·  MS003 — Correlator + store + responder + signing — time-windowed rules pipeline
-- [MS004-fourteen-notifier-integrations](../selfdef/backlog/milestones/MS004-fourteen-notifier-integrations.md)  ·  240 R-rows  ·  MS004 — 14 notifier integrations — Discord / Loki / ntfy / OpenSearch / Oracle-Triage / PagerDuty / Shared-Audit-Summary / Signal / Slack / SMTP / TheHive / Twilio / Wall / Write
-- [MS005-notifier-engine-orchestrator](../selfdef/backlog/milestones/MS005-notifier-engine-orchestrator.md)  ·  240 R-rows  ·  MS005 — Notifier engine + orchestrator
-- [MS006-fourteen-functional-modules](../selfdef/backlog/milestones/MS006-fourteen-functional-modules.md)  ·  240 R-rows  ·  MS006 — 14 functional modules — agent-guard / bitnet-gpu-inference / bridge-l2 / detect-host / hardware-tune-cache / integrity-sentinel / observability / polarproxy / slm-cpu-loop / suricata / tensor-parallel-inference / tetragon / vpn-bridge / wasm-aot-cache
-- [MS007-cross-repo-typed-mirror-crates-saturated-8-of-8](../selfdef/backlog/milestones/MS007-cross-repo-typed-mirror-crates-saturated-8-of-8.md)  ·  240 R-rows  ·  MS007 — 8/8 SATURATED cross-repo typed-mirror crates — auth-tier / bashrc-install / history-sink / dashboard-manifest / surface-manifest / ux-checklist / audit-manifest / doc-manifest
-- [MS008-selfdef-on-sain01-integration](../selfdef/backlog/milestones/MS008-selfdef-on-sain01-integration.md)  ·  240 R-rows  ·  MS008 — selfdef-on-SAIN-01 integration
-- [MS009-audit-cycles](../selfdef/backlog/milestones/MS009-audit-cycles.md)  ·  240 R-rows  ·  MS009 — Audit cycles
-- [MS010-hardware-aware-modules-and-tune-surface](../selfdef/backlog/milestones/MS010-hardware-aware-modules-and-tune-surface.md)  ·  240 R-rows  ·  MS010 — Hardware-aware modules + tune surface
-- [MS011-operator-dashboard-and-flex-profile](../selfdef/backlog/milestones/MS011-operator-dashboard-and-flex-profile.md)  ·  240 R-rows  ·  MS011 — Operator dashboard + flex profile
-- [MS012-perimeter-coexistence](../selfdef/backlog/milestones/MS012-perimeter-coexistence.md)  ·  240 R-rows  ·  MS012 — Perimeter coexistence
-- [MS013-twenty-seven-sdd-charter-framework](../selfdef/backlog/milestones/MS013-twenty-seven-sdd-charter-framework.md)  ·  240 R-rows  ·  MS013 — 27-SDD charter framework
-- [MS014-ssh-wrap-client-side-defense](../selfdef/backlog/milestones/MS014-ssh-wrap-client-side-defense.md)  ·  240 R-rows  ·  MS014 — SSH-wrap — client-side defense when YOU are the client
-- [MS015-nats-messaging-backbone](../selfdef/backlog/milestones/MS015-nats-messaging-backbone.md)  ·  240 R-rows  ·  MS015 — NATS messaging backbone
-- [MS016-ebpf-programs-tetragon-tracingpolicies](../selfdef/backlog/milestones/MS016-ebpf-programs-tetragon-tracingpolicies.md)  ·  240 R-rows  ·  MS016 — eBPF programs + Tetragon TracingPolicies
-- [MS017-agent-guard-host-level-invariants-on-ai-agents](../selfdef/backlog/milestones/MS017-agent-guard-host-level-invariants-on-ai-agents.md)  ·  240 R-rows  ·  MS017 — agent-guard — host-level invariants on AI agents in Docker / Podman / containerd
-- [MS018-vpn-bridge-multi-instance](../selfdef/backlog/milestones/MS018-vpn-bridge-multi-instance.md)  ·  240 R-rows  ·  MS018 — VPN-bridge multi-instance
-- [MS019-security-threat-model](../selfdef/backlog/milestones/MS019-security-threat-model.md)  ·  240 R-rows  ·  MS019 — Security threat model
-- [MS020-test-contract-l1-l5-layered-harness](../selfdef/backlog/milestones/MS020-test-contract-l1-l5-layered-harness.md)  ·  240 R-rows  ·  MS020 — Test contract — L1–L5 layered harness
-- [MS021-shared-module-script-lib](../selfdef/backlog/milestones/MS021-shared-module-script-lib.md)  ·  240 R-rows  ·  MS021 — Shared module-script lib
-- [MS022-per-token-sse-subscriber-quota](../selfdef/backlog/milestones/MS022-per-token-sse-subscriber-quota.md)  ·  240 R-rows  ·  MS022 — Per-token SSE subscriber quota
-- [MS023-polarproxy-module-tls-inspection](../selfdef/backlog/milestones/MS023-polarproxy-module-tls-inspection.md)  ·  240 R-rows  ·  MS023 — Polarproxy module — TLS inspection
-- [MS024-bridge-l2-module-layer-2-transparent-bridge](../selfdef/backlog/milestones/MS024-bridge-l2-module-layer-2-transparent-bridge.md)  ·  240 R-rows  ·  MS024 — Bridge-L2 module — layer-2 transparent bridge
-- [MS025-detect-host-module-host-class-detection](../selfdef/backlog/milestones/MS025-detect-host-module-host-class-detection.md)  ·  240 R-rows  ·  MS025 — Detect-host module — host-class detection
-- [MS026-integrity-sentinel-module](../selfdef/backlog/milestones/MS026-integrity-sentinel-module.md)  ·  240 R-rows  ·  MS026 — Integrity-sentinel module
-- [MS027-observability-module](../selfdef/backlog/milestones/MS027-observability-module.md)  ·  240 R-rows  ·  MS027 — Observability module (selfdef-side)
-- [MS028-bitnet-gpu-inference-module](../selfdef/backlog/milestones/MS028-bitnet-gpu-inference-module.md)  ·  240 R-rows  ·  MS028 — BitNet GPU inference module
-- [MS029-slm-cpu-loop-module](../selfdef/backlog/milestones/MS029-slm-cpu-loop-module.md)  ·  240 R-rows  ·  MS029 — SLM CPU loop module
-- [MS030-tensor-parallel-inference-module](../selfdef/backlog/milestones/MS030-tensor-parallel-inference-module.md)  ·  240 R-rows  ·  MS030 — Tensor parallel inference module
-- [MS031-wasm-aot-cache-module](../selfdef/backlog/milestones/MS031-wasm-aot-cache-module.md)  ·  240 R-rows  ·  MS031 — WASM AOT cache module
-- [MS032-sandbox-tiers](../selfdef/backlog/milestones/MS032-sandbox-tiers.md)  ·  240 R-rows  ·  MS032 — Sandbox tiers — read-only / workspace-write / Podman / network-denied / network-allowed / VFIO 4090 / browser-GUI / CRIU / ZFS clone
-- [MS033-policy-and-trace](../selfdef/backlog/milestones/MS033-policy-and-trace.md)  ·  240 R-rows  ·  MS033 — Policy and trace — every action observable + governed
-- [MS034-communication-boundary](../selfdef/backlog/milestones/MS034-communication-boundary.md)  ·  240 R-rows  ·  MS034 — Communication boundary
-- [MS035-capability-tokens-typed-authority-handles](../selfdef/backlog/milestones/MS035-capability-tokens-typed-authority-handles.md)  ·  240 R-rows  ·  MS035 — Capability tokens — typed authority handles
-- [MS036-tool-sandboxes](../selfdef/backlog/milestones/MS036-tool-sandboxes.md)  ·  240 R-rows  ·  MS036 — Tool sandboxes (Tier A/B/C/D)
-- [MS037-filesystem-boundary](../selfdef/backlog/milestones/MS037-filesystem-boundary.md)  ·  240 R-rows  ·  MS037 — Filesystem boundary
-- [MS038-network-boundary](../selfdef/backlog/milestones/MS038-network-boundary.md)  ·  240 R-rows  ·  MS038 — Network boundary
-- [MS039-authority-levels-and-trust-rings](../selfdef/backlog/milestones/MS039-authority-levels-and-trust-rings.md)  ·  240 R-rows  ·  MS039 — Authority levels (L0..L6) and trust rings (Ring 0..4) — IPS-side projection
-- [MS040-authority-and-profiles-six-profile-authority-matrix](../selfdef/backlog/milestones/MS040-authority-and-profiles-six-profile-authority-matrix.md)  ·  240 R-rows  ·  MS040 — Authority-and-profiles — six-profile authority matrix — IPS-side projection
-- [MS041-commit-authority-durable-change-discipline](../selfdef/backlog/milestones/MS041-commit-authority-durable-change-discipline.md)  ·  240 R-rows  ·  MS041 — Commit authority — durable-change discipline — IPS-side projection
-- [MS042-tool-authority-declaration-vs-observed-discipline](../selfdef/backlog/milestones/MS042-tool-authority-declaration-vs-observed-discipline.md)  ·  240 R-rows  ·  MS042 — Tool authority — declaration-vs-observed discipline — IPS-side projection (CATALOG CLOSE)
-- [MS043-ips-operator-surface-cli-tui-and-dashboard-mirrors](../selfdef/backlog/milestones/MS043-ips-operator-surface-cli-tui-and-dashboard-mirrors.md)  ·  240 R-rows  ·  MS043 — IPS operator surface — CLI + TUI + dashboard-mirror exports
-- [MS044-guardian-daemon-tetragon-ebpf-supervisor](../selfdef/backlog/milestones/MS044-guardian-daemon-tetragon-ebpf-supervisor.md)  ·  240 R-rows  ·  MS044 — Guardian Daemon — Tetragon eBPF supervisor + SIGKILL + atomic ZFS audit logs
-- [MS045-ux-coherence-test-harness-cli-tui-minimal-web](../selfdef/backlog/milestones/MS045-ux-coherence-test-harness-cli-tui-minimal-web.md)  ·  240 R-rows  ·  MS045 — UX coherence test harness (CLI + TUI + minimal-web) — TDD validator for MS043 operator surface
-- [MS046-friction-audit-system-boot-time-hardware-integrity-gate](../selfdef/backlog/milestones/MS046-friction-audit-system-boot-time-hardware-integrity-gate.md)  ·  240 R-rows  ·  MS046 — Friction Audit System — boot-time hardware-integrity gate (sain-01 §5)
-- [MS047-real-time-security-perimeter-engine-tetragon-kernel-fence](../selfdef/backlog/milestones/MS047-real-time-security-perimeter-engine-tetragon-kernel-fence.md)  ·  240 R-rows  ·  MS047 — Real-Time Security Perimeter Engine — Tetragon kernel-fence (sain-01 §6)
-- [MS048-goldilocks-scheduler-hardware-aware-resource-routing](../selfdef/backlog/milestones/MS048-goldilocks-scheduler-hardware-aware-resource-routing.md)  ·  240 R-rows  ·  MS048 — Goldilocks Scheduler — hardware-aware resource routing
+- [MS001-selfdef-daemon-core](../../selfdef/backlog/milestones/MS001-selfdef-daemon-core.md)  ·  240 R-rows  ·  MS001 — Selfdef daemon core — selfdef-core / selfdef-daemon / selfdef-bus / selfdef-config / selfdef-api / selfdef-cli
+- [MS002-collector-fabric](../../selfdef/backlog/milestones/MS002-collector-fabric.md)  ·  240 R-rows  ·  MS002 — Collector fabric — auditd / journald / eBPF / Tetragon / Suricata / eventstream / canary
+- [MS003-correlator-store-responder-signing](../../selfdef/backlog/milestones/MS003-correlator-store-responder-signing.md)  ·  240 R-rows  ·  MS003 — Correlator + store + responder + signing — time-windowed rules pipeline
+- [MS004-fourteen-notifier-integrations](../../selfdef/backlog/milestones/MS004-fourteen-notifier-integrations.md)  ·  240 R-rows  ·  MS004 — 14 notifier integrations — Discord / Loki / ntfy / OpenSearch / Oracle-Triage / PagerDuty / Shared-Audit-Summary / Signal / Slack / SMTP / TheHive / Twilio / Wall / Write
+- [MS005-notifier-engine-orchestrator](../../selfdef/backlog/milestones/MS005-notifier-engine-orchestrator.md)  ·  240 R-rows  ·  MS005 — Notifier engine + orchestrator
+- [MS006-fourteen-functional-modules](../../selfdef/backlog/milestones/MS006-fourteen-functional-modules.md)  ·  240 R-rows  ·  MS006 — 14 functional modules — agent-guard / bitnet-gpu-inference / bridge-l2 / detect-host / hardware-tune-cache / integrity-sentinel / observability / polarproxy / slm-cpu-loop / suricata / tensor-parallel-inference / tetragon / vpn-bridge / wasm-aot-cache
+- [MS007-cross-repo-typed-mirror-crates-saturated-8-of-8](../../selfdef/backlog/milestones/MS007-cross-repo-typed-mirror-crates-saturated-8-of-8.md)  ·  240 R-rows  ·  MS007 — 8/8 SATURATED cross-repo typed-mirror crates — auth-tier / bashrc-install / history-sink / dashboard-manifest / surface-manifest / ux-checklist / audit-manifest / doc-manifest
+- [MS008-selfdef-on-sain01-integration](../../selfdef/backlog/milestones/MS008-selfdef-on-sain01-integration.md)  ·  240 R-rows  ·  MS008 — selfdef-on-SAIN-01 integration
+- [MS009-audit-cycles](../../selfdef/backlog/milestones/MS009-audit-cycles.md)  ·  240 R-rows  ·  MS009 — Audit cycles
+- [MS010-hardware-aware-modules-and-tune-surface](../../selfdef/backlog/milestones/MS010-hardware-aware-modules-and-tune-surface.md)  ·  240 R-rows  ·  MS010 — Hardware-aware modules + tune surface
+- [MS011-operator-dashboard-and-flex-profile](../../selfdef/backlog/milestones/MS011-operator-dashboard-and-flex-profile.md)  ·  240 R-rows  ·  MS011 — Operator dashboard + flex profile
+- [MS012-perimeter-coexistence](../../selfdef/backlog/milestones/MS012-perimeter-coexistence.md)  ·  240 R-rows  ·  MS012 — Perimeter coexistence
+- [MS013-twenty-seven-sdd-charter-framework](../../selfdef/backlog/milestones/MS013-twenty-seven-sdd-charter-framework.md)  ·  240 R-rows  ·  MS013 — 27-SDD charter framework
+- [MS014-ssh-wrap-client-side-defense](../../selfdef/backlog/milestones/MS014-ssh-wrap-client-side-defense.md)  ·  240 R-rows  ·  MS014 — SSH-wrap — client-side defense when YOU are the client
+- [MS015-nats-messaging-backbone](../../selfdef/backlog/milestones/MS015-nats-messaging-backbone.md)  ·  240 R-rows  ·  MS015 — NATS messaging backbone
+- [MS016-ebpf-programs-tetragon-tracingpolicies](../../selfdef/backlog/milestones/MS016-ebpf-programs-tetragon-tracingpolicies.md)  ·  240 R-rows  ·  MS016 — eBPF programs + Tetragon TracingPolicies
+- [MS017-agent-guard-host-level-invariants-on-ai-agents](../../selfdef/backlog/milestones/MS017-agent-guard-host-level-invariants-on-ai-agents.md)  ·  240 R-rows  ·  MS017 — agent-guard — host-level invariants on AI agents in Docker / Podman / containerd
+- [MS018-vpn-bridge-multi-instance](../../selfdef/backlog/milestones/MS018-vpn-bridge-multi-instance.md)  ·  240 R-rows  ·  MS018 — VPN-bridge multi-instance
+- [MS019-security-threat-model](../../selfdef/backlog/milestones/MS019-security-threat-model.md)  ·  240 R-rows  ·  MS019 — Security threat model
+- [MS020-test-contract-l1-l5-layered-harness](../../selfdef/backlog/milestones/MS020-test-contract-l1-l5-layered-harness.md)  ·  240 R-rows  ·  MS020 — Test contract — L1–L5 layered harness
+- [MS021-shared-module-script-lib](../../selfdef/backlog/milestones/MS021-shared-module-script-lib.md)  ·  240 R-rows  ·  MS021 — Shared module-script lib
+- [MS022-per-token-sse-subscriber-quota](../../selfdef/backlog/milestones/MS022-per-token-sse-subscriber-quota.md)  ·  240 R-rows  ·  MS022 — Per-token SSE subscriber quota
+- [MS023-polarproxy-module-tls-inspection](../../selfdef/backlog/milestones/MS023-polarproxy-module-tls-inspection.md)  ·  240 R-rows  ·  MS023 — Polarproxy module — TLS inspection
+- [MS024-bridge-l2-module-layer-2-transparent-bridge](../../selfdef/backlog/milestones/MS024-bridge-l2-module-layer-2-transparent-bridge.md)  ·  240 R-rows  ·  MS024 — Bridge-L2 module — layer-2 transparent bridge
+- [MS025-detect-host-module-host-class-detection](../../selfdef/backlog/milestones/MS025-detect-host-module-host-class-detection.md)  ·  240 R-rows  ·  MS025 — Detect-host module — host-class detection
+- [MS026-integrity-sentinel-module](../../selfdef/backlog/milestones/MS026-integrity-sentinel-module.md)  ·  240 R-rows  ·  MS026 — Integrity-sentinel module
+- [MS027-observability-module](../../selfdef/backlog/milestones/MS027-observability-module.md)  ·  240 R-rows  ·  MS027 — Observability module (selfdef-side)
+- [MS028-bitnet-gpu-inference-module](../../selfdef/backlog/milestones/MS028-bitnet-gpu-inference-module.md)  ·  240 R-rows  ·  MS028 — BitNet GPU inference module
+- [MS029-slm-cpu-loop-module](../../selfdef/backlog/milestones/MS029-slm-cpu-loop-module.md)  ·  240 R-rows  ·  MS029 — SLM CPU loop module
+- [MS030-tensor-parallel-inference-module](../../selfdef/backlog/milestones/MS030-tensor-parallel-inference-module.md)  ·  240 R-rows  ·  MS030 — Tensor parallel inference module
+- [MS031-wasm-aot-cache-module](../../selfdef/backlog/milestones/MS031-wasm-aot-cache-module.md)  ·  240 R-rows  ·  MS031 — WASM AOT cache module
+- [MS032-sandbox-tiers](../../selfdef/backlog/milestones/MS032-sandbox-tiers.md)  ·  240 R-rows  ·  MS032 — Sandbox tiers — read-only / workspace-write / Podman / network-denied / network-allowed / VFIO 4090 / browser-GUI / CRIU / ZFS clone
+- [MS033-policy-and-trace](../../selfdef/backlog/milestones/MS033-policy-and-trace.md)  ·  240 R-rows  ·  MS033 — Policy and trace — every action observable + governed
+- [MS034-communication-boundary](../../selfdef/backlog/milestones/MS034-communication-boundary.md)  ·  240 R-rows  ·  MS034 — Communication boundary
+- [MS035-capability-tokens-typed-authority-handles](../../selfdef/backlog/milestones/MS035-capability-tokens-typed-authority-handles.md)  ·  240 R-rows  ·  MS035 — Capability tokens — typed authority handles
+- [MS036-tool-sandboxes](../../selfdef/backlog/milestones/MS036-tool-sandboxes.md)  ·  240 R-rows  ·  MS036 — Tool sandboxes (Tier A/B/C/D)
+- [MS037-filesystem-boundary](../../selfdef/backlog/milestones/MS037-filesystem-boundary.md)  ·  240 R-rows  ·  MS037 — Filesystem boundary
+- [MS038-network-boundary](../../selfdef/backlog/milestones/MS038-network-boundary.md)  ·  240 R-rows  ·  MS038 — Network boundary
+- [MS039-authority-levels-and-trust-rings](../../selfdef/backlog/milestones/MS039-authority-levels-and-trust-rings.md)  ·  240 R-rows  ·  MS039 — Authority levels (L0..L6) and trust rings (Ring 0..4) — IPS-side projection
+- [MS040-authority-and-profiles-six-profile-authority-matrix](../../selfdef/backlog/milestones/MS040-authority-and-profiles-six-profile-authority-matrix.md)  ·  240 R-rows  ·  MS040 — Authority-and-profiles — six-profile authority matrix — IPS-side projection
+- [MS041-commit-authority-durable-change-discipline](../../selfdef/backlog/milestones/MS041-commit-authority-durable-change-discipline.md)  ·  240 R-rows  ·  MS041 — Commit authority — durable-change discipline — IPS-side projection
+- [MS042-tool-authority-declaration-vs-observed-discipline](../../selfdef/backlog/milestones/MS042-tool-authority-declaration-vs-observed-discipline.md)  ·  240 R-rows  ·  MS042 — Tool authority — declaration-vs-observed discipline — IPS-side projection (CATALOG CLOSE)
+- [MS043-ips-operator-surface-cli-tui-and-dashboard-mirrors](../../selfdef/backlog/milestones/MS043-ips-operator-surface-cli-tui-and-dashboard-mirrors.md)  ·  240 R-rows  ·  MS043 — IPS operator surface — CLI + TUI + dashboard-mirror exports
+- [MS044-guardian-daemon-tetragon-ebpf-supervisor](../../selfdef/backlog/milestones/MS044-guardian-daemon-tetragon-ebpf-supervisor.md)  ·  240 R-rows  ·  MS044 — Guardian Daemon — Tetragon eBPF supervisor + SIGKILL + atomic ZFS audit logs
+- [MS045-ux-coherence-test-harness-cli-tui-minimal-web](../../selfdef/backlog/milestones/MS045-ux-coherence-test-harness-cli-tui-minimal-web.md)  ·  240 R-rows  ·  MS045 — UX coherence test harness (CLI + TUI + minimal-web) — TDD validator for MS043 operator surface
+- [MS046-friction-audit-system-boot-time-hardware-integrity-gate](../../selfdef/backlog/milestones/MS046-friction-audit-system-boot-time-hardware-integrity-gate.md)  ·  240 R-rows  ·  MS046 — Friction Audit System — boot-time hardware-integrity gate (sain-01 §5)
+- [MS047-real-time-security-perimeter-engine-tetragon-kernel-fence](../../selfdef/backlog/milestones/MS047-real-time-security-perimeter-engine-tetragon-kernel-fence.md)  ·  240 R-rows  ·  MS047 — Real-Time Security Perimeter Engine — Tetragon kernel-fence (sain-01 §6)
+- [MS048-goldilocks-scheduler-hardware-aware-resource-routing](../../selfdef/backlog/milestones/MS048-goldilocks-scheduler-hardware-aware-resource-routing.md)  ·  240 R-rows  ·  MS048 — Goldilocks Scheduler — hardware-aware resource routing
 
 ### sovereign-os · 82 milestones (14,080 R-rows)
 

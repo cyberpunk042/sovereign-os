@@ -125,9 +125,14 @@ echo "${out}" | grep -q "R230 sovereign-os cpu-mode auto" \
   && ok "human render carries R230 banner" || ko "no banner"
 echo "${out}" | grep -q "recommendation: peak-inference" \
   && ok "human render shows recommendation" || ko "no recommendation line"
-echo "${out}" | grep -q "advisory" \
-  && ok "human render notes advisory mode (no --apply)" \
-  || ko "advisory note missing"
+# Without --apply the render is non-mutating: either the advisory hint (when a
+# change is recommended) or "no change needed" (when the host is already on the
+# target governor — true on any box already at `performance`, which peak-inference
+# also targets). Never "APPLIED". Mirrors the already-on-target tolerance the
+# --apply assertion below already carries.
+echo "${out}" | grep -qE "advisory|no change needed" \
+  && ok "human render notes advisory/no-apply mode (non-mutating)" \
+  || ko "advisory/no-change note missing"
 
 # ---- --apply WITHOUT root prints the actionable command + rc!=0 ----
 # (this host runs as non-root in CI; cmd_set returns 2 with a shell-cmd hint)

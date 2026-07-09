@@ -151,8 +151,14 @@ cmd_recover() {
     # Find most recent JSONL log lines relevant to this step
     local log_dir="${HOME}/.sovereign-os/log"
     local recent_log
+    # NB: awk 'NR==1' — NOT `head -1` — selects the newest log. Under the
+    # inherited `set -o pipefail` (common.sh), `sort | head -1` makes sort
+    # SIGPIPE once its output overflows the pipe buffer (i.e. the operator has
+    # a real log history), returning 141 and aborting recover BEFORE it prints
+    # the recommended actions — exactly when the operator needs them. awk reads
+    # the whole stream (drains it), so the pipeline always exits 0.
     recent_log="$(find "${log_dir}" -maxdepth 1 -name '*.jsonl' -printf '%T@ %p\n' 2>/dev/null \
-                 | sort -nr | head -1 | awk '{print $2}')"
+                 | sort -nr | awk 'NR==1 {print $2}')"
     if [ -n "${recent_log}" ] && [ -f "${recent_log}" ]; then
       echo "  recent log: ${recent_log}"
       echo "  last 5 error/warn events:"

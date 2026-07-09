@@ -188,7 +188,7 @@ _report_success() {   # $1=transport-label
   # first word of the label is the transport kind (tcp/serial/native) for a clean series
   local kind="${1%% *}"
   emit_metric sovereign_os_post_install_ups_setup_total 1 \
-    "result=\"success\",transport=\"$(echo "${kind}" | tr 'A-Z' 'a-z')\""
+    "result=\"success\",transport=\"$(echo "${kind}" | tr '[:upper:]' '[:lower:]')\""
 }
 
 # ── 0. idempotent short-circuit ────────────────────────────────────────────
