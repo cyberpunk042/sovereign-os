@@ -205,8 +205,12 @@ def decide(change_id: str, verb: str, *, actor: str = "operator",
 def request(op: str, *, mtype: str = "semantic", scope: str = "",
             requester: str = "operator") -> dict[str, Any]:
     """Stage-1 minimal producer — mint an mc-<8hex> pending change awaiting
-    sign-off. NOT privileged, NOT a control, NOT web-exposed. The real M028
-    producers (admission lifecycle / decay) are Stage 4."""
+    sign-off. NOT privileged. Web-exposed via the sanctioned R10274 exec-rail as
+    the `memory-request` control (SDD-104, dry-run default) — an unprivileged
+    intent-enqueue, distinct from the privileged sign-off (memory-decide) that
+    applies it; a free-text scope stays CLI (the exec `_SAFE_VALUE` allowlist
+    forbids free text). The real M028 producers (admission lifecycle / decay)
+    are Stage 4."""
     if op not in _VALID_PENDING_OP:
         return {"ok": False, "code": 2,
                 "error": f"unknown op {op!r} (use {sorted(_VALID_PENDING_OP)})"}

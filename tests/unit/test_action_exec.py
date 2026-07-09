@@ -32,8 +32,14 @@ AE = _load()
 # ── registry + classification ────────────────────────────────────────────────
 
 def test_registry_loads_all_controls():
+    """load_registry() drops no control (no id collision silently deduped). Counts
+    against the raw YAML system count, not a magic integer (SDD-100 de-magic — a
+    hardcoded count is a shared value two parallel sessions would both bump)."""
+    import yaml
     reg = AE.load_registry()
-    assert len(reg) == 31, f"expected 31 controls, got {sorted(reg)}"
+    raw = yaml.safe_load((REPO_ROOT / "config" / "control-systems.yaml").read_text())
+    raw_ids = {s["id"] for s in raw.get("systems", []) if s.get("id")}
+    assert set(reg) == raw_ids, f"registry drift: {sorted(set(reg) ^ raw_ids)}"
 
 
 def test_selfdef_owned_matches_registry_state_path():
@@ -50,8 +56,14 @@ def test_selfdef_owned_matches_registry_state_path():
 
 
 def test_classification_local_and_2_proxy():
+    """Exactly the 2 selfdef-owned controls are proxy; every other control is
+    local. Asserted as a structural identity (local == registry − proxy), not a
+    magic local-count (SDD-100 de-magic — adding a control must not require bumping
+    an integer here)."""
+    reg = AE.load_registry()
     c = AE.owned_controls()
-    assert len(c["local"]) == 29 and c["proxy"] == ["perimeter", "selfdef"]
+    assert c["proxy"] == ["perimeter", "selfdef"]
+    assert len(c["local"]) == len(reg) - len(c["proxy"])
     assert "selfdef" not in c["local"] and "perimeter" not in c["local"]
 
 

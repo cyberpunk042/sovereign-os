@@ -653,3 +653,48 @@ systems:
     privileged: true
     applies_to: [d-11-adapter-status]
     refs: [scripts/inference/adapter-gate.py]
+
+  # ── 32. Approvals request — enqueue a pending approval intent (D-06, SDD-104) ──
+  - id: approvals-request
+    kind: lifecycle
+    scope: scoped
+    label: "Request Approval"
+    description: >-
+      Enqueue a NEW pending approval intent (SDD-104) so the operator no longer has
+      to hand-author `approvals request` in a terminal — mints an APR-<8hex> pending
+      item that the privileged approve/deny decision (approvals-decide) then signs.
+      Pick the M065 gate (SG1..SG5 — the signable STAGE_GATES) + severity + a
+      title slug. This is a low-stakes intent-enqueue, NOT the signed decision, so it
+      is UNprivileged; it still routes through the sanctioned exec-rail (dry-run by
+      default, allowlisted, OCSF-5001 audited). Rich human-readable titles/summaries
+      stay a CLI op (the safe fallback — the exec allowlist forbids free text).
+    options: [SG1, SG2, SG3, SG4, SG5, operator-request, cloud-spend, model-swap, policy-change, capability-grant, resource-scale]
+    options_cli: "sovereign-osctl approvals gates"
+    state_cli: "sovereign-osctl approvals pending"
+    change_cli: "sovereign-osctl approvals request --gate <gate> --severity {low|medium|high|critical} --title <title>"
+    state_path: "/run/sovereign-os/approvals.json (M065 SG1-SG5 pending queue)"
+    privileged: false
+    applies_to: [d-06-pending-approvals]
+    refs: [scripts/lifecycle/approval-decide.py]
+
+  # ── 33. Memory-change request — enqueue a pending memory change (D-07, SDD-104) ──
+  - id: memory-request
+    kind: lifecycle
+    scope: scoped
+    label: "Request Memory Change"
+    description: >-
+      Enqueue a NEW pending M028 memory change (SDD-104) so the operator no longer
+      has to hand-author `memory-changes request` in a terminal — mints an mc-<8hex>
+      pending change that the privileged sign-off (memory-decide) then applies. Pick
+      the op (promote/pin/forget) + the memory type. This is a low-stakes intent-
+      enqueue, NOT the signed decision, so it is UNprivileged; it still routes through
+      the sanctioned exec-rail (dry-run by default, allowlisted, OCSF-5001 audited).
+      A free-text scope stays a CLI op (the exec allowlist forbids free text).
+    options: [working, episodic, semantic, procedural, temporal, value, kv, reward]
+    options_cli: "sovereign-osctl memory-changes types"
+    state_cli: "sovereign-osctl memory-changes list"
+    change_cli: "sovereign-osctl memory-changes request {promote|pin|forget} --mtype <mtype>"
+    state_path: "M028 memory pending queue /var/lib/sovereign-os/memory/state.json"
+    privileged: false
+    applies_to: [d-07-memory-changes]
+    refs: [scripts/intelligence/memory-decide.py]

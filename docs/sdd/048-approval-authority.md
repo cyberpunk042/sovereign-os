@@ -120,7 +120,9 @@ whose `gate` names an SGn.
   append to the durable JSONL, emit the OCSF-5001 span, honor `SOVEREIGN_OS_DRY_RUN`.
   Imports the shared schema from `approval-queue.py`.
 - **Stage 2:** `approvals request` (same module) — the minimal CLI producer minting
-  `APR-<8hex>` records. Non-privileged; not a control.
+  `APR-<8hex>` records. Non-privileged. (Web-exposed via the R10274 exec-rail as the
+  `approvals-request` control as of **SDD-104** — was: "not a control"; the enqueue is an
+  unprivileged intent, distinct from the privileged `approvals-decide` that signs it.)
 - **Stage 3:** the 18th control `approvals-decide`
   (`sovereign-osctl approvals {approve|deny|defer} <id> --confirm`, privileged,
   `applies_to: [d-06-pending-approvals]`) + sudoers + lint bumps + the
