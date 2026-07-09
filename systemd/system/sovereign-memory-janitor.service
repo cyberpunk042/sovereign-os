@@ -1,0 +1,30 @@
+[Unit]
+Description=sovereign-os M028 SLM-janitor sweep — auto-enrich memories + bounded lifecycle advance (SDD-071)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/hooks/recurrent/memory-janitor.sh
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/sovereign-os/scripts/hooks/recurrent/memory-janitor.sh
+TimeoutStartSec=180s
+StandardOutput=journal
+StandardError=journal
+# R171 defense-in-depth (Layer 1 lint enforced). Enriches + advances the memory store
+# under /var/lib (StateDirectory); SLM enrichment honest-defers when the loopback router
+# is unreachable. The sweep mutates the store via the janitor jobs — CLI/timer-only, never
+# a web control (R10212); the bounded advance never auto-promotes/archives; no privileged ops.
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
+StateDirectory=sovereign-os
+ReadWritePaths=-/var/lib/node_exporter/textfile_collector
+NoNewPrivileges=true
+PrivateTmp=true

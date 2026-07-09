@@ -51,6 +51,7 @@ EXPECTED_RECURRENT_HOOKS = [
     "alerts-check.sh",
     "backup-snapshot.sh",
     "log-rotate.sh",
+    "memory-janitor.sh",
     "memory-observe.sh",
     "memory-pressure-sample.sh",
     "model-catalog-sync.sh",
@@ -75,6 +76,7 @@ HOOK_TO_TIMER_SLUG = {
     "alerts-check.sh": "sovereign-alerts-check",
     "backup-snapshot.sh": "sovereign-backup-snapshot",
     "log-rotate.sh": "sovereign-log-rotate",
+    "memory-janitor.sh": "sovereign-memory-janitor",
     "memory-observe.sh": "sovereign-memory-observe",
     "memory-pressure-sample.sh": "sovereign-memory-pressure-sample",
     "model-catalog-sync.sh": "sovereign-models-sync",
@@ -117,16 +119,17 @@ def test_all_recurrent_hooks_exist():
 
 
 def test_hook_count_matches_expected():
-    """Exactly 18 recurrent hooks (17 shell-convention + 1 binary wrapper,
+    """Exactly 19 recurrent hooks (18 shell-convention + 1 binary wrapper,
     sovereign-telemetry-textfile). Drift adding ungated hooks or
     removing operator-named cadence breaks the contract. (17th = session-reap
     per SDD-065 — the M057 session reaper; 18th = memory-observe per SDD-069 —
-    the M028 observation event stream.)"""
+    the M028 observation event stream; 19th = memory-janitor per SDD-071 —
+    the recurrent SLM-janitor sweep.)"""
     actual = sorted(p.name for p in RECURRENT_DIR.glob("*.sh"))
     expected = sorted(EXPECTED_RECURRENT_HOOKS)
     assert actual == expected, (
         f"recurrent hook set drift: actual={actual} vs "
-        f"expected={expected} (operator-named cadence; 16th = root-ghostproxy-verify per SDD-046, 17th = session-reap per SDD-065, 18th = memory-observe per SDD-069)"
+        f"expected={expected} (operator-named cadence; 16th = root-ghostproxy-verify per SDD-046, 17th = session-reap per SDD-065, 18th = memory-observe per SDD-069, 19th = memory-janitor per SDD-071)"
     )
 
 

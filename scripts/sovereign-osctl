@@ -8364,7 +8364,10 @@ case "${cmd}" in
         # job reconciles the D-07 projection (adds an `enriched` coverage block). CLI/timer-
         # ONLY — the store is mutated, so the janitor is never a web control (R10212); the
         # memory-changes-api daemon stays read-only (405). DRY-RUN default (--confirm to apply).
-        #   memory-changes janitor <dedup|edges|tag|extract-facts|topic|summarize|classify|advance> [id|--all] [--confirm]
+        # SDD-070: `sweep` is the recurrent-timer maintenance pass — global dedup/tag/edges
+        # + SLM topic/summarize (honest-defer) + a BOUNDED lifecycle advance toward `verify`
+        # (never auto-promotes/archives). Runs from sovereign-memory-janitor.timer (~10 min).
+        #   memory-changes janitor <dedup|edges|tag|extract-facts|topic|summarize|classify|advance|sweep> [id|--all] [--confirm]
         job="${1:-}"
         shift || true
         "${__REPO_ROOT}/scripts/intelligence/memory-janitor.py" "${job}" "$@"
