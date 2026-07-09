@@ -268,3 +268,79 @@ def test_reconcile_counts_duplicates_separately(store):
     proj = _proj(store)
     assert proj["enriched"]["duplicates"] == 1
     assert proj["counts"]["episodic"] == 1              # the marked dup drops from counts
+
+
+# ── sweep (SDD-070 — recurrent maintenance pass) ───────────────────────────────
+
+def _stage(mid):
+    return S._entries()[mid]["stage"]
+
+
+def test_sweep_enriches_and_advances_one_step(store, monkeypatch):
+    _seed({"mem-a": _e("mem-a", 2, "router failed on gpu one", stage="observe"),
+           "mem-b": _e("mem-b", 3, "deploy notes for the router", stage="observe",
+                       created="2026-01-02T00:00:00+00:00")})
+    monkeypatch.setattr(J, "_prompt", None)   # SLM honest-defers; deterministic still runs
+    r = J.sweep(confirm=True)
+    assert r["ok"] and r["swept"] == 2 and r["tagged"] == 2 and r["advanced"] == 2
+    assert _stage("mem-a") == "classify" and "tags" in S._entries()["mem-a"]  # one step + enriched
+
+
+def test_sweep_stops_at_verify_and_never_promotes(store, monkeypatch):
+    _seed({"mem-v": _e("mem-v", 2, "already at verify", stage="verify")})
+    monkeypatch.setattr(J, "_prompt", None)
+    r = J.sweep(confirm=True)
+    assert r["verified_at_stop"] == 1
+    assert S._entries()["mem-v"]["verified"] is True    # verify effect applied at the stop
+    assert _stage("mem-v") == "verify"                  # NOT advanced to promote
+
+
+def test_sweep_walks_to_verify_then_halts(store, monkeypatch):
+    _seed({"mem-a": _e("mem-a", 2, "a memory", stage="observe")})
+    monkeypatch.setattr(J, "_prompt", None)
+    for _ in range(12):
+        J.sweep(confirm=True)
+    assert _stage("mem-a") == "verify"                  # walked up and halted at the stop
+    assert S._entries()["mem-a"].get("verified") is True
+    assert _stage("mem-a") != "promote"                 # never auto-promoted
+
+
+def test_sweep_leaves_operator_advanced_entries_untouched(store, monkeypatch):
+    _seed({"mem-p": _e("mem-p", 2, "operator advanced", stage="promote")})
+    monkeypatch.setattr(J, "_prompt", None)
+    J.sweep(confirm=True)
+    assert _stage("mem-p") == "promote"                 # past the stop — untouched
+    assert "verified" not in S._entries()["mem-p"]
+
+
+def test_sweep_skips_duplicates(store, monkeypatch):
+    _seed({"mem-a": _e("mem-a", 2, "same text", stage="observe"),
+           "mem-b": _e("mem-b", 2, "same text", stage="observe",
+                       created="2026-01-02T00:00:00+00:00")})
+    monkeypatch.setattr(J, "_prompt", None)
+    r = J.sweep(confirm=True)
+    assert r["deduped"] == 1
+    assert S._entries()["mem-b"]["state"] == "duplicate"
+    # the duplicate is not in the active sweep set → not advanced.
+    assert _stage("mem-b") == "observe"
+
+
+def test_sweep_slm_enriches_when_router_available(store, monkeypatch):
+    _seed({"mem-a": _e("mem-a", 2, "a memory", stage="observe")})
+    _fake_prompt(monkeypatch, {"type": "token", "text": "netops"}, {"type": "done"})
+    J.sweep(confirm=True)
+    e = S._entries()["mem-a"]
+    assert e.get("topic") == "netops" and e.get("summary_short") == "netops"
+
+
+def test_sweep_dry_run_mutates_nothing(store, monkeypatch):
+    _seed({"mem-a": _e("mem-a", 2, "a memory", stage="observe")})
+    monkeypatch.setattr(J, "_prompt", None)
+    r = J.sweep(confirm=False)
+    assert r["dry_run"] is True and r["advanced"] == 0
+    assert _stage("mem-a") == "observe" and "tags" not in S._entries()["mem-a"]
+
+
+def test_sweep_unknown_stop_stage_rejected(store):
+    _seed({"mem-a": _e("mem-a", 2, "x")})
+    assert J.sweep(confirm=True, stop="bogus")["ok"] is False

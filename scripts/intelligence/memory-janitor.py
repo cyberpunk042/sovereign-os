@@ -374,6 +374,83 @@ def advance(mem_id: str, *, confirm: bool, actor: str = "operator") -> dict[str,
             "stage_from": cur, "effect": effect_result, "advance": adv}
 
 
+# ── sweep — the recurrent maintenance pass (SDD-070) ───────────────────────────
+
+_STOP_STAGE = _store.os.environ.get("SOVEREIGN_OS_MEMORY_JANITOR_STOP_STAGE", "verify")
+
+
+def _stage_index(stage: Any) -> int:
+    lc = _store._LIFECYCLE_STAGES
+    return lc.index(stage) if stage in lc else -1
+
+
+def sweep(*, confirm: bool, actor: str = "janitor", stop: str | None = None,
+          limit: int | None = None) -> dict[str, Any]:
+    """SDD-070 — one bounded maintenance pass (the recurrent-timer entry point):
+    GLOBAL deterministic enrichment (dedup/tag-all/edges) + SLM enrichment
+    (topic/summarize/classify, honest-defer) + a BOUNDED lifecycle advance toward
+    STOP_STAGE (default `verify`), ONE step per entry per call. NEVER crosses into
+    promote/decay/archive — those value/retention judgments stay operator-gated. The
+    label bump is always delegated to `memory-admit.advance` (one owner of `stage`)."""
+    stop = stop or _STOP_STAGE
+    lc = _store._LIFECYCLE_STAGES
+    if stop not in lc:
+        return {"ok": False, "code": 2,
+                "error": f"unknown --stop stage {stop!r} (use one of {list(lc)})"}
+    stop_idx = lc.index(stop)
+    # 1. global deterministic enrichment (idempotent).
+    d = dedup(confirm=confirm, actor=actor)
+    t = _run_per_entry("tag", None, all_=True, confirm=confirm, actor=actor)
+    e = edges(confirm=confirm, actor=actor)
+    # 2 + 3. per-entry SLM enrichment + bounded lifecycle advance.
+    ents = _active(_store._entries())
+    if limit is not None:
+        try:
+            ents = ents[:max(0, int(limit))]
+        except (TypeError, ValueError):
+            return {"ok": False, "code": 2, "error": f"invalid --limit {limit!r}"}
+    enriched = advanced = verified = deferred = 0
+    for mid, entry in ents:
+        # SLM topic + summarize on entries missing those fields (not stage effects).
+        for job, field in (("topic", "topic"), ("summarize", "summary_short")):
+            if not entry.get(field):
+                r = _slm_one(job, mid, confirm=confirm, actor=actor)
+                if r.get("deferred"):
+                    deferred += 1
+                elif r.get("ok") and not r.get("dry_run"):
+                    enriched += 1
+        # classify-failure on model-mistake-admitted entries missing it.
+        if entry.get("admitted_via") == "model-mistake" and not entry.get("failure_class"):
+            r = _slm_one("classify", mid, confirm=confirm, actor=actor)
+            if r.get("deferred"):
+                deferred += 1
+            elif r.get("ok") and not r.get("dry_run"):
+                enriched += 1
+        # bounded advance (one step toward the stop-stage).
+        idx = _stage_index(entry.get("stage"))
+        if idx < 0:
+            continue
+        if idx < stop_idx:
+            a = advance(mid, confirm=confirm, actor=actor)
+            if a.get("ok") and not (a.get("advance") or {}).get("dry_run"):
+                advanced += 1
+        elif idx == stop_idx:
+            # at the stop: apply the stop-stage effect DIRECTLY (e.g. verify→verified)
+            # WITHOUT advancing — the entry is enriched-and-verified but NEVER auto-promoted.
+            eff = _STAGE_EFFECT.get(entry.get("stage"))
+            if eff is not None:
+                r = eff(mid, confirm=confirm, actor=actor)
+                if r.get("ok") and not r.get("dry_run"):
+                    verified += 1
+        # idx > stop_idx: operator-advanced past the auto zone — left untouched.
+    return {"ok": True, "code": 200, "job": "sweep", "stop": stop,
+            "swept": len(ents), "deduped": d.get("count", 0),
+            "tagged": t.get("count", 0), "edged": e.get("count", 0),
+            "enriched": enriched, "advanced": advanced,
+            "verified_at_stop": verified, "deferred": deferred,
+            "dry_run": _dry(confirm)[0]}
+
+
 # ── dispatch ───────────────────────────────────────────────────────────────────
 
 _PER_ENTRY = {"tag", "extract-facts", "topic", "summarize", "classify"}
@@ -415,6 +492,11 @@ def main(argv: list[str] | None = None) -> int:
     av.add_argument("id")
     av.add_argument("--confirm", action="store_true")
     av.add_argument("--actor", default="operator")
+    sw = sub.add_parser("sweep")
+    sw.add_argument("--confirm", action="store_true")
+    sw.add_argument("--actor", default="janitor")
+    sw.add_argument("--stop", default=None)
+    sw.add_argument("--limit", type=int, default=None)
     args = ap.parse_args(argv)
     job = args.job
     if job == "dedup":
@@ -426,9 +508,11 @@ def main(argv: list[str] | None = None) -> int:
                            actor=args.actor)
     elif job == "advance":
         r = advance(args.id, confirm=args.confirm, actor=args.actor)
+    elif job == "sweep":
+        r = sweep(confirm=args.confirm, actor=args.actor, stop=args.stop, limit=args.limit)
     else:
         ap.error("a job is required: dedup|edges|tag|extract-facts|topic|summarize|"
-                 "classify|advance")
+                 "classify|advance|sweep")
         return 2
     _print(r)
     return 0 if r.get("ok") else int(r.get("code", 1))
