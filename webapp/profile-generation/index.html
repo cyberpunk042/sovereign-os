@@ -332,16 +332,22 @@
 <script>
 window.SO_ASSIST = [
   {
-    "sel": "#profiles",
-    "title": "Generated profiles",
-    "msg": "The runtime profiles produced from hardware × strategy — the '20+ combos' resolved against the catalog.",
-    "more": "Each row is a whole allocation (which model on which device, which cores pinned) that a strategy produces for this hardware. It shows the resolved result AND the generate command, so you can see before you commit."
-  },
-  {
     "sel": "#status",
     "title": "Generation status",
     "msg": "Whether the profile generator resolved cleanly against the current catalog.",
-    "more": "tier_intent is resolved against models/catalog.yaml — if a model a strategy wants is not in the catalog, generation flags it here rather than emitting a profile that cannot load."
+    "more": "tier_intent is resolved against models/catalog.yaml — if a model a strategy wants isn't in the catalog, generation flags it here rather than emitting a profile that can't load. The web never mutates — copy the generate command."
+  },
+  {
+    "sel": "#profiles",
+    "title": "Generated profiles",
+    "msg": "The runtime profiles produced from hardware × strategy — the '20+ combos' resolved against the catalog.",
+    "more": "Each row is a whole allocation (which model on which device, which cores pinned) a strategy produces for this hardware. It shows the resolved result AND the generate command, so you can see before you commit — the web copies, it doesn't generate."
+  },
+  {
+    "sel": "#control-surface",
+    "title": "Controls — profiles, modes & toggles",
+    "msg": "The per-panel control rail for profile generation.",
+    "more": "Every control copies its exact sovereign-osctl verb (§1g / R10212), never executing from the web — profile generation runs via the signed CLI command."
   }
 ];
 </script>

@@ -328,15 +328,33 @@
 window.SO_ASSIST = [
   {
     "sel": "#status",
-    "title": "IPS state",
+    "title": "IPS status",
     "msg": "selfdef on/off — the intrusion-prevention system's live enablement.",
-    "more": "selfdef is the whole self-defence layer (the 6 mirror panels D-13..D-18 + perimeter). This is the master read; on/off is toggled via a signed CLI verb from the Controls surface, never directly from the web."
+    "more": "selfdef is the whole self-defence layer (the 6 mirror panels D-13..D-18 + perimeter). This is the master read. The web copies the command below; it never mutates — on/off is a signed CLI toggle."
+  },
+  {
+    "sel": "#state",
+    "title": "IPS state",
+    "msg": "Whether selfdef is currently on or off.",
+    "more": "The one-word enablement — on means the IPS is enforcing (mirrors live, perimeter active); off means the security domain panels go dark. The single most important selfdef read."
+  },
+  {
+    "sel": "#detail",
+    "title": "Status detail",
+    "msg": "Detail behind the selfdef state.",
+    "more": "The specifics of what's engaged — which components are up. Context for the on/off master read, and the first place to look when a mirror panel is stale."
   },
   {
     "sel": "#mirrors",
-    "title": "Mirror health",
-    "msg": "Health of the six domain mirrors that feed D-13..D-18.",
-    "more": "Each mirror publishes a typed view sovereign-os consumes read-only. If a mirror is unhealthy, its domain panel goes stale — this is the one place to see all six bridges at once."
+    "title": "The 6 mirror dashboards",
+    "msg": "Links into the 6 selfdef mirror dashboards (D-13..D-18).",
+    "more": "Each mirror publishes a typed view sovereign-os consumes read-only. This grid is the hub into all six domains — grants, tokens, sandboxes, audit, quarantine, trust. If a mirror is unhealthy, its domain panel goes stale."
+  },
+  {
+    "sel": "#control-surface",
+    "title": "Controls — profiles, modes & toggles",
+    "msg": "The per-panel control rail for selfdef management.",
+    "more": "Every control copies its exact sovereign-osctl / selfdefctl verb (§1g / R10212) — selfdef on/off is a signed CLI action, never mutated from the web."
   }
 ];
 </script>
