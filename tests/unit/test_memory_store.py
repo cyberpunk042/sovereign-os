@@ -136,3 +136,89 @@ def test_undo_already_reversed(store):
 def test_undo_unknown_and_unsafe(store):
     assert MS.undo("chg-nope")["ok"] is False
     assert "unsafe" in MS.undo("a/b")["error"]
+
+
+# ── purge (SDD-060 — retention sweep, CLI-only, IRREVERSIBLE) ─────────────────
+
+from datetime import datetime, timedelta, timezone  # noqa: E402
+
+
+def _backdate(store_dir: Path, mid: str, days: int) -> None:
+    """Age a tombstone's `updated` by `days` so it falls past the window."""
+    p = store_dir / "store.json"
+    d = json.loads(p.read_text())
+    d["entries"][mid]["updated"] = (
+        datetime.now(tz=timezone.utc) - timedelta(days=days)).isoformat()
+    p.write_text(json.dumps(d))
+
+
+def test_purge_dry_run_lists_but_removes_nothing(store):
+    mid = _mk()
+    MS.forget(mid, confirm=True, force=True)
+    _backdate(store, mid, 40)
+    r = MS.purge(older_than_days=30)  # dry (no --confirm)
+    assert r["ok"] is True and r["dry_run"] is True
+    assert r["would_purge"] == [mid] and r["count"] == 1
+    assert mid in {e["id"] for e in MS.store_list()}  # removed nothing
+
+
+def test_purge_live_hard_removes_and_marks_ledger(store):
+    mid = _mk()
+    cid = MS.forget(mid, confirm=True, force=True)["change_id"]
+    _backdate(store, mid, 40)
+    r = MS.purge(older_than_days=30, confirm=True)
+    assert r["ok"] is True and r["dry_run"] is False and r["purged"] == [mid]
+    assert mid not in {e["id"] for e in MS.store_list()}  # HARD-removed
+    led = json.loads((store / "changes.json").read_text())["changes"]
+    chg = next(c for c in led if c["id"] == cid)
+    assert chg["purged"] is True and "purged_ts" in chg  # audit row retained, marked
+
+
+def test_purge_leaves_active_entries(store):
+    active = _mk()
+    r = MS.purge(older_than_days=0, confirm=True)  # 0-day window: everything "past"
+    assert r["count"] == 0  # active is never purged
+    assert active in {e["id"] for e in MS.store_list()}
+
+
+def test_purge_leaves_recent_tombstones(store):
+    mid = _mk()
+    MS.forget(mid, confirm=True, force=True)  # tombstoned just now (within window)
+    r = MS.purge(older_than_days=30, confirm=True)
+    assert r["count"] == 0 and mid in {e["id"] for e in MS.store_list()}
+
+
+def test_purge_older_than_zero_takes_fresh_tombstone(store):
+    mid = _mk()
+    MS.forget(mid, confirm=True, force=True)
+    r = MS.purge(older_than_days=0, confirm=True)
+    assert r["purged"] == [mid] and mid not in {e["id"] for e in MS.store_list()}
+
+
+def test_undo_refuses_purged_change(store):
+    mid = _mk()
+    cid = MS.forget(mid, confirm=True, force=True)["change_id"]
+    _backdate(store, mid, 40)
+    MS.purge(older_than_days=30, confirm=True)
+    r = MS.undo(cid, confirm=True)
+    assert r["ok"] is False and "purged" in r["error"] and "cannot restore" in r["error"]
+
+
+def test_purge_unparseable_updated_is_not_old(store):
+    mid = _mk()
+    MS.forget(mid, confirm=True, force=True)
+    p = store / "store.json"
+    d = json.loads(p.read_text())
+    d["entries"][mid]["updated"] = "not-a-timestamp"
+    p.write_text(json.dumps(d))
+    r = MS.purge(older_than_days=0, confirm=True)
+    assert r["count"] == 0 and mid in {e["id"] for e in MS.store_list()}  # never on ambiguity
+
+
+def test_purge_negative_window_rejected(store):
+    assert MS.purge(older_than_days=-1)["ok"] is False
+
+
+def test_purge_empty_store_ok(store):
+    r = MS.purge(older_than_days=30, confirm=True)
+    assert r["ok"] is True and r["count"] == 0
