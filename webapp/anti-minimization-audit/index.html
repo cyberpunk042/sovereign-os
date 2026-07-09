@@ -549,6 +549,9 @@ a11y; contract test catches drift.
       {id:'—', dir:'ux-design-audit', label:'UX Design Audit', ico:'◓', desc:'The UX design-stage audit — consistency/accessibility scoring across the panels.'},
       {id:'—', dir:'personalization', label:'Personalization', ico:'✦', desc:'Theme / accent / typography control (localStorage-backed) applied across all panels before paint.'},
     ]},
+    {name:'Science & Simulation', items:[
+      {id:'—', dir:'science', label:'Science Tools', ico:'⚛', desc:'The operator\'s science catalog — DNA / protein / particle tools. NVIDIA Warp (particles) is integrated: a differentiable particle sim on GPU (RTX PRO 6000) or CPU fallback. Read-only; running a sim is the gated sovereign-osctl science run.'},
+    ]},
   ];
   var PKEY='sovereign-os.personalization', PSCHEMA=1;
   function loadPrefs(){ try{var r=localStorage.getItem(PKEY);var p=r?JSON.parse(r):null;if(!p||p.schema!==PSCHEMA)return{schema:PSCHEMA,theme:'auto',accent:'#9bd1ff',font_scale:1};return p;}catch(e){return{schema:PSCHEMA,theme:'auto',accent:'#9bd1ff',font_scale:1};} }
@@ -692,6 +695,23 @@ a11y; contract test catches drift.
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#cross-tbody",
+    "title": "Minimization findings",
+    "msg": "Every place scope was silently shrunk versus the operator mandate.",
+    "more": "The 'do not minimize' rule is load-bearing here — this table is where the audit calls out empty stubs, doc gaps, mandate TODOs, partial status, and skipped follow-ups. A clean table means the shipped surface matches what was promised."
+  },
+  {
+    "sel": "#pat-minimize-phrase",
+    "title": "Minimize-phrase hits",
+    "msg": "Occurrences of hedging language ('some', 'a few', 'etc.') where a complete enumeration was owed.",
+    "more": "Under-counting is minimization by another name. This pattern catches prose that summarised instead of listing all — the exact failure the mandate forbids."
+  }
+];
+</script>
 <h1>sovereign-os anti-minimization-audit</h1>
 <p class="sub">
   Operator-§1g anti-minimization-audit — 8-pattern source audit + R474 waiver enumeration + R466 cross-repo selfdef discovery (R456 aggregator).

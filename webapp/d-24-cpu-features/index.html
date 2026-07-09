@@ -194,6 +194,9 @@
       {id:'—', dir:'ux-design-audit', label:'UX Design Audit', ico:'◓', desc:'The UX design-stage audit — consistency/accessibility scoring across the panels.'},
       {id:'—', dir:'personalization', label:'Personalization', ico:'✦', desc:'Theme / accent / typography control (localStorage-backed) applied across all panels before paint.'},
     ]},
+    {name:'Science & Simulation', items:[
+      {id:'—', dir:'science', label:'Science Tools', ico:'⚛', desc:'The operator\'s science catalog — DNA / protein / particle tools. NVIDIA Warp (particles) is integrated: a differentiable particle sim on GPU (RTX PRO 6000) or CPU fallback. Read-only; running a sim is the gated sovereign-osctl science run.'},
+    ]},
   ];
   var PKEY='sovereign-os.personalization', PSCHEMA=1;
   function loadPrefs(){ try{var r=localStorage.getItem(PKEY);var p=r?JSON.parse(r):null;if(!p||p.schema!==PSCHEMA)return{schema:PSCHEMA,theme:'auto',accent:'#9bd1ff',font_scale:1};return p;}catch(e){return{schema:PSCHEMA,theme:'auto',accent:'#9bd1ff',font_scale:1};} }
@@ -337,6 +340,23 @@
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#extensions",
+    "title": "AVX-512 extension map",
+    "msg": "The deep per-extension view of this CPU's AVX-512 capability.",
+    "more": "Distinct from D-21's CPU summary — this is the full map, reusing avx512-advisor. It is where you confirm a specific instruction set (VNNI, BF16…) is present before pinning a workload that depends on it."
+  },
+  {
+    "sel": "#workloads",
+    "title": "Per-workload fit verdict",
+    "msg": "Whether each AI workload is a good fit for this CPU's features.",
+    "more": "The advisor turns raw flags into a verdict: 'this box can/can't accelerate X'. That verdict is what a runtime profile should honour when it decides CPU vs GPU placement."
+  }
+];
+</script>
 <header>
   <h1>D-24 · CPU Features
     <span class="sub">AVX-512 extension map · per-AI-workload fit · advisory (reuses avx512-advisor)</span></h1>

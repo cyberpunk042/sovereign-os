@@ -192,6 +192,9 @@
       {id:'—', dir:'ux-design-audit', label:'UX Design Audit', ico:'◓', desc:'The UX design-stage audit — consistency/accessibility scoring across the panels.'},
       {id:'—', dir:'personalization', label:'Personalization', ico:'✦', desc:'Theme / accent / typography control (localStorage-backed) applied across all panels before paint.'},
     ]},
+    {name:'Science & Simulation', items:[
+      {id:'—', dir:'science', label:'Science Tools', ico:'⚛', desc:'The operator\'s science catalog — DNA / protein / particle tools. NVIDIA Warp (particles) is integrated: a differentiable particle sim on GPU (RTX PRO 6000) or CPU fallback. Read-only; running a sim is the gated sovereign-osctl science run.'},
+    ]},
   ];
   var PKEY='sovereign-os.personalization', PSCHEMA=1;
   function loadPrefs(){ try{var r=localStorage.getItem(PKEY);var p=r?JSON.parse(r):null;if(!p||p.schema!==PSCHEMA)return{schema:PSCHEMA,theme:'auto',accent:'#9bd1ff',font_scale:1};return p;}catch(e){return{schema:PSCHEMA,theme:'auto',accent:'#9bd1ff',font_scale:1};} }
@@ -335,6 +338,29 @@
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#line-state",
+    "title": "Power source",
+    "msg": "on-line (mains) vs on-battery — where the box is drawing power right now.",
+    "more": "Live from the APC Smart-UPS over NUT/Modbus. 'on-battery' starts the runtime clock: if it drops below 30 minutes the graceful soft-shutdown posture kicks in and powers the node down cleanly rather than letting it hard-cut."
+  },
+  {
+    "sel": "#shutdown-banner",
+    "title": "Graceful shutdown",
+    "msg": "The orderly-poweroff posture that protects the box on a long outage.",
+    "more": "An unclean power loss can corrupt ZFS state mid-write. This posture ensures the node shuts down properly while battery remains — the difference between a clean reboot and a recovery."
+  },
+  {
+    "sel": "#stats",
+    "title": "UPS telemetry",
+    "msg": "Battery %, runtime, and load from the UPS.",
+    "more": "Read-only over power-status + NUT upsc. Runtime is the number that matters during an outage — it is your budget before graceful shutdown triggers."
+  }
+];
+</script>
 <h1>UPS · APC Smart-UPS</h1>
 <p class="sub">
   Live power state from the APC Smart-UPS (SMT2200C SmartConnect) via NUT

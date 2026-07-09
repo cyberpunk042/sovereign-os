@@ -548,6 +548,9 @@ a11y; contract test catches drift.
       {id:'—', dir:'ux-design-audit', label:'UX Design Audit', ico:'◓', desc:'The UX design-stage audit — consistency/accessibility scoring across the panels.'},
       {id:'—', dir:'personalization', label:'Personalization', ico:'✦', desc:'Theme / accent / typography control (localStorage-backed) applied across all panels before paint.'},
     ]},
+    {name:'Science & Simulation', items:[
+      {id:'—', dir:'science', label:'Science Tools', ico:'⚛', desc:'The operator\'s science catalog — DNA / protein / particle tools. NVIDIA Warp (particles) is integrated: a differentiable particle sim on GPU (RTX PRO 6000) or CPU fallback. Read-only; running a sim is the gated sovereign-osctl science run.'},
+    ]},
   ];
   var PKEY='sovereign-os.personalization', PSCHEMA=1;
   function loadPrefs(){ try{var r=localStorage.getItem(PKEY);var p=r?JSON.parse(r):null;if(!p||p.schema!==PSCHEMA)return{schema:PSCHEMA,theme:'auto',accent:'#9bd1ff',font_scale:1};return p;}catch(e){return{schema:PSCHEMA,theme:'auto',accent:'#9bd1ff',font_scale:1};} }
@@ -691,6 +694,29 @@ a11y; contract test catches drift.
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#list-tbody",
+    "title": "Fabric contexts",
+    "msg": "The sandboxed execution contexts Weaver is managing.",
+    "more": "Weaver is the fabric layer — Podman/VFIO isolation where untrusted work runs, writing atomic state to tank/context on CCD1. Each row is a confined context; this is the containment half of the trinity."
+  },
+  {
+    "sel": "#stat-ctxdir",
+    "title": "State-fabric dir",
+    "msg": "The tank/context dataset Weaver writes atomic state into.",
+    "more": "State lives on ZFS (tank/context) so a context can be snapshotted and rolled back atomically — the mechanism behind D-08's recovery points. This confirms the fabric's state root is where it should be."
+  },
+  {
+    "sel": "#stat-present",
+    "title": "Fabric present",
+    "msg": "Whether the Weaver fabric is installed and available on this host.",
+    "more": "Weaver is facultative like the other modules — 'not present' means untrusted GPU work simply has nowhere sandboxed to run, not that something broke."
+  }
+];
+</script>
 <h1>sovereign-os weaver</h1>
 <p class="sub">
   Operator-§1g weaver &mdash; master spec &sect; 7.1 / &sect; 21 atomic-state inspection.

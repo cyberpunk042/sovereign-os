@@ -556,6 +556,9 @@ a11y; contract test catches drift.
       {id:'—', dir:'ux-design-audit', label:'UX Design Audit', ico:'◓', desc:'The UX design-stage audit — consistency/accessibility scoring across the panels.'},
       {id:'—', dir:'personalization', label:'Personalization', ico:'✦', desc:'Theme / accent / typography control (localStorage-backed) applied across all panels before paint.'},
     ]},
+    {name:'Science & Simulation', items:[
+      {id:'—', dir:'science', label:'Science Tools', ico:'⚛', desc:'The operator\'s science catalog — DNA / protein / particle tools. NVIDIA Warp (particles) is integrated: a differentiable particle sim on GPU (RTX PRO 6000) or CPU fallback. Read-only; running a sim is the gated sovereign-osctl science run.'},
+    ]},
   ];
   var PKEY='sovereign-os.personalization', PSCHEMA=1;
   function loadPrefs(){ try{var r=localStorage.getItem(PKEY);var p=r?JSON.parse(r):null;if(!p||p.schema!==PSCHEMA)return{schema:PSCHEMA,theme:'auto',accent:'#9bd1ff',font_scale:1};return p;}catch(e){return{schema:PSCHEMA,theme:'auto',accent:'#9bd1ff',font_scale:1};} }
@@ -699,6 +702,29 @@ a11y; contract test catches drift.
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#adapters-tbody",
+    "title": "Adapter inventory",
+    "msg": "Which LoRA fine-tunes are resident and which are active.",
+    "more": "Adapters are cheap specialisation on top of a base model. This shows what is loaded now; promotion from candidate → active flows through the MS041 gates below, gated on real eval evidence."
+  },
+  {
+    "sel": "#gates-tbody",
+    "title": "Promotion gates",
+    "msg": "The MS041 triple-gate an adapter must clear before it can be promoted.",
+    "more": "Gates advance only from real evidence (a passing eval, a snapshot, a human sign-off) — never fabricated. An adapter stuck 'pending' has not earned its gates yet; that is the system refusing to promote on faith."
+  },
+  {
+    "sel": "#apply-btn",
+    "title": "Promote adapter",
+    "msg": "Stages a promotion — it copies the signed CLI verb, it does not mutate from the web.",
+    "more": "R10212: the cockpit stages, the gated osctl path executes. The button is reachable only when the gates are green."
+  }
+];
+</script>
 
 <h1>D-11 — adapter status</h1>
 <div class="sub">LoRA Foundry inventory + MS041 triple-gate audit + rollback · <a href="../master-dashboard/">D-00 main</a> · <a href="../d-10-eval-history/">D-10 eval history</a></div>

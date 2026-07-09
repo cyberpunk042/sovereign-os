@@ -54,7 +54,7 @@ ADOPTED_PANELS = [
     "edge-firewall", "emulate", "flash", "global-history", "master-dashboard",
     "models-catalog", "network-edge", "orchestration", "personalization",
     "profile-generation", "router", "runtime-modes", "selfdef-management",
-    "surface-map", "trinity", "ups", "ux-design-audit", "weaver",
+    "science", "surface-map", "trinity", "ups", "ux-design-audit", "weaver",
 ]
 
 _BLOCK_RE = re.compile(re.escape(BEGIN) + r".*?" + re.escape(END), re.DOTALL)
