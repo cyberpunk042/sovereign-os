@@ -713,16 +713,166 @@ a11y; contract test catches drift.
 <script>
 window.SO_ASSIST = [
   {
+    "sel": "#datasource-banner",
+    "title": "Live vs snapshot",
+    "msg": "Green = /api/models/health is answering live; muted = the baked snapshot.",
+    "more": "Serving health is only meaningful live. If this is muted the daemon is unreachable and you're reading the last committed sample — a model shown 'loaded' may already have been evicted."
+  },
+  {
+    "sel": "#ds-state-label",
+    "title": "Data-source state",
+    "msg": "Which source the page reads — live models-health daemon or snapshot.",
+    "more": "The one-word verdict behind the banner. Snapshot means act with caution on any load/latency number below."
+  },
+  {
+    "sel": "#ds-state-detail",
+    "title": "Reachability detail",
+    "msg": "The reason behind the state — reachable, timeout, or endpoint absent.",
+    "more": "Turns 'snapshot' into a diagnosis: a timeout points at load on the serving box; absent points at the models API not being started."
+  },
+  {
+    "sel": "#ds-last-update",
+    "title": "Fetch freshness",
+    "msg": "When the shown health sample was pulled.",
+    "more": "Model state changes fast under load — a value a minute old can misreport a load/unload that already happened. Read this before trusting 'loaded'."
+  },
+  {
+    "sel": "#total-loaded",
+    "title": "Total models loaded",
+    "msg": "How many models are resident across all tiers right now.",
+    "more": "The live-serving count (distinct from D-23's catalog of what COULD run). This is memory actually committed to models — the number that trades against free VRAM and load latency."
+  },
+  {
+    "sel": "#bw-count",
+    "title": "Blackwell models",
+    "msg": "Models resident on the Blackwell (Oracle GPU, 96 GB).",
+    "more": "How many models sit on the heavy tier. The Blackwell's 96 GB hosts large-context Oracle work; a high count here competes for the VRAM the backpressure rule watches."
+  },
+  {
+    "sel": "#rtx-count",
+    "title": "4090 models",
+    "msg": "Models resident on the 4090 (Logic GPU, 24 GB, VFIO).",
+    "more": "The Logic tier is tighter at 24 GB — fewer, smaller models. This count is how full the Scout GPU's model slots are."
+  },
+  {
+    "sel": "#cpu-count",
+    "title": "CPU / Pulse models",
+    "msg": "Models running on the CPU/Pulse (AVX-512 ternary) path.",
+    "more": "The sovereign always-available tier — runs with no GPU at all. A non-zero count here is Pulse serving real inference on the ternary path, the fallback that keeps the box useful under GPU pressure."
+  },
+  {
     "sel": "#conductor-util",
     "title": "Conductor utilization",
-    "msg": "How busy the Conductor role (CPU0) is right now.",
-    "more": "Per M075 the three SRP roles map to hardware: Logic=GPU0, Oracle=GPU1, Conductor=CPU0. The Conductor orchestrates; sustained high utilization here means the routing/coordination tier is the bottleneck, not the GPUs."
+    "msg": "Compute utilization of the Conductor SRP role (M075 — CPU/Pulse orchestration tier).",
+    "more": "Conductor is the lightweight routing/orchestration role. High util here is classification and routing work, not heavy generation — it should stay responsive even when Oracle is saturated."
   },
   {
     "sel": "#conductor-tps",
     "title": "Conductor tokens/sec",
-    "msg": "Live throughput of the Conductor tier.",
-    "more": "Read next to utilization: high util with low tokens/sec is contention or a stall, not useful work. This is the live-serving view — the model portfolio itself lives in D-23."
+    "msg": "Throughput of the Conductor tier.",
+    "more": "The Conductor's serving rate. Because it runs on Pulse (CPU), this number is bounded by AVX-512 throughput — a good read on whether the sovereign path is keeping up with routing demand."
+  },
+  {
+    "sel": "#conductor-models-tbody",
+    "title": "Conductor models",
+    "msg": "The models currently assigned to the Conductor role.",
+    "more": "Which specific models are serving the orchestration tier — the ternary/small models that fit the CPU path. Empty means routing is falling back elsewhere."
+  },
+  {
+    "sel": "#logic-util",
+    "title": "Logic utilization",
+    "msg": "Compute utilization of the Logic SRP role (M075 — the 4090 GPU tier).",
+    "more": "Logic is the mid tier — structured reasoning on the 24 GB 4090. Its util plus VRAM (right) show whether the Scout GPU has headroom or is the bottleneck the backpressure rule will narrow."
+  },
+  {
+    "sel": "#logic-vram-pct",
+    "title": "Logic VRAM %",
+    "msg": "VRAM occupancy of the Logic tier as a percentage of 24 GB.",
+    "more": "The percentage view of the 4090's memory. 24 GB is a hard ceiling — near 100% here means no room to load another Logic model without unloading one first."
+  },
+  {
+    "sel": "#logic-vram-used",
+    "title": "Logic VRAM used",
+    "msg": "Absolute VRAM in use on the 4090, of 24 GB.",
+    "more": "The absolute companion to the percentage — the concrete GB figure to compare against a model's footprint before a load."
+  },
+  {
+    "sel": "#logic-models-tbody",
+    "title": "Logic models",
+    "msg": "The models currently assigned to the Logic role.",
+    "more": "Which models are serving the 4090 tier. This is where you confirm the intended Logic model is actually resident, not just catalogued."
+  },
+  {
+    "sel": "#oracle-util",
+    "title": "Oracle utilization",
+    "msg": "Compute utilization of the Oracle SRP role (M075 — the Blackwell GPU tier).",
+    "more": "Oracle is the heavy-reasoning tier on the 96 GB Blackwell. Sustained high util is the Oracle doing its job; pair with VRAM to know if it has room for more context."
+  },
+  {
+    "sel": "#oracle-vram-pct",
+    "title": "Oracle VRAM %",
+    "msg": "VRAM occupancy of the Oracle tier as a percentage of 96 GB.",
+    "more": "The percentage view of the Blackwell's memory — the figure the M058 rule trips at >90% (trim context + evict KV). The single best predictor of whether large contexts will still fit."
+  },
+  {
+    "sel": "#oracle-vram-used",
+    "title": "Oracle VRAM used",
+    "msg": "Absolute VRAM in use on the Blackwell, of 96 GB.",
+    "more": "The concrete GB figure on the heavy tier — what you check against a large model's footprint before assigning it to Oracle."
+  },
+  {
+    "sel": "#oracle-models-tbody",
+    "title": "Oracle models",
+    "msg": "The models currently assigned to the Oracle role.",
+    "more": "Which large models are resident on the Blackwell. Confirms the heavy tier is serving the intended model and how many share its 96 GB."
+  },
+  {
+    "sel": "#latency-tbody",
+    "title": "Per-model latency p50/p95/p99",
+    "msg": "Latency percentiles per model over the last hour, with request shape and req/min.",
+    "more": "p50 is the typical experience; p95/p99 are the tail that users actually feel as 'slow'. A model with a good p50 but a blown p99 is intermittently stalling — usually KV/VRAM pressure, cross-referenced with the KV table below."
+  },
+  {
+    "sel": "#kvcache-tbody",
+    "title": "KV cache utilization",
+    "msg": "Per-model KV-cache fill, max tokens, and prefill hit rate.",
+    "more": "The KV cache holds attention state; when 'fill' nears max, long or new contexts get evicted and latency tails grow. A high prefill-hit % means repeated prompts are being reused cheaply — the lever behind 'warm KV cache' in the actions."
+  },
+  {
+    "sel": "#heatmap-container",
+    "title": "Availability heatmap (24h)",
+    "msg": "Per-model availability over the last day — green available, yellow degraded, red unavailable.",
+    "more": "The reliability memory of the serving layer: a model that flickers red on a schedule points at a recurring pressure event (a nightly job, an eval run) rather than a one-off fault. Read the pattern, not just the current colour."
+  },
+  {
+    "sel": "#refresh-btn",
+    "title": "Refresh",
+    "msg": "Re-poll model health now.",
+    "more": "A fresh sample on demand after a load/unload, instead of waiting for the auto-poll. Read-only."
+  },
+  {
+    "sel": "#load-model-btn",
+    "title": "Load model (operator-signed)",
+    "msg": "Stages a model load — copies the signed CLI verb, does not load from the web.",
+    "more": "R10212: the cockpit never mutates serving state. A load commits VRAM and takes time; it goes through the gated osctl path where it's authorised and traced. The button hands you the exact command."
+  },
+  {
+    "sel": "#unload-idle-btn",
+    "title": "Unload idle models",
+    "msg": "Stages the eviction of idle models to reclaim VRAM.",
+    "more": "The reclaim action — copies the signed verb to unload models that aren't serving, freeing the VRAM the counts above show as committed. Executed via osctl, not the browser."
+  },
+  {
+    "sel": "#warm-kv-btn",
+    "title": "Warm KV cache (Profile 3)",
+    "msg": "Stages a KV-cache warm under the deep-context profile.",
+    "more": "Pre-fills the KV cache so the first requests after a load don't pay cold-prefill latency — the lever that lifts the prefill-hit % in the KV table. Tied to Profile 3 (deep-context); copies its signed verb."
+  },
+  {
+    "sel": "#control-surface",
+    "title": "Controls — profiles, modes & toggles",
+    "msg": "The per-panel control rail for serving behaviour — profiles, modes, toggles.",
+    "more": "Every control copies its exact sovereign-osctl verb (§1g / R10212), never executing from the web. Where the runtime profile that shapes model allocation across the three tiers is selected."
   }
 ];
 </script>
