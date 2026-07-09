@@ -80,7 +80,7 @@ values, the tiles + 11-stage occupancy become real automatically.
 | Q-064-B | Observation source. | **answered: CLI/fixture-fed now; the auto-observation event-stream feed is Stage-N — the engine never fabricates a source (SB-077).** |
 | Q-064-C | The store-if trigger set. | **answered: the 8 value triggers (R04674-R04681); 5 ignore-if per the spec yaml; trust floor 30.** |
 | Q-064-D | Reconcile ownership. | **answered: `memory-store.py` (owns the store↔projection), best-effort, preserves the memory-decide-owned fields.** |
-| Q-064-E | The RLM navigator (M00472) + SLM janitor (M00473) + the real observation event stream. | **proposed: Stage-N.** |
+| Q-064-E | The RLM navigator (M00472) + SLM janitor (M00473) + the real observation event stream. | **the SLM janitor (M00473) half answered (SDD-066, 2026-07-09): built as `memory-janitor.py` — 7 jobs, deterministic (dedup/edges/tag/advance-effects) + SLM-routed via the SDD-062 loopback engine (extract-facts/topic/summarize/classify), honest-defer per SB-077.** The RLM navigator (M00472) + the observation event stream remain **proposed: Stage-N.** |
 
 ## Non-goals (Stage N)
 
