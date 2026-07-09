@@ -38,9 +38,11 @@ log "starting — operator=${OPERATOR} posture=${POSTURE} repo=${REPO}"
 # own so the sandbox can be built. (Hardware units additionally skip on VMs via
 # ConditionVirtualization=no; these dirs make the generic ones — firstboot
 # completion marker, workstation-shell — succeed everywhere.)
-mkdir -p /var/lib/sovereign-os /var/log/sovereign-os /etc/bash.bashrc.d 2>/dev/null \
-  && log "state dirs ensured (/var/lib/sovereign-os · /var/log/sovereign-os · /etc/bash.bashrc.d)" \
-  || log "state-dir creation hiccup (non-fatal)"
+if mkdir -p /var/lib/sovereign-os /var/log/sovereign-os /etc/bash.bashrc.d 2>/dev/null; then
+  log "state dirs ensured (/var/lib/sovereign-os · /var/log/sovereign-os · /etc/bash.bashrc.d)"
+else
+  log "state-dir creation hiccup (non-fatal)"
+fi
 
 # ── 1. operator user ─────────────────────────────────────────────────────
 if id "${OPERATOR}" >/dev/null 2>&1; then
@@ -63,8 +65,11 @@ fi
 if [ "${SOVEREIGN_OS_OPERATOR_PASSWORD_FROM_ROOT:-1}" = "1" ] && id "${OPERATOR}" >/dev/null 2>&1; then
   rh="$(getent shadow root | cut -d: -f2)"
   if [ -n "${rh}" ] && [ "${rh}" != "!" ] && [ "${rh}" != "*" ]; then
-    echo "${OPERATOR}:${rh}" | chpasswd -e 2>/dev/null \
-      && log "operator password set (= root's)" || log "chpasswd failed (non-fatal)"
+    if echo "${OPERATOR}:${rh}" | chpasswd -e 2>/dev/null; then
+      log "operator password set (= root's)"
+    else
+      log "chpasswd failed (non-fatal)"
+    fi
   else
     log "root has no usable password hash — operator left password-less (SSH/console per your keys)"
   fi
@@ -124,7 +129,7 @@ if [ "${SOVEREIGN_OS_BAKE_DASHBOARDS:-}" = "1" ] && [ -d "${REPO}/systemd/system
   for unit in sovereign-dashboards.service sovereign-master-dashboard-api.service; do
     if [ -f "${REPO}/systemd/system/${unit}" ]; then
       install -m 644 "${REPO}/systemd/system/${unit}" /etc/systemd/system/ 2>/dev/null || true
-      systemctl enable "${unit}" 2>/dev/null && log "enabled ${unit}" || log "enable ${unit} failed (non-fatal)"
+      if systemctl enable "${unit}" 2>/dev/null; then log "enabled ${unit}"; else log "enable ${unit} failed (non-fatal)"; fi
     fi
   done
 fi
@@ -146,7 +151,7 @@ if [ "${SOVEREIGN_OS_BAKE_FIRSTBOOT:-}" = "1" ] && [ -d "${REPO}/systemd/system"
   n=0
   for u in "${FB_UNITS[@]}"; do
     if [ -f "${REPO}/systemd/system/${u}" ]; then
-      install -m 644 "${REPO}/systemd/system/${u}" /etc/systemd/system/ 2>/dev/null && n=$((n+1)) || true
+      if install -m 644 "${REPO}/systemd/system/${u}" /etc/systemd/system/ 2>/dev/null; then n=$((n+1)); fi
     fi
   done
   if systemctl enable sovereign-firstboot.target 2>/dev/null; then
@@ -208,12 +213,13 @@ if [ "${SOVEREIGN_OS_UPS:-}" = "1" ]; then
   fi
   # (c) install + arm the guard timer + the first-boot setup unit
   for u in sovereign-power-shutdown-guard.service sovereign-power-shutdown-guard.timer sovereign-ups-setup.service; do
-    [ -f "${REPO}/systemd/system/${u}" ] && install -m 644 "${REPO}/systemd/system/${u}" /etc/systemd/system/ 2>/dev/null || true
+    if [ -f "${REPO}/systemd/system/${u}" ]; then install -m 644 "${REPO}/systemd/system/${u}" /etc/systemd/system/ 2>/dev/null || true; fi
   done
   systemctl enable sovereign-ups-setup.service >/dev/null 2>&1 || true
   if [ "${SOVEREIGN_OS_UPS_ARM:-}" = "1" ]; then
-    systemctl enable sovereign-power-shutdown-guard.timer >/dev/null 2>&1 \
-      && log "power-shutdown-guard timer armed (minutely; soft shutdown < ${SHUT_MIN} min)" || true
+    if systemctl enable sovereign-power-shutdown-guard.timer >/dev/null 2>&1; then
+      log "power-shutdown-guard timer armed (minutely; soft shutdown < ${SHUT_MIN} min)"
+    fi
   fi
 fi
 

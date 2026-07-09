@@ -35,7 +35,7 @@ The two solutions are **independent** (each boots without the other) AND **combi
 | Catalog (10000+ requirements) | 80 milestones M001-M080, ~13,600 R-rows, ~136,000 sub-requirements | ✓ COMPLETE |
 | Backward-sweep review (avx-plus-plus dump 18,341 lines, EOF-onward redefinitions) | M061 + `backlog/notes/backward-sweep-2026-05-19-findings.md` — 6 redefinitions identified (3 breaking / 2 additive / 1 clarifying) | ✓ COMPLETE |
 | Backward-sweep Patch Pass A | 10 sovereign-os milestones annotated (M005 M006 M007 M009 M010 M011 M014 M016 M017 M020) | ✓ COMPLETE (commit `1a79fe8`) |
-| Backward-sweep Patch Pass B+C | MS007 crate version bumps + schema_version bumps | ⚠ PENDING (workspace at 0.1.0 pre-release; deferred until pre-1.0 lockdown) |
+| Backward-sweep Patch Pass B+C | MS007 crate version bumps + schema_version bumps | ⚠ PENDING (workspace at 0.1.0 pre-release; deferred until pre-1.0 lockdown) | <!-- anti-min-waiver: R-arc-ms007-crate-bumps-deferred-to-pre-v1-lockdown intentional version-freeze while the selfdef workspace sits at 0.1.0 pre-release; crate + schema_version bumps land at the pre-1.0 lockdown per this standing directive -->
 | Prior-dump review (2026-05-15 master-spec + 2026-05-16 macro-arc) | `backlog/notes/prior-dump-review-2026-05-19-findings.md` — 15 must-add milestones identified, all 15 landed (M062-M068 + M070-M076) | ✓ COMPLETE |
 | External research ingestion (operator-cited 2026-05-19) | M077 NVFP4 + M078 HölderPO + M079 Activation Steering + M080 HRM — 4 milestones, 690 R-rows | ✓ COMPLETE |
 | SDD bridge (catalog → implementation) | SDD-040 cockpit-dashboard-implementation-bridge.md — 19 dashboards inventoried, Phase A-E ordering | ✓ COMPLETE |

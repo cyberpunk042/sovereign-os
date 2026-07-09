@@ -148,6 +148,7 @@ if [ -n "${raw_image}" ]; then
     exit 1
   }
   esp_mnt="$(mktemp -d)"
+  # shellcheck disable=SC2317  # body runs via the EXIT trap below, not inline
   cleanup_loop() {
     umount "${esp_mnt}" 2>/dev/null || true
     losetup -d "${loopdev}" 2>/dev/null || true

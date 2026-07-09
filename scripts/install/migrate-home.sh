@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# scripts/install/migrate-home.sh — Phase 2 of the dual-boot, shared-/home
-# install.
+# scripts/install/migrate-home.sh — Phase 2 of the single-OS reflash-root
+# layout.
 #
-# Copies the CURRENT /home onto the shared lv_home and registers it in old
-# Debian's fstab so that AFTER THE NEXT REBOOT, /home is the shared volume.
+# Copies the CURRENT /home onto the shared sovereign-home LV and registers it
+# in fstab so that AFTER THE NEXT REBOOT, /home is the shared volume — after
+# which /home persists across every sovereign-root reflash.
 # We deliberately do NOT mount over the live /home: this repo and your login
 # session live under /home, and remounting it underneath a running session
 # is how you corrupt an in-use working tree. The switch lands cleanly at the
@@ -52,13 +53,13 @@ else
 fi
 umount "${MNT}"; trap - EXIT; rmdir "${MNT}"
 
-# ── register the shared /home in old Debian's fstab (takes effect on reboot) ──
+# ── register the shared /home in the host's fstab (takes effect on reboot) ──
 HOME_UUID="$(blkid -s UUID -o value "${HOME_LV}")"
 if grep -qE '^[^#]*[[:space:]]/home[[:space:]]' /etc/fstab; then
   info "/etc/fstab already has a /home entry — not touching it"
 else
   cp /etc/fstab /etc/fstab.pre-sovereign.bak
-  printf '# sovereign-os: shared /home (ONE home, both OSes) — added %s\nUUID=%s  /home  ext4  defaults,relatime  0  2\n' \
+  printf '# sovereign-os: shared /home (ONE home, survives every root reflash) — added %s\nUUID=%s  /home  ext4  defaults,relatime  0  2\n' \
     "$(date -I)" "${HOME_UUID}" >> /etc/fstab
   grn "✓ appended shared /home to /etc/fstab (backup: /etc/fstab.pre-sovereign.bak)"
 fi
@@ -69,10 +70,10 @@ cat <<EOF
 
 What just happened:
   • Your entire /home is now COPIED onto ${HOME_LV} (the shared volume).
-  • Old Debian's /etc/fstab now points /home at that volume.
+  • The host's /etc/fstab now points /home at that volume.
   • Nothing was unmounted; your current session is untouched.
 
-On your NEXT reboot of old Debian, /home will come from the shared LV.
+On your NEXT reboot, /home will come from the shared LV.
 The original on-root copy stays as a safety net (shadowed under the mount);
 we reclaim that ~space in a later, explicit step — never silently.
 

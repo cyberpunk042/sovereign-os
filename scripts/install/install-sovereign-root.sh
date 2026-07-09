@@ -1,17 +1,18 @@
 #!/usr/bin/env bash
-# scripts/install/install-sovereign-root.sh — Phase 3 of the dual-boot,
-# shared-/home install.
+# scripts/install/install-sovereign-root.sh — Phase 3 of the single-OS
+# reflash-root layout.
 #
-# Installs a REAL, MUTABLE Debian-13 root into lv_root, running the custom
-# znver5 kernel, with jfortin + root, mounting the SHARED lv_home as /home.
-# Boots via GRUB-EFI on sovereign's own ESP — old Debian on nvme0 is never
-# touched; you pick the OS at the firmware boot menu.
+# Installs a REAL, MUTABLE Debian-13 root into the sovereign-root LV, running
+# the custom znver5 kernel, with jfortin + root, mounting the SHARED
+# sovereign-home LV as /home. This is the reflash-root procedure: re-running
+# it rebuilds the sovereign root WITHOUT touching the shared /home. Boots via
+# GRUB-EFI on sovereign's own ESP.
 #
 # Why mutable Debian (not the mkosi appliance image): the operator wants to
 # control + change everything (apt, GUI later, toggle modules). The mkosi
 # image is immutable (no apt/dpkg) and boots by whole-disk auto-discovery —
-# the wrong shape for LVM dual-boot. This reuses the crown jewel (the custom
-# kernel .deb) on a normal, controllable root.
+# the wrong shape for a reflashable LV root. This reuses the crown jewel (the
+# custom kernel .deb) on a normal, controllable root.
 #
 # Inherits from the RUNNING Debian (no questions, matches what you use):
 #   keyboard · locale · timezone · root + jfortin password entries.
@@ -57,7 +58,7 @@ for cand in "${SOVEREIGN_OS_KERNEL_DEBS_DIR:-}" /mnt/kernel_forge /mnt/kernel_fo
   [ -n "$cand" ] && ls "$cand"/linux-image-6.12.0_*.deb >/dev/null 2>&1 && { KDIR="$cand"; break; }
 done
 [ -n "$KDIR" ] || { red "ABORT: can't find linux-image-6.12.0_*.deb (set SOVEREIGN_OS_KERNEL_DEBS_DIR)"; exit 1; }
-KIMG=$(ls -1 "$KDIR"/linux-image-6.12.0_*.deb | grep -v dbg | sort -V | tail -1)
+KIMG=$(printf '%s\n' "$KDIR"/linux-image-6.12.0_*.deb | grep -v dbg | sort -V | tail -1)
 KHDR=$(ls -1 "$KDIR"/linux-headers-6.12.0_*.deb 2>/dev/null | sort -V | tail -1 || true)
 info "kernel image  : ${KIMG}"
 info "kernel headers: ${KHDR:-none found; DKMS cannot build modules later without them}"
@@ -108,7 +109,7 @@ ROOT_UUID=$(blkid -s UUID -o value "${ROOT_LV}")
 HOME_UUID=$(blkid -s UUID -o value "${HOME_LV}")
 ESP_UUID=$(blkid -s UUID -o value "${ESP_PART}")
 cat > "${MNT}/etc/fstab" <<EOF
-# sovereign-os dual-boot — generated $(date -I)
+# sovereign-os reflash-root — generated $(date -I)
 UUID=${ROOT_UUID}  /          ext4  defaults,relatime           0  1
 UUID=${HOME_UUID}  /home      ext4  defaults,relatime           0  2
 UUID=${ESP_UUID}   /boot/efi  vfat  umask=0077,shortname=winnt  0  1
@@ -157,7 +158,11 @@ DHCP=yes
 NET
 systemctl enable systemd-networkd systemd-resolved
 
-# the custom znver5 kernel (+ headers so DKMS can build nvidia/zfs later)
+# custom znver5 kernel (+ headers for DKMS). Emitted into chroot-setup.sh via the
+# UNQUOTED heredoc above: the outer shell expands the basename subshells at
+# write-time to bake the real filenames in, and the optional-header word-split is
+# intentional. Do NOT use a bash array here — the outer shell would expand it to
+# empty at write-time and install no kernel (leaving an unbootable image).
 apt-get install -y /tmp/$(basename "${KIMG}") $( [ -n "${KHDR}" ] && echo /tmp/$(basename "${KHDR}") )
 
 # jfortin: ensure sudo
@@ -216,7 +221,7 @@ A new firmware boot entry 'sovereign-os' now exists. To boot it:
 Log in as ${PRIMARY_USER} with your usual password. Your files are already there
 (shared /home). 'uname -r' → 6.12.0.
 
-Old Debian is untouched on ${RUN_ROOT_DISK}; pick it from the same boot menu anytime.
+Your existing Debian is untouched on ${RUN_ROOT_DISK}; pick it from the same boot menu anytime.
 
 This is a MUTABLE system: apt works. /home survives regardless of what you toggle.
 EOF

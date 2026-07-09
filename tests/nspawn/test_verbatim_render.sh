@@ -74,7 +74,7 @@ required=(
     '## Multi-level REPL'
 )
 for hdr in "${required[@]}"; do
-    if ! echo "${out}" | grep -qF "${hdr}"; then
+    if ! grep -qF "${hdr}" <<< "${out}"; then
         fail "missing section header: ${hdr}"
     fi
 done
@@ -96,7 +96,7 @@ must_phrases=(
     'SMT2200C'                                     # §1b hardware drop
 )
 for phrase in "${must_phrases[@]}"; do
-    if ! echo "${out}" | grep -qF "${phrase}"; then
+    if ! grep -qF "${phrase}" <<< "${out}"; then
         fail "render missing operator-verbatim phrase: ${phrase}"
     fi
 done
@@ -104,19 +104,19 @@ pass "5. render preserves 10 operator-VERBATIM phrases (sync=always, 0xfff, Magi
 
 # ── 6. render includes ASCII diagram verbatim ───────────────────────
 out="$(python3 "${VR}" render 2>&1)"
-echo "${out}" | grep -qF '[ OPNsense Core Router / SD-WAN Firewall ]' || fail "diagram top"
-echo "${out}" | grep -qF '[Intel I226-V 2.5GbE]' || fail "diagram intel"
-echo "${out}" | grep -qF '[Marvell AQC113C 10GbE]' || fail "diagram marvell"
+grep -qF '[ OPNsense Core Router / SD-WAN Firewall ]' <<< "${out}" || fail "diagram top"
+grep -qF '[Intel I226-V 2.5GbE]' <<< "${out}" || fail "diagram intel"
+grep -qF '[Marvell AQC113C 10GbE]' <<< "${out}" || fail "diagram marvell"
 pass "6. render preserves §8 ASCII diagram verbatim (3 key lines)"
 
 # ── 7. render includes all 4 §7.1 file states (verbatim role text) ─
 out="$(python3 "${VR}" render 2>&1)"
 for f in IDENTITY.md SOUL.md AGENTS.md CLAUDE.md; do
-    echo "${out}" | grep -qF "${f}" || fail "missing §7.1 file: ${f}"
+    grep -qF "${f}" <<< "${out}" || fail "missing §7.1 file: ${f}"
 done
 # Verbatim role texts
-echo "${out}" | grep -qF 'Immutable System Persona' || fail "IDENTITY role"
-echo "${out}" | grep -qF 'Atomic Append-Only' || fail "CLAUDE role"
+grep -qF 'Immutable System Persona' <<< "${out}" || fail "IDENTITY role"
+grep -qF 'Atomic Append-Only' <<< "${out}" || fail "CLAUDE role"
 pass "7. render includes 4 §7.1 files with verbatim role text (Immutable Persona, Atomic Append-Only)"
 
 # ── 8. NEVER-raises: missing catalog module → renders what's available
@@ -171,7 +171,7 @@ pass "11. manifest verb-shape correct per category (architecture-qa show / cover
 
 # ── 12. render output is non-empty + has top-level title ───────────
 out="$(python3 "${VR}" render 2>&1)"
-echo "${out}" | head -1 | grep -q "# Sovereign-OS verbatim-preservation" || fail "top title"
+grep -q "# Sovereign-OS verbatim-preservation" <<< "${out%%$'\n'*}" || fail "top title"
 # Output should be ≥500 lines for the full catalog
 line_count=$(echo "${out}" | wc -l)
 [[ "${line_count}" -ge 500 ]] || fail "output too short: ${line_count} lines"

@@ -1,16 +1,19 @@
 #!/usr/bin/env bash
-# scripts/install/setup-lvm-dualboot.sh — Phase 1 of the dual-boot,
-# shared-/home install.
+# scripts/install/setup-lvm-dualboot.sh — Phase 1 of the single-OS
+# reflash-root LVM layout. (Filename keeps the historical "dualboot" name;
+# the dual-boot coexistence design was dropped in the 2026-06-10 single-OS
+# pivot — but the LVM layout it builds is what the single-OS world uses.)
 #
-# Operator architecture (verbatim direction 2026-06-10):
-#   - old Debian (nvme0) and sovereign-os COEXIST, neither breaks the other
-#   - LVM for flexible data management, no wasted space
-#   - ONE /home, ALWAYS, shared between both OSes
-#   - jfortin (uid 1000) sudoer + root, in both OSes
-#   - reflashing sovereign root must NEVER touch /home
+# Builds the `sovereign` VG on the second NVMe with two LVs:
+#   - sovereign-home — the ONE shared /home; survives every root reflash
+#   - sovereign-root — the (re)flashable sovereign-os root; idle until
+#                      install-sovereign-root.sh (Phase 3) populates it
 #
-# This phase builds the LVM home on the EMPTY second NVMe. It does NOT
-# touch the running OS disk. It is idempotent-guarded and aborts on any
+# Standing operator principle (verbatim 2026-06-10, still in force):
+#   reflashing the sovereign root must NEVER touch /home; jfortin (uid 1000)
+#   is sudoer + root; LVM for flexible data management, no wasted space.
+#
+# Does NOT touch the running OS disk. Idempotent-guarded; aborts on any
 # ambiguity. Run: sudo scripts/install/setup-lvm-dualboot.sh
 set -euo pipefail
 
@@ -27,7 +30,7 @@ info() { printf '  %s\n' "$*"; }
 
 [ "$(id -u)" -eq 0 ] || { red "must run as root: sudo $0"; exit 1; }
 
-echo "━━━ sovereign-os dual-boot LVM setup ━━━"
+echo "━━━ sovereign-os reflash-root LVM setup ━━━"
 info "target disk : ${TARGET}  (will be PARTITIONED)"
 info "volume group: ${VG}"
 info "  lv_root    : ${LV_ROOT_SIZE}  (sovereign-os root — reflashable)"
@@ -93,7 +96,7 @@ grn "━━━ Phase 1 complete ━━━"
 lsblk "${TARGET}"
 echo
 cat <<EOF
-Created (nothing on your old Debian was touched):
+Created (nothing on your existing Debian was touched):
   ESP   : ${ESP_PART}            → sovereign-os bootloader
   VG    : ${VG}
    /dev/${VG}/root  (${LV_ROOT_SIZE})  → sovereign-os root  [reflash target]
@@ -102,6 +105,6 @@ Created (nothing on your old Debian was touched):
 Free space remains in VG '${VG}' for tank/models, swap, growth:
 $(vgs --noheadings -o vg_free "${VG}" 2>/dev/null | xargs echo "  vg free:")
 
-Next: scripts/install/migrate-home.sh  (copy current /home onto lv_home,
-then mount it from BOTH OSes as the single /home).
+Next: scripts/install/migrate-home.sh  (copy current /home onto the
+sovereign-home LV so it becomes the single, reflash-surviving /home).
 EOF
