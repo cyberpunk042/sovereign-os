@@ -8235,17 +8235,21 @@ case "${cmd}" in
         # DRY-RUN by default; the real zfs snapshot + criu dump run live + gated.
         "${__REPO_ROOT}/scripts/lifecycle/save-state.py" "${sub}" "$@"
         ;;
-      start|stop|list)
+      start|stop|list|reap)
         # SDD-058 (M057): the session-process producer — `start -- <cmd>` spawns
         # an operator task command under a systemd-run --scope + registers it with
         # a real pid (the CRIU save-state target); `stop` archives the scope; `list`
-        # shows the registered sessions. CLI-ONLY and DELIBERATELY NOT a cockpit
+        # shows the registered sessions. `reap` (SDD-065) is the reaper janitor —
+        # archives `active` sessions whose tracked process is already dead (a
+        # state-reconciliation, safe bookkeeping; runs from the sovereign-session-
+        # reaper.timer). `start` also creates a per-session ZFS child dataset
+        # (tank/agents/<id>, additive). CLI/timer-only and DELIBERATELY NOT a cockpit
         # control — `start` runs an operator-supplied command (arbitrary exec) and
         # must NEVER be web-triggerable (R10212); no control-systems / sudoers entry.
         "${__REPO_ROOT}/scripts/lifecycle/session-runtime.py" "${sub}" "$@"
         ;;
       *)
-        log_error "unknown sessions subverb: ${sub} (available: active, summary, steps, hibernate, resume, kill, hibernate-all, save-state, restore, start, stop, list)"
+        log_error "unknown sessions subverb: ${sub} (available: active, summary, steps, hibernate, resume, kill, hibernate-all, save-state, restore, start, stop, list, reap)"
         exit 2
         ;;
     esac

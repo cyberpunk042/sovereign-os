@@ -58,6 +58,7 @@ EXPECTED_RECURRENT_HOOKS = [
     "root-ghostproxy-verify.sh",
     "security-update-check.sh",
     "selfdef-sync.sh",
+    "session-reap.sh",
     "sovereign-telemetry-textfile.sh",
     "tetragon-policy-verify.sh",
     "thermal-watch.sh",
@@ -80,6 +81,7 @@ HOOK_TO_TIMER_SLUG = {
     "root-ghostproxy-verify.sh": "sovereign-ghostproxy-verify",
     "security-update-check.sh": "sovereign-security-update-check",
     "selfdef-sync.sh": "sovereign-selfdef-sync",
+    "session-reap.sh": "sovereign-session-reaper",
     "sovereign-telemetry-textfile.sh": "sovereign-telemetry-textfile",
     "tetragon-policy-verify.sh": "sovereign-tetragon-verify",
     "thermal-watch.sh": "sovereign-thermal-watch",
@@ -113,14 +115,15 @@ def test_all_recurrent_hooks_exist():
 
 
 def test_hook_count_matches_expected():
-    """Exactly 16 recurrent hooks (15 shell-convention + 1 binary wrapper,
+    """Exactly 17 recurrent hooks (16 shell-convention + 1 binary wrapper,
     sovereign-telemetry-textfile). Drift adding ungated hooks or
-    removing operator-named cadence breaks the contract."""
+    removing operator-named cadence breaks the contract. (17th = session-reap
+    per SDD-065 — the M057 session reaper.)"""
     actual = sorted(p.name for p in RECURRENT_DIR.glob("*.sh"))
     expected = sorted(EXPECTED_RECURRENT_HOOKS)
     assert actual == expected, (
         f"recurrent hook set drift: actual={actual} vs "
-        f"expected={expected} (operator-named 16-hook cadence; 16th = root-ghostproxy-verify per SDD-046)"
+        f"expected={expected} (operator-named cadence; 16th = root-ghostproxy-verify per SDD-046, 17th = session-reap per SDD-065)"
     )
 
 

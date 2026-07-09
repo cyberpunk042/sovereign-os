@@ -62,9 +62,17 @@ _rp = _imp("_rollback_points_for_runtime", _HERE / "rollback-points.py")
 
 SESSION_REGISTRY = _sr.SESSION_REGISTRY
 SCHEMA_VERSION = "1.0.0"
+_UNSIGNED = "unsigned-pending-MS003"
+
+LEDGER = Path(os.environ.get(
+    "SOVEREIGN_OS_SESSION_LEDGER", "/var/log/sovereign-os/session-decisions.jsonl"))
+SPAN_STORE = Path(os.environ.get(
+    "SOVEREIGN_OS_SPAN_STORE", "/var/log/sovereign-os/spans.jsonl"))
 
 _SAFE_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:@=-]*")
 _WRITE_LOCK = threading.Lock()
+# per-session ZFS datasets are children of the shared `agents` dataset (SDD-065).
+_AGENTS_DATASET = _rp._DATASETS.get("agents", "tank/agents")
 
 
 def _now() -> str:
@@ -120,6 +128,74 @@ def _spawn_scope(scope_cmd: list[str], unit: str) -> int | None:
     return None
 
 
+def _append_ledger(record: dict[str, Any]) -> None:
+    """Best-effort durable append to the session-decisions JSONL. Never raises."""
+    try:
+        LEDGER.parent.mkdir(parents=True, exist_ok=True)
+        with LEDGER.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(record) + "\n")
+    except OSError:
+        pass
+
+
+def _emit_span(op: str, sid: str, extra: dict[str, Any]) -> None:
+    """Best-effort OCSF-5001 (Configuration Change) M049 span. Never raises."""
+    ms = int(datetime.now(tz=timezone.utc).timestamp() * 1000)
+    span = {
+        "trace_id": f"session-{op}-{sid}-{ms:x}",
+        "span_id": f"srt-{ms:x}",
+        "parent_span_id": None,
+        "operation": f"session_{op}",
+        "start_ts": _now(),
+        "duration_ms": 0,
+        "severity": "info",
+        "attributes": {"session_id": sid, "op": op, **extra},
+        "ocsf_class": "5001",
+        "actor": "reaper",
+        "profile": os.environ.get("SOVEREIGN_OS_ACTIVE_PROFILE", "private"),
+        "signature": _UNSIGNED,
+        "schema_version": SCHEMA_VERSION,
+    }
+    try:
+        SPAN_STORE.parent.mkdir(parents=True, exist_ok=True)
+        with SPAN_STORE.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(span) + "\n")
+    except OSError:
+        pass
+
+
+def _pid_alive(pid: int) -> bool:
+    """Host-gated liveness — a session's tracked process. os.kill(pid, 0):
+    ProcessLookupError → dead; PermissionError → alive (exists, not ours); anything
+    we cannot determine → treat as alive (conservative — never reap on doubt)."""
+    try:
+        os.kill(pid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    except (OSError, TypeError, ValueError):
+        return True
+
+
+def _zfs_create(dataset_path: str, *, confirm: bool = False) -> dict[str, Any]:
+    """Host-gated `zfs create <dataset_path>` — the per-session child dataset
+    (SDD-065). DRY-RUN unless --confirm AND SOVEREIGN_OS_DRY_RUN unset; skips honestly
+    when zfs is absent (SB-077 — never claims a dataset it did not create). Reuses the
+    rollback-points host-gating idiom (shutil.which + _run + DRY-RUN)."""
+    dry = (not confirm) or os.environ.get("SOVEREIGN_OS_DRY_RUN") == "1"
+    if dry:
+        return {"ok": True, "created": False, "dry_run": True, "path": dataset_path,
+                "would_run": ["zfs", "create", dataset_path]}
+    if shutil.which("zfs") is None:
+        return {"ok": True, "created": False, "path": dataset_path,
+                "reason": "zfs unavailable (host-only) — session uses the shared dataset"}
+    out = _run(["zfs", "create", dataset_path])
+    return {"ok": True, "created": out is not None, "path": dataset_path,
+            "ran": ["zfs", "create", dataset_path]}
+
+
 def _register(entry: dict[str, Any]) -> bool:
     """Append a session to the registry atomically (the producer write path)."""
     with _WRITE_LOCK:
@@ -165,6 +241,9 @@ def start(task_argv: list[str], *, dataset_key: str = "agents",
         return {"ok": False, "code": 1, "id": sid,
                 "error": "spawn failed — systemd-run unavailable or the scope did "
                          "not report a MainPID (host-only)"}
+    # SDD-065 — best-effort per-session ZFS child dataset (tank/agents/<sid>). ADDITIVE:
+    # the enum `dataset` key stays for save-state/exec-rail compatibility; `dataset_path`
+    # is set ONLY when the child dataset was really created (honest — SB-077).
     entry = {
         "id": sid, "kind": "task", "profile": os.environ.get("SOVEREIGN_OS_ACTIVE_PROFILE", "private"),
         "state": "active", "step": 1, "srp_agent": "Conductor",
@@ -172,11 +251,56 @@ def start(task_argv: list[str], *, dataset_key: str = "agents",
         "pid": pid, "cgroup": f"{unit}.scope", "dataset": dataset_key,
         "task": " ".join(task_argv), "started_by": actor,
     }
+    zr = _zfs_create(f"{_AGENTS_DATASET}/{sid}", confirm=confirm)
+    if zr.get("created"):
+        entry["dataset_path"] = zr["path"]
     if not _register(entry):
         return {"ok": False, "code": 1, "id": sid, "pid": pid,
                 "error": "session spawned but registry write failed"}
-    return {"ok": True, "code": 200, "verb": "start", "id": sid, "pid": pid,
-            "cgroup": f"{unit}.scope", "dataset": dataset_key, "state": "active", "step": 1}
+    res = {"ok": True, "code": 200, "verb": "start", "id": sid, "pid": pid,
+           "cgroup": f"{unit}.scope", "dataset": dataset_key, "state": "active", "step": 1}
+    if entry.get("dataset_path"):
+        res["dataset_path"] = entry["dataset_path"]
+    return res
+
+
+def reap(*, actor: str = "operator") -> dict[str, Any]:
+    """SDD-065 — the session reaper: archive `active` sessions whose tracked process is
+    already dead (a state-reconciliation janitor, like the SDD-064 memory reconcile).
+    Only `active` pid-bearing sessions are considered — `hibernated`/`paused`/terminal
+    are skipped (their pid is intentionally gone). No `--confirm`: reconciling state to
+    reality (the process is gone regardless) is safe bookkeeping, not a destructive act.
+    CLI/timer-only — adds no web mutation path. Best-effort atomic write + ledger + span."""
+    reaped: list[str] = []
+    with _WRITE_LOCK:
+        reg = _sr._read_registry(SESSION_REGISTRY)
+        sessions = reg.get("sessions")
+        if not isinstance(sessions, list):
+            sessions = []
+        changed = False
+        for s in sessions:
+            if not isinstance(s, dict) or s.get("state") != "active":
+                continue
+            pid = s.get("pid")
+            if not isinstance(pid, int) or pid <= 0:
+                continue  # no tracked pid to check
+            if _pid_alive(pid):
+                continue  # still running
+            s["state"] = "archived"
+            s["reaped_at"] = _now()
+            reaped.append(str(s.get("id")))
+            changed = True
+        if changed:
+            reg["sessions"] = sessions
+            try:
+                _atomic_write(SESSION_REGISTRY, reg)
+            except OSError as e:
+                return {"ok": False, "code": 1, "error": f"registry write failed: {e}"}
+    for sid in reaped:
+        _append_ledger({"verb": "reap", "id": sid, "ts": _now(), "actor": actor,
+                        "reason": "process-exited", "signature": _UNSIGNED})
+        _emit_span("reap", sid, {"reason": "process-exited"})
+    return {"ok": True, "code": 200, "verb": "reap", "reaped": reaped, "count": len(reaped)}
 
 
 def stop(session_id: str, *, actor: str = "operator", confirm: bool = False) -> dict[str, Any]:
@@ -234,6 +358,8 @@ def main(argv: list[str] | None = None) -> int:
     st.add_argument("--actor", default="operator")
     st.add_argument("--confirm", action="store_true")
     sub.add_parser("list")
+    rp = sub.add_parser("reap")
+    rp.add_argument("--actor", default="operator")
     args = ap.parse_args(argv)
     if args.cmd == "start":
         task = list(args.task)
@@ -244,8 +370,10 @@ def main(argv: list[str] | None = None) -> int:
         r = stop(args.id, actor=args.actor, confirm=args.confirm)
     elif args.cmd == "list":
         r = {"ok": True, "code": 200, "sessions": session_list()}
+    elif args.cmd == "reap":
+        r = reap(actor=args.actor)
     else:
-        ap.error("a subverb is required: start|stop|list")
+        ap.error("a subverb is required: start|stop|list|reap")
         return 2
     _print(r)
     return 0 if r.get("ok") else int(r.get("code", 1))

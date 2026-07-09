@@ -141,3 +141,70 @@ def test_runtime_session_enables_true_save_state(registry, tmp_path, monkeypatch
     assert cap["is_true_save_state"] is True
     assert set(cap["captured"]) == set(SS._LAYERS)
     assert cap["layers"]["criu-checkpoint"]["pid"] == 2222
+
+
+# ── reap (SDD-065 — the session reaper janitor) ───────────────────────────────
+
+def _seed(reg, sessions):
+    reg.write_text(json.dumps({"sessions": sessions}))
+
+
+def test_reap_archives_dead_active_pid_session(registry, monkeypatch):
+    _seed(registry, [{"id": "sess-dead", "state": "active", "pid": 424242, "cgroup": "x.scope"}])
+    monkeypatch.setattr(RT, "_pid_alive", lambda pid: False)
+    r = RT.reap()
+    assert r["ok"] and r["reaped"] == ["sess-dead"] and r["count"] == 1
+    assert _sessions(registry)[0]["state"] == "archived"
+    assert "reaped_at" in _sessions(registry)[0]
+
+
+def test_reap_leaves_live_session(registry, monkeypatch):
+    _seed(registry, [{"id": "sess-live", "state": "active", "pid": 111}])
+    monkeypatch.setattr(RT, "_pid_alive", lambda pid: True)
+    assert RT.reap()["count"] == 0
+    assert _sessions(registry)[0]["state"] == "active"
+
+
+def test_reap_skips_hibernated_and_terminal_and_nopid(registry, monkeypatch):
+    _seed(registry, [
+        {"id": "s-hib", "state": "hibernated", "pid": 222},   # intentionally stopped
+        {"id": "s-arch", "state": "archived", "pid": 333},     # already terminal
+        {"id": "s-nopid", "state": "active"},                  # no tracked pid
+    ])
+    monkeypatch.setattr(RT, "_pid_alive", lambda pid: False)  # even if "dead"
+    r = RT.reap()
+    assert r["count"] == 0  # none are reap-eligible
+    states = {s["id"]: s["state"] for s in _sessions(registry)}
+    assert states == {"s-hib": "hibernated", "s-arch": "archived", "s-nopid": "active"}
+
+
+def test_pid_alive_dead_and_self(registry):
+    import os as _os
+    assert RT._pid_alive(_os.getpid()) is True   # this process is alive
+    assert RT._pid_alive(424242) is False        # (almost certainly) dead
+
+
+# ── per-session ZFS (SDD-065 — additive dataset_path) ─────────────────────────
+
+def test_start_tracks_per_session_dataset_path(registry, monkeypatch):
+    monkeypatch.setattr(RT, "_spawn_scope", lambda cmd, unit: 9999)
+    monkeypatch.setattr(RT, "_zfs_create",
+                        lambda path, confirm=False: {"ok": True, "created": True, "path": path})
+    r = RT.start(["sleep", "1"], confirm=True)
+    assert r["dataset"] == "agents"  # the enum key stays (save-state/exec-rail compat)
+    assert r["dataset_path"].startswith("tank/agents/sess-")
+    s = _sessions(registry)[0]
+    assert s["dataset"] == "agents" and s["dataset_path"] == r["dataset_path"]
+
+
+def test_start_no_dataset_path_when_zfs_absent(registry, monkeypatch):
+    monkeypatch.setattr(RT, "_spawn_scope", lambda cmd, unit: 9999)
+    monkeypatch.setattr(RT, "_zfs_create",
+                        lambda path, confirm=False: {"ok": True, "created": False, "reason": "zfs unavailable"})
+    r = RT.start(["sleep", "1"], confirm=True)
+    assert "dataset_path" not in r and r["dataset"] == "agents"  # honest: no fake dataset
+    assert "dataset_path" not in _sessions(registry)[0]
+
+
+def test_zfs_create_dry_run_and_absent(registry):
+    assert RT._zfs_create("tank/agents/x")["dry_run"] is True and RT._zfs_create("tank/agents/x")["created"] is False

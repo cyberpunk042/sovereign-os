@@ -1,0 +1,14 @@
+[Unit]
+Description=sovereign-os M057 session reaper (archive exited sessions ~every 2 min)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/hooks/recurrent/session-reap.sh
+
+[Timer]
+# Every 2 minutes + small jitter — keeps sessions.json reconciled to reality
+# (a session whose process exited is archived within ~2 min).
+OnCalendar=*:0/2
+RandomizedDelaySec=20
+Persistent=true
+Unit=sovereign-session-reaper.service
+
+[Install]
+WantedBy=timers.target

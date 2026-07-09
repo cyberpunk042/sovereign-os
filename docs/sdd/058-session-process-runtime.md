@@ -77,8 +77,8 @@ A runtime-registered pid-session → `save-state.capture` now captures the
 |---|---|---|
 | Q-058-A | What is a session process (MVP). | **answered (operator, 2026-07-08): a task-command runtime — `sessions start -- <cmd>` spawns the operator's real command.** |
 | Q-058-B | Process tracking mechanism. | **answered (operator, 2026-07-08): `systemd-run --scope` (a real cgroup — CRIU target + resource control).** |
-| Q-058-C | Full 12-step lifecycle orchestration. | **proposed: the m009 deterministic-cortex deep work — Stage N; the runtime starts sessions `active` at step 1 now.** |
-| Q-058-D | Per-session ZFS dataset. | **proposed: reuse `tank/agents` now; per-session child (`zfs create`) later.** |
+| Q-058-C | Full 12-step lifecycle orchestration. | **the reaper half answered (SDD-065, 2026-07-09): `session-runtime.reap()` auto-archives `active` sessions whose process has exited (a systemd-timer janitor). The full m009 12-step orchestration remains Stage N.** |
+| Q-058-D | Per-session ZFS dataset. | **answered (SDD-065, 2026-07-09): `start` host-gated `zfs create tank/agents/<sid>` + an ADDITIVE `dataset_path` (the enum `dataset` key preserved); save-state prefers the per-session dataset when present, else the shared enum fallback.** |
 | Q-058-E | pid-capture precision. | **proposed: `systemctl show <scope> -p MainPID` (else the child pid).** |
 
 ## Way forward
