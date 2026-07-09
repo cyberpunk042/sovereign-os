@@ -1,0 +1,149 @@
+# JSON Schema (Draft 2020-12) for the sovereign-os science-tools catalog.
+#
+# The operator's "scientific / merge / specialist catalog" (Image 2 of the
+# handwritten verbatim note 2026-07-02, in the info-hub wiki) declares a class
+# of NON-LLM, domain-specific compute tools organised by scientific domain —
+# DNA / genomics, protein folding, and particle / physics simulation. It maps
+# onto the EXISTING `simulation` REPL kind in
+# config/execution/m023-execution-substrate.yaml (M00374, Tiers 3-5), so this
+# catalog materialises an existing execution kind rather than inventing one.
+#
+# These are deliberately NOT in models/catalog.yaml: they are libraries /
+# code+weights tools, not Trinity-tier LLMs. NVIDIA Warp (`warp-lang`) is the
+# first tool INTEGRATED (install + runner + panel); the other six are CATALOGED
+# (data only) until a future round ships each runner.
+#
+# Companion docs:
+#   - config/science-tools.yaml — instance document
+#   - scripts/science/science.py — operator CLI (list / status / run / info)
+#   - scripts/science/warp-runner.py — the NVIDIA Warp particle-sim runner
+#   - tests/schema/test_science_tools_schema_conformance.py — L1 conformance
+
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://github.com/cyberpunk042/sovereign-os/schemas/science-tools.schema.yaml"
+title: "sovereign-os science-tools catalog"
+type: object
+required: [schema_version, catalog]
+additionalProperties: false
+
+properties:
+  schema_version:
+    type: string
+    enum: ["1.0.0"]
+
+  catalog:
+    type: object
+    required: [version, description, tools]
+    additionalProperties: false
+    properties:
+      version:
+        type: string
+        description: "Catalog revision identifier"
+      description:
+        type: string
+        minLength: 30
+      tools:
+        type: array
+        minItems: 1
+        items:
+          $ref: "#/$defs/tool"
+
+$defs:
+  tool:
+    type: object
+    required: [id, name, domain, kind, install, tiers, cpu_capable, status]
+    additionalProperties: false
+    properties:
+      id:
+        description: "Canonical kebab-case tool id (join key across surfaces)."
+        type: string
+        pattern: "^[a-z0-9][a-z0-9-]*$"
+
+      name:
+        description: "Human-readable tool name."
+        type: string
+
+      domain:
+        description: "Scientific domain the tool serves (operator's Image-2 grouping)."
+        type: string
+        enum: [dna, protein, particles]
+
+      kind:
+        description: |
+          What KIND of artifact this is — the reason it does NOT live in the
+          LLM model catalog. python-cuda-library = pip-installable Python/CUDA
+          library (Warp); hf-model = a HuggingFace model repo; code-weights =
+          upstream-distributed code + weights (GitHub / vendor), not on HF.
+        type: string
+        enum: [python-cuda-library, hf-model, code-weights]
+
+      install:
+        description: "How the tool is obtained."
+        type: object
+        required: [method, ref]
+        additionalProperties: false
+        properties:
+          method:
+            type: string
+            enum: [pip, hf, github]
+          ref:
+            description: "pip package name | HF repo id | source URL — per method."
+            type: string
+            minLength: 1
+
+      tiers:
+        description: "Hardware tiers this tool targets."
+        type: array
+        minItems: 1
+        items:
+          type: string
+          enum: [cpu, rtx-4090, rtx-pro]
+
+      cpu_capable:
+        description: "True if the tool can run without a CUDA GPU (CPU fallback)."
+        type: boolean
+
+      status:
+        description: |
+          integrated = install + runner + panel shipped in sovereign-os;
+          cataloged  = declared here (domain/source/tiers) but no runner yet.
+        type: string
+        enum: [integrated, cataloged]
+
+      source:
+        description: "Homepage / repo URL for provenance."
+        type: string
+
+      license:
+        description: "SPDX-ish license identifier when known."
+        type: string
+
+      notes:
+        description: "Free-text operator-facing note (provenance, caveats, alternatives)."
+        type: string
+
+    # Rules that keep the catalog honest.
+    allOf:
+      # An INTEGRATED tool must be CPU-capable so it degrades on a GPU-less
+      # host (the dev/test box has no CUDA) — otherwise it can't be verified
+      # off the SAIN-01 hardware.
+      - if:
+          properties:
+            status:
+              const: integrated
+        then:
+          properties:
+            cpu_capable:
+              const: true
+      # A pip-installed tool is a python library; an hf-installed tool is an
+      # HF model. Keep kind and install.method coherent.
+      - if:
+          properties:
+            kind:
+              const: hf-model
+        then:
+          properties:
+            install:
+              properties:
+                method:
+                  const: hf

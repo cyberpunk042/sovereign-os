@@ -126,7 +126,7 @@ fi
 
 # ── 5. dashboards hub (enable so the panels are up on boot) ───────────────
 if [ "${SOVEREIGN_OS_BAKE_DASHBOARDS:-}" = "1" ] && [ -d "${REPO}/systemd/system" ]; then
-  for unit in sovereign-dashboards.service sovereign-master-dashboard-api.service; do
+  for unit in sovereign-dashboards.service sovereign-master-dashboard-api.service sovereign-science-api.service; do
     if [ -f "${REPO}/systemd/system/${unit}" ]; then
       install -m 644 "${REPO}/systemd/system/${unit}" /etc/systemd/system/ 2>/dev/null || true
       if systemctl enable "${unit}" 2>/dev/null; then log "enabled ${unit}"; else log "enable ${unit} failed (non-fatal)"; fi
@@ -147,6 +147,7 @@ if [ "${SOVEREIGN_OS_BAKE_FIRSTBOOT:-}" = "1" ] && [ -d "${REPO}/systemd/system"
             sovereign-friction-audit.service sovereign-vfio-bind.service
             sovereign-network-vlan.service sovereign-tetragon-policy-load.service
             sovereign-zfs-arc-clamp.service sovereign-nvidia-driver-bind.service
+            sovereign-warp-setup.service
             sovereign-workstation-shell-setup.service)
   n=0
   for u in "${FB_UNITS[@]}"; do

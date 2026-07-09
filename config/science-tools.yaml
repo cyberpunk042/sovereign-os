@@ -1,0 +1,114 @@
+# sovereign-os science-tools catalog — non-LLM, domain-specific compute tools.
+#
+# Materialises the operator's "scientific / merge / specialist catalog" (Image 2
+# of the handwritten verbatim note
+# `raw/notes/2026-07-02-operator-model-routing-catalog-handwritten-verbatim.md`
+# in the info-hub wiki, encoded there as the `dna` / `protein` / `particles`
+# routing profiles in `config/model-catalog/{models.yaml,profiles.yaml}`).
+#
+# These tools are deliberately NOT in models/catalog.yaml — they are libraries
+# or code+weights tools, not Trinity-tier LLMs. They occupy the EXISTING
+# `simulation` REPL kind declared in config/execution/m023-execution-substrate.yaml
+# (M00374, Tiers 3-5), so this catalog materialises an existing execution kind.
+#
+# status: integrated = install + runner + panel shipped here (NVIDIA Warp is the
+#         first); cataloged = declared for future integration (data only).
+#
+# Schema: schemas/science-tools.schema.yaml  (validated by
+#         tests/schema/test_science_tools_schema_conformance.py)
+
+schema_version: "1.0.0"
+
+catalog:
+  version: "1.0.0"
+  description: |
+    Science / domain compute tools by scientific domain — DNA / genomics,
+    protein folding, and particle / physics simulation. NVIDIA Warp is the
+    first integrated tool; the rest are cataloged for future rounds.
+
+  tools:
+    # ── particles / physics simulation ──────────────────────────────────
+    - id: warp-lang
+      name: "Warp-Lang (NVIDIA)"
+      domain: particles
+      kind: python-cuda-library
+      install: {method: pip, ref: warp-lang}
+      tiers: [cpu, rtx-4090, rtx-pro]
+      cpu_capable: true
+      status: integrated
+      source: "https://github.com/NVIDIA/warp"
+      license: "Apache-2.0"
+      notes: |
+        NVIDIA Warp — a Python framework for high-performance / differentiable
+        simulation (warp.sim: particles / cloth / rigid-body). NOT an LLM. The
+        pip wheel bundles the CUDA 12 runtime, so GPU works with just the NVIDIA
+        driver; runs on CPU when no CUDA GPU is present. On SAIN-01 the host
+        targets the RTX PRO 6000 (cuda:0) — the RTX 4090 is VFIO-isolated.
+
+    # ── DNA / genomics ──────────────────────────────────────────────────
+    - id: evo-arc-institute
+      name: "Evo (Arc Institute)"
+      domain: dna
+      kind: hf-model
+      install: {method: hf, ref: "arcinstitute/evo2_7b"}
+      tiers: [rtx-4090]
+      cpu_capable: false
+      status: cataloged
+      source: "https://huggingface.co/arcinstitute/evo2_7b"
+      notes: "Genomics foundation model. Verified on HF 2026-07-02. Alternative: HyenaDNA."
+
+    - id: hyenadna
+      name: "HyenaDNA"
+      domain: dna
+      kind: hf-model
+      install: {method: hf, ref: "LongSafari/hyenadna-medium-450k-seqlen-hf"}
+      tiers: [rtx-4090]
+      cpu_capable: false
+      status: cataloged
+      source: "https://huggingface.co/LongSafari/hyenadna-medium-450k-seqlen-hf"
+      notes: "Long-range genomics model; lighter alternative to Evo. Verified on HF 2026-07-02."
+
+    - id: rosettafold-all-atom
+      name: "RoseTTAFold All-Atom (RFAA)"
+      domain: dna
+      kind: code-weights
+      install: {method: github, ref: "https://github.com/baker-laboratory/RoseTTAFold-All-Atom"}
+      tiers: [rtx-pro]
+      cpu_capable: false
+      status: cataloged
+      source: "https://github.com/baker-laboratory/RoseTTAFold-All-Atom"
+      notes: "Baker Lab all-atom structure prediction. GitHub-distributed — NOT an HF model repo (2026-07-02)."
+
+    # ── protein folding ─────────────────────────────────────────────────
+    - id: esmfold
+      name: "ESMFold"
+      domain: protein
+      kind: hf-model
+      install: {method: hf, ref: "facebook/esmfold_v1"}
+      tiers: [rtx-4090]
+      cpu_capable: false
+      status: cataloged
+      source: "https://huggingface.co/facebook/esmfold_v1"
+      notes: "Fast single-sequence protein folding; cheapest rung. Verified on HF 2026-07-02."
+
+    - id: openfold
+      name: "OpenFold"
+      domain: protein
+      kind: code-weights
+      install: {method: github, ref: "https://github.com/aqlaboratory/openfold"}
+      tiers: [rtx-4090]
+      cpu_capable: false
+      status: cataloged
+      source: "https://github.com/aqlaboratory/openfold"
+      notes: "AQ Laboratory reproduction of AlphaFold2. GitHub-distributed — NOT an HF model repo (2026-07-02)."
+
+    - id: alphafold3
+      name: "AlphaFold3"
+      domain: protein
+      kind: code-weights
+      install: {method: github, ref: "https://github.com/google-deepmind/alphafold3"}
+      tiers: [rtx-pro, rtx-4090]
+      cpu_capable: false
+      status: cataloged
+      source: "https://github.com/google-deepmind/alphafold3"
+      notes: "DeepMind — highest-accuracy rung. Code + weights DeepMind-distributed — NOT an HF model repo (2026-07-02)."

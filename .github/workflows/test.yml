@@ -454,6 +454,9 @@ jobs:
       - name: "nspawn — dashboard (Round 225, SDD-026 Z-1: HTTP dashboard SEED)"
         run: |
           tests/nspawn/test_dashboard.sh
+      - name: "nspawn — science panel (Round 558, SDD-070: science-tools catalog + NVIDIA Warp particle-sim)"
+        run: |
+          tests/nspawn/test_science_panel.sh
       - name: "nspawn — health scan (Round 226, SDD-026 Z-6: composite autohealth/doctor scan)"
         run: |
           tests/nspawn/test_health_scan.sh

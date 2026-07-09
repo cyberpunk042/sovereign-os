@@ -42,6 +42,7 @@ install = [
     "lm-eval",           # R232 eval harness
     "mteb",              # embedding eval
     "tomli",             # TOML for Python 3.10 backports
+    "warp-lang",         # R558/SDD-070 — NVIDIA Warp particle-sim (science-tools `particles`); wheel bundles CUDA 12, CPU-capable
 ]
 
 # ─── Node / npm global packages ───

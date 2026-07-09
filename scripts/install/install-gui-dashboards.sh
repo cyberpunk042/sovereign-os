@@ -108,6 +108,11 @@ enable_unit() { # <unit> — enable via systemctl, else offline wants-symlink
 enable_unit sovereign-dashboards.service
 [ -f "${SRC}/systemd/system/sovereign-master-dashboard-api.service" ] \
   && enable_unit sovereign-master-dashboard-api.service
+# R558 (SDD-070) — the science-tools panel API is read-only observability
+# (catalog + NVIDIA Warp status; no privileged writes), so it is normally
+# enabled like the mirror panels — NOT deploy-only like flash/emulate/ups.
+[ -f "${SRC}/systemd/system/sovereign-science-api.service" ] \
+  && enable_unit sovereign-science-api.service
 
 # Deploy-ONLY (copy, do not enable) the execution-surface panels — flash +
 # emulate. They carry the hardened posture for the lint, but their privileged

@@ -116,6 +116,10 @@ EXEMPT_PATTERNS: list[tuple[str, str]] = [
     (r"^sovereign_os_post_install_[a-z0-9_]+$",
      "post-install hook lifecycle telemetry (applied/result counters); "
      "install-time one-shot, not a runtime health gauge."),
+    (r"^sovereign_os_science_warp_[a-z0-9_]+$",
+     "science-tools NVIDIA Warp gauge telemetry (installed / sim wall-ms / "
+     "particles); surfaced on the /science webapp panel — dashboard-tier info, "
+     "an operator-run sample sim, not a paging runtime-health signal (R558/SDD-070)."),
     (r"^sovereign_os_ghostproxy_endpoint_install_(result|last_run_timestamp)$",
      "first-boot root-ghostproxy envelope install-hook telemetry (SDD-046; "
      "report-only/installed/install-failed one-shot + last-run marker); the "

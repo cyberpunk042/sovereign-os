@@ -108,6 +108,18 @@ LOCAL_TOOLS = [
         "categories": ["cpu", "lifecycle"],
     },
     {
+        "name": "science-list",
+        "summary": "Science-tools catalog (R558/SDD-070) — non-LLM domain compute tools by scientific domain (DNA / protein / particles); NVIDIA Warp (particles) integrated. Read-only.",
+        "argv": ["sovereign-osctl", "science", "list", "--json"],
+        "categories": ["science", "simulation", "catalog"],
+    },
+    {
+        "name": "science-status",
+        "summary": "NVIDIA Warp status (R558/SDD-070) — installed? + device (cuda:0 or CPU) + version + integrated science tools. Read-only.",
+        "argv": ["sovereign-osctl", "science", "status", "--json"],
+        "categories": ["science", "simulation", "warp"],
+    },
+    {
         "name": "memory-profile",
         "summary": "Memory posture + XMP/EXPO detection.",
         "argv": ["sovereign-osctl", "memory-profile", "--json"],

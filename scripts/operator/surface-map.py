@@ -140,6 +140,14 @@ SURFACE_IDS = [s["id"] for s in SURFACES]
 # accuracy. "waivers" enumerate surfaces the module legitimately doesn't
 # ship on with operator-named rationale.
 MODULE_COVERAGE = {
+    "science": {
+        "shipped_in": "R558 (SDD-070) — science-tools catalog + NVIDIA Warp particle-sim: core (config/science-tools.yaml) + cli (sovereign-osctl science) + api (read-only REST + systemd service) + mcp (science-list / science-status) + webapp",
+        "surfaces": ["core", "cli", "api", "mcp", "service", "webapp"],
+        "waivers": {
+            "tui":       "not applicable — science is a read-only catalog + a warp status probe (a cockpit-style data surface like models-catalog / cpu-features); `science status` + the webapp panel are the interactive surfaces, a refresh-loop TUI would only reprint them",
+            "dashboard": "not applicable — the single-file webapp panel IS the visual surface (M060 mirror pattern: the webapp surface IS the dashboard); warp's gauge metrics render there, a separate Grafana board would duplicate it",
+        },
+    },
     "auth-tier": {
         "shipped_in": "R450 (E11.M7) + R484 (E11.M7+ Grafana dashboard) + R501 (E11.M7++ read-only REST API + systemd service) + R502 (E11.M7++ MCP surface) + R503 (E11.M7++ webapp surface)",
         "surfaces": ["core", "cli", "dashboard", "api", "service", "mcp", "webapp"],
