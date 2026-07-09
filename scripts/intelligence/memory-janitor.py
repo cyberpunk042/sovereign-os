@@ -374,7 +374,7 @@ def advance(mem_id: str, *, confirm: bool, actor: str = "operator") -> dict[str,
             "stage_from": cur, "effect": effect_result, "advance": adv}
 
 
-# ── sweep — the recurrent maintenance pass (SDD-070) ───────────────────────────
+# ── sweep — the recurrent maintenance pass (SDD-071) ───────────────────────────
 
 _STOP_STAGE = _store.os.environ.get("SOVEREIGN_OS_MEMORY_JANITOR_STOP_STAGE", "verify")
 
@@ -386,7 +386,7 @@ def _stage_index(stage: Any) -> int:
 
 def sweep(*, confirm: bool, actor: str = "janitor", stop: str | None = None,
           limit: int | None = None) -> dict[str, Any]:
-    """SDD-070 — one bounded maintenance pass (the recurrent-timer entry point):
+    """SDD-071 — one bounded maintenance pass (the recurrent-timer entry point):
     GLOBAL deterministic enrichment (dedup/tag-all/edges) + SLM enrichment
     (topic/summarize/classify, honest-defer) + a BOUNDED lifecycle advance toward
     STOP_STAGE (default `verify`), ONE step per entry per call. NEVER crosses into

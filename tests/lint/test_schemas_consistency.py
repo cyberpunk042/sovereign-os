@@ -44,6 +44,7 @@ EXPECTED_SCHEMAS = [
     "whitelabel",
     "model-catalog",
     "orchestration-profile",
+    "science-tools",   # R558/SDD-070 — non-LLM science-tools catalog
 ]
 
 

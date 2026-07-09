@@ -94,7 +94,7 @@ EXEMPT_PATTERNS: list[tuple[str, str]] = [
      "bookkeeping telemetry — auto-feeding the M028 admission value-gate from the "
      "span log is a self-population signal, not a paging health signal."),
     (r"^sovereign_os_memory_janitor_[a-z0-9_]+$",
-     "memory SLM-janitor sweep counter (run/swept totals per tick, SDD-070); "
+     "memory SLM-janitor sweep counter (run/swept totals per tick, SDD-071); "
      "bookkeeping telemetry — auto-enriching memories + a bounded lifecycle advance "
      "is a maintenance signal, not a paging health signal."),
     (r"^sovereign_os_meta_alert(s)?_[a-z0-9_]+$",
@@ -120,6 +120,10 @@ EXEMPT_PATTERNS: list[tuple[str, str]] = [
     (r"^sovereign_os_post_install_[a-z0-9_]+$",
      "post-install hook lifecycle telemetry (applied/result counters); "
      "install-time one-shot, not a runtime health gauge."),
+    (r"^sovereign_os_science_warp_[a-z0-9_]+$",
+     "science-tools NVIDIA Warp gauge telemetry (installed / sim wall-ms / "
+     "particles); surfaced on the /science webapp panel — dashboard-tier info, "
+     "an operator-run sample sim, not a paging runtime-health signal (R558/SDD-070)."),
     (r"^sovereign_os_ghostproxy_endpoint_install_(result|last_run_timestamp)$",
      "first-boot root-ghostproxy envelope install-hook telemetry (SDD-046; "
      "report-only/installed/install-failed one-shot + last-run marker); the "

@@ -152,6 +152,15 @@ panel queries lock to them.
 - `sovereign_os_post_install_workstation_hardening_total{profile,result}` — apply-workstation-hardening hook (role-workstation profiles): success / dry-run / skipped / fail
 - `sovereign_os_post_install_workstation_hardening_applied{profile}` — count of drop-in files applied (workstation = 4 vs server = 5)
 - `sovereign_os_post_install_ups_setup_total{result,transport}` — R252/R253: outcome of the first-boot APC Smart-UPS (SMT2200C SmartConnect) detection via NUT `apc_modbus`. `result` ∈ {success, unreached}; `transport` ∈ {tcp (Modbus TCP :502, embedded SmartConnect port), serial (apc_modbus over the DSD TECH USB→RJ50 cable), native (usbhid-ups, USB HID 051d), none}. Operators alert on `result="unreached"` — the host booted with no UPS monitoring and the graceful soft-shutdown guard has no data source.
+- `sovereign_os_post_install_warp_setup_total{profile,result}` — R558/SDD-070: outcome of the first-boot `warp-setup.sh` (pip-installs NVIDIA `warp-lang`, the science-tools `particles` runner). `result` ∈ {installed, already-present, fail}. Alert on `result="fail"` — the science panel then shows warp not installed and the particle sim is unavailable.
+
+### Science tools — NVIDIA Warp particle-sim (scripts/science/warp-runner.py, R558/SDD-070)
+
+Emitted by `warp-runner.py run --emit-metrics` (and `sovereign-osctl science run`):
+
+- `sovereign_os_science_warp_installed` — `warp-lang` importable (0/1).
+- `sovereign_os_science_warp_sim_wall_ms{device}` — wall time (ms) of the last sample particle sim; `device` ∈ {cpu, cuda:N}.
+- `sovereign_os_science_warp_sim_particles{device}` — particle count of the last sample sim.
 - `sovereign_os_friction_audit_failures{profile}` — runtime friction-audit fails (lspci / IOMMU mismatch)
 - `sovereign_os_friction_audit_warnings{profile}`
 - `sovereign_os_friction_audit_last_run_timestamp{profile}`
@@ -180,8 +189,8 @@ panel queries lock to them.
 - `sovereign_os_session_reaper_reaped_total{result}` — SDD-065: count of sessions archived by the last reaper tick (a session whose process exited without a clean `sessions stop` → `state:archived`)
 - `sovereign_os_memory_observe_run_total{result}` — SDD-069: pass/fail counter for each observation-stream tick (the `sovereign-memory-observe.timer`, ~every 5 min, runs `observe run` — tails the OCSF span log and feeds new events into the M028 admission value-gate)
 - `sovereign_os_memory_observe_admitted_total{result}` — SDD-069: count of memories admitted by the last observation tick (real span events mapped through the M028 value-gate; `^memory_` spans excluded — no feedback loop)
-- `sovereign_os_memory_janitor_run_total{result}` — SDD-070: pass/fail counter for each SLM-janitor sweep tick (the `sovereign-memory-janitor.timer`, ~every 10 min, runs `janitor sweep` — auto-enriches memories + a bounded lifecycle advance to `verify`)
-- `sovereign_os_memory_janitor_swept_total{result}` — SDD-070: count of active memory entries touched by the last sweep tick (dedup/tag/edges + SLM enrich + one-step advance; never auto-promotes/archives)
+- `sovereign_os_memory_janitor_run_total{result}` — SDD-071: pass/fail counter for each SLM-janitor sweep tick (the `sovereign-memory-janitor.timer`, ~every 10 min, runs `janitor sweep` — auto-enriches memories + a bounded lifecycle advance to `verify`)
+- `sovereign_os_memory_janitor_swept_total{result}` — SDD-071: count of active memory entries touched by the last sweep tick (dedup/tag/edges + SLM enrich + one-step advance; never auto-promotes/archives)
 - `sovereign_os_ghostproxy_endpoint_install_result{result}` — one-hot outcome of the first-boot root-ghostproxy endpoint-envelope install hook (report-only / installed / install-failed / absent); proxy half stays OFF per SDD-046
 - `sovereign_os_ghostproxy_endpoint_install_last_run_timestamp`
 - `sovereign_os_ghostproxy_endpoint_verify_result{result}` — one-hot outcome of the weekly read-only AI-agent envelope drift verify (current / drift / absent), upstream `install.sh --check --mode endpoint`

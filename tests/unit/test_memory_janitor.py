@@ -270,7 +270,7 @@ def test_reconcile_counts_duplicates_separately(store):
     assert proj["counts"]["episodic"] == 1              # the marked dup drops from counts
 
 
-# ── sweep (SDD-070 — recurrent maintenance pass) ───────────────────────────────
+# ── sweep (SDD-071 — recurrent maintenance pass) ───────────────────────────────
 
 def _stage(mid):
     return S._entries()[mid]["stage"]

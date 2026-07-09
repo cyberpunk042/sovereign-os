@@ -1,5 +1,5 @@
 [Unit]
-Description=sovereign-os M028 SLM-janitor sweep — auto-enrich memories + bounded lifecycle advance (SDD-070)
+Description=sovereign-os M028 SLM-janitor sweep — auto-enrich memories + bounded lifecycle advance (SDD-071)
 Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/hooks/recurrent/memory-janitor.sh
 After=network.target
 

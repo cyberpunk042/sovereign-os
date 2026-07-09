@@ -1,0 +1,16 @@
+# /etc/sovereign-os/warp.toml — NVIDIA Warp particle-sim runner config.
+# R558 (SDD-070). Copy to /etc/sovereign-os/warp.toml to override; dev runs read
+# this example directly (scripts/science/warp-runner.py resolve order:
+# /etc/sovereign-os/warp.toml → this file → built-in defaults).
+
+[sim]
+# Number of particles in the sample drop-and-bounce simulation.
+num_particles = 100000
+# Integration steps to advance.
+steps = 200
+# Timestep (seconds) per step.
+dt = 0.01
+# Device selection: auto (cuda:0 if a CUDA GPU is present, else cpu) | cuda | cpu.
+# On SAIN-01 the host targets the RTX PRO 6000 (cuda:0); the RTX 4090 is
+# VFIO-isolated. On a GPU-less box (dev/CI) this degrades to cpu.
+device_preference = "auto"

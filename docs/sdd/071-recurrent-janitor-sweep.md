@@ -1,4 +1,4 @@
-# SDD-070 — recurrent SLM-janitor sweep (auto-enrich + bounded lifecycle advance)
+# SDD-071 — recurrent SLM-janitor sweep (auto-enrich + bounded lifecycle advance)
 
 > Status: draft
 > Owner: operator-supervised; agent-authored
@@ -73,11 +73,11 @@ engine; the arm comment + job-list are updated).
 
 | Q | Question | Resolution |
 |---|---|---|
-| Q-070-A | Trigger. | **answered: a recurrent `sovereign-memory-janitor.{service,timer}` + a `sweep` verb, mirroring the SDD-069 observe timer.** |
-| Q-070-B | Advance policy. | **answered (operator, 2026-07-09): enrich + advance to STOP_STAGE=`verify`, one step per tick, NEVER auto-promote/decay/archive.** |
-| Q-070-C | SLM scope. | **answered: deterministic (dedup/tag/edges) + SLM (topic/summarize/extract-facts) each tick, honest-defer when the router is unreachable.** |
-| Q-070-D | Cadence. | **answered: ~10 min (heavier than observe's 5 min — the sweep makes SLM calls).** |
-| Q-070-E | A per-memory-type stop-stage + a value-gated auto-promote. | **proposed: Stage-N.** |
+| Q-071-A | Trigger. | **answered: a recurrent `sovereign-memory-janitor.{service,timer}` + a `sweep` verb, mirroring the SDD-069 observe timer.** |
+| Q-071-B | Advance policy. | **answered (operator, 2026-07-09): enrich + advance to STOP_STAGE=`verify`, one step per tick, NEVER auto-promote/decay/archive.** |
+| Q-071-C | SLM scope. | **answered: deterministic (dedup/tag/edges) + SLM (topic/summarize/extract-facts) each tick, honest-defer when the router is unreachable.** |
+| Q-071-D | Cadence. | **answered: ~10 min (heavier than observe's 5 min — the sweep makes SLM calls).** |
+| Q-071-E | A per-memory-type stop-stage + a value-gated auto-promote. | **proposed: Stage-N.** |
 
 ## Non-goals (Stage N)
 
@@ -87,7 +87,7 @@ engine; the arm comment + job-list are updated).
 
 ## Way forward
 
-- **Stage 0 (this commit):** this SDD + INDEX row 070 + mandate E11.M37.
+- **Stage 0 (this commit):** this SDD + INDEX row 071 + mandate E11.M38.
 - **Stage 1:** the `sweep` verb + `tests/unit/test_memory_janitor.py` sweep tests.
 - **Stage 2:** the `{service,timer}` + `memory-janitor.sh` + the 6-registry lockstep + e2e.
 - **Stage N:** per-type stop-stage; value-gated auto-promote.

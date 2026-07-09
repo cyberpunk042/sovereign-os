@@ -1,6 +1,6 @@
 # First-boot orchestration
 
-Wires the 8 post-install hook scripts as systemd `oneshot` services + a target. Reaching `sovereign-firstboot.target` means every first-boot hook has run successfully.
+Wires the 9 post-install hook scripts as systemd `oneshot` services + a target. Reaching `sovereign-firstboot.target` means every first-boot hook has run successfully.
 
 ## Units
 
@@ -13,6 +13,7 @@ Wires the 8 post-install hook scripts as systemd `oneshot` services + a target. 
 | `sovereign-tetragon-policy-load.service` | `post-install/tetragon-policy-load.sh` | `ConditionFirstBoot=yes` | 3 (after Tetragon daemon + ZFS) |
 | `sovereign-zfs-arc-clamp.service` | `post-install/zfs-arc-clamp.sh` | `ConditionFirstBoot=yes` | 2 (after ZFS) |
 | `sovereign-nvidia-driver-bind.service` | `post-install/nvidia-driver-bind.sh` | `ConditionFirstBoot=yes` | 2 (after friction) |
+| `sovereign-warp-setup.service` | `post-install/warp-setup.sh` | `ConditionFirstBoot=yes` | 3 (after nvidia-driver-bind; pip-installs `warp-lang`, R558/SDD-070) |
 | `sovereign-workstation-shell-setup.service` | `post-install/workstation-shell-setup.sh` | `ConditionFirstBoot=yes` | 2 |
 | `sovereign-firstboot.service` | (marker + reboot notice) | After all above complete | last |
 
@@ -28,7 +29,7 @@ For idempotent re-run on demand without rebooting: each hook script is itself id
 
 ```sh
 sudo cp systemd/system/sovereign-firstboot*.{service,target} /etc/systemd/system/
-sudo cp systemd/system/sovereign-{friction-audit,vfio-bind,network-vlan,tetragon-policy-load,zfs-arc-clamp,nvidia-driver-bind,workstation-shell-setup}.service /etc/systemd/system/
+sudo cp systemd/system/sovereign-{friction-audit,vfio-bind,network-vlan,tetragon-policy-load,zfs-arc-clamp,nvidia-driver-bind,warp-setup,workstation-shell-setup}.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable sovereign-firstboot.target
 

@@ -39,7 +39,7 @@ Ordered most-frequent first:
 | `sovereign-thermal-watch.timer` | Every 5 min | Chassis / CPU / GPU thermal sample (R172) |
 | `sovereign-session-reaper.timer` | Every 2 min | M057 session reaper — archive sessions whose process exited (SDD-065) |
 | `sovereign-memory-observe.timer` | Every 5 min | M028 observation event stream — auto-feed memory admission from the OCSF span log (SDD-069) |
-| `sovereign-memory-janitor.timer` | Every 10 min | M028 SLM-janitor sweep — auto-enrich memories + bounded lifecycle advance to `verify` (SDD-070) |
+| `sovereign-memory-janitor.timer` | Every 10 min | M028 SLM-janitor sweep — auto-enrich memories + bounded lifecycle advance to `verify` (SDD-071) |
 | `sovereign-alerts-check.timer` | Hourly | Alert derivation snapshot |
 | `sovereign-notify-dispatch.timer` | Hourly | Health-scan + notification fan-out (R229, Z-6) |
 | `sovereign-backup-snapshot.timer` | Daily 02:30 | State-fabric ZFS snapshot |

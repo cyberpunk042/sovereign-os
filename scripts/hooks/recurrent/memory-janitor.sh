@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # scripts/hooks/recurrent/memory-janitor.sh
 #
-# SDD-070 — the M028 SLM-janitor sweep. Runs one bounded maintenance pass over the memory
+# SDD-071 — the M028 SLM-janitor sweep. Runs one bounded maintenance pass over the memory
 # store (memory-janitor.py sweep): global deterministic enrichment (dedup/tag/edges) + SLM
 # enrichment (topic/summarize, honest-defer) + a bounded lifecycle advance toward `verify`
 # (never auto-promotes/archives). This is the mirror of the SDD-069 observe stream: observe

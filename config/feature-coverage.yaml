@@ -109,6 +109,8 @@ coverage:
      operator-deps, hardening-base, inventory, secure-boot]
   personalization:
     [whitelabel]
+  science:
+    [science]
 
 cli_only:
   - {verb: assistant, rationale: "first-login interactive guide (modal onboarding flow), not a persistent dashboard surface"}

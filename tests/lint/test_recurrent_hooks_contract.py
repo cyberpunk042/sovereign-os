@@ -123,13 +123,13 @@ def test_hook_count_matches_expected():
     sovereign-telemetry-textfile). Drift adding ungated hooks or
     removing operator-named cadence breaks the contract. (17th = session-reap
     per SDD-065 — the M057 session reaper; 18th = memory-observe per SDD-069 —
-    the M028 observation event stream; 19th = memory-janitor per SDD-070 —
+    the M028 observation event stream; 19th = memory-janitor per SDD-071 —
     the recurrent SLM-janitor sweep.)"""
     actual = sorted(p.name for p in RECURRENT_DIR.glob("*.sh"))
     expected = sorted(EXPECTED_RECURRENT_HOOKS)
     assert actual == expected, (
         f"recurrent hook set drift: actual={actual} vs "
-        f"expected={expected} (operator-named cadence; 16th = root-ghostproxy-verify per SDD-046, 17th = session-reap per SDD-065, 18th = memory-observe per SDD-069, 19th = memory-janitor per SDD-070)"
+        f"expected={expected} (operator-named cadence; 16th = root-ghostproxy-verify per SDD-046, 17th = session-reap per SDD-065, 18th = memory-observe per SDD-069, 19th = memory-janitor per SDD-071)"
     )
 
 

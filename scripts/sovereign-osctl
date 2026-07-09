@@ -172,6 +172,14 @@ COMMANDS:
   models size                  Disk-usage breakdown of tank/models
   models remove <name>         Delete a resident model (confirms)
 
+  science list [--json]        R558 (SDD-070): science-tools catalog by domain
+                               (DNA / protein / particles) — non-LLM compute tools
+  science status [--json]      NVIDIA Warp installed? + device (cuda:0 or CPU) + version
+  science run [--device cpu|cuda] [--particles N] [--steps M] [--json]
+                               Run the Warp differentiable particle sim (GPU or CPU)
+  science info <id> [--json]   Full detail for one science tool
+  science install [--json]     How each integrated tool is obtained (advisory)
+
   audit friction               Runtime friction-audit (lspci/lscpu/IOMMU)
   audit perimeter              Perimeter integrity (Tetragon policy)
   audit storage                ZFS pool + dataset health
@@ -6471,6 +6479,15 @@ case "${cmd}" in
     # polls nvidia-smi for live power.draw + power.limit, and warns
     # when actual config diverges from the operator's safe limits.
     "${__REPO_ROOT}/scripts/hardware/gpu-watch.py" "$@"
+    ;;
+  science)
+    # R558 (SDD-070): science-tools catalog + NVIDIA Warp particle-sim.
+    # Non-LLM domain compute tools (DNA / protein / particles) materialized
+    # from the operator's Image-2 catalog; the `simulation` REPL kind (m023).
+    #   science list | status | run | install | info <id>
+    # `run` delegates to scripts/science/warp-runner.py (GPU cuda:0 or CPU
+    # fallback); everything else is stdlib-only.
+    "${__REPO_ROOT}/scripts/science/science.py" "$@"
     ;;
   network)
     # R220 (SDD-026 Z-7): per-component network state surface.

@@ -12,6 +12,37 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — Science-tools catalog + NVIDIA Warp particle-sim integration & panel (2026-07-09)
+
+Operator directive (verbatim): *"There should be somewhere something about Science
+experiment, tools of such type, we will add to it Nvidia Warp / warp-lang and we
+will start coding it, its integration and panel"* → *"the full job, planned properly"*.
+
+Materialises the operator's Image-2 "scientific / merge / specialist catalog"
+(info-hub `model-catalog` `dna`/`protein`/`particles`) into sovereign-os, and ships
+NVIDIA Warp end-to-end. See SDD-070.
+
+- Round 558 — NEW `config/science-tools.yaml` + `schemas/science-tools.schema.yaml`
+  + `tests/schema/test_science_tools_schema_conformance.py`: a schema-validated
+  catalog of 7 non-LLM domain compute tools (DNA / protein / particles), kept OUT
+  of the LLM model catalog. Anchored to the `simulation` REPL kind (m023 / M00374).
+- Round 558 — NEW `scripts/science/warp-runner.py` (the ONLY warp-importing script):
+  device-selects `cuda:0` if `wp.is_cuda_available()` else `cpu`, runs a
+  `warp.sim`-class particle drop-and-bounce sim, `--json`/`--emit-metrics`, exit-0
+  clean even when warp-lang is absent or no CUDA is present. Verified on CPU
+  (50k particles) in an isolated venv.
+- Round 558 — NEW `scripts/science/science.py` (stdlib-only `list`/`status`/`run`/
+  `install`/`info`) + the `sovereign-osctl science` bridge; read-only
+  `scripts/operator/science-api.py` (:8134, POST→405) + `webapp/science/index.html`
+  + `sovereign-science-api.service`; new `science` dashboard category + catalog entry;
+  `surface-map` `science` module = core/cli/api/service/webapp.
+- Round 558 — first-boot install: `scripts/hooks/post-install/warp-setup.sh` +
+  `sovereign-warp-setup.service` (in `FB_UNITS`); `warp-lang` added to
+  `operator-deps.toml [pip]`; enabled at bake (`provision-bake.sh §5`) and on live
+  hosts (`install-gui-dashboards.sh`). L3 `tests/nspawn/test_science_panel.sh` (19/19)
+  + a CI layer-3 step. Metrics `sovereign_os_post_install_warp_setup_total` +
+  `sovereign_os_science_warp_*`.
+
 ### Added — GUI + dashboards ON by default for the root-of-machine install (2026-07-02)
 
 Operator directive (verbatim): *"lets make with GUI by default when we install
