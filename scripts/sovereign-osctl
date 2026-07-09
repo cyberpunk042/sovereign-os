@@ -8334,8 +8334,26 @@ case "${cmd}" in
         # Stage-N. Every admit/advance reconciles the D-07 projection. DRY-RUN default.
         "${__REPO_ROOT}/scripts/intelligence/memory-admit.py" "${sub}" "$@"
         ;;
+      janitor)
+        # SDD-066 (M028 M00473): the SLM memory janitor — the 7 cheap maintenance jobs
+        # that enrich a memory entry with the E0261 ground-truth-layer fields. DETERMINISTIC
+        # (no backend): dedup (R04711 — mark identical (type,summary) `state:duplicate` +
+        # dedup_of, NEVER hard-deletes) / edges (R04713 — link topic/token-overlap → additive
+        # `edges`) / tag (R04710 — deterministic token tags). SLM-routed via the SDD-062
+        # loopback engine (`scripts/inference/prompt.py`), HONEST-DEFER when unreachable
+        # (SB-077 — field unset, never fabricates): extract-facts (R04709) / topic (R04712) /
+        # summarize (R04715) / classify (R04714). `advance <id>` runs the current stage's job
+        # then delegates the label bump to memory-admit.advance (one owner of `stage`). Every
+        # job reconciles the D-07 projection (adds an `enriched` coverage block). CLI/timer-
+        # ONLY — the store is mutated, so the janitor is never a web control (R10212); the
+        # memory-changes-api daemon stays read-only (405). DRY-RUN default (--confirm to apply).
+        #   memory-changes janitor <dedup|edges|tag|extract-facts|topic|summarize|classify|advance> [id|--all] [--confirm]
+        job="${1:-}"
+        shift || true
+        "${__REPO_ROOT}/scripts/intelligence/memory-janitor.py" "${job}" "$@"
+        ;;
       *)
-        log_error "unknown memory-changes subverb: ${sub} (available: snapshot, types, lifecycle, approve, reject, request, forget, undo, register, purge, list, reconcile, admit, advance)"
+        log_error "unknown memory-changes subverb: ${sub} (available: snapshot, types, lifecycle, approve, reject, request, forget, undo, register, purge, list, reconcile, admit, advance, janitor)"
         exit 2
         ;;
     esac
