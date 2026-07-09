@@ -8352,8 +8352,27 @@ case "${cmd}" in
         shift || true
         "${__REPO_ROOT}/scripts/intelligence/memory-janitor.py" "${job}" "$@"
         ;;
+      navigate|query)
+        # SDD-068 (M028 M00472): the RLM memory navigator — the QUERY side. A READ-COMPUTE
+        # (reads the store, NEVER mutates). Per R04700-R04704 it does NOT dump memory into
+        # the prompt: gets the environment (active entries) → SELECTS slices (rank by query
+        # token-overlap vs summary+tags+topic+derived_facts + optional --type/--stage/--topic,
+        # cap top-K) → spawns CHILD CALLS over the selected slices via the SDD-062 loopback
+        # engine → COMPOSES an answer. HONEST-DEFER (SB-077): an unreachable LM → the slices
+        # WITHOUT a composed answer (never fabricated); an empty store → empty. Folds in the
+        # M00469 temporal verbs (--verb): changed/true-now/true-then(--at)/last-verified map
+        # to real substrate; contradicted-by HONEST-DEFERS (no contradiction edge-kind).
+        # READ-ONLY — also exposed by the memory-changes-api daemon as a read-only GET
+        # /api/d-07/navigate (the daemon stays 405 on all mutations, R10212). --no-compose =
+        # deterministic ranked slices only (no LM).
+        #   memory-changes navigate "<query>" [--type N] [--stage S] [--topic T] [--verb <v>] [--at <ISO-T>] [--limit K] [--no-compose]
+        # NB: the subverb ("navigate") is already shifted off before this case — $@ holds
+        # the query + flags, so pass it straight through (no extra shift, unlike janitor
+        # whose $1 is a job name).
+        "${__REPO_ROOT}/scripts/intelligence/memory-navigate.py" "$@"
+        ;;
       *)
-        log_error "unknown memory-changes subverb: ${sub} (available: snapshot, types, lifecycle, approve, reject, request, forget, undo, register, purge, list, reconcile, admit, advance, janitor)"
+        log_error "unknown memory-changes subverb: ${sub} (available: snapshot, types, lifecycle, approve, reject, request, forget, undo, register, purge, list, reconcile, admit, advance, janitor, navigate)"
         exit 2
         ;;
     esac
