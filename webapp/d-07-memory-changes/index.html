@@ -565,6 +565,9 @@ a11y; contract test catches drift.
       {id:'—', dir:'ux-design-audit', label:'UX Design Audit', ico:'◓', desc:'The UX design-stage audit — consistency/accessibility scoring across the panels.'},
       {id:'—', dir:'personalization', label:'Personalization', ico:'✦', desc:'Theme / accent / typography control (localStorage-backed) applied across all panels before paint.'},
     ]},
+    {name:'Science & Simulation', items:[
+      {id:'—', dir:'science', label:'Science Tools', ico:'⚛', desc:'The operator\'s science catalog — DNA / protein / particle tools. NVIDIA Warp (particles) is integrated: a differentiable particle sim on GPU (RTX PRO 6000) or CPU fallback. Read-only; running a sim is the gated sovereign-osctl science run.'},
+    ]},
   ];
   var PKEY='sovereign-os.personalization', PSCHEMA=1;
   function loadPrefs(){ try{var r=localStorage.getItem(PKEY);var p=r?JSON.parse(r):null;if(!p||p.schema!==PSCHEMA)return{schema:PSCHEMA,theme:'auto',accent:'#9bd1ff',font_scale:1};return p;}catch(e){return{schema:PSCHEMA,theme:'auto',accent:'#9bd1ff',font_scale:1};} }
@@ -708,6 +711,29 @@ a11y; contract test catches drift.
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#diff-stream",
+    "title": "Memory-graph diff",
+    "msg": "What the agent's memory added, changed, or removed — across the 8 memory types.",
+    "more": "This is the Memory OS made visible: a diff, not a dump. New facts, corrected facts, and forgotten entries each show here so you can see how the agent's understanding is evolving, and catch a bad admission early."
+  },
+  {
+    "sel": "#lifecycle",
+    "title": "Lifecycle occupancy",
+    "msg": "How many entries sit at each stage of the 11-stage memory lifecycle.",
+    "more": "Entries walk observe → classify → … → archive. A pile-up at 'observe' means the janitor is not keeping up (or is deferring SLM work); healthy memory flows toward verify/promote."
+  },
+  {
+    "sel": "#datasource-banner",
+    "title": "Live vs snapshot",
+    "msg": "Green = the memory-changes daemon is reachable; muted = the baked snapshot.",
+    "more": "Memory is a projection reader here (read-only, 405 on mutations) — you forget/admit via the CLI, and this reflects the result."
+  }
+];
+</script>
 
 <h1>D-07 — memory changes</h1>
 <div class="sub">8 memory types · 11-stage admission lifecycle · graph diff · promote/forget/pin (signed) — <span class="kbd">Cmd-8</span> · <a href="../master-dashboard/">D-00 main</a></div>

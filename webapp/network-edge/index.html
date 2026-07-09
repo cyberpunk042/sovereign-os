@@ -546,6 +546,9 @@ a11y; contract test catches drift.
       {id:'—', dir:'ux-design-audit', label:'UX Design Audit', ico:'◓', desc:'The UX design-stage audit — consistency/accessibility scoring across the panels.'},
       {id:'—', dir:'personalization', label:'Personalization', ico:'✦', desc:'Theme / accent / typography control (localStorage-backed) applied across all panels before paint.'},
     ]},
+    {name:'Science & Simulation', items:[
+      {id:'—', dir:'science', label:'Science Tools', ico:'⚛', desc:'The operator\'s science catalog — DNA / protein / particle tools. NVIDIA Warp (particles) is integrated: a differentiable particle sim on GPU (RTX PRO 6000) or CPU fallback. Read-only; running a sim is the gated sovereign-osctl science run.'},
+    ]},
   ];
   var PKEY='sovereign-os.personalization', PSCHEMA=1;
   function loadPrefs(){ try{var r=localStorage.getItem(PKEY);var p=r?JSON.parse(r):null;if(!p||p.schema!==PSCHEMA)return{schema:PSCHEMA,theme:'auto',accent:'#9bd1ff',font_scale:1};return p;}catch(e){return{schema:PSCHEMA,theme:'auto',accent:'#9bd1ff',font_scale:1};} }
@@ -689,6 +692,23 @@ a11y; contract test catches drift.
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#iface-tbody",
+    "title": "Interface state",
+    "msg": "Per-interface state — where the box actually sits in the network.",
+    "more": "The edge topology: OPNsense bridge, ISP NAT layers, VPN. This table is the physical/logical map of how traffic reaches this node, which is the first thing you need when something upstream breaks."
+  },
+  {
+    "sel": "#nat-body",
+    "title": "ISP NAT layers",
+    "msg": "The NAT hops between this box and the open internet.",
+    "more": "Double/triple NAT is common on consumer ISP paths and it changes what is reachable inbound. Seeing the layers here explains a lot of 'why can't I connect' before you touch firewall rules."
+  }
+];
+</script>
 <h1>sovereign-os network-edge</h1>
 <p class="sub">
   Operator-§1g multi-NAT edge-network surface — workstation → OPNsense → ISP-router → public chain, VPN bridge, OPNsense capability ladder.

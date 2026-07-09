@@ -545,6 +545,9 @@ a11y; contract test catches drift.
       {id:'—', dir:'ux-design-audit', label:'UX Design Audit', ico:'◓', desc:'The UX design-stage audit — consistency/accessibility scoring across the panels.'},
       {id:'—', dir:'personalization', label:'Personalization', ico:'✦', desc:'Theme / accent / typography control (localStorage-backed) applied across all panels before paint.'},
     ]},
+    {name:'Science & Simulation', items:[
+      {id:'—', dir:'science', label:'Science Tools', ico:'⚛', desc:'The operator\'s science catalog — DNA / protein / particle tools. NVIDIA Warp (particles) is integrated: a differentiable particle sim on GPU (RTX PRO 6000) or CPU fallback. Read-only; running a sim is the gated sovereign-osctl science run.'},
+    ]},
   ];
   var PKEY='sovereign-os.personalization', PSCHEMA=1;
   function loadPrefs(){ try{var r=localStorage.getItem(PKEY);var p=r?JSON.parse(r):null;if(!p||p.schema!==PSCHEMA)return{schema:PSCHEMA,theme:'auto',accent:'#9bd1ff',font_scale:1};return p;}catch(e){return{schema:PSCHEMA,theme:'auto',accent:'#9bd1ff',font_scale:1};} }
@@ -688,6 +691,23 @@ a11y; contract test catches drift.
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#ev-tbody",
+    "title": "Unified change log",
+    "msg": "'What changed since I last looked?' — one timeline across every source.",
+    "more": "Six sources merged: apt, dpkg, shell, osctl, events, modules. Instead of hunting six logs, this is the single answer to 'what happened on this box'. Read-only history."
+  },
+  {
+    "sel": "#src-tbody",
+    "title": "Sources",
+    "msg": "The six change-sources feeding the unified log, and their freshness.",
+    "more": "If a source is stale or silent, the unified timeline has a blind spot — this is where you confirm all six are reporting."
+  }
+];
+</script>
 <h1>sovereign-os global-history</h1>
 <p class="sub">
   Operator-§1g multi-source event surface — recent / summary / sources / delta across 6 source logs (<code>apt</code>, <code>dpkg</code>, <code>shell</code>, <code>osctl</code>, <code>events</code>, <code>modules</code>).

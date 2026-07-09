@@ -563,6 +563,9 @@ a11y; contract test catches drift.
       {id:'—', dir:'ux-design-audit', label:'UX Design Audit', ico:'◓', desc:'The UX design-stage audit — consistency/accessibility scoring across the panels.'},
       {id:'—', dir:'personalization', label:'Personalization', ico:'✦', desc:'Theme / accent / typography control (localStorage-backed) applied across all panels before paint.'},
     ]},
+    {name:'Science & Simulation', items:[
+      {id:'—', dir:'science', label:'Science Tools', ico:'⚛', desc:'The operator\'s science catalog — DNA / protein / particle tools. NVIDIA Warp (particles) is integrated: a differentiable particle sim on GPU (RTX PRO 6000) or CPU fallback. Read-only; running a sim is the gated sovereign-osctl science run.'},
+    ]},
   ];
   var PKEY='sovereign-os.personalization', PSCHEMA=1;
   function loadPrefs(){ try{var r=localStorage.getItem(PKEY);var p=r?JSON.parse(r):null;if(!p||p.schema!==PSCHEMA)return{schema:PSCHEMA,theme:'auto',accent:'#9bd1ff',font_scale:1};return p;}catch(e){return{schema:PSCHEMA,theme:'auto',accent:'#9bd1ff',font_scale:1};} }
@@ -706,6 +709,29 @@ a11y; contract test catches drift.
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#rules-tbody",
+    "title": "nftables rules mirror",
+    "msg": "The selfdef MS039 Ring-0-4 firewall rules, mirrored read-only.",
+    "more": "sovereign-os never runs nft or edits rules (R10113/R10212) — the IPS (selfdef) owns them and publishes a typed mirror this panel reads. Rules change selfdef-side; this is the window, not the switch."
+  },
+  {
+    "sel": "#ring-traffic",
+    "title": "Per-ring traffic",
+    "msg": "Traffic and dispositions across the Ring-0..4 perimeter.",
+    "more": "The rings are concentric trust zones. Watching allow/deny/log counts per ring tells you where traffic is actually being stopped — and whether a rule is doing anything or just sitting there."
+  },
+  {
+    "sel": "#s-mirror",
+    "title": "Mirror status",
+    "msg": "Whether the selfdef rules-mirror is publishing (online) or absent (offline).",
+    "more": "Offline means the rules view is not live — the rules are still enforced on the IPS, you just cannot see them here until the publisher returns."
+  }
+];
+</script>
 
 <h1>D-12 — networking <span class="badge-mirror" style="font-size:.7rem">read-only via selfdef-rules-mirror</span></h1>
 <div class="sub">Ring 0..4 traffic visualization · MS038 network boundary · MS024 nftables ruleset · eBPF telemetry — <a href="../master-dashboard/">D-00 main</a></div>

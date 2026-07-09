@@ -205,6 +205,9 @@
       {id:'—', dir:'ux-design-audit', label:'UX Design Audit', ico:'◓', desc:'The UX design-stage audit — consistency/accessibility scoring across the panels.'},
       {id:'—', dir:'personalization', label:'Personalization', ico:'✦', desc:'Theme / accent / typography control (localStorage-backed) applied across all panels before paint.'},
     ]},
+    {name:'Science & Simulation', items:[
+      {id:'—', dir:'science', label:'Science Tools', ico:'⚛', desc:'The operator\'s science catalog — DNA / protein / particle tools. NVIDIA Warp (particles) is integrated: a differentiable particle sim on GPU (RTX PRO 6000) or CPU fallback. Read-only; running a sim is the gated sovereign-osctl science run.'},
+    ]},
   ];
   var PKEY='sovereign-os.personalization', PSCHEMA=1;
   function loadPrefs(){ try{var r=localStorage.getItem(PKEY);var p=r?JSON.parse(r):null;if(!p||p.schema!==PSCHEMA)return{schema:PSCHEMA,theme:'auto',accent:'#9bd1ff',font_scale:1};return p;}catch(e){return{schema:PSCHEMA,theme:'auto',accent:'#9bd1ff',font_scale:1};} }
@@ -348,6 +351,23 @@
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#modes-grid",
+    "title": "Runtime modes",
+    "msg": "The master-spec §18 profiles — ultra-sovereign-efficiency / high-concurrency / deep-context.",
+    "more": "A mode is a whole posture: pick one and it drives core pinning, GPU power, and model allocation together. This grid is the menu; the banner shows which one is live."
+  },
+  {
+    "sel": "#active-mode-banner",
+    "title": "Active mode",
+    "msg": "Which runtime mode is currently in effect.",
+    "more": "The active mode explains a lot of D-09's numbers — an efficiency mode caps GPU power, a concurrency mode spreads cores. When behaviour surprises you, check the mode first."
+  }
+];
+</script>
 
 <h1>Runtime modes <span class="muted" style="font-size:.85rem; color:var(--muted);">M076</span></h1>
 <p class="subtitle">

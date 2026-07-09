@@ -546,6 +546,9 @@ a11y; contract test catches drift.
       {id:'—', dir:'ux-design-audit', label:'UX Design Audit', ico:'◓', desc:'The UX design-stage audit — consistency/accessibility scoring across the panels.'},
       {id:'—', dir:'personalization', label:'Personalization', ico:'✦', desc:'Theme / accent / typography control (localStorage-backed) applied across all panels before paint.'},
     ]},
+    {name:'Science & Simulation', items:[
+      {id:'—', dir:'science', label:'Science Tools', ico:'⚛', desc:'The operator\'s science catalog — DNA / protein / particle tools. NVIDIA Warp (particles) is integrated: a differentiable particle sim on GPU (RTX PRO 6000) or CPU fallback. Read-only; running a sim is the gated sovereign-osctl science run.'},
+    ]},
   ];
   var PKEY='sovereign-os.personalization', PSCHEMA=1;
   function loadPrefs(){ try{var r=localStorage.getItem(PKEY);var p=r?JSON.parse(r):null;if(!p||p.schema!==PSCHEMA)return{schema:PSCHEMA,theme:'auto',accent:'#9bd1ff',font_scale:1};return p;}catch(e){return{schema:PSCHEMA,theme:'auto',accent:'#9bd1ff',font_scale:1};} }
@@ -689,6 +692,29 @@ a11y; contract test catches drift.
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#stat-tetragon",
+    "title": "Tetragon perimeter",
+    "msg": "State of the Tetragon eBPF enforcement — the kernel-level perimeter.",
+    "more": "Auditor is the always-on immutable gatekeeper: the last line that cannot be bypassed. Tetragon watches syscalls in-kernel, so a process cannot talk its way past it the way it might a userspace check."
+  },
+  {
+    "sel": "#stat-guardian",
+    "title": "Guardian daemon",
+    "msg": "Whether the Guardian violation-tail is running and watching.",
+    "more": "Guardian tails Tetragon's violations and reacts. If it is down, enforcement still happens in-kernel but the response/observability layer is blind — treat that as degraded, not safe."
+  },
+  {
+    "sel": "#last-violation-line",
+    "title": "Latest violation",
+    "msg": "The most recent perimeter violation Tetragon caught.",
+    "more": "A fresh violation is not necessarily an attack — it can be a mis-scoped process. But it IS the perimeter doing its job; read it before assuming the box is quiet."
+  }
+];
+</script>
 <h1>sovereign-os auditor</h1>
 <p class="sub">
   Operator-§1g auditor &mdash; master spec &sect; 17 Module 3 (Immutable Gatekeeper) + &sect; 10 (Native Guardian Loop).

@@ -547,6 +547,9 @@ a11y; contract test catches drift.
       {id:'—', dir:'ux-design-audit', label:'UX Design Audit', ico:'◓', desc:'The UX design-stage audit — consistency/accessibility scoring across the panels.'},
       {id:'—', dir:'personalization', label:'Personalization', ico:'✦', desc:'Theme / accent / typography control (localStorage-backed) applied across all panels before paint.'},
     ]},
+    {name:'Science & Simulation', items:[
+      {id:'—', dir:'science', label:'Science Tools', ico:'⚛', desc:'The operator\'s science catalog — DNA / protein / particle tools. NVIDIA Warp (particles) is integrated: a differentiable particle sim on GPU (RTX PRO 6000) or CPU fallback. Read-only; running a sim is the gated sovereign-osctl science run.'},
+    ]},
   ];
   var PKEY='sovereign-os.personalization', PSCHEMA=1;
   function loadPrefs(){ try{var r=localStorage.getItem(PKEY);var p=r?JSON.parse(r):null;if(!p||p.schema!==PSCHEMA)return{schema:PSCHEMA,theme:'auto',accent:'#9bd1ff',font_scale:1};return p;}catch(e){return{schema:PSCHEMA,theme:'auto',accent:'#9bd1ff',font_scale:1};} }
@@ -690,6 +693,23 @@ a11y; contract test catches drift.
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#matrix-tbody",
+    "title": "8-surface coverage",
+    "msg": "Which of the §1g 8 operator surfaces (core/cli/api/mcp/service/webapp/tui/dashboard) each module delivers.",
+    "more": "The mandate is that capability reaches the operator through real surfaces, not just code. This matrix is the audit of that — a module strong in core but empty in cli/webapp is powerful and unreachable."
+  },
+  {
+    "sel": "#ms-full8",
+    "title": "Full-8 modules",
+    "msg": "Modules that deliver on all eight surfaces.",
+    "more": "The gold standard of reachability. Most modules have a structural ceiling (a mirror has no tui); full-8 is reserved for the ones where every surface genuinely applies."
+  }
+];
+</script>
 <h1>sovereign-os surface-map</h1>
 <p class="sub">
   Operator-§1g surface-map &mdash; 8-surface delivery matrix across operator-facing modules + R462 cross-repo selfdef

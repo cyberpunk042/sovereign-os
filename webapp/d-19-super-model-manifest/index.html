@@ -556,6 +556,9 @@ a11y; contract test catches drift.
       {id:'—', dir:'ux-design-audit', label:'UX Design Audit', ico:'◓', desc:'The UX design-stage audit — consistency/accessibility scoring across the panels.'},
       {id:'—', dir:'personalization', label:'Personalization', ico:'✦', desc:'Theme / accent / typography control (localStorage-backed) applied across all panels before paint.'},
     ]},
+    {name:'Science & Simulation', items:[
+      {id:'—', dir:'science', label:'Science Tools', ico:'⚛', desc:'The operator\'s science catalog — DNA / protein / particle tools. NVIDIA Warp (particles) is integrated: a differentiable particle sim on GPU (RTX PRO 6000) or CPU fallback. Read-only; running a sim is the gated sovereign-osctl science run.'},
+    ]},
   ];
   var PKEY='sovereign-os.personalization', PSCHEMA=1;
   function loadPrefs(){ try{var r=localStorage.getItem(PKEY);var p=r?JSON.parse(r):null;if(!p||p.schema!==PSCHEMA)return{schema:PSCHEMA,theme:'auto',accent:'#9bd1ff',font_scale:1};return p;}catch(e){return{schema:PSCHEMA,theme:'auto',accent:'#9bd1ff',font_scale:1};} }
@@ -699,6 +702,23 @@ a11y; contract test catches drift.
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#ms-tbody",
+    "title": "Module manifest",
+    "msg": "The M001..M080 module table — what capabilities are actually shipped in the live super-model.",
+    "more": "The super-model is the sum of its modules. This table is the ground truth of 'what does this system currently know how to do', version-stamped — the thing every other panel's features trace back to."
+  },
+  {
+    "sel": "#phase-bar",
+    "title": "Delivery phase",
+    "msg": "How far the super-model has progressed through its build phases.",
+    "more": "A quick read on maturity — how much of the planned capability set is live vs pending. Pairs with the module table for the detail."
+  }
+];
+</script>
 
 <h1>D-19 — super-model manifest</h1>
 <div class="sub">Trinity Pulse/Weaver/Auditor · M001..M080 module-version table · M053 11-build-phase status · M059 peace machine close — <a href="../master-dashboard/">D-00 main</a></div>

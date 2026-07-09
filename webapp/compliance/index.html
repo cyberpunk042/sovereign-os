@@ -550,6 +550,9 @@ a11y; contract test catches drift.
       {id:'—', dir:'ux-design-audit', label:'UX Design Audit', ico:'◓', desc:'The UX design-stage audit — consistency/accessibility scoring across the panels.'},
       {id:'—', dir:'personalization', label:'Personalization', ico:'✦', desc:'Theme / accent / typography control (localStorage-backed) applied across all panels before paint.'},
     ]},
+    {name:'Science & Simulation', items:[
+      {id:'—', dir:'science', label:'Science Tools', ico:'⚛', desc:'The operator\'s science catalog — DNA / protein / particle tools. NVIDIA Warp (particles) is integrated: a differentiable particle sim on GPU (RTX PRO 6000) or CPU fallback. Read-only; running a sim is the gated sovereign-osctl science run.'},
+    ]},
   ];
   var PKEY='sovereign-os.personalization', PSCHEMA=1;
   function loadPrefs(){ try{var r=localStorage.getItem(PKEY);var p=r?JSON.parse(r):null;if(!p||p.schema!==PSCHEMA)return{schema:PSCHEMA,theme:'auto',accent:'#9bd1ff',font_scale:1};return p;}catch(e){return{schema:PSCHEMA,theme:'auto',accent:'#9bd1ff',font_scale:1};} }
@@ -693,6 +696,23 @@ a11y; contract test catches drift.
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#selfdef-table",
+    "title": "Per-module compliance",
+    "msg": "Pass/fail of each module against the §1g/§1h operator mandate.",
+    "more": "Compliance is the aggregator: it does not test code, it verifies that the mandate's surfaces and instruments are actually present and green. A red row means a module shipped without meeting the contract it was held to."
+  },
+  {
+    "sel": "#instr-doc",
+    "title": "Doc-coverage instrument",
+    "msg": "Whether the documentation-coverage instrument passes for this run.",
+    "more": "One of the compliance instruments (doc / surface / ux / anti-minimize). Each instrument is itself a panel; compliance rolls their verdicts into one mandate-level view."
+  }
+];
+</script>
 <h1>sovereign-os compliance</h1>
 <p class="sub">
   Operator-§1g/§1h compliance dashboard — surface coverage · doc coverage · anti-minimization · UX-design (R458 aggregator).

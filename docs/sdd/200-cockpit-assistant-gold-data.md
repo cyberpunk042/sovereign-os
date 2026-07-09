@@ -1,11 +1,12 @@
 # SDD-200 — Cockpit Assistant gold-data content system (hardcoded hover intel, LLM optional)
 
-> Status: **draft**
+> Status: **complete** — gold data authored for every adopted panel (see §4).
 > Owner: operator-supervised; agent-authored
 > Last updated: 2026-07-09
 > Closes findings: E11.M200 (mandate decomposition — cockpit assistant gold-data content)
 > Derived from: operator directive 2026-07-09 (verbatim below); builds ON SDD-067 (the app-shell
-> header + sidemenu + Assistant drawer, shipped across all 50 panels). First SDD in the
+> header + sidemenu + Assistant drawer). This SDD also **adopted the `science` panel into the
+> app-shell** (bringing the shell + gold-data coverage to 51 panels). First SDD in the
 > **header-sidemenu session's 200–299 band** per SDD-100 (parallel-session conflict avoidance).
 
 ## 0. Operator directive (verbatim)
@@ -23,9 +24,10 @@ plus the menu-link descriptions already shipped. **No LLM is required**: the int
 authored, deterministic, offline, sovereignty-clean. A live-LLM "ask / discuss this" is an
 *optional* future add-on layered on top of the same data, never a dependency.
 
-This is explicitly a **long, ongoing** authoring effort (50 panels × their key elements). This
-SDD establishes the model + mechanism and **starts** it; the content is filled in panel-by-panel
-over subsequent increments.
+This is a **long** authoring effort (every adopted panel × its key elements). This SDD
+establishes the model + mechanism and **carries it to completion**: gold data is now authored
+across all 51 adopted panels (per the operator directive "continue till everything is gold
+standard, no need for small PR. we do not minimize").
 
 ## 2. Problem — where SDD-067 left the Assistant
 
@@ -99,16 +101,19 @@ Gold data must be **true**. Author from the panel's real behavior + `config/dash
 fiction. Menu descriptions already come from the authoritative yaml; element gold-data is authored
 against the panel's actual elements.
 
-## 4. Way forward (this SDD starts it; the tail is ongoing)
+## 4. Way forward → done (the arc, and where it landed)
 
-- **Stage 0 (this commit):** SDD-200 + INDEX row 200 + mandate E11.M200.
+- **Stage 0:** SDD-200 + INDEX row 200 + mandate E11.M200.
 - **Stage 1:** app-shell mechanism — read `window.SO_ASSIST`, unify with `[data-assist]`, render
-  title/msg/more + the more-toggle; re-sync into all 50 panels (the block stays byte-identical).
-  Seed the **reference panel (D-04 costs)** with a real `SO_ASSIST` gold-data catalogue.
-- **Stage 2..N (ongoing, efficient loop — no per-panel preview):** author `SO_ASSIST` gold data
-  panel-by-panel, prioritising high-traffic panels (D-00 hub, D-01 sessions, D-03/D-21/D-22
-  models, D-06 approvals, D-09 hardware, the selfdef mirrors). Each panel is a small additive
-  edit; the shell needs no change.
+  title/msg/more + the more-toggle; re-sync into every adopted panel (the block stays
+  byte-identical). Seeded the **reference panel (D-04 costs)** with a real `SO_ASSIST` catalogue.
+- **Stage 2..N (completed in this comprehensive PR):** `SO_ASSIST` gold data authored
+  panel-by-panel across **all 51 adopted panels** — every entry `{sel,title,msg,more}` targets a
+  **real element id** in that panel (verified: 124 selectors resolve, 0 unresolved) and is
+  grounded (SB-077) in `config/dashboard-catalog.yaml` + the panel's cited modules. The `science`
+  panel was **newly adopted** into the app-shell in this PR (sidemenu "Science & Simulation"
+  group + `ADOPTED_PANELS`/contract list + its own gold data), so shell coverage went 50 → 51.
+- **Non-mutating invariant** re-verified by the contract test (no fetch/XHR/POST in the block).
 - **General polish** (operator-invited): spacing/typography, collapsed-rail affordances, the
   status pill wiring, keyboard niceties — folded in opportunistically.
 
@@ -119,7 +124,7 @@ against the panel's actual elements.
 | Q-200-A | Gold-data location — inline `SO_ASSIST` per panel vs a generated per-panel file. | Inline `SO_ASSIST` (self-contained, sovereignty-clean, colocated with the panel). |
 | Q-200-B | Menu-link `more` depth — should sidemenu links also gain an expandable `more`? | Add later by extending the catalog (from the yaml) — not blocking Stage 1. |
 | Q-200-C | The optional LLM "discuss" layer (inherits SDD-067 Q-067-F). | **Flagged future decision** — network path vs sovereignty-clean + a trust model; do NOT build until the operator decides. |
-| Q-200-D | Authoring order / prioritisation across 50 panels. | High-traffic first (see Stage 2..N); the tail fills in over time. |
+| Q-200-D | Authoring order / prioritisation across the panels. | **Resolved** — completed across all 51 adopted panels in one comprehensive PR (operator: "no need for small PR… we do not minimize"). |
 
 ## 6. Non-goals (Stage N)
 

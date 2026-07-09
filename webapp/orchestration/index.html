@@ -184,6 +184,9 @@
       {id:'—', dir:'ux-design-audit', label:'UX Design Audit', ico:'◓', desc:'The UX design-stage audit — consistency/accessibility scoring across the panels.'},
       {id:'—', dir:'personalization', label:'Personalization', ico:'✦', desc:'Theme / accent / typography control (localStorage-backed) applied across all panels before paint.'},
     ]},
+    {name:'Science & Simulation', items:[
+      {id:'—', dir:'science', label:'Science Tools', ico:'⚛', desc:'The operator\'s science catalog — DNA / protein / particle tools. NVIDIA Warp (particles) is integrated: a differentiable particle sim on GPU (RTX PRO 6000) or CPU fallback. Read-only; running a sim is the gated sovereign-osctl science run.'},
+    ]},
   ];
   var PKEY='sovereign-os.personalization', PSCHEMA=1;
   function loadPrefs(){ try{var r=localStorage.getItem(PKEY);var p=r?JSON.parse(r):null;if(!p||p.schema!==PSCHEMA)return{schema:PSCHEMA,theme:'auto',accent:'#9bd1ff',font_scale:1};return p;}catch(e){return{schema:PSCHEMA,theme:'auto',accent:'#9bd1ff',font_scale:1};} }
@@ -327,6 +330,23 @@
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#rules",
+    "title": "7-axis routing rules",
+    "msg": "The thinking-router rules (SDD-011) that decide which tier answers a prompt.",
+    "more": "Seven axes (class, task-type, complexity, …) classify a request and route it. This is the policy; the metrics beside it show where requests actually landed, so you can see rule vs reality."
+  },
+  {
+    "sel": "#metrics",
+    "title": "Live routing metrics",
+    "msg": "Which tier / class / task-type requests actually landed on.",
+    "more": "The feedback loop for the rules: if everything is escalating to the Oracle tier, either the rules or the prompts are heavier than intended. This is where per-profile escalation (CoT → Validator → self-consistency → MoE) shows its cost."
+  }
+];
+</script>
 <h1>thinking router / orchestration</h1>
 <p class="sub">
   How a request is routed across the Genesis Trinity (SDD-011, 7-axis) and
