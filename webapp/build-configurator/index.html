@@ -545,6 +545,29 @@
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#bake-selfdef",
+    "title": "Bake: selfdef",
+    "msg": "Whether the selfdef IPS is baked into the image being composed.",
+    "more": "Bake toggles decide what ships in the built OS. selfdef baked = the node defends itself from first boot; left off = a leaner image you harden later."
+  },
+  {
+    "sel": "#bake-graceful",
+    "title": "Bake: graceful shutdown",
+    "msg": "Whether the graceful UPS soft-shutdown posture is baked in.",
+    "more": "With this on, the image ships the NUT/UPS orderly-poweroff behaviour (see the UPS panel) — the box shuts down cleanly on battery instead of hard-cutting."
+  },
+  {
+    "sel": "#bios-list",
+    "title": "BIOS / PSU preflight",
+    "msg": "The hardware preflight sheet — what to set before the first real build.",
+    "more": "This is the one page that actually builds sovereign-os; the preflight catches a mis-set BIOS/PSU before you burn a 30-minute build on it."
+  }
+];
+</script>
 
 <header class="topbar">
   <h1>sovereign-os · build configurator</h1>

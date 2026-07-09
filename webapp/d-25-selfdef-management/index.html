@@ -343,6 +343,29 @@
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#m060-state",
+    "title": "Mirror-chain health",
+    "msg": "State of the M060 selfdef → sovereign-os mirror bridge that feeds D-13…D-18.",
+    "more": "This whole panel is a READ-ONLY consumer (R10212) of the IPS. If the mirror chain is unhealthy, the six domain panels go stale — this is the one place to see the bridge itself."
+  },
+  {
+    "sel": "#m060-fresh",
+    "title": "Mirror freshness",
+    "msg": "Whether the mirror data is fresh or aging out.",
+    "more": "Freshness is the trust signal for everything downstream — a fresh chain means D-13…D-18 are live; a stale one means treat them as last-known."
+  },
+  {
+    "sel": "#data-source-banner",
+    "title": "Live vs snapshot",
+    "msg": "Green = the selfdef status probe is reachable; muted = the baked snapshot.",
+    "more": "selfdef on/off is shown here but toggled via a clipboard-copied signed CLI verb — the cockpit never flips the IPS directly."
+  }
+];
+</script>
 <header>
   <h1>D-25 · Self-Defense Management
     <span class="sub">READ-ONLY consumer view of the selfdef IPS · on/off + M060 mirror-chain health (R10212)</span></h1>

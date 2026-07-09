@@ -350,6 +350,29 @@
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#accel",
+    "title": "Acceleration",
+    "msg": "kvm (hardware) vs tcg (software) emulation.",
+    "more": "kvm is near-native and needs virtualization support; tcg runs anywhere but slow. Use the throwaway VM to boot a freshly-built image before it ever touches a USB key."
+  },
+  {
+    "sel": "#boot",
+    "title": "Boot mode",
+    "msg": "UEFI vs direct-kernel boot for the emulated image.",
+    "more": "UEFI exercises the real boot path (what the hardware will do); direct boot is faster for iterating on userspace. Match it to what you're testing."
+  },
+  {
+    "sel": "#auto-login",
+    "title": "Auto-login",
+    "msg": "Whether the emulated guest logs in automatically.",
+    "more": "Convenient for a quick smoke test; leave it off when you're specifically validating the login/auth path."
+  }
+];
+</script>
 <h1>emulate (QEMU)</h1>
 <p class="sub">
   Boot a built image in a throwaway VM before you flash it — the guest disk is

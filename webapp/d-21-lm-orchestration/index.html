@@ -374,6 +374,29 @@
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#grid",
+    "title": "Model → hardware grid",
+    "msg": "Which model runs on which device — the assignment that makes the three SRP roles physical.",
+    "more": "Per M075: Logic=GPU0, Oracle=GPU1, Conductor=CPU0. This grid is the profile's resolved allocation; a model on the wrong device (or unassigned) is usually a profile that didn't resolve against the current hardware."
+  },
+  {
+    "sel": "#apply-btn",
+    "title": "Apply profile",
+    "msg": "Stages the profile change — it copies the signed CLI verb, it does not mutate from the web.",
+    "more": "R10212: the cockpit shows and stages, the actual apply runs through the gated osctl path. That separation is why a dashboard can be trusted on a sovereign node — nothing here changes host state directly."
+  },
+  {
+    "sel": "#features-gpu",
+    "title": "GPU capability",
+    "msg": "The GPU feature panel feeding the assignment decisions.",
+    "more": "Read next to Features-CPU (AVX-512): together they say what this hardware can actually run, which bounds what a profile is allowed to assign."
+  }
+];
+</script>
 <header>
   <h1>D-21 · Language Model Orchestration
     <span class="sub">profiles · model→hardware assignment grid · capabilities (M075 SRP · M076 profiles)</span></h1>

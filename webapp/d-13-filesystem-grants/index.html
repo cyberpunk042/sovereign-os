@@ -698,6 +698,23 @@ a11y; contract test catches drift.
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#grants-tbody",
+    "title": "Filesystem grants",
+    "msg": "Which paths are granted to whom — a read-only mirror of the selfdef IPS.",
+    "more": "sovereign-os never writes grants; the IPS (selfdef) owns them and publishes a typed mirror this panel reads. A grant that looks wrong is fixed selfdef-side, then reflected here."
+  },
+  {
+    "sel": "#k-filesystem",
+    "title": "Filesystem domain",
+    "msg": "Summary of filesystem-domain grant activity across the perimeter rings.",
+    "more": "One of six selfdef domains (filesystem / network / sandbox / capability / communication / attention). These tiles are the at-a-glance roll-up; the table below is the detail."
+  }
+];
+</script>
 
 <h1>D-13 — filesystem grants <span class="badge-mirror" style="font-size:.7rem">read-only via selfdef-grants-mirror</span></h1>
 <div class="sub">selfdef MS037 fanotify grants · MS038 network grants · MS035 capability grants · MS007 typed-mirror (R10115 never mutates) — <a href="../master-dashboard/">D-00 main</a></div>

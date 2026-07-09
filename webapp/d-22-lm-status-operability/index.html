@@ -397,6 +397,29 @@
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#devices",
+    "title": "Per-device model status",
+    "msg": "Model 0/1/2 status across CPU0 / GPU0 / GPU1.",
+    "more": "The live operability view — loaded/unloaded, healthy/degraded per device. The model portfolio itself lives in D-23; this is what is actually resident and serving right now."
+  },
+  {
+    "sel": "#chat-log",
+    "title": "Live LM chat",
+    "msg": "A bounded single-prompt inference composer against the local router.",
+    "more": "This is the one read-compute POST in the cockpit (SDD-062): loopback-only, no persistence, honest error when the backend is down. It runs a completion (non-mutating); it never loads models or changes host state — those stay CLI/exec-rail gated."
+  },
+  {
+    "sel": "#selected-summary",
+    "title": "Selected latency",
+    "msg": "p50 / p95 / p99 for the selected device+model, History vs Selected.",
+    "more": "Latency here is measured, not modelled — an empty or flat series means the backend is unreachable, not that it is instant. Pair with D-09 to see if a spike is hardware pressure."
+  }
+];
+</script>
 <header>
   <h1>D-22 · Language Model Status &amp; Operability
     <span class="sub">per-device model status · operability actions · chat (M075 SRP topology)</span></h1>
