@@ -710,22 +710,238 @@ a11y; contract test catches drift.
 <script>
 window.SO_ASSIST = [
   {
+    "sel": "#datasource-banner",
+    "title": "Live vs snapshot",
+    "msg": "Green = the D-09 pressure daemon is answering live; muted = you're reading the baked snapshot.",
+    "more": "Every number on this page is only as trustworthy as this banner. Live means the hardware is being polled right now; snapshot means the API daemon is unreachable and you're seeing the last committed sample — treat pressure/thermals as possibly stale until it goes green."
+  },
+  {
+    "sel": "#ds-state-label",
+    "title": "Data-source state",
+    "msg": "Names which source the page is currently reading — live daemon or snapshot.",
+    "more": "The one-word verdict behind the banner colour. If it says snapshot, start by asking why the daemon is down before acting on any threshold you see below."
+  },
+  {
+    "sel": "#ds-state-detail",
+    "title": "Reachability detail",
+    "msg": "The reason behind the state — e.g. daemon reachable, timed out, or endpoint absent.",
+    "more": "Turns 'snapshot' into a diagnosis. A timeout points at load on the box; an absent endpoint points at the API simply not being started (`make panel`)."
+  },
+  {
+    "sel": "#ds-last-update",
+    "title": "Fetch freshness",
+    "msg": "When the shown sample was last pulled.",
+    "more": "Pressure is a moving target — a value from 90 seconds ago can misread a spike that already passed. Read this before trusting any gauge as 'now'."
+  },
+  {
+    "sel": "#psi-cpu-some",
+    "title": "CPU pressure (PSI some, 10s)",
+    "msg": "Share of the last 10s that at least one task stalled waiting for CPU (Linux PSI, M045).",
+    "more": "PSI is smarter than load-average: it measures actual stall, not queue length. 'some' = at least one task delayed. Above ~30% the M058 backpressure rule defers background indexing + evals — so a high value here explains why batch work slowed down."
+  },
+  {
+    "sel": "#psi-mem-some",
+    "title": "Memory pressure (PSI some, 10s)",
+    "msg": "Share of the last 10s stalled on memory — reclaim, refault, swap (M045).",
+    "more": "Memory PSI rising is the early warning before OOM. Past ~20% the M058 rule hibernates branches + compacts memory. If this climbs while VRAM is fine, the bottleneck is host RAM, not the GPUs."
+  },
+  {
+    "sel": "#psi-io-some",
+    "title": "IO pressure (PSI some, 10s)",
+    "msg": "Share of the last 10s stalled on block IO (M045).",
+    "more": "This is the disk-contention signal. Above ~25% the M058 rule delays cold scans + avoids large snapshots — so if a ZFS scrub or snapshot feels stuck, check here first. Pairs with the zpool latency numbers below."
+  },
+  {
     "sel": "#ccd-0",
-    "title": "CCD0 utilization",
-    "msg": "Load on the first core-complex die of the Ryzen 9 9900X.",
-    "more": "The 9900X is dual-CCD (M070). Pinning matters: inference housekeeping vs compute are split across CCDs so one does not starve the other. A lopsided CCD0/CCD1 split usually means the pinning policy drifted."
+    "title": "CCD 0 — Pulse cores",
+    "msg": "The first Ryzen 9 9900X core-complex-die: the Pulse (CPU/AVX-512 ternary) + Wasm AOT path, M075 Conductor.",
+    "more": "The 9900X is two CCDs (M070); pinning matters. CCD 0 hosts the sovereign always-available CPU inference path — the tier that runs even with no GPU. Load concentrated here is Pulse doing real work, which is healthy, not a problem to chase."
+  },
+  {
+    "sel": "#ccd-0-cores",
+    "title": "CCD 0 per-core load",
+    "msg": "Per-core utilization across CCD 0's cores.",
+    "more": "Uneven cores are expected — the Conductor pins specific workloads to specific cores. A single hot core is normal for a pinned inference thread; all-cores-hot means Pulse is saturated and the backpressure CPU rule is about to fire."
+  },
+  {
+    "sel": "#ccd-0-l3miss",
+    "title": "CCD 0 L3 miss rate",
+    "msg": "Last-level-cache miss rate for CCD 0.",
+    "more": "A high L3 miss rate means the working set is spilling to RAM — the CPU is waiting on memory, not computing. For ternary inference this is the difference between fast and stalled; it's the micro-architectural 'why' behind a high CPU PSI."
   },
   {
     "sel": "#ccd-1",
-    "title": "CCD1 utilization",
-    "msg": "Load on the second core-complex die.",
-    "more": "Read the two CCDs together — balanced is healthy; one pegged while the other idles points at an IRQ-affinity or core-pinning issue from the active runtime mode."
+    "title": "CCD 1 — Weaver + Auditor",
+    "msg": "The second core-complex-die: Weaver + Auditor cores, M075 Logic/Oracle scheduling.",
+    "more": "CCD 1 carries the sandbox fabric (Weaver) and the gatekeeper (Auditor) plus GPU-tier scheduling. Keeping these on a separate CCD from Pulse isolates untrusted/security work from the sovereign inference path — cross-CCD noise here is what the Infinity Fabric latency below measures."
+  },
+  {
+    "sel": "#ccd-1-cores",
+    "title": "CCD 1 per-core load",
+    "msg": "Per-core utilization across CCD 1's cores.",
+    "more": "Watch for Auditor/Weaver cores pinned hot while Pulse (CCD 0) is idle — that's the security/sandbox layer working, independent of inference. Balanced-but-busy across both CCDs is the healthy full-load shape."
+  },
+  {
+    "sel": "#ccd-1-l3miss",
+    "title": "CCD 1 L3 miss rate",
+    "msg": "Last-level-cache miss rate for CCD 1.",
+    "more": "Same signal as CCD 0's, for the Weaver/Auditor complex. A spike here during heavy sandbox work means the fabric's working set is thrashing L3 — a candidate for core-pinning review."
+  },
+  {
+    "sel": "#if-lat",
+    "title": "Infinity Fabric latency",
+    "msg": "Cross-CCD interconnect latency between the two dies.",
+    "more": "Anything crossing CCD 0 ↔ CCD 1 pays this cost. If a workload is split across both dies its data hops the fabric; rising latency here is why a mis-pinned job underperforms a correctly-pinned one on identical cores. It's the hidden tax the M075 scheduling is designed to avoid."
+  },
+  {
+    "sel": "#gpu-0-util",
+    "title": "GPU 0 (Oracle) utilization",
+    "msg": "Compute utilization of the Blackwell — Oracle tier, 96GB GDDR7 FP4.",
+    "more": "GPU 0 is the heavy-reasoning Oracle (M075). Sustained high util is the Oracle earning its keep. This is the GPU the Blackwell-VRAM backpressure rule watches — util plus VRAM together decide whether context gets trimmed."
+  },
+  {
+    "sel": "#gpu-0-vram",
+    "title": "GPU 0 (Oracle) VRAM",
+    "msg": "VRAM in use of the 96 GB on the Blackwell.",
+    "more": "The number that trips the M058 rule at >90%: reduce context + evict low-value KV + switch to a smaller oracle. VRAM, not util, is usually the real ceiling for large-context reasoning — watch this before blaming latency."
+  },
+  {
+    "sel": "#gpu-0-temp",
+    "title": "GPU 0 (Oracle) temperature",
+    "msg": "Die temperature of the Blackwell (°C, via DCGM).",
+    "more": "Thermals gate sustained clocks. A Blackwell running hot will throttle and quietly drop tokens/sec even at the same util — so a latency regression with no util change often traces back to this number."
+  },
+  {
+    "sel": "#gpu-0-pow",
+    "title": "GPU 0 (Oracle) power",
+    "msg": "Board power draw of the Blackwell (W).",
+    "more": "Power ties the GPU to the UPS budget (D-25/UPS). A runtime-efficiency mode caps this; if the Oracle feels slow, check whether a mode is power-limiting GPU 0 before assuming a fault."
+  },
+  {
+    "sel": "#gpu-0-kv",
+    "title": "GPU 0 (Oracle) KV cache",
+    "msg": "KV-cache occupancy on the Oracle GPU (%).",
+    "more": "The KV cache holds attention state for in-flight sequences; when it fills, new/long contexts get evicted or rejected. High KV% alongside high VRAM is exactly the condition the backpressure rule relieves by evicting low-value KV."
+  },
+  {
+    "sel": "#gpu-1-util",
+    "title": "GPU 1 (Scout) utilization",
+    "msg": "Compute utilization of the 4090 — Scout tier, 24GB GDDR6X, VFIO-passed.",
+    "more": "GPU 1 is the lighter Scout, handed to a sandbox via VFIO. The M058 rule watches it at >85% util → reduce branch width + use CPU classifiers. Because it's VFIO, this GPU belongs to Weaver's confined fabric, not the host directly."
+  },
+  {
+    "sel": "#gpu-1-vram",
+    "title": "GPU 1 (Scout) VRAM",
+    "msg": "VRAM in use of the 24 GB on the 4090.",
+    "more": "24 GB is a real constraint for the Scout — it caps model size and branch width. When this is tight the router leans on CPU classifiers instead of widening GPU branches."
+  },
+  {
+    "sel": "#gpu-1-temp",
+    "title": "GPU 1 (Scout) temperature",
+    "msg": "Die temperature of the 4090 (°C, via DCGM).",
+    "more": "Same throttle logic as the Oracle. The Scout sits behind VFIO in a sandbox, so a thermal problem here is contained to Weaver's fabric — but it still costs the branch-exploration throughput the Scout provides."
+  },
+  {
+    "sel": "#gpu-1-pow",
+    "title": "GPU 1 (Scout) power",
+    "msg": "Board power draw of the 4090 (W).",
+    "more": "Part of the same UPS power envelope as GPU 0. Two GPUs at full power is the peak-draw case the graceful-shutdown budget (UPS panel) is sized against."
+  },
+  {
+    "sel": "#gpu-1-sandbox",
+    "title": "GPU 1 (Scout) sandbox",
+    "msg": "Which Weaver sandbox currently owns the VFIO-passed 4090.",
+    "more": "Because the Scout is VFIO-passed, exactly one confined context holds it at a time. This names that context — the link between raw GPU telemetry and the Weaver fabric row that's actually using it."
+  },
+  {
+    "sel": "#zpool-iops",
+    "title": "zpool tank IOPS",
+    "msg": "Current IO operations/sec on the tank pool (M068).",
+    "more": "tank is where state, snapshots and context datasets live. IOPS here is the demand side; the two latency numbers next to it are the service side. High IOPS + rising latency = the pool is the bottleneck, which is what the IO-PSI backpressure rule reacts to."
+  },
+  {
+    "sel": "#zpool-rlat",
+    "title": "Read latency p95",
+    "msg": "95th-percentile read latency on tank (μs).",
+    "more": "p95, not average — it catches the tail stalls that average hides. A p95 blowout during a scrub or heavy snapshot is the concrete symptom behind an IO-pressure event."
+  },
+  {
+    "sel": "#zpool-wlat",
+    "title": "Write latency p95",
+    "msg": "95th-percentile write latency on tank (μs).",
+    "more": "Writes are what atomic state-fabric commits (Weaver → tank/context) depend on. Rising write p95 slows every rollback-point snapshot and context commit — pair it with the ZFS dataset table to see which dataset is hot."
+  },
+  {
+    "sel": "#zfs-tbody",
+    "title": "Per-dataset ZFS table",
+    "msg": "Each tank dataset with its usage, compression, recordsize and sync mode.",
+    "more": "This is where you localise a storage problem: recordsize and sync settings explain latency behaviour, and usage shows which dataset (context, snapshots, models) is growing. Sync=always datasets pay write latency for durability — a deliberate trade you can see here."
   },
   {
     "sel": "#backpressure-panel",
-    "title": "Active backpressure",
-    "msg": "The M058 rules currently throttling work because the box is under pressure.",
-    "more": "Backpressure is the system defending itself: when PSI / GPU / IO pressure crosses a threshold, these rules shed or slow load. A rule firing here explains a latency spike you might otherwise chase in D-05 traces."
+    "title": "M058 backpressure rules",
+    "msg": "The hardware-aware scheduler's live rules (R09823-R09825) — condition → mitigation, each with a live pill.",
+    "more": "This is the system defending itself under load: when a resource crosses its threshold, the scheduler automatically sheds or reshapes work rather than falling over. 'idle' means the condition isn't met; a firing rule explains why autonomy, context, or background work just changed without anyone touching it."
+  },
+  {
+    "sel": "#rule-blackwell-vram",
+    "title": "Rule: Blackwell VRAM > 90%",
+    "msg": "When Oracle VRAM exceeds 90% → reduce context + evict low-value KV + switch to a smaller oracle.",
+    "more": "The relief valve for the heavy tier. When it fires, expect shorter effective context and possibly a lighter model answering — a deliberate quality-for-survival trade, not a bug. Read it together with gpu-0-vram / gpu-0-kv above."
+  },
+  {
+    "sel": "#rule-4090-busy",
+    "title": "Rule: 4090 busy (util > 85%)",
+    "msg": "When Scout util exceeds 85% → reduce branch width + use CPU classifiers.",
+    "more": "Protects the Scout from oversubscription by narrowing exploration and pushing classification onto the CPU (Pulse). Firing here explains why branch-heavy work suddenly got narrower or slower."
+  },
+  {
+    "sel": "#rule-cpu-pressure",
+    "title": "Rule: CPU PSI > 30%",
+    "msg": "When CPU PSI exceeds 30% → defer background indexing + evals.",
+    "more": "Keeps interactive inference responsive by postponing non-urgent CPU work. If evals or indexing 'paused on their own', this rule is why — it resumes when CPU PSI falls."
+  },
+  {
+    "sel": "#rule-ram-pressure",
+    "title": "Rule: RAM PSI > 20%",
+    "msg": "When memory PSI exceeds 20% → hibernate branches + compact memory.",
+    "more": "The pre-OOM defence: it frees RAM by parking idle branches and compacting before the kernel is forced to reclaim hard. Firing here is the healthy alternative to an OOM kill."
+  },
+  {
+    "sel": "#rule-io-pressure",
+    "title": "Rule: IO PSI > 25%",
+    "msg": "When IO PSI exceeds 25% → delay cold scans + avoid large snapshots.",
+    "more": "Stops storage-heavy maintenance from starving live work. This is why a scheduled scrub or big snapshot may be held back during busy periods — deferred, not cancelled."
+  },
+  {
+    "sel": "#rule-human-gate",
+    "title": "Rule: human-gate queue > 5",
+    "msg": "When the approval queue depth exceeds 5 → batch approvals + lower autonomy.",
+    "more": "A governance backpressure, not a hardware one: when approvals pile up (D-06), the system batches them and reduces how much it does unattended — keeping the operator in the loop rather than racing ahead of decisions."
+  },
+  {
+    "sel": "#refresh-btn",
+    "title": "Refresh",
+    "msg": "Re-poll the pressure daemon now.",
+    "more": "A manual sample on demand — useful when you've just changed load and want a fresh reading instead of waiting for the next auto-poll. Read-only; it fetches, it changes nothing."
+  },
+  {
+    "sel": "#scrub-btn",
+    "title": "zpool scrub (operator-signed)",
+    "msg": "Stages a tank scrub — it copies the signed CLI verb, it does not run from the web.",
+    "more": "R10212: the cockpit never mutates privileged state. A scrub is heavy IO (and will itself raise IO PSI), so it goes through the gated osctl path where it can be authorised and timed against load — not fired from a browser."
+  },
+  {
+    "sel": "#dcgm-export-btn",
+    "title": "Copy DCGM export cmd",
+    "msg": "Copies the command to export GPU telemetry via NVIDIA DCGM.",
+    "more": "Lets the raw GPU metrics leave the cockpit for an external monitor/SIEM. The panel shows the live view; this hands you the exact command to wire the same data into your own stack."
+  },
+  {
+    "sel": "#control-surface",
+    "title": "Controls — profiles, modes & toggles",
+    "msg": "The per-panel control rail — runtime profiles, modes, and feature toggles for hardware behaviour.",
+    "more": "Every actionable control here copies its exact `sovereign-osctl` verb rather than executing (§1g / R10212). This is where a runtime mode (which caps GPU power and pins cores) is selected — the setting that explains much of the pressure picture above."
   }
 ];
 </script>
