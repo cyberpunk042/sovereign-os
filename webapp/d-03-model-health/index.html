@@ -706,6 +706,23 @@ a11y; contract test catches drift.
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#conductor-util",
+    "title": "Conductor utilization",
+    "msg": "How busy the Conductor role (CPU0) is right now.",
+    "more": "Per M075 the three SRP roles map to hardware: Logic=GPU0, Oracle=GPU1, Conductor=CPU0. The Conductor orchestrates; sustained high utilization here means the routing/coordination tier is the bottleneck, not the GPUs."
+  },
+  {
+    "sel": "#conductor-tps",
+    "title": "Conductor tokens/sec",
+    "msg": "Live throughput of the Conductor tier.",
+    "more": "Read next to utilization: high util with low tokens/sec is contention or a stall, not useful work. This is the live-serving view — the model portfolio itself lives in D-23."
+  }
+];
+</script>
 
 <h1>D-03 — model health</h1>
 <div class="sub">SRP topology + per-role hardware status + KV cache + p50/p95/p99 latency — <span class="kbd">Cmd-4</span> · <a href="../master-dashboard/">D-00 main</a> · <a href="../d-09-hardware-pressure/">D-09 pressure</a></div>

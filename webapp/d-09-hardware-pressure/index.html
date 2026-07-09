@@ -703,6 +703,29 @@ a11y; contract test catches drift.
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#ccd-0",
+    "title": "CCD0 utilization",
+    "msg": "Load on the first core-complex die of the Ryzen 9 9900X.",
+    "more": "The 9900X is dual-CCD (M070). Pinning matters: inference housekeeping vs compute are split across CCDs so one does not starve the other. A lopsided CCD0/CCD1 split usually means the pinning policy drifted."
+  },
+  {
+    "sel": "#ccd-1",
+    "title": "CCD1 utilization",
+    "msg": "Load on the second core-complex die.",
+    "more": "Read the two CCDs together — balanced is healthy; one pegged while the other idles points at an IRQ-affinity or core-pinning issue from the active runtime mode."
+  },
+  {
+    "sel": "#backpressure-panel",
+    "title": "Active backpressure",
+    "msg": "The M058 rules currently throttling work because the box is under pressure.",
+    "more": "Backpressure is the system defending itself: when PSI / GPU / IO pressure crosses a threshold, these rules shed or slow load. A rule firing here explains a latency spike you might otherwise chase in D-05 traces."
+  }
+];
+</script>
 
 <h1>D-09 — hardware pressure</h1>
 <div class="sub">Linux PSI + NVIDIA DCGM + ZFS IOPS + Dual-CCD utilization — <span class="kbd">Cmd-0</span> · <a href="../master-dashboard/">D-00 main</a></div>

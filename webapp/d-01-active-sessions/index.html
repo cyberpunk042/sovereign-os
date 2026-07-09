@@ -694,6 +694,29 @@ a11y; contract test catches drift.
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = [
+  {
+    "sel": "#active-count",
+    "title": "Active sessions",
+    "msg": "Agent sessions currently live on this node (a real process, tracked by pid).",
+    "more": "Each session walks the M057 12-step lifecycle shown below. 'Active' means its process is alive; when a process exits without a clean stop, the session reaper (SDD-065) archives it, so this count reflects reality, not stale bookkeeping."
+  },
+  {
+    "sel": "#blocked-count",
+    "title": "Blocked sessions",
+    "msg": "Live sessions currently waiting on something (an approval, a gate, a resource).",
+    "more": "A blocked session is not dead — it is paused mid-lifecycle. If this climbs, check D-06 pending approvals: sessions often block on a human yes/no there."
+  },
+  {
+    "sel": "#datasource-banner",
+    "title": "Live vs snapshot",
+    "msg": "Green = the sessions API daemon is reachable and this is live; muted = the baked snapshot.",
+    "more": "A panel must always say which data source it is on — pretending to be live is not allowed. Baked-snapshot fallback keeps the panel readable offline."
+  }
+];
+</script>
 
 <h1>D-01 — active sessions</h1>
 <div class="sub">M057 12-step task lifecycle per session — <span class="kbd">Cmd-2</span> · <a href="../master-dashboard/">D-00 main</a></div>
