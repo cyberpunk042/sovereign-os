@@ -8202,8 +8202,17 @@ case "${cmd}" in
         # DRY-RUN by default; the real zfs snapshot + criu dump run live + gated.
         "${__REPO_ROOT}/scripts/lifecycle/save-state.py" "${sub}" "$@"
         ;;
+      start|stop|list)
+        # SDD-058 (M057): the session-process producer — `start -- <cmd>` spawns
+        # an operator task command under a systemd-run --scope + registers it with
+        # a real pid (the CRIU save-state target); `stop` archives the scope; `list`
+        # shows the registered sessions. CLI-ONLY and DELIBERATELY NOT a cockpit
+        # control — `start` runs an operator-supplied command (arbitrary exec) and
+        # must NEVER be web-triggerable (R10212); no control-systems / sudoers entry.
+        "${__REPO_ROOT}/scripts/lifecycle/session-runtime.py" "${sub}" "$@"
+        ;;
       *)
-        log_error "unknown sessions subverb: ${sub} (available: active, summary, steps, hibernate, resume, kill, hibernate-all, save-state, restore)"
+        log_error "unknown sessions subverb: ${sub} (available: active, summary, steps, hibernate, resume, kill, hibernate-all, save-state, restore, start, stop, list)"
         exit 2
         ;;
     esac
