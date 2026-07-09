@@ -858,7 +858,7 @@ a11y; contract test catches drift.
 <!-- APP-SHELL:BEGIN M067 -->
 <style id="so-app-shell-style">
   :root{
-    --so-header-h:48px; --so-sidemenu-w:244px; --so-sidemenu-w-collapsed:56px; --so-assist-w:340px;
+    --so-header-h:48px; --so-sidemenu-w:244px; --so-sidemenu-w-collapsed:56px; --so-assist-w:360px;
   }
   #so-content{ margin-top:var(--so-header-h); margin-left:var(--so-sidemenu-w); }
   body.so-sm-collapsed #so-content{ margin-left:var(--so-sidemenu-w-collapsed); }
@@ -921,7 +921,8 @@ a11y; contract test catches drift.
   .so-assist-hint{color:var(--muted,#8a8a8a); font-style:italic;}
   #so-assist-el{border:1px dashed var(--border,#262626); border-radius:8px; padding:.6rem .7rem; background:var(--bg,#0e0e0e); min-height:3rem;}
   #so-assist-el.hot{border-color:var(--accent,#9bd1ff); border-style:solid;}
-  [data-assist].so-assist-hot{outline:2px solid var(--accent,#9bd1ff); outline-offset:2px; border-radius:6px;}
+  #so-assist-el .lbl{font-weight:600; margin-bottom:.3rem;} #so-assist-el .lbl .id{color:var(--accent,#9bd1ff); font-size:.72rem;}
+  [data-assist].so-assist-hot, .so-sm-item.so-assist-hot{outline:2px solid var(--accent,#9bd1ff); outline-offset:-2px; border-radius:6px;}
   /* responsive — reuse the existing breakpoints */
   @media (max-width:1024px){
     #so-sidemenu{transform:translateX(-100%);} body.so-sm-open #so-sidemenu{transform:translateX(0); width:var(--so-sidemenu-w);}
@@ -933,72 +934,70 @@ a11y; contract test catches drift.
 (function(){
   "use strict";
   if (window.__soAppShell) return; window.__soAppShell = true;
-  // ── full navigable catalog: groups → panels (draft taxonomy; Stage-4 makes this /catalog-driven) ──
+  // ── catalog: groups → panels, with per-panel assistant data (desc).
+  //    Generated from config/dashboard-catalog.yaml (single source of truth). ──
   var GROUPS = [
-    {name:'Overview', items:[
-      {id:'D-00', dir:'master-dashboard', label:'master dashboard', ico:'◎'},
-      {id:'—', dir:'surface-map', label:'surface map', ico:'\u{1f5fa}'},
-      {id:'—', dir:'global-history', label:'global history', ico:'\u{1f551}'}]},
-    {name:'Sessions & Memory', items:[
-      {id:'D-01', dir:'d-01-active-sessions', label:'active sessions', ico:'▣'},
-      {id:'D-07', dir:'d-07-memory-changes', label:'memory changes', ico:'✎'},
-      {id:'D-08', dir:'d-08-rollback-points', label:'rollback points', ico:'↺'}]},
-    {name:'Models & Inference', items:[
-      {id:'D-02', dir:'d-02-profile-choices', label:'profile choices', ico:'◈'},
-      {id:'D-03', dir:'d-03-model-health', label:'model health', ico:'♥'},
-      {id:'D-10', dir:'d-10-eval-history', label:'eval history', ico:'∿'},
-      {id:'D-11', dir:'d-11-adapter-status', label:'adapter status', ico:'⚙'},
-      {id:'D-19', dir:'d-19-super-model-manifest', label:'super-model manifest', ico:'≣'},
-      {id:'D-21', dir:'d-21-lm-orchestration', label:'LM orchestration', ico:'⛭'},
-      {id:'D-22', dir:'d-22-lm-status-operability', label:'LM status', ico:'◐'},
-      {id:'D-23', dir:'d-23-models-catalog', label:'model catalog', ico:'▤'}]},
-    {name:'Cost & Load', items:[
-      {id:'D-04', dir:'d-04-costs', label:'costs', ico:'$'},
-      {id:'D-05', dir:'d-05-traces', label:'traces', ico:'⋮'},
-      {id:'D-09', dir:'d-09-hardware-pressure', label:'hardware pressure', ico:'▰'},
-      {id:'D-24', dir:'d-24-cpu-features', label:'CPU features', ico:'⊞'},
-      {id:'—', dir:'ups', label:'UPS', ico:'\u{1f50b}'}]},
-    {name:'Security & Trust', items:[
-      {id:'D-06', dir:'d-06-pending-approvals', label:'pending approvals', ico:'✋'},
-      {id:'D-13', dir:'d-13-filesystem-grants', label:'filesystem grants', ico:'\u{1f4c1}'},
-      {id:'D-14', dir:'d-14-capability-tokens', label:'capability tokens', ico:'⚷'},
-      {id:'D-15', dir:'d-15-sandboxes', label:'sandboxes', ico:'▢'},
-      {id:'D-16', dir:'d-16-audit', label:'audit chain', ico:'☑'},
-      {id:'D-17', dir:'d-17-quarantine', label:'quarantine', ico:'⚠'},
-      {id:'D-18', dir:'d-18-trust-scores', label:'trust scores', ico:'★'},
-      {id:'D-25', dir:'d-25-selfdef-management', label:'selfdef management', ico:'⛨'},
-      {id:'—', dir:'auditor', label:'auditor', ico:'\u{1f50d}'},
-      {id:'—', dir:'auth-tier', label:'auth tier', ico:'\u{1f511}'},
-      {id:'—', dir:'compliance', label:'compliance', ico:'⚖'}]},
-    {name:'Network', items:[
-      {id:'D-12a', dir:'network-edge', label:'network edge', ico:'⇄'},
-      {id:'D-12b', dir:'edge-firewall', label:'edge firewall', ico:'\u{1f6e1}'}]},
-    {name:'System & Trinity', items:[
-      {id:'D-20', dir:'d-20-peace-machine-health', label:'peace-machine health', ico:'☮'},
-      {id:'—', dir:'trinity', label:'trinity', ico:'△'},
-      {id:'—', dir:'weaver', label:'weaver', ico:'☲'},
-      {id:'—', dir:'router', label:'router', ico:'⎈'},
-      {id:'—', dir:'orchestration', label:'orchestration', ico:'⧉'},
-      {id:'—', dir:'runtime-modes', label:'runtime modes', ico:'◑'}]},
-    {name:'Build & Configure', items:[
-      {id:'—', dir:'build-configurator', label:'build configurator', ico:'▶'},
-      {id:'—', dir:'flash', label:'flash', ico:'⚡'},
-      {id:'—', dir:'emulate', label:'emulate', ico:'◴'},
-      {id:'—', dir:'profile-generation', label:'profile generation', ico:'⌘'},
-      {id:'—', dir:'models-catalog', label:'models catalog', ico:'▤'},
-      {id:'—', dir:'personalization', label:'personalization', ico:'✦'}]},
-    {name:'Audits & Meta', items:[
-      {id:'—', dir:'doc-coverage', label:'doc coverage', ico:'☷'},
-      {id:'—', dir:'ux-design-audit', label:'UX design audit', ico:'◓'},
-      {id:'—', dir:'anti-minimization-audit', label:'anti-minimization audit', ico:'⛶'},
-      {id:'—', dir:'cpu-features', label:'cpu features (raw)', ico:'⊞'}]}
+    {name:'Trinity & Orchestration', items:[
+      {id:'—', dir:'trinity', label:'Trinity', ico:'△', desc:'The 3-tier runtime at a glance — Pulse (CPU/AVX-512 ternary), Weaver (sandboxed GPU fabric), Auditor (immutable gatekeeper): live tier status, model assignments, health.'},
+      {id:'—', dir:'weaver', label:'Weaver (fabric)', ico:'☲', desc:'The sandboxed fabric layer — Podman/VFIO isolation, the state-fabric (tank/context) writers, CCD1 allocation. Where untrusted work runs.'},
+      {id:'—', dir:'auditor', label:'Auditor (gatekeeper)', ico:'🔍', desc:'The always-on immutable gatekeeper — Tetragon eBPF perimeter + Guardian violation tail. The last line that cannot be bypassed.'},
+      {id:'—', dir:'router', label:'Router', ico:'⎈', desc:'The deterministic request router (SDD-011): which tier answers a prompt, per-rule classification, routing-decision metrics. Pairs with the thinking-router planner (CLI: router plan).'},
+      {id:'—', dir:'runtime-modes', label:'Runtime Modes', ico:'◑', desc:'The master-spec §18 runtime profiles (ultra-sovereign-efficiency / high-concurrency / deep-context) — pick the mode; it drives core pinning, GPU power, model allocation.'},
+      {id:'D-01', dir:'d-01-active-sessions', label:'D-01 Active Sessions', ico:'▣', desc:'The 12-step task lifecycle per live operator session (init → inference → response → validation → cleanup).'},
+      {id:'D-03', dir:'d-03-model-health', label:'D-03 Model Health', ico:'♥', desc:'Per-tier inference health — SRP role, GPU binding, KV-cache pressure, latency. The live-serving view (distinct from the catalog).'},
+      {id:'D-05', dir:'d-05-traces', label:'D-05 Traces', ico:'⋮', desc:'Distributed span search — 13-field trace tree, OCSF export. Debug why a request went where it did.'},
+    ]},
+    {name:'Models & Compute', items:[
+      {id:'D-21', dir:'d-21-lm-orchestration', label:'D-21 LM Orchestration', ico:'⛭', desc:'Profiles + model→hardware assignment grid (GPU0/GPU1/CPU0 = Logic/Oracle/Conductor per M075) + CPU AVX-512 / GPU capability panel. Read-only: Apply copies the signed profile verb.'},
+      {id:'D-24', dir:'d-24-cpu-features', label:'D-24 CPU Features', ico:'⊞', desc:'The deep AVX-512 capability view — extension map, per-AI-workload fit verdict, and advisory. Reuses avx512-advisor. Distinct from D-21 Features-CPU summary.'},
+      {id:'D-23', dir:'d-23-models-catalog', label:'D-23 Model Catalog', ico:'▤', desc:'The canonical model registry (models/catalog.yaml) browsed by SRP tier — id, class, engine, precision, params, context, license, purpose, status. The portfolio view (distinct from D-03 live health).'},
+      {id:'D-22', dir:'d-22-lm-status-operability', label:'D-22 LM Status & Operability', ico:'◐', desc:'Per-device (CPU0/GPU0/GPU1) Model 0/1/2 status + History|Selected latency + operability Actions/Tests + render-only Chat. Reuses the model-health core; Actions copy signed CLI verbs.'},
+      {id:'—', dir:'models-catalog', label:'Models & Catalog', ico:'▤', desc:'The full model catalog (68 models across ternary-lm/RLM/SLM/LLM/mixture, every quantization) with VRAM-aware selection — browse and filter by class/quant/tier/purpose/VRAM. Backed by models/catalog.yaml (served at /models-catalog.json); operator CLI e.g. models select --class rlm --vram 48.'},
+      {id:'—', dir:'cpu-features', label:'CPU / AVX-512 Choice', ico:'⊞', desc:'The tiered AVX-512 exploitation surface — which instructions (F/VL/BW/VNNI/BF16/VPOPCNTDQ…) THIS CPU exposes and how they map to the AI workloads they enable (Pulse ternary path). Live probe via avx512-advisor (R272), served at /cpu-avx.json.'},
+      {id:'—', dir:'orchestration', label:'Thinking Router / Orchestration', ico:'⧉', desc:'The thinking-router / orchestration view — the 7-axis routing rules (SDD-011) + live routing metrics (which tier/class/task-type requests landed on) + the per-profile escalation (CoT → Validator → self-consistency → MoE). Served at /orchestration.json (router rules|metrics).'},
+      {id:'—', dir:'profile-generation', label:'Runtime-Profile Generation', ico:'⌘', desc:'Generate a whole runtime profile from hardware × strategy, with tier_intent resolved against the catalog (the \'20+ combos\' producer) — shows the resolved allocations each strategy produces + the generate command. Served at /profile-generation.json from profiles/runtime/*.yaml.'},
+      {id:'D-10', dir:'d-10-eval-history', label:'D-10 Eval History', ico:'∿', desc:'Per-task/model eval results (mmlu/humaneval/gsm8k/…), white-box + black-box.'},
+      {id:'D-11', dir:'d-11-adapter-status', label:'D-11 Adapter Status', ico:'⚙', desc:'LoRA adapter inventory + rollback state — which fine-tunes are resident and active.'},
+      {id:'D-19', dir:'d-19-super-model-manifest', label:'D-19 Super-Model Manifest', ico:'≣', desc:'The live super-model version + the M001..M080 module table — what capabilities are shipped.'},
+    ]},
+    {name:'Hardware & Operations', items:[
+      {id:'D-09', dir:'d-09-hardware-pressure', label:'D-09 Hardware Pressure', ico:'▰', desc:'Live PSI (CPU/mem/IO), per-CCD load, GPU utilization + power, ZFS pool health. The physical-stress view.'},
+      {id:'D-04', dir:'d-04-costs', label:'D-04 Costs', ico:'$', desc:'Budget + spend by project / profile / model — local compute cost + any cloud fallback.'},
+      {id:'D-08', dir:'d-08-rollback-points', label:'D-08 Rollback Points', ico:'↺', desc:'ZFS snapshots as recovery points, with a dry-run preview of what a rollback would change.'},
+      {id:'D-02', dir:'d-02-profile-choices', label:'D-02 Profile Choices', ico:'◈', desc:'The active OS profile mirrored read-only — hardware, kernel, packages, hooks in effect.'},
+      {id:'—', dir:'global-history', label:'Global History', ico:'🕑', desc:'A unified change log across 6 sources (apt/dpkg/shell/osctl/events/modules) — \'what changed since I last looked?\''},
+      {id:'—', dir:'build-configurator', label:'Build Configurator', ico:'▶', desc:'Compose an OS image (or manage this host) and RUN the build — the Run console (validate/preflight/BUILD, bake toggles). The one page that actually builds sovereign-os.'},
+      {id:'—', dir:'emulate', label:'Emulate (QEMU)', ico:'◴', desc:'Boot a built image in a throwaway QEMU VM before flashing — interactive serial console, configurable QEMU options (uefi/direct boot, kvm/tcg, cpu/mem, snapshot), auto-login. Catches a broken image in a VM, never on the USB key.'},
+      {id:'—', dir:'flash', label:'Flash to USB', ico:'⚡', desc:'Write a built image onto a removable disk from the panel — a safety-classified device picker (system disks hard-protected), type-to-arm confirm, and live dd progress. Shells the gated sovereign-osctl install image; never raw dd.'},
+      {id:'—', dir:'ups', label:'UPS (APC Smart-UPS)', ico:'🔋', desc:'Live APC Smart-UPS (SMT2200C SmartConnect) state (battery %, runtime, load, on-line/on-battery) via NUT apc_modbus over Modbus TCP (:502) or serial, plus the graceful soft-shutdown posture — an orderly poweroff when battery runtime drops below 30 minutes. Read-only over power-status + NUT upsc.'},
+    ]},
+    {name:'Security & selfdef', items:[
+      {id:'D-25', dir:'d-25-selfdef-management', label:'D-25 Self-Defense Management', ico:'⛨', desc:'READ-ONLY consumer view (R10212) of the selfdef IPS — on/off enablement + M060 mirror-chain health + links to the 6 domain panels (D-13..D-18). Derives state via the m060-health probe() proxy; on/off is a clipboard-copied signed CLI verb.'},
+      {id:'—', dir:'selfdef-management', label:'selfdef (IPS) Management', ico:'⛨', desc:'The intrusion-prevention system — live on/off state + unit/mirror health, unifying the 6 mirror dashboards (D-13..D-18) + perimeter. Served at /selfdef-management.json (selfdef status); controls (on/off/sync/doctor + perimeter) via the Controls surface.'},
+      {id:'D-12b', dir:'edge-firewall', label:'Edge Firewall', ico:'🛡', desc:'Host firewall posture — nftables / fail2ban / crowdsec / suricata state + install recommendations.'},
+      {id:'D-12a', dir:'network-edge', label:'Network Edge', ico:'⇄', desc:'The edge topology — OPNsense bridge, ISP NAT layers, VPN, per-interface state. Where the box sits in the network.'},
+      {id:'D-12', dir:'d-12-networking', label:'D-12 Networking', ico:'⇄', desc:'The cockpit networking view — the selfdef MS039 Ring-0-4 nftables rules mirror (read-only via selfdef-rules-mirror), per-ring rule counts + traffic + dispositions.'},
+      {id:'D-06', dir:'d-06-pending-approvals', label:'D-06 Pending Approvals', ico:'✋', desc:'The operator approval queue + stage gates — actions waiting for a human yes/no.'},
+      {id:'D-07', dir:'d-07-memory-changes', label:'D-07 Memory Changes', ico:'✎', desc:'The 8-type memory-graph diff — what the agent\'s memory added/changed/removed.'},
+      {id:'D-13', dir:'d-13-filesystem-grants', label:'D-13 Filesystem Grants', ico:'📁', desc:'selfdef filesystem-grant mirror (read-only) — which paths are granted to whom.'},
+      {id:'D-14', dir:'d-14-capability-tokens', label:'D-14 Capability Tokens', ico:'⚷', desc:'selfdef capability-token mirror — issued/revoked capabilities.'},
+      {id:'D-15', dir:'d-15-sandboxes', label:'D-15 Sandboxes', ico:'▢', desc:'selfdef sandbox mirror — active sandboxes + their isolation state.'},
+      {id:'D-16', dir:'d-16-audit', label:'D-16 Audit Chain', ico:'☑', desc:'selfdef append-only audit-chain mirror — the tamper-evident event log.'},
+      {id:'D-17', dir:'d-17-quarantine', label:'D-17 Quarantine', ico:'⚠', desc:'selfdef quarantine mirror — what\'s been isolated and why.'},
+      {id:'D-18', dir:'d-18-trust-scores', label:'D-18 Trust Scores', ico:'★', desc:'selfdef trust-score mirror — per-entity trust levels driving policy.'},
+      {id:'D-20', dir:'d-20-peace-machine-health', label:'D-20 Peace Machine Health', ico:'☮', desc:'The M059 peace-machine 5-property verdict — the top-level \'is the system at peace\' signal.'},
+      {id:'—', dir:'compliance', label:'Compliance', ico:'⚖', desc:'The §1g/§1h compliance aggregator — per-module pass/fail against the operator mandate.'},
+      {id:'—', dir:'auth-tier', label:'Auth Tier', ico:'🔑', desc:'The 6-tier auth ladder (no-auth → basic → advanced → social → enterprise → network) + per-surface requirement.'},
+      {id:'—', dir:'anti-minimization-audit', label:'Anti-Minimization Audit', ico:'⛶', desc:'The \'do not minimize\' audit — flags where scope was silently shrunk vs the mandate.'},
+    ]},
+    {name:'Governance & Meta', items:[
+      {id:'D-00', dir:'master-dashboard', label:'Master Dashboard', ico:'◎', desc:'The aggregator — the route table + health of every panel + selfdef cross-repo manifest discovery. The front door (this catalog is its new global index).'},
+      {id:'—', dir:'surface-map', label:'Surface Map', ico:'🗺', desc:'The §1g 8-surface taxonomy coverage — which of the 8 operator surfaces each module delivers.'},
+      {id:'—', dir:'doc-coverage', label:'Doc Coverage', ico:'☷', desc:'Documentation coverage per module — what\'s documented vs shipped.'},
+      {id:'—', dir:'ux-design-audit', label:'UX Design Audit', ico:'◓', desc:'The UX design-stage audit — consistency/accessibility scoring across the panels.'},
+      {id:'—', dir:'personalization', label:'Personalization', ico:'✦', desc:'Theme / accent / typography control (localStorage-backed) applied across all panels before paint.'},
+    ]},
   ];
-  var PANEL_HELP = {
-    'master-dashboard':'The cockpit front door — every panel, control, profile and mode in one place. The cards + control-surface link out to each surface; the sidemenu (← left) is the always-present index of the whole cockpit.',
-    'd-04-costs':'Per-session and per-model spend with budget thresholds, cost-by-profile / model / project breakdowns, and the operator-controlled cost policy. Read-only — nothing here executes on the server.',
-    'd-01-active-sessions':'Live agent sessions and their runtime state (pid, save-state, ZFS dataset). Read-only.',
-    'personalization':'Theme, accent and typography for the whole cockpit. The header theme toggle writes the SAME prefs shown here.'
-  };
   var PKEY='sovereign-os.personalization', PSCHEMA=1;
   function loadPrefs(){ try{var r=localStorage.getItem(PKEY);var p=r?JSON.parse(r):null;if(!p||p.schema!==PSCHEMA)return{schema:PSCHEMA,theme:'auto',accent:'#9bd1ff',font_scale:1};return p;}catch(e){return{schema:PSCHEMA,theme:'auto',accent:'#9bd1ff',font_scale:1};} }
   function savePrefs(p){ try{localStorage.setItem(PKEY,JSON.stringify(p));}catch(e){} }
@@ -1011,10 +1010,10 @@ a11y; contract test catches drift.
   function curDir(){ var seg=location.pathname.replace(/\/+$/,'').split('/'); return seg[seg.length-1]||''; }
   function findPanel(dir){ for(var g=0;g<GROUPS.length;g++){var it=GROUPS[g].items;for(var i=0;i<it.length;i++){if(it[i].dir===dir)return it[i];}} return null; }
   function el(h){ var d=document.createElement('div'); d.innerHTML=h.trim(); return d.firstChild; }
-  function esc(s){ return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
 
   function buildHeader(cur){
-    var crumb = cur ? ('<b>'+esc(cur.id)+'</b> · '+esc(cur.label)) : 'cockpit';
+    var crumb = cur ? ('<b>'+esc(cur.id!=='—'?cur.id:'')+'</b> '+(cur.id!=='—'?'· ':'')+esc(cur.label)) : 'cockpit';
     document.body.appendChild(el(
       '<header id="so-header" role="banner"><div class="so-h-left">'+
         '<button class="so-h-btn" id="so-menu-toggle" title="Toggle sidemenu" aria-label="Toggle sidemenu">☰</button>'+
@@ -1033,21 +1032,21 @@ a11y; contract test catches drift.
       var items=g.items.map(function(it){
         var a=it.dir===dir?' active':'';
         return '<a class="so-sm-item'+a+'" href="'+root+it.dir+'/" data-dir="'+it.dir+'" data-label="'+esc(it.label)+'" title="'+esc(it.label)+'">'+
-          '<span class="ico">'+it.ico+'</span><span class="lbl">'+esc(it.label)+'</span><span class="id">'+esc(it.id)+'</span></a>';
+          '<span class="ico">'+it.ico+'</span><span class="lbl">'+esc(it.label)+'</span><span class="id">'+esc(it.id!=='—'?it.id:'')+'</span></a>';
       }).join('');
       return '<div class="so-grp"><button class="so-grp-h" type="button"><span>'+esc(g.name)+'</span><span class="chev">▾</span></button><div class="so-grp-items">'+items+'</div></div>';
     }).join('');
     document.body.appendChild(el('<nav id="so-sidemenu" aria-label="dashboards"><div class="so-sm-filter"><input type="text" id="so-sm-search" placeholder="filter panels…" autocomplete="off"></div><div class="so-sm-scroll">'+html+'</div></nav>'));
   }
   function buildAssistant(cur){
-    var help=(cur&&PANEL_HELP[cur.dir])||(cur?('The '+cur.label+' cockpit panel.'):'A cockpit panel.');
-    var title=cur?(esc(cur.id)+' '+esc(cur.label)):'this panel';
+    var help=(cur&&cur.desc)||(cur?('The '+cur.label+' cockpit panel.'):'A cockpit panel.');
+    var title=cur?((cur.id!=='—'?esc(cur.id)+' ':'')+esc(cur.label)):'this panel';
     document.body.appendChild(el(
       '<aside id="so-assist" role="complementary" aria-label="assistant"><div class="so-assist-h"><span class="t"><span class="spark">✦</span> Assistant</span>'+
         '<button class="so-h-btn" id="so-assist-close" title="Close" style="margin-left:auto">✕</button></div>'+
       '<div class="so-assist-body">'+
         '<div class="so-assist-sec"><h4>This panel — '+title+'</h4><div>'+esc(help)+'</div></div>'+
-        '<div class="so-assist-sec"><h4>Hovered element</h4><div id="so-assist-el"><span class="so-assist-hint">Hover any highlighted control and its explanation appears here.</span></div></div>'+
+        '<div class="so-assist-sec"><h4>Focus / hover</h4><div id="so-assist-el"><span class="so-assist-hint">Hover a menu link or any highlighted control and its explanation appears here.</span></div></div>'+
         '<div class="so-assist-sec"><h4>Tour</h4><button class="so-h-btn" id="so-tour-btn" style="border-color:var(--border,#262626)">▶ Start tour</button> <span class="so-assist-hint" id="so-tour-status"></span></div>'+
       '</div></aside>'));
   }
@@ -1068,19 +1067,31 @@ a11y; contract test catches drift.
         Array.prototype.forEach.call(grp.querySelectorAll('.so-sm-item'),function(it){ var hit=!q||it.dataset.label.toLowerCase().indexOf(q)>=0||it.dataset.dir.toLowerCase().indexOf(q)>=0; it.style.display=hit?'':'none'; if(hit)any=true; });
         grp.style.display=any?'':'none'; }); });
     var box=document.getElementById('so-assist-el');
-    function show(t,tg){ box.classList.add('hot'); box.textContent=t; if(tg)tg.classList.add('so-assist-hot'); if(!document.body.classList.contains('so-assist-open'))document.body.classList.add('so-assist-open'); }
+    function openAssist(){ if(!document.body.classList.contains('so-assist-open')) document.body.classList.add('so-assist-open'); }
+    function showText(t,tg){ box.classList.add('hot'); box.textContent=t; if(tg)tg.classList.add('so-assist-hot'); openAssist(); }
+    function showPanel(p,tg){ box.classList.add('hot');
+      box.innerHTML='<div class="lbl">'+(p.id!=='—'?'<span class="id">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div>'+esc(p.desc||'')+'</div>';
+      if(tg)tg.classList.add('so-assist-hot'); openAssist(); }
     function clr(tg){ if(tg)tg.classList.remove('so-assist-hot'); }
-    Array.prototype.forEach.call(document.querySelectorAll('[data-assist]'),function(t){
-      t.addEventListener('mouseenter',function(){show(t.getAttribute('data-assist'),t);});
-      t.addEventListener('focus',function(){show(t.getAttribute('data-assist'),t);});
+    // content elements the panel annotated
+    Array.prototype.forEach.call(document.querySelectorAll('#so-content [data-assist]'),function(t){
+      t.addEventListener('mouseenter',function(){showText(t.getAttribute('data-assist'),t);});
+      t.addEventListener('focus',function(){showText(t.getAttribute('data-assist'),t);});
       t.addEventListener('mouseleave',function(){clr(t);});
       t.addEventListener('blur',function(){clr(t);}); });
+    // every menu link explains its panel (assistant data)
+    Array.prototype.forEach.call(document.querySelectorAll('.so-sm-item'),function(it){
+      var p=findPanel(it.dataset.dir); if(!p) return;
+      it.addEventListener('mouseenter',function(){showPanel(p,it);});
+      it.addEventListener('focus',function(){showPanel(p,it);});
+      it.addEventListener('mouseleave',function(){clr(it);});
+      it.addEventListener('blur',function(){clr(it);}); });
     // ── guided tour: walk the panel's [data-assist] elements in order ──
     var tour={list:[],i:-1,on:false}, tourBtn=document.getElementById('so-tour-btn'), tourStatus=document.getElementById('so-tour-status');
     function reduced(){ return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
     function tourClear(){ tour.list.forEach(function(e){ e.classList.remove('so-assist-hot'); }); }
     function tourEnd(){ tour.on=false; tourClear(); box.classList.remove('hot');
-      box.innerHTML='<span class="so-assist-hint">Hover any highlighted control and its explanation appears here.</span>';
+      box.innerHTML='<span class="so-assist-hint">Hover a menu link or any highlighted control and its explanation appears here.</span>';
       if(tourStatus) tourStatus.textContent=''; if(tourBtn) tourBtn.textContent='▶ Start tour'; }
     function tourShow(i){ if(i<0||i>=tour.list.length){ tourEnd(); return; } tour.i=i; tourClear();
       var e=tour.list[i]; e.classList.add('so-assist-hot');
@@ -1096,8 +1107,8 @@ a11y; contract test catches drift.
       if(nx) nx.addEventListener('click',function(){ tour.i===tour.list.length-1 ? tourEnd() : tourShow(tour.i+1); });
     }
     function tourStart(){ tour.list=Array.prototype.slice.call(document.querySelectorAll('#so-content [data-assist]'));
-      if(!tour.list.length){ if(tourStatus) tourStatus.textContent='no annotated elements on this panel yet.'; return; }
-      tour.on=true; document.body.classList.add('so-assist-open'); if(tourBtn) tourBtn.textContent='✕ End tour'; tourShow(0); }
+      if(!tour.list.length){ if(tourStatus) tourStatus.textContent='no annotated elements on this panel yet — the menu links (← left) each carry a description.'; return; }
+      tour.on=true; openAssist(); if(tourBtn) tourBtn.textContent='✕ End tour'; tourShow(0); }
     if(tourBtn) tourBtn.addEventListener('click',function(){ tour.on ? tourEnd() : tourStart(); });
     window.addEventListener('keydown',function(ev){ if(!tour.on) return;
       if(ev.key==='ArrowRight'){ ev.preventDefault(); tour.i===tour.list.length-1 ? tourEnd() : tourShow(tour.i+1); }
@@ -1106,7 +1117,6 @@ a11y; contract test catches drift.
   }
   function init(){
     var dir=curDir(), cur=findPanel(dir);
-    // non-destructive reparent: move existing body content into #so-content, then append chrome as siblings
     var content=document.createElement('div'); content.id='so-content';
     while(document.body.firstChild){ content.appendChild(document.body.firstChild); }
     document.body.appendChild(content);

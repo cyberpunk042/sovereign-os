@@ -424,6 +424,278 @@ a11y; contract test catches drift.
 </style>
 </head>
 <body>
+<!-- APP-SHELL:BEGIN M067 -->
+<style id="so-app-shell-style">
+  :root{
+    --so-header-h:48px; --so-sidemenu-w:244px; --so-sidemenu-w-collapsed:56px; --so-assist-w:360px;
+  }
+  #so-content{ margin-top:var(--so-header-h); margin-left:var(--so-sidemenu-w); }
+  body.so-sm-collapsed #so-content{ margin-left:var(--so-sidemenu-w-collapsed); }
+  body.so-assist-open #so-content{ margin-right:var(--so-assist-w); }
+  @media (prefers-reduced-motion: no-preference){
+    .so-h-btn,.so-sm-item,.so-grp-h,[data-assist]{transition:background .12s ease,border-color .12s ease,box-shadow .12s ease,transform .12s ease}
+    #so-assist{transition:transform .18s ease} #so-sidemenu{transition:width .16s ease,transform .16s ease} #so-content{transition:margin .16s ease}
+  }
+  /* header */
+  #so-header{position:fixed; top:0; left:0; right:0; height:var(--so-header-h); z-index:9500;
+    display:flex; align-items:center; gap:.5rem; padding:0 .6rem;
+    background:var(--panel,#171717); border-bottom:1px solid var(--border,#262626);
+    color:var(--fg,#e6e6e6); font-family:ui-sans-serif,-apple-system,Segoe UI,Roboto,sans-serif; font-size:.82rem;}
+  .so-h-left{display:flex; align-items:center; gap:.55rem; min-width:0;}
+  .so-h-right{display:flex; align-items:center; gap:.35rem; margin-left:auto;}
+  .so-h-btn{display:inline-flex; align-items:center; justify-content:center; gap:.35rem; height:30px;
+    padding:0 .5rem; background:transparent; color:var(--fg,#e6e6e6); border:1px solid transparent;
+    border-radius:6px; cursor:pointer; font:inherit; font-size:.82rem;}
+  .so-h-btn:hover{background:color-mix(in srgb,var(--accent,#9bd1ff) 14%,transparent); border-color:color-mix(in srgb,var(--accent,#9bd1ff) 40%,transparent);}
+  .so-brand{display:flex; align-items:center; gap:.4rem; font-weight:600; letter-spacing:.02em;}
+  .so-brand .mark{color:var(--accent,#9bd1ff);}
+  .so-crumb{color:var(--muted,#8a8a8a); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:40vw;}
+  .so-crumb b{color:var(--fg,#e6e6e6); font-weight:600;}
+  .so-pill{display:inline-flex; align-items:center; gap:.35rem; font-size:.72rem; color:var(--muted,#8a8a8a);
+    border:1px solid var(--border,#262626); border-radius:999px; padding:.1rem .5rem;}
+  .so-pill .dot{width:7px; height:7px; border-radius:50%; background:var(--ok,#7fd18a);}
+  /* sidemenu */
+  #so-sidemenu{position:fixed; top:var(--so-header-h); left:0; bottom:0; width:var(--so-sidemenu-w); z-index:9400;
+    background:var(--panel,#171717); border-right:1px solid var(--border,#262626); display:flex; flex-direction:column; overflow:hidden;
+    font-family:ui-sans-serif,-apple-system,Segoe UI,Roboto,sans-serif;}
+  body.so-sm-collapsed #so-sidemenu{width:var(--so-sidemenu-w-collapsed);}
+  .so-sm-filter{padding:.5rem; border-bottom:1px solid var(--border,#262626);}
+  .so-sm-filter input{width:100%; height:28px; background:var(--bg,#0e0e0e); color:var(--fg,#e6e6e6);
+    border:1px solid var(--border,#262626); border-radius:6px; padding:0 .5rem; font:inherit; font-size:.78rem; outline:none;}
+  .so-sm-filter input:focus{border-color:var(--accent,#9bd1ff);}
+  body.so-sm-collapsed .so-sm-filter{display:none;}
+  .so-sm-scroll{flex:1; overflow-y:auto; padding:.25rem 0 1rem;}
+  .so-grp-h{display:flex; align-items:center; gap:.4rem; width:100%; background:transparent; color:var(--muted,#8a8a8a);
+    border:0; cursor:pointer; font:inherit; font-size:.68rem; text-transform:uppercase; letter-spacing:.06em; padding:.5rem .7rem .25rem; text-align:left;}
+  .so-grp-h .chev{margin-left:auto; transition:transform .12s ease;}
+  .so-grp.closed .chev{transform:rotate(-90deg);} .so-grp.closed .so-grp-items{display:none;}
+  body.so-sm-collapsed .so-grp-h{justify-content:center; font-size:0; padding:.4rem 0;} body.so-sm-collapsed .so-grp-h .chev{display:none;}
+  .so-sm-item{display:flex; align-items:center; gap:.55rem; width:100%; text-decoration:none; color:var(--fg,#e6e6e6);
+    background:transparent; border:0; border-left:2px solid transparent; cursor:pointer; font:inherit; font-size:.8rem; padding:.32rem .7rem; text-align:left;}
+  .so-sm-item .ico{width:1.1rem; text-align:center; flex:none; opacity:.9;}
+  .so-sm-item .lbl{flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .so-sm-item .id{font-size:.64rem; color:var(--muted,#8a8a8a);}
+  .so-sm-item:hover{background:color-mix(in srgb,var(--accent,#9bd1ff) 12%,transparent);}
+  .so-sm-item.active{background:color-mix(in srgb,var(--accent,#9bd1ff) 18%,transparent); border-left-color:var(--accent,#9bd1ff);}
+  body.so-sm-collapsed .so-sm-item{justify-content:center; padding:.4rem 0;} body.so-sm-collapsed .so-sm-item .lbl, body.so-sm-collapsed .so-sm-item .id{display:none;}
+  /* assistant */
+  #so-assist{position:fixed; top:var(--so-header-h); right:0; bottom:0; width:var(--so-assist-w); max-width:92vw; z-index:9450;
+    background:var(--panel,#171717); border-left:1px solid var(--border,#262626); transform:translateX(100%); display:flex; flex-direction:column;
+    font-family:ui-sans-serif,-apple-system,Segoe UI,Roboto,sans-serif; color:var(--fg,#e6e6e6);}
+  body.so-assist-open #so-assist{transform:translateX(0);}
+  .so-assist-h{display:flex; align-items:center; gap:.5rem; padding:.6rem .8rem; border-bottom:1px solid var(--border,#262626);}
+  .so-assist-h .t{font-weight:600; font-size:.85rem;} .so-assist-h .t .spark{color:var(--accent,#9bd1ff);}
+  .so-assist-body{flex:1; overflow-y:auto; padding:.8rem; font-size:.82rem; line-height:1.5;}
+  .so-assist-sec{margin-bottom:1.1rem;} .so-assist-sec h4{margin:0 0 .3rem; font-size:.72rem; text-transform:uppercase; letter-spacing:.05em; color:var(--muted,#8a8a8a);}
+  .so-assist-hint{color:var(--muted,#8a8a8a); font-style:italic;}
+  #so-assist-el{border:1px dashed var(--border,#262626); border-radius:8px; padding:.6rem .7rem; background:var(--bg,#0e0e0e); min-height:3rem;}
+  #so-assist-el.hot{border-color:var(--accent,#9bd1ff); border-style:solid;}
+  #so-assist-el .lbl{font-weight:600; margin-bottom:.3rem;} #so-assist-el .lbl .id{color:var(--accent,#9bd1ff); font-size:.72rem;}
+  [data-assist].so-assist-hot, .so-sm-item.so-assist-hot{outline:2px solid var(--accent,#9bd1ff); outline-offset:-2px; border-radius:6px;}
+  /* responsive — reuse the existing breakpoints */
+  @media (max-width:1024px){
+    #so-sidemenu{transform:translateX(-100%);} body.so-sm-open #so-sidemenu{transform:translateX(0); width:var(--so-sidemenu-w);}
+    #so-content{margin-left:0 !important;} body.so-assist-open #so-content{margin-right:0 !important;}
+  }
+  @media (max-width:600px){ .so-crumb{display:none;} #so-assist{width:100vw;} }
+</style>
+<script>
+(function(){
+  "use strict";
+  if (window.__soAppShell) return; window.__soAppShell = true;
+  // ── catalog: groups → panels, with per-panel assistant data (desc).
+  //    Generated from config/dashboard-catalog.yaml (single source of truth). ──
+  var GROUPS = [
+    {name:'Trinity & Orchestration', items:[
+      {id:'—', dir:'trinity', label:'Trinity', ico:'△', desc:'The 3-tier runtime at a glance — Pulse (CPU/AVX-512 ternary), Weaver (sandboxed GPU fabric), Auditor (immutable gatekeeper): live tier status, model assignments, health.'},
+      {id:'—', dir:'weaver', label:'Weaver (fabric)', ico:'☲', desc:'The sandboxed fabric layer — Podman/VFIO isolation, the state-fabric (tank/context) writers, CCD1 allocation. Where untrusted work runs.'},
+      {id:'—', dir:'auditor', label:'Auditor (gatekeeper)', ico:'🔍', desc:'The always-on immutable gatekeeper — Tetragon eBPF perimeter + Guardian violation tail. The last line that cannot be bypassed.'},
+      {id:'—', dir:'router', label:'Router', ico:'⎈', desc:'The deterministic request router (SDD-011): which tier answers a prompt, per-rule classification, routing-decision metrics. Pairs with the thinking-router planner (CLI: router plan).'},
+      {id:'—', dir:'runtime-modes', label:'Runtime Modes', ico:'◑', desc:'The master-spec §18 runtime profiles (ultra-sovereign-efficiency / high-concurrency / deep-context) — pick the mode; it drives core pinning, GPU power, model allocation.'},
+      {id:'D-01', dir:'d-01-active-sessions', label:'D-01 Active Sessions', ico:'▣', desc:'The 12-step task lifecycle per live operator session (init → inference → response → validation → cleanup).'},
+      {id:'D-03', dir:'d-03-model-health', label:'D-03 Model Health', ico:'♥', desc:'Per-tier inference health — SRP role, GPU binding, KV-cache pressure, latency. The live-serving view (distinct from the catalog).'},
+      {id:'D-05', dir:'d-05-traces', label:'D-05 Traces', ico:'⋮', desc:'Distributed span search — 13-field trace tree, OCSF export. Debug why a request went where it did.'},
+    ]},
+    {name:'Models & Compute', items:[
+      {id:'D-21', dir:'d-21-lm-orchestration', label:'D-21 LM Orchestration', ico:'⛭', desc:'Profiles + model→hardware assignment grid (GPU0/GPU1/CPU0 = Logic/Oracle/Conductor per M075) + CPU AVX-512 / GPU capability panel. Read-only: Apply copies the signed profile verb.'},
+      {id:'D-24', dir:'d-24-cpu-features', label:'D-24 CPU Features', ico:'⊞', desc:'The deep AVX-512 capability view — extension map, per-AI-workload fit verdict, and advisory. Reuses avx512-advisor. Distinct from D-21 Features-CPU summary.'},
+      {id:'D-23', dir:'d-23-models-catalog', label:'D-23 Model Catalog', ico:'▤', desc:'The canonical model registry (models/catalog.yaml) browsed by SRP tier — id, class, engine, precision, params, context, license, purpose, status. The portfolio view (distinct from D-03 live health).'},
+      {id:'D-22', dir:'d-22-lm-status-operability', label:'D-22 LM Status & Operability', ico:'◐', desc:'Per-device (CPU0/GPU0/GPU1) Model 0/1/2 status + History|Selected latency + operability Actions/Tests + render-only Chat. Reuses the model-health core; Actions copy signed CLI verbs.'},
+      {id:'—', dir:'models-catalog', label:'Models & Catalog', ico:'▤', desc:'The full model catalog (68 models across ternary-lm/RLM/SLM/LLM/mixture, every quantization) with VRAM-aware selection — browse and filter by class/quant/tier/purpose/VRAM. Backed by models/catalog.yaml (served at /models-catalog.json); operator CLI e.g. models select --class rlm --vram 48.'},
+      {id:'—', dir:'cpu-features', label:'CPU / AVX-512 Choice', ico:'⊞', desc:'The tiered AVX-512 exploitation surface — which instructions (F/VL/BW/VNNI/BF16/VPOPCNTDQ…) THIS CPU exposes and how they map to the AI workloads they enable (Pulse ternary path). Live probe via avx512-advisor (R272), served at /cpu-avx.json.'},
+      {id:'—', dir:'orchestration', label:'Thinking Router / Orchestration', ico:'⧉', desc:'The thinking-router / orchestration view — the 7-axis routing rules (SDD-011) + live routing metrics (which tier/class/task-type requests landed on) + the per-profile escalation (CoT → Validator → self-consistency → MoE). Served at /orchestration.json (router rules|metrics).'},
+      {id:'—', dir:'profile-generation', label:'Runtime-Profile Generation', ico:'⌘', desc:'Generate a whole runtime profile from hardware × strategy, with tier_intent resolved against the catalog (the \'20+ combos\' producer) — shows the resolved allocations each strategy produces + the generate command. Served at /profile-generation.json from profiles/runtime/*.yaml.'},
+      {id:'D-10', dir:'d-10-eval-history', label:'D-10 Eval History', ico:'∿', desc:'Per-task/model eval results (mmlu/humaneval/gsm8k/…), white-box + black-box.'},
+      {id:'D-11', dir:'d-11-adapter-status', label:'D-11 Adapter Status', ico:'⚙', desc:'LoRA adapter inventory + rollback state — which fine-tunes are resident and active.'},
+      {id:'D-19', dir:'d-19-super-model-manifest', label:'D-19 Super-Model Manifest', ico:'≣', desc:'The live super-model version + the M001..M080 module table — what capabilities are shipped.'},
+    ]},
+    {name:'Hardware & Operations', items:[
+      {id:'D-09', dir:'d-09-hardware-pressure', label:'D-09 Hardware Pressure', ico:'▰', desc:'Live PSI (CPU/mem/IO), per-CCD load, GPU utilization + power, ZFS pool health. The physical-stress view.'},
+      {id:'D-04', dir:'d-04-costs', label:'D-04 Costs', ico:'$', desc:'Budget + spend by project / profile / model — local compute cost + any cloud fallback.'},
+      {id:'D-08', dir:'d-08-rollback-points', label:'D-08 Rollback Points', ico:'↺', desc:'ZFS snapshots as recovery points, with a dry-run preview of what a rollback would change.'},
+      {id:'D-02', dir:'d-02-profile-choices', label:'D-02 Profile Choices', ico:'◈', desc:'The active OS profile mirrored read-only — hardware, kernel, packages, hooks in effect.'},
+      {id:'—', dir:'global-history', label:'Global History', ico:'🕑', desc:'A unified change log across 6 sources (apt/dpkg/shell/osctl/events/modules) — \'what changed since I last looked?\''},
+      {id:'—', dir:'build-configurator', label:'Build Configurator', ico:'▶', desc:'Compose an OS image (or manage this host) and RUN the build — the Run console (validate/preflight/BUILD, bake toggles). The one page that actually builds sovereign-os.'},
+      {id:'—', dir:'emulate', label:'Emulate (QEMU)', ico:'◴', desc:'Boot a built image in a throwaway QEMU VM before flashing — interactive serial console, configurable QEMU options (uefi/direct boot, kvm/tcg, cpu/mem, snapshot), auto-login. Catches a broken image in a VM, never on the USB key.'},
+      {id:'—', dir:'flash', label:'Flash to USB', ico:'⚡', desc:'Write a built image onto a removable disk from the panel — a safety-classified device picker (system disks hard-protected), type-to-arm confirm, and live dd progress. Shells the gated sovereign-osctl install image; never raw dd.'},
+      {id:'—', dir:'ups', label:'UPS (APC Smart-UPS)', ico:'🔋', desc:'Live APC Smart-UPS (SMT2200C SmartConnect) state (battery %, runtime, load, on-line/on-battery) via NUT apc_modbus over Modbus TCP (:502) or serial, plus the graceful soft-shutdown posture — an orderly poweroff when battery runtime drops below 30 minutes. Read-only over power-status + NUT upsc.'},
+    ]},
+    {name:'Security & selfdef', items:[
+      {id:'D-25', dir:'d-25-selfdef-management', label:'D-25 Self-Defense Management', ico:'⛨', desc:'READ-ONLY consumer view (R10212) of the selfdef IPS — on/off enablement + M060 mirror-chain health + links to the 6 domain panels (D-13..D-18). Derives state via the m060-health probe() proxy; on/off is a clipboard-copied signed CLI verb.'},
+      {id:'—', dir:'selfdef-management', label:'selfdef (IPS) Management', ico:'⛨', desc:'The intrusion-prevention system — live on/off state + unit/mirror health, unifying the 6 mirror dashboards (D-13..D-18) + perimeter. Served at /selfdef-management.json (selfdef status); controls (on/off/sync/doctor + perimeter) via the Controls surface.'},
+      {id:'D-12b', dir:'edge-firewall', label:'Edge Firewall', ico:'🛡', desc:'Host firewall posture — nftables / fail2ban / crowdsec / suricata state + install recommendations.'},
+      {id:'D-12a', dir:'network-edge', label:'Network Edge', ico:'⇄', desc:'The edge topology — OPNsense bridge, ISP NAT layers, VPN, per-interface state. Where the box sits in the network.'},
+      {id:'D-12', dir:'d-12-networking', label:'D-12 Networking', ico:'⇄', desc:'The cockpit networking view — the selfdef MS039 Ring-0-4 nftables rules mirror (read-only via selfdef-rules-mirror), per-ring rule counts + traffic + dispositions.'},
+      {id:'D-06', dir:'d-06-pending-approvals', label:'D-06 Pending Approvals', ico:'✋', desc:'The operator approval queue + stage gates — actions waiting for a human yes/no.'},
+      {id:'D-07', dir:'d-07-memory-changes', label:'D-07 Memory Changes', ico:'✎', desc:'The 8-type memory-graph diff — what the agent\'s memory added/changed/removed.'},
+      {id:'D-13', dir:'d-13-filesystem-grants', label:'D-13 Filesystem Grants', ico:'📁', desc:'selfdef filesystem-grant mirror (read-only) — which paths are granted to whom.'},
+      {id:'D-14', dir:'d-14-capability-tokens', label:'D-14 Capability Tokens', ico:'⚷', desc:'selfdef capability-token mirror — issued/revoked capabilities.'},
+      {id:'D-15', dir:'d-15-sandboxes', label:'D-15 Sandboxes', ico:'▢', desc:'selfdef sandbox mirror — active sandboxes + their isolation state.'},
+      {id:'D-16', dir:'d-16-audit', label:'D-16 Audit Chain', ico:'☑', desc:'selfdef append-only audit-chain mirror — the tamper-evident event log.'},
+      {id:'D-17', dir:'d-17-quarantine', label:'D-17 Quarantine', ico:'⚠', desc:'selfdef quarantine mirror — what\'s been isolated and why.'},
+      {id:'D-18', dir:'d-18-trust-scores', label:'D-18 Trust Scores', ico:'★', desc:'selfdef trust-score mirror — per-entity trust levels driving policy.'},
+      {id:'D-20', dir:'d-20-peace-machine-health', label:'D-20 Peace Machine Health', ico:'☮', desc:'The M059 peace-machine 5-property verdict — the top-level \'is the system at peace\' signal.'},
+      {id:'—', dir:'compliance', label:'Compliance', ico:'⚖', desc:'The §1g/§1h compliance aggregator — per-module pass/fail against the operator mandate.'},
+      {id:'—', dir:'auth-tier', label:'Auth Tier', ico:'🔑', desc:'The 6-tier auth ladder (no-auth → basic → advanced → social → enterprise → network) + per-surface requirement.'},
+      {id:'—', dir:'anti-minimization-audit', label:'Anti-Minimization Audit', ico:'⛶', desc:'The \'do not minimize\' audit — flags where scope was silently shrunk vs the mandate.'},
+    ]},
+    {name:'Governance & Meta', items:[
+      {id:'D-00', dir:'master-dashboard', label:'Master Dashboard', ico:'◎', desc:'The aggregator — the route table + health of every panel + selfdef cross-repo manifest discovery. The front door (this catalog is its new global index).'},
+      {id:'—', dir:'surface-map', label:'Surface Map', ico:'🗺', desc:'The §1g 8-surface taxonomy coverage — which of the 8 operator surfaces each module delivers.'},
+      {id:'—', dir:'doc-coverage', label:'Doc Coverage', ico:'☷', desc:'Documentation coverage per module — what\'s documented vs shipped.'},
+      {id:'—', dir:'ux-design-audit', label:'UX Design Audit', ico:'◓', desc:'The UX design-stage audit — consistency/accessibility scoring across the panels.'},
+      {id:'—', dir:'personalization', label:'Personalization', ico:'✦', desc:'Theme / accent / typography control (localStorage-backed) applied across all panels before paint.'},
+    ]},
+  ];
+  var PKEY='sovereign-os.personalization', PSCHEMA=1;
+  function loadPrefs(){ try{var r=localStorage.getItem(PKEY);var p=r?JSON.parse(r):null;if(!p||p.schema!==PSCHEMA)return{schema:PSCHEMA,theme:'auto',accent:'#9bd1ff',font_scale:1};return p;}catch(e){return{schema:PSCHEMA,theme:'auto',accent:'#9bd1ff',font_scale:1};} }
+  function savePrefs(p){ try{localStorage.setItem(PKEY,JSON.stringify(p));}catch(e){} }
+  function applyTheme(p){ var r=(p.theme==='dark'||p.theme==='light')?p.theme:((window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)?'light':'dark');
+    document.documentElement.setAttribute('data-theme',r);
+    document.documentElement.style.setProperty('--accent',p.accent||'#9bd1ff'); document.documentElement.style.setProperty('--so-accent',p.accent||'#9bd1ff'); }
+  var THEME_ICON={auto:'◑ auto',dark:'☾ dark',light:'☀ light'};
+  function syncThemeBtn(p){ var b=document.getElementById('so-theme'); if(b) b.textContent=THEME_ICON[p.theme]||'◑ auto'; }
+  function cycleTheme(){ var p=loadPrefs(); p.theme=p.theme==='auto'?'dark':p.theme==='dark'?'light':'auto'; savePrefs(p); applyTheme(p); syncThemeBtn(p); }
+  function curDir(){ var seg=location.pathname.replace(/\/+$/,'').split('/'); return seg[seg.length-1]||''; }
+  function findPanel(dir){ for(var g=0;g<GROUPS.length;g++){var it=GROUPS[g].items;for(var i=0;i<it.length;i++){if(it[i].dir===dir)return it[i];}} return null; }
+  function el(h){ var d=document.createElement('div'); d.innerHTML=h.trim(); return d.firstChild; }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+
+  function buildHeader(cur){
+    var crumb = cur ? ('<b>'+esc(cur.id!=='—'?cur.id:'')+'</b> '+(cur.id!=='—'?'· ':'')+esc(cur.label)) : 'cockpit';
+    document.body.appendChild(el(
+      '<header id="so-header" role="banner"><div class="so-h-left">'+
+        '<button class="so-h-btn" id="so-menu-toggle" title="Toggle sidemenu" aria-label="Toggle sidemenu">☰</button>'+
+        '<span class="so-brand"><span class="mark">⬢</span> sovereign-os</span>'+
+        '<span class="so-crumb">'+crumb+'</span></div>'+
+      '<div class="so-h-right">'+
+        '<span class="so-pill" title="data source"><span class="dot"></span> live ✓</span>'+
+        '<button class="so-h-btn" id="so-palette" title="Command palette (⌘K)">⌘K</button>'+
+        '<button class="so-h-btn" id="so-theme" title="Theme (auto / dark / light)">◑ auto</button>'+
+        '<button class="so-h-btn" id="so-assist-toggle" title="Assistant (contextual help)">✦ Assist</button>'+
+      '</div></header>'));
+  }
+  function buildSidemenu(dir){
+    var root='../';
+    var html=GROUPS.map(function(g){
+      var items=g.items.map(function(it){
+        var a=it.dir===dir?' active':'';
+        return '<a class="so-sm-item'+a+'" href="'+root+it.dir+'/" data-dir="'+it.dir+'" data-label="'+esc(it.label)+'" title="'+esc(it.label)+'">'+
+          '<span class="ico">'+it.ico+'</span><span class="lbl">'+esc(it.label)+'</span><span class="id">'+esc(it.id!=='—'?it.id:'')+'</span></a>';
+      }).join('');
+      return '<div class="so-grp"><button class="so-grp-h" type="button"><span>'+esc(g.name)+'</span><span class="chev">▾</span></button><div class="so-grp-items">'+items+'</div></div>';
+    }).join('');
+    document.body.appendChild(el('<nav id="so-sidemenu" aria-label="dashboards"><div class="so-sm-filter"><input type="text" id="so-sm-search" placeholder="filter panels…" autocomplete="off"></div><div class="so-sm-scroll">'+html+'</div></nav>'));
+  }
+  function buildAssistant(cur){
+    var help=(cur&&cur.desc)||(cur?('The '+cur.label+' cockpit panel.'):'A cockpit panel.');
+    var title=cur?((cur.id!=='—'?esc(cur.id)+' ':'')+esc(cur.label)):'this panel';
+    document.body.appendChild(el(
+      '<aside id="so-assist" role="complementary" aria-label="assistant"><div class="so-assist-h"><span class="t"><span class="spark">✦</span> Assistant</span>'+
+        '<button class="so-h-btn" id="so-assist-close" title="Close" style="margin-left:auto">✕</button></div>'+
+      '<div class="so-assist-body">'+
+        '<div class="so-assist-sec"><h4>This panel — '+title+'</h4><div>'+esc(help)+'</div></div>'+
+        '<div class="so-assist-sec"><h4>Focus / hover</h4><div id="so-assist-el"><span class="so-assist-hint">Hover a menu link or any highlighted control and its explanation appears here.</span></div></div>'+
+        '<div class="so-assist-sec"><h4>Tour</h4><button class="so-h-btn" id="so-tour-btn" style="border-color:var(--border,#262626)">▶ Start tour</button> <span class="so-assist-hint" id="so-tour-status"></span></div>'+
+      '</div></aside>'));
+  }
+  function wire(){
+    document.getElementById('so-menu-toggle').addEventListener('click',function(){
+      if(window.matchMedia('(max-width:1024px)').matches) document.body.classList.toggle('so-sm-open');
+      else document.body.classList.toggle('so-sm-collapsed'); });
+    document.getElementById('so-theme').addEventListener('click',cycleTheme);
+    document.getElementById('so-assist-toggle').addEventListener('click',function(){document.body.classList.toggle('so-assist-open');});
+    document.getElementById('so-assist-close').addEventListener('click',function(){document.body.classList.remove('so-assist-open');});
+    document.getElementById('so-palette').addEventListener('click',function(){
+      window.dispatchEvent(new KeyboardEvent('keydown',{key:'k',metaKey:true,bubbles:true}));
+      window.dispatchEvent(new KeyboardEvent('keydown',{key:'k',ctrlKey:true,bubbles:true})); });
+    Array.prototype.forEach.call(document.querySelectorAll('.so-grp-h'),function(b){ b.addEventListener('click',function(){b.parentNode.classList.toggle('closed');}); });
+    var s=document.getElementById('so-sm-search');
+    s.addEventListener('input',function(){ var q=s.value.trim().toLowerCase();
+      Array.prototype.forEach.call(document.querySelectorAll('.so-grp'),function(grp){ var any=false;
+        Array.prototype.forEach.call(grp.querySelectorAll('.so-sm-item'),function(it){ var hit=!q||it.dataset.label.toLowerCase().indexOf(q)>=0||it.dataset.dir.toLowerCase().indexOf(q)>=0; it.style.display=hit?'':'none'; if(hit)any=true; });
+        grp.style.display=any?'':'none'; }); });
+    var box=document.getElementById('so-assist-el');
+    function openAssist(){ if(!document.body.classList.contains('so-assist-open')) document.body.classList.add('so-assist-open'); }
+    function showText(t,tg){ box.classList.add('hot'); box.textContent=t; if(tg)tg.classList.add('so-assist-hot'); openAssist(); }
+    function showPanel(p,tg){ box.classList.add('hot');
+      box.innerHTML='<div class="lbl">'+(p.id!=='—'?'<span class="id">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div>'+esc(p.desc||'')+'</div>';
+      if(tg)tg.classList.add('so-assist-hot'); openAssist(); }
+    function clr(tg){ if(tg)tg.classList.remove('so-assist-hot'); }
+    // content elements the panel annotated
+    Array.prototype.forEach.call(document.querySelectorAll('#so-content [data-assist]'),function(t){
+      t.addEventListener('mouseenter',function(){showText(t.getAttribute('data-assist'),t);});
+      t.addEventListener('focus',function(){showText(t.getAttribute('data-assist'),t);});
+      t.addEventListener('mouseleave',function(){clr(t);});
+      t.addEventListener('blur',function(){clr(t);}); });
+    // every menu link explains its panel (assistant data)
+    Array.prototype.forEach.call(document.querySelectorAll('.so-sm-item'),function(it){
+      var p=findPanel(it.dataset.dir); if(!p) return;
+      it.addEventListener('mouseenter',function(){showPanel(p,it);});
+      it.addEventListener('focus',function(){showPanel(p,it);});
+      it.addEventListener('mouseleave',function(){clr(it);});
+      it.addEventListener('blur',function(){clr(it);}); });
+    // ── guided tour: walk the panel's [data-assist] elements in order ──
+    var tour={list:[],i:-1,on:false}, tourBtn=document.getElementById('so-tour-btn'), tourStatus=document.getElementById('so-tour-status');
+    function reduced(){ return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
+    function tourClear(){ tour.list.forEach(function(e){ e.classList.remove('so-assist-hot'); }); }
+    function tourEnd(){ tour.on=false; tourClear(); box.classList.remove('hot');
+      box.innerHTML='<span class="so-assist-hint">Hover a menu link or any highlighted control and its explanation appears here.</span>';
+      if(tourStatus) tourStatus.textContent=''; if(tourBtn) tourBtn.textContent='▶ Start tour'; }
+    function tourShow(i){ if(i<0||i>=tour.list.length){ tourEnd(); return; } tour.i=i; tourClear();
+      var e=tour.list[i]; e.classList.add('so-assist-hot');
+      if(e.scrollIntoView) e.scrollIntoView({block:'center', behavior: reduced()?'auto':'smooth'});
+      box.classList.add('hot');
+      box.innerHTML='<div style="margin-bottom:.5rem">'+esc(e.getAttribute('data-assist'))+'</div>'+
+        '<div style="display:flex;gap:.4rem;align-items:center">'+
+        '<button class="so-h-btn" id="so-tour-prev"'+(i===0?' disabled':'')+'>←</button>'+
+        '<button class="so-h-btn" id="so-tour-next">'+(i===tour.list.length-1?'done':'→')+'</button>'+
+        '<span class="so-assist-hint">step '+(i+1)+' / '+tour.list.length+'</span></div>';
+      var pv=document.getElementById('so-tour-prev'), nx=document.getElementById('so-tour-next');
+      if(pv) pv.addEventListener('click',function(){ tourShow(tour.i-1); });
+      if(nx) nx.addEventListener('click',function(){ tour.i===tour.list.length-1 ? tourEnd() : tourShow(tour.i+1); });
+    }
+    function tourStart(){ tour.list=Array.prototype.slice.call(document.querySelectorAll('#so-content [data-assist]'));
+      if(!tour.list.length){ if(tourStatus) tourStatus.textContent='no annotated elements on this panel yet — the menu links (← left) each carry a description.'; return; }
+      tour.on=true; openAssist(); if(tourBtn) tourBtn.textContent='✕ End tour'; tourShow(0); }
+    if(tourBtn) tourBtn.addEventListener('click',function(){ tour.on ? tourEnd() : tourStart(); });
+    window.addEventListener('keydown',function(ev){ if(!tour.on) return;
+      if(ev.key==='ArrowRight'){ ev.preventDefault(); tour.i===tour.list.length-1 ? tourEnd() : tourShow(tour.i+1); }
+      else if(ev.key==='ArrowLeft'){ ev.preventDefault(); tourShow(Math.max(0,tour.i-1)); }
+      else if(ev.key==='Escape'){ ev.preventDefault(); tourEnd(); } });
+  }
+  function init(){
+    var dir=curDir(), cur=findPanel(dir);
+    var content=document.createElement('div'); content.id='so-content';
+    while(document.body.firstChild){ content.appendChild(document.body.firstChild); }
+    document.body.appendChild(content);
+    buildHeader(cur); buildSidemenu(dir); buildAssistant(cur); wire();
+    applyTheme(loadPrefs()); syncThemeBtn(loadPrefs());
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
+})();
+</script>
+<!-- APP-SHELL:END M067 -->
 
 <h1>D-18 — trust scores <span class="badge-mirror" style="font-size:.7rem">read-only via selfdef-trust-score-mirror</span></h1>
 <div class="sub">per-tool trust score history · 0..1000 fixed-point · 4-band classification · MS042 telemetry input · MS040 profile evaluation — <a href="../master-dashboard/">D-00 main</a></div>
