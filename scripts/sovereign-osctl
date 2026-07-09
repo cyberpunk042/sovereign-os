@@ -8309,18 +8309,29 @@ case "${cmd}" in
       approve|reject|request)
         "${__REPO_ROOT}/scripts/intelligence/memory-decide.py" "${sub}" "$@"
         ;;
-      forget|undo|register|purge|list)
+      forget|undo|register|purge|list|reconcile)
         # SDD-059/060 (M028): the memory-entry store ops — forget (R10184, soft-delete,
         # refuse-by-default + --force CLI-only) / undo (R10185, restore) / register
         # (mint a memory entry) / purge (SDD-060 retention sweep — hard-remove
         # forgotten tombstones past the window, IRREVERSIBLE) / list (the mem-<id>
-        # entries). DRY-RUN by default; operator-key + type-to-confirm gated. purge is
+        # entries) / reconcile (SDD-064 — recompute the D-07 memory.json projection
+        # counts+lifecycle FROM the store, preserving pending/history; Q-059-D/Q-060-D
+        # closure). DRY-RUN by default; operator-key + type-to-confirm gated. purge is
         # CLI-ONLY maintenance — deliberately NOT a cockpit control (irreversible; the
         # web can never reach it). The read core stays a pure reader; the API stays 405.
         "${__REPO_ROOT}/scripts/intelligence/memory-store.py" "${sub}" "$@"
         ;;
+      admit|advance)
+        # SDD-064 (M028): the admission-lifecycle ENGINE — admit (value-gated: 8
+        # store-if triggers / 5 ignore-if / low-trust / duplicate → NOT stored; else
+        # mint at stage `observe`) / advance (walk the 11-stage lifecycle
+        # observe→…→archive). GROUNDED (SB-077): observations are CLI/fixture-fed —
+        # there is no real agent-memory source yet; the auto-feed event stream is
+        # Stage-N. Every admit/advance reconciles the D-07 projection. DRY-RUN default.
+        "${__REPO_ROOT}/scripts/intelligence/memory-admit.py" "${sub}" "$@"
+        ;;
       *)
-        log_error "unknown memory-changes subverb: ${sub} (available: snapshot, types, lifecycle, approve, reject, request, forget, undo, register, purge, list)"
+        log_error "unknown memory-changes subverb: ${sub} (available: snapshot, types, lifecycle, approve, reject, request, forget, undo, register, purge, list, reconcile, admit, advance)"
         exit 2
         ;;
     esac
