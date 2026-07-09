@@ -277,6 +277,80 @@ def test_webapp_fetches_entries_endpoint():
     assert "jumpToControl('memory-forget', " in html
 
 
+def test_navigate_endpoint_projects_the_store():
+    """SDD-068 — the RLM navigator GET ranks matching slices from the store
+    (read-compute; honest-defer for the composed answer with no LM)."""
+    state = _write_state()
+    fd, store = tempfile.mkstemp(prefix="memory-store-", suffix=".json")
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        json.dump({"entries": {
+            "mem-aa11": {"id": "mem-aa11", "type": 2, "stage": "verify",
+                         "summary": "router failed on gpu one after a dependency bump",
+                         "state": "active", "topic": "networking",
+                         "tags": ["router", "gpu", "dependency"],
+                         "created": "2026-07-01T00:00:00+00:00",
+                         "updated": "2026-07-05T00:00:00+00:00"},
+            "mem-bb22": {"id": "mem-bb22", "type": 3, "stage": "observe",
+                         "summary": "grocery list milk eggs", "state": "active",
+                         "created": "2026-07-02T00:00:00+00:00",
+                         "updated": "2026-07-02T00:00:00+00:00"},
+        }}, fh)
+    port = _free_port()
+    proc = _spawn_api(port, state, extra_env={"SOVEREIGN_OS_MEMORY_STORE_DB": store})
+    try:
+        # deterministic slice-select (compose=0 → no LM); the router entry ranks, grocery drops.
+        status, d = _get(port, "/api/d-07/navigate?q=router%20dependency&compose=0")
+        assert status == 200
+        ids = {s["id"] for s in d["slices"]}
+        assert "mem-aa11" in ids and "mem-bb22" not in ids
+        # a temporal verb (changed → updated != created) over the same store.
+        status2, d2 = _get(port, "/api/d-07/navigate?verb=changed&compose=0")
+        assert status2 == 200 and [s["id"] for s in d2["slices"]] == ["mem-aa11"]
+        # contradicted-by honest-defers (no contradiction substrate) — never fabricated.
+        status3, d3 = _get(port, "/api/d-07/navigate?verb=contradicted-by")
+        assert status3 == 200 and d3["deferred"] is True and d3["count"] == 0
+    finally:
+        proc.kill(); proc.wait(timeout=3); os.unlink(state); os.unlink(store)
+
+
+def test_navigate_endpoint_empty_safe():
+    """SDD-068 — navigate over an absent/empty store is empty-safe, never a crash."""
+    state = _write_state()
+    port = _free_port()
+    proc = _spawn_api(port, state, extra_env={
+        "SOVEREIGN_OS_MEMORY_STORE_DB": "/nonexistent/store.json"})
+    try:
+        status, d = _get(port, "/api/d-07/navigate?q=anything&compose=0")
+        assert status == 200 and d["ok"] is True and d["count"] == 0
+    finally:
+        proc.kill(); proc.wait(timeout=3); os.unlink(state)
+
+
+def test_navigate_endpoint_readonly_post_rejected():
+    """SDD-068 — the navigator is a read-only GET; a POST stays 405 (R10212)."""
+    state = _write_state()
+    port = _free_port()
+    proc = _spawn_api(port, state)
+    try:
+        req = urllib.request.Request(
+            f"http://127.0.0.1:{port}/api/d-07/navigate", method="POST", data=b"{}")
+        try:
+            urllib.request.urlopen(req, timeout=3)
+            raised = False
+        except urllib.error.HTTPError as e:
+            raised = (e.code == 405)
+        assert raised, "mutation on /api/d-07/navigate must be rejected 405"
+    finally:
+        proc.kill(); proc.wait(timeout=3); os.unlink(state)
+
+
+def test_webapp_has_navigate_query_box():
+    """SDD-068 — the D-07 webapp must fetch the navigator + expose the query box."""
+    html = WEBAPP.read_text(encoding="utf-8")
+    assert "/api/d-07/navigate" in html, "webapp must fetch /api/d-07/navigate"
+    assert "function navigate(" in html and "nav-q" in html
+
+
 def test_webapp_served():
     state = _write_state()
     port = _free_port()

@@ -522,6 +522,21 @@ a11y; contract test catches drift.
   <tbody id="memory-entries"></tbody>
 </table>
 
+<h2>M028 memory query <span class="muted" style="font-size:.75rem;font-weight:400">— the RLM navigator (M00472, SDD-068); read-only <code>/api/d-07/navigate</code> — selects slices + composes via the local LM, honest-defer when it's unreachable</span></h2>
+<div class="row">
+  <input id="nav-q" type="text" placeholder="ask the memory OS — e.g. router failures after a dependency change" style="flex:1;min-width:16rem" onkeydown="if(event.key==='Enter')navigate()">
+  <select id="nav-verb" title="M00469 temporal query verb (optional)">
+    <option value="">— temporal verb —</option>
+    <option value="true-now">true-now</option>
+    <option value="changed">changed</option>
+    <option value="true-then">true-then (--at)</option>
+    <option value="last-verified">last-verified</option>
+    <option value="contradicted-by">contradicted-by</option>
+  </select>
+  <button onclick="navigate()">navigate ↵</button>
+</div>
+<div id="nav-result" class="muted" style="margin:.5rem 0">enter a query — the navigator ranks matching memory slices and composes an answer (read-only; never mutates the store)</div>
+
 <h2>actions <span class="muted" style="font-size:.75rem;font-weight:400">— web emits CLI only; daemon executes after MS003 signature (MS043 R10212)</span></h2>
 <div class="row">
   <button onclick="load()">refresh diff (live)</button>
@@ -652,6 +667,41 @@ a11y; contract test catches drift.
       entries = Array.isArray(d.entries) ? d.entries : [];
     } catch (e) { /* offline — keep the last-known entries (empty-safe) */ }
     renderEntries();
+  }
+
+  // SDD-068 — the RLM memory navigator (M00472). Read-only GET; renders the composed
+  // answer + the ranked slices; honest banner when the LM honest-defers (SB-077).
+  async function navigate() {
+    const box = document.getElementById('nav-result');
+    const q = (document.getElementById('nav-q').value || '').trim();
+    const verb = document.getElementById('nav-verb').value || '';
+    if (!q && !verb) { box.className = 'muted'; box.textContent = 'enter a query or pick a temporal verb'; return; }
+    box.className = 'muted'; box.textContent = 'navigating…';
+    let params = new URLSearchParams();
+    if (q) params.set('q', q);
+    if (verb) params.set('verb', verb);
+    try {
+      const r = await fetch('/api/d-07/navigate?' + params.toString(), { credentials: 'same-origin' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const d = await r.json();
+      let html = '';
+      if (d.deferred) {
+        html += `<div class="pill warn">honest-defer</div> <span class="muted">${escapeHtml(d.reason || 'unavailable')}</span><br>`;
+      } else if (d.answer) {
+        html += `<div style="margin:.35rem 0"><strong>answer:</strong> ${escapeHtml(d.answer)}</div>`;
+      }
+      const slices = d.slices || [];
+      if (!slices.length && !d.deferred) {
+        html += '<span class="muted">no memory matched</span>';
+      } else if (slices.length) {
+        html += `<div class="muted" style="margin:.35rem 0">${escapeHtml(String(d.count))} slice(s)${d.temporal_note ? ' · ' + escapeHtml(d.temporal_note) : ''}:</div>`;
+        html += slices.map(s => `<div style="margin:.2rem 0"><code>${escapeHtml(s.id)}</code> <span class="muted">${escapeHtml(s.stage || '')}</span> — ${escapeHtml(s.summary || '')}${s.topic ? ' <span class="pill">' + escapeHtml(s.topic) + '</span>' : ''}</div>`).join('');
+      }
+      box.className = ''; box.innerHTML = html || '<span class="muted">no result</span>';
+    } catch (e) {
+      box.className = 'muted';
+      box.innerHTML = 'cannot reach <code>/api/d-07/navigate</code> — is the memory-changes API daemon running? <span class="muted">(' + escapeHtml(e.message) + ')</span>';
+    }
   }
 
   function renderDataSourceBanner(ok, errMsg) {

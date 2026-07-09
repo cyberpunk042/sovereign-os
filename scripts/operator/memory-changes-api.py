@@ -14,6 +14,7 @@ MS003-signed CLI verbs (MS043 R10212), never web mutations.
 Endpoints (the exact contract webapp/d-07-memory-changes/index.html fetches):
   GET /api/d-07/snapshot     full model (counts/lifecycle/diffs/pending)
   GET /api/d-07/entries      the addressable M028 memory entries (SDD-060 list view)
+  GET /api/d-07/navigate     the RLM memory navigator (SDD-068 M00472) — read-compute query
   GET /api/d-07/stream       Server-Sent Events (snapshot events)
   GET /webapp/ | /webapp/index.html   the D-07 dashboard
   GET /version | /healthz | /
@@ -79,6 +80,43 @@ try:
         _store_spec.loader.exec_module(_store)
 except Exception as _e:  # noqa: BLE001 — degrade to empty entries, never fail the daemon
     sys.stderr.write(f"[warn] memory-store unavailable ({_e}); /api/d-07/entries → []\n")
+
+# Import the RLM memory NAVIGATOR (SDD-068 M00472) — the read-compute query engine that
+# powers the read-only GET /api/d-07/navigate. Degrade-to-None like the store block; the
+# navigate endpoint then answers 503 (never a crash). The navigator NEVER mutates the
+# store (read-compute); the daemon stays 405 on all POST/PUT/DELETE (R10212).
+_NAV_PATH = _REPO_ROOT / "scripts" / "intelligence" / "memory-navigate.py"
+_navigator = None
+try:
+    _nav_spec = importlib.util.spec_from_file_location("_memorynavigate_core", _NAV_PATH)
+    if _nav_spec is not None and _nav_spec.loader is not None:
+        _navigator = importlib.util.module_from_spec(_nav_spec)
+        _nav_spec.loader.exec_module(_navigator)
+except Exception as _e:  # noqa: BLE001 — navigate endpoint → 503, never fail the daemon
+    sys.stderr.write(f"[warn] memory-navigate unavailable ({_e}); /api/d-07/navigate → 503\n")
+
+
+def _navigate_payload(qs: dict) -> dict:
+    """The RLM navigator answer for GET /api/d-07/navigate. Read-only; honest-defers
+    (never fabricates) when the LM is unreachable / the store is empty."""
+    def _one(k):
+        v = qs.get(k)
+        return v[0] if isinstance(v, list) and v else None
+    q = _one("q") or ""
+    mtype = _one("type")
+    try:
+        mtype = int(mtype) if mtype is not None else None
+    except (TypeError, ValueError):
+        mtype = None
+    limit = _one("limit")
+    try:
+        limit = int(limit) if limit is not None else 5
+    except (TypeError, ValueError):
+        limit = 5
+    compose = _one("compose") not in ("0", "false", "no")
+    return _navigator.navigate(
+        q, mtype=mtype, stage=_one("stage"), topic=_one("topic"),
+        verb=_one("verb"), at=_one("at"), limit=limit, compose=compose)
 
 
 def _entries_payload() -> dict:
@@ -200,14 +238,24 @@ class MemoryChangesAPIHandler(BaseHTTPRequestHandler):
                 self._send_json(200, _entries_payload())
                 _emit_metric("entries", "ok")
                 return
+            if path == "/api/d-07/navigate":
+                # SDD-068 — the RLM navigator (read-compute; NEVER mutates the store).
+                if _navigator is None:
+                    self._send_json(503, {"error": "memory navigator unavailable"})
+                    _emit_metric("navigate", "503")
+                    return
+                qs = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+                self._send_json(200, _navigate_payload(qs))
+                _emit_metric("navigate", "ok")
+                return
         except Exception as e:  # noqa: BLE001
             self._send_json(500, {"error": str(e)})
             _emit_metric(path.lstrip("/") or "unknown", "500")
             return
         self._send_json(404, {
             "error": f"unknown endpoint: {path!r}",
-            "available": ["/api/d-07/snapshot", "/api/d-07/entries", "/api/d-07/stream",
-                          "/version", "/healthz", "/webapp/"],
+            "available": ["/api/d-07/snapshot", "/api/d-07/entries", "/api/d-07/navigate",
+                          "/api/d-07/stream", "/version", "/healthz", "/webapp/"],
         })
         _emit_metric(path.lstrip("/") or "unknown", "404")
 
