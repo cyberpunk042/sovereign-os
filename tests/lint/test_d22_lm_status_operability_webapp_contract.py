@@ -126,16 +126,22 @@ def test_webapp_advertises_read_only_endpoints():
     assert "navigator.clipboard.writeText" in body, (
         "operability Actions must clipboard-copy MS003-signed CLI verbs"
     )
-    # The ONLY mutating request permitted is the shared component's sanctioned
-    # exec endpoint; no D-22-specific POST/PUT/DELETE fetch may leak.
+    # The permitted mutating POSTs are: the shared component's sanctioned exec
+    # endpoint (/api/control/execute, R10274) AND — per SDD-062, operator-sanctioned
+    # "the full deal, no minimizing" — the D-22 chat endpoint (/api/lm-status/chat),
+    # a NON-MUTATING inference read-compute to the loopback router. No OTHER
+    # POST/PUT/DELETE fetch may leak. All actual state mutations stay 405.
     for m in re.finditer(r'fetch\(\s*["\']([^"\']+)["\']', body):
         assert m.group(1).startswith("/"), "non-same-origin fetch"
-    stray = re.search(r'method:\s*["\'](POST|PUT|DELETE|PATCH)["\']', body)
-    if stray:
-        assert "/api/control/execute" in body, (
-            "the only permitted mutating request is the sanctioned "
-            "control-exec-api exec POST (/api/control/execute)"
+    _PERMITTED_POST = ("/api/control/execute", "/api/lm-status/chat")
+    # every POST-target fetch in the page must be one of the permitted endpoints
+    for m in re.finditer(r'fetch\(\s*["\']([^"\']+)["\'][^)]*method:\s*["\']POST["\']', body):
+        assert m.group(1) in _PERMITTED_POST, (
+            f"D-22 leaks an unsanctioned POST to {m.group(1)!r} — only "
+            f"{_PERMITTED_POST} are permitted (R10212 / SDD-062)"
         )
+    if re.search(r'method:\s*["\'](PUT|DELETE|PATCH)["\']', body):
+        raise AssertionError("D-22 must not PUT/DELETE/PATCH (R10212)")
 
 
 def test_api_daemon_serves_webapp_path():
@@ -211,6 +217,49 @@ def test_api_daemon_is_read_only():
         except urllib.error.HTTPError as e:
             raised = e.code == 405
         assert raised, "POST must be rejected 405 (read-only cockpit)"
+    finally:
+        proc.kill()
+        proc.wait(timeout=3)
+
+
+def test_chat_endpoint_is_the_one_sanctioned_post():
+    """SDD-062 — POST /api/lm-status/chat is the ONE sanctioned mutating-method
+    endpoint (a non-mutating inference read-compute): it must NOT be 405. With no
+    router backend reachable it still opens the SSE stream and emits an honest
+    `error` event (SB-077) — never a fabricated completion. Every OTHER POST path
+    stays 405."""
+    port = _free_port()
+    proc = _spawn_api(port)
+    try:
+        # the chat endpoint is NOT 405 (it is the sanctioned inference read-compute)
+        req = urllib.request.Request(
+            f"http://127.0.0.1:{port}/api/lm-status/chat", method="POST",
+            data=json.dumps({"prompt": "hello"}).encode(),
+            headers={"Content-Type": "application/json"},
+        )
+        code, ctype, body = None, None, ""
+        try:
+            with urllib.request.urlopen(req, timeout=5) as r:
+                code, ctype = r.status, r.headers.get("Content-Type", "")
+                body = r.read().decode("utf-8", "replace")
+        except urllib.error.HTTPError as e:
+            code = e.code
+        assert code != 405, "the chat endpoint must not be 405 (SDD-062 sanctioned POST)"
+        # 200 SSE stream (honest error event since no backend) OR 503 if engine absent
+        assert code in (200, 503)
+        if code == 200:
+            assert "text/event-stream" in ctype
+            assert "event: error" in body and "router unreachable" in body  # honest, no fabrication
+
+        # a DIFFERENT POST path stays 405
+        req2 = urllib.request.Request(
+            f"http://127.0.0.1:{port}/api/lm-status/devices", method="POST", data=b"{}")
+        try:
+            urllib.request.urlopen(req2, timeout=3)
+            rejected = False
+        except urllib.error.HTTPError as e:
+            rejected = e.code == 405
+        assert rejected, "non-chat POST must stay 405"
     finally:
         proc.kill()
         proc.wait(timeout=3)
