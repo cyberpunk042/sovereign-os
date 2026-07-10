@@ -179,3 +179,59 @@ def test_models_catalog_demo():
     body = _assert_head_demo("models-catalog", "DEMO_MODELS")
     m = re.search(r"if \(demoActive\(\)\) \{(.*?)\n    return;\n  \}", body, re.DOTALL)
     assert m and "fetch(" not in m.group(1), "the models-catalog DEMO load path must make NO fetch"
+
+
+# ── SDD-121 (DEMO batch 2 — hardware + compute posture) ────────────────────────
+
+def test_d09_hardware_pressure_demo():
+    """SDD-121 — D-09 Hardware Pressure: badged sample PSI/CCD/GPU/ZFS/backpressure,
+    refresh() short-circuit (no fetchPressure), /api/hardware/stream skipped in demo."""
+    body = _assert_head_demo("d-09-hardware-pressure", "DEMO_PRESSURE")
+    assert re.search(r"demoActive\(\)\s*\?\s*DEMO_PRESSURE\s*:\s*await fetchPressure\(\)", body)
+    assert "if (!demoActive()) try {\n  const es = new EventSource('/api/hardware/stream')" in body, (
+        "D-09 must skip the hardware EventSource in demo"
+    )
+
+
+def test_runtime_modes_demo():
+    """SDD-121 — runtime-modes: badged sample active mode + modes grid; both render
+    fns short-circuit before any /api/runtime-modes fetch in demo."""
+    body = _assert_head_demo("runtime-modes", "DEMO_MODES")
+    assert body.count("if (demoActive()) {") >= 2, "both render fns need a demo short-circuit"
+    assert "for (const mode of DEMO_MODES.modes)" in body
+
+
+def test_orchestration_demo():
+    """SDD-121 — orchestration: badged sample rules+metrics via load() ternary, no fetch in demo."""
+    body = _assert_head_demo("orchestration", "DEMO_ORCH")
+    assert re.search(r"demoActive\(\)\s*\?\s*DEMO_ORCH\s*:\s*await", body), (
+        "orchestration load() must select DEMO_ORCH (no fetch) in demo"
+    )
+
+
+def test_d24_cpu_features_demo():
+    """SDD-121 — D-24 CPU Features: badged sample probe/workloads/advisory via refresh()
+    short-circuit (render(DEMO_CPU...)), /api/cpu-features/stream skipped in demo."""
+    body = _assert_head_demo("d-24-cpu-features", "DEMO_CPU")
+    assert "render(DEMO_CPU.probe, DEMO_CPU.workloads, DEMO_CPU.advisory)" in body
+    assert "if (!demoActive()) try { const es = new EventSource('/api/cpu-features/stream')" in body, (
+        "D-24 must skip the cpu-features EventSource in demo"
+    )
+
+
+def test_cpu_features_demo():
+    """SDD-121 — cpu-features: badged sample AVX posture via load() ternary, no fetch in demo."""
+    body = _assert_head_demo("cpu-features", "DEMO_AVX")
+    assert re.search(r"demoActive\(\)\s*\?\s*DEMO_AVX\s*:\s*await", body), (
+        "cpu-features load() must select DEMO_AVX (no fetch) in demo"
+    )
+
+
+def test_d04_costs_demo():
+    """SDD-121 — D-04 Costs: badged sample today/projects/profiles/models/trend/policy via
+    refresh() short-circuit (no fetchCosts), /api/costs/stream skipped in demo."""
+    body = _assert_head_demo("d-04-costs", "DEMO_COSTS")
+    assert re.search(r"demoActive\(\)\s*\?\s*DEMO_COSTS\s*:\s*await fetchCosts\(\)", body)
+    assert "if (!demoActive()) try {\n  const es = new EventSource('/api/costs/stream')" in body, (
+        "D-04 must skip the costs EventSource in demo"
+    )

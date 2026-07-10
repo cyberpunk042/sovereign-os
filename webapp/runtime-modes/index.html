@@ -61,6 +61,58 @@
   code { background:rgba(255,255,255,.06); padding:.1rem .3rem;
     border-radius:.2rem; font-size:.85em; }
 </style>
+<!-- SDD-116/119 shared demo-mode helper (inlined verbatim from webapp/_shared/demo-mode.{css,js}; opt-in, always-badged sample data — SB-077 reconciliation). -->
+<style>
+/* webapp/_shared/demo-mode.css — SDD-116 DEMO badge.
+ * DEMO mode is opt-in sample data for exploring panels with no daemon. The badge
+ * is a persistent, unmistakable ribbon so DEMO data is NEVER mistaken for real
+ * telemetry (the SB-077 reconciliation). Inlined verbatim into demo-capable
+ * panels alongside demo-mode.js. */
+#so-demo-badge {
+  position: fixed; top: calc(var(--so-header-h, 48px) + 8px); right: 12px; z-index: 9600;
+  background: #e6c062; color: #0a0a0a; font-weight: 700; font-size: .72rem; letter-spacing: .03em;
+  padding: .28rem .65rem; border-radius: 6px; box-shadow: 0 2px 12px rgba(0, 0, 0, .38);
+  font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif; pointer-events: none;
+}
+#so-demo-badge .sub { font-weight: 400; opacity: .82; }
+</style>
+<script>
+/* webapp/_shared/demo-mode.js — SDD-116 shared DEMO-mode helper (opt-in sample data).
+ *
+ * Reads the `sovereign-os.demo` localStorage flag (schema-guarded) and renders a
+ * persistent DEMO badge. Demo-capable panels call `soDemo.on()` to branch to their
+ * clearly-labelled sample data. The SB-077 reconciliation: DEMO is opt-in (off by
+ * default; never self-enables), ALWAYS badged, and makes ZERO network calls
+ * (R10212 strengthened — the demo render path never fetches). Inlined verbatim into
+ * demo-capable panels alongside demo-mode.css. */
+(function () {
+  "use strict";
+  var DKEY = 'sovereign-os.demo', DSCHEMA = 1;
+  function on() {
+    try {
+      var r = localStorage.getItem(DKEY); var p = r ? JSON.parse(r) : null;
+      return !!(p && p.schema === DSCHEMA && p.on);
+    } catch (e) { return false; }
+  }
+  function set(v) {
+    try { localStorage.setItem(DKEY, JSON.stringify({ schema: DSCHEMA, on: !!v })); } catch (e) {}
+  }
+  function badge() {
+    var b = document.getElementById('so-demo-badge');
+    if (on()) {
+      if (!b) {
+        b = document.createElement('div'); b.id = 'so-demo-badge';
+        b.innerHTML = 'DEMO <span class="sub">· sample data — not real telemetry</span>';
+        b.setAttribute('role', 'status');
+        (document.body || document.documentElement).appendChild(b);
+      }
+    } else if (b) { b.remove(); }
+  }
+  window.soDemo = { on: on, set: set, badge: badge, KEY: DKEY, SCHEMA: DSCHEMA };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', badge);
+  else badge();
+})();
+</script>
 </head>
 <body>
 <!-- APP-SHELL:BEGIN M067 -->
@@ -603,9 +655,28 @@ selfdefctl modules apply --runtime-profile deep-context-synthesis
 <script>
 function el(id) { return document.getElementById(id); }
 
+function demoActive() { return !!(window.soDemo && window.soDemo.on()); }
+const DEMO_MODES = {
+  active: "demo/careful",
+  marker_path: "/run/sovereign-os/active-runtime-mode",
+  modes: [
+    {id:"demo/private", name:"Private", absent:false, description_oneline:"Local-only routing; cloud disabled (sample)."},
+    {id:"demo/careful", name:"Careful", absent:false, description_oneline:"Cloud allowed with approval gate (sample)."},
+    {id:"demo/fast", name:"Fast", absent:false, description_oneline:"Latency-first; prefers warm local models (sample)."},
+    {id:"demo/autonomous", name:"Autonomous", absent:true, description_oneline:"Unattended agent loops (sample; profile absent on this host)."}
+  ]
+};
 async function renderActiveModeBanner() {
   const banner = el("active-mode-banner");
   if (!banner) return;
+  if (demoActive()) {
+    banner.classList.remove("has-active","unknown"); banner.classList.add("has-active");
+    const _l=el("active-mode-label"); if(_l) _l.textContent="active mode: "+DEMO_MODES.active;
+    const _mh=el("active-mode-marker-hint"); if(_mh) _mh.innerHTML='marker at <code>'+DEMO_MODES.marker_path+'</code>';
+    const _mp=el("active-mode-marker-path"); if(_mp) _mp.textContent=DEMO_MODES.marker_path;
+    if(window.soDemo) window.soDemo.badge();
+    return;
+  }
   let payload;
   try {
     const r = await fetch("/api/runtime-modes/active", {headers: {"Accept": "application/json"}});
@@ -631,6 +702,18 @@ async function renderActiveModeBanner() {
 async function renderModesGrid() {
   const grid = el("modes-grid");
   if (!grid) return;
+  if (demoActive()) {
+    grid.innerHTML = "";
+    for (const mode of DEMO_MODES.modes) {
+      const card=document.createElement("div"); const cls=["mode-card"]; if(mode.id===DEMO_MODES.active)cls.push("active"); if(mode.absent)cls.push("absent"); card.className=cls.join(" ");
+      const h=document.createElement("h3"); h.textContent=mode.name||mode.id; card.appendChild(h);
+      const idEl=document.createElement("div"); idEl.className="mode-id"; idEl.textContent=mode.id; card.appendChild(idEl);
+      const desc=document.createElement("div"); desc.className="mode-desc"; desc.textContent=mode.description_oneline; card.appendChild(desc);
+      grid.appendChild(card);
+    }
+    if(window.soDemo) window.soDemo.badge();
+    return;
+  }
   let payload;
   try {
     const r = await fetch("/api/runtime-modes/list", {headers: {"Accept": "application/json"}});

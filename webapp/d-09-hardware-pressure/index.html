@@ -416,6 +416,58 @@ a11y; contract test catches drift.
   button{background:var(--panel);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:.4rem .8rem;font-family:inherit;font-size:.85rem;cursor:pointer}
   button:hover{border-color:var(--accent)}
 </style>
+<!-- SDD-116/119 shared demo-mode helper (inlined verbatim from webapp/_shared/demo-mode.{css,js}; opt-in, always-badged sample data — SB-077 reconciliation). -->
+<style>
+/* webapp/_shared/demo-mode.css — SDD-116 DEMO badge.
+ * DEMO mode is opt-in sample data for exploring panels with no daemon. The badge
+ * is a persistent, unmistakable ribbon so DEMO data is NEVER mistaken for real
+ * telemetry (the SB-077 reconciliation). Inlined verbatim into demo-capable
+ * panels alongside demo-mode.js. */
+#so-demo-badge {
+  position: fixed; top: calc(var(--so-header-h, 48px) + 8px); right: 12px; z-index: 9600;
+  background: #e6c062; color: #0a0a0a; font-weight: 700; font-size: .72rem; letter-spacing: .03em;
+  padding: .28rem .65rem; border-radius: 6px; box-shadow: 0 2px 12px rgba(0, 0, 0, .38);
+  font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif; pointer-events: none;
+}
+#so-demo-badge .sub { font-weight: 400; opacity: .82; }
+</style>
+<script>
+/* webapp/_shared/demo-mode.js — SDD-116 shared DEMO-mode helper (opt-in sample data).
+ *
+ * Reads the `sovereign-os.demo` localStorage flag (schema-guarded) and renders a
+ * persistent DEMO badge. Demo-capable panels call `soDemo.on()` to branch to their
+ * clearly-labelled sample data. The SB-077 reconciliation: DEMO is opt-in (off by
+ * default; never self-enables), ALWAYS badged, and makes ZERO network calls
+ * (R10212 strengthened — the demo render path never fetches). Inlined verbatim into
+ * demo-capable panels alongside demo-mode.css. */
+(function () {
+  "use strict";
+  var DKEY = 'sovereign-os.demo', DSCHEMA = 1;
+  function on() {
+    try {
+      var r = localStorage.getItem(DKEY); var p = r ? JSON.parse(r) : null;
+      return !!(p && p.schema === DSCHEMA && p.on);
+    } catch (e) { return false; }
+  }
+  function set(v) {
+    try { localStorage.setItem(DKEY, JSON.stringify({ schema: DSCHEMA, on: !!v })); } catch (e) {}
+  }
+  function badge() {
+    var b = document.getElementById('so-demo-badge');
+    if (on()) {
+      if (!b) {
+        b = document.createElement('div'); b.id = 'so-demo-badge';
+        b.innerHTML = 'DEMO <span class="sub">· sample data — not real telemetry</span>';
+        b.setAttribute('role', 'status');
+        (document.body || document.documentElement).appendChild(b);
+      }
+    } else if (b) { b.remove(); }
+  }
+  window.soDemo = { on: on, set: set, badge: badge, KEY: DKEY, SCHEMA: DSCHEMA };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', badge);
+  else badge();
+})();
+</script>
 </head>
 <body>
 <!-- APP-SHELL:BEGIN M067 -->
@@ -1151,8 +1203,26 @@ async function fetchPressure() {
   }
 }
 
+function demoActive() { return !!(window.soDemo && window.soDemo.on()); }
+const DEMO_PRESSURE = {
+  psi: { cpu:{some_10s:12.4}, memory:{some_10s:3.1}, io:{some_10s:0.8} },
+  ccd: {
+    0: { cores:{0:34,1:28,2:41,3:19,4:52,5:23}, l3_miss:2.14 },
+    1: { cores:{6:44,7:38,8:12,9:61,10:27,11:9}, l3_miss:1.87, infinity_fabric_ns:78 }
+  },
+  gpu: {
+    "0": { util_pct:63, vram_used_gb:14.2, temp_c:57, power_w:210, kv_cache_pct:38 },
+    "1": { util_pct:8, vram_used_gb:2.1, temp_c:41, power_w:74, sandbox_status:"demo/idle" }
+  },
+  zfs: { iops:1240, read_lat_us:180, write_lat_us:320, datasets:[
+    {name:"demo/tank/models", used_bytes:48318382080, compressratio:1.42, recordsize:"1M", sync:"standard"},
+    {name:"demo/tank/sessions", used_bytes:10737418240, compressratio:2.08, recordsize:"128K", sync:"always"}
+  ] },
+  backpressure: { "blackwell-vram":"idle","4090-busy":"idle","cpu-pressure":"active","ram-pressure":"idle","io-pressure":"idle","human-gate":"idle" }
+};
 async function refresh() {
-  const s = await fetchPressure();
+  const s = demoActive() ? DEMO_PRESSURE : await fetchPressure();
+  if (demoActive()) { const _b=document.getElementById('datasource-banner'); if(_b){_b.classList.remove('online','offline','unknown');_b.classList.add('unknown');} const _l=document.getElementById('ds-state-label'); if(_l)_l.textContent='data source: DEMO — sample data'; const _d=document.getElementById('ds-state-detail'); if(_d)_d.innerHTML='DEMO mode — sample data, not real telemetry (SB-077)'; if(window.soDemo)window.soDemo.badge(); }
   // PSI
   const psi = s.psi || {};
   $('psi-cpu-some').firstChild.textContent = psi.cpu?.some_10s ?? '—';
@@ -1233,7 +1303,7 @@ $('dcgm-export-btn').addEventListener('click', async () => {
 
 document.addEventListener('keydown', e => { if ((e.metaKey||e.ctrlKey) && e.key === '0') { e.preventDefault(); refresh(); } });
 
-try {
+if (!demoActive()) try {
   const es = new EventSource('/api/hardware/stream');
   es.addEventListener('pressure', refresh);
   es.addEventListener('error', () => setInterval(refresh, 2000));

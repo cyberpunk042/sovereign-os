@@ -404,6 +404,58 @@ a11y; contract test catches drift.
   a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
   code{color:var(--accent)}
 </style>
+<!-- SDD-116/119 shared demo-mode helper (inlined verbatim from webapp/_shared/demo-mode.{css,js}; opt-in, always-badged sample data — SB-077 reconciliation). -->
+<style>
+/* webapp/_shared/demo-mode.css — SDD-116 DEMO badge.
+ * DEMO mode is opt-in sample data for exploring panels with no daemon. The badge
+ * is a persistent, unmistakable ribbon so DEMO data is NEVER mistaken for real
+ * telemetry (the SB-077 reconciliation). Inlined verbatim into demo-capable
+ * panels alongside demo-mode.js. */
+#so-demo-badge {
+  position: fixed; top: calc(var(--so-header-h, 48px) + 8px); right: 12px; z-index: 9600;
+  background: #e6c062; color: #0a0a0a; font-weight: 700; font-size: .72rem; letter-spacing: .03em;
+  padding: .28rem .65rem; border-radius: 6px; box-shadow: 0 2px 12px rgba(0, 0, 0, .38);
+  font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif; pointer-events: none;
+}
+#so-demo-badge .sub { font-weight: 400; opacity: .82; }
+</style>
+<script>
+/* webapp/_shared/demo-mode.js — SDD-116 shared DEMO-mode helper (opt-in sample data).
+ *
+ * Reads the `sovereign-os.demo` localStorage flag (schema-guarded) and renders a
+ * persistent DEMO badge. Demo-capable panels call `soDemo.on()` to branch to their
+ * clearly-labelled sample data. The SB-077 reconciliation: DEMO is opt-in (off by
+ * default; never self-enables), ALWAYS badged, and makes ZERO network calls
+ * (R10212 strengthened — the demo render path never fetches). Inlined verbatim into
+ * demo-capable panels alongside demo-mode.css. */
+(function () {
+  "use strict";
+  var DKEY = 'sovereign-os.demo', DSCHEMA = 1;
+  function on() {
+    try {
+      var r = localStorage.getItem(DKEY); var p = r ? JSON.parse(r) : null;
+      return !!(p && p.schema === DSCHEMA && p.on);
+    } catch (e) { return false; }
+  }
+  function set(v) {
+    try { localStorage.setItem(DKEY, JSON.stringify({ schema: DSCHEMA, on: !!v })); } catch (e) {}
+  }
+  function badge() {
+    var b = document.getElementById('so-demo-badge');
+    if (on()) {
+      if (!b) {
+        b = document.createElement('div'); b.id = 'so-demo-badge';
+        b.innerHTML = 'DEMO <span class="sub">· sample data — not real telemetry</span>';
+        b.setAttribute('role', 'status');
+        (document.body || document.documentElement).appendChild(b);
+      }
+    } else if (b) { b.remove(); }
+  }
+  window.soDemo = { on: on, set: set, badge: badge, KEY: DKEY, SCHEMA: DSCHEMA };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', badge);
+  else badge();
+})();
+</script>
 </head>
 <body>
 <!-- APP-SHELL:BEGIN M067 -->
@@ -1056,8 +1108,29 @@ async function fetchCosts() {
 
 function escapeHtml(s) { if (s == null) return ''; return String(s).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
 
+function demoActive() { return !!(window.soDemo && window.soDemo.on()); }
+const DEMO_COSTS = {
+  today: { spend:2.14, budget:10.0, requests:184, avg_req_cost:0.0116, per_request_max:0.42, eod_forecast:3.80 },
+  projects: [
+    {name:"demo/sovereign-os", today:1.02, "7d":6.44, "30d":22.10, profile:"careful", dominant_route:"k2_6_openrouter"},
+    {name:"demo/openfleet", today:0.71, "7d":3.90, "30d":14.02, profile:"fast", dominant_route:"local"},
+    {name:"demo/aicp", today:0.41, "7d":2.11, "30d":7.88, profile:"private", dominant_route:"local"}
+  ],
+  profiles: {
+    private:{today:0.41,"7d":2.11,"30d":7.88}, fast:{today:0.71,"7d":3.90,"30d":14.02}, careful:{today:1.02,"7d":6.44,"30d":22.10},
+    autonomous:{today:0.0,"7d":0.0,"30d":0.0}, experimental:{today:0.0,"7d":0.31,"30d":1.20}, production:{today:0.0,"7d":0.0,"30d":0.0}
+  },
+  models: [
+    {name:"demo/kimi-k2.6", role:"agentic", today:1.44, tokens_in:820000, tokens_out:210000, usd_per_mtok:0.58},
+    {name:"demo/qwen3-local", role:"local", today:0.0, tokens_in:1400000, tokens_out:380000, usd_per_mtok:0.0},
+    {name:"demo/opus-fallback", role:"premium", today:0.70, tokens_in:42000, tokens_out:18000, usd_per_mtok:12.0}
+  ],
+  trend30d: [{date:'2026-06-01',spend:3.15},{date:'2026-06-02',spend:2.17},{date:'2026-06-03',spend:1.58},{date:'2026-06-04',spend:2.0},{date:'2026-06-05',spend:2.58},{date:'2026-06-06',spend:2.33},{date:'2026-06-07',spend:1.75},{date:'2026-06-08',spend:1.83},{date:'2026-06-09',spend:2.42},{date:'2026-06-10',spend:2.9},{date:'2026-06-11',spend:1.92},{date:'2026-06-12',spend:1.67},{date:'2026-06-13',spend:2.25},{date:'2026-06-14',spend:2.67},{date:'2026-06-15',spend:2.08},{date:'2026-06-16',spend:1.5},{date:'2026-06-17',spend:2.08},{date:'2026-06-18',spend:2.67},{date:'2026-06-19',spend:2.65},{date:'2026-06-20',spend:1.67},{date:'2026-06-21',spend:1.92},{date:'2026-06-22',spend:2.5},{date:'2026-06-23',spend:2.42},{date:'2026-06-24',spend:1.83},{date:'2026-06-25',spend:1.75},{date:'2026-06-26',spend:2.33},{date:'2026-06-27',spend:2.58},{date:'2026-06-28',spend:2.4},{date:'2026-06-29',spend:1.58},{date:'2026-06-30',spend:2.17}],
+  policy: { cloud_enabled:true, cloud_requires_approval:true, daily_budget_usd:10.0, per_request_max_usd:0.50, private_paths_never_cloud:true, log_prompts:"local_only" }
+};
 async function refresh() {
-  const s = await fetchCosts();
+  const s = demoActive() ? DEMO_COSTS : await fetchCosts();
+  if (demoActive()) { const _b=document.getElementById('datasource-banner'); if(_b){_b.classList.remove('online','offline','unknown');_b.classList.add('unknown');} const _l=document.getElementById('ds-state-label'); if(_l)_l.textContent='data source: DEMO — sample data'; const _d=document.getElementById('ds-state-detail'); if(_d)_d.innerHTML='DEMO mode — sample data, not real telemetry (SB-077)'; if(window.soDemo)window.soDemo.badge(); }
   // today
   $('today-spend').textContent = fmtUsd(s.today.spend);
   $('today-budget').textContent = fmtUsd(s.today.budget);
@@ -1143,7 +1216,7 @@ $('export-btn').addEventListener('click', () => {
 
 document.addEventListener('keydown', e => { if ((e.metaKey||e.ctrlKey) && e.key === '5') { e.preventDefault(); refresh(); } });
 
-try {
+if (!demoActive()) try {
   const es = new EventSource('/api/costs/stream');
   es.addEventListener('cost-update', refresh);
   es.addEventListener('error', () => setInterval(refresh, 30000));
