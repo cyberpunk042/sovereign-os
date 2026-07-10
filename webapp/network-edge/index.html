@@ -1374,7 +1374,8 @@ window.SO_ASSIST = {
     {
      "selector": "#stat-ifaces",
      "title": "Interfaces",
-     "content": "How many network interfaces the box sees. The dual-NIC design (E0808) means an upstream NIC and a LAN NIC; extra interfaces are worth understanding — each is a path in or out."
+     "content": "How many network interfaces the box sees. The dual-NIC design (E0808) means an upstream NIC and a LAN NIC; extra interfaces are worth understanding — each is a path in or out.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Dual-NIC by design (E08x)</div>The interface count reflects the dual-NIC design — separate paths for management and traffic. More than the expected NICs can mean a bridge or a VM tap; fewer means an interface is down.<div class=\"so-xref\"><span class=\"x\">→</span> iface table — the per-interface roles</div></div>"
     },
     {
      "selector": "#stat-nat",
@@ -1385,17 +1386,20 @@ window.SO_ASSIST = {
     {
      "selector": "#stat-vpn",
      "title": "VPN",
-     "content": "Whether a VPN tunnel is active at the edge. A VPN changes what 'the internet' means for the box — read it with the NAT chain to understand the real egress path."
+     "content": "Whether a VPN tunnel is active at the edge. A VPN changes what 'the internet' means for the box — read it with the NAT chain to understand the real egress path.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A VPN redefines 'the edge'</div>Whether a tunnel is active. A VPN changes what 'outside' means — egress goes through the tunnel, so the perimeter effectively moves. It's important context for reading the NAT chain below.</div>"
     },
     {
      "selector": "#stat-tier",
      "title": "Edge tier",
-     "content": "The detected capability tier of the edge — how much the perimeter (OPNsense) can enforce. A low tier means the box must defend itself more, because the edge does less."
+     "content": "The detected capability tier of the edge — how much the perimeter (OPNsense) can enforce. A low tier means the box must defend itself more, because the edge does less.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Edge capability tier</div>How much the perimeter (OPNsense) can enforce — a detected capability level. A higher tier means the upstream can do more of the filtering, letting the box lean on defense-in-depth.</div>"
     },
     {
      "selector": "#stat-caps",
      "title": "Capabilities",
-     "content": "How many OPNsense edge capabilities were detected. The perimeter authority's feature set — what it can filter, route, and inspect on the box's behalf."
+     "content": "How many OPNsense edge capabilities were detected. The perimeter authority's feature set — what it can filter, route, and inspect on the box's behalf.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">What the perimeter can actually do</div>How many OPNsense edge capabilities were detected. The perimeter's abilities aren't assumed — they're probed, so the box knows which protections it can delegate upstream vs must enforce locally.</div>"
     },
     {
      "selector": "#stat-version",
@@ -1417,7 +1421,15 @@ window.SO_ASSIST = {
     {
      "selector": "#iface-tbody",
      "title": "Interface rows",
-     "content": "Each row: one interface, its addresses and role. Read them against the dual-NIC design — the upstream NIC faces the edge, the LAN NIC faces the local network; anything else is worth understanding."
+     "content": "Each row: one interface, its addresses and role. Read them against the dual-NIC design — the upstream NIC faces the edge, the LAN NIC faces the local network; anything else is worth understanding.",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#iface-tbody > tr",
+      "nameSelector": "td:first-child,td",
+      "title": "Interface · {{name}}",
+      "content": "Interface {{name}} — its addresses and role. Read it against the dual-NIC design: management and traffic should be separate paths, so an interface in the wrong role is worth noting.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Iface · {{name}}</div>One network interface. Its role (management vs traffic) is the thing to verify against the dual-NIC design.</div>"
+     }
     }
    ]
   },
@@ -1435,7 +1447,8 @@ window.SO_ASSIST = {
     {
      "selector": "#nat-body",
      "title": "NAT hop rows",
-     "content": "Each row: one NAT hop with its translated addresses. The number of rows is the story — count them to know if the box is single- or multi-NATed."
+     "content": "Each row: one NAT hop with its translated addresses. The number of rows is the story — count them to know if the box is single- or multi-NATed.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Each hop is a layer of indirection</div>One row per NAT translation between the box and the internet. More hops means more indirection — harder to reach the box directly, but also more places a misconfiguration could break connectivity.</div>"
     }
    ]
   },
@@ -1453,7 +1466,8 @@ window.SO_ASSIST = {
     {
      "selector": "#caps-body",
      "title": "Capability rows",
-     "content": "Each row: one detected edge capability. Read them to see exactly what the perimeter can and cannot do on the box's behalf."
+     "content": "Each row: one detected edge capability. Read them to see exactly what the perimeter can and cannot do on the box's behalf.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Reading the capability ladder</div>Each row is one detected edge capability. Read them to know exactly what the perimeter can enforce — the concrete list behind the tier summary.</div>"
     }
    ]
   },
@@ -1465,7 +1479,8 @@ window.SO_ASSIST = {
     {
      "selector": "#detect-body",
      "title": "Detection bundle",
-     "content": "The raw network-edge detection output. Read it directly when the summary surprises you — it shows the actual interfaces, routes, and NAT evidence the detector found, not the summarized version."
+     "content": "The raw network-edge detection output. Read it directly when the summary surprises you — it shows the actual interfaces, routes, and NAT evidence the detector found, not the summarized version.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The raw detection, when summaries aren't enough</div>The unprocessed network-edge detection output. Read it directly when a summary looks wrong — it's the ground truth the panel renders from, useful for debugging a surprising tier or NAT reading.</div>"
     }
    ]
   },

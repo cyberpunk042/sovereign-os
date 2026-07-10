@@ -1397,7 +1397,8 @@ window.SO_ASSIST = {
        "content": "No enforcement candidates — the current posture needs no additional local firewalling.",
        "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● 0 candidates</div>The edge covers what is needed — no local enforcement to add right now.</div>"
       }
-     ]
+     ],
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Candidates are rules you could enforce</div>Enforcement candidates are protections the box identified it COULD apply but hasn't. They're the gap between the current posture and a hardened one — proposals, not active rules.</div>"
     },
     {
      "selector": "#stat-local",
@@ -1411,17 +1412,20 @@ window.SO_ASSIST = {
        "content": "Local firewall inactive — the box is relying entirely on the edge.",
        "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ Local off</div>The box is not self-enforcing — all defense is at the edge. If the edge is weak, the box is exposed.</div>"
       }
-     ]
+     ],
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Local · the box's own firewall</div>What the box itself enforces (nftables). This is the inner ring of defense-in-depth — even if the perimeter is breached, the box's own rules still apply.<div class=\"so-xref\"><span class=\"x\">→</span> D-12 networking — the local nftables rules</div></div>"
     },
     {
      "selector": "#stat-upstream",
      "title": "Upstream state",
-     "content": "What the upstream edge (OPNsense) is enforcing. The perimeter line — a strong upstream means the box can enforce less; a weak one means it must enforce more."
+     "content": "What the upstream edge (OPNsense) is enforcing. The perimeter line — a strong upstream means the box can enforce less; a weak one means it must enforce more.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Upstream · the OPNsense perimeter</div>What the edge firewall (OPNsense) enforces — the outer ring. Reading local and upstream together is the defense-in-depth picture: two independent layers, so one failing doesn't open the box.</div>"
     },
     {
      "selector": "#stat-recs",
      "title": "Recommendations",
-     "content": "How many recommendations apply to the current state — the actionable list of what to enforce given the edge's gaps."
+     "content": "How many recommendations apply to the current state — the actionable list of what to enforce given the edge's gaps.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Recommendations are the actionable gap</div>How many recommendations apply now — specific rules the current state warrants. Unlike raw candidates, these are contextual: the box thinks these particular protections are worth adding given what it sees.</div>"
     },
     {
      "selector": "#stat-version",
@@ -1449,7 +1453,8 @@ window.SO_ASSIST = {
     {
      "selector": "#state-body",
      "title": "State detail",
-     "content": "The per-line detail behind the summary — exactly what local and upstream each enforce. Read it to find the specific gap, not just that one exists."
+     "content": "The per-line detail behind the summary — exactly what local and upstream each enforce. Read it to find the specific gap, not just that one exists.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Defense in depth, read as two rings</div>The per-line detail behind the summary — exactly what local and upstream each enforce. Read it as concentric rings: perimeter (OPNsense) then host (nftables), each covering what the other might miss.</div>"
     }
    ]
   },
@@ -1467,7 +1472,8 @@ window.SO_ASSIST = {
     {
      "selector": "#ladder-body",
      "title": "Class rows",
-     "content": "Each row: one enforcement class and what it covers. Read a class to see the category of defense — this is the taxonomy the recommendations are drawn from."
+     "content": "Each row: one enforcement class and what it covers. Read a class to see the category of defense — this is the taxonomy the recommendations are drawn from.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Four classes of protection</div>Each row is one enforcement class and what it covers. Reading a class tells you what kind of threat that tier of rule addresses — the taxonomy behind the candidates.</div>"
     }
    ]
   },
@@ -1479,7 +1485,15 @@ window.SO_ASSIST = {
     {
      "selector": "#recs-tbody",
      "title": "Recommendation rows",
-     "content": "Each row: a specific recommended rule and why the current state calls for it. Read the reason — a recommendation exists because the edge is not covering that threat and the box could."
+     "content": "Each row: a specific recommended rule and why the current state calls for it. Read the reason — a recommendation exists because the edge is not covering that threat and the box could.",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#recs-tbody > tr",
+      "nameSelector": "td:first-child,td",
+      "title": "Rec · {{name}}",
+      "content": "Recommendation {{name}} — a specific rule the current state warrants, and why. Preview its install plan before applying; rules are signed via the CLI, never enforced from the web.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Rec · {{name}}</div>One recommended firewall rule. The 'why' ties it to the current state; preview the plan before signing it in.</div>"
+     }
     }
    ]
   },
@@ -1491,17 +1505,20 @@ window.SO_ASSIST = {
     {
      "selector": "#plan-select",
      "title": "Plan target",
-     "content": "Pick which recommendation to preview. Selecting it renders the install plan below — read-only; nothing is enforced until you run the signed command."
+     "content": "Pick which recommendation to preview. Selecting it renders the install plan below — read-only; nothing is enforced until you run the signed command.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Preview before you enforce</div>Pick a recommendation to render its install plan. Nothing changes on selection — it stages the diff so you see exactly what a rule would do before it's ever applied.</div>"
     },
     {
      "selector": "#plan-btn",
      "title": "Preview plan",
-     "content": "Renders the read-only install plan for the selected recommendation. It previews only — it copies the plan; the rule is enforced when you run the signed verb, not when you click here."
+     "content": "Renders the read-only install plan for the selected recommendation. It previews only — it copies the plan; the rule is enforced when you run the signed verb, not when you click here.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Renders intent, doesn't enforce</div>Builds the read-only install plan for the selected recommendation. It's a preview action — it computes what the rule would do; enforcing it is a separate, signed CLI step.</div>"
     },
     {
      "selector": "#plan-body",
      "title": "Plan preview",
-     "content": "The read-only plan for the selected recommendation — exactly what applying it would change. Read it before signing: a firewall rule can cut off access you rely on, so preview first."
+     "content": "The read-only plan for the selected recommendation — exactly what applying it would change. Read it before signing: a firewall rule can cut off access you rely on, so preview first.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The plan is read-only intent</div>The exact rule a recommendation would install — shown, not run. Applying it is a signed CLI verb; this is the 'here's what would happen' you review first, per the copy-command boundary.<div class=\"so-xref\"><span class=\"x\">→</span> §1g R10212 — copy-command, not execute</div></div>"
     }
    ]
   },

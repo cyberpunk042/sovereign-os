@@ -1305,12 +1305,14 @@ window.SO_ASSIST = {
     {
      "selector": "#stat-tiers",
      "title": "Tiers",
-     "content": "How many operator-named auth tiers exist (§1g). A tier is a level of how strongly a module proves who is calling and what they may do — higher tiers demand stronger auth."
+     "content": "How many operator-named auth tiers exist (§1g). A tier is a level of how strongly a module proves who is calling and what they may do — higher tiers demand stronger auth.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A tier is a required auth strength</div>Each operator-named tier is a level of authentication a surface must demand — a public read vs a signed write vs a key-gated privileged op. Tiers make 'how strongly must you prove who you are' a per-surface, checkable property.</div>"
     },
     {
      "selector": "#stat-dashboards",
      "title": "Dashboards",
-     "content": "How many dashboards are auth-tier-scored. Each surface has an auth posture; this counts the scored ones."
+     "content": "How many dashboards are auth-tier-scored. Each surface has an auth posture; this counts the scored ones.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Every surface has a required tier</div>How many dashboards are auth-scored — each carries a minimum auth level. The point is that no surface is un-tiered: reaching it always requires SOME defined proof.</div>"
     },
     {
      "selector": "#stat-upgrades",
@@ -1324,22 +1326,26 @@ window.SO_ASSIST = {
        "content": "No pending auth upgrades — every module is at its target tier.",
        "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● 0 upgrades</div>Every module authenticates at its target tier — no auth debt.</div>"
       }
-     ]
+     ],
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">The auth backlog</div>Modules below their target tier — surfaces demanding weaker auth than they should. Each is a specific under-protection: a privileged op reachable with too little proof.</div>"
     },
     {
      "selector": "#stat-config",
      "title": "Config state",
-     "content": "Whether the auth-tier config is loaded and valid. A degraded config means the scores below may be computed against a stale policy."
+     "content": "Whether the auth-tier config is loaded and valid. A degraded config means the scores below may be computed against a stale policy.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Degraded config = auth ambiguity</div>If the auth-tier config isn't loaded and valid, the tiers themselves are undefined — the box can't know what auth a surface requires. A degraded config is a hole, not a cosmetic issue.</div>"
     },
     {
      "selector": "#stat-version",
      "title": "Version",
-     "content": "The auth-tier audit version — for reconciling scores against the ladder definition."
+     "content": "The auth-tier audit version — for reconciling scores against the ladder definition.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Pins what the tiers mean</div>The audit version reconciles scores against the tier ladder definition. A version bump can add a rung, which re-baselines every module's target — so scores only compare within a version.</div>"
     },
     {
      "selector": "#last-refresh",
      "title": "Freshness",
-     "content": "When this was last read. The values are only as current as this — refresh before trusting them after any change."
+     "content": "When this was last read. The values are only as current as this — refresh before trusting them after any change.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Scores age with the scan</div>The tiers and gaps are as fresh as the last scan — a module re-tiered since won't show improved. Re-scan before trusting an under-protection is still open.</div>"
     }
    ]
   },
@@ -1357,7 +1363,8 @@ window.SO_ASSIST = {
     {
      "selector": "#ladder-body",
      "title": "Ladder rows",
-     "content": "Each row: one auth tier and what it requires. Read a rung to see the proof it demands — this is the definition the upgrade priorities are scored against."
+     "content": "Each row: one auth tier and what it requires. Read a rung to see the proof it demands — this is the definition the upgrade priorities are scored against.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Reading a rung</div>Each row is one tier and what it requires to satisfy it. Read a rung to see the exact auth posture — from open observation up to MS003-signed privileged action.<div class=\"so-xref\"><span class=\"x\">→</span> D-02 profile choices — the authority ladder auth tiers gate</div></div>"
     }
    ]
   },
@@ -1369,7 +1376,15 @@ window.SO_ASSIST = {
     {
      "selector": "#matrix-tbody",
      "title": "Upgrade-priority matrix",
-     "content": "Each row: a module, its current tier, its target, and the gap. A module that can mutate the box but sits low on the ladder is the priority — read the gap to know how far it must climb."
+     "content": "Each row: a module, its current tier, its target, and the gap. A module that can mutate the box but sits low on the ladder is the priority — read the gap to know how far it must climb.",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#matrix-tbody > tr",
+      "nameSelector": "td:first-child,td",
+      "title": "Module · {{name}}",
+      "content": "Module {{name}} — its current auth tier, its target, and the gap. A module below target demands weaker proof than its surface warrants — the actionable under-protection.",
+      "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Auth · {{name}}</div>One module's current-vs-target auth tier. A gap is a surface reachable with too little authentication.</div>"
+     }
     }
    ]
   },
