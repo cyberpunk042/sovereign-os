@@ -258,3 +258,81 @@ def test_webapp_quotes_standing_rule_in_footer():
 def test_nav_registry_includes_d21():
     nav = (REPO_ROOT / "webapp" / "_shared" / "nav-snippet.html").read_text()
     assert "d-21-lm-orchestration" in nav
+
+
+# ── SDD-111: full-layout delivery (de-minimization per the operator's design) ──
+
+def test_apply_is_centered_in_the_quadrant():
+    """The Apply control sits centered INSIDE the 2×2 grid (design), not above it —
+    a `.grid-quad` relative wrapper holds `#grid` + an absolutely-centered
+    `.apply-wrap`. Apply still routes to the wired exec-rail control (R10212)."""
+    body = WEBAPP_HTML.read_text(encoding="utf-8")
+    assert "grid-quad" in body, "the Apply must be centered via a .grid-quad wrapper"
+    assert re.search(r'\.apply-wrap\s*\{[^}]*position:\s*absolute', body), (
+        "the Apply overlay must be absolutely centered in the quadrant"
+    )
+    assert "jumpToControl('runtime-mode')" in body or 'jumpToControl("runtime-mode")' in body, (
+        "Apply must still route to the wired runtime-mode exec-rail control (R10212)"
+    )
+
+
+def test_each_cell_shows_an_explicit_mode_field():
+    """The design shows an explicit per-cell `Mode:` field (not just a derived
+    inline string). cellHtml() must render a labelled Mode row."""
+    body = WEBAPP_HTML.read_text(encoding="utf-8")
+    assert re.search(r'Mode:</span>\s*\$\{esc\(c\.mode', body), (
+        "each present cell must render an explicit `Mode:` field from real state"
+    )
+
+
+def test_features_cpu_is_tiered_with_honest_deferred_rowhammer():
+    """Features-CPU groups the REAL AVX-512 flags under authored T1/T2/T3 tiers,
+    and shows an explicit honest-deferred `Rowhammer` row (no producer → never a
+    fabricated ✓ — SB-077)."""
+    body = WEBAPP_HTML.read_text(encoding="utf-8")
+    for tier in ("T1 ·", "T2 ·", "T3 ·"):
+        assert tier in body, f"Features-CPU must show the {tier} tier"
+    assert "Rowhammer" in body, "the design's Rowhammer row must be present"
+    # the Rowhammer row is honest-deferred, not a fabricated capability tick
+    assert re.search(r'Rowhammer[^<]*</span>\s*<span class="deferred"', body), (
+        "Rowhammer must render as an explicit honest-deferred row (SB-077), never a ✓"
+    )
+
+
+def test_grid_always_visible_when_daemon_down():
+    """The 2×2 assignment grid must ALWAYS render — even with the daemon
+    unreachable — via a FIXED_CELLS fallback + an initial paint, never
+    collapsing to only the centered Apply button (the operator's verbatim bug:
+    "I dont see the grid... only an Apply button"). SB-077 honest — slots."""
+    body = WEBAPP_HTML.read_text(encoding="utf-8")
+    assert "FIXED_CELLS" in body, "a fixed 4-cell topology fallback must exist"
+    for slot in ("GPU0", "GPU1", "EXT_GPU", "CPU0"):
+        assert re.search(r"slot:\s*['\"]" + slot + r"['\"]", body), (
+            f"FIXED_CELLS must include the {slot} SRP cell"
+        )
+    assert re.search(
+        r"data\.cells\.length\s*\)\s*\?\s*data\.cells\s*:\s*FIXED_CELLS", body
+    ), "renderGrid() must render FIXED_CELLS when data.cells is empty"
+    assert "renderGrid({})" in body, (
+        "an initial paint of the fixed grid must run before the live fetch"
+    )
+
+
+def test_features_and_profiles_sections_never_collapse_when_offline():
+    """The Features-CPU tier scaffold + Rowhammer row and the Profiles section
+    must render even with no live data (daemon offline) — an honest — per flag
+    and an honest "profiles unavailable" placeholder, never a single collapsed
+    line (the operator's "seeing all sections with all content"; SB-077)."""
+    body = WEBAPP_HTML.read_text(encoding="utf-8")
+    # Features-CPU no longer early-returns a lone "not readable" line: the tiers
+    # loop runs unconditionally (probed flag controls the value, not the render).
+    assert "const probed = cpu.length > 0" in body, (
+        "renderFeatures must always render the tier scaffold, gating only the value"
+    )
+    assert re.search(r"present:\s*probed\s*\?", body), (
+        "each flag must show live state when probed, else an honest — (present:null)"
+    )
+    # Profiles honest placeholder when the live list is empty.
+    assert "profiles unavailable" in body, (
+        "the Profiles section must show an honest placeholder when offline, not collapse"
+    )

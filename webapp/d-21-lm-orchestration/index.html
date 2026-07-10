@@ -63,27 +63,42 @@
   .grid {
     display:grid; grid-template-columns:1fr 1fr; gap:1px;
     background:var(--border); border:1px solid var(--border); border-radius:6px;
-    overflow:hidden; position:relative;
+    overflow:hidden; position:relative; min-height:300px;
   }
-  .cell { background:var(--panel); padding:.75rem .9rem; min-height:120px; }
+  .cell { background:var(--panel); padding:.75rem .9rem; min-height:150px; }
+  /* Reserve a square bounding box at the intersection for the Apply control:
+     clear each cell's inner (center-facing) corner so no content is ever hidden. */
+  .grid .cell:nth-child(1) { padding-right:3.6rem; padding-bottom:2.6rem; } /* GPU0 top-left  → clear BR */
+  .grid .cell:nth-child(2) { padding-left:3.6rem;  padding-bottom:2.6rem; } /* GPU1 top-right → clear BL */
+  .grid .cell:nth-child(3) { padding-right:3.6rem; padding-top:2.6rem; }    /* EXT  bot-left  → clear TR */
+  .grid .cell:nth-child(4) { padding-left:3.6rem;  padding-top:2.6rem; }    /* CPU0 bot-right → clear TL */
   .cell h3 { margin:0 0 .4rem; font-size:.9rem; display:flex; justify-content:space-between; gap:.5rem; }
   .cell h3 .slot { color:var(--muted); font-size:.78rem; font-weight:400; }
   .cell.na { display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:1.4rem; }
   .mslot { font-size:.8rem; margin:.15rem 0; }
   .mslot .k { color:var(--muted); }
   .pill { display:inline-block; padding:0 .4rem; border-radius:3px; border:1px solid var(--border); font-size:.72rem; color:var(--muted); }
-  .apply-wrap { text-align:center; margin:.75rem 0; }
+  /* Apply centered inside the 2×2 quadrant (per the operator's design) */
+  .grid-quad { position:relative; }
+  .apply-wrap { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    z-index:2; margin:0; text-align:center; }
   button.apply {
-    border:1px solid var(--accent); background:transparent; color:var(--accent);
-    border-radius:50%; width:88px; height:88px; cursor:pointer; font:inherit;
-    font-size:.95rem;
+    border:2px solid var(--accent); background:var(--bg); color:var(--accent);
+    border-radius:50%; width:96px; height:96px; cursor:pointer; font:inherit;
+    font-size:.9rem; font-weight:600; letter-spacing:.02em;
+    box-shadow:0 0 0 6px var(--bg), 0 2px 12px rgba(0,0,0,.28);
+    transition:transform .12s ease, background .12s ease;
   }
-  button.apply:hover { background:rgba(155,209,255,.10); }
+  button.apply:hover { background:rgba(155,209,255,.12); transform:scale(1.05); }
+  button.apply:active { transform:scale(.98); }
+  @media (max-width:640px) { .apply-wrap { position:static; transform:none; margin:.6rem auto; } }
   /* features */
   .features { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
   .fcol { border:1px solid var(--border); border-radius:6px; background:var(--panel); padding:.6rem .9rem; }
   .fcol h3 { margin:0 0 .4rem; font-size:.88rem; }
   .frow { font-size:.8rem; display:flex; justify-content:space-between; padding:.15rem 0; border-bottom:1px solid var(--border); }
+  .ftier { font-size:.7rem; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; margin:.5rem 0 .1rem; }
+  .deferred { color:var(--muted); font-style:italic; }
   .yes { color:var(--good); } .no { color:var(--muted); }
   footer { padding:1rem 1.25rem; border-top:1px solid var(--border); color:var(--muted); font-size:.75rem; }
 </style>
@@ -420,8 +435,10 @@
   <div class="profiles" id="profiles"></div>
 
   <h2>Model → hardware assignment</h2>
-  <div class="apply-wrap"><button class="apply" id="apply-btn" title="Copy the signed apply verb-chain for the selected profile">Apply</button></div>
-  <div class="grid" id="grid"></div>
+  <div class="grid-quad">
+    <div class="grid" id="grid"></div>
+    <div class="apply-wrap"><button class="apply" id="apply-btn" title="Copy the signed apply verb-chain for the selected profile">Apply</button></div>
+  </div>
 
   <h2>Capabilities</h2>
   <div class="features">
@@ -452,6 +469,12 @@
     PROFILES = data.profiles || [];
     $('profiles-note').textContent = data.note || '';
     if (selectedProfile == null && PROFILES.length) selectedProfile = (PROFILES[0].id || PROFILES[0].mode_id);
+    // The Profiles section stays visible even with no live profiles — an honest
+    // placeholder rather than a collapsed empty row (SB-077; "seeing all sections").
+    if (!PROFILES.length) {
+      $('profiles').innerHTML = '<div class="profile" style="opacity:.6;cursor:default"><div class="name">profiles unavailable</div><div class="desc">lm-orchestration daemon offline — start it to list M076 runtime profiles</div></div>';
+      return;
+    }
     $('profiles').innerHTML = PROFILES.map(p => {
       const id = p.id || p.mode_id;
       const on = id === selectedProfile ? ' on' : '';
@@ -472,19 +495,66 @@
     ).join('');
     const util = c.util_pct != null ? c.util_pct.toFixed(0)+'%' : '—';
     return `<div class="cell">
-      <h3>${esc(c.label)} <span class="slot">${esc(c.slot)} · mode ${esc(c.mode || '—')} · util ${util}</span></h3>
+      <h3>${esc(c.label)} <span class="slot">${esc(c.slot)} · util ${util}</span></h3>
       ${models}
+      <div class="mslot"><span class="k">Mode:</span> ${esc(c.mode || '—')}</div>
     </div>`;
   }
 
+  // The quadrant is a FIXED hardware topology (M075 SRP roles) — always render the
+  // four cells so the grid is visible even when the daemon is unreachable; live
+  // model/util/mode data fills in from the fetch, else honest `—`.
+  const FIXED_CELLS = [
+    {slot:'GPU0', role:'logic', label:'Logic Engine (GPU 0)', present:true, models:[{slot:0},{slot:1},{slot:2}]},
+    {slot:'GPU1', role:'oracle', label:'Oracle Core (GPU 1, Blackwell)', present:true, models:[{slot:0},{slot:1},{slot:2}]},
+    {slot:'EXT_GPU', role:null, label:'Future / External GPU', present:false},
+    {slot:'CPU0', role:'conductor', label:'Ryzen 9 9900X AM5 AVX-512', present:true, models:[{slot:0,core_range:'1-7'},{slot:1,core_range:'8-15'},{slot:2,core_range:'16-24'}]},
+  ];
   function renderGrid(data) {
-    $('grid').innerHTML = (data.cells || []).map(cellHtml).join('');
+    const cells = (data && data.cells && data.cells.length) ? data.cells : FIXED_CELLS;
+    $('grid').innerHTML = cells.map(cellHtml).join('');
   }
 
+  // Authored tiering over the REAL /proc/cpuinfo AVX-512 flags (the flags are
+  // real; the T1/T2/T3 grouping is a presentation). "Etc… Rowhammer" has no
+  // producer → an explicit honest-deferred row (SB-077 — never a fabricated ✓).
+  const CPU_TIERS = [
+    { t: 'T1 · Foundation & vector width', flags: ['avx512f', 'avx512vl', 'avx512bw', 'avx512dq'] },
+    { t: 'T2 · AI acceleration (INT8/bf16 dot)', flags: ['avx512_vnni', 'avx512vbmi'] },
+    { t: 'T3 · Bit manipulation', flags: ['avx512_vpopcntdq'] },
+  ];
+  // present === true → ✓ live; false → absent on this CPU; null → not probed
+  // (daemon offline) — honest — never a fabricated ✓ (SB-077).
+  function frow(x) {
+    const s = x.present === true
+      ? '<span class="yes">✓</span>'
+      : (x.present === false
+          ? '<span class="no" title="absent on this CPU">—</span>'
+          : '<span class="no" title="not probed — daemon offline">—</span>');
+    return `<div class="frow"><span>${esc(x.label)}</span>${s}</div>`;
+  }
   function renderFeatures(f) {
-    $('features-cpu').innerHTML = (f.cpu || []).map(x =>
-      `<div class="frow"><span>${esc(x.label)}</span><span class="${x.present ? 'yes' : 'no'}">${x.present ? '✓' : '—'}</span></div>`
-    ).join('') || '<div class="muted">/proc/cpuinfo not readable</div>';
+    const cpu = f.cpu || [];
+    const probed = cpu.length > 0;
+    const byFlag = {}; cpu.forEach(x => { byFlag[x.flag] = x; });
+    // The T1/T2/T3 tier scaffold + Etc/Rowhammer row ALWAYS render (design +
+    // operator "seeing all sections with all content"); flags show live state
+    // when probed, an honest — when the daemon is offline. Never collapses to
+    // a single line (that was the grid-invisible minimization, mirrored here).
+    let html = '';
+    if (!probed) html += '<div class="muted" style="margin-bottom:.35rem">/proc/cpuinfo not probed (daemon offline) — flags show — until live</div>';
+    const tiered = new Set();
+    CPU_TIERS.forEach(tier => {
+      tier.flags.forEach(fl => tiered.add(fl));
+      html += `<div class="ftier">${esc(tier.t)}</div>` + tier.flags.map(fl => {
+        const x = byFlag[fl];
+        return frow({ label: fl, present: probed ? !!(x && x.present) : null });
+      }).join('');
+    });
+    const rest = cpu.filter(x => !tiered.has(x.flag));
+    if (rest.length) html += '<div class="ftier">Other</div>' + rest.map(frow).join('');
+    html += '<div class="ftier">Etc…</div><div class="frow"><span>Rowhammer mitigation posture</span><span class="deferred" title="no producer yet — honest-deferred (SB-077)">deferred</span></div>';
+    $('features-cpu').innerHTML = html;
     $('features-gpu').innerHTML = (f.gpu || []).length ? f.gpu.map(g =>
       `<div class="frow"><span><code>${esc(g.name)}</code> (cc ${esc(g.compute_cap)})</span><span>${g.nvfp4_capable ? '<span class="yes">NVFP4</span> ' : ''}${g.tensor_cores ? '<span class="yes">TensorCore</span>' : ''}</span></div>`
     ).join('') : '<div class="muted">no GPU telemetry (nvidia-smi absent or no GPU)</div>';
@@ -527,10 +597,16 @@
       renderFeatures(features);
     } catch (e) {
       $('data-source-banner').innerHTML = 'cannot reach the lm-orchestration API daemon <span class="muted">('+esc(e.message)+')</span>';
+      // still render the fixed quadrant + profiles/features structure (honest —)
+      renderGrid({}); renderProfiles({profiles: PROFILES}); renderFeatures({});
     }
     $('last-fetch').textContent = 'last fetch: ' + new Date().toLocaleTimeString();
   }
 
+  // Initial paint of the fixed structure so the grid is ALWAYS visible; the
+  // fetch below fills in live data (or the catch keeps the fixed structure).
+  renderGrid({});
+  refresh();
   try {
     const es = new EventSource('/api/lm-orchestration/stream');
     es.addEventListener('state-change', refresh);

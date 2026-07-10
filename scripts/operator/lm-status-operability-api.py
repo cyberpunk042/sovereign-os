@@ -126,6 +126,14 @@ def devices_view() -> dict[str, Any]:
     snap = _core.snapshot()
     roles = snap.get("roles", {})
     lat_by_id = {m.get("id"): m for m in (snap.get("models") or [])}
+    # SDD-111 — the D-22 "History" column joins the snapshot's real per-model
+    # 24h availability heatmap + KV-cache occupancy (empty when the latency
+    # producer isn't running → the webapp honest-defers; never fabricated).
+    def _by_id(items: Any) -> dict[Any, Any]:
+        return {x.get("id"): x for x in items if isinstance(x, dict) and x.get("id")} \
+            if isinstance(items, list) else {}
+    hm_by_id = _by_id(snap.get("heatmap"))
+    kv_by_id = _by_id(snap.get("kvcache"))
     devices: list[dict[str, Any]] = []
     for dev in DEVICES:
         role = dev["role"]
@@ -137,6 +145,7 @@ def devices_view() -> dict[str, Any]:
                 m = models[idx]
                 mid = m.get("id")
                 lat = lat_by_id.get(mid, {})
+                hm = hm_by_id.get(mid, {})
                 slots.append({
                     "slot": idx,
                     "id": mid,
@@ -147,6 +156,10 @@ def devices_view() -> dict[str, Any]:
                     "p95_ms": lat.get("p95_ms"),
                     "p99_ms": lat.get("p99_ms"),
                     "req_per_min": lat.get("req_per_min"),
+                    # History column (SDD-111): real 24h availability series +
+                    # KV occupancy from the snapshot, or empty → webapp defers.
+                    "history": (hm.get("cells") if isinstance(hm.get("cells"), list) else []),
+                    "kv_pct": kv_by_id.get(mid, {}).get("occupancy_pct"),
                 })
             else:
                 slots.append({"slot": idx, "id": None})
@@ -167,6 +180,7 @@ def devices_view() -> dict[str, Any]:
         "summary": snap.get("summary", {}),
         "devices": devices,
         "kvcache": snap.get("kvcache", []),
+        "heatmap": snap.get("heatmap", []),
     }
 
 

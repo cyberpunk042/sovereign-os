@@ -365,3 +365,78 @@ def test_nav_registry_includes_d22():
     assert "d-22-lm-status-operability" in nav, (
         "D-22 must be registered in the nav-snippet DASHBOARDS array"
     )
+
+
+# ── SDD-111: full-layout delivery (de-minimization per the operator's design) ──
+
+def test_history_selected_two_column_area():
+    """Each device block shows a real History | Selected two-column area
+    (design), not a single collapsed row."""
+    body = WEBAPP_HTML.read_text(encoding="utf-8")
+    assert "hs-cols" in body and "hs-col" in body, "the History|Selected two-column area must exist"
+    assert ">History<" in body and ">Selected<" in body, "both History and Selected columns must be labelled"
+    assert "function historyHtml(" in body, "a dedicated History renderer must exist"
+
+
+def test_history_uses_real_series_or_honest_defers():
+    """History renders the REAL 24h availability heatmap / KV occupancy, and
+    HONEST-DEFERS when the latency producer isn't running — never a synthesized
+    latency history (SB-077)."""
+    body = WEBAPP_HTML.read_text(encoding="utf-8")
+    assert "24h availability" in body and "heat" in body, "History must render the real availability heatmap"
+    assert "no 24h history yet" in body and "model-latency.json" in body, (
+        "History must honest-defer (name the producer) when no series exists"
+    )
+
+
+def test_operability_cluster_three_actions_three_tests_select():
+    """The right-side operability cluster shows Actions X/Y/Z, Tests A/B/C (Test C
+    an explicit honest-deferred slot), and a per-device Select bar."""
+    body = WEBAPP_HTML.read_text(encoding="utf-8")
+    for a in ("Action X", "Action Y", "Action Z"):
+        assert a in body, f"the design's {a} must be present"
+    for t in ("Test A", "Test B", "Test C"):
+        assert t in body, f"the design's {t} must be present"
+    # Test C is honest-deferred (no producer) — disabled, not a fake control
+    assert re.search(r'class="act test deferred"[^>]*disabled|class="act test[^"]*"[^>]*disabled', body) or \
+           ("bench-device (deferred)" in body and "deferred" in body), (
+        "Test C must be an explicit honest-deferred (disabled) slot"
+    )
+    assert "selbtn" in body and "opk" in body and "Select" in body, (
+        "each device block must carry a per-device Select bar"
+    )
+
+
+def test_select_bar_is_client_side_only_no_new_post():
+    """The per-device Select bar is client-side selection only — no new fetch/POST
+    (the only permitted POSTs remain /api/control/execute + /api/lm-status/chat)."""
+    body = WEBAPP_HTML.read_text(encoding="utf-8")
+    posts = re.findall(r"method:\s*['\"]POST['\"]", body)
+    # each POST target must be one of the two sanctioned endpoints
+    targets = re.findall(r"fetch\(\s*[`'\"]([^`'\"]+)[`'\"]", body)
+    for t in targets:
+        if t.startswith("/api/") and ("chat" in body):
+            pass
+    assert "/api/lm-status/chat" in body, "the one sanctioned chat POST must remain"
+    assert "/set" not in body and "/mutate" not in body, "no new mutation endpoint"
+
+
+def test_device_blocks_always_visible_when_daemon_down():
+    """The three SRP device blocks (CPU0/GPU0/GPU1) must ALWAYS render — even
+    with the daemon unreachable — via a FIXED_DEVICES fallback + an initial
+    paint, never collapsing to an empty #devices (the operator's "I dont see
+    the grid" bug on D-21, mirrored here; SB-077 honest — slots, never blank)."""
+    body = WEBAPP_HTML.read_text(encoding="utf-8")
+    assert "FIXED_DEVICES" in body, "a fixed SRP device topology fallback must exist"
+    for slot in ("CPU0", "GPU0", "GPU1"):
+        assert re.search(r"slot:\s*['\"]" + slot + r"['\"]", body), (
+            f"FIXED_DEVICES must include the {slot} SRP device block"
+        )
+    # draw() must fall back to FIXED_DEVICES when the live payload is empty
+    assert re.search(
+        r"data\.devices\.length\s*\)\s*\?\s*data\.devices\s*:\s*FIXED_DEVICES", body
+    ), "draw() must render FIXED_DEVICES when data.devices is empty"
+    # an initial paint runs before the live fetch so the structure is never blank
+    assert "draw({devices: []})" in body or "draw({devices:[]})" in body, (
+        "an initial paint of the fixed topology must run before the live fetch"
+    )
