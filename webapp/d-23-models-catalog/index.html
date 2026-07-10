@@ -178,7 +178,10 @@
   .so-ask{flex-shrink:0; border-top:1px solid var(--border,#262626); background:var(--panel,#171717); padding:.55rem .7rem .65rem;}
   .so-ask-h{display:flex; align-items:center; gap:.4rem; font-size:.72rem; color:var(--muted,#8a8a8a); text-transform:uppercase; letter-spacing:.05em; margin-bottom:.4rem;}
   .so-ask-h .chev{margin-left:auto; transition:transform .12s ease; cursor:pointer;}
-  .so-ask.collapsed .chev{transform:rotate(-90deg);} .so-ask.collapsed .so-ask-in, .so-ask.collapsed .so-ask-row, .so-ask.collapsed .so-ask-ans{display:none;}
+  .so-ask.collapsed .chev{transform:rotate(-90deg);} .so-ask.collapsed .so-ask-in, .so-ask.collapsed .so-ask-row, .so-ask.collapsed .so-ask-opt, .so-ask.collapsed .so-ask-ans{display:none;}
+  .so-ask-opt{margin-top:.35rem;}
+  .so-ask-chk{display:inline-flex; align-items:center; gap:.32rem; font-size:.72rem; color:var(--muted,#8a8a8a); cursor:pointer; user-select:none;}
+  .so-ask-chk input{accent-color:var(--accent,#9bd1ff); margin:0;}
   .so-ask-in{width:100%; box-sizing:border-box; min-height:44px; max-height:120px; resize:vertical; background:var(--bg,#0e0e0e); color:var(--fg,#e6e6e6);
     border:1px solid var(--border,#262626); border-radius:6px; padding:.4rem .5rem; font:inherit; font-size:.78rem; line-height:1.45; outline:none;}
   .so-ask-in:focus{border-color:var(--accent,#9bd1ff);}
@@ -319,7 +322,8 @@
       '<div class="so-assist-body" id="so-assist-body"></div>'+
       '<div class="so-ask" id="so-ask">'+
         '<div class="so-ask-h"><span>✦ ask about this</span><span class="chev" id="so-ask-chev" title="collapse/expand" role="button" tabindex="0">▾</span></div>'+
-        '<textarea class="so-ask-in" id="so-ask-in" spellcheck="false" placeholder="ask about this panel — or edit the seeded question…" aria-label="ask a question"></textarea>'+
+        '<textarea class="so-ask-in" id="so-ask-in" spellcheck="false" placeholder="your question — the full assistant guide for this panel is sent as context automatically" aria-label="ask a question"></textarea>'+
+        '<div class="so-ask-opt"><label class="so-ask-chk" title="also prepend this panel\'s visible on-screen data before the assistant guide"><input type="checkbox" id="so-ask-page"> include page contents</label></div>'+
         '<div class="so-ask-row">'+
           '<select class="so-ask-dev" id="so-ask-dev" title="local-AI target (M075 SRP device / model)" aria-label="local AI target">'+
             '<option value="auto">auto · router picks</option>'+
@@ -327,9 +331,10 @@
             '<option value="GPU0">GPU0 · Logic</option>'+
             '<option value="GPU1">GPU1 · Oracle</option>'+
           '</select>'+
-          '<button class="so-ask-btn local" id="so-ask-local" title="query the box\'s own local AI over loopback (127.0.0.1)">✦ Local AI</button>'+
-          '<button class="so-ask-btn" id="so-ask-gpt" title="open your question in ChatGPT (external — leaves the box)">ChatGPT ↗</button>'+
-          '<button class="so-ask-btn" id="so-ask-claude" title="open your question in Claude (external — leaves the box)">Claude ↗</button>'+
+          '<button class="so-ask-btn local" id="so-ask-local" title="query the box\'s own local AI over loopback (127.0.0.1) — question + assistant guide as context">✦ Local AI</button>'+
+          '<button class="so-ask-btn" id="so-ask-gpt" title="open your question + this panel\'s assistant guide in ChatGPT (external — leaves the box)">ChatGPT ↗</button>'+
+          '<button class="so-ask-btn" id="so-ask-claude" title="open your question + this panel\'s assistant guide in Claude (external — leaves the box)">Claude ↗</button>'+
+          '<button class="so-ask-btn" id="so-ask-copy" title="copy the question + full assistant guide (and page, if ticked) to the clipboard">⧉ Copy</button>'+
         '</div>'+
         '<div class="so-ask-ans" id="so-ask-ans" aria-live="polite"></div>'+
       '</div></aside>'));
@@ -478,19 +483,40 @@
     var askEdited=false; if(askIn) askIn.addEventListener('input',function(){ askEdited=true; });
     var askChev=document.getElementById('so-ask-chev'); if(askChev){ var askToggle=function(){ askEl.classList.toggle('collapsed'); }; askChev.addEventListener('click',askToggle); askChev.addEventListener('keydown',function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); askToggle(); } }); }
     if(askIn && !askEdited) askIn.value='Explain '+((CAT.ctx&&CAT.ctx.title)||'this panel')+' — what should I look at?';
-    function askContext(){ var parts=[]; var ct=CAT.ctx; if(ct&&ct.title) parts.push(String(ct.title)); if(ct&&ct.content) parts.push(String(ct.content));
-      if(lastMatched){ var t=abody.querySelector('.so-node.active .so-node-title'), c=abody.querySelector('.so-node.active .so-node-content');
-        if(t) parts.push('• '+t.textContent.trim()); if(c) parts.push(c.textContent.trim()); }
-      return parts.join('\n').replace(/[ \t]+\n/g,'\n').trim().slice(0,1200); }
-    function askPrompt(){ var q=(askIn&&askIn.value||'').trim(), ctx=askContext();
-      return (q||'Explain this cockpit panel and what I should look at.') + (ctx?('\n\n[context]\n'+ctx):''); }
-    var gpt=document.getElementById('so-ask-gpt'), cld=document.getElementById('so-ask-claude'), loc=document.getElementById('so-ask-local');
-    if(gpt) gpt.addEventListener('click',function(){ window.open('https://chatgpt.com/?q='+encodeURIComponent(askPrompt()),'_blank','noopener'); });
-    if(cld) cld.addEventListener('click',function(){ window.open('https://claude.ai/new?q='+encodeURIComponent(askPrompt()),'_blank','noopener'); });
+    function askStrip(h){ var d=document.createElement('div'); d.innerHTML=h||''; return (d.textContent||'').replace(/\s+/g,' ').trim(); }
+    // the WHOLE assistant pane data for this panel: context header + every node's
+    // content + expanded card + dynamic-row template, flattened (not just the active one).
+    function assistantData(){ var out=[]; var c=CAT.ctx;
+      if(c){ if(c.title) out.push(String(c.title)); if(c.content) out.push(String(c.content)); }
+      (function walk(ns){ (ns||[]).forEach(function(n){
+        var line=n.title||''; if(n.content) line+=(line?' — ':'')+n.content; if(line) out.push('• '+line);
+        if(n.expanded){ var e=askStrip(n.expanded); if(e) out.push('  '+e); }
+        if(n.dynamic&&n.childTemplate&&n.childTemplate.content){ out.push('  (rows: '+askStrip(n.childTemplate.content)+')'); }
+        if(n.children) walk(n.children);
+      }); })(CAT.nodes);
+      return out.join('\n').replace(/[ \t]+\n/g,'\n').trim(); }
+    function pageText(){ var m=document.getElementById('so-content'); if(!m) return '';
+      return (m.innerText||m.textContent||'').replace(/[ \t]+\n/g,'\n').replace(/\n{3,}/g,'\n\n').trim(); }
+    // question + [page contents (if ticked)] + [assistant guide], bounded so the
+    // local model's server-side char cap can't reject it (budget=0 → no cap, for copy).
+    function composePrompt(budget){
+      var q=(askIn&&askIn.value||'').trim()||'Explain this cockpit panel and what I should look at.';
+      var incPage=!!(document.getElementById('so-ask-page')&&document.getElementById('so-ask-page').checked);
+      var ad='[assistant guide — '+((CAT.ctx&&CAT.ctx.title)||'this panel')+']\n'+assistantData();
+      var pg=incPage?('[page contents]\n'+pageText()):'';
+      var ctx=(pg?pg+'\n\n':'')+ad;
+      if(budget){ var room=Math.max(400,budget-q.length-20); if(ctx.length>room) ctx=ctx.slice(0,room-14)+'\n…[truncated]'; }
+      return q+'\n\n'+ctx; }
+    var gpt=document.getElementById('so-ask-gpt'), cld=document.getElementById('so-ask-claude'), loc=document.getElementById('so-ask-local'), cpy=document.getElementById('so-ask-copy');
+    if(gpt) gpt.addEventListener('click',function(){ window.open('https://chatgpt.com/?q='+encodeURIComponent(composePrompt(7500)),'_blank','noopener'); });
+    if(cld) cld.addEventListener('click',function(){ window.open('https://claude.ai/new?q='+encodeURIComponent(composePrompt(7500)),'_blank','noopener'); });
+    if(cpy) cpy.addEventListener('click',function(){ var full=composePrompt(0);
+      var done=function(okc){ askAns.className='so-ask-ans show'; askAns.innerHTML='<span class="meta">'+(okc?'✓ copied question + full assistant context ('+full.length+' chars) to the clipboard':'⚠ clipboard blocked — select the answer text to copy manually')+'</span>'; };
+      if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(full).then(function(){done(true);},function(){done(false);}); } else done(false); });
     if(loc) loc.addEventListener('click',askLocal);
     // Local AI — the ONE sanctioned loopback call (R10212): POST to the code-console chat, stream the SSE reply inline.
     function askLocal(){
-      var prompt=askPrompt(), dev=(askDev&&askDev.value)||'auto';
+      var prompt=composePrompt(7400), dev=(askDev&&askDev.value)||'auto';  // < server MAX_PROMPT_CHARS (8000)
       var ocHref='../code-console/?q='+encodeURIComponent((askIn&&askIn.value||'').trim())+'&target='+encodeURIComponent(dev)+'&send=1';
       var ocLink='<a class="oc" href="'+esc(ocHref)+'">open in Code Console ↗</a>';
       askAns.className='so-ask-ans show'; askAns.innerHTML='<span class="meta">querying local AI ('+esc(dev)+')…</span>';
