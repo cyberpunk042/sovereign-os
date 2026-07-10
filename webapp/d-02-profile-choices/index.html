@@ -475,20 +475,35 @@ a11y; contract test catches drift.
   .so-sm-item:hover{background:color-mix(in srgb,var(--accent,#9bd1ff) 12%,transparent);}
   .so-sm-item.active{background:color-mix(in srgb,var(--accent,#9bd1ff) 18%,transparent); border-left-color:var(--accent,#9bd1ff);}
   body.so-sm-collapsed .so-sm-item{justify-content:center; padding:.4rem 0;} body.so-sm-collapsed .so-sm-item .lbl, body.so-sm-collapsed .so-sm-item .id{display:none;}
-  /* assistant */
+  /* assistant — full-height contextual side panel (cascade model, ported from devops-control-plane) */
   #so-assist{position:fixed; top:var(--so-header-h); right:0; bottom:0; width:var(--so-assist-w); max-width:92vw; z-index:9450;
     background:var(--panel,#171717); border-left:1px solid var(--border,#262626); transform:translateX(100%); display:flex; flex-direction:column;
     font-family:ui-sans-serif,-apple-system,Segoe UI,Roboto,sans-serif; color:var(--fg,#e6e6e6);}
   body.so-assist-open #so-assist{transform:translateX(0);}
-  .so-assist-h{display:flex; align-items:center; gap:.5rem; padding:.6rem .8rem; border-bottom:1px solid var(--border,#262626);}
+  .so-assist-h{display:flex; align-items:center; gap:.5rem; padding:.55rem .8rem; border-bottom:1px solid var(--border,#262626); flex-shrink:0;}
   .so-assist-h .t{font-weight:600; font-size:.85rem;} .so-assist-h .t .spark{color:var(--accent,#9bd1ff);}
-  .so-assist-body{flex:1; overflow-y:auto; padding:.8rem; font-size:.82rem; line-height:1.5;}
-  .so-assist-sec{margin-bottom:1.1rem;} .so-assist-sec h4{margin:0 0 .3rem; font-size:.72rem; text-transform:uppercase; letter-spacing:.05em; color:var(--muted,#8a8a8a);}
-  .so-assist-hint{color:var(--muted,#8a8a8a); font-style:italic;}
-  #so-assist-el{border:1px dashed var(--border,#262626); border-radius:8px; padding:.6rem .7rem; background:var(--bg,#0e0e0e); min-height:3rem;}
-  #so-assist-el.hot{border-color:var(--accent,#9bd1ff); border-style:solid;}
-  #so-assist-el .lbl{font-weight:600; margin-bottom:.3rem;} #so-assist-el .lbl .id{color:var(--accent,#9bd1ff); font-size:.72rem;}
-  [data-assist].so-assist-hot, .so-sm-item.so-assist-hot{outline:2px solid var(--accent,#9bd1ff); outline-offset:-2px; border-radius:6px;}
+  .so-assist-body{flex:1; overflow-y:auto; overflow-x:hidden; padding:.8rem; font-size:.82rem; line-height:1.55;}
+  /* context header — always-visible "where you are" */
+  .so-ctx{padding:.7rem .85rem; margin:-.8rem -.8rem .9rem; border-bottom:1px solid var(--border,#262626); background:linear-gradient(180deg,rgba(155,209,255,.06),transparent);}
+  .so-ctx-title{font-weight:600; font-size:.92rem; margin-bottom:.35rem;}
+  .so-ctx-content{color:var(--fg-2,#c8c8c8); font-size:.8rem; line-height:1.55; white-space:pre-line;}
+  /* interaction-path nodes */
+  .so-node{padding:.55rem .65rem; margin:.5rem 0; border-left:2px solid transparent; border-radius:0 6px 6px 0; transition:background .12s ease,border-color .12s ease;}
+  .so-node.in-chain{border-left-color:rgba(155,209,255,.18); opacity:.82;}
+  .so-node.active{border-left-color:var(--accent,#9bd1ff); border-left-width:3px; background:rgba(155,209,255,.045); box-shadow:inset 0 0 22px rgba(155,209,255,.03);}
+  .so-node-title{font-weight:600; font-size:.83rem; margin-bottom:.3rem;} .so-node-title .id{color:var(--accent,#9bd1ff); font-size:.72rem; font-weight:500;}
+  .so-node-content{color:var(--fg-2,#c8c8c8); font-size:.8rem; line-height:1.55; white-space:pre-line;}
+  .so-node-expanded{margin-top:.55rem; padding-top:.55rem; border-top:1px solid rgba(155,209,255,.13); font-size:.78rem; line-height:1.6; color:var(--muted,#a8a8a8); white-space:pre-line;}
+  /* rich expanded cards */
+  .so-card{border:1px solid var(--border,#262626); border-radius:7px; padding:.55rem .65rem; margin-top:.45rem; background:var(--bg,#0e0e0e); white-space:normal; line-height:1.55;}
+  .so-card.info{border-color:rgba(155,209,255,.28);}
+  .so-grid{display:grid; grid-template-columns:auto 1fr; gap:.22rem .6rem; margin:.35rem 0; font-size:.76rem; white-space:normal;}
+  .so-grid .k{color:var(--accent,#9bd1ff); font-weight:500;}
+  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;}
+  .so-tip{margin-top:.4rem; font-size:.77rem; color:var(--muted,#a8a8a8);}
+  .so-assist-idle{color:var(--muted,#8a8a8a); font-style:italic; padding:.4rem 0;}
+  /* highlight the hovered/focused element in the panel content */
+  .so-assist-hot{outline:2px solid var(--accent,#9bd1ff); outline-offset:-2px; border-radius:6px;}
   /* responsive — reuse the existing breakpoints */
   @media (max-width:1024px){
     #so-sidemenu{transform:translateX(-100%);} body.so-sm-open #so-sidemenu{transform:translateX(0); width:var(--so-sidemenu-w);}
@@ -613,11 +628,7 @@ a11y; contract test catches drift.
     document.body.appendChild(el(
       '<aside id="so-assist" role="complementary" aria-label="assistant"><div class="so-assist-h"><span class="t"><span class="spark">✦</span> Assistant</span>'+
         '<button class="so-h-btn" id="so-assist-close" title="Close" style="margin-left:auto">✕</button></div>'+
-      '<div class="so-assist-body">'+
-        '<div class="so-assist-sec"><h4>This panel — '+title+'</h4><div>'+esc(help)+'</div></div>'+
-        '<div class="so-assist-sec"><h4>Focus / hover</h4><div id="so-assist-el"><span class="so-assist-hint">Hover a menu link or any highlighted control and its explanation appears here.</span></div></div>'+
-        '<div class="so-assist-sec"><h4>Tour</h4><button class="so-h-btn" id="so-tour-btn" style="border-color:var(--border,#262626)">▶ Start tour</button> <span class="so-assist-hint" id="so-tour-status"></span></div>'+
-      '</div></aside>'));
+      '<div class="so-assist-body" id="so-assist-body"></div></aside>'));
   }
   function wire(){
     document.getElementById('so-menu-toggle').addEventListener('click',function(){
@@ -635,67 +646,61 @@ a11y; contract test catches drift.
       Array.prototype.forEach.call(document.querySelectorAll('.so-grp'),function(grp){ var any=false;
         Array.prototype.forEach.call(grp.querySelectorAll('.so-sm-item'),function(it){ var hit=!q||it.dataset.label.toLowerCase().indexOf(q)>=0||it.dataset.dir.toLowerCase().indexOf(q)>=0; it.style.display=hit?'':'none'; if(hit)any=true; });
         grp.style.display=any?'':'none'; }); });
-    var box=document.getElementById('so-assist-el');
+    // ── Assistant: contextual cascade panel (model ported from devops-control-plane) ──
+    // catalogue: window.SO_ASSIST = { context:{title,icon,content}, nodes:[{id,title,icon,selector,content,expanded,variants,children}] }
+    //   content = plain teaching text (always shown); expanded = authored rich HTML (shown for the active element).
+    var abody=document.getElementById('so-assist-body');
     function openAssist(){ if(!document.body.classList.contains('so-assist-open')) document.body.classList.add('so-assist-open'); }
-    function clr(tg){ if(tg)tg.classList.remove('so-assist-hot'); }
     function reduced(){ return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
-    // render a gold-data card {id?,title?,msg,more?} into the drawer
-    function renderCard(e,tg){ box.classList.add('hot');
-      var h='';
-      if(e.title) h+='<div class="lbl">'+(e.id?'<span class="id">'+esc(e.id)+'</span> ':'')+esc(e.title)+'</div>';
-      h+='<div>'+esc(e.msg||'')+'</div>';
-      if(e.more) h+='<button class="so-h-btn" id="so-more-btn" style="margin-top:.5rem;border-color:var(--border,#262626);font-size:.74rem">more ▾</button>'+
-        '<div id="so-more" style="display:none;margin-top:.4rem;color:var(--muted,#8a8a8a)">'+esc(e.more)+'</div>';
-      box.innerHTML=h;
-      var mb=document.getElementById('so-more-btn');
-      if(mb) mb.addEventListener('click',function(){ var d=document.getElementById('so-more'); var open=d.style.display!=='none'; d.style.display=open?'none':'block'; mb.textContent=open?'more ▾':'less ▲'; });
-      if(tg)tg.classList.add('so-assist-hot'); openAssist(); }
-    // ── unified gold-data target list: window.SO_ASSIST (selector→{title,msg,more}) ∪ inline [data-assist] ──
-    var TARGETS=[], seen=[];
-    function pushTarget(el,e){ if(!el||seen.indexOf(el)>=0) return; seen.push(el); TARGETS.push({el:el,title:e.title||'',msg:e.msg||'',more:e.more||''}); }
-    try { var SA=window.SO_ASSIST; if(SA&&SA.length) SA.forEach(function(e){ if(!e||!e.sel) return;
-      try { Array.prototype.forEach.call(document.querySelectorAll('#so-content '+e.sel),function(el){ pushTarget(el,e); }); } catch(x){} }); } catch(err){}
-    Array.prototype.forEach.call(document.querySelectorAll('#so-content [data-assist]'),function(el){ pushTarget(el,{msg:el.getAttribute('data-assist')}); });
-    TARGETS.sort(function(a,b){ var p=a.el.compareDocumentPosition(b.el); return (p&Node.DOCUMENT_POSITION_FOLLOWING)?-1:((p&Node.DOCUMENT_POSITION_PRECEDING)?1:0); });
-    TARGETS.forEach(function(t){
-      t.el.addEventListener('mouseenter',function(){renderCard(t,t.el);});
-      t.el.addEventListener('focus',function(){renderCard(t,t.el);});
-      t.el.addEventListener('mouseleave',function(){clr(t.el);});
-      t.el.addEventListener('blur',function(){clr(t.el);}); });
-    // every menu link explains its panel (catalog gold data)
-    Array.prototype.forEach.call(document.querySelectorAll('.so-sm-item'),function(it){
-      var p=findPanel(it.dataset.dir); if(!p) return; var e={title:p.label,id:(p.id!=='—'?p.id:''),msg:p.desc};
-      it.addEventListener('mouseenter',function(){renderCard(e,it);});
-      it.addEventListener('focus',function(){renderCard(e,it);});
-      it.addEventListener('mouseleave',function(){clr(it);});
-      it.addEventListener('blur',function(){clr(it);}); });
-    // ── guided tour: walk the unified gold-data targets in DOM order ──
-    var tour={i:-1,on:false}, tourBtn=document.getElementById('so-tour-btn'), tourStatus=document.getElementById('so-tour-status');
-    function tourClear(){ TARGETS.forEach(function(t){ t.el.classList.remove('so-assist-hot'); }); }
-    function tourEnd(){ tour.on=false; tourClear(); box.classList.remove('hot');
-      box.innerHTML='<span class="so-assist-hint">Hover a menu link or any highlighted control and its explanation appears here.</span>';
-      if(tourStatus) tourStatus.textContent=''; if(tourBtn) tourBtn.textContent='▶ Start tour'; }
-    function tourShow(i){ if(i<0||i>=TARGETS.length){ tourEnd(); return; } tour.i=i; tourClear();
-      var t=TARGETS[i]; t.el.classList.add('so-assist-hot');
-      if(t.el.scrollIntoView) t.el.scrollIntoView({block:'center', behavior: reduced()?'auto':'smooth'});
-      box.classList.add('hot');
-      box.innerHTML=(t.title?'<div class="lbl">'+esc(t.title)+'</div>':'')+'<div style="margin-bottom:.5rem">'+esc(t.msg||'')+'</div>'+
-        (t.more?'<div style="margin-bottom:.5rem;color:var(--muted,#8a8a8a)">'+esc(t.more)+'</div>':'')+
-        '<div style="display:flex;gap:.4rem;align-items:center">'+
-        '<button class="so-h-btn" id="so-tour-prev"'+(i===0?' disabled':'')+'>←</button>'+
-        '<button class="so-h-btn" id="so-tour-next">'+(i===TARGETS.length-1?'done':'→')+'</button>'+
-        '<span class="so-assist-hint">step '+(i+1)+' / '+TARGETS.length+'</span></div>';
-      var pv=document.getElementById('so-tour-prev'), nx=document.getElementById('so-tour-next');
-      if(pv) pv.addEventListener('click',function(){ tourShow(tour.i-1); });
-      if(nx) nx.addEventListener('click',function(){ tour.i===TARGETS.length-1 ? tourEnd() : tourShow(tour.i+1); });
+    var curP=findPanel(curDir());
+    var CAT=(function(){ var sa=window.SO_ASSIST, ctx=null, nodes=[];
+      if(sa && !Array.isArray(sa) && sa.nodes){ ctx=sa.context||null; nodes=sa.nodes||[]; }
+      else if(Array.isArray(sa)){ nodes=sa.map(function(e){ return {id:'',title:e.title||'',selector:e.sel,content:e.msg||'',expanded:e.more?esc(e.more):''}; }); }
+      if(!ctx) ctx={ icon:'✦', title:(curP?((curP.id&&curP.id!=='—'?curP.id+' · ':'')+curP.label):'This panel'), content:(curP?curP.desc:'') };
+      return {ctx:ctx, nodes:nodes}; })();
+    // flatten deepest-first with parent chains
+    var FLAT=[]; (function flat(list,chain){ (list||[]).forEach(function(n){ if(n.children&&n.children.length) flat(n.children,chain.concat([n])); FLAT.push({node:n,parents:chain.slice()}); }); })(CAT.nodes,[]);
+    // variant resolution against the matched element (state-awareness)
+    function resolveVar(node,el){ if(!node.variants||!node.variants.length||!el) return node;
+      for(var i=0;i<node.variants.length;i++){ var v=node.variants[i], w=v.when||{}, ok=true;
+        if(w.textContains && (el.textContent||'').indexOf(w.textContains)<0) ok=false;
+        if(ok&&w.hasSelector){ try{ if(!el.querySelector(w.hasSelector)) ok=false; }catch(e){ ok=false; } }
+        if(ok) return {id:node.id,title:v.title||node.title,icon:node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded)}; }
+      return node; }
+    // match a hovered element to the deepest catalogue node
+    function matchNode(el){ var best=null,bd=-1;
+      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node,m=false,tgt=null; if(!n.selector) continue;
+        try{ if(el.matches(n.selector)){m=true;tgt=el;}
+          else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
+        if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+      return best; }
+    function ctxHtml(){ var c=CAT.ctx; return '<div class="so-ctx"><div class="so-ctx-title">'+(c.icon?esc(c.icon)+' ':'')+esc(c.title||'')+'</div><div class="so-ctx-content">'+esc(c.content||'')+'</div></div>'; }
+    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node;
+      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(r.title||'')+'</div>';
+      h+='<div class="so-node-content">'+esc(r.content||'')+'</div>';
+      if(active && r.expanded) h+='<div class="so-node-expanded">'+r.expanded+'</div>';   // expanded = trusted authored HTML
+      return h+'</div>'; }
+    var lastHot=null, lastMatched=null;
+    function clearHot(){ if(lastHot){ lastHot.classList.remove('so-assist-hot'); lastHot=null; } }
+    function idle(){ lastMatched=null; clearHot(); abody.innerHTML=ctxHtml()+'<div class="so-assist-idle">Hover any value, control, table row, or menu link — its explanation builds here.</div>'; }
+    function showPath(match){ openAssist(); clearHot();
+      var chain=match.entry.parents, node=match.entry.node, parent=chain.length?chain[chain.length-1]:null;
+      var html=ctxHtml(); if(parent) html+=nodeHtml(parent,null,null); html+=nodeHtml(node,true,match.el);
+      abody.innerHTML=html;
+      if(match.el){ match.el.classList.add('so-assist-hot'); lastHot=match.el; }
+      var act=abody.querySelector('.so-node.active'); if(act&&act.scrollIntoView) act.scrollIntoView({block:'center',behavior:reduced()?'auto':'smooth'}); }
+    var content=document.getElementById('so-content');
+    if(content){
+      content.addEventListener('mouseover',function(ev){ var m=matchNode(ev.target); if(m&&m.el!==lastMatched){ lastMatched=m.el; showPath(m); } });
+      content.addEventListener('focusin',function(ev){ var m=matchNode(ev.target); if(m&&m.el!==lastMatched){ lastMatched=m.el; showPath(m); } });
     }
-    function tourStart(){ if(!TARGETS.length){ if(tourStatus) tourStatus.textContent='no annotated elements on this panel yet — the menu links (← left) each carry a description.'; return; }
-      tour.on=true; openAssist(); if(tourBtn) tourBtn.textContent='✕ End tour'; tourShow(0); }
-    if(tourBtn) tourBtn.addEventListener('click',function(){ tour.on ? tourEnd() : tourStart(); });
-    window.addEventListener('keydown',function(ev){ if(!tour.on) return;
-      if(ev.key==='ArrowRight'){ ev.preventDefault(); tour.i===TARGETS.length-1 ? tourEnd() : tourShow(tour.i+1); }
-      else if(ev.key==='ArrowLeft'){ ev.preventDefault(); tourShow(Math.max(0,tour.i-1)); }
-      else if(ev.key==='Escape'){ ev.preventDefault(); tourEnd(); } });
+    // menu links → surface the target panel's context (program-awareness: horizontal jump)
+    Array.prototype.forEach.call(document.querySelectorAll('.so-sm-item'),function(it){ var p=findPanel(it.dataset.dir); if(!p) return;
+      function show(){ openAssist(); clearHot(); lastMatched=null; it.classList.add('so-assist-hot'); lastHot=it; var here=it.dataset.dir===curDir();
+        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+esc(p.desc||'')+'</div></div>'+
+          '<div class="so-assist-idle">'+(here?'You’re on this panel now — hover its contents to explore.':'Click to open this panel.')+'</div>'; }
+      it.addEventListener('mouseenter',show); it.addEventListener('focus',show); });
+    idle();
   }
   function init(){
     var dir=curDir(), cur=findPanel(dir);
@@ -1451,124 +1456,160 @@ refresh();
 <script>SovereignControlSurface.load(document.getElementById('control-surface'),{filterSlug:'d-02-profile-choices'});</script>
 
 
+
+
 <!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
 <script>
-window.SO_ASSIST = [
+window.SO_ASSIST = {
+ "context": {
+  "icon": "◱",
+  "title": "D-02 · Profile Choices",
+  "content": "A read-only view of the active OS profile — the whole authority + trust posture the box runs under. One of six MS040 profiles, each a different point on the L0..L6 authority ladder and the Ring 0..4 trust topology.\n\nProfiles are switched by signed CLI (R10212), never from here. The active profile explains what the box is allowed to do autonomously."
+ },
+ "nodes": [
   {
-    "sel": "#mirror-status-banner",
-    "title": "Mirror status",
-    "msg": "Whether the profile mirror is publishing (online) or absent (offline).",
-    "more": "A read-only reflection of the active OS profile (default = MS040 R09535 Private). Offline means the mirror isn't publishing — the profile is still in force selfdef-side, you just can't see it here until the bridge returns."
+   "icon": "◆",
+   "title": "Mirror status",
+   "content": "This is a read-only reflection of the active profile (default = MS040 R09535 Private). Offline means the mirror isn't publishing — the profile is still in force selfdef-side.",
+   "children": [
+    {
+     "selector": "#mirror-status-banner",
+     "title": "Bridge status",
+     "content": "Whether the profile mirror is publishing. Profiles are switched via signed CLI, never from here — this is observability only.",
+     "variants": [
+      {
+       "when": {
+        "textContains": "offline"
+       },
+       "content": "Offline — the mirror isn't publishing; the active profile is still in force, you just can't see changes here."
+      }
+     ]
+    },
+    {
+     "selector": "#mirror-last-update",
+     "title": "Last update",
+     "content": "When the profile snapshot was captured — a stale timestamp means no recent profile change was published."
+    },
+    {
+     "selector": "#mirror-state-label",
+     "title": "Mirror state",
+     "content": "The one-word online/offline read of the mirror — whether the peer view is live or stale."
+    },
+    {
+     "selector": "#mirror-state-detail",
+     "title": "Mirror detail",
+     "content": "The reason behind an offline mirror — the producer is down, distinct from the profile itself."
+    },
+    {
+     "selector": "#mirror-schema-version",
+     "title": "Schema version",
+     "content": "The contract shape of the mirrored profile data."
+    }
+   ]
   },
   {
-    "sel": "#mirror-state-label",
-    "title": "Mirror state",
-    "msg": "The one-word verdict — online / offline.",
-    "more": "The quick read on whether this profile view is live. Profiles are switched via signed CLI, never from here — this is observability only."
+   "icon": "◉",
+   "title": "Active profile",
+   "content": "Which posture is live right now, since when, by whom, and its authority ceiling. Everything below reflects THIS profile.",
+   "children": [
+    {
+     "selector": "#active-profile",
+     "title": "Active profile",
+     "content": "The OS profile currently in effect — the whole authority/trust posture the box runs under.",
+     "expanded": "<div class=\"so-card info\"><div>A profile bundles a point on the authority ladder + trust rings below into one named stance.</div></div>"
+    },
+    {
+     "selector": "#active-envelope",
+     "title": "L-envelope",
+     "content": "The authority ceiling this profile permits on the L0..L6 ladder — the single number bounding what the box can do autonomously."
+    },
+    {
+     "selector": "#active-since",
+     "title": "Active since",
+     "content": "How long the box has held this posture. A recent switch explains a change in what's allowed."
+    },
+    {
+     "selector": "#active-actor",
+     "title": "Activating actor",
+     "content": "Who set the current profile — profiles change only by signed action, so every posture change traces to a signer."
+    }
+   ]
   },
   {
-    "sel": "#mirror-state-detail",
-    "title": "Mirror detail",
-    "msg": "The reason behind the mirror state.",
-    "more": "Explains an offline mirror — the producer is down or unreachable, distinct from the profile itself having a problem."
+   "icon": "⊞",
+   "title": "Posture — ladder, rings, profiles",
+   "content": "The two axes of authority (L0..L6 ladder, Ring 0..4 trust) and the six profiles you can switch between. Together the ladder and rings define who may exercise which authority.",
+   "children": [
+    {
+     "selector": "#ladder",
+     "title": "Authority ladder (L0..L6)",
+     "content": "Authority is graduated: L0 Observe is harmless, L6 Persist commits durable change. The active profile allows up to its envelope — this shows which rungs are permitted now.",
+     "expanded": "<div class=\"so-card info\"><div>The model behind every allow/ask/deny decision the box makes.</div></div>"
+    },
+    {
+     "selector": "#ladder-legend",
+     "title": "Ladder legend",
+     "content": "What each L-level means — from read-only observation up to persistent commits."
+    },
+    {
+     "selector": "#rings",
+     "title": "Trust rings (Ring 0..4)",
+     "content": "Concentric trust zones from Ring 0 (kernel-equiv) to Ring 4 (untrusted). With the ladder, they define who may exercise which authority — the full trust picture (tokens in D-14)."
+    },
+    {
+     "selector": "#profiles-row",
+     "title": "Six profiles (MS040)",
+     "content": "The full menu — private, fast, careful, autonomous, experimental, production. Switching reshapes what the whole box will do; each composes a different point on the ladder and rings."
+    }
+   ]
   },
   {
-    "sel": "#mirror-last-update",
-    "title": "Mirror last update",
-    "msg": "When the profile snapshot was captured (selfdefd runs).",
-    "more": "Freshness of the reflected profile state — a stale timestamp means no recent profile change was published, so the values are last-known."
+   "icon": "≣",
+   "title": "History & gates",
+   "content": "The signed trail of posture changes, and the predeclared bounds on autonomous work.",
+   "children": [
+    {
+     "selector": "#history-tbody",
+     "title": "Profile-change history",
+     "content": "Every transition — from→to, actor, rationale, signature. When behaviour shifted, this is where you find which profile switch caused it and who authorised it."
+    },
+    {
+     "selector": "#gates-panel",
+     "title": "Predeclared gates",
+     "content": "The bounds the autonomous profile must satisfy — visible only when autonomous is active. Unattended work can't run open-ended; it predeclares its envelope through these."
+    },
+    {
+     "selector": "#gates-body",
+     "title": "Gate detail",
+     "content": "Each predeclared gate and its state — the concrete bounds on unattended action. Empty for non-autonomous profiles."
+    }
+   ]
   },
   {
-    "sel": "#mirror-schema-version",
-    "title": "Mirror schema version",
-    "msg": "The schema version of the profile snapshot.",
-    "more": "Stamps the contract shape so the profile fields are read against a known version — the thing to cite if the mirror's shape ever disagrees with what the panel renders."
-  },
-  {
-    "sel": "#active-profile",
-    "title": "Active profile",
-    "msg": "The OS profile currently in effect on this host.",
-    "more": "A profile is the whole authority + trust posture the box runs under — one of six MS040 profiles. This names which is live; everything below (ladder, rings, gates) reflects THIS profile's shape."
-  },
-  {
-    "sel": "#active-since",
-    "title": "Active since",
-    "msg": "When the current profile took effect.",
-    "more": "How long the box has held this posture. A recent switch explains a change in what's allowed; the history table records the transitions."
-  },
-  {
-    "sel": "#active-actor",
-    "title": "Activating actor",
-    "msg": "Who activated the current profile.",
-    "more": "Profiles change only by signed action — this names the actor who set it. Accountability: every posture change traces to a signer."
-  },
-  {
-    "sel": "#active-envelope",
-    "title": "L-envelope",
-    "msg": "The authority envelope (L-level ceiling) the active profile permits.",
-    "more": "The profile caps how high on the L0..L6 authority ladder actions may reach. The envelope is that ceiling — the single number bounding what this profile can do autonomously."
-  },
-  {
-    "sel": "#profiles-row",
-    "title": "Six profiles (MS040)",
-    "msg": "The six selectable profiles, each a distinct authority/trust posture.",
-    "more": "The full menu (private, fast, careful, autonomous, experimental, production) — each composes a different point on the authority ladder and trust rings. Switching profile reshapes what the whole box will do; this row is where you compare them."
-  },
-  {
-    "sel": "#ladder",
-    "title": "Authority ladder (L0..L6)",
-    "msg": "The current L0..L6 authority ladder per MS039 (Observe → Persist).",
-    "more": "Authority is graduated: L0 Observe is harmless, L6 Persist commits durable change. The active profile allows up to its envelope; this shows which rungs are permitted now — the model behind every allow/ask/deny decision."
-  },
-  {
-    "sel": "#ladder-legend",
-    "title": "Ladder legend",
-    "msg": "What each L-level (L0 Observe … L6 Persist) means.",
-    "more": "Decodes the ladder so a rung isn't just a number — it names the class of action each level authorizes, from read-only observation up to persistent commits."
-  },
-  {
-    "sel": "#rings",
-    "title": "Trust rings (Ring 0..4)",
-    "msg": "The current Ring 0..4 trust topology per MS039.",
-    "more": "The other axis of posture: concentric trust zones from Ring 0 (kernel-equiv) to Ring 4 (untrusted). Together with the authority ladder, the rings define who may exercise which authority — the full trust picture of the active profile (see D-14 for tokens)."
-  },
-  {
-    "sel": "#history-tbody",
-    "title": "Profile-change history",
-    "msg": "Past profile transitions — from→to, actor, rationale, signature.",
-    "more": "The signed trail of every posture change. When behaviour shifted, this is where you find which profile switch caused it and who authorised it — accountability for the box's stance over time."
-  },
-  {
-    "sel": "#gates-panel",
-    "title": "Predeclared gates",
-    "msg": "The gates the autonomous profile must satisfy (autonomous only).",
-    "more": "Visible only when the autonomous profile is active. Autonomous work can't run open-ended — it must predeclare its envelope through these gates, so unattended operation stays bounded and accountable."
-  },
-  {
-    "sel": "#gates-body",
-    "title": "Gate detail",
-    "msg": "The specific predeclared gates and their state.",
-    "more": "Each gate the autonomous profile committed to — the concrete bounds on unattended action. Empty/hidden for non-autonomous profiles, which don't operate unattended."
-  },
-  {
-    "sel": "#refresh-btn",
-    "title": "Refresh now",
-    "msg": "Re-poll the profile mirror.",
-    "more": "A fresh read of the active profile plus its authority-ladder and trust-ring state, instead of waiting for the auto-poll. Read-only — it re-reads, it changes nothing."
-  },
-  {
-    "sel": "#switch-btn",
-    "title": "Switch profile (operator-signed)",
-    "msg": "Stages a profile switch — copies the signed CLI verb, doesn't switch from the web.",
-    "more": "Changing profile reshapes the whole box's authority; it's a signed operator action via CLI, never a web click (R10212). The button hands you the exact command for the chosen profile."
-  },
-  {
-    "sel": "#control-surface",
-    "title": "Controls — profiles, modes & toggles",
-    "msg": "The per-panel control rail for profile behaviour.",
-    "more": "Every control copies its exact sovereign-osctl verb (§1g / R10212), never executing from the web — including the profile switch."
+   "icon": "⎈",
+   "title": "Actions & controls",
+   "content": "Read-only; switching profile reshapes the whole box's authority and is a signed CLI action (R10212).",
+   "children": [
+    {
+     "selector": "#switch-btn",
+     "title": "Switch profile (operator-signed)",
+     "content": "Stages a profile switch — a signed operator action via CLI, never a web click. The button copies the exact command for the chosen profile.",
+     "expanded": "<div class=\"so-card info\"><div class='so-li no'>✗ Changing profile changes what the box may do autonomously — that's why it's gated to a signed verb.</div></div>"
+    },
+    {
+     "selector": "#refresh-btn",
+     "title": "Refresh now",
+     "content": "A fresh read of the active profile and its ladder/rings state. Read-only."
+    },
+    {
+     "selector": "#control-surface",
+     "title": "Controls rail",
+     "content": "Profile controls — each copies its sovereign-osctl verb (§1g / R10212), never executing from the web."
+    }
+   ]
   }
-];
+ ]
+};
 </script>
 </body>
 </html>

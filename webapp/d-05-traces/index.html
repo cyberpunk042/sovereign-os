@@ -475,20 +475,35 @@ a11y; contract test catches drift.
   .so-sm-item:hover{background:color-mix(in srgb,var(--accent,#9bd1ff) 12%,transparent);}
   .so-sm-item.active{background:color-mix(in srgb,var(--accent,#9bd1ff) 18%,transparent); border-left-color:var(--accent,#9bd1ff);}
   body.so-sm-collapsed .so-sm-item{justify-content:center; padding:.4rem 0;} body.so-sm-collapsed .so-sm-item .lbl, body.so-sm-collapsed .so-sm-item .id{display:none;}
-  /* assistant */
+  /* assistant — full-height contextual side panel (cascade model, ported from devops-control-plane) */
   #so-assist{position:fixed; top:var(--so-header-h); right:0; bottom:0; width:var(--so-assist-w); max-width:92vw; z-index:9450;
     background:var(--panel,#171717); border-left:1px solid var(--border,#262626); transform:translateX(100%); display:flex; flex-direction:column;
     font-family:ui-sans-serif,-apple-system,Segoe UI,Roboto,sans-serif; color:var(--fg,#e6e6e6);}
   body.so-assist-open #so-assist{transform:translateX(0);}
-  .so-assist-h{display:flex; align-items:center; gap:.5rem; padding:.6rem .8rem; border-bottom:1px solid var(--border,#262626);}
+  .so-assist-h{display:flex; align-items:center; gap:.5rem; padding:.55rem .8rem; border-bottom:1px solid var(--border,#262626); flex-shrink:0;}
   .so-assist-h .t{font-weight:600; font-size:.85rem;} .so-assist-h .t .spark{color:var(--accent,#9bd1ff);}
-  .so-assist-body{flex:1; overflow-y:auto; padding:.8rem; font-size:.82rem; line-height:1.5;}
-  .so-assist-sec{margin-bottom:1.1rem;} .so-assist-sec h4{margin:0 0 .3rem; font-size:.72rem; text-transform:uppercase; letter-spacing:.05em; color:var(--muted,#8a8a8a);}
-  .so-assist-hint{color:var(--muted,#8a8a8a); font-style:italic;}
-  #so-assist-el{border:1px dashed var(--border,#262626); border-radius:8px; padding:.6rem .7rem; background:var(--bg,#0e0e0e); min-height:3rem;}
-  #so-assist-el.hot{border-color:var(--accent,#9bd1ff); border-style:solid;}
-  #so-assist-el .lbl{font-weight:600; margin-bottom:.3rem;} #so-assist-el .lbl .id{color:var(--accent,#9bd1ff); font-size:.72rem;}
-  [data-assist].so-assist-hot, .so-sm-item.so-assist-hot{outline:2px solid var(--accent,#9bd1ff); outline-offset:-2px; border-radius:6px;}
+  .so-assist-body{flex:1; overflow-y:auto; overflow-x:hidden; padding:.8rem; font-size:.82rem; line-height:1.55;}
+  /* context header — always-visible "where you are" */
+  .so-ctx{padding:.7rem .85rem; margin:-.8rem -.8rem .9rem; border-bottom:1px solid var(--border,#262626); background:linear-gradient(180deg,rgba(155,209,255,.06),transparent);}
+  .so-ctx-title{font-weight:600; font-size:.92rem; margin-bottom:.35rem;}
+  .so-ctx-content{color:var(--fg-2,#c8c8c8); font-size:.8rem; line-height:1.55; white-space:pre-line;}
+  /* interaction-path nodes */
+  .so-node{padding:.55rem .65rem; margin:.5rem 0; border-left:2px solid transparent; border-radius:0 6px 6px 0; transition:background .12s ease,border-color .12s ease;}
+  .so-node.in-chain{border-left-color:rgba(155,209,255,.18); opacity:.82;}
+  .so-node.active{border-left-color:var(--accent,#9bd1ff); border-left-width:3px; background:rgba(155,209,255,.045); box-shadow:inset 0 0 22px rgba(155,209,255,.03);}
+  .so-node-title{font-weight:600; font-size:.83rem; margin-bottom:.3rem;} .so-node-title .id{color:var(--accent,#9bd1ff); font-size:.72rem; font-weight:500;}
+  .so-node-content{color:var(--fg-2,#c8c8c8); font-size:.8rem; line-height:1.55; white-space:pre-line;}
+  .so-node-expanded{margin-top:.55rem; padding-top:.55rem; border-top:1px solid rgba(155,209,255,.13); font-size:.78rem; line-height:1.6; color:var(--muted,#a8a8a8); white-space:pre-line;}
+  /* rich expanded cards */
+  .so-card{border:1px solid var(--border,#262626); border-radius:7px; padding:.55rem .65rem; margin-top:.45rem; background:var(--bg,#0e0e0e); white-space:normal; line-height:1.55;}
+  .so-card.info{border-color:rgba(155,209,255,.28);}
+  .so-grid{display:grid; grid-template-columns:auto 1fr; gap:.22rem .6rem; margin:.35rem 0; font-size:.76rem; white-space:normal;}
+  .so-grid .k{color:var(--accent,#9bd1ff); font-weight:500;}
+  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;}
+  .so-tip{margin-top:.4rem; font-size:.77rem; color:var(--muted,#a8a8a8);}
+  .so-assist-idle{color:var(--muted,#8a8a8a); font-style:italic; padding:.4rem 0;}
+  /* highlight the hovered/focused element in the panel content */
+  .so-assist-hot{outline:2px solid var(--accent,#9bd1ff); outline-offset:-2px; border-radius:6px;}
   /* responsive — reuse the existing breakpoints */
   @media (max-width:1024px){
     #so-sidemenu{transform:translateX(-100%);} body.so-sm-open #so-sidemenu{transform:translateX(0); width:var(--so-sidemenu-w);}
@@ -613,11 +628,7 @@ a11y; contract test catches drift.
     document.body.appendChild(el(
       '<aside id="so-assist" role="complementary" aria-label="assistant"><div class="so-assist-h"><span class="t"><span class="spark">✦</span> Assistant</span>'+
         '<button class="so-h-btn" id="so-assist-close" title="Close" style="margin-left:auto">✕</button></div>'+
-      '<div class="so-assist-body">'+
-        '<div class="so-assist-sec"><h4>This panel — '+title+'</h4><div>'+esc(help)+'</div></div>'+
-        '<div class="so-assist-sec"><h4>Focus / hover</h4><div id="so-assist-el"><span class="so-assist-hint">Hover a menu link or any highlighted control and its explanation appears here.</span></div></div>'+
-        '<div class="so-assist-sec"><h4>Tour</h4><button class="so-h-btn" id="so-tour-btn" style="border-color:var(--border,#262626)">▶ Start tour</button> <span class="so-assist-hint" id="so-tour-status"></span></div>'+
-      '</div></aside>'));
+      '<div class="so-assist-body" id="so-assist-body"></div></aside>'));
   }
   function wire(){
     document.getElementById('so-menu-toggle').addEventListener('click',function(){
@@ -635,67 +646,61 @@ a11y; contract test catches drift.
       Array.prototype.forEach.call(document.querySelectorAll('.so-grp'),function(grp){ var any=false;
         Array.prototype.forEach.call(grp.querySelectorAll('.so-sm-item'),function(it){ var hit=!q||it.dataset.label.toLowerCase().indexOf(q)>=0||it.dataset.dir.toLowerCase().indexOf(q)>=0; it.style.display=hit?'':'none'; if(hit)any=true; });
         grp.style.display=any?'':'none'; }); });
-    var box=document.getElementById('so-assist-el');
+    // ── Assistant: contextual cascade panel (model ported from devops-control-plane) ──
+    // catalogue: window.SO_ASSIST = { context:{title,icon,content}, nodes:[{id,title,icon,selector,content,expanded,variants,children}] }
+    //   content = plain teaching text (always shown); expanded = authored rich HTML (shown for the active element).
+    var abody=document.getElementById('so-assist-body');
     function openAssist(){ if(!document.body.classList.contains('so-assist-open')) document.body.classList.add('so-assist-open'); }
-    function clr(tg){ if(tg)tg.classList.remove('so-assist-hot'); }
     function reduced(){ return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
-    // render a gold-data card {id?,title?,msg,more?} into the drawer
-    function renderCard(e,tg){ box.classList.add('hot');
-      var h='';
-      if(e.title) h+='<div class="lbl">'+(e.id?'<span class="id">'+esc(e.id)+'</span> ':'')+esc(e.title)+'</div>';
-      h+='<div>'+esc(e.msg||'')+'</div>';
-      if(e.more) h+='<button class="so-h-btn" id="so-more-btn" style="margin-top:.5rem;border-color:var(--border,#262626);font-size:.74rem">more ▾</button>'+
-        '<div id="so-more" style="display:none;margin-top:.4rem;color:var(--muted,#8a8a8a)">'+esc(e.more)+'</div>';
-      box.innerHTML=h;
-      var mb=document.getElementById('so-more-btn');
-      if(mb) mb.addEventListener('click',function(){ var d=document.getElementById('so-more'); var open=d.style.display!=='none'; d.style.display=open?'none':'block'; mb.textContent=open?'more ▾':'less ▲'; });
-      if(tg)tg.classList.add('so-assist-hot'); openAssist(); }
-    // ── unified gold-data target list: window.SO_ASSIST (selector→{title,msg,more}) ∪ inline [data-assist] ──
-    var TARGETS=[], seen=[];
-    function pushTarget(el,e){ if(!el||seen.indexOf(el)>=0) return; seen.push(el); TARGETS.push({el:el,title:e.title||'',msg:e.msg||'',more:e.more||''}); }
-    try { var SA=window.SO_ASSIST; if(SA&&SA.length) SA.forEach(function(e){ if(!e||!e.sel) return;
-      try { Array.prototype.forEach.call(document.querySelectorAll('#so-content '+e.sel),function(el){ pushTarget(el,e); }); } catch(x){} }); } catch(err){}
-    Array.prototype.forEach.call(document.querySelectorAll('#so-content [data-assist]'),function(el){ pushTarget(el,{msg:el.getAttribute('data-assist')}); });
-    TARGETS.sort(function(a,b){ var p=a.el.compareDocumentPosition(b.el); return (p&Node.DOCUMENT_POSITION_FOLLOWING)?-1:((p&Node.DOCUMENT_POSITION_PRECEDING)?1:0); });
-    TARGETS.forEach(function(t){
-      t.el.addEventListener('mouseenter',function(){renderCard(t,t.el);});
-      t.el.addEventListener('focus',function(){renderCard(t,t.el);});
-      t.el.addEventListener('mouseleave',function(){clr(t.el);});
-      t.el.addEventListener('blur',function(){clr(t.el);}); });
-    // every menu link explains its panel (catalog gold data)
-    Array.prototype.forEach.call(document.querySelectorAll('.so-sm-item'),function(it){
-      var p=findPanel(it.dataset.dir); if(!p) return; var e={title:p.label,id:(p.id!=='—'?p.id:''),msg:p.desc};
-      it.addEventListener('mouseenter',function(){renderCard(e,it);});
-      it.addEventListener('focus',function(){renderCard(e,it);});
-      it.addEventListener('mouseleave',function(){clr(it);});
-      it.addEventListener('blur',function(){clr(it);}); });
-    // ── guided tour: walk the unified gold-data targets in DOM order ──
-    var tour={i:-1,on:false}, tourBtn=document.getElementById('so-tour-btn'), tourStatus=document.getElementById('so-tour-status');
-    function tourClear(){ TARGETS.forEach(function(t){ t.el.classList.remove('so-assist-hot'); }); }
-    function tourEnd(){ tour.on=false; tourClear(); box.classList.remove('hot');
-      box.innerHTML='<span class="so-assist-hint">Hover a menu link or any highlighted control and its explanation appears here.</span>';
-      if(tourStatus) tourStatus.textContent=''; if(tourBtn) tourBtn.textContent='▶ Start tour'; }
-    function tourShow(i){ if(i<0||i>=TARGETS.length){ tourEnd(); return; } tour.i=i; tourClear();
-      var t=TARGETS[i]; t.el.classList.add('so-assist-hot');
-      if(t.el.scrollIntoView) t.el.scrollIntoView({block:'center', behavior: reduced()?'auto':'smooth'});
-      box.classList.add('hot');
-      box.innerHTML=(t.title?'<div class="lbl">'+esc(t.title)+'</div>':'')+'<div style="margin-bottom:.5rem">'+esc(t.msg||'')+'</div>'+
-        (t.more?'<div style="margin-bottom:.5rem;color:var(--muted,#8a8a8a)">'+esc(t.more)+'</div>':'')+
-        '<div style="display:flex;gap:.4rem;align-items:center">'+
-        '<button class="so-h-btn" id="so-tour-prev"'+(i===0?' disabled':'')+'>←</button>'+
-        '<button class="so-h-btn" id="so-tour-next">'+(i===TARGETS.length-1?'done':'→')+'</button>'+
-        '<span class="so-assist-hint">step '+(i+1)+' / '+TARGETS.length+'</span></div>';
-      var pv=document.getElementById('so-tour-prev'), nx=document.getElementById('so-tour-next');
-      if(pv) pv.addEventListener('click',function(){ tourShow(tour.i-1); });
-      if(nx) nx.addEventListener('click',function(){ tour.i===TARGETS.length-1 ? tourEnd() : tourShow(tour.i+1); });
+    var curP=findPanel(curDir());
+    var CAT=(function(){ var sa=window.SO_ASSIST, ctx=null, nodes=[];
+      if(sa && !Array.isArray(sa) && sa.nodes){ ctx=sa.context||null; nodes=sa.nodes||[]; }
+      else if(Array.isArray(sa)){ nodes=sa.map(function(e){ return {id:'',title:e.title||'',selector:e.sel,content:e.msg||'',expanded:e.more?esc(e.more):''}; }); }
+      if(!ctx) ctx={ icon:'✦', title:(curP?((curP.id&&curP.id!=='—'?curP.id+' · ':'')+curP.label):'This panel'), content:(curP?curP.desc:'') };
+      return {ctx:ctx, nodes:nodes}; })();
+    // flatten deepest-first with parent chains
+    var FLAT=[]; (function flat(list,chain){ (list||[]).forEach(function(n){ if(n.children&&n.children.length) flat(n.children,chain.concat([n])); FLAT.push({node:n,parents:chain.slice()}); }); })(CAT.nodes,[]);
+    // variant resolution against the matched element (state-awareness)
+    function resolveVar(node,el){ if(!node.variants||!node.variants.length||!el) return node;
+      for(var i=0;i<node.variants.length;i++){ var v=node.variants[i], w=v.when||{}, ok=true;
+        if(w.textContains && (el.textContent||'').indexOf(w.textContains)<0) ok=false;
+        if(ok&&w.hasSelector){ try{ if(!el.querySelector(w.hasSelector)) ok=false; }catch(e){ ok=false; } }
+        if(ok) return {id:node.id,title:v.title||node.title,icon:node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded)}; }
+      return node; }
+    // match a hovered element to the deepest catalogue node
+    function matchNode(el){ var best=null,bd=-1;
+      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node,m=false,tgt=null; if(!n.selector) continue;
+        try{ if(el.matches(n.selector)){m=true;tgt=el;}
+          else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
+        if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+      return best; }
+    function ctxHtml(){ var c=CAT.ctx; return '<div class="so-ctx"><div class="so-ctx-title">'+(c.icon?esc(c.icon)+' ':'')+esc(c.title||'')+'</div><div class="so-ctx-content">'+esc(c.content||'')+'</div></div>'; }
+    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node;
+      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(r.title||'')+'</div>';
+      h+='<div class="so-node-content">'+esc(r.content||'')+'</div>';
+      if(active && r.expanded) h+='<div class="so-node-expanded">'+r.expanded+'</div>';   // expanded = trusted authored HTML
+      return h+'</div>'; }
+    var lastHot=null, lastMatched=null;
+    function clearHot(){ if(lastHot){ lastHot.classList.remove('so-assist-hot'); lastHot=null; } }
+    function idle(){ lastMatched=null; clearHot(); abody.innerHTML=ctxHtml()+'<div class="so-assist-idle">Hover any value, control, table row, or menu link — its explanation builds here.</div>'; }
+    function showPath(match){ openAssist(); clearHot();
+      var chain=match.entry.parents, node=match.entry.node, parent=chain.length?chain[chain.length-1]:null;
+      var html=ctxHtml(); if(parent) html+=nodeHtml(parent,null,null); html+=nodeHtml(node,true,match.el);
+      abody.innerHTML=html;
+      if(match.el){ match.el.classList.add('so-assist-hot'); lastHot=match.el; }
+      var act=abody.querySelector('.so-node.active'); if(act&&act.scrollIntoView) act.scrollIntoView({block:'center',behavior:reduced()?'auto':'smooth'}); }
+    var content=document.getElementById('so-content');
+    if(content){
+      content.addEventListener('mouseover',function(ev){ var m=matchNode(ev.target); if(m&&m.el!==lastMatched){ lastMatched=m.el; showPath(m); } });
+      content.addEventListener('focusin',function(ev){ var m=matchNode(ev.target); if(m&&m.el!==lastMatched){ lastMatched=m.el; showPath(m); } });
     }
-    function tourStart(){ if(!TARGETS.length){ if(tourStatus) tourStatus.textContent='no annotated elements on this panel yet — the menu links (← left) each carry a description.'; return; }
-      tour.on=true; openAssist(); if(tourBtn) tourBtn.textContent='✕ End tour'; tourShow(0); }
-    if(tourBtn) tourBtn.addEventListener('click',function(){ tour.on ? tourEnd() : tourStart(); });
-    window.addEventListener('keydown',function(ev){ if(!tour.on) return;
-      if(ev.key==='ArrowRight'){ ev.preventDefault(); tour.i===TARGETS.length-1 ? tourEnd() : tourShow(tour.i+1); }
-      else if(ev.key==='ArrowLeft'){ ev.preventDefault(); tourShow(Math.max(0,tour.i-1)); }
-      else if(ev.key==='Escape'){ ev.preventDefault(); tourEnd(); } });
+    // menu links → surface the target panel's context (program-awareness: horizontal jump)
+    Array.prototype.forEach.call(document.querySelectorAll('.so-sm-item'),function(it){ var p=findPanel(it.dataset.dir); if(!p) return;
+      function show(){ openAssist(); clearHot(); lastMatched=null; it.classList.add('so-assist-hot'); lastHot=it; var here=it.dataset.dir===curDir();
+        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+esc(p.desc||'')+'</div></div>'+
+          '<div class="so-assist-idle">'+(here?'You’re on this panel now — hover its contents to explore.':'Click to open this panel.')+'</div>'; }
+      it.addEventListener('mouseenter',show); it.addEventListener('focus',show); });
+    idle();
   }
   function init(){
     var dir=curDir(), cur=findPanel(dir);
@@ -1434,202 +1439,257 @@ refresh();
 <script>SovereignControlSurface.load(document.getElementById('control-surface'),{filterSlug:'d-05-traces'});</script>
 
 
+
+
 <!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
 <script>
-window.SO_ASSIST = [
+window.SO_ASSIST = {
+ "context": {
+  "icon": "⋮",
+  "title": "D-05 · Traces",
+  "content": "Distributed span search — the answer to 'why did this request go where it did'. Each request leaves a tree of spans; this panel is how you find and read the one you're chasing.\n\nSpans double as OCSF security events (MS026), so a trace here can also leave the cockpit for a SIEM. Read-only — it queries, it never changes routing."
+ },
+ "nodes": [
   {
-    "sel": "#datasource-banner",
-    "title": "Live vs snapshot",
-    "msg": "Green = /api/traces/spans is answering live; muted = the baked snapshot.",
-    "more": "Traces are only useful when live — a debugging session on stale spans chases a request that already finished. Muted means the trace daemon is unreachable and you're reading the last committed set."
+   "icon": "◆",
+   "title": "Live-source banner",
+   "content": "Traces are only useful live — debugging on stale spans chases a request that already finished.",
+   "children": [
+    {
+     "selector": "#datasource-banner",
+     "title": "Live vs snapshot",
+     "content": "Green = /api/traces/spans is answering live; muted = the last committed set. Muted means the span tree may not reflect the request you're chasing.",
+     "expanded": "",
+     "variants": [
+      {
+       "when": {
+        "textContains": "live"
+       },
+       "content": "Live — the span store is current."
+      },
+      {
+       "when": {
+        "textContains": "snapshot"
+       },
+       "content": "Snapshot — the trace daemon is unreachable; a missing span may just be newer than this set."
+      }
+     ]
+    },
+    {
+     "selector": "#ds-last-update",
+     "title": "Fetch freshness",
+     "content": "When the shown spans were pulled — check before assuming a missing span means the request didn't happen.",
+     "expanded": ""
+    }
+   ]
   },
   {
-    "sel": "#ds-state-label",
-    "title": "Data-source state",
-    "msg": "Which source the page reads — live trace daemon or snapshot.",
-    "more": "The one-word verdict behind the banner. Snapshot means the span tree you're inspecting may not reflect the request you're chasing right now."
+   "icon": "▤",
+   "title": "Summary",
+   "content": "The size of the haystack and where to start digging — volume, errors, tail latency, and how many spans carry security meaning.",
+   "children": [
+    {
+     "selector": "#span-count",
+     "title": "Spans (last 1h)",
+     "content": "How much instrumented activity was recorded in the last hour. A sudden drop can mean tracing stopped emitting, not that the system went quiet.",
+     "expanded": ""
+    },
+    {
+     "selector": "#error-count",
+     "title": "Error spans",
+     "content": "Spans that carried an error — the fast triage number. Each is a request that failed somewhere in its tree.",
+     "expanded": "<div class=\"so-card info\"><div>Filter to these to see the failing operation without reading every trace.</div></div>",
+     "variants": [
+      {
+       "when": {
+        "textContains": "0"
+       },
+       "content": "No error spans in the window — nothing failed that tracing caught."
+      }
+     ]
+    },
+    {
+     "selector": "#p95-lat",
+     "title": "p95 latency",
+     "content": "95th-percentile span duration — the tail users feel as 'slow'. One blown p95 with a healthy median means intermittent stalls worth tracing.",
+     "expanded": ""
+    },
+    {
+     "selector": "#ocsf-count",
+     "title": "OCSF events",
+     "content": "How many spans mapped to an OCSF security event (MS026) — the overlap between tracing and the security audit, exportable to a SIEM.",
+     "expanded": ""
+    }
+   ]
   },
   {
-    "sel": "#ds-state-detail",
-    "title": "Reachability detail",
-    "msg": "The reason behind the state — reachable, timeout, or endpoint absent.",
-    "more": "Turns 'snapshot' into a diagnosis: a timeout points at load; absent points at the traces API not being started."
+   "icon": "⚲",
+   "title": "Filter",
+   "content": "The way into one specific request. Search by trace_id, operation, or attribute; narrow by severity, OCSF class, and time window.",
+   "children": [
+    {
+     "selector": "#search-input",
+     "title": "Span search",
+     "content": "Free-text over trace_id, operation, and attribute key/values. Paste a trace_id to pull its whole tree, or an operation name to find every span that ran it.",
+     "expanded": "<div class=\"so-card info\"><div>Read-only query — it narrows the view, it changes nothing.</div></div>"
+    },
+    {
+     "selector": "#severity-select",
+     "title": "Severity filter",
+     "content": "Cut spans to a severity (all / warn / info) — the noise filter when you only care about problems.",
+     "expanded": ""
+    },
+    {
+     "selector": "#ocsf-class-select",
+     "title": "OCSF class filter",
+     "content": "View traces through the security lens — e.g. only Detection Findings (2004) or only Configuration Changes (5001). The taxonomy below defines each class.",
+     "expanded": ""
+    },
+    {
+     "selector": "#window-select",
+     "title": "Time window",
+     "content": "The lookback (1h…7d). Widen to catch an intermittent problem across the day; narrow to focus on a just-now incident. Larger windows search slower.",
+     "expanded": ""
+    },
+    {
+     "selector": "#apply-btn",
+     "title": "Search spans",
+     "content": "Run the query against the trace store with the current filters. Read-only.",
+     "expanded": ""
+    },
+    {
+     "selector": "#clear-btn",
+     "title": "Clear filters",
+     "content": "Reset to the default unfiltered view — useful after chasing one trace, so stale filters don't skew the next search.",
+     "expanded": ""
+    }
+   ]
   },
   {
-    "sel": "#ds-last-update",
-    "title": "Fetch freshness",
-    "msg": "When the shown spans were last pulled.",
-    "more": "Spans accumulate continuously — check this before assuming a missing span means the request didn't happen; it may just be newer than the last fetch."
+   "icon": "≣",
+   "title": "Spans & detail",
+   "content": "The results, and the deep view of any single span — its fields, its place in the trace tree, its raw attributes, and its OCSF payload.",
+   "children": [
+    {
+     "selector": "#spans-tbody",
+     "title": "Span results",
+     "content": "Each matching span — operation, duration, OCSF class, severity. Click a row to load its full detail. Duration and severity here are the at-a-glance triage before you drill in.",
+     "expanded": ""
+    },
+    {
+     "selector": "#detail-tree",
+     "title": "Span tree",
+     "content": "The parent/child hierarchy for the selected trace — where the request actually went. A long or errored branch is the concrete 'why it was slow / why it failed'.",
+     "expanded": ""
+    },
+    {
+     "selector": "#detail-fields",
+     "title": "Span fields",
+     "content": "The structured 13-field record for the selected span — the machine-readable core the tree and attributes add context around.",
+     "expanded": ""
+    },
+    {
+     "selector": "#detail-attrs",
+     "title": "Raw attributes",
+     "content": "The span's raw attribute key/values — the extra context an operation attached, and what search matched on.",
+     "expanded": ""
+    },
+    {
+     "selector": "#detail-ocsf",
+     "title": "OCSF payload",
+     "content": "The selected span in OCSF schema — what an external SIEM would ingest. The cockpit produces the evidence; it doesn't decide what you do with it.",
+     "expanded": ""
+    },
+    {
+     "selector": "#detail-panel",
+     "title": "Span detail",
+     "content": "The full detail view for the selected span — loads on click, assembling one request's whole story.",
+     "expanded": ""
+    },
+    {
+     "selector": "#detail-close",
+     "title": "Close detail",
+     "content": "Dismiss the detail panel to return to the results and pick another span.",
+     "expanded": ""
+    },
+    {
+     "selector": "#trace-replay",
+     "title": "Trace replay",
+     "content": "Jumps to the replay control — the MS009 replay-verify, surfaced where the trace detail is so you can act on the span you're viewing.",
+     "expanded": ""
+    }
+   ]
   },
   {
-    "sel": "#span-count",
-    "title": "Spans (last 1h)",
-    "msg": "How many trace spans were recorded in the last hour.",
-    "more": "The volume of instrumented activity — the size of the haystack you're searching. A sudden drop can mean tracing stopped emitting, not that the system went quiet."
+   "icon": "◫",
+   "title": "OCSF 16-event taxonomy (MS026)",
+   "content": "How raw spans become security events a SIEM understands. Five classes sovereign-os emits; the count column shows how active each is right now.",
+   "children": [
+    {
+     "selector": "#ocsf-tbody",
+     "title": "Taxonomy table",
+     "content": "Each OCSF class, its name, typical emitter, and count this window — the MS026 mapping that turns tracing into a security audit surface.",
+     "expanded": ""
+    },
+    {
+     "selector": "#ocsf-1001",
+     "title": "1001 System Activity",
+     "content": "Kernel-level events (exec, spawn) from the L0 Observer — the baseline observability class the higher classes derive from. High volume is normal.",
+     "expanded": ""
+    },
+    {
+     "selector": "#ocsf-1003",
+     "title": "1003 Audit Activity",
+     "content": "Gate evaluation, restores, L2 Simulate — the governance trail accountability reconstructs to prove a process was followed. Distinct from a security alert.",
+     "expanded": ""
+    },
+    {
+     "selector": "#ocsf-2004",
+     "title": "2004 Detection Finding",
+     "content": "The class that means 'something was caught' — Guardian SIGKILL, declaration mismatch, chain break. Non-zero here is where a security investigation starts.",
+     "expanded": "<div class=\"so-card info\"><div class='so-li no'>✗ A 2004 event is the perimeter acting — read it before assuming the box is quiet.</div></div>"
+    },
+    {
+     "selector": "#ocsf-4001",
+     "title": "4001 Network Activity",
+     "content": "Egress and exposure — Ring 4 cloud exposure, MS038 grants. Traffic reaching or leaving the box under a capability grant.",
+     "expanded": ""
+    },
+    {
+     "selector": "#ocsf-5001",
+     "title": "5001 Configuration Change",
+     "content": "L5 Commit, L6 Persist, profile transitions — the 'what changed' class. When behaviour shifts without an obvious cause, filter here.",
+     "expanded": ""
+    }
+   ]
   },
   {
-    "sel": "#error-count",
-    "title": "Error spans",
-    "msg": "How many spans in the window carried an error.",
-    "more": "The fast triage number: non-zero here is where to start. Each error span is a request that failed somewhere in its tree — filter to them to see the failing operation without reading every trace."
-  },
-  {
-    "sel": "#p95-lat",
-    "title": "p95 latency",
-    "msg": "95th-percentile span duration over the window.",
-    "more": "The tail that users feel as 'slow'. p95, not average — one blown p95 with a healthy median means intermittent stalls worth tracing to a specific span."
-  },
-  {
-    "sel": "#ocsf-count",
-    "title": "OCSF events",
-    "msg": "How many spans mapped to an OCSF security event in the window.",
-    "more": "OCSF is the open security-events schema. This counts spans that also carry security meaning (per MS026) — the overlap between tracing and the security audit, exportable to a SIEM."
-  },
-  {
-    "sel": "#search-input",
-    "title": "Span search",
-    "msg": "Free-text search over trace_id, operation, and attribute key/values.",
-    "more": "The primary way into a specific request — paste a trace_id to pull its whole tree, or search an operation name to find every span that ran it. Read-only query; it narrows, it changes nothing."
-  },
-  {
-    "sel": "#severity-select",
-    "title": "Severity filter",
-    "msg": "Narrow spans to a severity — all / warn / info.",
-    "more": "Cuts the noise when you only care about problems. Combine with the OCSF-class filter to isolate, e.g., warning-level detection findings."
-  },
-  {
-    "sel": "#ocsf-class-select",
-    "title": "OCSF class filter",
-    "msg": "Filter spans by OCSF event class (1001 / 1003 / 2004 / 4001 / 5001).",
-    "more": "Lets you view traces through the security lens — e.g. only Detection Findings (2004) or only Configuration Changes (5001). The taxonomy table below defines each class."
-  },
-  {
-    "sel": "#window-select",
-    "title": "Time window",
-    "msg": "The lookback window for the span search (1h … 7d).",
-    "more": "Widen it to catch an intermittent problem across the day; narrow it to focus on a just-now incident. Larger windows return more spans and search slower."
-  },
-  {
-    "sel": "#apply-btn",
-    "title": "Search spans",
-    "msg": "Run the trace search with the current filters.",
-    "more": "Executes the query against the trace store. Read-only — it queries the span tree, it never changes routing or state."
-  },
-  {
-    "sel": "#clear-btn",
-    "title": "Clear filters",
-    "msg": "Reset the search box, severity, class, and window.",
-    "more": "Back to the default unfiltered view — useful after chasing one trace to start a fresh search without stale filters skewing results."
-  },
-  {
-    "sel": "#spans-tbody",
-    "title": "Span results",
-    "msg": "The matching spans — operation, duration, OCSF class, severity.",
-    "more": "Each row is one span; click it to load the full detail panel (tree + attributes + OCSF payload). Duration and severity here are the at-a-glance triage before you drill in."
-  },
-  {
-    "sel": "#ocsf-tbody",
-    "title": "OCSF 16-event taxonomy",
-    "msg": "The selfdef MS026 mapping — each OCSF class, its name, typical emitter, and count this window.",
-    "more": "This is how raw spans become security events an external SIEM understands. The five classes below cover the taxonomy sovereign-os emits; the count column shows how active each is right now."
-  },
-  {
-    "sel": "#ocsf-1001",
-    "title": "1001 System Activity",
-    "msg": "Kernel-level system events, typically from the L0 Observer.",
-    "more": "The baseline observability class — process/syscall-level activity the L0 Observer records. High volume here is normal; it's the substrate the higher classes are derived from."
-  },
-  {
-    "sel": "#ocsf-1003",
-    "title": "1003 Audit Activity",
-    "msg": "Audit events — L2 Simulate, gate evaluation, restore operations.",
-    "more": "The governance trail: gate decisions and restores land here. This class is what accountability reconstructs to prove a process was followed, distinct from a security alert."
-  },
-  {
-    "sel": "#ocsf-2004",
-    "title": "2004 Detection Finding",
-    "msg": "Security findings — Guardian SIGKILL, declaration mismatch, chain break.",
-    "more": "The class that actually means 'something was caught'. A 2004 event is the perimeter acting — a killed process, a broken audit chain. Non-zero here is where a security investigation starts."
-  },
-  {
-    "sel": "#ocsf-4001",
-    "title": "4001 Network Activity",
-    "msg": "Network events — Ring 4 cloud exposure, MS038 grants.",
-    "more": "Egress and exposure activity. Ring 4 is the outermost trust zone; a 4001 event is traffic reaching or leaving the box under a capability grant — the network audit surface."
-  },
-  {
-    "sel": "#ocsf-5001",
-    "title": "5001 Configuration Change",
-    "msg": "Config changes — L5 Commit, L6 Persist, profile transitions.",
-    "more": "The 'what changed' class: commits, persistence, profile switches. When behaviour shifts without an obvious cause, filtering to 5001 shows the configuration event that caused it."
-  },
-  {
-    "sel": "#refresh-btn",
-    "title": "Refresh",
-    "msg": "Re-poll the trace store now.",
-    "more": "A fresh span pull on demand instead of waiting for the auto-poll — useful right after reproducing an issue. Read-only."
-  },
-  {
-    "sel": "#replay-verify-btn",
-    "title": "MS009 replay verify (operator-signed)",
-    "msg": "Stages an MS009 replay-verification — copies the signed CLI verb, doesn't run from the web.",
-    "more": "Replay-verify re-executes a recorded trace to confirm its audit chain (MS009 + MS003) is intact and reproducible. It's a gated operation via osctl; the button hands you the exact command."
-  },
-  {
-    "sel": "#detail-panel",
-    "title": "Span detail",
-    "msg": "The full detail for the selected span — loads on click.",
-    "more": "The deep view of one span: its fields, its place in the trace tree, its raw attributes, and its OCSF payload. This is where a single request's whole story is assembled."
-  },
-  {
-    "sel": "#detail-close",
-    "title": "Close detail",
-    "msg": "Dismiss the span detail panel.",
-    "more": "Returns you to the results list to pick another span without the detail panel in the way."
-  },
-  {
-    "sel": "#detail-title",
-    "title": "Detail title",
-    "msg": "Names the span currently open in the detail panel.",
-    "more": "Confirms which span/operation you're inspecting — the anchor for the tree and attributes shown below it."
-  },
-  {
-    "sel": "#detail-fields",
-    "title": "Span fields",
-    "msg": "The structured 13-field record for the selected span.",
-    "more": "The canonical span fields (ids, timing, status, operation). This is the machine-readable core; the tree and attributes add context around it."
-  },
-  {
-    "sel": "#detail-tree",
-    "title": "Span tree",
-    "msg": "The parent/child span hierarchy for this trace.",
-    "more": "Where the request actually went — each child is a downstream call. A long or errored branch here is the concrete 'why it was slow / why it failed' the summary numbers hinted at."
-  },
-  {
-    "sel": "#detail-attrs",
-    "title": "Raw attributes",
-    "msg": "The span's raw attribute key/values.",
-    "more": "The unstructured detail an operation attached — the extra context that search matched on. Read these when the standard fields don't explain the behaviour."
-  },
-  {
-    "sel": "#detail-ocsf",
-    "title": "OCSF payload",
-    "msg": "The selected span exported in OCSF schema.",
-    "more": "The security-schema view of this span — what an external SIEM would ingest. The cockpit produces the evidence; it does not decide what you do with it downstream."
-  },
-  {
-    "sel": "#trace-replay",
-    "title": "Trace replay control",
-    "msg": "Jumps to the replay control in the panel's control rail.",
-    "more": "A shortcut to the replay affordance — the same MS009 replay-verify, surfaced where the trace detail is, so you can act on the span you're viewing."
-  },
-  {
-    "sel": "#control-surface",
-    "title": "Controls — profiles, modes & toggles",
-    "msg": "The per-panel control rail for tracing behaviour.",
-    "more": "Every control copies its exact sovereign-osctl verb (§1g / R10212), never executing from the web — including the replay-verify gated action."
+   "icon": "⎈",
+   "title": "Actions & controls",
+   "content": "Read-only search; replay-verification is a gated signed operation (MS009 + MS003).",
+   "children": [
+    {
+     "selector": "#refresh-btn",
+     "title": "Refresh",
+     "content": "Pull a fresh span set after reproducing an issue instead of waiting for the auto-poll. Read-only.",
+     "expanded": ""
+    },
+    {
+     "selector": "#replay-verify-btn",
+     "title": "MS009 replay verify (operator-signed)",
+     "content": "Stages a replay that re-executes a recorded trace to confirm its audit chain (MS009 + MS003) is intact and reproducible. Gated via osctl; the button copies the signed verb.",
+     "expanded": ""
+    },
+    {
+     "selector": "#control-surface",
+     "title": "Controls rail",
+     "content": "Tracing behaviour controls — each copies its exact sovereign-osctl verb (§1g / R10212), never executing from the web.",
+     "expanded": ""
+    }
+   ]
   }
-];
+ ]
+};
 </script>
 </body>
 </html>

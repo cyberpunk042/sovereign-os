@@ -475,20 +475,35 @@ a11y; contract test catches drift.
   .so-sm-item:hover{background:color-mix(in srgb,var(--accent,#9bd1ff) 12%,transparent);}
   .so-sm-item.active{background:color-mix(in srgb,var(--accent,#9bd1ff) 18%,transparent); border-left-color:var(--accent,#9bd1ff);}
   body.so-sm-collapsed .so-sm-item{justify-content:center; padding:.4rem 0;} body.so-sm-collapsed .so-sm-item .lbl, body.so-sm-collapsed .so-sm-item .id{display:none;}
-  /* assistant */
+  /* assistant — full-height contextual side panel (cascade model, ported from devops-control-plane) */
   #so-assist{position:fixed; top:var(--so-header-h); right:0; bottom:0; width:var(--so-assist-w); max-width:92vw; z-index:9450;
     background:var(--panel,#171717); border-left:1px solid var(--border,#262626); transform:translateX(100%); display:flex; flex-direction:column;
     font-family:ui-sans-serif,-apple-system,Segoe UI,Roboto,sans-serif; color:var(--fg,#e6e6e6);}
   body.so-assist-open #so-assist{transform:translateX(0);}
-  .so-assist-h{display:flex; align-items:center; gap:.5rem; padding:.6rem .8rem; border-bottom:1px solid var(--border,#262626);}
+  .so-assist-h{display:flex; align-items:center; gap:.5rem; padding:.55rem .8rem; border-bottom:1px solid var(--border,#262626); flex-shrink:0;}
   .so-assist-h .t{font-weight:600; font-size:.85rem;} .so-assist-h .t .spark{color:var(--accent,#9bd1ff);}
-  .so-assist-body{flex:1; overflow-y:auto; padding:.8rem; font-size:.82rem; line-height:1.5;}
-  .so-assist-sec{margin-bottom:1.1rem;} .so-assist-sec h4{margin:0 0 .3rem; font-size:.72rem; text-transform:uppercase; letter-spacing:.05em; color:var(--muted,#8a8a8a);}
-  .so-assist-hint{color:var(--muted,#8a8a8a); font-style:italic;}
-  #so-assist-el{border:1px dashed var(--border,#262626); border-radius:8px; padding:.6rem .7rem; background:var(--bg,#0e0e0e); min-height:3rem;}
-  #so-assist-el.hot{border-color:var(--accent,#9bd1ff); border-style:solid;}
-  #so-assist-el .lbl{font-weight:600; margin-bottom:.3rem;} #so-assist-el .lbl .id{color:var(--accent,#9bd1ff); font-size:.72rem;}
-  [data-assist].so-assist-hot, .so-sm-item.so-assist-hot{outline:2px solid var(--accent,#9bd1ff); outline-offset:-2px; border-radius:6px;}
+  .so-assist-body{flex:1; overflow-y:auto; overflow-x:hidden; padding:.8rem; font-size:.82rem; line-height:1.55;}
+  /* context header — always-visible "where you are" */
+  .so-ctx{padding:.7rem .85rem; margin:-.8rem -.8rem .9rem; border-bottom:1px solid var(--border,#262626); background:linear-gradient(180deg,rgba(155,209,255,.06),transparent);}
+  .so-ctx-title{font-weight:600; font-size:.92rem; margin-bottom:.35rem;}
+  .so-ctx-content{color:var(--fg-2,#c8c8c8); font-size:.8rem; line-height:1.55; white-space:pre-line;}
+  /* interaction-path nodes */
+  .so-node{padding:.55rem .65rem; margin:.5rem 0; border-left:2px solid transparent; border-radius:0 6px 6px 0; transition:background .12s ease,border-color .12s ease;}
+  .so-node.in-chain{border-left-color:rgba(155,209,255,.18); opacity:.82;}
+  .so-node.active{border-left-color:var(--accent,#9bd1ff); border-left-width:3px; background:rgba(155,209,255,.045); box-shadow:inset 0 0 22px rgba(155,209,255,.03);}
+  .so-node-title{font-weight:600; font-size:.83rem; margin-bottom:.3rem;} .so-node-title .id{color:var(--accent,#9bd1ff); font-size:.72rem; font-weight:500;}
+  .so-node-content{color:var(--fg-2,#c8c8c8); font-size:.8rem; line-height:1.55; white-space:pre-line;}
+  .so-node-expanded{margin-top:.55rem; padding-top:.55rem; border-top:1px solid rgba(155,209,255,.13); font-size:.78rem; line-height:1.6; color:var(--muted,#a8a8a8); white-space:pre-line;}
+  /* rich expanded cards */
+  .so-card{border:1px solid var(--border,#262626); border-radius:7px; padding:.55rem .65rem; margin-top:.45rem; background:var(--bg,#0e0e0e); white-space:normal; line-height:1.55;}
+  .so-card.info{border-color:rgba(155,209,255,.28);}
+  .so-grid{display:grid; grid-template-columns:auto 1fr; gap:.22rem .6rem; margin:.35rem 0; font-size:.76rem; white-space:normal;}
+  .so-grid .k{color:var(--accent,#9bd1ff); font-weight:500;}
+  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;}
+  .so-tip{margin-top:.4rem; font-size:.77rem; color:var(--muted,#a8a8a8);}
+  .so-assist-idle{color:var(--muted,#8a8a8a); font-style:italic; padding:.4rem 0;}
+  /* highlight the hovered/focused element in the panel content */
+  .so-assist-hot{outline:2px solid var(--accent,#9bd1ff); outline-offset:-2px; border-radius:6px;}
   /* responsive — reuse the existing breakpoints */
   @media (max-width:1024px){
     #so-sidemenu{transform:translateX(-100%);} body.so-sm-open #so-sidemenu{transform:translateX(0); width:var(--so-sidemenu-w);}
@@ -613,11 +628,7 @@ a11y; contract test catches drift.
     document.body.appendChild(el(
       '<aside id="so-assist" role="complementary" aria-label="assistant"><div class="so-assist-h"><span class="t"><span class="spark">✦</span> Assistant</span>'+
         '<button class="so-h-btn" id="so-assist-close" title="Close" style="margin-left:auto">✕</button></div>'+
-      '<div class="so-assist-body">'+
-        '<div class="so-assist-sec"><h4>This panel — '+title+'</h4><div>'+esc(help)+'</div></div>'+
-        '<div class="so-assist-sec"><h4>Focus / hover</h4><div id="so-assist-el"><span class="so-assist-hint">Hover a menu link or any highlighted control and its explanation appears here.</span></div></div>'+
-        '<div class="so-assist-sec"><h4>Tour</h4><button class="so-h-btn" id="so-tour-btn" style="border-color:var(--border,#262626)">▶ Start tour</button> <span class="so-assist-hint" id="so-tour-status"></span></div>'+
-      '</div></aside>'));
+      '<div class="so-assist-body" id="so-assist-body"></div></aside>'));
   }
   function wire(){
     document.getElementById('so-menu-toggle').addEventListener('click',function(){
@@ -635,67 +646,61 @@ a11y; contract test catches drift.
       Array.prototype.forEach.call(document.querySelectorAll('.so-grp'),function(grp){ var any=false;
         Array.prototype.forEach.call(grp.querySelectorAll('.so-sm-item'),function(it){ var hit=!q||it.dataset.label.toLowerCase().indexOf(q)>=0||it.dataset.dir.toLowerCase().indexOf(q)>=0; it.style.display=hit?'':'none'; if(hit)any=true; });
         grp.style.display=any?'':'none'; }); });
-    var box=document.getElementById('so-assist-el');
+    // ── Assistant: contextual cascade panel (model ported from devops-control-plane) ──
+    // catalogue: window.SO_ASSIST = { context:{title,icon,content}, nodes:[{id,title,icon,selector,content,expanded,variants,children}] }
+    //   content = plain teaching text (always shown); expanded = authored rich HTML (shown for the active element).
+    var abody=document.getElementById('so-assist-body');
     function openAssist(){ if(!document.body.classList.contains('so-assist-open')) document.body.classList.add('so-assist-open'); }
-    function clr(tg){ if(tg)tg.classList.remove('so-assist-hot'); }
     function reduced(){ return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
-    // render a gold-data card {id?,title?,msg,more?} into the drawer
-    function renderCard(e,tg){ box.classList.add('hot');
-      var h='';
-      if(e.title) h+='<div class="lbl">'+(e.id?'<span class="id">'+esc(e.id)+'</span> ':'')+esc(e.title)+'</div>';
-      h+='<div>'+esc(e.msg||'')+'</div>';
-      if(e.more) h+='<button class="so-h-btn" id="so-more-btn" style="margin-top:.5rem;border-color:var(--border,#262626);font-size:.74rem">more ▾</button>'+
-        '<div id="so-more" style="display:none;margin-top:.4rem;color:var(--muted,#8a8a8a)">'+esc(e.more)+'</div>';
-      box.innerHTML=h;
-      var mb=document.getElementById('so-more-btn');
-      if(mb) mb.addEventListener('click',function(){ var d=document.getElementById('so-more'); var open=d.style.display!=='none'; d.style.display=open?'none':'block'; mb.textContent=open?'more ▾':'less ▲'; });
-      if(tg)tg.classList.add('so-assist-hot'); openAssist(); }
-    // ── unified gold-data target list: window.SO_ASSIST (selector→{title,msg,more}) ∪ inline [data-assist] ──
-    var TARGETS=[], seen=[];
-    function pushTarget(el,e){ if(!el||seen.indexOf(el)>=0) return; seen.push(el); TARGETS.push({el:el,title:e.title||'',msg:e.msg||'',more:e.more||''}); }
-    try { var SA=window.SO_ASSIST; if(SA&&SA.length) SA.forEach(function(e){ if(!e||!e.sel) return;
-      try { Array.prototype.forEach.call(document.querySelectorAll('#so-content '+e.sel),function(el){ pushTarget(el,e); }); } catch(x){} }); } catch(err){}
-    Array.prototype.forEach.call(document.querySelectorAll('#so-content [data-assist]'),function(el){ pushTarget(el,{msg:el.getAttribute('data-assist')}); });
-    TARGETS.sort(function(a,b){ var p=a.el.compareDocumentPosition(b.el); return (p&Node.DOCUMENT_POSITION_FOLLOWING)?-1:((p&Node.DOCUMENT_POSITION_PRECEDING)?1:0); });
-    TARGETS.forEach(function(t){
-      t.el.addEventListener('mouseenter',function(){renderCard(t,t.el);});
-      t.el.addEventListener('focus',function(){renderCard(t,t.el);});
-      t.el.addEventListener('mouseleave',function(){clr(t.el);});
-      t.el.addEventListener('blur',function(){clr(t.el);}); });
-    // every menu link explains its panel (catalog gold data)
-    Array.prototype.forEach.call(document.querySelectorAll('.so-sm-item'),function(it){
-      var p=findPanel(it.dataset.dir); if(!p) return; var e={title:p.label,id:(p.id!=='—'?p.id:''),msg:p.desc};
-      it.addEventListener('mouseenter',function(){renderCard(e,it);});
-      it.addEventListener('focus',function(){renderCard(e,it);});
-      it.addEventListener('mouseleave',function(){clr(it);});
-      it.addEventListener('blur',function(){clr(it);}); });
-    // ── guided tour: walk the unified gold-data targets in DOM order ──
-    var tour={i:-1,on:false}, tourBtn=document.getElementById('so-tour-btn'), tourStatus=document.getElementById('so-tour-status');
-    function tourClear(){ TARGETS.forEach(function(t){ t.el.classList.remove('so-assist-hot'); }); }
-    function tourEnd(){ tour.on=false; tourClear(); box.classList.remove('hot');
-      box.innerHTML='<span class="so-assist-hint">Hover a menu link or any highlighted control and its explanation appears here.</span>';
-      if(tourStatus) tourStatus.textContent=''; if(tourBtn) tourBtn.textContent='▶ Start tour'; }
-    function tourShow(i){ if(i<0||i>=TARGETS.length){ tourEnd(); return; } tour.i=i; tourClear();
-      var t=TARGETS[i]; t.el.classList.add('so-assist-hot');
-      if(t.el.scrollIntoView) t.el.scrollIntoView({block:'center', behavior: reduced()?'auto':'smooth'});
-      box.classList.add('hot');
-      box.innerHTML=(t.title?'<div class="lbl">'+esc(t.title)+'</div>':'')+'<div style="margin-bottom:.5rem">'+esc(t.msg||'')+'</div>'+
-        (t.more?'<div style="margin-bottom:.5rem;color:var(--muted,#8a8a8a)">'+esc(t.more)+'</div>':'')+
-        '<div style="display:flex;gap:.4rem;align-items:center">'+
-        '<button class="so-h-btn" id="so-tour-prev"'+(i===0?' disabled':'')+'>←</button>'+
-        '<button class="so-h-btn" id="so-tour-next">'+(i===TARGETS.length-1?'done':'→')+'</button>'+
-        '<span class="so-assist-hint">step '+(i+1)+' / '+TARGETS.length+'</span></div>';
-      var pv=document.getElementById('so-tour-prev'), nx=document.getElementById('so-tour-next');
-      if(pv) pv.addEventListener('click',function(){ tourShow(tour.i-1); });
-      if(nx) nx.addEventListener('click',function(){ tour.i===TARGETS.length-1 ? tourEnd() : tourShow(tour.i+1); });
+    var curP=findPanel(curDir());
+    var CAT=(function(){ var sa=window.SO_ASSIST, ctx=null, nodes=[];
+      if(sa && !Array.isArray(sa) && sa.nodes){ ctx=sa.context||null; nodes=sa.nodes||[]; }
+      else if(Array.isArray(sa)){ nodes=sa.map(function(e){ return {id:'',title:e.title||'',selector:e.sel,content:e.msg||'',expanded:e.more?esc(e.more):''}; }); }
+      if(!ctx) ctx={ icon:'✦', title:(curP?((curP.id&&curP.id!=='—'?curP.id+' · ':'')+curP.label):'This panel'), content:(curP?curP.desc:'') };
+      return {ctx:ctx, nodes:nodes}; })();
+    // flatten deepest-first with parent chains
+    var FLAT=[]; (function flat(list,chain){ (list||[]).forEach(function(n){ if(n.children&&n.children.length) flat(n.children,chain.concat([n])); FLAT.push({node:n,parents:chain.slice()}); }); })(CAT.nodes,[]);
+    // variant resolution against the matched element (state-awareness)
+    function resolveVar(node,el){ if(!node.variants||!node.variants.length||!el) return node;
+      for(var i=0;i<node.variants.length;i++){ var v=node.variants[i], w=v.when||{}, ok=true;
+        if(w.textContains && (el.textContent||'').indexOf(w.textContains)<0) ok=false;
+        if(ok&&w.hasSelector){ try{ if(!el.querySelector(w.hasSelector)) ok=false; }catch(e){ ok=false; } }
+        if(ok) return {id:node.id,title:v.title||node.title,icon:node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded)}; }
+      return node; }
+    // match a hovered element to the deepest catalogue node
+    function matchNode(el){ var best=null,bd=-1;
+      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node,m=false,tgt=null; if(!n.selector) continue;
+        try{ if(el.matches(n.selector)){m=true;tgt=el;}
+          else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
+        if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+      return best; }
+    function ctxHtml(){ var c=CAT.ctx; return '<div class="so-ctx"><div class="so-ctx-title">'+(c.icon?esc(c.icon)+' ':'')+esc(c.title||'')+'</div><div class="so-ctx-content">'+esc(c.content||'')+'</div></div>'; }
+    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node;
+      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(r.title||'')+'</div>';
+      h+='<div class="so-node-content">'+esc(r.content||'')+'</div>';
+      if(active && r.expanded) h+='<div class="so-node-expanded">'+r.expanded+'</div>';   // expanded = trusted authored HTML
+      return h+'</div>'; }
+    var lastHot=null, lastMatched=null;
+    function clearHot(){ if(lastHot){ lastHot.classList.remove('so-assist-hot'); lastHot=null; } }
+    function idle(){ lastMatched=null; clearHot(); abody.innerHTML=ctxHtml()+'<div class="so-assist-idle">Hover any value, control, table row, or menu link — its explanation builds here.</div>'; }
+    function showPath(match){ openAssist(); clearHot();
+      var chain=match.entry.parents, node=match.entry.node, parent=chain.length?chain[chain.length-1]:null;
+      var html=ctxHtml(); if(parent) html+=nodeHtml(parent,null,null); html+=nodeHtml(node,true,match.el);
+      abody.innerHTML=html;
+      if(match.el){ match.el.classList.add('so-assist-hot'); lastHot=match.el; }
+      var act=abody.querySelector('.so-node.active'); if(act&&act.scrollIntoView) act.scrollIntoView({block:'center',behavior:reduced()?'auto':'smooth'}); }
+    var content=document.getElementById('so-content');
+    if(content){
+      content.addEventListener('mouseover',function(ev){ var m=matchNode(ev.target); if(m&&m.el!==lastMatched){ lastMatched=m.el; showPath(m); } });
+      content.addEventListener('focusin',function(ev){ var m=matchNode(ev.target); if(m&&m.el!==lastMatched){ lastMatched=m.el; showPath(m); } });
     }
-    function tourStart(){ if(!TARGETS.length){ if(tourStatus) tourStatus.textContent='no annotated elements on this panel yet — the menu links (← left) each carry a description.'; return; }
-      tour.on=true; openAssist(); if(tourBtn) tourBtn.textContent='✕ End tour'; tourShow(0); }
-    if(tourBtn) tourBtn.addEventListener('click',function(){ tour.on ? tourEnd() : tourStart(); });
-    window.addEventListener('keydown',function(ev){ if(!tour.on) return;
-      if(ev.key==='ArrowRight'){ ev.preventDefault(); tour.i===TARGETS.length-1 ? tourEnd() : tourShow(tour.i+1); }
-      else if(ev.key==='ArrowLeft'){ ev.preventDefault(); tourShow(Math.max(0,tour.i-1)); }
-      else if(ev.key==='Escape'){ ev.preventDefault(); tourEnd(); } });
+    // menu links → surface the target panel's context (program-awareness: horizontal jump)
+    Array.prototype.forEach.call(document.querySelectorAll('.so-sm-item'),function(it){ var p=findPanel(it.dataset.dir); if(!p) return;
+      function show(){ openAssist(); clearHot(); lastMatched=null; it.classList.add('so-assist-hot'); lastHot=it; var here=it.dataset.dir===curDir();
+        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+esc(p.desc||'')+'</div></div>'+
+          '<div class="so-assist-idle">'+(here?'You’re on this panel now — hover its contents to explore.':'Click to open this panel.')+'</div>'; }
+      it.addEventListener('mouseenter',show); it.addEventListener('focus',show); });
+    idle();
   }
   function init(){
     var dir=curDir(), cur=findPanel(dir);
@@ -1411,172 +1416,218 @@ refresh();
 <script>SovereignControlSurface.load(document.getElementById('control-surface'),{filterSlug:'d-03-model-health'});</script>
 
 
+
+
 <!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
 <script>
-window.SO_ASSIST = [
+window.SO_ASSIST = {
+ "context": {
+  "icon": "♥",
+  "title": "D-03 · Model Health",
+  "content": "The live model-serving view — how the models that are actually running right now are behaving, per SRP role. Distinct from D-23 (the catalog of what COULD run) and D-09 (the physical hardware).\n\nWhen answers are slow or a model feels degraded, this is where latency, KV pressure, and per-tier health live."
+ },
+ "nodes": [
   {
-    "sel": "#datasource-banner",
-    "title": "Live vs snapshot",
-    "msg": "Green = /api/models/health is answering live; muted = the baked snapshot.",
-    "more": "Serving health is only meaningful live. If this is muted the daemon is unreachable and you're reading the last committed sample — a model shown 'loaded' may already have been evicted."
+   "icon": "◆",
+   "title": "Live-source banner",
+   "content": "Serving state changes fast under load, so the page tells you whether you're reading the live daemon or a baked snapshot.",
+   "children": [
+    {
+     "selector": "#datasource-banner",
+     "title": "Live vs snapshot",
+     "content": "Green = /api/models/health is answering live; muted = the last committed sample. A model shown 'loaded' on a stale snapshot may already have been evicted.",
+     "expanded": "",
+     "variants": [
+      {
+       "when": {
+        "textContains": "live"
+       },
+       "content": "Live — the numbers reflect the serving layer right now."
+      },
+      {
+       "when": {
+        "textContains": "snapshot"
+       },
+       "content": "Snapshot — the models daemon is unreachable; treat load/latency as possibly stale until it goes green."
+      }
+     ]
+    },
+    {
+     "selector": "#ds-last-update",
+     "title": "Fetch freshness",
+     "content": "When the shown health sample was pulled — read it before trusting 'loaded', since a load or eviction newer than this won't show yet.",
+     "expanded": ""
+    }
+   ]
   },
   {
-    "sel": "#ds-state-label",
-    "title": "Data-source state",
-    "msg": "Which source the page reads — live models-health daemon or snapshot.",
-    "more": "The one-word verdict behind the banner. Snapshot means act with caution on any load/latency number below."
+   "icon": "▤",
+   "title": "Loaded-model summary",
+   "content": "How much model is actually resident, by tier. This is committed memory, not the catalog — it trades directly against free VRAM and load latency.",
+   "children": [
+    {
+     "selector": "#total-loaded",
+     "title": "Total loaded",
+     "content": "Models resident across all tiers right now — the live count, distinct from D-23's catalog of what's available.",
+     "expanded": ""
+    },
+    {
+     "selector": "#bw-count",
+     "title": "Blackwell (Oracle) models",
+     "content": "How many models sit on the heavy 96 GB Oracle GPU. A high count competes for the VRAM the D-09 backpressure rule watches at 90%.",
+     "expanded": ""
+    },
+    {
+     "selector": "#rtx-count",
+     "title": "4090 (Logic) models",
+     "content": "Models on the tighter 24 GB Logic GPU — fewer, smaller, because 24 GB is a hard ceiling.",
+     "expanded": ""
+    },
+    {
+     "selector": "#cpu-count",
+     "title": "CPU / Pulse models",
+     "content": "Models on the CPU/Pulse ternary path — the sovereign tier that runs with no GPU at all. Non-zero here is Pulse serving real inference, the fallback that keeps the box useful under GPU pressure.",
+     "expanded": ""
+    }
+   ]
   },
   {
-    "sel": "#ds-state-detail",
-    "title": "Reachability detail",
-    "msg": "The reason behind the state — reachable, timeout, or endpoint absent.",
-    "more": "Turns 'snapshot' into a diagnosis: a timeout points at load on the serving box; absent points at the models API not being started."
+   "icon": "◈",
+   "title": "SRP role health (M075 + M058)",
+   "content": "The three roles the runtime serves through: Conductor (CPU/Pulse orchestration), Logic (4090), Oracle (Blackwell). Util plus VRAM per role show where the serving headroom is — or where backpressure is about to fire.",
+   "children": [
+    {
+     "selector": "#conductor-util",
+     "title": "Conductor utilization",
+     "content": "Compute load on the Conductor — lightweight routing/classification on Pulse. It should stay responsive even when Oracle is saturated.",
+     "expanded": "<div class=\"so-card info\"><div>High util here is routing work, not heavy generation — bounded by AVX-512 throughput on the CPU path.</div></div>"
+    },
+    {
+     "selector": "#conductor-tps",
+     "title": "Conductor tokens/sec",
+     "content": "The Conductor's serving rate — a read on whether the sovereign CPU path is keeping up with routing demand.",
+     "expanded": ""
+    },
+    {
+     "selector": "#conductor-models-tbody",
+     "title": "Conductor models",
+     "content": "Which small/ternary models are serving the orchestration tier. Empty means routing is falling back elsewhere.",
+     "expanded": ""
+    },
+    {
+     "selector": "#logic-util",
+     "title": "Logic utilization",
+     "content": "Compute load on the 4090 mid-tier. With its VRAM, it shows whether the Logic GPU has headroom or is the bottleneck the D-09 rule will narrow at 85%.",
+     "expanded": ""
+    },
+    {
+     "selector": "#logic-vram-pct",
+     "title": "Logic VRAM %",
+     "content": "Occupancy of the 4090's 24 GB. Near 100% means no room to load another Logic model without unloading one first.",
+     "expanded": ""
+    },
+    {
+     "selector": "#logic-vram-used",
+     "title": "Logic VRAM used",
+     "content": "The absolute GB in use on the 4090 — what you compare against a model's footprint before a load.",
+     "expanded": ""
+    },
+    {
+     "selector": "#logic-models-tbody",
+     "title": "Logic models",
+     "content": "Which models are resident on the 4090 tier — where you confirm the intended Logic model is actually serving, not just catalogued.",
+     "expanded": ""
+    },
+    {
+     "selector": "#oracle-util",
+     "title": "Oracle utilization",
+     "content": "Compute load on the Blackwell heavy tier. Sustained high util is the Oracle doing its job; pair with VRAM to know if it has room for more context.",
+     "expanded": ""
+    },
+    {
+     "selector": "#oracle-vram-pct",
+     "title": "Oracle VRAM %",
+     "content": "Occupancy of the Blackwell's 96 GB — the figure the D-09 rule trips at 90% (trim context + evict KV). The single best predictor of whether large contexts still fit.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-grid\"><span class=\"k\">&gt; 90%</span><span>D-09 backpressure trims context + evicts low-value KV + may switch to a smaller oracle</span></div></div>"
+    },
+    {
+     "selector": "#oracle-vram-used",
+     "title": "Oracle VRAM used",
+     "content": "Absolute GB on the Blackwell — what you check against a large model's footprint before assigning it to Oracle.",
+     "expanded": ""
+    },
+    {
+     "selector": "#oracle-models-tbody",
+     "title": "Oracle models",
+     "content": "Which large models are resident on the Blackwell, and how many share its 96 GB.",
+     "expanded": ""
+    }
+   ]
   },
   {
-    "sel": "#ds-last-update",
-    "title": "Fetch freshness",
-    "msg": "When the shown health sample was pulled.",
-    "more": "Model state changes fast under load — a value a minute old can misreport a load/unload that already happened. Read this before trusting 'loaded'."
+   "icon": "∿",
+   "title": "Latency & KV cache",
+   "content": "How the serving actually feels, and why. Latency percentiles show the experience; KV cache shows the pressure behind a bad tail.",
+   "children": [
+    {
+     "selector": "#latency-tbody",
+     "title": "Per-model latency p50/p95/p99",
+     "content": "p50 is the typical experience; p95/p99 are the tail users actually feel as 'slow'. A good p50 with a blown p99 means intermittent stalls.",
+     "expanded": "<div class=\"so-card info\"><div>A blown tail usually traces to KV/VRAM pressure — cross-reference the KV table below and the Oracle VRAM above.</div></div>"
+    },
+    {
+     "selector": "#kvcache-tbody",
+     "title": "KV cache utilization",
+     "content": "Per-model KV fill, max tokens, and prefill hit rate. When fill nears max, long or new contexts get evicted and latency tails grow.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-grid\"><span class=\"k\">high prefill-hit %</span><span>repeated prompts reused cheaply — the lever behind 'warm KV cache' in the actions</span></div></div>"
+    },
+    {
+     "selector": "#heatmap-container",
+     "title": "Availability heatmap (24h)",
+     "content": "Per-model availability over the last day — green available, yellow degraded, red unavailable. Read the pattern, not just the current colour.",
+     "expanded": "<div class=\"so-card info\"><div>A model that flickers red on a schedule points at a recurring pressure event (a nightly job, an eval run) rather than a one-off fault.</div></div>"
+    }
+   ]
   },
   {
-    "sel": "#total-loaded",
-    "title": "Total models loaded",
-    "msg": "How many models are resident across all tiers right now.",
-    "more": "The live-serving count (distinct from D-23's catalog of what COULD run). This is memory actually committed to models — the number that trades against free VRAM and load latency."
-  },
-  {
-    "sel": "#bw-count",
-    "title": "Blackwell models",
-    "msg": "Models resident on the Blackwell (Oracle GPU, 96 GB).",
-    "more": "How many models sit on the heavy tier. The Blackwell's 96 GB hosts large-context Oracle work; a high count here competes for the VRAM the backpressure rule watches."
-  },
-  {
-    "sel": "#rtx-count",
-    "title": "4090 models",
-    "msg": "Models resident on the 4090 (Logic GPU, 24 GB, VFIO).",
-    "more": "The Logic tier is tighter at 24 GB — fewer, smaller models. This count is how full the Scout GPU's model slots are."
-  },
-  {
-    "sel": "#cpu-count",
-    "title": "CPU / Pulse models",
-    "msg": "Models running on the CPU/Pulse (AVX-512 ternary) path.",
-    "more": "The sovereign always-available tier — runs with no GPU at all. A non-zero count here is Pulse serving real inference on the ternary path, the fallback that keeps the box useful under GPU pressure."
-  },
-  {
-    "sel": "#conductor-util",
-    "title": "Conductor utilization",
-    "msg": "Compute utilization of the Conductor SRP role (M075 — CPU/Pulse orchestration tier).",
-    "more": "Conductor is the lightweight routing/orchestration role. High util here is classification and routing work, not heavy generation — it should stay responsive even when Oracle is saturated."
-  },
-  {
-    "sel": "#conductor-tps",
-    "title": "Conductor tokens/sec",
-    "msg": "Throughput of the Conductor tier.",
-    "more": "The Conductor's serving rate. Because it runs on Pulse (CPU), this number is bounded by AVX-512 throughput — a good read on whether the sovereign path is keeping up with routing demand."
-  },
-  {
-    "sel": "#conductor-models-tbody",
-    "title": "Conductor models",
-    "msg": "The models currently assigned to the Conductor role.",
-    "more": "Which specific models are serving the orchestration tier — the ternary/small models that fit the CPU path. Empty means routing is falling back elsewhere."
-  },
-  {
-    "sel": "#logic-util",
-    "title": "Logic utilization",
-    "msg": "Compute utilization of the Logic SRP role (M075 — the 4090 GPU tier).",
-    "more": "Logic is the mid tier — structured reasoning on the 24 GB 4090. Its util plus VRAM (right) show whether the Scout GPU has headroom or is the bottleneck the backpressure rule will narrow."
-  },
-  {
-    "sel": "#logic-vram-pct",
-    "title": "Logic VRAM %",
-    "msg": "VRAM occupancy of the Logic tier as a percentage of 24 GB.",
-    "more": "The percentage view of the 4090's memory. 24 GB is a hard ceiling — near 100% here means no room to load another Logic model without unloading one first."
-  },
-  {
-    "sel": "#logic-vram-used",
-    "title": "Logic VRAM used",
-    "msg": "Absolute VRAM in use on the 4090, of 24 GB.",
-    "more": "The absolute companion to the percentage — the concrete GB figure to compare against a model's footprint before a load."
-  },
-  {
-    "sel": "#logic-models-tbody",
-    "title": "Logic models",
-    "msg": "The models currently assigned to the Logic role.",
-    "more": "Which models are serving the 4090 tier. This is where you confirm the intended Logic model is actually resident, not just catalogued."
-  },
-  {
-    "sel": "#oracle-util",
-    "title": "Oracle utilization",
-    "msg": "Compute utilization of the Oracle SRP role (M075 — the Blackwell GPU tier).",
-    "more": "Oracle is the heavy-reasoning tier on the 96 GB Blackwell. Sustained high util is the Oracle doing its job; pair with VRAM to know if it has room for more context."
-  },
-  {
-    "sel": "#oracle-vram-pct",
-    "title": "Oracle VRAM %",
-    "msg": "VRAM occupancy of the Oracle tier as a percentage of 96 GB.",
-    "more": "The percentage view of the Blackwell's memory — the figure the M058 rule trips at >90% (trim context + evict KV). The single best predictor of whether large contexts will still fit."
-  },
-  {
-    "sel": "#oracle-vram-used",
-    "title": "Oracle VRAM used",
-    "msg": "Absolute VRAM in use on the Blackwell, of 96 GB.",
-    "more": "The concrete GB figure on the heavy tier — what you check against a large model's footprint before assigning it to Oracle."
-  },
-  {
-    "sel": "#oracle-models-tbody",
-    "title": "Oracle models",
-    "msg": "The models currently assigned to the Oracle role.",
-    "more": "Which large models are resident on the Blackwell. Confirms the heavy tier is serving the intended model and how many share its 96 GB."
-  },
-  {
-    "sel": "#latency-tbody",
-    "title": "Per-model latency p50/p95/p99",
-    "msg": "Latency percentiles per model over the last hour, with request shape and req/min.",
-    "more": "p50 is the typical experience; p95/p99 are the tail that users actually feel as 'slow'. A model with a good p50 but a blown p99 is intermittently stalling — usually KV/VRAM pressure, cross-referenced with the KV table below."
-  },
-  {
-    "sel": "#kvcache-tbody",
-    "title": "KV cache utilization",
-    "msg": "Per-model KV-cache fill, max tokens, and prefill hit rate.",
-    "more": "The KV cache holds attention state; when 'fill' nears max, long or new contexts get evicted and latency tails grow. A high prefill-hit % means repeated prompts are being reused cheaply — the lever behind 'warm KV cache' in the actions."
-  },
-  {
-    "sel": "#heatmap-container",
-    "title": "Availability heatmap (24h)",
-    "msg": "Per-model availability over the last day — green available, yellow degraded, red unavailable.",
-    "more": "The reliability memory of the serving layer: a model that flickers red on a schedule points at a recurring pressure event (a nightly job, an eval run) rather than a one-off fault. Read the pattern, not just the current colour."
-  },
-  {
-    "sel": "#refresh-btn",
-    "title": "Refresh",
-    "msg": "Re-poll model health now.",
-    "more": "A fresh sample on demand after a load/unload, instead of waiting for the auto-poll. Read-only."
-  },
-  {
-    "sel": "#load-model-btn",
-    "title": "Load model (operator-signed)",
-    "msg": "Stages a model load — copies the signed CLI verb, does not load from the web.",
-    "more": "R10212: the cockpit never mutates serving state. A load commits VRAM and takes time; it goes through the gated osctl path where it's authorised and traced. The button hands you the exact command."
-  },
-  {
-    "sel": "#unload-idle-btn",
-    "title": "Unload idle models",
-    "msg": "Stages the eviction of idle models to reclaim VRAM.",
-    "more": "The reclaim action — copies the signed verb to unload models that aren't serving, freeing the VRAM the counts above show as committed. Executed via osctl, not the browser."
-  },
-  {
-    "sel": "#warm-kv-btn",
-    "title": "Warm KV cache (Profile 3)",
-    "msg": "Stages a KV-cache warm under the deep-context profile.",
-    "more": "Pre-fills the KV cache so the first requests after a load don't pay cold-prefill latency — the lever that lifts the prefill-hit % in the KV table. Tied to Profile 3 (deep-context); copies its signed verb."
-  },
-  {
-    "sel": "#control-surface",
-    "title": "Controls — profiles, modes & toggles",
-    "msg": "The per-panel control rail for serving behaviour — profiles, modes, toggles.",
-    "more": "Every control copies its exact sovereign-osctl verb (§1g / R10212), never executing from the web. Where the runtime profile that shapes model allocation across the three tiers is selected."
+   "icon": "⎈",
+   "title": "Actions & controls",
+   "content": "This panel reads; serving is mutated only through signed CLI verbs (R10212). The buttons stage the command; osctl executes.",
+   "children": [
+    {
+     "selector": "#load-model-btn",
+     "title": "Load model (operator-signed)",
+     "content": "Stages a model load — a load commits VRAM and takes time, so it runs through the gated osctl path where it's authorised and traced.",
+     "expanded": "<div class=\"so-card info\"><div>The button copies the signed verb; it never loads from the browser.</div></div>"
+    },
+    {
+     "selector": "#unload-idle-btn",
+     "title": "Unload idle models",
+     "content": "Stages eviction of idle models to reclaim the VRAM the counts above show as committed. Executed via osctl, not the browser.",
+     "expanded": ""
+    },
+    {
+     "selector": "#warm-kv-btn",
+     "title": "Warm KV cache (Profile 3)",
+     "content": "Pre-fills the KV cache so the first requests after a load don't pay cold-prefill latency — the lever that lifts the prefill-hit % above. Tied to the deep-context profile.",
+     "expanded": ""
+    },
+    {
+     "selector": "#refresh-btn",
+     "title": "Refresh",
+     "content": "Pull a fresh health sample after a load/unload instead of waiting for the auto-poll. Read-only.",
+     "expanded": ""
+    },
+    {
+     "selector": "#control-surface",
+     "title": "Controls rail",
+     "content": "Where the runtime profile that shapes model allocation across the three tiers is selected. Every control copies its signed sovereign-osctl verb (§1g / R10212).",
+     "expanded": ""
+    }
+   ]
   }
-];
+ ]
+};
 </script>
 </body>
 </html>

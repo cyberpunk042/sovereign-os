@@ -460,20 +460,35 @@ a11y; contract test catches drift.
   .so-sm-item:hover{background:color-mix(in srgb,var(--accent,#9bd1ff) 12%,transparent);}
   .so-sm-item.active{background:color-mix(in srgb,var(--accent,#9bd1ff) 18%,transparent); border-left-color:var(--accent,#9bd1ff);}
   body.so-sm-collapsed .so-sm-item{justify-content:center; padding:.4rem 0;} body.so-sm-collapsed .so-sm-item .lbl, body.so-sm-collapsed .so-sm-item .id{display:none;}
-  /* assistant */
+  /* assistant — full-height contextual side panel (cascade model, ported from devops-control-plane) */
   #so-assist{position:fixed; top:var(--so-header-h); right:0; bottom:0; width:var(--so-assist-w); max-width:92vw; z-index:9450;
     background:var(--panel,#171717); border-left:1px solid var(--border,#262626); transform:translateX(100%); display:flex; flex-direction:column;
     font-family:ui-sans-serif,-apple-system,Segoe UI,Roboto,sans-serif; color:var(--fg,#e6e6e6);}
   body.so-assist-open #so-assist{transform:translateX(0);}
-  .so-assist-h{display:flex; align-items:center; gap:.5rem; padding:.6rem .8rem; border-bottom:1px solid var(--border,#262626);}
+  .so-assist-h{display:flex; align-items:center; gap:.5rem; padding:.55rem .8rem; border-bottom:1px solid var(--border,#262626); flex-shrink:0;}
   .so-assist-h .t{font-weight:600; font-size:.85rem;} .so-assist-h .t .spark{color:var(--accent,#9bd1ff);}
-  .so-assist-body{flex:1; overflow-y:auto; padding:.8rem; font-size:.82rem; line-height:1.5;}
-  .so-assist-sec{margin-bottom:1.1rem;} .so-assist-sec h4{margin:0 0 .3rem; font-size:.72rem; text-transform:uppercase; letter-spacing:.05em; color:var(--muted,#8a8a8a);}
-  .so-assist-hint{color:var(--muted,#8a8a8a); font-style:italic;}
-  #so-assist-el{border:1px dashed var(--border,#262626); border-radius:8px; padding:.6rem .7rem; background:var(--bg,#0e0e0e); min-height:3rem;}
-  #so-assist-el.hot{border-color:var(--accent,#9bd1ff); border-style:solid;}
-  #so-assist-el .lbl{font-weight:600; margin-bottom:.3rem;} #so-assist-el .lbl .id{color:var(--accent,#9bd1ff); font-size:.72rem;}
-  [data-assist].so-assist-hot, .so-sm-item.so-assist-hot{outline:2px solid var(--accent,#9bd1ff); outline-offset:-2px; border-radius:6px;}
+  .so-assist-body{flex:1; overflow-y:auto; overflow-x:hidden; padding:.8rem; font-size:.82rem; line-height:1.55;}
+  /* context header — always-visible "where you are" */
+  .so-ctx{padding:.7rem .85rem; margin:-.8rem -.8rem .9rem; border-bottom:1px solid var(--border,#262626); background:linear-gradient(180deg,rgba(155,209,255,.06),transparent);}
+  .so-ctx-title{font-weight:600; font-size:.92rem; margin-bottom:.35rem;}
+  .so-ctx-content{color:var(--fg-2,#c8c8c8); font-size:.8rem; line-height:1.55; white-space:pre-line;}
+  /* interaction-path nodes */
+  .so-node{padding:.55rem .65rem; margin:.5rem 0; border-left:2px solid transparent; border-radius:0 6px 6px 0; transition:background .12s ease,border-color .12s ease;}
+  .so-node.in-chain{border-left-color:rgba(155,209,255,.18); opacity:.82;}
+  .so-node.active{border-left-color:var(--accent,#9bd1ff); border-left-width:3px; background:rgba(155,209,255,.045); box-shadow:inset 0 0 22px rgba(155,209,255,.03);}
+  .so-node-title{font-weight:600; font-size:.83rem; margin-bottom:.3rem;} .so-node-title .id{color:var(--accent,#9bd1ff); font-size:.72rem; font-weight:500;}
+  .so-node-content{color:var(--fg-2,#c8c8c8); font-size:.8rem; line-height:1.55; white-space:pre-line;}
+  .so-node-expanded{margin-top:.55rem; padding-top:.55rem; border-top:1px solid rgba(155,209,255,.13); font-size:.78rem; line-height:1.6; color:var(--muted,#a8a8a8); white-space:pre-line;}
+  /* rich expanded cards */
+  .so-card{border:1px solid var(--border,#262626); border-radius:7px; padding:.55rem .65rem; margin-top:.45rem; background:var(--bg,#0e0e0e); white-space:normal; line-height:1.55;}
+  .so-card.info{border-color:rgba(155,209,255,.28);}
+  .so-grid{display:grid; grid-template-columns:auto 1fr; gap:.22rem .6rem; margin:.35rem 0; font-size:.76rem; white-space:normal;}
+  .so-grid .k{color:var(--accent,#9bd1ff); font-weight:500;}
+  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;}
+  .so-tip{margin-top:.4rem; font-size:.77rem; color:var(--muted,#a8a8a8);}
+  .so-assist-idle{color:var(--muted,#8a8a8a); font-style:italic; padding:.4rem 0;}
+  /* highlight the hovered/focused element in the panel content */
+  .so-assist-hot{outline:2px solid var(--accent,#9bd1ff); outline-offset:-2px; border-radius:6px;}
   /* responsive — reuse the existing breakpoints */
   @media (max-width:1024px){
     #so-sidemenu{transform:translateX(-100%);} body.so-sm-open #so-sidemenu{transform:translateX(0); width:var(--so-sidemenu-w);}
@@ -598,11 +613,7 @@ a11y; contract test catches drift.
     document.body.appendChild(el(
       '<aside id="so-assist" role="complementary" aria-label="assistant"><div class="so-assist-h"><span class="t"><span class="spark">✦</span> Assistant</span>'+
         '<button class="so-h-btn" id="so-assist-close" title="Close" style="margin-left:auto">✕</button></div>'+
-      '<div class="so-assist-body">'+
-        '<div class="so-assist-sec"><h4>This panel — '+title+'</h4><div>'+esc(help)+'</div></div>'+
-        '<div class="so-assist-sec"><h4>Focus / hover</h4><div id="so-assist-el"><span class="so-assist-hint">Hover a menu link or any highlighted control and its explanation appears here.</span></div></div>'+
-        '<div class="so-assist-sec"><h4>Tour</h4><button class="so-h-btn" id="so-tour-btn" style="border-color:var(--border,#262626)">▶ Start tour</button> <span class="so-assist-hint" id="so-tour-status"></span></div>'+
-      '</div></aside>'));
+      '<div class="so-assist-body" id="so-assist-body"></div></aside>'));
   }
   function wire(){
     document.getElementById('so-menu-toggle').addEventListener('click',function(){
@@ -620,67 +631,61 @@ a11y; contract test catches drift.
       Array.prototype.forEach.call(document.querySelectorAll('.so-grp'),function(grp){ var any=false;
         Array.prototype.forEach.call(grp.querySelectorAll('.so-sm-item'),function(it){ var hit=!q||it.dataset.label.toLowerCase().indexOf(q)>=0||it.dataset.dir.toLowerCase().indexOf(q)>=0; it.style.display=hit?'':'none'; if(hit)any=true; });
         grp.style.display=any?'':'none'; }); });
-    var box=document.getElementById('so-assist-el');
+    // ── Assistant: contextual cascade panel (model ported from devops-control-plane) ──
+    // catalogue: window.SO_ASSIST = { context:{title,icon,content}, nodes:[{id,title,icon,selector,content,expanded,variants,children}] }
+    //   content = plain teaching text (always shown); expanded = authored rich HTML (shown for the active element).
+    var abody=document.getElementById('so-assist-body');
     function openAssist(){ if(!document.body.classList.contains('so-assist-open')) document.body.classList.add('so-assist-open'); }
-    function clr(tg){ if(tg)tg.classList.remove('so-assist-hot'); }
     function reduced(){ return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
-    // render a gold-data card {id?,title?,msg,more?} into the drawer
-    function renderCard(e,tg){ box.classList.add('hot');
-      var h='';
-      if(e.title) h+='<div class="lbl">'+(e.id?'<span class="id">'+esc(e.id)+'</span> ':'')+esc(e.title)+'</div>';
-      h+='<div>'+esc(e.msg||'')+'</div>';
-      if(e.more) h+='<button class="so-h-btn" id="so-more-btn" style="margin-top:.5rem;border-color:var(--border,#262626);font-size:.74rem">more ▾</button>'+
-        '<div id="so-more" style="display:none;margin-top:.4rem;color:var(--muted,#8a8a8a)">'+esc(e.more)+'</div>';
-      box.innerHTML=h;
-      var mb=document.getElementById('so-more-btn');
-      if(mb) mb.addEventListener('click',function(){ var d=document.getElementById('so-more'); var open=d.style.display!=='none'; d.style.display=open?'none':'block'; mb.textContent=open?'more ▾':'less ▲'; });
-      if(tg)tg.classList.add('so-assist-hot'); openAssist(); }
-    // ── unified gold-data target list: window.SO_ASSIST (selector→{title,msg,more}) ∪ inline [data-assist] ──
-    var TARGETS=[], seen=[];
-    function pushTarget(el,e){ if(!el||seen.indexOf(el)>=0) return; seen.push(el); TARGETS.push({el:el,title:e.title||'',msg:e.msg||'',more:e.more||''}); }
-    try { var SA=window.SO_ASSIST; if(SA&&SA.length) SA.forEach(function(e){ if(!e||!e.sel) return;
-      try { Array.prototype.forEach.call(document.querySelectorAll('#so-content '+e.sel),function(el){ pushTarget(el,e); }); } catch(x){} }); } catch(err){}
-    Array.prototype.forEach.call(document.querySelectorAll('#so-content [data-assist]'),function(el){ pushTarget(el,{msg:el.getAttribute('data-assist')}); });
-    TARGETS.sort(function(a,b){ var p=a.el.compareDocumentPosition(b.el); return (p&Node.DOCUMENT_POSITION_FOLLOWING)?-1:((p&Node.DOCUMENT_POSITION_PRECEDING)?1:0); });
-    TARGETS.forEach(function(t){
-      t.el.addEventListener('mouseenter',function(){renderCard(t,t.el);});
-      t.el.addEventListener('focus',function(){renderCard(t,t.el);});
-      t.el.addEventListener('mouseleave',function(){clr(t.el);});
-      t.el.addEventListener('blur',function(){clr(t.el);}); });
-    // every menu link explains its panel (catalog gold data)
-    Array.prototype.forEach.call(document.querySelectorAll('.so-sm-item'),function(it){
-      var p=findPanel(it.dataset.dir); if(!p) return; var e={title:p.label,id:(p.id!=='—'?p.id:''),msg:p.desc};
-      it.addEventListener('mouseenter',function(){renderCard(e,it);});
-      it.addEventListener('focus',function(){renderCard(e,it);});
-      it.addEventListener('mouseleave',function(){clr(it);});
-      it.addEventListener('blur',function(){clr(it);}); });
-    // ── guided tour: walk the unified gold-data targets in DOM order ──
-    var tour={i:-1,on:false}, tourBtn=document.getElementById('so-tour-btn'), tourStatus=document.getElementById('so-tour-status');
-    function tourClear(){ TARGETS.forEach(function(t){ t.el.classList.remove('so-assist-hot'); }); }
-    function tourEnd(){ tour.on=false; tourClear(); box.classList.remove('hot');
-      box.innerHTML='<span class="so-assist-hint">Hover a menu link or any highlighted control and its explanation appears here.</span>';
-      if(tourStatus) tourStatus.textContent=''; if(tourBtn) tourBtn.textContent='▶ Start tour'; }
-    function tourShow(i){ if(i<0||i>=TARGETS.length){ tourEnd(); return; } tour.i=i; tourClear();
-      var t=TARGETS[i]; t.el.classList.add('so-assist-hot');
-      if(t.el.scrollIntoView) t.el.scrollIntoView({block:'center', behavior: reduced()?'auto':'smooth'});
-      box.classList.add('hot');
-      box.innerHTML=(t.title?'<div class="lbl">'+esc(t.title)+'</div>':'')+'<div style="margin-bottom:.5rem">'+esc(t.msg||'')+'</div>'+
-        (t.more?'<div style="margin-bottom:.5rem;color:var(--muted,#8a8a8a)">'+esc(t.more)+'</div>':'')+
-        '<div style="display:flex;gap:.4rem;align-items:center">'+
-        '<button class="so-h-btn" id="so-tour-prev"'+(i===0?' disabled':'')+'>←</button>'+
-        '<button class="so-h-btn" id="so-tour-next">'+(i===TARGETS.length-1?'done':'→')+'</button>'+
-        '<span class="so-assist-hint">step '+(i+1)+' / '+TARGETS.length+'</span></div>';
-      var pv=document.getElementById('so-tour-prev'), nx=document.getElementById('so-tour-next');
-      if(pv) pv.addEventListener('click',function(){ tourShow(tour.i-1); });
-      if(nx) nx.addEventListener('click',function(){ tour.i===TARGETS.length-1 ? tourEnd() : tourShow(tour.i+1); });
+    var curP=findPanel(curDir());
+    var CAT=(function(){ var sa=window.SO_ASSIST, ctx=null, nodes=[];
+      if(sa && !Array.isArray(sa) && sa.nodes){ ctx=sa.context||null; nodes=sa.nodes||[]; }
+      else if(Array.isArray(sa)){ nodes=sa.map(function(e){ return {id:'',title:e.title||'',selector:e.sel,content:e.msg||'',expanded:e.more?esc(e.more):''}; }); }
+      if(!ctx) ctx={ icon:'✦', title:(curP?((curP.id&&curP.id!=='—'?curP.id+' · ':'')+curP.label):'This panel'), content:(curP?curP.desc:'') };
+      return {ctx:ctx, nodes:nodes}; })();
+    // flatten deepest-first with parent chains
+    var FLAT=[]; (function flat(list,chain){ (list||[]).forEach(function(n){ if(n.children&&n.children.length) flat(n.children,chain.concat([n])); FLAT.push({node:n,parents:chain.slice()}); }); })(CAT.nodes,[]);
+    // variant resolution against the matched element (state-awareness)
+    function resolveVar(node,el){ if(!node.variants||!node.variants.length||!el) return node;
+      for(var i=0;i<node.variants.length;i++){ var v=node.variants[i], w=v.when||{}, ok=true;
+        if(w.textContains && (el.textContent||'').indexOf(w.textContains)<0) ok=false;
+        if(ok&&w.hasSelector){ try{ if(!el.querySelector(w.hasSelector)) ok=false; }catch(e){ ok=false; } }
+        if(ok) return {id:node.id,title:v.title||node.title,icon:node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded)}; }
+      return node; }
+    // match a hovered element to the deepest catalogue node
+    function matchNode(el){ var best=null,bd=-1;
+      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node,m=false,tgt=null; if(!n.selector) continue;
+        try{ if(el.matches(n.selector)){m=true;tgt=el;}
+          else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
+        if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+      return best; }
+    function ctxHtml(){ var c=CAT.ctx; return '<div class="so-ctx"><div class="so-ctx-title">'+(c.icon?esc(c.icon)+' ':'')+esc(c.title||'')+'</div><div class="so-ctx-content">'+esc(c.content||'')+'</div></div>'; }
+    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node;
+      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(r.title||'')+'</div>';
+      h+='<div class="so-node-content">'+esc(r.content||'')+'</div>';
+      if(active && r.expanded) h+='<div class="so-node-expanded">'+r.expanded+'</div>';   // expanded = trusted authored HTML
+      return h+'</div>'; }
+    var lastHot=null, lastMatched=null;
+    function clearHot(){ if(lastHot){ lastHot.classList.remove('so-assist-hot'); lastHot=null; } }
+    function idle(){ lastMatched=null; clearHot(); abody.innerHTML=ctxHtml()+'<div class="so-assist-idle">Hover any value, control, table row, or menu link — its explanation builds here.</div>'; }
+    function showPath(match){ openAssist(); clearHot();
+      var chain=match.entry.parents, node=match.entry.node, parent=chain.length?chain[chain.length-1]:null;
+      var html=ctxHtml(); if(parent) html+=nodeHtml(parent,null,null); html+=nodeHtml(node,true,match.el);
+      abody.innerHTML=html;
+      if(match.el){ match.el.classList.add('so-assist-hot'); lastHot=match.el; }
+      var act=abody.querySelector('.so-node.active'); if(act&&act.scrollIntoView) act.scrollIntoView({block:'center',behavior:reduced()?'auto':'smooth'}); }
+    var content=document.getElementById('so-content');
+    if(content){
+      content.addEventListener('mouseover',function(ev){ var m=matchNode(ev.target); if(m&&m.el!==lastMatched){ lastMatched=m.el; showPath(m); } });
+      content.addEventListener('focusin',function(ev){ var m=matchNode(ev.target); if(m&&m.el!==lastMatched){ lastMatched=m.el; showPath(m); } });
     }
-    function tourStart(){ if(!TARGETS.length){ if(tourStatus) tourStatus.textContent='no annotated elements on this panel yet — the menu links (← left) each carry a description.'; return; }
-      tour.on=true; openAssist(); if(tourBtn) tourBtn.textContent='✕ End tour'; tourShow(0); }
-    if(tourBtn) tourBtn.addEventListener('click',function(){ tour.on ? tourEnd() : tourStart(); });
-    window.addEventListener('keydown',function(ev){ if(!tour.on) return;
-      if(ev.key==='ArrowRight'){ ev.preventDefault(); tour.i===TARGETS.length-1 ? tourEnd() : tourShow(tour.i+1); }
-      else if(ev.key==='ArrowLeft'){ ev.preventDefault(); tourShow(Math.max(0,tour.i-1)); }
-      else if(ev.key==='Escape'){ ev.preventDefault(); tourEnd(); } });
+    // menu links → surface the target panel's context (program-awareness: horizontal jump)
+    Array.prototype.forEach.call(document.querySelectorAll('.so-sm-item'),function(it){ var p=findPanel(it.dataset.dir); if(!p) return;
+      function show(){ openAssist(); clearHot(); lastMatched=null; it.classList.add('so-assist-hot'); lastHot=it; var here=it.dataset.dir===curDir();
+        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+esc(p.desc||'')+'</div></div>'+
+          '<div class="so-assist-idle">'+(here?'You’re on this panel now — hover its contents to explore.':'Click to open this panel.')+'</div>'; }
+      it.addEventListener('mouseenter',show); it.addEventListener('focus',show); });
+    idle();
   }
   function init(){
     var dir=curDir(), cur=findPanel(dir);
@@ -1372,208 +1377,242 @@ refresh();
 <script>SovereignControlSurface.load(document.getElementById('control-surface'),{filterSlug:'d-04-costs'});</script>
 
 
+
+
 <!-- SDD-200 Assistant gold data — hardcoded per-element hover intel for D-04. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077 (authored against the panel's real elements + cost model). -->
 <script>
-  window.SO_ASSIST = [
+  window.SO_ASSIST = {
+ "context": {
+  "icon": "$",
+  "title": "D-04 · Costs",
+  "content": "The spend view — is the box burning money, and where? Today's budget against the daily cap, cost broken down by project / profile / model, the 30-day trend, and the operator's own cost policy.\n\nRead-only (R10212). The biggest lever here is the cost profile: whether a workload may reach cloud at all. When the end-of-day forecast blows past budget, this is where you halt cloud routes."
+ },
+ "nodes": [
   {
-    "sel": "#datasource-banner",
-    "title": "Live vs snapshot",
-    "msg": "Green = /api/costs/summary is answering live; muted = the baked snapshot.",
-    "more": "A cost panel must always say which it's on — a budget decision made on stale spend is a decision made blind. Muted means the costs daemon is unreachable and today's figures may lag reality."
+   "icon": "◔",
+   "title": "Today's budget",
+   "content": "How much has been burned today against the daily cap, plus the forecast. The numbers that tell you whether to keep going or throttle now.",
+   "children": [
+    {
+     "selector": "#eod-forecast",
+     "title": "Forecast end-of-day",
+     "content": "Projected total spend by midnight at the current rate. The early-warning: if this exceeds the daily budget, you'll hit the cap before the day ends.",
+     "expanded": "<div class=\"so-card info\"><div class='so-li no'>✗ Forecast over budget → throttle or halt cloud routes NOW, not after the fact.</div></div>"
+    },
+    {
+     "selector": "#today-spend",
+     "title": "Today's spend",
+     "content": "Cumulative spend so far today. Paired with the budget, it's the runway gauge — how much is left before the daily cap.",
+     "expanded": ""
+    },
+    {
+     "selector": "#today-budget",
+     "title": "Daily budget",
+     "content": "The operator-configured daily ceiling for the active profile — the denominator of the budget gauge. Set in cost policy below, not by the system.",
+     "expanded": ""
+    },
+    {
+     "selector": "#req-count",
+     "title": "Requests today",
+     "content": "How many billable requests ran. A spend spike with flat request count means requests got more expensive (bigger context / pricier model), not that traffic grew.",
+     "expanded": ""
+    },
+    {
+     "selector": "#avg-req-cost",
+     "title": "Avg cost / request",
+     "content": "Spend ÷ requests — the unit economics. Rising here points at model/context choices; the thinking router is where you'd shift work to a cheaper tier.",
+     "expanded": ""
+    },
+    {
+     "selector": "#per-req-max",
+     "title": "Per-request max (alert)",
+     "content": "The most expensive single request today, against the alert threshold. One runaway call (huge context, expensive model) can dominate a budget — this catches the outlier.",
+     "expanded": ""
+    }
+   ]
   },
   {
-    "sel": "#ds-state-label",
-    "title": "Data-source state",
-    "msg": "Which source the page reads — live costs daemon or snapshot.",
-    "more": "live / snapshot / unknown. 'unknown' means the health probe itself failed, a different problem from a clean snapshot fallback you can still read as last-known."
+   "icon": "▤",
+   "title": "Cost by profile (MS040)",
+   "content": "Spend per cost-profile, each with its cloud policy. The six profiles differ mainly in whether they may reach cloud — the biggest cost lever on the box. 1d/7d/30d columns per profile.",
+   "children": [
+    {
+     "selector": "#prof-private-1d",
+     "title": "private profile",
+     "content": "Local-only, never cloud (R10747). Its cost is essentially local compute — near-zero external spend. The safest, cheapest posture.",
+     "expanded": ""
+    },
+    {
+     "selector": "#prof-fast-1d",
+     "title": "fast profile",
+     "content": "Cloud allowed — optimized for latency, so it's the higher-spend profile. Its columns are where cloud cost shows up first; watch it against the daily budget.",
+     "expanded": ""
+    },
+    {
+     "selector": "#prof-careful-1d",
+     "title": "careful profile",
+     "content": "Cloud allowed but gated by approval/threshold — a little friction for cost control. Spend here should be more deliberate: each cloud call passed a check.",
+     "expanded": ""
+    },
+    {
+     "selector": "#prof-auto-1d",
+     "title": "autonomous profile",
+     "content": "Cloud predeclared — unattended work must budget cloud up front, so autonomous runs can't quietly overspend. Cost should track its declared envelope.",
+     "expanded": ""
+    },
+    {
+     "selector": "#prof-exp-1d",
+     "title": "experimental profile",
+     "content": "Sandbox only — spend isolated from production budgets. A safe place for costly experiments that shouldn't touch the main envelope.",
+     "expanded": ""
+    },
+    {
+     "selector": "#prof-prod-1d",
+     "title": "production profile",
+     "content": "Strict cloud policy (R10454) — the tightest posture. Production spend should be the most predictable; deviations here are the ones to investigate first.",
+     "expanded": ""
+    },
+    {
+     "selector": "#profile-tbody",
+     "title": "Profile table",
+     "content": "All six MS040 profiles with spend and cloud posture side by side — cost and policy together, so the cost of each posture is visible at a glance.",
+     "expanded": ""
+    }
+   ]
   },
   {
-    "sel": "#ds-state-detail",
-    "title": "Reachability detail",
-    "msg": "The reason behind the state — reachable, timeout, or endpoint absent.",
-    "more": "Turns 'snapshot' into a diagnosis of whether the costs API is down, slow, or simply not started before you trust the spend numbers."
+   "icon": "▦",
+   "title": "Cost by project & model",
+   "content": "Attributes cost to the work that caused it, and to the models it used — the evidence for shifting a workload cheaper.",
+   "children": [
+    {
+     "selector": "#project-tbody",
+     "title": "Cost by project",
+     "content": "Per-project spend (today/7d/30d) with profile and route. The first place to look when the total surprises you — which project, on which profile.",
+     "expanded": ""
+    },
+    {
+     "selector": "#model-tbody",
+     "title": "Cost by model",
+     "content": "Per-model spend with tokens-in/out and $/Mtok — which model costs what and how much it consumed. The evidence for moving work to a cheaper model or the local (zero-cost) tiers.",
+     "expanded": ""
+    },
+    {
+     "selector": "#trend-chart",
+     "title": "30-day spend trend",
+     "content": "Daily spend over the month — the pattern behind the totals. Reading the shape tells you whether today's spend is normal or an anomaly worth halting.",
+     "expanded": ""
+    }
+   ]
   },
   {
-    "sel": "#ds-last-update",
-    "title": "Fetch freshness",
-    "msg": "When the shown cost summary was pulled.",
-    "more": "Spend accrues continuously — a value minutes old can understate today's burn. Read this before acting on the budget gauge."
+   "icon": "⚙",
+   "title": "Cost policy (operator-controlled)",
+   "content": "The rules that govern spend, dumped verbatim from the operator's config (9885-9930) so they're auditable, not paraphrased. The web shows them read-only; you change them via the CLI.",
+   "children": [
+    {
+     "selector": "#pol-cloud",
+     "title": "cloud_enabled",
+     "content": "The master switch for external spend (dump 9885 · R10747). Off = the box is fully local, zero cloud cost. On = profiles that permit cloud can incur it.",
+     "expanded": "<div class=\"so-card info\"><div>The single biggest cost AND sovereignty control on the box.</div></div>",
+     "variants": [
+      {
+       "when": {
+        "textContains": "false"
+       },
+       "content": "Currently OFF — the box is fully local, zero cloud spend possible regardless of profile."
+      },
+      {
+       "when": {
+        "textContains": "true"
+       },
+       "content": "Currently ON — profiles that permit cloud (fast/careful/auto/prod) can incur external spend."
+      }
+     ]
+    },
+    {
+     "selector": "#pol-daily",
+     "title": "daily_budget_usd",
+     "content": "The daily spend ceiling (dump 9886) — the cap the today-spend gauge measures against, and what 'halt cloud routes' enforces in a panic.",
+     "expanded": ""
+    },
+    {
+     "selector": "#pol-perreq",
+     "title": "per_request_max_usd",
+     "content": "The per-request cost cap / alert (dump 9887 · R10075) — bounds any single request so one runaway call can't blow the budget.",
+     "expanded": ""
+    },
+    {
+     "selector": "#pol-approval",
+     "title": "cloud_requires_approval",
+     "content": "Whether cloud calls need approval first — the careful-profile posture, friction that prevents silent cloud overspend.",
+     "expanded": ""
+    },
+    {
+     "selector": "#pol-private",
+     "title": "private_paths_never_cloud",
+     "content": "Guarantees private paths never reach cloud (dump 9888 · R10081) — the structural sovereignty guarantee behind the private profile. A cost control that's really a privacy control.",
+     "expanded": ""
+    },
+    {
+     "selector": "#pol-log",
+     "title": "log_prompts",
+     "content": "Whether prompt content is retained (dump 9889 · R10747) — a privacy/audit trade-off the operator owns.",
+     "expanded": ""
+    },
+    {
+     "selector": "#policy-tbody",
+     "title": "Policy table",
+     "content": "Every cost knob with its current value and source line — the auditable record of how spend is governed.",
+     "expanded": ""
+    }
+   ]
   },
   {
-    "sel": "#today-spend",
-    "title": "Today's spend (UTC)",
-    "msg": "Cumulative spend so far today against the daily budget.",
-    "more": "The number that matters most — how much has been burned today. Paired with the budget beside it, it's the fill gauge that says how much runway remains before the daily cap."
-  },
-  {
-    "sel": "#today-budget",
-    "title": "Daily budget (USD)",
-    "msg": "The operator-configured daily budget for the active profile.",
-    "more": "Set per profile in cost policy (daily_budget_usd). This is the ceiling today's spend is measured against — the denominator of the budget gauge, controlled by the operator, not the system."
-  },
-  {
-    "sel": "#req-count",
-    "title": "Requests today",
-    "msg": "How many billable requests ran today.",
-    "more": "The volume side of cost — spend divided by this is the average request cost beside it. A spend spike with flat request count means requests got more expensive (bigger context / pricier model), not that traffic grew."
-  },
-  {
-    "sel": "#avg-req-cost",
-    "title": "Avg cost / request",
-    "msg": "Today's spend divided by request count.",
-    "more": "The unit economics — the lever to watch when optimizing. Rising avg cost points at model/context choices; the router (orchestration) is where you'd shift work to a cheaper tier."
-  },
-  {
-    "sel": "#per-req-max",
-    "title": "Per-request max (alert)",
-    "msg": "The most expensive single request today, against the alert threshold.",
-    "more": "The outlier guard — one runaway request (huge context, expensive model) can dominate a budget. per_request_max_usd (policy) is the alert line; this shows the worst offender so far."
-  },
-  {
-    "sel": "#eod-forecast",
-    "title": "Forecast end-of-day",
-    "msg": "Projected total spend by end of day at the current rate.",
-    "more": "The early-warning: if this exceeds the daily budget, you'll hit the cap before midnight. It's the number that tells you to throttle or halt cloud routes NOW rather than after the fact."
-  },
-  {
-    "sel": "#project-tbody",
-    "title": "Cost by project",
-    "msg": "Per-project spend across today / 7d / 30d, with profile and route.",
-    "more": "Attributes cost to the work that caused it — which project is expensive, on which profile, over which route. The first place to look when the total surprises you."
-  },
-  {
-    "sel": "#profile-tbody",
-    "title": "Cost by profile (MS040)",
-    "msg": "Spend per cost-profile, each with its cloud policy.",
-    "more": "The six MS040 profiles differ mainly in whether they may reach cloud — the biggest cost lever on the box. This table pairs each profile's spend with its cloud posture so you see cost and policy together."
-  },
-  {
-    "sel": "#prof-private-1d",
-    "title": "private profile",
-    "msg": "The private profile — local-only, never cloud (R10747).",
-    "more": "private paths are structurally forbidden from reaching cloud, so this profile's cost is essentially local compute (near-zero external spend). The safest, cheapest posture — 1d/7d/30d spend shown across its row."
-  },
-  {
-    "sel": "#prof-fast-1d",
-    "title": "fast profile",
-    "msg": "The fast profile — cloud allowed (yes).",
-    "more": "Optimized for latency, permitted to reach cloud models, so it's the higher-spend profile. Its 1d/7d/30d columns are where cloud cost shows up first; watch it against the daily budget."
-  },
-  {
-    "sel": "#prof-careful-1d",
-    "title": "careful profile",
-    "msg": "The careful profile — cloud allowed but gated.",
-    "more": "Cloud is permitted only through a gate (approval/threshold), trading a little friction for cost control. Spend here should be more deliberate than fast — each cloud call passed a check."
-  },
-  {
-    "sel": "#prof-auto-1d",
-    "title": "autonomous profile",
-    "msg": "The autonomous profile — cloud predeclared.",
-    "more": "For unattended work: cloud use is allowed but must be predeclared (budgeted up front), so autonomous runs can't quietly overspend. Its cost should track its declared envelope."
-  },
-  {
-    "sel": "#prof-exp-1d",
-    "title": "experimental profile",
-    "msg": "The experimental profile — sandbox only.",
-    "more": "Confined to the sandbox, so its spend is isolated from production budgets — a safe place for costly experiments that shouldn't touch the main envelope."
-  },
-  {
-    "sel": "#prof-prod-1d",
-    "title": "production profile",
-    "msg": "The production profile — strict cloud policy (R10454).",
-    "more": "The tightest posture: cloud only under strict rules. Production spend should be the most predictable and controlled — deviations here are the ones to investigate first."
-  },
-  {
-    "sel": "#model-tbody",
-    "title": "Cost by model",
-    "msg": "Per-model spend with tokens-in, tokens-out, and $/Mtok.",
-    "more": "The pricing detail — which model costs what per million tokens and how many tokens it consumed. The evidence for shifting a workload to a cheaper model or the local (zero-cost) tiers."
-  },
-  {
-    "sel": "#trend-chart",
-    "title": "30-day spend trend",
-    "msg": "Daily spend over the last month.",
-    "more": "The pattern behind the totals — a steady climb, a weekly spike, a one-off. Reading the shape tells you whether today's spend is normal or an anomaly worth halting."
-  },
-  {
-    "sel": "#policy-tbody",
-    "title": "Cost policy",
-    "msg": "The operator-controlled cost policy — key, current value, source (dump 9885-9930 verbatim).",
-    "more": "The rules that govern spend, dumped verbatim from the operator's config so they're auditable, not paraphrased. Each row below is one knob; the web shows them read-only (R10212) — you change them via the CLI."
-  },
-  {
-    "sel": "#pol-cloud",
-    "title": "cloud_enabled",
-    "msg": "Whether cloud routing is enabled at all (dump 9885 · R10747).",
-    "more": "The master switch for external spend. Off means the box is fully local (zero cloud cost); on means profiles that permit cloud can incur it. The single biggest cost/sovereignty control."
-  },
-  {
-    "sel": "#pol-approval",
-    "title": "cloud_requires_approval",
-    "msg": "Whether cloud calls need approval first.",
-    "more": "When true, cloud routing is gated on an operator decision (the careful-profile posture) — friction that prevents silent cloud overspend."
-  },
-  {
-    "sel": "#pol-daily",
-    "title": "daily_budget_usd",
-    "msg": "The daily spend ceiling (dump 9886).",
-    "more": "The cap the today-spend gauge measures against. Hitting it is what the end-of-day forecast warns about and what 'halt cloud routes' enforces in a panic."
-  },
-  {
-    "sel": "#pol-perreq",
-    "title": "per_request_max_usd",
-    "msg": "The per-request cost cap / alert (dump 9887 · R10075).",
-    "more": "Bounds any single request so one runaway call can't blow the budget. This is the threshold the per-request-max stat is compared against."
-  },
-  {
-    "sel": "#pol-private",
-    "title": "private_paths_never_cloud",
-    "msg": "Guarantees private paths never reach cloud (dump 9888 · R10081).",
-    "more": "The structural sovereignty guarantee behind the private profile — certain data is forbidden from leaving the box regardless of profile. A cost control that's really a privacy control."
-  },
-  {
-    "sel": "#pol-log",
-    "title": "log_prompts",
-    "msg": "Whether prompts are logged (dump 9889 · R10747).",
-    "more": "Governs whether prompt content is retained — a privacy/audit trade-off the operator owns. Verbatim from config so the setting is unambiguous."
-  },
-  {
-    "sel": "#refresh-btn",
-    "title": "Refresh",
-    "msg": "Re-poll the cost summary now.",
-    "more": "A fresh spend read on demand instead of waiting for the auto-poll — useful right after a heavy run. Read-only (MS043 R10212)."
-  },
-  {
-    "sel": "#halt-btn",
-    "title": "Halt cloud routes (panic)",
-    "msg": "Stages an emergency halt of all cloud routing — copies the signed CLI verb.",
-    "more": "The kill switch for runaway spend: when the forecast blows past budget, this stops cloud calls immediately. R10212 — it copies the signed osctl verb rather than executing from the web, but it's the fastest lever you have."
-  },
-  {
-    "sel": "#export-btn",
-    "title": "Copy 30d export cmd",
-    "msg": "Copies the command to export 30 days of cost data.",
-    "more": "Hands you the CLI to pull cost history out of the cockpit for external accounting or charting. The panel shows the trend; this gives you the raw data."
-  },
-  {
-    "sel": "#cost-policy",
-    "title": "Cost-policy control",
-    "msg": "Jumps to the cost-policy control in the panel's rail.",
-    "more": "A shortcut to where the policy knobs (budget, caps, cloud) are surfaced as copy-the-signed-verb controls — the actionable companion to the read-only policy table above."
-  },
-  {
-    "sel": "#costs-export",
-    "title": "Costs-export control",
-    "msg": "Jumps to the costs-export control in the panel's rail.",
-    "more": "A shortcut to the export affordance — the same 30d export, surfaced in the control rail."
-  },
-  {
-    "sel": "#control-surface",
-    "title": "Controls — profiles, modes & toggles",
-    "msg": "The per-panel control rail for cost behaviour.",
-    "more": "Every control copies its exact sovereign-osctl verb (§1g / R10212 / MS043), never executing from the web — including the budget, cloud-enable, and halt controls."
+   "icon": "⎈",
+   "title": "Actions & controls",
+   "content": "Read-only (MS043 R10212). The kill switch and exports copy signed verbs; nothing mutates from the browser.",
+   "children": [
+    {
+     "selector": "#halt-btn",
+     "title": "Halt cloud routes (panic)",
+     "content": "Stages an emergency stop of all cloud routing — the kill switch for runaway spend when the forecast blows past budget. Copies the signed osctl verb; the fastest lever you have.",
+     "expanded": "<div class=\"so-card info\"><div class='so-li no'>✗ R10212 — copies the command rather than executing, but it's the immediate response to a cost emergency.</div></div>"
+    },
+    {
+     "selector": "#export-btn",
+     "title": "Copy 30d export cmd",
+     "content": "Copies the command to export 30 days of cost data for external accounting or charting.",
+     "expanded": ""
+    },
+    {
+     "selector": "#refresh-btn",
+     "title": "Refresh",
+     "content": "Pull a fresh spend read after a heavy run instead of waiting for the auto-poll. Read-only.",
+     "expanded": ""
+    },
+    {
+     "selector": "#cost-policy",
+     "title": "Cost-policy control",
+     "content": "Jumps to where the policy knobs (budget, caps, cloud) are surfaced as copy-the-signed-verb controls — the actionable companion to the read-only policy table.",
+     "expanded": ""
+    },
+    {
+     "selector": "#costs-export",
+     "title": "Costs-export control",
+     "content": "Jumps to the export affordance in the control rail — the same 30d export.",
+     "expanded": ""
+    },
+    {
+     "selector": "#control-surface",
+     "title": "Controls rail",
+     "content": "Cost behaviour controls — budget, cloud-enable, halt. Every one copies its exact sovereign-osctl verb (§1g / R10212 / MS043), never executing from the web.",
+     "expanded": ""
+    }
+   ]
   }
-];
+ ]
+};
 </script>
 </body>
 </html>

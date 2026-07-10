@@ -472,20 +472,35 @@ a11y; contract test catches drift.
   .so-sm-item:hover{background:color-mix(in srgb,var(--accent,#9bd1ff) 12%,transparent);}
   .so-sm-item.active{background:color-mix(in srgb,var(--accent,#9bd1ff) 18%,transparent); border-left-color:var(--accent,#9bd1ff);}
   body.so-sm-collapsed .so-sm-item{justify-content:center; padding:.4rem 0;} body.so-sm-collapsed .so-sm-item .lbl, body.so-sm-collapsed .so-sm-item .id{display:none;}
-  /* assistant */
+  /* assistant — full-height contextual side panel (cascade model, ported from devops-control-plane) */
   #so-assist{position:fixed; top:var(--so-header-h); right:0; bottom:0; width:var(--so-assist-w); max-width:92vw; z-index:9450;
     background:var(--panel,#171717); border-left:1px solid var(--border,#262626); transform:translateX(100%); display:flex; flex-direction:column;
     font-family:ui-sans-serif,-apple-system,Segoe UI,Roboto,sans-serif; color:var(--fg,#e6e6e6);}
   body.so-assist-open #so-assist{transform:translateX(0);}
-  .so-assist-h{display:flex; align-items:center; gap:.5rem; padding:.6rem .8rem; border-bottom:1px solid var(--border,#262626);}
+  .so-assist-h{display:flex; align-items:center; gap:.5rem; padding:.55rem .8rem; border-bottom:1px solid var(--border,#262626); flex-shrink:0;}
   .so-assist-h .t{font-weight:600; font-size:.85rem;} .so-assist-h .t .spark{color:var(--accent,#9bd1ff);}
-  .so-assist-body{flex:1; overflow-y:auto; padding:.8rem; font-size:.82rem; line-height:1.5;}
-  .so-assist-sec{margin-bottom:1.1rem;} .so-assist-sec h4{margin:0 0 .3rem; font-size:.72rem; text-transform:uppercase; letter-spacing:.05em; color:var(--muted,#8a8a8a);}
-  .so-assist-hint{color:var(--muted,#8a8a8a); font-style:italic;}
-  #so-assist-el{border:1px dashed var(--border,#262626); border-radius:8px; padding:.6rem .7rem; background:var(--bg,#0e0e0e); min-height:3rem;}
-  #so-assist-el.hot{border-color:var(--accent,#9bd1ff); border-style:solid;}
-  #so-assist-el .lbl{font-weight:600; margin-bottom:.3rem;} #so-assist-el .lbl .id{color:var(--accent,#9bd1ff); font-size:.72rem;}
-  [data-assist].so-assist-hot, .so-sm-item.so-assist-hot{outline:2px solid var(--accent,#9bd1ff); outline-offset:-2px; border-radius:6px;}
+  .so-assist-body{flex:1; overflow-y:auto; overflow-x:hidden; padding:.8rem; font-size:.82rem; line-height:1.55;}
+  /* context header — always-visible "where you are" */
+  .so-ctx{padding:.7rem .85rem; margin:-.8rem -.8rem .9rem; border-bottom:1px solid var(--border,#262626); background:linear-gradient(180deg,rgba(155,209,255,.06),transparent);}
+  .so-ctx-title{font-weight:600; font-size:.92rem; margin-bottom:.35rem;}
+  .so-ctx-content{color:var(--fg-2,#c8c8c8); font-size:.8rem; line-height:1.55; white-space:pre-line;}
+  /* interaction-path nodes */
+  .so-node{padding:.55rem .65rem; margin:.5rem 0; border-left:2px solid transparent; border-radius:0 6px 6px 0; transition:background .12s ease,border-color .12s ease;}
+  .so-node.in-chain{border-left-color:rgba(155,209,255,.18); opacity:.82;}
+  .so-node.active{border-left-color:var(--accent,#9bd1ff); border-left-width:3px; background:rgba(155,209,255,.045); box-shadow:inset 0 0 22px rgba(155,209,255,.03);}
+  .so-node-title{font-weight:600; font-size:.83rem; margin-bottom:.3rem;} .so-node-title .id{color:var(--accent,#9bd1ff); font-size:.72rem; font-weight:500;}
+  .so-node-content{color:var(--fg-2,#c8c8c8); font-size:.8rem; line-height:1.55; white-space:pre-line;}
+  .so-node-expanded{margin-top:.55rem; padding-top:.55rem; border-top:1px solid rgba(155,209,255,.13); font-size:.78rem; line-height:1.6; color:var(--muted,#a8a8a8); white-space:pre-line;}
+  /* rich expanded cards */
+  .so-card{border:1px solid var(--border,#262626); border-radius:7px; padding:.55rem .65rem; margin-top:.45rem; background:var(--bg,#0e0e0e); white-space:normal; line-height:1.55;}
+  .so-card.info{border-color:rgba(155,209,255,.28);}
+  .so-grid{display:grid; grid-template-columns:auto 1fr; gap:.22rem .6rem; margin:.35rem 0; font-size:.76rem; white-space:normal;}
+  .so-grid .k{color:var(--accent,#9bd1ff); font-weight:500;}
+  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;}
+  .so-tip{margin-top:.4rem; font-size:.77rem; color:var(--muted,#a8a8a8);}
+  .so-assist-idle{color:var(--muted,#8a8a8a); font-style:italic; padding:.4rem 0;}
+  /* highlight the hovered/focused element in the panel content */
+  .so-assist-hot{outline:2px solid var(--accent,#9bd1ff); outline-offset:-2px; border-radius:6px;}
   /* responsive — reuse the existing breakpoints */
   @media (max-width:1024px){
     #so-sidemenu{transform:translateX(-100%);} body.so-sm-open #so-sidemenu{transform:translateX(0); width:var(--so-sidemenu-w);}
@@ -610,11 +625,7 @@ a11y; contract test catches drift.
     document.body.appendChild(el(
       '<aside id="so-assist" role="complementary" aria-label="assistant"><div class="so-assist-h"><span class="t"><span class="spark">✦</span> Assistant</span>'+
         '<button class="so-h-btn" id="so-assist-close" title="Close" style="margin-left:auto">✕</button></div>'+
-      '<div class="so-assist-body">'+
-        '<div class="so-assist-sec"><h4>This panel — '+title+'</h4><div>'+esc(help)+'</div></div>'+
-        '<div class="so-assist-sec"><h4>Focus / hover</h4><div id="so-assist-el"><span class="so-assist-hint">Hover a menu link or any highlighted control and its explanation appears here.</span></div></div>'+
-        '<div class="so-assist-sec"><h4>Tour</h4><button class="so-h-btn" id="so-tour-btn" style="border-color:var(--border,#262626)">▶ Start tour</button> <span class="so-assist-hint" id="so-tour-status"></span></div>'+
-      '</div></aside>'));
+      '<div class="so-assist-body" id="so-assist-body"></div></aside>'));
   }
   function wire(){
     document.getElementById('so-menu-toggle').addEventListener('click',function(){
@@ -632,67 +643,61 @@ a11y; contract test catches drift.
       Array.prototype.forEach.call(document.querySelectorAll('.so-grp'),function(grp){ var any=false;
         Array.prototype.forEach.call(grp.querySelectorAll('.so-sm-item'),function(it){ var hit=!q||it.dataset.label.toLowerCase().indexOf(q)>=0||it.dataset.dir.toLowerCase().indexOf(q)>=0; it.style.display=hit?'':'none'; if(hit)any=true; });
         grp.style.display=any?'':'none'; }); });
-    var box=document.getElementById('so-assist-el');
+    // ── Assistant: contextual cascade panel (model ported from devops-control-plane) ──
+    // catalogue: window.SO_ASSIST = { context:{title,icon,content}, nodes:[{id,title,icon,selector,content,expanded,variants,children}] }
+    //   content = plain teaching text (always shown); expanded = authored rich HTML (shown for the active element).
+    var abody=document.getElementById('so-assist-body');
     function openAssist(){ if(!document.body.classList.contains('so-assist-open')) document.body.classList.add('so-assist-open'); }
-    function clr(tg){ if(tg)tg.classList.remove('so-assist-hot'); }
     function reduced(){ return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
-    // render a gold-data card {id?,title?,msg,more?} into the drawer
-    function renderCard(e,tg){ box.classList.add('hot');
-      var h='';
-      if(e.title) h+='<div class="lbl">'+(e.id?'<span class="id">'+esc(e.id)+'</span> ':'')+esc(e.title)+'</div>';
-      h+='<div>'+esc(e.msg||'')+'</div>';
-      if(e.more) h+='<button class="so-h-btn" id="so-more-btn" style="margin-top:.5rem;border-color:var(--border,#262626);font-size:.74rem">more ▾</button>'+
-        '<div id="so-more" style="display:none;margin-top:.4rem;color:var(--muted,#8a8a8a)">'+esc(e.more)+'</div>';
-      box.innerHTML=h;
-      var mb=document.getElementById('so-more-btn');
-      if(mb) mb.addEventListener('click',function(){ var d=document.getElementById('so-more'); var open=d.style.display!=='none'; d.style.display=open?'none':'block'; mb.textContent=open?'more ▾':'less ▲'; });
-      if(tg)tg.classList.add('so-assist-hot'); openAssist(); }
-    // ── unified gold-data target list: window.SO_ASSIST (selector→{title,msg,more}) ∪ inline [data-assist] ──
-    var TARGETS=[], seen=[];
-    function pushTarget(el,e){ if(!el||seen.indexOf(el)>=0) return; seen.push(el); TARGETS.push({el:el,title:e.title||'',msg:e.msg||'',more:e.more||''}); }
-    try { var SA=window.SO_ASSIST; if(SA&&SA.length) SA.forEach(function(e){ if(!e||!e.sel) return;
-      try { Array.prototype.forEach.call(document.querySelectorAll('#so-content '+e.sel),function(el){ pushTarget(el,e); }); } catch(x){} }); } catch(err){}
-    Array.prototype.forEach.call(document.querySelectorAll('#so-content [data-assist]'),function(el){ pushTarget(el,{msg:el.getAttribute('data-assist')}); });
-    TARGETS.sort(function(a,b){ var p=a.el.compareDocumentPosition(b.el); return (p&Node.DOCUMENT_POSITION_FOLLOWING)?-1:((p&Node.DOCUMENT_POSITION_PRECEDING)?1:0); });
-    TARGETS.forEach(function(t){
-      t.el.addEventListener('mouseenter',function(){renderCard(t,t.el);});
-      t.el.addEventListener('focus',function(){renderCard(t,t.el);});
-      t.el.addEventListener('mouseleave',function(){clr(t.el);});
-      t.el.addEventListener('blur',function(){clr(t.el);}); });
-    // every menu link explains its panel (catalog gold data)
-    Array.prototype.forEach.call(document.querySelectorAll('.so-sm-item'),function(it){
-      var p=findPanel(it.dataset.dir); if(!p) return; var e={title:p.label,id:(p.id!=='—'?p.id:''),msg:p.desc};
-      it.addEventListener('mouseenter',function(){renderCard(e,it);});
-      it.addEventListener('focus',function(){renderCard(e,it);});
-      it.addEventListener('mouseleave',function(){clr(it);});
-      it.addEventListener('blur',function(){clr(it);}); });
-    // ── guided tour: walk the unified gold-data targets in DOM order ──
-    var tour={i:-1,on:false}, tourBtn=document.getElementById('so-tour-btn'), tourStatus=document.getElementById('so-tour-status');
-    function tourClear(){ TARGETS.forEach(function(t){ t.el.classList.remove('so-assist-hot'); }); }
-    function tourEnd(){ tour.on=false; tourClear(); box.classList.remove('hot');
-      box.innerHTML='<span class="so-assist-hint">Hover a menu link or any highlighted control and its explanation appears here.</span>';
-      if(tourStatus) tourStatus.textContent=''; if(tourBtn) tourBtn.textContent='▶ Start tour'; }
-    function tourShow(i){ if(i<0||i>=TARGETS.length){ tourEnd(); return; } tour.i=i; tourClear();
-      var t=TARGETS[i]; t.el.classList.add('so-assist-hot');
-      if(t.el.scrollIntoView) t.el.scrollIntoView({block:'center', behavior: reduced()?'auto':'smooth'});
-      box.classList.add('hot');
-      box.innerHTML=(t.title?'<div class="lbl">'+esc(t.title)+'</div>':'')+'<div style="margin-bottom:.5rem">'+esc(t.msg||'')+'</div>'+
-        (t.more?'<div style="margin-bottom:.5rem;color:var(--muted,#8a8a8a)">'+esc(t.more)+'</div>':'')+
-        '<div style="display:flex;gap:.4rem;align-items:center">'+
-        '<button class="so-h-btn" id="so-tour-prev"'+(i===0?' disabled':'')+'>←</button>'+
-        '<button class="so-h-btn" id="so-tour-next">'+(i===TARGETS.length-1?'done':'→')+'</button>'+
-        '<span class="so-assist-hint">step '+(i+1)+' / '+TARGETS.length+'</span></div>';
-      var pv=document.getElementById('so-tour-prev'), nx=document.getElementById('so-tour-next');
-      if(pv) pv.addEventListener('click',function(){ tourShow(tour.i-1); });
-      if(nx) nx.addEventListener('click',function(){ tour.i===TARGETS.length-1 ? tourEnd() : tourShow(tour.i+1); });
+    var curP=findPanel(curDir());
+    var CAT=(function(){ var sa=window.SO_ASSIST, ctx=null, nodes=[];
+      if(sa && !Array.isArray(sa) && sa.nodes){ ctx=sa.context||null; nodes=sa.nodes||[]; }
+      else if(Array.isArray(sa)){ nodes=sa.map(function(e){ return {id:'',title:e.title||'',selector:e.sel,content:e.msg||'',expanded:e.more?esc(e.more):''}; }); }
+      if(!ctx) ctx={ icon:'✦', title:(curP?((curP.id&&curP.id!=='—'?curP.id+' · ':'')+curP.label):'This panel'), content:(curP?curP.desc:'') };
+      return {ctx:ctx, nodes:nodes}; })();
+    // flatten deepest-first with parent chains
+    var FLAT=[]; (function flat(list,chain){ (list||[]).forEach(function(n){ if(n.children&&n.children.length) flat(n.children,chain.concat([n])); FLAT.push({node:n,parents:chain.slice()}); }); })(CAT.nodes,[]);
+    // variant resolution against the matched element (state-awareness)
+    function resolveVar(node,el){ if(!node.variants||!node.variants.length||!el) return node;
+      for(var i=0;i<node.variants.length;i++){ var v=node.variants[i], w=v.when||{}, ok=true;
+        if(w.textContains && (el.textContent||'').indexOf(w.textContains)<0) ok=false;
+        if(ok&&w.hasSelector){ try{ if(!el.querySelector(w.hasSelector)) ok=false; }catch(e){ ok=false; } }
+        if(ok) return {id:node.id,title:v.title||node.title,icon:node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded)}; }
+      return node; }
+    // match a hovered element to the deepest catalogue node
+    function matchNode(el){ var best=null,bd=-1;
+      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node,m=false,tgt=null; if(!n.selector) continue;
+        try{ if(el.matches(n.selector)){m=true;tgt=el;}
+          else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
+        if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+      return best; }
+    function ctxHtml(){ var c=CAT.ctx; return '<div class="so-ctx"><div class="so-ctx-title">'+(c.icon?esc(c.icon)+' ':'')+esc(c.title||'')+'</div><div class="so-ctx-content">'+esc(c.content||'')+'</div></div>'; }
+    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node;
+      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(r.title||'')+'</div>';
+      h+='<div class="so-node-content">'+esc(r.content||'')+'</div>';
+      if(active && r.expanded) h+='<div class="so-node-expanded">'+r.expanded+'</div>';   // expanded = trusted authored HTML
+      return h+'</div>'; }
+    var lastHot=null, lastMatched=null;
+    function clearHot(){ if(lastHot){ lastHot.classList.remove('so-assist-hot'); lastHot=null; } }
+    function idle(){ lastMatched=null; clearHot(); abody.innerHTML=ctxHtml()+'<div class="so-assist-idle">Hover any value, control, table row, or menu link — its explanation builds here.</div>'; }
+    function showPath(match){ openAssist(); clearHot();
+      var chain=match.entry.parents, node=match.entry.node, parent=chain.length?chain[chain.length-1]:null;
+      var html=ctxHtml(); if(parent) html+=nodeHtml(parent,null,null); html+=nodeHtml(node,true,match.el);
+      abody.innerHTML=html;
+      if(match.el){ match.el.classList.add('so-assist-hot'); lastHot=match.el; }
+      var act=abody.querySelector('.so-node.active'); if(act&&act.scrollIntoView) act.scrollIntoView({block:'center',behavior:reduced()?'auto':'smooth'}); }
+    var content=document.getElementById('so-content');
+    if(content){
+      content.addEventListener('mouseover',function(ev){ var m=matchNode(ev.target); if(m&&m.el!==lastMatched){ lastMatched=m.el; showPath(m); } });
+      content.addEventListener('focusin',function(ev){ var m=matchNode(ev.target); if(m&&m.el!==lastMatched){ lastMatched=m.el; showPath(m); } });
     }
-    function tourStart(){ if(!TARGETS.length){ if(tourStatus) tourStatus.textContent='no annotated elements on this panel yet — the menu links (← left) each carry a description.'; return; }
-      tour.on=true; openAssist(); if(tourBtn) tourBtn.textContent='✕ End tour'; tourShow(0); }
-    if(tourBtn) tourBtn.addEventListener('click',function(){ tour.on ? tourEnd() : tourStart(); });
-    window.addEventListener('keydown',function(ev){ if(!tour.on) return;
-      if(ev.key==='ArrowRight'){ ev.preventDefault(); tour.i===TARGETS.length-1 ? tourEnd() : tourShow(tour.i+1); }
-      else if(ev.key==='ArrowLeft'){ ev.preventDefault(); tourShow(Math.max(0,tour.i-1)); }
-      else if(ev.key==='Escape'){ ev.preventDefault(); tourEnd(); } });
+    // menu links → surface the target panel's context (program-awareness: horizontal jump)
+    Array.prototype.forEach.call(document.querySelectorAll('.so-sm-item'),function(it){ var p=findPanel(it.dataset.dir); if(!p) return;
+      function show(){ openAssist(); clearHot(); lastMatched=null; it.classList.add('so-assist-hot'); lastHot=it; var here=it.dataset.dir===curDir();
+        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+esc(p.desc||'')+'</div></div>'+
+          '<div class="so-assist-idle">'+(here?'You’re on this panel now — hover its contents to explore.':'Click to open this panel.')+'</div>'; }
+      it.addEventListener('mouseenter',show); it.addEventListener('focus',show); });
+    idle();
   }
   function init(){
     var dir=curDir(), cur=findPanel(dir);
@@ -1462,244 +1467,313 @@ refresh();
 <script>SovereignControlSurface.load(document.getElementById('control-surface'),{filterSlug:'d-09-hardware-pressure'});</script>
 
 
+
+
 <!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
 <script>
-window.SO_ASSIST = [
+window.SO_ASSIST = {
+ "context": {
+  "icon": "▰",
+  "title": "D-09 · Hardware Pressure",
+  "content": "The physical-stress view of the box — is the hardware comfortable or fighting for resources? CPU/memory/IO pressure, per-CCD core load, both GPUs, ZFS latency, and the backpressure rules that automatically shed work when a resource crosses its line.\n\nEverything here is read-only telemetry. When the box feels slow, or autonomy quietly drops, or a job pauses on its own — this panel is where the 'why' lives."
+ },
+ "nodes": [
   {
-    "sel": "#datasource-banner",
-    "title": "Live vs snapshot",
-    "msg": "Green = the D-09 pressure daemon is answering live; muted = you're reading the baked snapshot.",
-    "more": "Every number on this page is only as trustworthy as this banner. Live means the hardware is being polled right now; snapshot means the API daemon is unreachable and you're seeing the last committed sample — treat pressure/thermals as possibly stale until it goes green."
+   "icon": "📊",
+   "title": "Linux PSI — pressure stall (M045)",
+   "content": "Pressure Stall Information is smarter than load-average: it measures the time tasks actually spent stalled waiting for a resource, not how many are queued. Three resources, each as a percentage of the last 10 seconds.",
+   "children": [
+    {
+     "selector": "#psi-cpu-some",
+     "title": "CPU pressure",
+     "content": "The share of the last 10s where at least one task was stalled waiting for a CPU. Rising here means work is queuing behind compute, not memory or disk.",
+     "expanded": "<div class=\"so-card info\"><div>What it drives:</div><div class=\"so-grid\"><span class=\"k\">&gt; ~30%</span><span>the M058 rule below defers background indexing + evals to protect interactive work</span><span class=\"k\">sustained high</span><span>Pulse (CPU inference) is saturated — the sovereign path is the bottleneck</span></div><div class=\"so-tip\">💡 If batch work 'paused on its own', check this first — the CPU-pressure backpressure rule is usually why.</div></div>"
+    },
+    {
+     "selector": "#psi-mem-some",
+     "title": "Memory pressure",
+     "content": "The share of the last 10s stalled on memory — reclaim, refault, or swap. This is the early warning before an OOM kill, long before free-memory looks scary.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-grid\"><span class=\"k\">&gt; ~20%</span><span>the M058 rule hibernates idle branches + compacts memory rather than let the kernel reclaim hard</span><span class=\"k\">climbing while VRAM is fine</span><span>the bottleneck is host RAM, not the GPUs</span></div><div class=\"so-tip\">💡 A healthy box keeps this near zero. A steady climb is the signal to shed memory before the kernel does it for you.</div></div>"
+    },
+    {
+     "selector": "#psi-io-some",
+     "title": "IO pressure",
+     "content": "The share of the last 10s stalled on block IO — the disk-contention signal. If a ZFS scrub or snapshot feels stuck, this is where it shows.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-grid\"><span class=\"k\">&gt; ~25%</span><span>the M058 rule delays cold scans + avoids large snapshots</span><span class=\"k\">read alongside</span><span>the zpool read/write latency numbers below — pressure is demand, latency is service</span></div><div class=\"so-tip\">💡 Storage-heavy maintenance (scrub, big snapshot) will itself raise this — that's expected, not a fault.</div></div>"
+    }
+   ]
   },
   {
-    "sel": "#ds-state-label",
-    "title": "Data-source state",
-    "msg": "Names which source the page is currently reading — live daemon or snapshot.",
-    "more": "The one-word verdict behind the banner colour. If it says snapshot, start by asking why the daemon is down before acting on any threshold you see below."
+   "icon": "▦",
+   "title": "Dual-CCD cores (M070 · Ryzen 9 9900X)",
+   "content": "The 9900X is two core-complex-dies. Which die a workload is pinned to matters — crossing between them pays the Infinity Fabric latency at the bottom of this section. This is the sovereign CPU compute, split by role.",
+   "children": [
+    {
+     "selector": "#ccd-0",
+     "title": "CCD 0 — Pulse cores",
+     "content": "The first die: the Pulse (CPU / AVX-512 ternary) inference path plus Wasm AOT, acting as the M075 Conductor. This is the tier that runs even with no GPU at all.",
+     "expanded": "<div class=\"so-card info\"><div>Load concentrated here is Pulse doing real inference — healthy, not a problem to chase.</div><div class=\"so-tip\">💡 Pulse is the always-available sovereign path. If the GPUs are under pressure, work falls back here — expect CCD 0 to be busy exactly when you need it most.</div></div>"
+    },
+    {
+     "selector": "#ccd-0-cores",
+     "title": "CCD 0 per-core load",
+     "content": "Per-core utilization across CCD 0. Uneven cores are normal — the Conductor pins specific work to specific cores.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-grid\"><span class=\"k\">one hot core</span><span>a pinned inference thread — expected</span><span class=\"k\">all cores hot</span><span>Pulse is saturated; the CPU-pressure rule is about to fire</span></div></div>"
+    },
+    {
+     "selector": "#ccd-0-l3miss",
+     "title": "CCD 0 L3 cache miss",
+     "content": "How often CCD 0's last-level cache misses. A high rate means the working set spilled to RAM and the CPU is waiting on memory instead of computing.",
+     "expanded": "<div class=\"so-card info\"><div>For ternary inference this is the difference between fast and stalled — it's the micro-architectural 'why' behind a high CPU PSI.</div></div>"
+    },
+    {
+     "selector": "#ccd-1",
+     "title": "CCD 1 — Weaver + Auditor",
+     "content": "The second die: the sandbox fabric (Weaver) and the gatekeeper (Auditor), plus M075 Logic/Oracle GPU scheduling. Kept separate from Pulse so untrusted/security work doesn't pollute the sovereign inference path.",
+     "expanded": "<div class=\"so-card info\"><div>Cross-die traffic between here and CCD 0 is what the Infinity Fabric latency below measures.</div><div class=\"so-tip\">💡 Auditor/Weaver cores busy while Pulse (CCD 0) is idle is the security/sandbox layer working independently — not a problem.</div></div>"
+    },
+    {
+     "selector": "#ccd-1-cores",
+     "title": "CCD 1 per-core load",
+     "content": "Per-core utilization across CCD 1 — the Weaver/Auditor complex. Balanced-but-busy across both CCDs is the healthy full-load shape.",
+     "expanded": "<div class=\"so-card info\"><div>A hot Auditor core during heavy inspection is the gatekeeper doing its job; it doesn't compete with Pulse on CCD 0.</div></div>"
+    },
+    {
+     "selector": "#ccd-1-l3miss",
+     "title": "CCD 1 L3 cache miss",
+     "content": "Last-level-cache miss rate for the Weaver/Auditor die. A spike during heavy sandbox work means the fabric's working set is thrashing L3 — a candidate for core-pinning review.",
+     "expanded": ""
+    },
+    {
+     "selector": "#if-lat",
+     "title": "Infinity Fabric latency",
+     "content": "The cross-CCD interconnect latency. Anything that spans CCD 0 ↔ CCD 1 pays this — it's the hidden tax the M075 core-pinning is designed to avoid.",
+     "expanded": "<div class=\"so-card info\"><div>A mis-pinned job underperforms a correctly-pinned one on identical cores purely because its data keeps hopping the fabric. Rising latency here explains that gap.</div></div>"
+    }
+   ]
   },
   {
-    "sel": "#ds-state-detail",
-    "title": "Reachability detail",
-    "msg": "The reason behind the state — e.g. daemon reachable, timed out, or endpoint absent.",
-    "more": "Turns 'snapshot' into a diagnosis. A timeout points at load on the box; an absent endpoint points at the API simply not being started (`make panel`)."
+   "icon": "◨",
+   "title": "GPU pressure (NVIDIA DCGM)",
+   "content": "Both GPUs, live from DCGM. GPU 0 is the heavy Oracle (Blackwell, 96 GB); GPU 1 is the lighter Scout (4090, 24 GB), handed to a Weaver sandbox via VFIO. Util and VRAM together decide whether the backpressure rules fire.",
+   "children": [
+    {
+     "selector": "#gpu-0-util",
+     "title": "GPU 0 (Oracle) — utilization",
+     "content": "Compute load on the Blackwell — the heavy-reasoning Oracle tier (M075). Sustained high util is the Oracle earning its keep.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-grid\"><span class=\"k\">watched with</span><span>VRAM — util alone rarely trips backpressure; VRAM does</span><span class=\"k\">if it's pinned high</span><span>large-context reasoning is in flight; check VRAM has room</span></div></div>"
+    },
+    {
+     "selector": "#gpu-0-vram",
+     "title": "GPU 0 (Oracle) — VRAM",
+     "content": "VRAM in use of the Blackwell's 96 GB. This is usually the real ceiling for large-context work, not util.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-grid\"><span class=\"k\">&gt; 90%</span><span>the M058 rule trims context + evicts low-value KV + can switch to a smaller oracle</span></div><div class=\"so-tip\">💡 Watch this before blaming latency — a full Oracle GPU quietly shortens effective context.</div></div>"
+    },
+    {
+     "selector": "#gpu-0-temp",
+     "title": "GPU 0 (Oracle) — temperature",
+     "content": "Blackwell die temperature. Thermals gate sustained clocks, so a hot Oracle throttles and quietly drops tokens/sec at the same util.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-tip\">💡 A latency regression with no util change often traces back to this number — check temperature before assuming a software cause.</div></div>"
+    },
+    {
+     "selector": "#gpu-0-pow",
+     "title": "GPU 0 (Oracle) — power",
+     "content": "Board power draw of the Blackwell. Ties directly to the UPS budget, and a runtime-efficiency mode caps it.",
+     "expanded": "<div class=\"so-card info\"><div>If the Oracle feels slow, check whether an efficiency runtime mode is power-limiting it before assuming a fault.</div></div>"
+    },
+    {
+     "selector": "#gpu-0-kv",
+     "title": "GPU 0 (Oracle) — KV cache",
+     "content": "KV-cache occupancy on the Oracle GPU. The KV cache holds attention state for in-flight sequences; when it fills, new or long contexts get evicted or rejected.",
+     "expanded": "<div class=\"so-card info\"><div>High KV% alongside high VRAM is exactly the condition the backpressure rule relieves by evicting low-value KV.</div></div>"
+    },
+    {
+     "selector": "#gpu-1-util",
+     "title": "GPU 1 (Scout) — utilization",
+     "content": "Compute load on the 4090, the lighter Scout tier — handed to a Weaver sandbox via VFIO, so this GPU belongs to the confined fabric, not the host directly.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-grid\"><span class=\"k\">&gt; 85%</span><span>the M058 rule reduces branch width + pushes classification onto the CPU (Pulse)</span></div></div>"
+    },
+    {
+     "selector": "#gpu-1-vram",
+     "title": "GPU 1 (Scout) — VRAM",
+     "content": "VRAM in use of the 4090's 24 GB — a real constraint that caps Scout model size and branch width.",
+     "expanded": "<div class=\"so-card info\"><div>When this is tight the router leans on CPU classifiers instead of widening GPU branches.</div></div>"
+    },
+    {
+     "selector": "#gpu-1-temp",
+     "title": "GPU 1 (Scout) — temperature",
+     "content": "4090 die temperature. Same throttle logic as the Oracle, but contained to Weaver's sandbox since the card is VFIO-passed.",
+     "expanded": ""
+    },
+    {
+     "selector": "#gpu-1-pow",
+     "title": "GPU 1 (Scout) — power",
+     "content": "Board power of the 4090 — part of the same UPS envelope as the Oracle. Two GPUs at full power is the peak-draw case graceful-shutdown is sized against.",
+     "expanded": ""
+    },
+    {
+     "selector": "#gpu-1-sandbox",
+     "title": "GPU 1 (Scout) — sandbox",
+     "content": "Which Weaver sandbox currently owns the VFIO-passed 4090. Because it's passed through, exactly one confined context holds it at a time.",
+     "expanded": "<div class=\"so-card info\"><div>This is the link between raw GPU telemetry and the Weaver fabric row that's actually using it — the same context you'd see in D-15.</div></div>"
+    }
+   ]
   },
   {
-    "sel": "#ds-last-update",
-    "title": "Fetch freshness",
-    "msg": "When the shown sample was last pulled.",
-    "more": "Pressure is a moving target — a value from 90 seconds ago can misread a spike that already passed. Read this before trusting any gauge as 'now'."
+   "icon": "▤",
+   "title": "ZFS / NVMe (M068)",
+   "content": "The tank pool's IO health — where state, snapshots, and context datasets live. IOPS is the demand side; the two latency percentiles are the service side. Demand high + latency rising = the pool is the bottleneck.",
+   "children": [
+    {
+     "selector": "#zpool-iops",
+     "title": "tank IOPS",
+     "content": "Current IO operations per second on the tank pool. High IOPS with rising latency is exactly what the IO-pressure backpressure rule reacts to.",
+     "expanded": ""
+    },
+    {
+     "selector": "#zpool-rlat",
+     "title": "Read latency (p95)",
+     "content": "95th-percentile read latency — p95, not average, so it catches the tail stalls the average hides.",
+     "expanded": "<div class=\"so-card info\"><div>A p95 blowout during a scrub or heavy snapshot is the concrete symptom behind an IO-pressure event above.</div></div>"
+    },
+    {
+     "selector": "#zpool-wlat",
+     "title": "Write latency (p95)",
+     "content": "95th-percentile write latency. Writes are what atomic state-fabric commits (Weaver → tank/context) depend on, so this gates every rollback-point snapshot.",
+     "expanded": "<div class=\"so-card info\"><div>Pair a rising write p95 with the dataset table to see which dataset is hot — sync=always datasets pay write latency for durability by design.</div></div>"
+    },
+    {
+     "selector": "#zfs-tbody",
+     "title": "Per-dataset table",
+     "content": "Each tank dataset with its usage, compression, recordsize, and sync mode — where you localise a storage problem.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-grid\"><span class=\"k\">recordsize</span><span>explains latency behaviour for that dataset's access pattern</span><span class=\"k\">sync=always</span><span>durable but pays write latency — a deliberate trade you can see here</span><span class=\"k\">usage</span><span>which dataset — context, snapshots, models — is growing</span></div></div>"
+    }
+   ]
   },
   {
-    "sel": "#psi-cpu-some",
-    "title": "CPU pressure (PSI some, 10s)",
-    "msg": "Share of the last 10s that at least one task stalled waiting for CPU (Linux PSI, M045).",
-    "more": "PSI is smarter than load-average: it measures actual stall, not queue length. 'some' = at least one task delayed. Above ~30% the M058 backpressure rule defers background indexing + evals — so a high value here explains why batch work slowed down."
+   "icon": "⚖",
+   "title": "M058 backpressure rules",
+   "content": "The hardware-aware scheduler defending itself under load. When a resource crosses its threshold, the scheduler automatically sheds or reshapes work instead of falling over. A firing rule explains why autonomy, context, or background work just changed without anyone touching it.",
+   "children": [
+    {
+     "selector": "#rule-blackwell-vram",
+     "title": "Rule · Blackwell VRAM > 90%",
+     "content": "When Oracle VRAM crosses 90%: reduce context + evict low-value KV + switch to a smaller oracle. The relief valve for the heavy tier.",
+     "expanded": "<div class=\"so-card info\"><div>When it fires, expect shorter effective context and possibly a lighter model answering — a deliberate quality-for-survival trade, not a bug. Read it with the Oracle VRAM/KV stats above.</div></div>",
+     "variants": [
+      {
+       "when": {
+        "textContains": "idle"
+       },
+       "content": "Currently idle — Oracle VRAM is below 90%, so nothing is being trimmed. If it fires, expect shorter context and possibly a smaller model answering."
+      }
+     ]
+    },
+    {
+     "selector": "#rule-4090-busy",
+     "title": "Rule · 4090 busy (util > 85%)",
+     "content": "When Scout util crosses 85%: reduce branch width + use CPU classifiers. Protects the Scout from oversubscription.",
+     "expanded": "<div class=\"so-card info\"><div>Firing here explains why branch-heavy exploration suddenly got narrower or slower — the classification moved to Pulse.</div></div>",
+     "variants": [
+      {
+       "when": {
+        "textContains": "idle"
+       },
+       "content": "Currently idle — the 4090 is under 85% util, branches run at full width."
+      }
+     ]
+    },
+    {
+     "selector": "#rule-cpu-pressure",
+     "title": "Rule · CPU PSI > 30%",
+     "content": "When CPU pressure crosses 30%: defer background indexing + evals to keep interactive inference responsive.",
+     "expanded": "<div class=\"so-card info\"><div>If evals or indexing 'paused on their own', this rule is why — they resume when CPU PSI falls back.</div></div>",
+     "variants": [
+      {
+       "when": {
+        "textContains": "idle"
+       },
+       "content": "Currently idle — CPU pressure is below 30%, so background indexing + evals run normally."
+      }
+     ]
+    },
+    {
+     "selector": "#rule-ram-pressure",
+     "title": "Rule · RAM PSI > 20%",
+     "content": "When memory pressure crosses 20%: hibernate idle branches + compact memory — the pre-OOM defence.",
+     "expanded": "<div class=\"so-card info\"><div>Firing here is the healthy alternative to an OOM kill: it frees RAM deliberately before the kernel is forced to reclaim hard.</div></div>",
+     "variants": [
+      {
+       "when": {
+        "textContains": "idle"
+       },
+       "content": "Currently idle — memory pressure is below 20%; nothing is being hibernated."
+      }
+     ]
+    },
+    {
+     "selector": "#rule-io-pressure",
+     "title": "Rule · IO PSI > 25%",
+     "content": "When IO pressure crosses 25%: delay cold scans + avoid large snapshots, so storage maintenance doesn't starve live work.",
+     "expanded": "<div class=\"so-card info\"><div>This is why a scheduled scrub or big snapshot may be held back during busy periods — deferred, not cancelled.</div></div>",
+     "variants": [
+      {
+       "when": {
+        "textContains": "idle"
+       },
+       "content": "Currently idle — IO pressure is below 25%; scrubs and snapshots run on schedule."
+      }
+     ]
+    },
+    {
+     "selector": "#rule-human-gate",
+     "title": "Rule · human-gate queue > 5",
+     "content": "A governance backpressure, not a hardware one: when the approval queue (D-06) exceeds 5, batch approvals + lower autonomy — keeping you in the loop rather than racing ahead.",
+     "expanded": "<div class=\"so-card info\"><div>When it fires the box does less unattended and groups decisions for you. It's the system choosing your oversight over its own speed.</div></div>",
+     "variants": [
+      {
+       "when": {
+        "textContains": "idle"
+       },
+       "content": "Currently idle — the approval queue is at or below 5; autonomy runs at its normal level."
+      }
+     ]
+    }
+   ]
   },
   {
-    "sel": "#psi-mem-some",
-    "title": "Memory pressure (PSI some, 10s)",
-    "msg": "Share of the last 10s stalled on memory — reclaim, refault, swap (M045).",
-    "more": "Memory PSI rising is the early warning before OOM. Past ~20% the M058 rule hibernates branches + compacts memory. If this climbs while VRAM is fine, the bottleneck is host RAM, not the GPUs."
-  },
-  {
-    "sel": "#psi-io-some",
-    "title": "IO pressure (PSI some, 10s)",
-    "msg": "Share of the last 10s stalled on block IO (M045).",
-    "more": "This is the disk-contention signal. Above ~25% the M058 rule delays cold scans + avoids large snapshots — so if a ZFS scrub or snapshot feels stuck, check here first. Pairs with the zpool latency numbers below."
-  },
-  {
-    "sel": "#ccd-0",
-    "title": "CCD 0 — Pulse cores",
-    "msg": "The first Ryzen 9 9900X core-complex-die: the Pulse (CPU/AVX-512 ternary) + Wasm AOT path, M075 Conductor.",
-    "more": "The 9900X is two CCDs (M070); pinning matters. CCD 0 hosts the sovereign always-available CPU inference path — the tier that runs even with no GPU. Load concentrated here is Pulse doing real work, which is healthy, not a problem to chase."
-  },
-  {
-    "sel": "#ccd-0-cores",
-    "title": "CCD 0 per-core load",
-    "msg": "Per-core utilization across CCD 0's cores.",
-    "more": "Uneven cores are expected — the Conductor pins specific workloads to specific cores. A single hot core is normal for a pinned inference thread; all-cores-hot means Pulse is saturated and the backpressure CPU rule is about to fire."
-  },
-  {
-    "sel": "#ccd-0-l3miss",
-    "title": "CCD 0 L3 miss rate",
-    "msg": "Last-level-cache miss rate for CCD 0.",
-    "more": "A high L3 miss rate means the working set is spilling to RAM — the CPU is waiting on memory, not computing. For ternary inference this is the difference between fast and stalled; it's the micro-architectural 'why' behind a high CPU PSI."
-  },
-  {
-    "sel": "#ccd-1",
-    "title": "CCD 1 — Weaver + Auditor",
-    "msg": "The second core-complex-die: Weaver + Auditor cores, M075 Logic/Oracle scheduling.",
-    "more": "CCD 1 carries the sandbox fabric (Weaver) and the gatekeeper (Auditor) plus GPU-tier scheduling. Keeping these on a separate CCD from Pulse isolates untrusted/security work from the sovereign inference path — cross-CCD noise here is what the Infinity Fabric latency below measures."
-  },
-  {
-    "sel": "#ccd-1-cores",
-    "title": "CCD 1 per-core load",
-    "msg": "Per-core utilization across CCD 1's cores.",
-    "more": "Watch for Auditor/Weaver cores pinned hot while Pulse (CCD 0) is idle — that's the security/sandbox layer working, independent of inference. Balanced-but-busy across both CCDs is the healthy full-load shape."
-  },
-  {
-    "sel": "#ccd-1-l3miss",
-    "title": "CCD 1 L3 miss rate",
-    "msg": "Last-level-cache miss rate for CCD 1.",
-    "more": "Same signal as CCD 0's, for the Weaver/Auditor complex. A spike here during heavy sandbox work means the fabric's working set is thrashing L3 — a candidate for core-pinning review."
-  },
-  {
-    "sel": "#if-lat",
-    "title": "Infinity Fabric latency",
-    "msg": "Cross-CCD interconnect latency between the two dies.",
-    "more": "Anything crossing CCD 0 ↔ CCD 1 pays this cost. If a workload is split across both dies its data hops the fabric; rising latency here is why a mis-pinned job underperforms a correctly-pinned one on identical cores. It's the hidden tax the M075 scheduling is designed to avoid."
-  },
-  {
-    "sel": "#gpu-0-util",
-    "title": "GPU 0 (Oracle) utilization",
-    "msg": "Compute utilization of the Blackwell — Oracle tier, 96GB GDDR7 FP4.",
-    "more": "GPU 0 is the heavy-reasoning Oracle (M075). Sustained high util is the Oracle earning its keep. This is the GPU the Blackwell-VRAM backpressure rule watches — util plus VRAM together decide whether context gets trimmed."
-  },
-  {
-    "sel": "#gpu-0-vram",
-    "title": "GPU 0 (Oracle) VRAM",
-    "msg": "VRAM in use of the 96 GB on the Blackwell.",
-    "more": "The number that trips the M058 rule at >90%: reduce context + evict low-value KV + switch to a smaller oracle. VRAM, not util, is usually the real ceiling for large-context reasoning — watch this before blaming latency."
-  },
-  {
-    "sel": "#gpu-0-temp",
-    "title": "GPU 0 (Oracle) temperature",
-    "msg": "Die temperature of the Blackwell (°C, via DCGM).",
-    "more": "Thermals gate sustained clocks. A Blackwell running hot will throttle and quietly drop tokens/sec even at the same util — so a latency regression with no util change often traces back to this number."
-  },
-  {
-    "sel": "#gpu-0-pow",
-    "title": "GPU 0 (Oracle) power",
-    "msg": "Board power draw of the Blackwell (W).",
-    "more": "Power ties the GPU to the UPS budget (D-25/UPS). A runtime-efficiency mode caps this; if the Oracle feels slow, check whether a mode is power-limiting GPU 0 before assuming a fault."
-  },
-  {
-    "sel": "#gpu-0-kv",
-    "title": "GPU 0 (Oracle) KV cache",
-    "msg": "KV-cache occupancy on the Oracle GPU (%).",
-    "more": "The KV cache holds attention state for in-flight sequences; when it fills, new/long contexts get evicted or rejected. High KV% alongside high VRAM is exactly the condition the backpressure rule relieves by evicting low-value KV."
-  },
-  {
-    "sel": "#gpu-1-util",
-    "title": "GPU 1 (Scout) utilization",
-    "msg": "Compute utilization of the 4090 — Scout tier, 24GB GDDR6X, VFIO-passed.",
-    "more": "GPU 1 is the lighter Scout, handed to a sandbox via VFIO. The M058 rule watches it at >85% util → reduce branch width + use CPU classifiers. Because it's VFIO, this GPU belongs to Weaver's confined fabric, not the host directly."
-  },
-  {
-    "sel": "#gpu-1-vram",
-    "title": "GPU 1 (Scout) VRAM",
-    "msg": "VRAM in use of the 24 GB on the 4090.",
-    "more": "24 GB is a real constraint for the Scout — it caps model size and branch width. When this is tight the router leans on CPU classifiers instead of widening GPU branches."
-  },
-  {
-    "sel": "#gpu-1-temp",
-    "title": "GPU 1 (Scout) temperature",
-    "msg": "Die temperature of the 4090 (°C, via DCGM).",
-    "more": "Same throttle logic as the Oracle. The Scout sits behind VFIO in a sandbox, so a thermal problem here is contained to Weaver's fabric — but it still costs the branch-exploration throughput the Scout provides."
-  },
-  {
-    "sel": "#gpu-1-pow",
-    "title": "GPU 1 (Scout) power",
-    "msg": "Board power draw of the 4090 (W).",
-    "more": "Part of the same UPS power envelope as GPU 0. Two GPUs at full power is the peak-draw case the graceful-shutdown budget (UPS panel) is sized against."
-  },
-  {
-    "sel": "#gpu-1-sandbox",
-    "title": "GPU 1 (Scout) sandbox",
-    "msg": "Which Weaver sandbox currently owns the VFIO-passed 4090.",
-    "more": "Because the Scout is VFIO-passed, exactly one confined context holds it at a time. This names that context — the link between raw GPU telemetry and the Weaver fabric row that's actually using it."
-  },
-  {
-    "sel": "#zpool-iops",
-    "title": "zpool tank IOPS",
-    "msg": "Current IO operations/sec on the tank pool (M068).",
-    "more": "tank is where state, snapshots and context datasets live. IOPS here is the demand side; the two latency numbers next to it are the service side. High IOPS + rising latency = the pool is the bottleneck, which is what the IO-PSI backpressure rule reacts to."
-  },
-  {
-    "sel": "#zpool-rlat",
-    "title": "Read latency p95",
-    "msg": "95th-percentile read latency on tank (μs).",
-    "more": "p95, not average — it catches the tail stalls that average hides. A p95 blowout during a scrub or heavy snapshot is the concrete symptom behind an IO-pressure event."
-  },
-  {
-    "sel": "#zpool-wlat",
-    "title": "Write latency p95",
-    "msg": "95th-percentile write latency on tank (μs).",
-    "more": "Writes are what atomic state-fabric commits (Weaver → tank/context) depend on. Rising write p95 slows every rollback-point snapshot and context commit — pair it with the ZFS dataset table to see which dataset is hot."
-  },
-  {
-    "sel": "#zfs-tbody",
-    "title": "Per-dataset ZFS table",
-    "msg": "Each tank dataset with its usage, compression, recordsize and sync mode.",
-    "more": "This is where you localise a storage problem: recordsize and sync settings explain latency behaviour, and usage shows which dataset (context, snapshots, models) is growing. Sync=always datasets pay write latency for durability — a deliberate trade you can see here."
-  },
-  {
-    "sel": "#backpressure-panel",
-    "title": "M058 backpressure rules",
-    "msg": "The hardware-aware scheduler's live rules (R09823-R09825) — condition → mitigation, each with a live pill.",
-    "more": "This is the system defending itself under load: when a resource crosses its threshold, the scheduler automatically sheds or reshapes work rather than falling over. 'idle' means the condition isn't met; a firing rule explains why autonomy, context, or background work just changed without anyone touching it."
-  },
-  {
-    "sel": "#rule-blackwell-vram",
-    "title": "Rule: Blackwell VRAM > 90%",
-    "msg": "When Oracle VRAM exceeds 90% → reduce context + evict low-value KV + switch to a smaller oracle.",
-    "more": "The relief valve for the heavy tier. When it fires, expect shorter effective context and possibly a lighter model answering — a deliberate quality-for-survival trade, not a bug. Read it together with gpu-0-vram / gpu-0-kv above."
-  },
-  {
-    "sel": "#rule-4090-busy",
-    "title": "Rule: 4090 busy (util > 85%)",
-    "msg": "When Scout util exceeds 85% → reduce branch width + use CPU classifiers.",
-    "more": "Protects the Scout from oversubscription by narrowing exploration and pushing classification onto the CPU (Pulse). Firing here explains why branch-heavy work suddenly got narrower or slower."
-  },
-  {
-    "sel": "#rule-cpu-pressure",
-    "title": "Rule: CPU PSI > 30%",
-    "msg": "When CPU PSI exceeds 30% → defer background indexing + evals.",
-    "more": "Keeps interactive inference responsive by postponing non-urgent CPU work. If evals or indexing 'paused on their own', this rule is why — it resumes when CPU PSI falls."
-  },
-  {
-    "sel": "#rule-ram-pressure",
-    "title": "Rule: RAM PSI > 20%",
-    "msg": "When memory PSI exceeds 20% → hibernate branches + compact memory.",
-    "more": "The pre-OOM defence: it frees RAM by parking idle branches and compacting before the kernel is forced to reclaim hard. Firing here is the healthy alternative to an OOM kill."
-  },
-  {
-    "sel": "#rule-io-pressure",
-    "title": "Rule: IO PSI > 25%",
-    "msg": "When IO PSI exceeds 25% → delay cold scans + avoid large snapshots.",
-    "more": "Stops storage-heavy maintenance from starving live work. This is why a scheduled scrub or big snapshot may be held back during busy periods — deferred, not cancelled."
-  },
-  {
-    "sel": "#rule-human-gate",
-    "title": "Rule: human-gate queue > 5",
-    "msg": "When the approval queue depth exceeds 5 → batch approvals + lower autonomy.",
-    "more": "A governance backpressure, not a hardware one: when approvals pile up (D-06), the system batches them and reduces how much it does unattended — keeping the operator in the loop rather than racing ahead of decisions."
-  },
-  {
-    "sel": "#refresh-btn",
-    "title": "Refresh",
-    "msg": "Re-poll the pressure daemon now.",
-    "more": "A manual sample on demand — useful when you've just changed load and want a fresh reading instead of waiting for the next auto-poll. Read-only; it fetches, it changes nothing."
-  },
-  {
-    "sel": "#scrub-btn",
-    "title": "zpool scrub (operator-signed)",
-    "msg": "Stages a tank scrub — it copies the signed CLI verb, it does not run from the web.",
-    "more": "R10212: the cockpit never mutates privileged state. A scrub is heavy IO (and will itself raise IO PSI), so it goes through the gated osctl path where it can be authorised and timed against load — not fired from a browser."
-  },
-  {
-    "sel": "#dcgm-export-btn",
-    "title": "Copy DCGM export cmd",
-    "msg": "Copies the command to export GPU telemetry via NVIDIA DCGM.",
-    "more": "Lets the raw GPU metrics leave the cockpit for an external monitor/SIEM. The panel shows the live view; this hands you the exact command to wire the same data into your own stack."
-  },
-  {
-    "sel": "#control-surface",
-    "title": "Controls — profiles, modes & toggles",
-    "msg": "The per-panel control rail — runtime profiles, modes, and feature toggles for hardware behaviour.",
-    "more": "Every actionable control here copies its exact `sovereign-osctl` verb rather than executing (§1g / R10212). This is where a runtime mode (which caps GPU power and pins cores) is selected — the setting that explains much of the pressure picture above."
+   "icon": "⎈",
+   "title": "Actions & controls",
+   "content": "This panel reads; it never mutates. Every action copies the signed sovereign-osctl verb for you to run through the gated path (R10212) — the cockpit stages, osctl executes.",
+   "children": [
+    {
+     "selector": "#refresh-btn",
+     "title": "Refresh",
+     "content": "Pull a fresh telemetry sample right now instead of waiting for the auto-poll — useful just after you've changed load.",
+     "expanded": ""
+    },
+    {
+     "selector": "#scrub-btn",
+     "title": "zpool scrub (operator-signed)",
+     "content": "Stages a tank scrub. A scrub is heavy IO — it will itself raise IO pressure — so it runs through the gated osctl path where it can be authorised and timed against load.",
+     "expanded": "<div class=\"so-card info\"><div>The button copies the signed verb; it never scrubs from the browser (R10212). Run it when IO pressure is low.</div></div>"
+    },
+    {
+     "selector": "#dcgm-export-btn",
+     "title": "Copy DCGM export cmd",
+     "content": "Copies the command to export GPU telemetry via NVIDIA DCGM, so the raw metrics can leave the cockpit for an external monitor or SIEM.",
+     "expanded": ""
+    },
+    {
+     "selector": "#control-surface",
+     "title": "Controls — profiles, modes & toggles",
+     "content": "The control rail for hardware behaviour. This is where a runtime mode is selected — the setting that caps GPU power and pins cores, and explains much of the pressure picture above.",
+     "expanded": "<div class=\"so-card info\"><div>Every control copies its exact sovereign-osctl verb (§1g / R10212) rather than executing — the web surface never changes privileged state.</div></div>"
+    }
+   ]
   }
-];
+ ]
+};
 </script>
 </body>
 </html>

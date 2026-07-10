@@ -459,20 +459,35 @@ a11y; contract test catches drift.
   .so-sm-item:hover{background:color-mix(in srgb,var(--accent,#9bd1ff) 12%,transparent);}
   .so-sm-item.active{background:color-mix(in srgb,var(--accent,#9bd1ff) 18%,transparent); border-left-color:var(--accent,#9bd1ff);}
   body.so-sm-collapsed .so-sm-item{justify-content:center; padding:.4rem 0;} body.so-sm-collapsed .so-sm-item .lbl, body.so-sm-collapsed .so-sm-item .id{display:none;}
-  /* assistant */
+  /* assistant — full-height contextual side panel (cascade model, ported from devops-control-plane) */
   #so-assist{position:fixed; top:var(--so-header-h); right:0; bottom:0; width:var(--so-assist-w); max-width:92vw; z-index:9450;
     background:var(--panel,#171717); border-left:1px solid var(--border,#262626); transform:translateX(100%); display:flex; flex-direction:column;
     font-family:ui-sans-serif,-apple-system,Segoe UI,Roboto,sans-serif; color:var(--fg,#e6e6e6);}
   body.so-assist-open #so-assist{transform:translateX(0);}
-  .so-assist-h{display:flex; align-items:center; gap:.5rem; padding:.6rem .8rem; border-bottom:1px solid var(--border,#262626);}
+  .so-assist-h{display:flex; align-items:center; gap:.5rem; padding:.55rem .8rem; border-bottom:1px solid var(--border,#262626); flex-shrink:0;}
   .so-assist-h .t{font-weight:600; font-size:.85rem;} .so-assist-h .t .spark{color:var(--accent,#9bd1ff);}
-  .so-assist-body{flex:1; overflow-y:auto; padding:.8rem; font-size:.82rem; line-height:1.5;}
-  .so-assist-sec{margin-bottom:1.1rem;} .so-assist-sec h4{margin:0 0 .3rem; font-size:.72rem; text-transform:uppercase; letter-spacing:.05em; color:var(--muted,#8a8a8a);}
-  .so-assist-hint{color:var(--muted,#8a8a8a); font-style:italic;}
-  #so-assist-el{border:1px dashed var(--border,#262626); border-radius:8px; padding:.6rem .7rem; background:var(--bg,#0e0e0e); min-height:3rem;}
-  #so-assist-el.hot{border-color:var(--accent,#9bd1ff); border-style:solid;}
-  #so-assist-el .lbl{font-weight:600; margin-bottom:.3rem;} #so-assist-el .lbl .id{color:var(--accent,#9bd1ff); font-size:.72rem;}
-  [data-assist].so-assist-hot, .so-sm-item.so-assist-hot{outline:2px solid var(--accent,#9bd1ff); outline-offset:-2px; border-radius:6px;}
+  .so-assist-body{flex:1; overflow-y:auto; overflow-x:hidden; padding:.8rem; font-size:.82rem; line-height:1.55;}
+  /* context header — always-visible "where you are" */
+  .so-ctx{padding:.7rem .85rem; margin:-.8rem -.8rem .9rem; border-bottom:1px solid var(--border,#262626); background:linear-gradient(180deg,rgba(155,209,255,.06),transparent);}
+  .so-ctx-title{font-weight:600; font-size:.92rem; margin-bottom:.35rem;}
+  .so-ctx-content{color:var(--fg-2,#c8c8c8); font-size:.8rem; line-height:1.55; white-space:pre-line;}
+  /* interaction-path nodes */
+  .so-node{padding:.55rem .65rem; margin:.5rem 0; border-left:2px solid transparent; border-radius:0 6px 6px 0; transition:background .12s ease,border-color .12s ease;}
+  .so-node.in-chain{border-left-color:rgba(155,209,255,.18); opacity:.82;}
+  .so-node.active{border-left-color:var(--accent,#9bd1ff); border-left-width:3px; background:rgba(155,209,255,.045); box-shadow:inset 0 0 22px rgba(155,209,255,.03);}
+  .so-node-title{font-weight:600; font-size:.83rem; margin-bottom:.3rem;} .so-node-title .id{color:var(--accent,#9bd1ff); font-size:.72rem; font-weight:500;}
+  .so-node-content{color:var(--fg-2,#c8c8c8); font-size:.8rem; line-height:1.55; white-space:pre-line;}
+  .so-node-expanded{margin-top:.55rem; padding-top:.55rem; border-top:1px solid rgba(155,209,255,.13); font-size:.78rem; line-height:1.6; color:var(--muted,#a8a8a8); white-space:pre-line;}
+  /* rich expanded cards */
+  .so-card{border:1px solid var(--border,#262626); border-radius:7px; padding:.55rem .65rem; margin-top:.45rem; background:var(--bg,#0e0e0e); white-space:normal; line-height:1.55;}
+  .so-card.info{border-color:rgba(155,209,255,.28);}
+  .so-grid{display:grid; grid-template-columns:auto 1fr; gap:.22rem .6rem; margin:.35rem 0; font-size:.76rem; white-space:normal;}
+  .so-grid .k{color:var(--accent,#9bd1ff); font-weight:500;}
+  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;}
+  .so-tip{margin-top:.4rem; font-size:.77rem; color:var(--muted,#a8a8a8);}
+  .so-assist-idle{color:var(--muted,#8a8a8a); font-style:italic; padding:.4rem 0;}
+  /* highlight the hovered/focused element in the panel content */
+  .so-assist-hot{outline:2px solid var(--accent,#9bd1ff); outline-offset:-2px; border-radius:6px;}
   /* responsive — reuse the existing breakpoints */
   @media (max-width:1024px){
     #so-sidemenu{transform:translateX(-100%);} body.so-sm-open #so-sidemenu{transform:translateX(0); width:var(--so-sidemenu-w);}
@@ -597,11 +612,7 @@ a11y; contract test catches drift.
     document.body.appendChild(el(
       '<aside id="so-assist" role="complementary" aria-label="assistant"><div class="so-assist-h"><span class="t"><span class="spark">✦</span> Assistant</span>'+
         '<button class="so-h-btn" id="so-assist-close" title="Close" style="margin-left:auto">✕</button></div>'+
-      '<div class="so-assist-body">'+
-        '<div class="so-assist-sec"><h4>This panel — '+title+'</h4><div>'+esc(help)+'</div></div>'+
-        '<div class="so-assist-sec"><h4>Focus / hover</h4><div id="so-assist-el"><span class="so-assist-hint">Hover a menu link or any highlighted control and its explanation appears here.</span></div></div>'+
-        '<div class="so-assist-sec"><h4>Tour</h4><button class="so-h-btn" id="so-tour-btn" style="border-color:var(--border,#262626)">▶ Start tour</button> <span class="so-assist-hint" id="so-tour-status"></span></div>'+
-      '</div></aside>'));
+      '<div class="so-assist-body" id="so-assist-body"></div></aside>'));
   }
   function wire(){
     document.getElementById('so-menu-toggle').addEventListener('click',function(){
@@ -619,67 +630,61 @@ a11y; contract test catches drift.
       Array.prototype.forEach.call(document.querySelectorAll('.so-grp'),function(grp){ var any=false;
         Array.prototype.forEach.call(grp.querySelectorAll('.so-sm-item'),function(it){ var hit=!q||it.dataset.label.toLowerCase().indexOf(q)>=0||it.dataset.dir.toLowerCase().indexOf(q)>=0; it.style.display=hit?'':'none'; if(hit)any=true; });
         grp.style.display=any?'':'none'; }); });
-    var box=document.getElementById('so-assist-el');
+    // ── Assistant: contextual cascade panel (model ported from devops-control-plane) ──
+    // catalogue: window.SO_ASSIST = { context:{title,icon,content}, nodes:[{id,title,icon,selector,content,expanded,variants,children}] }
+    //   content = plain teaching text (always shown); expanded = authored rich HTML (shown for the active element).
+    var abody=document.getElementById('so-assist-body');
     function openAssist(){ if(!document.body.classList.contains('so-assist-open')) document.body.classList.add('so-assist-open'); }
-    function clr(tg){ if(tg)tg.classList.remove('so-assist-hot'); }
     function reduced(){ return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
-    // render a gold-data card {id?,title?,msg,more?} into the drawer
-    function renderCard(e,tg){ box.classList.add('hot');
-      var h='';
-      if(e.title) h+='<div class="lbl">'+(e.id?'<span class="id">'+esc(e.id)+'</span> ':'')+esc(e.title)+'</div>';
-      h+='<div>'+esc(e.msg||'')+'</div>';
-      if(e.more) h+='<button class="so-h-btn" id="so-more-btn" style="margin-top:.5rem;border-color:var(--border,#262626);font-size:.74rem">more ▾</button>'+
-        '<div id="so-more" style="display:none;margin-top:.4rem;color:var(--muted,#8a8a8a)">'+esc(e.more)+'</div>';
-      box.innerHTML=h;
-      var mb=document.getElementById('so-more-btn');
-      if(mb) mb.addEventListener('click',function(){ var d=document.getElementById('so-more'); var open=d.style.display!=='none'; d.style.display=open?'none':'block'; mb.textContent=open?'more ▾':'less ▲'; });
-      if(tg)tg.classList.add('so-assist-hot'); openAssist(); }
-    // ── unified gold-data target list: window.SO_ASSIST (selector→{title,msg,more}) ∪ inline [data-assist] ──
-    var TARGETS=[], seen=[];
-    function pushTarget(el,e){ if(!el||seen.indexOf(el)>=0) return; seen.push(el); TARGETS.push({el:el,title:e.title||'',msg:e.msg||'',more:e.more||''}); }
-    try { var SA=window.SO_ASSIST; if(SA&&SA.length) SA.forEach(function(e){ if(!e||!e.sel) return;
-      try { Array.prototype.forEach.call(document.querySelectorAll('#so-content '+e.sel),function(el){ pushTarget(el,e); }); } catch(x){} }); } catch(err){}
-    Array.prototype.forEach.call(document.querySelectorAll('#so-content [data-assist]'),function(el){ pushTarget(el,{msg:el.getAttribute('data-assist')}); });
-    TARGETS.sort(function(a,b){ var p=a.el.compareDocumentPosition(b.el); return (p&Node.DOCUMENT_POSITION_FOLLOWING)?-1:((p&Node.DOCUMENT_POSITION_PRECEDING)?1:0); });
-    TARGETS.forEach(function(t){
-      t.el.addEventListener('mouseenter',function(){renderCard(t,t.el);});
-      t.el.addEventListener('focus',function(){renderCard(t,t.el);});
-      t.el.addEventListener('mouseleave',function(){clr(t.el);});
-      t.el.addEventListener('blur',function(){clr(t.el);}); });
-    // every menu link explains its panel (catalog gold data)
-    Array.prototype.forEach.call(document.querySelectorAll('.so-sm-item'),function(it){
-      var p=findPanel(it.dataset.dir); if(!p) return; var e={title:p.label,id:(p.id!=='—'?p.id:''),msg:p.desc};
-      it.addEventListener('mouseenter',function(){renderCard(e,it);});
-      it.addEventListener('focus',function(){renderCard(e,it);});
-      it.addEventListener('mouseleave',function(){clr(it);});
-      it.addEventListener('blur',function(){clr(it);}); });
-    // ── guided tour: walk the unified gold-data targets in DOM order ──
-    var tour={i:-1,on:false}, tourBtn=document.getElementById('so-tour-btn'), tourStatus=document.getElementById('so-tour-status');
-    function tourClear(){ TARGETS.forEach(function(t){ t.el.classList.remove('so-assist-hot'); }); }
-    function tourEnd(){ tour.on=false; tourClear(); box.classList.remove('hot');
-      box.innerHTML='<span class="so-assist-hint">Hover a menu link or any highlighted control and its explanation appears here.</span>';
-      if(tourStatus) tourStatus.textContent=''; if(tourBtn) tourBtn.textContent='▶ Start tour'; }
-    function tourShow(i){ if(i<0||i>=TARGETS.length){ tourEnd(); return; } tour.i=i; tourClear();
-      var t=TARGETS[i]; t.el.classList.add('so-assist-hot');
-      if(t.el.scrollIntoView) t.el.scrollIntoView({block:'center', behavior: reduced()?'auto':'smooth'});
-      box.classList.add('hot');
-      box.innerHTML=(t.title?'<div class="lbl">'+esc(t.title)+'</div>':'')+'<div style="margin-bottom:.5rem">'+esc(t.msg||'')+'</div>'+
-        (t.more?'<div style="margin-bottom:.5rem;color:var(--muted,#8a8a8a)">'+esc(t.more)+'</div>':'')+
-        '<div style="display:flex;gap:.4rem;align-items:center">'+
-        '<button class="so-h-btn" id="so-tour-prev"'+(i===0?' disabled':'')+'>←</button>'+
-        '<button class="so-h-btn" id="so-tour-next">'+(i===TARGETS.length-1?'done':'→')+'</button>'+
-        '<span class="so-assist-hint">step '+(i+1)+' / '+TARGETS.length+'</span></div>';
-      var pv=document.getElementById('so-tour-prev'), nx=document.getElementById('so-tour-next');
-      if(pv) pv.addEventListener('click',function(){ tourShow(tour.i-1); });
-      if(nx) nx.addEventListener('click',function(){ tour.i===TARGETS.length-1 ? tourEnd() : tourShow(tour.i+1); });
+    var curP=findPanel(curDir());
+    var CAT=(function(){ var sa=window.SO_ASSIST, ctx=null, nodes=[];
+      if(sa && !Array.isArray(sa) && sa.nodes){ ctx=sa.context||null; nodes=sa.nodes||[]; }
+      else if(Array.isArray(sa)){ nodes=sa.map(function(e){ return {id:'',title:e.title||'',selector:e.sel,content:e.msg||'',expanded:e.more?esc(e.more):''}; }); }
+      if(!ctx) ctx={ icon:'✦', title:(curP?((curP.id&&curP.id!=='—'?curP.id+' · ':'')+curP.label):'This panel'), content:(curP?curP.desc:'') };
+      return {ctx:ctx, nodes:nodes}; })();
+    // flatten deepest-first with parent chains
+    var FLAT=[]; (function flat(list,chain){ (list||[]).forEach(function(n){ if(n.children&&n.children.length) flat(n.children,chain.concat([n])); FLAT.push({node:n,parents:chain.slice()}); }); })(CAT.nodes,[]);
+    // variant resolution against the matched element (state-awareness)
+    function resolveVar(node,el){ if(!node.variants||!node.variants.length||!el) return node;
+      for(var i=0;i<node.variants.length;i++){ var v=node.variants[i], w=v.when||{}, ok=true;
+        if(w.textContains && (el.textContent||'').indexOf(w.textContains)<0) ok=false;
+        if(ok&&w.hasSelector){ try{ if(!el.querySelector(w.hasSelector)) ok=false; }catch(e){ ok=false; } }
+        if(ok) return {id:node.id,title:v.title||node.title,icon:node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded)}; }
+      return node; }
+    // match a hovered element to the deepest catalogue node
+    function matchNode(el){ var best=null,bd=-1;
+      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node,m=false,tgt=null; if(!n.selector) continue;
+        try{ if(el.matches(n.selector)){m=true;tgt=el;}
+          else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
+        if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+      return best; }
+    function ctxHtml(){ var c=CAT.ctx; return '<div class="so-ctx"><div class="so-ctx-title">'+(c.icon?esc(c.icon)+' ':'')+esc(c.title||'')+'</div><div class="so-ctx-content">'+esc(c.content||'')+'</div></div>'; }
+    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node;
+      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(r.title||'')+'</div>';
+      h+='<div class="so-node-content">'+esc(r.content||'')+'</div>';
+      if(active && r.expanded) h+='<div class="so-node-expanded">'+r.expanded+'</div>';   // expanded = trusted authored HTML
+      return h+'</div>'; }
+    var lastHot=null, lastMatched=null;
+    function clearHot(){ if(lastHot){ lastHot.classList.remove('so-assist-hot'); lastHot=null; } }
+    function idle(){ lastMatched=null; clearHot(); abody.innerHTML=ctxHtml()+'<div class="so-assist-idle">Hover any value, control, table row, or menu link — its explanation builds here.</div>'; }
+    function showPath(match){ openAssist(); clearHot();
+      var chain=match.entry.parents, node=match.entry.node, parent=chain.length?chain[chain.length-1]:null;
+      var html=ctxHtml(); if(parent) html+=nodeHtml(parent,null,null); html+=nodeHtml(node,true,match.el);
+      abody.innerHTML=html;
+      if(match.el){ match.el.classList.add('so-assist-hot'); lastHot=match.el; }
+      var act=abody.querySelector('.so-node.active'); if(act&&act.scrollIntoView) act.scrollIntoView({block:'center',behavior:reduced()?'auto':'smooth'}); }
+    var content=document.getElementById('so-content');
+    if(content){
+      content.addEventListener('mouseover',function(ev){ var m=matchNode(ev.target); if(m&&m.el!==lastMatched){ lastMatched=m.el; showPath(m); } });
+      content.addEventListener('focusin',function(ev){ var m=matchNode(ev.target); if(m&&m.el!==lastMatched){ lastMatched=m.el; showPath(m); } });
     }
-    function tourStart(){ if(!TARGETS.length){ if(tourStatus) tourStatus.textContent='no annotated elements on this panel yet — the menu links (← left) each carry a description.'; return; }
-      tour.on=true; openAssist(); if(tourBtn) tourBtn.textContent='✕ End tour'; tourShow(0); }
-    if(tourBtn) tourBtn.addEventListener('click',function(){ tour.on ? tourEnd() : tourStart(); });
-    window.addEventListener('keydown',function(ev){ if(!tour.on) return;
-      if(ev.key==='ArrowRight'){ ev.preventDefault(); tour.i===TARGETS.length-1 ? tourEnd() : tourShow(tour.i+1); }
-      else if(ev.key==='ArrowLeft'){ ev.preventDefault(); tourShow(Math.max(0,tour.i-1)); }
-      else if(ev.key==='Escape'){ ev.preventDefault(); tourEnd(); } });
+    // menu links → surface the target panel's context (program-awareness: horizontal jump)
+    Array.prototype.forEach.call(document.querySelectorAll('.so-sm-item'),function(it){ var p=findPanel(it.dataset.dir); if(!p) return;
+      function show(){ openAssist(); clearHot(); lastMatched=null; it.classList.add('so-assist-hot'); lastHot=it; var here=it.dataset.dir===curDir();
+        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+esc(p.desc||'')+'</div></div>'+
+          '<div class="so-assist-idle">'+(here?'You’re on this panel now — hover its contents to explore.':'Click to open this panel.')+'</div>'; }
+      it.addEventListener('mouseenter',show); it.addEventListener('focus',show); });
+    idle();
   }
   function init(){
     var dir=curDir(), cur=findPanel(dir);
@@ -1351,124 +1356,163 @@ refreshAll();
 setInterval(refreshAll, 60000);
 </script>
 
+
+
 <!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
 <script>
-window.SO_ASSIST = [
+window.SO_ASSIST = {
+ "context": {
+  "icon": "◳",
+  "title": "UX Design Audit",
+  "content": "The UX-completeness scanner — for every tracked module, how it scores on the 6 operator-named UX dimensions (R457 ladder: action-budget, discoverable, recoverable, next-step, operator-named, readable-30s), and which fall below the threshold.\n\nThe scoring logic lives in the audited modules themselves, NOT in this daemon — it aggregates, it doesn't judge. A low score is the module's real UX debt."
+ },
+ "nodes": [
   {
-    "sel": "#stats",
-    "title": "UX-audit summary",
-    "msg": "The UX design audit roll-up — modules, dimensions, below-threshold, selfdef checklists.",
-    "more": "The score lives in the audited modules themselves, not this daemon. It grades each panel against the 6 UX dimensions this cockpit's grammar was built on — the audit that produced the app-shell you're using."
+   "icon": "◆",
+   "title": "Summary",
+   "content": "How many modules are tracked, how many UX dimensions, and how many modules score below the bar.",
+   "children": [
+    {
+     "selector": "#stats",
+     "title": "Audit summary",
+     "content": "The roll-up — tracked modules, UX dimensions, modules below threshold, selfdef checklists — before the score matrix and shortfall list."
+    },
+    {
+     "selector": "#stat-modules",
+     "title": "Tracked modules",
+     "content": "How many modules the audit covers — the denominator. Each is scored on all 6 UX dimensions."
+    },
+    {
+     "selector": "#stat-dimensions",
+     "title": "UX dimensions",
+     "content": "How many of the 6 R457 UX dimensions are scored — the axes a well-designed module is measured on."
+    },
+    {
+     "selector": "#stat-below",
+     "title": "Modules below threshold",
+     "content": "How many modules score under the UX bar — the design-debt backlog. The number to drive down.",
+     "variants": [
+      {
+       "when": {
+        "textContains": "0"
+       },
+       "content": "Zero below threshold — every tracked module meets its UX bar."
+      }
+     ]
+    },
+    {
+     "selector": "#stat-selfdef",
+     "title": "Selfdef checklists",
+     "content": "How many cross-repo selfdef UxChecklists (R464) were found — UX coverage extending beyond this repo."
+    },
+    {
+     "selector": "#stat-version",
+     "title": "API version",
+     "content": "The version of the ux-design-audit daemon answering — for reconciling behaviour against the spec."
+    },
+    {
+     "selector": "#last-refresh",
+     "title": "Refresh freshness",
+     "content": "When the audit last ran — scores reflect the last run, so check this before trusting a score as current."
+    }
+   ]
   },
   {
-    "sel": "#stat-version",
-    "title": "API version",
-    "msg": "The UX-audit API version.",
-    "more": "Stamps the audit build so the UX scores and dimension set tie to a known version of the UX contract — the reference when a score disagrees with a panel's actual behaviour."
+   "icon": "⌗",
+   "title": "UX dimensions (R457 ladder)",
+   "content": "The 6 operator-named UX axes every module is scored against.",
+   "children": [
+    {
+     "selector": "#dimensions-row",
+     "title": "6 UX dimensions",
+     "content": "The R457 ladder — the six UX qualities a well-designed surface exhibits."
+    },
+    {
+     "selector": "#dim-action-budget",
+     "title": "action-budget",
+     "content": "Whether the surface respects an action budget — how few steps a task takes. Bloated action counts are the classic UX failure this catches."
+    },
+    {
+     "selector": "#dim-discoverable",
+     "title": "discoverable",
+     "content": "Whether functions are discoverable — can a user find what they need without prior knowledge."
+    },
+    {
+     "selector": "#dim-recoverable",
+     "title": "recoverable",
+     "content": "Whether mistakes are recoverable — can a user undo or back out safely rather than getting stuck."
+    },
+    {
+     "selector": "#dim-next-step",
+     "title": "next-step",
+     "content": "Whether the surface always suggests a clear next step — no dead ends where the user doesn't know what to do."
+    },
+    {
+     "selector": "#dim-operator-named",
+     "title": "operator-named",
+     "content": "Whether elements use operator-named vocabulary — the words the operator actually uses, not internal jargon."
+    },
+    {
+     "selector": "#dim-readable-30s",
+     "title": "readable-30s",
+     "content": "Whether the surface is readable in 30 seconds — can its state be grasped at a glance, the core 'assistant feeling' bar."
+    }
+   ]
   },
   {
-    "sel": "#stat-modules",
-    "title": "Tracked modules",
-    "msg": "How many modules/panels the UX audit covers.",
-    "more": "The population graded for UX — every surface expected to meet the design bar. The denominator of the scores."
+   "icon": "▤",
+   "title": "Score matrix & shortfalls",
+   "content": "The per-module score matrix and the modules that fall short.",
+   "children": [
+    {
+     "selector": "#matrix-tbody",
+     "title": "UX score matrix",
+     "content": "Every module × the 6 UX dimensions, sorted lowest-score-first — a whole-tree view of where UX is weakest. The top rows are where design effort pays off most.",
+     "expanded": "<div class=\"so-card info\"><div>Sorted lowest score first — the top of this table is your UX-debt backlog, in priority order.</div></div>"
+    },
+    {
+     "selector": "#below-tbody",
+     "title": "Below-threshold modules",
+     "content": "Each module under the UX bar with its score, shortfall, and missing dimensions — the concrete design to-do list. Fix lives in the module itself, since that's where the UX is authored."
+    },
+    {
+     "selector": "#selfdef-tbody",
+     "title": "Selfdef UxChecklists",
+     "content": "Cross-repo selfdef UxChecklists (R464) — UX coverage tracked across sister repos, with repo, module, dimensions, and status."
+    }
+   ]
   },
   {
-    "sel": "#stat-dimensions",
-    "title": "UX dimensions",
-    "msg": "The count of operator-named UX dimensions (the 6-dimension ladder).",
-    "more": "action-budget / discoverable / recoverable / next-step / operator-named / readable-30s — the six lenses a panel is graded against. The R457 ladder below names each."
+   "icon": "⟳",
+   "title": "Refresh",
+   "content": "Pull a fresh read on demand; the panel also auto-refreshes.",
+   "children": [
+    {
+     "selector": "#refresh-btn",
+     "title": "Refresh now",
+     "content": "Force an immediate re-read. Read-only telemetry — refreshing never changes state, it just re-samples."
+    },
+    {
+     "selector": "#last-refresh",
+     "title": "Refresh freshness",
+     "content": "When the shown values were last pulled — the panel auto-refreshes every 30s, but check this before trusting a value as 'now'."
+    }
+   ]
   },
   {
-    "sel": "#stat-below",
-    "title": "Modules below threshold",
-    "msg": "Panels scoring under the UX threshold (default 4).",
-    "more": "The worklist — panels that hide their action, bury state, or offer no recovery. Fixing these is what 'gold standard' means for the cockpit's feel."
-  },
-  {
-    "sel": "#stat-selfdef",
-    "title": "selfdef checklists",
-    "msg": "Cross-repo selfdef UxChecklists discovered (R464).",
-    "more": "The security repo's surfaces graded by the same UX contract, read-only from its published checklists. The cross-repo half."
-  },
-  {
-    "sel": "#last-refresh",
-    "title": "Last refresh",
-    "msg": "When the UX audit last recomputed.",
-    "more": "Freshness of the scores — a stale scan can lag a just-improved (or just-regressed) panel."
-  },
-  {
-    "sel": "#dimensions-row",
-    "title": "6 UX dimensions",
-    "msg": "The R457 ladder — the 6 operator-named UX dimensions.",
-    "more": "Each tile shows how panels score on that lens. A dimension with many low scores is a systemic UX weakness across the cockpit, not a one-panel problem."
-  },
-  {
-    "sel": "#dim-action-budget",
-    "title": "action-budget",
-    "msg": "Does the panel keep the number of actions reasonable?",
-    "more": "Too many actions overwhelm; too few strand. This dimension grades whether a panel offers the right, bounded set of things to do — not a wall of buttons."
-  },
-  {
-    "sel": "#dim-discoverable",
-    "title": "discoverable",
-    "msg": "Can the primary action be found without reading?",
-    "more": "An action buried in prose fails discoverability. This grades whether what you're meant to do is visually obvious — findable at a glance, not hunted for."
-  },
-  {
-    "sel": "#dim-recoverable",
-    "title": "recoverable",
-    "msg": "Can the operator undo or recover from a mistake?",
-    "more": "A panel with no recovery is a trap. This grades whether actions are reversible or at least safe — the difference between confidence and fear when clicking."
-  },
-  {
-    "sel": "#dim-next-step",
-    "title": "next-step",
-    "msg": "Does the panel make the next action clear?",
-    "more": "After reading a panel, do you know what to do next? This grades whether the panel guides forward — a clear next step versus a dead end of numbers."
-  },
-  {
-    "sel": "#dim-operator-named",
-    "title": "operator-named",
-    "msg": "Does the panel use the operator's own vocabulary?",
-    "more": "Naming things as the operator names them (not internal jargon) is how a panel reads as built-for-you. This grades that alignment — sacrosanct-words discipline applied to UX."
-  },
-  {
-    "sel": "#dim-readable-30s",
-    "title": "readable-30s",
-    "msg": "Is the panel understandable in about 30 seconds?",
-    "more": "A panel you can't grasp quickly fails under pressure. This grades whether state is legible at a glance — the 30-second comprehension bar the whole cockpit aims for."
-  },
-  {
-    "sel": "#matrix-tbody",
-    "title": "UX score matrix",
-    "msg": "Per-module scores across the 6 dimensions, lowest score first.",
-    "more": "The core audit grid: each panel's dimension scores, worst first. Where you see exactly which lens a panel fails — the actionable heart of the UX audit."
-  },
-  {
-    "sel": "#below-tbody",
-    "title": "Below-bar panels",
-    "msg": "Panels under the UX threshold — score, shortfall, missing dimensions.",
-    "more": "The prioritized UX worklist — where a panel hides its primary action, buries state, or offers no recovery. This is the list the gold-standard pass works down."
-  },
-  {
-    "sel": "#selfdef-tbody",
-    "title": "selfdef UxChecklists (R464)",
-    "msg": "Cross-repo selfdef UX checklists and status.",
-    "more": "selfdef's surfaces graded by the same UX contract, read-only from its checklists. Proves the UX discipline crosses the repo boundary."
-  },
-  {
-    "sel": "#refresh-btn",
-    "title": "Refresh all",
-    "msg": "Recompute the UX audit.",
-    "more": "Re-reads the modules to refresh every score. Read-only — it audits, it changes nothing."
-  },
-  {
-    "sel": "#control-surface",
-    "title": "Controls — profiles, modes & toggles",
-    "msg": "The per-panel control rail for the UX audit.",
-    "more": "Every control copies its exact sovereign-osctl verb (§1g / R10212), never executing from the web."
+   "icon": "⎈",
+   "title": "Controls",
+   "content": "",
+   "children": [
+    {
+     "selector": "#control-surface",
+     "title": "Controls rail",
+     "content": "Profile / mode / feature-toggle controls — each copies its sovereign-osctl verb (§1g / R10212). This view reads state; every mutation runs via the signed CLI, never from the browser."
+    }
+   ]
   }
-];
+ ]
+};
 </script>
 </body>
 </html>
