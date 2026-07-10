@@ -229,7 +229,7 @@
       {id:'D-21', dir:'d-21-lm-orchestration', label:'D-21 LM Orchestration', ico:'⛭', desc:'Profiles + model→hardware assignment grid (GPU0/GPU1/CPU0 = Logic/Oracle/Conductor per M075) + CPU AVX-512 / GPU capability panel. Read-only: Apply copies the signed profile verb.', menuHover:'Where you choose the whole machine’s inference posture in one move. A runtime profile (M076) is not a setting — it is a coherent bundle that assigns every model to a device and pins the CPU cores to match (the SRP split, M075), so picking one rebalances the Conductor, Logic, and Oracle tiers together. This panel lets you preview a profile as a concrete model→hardware grid before you commit it, and shows the silicon it’s built to exploit (the CPU’s AVX-512 extensions for the ternary path, the GPUs’ capabilities like NVFP4). Open it when you want to change how the box thinks as a whole — trade deep-context reach for concurrency, or park the GPUs and run cheap on CPU — rather than tweaking one model. It’s the strategic counterpart to D-03 (which shows how the current assignment is actually serving) and D-09 (which shows the pressure each posture produces). Read-only: applying a profile is a signed verb-chain through osctl, because reshuffling models across devices is a real, heavy operation, not a web click.'},
       {id:'D-24', dir:'d-24-cpu-features', label:'D-24 CPU Features', ico:'⊞', desc:'The deep AVX-512 capability view — extension map, per-AI-workload fit verdict, and advisory. Reuses avx512-advisor. Distinct from D-21 Features-CPU summary.'},
       {id:'D-23', dir:'d-23-models-catalog', label:'D-23 Model Catalog', ico:'▤', desc:'The canonical model registry (models/catalog.yaml) browsed by SRP tier — id, class, engine, precision, params, context, license, purpose, status. The portfolio view (distinct from D-03 live health).'},
-      {id:'D-22', dir:'d-22-lm-status-operability', label:'D-22 LM Status & Operability', ico:'◐', desc:'Per-device (CPU0/GPU0/GPU1) Model 0/1/2 status + History|Selected latency + operability Actions/Tests + render-only Chat. Reuses the model-health core; Actions copy signed CLI verbs.'},
+      {id:'D-22', dir:'d-22-lm-status-operability', label:'D-22 LM Status & Operability', ico:'◐', desc:'Per-device (CPU0/GPU0/GPU1) Model 0/1/2 status + History|Selected latency + operability Actions/Tests + render-only Chat. Reuses the model-health core; Actions copy signed CLI verbs.', menuHover:'The device-by-device operability view — and the one place in the whole cockpit where you actually talk to the box\u2019s brain. Where D-03 aggregates model health by SRP tier, this pins it to the physical devices (CPU0, GPU0, GPU1) and adds the thing that proves the machine is more than dashboards: a sovereign loopback chat that sends a prompt straight to the local LM over 127.0.0.1 and shows the answer. That chat is the single deliberate exception to the read-only rule \u2014 it is a real compute call, but it never leaves the box, which is the whole sovereignty argument made tangible: your AI, on your silicon, answering with nothing crossing the network. Open it to confirm a device is not just loaded but actually responding; open it to sanity-check the box end to end after a profile change; open the chat when you want to feel the machine think without a cloud in the loop. It pairs with D-03 (tier health), D-21 (the profile that placed these models on these devices), and D-09 (the pressure a chat request produces).'},
       {id:'—', dir:'models-catalog', label:'Models & Catalog', ico:'▤', desc:'The full model catalog (68 models across ternary-lm/RLM/SLM/LLM/mixture, every quantization) with VRAM-aware selection — browse and filter by class/quant/tier/purpose/VRAM. Backed by models/catalog.yaml (served at /models-catalog.json); operator CLI e.g. models select --class rlm --vram 48.'},
       {id:'—', dir:'cpu-features', label:'CPU / AVX-512 Choice', ico:'⊞', desc:'The tiered AVX-512 exploitation surface — which instructions (F/VL/BW/VNNI/BF16/VPOPCNTDQ…) THIS CPU exposes and how they map to the AI workloads they enable (Pulse ternary path). Live probe via avx512-advisor (R272), served at /cpu-avx.json.'},
       {id:'—', dir:'orchestration', label:'Thinking Router / Orchestration', ico:'⧉', desc:'The thinking-router / orchestration view — the 7-axis routing rules (SDD-011) + live routing metrics (which tier/class/task-type requests landed on) + the per-profile escalation (CoT → Validator → self-consistency → MoE). Served at /orchestration.json (router rules|metrics).'},
@@ -1125,111 +1125,134 @@
 <script>
 window.SO_ASSIST = {
  "context": {
-  "icon": "◈",
+  "icon": "◐",
   "title": "D-22 · LM Status & Operability",
-  "content": "The hands-on tier: not just whether the models are healthy (that's D-03) but whether you can operate them — see each device's live status and actually talk to the loaded models from here. The chat is the box's own sovereignty proof: it talks to the local loopback router (127.0.0.1), so a prompt you send never leaves the machine (SDD-062). Multi-turn history is kept client-side (SDD-103) — the server holds no conversation.\n\nUse it to sanity-check a model ('is the Oracle actually answering'), to compare devices side by side, or to warm a path before real work. It's the one panel where the web does invoke inference — the single sanctioned loopback POST — while everything else stays read-only."
+  "content": "The device-level operability view — and the one screen where you actually converse with the box’s brain. Everything above the chat pins model status to physical hardware (CPU0, GPU0, GPU1) rather than the SRP-tier abstraction of D-03: which device holds which model, how busy it is, how much VRAM it’s eating, where its weights came from. Below that sits the sovereign loopback chat — a prompt sent straight to the local LM over 127.0.0.1, answered on your own silicon, with nothing crossing the network.\n\nThat chat is the single deliberate exception to the cockpit’s read-only rule: it’s a real compute call, not a read. It’s allowed because it’s the whole sovereignty argument made tangible — a working, private AI you can talk to with no cloud in the loop. Use it to confirm a device isn’t just ‘loaded’ but actually responding, and to sanity-check the box end to end after a change."
  },
  "nodes": [
   {
    "icon": "◆",
-   "title": "Live-source + devices",
-   "content": "Whether device status is live, and the per-device roster you can target.",
+   "title": "Live source",
+   "content": "Whether the per-device status is live or a snapshot — an operability view that lags reality can tell you a device is fine while it has actually stopped responding.",
    "children": [
     {
      "selector": "#data-source-banner",
      "title": "Live vs snapshot",
-     "content": "Green = the lm-status daemon is answering (/api/lm-status/devices); muted = a snapshot. Device status changes as models load — a snapshot can show a device ready that has since dropped.",
-     "icon": "◆",
+     "content": "Whether /api/lm-status/devices is answering live. Operability is a right-now question — ‘is this device responding’ has no useful historical answer — so the value of everything below hinges on this being current. A snapshot could show a device as healthy that has since fallen over.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Operability is only meaningful live</div>Health can be trended; operability can’t — a device either answers now or it doesn’t. So a stale feed here is worse than on an analytics panel: it can report a device as up when the chat below would actually hang. Confirm this is live before trusting a device status, and use the chat itself as the ultimate liveness test.</div><div class=\"so-xref\"><span class=\"x\">→</span> #last-fetch — how old the device status is</div>",
      "variants": [
       {
        "when": {
         "textContains": "connecting"
        },
-       "content": "Connecting — reaching the lm-status daemon; device status isn't confirmed live.",
-       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Connecting</div>Waiting on /api/lm-status/devices — the roster below isn't confirmed current.</div>"
+       "content": "Reaching the device-status daemon — the per-device readings aren’t confirmed live yet.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Connecting</div>Waiting on /api/lm-status/devices. Device status is unconfirmed until this goes live.</div>"
       },
       {
        "when": {
         "textContains": "live"
        },
-       "content": "Live — per-device status is current.",
-       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Live</div>The daemon is answering; device status is now.</div>"
+       "content": "Live — each device’s status reflects whether it’s actually responding right now.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Live</div>The daemon is answering; per-device status is current.</div>"
+      },
+      {
+       "when": {
+        "textContains": "offline"
+       },
+       "content": "No answer — device status is a snapshot; a device shown ‘up’ may have since stopped responding.",
+       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Offline</div>The status feed is down. Don’t trust a device’s ‘up’ here — verify with the chat instead.</div>"
       }
      ]
-    },
+    }
+   ]
+  },
+  {
+   "icon": "▦",
+   "title": "Per-device status",
+   "content": "Model status pinned to the physical devices — CPU0 (Pulse/Conductor), GPU0 (Blackwell/Oracle), GPU1 (4090/Scout). Where D-03 rolls health up by SRP tier, this is the hardware view: which model sits on which device, its utilization, its VRAM footprint, and where its weights were sourced. Hover a device to read its specific state.",
+   "children": [
     {
      "selector": "#devices",
-     "title": "Per-device status",
-     "content": "Each compute device (GPU0 Oracle / GPU1 Logic / CPU-Pulse Conductor) with its SRP role, utilization, VRAM, and the source of its loaded model. These are the chat targets — you pick which device(s) a prompt goes to. Hover a device for its role and readiness.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Devices are the chat targets</div>This roster is dual-purpose: it's the operability status AND the target picker for the chat below. Selecting a device here aims your prompt at that specific tier.<div class=\"so-xref\"><span class=\"x\">→</span> D-03 model health — the deeper serving metrics for these devices<br><span class=\"x\">→</span> D-21 orchestration — how models got assigned to them</div></div>",
+     "title": "Device cards",
+     "content": "One card per physical device (CPU0/GPU0/GPU1) showing the model it’s serving, its role, utilization, VRAM, and model source. This is model health from the hardware’s point of view — useful when the question is ‘is THIS card working’ rather than ‘is this TIER healthy.’ A device with a model assigned but zero response is the failure this view is built to expose.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Hardware view, not tier view</div>D-03 answers ‘how is the Conductor tier’; this answers ‘how is GPU0.’ They usually agree, but the hardware framing matters when a specific device misbehaves — a card that thermal-throttles, a model whose source didn’t load cleanly, a device that shows loaded but won’t answer. The model-source field also tells you provenance: which catalog entry or path these weights came from.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-03 — the same models rolled up by SRP tier<br><span class=\"x\">→</span> D-09 — the physical pressure on each of these devices</div>",
      "dynamic": true,
      "childTemplate": {
-      "selector": "#devices > *",
-      "nameSelector": "strong,.label,code,b",
+      "selector": "#devices > *, #devices .device",
+      "nameSelector": "strong,.label,.slot,h3,b",
       "title": "Device · {{name}}",
-      "content": "The {{name}} device — its SRP role, utilization, VRAM, and loaded-model source. Select it to aim the chat at this tier; hover reads its live state.",
-      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Device · {{name}}</div>One compute tier you can target. Its role decides what it's good for — Oracle for depth, Logic for ingestion, Conductor for cheap volume.<div class=\"so-xref\"><span class=\"x\">→</span> D-03 shows this device's serving latency + KV health</div></div>"
+      "content": "The {{name}} device — the model it’s serving, its role, utilization, VRAM, and where its weights came from. Read it as ‘is this specific card working’: a model assigned but not responding here is a device-level failure the tier view (D-03) might average away.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Device · {{name}}</div>One physical device’s status. The model-source field is its provenance — which catalog entry or path these weights loaded from. If this device looks loaded but the chat won’t answer from it, that mismatch is exactly what this card exists to expose.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-09 — the pressure on {{name}}</div>"
      }
     }
    ]
   },
   {
-   "icon": "▤",
-   "title": "Chat — talk to the local models",
-   "content": "The sovereign chat: prompts go to the local loopback router and never leave the box (SDD-062). Pick target device(s), send, and the conversation builds client-side — the server keeps no history (SDD-103). This is where you actually exercise the models.",
+   "icon": "◈",
+   "title": "Sovereign chat",
+   "content": "The loopback chat — a prompt sent to the local LM over 127.0.0.1 and answered on your own hardware. This is the cockpit’s one deliberate compute call (everything else is read-only), allowed because it’s sovereignty made tangible: a real, working AI you can talk to, with nothing leaving the box. It’s also the truest operability test — a device that answers here is genuinely working, not just ‘loaded.’",
    "children": [
     {
      "selector": "#selected-summary",
-     "title": "Selected targets",
-     "content": "Which device(s) your prompt will go to — pick from the roster above. Targeting a specific device lets you talk to exactly one tier (e.g. just the Oracle) or compare several; 'none' means nothing is selected yet, so Send has nowhere to go.",
+     "title": "Chat targets",
+     "content": "Which device(s) the chat will send to. A prompt here is routed to the selected model on the selected hardware, so this summary is you choosing whose brain you’re talking to — the cheap Conductor, the deep Oracle, or the Scout. Empty targets mean nothing is selected to answer, which is why the chat would have nowhere to go.",
      "variants": [
       {
        "when": {
         "textContains": "none"
        },
-       "content": "No targets selected — pick a device from the roster above before sending, or the prompt has nowhere to go.",
-       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ No target</div>Select at least one device above; the chat needs a target tier to send to.</div>"
+       "content": "No chat target selected — pick a device above before sending, or the prompt has nowhere to route.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ No target</div>Select a device/model above first — with no target, a sent prompt has nothing to answer it.</div>"
       }
      ]
     },
     {
      "selector": "#chat-log",
-     "title": "Conversation",
-     "content": "The multi-turn conversation with the selected device(s). History is kept in-page only (SDD-103) — the server is stateless, so refreshing or 'New chat' clears it and nothing is persisted. If a device is unreachable the reply honest-defers (an error, never a fabricated answer).",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Sovereign by construction</div>Two properties make this chat trustworthy: it's local (loopback only, no network egress) and it's stateless server-side (your history lives in this page, not on disk).<div class=\"so-li\"><span class=\"ok\">✓</span> Local → the prompt + reply never leave the box (SDD-062)</div><div class=\"so-li\"><span class=\"ok\">✓</span> Client-side history → the server holds no conversation (SDD-103)</div><div class=\"so-li\"><span class=\"no\">✗</span> Device unreachable → honest-defer (an error, never a made-up reply)</div><div class=\"so-xref\"><span class=\"x\">→</span> D-05 traces records the span for each generation you run here</div></div>"
+     "title": "Chat transcript",
+     "content": "The running conversation with the local model — your prompts and its answers, rendered here. Every exchange happened entirely on this box over loopback; nothing in this log ever touched the network. Read it as proof-of-life as much as conversation: coherent answers mean the selected device is genuinely serving, not just resident in memory.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">This transcript never left the box</div>Each turn here is a POST to 127.0.0.1 and a response computed on your own silicon — no external API, no telemetry, no prompt leaving the machine. That’s the sovereignty guarantee in its most concrete form: a real assistant you can converse with, whose entire exchange is private by construction, visible right here.</div><div class=\"so-xref\"><span class=\"x\">→</span> SDD-062 — the loopback-chat design (the one sanctioned compute POST)</div>"
     },
     {
      "selector": "#chat-input",
      "title": "Prompt input",
-     "content": "Where you type the prompt for the selected device(s). It goes to the local router as a proper multi-turn message (the whole in-page history is sent, bounded); nothing is logged server-side."
+     "content": "Where you type the prompt for the local model. Sending it is the cockpit’s single non-read-only action — a genuine inference call — but it’s bounded: it goes only to the selected local device over loopback, computes there, and returns. Use it to actually exercise the box, not just observe it.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A bounded compute call, not an open door</div>Allowing one inference call from the web could sound like a crack in the read-only rule — but it isn’t, because of what bounds it: the request routes only to a selected local device, over loopback, and returns. There’s no external reach, no way to turn this into a general mutation. It’s the narrowest possible exception, carved specifically so you can talk to your own AI.</div>"
     },
     {
      "selector": "#chat-send",
      "title": "Send",
-     "content": "Sends the prompt to the selected device(s) via the single sanctioned loopback POST — the one place the web invokes inference. Everything else in the cockpit is read-only; this is the deliberate exception, and it's still local-only.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The one sanctioned POST</div>The cockpit's rule is web-never-mutates — except this. Send is the single allowed write, and it's a read-compute against the loopback router (no state changes, no egress), so it stays within the sovereignty boundary.<div class=\"so-tip\">💡 A slow first reply is often a cold KV cache — warm it from D-03 for the deep-context path.</div></div>"
+     "content": "Sends the prompt to the selected local model. This is a real compute request — the one place the web triggers inference rather than reading state — but it’s sovereign by construction: loopback only, local silicon, no egress. The answer appears in the transcript above.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The one compute call, and why it’s allowed</div>The whole cockpit is read-only except this button, because talking to your own local AI is the point of the machine — and it breaks no sovereignty rule: the request never leaves 127.0.0.1. So it’s sanctioned where a cloud call never would be. It doubles as the definitive operability check: if the model answers, the device is truly serving.</div>"
     },
     {
      "selector": "#chat-new",
      "title": "New chat",
-     "content": "Clears the in-page conversation and starts fresh. Because history is client-side only, this simply drops the local buffer — there's nothing on the server to delete."
-    },
+     "content": "Clears the transcript and starts a fresh conversation — a new context with no carried history. Use it to test a device cleanly (no prior turns influencing the answer) or simply to begin again. It resets the conversation only; it changes nothing about the box or which device is selected."
+    }
+   ]
+  },
+  {
+   "icon": "⚲",
+   "title": "Freshness",
+   "content": "When the device status was last read — the staleness caveat on the per-device cards above.",
+   "children": [
     {
      "selector": "#last-fetch",
-     "title": "Fetch freshness",
-     "content": "When device status was last read. The roster + utilization are only as current as this; check before trusting a device as 'ready' to target."
+     "title": "Status freshness",
+     "content": "When the per-device status was last refreshed. Because operability is a right-now property, the age qualifies the device cards directly: a stale timestamp means a device shown as serving might have stopped since. The chat is the live cross-check — if the status looks old, send a prompt to confirm the device really answers."
     }
    ]
   },
   {
    "icon": "⎈",
-   "title": "Controls · features & profiles",
-   "content": "Read-only status view (the chat being the one sanctioned loopback exception) — the control rail copies signed sovereign-osctl verbs (§1g / R10212).",
+   "title": "Controls",
+   "content": "The shared control rail — operability actions and profile/feature toggles, all copying signed osctl verbs. On this panel it’s where an operability finding (a device not responding, a model to reload) turns into a signed command; the chat proves the problem, the rail is how you act on it.",
    "children": [
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Operability controls — each copies its exact sovereign-osctl verb. Device/feature changes run through the signed CLI; the panel shows status and lets you talk to the models, but never reconfigures them from the web."
+     "content": "The operability + profile/feature control rail. Each control copies its exact sovereign-osctl verb — reload a model, run a test, switch a feature. Its place here is diagnosis-to-action: when the chat or a device card shows something wrong, the fix is a copied signed command away, so you don’t leave the operability view to act on what it told you.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The chat finds it, the rail fixes it</div>This panel’s two halves work together: the device cards and chat surface an operability problem — a device loaded but not answering, a model needing a reload — and this rail hands you the signed verb to resolve it. The action still runs on the CLI, never from the web, but the whole loop (spot it, fix it) lives on one screen.</div>"
     }
    ]
   }
