@@ -4,7 +4,7 @@
  * telemetry (the SB-077 reconciliation). Inlined verbatim into demo-capable
  * panels alongside demo-mode.js. */
 #so-demo-badge {
-  position: fixed; top: calc(var(--so-header-h, 48px) + 8px); right: 12px; z-index: 9600;
+  position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); z-index: 9600;
   background: #e6c062; color: #0a0a0a; font-weight: 700; font-size: .72rem; letter-spacing: .03em;
   padding: .28rem .65rem; border-radius: 6px; box-shadow: 0 2px 12px rgba(0, 0, 0, .38);
   font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif; pointer-events: none;

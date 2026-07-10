@@ -357,3 +357,32 @@ def test_d12_networking_demo_branch_and_sse_guard():
     assert "window.soDemo" in body[: body.index("</head>")], "d-12: helper in <head>"
     assert "if (demoActive()) { applySnapshot(DEMO_D12);" in body, "d-12 demo branch must applySnapshot(DEMO_D12)"
     assert "if (!demoActive()) startSSE();" in body, "d-12 must skip the SSE stream in demo"
+
+
+# ── SDD-126 (DEMO batch 5a — edge/mgmt) + UX fixes ─────────────────────────────
+
+def test_batch5a_demo_branches_make_no_fetch():
+    """SDD-126 — the five edge/mgmt panels short-circuit to their DEMO const before any
+    fetch (two aggregators destructure the merged const; three single-endpoint panels
+    render the const directly)."""
+    for slug, marker in [
+        ("edge-firewall", "const {version,state,candidates,recommend} = DEMO_EDGE_FIREWALL;"),
+        ("network-edge", "const {version,interfaces,natChain,opnStatus,opnCaps,detect} = DEMO_NETWORK_EDGE;"),
+        ("selfdef-management", "if (demoActive()) { const d = DEMO_SELFDEF;"),
+        ("ups", "if (demoActive()) { render(DEMO_UPS);"),
+        ("science", "if (demoActive()) { render(DEMO_SCIENCE);"),
+    ]:
+        body = (REPO_ROOT / "webapp" / slug / "index.html").read_text(encoding="utf-8")
+        assert "window.soDemo" in body[: body.index("</head>")], f"{slug}: helper in <head>"
+        assert marker in body, f"{slug}: demo short-circuit ({marker[:40]}…)"
+
+
+def test_demo_badge_renders_bottom_center():
+    """SDD-126 — the DEMO badge sits bottom-center (not top-right, where it covered the
+    settings gear). Pin the canonical CSS so it can't regress."""
+    css = SHARED_CSS.read_text(encoding="utf-8")
+    assert "#so-demo-badge" in css
+    assert "bottom:" in css and "left: 50%" in css and "translateX(-50%)" in css, (
+        "the badge must be anchored bottom-center"
+    )
+    assert "top: calc(var(--so-header-h" not in css, "the badge must not be pinned top-right anymore"

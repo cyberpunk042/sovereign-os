@@ -27,6 +27,11 @@
     { "slug": "d-14-capability-tokens",      "demoConst": "DEMO_D14",      "apiPrefix": "/api/d-14",            "rowSelector": "#tokens-tbody tr",         "sdd": "SDD-125" },
     { "slug": "d-15-sandboxes",              "demoConst": "DEMO_D15",      "apiPrefix": "/api/d-15",            "rowSelector": "#alloc-tbody tr",          "sdd": "SDD-125" },
     { "slug": "d-16-audit",                  "demoConst": "DEMO_D16",      "apiPrefix": "/api/d-16",            "rowSelector": "#span-tbody tr",           "sdd": "SDD-125" },
-    { "slug": "d-17-quarantine",             "demoConst": "DEMO_D17",      "apiPrefix": "/api/d-17",            "rowSelector": "#quar-tbody tr",           "sdd": "SDD-125" }
+    { "slug": "d-17-quarantine",             "demoConst": "DEMO_D17",      "apiPrefix": "/api/d-17",            "rowSelector": "#quar-tbody tr",           "sdd": "SDD-125" },
+    { "slug": "edge-firewall",               "demoConst": "DEMO_EDGE_FIREWALL", "apiPrefix": "/candidates",     "rowSelector": "#recs-tbody tr",           "sdd": "SDD-126" },
+    { "slug": "network-edge",                "demoConst": "DEMO_NETWORK_EDGE",  "apiPrefix": "/interfaces",     "rowSelector": "#iface-tbody tr",          "sdd": "SDD-126" },
+    { "slug": "selfdef-management",          "demoConst": "DEMO_SELFDEF",  "apiPrefix": "/selfdef-management.json", "rowSelector": null,                  "sdd": "SDD-126" },
+    { "slug": "ups",                         "demoConst": "DEMO_UPS",      "apiPrefix": "/ups.json",            "rowSelector": null,                       "sdd": "SDD-126" },
+    { "slug": "science",                     "demoConst": "DEMO_SCIENCE",  "apiPrefix": "/science.json",        "rowSelector": "#catalog tr",              "sdd": "SDD-126" }
   ]
 }

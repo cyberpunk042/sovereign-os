@@ -48,6 +48,64 @@
   .banner.danger{background:rgba(220,60,60,.14);border-color:var(--bad);color:var(--bad)}
   .banner strong{letter-spacing:.02em}
 </style>
+<!-- SDD-116/119 shared demo-mode helper (inlined verbatim from webapp/_shared/demo-mode.{css,js}; opt-in, always-badged sample data — SB-077 reconciliation). -->
+<style>
+/* webapp/_shared/demo-mode.css — SDD-116 DEMO badge.
+ * DEMO mode is opt-in sample data for exploring panels with no daemon. The badge
+ * is a persistent, unmistakable ribbon so DEMO data is NEVER mistaken for real
+ * telemetry (the SB-077 reconciliation). Inlined verbatim into demo-capable
+ * panels alongside demo-mode.js. */
+#so-demo-badge {
+  position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); z-index: 9600;
+  background: #e6c062; color: #0a0a0a; font-weight: 700; font-size: .72rem; letter-spacing: .03em;
+  padding: .28rem .65rem; border-radius: 6px; box-shadow: 0 2px 12px rgba(0, 0, 0, .38);
+  font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif; pointer-events: none;
+}
+#so-demo-badge .sub { font-weight: 400; opacity: .82; }
+</style>
+<script>
+/* webapp/_shared/demo-mode.js — SDD-116 shared DEMO-mode helper (opt-in sample data).
+ *
+ * Reads the `sovereign-os.demo` localStorage flag (schema-guarded) and renders a
+ * persistent DEMO badge. Demo-capable panels call `soDemo.on()` to branch to their
+ * clearly-labelled sample data. The SB-077 reconciliation: DEMO is opt-in (off by
+ * default; never self-enables), ALWAYS badged, and makes ZERO network calls
+ * (R10212 strengthened — the demo render path never fetches). Inlined verbatim into
+ * demo-capable panels alongside demo-mode.css. */
+(function () {
+  "use strict";
+  var DKEY = 'sovereign-os.demo', DSCHEMA = 1;
+  function on() {
+    try {
+      var r = localStorage.getItem(DKEY); var p = r ? JSON.parse(r) : null;
+      return !!(p && p.schema === DSCHEMA && p.on);
+    } catch (e) { return false; }
+  }
+  function set(v) {
+    try { localStorage.setItem(DKEY, JSON.stringify({ schema: DSCHEMA, on: !!v })); } catch (e) {}
+  }
+  function badge() {
+    var b = document.getElementById('so-demo-badge');
+    if (on()) {
+      if (!b) {
+        b = document.createElement('div'); b.id = 'so-demo-badge';
+        b.innerHTML = 'DEMO <span class="sub">· sample data — not real telemetry</span>';
+        b.setAttribute('role', 'status');
+        (document.body || document.documentElement).appendChild(b);
+      }
+    } else if (b) { b.remove(); }
+  }
+  window.soDemo = { on: on, set: set, badge: badge, KEY: DKEY, SCHEMA: DSCHEMA };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', badge);
+  else badge();
+})();
+</script>
+<style>
+/* SDD-126 — light-theme var override (parity with the panels that already had it). */
+html[data-theme="light"] {
+  --bg:#f6f6f6; --fg:#0e0e0e; --muted:#555; --panel:#ffffff; --border:#d8d8d8;
+}
+</style>
 </head>
 <body>
 <!-- APP-SHELL:BEGIN M067 -->
@@ -1048,8 +1106,14 @@
 const el = (id) => document.getElementById(id);
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;" }[c]));
 
+
+const DEMO_UPS = { detected:true, upsc_present:true, nut_active:true, verdict:'ok', advisories:[],
+  ups:{status:'OL', model:'demo/APC SMT2200C', source:'nut', battery_charge_pct:100, time_left_minutes:47, load_pct:22},
+  shutdown:{enabled:true, shutdown_minutes:10, battery_critical_pct:15, warn_at_minutes:20, runtime_warn_minutes:5, config_path:'/etc/demo/ups.conf'} };
+function demoActive() { return !!(window.soDemo && window.soDemo.on()); }
 async function load() {
   try {
+    if (demoActive()) { render(DEMO_UPS); el("status").textContent="DEMO — sample data"; el("status").className="status ok"; if(window.soDemo)window.soDemo.badge(); return; }
     const d = await (await fetch("/ups.json", { headers: { Accept: "application/json" } })).json();
     render(d);
     el("status").textContent = "live ✓ · refreshes every 5s";
@@ -1114,8 +1178,9 @@ function render(d) {
     : (d.advisories && d.advisories.length ? "advisories: " + d.advisories.map(esc).join("; ") : "");
 
   // ── shutdown-imminent banner + live countdown (client-side from runtime) ──
+  // shutMin is already computed above (num-coerced shutdown_minutes); reuse it here
+  // — a second `const shutMin` was a redeclaration SyntaxError that broke the whole panel.
   const banner = el("shutdown-banner");
-  const shutMin = g.shutdown_minutes;
   if (onBatt && (verdict === "critical" || verdict === "attention") && tleft != null) {
     const mins = Math.max(0, (shutMin != null ? tleft - shutMin : tleft));
     const armed = g.enabled === true;
