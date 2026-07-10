@@ -419,6 +419,58 @@ a11y; contract test catches drift.
   button{background:var(--panel);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:.35rem .8rem;font-family:inherit;font-size:.85rem;cursor:pointer}
   button:hover{border-color:var(--accent)}
 </style>
+<!-- SDD-116/119 shared demo-mode helper (inlined verbatim from webapp/_shared/demo-mode.{css,js}; opt-in, always-badged sample data — SB-077 reconciliation). -->
+<style>
+/* webapp/_shared/demo-mode.css — SDD-116 DEMO badge.
+ * DEMO mode is opt-in sample data for exploring panels with no daemon. The badge
+ * is a persistent, unmistakable ribbon so DEMO data is NEVER mistaken for real
+ * telemetry (the SB-077 reconciliation). Inlined verbatim into demo-capable
+ * panels alongside demo-mode.js. */
+#so-demo-badge {
+  position: fixed; top: calc(var(--so-header-h, 48px) + 8px); right: 12px; z-index: 9600;
+  background: #e6c062; color: #0a0a0a; font-weight: 700; font-size: .72rem; letter-spacing: .03em;
+  padding: .28rem .65rem; border-radius: 6px; box-shadow: 0 2px 12px rgba(0, 0, 0, .38);
+  font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif; pointer-events: none;
+}
+#so-demo-badge .sub { font-weight: 400; opacity: .82; }
+</style>
+<script>
+/* webapp/_shared/demo-mode.js — SDD-116 shared DEMO-mode helper (opt-in sample data).
+ *
+ * Reads the `sovereign-os.demo` localStorage flag (schema-guarded) and renders a
+ * persistent DEMO badge. Demo-capable panels call `soDemo.on()` to branch to their
+ * clearly-labelled sample data. The SB-077 reconciliation: DEMO is opt-in (off by
+ * default; never self-enables), ALWAYS badged, and makes ZERO network calls
+ * (R10212 strengthened — the demo render path never fetches). Inlined verbatim into
+ * demo-capable panels alongside demo-mode.css. */
+(function () {
+  "use strict";
+  var DKEY = 'sovereign-os.demo', DSCHEMA = 1;
+  function on() {
+    try {
+      var r = localStorage.getItem(DKEY); var p = r ? JSON.parse(r) : null;
+      return !!(p && p.schema === DSCHEMA && p.on);
+    } catch (e) { return false; }
+  }
+  function set(v) {
+    try { localStorage.setItem(DKEY, JSON.stringify({ schema: DSCHEMA, on: !!v })); } catch (e) {}
+  }
+  function badge() {
+    var b = document.getElementById('so-demo-badge');
+    if (on()) {
+      if (!b) {
+        b = document.createElement('div'); b.id = 'so-demo-badge';
+        b.innerHTML = 'DEMO <span class="sub">· sample data — not real telemetry</span>';
+        b.setAttribute('role', 'status');
+        (document.body || document.documentElement).appendChild(b);
+      }
+    } else if (b) { b.remove(); }
+  }
+  window.soDemo = { on: on, set: set, badge: badge, KEY: DKEY, SCHEMA: DSCHEMA };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', badge);
+  else badge();
+})();
+</script>
 </head>
 <body>
 <!-- APP-SHELL:BEGIN M067 -->
@@ -1065,6 +1117,34 @@ function renderDataSourceBanner(ok, errMsg) {
   last.textContent = 'last fetch: ' + new Date().toLocaleTimeString();
 }
 
+// ── SDD-119 DEMO mode: opt-in, always-badged sample data (never real; SB-077).
+// demoActive() gates a render path with ZERO network calls; `demo/…` ids are
+// obvious placeholders so DEMO can't be mistaken for live model health.
+function demoActive() { return !!(window.soDemo && window.soDemo.on()); }
+const DEMO_HEALTH = {
+  summary: { total: 4, blackwell: 1, rtx4090: 2, cpu: 1 },
+  roles: {
+    conductor: { util_pct: 16, tokens_per_sec: 3.2, models: [{ id: 'demo/bitnet-2b', precision: 'ternary', status: 'loaded' }] },
+    logic: { util_pct: 64, vram_used_gb: 14.2, tokens_per_sec: 58.0, models: [
+      { id: 'demo/qwen3-coder-14b', precision: 'NVFP4', status: 'serving' },
+      { id: 'demo/glm-4-9b', precision: 'Q4', status: 'loaded' }] },
+    oracle: { util_pct: 38, vram_used_gb: 41.0, tokens_per_sec: 22.5, models: [{ id: 'demo/deepseek-r1-32b', precision: 'NVFP4', status: 'serving' }] },
+  },
+  models: [
+    { id: 'demo/qwen3-coder-14b', role: 'logic', precision: 'NVFP4', p50_ms: 120, p95_ms: 240, p99_ms: 410, req_per_min: 34 },
+    { id: 'demo/deepseek-r1-32b', role: 'oracle', precision: 'NVFP4', p50_ms: 210, p95_ms: 520, p99_ms: 900, req_per_min: 5 },
+    { id: 'demo/bitnet-2b', role: 'conductor', precision: 'ternary', p50_ms: 42, p95_ms: 88, p99_ms: 130, req_per_min: 12 },
+  ],
+  kvcache: [
+    { model: 'demo/qwen3-coder-14b', dtype: 'FP8', resident_tokens: 18432, max_tokens: 32768, prefill_hit_pct: 84 },
+    { model: 'demo/deepseek-r1-32b', dtype: 'FP8', resident_tokens: 28900, max_tokens: 65536, prefill_hit_pct: 61 },
+  ],
+  heatmap: [
+    { model: 'demo/qwen3-coder-14b', buckets: Array.from({ length: 24 }, (_, i) => ({ ts: i + 'h', status: i === 6 ? 'degraded' : 'available' })) },
+    { model: 'demo/deepseek-r1-32b', buckets: Array.from({ length: 24 }, (_, i) => ({ ts: i + 'h', status: i === 2 ? 'down' : 'available' })) },
+  ],
+};
+
 async function fetchHealth() {
   try {
     const res = await fetch('/api/models/health', {credentials:'same-origin'});
@@ -1079,7 +1159,12 @@ async function fetchHealth() {
 }
 
 async function refresh() {
-  const s = await fetchHealth();
+  // SDD-119 DEMO short-circuit: badged sample health with ZERO network calls.
+  const s = demoActive() ? DEMO_HEALTH : await fetchHealth();
+  if (demoActive()) {
+    $('ds-state-detail').innerHTML = '<strong>DEMO mode</strong> — sample data, not a live daemon. Disable it in Personalization.';
+    if (window.soDemo) window.soDemo.badge();
+  }
   // Top summary
   $('total-loaded').textContent = s.summary.total ?? 0;
   $('bw-count').textContent = s.summary.blackwell ?? 0;
@@ -1156,6 +1241,7 @@ $('warm-kv-btn').addEventListener('click', () => jumpToControl('model-warm'));
 document.addEventListener('keydown', e => { if ((e.metaKey||e.ctrlKey) && e.key === '4') { e.preventDefault(); refresh(); } });
 
 try {
+  if (demoActive()) throw new Error('DEMO — no EventSource');  // SDD-119: zero network in DEMO
   const es = new EventSource('/api/models/stream');
   es.addEventListener('model-state-change', refresh);
   es.addEventListener('latency-update', refresh);

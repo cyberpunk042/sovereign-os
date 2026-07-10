@@ -111,3 +111,25 @@ def test_d22_lm_status_operability_demo():
     assert re.search(r"if \(demoActive\(\)\) \{[^}]*\[DEMO\]", body, re.DOTALL), (
         "the D-22 chat must return a canned [DEMO] reply in DEMO mode (no model call)"
     )
+
+
+def test_d03_model_health_demo():
+    """SDD-119 (DEMO batch 1) — D-03 Model Health reuses the shared helper: opt-in,
+    badged, sample health with placeholder ids, and NO network call in the demo path
+    (no fetch, no EventSource). The helper loads in <head> so window.soDemo exists
+    before the panel script's first refresh()."""
+    body = (REPO_ROOT / "webapp" / "d-03-model-health" / "index.html").read_text(encoding="utf-8")
+    assert "window.soDemo" in body and BADGE_TEXT in body
+    assert "function demoActive()" in body
+    assert "DEMO_HEALTH" in body and "demo/" in body
+    # the demo short-circuit selects sample data with no fetch
+    assert re.search(r"demoActive\(\)\s*\?\s*DEMO_HEALTH\s*:\s*await fetchHealth\(\)", body), (
+        "refresh() must select DEMO_HEALTH (no fetch) when demo is active"
+    )
+    # the EventSource is skipped in demo (zero network)
+    assert re.search(r"if \(demoActive\(\)\) throw new Error\('DEMO", body), (
+        "D-03 must open NO EventSource in DEMO mode"
+    )
+    # the helper is inlined in <head> (before the panel script) so soDemo exists first
+    head = body[:body.index("</head>")]
+    assert "window.soDemo" in head, "the demo helper must load in <head> before the panel script"
