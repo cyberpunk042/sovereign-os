@@ -402,6 +402,15 @@
   const stCls = s => 'st-' + String(s || '').replace(/[^a-z-]/g,'');
 
   function renderTiers(data) {
+    data = data || {};
+    // The catalog scaffold stays visible even with the daemon offline (SDD-113 —
+    // the SDD-111 "seeing all sections" lesson): an honest offline/empty card,
+    // never a blank #tiers (SB-077).
+    if (data.offline) {
+      $('summary').innerHTML = '<span class="muted">models-catalog daemon unreachable</span>';
+      $('tiers').innerHTML = '<div class="muted">the models-catalog daemon is unreachable — the registry (models/catalog.yaml, by SRP tier) will list here when it\'s reachable. Nothing is fabricated (SB-077).</div>';
+      return;
+    }
     $('summary').innerHTML = `<strong>${data.total ?? 0}</strong> models · source <code>${esc(data.catalog_path || 'models/catalog.yaml')}</code>`;
     $('tiers').innerHTML = (data.tiers || []).map(t => `
       <h2>${esc(t.label)} <span class="muted">(${(t.models||[]).length})</span></h2>
@@ -430,9 +439,14 @@
       renderTiers(data);
     } catch (e) {
       $('data-source-banner').innerHTML = 'cannot reach the models-catalog API daemon <span class="muted">('+esc(e.message)+')</span>';
+      renderTiers({offline: true});   // SDD-113 — keep the catalog scaffold visible, never blank
     }
     $('last-fetch').textContent = 'last fetch: ' + new Date().toLocaleTimeString();
   }
+
+  // SDD-113 — initial paint of the section scaffold so the catalog is ALWAYS
+  // visible; refresh() then fills live data (or the catch keeps it visible).
+  renderTiers({offline: true});
 
   try {
     const es = new EventSource('/api/models-catalog/stream');

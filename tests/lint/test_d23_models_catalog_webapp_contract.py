@@ -193,3 +193,26 @@ def test_surface_map_registers_module():
 def test_nav_registry_includes_d23():
     nav = (REPO_ROOT / "webapp" / "_shared" / "nav-snippet.html").read_text()
     assert "d-23-models-catalog" in nav
+
+
+# ── SDD-113: the catalog scaffold stays visible when the daemon is offline ──
+
+def test_catalog_always_visible_when_daemon_offline():
+    """The catalog section must render even with the daemon unreachable — an
+    initial paint + a fallback render in the fetch catch (an honest offline card,
+    never a blank #tiers). Closes the operator's D-21 bug class 'I dont see the
+    grid...' applied to d-23 (SDD-111 lesson; SB-077)."""
+    import re
+    body = (REPO_ROOT / "webapp" / "d-23-models-catalog" / "index.html").read_text()
+    # renderTiers handles the offline case explicitly (never a blank #tiers)
+    assert re.search(r"if\s*\(\s*data\.offline\s*\)", body), (
+        "renderTiers must handle the offline case with an explicit honest card"
+    )
+    # the fetch catch renders a fallback rather than leaving the catalog blank
+    assert re.search(r"catch\s*\([^)]*\)\s*\{[^}]*renderTiers\(\s*\{\s*offline:\s*true", body, re.DOTALL), (
+        "the fetch catch must render renderTiers({offline:true}) (never a blank catalog)"
+    )
+    # an initial paint runs before the live fetch
+    assert body.count("renderTiers({offline: true})") >= 2, (
+        "an initial paint of the scaffold must run before the live fetch"
+    )
