@@ -97,6 +97,33 @@ def test_personalization_page_supports_import():
     assert "export-btn" in html, "the export half of the round-trip must remain"
 
 
+def test_personalization_file_roundtrip():
+    """SDD-107 — a file round-trip beside the clipboard/paste one: a Blob-download
+    export + a FileReader-upload import that reuses the SAME validator."""
+    html = PERSONALIZATION.read_text(encoding="utf-8")
+    # file export: a button + a Blob download
+    assert 'id="export-file"' in html, "personalization must ship a file-download export"
+    assert "new Blob(" in html and "createObjectURL" in html and "revokeObjectURL" in html, (
+        "the file export must build + revoke a Blob object URL"
+    )
+    # file import: a hidden <input type=file> + a FileReader
+    assert 'id="import-file"' in html and 'type="file"' in html, (
+        "personalization must offer a file-upload input"
+    )
+    assert "FileReader" in html and "readAsText" in html, (
+        "the file import must read the file with FileReader"
+    )
+    # ONE validator for both paths — paste + file both call applyImportedText
+    assert "function applyImportedText(" in html, (
+        "the validator must be extracted into applyImportedText (shared by paste + file)"
+    )
+    assert html.count("applyImportedText(") >= 3, (
+        "applyImportedText must be defined + called by BOTH the paste and file import paths"
+    )
+    # the clipboard/paste round-trip still stands
+    assert 'id="export-btn"' in html and 'id="import-apply"' in html
+
+
 def test_personalization_page_is_client_side_only():
     """Server NEVER mutates prefs. The page must NOT POST/PUT/DELETE
     to any /api/ endpoint."""
