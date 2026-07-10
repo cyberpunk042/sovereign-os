@@ -1381,152 +1381,162 @@ setInterval(refreshAll, 60000);
 <script>
 window.SO_ASSIST = {
  "context": {
-  "icon": "◳",
-  "title": "UX Design Audit",
-  "content": "The UX-completeness scanner — for every tracked module, how it scores on the 6 operator-named UX dimensions (R457 ladder: action-budget, discoverable, recoverable, next-step, operator-named, readable-30s), and which fall below the threshold.\n\nThe scoring logic lives in the audited modules themselves, NOT in this daemon — it aggregates, it doesn't judge. A low score is the module's real UX debt."
+  "icon": "◫",
+  "title": "UX Design Audit · §1g",
+  "content": "The instrument that scores experience, not just correctness — and the exact bar this cockpit assistant effort is held to. A surface can render perfectly and still fail its operator, so UX is measured on six operator-named dimensions (R457): action-budget (how few steps), discoverable (findable without being told), recoverable (mistakes undoable), next-step (always points forward), operator-named (the operator's words, not the code's), and readable-30s (graspable at a glance).\n\nRead the score matrix (lowest first) for which surface is weak on which quality — every low cell is a concrete fix, not a vague 'improve UX'. §1h (R464) extends the bar to selfdef. This panel is why 'it works' is not enough: a feature is not done until it is usable. Read-only; it scores, it does not redesign for you."
  },
  "nodes": [
   {
    "icon": "◆",
-   "title": "Summary",
-   "content": "How many modules are tracked, how many UX dimensions, and how many modules score below the bar.",
+   "title": "Status",
+   "content": "The UX-design audit — the §1g instrument scoring experience quality (R457). The bar THIS cockpit effort is measured against.",
    "children": [
     {
      "selector": "#stats",
      "title": "Audit summary",
-     "content": "The roll-up — tracked modules, UX dimensions, modules below threshold, selfdef checklists — before the score matrix and shortfall list."
+     "content": "The roll-up — version, modules, dimensions, below-threshold, selfdef. Where the fleet's UX quality stands."
+    },
+    {
+     "selector": "#stat-version",
+     "title": "Audit version",
+     "content": "The UX-audit version — for reconciling scores against the R457 dimension ladder."
     },
     {
      "selector": "#stat-modules",
-     "title": "Tracked modules",
-     "content": "How many modules the audit covers — the denominator. Each is scored on all 6 UX dimensions."
+     "title": "Modules scanned",
+     "content": "How many modules are UX-scored — each rated on 6 dimensions."
     },
     {
      "selector": "#stat-dimensions",
      "title": "UX dimensions",
-     "content": "How many of the 6 R457 UX dimensions are scored — the axes a well-designed module is measured on."
+     "content": "The 6 operator-named UX dimensions (R457). Experience is not one 'looks nice' score — it is six measurable qualities, each a different way a surface can fail its operator."
     },
     {
      "selector": "#stat-below",
-     "title": "Modules below threshold",
-     "content": "How many modules score under the UX bar — the design-debt backlog. The number to drive down.",
+     "title": "Below threshold",
+     "content": "Modules under the UX floor (default 4) — the experience backlog. A module here works but is unpleasant or confusing to use, which the operator counts as not done.",
      "variants": [
       {
        "when": {
         "textContains": "0"
        },
-       "content": "Zero below threshold — every tracked module meets its UX bar."
+       "content": "No modules below the UX floor — every surface clears the experience bar.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● 0 below</div>Every surface clears the UX bar — no experience debt.</div>"
       }
      ]
     },
     {
      "selector": "#stat-selfdef",
-     "title": "Selfdef checklists",
-     "content": "How many cross-repo selfdef UxChecklists (R464) were found — UX coverage extending beyond this repo."
-    },
-    {
-     "selector": "#stat-version",
-     "title": "API version",
-     "content": "The version of the ux-design-audit daemon answering — for reconciling behaviour against the spec."
+     "title": "Selfdef coverage",
+     "content": "Cross-repo selfdef UxChecklists discovered (R464) — §1h UX beyond this repo."
     },
     {
      "selector": "#last-refresh",
-     "title": "Refresh freshness",
-     "content": "When the audit last ran — scores reflect the last run, so check this before trusting a score as current."
+     "title": "Audit freshness",
+     "content": "When the audit last ran. Coverage below is only as current as this — a module changed since then would not be re-scored yet, so refresh before trusting a green number."
     }
    ]
   },
   {
-   "icon": "⌗",
-   "title": "UX dimensions (R457 ladder)",
-   "content": "The 6 operator-named UX axes every module is scored against.",
+   "icon": "⊞",
+   "title": "6 UX dimensions",
+   "content": "The six operator-named UX dimensions (R457 ladder) — the measurable definition of a good surface. Each is a specific way experience is judged: how few steps, how findable, how recoverable, how forward-pointing, how operator-worded, how quickly grasped. The exact bar the assistant work is held to.",
    "children": [
     {
-     "selector": "#dimensions-row",
-     "title": "6 UX dimensions",
-     "content": "The R457 ladder — the six UX qualities a well-designed surface exhibits."
-    },
-    {
      "selector": "#dim-action-budget",
-     "title": "action-budget",
-     "content": "Whether the surface respects an action budget — how few steps a task takes. Bloated action counts are the classic UX failure this catches."
+     "title": "Dimension · action-budget",
+     "content": "How many steps a task costs. A feature that works but takes ten clicks is minimized in UX — the budget is the promise that the common path is short.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why action-budget is scored</div>A surface can render correctly and still fail this dimension. The audit scores it because 'it works' is not 'it is usable'; each dimension is a different failure the operator would notice.</div>"
     },
     {
      "selector": "#dim-discoverable",
-     "title": "discoverable",
-     "content": "Whether functions are discoverable — can a user find what they need without prior knowledge."
+     "title": "Dimension · discoverable",
+     "content": "Can you find it without being told? A control that exists but is hidden is a control that does not exist for most operators.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why discoverable is scored</div>A surface can render correctly and still fail this dimension. The audit scores it because 'it works' is not 'it is usable'; each dimension is a different failure the operator would notice.</div>"
     },
     {
      "selector": "#dim-recoverable",
-     "title": "recoverable",
-     "content": "Whether mistakes are recoverable — can a user undo or back out safely rather than getting stuck."
+     "title": "Dimension · recoverable",
+     "content": "Can you undo a mistake? A surface with no recovery path punishes exploration — recoverability is what makes a UI safe to learn.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why recoverable is scored</div>A surface can render correctly and still fail this dimension. The audit scores it because 'it works' is not 'it is usable'; each dimension is a different failure the operator would notice.</div>"
     },
     {
      "selector": "#dim-next-step",
-     "title": "next-step",
-     "content": "Whether the surface always suggests a clear next step — no dead ends where the user doesn't know what to do."
+     "title": "Dimension · next-step",
+     "content": "Does it tell you what to do next? A dead-end screen leaves the operator guessing; a good surface always points forward.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why next-step is scored</div>A surface can render correctly and still fail this dimension. The audit scores it because 'it works' is not 'it is usable'; each dimension is a different failure the operator would notice.</div>"
     },
     {
      "selector": "#dim-operator-named",
-     "title": "operator-named",
-     "content": "Whether elements use operator-named vocabulary — the words the operator actually uses, not internal jargon."
+     "title": "Dimension · operator-named",
+     "content": "Does it use the operator's words, not the code's? A panel that says 'CCD0' where the operator says 'Pulse cores' is speaking the wrong language.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why operator-named is scored</div>A surface can render correctly and still fail this dimension. The audit scores it because 'it works' is not 'it is usable'; each dimension is a different failure the operator would notice.</div><div class=\"so-tip\">💡 One of the six qualities every panel in this cockpit is being authored to.</div>"
     },
     {
      "selector": "#dim-readable-30s",
-     "title": "readable-30s",
-     "content": "Whether the surface is readable in 30 seconds — can its state be grasped at a glance, the core 'assistant feeling' bar."
+     "title": "Dimension · readable-30s",
+     "content": "Can you grasp it in thirty seconds? If a panel needs a manual to read, its information architecture failed — density is not depth.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why readable-30s is scored</div>A surface can render correctly and still fail this dimension. The audit scores it because 'it works' is not 'it is usable'; each dimension is a different failure the operator would notice.</div><div class=\"so-tip\">💡 One of the six qualities every panel in this cockpit is being authored to.</div>"
     }
    ]
   },
   {
-   "icon": "▤",
-   "title": "Score matrix & shortfalls",
-   "content": "The per-module score matrix and the modules that fall short.",
+   "icon": "◫",
+   "title": "Score matrix",
+   "content": "The module × dimension grid, lowest score first — which surface is weak on which quality. Every low cell is a specific UX fix, named by module and dimension.",
    "children": [
     {
      "selector": "#matrix-tbody",
      "title": "UX score matrix",
-     "content": "Every module × the 6 UX dimensions, sorted lowest-score-first — a whole-tree view of where UX is weakest. The top rows are where design effort pays off most.",
-     "expanded": "<div class=\"so-card info\"><div>Sorted lowest score first — the top of this table is your UX-debt backlog, in priority order.</div></div>"
-    },
+     "content": "Each row: a module scored across the 6 UX dimensions, worst first. A low cell is a concrete fix — 'this panel is not readable in 30s', 'this control is not discoverable' — not a vague 'improve UX'."
+    }
+   ]
+  },
+  {
+   "icon": "⚠",
+   "title": "Below threshold",
+   "content": "Modules under the UX floor — the priority list. The worst experiences sorted up so the most painful surfaces get fixed first.",
+   "children": [
     {
      "selector": "#below-tbody",
      "title": "Below-threshold modules",
-     "content": "Each module under the UX bar with its score, shortfall, and missing dimensions — the concrete design to-do list. Fix lives in the module itself, since that's where the UX is authored."
-    },
+     "content": "Each row: a module under the UX floor and its weakest dimensions. The actionable UX backlog — read the low dimensions to know which quality to raise."
+    }
+   ]
+  },
+  {
+   "icon": "◎",
+   "title": "Cross-repo (§1h)",
+   "content": "Selfdef UxChecklists across repos (R464) — the UX bar extends beyond this repo. A good experience here does not excuse a poor one in selfdef.",
+   "children": [
     {
      "selector": "#selfdef-tbody",
-     "title": "Selfdef UxChecklists",
-     "content": "Cross-repo selfdef UxChecklists (R464) — UX coverage tracked across sister repos, with repo, module, dimensions, and status."
+     "title": "Selfdef UX checklists",
+     "content": "Each row: a cross-repo selfdef module and its UX score (R464). §1h holds selfdef surfaces to the same 6-dimension bar."
     }
    ]
   },
   {
    "icon": "⟳",
    "title": "Refresh",
-   "content": "Pull a fresh read on demand; the panel also auto-refreshes.",
+   "content": "Re-run the audit on demand — a read-only re-scan.",
    "children": [
     {
      "selector": "#refresh-btn",
-     "title": "Refresh now",
-     "content": "Force an immediate re-read. Read-only telemetry — refreshing never changes state, it just re-samples."
-    },
-    {
-     "selector": "#last-refresh",
-     "title": "Refresh freshness",
-     "content": "When the shown values were last pulled — the panel auto-refreshes every 30s, but check this before trusting a value as 'now'."
+     "title": "Refresh audit",
+     "content": "Re-scan every module and recompute coverage now — read-only. It re-measures; it never changes a module to move a score."
     }
    ]
   },
   {
    "icon": "⎈",
    "title": "Controls",
-   "content": "",
+   "content": "Read-only instrument — mutations copy signed sovereign-osctl verbs (§1g / R10212). The audit reads; it never rewrites a module to pass.",
    "children": [
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Profile / mode / feature-toggle controls — each copies its sovereign-osctl verb (§1g / R10212). This view reads state; every mutation runs via the signed CLI, never from the browser."
+     "content": "The control rail — each button copies its exact sovereign-osctl verb. A UX change runs through the signed CLI, never from a web click."
     }
    ]
   }

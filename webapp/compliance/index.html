@@ -1410,135 +1410,147 @@ setInterval(refreshAll, 60000);
 <script>
 window.SO_ASSIST = {
  "context": {
-  "icon": "⌸",
-  "title": "Compliance",
-  "content": "The rollup of all four self-audit instruments (§1g ladder: surface-map R453, doc-coverage R454, anti-minimization R456, ux-design-audit R457) plus five §1h selfdef cross-repo axes — one composite view of where the codebase falls short of its own standards.\n\nRefreshing is the ONLY mutation in this module and stays CLI-only by design. This panel aggregates the four D-panels; drill into each for the detail."
+  "icon": "◫",
+  "title": "Compliance · §1g / §1h",
+  "content": "The meta-instrument. It composes the four internal §1g audits — surface-map (R453), doc-coverage (R454), anti-minimization (R456), ux-design (R457) — into one composite verdict (R458), because 'done properly' is all four at once: a feature can be delivered on every surface and still be undocumented, or documented and still unusable. Compliance is their conjunction.\n\n§1h extends the same bar across repos: five cross-repo axes discover selfdef manifests so a feature split across the ecosystem is still measured whole. Read the four instrument scores, the worst-modules list (ranked by composite gap — the highest-leverage cleanups), and the history for whether the fleet is honoring the contract more or less over time. This is the top of the anti-minimization stack — read-only; it composes the audits, it does not fix the modules."
  },
  "nodes": [
   {
    "icon": "◆",
-   "title": "Summary",
-   "content": "The composite gap counts across surface, doc, anti-min, and ux instruments.",
+   "title": "Status",
+   "content": "The compliance rollup — the §1g/§1h meta-instrument that composes the four audits into one verdict (R458).",
    "children": [
     {
      "selector": "#stats",
      "title": "Compliance summary",
-     "content": "The roll-up across all four instruments — the single-number read of self-audit health before the per-instrument detail."
+     "content": "The composite — version, and the four instrument scores (surface, doc, anti-min, ux). The single view of whether the fleet meets the whole delivery contract, not just one axis."
+    },
+    {
+     "selector": "#stat-version",
+     "title": "Compliance version",
+     "content": "The rollup version — for reconciling against the R458 composite definition."
     },
     {
      "selector": "#stat-surface",
-     "title": "Surface gaps",
-     "content": "Findings from the surface-map instrument (R453) — capabilities without a reachable surface. Drill into D-surface-map for detail."
+     "title": "Surface score",
+     "content": "The surface-map instrument's composite (R453). One of four axes — a fleet strong on surface but weak on docs is still non-compliant."
     },
     {
      "selector": "#stat-doc",
-     "title": "Doc gaps",
-     "content": "Modules below the doc-surface threshold (R454) — documentation debt. Drill into D-doc-coverage for the per-module list."
+     "title": "Doc score",
+     "content": "The doc-coverage composite (R454). Documentation completeness as one axis of the whole."
     },
     {
      "selector": "#stat-amin",
-     "title": "Anti-min total",
-     "content": "Total anti-minimization findings (R456) — 'looks done but isn't' debt. Drill into D-anti-minimization-audit for the patterns."
+     "title": "Anti-min score",
+     "content": "The anti-minimization composite (R456). How free the fleet is of cut-corner smells — the honesty axis."
     },
     {
      "selector": "#stat-ux",
-     "title": "UX below threshold",
-     "content": "Modules scoring under the UX bar (R457) — design debt. Drill into D-ux-design-audit for the dimensions.",
-     "expanded": "<div class=\"so-card info\"><div>These four numbers are the four instruments — this panel is their sum; each has its own D-panel for the detail behind the count.</div></div>"
+     "title": "UX score",
+     "content": "The ux-design composite (R457). Usability as an axis — a correct, documented, fully-surfaced feature that is unusable still fails here."
     },
     {
      "selector": "#last-refresh",
-     "title": "Refresh freshness",
-     "content": "When the composite was last computed — reflects the last run of the four instruments, so check before trusting a number as current."
+     "title": "Audit freshness",
+     "content": "When the audit last ran. Coverage below is only as current as this — a module changed since then would not be re-scored yet, so refresh before trusting a green number."
     }
    ]
   },
   {
-   "icon": "⌗",
-   "title": "Instruments & selfdef axes",
-   "content": "The four internal instruments and five cross-repo discovery axes.",
+   "icon": "⊞",
+   "title": "4 instruments (§1g)",
+   "content": "The four internal instruments the compliance ladder composes (R458) — surface, doc, anti-min, ux. Each measures a different face of 'done properly'; compliance is all four together, because a feature can be delivered on every surface and still be undocumented, or documented and still unusable.",
    "children": [
     {
-     "selector": "#instr-row",
-     "title": "4 internal instruments",
-     "content": "The §1g compliance ladder — the four self-audit instruments whose findings roll up here."
-    },
-    {
      "selector": "#instr-surface",
-     "title": "surface-map (R453)",
-     "content": "The surface-map instrument's contribution — capabilities that exist but aren't reachable via UI/CLI/API."
+     "title": "Instrument · surface-map (R453)",
+     "content": "The 8-surface delivery instrument. Reads how completely each module is delivered across core..service.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">surface-map (R453)</div>One of the four §1g instruments. Compliance is their conjunction — strong on one axis and weak on another is still non-compliant, which is the whole point of composing them.</div><div class=\"so-xref\"><span class=\"x\">→</span> open the surface-map panel for the per-module detail behind this score</div>"
     },
     {
      "selector": "#instr-doc",
-     "title": "doc-coverage (R454)",
-     "content": "The doc-coverage instrument's contribution — modules missing required documentation surfaces."
+     "title": "Instrument · doc-coverage (R454)",
+     "content": "The 6-doc-kind instrument. Reads how completely each module is documented.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">doc-coverage (R454)</div>One of the four §1g instruments. Compliance is their conjunction — strong on one axis and weak on another is still non-compliant, which is the whole point of composing them.</div><div class=\"so-xref\"><span class=\"x\">→</span> open the doc-coverage panel for the per-module detail behind this score</div>"
     },
     {
      "selector": "#instr-amin",
-     "title": "anti-minimization-audit (R456)",
-     "content": "The anti-minimization instrument's contribution — shipped-but-incomplete patterns across the tree."
+     "title": "Instrument · anti-minimization (R456)",
+     "content": "The cut-corner instrument. Counts the nameable smells of work that looks done but is not.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">anti-minimization (R456)</div>One of the four §1g instruments. Compliance is their conjunction — strong on one axis and weak on another is still non-compliant, which is the whole point of composing them.</div><div class=\"so-xref\"><span class=\"x\">→</span> open the anti-minimization panel for the per-module detail behind this score</div>"
     },
     {
      "selector": "#instr-ux",
-     "title": "ux-design-audit (R457)",
-     "content": "The ux-design-audit instrument's contribution — modules failing the operator-named UX dimensions."
-    },
-    {
-     "selector": "#selfdef-table",
-     "title": "5 selfdef axes",
-     "content": "The §1h discovery ladder — five cross-repo axes measuring how discoverable the codebase is to sister repos."
-    },
-    {
-     "selector": "#selfdef-tbody",
-     "title": "Selfdef axes detail",
-     "content": "Each §1h axis with available vs discovered vs aggregate — how much of what this repo exposes is actually being picked up cross-repo."
+     "title": "Instrument · ux-design-audit (R457)",
+     "content": "The experience instrument. Scores whether each surface is actually usable, not just correct.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">ux-design-audit (R457)</div>One of the four §1g instruments. Compliance is their conjunction — strong on one axis and weak on another is still non-compliant, which is the whole point of composing them.</div><div class=\"so-xref\"><span class=\"x\">→</span> open the ux-design-audit panel for the per-module detail behind this score</div>"
     }
    ]
   },
   {
-   "icon": "▤",
-   "title": "Worst modules & history",
-   "content": "The lowest-scoring modules across all instruments, and the trend over time.",
+   "icon": "◎",
+   "title": "5 selfdef axes (§1h)",
+   "content": "The five cross-repo discovery axes (§1h ladder) — how the contract extends beyond this repo into selfdef. §1g measures this repo; §1h measures whether the same bar holds across the ecosystem.",
+   "children": [
+    {
+     "selector": "#selfdef-table",
+     "title": "Selfdef axes",
+     "content": "The five §1h axes composing cross-repo compliance. A fleet compliant internally but with undiscovered selfdef manifests is only half-compliant — this is the cross-repo half.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">§1g is here; §1h is everywhere</div>§1g holds THIS repo to the delivery contract; §1h holds the ecosystem. The five axes discover selfdef SurfaceManifests, DocManifests, AuditManifests, UxChecklists and their rollup, so a feature split across repos is still measured whole.</div><div class=\"so-xref\"><span class=\"x\">→</span> each internal instrument above has a matching §1h selfdef axis</div>"
+    },
+    {
+     "selector": "#selfdef-tbody",
+     "title": "Selfdef axis rows",
+     "content": "Each row: a §1h cross-repo axis and its coverage. Read them to see whether the contract is holding beyond this repo or only within it."
+    }
+   ]
+  },
+  {
+   "icon": "⚠",
+   "title": "Worst modules",
+   "content": "The modules with the worst composite gap (lower = worse) — the fleet's compliance priority list, ranked across all four axes at once. Fix these and the composite moves most.",
    "children": [
     {
      "selector": "#worst-tbody",
      "title": "Worst modules",
-     "content": "Modules with the largest composite gap (lower = worse) across all four instruments — the codebase's weakest points. One module short on several axes is where to focus.",
-     "expanded": "<div class=\"so-card info\"><div>Composite means several instruments flagged the same module — these are the highest-leverage cleanups.</div></div>"
-    },
+     "content": "Each row: a module ranked by composite gap across all four instruments. A module here is failing multiple axes — the highest-leverage cleanup, because one module's fix raises several scores."
+    }
+   ]
+  },
+  {
+   "icon": "⊟",
+   "title": "History",
+   "content": "Recent compliance snapshots — the trend of the composite over time. Compliance is a direction, not a state; a falling composite means the fleet is minimizing faster than it is cleaning up.",
+   "children": [
     {
      "selector": "#history-tbody",
      "title": "Compliance history",
-     "content": "Recent compliance snapshots (timestamp, surface, doc, anti-min, ux) — the trend line. Whether self-audit health is improving or drifting."
+     "content": "Each row: a past compliance snapshot. Read the direction — a rising composite means the delivery contract is being honored more over time; a falling one is drift the operator would want to catch early."
     }
    ]
   },
   {
    "icon": "⟳",
    "title": "Refresh",
-   "content": "Pull a fresh read on demand; the panel also auto-refreshes.",
+   "content": "Re-run the audit on demand — a read-only re-scan.",
    "children": [
     {
      "selector": "#refresh-btn",
-     "title": "Refresh now",
-     "content": "Force an immediate re-read. Read-only telemetry — refreshing never changes state, it just re-samples."
-    },
-    {
-     "selector": "#last-refresh",
-     "title": "Refresh freshness",
-     "content": "When the shown values were last pulled — the panel auto-refreshes every 30s, but check this before trusting a value as 'now'."
+     "title": "Refresh audit",
+     "content": "Re-scan every module and recompute coverage now — read-only. It re-measures; it never changes a module to move a score."
     }
    ]
   },
   {
    "icon": "⎈",
    "title": "Controls",
-   "content": "",
+   "content": "Read-only instrument — mutations copy signed sovereign-osctl verbs (§1g / R10212). The audit reads; it never rewrites a module to pass.",
    "children": [
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Profile / mode / feature-toggle controls — each copies its sovereign-osctl verb (§1g / R10212). This view reads state; every mutation runs via the signed CLI, never from the browser."
+     "content": "The control rail — each button copies its exact sovereign-osctl verb. A compliance-affecting change runs through the signed CLI, never from a web click."
     }
    ]
   }

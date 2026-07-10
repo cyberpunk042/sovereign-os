@@ -1372,163 +1372,169 @@ setInterval(refreshAll, 60000);
 <script>
 window.SO_ASSIST = {
  "context": {
-  "icon": "◱",
-  "title": "Anti-Minimization Audit",
-  "content": "The scanner that catches shipped-but-incomplete work — 8 operator-named patterns (R456: todo-no-anchor, empty-stub, skipped-no-followup, surface-gap, doc-gap, mandate-todo, minimize-phrase, partial-status) that mean 'this looks done but isn't'.\n\nExemptions are operator-authored in-source waivers (R474), not daemon toggles. A finding here is real minimization debt, not a false alarm the daemon can suppress on its own."
+  "icon": "◫",
+  "title": "Anti-Minimization Audit · §1g",
+  "content": "The instrument built from the operator's own directive: do not minimize. It greps the whole fleet for eight nameable smells of a cut corner (R456) — a TODO with no anchor, an empty stub, a silent skip, a surface or doc gap, a mandate-TODO owed to the operator, minimizing language ('just', 'basic', 'for now'), and a status that claims done over a stub. Each finding is a specific place where work looks finished but is not.\n\nRead the patterns to learn each smell, the waivers for shortcuts that are intentional and owned, and the cross-module priority for modules minimized on both surface and doc axes at once — the efficient place to start. §1h (R466) runs the same audit across repos. A finding is not a bug; it is an unowned corner. Read-only: it names them, it does not paper over them."
  },
  "nodes": [
   {
    "icon": "◆",
-   "title": "Summary",
-   "content": "Total findings, how many patterns are clean, active waivers, and cross-repo manifests.",
+   "title": "Status",
+   "content": "The anti-minimization audit — the §1g instrument that hunts the SMELLS of cut corners (R456).",
    "children": [
     {
      "selector": "#stats",
      "title": "Audit summary",
-     "content": "The roll-up — total findings, patterns clean, active waivers, selfdef manifests — before the pattern ladder and priority list."
+     "content": "The roll-up — version, total findings, clean modules, waivers, selfdef coverage. The fleet's minimization debt at a glance."
+    },
+    {
+     "selector": "#stat-version",
+     "title": "Audit version",
+     "content": "The anti-minimization audit version — for reconciling against the R456 pattern ladder."
     },
     {
      "selector": "#stat-total",
      "title": "Total findings",
-     "content": "How many minimization patterns were hit across the tree — the size of the 'looks done but isn't' backlog.",
+     "content": "Every minimization pattern instance found across the fleet. This is the count the operator's 'do not minimize' directive is measured by — lower is more honest work.",
      "variants": [
       {
        "when": {
         "textContains": "0"
        },
-       "content": "Zero findings — no minimization patterns detected across the tree."
+       "content": "Zero findings — no minimization patterns detected across the fleet.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● 0 findings</div>No cut corners detected — the strongest state this audit can report.</div>"
       }
      ]
     },
     {
      "selector": "#stat-clean",
-     "title": "Patterns clean",
-     "content": "How many of the 8 R456 patterns have zero hits — the inverse read, showing which failure modes are fully absent."
+     "title": "Clean modules",
+     "content": "Modules with no findings — no stubs, no anchorless TODOs, no minimize-phrases. The modules that pass the honesty bar."
     },
     {
      "selector": "#stat-waivers",
-     "title": "Active waivers",
-     "content": "How many R474 waivers are in effect — operator-authored in-source exemptions. These are deliberate 'yes I know, it's intentional' marks, not daemon suppressions.",
-     "expanded": "<div class=\"so-card info\"><div>A waiver is an operator choice written into the source, not something this daemon can grant — so the count is a record of accepted debt.</div></div>"
+     "title": "Waivers",
+     "content": "Operator-authored exemptions (R474) — findings deliberately accepted with a reason. A waiver turns a flagged pattern into an acknowledged decision."
     },
     {
      "selector": "#stat-selfdef",
-     "title": "Selfdef manifests",
-     "content": "How many cross-repo selfdef AuditManifests (R466) were found — minimization scanning extending beyond this repo."
-    },
-    {
-     "selector": "#stat-version",
-     "title": "API version",
-     "content": "The version of the anti-minimization daemon answering — for reconciling behaviour against the spec."
+     "title": "Selfdef coverage",
+     "content": "Cross-repo selfdef AuditManifests discovered (R466) — §1h anti-minimization beyond this repo."
     },
     {
      "selector": "#last-refresh",
-     "title": "Refresh freshness",
-     "content": "When the tree was last scanned — findings reflect the last scan, so check this before trusting a count as current."
+     "title": "Audit freshness",
+     "content": "When the audit last ran. Coverage below is only as current as this — a module changed since then would not be re-scored yet, so refresh before trusting a green number."
     }
    ]
   },
   {
-   "icon": "⌗",
-   "title": "8 patterns (R456 ladder)",
-   "content": "The eight operator-named ways work ships incomplete.",
+   "icon": "⊞",
+   "title": "8 patterns",
+   "content": "The eight minimization patterns (R456 ladder) — the detectable smells of a cut corner. Each is a specific, greppable shape of 'not really done': a TODO with no address, a stub that does nothing, a status that lies. The operator's 'do not minimize' turned into instrumentation.",
    "children": [
     {
-     "selector": "#patterns-row",
-     "title": "8 minimization patterns",
-     "content": "The R456 ladder — eight named signatures of 'looks done but isn't'."
-    },
-    {
      "selector": "#pat-todo-no-anchor",
-     "title": "todo-no-anchor",
-     "content": "TODOs with no tracking anchor — work marked as pending but with no backlog link, so it silently never gets done."
+     "title": "Pattern · todo-no-anchor",
+     "content": "A TODO with no ticket, no owner, no date — a promise with no address. It reads as work planned but is really work forgotten."
     },
     {
      "selector": "#pat-empty-stub",
-     "title": "empty-stub",
-     "content": "Functions/files that exist but do nothing — the shape of implementation without the substance."
+     "title": "Pattern · empty-stub",
+     "content": "A function or section that exists but does nothing — the shape of work without the work. Passes a glance, fails a use."
     },
     {
      "selector": "#pat-skipped-no-followup",
-     "title": "skipped-no-followup",
-     "content": "Skipped tests/steps with no follow-up — a deferral that was never scheduled to come back."
+     "title": "Pattern · skipped-no-followup",
+     "content": "A skip with no follow-up recorded — a deferral that quietly became a drop. Skipping is fine; skipping silently is the minimization."
     },
     {
      "selector": "#pat-surface-gap",
-     "title": "surface-gap",
-     "content": "A capability exists but isn't surfaced (no UI/CLI/API for it) — built but unreachable, the classic half-ship."
+     "title": "Pattern · surface-gap",
+     "content": "A feature missing a required surface (the R453 axis, seen from the smell side). The same gap surface-map counts, flagged as a code smell here."
     },
     {
      "selector": "#pat-doc-gap",
-     "title": "doc-gap",
-     "content": "Implemented but undocumented — cross-references D-doc-coverage; the code is real but nobody can find how to use it."
+     "title": "Pattern · doc-gap",
+     "content": "A feature missing a required doc kind (the R454 axis). Under-documentation as a detectable pattern, not just a coverage number."
     },
     {
      "selector": "#pat-mandate-todo",
-     "title": "mandate-todo",
-     "content": "A mandate row still marked TODO — governance-tracked work that's been left open."
+     "title": "Pattern · mandate-todo",
+     "content": "A TODO sitting against an operator mandate — a promise made to the operator, unkept. The highest-severity TODO because it is owed upward.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Why mandate-todo is minimization</div>This pattern is a specific way work looks finished but is not. The audit greps for it because 'it is basically done' is exactly the self-deception the operator rejects — the smell is nameable, so it is catchable.</div><div class=\"so-tip\">💡 A finding is not a bug — it is a corner that was cut and not owned.</div>"
     },
     {
      "selector": "#pat-minimize-phrase",
-     "title": "minimize-phrase",
-     "content": "Language that minimizes incompleteness ('basic', 'simple', 'for now') — the wording tell of shipped-but-thin work.",
-     "expanded": "<div class=\"so-card info\"><div>This is the meta-pattern the whole panel is named for — catching the words that dress up incomplete work as done.</div></div>"
+     "title": "Pattern · minimize-phrase",
+     "content": "Language that minimizes — 'just', 'simple', 'basic', 'for now', 'quick'. The words that talk a shortcut into sounding like a decision.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Why minimize-phrase is minimization</div>This pattern is a specific way work looks finished but is not. The audit greps for it because 'it is basically done' is exactly the self-deception the operator rejects — the smell is nameable, so it is catchable.</div><div class=\"so-tip\">💡 A finding is not a bug — it is a corner that was cut and not owned.</div>"
     },
     {
      "selector": "#pat-partial-status",
-     "title": "partial-status",
-     "content": "Status claimed 'done' while sub-items remain — the rollup lies because the leaves aren't finished."
+     "title": "Pattern · partial-status",
+     "content": "A status claiming done that the evidence contradicts — 'complete' over a stub. The gap between the claim and the reality.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Why partial-status is minimization</div>This pattern is a specific way work looks finished but is not. The audit greps for it because 'it is basically done' is exactly the self-deception the operator rejects — the smell is nameable, so it is catchable.</div><div class=\"so-tip\">💡 A finding is not a bug — it is a corner that was cut and not owned.</div>"
     }
    ]
   },
   {
-   "icon": "▤",
-   "title": "Waivers, priority & cross-repo",
-   "content": "Accepted exemptions, the worst cross-module offenders, and sister-repo audits.",
+   "icon": "⚑",
+   "title": "Waivers",
+   "content": "The operator-authored exemptions (R474) — findings deliberately accepted. A waiver is the honest way to keep a pattern: it says 'yes this is a stub, on purpose, because X'. Without a waiver, a pattern is unowned; with one, it is a decision.",
    "children": [
     {
      "selector": "#waivers-tbody",
      "title": "Active waivers",
-     "content": "Each R474 waiver with its file, line, anchor, and rationale — the accepted-debt ledger. Every one is an operator decision written in-source, so this is the record of what was deliberately let through."
-    },
+     "content": "Each row: a finding waived by the operator with a rationale. Read the reason — a waiver distinguishes an intentional, owned shortcut from an accidental cut corner the audit should still chase."
+    }
+   ]
+  },
+  {
+   "icon": "◫",
+   "title": "Cross-module priority",
+   "content": "Modules short on BOTH axes — surface AND doc gaps together (threshold 3). A module minimized on delivery and documentation at once is the highest-priority cleanup; this cross-references the two contracts.",
+   "children": [
     {
      "selector": "#cross-tbody",
-     "title": "Cross-module priority",
-     "content": "Modules short on both axes (findings + threshold≥3) — the worst offenders where minimization compounds. Where cleanup effort pays off most."
-    },
+     "title": "Cross-axis priority",
+     "content": "Each row: a module short on both surface and doc coverage. Double-minimized modules sorted up — fixing one closes two contract gaps at once, so they are the efficient place to start."
+    }
+   ]
+  },
+  {
+   "icon": "◎",
+   "title": "Cross-repo (§1h)",
+   "content": "Selfdef AuditManifests across repos (R466) — the minimization audit runs cross-repo too. A corner cut in selfdef is still a corner cut.",
+   "children": [
     {
      "selector": "#selfdef-tbody",
-     "title": "Selfdef AuditManifests",
-     "content": "Cross-repo selfdef AuditManifests (R466) — minimization findings tracked across sister repos, with repo, module, findings, and status."
+     "title": "Selfdef audit manifests",
+     "content": "Each row: a cross-repo selfdef module and its minimization findings (R466). §1h holds selfdef to the same honesty bar."
     }
    ]
   },
   {
    "icon": "⟳",
    "title": "Refresh",
-   "content": "Pull a fresh read on demand; the panel also auto-refreshes.",
+   "content": "Re-run the audit on demand — a read-only re-scan.",
    "children": [
     {
      "selector": "#refresh-btn",
-     "title": "Refresh now",
-     "content": "Force an immediate re-read. Read-only telemetry — refreshing never changes state, it just re-samples."
-    },
-    {
-     "selector": "#last-refresh",
-     "title": "Refresh freshness",
-     "content": "When the shown values were last pulled — the panel auto-refreshes every 30s, but check this before trusting a value as 'now'."
+     "title": "Refresh audit",
+     "content": "Re-scan every module and recompute coverage now — read-only. It re-measures; it never changes a module to move a score."
     }
    ]
   },
   {
    "icon": "⎈",
    "title": "Controls",
-   "content": "",
+   "content": "Read-only instrument — mutations copy signed sovereign-osctl verbs (§1g / R10212). The audit reads; it never rewrites a module to pass.",
    "children": [
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Profile / mode / feature-toggle controls — each copies its sovereign-osctl verb (§1g / R10212). This view reads state; every mutation runs via the signed CLI, never from the browser."
+     "content": "The control rail — each button copies its exact sovereign-osctl verb. A finding waiver runs through the signed CLI, never from a web click."
     }
    ]
   }
