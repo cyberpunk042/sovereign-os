@@ -1350,139 +1350,140 @@ setInterval(refresh, 30000);
 <script>
 window.SO_ASSIST = {
  "context": {
-  "icon": "◧",
+  "icon": "◫",
   "title": "Network Edge",
-  "content": "Where the box meets the outside — the physical/virtual interfaces, the NAT chain (often multi-layer), the VPN bridge, and how much of the OPNsense capability ladder the upstream edge exposes.\n\nThis is the map of your perimeter. It's read-only observation; the box does not reconfigure the upstream edge (§17 sovereignty boundary — the edge is outside the sovereign-os boundary)."
+  "content": "The map of the box's boundary with the world. The design is dual-NIC (E0808) with OPNsense as the perimeter authority (E0809) — an upstream interface facing the edge and a LAN interface facing the local network. This panel detects that topology and, crucially, makes multi-NAT visible: one NAT hop is a normal edge, but two or more (an ISP router in front of your firewall) breaks inbound connectivity and hides where the real perimeter is.\n\nRead the interfaces for the paths in and out, the NAT chain for how many translations sit between the box and the internet, and the OPNsense capability ladder for how much the edge can enforce before traffic reaches the box. Read-only detection; the firewall rules themselves live on selfdef (D-12)."
  },
  "nodes": [
   {
-   "icon": "◆",
+   "icon": "▦",
    "title": "Summary",
-   "content": "The headline read of the edge — how many interfaces, NAT layers, whether a VPN bridge is up, and the OPNsense tier.",
+   "content": "The network-edge roll-up — interfaces, NAT hops, VPN, edge tier, capabilities. This panel maps the boundary between the box and the world: the dual-NIC edge where OPNsense is the perimeter authority (E0808/E0809).",
    "children": [
     {
      "selector": "#stats",
      "title": "Edge summary",
-     "content": "The roll-up of the perimeter — interface count, NAT layers, VPN state, OPNsense tier — before the per-section detail below."
+     "content": "The roll-up — interface count, NAT hops, VPN state, edge tier, capabilities, version. The one-glance shape of the network boundary."
     },
     {
      "selector": "#stat-ifaces",
      "title": "Interfaces",
-     "content": "How many network interfaces the box sees — the physical/virtual NICs that carry traffic in and out."
+     "content": "How many network interfaces the box sees. The dual-NIC design (E0808) means an upstream NIC and a LAN NIC; extra interfaces are worth understanding — each is a path in or out."
     },
     {
      "selector": "#stat-nat",
-     "title": "NAT layers",
-     "content": "How many NAT translations sit between the box and the internet. Multi-NAT (double-NAT) is common behind a home router + ISP, and it's what breaks inbound reachability.",
-     "expanded": "<div class=\"so-card info\"><div>More than one NAT layer means inbound connections need explicit forwarding at each hop — the usual cause of 'the service is up but unreachable from outside'.</div></div>"
+     "title": "NAT hops",
+     "content": "How many NAT translations sit between the box and the internet. Multi-NAT (double-NAT) breaks inbound connectivity and hides the real edge — this count surfaces a layered NAT you may not have intended.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Why NAT hops matter</div>Each NAT hop rewrites addresses. One is normal (the edge router); two or more (double-NAT) means an extra router is translating — which breaks port-forwarding and obscures where the real perimeter is. A hop count above 1 is a topology question.</div>"
     },
     {
      "selector": "#stat-vpn",
-     "title": "VPN bridge",
-     "content": "Whether a VPN bridge is established — an encrypted path that can bypass the NAT layers for remote reach.",
-     "variants": [
-      {
-       "when": {
-        "textContains": "up"
-       },
-       "content": "VPN bridge up — an encrypted path is available, bypassing the NAT layers."
-      },
-      {
-       "when": {
-        "textContains": "down"
-       },
-       "content": "No VPN bridge — remote reach depends entirely on the NAT/forwarding chain."
-      }
-     ]
+     "title": "VPN",
+     "content": "Whether a VPN tunnel is active at the edge. A VPN changes what 'the internet' means for the box — read it with the NAT chain to understand the real egress path."
     },
     {
      "selector": "#stat-tier",
-     "title": "OPNsense tier",
-     "content": "Which tier of the upstream OPNsense edge is present — how capable the perimeter firewall is."
+     "title": "Edge tier",
+     "content": "The detected capability tier of the edge — how much the perimeter (OPNsense) can enforce. A low tier means the box must defend itself more, because the edge does less."
     },
     {
      "selector": "#stat-caps",
      "title": "Capabilities",
-     "content": "How many edge capabilities were detected — the breadth of what the upstream firewall can do (the ladder detail is below)."
+     "content": "How many OPNsense edge capabilities were detected. The perimeter authority's feature set — what it can filter, route, and inspect on the box's behalf."
     },
     {
      "selector": "#stat-version",
-     "title": "API version",
-     "content": "The version of the network-edge daemon answering — for reconciling behaviour against the spec."
+     "title": "Version",
+     "content": "The network-edge detector version answering — for reconciling the detected topology + NAT chain against the expected dual-NIC design."
+    },
+    {
+     "selector": "#last-refresh",
+     "title": "Freshness",
+     "content": "When this was last read. The values are only as current as this — refresh before trusting them after any change."
     }
    ]
   },
   {
-   "icon": "≣",
-   "title": "Interfaces & NAT",
-   "content": "The live interface table and the multi-NAT chain that decides reachability.",
+   "icon": "⊞",
+   "title": "Interfaces",
+   "content": "The network interfaces — the physical and virtual paths in and out of the box. In the dual-NIC design each has a role (upstream vs LAN); an unexpected interface is a path worth accounting for.",
    "children": [
     {
      "selector": "#iface-tbody",
-     "title": "Interfaces",
-     "content": "Each interface with its name, state, MTU, and addresses — the concrete NICs carrying traffic. An interface down here explains a whole class of connectivity failures."
-    },
-    {
-     "selector": "#nat-panel",
-     "title": "NAT chain",
-     "content": "The multi-NAT visibility panel — every translation layer between the box and the internet, made explicit."
-    },
-    {
-     "selector": "#nat-body",
-     "title": "NAT layers detail",
-     "content": "Each NAT hop in order — where translation happens and why inbound needs forwarding at each. This is the multi-NAT visibility that turns 'why can't I reach it' into a concrete answer.",
-     "expanded": "<div class=\"so-card info\"><div class='so-li ok'>✓ Seeing every NAT layer is the point — you can pin exactly which hop drops an inbound connection.</div></div>"
+     "title": "Interface rows",
+     "content": "Each row: one interface, its addresses and role. Read them against the dual-NIC design — the upstream NIC faces the edge, the LAN NIC faces the local network; anything else is worth understanding."
     }
    ]
   },
   {
-   "icon": "▦",
-   "title": "OPNsense capability & detection",
-   "content": "What the upstream edge can do, and the full detect bundle behind it.",
+   "icon": "◈",
+   "title": "NAT chain",
+   "content": "The chain of NAT translations from the box to the internet (multi-NAT visibility). This is the honest picture of the egress path — one hop is a normal edge, two or more is double-NAT that breaks inbound and hides the perimeter.",
+   "children": [
+    {
+     "selector": "#nat-panel",
+     "title": "NAT chain",
+     "content": "The full NAT hop chain. Read it top to bottom: each hop is a router rewriting addresses. More than one hop means the real edge is not where you think, and inbound connectivity is likely broken.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">One hop good, two hops trouble</div>A single NAT (the edge router) is expected. Double-NAT — an ISP router in front of your OPNsense — means two translations, which breaks port-forwarding and VPN inbound. This chain makes a hidden second NAT visible.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-12 networking — the firewall rules that ride on top of this edge</div>"
+    },
+    {
+     "selector": "#nat-body",
+     "title": "NAT hop rows",
+     "content": "Each row: one NAT hop with its translated addresses. The number of rows is the story — count them to know if the box is single- or multi-NATed."
+    }
+   ]
+  },
+  {
+   "icon": "◎",
+   "title": "OPNsense capabilities",
+   "content": "The capability ladder of the edge (OPNsense perimeter authority, E0809) — what the edge can enforce. The more the edge does, the less the box must; a low-capability edge shifts defense onto the box itself.",
    "children": [
     {
      "selector": "#caps-panel",
      "title": "Capability ladder",
-     "content": "The OPNsense capability ladder — how much the upstream firewall exposes."
+     "content": "The detected OPNsense edge capabilities, as a ladder. Read it to know how much perimeter defense you have: a capable edge filters and inspects before traffic reaches the box; a weak one leaves that to the box.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The edge is the perimeter authority</div>OPNsense is the box's perimeter (E0809). Its capabilities decide how much filtering happens before the box — a high tier means defense-in-depth; a low tier means the box's own selfdef rules (D-12) are the primary line.</div>"
     },
     {
      "selector": "#caps-body",
-     "title": "Capability detail",
-     "content": "Each rung of the OPNsense ladder this edge supports — from basic filtering up. Tells you what perimeter controls you can rely on vs must handle on-box."
-    },
+     "title": "Capability rows",
+     "content": "Each row: one detected edge capability. Read them to see exactly what the perimeter can and cannot do on the box's behalf."
+    }
+   ]
+  },
+  {
+   "icon": "⚲",
+   "title": "Detect bundle",
+   "content": "The full detection bundle — the raw evidence behind the summary. When a number above looks wrong, this is the ground truth the panel computed it from.",
+   "children": [
     {
      "selector": "#detect-body",
-     "title": "Full detect bundle",
-     "content": "The complete detection read — interfaces + NAT + VPN bridge + OPNsense state + operator-named edge hardware, in one bundle. The raw evidence behind the summary."
+     "title": "Detection bundle",
+     "content": "The raw network-edge detection output. Read it directly when the summary surprises you — it shows the actual interfaces, routes, and NAT evidence the detector found, not the summarized version."
     }
    ]
   },
   {
    "icon": "⟳",
    "title": "Refresh",
-   "content": "Pull a fresh read on demand; the panel also auto-refreshes.",
+   "content": "Re-poll on demand — a read-only re-sample.",
    "children": [
     {
      "selector": "#refresh-btn",
-     "title": "Refresh now",
-     "content": "Force an immediate re-read. Read-only telemetry — refreshing never changes state, it just re-samples."
-    },
-    {
-     "selector": "#last-refresh",
-     "title": "Refresh freshness",
-     "content": "When the shown values were last pulled — the panel auto-refreshes every 30s, but check this before trusting a value as 'now'."
+     "title": "Refresh",
+     "content": "Re-read state now — read-only. It re-samples; it does not change anything."
     }
    ]
   },
   {
    "icon": "⎈",
    "title": "Controls",
-   "content": "",
+   "content": "Read-only view — mutations copy signed sovereign-osctl verbs (§1g / R10212). The web previews; the box changes only when you run the signed command.",
    "children": [
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Profile / mode / feature-toggle controls — each copies its sovereign-osctl verb (§1g / R10212). This view reads state; every mutation runs via the signed CLI, never from the browser."
+     "content": "The control rail — each button copies its exact sovereign-osctl verb. An edge/network change runs through the signed CLI, never from a web click."
     }
    ]
   }

@@ -1364,132 +1364,162 @@ setInterval(refresh, 30000);
 <script>
 window.SO_ASSIST = {
  "context": {
-  "icon": "⛨",
+  "icon": "◫",
   "title": "Edge Firewall",
-  "content": "The enforcement-candidate view — which firewall postures (the §1g 4-class ladder) fit the current local + upstream state, ranked as recommendations, with a read-only install-plan preview.\n\nIt recommends and previews; it never installs. Applying a candidate is a signed CLI action (§17 sovereignty boundary — the operator stays in control of enforcement)."
+  "content": "The instrument that decides how much the box should firewall itself, given what the edge already does. Defense-in-depth is two lines: the upstream edge (OPNsense) and the box's own local rules. This panel reads both and finds the exposure — a threat that neither the edge nor the box currently stops.\n\nEnforcement candidates are grouped on a 4-class ladder (§1g) from baseline must-haves to situational hardening, and the recommendations turn 'the edge has gaps' into specific rules the box could add. The install plan previews exactly what applying a recommendation would change — read it first, because a firewall rule can cut off access you rely on. Read-only: it recommends and previews; enforcing a rule is a signed act, and the rules themselves live on selfdef (D-12)."
  },
  "nodes": [
   {
-   "icon": "◆",
+   "icon": "▦",
    "title": "Summary",
-   "content": "How many enforcement candidates fit, the local and upstream tiers, and how many recommendations stand.",
+   "content": "The edge-firewall roll-up — enforcement candidates, local + upstream state, recommendations. This panel decides how much firewalling the box should do itself given what the edge already enforces.",
    "children": [
     {
      "selector": "#stats",
      "title": "Firewall summary",
-     "content": "The roll-up — candidate count, local/upstream tier, recommendation count — before the ladder and recommendations below."
+     "content": "The roll-up — candidates, local + upstream state, recommendation count, version. Where the box stands on self-enforcement vs edge-enforcement."
     },
     {
      "selector": "#stat-candidates",
      "title": "Candidates",
-     "content": "How many enforcement postures are viable given the current state — the size of your choice set on the §1g 4-class ladder."
+     "content": "How many enforcement candidates were identified — rules the box could enforce itself. Each is a defense the edge is not providing that the box could add.",
+     "variants": [
+      {
+       "when": {
+        "textContains": "0"
+       },
+       "content": "No enforcement candidates — the current posture needs no additional local firewalling.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● 0 candidates</div>The edge covers what is needed — no local enforcement to add right now.</div>"
+      }
+     ]
     },
     {
      "selector": "#stat-local",
-     "title": "Local tier",
-     "content": "The enforcement tier active on the box itself — what sovereign-os is enforcing locally right now."
+     "title": "Local state",
+     "content": "Whether the box's own firewall is active and what it enforces. The box's self-defense line — read it with upstream to see the whole picture.",
+     "variants": [
+      {
+       "when": {
+        "textContains": "inactive"
+       },
+       "content": "Local firewall inactive — the box is relying entirely on the edge.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ Local off</div>The box is not self-enforcing — all defense is at the edge. If the edge is weak, the box is exposed.</div>"
+      }
+     ]
     },
     {
      "selector": "#stat-upstream",
-     "title": "Upstream tier",
-     "content": "The enforcement tier at the upstream edge — what the OPNsense perimeter already covers, so you don't double-enforce.",
-     "expanded": "<div class=\"so-card info\"><div>Read local vs upstream together — if the upstream already blocks something, enforcing it again on-box is wasted effort.</div></div>"
+     "title": "Upstream state",
+     "content": "What the upstream edge (OPNsense) is enforcing. The perimeter line — a strong upstream means the box can enforce less; a weak one means it must enforce more."
     },
     {
      "selector": "#stat-recs",
      "title": "Recommendations",
-     "content": "How many recommendations stand for the current state — the actionable subset of the candidate ladder."
+     "content": "How many recommendations apply to the current state — the actionable list of what to enforce given the edge's gaps."
     },
     {
      "selector": "#stat-version",
-     "title": "API version",
-     "content": "The version of the edge-firewall daemon answering — for reconciling behaviour against the spec."
+     "title": "Version",
+     "content": "The edge-firewall analyzer version answering — for reconciling the enforcement recommendations against the current 4-class candidate ladder."
+    },
+    {
+     "selector": "#last-refresh",
+     "title": "Freshness",
+     "content": "When this was last read. The values are only as current as this — refresh before trusting them after any change."
     }
    ]
   },
   {
-   "icon": "≣",
-   "title": "State & ladder",
-   "content": "The current local+upstream posture and the 4-class enforcement ladder it's measured against.",
+   "icon": "◈",
+   "title": "Local + upstream state",
+   "content": "The two enforcement lines side by side — what the box enforces locally and what the edge enforces upstream. Defense-in-depth is both; a gap in one that the other does not cover is exposure.",
    "children": [
     {
      "selector": "#state-panel",
-     "title": "Local + upstream state",
-     "content": "The combined posture panel — what's enforced locally and at the edge, side by side."
+     "title": "Enforcement state",
+     "content": "The combined local + upstream enforcement picture. Read it as defense-in-depth: a threat should be stopped at the edge OR the box. Something neither covers is the exposure this panel exists to surface.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Two lines, read together</div>The edge (upstream) and the box (local) are two firewall lines. Ideal is defense-in-depth — both active. A weak edge is tolerable if the box self-enforces; a passive box is tolerable behind a strong edge; neither is the danger.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-12 networking — the actual nftables rules the box enforces<br><span class=\"x\">→</span> network-edge — the OPNsense capabilities behind 'upstream'</div>"
     },
     {
      "selector": "#state-body",
      "title": "State detail",
-     "content": "The concrete local + upstream enforcement read — the baseline the recommendations are computed against."
-    },
-    {
-     "selector": "#ladder-panel",
-     "title": "Enforcement ladder",
-     "content": "The §1g 4-class candidate ladder — the rungs of firewall posture from permissive to locked-down."
-    },
-    {
-     "selector": "#ladder-body",
-     "title": "Ladder detail",
-     "content": "Each of the 4 enforcement classes with what it does — the menu of postures you can climb to. Higher rungs trade openness for control.",
-     "expanded": "<div class=\"so-card info\"><div>Pairs with the recommendations table — the ladder is every option; the recommendations are the ones that fit right now.</div></div>"
+     "content": "The per-line detail behind the summary — exactly what local and upstream each enforce. Read it to find the specific gap, not just that one exists."
     }
    ]
   },
   {
-   "icon": "▤",
-   "title": "Recommendations & plan",
-   "content": "What to do about the current state, and a read-only preview of applying it.",
+   "icon": "⊞",
+   "title": "Candidate ladder",
+   "content": "The 4-class enforcement-candidate ladder (§1g) — the categories of rule the box could add, ordered by importance. This turns 'the edge has gaps' into a prioritized list of specific defenses.",
+   "children": [
+    {
+     "selector": "#ladder-panel",
+     "title": "Candidate ladder",
+     "content": "The four classes of enforcement candidate. Read it to understand what kinds of defense are being recommended and why — each class is a category of threat the box could close locally.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Four classes of self-enforcement</div>The ladder groups candidate rules by class (§1g 4-class) — from must-have baseline protections to situational hardening. A candidate's class tells you how urgent adding it is, independent of the edge.</div>"
+    },
+    {
+     "selector": "#ladder-body",
+     "title": "Class rows",
+     "content": "Each row: one enforcement class and what it covers. Read a class to see the category of defense — this is the taxonomy the recommendations are drawn from."
+    }
+   ]
+  },
+  {
+   "icon": "◫",
+   "title": "Recommendations",
+   "content": "The specific enforcement recommendations for the current state — what to add given what the edge does not cover. Each is a concrete rule the box could enforce, not a vague 'harden the firewall'.",
    "children": [
     {
      "selector": "#recs-tbody",
-     "title": "Recommendations",
-     "content": "Each recommendation with its id, label, performance cost, and rationale — the 'given your state, do this' list. Cost is shown so you weigh enforcement against throughput.",
-     "expanded": "<div class=\"so-card info\"><div class='so-li ok'>✓ Each row carries its perf cost — you pick the posture, not the tool, and you see the price before committing.</div></div>"
-    },
+     "title": "Recommendation rows",
+     "content": "Each row: a specific recommended rule and why the current state calls for it. Read the reason — a recommendation exists because the edge is not covering that threat and the box could."
+    }
+   ]
+  },
+  {
+   "icon": "⇄",
+   "title": "Install plan",
+   "content": "A read-only preview of what applying a recommendation would do — the plan before the act. Selecting a recommendation shows its plan; applying it is a signed CLI act, never a web click.",
+   "children": [
     {
      "selector": "#plan-select",
-     "title": "Candidate picker",
-     "content": "Pick a candidate to preview its install plan — no change happens until you run the signed CLI verb."
+     "title": "Plan target",
+     "content": "Pick which recommendation to preview. Selecting it renders the install plan below — read-only; nothing is enforced until you run the signed command."
     },
     {
      "selector": "#plan-btn",
-     "title": "Render plan",
-     "content": "Renders the read-only install plan for the picked candidate — what applying it WOULD do, without doing it."
+     "title": "Preview plan",
+     "content": "Renders the read-only install plan for the selected recommendation. It previews only — it copies the plan; the rule is enforced when you run the signed verb, not when you click here."
     },
     {
      "selector": "#plan-body",
-     "title": "Install plan preview",
-     "content": "The step-by-step of what applying the chosen candidate would do — a dry read so you see the blast radius before running the signed CLI.",
-     "expanded": "<div class=\"so-card info\"><div class='so-li ok'>✓ Preview-only — this shows the plan; nothing installs until you run the copied osctl verb.</div></div>"
+     "title": "Plan preview",
+     "content": "The read-only plan for the selected recommendation — exactly what applying it would change. Read it before signing: a firewall rule can cut off access you rely on, so preview first."
     }
    ]
   },
   {
    "icon": "⟳",
    "title": "Refresh",
-   "content": "Pull a fresh read on demand; the panel also auto-refreshes.",
+   "content": "Re-poll on demand — a read-only re-sample.",
    "children": [
     {
      "selector": "#refresh-btn",
-     "title": "Refresh now",
-     "content": "Force an immediate re-read. Read-only telemetry — refreshing never changes state, it just re-samples."
-    },
-    {
-     "selector": "#last-refresh",
-     "title": "Refresh freshness",
-     "content": "When the shown values were last pulled — the panel auto-refreshes every 30s, but check this before trusting a value as 'now'."
+     "title": "Refresh",
+     "content": "Re-read state now — read-only. It re-samples; it does not change anything."
     }
    ]
   },
   {
    "icon": "⎈",
    "title": "Controls",
-   "content": "",
+   "content": "Read-only view — mutations copy signed sovereign-osctl verbs (§1g / R10212). The web previews; the box changes only when you run the signed command.",
    "children": [
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Profile / mode / feature-toggle controls — each copies its sovereign-osctl verb (§1g / R10212). This view reads state; every mutation runs via the signed CLI, never from the browser."
+     "content": "The control rail — each button copies its exact sovereign-osctl verb. A firewall enforcement change runs through the signed CLI, never from a web click."
     }
    ]
   }
