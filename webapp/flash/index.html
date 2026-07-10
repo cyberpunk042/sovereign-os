@@ -145,6 +145,43 @@
     #so-content{margin-left:0 !important;} body.so-assist-open #so-content{margin-right:0 !important;}
   }
   @media (max-width:600px){ .so-crumb{display:none;} #so-assist{width:100vw;} }
+  /* command palette (⌘K) — self-contained, supersedes the head-snippet palette */
+  #so-cmdk-backdrop{position:fixed; inset:0; z-index:9600; display:none; align-items:flex-start; justify-content:center; padding-top:12vh;
+    background:rgba(0,0,0,.55); font-family:ui-sans-serif,-apple-system,Segoe UI,Roboto,sans-serif;}
+  #so-cmdk-backdrop.open{display:flex;}
+  .so-cmdk-box{width:min(560px,92vw); max-height:70vh; display:flex; flex-direction:column; background:var(--panel,#171717);
+    border:1px solid var(--accent,#9bd1ff); border-radius:8px; box-shadow:0 8px 32px rgba(0,0,0,.6); overflow:hidden;}
+  #so-cmdk-input{width:100%; box-sizing:border-box; padding:.75rem 1rem; background:transparent; border:0; border-bottom:1px solid var(--border,#262626);
+    color:var(--fg,#e6e6e6); font:inherit; font-size:1rem; outline:none;}
+  #so-cmdk-results{overflow-y:auto; padding:.25rem 0;}
+  .so-cmdk-row{display:flex; align-items:center; gap:.6rem; padding:.5rem .9rem; cursor:pointer; color:var(--fg,#e6e6e6); font-size:.86rem;}
+  .so-cmdk-row:hover, .so-cmdk-row.active{background:color-mix(in srgb,var(--accent,#9bd1ff) 12%,transparent);}
+  .so-cmdk-row .ico{width:1.2rem; text-align:center; flex:none; opacity:.9;}
+  .so-cmdk-row .id{color:var(--accent,#9bd1ff); font-weight:600; font-size:.74rem; min-width:2.6rem;}
+  .so-cmdk-row .lbl{flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .so-cmdk-row .grp{font-size:.68rem; color:var(--muted,#8a8a8a);}
+  .so-cmdk-foot{padding:.4rem .9rem; font-size:.7rem; color:var(--muted,#8a8a8a); border-top:1px solid var(--border,#262626);
+    display:flex; gap:.9rem; flex-wrap:wrap;}
+  .so-cmdk-foot kbd{background:var(--bg,#0e0e0e); border:1px solid var(--border,#262626); border-radius:3px; padding:0 .35rem; font-size:.68rem; color:var(--fg,#e6e6e6);}
+  /* assistant "Ask" footer — hand off the current context to ChatGPT / Claude / the local AI */
+  .so-ask{flex-shrink:0; border-top:1px solid var(--border,#262626); background:var(--panel,#171717); padding:.55rem .7rem .65rem;}
+  .so-ask-h{display:flex; align-items:center; gap:.4rem; font-size:.72rem; color:var(--muted,#8a8a8a); text-transform:uppercase; letter-spacing:.05em; margin-bottom:.4rem;}
+  .so-ask-h .chev{margin-left:auto; transition:transform .12s ease; cursor:pointer;}
+  .so-ask.collapsed .chev{transform:rotate(-90deg);} .so-ask.collapsed .so-ask-in, .so-ask.collapsed .so-ask-row, .so-ask.collapsed .so-ask-ans{display:none;}
+  .so-ask-in{width:100%; box-sizing:border-box; min-height:44px; max-height:120px; resize:vertical; background:var(--bg,#0e0e0e); color:var(--fg,#e6e6e6);
+    border:1px solid var(--border,#262626); border-radius:6px; padding:.4rem .5rem; font:inherit; font-size:.78rem; line-height:1.45; outline:none;}
+  .so-ask-in:focus{border-color:var(--accent,#9bd1ff);}
+  .so-ask-row{display:flex; align-items:center; gap:.35rem; margin-top:.4rem; flex-wrap:wrap;}
+  .so-ask-dev{height:26px; background:var(--bg,#0e0e0e); color:var(--fg,#e6e6e6); border:1px solid var(--border,#262626); border-radius:6px; font:inherit; font-size:.72rem; padding:0 .3rem;}
+  .so-ask-btn{display:inline-flex; align-items:center; gap:.3rem; height:26px; padding:0 .5rem; cursor:pointer; font:inherit; font-size:.74rem;
+    background:transparent; color:var(--fg,#e6e6e6); border:1px solid var(--border,#262626); border-radius:6px;}
+  .so-ask-btn:hover{background:color-mix(in srgb,var(--accent,#9bd1ff) 14%,transparent); border-color:color-mix(in srgb,var(--accent,#9bd1ff) 40%,transparent);}
+  .so-ask-btn.local{border-color:color-mix(in srgb,var(--accent,#9bd1ff) 45%,transparent);}
+  .so-ask-ans{margin-top:.5rem; padding:.5rem .55rem; background:var(--bg,#0e0e0e); border:1px solid var(--border,#262626); border-radius:6px;
+    font-size:.77rem; line-height:1.5; white-space:pre-wrap; word-break:break-word; max-height:34vh; overflow-y:auto; display:none;}
+  .so-ask-ans.show{display:block;} .so-ask-ans .err{color:#e08a8a;} .so-ask-ans .meta{color:var(--muted,#8a8a8a); font-size:.7rem; margin-top:.35rem;}
+  .so-ask-ans .oc{display:inline-block; margin-top:.4rem; color:var(--accent,#9bd1ff); font-size:.73rem; text-decoration:none;}
+  .so-ask-ans .oc:hover{text-decoration:underline;}
 </style>
 <script>
 (function(){
@@ -221,6 +258,10 @@
   var PKEY='sovereign-os.personalization', PSCHEMA=1;
   function loadPrefs(){ try{var r=localStorage.getItem(PKEY);var p=r?JSON.parse(r):null;if(!p||p.schema!==PSCHEMA)return{schema:PSCHEMA,theme:'auto',accent:'#9bd1ff',font_scale:1};return p;}catch(e){return{schema:PSCHEMA,theme:'auto',accent:'#9bd1ff',font_scale:1};} }
   function savePrefs(p){ try{localStorage.setItem(PKEY,JSON.stringify(p));}catch(e){} }
+  // assistant open/closed state — persisted separately so the exportable personalization profile stays cosmetic-only.
+  var AKEY='sovereign-os.assist';
+  function loadAssist(){ try{var r=localStorage.getItem(AKEY);var a=r?JSON.parse(r):null;return(a&&typeof a.open==='boolean')?a:null;}catch(e){return null;} }
+  function saveAssist(open){ try{localStorage.setItem(AKEY,JSON.stringify({schema:1,open:!!open}));}catch(e){} }
   function applyTheme(p){ var r=(p.theme==='dark'||p.theme==='light')?p.theme:((window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)?'light':'dark');
     document.documentElement.setAttribute('data-theme',r);
     document.documentElement.style.setProperty('--accent',p.accent||'#9bd1ff'); document.documentElement.style.setProperty('--so-accent',p.accent||'#9bd1ff'); }
@@ -264,19 +305,37 @@
     document.body.appendChild(el(
       '<aside id="so-assist" role="complementary" aria-label="assistant"><div class="so-assist-h"><span class="t"><span class="spark">✦</span> Assistant</span>'+
         '<button class="so-h-btn" id="so-assist-close" title="Close" style="margin-left:auto">✕</button></div>'+
-      '<div class="so-assist-body" id="so-assist-body"></div></aside>'));
+      '<div class="so-assist-body" id="so-assist-body"></div>'+
+      '<div class="so-ask" id="so-ask">'+
+        '<div class="so-ask-h"><span>✦ ask about this</span><span class="chev" id="so-ask-chev" title="collapse/expand" role="button" tabindex="0">▾</span></div>'+
+        '<textarea class="so-ask-in" id="so-ask-in" spellcheck="false" placeholder="ask about this panel — or edit the seeded question…" aria-label="ask a question"></textarea>'+
+        '<div class="so-ask-row">'+
+          '<select class="so-ask-dev" id="so-ask-dev" title="local-AI target (M075 SRP device / model)" aria-label="local AI target">'+
+            '<option value="auto">auto · router picks</option>'+
+            '<option value="CPU0">CPU0 · Conductor</option>'+
+            '<option value="GPU0">GPU0 · Logic</option>'+
+            '<option value="GPU1">GPU1 · Oracle</option>'+
+          '</select>'+
+          '<button class="so-ask-btn local" id="so-ask-local" title="query the box\'s own local AI over loopback (127.0.0.1)">✦ Local AI</button>'+
+          '<button class="so-ask-btn" id="so-ask-gpt" title="open your question in ChatGPT (external — leaves the box)">ChatGPT ↗</button>'+
+          '<button class="so-ask-btn" id="so-ask-claude" title="open your question in Claude (external — leaves the box)">Claude ↗</button>'+
+        '</div>'+
+        '<div class="so-ask-ans" id="so-ask-ans" aria-live="polite"></div>'+
+      '</div></aside>'));
   }
   function wire(){
     document.getElementById('so-menu-toggle').addEventListener('click',function(){
       if(window.matchMedia('(max-width:1024px)').matches) document.body.classList.toggle('so-sm-open');
       else document.body.classList.toggle('so-sm-collapsed'); });
     document.getElementById('so-theme').addEventListener('click',cycleTheme);
-    var assistDismissed=false;   // sticky close: once the operator closes it, hover won't force it back open (only the ✦ toggle reopens)
-    document.getElementById('so-assist-toggle').addEventListener('click',function(){ var willOpen=!document.body.classList.contains('so-assist-open'); document.body.classList.toggle('so-assist-open'); assistDismissed=!willOpen; });
-    document.getElementById('so-assist-close').addEventListener('click',function(){ document.body.classList.remove('so-assist-open'); assistDismissed=true; });
-    document.getElementById('so-palette').addEventListener('click',function(){
-      window.dispatchEvent(new KeyboardEvent('keydown',{key:'k',metaKey:true,bubbles:true}));
-      window.dispatchEvent(new KeyboardEvent('keydown',{key:'k',ctrlKey:true,bubbles:true})); });
+    // sticky close persisted across navigations (sovereign-os.assist); unset = today's hover-opens default.
+    var stored=loadAssist();
+    var assistDismissed = stored ? !stored.open : false;
+    if(stored && stored.open) document.body.classList.add('so-assist-open');
+    function setAssist(open){ document.body.classList.toggle('so-assist-open',!!open); assistDismissed=!open; saveAssist(open); }
+    document.getElementById('so-assist-toggle').addEventListener('click',function(){ setAssist(!document.body.classList.contains('so-assist-open')); });
+    document.getElementById('so-assist-close').addEventListener('click',function(){ setAssist(false); });
+    document.getElementById('so-palette').addEventListener('click',function(){ cmdkOpen(); });
     Array.prototype.forEach.call(document.querySelectorAll('.so-grp-h'),function(b){ b.addEventListener('click',function(){b.parentNode.classList.toggle('closed');}); });
     var s=document.getElementById('so-sm-search');
     s.addEventListener('input',function(){ var q=s.value.trim().toLowerCase();
@@ -355,6 +414,88 @@
         abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+(p.menuHover?p.menuHover:esc(p.desc||''))+'</div></div>'+
           '<div class="so-assist-idle">'+(here?'You’re on this panel now — hover its contents to explore.':'Click to open this panel.')+'</div>'; }
       it.addEventListener('mouseenter',function(){ queueSwap(show); }); it.addEventListener('mouseleave',function(){ clearTimeout(swapTimer); }); it.addEventListener('focus',show); });
+
+    // ── command palette (⌘K) — built into the shell so it works on EVERY panel (full GROUPS catalog) ──
+    var CMDK=[]; GROUPS.forEach(function(g){ g.items.forEach(function(it){ CMDK.push({id:it.id,dir:it.dir,label:it.label,ico:it.ico,grp:g.name}); }); });
+    var cmdkBack=el('<div id="so-cmdk-backdrop" role="dialog" aria-modal="true" aria-label="command palette">'+
+      '<div class="so-cmdk-box"><input type="text" id="so-cmdk-input" placeholder="jump to a panel… (name or D-NN)" autocomplete="off" aria-label="filter panels">'+
+      '<div id="so-cmdk-results"></div>'+
+      '<div class="so-cmdk-foot"><span><kbd>↑</kbd><kbd>↓</kbd> navigate</span><span><kbd>↵</kbd> open</span><span><kbd>esc</kbd> close</span>'+
+      '<span style="flex:1"></span><span><kbd>⌘K</kbd> palette · <kbd>⌘B</kbd> menu · <kbd>⌘J</kbd> assistant</span></div></div></div>');
+    document.body.appendChild(cmdkBack);
+    var cmdkIn=cmdkBack.querySelector('#so-cmdk-input'), cmdkRes=cmdkBack.querySelector('#so-cmdk-results'), cmdkFilt=CMDK.slice(), cmdkAct=0;
+    function cmdkRender(){ var h=''; cmdkFilt.forEach(function(d,i){ h+='<div class="so-cmdk-row'+(i===cmdkAct?' active':'')+'" data-i="'+i+'"><span class="ico">'+esc(d.ico||'•')+'</span><span class="id">'+esc(d.id!=='—'?d.id:'')+'</span><span class="lbl">'+esc(d.label)+'</span><span class="grp">'+esc(d.grp)+'</span></div>'; });
+      cmdkRes.innerHTML=h||'<div class="so-cmdk-row"><span class="lbl" style="color:var(--muted,#8a8a8a)">no match</span></div>';
+      Array.prototype.forEach.call(cmdkRes.querySelectorAll('.so-cmdk-row[data-i]'),function(r){ r.addEventListener('click',function(){ cmdkGo(cmdkFilt[+r.dataset.i]); }); });
+      var a=cmdkRes.querySelector('.so-cmdk-row.active'); if(a&&a.scrollIntoView) a.scrollIntoView({block:'nearest'}); }
+    function cmdkFilter(){ var q=(cmdkIn.value||'').trim().toLowerCase();
+      cmdkFilt=q?CMDK.filter(function(d){ return (d.id||'').toLowerCase().indexOf(q)>=0||d.label.toLowerCase().indexOf(q)>=0||d.dir.toLowerCase().indexOf(q)>=0||d.grp.toLowerCase().indexOf(q)>=0; }):CMDK.slice(); cmdkAct=0; cmdkRender(); }
+    function cmdkGo(d){ if(d) location.href='../'+d.dir+'/'; }
+    function cmdkIsOpen(){ return cmdkBack.classList.contains('open'); }
+    function cmdkOpen(){ cmdkBack.classList.add('open'); cmdkIn.value=''; cmdkFilt=CMDK.slice(); cmdkAct=0; cmdkRender(); setTimeout(function(){ cmdkIn.focus(); },0); }
+    function cmdkClose(){ cmdkBack.classList.remove('open'); }
+    cmdkIn.addEventListener('input',cmdkFilter);
+    cmdkBack.addEventListener('click',function(e){ if(e.target===cmdkBack) cmdkClose(); });
+    cmdkIn.addEventListener('keydown',function(e){
+      if(e.key==='ArrowDown'){ e.preventDefault(); cmdkAct=Math.min(cmdkAct+1,cmdkFilt.length-1); cmdkRender(); }
+      else if(e.key==='ArrowUp'){ e.preventDefault(); cmdkAct=Math.max(cmdkAct-1,0); cmdkRender(); }
+      else if(e.key==='Enter'){ e.preventDefault(); cmdkGo(cmdkFilt[cmdkAct]); }
+      else if(e.key==='Escape'){ e.preventDefault(); cmdkClose(); } });
+
+    // ── global shortcuts — capture phase so we supersede the head-snippet palette uniformly ──
+    window.addEventListener('keydown',function(e){ var k=e.key;
+      if((e.metaKey||e.ctrlKey)&&(k==='k'||k==='K')){ e.preventDefault(); e.stopImmediatePropagation(); cmdkIsOpen()?cmdkClose():cmdkOpen(); return; }
+      if(cmdkIsOpen()){ if(k==='Escape'){ e.preventDefault(); e.stopImmediatePropagation(); cmdkClose(); } return; }
+      if((e.metaKey||e.ctrlKey)&&(k==='b'||k==='B')){ e.preventDefault(); e.stopImmediatePropagation();
+        if(window.matchMedia('(max-width:1024px)').matches) document.body.classList.toggle('so-sm-open'); else document.body.classList.toggle('so-sm-collapsed'); return; }
+      if((e.metaKey||e.ctrlKey)&&(k==='j'||k==='J')){ e.preventDefault(); e.stopImmediatePropagation(); setAssist(!document.body.classList.contains('so-assist-open')); return; }
+    },true);
+
+    // ── wheel spillover: when the main area can't scroll further, feed the wheel to the assistant body ──
+    window.addEventListener('wheel',function(e){
+      if(!document.body.classList.contains('so-assist-open')) return;
+      if(asideEl && (e.target===asideEl || asideEl.contains(e.target))) return;   // native scroll when already inside the assistant
+      var ab=abody; if(!ab || ab.scrollHeight<=ab.clientHeight) return;           // assistant not scrollable → nothing to do
+      var de=document.scrollingElement||document.documentElement;
+      var pageCanDown=de.scrollTop+de.clientHeight<de.scrollHeight-1, pageCanUp=de.scrollTop>0;
+      if((e.deltaY>0&&pageCanDown)||(e.deltaY<0&&pageCanUp)) return;              // let the main area scroll normally
+      ab.scrollTop+=e.deltaY; e.preventDefault();
+    },{passive:false});
+
+    // ── Ask footer: hand off the current context to ChatGPT / Claude / the local AI ──
+    var askIn=document.getElementById('so-ask-in'), askDev=document.getElementById('so-ask-dev'), askAns=document.getElementById('so-ask-ans'), askEl=document.getElementById('so-ask');
+    var askEdited=false; if(askIn) askIn.addEventListener('input',function(){ askEdited=true; });
+    var askChev=document.getElementById('so-ask-chev'); if(askChev){ var askToggle=function(){ askEl.classList.toggle('collapsed'); }; askChev.addEventListener('click',askToggle); askChev.addEventListener('keydown',function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); askToggle(); } }); }
+    if(askIn && !askEdited) askIn.value='Explain '+((CAT.ctx&&CAT.ctx.title)||'this panel')+' — what should I look at?';
+    function askContext(){ var parts=[]; var ct=CAT.ctx; if(ct&&ct.title) parts.push(String(ct.title)); if(ct&&ct.content) parts.push(String(ct.content));
+      if(lastMatched){ var t=abody.querySelector('.so-node.active .so-node-title'), c=abody.querySelector('.so-node.active .so-node-content');
+        if(t) parts.push('• '+t.textContent.trim()); if(c) parts.push(c.textContent.trim()); }
+      return parts.join('\n').replace(/[ \t]+\n/g,'\n').trim().slice(0,1200); }
+    function askPrompt(){ var q=(askIn&&askIn.value||'').trim(), ctx=askContext();
+      return (q||'Explain this cockpit panel and what I should look at.') + (ctx?('\n\n[context]\n'+ctx):''); }
+    var gpt=document.getElementById('so-ask-gpt'), cld=document.getElementById('so-ask-claude'), loc=document.getElementById('so-ask-local');
+    if(gpt) gpt.addEventListener('click',function(){ window.open('https://chatgpt.com/?q='+encodeURIComponent(askPrompt()),'_blank','noopener'); });
+    if(cld) cld.addEventListener('click',function(){ window.open('https://claude.ai/new?q='+encodeURIComponent(askPrompt()),'_blank','noopener'); });
+    if(loc) loc.addEventListener('click',askLocal);
+    // Local AI — the ONE sanctioned loopback call (R10212): POST to the code-console chat, stream the SSE reply inline.
+    function askLocal(){
+      var prompt=askPrompt(), dev=(askDev&&askDev.value)||'auto';
+      var ocHref='../code-console/?q='+encodeURIComponent((askIn&&askIn.value||'').trim())+'&target='+encodeURIComponent(dev)+'&send=1';
+      var ocLink='<a class="oc" href="'+esc(ocHref)+'">open in Code Console ↗</a>';
+      askAns.className='so-ask-ans show'; askAns.innerHTML='<span class="meta">querying local AI ('+esc(dev)+')…</span>';
+      var out='';
+      fetch('/api/code-console/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:[{role:'user',content:prompt}],target:dev})})
+        .then(function(r){ if(!r.ok||!r.body) throw new Error('local AI unreachable (HTTP '+r.status+')'); var rd=r.body.getReader(), dec=new TextDecoder(), buf='';
+          function pump(){ return rd.read().then(function(s){ if(s.done) return; buf+=dec.decode(s.value,{stream:true}); var fr=buf.split('\n\n'); buf=fr.pop();
+            fr.forEach(function(f){ var m=/data:\s*(.*)$/m.exec(f); if(!m) return; var ev; try{ev=JSON.parse(m[1]);}catch(x){return;}
+              if(ev.type==='token'&&ev.text){ out+=ev.text; askAns.innerHTML=esc(out)+ocLink; }
+              else if(ev.type==='error'){ askAns.innerHTML='<span class="err">⚠ '+esc(ev.error||'local AI error')+'</span>'+ocLink; }
+              else if(ev.type==='done'){ askAns.innerHTML=esc(out)+'<div class="meta">'+esc((ev.tier||'')+(ev.tokens?(' · '+ev.tokens+' tok'):'')+(ev.tokens_per_sec?(' · '+ev.tokens_per_sec+' tok/s'):''))+'</div>'+ocLink; } });
+            return pump(); }); }
+          return pump(); })
+        .catch(function(err){ askAns.className='so-ask-ans show'; askAns.innerHTML='<span class="err">⚠ '+esc(err.message||'local AI unavailable')+'</span> — start it via <code>sovereign-osctl inference start</code>. '+ocLink; });
+    }
+
     idle();
   }
   function init(){

@@ -227,6 +227,7 @@ class CodeConsoleAPIHandler(BaseHTTPRequestHandler):
             _emit_metric("chat", "400")
             return
         text = str(req.get("prompt", ""))
+        target = str(req.get("target", ""))  # M075 device target (auto|CPU0|GPU0|GPU1); router honors + strips it
         self.send_response(200)
         self.send_header("Content-Type", "text/event-stream")
         self.send_header("Cache-Control", "no-cache")
@@ -235,8 +236,8 @@ class CodeConsoleAPIHandler(BaseHTTPRequestHandler):
         _emit_metric("chat", "open")
         done = None
         try:
-            for ev in (_prompt.run(messages=messages) if messages is not None
-                       else _prompt.run(text)):
+            for ev in (_prompt.run(messages=messages, target=target) if messages is not None
+                       else _prompt.run(text, target=target)):
                 self.wfile.write(
                     f"event: {ev['type']}\ndata: {json.dumps(ev)}\n\n".encode("utf-8"))
                 self.wfile.flush()

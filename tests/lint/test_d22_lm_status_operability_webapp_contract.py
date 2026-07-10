@@ -117,6 +117,12 @@ def test_webapp_advertises_read_only_endpoints():
     (/api/control/execute) — R10274 — which is allowlisted + confirm/key-gated +
     DRY_RUN-default; it is NOT a D-22-specific mutation endpoint."""
     body = WEBAPP_HTML.read_text(encoding="utf-8")
+    # Exclude the shared app-shell chrome — it is governed by its own
+    # test_app_shell_contract, whose one sanctioned loopback Assistant chat
+    # (/api/code-console/chat, R10212) is not a D-22 endpoint. This test governs
+    # D-22's OWN surface, not the chrome duplicated into every panel.
+    body = re.sub(r"<!-- APP-SHELL:BEGIN M067 -->.*?<!-- APP-SHELL:END M067 -->",
+                  "", body, flags=re.DOTALL)
     assert "/api/lm-status/devices" in body
     # D-22's own surface never posts to a lm-status mutation verb.
     assert re.search(r'fetch\(\s*["\']/(set|apply|mutate)', body) is None, (

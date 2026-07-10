@@ -210,6 +210,14 @@ TIER_ENDPOINTS: dict[str, str] = {
     "llama_fb":      "http://127.0.0.1:8085",
 }
 
+# Operator device-target override (M075 SRP) → tier. When the caller explicitly
+# asks for a device (the cockpit Assistant / Code Console target picker), honor it
+# deterministically instead of content-classifying. "auto"/absent → normal classify.
+# The hint is stripped from the body before proxying so the backend never sees it.
+TARGET_TIER: dict[str, str] = {
+    "cpu0": "pulse", "gpu0": "logic_engine", "gpu1": "oracle_core",
+}
+
 
 def classify(request_body: dict[str, Any]) -> str:
     """Deterministic, operator-readable routing decision.
@@ -218,6 +226,11 @@ def classify(request_body: dict[str, Any]) -> str:
     function in one screen and understand exactly where each request
     goes.
     """
+    # Rule 0 — explicit operator device target (M075) wins over content rules.
+    target = (request_body.get("target") or "").lower().strip()
+    if target in TARGET_TIER:
+        return TARGET_TIER[target]
+
     model = (request_body.get("model") or "").lower()
     messages = request_body.get("messages") or []
     # crude token count proxy
@@ -416,6 +429,13 @@ class RouterHandler(http.server.BaseHTTPRequestHandler):
         # the current substrate. Does NOT change `tier` (routing stays the
         # runtime's decision); surfaced as a header for observability.
         scheduler_advisory = _scheduler_advisory(body)
+
+        # The device-target hint (M075) is a router-only routing signal — strip it
+        # so the OpenAI-compatible backend never receives an unknown field. Only
+        # re-serializes when a target was actually present (normal requests untouched).
+        if "target" in body:
+            body.pop("target", None)
+            raw = json.dumps(body).encode("utf-8")
 
         target = TIER_ENDPOINTS.get(tier)
         if target is None:

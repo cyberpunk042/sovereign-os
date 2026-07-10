@@ -130,7 +130,7 @@ def _bound_messages(messages: list[dict[str, Any]]) -> tuple[list[dict[str, Any]
 
 def run(text: str = "", *, messages: list[dict[str, Any]] | None = None,
         stream: bool = True, timeout: int = DEFAULT_TIMEOUT,
-        model: str = "auto") -> Iterator[dict[str, Any]]:
+        model: str = "auto", target: str = "") -> Iterator[dict[str, Any]]:
     """Run a prompt through the router. `text` is a single user turn (back-compatible);
     `messages` is a bounded multi-turn conversation (SDD-103) — when given it takes
     precedence. Yields event dicts: {"type":"token","text":…} per delta, then a final
@@ -154,6 +154,12 @@ def run(text: str = "", *, messages: list[dict[str, Any]] | None = None,
         chat = [{"role": "user", "content": text}]
     body = {"model": model, "messages": chat,
             "stream": True, "stream_options": {"include_usage": True}}
+    # M075 device-target override (cpu0/gpu0/gpu1) — the router honors it as an
+    # explicit routing signal and strips it before proxying. "auto"/blank → normal
+    # content classification. Ignored when absent (fully back-compatible).
+    tgt = (target or "").lower().strip()
+    if tgt and tgt != "auto":
+        body["target"] = tgt
     tier = _classify(body)
     started = time.monotonic()
     tokens = 0
