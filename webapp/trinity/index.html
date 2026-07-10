@@ -495,8 +495,6 @@ a11y; contract test catches drift.
   .so-xref{margin-top:.4rem; font-size:.76rem; color:var(--fg-2,#c8c8c8);} .so-xref .x{color:var(--accent,#9bd1ff); font-weight:500;}
   .so-tip{margin-top:.4rem; font-size:.77rem; color:var(--muted,#a8a8a8);}
   .so-assist-idle{color:var(--muted,#8a8a8a); font-style:italic; padding:.4rem 0;}
-  /* highlight the hovered/focused element in the panel content */
-  .so-assist-hot{outline:2px solid var(--accent,#9bd1ff); outline-offset:-2px; border-radius:6px;}
   /* responsive — reuse the existing breakpoints */
   @media (max-width:1024px){
     #so-sidemenu{transform:translateX(-100%);} body.so-sm-open #so-sidemenu{transform:translateX(0); width:var(--so-sidemenu-w);}
@@ -752,14 +750,12 @@ a11y; contract test catches drift.
       h+='<div class="so-node-content">'+esc(cont)+'</div>';
       if(active && exp) h+='<div class="so-node-expanded">'+exp+'</div>';   // expanded = trusted authored HTML
       return h+'</div>'; }
-    var lastHot=null, lastMatched=null;
-    function clearHot(){ if(lastHot){ lastHot.classList.remove('so-assist-hot'); lastHot=null; } }
-    function idle(){ lastMatched=null; clearHot(); abody.innerHTML=ctxHtml()+'<div class="so-assist-idle">Hover any value, control, table row, or menu link — its explanation builds here.</div>'; }
-    function showPath(match){ if(assistDismissed) return; openAssist(); clearHot();
+    var lastMatched=null;
+    function idle(){ lastMatched=null; abody.innerHTML=ctxHtml()+'<div class="so-assist-idle">Hover any value, control, table row, or menu link — its explanation builds here.</div>'; }
+    function showPath(match){ if(assistDismissed) return; openAssist();
       var chain=match.entry.parents, node=match.entry.node, parent=chain.length?chain[chain.length-1]:null;
       var html=ctxHtml(); if(parent) html+=nodeHtml(parent,null,null); html+=nodeHtml(node,true,match.el);
       abody.innerHTML=html;
-      if(match.el){ match.el.classList.add('so-assist-hot'); lastHot=match.el; }
       var act=abody.querySelector('.so-node.active'); if(act&&act.scrollIntoView) act.scrollIntoView({block:'center',behavior:reduced()?'auto':'smooth'}); }
     // hover-intent debounce: quick pass-through toward the panel shouldn't hijack the content; a settle of SWAP_DELAY does
     var swapTimer=null; var SWAP_DELAY=140;
@@ -773,7 +769,7 @@ a11y; contract test catches drift.
     }
     // menu links → surface the target panel's context (program-awareness: horizontal jump)
     Array.prototype.forEach.call(document.querySelectorAll('.so-sm-item'),function(it){ var p=findPanel(it.dataset.dir); if(!p) return;
-      function show(){ if(assistDismissed) return; openAssist(); clearHot(); lastMatched=null; it.classList.add('so-assist-hot'); lastHot=it; var here=it.dataset.dir===curDir();
+      function show(){ if(assistDismissed) return; openAssist(); lastMatched=null; var here=it.dataset.dir===curDir();
         abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+(p.menuHover?p.menuHover:esc(p.desc||''))+'</div></div>'+
           '<div class="so-assist-idle">'+(here?'You’re on this panel now — hover its contents to explore.':'Click to open this panel.')+'</div>'; }
       it.addEventListener('mouseenter',function(){ queueSwap(show); }); it.addEventListener('mouseleave',function(){ clearTimeout(swapTimer); }); it.addEventListener('focus',show); });
