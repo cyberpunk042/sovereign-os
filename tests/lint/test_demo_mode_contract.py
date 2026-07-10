@@ -366,6 +366,62 @@ def test_d12_networking_demo_branch_and_sse_guard():
     assert "if (!demoActive()) startSSE();" in body, "d-12 must skip the SSE stream in demo"
 
 
+# ── SDD-129 (DEMO batch 6b — the rich hard panels + master-dashboard upgrade) ──
+
+def test_d25_selfdef_management_sse_guarded():
+    """SDD-129 — d-25 (SSE): demo renders DEMO_D25 with no fetch; EventSource skipped."""
+    body = _assert_head_demo("d-25-selfdef-management", "DEMO_D25")
+    assert "if (demoActive()) { render(DEMO_D25);" in body
+    assert "if (!demoActive()) try { const es = new EventSource('/api/selfdef-management/stream')" in body
+
+
+def test_d05_traces_demo_and_detail_deferred():
+    """SDD-129 — d-05 (query/SSE): fetchSpans returns DEMO_D05 (no fetch); the /api/traces/stream
+    EventSource is skipped; the openDetail preview honest-defers ('live only') in demo."""
+    body = _assert_head_demo("d-05-traces", "DEMO_D05")
+    assert "if (demoActive()) { " in body and "return DEMO_D05; }" in body
+    assert "if (!demoActive()) try {\n  const es = new EventSource('/api/traces/stream')" in body
+    assert "Trace detail is live-only in demo" in body, "openDetail must honest-defer in demo"
+
+
+def test_d07_memory_changes_demo_and_navigate_deferred():
+    """SDD-129 — d-07: load renders DEMO_D07 with no fetch; startSSE skipped; navigate defers."""
+    body = _assert_head_demo("d-07-memory-changes", "DEMO_D07")
+    assert "if (demoActive()) { state = Object.assign(state, DEMO_D07.snapshot);" in body
+    assert "if (!demoActive()) startSSE();" in body
+    assert "Navigator is live-only in demo" in body, "navigate must honest-defer in demo"
+
+
+def test_d08_rollback_points_demo_and_preview_deferred():
+    """SDD-129 — d-08: load renders DEMO_D08 with no fetch; preview dry-run defers in demo."""
+    body = _assert_head_demo("d-08-rollback-points", "DEMO_D08")
+    assert "if (demoActive()) { seed = Object.assign(seed, DEMO_D08);" in body
+    assert "Dry-run rollback plan is live-only in demo" in body, "preview must honest-defer in demo"
+
+
+def test_d06_pending_approvals_execute_disabled_in_demo():
+    """SDD-129 — d-06 (execute-mid-render): demo renders DEMO_D06 with no fetch, skips the SSE,
+    and CRUCIALLY disables the execute path — handleAction early-returns in demo so no
+    POST /api/control/execute can fire (R10212 — no fake approvals actionable)."""
+    body = _assert_head_demo("d-06-pending-approvals", "DEMO_D06")
+    assert "if (demoActive()) { const s=DEMO_D06;" in body
+    assert "const sse = demoActive() ? null :" in body, "d-06 must skip the SSE in demo"
+    assert re.search(r"async function handleAction\(action, id\) \{\n\s*if \(demoActive\(\)\) \{ alert\(", body), (
+        "handleAction must early-return in demo BEFORE any POST (no fake approvals actionable)"
+    )
+
+
+def test_master_dashboard_rich_demo_no_network():
+    """SDD-129 — master-dashboard upgraded from badge-only to RICH: fetchJSON short-circuits to
+    DEMO_MASTER in demo (zero network across all aggregated sections), and the apparmor text
+    fetch is skipped too."""
+    body = _assert_head_demo("master-dashboard", "DEMO_MASTER")
+    assert "if (demoActive()) return DEMO_MASTER[path] !== undefined ? DEMO_MASTER[path] : {};" in body
+    assert 'if (!demoActive()) try {\n    const r = await fetch("/api/node-exporter/metrics"' in body, (
+        "the apparmor text fetch must be skipped in demo (zero network)"
+    )
+
+
 # ── SDD-126 (DEMO batch 5a — edge/mgmt) + UX fixes ─────────────────────────────
 
 def test_batch5a_demo_branches_make_no_fetch():

@@ -1753,7 +1753,36 @@ a11y; contract test catches drift.
 
 const ENDPOINTS = ["/version", "/routes", "/collisions", "/health", "/discover", "/toggles"];
 
+function demoActive(){return !!(window.soDemo&&window.soDemo.on());}
+const DEMO_MASTER = {
+  "/version": {version:"demo/v0.2"},
+  "/routes": {aggregator_port:8443, count:3, routes:[
+    {slug:"demo/d-09-hardware-pressure", port:8409, healthz_path:"/healthz", subpath:"/d-09", label:"Hardware Pressure", source_repo:"demo/sovereign-os"},
+    {slug:"demo/d-04-costs", port:8404, healthz_path:"/healthz", subpath:"/d-04", label:"Costs", source_repo:"demo/sovereign-os"},
+    {slug:"demo/code-console", port:8412, healthz_path:"/healthz", subpath:"/code-console", label:"Code Console", source_repo:"demo/sovereign-os"}
+  ]},
+  "/health": {reachable:3, count:3, probes:[{port:8409,reachable:true},{port:8404,reachable:true},{port:8412,reachable:true}]},
+  "/collisions": {has_collisions:false, port_collisions:{}, subpath_collisions:{}},
+  "/discover": {count:2, discovered:[
+    {slug:"demo/selfdef-networking", port:8512, subpath:"/d-12", auth_tier:"L1", source_repo:"demo/selfdef"},
+    {slug:"demo/selfdef-audit", port:8516, subpath:"/d-16", auth_tier:"L1", source_repo:"demo/selfdef"}
+  ], errors:[], manifest_dir:"demo/etc/sovereign-os/dashboards"},
+  "/toggles": {enabled_count:3, dashboards:[
+    {slug:"demo/d-09-hardware-pressure", toggleable:true, enabled:true},
+    {slug:"demo/d-04-costs", toggleable:true, enabled:true},
+    {slug:"demo/code-console", toggleable:true, enabled:true}
+  ]},
+  "/catalog": {categories:[{id:"demo/compute", label:"Compute", blurb:"demo/ sample category"}], dashboards:[
+    {slug:"demo/d-09-hardware-pressure", label:"Hardware Pressure", description:"demo/ sample dashboard", status:"live", category:"demo/compute", path:"/d-09", cli:"demo/ sovereign-osctl dashboards enable d-09"}
+  ]},
+  "/control-systems": {systems:[]},
+  "/feature-coverage": {mapped_to_dashboard:20, cli_only_waived:5, verb_families_total:25},
+  "/api/m060/health": {state:"online", artifacts_present:10, artifacts_expected:10, newest_age_seconds:42, artifacts:[]},
+  "/api/ms022/sse-quota": {state:"ok", metrics:{global_active:3, global_cap:64, global_saturation:0.05, per_token_saturated:0}},
+  "/api/four-watchdog/state": {state:"ok", metrics:{worst_severity:0, observer_age_seconds:12}}
+};
 async function fetchJSON(path) {
+  if (demoActive()) return DEMO_MASTER[path] !== undefined ? DEMO_MASTER[path] : {};
   const res = await fetch(path, {headers: {"Accept": "application/json"}});
   if (!res.ok) throw new Error(path + " → " + res.status);
   return await res.json();
@@ -2090,12 +2119,12 @@ async function renderApparmorBanner() {
   // Fetch the node_exporter /metrics endpoint and grep for the
   // 4 canonical AppArmor gauges. Honest-offline when unreachable.
   let metrics_text = null;
-  try {
+  if (!demoActive()) try {
     const r = await fetch("/api/node-exporter/metrics", {headers: {"Accept": "text/plain"}});
     if (r.ok) metrics_text = await r.text();
   } catch (e) { metrics_text = null; }
   // Fall back to direct node_exporter probe (operator drop-in proxy).
-  if (!metrics_text) {
+  if (!metrics_text && !demoActive()) {
     try {
       const r = await fetch("/metrics", {headers: {"Accept": "text/plain"}});
       if (r.ok) metrics_text = await r.text();
@@ -2398,6 +2427,7 @@ async function refresh() {
 }
 
 document.getElementById("refresh-btn").addEventListener("click", refresh);
+window.soDemoApply = refresh;
 refresh();
 setInterval(refresh, 30000);
 </script>

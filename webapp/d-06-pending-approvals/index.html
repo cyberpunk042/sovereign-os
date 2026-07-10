@@ -425,6 +425,58 @@ a11y; contract test catches drift.
   .gate-cell.signed{border-color:var(--good);color:var(--good)}
   .gate-cell.bypassed{border-color:var(--bad);color:var(--bad)}
 </style>
+<!-- SDD-116/119 shared demo-mode helper (inlined verbatim from webapp/_shared/demo-mode.{css,js}; opt-in, always-badged sample data — SB-077 reconciliation). -->
+<style>
+/* webapp/_shared/demo-mode.css — SDD-116 DEMO badge.
+ * DEMO mode is opt-in sample data for exploring panels with no daemon. The badge
+ * is a persistent, unmistakable ribbon so DEMO data is NEVER mistaken for real
+ * telemetry (the SB-077 reconciliation). Inlined verbatim into demo-capable
+ * panels alongside demo-mode.js. */
+#so-demo-badge {
+  position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); z-index: 9600;
+  background: #e6c062; color: #0a0a0a; font-weight: 700; font-size: .72rem; letter-spacing: .03em;
+  padding: .28rem .65rem; border-radius: 6px; box-shadow: 0 2px 12px rgba(0, 0, 0, .38);
+  font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif; pointer-events: none;
+}
+#so-demo-badge .sub { font-weight: 400; opacity: .82; }
+</style>
+<script>
+/* webapp/_shared/demo-mode.js — SDD-116 shared DEMO-mode helper (opt-in sample data).
+ *
+ * Reads the `sovereign-os.demo` localStorage flag (schema-guarded) and renders a
+ * persistent DEMO badge. Demo-capable panels call `soDemo.on()` to branch to their
+ * clearly-labelled sample data. The SB-077 reconciliation: DEMO is opt-in (off by
+ * default; never self-enables), ALWAYS badged, and makes ZERO network calls
+ * (R10212 strengthened — the demo render path never fetches). Inlined verbatim into
+ * demo-capable panels alongside demo-mode.css. */
+(function () {
+  "use strict";
+  var DKEY = 'sovereign-os.demo', DSCHEMA = 1;
+  function on() {
+    try {
+      var r = localStorage.getItem(DKEY); var p = r ? JSON.parse(r) : null;
+      return !!(p && p.schema === DSCHEMA && p.on);
+    } catch (e) { return false; }
+  }
+  function set(v) {
+    try { localStorage.setItem(DKEY, JSON.stringify({ schema: DSCHEMA, on: !!v })); } catch (e) {}
+  }
+  function badge() {
+    var b = document.getElementById('so-demo-badge');
+    if (on()) {
+      if (!b) {
+        b = document.createElement('div'); b.id = 'so-demo-badge';
+        b.innerHTML = 'DEMO <span class="sub">· sample data — not real telemetry</span>';
+        b.setAttribute('role', 'status');
+        (document.body || document.documentElement).appendChild(b);
+      }
+    } else if (b) { b.remove(); }
+  }
+  window.soDemo = { on: on, set: set, badge: badge, KEY: DKEY, SCHEMA: DSCHEMA };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', badge);
+  else badge();
+})();
+</script>
 </head>
 <body>
 <!-- APP-SHELL:BEGIN M067 -->
@@ -1140,7 +1192,19 @@ async function fetchPending() {
   }
 }
 
+  function demoActive(){return !!(window.soDemo&&window.soDemo.on());}
+const DEMO_D06 = {
+  approvals:[
+    {id:'demo-ap-01', title:'demo/ rollback tank/root to demo-03', severity:'critical', gate:'SG3', actor:'demo/operator-key', kind:'rollback', profile:'careful', ts:'2026-06-30T13:50:00Z', trace_id:'demo-tr-01', summary:'demo/ destructive — needs signed approval', context:'demo/', diff_url:''},
+    {id:'demo-ap-02', title:'demo/ raise profile to autonomous', severity:'high', gate:'SG2', actor:'demo/operator-key', kind:'profile', profile:'careful', ts:'2026-06-30T13:20:00Z', trace_id:'demo-tr-02', summary:'demo/ elevates agent authority', context:'demo/', diff_url:''},
+    {id:'demo-ap-03', title:'demo/ grant write path /var/lib/demo', severity:'medium', gate:'SG3', actor:'demo/conductor', kind:'grant', profile:'fast', ts:'2026-06-30T12:00:00Z', trace_id:'demo-tr-03', summary:'demo/ scoped write grant', context:'demo/', diff_url:''}
+  ],
+  gates:{SG1:'signed', SG2:'signed', SG3:'pending', SG4:'pending', SG5:'pending'},
+  profile:'careful',
+  summary:{pending:3, critical:1, high:1, oldest_ts:null}
+};
 async function refresh() {
+  if (demoActive()) { const s=DEMO_D06; $('pending-count').textContent=s.summary.pending; $('critical-count').textContent=s.summary.critical; $('high-count').textContent=s.summary.high; $('oldest-age').textContent='—'; renderApprovals(s.approvals); renderGates(s.gates); $('batch-approve-btn').disabled=true; const _b=document.getElementById('datasource-banner');if(_b){_b.classList.remove('online','offline','unknown');_b.classList.add('unknown');}const _l=document.getElementById('ds-state-label');if(_l)_l.textContent='data source: DEMO — sample data';const _d=document.getElementById('ds-state-detail');if(_d)_d.innerHTML='DEMO mode — sample data, not real telemetry (SB-077)';if(window.soDemo)window.soDemo.badge(); return; }
   const state = await fetchPending();
   $('pending-count').textContent = state.summary.pending ?? state.approvals.length;
   $('critical-count').textContent = state.summary.critical ?? state.approvals.filter(a => a.severity === 'critical').length;
@@ -1153,6 +1217,7 @@ async function refresh() {
 }
 
 async function handleAction(action, id) {
+  if (demoActive()) { alert('DEMO — approvals are disabled; no decision recorded.'); return; }
   if (action === 'inspect') {
     location.hash = `#approval-${id}`;
     return;
@@ -1210,7 +1275,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 // SSE auto-refresh every 2s per MS043 R10173
-const sse = (function() {
+const sse = demoActive() ? null : (function() {
   try {
     const es = new EventSource('/api/approvals/stream');
     es.addEventListener('approval-added', refresh);
