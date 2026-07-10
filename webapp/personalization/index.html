@@ -728,8 +728,11 @@ a11y; contract test catches drift.
 <div class="panel">
   <button id="reset-btn">reset to defaults</button>
   <button id="export-btn">copy: export as JSON</button>
+  <button id="export-file">download JSON file</button>
   <button id="import-btn">import from JSON…</button>
-  <span class="muted" style="margin-left:.7rem;font-size:.78rem">prefs live in <code>localStorage</code> on this browser only (per-device); export copies the profile JSON, import loads a pasted profile; never sent to the server (read-only doctrine).</span>
+  <button id="import-file-btn">import from file…</button>
+  <input type="file" id="import-file" accept="application/json,.json" style="display:none">
+  <span class="muted" style="margin-left:.7rem;font-size:.78rem">prefs live in <code>localStorage</code> on this browser only (per-device); export copies / downloads the profile JSON, import loads a pasted or uploaded profile; never sent to the server (read-only doctrine).</span>
   <div id="import-box" style="display:none;margin-top:.7rem">
     <textarea id="import-json" rows="5" spellcheck="false" placeholder='paste a personalization profile here, e.g. {"schema":1,"theme":"dark","accent":"#9bd1ff","font_scale":1}' style="width:100%;box-sizing:border-box;font-family:ui-monospace,monospace;font-size:.78rem;padding:.5rem;border:1px solid var(--border,#262626);border-radius:.4rem;background:var(--panel,#171717);color:inherit"></textarea>
     <button id="import-apply" style="margin-top:.45rem">apply pasted prefs</button>
@@ -847,19 +850,30 @@ a11y; contract test catches drift.
     navigator.clipboard.writeText(blob).then(() => toast('copied JSON to clipboard'));
   });
 
-  // Import — complete the export→import round-trip (SDD-105). Pure client-side;
+  // File export (SDD-107) — a Blob download of the profile JSON; the clipboard
+  // export stays. Pure client-side (no fetch). Idiom reused from models-catalog.
+  function download(name, text, mime) {
+    const b = new Blob([text], { type: mime });
+    const url = URL.createObjectURL(b);
+    const a = document.createElement('a');
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  }
+  function stamp() { return new Date().toISOString().slice(0, 10); }
+  document.getElementById('export-file').addEventListener('click', () => {
+    download('personalization-' + stamp() + '.json', JSON.stringify(prefs, null, 2), 'application/json');
+    toast('downloaded JSON file');
+  });
+
+  // Import — complete the export→import round-trip (SDD-105 paste + SDD-107 file).
+  // Pure client-side; ONE validator (applyImportedText) for both paths;
   // validate-then-apply, honest-reject (never partially-apply garbage — SB-077).
   const VALID_THEMES = ['auto', 'dark', 'light'];
   const VALID_SCALES = [0.85, 1, 1.15];
-  document.getElementById('import-btn').addEventListener('click', () => {
-    const box = document.getElementById('import-box');
-    const open = box.style.display !== 'none';
-    box.style.display = open ? 'none' : '';
-    if (!open) document.getElementById('import-json').focus();
-  });
-  document.getElementById('import-apply').addEventListener('click', () => {
+  function applyImportedText(text) {
     let p;
-    try { p = JSON.parse(document.getElementById('import-json').value); }
+    try { p = JSON.parse(text); }
     catch (e) { toast('invalid JSON'); return; }
     if (!p || typeof p !== 'object' || Array.isArray(p)) { toast('invalid JSON — expected an object'); return; }
     if (p.schema !== SCHEMA_V) { toast('unknown schema — expected v1'); return; }
@@ -870,6 +884,29 @@ a11y; contract test catches drift.
     prefs = { ...DEFAULTS, ...p, font_scale: Number(('font_scale' in p) ? p.font_scale : DEFAULTS.font_scale) };
     savePrefs(prefs); applyPrefs(prefs); renderAll(); toast('imported');
     document.getElementById('import-box').style.display = 'none';
+  }
+  document.getElementById('import-btn').addEventListener('click', () => {
+    const box = document.getElementById('import-box');
+    const open = box.style.display !== 'none';
+    box.style.display = open ? 'none' : '';
+    if (!open) document.getElementById('import-json').focus();
+  });
+  document.getElementById('import-apply').addEventListener('click', () => {
+    applyImportedText(document.getElementById('import-json').value);
+  });
+  // File import (SDD-107) — read the chosen file with FileReader, then run the
+  // SAME validator as paste. The <input type=file> is hidden; the button opens it.
+  document.getElementById('import-file-btn').addEventListener('click', () => {
+    document.getElementById('import-file').click();
+  });
+  document.getElementById('import-file').addEventListener('change', (ev) => {
+    const f = ev.target.files && ev.target.files[0];
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = () => applyImportedText(String(reader.result));
+    reader.onerror = () => toast('could not read file');
+    reader.readAsText(f);
+    ev.target.value = '';  // allow re-selecting the same file
   });
 
   function toast(msg) {
@@ -1398,6 +1435,21 @@ window.SO_ASSIST = {
      "title": "Export as JSON",
      "content": "Copy your personalization settings as JSON — portable so you can carry the same look to another box or restore it later.",
      "expanded": "<div class=\"so-card info\"><div class='so-li ok'>✓ Export makes your look reproducible — paste it back to recreate the exact theme/accent/scale elsewhere.</div></div>"
+    },
+    {
+     "selector": "#export-file",
+     "title": "Download JSON file",
+     "content": "Save your personalization settings as a personalization-<date>.json file — hand it to someone or keep a backup. Pure client-side: a download of your own settings, nothing sent to the server."
+    },
+    {
+     "selector": "#import-btn",
+     "title": "Import from JSON",
+     "content": "Paste a profile JSON to load it — validated (schema v1 + theme/accent/scale) before it applies; an invalid paste is rejected with a reason and nothing changes."
+    },
+    {
+     "selector": "#import-file-btn",
+     "title": "Import from file",
+     "content": "Load a personalization JSON file from disk — read locally in the browser and run through the SAME validator as paste (bad file → rejected, nothing changes). Never uploaded to the server."
     },
     {
      "selector": "#toast",
