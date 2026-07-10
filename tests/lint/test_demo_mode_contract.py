@@ -235,3 +235,54 @@ def test_d04_costs_demo():
     assert "if (!demoActive()) try {\n  const es = new EventSource('/api/costs/stream')" in body, (
         "D-04 must skip the costs EventSource in demo"
     )
+
+
+# ── SDD-122 (DEMO batch 3 — punchy verdicts + compute meta) ────────────────────
+
+def test_d01_active_sessions_demo():
+    """SDD-122 — D-01 Active Sessions: badged sample summary+sessions via refresh()
+    short-circuit (no fetchSessions), /api/sessions/stream skipped in demo."""
+    body = _assert_head_demo("d-01-active-sessions", "DEMO_SESSIONS")
+    assert re.search(r"demoActive\(\)\s*\?\s*DEMO_SESSIONS\s*:\s*await fetchSessions\(\)", body)
+    assert "if (!demoActive()) try {\n  const es = new EventSource('/api/sessions/stream')" in body, (
+        "D-01 must skip the sessions EventSource in demo"
+    )
+
+
+def test_d20_peace_machine_health_demo():
+    """SDD-122 — D-20 Peace Machine Health: badged sample verdict via load() short-circuit,
+    no /api/d-20/snapshot fetch in demo."""
+    body = _assert_head_demo("d-20-peace-machine-health", "DEMO_D20")
+    m = re.search(r"if \(demoActive\(\)\) \{ seed = Object\.assign\(seed, DEMO_D20\);(.*?)return; \}", body, re.DOTALL)
+    assert m and "fetch(" not in m.group(1), "D-20 demo branch must make NO fetch"
+
+
+def test_d18_trust_scores_demo():
+    """SDD-122 — D-18 Trust Scores: badged sample tiles/tools via load() short-circuit,
+    no /api/d-18/snapshot fetch in demo."""
+    body = _assert_head_demo("d-18-trust-scores", "DEMO_D18")
+    m = re.search(r"if \(demoActive\(\)\) \{ seed = Object\.assign\(seed, DEMO_D18\);(.*?)return; \}", body, re.DOTALL)
+    assert m and "fetch(" not in m.group(1), "D-18 demo branch must make NO fetch"
+
+
+def test_d19_super_model_manifest_demo():
+    """SDD-122 — D-19 Super-Model Manifest: badged sample version/phases/milestones via
+    load() short-circuit, no /api/d-19/snapshot fetch in demo."""
+    body = _assert_head_demo("d-19-super-model-manifest", "DEMO_D19")
+    m = re.search(r"if \(demoActive\(\)\) \{\n      snap = Object\.assign\(snap, DEMO_D19\);(.*?)return;\n    \}", body, re.DOTALL)
+    assert m and "fetch(" not in m.group(1), "D-19 demo branch must make NO fetch"
+
+
+def test_d02_profile_choices_demo():
+    """SDD-122 — D-02 Profile Choices: badged sample active profile via refresh() short-circuit,
+    no /api/profile/show fetch in demo."""
+    body = _assert_head_demo("d-02-profile-choices", "DEMO_PROFILE")
+    assert re.search(r"demoActive\(\)\s*\?\s*DEMO_PROFILE\s*:\s*await fetchActiveProfile\(\)", body)
+
+
+def test_profile_generation_demo():
+    """SDD-122 — profile-generation: badged sample allocations via load() ternary, no fetch in demo."""
+    body = _assert_head_demo("profile-generation", "DEMO_PROFGEN")
+    assert re.search(r"demoActive\(\)\s*\?\s*DEMO_PROFGEN\s*:\s*await", body), (
+        "profile-generation load() must select DEMO_PROFGEN (no fetch) in demo"
+    )

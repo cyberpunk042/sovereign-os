@@ -419,6 +419,58 @@ a11y; contract test catches drift.
   a{color:var(--accent);text-decoration:none}
   a:hover{text-decoration:underline}
 </style>
+<!-- SDD-116/119 shared demo-mode helper (inlined verbatim from webapp/_shared/demo-mode.{css,js}; opt-in, always-badged sample data — SB-077 reconciliation). -->
+<style>
+/* webapp/_shared/demo-mode.css — SDD-116 DEMO badge.
+ * DEMO mode is opt-in sample data for exploring panels with no daemon. The badge
+ * is a persistent, unmistakable ribbon so DEMO data is NEVER mistaken for real
+ * telemetry (the SB-077 reconciliation). Inlined verbatim into demo-capable
+ * panels alongside demo-mode.js. */
+#so-demo-badge {
+  position: fixed; top: calc(var(--so-header-h, 48px) + 8px); right: 12px; z-index: 9600;
+  background: #e6c062; color: #0a0a0a; font-weight: 700; font-size: .72rem; letter-spacing: .03em;
+  padding: .28rem .65rem; border-radius: 6px; box-shadow: 0 2px 12px rgba(0, 0, 0, .38);
+  font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif; pointer-events: none;
+}
+#so-demo-badge .sub { font-weight: 400; opacity: .82; }
+</style>
+<script>
+/* webapp/_shared/demo-mode.js — SDD-116 shared DEMO-mode helper (opt-in sample data).
+ *
+ * Reads the `sovereign-os.demo` localStorage flag (schema-guarded) and renders a
+ * persistent DEMO badge. Demo-capable panels call `soDemo.on()` to branch to their
+ * clearly-labelled sample data. The SB-077 reconciliation: DEMO is opt-in (off by
+ * default; never self-enables), ALWAYS badged, and makes ZERO network calls
+ * (R10212 strengthened — the demo render path never fetches). Inlined verbatim into
+ * demo-capable panels alongside demo-mode.css. */
+(function () {
+  "use strict";
+  var DKEY = 'sovereign-os.demo', DSCHEMA = 1;
+  function on() {
+    try {
+      var r = localStorage.getItem(DKEY); var p = r ? JSON.parse(r) : null;
+      return !!(p && p.schema === DSCHEMA && p.on);
+    } catch (e) { return false; }
+  }
+  function set(v) {
+    try { localStorage.setItem(DKEY, JSON.stringify({ schema: DSCHEMA, on: !!v })); } catch (e) {}
+  }
+  function badge() {
+    var b = document.getElementById('so-demo-badge');
+    if (on()) {
+      if (!b) {
+        b = document.createElement('div'); b.id = 'so-demo-badge';
+        b.innerHTML = 'DEMO <span class="sub">· sample data — not real telemetry</span>';
+        b.setAttribute('role', 'status');
+        (document.body || document.documentElement).appendChild(b);
+      }
+    } else if (b) { b.remove(); }
+  }
+  window.soDemo = { on: on, set: set, badge: badge, KEY: DKEY, SCHEMA: DSCHEMA };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', badge);
+  else badge();
+})();
+</script>
 </head>
 <body>
 <!-- APP-SHELL:BEGIN M067 -->
@@ -1159,6 +1211,14 @@ async function fetchActiveProfile() {
 }
 
 // M060 — visible operator signal that the selfdef producer chain is alive.
+const DEMO_PROFILE = {
+  active:"careful", since:"2026-06-30 14:00 (DEMO)", actor:"demo/operator-key", envelope:"L0-L2 · Ring 3",
+  mirror_status:"online", schema_version:"1.0.0",
+  history:[
+    {ts:"2026-06-30T14:00:00Z", from:"private", to:"careful", actor:"demo/operator-key", rationale:"demo/ raise ceiling for agent run", signature:"demo/sig-8fa2c1"},
+    {ts:"2026-06-29T09:12:00Z", from:"careful", to:"private", actor:"demo/operator-key", rationale:"demo/ end-of-day lockdown", signature:"demo/sig-3b71de"}
+  ]
+};
 function renderMirrorBanner(state) {
   const banner = document.getElementById('mirror-status-banner');
   if (!banner) return;
@@ -1188,7 +1248,9 @@ function renderMirrorBanner(state) {
 
 async function refresh() {
   $('active-profile').textContent = 'loading…';
-  const state = await fetchActiveProfile();
+  function demoActive() { return !!(window.soDemo && window.soDemo.on()); }
+  const state = demoActive() ? DEMO_PROFILE : await fetchActiveProfile();
+  if (demoActive() && window.soDemo) { const _l=document.getElementById('mirror-state-label'); if(_l)_l.textContent='mirror: DEMO — sample data'; window.soDemo.badge(); }
   renderMirrorBanner(state);
   activeProfileId = state.active;
   $('active-profile').innerHTML = `<span class="ok">${state.active}</span>`;
