@@ -453,6 +453,58 @@
   MS003-signed CLI verbs (R10212 — web never mutates).
   Operator §1g standing rule (sacrosanct): <strong>We do not minimize anything.</strong>
 </footer>
+<!-- SDD-116/117 shared demo-mode helper (inlined verbatim from webapp/_shared/demo-mode.{css,js}; opt-in, always-badged sample data — SB-077 reconciliation). -->
+<style>
+/* webapp/_shared/demo-mode.css — SDD-116 DEMO badge.
+ * DEMO mode is opt-in sample data for exploring panels with no daemon. The badge
+ * is a persistent, unmistakable ribbon so DEMO data is NEVER mistaken for real
+ * telemetry (the SB-077 reconciliation). Inlined verbatim into demo-capable
+ * panels alongside demo-mode.js. */
+#so-demo-badge {
+  position: fixed; top: calc(var(--so-header-h, 48px) + 8px); right: 12px; z-index: 9600;
+  background: #e6c062; color: #0a0a0a; font-weight: 700; font-size: .72rem; letter-spacing: .03em;
+  padding: .28rem .65rem; border-radius: 6px; box-shadow: 0 2px 12px rgba(0, 0, 0, .38);
+  font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif; pointer-events: none;
+}
+#so-demo-badge .sub { font-weight: 400; opacity: .82; }
+</style>
+<script>
+/* webapp/_shared/demo-mode.js — SDD-116 shared DEMO-mode helper (opt-in sample data).
+ *
+ * Reads the `sovereign-os.demo` localStorage flag (schema-guarded) and renders a
+ * persistent DEMO badge. Demo-capable panels call `soDemo.on()` to branch to their
+ * clearly-labelled sample data. The SB-077 reconciliation: DEMO is opt-in (off by
+ * default; never self-enables), ALWAYS badged, and makes ZERO network calls
+ * (R10212 strengthened — the demo render path never fetches). Inlined verbatim into
+ * demo-capable panels alongside demo-mode.css. */
+(function () {
+  "use strict";
+  var DKEY = 'sovereign-os.demo', DSCHEMA = 1;
+  function on() {
+    try {
+      var r = localStorage.getItem(DKEY); var p = r ? JSON.parse(r) : null;
+      return !!(p && p.schema === DSCHEMA && p.on);
+    } catch (e) { return false; }
+  }
+  function set(v) {
+    try { localStorage.setItem(DKEY, JSON.stringify({ schema: DSCHEMA, on: !!v })); } catch (e) {}
+  }
+  function badge() {
+    var b = document.getElementById('so-demo-badge');
+    if (on()) {
+      if (!b) {
+        b = document.createElement('div'); b.id = 'so-demo-badge';
+        b.innerHTML = 'DEMO <span class="sub">· sample data — not real telemetry</span>';
+        b.setAttribute('role', 'status');
+        (document.body || document.documentElement).appendChild(b);
+      }
+    } else if (b) { b.remove(); }
+  }
+  window.soDemo = { on: on, set: set, badge: badge, KEY: DKEY, SCHEMA: DSCHEMA };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', badge);
+  else badge();
+})();
+</script>
 <script>
   const $ = id => document.getElementById(id);
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
@@ -511,6 +563,33 @@
     {slot:'EXT_GPU', role:null, label:'Future / External GPU', present:false},
     {slot:'CPU0', role:'conductor', label:'Ryzen 9 9900X AM5 AVX-512', present:true, models:[{slot:0,core_range:'1-7'},{slot:1,core_range:'8-15'},{slot:2,core_range:'16-24'}]},
   ];
+
+  // ── SDD-117 DEMO mode: opt-in, always-badged sample data (never real; SB-077).
+  // demoActive() gates a render path that makes ZERO network calls. Placeholder
+  // ids (`demo/…`) are obvious so DEMO can't be mistaken for live orchestration.
+  function demoActive() { return !!(window.soDemo && window.soDemo.on()); }
+  const DEMO_GRID = { cells: [
+    {slot:'GPU0', role:'logic', label:'Logic Engine (GPU 0)', present:true, util_pct:62, mode:'active · logic',
+     models:[{slot:0,id:'demo/qwen3-coder-14b',precision:'NVFP4'},{slot:1,id:'demo/glm-4-9b',precision:'Q4'},{slot:2}]},
+    {slot:'GPU1', role:'oracle', label:'Oracle Core (GPU 1, Blackwell)', present:true, util_pct:41, mode:'active · oracle',
+     models:[{slot:0,id:'demo/deepseek-r1-32b',precision:'NVFP4'},{slot:1},{slot:2}]},
+    {slot:'EXT_GPU', role:null, label:'Future / External GPU', present:false},
+    {slot:'CPU0', role:'conductor', label:'Ryzen 9 9900X AM5 AVX-512', present:true, util_pct:18, mode:'idle · conductor',
+     models:[{slot:0,id:'demo/bitnet-2b',precision:'ternary',core_range:'1-7'},{slot:1,core_range:'8-15'},{slot:2,core_range:'16-24'}]},
+  ]};
+  const DEMO_PROFILES = { profiles: [
+    {id:'demo-coding', name:'Coding Focus (DEMO)', description:'GPU0 logic + CPU0 conductor — sample profile'},
+    {id:'demo-thinking', name:'Thinking Focus (DEMO)', description:'GPU1 oracle deep-context — sample profile'},
+    {id:'demo-hybrid', name:'Full Hybrid (DEMO)', description:'all tiers active — sample profile'},
+  ]};
+  const DEMO_FEATURES = { cpu: [
+    {flag:'avx512f',present:true},{flag:'avx512vl',present:true},{flag:'avx512bw',present:true},{flag:'avx512dq',present:true},
+    {flag:'avx512_vnni',present:true},{flag:'avx512vbmi',present:true},{flag:'avx512_vpopcntdq',present:true},
+  ], gpu: [
+    {name:'demo RTX 4090',compute_cap:'8.9',tensor_cores:true},
+    {name:'demo RTX 6000 Blackwell',compute_cap:'10.0',nvfp4_capable:true,tensor_cores:true},
+  ]};
+
   function renderGrid(data) {
     const cells = (data && data.cells && data.cells.length) ? data.cells : FIXED_CELLS;
     $('grid').innerHTML = cells.map(cellHtml).join('');
@@ -586,6 +665,17 @@
   }
 
   async function refresh() {
+    // SDD-117 DEMO short-circuit: render badged sample data with ZERO network
+    // calls (the SB-077 reconciliation — opt-in + always-badged).
+    if (demoActive()) {
+      $('data-source-banner').innerHTML = '<strong>DEMO mode</strong> — sample data, not a live daemon. Disable it in Personalization.';
+      renderProfiles(DEMO_PROFILES);
+      renderGrid(DEMO_GRID);
+      renderFeatures(DEMO_FEATURES);
+      if (window.soDemo) window.soDemo.badge();
+      $('last-fetch').textContent = 'DEMO · sample data';
+      return;
+    }
     try {
       const [grid, profiles, features] = await Promise.all([
         fetchJson('/api/lm-orchestration/grid'),
@@ -608,11 +698,15 @@
   // fetch below fills in live data (or the catch keeps the fixed structure).
   renderGrid({});
   refresh();
-  try {
-    const es = new EventSource('/api/lm-orchestration/stream');
-    es.addEventListener('state-change', refresh);
-    es.addEventListener('error', () => setInterval(refresh, 5000));
-  } catch (e) { setInterval(refresh, 5000); }
+  // SDD-117 — in DEMO mode open NO EventSource (zero network calls); the demo
+  // render path is fully client-side. Live mode keeps the SSE + interval refresh.
+  if (!demoActive()) {
+    try {
+      const es = new EventSource('/api/lm-orchestration/stream');
+      es.addEventListener('state-change', refresh);
+      es.addEventListener('error', () => setInterval(refresh, 5000));
+    } catch (e) { setInterval(refresh, 5000); }
+  }
 
   refresh();
 </script>

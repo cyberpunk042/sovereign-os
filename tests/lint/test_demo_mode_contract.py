@@ -74,3 +74,20 @@ def test_personalization_carries_the_global_toggle():
     assert re.search(r'data-demo="off"[^>]*class="demo-btn on"', body), (
         "DEMO must default to OFF in the toggle (opt-in)"
     )
+
+
+def test_d21_lm_orchestration_demo(): 
+    """SDD-117 — D-21 reuses the shared helper for DEMO mode: opt-in, badged,
+    sample grid/profiles/features with placeholder ids, and NO network call in
+    the demo path (no fetch, no EventSource)."""
+    body = (REPO_ROOT / "webapp" / "d-21-lm-orchestration" / "index.html").read_text(encoding="utf-8")
+    assert "window.soDemo" in body and BADGE_TEXT in body
+    assert "function demoActive()" in body
+    assert "DEMO_GRID" in body and "demo/" in body  # obvious placeholder model ids
+    m = re.search(r"if \(demoActive\(\)\) \{(.*?)\n    \}", body, re.DOTALL)
+    assert m and "fetch(" not in m.group(1) and "fetchJson(" not in m.group(1), (
+        "the D-21 DEMO render path must make NO fetch (SB-077 / R10212)"
+    )
+    assert re.search(r"if \(!demoActive\(\)\) \{\s*try \{\s*const es = new EventSource", body), (
+        "D-21 must open NO EventSource in DEMO mode"
+    )

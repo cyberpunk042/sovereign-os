@@ -296,3 +296,22 @@ def test_catalog_registers_code_console():
     catalog = (REPO_ROOT / "config" / "dashboard-catalog.yaml").read_text()
     assert "slug: code-console" in catalog
     assert "/code-console/" in catalog
+
+
+def test_thread_layout_survives_assist_pane():
+    """SDD-117 — the 3-pane grid must not crush the conversation into a vertical
+    sliver: the center column uses minmax(0,1fr) (so it can shrink below its
+    longest word), messages wrap with overflow-wrap (not mid-word word-break),
+    and the assist-pane-open case reflows (body.so-assist-open .cc-grid)."""
+    import re
+    body = WEBAPP_HTML.read_text(encoding="utf-8")
+    assert "minmax(0,1fr)" in body, "the center column must be minmax(0,1fr) so it can shrink"
+    assert re.search(r"\.cc-msg\s*\{[^}]*overflow-wrap:\s*break-word", body), (
+        "messages must use overflow-wrap:break-word (not mid-word word-break)"
+    )
+    assert re.search(r"\.cc-msg\s*\{(?![^}]*word-break:\s*break-word)[^}]*\}", body), (
+        "the mid-word word-break:break-word must be removed from .cc-msg"
+    )
+    assert "body.so-assist-open .cc-grid" in body, (
+        "the layout must reflow when the assistant pane is open"
+    )
