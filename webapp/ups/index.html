@@ -949,12 +949,14 @@ window.SO_ASSIST = {
     {
      "selector": "#status",
      "title": "Power status",
-     "content": "The overall power state. The UPS is the box's insurance against a dirty power loss — read this with the line state to know whether you are on mains or battery."
+     "content": "The overall power state. The UPS is the box's insurance against a dirty power loss — read this with the line state to know whether you are on mains or battery.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The UPS is the graceful-shutdown insurance</div>The UPS exists so a power cut becomes a clean shutdown, not a yank. Its whole value is buying the minutes needed to flush state and stop services in order — protecting the ZFS pool and in-flight work from corruption.<div class=\"so-xref\"><span class=\"x\">→</span> D-08 rollback points — the ZFS state the clean shutdown protects</div></div>"
     },
     {
      "selector": "#line-dot",
      "title": "Line indicator",
-     "content": "The at-a-glance on-line/on-battery dot. Green = mains; amber/red = running on battery, where the shutdown guard becomes live."
+     "content": "The at-a-glance on-line/on-battery dot. Green = mains; amber/red = running on battery, where the shutdown guard becomes live.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The at-a-glance power light</div>Green = on mains; amber/red = on battery. The instant read of whether the box is running on wall power or counting down on the UPS — pair it with the runtime estimate.</div>"
     },
     {
      "selector": "#line-state",
@@ -975,22 +977,26 @@ window.SO_ASSIST = {
        "content": "On line — mains power is present; the battery is a reserve.",
        "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● On line</div>Running on mains — the UPS is charged reserve, shutdown guard idle.</div>"
       }
-     ]
+     ],
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">On battery = the clock is running</div>On mains, the box is fine indefinitely. On battery, the runtime estimate becomes a countdown — the shutdown guard watches it and will act before the battery dies. On-battery is not an alarm by itself, but it starts the timer.</div>"
     },
     {
      "selector": "#model",
      "title": "UPS model",
-     "content": "The detected UPS model. Confirms the box is actually seeing the UPS over USB/serial — a blank model means the UPS is not being monitored, which defeats the whole guard."
+     "content": "The detected UPS model. Confirms the box is actually seeing the UPS over USB/serial — a blank model means the UPS is not being monitored, which defeats the whole guard.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Detection confirms the box sees the UPS</div>The detected model proves the box is actually reading the UPS over USB/serial — not assuming. A UPS the box can't see is a UPS that can't trigger a shutdown, so detection is the precondition for the whole guard.</div>"
     },
     {
      "selector": "#source",
      "title": "Power source",
-     "content": "The current power source detail — mains vs battery and any transfer reason. Read it to understand WHY the box is on battery (outage vs a brownout transfer)."
+     "content": "The current power source detail — mains vs battery and any transfer reason. Read it to understand WHY the box is on battery (outage vs a brownout transfer).",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Mains vs battery, in detail</div>The current power-source detail and any transfer event. A recent transfer to battery is the moment the shutdown-guard clock started; this is where you see it happen.</div>"
     },
     {
      "selector": "#stats",
      "title": "UPS stats",
-     "content": "The UPS telemetry — charge, load, estimated runtime. The runtime is the number the shutdown guard races against; read it on battery to know how long you have."
+     "content": "The UPS telemetry — charge, load, estimated runtime. The runtime is the number the shutdown guard races against; read it on battery to know how long you have.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Runtime is the number that matters</div>Charge and load are context; estimated runtime is the decision input. The guard compares live runtime against the shutdown floor — so a heavy load (shorter runtime) can trigger shutdown sooner than a low charge alone would.</div>"
     }
    ]
   },
@@ -1018,7 +1024,8 @@ window.SO_ASSIST = {
        "content": "Guard disarmed — no automatic shutdown; a battery-death would be a hard power cut.",
        "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Guard disarmed</div>No auto-shutdown — if the battery dies the box loses power abruptly, risking ZFS corruption.</div>"
       }
-     ]
+     ],
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Armed = it will actually shut down</div>Armed means the guard WILL power off gracefully when runtime crosses the floor. Disarmed means it won't — which risks a hard power loss. This badge is the difference between insurance that pays out and insurance that doesn't.</div>"
     },
     {
      "selector": "#shut-min",
@@ -1029,7 +1036,8 @@ window.SO_ASSIST = {
     {
      "selector": "#thresholds",
      "title": "Threshold table",
-     "content": "The configured shutdown thresholds and what each triggers. Read it to see the full ladder — warn, then begin shutdown — not just the single trigger minute."
+     "content": "The configured shutdown thresholds and what each triggers. Read it to see the full ladder — warn, then begin shutdown — not just the single trigger minute.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">What each threshold triggers</div>The configured shutdown thresholds and their actions. Read them to know exactly when the guard will act — the runtime floor that starts a graceful shutdown, and any warning steps before it.</div>"
     },
     {
      "selector": "#verdict-line",
@@ -1043,7 +1051,8 @@ window.SO_ASSIST = {
        "content": "Shutdown imminent — runtime is at or below the threshold; the guard is powering the box off now.",
        "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Shutting down</div>Runtime hit the floor — the box is powering off gracefully now. Do not interrupt.</div>"
       }
-     ]
+     ],
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The guard's live call</div>Given the current runtime, whether a shutdown is imminent. It's the guard thinking out loud — 'plenty of runtime, holding' vs 'below floor, shutting down' — so you can see its decision before it acts.</div>"
     }
    ]
   },
@@ -1055,7 +1064,8 @@ window.SO_ASSIST = {
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "The control rail — each button copies its exact sovereign-osctl verb. An arm/disarm or threshold change runs through the signed CLI, never from a web click."
+     "content": "The control rail — each button copies its exact sovereign-osctl verb. An arm/disarm or threshold change runs through the signed CLI, never from a web click.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copy-command boundary</div>Each control copies its sovereign-osctl verb (§1g / R10212). The shutdown guard is configured via the CLI; the web reads UPS state, it never arms or disarms the guard.</div>"
     }
    ]
   }

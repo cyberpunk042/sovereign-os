@@ -1507,17 +1507,20 @@ window.SO_ASSIST = {
        "content": "No answer — the trace store is a snapshot; a recent trace may be absent, not lost.",
        "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Offline</div>The trace feed is down. A missing trace here may just be unreached, not gone — retry when it recovers.</div>"
       }
-     ]
+     ],
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">One-word trace-feed health</div>Live or snapshot — whether the M049 span feed is current. Traces are the box's legibility (D-20 P2); a stale feed means recent activity isn't yet visible.</div>"
     },
     {
      "selector": "#ds-state-detail",
      "title": "Source detail",
-     "content": "The longer status line — which endpoint answered and, when degraded, why. On a healthy feed it confirms /api/traces/spans; when amber it distinguishes a slow store from an unreachable one, which decides whether a missing trace is worth waiting for."
+     "content": "The longer status line — which endpoint answered and, when degraded, why. On a healthy feed it confirms /api/traces/spans; when amber it distinguishes a slow store from an unreachable one, which decides whether a missing trace is worth waiting for.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Which trace feed answered</div>The endpoint behind the traces banner and any degraded note — the trace collector reachable vs a snapshot.</div>"
     },
     {
      "selector": "#ds-last-update",
      "title": "Store freshness",
-     "content": "When the trace store was last read. It bounds how recent a trace you can expect to find: a request from seconds ago may not be ingested yet, so an old timestamp during a fresh investigation is a reason to refresh before concluding a trace is missing."
+     "content": "When the trace store was last read. It bounds how recent a trace you can expect to find: a request from seconds ago may not be ingested yet, so an old timestamp during a fresh investigation is a reason to refresh before concluding a trace is missing.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Spans arrive continuously</div>When traces were last read. Every action emits an M049 span, so an old timestamp means the most recent operations aren't shown yet.</div>"
     }
    ]
   },
@@ -1551,7 +1554,8 @@ window.SO_ASSIST = {
        "content": "Errored spans present — each has a full trace. Search to find them and open one to see where it broke.",
        "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ Errors traced</div>Some requests failed — and each left a complete trace. Search to reconstruct exactly where.</div>"
       }
-     ]
+     ],
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Failed spans in the window</div>How many spans ended in error. A cluster of error spans is the box telling you something is failing repeatedly — the entry point to a root-cause chase via the trace tree.</div>"
     },
     {
      "selector": "#p95-lat",
@@ -1599,12 +1603,14 @@ window.SO_ASSIST = {
     {
      "selector": "#apply-btn",
      "title": "Apply",
-     "content": "Runs the search with the current filters. Read-only — it queries the trace store and repopulates the span table; it changes nothing about the box, only what you’re looking at."
+     "content": "Runs the search with the current filters. Read-only — it queries the trace store and repopulates the span table; it changes nothing about the box, only what you’re looking at.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Filter the trace view</div>Applies the filters to the span table — read-only re-query. It changes what you see, never the traces themselves.</div>"
     },
     {
      "selector": "#clear-btn",
      "title": "Clear",
-     "content": "Resets the filters to the default view. Use it to start a fresh search after drilling into one investigation, rather than un-setting each filter by hand."
+     "content": "Resets the filters to the default view. Use it to start a fresh search after drilling into one investigation, rather than un-setting each filter by hand.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Reset the trace filters</div>Clears the applied filters back to the full span view. Cosmetic — it widens what's shown, it doesn't touch the underlying traces.</div>"
     }
    ]
   },
@@ -1645,7 +1651,8 @@ window.SO_ASSIST = {
       "title": "OCSF · {{name}}",
       "content": "The {{name}} OCSF class and its count in the window — one category of the 16-event security taxonomy (MS026). Read it as what the box did in security terms; a spike in a finding or exposure class is the story of the window.",
       "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">OCSF · {{name}}</div>One class of the security event taxonomy. Filtering to it surfaces every trace that produced this kind of event — the analyst’s way of searching the box by security meaning rather than request detail.</div>"
-     }
+     },
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Events by OCSF class</div>Each row is an OCSF event class (MS026) and its count in the window — the security-standard rollup of what happened. It's the trace stream categorized into the 16-event taxonomy generic tooling understands.<div class=\"so-xref\"><span class=\"x\">→</span> D-16 audit — the same OCSF classes in the immutable chain</div></div>"
     },
     {
      "selector": "#ocsf-1001",
@@ -1693,7 +1700,8 @@ window.SO_ASSIST = {
     {
      "selector": "#detail-title",
      "title": "Detail title",
-     "content": "Which span is open in the detail panel — its identity, so you know which step of which trace you’re reading."
+     "content": "Which span is open in the detail panel — its identity, so you know which step of which trace you’re reading.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Which span you're reading</div>The identity of the span open in the detail panel — so you know which operation's trace tree you're inspecting. The anchor for the drill-down.</div>"
     },
     {
      "selector": "#detail-fields",
@@ -1722,7 +1730,8 @@ window.SO_ASSIST = {
     {
      "selector": "#detail-close",
      "title": "Close detail",
-     "content": "Closes the detail panel and returns to the span list. Cosmetic — it changes only what you’re viewing."
+     "content": "Closes the detail panel and returns to the span list. Cosmetic — it changes only what you’re viewing.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Back to the span list</div>Closes the span detail and returns to the list — cosmetic navigation. It changes what you're viewing, not any trace; the span and its tree are unchanged.</div>"
     }
    ]
   },
@@ -1734,7 +1743,8 @@ window.SO_ASSIST = {
     {
      "selector": "#refresh-btn",
      "title": "Refresh",
-     "content": "Re-runs the current search against the trace store immediately. Read-only. Use it to pull in traces that landed since your last query — useful when investigating something that just happened and may not have been ingested yet."
+     "content": "Re-runs the current search against the trace store immediately. Read-only. Use it to pull in traces that landed since your last query — useful when investigating something that just happened and may not have been ingested yet.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Re-run the trace search</div>Re-runs the current search against the trace store — read-only. It re-queries; it never alters a span.</div>"
     },
     {
      "selector": "#replay-verify-btn",
@@ -1758,7 +1768,8 @@ window.SO_ASSIST = {
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "The profile/mode/feature control rail. Its role here is that a trace investigation sometimes ends in a structural fix — if traces keep showing one tier erroring or cloud repeatedly reached, the durable answer is a profile or feature change, whose signed verb is copied from here rather than acting on each trace individually."
+     "content": "The profile/mode/feature control rail. Its role here is that a trace investigation sometimes ends in a structural fix — if traces keep showing one tier erroring or cloud repeatedly reached, the durable answer is a profile or feature change, whose signed verb is copied from here rather than acting on each trace individually.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copy-command boundary</div>The control rail copies signed sovereign-osctl verbs (§1g / R10212). A trace is evidence you read; acting on what it reveals is a separate signed operation.</div>"
     }
    ]
   }

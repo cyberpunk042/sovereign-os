@@ -1520,17 +1520,20 @@ window.SO_ASSIST = {
        "content": "Offline — showing the last snapshot; the box may have moved on since.",
        "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Offline</div>No live answer — this is a cached snapshot, possibly stale.</div>"
       }
-     ]
+     ],
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">One-word eval-feed health</div>Live or snapshot — whether the eval scores are current. A suite that ran since a snapshot won't show, so this gates trust in a 'passing' reading.</div>"
     },
     {
      "selector": "#ds-state-detail",
      "title": "Source detail",
-     "content": "The status line under the banner — endpoint + any degraded note."
+     "content": "The status line under the banner — endpoint + any degraded note.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Which eval feed answered</div>The endpoint behind the banner and any degraded note — the eval daemon reachable vs a cached read.</div>"
     },
     {
      "selector": "#ds-last-update",
      "title": "Source freshness",
-     "content": "When the eval history was last read. A suite that ran since then would not appear yet."
+     "content": "When the eval history was last read. A suite that ran since then would not appear yet.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Stale evals hide regressions</div>A suite that ran after this timestamp won't show — so an old read can make a fresh regression invisible. For eval data, freshness is the difference between 'passing' and 'was passing'.</div>"
     }
    ]
   },
@@ -1542,7 +1545,8 @@ window.SO_ASSIST = {
     {
      "selector": "#total-runs",
      "title": "Total runs (30d)",
-     "content": "How many eval runs in the last 30 days. Low means the box is barely being measured — trends below are only as trustworthy as the run volume behind them."
+     "content": "How many eval runs in the last 30 days. Low means the box is barely being measured — trends below are only as trustworthy as the run volume behind them.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Runs are how much the box is measured</div>Each run is a suite executed against the models. A low 30-day count means the box is barely being evaluated — regressions could be sliding in unmeasured. Eval cadence is itself a health signal.<div class=\"so-xref\"><span class=\"x\">→</span> run-suite — the verb that adds to this count</div></div>"
     },
     {
      "selector": "#bb-pass",
@@ -1553,7 +1557,8 @@ window.SO_ASSIST = {
     {
      "selector": "#wb-pass",
      "title": "White-box pass",
-     "content": "Pass rate on white-box evals — reasoning-path-aware, so it can credit partially-correct reasoning. Read it alongside black-box: a big gap (white high, black low) means good reasoning that is not landing the answer."
+     "content": "Pass rate on white-box evals — reasoning-path-aware, so it can credit partially-correct reasoning. Read it alongside black-box: a big gap (white high, black low) means good reasoning that is not landing the answer.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">White-box credits the reasoning path</div>Where black-box scores only the final answer, white-box evals inspect the reasoning trace and can credit a partially-correct path. A gap between the two (bb low, wb high) means the model reasons well but stumbles on the final step.<div class=\"so-xref\"><span class=\"x\">→</span> bb-pass — the outcome-only companion score</div></div>"
     },
     {
      "selector": "#candidate-count",
@@ -1567,7 +1572,8 @@ window.SO_ASSIST = {
        "content": "No promotion candidates — nothing currently clears the eval bar to promote.",
        "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">0 candidates</div>Nothing is eval-qualified to promote right now — either evals are pending or nothing improved.</div>"
       }
-     ]
+     ],
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Candidates cleared the eval bar</div>An adapter becomes a promotion candidate (M046) only after passing the eval threshold. This count is the pipeline pressure — how many improvements are queued waiting on the promotion gate.<div class=\"so-xref\"><span class=\"x\">→</span> D-11 adapter status — where candidates face the MS041 gate</div></div>"
     }
    ]
   },
@@ -1579,32 +1585,38 @@ window.SO_ASSIST = {
     {
      "selector": "#math-cur",
      "title": "MATH · current",
-     "content": "The current score on the mathematical-reasoning suite — symbolic + numeric problem solving. Read the sparkline beside it for direction — a flat or falling line on a suite you rely on is the signal, not the absolute number."
+     "content": "The current score on the mathematical-reasoning suite — symbolic + numeric problem solving. Read the sparkline beside it for direction — a flat or falling line on a suite you rely on is the signal, not the absolute number.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Mathematical reasoning suite</div>Symbolic + numeric problem solving — a clean probe of multi-step deductive reasoning where the answer is verifiable. A drop here is a reasoning regression, not a knowledge gap.</div>"
     },
     {
      "selector": "#alf-cur",
      "title": "ALFWorld · current",
-     "content": "The current score on the embodied/agentic task suite — multi-step goal completion in a simulated world. Read the sparkline beside it for direction — a flat or falling line on a suite you rely on is the signal, not the absolute number."
+     "content": "The current score on the embodied/agentic task suite — multi-step goal completion in a simulated world. Read the sparkline beside it for direction — a flat or falling line on a suite you rely on is the signal, not the absolute number.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Embodied/agentic suite (ALFWorld-style)</div>Multi-step goal completion in a simulated environment — tests whether the model can plan and act over many steps, not just answer. The closest eval to real agent work.</div>"
     },
     {
      "selector": "#arc1-cur",
      "title": "ARC-1 · current",
-     "content": "The current score on the abstraction-and-reasoning corpus (v1) — few-shot pattern induction. Read the sparkline beside it for direction — a flat or falling line on a suite you rely on is the signal, not the absolute number."
+     "content": "The current score on the abstraction-and-reasoning corpus (v1) — few-shot pattern induction. Read the sparkline beside it for direction — a flat or falling line on a suite you rely on is the signal, not the absolute number.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">ARC v1 — few-shot abstraction</div>The Abstraction and Reasoning Corpus: infer a transformation rule from a couple of examples and apply it. It resists memorization — you can't pretrain the answers, you have to reason.</div>"
     },
     {
      "selector": "#arc2-cur",
      "title": "ARC-2 · current",
-     "content": "The current score on the harder ARC v2 — the frontier reasoning benchmark HRM targets. Read the sparkline beside it for direction — a flat or falling line on a suite you rely on is the signal, not the absolute number."
+     "content": "The current score on the harder ARC v2 — the frontier reasoning benchmark HRM targets. Read the sparkline beside it for direction — a flat or falling line on a suite you rely on is the signal, not the absolute number.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">ARC v2 — the frontier</div>The harder ARC, the benchmark HRM (M080) targets. Scores here are the box's standing on genuinely unsolved reasoning — low is expected; movement is what matters.<div class=\"so-xref\"><span class=\"x\">→</span> D-11 adapter status — the HRM models built for this</div></div>"
     },
     {
      "selector": "#sudoku-cur",
      "title": "Sudoku · current",
-     "content": "The current score on constraint-satisfaction — a clean test of exact multi-step reasoning without language priors. Read the sparkline beside it for direction — a flat or falling line on a suite you rely on is the signal, not the absolute number."
+     "content": "The current score on constraint-satisfaction — a clean test of exact multi-step reasoning without language priors. Read the sparkline beside it for direction — a flat or falling line on a suite you rely on is the signal, not the absolute number.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Constraint satisfaction</div>Sudoku is a clean CSP test: exact, multi-step, no ambiguity. It isolates precise rule-following from fuzzy reasoning — a model can be creative and still fail here if it can't hold constraints.</div>"
     },
     {
      "selector": "#steer-cur",
      "title": "Steerability · current",
-     "content": "The current score on how reliably the model follows steering/activation control — a Weaver-relevant safety metric. Read the sparkline beside it for direction — a flat or falling line on a suite you rely on is the signal, not the absolute number."
+     "content": "The current score on how reliably the model follows steering/activation control — a Weaver-relevant safety metric. Read the sparkline beside it for direction — a flat or falling line on a suite you rely on is the signal, not the absolute number.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Steering reliability</div>How reliably the model obeys activation-steering / control (MS039-adjacent). It measures controllability — a powerful model that ignores steering is harder to make safe than a weaker one that obeys.</div>"
     }
    ]
   },
@@ -1616,27 +1628,48 @@ window.SO_ASSIST = {
     {
      "selector": "#task-filter",
      "title": "Task filter",
-     "content": "Narrow the trend tables to one task family. Use it to answer 'is the box regressing on THIS' rather than reading an averaged-away number."
+     "content": "Narrow the trend tables to one task family. Use it to answer 'is the box regressing on THIS' rather than reading an averaged-away number.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Slice to one task family</div>Regression hunting is per-task: filter to math or ARC to see if a specific capability moved. A box-wide average can hide a sharp drop in one family.</div>"
     },
     {
      "selector": "#class-filter",
      "title": "Class filter",
-     "content": "Filter by model class. HRM (M080) is a different architectural class from LoRA adapters — filtering separates them so you do not compare unlike models."
+     "content": "Filter by model class. HRM (M080) is a different architectural class from LoRA adapters — filtering separates them so you do not compare unlike models.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">HRM is a different class</div>M080 HRM is a distinct architecture from LoRA adapters — filtering by class stops you comparing apples to oranges. A score only means something within its class.<div class=\"so-xref\"><span class=\"x\">→</span> D-11 — the HRM models this filter isolates</div></div>"
     },
     {
      "selector": "#window-filter",
      "title": "Window filter",
-     "content": "The time window for the trend. A short window shows recent movement; a long one shows whether a gain held or was noise."
+     "content": "The time window for the trend. A short window shows recent movement; a long one shows whether a gain held or was noise.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Window shapes the trend</div>A short window shows recent movement (did last night's promotion help?); a long one shows drift (is the box slowly regressing?). The same data tells different stories at different windows.</div>"
     },
     {
      "selector": "#tasks-tbody",
      "title": "Per-task trend",
-     "content": "Each row: a task's eval trend over the window. A falling row is a regression on that task specifically — the value of per-task is catching exactly this while the average looks fine."
+     "content": "Each row: a task's eval trend over the window. A falling row is a regression on that task specifically — the value of per-task is catching exactly this while the average looks fine.",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#tasks-tbody > tr",
+      "nameSelector": "td:first-child,td",
+      "title": "Task · {{name}}",
+      "content": "Task {{name}} — its eval trend over the window. A falling row is a regression on that specific capability; read it against the model table to attribute the cause.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Task · {{name}}</div>One task family's score trend. A drop is a concrete capability regression worth attributing to a model or adapter change.</div>"
+     },
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The per-task trend board</div>Every task family's eval trend at once — the whole regression picture. A falling row here is a specific capability slipping; read it against the model table to attribute the cause.</div>"
     },
     {
      "selector": "#models-tbody",
      "title": "Per-model trend",
-     "content": "Each row: a model's score trend (M046). Read it to attribute a change to a specific model/adapter rather than the fleet — the row that moved is the model that changed."
+     "content": "Each row: a model's score trend (M046). Read it to attribute a change to a specific model/adapter rather than the fleet — the row that moved is the model that changed.",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#models-tbody > tr",
+      "nameSelector": "td:first-child,td",
+      "title": "Model · {{name}}",
+      "content": "Model {{name}} — its score trend (M046). Read it to attribute a task change to a specific model or adapter rather than the box as a whole.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Model · {{name}}</div>One model's eval trend. Pair it with the task table: a model that regressed on one task points at a bad adapter promotion.</div>"
+     },
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The per-model trend board</div>Every model's score trend together — where a task change gets attributed to a specific model or adapter rather than the box as a whole.</div>"
     }
    ]
   },
@@ -1648,7 +1681,16 @@ window.SO_ASSIST = {
     {
      "selector": "#candidates-tbody",
      "title": "Candidate rows",
-     "content": "Each row: an adapter that passed the eval bar and could be promoted. Read the scores that qualified it — promotion on D-11 will still run the high-risk triple-gate, so eval-qualified is necessary, not sufficient."
+     "content": "Each row: an adapter that passed the eval bar and could be promoted. Read the scores that qualified it — promotion on D-11 will still run the high-risk triple-gate, so eval-qualified is necessary, not sufficient.",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#candidates-tbody > tr",
+      "nameSelector": "td:first-child,td",
+      "title": "Candidate · {{name}}",
+      "content": "Candidate {{name}} — an adapter that passed the eval bar and could be promoted. Its scores are the case for promotion; the MS041 gate is the remaining hurdle.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Candidate · {{name}}</div>A promotion-eligible adapter. Passing evals earns candidacy; the three MS041 gates decide promotion.<div class=\"so-xref\"><span class=\"x\">→</span> D-11 — the gate this candidate faces</div></div>"
+     },
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The promotion-eligible pool</div>Every adapter that cleared the eval bar — the queue pressure on the MS041 gate. Their scores are the case for promotion; the gate is the remaining hurdle.<div class=\"so-xref\"><span class=\"x\">→</span> D-11 adapter status — the gate these face</div></div>"
     }
    ]
   },
@@ -1660,17 +1702,20 @@ window.SO_ASSIST = {
     {
      "selector": "#apply-btn",
      "title": "Apply filters",
-     "content": "Applies the task/class/window filters to the trend tables. Read-only — it re-queries the eval store, it does not run an eval."
+     "content": "Applies the task/class/window filters to the trend tables. Read-only — it re-queries the eval store, it does not run an eval.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Filter the trends</div>Applies the task/class/window filters — read-only re-query. It changes the view, never the eval data.</div>"
     },
     {
      "selector": "#run-suite-btn",
      "title": "Run suite (signed)",
-     "content": "Copies the verb to run an eval suite. Running an eval is a real compute job on the box — it copies only; the suite runs when you execute the signed command."
+     "content": "Copies the verb to run an eval suite. Running an eval is a real compute job on the box — it copies only; the suite runs when you execute the signed command.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Running an eval is real compute</div>Unlike the read-only controls, running a suite is a genuine GPU job that competes with serving. It copies the verb rather than launching — you run it deliberately, when the box can spare the cycles.<div class=\"so-xref\"><span class=\"x\">→</span> D-09 hardware pressure — check headroom before a suite</div></div>"
     },
     {
      "selector": "#export-btn",
      "title": "Export",
-     "content": "Copies the verb to export the eval history — read-only extraction for offline analysis; it changes nothing on the box."
+     "content": "Copies the verb to export the eval history — read-only extraction for offline analysis; it changes nothing on the box.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Export is offline analysis</div>Pulls the eval history out for a spreadsheet or a report — read-only extraction. It's how you take the trend somewhere the cockpit can't go, without touching live state.</div>"
     }
    ]
   },
@@ -1682,7 +1727,8 @@ window.SO_ASSIST = {
     {
      "selector": "#refresh-btn",
      "title": "Refresh all",
-     "content": "Re-poll every table on this panel now — a read-only re-sample. It re-reads state; it never mutates the box."
+     "content": "Re-poll every table on this panel now — a read-only re-sample. It re-reads state; it never mutates the box.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Re-read eval history</div>Re-polls every table — read-only. It re-samples scores; running a new suite is a separate, compute-heavy CLI verb.</div>"
     }
    ]
   },
@@ -1694,7 +1740,8 @@ window.SO_ASSIST = {
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "The control rail — each button copies its exact sovereign-osctl command. Running a suite runs through the signed CLI after your MS003 signature, never from a web click."
+     "content": "The control rail — each button copies its exact sovereign-osctl command. Running a suite runs through the signed CLI after your MS003 signature, never from a web click.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copy-command boundary</div>Each control copies its sovereign-osctl verb (§1g / R10212). Running an eval is real GPU work, so it's staged as a command you launch deliberately.</div>"
     }
    ]
   }

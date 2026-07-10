@@ -1586,17 +1586,20 @@ window.SO_ASSIST = {
        "content": "Offline — showing the last snapshot; the box may have moved on since.",
        "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Offline</div>No live answer — this is a cached snapshot, possibly stale.</div>"
       }
-     ]
+     ],
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">One-word adapter-feed health</div>Live or snapshot — whether the adapter inventory is current. A promotion or rollback since a snapshot won't show, so this gates trust in the promoted/pending counts.</div>"
     },
     {
      "selector": "#ds-state-detail",
      "title": "Source detail",
-     "content": "Status line under the banner — endpoint + any degraded note."
+     "content": "Status line under the banner — endpoint + any degraded note.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Which adapter feed answered</div>The endpoint behind the banner and any degraded note — the Foundry daemon reachable vs a cached read.</div>"
     },
     {
      "selector": "#ds-last-update",
      "title": "Source freshness",
-     "content": "When the inventory was last read. A promotion or rollback since then would not show yet."
+     "content": "When the inventory was last read. A promotion or rollback since then would not show yet.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A promotion since this won't show</div>Adapter state changes fast — a promotion or rollback after this timestamp is invisible until refresh. For a live-serving inventory, trust the freshness before the counts.</div>"
     }
    ]
   },
@@ -1608,12 +1611,14 @@ window.SO_ASSIST = {
     {
      "selector": "#total-adapters",
      "title": "Total adapters",
-     "content": "How many LoRA adapters exist (M046 Foundry). Each is a small specialization stacked on a base model — the box's learned skills, not new models."
+     "content": "How many LoRA adapters exist (M046 Foundry). Each is a small specialization stacked on a base model — the box's learned skills, not new models.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Each adapter is a small specialization</div>A LoRA adapter (M046 Foundry) is a thin stack of weights that specializes a base model for a task without retraining it. Many small adapters over one base is the cheap way to be good at many things.<div class=\"so-xref\"><span class=\"x\">→</span> D-04 costs — why adapters beat full fine-tunes</div></div>"
     },
     {
      "selector": "#promoted-count",
      "title": "Promoted",
-     "content": "How many adapters are promoted (live). A promoted adapter passed evals AND the MS041 triple-gate — it is trusted enough to affect real inference."
+     "content": "How many adapters are promoted (live). A promoted adapter passed evals AND the MS041 triple-gate — it is trusted enough to affect real inference.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Promoted = passed evals AND the gate</div>A promoted adapter is live in serving. It earned that by clearing the eval bar AND the MS041 high-risk gate — both, because a good score alone doesn't prove it's safe to ship.<div class=\"so-xref\"><span class=\"x\">→</span> gates table — the MS041 triple-gate</div></div>"
     },
     {
      "selector": "#pending-count",
@@ -1627,7 +1632,8 @@ window.SO_ASSIST = {
        "content": "No pending adapters — nothing is waiting on the triple-gate.",
        "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● 0 pending</div>Nothing waiting on the gate — the adapter surface is settled.</div>"
       }
-     ]
+     ],
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Pending the high-risk gate</div>These improved on evals but haven't cleared MS041. They're proven-better, not proven-safe — the gate is the deliberate pause between 'scores well' and 'goes live'.<div class=\"so-xref\"><span class=\"x\">→</span> D-06 pending approvals — where a gated promotion waits</div></div>"
     },
     {
      "selector": "#vram-total",
@@ -1645,27 +1651,40 @@ window.SO_ASSIST = {
     {
      "selector": "#base-filter",
      "title": "Base-model filter",
-     "content": "Narrow to adapters on one base model. Use it to see how much a specific base has been specialized before stacking more on it."
+     "content": "Narrow to adapters on one base model. Use it to see how much a specific base has been specialized before stacking more on it.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Group by what they specialize</div>Filtering to one base model shows how much that base has been specialized — a base with many adapters is heavily leaned on; one with none is unspecialized.</div>"
     },
     {
      "selector": "#precision-filter",
      "title": "Precision filter",
-     "content": "Filter by precision (NVFP4 vs other). NVFP4 adapters are the cheap-VRAM path; filtering shows which adapters are paying full precision cost."
+     "content": "Filter by precision (NVFP4 vs other). NVFP4 adapters are the cheap-VRAM path; filtering shows which adapters are paying full precision cost.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">NVFP4 is the cheap-VRAM path</div>Filter by precision to find the 4-bit adapters. NVFP4 (M077, native 4-bit on Blackwell) is what keeps adapter VRAM tiny — a stack of NVFP4 adapters costs a fraction of full-precision ones.<div class=\"so-xref\"><span class=\"x\">→</span> nvfp4 table — the 4-bit footprints</div></div>"
     },
     {
      "selector": "#training-filter",
      "title": "Training filter",
-     "content": "Filter by training state — done, in-progress, failed. A training-failed adapter should never be promoted; this surfaces them."
+     "content": "Filter by training state — done, in-progress, failed. A training-failed adapter should never be promoted; this surfaces them.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Training-failed is prune-worthy</div>Filter to failed to find adapters that never trained cleanly — they hold a slot without earning it. In-progress shows what's cooking; done is the promotable pool.</div>"
     },
     {
      "selector": "#status-filter",
      "title": "Status filter",
-     "content": "Filter by promotion status — promoted, pending, rolled-back. The fastest way to answer 'what is actually live right now'."
+     "content": "Filter by promotion status — promoted, pending, rolled-back. The fastest way to answer 'what is actually live right now'.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The fastest health filter</div>Filter to rolled-back to see what failed in production, or pending to see what's queued. Status is the quickest read of the promotion pipeline's health.</div>"
     },
     {
      "selector": "#adapters-tbody",
      "title": "Adapter rows",
-     "content": "Each row: an active adapter — its base model, precision, training state, and status. A promoted row is affecting inference now; read its base to know what it changes."
+     "content": "Each row: an active adapter — its base model, precision, training state, and status. A promoted row is affecting inference now; read its base to know what it changes.",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#adapters-tbody > tr",
+      "nameSelector": "td:first-child,td",
+      "title": "Adapter · {{name}}",
+      "content": "Adapter {{name}} — its base model, precision, training state, and promotion status. A promoted adapter is live; a training-failed one is worth pruning.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Adapter · {{name}}</div>One LoRA adapter. Read base + precision + status together: it specializes that base, at that VRAM cost, at that trust level.</div>"
+     },
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The full adapter inventory</div>Every LoRA adapter at once — base, precision, training state, status. The complete specialization roster; a training-failed row is a slot to prune.</div>"
     }
    ]
   },
@@ -1678,7 +1697,15 @@ window.SO_ASSIST = {
      "selector": "#gates-tbody",
      "title": "Triple-gate rows",
      "content": "Each pending adapter and its status against the three MS041 gates. All three must pass; a single failing gate blocks promotion. This is why a good-on-evals adapter can still be pending — evals are one input, not the whole gate.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Three independent gates, all must pass</div>MS041 gates high-risk adapters on three separate axes — eval performance, safety/behavior, and signed operator intent. Independence is the point: an adapter that games one gate still faces the other two before it can touch real inference.<div class=\"so-xref\"><span class=\"x\">→</span> D-10 eval history — the eval axis of this gate<br><span class=\"x\">→</span> D-06 approvals — the operator-signature axis</div></div>"
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Three independent gates, all must pass</div>MS041 gates high-risk adapters on three separate axes — eval performance, safety/behavior, and signed operator intent. Independence is the point: an adapter that games one gate still faces the other two before it can touch real inference.<div class=\"so-xref\"><span class=\"x\">→</span> D-10 eval history — the eval axis of this gate<br><span class=\"x\">→</span> D-06 approvals — the operator-signature axis</div></div>",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#gates-tbody > tr",
+      "nameSelector": "td:first-child,td",
+      "title": "Gate · {{name}}",
+      "content": "Adapter {{name}} against the three MS041 gates. All three must pass before promotion — a single red gate blocks it, no matter how good the eval scores.",
+      "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Gates · {{name}}</div>The MS041 triple-gate for this adapter. Promotion needs all three green — scores get it to the gate, the gate decides if it ships.</div>"
+     }
     }
    ]
   },
@@ -1690,7 +1717,16 @@ window.SO_ASSIST = {
     {
      "selector": "#nvfp4-tbody",
      "title": "NVFP4 rows",
-     "content": "Each 4-bit adapter and its footprint. NVFP4 (native 4-bit on Blackwell) is what makes a large adapter library affordable — read the footprints to see the VRAM saving that makes stacking possible."
+     "content": "Each 4-bit adapter and its footprint. NVFP4 (native 4-bit on Blackwell) is what makes a large adapter library affordable — read the footprints to see the VRAM saving that makes stacking possible.",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#nvfp4-tbody > tr",
+      "nameSelector": "td:first-child,td",
+      "title": "NVFP4 · {{name}}",
+      "content": "4-bit adapter {{name}} and its footprint. NVFP4 (native 4-bit on Blackwell, M077) is what makes many adapters fit at once — this is the cheap-VRAM roster.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">NVFP4 · {{name}}</div>A 4-bit adapter. Its tiny footprint is why the box can hold many specializations resident at once.</div>"
+     },
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The 4-bit roster</div>Every NVFP4 adapter and its footprint together — the cheap-VRAM set (M077). This is why the box can keep many specializations resident at once.</div>"
     }
    ]
   },
@@ -1702,7 +1738,16 @@ window.SO_ASSIST = {
     {
      "selector": "#history-tbody",
      "title": "Promotion/rollback history",
-     "content": "Each row: a promotion or rollback with when and why. A rollback row is the system working as designed — an adapter that regressed real behavior was reverted. Read the reasons to see what the gate caught late."
+     "content": "Each row: a promotion or rollback with when and why. A rollback row is the system working as designed — an adapter that regressed real behavior was reverted. Read the reasons to see what the gate caught late.",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#history-tbody > tr",
+      "nameSelector": "td:first-child,td",
+      "title": "Event · {{name}}",
+      "content": "Promotion/rollback {{name}} — when and why. A rollback row is the system correcting a promotion that regressed in production — the reversibility property (D-20 P3) in action.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Event · {{name}}</div>A promotion or rollback. Rollbacks are healthy: they're the box undoing a bad promotion, which is exactly what reversibility is for.<div class=\"so-xref\"><span class=\"x\">→</span> D-20 P3 Reversible</div></div>"
+     },
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The promotion/rollback trail</div>Every promotion and rollback in sequence — the reversibility record. A rollback row is the box correcting a bad promotion (D-20 P3), which is healthy, not alarming.</div>"
     }
    ]
   },
@@ -1714,12 +1759,14 @@ window.SO_ASSIST = {
     {
      "selector": "#hrm-canon-status",
      "title": "HRM canon",
-     "content": "Status of the canonical HRM model (M080). HRM is a distinct architecture — the adapter gates above do not apply to it, so its health is tracked separately here."
+     "content": "Status of the canonical HRM model (M080). HRM is a distinct architecture — the adapter gates above do not apply to it, so its health is tracked separately here.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Canonical HRM (M080)</div>The Hierarchical Reasoning Model — a distinct architecture from LoRA adapters, built for the frontier ARC v2 benchmark. The canonical model is the full-size reference; the variants below trade size for reach.<div class=\"so-xref\"><span class=\"x\">→</span> D-10 eval history — ARC v2, the suite HRM targets</div></div>"
     },
     {
      "selector": "#hrm-text-1b-status",
      "title": "HRM text-1B",
-     "content": "Status of the HRM text-1B variant. A small HRM model — read it as a separate track from the LoRA adapters; it is measured on the harder ARC-2 frontier."
+     "content": "Status of the HRM text-1B variant. A small HRM model — read it as a separate track from the LoRA adapters; it is measured on the harder ARC-2 frontier.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">HRM text-1B variant</div>A small (1B) HRM text model — a separate training track from the canonical. Read it on its own: a 1B reasoning model that scores near the full one is a strong efficiency result.</div>"
     },
     {
      "selector": "#hrm-trm-status",
@@ -1733,7 +1780,8 @@ window.SO_ASSIST = {
        "content": "HRM TRM offline — the tiny-recursion reasoning path is unavailable.",
        "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ TRM offline</div>The tiny-recursion model is down; reasoning falls back to the standard tiers.</div>"
       }
-     ]
+     ],
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">TRM — tiny recursion model</div>The smallest HRM variant, built on recursive reasoning. It's the low-VRAM end of the reasoning class — proof that frontier-style reasoning can run small, not just big.</div>"
     }
    ]
   },
@@ -1745,22 +1793,26 @@ window.SO_ASSIST = {
     {
      "selector": "#apply-btn",
      "title": "Apply filters",
-     "content": "Applies the filters to the adapter table. Read-only re-query; it does not change any adapter."
+     "content": "Applies the filters to the adapter table. Read-only re-query; it does not change any adapter.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Apply is a read-only re-query</div>Re-runs the filters against the inventory — it changes what you SEE, never what's promoted. Promotion is a signed CLI verb, never a web click.</div>"
     },
     {
      "selector": "#clear-view",
      "title": "Clear view",
-     "content": "Reset the filters and forget the saved view. The panel remembers your base/precision/training/status filters in localStorage across reloads (per-browser); this is the escape hatch back to the all-adapters view. Pure client-side, never sent to the server."
+     "content": "Reset the filters and forget the saved view. The panel remembers your base/precision/training/status filters in localStorage across reloads (per-browser); this is the escape hatch back to the all-adapters view. Pure client-side, never sent to the server.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The panel remembers your view</div>Your base/precision/status filters persist across visits (a saved view). Clear-view forgets them — useful when a stale filter is hiding adapters you forgot you'd filtered out.</div>"
     },
     {
      "selector": "#train-btn",
      "title": "Train (signed)",
-     "content": "Copies the verb to start an adapter training run (M046). Training is a real GPU job — it copies only; the run starts when you execute the signed command."
+     "content": "Copies the verb to start an adapter training run (M046). Training is a real GPU job — it copies only; the run starts when you execute the signed command.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Training is a real GPU job</div>Copies the verb to start an adapter training run (M046 Foundry) — genuine sustained GPU work, not a read. It's staged as a command so you launch it when the box has the headroom, not reflexively.<div class=\"so-xref\"><span class=\"x\">→</span> D-09 hardware pressure — GPU headroom before training</div></div>"
     },
     {
      "selector": "#export-btn",
      "title": "Export",
-     "content": "Copies the verb to export the adapter inventory — read-only; changes nothing."
+     "content": "Copies the verb to export the adapter inventory — read-only; changes nothing.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Export the inventory</div>Copies the verb to export the adapter inventory — read-only extraction for offline analysis. It changes nothing.</div>"
     }
    ]
   },
@@ -1772,7 +1824,8 @@ window.SO_ASSIST = {
     {
      "selector": "#refresh-btn",
      "title": "Refresh all",
-     "content": "Re-poll every table on this panel now — a read-only re-sample. It re-reads state; it never mutates the box."
+     "content": "Re-poll every table on this panel now — a read-only re-sample. It re-reads state; it never mutates the box.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Re-read adapters</div>Re-polls every table — read-only. Promotion is a signed CLI verb, never this button.</div>"
     }
    ]
   },
@@ -1784,7 +1837,8 @@ window.SO_ASSIST = {
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "The control rail — each button copies its exact sovereign-osctl command. Training or promoting an adapter runs through the signed CLI after your MS003 signature, never from a web click."
+     "content": "The control rail — each button copies its exact sovereign-osctl command. Training or promoting an adapter runs through the signed CLI after your MS003 signature, never from a web click.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copy-command boundary</div>Each control copies its sovereign-osctl verb (§1g / R10212). Training and promotion are signed operations; the web reflects the Foundry and hands you the verb.</div>"
     }
    ]
   }

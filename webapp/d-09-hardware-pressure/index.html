@@ -1735,7 +1735,8 @@ window.SO_ASSIST = {
       "title": "Dataset · {{name}}",
       "content": "The {{name}} dataset on the tank pool — its record size, compression, and sync policy are tuned for how THIS data is accessed, not the pool default. A large record size suits sequential model reads; a small one suits random metadata; sync=always trades latency for durability where the data must survive a crash.",
       "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Dataset · {{name}}</div>One tier of the tank pool. ZFS lets each dataset be tuned independently — so {{name}} gets the record size and compression that fit its access pattern, and its sync policy decides whether writes are durable-before-acknowledged (safe, slower) or cached (fast, riskier).</div><div class=\"so-xref\"><span class=\"x\">→</span> #zpool-wlat — the write tail sync=always datasets produce</div>"
-     }
+     },
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The pool, per dataset</div>The tank pool broken out by dataset, each with its own recordsize, usage, and health. Per-dataset detail matters because tank/context and tank/containers have different IO shapes — a pressure problem is usually one dataset, not the whole pool.<div class=\"so-xref\"><span class=\"x\">→</span> D-08 rollback-points — the snapshots on these datasets</div></div>"
     }
    ]
   },

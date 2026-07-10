@@ -1496,7 +1496,8 @@ window.SO_ASSIST = {
     {
      "selector": "#ds-last-update",
      "title": "Sample age",
-     "content": "When the health readings were last refreshed. Because latency and KV occupancy are instantaneous, the age qualifies every number on the panel: a reading a minute old, on a box that just took a burst of long contexts, may describe a completely different load than the one you are troubleshooting now."
+     "content": "When the health readings were last refreshed. Because latency and KV occupancy are instantaneous, the age qualifies every number on the panel: a reading a minute old, on a box that just took a burst of long contexts, may describe a completely different load than the one you are troubleshooting now.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Health moves in real time</div>When the readings were refreshed. Latency and VRAM shift with load, so an old timestamp means a model shown healthy might already be under pressure — refresh before trusting a green.</div>"
     }
    ]
   },
@@ -1559,7 +1560,8 @@ window.SO_ASSIST = {
       "title": "Conductor model · {{name}}",
       "content": "The {{name}} model on the Conductor tier — ternary on CPU. Its health here is cheap-cognition health: if this model is slow it’s usually the CPU path (cache, contention), not the model, since ternary inference has little else to blame.",
       "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Conductor model · {{name}}</div>A ternary model served on the Pulse cores. Read its state as the health of the box’s default, cheap tier — a degraded model here quietly pushes work up to the expensive tiers.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-09 CCD 0 — the cores this model runs on</div>"
-     }
+     },
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The Conductor's resident models</div>The ternary models live on the CPU Conductor tier, each with its health. This is the cheap, high-volume path (bitnet.cpp) — a struggling model here is where efficiency-mode work would slow.<div class=\"so-xref\"><span class=\"x\">→</span> D-24 CPU features — the AVX-512 this tier leans on</div></div>"
     },
     {
      "selector": "#logic-util",
@@ -1576,7 +1578,8 @@ window.SO_ASSIST = {
     {
      "selector": "#logic-vram-used",
      "title": "Logic VRAM used",
-     "content": "The absolute VRAM in use on the 4090, of its 24 GB. The companion to the percentage — read it when you want the concrete gigabytes rather than the ratio, e.g. to judge whether a specific model (whose size you know) would fit in the gap between this and 24."
+     "content": "The absolute VRAM in use on the 4090, of its 24 GB. The companion to the percentage — read it when you want the concrete gigabytes rather than the ratio, e.g. to judge whether a specific model (whose size you know) would fit in the gap between this and 24.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The 4090's memory pressure</div>Absolute VRAM in use on the 4090, of its 24 GB. It's the concrete number behind the Logic tier's fit — approaching 24 GB means no room to load another Q4 model without evicting one.</div>"
     },
     {
      "selector": "#logic-models-tbody",
@@ -1589,7 +1592,8 @@ window.SO_ASSIST = {
       "title": "Logic model · {{name}}",
       "content": "The {{name}} model on the Logic tier — Q4 on the sandboxed 4090. Its health is bounded by the tier’s 24 GB: a model here that’s degrading is often losing to VRAM pressure rather than compute, so read it against the Logic VRAM card.",
       "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Logic model · {{name}}</div>A Q4 model on the VFIO-isolated 4090. The tight 24 GB budget means this model competes for memory with its neighbors — its health is as much about the tier’s VRAM as its own speed.</div><div class=\"so-xref\"><span class=\"x\">→</span> #logic-vram-pct — the budget it shares</div>"
-     }
+     },
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The Logic tier's resident models</div>The Q4 models on the 4090, each with health. The mid-complexity path — read a struggling row against the VRAM figure to see if it's a memory or a compute problem.</div>"
     },
     {
      "selector": "#oracle-util",
@@ -1606,7 +1610,8 @@ window.SO_ASSIST = {
     {
      "selector": "#oracle-vram-used",
      "title": "Oracle VRAM used",
-     "content": "The absolute VRAM in use on the Blackwell, of 96 GB. The concrete-gigabytes companion to the percentage — useful when sizing whether a specific large model or a longer context window would fit in the remaining headroom."
+     "content": "The absolute VRAM in use on the Blackwell, of 96 GB. The concrete-gigabytes companion to the percentage — useful when sizing whether a specific large model or a longer context window would fit in the remaining headroom.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The Blackwell's memory pressure</div>Absolute VRAM in use on the Blackwell, of 96 GB. The deep-reasoning tier's headroom — 96 GB is why full-precision and NVFP4 large models fit here where they wouldn't on the 4090.</div>"
     },
     {
      "selector": "#oracle-models-tbody",
@@ -1619,7 +1624,8 @@ window.SO_ASSIST = {
       "title": "Oracle model · {{name}}",
       "content": "The {{name}} model on the Oracle tier — deep reasoning on the Blackwell. Few models live here and each is large, so this one’s health is a big share of the tier; its latency tail usually traces to KV-cache pressure on the 96 GB card.",
       "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Oracle model · {{name}}</div>A deep-reasoning model on the Blackwell. Its slow tails are almost always KV-cache eviction under long contexts, not the model being slow — which is why its health reads against the Oracle KV and VRAM cards.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-09 GPU 0 KV cache — the pressure behind its tail</div>"
-     }
+     },
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The Oracle's resident models</div>The deep-reasoning models on the Blackwell, each with health. The hardest-prompt path — a healthy Oracle is what lets the router escalate the deepest questions here.<div class=\"so-xref\"><span class=\"x\">→</span> D-21 orchestration — what routes to this tie</div></div>"
     }
    ]
   },
@@ -1686,7 +1692,8 @@ window.SO_ASSIST = {
     {
      "selector": "#refresh-btn",
      "title": "Refresh",
-     "content": "Re-reads every health figure immediately rather than waiting for the automatic poll. Read-only. Use it after an action — a load, an unload — to confirm the tier picture actually changed the way you intended, without waiting for the next sample."
+     "content": "Re-reads every health figure immediately rather than waiting for the automatic poll. Read-only. Use it after an action — a load, an unload — to confirm the tier picture actually changed the way you intended, without waiting for the next sample.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Re-read health now</div>Re-reads every health figure immediately — read-only. It re-samples latency and VRAM; loading or evicting a model is a signed action elsewhere.</div>"
     },
     {
      "selector": "#load-model-btn",

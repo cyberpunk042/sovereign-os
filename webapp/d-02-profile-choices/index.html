@@ -1525,22 +1525,26 @@ window.SO_ASSIST = {
        "content": "Offline — showing the last snapshot; the box may have moved on since.",
        "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Offline</div>No live answer — this is a cached snapshot, possibly stale.</div>"
       }
-     ]
+     ],
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">One-word authority-mirror health</div>Live or offline — whether the profile/authority snapshot is current. A profile switch elsewhere wouldn't show on a stale mirror, so this gates trust in the active-profile read.</div>"
     },
     {
      "selector": "#mirror-state-detail",
      "title": "Mirror detail",
-     "content": "The longer status line under the banner — which mirror endpoint answered and any degraded note. Read it when the banner is amber to see why."
+     "content": "The longer status line under the banner — which mirror endpoint answered and any degraded note. Read it when the banner is amber to see why.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Which mirror answered</div>The endpoint that responded and any degraded note — an accountable reason behind the one-word state.</div>"
     },
     {
      "selector": "#mirror-last-update",
      "title": "Mirror freshness",
-     "content": "When the authority mirror was last read. A profile switch elsewhere would not show here until the next refresh — so a stale time means a possibly stale active-profile."
+     "content": "When the authority mirror was last read. A profile switch elsewhere would not show here until the next refresh — so a stale time means a possibly stale active-profile.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">When the authority mirror was read</div>The capture time. A profile switch made after this timestamp won't appear here yet — refresh before trusting the active profile is the live one.</div>"
     },
     {
      "selector": "#mirror-schema-version",
      "title": "Mirror schema",
-     "content": "The schema version of the mirror payload — for reconciling the field shapes against MS039/MS040 if a field looks wrong."
+     "content": "The schema version of the mirror payload — for reconciling the field shapes against MS039/MS040 if a field looks wrong.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Schema version guards field alignment</div>The authority mirror is a cross-project payload (MS039/MS040). This version is how you catch a field-shape mismatch — if it drifts from what the panel expects, authority values could render wrong.<div class=\"so-xref\"><span class=\"x\">→</span> D-25 selfdef management — the mirror chain</div></div>"
     }
    ]
   },
@@ -1581,12 +1585,14 @@ window.SO_ASSIST = {
     {
      "selector": "#active-since",
      "title": "Active since",
-     "content": "When this profile took effect. Pair it with the change history below — a profile that flipped seconds ago may reflect an in-flight switch you or an agent just made."
+     "content": "When this profile took effect. Pair it with the change history below — a profile that flipped seconds ago may reflect an in-flight switch you or an agent just made.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Freshness of the ceiling</div>When this profile took effect. Pair it with the history below — a profile that flipped recently, or flips often, is worth scrutiny: authority should be stable, not churning.<div class=\"so-xref\"><span class=\"x\">→</span> change history — the authority timeline</div></div>"
     },
     {
      "selector": "#active-actor",
      "title": "Changed by",
-     "content": "Who set the active profile — operator or an agent under a prior envelope. If an agent changed the profile, that itself was an authority-bearing act worth reading the history for."
+     "content": "Who set the active profile — operator or an agent under a prior envelope. If an agent changed the profile, that itself was an authority-bearing act worth reading the history for.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Who set the ceiling matters</div>Operator-set is expected; an agent setting its own profile under a prior envelope is worth a hard look — that's the box adjusting its own authority, which the ladder is designed to bound.<div class=\"so-xref\"><span class=\"x\">→</span> history — the actor trail of switches</div></div>"
     },
     {
      "selector": "#active-envelope",
@@ -1623,7 +1629,8 @@ window.SO_ASSIST = {
     {
      "selector": "#ladder-legend",
      "title": "Ladder legend",
-     "content": "The key to the ladder colours/marks — which rungs the active profile permits unsigned vs which require your signature. Read it with the ladder to see where your envelope draws its line."
+     "content": "The key to the ladder colours/marks — which rungs the active profile permits unsigned vs which require your signature. Read it with the ladder to see where your envelope draws its line.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Reading the ladder key</div>The legend marks which rungs the active profile permits unsigned vs which require your MS003 signature. It's how you read, at a glance, where autonomy ends and your key begins.<div class=\"so-xref\"><span class=\"x\">→</span> the ladder — the seven authority rungs L0–L6</div></div>"
     }
    ]
   },
@@ -1648,7 +1655,16 @@ window.SO_ASSIST = {
     {
      "selector": "#history-tbody",
      "title": "Profile-change history",
-     "content": "Each row: a past profile switch (timestamp, actor, from → to). Read it as the authority trail — an unexplained widening of the envelope, or an agent switching its own profile, is worth investigating."
+     "content": "Each row: a past profile switch (timestamp, actor, from → to). Read it as the authority trail — an unexplained widening of the envelope, or an agent switching its own profile, is worth investigating.",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#history-tbody > tr",
+      "nameSelector": "td:first-child,td",
+      "title": "Switch · {{name}}",
+      "content": "Profile switch {{name}} — one change in the authority timeline (timestamp, actor, from→to). Read the sequence as the box's authority history; frequent flips or agent-initiated changes are the ones to question.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Switch · {{name}}</div>One authority change. Actor + direction tell you whether the ceiling was raised or lowered and by whom — the accountability trail for autonomy.</div>"
+     },
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The authority timeline in full</div>Every past profile switch at once — timestamp, actor, from→to. Read the sequence as the box's authority history: frequent flips, or agent-initiated changes, are the ones to question.</div>"
     }
    ]
   },
@@ -1666,7 +1682,8 @@ window.SO_ASSIST = {
     {
      "selector": "#gates-body",
      "title": "Gate rows",
-     "content": "Each predeclared gate: the condition and what it forces. Read them to know exactly what the autonomous profile will still stop for — everything else it will do unattended."
+     "content": "Each predeclared gate: the condition and what it forces. Read them to know exactly what the autonomous profile will still stop for — everything else it will do unattended.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Each gate is a forced stop</div>Under the autonomous profile these predeclared gates (MS040) force a signature at set conditions — the bounds that make batching safe. Each row is a specific 'stop and ask' the box commits to in advance.<div class=\"so-xref\"><span class=\"x\">→</span> D-06 pending approvals — where a gated action lands</div></div>"
     }
    ]
   },
@@ -1678,7 +1695,8 @@ window.SO_ASSIST = {
     {
      "selector": "#switch-btn",
      "title": "Switch profile (signed)",
-     "content": "Copies the signed sovereign-osctl verb that switches to the selected profile. It copies only — the box re-caps its authority envelope when you run the signed command, because changing what agents may do is itself a high-authority act."
+     "content": "Copies the signed sovereign-osctl verb that switches to the selected profile. It copies only — the box re-caps its authority envelope when you run the signed command, because changing what agents may do is itself a high-authority act.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copies the signed switch verb</div>Copies the sovereign-osctl verb that switches to the selected profile — it copies only. A profile change reshapes the box's whole authority ceiling, so it's a signed CLI action, never a web click.<div class=\"so-xref\"><span class=\"x\">→</span> §1g R10212 — copy-command boundary</div></div>"
     }
    ]
   },
@@ -1690,7 +1708,8 @@ window.SO_ASSIST = {
     {
      "selector": "#refresh-btn",
      "title": "Refresh all",
-     "content": "Re-poll every table on this panel now — a read-only re-sample. It re-reads state; it never mutates the box."
+     "content": "Re-poll every table on this panel now — a read-only re-sample. It re-reads state; it never mutates the box.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Re-read authority now</div>Re-polls the profile/authority state — read-only. It re-samples; it never changes the active profile.</div>"
     }
    ]
   },
@@ -1702,7 +1721,8 @@ window.SO_ASSIST = {
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "The control rail — each button copies its exact sovereign-osctl command. A profile switch runs through the signed CLI after your MS003 signature, never from a web click."
+     "content": "The control rail — each button copies its exact sovereign-osctl command. A profile switch runs through the signed CLI after your MS003 signature, never from a web click.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copy-command boundary</div>Each control copies its exact sovereign-osctl verb (§1g / R10212). The panel shows the authority ceiling; changing it is a signed operator decision.</div>"
     }
    ]
   }

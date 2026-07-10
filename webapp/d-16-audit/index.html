@@ -1518,22 +1518,26 @@ window.SO_ASSIST = {
     {
      "selector": "#mirror-state-label",
      "title": "Mirror label",
-     "content": "One-word mirror state — live or offline; whether the the audit chain can be trusted as current."
+     "content": "One-word mirror state — live or offline; whether the the audit chain can be trusted as current.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">One-word chain-mirror health</div>Live or offline — whether the audit-chain snapshot is current. Because the chain only grows, an offline mirror means you're reading a truncated history, not a wrong one.</div>"
     },
     {
      "selector": "#mirror-state-detail",
      "title": "Mirror detail",
-     "content": "The producer/endpoint behind the mirror and why it's live or offline. Managed via selfdefctl audit on the selfdef side."
+     "content": "The producer/endpoint behind the mirror and why it's live or offline. Managed via selfdefctl audit on the selfdef side.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why live or offline</div>The producer/endpoint behind the label and the reason for its state. Turns 'offline' into a diagnosable cause rather than a bare flag.</div>"
     },
     {
      "selector": "#mirror-last-update",
      "title": "Mirror freshness",
-     "content": "When selfdef last captured this snapshot (ISO captured_at). On an offline mirror, how stale it is."
+     "content": "When selfdef last captured this snapshot (ISO captured_at). On an offline mirror, how stale it is.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">When selfdef last captured</div>The snapshot's capture time. New audit entries append continuously, so an old timestamp means recent events (and any recent tampering) aren't in this view yet.</div>"
     },
     {
      "selector": "#mirror-schema-version",
      "title": "Mirror schema",
-     "content": "The MS007 typed-mirror-crate schema version — confirms mirror and consumer agree on the data shape."
+     "content": "The MS007 typed-mirror-crate schema version — confirms mirror and consumer agree on the data shape.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">MS007 crate compatibility</div>The typed-mirror-crate schema version — confirms the mirror and consumer agree on the entry shape. A mismatch could misrender the 13-field entries.</div>"
     }
    ]
   },
@@ -1568,27 +1572,32 @@ window.SO_ASSIST = {
        "content": "A gap was found — the hash chain breaks somewhere. The audit record was altered or truncated; this is a tamper signal, not a glitch.",
        "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Chain broken</div>A link doesn't verify — the record was tampered. See 'first gap at' for where.</div>"
       }
-     ]
+     ],
+     "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">Verified = the chain is intact</div>Each entry hashes the previous, so an unbroken chain proves nothing was deleted or altered. 'verified' means every link checks; anything else means the record was tampered with — the strongest integrity claim the box makes.<div class=\"so-xref\"><span class=\"x\">→</span> i-gap — where a break, if any, occurs</div></div>"
     },
     {
      "selector": "#i-total",
      "title": "Total entries",
-     "content": "How many entries are in the chain — the size of the audit record. Every governance action appends one; it only ever grows (append-only)."
+     "content": "How many entries are in the chain — the size of the audit record. Every governance action appends one; it only ever grows (append-only).",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Chain size = record depth</div>How many entries the audit chain holds — the depth of the box's memory of its own actions. It only grows (append-only), so a shrinking total would itself be tampering evidence.</div>"
     },
     {
      "selector": "#i-verified",
      "title": "Verified at",
-     "content": "When the integrity check last ran. The chain is only proven-good as of this moment; a fresh verify is what confirms it's still intact now."
+     "content": "When the integrity check last ran. The chain is only proven-good as of this moment; a fresh verify is what confirms it's still intact now.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Proven-good as of when</div>When the integrity check last ran. 'Verified' is only a claim about the moment it was checked — pair it with freshness, since tampering after the check wouldn't show until the next run.</div>"
     },
     {
      "selector": "#i-head",
      "title": "Head hash",
-     "content": "The hash of the newest entry — the current tip of the chain. It's the fingerprint of the entire history: change anything earlier and this head hash changes."
+     "content": "The hash of the newest entry — the current tip of the chain. It's the fingerprint of the entire history: change anything earlier and this head hash changes.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The head is the tamper anchor</div>The hash of the newest entry. Because it depends on every prior entry, the head is a single fingerprint of the entire chain — change any past record and the head changes, which is how tampering is detected.</div>"
     },
     {
      "selector": "#i-gap-row",
      "title": "Gap indicator",
-     "content": "Shown only when a break exists — the presence of this row is itself the alarm that the chain isn't continuous."
+     "content": "Shown only when a break exists — the presence of this row is itself the alarm that the chain isn't continuous.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Its presence IS the alarm</div>This row only appears when a break exists — so seeing it at all means the chain failed to verify. An intact chain has no gap row; its appearance is the tamper signal, before you even read the detail.<div class=\"so-xref\"><span class=\"x\">→</span> i-gap — where the break is</div></div>"
     },
     {
      "selector": "#i-gap",
@@ -1606,27 +1615,32 @@ window.SO_ASSIST = {
     {
      "selector": "#o-process",
      "title": "Process activity",
-     "content": "Audit entries classified as process activity — exec · spawn — what ran. Part of the box's behavioural fingerprint in the audit record."
+     "content": "Audit entries classified as process activity — exec · spawn — what ran. Part of the box's behavioural fingerprint in the audit record.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Process events · exec/spawn</div>What ran — every process execution and spawn. This is the 'who did what' spine of the audit: correlate a suspicious action back to the process that made it.</div>"
     },
     {
      "selector": "#o-file",
      "title": "File activity",
-     "content": "Audit entries classified as file activity — read · write · attr — what was touched. Part of the box's behavioural fingerprint in the audit record."
+     "content": "Audit entries classified as file activity — read · write · attr — what was touched. Part of the box's behavioural fingerprint in the audit record.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">File events · read/write/attr</div>What was touched on disk. File events are how you trace data access — what a process read (exfil risk) or wrote (integrity risk).</div>"
     },
     {
      "selector": "#o-network",
      "title": "Network activity",
-     "content": "Audit entries classified as network activity — dial · listen — what talked out. Part of the box's behavioural fingerprint in the audit record."
+     "content": "Audit entries classified as network activity — dial · listen — what talked out. Part of the box's behavioural fingerprint in the audit record.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Network events · dial/listen</div>What talked to the outside. On a default-closed box every dial is notable; network events are where you catch unexpected egress.<div class=\"so-xref\"><span class=\"x\">→</span> D-12 networking — the egress posture these events record</div></div>"
     },
     {
      "selector": "#o-host",
      "title": "Host inventory",
-     "content": "Audit entries classified as host inventory — snapshot · drift — the host baseline + changes. Part of the box's behavioural fingerprint in the audit record."
+     "content": "Audit entries classified as host inventory — snapshot · drift — the host baseline + changes. Part of the box's behavioural fingerprint in the audit record.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Host events · snapshot/drift</div>Audit entries for host inventory — snapshots and drift. They record the box's own configuration changing, which is how unexpected drift (a file, a package, a setting moving) gets caught in the chain.</div>"
     },
     {
      "selector": "#o-authority",
      "title": "Authority decision",
-     "content": "Audit entries classified as authority decision — grant · cap — the privilege decisions. The privilege decisions — grants and capability changes — are the highest-value audit category; a surprise here is a privilege change you didn't expect."
+     "content": "Audit entries classified as authority decision — grant · cap — the privilege decisions. The privilege decisions — grants and capability changes — are the highest-value audit category; a surprise here is a privilege change you didn't expect.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Authority events · grant/cap</div>The privileged decisions — grants issued, capabilities minted. These are the highest-consequence audit entries: they record the box changing what it's allowed to do.<div class=\"so-xref\"><span class=\"x\">→</span> D-14 capability tokens — the tokens these events mint</div></div>"
     }
    ]
   },
@@ -1638,28 +1652,40 @@ window.SO_ASSIST = {
     {
      "selector": "#p-allow",
      "title": "Policy · allow (MS033)",
-     "content": "How many policy evaluations resolved to ALLOW — the action was permitted. The baseline: most decisions on a healthy box allow, because most work is legitimate (MS033, R07731-R07734)."
+     "content": "How many policy evaluations resolved to ALLOW — the action was permitted. The baseline: most decisions on a healthy box allow, because most work is legitimate (MS033, R07731-R07734).",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">ALLOW · permitted outright</div>Policy evaluations that resolved to allow — the routine, permitted actions. A healthy box is mostly allows; the value is in the ratio, since a sudden drop in allows (rise in denies) signals something newly wrong.</div>"
     },
     {
      "selector": "#p-ask",
      "title": "Policy · ask (MS033)",
-     "content": "How many resolved to ASK — escalated to an operator decision rather than auto-resolved. These are the ones that landed in D-06; a rising ask-count means the box is deferring more to you."
+     "content": "How many resolved to ASK — escalated to an operator decision rather than auto-resolved. These are the ones that landed in D-06; a rising ask-count means the box is deferring more to you.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">ASK = escalated to you</div>The box declined to decide alone and escalated. ASK is the operator-in-the-loop verdict — each one is a decision that landed in your approvals queue rather than being auto-resolved.<div class=\"so-xref\"><span class=\"x\">→</span> D-06 pending approvals — where ASK verdicts go</div></div>"
     },
     {
      "selector": "#p-deny",
      "title": "Policy · deny (MS033)",
-     "content": "How many resolved to DENY — the action was refused outright. This is where the IPS actually stopped something; a non-zero deny is the policy engine doing its job, worth reading for what it blocked."
+     "content": "How many resolved to DENY — the action was refused outright. This is where the IPS actually stopped something; a non-zero deny is the policy engine doing its job, worth reading for what it blocked.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">DENY = refused outright</div>The action was blocked. A rising deny count is enforcement actively working — but a spike is worth reading: it's either an attacker probing or a misconfigured agent hitting a wall repeatedly.</div>"
     },
     {
      "selector": "#p-sandbox",
      "title": "Policy · sandbox (MS033)",
-     "content": "How many resolved to SANDBOX — allowed, but only inside an isolation tier (D-15). The middle path: neither trust it fully nor refuse it, but contain it. The clever state that lets risky work proceed safely."
+     "content": "How many resolved to SANDBOX — allowed, but only inside an isolation tier (D-15). The middle path: neither trust it fully nor refuse it, but contain it. The clever state that lets risky work proceed safely.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">SANDBOX = allowed, but contained</div>The verdict resolved to 'run it, inside isolation'. It's the middle path between allow and deny — the action proceeds but in a Tier C/D cell so a compromise is boxed.<div class=\"so-xref\"><span class=\"x\">→</span> D-15 sandboxes — the tiers a SANDBOX verdict routes into</div></div>"
     },
     {
      "selector": "#span-tbody",
      "title": "Audit entries",
      "content": "The recent tail of the audit chain — each a 13-field MS049 entry. Hover a row for what was recorded; every one is hash-linked to the previous, so this is the append-only truth of what the box did.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A 13-field append-only entry</div>Each entry is a complete, immutable record of one event, hash-linked into the chain. It can't be edited after the fact — only appended to.<div class=\"so-xref\"><span class=\"x\">→</span> D-05 traces — the live span view of the same events</div></div>"
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A 13-field append-only entry</div>Each entry is a complete, immutable record of one event, hash-linked into the chain. It can't be edited after the fact — only appended to.<div class=\"so-xref\"><span class=\"x\">→</span> D-05 traces — the live span view of the same events</div></div>",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#span-tbody > tr",
+      "nameSelector": "td:first-child,td",
+      "title": "Entry · {{name}}",
+      "content": "Audit entry {{name}} — a 13-field MS049 record: what happened, who, and the policy verdict. It's one immutable link in the hash chain; its hash depends on the entry before it.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Entry · {{name}}</div>One audit-chain entry. 13 fields capture the full context; its hash ties it to the chain so it can't be altered after the fact.</div>"
+     }
     }
    ]
   },
@@ -1671,7 +1697,8 @@ window.SO_ASSIST = {
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Mirror controls — each copies its selfdefctl audit verb (§1g / R10212). Reads the mirror; every change runs through the signed selfdef CLI, never the web."
+     "content": "Mirror controls — each copies its selfdefctl audit verb (§1g / R10212). Reads the mirror; every change runs through the signed selfdef CLI, never the web.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copy-command mirror boundary</div>Each control copies its selfdefctl audit verb (§1g / R10212). The audit chain is selfdef's immutable record; the web reads it, it can't write or prune it.</div>"
     }
    ]
   }

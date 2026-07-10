@@ -1431,17 +1431,20 @@ window.SO_ASSIST = {
        "content": "Offline — showing the last snapshot; the box may have moved on since.",
        "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Offline</div>No live answer — this is a cached snapshot, possibly stale.</div>"
       }
-     ]
+     ],
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">One-word rules-mirror health</div>Live or snapshot — whether the nftables ruleset shown is current. A rule added via selfdefctl since a snapshot won't appear, so this gates trust in the rule list.</div>"
     },
     {
      "selector": "#ds-detail",
      "title": "Source detail",
-     "content": "Status line under the banner — which mirror answered and any degraded note."
+     "content": "Status line under the banner — which mirror answered and any degraded note.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Which mirror answered</div>The endpoint behind the banner and any degraded note — the rules mirror reachable vs a cached read.</div>"
     },
     {
      "selector": "#ds-last",
      "title": "Source freshness",
-     "content": "When the rules mirror was last read. A rule added via selfdefctl since then would not show yet."
+     "content": "When the rules mirror was last read. A rule added via selfdefctl since then would not show yet.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A rule added since won't show</div>The rules mirror is a point-in-time read — a rule added via selfdefctl after this timestamp isn't reflected. For a firewall, trust the freshness before trusting the rule list is complete.</div>"
     }
    ]
   },
@@ -1466,17 +1469,20 @@ window.SO_ASSIST = {
     {
      "selector": "#s-rules",
      "title": "Rule count",
-     "content": "How many nftables rules are active. Read it against the ring distribution — a sudden jump is either a legitimate selfdefctl change or drift worth checking against the mirror."
+     "content": "How many nftables rules are active. Read it against the ring distribution — a sudden jump is either a legitimate selfdefctl change or drift worth checking against the mirror.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Rules per ring, not just a count</div>The active nftables rule count only means something against the ring distribution — a box with all rules in one ring is shaped very differently from one spreading them across trust rings.<div class=\"so-xref\"><span class=\"x\">→</span> ring-traffic — the per-ring breakdown</div></div>"
     },
     {
      "selector": "#s-packets",
      "title": "Packets",
-     "content": "Packets the ruleset has processed — traffic volume through the firewall. A flat count means no traffic; a climbing one is normal operation."
+     "content": "Packets the ruleset has processed — traffic volume through the firewall. A flat count means no traffic; a climbing one is normal operation.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Packets = traffic the firewall saw</div>How much the ruleset has processed. A near-zero count on a box you expect to be active can mean the firewall isn't in-path — worth checking before trusting that 'no denies' means 'no threats'.</div>"
     },
     {
      "selector": "#s-bytes",
      "title": "Bytes",
-     "content": "Bytes processed — the volume companion to packets. Together they show whether traffic is many small flows or few large ones."
+     "content": "Bytes processed — the volume companion to packets. Together they show whether traffic is many small flows or few large ones.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Bytes vs packets tells the shape</div>Packets count events; bytes count volume. Many small packets (high packet, low byte) looks like scanning or control traffic; few large ones looks like bulk transfer — the ratio hints at what's flowing.</div>"
     },
     {
      "selector": "#s-pending",
@@ -1490,12 +1496,14 @@ window.SO_ASSIST = {
        "content": "No pending rule changes — the enforced ruleset matches what is proposed.",
        "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● 0 pending</div>Enforced ruleset is settled — nothing awaiting signature.</div>"
       }
-     ]
+     ],
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Rule changes wait for your signature</div>Pending changes need an MS003 signature (R10113) before they enforce. The web is read-only — a rule isn't live until you sign it in selfdefctl, so pending means 'proposed, not protecting yet'.<div class=\"so-xref\"><span class=\"x\">→</span> D-06 pending approvals — where a rule change is signed</div></div>"
     },
     {
      "selector": "#s-rings",
      "title": "Active rings",
-     "content": "How many trust rings currently carry rules. Read with the distribution above — an unexpectedly active ring (e.g. cloud) is a posture question."
+     "content": "How many trust rings currently carry rules. Read with the distribution above — an unexpectedly active ring (e.g. cloud) is a posture question.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Rings are trust zones for traffic</div>Each ring is a trust level with its own rules — kernel/trusted down to sandboxed/untrusted. How many rings carry rules tells you how finely the network policy is segmented.<div class=\"so-xref\"><span class=\"x\">→</span> MS039 authority rings — the trust model behind the rings</div></div>"
     },
     {
      "selector": "#s-mirror",
@@ -1509,7 +1517,8 @@ window.SO_ASSIST = {
        "content": "Mirror degraded — the ruleset shown may lag the real enforced rules.",
        "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ Mirror degraded</div>Shown rules may be stale — enforcement is authoritative on selfdef, not here.</div>"
       }
-     ]
+     ],
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A degraded mirror means stale rules</div>This view is a mirror of selfdef's ruleset. If the mirror is degraded, the rules shown may not match what's actually enforcing — trust the mirror health before trusting the rule list.<div class=\"so-xref\"><span class=\"x\">→</span> D-25 selfdef management — the mirror chain</div></div>"
     }
    ]
   },
@@ -1521,7 +1530,16 @@ window.SO_ASSIST = {
     {
      "selector": "#rules-tbody",
      "title": "Rule rows",
-     "content": "Each row: one enforced nftables rule — its match and action, in its ring. Read a rule to see exactly what traffic it allows or drops; this is the firewall made specific."
+     "content": "Each row: one enforced nftables rule — its match and action, in its ring. Read a rule to see exactly what traffic it allows or drops; this is the firewall made specific.",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#rules-tbody > tr",
+      "nameSelector": "td:first-child,td",
+      "title": "Rule · {{name}}",
+      "content": "nftables rule {{name}} — its match and action, in its trust ring. Read match→action: what traffic it catches and whether it accepts, drops, or rejects it.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Rule · {{name}}</div>One enforced firewall rule. Its ring says which trust zone it governs; match→action says what it does to matching packets.</div>"
+     },
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The active ruleset in full</div>Every enforced nftables rule at once, grouped by trust ring — match and action per rule. Read it as the box's live firewall policy, the inner ring of defense-in-depth.</div>"
     }
    ]
   },
@@ -1533,7 +1551,8 @@ window.SO_ASSIST = {
     {
      "selector": "#toast",
      "title": "Action feedback",
-     "content": "Transient confirmation of a copied verb. It confirms the copy — the firewall changes only when selfdefctl runs the signed rule change."
+     "content": "Transient confirmation of a copied verb. It confirms the copy — the firewall changes only when selfdefctl runs the signed rule change.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Confirms the copy, not enforcement</div>Confirms a verb was copied — you run it in your shell. The firewall doesn't change from this view; a rule edit is a signed CLI action.</div>"
     }
    ]
   },
@@ -1545,7 +1564,8 @@ window.SO_ASSIST = {
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "The control rail — each button copies its exact sovereign-osctl command. A firewall rule change runs through the signed CLI after your MS003 signature, never from a web click."
+     "content": "The control rail — each button copies its exact sovereign-osctl command. A firewall rule change runs through the signed CLI after your MS003 signature, never from a web click.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copy-command boundary</div>Each control copies its sovereign-osctl verb (§1g / R10212). Rule changes need an MS003 signature (R10113); the web mirrors the ruleset read-only.</div>"
     }
    ]
   }

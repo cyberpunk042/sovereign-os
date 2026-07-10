@@ -1465,22 +1465,26 @@ window.SO_ASSIST = {
     {
      "selector": "#mirror-state-label",
      "title": "Mirror label",
-     "content": "One-word mirror state — live or offline; whether the trust scores can be trusted as current."
+     "content": "One-word mirror state — live or offline; whether the trust scores can be trusted as current.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">One-word trust-mirror health</div>Live or offline — whether the trust scores are current. Bands shift as tools earn and lose trust, so a stale read can misplace a tool that just crossed a boundary.</div>"
     },
     {
      "selector": "#mirror-state-detail",
      "title": "Mirror detail",
-     "content": "The producer/endpoint behind the mirror and why it's live or offline. Managed via selfdefctl trust-scores on the selfdef side."
+     "content": "The producer/endpoint behind the mirror and why it's live or offline. Managed via selfdefctl trust-scores on the selfdef side.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The M060 bridge status</div>The producer behind the mirror and why it's live or offline — the bridge carrying selfdef's trust scoring here.</div>"
     },
     {
      "selector": "#mirror-last-update",
      "title": "Mirror freshness",
-     "content": "When selfdef last captured this snapshot (ISO captured_at). On an offline mirror, how stale it is."
+     "content": "When selfdef last captured this snapshot (ISO captured_at). On an offline mirror, how stale it is.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">When selfdef last captured</div>The snapshot time. A tool's trajectory can flip within a few executions, so an old timestamp means a band change may not show yet.</div>"
     },
     {
      "selector": "#mirror-schema-version",
      "title": "Mirror schema",
-     "content": "The MS007 typed-mirror-crate schema version — confirms mirror and consumer agree on the data shape."
+     "content": "The MS007 typed-mirror-crate schema version — confirms mirror and consumer agree on the data shape.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">MS007 crate compatibility</div>The typed-mirror-crate schema version — confirms mirror and consumer agree on the score shape, so bands and means render correctly.</div>"
     }
    ]
   },
@@ -1492,42 +1496,50 @@ window.SO_ASSIST = {
     {
      "selector": "#b-trusted",
      "title": "Trusted (≥ 800)",
-     "content": "Tools in the Trusted band — Tier A/B auto-approve eligible — earned enough trust to act with less friction. Trust is earned and decays: a tool's score determines how much friction its actions get, from auto-approve (Trusted) to auto-quarantine (Untrusted). The band IS the policy applied to it."
+     "content": "Tools in the Trusted band — Tier A/B auto-approve eligible — earned enough trust to act with less friction. Trust is earned and decays: a tool's score determines how much friction its actions get, from auto-approve (Trusted) to auto-quarantine (Untrusted). The band IS the policy applied to it.",
+     "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">Trusted band · auto-approve eligible</div>Tools that earned enough trust to be Tier A/B auto-approve eligible — routine, proven-safe. The band a tool WANTS to be in; getting here takes a clean history.</div>"
     },
     {
      "selector": "#m-trusted",
      "title": "Trusted mean",
-     "content": "The mean trust score within the Trusted band — how deep into the band its tools sit. A Trusted-band mean near the 800 floor is different from one near 1000; it tells you how solid the band's trust really is."
+     "content": "The mean trust score within the Trusted band — how deep into the band its tools sit. A Trusted-band mean near the 800 floor is different from one near 1000; it tells you how solid the band's trust really is.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Mean depth within a band</div>Not just how many tools are Trusted, but how far into the band they sit. A Trusted band with a low mean is full of tools barely over the line — closer to demotion than the count suggests.</div>"
     },
     {
      "selector": "#b-watched",
      "title": "Watched (500–799)",
-     "content": "Tools in the Watched band — telemetry retained · profile-gated — trusted but observed. Trust is earned and decays: a tool's score determines how much friction its actions get, from auto-approve (Trusted) to auto-quarantine (Untrusted). The band IS the policy applied to it."
+     "content": "Tools in the Watched band — telemetry retained · profile-gated — trusted but observed. Trust is earned and decays: a tool's score determines how much friction its actions get, from auto-approve (Trusted) to auto-quarantine (Untrusted). The band IS the policy applied to it.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Watched band · telemetry retained</div>Trust-building tools — allowed but with telemetry kept and profile-gating. Not yet auto-approve; the probationary middle where a tool proves itself before promotion.</div>"
     },
     {
      "selector": "#m-watched",
      "title": "Watched mean",
-     "content": "The mean trust score within the Watched band — how deep into the band its tools sit. A Trusted-band mean near the 800 floor is different from one near 1000; it tells you how solid the band's trust really is."
+     "content": "The mean trust score within the Watched band — how deep into the band its tools sit. A Trusted-band mean near the 800 floor is different from one near 1000; it tells you how solid the band's trust really is.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Depth within the Watched band</div>The mean score inside Watched — how close its tools are to promotion vs demotion. A mean near the Trusted boundary means the band is graduating; near Suspect means it's slipping.</div>"
     },
     {
      "selector": "#b-suspect",
      "title": "Suspect (200–499)",
-     "content": "Tools in the Suspect band — operator-ask · Tier C/D escalation — actions need your say-so. Trust is earned and decays: a tool's score determines how much friction its actions get, from auto-approve (Trusted) to auto-quarantine (Untrusted). The band IS the policy applied to it."
+     "content": "Tools in the Suspect band — operator-ask · Tier C/D escalation — actions need your say-so. Trust is earned and decays: a tool's score determines how much friction its actions get, from auto-approve (Trusted) to auto-quarantine (Untrusted). The band IS the policy applied to it.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Suspect band · operator-ask</div>Tools that trigger an operator-ask and Tier C/D escalation — trust is low enough that the box won't run them unsupervised. Actions here land in your queue.<div class=\"so-xref\"><span class=\"x\">→</span> D-06 pending approvals — where suspect-tool actions escalate</div></div>"
     },
     {
      "selector": "#m-suspect",
      "title": "Suspect mean",
-     "content": "The mean trust score within the Suspect band — how deep into the band its tools sit. A Trusted-band mean near the 800 floor is different from one near 1000; it tells you how solid the band's trust really is."
+     "content": "The mean trust score within the Suspect band — how deep into the band its tools sit. A Trusted-band mean near the 800 floor is different from one near 1000; it tells you how solid the band's trust really is.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">How deep the suspicion runs</div>The mean score inside the Suspect band. A mean near the Watched boundary means these tools are recoverable; a mean near Untrusted means they're one bad run from auto-quarantine.<div class=\"so-xref\"><span class=\"x\">→</span> b-untrusted — the band below, where these could fall</div></div>"
     },
     {
      "selector": "#b-untrusted",
      "title": "Untrusted (< 200)",
-     "content": "Tools in the Untrusted band — auto-quarantine · forfeit candidate — too little trust to run freely. Trust is earned and decays: a tool's score determines how much friction its actions get, from auto-approve (Trusted) to auto-quarantine (Untrusted). The band IS the policy applied to it."
+     "content": "Tools in the Untrusted band — auto-quarantine · forfeit candidate — too little trust to run freely. Trust is earned and decays: a tool's score determines how much friction its actions get, from auto-approve (Trusted) to auto-quarantine (Untrusted). The band IS the policy applied to it.",
+     "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">Untrusted band · auto-quarantine</div>The bottom band — auto-quarantine and forfeit-candidate. A tool here is treated as hostile by default; it can't act without containment.<div class=\"so-xref\"><span class=\"x\">→</span> D-17 quarantine — where untrusted tools land</div></div>"
     },
     {
      "selector": "#m-untrusted",
      "title": "Untrusted mean",
-     "content": "The mean trust score within the Untrusted band — how deep into the band its tools sit. A Trusted-band mean near the 800 floor is different from one near 1000; it tells you how solid the band's trust really is."
+     "content": "The mean trust score within the Untrusted band — how deep into the band its tools sit. A Trusted-band mean near the 800 floor is different from one near 1000; it tells you how solid the band's trust really is.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">How deep the distrust runs</div>The mean score inside the Untrusted band — how far below the line its tools sit. A mean near the Suspect boundary means some are recoverable; a mean at the floor means they're firmly auto-quarantine material.<div class=\"so-xref\"><span class=\"x\">→</span> D-17 quarantine — where untrusted tools land</div></div>"
     }
    ]
   },
@@ -1539,12 +1551,14 @@ window.SO_ASSIST = {
     {
      "selector": "#s-total",
      "title": "Total tools",
-     "content": "How many tools are being trust-scored — the full population selfdef tracks. Every tool that acts has a score."
+     "content": "How many tools are being trust-scored — the full population selfdef tracks. Every tool that acts has a score.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The scored population</div>Every tool selfdef is trust-scoring. Trust isn't assigned once — it's continuously earned and lost, so this is the live population whose bands shift as behaviour changes.<div class=\"so-xref\"><span class=\"x\">→</span> MS039 authority rings — how trust maps to what a tool may do</div></div>"
     },
     {
      "selector": "#s-mean",
      "title": "Mean score",
-     "content": "The average trust across all tools. The box's overall trust health — a falling mean means tools are collectively losing trust, worth understanding why."
+     "content": "The average trust across all tools. The box's overall trust health — a falling mean means tools are collectively losing trust, worth understanding why.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The box's overall trust health</div>Average trust across all tools. A high mean means a well-behaved population; a falling mean is the early signal that tools are collectively losing trust — worth catching before individual tools cross a band boundary.</div>"
     },
     {
      "selector": "#s-down",
@@ -1555,7 +1569,8 @@ window.SO_ASSIST = {
     {
      "selector": "#s-exec",
      "title": "Executions (24h)",
-     "content": "How many tool executions ran in the last day (successful) — the activity volume the scores are computed from. More executions = more evidence, so more meaningful scores."
+     "content": "How many tool executions ran in the last day (successful) — the activity volume the scores are computed from. More executions = more evidence, so more meaningful scores.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Yesterday's activity base</div>Successful tool executions in the last day — the denominator behind trust movement. A tool can only earn or lose trust by running; low activity means slow trust change.</div>"
     }
    ]
   },
@@ -1568,7 +1583,15 @@ window.SO_ASSIST = {
      "selector": "#tool-tbody",
      "title": "Per-tool scores",
      "content": "Each tool with its trust score, band, and recent trajectory. Hover a row for how trusted the tool is and which way it's heading — a Trusted tool trending down is more interesting than a stable Suspect one.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A tool's score is its earned autonomy</div>The score decides how much friction the tool's actions get. Read it with the trajectory: direction matters as much as the current number.<div class=\"so-xref\"><span class=\"x\">→</span> a tool that drops to Untrusted becomes an auto-quarantine candidate (D-17)</div></div>"
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A tool's score is its earned autonomy</div>The score decides how much friction the tool's actions get. Read it with the trajectory: direction matters as much as the current number.<div class=\"so-xref\"><span class=\"x\">→</span> a tool that drops to Untrusted becomes an auto-quarantine candidate (D-17)</div></div>",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#tool-tbody > tr",
+      "nameSelector": "td:first-child,td",
+      "title": "Tool · {{name}}",
+      "content": "Tool {{name}} — its trust score, band, and recent trajectory. The trajectory matters more than the number: a high score trending down is a tool to watch before it crosses into Suspect.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Tool · {{name}}</div>One trust-scored tool. Band decides how it's treated (auto-approve → auto-quarantine); trajectory says which way it's heading.</div>"
+     }
     }
    ]
   },
@@ -1580,7 +1603,8 @@ window.SO_ASSIST = {
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Mirror controls — each copies its selfdefctl trust-scores verb (§1g / R10212). Reads the mirror; every change runs through the signed selfdef CLI, never the web."
+     "content": "Mirror controls — each copies its selfdefctl trust-scores verb (§1g / R10212). Reads the mirror; every change runs through the signed selfdef CLI, never the web.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copy-command mirror boundary</div>Each control copies its selfdefctl trust-scores verb (§1g / R10212). Trust is earned by behaviour, not set by hand — the web mirrors the scores read-only.</div>"
     }
    ]
   }

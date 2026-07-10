@@ -1392,12 +1392,14 @@ window.SO_ASSIST = {
     {
      "selector": "#stats",
      "title": "Audit summary",
-     "content": "The roll-up — version, total findings, clean modules, waivers, selfdef coverage. The fleet's minimization debt at a glance."
+     "content": "The roll-up — version, total findings, clean modules, waivers, selfdef coverage. The fleet's minimization debt at a glance.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The honesty scoreboard, composed</div>The roll-up of every anti-minimization axis — findings, clean modules, waivers, §1h. It's §1g's core rule ('we do not minimize anything') rendered as a single legible state, so 'are we cutting corners' has a countable answer.</div>"
     },
     {
      "selector": "#stat-version",
      "title": "Audit version",
-     "content": "The anti-minimization audit version — for reconciling against the R456 pattern ladder."
+     "content": "The anti-minimization audit version — for reconciling against the R456 pattern ladder.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Pins what counts as a minimization</div>The audit version reconciles findings against the R456 pattern set. A version bump can add a pattern (a new smell to catch), which raises the finding count without the fleet getting worse — so scores only compare within a version.</div>"
     },
     {
      "selector": "#stat-total",
@@ -1411,27 +1413,32 @@ window.SO_ASSIST = {
        "content": "Zero findings — no minimization patterns detected across the fleet.",
        "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● 0 findings</div>No cut corners detected — the strongest state this audit can report.</div>"
       }
-     ]
+     ],
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">The honesty scoreboard</div>Every minimization instance across the fleet. §1g's core rule is 'we do not minimize anything' — this number is that principle made measurable. Zero is the goal; the trend matters more than the absolute.</div>"
     },
     {
      "selector": "#stat-clean",
      "title": "Clean modules",
-     "content": "Modules with no findings — no stubs, no anchorless TODOs, no minimize-phrases. The modules that pass the honesty bar."
+     "content": "Modules with no findings — no stubs, no anchorless TODOs, no minimize-phrases. The modules that pass the honesty bar.",
+     "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">Clean = no cut corners</div>Modules with zero findings — no stubs, no anchorless TODOs, no minimizing language. Clean is the goal state; a rising clean count is the fleet paying down its honesty debt.</div>"
     },
     {
      "selector": "#stat-waivers",
      "title": "Waivers",
-     "content": "Operator-authored exemptions (R474) — findings deliberately accepted with a reason. A waiver turns a flagged pattern into an acknowledged decision."
+     "content": "Operator-authored exemptions (R474) — findings deliberately accepted with a reason. A waiver turns a flagged pattern into an acknowledged decision.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Operator-authored exemptions (R474)</div>Findings you deliberately accepted — a waiver is the honest way to say 'this is fine, on purpose'. It's the difference between an unacknowledged cut corner and a signed decision to accept one.</div>"
     },
     {
      "selector": "#stat-selfdef",
      "title": "Selfdef coverage",
-     "content": "Cross-repo selfdef AuditManifests discovered (R466) — §1h anti-minimization beyond this repo."
+     "content": "Cross-repo selfdef AuditManifests discovered (R466) — §1h anti-minimization beyond this repo.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">§1h · anti-min beyond this repo</div>Cross-repo selfdef AuditManifests (R466). The 'we do not minimize' rule applies fleet-wide — §1h is where a sister repo's cut corners get counted too.<div class=\"so-xref\"><span class=\"x\">→</span> compliance — the §1g/§1h rollup</div></div>"
     },
     {
      "selector": "#last-refresh",
      "title": "Audit freshness",
-     "content": "When the audit last ran. Coverage below is only as current as this — a module changed since then would not be re-scored yet, so refresh before trusting a green number."
+     "content": "When the audit last ran. Coverage below is only as current as this — a module changed since then would not be re-scored yet, so refresh before trusting a green number.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Findings age with the scan</div>A module cleaned since the last scan still shows its old findings until re-run. Re-scan before treating a finding as still-open — stale findings are their own small dishonesty.</div>"
     }
    ]
   },
@@ -1443,27 +1450,32 @@ window.SO_ASSIST = {
     {
      "selector": "#pat-todo-no-anchor",
      "title": "Pattern · todo-no-anchor",
-     "content": "A TODO with no ticket, no owner, no date — a promise with no address. It reads as work planned but is really work forgotten."
+     "content": "A TODO with no ticket, no owner, no date — a promise with no address. It reads as work planned but is really work forgotten.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">TODO with no anchor</div>A promise with no address — no ticket, no owner, no date. It reads as tracked work but nobody will ever be reminded of it. The most common way work quietly disappears.</div>"
     },
     {
      "selector": "#pat-empty-stub",
      "title": "Pattern · empty-stub",
-     "content": "A function or section that exists but does nothing — the shape of work without the work. Passes a glance, fails a use."
+     "content": "A function or section that exists but does nothing — the shape of work without the work. Passes a glance, fails a use.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Empty stub</div>A function or section that exists but does nothing — the shape of work without the work. It passes a glance and a grep for the name, then does nothing when called.</div>"
     },
     {
      "selector": "#pat-skipped-no-followup",
      "title": "Pattern · skipped-no-followup",
-     "content": "A skip with no follow-up recorded — a deferral that quietly became a drop. Skipping is fine; skipping silently is the minimization."
+     "content": "A skip with no follow-up recorded — a deferral that quietly became a drop. Skipping is fine; skipping silently is the minimization.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Skipped, no follow-up</div>A deferral with no record — a skip that quietly became permanent. Skipping is fine IF it's tracked; an untracked skip is a silent scope cut.</div>"
     },
     {
      "selector": "#pat-surface-gap",
      "title": "Pattern · surface-gap",
-     "content": "A feature missing a required surface (the R453 axis, seen from the smell side). The same gap surface-map counts, flagged as a code smell here."
+     "content": "A feature missing a required surface (the R453 axis, seen from the smell side). The same gap surface-map counts, flagged as a code smell here.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Surface gap (the R453 axis, from anti-min side)</div>A feature missing a required observability surface — the same gap surface-map measures, caught here as a minimization: shipping work you can't watch.<div class=\"so-xref\"><span class=\"x\">→</span> surface-map — the R453 axis directly</div></div>"
     },
     {
      "selector": "#pat-doc-gap",
      "title": "Pattern · doc-gap",
-     "content": "A feature missing a required doc kind (the R454 axis). Under-documentation as a detectable pattern, not just a coverage number."
+     "content": "A feature missing a required doc kind (the R454 axis). Under-documentation as a detectable pattern, not just a coverage number.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Doc gap (the R454 axis, from anti-min side)</div>A feature missing a required doc kind — under-documented work, counted as a minimization. The doc-coverage axis, seen as a cut corner.<div class=\"so-xref\"><span class=\"x\">→</span> doc-coverage — the R454 axis directly</div></div>"
     },
     {
      "selector": "#pat-mandate-todo",
@@ -1493,7 +1505,16 @@ window.SO_ASSIST = {
     {
      "selector": "#waivers-tbody",
      "title": "Active waivers",
-     "content": "Each row: a finding waived by the operator with a rationale. Read the reason — a waiver distinguishes an intentional, owned shortcut from an accidental cut corner the audit should still chase."
+     "content": "Each row: a finding waived by the operator with a rationale. Read the reason — a waiver distinguishes an intentional, owned shortcut from an accidental cut corner the audit should still chase.",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#waivers-tbody > tr",
+      "nameSelector": "td:first-child,td",
+      "title": "Waiver · {{name}}",
+      "content": "Waiver {{name}} — a finding the operator accepted, with rationale. Read the rationale: a waiver is only honest if the reason holds; a stale waiver is a cut corner in disguise.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Waiver · {{name}}</div>An operator-accepted finding. The rationale is the accountability — re-read it periodically to confirm the exemption still makes sense.</div>"
+     },
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The signed-exemption ledger</div>Every finding the operator deliberately accepted, with rationale. This table is what separates an honest 'accepted on purpose' from a hidden cut corner — read the rationales periodically to confirm they still hold.</div>"
     }
    ]
   },
@@ -1505,7 +1526,16 @@ window.SO_ASSIST = {
     {
      "selector": "#cross-tbody",
      "title": "Cross-axis priority",
-     "content": "Each row: a module short on both surface and doc coverage. Double-minimized modules sorted up — fixing one closes two contract gaps at once, so they are the efficient place to start."
+     "content": "Each row: a module short on both surface and doc coverage. Double-minimized modules sorted up — fixing one closes two contract gaps at once, so they are the efficient place to start.",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#cross-tbody > tr",
+      "nameSelector": "td:first-child,td",
+      "title": "Module · {{name}}",
+      "content": "Module {{name}} — short on BOTH surface and doc coverage. Double-minimized modules are the priority: they're invisible and undocumented at once.",
+      "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Double-min · {{name}}</div>A module weak on two axes at once — the highest-priority anti-minimization fix.</div>"
+     },
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">The double-minimized priority list</div>Modules short on BOTH surface and doc coverage at once — invisible and undocumented together. Top of the fix queue: fixing one axis on these helps two §1g scores.</div>"
     }
    ]
   },
@@ -1517,7 +1547,8 @@ window.SO_ASSIST = {
     {
      "selector": "#selfdef-tbody",
      "title": "Selfdef audit manifests",
-     "content": "Each row: a cross-repo selfdef module and its minimization findings (R466). §1h holds selfdef to the same honesty bar."
+     "content": "Each row: a cross-repo selfdef module and its minimization findings (R466). §1h holds selfdef to the same honesty bar.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">§1h · sister-repo findings</div>Cross-repo selfdef AuditManifests (R466). The no-minimize rule is fleet-wide — this table is where a sister repo's cut corners get counted, so §1h compliance isn't just sovereign-os being clean alone.</div>"
     }
    ]
   },
@@ -1529,7 +1560,8 @@ window.SO_ASSIST = {
     {
      "selector": "#refresh-btn",
      "title": "Refresh audit",
-     "content": "Re-scan every module and recompute coverage now — read-only. It re-measures; it never changes a module to move a score."
+     "content": "Re-scan every module and recompute coverage now — read-only. It re-measures; it never changes a module to move a score.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Re-measure on demand</div>Re-scans every module and recomputes findings — read-only. It re-measures reality; a finding that vanishes on refresh was already fixed and just hadn't been re-scanned.</div>"
     }
    ]
   },
@@ -1541,7 +1573,8 @@ window.SO_ASSIST = {
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "The control rail — each button copies its exact sovereign-osctl verb. A finding waiver runs through the signed CLI, never from a web click."
+     "content": "The control rail — each button copies its exact sovereign-osctl verb. A finding waiver runs through the signed CLI, never from a web click.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copy-command, per §1g</div>Each control copies its exact sovereign-osctl verb (R10212). Waiving a finding is a signed operator decision through the CLI — the web surfaces findings and hands you the verb, it never waives anything itself.</div>"
     }
    ]
   }

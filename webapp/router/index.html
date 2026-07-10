@@ -1344,12 +1344,14 @@ window.SO_ASSIST = {
     {
      "selector": "#stats",
      "title": "Router summary",
-     "content": "The roll-up — API version, router service, listen port (127.0.0.1:8080). The router is the loopback entry every prompt passes through."
+     "content": "The roll-up — API version, router service, listen port (127.0.0.1:8080). The router is the loopback entry every prompt passes through.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The router is the front door</div>Every prompt hits the router first — it classifies the request and picks a backend tier. If the router is down, nothing gets served; if it's misconfigured, prompts route to the wrong (too cheap or too expensive) backend.<div class=\"so-xref\"><span class=\"x\">→</span> SDD-011 — the 7-axis routing model</div></div>"
     },
     {
      "selector": "#stat-version",
      "title": "API version",
-     "content": "The router daemon version answering — for reconciling routing behaviour against SDD-011."
+     "content": "The router daemon version answering — for reconciling routing behaviour against SDD-011.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Pins the router</div>The router daemon version answering — the reference for reconciling routing behaviour against SDD-011. A version change can alter the rule semantics.</div>"
     },
     {
      "selector": "#stat-service",
@@ -1363,12 +1365,14 @@ window.SO_ASSIST = {
        "content": "Router service DOWN — no prompt can be classified or dispatched.",
        "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Router down</div>No routing — prompts can't reach a tier.</div>"
       }
-     ]
+     ],
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Router down = no serving</div>router.service is the classifier. If it's down, prompts have no tier assigned and inference can't proceed — this is a hard-stop failure, not a degradation.<div class=\"so-xref\"><span class=\"x\">→</span> stat-listen — the loopback bind the service holds</div></div>"
     },
     {
      "selector": "#stat-listen",
      "title": "Listen 8080",
-     "content": "That the router is bound to 127.0.0.1:8080 — loopback only. Every prompt reaches inference through this local port; nothing routes over the network (sovereign by construction)."
+     "content": "That the router is bound to 127.0.0.1:8080 — loopback only. Every prompt reaches inference through this local port; nothing routes over the network (sovereign by construction).",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Loopback-only by design</div>The router binds 127.0.0.1:8080 — loopback only, never a public interface. Every prompt reaches inference through this local door, so nothing routes without crossing the box's own boundary first.<div class=\"so-xref\"><span class=\"x\">→</span> SDD-062 — the sovereign loopback chat contract</div></div>"
     }
    ]
   },
@@ -1380,7 +1384,8 @@ window.SO_ASSIST = {
     {
      "selector": "#backend-row",
      "title": "Backends",
-     "content": "The three backends (Pulse / Logic-Engine / Oracle-Core) with their live state. Read them as the router's targets — a down backend means prompts that would route there fall back or fail."
+     "content": "The three backends (Pulse / Logic-Engine / Oracle-Core) with their live state. Read them as the router's targets — a down backend means prompts that would route there fall back or fail.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Three backends, three cost tiers</div>The router chooses among Pulse (cheap ternary CPU), Logic (4090 mid), and Oracle (Blackwell deep). The whole point is matching prompt difficulty to the cheapest backend that can serve it well.<div class=\"so-grid\"><span class=\"k\">Pulse</span><span>ternary bitnet.cpp on CPU — high-volume, simple</span><span class=\"k\">Logic</span><span>RTX 4090 Q4 — moderate complexity</span><span class=\"k\">Oracle</span><span>Blackwell full/NVFP4 — hardest prompts</span></div></div>"
     },
     {
      "selector": "#backend-pulse",
@@ -1416,13 +1421,30 @@ window.SO_ASSIST = {
     {
      "selector": "#rules-tbody",
      "title": "Rule rows",
-     "content": "Each rule: a match condition and the tier it routes to. Hover for what the rule matches and where it sends. A prompt takes the first rule that fits."
+     "content": "Each rule: a match condition and the tier it routes to. Hover for what the rule matches and where it sends. A prompt takes the first rule that fits.",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#rules-tbody > tr",
+      "nameSelector": "td:first-child,td",
+      "title": "Rule · {{name}}",
+      "content": "Routing rule {{name}} — a match condition and the tier it sends matching prompts to. Rules are first-match-wins top-down, so this rule only fires if no earlier rule matched.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Rule · {{name}}</div>One SDD-011 routing rule. Order matters: it's evaluated top-down, first match wins, so a broad rule above it can shadow it.</div>"
+     },
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The SDD-011 rule table in full</div>Every routing rule at once, evaluated top-down first-match-wins — so order matters. A broad rule high in the list can shadow a specific one below it.</div>"
     },
     {
      "selector": "#metrics-tbody",
      "title": "Route counts",
      "content": "Live counts of where prompts actually routed, per tier (Layer B textfile collector — scraped from the counter files, not a live tap). This is the feedback loop on the rules: if everything lands on Oracle the rules or the prompts are heavier than intended; if Pulse stays near-zero the cheap tier is being bypassed and every prompt is paying for depth it may not need.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Rules are policy; counts are reality</div>The rule table says where prompts SHOULD go; this table says where they actually WENT. Read them together — a mismatch means the rules no longer reflect the real prompt mix.<div class=\"so-xref\"><span class=\"x\">→</span> rules table above — the policy these counts measure<br><span class=\"x\">→</span> D-04 costs — an Oracle-heavy skew shows up here as spend</div></div>"
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Rules are policy; counts are reality</div>The rule table says where prompts SHOULD go; this table says where they actually WENT. Read them together — a mismatch means the rules no longer reflect the real prompt mix.<div class=\"so-xref\"><span class=\"x\">→</span> rules table above — the policy these counts measure<br><span class=\"x\">→</span> D-04 costs — an Oracle-heavy skew shows up here as spend</div></div>",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#metrics-tbody > tr",
+      "nameSelector": "td:first-child,td",
+      "title": "Route metric · {{name}}",
+      "content": "Where prompts actually went for {{name}} — the live count of routing decisions to this tier. Compare against the rules to see whether real traffic matches intent.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Metric · {{name}}</div>Live routing counts for this tier (Layer B textfile collector). A tier getting far more traffic than expected points at a rule matching too broadly.</div>"
+     }
     }
    ]
   },
@@ -1434,12 +1456,14 @@ window.SO_ASSIST = {
     {
      "selector": "#refresh-btn",
      "title": "Refresh all",
-     "content": "Re-poll every table on this panel now — a read-only re-sample. It re-reads state; it never mutates the box or re-runs a route."
+     "content": "Re-poll every table on this panel now — a read-only re-sample. It re-reads state; it never mutates the box or re-runs a route.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Re-poll the router</div>Re-reads every table — read-only. It re-samples routing state and metrics; it never changes a rule.</div>"
     },
     {
      "selector": "#last-refresh",
      "title": "Refresh freshness",
-     "content": "When this was last read; check before trusting a value as current."
+     "content": "When this was last read; check before trusting a value as current.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Routing state can shift</div>When this was read. A backend going down or a rule change moves routing, so check freshness before trusting a value as current.</div>"
     }
    ]
   },
@@ -1451,7 +1475,8 @@ window.SO_ASSIST = {
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Controls — each copies its exact sovereign-osctl verb. Router config runs through the signed CLI, never from the web (§1g / R10212)."
+     "content": "Controls — each copies its exact sovereign-osctl verb. Router config runs through the signed CLI, never from the web (§1g / R10212).",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copy-command boundary</div>Each control copies its sovereign-osctl verb (§1g / R10212). Router config is a signed action; the web shows rules and live metrics read-only.</div>"
     }
    ]
   }

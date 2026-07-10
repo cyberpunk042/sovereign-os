@@ -1430,37 +1430,44 @@ window.SO_ASSIST = {
     {
      "selector": "#stats",
      "title": "Compliance summary",
-     "content": "The composite — version, and the four instrument scores (surface, doc, anti-min, ux). The single view of whether the fleet meets the whole delivery contract, not just one axis."
+     "content": "The composite — version, and the four instrument scores (surface, doc, anti-min, ux). The single view of whether the fleet meets the whole delivery contract, not just one axis.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">All four axes, composed</div>The composite — version plus the four instrument scores (surface, doc, anti-min, ux). It's §1g/§1h compliance as one legible number, so 'is the fleet honest and complete' has a single answer.</div>"
     },
     {
      "selector": "#stat-version",
      "title": "Compliance version",
-     "content": "The rollup version — for reconciling against the R458 composite definition."
+     "content": "The rollup version — for reconciling against the R458 composite definition.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">One version for four instruments</div>The rollup version pins how the composite (R458) combines the four axes. If instruments update independently, this version is what tells you the four scores were computed under one consistent definition.</div>"
     },
     {
      "selector": "#stat-surface",
      "title": "Surface score",
-     "content": "The surface-map instrument's composite (R453). One of four axes — a fleet strong on surface but weak on docs is still non-compliant."
+     "content": "The surface-map instrument's composite (R453). One of four axes — a fleet strong on surface but weak on docs is still non-compliant.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Surface axis (R453)</div>One of four compliance axes — does every module ship the full 8 observability surfaces. A low surface score means work exists but can't be watched; §1g forbids that gap.<div class=\"so-xref\"><span class=\"x\">→</span> surface-map — the per-module 8-surface detail</div></div>"
     },
     {
      "selector": "#stat-doc",
      "title": "Doc score",
-     "content": "The doc-coverage composite (R454). Documentation completeness as one axis of the whole."
+     "content": "The doc-coverage composite (R454). Documentation completeness as one axis of the whole.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Doc axis (R454)</div>Documentation completeness as an axis — the 6 doc kinds per module. Code without docs is a minimization; this score is how much of the fleet is under-documented.<div class=\"so-xref\"><span class=\"x\">→</span> doc-coverage — the per-module doc detail</div></div>"
     },
     {
      "selector": "#stat-amin",
      "title": "Anti-min score",
-     "content": "The anti-minimization composite (R456). How free the fleet is of cut-corner smells — the honesty axis."
+     "content": "The anti-minimization composite (R456). How free the fleet is of cut-corner smells — the honesty axis.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Anti-minimization axis (R456)</div>How free the fleet is of cut corners — stubs, anchorless TODOs, minimizing language. A low score means work that looks done but isn't; this is the §1g 'we do not minimize' axis made countable.<div class=\"so-xref\"><span class=\"x\">→</span> anti-minimization-audit — the per-pattern findings</div></div>"
     },
     {
      "selector": "#stat-ux",
      "title": "UX score",
-     "content": "The ux-design composite (R457). Usability as an axis — a correct, documented, fully-surfaced feature that is unusable still fails here."
+     "content": "The ux-design composite (R457). Usability as an axis — a correct, documented, fully-surfaced feature that is unusable still fails here.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">UX axis (R457)</div>Usability as an axis — a correct, documented feature that's unusable still fails the operator. This score is whether the surfaces are actually navigable, on 6 dimensions.<div class=\"so-xref\"><span class=\"x\">→</span> ux-design-audit — the per-dimension scores</div></div>"
     },
     {
      "selector": "#last-refresh",
      "title": "Audit freshness",
-     "content": "When the audit last ran. Coverage below is only as current as this — a module changed since then would not be re-scored yet, so refresh before trusting a green number."
+     "content": "When the audit last ran. Coverage below is only as current as this — a module changed since then would not be re-scored yet, so refresh before trusting a green number.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Scores are as fresh as this scan</div>The four instruments recompute on scan — an old timestamp means a module fixed since won't show improved. Re-scan before trusting a low score is still real.</div>"
     }
    ]
   },
@@ -1509,7 +1516,16 @@ window.SO_ASSIST = {
     {
      "selector": "#selfdef-tbody",
      "title": "Selfdef axis rows",
-     "content": "Each row: a §1h cross-repo axis and its coverage. Read them to see whether the contract is holding beyond this repo or only within it."
+     "content": "Each row: a §1h cross-repo axis and its coverage. Read them to see whether the contract is holding beyond this repo or only within it.",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#selfdef-tbody > tr",
+      "nameSelector": "td:first-child,td",
+      "title": "§1h axis · {{name}}",
+      "content": "Cross-repo axis {{name}} — one of the five §1h axes composing fleet-wide compliance. §1h is compliance BEYOND this repo: selfdef and sisters count too.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">§1h · {{name}}</div>One cross-repo compliance axis. A repo can be §1g-clean internally yet fail §1h if a sister repo lags.</div>"
+     },
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The five §1h cross-repo axes</div>Each row is one §1h axis and its coverage — compliance BEYOND this repo. A repo can be §1g-clean internally yet fail §1h if a sister repo lags.</div>"
     }
    ]
   },
@@ -1521,7 +1537,16 @@ window.SO_ASSIST = {
     {
      "selector": "#worst-tbody",
      "title": "Worst modules",
-     "content": "Each row: a module ranked by composite gap across all four instruments. A module here is failing multiple axes — the highest-leverage cleanup, because one module's fix raises several scores."
+     "content": "Each row: a module ranked by composite gap across all four instruments. A module here is failing multiple axes — the highest-leverage cleanup, because one module's fix raises several scores.",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#worst-tbody > tr",
+      "nameSelector": "td:first-child,td",
+      "title": "Module · {{name}}",
+      "content": "Module {{name}} — ranked by composite gap across all four instruments. The worst modules are the highest-leverage fixes: one module weak on all axes moves the composite most.",
+      "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Module · {{name}}</div>One module's composite compliance gap. Top of this list = where a fix helps the fleet score most.</div>"
+     },
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">The highest-leverage fixes</div>Modules ranked by composite gap across all four instruments. The top rows are where a single fix moves the fleet score most — one module weak on every axis.</div>"
     }
    ]
   },
@@ -1533,7 +1558,8 @@ window.SO_ASSIST = {
     {
      "selector": "#history-tbody",
      "title": "Compliance history",
-     "content": "Each row: a past compliance snapshot. Read the direction — a rising composite means the delivery contract is being honored more over time; a falling one is drift the operator would want to catch early."
+     "content": "Each row: a past compliance snapshot. Read the direction — a rising composite means the delivery contract is being honored more over time; a falling one is drift the operator would want to catch early.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The compliance direction</div>Each row is a past compliance snapshot. Read the trend — a rising composite means the fleet is paying down its §1g debt; a falling one is drift worth catching.</div>"
     }
    ]
   },
@@ -1545,7 +1571,8 @@ window.SO_ASSIST = {
     {
      "selector": "#refresh-btn",
      "title": "Refresh audit",
-     "content": "Re-scan every module and recompute coverage now — read-only. It re-measures; it never changes a module to move a score."
+     "content": "Re-scan every module and recompute coverage now — read-only. It re-measures; it never changes a module to move a score.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Re-scan every instrument</div>Re-runs all four instruments and recomputes the composite — read-only. A score that improves on refresh was already fixed and un-rescanned.</div>"
     }
    ]
   },
@@ -1557,7 +1584,8 @@ window.SO_ASSIST = {
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "The control rail — each button copies its exact sovereign-osctl verb. A compliance-affecting change runs through the signed CLI, never from a web click."
+     "content": "The control rail — each button copies its exact sovereign-osctl verb. A compliance-affecting change runs through the signed CLI, never from a web click.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copy-command boundary</div>Each control copies its sovereign-osctl verb (§1g / R10212). The panel measures compliance; closing a gap is real work in the repo, surfaced here as a verb.</div>"
     }
    ]
   }

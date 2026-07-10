@@ -1444,22 +1444,26 @@ window.SO_ASSIST = {
     {
      "selector": "#mirror-state-label",
      "title": "Mirror label",
-     "content": "One-word mirror state — live or offline; whether the quarantine can be trusted as current."
+     "content": "One-word mirror state — live or offline; whether the quarantine can be trusted as current.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">One-word quarantine-mirror health</div>Live or offline — whether the quarantine snapshot is current. An offline mirror could hide a just-quarantined item, so this gates trust in an empty-looking queue.</div>"
     },
     {
      "selector": "#mirror-state-detail",
      "title": "Mirror detail",
-     "content": "The producer/endpoint behind the mirror and why it's live or offline. Managed via selfdefctl quarantine on the selfdef side."
+     "content": "The producer/endpoint behind the mirror and why it's live or offline. Managed via selfdefctl quarantine on the selfdef side.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why live or offline</div>The producer/endpoint and the reason behind the state — an accountable 'offline because X' rather than a bare flag.</div>"
     },
     {
      "selector": "#mirror-last-update",
      "title": "Mirror freshness",
-     "content": "When selfdef last captured this snapshot (ISO captured_at). On an offline mirror, how stale it is."
+     "content": "When selfdef last captured this snapshot (ISO captured_at). On an offline mirror, how stale it is.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">When selfdef last captured</div>The snapshot time. Items are quarantined the instant a boundary is crossed, so an old timestamp means a fresh catch may not appear yet — refresh before assuming quarantine is empty.</div>"
     },
     {
      "selector": "#mirror-schema-version",
      "title": "Mirror schema",
-     "content": "The MS007 typed-mirror-crate schema version — confirms mirror and consumer agree on the data shape."
+     "content": "The MS007 typed-mirror-crate schema version — confirms mirror and consumer agree on the data shape.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">MS007 crate compatibility</div>The typed-mirror-crate schema version — confirms mirror and consumer agree on the item shape, so severity and declaration fields render correctly.</div>"
     }
    ]
   },
@@ -1471,32 +1475,38 @@ window.SO_ASSIST = {
     {
      "selector": "#s-critical",
      "title": "Critical",
-     "content": "How many quarantined items are critical — declared RO but wrote — a declaration violated in the most serious way. Critical is a hard-guarantee violation — the strongest signal something behaved maliciously or is badly broken; investigate before releasing."
+     "content": "How many quarantined items are critical — declared RO but wrote — a declaration violated in the most serious way. Critical is a hard-guarantee violation — the strongest signal something behaved maliciously or is badly broken; investigate before releasing.",
+     "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">Critical · declared RO but wrote</div>The worst class: something declared read-only and then wrote. A deliberate boundary breach — the declaration and the behaviour flatly contradict, which is the signature of either a bug or an attack.</div>"
     },
     {
      "selector": "#s-major",
      "title": "Major",
-     "content": "How many quarantined items are major — declared FS-only but reached elsewhere — significant scope violation. Part of the quarantine picture; the block+quarantine+trace protocol froze it pending your decision."
+     "content": "How many quarantined items are major — declared FS-only but reached elsewhere — significant scope violation. Part of the quarantine picture; the block+quarantine+trace protocol froze it pending your decision.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Major · escaped its declared scope</div>Declared filesystem-only but reached elsewhere (e.g. network). The action wasn't RO-vs-write flagrant, but it left the box it promised to stay in — a real scope violation.</div>"
     },
     {
      "selector": "#s-minor",
      "title": "Minor",
-     "content": "How many quarantined items are minor — scope drift, same class — a smaller deviation. Part of the quarantine picture; the block+quarantine+trace protocol froze it pending your decision."
+     "content": "How many quarantined items are minor — scope drift, same class — a smaller deviation. Part of the quarantine picture; the block+quarantine+trace protocol froze it pending your decision.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Minor · same-class drift</div>Scope drift within the same class — a small overstep that stayed in-category. Worth noting, rarely alarming; often a slightly-too-broad declaration rather than malice.</div>"
     },
     {
      "selector": "#s-info",
      "title": "Informational",
-     "content": "How many quarantined items are informational — declaration superset — did less than declared, noted not blocked. Part of the quarantine picture; the block+quarantine+trace protocol froze it pending your decision."
+     "content": "How many quarantined items are informational — declaration superset — did less than declared, noted not blocked. Part of the quarantine picture; the block+quarantine+trace protocol froze it pending your decision.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Info · declaration superset</div>The item declared MORE than it used — a superset. Not a violation at all in the harmful sense; it's the honest-but-loose case, surfaced so you can tighten the declaration.</div>"
     },
     {
      "selector": "#s-released",
      "title": "Released (24h)",
-     "content": "How many quarantined items are released (24h) — operator-signed release back to normal in the last day. Part of the quarantine picture; the block+quarantine+trace protocol froze it pending your decision."
+     "content": "How many quarantined items are released (24h) — operator-signed release back to normal in the last day. Part of the quarantine picture; the block+quarantine+trace protocol froze it pending your decision.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Released · operator-signed (24h)</div>Items you signed back out of quarantine in the last day. Release is the deliberate 'this was a false positive, let it run' decision — always operator-signed, never automatic.</div>"
     },
     {
      "selector": "#s-forfeited",
      "title": "Forfeited (24h)",
-     "content": "How many quarantined items are forfeited (24h) — image purged — the quarantined thing was destroyed. Part of the quarantine picture; the block+quarantine+trace protocol froze it pending your decision."
+     "content": "How many quarantined items are forfeited (24h) — image purged — the quarantined thing was destroyed. Part of the quarantine picture; the block+quarantine+trace protocol froze it pending your decision.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Forfeited · image purged (24h)</div>Items whose quarantine ended in destruction — the image was purged. This is the terminal outcome for something judged genuinely bad: it doesn't come back.</div>"
     }
    ]
   },
@@ -1521,13 +1531,22 @@ window.SO_ASSIST = {
     {
      "selector": "#state-filters",
      "title": "State filters",
-     "content": "Filter quarantine by state (blocked / released / forfeited). Narrow to what needs a decision — usually the blocked, critical items."
+     "content": "Filter quarantine by state (blocked / released / forfeited). Narrow to what needs a decision — usually the blocked, critical items.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Filter to the decision you owe</div>Blocked = awaiting your call; released/forfeited = already decided. Filtering to blocked shows exactly what quarantine is waiting on you to resolve.</div>"
     },
     {
      "selector": "#quar-tbody",
      "title": "Quarantined items",
      "content": "Each quarantined item with its severity, what it's blocked for, and the mismatches. Hover a row for why it was quarantined; restore or forfeit via selfdefctl + MS003. This is the box catching something that broke its promise.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Block + quarantine + trace</div>When behaviour violates declaration, selfdef blocks it, freezes it here, and keeps the trace. Your options are release (signed, it was a false alarm) or forfeit (purge it).<div class=\"so-li\"><span class=\"no\">✗</span> critical/major → violated a real guarantee; investigate before release</div><div class=\"so-li\"><span class=\"warn\">▲</span> minor/info → smaller drift; often a declaration to tighten</div></div>"
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Block + quarantine + trace</div>When behaviour violates declaration, selfdef blocks it, freezes it here, and keeps the trace. Your options are release (signed, it was a false alarm) or forfeit (purge it).<div class=\"so-li\"><span class=\"no\">✗</span> critical/major → violated a real guarantee; investigate before release</div><div class=\"so-li\"><span class=\"warn\">▲</span> minor/info → smaller drift; often a declaration to tighten</div></div>",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#quar-tbody > tr",
+      "nameSelector": "td:first-child,td",
+      "title": "Item · {{name}}",
+      "content": "Quarantined item {{name}} — its severity, what it was blocked for, and the declaration it violated. Release (signed) if it's a false positive; forfeit if it's genuinely bad.",
+      "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Quarantined · {{name}}</div>One held item. Read its severity + the declaration↔behaviour mismatch, then release (signed) or forfeit via selfdefctl.<div class=\"so-xref\"><span class=\"x\">→</span> D-16 audit — the entry that caught it</div></div>"
+     }
     }
    ]
   },
@@ -1539,12 +1558,14 @@ window.SO_ASSIST = {
     {
      "selector": "#toast",
      "title": "Copy toast",
-     "content": "Confirms a selfdefctl verb (release or forfeit) was copied — you run it on the selfdef side with MS003. The web never releases or forfeits directly."
+     "content": "Confirms a selfdefctl verb (release or forfeit) was copied — you run it on the selfdef side with MS003. The web never releases or forfeits directly.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Confirms the copy, not a release</div>Confirms a selfdefctl verb (release or forfeit) was copied — you run it in your shell. Nothing is released or forfeited from this view; the signature happens under your key.</div>"
     },
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Quarantine controls — each copies its selfdefctl verb (§1g / R10212). Release and forfeit run through the signed selfdef CLI with MS003, never from the web."
+     "content": "Quarantine controls — each copies its selfdefctl verb (§1g / R10212). Release and forfeit run through the signed selfdef CLI with MS003, never from the web.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copy-command mirror boundary</div>Each control copies its selfdefctl quarantine verb (§1g / R10212). Release and forfeit are signed operator decisions; the web mirrors the held items read-only.</div>"
     }
    ]
   }

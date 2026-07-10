@@ -2873,12 +2873,14 @@ window.SO_ASSIST = {
     {
      "selector": "#src-status",
      "title": "Source status",
-     "content": "Whether the configurator is reading live hardware detection or defaults. The preflight below is only meaningful against your real board — a defaults source means verify each value yourself."
+     "content": "Whether the configurator is reading live hardware detection or defaults. The preflight below is only meaningful against your real board — a defaults source means verify each value yourself.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Where the build reads from</div>Whether the build source (the repo + config) is loaded. Everything downstream — the command, the outputs — is computed from this source, so a degraded source means the configurator is guessing.</div>"
     },
     {
      "selector": "#host-id",
      "title": "Host identity",
-     "content": "The detected host this build targets. The build is hardware-specific (znver5, dual-GPU, specific board) — confirm this is the machine you are building for."
+     "content": "The detected host this build targets. The build is hardware-specific (znver5, dual-GPU, specific board) — confirm this is the machine you are building for.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The target this build is for</div>The host identity the build targets. It pins the config to a specific machine's hardware — the kernel -march, the VFIO IDs, the power profile all assume this host.</div>"
     },
     {
      "selector": "#bios-list",
@@ -2889,12 +2891,14 @@ window.SO_ASSIST = {
     {
      "selector": "#btn-print-bios",
      "title": "Print BIOS sheet",
-     "content": "Prints the BIOS checklist as a paper sheet to tick at the bench. Firmware work happens away from the screen — a paper checklist is the right tool for it."
+     "content": "Prints the BIOS checklist as a paper sheet to tick at the bench. Firmware work happens away from the screen — a paper checklist is the right tool for it.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The physical-setup checklist</div>Prints the BIOS settings sheet — the hands-on hardware steps a human does before the software build (virtualization, VFIO, memory profile). It bridges the config to the physical machine.</div>"
     },
     {
      "selector": "#bios-progress",
      "title": "BIOS progress",
-     "content": "How many BIOS items you have confirmed. A partial checklist means the build's hardware assumptions are not yet verified."
+     "content": "How many BIOS items you have confirmed. A partial checklist means the build's hardware assumptions are not yet verified.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">How much BIOS is done</div>Tracks which BIOS checklist items are confirmed. The build assumes these physical settings; unconfirmed items are where a build can pass yet the box misbehave (e.g. VFIO off in BIOS).</div>"
     },
     {
      "selector": "#psu-oc",
@@ -2905,42 +2909,50 @@ window.SO_ASSIST = {
     {
      "selector": "#psu-model",
      "title": "PSU model",
-     "content": "The detected/declared power supply. Confirms the power budget below is computed against your actual PSU, not a placeholder."
+     "content": "The detected/declared power supply. Confirms the power budget below is computed against your actual PSU, not a placeholder.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The PSU bounds the overclock</div>The detected power-supply model. It's the ceiling on overclocking headroom — the power draw of an aggressive CPU/GPU OC has to fit the PSU's rating, so this model gates the safe tuning envelope.</div>"
     },
     {
      "selector": "#psu-explainer",
      "title": "PSU explainer",
-     "content": "The context for the PSU overclock decision — what enabling it buys and what it demands. Read it before flipping the physical switch."
+     "content": "The context for the PSU overclock decision — what enabling it buys and what it demands. Read it before flipping the physical switch.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why the PSU gates the OC</div>Explains how the power-supply rating bounds the overclock. It's here because an aggressive CPU/GPU OC that exceeds the PSU is the classic cause of instability and shutdowns — the explainer makes the ceiling concrete.</div>"
     },
     {
      "selector": "#gpu-table",
      "title": "GPU table",
-     "content": "The GPUs the build targets (Blackwell + 4090) and their power draw. The power budget below sums these — a GPU the BIOS has not enabled with resizable BAR will underperform."
+     "content": "The GPUs the build targets (Blackwell + 4090) and their power draw. The power budget below sums these — a GPU the BIOS has not enabled with resizable BAR will underperform.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The GPUs this build assumes</div>The GPU inventory the build targets — the 4090 scout and Blackwell oracle. VFIO passthrough, the SRP device map, and power all key off what's in this table.</div>"
     },
     {
      "selector": "#p-cpu",
      "title": "Power · CPU",
-     "content": "The CPU's contribution to the power budget. Read the meter below as the sum of CPU + GPUs + chassis against the PSU's headroom."
+     "content": "The CPU's contribution to the power budget. Read the meter below as the sum of CPU + GPUs + chassis against the PSU's headroom.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">CPU power</div>The CPU's share of the power budget — dominated by the overclock and load. It's the biggest single lever; an aggressive all-core OC moves this most.</div>"
     },
     {
      "selector": "#p-chassis",
      "title": "Power · chassis",
-     "content": "The chassis/base power draw (fans, board, drives) in the budget."
+     "content": "The chassis/base power draw (fans, board, drives) in the budget.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Chassis power</div>The baseline draw of fans, drives, and board — the fixed cost before compute. Small but real; it's the floor the CPU and GPU stack on top of.</div>"
     },
     {
      "selector": "#p-dimms",
      "title": "Power · DIMMs",
-     "content": "The memory power contribution — higher with more/faster DIMMs."
+     "content": "The memory power contribution — higher with more/faster DIMMs.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">DIMM power</div>Memory's power contribution — rises with capacity and speed. 96GB at high speed isn't free; it's part of why the total budget matters.</div>"
     },
     {
      "selector": "#p-mts",
      "title": "Power · memory speed",
-     "content": "The memory-speed power cost — a faster memory profile draws more; it must fit the budget."
+     "content": "The memory-speed power cost — a faster memory profile draws more; it must fit the budget.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Memory speed</div>The memory transfer rate (MT/s) — faster RAM helps the Pulse's bandwidth-bound low-bit math but costs power and stability margin. A tuning trade, not a free win.</div>"
     },
     {
      "selector": "#p-gpuoc",
      "title": "Power · GPU OC",
-     "content": "The GPU overclock's added draw. Combined with PSU OC, this is where a power budget gets tight — read it against headroom."
+     "content": "The GPU overclock's added draw. Combined with PSU OC, this is where a power budget gets tight — read it against headroom.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">GPU overclock</div>The GPU's overclock contribution to power. The 4090/Blackwell draw is the other big lever — an OC here trades heat and watts for inference throughput.</div>"
     },
     {
      "selector": "#power-meter",
@@ -2954,12 +2966,14 @@ window.SO_ASSIST = {
        "content": "Over budget — the configured draw exceeds PSU headroom; a heavy load could brownout.",
        "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Over budget</div>Configured draw exceeds the PSU — reduce OC or upgrade the PSU before building.</div>"
       }
-     ]
+     ],
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Live draw vs the budget</div>The power meter shows real consumption against the PSU headroom. Watch it when tuning: an OC that pushes draw near the rating is where instability and shutdowns start.</div>"
     },
     {
      "selector": "#power-readout",
      "title": "Power readout",
-     "content": "The numeric total draw and headroom behind the meter. Read it for the exact watts, not just the gauge colour."
+     "content": "The numeric total draw and headroom behind the meter. Read it for the exact watts, not just the gauge colour.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The number behind the meter</div>The precise wattage the configured build is estimated to draw. Read it against the PSU rating — the margin between them is your stability cushion.</div>"
     }
    ]
   },
@@ -2971,17 +2985,20 @@ window.SO_ASSIST = {
     {
      "selector": "#profiles",
      "title": "Build profile",
-     "content": "The starting profile — the flavor the build begins from. It presets substrate, packages, and posture; the later sections refine what the profile chose. Pick the profile closest to your intent, then adjust."
+     "content": "The starting profile — the flavor the build begins from. It presets substrate, packages, and posture; the later sections refine what the profile chose. Pick the profile closest to your intent, then adjust.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The profile picks the whole shape</div>The build profile (base/full/…) selects which subsystems get baked in — a base build omits modules a full build includes. It's the top-level choice every other option layers onto.</div>"
     },
     {
      "selector": "#profile-note",
      "title": "Profile note",
-     "content": "What the selected profile implies — the defaults it sets downstream. Read it so you know what the profile already decided before you edit the later sections."
+     "content": "What the selected profile implies — the defaults it sets downstream. Read it so you know what the profile already decided before you edit the later sections.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">What the profile implies</div>The note spells out what the selected profile includes and omits. Read it before customizing — a mixin you add may already be in the profile, or may conflict with it.</div>"
     },
     {
      "selector": "#mixins-line",
      "title": "Mixins",
-     "content": "The mixin overlays the profile pulled in — the composable fragments that add capability. This is the profile made explicit: which optional pieces it layered on."
+     "content": "The mixin overlays the profile pulled in — the composable fragments that add capability. This is the profile made explicit: which optional pieces it layered on.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Additive options on the profile</div>Mixins layer extra capabilities onto the base profile without switching it. They're the à-la-carte additions — each one is a deliberate 'also include this' on top of the profile's defaults.</div>"
     }
    ]
   },
@@ -3024,17 +3041,20 @@ window.SO_ASSIST = {
     {
      "selector": "#kernel-tag",
      "title": "Kernel tag",
-     "content": "The kernel build label — a quick identity for the configured kernel. Read it against version + march to confirm you are building the kernel you intend."
+     "content": "The kernel build label — a quick identity for the configured kernel. Read it against version + march to confirm you are building the kernel you intend.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The kernel build identity</div>The tag identifying this kernel build — source + version + tuning, as one label. It's how a built image's kernel is traced back to exactly the -march and options selected here.</div>"
     },
     {
      "selector": "#k-source",
      "title": "Kernel source",
-     "content": "Where the kernel comes from — distro or custom tree. A custom source is how project-specific patches (e.g. for the SRP scheduler) get in; distro is the safe default."
+     "content": "Where the kernel comes from — distro or custom tree. A custom source is how project-specific patches (e.g. for the SRP scheduler) get in; distro is the safe default.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Where the kernel comes from</div>The kernel source — stock vs a custom tree. It determines what patches and configs are available; a custom -march build needs a source that supports the tuning below.</div>"
     },
     {
      "selector": "#k-version",
      "title": "Kernel version",
-     "content": "The kernel version being built. Newer means better znver5 (Zen 5) and Blackwell support; pin it deliberately since drivers and features track the version."
+     "content": "The kernel version being built. Newer means better znver5 (Zen 5) and Blackwell support; pin it deliberately since drivers and features track the version.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Pins the kernel</div>The kernel version — pinned so the build is reproducible. A version change can alter driver and feature availability, so it's fixed rather than floating to 'latest'.</div>"
     },
     {
      "selector": "#k-march",
@@ -3045,22 +3065,26 @@ window.SO_ASSIST = {
     {
      "selector": "#kcflags",
      "title": "KCFLAGS",
-     "content": "The kernel compile flags (editable). These tune how aggressively the kernel is optimized; the defaults match the march. Edit only if you know the flag — a bad flag can miscompile the kernel."
+     "content": "The kernel compile flags (editable). These tune how aggressively the kernel is optimized; the defaults match the march. Edit only if you know the flag — a bad flag can miscompile the kernel.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">How the kernel is compiled</div>The compiler flags for the kernel build. With -march=znver5 they tune the kernel to the exact CPU — this is where the Pulse's single-cycle AVX-512 advantage is actually baked in.</div>"
     },
     {
      "selector": "#k-enable",
      "title": "Kernel options",
-     "content": "The kernel config options this build enables — the features compiled in. Read them to confirm the capabilities the OS needs (VFIO, KVM, ZFS) are present."
+     "content": "The kernel config options this build enables — the features compiled in. Read them to confirm the capabilities the OS needs (VFIO, KVM, ZFS) are present.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Kernel features turned on</div>The kernel options enabled for this build — the capabilities compiled in (VFIO, the isolation primitives, etc.). Each is a feature the running box will have because it was selected here.</div>"
     },
     {
      "selector": "#k-microcode",
      "title": "Microcode",
-     "content": "Whether CPU microcode updates are baked in. Microcode fixes CPU errata and security issues at the silicon level — include it unless you have a specific reason not to."
+     "content": "Whether CPU microcode updates are baked in. Microcode fixes CPU errata and security issues at the silicon level — include it unless you have a specific reason not to.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">CPU errata + security fixes</div>Whether CPU microcode is bundled. Microcode carries silicon errata fixes and security mitigations — omitting it saves nothing worth the exposure on a box that matters.</div>"
     },
     {
      "selector": "#cmd-base",
      "title": "Base cmdline",
-     "content": "The base kernel command line — the boot parameters every boot uses. This sets up the fundamentals (root, console, IOMMU). Read it with the VFIO line below for the full boot command."
+     "content": "The base kernel command line — the boot parameters every boot uses. This sets up the fundamentals (root, console, IOMMU). Read it with the VFIO line below for the full boot command.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The base boot arguments</div>The kernel command line every boot uses — the baseline before VFIO and tuning append to it. It's the always-on boot configuration.</div>"
     },
     {
      "selector": "#cmd-vfio",
@@ -3071,12 +3095,14 @@ window.SO_ASSIST = {
     {
      "selector": "#tuning-preset",
      "title": "Tuning preset",
-     "content": "The runtime tuning preset (R239 kernel-tuning matrix) — a bundle of sysctl + cmdline hints for a workload posture. Selecting one previews the sysctls it would set; it is how the kernel is tuned for inference vs balanced use."
+     "content": "The runtime tuning preset (R239 kernel-tuning matrix) — a bundle of sysctl + cmdline hints for a workload posture. Selecting one previews the sysctls it would set; it is how the kernel is tuned for inference vs balanced use.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A named performance envelope</div>The tuning preset bundles CPU governor, memory, and isolation settings into one named choice — balanced vs aggressive. It's the shortcut to a coherent tuning rather than hand-setting each knob.</div>"
     },
     {
      "selector": "#tuning-preview",
      "title": "Tuning preview",
-     "content": "The sysctl + cmdline the selected preset would apply. Read it to see exactly what the preset changes — this is the preset made concrete before it is baked in."
+     "content": "The sysctl + cmdline the selected preset would apply. Read it to see exactly what the preset changes — this is the preset made concrete before it is baked in.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">See the preset expand</div>Shows exactly what the selected preset sets. Read it so a 'balanced' or 'aggressive' label becomes concrete knobs you can verify, not a black box.</div>"
     }
    ]
   },
@@ -3094,7 +3120,8 @@ window.SO_ASSIST = {
     {
      "selector": "#cpu-preferred",
      "title": "Preferred CPU features",
-     "content": "The instructions the build uses if present but does not require — optimizations that make things faster without being mandatory. Read them to see what extra performance this CPU unlocks."
+     "content": "The instructions the build uses if present but does not require — optimizations that make things faster without being mandatory. Read them to see what extra performance this CPU unlocks.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Nice-to-have vs must-have</div>Preferred CPU features are used if present but won't fail the build if absent — unlike required features, which gate it. The preferred set is the box opportunistically using what the silicon offers.</div>"
     }
    ]
   },
@@ -3106,7 +3133,8 @@ window.SO_ASSIST = {
     {
      "selector": "#mod-load",
      "title": "Modules to load",
-     "content": "The kernel modules force-loaded at boot — drivers the hardware needs that are not auto-detected. Read them against your hardware; a missing module is a device that does not work."
+     "content": "The kernel modules force-loaded at boot — drivers the hardware needs that are not auto-detected. Read them against your hardware; a missing module is a device that does not work.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Kernel modules to load</div>The modules loaded at boot — drivers and capabilities the running box needs (VFIO, storage, network). Each is a deliberate inclusion; the blacklist below is its inverse.</div>"
     },
     {
      "selector": "#mod-blacklist",
@@ -3124,12 +3152,14 @@ window.SO_ASSIST = {
     {
      "selector": "#pkg-base",
      "title": "Base packages",
-     "content": "The foundational apt packages every build includes — the OS baseline. Read them as the floor; the profile layers on top."
+     "content": "The foundational apt packages every build includes — the OS baseline. Read them as the floor; the profile layers on top.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The floor every build carries</div>Base packages — the minimum userland every profile includes. It's the common substrate; profile packages add to it per the selected build shape.</div>"
     },
     {
      "selector": "#pkg-profile",
      "title": "Profile packages",
-     "content": "The packages the selected profile adds — the flavor's software. This is what makes an inference-focused build differ from a minimal one."
+     "content": "The packages the selected profile adds — the flavor's software. This is what makes an inference-focused build differ from a minimal one.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Packages the profile adds</div>The extra packages the selected profile pulls in — the tools that profile's job needs. A full build's profile packages are heavier than a base build's, by design.</div>"
     },
     {
      "selector": "#pkg-deny",
@@ -3140,7 +3170,8 @@ window.SO_ASSIST = {
     {
      "selector": "#pkg-placeholder-note",
      "title": "Package note",
-     "content": "Context on the package layers — how base/profile/deny compose. Read it if the resulting package set surprises you."
+     "content": "Context on the package layers — how base/profile/deny compose. Read it if the resulting package set surprises you.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why some packages are deferred</div>A note on package selections still to be resolved. Honest rather than silent — it flags where the package set isn't final, instead of implying completeness the build doesn't have.</div>"
     }
    ]
   },
@@ -3152,22 +3183,26 @@ window.SO_ASSIST = {
     {
      "selector": "#tools-ai",
      "title": "AI tools",
-     "content": "The AI agent tools baked in (Claude Code, OpenCode — R284). Baking them means a freshly-flashed box is immediately usable without a network install — sovereignty includes not depending on a download at first boot."
+     "content": "The AI agent tools baked in (Claude Code, OpenCode — R284). Baking them means a freshly-flashed box is immediately usable without a network install — sovereignty includes not depending on a download at first boot.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The AI serving stack</div>The AI tools baked in — the inference engines and model tooling (bitnet.cpp, the SRP serving stack). This is what makes the box an AI box rather than a bare server.</div>"
     },
     {
      "selector": "#tools-apt",
      "title": "apt deps",
-     "content": "The apt-installed dependencies for the operator tools. Baked into the image so the tools work offline from first boot."
+     "content": "The apt-installed dependencies for the operator tools. Baked into the image so the tools work offline from first boot.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">apt-sourced dependencies</div>Dependencies pulled from Debian's apt — the trusted, signed package path. Prefer these: apt packages are distro-verified, unlike curl-fetched ones.</div>"
     },
     {
      "selector": "#tools-pip",
      "title": "pip deps",
-     "content": "The Python dependencies for the operator tooling, baked in. Same principle — no first-boot network fetch required."
+     "content": "The Python dependencies for the operator tooling, baked in. Same principle — no first-boot network fetch required.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Python dependencies</div>pip-installed Python deps — the ML/tooling libraries. Pinned for reproducibility; an unpinned pip dep is how a build stops being deterministic.</div>"
     },
     {
      "selector": "#tools-curl",
      "title": "curl-fetched deps",
-     "content": "Dependencies fetched via curl at build time and baked in. Read them — a curl-fetched dep is pinned at build, so its provenance is part of the reproducible image (R284)."
+     "content": "Dependencies fetched via curl at build time and baked in. Read them — a curl-fetched dep is pinned at build, so its provenance is part of the reproducible image (R284).",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">The least-trusted fetch path</div>curl-fetched dependencies — pulled straight from a URL. These bypass distro signing, so they're the highest-trust-cost inclusions; each one should have a checked checksum and a reason.</div>"
     }
    ]
   },
@@ -3185,7 +3220,8 @@ window.SO_ASSIST = {
     {
      "selector": "#ds-table",
      "title": "Dataset table",
-     "content": "Each dataset with its recordsize, compression, and purpose. Read a row to see why a tier is tuned as it is — a large recordsize for sequential model files, a small one for random-access metadata; the tuning is the point of tiering."
+     "content": "Each dataset with its recordsize, compression, and purpose. Read a row to see why a tier is tuned as it is — a large recordsize for sequential model files, a small one for random-access metadata; the tuning is the point of tiering.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The ZFS dataset layout</div>The datasets the build creates — tank/context, tank/containers, etc. The layout decides what snapshots independently (D-08 rollback granularity) and where state lives.<div class=\"so-xref\"><span class=\"x\">→</span> D-08 rollback-points — the datasets these become</div></div>"
     }
    ]
   },
@@ -3229,12 +3265,14 @@ window.SO_ASSIST = {
     {
      "selector": "#obs-retention",
      "title": "Log retention",
-     "content": "How long logs are kept. Longer retention aids audit (the OCSF trail, D-05) but costs disk; read it against the ZFS budget."
+     "content": "How long logs are kept. Longer retention aids audit (the OCSF trail, D-05) but costs disk; read it against the ZFS budget.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">How long telemetry lives</div>Log/metric retention — the window of observability history the box keeps. Longer retention aids forensics but costs disk; it's the trade between memory and space.</div>"
     },
     {
      "selector": "#obs-endpoint",
      "title": "Telemetry endpoint",
-     "content": "The endpoint the sink exposes locally — where the dashboards read from. Local by default; this is the loopback address the cockpit panels query."
+     "content": "The endpoint the sink exposes locally — where the dashboards read from. Local by default; this is the loopback address the cockpit panels query.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Where telemetry goes</div>The telemetry sink endpoint. On a sovereign box this is typically local — exporting telemetry off-box is a data-egress decision, so the endpoint choice is also a privacy choice.</div>"
     },
     {
      "selector": "#wl-profile",
@@ -3252,7 +3290,8 @@ window.SO_ASSIST = {
     {
      "selector": "#sel-summary",
      "title": "Selection summary",
-     "content": "The full configured build in one view — every section's choice rolled up. This is the spec the build command encodes; read it as the answer to 'what exactly am I about to build'."
+     "content": "The full configured build in one view — every section's choice rolled up. This is the spec the build command encodes; read it as the answer to 'what exactly am I about to build'.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The build, resolved</div>The full resolved selection — every choice the build command will encode. This is the 'here's exactly what you're about to build' review before you generate the command.</div>"
     },
     {
      "selector": "#sel-warnings",
@@ -3273,7 +3312,8 @@ window.SO_ASSIST = {
        "content": "No warnings — the configuration is internally consistent.",
        "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● No warnings</div>The configuration is consistent — safe to validate and build.</div>"
       }
-     ]
+     ],
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Conflicts caught before build</div>Warnings flag choices that conflict or risk instability — an OC beyond the PSU, a mixin that fights the profile. Read these before building; they're the configurator catching mistakes cheaply.</div>"
     }
    ]
   },
@@ -3285,7 +3325,8 @@ window.SO_ASSIST = {
     {
      "selector": "#out-cmd",
      "title": "Build command",
-     "content": "The exact orchestrate.sh command this configuration produces — reproducible and copyable. Running it builds the image; the command IS the build, so the same command always builds the same image (given the pinned snapshot)."
+     "content": "The exact orchestrate.sh command this configuration produces — reproducible and copyable. Running it builds the image; the command IS the build, so the same command always builds the same image (given the pinned snapshot).",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The reproducible build command</div>The exact command the selections produce. It's the whole configuration captured as one runnable line — copy it to build, or save it as the reproducible record of this build.</div>"
     },
     {
      "selector": "#run-dry",
@@ -3296,47 +3337,56 @@ window.SO_ASSIST = {
     {
      "selector": "#run-preflight",
      "title": "Preflight",
-     "content": "Runs the pre-build checks — hardware, inputs, disk space — the last gate before a real build. Distinct from dry-run: preflight checks the environment is ready, dry-run checks the plan is valid."
+     "content": "Runs the pre-build checks — hardware, inputs, disk space — the last gate before a real build. Distinct from dry-run: preflight checks the environment is ready, dry-run checks the plan is valid.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Check before you build</div>Preflight validates the environment can actually build — tools present, source reachable, host matches. It's the cheap check that saves a long build failing halfway.</div>"
     },
     {
      "selector": "#run-build",
      "title": "Build",
-     "content": "Runs the real build via orchestrate.sh — produces the image. This is the committing act (time + disk); run it only after a green dry-run + preflight. The output is an image you then emulate, then flash."
+     "content": "Runs the real build via orchestrate.sh — produces the image. This is the committing act (time + disk); run it only after a green dry-run + preflight. The output is an image you then emulate, then flash.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">The real build, a long job</div>Runs the actual image build — a long, resource-heavy job. Unlike dry-run it produces a real artifact; start it when the box can spare the time and cycles.</div>"
     },
     {
      "selector": "#run-cancel",
      "title": "Cancel",
-     "content": "Aborts an in-progress build. Safe — a cancelled build leaves no half-flashed hardware (the build produces an image file; nothing is written to a device until the flash panel)."
+     "content": "Aborts an in-progress build. Safe — a cancelled build leaves no half-flashed hardware (the build produces an image file; nothing is written to a device until the flash panel).",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Abort the build</div>Cancels the running build. Safe before the build commits its artifact — the escape hatch during a long build if you spot a wrong option in the console.</div>"
     },
     {
      "selector": "#run-status",
      "title": "Run status",
-     "content": "The live build state — validating, preflighting, building, done. Read it with the console; a build that stops early names its failing step there."
+     "content": "The live build state — validating, preflighting, building, done. Read it with the console; a build that stops early names its failing step there.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Where the build is</div>The live build phase — validating, preflight, building. Read it with the console: a status stuck on one phase with a silent console is a build that's hung, not progressing.</div>"
     },
     {
      "selector": "#run-dot",
      "title": "Run indicator",
-     "content": "The at-a-glance build running/idle dot. Pair with run status for detail."
+     "content": "The at-a-glance build running/idle dot. Pair with run status for detail.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The at-a-glance build light</div>Green/amber/red for the build run. The instant read of whether a build is progressing, paused, or failed — pair it with the status text and errors panel.</div>"
     },
     {
      "selector": "#run-console",
      "title": "Build console",
-     "content": "The live build output — orchestrate.sh's step-by-step log. This is where a build failure explains itself; read it, do not guess which step broke."
+     "content": "The live build output — orchestrate.sh's step-by-step log. This is where a build failure explains itself; read it, do not guess which step broke.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The build, live</div>The build's live output — where you watch it progress or read exactly where it failed. The primary signal during a build; pair it with the errors panel for failures.</div>"
     },
     {
      "selector": "#run-log",
      "title": "Build log",
-     "content": "The accumulated build log. The durable record of what the build did — read it to confirm success or diagnose a failure after the fact."
+     "content": "The accumulated build log. The durable record of what the build did — read it to confirm success or diagnose a failure after the fact.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The durable build record</div>The full build log — every step of validate or build. Read it to confirm the build did what was planned, and keep it as the record if a later boot fails and you need to know what landed.</div>"
     },
     {
      "selector": "#run-errors",
      "title": "Build errors",
-     "content": "The extracted errors from the build. When a build fails, this is the filtered signal — the specific errors, without scrolling the whole console."
+     "content": "The extracted errors from the build. When a build fails, this is the filtered signal — the specific errors, without scrolling the whole console.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Failures, isolated</div>Build errors pulled out of the console noise. When a build fails, this is the first place to look — it isolates the failure from the thousands of lines of normal build output.</div>"
     },
     {
      "selector": "#bake-dev",
      "title": "Bake dev",
-     "content": "Whether to bake developer tooling into the image. On for a workstation build; off for a lean production image where dev tools would be attack surface."
+     "content": "Whether to bake developer tooling into the image. On for a workstation build; off for a lean production image where dev tools would be attack surface.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Bake in dev conveniences</div>Whether developer tooling is baked into the image. Convenient for a working box; a hardened production image might omit it to shrink the attack surface.</div>"
     },
     {
      "selector": "#bake-selfdef",
@@ -3356,7 +3406,8 @@ window.SO_ASSIST = {
        "content": "On — the image ships with the UPS graceful-shutdown guard (ZFS protected from dirty power loss).",
        "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Graceful shutdown baked</div>The box will ship able to power off cleanly on battery — ZFS protected.</div>"
       }
-     ]
+     ],
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Bake in the UPS shutdown guard</div>Bakes the UPS graceful-shutdown guard into the image — so the built box protects its ZFS pool from a power cut out of the box, not as an afterthought.<div class=\"so-xref\"><span class=\"x\">→</span> ups — the guard this bakes in</div></div>"
     }
    ]
   },
@@ -3368,37 +3419,44 @@ window.SO_ASSIST = {
     {
      "selector": "#out-overlay",
      "title": "Profile overlay",
-     "content": "overlay.yaml (SDD-030) — the profile overlay artifact. This is the declarative record of the profile + mixin choices, part of what makes the build reproducible from files rather than clicks."
+     "content": "overlay.yaml (SDD-030) — the profile overlay artifact. This is the declarative record of the profile + mixin choices, part of what makes the build reproducible from files rather than clicks.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The profile as a file</div>The profile overlay output — the selected profile captured as a config artifact. It's part of the reproducible build record: the profile choice, serialized.</div>"
     },
     {
      "selector": "#out-deps",
      "title": "operator-deps.toml",
-     "content": "operator-deps.toml (R284) — the pinned operator-tool dependencies. Every AI/apt/pip/curl dep, pinned, so the baked tooling is reproducible and its provenance auditable."
+     "content": "operator-deps.toml (R284) — the pinned operator-tool dependencies. Every AI/apt/pip/curl dep, pinned, so the baked tooling is reproducible and its provenance auditable.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">operator-deps.toml</div>The resolved dependency manifest — every apt/pip/curl dep the build will install, as one file. It's the auditable list of what goes into the image.<div class=\"so-xref\"><span class=\"x\">→</span> tools panels — the deps this collects</div></div>"
     },
     {
      "selector": "#out-psu",
      "title": "psu-oc.toml",
-     "content": "psu-oc.toml (R294) — the PSU overclock declaration. Records the power posture the build assumes so the physical switch and the software agree."
+     "content": "psu-oc.toml (R294) — the PSU overclock declaration. Records the power posture the build assumes so the physical switch and the software agree.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">psu-oc.toml</div>The power/overclock config as a file — the PSU and OC choices serialized. Bundled with the build so the box's power envelope is reproducible, not hand-set per machine.</div>"
     },
     {
      "selector": "#out-preflight",
      "title": "Preflight sheet",
-     "content": "The printable BIOS/PSU preflight checklist — the paper artifact for the bench. The build's hardware assumptions, in a form you can tick off away from the screen."
+     "content": "The printable BIOS/PSU preflight checklist — the paper artifact for the bench. The build's hardware assumptions, in a form you can tick off away from the screen.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The preflight sheet</div>The printable preflight checklist — the physical-setup steps (BIOS, wiring) a human does before the software build. It bridges the config to the hands-on hardware work.</div>"
     },
     {
      "selector": "#btn-print-bios-2",
      "title": "Print preflight",
-     "content": "Prints the preflight sheet. Firmware work is paper work — this is the artifact for it."
+     "content": "Prints the preflight sheet. Firmware work is paper work — this is the artifact for it.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Print the preflight sheet</div>Prints the preflight checklist — the pre-build verification steps. Same bridge to the physical machine as the BIOS sheet, at the preflight stage.</div>"
     },
     {
      "selector": "#out-cmd-title",
      "title": "Command title",
-     "content": "Labels the build-command output block — names which orchestrate.sh invocation the copyable command below corresponds to."
+     "content": "Labels the build-command output block — names which orchestrate.sh invocation the copyable command below corresponds to.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Names the build command</div>Labels the generated command output — which configuration it encodes. It's the header for the reproducible one-line command the selections produce.</div>"
     },
     {
      "selector": "#out-cmd-note",
      "title": "Command note",
-     "content": "Context on the build command — how to run it, what it assumes. Read it before pasting the command into a shell."
+     "content": "Context on the build command — how to run it, what it assumes. Read it before pasting the command into a shell.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">How to use the command</div>Guidance on the generated command — copy it to build now, or save it as the reproducible record of this exact configuration. The command IS the build, captured.</div>"
     }
    ]
   },
@@ -3410,42 +3468,50 @@ window.SO_ASSIST = {
     {
      "selector": "#btn-guide",
      "title": "Start guide",
-     "content": "Begins the guided walkthrough — the configurator leads you through each section in order. Useful for a first build, where knowing the right order of decisions is half the task."
+     "content": "Begins the guided walkthrough — the configurator leads you through each section in order. Useful for a first build, where knowing the right order of decisions is half the task.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Start the guided walkthrough</div>Launches a step-by-step guide through the configurator — for a first build where the 12 stages aren't yet familiar. It sequences the same options into a walkthrough.</div>"
     },
     {
      "selector": "#guide-bar",
      "title": "Guide bar",
-     "content": "The guided-walkthrough control bar — where you move through the sequenced steps. Read the progress to see how far through the twelve sections you are."
+     "content": "The guided-walkthrough control bar — where you move through the sequenced steps. Read the progress to see how far through the twelve sections you are.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The walkthrough progress</div>Shows where you are in the guided build — which stage of the sequence. It's the orientation for the guided path through an otherwise dense panel.</div>"
     },
     {
      "selector": "#g-title",
      "title": "Guide step title",
-     "content": "The current guided step's title — which section/decision you are on."
+     "content": "The current guided step's title — which section/decision you are on.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The current guide step</div>The title of the walkthrough step you're on — which configuration stage the guide is currently explaining.</div>"
     },
     {
      "selector": "#g-body",
      "title": "Guide step body",
-     "content": "The current step's explanation — what to decide and why, in build order. This is the guide teaching the decision, not just pointing at the field."
+     "content": "The current step's explanation — what to decide and why, in build order. This is the guide teaching the decision, not just pointing at the field.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The step's guidance</div>The explanation for the current guided step — what this stage configures and why it matters. The teaching content of the walkthrough.</div>"
     },
     {
      "selector": "#g-prog",
      "title": "Guide progress",
-     "content": "How far through the guided sequence you are. The walkthrough covers every section so nothing is skipped."
+     "content": "How far through the guided sequence you are. The walkthrough covers every section so nothing is skipped.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Step N of the walkthrough</div>How far through the guided build you are. Orientation within the sequence — how many stages remain before the config is complete.</div>"
     },
     {
      "selector": "#g-next",
      "title": "Guide next",
-     "content": "Advances to the next guided step in build order — the walkthrough sequences the twelve sections so no decision is skipped."
+     "content": "Advances to the next guided step in build order — the walkthrough sequences the twelve sections so no decision is skipped.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Advance the walkthrough</div>Moves to the next guided step. Navigation only — it progresses the guide; it doesn't change a build option.</div>"
     },
     {
      "selector": "#g-back",
      "title": "Guide back",
-     "content": "Returns to the previous guided step to revisit a decision."
+     "content": "Returns to the previous guided step to revisit a decision.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Revisit a prior step</div>Returns to the previous guided step — to re-check or change an earlier stage. Navigation only; your selections persist.</div>"
     },
     {
      "selector": "#g-exit",
      "title": "Exit guide",
-     "content": "Leaves the walkthrough and returns to free navigation of the sections."
+     "content": "Leaves the walkthrough and returns to free navigation of the sections.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Leave the walkthrough</div>Exits the guided mode back to the full panel — your selections are kept. Use it once the stages are familiar and you'd rather configure directly.</div>"
     }
    ]
   },
@@ -3457,7 +3523,8 @@ window.SO_ASSIST = {
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "The control rail — each button copies its exact sovereign-osctl/orchestrate verb. The build is a signed, scripted act; the web composes the plan, the CLI runs it."
+     "content": "The control rail — each button copies its exact sovereign-osctl/orchestrate verb. The build is a signed, scripted act; the web composes the plan, the CLI runs it.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copy-command boundary</div>Each control copies its sovereign-osctl verb (§1g / R10212). The configurator composes a build command; running it is a deliberate, resource-heavy action you launch.</div>"
     }
    ]
   }

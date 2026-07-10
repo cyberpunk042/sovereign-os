@@ -1451,12 +1451,14 @@ refresh();
     {
      "selector": "#ds-state-detail",
      "title": "Source detail",
-     "content": "The longer status line — which endpoint answered and, when degraded, why. On a healthy feed it just confirms /api/costs/summary; when amber, it tells you whether the figures below are merely slow or absent."
+     "content": "The longer status line — which endpoint answered and, when degraded, why. On a healthy feed it just confirms /api/costs/summary; when amber, it tells you whether the figures below are merely slow or absent.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Which cost feed answered</div>The endpoint behind the costs banner and any degraded note — the cost daemon reachable vs a cached snapshot.</div>"
     },
     {
      "selector": "#ds-last-update",
      "title": "Ledger freshness",
-     "content": "When the cost figures were last read. Usually unremarkable — but if a cloud route ever opens, this is the caveat that says how recently you’d have seen the spend start, so a stale timestamp during an anomaly is a reason to refresh before trusting a low number."
+     "content": "When the cost figures were last read. Usually unremarkable — but if a cloud route ever opens, this is the caveat that says how recently you’d have seen the spend start, so a stale timestamp during an anomaly is a reason to refresh before trusting a low number.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Spend accrues continuously</div>When the cost data was read. Spend ticks up with every routed request, so an old timestamp understates today's total — refresh before trusting a low number.</div>"
     }
    ]
   },
@@ -1484,7 +1486,8 @@ refresh();
        "content": "Non-zero spend today — something routed to cloud. Check cost-by-profile and the policy below to see what and whether it was allowed.",
        "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ Spend today</div>Something cost money — a cloud route opened. Trace it via cost-by-model and confirm the policy permitted it.</div>"
       }
-     ]
+     ],
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The number the policy watches</div>Today's accumulated spend. On a $0-honest box (SDD-102) most cost is local-compute, but any cloud fallback lands here — this is what the cost policy compares against its ceiling.<div class=\"so-xref\"><span class=\"x\">→</span> pol-cloud — the cloud-fallback policy</div></div>"
     },
     {
      "selector": "#today-budget",
@@ -1534,7 +1537,8 @@ refresh();
       "title": "Row · {{name}}",
       "content": "The {{name}} row — a project and its spend (zero on a local box; non-zero attributes cost to a workload). Read it against the doctrine: zeros are the box keeping its $0 promise; anything else is the exception to explain.",
       "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Project · {{name}}</div>One project’s spend. On a sovereign box it’s zero; a real number is the first clue to which workload escaped to cloud.</div>"
-     }
+     },
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Spend attributed by project</div>Each project's cost contribution — where the budget is actually going. Read it to find the workload driving spend rather than just the total.</div>"
     }
    ]
   },
@@ -1575,7 +1579,8 @@ refresh();
       "title": "Row · {{name}}",
       "content": "The {{name}} row — a model with tokens-out and $/Mtok (local = $0; any price is a cloud model). Read it against the doctrine: zeros are the box keeping its $0 promise; anything else is the exception to explain.",
       "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Model · {{name}}</div>One model’s cost. Local tiers are $0/Mtok by design; a priced row is a cloud model, and its token count is how heavily it was used.</div>"
-     }
+     },
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Spend attributed by model</div>Each model's cost — the value-memory feedback (D-07) in dollar terms. A model that's expensive per result is a routing candidate to demote.<div class=\"so-xref\"><span class=\"x\">→</span> D-07 memory — value memory scores which model is worth it</div></div>"
     }
    ]
   },
@@ -1630,7 +1635,8 @@ refresh();
        "content": "cloud_enabled = true — cloud routing is permitted (still gated by the policies below). The box CAN incur cost.",
        "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ Cloud on</div>Cloud routing is enabled — spend is possible, bounded by approval and budget policies. Confirm this is intended.</div>"
       }
-     ]
+     ],
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">The cloud-fallback line</div>Whether cloud fallback is permitted and its ceiling. On a sovereign box this is the deliberate exception to local-only — every dollar here is a request the box chose not to serve on its own silicon.</div>"
     },
     {
      "selector": "#pol-approval",
@@ -1659,7 +1665,8 @@ refresh();
     {
      "selector": "#pol-log",
      "title": "Policy · log_prompts",
-     "content": "Whether prompts are logged (R10747). It’s a privacy-and-audit lever: logging aids debugging and the audit trail, but on sensitive work you may want prompts unlogged. Operator-controlled, because the trade-off between having a record and keeping prompts ephemeral is yours to set."
+     "content": "Whether prompts are logged (R10747). It’s a privacy-and-audit lever: logging aids debugging and the audit trail, but on sensitive work you may want prompts unlogged. Operator-controlled, because the trade-off between having a record and keeping prompts ephemeral is yours to set.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Cost-decision audit</div>Whether cost policy decisions are logged. A logged cost policy means every fallback-or-refuse choice is accountable after the fact — cost as an audited decision, not a silent one.</div>"
     }
    ]
   },
@@ -1671,7 +1678,8 @@ refresh();
     {
      "selector": "#refresh-btn",
      "title": "Refresh",
-     "content": "Re-reads the cost figures immediately. Read-only. Most useful during an anomaly — if spend appears, refresh to watch it live and confirm whether a halt has taken effect."
+     "content": "Re-reads the cost figures immediately. Read-only. Most useful during an anomaly — if spend appears, refresh to watch it live and confirm whether a halt has taken effect.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Re-read spend now</div>Re-polls the cost tables — read-only. It re-aggregates; it never changes a budget or a policy.</div>"
     },
     {
      "selector": "#halt-btn",
@@ -1682,7 +1690,8 @@ refresh();
     {
      "selector": "#export-btn",
      "title": "Copy 30d export cmd",
-     "content": "Copies the command to export the 30-day cost record — read-only extraction for an audit, a report, or offline analysis. The exported ledger is the durable proof of the box’s spend (usually a month of zeros), useful for demonstrating the sovereign cost model to someone who wasn’t watching the meter."
+     "content": "Copies the command to export the 30-day cost record — read-only extraction for an audit, a report, or offline analysis. The exported ledger is the durable proof of the box’s spend (usually a month of zeros), useful for demonstrating the sovereign cost model to someone who wasn’t watching the meter.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The cost record, portable</div>Copies the command to export the 30-day cost record — read-only extraction for a report or a budget review. It reflects the current view; it changes no policy.</div>"
     }
    ]
   },

@@ -1023,7 +1023,8 @@ window.SO_ASSIST = {
        "content": "Flash complete — the device holds the image and can be booted or emulated.",
        "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Flash complete</div>The device is written. Verify by booting it, or emulate the same image first next time.</div>"
       }
-     ]
+     ],
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Flashing is irreversible</div>This is a destructive workflow — writing an image wipes the entire target device with no undo. The whole panel is built around one idea: make you confirm the target deliberately, so you never flash the wrong disk.</div>"
     }
    ]
   },
@@ -1035,12 +1036,14 @@ window.SO_ASSIST = {
     {
      "selector": "#image",
      "title": "Image",
-     "content": "The disk image to flash. Flash only what you have verified: boot it in the emulate panel first, because a broken image discovered on real hardware costs a re-flash and a reboot cycle."
+     "content": "The disk image to flash. Flash only what you have verified: boot it in the emulate panel first, because a broken image discovered on real hardware costs a re-flash and a reboot cycle.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Flash only what you verified</div>The disk image to write. Flash a boot image you built and checked — an unverified image on a real device is how a box gets bricked or backdoored. Verify the checksum before this ever reaches a device.<div class=\"so-xref\"><span class=\"x\">→</span> emulate — boot the image in a VM first</div></div>"
     },
     {
      "selector": "#image-meta",
      "title": "Image metadata",
-     "content": "The image's size, checksum, and build info. Read the checksum — flashing a corrupted image wastes the whole write; the metadata is your pre-flight check."
+     "content": "The image's size, checksum, and build info. Read the checksum — flashing a corrupted image wastes the whole write; the metadata is your pre-flight check.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The checksum is the trust anchor</div>Size, checksum, and build info. The checksum is the one field that matters most: it proves the image is exactly what was built, unaltered. Flashing a checksum-mismatched image is flashing something you can't vouch for.</div>"
     }
    ]
   },
@@ -1077,7 +1080,8 @@ window.SO_ASSIST = {
     {
      "selector": "#arm-dev",
      "title": "Armed device",
-     "content": "The exact device the flash will irreversibly wipe. Read it once more here — this is the last human-readable statement of what is about to be destroyed before you confirm."
+     "content": "The exact device the flash will irreversibly wipe. Read it once more here — this is the last human-readable statement of what is about to be destroyed before you confirm.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Read this device once more</div>The exact device the flash will irreversibly wipe. This is the last human-readable confirmation before the point of no return — read it, out loud if you have to, against what you intend to flash.</div>"
     },
     {
      "selector": "#arm-fp",
@@ -1088,7 +1092,8 @@ window.SO_ASSIST = {
     {
      "selector": "#arm-input",
      "title": "Confirm path",
-     "content": "Type the device path here to arm. This deliberate re-typing is the interlock: you cannot flash on a click alone; you must prove you know exactly which device by naming it."
+     "content": "Type the device path here to arm. This deliberate re-typing is the interlock: you cannot flash on a click alone; you must prove you know exactly which device by naming it.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Re-typing is the safety</div>You type the device path to arm — deliberately, by hand. That friction is the point: it forces you to look at the exact target and commit it, so a wrong device can't be armed by a reflexive click.<div class=\"so-tip\">💡 If what you type doesn't match the target, it won't arm — the mismatch catches the mistake.</div></div>"
     },
     {
      "selector": "#arm-state",
@@ -1109,27 +1114,32 @@ window.SO_ASSIST = {
        "content": "Disarmed — Flash is locked; the device is safe.",
        "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Disarmed</div>Safe — Flash is locked until you arm with the device path.</div>"
       }
-     ]
+     ],
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Disarmed = flash is locked</div>Disarmed means the destructive write is impossible — the safe default. Armed means one action away from wiping the device. The state exists so 'ready to flash' is a deliberate posture, never an accident.</div>"
     },
     {
      "selector": "#btn-flash",
      "title": "Flash (destructive)",
-     "content": "The real write — irreversibly wipes the armed device and writes the image. Locked until armed. Once it starts, do not interrupt power or remove the device: an interrupted flash can leave the device unbootable."
+     "content": "The real write — irreversibly wipes the armed device and writes the image. Locked until armed. Once it starts, do not interrupt power or remove the device: an interrupted flash can leave the device unbootable.",
+     "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">The point of no return</div>The real write — irreversibly wipes the armed device and writes the image. There is no undo past this. Everything before it (plan, fingerprint, re-type, arm) exists to make sure this button does exactly what you meant.</div>"
     },
     {
      "selector": "#btn-cancel",
      "title": "Cancel",
-     "content": "Aborts the workflow and disarms. Safe at any point before the write begins; use it the moment anything looks wrong."
+     "content": "Aborts the workflow and disarms. Safe at any point before the write begins; use it the moment anything looks wrong.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Safe until the write starts</div>Aborts and disarms. Safe at any point before the write begins — this is the escape hatch the whole workflow leaves open until the last moment.</div>"
     },
     {
      "selector": "#run-status",
      "title": "Run status",
-     "content": "The live state of the flash run — planning, writing, verifying. Read it during a flash; do not disturb the device until it reports complete."
+     "content": "The live state of the flash run — planning, writing, verifying. Read it during a flash; do not disturb the device until it reports complete.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Where the destructive write is</div>The live flash phase — planning, writing, verifying. During 'writing' the device is being irreversibly overwritten; this status is how you know whether the point of no return has passed.</div>"
     },
     {
      "selector": "#run-log",
      "title": "Run log",
-     "content": "The detailed flash log — every step of plan or write. Read it to confirm a successful flash or to diagnose a failed one; this is the record of what actually happened to the device."
+     "content": "The detailed flash log — every step of plan or write. Read it to confirm a successful flash or to diagnose a failed one; this is the record of what actually happened to the device.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The record of what was written</div>Every step of the plan or write. Read it to confirm the flash did exactly what was planned — the durable evidence, especially if a boot later fails and you need to know what landed.</div>"
     }
    ]
   },
@@ -1141,7 +1151,8 @@ window.SO_ASSIST = {
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "The control rail — each button copies its exact sovereign-osctl verb. The flash write runs through the signed CLI, never from a web click."
+     "content": "The control rail — each button copies its exact sovereign-osctl verb. The flash write runs through the signed CLI, never from a web click.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copy-command boundary</div>Each control copies its sovereign-osctl verb (§1g / R10212). Flashing is destructive and signed; the web stages the plan and arming, the actual write runs deliberately.</div>"
     }
    ]
   }

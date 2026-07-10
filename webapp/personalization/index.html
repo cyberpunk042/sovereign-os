@@ -1400,17 +1400,20 @@ window.SO_ASSIST = {
     {
      "selector": "#accent-control",
      "title": "Accent",
-     "content": "The accent color from presets (R10140) — the highlight used for active elements across the cockpit. Presentation only; it does not affect any panel's meaning, only its look."
+     "content": "The accent color from presets (R10140) — the highlight used for active elements across the cockpit. Presentation only; it does not affect any panel's meaning, only its look.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Presentation only, stored locally</div>The accent color (R10140) — the cockpit's highlight. Like everything here it's pure presentation: it restyles your view in this browser and persists nothing server-side. It cannot affect the box's behaviour.</div>"
     },
     {
      "selector": "#accent-custom",
      "title": "Custom accent",
-     "content": "A custom accent color value, if the presets do not fit. Type a color; it applies to the highlight across panels."
+     "content": "A custom accent color value, if the presets do not fit. Type a color; it applies to the highlight across panels.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A custom accent, still local</div>A custom accent color when the presets don't fit — type a value. Like everything here it's pure presentation, applied in your browser only; it can't affect the box.</div>"
     },
     {
      "selector": "#accent-apply",
      "title": "Apply accent",
-     "content": "Applies the chosen accent across the cockpit. Live and local — it restyles immediately and persists, touching nothing on the box."
+     "content": "Applies the chosen accent across the cockpit. Live and local — it restyles immediately and persists, touching nothing on the box.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Restyle in place</div>Applies the chosen accent across the cockpit — live and local. It's a view change, not a setting the box reads; other sessions and the box itself are unaffected.</div>"
     }
    ]
   },
@@ -1422,7 +1425,8 @@ window.SO_ASSIST = {
     {
      "selector": "#scale-control",
      "title": "Typography scale",
-     "content": "The text-size scale for the cockpit (R10141). Larger for readability across the room at the bench; smaller for density at the desk. Presentation only — it changes legibility, not content."
+     "content": "The text-size scale for the cockpit (R10141). Larger for readability across the room at the bench; smaller for density at the desk. Presentation only — it changes legibility, not content.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Readability, not function</div>The text-size scale (R10141) — larger for readability, smaller for density. It changes how the cockpit looks to you, nothing about what it does; a cosmetic accessibility control.</div>"
     }
    ]
   },
@@ -1434,7 +1438,8 @@ window.SO_ASSIST = {
     {
      "selector": "#toast",
      "title": "Preview feedback",
-     "content": "Transient confirmation of a personalization change. Confirms the setting applied — all local, nothing on the box changed."
+     "content": "Transient confirmation of a personalization change. Confirms the setting applied — all local, nothing on the box changed.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Confirms a view change</div>Transient confirmation of a personalization change. It's cosmetic — it confirms your view restyled, nothing about the box's state changed.</div>"
     }
    ]
   },
@@ -1446,7 +1451,8 @@ window.SO_ASSIST = {
     {
      "selector": "#reset-btn",
      "title": "Reset",
-     "content": "Restores the default theme/accent/scale. Cosmetic — it resets the look only, nothing about the box."
+     "content": "Restores the default theme/accent/scale. Cosmetic — it resets the look only, nothing about the box.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Back to defaults, harmlessly</div>Restores the default theme/accent/scale. Cosmetic — it resets YOUR view's styling and touches nothing on the box. Safe to click anytime you've styled yourself into a corner.</div>"
     },
     {
      "selector": "#export-btn",
@@ -1457,37 +1463,44 @@ window.SO_ASSIST = {
     {
      "selector": "#export-file",
      "title": "Export file",
-     "content": "The exported personalization file. Cosmetic settings only — safe to copy to another cockpit."
+     "content": "The exported personalization file. Cosmetic settings only — safe to copy to another cockpit.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Styling, portable and safe</div>The exported personalization file — theme, accent, scale. It's cosmetic settings only, so it's safe to share or move between browsers; it carries no box state, no secrets, no authority.</div>"
     },
     {
      "selector": "#import-btn",
      "title": "Import",
-     "content": "Imports a personalization JSON — applies someone's (or your other machine's) cockpit look here. Presentation only; it cannot change the box, only how the cockpit renders."
+     "content": "Imports a personalization JSON — applies someone's (or your other machine's) cockpit look here. Presentation only; it cannot change the box, only how the cockpit renders.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Opens the import panel</div>Reveals the paste/pick area for a personalization JSON. It only opens the UI — nothing is applied until you actually import, and even then it's view-only styling.</div>"
     },
     {
      "selector": "#import-file-btn",
      "title": "Choose import file",
-     "content": "Pick a personalization JSON file to import."
+     "content": "Pick a personalization JSON file to import.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Pick a styling file</div>Opens the file picker to import a personalization JSON. It only chooses a file; nothing applies until you import, and even then it's view-only styling.</div>"
     },
     {
      "selector": "#import-file",
      "title": "Import file input",
-     "content": "The file picker for importing personalization. Cosmetic settings only."
+     "content": "The file picker for importing personalization. Cosmetic settings only.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The file picker, cosmetic-only</div>Picks a personalization JSON to import. Cosmetic settings only — the import can restyle your cockpit but carries no box state, secret, or authority.</div>"
     },
     {
      "selector": "#import-box",
      "title": "Import area",
-     "content": "The import panel where a pasted or chosen personalization JSON lands before applying."
+     "content": "The import panel where a pasted or chosen personalization JSON lands before applying.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Where imported styling lands</div>The panel where a pasted or chosen personalization JSON is staged before applying. A holding area for view settings — safe to inspect before committing to your local view.</div>"
     },
     {
      "selector": "#import-json",
      "title": "Import JSON",
-     "content": "Paste a personalization JSON here to apply it. Presentation only — it restyles the cockpit, it does not touch the box."
+     "content": "Paste a personalization JSON here to apply it. Presentation only — it restyles the cockpit, it does not touch the box.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Importing styling is safe by design</div>Paste a personalization JSON to apply someone's theme/accent/scale. It's presentation-only — importing can restyle your cockpit but can never carry a capability, a grant, or any box state. The blast radius is your own view.</div>"
     },
     {
      "selector": "#import-apply",
      "title": "Apply import",
-     "content": "Applies the imported personalization. Live and local — restyles immediately, changes nothing on the box."
+     "content": "Applies the imported personalization. Live and local — restyles immediately, changes nothing on the box.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Live and local</div>Applies the imported personalization immediately, in this browser only. No server round-trip, no persistence beyond your local settings — the same reason it's safe to experiment with.</div>"
     }
    ]
   },
@@ -1499,7 +1512,8 @@ window.SO_ASSIST = {
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "The control rail — each button copies its exact sovereign-osctl verb. A personalization change (cosmetic only) runs through the signed CLI, never from a web click."
+     "content": "The control rail — each button copies its exact sovereign-osctl verb. A personalization change (cosmetic only) runs through the signed CLI, never from a web click.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copy-command boundary</div>Each control copies its sovereign-osctl verb (§1g / R10212). Personalization is local view styling; there's nothing on the box to actuate from here.</div>"
     }
    ]
   }

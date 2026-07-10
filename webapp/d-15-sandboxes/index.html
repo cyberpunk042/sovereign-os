@@ -1458,22 +1458,26 @@ window.SO_ASSIST = {
      "content": "Stale — the selfdef mirror hasn't refreshed; this sandbox view may lag reality.",
      "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Stale</div>Mirror not updating — selfdef's real state may differ from what's shown.</div>"
     }
-   ]
+   ],
+   "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Live vs snapshot, for sandboxes</div>Whether the allocator view is a live MS007 mirror or a snapshot. Cells are allocated and released continuously, so a stale read can misstate what risky work is live.</div>"
   },
   {
    "selector": "#mirror-state-label",
    "title": "Mirror state",
-   "content": "One-word health of the mirror link to selfdef. The quick check before trusting any count on this panel."
+   "content": "One-word health of the mirror link to selfdef. The quick check before trusting any count on this panel.",
+   "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">One-word sandbox-mirror health</div>Live or offline — the check before trusting the tier counts. selfdef owns the allocator; this reflects it.</div>"
   },
   {
    "selector": "#mirror-state-detail",
    "title": "Mirror detail",
-   "content": "Why the mirror is live or stale — the M060 bridge status behind the one-word label."
+   "content": "Why the mirror is live or stale — the M060 bridge status behind the one-word label.",
+   "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The M060 bridge status</div>The producer behind the mirror and why it's live or offline — the bridge carrying selfdef's sandbox state here.</div>"
   },
   {
    "selector": "#mirror-last-update",
    "title": "Mirror freshness",
-   "content": "When selfdef last pushed this snapshot. A grant can be signed or revoked in selfdef between pushes, so an old timestamp means this view may miss a very recent change."
+   "content": "When selfdef last pushed this snapshot. A grant can be signed or revoked in selfdef between pushes, so an old timestamp means this view may miss a very recent change.",
+   "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">When selfdef last captured</div>The snapshot time. A cell can be allocated or quarantined in seconds, so an old timestamp means a fresh Tier-D microVM may not appear yet.</div>"
   },
   {
    "selector": "#mirror-schema-version",
@@ -1617,13 +1621,14 @@ window.SO_ASSIST = {
     {
      "selector": "#toast",
      "title": "Status toast",
-     "content": "Transient confirmation of a copied verb or completed read. Never means a cell was allocated or released from here — lifecycle happens in selfdefctl."
+     "content": "Transient confirmation of a copied verb or completed read. Never means a cell was allocated or released from here — lifecycle happens in selfdefctl.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Confirms the copy, not the action</div>Confirms an allocate/checkpoint/release verb was copied. Cell lifecycle happens in selfdefctl under your key — never from this view.</div>"
     },
     {
      "selector": "#control-surface",
      "title": "Controls rail",
      "content": "Sandbox verbs — allocate, checkpoint, release — each copies its exact selfdefctl command (§1g / R10212) under your MS003 key. The web reflects the allocator; it never starts or stops a cell itself.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Lifecycle is selfdef's, under your key</div>Allocating a Tier D microVM or releasing a cell is a privileged, signed operation (R10119). sovereign-os mirrors the allocator read-only and hands you the selfdefctl verb; your MS003 key commits it.<div class=\"so-xref\"><span class=\"x\">→</span> §1g R10212 — the read-only mirror boundary</div></div>"
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copy-command mirror boundary</div>Each control copies its selfdefctl sandbox verb (§1g / R10212). Allocating a microVM is a signed, privileged op; the web mirrors the allocator read-only.</div>"
     }
    ]
   }

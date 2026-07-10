@@ -1173,17 +1173,20 @@ window.SO_ASSIST = {
     {
      "selector": "#status",
      "title": "VM status",
-     "content": "Whether an emulated VM is running. This panel is the safe rehearsal: it boots the built image in QEMU so you can verify it works before writing it to a real device (flash panel)."
+     "content": "Whether an emulated VM is running. This panel is the safe rehearsal: it boots the built image in QEMU so you can verify it works before writing it to a real device (flash panel).",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The safe rehearsal before flash</div>This panel boots an image in a throwaway VM — the safe way to test what flash would write to real metal. Break things here freely; nothing touches a physical device.<div class=\"so-xref\"><span class=\"x\">→</span> flash — the destructive real write this rehearses</div></div>"
     },
     {
      "selector": "#vm-dot",
      "title": "VM indicator",
-     "content": "The at-a-glance running/stopped dot. Pair it with the state text — a stopped VM after a start is a boot failure worth reading the console for."
+     "content": "The at-a-glance running/stopped dot. Pair it with the state text — a stopped VM after a start is a boot failure worth reading the console for.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The at-a-glance VM light</div>Green = a VM is running, grey = stopped. The instant read of whether an emulation is live — pair it with the state text and the console, since 'running' with a silent console can mean a hung boot.</div>"
     },
     {
      "selector": "#vm-state",
      "title": "VM state",
-     "content": "The VM lifecycle state — stopped, booting, running. Read it with the console: 'running' but no login prompt means the guest booted but the OS did not come up."
+     "content": "The VM lifecycle state — stopped, booting, running. Read it with the console: 'running' but no login prompt means the guest booted but the OS did not come up.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Lifecycle at a glance</div>stopped → booting → running. Read it with the console: 'running' with a silent console can mean a boot that hung, so the state and the output together tell the real story.</div>"
     }
    ]
   },
@@ -1195,12 +1198,14 @@ window.SO_ASSIST = {
     {
      "selector": "#image",
      "title": "Image",
-     "content": "The disk image to boot. This should be the image you just built — emulating it is how you catch a broken build before it touches a real device."
+     "content": "The disk image to boot. This should be the image you just built — emulating it is how you catch a broken build before it touches a real device.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Boot what you're about to flash</div>The disk image to boot — ideally the exact image you just built and intend to flash. Testing a different image than you'll flash defeats the rehearsal.</div>"
     },
     {
      "selector": "#caps",
      "title": "Image caps",
-     "content": "The image's declared capabilities/metadata — what it expects from the hardware. Read it against the accel/smp/mem below to give the VM what the image needs."
+     "content": "The image's declared capabilities/metadata — what it expects from the hardware. Read it against the accel/smp/mem below to give the VM what the image needs.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">What the image expects</div>The image's declared capabilities/metadata — what it assumes about the hardware. Mismatches here (image wants a device the VM lacks) explain boot failures that aren't the image's fault.</div>"
     },
     {
      "selector": "#boot",
@@ -1217,12 +1222,14 @@ window.SO_ASSIST = {
     {
      "selector": "#smp",
      "title": "vCPUs",
-     "content": "How many virtual CPUs the VM gets. Match it toward the target hardware's core count for a realistic test — too few and a concurrency bug hides; the real box has the full CCD topology (D-09)."
+     "content": "How many virtual CPUs the VM gets. Match it toward the target hardware's core count for a realistic test — too few and a concurrency bug hides; the real box has the full CCD topology (D-09).",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Match the target, roughly</div>Virtual CPUs for the VM. Match it toward the real hardware so the rehearsal is faithful — a boot that works on 1 vCPU but not 16 is a concurrency bug you want to catch here, not on metal.</div>"
     },
     {
      "selector": "#mem",
      "title": "Memory",
-     "content": "How much RAM the VM gets (e.g. 4G). Give it enough to boot the image realistically — too little and you test an OOM path instead of the real one."
+     "content": "How much RAM the VM gets (e.g. 4G). Give it enough to boot the image realistically — too little and you test an OOM path instead of the real one.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Enough to boot faithfully</div>RAM for the VM. Give it enough to boot the image as the real box would — too little and you'll debug an OOM that won't happen on the actual hardware.</div>"
     },
     {
      "selector": "#snapshot",
@@ -1236,7 +1243,8 @@ window.SO_ASSIST = {
        "content": "Snapshot on — writes are discarded on stop; every boot is a clean slate.",
        "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Snapshot on</div>Safe to break the guest — all changes vanish when the VM stops.</div>"
       }
-     ]
+     ],
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Snapshot = every boot is clean</div>In snapshot mode all writes are discarded when the VM stops — each boot starts from the pristine image. It's what makes emulation a repeatable rehearsal: no state leaks between runs.<div class=\"so-xref\"><span class=\"x\">→</span> D-15 sandboxes — the same disposable-isolation idea</div></div>"
     },
     {
      "selector": "#noreboot",
@@ -1247,7 +1255,8 @@ window.SO_ASSIST = {
     {
      "selector": "#cmdline",
      "title": "Kernel cmdline",
-     "content": "Extra kernel command-line arguments passed to the guest. Use it to test a boot parameter (e.g. a debug flag) without rebuilding the image."
+     "content": "Extra kernel command-line arguments passed to the guest. Use it to test a boot parameter (e.g. a debug flag) without rebuilding the image.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Extra kernel args for the guest</div>Kernel command-line arguments passed to the guest — for testing a boot parameter without rebuilding the image. Useful to reproduce or debug a specific boot condition.</div>"
     }
    ]
   },
@@ -1259,68 +1268,80 @@ window.SO_ASSIST = {
     {
      "selector": "#btn-start",
      "title": "Start VM",
-     "content": "Boots the image in QEMU with the options above. Safe — it is a VM; a bad image fails here in the console, not on real hardware."
+     "content": "Boots the image in QEMU with the options above. Safe — it is a VM; a bad image fails here in the console, not on real hardware.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A VM boot, not a real one</div>Boots the image in QEMU with the options above. Completely safe — it's a virtual machine, so a kernel panic here costs nothing but a restart.</div>"
     },
     {
      "selector": "#btn-stop",
      "title": "Stop VM",
-     "content": "Halts the VM. In snapshot mode this also discards all writes — a clean stop, ready for the next test boot."
+     "content": "Halts the VM. In snapshot mode this also discards all writes — a clean stop, ready for the next test boot.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">In snapshot mode, stop discards writes</div>Halts the VM. If snapshot mode is on, stopping ALSO throws away everything the VM wrote — a feature (clean next boot), but know it before you stop after making changes you wanted to keep.</div>"
     },
     {
      "selector": "#login-user",
      "title": "Login user",
-     "content": "The username to log into the guest. Prefilled for the built image; this is the guest's credential, not the box's."
+     "content": "The username to log into the guest. Prefilled for the built image; this is the guest's credential, not the box's.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The guest username</div>Prefilled for the built image — the account to log into the emulated guest. It's for the disposable VM only, so it's a convenience, not a credential that protects anything real.</div>"
     },
     {
      "selector": "#login-pass",
      "title": "Login password",
-     "content": "The guest login password. For the emulated image only — a disposable VM credential, not a real-system secret."
+     "content": "The guest login password. For the emulated image only — a disposable VM credential, not a real-system secret.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A disposable credential</div>The guest login password — for the emulated image only. It's throwaway by nature: the VM is disposable, so these credentials never protect anything real.</div>"
     },
     {
      "selector": "#btn-login",
      "title": "Login",
-     "content": "Sends the credentials to the guest console. Convenience for reaching a shell inside the VM to inspect the booted image."
+     "content": "Sends the credentials to the guest console. Convenience for reaching a shell inside the VM to inspect the booted image.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Send credentials to the console</div>Types the username/password into the guest console for you — a convenience for reaching a shell fast. It only automates keystrokes into a throwaway VM.</div>"
     },
     {
      "selector": "#auto-login",
      "title": "Auto-login",
-     "content": "Logs into the guest automatically on boot — saves a step when repeatedly test-booting the same image."
+     "content": "Logs into the guest automatically on boot — saves a step when repeatedly test-booting the same image.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Log in on every boot</div>Logs into the guest automatically when it boots — saves a step across repeated test boots. Purely a rehearsal convenience for the disposable VM.</div>"
     },
     {
      "selector": "#login-badge",
      "title": "Login badge",
-     "content": "Shows the current login state in the guest. A convenience indicator for whether you are at a shell yet."
+     "content": "Shows the current login state in the guest. A convenience indicator for whether you are at a shell yet.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Guest login state</div>Shows whether you're logged into the guest — a convenience indicator so you know if the console is at a shell or a login prompt. Cosmetic; it reflects state, doesn't change it.</div>"
     },
     {
      "selector": "#console",
      "title": "Console",
      "content": "The VM's serial console — the guest's actual output. This is where a boot failure explains itself: read it when the VM starts but never reaches a login prompt.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The console is the truth of the boot</div>Everything the guest kernel and init print lands here. A build that fails to boot tells you why in this console — a missing module, an unsigned UKI, a panic. Read it, do not guess.</div>"
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The guest's actual output</div>The VM's serial console — the real boot messages and kernel output. This is where you watch a boot succeed or read exactly where it failed; it's the primary signal of the whole rehearsal.</div>"
     },
     {
      "selector": "#autoscroll",
      "title": "Auto-scroll",
-     "content": "Keeps the console pinned to the latest output. Turn it off to scroll back and read an earlier boot message without the log jumping."
+     "content": "Keeps the console pinned to the latest output. Turn it off to scroll back and read an earlier boot message without the log jumping.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Pin to the newest output</div>Keeps the console scrolled to the latest line — turn it off to scroll back and read an earlier boot message without the view jumping. A reading aid, nothing more.</div>"
     },
     {
      "selector": "#focus-hint",
      "title": "Focus hint",
-     "content": "A hint about keyboard focus for the console — so keystrokes reach the guest, not the page."
+     "content": "A hint about keyboard focus for the console — so keystrokes reach the guest, not the page.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Where your keystrokes go</div>A hint about keyboard focus so your typing reaches the guest console, not the page. It matters because a VM console needs focus to receive input — the hint prevents keystrokes vanishing.</div>"
     },
     {
      "selector": "#btn-copy",
      "title": "Copy console",
-     "content": "Copies the console text — for pasting a boot failure into a bug report or the build panel."
+     "content": "Copies the console text — for pasting a boot failure into a bug report or the build panel.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copy the console text</div>Copies the console output — for pasting a boot failure into a bug report or a comparison. Read-only extraction of what the VM printed.</div>"
     },
     {
      "selector": "#btn-download",
      "title": "Download console",
-     "content": "Saves the full console log to a file — the durable record of a test boot."
+     "content": "Saves the full console log to a file — the durable record of a test boot.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The durable record of a test boot</div>Saves the full console log to a file — the keepable evidence of a boot test, for a bug report or a before/after comparison across image builds.</div>"
     },
     {
      "selector": "#btn-clear",
      "title": "Clear console",
-     "content": "Clears the console view. Cosmetic — it does not affect the VM, just the display."
+     "content": "Clears the console view. Cosmetic — it does not affect the VM, just the display.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Clear the view, not the VM</div>Clears the console display — cosmetic. It wipes what you see; the VM keeps running and keeps producing output, unaffected.</div>"
     }
    ]
   },
@@ -1332,7 +1353,8 @@ window.SO_ASSIST = {
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "The control rail — each button copies its exact sovereign-osctl verb. Nothing here mutates the real box — the VM is disposable runs through the signed CLI, never from a web click."
+     "content": "The control rail — each button copies its exact sovereign-osctl verb. Nothing here mutates the real box — the VM is disposable runs through the signed CLI, never from a web click.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copy-command boundary</div>Each control copies its sovereign-osctl verb (§1g / R10212). Emulation is a safe VM rehearsal; the real destructive write is on the flash panel.<div class=\"so-xref\"><span class=\"x\">→</span> flash — the real device write this rehearses</div></div>"
     }
    ]
   }

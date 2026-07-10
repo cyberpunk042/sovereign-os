@@ -1474,17 +1474,20 @@ window.SO_ASSIST = {
        "content": "Snapshot — the daemon is unreachable; a new approval may have arrived since this was captured.",
        "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Snapshot</div>Reading last-known queue — a fresh escalation might not show yet.</div>"
       }
-     ]
+     ],
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Live vs snapshot, for a queue</div>Whether the approvals queue is live or a snapshot. A snapshot can miss an approval that just escalated — for a decision queue, that's the difference between 'nothing waiting' and 'something you can't see'.</div>"
     },
     {
      "selector": "#ds-state-label",
      "title": "Source label",
-     "content": "One-word source — live daemon vs snapshot. The quick check before trusting the queue is empty."
+     "content": "One-word source — live daemon vs snapshot. The quick check before trusting the queue is empty.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">One-word queue-feed health</div>Live or snapshot — the quick check before trusting the queue is empty. An escalation can arrive any moment, so an offline feed is a reason to refresh.</div>"
     },
     {
      "selector": "#ds-state-detail",
      "title": "Source detail",
-     "content": "The endpoint (/api/approvals/pending) and why it's live or fell back."
+     "content": "The endpoint (/api/approvals/pending) and why it's live or fell back.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Which approvals feed answered</div>The endpoint behind the queue banner and any degraded note — the approvals daemon reachable vs a cached read.</div>"
     },
     {
      "selector": "#ds-last-update",
@@ -1530,7 +1533,8 @@ window.SO_ASSIST = {
     {
      "selector": "#high-count",
      "title": "High",
-     "content": "High-urgency decisions below critical — the next tier to work down after the criticals are clear."
+     "content": "High-urgency decisions below critical — the next tier to work down after the criticals are clear.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The next tier after critical</div>High-urgency approvals below critical — what to work down once the criticals are clear. Each is real work waiting on your signature, just less time-sensitive than a critical.</div>"
     },
     {
      "selector": "#oldest-age",
@@ -1594,7 +1598,8 @@ window.SO_ASSIST = {
     {
      "selector": "#refresh-btn",
      "title": "Refresh now",
-     "content": "Pull a fresh queue read on demand. Read-only — it re-samples, it never approves anything."
+     "content": "Pull a fresh queue read on demand. Read-only — it re-samples, it never approves anything.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Re-read the queue now</div>Re-polls the pending queue — read-only. It re-samples what's waiting; approving or denying is a signed CLI verb, never this button.</div>"
     },
     {
      "selector": "#control-surface",

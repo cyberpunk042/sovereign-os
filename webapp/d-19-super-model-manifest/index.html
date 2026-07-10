@@ -1427,17 +1427,20 @@ window.SO_ASSIST = {
        "content": "Offline — showing the last snapshot; the box may have moved on since.",
        "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Offline</div>No live answer — this is a cached snapshot, possibly stale.</div>"
       }
-     ]
+     ],
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">One-word manifest-feed health</div>Live or snapshot — whether the composed-system manifest is current. A module re-pinned since a snapshot won't show, so this gates trust in the version reconciliation.</div>"
     },
     {
      "selector": "#ds-state-detail",
      "title": "Source detail",
-     "content": "Status line under the banner — endpoint + any degraded note."
+     "content": "Status line under the banner — endpoint + any degraded note.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Which manifest feed answered</div>The endpoint behind the banner and any degraded note — the manifest store reachable vs a cached read.</div>"
     },
     {
      "selector": "#ds-last-update",
      "title": "Source freshness",
-     "content": "When the manifest was last read from the store. The version + module table below are only as current as this — after a build or module change, refresh before trusting the pinned versions."
+     "content": "When the manifest was last read from the store. The version + module table below are only as current as this — after a build or module change, refresh before trusting the pinned versions.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Manifest reads are point-in-time</div>The version + module table reflect the store at this timestamp. A module re-pinned since won't show — refresh before reconciling versions against a build.</div>"
     }
    ]
   },
@@ -1455,23 +1458,26 @@ window.SO_ASSIST = {
     {
      "selector": "#sm-modules",
      "title": "Module count",
-     "content": "How many modules the manifest composes. Read it against M001..M080 — a count short of the expected set means the manifest is partial, which the phase bar below would also show."
+     "content": "How many modules the manifest composes. Read it against M001..M080 — a count short of the expected set means the manifest is partial, which the phase bar below would also show.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The box is composed, not monolithic</div>The super-model is M001..M080 modules wired together, not one program. This count against the module range tells you how complete the composition is — a gap is a capability not yet assembled.<div class=\"so-xref\"><span class=\"x\">→</span> phase-bar — the M053 phases that compose these</div></div>"
     },
     {
      "selector": "#sm-rrows",
      "title": "Requirement rows",
-     "content": "How many requirement rows (R-numbers) the manifest tracks. Each is a verifiable claim the composed system must satisfy — the manifest is not just a parts list, it is a contract."
+     "content": "How many requirement rows (R-numbers) the manifest tracks. Each is a verifiable claim the composed system must satisfy — the manifest is not just a parts list, it is a contract.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">R-numbers are verifiable requirements</div>Each requirement row is a specific, testable claim the system must satisfy — R10212, R09966, and hundreds more. The manifest tracks them so 'is the box compliant' has a countable answer, not a vibe.</div>"
     },
     {
      "selector": "#sm-mirrors",
      "title": "Mirrors + Trinity surface",
      "content": "How many selfdef mirrors the manifest wires — the read-only bridges (like D-12 rules mirror) through which the M066 Trinity is observed: Pulse computes, Weaver steers, Auditor watches. Compute is trustworthy only because the Auditor holds the hash chain over it.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Pulse · Weaver · Auditor</div><div class=\"so-grid\"><span class=\"k\">Pulse</span><span>the compute tier — does the thinking (CPU ternary + GPUs)</span><span class=\"k\">Weaver</span><span>the steer tier — shapes/activation-steers behavior</span><span class=\"k\">Auditor</span><span>the watch tier — audits Pulse + Weaver, holds the hash chain</span></div><div class=\"so-xref\"><span class=\"x\">→</span> Trinity panels — Pulse / Weaver / Auditor in depth<br><span class=\"x\">→</span> D-16 audit chain — the Auditor tamper-evident log</div></div>"
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Mirrors are the selfdef bridges</div>How many read-only selfdef mirrors the manifest wires (grants, sandboxes, audit…). Each is an M060 bridge — the manifest is where the cross-project wiring is declared.<div class=\"so-xref\"><span class=\"x\">→</span> D-25 selfdef management — the mirror chain this counts</div></div>"
     },
     {
      "selector": "#sm-dashboards",
      "title": "Dashboards",
-     "content": "How many cockpit dashboards the manifest registers — the 51 panels are themselves a composed surface. This is the manifest counting its own UI."
+     "content": "How many cockpit dashboards the manifest registers — the 51 panels are themselves a composed surface. This is the manifest counting its own UI.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The 51 panels are registered here</div>Every cockpit dashboard the manifest registers — this panel among them. The manifest is the single source of truth for what surfaces exist; the 8-surface §1g contract is checked against it.<div class=\"so-xref\"><span class=\"x\">→</span> surface-map — the 8-surface coverage view</div></div>"
     }
    ]
   },
@@ -1496,22 +1502,34 @@ window.SO_ASSIST = {
     {
      "selector": "#ms-filters",
      "title": "Module filters",
-     "content": "Narrow the module table — by domain, phase, or version state. Use it to answer 'is module M0xx at the version I expect' without scanning all eighty; the export buttons below carry the filtered set."
+     "content": "Narrow the module table — by domain, phase, or version state. Use it to answer 'is module M0xx at the version I expect' without scanning all eighty; the export buttons below carry the filtered set.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Slice the module table</div>By domain, phase, or version state — use it to answer 'which modules are lagging their pinned version' or 'what's in phase N'. A focused view of an 80-module manifest.</div>"
     },
     {
      "selector": "#ms-tbody",
      "title": "Module rows",
-     "content": "Each row: one module (M001..M080) and its pinned version. A module lagging its expected version is drift the manifest is telling you about — read it against the build phases above."
+     "content": "Each row: one module (M001..M080) and its pinned version. A module lagging its expected version is drift the manifest is telling you about — read it against the build phases above.",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#ms-tbody > tr",
+      "nameSelector": "td:first-child,td",
+      "title": "Module · {{name}}",
+      "content": "Module {{name}} — its pinned version in the composed system. A module lagging its expected version is drift; the manifest is where you catch it.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Module · {{name}}</div>One of the M001..M080 modules and its pinned version. The manifest composition is only as current as its lagging-est module.</div>"
+     },
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The full module roster</div>Every M001..M080 module and its pinned version at once — the whole composition. A module lagging its expected version is drift; this is where you catch it.</div>"
     },
     {
      "selector": "#export-csv",
      "title": "Export CSV",
-     "content": "Download the currently filtered manifest as CSV — the M001..M080 modules you see, for a hand-off or an audit record. Reflects the active chip filters, so narrow first, then export. Pure client-side; a recompute of the loaded manifest, never a server call."
+     "content": "Download the currently filtered manifest as CSV — the M001..M080 modules you see, for a hand-off or an audit record. Reflects the active chip filters, so narrow first, then export. Pure client-side; a recompute of the loaded manifest, never a server call.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The manifest, portable</div>Downloads the filtered M001..M080 modules as CSV — read-only extraction for an offline audit or a compliance report. It's the manifest leaving the cockpit, not changing it.</div>"
     },
     {
      "selector": "#export-json",
      "title": "Export JSON",
-     "content": "Download the currently filtered manifest as JSON — the machine-readable form for tooling or a saved snapshot. Same filtered rows as the CSV export; client-side only, real rows only."
+     "content": "Download the currently filtered manifest as JSON — the machine-readable form for tooling or a saved snapshot. Same filtered rows as the CSV export; client-side only, real rows only.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The manifest, machine-readable</div>Downloads the filtered manifest as JSON — for scripting or feeding another tool. Read-only extraction; the composed system is unchanged.</div>"
     }
    ]
   },
@@ -1523,7 +1541,8 @@ window.SO_ASSIST = {
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "The control rail — each button copies its exact sovereign-osctl command. A manifest or module change runs through the signed CLI after your MS003 signature, never from a web click."
+     "content": "The control rail — each button copies its exact sovereign-osctl command. A manifest or module change runs through the signed CLI after your MS003 signature, never from a web click.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copy-command boundary</div>Each control copies its sovereign-osctl verb (§1g / R10212). The manifest is the composed-system spec; the panel reads it, it doesn't recompose the box.</div>"
     }
    ]
   }
