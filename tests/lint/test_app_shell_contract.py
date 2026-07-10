@@ -85,13 +85,34 @@ def test_app_shell_reuses_personalization_key():
     )
 
 
+SANCTIONED_CHAT_FETCH = "/api/code-console/chat"
+
+
 def test_app_shell_chrome_is_non_mutating():
     """Per the design grammar the chrome navigates + explains; it MUST NOT
-    execute anything server-side. The block carries no fetch/XHR/form POST."""
+    execute anything server-side — with ONE sanctioned exception (R10212):
+    the Assistant "Ask" footer may POST to the loopback chat
+    (/api/code-console/chat, 127.0.0.1 only), the same non-mutating inference
+    read-compute the Code Console / D-22 panels use. No XHR / sendBeacon /
+    form-POST, and no other or external fetch, is permitted."""
     block = _canonical_block()
-    for forbidden in ("fetch(", "XMLHttpRequest", "navigator.sendBeacon", "method=\"post\"", "method='post'"):
-        assert forbidden.lower() not in block.lower(), (
+    low = block.lower()
+    for forbidden in ("xmlhttprequest", "navigator.sendbeacon", 'method="post"', "method='post'"):
+        assert forbidden not in low, (
             f"app-shell block must be non-mutating; found: {forbidden}"
+        )
+    # every fetch() target MUST be the single sanctioned loopback chat path — a
+    # string literal, never a template/variable/external URL that could hide egress.
+    fetches = re.findall(r"fetch\(\s*(['\"])(.*?)\1", block)
+    literal_fetch_count = len(re.findall(r"fetch\(", block))
+    assert literal_fetch_count == len(fetches), (
+        "every fetch() in the app-shell must take a string-literal URL "
+        "(no template/variable target that could hide external egress)"
+    )
+    for _quote, url in fetches:
+        assert url == SANCTIONED_CHAT_FETCH, (
+            f"only the sanctioned loopback chat fetch ({SANCTIONED_CHAT_FETCH}) "
+            f"is allowed in the app-shell; found fetch to: {url!r}"
         )
 
 

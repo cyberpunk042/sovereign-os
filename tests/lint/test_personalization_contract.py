@@ -25,6 +25,7 @@ applies to this surface like every other cockpit webapp.
 """
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -128,6 +129,10 @@ def test_personalization_page_is_client_side_only():
     """Server NEVER mutates prefs. The page must NOT POST/PUT/DELETE
     to any /api/ endpoint."""
     html = PERSONALIZATION.read_text(encoding="utf-8")
+    # Exclude the shared app-shell chrome (governed by test_app_shell_contract;
+    # its one sanctioned loopback Assistant chat is not a personalization mutation).
+    html = re.sub(r"<!-- APP-SHELL:BEGIN M067 -->.*?<!-- APP-SHELL:END M067 -->",
+                  "", html, flags=re.DOTALL)
     for forbidden in ("method: 'POST'", "method:'POST'", "method=\"POST\"",
                       "method: 'PUT'", "method:'PUT'", "method=\"PUT\"",
                       "method: 'DELETE'", "method:'DELETE'", "method=\"DELETE\""):
