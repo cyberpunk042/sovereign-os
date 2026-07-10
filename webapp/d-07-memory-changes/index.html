@@ -527,67 +527,67 @@ a11y; contract test catches drift.
   //    Generated from config/dashboard-catalog.yaml (single source of truth). ──
   var GROUPS = [
     {name:'Trinity & Orchestration', items:[
-      {id:'—', dir:'trinity', label:'Trinity', ico:'△', desc:'The 3-tier runtime at a glance — Pulse (CPU/AVX-512 ternary), Weaver (sandboxed GPU fabric), Auditor (immutable gatekeeper): live tier status, model assignments, health.'},
-      {id:'—', dir:'weaver', label:'Weaver (fabric)', ico:'☲', desc:'The sandboxed fabric layer — Podman/VFIO isolation, the state-fabric (tank/context) writers, CCD1 allocation. Where untrusted work runs.'},
-      {id:'—', dir:'auditor', label:'Auditor (gatekeeper)', ico:'🔍', desc:'The always-on immutable gatekeeper — Tetragon eBPF perimeter + Guardian violation tail. The last line that cannot be bypassed.'},
-      {id:'—', dir:'router', label:'Router', ico:'⎈', desc:'The deterministic request router (SDD-011): which tier answers a prompt, per-rule classification, routing-decision metrics. Pairs with the thinking-router planner (CLI: router plan).'},
-      {id:'—', dir:'runtime-modes', label:'Runtime Modes', ico:'◑', desc:'The master-spec §18 runtime profiles (ultra-sovereign-efficiency / high-concurrency / deep-context) — pick the mode; it drives core pinning, GPU power, model allocation.'},
-      {id:'D-01', dir:'d-01-active-sessions', label:'D-01 Active Sessions', ico:'▣', desc:'The 12-step task lifecycle per live operator session (init → inference → response → validation → cleanup).'},
+      {id:'—', dir:'trinity', label:'Trinity', ico:'△', desc:'The 3-tier runtime at a glance — Pulse (CPU/AVX-512 ternary), Weaver (sandboxed GPU fabric), Auditor (immutable gatekeeper): live tier status, model assignments, health.', menuHover:'The three-part mind of the box at a glance — Pulse, Weaver, and Auditor (M066), the arrangement that lets you trust compute you cannot personally verify. Pulse does the thinking on cheap CPU ternary, Weaver shapes and steers it on the sandboxed GPU fabric, and the Auditor watches both from an immutable perch that cannot be bribed or bypassed. The whole point is separation of powers: no single tier can both act and vouch for itself. Open it for the one-screen answer to ‘is the trinity intact’ — all three up, each doing its own job — before you rely on anything the box produced. It is the parent of the Weaver and Auditor panels and the human-readable face of what D-16 (the audit chain) and D-18 (trust) enforce underneath.'},
+      {id:'—', dir:'weaver', label:'Weaver (fabric)', ico:'☲', desc:'The sandboxed fabric layer — Podman/VFIO isolation, the state-fabric (tank/context) writers, CCD1 allocation. Where untrusted work runs.', menuHover:'The sandboxed fabric layer — where untrusted and heavy work actually runs, walled off from everything that matters. Weaver owns the GPU fabric (Podman + VFIO isolation), the writers that persist state into tank/context, and the CCD1 core allocation, so it is the tier you look at to answer ‘where is the risky work contained, and is the containment holding.’ It is deliberately the messy tier — bursty, GPU-hungry, running things the box does not fully trust — which is exactly why it is isolated. Open it when you want to see what the fabric is doing, whether a sandbox has the resources it needs, or whether Weaver’s work is staying inside its VFIO boundary rather than leaking toward the host. It sits under the Trinity umbrella beside Pulse (compute) and the Auditor (the watcher that keeps Weaver honest).'},
+      {id:'—', dir:'auditor', label:'Auditor (gatekeeper)', ico:'🔍', desc:'The always-on immutable gatekeeper — Tetragon eBPF perimeter + Guardian violation tail. The last line that cannot be bypassed.', menuHover:'The always-on gatekeeper — the one tier that only watches and can never be talked out of it. The Auditor runs the Tetragon eBPF perimeter at the kernel boundary and tails the Guardian daemon’s violations, so it is the last line that observes every syscall and cannot be bypassed from userspace. Its whole value is incorruptibility: it does no work of its own, which is precisely why its verdicts can be trusted about the work others do. Open it to confirm the perimeter is live and streaming — because a blind Auditor is a security event, not a slow one — and to read what it has flagged. It is the enforcement half of the Trinity (Pulse computes, Weaver steers, the Auditor judges), and it feeds the tamper-evident record you inspect on D-16.'},
+      {id:'—', dir:'router', label:'Router', ico:'⎈', desc:'The deterministic request router (SDD-011): which tier answers a prompt, per-rule classification, routing-decision metrics. Pairs with the thinking-router planner (CLI: router plan).', menuHover:'The loopback traffic cop every prompt passes through — the deterministic request router (SDD-011) that decides, in a fixed rule order, which tier answers a given prompt. It classifies each request against an ordered rule set (first match wins, so the same prompt always routes the same way) and dispatches it to Pulse (cheap ternary), the Logic engine (mid-scale Q4), or the Oracle (deep reasoning). The doctrine it enforces is that most prompts do not deserve the expensive model. Open it to see the routing rules, the backends’ health as route targets, and the live counts of where prompts actually landed — and to catch a rules-vs-reality mismatch (everything piling onto Oracle, or the cheap tier being bypassed). It pairs with the thinking-router (orchestration) which adds reasoning escalation on top of this tier choice.'},
+      {id:'—', dir:'runtime-modes', label:'Runtime Modes', ico:'◑', desc:'The master-spec §18 runtime profiles (ultra-sovereign-efficiency / high-concurrency / deep-context) — pick the mode; it drives core pinning, GPU power, model allocation.', menuHover:'The runtime posture chooser, seen from the mode angle — the same M076 profiles as D-21 but framed as ‘what mode is the box in.’ Each mode (ultra-sovereign-efficiency, high-concurrency, deep-context) is a whole coherent stance that drives core pinning, GPU power, and model allocation together, so switching mode reshapes how the entire machine thinks rather than tweaking one knob. Open it when you want to change the box’s character — cheapest cognition, most parallel agents, or longest contexts — and to understand the trade-off each mode makes (you cannot have all three at once). It is the plain-language sibling of D-21 (which shows the same choice as a model-to-hardware grid) and of profile-generation (which produces these modes from hardware and strategy).'},
+      {id:'D-01', dir:'d-01-active-sessions', label:'D-01 Active Sessions', ico:'▣', desc:'The 12-step task lifecycle per live operator session (init → inference → response → validation → cleanup).', menuHover:'The live-sessions board — every operator session in flight and where each one sits in the 12-step task lifecycle (M057), from init through inference, response, validation, to cleanup. It answers ‘what is the box actually working on right now, and is anything stuck.’ Each session walks the same lifecycle, so a session parked at one step is a session that needs attention — a stalled validation, an inference that never returned. Open it to see concurrency at a glance, to find a hung session, or to confirm work is draining through the lifecycle cleanly rather than piling up. It is the per-session counterpart to D-03 (which shows the models those sessions are hitting) and D-09 (the pressure a burst of sessions produces).'},
       {id:'D-03', dir:'d-03-model-health', label:'D-03 Model Health', ico:'♥', desc:'Per-tier inference health — SRP role, GPU binding, KV-cache pressure, latency. The live-serving view (distinct from the catalog).', menuHover:'How well the models are actually SERVING right now — the live-inference counterpart to the catalog. Where D-23 tells you which models exist, this tells you how the loaded ones are performing across the three SRP tiers (M075): the Conductor on CPU ternary, the Logic engine on the sandboxed 4090, and the Oracle on the Blackwell. It reads each tier’s utilization and headroom, per-model latency at the p50/p95/p99 tails (because the tail is what a user feels, not the average), KV-cache occupancy and prefill-hit rate per model, and a 24-hour availability heatmap that turns momentary blips into a pattern. Open it when a response felt slow and you need to know which tier and which model was the cause; open it before loading a new model to see which tier has room; open it after a profile change to confirm the reassignment is serving cleanly. It pairs with D-09 (the raw hardware pressure underneath these numbers), D-21 (the profile that assigned models to tiers), and D-23 (the portfolio these live models are drawn from).'},
-      {id:'D-05', dir:'d-05-traces', label:'D-05 Traces', ico:'⋮', desc:'Distributed span search — 13-field trace tree, OCSF export. Debug why a request went where it did.'},
+      {id:'D-05', dir:'d-05-traces', label:'D-05 Traces', ico:'⋮', desc:'Distributed span search — 13-field trace tree, OCSF export. Debug why a request went where it did.', menuHover:'The debugger’s panel — distributed span search across the box, where you reconstruct exactly what happened to one request. It gives you the 13-field trace tree per request and an OCSF export, so when something went wrong or slow you can follow the span-by-span path: which tier classified it, which model served it, where the time went, where it errored. It answers ‘why did THIS request behave this way’ rather than ‘how is the box in aggregate.’ Open it after a bad response, a mysterious latency, or a routing surprise — the trace is the ground truth that the summary dashboards abstract away. It complements D-01 (the session the trace belongs to) and D-04 (the cost that trace incurred), and its OCSF output is the security-legible form auditors consume.'},
     ]},
     {name:'Models & Compute', items:[
       {id:'D-21', dir:'d-21-lm-orchestration', label:'D-21 LM Orchestration', ico:'⛭', desc:'Profiles + model→hardware assignment grid (GPU0/GPU1/CPU0 = Logic/Oracle/Conductor per M075) + CPU AVX-512 / GPU capability panel. Read-only: Apply copies the signed profile verb.', menuHover:'Where you choose the whole machine’s inference posture in one move. A runtime profile (M076) is not a setting — it is a coherent bundle that assigns every model to a device and pins the CPU cores to match (the SRP split, M075), so picking one rebalances the Conductor, Logic, and Oracle tiers together. This panel lets you preview a profile as a concrete model→hardware grid before you commit it, and shows the silicon it’s built to exploit (the CPU’s AVX-512 extensions for the ternary path, the GPUs’ capabilities like NVFP4). Open it when you want to change how the box thinks as a whole — trade deep-context reach for concurrency, or park the GPUs and run cheap on CPU — rather than tweaking one model. It’s the strategic counterpart to D-03 (which shows how the current assignment is actually serving) and D-09 (which shows the pressure each posture produces). Read-only: applying a profile is a signed verb-chain through osctl, because reshuffling models across devices is a real, heavy operation, not a web click.'},
-      {id:'D-24', dir:'d-24-cpu-features', label:'D-24 CPU Features', ico:'⊞', desc:'The deep AVX-512 capability view — extension map, per-AI-workload fit verdict, and advisory. Reuses avx512-advisor. Distinct from D-21 Features-CPU summary.'},
-      {id:'D-23', dir:'d-23-models-catalog', label:'D-23 Model Catalog', ico:'▤', desc:'The canonical model registry (models/catalog.yaml) browsed by SRP tier — id, class, engine, precision, params, context, license, purpose, status. The portfolio view (distinct from D-03 live health).'},
+      {id:'D-24', dir:'d-24-cpu-features', label:'D-24 CPU Features', ico:'⊞', desc:'The deep AVX-512 capability view — extension map, per-AI-workload fit verdict, and advisory. Reuses avx512-advisor. Distinct from D-21 Features-CPU summary.', menuHover:'The deep read on what the CPU can actually do for AI — the full AVX-512 extension map and, more usefully, a verdict on how well this exact silicon fits each AI workload. It matters because the whole cheap-cognition story rests on ternary inference running fast on CPU, and that speed comes from specific AVX-512 instructions (VNNI for integer dot-products, BF16 for half-precision, VPOPCNTDQ for bit-counting the ternary path leans on). If an extension is missing, the Conductor tier silently falls back to a slower path — so this panel is where you learn whether \u201cefficiency mode\u201d will actually be efficient on THIS chip. It goes deeper than D-21\u2019s at-a-glance CPU-features summary: here each extension is mapped to the workloads it enables, with a fit verdict and an advisory (from the avx512-advisor, R272). Open it when deciding whether to lean on CPU inference, diagnosing why the Conductor is slower than expected, or planning a build for specific silicon. It pairs with D-09 (the CCD load these instructions drive) and D-21 (the efficiency profile that depends on them).'},
+      {id:'D-23', dir:'d-23-models-catalog', label:'D-23 Model Catalog', ico:'▤', desc:'The canonical model registry (models/catalog.yaml) browsed by SRP tier — id, class, engine, precision, params, context, license, purpose, status. The portfolio view (distinct from D-03 live health).', menuHover:'The full portfolio of models the box COULD run, browsed by SRP tier — the catalog, as opposed to D-03 which shows the few that are loaded and serving. Every entry comes straight from the canonical registry (models/catalog.yaml) with its real attributes: id, class (ternary-lm / RLM / SLM / LLM / mixture), engine, precision, parameter count, context window, license, purpose, and status. This is where you shop before you load: to find a model that fits a tier\u2019s VRAM budget, to compare two candidates\u2019 context windows or licenses, or to understand what the box is capable of beyond what happens to be resident right now. It is deliberately read-only reference \u2014 loading a model you find here is done from D-03 or D-21, as a signed action. Open it when you\u2019re choosing what to run, auditing licenses across the fleet, or answering \u201cdo we even have a model for this?\u201d It pairs with D-03 (which of these are live) and D-21 (which tier/device a chosen model would land on).'},
       {id:'D-22', dir:'d-22-lm-status-operability', label:'D-22 LM Status & Operability', ico:'◐', desc:'Per-device (CPU0/GPU0/GPU1) Model 0/1/2 status + History|Selected latency + operability Actions/Tests + render-only Chat. Reuses the model-health core; Actions copy signed CLI verbs.', menuHover:'The device-by-device operability view — and the one place in the whole cockpit where you actually talk to the box\u2019s brain. Where D-03 aggregates model health by SRP tier, this pins it to the physical devices (CPU0, GPU0, GPU1) and adds the thing that proves the machine is more than dashboards: a sovereign loopback chat that sends a prompt straight to the local LM over 127.0.0.1 and shows the answer. That chat is the single deliberate exception to the read-only rule \u2014 it is a real compute call, but it never leaves the box, which is the whole sovereignty argument made tangible: your AI, on your silicon, answering with nothing crossing the network. Open it to confirm a device is not just loaded but actually responding; open it to sanity-check the box end to end after a profile change; open the chat when you want to feel the machine think without a cloud in the loop. It pairs with D-03 (tier health), D-21 (the profile that placed these models on these devices), and D-09 (the pressure a chat request produces).'},
-      {id:'—', dir:'models-catalog', label:'Models & Catalog', ico:'▤', desc:'The full model catalog (68 models across ternary-lm/RLM/SLM/LLM/mixture, every quantization) with VRAM-aware selection — browse and filter by class/quant/tier/purpose/VRAM. Backed by models/catalog.yaml (served at /models-catalog.json); operator CLI e.g. models select --class rlm --vram 48.'},
-      {id:'—', dir:'cpu-features', label:'CPU / AVX-512 Choice', ico:'⊞', desc:'The tiered AVX-512 exploitation surface — which instructions (F/VL/BW/VNNI/BF16/VPOPCNTDQ…) THIS CPU exposes and how they map to the AI workloads they enable (Pulse ternary path). Live probe via avx512-advisor (R272), served at /cpu-avx.json.'},
-      {id:'—', dir:'orchestration', label:'Thinking Router / Orchestration', ico:'⧉', desc:'The thinking-router / orchestration view — the 7-axis routing rules (SDD-011) + live routing metrics (which tier/class/task-type requests landed on) + the per-profile escalation (CoT → Validator → self-consistency → MoE). Served at /orchestration.json (router rules|metrics).'},
-      {id:'—', dir:'profile-generation', label:'Runtime-Profile Generation', ico:'⌘', desc:'Generate a whole runtime profile from hardware × strategy, with tier_intent resolved against the catalog (the \'20+ combos\' producer) — shows the resolved allocations each strategy produces + the generate command. Served at /profile-generation.json from profiles/runtime/*.yaml.'},
-      {id:'D-10', dir:'d-10-eval-history', label:'D-10 Eval History', ico:'∿', desc:'Per-task/model eval results (mmlu/humaneval/gsm8k/…), white-box + black-box.'},
-      {id:'D-11', dir:'d-11-adapter-status', label:'D-11 Adapter Status', ico:'⚙', desc:'LoRA adapter inventory + rollback state — which fine-tunes are resident and active.'},
-      {id:'D-19', dir:'d-19-super-model-manifest', label:'D-19 Super-Model Manifest', ico:'≣', desc:'The live super-model version + the M001..M080 module table — what capabilities are shipped.'},
+      {id:'—', dir:'models-catalog', label:'Models & Catalog', ico:'▤', desc:'The full model catalog (68 models across ternary-lm/RLM/SLM/LLM/mixture, every quantization) with VRAM-aware selection — browse and filter by class/quant/tier/purpose/VRAM. Backed by models/catalog.yaml (served at /models-catalog.json); operator CLI e.g. models select --class rlm --vram 48.', menuHover:'The full model shelf with VRAM-aware selection — the complete catalog (68 models across ternary-lm, RLM, SLM, LLM, and mixture, at every quantization) that you browse and filter to choose what to run. Where D-23 is the tier-grouped portfolio view, this is the working selector: filter by class, quant, tier, purpose, or VRAM budget and it shows you what actually fits. It answers ‘which model should I load for this job on this hardware’ — the VRAM filter is the key, because a model that will not fit is not a candidate no matter how good. Open it when picking a model to load, comparing quantizations of the same base, or checking whether a workload has a model that fits a tier’s memory. It feeds D-03 and D-21, where a chosen model becomes a signed load.'},
+      {id:'—', dir:'cpu-features', label:'CPU / AVX-512 Choice', ico:'⊞', desc:'The tiered AVX-512 exploitation surface — which instructions (F/VL/BW/VNNI/BF16/VPOPCNTDQ…) THIS CPU exposes and how they map to the AI workloads they enable (Pulse ternary path). Live probe via avx512-advisor (R272), served at /cpu-avx.json.', menuHover:'The CPU-as-AI-accelerator chooser — the tiered AVX-512 exploitation surface that shows which instruction families this chip exposes (F, VL, BW, VNNI, BF16, VPOPCNTDQ…) and how they map to the AI workloads they enable. It matters because the box’s cheap-cognition claim rests on ternary inference running fast on CPU, and that speed comes from these specific extensions — a missing one silently downgrades the Pulse path. Open it to decide whether to lean on CPU inference on this silicon, or to understand why the Conductor is slower than expected. It is the selection-oriented sibling of D-24 (the deep per-workload fit and advisory) and it grounds the efficiency profile on runtime-modes / D-21, which only makes sense if the instructions it needs are present.'},
+      {id:'—', dir:'orchestration', label:'Thinking Router / Orchestration', ico:'⧉', desc:'The thinking-router / orchestration view — the 7-axis routing rules (SDD-011) + live routing metrics (which tier/class/task-type requests landed on) + the per-profile escalation (CoT → Validator → self-consistency → MoE). Served at /orchestration.json (router rules|metrics).', menuHover:'The thinking-router — the layer above tier choice that decides HOW HARD to reason, not just which model answers. It applies the 7-axis routing rules (SDD-011) and then the per-profile escalation ladder: chain-of-thought, then a validator, then self-consistency (multiple samples), then mixture-of-experts, each rung costing more but reasoning harder. It answers ‘is the box thinking as deeply as this prompt deserves, and no deeper.’ Open it to see which tier/class/task-type requests landed on, and how far up the escalation ladder the active profile climbs — too eager wastes compute, too shy gives shallow answers. It sits on top of the plain router (which picks the tier) and its escalation depth is set by the runtime profile you choose on D-21 / runtime-modes.'},
+      {id:'—', dir:'profile-generation', label:'Runtime-Profile Generation', ico:'⌘', desc:'Generate a whole runtime profile from hardware × strategy, with tier_intent resolved against the catalog (the \'20+ combos\' producer) — shows the resolved allocations each strategy produces + the generate command. Served at /profile-generation.json from profiles/runtime/*.yaml.', menuHover:'The profile foundry — where a whole runtime profile is generated from hardware × strategy, resolving each tier’s intent against the real catalog. It is the producer behind the ‘20+ combos’: give it this silicon and a strategy and it computes the concrete model-to-device allocations that strategy implies, plus the exact generate command. It answers ‘what would a deep-context (or high-concurrency, or efficiency) profile actually look like on THIS box,’ before you ever apply one. Open it when you want to create or understand a profile rather than just pick from existing ones — it is the design-time counterpart to D-21 (which previews and applies a chosen profile) and runtime-modes (which switches between them). The output is what those panels then let you commit as a signed chain.'},
+      {id:'D-10', dir:'d-10-eval-history', label:'D-10 Eval History', ico:'∿', desc:'Per-task/model eval results (mmlu/humaneval/gsm8k/…), white-box + black-box.', menuHover:'The report card — per-task and per-model eval results over time (MATH, HumanEval, GSM8K and the rest), in both white-box and black-box form. It answers the question no live dashboard can: ‘is the box actually getting better, or just changing.’ Black-box pass (outcome only) is the number that cannot be gamed; the per-task trends turn a single accuracy figure into a diagnosis of which model regressed on which task. Open it before promoting an adapter (to see if it earned it), after a model change (to confirm improvement, not drift), or when a suite result looks off. It is where measurement lives, feeding D-11 (adapter promotion decisions rest on these scores) and grounding the M078/M080 benchmark targets the box is tuned against.'},
+      {id:'D-11', dir:'d-11-adapter-status', label:'D-11 Adapter Status', ico:'⚙', desc:'LoRA adapter inventory + rollback state — which fine-tunes are resident and active.', menuHover:'The specializations board — the LoRA adapter inventory (M046 Foundry) and rollback state: which fine-tunes are resident, which are live, and which are waiting on the gate. An adapter is a small low-rank skill stacked on a base model, stored at NVFP4 4-bit so many coexist in the VRAM one full fine-tune would need. Because promoting one can change how the box behaves, promotion runs the MS041 high-risk triple-gate (eval, safety, signed intent — all three must pass), which is why an adapter can ace evals and still be pending. Open it to see what specializations are active, what is waiting, and what was rolled back (a rollback is the system working, not failing). It pairs with D-10 (the evals that qualify an adapter) and D-03 (how an adapter performs once live).'},
+      {id:'D-19', dir:'d-19-super-model-manifest', label:'D-19 Super-Model Manifest', ico:'≣', desc:'The live super-model version + the M001..M080 module table — what capabilities are shipped.', menuHover:'The bill of materials for the whole box — the live super-model version plus the M001..M080 module table that composes it. The super-model is not one model; it is the manifest that binds an exact version of every module into one verified system, which is what a rollback targets and what an audit pins the box’s behavior to. It answers ‘which build of the sovereign OS is this, and are all its parts at the versions they should be.’ Open it to check the composed version, to spot a module lagging its expected version (composition drift), or to see how far the 11-phase build has progressed. It tracks the M066 Trinity and the build phases, and a module lagging here is often the root of behavior that surfaces as a problem on some other panel.'},
     ]},
     {name:'Hardware & Operations', items:[
       {id:'D-09', dir:'d-09-hardware-pressure', label:'D-09 Hardware Pressure', ico:'▰', desc:'Live PSI (CPU/mem/IO), per-CCD load, GPU utilization + power, ZFS pool health. The physical-stress view.', menuHover:'The box’s vital signs — not “how busy” but “how stressed”. Where you go when something feels slow and you need to know whether the machine is genuinely out of headroom or just working hard. It reads Linux PSI (stall, not utilization — the honest signal of contention), the two Ryzen CCDs separately (because crossing the Infinity Fabric between them costs latency the pinning is meant to avoid), both GPUs’ utilization/VRAM/thermals/KV-cache, the ZFS pool’s tail latency, and the M058 backpressure rules that are actively shedding work right now. Open it before launching a heavy build or eval to see if there’s room; open it when a response is slow to tell load apart from contention; open it when a backpressure rule fires to see which resource tripped and what the scheduler gave up to protect live serving. It pairs with the runtime-profile panels (which set the core pinning and GPU budget this reflects) and with D-08 (the ZFS snapshots the scrub here protects).'},
-      {id:'D-04', dir:'d-04-costs', label:'D-04 Costs', ico:'$', desc:'Budget + spend by project / profile / model — local compute cost + any cloud fallback.'},
-      {id:'D-08', dir:'d-08-rollback-points', label:'D-08 Rollback Points', ico:'↺', desc:'ZFS snapshots as recovery points, with a dry-run preview of what a rollback would change.'},
-      {id:'D-02', dir:'d-02-profile-choices', label:'D-02 Profile Choices', ico:'◈', desc:'The active OS profile mirrored read-only — hardware, kernel, packages, hooks in effect.'},
-      {id:'—', dir:'global-history', label:'Global History', ico:'🕑', desc:'A unified change log across 6 sources (apt/dpkg/shell/osctl/events/modules) — \'what changed since I last looked?\''},
-      {id:'—', dir:'build-configurator', label:'Build Configurator', ico:'▶', desc:'Compose an OS image (or manage this host) and RUN the build — the Run console (validate/preflight/BUILD, bake toggles). The one page that actually builds sovereign-os.'},
-      {id:'—', dir:'emulate', label:'Emulate (QEMU)', ico:'◴', desc:'Boot a built image in a throwaway QEMU VM before flashing — interactive serial console, configurable QEMU options (uefi/direct boot, kvm/tcg, cpu/mem, snapshot), auto-login. Catches a broken image in a VM, never on the USB key.'},
-      {id:'—', dir:'flash', label:'Flash to USB', ico:'⚡', desc:'Write a built image onto a removable disk from the panel — a safety-classified device picker (system disks hard-protected), type-to-arm confirm, and live dd progress. Shells the gated sovereign-osctl install image; never raw dd.'},
-      {id:'—', dir:'ups', label:'UPS (APC Smart-UPS)', ico:'🔋', desc:'Live APC Smart-UPS (SMT2200C SmartConnect) state (battery %, runtime, load, on-line/on-battery) via NUT apc_modbus over Modbus TCP (:502) or serial, plus the graceful soft-shutdown posture — an orderly poweroff when battery runtime drops below 30 minutes. Read-only over power-status + NUT upsc.'},
+      {id:'D-04', dir:'d-04-costs', label:'D-04 Costs', ico:'$', desc:'Budget + spend by project / profile / model — local compute cost + any cloud fallback.', menuHover:'The honest ledger — what the box’s cognition actually costs, built on the principle that local inference is free and that saying so plainly is the point ($0-is-honest, SDD-102). It shows request volume, average and most-expensive requests, an end-of-day forecast, and budget burn — but the load-bearing truth is that cloud is off by default, so most of what a hosted assistant would bill for costs nothing here. Open it to see where any spend actually comes from (a rare cloud escalation, not the local tiers), to check a forecast before a heavy run, or to confirm the box is living within its sovereign, near-zero cost model. It reads against D-05 (the traces that incur cost) and the routing panels (which keep prompts on the free local tiers).'},
+      {id:'D-08', dir:'d-08-rollback-points', label:'D-08 Rollback Points', ico:'↺', desc:'ZFS snapshots as recovery points, with a dry-run preview of what a rollback would change.', menuHover:'The undo button for the whole machine — the ZFS snapshots and signed rollback points that make ‘reversible enough to trust’ a real property, not a hope. Because the pool runs sync=always and snapshots are cheap, the box can capture a known-good state and return to it, and a rollback is a signed operation (MS003) so it cannot be triggered carelessly. It answers ‘if this change goes wrong, can I get back — and to when.’ Open it before a risky change to confirm you have a recent point to fall back to, or after one to roll back cleanly. It is the reversibility half of the peace-machine properties (D-20), underpinned by the same pool whose health you watch on D-09, and it is what a scrub there protects the integrity of.'},
+      {id:'D-02', dir:'d-02-profile-choices', label:'D-02 Profile Choices', ico:'◈', desc:'The active OS profile mirrored read-only — hardware, kernel, packages, hooks in effect.', menuHover:'The authority dial — where you set how much the box may do on its own. An MS040 profile is an envelope that caps two things at once: the maximum authority level an agent may reach on the L0..L6 ladder (Observe to Persist) and the trust ring it runs in (R0 Kernel to R4 Cloud, per MS039). It is the single most consequential control on the machine, because it decides how much happens without your signature — tight profiles withhold authority, the autonomous profile grants most of it, bounded only by predeclared gates. Open it to change the box’s autonomy posture, to review the authority ladder and trust rings a profile permits, or to audit who last changed the envelope. It is the authority-side view of the same MS039 rings that D-12 enforces on the network.'},
+      {id:'—', dir:'global-history', label:'Global History', ico:'🕑', desc:'A unified change log across 6 sources (apt/dpkg/shell/osctl/events/modules) — \'what changed since I last looked?\'', menuHover:'The whole-machine timeline — every subsystem’s events (the audit chain, the router, memory, selfdef) aggregated into one cross-box history above any single panel’s view. It answers ‘what happened across the entire machine,’ which no individual dashboard can, and it is where correlation lives: an event from one source sitting next to one from another is how a pattern that spans subsystems becomes visible. Open it to reconstruct a sequence that crossed several systems, to spot a rhythm (a nightly job colliding with serving), or to confirm a silent source is actually emitting. It complements D-05 (deep single-request traces) with breadth rather than depth, and a source gone quiet here is itself a signal worth chasing.'},
+      {id:'—', dir:'build-configurator', label:'Build Configurator', ico:'▶', desc:'Compose an OS image (or manage this host) and RUN the build — the Run console (validate/preflight/BUILD, bake toggles). The one page that actually builds sovereign-os.', menuHover:'The factory floor — the twelve-section wizard that assembles the entire sovereign OS image, the source of everything every other panel later runs. You walk it section by section (hardware preflight, profile, substrate and posture, kernel, CPU features, modules, packages, operator tools, storage, networking, hooks, observability), and it emits a reproducible build command plus the config artifacts that make the build bit-for-bit repeatable. It answers ‘how is the OS built, and what would change if I built it differently.’ Open it to plan or understand a build — this is the one panel where a decision propagates into every other (a kernel march, a VFIO cmdline, an encryption choice). Nothing here touches a running box; the build runs via orchestrate.sh, then you rehearse the image on Emulate and write it with Flash.'},
+      {id:'—', dir:'emulate', label:'Emulate (QEMU)', ico:'◴', desc:'Boot a built image in a throwaway QEMU VM before flashing — interactive serial console, configurable QEMU options (uefi/direct boot, kvm/tcg, cpu/mem, snapshot), auto-login. Catches a broken image in a VM, never on the USB key.', menuHover:'The safe rehearsal — QEMU booting the freshly built image in a disposable VM before it ever touches real hardware. It matters because a broken build discovered on a physical device costs a re-flash and a reboot cycle; here it fails harmlessly in a console you can read. The choices that make the test faithful are the ones to know: uefi boot runs the real OVMF → systemd-boot → signed-UKI chain (so it tests actual secure boot), kvm acceleration runs at near-native speed, snapshot mode discards writes so every boot is clean, and no-reboot halts a boot loop instead of spinning. Open it after a build to confirm the image boots and comes up, especially after a kernel or module change. It sits between Build Configurator (which produces the image) and Flash (which writes the verified image to hardware).'},
+      {id:'—', dir:'flash', label:'Flash to USB', ico:'⚡', desc:'Write a built image onto a removable disk from the panel — a safety-classified device picker (system disks hard-protected), type-to-arm confirm, and live dd progress. Shells the gated sovereign-osctl install image; never raw dd.', menuHover:'The point of no return — writing a built image to a real device, which irreversibly wipes it. The whole panel is a safety interlock because getting the target wrong destroys the wrong disk: you flash only images already booted on Emulate, Plan is a free dry-run that writes nothing, and the real Flash unlocks only after you ARM by re-typing the device path matched against its fingerprint (size, model, serial — so /dev/sdX renumbering cannot fool you). It answers ‘write this exact image to this exact device, and prove I mean it.’ Open it as the final step of a build: verified image, correct device, arm, write. It is the destructive end of the pipeline that starts at Build Configurator and is rehearsed on Emulate — treat armed state as live.'},
+      {id:'—', dir:'ups', label:'UPS (APC Smart-UPS)', ico:'🔋', desc:'Live APC Smart-UPS (SMT2200C SmartConnect) state (battery %, runtime, load, on-line/on-battery) via NUT apc_modbus over Modbus TCP (:502) or serial, plus the graceful soft-shutdown posture — an orderly poweroff when battery runtime drops below 30 minutes. Read-only over power-status + NUT upsc.', menuHover:'The insurance policy against a dirty power loss — the UPS status and the graceful-shutdown guard that powers the box off cleanly before the battery dies. It matters because the pool runs sync=always: a hard cut mid-write risks corruption, so the guard (checked every minute) triggers an orderly shutdown when battery runtime drops below a minutes threshold, reserving the time a clean shutdown needs to flush ZFS and stop services. It answers ‘is the box protected if the power fails, and how long do I have on battery.’ Open it when on battery to read the remaining runtime, to confirm the guard is armed (disarmed risks ZFS on a battery-death), or after a power event. It protects the same pool and snapshots you rely on for D-08 rollback.'},
     ]},
     {name:'Security & selfdef', items:[
-      {id:'D-25', dir:'d-25-selfdef-management', label:'D-25 Self-Defense Management', ico:'⛨', desc:'READ-ONLY consumer view (R10212) of the selfdef IPS — on/off enablement + M060 mirror-chain health + links to the 6 domain panels (D-13..D-18). Derives state via the m060-health probe() proxy; on/off is a clipboard-copied signed CLI verb.'},
-      {id:'—', dir:'selfdef-management', label:'selfdef (IPS) Management', ico:'⛨', desc:'The intrusion-prevention system — live on/off state + unit/mirror health, unifying the 6 mirror dashboards (D-13..D-18) + perimeter. Served at /selfdef-management.json (selfdef status); controls (on/off/sync/doctor + perimeter) via the Controls surface.'},
-      {id:'D-12b', dir:'edge-firewall', label:'Edge Firewall', ico:'🛡', desc:'Host firewall posture — nftables / fail2ban / crowdsec / suricata state + install recommendations.'},
-      {id:'D-12a', dir:'network-edge', label:'Network Edge', ico:'⇄', desc:'The edge topology — OPNsense bridge, ISP NAT layers, VPN, per-interface state. Where the box sits in the network.'},
-      {id:'D-12', dir:'d-12-networking', label:'D-12 Networking', ico:'⇄', desc:'The cockpit networking view — the selfdef MS039 Ring-0-4 nftables rules mirror (read-only via selfdef-rules-mirror), per-ring rule counts + traffic + dispositions.'},
-      {id:'D-06', dir:'d-06-pending-approvals', label:'D-06 Pending Approvals', ico:'✋', desc:'The operator approval queue + stage gates — actions waiting for a human yes/no.'},
-      {id:'D-07', dir:'d-07-memory-changes', label:'D-07 Memory Changes', ico:'✎', desc:'The 8-type memory-graph diff — what the agent\'s memory added/changed/removed.'},
-      {id:'D-13', dir:'d-13-filesystem-grants', label:'D-13 Filesystem Grants', ico:'📁', desc:'selfdef filesystem-grant mirror (read-only) — which paths are granted to whom.'},
-      {id:'D-14', dir:'d-14-capability-tokens', label:'D-14 Capability Tokens', ico:'⚷', desc:'selfdef capability-token mirror — issued/revoked capabilities.'},
-      {id:'D-15', dir:'d-15-sandboxes', label:'D-15 Sandboxes', ico:'▢', desc:'selfdef sandbox mirror — active sandboxes + their isolation state.'},
-      {id:'D-16', dir:'d-16-audit', label:'D-16 Audit Chain', ico:'☑', desc:'selfdef append-only audit-chain mirror — the tamper-evident event log.'},
-      {id:'D-17', dir:'d-17-quarantine', label:'D-17 Quarantine', ico:'⚠', desc:'selfdef quarantine mirror — what\'s been isolated and why.'},
-      {id:'D-18', dir:'d-18-trust-scores', label:'D-18 Trust Scores', ico:'★', desc:'selfdef trust-score mirror — per-entity trust levels driving policy.'},
-      {id:'D-20', dir:'d-20-peace-machine-health', label:'D-20 Peace Machine Health', ico:'☮', desc:'The M059 peace-machine 5-property verdict — the top-level \'is the system at peace\' signal.'},
-      {id:'—', dir:'compliance', label:'Compliance', ico:'⚖', desc:'The §1g/§1h compliance aggregator — per-module pass/fail against the operator mandate.'},
-      {id:'—', dir:'auth-tier', label:'Auth Tier', ico:'🔑', desc:'The 6-tier auth ladder (no-auth → basic → advanced → social → enterprise → network) + per-surface requirement.'},
-      {id:'—', dir:'anti-minimization-audit', label:'Anti-Minimization Audit', ico:'⛶', desc:'The \'do not minimize\' audit — flags where scope was silently shrunk vs the mandate.'},
+      {id:'D-25', dir:'d-25-selfdef-management', label:'D-25 Self-Defense Management', ico:'⛨', desc:'READ-ONLY consumer view (R10212) of the selfdef IPS — on/off enablement + M060 mirror-chain health + links to the 6 domain panels (D-13..D-18). Derives state via the m060-health probe() proxy; on/off is a clipboard-copied signed CLI verb.', menuHover:'The bridge monitor — the health and freshness of the M060 mirror chain that carries selfdef’s truth (rules, grants, audit, trust) into this box’s read-only panels. It is the most load-bearing integration on the machine: when this chain is healthy the selfdef mirror panels (D-12 through D-18) show live data; when it breaks they silently freeze at the last good mirror, which is dangerous precisely because they will not look broken. It answers ‘can I trust what the selfdef panels are showing me right now.’ Open it to confirm the bridge is flowing, to see which individual mirrors are current versus stale, and to read the per-producer detail when only some panels look wrong. It is the management view of the same M060 chain the master dashboard surfaces as a single health banner.'},
+      {id:'—', dir:'selfdef-management', label:'selfdef (IPS) Management', ico:'⛨', desc:'The intrusion-prevention system — live on/off state + unit/mirror health, unifying the 6 mirror dashboards (D-13..D-18) + perimeter. Served at /selfdef-management.json (selfdef status); controls (on/off/sync/doctor + perimeter) via the Controls surface.', menuHover:'The control room for selfdef itself — the IPS whose defenses this whole box reflects but does not own. Where the D-panels mirror selfdef’s state read-only, this is where selfdef’s management surface is presented: the daemon’s health, its enforcement posture, and the R10212 boundary that keeps sovereign-os checking while selfdef owns. It answers ‘is the defense system itself healthy and enforcing,’ as distinct from ‘what are its current rules.’ Open it to confirm selfdef is up and doing its job before you trust any of the mirror panels downstream of it, or when diagnosing why those mirrors look stale. It pairs with D-25 (the mirror-chain bridge) and the Auditor (the kernel perimeter selfdef’s Guardian daemon provides).'},
+      {id:'D-12b', dir:'edge-firewall', label:'Edge Firewall', ico:'🛡', desc:'Host firewall posture — nftables / fail2ban / crowdsec / suricata state + install recommendations.', menuHover:'The defense-in-depth planner for the network edge — it reads what the box enforces locally and what the upstream OPNsense edge enforces, and finds the exposure: a threat that neither line currently stops. Enforcement candidates are grouped on a 4-class ladder from baseline must-haves to situational hardening, and it turns ‘the edge has gaps’ into specific rules the box could add, previewing each as a read-only install plan before you commit. It answers ‘given what the perimeter already does, how much should the box firewall itself, and what exactly should I add.’ Open it when hardening the box, after an edge change, or when deciding whether a weak edge means the box must self-enforce more. It reads against Network Edge (the edge’s capabilities) and D-12 (the rules the box actually runs).'},
+      {id:'D-12a', dir:'network-edge', label:'Network Edge', ico:'⇄', desc:'The edge topology — OPNsense bridge, ISP NAT layers, VPN, per-interface state. Where the box sits in the network.', menuHover:'The map of the box’s boundary with the world — the dual-NIC edge (an upstream interface and a LAN interface) with OPNsense as the perimeter authority, and, crucially, multi-NAT visibility. One NAT hop is a normal edge; two or more (an ISP router in front of your firewall) breaks inbound connectivity and hides where the real perimeter is, and this panel makes that hidden second NAT visible. It answers ‘what does the box’s path to the internet actually look like, and is the topology what I think.’ Open it when connectivity is odd, when setting up the edge, or to confirm the OPNsense perimeter can enforce what you expect before traffic reaches the box. It grounds Edge Firewall (which plans local enforcement against this edge’s gaps) and D-12 (the firewall rules that ride on this topology).'},
+      {id:'D-12', dir:'d-12-networking', label:'D-12 Networking', ico:'⇄', desc:'The cockpit networking view — the selfdef MS039 Ring-0-4 nftables rules mirror (read-only via selfdef-rules-mirror), per-ring rule counts + traffic + dispositions.', menuHover:'The firewall, read-only — a mirror of selfdef’s enforced nftables ruleset, ring-aware per MS039 so each rule is scoped to a trust ring from R0 Kernel inward to R4 Cloud outward (off by default). It shows what is enforced, the traffic through it, and the ring distribution, but it does not enforce: rules change only through selfdefctl plus your MS003 signature (R10113), so anything pending here is a proposal, never yet live. It answers ‘what is the box’s firewall actually doing, and where is enforcement concentrated.’ Open it to read the live ruleset, to check whether an unexpected ring (like cloud) carries rules, or to see a pending change before it is signed. Enforcement is authoritative on selfdef; this is the sovereign-os window onto it via the M060 bridge.'},
+      {id:'D-06', dir:'d-06-pending-approvals', label:'D-06 Pending Approvals', ico:'✋', desc:'The operator approval queue + stage gates — actions waiting for a human yes/no.', menuHover:'The operator-in-the-loop queue — everything the box has decided it will not do on its own and is holding for your signature. This is the M065 stage-gate machinery made concrete: consequential actions (an L5+ commit, a cloud egress, a key operation) stop here and wait, because the sovereignty property is that intelligence stays in your hands and every gated commit needs your MS003 signature. It answers ‘what is waiting on me, and how consequential is each item.’ Open it to clear the queue, to see what the box paused rather than assume it proceeded, and to exercise the human-gate that the backpressure ladder (D-09) escalates to. It is where the peace-machine’s sovereign property (D-20) is lived out, decision by decision.'},
+      {id:'D-07', dir:'d-07-memory-changes', label:'D-07 Memory Changes', ico:'✎', desc:'The 8-type memory-graph diff — what the agent\'s memory added/changed/removed.', menuHover:'The mind’s filing system — the M028 memory OS, the eight-tier store that is the difference between an agent that repeats your corrections and one that remembers them. Every candidate memory walks an 11-stage admission lifecycle and is trust-filtered on seven dimensions before it is kept, so the store stays signal rather than noise, and forgetting or force-admitting a memory is a signed act. It answers ‘what does the box remember, what changed recently, and what memory operations are waiting on me.’ Open it to see how full each tier is, to review a graph diff of the last day, to approve a pending forget, or to query the graph read-only via the RLM navigator. It is the persistence layer beneath everything the box learns, and its ground-truth tier is what protects against memory drift and poisoning.'},
+      {id:'D-13', dir:'d-13-filesystem-grants', label:'D-13 Filesystem Grants', ico:'📁', desc:'selfdef filesystem-grant mirror (read-only) — which paths are granted to whom.', menuHover:'The permission slips — the scoped, time-bounded filesystem grants selfdef issues (MS007), each a specific path a specific actor may touch, expiring unless renewed. It matters because standing access is the thing attackers inherit; TTL-bounded grants mean permissions decay to nothing on their own, so the live grant list is the true filesystem attack surface at this moment. It answers ‘who can touch what on disk right now, and for how much longer.’ Open it to audit active access, to spot a grant broader or longer-lived than it should be, or to confirm a grant expired as intended. It is one of the selfdef mirrors (read-only, fed by the M060 bridge) and it sits in the same MS039 ring model that governs capability tokens (D-14) and sandboxes (D-15).'},
+      {id:'D-14', dir:'d-14-capability-tokens', label:'D-14 Capability Tokens', ico:'⚷', desc:'selfdef capability-token mirror — issued/revoked capabilities.', menuHover:'The capability decoder — the tokens that encode, bit by bit, exactly what an actor is permitted to do, read through the capability_word bit map. Rather than a coarse allow/deny, each token is a precise set of capabilities packed into bits, and this panel decodes them so you can see the granular truth: not ‘can act’ but which specific capabilities are granted, and in which MS039 trust ring. It answers ‘what precisely is this actor allowed to do, at the bit level.’ Open it to audit a token that looks too powerful, to understand why an action was permitted or denied, or to see how capabilities inherit across the ring model. It is a selfdef mirror (read-only via M060), a finer-grained companion to filesystem grants (D-13) and the sandbox tiers (D-15) that contain what these capabilities permit.'},
+      {id:'D-15', dir:'d-15-sandboxes', label:'D-15 Sandboxes', ico:'▢', desc:'selfdef sandbox mirror — active sandboxes + their isolation state.', menuHover:'The containment view — the sandbox tiers (MS036) that wall off untrusted work, from namespace isolation up to full VFIO device passthrough. It shows what is running contained and how strongly: a sandbox tier decides how much a compromised process could reach, and VFIO is where a whole GPU (the 4090 Scout) is handed into isolation so its work cannot touch the host. It answers ‘what is contained, at what strength, and is the containment intact.’ Open it to confirm untrusted work is boxed in, to check a sandbox has the tier it needs, or — a security question — to verify the 4090 is actually sandboxed rather than host-claimed. It is a selfdef mirror (read-only via M060) enforcing the MS039 rings that D-14’s capability tokens and D-13’s grants describe, and it is the containment the Weaver fabric runs inside.'},
+      {id:'D-16', dir:'d-16-audit', label:'D-16 Audit Chain', ico:'☑', desc:'selfdef append-only audit-chain mirror — the tamper-evident event log.', menuHover:'The tamper-evident record — the MS016 hash-chained audit log, where every entry is cryptographically linked to the last so the history cannot be altered without the break showing. It is the box being ‘disciplined enough to explain itself’: a complete, incorruptible account of what happened, which is worthless if it can be quietly edited and priceless because it cannot. It answers ‘what is the trustworthy record of events, and is the chain unbroken.’ Open it to reconstruct an incident with confidence, to verify chain integrity and continuity, or to satisfy an audit that the box’s own account is intact. It is the Auditor’s ledger (the gatekeeper tier feeds it) and a selfdef mirror via M060 — a broken or stale chain here is a reason to distrust the box’s self-account until it is explained.'},
+      {id:'D-17', dir:'d-17-quarantine', label:'D-17 Quarantine', ico:'⚠', desc:'selfdef quarantine mirror — what\'s been isolated and why.', menuHover:'The holding cell — the MS042 quarantine where things selfdef has judged untrustworthy are isolated pending disposition. Rather than delete on suspicion or ignore on doubt, quarantine is the middle path: contain it, keep it inspectable, decide deliberately. It answers ‘what has the box flagged as suspect, why, and what is waiting to be dealt with.’ Open it to review quarantined items, to understand what tripped the judgment that put them there, or to confirm a threat is contained rather than loose. It is a selfdef mirror (read-only via M060), the disposition side of the trust machinery whose scores you read on D-18, and it works with the audit chain (D-16) that records why each item was quarantined.'},
+      {id:'D-18', dir:'d-18-trust-scores', label:'D-18 Trust Scores', ico:'★', desc:'selfdef trust-score mirror — per-entity trust levels driving policy.', menuHover:'The trust ledger — the bands that rate how much the box trusts each actor, model, or source, the same seven-dimension trust model that gates what enters memory (D-07) now applied across the machine. Trust here is earned and revocable, not assumed: a low band constrains what something is allowed to influence, and a dropping score is an early warning that something is behaving less trustworthily than it did. It answers ‘how much does the box trust each thing, and is any trust eroding.’ Open it to see the trust landscape, to understand why an actor is constrained, or to catch a trust drop before it becomes a problem. It is a selfdef mirror (read-only via M060) and the scoring layer behind the quarantine decisions (D-17) and capability grants (D-13/D-14).'},
+      {id:'D-20', dir:'d-20-peace-machine-health', label:'D-20 Peace Machine Health', ico:'☮', desc:'The M059 peace-machine 5-property verdict — the top-level \'is the system at peace\' signal.', menuHover:'The box’s conscience in one screen — the verdict on whether it is still a peace machine, meaning all five R09966 properties hold at once: powerful enough to act, disciplined enough to explain itself, reversible enough to trust, flexible enough to evolve, and — the load-bearing one — sovereign, so intelligence stays in your hands. The verdict is a conjunction: all five, or not peace. It answers the highest-level question about the box, above any single subsystem: ‘is the machine still behaving as designed.’ Open it for a one-read health check on the whole doctrine, and when it degrades, to see which property slipped and its backing modules. Each property maps to real infrastructure (M047 rollback, M049 observability, MS003 signatures), so a red property points you straight at the subsystem that broke it.'},
+      {id:'—', dir:'compliance', label:'Compliance', ico:'⚖', desc:'The §1g/§1h compliance aggregator — per-module pass/fail against the operator mandate.', menuHover:'The top of the anti-minimization stack — the meta-instrument that composes the four §1g audits (surface-map, doc-coverage, anti-minimization, ux-design) into one verdict, because ‘done properly’ is all four at once: a feature can be delivered on every surface and still be undocumented, or documented and still unusable. §1h then extends the same bar across repos to selfdef. It answers ‘is the whole fleet honoring the delivery contract, and where is the leverage to improve it.’ Open it for the single composite read, the worst-modules list ranked by combined gap (the highest-leverage cleanups), and the trend of whether the fleet is honoring the contract more or less over time. It rolls up the four instrument panels beneath it; a red composite sends you to whichever axis is dragging it down.'},
+      {id:'—', dir:'auth-tier', label:'Auth Tier', ico:'🔑', desc:'The 6-tier auth ladder (no-auth → basic → advanced → social → enterprise → network) + per-surface requirement.', menuHover:'The authentication-strength audit — a ladder of operator-named tiers measuring how strongly each surface proves who is calling and what they may do, and an upgrade-priority matrix ranking who is under-authenticating for their power. A module’s correct tier is set by what it can do: a surface that can mutate the box belongs high on the ladder, one that only reads can sit lower, and a mutating surface authenticating weakly is the priority to fix. It answers ‘does each surface authenticate as strongly as its capability warrants.’ Open it to audit the fleet’s auth posture, to find the biggest auth gaps, or before hardening a surface that can change the box. It is one of the §1g instruments the Compliance panel rolls up, alongside the surface, doc, and UX audits.'},
+      {id:'—', dir:'anti-minimization-audit', label:'Anti-Minimization Audit', ico:'⛶', desc:'The \'do not minimize\' audit — flags where scope was silently shrunk vs the mandate.', menuHover:'The cut-corner detector, built from the operator’s own directive: do not minimize. It greps the whole fleet for eight nameable smells of work that looks finished but is not — a TODO with no anchor, an empty stub, a silent skip, a surface or doc gap, a mandate-TODO owed upward, minimizing language (‘just’, ‘basic’, ‘for now’), and a status that claims done over a stub. Each finding is a specific place a corner was cut and not owned. It answers ‘where is the fleet pretending to be more finished than it is.’ Open it to see the minimization debt, to distinguish intentional waived shortcuts from accidental ones, and to find modules short on both surface and doc axes at once (the efficient place to start). It is a §1g instrument feeding the Compliance rollup; a finding is a corner to close, not to explain away.'},
     ]},
     {name:'Governance & Meta', items:[
       {id:'D-00', dir:'master-dashboard', label:'Master Dashboard', ico:'◎', desc:'The aggregator — the route table + health of every panel + selfdef cross-repo manifest discovery. The front door (this catalog is its new global index).', menuHover:'The front door and the switchboard — the one panel that knows about all the others. It answers a different question than any single dashboard: not “how is this subsystem,” but “is everything reachable, is anything colliding, and is the safety spine intact?” It carries the route table (every panel and whether the aggregator can reach it), the coverage view that proves nothing is stranded off the §1g contract, the collision list where two things claim the same route, the cross-repo manifests selfdef publishes, and — most importantly — the four health banners that are the box’s pulse: the M060 mirror chain (the selfdef→sovereign-os bridge), the MS022 SSE subscriber quota, the four-watchdog IPS spine (whether Guardian/Tetragon is up, which sovereign-os checks but selfdef owns), and AppArmor enforcement. Open it first on any session to see the whole surface at a glance; open it when a panel seems missing or misrouted; open it when you want a single yes/no on whether the defense spine is healthy before trusting anything else. It is the map every other panel is a place on.'},
-      {id:'—', dir:'surface-map', label:'Surface Map', ico:'🗺', desc:'The §1g 8-surface taxonomy coverage — which of the 8 operator surfaces each module delivers.'},
-      {id:'—', dir:'doc-coverage', label:'Doc Coverage', ico:'☷', desc:'Documentation coverage per module — what\'s documented vs shipped.'},
-      {id:'—', dir:'ux-design-audit', label:'UX Design Audit', ico:'◓', desc:'The UX design-stage audit — consistency/accessibility scoring across the panels.'},
-      {id:'—', dir:'personalization', label:'Personalization', ico:'✦', desc:'Theme / accent / typography control (localStorage-backed) applied across all panels before paint.'},
+      {id:'—', dir:'surface-map', label:'Surface Map', ico:'🗺', desc:'The §1g 8-surface taxonomy coverage — which of the 8 operator surfaces each module delivers.', menuHover:'The reachability audit — proof that every module is present on all eight operator-named surfaces (core, cli, tui, api, mcp, dashboard, webapp, service), because a feature is not delivered until it is reachable everywhere it should be. A module whose core logic works but has no CLI verb, no MCP tool, or no visible panel is minimized, and this panel counts exactly that gap, milestone by milestone, so ‘done’ milestones whose modules are still short stand out. It answers ‘is everything actually reachable, or does some capability exist only for those who already know it is there.’ Open it to find invisible (unreachable, unwaived) surfaces, to see which module needs which surface built, and to keep §1g coverage honest. It is the surface axis of the Compliance rollup.'},
+      {id:'—', dir:'doc-coverage', label:'Doc Coverage', ico:'☷', desc:'Documentation coverage per module — what\'s documented vs shipped.', menuHover:'The documentation audit — whether every module carries all six operator-named doc kinds (readme, sdd, helptext, metric-inventory, mandate-row, man-page), each written for a different reader at a different moment. A module missing one is under-documented in a specific, nameable way: no readme strands the newcomer, no sdd strands the changer, no helptext strands the operator mid-task. It answers ‘is every module actually documented, and for whom is it not.’ Open it to see the matrix of which module lacks which doc (every empty cell is a concrete writing task, not a vague ‘needs docs’), and to keep the doc half of the delivery contract honest across the fleet. It is the doc axis of the §1g Compliance rollup, extended cross-repo to selfdef via §1h.'},
+      {id:'—', dir:'ux-design-audit', label:'UX Design Audit', ico:'◓', desc:'The UX design-stage audit — consistency/accessibility scoring across the panels.', menuHover:'The experience audit — scoring surfaces on six operator-named UX dimensions (action-budget, discoverable, recoverable, next-step, operator-named, readable-30s), because a feature can render perfectly and still fail its operator. It is the exact bar this very cockpit is held to: a surface that works but takes ten clicks, hides its controls, punishes mistakes, or needs a manual to read is not done. It answers ‘is each surface actually usable, not just correct.’ Open it to see which surface is weak on which quality (every low cell is a concrete fix, like ‘add a next-step’ or ‘use the operator’s words’), and to keep usability from being the silent gap behind ‘it technically works.’ It is the UX axis of the §1g Compliance rollup, and the reason ‘it works’ was never enough.'},
+      {id:'—', dir:'personalization', label:'Personalization', ico:'✦', desc:'Theme / accent / typography control (localStorage-backed) applied across all panels before paint.', menuHover:'Operator comfort, kept deliberately apart from machine state — theme, accent color, and typography scale for the cockpit, and nothing that touches the box’s behavior. It is the one panel where you genuinely cannot break anything: everything here is presentation, saved locally, so you can make the cockpit easy to read at the bench (larger, high-contrast) or dense at the desk without any risk to the machine. It answers ‘how do I make the cockpit comfortable for me.’ Open it to set the look, or to export and import your preferences as a cosmetic JSON that carries your look between machines with no box state or secrets in it. The strict separation of presentation from state is the point — this is the safe panel, on purpose.'},
     ]},
     {name:'Science & Simulation', items:[
-      {id:'—', dir:'science', label:'Science Tools', ico:'⚛', desc:'The operator\'s science catalog — DNA / protein / particle tools. NVIDIA Warp (particles) is integrated: a differentiable particle sim on GPU (RTX PRO 6000) or CPU fallback. Read-only; running a sim is the gated sovereign-osctl science run.'},
+      {id:'—', dir:'science', label:'Science Tools', ico:'⚛', desc:'The operator\'s science catalog — DNA / protein / particle tools. NVIDIA Warp (particles) is integrated: a differentiable particle sim on GPU (RTX PRO 6000) or CPU fallback. Read-only; running a sim is the gated sovereign-osctl science run.', menuHover:'The GPU as a scientific instrument — NVIDIA Warp compiling Python kernels to run simulation and numeric compute on the same Blackwell and 4090 silicon that serves inference, so the machine is a compute instrument, not only an inference server. It answers ‘what can the box compute for me beyond serving models, and is that capability ready.’ Open it to confirm Warp is live and which GPU it targets, to browse the available science tools, or to run a simulation — remembering that a heavy run competes for the very VRAM inference needs (watch D-09). It is the panel that shows the box is general-purpose compute you own, not a single-purpose appliance, and it draws on the same GPU budget the orchestration and hardware-pressure panels track.'},
     ]},
   ];
   var PKEY='sovereign-os.personalization', PSCHEMA=1;
@@ -1565,487 +1565,260 @@ a11y; contract test catches drift.
 <script>
 window.SO_ASSIST = {
  "context": {
-  "icon": "◈",
+  "icon": "❖",
   "title": "D-07 · Memory Changes",
-  "content": "The window into the box's memory OS (M028) — the eight-tier store (E0260) that is the difference between an agent that repeats your corrections and one that remembers them. Every candidate memory walks an 11-stage admission lifecycle (E0264) and is trust-filtered on seven dimensions (M060) before it is kept, so the store stays signal rather than noise.\n\nRead it to see how full each tier is, what changed in the last 24h, and what memory mutations are waiting on your signature. The RLM navigator (SDD-068) lets you ask the graph a question, read-only, and honest-defers if the local LM is down. Forgetting or force-admitting a memory is a signed act — the web only proposes."
+  "content": "What the box remembers, and what it's about to change about that. Under M028 memory isn't one blob — it's eight typed tiers (working, episodic, semantic, procedural, temporal-graph, reward, value, KV), each with different retention and trust rules. Nothing enters memory raw: every candidate runs the 11-stage admission lifecycle (observe → classify → quarantine → … → promote → decay → archive) before it's trusted knowledge.\n\nThis panel is the review surface for that flow — the live tier counts, the recent graph diff, the admission pipeline, and the pending changes waiting on a decision. Read it to see what the box learned recently, what it wants to promote or forget, and to run temporal queries (\"was this true then? is it true now? what changed?\") against the memory graph."
  },
  "nodes": [
   {
    "icon": "◆",
-   "title": "Data source",
-   "content": "Whether the memory panel is live from /api/d-07 or a snapshot — a forget/admit elsewhere would not show until refreshed.",
+   "title": "Live-source banner",
+   "content": "Whether the tier counts and diffs are live from the memory daemon or a snapshot. Memory changes constantly as episodes are admitted and decayed, so a stale read misrepresents what the box currently knows.",
    "children": [
     {
-     "selector": "#ds-state-label",
+     "selector": "#datasource-banner",
      "title": "Live vs snapshot",
-     "content": "Green = the daemon is answering live; muted = a cached snapshot. The whole memory view is read from the M028 store — a snapshot can show state that an apply has already superseded, so check this before trusting a value as current.",
+     "content": "Green = the memory daemon is answering and the tier counts are current; muted = a snapshot. On a snapshot, promotions and decays that happened since won't show — the graph you're reviewing is frozen in the past.",
      "icon": "◆",
      "variants": [
       {
        "when": {
-        "textContains": "connecting"
-       },
-       "content": "Connecting — reaching the daemon; the values below are not confirmed live yet.",
-       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Connecting</div>Waiting on the API — treat the numbers as unconfirmed until this goes green.</div>"
-      },
-      {
-       "when": {
         "textContains": "live"
        },
-       "content": "Live — the values below reflect real state right now.",
-       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Live</div>The daemon is answering; everything on the panel is current.</div>"
+       "content": "Live — memory counts and the diff are current.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Live</div>The memory OS is answering; tiers and diff reflect the graph as it is now.</div>"
       },
       {
        "when": {
-        "textContains": "offline"
+        "textContains": "snapshot"
        },
-       "content": "Offline — showing the last snapshot; the box may have moved on since.",
-       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Offline</div>No live answer — this is a cached snapshot, possibly stale.</div>"
+       "content": "Snapshot — the daemon is unreachable; recent admissions/decays aren't reflected.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Snapshot</div>Frozen read — a fact promoted or decayed since capture won't appear.</div>"
       }
      ]
     },
     {
+     "selector": "#ds-state-label",
+     "title": "Source label",
+     "content": "One-word source — live memory daemon vs snapshot. Check it before trusting a tier count of zero."
+    },
+    {
      "selector": "#ds-state-detail",
      "title": "Source detail",
-     "content": "The longer status under the banner — which endpoint answered and any degraded note. Read it when the banner is amber."
+     "content": "The endpoint behind the counts and why it's live or degraded to snapshot."
     },
     {
      "selector": "#ds-last-update",
-     "title": "Source freshness",
-     "content": "When the memory view was last read. A memory admitted or forgotten since then would not appear yet — so a stale time means the counts below may lag reality."
+     "title": "Fetch freshness",
+     "content": "When the memory state was pulled. Admission runs continuously; a candidate can move from quarantine to promoted in seconds, so an old timestamp means the lifecycle view may already be behind.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Freshness matters more here than elsewhere</div>Most panels show slow-moving state. Memory moves fast: the 11-stage pipeline is always running, so an entry you see 'in verify' may already be promoted or decayed. Treat the counts as a recent photograph, not a live feed, unless this is fresh.<div class=\"so-xref\"><span class=\"x\">→</span> 11-stage lifecycle — the pipeline that keeps changing underneath this read</div></div>"
     }
    ]
   },
   {
    "icon": "▦",
-   "title": "Memory types",
-   "content": "The M028 memory OS is not one store — it is eight tiers (E0260), each holding a different KIND of memory with its own admission and eviction rules. The counts show how full each tier is right now. Understanding which tier a memory lives in tells you how durable it is.",
+   "title": "The eight memory tiers (M028)",
+   "content": "Memory is split into eight typed tiers, each holding a different KIND of knowledge with its own retention and trust rules. The counts show how much lives in each. M028 names seven modules (M00459–M00465); the milestone title says eight — the reward tier is that eighth, experience-facing slot.",
    "children": [
     {
      "selector": "#t-working",
-     "title": "Working memory",
-     "content": "The current task's scratch — active branches, local facts, tool outputs. KV-bounded, so it is the smallest and most volatile tier; it is evicted first under pressure. Type 1, M00459.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Working tier</div>This tier is one of the eight M028 memory kinds. What lives here has its own retention: working/KV churn fast, value/semantic persist. The count is items currently held.</div>"
+     "title": "Working memory (M00459)",
+     "content": "The scratchpad — the current task, active branches, local facts, and recent tool outputs. Smallest and most volatile tier: it's context-window-bounded and cleared as tasks close, so a high count here means a deep in-flight task, not accumulated knowledge.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Working ≠ long-term</div>Working memory is the box's RAM, not its disk. It holds what's needed to finish the task in front of it and is discarded when the task ends — only what survives admission gets promoted to a durable tier.<div class=\"so-grid\"><span class=\"k\">holds</span><span>current task · active branches · local facts · tool outputs</span><span class=\"k\">bound</span><span>KV-bounded — it can't grow past the context budget</span><span class=\"k\">fate</span><span>cleared on task close unless promoted to episodic/semantic</span></div></div>",
+     "variants": [
+      {
+       "when": {
+        "textContains": "0"
+       },
+       "content": "Working memory empty — no task is actively in flight."
+      }
+     ]
     },
     {
      "selector": "#t-episodic",
-     "title": "Episodic memory",
-     "content": "Full traces — conversations, task attempts, failures, your corrections. This is the box's autobiography; it is what lets it not repeat a mistake you already corrected. Type 2, M00460."
+     "title": "Episodic memory (M00460)",
+     "content": "The full record — complete traces, conversations, task attempts, failures, and your corrections. This is the raw-experience tier the box distils everything else FROM; it's where a failure or a correction first lands before its lesson is extracted.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Episodic is the source of truth</div>Semantic facts, procedures, and values are all derived from episodes. Keeping the raw episode lets the box re-derive a fact if a summary turns out wrong — the ground-truth preservation layer (M00466) is why nothing is lossy-summarised-only.<div class=\"so-xref\"><span class=\"x\">→</span> recent graph diff — episodes admitted in the last 24h</div></div>"
     },
     {
      "selector": "#t-semantic",
-     "title": "Semantic memory",
-     "content": "Distilled facts and knowledge, decoupled from when they were learned. Where an episodic trace becomes a reusable truth. This is what the RLM navigator queries for grounding."
+     "title": "Semantic memory (M00461)",
+     "content": "Distilled knowledge — facts, concepts, summaries, and project understanding extracted from episodes. This is what the box 'knows' in the everyday sense: durable, deduplicated statements rather than raw transcripts.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Semantic = the extract stage's output</div>A semantic fact is what survives 'extract-facts' + 'verify' in the lifecycle. It's cheaper to query than re-reading episodes, but it's downstream of them — if a semantic fact is wrong, the episode it came from is the appeal.<div class=\"so-tip\">💡 A fact only lands here after the admission trigger fires 8× — one mention isn't knowledge.</div></div>"
     },
     {
      "selector": "#t-procedural",
-     "title": "Procedural memory",
-     "content": "Skills and how-to — the box's learned procedures, not facts. This is the difference between knowing a fact and knowing how to do a thing; it grows from repeated successful traces."
+     "title": "Procedural memory (M00462)",
+     "content": "How-to knowledge — skills, workflows, command recipes, and tool sequences that worked. When the box repeats a successful multi-step procedure without re-deriving it, this tier is why.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Procedural is earned, not told</div>A procedure lands here because a sequence of tool calls succeeded and was worth keeping — it's the box getting faster at things it's already done well, distinct from semantic facts (what's true) and value memory (what's worth doing).<div class=\"so-xref\"><span class=\"x\">→</span> value memory — which approach succeeded, feeding what's kept as procedure</div></div>"
     },
     {
      "selector": "#t-temporal",
-     "title": "Temporal memory",
-     "content": "Time-indexed recall — what was true WHEN. The temporal-query verbs (E0263) read this so the box can reason about change over time, not just current state."
-    },
-    {
-     "selector": "#t-value",
-     "title": "Value memory",
-     "content": "The ground-truth preservation layer (E0260/E0261) — the facts that must never be silently overwritten. This is the anti-drift tier: it is what a later trace is checked AGAINST, not blended into.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Value tier</div>This tier is one of the eight M028 memory kinds. What lives here has its own retention: working/KV churn fast, value/semantic persist. The count is items currently held.</div>"
-    },
-    {
-     "selector": "#t-kv",
-     "title": "KV cache",
-     "content": "The hot key/value cache — the fast, bounded working set the model reads directly. Distinct from working memory in that it is model-native (attention KV), not task-native. Bounded, so it churns.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">KV tier</div>This tier is one of the eight M028 memory kinds. What lives here has its own retention: working/KV churn fast, value/semantic persist. The count is items currently held.</div>"
+     "title": "Temporal-graph memory (M00463)",
+     "content": "Entities, relationships, and timestamps — the graph that tracks how facts CHANGE over time. This is what makes 'was X true then but not now?' answerable: each edge carries a time-range, so contradictions are dated rather than overwritten.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The graph remembers when, not just what</div>Flat memory overwrites: new fact replaces old. The temporal graph keeps both with timestamps, so it can answer true-then / true-now / changed / contradicted-by. Changing facts don't corrupt the record — they extend it.<div class=\"so-xref\"><span class=\"x\">→</span> memory navigator below — the temporal verbs query this graph</div></div>"
     },
     {
      "selector": "#t-reward",
-     "title": "Reward memory",
-     "content": "The experience base — outcomes tagged with how they went, feeding the box's sense of what works. This is the substrate reinforcement reads; it is why good and bad outcomes are not treated the same next time."
+     "title": "Reward memory (the 8th tier)",
+     "content": "The experience base — the reinforcement-shaped record of outcomes the box learns pace and strategy from. M028's module table names seven types; the milestone title says eight, and this is that experience-facing eighth slot (its module id is not fabricated where the spec left it unnamed).",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why eight named as seven</div>The M028 spec is honest about a gap: the milestone titled it '8 memory types' but the module table only named seven (M00459–M00465). Rather than invent an eighth module id, the spec flags the mismatch. This tier holds the reward/experience signal implied by that eighth slot.<div class=\"so-tip\">💡 When a spec under-specifies, the panel says so — it does not manufacture a citation to fill the hole.</div></div>"
+    },
+    {
+     "selector": "#t-value",
+     "title": "Value memory (M00464)",
+     "content": "What worked and what didn't — which model, tool, or profile succeeded on which kind of task. This is the tier that lets the box pick a good approach next time instead of re-litigating; it's the memory behind D-04's cost/quality routing.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Value = outcome-tagged experience</div>Value memory scores approaches by result: this profile nailed this task class, that tool wasted budget. It's what makes routing improve over time rather than staying static.<div class=\"so-xref\"><span class=\"x\">→</span> D-04 costs — where value memory informs which model to route to</div></div>"
+    },
+    {
+     "selector": "#t-kv",
+     "title": "KV memory (M00465)",
+     "content": "Cached model prefixes, reusable prompt blocks, and context blocks — the reuse tier. It's not knowledge, it's precomputation: keeping a KV block means a later call skips recomputing a shared prefix, which is a direct latency and cost saving.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">KV is an optimisation, not a memory of facts</div>The other seven tiers hold what the box knows; KV holds what it's already computed. A hit here shortcuts inference; it carries no trust dimension because it's a cache, not a claim.<div class=\"so-xref\"><span class=\"x\">→</span> D-09 hardware pressure — KV-cache occupancy under memory pressure</div></div>"
     }
    ]
   },
   {
-   "icon": "⊞",
-   "title": "Admission lifecycle",
-   "content": "Nothing enters long-term memory directly — every candidate walks an 11-stage admission lifecycle (E0264) before it is kept. This is the quality gate on the box's memory: it is why memory does not fill with noise.",
+   "icon": "⇉",
+   "title": "11-stage admission lifecycle",
+   "content": "Nothing becomes trusted memory in one step. Every candidate walks an 11-stage pipeline — the structured path from 'just observed' to 'durable knowledge' (or 'decayed away'). This is why the box's memory is trustworthy: raw observation and verified fact are never confused.",
    "children": [
     {
      "selector": "#lifecycle",
-     "title": "11-stage admission lifecycle",
-     "content": "The pipeline every memory candidate traverses before admission (M028 E0264) — from capture through scoring, dedup, trust-filtering, to commit or reject. A memory you see in the store earned its place by passing all eleven stages.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Memory is earned, not stored</div>Raw experience is captured, then scored, deduplicated against what is already known, trust-filtered (below), and only then admitted to a tier — or rejected. The lifecycle is why the store stays signal, not noise; a rejected candidate never becomes a memory.<div class=\"so-xref\"><span class=\"x\">→</span> the 8 memory tiles above are the destinations of this pipeline<br><span class=\"x\">→</span> the 7 trust filters below are one stage of it</div></div>"
+     "title": "Admission pipeline (M00471)",
+     "content": "The 11 stages a memory candidate passes: observe → classify → quarantine → link → score → store-raw → extract-facts → verify → promote → decay → archive. An entry's stage tells you how much to trust it — 'quarantine' is unproven, 'promote' is earned, 'decay' is on its way out.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The stages, and what each buys</div>Each stage is a filter. Quarantine holds the unproven away from trusted memory; verify is the gate to promotion; decay + archive are how stale knowledge leaves without being deleted outright.<div class=\"so-grid\"><span class=\"k\">observe→classify</span><span>seen, then typed into one of the eight tiers</span><span class=\"k\">quarantine</span><span>held apart until proven — untrusted by default</span><span class=\"k\">link→score</span><span>connected to the graph, scored for trust/freshness</span><span class=\"k\">store-raw→extract</span><span>episode kept, facts distilled from it</span><span class=\"k\">verify→promote</span><span>proven, then moved into a trusted tier</span><span class=\"k\">decay→archive</span><span>staleness lowers it, then it's archived not erased</span></div><div class=\"so-tip\">💡 Admission only stores when a candidate's trigger count reaches 8 — transient, low-trust, duplicate, noisy, or unverified inputs are ignored (M00470).</div></div>"
     }
    ]
   },
   {
-   "icon": "◎",
-   "title": "Trust filters",
-   "content": "One stage of admission is trust — a candidate is scored on 7 dimensions (M060 R10095 + MS039) before it is allowed in. This is what stops a poisoned or low-confidence memory from becoming ground truth.",
-   "children": [
-    {
-     "selector": "#trust-filters",
-     "title": "7 trust dimensions",
-     "content": "The seven trust dimensions a memory is filtered on (M060 R10095) — freshness and six others. A candidate weak on a dimension is down-weighted or rejected; this is the memory OS defending itself against drift and poisoning.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Seven ways a memory earns trust</div>Each dimension is an independent check — freshness, provenance, corroboration, and so on. A memory admitted despite a weak dimension is flagged; one failing hard is rejected. Together they are why the store can be trusted as ground truth.<div class=\"so-xref\"><span class=\"x\">→</span> D-18 trust scores — the same trust model applied to agents<br><span class=\"x\">→</span> the admission lifecycle above — trust is one of its eleven stages</div></div>"
-    },
-    {
-     "selector": "#profile-shape",
-     "title": "Trust profile shape",
-     "content": "The visual shape of the current trust weighting — which dimensions are weighted up or down right now. A lopsided shape means the box is currently trusting one dimension more than others; read it to see the active bias."
-    }
-   ]
-  },
-  {
-   "icon": "◫",
-   "title": "Recent graph diff",
-   "content": "What changed in the memory graph in the last 24h — admitted, forgotten, re-weighted. Memory is a living graph, not a log; this is the delta view of how it moved.",
+   "icon": "⧉",
+   "title": "Recent memory graph diff",
+   "content": "What changed in the memory graph over the last 24h — the delta between two memory snapshots (base version → head version). This is the 'what did the box learn or forget recently' view, expressed as a version diff rather than a live count.",
    "children": [
     {
      "selector": "#diff-scope",
      "title": "Diff scope",
-     "content": "Which slice of the memory graph the diff covers. Narrow it to focus the change view on one tier or subgraph rather than the whole store."
+     "content": "Which tiers the diff covers — all-types, or a single memory tier. Narrow it to a tier when you want to see, say, only what semantic memory gained without episodic noise."
     },
     {
      "selector": "#diff-base",
-     "title": "Diff base",
-     "content": "The 'before' point the diff compares from. The diff below is base → head; move the base to see change over a longer window."
+     "title": "Base version",
+     "content": "The 'from' snapshot of the memory graph — the earlier of the two versions being compared. Everything the diff shows is a change relative to this baseline.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Memory is versioned like a repo</div>The graph snapshots as memos.vNNNN. A diff is base→head, exactly like a git range — additions are new/promoted memories, removals are decayed/archived ones. Versioning is what makes 'what changed' answerable at all.<div class=\"so-xref\"><span class=\"x\">→</span> head version — the 'to' snapshot this base is compared against</div></div>"
     },
     {
      "selector": "#diff-head",
-     "title": "Diff head",
-     "content": "The 'after' point the diff compares to — usually now. Base → head is the change shown; a head in the past lets you inspect a historical change."
+     "title": "Head version",
+     "content": "The 'to' snapshot — the later memory-graph version. The diff is everything that happened between base and head: what was admitted, promoted, or decayed in that window."
     },
     {
      "selector": "#diff-stream",
-     "title": "Diff stream",
-     "content": "The live stream of graph changes — each admit / forget / re-weight as it lands. Read it to watch memory move in real time; a burst of forgets is worth understanding."
+     "title": "The change stream",
+     "content": "The actual added / changed / removed memories between the two versions. Each entry is a concrete graph change — a promoted fact, a decayed episode, a re-scored trust value — so you can read exactly what moved.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Reading the stream</div>Additions are knowledge the box gained (new episodes, newly-promoted facts); removals are knowledge it let go (decayed/archived). A busy stream after a working session is healthy; a busy stream while idle is worth a look.<div class=\"so-li\"><span class=\"ok\">✓</span> added → admitted or promoted into a trusted tier</div><div class=\"so-li\"><span class=\"warn\">▲</span> changed → trust or freshness re-scored</div><div class=\"so-li\"><span class=\"no\">✗</span> removed → decayed past threshold and archived</div></div>"
     }
    ]
   },
   {
-   "icon": "⚑",
-   "title": "Pending changes",
-   "content": "Memory changes waiting on your approval — the memory OS emits CLI, the daemon executes only after your MS003 signature (MS043 R10212). Nothing is forgotten or force-admitted without you.",
-   "children": [
-    {
-     "selector": "#pending-changes",
-     "title": "Pending memory changes",
-     "content": "Memory operations queued for your signature — a forget, a forced admission, a re-weight. The web only proposes; the daemon acts after MS003. Read each before signing: forgetting a value-tier memory is not reversible the way a snapshot is.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The web proposes; you sign</div>A memory mutation is a real change to what the box knows. So the web emits the CLI verb and it sits here until your signature — the daemon never forgets or admits on a web click (MS043 R10212).<div class=\"so-xref\"><span class=\"x\">→</span> D-06 approvals — the same operator-in-the-loop pattern, box-wide</div></div>"
-    }
-   ]
-  },
-  {
-   "icon": "⊟",
-   "title": "Memory store",
-   "content": "The addressable mem-<id> store (SDD-060) — the individual entries you can inspect and pick to forget. This is memory at the row level, below the tier counts.",
+   "icon": "≣",
+   "title": "Memory entries",
+   "content": "The live per-entry table — each memory with its tier, its lifecycle stage, and its state. Hover a row to read what that specific memory is and where it sits in the pipeline.",
    "children": [
     {
      "selector": "#memory-entries",
-     "title": "Memory entries",
-     "content": "The addressable entries in the store, each a mem-<id> you can inspect or select to forget (/api/d-07/entries). Picking one stages a forget for your signature — this is the row-level view beneath the tier totals above."
+     "title": "Entries table",
+     "content": "Every tracked memory as a row: mem-id, tier, current lifecycle stage, state, and a summary. The stage column is the important one — it tells you whether a row is quarantined (unproven), promoted (trusted), or decaying (on its way out).",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Columns that matter</div>mem-id is the stable handle; type is the tier; stage is where it is in the 11-step pipeline; state is its health. Two rows with the same summary but different stages are NOT the same trust level.<div class=\"so-xref\"><span class=\"x\">→</span> 11-stage lifecycle — decodes the stage column</div></div>",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#memory-entries > tr",
+      "nameSelector": "td:first-child,td",
+      "title": "Memory · {{name}}",
+      "content": "Memory {{name}} — one tracked entry. The stage cell says where it is in the 11-step pipeline (quarantine=unproven, promote=trusted, decay=leaving); the type cell says which of the eight tiers it lives in.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Entry · {{name}}</div>A single memory row. Read its stage before trusting it — a quarantined entry is a candidate, not knowledge; a promoted one has passed verify.<div class=\"so-xref\"><span class=\"x\">→</span> 11-stage lifecycle — what this row's stage means</div></div>"
+     }
     }
    ]
   },
   {
-   "icon": "⚲",
-   "title": "Memory query",
-   "content": "The RLM navigator (M00472, SDD-068) — a read-only way to ask the memory graph a question, answered by the local LM composing over retrieved slices. Honest-defer: if the LM is unreachable it says so rather than guessing.",
+   "icon": "⌕",
+   "title": "Memory navigator",
+   "content": "Query the memory graph directly — including the temporal verbs that make time-aware questions answerable. This is the operator-facing edge of the RLM navigator (M00472): ask what was true, what is true, and what changed.",
    "children": [
     {
      "selector": "#nav-q",
-     "title": "Navigator query",
-     "content": "Your question to the memory graph. The RLM navigator retrieves relevant slices and composes an answer with the local LM — read-only (/api/d-07/navigate). It never writes; it only reads what is already admitted."
+     "title": "Query box",
+     "content": "What to look up in the memory graph — an entity, fact, or topic. Combined with a temporal verb, it answers not just 'what does the box know about X' but 'what did it know about X, and when'."
     },
     {
      "selector": "#nav-verb",
-     "title": "Navigator verb",
-     "content": "The retrieval verb/mode for the query — how the navigator selects slices before composing. Different verbs read the graph different ways; pick the one matching what you are asking."
+     "title": "Temporal verb (M00469)",
+     "content": "The time dimension of the query — true-now, true-then (--at a date), changed, contradicted-by, last-verified. Without a verb you get the current view; with one you interrogate how a fact moved through time.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The five temporal verbs</div>Flat search asks 'what do you know'. These ask 'when':<div class=\"so-grid\"><span class=\"k\">true-now</span><span>is this the case at present</span><span class=\"k\">true-then</span><span>was this the case at a given past time (--at)</span><span class=\"k\">changed</span><span>how has this fact moved between then and now</span><span class=\"k\">contradicted-by</span><span>what later evidence overturned it</span><span class=\"k\">last-verified</span><span>when was this last confirmed still true</span></div><div class=\"so-xref\"><span class=\"x\">→</span> temporal-graph tier — the timestamped edges these verbs read</div></div>"
     },
     {
      "selector": "#nav-result",
-     "title": "Navigator result",
-     "content": "The composed answer over retrieved memory. If the local LM is unreachable this honest-defers (says it cannot answer) rather than fabricating — a blank or deferred result is the honest mode, not a failure.",
-     "variants": [
-      {
-       "when": {
-        "textContains": "defer"
-       },
-       "content": "Honest-defer — the local LM was unreachable, so the navigator declined to answer rather than guess.",
-       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ Deferred</div>The navigator would not fabricate — the local LM is unreachable. This is honesty, not an error.</div>"
-      }
-     ]
+     "title": "Query result",
+     "content": "The composed answer. Per the RLM navigator (M00472), a query isn't a flat lookup — the navigator gets the memory environment, writes sub-queries over slices, and composes the pieces into one answer.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why results are composed, not fetched</div>The navigator (M00472) treats memory as an environment it scripts against: it spawns child calls over graph slices and assembles them. So a result can synthesise across tiers and time rather than returning one stored row.<div class=\"so-tip\">💡 A composed answer can be right even when no single memory says it — it's derived across the graph.</div></div>"
     }
    ]
   },
   {
-   "icon": "⇄",
-   "title": "Actions",
-   "content": "Web emits CLI only; the daemon executes after your MS003 signature (MS043 R10212). Forgetting a memory is a signed act.",
+   "icon": "⧗",
+   "title": "Pending changes",
+   "content": "Memory changes waiting on a decision — promotions, forgets, or trust edits that need sign-off before they alter what the box knows. Changing memory is consequential, so some changes escalate rather than auto-apply.",
    "children": [
     {
-     "selector": "#toast",
-     "title": "Action feedback",
-     "content": "Transient confirmation that a verb was copied. It confirms the copy only — the memory does not change until you run the signed command."
+     "selector": "#pending-changes",
+     "title": "Pending changes table",
+     "content": "Each proposed memory change as a row: change_id, the operation, which tier it touches, its scope, the trust delta it would apply, and who requested it. A trust delta is the important field — it's how much more (or less) the box would believe something after this change.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Why memory changes gate</div>Silently rewriting what the box believes is dangerous — a bad promotion becomes a 'fact' it acts on. So changes that move trust or forget knowledge can require review, and they land here with their delta visible before they apply.<div class=\"so-xref\"><span class=\"x\">→</span> D-06 pending approvals — where a gated memory change goes for signature</div></div>",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#pending-changes > tr",
+      "nameSelector": "td:first-child,td",
+      "title": "Change · {{name}}",
+      "content": "Pending change {{name}} — a proposed edit to memory awaiting sign-off. Its trust-delta column is how much the box's belief would move; its scope is how far the change reaches. Approve/deny via the signed CLI.",
+      "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Change · {{name}}</div>A staged memory change. The trust delta shows the belief shift it would apply; nothing changes until it's signed.<div class=\"so-xref\"><span class=\"x\">→</span> D-06 pending approvals — where this goes for signature</div></div>"
+     }
     }
    ]
   },
   {
-   "icon": "⎈",
-   "title": "Controls",
-   "content": "Read-only view — every mutation copies a signed sovereign-osctl verb (§1g / R10212). The web never changes the box; it hands you the exact CLI to run.",
-   "children": [
-    {
-     "selector": "#control-surface",
-     "title": "Controls rail",
-     "content": "The control rail — each button copies its exact sovereign-osctl command. A memory forget or admit runs through the signed CLI after your MS003 signature, never from a web click."
-    }
-   ]
-  }
- ]
-};
-</script>
-<script>
-window.SO_ASSIST = {
- "context": {
-  "icon": "◈",
-  "title": "D-07 · Memory Changes",
-  "content": "The window into the box's memory OS (M028) — the eight-tier store (E0260) that is the difference between an agent that repeats your corrections and one that remembers them. Every candidate memory walks an 11-stage admission lifecycle (E0264) and is trust-filtered on seven dimensions (M060) before it is kept, so the store stays signal rather than noise.\n\nRead it to see how full each tier is, what changed in the last 24h, and what memory mutations are waiting on your signature. The RLM navigator (SDD-068) lets you ask the graph a question, read-only, and honest-defers if the local LM is down. Forgetting or force-admitting a memory is a signed act — the web only proposes."
- },
- "nodes": [
-  {
-   "icon": "◆",
-   "title": "Data source",
-   "content": "Whether the memory panel is live from /api/d-07 or a snapshot — a forget/admit elsewhere would not show until refreshed.",
-   "children": [
-    {
-     "selector": "#ds-state-label",
-     "title": "Live vs snapshot",
-     "content": "Green = the daemon is answering live; muted = a cached snapshot. The whole memory view is read from the M028 store — a snapshot can show state that an apply has already superseded, so check this before trusting a value as current.",
-     "icon": "◆",
-     "variants": [
-      {
-       "when": {
-        "textContains": "connecting"
-       },
-       "content": "Connecting — reaching the daemon; the values below are not confirmed live yet.",
-       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Connecting</div>Waiting on the API — treat the numbers as unconfirmed until this goes green.</div>"
-      },
-      {
-       "when": {
-        "textContains": "live"
-       },
-       "content": "Live — the values below reflect real state right now.",
-       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Live</div>The daemon is answering; everything on the panel is current.</div>"
-      },
-      {
-       "when": {
-        "textContains": "offline"
-       },
-       "content": "Offline — showing the last snapshot; the box may have moved on since.",
-       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Offline</div>No live answer — this is a cached snapshot, possibly stale.</div>"
-      }
-     ]
-    },
-    {
-     "selector": "#ds-state-detail",
-     "title": "Source detail",
-     "content": "The longer status under the banner — which endpoint answered and any degraded note. Read it when the banner is amber."
-    },
-    {
-     "selector": "#ds-last-update",
-     "title": "Source freshness",
-     "content": "When the memory view was last read. A memory admitted or forgotten since then would not appear yet — so a stale time means the counts below may lag reality."
-    }
-   ]
-  },
-  {
-   "icon": "▦",
-   "title": "Memory types",
-   "content": "The M028 memory OS is not one store — it is eight tiers (E0260), each holding a different KIND of memory with its own admission and eviction rules. The counts show how full each tier is right now. Understanding which tier a memory lives in tells you how durable it is.",
-   "children": [
-    {
-     "selector": "#t-working",
-     "title": "Working memory",
-     "content": "The current task's scratch — active branches, local facts, tool outputs. KV-bounded, so it is the smallest and most volatile tier; it is evicted first under pressure. Type 1, M00459.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Working tier</div>This tier is one of the eight M028 memory kinds. What lives here has its own retention: working/KV churn fast, value/semantic persist. The count is items currently held.</div>"
-    },
-    {
-     "selector": "#t-episodic",
-     "title": "Episodic memory",
-     "content": "Full traces — conversations, task attempts, failures, your corrections. This is the box's autobiography; it is what lets it not repeat a mistake you already corrected. Type 2, M00460."
-    },
-    {
-     "selector": "#t-semantic",
-     "title": "Semantic memory",
-     "content": "Distilled facts and knowledge, decoupled from when they were learned. Where an episodic trace becomes a reusable truth. This is what the RLM navigator queries for grounding."
-    },
-    {
-     "selector": "#t-procedural",
-     "title": "Procedural memory",
-     "content": "Skills and how-to — the box's learned procedures, not facts. This is the difference between knowing a fact and knowing how to do a thing; it grows from repeated successful traces."
-    },
-    {
-     "selector": "#t-temporal",
-     "title": "Temporal memory",
-     "content": "Time-indexed recall — what was true WHEN. The temporal-query verbs (E0263) read this so the box can reason about change over time, not just current state."
-    },
-    {
-     "selector": "#t-value",
-     "title": "Value memory",
-     "content": "The ground-truth preservation layer (E0260/E0261) — the facts that must never be silently overwritten. This is the anti-drift tier: it is what a later trace is checked AGAINST, not blended into.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Value tier</div>This tier is one of the eight M028 memory kinds. What lives here has its own retention: working/KV churn fast, value/semantic persist. The count is items currently held.</div>"
-    },
-    {
-     "selector": "#t-kv",
-     "title": "KV cache",
-     "content": "The hot key/value cache — the fast, bounded working set the model reads directly. Distinct from working memory in that it is model-native (attention KV), not task-native. Bounded, so it churns.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">KV tier</div>This tier is one of the eight M028 memory kinds. What lives here has its own retention: working/KV churn fast, value/semantic persist. The count is items currently held.</div>"
-    },
-    {
-     "selector": "#t-reward",
-     "title": "Reward memory",
-     "content": "The experience base — outcomes tagged with how they went, feeding the box's sense of what works. This is the substrate reinforcement reads; it is why good and bad outcomes are not treated the same next time."
-    }
-   ]
-  },
-  {
-   "icon": "⊞",
-   "title": "Admission lifecycle",
-   "content": "Nothing enters long-term memory directly — every candidate walks an 11-stage admission lifecycle (E0264) before it is kept. This is the quality gate on the box's memory: it is why memory does not fill with noise.",
-   "children": [
-    {
-     "selector": "#lifecycle",
-     "title": "11-stage admission lifecycle",
-     "content": "The pipeline every memory candidate traverses before admission (M028 E0264) — from capture through scoring, dedup, trust-filtering, to commit or reject. A memory you see in the store earned its place by passing all eleven stages.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Memory is earned, not stored</div>Raw experience is captured, then scored, deduplicated against what is already known, trust-filtered (below), and only then admitted to a tier — or rejected. The lifecycle is why the store stays signal, not noise; a rejected candidate never becomes a memory.<div class=\"so-xref\"><span class=\"x\">→</span> the 8 memory tiles above are the destinations of this pipeline<br><span class=\"x\">→</span> the 7 trust filters below are one stage of it</div></div>"
-    }
-   ]
-  },
-  {
-   "icon": "◎",
-   "title": "Trust filters",
-   "content": "One stage of admission is trust — a candidate is scored on 7 dimensions (M060 R10095 + MS039) before it is allowed in. This is what stops a poisoned or low-confidence memory from becoming ground truth.",
+   "icon": "⛨",
+   "title": "Trust filters & controls",
+   "content": "The trust dimensions memory is scored on, the profile shape that bounds what's shareable, and the read-only controls. Trust isn't one number — it's several dimensions, and the mirror (M060) is what lets selfdef and sovereign-os share memory safely.",
    "children": [
     {
      "selector": "#trust-filters",
-     "title": "7 trust dimensions",
-     "content": "The seven trust dimensions a memory is filtered on (M060 R10095) — freshness and six others. A candidate weak on a dimension is down-weighted or rejected; this is the memory OS defending itself against drift and poisoning.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Seven ways a memory earns trust</div>Each dimension is an independent check — freshness, provenance, corroboration, and so on. A memory admitted despite a weak dimension is flagged; one failing hard is rejected. Together they are why the store can be trusted as ground truth.<div class=\"so-xref\"><span class=\"x\">→</span> D-18 trust scores — the same trust model applied to agents<br><span class=\"x\">→</span> the admission lifecycle above — trust is one of its eleven stages</div></div>"
+     "title": "7 trust dimensions (MS039 + M060)",
+     "content": "The dimensions memory is filtered and scored by — the authority-ring model (MS039) applied to knowledge. Filtering by dimension lets you see, e.g., only high-trust facts, or only what crossed the M060 mirror from selfdef.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Trust is multi-dimensional</div>A memory isn't simply trusted or not — it's scored across dimensions (source authority, freshness, verification, ring). MS039 authority rings decide who can assert into which tier; the M060 mirror bridge (R10095) is how selfdef's memory reaches sovereign-os under those rings without collapsing the boundary.<div class=\"so-xref\"><span class=\"x\">→</span> MS039 authority rings — the trust ladder these dimensions implement</div></div>"
     },
     {
      "selector": "#profile-shape",
-     "title": "Trust profile shape",
-     "content": "The visual shape of the current trust weighting — which dimensions are weighted up or down right now. A lopsided shape means the box is currently trusting one dimension more than others; read it to see the active bias."
-    }
-   ]
-  },
-  {
-   "icon": "◫",
-   "title": "Recent graph diff",
-   "content": "What changed in the memory graph in the last 24h — admitted, forgotten, re-weighted. Memory is a living graph, not a log; this is the delta view of how it moved.",
-   "children": [
-    {
-     "selector": "#diff-scope",
-     "title": "Diff scope",
-     "content": "Which slice of the memory graph the diff covers. Narrow it to focus the change view on one tier or subgraph rather than the whole store."
-    },
-    {
-     "selector": "#diff-base",
-     "title": "Diff base",
-     "content": "The 'before' point the diff compares from. The diff below is base → head; move the base to see change over a longer window."
-    },
-    {
-     "selector": "#diff-head",
-     "title": "Diff head",
-     "content": "The 'after' point the diff compares to — usually now. Base → head is the change shown; a head in the past lets you inspect a historical change."
-    },
-    {
-     "selector": "#diff-stream",
-     "title": "Diff stream",
-     "content": "The live stream of graph changes — each admit / forget / re-weight as it lands. Read it to watch memory move in real time; a burst of forgets is worth understanding."
-    }
-   ]
-  },
-  {
-   "icon": "⚑",
-   "title": "Pending changes",
-   "content": "Memory changes waiting on your approval — the memory OS emits CLI, the daemon executes only after your MS003 signature (MS043 R10212). Nothing is forgotten or force-admitted without you.",
-   "children": [
-    {
-     "selector": "#pending-changes",
-     "title": "Pending memory changes",
-     "content": "Memory operations queued for your signature — a forget, a forced admission, a re-weight. The web only proposes; the daemon acts after MS003. Read each before signing: forgetting a value-tier memory is not reversible the way a snapshot is.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The web proposes; you sign</div>A memory mutation is a real change to what the box knows. So the web emits the CLI verb and it sits here until your signature — the daemon never forgets or admits on a web click (MS043 R10212).<div class=\"so-xref\"><span class=\"x\">→</span> D-06 approvals — the same operator-in-the-loop pattern, box-wide</div></div>"
-    }
-   ]
-  },
-  {
-   "icon": "⊟",
-   "title": "Memory store",
-   "content": "The addressable mem-<id> store (SDD-060) — the individual entries you can inspect and pick to forget. This is memory at the row level, below the tier counts.",
-   "children": [
-    {
-     "selector": "#memory-entries",
-     "title": "Memory entries",
-     "content": "The addressable entries in the store, each a mem-<id> you can inspect or select to forget (/api/d-07/entries). Picking one stages a forget for your signature — this is the row-level view beneath the tier totals above."
-    }
-   ]
-  },
-  {
-   "icon": "⚲",
-   "title": "Memory query",
-   "content": "The RLM navigator (M00472, SDD-068) — a read-only way to ask the memory graph a question, answered by the local LM composing over retrieved slices. Honest-defer: if the LM is unreachable it says so rather than guessing.",
-   "children": [
-    {
-     "selector": "#nav-q",
-     "title": "Navigator query",
-     "content": "Your question to the memory graph. The RLM navigator retrieves relevant slices and composes an answer with the local LM — read-only (/api/d-07/navigate). It never writes; it only reads what is already admitted."
-    },
-    {
-     "selector": "#nav-verb",
-     "title": "Navigator verb",
-     "content": "The retrieval verb/mode for the query — how the navigator selects slices before composing. Different verbs read the graph different ways; pick the one matching what you are asking."
-    },
-    {
-     "selector": "#nav-result",
-     "title": "Navigator result",
-     "content": "The composed answer over retrieved memory. If the local LM is unreachable this honest-defers (says it cannot answer) rather than fabricating — a blank or deferred result is the honest mode, not a failure.",
+     "title": "Profile shape",
+     "content": "Whether memory is shaped private or shareable under the active profile — it bounds what can cross the mirror or leave the box. 'private' means memory stays local; a shareable shape widens what M060 may mirror.",
      "variants": [
       {
        "when": {
-        "textContains": "defer"
+        "textContains": "private"
        },
-       "content": "Honest-defer — the local LM was unreachable, so the navigator declined to answer rather than guess.",
-       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ Deferred</div>The navigator would not fabricate — the local LM is unreachable. This is honesty, not an error.</div>"
+       "content": "Private — memory stays local; nothing is mirrored out under this shape."
       }
      ]
-    }
-   ]
-  },
-  {
-   "icon": "⇄",
-   "title": "Actions",
-   "content": "Web emits CLI only; the daemon executes after your MS003 signature (MS043 R10212). Forgetting a memory is a signed act.",
-   "children": [
-    {
-     "selector": "#toast",
-     "title": "Action feedback",
-     "content": "Transient confirmation that a verb was copied. It confirms the copy only — the memory does not change until you run the signed command."
-    }
-   ]
-  },
-  {
-   "icon": "⎈",
-   "title": "Controls",
-   "content": "Read-only view — every mutation copies a signed sovereign-osctl verb (§1g / R10212). The web never changes the box; it hands you the exact CLI to run.",
-   "children": [
+    },
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "The control rail — each button copies its exact sovereign-osctl command. A memory forget or admit runs through the signed CLI after your MS003 signature, never from a web click."
+     "content": "Memory controls — each copies its exact sovereign-osctl verb (§1g / R10212). Promotions, forgets, and trust edits run through the signed CLI; the web only stages the change, it never rewrites memory directly."
+    },
+    {
+     "selector": "#toast",
+     "title": "Status toast",
+     "content": "Transient confirmation of a staged action — a copied command or a completed read. It never means memory changed from this view; the CLI is what commits."
     }
    ]
   }

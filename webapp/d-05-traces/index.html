@@ -525,67 +525,67 @@ a11y; contract test catches drift.
   //    Generated from config/dashboard-catalog.yaml (single source of truth). ──
   var GROUPS = [
     {name:'Trinity & Orchestration', items:[
-      {id:'—', dir:'trinity', label:'Trinity', ico:'△', desc:'The 3-tier runtime at a glance — Pulse (CPU/AVX-512 ternary), Weaver (sandboxed GPU fabric), Auditor (immutable gatekeeper): live tier status, model assignments, health.'},
-      {id:'—', dir:'weaver', label:'Weaver (fabric)', ico:'☲', desc:'The sandboxed fabric layer — Podman/VFIO isolation, the state-fabric (tank/context) writers, CCD1 allocation. Where untrusted work runs.'},
-      {id:'—', dir:'auditor', label:'Auditor (gatekeeper)', ico:'🔍', desc:'The always-on immutable gatekeeper — Tetragon eBPF perimeter + Guardian violation tail. The last line that cannot be bypassed.'},
-      {id:'—', dir:'router', label:'Router', ico:'⎈', desc:'The deterministic request router (SDD-011): which tier answers a prompt, per-rule classification, routing-decision metrics. Pairs with the thinking-router planner (CLI: router plan).'},
-      {id:'—', dir:'runtime-modes', label:'Runtime Modes', ico:'◑', desc:'The master-spec §18 runtime profiles (ultra-sovereign-efficiency / high-concurrency / deep-context) — pick the mode; it drives core pinning, GPU power, model allocation.'},
-      {id:'D-01', dir:'d-01-active-sessions', label:'D-01 Active Sessions', ico:'▣', desc:'The 12-step task lifecycle per live operator session (init → inference → response → validation → cleanup).'},
+      {id:'—', dir:'trinity', label:'Trinity', ico:'△', desc:'The 3-tier runtime at a glance — Pulse (CPU/AVX-512 ternary), Weaver (sandboxed GPU fabric), Auditor (immutable gatekeeper): live tier status, model assignments, health.', menuHover:'The three-part mind of the box at a glance — Pulse, Weaver, and Auditor (M066), the arrangement that lets you trust compute you cannot personally verify. Pulse does the thinking on cheap CPU ternary, Weaver shapes and steers it on the sandboxed GPU fabric, and the Auditor watches both from an immutable perch that cannot be bribed or bypassed. The whole point is separation of powers: no single tier can both act and vouch for itself. Open it for the one-screen answer to ‘is the trinity intact’ — all three up, each doing its own job — before you rely on anything the box produced. It is the parent of the Weaver and Auditor panels and the human-readable face of what D-16 (the audit chain) and D-18 (trust) enforce underneath.'},
+      {id:'—', dir:'weaver', label:'Weaver (fabric)', ico:'☲', desc:'The sandboxed fabric layer — Podman/VFIO isolation, the state-fabric (tank/context) writers, CCD1 allocation. Where untrusted work runs.', menuHover:'The sandboxed fabric layer — where untrusted and heavy work actually runs, walled off from everything that matters. Weaver owns the GPU fabric (Podman + VFIO isolation), the writers that persist state into tank/context, and the CCD1 core allocation, so it is the tier you look at to answer ‘where is the risky work contained, and is the containment holding.’ It is deliberately the messy tier — bursty, GPU-hungry, running things the box does not fully trust — which is exactly why it is isolated. Open it when you want to see what the fabric is doing, whether a sandbox has the resources it needs, or whether Weaver’s work is staying inside its VFIO boundary rather than leaking toward the host. It sits under the Trinity umbrella beside Pulse (compute) and the Auditor (the watcher that keeps Weaver honest).'},
+      {id:'—', dir:'auditor', label:'Auditor (gatekeeper)', ico:'🔍', desc:'The always-on immutable gatekeeper — Tetragon eBPF perimeter + Guardian violation tail. The last line that cannot be bypassed.', menuHover:'The always-on gatekeeper — the one tier that only watches and can never be talked out of it. The Auditor runs the Tetragon eBPF perimeter at the kernel boundary and tails the Guardian daemon’s violations, so it is the last line that observes every syscall and cannot be bypassed from userspace. Its whole value is incorruptibility: it does no work of its own, which is precisely why its verdicts can be trusted about the work others do. Open it to confirm the perimeter is live and streaming — because a blind Auditor is a security event, not a slow one — and to read what it has flagged. It is the enforcement half of the Trinity (Pulse computes, Weaver steers, the Auditor judges), and it feeds the tamper-evident record you inspect on D-16.'},
+      {id:'—', dir:'router', label:'Router', ico:'⎈', desc:'The deterministic request router (SDD-011): which tier answers a prompt, per-rule classification, routing-decision metrics. Pairs with the thinking-router planner (CLI: router plan).', menuHover:'The loopback traffic cop every prompt passes through — the deterministic request router (SDD-011) that decides, in a fixed rule order, which tier answers a given prompt. It classifies each request against an ordered rule set (first match wins, so the same prompt always routes the same way) and dispatches it to Pulse (cheap ternary), the Logic engine (mid-scale Q4), or the Oracle (deep reasoning). The doctrine it enforces is that most prompts do not deserve the expensive model. Open it to see the routing rules, the backends’ health as route targets, and the live counts of where prompts actually landed — and to catch a rules-vs-reality mismatch (everything piling onto Oracle, or the cheap tier being bypassed). It pairs with the thinking-router (orchestration) which adds reasoning escalation on top of this tier choice.'},
+      {id:'—', dir:'runtime-modes', label:'Runtime Modes', ico:'◑', desc:'The master-spec §18 runtime profiles (ultra-sovereign-efficiency / high-concurrency / deep-context) — pick the mode; it drives core pinning, GPU power, model allocation.', menuHover:'The runtime posture chooser, seen from the mode angle — the same M076 profiles as D-21 but framed as ‘what mode is the box in.’ Each mode (ultra-sovereign-efficiency, high-concurrency, deep-context) is a whole coherent stance that drives core pinning, GPU power, and model allocation together, so switching mode reshapes how the entire machine thinks rather than tweaking one knob. Open it when you want to change the box’s character — cheapest cognition, most parallel agents, or longest contexts — and to understand the trade-off each mode makes (you cannot have all three at once). It is the plain-language sibling of D-21 (which shows the same choice as a model-to-hardware grid) and of profile-generation (which produces these modes from hardware and strategy).'},
+      {id:'D-01', dir:'d-01-active-sessions', label:'D-01 Active Sessions', ico:'▣', desc:'The 12-step task lifecycle per live operator session (init → inference → response → validation → cleanup).', menuHover:'The live-sessions board — every operator session in flight and where each one sits in the 12-step task lifecycle (M057), from init through inference, response, validation, to cleanup. It answers ‘what is the box actually working on right now, and is anything stuck.’ Each session walks the same lifecycle, so a session parked at one step is a session that needs attention — a stalled validation, an inference that never returned. Open it to see concurrency at a glance, to find a hung session, or to confirm work is draining through the lifecycle cleanly rather than piling up. It is the per-session counterpart to D-03 (which shows the models those sessions are hitting) and D-09 (the pressure a burst of sessions produces).'},
       {id:'D-03', dir:'d-03-model-health', label:'D-03 Model Health', ico:'♥', desc:'Per-tier inference health — SRP role, GPU binding, KV-cache pressure, latency. The live-serving view (distinct from the catalog).', menuHover:'How well the models are actually SERVING right now — the live-inference counterpart to the catalog. Where D-23 tells you which models exist, this tells you how the loaded ones are performing across the three SRP tiers (M075): the Conductor on CPU ternary, the Logic engine on the sandboxed 4090, and the Oracle on the Blackwell. It reads each tier’s utilization and headroom, per-model latency at the p50/p95/p99 tails (because the tail is what a user feels, not the average), KV-cache occupancy and prefill-hit rate per model, and a 24-hour availability heatmap that turns momentary blips into a pattern. Open it when a response felt slow and you need to know which tier and which model was the cause; open it before loading a new model to see which tier has room; open it after a profile change to confirm the reassignment is serving cleanly. It pairs with D-09 (the raw hardware pressure underneath these numbers), D-21 (the profile that assigned models to tiers), and D-23 (the portfolio these live models are drawn from).'},
-      {id:'D-05', dir:'d-05-traces', label:'D-05 Traces', ico:'⋮', desc:'Distributed span search — 13-field trace tree, OCSF export. Debug why a request went where it did.'},
+      {id:'D-05', dir:'d-05-traces', label:'D-05 Traces', ico:'⋮', desc:'Distributed span search — 13-field trace tree, OCSF export. Debug why a request went where it did.', menuHover:'The debugger’s panel — distributed span search across the box, where you reconstruct exactly what happened to one request. It gives you the 13-field trace tree per request and an OCSF export, so when something went wrong or slow you can follow the span-by-span path: which tier classified it, which model served it, where the time went, where it errored. It answers ‘why did THIS request behave this way’ rather than ‘how is the box in aggregate.’ Open it after a bad response, a mysterious latency, or a routing surprise — the trace is the ground truth that the summary dashboards abstract away. It complements D-01 (the session the trace belongs to) and D-04 (the cost that trace incurred), and its OCSF output is the security-legible form auditors consume.'},
     ]},
     {name:'Models & Compute', items:[
       {id:'D-21', dir:'d-21-lm-orchestration', label:'D-21 LM Orchestration', ico:'⛭', desc:'Profiles + model→hardware assignment grid (GPU0/GPU1/CPU0 = Logic/Oracle/Conductor per M075) + CPU AVX-512 / GPU capability panel. Read-only: Apply copies the signed profile verb.', menuHover:'Where you choose the whole machine’s inference posture in one move. A runtime profile (M076) is not a setting — it is a coherent bundle that assigns every model to a device and pins the CPU cores to match (the SRP split, M075), so picking one rebalances the Conductor, Logic, and Oracle tiers together. This panel lets you preview a profile as a concrete model→hardware grid before you commit it, and shows the silicon it’s built to exploit (the CPU’s AVX-512 extensions for the ternary path, the GPUs’ capabilities like NVFP4). Open it when you want to change how the box thinks as a whole — trade deep-context reach for concurrency, or park the GPUs and run cheap on CPU — rather than tweaking one model. It’s the strategic counterpart to D-03 (which shows how the current assignment is actually serving) and D-09 (which shows the pressure each posture produces). Read-only: applying a profile is a signed verb-chain through osctl, because reshuffling models across devices is a real, heavy operation, not a web click.'},
-      {id:'D-24', dir:'d-24-cpu-features', label:'D-24 CPU Features', ico:'⊞', desc:'The deep AVX-512 capability view — extension map, per-AI-workload fit verdict, and advisory. Reuses avx512-advisor. Distinct from D-21 Features-CPU summary.'},
-      {id:'D-23', dir:'d-23-models-catalog', label:'D-23 Model Catalog', ico:'▤', desc:'The canonical model registry (models/catalog.yaml) browsed by SRP tier — id, class, engine, precision, params, context, license, purpose, status. The portfolio view (distinct from D-03 live health).'},
+      {id:'D-24', dir:'d-24-cpu-features', label:'D-24 CPU Features', ico:'⊞', desc:'The deep AVX-512 capability view — extension map, per-AI-workload fit verdict, and advisory. Reuses avx512-advisor. Distinct from D-21 Features-CPU summary.', menuHover:'The deep read on what the CPU can actually do for AI — the full AVX-512 extension map and, more usefully, a verdict on how well this exact silicon fits each AI workload. It matters because the whole cheap-cognition story rests on ternary inference running fast on CPU, and that speed comes from specific AVX-512 instructions (VNNI for integer dot-products, BF16 for half-precision, VPOPCNTDQ for bit-counting the ternary path leans on). If an extension is missing, the Conductor tier silently falls back to a slower path — so this panel is where you learn whether \u201cefficiency mode\u201d will actually be efficient on THIS chip. It goes deeper than D-21\u2019s at-a-glance CPU-features summary: here each extension is mapped to the workloads it enables, with a fit verdict and an advisory (from the avx512-advisor, R272). Open it when deciding whether to lean on CPU inference, diagnosing why the Conductor is slower than expected, or planning a build for specific silicon. It pairs with D-09 (the CCD load these instructions drive) and D-21 (the efficiency profile that depends on them).'},
+      {id:'D-23', dir:'d-23-models-catalog', label:'D-23 Model Catalog', ico:'▤', desc:'The canonical model registry (models/catalog.yaml) browsed by SRP tier — id, class, engine, precision, params, context, license, purpose, status. The portfolio view (distinct from D-03 live health).', menuHover:'The full portfolio of models the box COULD run, browsed by SRP tier — the catalog, as opposed to D-03 which shows the few that are loaded and serving. Every entry comes straight from the canonical registry (models/catalog.yaml) with its real attributes: id, class (ternary-lm / RLM / SLM / LLM / mixture), engine, precision, parameter count, context window, license, purpose, and status. This is where you shop before you load: to find a model that fits a tier\u2019s VRAM budget, to compare two candidates\u2019 context windows or licenses, or to understand what the box is capable of beyond what happens to be resident right now. It is deliberately read-only reference \u2014 loading a model you find here is done from D-03 or D-21, as a signed action. Open it when you\u2019re choosing what to run, auditing licenses across the fleet, or answering \u201cdo we even have a model for this?\u201d It pairs with D-03 (which of these are live) and D-21 (which tier/device a chosen model would land on).'},
       {id:'D-22', dir:'d-22-lm-status-operability', label:'D-22 LM Status & Operability', ico:'◐', desc:'Per-device (CPU0/GPU0/GPU1) Model 0/1/2 status + History|Selected latency + operability Actions/Tests + render-only Chat. Reuses the model-health core; Actions copy signed CLI verbs.', menuHover:'The device-by-device operability view — and the one place in the whole cockpit where you actually talk to the box\u2019s brain. Where D-03 aggregates model health by SRP tier, this pins it to the physical devices (CPU0, GPU0, GPU1) and adds the thing that proves the machine is more than dashboards: a sovereign loopback chat that sends a prompt straight to the local LM over 127.0.0.1 and shows the answer. That chat is the single deliberate exception to the read-only rule \u2014 it is a real compute call, but it never leaves the box, which is the whole sovereignty argument made tangible: your AI, on your silicon, answering with nothing crossing the network. Open it to confirm a device is not just loaded but actually responding; open it to sanity-check the box end to end after a profile change; open the chat when you want to feel the machine think without a cloud in the loop. It pairs with D-03 (tier health), D-21 (the profile that placed these models on these devices), and D-09 (the pressure a chat request produces).'},
-      {id:'—', dir:'models-catalog', label:'Models & Catalog', ico:'▤', desc:'The full model catalog (68 models across ternary-lm/RLM/SLM/LLM/mixture, every quantization) with VRAM-aware selection — browse and filter by class/quant/tier/purpose/VRAM. Backed by models/catalog.yaml (served at /models-catalog.json); operator CLI e.g. models select --class rlm --vram 48.'},
-      {id:'—', dir:'cpu-features', label:'CPU / AVX-512 Choice', ico:'⊞', desc:'The tiered AVX-512 exploitation surface — which instructions (F/VL/BW/VNNI/BF16/VPOPCNTDQ…) THIS CPU exposes and how they map to the AI workloads they enable (Pulse ternary path). Live probe via avx512-advisor (R272), served at /cpu-avx.json.'},
-      {id:'—', dir:'orchestration', label:'Thinking Router / Orchestration', ico:'⧉', desc:'The thinking-router / orchestration view — the 7-axis routing rules (SDD-011) + live routing metrics (which tier/class/task-type requests landed on) + the per-profile escalation (CoT → Validator → self-consistency → MoE). Served at /orchestration.json (router rules|metrics).'},
-      {id:'—', dir:'profile-generation', label:'Runtime-Profile Generation', ico:'⌘', desc:'Generate a whole runtime profile from hardware × strategy, with tier_intent resolved against the catalog (the \'20+ combos\' producer) — shows the resolved allocations each strategy produces + the generate command. Served at /profile-generation.json from profiles/runtime/*.yaml.'},
-      {id:'D-10', dir:'d-10-eval-history', label:'D-10 Eval History', ico:'∿', desc:'Per-task/model eval results (mmlu/humaneval/gsm8k/…), white-box + black-box.'},
-      {id:'D-11', dir:'d-11-adapter-status', label:'D-11 Adapter Status', ico:'⚙', desc:'LoRA adapter inventory + rollback state — which fine-tunes are resident and active.'},
-      {id:'D-19', dir:'d-19-super-model-manifest', label:'D-19 Super-Model Manifest', ico:'≣', desc:'The live super-model version + the M001..M080 module table — what capabilities are shipped.'},
+      {id:'—', dir:'models-catalog', label:'Models & Catalog', ico:'▤', desc:'The full model catalog (68 models across ternary-lm/RLM/SLM/LLM/mixture, every quantization) with VRAM-aware selection — browse and filter by class/quant/tier/purpose/VRAM. Backed by models/catalog.yaml (served at /models-catalog.json); operator CLI e.g. models select --class rlm --vram 48.', menuHover:'The full model shelf with VRAM-aware selection — the complete catalog (68 models across ternary-lm, RLM, SLM, LLM, and mixture, at every quantization) that you browse and filter to choose what to run. Where D-23 is the tier-grouped portfolio view, this is the working selector: filter by class, quant, tier, purpose, or VRAM budget and it shows you what actually fits. It answers ‘which model should I load for this job on this hardware’ — the VRAM filter is the key, because a model that will not fit is not a candidate no matter how good. Open it when picking a model to load, comparing quantizations of the same base, or checking whether a workload has a model that fits a tier’s memory. It feeds D-03 and D-21, where a chosen model becomes a signed load.'},
+      {id:'—', dir:'cpu-features', label:'CPU / AVX-512 Choice', ico:'⊞', desc:'The tiered AVX-512 exploitation surface — which instructions (F/VL/BW/VNNI/BF16/VPOPCNTDQ…) THIS CPU exposes and how they map to the AI workloads they enable (Pulse ternary path). Live probe via avx512-advisor (R272), served at /cpu-avx.json.', menuHover:'The CPU-as-AI-accelerator chooser — the tiered AVX-512 exploitation surface that shows which instruction families this chip exposes (F, VL, BW, VNNI, BF16, VPOPCNTDQ…) and how they map to the AI workloads they enable. It matters because the box’s cheap-cognition claim rests on ternary inference running fast on CPU, and that speed comes from these specific extensions — a missing one silently downgrades the Pulse path. Open it to decide whether to lean on CPU inference on this silicon, or to understand why the Conductor is slower than expected. It is the selection-oriented sibling of D-24 (the deep per-workload fit and advisory) and it grounds the efficiency profile on runtime-modes / D-21, which only makes sense if the instructions it needs are present.'},
+      {id:'—', dir:'orchestration', label:'Thinking Router / Orchestration', ico:'⧉', desc:'The thinking-router / orchestration view — the 7-axis routing rules (SDD-011) + live routing metrics (which tier/class/task-type requests landed on) + the per-profile escalation (CoT → Validator → self-consistency → MoE). Served at /orchestration.json (router rules|metrics).', menuHover:'The thinking-router — the layer above tier choice that decides HOW HARD to reason, not just which model answers. It applies the 7-axis routing rules (SDD-011) and then the per-profile escalation ladder: chain-of-thought, then a validator, then self-consistency (multiple samples), then mixture-of-experts, each rung costing more but reasoning harder. It answers ‘is the box thinking as deeply as this prompt deserves, and no deeper.’ Open it to see which tier/class/task-type requests landed on, and how far up the escalation ladder the active profile climbs — too eager wastes compute, too shy gives shallow answers. It sits on top of the plain router (which picks the tier) and its escalation depth is set by the runtime profile you choose on D-21 / runtime-modes.'},
+      {id:'—', dir:'profile-generation', label:'Runtime-Profile Generation', ico:'⌘', desc:'Generate a whole runtime profile from hardware × strategy, with tier_intent resolved against the catalog (the \'20+ combos\' producer) — shows the resolved allocations each strategy produces + the generate command. Served at /profile-generation.json from profiles/runtime/*.yaml.', menuHover:'The profile foundry — where a whole runtime profile is generated from hardware × strategy, resolving each tier’s intent against the real catalog. It is the producer behind the ‘20+ combos’: give it this silicon and a strategy and it computes the concrete model-to-device allocations that strategy implies, plus the exact generate command. It answers ‘what would a deep-context (or high-concurrency, or efficiency) profile actually look like on THIS box,’ before you ever apply one. Open it when you want to create or understand a profile rather than just pick from existing ones — it is the design-time counterpart to D-21 (which previews and applies a chosen profile) and runtime-modes (which switches between them). The output is what those panels then let you commit as a signed chain.'},
+      {id:'D-10', dir:'d-10-eval-history', label:'D-10 Eval History', ico:'∿', desc:'Per-task/model eval results (mmlu/humaneval/gsm8k/…), white-box + black-box.', menuHover:'The report card — per-task and per-model eval results over time (MATH, HumanEval, GSM8K and the rest), in both white-box and black-box form. It answers the question no live dashboard can: ‘is the box actually getting better, or just changing.’ Black-box pass (outcome only) is the number that cannot be gamed; the per-task trends turn a single accuracy figure into a diagnosis of which model regressed on which task. Open it before promoting an adapter (to see if it earned it), after a model change (to confirm improvement, not drift), or when a suite result looks off. It is where measurement lives, feeding D-11 (adapter promotion decisions rest on these scores) and grounding the M078/M080 benchmark targets the box is tuned against.'},
+      {id:'D-11', dir:'d-11-adapter-status', label:'D-11 Adapter Status', ico:'⚙', desc:'LoRA adapter inventory + rollback state — which fine-tunes are resident and active.', menuHover:'The specializations board — the LoRA adapter inventory (M046 Foundry) and rollback state: which fine-tunes are resident, which are live, and which are waiting on the gate. An adapter is a small low-rank skill stacked on a base model, stored at NVFP4 4-bit so many coexist in the VRAM one full fine-tune would need. Because promoting one can change how the box behaves, promotion runs the MS041 high-risk triple-gate (eval, safety, signed intent — all three must pass), which is why an adapter can ace evals and still be pending. Open it to see what specializations are active, what is waiting, and what was rolled back (a rollback is the system working, not failing). It pairs with D-10 (the evals that qualify an adapter) and D-03 (how an adapter performs once live).'},
+      {id:'D-19', dir:'d-19-super-model-manifest', label:'D-19 Super-Model Manifest', ico:'≣', desc:'The live super-model version + the M001..M080 module table — what capabilities are shipped.', menuHover:'The bill of materials for the whole box — the live super-model version plus the M001..M080 module table that composes it. The super-model is not one model; it is the manifest that binds an exact version of every module into one verified system, which is what a rollback targets and what an audit pins the box’s behavior to. It answers ‘which build of the sovereign OS is this, and are all its parts at the versions they should be.’ Open it to check the composed version, to spot a module lagging its expected version (composition drift), or to see how far the 11-phase build has progressed. It tracks the M066 Trinity and the build phases, and a module lagging here is often the root of behavior that surfaces as a problem on some other panel.'},
     ]},
     {name:'Hardware & Operations', items:[
       {id:'D-09', dir:'d-09-hardware-pressure', label:'D-09 Hardware Pressure', ico:'▰', desc:'Live PSI (CPU/mem/IO), per-CCD load, GPU utilization + power, ZFS pool health. The physical-stress view.', menuHover:'The box’s vital signs — not “how busy” but “how stressed”. Where you go when something feels slow and you need to know whether the machine is genuinely out of headroom or just working hard. It reads Linux PSI (stall, not utilization — the honest signal of contention), the two Ryzen CCDs separately (because crossing the Infinity Fabric between them costs latency the pinning is meant to avoid), both GPUs’ utilization/VRAM/thermals/KV-cache, the ZFS pool’s tail latency, and the M058 backpressure rules that are actively shedding work right now. Open it before launching a heavy build or eval to see if there’s room; open it when a response is slow to tell load apart from contention; open it when a backpressure rule fires to see which resource tripped and what the scheduler gave up to protect live serving. It pairs with the runtime-profile panels (which set the core pinning and GPU budget this reflects) and with D-08 (the ZFS snapshots the scrub here protects).'},
-      {id:'D-04', dir:'d-04-costs', label:'D-04 Costs', ico:'$', desc:'Budget + spend by project / profile / model — local compute cost + any cloud fallback.'},
-      {id:'D-08', dir:'d-08-rollback-points', label:'D-08 Rollback Points', ico:'↺', desc:'ZFS snapshots as recovery points, with a dry-run preview of what a rollback would change.'},
-      {id:'D-02', dir:'d-02-profile-choices', label:'D-02 Profile Choices', ico:'◈', desc:'The active OS profile mirrored read-only — hardware, kernel, packages, hooks in effect.'},
-      {id:'—', dir:'global-history', label:'Global History', ico:'🕑', desc:'A unified change log across 6 sources (apt/dpkg/shell/osctl/events/modules) — \'what changed since I last looked?\''},
-      {id:'—', dir:'build-configurator', label:'Build Configurator', ico:'▶', desc:'Compose an OS image (or manage this host) and RUN the build — the Run console (validate/preflight/BUILD, bake toggles). The one page that actually builds sovereign-os.'},
-      {id:'—', dir:'emulate', label:'Emulate (QEMU)', ico:'◴', desc:'Boot a built image in a throwaway QEMU VM before flashing — interactive serial console, configurable QEMU options (uefi/direct boot, kvm/tcg, cpu/mem, snapshot), auto-login. Catches a broken image in a VM, never on the USB key.'},
-      {id:'—', dir:'flash', label:'Flash to USB', ico:'⚡', desc:'Write a built image onto a removable disk from the panel — a safety-classified device picker (system disks hard-protected), type-to-arm confirm, and live dd progress. Shells the gated sovereign-osctl install image; never raw dd.'},
-      {id:'—', dir:'ups', label:'UPS (APC Smart-UPS)', ico:'🔋', desc:'Live APC Smart-UPS (SMT2200C SmartConnect) state (battery %, runtime, load, on-line/on-battery) via NUT apc_modbus over Modbus TCP (:502) or serial, plus the graceful soft-shutdown posture — an orderly poweroff when battery runtime drops below 30 minutes. Read-only over power-status + NUT upsc.'},
+      {id:'D-04', dir:'d-04-costs', label:'D-04 Costs', ico:'$', desc:'Budget + spend by project / profile / model — local compute cost + any cloud fallback.', menuHover:'The honest ledger — what the box’s cognition actually costs, built on the principle that local inference is free and that saying so plainly is the point ($0-is-honest, SDD-102). It shows request volume, average and most-expensive requests, an end-of-day forecast, and budget burn — but the load-bearing truth is that cloud is off by default, so most of what a hosted assistant would bill for costs nothing here. Open it to see where any spend actually comes from (a rare cloud escalation, not the local tiers), to check a forecast before a heavy run, or to confirm the box is living within its sovereign, near-zero cost model. It reads against D-05 (the traces that incur cost) and the routing panels (which keep prompts on the free local tiers).'},
+      {id:'D-08', dir:'d-08-rollback-points', label:'D-08 Rollback Points', ico:'↺', desc:'ZFS snapshots as recovery points, with a dry-run preview of what a rollback would change.', menuHover:'The undo button for the whole machine — the ZFS snapshots and signed rollback points that make ‘reversible enough to trust’ a real property, not a hope. Because the pool runs sync=always and snapshots are cheap, the box can capture a known-good state and return to it, and a rollback is a signed operation (MS003) so it cannot be triggered carelessly. It answers ‘if this change goes wrong, can I get back — and to when.’ Open it before a risky change to confirm you have a recent point to fall back to, or after one to roll back cleanly. It is the reversibility half of the peace-machine properties (D-20), underpinned by the same pool whose health you watch on D-09, and it is what a scrub there protects the integrity of.'},
+      {id:'D-02', dir:'d-02-profile-choices', label:'D-02 Profile Choices', ico:'◈', desc:'The active OS profile mirrored read-only — hardware, kernel, packages, hooks in effect.', menuHover:'The authority dial — where you set how much the box may do on its own. An MS040 profile is an envelope that caps two things at once: the maximum authority level an agent may reach on the L0..L6 ladder (Observe to Persist) and the trust ring it runs in (R0 Kernel to R4 Cloud, per MS039). It is the single most consequential control on the machine, because it decides how much happens without your signature — tight profiles withhold authority, the autonomous profile grants most of it, bounded only by predeclared gates. Open it to change the box’s autonomy posture, to review the authority ladder and trust rings a profile permits, or to audit who last changed the envelope. It is the authority-side view of the same MS039 rings that D-12 enforces on the network.'},
+      {id:'—', dir:'global-history', label:'Global History', ico:'🕑', desc:'A unified change log across 6 sources (apt/dpkg/shell/osctl/events/modules) — \'what changed since I last looked?\'', menuHover:'The whole-machine timeline — every subsystem’s events (the audit chain, the router, memory, selfdef) aggregated into one cross-box history above any single panel’s view. It answers ‘what happened across the entire machine,’ which no individual dashboard can, and it is where correlation lives: an event from one source sitting next to one from another is how a pattern that spans subsystems becomes visible. Open it to reconstruct a sequence that crossed several systems, to spot a rhythm (a nightly job colliding with serving), or to confirm a silent source is actually emitting. It complements D-05 (deep single-request traces) with breadth rather than depth, and a source gone quiet here is itself a signal worth chasing.'},
+      {id:'—', dir:'build-configurator', label:'Build Configurator', ico:'▶', desc:'Compose an OS image (or manage this host) and RUN the build — the Run console (validate/preflight/BUILD, bake toggles). The one page that actually builds sovereign-os.', menuHover:'The factory floor — the twelve-section wizard that assembles the entire sovereign OS image, the source of everything every other panel later runs. You walk it section by section (hardware preflight, profile, substrate and posture, kernel, CPU features, modules, packages, operator tools, storage, networking, hooks, observability), and it emits a reproducible build command plus the config artifacts that make the build bit-for-bit repeatable. It answers ‘how is the OS built, and what would change if I built it differently.’ Open it to plan or understand a build — this is the one panel where a decision propagates into every other (a kernel march, a VFIO cmdline, an encryption choice). Nothing here touches a running box; the build runs via orchestrate.sh, then you rehearse the image on Emulate and write it with Flash.'},
+      {id:'—', dir:'emulate', label:'Emulate (QEMU)', ico:'◴', desc:'Boot a built image in a throwaway QEMU VM before flashing — interactive serial console, configurable QEMU options (uefi/direct boot, kvm/tcg, cpu/mem, snapshot), auto-login. Catches a broken image in a VM, never on the USB key.', menuHover:'The safe rehearsal — QEMU booting the freshly built image in a disposable VM before it ever touches real hardware. It matters because a broken build discovered on a physical device costs a re-flash and a reboot cycle; here it fails harmlessly in a console you can read. The choices that make the test faithful are the ones to know: uefi boot runs the real OVMF → systemd-boot → signed-UKI chain (so it tests actual secure boot), kvm acceleration runs at near-native speed, snapshot mode discards writes so every boot is clean, and no-reboot halts a boot loop instead of spinning. Open it after a build to confirm the image boots and comes up, especially after a kernel or module change. It sits between Build Configurator (which produces the image) and Flash (which writes the verified image to hardware).'},
+      {id:'—', dir:'flash', label:'Flash to USB', ico:'⚡', desc:'Write a built image onto a removable disk from the panel — a safety-classified device picker (system disks hard-protected), type-to-arm confirm, and live dd progress. Shells the gated sovereign-osctl install image; never raw dd.', menuHover:'The point of no return — writing a built image to a real device, which irreversibly wipes it. The whole panel is a safety interlock because getting the target wrong destroys the wrong disk: you flash only images already booted on Emulate, Plan is a free dry-run that writes nothing, and the real Flash unlocks only after you ARM by re-typing the device path matched against its fingerprint (size, model, serial — so /dev/sdX renumbering cannot fool you). It answers ‘write this exact image to this exact device, and prove I mean it.’ Open it as the final step of a build: verified image, correct device, arm, write. It is the destructive end of the pipeline that starts at Build Configurator and is rehearsed on Emulate — treat armed state as live.'},
+      {id:'—', dir:'ups', label:'UPS (APC Smart-UPS)', ico:'🔋', desc:'Live APC Smart-UPS (SMT2200C SmartConnect) state (battery %, runtime, load, on-line/on-battery) via NUT apc_modbus over Modbus TCP (:502) or serial, plus the graceful soft-shutdown posture — an orderly poweroff when battery runtime drops below 30 minutes. Read-only over power-status + NUT upsc.', menuHover:'The insurance policy against a dirty power loss — the UPS status and the graceful-shutdown guard that powers the box off cleanly before the battery dies. It matters because the pool runs sync=always: a hard cut mid-write risks corruption, so the guard (checked every minute) triggers an orderly shutdown when battery runtime drops below a minutes threshold, reserving the time a clean shutdown needs to flush ZFS and stop services. It answers ‘is the box protected if the power fails, and how long do I have on battery.’ Open it when on battery to read the remaining runtime, to confirm the guard is armed (disarmed risks ZFS on a battery-death), or after a power event. It protects the same pool and snapshots you rely on for D-08 rollback.'},
     ]},
     {name:'Security & selfdef', items:[
-      {id:'D-25', dir:'d-25-selfdef-management', label:'D-25 Self-Defense Management', ico:'⛨', desc:'READ-ONLY consumer view (R10212) of the selfdef IPS — on/off enablement + M060 mirror-chain health + links to the 6 domain panels (D-13..D-18). Derives state via the m060-health probe() proxy; on/off is a clipboard-copied signed CLI verb.'},
-      {id:'—', dir:'selfdef-management', label:'selfdef (IPS) Management', ico:'⛨', desc:'The intrusion-prevention system — live on/off state + unit/mirror health, unifying the 6 mirror dashboards (D-13..D-18) + perimeter. Served at /selfdef-management.json (selfdef status); controls (on/off/sync/doctor + perimeter) via the Controls surface.'},
-      {id:'D-12b', dir:'edge-firewall', label:'Edge Firewall', ico:'🛡', desc:'Host firewall posture — nftables / fail2ban / crowdsec / suricata state + install recommendations.'},
-      {id:'D-12a', dir:'network-edge', label:'Network Edge', ico:'⇄', desc:'The edge topology — OPNsense bridge, ISP NAT layers, VPN, per-interface state. Where the box sits in the network.'},
-      {id:'D-12', dir:'d-12-networking', label:'D-12 Networking', ico:'⇄', desc:'The cockpit networking view — the selfdef MS039 Ring-0-4 nftables rules mirror (read-only via selfdef-rules-mirror), per-ring rule counts + traffic + dispositions.'},
-      {id:'D-06', dir:'d-06-pending-approvals', label:'D-06 Pending Approvals', ico:'✋', desc:'The operator approval queue + stage gates — actions waiting for a human yes/no.'},
-      {id:'D-07', dir:'d-07-memory-changes', label:'D-07 Memory Changes', ico:'✎', desc:'The 8-type memory-graph diff — what the agent\'s memory added/changed/removed.'},
-      {id:'D-13', dir:'d-13-filesystem-grants', label:'D-13 Filesystem Grants', ico:'📁', desc:'selfdef filesystem-grant mirror (read-only) — which paths are granted to whom.'},
-      {id:'D-14', dir:'d-14-capability-tokens', label:'D-14 Capability Tokens', ico:'⚷', desc:'selfdef capability-token mirror — issued/revoked capabilities.'},
-      {id:'D-15', dir:'d-15-sandboxes', label:'D-15 Sandboxes', ico:'▢', desc:'selfdef sandbox mirror — active sandboxes + their isolation state.'},
-      {id:'D-16', dir:'d-16-audit', label:'D-16 Audit Chain', ico:'☑', desc:'selfdef append-only audit-chain mirror — the tamper-evident event log.'},
-      {id:'D-17', dir:'d-17-quarantine', label:'D-17 Quarantine', ico:'⚠', desc:'selfdef quarantine mirror — what\'s been isolated and why.'},
-      {id:'D-18', dir:'d-18-trust-scores', label:'D-18 Trust Scores', ico:'★', desc:'selfdef trust-score mirror — per-entity trust levels driving policy.'},
-      {id:'D-20', dir:'d-20-peace-machine-health', label:'D-20 Peace Machine Health', ico:'☮', desc:'The M059 peace-machine 5-property verdict — the top-level \'is the system at peace\' signal.'},
-      {id:'—', dir:'compliance', label:'Compliance', ico:'⚖', desc:'The §1g/§1h compliance aggregator — per-module pass/fail against the operator mandate.'},
-      {id:'—', dir:'auth-tier', label:'Auth Tier', ico:'🔑', desc:'The 6-tier auth ladder (no-auth → basic → advanced → social → enterprise → network) + per-surface requirement.'},
-      {id:'—', dir:'anti-minimization-audit', label:'Anti-Minimization Audit', ico:'⛶', desc:'The \'do not minimize\' audit — flags where scope was silently shrunk vs the mandate.'},
+      {id:'D-25', dir:'d-25-selfdef-management', label:'D-25 Self-Defense Management', ico:'⛨', desc:'READ-ONLY consumer view (R10212) of the selfdef IPS — on/off enablement + M060 mirror-chain health + links to the 6 domain panels (D-13..D-18). Derives state via the m060-health probe() proxy; on/off is a clipboard-copied signed CLI verb.', menuHover:'The bridge monitor — the health and freshness of the M060 mirror chain that carries selfdef’s truth (rules, grants, audit, trust) into this box’s read-only panels. It is the most load-bearing integration on the machine: when this chain is healthy the selfdef mirror panels (D-12 through D-18) show live data; when it breaks they silently freeze at the last good mirror, which is dangerous precisely because they will not look broken. It answers ‘can I trust what the selfdef panels are showing me right now.’ Open it to confirm the bridge is flowing, to see which individual mirrors are current versus stale, and to read the per-producer detail when only some panels look wrong. It is the management view of the same M060 chain the master dashboard surfaces as a single health banner.'},
+      {id:'—', dir:'selfdef-management', label:'selfdef (IPS) Management', ico:'⛨', desc:'The intrusion-prevention system — live on/off state + unit/mirror health, unifying the 6 mirror dashboards (D-13..D-18) + perimeter. Served at /selfdef-management.json (selfdef status); controls (on/off/sync/doctor + perimeter) via the Controls surface.', menuHover:'The control room for selfdef itself — the IPS whose defenses this whole box reflects but does not own. Where the D-panels mirror selfdef’s state read-only, this is where selfdef’s management surface is presented: the daemon’s health, its enforcement posture, and the R10212 boundary that keeps sovereign-os checking while selfdef owns. It answers ‘is the defense system itself healthy and enforcing,’ as distinct from ‘what are its current rules.’ Open it to confirm selfdef is up and doing its job before you trust any of the mirror panels downstream of it, or when diagnosing why those mirrors look stale. It pairs with D-25 (the mirror-chain bridge) and the Auditor (the kernel perimeter selfdef’s Guardian daemon provides).'},
+      {id:'D-12b', dir:'edge-firewall', label:'Edge Firewall', ico:'🛡', desc:'Host firewall posture — nftables / fail2ban / crowdsec / suricata state + install recommendations.', menuHover:'The defense-in-depth planner for the network edge — it reads what the box enforces locally and what the upstream OPNsense edge enforces, and finds the exposure: a threat that neither line currently stops. Enforcement candidates are grouped on a 4-class ladder from baseline must-haves to situational hardening, and it turns ‘the edge has gaps’ into specific rules the box could add, previewing each as a read-only install plan before you commit. It answers ‘given what the perimeter already does, how much should the box firewall itself, and what exactly should I add.’ Open it when hardening the box, after an edge change, or when deciding whether a weak edge means the box must self-enforce more. It reads against Network Edge (the edge’s capabilities) and D-12 (the rules the box actually runs).'},
+      {id:'D-12a', dir:'network-edge', label:'Network Edge', ico:'⇄', desc:'The edge topology — OPNsense bridge, ISP NAT layers, VPN, per-interface state. Where the box sits in the network.', menuHover:'The map of the box’s boundary with the world — the dual-NIC edge (an upstream interface and a LAN interface) with OPNsense as the perimeter authority, and, crucially, multi-NAT visibility. One NAT hop is a normal edge; two or more (an ISP router in front of your firewall) breaks inbound connectivity and hides where the real perimeter is, and this panel makes that hidden second NAT visible. It answers ‘what does the box’s path to the internet actually look like, and is the topology what I think.’ Open it when connectivity is odd, when setting up the edge, or to confirm the OPNsense perimeter can enforce what you expect before traffic reaches the box. It grounds Edge Firewall (which plans local enforcement against this edge’s gaps) and D-12 (the firewall rules that ride on this topology).'},
+      {id:'D-12', dir:'d-12-networking', label:'D-12 Networking', ico:'⇄', desc:'The cockpit networking view — the selfdef MS039 Ring-0-4 nftables rules mirror (read-only via selfdef-rules-mirror), per-ring rule counts + traffic + dispositions.', menuHover:'The firewall, read-only — a mirror of selfdef’s enforced nftables ruleset, ring-aware per MS039 so each rule is scoped to a trust ring from R0 Kernel inward to R4 Cloud outward (off by default). It shows what is enforced, the traffic through it, and the ring distribution, but it does not enforce: rules change only through selfdefctl plus your MS003 signature (R10113), so anything pending here is a proposal, never yet live. It answers ‘what is the box’s firewall actually doing, and where is enforcement concentrated.’ Open it to read the live ruleset, to check whether an unexpected ring (like cloud) carries rules, or to see a pending change before it is signed. Enforcement is authoritative on selfdef; this is the sovereign-os window onto it via the M060 bridge.'},
+      {id:'D-06', dir:'d-06-pending-approvals', label:'D-06 Pending Approvals', ico:'✋', desc:'The operator approval queue + stage gates — actions waiting for a human yes/no.', menuHover:'The operator-in-the-loop queue — everything the box has decided it will not do on its own and is holding for your signature. This is the M065 stage-gate machinery made concrete: consequential actions (an L5+ commit, a cloud egress, a key operation) stop here and wait, because the sovereignty property is that intelligence stays in your hands and every gated commit needs your MS003 signature. It answers ‘what is waiting on me, and how consequential is each item.’ Open it to clear the queue, to see what the box paused rather than assume it proceeded, and to exercise the human-gate that the backpressure ladder (D-09) escalates to. It is where the peace-machine’s sovereign property (D-20) is lived out, decision by decision.'},
+      {id:'D-07', dir:'d-07-memory-changes', label:'D-07 Memory Changes', ico:'✎', desc:'The 8-type memory-graph diff — what the agent\'s memory added/changed/removed.', menuHover:'The mind’s filing system — the M028 memory OS, the eight-tier store that is the difference between an agent that repeats your corrections and one that remembers them. Every candidate memory walks an 11-stage admission lifecycle and is trust-filtered on seven dimensions before it is kept, so the store stays signal rather than noise, and forgetting or force-admitting a memory is a signed act. It answers ‘what does the box remember, what changed recently, and what memory operations are waiting on me.’ Open it to see how full each tier is, to review a graph diff of the last day, to approve a pending forget, or to query the graph read-only via the RLM navigator. It is the persistence layer beneath everything the box learns, and its ground-truth tier is what protects against memory drift and poisoning.'},
+      {id:'D-13', dir:'d-13-filesystem-grants', label:'D-13 Filesystem Grants', ico:'📁', desc:'selfdef filesystem-grant mirror (read-only) — which paths are granted to whom.', menuHover:'The permission slips — the scoped, time-bounded filesystem grants selfdef issues (MS007), each a specific path a specific actor may touch, expiring unless renewed. It matters because standing access is the thing attackers inherit; TTL-bounded grants mean permissions decay to nothing on their own, so the live grant list is the true filesystem attack surface at this moment. It answers ‘who can touch what on disk right now, and for how much longer.’ Open it to audit active access, to spot a grant broader or longer-lived than it should be, or to confirm a grant expired as intended. It is one of the selfdef mirrors (read-only, fed by the M060 bridge) and it sits in the same MS039 ring model that governs capability tokens (D-14) and sandboxes (D-15).'},
+      {id:'D-14', dir:'d-14-capability-tokens', label:'D-14 Capability Tokens', ico:'⚷', desc:'selfdef capability-token mirror — issued/revoked capabilities.', menuHover:'The capability decoder — the tokens that encode, bit by bit, exactly what an actor is permitted to do, read through the capability_word bit map. Rather than a coarse allow/deny, each token is a precise set of capabilities packed into bits, and this panel decodes them so you can see the granular truth: not ‘can act’ but which specific capabilities are granted, and in which MS039 trust ring. It answers ‘what precisely is this actor allowed to do, at the bit level.’ Open it to audit a token that looks too powerful, to understand why an action was permitted or denied, or to see how capabilities inherit across the ring model. It is a selfdef mirror (read-only via M060), a finer-grained companion to filesystem grants (D-13) and the sandbox tiers (D-15) that contain what these capabilities permit.'},
+      {id:'D-15', dir:'d-15-sandboxes', label:'D-15 Sandboxes', ico:'▢', desc:'selfdef sandbox mirror — active sandboxes + their isolation state.', menuHover:'The containment view — the sandbox tiers (MS036) that wall off untrusted work, from namespace isolation up to full VFIO device passthrough. It shows what is running contained and how strongly: a sandbox tier decides how much a compromised process could reach, and VFIO is where a whole GPU (the 4090 Scout) is handed into isolation so its work cannot touch the host. It answers ‘what is contained, at what strength, and is the containment intact.’ Open it to confirm untrusted work is boxed in, to check a sandbox has the tier it needs, or — a security question — to verify the 4090 is actually sandboxed rather than host-claimed. It is a selfdef mirror (read-only via M060) enforcing the MS039 rings that D-14’s capability tokens and D-13’s grants describe, and it is the containment the Weaver fabric runs inside.'},
+      {id:'D-16', dir:'d-16-audit', label:'D-16 Audit Chain', ico:'☑', desc:'selfdef append-only audit-chain mirror — the tamper-evident event log.', menuHover:'The tamper-evident record — the MS016 hash-chained audit log, where every entry is cryptographically linked to the last so the history cannot be altered without the break showing. It is the box being ‘disciplined enough to explain itself’: a complete, incorruptible account of what happened, which is worthless if it can be quietly edited and priceless because it cannot. It answers ‘what is the trustworthy record of events, and is the chain unbroken.’ Open it to reconstruct an incident with confidence, to verify chain integrity and continuity, or to satisfy an audit that the box’s own account is intact. It is the Auditor’s ledger (the gatekeeper tier feeds it) and a selfdef mirror via M060 — a broken or stale chain here is a reason to distrust the box’s self-account until it is explained.'},
+      {id:'D-17', dir:'d-17-quarantine', label:'D-17 Quarantine', ico:'⚠', desc:'selfdef quarantine mirror — what\'s been isolated and why.', menuHover:'The holding cell — the MS042 quarantine where things selfdef has judged untrustworthy are isolated pending disposition. Rather than delete on suspicion or ignore on doubt, quarantine is the middle path: contain it, keep it inspectable, decide deliberately. It answers ‘what has the box flagged as suspect, why, and what is waiting to be dealt with.’ Open it to review quarantined items, to understand what tripped the judgment that put them there, or to confirm a threat is contained rather than loose. It is a selfdef mirror (read-only via M060), the disposition side of the trust machinery whose scores you read on D-18, and it works with the audit chain (D-16) that records why each item was quarantined.'},
+      {id:'D-18', dir:'d-18-trust-scores', label:'D-18 Trust Scores', ico:'★', desc:'selfdef trust-score mirror — per-entity trust levels driving policy.', menuHover:'The trust ledger — the bands that rate how much the box trusts each actor, model, or source, the same seven-dimension trust model that gates what enters memory (D-07) now applied across the machine. Trust here is earned and revocable, not assumed: a low band constrains what something is allowed to influence, and a dropping score is an early warning that something is behaving less trustworthily than it did. It answers ‘how much does the box trust each thing, and is any trust eroding.’ Open it to see the trust landscape, to understand why an actor is constrained, or to catch a trust drop before it becomes a problem. It is a selfdef mirror (read-only via M060) and the scoring layer behind the quarantine decisions (D-17) and capability grants (D-13/D-14).'},
+      {id:'D-20', dir:'d-20-peace-machine-health', label:'D-20 Peace Machine Health', ico:'☮', desc:'The M059 peace-machine 5-property verdict — the top-level \'is the system at peace\' signal.', menuHover:'The box’s conscience in one screen — the verdict on whether it is still a peace machine, meaning all five R09966 properties hold at once: powerful enough to act, disciplined enough to explain itself, reversible enough to trust, flexible enough to evolve, and — the load-bearing one — sovereign, so intelligence stays in your hands. The verdict is a conjunction: all five, or not peace. It answers the highest-level question about the box, above any single subsystem: ‘is the machine still behaving as designed.’ Open it for a one-read health check on the whole doctrine, and when it degrades, to see which property slipped and its backing modules. Each property maps to real infrastructure (M047 rollback, M049 observability, MS003 signatures), so a red property points you straight at the subsystem that broke it.'},
+      {id:'—', dir:'compliance', label:'Compliance', ico:'⚖', desc:'The §1g/§1h compliance aggregator — per-module pass/fail against the operator mandate.', menuHover:'The top of the anti-minimization stack — the meta-instrument that composes the four §1g audits (surface-map, doc-coverage, anti-minimization, ux-design) into one verdict, because ‘done properly’ is all four at once: a feature can be delivered on every surface and still be undocumented, or documented and still unusable. §1h then extends the same bar across repos to selfdef. It answers ‘is the whole fleet honoring the delivery contract, and where is the leverage to improve it.’ Open it for the single composite read, the worst-modules list ranked by combined gap (the highest-leverage cleanups), and the trend of whether the fleet is honoring the contract more or less over time. It rolls up the four instrument panels beneath it; a red composite sends you to whichever axis is dragging it down.'},
+      {id:'—', dir:'auth-tier', label:'Auth Tier', ico:'🔑', desc:'The 6-tier auth ladder (no-auth → basic → advanced → social → enterprise → network) + per-surface requirement.', menuHover:'The authentication-strength audit — a ladder of operator-named tiers measuring how strongly each surface proves who is calling and what they may do, and an upgrade-priority matrix ranking who is under-authenticating for their power. A module’s correct tier is set by what it can do: a surface that can mutate the box belongs high on the ladder, one that only reads can sit lower, and a mutating surface authenticating weakly is the priority to fix. It answers ‘does each surface authenticate as strongly as its capability warrants.’ Open it to audit the fleet’s auth posture, to find the biggest auth gaps, or before hardening a surface that can change the box. It is one of the §1g instruments the Compliance panel rolls up, alongside the surface, doc, and UX audits.'},
+      {id:'—', dir:'anti-minimization-audit', label:'Anti-Minimization Audit', ico:'⛶', desc:'The \'do not minimize\' audit — flags where scope was silently shrunk vs the mandate.', menuHover:'The cut-corner detector, built from the operator’s own directive: do not minimize. It greps the whole fleet for eight nameable smells of work that looks finished but is not — a TODO with no anchor, an empty stub, a silent skip, a surface or doc gap, a mandate-TODO owed upward, minimizing language (‘just’, ‘basic’, ‘for now’), and a status that claims done over a stub. Each finding is a specific place a corner was cut and not owned. It answers ‘where is the fleet pretending to be more finished than it is.’ Open it to see the minimization debt, to distinguish intentional waived shortcuts from accidental ones, and to find modules short on both surface and doc axes at once (the efficient place to start). It is a §1g instrument feeding the Compliance rollup; a finding is a corner to close, not to explain away.'},
     ]},
     {name:'Governance & Meta', items:[
       {id:'D-00', dir:'master-dashboard', label:'Master Dashboard', ico:'◎', desc:'The aggregator — the route table + health of every panel + selfdef cross-repo manifest discovery. The front door (this catalog is its new global index).', menuHover:'The front door and the switchboard — the one panel that knows about all the others. It answers a different question than any single dashboard: not “how is this subsystem,” but “is everything reachable, is anything colliding, and is the safety spine intact?” It carries the route table (every panel and whether the aggregator can reach it), the coverage view that proves nothing is stranded off the §1g contract, the collision list where two things claim the same route, the cross-repo manifests selfdef publishes, and — most importantly — the four health banners that are the box’s pulse: the M060 mirror chain (the selfdef→sovereign-os bridge), the MS022 SSE subscriber quota, the four-watchdog IPS spine (whether Guardian/Tetragon is up, which sovereign-os checks but selfdef owns), and AppArmor enforcement. Open it first on any session to see the whole surface at a glance; open it when a panel seems missing or misrouted; open it when you want a single yes/no on whether the defense spine is healthy before trusting anything else. It is the map every other panel is a place on.'},
-      {id:'—', dir:'surface-map', label:'Surface Map', ico:'🗺', desc:'The §1g 8-surface taxonomy coverage — which of the 8 operator surfaces each module delivers.'},
-      {id:'—', dir:'doc-coverage', label:'Doc Coverage', ico:'☷', desc:'Documentation coverage per module — what\'s documented vs shipped.'},
-      {id:'—', dir:'ux-design-audit', label:'UX Design Audit', ico:'◓', desc:'The UX design-stage audit — consistency/accessibility scoring across the panels.'},
-      {id:'—', dir:'personalization', label:'Personalization', ico:'✦', desc:'Theme / accent / typography control (localStorage-backed) applied across all panels before paint.'},
+      {id:'—', dir:'surface-map', label:'Surface Map', ico:'🗺', desc:'The §1g 8-surface taxonomy coverage — which of the 8 operator surfaces each module delivers.', menuHover:'The reachability audit — proof that every module is present on all eight operator-named surfaces (core, cli, tui, api, mcp, dashboard, webapp, service), because a feature is not delivered until it is reachable everywhere it should be. A module whose core logic works but has no CLI verb, no MCP tool, or no visible panel is minimized, and this panel counts exactly that gap, milestone by milestone, so ‘done’ milestones whose modules are still short stand out. It answers ‘is everything actually reachable, or does some capability exist only for those who already know it is there.’ Open it to find invisible (unreachable, unwaived) surfaces, to see which module needs which surface built, and to keep §1g coverage honest. It is the surface axis of the Compliance rollup.'},
+      {id:'—', dir:'doc-coverage', label:'Doc Coverage', ico:'☷', desc:'Documentation coverage per module — what\'s documented vs shipped.', menuHover:'The documentation audit — whether every module carries all six operator-named doc kinds (readme, sdd, helptext, metric-inventory, mandate-row, man-page), each written for a different reader at a different moment. A module missing one is under-documented in a specific, nameable way: no readme strands the newcomer, no sdd strands the changer, no helptext strands the operator mid-task. It answers ‘is every module actually documented, and for whom is it not.’ Open it to see the matrix of which module lacks which doc (every empty cell is a concrete writing task, not a vague ‘needs docs’), and to keep the doc half of the delivery contract honest across the fleet. It is the doc axis of the §1g Compliance rollup, extended cross-repo to selfdef via §1h.'},
+      {id:'—', dir:'ux-design-audit', label:'UX Design Audit', ico:'◓', desc:'The UX design-stage audit — consistency/accessibility scoring across the panels.', menuHover:'The experience audit — scoring surfaces on six operator-named UX dimensions (action-budget, discoverable, recoverable, next-step, operator-named, readable-30s), because a feature can render perfectly and still fail its operator. It is the exact bar this very cockpit is held to: a surface that works but takes ten clicks, hides its controls, punishes mistakes, or needs a manual to read is not done. It answers ‘is each surface actually usable, not just correct.’ Open it to see which surface is weak on which quality (every low cell is a concrete fix, like ‘add a next-step’ or ‘use the operator’s words’), and to keep usability from being the silent gap behind ‘it technically works.’ It is the UX axis of the §1g Compliance rollup, and the reason ‘it works’ was never enough.'},
+      {id:'—', dir:'personalization', label:'Personalization', ico:'✦', desc:'Theme / accent / typography control (localStorage-backed) applied across all panels before paint.', menuHover:'Operator comfort, kept deliberately apart from machine state — theme, accent color, and typography scale for the cockpit, and nothing that touches the box’s behavior. It is the one panel where you genuinely cannot break anything: everything here is presentation, saved locally, so you can make the cockpit easy to read at the bench (larger, high-contrast) or dense at the desk without any risk to the machine. It answers ‘how do I make the cockpit comfortable for me.’ Open it to set the look, or to export and import your preferences as a cosmetic JSON that carries your look between machines with no box state or secrets in it. The strict separation of presentation from state is the point — this is the safe panel, on purpose.'},
     ]},
     {name:'Science & Simulation', items:[
-      {id:'—', dir:'science', label:'Science Tools', ico:'⚛', desc:'The operator\'s science catalog — DNA / protein / particle tools. NVIDIA Warp (particles) is integrated: a differentiable particle sim on GPU (RTX PRO 6000) or CPU fallback. Read-only; running a sim is the gated sovereign-osctl science run.'},
+      {id:'—', dir:'science', label:'Science Tools', ico:'⚛', desc:'The operator\'s science catalog — DNA / protein / particle tools. NVIDIA Warp (particles) is integrated: a differentiable particle sim on GPU (RTX PRO 6000) or CPU fallback. Read-only; running a sim is the gated sovereign-osctl science run.', menuHover:'The GPU as a scientific instrument — NVIDIA Warp compiling Python kernels to run simulation and numeric compute on the same Blackwell and 4090 silicon that serves inference, so the machine is a compute instrument, not only an inference server. It answers ‘what can the box compute for me beyond serving models, and is that capability ready.’ Open it to confirm Warp is live and which GPU it targets, to browse the available science tools, or to run a simulation — remembering that a heavy run competes for the very VRAM inference needs (watch D-09). It is the panel that shows the box is general-purpose compute you own, not a single-purpose appliance, and it draws on the same GPU budget the orchestration and hardware-pressure panels track.'},
     ]},
   ];
   var PKEY='sovereign-os.personalization', PSCHEMA=1;
@@ -1470,266 +1470,294 @@ refresh();
 <script>
 window.SO_ASSIST = {
  "context": {
-  "icon": "◔",
+  "icon": "⋮",
   "title": "D-05 · Traces",
-  "content": "The box's memory of what it did — every operation recorded as a span (M049), and every span mapped to the OCSF security taxonomy (MS026) so the trace log doubles as a security event stream. This is live: the governance producers (memory admits, adapter gates, approval + session decisions) continuously feed it.\n\nRead it to answer 'what happened, in what order, and did anything go wrong': filter by OCSF class or severity, drill into a span's tree + attributes, and — because the trace is deterministic — replay-verify it (MS009) to prove the recorded sequence actually reproduces. It's the audit substrate the whole box is accountable through."
+  "content": "The forensics bench — where you reconstruct exactly what happened to a single request, span by span, when the aggregate dashboards only tell you something went wrong. Each request leaves a trace (M049): a tree of spans recording which tier classified it, which model served it, where the time went, and where it errored. Where D-01 shows the session and D-04 the cost, this shows the causal path, and it is the panel you reach for after a bad response, a mysterious latency, or a routing surprise.\n\nIt has a second identity too: every span is also emitted as an OCSF event (the 16-event taxonomy, selfdef MS026), the security-legible form auditors consume — so a trace is at once a performance record and a security record. And any trace can be replayed and verified (MS009) to confirm its integrity. Read the spans for what happened, the OCSF view for what it meant to security."
  },
  "nodes": [
   {
    "icon": "◆",
-   "title": "Live-source banner",
-   "content": "Whether spans are live from /api/traces/spans or a snapshot. D-05 is genuinely live — the governance producers feed it continuously — so a snapshot means you're missing the most recent operations.",
+   "title": "Data source",
+   "content": "Whether the trace store is live or a snapshot — you usually come here after an event, so the concern is whether the trace you need has been ingested yet.",
    "children": [
     {
-     "selector": "#datasource-banner",
+     "selector": "#ds-state-label",
      "title": "Live vs snapshot",
-     "content": "Green = the traces daemon is streaming spans; muted = a snapshot. New operations arrive constantly, so a snapshot is always behind.",
-     "icon": "◆",
+     "content": "Whether /api/traces/spans is answering live. Unlike the real-time panels, traces are a record you query after the fact — so the live question here is subtler: is the store current enough to hold the trace you are chasing, or is a just-happened request not yet ingested. A stale feed can mean the very trace you need is missing simply because it hasn’t landed.",
      "variants": [
+      {
+       "when": {
+        "textContains": "checking"
+       },
+       "content": "Reaching the trace store — spans aren’t confirmed available yet.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Connecting</div>Waiting on /api/traces/spans. A trace you are looking for may not be queryable until this goes live.</div>"
+      },
       {
        "when": {
         "textContains": "live"
        },
-       "content": "Live — spans are streaming in as operations happen.",
-       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Live</div>The traces daemon is answering; the span log is current.</div>"
+       "content": "Live — the trace store is current and queryable.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Live</div>The store is answering; recent traces should be present.</div>"
       },
       {
        "when": {
-        "textContains": "snapshot"
+        "textContains": "offline"
        },
-       "content": "Snapshot — the daemon is unreachable; recent spans won't show.",
-       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Snapshot</div>Reading last-known spans — anything that happened since is missing.</div>"
+       "content": "No answer — the trace store is a snapshot; a recent trace may be absent, not lost.",
+       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Offline</div>The trace feed is down. A missing trace here may just be unreached, not gone — retry when it recovers.</div>"
       }
      ]
     },
     {
-     "selector": "#ds-state-label",
-     "title": "Source label",
-     "content": "One-word source read — live traces daemon vs a baked snapshot, before you trust the span log as complete."
-    },
-    {
      "selector": "#ds-state-detail",
      "title": "Source detail",
-     "content": "The endpoint (/api/traces/spans) and why it's live or fell back."
+     "content": "The longer status line — which endpoint answered and, when degraded, why. On a healthy feed it confirms /api/traces/spans; when amber it distinguishes a slow store from an unreachable one, which decides whether a missing trace is worth waiting for."
     },
     {
      "selector": "#ds-last-update",
-     "title": "Fetch freshness",
-     "content": "When spans were last pulled. The log grows continuously; check this before treating the view as up-to-the-second."
+     "title": "Store freshness",
+     "content": "When the trace store was last read. It bounds how recent a trace you can expect to find: a request from seconds ago may not be ingested yet, so an old timestamp during a fresh investigation is a reason to refresh before concluding a trace is missing."
     }
    ]
   },
   {
-   "icon": "▤",
+   "icon": "▦",
    "title": "Summary",
-   "content": "The shape of the last hour of activity — how many spans, how many errored, the tail latency, and how many mapped to OCSF security events. Read errors + p95 together: errors tell you what broke, p95 tells you what was slow.",
+   "content": "The last hour in four numbers — span volume, errors, tail latency, and OCSF events emitted. It’s the ‘is anything wrong’ read before you drill into a specific trace: a rising error count or p95 is the cue to search, and the OCSF count confirms the security-event stream is flowing.",
    "children": [
     {
      "selector": "#span-count",
      "title": "Spans (1h)",
-     "content": "How many operations were traced in the last hour — the volume of recorded activity. Each span is one operation with a start, duration, and outcome."
+     "content": "How many spans were recorded in the last hour — the raw volume of traced work. It’s the denominator for the error rate beside it: a hundred errors out of a hundred spans is a crisis, out of a million is noise. Read it first to size everything else.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Volume is context for everything else</div>Every other number on this panel — errors, p95, OCSF counts — only means something against this total. A scary-looking error count is nothing against a million spans and everything against a hundred. So this is the denominator you read first, before deciding whether anything else is worth alarm.</div>"
     },
     {
      "selector": "#error-count",
      "title": "Errors",
-     "content": "How many spans ended in error in the window. This is the direct 'what went wrong' count — a non-zero here is where to filter first, because each error span carries the failure detail.",
+     "content": "How many spans errored in the last hour. Unlike a log count, each of these is a request that failed with a full causal trace attached — so this number isn’t just ‘how many failures,’ it’s ‘how many failures you can fully reconstruct.’ A non-zero count is the invitation to search for the traces behind it.",
      "variants": [
       {
        "when": {
         "textContains": "0"
        },
-       "content": "No error spans in the window — every traced operation completed cleanly."
+       "content": "No errored spans in the last hour — every traced request completed.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● 0 errors</div>Nothing failed in the traced hour.</div>"
+      },
+      {
+       "when": {
+        "textContains": ""
+       },
+       "content": "Errored spans present — each has a full trace. Search to find them and open one to see where it broke.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ Errors traced</div>Some requests failed — and each left a complete trace. Search to reconstruct exactly where.</div>"
       }
      ]
     },
     {
      "selector": "#p95-lat",
      "title": "p95 latency",
-     "content": "The 95th-percentile span duration — 95% of operations finished faster than this. The tail-aware 'how slow was it' read; a bad p95 with few errors means things worked but sluggishly (check D-03 model latency for why)."
+     "content": "The 95th-percentile span latency over the hour — the slow tail, the latency a user actually feels on a bad request. It matters more than an average because tracing exists to explain outliers: a high p95 here is the number that sends you searching for the slow traces behind it, so you can see WHERE the time went, not just that it was slow.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The tail is why traces exist</div>An average latency tells you the system is fine on the whole; the p95 tells you one request in twenty is slow, and tracing is how you find out why. So this number is the bridge from ‘something is slow’ to ‘this span in this trace is where the time went’ — read it, then search the slow window it implies.</div><div class=\"so-xref\"><span class=\"x\">→</span> #spans-tbody — search the slow traces this tail points to</div>"
     },
     {
      "selector": "#ocsf-count",
      "title": "OCSF events",
-     "content": "How many spans mapped to an OCSF security-event class. This is the security-relevant subset of the trace — the operations that matter for the audit trail, not just the perf log."
+     "content": "How many OCSF security events were emitted in the hour. Every span is dual-emitted as an OCSF event (MS026), so this tracks the security-legible stream — a healthy non-zero count confirms the box is producing the audit-grade record, and it is the volume auditors and the SIEM consume, distinct from the raw spans developers read.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">One event, two audiences</div>Each traced operation is written twice — once as a developer span (what happened technically) and once as an OCSF event (what it meant to security). This count tracks the second stream; a zero here while spans flow would mean the security record isn’t being produced, which is itself a finding.</div><div class=\"so-xref\"><span class=\"x\">→</span> the OCSF taxonomy below — the classes these events fall into</div>"
+    }
+   ]
+  },
+  {
+   "icon": "⊟",
+   "title": "Filter",
+   "content": "The query controls — narrow the span search by text, severity, OCSF class, and time window. Tracing is only useful if you can find the one trace you need in millions, so these are the tools that turn a haystack into the specific request you are chasing.",
+   "children": [
+    {
+     "selector": "#search-input",
+     "title": "Search",
+     "content": "Free-text search across spans — a request id, a model name, an error string. It’s the fastest path to a specific trace when you have any identifying detail; combine it with the filters below to cut a huge span set down to the handful that match what you’re investigating.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The needle-finder</div>Tracing is only useful if you can find the one trace among millions. Text search is the direct route when you have a handle — an id from a log, a model name, the error text a user reported. Paired with the severity and time filters, it turns an unmanageable span volume into the specific request you came to reconstruct.</div>"
+    },
+    {
+     "selector": "#severity-select",
+     "title": "Severity filter",
+     "content": "Filter spans by severity. Set it to warn or error to skip the vast volume of routine spans and see only the ones that indicate a problem — the fastest way to jump straight to what went wrong without knowing what you’re looking for yet.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Start from ‘what went wrong’</div>When you know something failed but not what, severity is the shortcut: filter to error and the millions of routine spans vanish, leaving only the failures — each with a full trace. It is the triage that turns ‘something is wrong somewhere’ into a short, investigable list without needing a search term first.</div>"
+    },
+    {
+     "selector": "#ocsf-class-select",
+     "title": "OCSF class filter",
+     "content": "Filter by OCSF event class — narrow to a specific kind of security event (a detection finding, a config change, a cloud exposure). Because every span is also an OCSF event, this lets you search the trace store the way a security analyst would: by event category, not by request detail.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Search by what it meant, not what it was</div>The text search finds a trace by its specifics; this finds traces by their security meaning. Filtering to ‘Detection Finding’ or ‘Ring 4 cloud exposure’ surfaces every request that triggered that class of event, which is how you answer questions like ‘did anything reach cloud today’ across all traces at once.</div><div class=\"so-xref\"><span class=\"x\">→</span> the OCSF taxonomy below — the classes this filter selects from</div>"
+    },
+    {
+     "selector": "#window-select",
+     "title": "Time window",
+     "content": "The time range to search — 1h, 24h, 7d. Narrow it to a burst you’re investigating or widen it to find a rare event. The window bounds how far back the store is queried, so a rare event you can’t find in an hour may need a longer window to appear.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Narrow for noise, widen for rarity</div>The window is a signal-to-noise dial. A tight window around a known incident cuts out unrelated traffic so the relevant traces stand out; a wide window is how you surface a rare event that happens once a week. Match it to what you’re hunting — a burst wants narrow, a needle wants wide.</div>"
+    },
+    {
+     "selector": "#apply-btn",
+     "title": "Apply",
+     "content": "Runs the search with the current filters. Read-only — it queries the trace store and repopulates the span table; it changes nothing about the box, only what you’re looking at."
+    },
+    {
+     "selector": "#clear-btn",
+     "title": "Clear",
+     "content": "Resets the filters to the default view. Use it to start a fresh search after drilling into one investigation, rather than un-setting each filter by hand."
+    }
+   ]
+  },
+  {
+   "icon": "◫",
+   "title": "Spans",
+   "content": "The search results — the spans matching your filters, each a step in some request’s trace. This is the list you scan to find the one trace worth opening; a row’s severity and OCSF class tell you at a glance whether it’s the failure you’re hunting. Click a row to open its full detail.",
+   "children": [
+    {
+     "selector": "#spans-tbody",
+     "title": "Span rows",
+     "content": "Each row is a span — a single operation in a request’s trace, with its OCSF class and severity. Read the list to find the trace you need: an error-severity row is a failure with a full causal tree behind it, a slow one is where a latency lived. Selecting a row opens the detail panel with its full 13-field record and span tree.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A span is one step; the trace is the whole path</div>One request produces many spans — classify, route, infer, validate — linked into a tree. This table lists individual spans; opening one gives you the whole trace it belongs to, so you can follow the request from entry to error. The severity and OCSF columns are the triage: they tell you which span is the one that matters before you open it.</div><div class=\"so-xref\"><span class=\"x\">→</span> #detail-panel — the full trace behind a selected span</div>",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#spans-tbody tr",
+      "nameSelector": "td,code,strong",
+      "title": "Span · {{name}}",
+      "content": "The {{name}} span — one step of a request’s trace, with its OCSF class and severity. An error-severity span is a failure with a full causal tree behind it; a slow one is where latency lived. Click to open its full trace.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Span · {{name}}</div>One operation in a trace. Its severity and OCSF class are the triage — they tell you whether this is the span that matters before you open the whole trace behind it.</div><div class=\"so-xref\"><span class=\"x\">→</span> #detail-panel — this span’s full trace</div>"
+     }
+    }
+   ]
+  },
+  {
+   "icon": "▤",
+   "title": "OCSF taxonomy",
+   "content": "The 16-event security taxonomy (selfdef MS026) that every span is also classified into — the Open Cybersecurity Schema Framework, the standard vocabulary a SIEM or auditor speaks. This is what makes a trace a security record and not just a performance one: each event maps to a class an analyst recognizes. Hover a class to see what it captures.",
+   "children": [
+    {
+     "selector": "#ocsf-tbody",
+     "title": "OCSF event counts",
+     "content": "Each row is an OCSF event class and its count in the window — the security-event breakdown. Read it as the shape of what the box did in security terms: mostly benign observer/config events on a quiet box, a spike in detection findings or cloud-exposure events when something notable happened. It’s the security summary the raw spans don’t give you.",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#ocsf-tbody tr",
+      "nameSelector": "td,code,strong",
+      "title": "OCSF · {{name}}",
+      "content": "The {{name}} OCSF class and its count in the window — one category of the 16-event security taxonomy (MS026). Read it as what the box did in security terms; a spike in a finding or exposure class is the story of the window.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">OCSF · {{name}}</div>One class of the security event taxonomy. Filtering to it surfaces every trace that produced this kind of event — the analyst’s way of searching the box by security meaning rather than request detail.</div>"
+     }
+    },
+    {
+     "selector": "#ocsf-1001",
+     "title": "Class 1001 · System Activity",
+     "content": "OCSF class 1001 — system/observer activity, kernel-level events (L0 Observer). The routine background stream: the box watching itself at the lowest authority level. High volume here is normal and healthy; it’s the baseline hum that makes an anomaly in the higher classes stand out.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The baseline that makes anomalies visible</div>This class is supposed to be loud — the box observing itself continuously at zero authority. Its value isn’t in any single event but as the steady background: when the higher-authority classes (findings, changes, cloud) light up against this quiet hum, the contrast is the signal.</div>"
+    },
+    {
+     "selector": "#ocsf-1003",
+     "title": "Class 1003 · Simulate/Gate",
+     "content": "OCSF class 1003 — L2 Simulate: gate evaluations and restore operations. These are the box reasoning about whether to allow something (a dry-run, a gate check) without committing it. Read them to see the decisions the box weighed but hadn’t yet acted on — the deliberation before a commit.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The thinking before the doing</div>L2 Simulate is where the box evaluates a gate or dry-runs a change without effect. So these events are a window into the box’s deliberation — what it considered and how it decided — separate from the config-change class (5001) that records what it actually did. Together they show intent and action.</div><div class=\"so-xref\"><span class=\"x\">→</span> #ocsf-5001 — the commits these simulations lead to</div>"
+    },
+    {
+     "selector": "#ocsf-2004",
+     "title": "Class 2004 · Detection Finding",
+     "content": "OCSF class 2004 — a Detection Finding: the box (or selfdef) flagged something as suspicious. This is the class to watch — a finding is the immune system noticing a threat, so a spike here is the security story of the window. Each one has a full trace showing exactly what triggered it.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">The class that means ‘something was noticed’</div>Most OCSF classes are routine activity; a Detection Finding is judgment — selfdef decided something warranted flagging. So this is the highest-signal class on the panel: filter to it to see everything the box found concerning, and open each one’s trace to see what tripped it.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-17 quarantine — where a finding’s subject may be isolated<br><span class=\"x\">→</span> the Auditor — the tier that raises these</div>"
+    },
+    {
+     "selector": "#ocsf-4001",
+     "title": "Class 4001 · Network/Cloud",
+     "content": "OCSF class 4001 — network activity, notably Ring 4 cloud exposure and MS038 grants. On a sovereign box this class should be quiet: Ring 4 is cloud, which is off by default, so an event here means something reached (or was granted the ability to reach) the outermost, least-trusted ring. Read it as the ‘did anything touch cloud’ evidence at the event level.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The class that catches cloud exposure</div>Ring 4 is the cloud boundary, disabled by default — so a 4001 event is the box recording that something crossed, or was granted, that boundary. Paired with D-04’s cost view, it’s how you confirm at the security level (not just the billing level) whether the sovereignty line held.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-04 costs — the same cloud exposure seen as spend</div>"
+    },
+    {
+     "selector": "#ocsf-5001",
+     "title": "Class 5001 · Configuration Change",
+     "content": "OCSF class 5001 — a Configuration Change: L5 Commit / L6 Persist, a profile transition, a real change to the box’s state. These are the high-authority acts that actually altered something, so they’re the class an audit cares most about — each is a moment the box changed, with a trace showing who and why.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The class that records real change</div>A config-change event is the box crossing from thinking to acting — an L5 commit, an L6 persist, a profile switch. Because these require operator authority, each 5001 is an accountable change, and the trace behind it is the record of the decision. It’s where an audit reconstructs ‘when did the box’s posture actually change, and on whose signature.’</div><div class=\"so-xref\"><span class=\"x\">→</span> D-02 profile-choices — the authority behind a profile-transition event</div>"
     }
    ]
   },
   {
    "icon": "⚲",
-   "title": "Filter",
-   "content": "Narrow the span log to what you're chasing — by text, severity, OCSF class, or time window. Tracing is only useful if you can find the one span that matters among thousands.",
+   "title": "Span detail",
+   "content": "The drill-down for a selected span — its full 13-field record, the span tree it sits in, its raw attributes, and its OCSF payload. This is where a row in the list becomes the whole story: the causal tree from request entry to the point of interest, with every attribute the box recorded.",
    "children": [
-    {
-     "selector": "#search-input",
-     "title": "Search spans",
-     "content": "Free-text search across trace_id, operation, and attribute key/values. The way to find a specific span when you know something about it — a trace id from an error, an operation name, an attribute value."
-    },
-    {
-     "selector": "#severity-select",
-     "title": "Severity filter",
-     "content": "Filter by severity — all / warn / info / error. Jump straight to the error/warn spans when you're chasing a failure rather than browsing."
-    },
-    {
-     "selector": "#ocsf-class-select",
-     "title": "OCSF class filter",
-     "content": "Filter by OCSF security-event class (System / Audit / Detection Finding / Network / Config Change). The security lens — show only the spans that map to a given class of security event."
-    },
-    {
-     "selector": "#window-select",
-     "title": "Time window",
-     "content": "How far back to look — last 1h / 24h / 7d. Widen it to catch a pattern; narrow it to zoom into an incident window."
-    },
-    {
-     "selector": "#apply-btn",
-     "title": "Apply filter",
-     "content": "Runs the current filter against the span log. Read-only — it re-queries, it never changes a span."
-    },
-    {
-     "selector": "#clear-btn",
-     "title": "Clear filter",
-     "content": "Resets all filters back to the full span log. The way back to the unfiltered view."
-    }
-   ]
-  },
-  {
-   "icon": "≣",
-   "title": "Spans",
-   "content": "The actual traced operations matching your filter — each with its operation, duration, OCSF class, and severity. Click a span to drill into its detail (fields, tree, attributes, OCSF payload).",
-   "children": [
-    {
-     "selector": "#spans-tbody",
-     "title": "Span rows",
-     "content": "Each span with operation, duration, OCSF class, and severity. Hover a row for what that operation was and whether it errored; click it to open the full detail panel. This is the raw event stream — the record of every operation the box performed.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Reading a span</div>A span is one operation: what ran, how long it took, its OCSF security class, and its outcome. Duration surfaces slow ops; severity surfaces failures; the OCSF class puts it in the security timeline.<div class=\"so-xref\"><span class=\"x\">→</span> click a span → the detail panel shows its tree + attributes + OCSF payload</div></div>",
-     "dynamic": true,
-     "childTemplate": {
-      "selector": "#spans-tbody tr",
-      "nameSelector": "td",
-      "title": "Span · {{name}}",
-      "content": "The {{name}} span — one traced operation with its duration, OCSF class, and severity. Hover reads the row; click for the full detail + tree.",
-      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Span · {{name}}</div>One operation in the trace log. Duration flags slow; severity flags failure; the OCSF class places it in the security timeline.<div class=\"so-xref\"><span class=\"x\">→</span> click → fields, tree, attributes, OCSF payload</div></div>"
-     }
-    }
-   ]
-  },
-  {
-   "icon": "⛨",
-   "title": "OCSF 16-event taxonomy (MS026)",
-   "content": "The Open Cybersecurity Schema Framework classes every span is mapped to (selfdef MS026). OCSF is a standard security-event vocabulary — mapping traces to it means the box's activity log IS a security event stream, legible to selfdef and any SIEM. The count per class shows what kind of activity dominated the window.",
-   "children": [
-    {
-     "selector": "#ocsf-tbody",
-     "title": "OCSF taxonomy",
-     "content": "The full OCSF class table with each class, name, typical emitter, and count in the window. Hover a class for what it captures. This is the security-schema key for reading the spans above.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why map traces to OCSF</div>A raw span log is perf data; the same log mapped to OCSF is a security narrative. It lets 'the box did X' be read as a standard security event — cross-tool, cross-repo (selfdef speaks the same schema).</div>",
-     "dynamic": true,
-     "childTemplate": {
-      "selector": "#ocsf-tbody tr",
-      "nameSelector": "td",
-      "title": "OCSF · {{name}}",
-      "content": "The {{name}} OCSF class and its count in the window — how much of this security-event kind happened. Hover reads the row.",
-      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">OCSF · {{name}}</div>One security-event class from the MS026 taxonomy. Its count is how much of that activity the window saw.</div>"
-     }
-    },
-    {
-     "selector": "#ocsf-1001",
-     "title": "1001 · System Activity",
-     "content": "OCSF class 1001 (System Activity) — emitted by L0 Observer, kernel events. Routine system operations — the baseline hum of the box observed at the kernel level. Grouping spans by OCSF class turns raw traces into a security-legible timeline.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">1001 · System Activity</div>The System Activity OCSF class. Routine system operations — the baseline hum of the box observed at the kernel level. Typical emitter: L0 Observer, kernel events.<div class=\"so-tip\">💡 OCSF is the common security schema (MS026) — mapping every span to it lets sovereign-os and selfdef speak one event language.</div></div>"
-    },
-    {
-     "selector": "#ocsf-1003",
-     "title": "1003 · Audit Activity",
-     "content": "OCSF class 1003 (Audit Activity) — emitted by L2 Simulate, gate eval, restore. Governance operations — gate evaluations, simulations, restores. The spans that record decisions being made and checked. Grouping spans by OCSF class turns raw traces into a security-legible timeline.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">1003 · Audit Activity</div>The Audit Activity OCSF class. Governance operations — gate evaluations, simulations, restores. The spans that record decisions being made and checked. Typical emitter: L2 Simulate, gate eval, restore.<div class=\"so-tip\">💡 OCSF is the common security schema (MS026) — mapping every span to it lets sovereign-os and selfdef speak one event language.</div></div>"
-    },
-    {
-     "selector": "#ocsf-2004",
-     "title": "2004 · Detection Finding",
-     "content": "OCSF class 2004 (Detection Finding) — emitted by Guardian SIGKILL, declaration mismatch, chain break. The security-critical class — a Guardian kill, a declaration mismatch, an audit-chain break. A span here is the box catching something wrong; these are the ones to read first. Grouping spans by OCSF class turns raw traces into a security-legible timeline.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">2004 · Detection Finding</div>The Detection Finding OCSF class. The security-critical class — a Guardian kill, a declaration mismatch, an audit-chain break. A span here is the box catching something wrong; these are the ones to read first. Typical emitter: Guardian SIGKILL, declaration mismatch, chain break.<div class=\"so-tip\">💡 OCSF is the common security schema (MS026) — mapping every span to it lets sovereign-os and selfdef speak one event language.</div></div>"
-    },
-    {
-     "selector": "#ocsf-4001",
-     "title": "4001 · Network Activity",
-     "content": "OCSF class 4001 (Network Activity) — emitted by Ring 4 cloud exposure, MS038 grants. Anything touching the network — a Ring-4 cloud exposure, a network grant. On a sovereign box these are rare and worth noticing, since the default is local-only. Grouping spans by OCSF class turns raw traces into a security-legible timeline.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">4001 · Network Activity</div>The Network Activity OCSF class. Anything touching the network — a Ring-4 cloud exposure, a network grant. On a sovereign box these are rare and worth noticing, since the default is local-only. Typical emitter: Ring 4 cloud exposure, MS038 grants.<div class=\"so-tip\">💡 OCSF is the common security schema (MS026) — mapping every span to it lets sovereign-os and selfdef speak one event language.</div></div>"
-    },
-    {
-     "selector": "#ocsf-5001",
-     "title": "5001 · Configuration Change",
-     "content": "OCSF class 5001 (Configuration Change) — emitted by L5 Commit, L6 Persist, profile transition. State changes — a commit, a persist, a profile transition. The spans that record the box changing its own configuration, which is exactly what an audit wants attributed. Grouping spans by OCSF class turns raw traces into a security-legible timeline.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">5001 · Configuration Change</div>The Configuration Change OCSF class. State changes — a commit, a persist, a profile transition. The spans that record the box changing its own configuration, which is exactly what an audit wants attributed. Typical emitter: L5 Commit, L6 Persist, profile transition.<div class=\"so-tip\">💡 OCSF is the common security schema (MS026) — mapping every span to it lets sovereign-os and selfdef speak one event language.</div></div>"
-    }
-   ]
-  },
-  {
-   "icon": "◈",
-   "title": "Span detail & replay",
-   "content": "The drill-down for one span (opened on click) plus the ability to replay-verify a whole trace. Because operations are deterministic, a recorded trace can be re-run to prove it reproduces — the strongest form of accountability.",
-   "children": [
-    {
-     "selector": "#replay-verify-btn",
-     "title": "MS009 replay verify (operator-signed)",
-     "content": "Stages a deterministic replay of the selected trace (MS009) — re-running the recorded sequence to prove it reproduces exactly. This is accountability by reproduction: not 'the log says X happened' but 'X provably happens again from the same inputs'. MS003-signed, because a replay is a privileged operation.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Replay = accountability by reproduction</div>A log can be doubted; a deterministic replay can't. MS009 re-executes the trace from its recorded inputs and checks the outcome matches — turning the audit trail from a claim into a proof.<div class=\"so-tip\">💡 Signed (MS009 + MS003) because replaying re-runs real operations; it's gated like any privileged verb.</div></div>"
-    },
     {
      "selector": "#detail-panel",
-     "title": "Span detail panel",
-     "content": "The drill-down panel for a clicked span — its fields, tree, raw attributes, and OCSF payload. Where a single span goes from a table row to its full recorded context."
-    },
-    {
-     "selector": "#detail-close",
-     "title": "Close detail",
-     "content": "Closes the span-detail panel and returns to the span list."
+     "title": "Detail panel",
+     "content": "The full detail for the selected span — opened by clicking a span row. It holds the trace tree, the raw attributes, and the OCSF payload, so it’s the complete forensic record of one operation: everything the box knew about this step, in one place. This is where an investigation actually gets answered.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">One place, three views of the same span</div>The detail panel shows the span three ways: the tree (its causal context), the raw attributes (the un-summarized facts), and the OCSF payload (its security meaning). An investigation usually needs all three — the tree to see what led here, the attributes for the specifics, the OCSF form to reconcile with the security record.</div>"
     },
     {
      "selector": "#detail-title",
-     "title": "Span detail title",
-     "content": "Which span is open in the detail panel — the operation you're inspecting."
+     "title": "Detail title",
+     "content": "Which span is open in the detail panel — its identity, so you know which step of which trace you’re reading."
     },
     {
      "selector": "#detail-fields",
-     "title": "Span fields",
-     "content": "The structured fields of the span — trace id, timing, status, the typed metadata. The at-a-glance identity of the operation."
+     "title": "Detail fields",
+     "content": "The 13-field structured record of the span — the standard trace fields (timestamps, ids, tier, model, status). Read across them for the span’s vitals: when it ran, on what, and how it ended.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The span’s vital signs</div>Thirteen standard fields capture the skeleton of any operation — when, how long, which tier, which model, what status, what parent. Read together they answer the basic questions before you dig into the raw attributes: this is the structured summary the free-form attribute bag elaborates on.</div>"
     },
     {
      "selector": "#detail-tree",
      "title": "Span tree",
-     "content": "The span's place in its trace tree — parent and child spans. This is how you see an operation in context: what called it, what it called, where the time went across the whole trace."
+     "content": "The trace tree the selected span belongs to — the parent-and-child spans that make up the whole request. This is the causal path: read it top-down to follow the request from entry through classification, routing, inference, and validation to where it ended. A span deep in the tree is where the interesting thing happened; the tree shows what led there.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The tree is the causality</div>A single span is a moment; the tree is the sequence of moments that produced it. Following it top-down reconstructs the request’s life — which is how you find not just WHERE an error occurred but what led to it, three spans earlier. This is the difference between a log line and a trace: the log says what happened, the tree says why.</div>"
     },
     {
      "selector": "#detail-attrs",
      "title": "Attributes (raw)",
-     "content": "The raw key/value attributes attached to the span — the operation's full recorded detail, including the cost attribute D-04 sums. The ground truth behind the summarized fields."
+     "content": "The raw attribute bag for the span — every key/value the box attached, beyond the standard fields. Read it when the structured fields aren’t enough and you need the un-summarized detail the box recorded about this specific operation.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">When the summary isn’t enough</div>The 13 standard fields are the skeleton; this is everything else the box thought worth recording about the span — flags, intermediate values, context the schema doesn’t have a column for. It’s the layer you drop to when the structured view leaves a question unanswered, the closest thing to seeing exactly what the box saw.</div>"
     },
     {
      "selector": "#detail-ocsf",
-     "title": "OCSF event payload",
-     "content": "The span rendered as its OCSF security-event payload — the standardized form a SIEM or selfdef would consume. Same operation, security-schema shape."
+     "title": "OCSF payload",
+     "content": "The span’s OCSF event payload — the same operation in the security schema, the exact form the SIEM or an auditor receives. Read it to see how this span is represented as a security event, and to confirm the security record matches the performance one.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The security twin of the span</div>This is the span translated into the standard security vocabulary — the record an auditor or SIEM actually consumes. Reading it beside the technical fields confirms the two stories agree: the performance record and the security record are the same event seen through two lenses, and a mismatch between them would itself be worth investigating.</div>"
+    },
+    {
+     "selector": "#detail-close",
+     "title": "Close detail",
+     "content": "Closes the detail panel and returns to the span list. Cosmetic — it changes only what you’re viewing."
+    }
+   ]
+  },
+  {
+   "icon": "⇄",
+   "title": "Actions",
+   "content": "Refresh re-queries the store; replay-verify re-runs a trace to confirm its integrity (MS009). Replay is the notable one — it’s how you prove a trace wasn’t tampered with and that the operation is deterministic.",
+   "children": [
+    {
+     "selector": "#refresh-btn",
+     "title": "Refresh",
+     "content": "Re-runs the current search against the trace store immediately. Read-only. Use it to pull in traces that landed since your last query — useful when investigating something that just happened and may not have been ingested yet."
+    },
+    {
+     "selector": "#replay-verify-btn",
+     "title": "Replay + verify (MS009)",
+     "content": "Replays a selected trace and verifies it — re-running the recorded operation to confirm it produces the same result, and that the trace hasn’t been altered (MS009). It’s the integrity check for the forensic record itself: a trace you can replay to the same outcome is a trace you can trust as evidence. Read-only replay; it confirms, it doesn’t change state.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Proving the record is trustworthy</div>A trace is only useful as evidence if it’s faithful. Replay re-executes the recorded operation and checks the outcome matches, and the verify step confirms the trace’s integrity against the audit chain — so a replayed-and-verified trace is one you can stand behind in an incident review. It’s the difference between a log you hope is accurate and a record you’ve proven is.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-16 audit — the hash chain replay verifies against</div>"
     },
     {
      "selector": "#trace-replay",
-     "title": "Trace replay anchor",
-     "content": "A jump to the replay-verify control — for proving a trace reproduces."
+     "title": "Replay output",
+     "content": "The result of a replay-verify run — whether the trace reproduced faithfully and passed integrity. Read it as the verdict on a trace’s trustworthiness: a clean replay means the record is sound evidence; a mismatch means the operation is non-deterministic or the trace was altered, both of which are worth knowing.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A mismatch is itself a finding</div>A clean replay says the record is faithful — trust it as evidence. A mismatch says one of two things, both important: either the operation is non-deterministic (it does not reproduce, which complicates any guarantee about it) or the trace was altered after the fact (a tampering signal). So the failure case is not a dead end — it is a discovery.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-16 audit — the hash chain a tamper mismatch would implicate</div>"
     }
    ]
   },
   {
    "icon": "⎈",
-   "title": "Actions & controls",
-   "content": "Read-only trace view — refreshing re-samples; replay-verify is an MS009+MS003-signed verb. The web reads the audit trail; replaying runs through the signed CLI.",
+   "title": "Controls",
+   "content": "The shared control rail. On the trace panel it’s context — the investigation is the point — but a trace can reveal a systemic issue (a tier consistently erroring, cloud repeatedly reached) whose fix is a posture change copied from here. Each control copies its signed verb.",
    "children": [
-    {
-     "selector": "#refresh-btn",
-     "title": "Refresh",
-     "content": "Re-poll the span log on demand. Read-only re-sample."
-    },
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Trace controls — each copies its exact sovereign-osctl verb (§1g / R10212). Replay-verify runs through the signed CLI; the web reads spans but never re-executes them from here."
+     "content": "The profile/mode/feature control rail. Its role here is that a trace investigation sometimes ends in a structural fix — if traces keep showing one tier erroring or cloud repeatedly reached, the durable answer is a profile or feature change, whose signed verb is copied from here rather than acting on each trace individually."
     }
    ]
   }

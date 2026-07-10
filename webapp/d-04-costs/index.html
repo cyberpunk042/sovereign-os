@@ -510,67 +510,67 @@ a11y; contract test catches drift.
   //    Generated from config/dashboard-catalog.yaml (single source of truth). ──
   var GROUPS = [
     {name:'Trinity & Orchestration', items:[
-      {id:'—', dir:'trinity', label:'Trinity', ico:'△', desc:'The 3-tier runtime at a glance — Pulse (CPU/AVX-512 ternary), Weaver (sandboxed GPU fabric), Auditor (immutable gatekeeper): live tier status, model assignments, health.'},
-      {id:'—', dir:'weaver', label:'Weaver (fabric)', ico:'☲', desc:'The sandboxed fabric layer — Podman/VFIO isolation, the state-fabric (tank/context) writers, CCD1 allocation. Where untrusted work runs.'},
-      {id:'—', dir:'auditor', label:'Auditor (gatekeeper)', ico:'🔍', desc:'The always-on immutable gatekeeper — Tetragon eBPF perimeter + Guardian violation tail. The last line that cannot be bypassed.'},
-      {id:'—', dir:'router', label:'Router', ico:'⎈', desc:'The deterministic request router (SDD-011): which tier answers a prompt, per-rule classification, routing-decision metrics. Pairs with the thinking-router planner (CLI: router plan).'},
-      {id:'—', dir:'runtime-modes', label:'Runtime Modes', ico:'◑', desc:'The master-spec §18 runtime profiles (ultra-sovereign-efficiency / high-concurrency / deep-context) — pick the mode; it drives core pinning, GPU power, model allocation.'},
-      {id:'D-01', dir:'d-01-active-sessions', label:'D-01 Active Sessions', ico:'▣', desc:'The 12-step task lifecycle per live operator session (init → inference → response → validation → cleanup).'},
+      {id:'—', dir:'trinity', label:'Trinity', ico:'△', desc:'The 3-tier runtime at a glance — Pulse (CPU/AVX-512 ternary), Weaver (sandboxed GPU fabric), Auditor (immutable gatekeeper): live tier status, model assignments, health.', menuHover:'The three-part mind of the box at a glance — Pulse, Weaver, and Auditor (M066), the arrangement that lets you trust compute you cannot personally verify. Pulse does the thinking on cheap CPU ternary, Weaver shapes and steers it on the sandboxed GPU fabric, and the Auditor watches both from an immutable perch that cannot be bribed or bypassed. The whole point is separation of powers: no single tier can both act and vouch for itself. Open it for the one-screen answer to ‘is the trinity intact’ — all three up, each doing its own job — before you rely on anything the box produced. It is the parent of the Weaver and Auditor panels and the human-readable face of what D-16 (the audit chain) and D-18 (trust) enforce underneath.'},
+      {id:'—', dir:'weaver', label:'Weaver (fabric)', ico:'☲', desc:'The sandboxed fabric layer — Podman/VFIO isolation, the state-fabric (tank/context) writers, CCD1 allocation. Where untrusted work runs.', menuHover:'The sandboxed fabric layer — where untrusted and heavy work actually runs, walled off from everything that matters. Weaver owns the GPU fabric (Podman + VFIO isolation), the writers that persist state into tank/context, and the CCD1 core allocation, so it is the tier you look at to answer ‘where is the risky work contained, and is the containment holding.’ It is deliberately the messy tier — bursty, GPU-hungry, running things the box does not fully trust — which is exactly why it is isolated. Open it when you want to see what the fabric is doing, whether a sandbox has the resources it needs, or whether Weaver’s work is staying inside its VFIO boundary rather than leaking toward the host. It sits under the Trinity umbrella beside Pulse (compute) and the Auditor (the watcher that keeps Weaver honest).'},
+      {id:'—', dir:'auditor', label:'Auditor (gatekeeper)', ico:'🔍', desc:'The always-on immutable gatekeeper — Tetragon eBPF perimeter + Guardian violation tail. The last line that cannot be bypassed.', menuHover:'The always-on gatekeeper — the one tier that only watches and can never be talked out of it. The Auditor runs the Tetragon eBPF perimeter at the kernel boundary and tails the Guardian daemon’s violations, so it is the last line that observes every syscall and cannot be bypassed from userspace. Its whole value is incorruptibility: it does no work of its own, which is precisely why its verdicts can be trusted about the work others do. Open it to confirm the perimeter is live and streaming — because a blind Auditor is a security event, not a slow one — and to read what it has flagged. It is the enforcement half of the Trinity (Pulse computes, Weaver steers, the Auditor judges), and it feeds the tamper-evident record you inspect on D-16.'},
+      {id:'—', dir:'router', label:'Router', ico:'⎈', desc:'The deterministic request router (SDD-011): which tier answers a prompt, per-rule classification, routing-decision metrics. Pairs with the thinking-router planner (CLI: router plan).', menuHover:'The loopback traffic cop every prompt passes through — the deterministic request router (SDD-011) that decides, in a fixed rule order, which tier answers a given prompt. It classifies each request against an ordered rule set (first match wins, so the same prompt always routes the same way) and dispatches it to Pulse (cheap ternary), the Logic engine (mid-scale Q4), or the Oracle (deep reasoning). The doctrine it enforces is that most prompts do not deserve the expensive model. Open it to see the routing rules, the backends’ health as route targets, and the live counts of where prompts actually landed — and to catch a rules-vs-reality mismatch (everything piling onto Oracle, or the cheap tier being bypassed). It pairs with the thinking-router (orchestration) which adds reasoning escalation on top of this tier choice.'},
+      {id:'—', dir:'runtime-modes', label:'Runtime Modes', ico:'◑', desc:'The master-spec §18 runtime profiles (ultra-sovereign-efficiency / high-concurrency / deep-context) — pick the mode; it drives core pinning, GPU power, model allocation.', menuHover:'The runtime posture chooser, seen from the mode angle — the same M076 profiles as D-21 but framed as ‘what mode is the box in.’ Each mode (ultra-sovereign-efficiency, high-concurrency, deep-context) is a whole coherent stance that drives core pinning, GPU power, and model allocation together, so switching mode reshapes how the entire machine thinks rather than tweaking one knob. Open it when you want to change the box’s character — cheapest cognition, most parallel agents, or longest contexts — and to understand the trade-off each mode makes (you cannot have all three at once). It is the plain-language sibling of D-21 (which shows the same choice as a model-to-hardware grid) and of profile-generation (which produces these modes from hardware and strategy).'},
+      {id:'D-01', dir:'d-01-active-sessions', label:'D-01 Active Sessions', ico:'▣', desc:'The 12-step task lifecycle per live operator session (init → inference → response → validation → cleanup).', menuHover:'The live-sessions board — every operator session in flight and where each one sits in the 12-step task lifecycle (M057), from init through inference, response, validation, to cleanup. It answers ‘what is the box actually working on right now, and is anything stuck.’ Each session walks the same lifecycle, so a session parked at one step is a session that needs attention — a stalled validation, an inference that never returned. Open it to see concurrency at a glance, to find a hung session, or to confirm work is draining through the lifecycle cleanly rather than piling up. It is the per-session counterpart to D-03 (which shows the models those sessions are hitting) and D-09 (the pressure a burst of sessions produces).'},
       {id:'D-03', dir:'d-03-model-health', label:'D-03 Model Health', ico:'♥', desc:'Per-tier inference health — SRP role, GPU binding, KV-cache pressure, latency. The live-serving view (distinct from the catalog).', menuHover:'How well the models are actually SERVING right now — the live-inference counterpart to the catalog. Where D-23 tells you which models exist, this tells you how the loaded ones are performing across the three SRP tiers (M075): the Conductor on CPU ternary, the Logic engine on the sandboxed 4090, and the Oracle on the Blackwell. It reads each tier’s utilization and headroom, per-model latency at the p50/p95/p99 tails (because the tail is what a user feels, not the average), KV-cache occupancy and prefill-hit rate per model, and a 24-hour availability heatmap that turns momentary blips into a pattern. Open it when a response felt slow and you need to know which tier and which model was the cause; open it before loading a new model to see which tier has room; open it after a profile change to confirm the reassignment is serving cleanly. It pairs with D-09 (the raw hardware pressure underneath these numbers), D-21 (the profile that assigned models to tiers), and D-23 (the portfolio these live models are drawn from).'},
-      {id:'D-05', dir:'d-05-traces', label:'D-05 Traces', ico:'⋮', desc:'Distributed span search — 13-field trace tree, OCSF export. Debug why a request went where it did.'},
+      {id:'D-05', dir:'d-05-traces', label:'D-05 Traces', ico:'⋮', desc:'Distributed span search — 13-field trace tree, OCSF export. Debug why a request went where it did.', menuHover:'The debugger’s panel — distributed span search across the box, where you reconstruct exactly what happened to one request. It gives you the 13-field trace tree per request and an OCSF export, so when something went wrong or slow you can follow the span-by-span path: which tier classified it, which model served it, where the time went, where it errored. It answers ‘why did THIS request behave this way’ rather than ‘how is the box in aggregate.’ Open it after a bad response, a mysterious latency, or a routing surprise — the trace is the ground truth that the summary dashboards abstract away. It complements D-01 (the session the trace belongs to) and D-04 (the cost that trace incurred), and its OCSF output is the security-legible form auditors consume.'},
     ]},
     {name:'Models & Compute', items:[
       {id:'D-21', dir:'d-21-lm-orchestration', label:'D-21 LM Orchestration', ico:'⛭', desc:'Profiles + model→hardware assignment grid (GPU0/GPU1/CPU0 = Logic/Oracle/Conductor per M075) + CPU AVX-512 / GPU capability panel. Read-only: Apply copies the signed profile verb.', menuHover:'Where you choose the whole machine’s inference posture in one move. A runtime profile (M076) is not a setting — it is a coherent bundle that assigns every model to a device and pins the CPU cores to match (the SRP split, M075), so picking one rebalances the Conductor, Logic, and Oracle tiers together. This panel lets you preview a profile as a concrete model→hardware grid before you commit it, and shows the silicon it’s built to exploit (the CPU’s AVX-512 extensions for the ternary path, the GPUs’ capabilities like NVFP4). Open it when you want to change how the box thinks as a whole — trade deep-context reach for concurrency, or park the GPUs and run cheap on CPU — rather than tweaking one model. It’s the strategic counterpart to D-03 (which shows how the current assignment is actually serving) and D-09 (which shows the pressure each posture produces). Read-only: applying a profile is a signed verb-chain through osctl, because reshuffling models across devices is a real, heavy operation, not a web click.'},
-      {id:'D-24', dir:'d-24-cpu-features', label:'D-24 CPU Features', ico:'⊞', desc:'The deep AVX-512 capability view — extension map, per-AI-workload fit verdict, and advisory. Reuses avx512-advisor. Distinct from D-21 Features-CPU summary.'},
-      {id:'D-23', dir:'d-23-models-catalog', label:'D-23 Model Catalog', ico:'▤', desc:'The canonical model registry (models/catalog.yaml) browsed by SRP tier — id, class, engine, precision, params, context, license, purpose, status. The portfolio view (distinct from D-03 live health).'},
+      {id:'D-24', dir:'d-24-cpu-features', label:'D-24 CPU Features', ico:'⊞', desc:'The deep AVX-512 capability view — extension map, per-AI-workload fit verdict, and advisory. Reuses avx512-advisor. Distinct from D-21 Features-CPU summary.', menuHover:'The deep read on what the CPU can actually do for AI — the full AVX-512 extension map and, more usefully, a verdict on how well this exact silicon fits each AI workload. It matters because the whole cheap-cognition story rests on ternary inference running fast on CPU, and that speed comes from specific AVX-512 instructions (VNNI for integer dot-products, BF16 for half-precision, VPOPCNTDQ for bit-counting the ternary path leans on). If an extension is missing, the Conductor tier silently falls back to a slower path — so this panel is where you learn whether \u201cefficiency mode\u201d will actually be efficient on THIS chip. It goes deeper than D-21\u2019s at-a-glance CPU-features summary: here each extension is mapped to the workloads it enables, with a fit verdict and an advisory (from the avx512-advisor, R272). Open it when deciding whether to lean on CPU inference, diagnosing why the Conductor is slower than expected, or planning a build for specific silicon. It pairs with D-09 (the CCD load these instructions drive) and D-21 (the efficiency profile that depends on them).'},
+      {id:'D-23', dir:'d-23-models-catalog', label:'D-23 Model Catalog', ico:'▤', desc:'The canonical model registry (models/catalog.yaml) browsed by SRP tier — id, class, engine, precision, params, context, license, purpose, status. The portfolio view (distinct from D-03 live health).', menuHover:'The full portfolio of models the box COULD run, browsed by SRP tier — the catalog, as opposed to D-03 which shows the few that are loaded and serving. Every entry comes straight from the canonical registry (models/catalog.yaml) with its real attributes: id, class (ternary-lm / RLM / SLM / LLM / mixture), engine, precision, parameter count, context window, license, purpose, and status. This is where you shop before you load: to find a model that fits a tier\u2019s VRAM budget, to compare two candidates\u2019 context windows or licenses, or to understand what the box is capable of beyond what happens to be resident right now. It is deliberately read-only reference \u2014 loading a model you find here is done from D-03 or D-21, as a signed action. Open it when you\u2019re choosing what to run, auditing licenses across the fleet, or answering \u201cdo we even have a model for this?\u201d It pairs with D-03 (which of these are live) and D-21 (which tier/device a chosen model would land on).'},
       {id:'D-22', dir:'d-22-lm-status-operability', label:'D-22 LM Status & Operability', ico:'◐', desc:'Per-device (CPU0/GPU0/GPU1) Model 0/1/2 status + History|Selected latency + operability Actions/Tests + render-only Chat. Reuses the model-health core; Actions copy signed CLI verbs.', menuHover:'The device-by-device operability view — and the one place in the whole cockpit where you actually talk to the box\u2019s brain. Where D-03 aggregates model health by SRP tier, this pins it to the physical devices (CPU0, GPU0, GPU1) and adds the thing that proves the machine is more than dashboards: a sovereign loopback chat that sends a prompt straight to the local LM over 127.0.0.1 and shows the answer. That chat is the single deliberate exception to the read-only rule \u2014 it is a real compute call, but it never leaves the box, which is the whole sovereignty argument made tangible: your AI, on your silicon, answering with nothing crossing the network. Open it to confirm a device is not just loaded but actually responding; open it to sanity-check the box end to end after a profile change; open the chat when you want to feel the machine think without a cloud in the loop. It pairs with D-03 (tier health), D-21 (the profile that placed these models on these devices), and D-09 (the pressure a chat request produces).'},
-      {id:'—', dir:'models-catalog', label:'Models & Catalog', ico:'▤', desc:'The full model catalog (68 models across ternary-lm/RLM/SLM/LLM/mixture, every quantization) with VRAM-aware selection — browse and filter by class/quant/tier/purpose/VRAM. Backed by models/catalog.yaml (served at /models-catalog.json); operator CLI e.g. models select --class rlm --vram 48.'},
-      {id:'—', dir:'cpu-features', label:'CPU / AVX-512 Choice', ico:'⊞', desc:'The tiered AVX-512 exploitation surface — which instructions (F/VL/BW/VNNI/BF16/VPOPCNTDQ…) THIS CPU exposes and how they map to the AI workloads they enable (Pulse ternary path). Live probe via avx512-advisor (R272), served at /cpu-avx.json.'},
-      {id:'—', dir:'orchestration', label:'Thinking Router / Orchestration', ico:'⧉', desc:'The thinking-router / orchestration view — the 7-axis routing rules (SDD-011) + live routing metrics (which tier/class/task-type requests landed on) + the per-profile escalation (CoT → Validator → self-consistency → MoE). Served at /orchestration.json (router rules|metrics).'},
-      {id:'—', dir:'profile-generation', label:'Runtime-Profile Generation', ico:'⌘', desc:'Generate a whole runtime profile from hardware × strategy, with tier_intent resolved against the catalog (the \'20+ combos\' producer) — shows the resolved allocations each strategy produces + the generate command. Served at /profile-generation.json from profiles/runtime/*.yaml.'},
-      {id:'D-10', dir:'d-10-eval-history', label:'D-10 Eval History', ico:'∿', desc:'Per-task/model eval results (mmlu/humaneval/gsm8k/…), white-box + black-box.'},
-      {id:'D-11', dir:'d-11-adapter-status', label:'D-11 Adapter Status', ico:'⚙', desc:'LoRA adapter inventory + rollback state — which fine-tunes are resident and active.'},
-      {id:'D-19', dir:'d-19-super-model-manifest', label:'D-19 Super-Model Manifest', ico:'≣', desc:'The live super-model version + the M001..M080 module table — what capabilities are shipped.'},
+      {id:'—', dir:'models-catalog', label:'Models & Catalog', ico:'▤', desc:'The full model catalog (68 models across ternary-lm/RLM/SLM/LLM/mixture, every quantization) with VRAM-aware selection — browse and filter by class/quant/tier/purpose/VRAM. Backed by models/catalog.yaml (served at /models-catalog.json); operator CLI e.g. models select --class rlm --vram 48.', menuHover:'The full model shelf with VRAM-aware selection — the complete catalog (68 models across ternary-lm, RLM, SLM, LLM, and mixture, at every quantization) that you browse and filter to choose what to run. Where D-23 is the tier-grouped portfolio view, this is the working selector: filter by class, quant, tier, purpose, or VRAM budget and it shows you what actually fits. It answers ‘which model should I load for this job on this hardware’ — the VRAM filter is the key, because a model that will not fit is not a candidate no matter how good. Open it when picking a model to load, comparing quantizations of the same base, or checking whether a workload has a model that fits a tier’s memory. It feeds D-03 and D-21, where a chosen model becomes a signed load.'},
+      {id:'—', dir:'cpu-features', label:'CPU / AVX-512 Choice', ico:'⊞', desc:'The tiered AVX-512 exploitation surface — which instructions (F/VL/BW/VNNI/BF16/VPOPCNTDQ…) THIS CPU exposes and how they map to the AI workloads they enable (Pulse ternary path). Live probe via avx512-advisor (R272), served at /cpu-avx.json.', menuHover:'The CPU-as-AI-accelerator chooser — the tiered AVX-512 exploitation surface that shows which instruction families this chip exposes (F, VL, BW, VNNI, BF16, VPOPCNTDQ…) and how they map to the AI workloads they enable. It matters because the box’s cheap-cognition claim rests on ternary inference running fast on CPU, and that speed comes from these specific extensions — a missing one silently downgrades the Pulse path. Open it to decide whether to lean on CPU inference on this silicon, or to understand why the Conductor is slower than expected. It is the selection-oriented sibling of D-24 (the deep per-workload fit and advisory) and it grounds the efficiency profile on runtime-modes / D-21, which only makes sense if the instructions it needs are present.'},
+      {id:'—', dir:'orchestration', label:'Thinking Router / Orchestration', ico:'⧉', desc:'The thinking-router / orchestration view — the 7-axis routing rules (SDD-011) + live routing metrics (which tier/class/task-type requests landed on) + the per-profile escalation (CoT → Validator → self-consistency → MoE). Served at /orchestration.json (router rules|metrics).', menuHover:'The thinking-router — the layer above tier choice that decides HOW HARD to reason, not just which model answers. It applies the 7-axis routing rules (SDD-011) and then the per-profile escalation ladder: chain-of-thought, then a validator, then self-consistency (multiple samples), then mixture-of-experts, each rung costing more but reasoning harder. It answers ‘is the box thinking as deeply as this prompt deserves, and no deeper.’ Open it to see which tier/class/task-type requests landed on, and how far up the escalation ladder the active profile climbs — too eager wastes compute, too shy gives shallow answers. It sits on top of the plain router (which picks the tier) and its escalation depth is set by the runtime profile you choose on D-21 / runtime-modes.'},
+      {id:'—', dir:'profile-generation', label:'Runtime-Profile Generation', ico:'⌘', desc:'Generate a whole runtime profile from hardware × strategy, with tier_intent resolved against the catalog (the \'20+ combos\' producer) — shows the resolved allocations each strategy produces + the generate command. Served at /profile-generation.json from profiles/runtime/*.yaml.', menuHover:'The profile foundry — where a whole runtime profile is generated from hardware × strategy, resolving each tier’s intent against the real catalog. It is the producer behind the ‘20+ combos’: give it this silicon and a strategy and it computes the concrete model-to-device allocations that strategy implies, plus the exact generate command. It answers ‘what would a deep-context (or high-concurrency, or efficiency) profile actually look like on THIS box,’ before you ever apply one. Open it when you want to create or understand a profile rather than just pick from existing ones — it is the design-time counterpart to D-21 (which previews and applies a chosen profile) and runtime-modes (which switches between them). The output is what those panels then let you commit as a signed chain.'},
+      {id:'D-10', dir:'d-10-eval-history', label:'D-10 Eval History', ico:'∿', desc:'Per-task/model eval results (mmlu/humaneval/gsm8k/…), white-box + black-box.', menuHover:'The report card — per-task and per-model eval results over time (MATH, HumanEval, GSM8K and the rest), in both white-box and black-box form. It answers the question no live dashboard can: ‘is the box actually getting better, or just changing.’ Black-box pass (outcome only) is the number that cannot be gamed; the per-task trends turn a single accuracy figure into a diagnosis of which model regressed on which task. Open it before promoting an adapter (to see if it earned it), after a model change (to confirm improvement, not drift), or when a suite result looks off. It is where measurement lives, feeding D-11 (adapter promotion decisions rest on these scores) and grounding the M078/M080 benchmark targets the box is tuned against.'},
+      {id:'D-11', dir:'d-11-adapter-status', label:'D-11 Adapter Status', ico:'⚙', desc:'LoRA adapter inventory + rollback state — which fine-tunes are resident and active.', menuHover:'The specializations board — the LoRA adapter inventory (M046 Foundry) and rollback state: which fine-tunes are resident, which are live, and which are waiting on the gate. An adapter is a small low-rank skill stacked on a base model, stored at NVFP4 4-bit so many coexist in the VRAM one full fine-tune would need. Because promoting one can change how the box behaves, promotion runs the MS041 high-risk triple-gate (eval, safety, signed intent — all three must pass), which is why an adapter can ace evals and still be pending. Open it to see what specializations are active, what is waiting, and what was rolled back (a rollback is the system working, not failing). It pairs with D-10 (the evals that qualify an adapter) and D-03 (how an adapter performs once live).'},
+      {id:'D-19', dir:'d-19-super-model-manifest', label:'D-19 Super-Model Manifest', ico:'≣', desc:'The live super-model version + the M001..M080 module table — what capabilities are shipped.', menuHover:'The bill of materials for the whole box — the live super-model version plus the M001..M080 module table that composes it. The super-model is not one model; it is the manifest that binds an exact version of every module into one verified system, which is what a rollback targets and what an audit pins the box’s behavior to. It answers ‘which build of the sovereign OS is this, and are all its parts at the versions they should be.’ Open it to check the composed version, to spot a module lagging its expected version (composition drift), or to see how far the 11-phase build has progressed. It tracks the M066 Trinity and the build phases, and a module lagging here is often the root of behavior that surfaces as a problem on some other panel.'},
     ]},
     {name:'Hardware & Operations', items:[
       {id:'D-09', dir:'d-09-hardware-pressure', label:'D-09 Hardware Pressure', ico:'▰', desc:'Live PSI (CPU/mem/IO), per-CCD load, GPU utilization + power, ZFS pool health. The physical-stress view.', menuHover:'The box’s vital signs — not “how busy” but “how stressed”. Where you go when something feels slow and you need to know whether the machine is genuinely out of headroom or just working hard. It reads Linux PSI (stall, not utilization — the honest signal of contention), the two Ryzen CCDs separately (because crossing the Infinity Fabric between them costs latency the pinning is meant to avoid), both GPUs’ utilization/VRAM/thermals/KV-cache, the ZFS pool’s tail latency, and the M058 backpressure rules that are actively shedding work right now. Open it before launching a heavy build or eval to see if there’s room; open it when a response is slow to tell load apart from contention; open it when a backpressure rule fires to see which resource tripped and what the scheduler gave up to protect live serving. It pairs with the runtime-profile panels (which set the core pinning and GPU budget this reflects) and with D-08 (the ZFS snapshots the scrub here protects).'},
-      {id:'D-04', dir:'d-04-costs', label:'D-04 Costs', ico:'$', desc:'Budget + spend by project / profile / model — local compute cost + any cloud fallback.'},
-      {id:'D-08', dir:'d-08-rollback-points', label:'D-08 Rollback Points', ico:'↺', desc:'ZFS snapshots as recovery points, with a dry-run preview of what a rollback would change.'},
-      {id:'D-02', dir:'d-02-profile-choices', label:'D-02 Profile Choices', ico:'◈', desc:'The active OS profile mirrored read-only — hardware, kernel, packages, hooks in effect.'},
-      {id:'—', dir:'global-history', label:'Global History', ico:'🕑', desc:'A unified change log across 6 sources (apt/dpkg/shell/osctl/events/modules) — \'what changed since I last looked?\''},
-      {id:'—', dir:'build-configurator', label:'Build Configurator', ico:'▶', desc:'Compose an OS image (or manage this host) and RUN the build — the Run console (validate/preflight/BUILD, bake toggles). The one page that actually builds sovereign-os.'},
-      {id:'—', dir:'emulate', label:'Emulate (QEMU)', ico:'◴', desc:'Boot a built image in a throwaway QEMU VM before flashing — interactive serial console, configurable QEMU options (uefi/direct boot, kvm/tcg, cpu/mem, snapshot), auto-login. Catches a broken image in a VM, never on the USB key.'},
-      {id:'—', dir:'flash', label:'Flash to USB', ico:'⚡', desc:'Write a built image onto a removable disk from the panel — a safety-classified device picker (system disks hard-protected), type-to-arm confirm, and live dd progress. Shells the gated sovereign-osctl install image; never raw dd.'},
-      {id:'—', dir:'ups', label:'UPS (APC Smart-UPS)', ico:'🔋', desc:'Live APC Smart-UPS (SMT2200C SmartConnect) state (battery %, runtime, load, on-line/on-battery) via NUT apc_modbus over Modbus TCP (:502) or serial, plus the graceful soft-shutdown posture — an orderly poweroff when battery runtime drops below 30 minutes. Read-only over power-status + NUT upsc.'},
+      {id:'D-04', dir:'d-04-costs', label:'D-04 Costs', ico:'$', desc:'Budget + spend by project / profile / model — local compute cost + any cloud fallback.', menuHover:'The honest ledger — what the box’s cognition actually costs, built on the principle that local inference is free and that saying so plainly is the point ($0-is-honest, SDD-102). It shows request volume, average and most-expensive requests, an end-of-day forecast, and budget burn — but the load-bearing truth is that cloud is off by default, so most of what a hosted assistant would bill for costs nothing here. Open it to see where any spend actually comes from (a rare cloud escalation, not the local tiers), to check a forecast before a heavy run, or to confirm the box is living within its sovereign, near-zero cost model. It reads against D-05 (the traces that incur cost) and the routing panels (which keep prompts on the free local tiers).'},
+      {id:'D-08', dir:'d-08-rollback-points', label:'D-08 Rollback Points', ico:'↺', desc:'ZFS snapshots as recovery points, with a dry-run preview of what a rollback would change.', menuHover:'The undo button for the whole machine — the ZFS snapshots and signed rollback points that make ‘reversible enough to trust’ a real property, not a hope. Because the pool runs sync=always and snapshots are cheap, the box can capture a known-good state and return to it, and a rollback is a signed operation (MS003) so it cannot be triggered carelessly. It answers ‘if this change goes wrong, can I get back — and to when.’ Open it before a risky change to confirm you have a recent point to fall back to, or after one to roll back cleanly. It is the reversibility half of the peace-machine properties (D-20), underpinned by the same pool whose health you watch on D-09, and it is what a scrub there protects the integrity of.'},
+      {id:'D-02', dir:'d-02-profile-choices', label:'D-02 Profile Choices', ico:'◈', desc:'The active OS profile mirrored read-only — hardware, kernel, packages, hooks in effect.', menuHover:'The authority dial — where you set how much the box may do on its own. An MS040 profile is an envelope that caps two things at once: the maximum authority level an agent may reach on the L0..L6 ladder (Observe to Persist) and the trust ring it runs in (R0 Kernel to R4 Cloud, per MS039). It is the single most consequential control on the machine, because it decides how much happens without your signature — tight profiles withhold authority, the autonomous profile grants most of it, bounded only by predeclared gates. Open it to change the box’s autonomy posture, to review the authority ladder and trust rings a profile permits, or to audit who last changed the envelope. It is the authority-side view of the same MS039 rings that D-12 enforces on the network.'},
+      {id:'—', dir:'global-history', label:'Global History', ico:'🕑', desc:'A unified change log across 6 sources (apt/dpkg/shell/osctl/events/modules) — \'what changed since I last looked?\'', menuHover:'The whole-machine timeline — every subsystem’s events (the audit chain, the router, memory, selfdef) aggregated into one cross-box history above any single panel’s view. It answers ‘what happened across the entire machine,’ which no individual dashboard can, and it is where correlation lives: an event from one source sitting next to one from another is how a pattern that spans subsystems becomes visible. Open it to reconstruct a sequence that crossed several systems, to spot a rhythm (a nightly job colliding with serving), or to confirm a silent source is actually emitting. It complements D-05 (deep single-request traces) with breadth rather than depth, and a source gone quiet here is itself a signal worth chasing.'},
+      {id:'—', dir:'build-configurator', label:'Build Configurator', ico:'▶', desc:'Compose an OS image (or manage this host) and RUN the build — the Run console (validate/preflight/BUILD, bake toggles). The one page that actually builds sovereign-os.', menuHover:'The factory floor — the twelve-section wizard that assembles the entire sovereign OS image, the source of everything every other panel later runs. You walk it section by section (hardware preflight, profile, substrate and posture, kernel, CPU features, modules, packages, operator tools, storage, networking, hooks, observability), and it emits a reproducible build command plus the config artifacts that make the build bit-for-bit repeatable. It answers ‘how is the OS built, and what would change if I built it differently.’ Open it to plan or understand a build — this is the one panel where a decision propagates into every other (a kernel march, a VFIO cmdline, an encryption choice). Nothing here touches a running box; the build runs via orchestrate.sh, then you rehearse the image on Emulate and write it with Flash.'},
+      {id:'—', dir:'emulate', label:'Emulate (QEMU)', ico:'◴', desc:'Boot a built image in a throwaway QEMU VM before flashing — interactive serial console, configurable QEMU options (uefi/direct boot, kvm/tcg, cpu/mem, snapshot), auto-login. Catches a broken image in a VM, never on the USB key.', menuHover:'The safe rehearsal — QEMU booting the freshly built image in a disposable VM before it ever touches real hardware. It matters because a broken build discovered on a physical device costs a re-flash and a reboot cycle; here it fails harmlessly in a console you can read. The choices that make the test faithful are the ones to know: uefi boot runs the real OVMF → systemd-boot → signed-UKI chain (so it tests actual secure boot), kvm acceleration runs at near-native speed, snapshot mode discards writes so every boot is clean, and no-reboot halts a boot loop instead of spinning. Open it after a build to confirm the image boots and comes up, especially after a kernel or module change. It sits between Build Configurator (which produces the image) and Flash (which writes the verified image to hardware).'},
+      {id:'—', dir:'flash', label:'Flash to USB', ico:'⚡', desc:'Write a built image onto a removable disk from the panel — a safety-classified device picker (system disks hard-protected), type-to-arm confirm, and live dd progress. Shells the gated sovereign-osctl install image; never raw dd.', menuHover:'The point of no return — writing a built image to a real device, which irreversibly wipes it. The whole panel is a safety interlock because getting the target wrong destroys the wrong disk: you flash only images already booted on Emulate, Plan is a free dry-run that writes nothing, and the real Flash unlocks only after you ARM by re-typing the device path matched against its fingerprint (size, model, serial — so /dev/sdX renumbering cannot fool you). It answers ‘write this exact image to this exact device, and prove I mean it.’ Open it as the final step of a build: verified image, correct device, arm, write. It is the destructive end of the pipeline that starts at Build Configurator and is rehearsed on Emulate — treat armed state as live.'},
+      {id:'—', dir:'ups', label:'UPS (APC Smart-UPS)', ico:'🔋', desc:'Live APC Smart-UPS (SMT2200C SmartConnect) state (battery %, runtime, load, on-line/on-battery) via NUT apc_modbus over Modbus TCP (:502) or serial, plus the graceful soft-shutdown posture — an orderly poweroff when battery runtime drops below 30 minutes. Read-only over power-status + NUT upsc.', menuHover:'The insurance policy against a dirty power loss — the UPS status and the graceful-shutdown guard that powers the box off cleanly before the battery dies. It matters because the pool runs sync=always: a hard cut mid-write risks corruption, so the guard (checked every minute) triggers an orderly shutdown when battery runtime drops below a minutes threshold, reserving the time a clean shutdown needs to flush ZFS and stop services. It answers ‘is the box protected if the power fails, and how long do I have on battery.’ Open it when on battery to read the remaining runtime, to confirm the guard is armed (disarmed risks ZFS on a battery-death), or after a power event. It protects the same pool and snapshots you rely on for D-08 rollback.'},
     ]},
     {name:'Security & selfdef', items:[
-      {id:'D-25', dir:'d-25-selfdef-management', label:'D-25 Self-Defense Management', ico:'⛨', desc:'READ-ONLY consumer view (R10212) of the selfdef IPS — on/off enablement + M060 mirror-chain health + links to the 6 domain panels (D-13..D-18). Derives state via the m060-health probe() proxy; on/off is a clipboard-copied signed CLI verb.'},
-      {id:'—', dir:'selfdef-management', label:'selfdef (IPS) Management', ico:'⛨', desc:'The intrusion-prevention system — live on/off state + unit/mirror health, unifying the 6 mirror dashboards (D-13..D-18) + perimeter. Served at /selfdef-management.json (selfdef status); controls (on/off/sync/doctor + perimeter) via the Controls surface.'},
-      {id:'D-12b', dir:'edge-firewall', label:'Edge Firewall', ico:'🛡', desc:'Host firewall posture — nftables / fail2ban / crowdsec / suricata state + install recommendations.'},
-      {id:'D-12a', dir:'network-edge', label:'Network Edge', ico:'⇄', desc:'The edge topology — OPNsense bridge, ISP NAT layers, VPN, per-interface state. Where the box sits in the network.'},
-      {id:'D-12', dir:'d-12-networking', label:'D-12 Networking', ico:'⇄', desc:'The cockpit networking view — the selfdef MS039 Ring-0-4 nftables rules mirror (read-only via selfdef-rules-mirror), per-ring rule counts + traffic + dispositions.'},
-      {id:'D-06', dir:'d-06-pending-approvals', label:'D-06 Pending Approvals', ico:'✋', desc:'The operator approval queue + stage gates — actions waiting for a human yes/no.'},
-      {id:'D-07', dir:'d-07-memory-changes', label:'D-07 Memory Changes', ico:'✎', desc:'The 8-type memory-graph diff — what the agent\'s memory added/changed/removed.'},
-      {id:'D-13', dir:'d-13-filesystem-grants', label:'D-13 Filesystem Grants', ico:'📁', desc:'selfdef filesystem-grant mirror (read-only) — which paths are granted to whom.'},
-      {id:'D-14', dir:'d-14-capability-tokens', label:'D-14 Capability Tokens', ico:'⚷', desc:'selfdef capability-token mirror — issued/revoked capabilities.'},
-      {id:'D-15', dir:'d-15-sandboxes', label:'D-15 Sandboxes', ico:'▢', desc:'selfdef sandbox mirror — active sandboxes + their isolation state.'},
-      {id:'D-16', dir:'d-16-audit', label:'D-16 Audit Chain', ico:'☑', desc:'selfdef append-only audit-chain mirror — the tamper-evident event log.'},
-      {id:'D-17', dir:'d-17-quarantine', label:'D-17 Quarantine', ico:'⚠', desc:'selfdef quarantine mirror — what\'s been isolated and why.'},
-      {id:'D-18', dir:'d-18-trust-scores', label:'D-18 Trust Scores', ico:'★', desc:'selfdef trust-score mirror — per-entity trust levels driving policy.'},
-      {id:'D-20', dir:'d-20-peace-machine-health', label:'D-20 Peace Machine Health', ico:'☮', desc:'The M059 peace-machine 5-property verdict — the top-level \'is the system at peace\' signal.'},
-      {id:'—', dir:'compliance', label:'Compliance', ico:'⚖', desc:'The §1g/§1h compliance aggregator — per-module pass/fail against the operator mandate.'},
-      {id:'—', dir:'auth-tier', label:'Auth Tier', ico:'🔑', desc:'The 6-tier auth ladder (no-auth → basic → advanced → social → enterprise → network) + per-surface requirement.'},
-      {id:'—', dir:'anti-minimization-audit', label:'Anti-Minimization Audit', ico:'⛶', desc:'The \'do not minimize\' audit — flags where scope was silently shrunk vs the mandate.'},
+      {id:'D-25', dir:'d-25-selfdef-management', label:'D-25 Self-Defense Management', ico:'⛨', desc:'READ-ONLY consumer view (R10212) of the selfdef IPS — on/off enablement + M060 mirror-chain health + links to the 6 domain panels (D-13..D-18). Derives state via the m060-health probe() proxy; on/off is a clipboard-copied signed CLI verb.', menuHover:'The bridge monitor — the health and freshness of the M060 mirror chain that carries selfdef’s truth (rules, grants, audit, trust) into this box’s read-only panels. It is the most load-bearing integration on the machine: when this chain is healthy the selfdef mirror panels (D-12 through D-18) show live data; when it breaks they silently freeze at the last good mirror, which is dangerous precisely because they will not look broken. It answers ‘can I trust what the selfdef panels are showing me right now.’ Open it to confirm the bridge is flowing, to see which individual mirrors are current versus stale, and to read the per-producer detail when only some panels look wrong. It is the management view of the same M060 chain the master dashboard surfaces as a single health banner.'},
+      {id:'—', dir:'selfdef-management', label:'selfdef (IPS) Management', ico:'⛨', desc:'The intrusion-prevention system — live on/off state + unit/mirror health, unifying the 6 mirror dashboards (D-13..D-18) + perimeter. Served at /selfdef-management.json (selfdef status); controls (on/off/sync/doctor + perimeter) via the Controls surface.', menuHover:'The control room for selfdef itself — the IPS whose defenses this whole box reflects but does not own. Where the D-panels mirror selfdef’s state read-only, this is where selfdef’s management surface is presented: the daemon’s health, its enforcement posture, and the R10212 boundary that keeps sovereign-os checking while selfdef owns. It answers ‘is the defense system itself healthy and enforcing,’ as distinct from ‘what are its current rules.’ Open it to confirm selfdef is up and doing its job before you trust any of the mirror panels downstream of it, or when diagnosing why those mirrors look stale. It pairs with D-25 (the mirror-chain bridge) and the Auditor (the kernel perimeter selfdef’s Guardian daemon provides).'},
+      {id:'D-12b', dir:'edge-firewall', label:'Edge Firewall', ico:'🛡', desc:'Host firewall posture — nftables / fail2ban / crowdsec / suricata state + install recommendations.', menuHover:'The defense-in-depth planner for the network edge — it reads what the box enforces locally and what the upstream OPNsense edge enforces, and finds the exposure: a threat that neither line currently stops. Enforcement candidates are grouped on a 4-class ladder from baseline must-haves to situational hardening, and it turns ‘the edge has gaps’ into specific rules the box could add, previewing each as a read-only install plan before you commit. It answers ‘given what the perimeter already does, how much should the box firewall itself, and what exactly should I add.’ Open it when hardening the box, after an edge change, or when deciding whether a weak edge means the box must self-enforce more. It reads against Network Edge (the edge’s capabilities) and D-12 (the rules the box actually runs).'},
+      {id:'D-12a', dir:'network-edge', label:'Network Edge', ico:'⇄', desc:'The edge topology — OPNsense bridge, ISP NAT layers, VPN, per-interface state. Where the box sits in the network.', menuHover:'The map of the box’s boundary with the world — the dual-NIC edge (an upstream interface and a LAN interface) with OPNsense as the perimeter authority, and, crucially, multi-NAT visibility. One NAT hop is a normal edge; two or more (an ISP router in front of your firewall) breaks inbound connectivity and hides where the real perimeter is, and this panel makes that hidden second NAT visible. It answers ‘what does the box’s path to the internet actually look like, and is the topology what I think.’ Open it when connectivity is odd, when setting up the edge, or to confirm the OPNsense perimeter can enforce what you expect before traffic reaches the box. It grounds Edge Firewall (which plans local enforcement against this edge’s gaps) and D-12 (the firewall rules that ride on this topology).'},
+      {id:'D-12', dir:'d-12-networking', label:'D-12 Networking', ico:'⇄', desc:'The cockpit networking view — the selfdef MS039 Ring-0-4 nftables rules mirror (read-only via selfdef-rules-mirror), per-ring rule counts + traffic + dispositions.', menuHover:'The firewall, read-only — a mirror of selfdef’s enforced nftables ruleset, ring-aware per MS039 so each rule is scoped to a trust ring from R0 Kernel inward to R4 Cloud outward (off by default). It shows what is enforced, the traffic through it, and the ring distribution, but it does not enforce: rules change only through selfdefctl plus your MS003 signature (R10113), so anything pending here is a proposal, never yet live. It answers ‘what is the box’s firewall actually doing, and where is enforcement concentrated.’ Open it to read the live ruleset, to check whether an unexpected ring (like cloud) carries rules, or to see a pending change before it is signed. Enforcement is authoritative on selfdef; this is the sovereign-os window onto it via the M060 bridge.'},
+      {id:'D-06', dir:'d-06-pending-approvals', label:'D-06 Pending Approvals', ico:'✋', desc:'The operator approval queue + stage gates — actions waiting for a human yes/no.', menuHover:'The operator-in-the-loop queue — everything the box has decided it will not do on its own and is holding for your signature. This is the M065 stage-gate machinery made concrete: consequential actions (an L5+ commit, a cloud egress, a key operation) stop here and wait, because the sovereignty property is that intelligence stays in your hands and every gated commit needs your MS003 signature. It answers ‘what is waiting on me, and how consequential is each item.’ Open it to clear the queue, to see what the box paused rather than assume it proceeded, and to exercise the human-gate that the backpressure ladder (D-09) escalates to. It is where the peace-machine’s sovereign property (D-20) is lived out, decision by decision.'},
+      {id:'D-07', dir:'d-07-memory-changes', label:'D-07 Memory Changes', ico:'✎', desc:'The 8-type memory-graph diff — what the agent\'s memory added/changed/removed.', menuHover:'The mind’s filing system — the M028 memory OS, the eight-tier store that is the difference between an agent that repeats your corrections and one that remembers them. Every candidate memory walks an 11-stage admission lifecycle and is trust-filtered on seven dimensions before it is kept, so the store stays signal rather than noise, and forgetting or force-admitting a memory is a signed act. It answers ‘what does the box remember, what changed recently, and what memory operations are waiting on me.’ Open it to see how full each tier is, to review a graph diff of the last day, to approve a pending forget, or to query the graph read-only via the RLM navigator. It is the persistence layer beneath everything the box learns, and its ground-truth tier is what protects against memory drift and poisoning.'},
+      {id:'D-13', dir:'d-13-filesystem-grants', label:'D-13 Filesystem Grants', ico:'📁', desc:'selfdef filesystem-grant mirror (read-only) — which paths are granted to whom.', menuHover:'The permission slips — the scoped, time-bounded filesystem grants selfdef issues (MS007), each a specific path a specific actor may touch, expiring unless renewed. It matters because standing access is the thing attackers inherit; TTL-bounded grants mean permissions decay to nothing on their own, so the live grant list is the true filesystem attack surface at this moment. It answers ‘who can touch what on disk right now, and for how much longer.’ Open it to audit active access, to spot a grant broader or longer-lived than it should be, or to confirm a grant expired as intended. It is one of the selfdef mirrors (read-only, fed by the M060 bridge) and it sits in the same MS039 ring model that governs capability tokens (D-14) and sandboxes (D-15).'},
+      {id:'D-14', dir:'d-14-capability-tokens', label:'D-14 Capability Tokens', ico:'⚷', desc:'selfdef capability-token mirror — issued/revoked capabilities.', menuHover:'The capability decoder — the tokens that encode, bit by bit, exactly what an actor is permitted to do, read through the capability_word bit map. Rather than a coarse allow/deny, each token is a precise set of capabilities packed into bits, and this panel decodes them so you can see the granular truth: not ‘can act’ but which specific capabilities are granted, and in which MS039 trust ring. It answers ‘what precisely is this actor allowed to do, at the bit level.’ Open it to audit a token that looks too powerful, to understand why an action was permitted or denied, or to see how capabilities inherit across the ring model. It is a selfdef mirror (read-only via M060), a finer-grained companion to filesystem grants (D-13) and the sandbox tiers (D-15) that contain what these capabilities permit.'},
+      {id:'D-15', dir:'d-15-sandboxes', label:'D-15 Sandboxes', ico:'▢', desc:'selfdef sandbox mirror — active sandboxes + their isolation state.', menuHover:'The containment view — the sandbox tiers (MS036) that wall off untrusted work, from namespace isolation up to full VFIO device passthrough. It shows what is running contained and how strongly: a sandbox tier decides how much a compromised process could reach, and VFIO is where a whole GPU (the 4090 Scout) is handed into isolation so its work cannot touch the host. It answers ‘what is contained, at what strength, and is the containment intact.’ Open it to confirm untrusted work is boxed in, to check a sandbox has the tier it needs, or — a security question — to verify the 4090 is actually sandboxed rather than host-claimed. It is a selfdef mirror (read-only via M060) enforcing the MS039 rings that D-14’s capability tokens and D-13’s grants describe, and it is the containment the Weaver fabric runs inside.'},
+      {id:'D-16', dir:'d-16-audit', label:'D-16 Audit Chain', ico:'☑', desc:'selfdef append-only audit-chain mirror — the tamper-evident event log.', menuHover:'The tamper-evident record — the MS016 hash-chained audit log, where every entry is cryptographically linked to the last so the history cannot be altered without the break showing. It is the box being ‘disciplined enough to explain itself’: a complete, incorruptible account of what happened, which is worthless if it can be quietly edited and priceless because it cannot. It answers ‘what is the trustworthy record of events, and is the chain unbroken.’ Open it to reconstruct an incident with confidence, to verify chain integrity and continuity, or to satisfy an audit that the box’s own account is intact. It is the Auditor’s ledger (the gatekeeper tier feeds it) and a selfdef mirror via M060 — a broken or stale chain here is a reason to distrust the box’s self-account until it is explained.'},
+      {id:'D-17', dir:'d-17-quarantine', label:'D-17 Quarantine', ico:'⚠', desc:'selfdef quarantine mirror — what\'s been isolated and why.', menuHover:'The holding cell — the MS042 quarantine where things selfdef has judged untrustworthy are isolated pending disposition. Rather than delete on suspicion or ignore on doubt, quarantine is the middle path: contain it, keep it inspectable, decide deliberately. It answers ‘what has the box flagged as suspect, why, and what is waiting to be dealt with.’ Open it to review quarantined items, to understand what tripped the judgment that put them there, or to confirm a threat is contained rather than loose. It is a selfdef mirror (read-only via M060), the disposition side of the trust machinery whose scores you read on D-18, and it works with the audit chain (D-16) that records why each item was quarantined.'},
+      {id:'D-18', dir:'d-18-trust-scores', label:'D-18 Trust Scores', ico:'★', desc:'selfdef trust-score mirror — per-entity trust levels driving policy.', menuHover:'The trust ledger — the bands that rate how much the box trusts each actor, model, or source, the same seven-dimension trust model that gates what enters memory (D-07) now applied across the machine. Trust here is earned and revocable, not assumed: a low band constrains what something is allowed to influence, and a dropping score is an early warning that something is behaving less trustworthily than it did. It answers ‘how much does the box trust each thing, and is any trust eroding.’ Open it to see the trust landscape, to understand why an actor is constrained, or to catch a trust drop before it becomes a problem. It is a selfdef mirror (read-only via M060) and the scoring layer behind the quarantine decisions (D-17) and capability grants (D-13/D-14).'},
+      {id:'D-20', dir:'d-20-peace-machine-health', label:'D-20 Peace Machine Health', ico:'☮', desc:'The M059 peace-machine 5-property verdict — the top-level \'is the system at peace\' signal.', menuHover:'The box’s conscience in one screen — the verdict on whether it is still a peace machine, meaning all five R09966 properties hold at once: powerful enough to act, disciplined enough to explain itself, reversible enough to trust, flexible enough to evolve, and — the load-bearing one — sovereign, so intelligence stays in your hands. The verdict is a conjunction: all five, or not peace. It answers the highest-level question about the box, above any single subsystem: ‘is the machine still behaving as designed.’ Open it for a one-read health check on the whole doctrine, and when it degrades, to see which property slipped and its backing modules. Each property maps to real infrastructure (M047 rollback, M049 observability, MS003 signatures), so a red property points you straight at the subsystem that broke it.'},
+      {id:'—', dir:'compliance', label:'Compliance', ico:'⚖', desc:'The §1g/§1h compliance aggregator — per-module pass/fail against the operator mandate.', menuHover:'The top of the anti-minimization stack — the meta-instrument that composes the four §1g audits (surface-map, doc-coverage, anti-minimization, ux-design) into one verdict, because ‘done properly’ is all four at once: a feature can be delivered on every surface and still be undocumented, or documented and still unusable. §1h then extends the same bar across repos to selfdef. It answers ‘is the whole fleet honoring the delivery contract, and where is the leverage to improve it.’ Open it for the single composite read, the worst-modules list ranked by combined gap (the highest-leverage cleanups), and the trend of whether the fleet is honoring the contract more or less over time. It rolls up the four instrument panels beneath it; a red composite sends you to whichever axis is dragging it down.'},
+      {id:'—', dir:'auth-tier', label:'Auth Tier', ico:'🔑', desc:'The 6-tier auth ladder (no-auth → basic → advanced → social → enterprise → network) + per-surface requirement.', menuHover:'The authentication-strength audit — a ladder of operator-named tiers measuring how strongly each surface proves who is calling and what they may do, and an upgrade-priority matrix ranking who is under-authenticating for their power. A module’s correct tier is set by what it can do: a surface that can mutate the box belongs high on the ladder, one that only reads can sit lower, and a mutating surface authenticating weakly is the priority to fix. It answers ‘does each surface authenticate as strongly as its capability warrants.’ Open it to audit the fleet’s auth posture, to find the biggest auth gaps, or before hardening a surface that can change the box. It is one of the §1g instruments the Compliance panel rolls up, alongside the surface, doc, and UX audits.'},
+      {id:'—', dir:'anti-minimization-audit', label:'Anti-Minimization Audit', ico:'⛶', desc:'The \'do not minimize\' audit — flags where scope was silently shrunk vs the mandate.', menuHover:'The cut-corner detector, built from the operator’s own directive: do not minimize. It greps the whole fleet for eight nameable smells of work that looks finished but is not — a TODO with no anchor, an empty stub, a silent skip, a surface or doc gap, a mandate-TODO owed upward, minimizing language (‘just’, ‘basic’, ‘for now’), and a status that claims done over a stub. Each finding is a specific place a corner was cut and not owned. It answers ‘where is the fleet pretending to be more finished than it is.’ Open it to see the minimization debt, to distinguish intentional waived shortcuts from accidental ones, and to find modules short on both surface and doc axes at once (the efficient place to start). It is a §1g instrument feeding the Compliance rollup; a finding is a corner to close, not to explain away.'},
     ]},
     {name:'Governance & Meta', items:[
       {id:'D-00', dir:'master-dashboard', label:'Master Dashboard', ico:'◎', desc:'The aggregator — the route table + health of every panel + selfdef cross-repo manifest discovery. The front door (this catalog is its new global index).', menuHover:'The front door and the switchboard — the one panel that knows about all the others. It answers a different question than any single dashboard: not “how is this subsystem,” but “is everything reachable, is anything colliding, and is the safety spine intact?” It carries the route table (every panel and whether the aggregator can reach it), the coverage view that proves nothing is stranded off the §1g contract, the collision list where two things claim the same route, the cross-repo manifests selfdef publishes, and — most importantly — the four health banners that are the box’s pulse: the M060 mirror chain (the selfdef→sovereign-os bridge), the MS022 SSE subscriber quota, the four-watchdog IPS spine (whether Guardian/Tetragon is up, which sovereign-os checks but selfdef owns), and AppArmor enforcement. Open it first on any session to see the whole surface at a glance; open it when a panel seems missing or misrouted; open it when you want a single yes/no on whether the defense spine is healthy before trusting anything else. It is the map every other panel is a place on.'},
-      {id:'—', dir:'surface-map', label:'Surface Map', ico:'🗺', desc:'The §1g 8-surface taxonomy coverage — which of the 8 operator surfaces each module delivers.'},
-      {id:'—', dir:'doc-coverage', label:'Doc Coverage', ico:'☷', desc:'Documentation coverage per module — what\'s documented vs shipped.'},
-      {id:'—', dir:'ux-design-audit', label:'UX Design Audit', ico:'◓', desc:'The UX design-stage audit — consistency/accessibility scoring across the panels.'},
-      {id:'—', dir:'personalization', label:'Personalization', ico:'✦', desc:'Theme / accent / typography control (localStorage-backed) applied across all panels before paint.'},
+      {id:'—', dir:'surface-map', label:'Surface Map', ico:'🗺', desc:'The §1g 8-surface taxonomy coverage — which of the 8 operator surfaces each module delivers.', menuHover:'The reachability audit — proof that every module is present on all eight operator-named surfaces (core, cli, tui, api, mcp, dashboard, webapp, service), because a feature is not delivered until it is reachable everywhere it should be. A module whose core logic works but has no CLI verb, no MCP tool, or no visible panel is minimized, and this panel counts exactly that gap, milestone by milestone, so ‘done’ milestones whose modules are still short stand out. It answers ‘is everything actually reachable, or does some capability exist only for those who already know it is there.’ Open it to find invisible (unreachable, unwaived) surfaces, to see which module needs which surface built, and to keep §1g coverage honest. It is the surface axis of the Compliance rollup.'},
+      {id:'—', dir:'doc-coverage', label:'Doc Coverage', ico:'☷', desc:'Documentation coverage per module — what\'s documented vs shipped.', menuHover:'The documentation audit — whether every module carries all six operator-named doc kinds (readme, sdd, helptext, metric-inventory, mandate-row, man-page), each written for a different reader at a different moment. A module missing one is under-documented in a specific, nameable way: no readme strands the newcomer, no sdd strands the changer, no helptext strands the operator mid-task. It answers ‘is every module actually documented, and for whom is it not.’ Open it to see the matrix of which module lacks which doc (every empty cell is a concrete writing task, not a vague ‘needs docs’), and to keep the doc half of the delivery contract honest across the fleet. It is the doc axis of the §1g Compliance rollup, extended cross-repo to selfdef via §1h.'},
+      {id:'—', dir:'ux-design-audit', label:'UX Design Audit', ico:'◓', desc:'The UX design-stage audit — consistency/accessibility scoring across the panels.', menuHover:'The experience audit — scoring surfaces on six operator-named UX dimensions (action-budget, discoverable, recoverable, next-step, operator-named, readable-30s), because a feature can render perfectly and still fail its operator. It is the exact bar this very cockpit is held to: a surface that works but takes ten clicks, hides its controls, punishes mistakes, or needs a manual to read is not done. It answers ‘is each surface actually usable, not just correct.’ Open it to see which surface is weak on which quality (every low cell is a concrete fix, like ‘add a next-step’ or ‘use the operator’s words’), and to keep usability from being the silent gap behind ‘it technically works.’ It is the UX axis of the §1g Compliance rollup, and the reason ‘it works’ was never enough.'},
+      {id:'—', dir:'personalization', label:'Personalization', ico:'✦', desc:'Theme / accent / typography control (localStorage-backed) applied across all panels before paint.', menuHover:'Operator comfort, kept deliberately apart from machine state — theme, accent color, and typography scale for the cockpit, and nothing that touches the box’s behavior. It is the one panel where you genuinely cannot break anything: everything here is presentation, saved locally, so you can make the cockpit easy to read at the bench (larger, high-contrast) or dense at the desk without any risk to the machine. It answers ‘how do I make the cockpit comfortable for me.’ Open it to set the look, or to export and import your preferences as a cosmetic JSON that carries your look between machines with no box state or secrets in it. The strict separation of presentation from state is the point — this is the safe panel, on purpose.'},
     ]},
     {name:'Science & Simulation', items:[
-      {id:'—', dir:'science', label:'Science Tools', ico:'⚛', desc:'The operator\'s science catalog — DNA / protein / particle tools. NVIDIA Warp (particles) is integrated: a differentiable particle sim on GPU (RTX PRO 6000) or CPU fallback. Read-only; running a sim is the gated sovereign-osctl science run.'},
+      {id:'—', dir:'science', label:'Science Tools', ico:'⚛', desc:'The operator\'s science catalog — DNA / protein / particle tools. NVIDIA Warp (particles) is integrated: a differentiable particle sim on GPU (RTX PRO 6000) or CPU fallback. Read-only; running a sim is the gated sovereign-osctl science run.', menuHover:'The GPU as a scientific instrument — NVIDIA Warp compiling Python kernels to run simulation and numeric compute on the same Blackwell and 4090 silicon that serves inference, so the machine is a compute instrument, not only an inference server. It answers ‘what can the box compute for me beyond serving models, and is that capability ready.’ Open it to confirm Warp is live and which GPU it targets, to browse the available science tools, or to run a simulation — remembering that a heavy run competes for the very VRAM inference needs (watch D-09). It is the panel that shows the box is general-purpose compute you own, not a single-purpose appliance, and it draws on the same GPU budget the orchestration and hardware-pressure panels track.'},
     ]},
   ];
   var PKEY='sovereign-os.personalization', PSCHEMA=1;
@@ -1408,238 +1408,293 @@ refresh();
 <script>
   window.SO_ASSIST = {
  "context": {
-  "icon": "$",
+  "icon": "◍",
   "title": "D-04 · Costs",
-  "content": "What the box is spending — and the honest answer is usually nothing. Sovereign-os inference runs local on the loopback router, so a local request is FREE: $0 here is correct, not a broken meter (SDD-102). Real cost only accrues if a request falls back to a cloud model — and cloud is disabled by default. So this panel is really 'is any cloud spend happening, and is it within the budget you set'.\n\nRead it to confirm the box is staying local (spend near zero), to catch a cloud fallback you didn't expect, and to see the policy that governs cloud at all. The cost policy is operator-controlled; halting cloud routes is a signed panic verb."
+  "content": "The honest ledger — and the point it makes is that the number is mostly zero. The box’s whole cost model rests on a single truth (SDD-102, ‘$0-is-honest’): local inference is free, cloud is off by default, so the vast majority of what a hosted assistant would bill for costs nothing here. What this panel actually watches, then, isn’t a big spend — it’s the rare exception: a prompt that escaped to cloud, and whether the policies that are supposed to prevent that held.\n\nSo read it in two halves. The spend figures (today, per-request, forecast) are the meter, usually near zero. The cost POLICY — cloud off, approval required, private paths never cloud — is the load-bearing part: those are the sovereignty guarantees that keep the meter at zero. And the halt button is the panic switch if cloud ever starts costing when it shouldn’t."
  },
  "nodes": [
   {
    "icon": "◆",
-   "title": "Live-source banner",
-   "content": "Whether the cost figures are live from /api/costs/summary or a snapshot. A panel must always say which it's on — a stale cost read could hide a cloud fallback that just started spending.",
+   "title": "Data source",
+   "content": "Whether the cost figures are live or a snapshot — a stale ledger could hide a cloud spend that just started.",
    "children": [
     {
-     "selector": "#datasource-banner",
+     "selector": "#ds-state-label",
      "title": "Live vs snapshot",
-     "content": "Green = the costs daemon is answering; muted = a snapshot. On a spend panel, a snapshot could miss the moment a request went to cloud.",
-     "icon": "◆",
+     "content": "Whether /api/costs/summary is answering live. Cost matters most at the moment something unexpected starts spending — a cloud route that shouldn’t have opened — so a live feed is what lets this panel catch that as it happens rather than after the budget is gone.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The value of live cost is catching the exception</div>On a box where local is free and cloud is off, the ledger is boring almost all the time — which is exactly why a live read matters: the one time it’s NOT boring (a cloud route opened, spend climbing) is the time you need to see it now, not in an hour’s snapshot.</div><div class=\"so-xref\"><span class=\"x\">→</span> #ds-last-update — how current the figures are</div>",
      "variants": [
+      {
+       "when": {
+        "textContains": "checking"
+       },
+       "content": "Reaching the cost endpoint — the figures aren’t confirmed live yet.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Connecting</div>Waiting on /api/costs/summary. Spend numbers are unconfirmed until this goes live.</div>"
+      },
       {
        "when": {
         "textContains": "live"
        },
-       "content": "Live — spend figures are current.",
-       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Live</div>The daemon is answering; today's spend is now.</div>"
+       "content": "Live — the cost figures reflect spend right now.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Live</div>The cost feed is answering; spend is current.</div>"
       },
       {
        "when": {
-        "textContains": "snapshot"
+        "textContains": "offline"
        },
-       "content": "Snapshot — the daemon is unreachable; a cloud fallback since capture wouldn't show.",
-       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Snapshot</div>Reading last-known spend — a new cloud request might not be counted yet.</div>"
+       "content": "No answer — the ledger is a snapshot; a spend that just started may not show.",
+       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Offline</div>The cost feed is down. A new cloud spend might be invisible here until it recovers.</div>"
       }
      ]
     },
     {
-     "selector": "#ds-state-label",
-     "title": "Source label",
-     "content": "One-word source read — live daemon vs baked snapshot, at a glance before you trust the spend."
-    },
-    {
      "selector": "#ds-state-detail",
      "title": "Source detail",
-     "content": "The endpoint (/api/costs/summary) and why it's live or fell back."
+     "content": "The longer status line — which endpoint answered and, when degraded, why. On a healthy feed it just confirms /api/costs/summary; when amber, it tells you whether the figures below are merely slow or absent."
     },
     {
      "selector": "#ds-last-update",
-     "title": "Fetch freshness",
-     "content": "When spend was last read. Cloud fallbacks can start any time; check this before trusting '$0 today' as final."
+     "title": "Ledger freshness",
+     "content": "When the cost figures were last read. Usually unremarkable — but if a cloud route ever opens, this is the caveat that says how recently you’d have seen the spend start, so a stale timestamp during an anomaly is a reason to refresh before trusting a low number."
     }
    ]
   },
   {
-   "icon": "▤",
-   "title": "Today's budget",
-   "content": "Today's spend against the budget you set (operator-configurable per profile). On a local-only box these should read ~$0 against whatever ceiling you configured — the budget is really a guardrail for the cloud path, not a bill you're running up.",
+   "icon": "▦",
+   "title": "Today’s budget",
+   "content": "Today’s spend against its budget, plus the per-request numbers that would catch a runaway. On a healthy box these hover near zero because everything ran local. The budget and per-request-max exist not because spend is expected but as tripwires: they cap the damage if a cloud route ever opens unexpectedly.",
    "children": [
     {
      "selector": "#today-spend",
-     "title": "Spend today (UTC)",
-     "content": "What's been spent so far today. On a local box this is ~$0 — every non-zero dollar here came from a cloud fallback, so a rising number is the signal that requests are leaving the machine.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why spend should be ~$0</div>Local inference on the loopback router is free — no per-token bill. Spend only appears when a request falls back to a cloud model (disabled by default).<div class=\"so-li\"><span class=\"ok\">✓</span> $0 → everything ran local; the box stayed sovereign and free</div><div class=\"so-li\"><span class=\"warn\">▲</span> &gt;$0 → some request went to cloud — check cost-by-model for which</div><div class=\"so-xref\"><span class=\"x\">→</span> the cost policy below is what gates cloud in the first place</div></div>"
+     "title": "Today’s spend",
+     "content": "What the box has spent today (UTC). On a box running local-only this should be at or near zero — every prompt served free on your own silicon. A non-zero figure here is the signal to investigate: something routed to cloud, and the rest of this panel is where you find out what and why.",
+     "variants": [
+      {
+       "when": {
+        "textContains": "$0"
+       },
+       "content": "Zero spend today — everything ran local and free, as intended.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● $0 today</div>Nothing escaped to cloud — the sovereign, free path handled it all.</div>"
+      },
+      {
+       "when": {
+        "textContains": ""
+       },
+       "content": "Non-zero spend today — something routed to cloud. Check cost-by-profile and the policy below to see what and whether it was allowed.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ Spend today</div>Something cost money — a cloud route opened. Trace it via cost-by-model and confirm the policy permitted it.</div>"
+      }
+     ]
     },
     {
      "selector": "#today-budget",
-     "title": "Daily budget",
-     "content": "The budget ceiling you configured for today. It's a cloud-spend guardrail — if cloud is enabled and spend approaches this, the policy can start refusing cloud fallbacks. On a local-only box it's a safety net that should never be touched."
-    },
-    {
-     "selector": "#today-fill",
-     "title": "Budget fill",
-     "content": "The visual fill of today's spend against the budget — the gauge behind the numbers. Near-empty is the healthy state for a local box."
-    },
-    {
-     "selector": "#today-label",
-     "title": "Budget label",
-     "content": "The label on the budget gauge — spend / ceiling. Read the numbers for the values; this names them."
+     "title": "Today’s budget",
+     "content": "The daily spending cap, configurable per profile. It’s not a target to spend up to — it’s a ceiling, the daily_budget_usd policy made visible. Its job is to bound the worst case: if something starts spending, this is the limit past which the box stops rather than draining an account.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A ceiling, not an allowance</div>The budget isn’t money the box intends to spend — local is free, so it usually spends none of it. It’s a safety bound: a cap on how much damage an unexpected cloud spend could do in a day before the box refuses further cloud routes. Set per profile, because an autonomous profile might warrant a tighter cap than a supervised one.</div><div class=\"so-xref\"><span class=\"x\">→</span> #pol-daily — the policy this cap comes from</div>"
     },
     {
      "selector": "#req-count",
      "title": "Requests today",
-     "content": "How many inference requests ran today. Read it against spend: many requests at $0 is a healthy local box doing real work for free; the same request count with spend means cloud fallbacks."
+     "content": "How many requests the box served today. Read it against today’s spend: a high request count with zero spend is the sovereignty story working — thousands of prompts, all free, all local. The ratio of requests to cost is the honest efficiency number a hosted service would never show you.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The number that makes zero impressive</div>A spend of $0 is only remarkable next to the work it bought. Thousands of requests served for nothing is the whole argument — cognition at no marginal cost. This count is the denominator that turns a boring zero into the point: the box did real work, and it was free.</div>"
     },
     {
      "selector": "#avg-req-cost",
      "title": "Avg cost / request",
-     "content": "Average cost per request — total spend / request count. On a local box this is $0. A non-zero average is the per-request cloud cost, useful for spotting whether one expensive model or many cheap ones drove the spend."
+     "content": "The average cost per request today — almost always zero on a local box. It’s a useful anomaly detector: if this drifts above zero, some fraction of requests are hitting cloud, and the average tells you roughly how large that fraction or how expensive those few are.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A drift detector, not a bill</div>Because local is free, this average lives at zero — so any movement off zero is signal. A small non-zero average means a few requests found cloud; a larger one means either more of them did or the ones that did were expensive. It points you to cost-by-model to see which.</div><div class=\"so-xref\"><span class=\"x\">→</span> #model-tbody — which cloud model the drift came from</div>"
     },
     {
      "selector": "#per-req-max",
      "title": "Per-request max (alert)",
-     "content": "The most expensive single request today — the worst case, not the average. A high max with a low average means one outlier (a big cloud-model prompt); the policy's per_request_max_usd is what caps this.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The max is the outlier catcher</div>Averages hide a single runaway request. This surfaces the priciest call — usually a large cloud fallback — so you can trace it before it repeats.<div class=\"so-xref\"><span class=\"x\">→</span> per_request_max_usd (policy below) is the hard cap on this<br><span class=\"x\">→</span> D-05 traces shows the actual expensive span</div></div>"
+     "content": "The most expensive single request today, and the alert threshold it’s checked against (the per_request_max_usd policy). One pricey request is exactly the kind of thing an average hides, so this surfaces the single worst case — a runaway prompt that escaped to an expensive cloud model would show here first.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The tripwire for a single runaway</div>Averages smooth over outliers; this doesn’t. A per-request max that crosses the alert threshold is the box catching one expensive request — a long cloud generation, a costly model — before it becomes a pattern. It’s the fine-grained companion to the daily budget: one caps the day, this catches the single event.</div><div class=\"so-xref\"><span class=\"x\">→</span> #pol-perreq — the per-request cap policy this enforces</div>"
     },
     {
      "selector": "#eod-forecast",
-     "title": "Forecast end-of-day",
-     "content": "Projected spend by end of day at the current rate. On a local box it stays ~$0; a climbing forecast is an early warning that cloud fallbacks are accumulating faster than expected."
+     "title": "End-of-day forecast",
+     "content": "The projected spend by end of day given the trajectory so far. On a local box this projects to zero; a rising forecast is an early warning that today’s spend is trending toward the budget, giving you time to intervene (or halt cloud) before it’s reached rather than after.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Early warning, so you act before the cap</div>A budget you only notice when you hit it is a budget that already cost you. The forecast is the lead time: if spend is trending up, it projects where the day ends, so you can halt cloud or switch profile before the cap rather than discovering the overage after.</div><div class=\"so-xref\"><span class=\"x\">→</span> #halt-btn — the intervention a rising forecast argues fo</div>"
     }
    ]
   },
   {
-   "icon": "≣",
-   "title": "Cost breakdowns",
-   "content": "Where the (usually zero) cost comes from — by project, by profile, by model. When spend is non-zero, these three tables locate it: which work, under which profile's cloud policy, on which model.",
+   "icon": "◫",
+   "title": "Cost by project",
+   "content": "Spend broken down by project — which workload, if any, is responsible for cost. On a local box this is a table of zeros; when something does spend, this is the first cut at ‘who’ — which project’s work escaped to cloud.",
    "children": [
     {
      "selector": "#project-tbody",
      "title": "Cost by project",
-     "content": "Per-project spend over today / 7d / 30d, with the profile and route each used. Hover a row for that project's spend and whether it went local or cloud. On a local box every project reads $0.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Cost by project</div>Attributes spend to the work that caused it. A project showing cost is one whose requests fell back to cloud — the route column tells you local vs cloud.</div>",
+     "content": "Each row is a project and its spend. Read it to attribute cost: if the ledger is non-zero, this says which project’s work is responsible, narrowing the investigation before you drill into which model or route it used. On a healthy box every row is zero, which is itself the reassuring reading.",
      "dynamic": true,
      "childTemplate": {
       "selector": "#project-tbody tr",
-      "nameSelector": "td",
-      "title": "Project · {{name}}",
-      "content": "The {{name}} project's spend across today/7d/30d, with its profile and route. On a local box this is $0; a cost here means this project's requests went cloud.",
-      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Project · {{name}}</div>Spend attributed to this project. The route column (local vs cloud) is the tell for why it costs anything.</div>"
+      "nameSelector": "td,code,strong",
+      "title": "Row · {{name}}",
+      "content": "The {{name}} row — a project and its spend (zero on a local box; non-zero attributes cost to a workload). Read it against the doctrine: zeros are the box keeping its $0 promise; anything else is the exception to explain.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Project · {{name}}</div>One project’s spend. On a sovereign box it’s zero; a real number is the first clue to which workload escaped to cloud.</div>"
      }
-    },
-    {
-     "selector": "#profile-tbody",
-     "title": "Cost by profile (MS040)",
-     "content": "Spend per operator profile — and crucially, each profile's cloud stance: private (never cloud, R10747), fast (local-only), careful (cloud gated), autonomous (predeclared), experimental (sandbox only), production (strict, R10454). The profile is what decides whether cloud is even reachable.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The profile is the cloud gate</div>Cost isn't just a number per profile — it's a policy. Each profile declares its relationship to cloud, and that's what determines whether any spend is even possible.<div class=\"so-grid\"><span class=\"k\">private</span><span>never cloud (R10747) — always $0, always local</span><span class=\"k\">fast</span><span>local-only</span><span class=\"k\">careful</span><span>cloud allowed but gated (per-request approval)</span><span class=\"k\">autonomous</span><span>cloud within predeclared bounds</span><span class=\"k\">production</span><span>strict (R10454)</span></div><div class=\"so-xref\"><span class=\"x\">→</span> D-02 profile choices — the active profile that governs this</div></div>",
-     "dynamic": true,
-     "childTemplate": {
-      "selector": "#profile-tbody tr",
-      "nameSelector": "td",
-      "title": "Profile · {{name}}",
-      "content": "The {{name}} profile's spend and its cloud stance. The stance — never/local-only/gated/predeclared/strict — is what decides whether this profile can spend at all.",
-      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Profile · {{name}}</div>Cost per profile is really policy per profile. private = always $0; production = strict-gated cloud.</div>"
-     }
-    },
-    {
-     "selector": "#model-tbody",
-     "title": "Cost by model",
-     "content": "Per-model spend with tokens-in, tokens-out, and $/Mtok. Local models are $0/Mtok (free); a non-zero $/Mtok is a cloud model. This is where you see exactly which model, if any, is costing money.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Cost by model</div>$/Mtok is the tell: $0 = a local model (free), non-zero = a cloud model. Tokens-out usually dominates cost, so a chatty cloud model is the expensive one.</div>",
-     "dynamic": true,
-     "childTemplate": {
-      "selector": "#model-tbody tr",
-      "nameSelector": "td",
-      "title": "Model · {{name}}",
-      "content": "The {{name}} model's usage and $/Mtok. $0/Mtok = a local model (free); non-zero = cloud. Tokens-out usually drives the cost.",
-      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Model · {{name}}</div>A local model costs nothing; this row only shows dollars if it's a cloud model.</div>"
-     }
-    },
-    {
-     "selector": "#trend-chart",
-     "title": "30-day spend trend",
-     "content": "Spend over the last 30 days. For a healthy local box this is a flat line at zero; any spikes are days cloud fallbacks happened — worth correlating with what changed (a new project, a profile switch, a cloud-enable)."
     }
    ]
   },
   {
-   "icon": "⚙",
-   "title": "Cost policy (operator-controlled)",
-   "content": "The rules that govern cloud spending — the reason costs are usually zero. These are operator-set: cloud is off by default, private paths never leave the box, and there are hard budget + per-request caps. This is the policy the whole panel is really about.",
+   "icon": "⊞",
+   "title": "Cost by profile (MS040)",
+   "content": "How each authority profile treats cloud — the cloud-routing stance per MS040 profile, across 1-day / 7-day / 30-day windows. This is less about dollars than about policy: it shows, per profile, whether cloud is allowed at all, gated, predeclared, sandbox-only, or strictly forbidden. It’s the map of which postures can even incur cost.",
+   "children": [
+    {
+     "selector": "#profile-tbody",
+     "title": "Cloud stance per profile",
+     "content": "Each profile’s cloud-routing policy over the time windows — private (never cloud, R10747), fast (yes), careful (yes but gated), autonomous (predeclared only), experimental (sandbox only), production (strict, R10454). Read it as the answer to ‘which profile could spend, and under what constraint’ — the private and production profiles are locked down precisely so their work can never leak to a paid cloud path.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Cost policy IS authority policy</div>Whether a profile can route to cloud isn’t a billing setting — it’s a sovereignty and authority decision. The private profile forbids cloud outright (private paths never leave the box); production is strict; autonomous only allows predeclared cloud use. So this matrix is really the authority envelope (D-02) viewed through the cost lens: tighter profiles can’t spend because they can’t reach the paid path.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-02 profile-choices — the authority envelopes these cloud stances belong to<br><span class=\"x\">→</span> #pol-private — the private-paths-never-cloud guarantee</div>",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#profile-tbody tr",
+      "nameSelector": "td,code,strong,th",
+      "title": "Profile · {{name}}",
+      "content": "The {{name}} profile’s cloud stance across the windows — whether it may route to cloud, and under what constraint. Tighter profiles (private, production) forbid or strictly gate cloud, so their work structurally cannot spend; looser ones permit it under approval or predeclaration.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Profile · {{name}}</div>This profile’s cloud-routing policy. It’s an authority decision as much as a cost one — whether {{name}}’s work can reach a paid path at all is set by its MS040 envelope (D-02).</div><div class=\"so-xref\"><span class=\"x\">→</span> D-02 — the authority envelope behind {{name}}</div>"
+     }
+    }
+   ]
+  },
+  {
+   "icon": "◫",
+   "title": "Cost by model",
+   "content": "Spend attributed to specific models — and by extension, to local versus cloud. The local tiers (Conductor, Logic, Oracle) cost nothing; any non-zero row here is a cloud model, so this table is the clearest ‘did we pay for cloud, and for which model’ view.",
+   "children": [
+    {
+     "selector": "#model-tbody",
+     "title": "Cost by model",
+     "content": "Each row is a model with its tokens-out and dollars-per-million-tokens. The local models show $0 per Mtok — that’s the whole point — so any row with a real price is a cloud model, and its token count is how much you leaned on it. Read it to see exactly which cloud model incurred cost, if any, and how heavily it was used.",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#model-tbody tr",
+      "nameSelector": "td,code,strong",
+      "title": "Row · {{name}}",
+      "content": "The {{name}} row — a model with tokens-out and $/Mtok (local = $0; any price is a cloud model). Read it against the doctrine: zeros are the box keeping its $0 promise; anything else is the exception to explain.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Model · {{name}}</div>One model’s cost. Local tiers are $0/Mtok by design; a priced row is a cloud model, and its token count is how heavily it was used.</div>"
+     }
+    }
+   ]
+  },
+  {
+   "icon": "∿",
+   "title": "30-day trend",
+   "content": "The month of spend — the shape over time. On a sovereign box this is a flat line at zero, which is the honest headline: a month of cognition at no marginal cost. A blip is a cloud escalation worth explaining; a rising line is a policy drift worth stopping.",
+   "children": [
+    {
+     "selector": "#trend-chart",
+     "title": "30-day spend trend",
+     "content": "Spend plotted over the last 30 days. The expected shape is flat-at-zero — a month of free local inference — so the chart is really an exception detector: a spike marks a day something routed to cloud, and a sustained rise means cloud use is creeping in against the doctrine. Read the shape, not the magnitude, since the magnitude should be near nothing.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A flat line is the success state</div>Most cost charts trend up and you manage the slope. This one is designed to stay flat at zero, and any deviation is the story — a spike is a one-off escalation to explain, a rising trend is the box drifting away from local-only and toward paid cloud, which the cost policies exist to prevent. Flat is the box keeping its $0-is-honest promise.</div><div class=\"so-xref\"><span class=\"x\">→</span> #pol-cloud — the policy that should keep this flat</div>"
+    }
+   ]
+  },
+  {
+   "icon": "⚑",
+   "title": "Cost policy",
+   "content": "The operator-controlled rules that keep the meter at zero — the load-bearing half of this panel. These aren’t billing preferences; they’re the sovereignty guarantees: cloud off by default, approval required, private paths never cloud, budgets and per-request caps. Read them as the promises the box makes about your data and your money.",
    "children": [
     {
      "selector": "#policy-tbody",
-     "title": "Cost policy",
-     "content": "The operator-controlled cost policy — each key, its current value, and its source. This is the safety envelope around cloud: nothing spends unless these allow it. Hover a key for what it enforces.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Policy is why $0 is the default</div>The policy is deny-by-default for cloud: cloud_enabled is false, private paths are hard-blocked from cloud, and budgets cap what's left. Cost is zero because the policy makes it so — not because nothing's happening.</div>"
+     "title": "Cost policy table",
+     "content": "The full operator-controlled cost policy, verbatim from config. Each row is a guarantee about when and whether the box will ever spend — read together they define the sovereignty envelope around cost: the box does not phone a paid cloud unless these rules explicitly, and reversibly, permit it. This table is why the spend above is usually zero.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The rules that make $0 the default</div>Local-free is only half the story; these policies are the other half — they ensure the box doesn’t quietly opt into paid cloud. Together they enforce cloud-off-by-default with approval gates and hard budget caps, all operator-controlled and reversible. The individual rows below make each guarantee explicit.</div>",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#policy-tbody tr",
+      "nameSelector": "td,code,strong",
+      "title": "Row · {{name}}",
+      "content": "The {{name}} row — one cost-policy rule and its value (a sovereignty guarantee, not a billing preference). Read it against the doctrine: zeros are the box keeping its $0 promise; anything else is the exception to explain.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Policy · {{name}}</div>One operator-controlled cost rule. Together these keep spend at zero by default — cloud off, approval gated, private paths never cloud, hard caps.</div>"
+     }
     },
     {
      "selector": "#pol-cloud",
-     "title": "cloud_enabled",
-     "content": "The master switch for cloud fallback. Default false — so by default NO request ever leaves the box and cost is structurally $0. Flipping this true is what makes any spend possible at all.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">cloud_enabled = the sovereignty switch</div>This one boolean is the difference between a free, fully-local box and one that can spend. Default false is the sovereign default; enabling it is a deliberate operator choice, gated by the rest of the policy.<div class=\"so-tip\">💡 If spend is non-zero, this is true — and the other keys are what's keeping it bounded.</div></div>"
+     "title": "Policy · cloud_enabled",
+     "content": "Whether cloud routing is enabled at all. The default and sovereign posture is OFF — the box serves everything locally and never reaches a paid external model. This is the master switch behind the flat-zero spend: with cloud disabled, no policy below even gets a chance to matter, because nothing can route out.",
+     "variants": [
+      {
+       "when": {
+        "textContains": "false"
+       },
+       "content": "cloud_enabled = false — cloud is off; the box cannot incur cost. The sovereign default.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Cloud off</div>Nothing can route to a paid cloud model — spend is structurally zero.</div>"
+      },
+      {
+       "when": {
+        "textContains": "true"
+       },
+       "content": "cloud_enabled = true — cloud routing is permitted (still gated by the policies below). The box CAN incur cost.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ Cloud on</div>Cloud routing is enabled — spend is possible, bounded by approval and budget policies. Confirm this is intended.</div>"
+      }
+     ]
     },
     {
      "selector": "#pol-approval",
-     "title": "cloud_requires_approval",
-     "content": "Whether a cloud fallback needs an explicit approval first (R10747). When true, no request goes to cloud without passing through D-06 — so even with cloud enabled, each cloud call is a deliberate, signed decision."
+     "title": "Policy · cloud_requires_approval",
+     "content": "Whether any cloud route requires operator approval before it runs (R10747). With this on, even an enabled cloud path can’t spend silently — it queues for your signature first, so cost is never incurred without a human choosing it. It’s the operator-in-the-loop guarantee applied to money.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">No spend without a human choosing it</div>Enabling cloud does not mean cloud spends freely — with approval required, each cloud route is a request you sign, not an automatic action. So even the ‘cloud on’ posture keeps a human between a prompt and a bill, which is the same operator-in-the-loop principle as D-06’s approval queue, applied to money.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-06 pending-approvals — where a cloud route would wait for you</div>"
     },
     {
      "selector": "#pol-daily",
-     "title": "daily_budget_usd",
-     "content": "The hard daily spend ceiling. Once cloud spend hits this, further cloud fallbacks are refused for the day — the guardrail that stops a runaway from draining a budget. It's the ceiling the today's-budget gauge measures against."
+     "title": "Policy · daily_budget_usd",
+     "content": "The hard daily spend cap. Past this, the box stops routing to cloud for the day regardless of demand — the ceiling that bounds a bad day. It’s the policy behind the today’s-budget number above: not an allowance to spend, but the limit that caps the worst case.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The bound on a bad day</div>Even with cloud on and a runaway workload, this is the most the box can spend in a day before it refuses further cloud routes. It converts an open-ended risk (an account drained overnight) into a known, bounded one — the maximum damage a single day can do, set by you.</div>"
     },
     {
      "selector": "#pol-perreq",
-     "title": "per_request_max_usd",
-     "content": "The hard cap on any single request's cost (R10075). A request whose projected cost exceeds this is refused rather than run — the protection against one giant cloud prompt blowing the budget in a single call (it's what the per-request-max alert above watches)."
+     "title": "Policy · per_request_max_usd",
+     "content": "The cap on any single request’s cost (R10075). No one prompt can spend more than this, so a runaway generation on an expensive cloud model is bounded per-request, not just per-day. It’s the fine-grained cap that catches a single costly event the daily budget would only notice in aggregate.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The cap the daily budget can’t provide</div>A daily budget lets one pathological request eat the whole day’s allowance in a single call. This prevents that: no individual request may exceed this cost, so a single runaway generation is stopped on its own terms, not after it has already spent the day’s cap.</div><div class=\"so-xref\"><span class=\"x\">→</span> #per-req-max — the live max this bounds</div>"
     },
     {
      "selector": "#pol-private",
-     "title": "private_paths_never_cloud",
-     "content": "The rule that private-tagged work NEVER goes to cloud, regardless of any other setting (R10081). This is a hard sovereignty guarantee: sensitive paths stay local even if cloud is enabled — the policy can't be configured to leak them.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The unbreakable-private guarantee</div>Some settings are conveniences; this is a guarantee. Private-tagged work is structurally barred from cloud — no budget, approval, or enable flag can route it out. It's the sovereignty floor.<div class=\"so-xref\"><span class=\"x\">→</span> D-02 profiles — the private profile that always honours this</div></div>"
+     "title": "Policy · private_paths_never_cloud",
+     "content": "The guarantee that private paths never route to cloud (R10081) — the data-sovereignty rule, not just a cost one. Work marked private stays on the box no matter what, so sensitive prompts cannot leak to an external model even if cloud is otherwise enabled. This is the policy that makes ‘private’ mean private.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">This one is about your data, not your money</div>Most cost policies bound spend; this one bounds exposure. private_paths_never_cloud means certain work is structurally incapable of leaving the box — no cloud model ever sees it, regardless of the other settings. It’s the sharpest edge of sovereignty here: some of what the box thinks about is guaranteed never to be seen by anyone else’s hardware.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-02 private profile — the authority profile that enforces this end-to-end</div>"
     },
     {
      "selector": "#pol-log",
-     "title": "log_prompts",
-     "content": "Whether prompts are logged (R10747). A privacy control — it governs whether the content of requests is recorded, distinct from the cost accounting. Operator-controlled like the rest of the policy."
+     "title": "Policy · log_prompts",
+     "content": "Whether prompts are logged (R10747). It’s a privacy-and-audit lever: logging aids debugging and the audit trail, but on sensitive work you may want prompts unlogged. Operator-controlled, because the trade-off between having a record and keeping prompts ephemeral is yours to set."
+    }
+   ]
+  },
+  {
+   "icon": "⇄",
+   "title": "Actions",
+   "content": "Refresh re-reads the ledger; halt is the panic switch that kills all cloud routes instantly; export pulls the 30-day cost record. Halt is the one to know — it’s the emergency stop if cloud ever starts spending when it shouldn’t.",
+   "children": [
+    {
+     "selector": "#refresh-btn",
+     "title": "Refresh",
+     "content": "Re-reads the cost figures immediately. Read-only. Most useful during an anomaly — if spend appears, refresh to watch it live and confirm whether a halt has taken effect."
+    },
+    {
+     "selector": "#halt-btn",
+     "title": "Halt cloud routes (panic)",
+     "content": "The emergency stop — kills all cloud routing immediately, forcing everything back to local. This is the button for the moment the ledger shows spend it shouldn’t: it doesn’t wait for a budget to be reached or an approval to resolve, it cuts cloud off now. Use it the instant cloud cost looks wrong; the box keeps serving locally, free, uninterrupted.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">The instant off-switch for cost</div>Every other control here bounds cost gradually — a budget, a per-request cap. This one is immediate and total: all cloud routes halt, spend stops, work continues on the free local tiers. It’s the panic response for an unexpected spend, a misbehaving profile, or a cloud model running away — reach for it first, investigate after.</div><div class=\"so-xref\"><span class=\"x\">→</span> #pol-cloud — the enabled-state this overrides on the spot</div>"
+    },
+    {
+     "selector": "#export-btn",
+     "title": "Copy 30d export cmd",
+     "content": "Copies the command to export the 30-day cost record — read-only extraction for an audit, a report, or offline analysis. The exported ledger is the durable proof of the box’s spend (usually a month of zeros), useful for demonstrating the sovereign cost model to someone who wasn’t watching the meter."
     }
    ]
   },
   {
    "icon": "⎈",
-   "title": "Actions & controls",
-   "content": "Read-only per MS043 R10212 — refreshing re-samples; halting cloud is a signed panic verb. The web reads spend; it never changes the policy from here.",
+   "title": "Controls",
+   "content": "The shared control rail. On the cost panel it’s where a cost concern becomes a posture change — switching to a profile that forbids cloud, for instance — rather than only reacting with halt. Each control copies its signed verb.",
    "children": [
-    {
-     "selector": "#refresh-btn",
-     "title": "Refresh",
-     "content": "Re-poll spend on demand. Read-only re-sample."
-    },
-    {
-     "selector": "#halt-btn",
-     "title": "Halt cloud routes (panic)",
-     "content": "Stages an immediate halt of ALL cloud fallback — the panic switch. If you see unexpected spend, this cuts every cloud route at once, forcing everything local. A signed verb because it's a policy override; copies the command, never halts from the web.",
-     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">The cloud panic switch</div>One action to force the whole box local — every cloud route dead, spend back to $0. It's the emergency response to a surprise bill or a cloud-enable you want to reverse instantly.<div class=\"so-tip\">💡 Because it's disruptive (in-flight cloud work is cut), it's a signed osctl verb, not a web click.</div></div>"
-    },
-    {
-     "selector": "#export-btn",
-     "title": "Copy 30d export cmd",
-     "content": "Copies the command to export 30 days of cost data — for an external audit or finance record. Read-only; it gives you the command to run."
-    },
-    {
-     "selector": "#cost-policy",
-     "title": "Cost policy anchor",
-     "content": "A jump to the cost-policy section — the operator-controlled rules that keep spend bounded."
-    },
-    {
-     "selector": "#costs-export",
-     "title": "Costs export anchor",
-     "content": "A jump to the export control — for pulling the cost record out for audit."
-    },
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Cost controls — each copies its exact sovereign-osctl verb (§1g / R10212). Halting cloud and changing policy run through the signed CLI; the web surface is read-only per MS043."
+     "content": "The profile/mode/feature control rail. Its role here is durable prevention: if cost keeps appearing, the fix isn’t to keep hitting halt — it’s to switch to a profile whose cloud stance forbids the spend (the private or production profile). The rail copies the signed verb for that change; the box adopts the tighter posture only when you run it.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Prevent with a profile, not just halt</div>Halt is the reaction; a profile change is the prevention. If cloud spend recurs, moving to a profile that can’t route to cloud (D-02’s private or production) removes the possibility structurally, so you’re not relying on catching each event. The rail is where that signed posture change is copied from.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-02 profile-choices — the profiles whose cloud stance sets this</div>"
     }
    ]
   }
