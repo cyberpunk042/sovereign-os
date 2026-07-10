@@ -135,7 +135,7 @@ async function main() {
     const errs = [];
     page.on("pageerror", (e) => errs.push(String(e)));
     const apiCalls = [];
-    page.on("request", (r) => { if (r.url().includes(panel.apiPrefix)) apiCalls.push(r.url()); });
+    page.on("request", (r) => { if (panel.apiPrefix && r.url().includes(panel.apiPrefix)) apiCalls.push(r.url()); });
     await page.addInitScript((on) => {
       if (on) localStorage.setItem("sovereign-os.demo", JSON.stringify({ schema: 1, on: true }));
       else localStorage.removeItem("sovereign-os.demo");
@@ -161,7 +161,7 @@ async function main() {
     if (DEMO_ON && !probe.badge) fails.push("badge missing");
     if (!DEMO_ON && probe.badge) fails.push("badge present with demo off");
     if (DEMO_ON && panel.rowSelector && !(probe.rows > 0)) fails.push(`no rows for ${panel.rowSelector}`);
-    if (DEMO_ON && apiCalls.length > 0) fails.push(`${apiCalls.length} data call(s) to ${panel.apiPrefix}`);
+    if (DEMO_ON && panel.apiPrefix && apiCalls.length > 0) fails.push(`${apiCalls.length} data call(s) to ${panel.apiPrefix}`);
     if (errs.length > 0) fails.push(`${errs.length} page error(s)`);
 
     results.push({

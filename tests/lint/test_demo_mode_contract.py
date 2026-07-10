@@ -57,9 +57,16 @@ def test_manifest_panels_satisfy_the_generic_demo_contract():
     automatically with the rollout; per-panel bespoke asserts (EventSource guards /
     ternaries) stay as the explicit cases below."""
     for p in _load_manifest():
-        slug, const = p["slug"], p["demoConst"]
+        slug = p["slug"]
         body = (REPO_ROOT / "webapp" / slug / "index.html").read_text(encoding="utf-8")
         assert "window.soDemo" in body and BADGE_TEXT in body, f"{slug}: helper/badge"
+        if p.get("kind") == "badge-only":
+            # static/chrome panels have no telemetry to sample — badge-only (SB-077):
+            # the inlined helper auto-renders the badge; no DEMO_<X> data is fabricated.
+            assert p["demoConst"] is None, f"{slug}: badge-only panels carry no DEMO const"
+            assert "window.soDemo" in body[: body.index("</head>")], f"{slug}: helper in <head>"
+            continue
+        const = p["demoConst"]
         assert "function demoActive()" in body, f"{slug}: demoActive gate"
         assert const in body and ("demo/" in body or "demo-" in body), (
             f"{slug}: {const} + obvious demo/ or demo- placeholder ids"
