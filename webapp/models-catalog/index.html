@@ -371,6 +371,8 @@
   <span class="muted" style="font-size:.75rem">export the filtered + sorted set:</span>
   <button id="export-csv">export CSV</button>
   <button id="export-json">export JSON</button>
+  <span class="spacer" style="flex:1"></span>
+  <button id="clear-view" title="reset filters + sort and forget the saved view">clear view</button>
 </div>
 <div class="panel">
   <table>
@@ -811,6 +813,43 @@
 "use strict";
 let MODELS = [], sortK = "id", sortAsc = true;
 const el = (id) => document.getElementById(id);
+
+// ── view-state persistence (SDD-108) — remember the filter + sort in localStorage,
+//    restore on load. Pure client-side; schema-guarded; a distinct key (never the
+//    personalization pref key). restoreView never crashes or applies invalid state. ─
+const VKEY = "sovereign-os.models-catalog.view", VSCHEMA = 1;
+const VIEW_FILTER_IDS = ["f-tier", "f-class", "f-quant", "f-purpose", "f-status", "f-vram"];
+function saveView() {
+  try {
+    const f = {}; VIEW_FILTER_IDS.forEach(id => { f[id] = el(id).value; });
+    localStorage.setItem(VKEY, JSON.stringify({ schema: VSCHEMA, f, sortK, sortAsc }));
+  } catch (e) { /* storage unavailable — the view just won't persist */ }
+}
+function restoreView() {
+  let v;
+  try { v = JSON.parse(localStorage.getItem(VKEY) || "null"); } catch (e) { return; }
+  if (!v || typeof v !== "object" || v.schema !== VSCHEMA) return;
+  const f = v.f || {};
+  VIEW_FILTER_IDS.forEach(id => {
+    const val = f[id]; if (val == null) return;
+    const inp = el(id);
+    if (inp.tagName === "SELECT") {
+      // only apply a value that is still a real option (a stale facet is dropped)
+      if ([...inp.options].some(o => o.value === val)) inp.value = val;
+    } else {
+      inp.value = val;  // f-vram (free number)
+    }
+  });
+  const validKeys = [...document.querySelectorAll("th[data-k]")].map(th => th.dataset.k);
+  if (typeof v.sortK === "string" && validKeys.indexOf(v.sortK) >= 0) sortK = v.sortK;
+  if (typeof v.sortAsc === "boolean") sortAsc = v.sortAsc;
+}
+function clearView() {
+  VIEW_FILTER_IDS.forEach(id => { el(id).value = ""; });
+  sortK = "id"; sortAsc = true;
+  try { localStorage.removeItem(VKEY); } catch (e) { /* ignore */ }
+  render();
+}
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;" }[c]));
 
 async function load() {
@@ -821,7 +860,7 @@ async function load() {
     MODELS = (d.catalog && d.catalog.models) || [];
     el("status").textContent = "live ✓ — " + MODELS.length + " models";
     el("status").className = "status ok";
-    buildFilters(); renderStats(); render();
+    buildFilters(); restoreView(); renderStats(); render();
   } catch (e) {
     el("status").textContent = "live ✗ — " + e.message;
     el("status").className = "status bad";
@@ -843,12 +882,13 @@ function buildFilters() {
   const fill = (id, vals) => { const sel = el(id); vals.forEach(v => { const o = document.createElement("option"); o.value = v; o.textContent = v; sel.appendChild(o); }); };
   fill("f-tier", uniq("tier")); fill("f-class", uniq("class")); fill("f-quant", uniq("quantization"));
   fill("f-purpose", uniq("purpose", true)); fill("f-status", uniq("status"));
-  ["f-tier","f-class","f-quant","f-purpose","f-status","f-vram"].forEach(id => el(id).addEventListener("input", render));
+  VIEW_FILTER_IDS.forEach(id => el(id).addEventListener("input", () => { saveView(); render(); }));
   document.querySelectorAll("th[data-k]").forEach(th => th.addEventListener("click", () => {
-    const k = th.dataset.k; sortAsc = sortK === k ? !sortAsc : true; sortK = k; render();
+    const k = th.dataset.k; sortAsc = sortK === k ? !sortAsc : true; sortK = k; saveView(); render();
   }));
   el("export-csv").addEventListener("click", exportCsv);
   el("export-json").addEventListener("click", exportJson);
+  el("clear-view").addEventListener("click", clearView);
 }
 
 function renderStats() {
@@ -1036,6 +1076,11 @@ window.SO_ASSIST = {
      "selector": "#export-json",
      "title": "Export JSON",
      "content": "Download the currently filtered + sorted set as JSON — the machine-readable form for scripting or feeding another tool. Same filtered rows as the CSV export."
+    },
+    {
+     "selector": "#clear-view",
+     "title": "Clear view",
+     "content": "Reset the filters + sort and forget the saved view. The panel remembers your filters + sort in localStorage across reloads (per-browser); this is the escape hatch back to the default all-models view."
     },
     {
      "selector": "#control-surface",
