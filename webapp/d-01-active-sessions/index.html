@@ -1426,12 +1426,14 @@ window.SO_ASSIST = {
     {
      "selector": "#ds-state-detail",
      "title": "Source detail",
-     "content": "The longer status line beneath the banner — which endpoint answered and, when degraded, why. On a healthy feed it just confirms /api/sessions/active; when amber, it tells you whether the session daemon is slow or gone, which decides whether a missing session means ‘ended’ or ‘unreported.’"
+     "content": "The longer status line beneath the banner — which endpoint answered and, when degraded, why. On a healthy feed it just confirms /api/sessions/active; when amber, it tells you whether the session daemon is slow or gone, which decides whether a missing session means ‘ended’ or ‘unreported.’",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Which session feed answered</div>The endpoint behind the sessions banner and any degraded note. It turns 'snapshot' into a reason — the M057 session daemon is unreachable vs merely slow.</div>"
     },
     {
      "selector": "#ds-last-update",
      "title": "Board freshness",
-     "content": "When the session board was last refreshed. Because sessions advance continuously, the age is the caveat on every state below: a board a minute old, on a busy box, may show a lifecycle position several steps behind where a session actually is now."
+     "content": "When the session board was last refreshed. Because sessions advance continuously, the age is the caveat on every state below: a board a minute old, on a busy box, may show a lifecycle position several steps behind where a session actually is now.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Sessions move fast</div>When the session list was read. Sessions advance through the M057 lifecycle in seconds, so a stale timestamp means a session may have already progressed or ended since.</div>"
     }
    ]
   },
@@ -1471,7 +1473,8 @@ window.SO_ASSIST = {
        "content": "Sessions are blocked — read the table to see what each is waiting on; a pending approval is a common cause.",
        "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ Sessions blocked</div>Some work can’t advance. Check the table for what each blocked session is waiting on — often an approval on D-06.</div>"
       }
-     ]
+     ],
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Work stalled on a decision</div>How many sessions are blocked — waiting on an approval or a resource. A rising blocked count is work piling up behind a gate; it's the number that predicts a growing D-06 approval queue.<div class=\"so-xref\"><span class=\"x\">→</span> D-06 pending approvals — what blocked sessions wait on</div></div>"
     },
     {
      "selector": "#branch-count",
@@ -1510,7 +1513,8 @@ window.SO_ASSIST = {
     {
      "selector": "#refresh-btn",
      "title": "Refresh now",
-     "content": "Re-reads the session board immediately rather than waiting for the automatic poll. Read-only. Use it after an action, or when a session looks stuck and you want to confirm it hasn’t moved — a fresh read distinguishes ‘genuinely stalled’ from ‘the board was just stale.’"
+     "content": "Re-reads the session board immediately rather than waiting for the automatic poll. Read-only. Use it after an action, or when a session looks stuck and you want to confirm it hasn’t moved — a fresh read distinguishes ‘genuinely stalled’ from ‘the board was just stale.’",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Re-read the live lifecycle</div>Re-polls the session list now — read-only. It re-samples the M057 registry; it never starts or stops a session.</div>"
     },
     {
      "selector": "#hibernate-all-btn",

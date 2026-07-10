@@ -1596,17 +1596,20 @@ window.SO_ASSIST = {
        "content": "Snapshot — the daemon is unreachable; recent admissions/decays aren't reflected.",
        "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Snapshot</div>Frozen read — a fact promoted or decayed since capture won't appear.</div>"
       }
-     ]
+     ],
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Live vs snapshot, for memory</div>Whether the memory view is live or a snapshot. Memory admits and decays continuously, so a snapshot can misrepresent what the box currently knows.</div>"
     },
     {
      "selector": "#ds-state-label",
      "title": "Source label",
-     "content": "One-word source — live memory daemon vs snapshot. Check it before trusting a tier count of zero."
+     "content": "One-word source — live memory daemon vs snapshot. Check it before trusting a tier count of zero.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">One-word memory-feed health</div>Live or snapshot — the quick check before trusting a tier count of zero. The 11-stage pipeline runs constantly, so a stale feed lags reality fast.</div>"
     },
     {
      "selector": "#ds-state-detail",
      "title": "Source detail",
-     "content": "The endpoint behind the counts and why it's live or degraded to snapshot."
+     "content": "The endpoint behind the counts and why it's live or degraded to snapshot.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Which memory feed answered</div>The endpoint behind the memory banner and any degraded note — the memory daemon reachable vs a snapshot.</div>"
     },
     {
      "selector": "#ds-last-update",
@@ -1700,7 +1703,8 @@ window.SO_ASSIST = {
     {
      "selector": "#diff-scope",
      "title": "Diff scope",
-     "content": "Which tiers the diff covers — all-types, or a single memory tier. Narrow it to a tier when you want to see, say, only what semantic memory gained without episodic noise."
+     "content": "Which tiers the diff covers — all-types, or a single memory tier. Narrow it to a tier when you want to see, say, only what semantic memory gained without episodic noise.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Which tiers the diff covers</div>all-types or one memory tier. Narrow it to see, say, only what semantic memory gained without episodic noise — a focused read of the graph delta.</div>"
     },
     {
      "selector": "#diff-base",
@@ -1711,7 +1715,8 @@ window.SO_ASSIST = {
     {
      "selector": "#diff-head",
      "title": "Head version",
-     "content": "The 'to' snapshot — the later memory-graph version. The diff is everything that happened between base and head: what was admitted, promoted, or decayed in that window."
+     "content": "The 'to' snapshot — the later memory-graph version. The diff is everything that happened between base and head: what was admitted, promoted, or decayed in that window.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The 'to' snapshot</div>The later memory-graph version — everything admitted, promoted, or decayed between base and head lands in the diff. It's the newer end of the version range.</div>"
     },
     {
      "selector": "#diff-stream",
@@ -1750,7 +1755,8 @@ window.SO_ASSIST = {
     {
      "selector": "#nav-q",
      "title": "Query box",
-     "content": "What to look up in the memory graph — an entity, fact, or topic. Combined with a temporal verb, it answers not just 'what does the box know about X' but 'what did it know about X, and when'."
+     "content": "What to look up in the memory graph — an entity, fact, or topic. Combined with a temporal verb, it answers not just 'what does the box know about X' but 'what did it know about X, and when'.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">What to look up</div>The query subject — an entity, fact, or topic. Combined with a temporal verb it asks not just 'what does the box know' but 'what did it know, and when'.<div class=\"so-xref\"><span class=\"x\">→</span> nav-verb — the temporal dimension</div></div>"
     },
     {
      "selector": "#nav-verb",
@@ -1809,7 +1815,8 @@ window.SO_ASSIST = {
        },
        "content": "Private — memory stays local; nothing is mirrored out under this shape."
       }
-     ]
+     ],
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">What may leave the box</div>Whether memory is shaped private or shareable under the active profile — it bounds what M060 may mirror out. 'private' keeps memory local; a shareable shape widens the mirror.</div>"
     },
     {
      "selector": "#control-surface",
