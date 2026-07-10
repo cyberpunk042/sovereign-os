@@ -133,3 +133,19 @@ def test_d03_model_health_demo():
     # the helper is inlined in <head> (before the panel script) so soDemo exists first
     head = body[:body.index("</head>")]
     assert "window.soDemo" in head, "the demo helper must load in <head> before the panel script"
+
+
+def test_d23_models_catalog_demo():
+    """SDD-120 (DEMO batch 1 cont.) — D-23 Models Catalog reuses the shared helper:
+    opt-in, badged, sample catalog with placeholder ids, NO network in the demo path
+    (no fetch, no EventSource), helper in <head>."""
+    body = (REPO_ROOT / "webapp" / "d-23-models-catalog" / "index.html").read_text(encoding="utf-8")
+    assert "window.soDemo" in body and BADGE_TEXT in body
+    assert "function demoActive()" in body
+    assert "DEMO_CATALOG" in body and "demo/" in body
+    m = re.search(r"if \(demoActive\(\)\) \{(.*?)\n    \}", body, re.DOTALL)
+    assert m and "fetch(" not in m.group(1), "the D-23 DEMO render path must make NO fetch"
+    assert re.search(r"if \(!demoActive\(\)\) \{\s*try \{\s*const es = new EventSource", body), (
+        "D-23 must open NO EventSource in DEMO mode"
+    )
+    assert "window.soDemo" in body[:body.index("</head>")], "helper must load in <head>"
