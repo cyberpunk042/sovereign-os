@@ -103,10 +103,15 @@ if [ "${served}" = "1" ]; then
   curl -fsS "127.0.0.1:${PORT}/science.json" 2>/dev/null | grep -q '"tools"' \
     && ok "science-api /science.json serves the catalog" || ko "/science.json missing tools"
   wok=0
+  wtmp="/tmp/sci-panel-web.$$"
   for _ in $(seq 1 20); do
-    if curl -fsS "127.0.0.1:${PORT}/" 2>/dev/null | grep -q "DOCTYPE html"; then wok=1; break; fi
+    # No pipe: grep matches "DOCTYPE" at byte 0 and closes the pipe, which would
+    # SIGPIPE curl mid-write on the ~112 KB webapp and fail under `set -o pipefail`.
+    # Write to a file first, then grep the file.
+    if curl -fsS "127.0.0.1:${PORT}/" -o "${wtmp}" 2>/dev/null && grep -q "DOCTYPE html" "${wtmp}"; then wok=1; break; fi
     sleep 0.3
   done
+  rm -f "${wtmp}"
   [ "${wok}" = "1" ] && ok "science-api / serves the webapp" || ko "webapp not served"
   code="$(curl -fsS -o /dev/null -w '%{http_code}' -X POST "127.0.0.1:${PORT}/" 2>/dev/null || true)"
   [ "${code}" = "405" ] && ok "science-api POST → 405 (read-only)" || ko "POST returned ${code}, expected 405"
