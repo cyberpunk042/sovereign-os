@@ -1,0 +1,76 @@
+"""Cockpit DEMO-mode contract lint (SDD-116).
+
+Pins the SB-077 reconciliation for DEMO mode: opt-in (off by default), ALWAYS
+badged, and the DEMO render path makes NO network call (the sample data is
+client-side constants; R10212 strengthened). The shared helper is canonical in
+webapp/_shared/demo-mode.{js,css}; Code Console is the first consumer + the
+personalization panel carries the global toggle.
+
+Per operator §1g (verbatim, sacrosanct): "We do not minimize anything."
+Per SB-077 (sacrosanct): never fabricate data presented as real — DEMO data is
+labelled sample data, opt-in, always badged, never confusable with live telemetry.
+"""
+from __future__ import annotations
+
+import re
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+SHARED_JS = REPO_ROOT / "webapp" / "_shared" / "demo-mode.js"
+SHARED_CSS = REPO_ROOT / "webapp" / "_shared" / "demo-mode.css"
+CODE_CONSOLE = REPO_ROOT / "webapp" / "code-console" / "index.html"
+PERSONALIZATION = REPO_ROOT / "webapp" / "personalization" / "index.html"
+
+BADGE_TEXT = "sample data — not real telemetry"
+
+
+def test_shared_helper_present_and_opt_in():
+    js = SHARED_JS.read_text(encoding="utf-8")
+    css = SHARED_CSS.read_text(encoding="utf-8")
+    assert "sovereign-os.demo" in js, "the demo flag must live in localStorage sovereign-os.demo"
+    assert "window.soDemo" in js, "the shared helper must expose window.soDemo"
+    # opt-in: on() returns a truthy only when the stored flag is explicitly on
+    assert re.search(r"function on\(\)\s*\{[^}]*p\.on", js, re.DOTALL), (
+        "soDemo.on() must read the stored flag (opt-in; default off)"
+    )
+    assert "#so-demo-badge" in css and "so-demo-badge" in js, "the DEMO badge must be defined + rendered"
+    assert BADGE_TEXT in js, "the badge must carry the unmistakable 'not real telemetry' label (SB-077)"
+    # the helper itself must make NO network call
+    assert "fetch(" not in js and "EventSource" not in js and "XMLHttpRequest" not in js, (
+        "the demo helper must make no network call"
+    )
+
+
+def test_code_console_demo_is_opt_in_badged_and_offline():
+    body = CODE_CONSOLE.read_text(encoding="utf-8")
+    # inlines the shared helper + the badge
+    assert "window.soDemo" in body and "#so-demo-badge" in body
+    assert BADGE_TEXT in body
+    # a demoActive() gate exists
+    assert "function demoActive()" in body
+    # sample data uses obvious placeholders (never confusable with real ids)
+    assert "DEMO_SESSIONS" in body and "demo-session-01" in body
+    # the DEMO render short-circuit in refresh() makes NO fetch (client-side only)
+    m = re.search(r"if \(demoActive\(\)\) \{(.*?)\n    \}", body, re.DOTALL)
+    assert m, "refresh() must contain a demoActive() short-circuit"
+    assert "fetch(" not in m.group(1), "the DEMO render path must make NO fetch (SB-077 / R10212)"
+    # no EventSource opens while DEMO is active
+    assert re.search(r"if \(!demoActive\(\)\) \{\s*try \{\s*const es = new EventSource", body), (
+        "the panel must open NO EventSource in DEMO mode (zero network calls)"
+    )
+    # the composer gives a canned DEMO reply with no fetch
+    assert re.search(r"if \(demoActive\(\)\) \{[^}]*\[DEMO\]", body, re.DOTALL), (
+        "the composer must return a canned [DEMO] reply in DEMO mode (no model call)"
+    )
+
+
+def test_personalization_carries_the_global_toggle():
+    body = PERSONALIZATION.read_text(encoding="utf-8")
+    assert 'id="demo-control"' in body, "personalization must carry the DEMO on/off toggle"
+    assert 'data-demo="on"' in body and 'data-demo="off"' in body
+    assert "window.soDemo" in body, "personalization must inline the shared demo helper"
+    assert "window.soDemo.set(" in body, "the toggle must write the demo flag"
+    # off is the default-selected button (opt-in)
+    assert re.search(r'data-demo="off"[^>]*class="demo-btn on"', body), (
+        "DEMO must default to OFF in the toggle (opt-in)"
+    )
