@@ -552,7 +552,7 @@ a11y; contract test catches drift.
       {id:'D-19', dir:'d-19-super-model-manifest', label:'D-19 Super-Model Manifest', ico:'≣', desc:'The live super-model version + the M001..M080 module table — what capabilities are shipped.'},
     ]},
     {name:'Hardware & Operations', items:[
-      {id:'D-09', dir:'d-09-hardware-pressure', label:'D-09 Hardware Pressure', ico:'▰', desc:'Live PSI (CPU/mem/IO), per-CCD load, GPU utilization + power, ZFS pool health. The physical-stress view.'},
+      {id:'D-09', dir:'d-09-hardware-pressure', label:'D-09 Hardware Pressure', ico:'▰', desc:'Live PSI (CPU/mem/IO), per-CCD load, GPU utilization + power, ZFS pool health. The physical-stress view.', menuHover:'The box’s vital signs — not “how busy” but “how stressed”. Where you go when something feels slow and you need to know whether the machine is genuinely out of headroom or just working hard. It reads Linux PSI (stall, not utilization — the honest signal of contention), the two Ryzen CCDs separately (because crossing the Infinity Fabric between them costs latency the pinning is meant to avoid), both GPUs’ utilization/VRAM/thermals/KV-cache, the ZFS pool’s tail latency, and the M058 backpressure rules that are actively shedding work right now. Open it before launching a heavy build or eval to see if there’s room; open it when a response is slow to tell load apart from contention; open it when a backpressure rule fires to see which resource tripped and what the scheduler gave up to protect live serving. It pairs with the runtime-profile panels (which set the core pinning and GPU budget this reflects) and with D-08 (the ZFS snapshots the scrub here protects).'},
       {id:'D-04', dir:'d-04-costs', label:'D-04 Costs', ico:'$', desc:'Budget + spend by project / profile / model — local compute cost + any cloud fallback.'},
       {id:'D-08', dir:'d-08-rollback-points', label:'D-08 Rollback Points', ico:'↺', desc:'ZFS snapshots as recovery points, with a dry-run preview of what a rollback would change.'},
       {id:'D-02', dir:'d-02-profile-choices', label:'D-02 Profile Choices', ico:'◈', desc:'The active OS profile mirrored read-only — hardware, kernel, packages, hooks in effect.'},
@@ -645,8 +645,9 @@ a11y; contract test catches drift.
       if(window.matchMedia('(max-width:1024px)').matches) document.body.classList.toggle('so-sm-open');
       else document.body.classList.toggle('so-sm-collapsed'); });
     document.getElementById('so-theme').addEventListener('click',cycleTheme);
-    document.getElementById('so-assist-toggle').addEventListener('click',function(){document.body.classList.toggle('so-assist-open');});
-    document.getElementById('so-assist-close').addEventListener('click',function(){document.body.classList.remove('so-assist-open');});
+    var assistDismissed=false;   // sticky close: once the operator closes it, hover won't force it back open (only the ✦ toggle reopens)
+    document.getElementById('so-assist-toggle').addEventListener('click',function(){ var willOpen=!document.body.classList.contains('so-assist-open'); document.body.classList.toggle('so-assist-open'); assistDismissed=!willOpen; });
+    document.getElementById('so-assist-close').addEventListener('click',function(){ document.body.classList.remove('so-assist-open'); assistDismissed=true; });
     document.getElementById('so-palette').addEventListener('click',function(){
       window.dispatchEvent(new KeyboardEvent('keydown',{key:'k',metaKey:true,bubbles:true}));
       window.dispatchEvent(new KeyboardEvent('keydown',{key:'k',ctrlKey:true,bubbles:true})); });
@@ -660,7 +661,7 @@ a11y; contract test catches drift.
     // catalogue: window.SO_ASSIST = { context:{title,icon,content}, nodes:[{id,title,icon,selector,content,expanded,variants,children}] }
     //   content = plain teaching text (always shown); expanded = authored rich HTML (shown for the active element).
     var abody=document.getElementById('so-assist-body');
-    function openAssist(){ if(!document.body.classList.contains('so-assist-open')) document.body.classList.add('so-assist-open'); }
+    function openAssist(){ if(assistDismissed) return; if(!document.body.classList.contains('so-assist-open')) document.body.classList.add('so-assist-open'); }
     function reduced(){ return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
     var curP=findPanel(curDir());
     var CAT=(function(){ var sa=window.SO_ASSIST, ctx=null, nodes=[];
@@ -706,23 +707,28 @@ a11y; contract test catches drift.
     var lastHot=null, lastMatched=null;
     function clearHot(){ if(lastHot){ lastHot.classList.remove('so-assist-hot'); lastHot=null; } }
     function idle(){ lastMatched=null; clearHot(); abody.innerHTML=ctxHtml()+'<div class="so-assist-idle">Hover any value, control, table row, or menu link — its explanation builds here.</div>'; }
-    function showPath(match){ openAssist(); clearHot();
+    function showPath(match){ if(assistDismissed) return; openAssist(); clearHot();
       var chain=match.entry.parents, node=match.entry.node, parent=chain.length?chain[chain.length-1]:null;
       var html=ctxHtml(); if(parent) html+=nodeHtml(parent,null,null); html+=nodeHtml(node,true,match.el);
       abody.innerHTML=html;
       if(match.el){ match.el.classList.add('so-assist-hot'); lastHot=match.el; }
       var act=abody.querySelector('.so-node.active'); if(act&&act.scrollIntoView) act.scrollIntoView({block:'center',behavior:reduced()?'auto':'smooth'}); }
+    // hover-intent debounce: quick pass-through toward the panel shouldn't hijack the content; a settle of SWAP_DELAY does
+    var swapTimer=null; var SWAP_DELAY=140;
+    function queueSwap(fn){ clearTimeout(swapTimer); swapTimer=setTimeout(fn,SWAP_DELAY); }
+    var asideEl=document.getElementById('so-assist');
+    if(asideEl){ asideEl.addEventListener('mouseenter',function(){ clearTimeout(swapTimer); }); }  // moving onto the panel freezes the current content
     var content=document.getElementById('so-content');
     if(content){
-      content.addEventListener('mouseover',function(ev){ var m=matchNode(ev.target); if(m&&m.el!==lastMatched){ lastMatched=m.el; showPath(m); } });
-      content.addEventListener('focusin',function(ev){ var m=matchNode(ev.target); if(m&&m.el!==lastMatched){ lastMatched=m.el; showPath(m); } });
+      content.addEventListener('mouseover',function(ev){ if(assistDismissed) return; var m=matchNode(ev.target); if(m&&m.el!==lastMatched){ queueSwap(function(){ lastMatched=m.el; showPath(m); }); } });
+      content.addEventListener('focusin',function(ev){ clearTimeout(swapTimer); var m=matchNode(ev.target); if(m&&m.el!==lastMatched){ lastMatched=m.el; showPath(m); } });
     }
     // menu links → surface the target panel's context (program-awareness: horizontal jump)
     Array.prototype.forEach.call(document.querySelectorAll('.so-sm-item'),function(it){ var p=findPanel(it.dataset.dir); if(!p) return;
-      function show(){ openAssist(); clearHot(); lastMatched=null; it.classList.add('so-assist-hot'); lastHot=it; var here=it.dataset.dir===curDir();
+      function show(){ if(assistDismissed) return; openAssist(); clearHot(); lastMatched=null; it.classList.add('so-assist-hot'); lastHot=it; var here=it.dataset.dir===curDir();
         abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+(p.menuHover?p.menuHover:esc(p.desc||''))+'</div></div>'+
           '<div class="so-assist-idle">'+(here?'You’re on this panel now — hover its contents to explore.':'Click to open this panel.')+'</div>'; }
-      it.addEventListener('mouseenter',show); it.addEventListener('focus',show); });
+      it.addEventListener('mouseenter',function(){ queueSwap(show); }); it.addEventListener('mouseleave',function(){ clearTimeout(swapTimer); }); it.addEventListener('focus',show); });
     idle();
   }
   function init(){
