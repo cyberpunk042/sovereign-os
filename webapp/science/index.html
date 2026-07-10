@@ -916,7 +916,8 @@ window.SO_ASSIST = {
     {
      "selector": "#status",
      "title": "Warp status",
-     "content": "Whether NVIDIA Warp is installed and usable. Warp is the scientific-compute surface — GPU-accelerated simulation/numerics — distinct from inference; read it to know if the science-tools below can run."
+     "content": "Whether NVIDIA Warp is installed and usable. Warp is the scientific-compute surface — GPU-accelerated simulation/numerics — distinct from inference; read it to know if the science-tools below can run.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Warp is the GPU science engine</div>NVIDIA Warp compiles Python into GPU kernels for physics and simulation — the box's scientific-computing path. This panel is read-only: it shows whether Warp is installed and usable, but running a sim is a gated CLI job, not a web action.<div class=\"so-xref\"><span class=\"x\">→</span> D-09 hardware pressure — the GPU Warp would run on</div></div>"
     },
     {
      "selector": "#warp-dot",
@@ -942,17 +943,20 @@ window.SO_ASSIST = {
        "content": "Warp ready — GPU-accelerated kernels can run.",
        "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Warp ready</div>The GPU scientific-compute path is live.</div>"
       }
-     ]
+     ],
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Ready vs unavailable</div>Warp's runtime state — ready, initializing, or unavailable. Unavailable usually means no CUDA GPU is visible or Warp isn't installed; ready means kernels can compile and run on the GPU.</div>"
     },
     {
      "selector": "#warp-version",
      "title": "Warp version",
-     "content": "The installed NVIDIA Warp version. Kernel APIs track the version — pin it so a science tool built against one Warp keeps working."
+     "content": "The installed NVIDIA Warp version. Kernel APIs track the version — pin it so a science tool built against one Warp keeps working.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Kernel APIs track the version</div>The installed Warp version. It matters because kernel APIs change between versions — a sim written against one version's API may need the matching Warp to compile.</div>"
     },
     {
      "selector": "#warp-stats",
      "title": "Warp stats",
-     "content": "Warp runtime telemetry — devices seen, kernels compiled. Read it to confirm Warp is actually using the GPU you expect (the Blackwell / 4090), not a fallback."
+     "content": "Warp runtime telemetry — devices seen, kernels compiled. Read it to confirm Warp is actually using the GPU you expect (the Blackwell / 4090), not a fallback.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Devices and compiled kernels</div>Warp telemetry — GPUs seen and kernels compiled. A device count of zero explains an 'unavailable' state; compiled-kernel count shows Warp has actually done work, not just loaded.</div>"
     }
    ]
   },
@@ -964,12 +968,14 @@ window.SO_ASSIST = {
     {
      "selector": "#catalog",
      "title": "Science-tools catalog",
-     "content": "The available science tools — GPU-accelerated simulations/solvers built on Warp. This is compute-for-science on the same GPUs that serve inference; read a tool for what it computes and how to run it."
+     "content": "The available science tools — GPU-accelerated simulations/solvers built on Warp. This is compute-for-science on the same GPUs that serve inference; read a tool for what it computes and how to run it.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The available simulations</div>The GPU-accelerated tools — DNA/protein/particle sims and solvers. Each is a science workload Warp can run; this catalog is what the box offers, launched via the gated CLI.</div>"
     },
     {
      "selector": "#run-cmd",
      "title": "Run command",
-     "content": "The command to launch the selected science tool. Copies the exact invocation — the tool runs on the GPU via Warp when you execute it."
+     "content": "The command to launch the selected science tool. Copies the exact invocation — the tool runs on the GPU via Warp when you execute it.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copy-command, not run</div>The exact command to launch the selected tool. Running a sim is real GPU compute (and a gated operation), so the panel hands you the command to run deliberately rather than launching from the web.<div class=\"so-xref\"><span class=\"x\">→</span> §1g R10212 — copy-command boundary</div></div>"
     },
     {
      "selector": "#copy-run",

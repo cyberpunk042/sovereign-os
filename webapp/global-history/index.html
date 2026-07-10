@@ -1366,22 +1366,26 @@ window.SO_ASSIST = {
     {
      "selector": "#stat-version",
      "title": "History version",
-     "content": "The global-history collector version answering — for reconciling the aggregated timeline against the sources feeding it."
+     "content": "The global-history collector version answering — for reconciling the aggregated timeline against the sources feeding it.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Reconciles the collector</div>The collector version — the reference for how sources are enumerated and events categorized. A version change can add a source or recategorize events, shifting the counts.</div>"
     },
     {
      "selector": "#stat-sources",
      "title": "Sources",
-     "content": "How many distinct sources feed the global history — the audit chain, the router, memory, etc. More sources means a fuller timeline; a missing expected source is a gap in the box-wide view."
+     "content": "How many distinct sources feed the global history — the audit chain, the router, memory, etc. More sources means a fuller timeline; a missing expected source is a gap in the box-wide view.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Many sources, one timeline</div>How many distinct sources feed the global history. It aggregates events across the whole box — audit, sessions, power, network — into one chronology, so this count is the breadth of what's being woven together.</div>"
     },
     {
      "selector": "#stat-recent",
      "title": "Recent events",
-     "content": "How many events in the recent window. A sudden spike or silence is itself a signal — read the events below to see what drove it."
+     "content": "How many events in the recent window. A sudden spike or silence is itself a signal — read the events below to see what drove it.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Spike or silence, both matter</div>Events in the recent window. A sudden spike is worth investigating (what happened?); an unexpected silence is too (did a source stop reporting?). The number is a health pulse, not just a count.</div>"
     },
     {
      "selector": "#stat-summary",
      "title": "Summary window",
-     "content": "The window the 7-day summary covers. The summary aggregates events into per-day/per-type totals so a trend is visible without reading every event."
+     "content": "The window the 7-day summary covers. The summary aggregates events into per-day/per-type totals so a trend is visible without reading every event.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The 7-day aggregate window</div>The window the summary covers. Individual events are noise at scale; the summary aggregates them into categories so a week's activity is legible as trends rather than a firehose.</div>"
     },
     {
      "selector": "#last-refresh",
@@ -1398,7 +1402,16 @@ window.SO_ASSIST = {
     {
      "selector": "#src-tbody",
      "title": "Source rows",
-     "content": "Each row: one event source and its recent contribution. Read them to see which subsystems are active — a source that went silent is either quiet or broken, and both are worth knowing."
+     "content": "Each row: one event source and its recent contribution. Read them to see which subsystems are active — a source that went silent is either quiet or broken, and both are worth knowing.",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#src-tbody > tr",
+      "nameSelector": "td:first-child,td",
+      "title": "Source · {{name}}",
+      "content": "Source {{name}} — its recent contribution to the global history. A source that suddenly goes quiet is worth a look: it may have stopped reporting, which hides its events from the timeline.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Source · {{name}}</div>One event source. Its contribution rate is a liveness signal — silence can mean quiet, or a broken feed.</div>"
+     },
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Sources, ranked by activity</div>Each row is one event source and its recent contribution. Read it as a liveness board: a source that dropped to zero may have stopped feeding the timeline, hiding its events.</div>"
     }
    ]
   },
@@ -1410,7 +1423,16 @@ window.SO_ASSIST = {
     {
      "selector": "#sum-tbody",
      "title": "Summary rows",
-     "content": "Each row: an aggregated event category over the 7-day window. Read it for the shape of the week — a category that spiked on one day is where to look in the recent events below."
+     "content": "Each row: an aggregated event category over the 7-day window. Read it for the shape of the week — a category that spiked on one day is where to look in the recent events below.",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#sum-tbody > tr",
+      "nameSelector": "td:first-child,td",
+      "title": "Category · {{name}}",
+      "content": "Category {{name}} — aggregated over the 7-day window. The summary rolls raw events into categories so a week reads as trends, not a scroll of individual lines.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Category · {{name}}</div>One aggregated event category. Trends here (rising/falling) are the signal the raw event list is too granular to show.</div>"
+     },
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The week as trends</div>Each row aggregates an event category over 7 days. Where the event list is granular, this is the shape — rising or falling categories are the signal to act on.</div>"
     }
    ]
   },
@@ -1422,12 +1444,14 @@ window.SO_ASSIST = {
     {
      "selector": "#since-sel",
      "title": "Since window",
-     "content": "How far back the recent-event list reaches. Narrow it to focus on a burst; widen it to see a longer stretch of box activity."
+     "content": "How far back the recent-event list reaches. Narrow it to focus on a burst; widen it to see a longer stretch of box activity.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Focus the recent view</div>How far back the event list reaches. Narrow it to a tight window when chasing something specific; widen it to see a pattern develop over time.</div>"
     },
     {
      "selector": "#limit-in",
      "title": "Event limit",
-     "content": "The maximum events to show. Raise it to see more of a busy period; the summary above is the un-truncated view if the limit hides something."
+     "content": "The maximum events to show. Raise it to see more of a busy period; the summary above is the un-truncated view if the limit hides something.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Cap the busy periods</div>The max events shown. Raise it to see deeper into a busy stretch; a low limit on an active box hides events past the cap, so bump it when the list looks suspiciously short.</div>"
     },
     {
      "selector": "#recent-btn",
@@ -1437,7 +1461,16 @@ window.SO_ASSIST = {
     {
      "selector": "#ev-tbody",
      "title": "Event rows",
-     "content": "Each row: one box-wide event — its source, type, and time. This is the cross-subsystem timeline at full resolution; read a row to see exactly what happened where, when the summary is not enough."
+     "content": "Each row: one box-wide event — its source, type, and time. This is the cross-subsystem timeline at full resolution; read a row to see exactly what happened where, when the summary is not enough.",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#ev-tbody > tr",
+      "nameSelector": "td:first-child,td",
+      "title": "Event · {{name}}",
+      "content": "Event {{name}} — one box-wide event with its source, type, and time. This is the raw chronology; correlate a suspicious event here against the domain panel that owns it.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Event · {{name}}</div>One event in the box-wide timeline. Its source points at the domain panel (audit, sessions, power…) with the full context.</div>"
+     },
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The raw box-wide chronology</div>Each row is one event across the whole box — source, type, time. This is the unaggregated truth; correlate an anomaly here against the domain panel that owns that source.</div>"
     }
    ]
   },
