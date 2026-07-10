@@ -362,6 +362,11 @@
 </div>
 
 <h2>models</h2>
+<div class="row" style="margin:-.2rem 0 .5rem;align-items:center;gap:.5rem">
+  <span class="muted" style="font-size:.75rem">export the filtered + sorted set:</span>
+  <button id="export-csv">export CSV</button>
+  <button id="export-json">export JSON</button>
+</div>
 <div class="panel">
   <table>
     <thead><tr>
@@ -837,6 +842,8 @@ function buildFilters() {
   document.querySelectorAll("th[data-k]").forEach(th => th.addEventListener("click", () => {
     const k = th.dataset.k; sortAsc = sortK === k ? !sortAsc : true; sortK = k; render();
   }));
+  el("export-csv").addEventListener("click", exportCsv);
+  el("export-json").addEventListener("click", exportJson);
 }
 
 function renderStats() {
@@ -860,14 +867,20 @@ function filtered() {
   );
 }
 
-function render() {
-  const rows = filtered().sort((a,b) => {
+// The derived (filtered + sorted) row set — the SINGLE SOURCE the table AND the
+// export both read, so an export is byte-for-byte "what's on screen" (SB-077).
+function sortedFiltered() {
+  return filtered().sort((a,b) => {
     let x = a[sortK], y = b[sortK];
     if (Array.isArray(x)) x = x.join(","); if (Array.isArray(y)) y = y.join(",");
     if (x == null) x = ""; if (y == null) y = "";
     const r = (typeof x === "number" && typeof y === "number") ? x - y : String(x).localeCompare(String(y));
     return sortAsc ? r : -r;
   });
+}
+
+function render() {
+  const rows = sortedFiltered();
   el("count").textContent = rows.length + " / " + MODELS.length;
   const stMap = { "verified-real":"real", "aspirational":"aspirational", "operator-must-confirm":"confirm" };
   el("rows").innerHTML = rows.map(m =>
@@ -879,6 +892,35 @@ function render() {
     + '<td class="num">'+(m.context_window_tokens != null ? esc(m.context_window_tokens.toLocaleString()) : "—")+"</td>"
     + '<td><span class="pill '+(stMap[m.status]||"")+'">'+esc(m.status)+"</span></td></tr>"
   ).join("") || '<tr><td colspan="9" class="muted">no models match the filter</td></tr>';
+}
+
+// ── export the DERIVED set (SDD-106) — pure client-side, no fetch (R10212);
+//    serializes only the on-screen filtered+sorted rows (SB-077). ──────────────
+const EXPORT_COLS = ["id","tier","class","quantization","size_class","purpose",
+                     "vram_gib_min","context_window_tokens","status"];
+function csvCell(v) {  // reused idiom from d-11-adapter-status
+  const s = v == null ? "" : String(v);
+  return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+function download(name, text, mime) {
+  const blob = new Blob([text], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+function stamp() { return new Date().toISOString().slice(0, 10); }
+function exportCsv() {
+  const rows = sortedFiltered();
+  const csv = [EXPORT_COLS.join(",")].concat(rows.map(m =>
+    EXPORT_COLS.map(c => csvCell(Array.isArray(m[c]) ? m[c].join("; ") : m[c])).join(",")
+  )).join("\n");
+  download("models-catalog-" + stamp() + ".csv", csv, "text/csv");
+}
+function exportJson() {
+  download("models-catalog-" + stamp() + ".json",
+           JSON.stringify(sortedFiltered(), null, 2), "application/json");
 }
 
 load();
@@ -946,6 +988,18 @@ window.SO_ASSIST = [
     "title": "Model catalog",
     "msg": "The models — class, quant, size, context, purpose, status.",
     "more": "The full catalogue backed by models/catalog.yaml. Each row is a model you could run, with the specs that decide fit. The operator CLI (e.g. models select --class rlm --vram 48) is how a choice here becomes a runtime assignment."
+  },
+  {
+    "sel": "#export-csv",
+    "title": "Export CSV",
+    "msg": "Download the filtered + sorted models as CSV.",
+    "more": "Serializes exactly the rows on screen (the current filter + sort) to a CSV file — for a spreadsheet or a procurement shortlist. Pure client-side: it re-uses the already-loaded catalog, sends nothing to the server, and exports only real rows."
+  },
+  {
+    "sel": "#export-json",
+    "title": "Export JSON",
+    "msg": "Download the filtered + sorted models as JSON.",
+    "more": "The same on-screen filtered + sorted set as structured JSON — for tooling or a saved query result. Client-side only; a recompute of the loaded catalog, never a server call, never unloaded data."
   },
   {
     "sel": "#control-surface",
