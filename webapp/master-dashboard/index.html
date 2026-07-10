@@ -2138,250 +2138,458 @@ setInterval(refresh, 30000);
 <script>
 window.SO_ASSIST = {
  "context": {
-  "icon": "◎",
+  "icon": "◫",
   "title": "D-00 · Master Dashboard",
-  "content": "The aggregator — the front door to the whole cockpit. It doesn't do domain work; it indexes every other panel and answers one question: is the cockpit healthy and is every capability reachable?\n\nStart here when you don't know which panel owns a concern, or when something feels off and you want the box's overall posture at a glance."
+  "content": "The front door. Every cockpit panel and control system is indexed here, and the top-line promise is coverage: is every feature actually reachable from a surface, or is something invisible? Below that sits the live map — the routes the aggregator serves, id collisions, the selfdef manifests discovered across repos, and the M060 mirror bridge that reflects the external selfdef IPS into this cockpit.\n\nThis is where you start when you don't know where to look, and where you confirm the box is whole: green coverage + a healthy mirror chain + all four watchdogs up = a trusted box. It's read-only — every control copies a signed sovereign-osctl verb (§17 sovereignty boundary); the web never mutates."
  },
  "nodes": [
   {
-   "icon": "▤",
+   "icon": "◆",
    "title": "Aggregator summary",
-   "content": "The one-glance verdict on the cockpit itself — its port, how many panels it knows, how many answer, and the selfdef bridge count. Everything below is the detail behind these numbers.",
+   "content": "The headline of the whole cockpit — which port the aggregator serves, how many routes it knows, how many are reachable, and whether anything collides. Read this row first; the sections below are the detail behind each number.",
    "children": [
     {
+     "selector": "#stats",
+     "title": "Summary strip",
+     "content": "The aggregator's roll-up — port, route count, reachable count, collisions, selfdef manifests, API version. The one-glance 'is the cockpit whole' read before you drill in."
+    },
+    {
+     "selector": "#stat-port",
+     "title": "Aggregator port",
+     "content": "The loopback port the master aggregator serves on. It's the single entry the cockpit is reached through — bound to loopback by design, so the whole surface is local-only (§17)."
+    },
+    {
      "selector": "#stat-count",
-     "title": "Routes indexed",
-     "content": "How many panel routes the aggregator has discovered — the size of the cockpit. It should track the catalog; a shortfall means a panel exists but isn't wired in.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-li\">A route is 'known' once it's in the catalog — see 'all dashboards' below for the full list.</div></div>"
+     "title": "Routes",
+     "content": "How many routes (dashboards + control systems) the aggregator has registered. This is the size of the cockpit's surface — every one should be reachable (see the reachable count beside it)."
     },
     {
      "selector": "#stat-reachable",
-     "title": "Reachable routes",
-     "content": "How many indexed routes actually answer right now. Indexed is not the same as live.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-grid\"><span class=\"k\">reachable &lt; indexed</span><span>a panel is catalogued but its <span class='k'>*-api</span> daemon isn't started — run <code>make panel</code></span></div><div class=\"so-tip\">💡 This is the gap between 'declared' and 'running' — the first thing to check when a panel loads blank.</div></div>"
+     "title": "Reachable",
+     "content": "How many of the registered routes actually resolve to a live surface. The gap between this and the route count is the danger: a route that exists but isn't reachable is a feature you can't get to. Healthy = reachable equals routes.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Reachable vs registered</div>A route can be declared but dead — pointing at a surface that isn't served. That gap is exactly what the coverage section audits.<div class=\"so-li\"><span class=\"ok\">✓</span> reachable = routes → every declared surface resolves</div><div class=\"so-li\"><span class=\"no\">✗</span> reachable &lt; routes → some feature is registered but unreachable</div><div class=\"so-xref\"><span class=\"x\">→</span> the coverage section below breaks down what's reachable vs cli-only vs invisible<br><span class=\"x\">→</span> surface-map (R453) is the full audit of the 8-surface contract</div></div>",
+     "variants": [
+      {
+       "when": {
+        "textContains": "0"
+       }
+      }
+     ]
     },
     {
      "selector": "#stat-collisions",
-     "title": "Route collisions",
-     "content": "Two surfaces claiming the same route. Should always be zero — a collision sends an operator to the wrong panel.",
-     "expanded": "<div class=\"so-card info\"><div>The collisions panel below names any offenders. Non-zero here is an integrity bug, not a warning.</div></div>",
+     "title": "Collisions",
+     "content": "How many route ids collide — two features claiming the same path. Any non-zero here is a real bug: a collision means one feature shadows another and one of them is silently unreachable. This should always be zero.",
      "variants": [
       {
        "when": {
         "textContains": "0"
        },
-       "content": "No collisions — every route resolves to exactly one panel. This is the healthy state."
+       "content": "Zero collisions — every route id is unique and nothing is shadowed. This is the healthy state.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">✓ No collisions</div>Every route id is unique; no feature is shadowing another.</div>"
+      },
+      {
+       "when": {
+        "textContains": "1"
+       },
+       "content": "Route ids are colliding — two features claim the same path, and one is being shadowed (silently unreachable). Check the collisions section for which.",
+       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Collisions present</div>A route id is claimed twice. One of the colliding features is unreachable until the ids are made unique.</div>"
       }
      ]
     },
     {
      "selector": "#stat-selfdef",
-     "title": "selfdef manifests",
-     "content": "How many cross-repo selfdef manifests the aggregator found. This is the security bridge inventory — sovereign-os reads typed mirrors selfdef publishes, never selfdef's internals.",
-     "expanded": "<div class=\"so-card info\"><div>Zero here means selfdef isn't publishing, so the security mirror panels (D-13…D-18) will be blind. The M060 producers section below shows each bridge's health.</div></div>"
+     "title": "Selfdef manifests",
+     "content": "How many selfdef manifests were discovered across sister repos (§1h cross-repo discovery). This is the count behind the mirror bridge — each manifest is an external selfdef surface this cockpit can reflect."
     },
     {
      "selector": "#stat-version",
      "title": "API version",
-     "content": "The aggregator build stamp — ties the route table and health contract you're reading to a known version.",
-     "expanded": ""
-    },
-    {
-     "selector": "#stat-port",
-     "title": "Aggregator port",
-     "content": "The port the front door itself answers on — the anchor every reachability check is measured against.",
-     "expanded": ""
-    }
-   ]
-  },
-  {
-   "icon": "✓",
-   "title": "Reachability coverage — everything is reachable",
-   "content": "The anti-minimization instrument at the front door: it proves capability isn't stranded in code, computed from /catalog + /control-systems + /feature-coverage. The mandate is that every capability reaches the operator through a real surface.",
-   "children": [
-    {
-     "selector": "#cov-invisible",
-     "title": "Invisible features",
-     "content": "Capabilities that reach NO surface and NO waiver — powerful code an operator simply cannot find or use. This is the number that must trend to zero.",
-     "expanded": "<div class=\"so-card info\"><div class='so-li no'>✗ Non-zero here is a worklist, not a status — each one is minimization the mandate forbids.</div><div class=\"so-tip\">💡 Cross-reference the anti-minimization-audit panel — it categorises exactly how each capability went dark.</div></div>"
-    },
-    {
-     "selector": "#cov-mapped",
-     "title": "Verb families mapped",
-     "content": "How many operator verb families reach a dashboard. Every capability must surface on a panel or carry an explicit waiver.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-grid\"><span class=\"k\">~85 families</span><span>the feature-coverage gate — each maps to a dashboard or is deliberately cli-only</span></div></div>"
-    },
-    {
-     "selector": "#cov-cli",
-     "title": "CLI-only (waived)",
-     "content": "Verb families intentionally left CLI-only, with a stated waiver — privileged mutation and §17 sovereignty-boundary ops that should never get a web control.",
-     "expanded": "<div class=\"so-card info\"><div>A waiver is an honest, recorded exclusion — not a coverage gap. That distinction is the whole discipline.</div></div>"
-    },
-    {
-     "selector": "#cov-dash",
-     "title": "Dashboards covered",
-     "content": "How many dashboards are catalogued with a real, substantive description — the numerator of 'the operator can find everything'.",
-     "expanded": ""
-    },
-    {
-     "selector": "#cov-sys",
-     "title": "Control systems",
-     "content": "The 11+ real on/off + mode/profile systems (OS profiles, runtime profiles, cpu/gpu modes, auth tiers, selfdef, perimeter, inference tiers…) mapped into the cockpit.",
-     "expanded": ""
-    },
-    {
-     "selector": "#cov-note",
-     "title": "Coverage provenance",
-     "content": "Names the three sources the numbers are computed from — so the audit is auditable, not asserted.",
-     "expanded": ""
+     "content": "The version of the aggregator daemon answering — for reconciling behaviour against the spec when something reads oddly."
     }
    ]
   },
   {
    "icon": "▦",
-   "title": "All dashboards — described",
-   "content": "The global index: every panel with its description, category, and the CLI that reaches its feature today. Lint-locked so a panel can never ship with just a bare label.",
+   "title": "Coverage — everything is reachable",
+   "content": "The §1g promise made measurable: for every feature, is there a surface that reaches it? Coverage counts dashboards, control systems, and verb families, and — critically — flags anything invisible (a capability with no surface at all). Green coverage is the claim that nothing is stranded.",
+   "children": [
+    {
+     "selector": "#coverage-stats",
+     "title": "Coverage strip",
+     "content": "The coverage roll-up — dashboards, control systems, verb families mapped, cli-only (waived), and invisible. The invisible count is the one that matters: it should be zero."
+    },
+    {
+     "selector": "#cov-dash",
+     "title": "Dashboards",
+     "content": "How many dashboard surfaces exist — the visual panels of the cockpit. Part of the reachability denominator: every feature that warrants a panel should have one."
+    },
+    {
+     "selector": "#cov-sys",
+     "title": "Control systems",
+     "content": "How many control systems (the osctl verb families behind the panels) are registered. Panels are the view; control systems are what they drive — both must be mapped for a feature to be fully reachable."
+    },
+    {
+     "selector": "#cov-mapped",
+     "title": "Verb families mapped",
+     "content": "How many sovereign-osctl verb families are wired to a surface. A mapped verb family is one you can reach from the cockpit (to copy its command); an unmapped one is CLI-tribal knowledge."
+    },
+    {
+     "selector": "#cov-cli",
+     "title": "CLI-only (waived)",
+     "content": "Features deliberately left CLI-only — reachable by command but with no dashboard, by explicit waiver. This is legitimate (some verbs are too dangerous or too rare for a panel), but each is an accepted choice, not an accident.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Waived ≠ missing</div>A CLI-only feature is a choice: someone decided it doesn't need a surface and signed that waiver. That's different from an invisible feature, which nobody decided about.<div class=\"so-xref\"><span class=\"x\">→</span> anti-minimization-audit tracks these waivers (R474)<br><span class=\"x\">→</span> the invisible count beside this is the un-waived gap</div></div>"
+    },
+    {
+     "selector": "#cov-invisible",
+     "title": "Invisible",
+     "content": "Features with NO surface at all — not a panel, not a mapped verb, not even a waiver. This is the coverage failure the whole §1g contract exists to prevent: a capability that ships but can't be reached or even discovered. It must be zero.",
+     "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">Why invisible must be zero</div>An invisible feature is worse than a missing one — the code is there, consuming trust and attack surface, but nobody can find or use it. It's the exact 'built but unreachable' pattern the compliance suite hunts.<div class=\"so-li\"><span class=\"no\">✗</span> invisible &gt; 0 → a shipped capability has no surface and no waiver — stranded</div><div class=\"so-li\"><span class=\"ok\">✓</span> invisible = 0 → everything is either surfaced or explicitly waived</div><div class=\"so-xref\"><span class=\"x\">→</span> surface-map (R453) locates each invisible capability<br><span class=\"x\">→</span> anti-minimization-audit (R456) flags it as a surface-gap</div></div>",
+     "variants": [
+      {
+       "when": {
+        "textContains": "0"
+       },
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">✓ Nothing invisible</div>Every capability is reachable from a surface or explicitly waived — the coverage contract holds.</div>"
+      }
+     ]
+    },
+    {
+     "selector": "#cov-note",
+     "title": "Coverage note",
+     "content": "The caveat behind the coverage numbers — how 'reachable' is defined and what the aggregator can and can't see. Read it before treating coverage as absolute."
+    }
+   ]
+  },
+  {
+   "icon": "≣",
+   "title": "Dashboards, routes & collisions",
+   "content": "The live map behind the coverage numbers — the full dashboard catalog (each card shows the CLI that reaches the feature today), the registered routes, and any id collisions.",
    "children": [
     {
      "selector": "#catalog-count",
-     "title": "Described panels",
-     "content": "How many cockpit panels carry a genuine description. Backed by config/dashboard-catalog.yaml — the front-door proof that the cockpit is self-explaining.",
-     "expanded": ""
+     "title": "Dashboard count",
+     "content": "How many dashboards are in the catalog. Each is a described, reachable panel; the catalog is the authoritative list the sidemenu and this front door are built from."
     },
     {
      "selector": "#catalog-body",
-     "title": "Catalog table",
-     "content": "Every panel, its description and category. For a panel not yet built as a web surface, the row still shows the operator CLI that reaches the capability — so nothing is hidden just because a dashboard is 'planned'.",
-     "expanded": "<div class=\"so-card info\"><div>This is the navigable map of the whole cockpit — the same descriptions the sidemenu links surface on hover.</div></div>"
-    }
-   ]
-  },
-  {
-   "icon": "⇄",
-   "title": "Routes & collisions",
-   "content": "The aggregator's core artifact — the route table for every panel, plus the integrity check that no two clash.",
-   "children": [
+     "title": "Dashboard catalog",
+     "content": "Every dashboard with its description and the CLI that reaches its feature today. This is the self-documenting index — a planned card shows what's coming; a live card shows the command behind the panel. It's the human-readable form of config/dashboard-catalog.yaml.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The catalog is the source of truth</div>The sidemenu, the coverage audit, and this front door all read from one registry — so a feature can't exist in the cockpit without a catalog entry describing it and the CLI that reaches it.<div class=\"so-tip\">💡 A 'planned' card is honest about what isn't built yet; a live card carries the exact osctl command — that's the reachability promise made concrete.</div></div>"
+    },
+    {
+     "selector": "#routes-panel",
+     "title": "Routes table",
+     "content": "The aggregator's registered routes — every dashboard and control system it serves, with whether each resolves. The raw map behind the reachable count above.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Routes are the reachability ledger</div>Each row is a declared surface and whether it actually resolves. A route marked unreachable is a coverage hole you can see directly.</div>"
+    },
     {
      "selector": "#routes-tbody",
-     "title": "Route table",
-     "content": "Per-route: label, source API, reachability, actions. This is how you find which panel owns a concern and whether it's live before you navigate there.",
-     "expanded": "<div class=\"so-card info\"><div>An unreachable row names the source API that isn't answering — turning 'the dashboard is blank' into 'start this service'.</div></div>"
+     "title": "Route rows",
+     "content": "Each route with its id, label, source, reachable state, and actions. Hover a row for what that route serves and whether it's live — an unreachable route is a feature you can't get to from here.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Reading a route row</div>Source tells you where the route comes from (a dashboard vs a control system); reachable tells you whether it resolves right now.</div>",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#routes-tbody tr",
+      "nameSelector": "td",
+      "title": "Route · {{name}}",
+      "content": "The {{name}} route — where it points and whether it resolves. An unreachable route here is a feature you can't get to from the cockpit.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Route · {{name}}</div>Each route maps an id to a surface. Reachable means it resolves to a live dashboard or control system right now; unreachable means the declaration outlived its target.<div class=\"so-tip\">💡 Cross-check an unreachable route against the coverage section — it's usually the same gap seen two ways.</div></div>",
+      "variants": [
+       {
+        "when": {
+         "textContains": "unreachable"
+        },
+        "content": "This route is UNREACHABLE — it's registered but doesn't resolve to a live surface. That's a coverage hole: the feature is declared but you can't get to it.",
+        "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Unreachable</div>Registered but dead. The declared surface doesn't resolve — a real coverage gap, not cosmetic.</div>"
+       },
+       {
+        "when": {
+         "textContains": "reachable"
+        },
+        "content": "This route is reachable — it resolves to a live surface. Healthy.",
+        "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">✓ Reachable</div>Resolves to a live dashboard/control system.</div>"
+       }
+      ]
+     }
+    },
+    {
+     "selector": "#collisions-panel",
+     "title": "Collisions",
+     "content": "Route-id collisions, if any. A collision means two features claim the same path and one is shadowed — this panel names them so you can make the ids unique.",
+     "variants": [
+      {
+       "when": {
+        "textContains": "loading"
+       }
+      }
+     ]
     },
     {
      "selector": "#collisions-body",
-     "title": "Collision list",
-     "content": "The specific colliding routes, if any — which two panels, which shared path. Empty is healthy.",
-     "expanded": ""
+     "title": "Collision detail",
+     "content": "The specific colliding route ids. Empty is the healthy state; any entry here is a feature being silently shadowed until the collision is resolved."
     }
    ]
   },
   {
-   "icon": "⛓",
-   "title": "selfdef bridge — M060 mirror producers",
-   "content": "The selfdef → sovereign-os typed-mirror chain that feeds every security panel. sovereign-os consumes read-only published mirrors; it never reaches into selfdef. These banners are 'is the bridge up' — if red, D-13…D-18 are stale even while selfdef itself keeps enforcing.",
+   "icon": "⧉",
+   "title": "selfdef cross-repo manifests",
+   "content": "The §1h discovery layer — selfdef manifests found across sister repos. selfdef is the external intrusion-prevention system; these manifests are how sovereign-os discovers which selfdef surfaces exist to mirror. This is the bridge's inventory, distinct from the live health below.",
    "children": [
     {
-     "selector": "#m060-health-banner",
-     "title": "M060 mirror chain",
-     "content": "Whether the mirror-producer chain is healthy end-to-end — the single 'is the security bridge live' signal.",
-     "expanded": "<div class=\"so-card info\"><div class='so-li no'>✗ Red here means the D-13…D-18 mirrors are stale even though selfdef is still enforcing on the IPS side.</div></div>",
-     "variants": [
+     "selector": "#discover-panel",
+     "title": "Discovered manifests",
+     "content": "The selfdef manifests discovered across repos — the catalog of external IPS surfaces available to reflect into this cockpit. More discovered = a more complete mirror bridge.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Discovery vs mirroring</div>Discovery finds which selfdef surfaces exist; the M060 bridge below is what actually reflects their live state. A manifest discovered but not mirrored is a surface known-about but not yet watched.<div class=\"so-xref\"><span class=\"x\">→</span> the M060 mirror producers section is the live half of this<br><span class=\"x\">→</span> D-13..D-18 are the per-domain mirrors these manifests describe</div></div>"
+    },
+    {
+     "selector": "#discover-body",
+     "title": "Manifest detail",
+     "content": "Each discovered selfdef manifest with its repo and surfaces. The concrete list behind the selfdef-manifest count in the summary."
+    }
+   ]
+  },
+  {
+   "icon": "⛨",
+   "title": "M060 mirror producers — the selfdef bridge",
+   "content": "The live bridge that reflects the external selfdef IPS into sovereign-os. Four independent health signals decide whether the box is trusted: the mirror chain (are all 10 mirrors current), the four watchdogs (the IPS spine — all must be up), the SSE quota (are the live streams within budget), and AppArmor (is kernel enforcement on). A green bridge is what lets you trust everything the selfdef panels show.",
+   "children": [
+    {
+     "icon": "◆",
+     "title": "Mirror chain health",
+     "content": "Whether all 10 selfdef mirrors are current — the freshness of the reflected IPS state.",
+     "children": [
       {
-       "when": {
-        "textContains": "healthy"
-       },
-       "content": "The mirror chain is healthy — the security panels are reading live data."
+       "selector": "#m060-health-banner",
+       "title": "Chain health",
+       "content": "Whether the M060 mirror chain is healthy — all mirrors current and fed by the selfdef daemon. If the chain is stale, every selfdef panel (D-13..D-18) is showing old data, so this banner gates your trust in all of them.",
+       "icon": "◆",
+       "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why the chain gates the mirrors</div>The selfdef panels don't talk to selfdef directly — they read the M060 mirror. If the chain is stale or broken, those panels are honest-but-old, and this banner is the only place that tells you so.<div class=\"so-xref\"><span class=\"x\">→</span> D-25 selfdef-management is the detailed view of this chain<br><span class=\"x\">→</span> each mirror feeds one of D-13..D-18</div></div>",
+       "variants": [
+        {
+         "when": {
+          "textContains": "healthy"
+         },
+         "content": "The mirror chain is healthy — all mirrors are current and the selfdef panels are showing live IPS state.",
+         "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">✓ Chain healthy</div>All mirrors current. What the selfdef panels (D-13..D-18) show is live.</div>"
+        },
+        {
+         "when": {
+          "textContains": "stale"
+         },
+         "content": "The mirror chain is stale — the selfdef daemon isn't feeding it. Every selfdef panel is showing OLD data; don't trust their state until this recovers.",
+         "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ Chain stale</div>Mirrors are behind. The selfdef panels are honest but out of date — treat their state as history.</div>"
+        },
+        {
+         "when": {
+          "textContains": "down"
+         },
+         "content": "The mirror chain is DOWN — the bridge to selfdef is broken. The IPS state is unknown from the cockpit; this is a trust-critical failure.",
+         "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Chain down</div>The selfdef bridge is broken. The cockpit can't see the IPS state at all — investigate the selfdef daemon.</div>"
+        }
+       ]
       },
       {
-       "when": {
-        "textContains": "offline"
-       },
-       "content": "The chain is offline — the security mirror panels are showing last-known, not live. selfdef is still enforcing; the bridge just isn't publishing."
-      }
-     ]
-    },
-    {
-     "selector": "#m060-health-count",
-     "title": "Mirrors up",
-     "content": "How many of the 10 M060 mirrors are publishing, via the selfdef daemon. Below 10 means a specific domain mirror is down — the tile grid shows which.",
-     "expanded": ""
-    },
-    {
-     "selector": "#m060-health-age",
-     "title": "Mirror data age",
-     "content": "How old the latest mirror sample is. A healthy count with stale age means the mirrors published once then went quiet.",
-     "expanded": ""
-    },
-    {
-     "selector": "#four-watchdog-banner",
-     "title": "four-watchdog IPS spine",
-     "content": "Health of the four always-on guards that keep the intrusion-prevention layer trustworthy. Red means a guard is down and the perimeter's assurance is degraded even if traffic still flows.",
-     "expanded": "<div class=\"so-card info\"><div>Served from the four-watchdog-api contract (proxying node_exporter). Check this before trusting any selfdef mirror as authoritative.</div></div>",
-     "variants": [
-      {
-       "when": {
-        "textContains": "offline"
-       },
-       "content": "A watchdog is down — the IPS spine is degraded. Traffic may still flow but one of its assurances is missing."
-      }
-     ]
-    },
-    {
-     "selector": "#apparmor-banner",
-     "title": "AppArmor enforcement",
-     "content": "Whether the host's mandatory-access-control is enforcing — a top-level trust signal. 'enforcing' is trusted; 'complain' or disabled means confinement is only logging, not blocking.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-grid\"><span class=\"k\">enforcing</span><span>profiles actually block — the box is confined</span><span class=\"k\">complain / off</span><span>an open door that looks closed — a material drop in trust posture</span></div></div>",
-     "variants": [
-      {
-       "when": {
-        "textContains": "enforcing"
-       },
-       "content": "Enforcing — AppArmor profiles are actively blocking. This is the trusted state."
+       "selector": "#m060-health-label",
+       "title": "Chain health label",
+       "content": "The one-word chain state — healthy / stale / down. The fastest read of whether the selfdef mirrors can be trusted."
       },
       {
-       "when": {
-        "textContains": "offline"
-       },
-       "content": "Not enforcing — confinement is only logging. Treat the box as a materially weaker trust posture until restored."
+       "selector": "#m060-health-detail",
+       "title": "Chain health detail",
+       "content": "The endpoint and status behind the chain banner (/v1/m060/health via the selfdef daemon) — how the health is being polled and why it's in its current state."
+      },
+      {
+       "selector": "#m060-health-count",
+       "title": "Mirrors current",
+       "content": "How many of the 10 mirrors are current (— / 10). Anything short of 10 means part of the reflected IPS state is stale — the fraction tells you how much of the picture to distrust."
+      },
+      {
+       "selector": "#m060-health-age",
+       "title": "Chain age",
+       "content": "How old the freshest chain sample is. Even a 'healthy' chain that hasn't updated recently is worth a second look — age is the freshness check behind the health word."
       }
      ]
     },
     {
-     "selector": "#ms022-sse-quota-banner",
-     "title": "MS022 SSE quota",
-     "content": "Live panels stream over server-sent events; MS022 caps concurrent subscribers so one client can't starve the rest. This warns when the quota is near its ceiling — the reason a live panel might stop updating.",
-     "expanded": ""
+     "icon": "◆",
+     "title": "IPS spine — four watchdogs",
+     "content": "The four watchdogs that together form the IPS spine. ALL must be up for the box to be trusted — one down is a gap in the perimeter.",
+     "children": [
+      {
+       "selector": "#four-watchdog-banner",
+       "title": "IPS spine",
+       "content": "The four-watchdog rollup — the IPS spine. These four independent watchdogs each guard a layer; the box is only trusted when all four are up, because a single gap is a way past the perimeter. This banner is the box's 'am I actually defended' verdict.",
+       "icon": "⛨",
+       "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why all four must be up</div>Defence-in-depth means no single watchdog is sufficient — each covers what the others can't. The rollup is deliberately all-or-nothing: three-of-four is a hole, not a passing grade.<div class=\"so-xref\"><span class=\"x\">→</span> Auditor is the always-on gatekeeper layer of this spine<br><span class=\"x\">→</span> the AppArmor banner below is one of the enforcement layers it rolls up</div></div>",
+       "variants": [
+        {
+         "when": {
+          "textContains": "up"
+         },
+         "content": "All four watchdogs are up — the IPS spine is intact and the box is defended across every layer.",
+         "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">✓ IPS spine intact</div>All four watchdogs reporting. Defence-in-depth is complete.</div>"
+        },
+        {
+         "when": {
+          "textContains": "degraded"
+         },
+         "content": "One or more watchdogs are down — the IPS spine has a gap. The box is not fully defended; a layer of the perimeter is unwatched until it recovers.",
+         "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ IPS spine gap</div>A watchdog is down. Defence-in-depth is broken at one layer — treat the box as not fully trusted until all four are up.</div>"
+        }
+       ]
+      },
+      {
+       "selector": "#four-watchdog-label",
+       "title": "IPS spine label",
+       "content": "The one-word spine verdict — up / degraded. The trust headline: is every defensive layer watched."
+      },
+      {
+       "selector": "#four-watchdog-detail",
+       "title": "IPS spine detail",
+       "content": "The endpoint behind the spine banner (/api/four-watchdog/state) and how it's polled — the source of the all-or-nothing verdict."
+      },
+      {
+       "selector": "#four-watchdog-rollup",
+       "title": "Watchdog rollup",
+       "content": "How many of the four watchdogs are up (— / —). Because the verdict is all-or-nothing, this fraction is where you see which layer is the gap when the spine is degraded."
+      }
+     ]
+    },
+    {
+     "icon": "◇",
+     "title": "SSE quota & AppArmor",
+     "content": "Two more bridge signals: the live-stream subscriber budget, and whether kernel-level AppArmor enforcement is on.",
+     "children": [
+      {
+       "selector": "#ms022-sse-quota-banner",
+       "title": "SSE quota",
+       "content": "Whether the live event streams (SSE) are within their subscriber budget. The mirrors push updates over SSE; if too many subscribers are attached, new streams are refused — so a maxed quota means some panels stop getting live updates even though the chain is healthy.",
+       "icon": "◇",
+       "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why the SSE quota matters</div>Live updates aren't free — each subscriber holds a stream. The quota caps them so the daemon isn't overwhelmed; hitting it degrades liveness quietly (panels fall back to polling).<div class=\"so-tip\">💡 If a selfdef panel feels laggy while the chain is healthy, a maxed SSE quota is the usual cause.</div></div>",
+       "variants": [
+        {
+         "when": {
+          "textContains": "ok"
+         },
+         "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">✓ SSE within quota</div>Live streams have budget — panels get push updates.</div>"
+        },
+        {
+         "when": {
+          "textContains": "full"
+         },
+         "content": "The SSE subscriber quota is maxed — new live streams are being refused. Some panels have fallen back to slower polling even though the mirror chain itself is healthy.",
+         "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ SSE quota full</div>No stream budget left. Liveness is degraded — panels poll instead of receiving push updates.</div>"
+        }
+       ]
+      },
+      {
+       "selector": "#ms022-sse-label",
+       "title": "SSE quota label",
+       "content": "The one-word SSE state — ok / full. Whether live push updates are available."
+      },
+      {
+       "selector": "#ms022-sse-detail",
+       "title": "SSE quota detail",
+       "content": "The metrics endpoint behind the SSE banner (via node_exporter) and how the subscriber count is measured."
+      },
+      {
+       "selector": "#ms022-sse-active",
+       "title": "SSE subscribers",
+       "content": "Active subscribers out of the budget (— / — subscribers). How close the live-stream capacity is to full."
+      },
+      {
+       "selector": "#apparmor-banner",
+       "title": "AppArmor enforcement",
+       "content": "Whether AppArmor — the kernel's mandatory-access-control layer — is enforcing its profiles. This is the lowest, hardest enforcement layer: if AppArmor drops to complain/disabled, the confinement that contains a compromised process is off, and the box's last-resort containment is gone.",
+       "icon": "◇",
+       "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Enforce vs complain vs disabled</div>AppArmor profiles can be enforcing (violations blocked), complaining (violations logged only), or disabled (nothing). Only enforcing actually contains a breach.<div class=\"so-li\"><span class=\"ok\">✓</span> enforce → profile violations are blocked at the kernel</div><div class=\"so-li\"><span class=\"warn\">▲</span> complain → violations are only logged; containment is off</div><div class=\"so-li\"><span class=\"no\">✗</span> disabled → no confinement; a compromised process is unbounded</div><div class=\"so-xref\"><span class=\"x\">→</span> the Auditor's eBPF layer watches for what AppArmor is meant to block</div></div>",
+       "variants": [
+        {
+         "when": {
+          "textContains": "enforce"
+         },
+         "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">✓ AppArmor enforcing</div>Kernel MAC is blocking profile violations — last-resort containment is on.</div>"
+        },
+        {
+         "when": {
+          "textContains": "complain"
+         },
+         "content": "AppArmor is in complain mode — violations are logged but NOT blocked. The kernel containment is effectively off; a compromised process wouldn't be stopped.",
+         "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ AppArmor complain-only</div>Violations are logged, not blocked. Containment is off — restore enforce mode.</div>"
+        },
+        {
+         "when": {
+          "textContains": "disabled"
+         },
+         "content": "AppArmor is DISABLED — there is no kernel-level confinement. The box's last-resort containment layer is gone; this is a hardening regression to restore.",
+         "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ AppArmor disabled</div>No kernel MAC. A compromised process is unbounded — restore enforcing profiles.</div>"
+        }
+       ]
+      },
+      {
+       "selector": "#apparmor-label",
+       "title": "AppArmor label",
+       "content": "The one-word AppArmor state — enforce / complain / disabled. Whether kernel containment is actually on."
+      },
+      {
+       "selector": "#apparmor-detail",
+       "title": "AppArmor detail",
+       "content": "The metrics source behind the AppArmor banner (node_exporter apparmor profile counts) and how the mode is read."
+      },
+      {
+       "selector": "#apparmor-mode",
+       "title": "AppArmor mode",
+       "content": "The current enforcement mode. Only 'enforce' actually contains a breach; complain and disabled both mean the containment is decorative."
+      }
+     ]
+    },
+    {
+     "selector": "#m060-mirror-panel",
+     "title": "Mirror producers panel",
+     "content": "The panel wrapping the mirror grid — the selfdef→sovereign-os bridge producers configured in selfdef.toml. Where the reflected IPS surfaces are listed as drill-in tiles."
     },
     {
      "selector": "#m060-mirror-grid",
-     "title": "Mirror tiles",
-     "content": "One tile per M060 mirror — click to drill into the panel it feeds. The navigable map from 'a mirror is down' to the exact affected surface.",
-     "expanded": ""
+     "title": "Mirror grid",
+     "content": "The grid of mirror tiles — one per reflected selfdef domain (filesystem grants, capabilities, sandboxes, audit-chain, quarantine, trust). Click a tile to drill into its dashboard (D-13..D-18). Hover a tile for what that mirror reflects.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The mirror grid is the drill-in</div>Each tile is one selfdef domain, reflected read-only. The grid is the map; the D-13..D-18 panels are the detail — this is how you get from 'the bridge is healthy' to 'what does the filesystem-grant mirror actually show'.</div>",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#m060-mirror-grid > *",
+      "nameSelector": "strong,code,.k",
+      "title": "Mirror · {{name}}",
+      "content": "The {{name}} mirror — one reflected selfdef domain. Click to drill into its full dashboard; hover reads its current tile state.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Mirror · {{name}}</div>A read-only reflection of one selfdef domain. Its freshness comes from the M060 chain above — if the chain is stale, this tile is too.<div class=\"so-tip\">💡 The tiles map to D-13..D-18; this grid is the drill-in from 'bridge healthy' to the per-domain detail.</div></div>"
+     }
     }
    ]
   },
   {
    "icon": "⎈",
-   "title": "Controls & refresh",
-   "content": "The front door reads and navigates; it never mutates. Controls copy signed verbs (R10212); refresh re-polls every source.",
+   "title": "Actions & controls",
+   "content": "Read-only front door — refreshing re-samples; the control rail copies signed sovereign-osctl verbs (§17). The web indexes and explains; it never mutates.",
    "children": [
+    {
+     "selector": "#controls-count",
+     "title": "Controls count",
+     "content": "How many control systems are exposed on the rail below — the osctl verb families reachable from this front door."
+    },
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "The aggregated view of the cockpit's switches — profiles, modes, toggles. Every control copies its exact sovereign-osctl verb rather than executing (§1g / R10212).",
-     "expanded": ""
+     "content": "The aggregated control rail — click a control to copy its exact sovereign-osctl command. This is the front-door shortcut to every mapped verb family; it copies, it never executes (§17 sovereignty boundary)."
     },
     {
      "selector": "#refresh-btn",
-     "title": "Refresh now",
-     "content": "Force a fresh sweep of routes, coverage, and every health banner instead of waiting for the 30s auto-refresh. Read-only.",
-     "expanded": ""
+     "title": "Refresh",
+     "content": "Re-poll the aggregator now — coverage, routes, and the four bridge health signals. Read-only; it re-samples the whole front door on demand."
     },
     {
      "selector": "#last-refresh",
-     "title": "Last refresh",
-     "content": "When the front door last re-polled. If a banner looks wrong, check this first — a stale sweep can show a resolved problem as still-red.",
-     "expanded": ""
+     "title": "Refresh freshness",
+     "content": "When the front door was last polled. The bridge health banners are only as current as this — check it before trusting a green chain or spine as 'now' (auto-refresh runs every 30s)."
     }
    ]
   }
