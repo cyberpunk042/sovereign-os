@@ -1400,12 +1400,14 @@ window.SO_ASSIST = {
        "content": "Offline — showing the last snapshot; the box may have moved on since.",
        "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Offline</div>No live answer — this is a cached snapshot, possibly stale.</div>"
       }
-     ]
+     ],
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">One-word peace-feed health</div>Live or snapshot — whether the five-property verdict is current. Peace can degrade between reads, so an offline feed is a reason to run the validator for a fresh verdict.</div>"
     },
     {
      "selector": "#ds-state-detail",
      "title": "Source detail",
-     "content": "Status line under the banner — endpoint + any degraded note."
+     "content": "Status line under the banner — endpoint + any degraded note.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Which peace feed answered</div>The endpoint behind the banner and any degraded note — the peace daemon reachable vs a cached read.</div>"
     },
     {
      "selector": "#ds-last-update",
@@ -1526,7 +1528,8 @@ window.SO_ASSIST = {
     {
      "selector": "#last-run",
      "title": "Last run",
-     "content": "When the peace-check validator last ran. The verdict above is only as current as this — a fresh verdict needs a fresh run, especially after any change to the box."
+     "content": "When the peace-check validator last ran. The verdict above is only as current as this — a fresh verdict needs a fresh run, especially after any change to the box.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">When peace was last validated</div>When the peace-check validator last ran. The verdict is only as current as this — a property could have failed since, so run the validator for a live answer rather than trusting the banner.</div>"
     },
     {
      "selector": "#exit-code",
@@ -1566,7 +1569,8 @@ window.SO_ASSIST = {
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "The control rail — each button copies its exact sovereign-osctl command. Running the peace validator runs through the signed CLI after your MS003 signature, never from a web click."
+     "content": "The control rail — each button copies its exact sovereign-osctl command. Running the peace validator runs through the signed CLI after your MS003 signature, never from a web click.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copy-command boundary</div>Each control copies its sovereign-osctl verb (§1g / R10212). Running the peace-check is a read-only validation you launch; the panel renders its verdict.</div>"
     }
    ]
   }

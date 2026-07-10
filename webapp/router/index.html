@@ -1350,7 +1350,8 @@ window.SO_ASSIST = {
     {
      "selector": "#stat-version",
      "title": "API version",
-     "content": "The router daemon version answering — for reconciling routing behaviour against SDD-011."
+     "content": "The router daemon version answering — for reconciling routing behaviour against SDD-011.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Pins the router</div>The router daemon version answering — the reference for reconciling routing behaviour against SDD-011. A version change can alter the rule semantics.</div>"
     },
     {
      "selector": "#stat-service",
@@ -1428,7 +1429,8 @@ window.SO_ASSIST = {
       "title": "Rule · {{name}}",
       "content": "Routing rule {{name}} — a match condition and the tier it sends matching prompts to. Rules are first-match-wins top-down, so this rule only fires if no earlier rule matched.",
       "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Rule · {{name}}</div>One SDD-011 routing rule. Order matters: it's evaluated top-down, first match wins, so a broad rule above it can shadow it.</div>"
-     }
+     },
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The SDD-011 rule table in full</div>Every routing rule at once, evaluated top-down first-match-wins — so order matters. A broad rule high in the list can shadow a specific one below it.</div>"
     },
     {
      "selector": "#metrics-tbody",
@@ -1454,12 +1456,14 @@ window.SO_ASSIST = {
     {
      "selector": "#refresh-btn",
      "title": "Refresh all",
-     "content": "Re-poll every table on this panel now — a read-only re-sample. It re-reads state; it never mutates the box or re-runs a route."
+     "content": "Re-poll every table on this panel now — a read-only re-sample. It re-reads state; it never mutates the box or re-runs a route.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Re-poll the router</div>Re-reads every table — read-only. It re-samples routing state and metrics; it never changes a rule.</div>"
     },
     {
      "selector": "#last-refresh",
      "title": "Refresh freshness",
-     "content": "When this was last read; check before trusting a value as current."
+     "content": "When this was last read; check before trusting a value as current.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Routing state can shift</div>When this was read. A backend going down or a rule change moves routing, so check freshness before trusting a value as current.</div>"
     }
    ]
   },
@@ -1471,7 +1475,8 @@ window.SO_ASSIST = {
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Controls — each copies its exact sovereign-osctl verb. Router config runs through the signed CLI, never from the web (§1g / R10212)."
+     "content": "Controls — each copies its exact sovereign-osctl verb. Router config runs through the signed CLI, never from the web (§1g / R10212).",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copy-command boundary</div>Each control copies its sovereign-osctl verb (§1g / R10212). Router config is a signed action; the web shows rules and live metrics read-only.</div>"
     }
    ]
   }

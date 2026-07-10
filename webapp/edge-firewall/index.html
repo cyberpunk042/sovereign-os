@@ -1384,7 +1384,8 @@ window.SO_ASSIST = {
     {
      "selector": "#stats",
      "title": "Firewall summary",
-     "content": "The roll-up — candidates, local + upstream state, recommendation count, version. Where the box stands on self-enforcement vs edge-enforcement."
+     "content": "The roll-up — candidates, local + upstream state, recommendation count, version. Where the box stands on self-enforcement vs edge-enforcement.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The enforcement picture at a glance</div>The roll-up — candidates, local + upstream state, recommendation count. The one-line read of defense-in-depth: what the box enforces, what the perimeter enforces, and what's proposed.</div>"
     },
     {
      "selector": "#stat-candidates",
@@ -1431,12 +1432,14 @@ window.SO_ASSIST = {
     {
      "selector": "#stat-version",
      "title": "Version",
-     "content": "The edge-firewall analyzer version answering — for reconciling the enforcement recommendations against the current 4-class candidate ladder."
+     "content": "The edge-firewall analyzer version answering — for reconciling the enforcement recommendations against the current 4-class candidate ladder.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Pins the analyzer</div>The edge-firewall analyzer version — the reference for how candidates and recommendations are computed. A version change can alter the analysis.</div>"
     },
     {
      "selector": "#last-refresh",
      "title": "Freshness",
-     "content": "When this was last read. The values are only as current as this — refresh before trusting them after any change."
+     "content": "When this was last read. The values are only as current as this — refresh before trusting them after any change.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Enforcement state can shift</div>When this was read. A rule change on either layer moves the picture, so an old timestamp means the local/upstream state shown may be stale.</div>"
     }
    ]
   },
@@ -1494,7 +1497,8 @@ window.SO_ASSIST = {
       "title": "Rec · {{name}}",
       "content": "Recommendation {{name}} — a specific rule the current state warrants, and why. Preview its install plan before applying; rules are signed via the CLI, never enforced from the web.",
       "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Rec · {{name}}</div>One recommended firewall rule. The 'why' ties it to the current state; preview the plan before signing it in.</div>"
-     }
+     },
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The recommended-rules worklist</div>Every applicable recommendation at once — specific rules the current state warrants, each with its rationale. Preview a plan before applying; rules are signed via the CLI.</div>"
     }
    ]
   },
@@ -1531,7 +1535,8 @@ window.SO_ASSIST = {
     {
      "selector": "#refresh-btn",
      "title": "Refresh",
-     "content": "Re-read state now — read-only. It re-samples; it does not change anything."
+     "content": "Re-read state now — read-only. It re-samples; it does not change anything.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Re-analyze the edge</div>Re-reads local and upstream state and recomputes recommendations — read-only. It re-samples; it never applies a rule.</div>"
     }
    ]
   },
@@ -1543,7 +1548,8 @@ window.SO_ASSIST = {
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "The control rail — each button copies its exact sovereign-osctl verb. A firewall enforcement change runs through the signed CLI, never from a web click."
+     "content": "The control rail — each button copies its exact sovereign-osctl verb. A firewall enforcement change runs through the signed CLI, never from a web click.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copy-command boundary</div>Each control copies its sovereign-osctl verb (§1g / R10212). The panel analyzes; enforcing a rule is a signed action, previewed first as a read-only plan.</div>"
     }
    ]
   }

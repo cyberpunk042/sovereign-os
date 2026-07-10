@@ -1431,12 +1431,14 @@ window.SO_ASSIST = {
        "content": "Offline — showing the last snapshot; the box may have moved on since.",
        "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Offline</div>No live answer — this is a cached snapshot, possibly stale.</div>"
       }
-     ]
+     ],
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">One-word rules-mirror health</div>Live or snapshot — whether the nftables ruleset shown is current. A rule added via selfdefctl since a snapshot won't appear, so this gates trust in the rule list.</div>"
     },
     {
      "selector": "#ds-detail",
      "title": "Source detail",
-     "content": "Status line under the banner — which mirror answered and any degraded note."
+     "content": "Status line under the banner — which mirror answered and any degraded note.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Which mirror answered</div>The endpoint behind the banner and any degraded note — the rules mirror reachable vs a cached read.</div>"
     },
     {
      "selector": "#ds-last",
@@ -1536,7 +1538,8 @@ window.SO_ASSIST = {
       "title": "Rule · {{name}}",
       "content": "nftables rule {{name}} — its match and action, in its trust ring. Read match→action: what traffic it catches and whether it accepts, drops, or rejects it.",
       "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Rule · {{name}}</div>One enforced firewall rule. Its ring says which trust zone it governs; match→action says what it does to matching packets.</div>"
-     }
+     },
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The active ruleset in full</div>Every enforced nftables rule at once, grouped by trust ring — match and action per rule. Read it as the box's live firewall policy, the inner ring of defense-in-depth.</div>"
     }
    ]
   },
@@ -1548,7 +1551,8 @@ window.SO_ASSIST = {
     {
      "selector": "#toast",
      "title": "Action feedback",
-     "content": "Transient confirmation of a copied verb. It confirms the copy — the firewall changes only when selfdefctl runs the signed rule change."
+     "content": "Transient confirmation of a copied verb. It confirms the copy — the firewall changes only when selfdefctl runs the signed rule change.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Confirms the copy, not enforcement</div>Confirms a verb was copied — you run it in your shell. The firewall doesn't change from this view; a rule edit is a signed CLI action.</div>"
     }
    ]
   },
@@ -1560,7 +1564,8 @@ window.SO_ASSIST = {
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "The control rail — each button copies its exact sovereign-osctl command. A firewall rule change runs through the signed CLI after your MS003 signature, never from a web click."
+     "content": "The control rail — each button copies its exact sovereign-osctl command. A firewall rule change runs through the signed CLI after your MS003 signature, never from a web click.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copy-command boundary</div>Each control copies its sovereign-osctl verb (§1g / R10212). Rule changes need an MS003 signature (R10113); the web mirrors the ruleset read-only.</div>"
     }
    ]
   }

@@ -1362,7 +1362,8 @@ window.SO_ASSIST = {
     {
      "selector": "#stats",
      "title": "History summary",
-     "content": "The roll-up — version, sources, recent events, summary window. The one-glance shape of box-wide activity over the last week."
+     "content": "The roll-up — version, sources, recent events, summary window. The one-glance shape of box-wide activity over the last week.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The box-wide activity roll-up</div>Version, sources, recent events, summary window — the headline of how much is happening across the whole box. It's the pulse before you read the individual events.</div>"
     },
     {
      "selector": "#stat-version",
@@ -1391,7 +1392,8 @@ window.SO_ASSIST = {
     {
      "selector": "#last-refresh",
      "title": "Freshness",
-     "content": "When the history was last collected. Events since then would not appear yet — refresh for the current timeline."
+     "content": "When the history was last collected. Events since then would not appear yet — refresh for the current timeline.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Events accrue continuously</div>When the history was last collected. Events land from every source in real time, so an old timestamp means the most recent activity isn't aggregated yet.</div>"
     }
    ]
   },
@@ -1457,7 +1459,8 @@ window.SO_ASSIST = {
     {
      "selector": "#recent-btn",
      "title": "Load recent",
-     "content": "Re-queries the recent events with the current window + limit. Read-only — it re-reads the timeline, it does not change anything."
+     "content": "Re-queries the recent events with the current window + limit. Read-only — it re-reads the timeline, it does not change anything.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Re-query the recent window</div>Re-runs the recent-events query with the current window and limit — read-only. It re-samples; it changes nothing.</div>"
     },
     {
      "selector": "#ev-tbody",
@@ -1483,7 +1486,8 @@ window.SO_ASSIST = {
     {
      "selector": "#refresh-btn",
      "title": "Refresh",
-     "content": "Re-collect events from every source now — read-only. It re-aggregates the timeline; it changes nothing on the box."
+     "content": "Re-collect events from every source now — read-only. It re-aggregates the timeline; it changes nothing on the box.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Re-collect from every source</div>Re-aggregates events across all sources now — read-only. It re-reads the timeline; it never emits or deletes an event.</div>"
     }
    ]
   },
@@ -1495,7 +1499,8 @@ window.SO_ASSIST = {
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "The control rail — each button copies its exact sovereign-osctl verb. Nothing — history is read-only aggregation runs through the signed CLI, never from a web click."
+     "content": "The control rail — each button copies its exact sovereign-osctl verb. Nothing — history is read-only aggregation runs through the signed CLI, never from a web click.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copy-command boundary</div>Each control copies its sovereign-osctl verb (§1g / R10212). The history is an aggregated read; acting on an event is done in the domain panel that owns it.</div>"
     }
    ]
   }

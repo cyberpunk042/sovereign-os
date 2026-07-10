@@ -1301,7 +1301,8 @@ window.SO_ASSIST = {
     {
      "selector": "#stats",
      "title": "Auth summary",
-     "content": "The roll-up — tiers, dashboards, pending upgrades, config state, version. The one-glance view of the fleet's authentication posture."
+     "content": "The roll-up — tiers, dashboards, pending upgrades, config state, version. The one-glance view of the fleet's authentication posture.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The auth posture at a glance</div>The roll-up — tiers, dashboards, pending upgrades, config state. The one-line read of how strongly the fleet authenticates, and where it's under-protected.</div>"
     },
     {
      "selector": "#stat-tiers",
@@ -1385,7 +1386,8 @@ window.SO_ASSIST = {
       "title": "Module · {{name}}",
       "content": "Module {{name}} — its current auth tier, its target, and the gap. A module below target demands weaker proof than its surface warrants — the actionable under-protection.",
       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Auth · {{name}}</div>One module's current-vs-target auth tier. A gap is a surface reachable with too little authentication.</div>"
-     }
+     },
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Every module's auth tier</div>All modules at once — current tier, target, and gap. A module below target demands weaker proof than its surface warrants; this is the full under-protection picture.</div>"
     }
    ]
   },
@@ -1397,7 +1399,8 @@ window.SO_ASSIST = {
     {
      "selector": "#refresh-btn",
      "title": "Refresh",
-     "content": "Re-read state now — read-only. It re-samples; it does not change anything."
+     "content": "Re-read state now — read-only. It re-samples; it does not change anything.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Re-score auth tiers</div>Re-reads state and recomputes tiers — read-only. A gap that closes on refresh was already fixed and un-rescanned.</div>"
     }
    ]
   },
@@ -1409,7 +1412,8 @@ window.SO_ASSIST = {
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "The control rail — each button copies its exact sovereign-osctl verb. An auth-tier change runs through the signed CLI, never from a web click."
+     "content": "The control rail — each button copies its exact sovereign-osctl verb. An auth-tier change runs through the signed CLI, never from a web click.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copy-command boundary</div>Each control copies its sovereign-osctl verb (§1g / R10212). The panel scores auth; raising a module's tier is config work in the repo, surfaced as a verb.</div>"
     }
    ]
   }

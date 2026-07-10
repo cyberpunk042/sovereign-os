@@ -1406,7 +1406,8 @@ window.SO_ASSIST = {
     {
      "selector": "#accent-custom",
      "title": "Custom accent",
-     "content": "A custom accent color value, if the presets do not fit. Type a color; it applies to the highlight across panels."
+     "content": "A custom accent color value, if the presets do not fit. Type a color; it applies to the highlight across panels.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A custom accent, still local</div>A custom accent color when the presets don't fit — type a value. Like everything here it's pure presentation, applied in your browser only; it can't affect the box.</div>"
     },
     {
      "selector": "#accent-apply",
@@ -1437,7 +1438,8 @@ window.SO_ASSIST = {
     {
      "selector": "#toast",
      "title": "Preview feedback",
-     "content": "Transient confirmation of a personalization change. Confirms the setting applied — all local, nothing on the box changed."
+     "content": "Transient confirmation of a personalization change. Confirms the setting applied — all local, nothing on the box changed.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Confirms a view change</div>Transient confirmation of a personalization change. It's cosmetic — it confirms your view restyled, nothing about the box's state changed.</div>"
     }
    ]
   },
@@ -1473,17 +1475,20 @@ window.SO_ASSIST = {
     {
      "selector": "#import-file-btn",
      "title": "Choose import file",
-     "content": "Pick a personalization JSON file to import."
+     "content": "Pick a personalization JSON file to import.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Pick a styling file</div>Opens the file picker to import a personalization JSON. It only chooses a file; nothing applies until you import, and even then it's view-only styling.</div>"
     },
     {
      "selector": "#import-file",
      "title": "Import file input",
-     "content": "The file picker for importing personalization. Cosmetic settings only."
+     "content": "The file picker for importing personalization. Cosmetic settings only.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The file picker, cosmetic-only</div>Picks a personalization JSON to import. Cosmetic settings only — the import can restyle your cockpit but carries no box state, secret, or authority.</div>"
     },
     {
      "selector": "#import-box",
      "title": "Import area",
-     "content": "The import panel where a pasted or chosen personalization JSON lands before applying."
+     "content": "The import panel where a pasted or chosen personalization JSON lands before applying.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Where imported styling lands</div>The panel where a pasted or chosen personalization JSON is staged before applying. A holding area for view settings — safe to inspect before committing to your local view.</div>"
     },
     {
      "selector": "#import-json",
@@ -1507,7 +1512,8 @@ window.SO_ASSIST = {
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "The control rail — each button copies its exact sovereign-osctl verb. A personalization change (cosmetic only) runs through the signed CLI, never from a web click."
+     "content": "The control rail — each button copies its exact sovereign-osctl verb. A personalization change (cosmetic only) runs through the signed CLI, never from a web click.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copy-command boundary</div>Each control copies its sovereign-osctl verb (§1g / R10212). Personalization is local view styling; there's nothing on the box to actuate from here.</div>"
     }
    ]
   }

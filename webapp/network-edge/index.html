@@ -1370,7 +1370,8 @@ window.SO_ASSIST = {
     {
      "selector": "#stats",
      "title": "Edge summary",
-     "content": "The roll-up — interface count, NAT hops, VPN state, edge tier, capabilities, version. The one-glance shape of the network boundary."
+     "content": "The roll-up — interface count, NAT hops, VPN state, edge tier, capabilities, version. The one-glance shape of the network boundary.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The edge posture at a glance</div>The roll-up — interfaces, NAT hops, VPN, edge tier, capabilities. It's the one-line answer to 'how is the box connected to the world and how much does the perimeter protect it'.</div>"
     },
     {
      "selector": "#stat-ifaces",
@@ -1405,12 +1406,14 @@ window.SO_ASSIST = {
     {
      "selector": "#stat-version",
      "title": "Version",
-     "content": "The network-edge detector version answering — for reconciling the detected topology + NAT chain against the expected dual-NIC design."
+     "content": "The network-edge detector version answering — for reconciling the detected topology + NAT chain against the expected dual-NIC design.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Pins the detector</div>The network-edge detector version — the reference for how interfaces, NAT, and capabilities are enumerated. A version change can alter what's probed.</div>"
     },
     {
      "selector": "#last-refresh",
      "title": "Freshness",
-     "content": "When this was last read. The values are only as current as this — refresh before trusting them after any change."
+     "content": "When this was last read. The values are only as current as this — refresh before trusting them after any change.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Topology can shift</div>When this was read. A VPN toggling or an interface going down changes the picture, so an old timestamp means the edge posture shown may be stale.</div>"
     }
    ]
   },
@@ -1430,7 +1433,8 @@ window.SO_ASSIST = {
       "title": "Interface · {{name}}",
       "content": "Interface {{name}} — its addresses and role. Read it against the dual-NIC design: management and traffic should be separate paths, so an interface in the wrong role is worth noting.",
       "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Iface · {{name}}</div>One network interface. Its role (management vs traffic) is the thing to verify against the dual-NIC design.</div>"
-     }
+     },
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Every interface and its role</div>All network interfaces at once — addresses and roles. Read against the dual-NIC design: management and traffic should be separate paths, so a NIC in the wrong role stands out.</div>"
     }
    ]
   },
@@ -1493,7 +1497,8 @@ window.SO_ASSIST = {
     {
      "selector": "#refresh-btn",
      "title": "Refresh",
-     "content": "Re-read state now — read-only. It re-samples; it does not change anything."
+     "content": "Re-read state now — read-only. It re-samples; it does not change anything.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Re-detect the edge</div>Re-reads interfaces, NAT, and capabilities — read-only. It re-samples; it never changes a route or a rule.</div>"
     }
    ]
   },
@@ -1505,7 +1510,8 @@ window.SO_ASSIST = {
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "The control rail — each button copies its exact sovereign-osctl verb. An edge/network change runs through the signed CLI, never from a web click."
+     "content": "The control rail — each button copies its exact sovereign-osctl verb. An edge/network change runs through the signed CLI, never from a web click.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copy-command boundary</div>Each control copies its sovereign-osctl verb (§1g / R10212). The panel detects the edge; changing it is a signed action, often at the OPNsense perimeter.</div>"
     }
    ]
   }

@@ -1430,7 +1430,8 @@ window.SO_ASSIST = {
     {
      "selector": "#stats",
      "title": "Compliance summary",
-     "content": "The composite — version, and the four instrument scores (surface, doc, anti-min, ux). The single view of whether the fleet meets the whole delivery contract, not just one axis."
+     "content": "The composite — version, and the four instrument scores (surface, doc, anti-min, ux). The single view of whether the fleet meets the whole delivery contract, not just one axis.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">All four axes, composed</div>The composite — version plus the four instrument scores (surface, doc, anti-min, ux). It's §1g/§1h compliance as one legible number, so 'is the fleet honest and complete' has a single answer.</div>"
     },
     {
      "selector": "#stat-version",
@@ -1523,7 +1524,8 @@ window.SO_ASSIST = {
       "title": "§1h axis · {{name}}",
       "content": "Cross-repo axis {{name}} — one of the five §1h axes composing fleet-wide compliance. §1h is compliance BEYOND this repo: selfdef and sisters count too.",
       "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">§1h · {{name}}</div>One cross-repo compliance axis. A repo can be §1g-clean internally yet fail §1h if a sister repo lags.</div>"
-     }
+     },
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The five §1h cross-repo axes</div>Each row is one §1h axis and its coverage — compliance BEYOND this repo. A repo can be §1g-clean internally yet fail §1h if a sister repo lags.</div>"
     }
    ]
   },
@@ -1543,7 +1545,8 @@ window.SO_ASSIST = {
       "title": "Module · {{name}}",
       "content": "Module {{name}} — ranked by composite gap across all four instruments. The worst modules are the highest-leverage fixes: one module weak on all axes moves the composite most.",
       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Module · {{name}}</div>One module's composite compliance gap. Top of this list = where a fix helps the fleet score most.</div>"
-     }
+     },
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">The highest-leverage fixes</div>Modules ranked by composite gap across all four instruments. The top rows are where a single fix moves the fleet score most — one module weak on every axis.</div>"
     }
    ]
   },
@@ -1555,7 +1558,8 @@ window.SO_ASSIST = {
     {
      "selector": "#history-tbody",
      "title": "Compliance history",
-     "content": "Each row: a past compliance snapshot. Read the direction — a rising composite means the delivery contract is being honored more over time; a falling one is drift the operator would want to catch early."
+     "content": "Each row: a past compliance snapshot. Read the direction — a rising composite means the delivery contract is being honored more over time; a falling one is drift the operator would want to catch early.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The compliance direction</div>Each row is a past compliance snapshot. Read the trend — a rising composite means the fleet is paying down its §1g debt; a falling one is drift worth catching.</div>"
     }
    ]
   },
@@ -1567,7 +1571,8 @@ window.SO_ASSIST = {
     {
      "selector": "#refresh-btn",
      "title": "Refresh audit",
-     "content": "Re-scan every module and recompute coverage now — read-only. It re-measures; it never changes a module to move a score."
+     "content": "Re-scan every module and recompute coverage now — read-only. It re-measures; it never changes a module to move a score.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Re-scan every instrument</div>Re-runs all four instruments and recomputes the composite — read-only. A score that improves on refresh was already fixed and un-rescanned.</div>"
     }
    ]
   },
@@ -1579,7 +1584,8 @@ window.SO_ASSIST = {
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "The control rail — each button copies its exact sovereign-osctl verb. A compliance-affecting change runs through the signed CLI, never from a web click."
+     "content": "The control rail — each button copies its exact sovereign-osctl verb. A compliance-affecting change runs through the signed CLI, never from a web click.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copy-command boundary</div>Each control copies its sovereign-osctl verb (§1g / R10212). The panel measures compliance; closing a gap is real work in the repo, surfaced here as a verb.</div>"
     }
    ]
   }
