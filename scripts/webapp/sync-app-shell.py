@@ -50,7 +50,7 @@ ADOPTED_PANELS = [
     "d-16-audit", "d-17-quarantine", "d-18-trust-scores",
     "d-19-super-model-manifest", "d-20-peace-machine-health",
     "d-21-lm-orchestration", "d-22-lm-status-operability", "d-23-models-catalog",
-    "d-24-cpu-features", "d-25-selfdef-management", "doc-coverage",
+    "d-24-cpu-features", "d-25-selfdef-management", "code-console", "doc-coverage",
     "edge-firewall", "emulate", "flash", "global-history", "master-dashboard",
     "models-catalog", "network-edge", "orchestration", "personalization",
     "profile-generation", "router", "runtime-modes", "selfdef-management",

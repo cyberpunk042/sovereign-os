@@ -1,0 +1,1128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sovereign-os Code Console</title>
+<meta name="x-sovereign-module" content="code-console-webapp">
+<meta name="x-sovereign-shipped-in" content="code-console">
+<meta name="x-sovereign-standing-rule" content="We do not minimize anything.">
+<meta name="x-sovereign-catalog-source" content="SDD-112 · M057 session-registry (rail) + SDD-062/103 loopback chat (composer) + M075 SRP device targets">
+<script>
+  (function(){
+    var KEY = 'sovereign-os.personalization', SCHEMA_V = 1;
+    var DEF = { schema: SCHEMA_V, theme: 'auto', accent: '#9bd1ff', font_scale: 1 };
+    var p;
+    try {
+      var raw = localStorage.getItem(KEY);
+      p = raw ? JSON.parse(raw) : null;
+      if (!p || p.schema !== SCHEMA_V) p = null;
+    } catch(e) { p = null; }
+    if (!p) p = DEF;
+    var resolved = (p.theme === 'dark' || p.theme === 'light') ? p.theme
+      : ((window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark');
+    document.documentElement.setAttribute('data-theme', resolved);
+    document.documentElement.style.setProperty('--so-accent', p.accent || DEF.accent);
+    document.documentElement.style.setProperty('--accent', p.accent || DEF.accent);
+    document.documentElement.style.setProperty('--font-scale', String(p.font_scale || 1));
+  })();
+</script>
+<style>
+  :root {
+    --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --panel:#171717;
+    --border:#262626; --mono:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; --accent:#9bd1ff; --good:#7ad17a; --warn:#e6c062;
+    --bad:#ff7676; --font-scale:1;
+  }
+  html[data-theme="light"] {
+    --bg:#f6f6f6; --fg:#0e0e0e; --muted:#555; --panel:#ffffff; --border:#d8d8d8;
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; background:var(--bg); color:var(--fg);
+    font-family: var(--mono); font-size: calc(14px * var(--font-scale)); line-height:1.5;
+  }
+  header { padding:.7rem 1.25rem; border-bottom:1px solid var(--border); }
+  h1 { margin:0; font-size:1.05rem; }
+  h1 .sub { color:var(--muted); font-weight:400; font-size:.8rem; margin-left:.5rem; }
+  main { padding:0; max-width:none; }
+  .muted { color:var(--muted); }
+  code { color:var(--accent); }
+  .banner { font-size:.76rem; color:var(--muted); margin:.5rem 1.25rem; }
+  /* ── SDD-112 claude.ai/code three-pane layout ─────────────────────────── */
+  /* top session tabs + repo chips */
+  .cc-tabs { display:flex; align-items:center; gap:.4rem; flex-wrap:wrap;
+    padding:.45rem 1.25rem; border-bottom:1px solid var(--border); background:var(--panel); }
+  .cc-tab { display:inline-flex; align-items:center; gap:.4rem; padding:.22rem .6rem;
+    border:1px solid var(--border); border-radius:6px 6px 0 0; font-size:.78rem;
+    color:var(--muted); background:transparent; cursor:pointer; }
+  .cc-tab.active { color:var(--accent); border-color:var(--accent); background:var(--bg); }
+  .cc-tab .dot { width:7px; height:7px; border-radius:50%; background:var(--muted); }
+  .cc-tab.active .dot { background:var(--good); }
+  .cc-repos { margin-left:auto; display:flex; gap:.35rem; align-items:center; }
+  .cc-chip { font-size:.72rem; color:var(--muted); border:1px solid var(--border);
+    border-radius:999px; padding:.05rem .5rem; }
+  .cc-chip.deferred { border-style:dashed; opacity:.7; }
+  /* the 3-pane grid: rail | thread | plan */
+  .cc-grid { display:grid; grid-template-columns:minmax(200px,250px) 1fr minmax(240px,320px);
+    gap:0; height:calc(100vh - var(--so-header-h) - 190px); min-height:420px; }
+  .cc-pane { border-right:1px solid var(--border); display:flex; flex-direction:column; min-width:0; overflow:hidden; }
+  .cc-pane:last-child { border-right:0; }
+  .cc-pane-h { font-size:.7rem; text-transform:uppercase; letter-spacing:.05em; color:var(--muted);
+    padding:.5rem .8rem; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; flex:none; }
+  .cc-pane-body { flex:1; overflow-y:auto; padding:.6rem .8rem; }
+  /* left rail — sessions */
+  .cc-sess { display:block; width:100%; text-align:left; border:1px solid var(--border);
+    background:transparent; color:var(--fg); border-radius:6px; padding:.4rem .55rem;
+    margin-bottom:.4rem; cursor:pointer; font:inherit; font-size:.8rem; }
+  .cc-sess:hover { border-color:var(--accent); }
+  .cc-sess.active { border-color:var(--accent); background:rgba(155,209,255,.06); }
+  .cc-sess .st { font-size:.72rem; color:var(--muted); }
+  .cc-sess .step { font-size:.7rem; color:var(--accent); }
+  /* center thread */
+  .cc-msg { margin:0 0 .7rem; padding:.5rem .65rem; border-radius:8px; border:1px solid var(--border); font-size:.85rem; white-space:pre-wrap; word-break:break-word; }
+  .cc-msg.user { border-color:rgba(155,209,255,.35); background:rgba(155,209,255,.05); }
+  .cc-msg.assistant { background:var(--panel); }
+  .cc-msg .who { font-size:.7rem; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin-bottom:.2rem; }
+  .cc-msg.user .who { color:var(--accent); }
+  /* honest-deferred cards (SB-077) — visible scaffold, never blank/fabricated */
+  .cc-defer { border:1px dashed var(--border); border-radius:8px; padding:.7rem .8rem;
+    color:var(--muted); font-size:.8rem; font-style:italic; line-height:1.5; }
+  .cc-defer b { color:var(--fg); font-style:normal; }
+  /* right plan pane */
+  .cc-plan-item { border-left:2px solid var(--border); padding:.15rem 0 .15rem .6rem; margin:.35rem 0; font-size:.8rem; color:var(--muted); }
+  /* bottom composer */
+  .cc-composer { border-top:1px solid var(--border); background:var(--panel); padding:.6rem 1.25rem; }
+  .cc-composer-row { display:flex; gap:.5rem; align-items:flex-end; }
+  .cc-composer textarea { flex:1; background:var(--bg); color:var(--fg); border:1px solid var(--border);
+    border-radius:8px; padding:.5rem .6rem; font:inherit; font-size:.85rem; resize:vertical; min-height:48px; max-height:180px; }
+  .cc-composer textarea:focus { outline:0; border-color:var(--accent); }
+  .cc-tools { display:flex; align-items:center; gap:.5rem; margin-top:.4rem; font-size:.76rem; color:var(--muted); flex-wrap:wrap; }
+  .cc-select { background:var(--bg); color:var(--fg); border:1px solid var(--border); border-radius:6px; padding:.2rem .4rem; font:inherit; font-size:.76rem; }
+  button.cc-send { padding:.4rem .9rem; border:1px solid var(--accent); background:var(--accent); color:#0a0a0a; font-weight:600; border-radius:8px; cursor:pointer; font:inherit; font-size:.82rem; }
+  button.cc-send:disabled { opacity:.5; cursor:not-allowed; }
+  button.cc-ghost { padding:.35rem .7rem; border:1px solid var(--border); background:transparent; color:var(--fg); border-radius:6px; cursor:pointer; font:inherit; font-size:.78rem; }
+  button.cc-ghost:hover { border-color:var(--accent); color:var(--accent); }
+  @media (max-width:900px){ .cc-grid { grid-template-columns:1fr; height:auto; }
+    .cc-pane { border-right:0; border-bottom:1px solid var(--border); max-height:340px; } }
+  footer { padding:1rem 1.25rem; border-top:1px solid var(--border); color:var(--muted); font-size:.75rem; }
+</style>
+</head>
+<body>
+<!-- APP-SHELL:BEGIN M067 -->
+<style id="so-app-shell-style">
+  :root{
+    --so-header-h:48px; --so-sidemenu-w:244px; --so-sidemenu-w-collapsed:56px; --so-assist-w:360px;
+  }
+  #so-content{ margin-top:var(--so-header-h); margin-left:var(--so-sidemenu-w); }
+  body.so-sm-collapsed #so-content{ margin-left:var(--so-sidemenu-w-collapsed); }
+  body.so-assist-open #so-content{ margin-right:var(--so-assist-w); }
+  @media (prefers-reduced-motion: no-preference){
+    .so-h-btn,.so-sm-item,.so-grp-h,[data-assist]{transition:background .12s ease,border-color .12s ease,box-shadow .12s ease,transform .12s ease}
+    #so-assist{transition:transform .18s ease} #so-sidemenu{transition:width .16s ease,transform .16s ease} #so-content{transition:margin .16s ease}
+  }
+  /* header */
+  #so-header{position:fixed; top:0; left:0; right:0; height:var(--so-header-h); z-index:9500;
+    display:flex; align-items:center; gap:.5rem; padding:0 .6rem;
+    background:var(--panel,#171717); border-bottom:1px solid var(--border,#262626);
+    color:var(--fg,#e6e6e6); font-family:ui-sans-serif,-apple-system,Segoe UI,Roboto,sans-serif; font-size:.82rem;}
+  .so-h-left{display:flex; align-items:center; gap:.55rem; min-width:0;}
+  .so-h-right{display:flex; align-items:center; gap:.35rem; margin-left:auto;}
+  .so-h-btn{display:inline-flex; align-items:center; justify-content:center; gap:.35rem; height:30px;
+    padding:0 .5rem; background:transparent; color:var(--fg,#e6e6e6); border:1px solid transparent;
+    border-radius:6px; cursor:pointer; font:inherit; font-size:.82rem;}
+  .so-h-btn:hover{background:color-mix(in srgb,var(--accent,#9bd1ff) 14%,transparent); border-color:color-mix(in srgb,var(--accent,#9bd1ff) 40%,transparent);}
+  .so-brand{display:flex; align-items:center; gap:.4rem; font-weight:600; letter-spacing:.02em;}
+  .so-brand .mark{color:var(--accent,#9bd1ff);}
+  .so-crumb{color:var(--muted,#8a8a8a); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:40vw;}
+  .so-crumb b{color:var(--fg,#e6e6e6); font-weight:600;}
+  .so-pill{display:inline-flex; align-items:center; gap:.35rem; font-size:.72rem; color:var(--muted,#8a8a8a);
+    border:1px solid var(--border,#262626); border-radius:999px; padding:.1rem .5rem;}
+  .so-pill .dot{width:7px; height:7px; border-radius:50%; background:var(--ok,#7fd18a);}
+  /* sidemenu */
+  #so-sidemenu{position:fixed; top:var(--so-header-h); left:0; bottom:0; width:var(--so-sidemenu-w); z-index:9400;
+    background:var(--panel,#171717); border-right:1px solid var(--border,#262626); display:flex; flex-direction:column; overflow:hidden;
+    font-family:ui-sans-serif,-apple-system,Segoe UI,Roboto,sans-serif;}
+  body.so-sm-collapsed #so-sidemenu{width:var(--so-sidemenu-w-collapsed);}
+  .so-sm-filter{padding:.5rem; border-bottom:1px solid var(--border,#262626);}
+  .so-sm-filter input{width:100%; height:28px; background:var(--bg,#0e0e0e); color:var(--fg,#e6e6e6);
+    border:1px solid var(--border,#262626); border-radius:6px; padding:0 .5rem; font:inherit; font-size:.78rem; outline:none;}
+  .so-sm-filter input:focus{border-color:var(--accent,#9bd1ff);}
+  body.so-sm-collapsed .so-sm-filter{display:none;}
+  .so-sm-scroll{flex:1; overflow-y:auto; padding:.25rem 0 1rem;}
+  .so-grp-h{display:flex; align-items:center; gap:.4rem; width:100%; background:transparent; color:var(--muted,#8a8a8a);
+    border:0; cursor:pointer; font:inherit; font-size:.68rem; text-transform:uppercase; letter-spacing:.06em; padding:.5rem .7rem .25rem; text-align:left;}
+  .so-grp-h .chev{margin-left:auto; transition:transform .12s ease;}
+  .so-grp.closed .chev{transform:rotate(-90deg);} .so-grp.closed .so-grp-items{display:none;}
+  body.so-sm-collapsed .so-grp-h{justify-content:center; font-size:0; padding:.4rem 0;} body.so-sm-collapsed .so-grp-h .chev{display:none;}
+  .so-sm-item{display:flex; align-items:center; gap:.55rem; width:100%; text-decoration:none; color:var(--fg,#e6e6e6);
+    background:transparent; border:0; border-left:2px solid transparent; cursor:pointer; font:inherit; font-size:.8rem; padding:.32rem .7rem; text-align:left;}
+  .so-sm-item .ico{width:1.1rem; text-align:center; flex:none; opacity:.9;}
+  .so-sm-item .lbl{flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .so-sm-item .id{font-size:.64rem; color:var(--muted,#8a8a8a);}
+  .so-sm-item:hover{background:color-mix(in srgb,var(--accent,#9bd1ff) 12%,transparent);}
+  .so-sm-item.active{background:color-mix(in srgb,var(--accent,#9bd1ff) 18%,transparent); border-left-color:var(--accent,#9bd1ff);}
+  body.so-sm-collapsed .so-sm-item{justify-content:center; padding:.4rem 0;} body.so-sm-collapsed .so-sm-item .lbl, body.so-sm-collapsed .so-sm-item .id{display:none;}
+  /* assistant — full-height contextual side panel (cascade model, ported from devops-control-plane) */
+  #so-assist{position:fixed; top:var(--so-header-h); right:0; bottom:0; width:var(--so-assist-w); max-width:92vw; z-index:9450;
+    background:var(--panel,#171717); border-left:1px solid var(--border,#262626); transform:translateX(100%); display:flex; flex-direction:column;
+    font-family:ui-sans-serif,-apple-system,Segoe UI,Roboto,sans-serif; color:var(--fg,#e6e6e6);}
+  body.so-assist-open #so-assist{transform:translateX(0);}
+  .so-assist-h{display:flex; align-items:center; gap:.5rem; padding:.55rem .8rem; border-bottom:1px solid var(--border,#262626); flex-shrink:0;}
+  .so-assist-h .t{font-weight:600; font-size:.85rem;} .so-assist-h .t .spark{color:var(--accent,#9bd1ff);}
+  .so-assist-body{flex:1; overflow-y:auto; overflow-x:hidden; padding:.8rem; font-size:.82rem; line-height:1.55;}
+  /* context header — always-visible "where you are" */
+  .so-ctx{padding:.7rem .85rem; margin:-.8rem -.8rem .9rem; border-bottom:1px solid var(--border,#262626); background:linear-gradient(180deg,rgba(155,209,255,.06),transparent);}
+  .so-ctx-title{font-weight:600; font-size:.92rem; margin-bottom:.35rem;}
+  .so-ctx-content{color:var(--fg-2,#c8c8c8); font-size:.8rem; line-height:1.55; white-space:pre-line;}
+  /* interaction-path nodes */
+  .so-node{padding:.55rem .65rem; margin:.5rem 0; border-left:2px solid transparent; border-radius:0 6px 6px 0; transition:background .12s ease,border-color .12s ease;}
+  .so-node.in-chain{border-left-color:rgba(155,209,255,.18); opacity:.82;}
+  .so-node.active{border-left-color:var(--accent,#9bd1ff); border-left-width:3px; background:rgba(155,209,255,.045); box-shadow:inset 0 0 22px rgba(155,209,255,.03);}
+  .so-node-title{font-weight:600; font-size:.83rem; margin-bottom:.3rem;} .so-node-title .id{color:var(--accent,#9bd1ff); font-size:.72rem; font-weight:500;}
+  .so-node-content{color:var(--fg-2,#c8c8c8); font-size:.8rem; line-height:1.55; white-space:pre-line;}
+  .so-node-expanded{margin-top:.55rem; padding-top:.55rem; border-top:1px solid rgba(155,209,255,.13); font-size:.78rem; line-height:1.6; color:var(--muted,#a8a8a8); white-space:pre-line;}
+  /* rich expanded cards */
+  .so-card{border:1px solid var(--border,#262626); border-radius:7px; padding:.55rem .65rem; margin-top:.45rem; background:var(--bg,#0e0e0e); white-space:normal; line-height:1.55;}
+  .so-card.info{border-color:rgba(155,209,255,.28); background:rgba(155,209,255,.035);}
+  .so-card.ok{border-color:rgba(127,209,143,.34); background:rgba(127,209,143,.045);}
+  .so-card.warn{border-color:rgba(224,192,122,.38); background:rgba(224,192,122,.05);}
+  .so-card.err{border-color:rgba(224,138,138,.4); background:rgba(224,138,138,.055);}
+  .so-card-label{font-weight:600; font-size:.79rem; margin-bottom:.3rem;}
+  .so-card.ok .so-card-label{color:#7fd18f;} .so-card.warn .so-card-label{color:#e0c07a;} .so-card.err .so-card-label{color:#e08a8a;} .so-card.info .so-card-label{color:var(--accent,#9bd1ff);}
+  .so-grid{display:grid; grid-template-columns:auto 1fr; gap:.22rem .6rem; margin:.35rem 0; font-size:.76rem; white-space:normal;}
+  .so-grid .k{color:var(--accent,#9bd1ff); font-weight:500;}
+  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;} .so-li .warn{color:#e0c07a;}
+  .so-xref{margin-top:.4rem; font-size:.76rem; color:var(--fg-2,#c8c8c8);} .so-xref .x{color:var(--accent,#9bd1ff); font-weight:500;}
+  .so-tip{margin-top:.4rem; font-size:.77rem; color:var(--muted,#a8a8a8);}
+  .so-assist-idle{color:var(--muted,#8a8a8a); font-style:italic; padding:.4rem 0;}
+  /* highlight the hovered/focused element in the panel content */
+  .so-assist-hot{outline:2px solid var(--accent,#9bd1ff); outline-offset:-2px; border-radius:6px;}
+  /* responsive — reuse the existing breakpoints */
+  @media (max-width:1024px){
+    #so-sidemenu{transform:translateX(-100%);} body.so-sm-open #so-sidemenu{transform:translateX(0); width:var(--so-sidemenu-w);}
+    #so-content{margin-left:0 !important;} body.so-assist-open #so-content{margin-right:0 !important;}
+  }
+  @media (max-width:600px){ .so-crumb{display:none;} #so-assist{width:100vw;} }
+</style>
+<script>
+(function(){
+  "use strict";
+  if (window.__soAppShell) return; window.__soAppShell = true;
+  // ── catalog: groups → panels, with per-panel assistant data (desc).
+  //    Generated from config/dashboard-catalog.yaml (single source of truth). ──
+  var GROUPS = [
+    {name:'Trinity & Orchestration', items:[
+      {id:'—', dir:'trinity', label:'Trinity', ico:'△', desc:'The 3-tier runtime at a glance — Pulse (CPU/AVX-512 ternary), Weaver (sandboxed GPU fabric), Auditor (immutable gatekeeper): live tier status, model assignments, health.'},
+      {id:'—', dir:'weaver', label:'Weaver (fabric)', ico:'☲', desc:'The sandboxed fabric layer — Podman/VFIO isolation, the state-fabric (tank/context) writers, CCD1 allocation. Where untrusted work runs.'},
+      {id:'—', dir:'auditor', label:'Auditor (gatekeeper)', ico:'🔍', desc:'The always-on immutable gatekeeper — Tetragon eBPF perimeter + Guardian violation tail. The last line that cannot be bypassed.'},
+      {id:'—', dir:'router', label:'Router', ico:'⎈', desc:'The deterministic request router (SDD-011): which tier answers a prompt, per-rule classification, routing-decision metrics. Pairs with the thinking-router planner (CLI: router plan).'},
+      {id:'—', dir:'runtime-modes', label:'Runtime Modes', ico:'◑', desc:'The master-spec §18 runtime profiles (ultra-sovereign-efficiency / high-concurrency / deep-context) — pick the mode; it drives core pinning, GPU power, model allocation.'},
+      {id:'D-01', dir:'d-01-active-sessions', label:'D-01 Active Sessions', ico:'▣', desc:'The 12-step task lifecycle per live operator session (init → inference → response → validation → cleanup).'},
+      {id:'D-03', dir:'d-03-model-health', label:'D-03 Model Health', ico:'♥', desc:'Per-tier inference health — SRP role, GPU binding, KV-cache pressure, latency. The live-serving view (distinct from the catalog).', menuHover:'How well the models are actually SERVING right now — the live-inference counterpart to the catalog. Where D-23 tells you which models exist, this tells you how the loaded ones are performing across the three SRP tiers (M075): the Conductor on CPU ternary, the Logic engine on the sandboxed 4090, and the Oracle on the Blackwell. It reads each tier’s utilization and headroom, per-model latency at the p50/p95/p99 tails (because the tail is what a user feels, not the average), KV-cache occupancy and prefill-hit rate per model, and a 24-hour availability heatmap that turns momentary blips into a pattern. Open it when a response felt slow and you need to know which tier and which model was the cause; open it before loading a new model to see which tier has room; open it after a profile change to confirm the reassignment is serving cleanly. It pairs with D-09 (the raw hardware pressure underneath these numbers), D-21 (the profile that assigned models to tiers), and D-23 (the portfolio these live models are drawn from).'},
+      {id:'D-05', dir:'d-05-traces', label:'D-05 Traces', ico:'⋮', desc:'Distributed span search — 13-field trace tree, OCSF export. Debug why a request went where it did.'},
+    ]},
+    {name:'Models & Compute', items:[
+      {id:'D-21', dir:'d-21-lm-orchestration', label:'D-21 LM Orchestration', ico:'⛭', desc:'Profiles + model→hardware assignment grid (GPU0/GPU1/CPU0 = Logic/Oracle/Conductor per M075) + CPU AVX-512 / GPU capability panel. Read-only: Apply copies the signed profile verb.', menuHover:'Where you choose the whole machine’s inference posture in one move. A runtime profile (M076) is not a setting — it is a coherent bundle that assigns every model to a device and pins the CPU cores to match (the SRP split, M075), so picking one rebalances the Conductor, Logic, and Oracle tiers together. This panel lets you preview a profile as a concrete model→hardware grid before you commit it, and shows the silicon it’s built to exploit (the CPU’s AVX-512 extensions for the ternary path, the GPUs’ capabilities like NVFP4). Open it when you want to change how the box thinks as a whole — trade deep-context reach for concurrency, or park the GPUs and run cheap on CPU — rather than tweaking one model. It’s the strategic counterpart to D-03 (which shows how the current assignment is actually serving) and D-09 (which shows the pressure each posture produces). Read-only: applying a profile is a signed verb-chain through osctl, because reshuffling models across devices is a real, heavy operation, not a web click.'},
+      {id:'D-24', dir:'d-24-cpu-features', label:'D-24 CPU Features', ico:'⊞', desc:'The deep AVX-512 capability view — extension map, per-AI-workload fit verdict, and advisory. Reuses avx512-advisor. Distinct from D-21 Features-CPU summary.'},
+      {id:'D-23', dir:'d-23-models-catalog', label:'D-23 Model Catalog', ico:'▤', desc:'The canonical model registry (models/catalog.yaml) browsed by SRP tier — id, class, engine, precision, params, context, license, purpose, status. The portfolio view (distinct from D-03 live health).'},
+      {id:'D-22', dir:'d-22-lm-status-operability', label:'D-22 LM Status & Operability', ico:'◐', desc:'Per-device (CPU0/GPU0/GPU1) Model 0/1/2 status + History|Selected latency + operability Actions/Tests + render-only Chat. Reuses the model-health core; Actions copy signed CLI verbs.', menuHover:'The device-by-device operability view — and the one place in the whole cockpit where you actually talk to the box\u2019s brain. Where D-03 aggregates model health by SRP tier, this pins it to the physical devices (CPU0, GPU0, GPU1) and adds the thing that proves the machine is more than dashboards: a sovereign loopback chat that sends a prompt straight to the local LM over 127.0.0.1 and shows the answer. That chat is the single deliberate exception to the read-only rule \u2014 it is a real compute call, but it never leaves the box, which is the whole sovereignty argument made tangible: your AI, on your silicon, answering with nothing crossing the network. Open it to confirm a device is not just loaded but actually responding; open it to sanity-check the box end to end after a profile change; open the chat when you want to feel the machine think without a cloud in the loop. It pairs with D-03 (tier health), D-21 (the profile that placed these models on these devices), and D-09 (the pressure a chat request produces).'},
+      {id:'—', dir:'models-catalog', label:'Models & Catalog', ico:'▤', desc:'The full model catalog (68 models across ternary-lm/RLM/SLM/LLM/mixture, every quantization) with VRAM-aware selection — browse and filter by class/quant/tier/purpose/VRAM. Backed by models/catalog.yaml (served at /models-catalog.json); operator CLI e.g. models select --class rlm --vram 48.'},
+      {id:'—', dir:'cpu-features', label:'CPU / AVX-512 Choice', ico:'⊞', desc:'The tiered AVX-512 exploitation surface — which instructions (F/VL/BW/VNNI/BF16/VPOPCNTDQ…) THIS CPU exposes and how they map to the AI workloads they enable (Pulse ternary path). Live probe via avx512-advisor (R272), served at /cpu-avx.json.'},
+      {id:'—', dir:'orchestration', label:'Thinking Router / Orchestration', ico:'⧉', desc:'The thinking-router / orchestration view — the 7-axis routing rules (SDD-011) + live routing metrics (which tier/class/task-type requests landed on) + the per-profile escalation (CoT → Validator → self-consistency → MoE). Served at /orchestration.json (router rules|metrics).'},
+      {id:'—', dir:'profile-generation', label:'Runtime-Profile Generation', ico:'⌘', desc:'Generate a whole runtime profile from hardware × strategy, with tier_intent resolved against the catalog (the \'20+ combos\' producer) — shows the resolved allocations each strategy produces + the generate command. Served at /profile-generation.json from profiles/runtime/*.yaml.'},
+      {id:'D-10', dir:'d-10-eval-history', label:'D-10 Eval History', ico:'∿', desc:'Per-task/model eval results (mmlu/humaneval/gsm8k/…), white-box + black-box.'},
+      {id:'D-11', dir:'d-11-adapter-status', label:'D-11 Adapter Status', ico:'⚙', desc:'LoRA adapter inventory + rollback state — which fine-tunes are resident and active.'},
+      {id:'D-19', dir:'d-19-super-model-manifest', label:'D-19 Super-Model Manifest', ico:'≣', desc:'The live super-model version + the M001..M080 module table — what capabilities are shipped.'},
+    ]},
+    {name:'Hardware & Operations', items:[
+      {id:'D-09', dir:'d-09-hardware-pressure', label:'D-09 Hardware Pressure', ico:'▰', desc:'Live PSI (CPU/mem/IO), per-CCD load, GPU utilization + power, ZFS pool health. The physical-stress view.', menuHover:'The box’s vital signs — not “how busy” but “how stressed”. Where you go when something feels slow and you need to know whether the machine is genuinely out of headroom or just working hard. It reads Linux PSI (stall, not utilization — the honest signal of contention), the two Ryzen CCDs separately (because crossing the Infinity Fabric between them costs latency the pinning is meant to avoid), both GPUs’ utilization/VRAM/thermals/KV-cache, the ZFS pool’s tail latency, and the M058 backpressure rules that are actively shedding work right now. Open it before launching a heavy build or eval to see if there’s room; open it when a response is slow to tell load apart from contention; open it when a backpressure rule fires to see which resource tripped and what the scheduler gave up to protect live serving. It pairs with the runtime-profile panels (which set the core pinning and GPU budget this reflects) and with D-08 (the ZFS snapshots the scrub here protects).'},
+      {id:'D-04', dir:'d-04-costs', label:'D-04 Costs', ico:'$', desc:'Budget + spend by project / profile / model — local compute cost + any cloud fallback.'},
+      {id:'D-08', dir:'d-08-rollback-points', label:'D-08 Rollback Points', ico:'↺', desc:'ZFS snapshots as recovery points, with a dry-run preview of what a rollback would change.'},
+      {id:'D-02', dir:'d-02-profile-choices', label:'D-02 Profile Choices', ico:'◈', desc:'The active OS profile mirrored read-only — hardware, kernel, packages, hooks in effect.'},
+      {id:'—', dir:'global-history', label:'Global History', ico:'🕑', desc:'A unified change log across 6 sources (apt/dpkg/shell/osctl/events/modules) — \'what changed since I last looked?\''},
+      {id:'—', dir:'build-configurator', label:'Build Configurator', ico:'▶', desc:'Compose an OS image (or manage this host) and RUN the build — the Run console (validate/preflight/BUILD, bake toggles). The one page that actually builds sovereign-os.'},
+      {id:'—', dir:'emulate', label:'Emulate (QEMU)', ico:'◴', desc:'Boot a built image in a throwaway QEMU VM before flashing — interactive serial console, configurable QEMU options (uefi/direct boot, kvm/tcg, cpu/mem, snapshot), auto-login. Catches a broken image in a VM, never on the USB key.'},
+      {id:'—', dir:'flash', label:'Flash to USB', ico:'⚡', desc:'Write a built image onto a removable disk from the panel — a safety-classified device picker (system disks hard-protected), type-to-arm confirm, and live dd progress. Shells the gated sovereign-osctl install image; never raw dd.'},
+      {id:'—', dir:'ups', label:'UPS (APC Smart-UPS)', ico:'🔋', desc:'Live APC Smart-UPS (SMT2200C SmartConnect) state (battery %, runtime, load, on-line/on-battery) via NUT apc_modbus over Modbus TCP (:502) or serial, plus the graceful soft-shutdown posture — an orderly poweroff when battery runtime drops below 30 minutes. Read-only over power-status + NUT upsc.'},
+    ]},
+    {name:'Security & selfdef', items:[
+      {id:'D-25', dir:'d-25-selfdef-management', label:'D-25 Self-Defense Management', ico:'⛨', desc:'READ-ONLY consumer view (R10212) of the selfdef IPS — on/off enablement + M060 mirror-chain health + links to the 6 domain panels (D-13..D-18). Derives state via the m060-health probe() proxy; on/off is a clipboard-copied signed CLI verb.'},
+      {id:'—', dir:'selfdef-management', label:'selfdef (IPS) Management', ico:'⛨', desc:'The intrusion-prevention system — live on/off state + unit/mirror health, unifying the 6 mirror dashboards (D-13..D-18) + perimeter. Served at /selfdef-management.json (selfdef status); controls (on/off/sync/doctor + perimeter) via the Controls surface.'},
+      {id:'D-12b', dir:'edge-firewall', label:'Edge Firewall', ico:'🛡', desc:'Host firewall posture — nftables / fail2ban / crowdsec / suricata state + install recommendations.'},
+      {id:'D-12a', dir:'network-edge', label:'Network Edge', ico:'⇄', desc:'The edge topology — OPNsense bridge, ISP NAT layers, VPN, per-interface state. Where the box sits in the network.'},
+      {id:'D-12', dir:'d-12-networking', label:'D-12 Networking', ico:'⇄', desc:'The cockpit networking view — the selfdef MS039 Ring-0-4 nftables rules mirror (read-only via selfdef-rules-mirror), per-ring rule counts + traffic + dispositions.'},
+      {id:'D-06', dir:'d-06-pending-approvals', label:'D-06 Pending Approvals', ico:'✋', desc:'The operator approval queue + stage gates — actions waiting for a human yes/no.'},
+      {id:'D-07', dir:'d-07-memory-changes', label:'D-07 Memory Changes', ico:'✎', desc:'The 8-type memory-graph diff — what the agent\'s memory added/changed/removed.'},
+      {id:'D-13', dir:'d-13-filesystem-grants', label:'D-13 Filesystem Grants', ico:'📁', desc:'selfdef filesystem-grant mirror (read-only) — which paths are granted to whom.'},
+      {id:'D-14', dir:'d-14-capability-tokens', label:'D-14 Capability Tokens', ico:'⚷', desc:'selfdef capability-token mirror — issued/revoked capabilities.'},
+      {id:'D-15', dir:'d-15-sandboxes', label:'D-15 Sandboxes', ico:'▢', desc:'selfdef sandbox mirror — active sandboxes + their isolation state.'},
+      {id:'D-16', dir:'d-16-audit', label:'D-16 Audit Chain', ico:'☑', desc:'selfdef append-only audit-chain mirror — the tamper-evident event log.'},
+      {id:'D-17', dir:'d-17-quarantine', label:'D-17 Quarantine', ico:'⚠', desc:'selfdef quarantine mirror — what\'s been isolated and why.'},
+      {id:'D-18', dir:'d-18-trust-scores', label:'D-18 Trust Scores', ico:'★', desc:'selfdef trust-score mirror — per-entity trust levels driving policy.'},
+      {id:'D-20', dir:'d-20-peace-machine-health', label:'D-20 Peace Machine Health', ico:'☮', desc:'The M059 peace-machine 5-property verdict — the top-level \'is the system at peace\' signal.'},
+      {id:'—', dir:'compliance', label:'Compliance', ico:'⚖', desc:'The §1g/§1h compliance aggregator — per-module pass/fail against the operator mandate.'},
+      {id:'—', dir:'auth-tier', label:'Auth Tier', ico:'🔑', desc:'The 6-tier auth ladder (no-auth → basic → advanced → social → enterprise → network) + per-surface requirement.'},
+      {id:'—', dir:'anti-minimization-audit', label:'Anti-Minimization Audit', ico:'⛶', desc:'The \'do not minimize\' audit — flags where scope was silently shrunk vs the mandate.'},
+    ]},
+    {name:'Governance & Meta', items:[
+      {id:'D-00', dir:'master-dashboard', label:'Master Dashboard', ico:'◎', desc:'The aggregator — the route table + health of every panel + selfdef cross-repo manifest discovery. The front door (this catalog is its new global index).', menuHover:'The front door and the switchboard — the one panel that knows about all the others. It answers a different question than any single dashboard: not “how is this subsystem,” but “is everything reachable, is anything colliding, and is the safety spine intact?” It carries the route table (every panel and whether the aggregator can reach it), the coverage view that proves nothing is stranded off the §1g contract, the collision list where two things claim the same route, the cross-repo manifests selfdef publishes, and — most importantly — the four health banners that are the box’s pulse: the M060 mirror chain (the selfdef→sovereign-os bridge), the MS022 SSE subscriber quota, the four-watchdog IPS spine (whether Guardian/Tetragon is up, which sovereign-os checks but selfdef owns), and AppArmor enforcement. Open it first on any session to see the whole surface at a glance; open it when a panel seems missing or misrouted; open it when you want a single yes/no on whether the defense spine is healthy before trusting anything else. It is the map every other panel is a place on.'},
+      {id:'—', dir:'surface-map', label:'Surface Map', ico:'🗺', desc:'The §1g 8-surface taxonomy coverage — which of the 8 operator surfaces each module delivers.'},
+      {id:'—', dir:'doc-coverage', label:'Doc Coverage', ico:'☷', desc:'Documentation coverage per module — what\'s documented vs shipped.'},
+      {id:'—', dir:'ux-design-audit', label:'UX Design Audit', ico:'◓', desc:'The UX design-stage audit — consistency/accessibility scoring across the panels.'},
+      {id:'—', dir:'personalization', label:'Personalization', ico:'✦', desc:'Theme / accent / typography control (localStorage-backed) applied across all panels before paint.'},
+    ]},
+    {name:'Science & Simulation', items:[
+      {id:'—', dir:'science', label:'Science Tools', ico:'⚛', desc:'The operator\'s science catalog — DNA / protein / particle tools. NVIDIA Warp (particles) is integrated: a differentiable particle sim on GPU (RTX PRO 6000) or CPU fallback. Read-only; running a sim is the gated sovereign-osctl science run.'},
+    ]},
+  ];
+  var PKEY='sovereign-os.personalization', PSCHEMA=1;
+  function loadPrefs(){ try{var r=localStorage.getItem(PKEY);var p=r?JSON.parse(r):null;if(!p||p.schema!==PSCHEMA)return{schema:PSCHEMA,theme:'auto',accent:'#9bd1ff',font_scale:1};return p;}catch(e){return{schema:PSCHEMA,theme:'auto',accent:'#9bd1ff',font_scale:1};} }
+  function savePrefs(p){ try{localStorage.setItem(PKEY,JSON.stringify(p));}catch(e){} }
+  function applyTheme(p){ var r=(p.theme==='dark'||p.theme==='light')?p.theme:((window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)?'light':'dark');
+    document.documentElement.setAttribute('data-theme',r);
+    document.documentElement.style.setProperty('--accent',p.accent||'#9bd1ff'); document.documentElement.style.setProperty('--so-accent',p.accent||'#9bd1ff'); }
+  var THEME_ICON={auto:'◑ auto',dark:'☾ dark',light:'☀ light'};
+  function syncThemeBtn(p){ var b=document.getElementById('so-theme'); if(b) b.textContent=THEME_ICON[p.theme]||'◑ auto'; }
+  function cycleTheme(){ var p=loadPrefs(); p.theme=p.theme==='auto'?'dark':p.theme==='dark'?'light':'auto'; savePrefs(p); applyTheme(p); syncThemeBtn(p); }
+  function curDir(){ var seg=location.pathname.replace(/\/+$/,'').split('/'); return seg[seg.length-1]||''; }
+  function findPanel(dir){ for(var g=0;g<GROUPS.length;g++){var it=GROUPS[g].items;for(var i=0;i<it.length;i++){if(it[i].dir===dir)return it[i];}} return null; }
+  function el(h){ var d=document.createElement('div'); d.innerHTML=h.trim(); return d.firstChild; }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+
+  function buildHeader(cur){
+    var crumb = cur ? ('<b>'+esc(cur.id!=='—'?cur.id:'')+'</b> '+(cur.id!=='—'?'· ':'')+esc(cur.label)) : 'cockpit';
+    document.body.appendChild(el(
+      '<header id="so-header" role="banner"><div class="so-h-left">'+
+        '<button class="so-h-btn" id="so-menu-toggle" title="Toggle sidemenu" aria-label="Toggle sidemenu">☰</button>'+
+        '<span class="so-brand"><span class="mark">⬢</span> sovereign-os</span>'+
+        '<span class="so-crumb">'+crumb+'</span></div>'+
+      '<div class="so-h-right">'+
+        '<span class="so-pill" title="data source"><span class="dot"></span> live ✓</span>'+
+        '<button class="so-h-btn" id="so-palette" title="Command palette (⌘K)">⌘K</button>'+
+        '<button class="so-h-btn" id="so-theme" title="Theme (auto / dark / light)">◑ auto</button>'+
+        '<button class="so-h-btn" id="so-assist-toggle" title="Assistant (contextual help)">✦ Assist</button>'+
+      '</div></header>'));
+  }
+  function buildSidemenu(dir){
+    var root='../';
+    var html=GROUPS.map(function(g){
+      var items=g.items.map(function(it){
+        var a=it.dir===dir?' active':'';
+        return '<a class="so-sm-item'+a+'" href="'+root+it.dir+'/" data-dir="'+it.dir+'" data-label="'+esc(it.label)+'" title="'+esc(it.label)+'">'+
+          '<span class="ico">'+it.ico+'</span><span class="lbl">'+esc(it.label)+'</span><span class="id">'+esc(it.id!=='—'?it.id:'')+'</span></a>';
+      }).join('');
+      return '<div class="so-grp"><button class="so-grp-h" type="button"><span>'+esc(g.name)+'</span><span class="chev">▾</span></button><div class="so-grp-items">'+items+'</div></div>';
+    }).join('');
+    document.body.appendChild(el('<nav id="so-sidemenu" aria-label="dashboards"><div class="so-sm-filter"><input type="text" id="so-sm-search" placeholder="filter panels…" autocomplete="off"></div><div class="so-sm-scroll">'+html+'</div></nav>'));
+  }
+  function buildAssistant(cur){
+    var help=(cur&&cur.desc)||(cur?('The '+cur.label+' cockpit panel.'):'A cockpit panel.');
+    var title=cur?((cur.id!=='—'?esc(cur.id)+' ':'')+esc(cur.label)):'this panel';
+    document.body.appendChild(el(
+      '<aside id="so-assist" role="complementary" aria-label="assistant"><div class="so-assist-h"><span class="t"><span class="spark">✦</span> Assistant</span>'+
+        '<button class="so-h-btn" id="so-assist-close" title="Close" style="margin-left:auto">✕</button></div>'+
+      '<div class="so-assist-body" id="so-assist-body"></div></aside>'));
+  }
+  function wire(){
+    document.getElementById('so-menu-toggle').addEventListener('click',function(){
+      if(window.matchMedia('(max-width:1024px)').matches) document.body.classList.toggle('so-sm-open');
+      else document.body.classList.toggle('so-sm-collapsed'); });
+    document.getElementById('so-theme').addEventListener('click',cycleTheme);
+    var assistDismissed=false;   // sticky close: once the operator closes it, hover won't force it back open (only the ✦ toggle reopens)
+    document.getElementById('so-assist-toggle').addEventListener('click',function(){ var willOpen=!document.body.classList.contains('so-assist-open'); document.body.classList.toggle('so-assist-open'); assistDismissed=!willOpen; });
+    document.getElementById('so-assist-close').addEventListener('click',function(){ document.body.classList.remove('so-assist-open'); assistDismissed=true; });
+    document.getElementById('so-palette').addEventListener('click',function(){
+      window.dispatchEvent(new KeyboardEvent('keydown',{key:'k',metaKey:true,bubbles:true}));
+      window.dispatchEvent(new KeyboardEvent('keydown',{key:'k',ctrlKey:true,bubbles:true})); });
+    Array.prototype.forEach.call(document.querySelectorAll('.so-grp-h'),function(b){ b.addEventListener('click',function(){b.parentNode.classList.toggle('closed');}); });
+    var s=document.getElementById('so-sm-search');
+    s.addEventListener('input',function(){ var q=s.value.trim().toLowerCase();
+      Array.prototype.forEach.call(document.querySelectorAll('.so-grp'),function(grp){ var any=false;
+        Array.prototype.forEach.call(grp.querySelectorAll('.so-sm-item'),function(it){ var hit=!q||it.dataset.label.toLowerCase().indexOf(q)>=0||it.dataset.dir.toLowerCase().indexOf(q)>=0; it.style.display=hit?'':'none'; if(hit)any=true; });
+        grp.style.display=any?'':'none'; }); });
+    // ── Assistant: contextual cascade panel (model ported from devops-control-plane) ──
+    // catalogue: window.SO_ASSIST = { context:{title,icon,content}, nodes:[{id,title,icon,selector,content,expanded,variants,children}] }
+    //   content = plain teaching text (always shown); expanded = authored rich HTML (shown for the active element).
+    var abody=document.getElementById('so-assist-body');
+    function openAssist(){ if(assistDismissed) return; if(!document.body.classList.contains('so-assist-open')) document.body.classList.add('so-assist-open'); }
+    function reduced(){ return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
+    var curP=findPanel(curDir());
+    var CAT=(function(){ var sa=window.SO_ASSIST, ctx=null, nodes=[];
+      if(sa && !Array.isArray(sa) && sa.nodes){ ctx=sa.context||null; nodes=sa.nodes||[]; }
+      else if(Array.isArray(sa)){ nodes=sa.map(function(e){ return {id:'',title:e.title||'',selector:e.sel,content:e.msg||'',expanded:e.more?esc(e.more):''}; }); }
+      if(!ctx) ctx={ icon:'✦', title:(curP?((curP.id&&curP.id!=='—'?curP.id+' · ':'')+curP.label):'This panel'), content:(curP?curP.desc:'') };
+      return {ctx:ctx, nodes:nodes}; })();
+    // flatten deepest-first with parent chains
+    var FLAT=[]; (function flat(list,chain){ (list||[]).forEach(function(n){ if(n.children&&n.children.length) flat(n.children,chain.concat([n])); FLAT.push({node:n,parents:chain.slice()}); }); })(CAT.nodes,[]);
+    // {{name}} interpolation for dynamic-row templates
+    function interp(s,name){ return (name==null)?(s||''):String(s||'').replace(/\{\{name\}\}/g,name); }
+    // derive a live row's label (nameSelector, then a strong/cell/code heuristic, then text)
+    function rowName(row,ct){ var t=''; if(ct.nameSelector){ try{ var e=row.querySelector(ct.nameSelector); if(e) t=e.textContent||''; }catch(x){} }
+      if(!t){ var s=row.querySelector('strong,code,th,.k,td'); if(s) t=s.textContent||''; }
+      if(!t) t=row.textContent||''; return t.replace(/\s+/g,' ').trim().slice(0,64); }
+    // synthesize a node from a childTemplate bound to one live row
+    function synthRow(n,row){ var ct=n.childTemplate, nm=rowName(row,ct);
+      return {id:n.id, icon:ct.icon||n.icon, title:interp(ct.title||n.title||'{{name}}',nm), content:ct.content||'', expanded:ct.expanded||'', variants:ct.variants, _name:nm}; }
+    // variant resolution against the matched element (state-awareness)
+    function resolveVar(node,el){ if(!node.variants||!node.variants.length||!el) return node;
+      for(var i=0;i<node.variants.length;i++){ var v=node.variants[i], w=v.when||{}, ok=true;
+        if(w.textContains && (el.textContent||'').toLowerCase().indexOf(String(w.textContains).toLowerCase())<0) ok=false;
+        if(ok&&w.hasSelector){ try{ if(!el.querySelector(w.hasSelector)) ok=false; }catch(e){ ok=false; } }
+        if(ok) return {id:node.id,title:v.title||node.title,icon:v.icon||node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded),_name:node._name}; }
+      return node; }
+    // match a hovered element to the deepest catalogue node (static node OR dynamic row)
+    function matchNode(el){ var best=null,bd=-1;
+      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node;
+        if(n.selector){ var m=false,tgt=null;
+          try{ if(el.matches(n.selector)){m=true;tgt=el;}
+            else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
+          if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+        if(n.dynamic && n.childTemplate && n.childTemplate.selector){ try{ var row=el.closest(n.childTemplate.selector);
+          if(row){ var d2=e.parents.length+1; if(d2>bd){ bd=d2; best={entry:{node:synthRow(n,row),parents:e.parents.concat([n])},el:row}; } } }catch(y){} } }
+      return best; }
+    function ctxHtml(){ var c=CAT.ctx; return '<div class="so-ctx"><div class="so-ctx-title">'+(c.icon?esc(c.icon)+' ':'')+esc(c.title||'')+'</div><div class="so-ctx-content">'+esc(c.content||'')+'</div></div>'; }
+    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node, nm=(node._name!=null?node._name:null);
+      var title=interp(r.title||'',nm), cont=interp(r.content||'',nm), exp=interp(r.expanded||'',nm);
+      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(title)+'</div>';
+      h+='<div class="so-node-content">'+esc(cont)+'</div>';
+      if(active && exp) h+='<div class="so-node-expanded">'+exp+'</div>';   // expanded = trusted authored HTML
+      return h+'</div>'; }
+    var lastHot=null, lastMatched=null;
+    function clearHot(){ if(lastHot){ lastHot.classList.remove('so-assist-hot'); lastHot=null; } }
+    function idle(){ lastMatched=null; clearHot(); abody.innerHTML=ctxHtml()+'<div class="so-assist-idle">Hover any value, control, table row, or menu link — its explanation builds here.</div>'; }
+    function showPath(match){ if(assistDismissed) return; openAssist(); clearHot();
+      var chain=match.entry.parents, node=match.entry.node, parent=chain.length?chain[chain.length-1]:null;
+      var html=ctxHtml(); if(parent) html+=nodeHtml(parent,null,null); html+=nodeHtml(node,true,match.el);
+      abody.innerHTML=html;
+      if(match.el){ match.el.classList.add('so-assist-hot'); lastHot=match.el; }
+      var act=abody.querySelector('.so-node.active'); if(act&&act.scrollIntoView) act.scrollIntoView({block:'center',behavior:reduced()?'auto':'smooth'}); }
+    // hover-intent debounce: quick pass-through toward the panel shouldn't hijack the content; a settle of SWAP_DELAY does
+    var swapTimer=null; var SWAP_DELAY=140;
+    function queueSwap(fn){ clearTimeout(swapTimer); swapTimer=setTimeout(fn,SWAP_DELAY); }
+    var asideEl=document.getElementById('so-assist');
+    if(asideEl){ asideEl.addEventListener('mouseenter',function(){ clearTimeout(swapTimer); }); }  // moving onto the panel freezes the current content
+    var content=document.getElementById('so-content');
+    if(content){
+      content.addEventListener('mouseover',function(ev){ if(assistDismissed) return; var m=matchNode(ev.target); if(m&&m.el!==lastMatched){ queueSwap(function(){ lastMatched=m.el; showPath(m); }); } });
+      content.addEventListener('focusin',function(ev){ clearTimeout(swapTimer); var m=matchNode(ev.target); if(m&&m.el!==lastMatched){ lastMatched=m.el; showPath(m); } });
+    }
+    // menu links → surface the target panel's context (program-awareness: horizontal jump)
+    Array.prototype.forEach.call(document.querySelectorAll('.so-sm-item'),function(it){ var p=findPanel(it.dataset.dir); if(!p) return;
+      function show(){ if(assistDismissed) return; openAssist(); clearHot(); lastMatched=null; it.classList.add('so-assist-hot'); lastHot=it; var here=it.dataset.dir===curDir();
+        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+(p.menuHover?p.menuHover:esc(p.desc||''))+'</div></div>'+
+          '<div class="so-assist-idle">'+(here?'You’re on this panel now — hover its contents to explore.':'Click to open this panel.')+'</div>'; }
+      it.addEventListener('mouseenter',function(){ queueSwap(show); }); it.addEventListener('mouseleave',function(){ clearTimeout(swapTimer); }); it.addEventListener('focus',show); });
+    idle();
+  }
+  function init(){
+    var dir=curDir(), cur=findPanel(dir);
+    var content=document.createElement('div'); content.id='so-content';
+    while(document.body.firstChild){ content.appendChild(document.body.firstChild); }
+    document.body.appendChild(content);
+    buildHeader(cur); buildSidemenu(dir); buildAssistant(cur); wire();
+    applyTheme(loadPrefs()); syncThemeBtn(loadPrefs());
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
+})();
+</script>
+<!-- APP-SHELL:END M067 -->
+
+<header>
+  <h1>Code Console
+    <span class="sub">claude.ai/code-style interface for the sovereign LOCAL LM — session rail · thread · plan · composer</span></h1>
+</header>
+<main>
+  <div class="banner" id="data-source-banner">connecting to <code>/api/code-console/sessions</code>…</div>
+
+  <!-- top: session tabs + repo chips -->
+  <div class="cc-tabs" id="cc-tabs"></div>
+
+  <!-- three panes: session rail | conversation thread | plan -->
+  <div class="cc-grid">
+    <div class="cc-pane">
+      <div class="cc-pane-h"><span>Sessions</span><span class="muted" id="cc-sess-count">—</span></div>
+      <div class="cc-pane-body" id="cc-rail"></div>
+    </div>
+    <div class="cc-pane">
+      <div class="cc-pane-h"><span>Conversation</span><span class="muted" id="cc-thread-src">local LM</span></div>
+      <div class="cc-pane-body" id="cc-thread"></div>
+    </div>
+    <div class="cc-pane">
+      <div class="cc-pane-h"><span>Plan</span><span class="muted">artifact</span></div>
+      <div class="cc-pane-body" id="cc-plan"></div>
+    </div>
+  </div>
+
+  <!-- bottom composer -->
+  <div class="cc-composer">
+    <div class="cc-composer-row">
+      <textarea id="cc-input" placeholder="Ask the sovereign local LM… (Ctrl/Cmd+Enter to send)"></textarea>
+      <button class="cc-send" id="cc-send">Send</button>
+    </div>
+    <div class="cc-tools">
+      <label>Target
+        <select class="cc-select" id="cc-target" title="M075 SRP device target — the loopback router selects the serving tier">
+          <option value="auto">auto · router selects tier</option>
+          <option value="CPU0">CPU0 · Conductor</option>
+          <option value="GPU0">GPU0 · Logic</option>
+          <option value="GPU1">GPU1 · Oracle</option>
+        </select>
+      </label>
+      <button class="cc-ghost" id="cc-new" title="Clear the in-page conversation">New chat</button>
+      <span class="muted" id="cc-hint">POST <code>/api/code-console/chat</code> → loopback <code>/v1/chat/completions</code> (the one sanctioned read-compute; in-page buffer only, no server state — R10212)</span>
+    </div>
+  </div>
+  <p class="banner" id="last-fetch"></p>
+</main>
+<footer>
+  sovereign-os cockpit · Code Console · read-only mirror of the M057 session
+  registry + the loopback inference read-compute (R10212 — web never mutates; the
+  ONLY POST is the loopback chat). Model/agent actions are signed
+  <code>sovereign-osctl …</code> verbs. Operator §1g standing rule (sacrosanct):
+  <strong>We do not minimize anything.</strong>
+</footer>
+<script>
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  // Fixed honest-empty rail so the three-pane scaffold is ALWAYS visible — even
+  // with the daemon offline (the SDD-111 "seeing all sections" lesson, built-in;
+  // never blank, never fabricated — SB-077).
+  const FIXED_SESSIONS = { sessions: [], summary: {}, producer: 'offline' };
+  let LAST = FIXED_SESSIONS;
+  let activeSession = null;
+
+  // ── left rail: real M057 task-sessions (relabelled; not chat threads) ──
+  function renderRail(data) {
+    const sessions = (data && Array.isArray(data.sessions)) ? data.sessions : [];
+    $('cc-sess-count').textContent = sessions.length ? sessions.length : '0';
+    if (!sessions.length) {
+      $('cc-rail').innerHTML = '<div class="cc-defer">No active task-sessions.'
+        + ' <b>The rail lists OS task-sessions</b> (M057 lifecycle: init → inference'
+        + ' → response → validation → cleanup), not chat threads — the box holds no'
+        + ' conversation store. Empty is honest, never fabricated.</div>';
+      renderTabs([]);
+      return;
+    }
+    if (activeSession == null) activeSession = sessions[0].id;
+    $('cc-rail').innerHTML = sessions.map(s => `
+      <button class="cc-sess${s.id === activeSession ? ' active' : ''}" data-sid="${esc(s.id)}">
+        <div><code>${esc(s.id)}</code></div>
+        <div class="st">${esc(s.kind || 'task')} · ${esc(s.state || '—')}</div>
+        <div class="step">${esc(s.step_name || (s.step != null ? 'step ' + s.step : '—'))}</div>
+      </button>`).join('');
+    $('cc-rail').querySelectorAll('.cc-sess').forEach(b => b.addEventListener('click', () => {
+      activeSession = b.dataset.sid; renderRail(LAST); renderThread();
+    }));
+    renderTabs(sessions);
+  }
+
+  // ── top: session tabs + honest-deferred repo chips ──
+  function renderTabs(sessions) {
+    const tabs = (sessions || []).slice(0, 6).map(s =>
+      `<button class="cc-tab${s.id === activeSession ? ' active' : ''}" data-sid="${esc(s.id)}">`
+      + `<span class="dot"></span>${esc(s.id)}</button>`).join('')
+      || '<span class="muted" style="font-size:.78rem">no open sessions</span>';
+    const repos = '<span class="cc-repos"><span class="muted" style="font-size:.72rem">repos:</span>'
+      + '<span class="cc-chip deferred" title="no repo-attach producer yet — honest-deferred (SB-077)">— no repo producer</span></span>';
+    $('cc-tabs').innerHTML = tabs + repos;
+    $('cc-tabs').querySelectorAll('.cc-tab').forEach(b => b.addEventListener('click', () => {
+      activeSession = b.dataset.sid; renderRail(LAST); renderThread();
+    }));
+  }
+
+  // ── center: live in-page chat thread + honest-deferred persisted thread ──
+  let chatHistory = [];              // [{role, content}] — in-page only, no persistence
+  const CHAT_MAX_TURNS = 8;          // mirrors the server bound
+  function renderThread() {
+    const t = $('cc-thread');
+    let html = '';
+    if (!chatHistory.length) {
+      html += '<div class="cc-defer">No persisted conversation for this session — '
+        + '<b>the box holds no message store</b>, so this thread is an <b>in-page</b>'
+        + ' conversation with the local LM (nothing crosses the network; nothing is'
+        + ' saved). A persisted-thread producer is honest-deferred (SB-077). Type below'
+        + ' to start.</div>';
+    } else {
+      html += chatHistory.map(m =>
+        `<div class="cc-msg ${m.role === 'user' ? 'user' : 'assistant'}">`
+        + `<div class="who">${m.role === 'user' ? 'you' : 'local LM'}</div>${esc(m.content)}</div>`).join('');
+    }
+    t.innerHTML = html;
+    t.scrollTop = t.scrollHeight;
+  }
+
+  // ── right: honest-deferred Plan/artifact pane ──
+  function renderPlan() {
+    $('cc-plan').innerHTML = '<div class="cc-defer">No plan/artifact producer on the'
+      + ' box yet — <b>honest-deferred</b> (SB-077). This pane will show the agent\'s'
+      + ' plan + artifacts when a producer lands. It is never fabricated.</div>'
+      + '<div class="cc-plan-item">Context · the active session\'s scope</div>'
+      + '<div class="cc-plan-item">Steps · the plan the agent proposes</div>'
+      + '<div class="cc-plan-item">Artifacts · files / diffs produced</div>';
+  }
+
+  // ── composer: the ONE sanctioned POST (loopback chat SSE) ──
+  async function sendChat() {
+    const btn = $('cc-send'), input = $('cc-input');
+    const text = (input.value || '').trim();
+    if (!text) return;
+    btn.disabled = true;
+    chatHistory.push({ role: 'user', content: text });
+    input.value = '';
+    renderThread();
+    const t = $('cc-thread');
+    const out = document.createElement('div');
+    out.className = 'cc-msg assistant';
+    out.innerHTML = '<div class="who">local LM</div>';
+    const span = document.createElement('span');
+    out.appendChild(span);
+    t.appendChild(out); t.scrollTop = t.scrollHeight;
+    let acc = '', hadError = false;
+    try {
+      const r = await fetch('/api/code-console/chat', {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: chatHistory.slice(-CHAT_MAX_TURNS) }),
+      });
+      if (!r.ok || !r.body) throw new Error('HTTP ' + r.status);
+      const reader = r.body.getReader(), dec = new TextDecoder();
+      let buf = '';
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        let sep;
+        while ((sep = buf.indexOf('\n\n')) >= 0) {
+          const frame = buf.slice(0, sep); buf = buf.slice(sep + 2);
+          const dm = frame.match(/data:\s*(.*)$/s);
+          if (!dm) continue;
+          let ev; try { ev = JSON.parse(dm[1]); } catch { continue; }
+          if (ev.type === 'token') { acc += ev.text; span.textContent = acc; t.scrollTop = t.scrollHeight; }
+          else if (ev.type === 'error') { hadError = true; span.textContent = '⚠ ' + ev.error; }
+          else if (ev.type === 'done') { out.title = `${ev.tier} · ${ev.tokens} tok · ${ev.tokens_per_sec} tok/s`; }
+        }
+      }
+      if (!acc && !hadError) span.textContent = '(no response)';
+      if (!hadError && acc) chatHistory.push({ role: 'assistant', content: acc });
+      else if (hadError) chatHistory.pop && null;  // keep the user turn; error not persisted
+    } catch (e) {
+      span.textContent = '⚠ chat failed: ' + e.message + ' (is the router running? sovereign-osctl inference start router)';
+    } finally {
+      btn.disabled = false;
+    }
+  }
+  function newChat() { chatHistory = []; renderThread(); }
+
+  async function refresh() {
+    try {
+      const res = await fetch('/api/code-console/sessions', {credentials:'same-origin'});
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      LAST = await res.json();
+      $('data-source-banner').innerHTML = 'consuming <code>/api/code-console/sessions</code> (M057 task-sessions)';
+    } catch (e) {
+      LAST = FIXED_SESSIONS;
+      $('data-source-banner').innerHTML = 'cannot reach the code-console API daemon <span class="muted">('+esc(e.message)+')</span> — the three-pane console stays fully visible (honest empty/deferred)';
+    }
+    renderRail(LAST);
+    $('last-fetch').textContent = 'last fetch: ' + new Date().toLocaleTimeString();
+  }
+
+  // Initial paint of the full three-pane scaffold so the console is ALWAYS
+  // visible (SDD-111 lesson); refresh() then fills the live rail.
+  renderRail(FIXED_SESSIONS);
+  renderThread();
+  renderPlan();
+
+  $('cc-send').addEventListener('click', sendChat);
+  $('cc-new').addEventListener('click', newChat);
+  $('cc-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); sendChat(); }
+  });
+
+  try {
+    const es = new EventSource('/api/code-console/stream');
+    es.addEventListener('session-step-advance', refresh);
+    es.addEventListener('error', () => setInterval(refresh, 15000));
+  } catch (e) { setInterval(refresh, 15000); }
+
+  refresh();
+</script>
+
+<!-- SDD-045 shared control-surface (inlined verbatim from webapp/_shared/control-surface.{css,js}; lockstep-linted). -->
+<section style="max-width:1200px;padding:0 1.25rem 1rem"><h2>Controls · features &amp; profiles</h2>
+<div id="control-surface" class="cs-grid"><div class="cs-empty">loading controls…</div></div></section>
+<style>
+/* webapp/_shared/control-surface.css — SDD-045 shared control-surface.
+ * Renders the control-systems registry (profiles / modes / feature toggles)
+ * as a grid of control cards. Monochrome, framework-free; inherits the
+ * panel palette variables (--bg/--fg/--muted/--accent/--border/--mono).
+ *
+ * R10274 (functional cockpit): a control can now be EXECUTED from the card
+ * (the sanctioned same-origin control-exec-api POST) — the copyable command
+ * is demoted to a labelled fallback. R10212 is preserved: proxy-only controls
+ * (selfdef / perimeter) render NO execute affordance, and every per-panel
+ * daemon stays read-only — the ONLY write path is the dedicated exec daemon. */
+.cs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: .5rem; }
+.cs-card {
+  display: flex; flex-direction: column; gap: .35rem;
+  padding: .6rem .75rem; border: 1px solid var(--border, #262626);
+  border-radius: .4rem; background: rgba(255, 255, 255, .02);
+  transition: border-color .12s ease;
+}
+.cs-card:hover { border-color: rgba(255, 255, 255, .12); }
+.cs-head { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.cs-label { font-weight: 600; flex: 1; }
+.cs-kind {
+  font-size: .7rem; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--muted, #888); border: 1px solid var(--border, #262626);
+  border-radius: 3px; padding: 0 .35rem;
+}
+.cs-global {
+  font-size: .7rem; color: var(--accent, #9bd1ff);
+  border: 1px solid var(--accent, #9bd1ff); border-radius: 3px; padding: 0 .35rem;
+}
+.cs-proxy {
+  font-size: .7rem; color: #e0b050; border: 1px solid #e0b050;
+  border-radius: 3px; padding: 0 .35rem; letter-spacing: .02em;
+}
+.cs-desc { color: var(--muted, #888); font-size: .8rem; line-height: 1.45; }
+.cs-opts { display: flex; flex-wrap: wrap; gap: .3rem; }
+.cs-opt { font-size: .72rem; background: var(--border, #262626); border-radius: 3px; padding: 1px 6px; }
+
+/* ── argument rail: one control per change_cli placeholder ──────────────── */
+.cs-args { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; margin: .1rem 0; }
+.cs-lit { font-family: var(--mono, ui-monospace, monospace); font-size: .74rem; color: var(--muted, #888); }
+.cs-verbs { display: inline-flex; border: 1px solid var(--border, #262626); border-radius: 4px; overflow: hidden; }
+.cs-verb {
+  font-family: var(--mono, ui-monospace, monospace); font-size: .72rem;
+  color: var(--fg, #e6e6e6); background: var(--bg, #0e0e0e);
+  border: 0; border-right: 1px solid var(--border, #262626);
+  padding: .2rem .5rem; cursor: pointer;
+}
+.cs-verb:last-child { border-right: 0; }
+.cs-verb[aria-pressed="true"] { background: var(--accent, #9bd1ff); color: #0a0a0a; font-weight: 600; }
+.cs-arg {
+  font-family: var(--mono, ui-monospace, monospace); font-size: .74rem;
+  color: var(--fg, #e6e6e6); background: var(--bg, #0e0e0e);
+  border: 1px solid var(--border, #262626); border-radius: 4px;
+  padding: .2rem .4rem; min-width: 6ch; max-width: 16ch;
+}
+.cs-arg:focus { outline: 0; border-color: var(--accent, #9bd1ff); }
+
+/* ── action row: Execute (primary) + Copy (fallback) ───────────────────── */
+.cs-actions { display: flex; gap: .35rem; align-items: stretch; margin-top: .1rem; }
+.cs-exec {
+  font-size: .76rem; font-weight: 600; cursor: pointer;
+  color: #0a0a0a; background: var(--accent, #9bd1ff);
+  border: 1px solid var(--accent, #9bd1ff); border-radius: 4px;
+  padding: .28rem .6rem; white-space: nowrap;
+}
+.cs-exec:hover { filter: brightness(1.08); }
+.cs-exec:disabled { opacity: .45; cursor: not-allowed; filter: none; }
+.cs-cmd {
+  font-family: var(--mono, ui-monospace, monospace); font-size: .74rem;
+  text-align: left; color: var(--fg, #e6e6e6); background: var(--bg, #0e0e0e);
+  border: 1px solid var(--border, #262626); border-radius: 4px;
+  padding: .25rem .4rem; cursor: pointer; overflow-x: auto; white-space: nowrap; flex: 1;
+}
+.cs-cmd:hover { border-color: var(--accent, #9bd1ff); }
+.cs-copy { flex: 1; }
+/* result line — dry-run / executed / rejected feedback, always visible */
+.cs-result { font-size: .72rem; line-height: 1.4; min-height: 1em; word-break: break-word; }
+.cs-result.ok { color: #6fcf6f; }
+.cs-result.dry { color: var(--accent, #9bd1ff); }
+.cs-result.warn { color: #e0b050; }
+.cs-result.err { color: #e06a6a; }
+.cs-result.muted { color: var(--muted, #888); }
+/* inline type-to-confirm gate for privileged controls */
+.cs-confirm {
+  display: flex; flex-wrap: wrap; align-items: center; gap: .35rem;
+  padding: .35rem .4rem; margin-top: .1rem;
+  border: 1px dashed var(--accent, #9bd1ff); border-radius: 4px;
+}
+.cs-confirm-msg { font-size: .72rem; color: var(--muted, #888); }
+.cs-confirm-msg code { color: var(--fg, #e6e6e6); }
+.cs-confirm-in { max-width: 14ch; }
+.cs-confirm-cancel { flex: 0 0 auto; }
+.cs-empty { color: var(--muted, #888); }
+</style>
+<script>
+/* webapp/_shared/control-surface.js — SDD-045 shared control-surface renderer.
+ *
+ * Renders the control-systems registry (config/control-systems.yaml, served
+ * as GET /control-systems) — the operator's "everything can be turned on and
+ * off + tons of modes and profiles" — as a grid of control cards. Reused by
+ * every dashboard so each becomes a CONTROL surface.
+ *
+ * R10274 — functional cockpit: a control is now EXECUTED from the card. Each
+ * change_cli placeholder becomes an input (enum → segmented buttons keyed
+ * `verb`/`verbN`; free `<name>` → a datalist input seeded from `options`,
+ * matching the server's _action_exec.resolve_argv keying). Execute POSTs
+ * {control_id, args, confirm} to the sanctioned same-origin control-exec-api
+ * (POST /api/control/execute); the copyable command is demoted to a labelled
+ * fallback, and any 405 / unreachable exec front degrades gracefully to Copy.
+ *
+ * R10212 is preserved: the web still never *arbitrarily* mutates. Proxy-only
+ * controls (selfdef / perimeter — mirrors _action_exec.SELFDEF_OWNED, drift-
+ * guarded by tests/lint/test_control_surface_execute_boundary.py) render NO
+ * execute affordance (signed-proxy badge + copy only). Every per-panel daemon
+ * stays read-only (405 on writes); the ONE write path is the dedicated exec
+ * daemon, where every action is allowlisted + options-validated + confirm/
+ * key-gated + OCSF-5001 audited + DRY_RUN by default.
+ *
+ * Usage:
+ *   const n = SovereignControlSurface.render(el, systems, {
+ *     filterSlug: 'runtime-modes',      // only global + systems governing slug
+ *     executeUrl: '/api/control/execute', // same-origin sanctioned write daemon
+ *     onCopy: (cmd) => showToast(cmd)     // optional copy callback
+ *   });
+ */
+(function (global) {
+  "use strict";
+
+  // R10212 boundary — mirrors _action_exec.SELFDEF_OWNED. selfdef/perimeter are
+  // signed-proxy ONLY: never executed locally. (drift-guarded by lint.)
+  var PROXY_ONLY = ["selfdef", "perimeter"];
+  var EXECUTE_URL = "/api/control/execute";
+
+  function esc(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  function isProxyOnly(sys) {
+    if (typeof sys.execute_local === "boolean") return !sys.execute_local;
+    return PROXY_ONLY.indexOf(sys.id) >= 0;
+  }
+
+  // Parse a change_cli template, mirroring _action_exec.resolve_argv:
+  //   {a|b}  → enum, arg-key 'verb' (first) / 'verb1' / 'verb2' ...
+  //   <name> → free, arg-key name
+  //   else   → literal token
+  function parseTemplate(changeCli) {
+    var toks = String(changeCli || "").trim().split(/\s+/).filter(Boolean);
+    var out = [], enumSeen = 0;
+    toks.forEach(function (t) {
+      var em = /^\{([a-z0-9|_-]+)\}$/.exec(t);
+      if (em) {
+        out.push({ kind: "enum", key: enumSeen === 0 ? "verb" : "verb" + enumSeen,
+                   alts: em[1].split("|") });
+        enumSeen += 1; return;
+      }
+      var fm = /^<([a-z0-9_-]+)>$/.exec(t);
+      if (fm) { out.push({ kind: "free", key: fm[1] }); return; }
+      out.push({ kind: "lit", text: t });
+    });
+    return out;
+  }
+
+  // Reassemble the concrete command from the template + collected args (for the
+  // Copy fallback + result echo); unfilled placeholders stay as <name>/{a|b}.
+  function assembleCmd(changeCli, args) {
+    return parseTemplate(changeCli).map(function (t) {
+      if (t.kind === "lit") return t.text;
+      if (t.kind === "enum") return args[t.key] || ("{" + t.alts.join("|") + "}");
+      return args[t.key] || ("<" + t.key + ">");
+    }).join(" ");
+  }
+
+  function collectArgs(card) {
+    var args = {};
+    Array.prototype.forEach.call(card.querySelectorAll(".cs-verbs"), function (grp) {
+      var pressed = grp.querySelector('.cs-verb[aria-pressed="true"]');
+      if (pressed) args[grp.getAttribute("data-argkey")] = pressed.getAttribute("data-val");
+    });
+    Array.prototype.forEach.call(card.querySelectorAll("input.cs-arg"), function (inp) {
+      var v = (inp.value || "").trim();
+      if (v) args[inp.getAttribute("data-argkey")] = v;
+    });
+    return args;
+  }
+
+  function copy(text, opts) {
+    if (navigator.clipboard) { try { navigator.clipboard.writeText(text); } catch (e) { /* noop */ } }
+    if (opts && typeof opts.onCopy === "function") opts.onCopy(text);
+  }
+
+  function setResult(el, cls, msg) {
+    if (!el) return;
+    el.className = "cs-result " + cls;
+    el.textContent = msg;
+  }
+
+  function execute(url, controlId, args, confirmed) {
+    return fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ control_id: controlId, args: args, confirm: !!confirmed })
+    }).then(function (r) {
+      return r.json().then(
+        function (j) { return { status: r.status, body: j || {} }; },
+        function () { return { status: r.status, body: {} }; });
+    });
+  }
+
+  // Inline type-to-confirm gate for privileged controls (replaces window.prompt
+  // — accessible, on-palette, non-blocking). Type the control id, Confirm →
+  // re-execute with confirm:true; Cancel/mismatch → no execution.
+  function askConfirm(card, sys, opts) {
+    var result = card.querySelector(".cs-result");
+    var host = card.querySelector(".cs-confirm");
+    if (!host) {
+      host = document.createElement("div");
+      host.className = "cs-confirm";
+      card.insertBefore(host, result);
+    }
+    host.innerHTML =
+      '<span class="cs-confirm-msg">privileged — type <code>' + esc(sys.id) + "</code> to confirm</span>"
+      + '<input class="cs-arg cs-confirm-in" placeholder="' + esc(sys.id) + '" aria-label="type ' + esc(sys.id) + ' to confirm">'
+      + '<button type="button" class="cs-exec cs-confirm-ok">Confirm</button>'
+      + '<button type="button" class="cs-cmd cs-confirm-cancel">Cancel</button>';
+    var inp = host.querySelector(".cs-confirm-in");
+    if (inp.focus) inp.focus();
+    function done(ok) {
+      var typed = (inp.value || "").trim();
+      if (host.parentNode) host.parentNode.removeChild(host);
+      if (ok && typed === sys.id) execAction(card, sys, opts, true);
+      else setResult(result, "warn", "confirmation " + (ok ? "mismatch" : "cancelled") + " — not executed");
+    }
+    host.querySelector(".cs-confirm-ok").addEventListener("click", function () { done(true); });
+    host.querySelector(".cs-confirm-cancel").addEventListener("click", function () { done(false); });
+    inp.addEventListener("keydown", function (e) { if (e.key === "Enter") done(true); });
+  }
+
+  function execAction(card, sys, opts, confirmed) {
+    var result = card.querySelector(".cs-result");
+    var args = collectArgs(card);
+    var url = (opts && opts.executeUrl) || EXECUTE_URL;
+    setResult(result, "muted", "executing…");
+    execute(url, sys.id, args, confirmed).then(function (res) {
+      var b = res.body || {};
+      if (res.status === 200) {
+        if (b.dry_run) setResult(result, "dry", "dry-run ✓ would run: " + ((b.would_run || []).join(" ") || assembleCmd(sys.change_cli, args)));
+        else setResult(result, "ok", "executed ✓ exit " + (b.exit_code != null ? b.exit_code : 0));
+      } else if (res.status === 403) {
+        if (confirmed) {
+          // already type-confirmed → 403 is a server-side gate (e.g. the
+          // operator key is not loaded). Surface the reason; do NOT re-prompt.
+          setResult(result, "warn", b.error || "not permitted (operator key required)");
+        } else {
+          // privileged control — inline type-to-confirm gate, ONCE
+          askConfirm(card, sys, opts);
+        }
+      } else if (res.status === 409) {
+        setResult(result, "warn", "signed-proxy only (R10212) — command copied");
+        copy(assembleCmd(sys.change_cli, args), opts);
+      } else if (res.status === 400) {
+        setResult(result, "warn", b.error || "invalid arguments — pick a value");
+      } else if (res.status === 404) {
+        setResult(result, "err", b.error || "unknown control");
+      } else if (res.status === 405) {
+        setResult(result, "muted", "execution not available on this origin — command copied");
+        copy(assembleCmd(sys.change_cli, args), opts);
+      } else {
+        setResult(result, "err", b.error || ("error " + res.status));
+      }
+    }).catch(function () {
+      // exec daemon unreachable (per-port-direct read-only front) → copy fallback
+      setResult(result, "muted", "exec endpoint unreachable — command copied");
+      copy(assembleCmd(sys.change_cli, collectArgs(card)), opts);
+    });
+  }
+
+  function argsRailHtml(sys) {
+    var opts = (sys.options || []).map(String);
+    var html = parseTemplate(sys.change_cli).map(function (t) {
+      if (t.kind === "lit") return "";                 // literals live in the Copy line
+      if (t.kind === "enum") {
+        return '<span class="cs-verbs" data-argkey="' + esc(t.key) + '">'
+          + t.alts.map(function (a, i) {
+              return '<button type="button" class="cs-verb" data-val="' + esc(a)
+                + '" aria-pressed="' + (i === 0 ? "true" : "false") + '">' + esc(a) + "</button>";
+            }).join("") + "</span>";
+      }
+      var listId = "csl-" + esc(sys.id) + "-" + esc(t.key);
+      var dl = opts.length
+        ? '<datalist id="' + listId + '">'
+            + opts.map(function (o) { return '<option value="' + esc(o) + '"></option>'; }).join("")
+            + "</datalist>"
+        : "";
+      return '<input class="cs-arg" data-argkey="' + esc(t.key) + '" placeholder="' + esc(t.key) + '"'
+        + (opts.length ? ' list="' + listId + '"' : "") + ">" + dl;
+    }).join("");
+    return html ? '<div class="cs-args">' + html + "</div>" : "";
+  }
+
+  function cardHtml(sys) {
+    var proxy = isProxyOnly(sys);
+    var pills = (sys.options || []).map(function (o) {
+      return '<span class="cs-opt">' + esc(o) + "</span>"; }).join("");
+    var change = sys.change_cli || "";
+    var actions = change
+      ? '<div class="cs-actions">'
+          + (proxy ? "" : '<button type="button" class="cs-exec">Execute</button>')
+          + '<button type="button" class="cs-cmd cs-copy" data-cmd="' + esc(change)
+            + '" title="copy the operator command (fallback)">$ ' + esc(change) + "</button>"
+          + "</div>"
+      : "";
+    return '<div class="cs-card cs-' + esc(sys.kind) + '" data-cid="' + esc(sys.id) + '">'
+      + '<div class="cs-head">'
+      + '<span class="cs-label">' + esc(sys.label) + "</span>"
+      + '<span class="cs-kind">' + esc(sys.kind) + "</span>"
+      + (sys.scope === "global" ? '<span class="cs-global">global</span>' : "")
+      + (proxy ? '<span class="cs-proxy" title="R10212: signed-proxy only — never executed locally">signed proxy</span>' : "")
+      + "</div>"
+      + '<div class="cs-desc">' + esc(sys.description) + "</div>"
+      + (pills ? '<div class="cs-opts">' + pills + "</div>" : "")
+      + argsRailHtml(sys)
+      + actions
+      + '<div class="cs-result muted"></div>'
+      + "</div>";
+  }
+
+  function render(containerEl, systems, opts) {
+    opts = opts || {};
+    var slug = opts.filterSlug || null;
+    var list = (systems || []).filter(function (s) {
+      if (!slug) return true;                       // no filter → all systems
+      return s.scope === "global" ||                // globals show everywhere
+        (s.applies_to || []).indexOf(slug) >= 0;    // + systems governing slug
+    });
+    var byId = {};
+    list.forEach(function (s) { byId[s.id] = s; });
+    containerEl.innerHTML = list.map(cardHtml).join("")
+      || '<div class="cs-empty">(no controls for this surface)</div>';
+
+    // segmented enum toggles
+    Array.prototype.forEach.call(containerEl.querySelectorAll(".cs-verbs"), function (grp) {
+      grp.addEventListener("click", function (e) {
+        var btn = e.target && e.target.classList && e.target.classList.contains("cs-verb") ? e.target : null;
+        if (!btn) return;
+        Array.prototype.forEach.call(grp.querySelectorAll(".cs-verb"), function (b) {
+          b.setAttribute("aria-pressed", b === btn ? "true" : "false");
+        });
+      });
+    });
+    // copy fallback — copies the concrete command assembled from current args
+    Array.prototype.forEach.call(containerEl.querySelectorAll(".cs-copy"), function (b) {
+      b.addEventListener("click", function () {
+        var card = b.parentNode.parentNode;
+        var cmd = assembleCmd(b.getAttribute("data-cmd"), collectArgs(card));
+        copy(cmd, opts);
+        setResult(card.querySelector(".cs-result"), "muted", "copied: " + cmd);
+      });
+    });
+    // execute — the sanctioned R10274 write path
+    Array.prototype.forEach.call(containerEl.querySelectorAll(".cs-exec"), function (b) {
+      b.addEventListener("click", function () {
+        var card = b.parentNode.parentNode;
+        var sys = byId[card.getAttribute("data-cid")];
+        if (sys) execAction(card, sys, opts, false);
+      });
+    });
+    return list.length;
+  }
+
+  // Convenience: load the control registry (same-origin) and render.
+  // Full display data comes from the panel's own read-only /control-systems;
+  // the authoritative execute-local/live overlay comes from /api/control/registry
+  // when the origin is fronted by the exec daemon (else copy-first per PROXY_ONLY).
+  function load(containerEl, opts) {
+    opts = opts || {};
+    var base = fetch("/control-systems", { headers: { Accept: "application/json" } })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .catch(function () { return null; });
+    var reg = fetch("/api/control/registry", { headers: { Accept: "application/json" } })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .catch(function () { return null; });
+    return Promise.all([base, reg]).then(function (res) {
+      var b = res[0], g = res[1];
+      if (!b || b.error) {
+        containerEl.innerHTML = '<div class="cs-empty">controls unavailable'
+          + (b && b.error ? ": " + esc(b.error) : "") + "</div>";
+        return 0;
+      }
+      var systems = (b.systems || []).slice();
+      if (g && g.controls) {
+        var execMap = {};
+        g.controls.forEach(function (c) { execMap[c.id] = c.execute_local; });
+        systems.forEach(function (s) { if (s.id in execMap) s.execute_local = execMap[s.id]; });
+        opts.live = !!g.live;
+      }
+      return render(containerEl, systems, opts);
+    });
+  }
+
+  global.SovereignControlSurface = { render: render, load: load };
+})(window);
+</script>
+<script>
+(function(){
+  var el = document.getElementById("control-surface");
+  if (el && window.SovereignControlSurface) {
+    SovereignControlSurface.load(el, {filterSlug:'d-23-models-catalog'});
+  }
+})();
+</script>
+
+
+
+<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>
+window.SO_ASSIST = {
+ "context": {
+  "icon": "⌘",
+  "title": "Code Console",
+  "content": "A claude.ai/code-style interface for the box's OWN local LM. Three panes \u2014 a left session rail (real M057 OS task-sessions), a center conversation with the local model over 127.0.0.1, and a right Plan/artifact pane \u2014 plus a bottom composer with an M075 device target. The whole point: code with your sovereign machine, nothing crossing the network.\n\nHonest by construction (SB-077): the live pieces are the rail + the composer/thread (loopback SSE); the persisted-thread, the Plan pane, and the repo chips have no producer on the box yet and say so \u2014 never fabricated. Read-only (R10212): the ONLY POST is the loopback chat, a non-mutating inference read-compute; every real action is a signed CLI verb."
+ },
+ "nodes": [
+  {
+   "selector": "#data-source-banner",
+   "title": "Data source",
+   "content": "Green = the code-console daemon (/api/code-console/sessions) is answering live; muted = it is unreachable and the three-pane console stays fully visible with honest empty/deferred states (never blank).",
+   "icon": "◆"
+  },
+  {
+   "selector": "#cc-rail",
+   "title": "Session rail (M057)",
+   "content": "The real OS task-sessions from the M057 lifecycle registry (init \u2192 inference \u2192 response \u2192 validation \u2192 cleanup) \u2014 NOT Claude-Code chat threads (the box holds no conversation store). Empty is honest. Click a session to focus it.",
+   "icon": "☰"
+  },
+  {
+   "selector": "#cc-thread",
+   "title": "Conversation",
+   "content": "An IN-PAGE conversation with the local LM (nothing is persisted server-side \u2014 R10212 read-compute; the client keeps the bounded buffer). A persisted-thread producer is honest-deferred (SB-077) until one exists.",
+   "icon": "◐"
+  },
+  {
+   "selector": "#cc-plan",
+   "title": "Plan / artifact pane",
+   "content": "Honest-deferred (SB-077): there is no plan/artifact producer on the box yet. The pane shows the shape it WILL take (context / steps / artifacts) but never a fabricated plan.",
+   "icon": "≣"
+  },
+  {
+   "selector": "#cc-target",
+   "title": "Device target (M075)",
+   "content": "The SRP device you'd prefer \u2014 CPU0 Conductor / GPU0 Logic / GPU1 Oracle, or auto. The loopback router ultimately selects the serving tier; this is a preference, not a fabricated per-device route.",
+   "icon": "⚙"
+  },
+  {
+   "selector": "#cc-send",
+   "title": "Send (the one sanctioned POST)",
+   "content": "POSTs the bounded message history to /api/code-console/chat, which proxies the loopback /v1/chat/completions and streams tokens back. This is the SINGLE mutating-looking call in the console \u2014 a non-mutating inference read-compute (SDD-062/112). If the router is down you get an honest error, never a fabricated reply.",
+   "icon": "✈"
+  },
+  {
+   "selector": ".cc-chip.deferred",
+   "title": "Repo chips",
+   "content": "Honest-deferred (SB-077): there is no repo-attach producer on the box, so the chips show '\u2014 no repo producer' rather than inventing repositories.",
+   "icon": "○"
+  }
+ ]
+};
+</script>
+</body>
+</html>

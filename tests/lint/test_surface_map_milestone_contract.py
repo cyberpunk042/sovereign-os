@@ -83,6 +83,7 @@ EXPECTED_STRUCTURAL_BELOW_8 = {
     "cpu-features",           # 4/8 — cockpit panel over avx512-advisor (cli/tui/dashboard/mcp n/a)
     "selfdef-management",     # 4/8 — READ-ONLY consumer cockpit over m060-health proxy (cli/tui/dashboard/mcp n/a — R10212)
     "science",                # 6/8 — R558/SDD-070: core/cli/api/mcp/webapp/service; tui + dashboard n/a (cockpit/mirror pattern — the webapp IS the visual surface)
+    "code-console",           # 4/8 — SDD-112: cockpit panel over the M057 session-registry + the loopback prompt engine (cli/tui/dashboard/mcp n/a — R10212)
 }
 
 
@@ -316,7 +317,7 @@ def test_milestone_count_self_consistency():
         capture_output=True, text=True, timeout=10,
     )
     data = json.loads(result.stdout)
-    assert data["total_modules"] == 28  # +science (R558/SDD-070)
+    assert data["total_modules"] == 29  # +science (R558/SDD-070) +code-console (SDD-112)
     assert (
         data["at_structural_ceiling_count"]
         == len(data["at_full_8_surfaces"])
