@@ -1,0 +1,26 @@
+{
+  "_comment": "Single source of truth for DEMO-capable cockpit panels (SDD-116 rollout). Consumed by scripts/webapp/demo-capture.mjs (capture + verify) AND tests/lint/test_demo_mode_contract.py (generic contract checks). Per panel: slug = webapp/<slug>/index.html; demoConst = the client-side DEMO_<X> sample constant; apiPrefix = the panel's OWN data endpoint that MUST see zero calls in the demo path (not /api/control/registry, not /api/code-console/chat — those are chrome, fired on user action only); rowSelector = a selector whose count proves sample rows rendered (null = skip the row assertion, still assert badge + zero-api + no-errors); headInjected = whether the shared helper is inlined in <head> (the SDD-119 rule; the three SDD-116/117/118 panels predate it and inline in <body> — they still pass at runtime, verified by demo-capture.mjs); sdd = the SDD that shipped the demo treatment.",
+  "schema": 1,
+  "panels": [
+    { "slug": "code-console",                "demoConst": "DEMO_SESSIONS", "apiPrefix": "/api/code-console",    "rowSelector": null,                       "headInjected": false, "sdd": "SDD-116" },
+    { "slug": "d-21-lm-orchestration",       "demoConst": "DEMO_GRID",     "apiPrefix": "/api/lm-orchestration","rowSelector": null,                       "headInjected": false, "sdd": "SDD-117" },
+    { "slug": "d-22-lm-status-operability",  "demoConst": "DEMO_DEVICES",  "apiPrefix": "/api/lm-status",       "rowSelector": null,                       "headInjected": false, "sdd": "SDD-118" },
+    { "slug": "d-03-model-health",           "demoConst": "DEMO_HEALTH",   "apiPrefix": "/api/models",          "rowSelector": null,                       "sdd": "SDD-119" },
+    { "slug": "d-23-models-catalog",         "demoConst": "DEMO_CATALOG",  "apiPrefix": "/api/models-catalog",  "rowSelector": null,                       "sdd": "SDD-120" },
+    { "slug": "models-catalog",              "demoConst": "DEMO_MODELS",   "apiPrefix": "/models-catalog.json", "rowSelector": "#rows tr",                 "sdd": "SDD-120" },
+    { "slug": "d-11-adapter-status",         "demoConst": "DEMO_ADAPTERS", "apiPrefix": "/api/adapters",        "rowSelector": "#adapters-tbody tr",       "sdd": "SDD-120" },
+    { "slug": "d-10-eval-history",           "demoConst": "DEMO_EVALS",    "apiPrefix": "/api/evals",           "rowSelector": "#tasks-tbody tr",          "sdd": "SDD-120" },
+    { "slug": "d-09-hardware-pressure",      "demoConst": "DEMO_PRESSURE", "apiPrefix": "/api/hardware",        "rowSelector": "#zfs-tbody tr",            "sdd": "SDD-121" },
+    { "slug": "runtime-modes",               "demoConst": "DEMO_MODES",    "apiPrefix": "/api/runtime-modes",   "rowSelector": "#modes-grid .mode-card",   "sdd": "SDD-121" },
+    { "slug": "orchestration",               "demoConst": "DEMO_ORCH",     "apiPrefix": "/orchestration.json",  "rowSelector": "#rules tr",                "sdd": "SDD-121" },
+    { "slug": "d-24-cpu-features",           "demoConst": "DEMO_CPU",      "apiPrefix": "/api/cpu-features",    "rowSelector": "#workloads tbody tr",      "sdd": "SDD-121" },
+    { "slug": "cpu-features",                "demoConst": "DEMO_AVX",      "apiPrefix": "/cpu-avx.json",        "rowSelector": "#workloads tr",            "sdd": "SDD-121" },
+    { "slug": "d-04-costs",                  "demoConst": "DEMO_COSTS",    "apiPrefix": "/api/costs",           "rowSelector": "#project-tbody tr",        "sdd": "SDD-121" },
+    { "slug": "d-01-active-sessions",        "demoConst": "DEMO_SESSIONS", "apiPrefix": "/api/sessions",        "rowSelector": "#sessions-tbody tr",       "sdd": "SDD-122" },
+    { "slug": "d-20-peace-machine-health",   "demoConst": "DEMO_D20",      "apiPrefix": "/api/d-20",            "rowSelector": "#validator-output *",      "sdd": "SDD-122" },
+    { "slug": "d-18-trust-scores",           "demoConst": "DEMO_D18",      "apiPrefix": "/api/d-18",            "rowSelector": "#tool-tbody tr",           "sdd": "SDD-122" },
+    { "slug": "d-19-super-model-manifest",   "demoConst": "DEMO_D19",      "apiPrefix": "/api/d-19",            "rowSelector": "#ms-tbody tr",             "sdd": "SDD-122" },
+    { "slug": "d-02-profile-choices",        "demoConst": "DEMO_PROFILE",  "apiPrefix": "/api/profile",         "rowSelector": "#history-tbody tr",        "sdd": "SDD-122" },
+    { "slug": "profile-generation",          "demoConst": "DEMO_PROFGEN",  "apiPrefix": "/profile-generation.json", "rowSelector": "#profiles > *",        "sdd": "SDD-122" }
+  ]
+}

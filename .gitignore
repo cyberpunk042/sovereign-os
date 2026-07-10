@@ -81,3 +81,6 @@ TODO.local.md
 # Rust build artifacts
 /target/
 **/*.rs.bk
+
+# webapp DEMO capture output (scripts/webapp/demo-capture.mjs default --out)
+.demo-captures/

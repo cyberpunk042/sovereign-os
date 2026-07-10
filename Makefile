@@ -7,7 +7,7 @@ PROFILE ?= sain-01
 
 .PHONY: help setup validate lint unit l3 l3-fast test smoke dry-run \
         preflight ci all clean dashboards-lint install uninstall bins panel bootstrap \
-        operator-sudo operator-sudo-uninstall
+        operator-sudo operator-sudo-uninstall demo-capture demo-preflight
 
 .DEFAULT_GOAL := help
 
@@ -68,6 +68,13 @@ l3-fast:  ## Run a fast representative subset of L3 tests (~5 seconds)
 
 dashboards-lint:  ## Verify Grafana dashboard JSONs + metric lockstep
 	python3 -m pytest tests/lint/test_dashboard_json_valid.py tests/lint/test_dashboard_metrics_lockstep.py -v
+
+demo-preflight:  ## Webapp increment preflight (branch-vs-main + app-shell sync + doc lints)
+	bash scripts/webapp/preflight.sh
+
+demo-capture:  ## Capture + verify DEMO-mode panels (needs a browser; NODE_PATH to playwright). PANELS=a,b or SDD=SDD-124; OUT=dir
+	NODE_PATH=$${NODE_PATH:-/opt/node22/lib/node_modules} node scripts/webapp/demo-capture.mjs \
+	  $(if $(PANELS),--panels $(PANELS),$(if $(SDD),--sdd $(SDD),--all)) $(if $(OUT),--out $(OUT),)
 
 test: lint unit l3-fast  ## Standard test bundle: lint + unit + L3 fast (mirrors pre-commit hook)
 

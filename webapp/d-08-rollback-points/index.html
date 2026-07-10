@@ -445,6 +445,23 @@ a11y; contract test catches drift.
     padding:0 .5rem; background:transparent; color:var(--fg,#e6e6e6); border:1px solid transparent;
     border-radius:6px; cursor:pointer; font:inherit; font-size:.82rem;}
   .so-h-btn:hover{background:color-mix(in srgb,var(--accent,#9bd1ff) 14%,transparent); border-color:color-mix(in srgb,var(--accent,#9bd1ff) 40%,transparent);}
+  #so-settings-toggle{font-size:1rem; line-height:1;} #so-settings-toggle[aria-expanded="true"]{background:color-mix(in srgb,var(--accent,#9bd1ff) 18%,transparent); border-color:color-mix(in srgb,var(--accent,#9bd1ff) 46%,transparent);}
+  /* Settings popover — non-invasive: anchored under the header on the right, does not block the page. */
+  #so-settings-pane{position:fixed; top:calc(var(--so-header-h) + 6px); right:8px; z-index:9500; width:300px; max-width:94vw;
+    background:var(--card,#151515); color:var(--fg,#e6e6e6); border:1px solid var(--border,#262626); border-radius:9px;
+    box-shadow:0 10px 34px rgba(0,0,0,.45); padding:.5rem .2rem .3rem; font-size:.82rem;}
+  #so-settings-pane[hidden]{display:none;}
+  #so-settings-pane .so-set-h{font-weight:600; padding:.15rem .7rem .45rem; border-bottom:1px solid var(--border,#262626); display:flex; align-items:center; gap:.4rem;}
+  #so-settings-pane .so-set-h .g{color:var(--accent,#9bd1ff);}
+  .so-set-row{display:flex; align-items:flex-start; gap:.6rem; padding:.6rem .7rem;}
+  .so-set-row .so-set-lbl{flex:1; min-width:0;} .so-set-row .so-set-lbl b{display:block; font-weight:600;}
+  .so-set-row .so-set-sub{display:block; color:var(--muted,#8a8a8a); font-size:.74rem; line-height:1.4; margin-top:.15rem;}
+  .so-set-switch{flex-shrink:0; width:42px; height:24px; border-radius:999px; border:1px solid var(--border,#3a3a3a);
+    background:var(--bg,#0c0c0c); position:relative; cursor:pointer; padding:0; transition:background .14s ease,border-color .14s ease; margin-top:.1rem;}
+  .so-set-switch .knob{position:absolute; top:2px; left:2px; width:18px; height:18px; border-radius:50%; background:var(--muted,#8a8a8a); transition:left .14s ease,background .14s ease;}
+  .so-set-switch.on{background:color-mix(in srgb,var(--accent,#9bd1ff) 30%,transparent); border-color:var(--accent,#9bd1ff);}
+  .so-set-switch.on .knob{left:20px; background:var(--accent,#9bd1ff);}
+  #so-settings-pane .so-set-foot{color:var(--muted,#8a8a8a); font-size:.72rem; padding:.1rem .7rem .5rem;}
   .so-brand{display:flex; align-items:center; gap:.4rem; font-weight:600; letter-spacing:.02em;}
   .so-brand .mark{color:var(--accent,#9bd1ff);}
   .so-crumb{color:var(--muted,#8a8a8a); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:40vw;}
@@ -658,6 +675,7 @@ a11y; contract test catches drift.
         '<button class="so-h-btn" id="so-palette" title="Command palette (⌘K)">⌘K</button>'+
         '<button class="so-h-btn" id="so-theme" title="Theme (auto / dark / light)">◑ auto</button>'+
         '<button class="so-h-btn" id="so-assist-toggle" title="Assistant (contextual help)">✦ Assist</button>'+
+        '<button class="so-h-btn" id="so-settings-toggle" title="Settings" aria-label="Settings" aria-haspopup="true" aria-expanded="false">⚙</button>'+
       '</div></header>'));
   }
   function buildSidemenu(dir){
@@ -703,6 +721,36 @@ a11y; contract test catches drift.
       if(window.matchMedia('(max-width:1024px)').matches) document.body.classList.toggle('so-sm-open');
       else document.body.classList.toggle('so-sm-collapsed'); });
     document.getElementById('so-theme').addEventListener('click',cycleTheme);
+    // ── Settings popover (⚙) — first setting: DEMO mode on/off. localStorage-backed
+    //    (sovereign-os.demo, schema-guarded, OFF by default — never demo in prod) +
+    //    live update on toggle. Non-invasive: click-outside / Esc closes. The badge +
+    //    sample data still come from each panel's own DEMO treatment (SB-077). ──
+    var DEMO_KEY='sovereign-os.demo', DEMO_SCHEMA=1;
+    function demoOn(){ try{var p=JSON.parse(localStorage.getItem(DEMO_KEY)); return !!(p&&p.schema===DEMO_SCHEMA&&p.on);}catch(e){return false;} }
+    function demoSet(on){
+      try{ localStorage.setItem(DEMO_KEY, JSON.stringify({schema:DEMO_SCHEMA, on:!!on})); }catch(e){}
+      try{ window.dispatchEvent(new CustomEvent('sovereign-os:demo-change',{detail:{on:!!on}})); }catch(e){}
+      // live update: a panel may expose window.soDemoApply (its refresh/load) for a
+      // flash-free swap; otherwise reload so the new state is reflected everywhere.
+      if(typeof window.soDemoApply==='function'){ try{ window.soDemoApply(); return; }catch(e){} }
+      location.reload();
+    }
+    document.body.appendChild(el(
+      '<div id="so-settings-pane" role="dialog" aria-label="Settings" hidden>'+
+        '<div class="so-set-h"><span class="g">⚙</span> Settings</div>'+
+        '<div class="so-set-row"><div class="so-set-lbl"><b>DEMO mode</b>'+
+          '<span class="so-set-sub">Explore panels with no daemon — badged sample data, never real telemetry. Off by default.</span></div>'+
+          '<button class="so-set-switch" id="so-demo-switch" role="switch" aria-checked="false" aria-label="Toggle DEMO mode"><span class="knob"></span></button></div>'+
+        '<div class="so-set-foot">not for production · saved on this device</div>'+
+      '</div>'));
+    var setPane=document.getElementById('so-settings-pane'), setBtn=document.getElementById('so-settings-toggle'), demoSw=document.getElementById('so-demo-switch');
+    function syncDemoSwitch(){ var on=demoOn(); demoSw.setAttribute('aria-checked',on?'true':'false'); demoSw.classList.toggle('on',on); }
+    function setPaneOpen(open){ setPane.hidden=!open; setBtn.setAttribute('aria-expanded',open?'true':'false'); if(open) syncDemoSwitch(); }
+    setBtn.addEventListener('click',function(e){ e.stopPropagation(); setPaneOpen(setPane.hidden); });
+    demoSw.addEventListener('click',function(){ demoSet(!demoOn()); });
+    document.addEventListener('click',function(e){ if(!setPane.hidden && !setPane.contains(e.target) && e.target!==setBtn && !setBtn.contains(e.target)) setPaneOpen(false); });
+    document.addEventListener('keydown',function(e){ if(e.key==='Escape' && !setPane.hidden) setPaneOpen(false); });
+    syncDemoSwitch();
     // sticky close persisted across navigations (sovereign-os.assist); unset = today's hover-opens default.
     var stored=loadAssist();
     var assistDismissed = stored ? !stored.open : false;
