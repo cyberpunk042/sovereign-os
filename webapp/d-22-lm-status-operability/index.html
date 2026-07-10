@@ -86,6 +86,30 @@
   }
   button.act:hover { border-color:var(--accent); color:var(--accent); }
   button.act.test { border-style:dashed; }
+  button.act:disabled, button.act.deferred { opacity:.5; cursor:not-allowed; border-style:dashed; }
+  button.act:disabled:hover, button.act.deferred:hover { border-color:var(--border); color:var(--fg); }
+  /* SDD-111 full layout: History|Selected two-column + right-side operability cluster */
+  .devgrid { display:grid; grid-template-columns:1fr minmax(230px,290px); gap:1rem; align-items:start; }
+  .hs-cols { display:grid; grid-template-columns:1fr 1fr; gap:.7rem; }
+  .hs-col { border:1px solid var(--border); border-radius:6px; background:var(--panel); padding:.5rem .7rem; min-height:120px; }
+  .hs-head { font-size:.7rem; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin:0 0 .4rem; border-bottom:1px solid var(--border); padding-bottom:.25rem; }
+  .hs-col table { width:100%; border-collapse:collapse; }
+  .hs-col th { text-align:left; color:var(--muted); font-weight:400; font-size:.74rem; padding:.12rem .3rem .12rem 0; vertical-align:top; }
+  .hs-col td { font-size:.78rem; padding:.12rem 0; }
+  .hlabel { font-size:.72rem; color:var(--muted); margin:.15rem 0; }
+  .heat { display:flex; flex-wrap:wrap; gap:2px; margin-bottom:.35rem; }
+  .hcell { width:8px; height:14px; border-radius:1px; background:var(--border); }
+  .hcell.up { background:var(--good); } .hcell.down { background:#7a2b2b; }
+  .defer { font-style:italic; color:var(--muted); font-size:.76rem; }
+  .opcluster { display:flex; flex-direction:column; gap:.7rem; }
+  .opgroup { display:flex; flex-direction:column; gap:.3rem; }
+  .opk { font-size:.7rem; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); }
+  .selbar { display:flex; flex-wrap:wrap; gap:.3rem; align-items:center; }
+  button.selbtn { border:1px solid var(--border); background:transparent; color:var(--fg);
+    border-radius:4px; padding:.2rem .55rem; cursor:pointer; font:inherit; font-size:.76rem; }
+  button.selbtn.on { border-color:var(--accent); color:var(--accent); }
+  button.selbtn:disabled { opacity:.4; cursor:not-allowed; }
+  @media (max-width:820px) { .devgrid { grid-template-columns:1fr; } .hs-cols { grid-template-columns:1fr; } }
   .selected-bar { margin:.5rem 0; }
   .chip {
     display:inline-block; padding:.15rem .5rem; margin-right:.35rem;
@@ -506,6 +530,7 @@
         (err ? ' <span class="muted">('+esc(err)+')</span>' : '');
   }
 
+  // "Selected" column — the selected Model slot's current live metrics.
   function modelRows(dev, idx) {
     const m = (dev.models || [])[idx];
     if (!m || !m.id) return '<tr><td colspan="2" class="muted">no model in this slot</td></tr>';
@@ -517,31 +542,65 @@
       <tr><th>Requests / min</th><td class="num muted">${m.req_per_min ?? '—'}</td></tr>`;
   }
 
+  // "History" column — the selected model's REAL 24h availability heatmap +
+  // KV-cache occupancy from the snapshot; when absent (latency producer not
+  // running) it honest-defers — never a synthesized latency history (SB-077).
+  function historyHtml(dev, idx) {
+    const m = (dev.models || [])[idx] || {};
+    const hist = Array.isArray(m.history) ? m.history : [];
+    const kv = m.kv_pct;
+    if (!m.id) return '<div class="defer">no model in this slot</div>';
+    if (!hist.length && kv == null) {
+      return '<div class="defer">no 24h history yet — needs the latency producer '
+        + '(<code>/run/sovereign-os/model-latency.json</code>)</div>';
+    }
+    let html = '';
+    if (hist.length) {
+      const cells = hist.slice(-48).map(h => {
+        const up = (typeof h === 'object' && h) ? (h.up ?? h.available ?? h.ok)
+                 : (typeof h === 'number' ? h > 0 : !!h);
+        return `<span class="hcell ${up ? 'up' : 'down'}"></span>`;
+      }).join('');
+      html += `<div class="hlabel">24h availability</div><div class="heat">${cells}</div>`;
+    }
+    if (kv != null) html += `<table><tbody><tr><th>KV cache</th><td class="num">${esc(kv)}%</td></tr></tbody></table>`;
+    return html;
+  }
+
   function renderDevice(dev) {
     const idx = activeTab[dev.slot] || 0;
+    const has = i => (dev.models || [])[i] && dev.models[i].id;
     const tabs = [0,1,2].map(i => {
-      const has = (dev.models || [])[i] && dev.models[i].id;
-      const cls = 'tab' + (i === idx ? ' active' : '') + (has ? '' : ' empty');
+      const cls = 'tab' + (i === idx ? ' active' : '') + (has(i) ? '' : ' empty');
       return `<span class="${cls}" data-slot="${esc(dev.slot)}" data-tab="${i}">Model ${i}</span>`;
     }).join('');
+    const sel = [0,1,2].map(i =>
+      `<button class="selbtn${i === idx ? ' on' : ''}" data-selslot="${esc(dev.slot)}" data-seltab="${i}"${has(i) ? '' : ' disabled'}>Model ${i}</button>`
+    ).join('');
     const util = dev.util_pct != null ? dev.util_pct.toFixed(0)+'%' : '—';
     const vram = dev.vram_used_gb != null ? `${dev.vram_used_gb.toFixed(1)} / ${dev.vram_total_gb ?? '—'} GB` :
                  (dev.tokens_per_sec != null ? dev.tokens_per_sec.toFixed(1)+' tok/s' : '—');
+    const A = (act, x, label) => `<button class="act" data-act="${act}" data-slot="${esc(dev.slot)}" data-role="${esc(dev.role)}">${x} · ${label}</button>`;
+    const T = (act, x, label, extra) => `<button class="act test${extra || ''}" data-act="${act}" data-slot="${esc(dev.slot)}" data-role="${esc(dev.role)}"${extra ? ' disabled' : ''}>${x} · ${label}</button>`;
     return `
       <div class="device">
         <h2>${esc(dev.slot)} <span class="hw">${esc(dev.label)} · ${esc(dev.role)} · util ${util} · ${vram} · source ${esc(dev.model_source || '—')}</span></h2>
         <div class="tabs">${tabs}</div>
         <div class="body">
-          <table><tbody>
-            <tr><th style="width:180px">History | Selected</th><td class="muted">slot Model ${idx} — showing latest catalog/runtime state</td></tr>
-            ${modelRows(dev, idx)}
-          </tbody></table>
-          <div class="actions">
-            <button class="act" data-act="load" data-slot="${esc(dev.slot)}" data-role="${esc(dev.role)}">Action · load</button>
-            <button class="act" data-act="toggle" data-slot="${esc(dev.slot)}" data-role="${esc(dev.role)}">Action · toggle</button>
-            <button class="act" data-act="override" data-slot="${esc(dev.slot)}" data-role="${esc(dev.role)}">Action · override</button>
-            <button class="act test" data-act="eval" data-slot="${esc(dev.slot)}" data-role="${esc(dev.role)}">Test · eval</button>
-            <button class="act test" data-act="bench" data-slot="${esc(dev.slot)}" data-role="${esc(dev.role)}">Test · bench</button>
+          <div class="devgrid">
+            <div class="hs-cols">
+              <div class="hs-col"><div class="hs-head">History</div>${historyHtml(dev, idx)}</div>
+              <div class="hs-col"><div class="hs-head">Selected</div><table><tbody>${modelRows(dev, idx)}</tbody></table></div>
+            </div>
+            <div class="opcluster">
+              <div class="opgroup"><span class="opk">Actions</span>
+                ${A('load','Action X','load')}${A('toggle','Action Y','toggle')}${A('override','Action Z','override')}
+              </div>
+              <div class="opgroup"><span class="opk">Tests</span>
+                ${T('eval','Test A','eval')}${T('bench','Test B','bench')}${T('benchdev','Test C','bench-device (deferred)',' deferred" title="device-scoped bench — no producer yet (honest-deferred, SDD-055 Stage-N)')}
+              </div>
+              <div class="opgroup"><span class="opk">Select</span><div class="selbar">${sel}</div></div>
+            </div>
           </div>
         </div>
       </div>`;
@@ -566,6 +625,16 @@
     }
   }
 
+  // Fixed SRP device topology (M075) so the three device blocks are ALWAYS
+  // visible — even when the lm-status-operability daemon is unreachable. Each
+  // shows honest empty Model slots (— / "no model in this slot") rather than
+  // collapsing to nothing (SB-077: never fabricate, never minimize the layout).
+  const FIXED_DEVICES = [
+    {slot:'CPU0', role:'conductor', label:'Ryzen 9 9900X AM5 AVX-512', model_source:'—', models:[{},{},{}]},
+    {slot:'GPU0', role:'logic', label:'Logic Engine', model_source:'—', models:[{},{},{}]},
+    {slot:'GPU1', role:'oracle', label:'Oracle Core (Blackwell)', model_source:'—', models:[{},{},{}]},
+  ];
+
   let LAST = {devices: []};
 
   function bind() {
@@ -573,18 +642,25 @@
       activeTab[t.dataset.slot] = parseInt(t.dataset.tab, 10);
       draw(LAST);
     }));
-    document.querySelectorAll('button.act').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('button.act:not(:disabled)').forEach(b => b.addEventListener('click', () => {
       // SDD-055 — each action EXECUTES via its existing R10274 control (rendered
       // on D-22): load/toggle → inference-tier, override → runtime-mode,
       // eval/bench → eval-run. Pick args in the control card + Execute (dry-run
       // default, operator-key + type-to-confirm). R10212 intact — web never mutates.
       jumpToControl(ACT_CONTROL[b.dataset.act] || 'inference-tier');
     }));
+    // SDD-111 — the per-device Select bar chooses which Model slot the
+    // History|Selected columns show (client-side only; no fetch/mutation).
+    document.querySelectorAll('button.selbtn:not(:disabled)').forEach(b => b.addEventListener('click', () => {
+      activeTab[b.dataset.selslot] = parseInt(b.dataset.seltab, 10);
+      draw(LAST);
+    }));
   }
 
   function draw(data) {
     LAST = data;
-    $('devices').innerHTML = (data.devices || []).map(renderDevice).join('');
+    const devices = (data && data.devices && data.devices.length) ? data.devices : FIXED_DEVICES;
+    $('devices').innerHTML = devices.map(renderDevice).join('');
     bind();
   }
 
@@ -691,6 +767,12 @@
     renderSelected();
     $('last-fetch').textContent = 'last fetch: ' + new Date().toLocaleTimeString();
   }
+
+  // Initial paint of the fixed device topology so the three blocks are ALWAYS
+  // visible; refresh() then fills in live data (or its catch keeps the fixed
+  // structure with honest — slots when the daemon is unreachable).
+  draw({devices: []});
+  renderSelected();
 
   try {
     const es = new EventSource('/api/lm-status/stream');
