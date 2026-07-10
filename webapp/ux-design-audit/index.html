@@ -1405,17 +1405,20 @@ window.SO_ASSIST = {
     {
      "selector": "#stat-version",
      "title": "Audit version",
-     "content": "The UX-audit version — for reconciling scores against the R457 dimension ladder."
+     "content": "The UX-audit version — for reconciling scores against the R457 dimension ladder.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Reconciles against R457</div>The UX-audit version — the reference for the six dimensions. A bump can redefine a dimension or the floor, shifting which modules count as below-threshold.</div>"
     },
     {
      "selector": "#stat-modules",
      "title": "Modules scanned",
-     "content": "How many modules are UX-scored — each rated on 6 dimensions."
+     "content": "How many modules are UX-scored — each rated on 6 dimensions.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Every module, six dimensions</div>How many modules are UX-scored — each rated on all six. A module scores per-dimension, so a low overall can come from one terrible dimension or six mediocre ones; the matrix distinguishes them.</div>"
     },
     {
      "selector": "#stat-dimensions",
      "title": "UX dimensions",
-     "content": "The 6 operator-named UX dimensions (R457). Experience is not one 'looks nice' score — it is six measurable qualities, each a different way a surface can fail its operator."
+     "content": "The 6 operator-named UX dimensions (R457). Experience is not one 'looks nice' score — it is six measurable qualities, each a different way a surface can fail its operator.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Six dimensions, not one 'looks nice'</div>R457 splits experience into six measurable dimensions because 'good UX' is too vague to fix. Each dimension is a specific, testable question — action budget, discoverability, recoverability, next-step, operator-language, 30-second readability.</div>"
     },
     {
      "selector": "#stat-below",
@@ -1429,12 +1432,14 @@ window.SO_ASSIST = {
        "content": "No modules below the UX floor — every surface clears the experience bar.",
        "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● 0 below</div>Every surface clears the UX bar — no experience debt.</div>"
       }
-     ]
+     ],
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">The experience backlog</div>Modules under the UX floor (default 4). A module can be correct and documented and still fail here — 'it works' isn't 'it's usable'. This count is the usability debt.</div>"
     },
     {
      "selector": "#stat-selfdef",
      "title": "Selfdef coverage",
-     "content": "Cross-repo selfdef UxChecklists discovered (R464) — §1h UX beyond this repo."
+     "content": "Cross-repo selfdef UxChecklists discovered (R464) — §1h UX beyond this repo.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">§1h · UX beyond this repo</div>Cross-repo selfdef UxChecklists (R464). Usability is a fleet property — §1h extends the six-dimension bar to sister repos, so no repo ships an unusable surface unnoticed.<div class=\"so-xref\"><span class=\"x\">→</span> compliance — the §1g/§1h rollup</div></div>"
     },
     {
      "selector": "#last-refresh",
@@ -1494,7 +1499,15 @@ window.SO_ASSIST = {
     {
      "selector": "#matrix-tbody",
      "title": "UX score matrix",
-     "content": "Each row: a module scored across the 6 UX dimensions, worst first. A low cell is a concrete fix — 'this panel is not readable in 30s', 'this control is not discoverable' — not a vague 'improve UX'."
+     "content": "Each row: a module scored across the 6 UX dimensions, worst first. A low cell is a concrete fix — 'this panel is not readable in 30s', 'this control is not discoverable' — not a vague 'improve UX'.",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#matrix-tbody > tr",
+      "nameSelector": "td:first-child,td",
+      "title": "Module · {{name}}",
+      "content": "Module {{name}} — scored across the 6 UX dimensions, worst first. A red dimension is a specific usability failure (buried control, no undo, dead-end) — actionable, not a vague 'improve UX'.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">UX · {{name}}</div>One module's six-dimension UX scores. The weakest dimension names the exact fix.</div>"
+     }
     }
    ]
   },
@@ -1506,7 +1519,15 @@ window.SO_ASSIST = {
     {
      "selector": "#below-tbody",
      "title": "Below-threshold modules",
-     "content": "Each row: a module under the UX floor and its weakest dimensions. The actionable UX backlog — read the low dimensions to know which quality to raise."
+     "content": "Each row: a module under the UX floor and its weakest dimensions. The actionable UX backlog — read the low dimensions to know which quality to raise.",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#below-tbody > tr",
+      "nameSelector": "td:first-child,td",
+      "title": "Module · {{name}}",
+      "content": "Module {{name}} — under the UX floor, with its weakest dimensions named. This is the prioritized usability worklist: fix the named dimension, not 'the UX'.",
+      "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Below floor · {{name}}</div>A module failing the UX bar. Its weakest dimensions are the concrete fixes.</div>"
+     }
     }
    ]
   },

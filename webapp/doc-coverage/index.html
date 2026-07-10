@@ -1401,17 +1401,20 @@ window.SO_ASSIST = {
     {
      "selector": "#stat-version",
      "title": "Audit version",
-     "content": "The doc-coverage audit version — for reconciling against the R454 ladder."
+     "content": "The doc-coverage audit version — for reconciling against the R454 ladder.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Reconciles against R454</div>The doc-audit version — the reference for what 'the 6 doc kinds' means. A version bump can add a kind, which moves every module's coverage denominator.</div>"
     },
     {
      "selector": "#stat-modules",
      "title": "Modules scanned",
-     "content": "How many modules the doc audit covers — each measured across the 6 doc kinds."
+     "content": "How many modules the doc audit covers — each measured across the 6 doc kinds.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Every module, all six kinds</div>How many modules the audit covers — each measured across the 6 doc surfaces. Coverage is per-module-per-kind, so one module missing one kind is one countable gap.</div>"
     },
     {
      "selector": "#stat-kinds",
      "title": "Doc kinds",
-     "content": "The 6 operator-named doc surfaces every module must carry (R454). Documentation is not one file — it is six kinds, each for a different reader."
+     "content": "The 6 operator-named doc surfaces every module must carry (R454). Documentation is not one file — it is six kinds, each for a different reader.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Six surfaces, each a different reader</div>R454 names six doc kinds because different readers need different docs — a newcomer (README), a designer (SDD), an operator at the CLI (--help), a dashboard reader (metric inventory), an auditor (mandate row), a maintainer (man page). Missing one fails a specific reader.</div>"
     },
     {
      "selector": "#stat-gaps",
@@ -1425,12 +1428,14 @@ window.SO_ASSIST = {
        "content": "No doc gaps — every module carries all 6 doc kinds.",
        "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● 0 gaps</div>Every module is documented on all 6 surfaces.</div>"
       }
-     ]
+     ],
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">The documentation backlog</div>Total missing doc surfaces across the fleet. Each gap is a specific reader left stranded — this is the countable §1g doc debt, not a vague 'docs could be better'.</div>"
     },
     {
      "selector": "#stat-selfdef",
      "title": "Selfdef coverage",
-     "content": "Cross-repo selfdef DocManifests discovered (R471) — §1h doc coverage beyond this repo."
+     "content": "Cross-repo selfdef DocManifests discovered (R471) — §1h doc coverage beyond this repo.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">§1h · docs beyond this repo</div>Cross-repo selfdef DocManifests (R471). §1g covers this repo's docs; §1h extends the bar to sister repos — a fleet-wide 'everything is documented', not just sovereign-os.<div class=\"so-xref\"><span class=\"x\">→</span> compliance — the four-axis §1g/§1h rollup</div></div>"
     },
     {
      "selector": "#last-refresh",
@@ -1447,7 +1452,8 @@ window.SO_ASSIST = {
     {
      "selector": "#kind-readme",
      "title": "Doc · readme",
-     "content": "The module README — the front door. If a module has no README, a newcomer has nowhere to start."
+     "content": "The module README — the front door. If a module has no README, a newcomer has nowhere to start.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">README · the front door</div>The one doc a newcomer opens first. A module with no README is undiscoverable — you can't use what you can't find the entry to. It's the cheapest doc with the highest first-contact value.</div>"
     },
     {
      "selector": "#kind-sdd",
@@ -1464,7 +1470,8 @@ window.SO_ASSIST = {
     {
      "selector": "#kind-metric-inventory",
      "title": "Doc · metric-inventory",
-     "content": "The catalogue of what the module measures — so its dashboards are documented, not archaeology."
+     "content": "The catalogue of what the module measures — so its dashboards are documented, not archaeology.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Metric inventory · dashboards documented</div>The catalogue of what a module measures — so its dashboards aren't magic numbers. Without it, a panel shows values nobody can define. This is what makes observability legible.</div>"
     },
     {
      "selector": "#kind-mandate-row",
@@ -1475,7 +1482,8 @@ window.SO_ASSIST = {
     {
      "selector": "#kind-man-page",
      "title": "Doc · man-page",
-     "content": "The man page — the durable reference. The doc that survives when the wiki is down and the author is gone."
+     "content": "The man page — the durable reference. The doc that survives when the wiki is down and the author is gone.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Man page · the durable reference</div>The doc that survives when the author's gone — a stable, offline reference. Where --help is docs-at-use, the man page is docs-for-depth: the full contract, not the summary.</div>"
     }
    ]
   },
@@ -1487,7 +1495,15 @@ window.SO_ASSIST = {
     {
      "selector": "#matrix-tbody",
      "title": "Doc coverage matrix",
-     "content": "Each row: a module and its presence across the 6 doc kinds, worst first. An empty cell is a concrete writing task — 'module M0xx needs an sdd', not 'improve docs'."
+     "content": "Each row: a module and its presence across the 6 doc kinds, worst first. An empty cell is a concrete writing task — 'module M0xx needs an sdd', not 'improve docs'.",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#matrix-tbody > tr",
+      "nameSelector": "td:first-child,td",
+      "title": "Module · {{name}}",
+      "content": "Module {{name}} — its presence across the 6 doc kinds, worst first. A red cell is a specific missing surface; the row shows exactly which reader that module leaves stranded.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Docs · {{name}}</div>One module's doc coverage across the six kinds. Each missing kind is a named reader with no doc.</div>"
+     }
     }
    ]
   },
@@ -1499,7 +1515,15 @@ window.SO_ASSIST = {
     {
      "selector": "#gaps-tbody",
      "title": "Below-threshold modules",
-     "content": "Each row: a module under the doc threshold and which kinds it lacks. The actionable doc backlog — read the missing kinds to know exactly what to write."
+     "content": "Each row: a module under the doc threshold and which kinds it lacks. The actionable doc backlog — read the missing kinds to know exactly what to write.",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#gaps-tbody > tr",
+      "nameSelector": "td:first-child,td",
+      "title": "Gap · {{name}}",
+      "content": "Module {{name}} — under the doc threshold, and which kinds it lacks. This is the actionable list: each entry names the exact docs to write.",
+      "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Gap · {{name}}</div>A module below the doc bar. The listed missing kinds are the concrete write-these-docs task.</div>"
+     }
     }
    ]
   },
