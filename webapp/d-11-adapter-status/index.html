@@ -1504,189 +1504,477 @@ refresh();
 <script>
 window.SO_ASSIST = {
  "context": {
-  "icon": "⚙",
+  "icon": "◈",
   "title": "D-11 · Adapter Status",
-  "content": "The LoRA fine-tune inventory — which adapters exist, which are active, and which are up for promotion. Adapters are cheap specialization on a base model; promotion from candidate to active flows through the MS041 gates, on real eval evidence from D-10.\n\nRead-only; training and promotion are signed CLI verbs (R10212). The HRM models are a separate class — not LoRA-compatible."
+  "content": "The box's learned specializations. A LoRA adapter (M046 Foundry) is a small low-rank layer stacked on a base model — a skill, not a new model — and NVFP4 (M077) stores it at 4 bits so dozens coexist in the VRAM one fp16 fine-tune would need. This panel is the inventory: what exists, what is live, what is waiting.\n\nBecause promoting an adapter can change how the box actually behaves, promotion runs MS041's high-risk triple-gate — three independent checks (eval, safety, signed intent), all of which must pass. That is why an adapter can ace evals and still be pending. The HRM class (M080) sits apart: a fourth architecture that is not LoRA-compatible. Read-only: training and promotion are signed acts."
  },
  "nodes": [
   {
    "icon": "◆",
-   "title": "Live-source banner",
-   "content": "Adapter state changes on load/promote/rollback, so the page says whether you're reading the live daemon or a snapshot.",
+   "title": "Data source",
+   "content": "Whether the adapter inventory is live or a snapshot.",
    "children": [
     {
-     "selector": "#datasource-banner",
+     "selector": "#ds-state-label",
      "title": "Live vs snapshot",
-     "content": "Green = /api/adapters/inventory is live; muted = a snapshot. A snapshot may show an adapter as active that's since been rolled back.",
-     "expanded": "",
+     "content": "Green = the daemon is answering live; muted = a cached snapshot. The adapters, gates, and inventory are read from the LoRA Foundry store — a snapshot can show state that an apply has already superseded, so check this before trusting a value as current.",
+     "icon": "◆",
      "variants": [
+      {
+       "when": {
+        "textContains": "connecting"
+       },
+       "content": "Connecting — reaching the daemon; the values below are not confirmed live yet.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Connecting</div>Waiting on the API — treat the numbers as unconfirmed until this goes green.</div>"
+      },
       {
        "when": {
         "textContains": "live"
        },
-       "content": "Live — the inventory is current."
+       "content": "Live — the values below reflect real state right now.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Live</div>The daemon is answering; everything on the panel is current.</div>"
       },
       {
        "when": {
-        "textContains": "snapshot"
+        "textContains": "offline"
        },
-       "content": "Snapshot — the daemon is unreachable; a promotion or rollback newer than this won't show yet."
+       "content": "Offline — showing the last snapshot; the box may have moved on since.",
+       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Offline</div>No live answer — this is a cached snapshot, possibly stale.</div>"
       }
      ]
     },
     {
+     "selector": "#ds-state-detail",
+     "title": "Source detail",
+     "content": "Status line under the banner — endpoint + any degraded note."
+    },
+    {
      "selector": "#ds-last-update",
-     "title": "Fetch freshness",
-     "content": "When the inventory was pulled — check before assuming an adapter's state.",
-     "expanded": ""
+     "title": "Source freshness",
+     "content": "When the inventory was last read. A promotion or rollback since then would not show yet."
     }
    ]
   },
   {
-   "icon": "▤",
+   "icon": "▦",
    "title": "Summary",
-   "content": "The adapter population and its VRAM cost.",
+   "content": "The roll-up — total adapters, promoted, pending, and total adapter VRAM. This is the shape of the box's adaptation surface: how much it has been specialized and how much GPU that costs.",
    "children": [
     {
      "selector": "#total-adapters",
      "title": "Total adapters",
-     "content": "All adapters the Foundry (M046) tracks — resident, pending, quarantined, rolled-back.",
-     "expanded": ""
+     "content": "How many LoRA adapters exist (M046 Foundry). Each is a small specialization stacked on a base model — the box's learned skills, not new models."
     },
     {
      "selector": "#promoted-count",
-     "title": "Promoted (L6)",
-     "content": "Adapters that reached L6 — fully promoted, serving in production after clearing every gate. The trusted, active fine-tune set.",
-     "expanded": ""
+     "title": "Promoted",
+     "content": "How many adapters are promoted (live). A promoted adapter passed evals AND the MS041 triple-gate — it is trusted enough to affect real inference."
     },
     {
      "selector": "#pending-count",
-     "title": "Pending gates",
-     "content": "Candidates with a measured eval gain that haven't cleared the MS041 triple-gate yet — the system refusing to promote on faith.",
-     "expanded": ""
+     "title": "Pending",
+     "content": "How many adapters are pending the high-risk gate. These improved on evals but have not cleared the triple-gate below — eval-qualified, not yet trusted.",
+     "variants": [
+      {
+       "when": {
+        "textContains": "0"
+       },
+       "content": "No pending adapters — nothing is waiting on the triple-gate.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● 0 pending</div>Nothing waiting on the gate — the adapter surface is settled.</div>"
+      }
+     ]
     },
     {
      "selector": "#vram-total",
-     "title": "Total VRAM (loaded)",
-     "content": "VRAM held by loaded adapters. Small vs base models, but resident ones still compete with model VRAM on the serving GPUs (D-03).",
-     "expanded": ""
+     "title": "Adapter VRAM",
+     "content": "Total VRAM the adapters consume. NVFP4 (M077) is why this is small — 4-bit adapters cost a fraction of fp16; read it against the GPU budget on D-09.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why adapter VRAM stays small</div>Adapters are tiny by design (low-rank), and NVFP4 (M077) stores them at 4 bits. Dozens of specializations can coexist on one GPU where a single fp16 fine-tune would not fit.<div class=\"so-xref\"><span class=\"x\">→</span> D-09 GPU VRAM budget<br><span class=\"x\">→</span> the NVFP4 inventory below</div></div>"
     }
    ]
   },
   {
-   "icon": "◈",
-   "title": "Adapters & gates",
-   "content": "The inventory and the high-risk triple-gate every risky adapter must clear before promotion.",
+   "icon": "⊞",
+   "title": "Active adapters",
+   "content": "The live adapters, grouped by base model (M046). Each row is a specialization currently affecting inference — read which base models have been adapted and how heavily.",
    "children": [
-    {
-     "selector": "#adapters-tbody",
-     "title": "Adapter inventory",
-     "content": "Which fine-tunes exist, their gate state, and per-row promote/demote/rollback (staged as signed CLI verbs). Promotion flows through the gates below on real eval evidence.",
-     "expanded": ""
-    },
-    {
-     "selector": "#gates-tbody",
-     "title": "MS041 triple-gate",
-     "content": "A high-risk adapter must clear three independent gates before promotion: an oracle (automated eval) check, a human sign-off, and a composite verdict.",
-     "expanded": "<div class=\"so-card info\"><div>Gates advance only from real evidence — never fabricated. An adapter stuck here hasn't earned all three.</div></div>"
-    },
-    {
-     "selector": "#nvfp4-tbody",
-     "title": "NVFP4 4-bit inventory (M077)",
-     "content": "NVFP4 is 4-bit quantized adapters — roughly a 4× VRAM saving over BF16, letting more specializations stay resident. Shows each one's saving and base portability.",
-     "expanded": ""
-    },
-    {
-     "selector": "#history-tbody",
-     "title": "Promotions + rollbacks (30d)",
-     "content": "The signed audit trail of what went active and what got pulled. A rollback with its rationale is the honest record of a fine-tune that looked good but failed in practice.",
-     "expanded": ""
-    },
     {
      "selector": "#base-filter",
      "title": "Base-model filter",
-     "content": "Narrow to one base's adapters — the way to compare fine-tunes competing for the same model.",
-     "expanded": ""
+     "content": "Narrow to adapters on one base model. Use it to see how much a specific base has been specialized before stacking more on it."
     },
     {
      "selector": "#precision-filter",
      "title": "Precision filter",
-     "content": "Isolate one precision class (NVFP4 4-bit, ternary…) — the trade of VRAM footprint vs quality.",
-     "expanded": ""
+     "content": "Filter by precision (NVFP4 vs other). NVFP4 adapters are the cheap-VRAM path; filtering shows which adapters are paying full precision cost."
     },
     {
      "selector": "#training-filter",
-     "title": "Training-method filter",
-     "content": "Compare adapters by how they were trained (RL-GRPO, RL-HölderPO) — useful when a method is under evaluation.",
-     "expanded": ""
+     "title": "Training filter",
+     "content": "Filter by training state — done, in-progress, failed. A training-failed adapter should never be promoted; this surfaces them."
     },
     {
      "selector": "#status-filter",
      "title": "Status filter",
-     "content": "Cut to a lifecycle state — e.g. only quarantined when investigating a bad promotion.",
-     "expanded": ""
+     "content": "Filter by promotion status — promoted, pending, rolled-back. The fastest way to answer 'what is actually live right now'."
     },
     {
-     "selector": "#apply-btn",
-     "title": "Apply filters",
-     "content": "Run the inventory query. Read-only — it queries, it never promotes.",
-     "expanded": ""
+     "selector": "#adapters-tbody",
+     "title": "Adapter rows",
+     "content": "Each row: an active adapter — its base model, precision, training state, and status. A promoted row is affecting inference now; read its base to know what it changes."
     }
    ]
   },
   {
-   "icon": "◇",
-   "title": "HRM class (M080 — not LoRA)",
-   "content": "The HRM reasoning models are a distinct class — they can't be fine-tuned as LoRA adapters, so they sit apart. Tracked here because they're part of the same reasoning-capability story (D-10).",
+   "icon": "⚑",
+   "title": "Triple-gate",
+   "content": "MS041's high-risk triple-gate — the three independent checks a high-risk adapter must clear before promotion. Adapter promotion can change the box's behavior, so it is gated harder than a config change: three gates, not one.",
+   "children": [
+    {
+     "selector": "#gates-tbody",
+     "title": "Triple-gate rows",
+     "content": "Each pending adapter and its status against the three MS041 gates. All three must pass; a single failing gate blocks promotion. This is why a good-on-evals adapter can still be pending — evals are one input, not the whole gate.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Three independent gates, all must pass</div>MS041 gates high-risk adapters on three separate axes — eval performance, safety/behavior, and signed operator intent. Independence is the point: an adapter that games one gate still faces the other two before it can touch real inference.<div class=\"so-xref\"><span class=\"x\">→</span> D-10 eval history — the eval axis of this gate<br><span class=\"x\">→</span> D-06 approvals — the operator-signature axis</div></div>"
+    }
+   ]
+  },
+  {
+   "icon": "◫",
+   "title": "NVFP4 inventory",
+   "content": "The 4-bit adapter inventory (M077) — the adapters stored at NVFP4 precision, which is why so many fit in so little VRAM. This is the storage view beneath the active list.",
+   "children": [
+    {
+     "selector": "#nvfp4-tbody",
+     "title": "NVFP4 rows",
+     "content": "Each 4-bit adapter and its footprint. NVFP4 (native 4-bit on Blackwell) is what makes a large adapter library affordable — read the footprints to see the VRAM saving that makes stacking possible."
+    }
+   ]
+  },
+  {
+   "icon": "⊟",
+   "title": "History",
+   "content": "Promotions and rollbacks over the last 30 days — the adapter change trail. A rollback is not a failure to hide; it is the reversibility that makes promoting safe.",
+   "children": [
+    {
+     "selector": "#history-tbody",
+     "title": "Promotion/rollback history",
+     "content": "Each row: a promotion or rollback with when and why. A rollback row is the system working as designed — an adapter that regressed real behavior was reverted. Read the reasons to see what the gate caught late."
+    }
+   ]
+  },
+  {
+   "icon": "◎",
+   "title": "HRM class",
+   "content": "The HRM model class (M080) — a fourth architectural class that is NOT LoRA-compatible. It sits apart from the adapter machinery on purpose; you cannot adapt it the way you adapt a base model.",
    "children": [
     {
      "selector": "#hrm-canon-status",
-     "title": "HRM canonical",
-     "content": "The HRM reasoning model — trained on 1000 samples, no pre-training. Not LoRA-compatible, so it lives outside the adapter inventory.",
-     "expanded": ""
+     "title": "HRM canon",
+     "content": "Status of the canonical HRM model (M080). HRM is a distinct architecture — the adapter gates above do not apply to it, so its health is tracked separately here."
     },
     {
      "selector": "#hrm-text-1b-status",
-     "title": "HRM text 1B",
-     "content": "A base HRM text model — non-instruction-tuned (a raw capability base, not a chat model), apache-2.0.",
-     "expanded": ""
+     "title": "HRM text-1B",
+     "content": "Status of the HRM text-1B variant. A small HRM model — read it as a separate track from the LoRA adapters; it is measured on the harder ARC-2 frontier."
     },
     {
      "selector": "#hrm-trm-status",
      "title": "HRM TRM",
-     "content": "The Tiny Recursive Model variant — a 2-layer architecture (arXiv 2510.04871). Part of the M080 class the D-10 sudoku/ARC evals target.",
-     "expanded": ""
+     "content": "Status of the TRM (tiny recursion model) HRM variant. The smallest reasoning-class model — its value is reasoning-per-parameter, not raw scale.",
+     "variants": [
+      {
+       "when": {
+        "textContains": "down"
+       },
+       "content": "HRM TRM offline — the tiny-recursion reasoning path is unavailable.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ TRM offline</div>The tiny-recursion model is down; reasoning falls back to the standard tiers.</div>"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "icon": "⇄",
+   "title": "Actions",
+   "content": "Training or promoting an adapter is a signed act — the buttons copy the verb; the box changes when you run it.",
+   "children": [
+    {
+     "selector": "#apply-btn",
+     "title": "Apply filters",
+     "content": "Applies the filters to the adapter table. Read-only re-query; it does not change any adapter."
+    },
+    {
+     "selector": "#train-btn",
+     "title": "Train (signed)",
+     "content": "Copies the verb to start an adapter training run (M046). Training is a real GPU job — it copies only; the run starts when you execute the signed command."
+    },
+    {
+     "selector": "#export-btn",
+     "title": "Export",
+     "content": "Copies the verb to export the adapter inventory — read-only; changes nothing."
+    }
+   ]
+  },
+  {
+   "icon": "⟳",
+   "title": "Refresh",
+   "content": "Re-poll on demand — a read-only re-sample.",
+   "children": [
+    {
+     "selector": "#refresh-btn",
+     "title": "Refresh all",
+     "content": "Re-poll every table on this panel now — a read-only re-sample. It re-reads state; it never mutates the box."
     }
    ]
   },
   {
    "icon": "⎈",
-   "title": "Actions & controls",
-   "content": "Read-only; training is heavy GPU work through a signed CLI verb (R10212).",
+   "title": "Controls",
+   "content": "Read-only view — every mutation copies a signed sovereign-osctl verb (§1g / R10212). The web never changes the box; it hands you the exact CLI to run.",
    "children": [
-    {
-     "selector": "#train-btn",
-     "title": "Train new adapter (operator-signed)",
-     "content": "Stages a training run through the LoRA Foundry — heavy GPU work scheduled via the gated osctl path. The button copies the signed verb; it never launches training from the browser.",
-     "expanded": ""
-    },
-    {
-     "selector": "#export-btn",
-     "title": "Export inventory CSV",
-     "content": "Copies the command to export the adapter inventory for external tracking or cross-build comparison.",
-     "expanded": ""
-    },
-    {
-     "selector": "#refresh-btn",
-     "title": "Refresh",
-     "content": "Pull a fresh read after a promote/rollback. Read-only.",
-     "expanded": ""
-    },
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Adapter controls (train, promote, rollback) — each copies its exact sovereign-osctl verb (§1g / R10212), never executing from the web.",
-     "expanded": ""
+     "content": "The control rail — each button copies its exact sovereign-osctl command. Training or promoting an adapter runs through the signed CLI after your MS003 signature, never from a web click."
+    }
+   ]
+  }
+ ]
+};
+</script>
+<script>
+window.SO_ASSIST = {
+ "context": {
+  "icon": "◈",
+  "title": "D-11 · Adapter Status",
+  "content": "The box's learned specializations. A LoRA adapter (M046 Foundry) is a small low-rank layer stacked on a base model — a skill, not a new model — and NVFP4 (M077) stores it at 4 bits so dozens coexist in the VRAM one fp16 fine-tune would need. This panel is the inventory: what exists, what is live, what is waiting.\n\nBecause promoting an adapter can change how the box actually behaves, promotion runs MS041's high-risk triple-gate — three independent checks (eval, safety, signed intent), all of which must pass. That is why an adapter can ace evals and still be pending. The HRM class (M080) sits apart: a fourth architecture that is not LoRA-compatible. Read-only: training and promotion are signed acts."
+ },
+ "nodes": [
+  {
+   "icon": "◆",
+   "title": "Data source",
+   "content": "Whether the adapter inventory is live or a snapshot.",
+   "children": [
+    {
+     "selector": "#ds-state-label",
+     "title": "Live vs snapshot",
+     "content": "Green = the daemon is answering live; muted = a cached snapshot. The adapters, gates, and inventory are read from the LoRA Foundry store — a snapshot can show state that an apply has already superseded, so check this before trusting a value as current.",
+     "icon": "◆",
+     "variants": [
+      {
+       "when": {
+        "textContains": "connecting"
+       },
+       "content": "Connecting — reaching the daemon; the values below are not confirmed live yet.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Connecting</div>Waiting on the API — treat the numbers as unconfirmed until this goes green.</div>"
+      },
+      {
+       "when": {
+        "textContains": "live"
+       },
+       "content": "Live — the values below reflect real state right now.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Live</div>The daemon is answering; everything on the panel is current.</div>"
+      },
+      {
+       "when": {
+        "textContains": "offline"
+       },
+       "content": "Offline — showing the last snapshot; the box may have moved on since.",
+       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Offline</div>No live answer — this is a cached snapshot, possibly stale.</div>"
+      }
+     ]
+    },
+    {
+     "selector": "#ds-state-detail",
+     "title": "Source detail",
+     "content": "Status line under the banner — endpoint + any degraded note."
+    },
+    {
+     "selector": "#ds-last-update",
+     "title": "Source freshness",
+     "content": "When the inventory was last read. A promotion or rollback since then would not show yet."
+    }
+   ]
+  },
+  {
+   "icon": "▦",
+   "title": "Summary",
+   "content": "The roll-up — total adapters, promoted, pending, and total adapter VRAM. This is the shape of the box's adaptation surface: how much it has been specialized and how much GPU that costs.",
+   "children": [
+    {
+     "selector": "#total-adapters",
+     "title": "Total adapters",
+     "content": "How many LoRA adapters exist (M046 Foundry). Each is a small specialization stacked on a base model — the box's learned skills, not new models."
+    },
+    {
+     "selector": "#promoted-count",
+     "title": "Promoted",
+     "content": "How many adapters are promoted (live). A promoted adapter passed evals AND the MS041 triple-gate — it is trusted enough to affect real inference."
+    },
+    {
+     "selector": "#pending-count",
+     "title": "Pending",
+     "content": "How many adapters are pending the high-risk gate. These improved on evals but have not cleared the triple-gate below — eval-qualified, not yet trusted.",
+     "variants": [
+      {
+       "when": {
+        "textContains": "0"
+       },
+       "content": "No pending adapters — nothing is waiting on the triple-gate.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● 0 pending</div>Nothing waiting on the gate — the adapter surface is settled.</div>"
+      }
+     ]
+    },
+    {
+     "selector": "#vram-total",
+     "title": "Adapter VRAM",
+     "content": "Total VRAM the adapters consume. NVFP4 (M077) is why this is small — 4-bit adapters cost a fraction of fp16; read it against the GPU budget on D-09.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why adapter VRAM stays small</div>Adapters are tiny by design (low-rank), and NVFP4 (M077) stores them at 4 bits. Dozens of specializations can coexist on one GPU where a single fp16 fine-tune would not fit.<div class=\"so-xref\"><span class=\"x\">→</span> D-09 GPU VRAM budget<br><span class=\"x\">→</span> the NVFP4 inventory below</div></div>"
+    }
+   ]
+  },
+  {
+   "icon": "⊞",
+   "title": "Active adapters",
+   "content": "The live adapters, grouped by base model (M046). Each row is a specialization currently affecting inference — read which base models have been adapted and how heavily.",
+   "children": [
+    {
+     "selector": "#base-filter",
+     "title": "Base-model filter",
+     "content": "Narrow to adapters on one base model. Use it to see how much a specific base has been specialized before stacking more on it."
+    },
+    {
+     "selector": "#precision-filter",
+     "title": "Precision filter",
+     "content": "Filter by precision (NVFP4 vs other). NVFP4 adapters are the cheap-VRAM path; filtering shows which adapters are paying full precision cost."
+    },
+    {
+     "selector": "#training-filter",
+     "title": "Training filter",
+     "content": "Filter by training state — done, in-progress, failed. A training-failed adapter should never be promoted; this surfaces them."
+    },
+    {
+     "selector": "#status-filter",
+     "title": "Status filter",
+     "content": "Filter by promotion status — promoted, pending, rolled-back. The fastest way to answer 'what is actually live right now'."
+    },
+    {
+     "selector": "#adapters-tbody",
+     "title": "Adapter rows",
+     "content": "Each row: an active adapter — its base model, precision, training state, and status. A promoted row is affecting inference now; read its base to know what it changes."
+    }
+   ]
+  },
+  {
+   "icon": "⚑",
+   "title": "Triple-gate",
+   "content": "MS041's high-risk triple-gate — the three independent checks a high-risk adapter must clear before promotion. Adapter promotion can change the box's behavior, so it is gated harder than a config change: three gates, not one.",
+   "children": [
+    {
+     "selector": "#gates-tbody",
+     "title": "Triple-gate rows",
+     "content": "Each pending adapter and its status against the three MS041 gates. All three must pass; a single failing gate blocks promotion. This is why a good-on-evals adapter can still be pending — evals are one input, not the whole gate.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Three independent gates, all must pass</div>MS041 gates high-risk adapters on three separate axes — eval performance, safety/behavior, and signed operator intent. Independence is the point: an adapter that games one gate still faces the other two before it can touch real inference.<div class=\"so-xref\"><span class=\"x\">→</span> D-10 eval history — the eval axis of this gate<br><span class=\"x\">→</span> D-06 approvals — the operator-signature axis</div></div>"
+    }
+   ]
+  },
+  {
+   "icon": "◫",
+   "title": "NVFP4 inventory",
+   "content": "The 4-bit adapter inventory (M077) — the adapters stored at NVFP4 precision, which is why so many fit in so little VRAM. This is the storage view beneath the active list.",
+   "children": [
+    {
+     "selector": "#nvfp4-tbody",
+     "title": "NVFP4 rows",
+     "content": "Each 4-bit adapter and its footprint. NVFP4 (native 4-bit on Blackwell) is what makes a large adapter library affordable — read the footprints to see the VRAM saving that makes stacking possible."
+    }
+   ]
+  },
+  {
+   "icon": "⊟",
+   "title": "History",
+   "content": "Promotions and rollbacks over the last 30 days — the adapter change trail. A rollback is not a failure to hide; it is the reversibility that makes promoting safe.",
+   "children": [
+    {
+     "selector": "#history-tbody",
+     "title": "Promotion/rollback history",
+     "content": "Each row: a promotion or rollback with when and why. A rollback row is the system working as designed — an adapter that regressed real behavior was reverted. Read the reasons to see what the gate caught late."
+    }
+   ]
+  },
+  {
+   "icon": "◎",
+   "title": "HRM class",
+   "content": "The HRM model class (M080) — a fourth architectural class that is NOT LoRA-compatible. It sits apart from the adapter machinery on purpose; you cannot adapt it the way you adapt a base model.",
+   "children": [
+    {
+     "selector": "#hrm-canon-status",
+     "title": "HRM canon",
+     "content": "Status of the canonical HRM model (M080). HRM is a distinct architecture — the adapter gates above do not apply to it, so its health is tracked separately here."
+    },
+    {
+     "selector": "#hrm-text-1b-status",
+     "title": "HRM text-1B",
+     "content": "Status of the HRM text-1B variant. A small HRM model — read it as a separate track from the LoRA adapters; it is measured on the harder ARC-2 frontier."
+    },
+    {
+     "selector": "#hrm-trm-status",
+     "title": "HRM TRM",
+     "content": "Status of the TRM (tiny recursion model) HRM variant. The smallest reasoning-class model — its value is reasoning-per-parameter, not raw scale.",
+     "variants": [
+      {
+       "when": {
+        "textContains": "down"
+       },
+       "content": "HRM TRM offline — the tiny-recursion reasoning path is unavailable.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ TRM offline</div>The tiny-recursion model is down; reasoning falls back to the standard tiers.</div>"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "icon": "⇄",
+   "title": "Actions",
+   "content": "Training or promoting an adapter is a signed act — the buttons copy the verb; the box changes when you run it.",
+   "children": [
+    {
+     "selector": "#apply-btn",
+     "title": "Apply filters",
+     "content": "Applies the filters to the adapter table. Read-only re-query; it does not change any adapter."
+    },
+    {
+     "selector": "#train-btn",
+     "title": "Train (signed)",
+     "content": "Copies the verb to start an adapter training run (M046). Training is a real GPU job — it copies only; the run starts when you execute the signed command."
+    },
+    {
+     "selector": "#export-btn",
+     "title": "Export",
+     "content": "Copies the verb to export the adapter inventory — read-only; changes nothing."
+    }
+   ]
+  },
+  {
+   "icon": "⟳",
+   "title": "Refresh",
+   "content": "Re-poll on demand — a read-only re-sample.",
+   "children": [
+    {
+     "selector": "#refresh-btn",
+     "title": "Refresh all",
+     "content": "Re-poll every table on this panel now — a read-only re-sample. It re-reads state; it never mutates the box."
+    }
+   ]
+  },
+  {
+   "icon": "⎈",
+   "title": "Controls",
+   "content": "Read-only view — every mutation copies a signed sovereign-osctl verb (§1g / R10212). The web never changes the box; it hands you the exact CLI to run.",
+   "children": [
+    {
+     "selector": "#control-surface",
+     "title": "Controls rail",
+     "content": "The control rail — each button copies its exact sovereign-osctl command. Training or promoting an adapter runs through the signed CLI after your MS003 signature, never from a web click."
     }
    ]
   }
