@@ -804,6 +804,11 @@ a11y; contract test catches drift.
     <div class="filter on" data-family="trinity">trinity</div>
     <div class="filter on" data-family="quant">quant</div>
   </div>
+  <div class="filters" style="margin-top:.2rem;align-items:center">
+    <span class="muted" style="font-size:.75rem">export the filtered set:</span>
+    <button id="export-csv">export CSV</button>
+    <button id="export-json">export JSON</button>
+  </div>
   <table>
     <thead>
       <tr>
@@ -885,13 +890,19 @@ a11y; contract test catches drift.
     renderMs();
   }
 
-  function renderMs() {
+  // The chip-filtered milestone set — the SINGLE SOURCE the table AND the export
+  // both read, so an export is byte-for-byte "what's on screen" (SB-077).
+  function filteredMs() {
     const okStatus = new Set([...document.querySelectorAll('#ms-filters .filter.on[data-status]')].map(f => f.dataset.status));
     const okFamily = new Set([...document.querySelectorAll('#ms-filters .filter.on[data-family]')].map(f => f.dataset.family));
+    return (milestones || []).filter(m => okStatus.has(m.status) && okFamily.has(m.family));
+  }
+
+  function renderMs() {
+    const rows = filteredMs();
     const tb = document.getElementById('ms-tbody');
     tb.innerHTML = '';
-    for (const m of (milestones || [])) {
-      if (!okStatus.has(m.status) || !okFamily.has(m.family)) continue;
+    for (const m of rows) {
       const sp = m.status === 'shipped' ? 'ok' : (m.status === 'partial' ? 'warn' : 'muted');
       const tr = document.createElement('tr');
       tr.innerHTML = `
@@ -909,6 +920,35 @@ a11y; contract test catches drift.
     }
   }
   document.querySelectorAll('#ms-filters .filter').forEach(f => f.addEventListener('click', () => { f.classList.toggle('on'); renderMs(); }));
+
+  // ── export the DERIVED (chip-filtered) manifest (SDD-109) — pure client-side,
+  //    no fetch (R10212); serializes only the on-screen rows (SB-077). ────────────
+  const EXPORT_COLS = ['ms', 'title', 'family', 'status', 'rrows', 'tag'];
+  function csvCell(v) {  // reused idiom from d-11-adapter-status / models-catalog
+    const s = v == null ? '' : String(v);
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+  function download(name, text, mime) {
+    const b = new Blob([text], { type: mime });
+    const url = URL.createObjectURL(b);
+    const a = document.createElement('a');
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  }
+  function stamp() { return new Date().toISOString().slice(0, 10); }
+  function exportCsv() {
+    const rows = filteredMs();
+    const csv = [EXPORT_COLS.join(',')].concat(rows.map(m =>
+      EXPORT_COLS.map(c => csvCell(m[c])).join(','))).join('\n');
+    download('super-model-manifest-' + stamp() + '.csv', csv, 'text/csv');
+  }
+  function exportJson() {
+    download('super-model-manifest-' + stamp() + '.json',
+             JSON.stringify(filteredMs(), null, 2), 'application/json');
+  }
+  document.getElementById('export-csv').addEventListener('click', exportCsv);
+  document.getElementById('export-json').addEventListener('click', exportJson);
 
   window.addEventListener('keydown', e => {
     if ((e.metaKey || e.ctrlKey) && e.key === '0') { e.preventDefault(); window.location.href = '../master-dashboard/'; }
@@ -1449,12 +1489,22 @@ window.SO_ASSIST = {
     {
      "selector": "#ms-filters",
      "title": "Module filters",
-     "content": "Narrow the module table — by domain or version state. Use it to answer 'is module M0xx at the version I expect' without scanning all eighty."
+     "content": "Narrow the module table — by domain, phase, or version state. Use it to answer 'is module M0xx at the version I expect' without scanning all eighty; the export buttons below carry the filtered set."
     },
     {
      "selector": "#ms-tbody",
      "title": "Module rows",
      "content": "Each row: one module (M001..M080) and its pinned version. A module lagging its expected version is drift the manifest is telling you about — read it against the build phases above."
+    },
+    {
+     "selector": "#export-csv",
+     "title": "Export CSV",
+     "content": "Download the currently filtered manifest as CSV — the M001..M080 modules you see, for a hand-off or an audit record. Reflects the active chip filters, so narrow first, then export. Pure client-side; a recompute of the loaded manifest, never a server call."
+    },
+    {
+     "selector": "#export-json",
+     "title": "Export JSON",
+     "content": "Download the currently filtered manifest as JSON — the machine-readable form for tooling or a saved snapshot. Same filtered rows as the CSV export; client-side only, real rows only."
     }
    ]
   },
