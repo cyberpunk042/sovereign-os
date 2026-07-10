@@ -12,6 +12,7 @@ labelled sample data, opt-in, always badged, never confusable with live telemetr
 """
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 
@@ -20,8 +21,53 @@ SHARED_JS = REPO_ROOT / "webapp" / "_shared" / "demo-mode.js"
 SHARED_CSS = REPO_ROOT / "webapp" / "_shared" / "demo-mode.css"
 CODE_CONSOLE = REPO_ROOT / "webapp" / "code-console" / "index.html"
 PERSONALIZATION = REPO_ROOT / "webapp" / "personalization" / "index.html"
+MANIFEST = REPO_ROOT / "scripts" / "webapp" / "demo-panels.json"
 
 BADGE_TEXT = "sample data — not real telemetry"
+
+
+def _load_manifest():
+    return json.loads(MANIFEST.read_text(encoding="utf-8"))["panels"]
+
+
+def test_manifest_covers_exactly_the_demo_capable_panels():
+    """scripts/webapp/demo-panels.json (the single source of truth shared with
+    demo-capture.mjs) must list EXACTLY the panels that carry the demo helper —
+    no drift in either direction. Adding a panel to the rollout means adding it
+    here, so the capture tool + this lint pick it up automatically."""
+    manifest_slugs = {p["slug"] for p in _load_manifest()}
+    on_disk = {
+        idx.parent.name
+        for idx in (REPO_ROOT / "webapp").glob("*/index.html")
+        if "so-demo-badge" in idx.read_text(encoding="utf-8")
+        and idx.parent.name != "personalization"  # global toggle, not a demo-data panel
+    }
+    only_manifest = manifest_slugs - on_disk
+    only_disk = on_disk - manifest_slugs
+    assert not only_manifest and not only_disk, (
+        f"manifest/disk drift — only in manifest: {sorted(only_manifest)}; "
+        f"only on disk (add to demo-panels.json): {sorted(only_disk)}"
+    )
+
+
+def test_manifest_panels_satisfy_the_generic_demo_contract():
+    """Every manifest panel passes the generic demo contract (helper + badge,
+    demoActive() gate, DEMO_<X> with demo/ placeholders; helper in <head> unless
+    the panel predates the SDD-119 head rule — headInjected:false). This grows
+    automatically with the rollout; per-panel bespoke asserts (EventSource guards /
+    ternaries) stay as the explicit cases below."""
+    for p in _load_manifest():
+        slug, const = p["slug"], p["demoConst"]
+        body = (REPO_ROOT / "webapp" / slug / "index.html").read_text(encoding="utf-8")
+        assert "window.soDemo" in body and BADGE_TEXT in body, f"{slug}: helper/badge"
+        assert "function demoActive()" in body, f"{slug}: demoActive gate"
+        assert const in body and ("demo/" in body or "demo-" in body), (
+            f"{slug}: {const} + obvious demo/ or demo- placeholder ids"
+        )
+        if p.get("headInjected", True):
+            assert "window.soDemo" in body[: body.index("</head>")], (
+                f"{slug}: helper must load in <head> (SDD-119 rule)"
+            )
 
 
 def test_shared_helper_present_and_opt_in():
