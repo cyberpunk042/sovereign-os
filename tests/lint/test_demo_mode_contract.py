@@ -149,3 +149,33 @@ def test_d23_models_catalog_demo():
         "D-23 must open NO EventSource in DEMO mode"
     )
     assert "window.soDemo" in body[:body.index("</head>")], "helper must load in <head>"
+
+
+def _assert_head_demo(slug, demo_const):
+    body = (REPO_ROOT / "webapp" / slug / "index.html").read_text(encoding="utf-8")
+    assert "window.soDemo" in body and BADGE_TEXT in body, f"{slug}: helper/badge"
+    assert "function demoActive()" in body, f"{slug}: demoActive gate"
+    assert demo_const in body and "demo/" in body, f"{slug}: sample data placeholders"
+    assert "window.soDemo" in body[:body.index("</head>")], f"{slug}: helper must load in <head>"
+    return body
+
+
+def test_d10_eval_history_demo():
+    """SDD-120 — D-10 Eval History: badged sample evals, no fetch/EventSource in demo."""
+    body = _assert_head_demo("d-10-eval-history", "DEMO_EVALS")
+    assert re.search(r"demoActive\(\)\s*\?\s*DEMO_EVALS\s*:\s*await fetchEvals\(\)", body)
+    assert re.search(r"if \(demoActive\(\)\) throw new Error\('DEMO", body), "no EventSource in demo"
+
+
+def test_d11_adapter_status_demo():
+    """SDD-120 — D-11 Adapter Status: badged sample inventory, no fetch/EventSource in demo."""
+    body = _assert_head_demo("d-11-adapter-status", "DEMO_ADAPTERS")
+    assert re.search(r"demoActive\(\)\s*\?\s*DEMO_ADAPTERS\s*:\s*await fetchAdapters\(\)", body)
+    assert re.search(r"if \(demoActive\(\)\) throw new Error\('DEMO", body), "no EventSource in demo"
+
+
+def test_models_catalog_demo():
+    """SDD-120 — models-catalog: badged sample catalog via load() short-circuit, no fetch in demo."""
+    body = _assert_head_demo("models-catalog", "DEMO_MODELS")
+    m = re.search(r"if \(demoActive\(\)\) \{(.*?)\n    return;\n  \}", body, re.DOTALL)
+    assert m and "fetch(" not in m.group(1), "the models-catalog DEMO load path must make NO fetch"

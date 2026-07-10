@@ -407,6 +407,58 @@ a11y; contract test catches drift.
   input,select{background:var(--panel);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:.35rem .55rem;font-family:inherit;font-size:.85rem}
   .alert{background:#3d2f14;border:1px solid var(--warn);border-radius:3px;padding:.5rem .7rem;margin:.5rem 0;font-size:.82rem;color:var(--warn)}
 </style>
+<!-- SDD-116/120 shared demo-mode helper (inlined from webapp/_shared/demo-mode.{css,js}; opt-in, always-badged sample data — SB-077). -->
+<style>
+/* webapp/_shared/demo-mode.css — SDD-116 DEMO badge.
+ * DEMO mode is opt-in sample data for exploring panels with no daemon. The badge
+ * is a persistent, unmistakable ribbon so DEMO data is NEVER mistaken for real
+ * telemetry (the SB-077 reconciliation). Inlined verbatim into demo-capable
+ * panels alongside demo-mode.js. */
+#so-demo-badge {
+  position: fixed; top: calc(var(--so-header-h, 48px) + 8px); right: 12px; z-index: 9600;
+  background: #e6c062; color: #0a0a0a; font-weight: 700; font-size: .72rem; letter-spacing: .03em;
+  padding: .28rem .65rem; border-radius: 6px; box-shadow: 0 2px 12px rgba(0, 0, 0, .38);
+  font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif; pointer-events: none;
+}
+#so-demo-badge .sub { font-weight: 400; opacity: .82; }
+</style>
+<script>
+/* webapp/_shared/demo-mode.js — SDD-116 shared DEMO-mode helper (opt-in sample data).
+ *
+ * Reads the `sovereign-os.demo` localStorage flag (schema-guarded) and renders a
+ * persistent DEMO badge. Demo-capable panels call `soDemo.on()` to branch to their
+ * clearly-labelled sample data. The SB-077 reconciliation: DEMO is opt-in (off by
+ * default; never self-enables), ALWAYS badged, and makes ZERO network calls
+ * (R10212 strengthened — the demo render path never fetches). Inlined verbatim into
+ * demo-capable panels alongside demo-mode.css. */
+(function () {
+  "use strict";
+  var DKEY = 'sovereign-os.demo', DSCHEMA = 1;
+  function on() {
+    try {
+      var r = localStorage.getItem(DKEY); var p = r ? JSON.parse(r) : null;
+      return !!(p && p.schema === DSCHEMA && p.on);
+    } catch (e) { return false; }
+  }
+  function set(v) {
+    try { localStorage.setItem(DKEY, JSON.stringify({ schema: DSCHEMA, on: !!v })); } catch (e) {}
+  }
+  function badge() {
+    var b = document.getElementById('so-demo-badge');
+    if (on()) {
+      if (!b) {
+        b = document.createElement('div'); b.id = 'so-demo-badge';
+        b.innerHTML = 'DEMO <span class="sub">· sample data — not real telemetry</span>';
+        b.setAttribute('role', 'status');
+        (document.body || document.documentElement).appendChild(b);
+      }
+    } else if (b) { b.remove(); }
+  }
+  window.soDemo = { on: on, set: set, badge: badge, KEY: DKEY, SCHEMA: DSCHEMA };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', badge);
+  else badge();
+})();
+</script>
 </head>
 <body>
 <!-- APP-SHELL:BEGIN M067 -->
@@ -1088,6 +1140,33 @@ function renderDataSourceBanner(ok, errMsg) {
   last.textContent = 'last fetch: ' + new Date().toLocaleTimeString();
 }
 
+// ── SDD-120 DEMO mode: opt-in, always-badged sample data (never real; SB-077).
+function demoActive() { return !!(window.soDemo && window.soDemo.on()); }
+const _sp = (n, lo, hi) => Array.from({length:n}, (_,i)=> +(lo + (hi-lo)*(i/(n-1))).toFixed(1));
+const DEMO_EVALS = {
+  summary: { total_runs: 128, bb_pass_pct: 71.4, wb_pass_pct: 63.2, candidate_count: 3 },
+  suites: {
+    math_avg: { current_pct: 56.2, trend: _sp(12, 48, 56) },
+    alfworld: { current_pct: 92.1, trend: _sp(12, 85, 92) },
+    arc_agi_1: { current_pct: 47.0, trend: _sp(12, 40, 47) },
+    arc_agi_2: { current_pct: 9.5, trend: _sp(12, 5, 9.5) },
+    sudoku: { current_pct: 96.0, trend: _sp(12, 90, 96) },
+    activation_steer: { current_pct: 61.0, trend: _sp(12, 55, 61) },
+  },
+  tasks: [
+    { name: 'demo/humaneval', intervention_class: 'wb', run_count: 40, pass_pct: 82.5, trend: _sp(8,70,82), last_run_ts: 0 },
+    { name: 'demo/gsm8k', intervention_class: 'bb', run_count: 32, pass_pct: 64.0, trend: _sp(8,55,64), last_run_ts: 0 },
+    { name: 'demo/mmlu', intervention_class: 'none', run_count: 24, pass_pct: 48.0, trend: _sp(8,44,48), last_run_ts: 0 },
+  ],
+  models: [
+    { name: 'demo/qwen3-coder-14b', role: 'logic', eval_avg: 74.0, vs_baseline_pct: 6.2, trend: _sp(8,66,74) },
+    { name: 'demo/deepseek-r1-32b', role: 'oracle', eval_avg: 68.5, vs_baseline_pct: 3.1, trend: _sp(8,64,68) },
+  ],
+  candidates: [
+    { adapter_id: 'demo/lora-coder-v3', base_model: 'demo/qwen3-coder-14b', training_method: 'sft', eval_gain_pct: 7.4, gate_status: 'ready' },
+    { adapter_id: 'demo/lora-math-v1', base_model: 'demo/deepseek-r1-32b', training_method: 'dpo', eval_gain_pct: 3.2, gate_status: 'pending-test' },
+  ],
+};
 async function fetchEvals() {
   try {
     const res = await fetch('/api/evals/summary', {credentials:'same-origin'});
@@ -1102,7 +1181,12 @@ async function fetchEvals() {
 }
 
 async function refresh() {
-  const s = await fetchEvals();
+  // SDD-120 DEMO short-circuit: badged sample evals, ZERO network calls.
+  if (demoActive() && $('data-source-banner')) {
+    $('data-source-banner').innerHTML = '<strong>DEMO mode</strong> — sample data, not a live daemon. Disable it in Personalization.';
+  }
+  const s = demoActive() ? DEMO_EVALS : await fetchEvals();
+  if (demoActive() && window.soDemo) window.soDemo.badge();
   $('total-runs').textContent = s.summary.total_runs ?? '—';
   $('bb-pass').firstChild.textContent = s.summary.bb_pass_pct?.toFixed(1) ?? '—';
   $('wb-pass').firstChild.textContent = s.summary.wb_pass_pct?.toFixed(1) ?? '—';
@@ -1218,6 +1302,7 @@ $('export-btn').addEventListener('click', async () => {
 });
 
 try {
+  if (demoActive()) throw new Error('DEMO — no EventSource');
   const es = new EventSource('/api/evals/stream');
   es.addEventListener('eval-run-complete', refresh);
   es.addEventListener('error', () => setInterval(refresh, 30000));

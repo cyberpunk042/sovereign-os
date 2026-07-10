@@ -412,6 +412,58 @@ a11y; contract test catches drift.
   .filter-row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.6rem}
   select{background:var(--panel);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:.35rem .55rem;font-family:inherit;font-size:.85rem}
 </style>
+<!-- SDD-116/120 shared demo-mode helper (inlined from webapp/_shared/demo-mode.{css,js}; opt-in, always-badged sample data — SB-077). -->
+<style>
+/* webapp/_shared/demo-mode.css — SDD-116 DEMO badge.
+ * DEMO mode is opt-in sample data for exploring panels with no daemon. The badge
+ * is a persistent, unmistakable ribbon so DEMO data is NEVER mistaken for real
+ * telemetry (the SB-077 reconciliation). Inlined verbatim into demo-capable
+ * panels alongside demo-mode.js. */
+#so-demo-badge {
+  position: fixed; top: calc(var(--so-header-h, 48px) + 8px); right: 12px; z-index: 9600;
+  background: #e6c062; color: #0a0a0a; font-weight: 700; font-size: .72rem; letter-spacing: .03em;
+  padding: .28rem .65rem; border-radius: 6px; box-shadow: 0 2px 12px rgba(0, 0, 0, .38);
+  font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif; pointer-events: none;
+}
+#so-demo-badge .sub { font-weight: 400; opacity: .82; }
+</style>
+<script>
+/* webapp/_shared/demo-mode.js — SDD-116 shared DEMO-mode helper (opt-in sample data).
+ *
+ * Reads the `sovereign-os.demo` localStorage flag (schema-guarded) and renders a
+ * persistent DEMO badge. Demo-capable panels call `soDemo.on()` to branch to their
+ * clearly-labelled sample data. The SB-077 reconciliation: DEMO is opt-in (off by
+ * default; never self-enables), ALWAYS badged, and makes ZERO network calls
+ * (R10212 strengthened — the demo render path never fetches). Inlined verbatim into
+ * demo-capable panels alongside demo-mode.css. */
+(function () {
+  "use strict";
+  var DKEY = 'sovereign-os.demo', DSCHEMA = 1;
+  function on() {
+    try {
+      var r = localStorage.getItem(DKEY); var p = r ? JSON.parse(r) : null;
+      return !!(p && p.schema === DSCHEMA && p.on);
+    } catch (e) { return false; }
+  }
+  function set(v) {
+    try { localStorage.setItem(DKEY, JSON.stringify({ schema: DSCHEMA, on: !!v })); } catch (e) {}
+  }
+  function badge() {
+    var b = document.getElementById('so-demo-badge');
+    if (on()) {
+      if (!b) {
+        b = document.createElement('div'); b.id = 'so-demo-badge';
+        b.innerHTML = 'DEMO <span class="sub">· sample data — not real telemetry</span>';
+        b.setAttribute('role', 'status');
+        (document.body || document.documentElement).appendChild(b);
+      }
+    } else if (b) { b.remove(); }
+  }
+  window.soDemo = { on: on, set: set, badge: badge, KEY: DKEY, SCHEMA: DSCHEMA };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', badge);
+  else badge();
+})();
+</script>
 </head>
 <body>
 <!-- APP-SHELL:BEGIN M067 -->
@@ -1103,6 +1155,18 @@ function renderDataSourceBanner(ok, errMsg) {
   last.textContent = 'last fetch: ' + new Date().toLocaleTimeString();
 }
 
+// ── SDD-120 DEMO mode: opt-in, always-badged sample data (never real; SB-077).
+function demoActive() { return !!(window.soDemo && window.soDemo.on()); }
+const DEMO_ADAPTERS = {
+  summary: { total: 4, promoted: 2, pending: 2, vram_loaded_bytes: 3.1e9 },
+  adapters: [
+    { id: 'demo/lora-coder-v3', base_model: 'demo/qwen3-coder-14b', precision: 'NVFP4', training: 'sft', size_bytes: 1.2e9, eval_gain_pct: 7.4, status: 'active', gates: { snapshot: 'pass', test_eval: 'pass', oracle_or_human: 'pass' } },
+    { id: 'demo/lora-math-v1', base_model: 'demo/deepseek-r1-32b', precision: 'NVFP4', training: 'dpo', size_bytes: 0.9e9, eval_gain_pct: 3.2, status: 'active', gates: { snapshot: 'pass', test_eval: 'pass', oracle_or_human: 'pass' } },
+    { id: 'demo/lora-alfworld-v2', base_model: 'demo/qwen3-coder-14b', precision: 'Q4', training: 'sft', size_bytes: 0.6e9, eval_gain_pct: 1.1, status: 'pending', gates: { snapshot: 'pass', test_eval: 'pending', oracle_or_human: 'pending' } },
+    { id: 'demo/lora-sudoku-v1', base_model: 'demo/glm-4-9b', precision: 'Q4', training: 'sft', size_bytes: 0.4e9, eval_gain_pct: -0.5, status: 'pending', gates: { snapshot: 'pass', test_eval: 'fail', oracle_or_human: 'pending' } },
+  ],
+  history: [], hrm: {},
+};
 async function fetchAdapters() {
   try {
     const res = await fetch('/api/adapters/inventory', {credentials:'same-origin'});
@@ -1117,7 +1181,12 @@ async function fetchAdapters() {
 }
 
 async function refresh() {
-  const s = await fetchAdapters();
+  // SDD-120 DEMO short-circuit: badged sample adapter inventory, ZERO network calls.
+  if (demoActive() && $('data-source-banner')) {
+    $('data-source-banner').innerHTML = '<strong>DEMO mode</strong> — sample data, not a live daemon. Disable it in Personalization.';
+  }
+  const s = demoActive() ? DEMO_ADAPTERS : await fetchAdapters();
+  if (demoActive() && window.soDemo) window.soDemo.badge();
   $('total-adapters').textContent = s.summary.total ?? s.adapters.length;
   $('promoted-count').textContent = s.summary.promoted ?? 0;
   $('pending-count').textContent = s.summary.pending ?? 0;
@@ -1283,6 +1352,7 @@ $('export-btn').addEventListener('click', async () => {
 });
 
 try {
+  if (demoActive()) throw new Error('DEMO — no EventSource');
   const es = new EventSource('/api/adapters/stream');
   es.addEventListener('adapter-state-change', refresh);
   es.addEventListener('gate-state-change', refresh);
