@@ -2158,7 +2158,8 @@ window.SO_ASSIST = {
     {
      "selector": "#stat-port",
      "title": "Aggregator port",
-     "content": "The local port the master aggregator serves on. Everything on this panel is assembled by that one process, so this confirms which aggregator instance you’re reading — relevant only when something is misconfigured, but the first thing to check if the whole panel looks empty."
+     "content": "The local port the master aggregator serves on. Everything on this panel is assembled by that one process, so this confirms which aggregator instance you’re reading — relevant only when something is misconfigured, but the first thing to check if the whole panel looks empty.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Where the cockpit is served</div>The loopback port the dashboard API answers on. Every panel is a client of this local endpoint — it's the door all cockpit reads come through, loopback-only by the sovereign contract.</div>"
     },
     {
      "selector": "#stat-count",
@@ -2178,7 +2179,8 @@ window.SO_ASSIST = {
        "content": "Zero reachable — the aggregator knows routes but can reach none of them, which points at the aggregator itself being isolated, not the panels being down.",
        "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ 0 reachable</div>Nothing answers — this is almost always the aggregator being cut off, not every panel failing at once.</div>"
       }
-     ]
+     ],
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Is the aggregator answering</div>Whether the master-dashboard API is reachable. If it's down, this front-door view can't aggregate the other panels' state — a red here means the cockpit's overview is blind, even if individual panels work.</div>"
     },
     {
      "selector": "#stat-collisions",
@@ -2195,7 +2197,8 @@ window.SO_ASSIST = {
     {
      "selector": "#stat-version",
      "title": "API version",
-     "content": "The aggregator’s API version — for reconciling the route/coverage shapes against the expected contract when a field looks wrong. Rarely the thing you came for, but the tiebreaker when the panel’s data shape doesn’t match what a downstream tool expects."
+     "content": "The aggregator’s API version — for reconciling the route/coverage shapes against the expected contract when a field looks wrong. Rarely the thing you came for, but the tiebreaker when the panel’s data shape doesn’t match what a downstream tool expects.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Pins the aggregator</div>The dashboard daemon version answering — the reference for reconciling the aggregated fields. A version change can alter what's rolled up.</div>"
     }
    ]
   },
@@ -2285,7 +2288,8 @@ window.SO_ASSIST = {
       "title": "Route · {{name}}",
       "content": "The {{name}} route — its target panel and whether the aggregator can reach it. An unreachable route here is the specific thing behind an ‘invisible’ or failed-reachable count above; a reachable one is a working door on the map.",
       "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Route · {{name}}</div>One row of the route table: path → target → reachability. This is the ground truth the coverage summary aggregates — when a count is off, this is the row that explains it.</div><div class=\"so-xref\"><span class=\"x\">→</span> #cov-invisible — where an unreachable route is counted</div>"
-     }
+     },
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Every registered panel route</div>All cockpit routes at once — the map of which panel serves what. It's the registry the front door aggregates from; a missing route is a panel the overview can't reach.</div>"
     }
    ]
   },
@@ -2311,7 +2315,8 @@ window.SO_ASSIST = {
       "title": "Collision · {{name}}",
       "content": "The {{name}} collision — a route two or more targets both claim. Until one target yields the path, requests to it are ambiguous and the aggregator has to guess. This row is the conflict a human needs to resolve.",
       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Collision · {{name}}</div>Two systems registering one route — a merge conflict in the surface. Read which targets are fighting; resolving it means one keeps the route and the other moves.</div>"
-     }
+     },
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Route conflicts caught</div>Any two panels claiming the same route — a collision the aggregator flags. Collisions mean an ambiguous cockpit; this table is where they surface before they confuse navigation.</div>"
     }
    ]
   },
@@ -2337,7 +2342,8 @@ window.SO_ASSIST = {
       "title": "Manifest · {{name}}",
       "content": "The {{name}} manifest — a surface selfdef declares it owns on this box, discovered across the repo boundary (§1h). It’s selfdef reaching into sovereign-os; this row is one place that reach is mapped.",
       "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Manifest · {{name}}</div>A cross-repo declaration from selfdef. Its presence proves the M060 bridge is delivering; its absence, when selfdef is installed, means the bridge is down.</div><div class=\"so-xref\"><span class=\"x\">→</span> #m060-health-banner — the bridge that carries this</div>"
-     }
+     },
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">What the aggregator found</div>The discovered panels/services — how the front door learns what exists. Read it against the route table to see what's registered vs what's actually answering.</div>"
     }
    ]
   },
@@ -2378,7 +2384,8 @@ window.SO_ASSIST = {
     {
      "selector": "#m060-health-detail",
      "title": "M060 detail",
-     "content": "The longer M060 status line — which doctor check failed and why, when the chain is degraded. On a healthy chain it just confirms the selfdef daemon is answering; when degraded, it’s where you learn whether the mirror is slow, partial, or fully down, which decides how much to distrust the downstream panels."
+     "content": "The longer M060 status line — which doctor check failed and why, when the chain is degraded. On a healthy chain it just confirms the selfdef daemon is answering; when degraded, it’s where you learn whether the mirror is slow, partial, or fully down, which decides how much to distrust the downstream panels.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The mirror-chain, from the front door</div>The M060 bridge health as the overview sees it — the same selfdef mirror the D-13…D-18 panels ride. A degraded chain here means every selfdef mirror is stale at once.<div class=\"so-xref\"><span class=\"x\">→</span> D-25 selfdef management — the mirror chain in full</div></div>"
     },
     {
      "selector": "#m060-health-count",
@@ -2418,12 +2425,14 @@ window.SO_ASSIST = {
        "content": "SSE quota exhausted — new live views will fall back to polling or stale data without erroring.",
        "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ SSE exhausted</div>The live-stream budget is spent. New panels won’t stream — they’ll quietly poll or freeze.</div>"
       }
-     ]
+     ],
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The live-update budget (MS022)</div>Whether the SSE (server-sent-events) quota has headroom. The cockpit's live updates ride SSE; if the quota is exhausted, panels fall back to manual refresh — this banner is the early warning.</div>"
     },
     {
      "selector": "#ms022-sse-detail",
      "title": "SSE detail",
-     "content": "The longer SSE status — which node_exporter reading backs it and any degraded note. Read it when the quota banner is amber to see whether the ceiling is genuinely reached or the count simply can’t be read."
+     "content": "The longer SSE status — which node_exporter reading backs it and any degraded note. Read it when the quota banner is amber to see whether the ceiling is genuinely reached or the count simply can’t be read.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">SSE quota detail</div>The specifics behind the SSE budget — connections used vs the MS022 cap. Reading it tells you how much live-update capacity remains before panels stop auto-refreshing.</div>"
     },
     {
      "selector": "#ms022-sse-active",
@@ -2463,7 +2472,8 @@ window.SO_ASSIST = {
     {
      "selector": "#four-watchdog-detail",
      "title": "IPS spine detail",
-     "content": "The longer spine status — which of the four watchdog checks failed and why. When the spine is degraded, this is where you learn whether it’s the Tetragon socket, its streaming, or a downstream check — the difference between ‘daemon down’ and ‘daemon up but a check failed.’"
+     "content": "The longer spine status — which of the four watchdog checks failed and why. When the spine is degraded, this is where you learn whether it’s the Tetragon socket, its streaming, or a downstream check — the difference between ‘daemon down’ and ‘daemon up but a check failed.’",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">The IPS spine, summarized</div>The four-watchdog rollup (MS046 process / MS047 perimeter / MS044 tamper / MS048 config) as the front door sees it. A CRITICAL here means an IPS-spine subsystem failed — the single most important line on the overview.<div class=\"so-xref\"><span class=\"x\">→</span> auditor — the enforcement these watchdogs run</div></div>"
     },
     {
      "selector": "#four-watchdog-rollup",
@@ -2504,12 +2514,14 @@ window.SO_ASSIST = {
        "content": "AppArmor not enforcing — MAC is off or in complain mode; confinement isn’t active.",
        "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ AppArmor off</div>Processes aren’t MAC-confined — a compromise has far more reach than the hardened profile intends.</div>"
       }
-     ]
+     ],
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">MAC enforcement status</div>Whether AppArmor mandatory-access-control is enforcing. MAC confines each process to a declared profile — a permissive or disabled AppArmor is a weaker containment posture worth surfacing on the front door.</div>"
     },
     {
      "selector": "#apparmor-detail",
      "title": "AppArmor detail",
-     "content": "The longer AppArmor status — the source of the reading and any note. Read it when the banner is amber to tell ‘genuinely not enforcing’ from ‘couldn’t read the mode.’"
+     "content": "The longer AppArmor status — the source of the reading and any note. Read it when the banner is amber to tell ‘genuinely not enforcing’ from ‘couldn’t read the mode.’",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">AppArmor profile detail</div>The specifics — how many profiles are enforcing vs complain-mode. Enforcing profiles actively block out-of-policy actions; complain-mode only logs them, so the split tells you how much MAC is really protecting.</div>"
     },
     {
      "selector": "#apparmor-mode",
@@ -2561,7 +2573,8 @@ window.SO_ASSIST = {
     {
      "selector": "#refresh-btn",
      "title": "Refresh now",
-     "content": "Re-reads the entire aggregate immediately rather than waiting for the 30-second auto-refresh. Read-only. Use it after installing or fixing something to confirm the front door now sees it — a new panel reachable, a mended bridge, a restored spine."
+     "content": "Re-reads the entire aggregate immediately rather than waiting for the 30-second auto-refresh. Read-only. Use it after installing or fixing something to confirm the front door now sees it — a new panel reachable, a mended bridge, a restored spine.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Re-aggregate the overview</div>Re-reads every rolled-up figure — read-only. It re-samples the front-door aggregation; it never changes any panel's state.</div>"
     },
     {
      "selector": "#last-refresh",

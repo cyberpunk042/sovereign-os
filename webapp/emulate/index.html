@@ -1179,7 +1179,8 @@ window.SO_ASSIST = {
     {
      "selector": "#vm-dot",
      "title": "VM indicator",
-     "content": "The at-a-glance running/stopped dot. Pair it with the state text — a stopped VM after a start is a boot failure worth reading the console for."
+     "content": "The at-a-glance running/stopped dot. Pair it with the state text — a stopped VM after a start is a boot failure worth reading the console for.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The at-a-glance VM light</div>Green = a VM is running, grey = stopped. The instant read of whether an emulation is live — pair it with the state text and the console, since 'running' with a silent console can mean a hung boot.</div>"
     },
     {
      "selector": "#vm-state",
@@ -1279,7 +1280,8 @@ window.SO_ASSIST = {
     {
      "selector": "#login-user",
      "title": "Login user",
-     "content": "The username to log into the guest. Prefilled for the built image; this is the guest's credential, not the box's."
+     "content": "The username to log into the guest. Prefilled for the built image; this is the guest's credential, not the box's.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The guest username</div>Prefilled for the built image — the account to log into the emulated guest. It's for the disposable VM only, so it's a convenience, not a credential that protects anything real.</div>"
     },
     {
      "selector": "#login-pass",
@@ -1290,17 +1292,20 @@ window.SO_ASSIST = {
     {
      "selector": "#btn-login",
      "title": "Login",
-     "content": "Sends the credentials to the guest console. Convenience for reaching a shell inside the VM to inspect the booted image."
+     "content": "Sends the credentials to the guest console. Convenience for reaching a shell inside the VM to inspect the booted image.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Send credentials to the console</div>Types the username/password into the guest console for you — a convenience for reaching a shell fast. It only automates keystrokes into a throwaway VM.</div>"
     },
     {
      "selector": "#auto-login",
      "title": "Auto-login",
-     "content": "Logs into the guest automatically on boot — saves a step when repeatedly test-booting the same image."
+     "content": "Logs into the guest automatically on boot — saves a step when repeatedly test-booting the same image.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Log in on every boot</div>Logs into the guest automatically when it boots — saves a step across repeated test boots. Purely a rehearsal convenience for the disposable VM.</div>"
     },
     {
      "selector": "#login-badge",
      "title": "Login badge",
-     "content": "Shows the current login state in the guest. A convenience indicator for whether you are at a shell yet."
+     "content": "Shows the current login state in the guest. A convenience indicator for whether you are at a shell yet.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Guest login state</div>Shows whether you're logged into the guest — a convenience indicator so you know if the console is at a shell or a login prompt. Cosmetic; it reflects state, doesn't change it.</div>"
     },
     {
      "selector": "#console",
@@ -1311,17 +1316,20 @@ window.SO_ASSIST = {
     {
      "selector": "#autoscroll",
      "title": "Auto-scroll",
-     "content": "Keeps the console pinned to the latest output. Turn it off to scroll back and read an earlier boot message without the log jumping."
+     "content": "Keeps the console pinned to the latest output. Turn it off to scroll back and read an earlier boot message without the log jumping.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Pin to the newest output</div>Keeps the console scrolled to the latest line — turn it off to scroll back and read an earlier boot message without the view jumping. A reading aid, nothing more.</div>"
     },
     {
      "selector": "#focus-hint",
      "title": "Focus hint",
-     "content": "A hint about keyboard focus for the console — so keystrokes reach the guest, not the page."
+     "content": "A hint about keyboard focus for the console — so keystrokes reach the guest, not the page.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Where your keystrokes go</div>A hint about keyboard focus so your typing reaches the guest console, not the page. It matters because a VM console needs focus to receive input — the hint prevents keystrokes vanishing.</div>"
     },
     {
      "selector": "#btn-copy",
      "title": "Copy console",
-     "content": "Copies the console text — for pasting a boot failure into a bug report or the build panel."
+     "content": "Copies the console text — for pasting a boot failure into a bug report or the build panel.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copy the console text</div>Copies the console output — for pasting a boot failure into a bug report or a comparison. Read-only extraction of what the VM printed.</div>"
     },
     {
      "selector": "#btn-download",
@@ -1332,7 +1340,8 @@ window.SO_ASSIST = {
     {
      "selector": "#btn-clear",
      "title": "Clear console",
-     "content": "Clears the console view. Cosmetic — it does not affect the VM, just the display."
+     "content": "Clears the console view. Cosmetic — it does not affect the VM, just the display.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Clear the view, not the VM</div>Clears the console display — cosmetic. It wipes what you see; the VM keeps running and keeps producing output, unaffected.</div>"
     }
    ]
   },
@@ -1344,7 +1353,8 @@ window.SO_ASSIST = {
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "The control rail — each button copies its exact sovereign-osctl verb. Nothing here mutates the real box — the VM is disposable runs through the signed CLI, never from a web click."
+     "content": "The control rail — each button copies its exact sovereign-osctl verb. Nothing here mutates the real box — the VM is disposable runs through the signed CLI, never from a web click.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copy-command boundary</div>Each control copies its sovereign-osctl verb (§1g / R10212). Emulation is a safe VM rehearsal; the real destructive write is on the flash panel.<div class=\"so-xref\"><span class=\"x\">→</span> flash — the real device write this rehearses</div></div>"
     }
    ]
   }

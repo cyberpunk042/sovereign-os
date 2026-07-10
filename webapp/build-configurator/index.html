@@ -2891,12 +2891,14 @@ window.SO_ASSIST = {
     {
      "selector": "#btn-print-bios",
      "title": "Print BIOS sheet",
-     "content": "Prints the BIOS checklist as a paper sheet to tick at the bench. Firmware work happens away from the screen — a paper checklist is the right tool for it."
+     "content": "Prints the BIOS checklist as a paper sheet to tick at the bench. Firmware work happens away from the screen — a paper checklist is the right tool for it.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The physical-setup checklist</div>Prints the BIOS settings sheet — the hands-on hardware steps a human does before the software build (virtualization, VFIO, memory profile). It bridges the config to the physical machine.</div>"
     },
     {
      "selector": "#bios-progress",
      "title": "BIOS progress",
-     "content": "How many BIOS items you have confirmed. A partial checklist means the build's hardware assumptions are not yet verified."
+     "content": "How many BIOS items you have confirmed. A partial checklist means the build's hardware assumptions are not yet verified.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">How much BIOS is done</div>Tracks which BIOS checklist items are confirmed. The build assumes these physical settings; unconfirmed items are where a build can pass yet the box misbehave (e.g. VFIO off in BIOS).</div>"
     },
     {
      "selector": "#psu-oc",
@@ -2913,7 +2915,8 @@ window.SO_ASSIST = {
     {
      "selector": "#psu-explainer",
      "title": "PSU explainer",
-     "content": "The context for the PSU overclock decision — what enabling it buys and what it demands. Read it before flipping the physical switch."
+     "content": "The context for the PSU overclock decision — what enabling it buys and what it demands. Read it before flipping the physical switch.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why the PSU gates the OC</div>Explains how the power-supply rating bounds the overclock. It's here because an aggressive CPU/GPU OC that exceeds the PSU is the classic cause of instability and shutdowns — the explainer makes the ceiling concrete.</div>"
     },
     {
      "selector": "#gpu-table",
@@ -3038,7 +3041,8 @@ window.SO_ASSIST = {
     {
      "selector": "#kernel-tag",
      "title": "Kernel tag",
-     "content": "The kernel build label — a quick identity for the configured kernel. Read it against version + march to confirm you are building the kernel you intend."
+     "content": "The kernel build label — a quick identity for the configured kernel. Read it against version + march to confirm you are building the kernel you intend.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The kernel build identity</div>The tag identifying this kernel build — source + version + tuning, as one label. It's how a built image's kernel is traced back to exactly the -march and options selected here.</div>"
     },
     {
      "selector": "#k-source",
@@ -3166,7 +3170,8 @@ window.SO_ASSIST = {
     {
      "selector": "#pkg-placeholder-note",
      "title": "Package note",
-     "content": "Context on the package layers — how base/profile/deny compose. Read it if the resulting package set surprises you."
+     "content": "Context on the package layers — how base/profile/deny compose. Read it if the resulting package set surprises you.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why some packages are deferred</div>A note on package selections still to be resolved. Honest rather than silent — it flags where the package set isn't final, instead of implying completeness the build doesn't have.</div>"
     }
    ]
   },
@@ -3344,17 +3349,20 @@ window.SO_ASSIST = {
     {
      "selector": "#run-cancel",
      "title": "Cancel",
-     "content": "Aborts an in-progress build. Safe — a cancelled build leaves no half-flashed hardware (the build produces an image file; nothing is written to a device until the flash panel)."
+     "content": "Aborts an in-progress build. Safe — a cancelled build leaves no half-flashed hardware (the build produces an image file; nothing is written to a device until the flash panel).",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Abort the build</div>Cancels the running build. Safe before the build commits its artifact — the escape hatch during a long build if you spot a wrong option in the console.</div>"
     },
     {
      "selector": "#run-status",
      "title": "Run status",
-     "content": "The live build state — validating, preflighting, building, done. Read it with the console; a build that stops early names its failing step there."
+     "content": "The live build state — validating, preflighting, building, done. Read it with the console; a build that stops early names its failing step there.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Where the build is</div>The live build phase — validating, preflight, building. Read it with the console: a status stuck on one phase with a silent console is a build that's hung, not progressing.</div>"
     },
     {
      "selector": "#run-dot",
      "title": "Run indicator",
-     "content": "The at-a-glance build running/idle dot. Pair with run status for detail."
+     "content": "The at-a-glance build running/idle dot. Pair with run status for detail.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The at-a-glance build light</div>Green/amber/red for the build run. The instant read of whether a build is progressing, paused, or failed — pair it with the status text and errors panel.</div>"
     },
     {
      "selector": "#run-console",
@@ -3365,7 +3373,8 @@ window.SO_ASSIST = {
     {
      "selector": "#run-log",
      "title": "Build log",
-     "content": "The accumulated build log. The durable record of what the build did — read it to confirm success or diagnose a failure after the fact."
+     "content": "The accumulated build log. The durable record of what the build did — read it to confirm success or diagnose a failure after the fact.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The durable build record</div>The full build log — every step of validate or build. Read it to confirm the build did what was planned, and keep it as the record if a later boot fails and you need to know what landed.</div>"
     },
     {
      "selector": "#run-errors",
@@ -3434,17 +3443,20 @@ window.SO_ASSIST = {
     {
      "selector": "#btn-print-bios-2",
      "title": "Print preflight",
-     "content": "Prints the preflight sheet. Firmware work is paper work — this is the artifact for it."
+     "content": "Prints the preflight sheet. Firmware work is paper work — this is the artifact for it.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Print the preflight sheet</div>Prints the preflight checklist — the pre-build verification steps. Same bridge to the physical machine as the BIOS sheet, at the preflight stage.</div>"
     },
     {
      "selector": "#out-cmd-title",
      "title": "Command title",
-     "content": "Labels the build-command output block — names which orchestrate.sh invocation the copyable command below corresponds to."
+     "content": "Labels the build-command output block — names which orchestrate.sh invocation the copyable command below corresponds to.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Names the build command</div>Labels the generated command output — which configuration it encodes. It's the header for the reproducible one-line command the selections produce.</div>"
     },
     {
      "selector": "#out-cmd-note",
      "title": "Command note",
-     "content": "Context on the build command — how to run it, what it assumes. Read it before pasting the command into a shell."
+     "content": "Context on the build command — how to run it, what it assumes. Read it before pasting the command into a shell.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">How to use the command</div>Guidance on the generated command — copy it to build now, or save it as the reproducible record of this exact configuration. The command IS the build, captured.</div>"
     }
    ]
   },
@@ -3456,42 +3468,50 @@ window.SO_ASSIST = {
     {
      "selector": "#btn-guide",
      "title": "Start guide",
-     "content": "Begins the guided walkthrough — the configurator leads you through each section in order. Useful for a first build, where knowing the right order of decisions is half the task."
+     "content": "Begins the guided walkthrough — the configurator leads you through each section in order. Useful for a first build, where knowing the right order of decisions is half the task.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Start the guided walkthrough</div>Launches a step-by-step guide through the configurator — for a first build where the 12 stages aren't yet familiar. It sequences the same options into a walkthrough.</div>"
     },
     {
      "selector": "#guide-bar",
      "title": "Guide bar",
-     "content": "The guided-walkthrough control bar — where you move through the sequenced steps. Read the progress to see how far through the twelve sections you are."
+     "content": "The guided-walkthrough control bar — where you move through the sequenced steps. Read the progress to see how far through the twelve sections you are.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The walkthrough progress</div>Shows where you are in the guided build — which stage of the sequence. It's the orientation for the guided path through an otherwise dense panel.</div>"
     },
     {
      "selector": "#g-title",
      "title": "Guide step title",
-     "content": "The current guided step's title — which section/decision you are on."
+     "content": "The current guided step's title — which section/decision you are on.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The current guide step</div>The title of the walkthrough step you're on — which configuration stage the guide is currently explaining.</div>"
     },
     {
      "selector": "#g-body",
      "title": "Guide step body",
-     "content": "The current step's explanation — what to decide and why, in build order. This is the guide teaching the decision, not just pointing at the field."
+     "content": "The current step's explanation — what to decide and why, in build order. This is the guide teaching the decision, not just pointing at the field.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The step's guidance</div>The explanation for the current guided step — what this stage configures and why it matters. The teaching content of the walkthrough.</div>"
     },
     {
      "selector": "#g-prog",
      "title": "Guide progress",
-     "content": "How far through the guided sequence you are. The walkthrough covers every section so nothing is skipped."
+     "content": "How far through the guided sequence you are. The walkthrough covers every section so nothing is skipped.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Step N of the walkthrough</div>How far through the guided build you are. Orientation within the sequence — how many stages remain before the config is complete.</div>"
     },
     {
      "selector": "#g-next",
      "title": "Guide next",
-     "content": "Advances to the next guided step in build order — the walkthrough sequences the twelve sections so no decision is skipped."
+     "content": "Advances to the next guided step in build order — the walkthrough sequences the twelve sections so no decision is skipped.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Advance the walkthrough</div>Moves to the next guided step. Navigation only — it progresses the guide; it doesn't change a build option.</div>"
     },
     {
      "selector": "#g-back",
      "title": "Guide back",
-     "content": "Returns to the previous guided step to revisit a decision."
+     "content": "Returns to the previous guided step to revisit a decision.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Revisit a prior step</div>Returns to the previous guided step — to re-check or change an earlier stage. Navigation only; your selections persist.</div>"
     },
     {
      "selector": "#g-exit",
      "title": "Exit guide",
-     "content": "Leaves the walkthrough and returns to free navigation of the sections."
+     "content": "Leaves the walkthrough and returns to free navigation of the sections.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Leave the walkthrough</div>Exits the guided mode back to the full panel — your selections are kept. Use it once the stages are familiar and you'd rather configure directly.</div>"
     }
    ]
   },
@@ -3503,7 +3523,8 @@ window.SO_ASSIST = {
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "The control rail — each button copies its exact sovereign-osctl/orchestrate verb. The build is a signed, scripted act; the web composes the plan, the CLI runs it."
+     "content": "The control rail — each button copies its exact sovereign-osctl/orchestrate verb. The build is a signed, scripted act; the web composes the plan, the CLI runs it.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copy-command boundary</div>Each control copies its sovereign-osctl verb (§1g / R10212). The configurator composes a build command; running it is a deliberate, resource-heavy action you launch.</div>"
     }
    ]
   }
