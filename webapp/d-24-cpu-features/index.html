@@ -396,6 +396,16 @@
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
   function render(probe, workloads, advisory) {
+    probe = probe || {}; workloads = workloads || {}; advisory = advisory || {};
+    // SDD-115 — the four sections stay visible even with the daemon offline
+    // (the SDD-111/113 "seeing all sections" lesson): an honest unreachable card
+    // in every section, never a blank panel (SB-077).
+    if (probe.offline) {
+      $('cpu-summary').innerHTML = '<span class="muted">cpu-features daemon unreachable</span>';
+      const off = '<div class="muted">the cpu-features daemon is unreachable — this section (the AVX-512 extension map / workload-fit / advisory) populates when it\'s reachable. Nothing is fabricated (SB-077).</div>';
+      $('extensions').innerHTML = off; $('workloads').innerHTML = off; $('advisory').innerHTML = off;
+      return;
+    }
     $('cpu-summary').innerHTML = probe.error
       ? '<span class="no">advisor error: '+esc(probe.error)+'</span>'
       : `<code>${esc(probe.cpu_model||'?')}</code> · AVX-512 ${probe.avx512_supported ? '<span class="yes">supported</span>' : '<span class="no">absent</span>'}`;
@@ -423,9 +433,16 @@
         fetchJson('/api/cpu-features/probe'), fetchJson('/api/cpu-features/workloads'), fetchJson('/api/cpu-features/advisory')]);
       $('data-source-banner').innerHTML = 'consuming <code>/api/cpu-features/{probe,workloads,advisory}</code>';
       render(probe, workloads, advisory);
-    } catch (e) { $('data-source-banner').innerHTML = 'cannot reach the cpu-features API daemon <span class="muted">('+esc(e.message)+')</span>'; }
+    } catch (e) {
+      $('data-source-banner').innerHTML = 'cannot reach the cpu-features API daemon <span class="muted">('+esc(e.message)+')</span>';
+      render({offline: true}, {}, {});   // SDD-115 — keep all four sections visible, never blank
+    }
     $('last-fetch').textContent = 'last fetch: ' + new Date().toLocaleTimeString();
   }
+
+  // SDD-115 — initial paint so the panel is ALWAYS visible; refresh() then fills
+  // live data (or the catch keeps the honest offline scaffold).
+  render({offline: true}, {}, {});
 
   try { const es = new EventSource('/api/cpu-features/stream'); es.addEventListener('features-change', refresh); es.addEventListener('error', () => setInterval(refresh, 60000)); }
   catch (e) { setInterval(refresh, 60000); }

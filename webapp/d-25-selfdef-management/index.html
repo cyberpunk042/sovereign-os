@@ -421,6 +421,19 @@
   const agefmt = sec => sec == null ? '—' : (sec < 90 ? sec + 's' : Math.round(sec / 60) + 'm');
 
   function render(state) {
+    state = state || {};
+    // SDD-115 — the tiles + mirror-panels stay visible even with the daemon
+    // offline (the SDD-111/113 "seeing all sections" lesson): an honest
+    // unreachable state, never blank/seed-frozen (SB-077).
+    if (state.offline) {
+      $('sd-enablement').textContent = 'unreachable'; $('sd-enablement').className = 'big';
+      $('sd-detail').textContent = 'selfdef-management daemon unreachable';
+      $('sd-oncli').innerHTML = '—';
+      $('m060-state').textContent = 'unreachable'; $('m060-state').className = 'big';
+      $('m060-fresh').textContent = '—'; $('m060-age').textContent = '—';
+      $('mirror-panels').innerHTML = '<div class="muted">the selfdef-management daemon is unreachable — the enablement state, the M060 mirror-chain health, and the per-domain panels (D-13..D-18) populate here when it\'s reachable. Nothing is fabricated (SB-077).</div>';
+      return;
+    }
     const sd = state.selfdef || {};
     $('sd-enablement').textContent = sd.enablement || '?';
     $('sd-enablement').className = 'big ' + cls(sd.enablement);
@@ -449,9 +462,16 @@
       const state = await fetchJson('/api/selfdef-management/state');
       $('data-source-banner').innerHTML = 'consuming <code>/api/selfdef-management/state</code> · selfdef is the producer, this panel only reads';
       render(state);
-    } catch (e) { $('data-source-banner').innerHTML = 'cannot reach the selfdef-management API daemon <span class="muted">('+esc(e.message)+')</span>'; }
+    } catch (e) {
+      $('data-source-banner').innerHTML = 'cannot reach the selfdef-management API daemon <span class="muted">('+esc(e.message)+')</span>';
+      render({offline: true});   // SDD-115 — keep the tiles + mirror-panels visible, never blank
+    }
     $('last-fetch').textContent = 'last fetch: ' + new Date().toLocaleTimeString();
   }
+
+  // SDD-115 — initial paint so the panel is ALWAYS visible; refresh() then fills
+  // live data (or the catch keeps the honest offline scaffold).
+  render({offline: true});
 
   try { const es = new EventSource('/api/selfdef-management/stream'); es.addEventListener('state-change', refresh); es.addEventListener('error', () => setInterval(refresh, 60000)); }
   catch (e) { setInterval(refresh, 60000); }
