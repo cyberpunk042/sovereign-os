@@ -1385,139 +1385,150 @@ window.SO_ASSIST = {
  "context": {
   "icon": "▣",
   "title": "D-01 · Active Sessions",
-  "content": "What the box is doing for whom, right now. Every operator session is a task walking the M057 12-step lifecycle (Intake → Normalize → Profile Resolve → Map → Plan → Route → Execute → Observe → Evaluate → Commit/Rollback → Learn → Archive), and this panel shows where each one sits. The summary counts tell you the shape of the load; the session table tells you the detail.\n\nRead it to answer 'is the box busy, stuck, or idle, and on what' — active sessions are doing work, hibernated ones are parked to save resources, blocked ones are waiting on you. It's telemetry; hibernating or killing a session is a signed CLI verb."
+  "content": "The live board of everything the box is working on — every operator session in flight and exactly where it sits in the M057 12-step task lifecycle, from init through inference, response, and validation to cleanup. It answers the question a summary can’t: not ‘how busy is the box’ but ‘what is it actually doing, and is anything stuck.’ Because every session walks the same twelve steps, a session parked at one step is a session that needs attention — a validation that never finished, an inference that never returned.\n\nSessions aren’t only active: they can be hibernated (parked to reclaim resources, resumable) or blocked (waiting on something). Read the counts for the shape of the load, the table for the per-session detail, and use hibernate to reclaim resources under pressure — a signed action, because parking work is a real decision."
  },
  "nodes": [
   {
    "icon": "◆",
-   "title": "Live-source banner",
-   "content": "Whether the session list is live from /api/sessions/active or a snapshot — sessions start and end continuously, so a stale read misrepresents the current load.",
+   "title": "Data source",
+   "content": "Whether the session board is live or a snapshot — a stale board can show a session as active that has already finished or hung.",
    "children": [
     {
-     "selector": "#datasource-banner",
+     "selector": "#ds-state-label",
      "title": "Live vs snapshot",
-     "content": "Green = the sessions daemon is answering; muted = a snapshot. A snapshot can show a session that has since ended, or miss one that just started.",
-     "icon": "◆",
+     "content": "Whether /api/sessions/active is answering live. Sessions move through the lifecycle continuously — one can go from inference to done in the time it takes to read the board — so a live feed is what makes ‘this session is stuck at step 7’ a fact rather than a guess about a moment that has passed.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A moving target needs a live read</div>The session board is the most fast-changing view in the cockpit after raw pressure: work advances step by step in real time. A snapshot can show a session mid-step that has since completed or stalled, so a stuck-looking session on a stale feed might be neither — confirm this is live before you act on a session’s state.</div><div class=\"so-xref\"><span class=\"x\">→</span> #ds-last-update — how old the board is</div>",
      "variants": [
+      {
+       "when": {
+        "textContains": "checking"
+       },
+       "content": "Reaching the sessions endpoint — the board isn’t confirmed live yet.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Connecting</div>Waiting on /api/sessions/active. Session states are unconfirmed until this goes live.</div>"
+      },
       {
        "when": {
         "textContains": "live"
        },
-       "content": "Live — the session list is current.",
-       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Live</div>The daemon is streaming; the sessions below are what's running now.</div>"
+       "content": "Live — the board reflects the sessions in flight right now.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Live</div>The daemon is answering; every session state is current.</div>"
       },
       {
        "when": {
-        "textContains": "snapshot"
+        "textContains": "offline"
        },
-       "content": "Snapshot — the daemon is unreachable; a session may have started or ended since this was captured.",
-       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Snapshot</div>Reading last-known sessions. Treat starts/ends as uncertain until the daemon returns.</div>"
+       "content": "No answer — the board is a snapshot; a session shown active may have finished or hung since.",
+       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Offline</div>The session feed is down. Don’t judge a session’s progress off this — it’s frozen at an unknown moment.</div>"
       }
      ]
-    },
-    {
-     "selector": "#ds-state-label",
-     "title": "Source label",
-     "content": "One-word source — live daemon vs snapshot. The quick check before trusting the session list."
     },
     {
      "selector": "#ds-state-detail",
      "title": "Source detail",
-     "content": "The endpoint (/api/sessions/active) and why it's live or fell back."
+     "content": "The longer status line beneath the banner — which endpoint answered and, when degraded, why. On a healthy feed it just confirms /api/sessions/active; when amber, it tells you whether the session daemon is slow or gone, which decides whether a missing session means ‘ended’ or ‘unreported.’"
     },
     {
      "selector": "#ds-last-update",
-     "title": "Fetch freshness",
-     "content": "When the session list was pulled. Sessions change fast; check this before assuming a session is (or isn't) still running."
+     "title": "Board freshness",
+     "content": "When the session board was last refreshed. Because sessions advance continuously, the age is the caveat on every state below: a board a minute old, on a busy box, may show a lifecycle position several steps behind where a session actually is now."
     }
    ]
   },
   {
-   "icon": "▤",
+   "icon": "▦",
    "title": "Summary",
-   "content": "The shape of current load — how many sessions are working, parked, stuck, or exploring. Read the four together: a rising blocked count with flat active is where work is stalling.",
+   "content": "The load at a glance — how many sessions are active, hibernated, and blocked, and how many branches they hold in total. It’s the shape of what the box is carrying: lots of active is healthy throughput, lots of blocked is a bottleneck, lots of hibernated is deliberately-parked work waiting to resume. Read it before the table for the overall picture.",
    "children": [
     {
      "selector": "#active-count",
      "title": "Active",
-     "content": "Sessions doing work right now — the live load on the box. Each is a task somewhere in the M057 lifecycle, consuming a tier's inference.",
-     "variants": [
-      {
-       "when": {
-        "textContains": "0"
-       },
-       "content": "No active sessions — the box is idle, nothing in flight."
-      }
-     ]
+     "content": "How many sessions are currently progressing through the lifecycle — doing real work right now. This is throughput made visible: a healthy number means the box is busy and moving; a very high number read against D-09’s pressure tells you whether that busyness is comfortable or oversubscribed.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Active means advancing, not just open</div>An active session is one moving through the M057 steps — being inferred, validated, responded to. It’s distinct from a session that’s merely open but parked (hibernated) or waiting (blocked). So this count is genuine live work, and it’s the number to weigh against hardware pressure when deciding whether the box has room for more.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-09 — whether this many active sessions is comfortable for the hardware</div>"
     },
     {
      "selector": "#hibernated-count",
      "title": "Hibernated",
-     "content": "Sessions parked to free resources — paused mid-task, not gone. This is how the box sheds load without dropping work; the D-09 RAM-pressure rule hibernates branches exactly like this when memory climbs.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Hibernation is reversible load-shedding</div>A hibernated session keeps its state but stops consuming compute — it can resume exactly where it left off. That's why the scheduler prefers it over killing work under pressure.<div class=\"so-xref\"><span class=\"x\">→</span> D-09 idle RAM PSI > 20% rule — what hibernates branches automatically<br><span class=\"x\">→</span> resume a hibernated session from its row action below</div></div>"
+     "content": "How many sessions are parked — suspended to reclaim their resources, resumable later. Hibernation is the box’s pressure-relief valve for sessions: rather than kill work under load, it freezes it, freeing memory and cores, and can wake it when there’s room. A rising hibernated count usually means the box is shedding session load to protect the active ones.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Parked, not killed</div>Hibernating a session preserves its state while releasing its resources — the difference between pausing and abandoning. Under memory or CPU pressure the box would rather hibernate a branch than lose it (the same instinct as the ram-pressure backpressure rule on D-09). So a growing count here is often the box protecting live work, not sessions failing.</div><div class=\"so-xref\"><span class=\"x\">→</span> #hibernate-all-btn — hibernate everything to reclaim resources fast<br><span class=\"x\">→</span> D-09 rule RAM-pressure — the automatic version of this instinct</div>"
     },
     {
      "selector": "#blocked-count",
      "title": "Blocked",
-     "content": "Sessions stuck waiting — on an approval (D-06), a resource, or a gate. A rising count here is where to look when work isn't progressing: the sessions aren't failing, they're waiting on something (often you).",
-     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Blocked = waiting, not failed</div>A blocked session is healthy but can't proceed — usually it hit a stage-gate that needs an approval. The fix is upstream: clear what it's waiting on.<div class=\"so-xref\"><span class=\"x\">→</span> D-06 pending approvals — the decisions that unblock these<br><span class=\"x\">→</span> a high blocked count is what the D-09 human-gate rule reacts to</div></div>",
+     "content": "How many sessions are stalled — waiting on something they can’t proceed without: a pending approval, a dependency, an unavailable resource. Unlike hibernated (parked on purpose), blocked is involuntary, so this count is the bottleneck number: sessions here are work the box wants to advance but can’t.",
      "variants": [
       {
        "when": {
         "textContains": "0"
        },
-       "content": "No blocked sessions — nothing is stuck waiting."
+       "content": "No blocked sessions — nothing is stalled waiting on a dependency or approval.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● 0 blocked</div>Nothing is stuck — every session can proceed.</div>"
+      },
+      {
+       "when": {
+        "textContains": ""
+       },
+       "content": "Sessions are blocked — read the table to see what each is waiting on; a pending approval is a common cause.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ Sessions blocked</div>Some work can’t advance. Check the table for what each blocked session is waiting on — often an approval on D-06.</div>"
       }
      ]
     },
     {
      "selector": "#branch-count",
      "title": "Total branches",
-     "content": "How many exploration branches are open across all sessions — the width of concurrent reasoning. Each branch is a parallel line the box is exploring; the backpressure rules narrow this first under memory pressure, since branches are the cheapest thing to hibernate."
+     "content": "The total number of branches across all sessions. A session can fan out into multiple reasoning branches (speculative or parallel paths), so this is a finer measure of concurrency than the session count — it’s the real number of things being reasoned at once, and what the backpressure rules narrow when a GPU or CPU tier saturates.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Branches are the real unit of concurrency</div>One session can spawn several branches — parallel attempts, speculative continuations. So the box’s actual parallel load is branches, not sessions, and it’s branches the 4090-busy and CPU-pressure rules cut when a tier fills. A branch count far above the session count means heavy fan-out, which is where concurrency pressure comes from.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-09 rule 4090-busy — narrows branch width when the Scout GPU saturates</div>"
     }
    ]
   },
   {
-   "icon": "≣",
-   "title": "Sessions & M057 lifecycle",
-   "content": "The live sessions against the 12-step lifecycle each walks. The lifecycle is why 'what step is it on' is a real answer: a session in Execute is computing, one in Evaluate is checking its work, one in Commit/Rollback is deciding whether to keep it.",
+   "icon": "◫",
+   "title": "Sessions",
+   "content": "The per-session detail — each session with its lifecycle position, branches, and state. Where the counts give the shape, this is where ‘a session is stuck’ becomes ‘THIS session is stuck at step 7 waiting on validation.’ Hover a row to read one session’s full state and where in the twelve steps it sits.",
    "children": [
     {
      "selector": "#sessions-tbody",
-     "title": "Active sessions",
-     "content": "Each live session with its SRP agent, lifecycle step, start time, ETA, and branch count. Hover a row for what that session is and which of the 12 M057 steps it's on — the step tells you whether it's thinking, acting, checking, or committing.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The M057 12-step lifecycle</div>Every task is the same shape: Intake → Normalize → Profile-Resolve → Map → Plan → Route → Execute → Observe → Evaluate → Commit/Rollback → Learn → Archive.<div class=\"so-li\">early steps (Intake…Route) — understanding + planning the task</div><div class=\"so-li\">Execute…Observe — doing the work + watching it</div><div class=\"so-li\">Evaluate…Archive — checking, committing or rolling back, learning</div><div class=\"so-tip\">💡 A session stuck on one step for a long time is the tell — Execute means slow inference; a gate step means it's waiting on an approval (D-06).</div></div>",
+     "title": "Session rows",
+     "content": "Each row is one session: its identity, where it sits in the M057 12-step lifecycle, its branches, and its state (active/hibernated/blocked). Read a row to diagnose a specific session — a session parked at the same step across refreshes is stuck, not slow, and the step tells you what it’s stuck on (a hung inference, a stalled validation, a pending approval). Hover for the detail.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The lifecycle position is the diagnosis</div>The M057 twelve steps run init → prepare → infer → validate → respond → … → cleanup. A session’s step is not decoration — it’s where the problem is: stuck at infer means the model isn’t returning; stuck at validate means a check is failing or waiting; stuck before cleanup means work isn’t draining. So the step column turns ‘this session is slow’ into a specific, actionable cause.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-05 traces — the span-level detail of what a stuck session is doing<br><span class=\"x\">→</span> D-06 approvals — where a session blocked on a gate is waiting</div>",
      "dynamic": true,
      "childTemplate": {
       "selector": "#sessions-tbody tr",
-      "nameSelector": "td",
+      "nameSelector": "td,code,strong",
       "title": "Session · {{name}}",
-      "content": "The {{name}} session — its SRP agent, lifecycle step, ETA, and branches. Hover reads the row; the lifecycle step tells you whether it's planning, executing, evaluating, or committing.",
-      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Session · {{name}}</div>One task walking the M057 lifecycle. The step it's on is the key read — early = planning, Execute = working, Evaluate/Commit = finishing.<div class=\"so-li\"><span class=\"ok\">✓</span> active → doing work now</div><div class=\"so-li\"><span class=\"warn\">▲</span> blocked → waiting on an approval or resource (D-06)</div><div class=\"so-li\">hibernated → parked, resumable</div><div class=\"so-xref\"><span class=\"x\">→</span> its row actions hibernate / resume / kill it via signed CLI</div></div>"
+      "content": "The {{name}} session — its lifecycle step, branches, and state. Read the step: parked at the same one across refreshes means stuck, not slow, and the step names the cause (hung inference, stalled validation, pending gate). Branches show its fan-out; state shows whether it’s active, parked, or waiting.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Session · {{name}}</div>One session in the M057 lifecycle. Its step is the diagnosis — where it sits tells you what it’s stuck on. An active session advancing is healthy; a blocked one is waiting on something (often an approval); a hibernated one is parked and resumable.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-05 — trace this session’s spans<br><span class=\"x\">→</span> D-06 — if it’s blocked on a gate</div>"
      }
     }
    ]
   },
   {
-   "icon": "⎈",
-   "title": "Actions & controls",
-   "content": "Read-only telemetry — refreshing re-samples; hibernating or killing a session is a signed sovereign-osctl verb (R10212).",
+   "icon": "⇄",
+   "title": "Actions",
+   "content": "Refresh re-reads the board; hibernate-all parks every session at once to reclaim resources fast — a signed action, because parking all live work is a real, consequential decision, not a click.",
    "children": [
     {
      "selector": "#refresh-btn",
      "title": "Refresh now",
-     "content": "Pull a fresh session list on demand. Read-only re-sample — it never changes a session's state."
+     "content": "Re-reads the session board immediately rather than waiting for the automatic poll. Read-only. Use it after an action, or when a session looks stuck and you want to confirm it hasn’t moved — a fresh read distinguishes ‘genuinely stalled’ from ‘the board was just stale.’"
     },
     {
      "selector": "#hibernate-all-btn",
-     "title": "Hibernate all (operator-signed)",
-     "content": "Stages hibernation of every active session at once — the deliberate full load-shed. Copies the signed osctl verb; it never hibernates from the browser. Use it to free the box fast (it's reversible — sessions resume from where they parked).",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The big red load-shed</div>Hibernate-all parks every session's state and stops all inference — the fastest way to free the box without losing work. Because it's reversible, it's the safe panic button; because it's disruptive, it's a signed verb.<div class=\"so-tip\">💡 The D-09 pressure rules do a targeted version of this automatically; this is the manual all-at-once.</div></div>"
-    },
+     "title": "Hibernate all (signed)",
+     "content": "Copies the signed verb to hibernate every session at once — parking all live work to reclaim resources in one move. It’s the emergency pressure valve: when the box is oversubscribed and you need memory and cores back now, this frees them while preserving the sessions to resume later. It copies only; the mass-hibernate runs when you execute the signed command, because pausing all work is a deliberate act.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The manual version of backpressure</div>The box already hibernates individual sessions automatically under pressure (the ram-pressure rule). This is the operator override: hibernate everything at once, deliberately, when you need the box quiet — before a heavy build, during a diagnosis, or when pressure is critical. Nothing is lost — every session is resumable — but all active work stops, which is why it’s signed.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-09 — the pressure that would motivate a mass-hibernate<br><span class=\"x\">→</span> #hibernated-count — where these parked sessions land</div>"
+    }
+   ]
+  },
+  {
+   "icon": "⎈",
+   "title": "Controls",
+   "content": "The shared control rail. On the session board it’s where a load problem the sessions reveal — chronic oversubscription, sessions constantly hibernating — turns into a posture change (a lower-concurrency profile) rather than repeated manual hibernation. Each control copies its signed verb.",
+   "children": [
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Session controls — each copies its exact sovereign-osctl verb (§1g / R10212). Hibernate, resume, and kill all run through the signed CLI; the panel shows state but never changes it from the web."
+     "content": "The profile/mode/feature control rail. Its relevance here is that if the session board keeps showing oversubscription — sessions blocking or auto-hibernating under load — the durable fix is a profile change (a lower-concurrency posture) rather than repeatedly hibernating by hand. The rail copies the signed osctl verb for that; the box changes only when you run it.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">When the fix is a posture, not a hibernate</div>Hibernating sessions relieves pressure for a moment; if the board keeps filling and stalling, that’s a structural signal the box is running a posture too hungry for its load. This rail is where you’d switch to a profile that admits fewer concurrent branches — trading throughput for stability — so the sessions stop fighting for resources in the first place.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-21 — the runtime profile that sets how much concurrency the box admits</div>"
     }
    ]
   }
