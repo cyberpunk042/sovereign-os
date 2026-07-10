@@ -1510,27 +1510,32 @@ window.SO_ASSIST = {
     {
      "selector": "#r0-active",
      "title": "Ring 0",
-     "content": "Active capability tokens at Ring 0 — kernel-equivalent (selfdef daemon) — the most privileged, fewest tokens. The MS039 ring model is defence-in-depth: the lower the ring number, the more it can do, so tokens concentrate privilege — a token at Ring 0/1 is far more consequential than one at Ring 3/4."
+     "content": "Active capability tokens at Ring 0 — kernel-equivalent (selfdef daemon) — the most privileged, fewest tokens. The MS039 ring model is defence-in-depth: the lower the ring number, the more it can do, so tokens concentrate privilege — a token at Ring 0/1 is far more consequential than one at Ring 3/4.",
+     "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">Ring 0 · kernel-equivalent</div>Tokens at the selfdef daemon's own privilege — kernel-adjacent power. The fewest tokens should live here; a surprise R0 token is the single most important thing on this panel to explain.<div class=\"so-xref\"><span class=\"x\">→</span> MS039 authority rings — the ladder R0 sits at the top of</div></div>"
     },
     {
      "selector": "#r1-active",
      "title": "Ring 1",
-     "content": "Active capability tokens at Ring 1 — Guardian + audit (signed bins) — the enforcement layer. The MS039 ring model is defence-in-depth: the lower the ring number, the more it can do, so tokens concentrate privilege — a token at Ring 0/1 is far more consequential than one at Ring 3/4."
+     "content": "Active capability tokens at Ring 1 — Guardian + audit (signed bins) — the enforcement layer. The MS039 ring model is defence-in-depth: the lower the ring number, the more it can do, so tokens concentrate privilege — a token at Ring 0/1 is far more consequential than one at Ring 3/4.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Ring 1 · Guardian + audit</div>Signed-binary privilege — the Guardian daemon and audit machinery. Trusted infrastructure, but a rung below the kernel; these tokens run the enforcement itself.</div>"
     },
     {
      "selector": "#r2-active",
      "title": "Ring 2",
-     "content": "Active capability tokens at Ring 2 — operator-signed CLI — your authority. The MS039 ring model is defence-in-depth: the lower the ring number, the more it can do, so tokens concentrate privilege — a token at Ring 0/1 is far more consequential than one at Ring 3/4."
+     "content": "Active capability tokens at Ring 2 — operator-signed CLI — your authority. The MS039 ring model is defence-in-depth: the lower the ring number, the more it can do, so tokens concentrate privilege — a token at Ring 0/1 is far more consequential than one at Ring 3/4.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Ring 2 · operator-signed CLI</div>Your authority level — tokens minted when you run a signed selfdefctl verb. This is where operator power enters the tree; everything you authorize is an R2 token.<div class=\"so-xref\"><span class=\"x\">→</span> MS003 operator key — what signs an R2 token</div></div>"
     },
     {
      "selector": "#r3-active",
      "title": "Ring 3",
-     "content": "Active capability tokens at Ring 3 — sandboxed agent — normal working tokens. The MS039 ring model is defence-in-depth: the lower the ring number, the more it can do, so tokens concentrate privilege — a token at Ring 0/1 is far more consequential than one at Ring 3/4."
+     "content": "Active capability tokens at Ring 3 — sandboxed agent — normal working tokens. The MS039 ring model is defence-in-depth: the lower the ring number, the more it can do, so tokens concentrate privilege — a token at Ring 0/1 is far more consequential than one at Ring 3/4.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Ring 3 · sandboxed agent</div>Normal working privilege — what an agent gets inside its sandbox. Most live tokens should be here; it's the routine, contained level where day-to-day work runs.</div>"
     },
     {
      "selector": "#r4-active",
      "title": "Ring 4",
-     "content": "Active capability tokens at Ring 4 — untrusted / quarantine — the least privileged. The MS039 ring model is defence-in-depth: the lower the ring number, the more it can do, so tokens concentrate privilege — a token at Ring 0/1 is far more consequential than one at Ring 3/4."
+     "content": "Active capability tokens at Ring 4 — untrusted / quarantine — the least privileged. The MS039 ring model is defence-in-depth: the lower the ring number, the more it can do, so tokens concentrate privilege — a token at Ring 0/1 is far more consequential than one at Ring 3/4.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Ring 4 · untrusted / quarantine</div>The least privilege — untrusted or quarantined code. A token here can do almost nothing; that's the point. Rising R4 counts mean the box is containing more suspect work.<div class=\"so-xref\"><span class=\"x\">→</span> D-17 quarantine — where R4 items are held</div></div>"
     }
    ]
   },
@@ -1547,12 +1552,14 @@ window.SO_ASSIST = {
     {
      "selector": "#s-pending",
      "title": "Pending",
-     "content": "Tokens awaiting an MS003 signature to activate. Minted but not yet valid — they grant nothing until signed on the selfdef side."
+     "content": "Tokens awaiting an MS003 signature to activate. Minted but not yet valid — they grant nothing until signed on the selfdef side.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Minted but not yet valid</div>A pending token exists but can't be used until an MS003 signature activates it. It's a request in token form — power described but not granted until you sign.<div class=\"so-xref\"><span class=\"x\">→</span> D-06 pending approvals — where the signature is given</div></div>"
     },
     {
      "selector": "#s-quarantined",
      "title": "Quarantined",
-     "content": "Tokens selfdef quarantined for an MS042 mismatch — the capability didn't match what was declared. A quarantined token is frozen; a non-zero here is a real integrity flag (see D-17)."
+     "content": "Tokens selfdef quarantined for an MS042 mismatch — the capability didn't match what was declared. A quarantined token is frozen; a non-zero here is a real integrity flag (see D-17).",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">MS042 mismatch → quarantined</div>selfdef quarantines a token when its declared capability doesn't match what it actually did (MS042). A quarantined token is caught over-reaching — worth reading closely, it's a boundary violation.<div class=\"so-xref\"><span class=\"x\">→</span> D-17 quarantine — the full quarantine view</div></div>"
     },
     {
      "selector": "#s-attention",
@@ -1562,7 +1569,8 @@ window.SO_ASSIST = {
     {
      "selector": "#s-roots",
      "title": "Root tokens",
-     "content": "Tokens with no parent — the roots of the inheritance tree. Every other token descends from one of these (F04146), so a root is where a whole branch of capability originates."
+     "content": "Tokens with no parent — the roots of the inheritance tree. Every other token descends from one of these (F04146), so a root is where a whole branch of capability originates.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Roots of the inheritance tree</div>A root token has no parent — every other token descends from one. Capability flows down the tree, so the roots define the maximum any branch could inherit.<div class=\"so-xref\"><span class=\"x\">→</span> inheritance graph — the tree these roots ancho</div></div>"
     }
    ]
   },
@@ -1580,7 +1588,15 @@ window.SO_ASSIST = {
      "selector": "#tokens-tbody",
      "title": "Active tokens",
      "content": "Each token with its ring, state, parent, and actions. Click a token to decode its capability_word bits. Hover for what it grants and where it sits in the tree.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A token is a capability, ringed</div>Each token is a specific granted capability at a specific privilege ring. Its parent is where it inherited from; its bits (below) are exactly what it can do.</div>"
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A token is a capability, ringed</div>Each token is a specific granted capability at a specific privilege ring. Its parent is where it inherited from; its bits (below) are exactly what it can do.</div>",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#tokens-tbody > tr",
+      "nameSelector": "td:first-child,td",
+      "title": "Token · {{name}}",
+      "content": "Token {{name}} — its ring, state, parent, and the capability it carries. Trace its parent to see the authority it inherited; decode its capability_word to see exactly what it permits.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Token · {{name}}</div>One capability token. Ring says its privilege level; parent says where it inherited from; the bit-decode says precisely what it can do.<div class=\"so-xref\"><span class=\"x\">→</span> bit-grid — the capability_word decode</div></div>"
+     }
     },
     {
      "selector": "#bit-grid",
@@ -1591,7 +1607,8 @@ window.SO_ASSIST = {
     {
      "selector": "#inheritance-graph",
      "title": "Inheritance graph",
-     "content": "The parent-child token tree (F04146) — how capability flows from root tokens down to sandboxed ones. A child can never exceed its parent, so the tree is how selfdef guarantees privilege only narrows as it delegates."
+     "content": "The parent-child token tree (F04146) — how capability flows from root tokens down to sandboxed ones. A child can never exceed its parent, so the tree is how selfdef guarantees privilege only narrows as it delegates.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Capability flows down the tree</div>F04146 — the parent-child token graph. A child can never hold more than its parent granted, so the tree bounds privilege structurally: to understand a token's power, trace it to its root.</div>"
     }
    ]
   },

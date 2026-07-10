@@ -1567,12 +1567,14 @@ window.SO_ASSIST = {
        "content": "A gap was found — the hash chain breaks somewhere. The audit record was altered or truncated; this is a tamper signal, not a glitch.",
        "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Chain broken</div>A link doesn't verify — the record was tampered. See 'first gap at' for where.</div>"
       }
-     ]
+     ],
+     "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">Verified = the chain is intact</div>Each entry hashes the previous, so an unbroken chain proves nothing was deleted or altered. 'verified' means every link checks; anything else means the record was tampered with — the strongest integrity claim the box makes.<div class=\"so-xref\"><span class=\"x\">→</span> i-gap — where a break, if any, occurs</div></div>"
     },
     {
      "selector": "#i-total",
      "title": "Total entries",
-     "content": "How many entries are in the chain — the size of the audit record. Every governance action appends one; it only ever grows (append-only)."
+     "content": "How many entries are in the chain — the size of the audit record. Every governance action appends one; it only ever grows (append-only).",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Chain size = record depth</div>How many entries the audit chain holds — the depth of the box's memory of its own actions. It only grows (append-only), so a shrinking total would itself be tampering evidence.</div>"
     },
     {
      "selector": "#i-verified",
@@ -1582,7 +1584,8 @@ window.SO_ASSIST = {
     {
      "selector": "#i-head",
      "title": "Head hash",
-     "content": "The hash of the newest entry — the current tip of the chain. It's the fingerprint of the entire history: change anything earlier and this head hash changes."
+     "content": "The hash of the newest entry — the current tip of the chain. It's the fingerprint of the entire history: change anything earlier and this head hash changes.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The head is the tamper anchor</div>The hash of the newest entry. Because it depends on every prior entry, the head is a single fingerprint of the entire chain — change any past record and the head changes, which is how tampering is detected.</div>"
     },
     {
      "selector": "#i-gap-row",
@@ -1605,17 +1608,20 @@ window.SO_ASSIST = {
     {
      "selector": "#o-process",
      "title": "Process activity",
-     "content": "Audit entries classified as process activity — exec · spawn — what ran. Part of the box's behavioural fingerprint in the audit record."
+     "content": "Audit entries classified as process activity — exec · spawn — what ran. Part of the box's behavioural fingerprint in the audit record.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Process events · exec/spawn</div>What ran — every process execution and spawn. This is the 'who did what' spine of the audit: correlate a suspicious action back to the process that made it.</div>"
     },
     {
      "selector": "#o-file",
      "title": "File activity",
-     "content": "Audit entries classified as file activity — read · write · attr — what was touched. Part of the box's behavioural fingerprint in the audit record."
+     "content": "Audit entries classified as file activity — read · write · attr — what was touched. Part of the box's behavioural fingerprint in the audit record.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">File events · read/write/attr</div>What was touched on disk. File events are how you trace data access — what a process read (exfil risk) or wrote (integrity risk).</div>"
     },
     {
      "selector": "#o-network",
      "title": "Network activity",
-     "content": "Audit entries classified as network activity — dial · listen — what talked out. Part of the box's behavioural fingerprint in the audit record."
+     "content": "Audit entries classified as network activity — dial · listen — what talked out. Part of the box's behavioural fingerprint in the audit record.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Network events · dial/listen</div>What talked to the outside. On a default-closed box every dial is notable; network events are where you catch unexpected egress.<div class=\"so-xref\"><span class=\"x\">→</span> D-12 networking — the egress posture these events record</div></div>"
     },
     {
      "selector": "#o-host",
@@ -1625,7 +1631,8 @@ window.SO_ASSIST = {
     {
      "selector": "#o-authority",
      "title": "Authority decision",
-     "content": "Audit entries classified as authority decision — grant · cap — the privilege decisions. The privilege decisions — grants and capability changes — are the highest-value audit category; a surprise here is a privilege change you didn't expect."
+     "content": "Audit entries classified as authority decision — grant · cap — the privilege decisions. The privilege decisions — grants and capability changes — are the highest-value audit category; a surprise here is a privilege change you didn't expect.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Authority events · grant/cap</div>The privileged decisions — grants issued, capabilities minted. These are the highest-consequence audit entries: they record the box changing what it's allowed to do.<div class=\"so-xref\"><span class=\"x\">→</span> D-14 capability tokens — the tokens these events mint</div></div>"
     }
    ]
   },
@@ -1642,23 +1649,34 @@ window.SO_ASSIST = {
     {
      "selector": "#p-ask",
      "title": "Policy · ask (MS033)",
-     "content": "How many resolved to ASK — escalated to an operator decision rather than auto-resolved. These are the ones that landed in D-06; a rising ask-count means the box is deferring more to you."
+     "content": "How many resolved to ASK — escalated to an operator decision rather than auto-resolved. These are the ones that landed in D-06; a rising ask-count means the box is deferring more to you.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">ASK = escalated to you</div>The box declined to decide alone and escalated. ASK is the operator-in-the-loop verdict — each one is a decision that landed in your approvals queue rather than being auto-resolved.<div class=\"so-xref\"><span class=\"x\">→</span> D-06 pending approvals — where ASK verdicts go</div></div>"
     },
     {
      "selector": "#p-deny",
      "title": "Policy · deny (MS033)",
-     "content": "How many resolved to DENY — the action was refused outright. This is where the IPS actually stopped something; a non-zero deny is the policy engine doing its job, worth reading for what it blocked."
+     "content": "How many resolved to DENY — the action was refused outright. This is where the IPS actually stopped something; a non-zero deny is the policy engine doing its job, worth reading for what it blocked.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">DENY = refused outright</div>The action was blocked. A rising deny count is enforcement actively working — but a spike is worth reading: it's either an attacker probing or a misconfigured agent hitting a wall repeatedly.</div>"
     },
     {
      "selector": "#p-sandbox",
      "title": "Policy · sandbox (MS033)",
-     "content": "How many resolved to SANDBOX — allowed, but only inside an isolation tier (D-15). The middle path: neither trust it fully nor refuse it, but contain it. The clever state that lets risky work proceed safely."
+     "content": "How many resolved to SANDBOX — allowed, but only inside an isolation tier (D-15). The middle path: neither trust it fully nor refuse it, but contain it. The clever state that lets risky work proceed safely.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">SANDBOX = allowed, but contained</div>The verdict resolved to 'run it, inside isolation'. It's the middle path between allow and deny — the action proceeds but in a Tier C/D cell so a compromise is boxed.<div class=\"so-xref\"><span class=\"x\">→</span> D-15 sandboxes — the tiers a SANDBOX verdict routes into</div></div>"
     },
     {
      "selector": "#span-tbody",
      "title": "Audit entries",
      "content": "The recent tail of the audit chain — each a 13-field MS049 entry. Hover a row for what was recorded; every one is hash-linked to the previous, so this is the append-only truth of what the box did.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A 13-field append-only entry</div>Each entry is a complete, immutable record of one event, hash-linked into the chain. It can't be edited after the fact — only appended to.<div class=\"so-xref\"><span class=\"x\">→</span> D-05 traces — the live span view of the same events</div></div>"
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A 13-field append-only entry</div>Each entry is a complete, immutable record of one event, hash-linked into the chain. It can't be edited after the fact — only appended to.<div class=\"so-xref\"><span class=\"x\">→</span> D-05 traces — the live span view of the same events</div></div>",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#span-tbody > tr",
+      "nameSelector": "td:first-child,td",
+      "title": "Entry · {{name}}",
+      "content": "Audit entry {{name}} — a 13-field MS049 record: what happened, who, and the policy verdict. It's one immutable link in the hash chain; its hash depends on the entry before it.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Entry · {{name}}</div>One audit-chain entry. 13 fields capture the full context; its hash ties it to the chain so it can't be altered after the fact.</div>"
+     }
     }
    ]
   },
