@@ -483,10 +483,16 @@ a11y; contract test catches drift.
   .so-node-expanded{margin-top:.55rem; padding-top:.55rem; border-top:1px solid rgba(155,209,255,.13); font-size:.78rem; line-height:1.6; color:var(--muted,#a8a8a8); white-space:pre-line;}
   /* rich expanded cards */
   .so-card{border:1px solid var(--border,#262626); border-radius:7px; padding:.55rem .65rem; margin-top:.45rem; background:var(--bg,#0e0e0e); white-space:normal; line-height:1.55;}
-  .so-card.info{border-color:rgba(155,209,255,.28);}
+  .so-card.info{border-color:rgba(155,209,255,.28); background:rgba(155,209,255,.035);}
+  .so-card.ok{border-color:rgba(127,209,143,.34); background:rgba(127,209,143,.045);}
+  .so-card.warn{border-color:rgba(224,192,122,.38); background:rgba(224,192,122,.05);}
+  .so-card.err{border-color:rgba(224,138,138,.4); background:rgba(224,138,138,.055);}
+  .so-card-label{font-weight:600; font-size:.79rem; margin-bottom:.3rem;}
+  .so-card.ok .so-card-label{color:#7fd18f;} .so-card.warn .so-card-label{color:#e0c07a;} .so-card.err .so-card-label{color:#e08a8a;} .so-card.info .so-card-label{color:var(--accent,#9bd1ff);}
   .so-grid{display:grid; grid-template-columns:auto 1fr; gap:.22rem .6rem; margin:.35rem 0; font-size:.76rem; white-space:normal;}
   .so-grid .k{color:var(--accent,#9bd1ff); font-weight:500;}
-  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;}
+  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;} .so-li .warn{color:#e0c07a;}
+  .so-xref{margin-top:.4rem; font-size:.76rem; color:var(--fg-2,#c8c8c8);} .so-xref .x{color:var(--accent,#9bd1ff); font-weight:500;}
   .so-tip{margin-top:.4rem; font-size:.77rem; color:var(--muted,#a8a8a8);}
   .so-assist-idle{color:var(--muted,#8a8a8a); font-style:italic; padding:.4rem 0;}
   /* highlight the hovered/focused element in the panel content */
@@ -647,25 +653,38 @@ a11y; contract test catches drift.
       return {ctx:ctx, nodes:nodes}; })();
     // flatten deepest-first with parent chains
     var FLAT=[]; (function flat(list,chain){ (list||[]).forEach(function(n){ if(n.children&&n.children.length) flat(n.children,chain.concat([n])); FLAT.push({node:n,parents:chain.slice()}); }); })(CAT.nodes,[]);
+    // {{name}} interpolation for dynamic-row templates
+    function interp(s,name){ return (name==null)?(s||''):String(s||'').replace(/\{\{name\}\}/g,name); }
+    // derive a live row's label (nameSelector, then a strong/cell/code heuristic, then text)
+    function rowName(row,ct){ var t=''; if(ct.nameSelector){ try{ var e=row.querySelector(ct.nameSelector); if(e) t=e.textContent||''; }catch(x){} }
+      if(!t){ var s=row.querySelector('strong,code,th,.k,td'); if(s) t=s.textContent||''; }
+      if(!t) t=row.textContent||''; return t.replace(/\s+/g,' ').trim().slice(0,64); }
+    // synthesize a node from a childTemplate bound to one live row
+    function synthRow(n,row){ var ct=n.childTemplate, nm=rowName(row,ct);
+      return {id:n.id, icon:ct.icon||n.icon, title:interp(ct.title||n.title||'{{name}}',nm), content:ct.content||'', expanded:ct.expanded||'', variants:ct.variants, _name:nm}; }
     // variant resolution against the matched element (state-awareness)
     function resolveVar(node,el){ if(!node.variants||!node.variants.length||!el) return node;
       for(var i=0;i<node.variants.length;i++){ var v=node.variants[i], w=v.when||{}, ok=true;
-        if(w.textContains && (el.textContent||'').indexOf(w.textContains)<0) ok=false;
+        if(w.textContains && (el.textContent||'').toLowerCase().indexOf(String(w.textContains).toLowerCase())<0) ok=false;
         if(ok&&w.hasSelector){ try{ if(!el.querySelector(w.hasSelector)) ok=false; }catch(e){ ok=false; } }
-        if(ok) return {id:node.id,title:v.title||node.title,icon:node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded)}; }
+        if(ok) return {id:node.id,title:v.title||node.title,icon:v.icon||node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded),_name:node._name}; }
       return node; }
-    // match a hovered element to the deepest catalogue node
+    // match a hovered element to the deepest catalogue node (static node OR dynamic row)
     function matchNode(el){ var best=null,bd=-1;
-      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node,m=false,tgt=null; if(!n.selector) continue;
-        try{ if(el.matches(n.selector)){m=true;tgt=el;}
-          else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
-        if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node;
+        if(n.selector){ var m=false,tgt=null;
+          try{ if(el.matches(n.selector)){m=true;tgt=el;}
+            else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
+          if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+        if(n.dynamic && n.childTemplate && n.childTemplate.selector){ try{ var row=el.closest(n.childTemplate.selector);
+          if(row){ var d2=e.parents.length+1; if(d2>bd){ bd=d2; best={entry:{node:synthRow(n,row),parents:e.parents.concat([n])},el:row}; } } }catch(y){} } }
       return best; }
     function ctxHtml(){ var c=CAT.ctx; return '<div class="so-ctx"><div class="so-ctx-title">'+(c.icon?esc(c.icon)+' ':'')+esc(c.title||'')+'</div><div class="so-ctx-content">'+esc(c.content||'')+'</div></div>'; }
-    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node;
-      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(r.title||'')+'</div>';
-      h+='<div class="so-node-content">'+esc(r.content||'')+'</div>';
-      if(active && r.expanded) h+='<div class="so-node-expanded">'+r.expanded+'</div>';   // expanded = trusted authored HTML
+    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node, nm=(node._name!=null?node._name:null);
+      var title=interp(r.title||'',nm), cont=interp(r.content||'',nm), exp=interp(r.expanded||'',nm);
+      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(title)+'</div>';
+      h+='<div class="so-node-content">'+esc(cont)+'</div>';
+      if(active && exp) h+='<div class="so-node-expanded">'+exp+'</div>';   // expanded = trusted authored HTML
       return h+'</div>'; }
     var lastHot=null, lastMatched=null;
     function clearHot(){ if(lastHot){ lastHot.classList.remove('so-assist-hot'); lastHot=null; } }
@@ -684,7 +703,7 @@ a11y; contract test catches drift.
     // menu links → surface the target panel's context (program-awareness: horizontal jump)
     Array.prototype.forEach.call(document.querySelectorAll('.so-sm-item'),function(it){ var p=findPanel(it.dataset.dir); if(!p) return;
       function show(){ openAssist(); clearHot(); lastMatched=null; it.classList.add('so-assist-hot'); lastHot=it; var here=it.dataset.dir===curDir();
-        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+esc(p.desc||'')+'</div></div>'+
+        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+(p.menuHover?p.menuHover:esc(p.desc||''))+'</div></div>'+
           '<div class="so-assist-idle">'+(here?'You’re on this panel now — hover its contents to explore.':'Click to open this panel.')+'</div>'; }
       it.addEventListener('mouseenter',show); it.addEventListener('focus',show); });
     idle();
@@ -1278,92 +1297,101 @@ window.SO_ASSIST = {
  "context": {
   "icon": "△",
   "title": "Trinity",
-  "content": "The 3-tier AI runtime at a glance — Pulse (CPU/AVX-512 ternary, always-available sovereign compute), Weaver (sandboxed GPU fabric where untrusted work runs), and Auditor (the immutable gatekeeper that cannot be bypassed).\n\nCompute (Pulse/Weaver) is only trustworthy because Auditor is watching it. This panel is the health of all three together — the difference between 'running' and 'running safely'."
+  "content": "The 3-tier runtime at a glance (M066). The box's intelligence is split into three decoupled tiers so trust is structural, not assumed: Pulse computes (AVX-512 ternary on CCD 0), Weaver contains (Podman + VFIO sandboxes + the state fabric), and Auditor watches (Tetragon eBPF, always-on). The founding principle: compute is trustworthy ONLY because the Auditor independently watches it — the tier that acts is never the tier that vouches for it.\n\nRead it to confirm all three are up and healthy. Read-only; profile switches run through the signed CLI, never this surface."
  },
  "nodes": [
   {
-   "icon": "▤",
-   "title": "Summary",
-   "content": "The trinity version and how many of its three tiers are live — the one-glance read on the runtime.",
+   "icon": "◆",
+   "title": "Status",
+   "content": "Whether the trinity service is up and how many tiers are active.",
    "children": [
     {
      "selector": "#stats",
      "title": "Trinity summary",
-     "content": "Version + tier counts — the headline of the 3-tier runtime's health before the per-tier detail below."
+     "content": "The roll-up — API version, tier count, services active. The one-glance 'is the trinity whole' read."
     },
     {
      "selector": "#stat-version",
-     "title": "Trinity version",
-     "content": "Ties the three tiers to a super-model version — so you know the Pulse/Weaver/Auditor you're looking at is the set built together (cross-reference D-19)."
+     "title": "API version",
+     "content": "The trinity daemon version answering — for reconciling this panel's behaviour against the M066 spec."
     },
     {
      "selector": "#stat-tiers",
      "title": "Tiers",
-     "content": "The three tiers the runtime is composed of — Pulse, Weaver, Auditor. Their combined health is the trinity's health."
+     "content": "How many trinity tiers are defined — always three (Pulse, Weaver, Auditor); the M066 decoupled trinity."
     },
     {
      "selector": "#stat-active",
-     "title": "Active tiers",
-     "content": "How many tiers are live. Pulse should always be up (it needs no GPU); a missing Auditor means compute is running unwatched.",
+     "title": "Services active",
+     "content": "How many of the three tier services are up. All three should be — the trinity only holds if the Auditor is watching the other two.",
      "variants": [
       {
        "when": {
         "textContains": "3"
        },
-       "content": "All three tiers active — compute is running and being watched. The healthy state."
+       "content": "All three tiers active — Pulse, Weaver, and Auditor are up; the trinity is whole."
       }
      ]
     }
    ]
   },
   {
-   "icon": "◈",
-   "title": "The three tiers",
-   "content": "Pulse (sovereign CPU compute), Weaver (sandboxed GPU fabric), Auditor (immutable gatekeeper) — each with its health and model assignment.",
+   "icon": "△",
+   "title": "The trinity (M066)",
+   "content": "The decoupled software trinity, manifested on hardware: Pulse computes, Weaver isolates, Auditor watches. The core idea (M066): compute is trustworthy ONLY because the Auditor watches it — the three are separated so no single tier can both act and vouch for itself.",
    "children": [
     {
+     "selector": "#tier-row",
+     "title": "Tiers",
+     "content": "The three trinity tiers at a glance. Read them together: Pulse does the thinking, Weaver contains the risky work, Auditor guarantees neither can misbehave unseen.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why three, decoupled</div><div class=\"so-grid\"><span class=\"k\">Pulse</span><span>Vector Core — AVX-512 / ternary bitnet on CCD 0 (D-09)</span><span class=\"k\">Weaver</span><span>Sandboxed Fabric — Podman + VFIO isolation</span><span class=\"k\">Auditor</span><span>Immutable Gatekeeper — Tetragon eBPF, always-on</span></div><div class=\"so-tip\">💡 Separation is the point: the tier that computes is not the tier that vouches for it. Trust comes from the split.</div></div>"
+    },
+    {
      "selector": "#tier-pulse",
-     "title": "Pulse tier",
-     "content": "The CPU/AVX-512 ternary inference tier — the sovereign, always-available path that runs even with no GPU. The tier the box falls back to under GPU pressure (D-09).",
-     "expanded": "<div class=\"so-card info\"><div>Pulse is why the box is never fully offline for inference — it's the floor beneath the GPU tiers.</div></div>"
+     "title": "Pulse — Vector Core",
+     "content": "The compute tier: AVX-512 vector work + ternary bitnet.cpp inference, pinned to CCD 0 (the Pulse Core, D-09). This is where the box thinks. Hover D-09 for its live core/cache pressure.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Pulse computes</div>The Vector Core — fast local ternary inference on dedicated cores. It's powerful but, by design, doesn't get to vouch for itself; the Auditor does that.<div class=\"so-xref\"><span class=\"x\">→</span> D-09 CCD 0 — Pulse's live hardware<br><span class=\"x\">→</span> D-03 Conductor — Pulse's model tie</div></div>"
     },
     {
      "selector": "#tier-weaver",
-     "title": "Weaver tier",
-     "content": "The sandboxed GPU fabric — Podman/VFIO isolation where untrusted work runs, writing atomic state to tank/context (D-15). The containment half of the trinity."
+     "title": "Weaver — Sandboxed Fabric",
+     "content": "The isolation tier: Podman + VFIO sandboxes where untrusted work runs, plus the state-fabric writers (tank/context). It contains risk so Pulse's compute and the host stay clean. Its own panel has the detail.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Weaver contains</div>The Sandboxed Fabric — untrusted work runs walled off (Podman + VFIO), and durable state is written here. Risk lives inside Weaver so it can't reach Pulse or the host.<div class=\"so-xref\"><span class=\"x\">→</span> Weaver panel — the state-fabric + isolation detail<br><span class=\"x\">→</span> D-15 sandboxes — the isolation tiers</div></div>"
     },
     {
      "selector": "#tier-auditor",
-     "title": "Auditor tier",
-     "content": "The immutable gatekeeper — the perimeter that cannot be bypassed. Compute is only trustworthy because Auditor is watching; this tier's health is the difference between 'running' and 'running safely'.",
-     "expanded": "<div class=\"so-card info\"><div class='so-li no'>✗ Auditor down = Pulse/Weaver are running unwatched — degraded trust even if they're healthy.</div></div>"
+     "title": "Auditor — Immutable Gatekeeper",
+     "content": "The watch tier: Tetragon eBPF at the kernel perimeter + the Guardian violation service. Always on, can't be bypassed — it's what makes Pulse's compute and Weaver's isolation trustworthy. Its panel has the violation history.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Auditor guarantees</div>The Immutable Gatekeeper — an eBPF perimeter that sees everything and can't be turned off from inside. The trinity's compute is only trustworthy because this tier independently watches it.<div class=\"so-xref\"><span class=\"x\">→</span> Auditor panel — Tetragon + Guardian + violation history</div></div>"
+    }
+   ]
+  },
+  {
+   "icon": "⟳",
+   "title": "Refresh",
+   "content": "Re-poll on demand; read-only.",
+   "children": [
+    {
+     "selector": "#refresh-btn",
+     "title": "Refresh",
+     "content": "Re-poll this panel now. Read-only re-sample — it never mutates."
     },
     {
-     "selector": "#tier-row",
-     "title": "Tier row",
-     "content": "The three tiers side by side — the at-a-glance layout of the runtime's health."
+     "selector": "#last-refresh",
+     "title": "Refresh freshness",
+     "content": "When this was last read. Check before trusting a status as current."
     }
    ]
   },
   {
    "icon": "⎈",
-   "title": "Actions & controls",
-   "content": "",
+   "title": "Controls",
+   "content": "Read-only — mutations copy signed sovereign-osctl verbs (§1g / R10212).",
    "children": [
-    {
-     "selector": "#refresh-btn",
-     "title": "Refresh",
-     "content": "Pull a fresh read of all three tiers. Read-only."
-    },
-    {
-     "selector": "#last-refresh",
-     "title": "Last refresh",
-     "content": "When the trinity state was last read — freshness for the tier health above."
-    },
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Trinity controls — each copies its sovereign-osctl verb (§1g / R10212). Read-only view."
+     "content": "Controls — each copies its exact sovereign-osctl verb. Trinity profile switch runs through the signed CLI, never from the web (§1g / R10212)."
     }
    ]
   }

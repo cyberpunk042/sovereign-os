@@ -447,10 +447,16 @@ a11y; contract test catches drift.
   .so-node-expanded{margin-top:.55rem; padding-top:.55rem; border-top:1px solid rgba(155,209,255,.13); font-size:.78rem; line-height:1.6; color:var(--muted,#a8a8a8); white-space:pre-line;}
   /* rich expanded cards */
   .so-card{border:1px solid var(--border,#262626); border-radius:7px; padding:.55rem .65rem; margin-top:.45rem; background:var(--bg,#0e0e0e); white-space:normal; line-height:1.55;}
-  .so-card.info{border-color:rgba(155,209,255,.28);}
+  .so-card.info{border-color:rgba(155,209,255,.28); background:rgba(155,209,255,.035);}
+  .so-card.ok{border-color:rgba(127,209,143,.34); background:rgba(127,209,143,.045);}
+  .so-card.warn{border-color:rgba(224,192,122,.38); background:rgba(224,192,122,.05);}
+  .so-card.err{border-color:rgba(224,138,138,.4); background:rgba(224,138,138,.055);}
+  .so-card-label{font-weight:600; font-size:.79rem; margin-bottom:.3rem;}
+  .so-card.ok .so-card-label{color:#7fd18f;} .so-card.warn .so-card-label{color:#e0c07a;} .so-card.err .so-card-label{color:#e08a8a;} .so-card.info .so-card-label{color:var(--accent,#9bd1ff);}
   .so-grid{display:grid; grid-template-columns:auto 1fr; gap:.22rem .6rem; margin:.35rem 0; font-size:.76rem; white-space:normal;}
   .so-grid .k{color:var(--accent,#9bd1ff); font-weight:500;}
-  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;}
+  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;} .so-li .warn{color:#e0c07a;}
+  .so-xref{margin-top:.4rem; font-size:.76rem; color:var(--fg-2,#c8c8c8);} .so-xref .x{color:var(--accent,#9bd1ff); font-weight:500;}
   .so-tip{margin-top:.4rem; font-size:.77rem; color:var(--muted,#a8a8a8);}
   .so-assist-idle{color:var(--muted,#8a8a8a); font-style:italic; padding:.4rem 0;}
   /* highlight the hovered/focused element in the panel content */
@@ -611,25 +617,38 @@ a11y; contract test catches drift.
       return {ctx:ctx, nodes:nodes}; })();
     // flatten deepest-first with parent chains
     var FLAT=[]; (function flat(list,chain){ (list||[]).forEach(function(n){ if(n.children&&n.children.length) flat(n.children,chain.concat([n])); FLAT.push({node:n,parents:chain.slice()}); }); })(CAT.nodes,[]);
+    // {{name}} interpolation for dynamic-row templates
+    function interp(s,name){ return (name==null)?(s||''):String(s||'').replace(/\{\{name\}\}/g,name); }
+    // derive a live row's label (nameSelector, then a strong/cell/code heuristic, then text)
+    function rowName(row,ct){ var t=''; if(ct.nameSelector){ try{ var e=row.querySelector(ct.nameSelector); if(e) t=e.textContent||''; }catch(x){} }
+      if(!t){ var s=row.querySelector('strong,code,th,.k,td'); if(s) t=s.textContent||''; }
+      if(!t) t=row.textContent||''; return t.replace(/\s+/g,' ').trim().slice(0,64); }
+    // synthesize a node from a childTemplate bound to one live row
+    function synthRow(n,row){ var ct=n.childTemplate, nm=rowName(row,ct);
+      return {id:n.id, icon:ct.icon||n.icon, title:interp(ct.title||n.title||'{{name}}',nm), content:ct.content||'', expanded:ct.expanded||'', variants:ct.variants, _name:nm}; }
     // variant resolution against the matched element (state-awareness)
     function resolveVar(node,el){ if(!node.variants||!node.variants.length||!el) return node;
       for(var i=0;i<node.variants.length;i++){ var v=node.variants[i], w=v.when||{}, ok=true;
-        if(w.textContains && (el.textContent||'').indexOf(w.textContains)<0) ok=false;
+        if(w.textContains && (el.textContent||'').toLowerCase().indexOf(String(w.textContains).toLowerCase())<0) ok=false;
         if(ok&&w.hasSelector){ try{ if(!el.querySelector(w.hasSelector)) ok=false; }catch(e){ ok=false; } }
-        if(ok) return {id:node.id,title:v.title||node.title,icon:node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded)}; }
+        if(ok) return {id:node.id,title:v.title||node.title,icon:v.icon||node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded),_name:node._name}; }
       return node; }
-    // match a hovered element to the deepest catalogue node
+    // match a hovered element to the deepest catalogue node (static node OR dynamic row)
     function matchNode(el){ var best=null,bd=-1;
-      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node,m=false,tgt=null; if(!n.selector) continue;
-        try{ if(el.matches(n.selector)){m=true;tgt=el;}
-          else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
-        if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node;
+        if(n.selector){ var m=false,tgt=null;
+          try{ if(el.matches(n.selector)){m=true;tgt=el;}
+            else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
+          if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+        if(n.dynamic && n.childTemplate && n.childTemplate.selector){ try{ var row=el.closest(n.childTemplate.selector);
+          if(row){ var d2=e.parents.length+1; if(d2>bd){ bd=d2; best={entry:{node:synthRow(n,row),parents:e.parents.concat([n])},el:row}; } } }catch(y){} } }
       return best; }
     function ctxHtml(){ var c=CAT.ctx; return '<div class="so-ctx"><div class="so-ctx-title">'+(c.icon?esc(c.icon)+' ':'')+esc(c.title||'')+'</div><div class="so-ctx-content">'+esc(c.content||'')+'</div></div>'; }
-    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node;
-      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(r.title||'')+'</div>';
-      h+='<div class="so-node-content">'+esc(r.content||'')+'</div>';
-      if(active && r.expanded) h+='<div class="so-node-expanded">'+r.expanded+'</div>';   // expanded = trusted authored HTML
+    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node, nm=(node._name!=null?node._name:null);
+      var title=interp(r.title||'',nm), cont=interp(r.content||'',nm), exp=interp(r.expanded||'',nm);
+      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(title)+'</div>';
+      h+='<div class="so-node-content">'+esc(cont)+'</div>';
+      if(active && exp) h+='<div class="so-node-expanded">'+exp+'</div>';   // expanded = trusted authored HTML
       return h+'</div>'; }
     var lastHot=null, lastMatched=null;
     function clearHot(){ if(lastHot){ lastHot.classList.remove('so-assist-hot'); lastHot=null; } }
@@ -648,7 +667,7 @@ a11y; contract test catches drift.
     // menu links → surface the target panel's context (program-awareness: horizontal jump)
     Array.prototype.forEach.call(document.querySelectorAll('.so-sm-item'),function(it){ var p=findPanel(it.dataset.dir); if(!p) return;
       function show(){ openAssist(); clearHot(); lastMatched=null; it.classList.add('so-assist-hot'); lastHot=it; var here=it.dataset.dir===curDir();
-        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+esc(p.desc||'')+'</div></div>'+
+        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+(p.menuHover?p.menuHover:esc(p.desc||''))+'</div></div>'+
           '<div class="so-assist-idle">'+(here?'You’re on this panel now — hover its contents to explore.':'Click to open this panel.')+'</div>'; }
       it.addEventListener('mouseenter',show); it.addEventListener('focus',show); });
     idle();
@@ -1348,125 +1367,132 @@ a11y; contract test catches drift.
 <script>
 window.SO_ASSIST = {
  "context": {
-  "icon": "◐",
+  "icon": "◫",
   "title": "Personalization",
-  "content": "The appearance surface — theme, accent color, and typography scale for the whole dashboard suite. Changes here restyle every panel, including this assistant.\n\nUnlike most panels, this one DOES apply changes (they're presentation-only, stored client-side — R10137/R10140/R10141), so there's no signed-CLI gate; a live preview shows the effect before you commit."
+  "content": "Operator comfort, deliberately separate from machine state. This panel styles the cockpit — light/dark theme (R10137), accent color (R10140), and typography scale (R10141) — and nothing here touches the box's configuration or behavior. It is how you make the cockpit easy to read at the bench (larger, high-contrast) or dense at the desk, without any risk of changing what the machine does.\n\nExport and import carry your look between machines as a JSON of cosmetic settings only — no box state, no secrets — so it is safe to move or share. Everything applies live and locally. This is the one panel where you can change nothing consequential: presentation and state are kept apart by design."
  },
  "nodes": [
   {
-   "icon": "◐",
+   "icon": "▦",
    "title": "Theme",
-   "content": "Light, dark, or auto — the base palette everything inherits.",
+   "content": "The cockpit's light/dark theme (R10137). Pure presentation — it changes how every panel looks, nothing about what the box does. Personalization is operator comfort, not machine state.",
    "children": [
     {
      "selector": "#theme-control",
-     "title": "Theme (R10137)",
-     "content": "Dark / light / auto — the base color scheme for every dashboard. Auto follows your OS preference. This is the widest-reaching appearance choice.",
-     "variants": [
-      {
-       "when": {
-        "textContains": "auto"
-       },
-       "content": "Auto — the theme follows your operating-system light/dark setting."
-      },
-      {
-       "when": {
-        "textContains": "dark"
-       },
-       "content": "Dark theme active across all panels."
-      },
-      {
-       "when": {
-        "textContains": "light"
-       },
-       "content": "Light theme active across all panels."
-      }
-     ]
+     "title": "Theme",
+     "content": "Light or dark for the whole cockpit (R10137). This is presentation only — it restyles every panel and persists across sessions, but changes nothing about the box's behavior. Set it for whatever is easier on your eyes at the bench vs the desk.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Presentation, not state</div>The theme, accent, and scale here are operator comfort settings — they restyle the cockpit and are saved locally. None of them touch the box's configuration or behavior; personalization and machine-state are deliberately separate.</div>"
     }
    ]
   },
   {
-   "icon": "◆",
+   "icon": "◎",
    "title": "Accent color",
-   "content": "The highlight color used for active elements and emphasis.",
+   "content": "The cockpit accent color (R10140) — the highlight color used across panels. Presentation only; pick a preset or a custom value.",
    "children": [
     {
      "selector": "#accent-control",
-     "title": "Accent palette (R10140)",
-     "content": "The accent color used for highlights, active states, and the assistant's own emphasis. Pick a preset swatch, or set a custom hex below.",
-     "expanded": "<div class=\"so-card info\"><div>The accent is what the assistant panel uses to mark the active element — so this choice shapes the assistant's own look too.</div></div>"
+     "title": "Accent",
+     "content": "The accent color from presets (R10140) — the highlight used for active elements across the cockpit. Presentation only; it does not affect any panel's meaning, only its look."
     },
     {
      "selector": "#accent-custom",
      "title": "Custom accent",
-     "content": "Enter a custom hex color (#rrggbb) for the accent — for when no preset swatch fits. Validated against a hex pattern before it applies."
+     "content": "A custom accent color value, if the presets do not fit. Type a color; it applies to the highlight across panels."
     },
     {
      "selector": "#accent-apply",
-     "title": "Apply custom accent",
-     "content": "Commit the typed custom hex as the accent — applies it live across all panels."
+     "title": "Apply accent",
+     "content": "Applies the chosen accent across the cockpit. Live and local — it restyles immediately and persists, touching nothing on the box."
     }
    ]
   },
   {
-   "icon": "⌶",
-   "title": "Typography",
-   "content": "The global font-size scale.",
+   "icon": "⊞",
+   "title": "Typography scale",
+   "content": "The text size scale (R10141) — how large cockpit text renders. Presentation only; raise it for readability at distance, lower it for density.",
    "children": [
     {
      "selector": "#scale-control",
-     "title": "Typography scale (R10141)",
-     "content": "The global font-size multiplier — scale text up for readability or down for density. Applies across every panel at once."
+     "title": "Typography scale",
+     "content": "The text-size scale for the cockpit (R10141). Larger for readability across the room at the bench; smaller for density at the desk. Presentation only — it changes legibility, not content."
     }
    ]
   },
   {
-   "icon": "▤",
-   "title": "Preview & actions",
-   "content": "See the effect, then reset or export.",
+   "icon": "◈",
+   "title": "Live preview",
+   "content": "A live preview of the current theme + accent + scale before you commit — see the look applied without leaving the panel.",
+   "children": [
+    {
+     "selector": "#toast",
+     "title": "Preview feedback",
+     "content": "Transient confirmation of a personalization change. Confirms the setting applied — all local, nothing on the box changed."
+    }
+   ]
+  },
+  {
+   "icon": "⇄",
+   "title": "Actions",
+   "content": "Reset, export, and import your personalization — so the same look travels between machines. This is settings portability, purely cosmetic; no box state is in the exported file.",
    "children": [
     {
      "selector": "#reset-btn",
-     "title": "Reset to defaults",
-     "content": "Restore theme, accent, and typography to their defaults — one click back to the baseline look if you've drifted."
+     "title": "Reset",
+     "content": "Restores the default theme/accent/scale. Cosmetic — it resets the look only, nothing about the box."
     },
     {
      "selector": "#export-btn",
-     "title": "Export as JSON",
-     "content": "Copy your personalization settings as JSON — portable so you can carry the same look to another box or restore it later.",
-     "expanded": "<div class=\"so-card info\"><div class='so-li ok'>✓ Export makes your look reproducible — paste it back to recreate the exact theme/accent/scale elsewhere.</div></div>"
+     "title": "Export",
+     "content": "Exports your personalization (theme + accent + scale) as JSON — so you can carry the same cockpit look to another machine. The file holds cosmetic settings only, no box state or secrets.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Portable look, no state</div>Export writes only your presentation choices — theme, accent, scale — to a JSON file. It contains nothing about the box's configuration or any secret, so it is safe to move between machines or share.</div>"
     },
     {
      "selector": "#export-file",
-     "title": "Download JSON file",
-     "content": "Save your personalization settings as a personalization-<date>.json file — hand it to someone or keep a backup. Pure client-side: a download of your own settings, nothing sent to the server."
+     "title": "Export file",
+     "content": "The exported personalization file. Cosmetic settings only — safe to copy to another cockpit."
     },
     {
      "selector": "#import-btn",
-     "title": "Import from JSON",
-     "content": "Paste a profile JSON to load it — validated (schema v1 + theme/accent/scale) before it applies; an invalid paste is rejected with a reason and nothing changes."
+     "title": "Import",
+     "content": "Imports a personalization JSON — applies someone's (or your other machine's) cockpit look here. Presentation only; it cannot change the box, only how the cockpit renders."
     },
     {
      "selector": "#import-file-btn",
-     "title": "Import from file",
-     "content": "Load a personalization JSON file from disk — read locally in the browser and run through the SAME validator as paste (bad file → rejected, nothing changes). Never uploaded to the server."
+     "title": "Choose import file",
+     "content": "Pick a personalization JSON file to import."
     },
     {
-     "selector": "#toast",
-     "title": "Copy toast",
-     "content": "Confirms an export or apply action landed — brief feedback that the change or copy took effect."
+     "selector": "#import-file",
+     "title": "Import file input",
+     "content": "The file picker for importing personalization. Cosmetic settings only."
+    },
+    {
+     "selector": "#import-box",
+     "title": "Import area",
+     "content": "The import panel where a pasted or chosen personalization JSON lands before applying."
+    },
+    {
+     "selector": "#import-json",
+     "title": "Import JSON",
+     "content": "Paste a personalization JSON here to apply it. Presentation only — it restyles the cockpit, it does not touch the box."
+    },
+    {
+     "selector": "#import-apply",
+     "title": "Apply import",
+     "content": "Applies the imported personalization. Live and local — restyles immediately, changes nothing on the box."
     }
    ]
   },
   {
    "icon": "⎈",
    "title": "Controls",
-   "content": "",
+   "content": "Read-only view — mutations copy signed sovereign-osctl verbs (§1g / R10212). The web previews; the box changes only when you run the signed command.",
    "children": [
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Profile / mode / feature-toggle controls — each copies its sovereign-osctl verb (§1g / R10212). This view reads state; every mutation runs via the signed CLI, never from the browser."
+     "content": "The control rail — each button copies its exact sovereign-osctl verb. A personalization change (cosmetic only) runs through the signed CLI, never from a web click."
     }
    ]
   }

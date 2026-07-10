@@ -140,10 +140,16 @@
   .so-node-expanded{margin-top:.55rem; padding-top:.55rem; border-top:1px solid rgba(155,209,255,.13); font-size:.78rem; line-height:1.6; color:var(--muted,#a8a8a8); white-space:pre-line;}
   /* rich expanded cards */
   .so-card{border:1px solid var(--border,#262626); border-radius:7px; padding:.55rem .65rem; margin-top:.45rem; background:var(--bg,#0e0e0e); white-space:normal; line-height:1.55;}
-  .so-card.info{border-color:rgba(155,209,255,.28);}
+  .so-card.info{border-color:rgba(155,209,255,.28); background:rgba(155,209,255,.035);}
+  .so-card.ok{border-color:rgba(127,209,143,.34); background:rgba(127,209,143,.045);}
+  .so-card.warn{border-color:rgba(224,192,122,.38); background:rgba(224,192,122,.05);}
+  .so-card.err{border-color:rgba(224,138,138,.4); background:rgba(224,138,138,.055);}
+  .so-card-label{font-weight:600; font-size:.79rem; margin-bottom:.3rem;}
+  .so-card.ok .so-card-label{color:#7fd18f;} .so-card.warn .so-card-label{color:#e0c07a;} .so-card.err .so-card-label{color:#e08a8a;} .so-card.info .so-card-label{color:var(--accent,#9bd1ff);}
   .so-grid{display:grid; grid-template-columns:auto 1fr; gap:.22rem .6rem; margin:.35rem 0; font-size:.76rem; white-space:normal;}
   .so-grid .k{color:var(--accent,#9bd1ff); font-weight:500;}
-  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;}
+  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;} .so-li .warn{color:#e0c07a;}
+  .so-xref{margin-top:.4rem; font-size:.76rem; color:var(--fg-2,#c8c8c8);} .so-xref .x{color:var(--accent,#9bd1ff); font-weight:500;}
   .so-tip{margin-top:.4rem; font-size:.77rem; color:var(--muted,#a8a8a8);}
   .so-assist-idle{color:var(--muted,#8a8a8a); font-style:italic; padding:.4rem 0;}
   /* highlight the hovered/focused element in the panel content */
@@ -304,25 +310,38 @@
       return {ctx:ctx, nodes:nodes}; })();
     // flatten deepest-first with parent chains
     var FLAT=[]; (function flat(list,chain){ (list||[]).forEach(function(n){ if(n.children&&n.children.length) flat(n.children,chain.concat([n])); FLAT.push({node:n,parents:chain.slice()}); }); })(CAT.nodes,[]);
+    // {{name}} interpolation for dynamic-row templates
+    function interp(s,name){ return (name==null)?(s||''):String(s||'').replace(/\{\{name\}\}/g,name); }
+    // derive a live row's label (nameSelector, then a strong/cell/code heuristic, then text)
+    function rowName(row,ct){ var t=''; if(ct.nameSelector){ try{ var e=row.querySelector(ct.nameSelector); if(e) t=e.textContent||''; }catch(x){} }
+      if(!t){ var s=row.querySelector('strong,code,th,.k,td'); if(s) t=s.textContent||''; }
+      if(!t) t=row.textContent||''; return t.replace(/\s+/g,' ').trim().slice(0,64); }
+    // synthesize a node from a childTemplate bound to one live row
+    function synthRow(n,row){ var ct=n.childTemplate, nm=rowName(row,ct);
+      return {id:n.id, icon:ct.icon||n.icon, title:interp(ct.title||n.title||'{{name}}',nm), content:ct.content||'', expanded:ct.expanded||'', variants:ct.variants, _name:nm}; }
     // variant resolution against the matched element (state-awareness)
     function resolveVar(node,el){ if(!node.variants||!node.variants.length||!el) return node;
       for(var i=0;i<node.variants.length;i++){ var v=node.variants[i], w=v.when||{}, ok=true;
-        if(w.textContains && (el.textContent||'').indexOf(w.textContains)<0) ok=false;
+        if(w.textContains && (el.textContent||'').toLowerCase().indexOf(String(w.textContains).toLowerCase())<0) ok=false;
         if(ok&&w.hasSelector){ try{ if(!el.querySelector(w.hasSelector)) ok=false; }catch(e){ ok=false; } }
-        if(ok) return {id:node.id,title:v.title||node.title,icon:node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded)}; }
+        if(ok) return {id:node.id,title:v.title||node.title,icon:v.icon||node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded),_name:node._name}; }
       return node; }
-    // match a hovered element to the deepest catalogue node
+    // match a hovered element to the deepest catalogue node (static node OR dynamic row)
     function matchNode(el){ var best=null,bd=-1;
-      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node,m=false,tgt=null; if(!n.selector) continue;
-        try{ if(el.matches(n.selector)){m=true;tgt=el;}
-          else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
-        if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node;
+        if(n.selector){ var m=false,tgt=null;
+          try{ if(el.matches(n.selector)){m=true;tgt=el;}
+            else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
+          if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+        if(n.dynamic && n.childTemplate && n.childTemplate.selector){ try{ var row=el.closest(n.childTemplate.selector);
+          if(row){ var d2=e.parents.length+1; if(d2>bd){ bd=d2; best={entry:{node:synthRow(n,row),parents:e.parents.concat([n])},el:row}; } } }catch(y){} } }
       return best; }
     function ctxHtml(){ var c=CAT.ctx; return '<div class="so-ctx"><div class="so-ctx-title">'+(c.icon?esc(c.icon)+' ':'')+esc(c.title||'')+'</div><div class="so-ctx-content">'+esc(c.content||'')+'</div></div>'; }
-    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node;
-      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(r.title||'')+'</div>';
-      h+='<div class="so-node-content">'+esc(r.content||'')+'</div>';
-      if(active && r.expanded) h+='<div class="so-node-expanded">'+r.expanded+'</div>';   // expanded = trusted authored HTML
+    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node, nm=(node._name!=null?node._name:null);
+      var title=interp(r.title||'',nm), cont=interp(r.content||'',nm), exp=interp(r.expanded||'',nm);
+      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(title)+'</div>';
+      h+='<div class="so-node-content">'+esc(cont)+'</div>';
+      if(active && exp) h+='<div class="so-node-expanded">'+exp+'</div>';   // expanded = trusted authored HTML
       return h+'</div>'; }
     var lastHot=null, lastMatched=null;
     function clearHot(){ if(lastHot){ lastHot.classList.remove('so-assist-hot'); lastHot=null; } }
@@ -341,7 +360,7 @@
     // menu links → surface the target panel's context (program-awareness: horizontal jump)
     Array.prototype.forEach.call(document.querySelectorAll('.so-sm-item'),function(it){ var p=findPanel(it.dataset.dir); if(!p) return;
       function show(){ openAssist(); clearHot(); lastMatched=null; it.classList.add('so-assist-hot'); lastHot=it; var here=it.dataset.dir===curDir();
-        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+esc(p.desc||'')+'</div></div>'+
+        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+(p.menuHover?p.menuHover:esc(p.desc||''))+'</div></div>'+
           '<div class="so-assist-idle">'+(here?'You’re on this panel now — hover its contents to explore.':'Click to open this panel.')+'</div>'; }
       it.addEventListener('mouseenter',show); it.addEventListener('focus',show); });
     idle();
@@ -1134,200 +1153,361 @@ load();
 <script>
 window.SO_ASSIST = {
  "context": {
-  "icon": "▶",
-  "title": "Emulate (QEMU)",
-  "content": "The safe way to test a built image before you flash hardware — QEMU boots it as a virtual machine with a live serial console you can log into. The image file is never touched by the USB key here.\n\nA successful boot-and-login in this VM validates the exact artifact you'd flash. All local; nothing external."
+  "icon": "◫",
+  "title": "Emulate",
+  "content": "The safe rehearsal. Before a built image is flashed to a real device, this panel boots it in QEMU — a disposable virtual machine — so you catch a broken build before it touches hardware. The choices that make the test faithful: uefi boot mode runs the real OVMF → systemd-boot → signed-UKI chain (so it tests the actual secure boot, including signature verification), and kvm acceleration runs the guest at near-native speed on the host CPU rather than slow software emulation.\n\nSnapshot mode discards all writes on stop, so every test boot is a clean slate you can break freely; no-reboot halts on the first guest reboot so a boot loop stops here instead of spinning forever. When a VM starts but never reaches a login, the serial console is where the failure explains itself — read it, do not guess. Nothing here touches the real box; the next step, flashing to hardware, is the flash panel."
  },
  "nodes": [
   {
    "icon": "◆",
-   "title": "Status & image",
-   "content": "Whether the emulator is ready and which built image it'll boot. No image means nothing to test — build first.",
+   "title": "Status",
+   "content": "Whether a VM is running and what image it holds — this panel boots the BUILT image in QEMU so you can test it before flashing real hardware.",
    "children": [
     {
      "selector": "#status",
-     "title": "Emulator status",
-     "content": "Whether QEMU is ready to boot. The image runs as a VM with a serial console; it never touches the USB key.",
-     "expanded": ""
+     "title": "VM status",
+     "content": "Whether an emulated VM is running. This panel is the safe rehearsal: it boots the built image in QEMU so you can verify it works before writing it to a real device (flash panel)."
     },
     {
-     "selector": "#image",
-     "title": "Built image",
-     "content": "The artifact the VM will boot — the exact file you'd also flash. Testing it here tests the real thing.",
-     "expanded": "<div class=\"so-card info\"><div>'no built image found' → build first; there's nothing to emulate yet.</div></div>"
-    },
-    {
-     "selector": "#caps",
-     "title": "Image capabilities",
-     "content": "What's baked into the image (selfdef, graceful-shutdown, etc. per the build config) — confirm you're emulating the image you think you built.",
-     "expanded": ""
-    }
-   ]
-  },
-  {
-   "icon": "⚙",
-   "title": "Boot options",
-   "content": "How the VM boots and how much hardware it gets. UEFI mirrors real hardware; direct kernel boot is the debugging path.",
-   "children": [
-    {
-     "selector": "#boot",
-     "title": "Boot mode",
-     "content": "UEFI (OVMF firmware) boots the image the way real hardware would — the faithful test. Direct kernel+initrd is faster and shows every service starting — the path when a boot hangs and you need to see where.",
-     "expanded": ""
-    },
-    {
-     "selector": "#accel",
-     "title": "Acceleration",
-     "content": "KVM uses the host CPU directly (near-native, needs virtualization support); TCG emulates in software (slower, works anywhere). 'auto' picks KVM if available.",
-     "expanded": ""
-    },
-    {
-     "selector": "#smp",
-     "title": "vCPUs",
-     "content": "Virtual CPUs for the VM. More boots faster but consumes host cores — 2 is fine for a quick boot test.",
-     "expanded": ""
-    },
-    {
-     "selector": "#mem",
-     "title": "Memory",
-     "content": "RAM for the guest — enough to boot the full image, or services fail in ways that aren't real hardware faults.",
-     "expanded": ""
-    },
-    {
-     "selector": "#snapshot",
-     "title": "Snapshot (discard writes)",
-     "content": "Run the image read-only — the VM can write during the test but nothing persists back to the image file. Leave on for repeatable boot tests.",
-     "expanded": "<div class=\"so-card info\"><div>Protects the built artifact — turn off only when you deliberately want the guest to keep state.</div></div>"
-    },
-    {
-     "selector": "#noreboot",
-     "title": "No-reboot",
-     "content": "Stop the VM instead of rebooting when the guest reboots — useful when testing first-boot behaviour without it looping.",
-     "expanded": ""
-    },
-    {
-     "selector": "#cmdline",
-     "title": "Kernel cmdline",
-     "content": "Extra kernel command line for direct boot (e.g. systemd.unit=rescue) — drop into rescue or pass debug flags you can't reach through normal UEFI boot.",
-     "expanded": ""
-    }
-   ]
-  },
-  {
-   "icon": "⎚",
-   "title": "VM & console",
-   "content": "Run the VM, log into the guest, and interact with its live serial console — where you actually verify the image behaves, not just boots.",
-   "children": [
-    {
-     "selector": "#btn-start",
-     "title": "Start VM",
-     "content": "Boot the built image in QEMU with the chosen options — the console below comes alive as it boots. All local; nothing flashed.",
-     "expanded": ""
-    },
-    {
-     "selector": "#btn-stop",
-     "title": "Stop VM",
-     "content": "Power off the running VM. With snapshot on, any writes are discarded; the image file is untouched either way.",
-     "expanded": ""
+     "selector": "#vm-dot",
+     "title": "VM indicator",
+     "content": "The at-a-glance running/stopped dot. Pair it with the state text — a stopped VM after a start is a boot failure worth reading the console for."
     },
     {
      "selector": "#vm-state",
      "title": "VM state",
-     "content": "Running or stopped — the quick read of whether emulation is active before you interact with the console.",
-     "expanded": "",
+     "content": "The VM lifecycle state — stopped, booting, running. Read it with the console: 'running' but no login prompt means the guest booted but the OS did not come up."
+    }
+   ]
+  },
+  {
+   "icon": "▦",
+   "title": "Boot options",
+   "content": "How the VM boots and how much hardware it gets — the knobs that decide whether the emulation matches real hardware. The boot chain and accel choice are the ones that matter for a faithful test.",
+   "children": [
+    {
+     "selector": "#image",
+     "title": "Image",
+     "content": "The disk image to boot. This should be the image you just built — emulating it is how you catch a broken build before it touches a real device."
+    },
+    {
+     "selector": "#caps",
+     "title": "Image caps",
+     "content": "The image's declared capabilities/metadata — what it expects from the hardware. Read it against the accel/smp/mem below to give the VM what the image needs."
+    },
+    {
+     "selector": "#boot",
+     "title": "Boot mode",
+     "content": "The boot chain: uefi runs OVMF → systemd-boot → the signed UKI — the REAL secure-boot path the hardware uses. Emulating uefi (not legacy) is what makes the VM test the actual boot chain, including signature verification.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Emulate the real boot chain</div>uefi mode boots OVMF (virtual UEFI firmware) → systemd-boot → the signed Unified Kernel Image — the same chain the physical box uses. This is why uefi emulation catches a broken or unsigned boot before flash; legacy boot would skip exactly the part most likely to fail on real hardware.</div><div class=\"so-xref\"><span class=\"x\">→</span> flash panel — where this same image goes to real hardware once it boots here</div>"
+    },
+    {
+     "selector": "#accel",
+     "title": "Acceleration",
+     "content": "kvm uses the host CPU directly (fast, faithful — the VM runs at near-native speed); tcg emulates the CPU in software (portable, slow, but works without KVM). Use kvm to test performance-honestly; tcg only when KVM is unavailable.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">kvm vs tcg</div>kvm hands the guest real CPU via hardware virtualization — fast and behaviorally faithful. tcg (-cpu max) emulates every instruction in software — portable but many times slower and not representative of real timing. For a meaningful test, kvm; for a portability check, tcg.</div>"
+    },
+    {
+     "selector": "#smp",
+     "title": "vCPUs",
+     "content": "How many virtual CPUs the VM gets. Match it toward the target hardware's core count for a realistic test — too few and a concurrency bug hides; the real box has the full CCD topology (D-09)."
+    },
+    {
+     "selector": "#mem",
+     "title": "Memory",
+     "content": "How much RAM the VM gets (e.g. 4G). Give it enough to boot the image realistically — too little and you test an OOM path instead of the real one."
+    },
+    {
+     "selector": "#snapshot",
+     "title": "Snapshot mode",
+     "content": "snapshot discards all writes when the VM stops — every boot is clean. This is the safe default for testing: you can break the guest freely and it resets. Uncheck only when you deliberately want changes to persist.",
      "variants": [
       {
        "when": {
-        "textContains": "stopped"
+        "textContains": "checked"
        },
-       "content": "Stopped — start the VM to boot the image and bring the console alive."
-      },
-      {
-       "when": {
-        "textContains": "running"
-       },
-       "content": "Running — the guest is live; click the console and type to interact."
+       "content": "Snapshot on — writes are discarded on stop; every boot is a clean slate.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Snapshot on</div>Safe to break the guest — all changes vanish when the VM stops.</div>"
       }
      ]
     },
     {
-     "selector": "#console",
-     "title": "Serial console",
-     "content": "A real interactive terminal into the emulated machine — boot messages stream here and your keystrokes reach the guest shell. This is where you verify the image actually works.",
-     "expanded": ""
+     "selector": "#noreboot",
+     "title": "No-reboot",
+     "content": "Stops the VM instead of rebooting it when the guest reboots — so a boot loop halts here instead of spinning forever. Useful for catching a reboot-loop in the built image.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why no-reboot catches boot loops</div>If the built image panics and reboots, no-reboot makes QEMU stop on the first reboot rather than loop. You see the failure once, in the console, instead of an endless cycle — exactly what you want when testing a fresh build.</div>"
+    },
+    {
+     "selector": "#cmdline",
+     "title": "Kernel cmdline",
+     "content": "Extra kernel command-line arguments passed to the guest. Use it to test a boot parameter (e.g. a debug flag) without rebuilding the image."
+    }
+   ]
+  },
+  {
+   "icon": "⎈",
+   "title": "VM controls",
+   "content": "Start/stop the VM and reach its console + login. These act on the emulation only — nothing here touches real hardware; the VM is a disposable rehearsal.",
+   "children": [
+    {
+     "selector": "#btn-start",
+     "title": "Start VM",
+     "content": "Boots the image in QEMU with the options above. Safe — it is a VM; a bad image fails here in the console, not on real hardware."
+    },
+    {
+     "selector": "#btn-stop",
+     "title": "Stop VM",
+     "content": "Halts the VM. In snapshot mode this also discards all writes — a clean stop, ready for the next test boot."
     },
     {
      "selector": "#login-user",
      "title": "Login user",
-     "content": "The username to log into the guest — typically root, the account the real box would have.",
-     "expanded": ""
+     "content": "The username to log into the guest. Prefilled for the built image; this is the guest's credential, not the box's."
     },
     {
      "selector": "#login-pass",
      "title": "Login password",
-     "content": "The bootstrap password baked into the image at build time. A successful login here validates the build's auth — the same credential the flashed device would have.",
-     "expanded": ""
+     "content": "The guest login password. For the emulated image only — a disposable VM credential, not a real-system secret."
     },
     {
      "selector": "#btn-login",
-     "title": "Log in now",
-     "content": "Type the credentials into the console for you — a shortcut past manual login once the guest reaches its prompt.",
-     "expanded": ""
+     "title": "Login",
+     "content": "Sends the credentials to the guest console. Convenience for reaching a shell inside the VM to inspect the booted image."
     },
     {
      "selector": "#auto-login",
-     "title": "Auto-login on boot",
-     "content": "Log in automatically when the guest reaches its prompt — convenient for rapid iterate-and-reboot cycles. Off when you specifically want to test the login flow.",
-     "expanded": ""
+     "title": "Auto-login",
+     "content": "Logs into the guest automatically on boot — saves a step when repeatedly test-booting the same image."
     },
     {
      "selector": "#login-badge",
-     "title": "Login status",
-     "content": "Whether the login succeeded — the difference between 'the guest booted' and 'the guest booted AND auth works'.",
-     "expanded": ""
+     "title": "Login badge",
+     "content": "Shows the current login state in the guest. A convenience indicator for whether you are at a shell yet."
     },
     {
-     "selector": "#line",
-     "title": "Line input",
-     "content": "Type a whole command and Enter to send it to the console — without the click-to-focus dance.",
-     "expanded": ""
+     "selector": "#console",
+     "title": "Console",
+     "content": "The VM's serial console — the guest's actual output. This is where a boot failure explains itself: read it when the VM starts but never reaches a login prompt.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The console is the truth of the boot</div>Everything the guest kernel and init print lands here. A build that fails to boot tells you why in this console — a missing module, an unsigned UKI, a panic. Read it, do not guess.</div>"
+    },
+    {
+     "selector": "#autoscroll",
+     "title": "Auto-scroll",
+     "content": "Keeps the console pinned to the latest output. Turn it off to scroll back and read an earlier boot message without the log jumping."
+    },
+    {
+     "selector": "#focus-hint",
+     "title": "Focus hint",
+     "content": "A hint about keyboard focus for the console — so keystrokes reach the guest, not the page."
     },
     {
      "selector": "#btn-copy",
      "title": "Copy console",
-     "content": "Copy the full boot/console log to the clipboard — the record of exactly what the guest printed, for a bug report or diff.",
-     "expanded": ""
+     "content": "Copies the console text — for pasting a boot failure into a bug report or the build panel."
     },
     {
      "selector": "#btn-download",
-     "title": "Download console log",
-     "content": "Save the whole console session — for archiving a boot test or comparing two builds' boot sequences offline.",
-     "expanded": ""
+     "title": "Download console",
+     "content": "Saves the full console log to a file — the durable record of a test boot."
     },
     {
      "selector": "#btn-clear",
      "title": "Clear console",
-     "content": "Wipe the display only — the guest keeps running. Reset the view before triggering the next thing you want to observe.",
-     "expanded": ""
-    },
-    {
-     "selector": "#autoscroll",
-     "title": "Autoscroll",
-     "content": "Keep the view pinned to the newest output — off, it stays put so you can read back through earlier boot lines.",
-     "expanded": ""
+     "content": "Clears the console view. Cosmetic — it does not affect the VM, just the display."
     }
    ]
   },
   {
    "icon": "⎈",
    "title": "Controls",
-   "content": "",
+   "content": "Read-only view — mutations copy signed sovereign-osctl verbs (§1g / R10212). The web previews; the box changes only when you run the signed command.",
    "children": [
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Emulation controls — each copies its exact sovereign-osctl verb (§1g / R10212), never executing privileged host operations from the web.",
-     "expanded": ""
+     "content": "The control rail — each button copies its exact sovereign-osctl verb. Nothing here mutates the real box — the VM is disposable runs through the signed CLI, never from a web click."
+    }
+   ]
+  }
+ ]
+};
+</script>
+<script>
+window.SO_ASSIST = {
+ "context": {
+  "icon": "◫",
+  "title": "Emulate",
+  "content": "The safe rehearsal. Before a built image is flashed to a real device, this panel boots it in QEMU — a disposable virtual machine — so you catch a broken build before it touches hardware. The choices that make the test faithful: uefi boot mode runs the real OVMF → systemd-boot → signed-UKI chain (so it tests the actual secure boot, including signature verification), and kvm acceleration runs the guest at near-native speed on the host CPU rather than slow software emulation.\n\nSnapshot mode discards all writes on stop, so every test boot is a clean slate you can break freely; no-reboot halts on the first guest reboot so a boot loop stops here instead of spinning forever. When a VM starts but never reaches a login, the serial console is where the failure explains itself — read it, do not guess. Nothing here touches the real box; the next step, flashing to hardware, is the flash panel."
+ },
+ "nodes": [
+  {
+   "icon": "◆",
+   "title": "Status",
+   "content": "Whether a VM is running and what image it holds — this panel boots the BUILT image in QEMU so you can test it before flashing real hardware.",
+   "children": [
+    {
+     "selector": "#status",
+     "title": "VM status",
+     "content": "Whether an emulated VM is running. This panel is the safe rehearsal: it boots the built image in QEMU so you can verify it works before writing it to a real device (flash panel)."
+    },
+    {
+     "selector": "#vm-dot",
+     "title": "VM indicator",
+     "content": "The at-a-glance running/stopped dot. Pair it with the state text — a stopped VM after a start is a boot failure worth reading the console for."
+    },
+    {
+     "selector": "#vm-state",
+     "title": "VM state",
+     "content": "The VM lifecycle state — stopped, booting, running. Read it with the console: 'running' but no login prompt means the guest booted but the OS did not come up."
+    }
+   ]
+  },
+  {
+   "icon": "▦",
+   "title": "Boot options",
+   "content": "How the VM boots and how much hardware it gets — the knobs that decide whether the emulation matches real hardware. The boot chain and accel choice are the ones that matter for a faithful test.",
+   "children": [
+    {
+     "selector": "#image",
+     "title": "Image",
+     "content": "The disk image to boot. This should be the image you just built — emulating it is how you catch a broken build before it touches a real device."
+    },
+    {
+     "selector": "#caps",
+     "title": "Image caps",
+     "content": "The image's declared capabilities/metadata — what it expects from the hardware. Read it against the accel/smp/mem below to give the VM what the image needs."
+    },
+    {
+     "selector": "#boot",
+     "title": "Boot mode",
+     "content": "The boot chain: uefi runs OVMF → systemd-boot → the signed UKI — the REAL secure-boot path the hardware uses. Emulating uefi (not legacy) is what makes the VM test the actual boot chain, including signature verification.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Emulate the real boot chain</div>uefi mode boots OVMF (virtual UEFI firmware) → systemd-boot → the signed Unified Kernel Image — the same chain the physical box uses. This is why uefi emulation catches a broken or unsigned boot before flash; legacy boot would skip exactly the part most likely to fail on real hardware.</div><div class=\"so-xref\"><span class=\"x\">→</span> flash panel — where this same image goes to real hardware once it boots here</div>"
+    },
+    {
+     "selector": "#accel",
+     "title": "Acceleration",
+     "content": "kvm uses the host CPU directly (fast, faithful — the VM runs at near-native speed); tcg emulates the CPU in software (portable, slow, but works without KVM). Use kvm to test performance-honestly; tcg only when KVM is unavailable.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">kvm vs tcg</div>kvm hands the guest real CPU via hardware virtualization — fast and behaviorally faithful. tcg (-cpu max) emulates every instruction in software — portable but many times slower and not representative of real timing. For a meaningful test, kvm; for a portability check, tcg.</div>"
+    },
+    {
+     "selector": "#smp",
+     "title": "vCPUs",
+     "content": "How many virtual CPUs the VM gets. Match it toward the target hardware's core count for a realistic test — too few and a concurrency bug hides; the real box has the full CCD topology (D-09)."
+    },
+    {
+     "selector": "#mem",
+     "title": "Memory",
+     "content": "How much RAM the VM gets (e.g. 4G). Give it enough to boot the image realistically — too little and you test an OOM path instead of the real one."
+    },
+    {
+     "selector": "#snapshot",
+     "title": "Snapshot mode",
+     "content": "snapshot discards all writes when the VM stops — every boot is clean. This is the safe default for testing: you can break the guest freely and it resets. Uncheck only when you deliberately want changes to persist.",
+     "variants": [
+      {
+       "when": {
+        "textContains": "checked"
+       },
+       "content": "Snapshot on — writes are discarded on stop; every boot is a clean slate.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Snapshot on</div>Safe to break the guest — all changes vanish when the VM stops.</div>"
+      }
+     ]
+    },
+    {
+     "selector": "#noreboot",
+     "title": "No-reboot",
+     "content": "Stops the VM instead of rebooting it when the guest reboots — so a boot loop halts here instead of spinning forever. Useful for catching a reboot-loop in the built image.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why no-reboot catches boot loops</div>If the built image panics and reboots, no-reboot makes QEMU stop on the first reboot rather than loop. You see the failure once, in the console, instead of an endless cycle — exactly what you want when testing a fresh build.</div>"
+    },
+    {
+     "selector": "#cmdline",
+     "title": "Kernel cmdline",
+     "content": "Extra kernel command-line arguments passed to the guest. Use it to test a boot parameter (e.g. a debug flag) without rebuilding the image."
+    }
+   ]
+  },
+  {
+   "icon": "⎈",
+   "title": "VM controls",
+   "content": "Start/stop the VM and reach its console + login. These act on the emulation only — nothing here touches real hardware; the VM is a disposable rehearsal.",
+   "children": [
+    {
+     "selector": "#btn-start",
+     "title": "Start VM",
+     "content": "Boots the image in QEMU with the options above. Safe — it is a VM; a bad image fails here in the console, not on real hardware."
+    },
+    {
+     "selector": "#btn-stop",
+     "title": "Stop VM",
+     "content": "Halts the VM. In snapshot mode this also discards all writes — a clean stop, ready for the next test boot."
+    },
+    {
+     "selector": "#login-user",
+     "title": "Login user",
+     "content": "The username to log into the guest. Prefilled for the built image; this is the guest's credential, not the box's."
+    },
+    {
+     "selector": "#login-pass",
+     "title": "Login password",
+     "content": "The guest login password. For the emulated image only — a disposable VM credential, not a real-system secret."
+    },
+    {
+     "selector": "#btn-login",
+     "title": "Login",
+     "content": "Sends the credentials to the guest console. Convenience for reaching a shell inside the VM to inspect the booted image."
+    },
+    {
+     "selector": "#auto-login",
+     "title": "Auto-login",
+     "content": "Logs into the guest automatically on boot — saves a step when repeatedly test-booting the same image."
+    },
+    {
+     "selector": "#login-badge",
+     "title": "Login badge",
+     "content": "Shows the current login state in the guest. A convenience indicator for whether you are at a shell yet."
+    },
+    {
+     "selector": "#console",
+     "title": "Console",
+     "content": "The VM's serial console — the guest's actual output. This is where a boot failure explains itself: read it when the VM starts but never reaches a login prompt.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The console is the truth of the boot</div>Everything the guest kernel and init print lands here. A build that fails to boot tells you why in this console — a missing module, an unsigned UKI, a panic. Read it, do not guess.</div>"
+    },
+    {
+     "selector": "#autoscroll",
+     "title": "Auto-scroll",
+     "content": "Keeps the console pinned to the latest output. Turn it off to scroll back and read an earlier boot message without the log jumping."
+    },
+    {
+     "selector": "#focus-hint",
+     "title": "Focus hint",
+     "content": "A hint about keyboard focus for the console — so keystrokes reach the guest, not the page."
+    },
+    {
+     "selector": "#btn-copy",
+     "title": "Copy console",
+     "content": "Copies the console text — for pasting a boot failure into a bug report or the build panel."
+    },
+    {
+     "selector": "#btn-download",
+     "title": "Download console",
+     "content": "Saves the full console log to a file — the durable record of a test boot."
+    },
+    {
+     "selector": "#btn-clear",
+     "title": "Clear console",
+     "content": "Clears the console view. Cosmetic — it does not affect the VM, just the display."
+    }
+   ]
+  },
+  {
+   "icon": "⎈",
+   "title": "Controls",
+   "content": "Read-only view — mutations copy signed sovereign-osctl verbs (§1g / R10212). The web previews; the box changes only when you run the signed command.",
+   "children": [
+    {
+     "selector": "#control-surface",
+     "title": "Controls rail",
+     "content": "The control rail — each button copies its exact sovereign-osctl verb. Nothing here mutates the real box — the VM is disposable runs through the signed CLI, never from a web click."
     }
    ]
   }

@@ -500,10 +500,16 @@ a11y; contract test catches drift.
   .so-node-expanded{margin-top:.55rem; padding-top:.55rem; border-top:1px solid rgba(155,209,255,.13); font-size:.78rem; line-height:1.6; color:var(--muted,#a8a8a8); white-space:pre-line;}
   /* rich expanded cards */
   .so-card{border:1px solid var(--border,#262626); border-radius:7px; padding:.55rem .65rem; margin-top:.45rem; background:var(--bg,#0e0e0e); white-space:normal; line-height:1.55;}
-  .so-card.info{border-color:rgba(155,209,255,.28);}
+  .so-card.info{border-color:rgba(155,209,255,.28); background:rgba(155,209,255,.035);}
+  .so-card.ok{border-color:rgba(127,209,143,.34); background:rgba(127,209,143,.045);}
+  .so-card.warn{border-color:rgba(224,192,122,.38); background:rgba(224,192,122,.05);}
+  .so-card.err{border-color:rgba(224,138,138,.4); background:rgba(224,138,138,.055);}
+  .so-card-label{font-weight:600; font-size:.79rem; margin-bottom:.3rem;}
+  .so-card.ok .so-card-label{color:#7fd18f;} .so-card.warn .so-card-label{color:#e0c07a;} .so-card.err .so-card-label{color:#e08a8a;} .so-card.info .so-card-label{color:var(--accent,#9bd1ff);}
   .so-grid{display:grid; grid-template-columns:auto 1fr; gap:.22rem .6rem; margin:.35rem 0; font-size:.76rem; white-space:normal;}
   .so-grid .k{color:var(--accent,#9bd1ff); font-weight:500;}
-  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;}
+  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;} .so-li .warn{color:#e0c07a;}
+  .so-xref{margin-top:.4rem; font-size:.76rem; color:var(--fg-2,#c8c8c8);} .so-xref .x{color:var(--accent,#9bd1ff); font-weight:500;}
   .so-tip{margin-top:.4rem; font-size:.77rem; color:var(--muted,#a8a8a8);}
   .so-assist-idle{color:var(--muted,#8a8a8a); font-style:italic; padding:.4rem 0;}
   /* highlight the hovered/focused element in the panel content */
@@ -664,25 +670,38 @@ a11y; contract test catches drift.
       return {ctx:ctx, nodes:nodes}; })();
     // flatten deepest-first with parent chains
     var FLAT=[]; (function flat(list,chain){ (list||[]).forEach(function(n){ if(n.children&&n.children.length) flat(n.children,chain.concat([n])); FLAT.push({node:n,parents:chain.slice()}); }); })(CAT.nodes,[]);
+    // {{name}} interpolation for dynamic-row templates
+    function interp(s,name){ return (name==null)?(s||''):String(s||'').replace(/\{\{name\}\}/g,name); }
+    // derive a live row's label (nameSelector, then a strong/cell/code heuristic, then text)
+    function rowName(row,ct){ var t=''; if(ct.nameSelector){ try{ var e=row.querySelector(ct.nameSelector); if(e) t=e.textContent||''; }catch(x){} }
+      if(!t){ var s=row.querySelector('strong,code,th,.k,td'); if(s) t=s.textContent||''; }
+      if(!t) t=row.textContent||''; return t.replace(/\s+/g,' ').trim().slice(0,64); }
+    // synthesize a node from a childTemplate bound to one live row
+    function synthRow(n,row){ var ct=n.childTemplate, nm=rowName(row,ct);
+      return {id:n.id, icon:ct.icon||n.icon, title:interp(ct.title||n.title||'{{name}}',nm), content:ct.content||'', expanded:ct.expanded||'', variants:ct.variants, _name:nm}; }
     // variant resolution against the matched element (state-awareness)
     function resolveVar(node,el){ if(!node.variants||!node.variants.length||!el) return node;
       for(var i=0;i<node.variants.length;i++){ var v=node.variants[i], w=v.when||{}, ok=true;
-        if(w.textContains && (el.textContent||'').indexOf(w.textContains)<0) ok=false;
+        if(w.textContains && (el.textContent||'').toLowerCase().indexOf(String(w.textContains).toLowerCase())<0) ok=false;
         if(ok&&w.hasSelector){ try{ if(!el.querySelector(w.hasSelector)) ok=false; }catch(e){ ok=false; } }
-        if(ok) return {id:node.id,title:v.title||node.title,icon:node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded)}; }
+        if(ok) return {id:node.id,title:v.title||node.title,icon:v.icon||node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded),_name:node._name}; }
       return node; }
-    // match a hovered element to the deepest catalogue node
+    // match a hovered element to the deepest catalogue node (static node OR dynamic row)
     function matchNode(el){ var best=null,bd=-1;
-      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node,m=false,tgt=null; if(!n.selector) continue;
-        try{ if(el.matches(n.selector)){m=true;tgt=el;}
-          else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
-        if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node;
+        if(n.selector){ var m=false,tgt=null;
+          try{ if(el.matches(n.selector)){m=true;tgt=el;}
+            else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
+          if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+        if(n.dynamic && n.childTemplate && n.childTemplate.selector){ try{ var row=el.closest(n.childTemplate.selector);
+          if(row){ var d2=e.parents.length+1; if(d2>bd){ bd=d2; best={entry:{node:synthRow(n,row),parents:e.parents.concat([n])},el:row}; } } }catch(y){} } }
       return best; }
     function ctxHtml(){ var c=CAT.ctx; return '<div class="so-ctx"><div class="so-ctx-title">'+(c.icon?esc(c.icon)+' ':'')+esc(c.title||'')+'</div><div class="so-ctx-content">'+esc(c.content||'')+'</div></div>'; }
-    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node;
-      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(r.title||'')+'</div>';
-      h+='<div class="so-node-content">'+esc(r.content||'')+'</div>';
-      if(active && r.expanded) h+='<div class="so-node-expanded">'+r.expanded+'</div>';   // expanded = trusted authored HTML
+    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node, nm=(node._name!=null?node._name:null);
+      var title=interp(r.title||'',nm), cont=interp(r.content||'',nm), exp=interp(r.expanded||'',nm);
+      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(title)+'</div>';
+      h+='<div class="so-node-content">'+esc(cont)+'</div>';
+      if(active && exp) h+='<div class="so-node-expanded">'+exp+'</div>';   // expanded = trusted authored HTML
       return h+'</div>'; }
     var lastHot=null, lastMatched=null;
     function clearHot(){ if(lastHot){ lastHot.classList.remove('so-assist-hot'); lastHot=null; } }
@@ -701,7 +720,7 @@ a11y; contract test catches drift.
     // menu links → surface the target panel's context (program-awareness: horizontal jump)
     Array.prototype.forEach.call(document.querySelectorAll('.so-sm-item'),function(it){ var p=findPanel(it.dataset.dir); if(!p) return;
       function show(){ openAssist(); clearHot(); lastMatched=null; it.classList.add('so-assist-hot'); lastHot=it; var here=it.dataset.dir===curDir();
-        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+esc(p.desc||'')+'</div></div>'+
+        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+(p.menuHover?p.menuHover:esc(p.desc||''))+'</div></div>'+
           '<div class="so-assist-idle">'+(here?'You’re on this panel now — hover its contents to explore.':'Click to open this panel.')+'</div>'; }
       it.addEventListener('mouseenter',show); it.addEventListener('focus',show); });
     idle();
@@ -1456,197 +1475,196 @@ a11y; contract test catches drift.
 <script>
 window.SO_ASSIST = {
  "context": {
-  "icon": "▤",
-  "title": "D-16 · Audit",
-  "content": "A read-only reflection of selfdef's audit chain — a SHA-256 hash-linked, append-only log (MS016) where any tampering breaks the chain. This is the evidence the whole security story rests on.\n\nThere is NO web mutation surface: verify/export happen via selfdefctl + operator MS003 only. Typed-mirror crate #7 of 9."
+  "icon": "⛓",
+  "title": "D-16 · Audit Chain",
+  "content": "A read-only mirror of selfdef's audit chain — an append-only, SHA-256 hash-linked ledger (MS016 R03567) of every governance-relevant event. Because each entry embeds the hash of the previous, the record is tamper-evident: you can't quietly edit or delete history without breaking every hash after it. Entries are classified by OCSF category and 13-field MS049 shape.\n\nRead it to prove the box's history is intact (chain continuity), to see the behavioural mix (OCSF categories), and to inspect what was recorded. The chain is APPEND-ONLY — there is NO mutation surface here or anywhere; verify/export via selfdefctl + MS003."
  },
  "nodes": [
   {
    "icon": "◆",
    "title": "Mirror status",
-   "content": "Whether the audit mirror is publishing. The chain itself is built and maintained by selfdef regardless — this is purely observability.",
+   "content": "Whether this read-only mirror of selfdef's the audit chain is live or stale. If offline, everything below is history, not the current IPS state.",
    "children": [
     {
      "selector": "#mirror-status-banner",
-     "title": "Bridge status",
-     "content": "Online = live audit view; offline = the mirror isn't publishing (the chain is still being built and enforced selfdef-side).",
-     "expanded": "",
+     "title": "Mirror live vs offline",
+     "content": "This panel is a READ-ONLY mirror of selfdef's the audit chain (M060 bridge). Green = live; offline = stale. The box never manages the audit chain here — that's selfdefctl audit + MS003 on the selfdef side.",
+     "icon": "◆",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A mirror, not a control</div>selfdef owns the audit chain; sovereign-os only reflects it so you can see the IPS in one cockpit. Changes happen in selfdef (signed), never from this panel.<div class=\"so-xref\"><span class=\"x\">→</span> D-00 — M060 chain health<br><span class=\"x\">→</span> D-25 — mirror-chain detail</div></div>",
      "variants": [
       {
        "when": {
-        "textContains": "online"
+        "textContains": "live"
        },
-       "content": "Online — the audit view is live from selfdef."
+       "content": "Live — selfdef is feeding this mirror; the the audit chain is current.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Mirror live</div>Reflecting the real IPS the audit chain now.</div>"
       },
       {
        "when": {
         "textContains": "offline"
        },
-       "content": "Offline — the mirror isn't publishing; the chain is intact on the IPS, you just can't see new entries here."
+       "content": "Offline — the bridge is stale; treat the the audit chain below as history.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Mirror offline</div>Stale bridge — not the current IPS state.</div>"
       }
      ]
     },
     {
+     "selector": "#mirror-state-label",
+     "title": "Mirror label",
+     "content": "One-word mirror state — live or offline; whether the the audit chain can be trusted as current."
+    },
+    {
+     "selector": "#mirror-state-detail",
+     "title": "Mirror detail",
+     "content": "The producer/endpoint behind the mirror and why it's live or offline. Managed via selfdefctl audit on the selfdef side."
+    },
+    {
      "selector": "#mirror-last-update",
-     "title": "Last update",
-     "content": "When selfdef last published. The chain is append-only (MS016 R03567) — nothing is rewritten, so a stale timestamp just means no new events, not altered history.",
-     "expanded": ""
+     "title": "Mirror freshness",
+     "content": "When selfdef last captured this snapshot (ISO captured_at). On an offline mirror, how stale it is."
     },
     {
      "selector": "#mirror-schema-version",
-     "title": "Schema version",
-     "content": "The contract shape of the mirrored audit data.",
-     "expanded": ""
+     "title": "Mirror schema",
+     "content": "The MS007 typed-mirror-crate schema version — confirms mirror and consumer agree on the data shape."
     }
    ]
   },
   {
    "icon": "⛓",
-   "title": "Chain integrity (MS016)",
-   "content": "Every audit event is hash-linked to the previous one, so any tampering breaks the chain. This is the proof the log is intact and complete — the foundation that makes every event trustworthy.",
+   "title": "Chain integrity (SHA-256 · MS016)",
+   "content": "The audit chain is append-only and hash-linked: each entry contains the hash of the previous, so any tampering breaks the chain and is instantly detectable (MS016 R03567). This section is the integrity proof — is the chain continuous, and where (if anywhere) is the first break.",
    "children": [
+    {
+     "selector": "#integrity-panel",
+     "title": "Chain integrity",
+     "content": "The append-only SHA-256 hash chain's integrity state. Because each entry hashes the previous, the chain is tamper-evident: verified-continuous means nothing was altered or deleted; a gap means someone tried.",
+     "icon": "⛓",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why a hash chain can't be quietly edited</div>Each audit entry embeds the hash of the one before it. Change or remove any entry and every hash after it no longer matches — the tampering is mathematically visible, not hidden.<div class=\"so-li\"><span class=\"ok\">✓</span> continuous → every link verifies; the record is intact</div><div class=\"so-li\"><span class=\"no\">✗</span> gap → a link doesn't verify; the record was altered or truncated at that point</div></div>"
+    },
     {
      "selector": "#i-continuous",
      "title": "Continuity",
-     "content": "Whether the hash chain is unbroken end to end. 'verified' means every link checks — no gaps, no rewrites.",
-     "expanded": "<div class=\"so-card info\"><div class='so-li no'>✗ A break here is the single most important audit signal — the tamper-evident guarantee failed; the log can't be trusted until reconciled.</div></div>",
+     "content": "Whether the chain verifies end-to-end. 'verified' is the healthy state — an unbroken hash chain from head to tail. Anything else means the integrity check found a break.",
      "variants": [
       {
        "when": {
         "textContains": "verified"
        },
-       "content": "Verified — the chain is unbroken. The audit log is intact and trustworthy as evidence."
+       "content": "Verified — the hash chain is continuous end-to-end; the audit record is intact and untampered.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">✓ Chain continuous</div>Every hash link verifies. The audit record has not been altered.</div>"
+      },
+      {
+       "when": {
+        "textContains": "gap"
+       },
+       "content": "A gap was found — the hash chain breaks somewhere. The audit record was altered or truncated; this is a tamper signal, not a glitch.",
+       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Chain broken</div>A link doesn't verify — the record was tampered. See 'first gap at' for where.</div>"
       }
      ]
     },
     {
      "selector": "#i-total",
      "title": "Total entries",
-     "content": "The length of the append-only log — it only ever grows. A shrink would itself be a tamper signal the continuity check catches.",
-     "expanded": ""
+     "content": "How many entries are in the chain — the size of the audit record. Every governance action appends one; it only ever grows (append-only)."
     },
     {
      "selector": "#i-verified",
      "title": "Verified at",
-     "content": "When integrity was last checked. A 'verified' continuity with an old timestamp means newer entries haven't been re-verified — check the age before trusting the green.",
-     "expanded": ""
+     "content": "When the integrity check last ran. The chain is only proven-good as of this moment; a fresh verify is what confirms it's still intact now."
     },
     {
      "selector": "#i-head",
      "title": "Head hash",
-     "content": "The hash of the newest entry — the chain's tip, the value a verifier re-derives to confirm nothing after it was altered. The cryptographic anchor of the log's current state.",
-     "expanded": ""
+     "content": "The hash of the newest entry — the current tip of the chain. It's the fingerprint of the entire history: change anything earlier and this head hash changes."
+    },
+    {
+     "selector": "#i-gap-row",
+     "title": "Gap indicator",
+     "content": "Shown only when a break exists — the presence of this row is itself the alarm that the chain isn't continuous."
     },
     {
      "selector": "#i-gap",
-     "title": "First gap",
-     "content": "Normally hidden. If continuity fails, this pinpoints the entry where the chain first breaks — the exact place to investigate.",
-     "expanded": ""
-    },
-    {
-     "selector": "#integrity-panel",
-     "title": "Integrity panel",
-     "content": "The whole integrity readout — continuity, length, head hash, freshness. The trust foundation for everything below.",
-     "expanded": ""
+     "title": "First gap at",
+     "content": "Where the first hash mismatch occurs — the exact point the chain was altered or truncated. This is where to investigate a tamper.",
+     "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">The gap is the crime scene</div>The first gap is where continuity breaks — everything before it verifies, everything after descends from a tampered link. It localizes exactly which entry was touched.</div>"
     }
    ]
   },
   {
-   "icon": "◫",
+   "icon": "▦",
    "title": "OCSF categories (MS026)",
-   "content": "The audit events summarized by OCSF category — the taxonomy that lets these events feed an external SIEM.",
+   "content": "The audit entries summarized by OCSF category — the security-schema breakdown of what kind of activity the chain recorded. Reading the mix tells you the box's behavioural shape: mostly process/file is normal work; a spike in authority or network decisions is worth a look.",
    "children": [
     {
      "selector": "#o-process",
      "title": "Process activity",
-     "content": "exec / spawn — the record of what ran. The substrate of most security investigations.",
-     "expanded": ""
+     "content": "Audit entries classified as process activity — exec · spawn — what ran. Part of the box's behavioural fingerprint in the audit record."
     },
     {
      "selector": "#o-file",
      "title": "File activity",
-     "content": "read / write / access — the filesystem trail. Spikes on sensitive paths are where a file-based investigation starts.",
-     "expanded": ""
+     "content": "Audit entries classified as file activity — read · write · attr — what was touched. Part of the box's behavioural fingerprint in the audit record."
     },
     {
      "selector": "#o-network",
      "title": "Network activity",
-     "content": "dial / listen — who reached out, what opened a port. The counterpart to the perimeter panels.",
-     "expanded": ""
+     "content": "Audit entries classified as network activity — dial · listen — what talked out. Part of the box's behavioural fingerprint in the audit record."
     },
     {
      "selector": "#o-host",
      "title": "Host inventory",
-     "content": "snapshot / drift — host-state events. Drift is configuration changing out from under the baseline; a quiet but important signal.",
-     "expanded": ""
+     "content": "Audit entries classified as host inventory — snapshot · drift — the host baseline + changes. Part of the box's behavioural fingerprint in the audit record."
     },
     {
      "selector": "#o-authority",
      "title": "Authority decision",
-     "content": "grant / capability — the governance category recording who was allowed to do what. The accountability spine.",
-     "expanded": ""
+     "content": "Audit entries classified as authority decision — grant · cap — the privilege decisions. The privilege decisions — grants and capability changes — are the highest-value audit category; a surprise here is a privilege change you didn't expect."
     }
    ]
   },
   {
-   "icon": "◈",
-   "title": "Policy outcomes (MS033)",
-   "content": "Every policy decision resolved to one of four states — the shape of how permissive the box is behaving (R07731-R07734).",
+   "icon": "⚖",
+   "title": "Policy outcomes & spans",
+   "content": "How policy evaluations resolved (MS033 4-state) and the recent audit entries themselves.",
    "children": [
     {
      "selector": "#p-allow",
-     "title": "allow",
-     "content": "The normal path — the baseline. Its ratio to the others is the shape of the box's behaviour.",
-     "expanded": ""
-    },
-    {
-     "selector": "#p-deny",
-     "title": "deny",
-     "content": "Requests the policy blocked — the enforcement number. A rising deny count is the perimeter actively refusing things; read with the spans to see what.",
-     "expanded": ""
+     "title": "Policy · allow (MS033)",
+     "content": "How many policy evaluations resolved to ALLOW — the action was permitted. The baseline: most decisions on a healthy box allow, because most work is legitimate (MS033, R07731-R07734)."
     },
     {
      "selector": "#p-ask",
-     "title": "ask",
-     "content": "Decisions escalated to a human. High ask volume means a lot is landing on the operator — a signal to tune policy or expect approval backlog (D-06).",
-     "expanded": ""
+     "title": "Policy · ask (MS033)",
+     "content": "How many resolved to ASK — escalated to an operator decision rather than auto-resolved. These are the ones that landed in D-06; a rising ask-count means the box is deferring more to you."
+    },
+    {
+     "selector": "#p-deny",
+     "title": "Policy · deny (MS033)",
+     "content": "How many resolved to DENY — the action was refused outright. This is where the IPS actually stopped something; a non-zero deny is the policy engine doing its job, worth reading for what it blocked."
     },
     {
      "selector": "#p-sandbox",
-     "title": "sandbox",
-     "content": "Neither allowed nor denied but confined to run under isolation (Weaver) — the middle path for untrusted-but-useful work.",
-     "expanded": ""
+     "title": "Policy · sandbox (MS033)",
+     "content": "How many resolved to SANDBOX — allowed, but only inside an isolation tier (D-15). The middle path: neither trust it fully nor refuse it, but contain it. The clever state that lets risky work proceed safely."
+    },
+    {
+     "selector": "#span-tbody",
+     "title": "Audit entries",
+     "content": "The recent tail of the audit chain — each a 13-field MS049 entry. Hover a row for what was recorded; every one is hash-linked to the previous, so this is the append-only truth of what the box did.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A 13-field append-only entry</div>Each entry is a complete, immutable record of one event, hash-linked into the chain. It can't be edited after the fact — only appended to.<div class=\"so-xref\"><span class=\"x\">→</span> D-05 traces — the live span view of the same events</div></div>"
     }
    ]
   },
   {
-   "icon": "≣",
-   "title": "Spans & controls",
-   "content": "The live end of the chain, and the verify-only controls.",
+   "icon": "⎈",
+   "title": "Actions & controls",
+   "content": "Web is a READ-ONLY mirror consumer — the audit chain via selfdefctl audit + MS003 on the selfdef side.",
    "children": [
-    {
-     "selector": "#span-tbody",
-     "title": "Recent spans (13-field)",
-     "content": "The bounded tail of recent audit entries — full MS049 records including each event's chain hash, so you can trace an event AND confirm its place in the tamper-evident chain.",
-     "expanded": ""
-    },
-    {
-     "selector": "#cat-filters",
-     "title": "Category filters",
-     "content": "Narrow the tail to one OCSF category — e.g. only authority decisions, without the process-event noise.",
-     "expanded": ""
-    },
-    {
-     "selector": "#toast",
-     "title": "Copy confirmation",
-     "content": "Confirms a signed selfdefctl verb was copied. The chain is append-only (MS016 R03567) — there is NO web mutation surface; verify/export via operator MS003 only.",
-     "expanded": ""
-    },
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Audit controls — verify and export only, never mutation. Each copies its selfdefctl verb; the web reflects the chain, it cannot write to it.",
-     "expanded": ""
+     "content": "Mirror controls — each copies its selfdefctl audit verb (§1g / R10212). Reads the mirror; every change runs through the signed selfdef CLI, never the web."
     }
    ]
   }

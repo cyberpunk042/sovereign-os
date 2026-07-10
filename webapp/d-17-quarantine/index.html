@@ -498,10 +498,16 @@ a11y; contract test catches drift.
   .so-node-expanded{margin-top:.55rem; padding-top:.55rem; border-top:1px solid rgba(155,209,255,.13); font-size:.78rem; line-height:1.6; color:var(--muted,#a8a8a8); white-space:pre-line;}
   /* rich expanded cards */
   .so-card{border:1px solid var(--border,#262626); border-radius:7px; padding:.55rem .65rem; margin-top:.45rem; background:var(--bg,#0e0e0e); white-space:normal; line-height:1.55;}
-  .so-card.info{border-color:rgba(155,209,255,.28);}
+  .so-card.info{border-color:rgba(155,209,255,.28); background:rgba(155,209,255,.035);}
+  .so-card.ok{border-color:rgba(127,209,143,.34); background:rgba(127,209,143,.045);}
+  .so-card.warn{border-color:rgba(224,192,122,.38); background:rgba(224,192,122,.05);}
+  .so-card.err{border-color:rgba(224,138,138,.4); background:rgba(224,138,138,.055);}
+  .so-card-label{font-weight:600; font-size:.79rem; margin-bottom:.3rem;}
+  .so-card.ok .so-card-label{color:#7fd18f;} .so-card.warn .so-card-label{color:#e0c07a;} .so-card.err .so-card-label{color:#e08a8a;} .so-card.info .so-card-label{color:var(--accent,#9bd1ff);}
   .so-grid{display:grid; grid-template-columns:auto 1fr; gap:.22rem .6rem; margin:.35rem 0; font-size:.76rem; white-space:normal;}
   .so-grid .k{color:var(--accent,#9bd1ff); font-weight:500;}
-  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;}
+  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;} .so-li .warn{color:#e0c07a;}
+  .so-xref{margin-top:.4rem; font-size:.76rem; color:var(--fg-2,#c8c8c8);} .so-xref .x{color:var(--accent,#9bd1ff); font-weight:500;}
   .so-tip{margin-top:.4rem; font-size:.77rem; color:var(--muted,#a8a8a8);}
   .so-assist-idle{color:var(--muted,#8a8a8a); font-style:italic; padding:.4rem 0;}
   /* highlight the hovered/focused element in the panel content */
@@ -662,25 +668,38 @@ a11y; contract test catches drift.
       return {ctx:ctx, nodes:nodes}; })();
     // flatten deepest-first with parent chains
     var FLAT=[]; (function flat(list,chain){ (list||[]).forEach(function(n){ if(n.children&&n.children.length) flat(n.children,chain.concat([n])); FLAT.push({node:n,parents:chain.slice()}); }); })(CAT.nodes,[]);
+    // {{name}} interpolation for dynamic-row templates
+    function interp(s,name){ return (name==null)?(s||''):String(s||'').replace(/\{\{name\}\}/g,name); }
+    // derive a live row's label (nameSelector, then a strong/cell/code heuristic, then text)
+    function rowName(row,ct){ var t=''; if(ct.nameSelector){ try{ var e=row.querySelector(ct.nameSelector); if(e) t=e.textContent||''; }catch(x){} }
+      if(!t){ var s=row.querySelector('strong,code,th,.k,td'); if(s) t=s.textContent||''; }
+      if(!t) t=row.textContent||''; return t.replace(/\s+/g,' ').trim().slice(0,64); }
+    // synthesize a node from a childTemplate bound to one live row
+    function synthRow(n,row){ var ct=n.childTemplate, nm=rowName(row,ct);
+      return {id:n.id, icon:ct.icon||n.icon, title:interp(ct.title||n.title||'{{name}}',nm), content:ct.content||'', expanded:ct.expanded||'', variants:ct.variants, _name:nm}; }
     // variant resolution against the matched element (state-awareness)
     function resolveVar(node,el){ if(!node.variants||!node.variants.length||!el) return node;
       for(var i=0;i<node.variants.length;i++){ var v=node.variants[i], w=v.when||{}, ok=true;
-        if(w.textContains && (el.textContent||'').indexOf(w.textContains)<0) ok=false;
+        if(w.textContains && (el.textContent||'').toLowerCase().indexOf(String(w.textContains).toLowerCase())<0) ok=false;
         if(ok&&w.hasSelector){ try{ if(!el.querySelector(w.hasSelector)) ok=false; }catch(e){ ok=false; } }
-        if(ok) return {id:node.id,title:v.title||node.title,icon:node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded)}; }
+        if(ok) return {id:node.id,title:v.title||node.title,icon:v.icon||node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded),_name:node._name}; }
       return node; }
-    // match a hovered element to the deepest catalogue node
+    // match a hovered element to the deepest catalogue node (static node OR dynamic row)
     function matchNode(el){ var best=null,bd=-1;
-      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node,m=false,tgt=null; if(!n.selector) continue;
-        try{ if(el.matches(n.selector)){m=true;tgt=el;}
-          else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
-        if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node;
+        if(n.selector){ var m=false,tgt=null;
+          try{ if(el.matches(n.selector)){m=true;tgt=el;}
+            else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
+          if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+        if(n.dynamic && n.childTemplate && n.childTemplate.selector){ try{ var row=el.closest(n.childTemplate.selector);
+          if(row){ var d2=e.parents.length+1; if(d2>bd){ bd=d2; best={entry:{node:synthRow(n,row),parents:e.parents.concat([n])},el:row}; } } }catch(y){} } }
       return best; }
     function ctxHtml(){ var c=CAT.ctx; return '<div class="so-ctx"><div class="so-ctx-title">'+(c.icon?esc(c.icon)+' ':'')+esc(c.title||'')+'</div><div class="so-ctx-content">'+esc(c.content||'')+'</div></div>'; }
-    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node;
-      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(r.title||'')+'</div>';
-      h+='<div class="so-node-content">'+esc(r.content||'')+'</div>';
-      if(active && r.expanded) h+='<div class="so-node-expanded">'+r.expanded+'</div>';   // expanded = trusted authored HTML
+    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node, nm=(node._name!=null?node._name:null);
+      var title=interp(r.title||'',nm), cont=interp(r.content||'',nm), exp=interp(r.expanded||'',nm);
+      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(title)+'</div>';
+      h+='<div class="so-node-content">'+esc(cont)+'</div>';
+      if(active && exp) h+='<div class="so-node-expanded">'+exp+'</div>';   // expanded = trusted authored HTML
       return h+'</div>'; }
     var lastHot=null, lastMatched=null;
     function clearHot(){ if(lastHot){ lastHot.classList.remove('so-assist-hot'); lastHot=null; } }
@@ -699,7 +718,7 @@ a11y; contract test catches drift.
     // menu links → surface the target panel's context (program-awareness: horizontal jump)
     Array.prototype.forEach.call(document.querySelectorAll('.so-sm-item'),function(it){ var p=findPanel(it.dataset.dir); if(!p) return;
       function show(){ openAssist(); clearHot(); lastMatched=null; it.classList.add('so-assist-hot'); lastHot=it; var here=it.dataset.dir===curDir();
-        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+esc(p.desc||'')+'</div></div>'+
+        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+(p.menuHover?p.menuHover:esc(p.desc||''))+'</div></div>'+
           '<div class="so-assist-idle">'+(here?'You’re on this panel now — hover its contents to explore.':'Click to open this panel.')+'</div>'; }
       it.addEventListener('mouseenter',show); it.addEventListener('focus',show); });
     idle();
@@ -1382,134 +1401,289 @@ a11y; contract test catches drift.
 <script>
 window.SO_ASSIST = {
  "context": {
-  "icon": "⚠",
+  "icon": "⊗",
   "title": "D-17 · Quarantine",
-  "content": "A read-only view of what selfdef has blocked and quarantined — subjects whose behaviour didn't match their declaration (MS042). Shown severity-first (critical at top) under the block+quarantine+trace protocol.\n\nRestore or forfeit happens on the IPS side (selfdefctl + MS003, R10122). Forfeit is terminal — the image is purged."
+  "content": "A read-only mirror of selfdef's quarantine (MS042). selfdef declares what each component is allowed to do, then watches — anything that behaves differently from its declaration is blocked, frozen here, and traced (block + quarantine + trace). Severity reflects how serious the violation was: critical = a hard guarantee broken (declared read-only but wrote), info = merely did less than declared.\n\nRead it worst-first: a critical item is the box catching something that broke its promise. Items are released (false alarm) or forfeited (purged) via selfdefctl + MS003 — never from this mirror."
  },
  "nodes": [
   {
    "icon": "◆",
    "title": "Mirror status",
-   "content": "This whole panel is a READ-ONLY reflection of selfdef's quarantine (MS007 typed-mirror crate #6 of 9). sovereign-os never mutates it — restore/forfeit happens happens on the IPS side via signed selfdefctl.",
+   "content": "Whether this read-only mirror of selfdef's quarantine is live or stale. If offline, everything below is history, not the current IPS state.",
    "children": [
     {
      "selector": "#mirror-status-banner",
-     "title": "Bridge status",
-     "content": "Whether the quarantine mirror is publishing (online) or absent (offline). Offline doesn't mean unprotected — selfdef is still enforcing; you just can't see it here until the bridge returns.",
-     "expanded": "<div class=\"so-card info\"><div class='so-li no'>✗ Offline → the values below are last-known, not live. The enforcement is intact on the IPS.</div></div>",
+     "title": "Mirror live vs offline",
+     "content": "This panel is a READ-ONLY mirror of selfdef's quarantine (M060 bridge). Green = live; offline = stale. The box never manages quarantine here — that's selfdefctl quarantine + MS003 on the selfdef side.",
+     "icon": "◆",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A mirror, not a control</div>selfdef owns quarantine; sovereign-os only reflects it so you can see the IPS in one cockpit. Changes happen in selfdef (signed), never from this panel.<div class=\"so-xref\"><span class=\"x\">→</span> D-00 — M060 chain health<br><span class=\"x\">→</span> D-25 — mirror-chain detail</div></div>",
      "variants": [
       {
        "when": {
-        "textContains": "online"
+        "textContains": "live"
        },
-       "content": "Online — this view is live from selfdef's published snapshot."
+       "content": "Live — selfdef is feeding this mirror; the quarantine is current.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Mirror live</div>Reflecting the real IPS quarantine now.</div>"
       },
       {
        "when": {
         "textContains": "offline"
        },
-       "content": "Offline — the producer isn't publishing. selfdef is still enforcing quarantine; the mirror just isn't reaching you."
+       "content": "Offline — the bridge is stale; treat the quarantine below as history.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Mirror offline</div>Stale bridge — not the current IPS state.</div>"
       }
      ]
     },
     {
+     "selector": "#mirror-state-label",
+     "title": "Mirror label",
+     "content": "One-word mirror state — live or offline; whether the quarantine can be trusted as current."
+    },
+    {
+     "selector": "#mirror-state-detail",
+     "title": "Mirror detail",
+     "content": "The producer/endpoint behind the mirror and why it's live or offline. Managed via selfdefctl quarantine on the selfdef side."
+    },
+    {
      "selector": "#mirror-last-update",
-     "title": "Last update",
-     "content": "When selfdef captured this snapshot. A stale timestamp means no recent change was published — the values are last-known, not live.",
-     "expanded": ""
+     "title": "Mirror freshness",
+     "content": "When selfdef last captured this snapshot (ISO captured_at). On an offline mirror, how stale it is."
     },
     {
      "selector": "#mirror-schema-version",
-     "title": "Schema version",
-     "content": "The contract shape of the mirrored data — cite it if the mirror ever disagrees with what the panel renders.",
-     "expanded": ""
+     "title": "Mirror schema",
+     "content": "The MS007 typed-mirror-crate schema version — confirms mirror and consumer agree on the data shape."
     }
    ]
   },
   {
    "icon": "▤",
    "title": "Severity summary",
-   "content": "Quarantines by severity, worst first — the triage order. Plus what was released or forfeited in the last 24h, so you can see the queue is being worked.",
+   "content": "What's in quarantine, worst first. selfdef quarantines anything whose behaviour didn't match its declaration (MS042) — critical means it violated a hard guarantee (declared read-only but wrote), info means it merely did less than declared. Read critical first; that's where a real breach would show.",
    "children": [
     {
      "selector": "#s-critical",
      "title": "Critical",
-     "content": "The most serious mismatches — e.g. a subject declared read-only then wrote. A hard declaration violation. Look here before anything else.",
-     "expanded": "<div class=\"so-card info\"><div class='so-li no'>✗ Critical means a subject broke a hard promise — the perimeter caught it exactly as designed.</div></div>"
+     "content": "How many quarantined items are critical — declared RO but wrote — a declaration violated in the most serious way. Critical is a hard-guarantee violation — the strongest signal something behaved maliciously or is badly broken; investigate before releasing."
     },
     {
      "selector": "#s-major",
      "title": "Major",
-     "content": "Serious but below critical — a subject exceeded its declared scope in a meaningful way (e.g. FS-only that reached network).",
-     "expanded": ""
+     "content": "How many quarantined items are major — declared FS-only but reached elsewhere — significant scope violation. Part of the quarantine picture; the block+quarantine+trace protocol froze it pending your decision."
     },
     {
      "selector": "#s-minor",
      "title": "Minor",
-     "content": "Scope drift within the same capability class — often benign mis-scoping rather than attack, but still recorded. The quarantine being careful.",
-     "expanded": ""
+     "content": "How many quarantined items are minor — scope drift, same class — a smaller deviation. Part of the quarantine picture; the block+quarantine+trace protocol froze it pending your decision."
     },
     {
      "selector": "#s-info",
      "title": "Informational",
-     "content": "The subject declared MORE authority than it used — technically a mismatch, practically harmless. Flag to tighten the declaration, not a danger.",
-     "expanded": ""
+     "content": "How many quarantined items are informational — declaration superset — did less than declared, noted not blocked. Part of the quarantine picture; the block+quarantine+trace protocol froze it pending your decision."
     },
     {
      "selector": "#s-released",
      "title": "Released (24h)",
-     "content": "Subjects an operator reviewed and let back out, signed — the recovery side. Evidence the queue is being worked, not just accumulating.",
-     "expanded": ""
+     "content": "How many quarantined items are released (24h) — operator-signed release back to normal in the last day. Part of the quarantine picture; the block+quarantine+trace protocol froze it pending your decision."
     },
     {
      "selector": "#s-forfeited",
      "title": "Forfeited (24h)",
-     "content": "The terminal outcome — a subject judged unsafe and destroyed (image purged). The decisive end of the protocol when restore isn't warranted.",
-     "expanded": ""
+     "content": "How many quarantined items are forfeited (24h) — image purged — the quarantined thing was destroyed. Part of the quarantine picture; the block+quarantine+trace protocol froze it pending your decision."
     }
    ]
   },
   {
-   "icon": "◫",
-   "title": "Sources & active quarantine",
-   "content": "Where mismatches come from, and the live quarantine ledger.",
+   "icon": "▦",
+   "title": "Mismatch sources",
+   "content": "Where the mismatches are coming from — which declared fields are being violated most.",
    "children": [
     {
      "selector": "#field-chart",
      "title": "Top mismatch fields",
-     "content": "Which declared field was violated most — the systemic source. If one field dominates, the fix is upstream (a bad declaration template), not per-incident.",
-     "expanded": ""
-    },
-    {
-     "selector": "#quar-tbody",
-     "title": "Active quarantine",
-     "content": "Each quarantine with what's blocked and the specific mismatches that triggered it, under the block+quarantine+trace protocol. Restore/forfeit via signed selfdefctl (R10122).",
-     "expanded": ""
-    },
+     "content": "Which declaration fields are violated most often across quarantined items. A pattern here is diagnostic: many items failing the same field means a systematic issue (a bad declaration template) rather than one rogue actor.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Mismatch fields localize the cause</div>Quarantine catches behaviour ≠ declaration; this shows WHICH part of the declaration keeps failing. One field dominating points at a systematic mis-declaration, not scattered bad actors.</div>"
+    }
+   ]
+  },
+  {
+   "icon": "≣",
+   "title": "Active quarantine",
+   "content": "The frozen items, under the block+quarantine+trace protocol.",
+   "children": [
     {
      "selector": "#state-filters",
      "title": "State filters",
-     "content": "Narrow to a state — e.g. only blocked, to focus on what's actively contained.",
-     "expanded": ""
+     "content": "Filter quarantine by state (blocked / released / forfeited). Narrow to what needs a decision — usually the blocked, critical items."
+    },
+    {
+     "selector": "#quar-tbody",
+     "title": "Quarantined items",
+     "content": "Each quarantined item with its severity, what it's blocked for, and the mismatches. Hover a row for why it was quarantined; restore or forfeit via selfdefctl + MS003. This is the box catching something that broke its promise.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Block + quarantine + trace</div>When behaviour violates declaration, selfdef blocks it, freezes it here, and keeps the trace. Your options are release (signed, it was a false alarm) or forfeit (purge it).<div class=\"so-li\"><span class=\"no\">✗</span> critical/major → violated a real guarantee; investigate before release</div><div class=\"so-li\"><span class=\"warn\">▲</span> minor/info → smaller drift; often a declaration to tighten</div></div>"
     }
    ]
   },
   {
    "icon": "⎈",
-   "title": "Controls",
-   "content": "",
+   "title": "Actions & controls",
+   "content": "Web is a READ-ONLY mirror consumer — restore/forfeit via selfdefctl + MS003 (R10122).",
    "children": [
     {
      "selector": "#toast",
-     "title": "Copy confirmation",
-     "content": "Confirms a signed selfdefctl verb was copied for operator MS003 execution (R10122). Nothing was restored or forfeited here.",
-     "expanded": ""
+     "title": "Copy toast",
+     "content": "Confirms a selfdefctl verb (release or forfeit) was copied — you run it on the selfdef side with MS003. The web never releases or forfeits directly."
     },
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Quarantine controls — each copies its selfdefctl verb. Restore/forfeit happen on the IPS side, never from this web view.",
-     "expanded": ""
+     "content": "Quarantine controls — each copies its selfdefctl verb (§1g / R10212). Release and forfeit run through the signed selfdef CLI with MS003, never from the web."
+    }
+   ]
+  }
+ ]
+};
+</script>
+<script>
+window.SO_ASSIST = {
+ "context": {
+  "icon": "⊗",
+  "title": "D-17 · Quarantine",
+  "content": "A read-only mirror of selfdef's quarantine (MS042). selfdef declares what each component is allowed to do, then watches — anything that behaves differently from its declaration is blocked, frozen here, and traced (block + quarantine + trace). Severity reflects how serious the violation was: critical = a hard guarantee broken (declared read-only but wrote), info = merely did less than declared.\n\nRead it worst-first: a critical item is the box catching something that broke its promise. Items are released (false alarm) or forfeited (purged) via selfdefctl + MS003 — never from this mirror."
+ },
+ "nodes": [
+  {
+   "icon": "◆",
+   "title": "Mirror status",
+   "content": "Whether this read-only mirror of selfdef's quarantine is live or stale. If offline, everything below is history, not the current IPS state.",
+   "children": [
+    {
+     "selector": "#mirror-status-banner",
+     "title": "Mirror live vs offline",
+     "content": "This panel is a READ-ONLY mirror of selfdef's quarantine (M060 bridge). Green = live; offline = stale. The box never manages quarantine here — that's selfdefctl quarantine + MS003 on the selfdef side.",
+     "icon": "◆",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A mirror, not a control</div>selfdef owns quarantine; sovereign-os only reflects it so you can see the IPS in one cockpit. Changes happen in selfdef (signed), never from this panel.<div class=\"so-xref\"><span class=\"x\">→</span> D-00 — M060 chain health<br><span class=\"x\">→</span> D-25 — mirror-chain detail</div></div>",
+     "variants": [
+      {
+       "when": {
+        "textContains": "live"
+       },
+       "content": "Live — selfdef is feeding this mirror; the quarantine is current.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Mirror live</div>Reflecting the real IPS quarantine now.</div>"
+      },
+      {
+       "when": {
+        "textContains": "offline"
+       },
+       "content": "Offline — the bridge is stale; treat the quarantine below as history.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Mirror offline</div>Stale bridge — not the current IPS state.</div>"
+      }
+     ]
+    },
+    {
+     "selector": "#mirror-state-label",
+     "title": "Mirror label",
+     "content": "One-word mirror state — live or offline; whether the quarantine can be trusted as current."
+    },
+    {
+     "selector": "#mirror-state-detail",
+     "title": "Mirror detail",
+     "content": "The producer/endpoint behind the mirror and why it's live or offline. Managed via selfdefctl quarantine on the selfdef side."
+    },
+    {
+     "selector": "#mirror-last-update",
+     "title": "Mirror freshness",
+     "content": "When selfdef last captured this snapshot (ISO captured_at). On an offline mirror, how stale it is."
+    },
+    {
+     "selector": "#mirror-schema-version",
+     "title": "Mirror schema",
+     "content": "The MS007 typed-mirror-crate schema version — confirms mirror and consumer agree on the data shape."
+    }
+   ]
+  },
+  {
+   "icon": "▤",
+   "title": "Severity summary",
+   "content": "What's in quarantine, worst first. selfdef quarantines anything whose behaviour didn't match its declaration (MS042) — critical means it violated a hard guarantee (declared read-only but wrote), info means it merely did less than declared. Read critical first; that's where a real breach would show.",
+   "children": [
+    {
+     "selector": "#s-critical",
+     "title": "Critical",
+     "content": "How many quarantined items are critical — declared RO but wrote — a declaration violated in the most serious way. Critical is a hard-guarantee violation — the strongest signal something behaved maliciously or is badly broken; investigate before releasing."
+    },
+    {
+     "selector": "#s-major",
+     "title": "Major",
+     "content": "How many quarantined items are major — declared FS-only but reached elsewhere — significant scope violation. Part of the quarantine picture; the block+quarantine+trace protocol froze it pending your decision."
+    },
+    {
+     "selector": "#s-minor",
+     "title": "Minor",
+     "content": "How many quarantined items are minor — scope drift, same class — a smaller deviation. Part of the quarantine picture; the block+quarantine+trace protocol froze it pending your decision."
+    },
+    {
+     "selector": "#s-info",
+     "title": "Informational",
+     "content": "How many quarantined items are informational — declaration superset — did less than declared, noted not blocked. Part of the quarantine picture; the block+quarantine+trace protocol froze it pending your decision."
+    },
+    {
+     "selector": "#s-released",
+     "title": "Released (24h)",
+     "content": "How many quarantined items are released (24h) — operator-signed release back to normal in the last day. Part of the quarantine picture; the block+quarantine+trace protocol froze it pending your decision."
+    },
+    {
+     "selector": "#s-forfeited",
+     "title": "Forfeited (24h)",
+     "content": "How many quarantined items are forfeited (24h) — image purged — the quarantined thing was destroyed. Part of the quarantine picture; the block+quarantine+trace protocol froze it pending your decision."
+    }
+   ]
+  },
+  {
+   "icon": "▦",
+   "title": "Mismatch sources",
+   "content": "Where the mismatches are coming from — which declared fields are being violated most.",
+   "children": [
+    {
+     "selector": "#field-chart",
+     "title": "Top mismatch fields",
+     "content": "Which declaration fields are violated most often across quarantined items. A pattern here is diagnostic: many items failing the same field means a systematic issue (a bad declaration template) rather than one rogue actor.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Mismatch fields localize the cause</div>Quarantine catches behaviour ≠ declaration; this shows WHICH part of the declaration keeps failing. One field dominating points at a systematic mis-declaration, not scattered bad actors.</div>"
+    }
+   ]
+  },
+  {
+   "icon": "≣",
+   "title": "Active quarantine",
+   "content": "The frozen items, under the block+quarantine+trace protocol.",
+   "children": [
+    {
+     "selector": "#state-filters",
+     "title": "State filters",
+     "content": "Filter quarantine by state (blocked / released / forfeited). Narrow to what needs a decision — usually the blocked, critical items."
+    },
+    {
+     "selector": "#quar-tbody",
+     "title": "Quarantined items",
+     "content": "Each quarantined item with its severity, what it's blocked for, and the mismatches. Hover a row for why it was quarantined; restore or forfeit via selfdefctl + MS003. This is the box catching something that broke its promise.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Block + quarantine + trace</div>When behaviour violates declaration, selfdef blocks it, freezes it here, and keeps the trace. Your options are release (signed, it was a false alarm) or forfeit (purge it).<div class=\"so-li\"><span class=\"no\">✗</span> critical/major → violated a real guarantee; investigate before release</div><div class=\"so-li\"><span class=\"warn\">▲</span> minor/info → smaller drift; often a declaration to tighten</div></div>"
+    }
+   ]
+  },
+  {
+   "icon": "⎈",
+   "title": "Actions & controls",
+   "content": "Web is a READ-ONLY mirror consumer — restore/forfeit via selfdefctl + MS003 (R10122).",
+   "children": [
+    {
+     "selector": "#toast",
+     "title": "Copy toast",
+     "content": "Confirms a selfdefctl verb (release or forfeit) was copied — you run it on the selfdef side with MS003. The web never releases or forfeits directly."
+    },
+    {
+     "selector": "#control-surface",
+     "title": "Controls rail",
+     "content": "Quarantine controls — each copies its selfdefctl verb (§1g / R10212). Release and forfeit run through the signed selfdef CLI with MS003, never from the web."
     }
    ]
   }

@@ -497,10 +497,16 @@ a11y; contract test catches drift.
   .so-node-expanded{margin-top:.55rem; padding-top:.55rem; border-top:1px solid rgba(155,209,255,.13); font-size:.78rem; line-height:1.6; color:var(--muted,#a8a8a8); white-space:pre-line;}
   /* rich expanded cards */
   .so-card{border:1px solid var(--border,#262626); border-radius:7px; padding:.55rem .65rem; margin-top:.45rem; background:var(--bg,#0e0e0e); white-space:normal; line-height:1.55;}
-  .so-card.info{border-color:rgba(155,209,255,.28);}
+  .so-card.info{border-color:rgba(155,209,255,.28); background:rgba(155,209,255,.035);}
+  .so-card.ok{border-color:rgba(127,209,143,.34); background:rgba(127,209,143,.045);}
+  .so-card.warn{border-color:rgba(224,192,122,.38); background:rgba(224,192,122,.05);}
+  .so-card.err{border-color:rgba(224,138,138,.4); background:rgba(224,138,138,.055);}
+  .so-card-label{font-weight:600; font-size:.79rem; margin-bottom:.3rem;}
+  .so-card.ok .so-card-label{color:#7fd18f;} .so-card.warn .so-card-label{color:#e0c07a;} .so-card.err .so-card-label{color:#e08a8a;} .so-card.info .so-card-label{color:var(--accent,#9bd1ff);}
   .so-grid{display:grid; grid-template-columns:auto 1fr; gap:.22rem .6rem; margin:.35rem 0; font-size:.76rem; white-space:normal;}
   .so-grid .k{color:var(--accent,#9bd1ff); font-weight:500;}
-  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;}
+  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;} .so-li .warn{color:#e0c07a;}
+  .so-xref{margin-top:.4rem; font-size:.76rem; color:var(--fg-2,#c8c8c8);} .so-xref .x{color:var(--accent,#9bd1ff); font-weight:500;}
   .so-tip{margin-top:.4rem; font-size:.77rem; color:var(--muted,#a8a8a8);}
   .so-assist-idle{color:var(--muted,#8a8a8a); font-style:italic; padding:.4rem 0;}
   /* highlight the hovered/focused element in the panel content */
@@ -661,25 +667,38 @@ a11y; contract test catches drift.
       return {ctx:ctx, nodes:nodes}; })();
     // flatten deepest-first with parent chains
     var FLAT=[]; (function flat(list,chain){ (list||[]).forEach(function(n){ if(n.children&&n.children.length) flat(n.children,chain.concat([n])); FLAT.push({node:n,parents:chain.slice()}); }); })(CAT.nodes,[]);
+    // {{name}} interpolation for dynamic-row templates
+    function interp(s,name){ return (name==null)?(s||''):String(s||'').replace(/\{\{name\}\}/g,name); }
+    // derive a live row's label (nameSelector, then a strong/cell/code heuristic, then text)
+    function rowName(row,ct){ var t=''; if(ct.nameSelector){ try{ var e=row.querySelector(ct.nameSelector); if(e) t=e.textContent||''; }catch(x){} }
+      if(!t){ var s=row.querySelector('strong,code,th,.k,td'); if(s) t=s.textContent||''; }
+      if(!t) t=row.textContent||''; return t.replace(/\s+/g,' ').trim().slice(0,64); }
+    // synthesize a node from a childTemplate bound to one live row
+    function synthRow(n,row){ var ct=n.childTemplate, nm=rowName(row,ct);
+      return {id:n.id, icon:ct.icon||n.icon, title:interp(ct.title||n.title||'{{name}}',nm), content:ct.content||'', expanded:ct.expanded||'', variants:ct.variants, _name:nm}; }
     // variant resolution against the matched element (state-awareness)
     function resolveVar(node,el){ if(!node.variants||!node.variants.length||!el) return node;
       for(var i=0;i<node.variants.length;i++){ var v=node.variants[i], w=v.when||{}, ok=true;
-        if(w.textContains && (el.textContent||'').indexOf(w.textContains)<0) ok=false;
+        if(w.textContains && (el.textContent||'').toLowerCase().indexOf(String(w.textContains).toLowerCase())<0) ok=false;
         if(ok&&w.hasSelector){ try{ if(!el.querySelector(w.hasSelector)) ok=false; }catch(e){ ok=false; } }
-        if(ok) return {id:node.id,title:v.title||node.title,icon:node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded)}; }
+        if(ok) return {id:node.id,title:v.title||node.title,icon:v.icon||node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded),_name:node._name}; }
       return node; }
-    // match a hovered element to the deepest catalogue node
+    // match a hovered element to the deepest catalogue node (static node OR dynamic row)
     function matchNode(el){ var best=null,bd=-1;
-      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node,m=false,tgt=null; if(!n.selector) continue;
-        try{ if(el.matches(n.selector)){m=true;tgt=el;}
-          else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
-        if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node;
+        if(n.selector){ var m=false,tgt=null;
+          try{ if(el.matches(n.selector)){m=true;tgt=el;}
+            else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
+          if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+        if(n.dynamic && n.childTemplate && n.childTemplate.selector){ try{ var row=el.closest(n.childTemplate.selector);
+          if(row){ var d2=e.parents.length+1; if(d2>bd){ bd=d2; best={entry:{node:synthRow(n,row),parents:e.parents.concat([n])},el:row}; } } }catch(y){} } }
       return best; }
     function ctxHtml(){ var c=CAT.ctx; return '<div class="so-ctx"><div class="so-ctx-title">'+(c.icon?esc(c.icon)+' ':'')+esc(c.title||'')+'</div><div class="so-ctx-content">'+esc(c.content||'')+'</div></div>'; }
-    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node;
-      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(r.title||'')+'</div>';
-      h+='<div class="so-node-content">'+esc(r.content||'')+'</div>';
-      if(active && r.expanded) h+='<div class="so-node-expanded">'+r.expanded+'</div>';   // expanded = trusted authored HTML
+    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node, nm=(node._name!=null?node._name:null);
+      var title=interp(r.title||'',nm), cont=interp(r.content||'',nm), exp=interp(r.expanded||'',nm);
+      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(title)+'</div>';
+      h+='<div class="so-node-content">'+esc(cont)+'</div>';
+      if(active && exp) h+='<div class="so-node-expanded">'+exp+'</div>';   // expanded = trusted authored HTML
       return h+'</div>'; }
     var lastHot=null, lastMatched=null;
     function clearHot(){ if(lastHot){ lastHot.classList.remove('so-assist-hot'); lastHot=null; } }
@@ -698,7 +717,7 @@ a11y; contract test catches drift.
     // menu links → surface the target panel's context (program-awareness: horizontal jump)
     Array.prototype.forEach.call(document.querySelectorAll('.so-sm-item'),function(it){ var p=findPanel(it.dataset.dir); if(!p) return;
       function show(){ openAssist(); clearHot(); lastMatched=null; it.classList.add('so-assist-hot'); lastHot=it; var here=it.dataset.dir===curDir();
-        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+esc(p.desc||'')+'</div></div>'+
+        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+(p.menuHover?p.menuHover:esc(p.desc||''))+'</div></div>'+
           '<div class="so-assist-idle">'+(here?'You’re on this panel now — hover its contents to explore.':'Click to open this panel.')+'</div>'; }
       it.addEventListener('mouseenter',show); it.addEventListener('focus',show); });
     idle();
@@ -1417,126 +1436,158 @@ window.SO_ASSIST = {
  "context": {
   "icon": "↺",
   "title": "D-08 · Rollback Points",
-  "content": "The undo history — ZFS snapshots (M068) you can roll back to, laid against the commit timeline so you can see exactly what a rollback would revert.\n\nThe preview is a dry-run: it shows the delta before you commit to it, so you never restore blind. Applying a rollback is a signed CLI verb (MS043 R10212). This is the reversibility D-20 checks as a peace property."
+  "content": "The box's undo. Every durable change leaves a ZFS snapshot (M068) — an instant, copy-on-write freeze of the filesystem — so any prior state can be restored. This is what makes the box trustworthy: it can act boldly because everything is reversible. The panel crosses those snapshots with the MS041 commit history so you can see, per moment, exactly what state you could roll back to.\n\nRead it to find a safe point to return to, preview what a rollback would change (dry-run, no side effects, R10099), and — only then — apply it under your signature. The web only ever emits the CLI; the daemon executes after an MS003 signature."
  },
  "nodes": [
   {
    "icon": "◆",
    "title": "Live-source banner",
-   "content": "Says whether you're reading the live daemon (/api/d-08/snapshot) or a baked snapshot — snapshot inventory can change fast, so freshness matters.",
+   "content": "Whether the snapshot inventory is live from /api/d-08/snapshot or a snapshot-of-the-snapshots. A stale read could miss a just-taken rollback point.",
    "children": [
     {
      "selector": "#datasource-banner",
      "title": "Live vs snapshot",
-     "content": "Green = /api/d-08/snapshot is answering live; muted = the last committed sample.",
+     "content": "Green = the rollback daemon is answering; muted = a snapshot. New ZFS snapshots are taken as changes commit, so a stale read can lag the latest safe point.",
+     "icon": "◆",
      "variants": [
       {
        "when": {
         "textContains": "live"
        },
-       "content": "Live — the values are current."
+       "content": "Live — the snapshot inventory is current.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Live</div>The daemon is answering; every available rollback point is shown.</div>"
       },
       {
        "when": {
         "textContains": "snapshot"
        },
-       "content": "Snapshot — the daemon is unreachable; treat the values as last-known until it goes green."
+       "content": "Snapshot — the daemon is unreachable; a recent rollback point may not appear.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Snapshot</div>Reading last-known inventory — a just-taken snapshot might be missing.</div>"
       }
      ]
     },
     {
+     "selector": "#ds-state-label",
+     "title": "Source label",
+     "content": "One-word source read — live rollback daemon vs a baked snapshot, before you trust the inventory as complete."
+    },
+    {
+     "selector": "#ds-state-detail",
+     "title": "Source detail",
+     "content": "The endpoint (/api/d-08/snapshot) and why it's live or fell back."
+    },
+    {
      "selector": "#ds-last-update",
      "title": "Fetch freshness",
-     "content": "When the shown sample was pulled — read it before trusting a value as 'now'."
+     "content": "When the inventory was pulled. Snapshots accrue as changes commit; check this before assuming the newest point is shown."
     }
    ]
   },
   {
    "icon": "▤",
    "title": "Summary",
-   "content": "How much recovery history exists, how far back it reaches, and what it costs in disk.",
+   "content": "The shape of your safety net — how many snapshots exist, how many durable commits they cover, the disk they cost, and how far back you can go. Read oldest-snapshot as your rollback horizon: it's the furthest-back state still recoverable.",
    "children": [
     {
      "selector": "#s-snapshots",
-     "title": "Snapshots",
-     "content": "How many ZFS snapshots are available to roll back to — the depth of your undo history."
+     "title": "ZFS snapshots",
+     "content": "How many ZFS snapshots exist across all datasets — the number of distinct points you could roll back to. More snapshots = a finer-grained undo history.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why ZFS snapshots are cheap</div>A ZFS snapshot is copy-on-write — it costs almost nothing to take and only grows as data diverges from it. That's why the box can keep many: instant, near-free freezes of the whole filesystem.<div class=\"so-xref\"><span class=\"x\">→</span> D-09 ZFS — the pool these snapshots live on</div></div>"
     },
     {
      "selector": "#s-commits",
-     "title": "Commits",
-     "content": "How many commits the timeline spans — the changes each snapshot sits between."
+     "title": "MS041 commits (24h)",
+     "content": "How many durable changes (MS041-signed commits) happened in the last 24h. Each is a state change worth being able to undo — this is the change rate the snapshots are protecting against."
     },
     {
      "selector": "#s-disk",
-     "title": "Snapshot disk use",
-     "content": "Space held by recovery snapshots — cheap until it isn't. A growing figure is retained history you can prune. The cost side of keeping many recovery points."
+     "title": "Disk used (snapshots)",
+     "content": "How much disk the snapshots consume in GiB. Because ZFS snapshots are copy-on-write, this grows only as the live data diverges from them — a large number means lots has changed since the older snapshots."
     },
     {
      "selector": "#s-oldest",
      "title": "Oldest snapshot",
-     "content": "How far back recovery reaches — the horizon of what you can undo."
+     "content": "The age of the oldest snapshot — your rollback horizon. You can restore any state back to here; anything older is gone. If this is recent, your undo history is shallow."
     },
     {
      "selector": "#s-last-rollback",
      "title": "Last rollback",
-     "content": "When a rollback was last applied — context for whether the box is in a recently-restored state."
+     "content": "When a rollback was last applied (or never). A rollback is a significant event — restoring past state — so this is the audit line for 'when did we last undo something'.",
+     "variants": [
+      {
+       "when": {
+        "textContains": "never"
+       },
+       "content": "No rollback has ever been applied — the box has only ever moved forward."
+      }
+     ]
     }
    ]
   },
   {
-   "icon": "▦",
-   "title": "Snapshots & timeline",
-   "content": "The snapshot inventory and the commit×snapshot timeline — where you pick the point to restore to.",
+   "icon": "≣",
+   "title": "Snapshot inventory & timeline",
+   "content": "The full list of restorable points and how they line up with the commit history. Together they answer 'what state existed at each moment, and can I get back to it'.",
    "children": [
-    {
-     "selector": "#snapshots-tbody",
-     "title": "ZFS snapshot inventory",
-     "content": "Each snapshot with its dataset and metadata — the recovery points. Snapshots are cheap and atomic; this is the menu of states you can return to."
-    },
-    {
-     "selector": "#timeline",
-     "title": "Commit × snapshot timeline (24h)",
-     "content": "Commits laid against snapshots so you can see exactly which changes a given rollback would revert — the visual bridge between 'what happened' and 'what you'd undo'."
-    },
     {
      "selector": "#dataset-filters",
      "title": "Dataset filters",
-     "content": "Narrow to one dataset's snapshots — e.g. only tank/context, when you want to roll back state without touching everything."
+     "content": "Filter the snapshot list by dataset (tank/context, tank/containers, etc.). Narrow to the dataset you care about — a rollback is usually per-dataset, not the whole pool."
+    },
+    {
+     "selector": "#snapshots-tbody",
+     "title": "Snapshot inventory",
+     "content": "Each ZFS snapshot with its dataset, timestamp, reference size, and tag. Hover a row for what that snapshot captured; its actions preview and (signed) apply a rollback to it. This is the menu of states you can return to.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Reading a snapshot row</div>Each row is a restorable point: a dataset frozen at a moment. The refer size is how much data it holds; the tag is why it was taken (a commit, a manual mark, a scheduled point).<div class=\"so-tip\">💡 Preview before applying — the dry-run shows exactly what would change with no side effects (R10099).</div></div>",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#snapshots-tbody tr",
+      "nameSelector": "td",
+      "title": "Snapshot · {{name}}",
+      "content": "The {{name}} snapshot — a restorable point on its dataset, with its timestamp, size, and tag. Hover reads the row; its actions preview (dry-run) and signed-apply a rollback to it.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Snapshot · {{name}}</div>One restorable state. Preview shows what rolling back to it would change (no side effects); apply reverts to it under MS003 signature.<div class=\"so-xref\"><span class=\"x\">→</span> D-09 ZFS — the pool it lives on</div></div>"
+     }
+    },
+    {
+     "selector": "#timeline",
+     "title": "Commit × snapshot timeline",
+     "content": "The last 24h of MS041 commits crossed with the ZFS snapshots — a durable change with a signed receipt vs a restorable point. Reading them together shows, for any moment, both what changed and whether you can roll back to before it.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Commits vs snapshots</div>A commit is a forward step (a durable, signed change); a snapshot is the ability to step back. The timeline aligns them so you can find the snapshot just before a change you want to undo.<div class=\"so-xref\"><span class=\"x\">→</span> D-05 traces — the OCSF Config-Change spans behind these commits</div></div>"
     }
    ]
   },
   {
-   "icon": "⌕",
+   "icon": "⚲",
    "title": "Rollback preview (dry-run)",
-   "content": "The safety rail — a preview of exactly what a rollback to the selected point would change, before you commit to it.",
+   "content": "Before any rollback, see exactly what it would change — a dry-run diff between HEAD and the chosen snapshot, with NO side effects (R10099). This is the look-before-you-leap that makes rolling back safe.",
    "children": [
-    {
-     "selector": "#preview-box",
-     "title": "Rollback dry-run (R10099)",
-     "content": "A preview of the delta a rollback to the selected point would apply — shows what changes so you never restore blind.",
-     "expanded": "<div class=\"so-card info\"><div>Applying is a gated signed action; this is where you decide it's the right point first.</div></div>"
-    },
     {
      "selector": "#preview-target",
      "title": "Preview target",
-     "content": "Which snapshot the preview is computed against — the point you're considering restoring to."
+     "content": "Which snapshot the preview is computed against — the state you're considering rolling back to. Pick a snapshot from the inventory to set it."
+    },
+    {
+     "selector": "#preview-box",
+     "title": "Rollback diff (dry-run)",
+     "content": "The computed difference between the current state (HEAD) and the target snapshot — exactly what a rollback would revert. It has NO side effects (R10099): it shows the blast radius so you commit to a rollback knowing precisely what changes, not hoping.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Dry-run is the safety</div>A rollback reverts state — you want to know what it touches before, not after. This diff is that preview: HEAD vs snapshot, read-only, so there are no surprises when you apply.<div class=\"so-li\"><span class=\"ok\">✓</span> Dry-run → shows the diff, changes nothing</div><div class=\"so-li\"><span class=\"warn\">▲</span> Apply → actually reverts; MS003-signed, irreversible-forward</div><div class=\"so-tip\">💡 The apply is the only mutating step, and it only runs after your MS003 signature.</div></div>"
     }
    ]
   },
   {
    "icon": "⎈",
    "title": "Actions & controls",
-   "content": "Read-only; the web emits CLI only, the daemon executes after MS003 signature (MS043 R10212).",
+   "content": "Web emits CLI only; the daemon executes after an MS003 signature (MS043 R10212). Previewing is free; applying a rollback is a signed, receipt-chained verb.",
    "children": [
     {
      "selector": "#toast",
-     "title": "Copy confirmation",
-     "content": "Confirms a signed CLI verb was copied for operator MS003 execution. Nothing was rolled back here — the web only stages the command."
+     "title": "Copy toast",
+     "content": "Confirms a CLI verb (a preview or a signed rollback-apply command) was copied to your clipboard — the web emits, you run it. The receipt chain + MS003 verification happen when the daemon executes."
     },
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Rollback controls — each copies its sovereign-osctl verb. Restore happens via the gated daemon path, never from the web (R10212)."
+     "content": "Rollback controls — each copies its exact sovereign-osctl verb (§1g / R10212). Preview is read-only; rollback-apply runs through the signed CLI with an MS003 signature and a receipt chain, never from the web."
     }
    ]
   }

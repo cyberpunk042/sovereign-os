@@ -489,10 +489,16 @@ a11y; contract test catches drift.
   .so-node-expanded{margin-top:.55rem; padding-top:.55rem; border-top:1px solid rgba(155,209,255,.13); font-size:.78rem; line-height:1.6; color:var(--muted,#a8a8a8); white-space:pre-line;}
   /* rich expanded cards */
   .so-card{border:1px solid var(--border,#262626); border-radius:7px; padding:.55rem .65rem; margin-top:.45rem; background:var(--bg,#0e0e0e); white-space:normal; line-height:1.55;}
-  .so-card.info{border-color:rgba(155,209,255,.28);}
+  .so-card.info{border-color:rgba(155,209,255,.28); background:rgba(155,209,255,.035);}
+  .so-card.ok{border-color:rgba(127,209,143,.34); background:rgba(127,209,143,.045);}
+  .so-card.warn{border-color:rgba(224,192,122,.38); background:rgba(224,192,122,.05);}
+  .so-card.err{border-color:rgba(224,138,138,.4); background:rgba(224,138,138,.055);}
+  .so-card-label{font-weight:600; font-size:.79rem; margin-bottom:.3rem;}
+  .so-card.ok .so-card-label{color:#7fd18f;} .so-card.warn .so-card-label{color:#e0c07a;} .so-card.err .so-card-label{color:#e08a8a;} .so-card.info .so-card-label{color:var(--accent,#9bd1ff);}
   .so-grid{display:grid; grid-template-columns:auto 1fr; gap:.22rem .6rem; margin:.35rem 0; font-size:.76rem; white-space:normal;}
   .so-grid .k{color:var(--accent,#9bd1ff); font-weight:500;}
-  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;}
+  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;} .so-li .warn{color:#e0c07a;}
+  .so-xref{margin-top:.4rem; font-size:.76rem; color:var(--fg-2,#c8c8c8);} .so-xref .x{color:var(--accent,#9bd1ff); font-weight:500;}
   .so-tip{margin-top:.4rem; font-size:.77rem; color:var(--muted,#a8a8a8);}
   .so-assist-idle{color:var(--muted,#8a8a8a); font-style:italic; padding:.4rem 0;}
   /* highlight the hovered/focused element in the panel content */
@@ -653,25 +659,38 @@ a11y; contract test catches drift.
       return {ctx:ctx, nodes:nodes}; })();
     // flatten deepest-first with parent chains
     var FLAT=[]; (function flat(list,chain){ (list||[]).forEach(function(n){ if(n.children&&n.children.length) flat(n.children,chain.concat([n])); FLAT.push({node:n,parents:chain.slice()}); }); })(CAT.nodes,[]);
+    // {{name}} interpolation for dynamic-row templates
+    function interp(s,name){ return (name==null)?(s||''):String(s||'').replace(/\{\{name\}\}/g,name); }
+    // derive a live row's label (nameSelector, then a strong/cell/code heuristic, then text)
+    function rowName(row,ct){ var t=''; if(ct.nameSelector){ try{ var e=row.querySelector(ct.nameSelector); if(e) t=e.textContent||''; }catch(x){} }
+      if(!t){ var s=row.querySelector('strong,code,th,.k,td'); if(s) t=s.textContent||''; }
+      if(!t) t=row.textContent||''; return t.replace(/\s+/g,' ').trim().slice(0,64); }
+    // synthesize a node from a childTemplate bound to one live row
+    function synthRow(n,row){ var ct=n.childTemplate, nm=rowName(row,ct);
+      return {id:n.id, icon:ct.icon||n.icon, title:interp(ct.title||n.title||'{{name}}',nm), content:ct.content||'', expanded:ct.expanded||'', variants:ct.variants, _name:nm}; }
     // variant resolution against the matched element (state-awareness)
     function resolveVar(node,el){ if(!node.variants||!node.variants.length||!el) return node;
       for(var i=0;i<node.variants.length;i++){ var v=node.variants[i], w=v.when||{}, ok=true;
-        if(w.textContains && (el.textContent||'').indexOf(w.textContains)<0) ok=false;
+        if(w.textContains && (el.textContent||'').toLowerCase().indexOf(String(w.textContains).toLowerCase())<0) ok=false;
         if(ok&&w.hasSelector){ try{ if(!el.querySelector(w.hasSelector)) ok=false; }catch(e){ ok=false; } }
-        if(ok) return {id:node.id,title:v.title||node.title,icon:node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded)}; }
+        if(ok) return {id:node.id,title:v.title||node.title,icon:v.icon||node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded),_name:node._name}; }
       return node; }
-    // match a hovered element to the deepest catalogue node
+    // match a hovered element to the deepest catalogue node (static node OR dynamic row)
     function matchNode(el){ var best=null,bd=-1;
-      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node,m=false,tgt=null; if(!n.selector) continue;
-        try{ if(el.matches(n.selector)){m=true;tgt=el;}
-          else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
-        if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node;
+        if(n.selector){ var m=false,tgt=null;
+          try{ if(el.matches(n.selector)){m=true;tgt=el;}
+            else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
+          if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+        if(n.dynamic && n.childTemplate && n.childTemplate.selector){ try{ var row=el.closest(n.childTemplate.selector);
+          if(row){ var d2=e.parents.length+1; if(d2>bd){ bd=d2; best={entry:{node:synthRow(n,row),parents:e.parents.concat([n])},el:row}; } } }catch(y){} } }
       return best; }
     function ctxHtml(){ var c=CAT.ctx; return '<div class="so-ctx"><div class="so-ctx-title">'+(c.icon?esc(c.icon)+' ':'')+esc(c.title||'')+'</div><div class="so-ctx-content">'+esc(c.content||'')+'</div></div>'; }
-    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node;
-      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(r.title||'')+'</div>';
-      h+='<div class="so-node-content">'+esc(r.content||'')+'</div>';
-      if(active && r.expanded) h+='<div class="so-node-expanded">'+r.expanded+'</div>';   // expanded = trusted authored HTML
+    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node, nm=(node._name!=null?node._name:null);
+      var title=interp(r.title||'',nm), cont=interp(r.content||'',nm), exp=interp(r.expanded||'',nm);
+      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(title)+'</div>';
+      h+='<div class="so-node-content">'+esc(cont)+'</div>';
+      if(active && exp) h+='<div class="so-node-expanded">'+exp+'</div>';   // expanded = trusted authored HTML
       return h+'</div>'; }
     var lastHot=null, lastMatched=null;
     function clearHot(){ if(lastHot){ lastHot.classList.remove('so-assist-hot'); lastHot=null; } }
@@ -690,7 +709,7 @@ a11y; contract test catches drift.
     // menu links → surface the target panel's context (program-awareness: horizontal jump)
     Array.prototype.forEach.call(document.querySelectorAll('.so-sm-item'),function(it){ var p=findPanel(it.dataset.dir); if(!p) return;
       function show(){ openAssist(); clearHot(); lastMatched=null; it.classList.add('so-assist-hot'); lastHot=it; var here=it.dataset.dir===curDir();
-        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+esc(p.desc||'')+'</div></div>'+
+        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+(p.menuHover?p.menuHover:esc(p.desc||''))+'</div></div>'+
           '<div class="so-assist-idle">'+(here?'You’re on this panel now — hover its contents to explore.':'Click to open this panel.')+'</div>'; }
       it.addEventListener('mouseenter',show); it.addEventListener('focus',show); });
     idle();
@@ -1364,101 +1383,118 @@ a11y; contract test catches drift.
 <script>
 window.SO_ASSIST = {
  "context": {
-  "icon": "≣",
+  "icon": "◈",
   "title": "D-19 · Super-Model Manifest",
-  "content": "What this system actually knows how to do — the live super-model version and its M001..M080 module table. The super-model is the sum of its modules; this is the ground truth every other panel's features trace back to.\n\nRead-only. When you wonder whether a capability is shipped, this manifest is the authority."
+  "content": "The bill of materials for the whole box. The super-model is not a single model — it is the manifest that composes every module M001..M080 into one verified system, binding an exact version of each part and the requirement rows (R-numbers) the whole must satisfy. This one version is what a rollback targets and what an audit pins the box's behavior to.\n\nIt tracks the M066 Trinity (Pulse computes, Weaver steers, Auditor watches — compute is trustworthy only because the Auditor holds the hash chain), the M053 eleven-phase build status, and the per-module version table. A module lagging its expected version, or an incomplete phase, is drift the manifest surfaces. Read-only: manifest changes are signed and stage-gated."
  },
  "nodes": [
   {
    "icon": "◆",
-   "title": "Live-source banner",
-   "content": "Says whether you're reading the live daemon (/api/d-19/manifest) or a baked snapshot — the manifest can change fast, so freshness matters.",
+   "title": "Data source",
+   "content": "Whether the manifest is live or a snapshot.",
    "children": [
     {
-     "selector": "#datasource-banner",
+     "selector": "#ds-state-label",
      "title": "Live vs snapshot",
-     "content": "Green = /api/d-19/manifest is answering live; muted = the last committed sample.",
+     "content": "Green = the daemon is answering live; muted = a cached snapshot. The super-model version + module table are read from the manifest — a snapshot can show state that an apply has already superseded, so check this before trusting a value as current.",
+     "icon": "◆",
      "variants": [
+      {
+       "when": {
+        "textContains": "connecting"
+       },
+       "content": "Connecting — reaching the daemon; the values below are not confirmed live yet.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Connecting</div>Waiting on the API — treat the numbers as unconfirmed until this goes green.</div>"
+      },
       {
        "when": {
         "textContains": "live"
        },
-       "content": "Live — the values are current."
+       "content": "Live — the values below reflect real state right now.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Live</div>The daemon is answering; everything on the panel is current.</div>"
       },
       {
        "when": {
-        "textContains": "snapshot"
+        "textContains": "offline"
        },
-       "content": "Snapshot — the daemon is unreachable; treat the values as last-known until it goes green."
+       "content": "Offline — showing the last snapshot; the box may have moved on since.",
+       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Offline</div>No live answer — this is a cached snapshot, possibly stale.</div>"
       }
      ]
     },
     {
+     "selector": "#ds-state-detail",
+     "title": "Source detail",
+     "content": "Status line under the banner — endpoint + any degraded note."
+    },
+    {
      "selector": "#ds-last-update",
-     "title": "Fetch freshness",
-     "content": "When the shown sample was pulled — read it before trusting a value as 'now'."
+     "title": "Source freshness",
+     "content": "When the manifest was last read from the store. The version + module table below are only as current as this — after a build or module change, refresh before trusting the pinned versions."
     }
    ]
   },
   {
    "icon": "◈",
    "title": "Super-model version",
-   "content": "The version stamp and the headline counts — modules shipped, and how they reach the operator (rows, mirrors, dashboards).",
+   "content": "The version of the whole assembled system — the super-model is the composition of all modules M001..M080 into one coherent box. This is the single version that says which build of the sovereign OS you are running.",
    "children": [
     {
      "selector": "#sm-version",
-     "title": "Version",
-     "content": "The live super-model version — stamps exactly which capability set this is. The thing every other panel's features are tied to."
+     "title": "Super-model version",
+     "content": "The version of the composed system. The super-model is not one model — it is the manifest that binds every module into a verified whole, so this version pins the exact build of the entire box.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">One version for the whole box</div>The super-model manifest composes M001..M080 into a single verified system. This version is the composition's identity — it is what a rollback targets and what an audit pins the box's behavior to.<div class=\"so-xref\"><span class=\"x\">→</span> the module table below — the parts this version composes<br><span class=\"x\">→</span> D-06 stage-gates — how a new super-model version is admitted</div></div>"
     },
     {
      "selector": "#sm-modules",
-     "title": "Modules shipped",
-     "content": "How many of M001..M080 are live — the breadth of what the system currently knows how to do."
+     "title": "Module count",
+     "content": "How many modules the manifest composes. Read it against M001..M080 — a count short of the expected set means the manifest is partial, which the phase bar below would also show."
     },
     {
      "selector": "#sm-rrows",
      "title": "Requirement rows",
-     "content": "How many requirement rows the manifest tracks — the granular commitments behind the modules."
+     "content": "How many requirement rows (R-numbers) the manifest tracks. Each is a verifiable claim the composed system must satisfy — the manifest is not just a parts list, it is a contract."
     },
     {
      "selector": "#sm-mirrors",
-     "title": "Mirrors",
-     "content": "How many selfdef mirrors are wired — the security bridge count (cross-reference D-00's M060 producers)."
+     "title": "Mirrors + Trinity surface",
+     "content": "How many selfdef mirrors the manifest wires — the read-only bridges (like D-12 rules mirror) through which the M066 Trinity is observed: Pulse computes, Weaver steers, Auditor watches. Compute is trustworthy only because the Auditor holds the hash chain over it.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Pulse · Weaver · Auditor</div><div class=\"so-grid\"><span class=\"k\">Pulse</span><span>the compute tier — does the thinking (CPU ternary + GPUs)</span><span class=\"k\">Weaver</span><span>the steer tier — shapes/activation-steers behavior</span><span class=\"k\">Auditor</span><span>the watch tier — audits Pulse + Weaver, holds the hash chain</span></div><div class=\"so-xref\"><span class=\"x\">→</span> Trinity panels — Pulse / Weaver / Auditor in depth<br><span class=\"x\">→</span> D-16 audit chain — the Auditor tamper-evident log</div></div>"
     },
     {
      "selector": "#sm-dashboards",
      "title": "Dashboards",
-     "content": "How many cockpit dashboards the manifest accounts for — the operator surface count."
+     "content": "How many cockpit dashboards the manifest registers — the 51 panels are themselves a composed surface. This is the manifest counting its own UI."
     }
    ]
   },
   {
-   "icon": "◐",
-   "title": "Trinity roles (M066) & phase",
-   "content": "The 3-tier runtime roles and how far the super-model has progressed through its build phases.",
+   "icon": "⊞",
+   "title": "Build phases",
+   "content": "The M053 11-build-phase status — how far the super-model build has progressed through its phases. A partial phase bar means the composed system is mid-build, not fully assembled.",
    "children": [
     {
      "selector": "#phase-bar",
-     "title": "11-build-phase status (M053)",
-     "content": "How far the super-model has moved through its planned build phases — a quick read on maturity: how much of the capability set is live vs pending.",
-     "expanded": "<div class=\"so-card info\"><div>Pairs with the module table below for the per-module detail behind the phase.</div></div>"
+     "title": "11-build-phase status",
+     "content": "The build progress across M053's eleven phases. Each phase composes and verifies a layer of the system; a stalled phase is where assembly is blocked. Read it as the build's health, not just a progress bar.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Eleven phases, verified in order</div>The super-model is built in eleven ordered phases (M053) — each composes a layer and verifies it before the next. A phase that has not completed means the layers above it are not yet trustworthy; the bar is a gate view, not decoration.<div class=\"so-xref\"><span class=\"x\">→</span> D-01 lifecycle — the per-session analogue of phased assembly</div></div>"
     }
    ]
   },
   {
-   "icon": "▦",
-   "title": "Module table (M001..M080)",
-   "content": "The ground truth — every module with its version and status. What capabilities are actually shipped in the live super-model.",
+   "icon": "◫",
+   "title": "Module versions",
+   "content": "The per-module version table (M001..M080) — every module and the version the manifest pinned. This is the composition made explicit: which exact version of each part this super-model binds.",
    "children": [
-    {
-     "selector": "#ms-tbody",
-     "title": "Module-version table",
-     "content": "Each M0xx module with version and status — the version-stamped inventory of what the system can do. Every feature elsewhere traces back to a row here."
-    },
     {
      "selector": "#ms-filters",
      "title": "Module filters",
-     "content": "Narrow the table — e.g. to a phase or status — to find which modules are shipped, pending, or in-flight."
+     "content": "Narrow the module table — by domain, phase, or version state. Use it to answer 'is module M0xx at the version I expect' without scanning all eighty; the export buttons below carry the filtered set."
+    },
+    {
+     "selector": "#ms-tbody",
+     "title": "Module rows",
+     "content": "Each row: one module (M001..M080) and its pinned version. A module lagging its expected version is drift the manifest is telling you about — read it against the build phases above."
     },
     {
      "selector": "#export-csv",
@@ -1475,12 +1511,12 @@ window.SO_ASSIST = {
   {
    "icon": "⎈",
    "title": "Controls",
-   "content": "",
+   "content": "Read-only view — every mutation copies a signed sovereign-osctl verb (§1g / R10212). The web never changes the box; it hands you the exact CLI to run.",
    "children": [
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Manifest controls — each copies its sovereign-osctl verb (§1g / R10212). Read-only view."
+     "content": "The control rail — each button copies its exact sovereign-osctl command. A manifest or module change runs through the signed CLI after your MS003 signature, never from a web click."
     }
    ]
   }

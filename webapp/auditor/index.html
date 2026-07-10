@@ -479,10 +479,16 @@ a11y; contract test catches drift.
   .so-node-expanded{margin-top:.55rem; padding-top:.55rem; border-top:1px solid rgba(155,209,255,.13); font-size:.78rem; line-height:1.6; color:var(--muted,#a8a8a8); white-space:pre-line;}
   /* rich expanded cards */
   .so-card{border:1px solid var(--border,#262626); border-radius:7px; padding:.55rem .65rem; margin-top:.45rem; background:var(--bg,#0e0e0e); white-space:normal; line-height:1.55;}
-  .so-card.info{border-color:rgba(155,209,255,.28);}
+  .so-card.info{border-color:rgba(155,209,255,.28); background:rgba(155,209,255,.035);}
+  .so-card.ok{border-color:rgba(127,209,143,.34); background:rgba(127,209,143,.045);}
+  .so-card.warn{border-color:rgba(224,192,122,.38); background:rgba(224,192,122,.05);}
+  .so-card.err{border-color:rgba(224,138,138,.4); background:rgba(224,138,138,.055);}
+  .so-card-label{font-weight:600; font-size:.79rem; margin-bottom:.3rem;}
+  .so-card.ok .so-card-label{color:#7fd18f;} .so-card.warn .so-card-label{color:#e0c07a;} .so-card.err .so-card-label{color:#e08a8a;} .so-card.info .so-card-label{color:var(--accent,#9bd1ff);}
   .so-grid{display:grid; grid-template-columns:auto 1fr; gap:.22rem .6rem; margin:.35rem 0; font-size:.76rem; white-space:normal;}
   .so-grid .k{color:var(--accent,#9bd1ff); font-weight:500;}
-  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;}
+  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;} .so-li .warn{color:#e0c07a;}
+  .so-xref{margin-top:.4rem; font-size:.76rem; color:var(--fg-2,#c8c8c8);} .so-xref .x{color:var(--accent,#9bd1ff); font-weight:500;}
   .so-tip{margin-top:.4rem; font-size:.77rem; color:var(--muted,#a8a8a8);}
   .so-assist-idle{color:var(--muted,#8a8a8a); font-style:italic; padding:.4rem 0;}
   /* highlight the hovered/focused element in the panel content */
@@ -643,25 +649,38 @@ a11y; contract test catches drift.
       return {ctx:ctx, nodes:nodes}; })();
     // flatten deepest-first with parent chains
     var FLAT=[]; (function flat(list,chain){ (list||[]).forEach(function(n){ if(n.children&&n.children.length) flat(n.children,chain.concat([n])); FLAT.push({node:n,parents:chain.slice()}); }); })(CAT.nodes,[]);
+    // {{name}} interpolation for dynamic-row templates
+    function interp(s,name){ return (name==null)?(s||''):String(s||'').replace(/\{\{name\}\}/g,name); }
+    // derive a live row's label (nameSelector, then a strong/cell/code heuristic, then text)
+    function rowName(row,ct){ var t=''; if(ct.nameSelector){ try{ var e=row.querySelector(ct.nameSelector); if(e) t=e.textContent||''; }catch(x){} }
+      if(!t){ var s=row.querySelector('strong,code,th,.k,td'); if(s) t=s.textContent||''; }
+      if(!t) t=row.textContent||''; return t.replace(/\s+/g,' ').trim().slice(0,64); }
+    // synthesize a node from a childTemplate bound to one live row
+    function synthRow(n,row){ var ct=n.childTemplate, nm=rowName(row,ct);
+      return {id:n.id, icon:ct.icon||n.icon, title:interp(ct.title||n.title||'{{name}}',nm), content:ct.content||'', expanded:ct.expanded||'', variants:ct.variants, _name:nm}; }
     // variant resolution against the matched element (state-awareness)
     function resolveVar(node,el){ if(!node.variants||!node.variants.length||!el) return node;
       for(var i=0;i<node.variants.length;i++){ var v=node.variants[i], w=v.when||{}, ok=true;
-        if(w.textContains && (el.textContent||'').indexOf(w.textContains)<0) ok=false;
+        if(w.textContains && (el.textContent||'').toLowerCase().indexOf(String(w.textContains).toLowerCase())<0) ok=false;
         if(ok&&w.hasSelector){ try{ if(!el.querySelector(w.hasSelector)) ok=false; }catch(e){ ok=false; } }
-        if(ok) return {id:node.id,title:v.title||node.title,icon:node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded)}; }
+        if(ok) return {id:node.id,title:v.title||node.title,icon:v.icon||node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded),_name:node._name}; }
       return node; }
-    // match a hovered element to the deepest catalogue node
+    // match a hovered element to the deepest catalogue node (static node OR dynamic row)
     function matchNode(el){ var best=null,bd=-1;
-      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node,m=false,tgt=null; if(!n.selector) continue;
-        try{ if(el.matches(n.selector)){m=true;tgt=el;}
-          else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
-        if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node;
+        if(n.selector){ var m=false,tgt=null;
+          try{ if(el.matches(n.selector)){m=true;tgt=el;}
+            else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
+          if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+        if(n.dynamic && n.childTemplate && n.childTemplate.selector){ try{ var row=el.closest(n.childTemplate.selector);
+          if(row){ var d2=e.parents.length+1; if(d2>bd){ bd=d2; best={entry:{node:synthRow(n,row),parents:e.parents.concat([n])},el:row}; } } }catch(y){} } }
       return best; }
     function ctxHtml(){ var c=CAT.ctx; return '<div class="so-ctx"><div class="so-ctx-title">'+(c.icon?esc(c.icon)+' ':'')+esc(c.title||'')+'</div><div class="so-ctx-content">'+esc(c.content||'')+'</div></div>'; }
-    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node;
-      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(r.title||'')+'</div>';
-      h+='<div class="so-node-content">'+esc(r.content||'')+'</div>';
-      if(active && r.expanded) h+='<div class="so-node-expanded">'+r.expanded+'</div>';   // expanded = trusted authored HTML
+    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node, nm=(node._name!=null?node._name:null);
+      var title=interp(r.title||'',nm), cont=interp(r.content||'',nm), exp=interp(r.expanded||'',nm);
+      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(title)+'</div>';
+      h+='<div class="so-node-content">'+esc(cont)+'</div>';
+      if(active && exp) h+='<div class="so-node-expanded">'+exp+'</div>';   // expanded = trusted authored HTML
       return h+'</div>'; }
     var lastHot=null, lastMatched=null;
     function clearHot(){ if(lastHot){ lastHot.classList.remove('so-assist-hot'); lastHot=null; } }
@@ -680,7 +699,7 @@ a11y; contract test catches drift.
     // menu links → surface the target panel's context (program-awareness: horizontal jump)
     Array.prototype.forEach.call(document.querySelectorAll('.so-sm-item'),function(it){ var p=findPanel(it.dataset.dir); if(!p) return;
       function show(){ openAssist(); clearHot(); lastMatched=null; it.classList.add('so-assist-hot'); lastHot=it; var here=it.dataset.dir===curDir();
-        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+esc(p.desc||'')+'</div></div>'+
+        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+(p.menuHover?p.menuHover:esc(p.desc||''))+'</div></div>'+
           '<div class="so-assist-idle">'+(here?'You’re on this panel now — hover its contents to explore.':'Click to open this panel.')+'</div>'; }
       it.addEventListener('mouseenter',show); it.addEventListener('focus',show); });
     idle();
@@ -1296,109 +1315,120 @@ setInterval(refreshAll, 60000);
 window.SO_ASSIST = {
  "context": {
   "icon": "🔍",
-  "title": "Auditor (gatekeeper)",
-  "content": "The always-on immutable gatekeeper of the trinity — Tetragon eBPF perimeter (kernel-level enforcement) + Guardian violation-tail. The last line that cannot be bypassed.\n\nTetragon watches syscalls in-kernel, so a process cannot talk its way past it the way it might a userspace check. Compute (Pulse/Weaver) is only trustworthy because Auditor is watching."
+  "title": "Auditor",
+  "content": "The Immutable Gatekeeper tier of the trinity (M066) — the box's always-on immune system. It watches with Tetragon (an eBPF observer in the kernel that sees every syscall, below anything a compromised process could hide) and enforces with the Guardian (which acts on violations, up to SIGKILL), recording everything to the immutable audit log (D-16). It cannot be bypassed or turned off from inside — that's what makes the other two tiers trustworthy.\n\nThis panel is the webapp surface of Auditor's R453 §1g ladder (R539). Read it to confirm the perimeter is intact (Tetragon + Guardian + log all up) and to review the violations it has caught. Read-only."
  },
  "nodes": [
   {
-   "icon": "▤",
-   "title": "Summary",
-   "content": "The perimeter's health — whether the kernel enforcer and its watcher are up.",
+   "icon": "◆",
+   "title": "Status",
+   "content": "Whether the Auditor's enforcement components are up: Tetragon, Guardian, and the audit log.",
    "children": [
     {
      "selector": "#stats",
      "title": "Auditor summary",
-     "content": "Version + perimeter status — the headline of whether the gatekeeper is intact."
+     "content": "The roll-up — API version, Tetragon, Guardian, audit log. The Auditor is the gatekeeper; all its parts must be up for the box to be trusted."
     },
     {
      "selector": "#stat-version",
-     "title": "Auditor version",
-     "content": "The gatekeeper version, tied to the super-model build (D-19)."
+     "title": "API version",
+     "content": "The Auditor daemon version answering — for reconciling the gatekeeper's behaviour against the spec."
     },
     {
      "selector": "#stat-tetragon",
-     "title": "Tetragon perimeter",
-     "content": "The kernel-level eBPF enforcement — watches syscalls in-kernel, so a process can't talk its way past it. The perimeter itself.",
+     "title": "Tetragon",
+     "content": "Whether Tetragon — the eBPF kernel-perimeter observer — is running. Tetragon is the Auditor's eyes: it sees every syscall at the kernel, below anything a compromised process could hide behind. If it's down, the perimeter is blind.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">eBPF sees below user-space</div>Tetragon runs in the kernel via eBPF, so it observes real syscalls — a malicious process can't fake or bypass what the kernel sees. That's why it's the trustworthy watch layer.</div>",
      "variants": [
       {
        "when": {
         "textContains": "down"
        },
-       "content": "Tetragon is DOWN — the in-kernel perimeter isn't enforcing. This is the most serious state on the panel."
-      },
-      {
-       "when": {
-        "textContains": "up"
-       },
-       "content": "Tetragon is up — the in-kernel perimeter is enforcing."
+       "content": "Tetragon is DOWN — the eBPF perimeter is blind. The Auditor can't see kernel activity; the box is running unwatched at the layer that matters most.",
+       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Tetragon down</div>The kernel perimeter is blind — a critical enforcement gap.</div>"
       }
      ]
     },
     {
      "selector": "#stat-guardian",
-     "title": "Guardian daemon",
-     "content": "Whether the Guardian violation-tail is running and reacting. If it's down, enforcement still happens in-kernel but the response/observability layer is blind — degraded, not safe.",
-     "expanded": "<div class=\"so-card info\"><div>Tetragon blocks; Guardian sees and reacts. Guardian down = you're enforcing but not watching.</div></div>"
+     "title": "Guardian service",
+     "content": "Whether the Guardian is running — the service that ACTS on what Tetragon sees, up to SIGKILL on a violation. Tetragon watches; Guardian enforces. Both must be up: eyes without hands, or hands without eyes, is a gap.",
+     "variants": [
+      {
+       "when": {
+        "textContains": "down"
+       },
+       "content": "Guardian is DOWN — violations are seen but not enforced. Tetragon may be watching, but nothing acts on what it finds.",
+       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Guardian down</div>Enforcement is off — violations won't be stopped.</div>"
+      }
+     ]
     },
     {
      "selector": "#stat-log",
-     "title": "Violation log",
-     "content": "Whether the violation log is being written — the record Guardian tails and the audit chain (D-16) consumes."
+     "title": "Audit log",
+     "content": "Whether the audit log is being written — the immutable record (D-16 hash chain) of what the Auditor saw and did. Without it, enforcement happens but isn't provable after the fact."
     }
    ]
   },
   {
-   "icon": "⚠",
-   "title": "Status & violations",
-   "content": "The perimeter status detail and the violations Tetragon has caught — recent and historical.",
+   "icon": "🔍",
+   "title": "Tier status & violations",
+   "content": "The Auditor's live status and the violations it has caught. A violation here is the box's immune system firing — something tried to break a guarantee and was stopped.",
    "children": [
     {
      "selector": "#status-tbody",
-     "title": "Auditor status (/status)",
-     "content": "The detailed perimeter status — each component of the gatekeeper and its health."
-    },
-    {
-     "selector": "#last-violation-line",
-     "title": "Latest violation (/last-violation)",
-     "content": "The most recent perimeter violation Tetragon caught. Not necessarily an attack — it can be a mis-scoped process — but it IS the perimeter doing its job.",
-     "expanded": "<div class=\"so-card info\"><div>Read this before assuming the box is quiet — a fresh violation is the perimeter actively catching something.</div></div>"
+     "title": "Auditor tier status",
+     "content": "The Auditor's per-component status. Hover a row for that component's role in the gatekeeper. All-green is the trusted state; anything down is a hole in the perimeter."
     },
     {
      "selector": "#last-violation-meta",
-     "title": "Latest violation meta",
-     "content": "Context on the most recent violation — when and what, the header for the line below."
+     "title": "Last violation (meta)",
+     "content": "The metadata of the most recent violation — when and what. The freshest sign of the immune system firing."
     },
     {
-     "selector": "#history-lines",
-     "title": "Violation history (/history)",
-     "content": "The recent violation history (last 20) — the pattern of what the perimeter has been catching. A recurring violation points at a systemic mis-scope."
+     "selector": "#last-violation-line",
+     "title": "Last violation",
+     "content": "The most recent violation the Auditor caught — what tried to break a guarantee and was stopped. A recent violation isn't necessarily bad (it means enforcement works); a violation you can't explain is what to investigate.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A violation is the immune system working</div>The Auditor catches behaviour that breaks a declared guarantee and stops it (up to SIGKILL). Seeing violations means enforcement is live; the concern is an unexplained one, or the same one repeating.<div class=\"so-xref\"><span class=\"x\">→</span> D-16 audit — the hash-chained record of every violation<br><span class=\"x\">→</span> D-17 quarantine — where a violating component ends up</div></div>"
     },
     {
      "selector": "#history-meta",
-     "title": "History meta",
-     "content": "The header/context for the violation history window."
+     "title": "History (meta)",
+     "content": "The scope of the violation history shown (last 20) — the window you're looking at."
+    },
+    {
+     "selector": "#history-lines",
+     "title": "Violation history",
+     "content": "The recent history of caught violations. A pattern here is diagnostic: repeated violations from one source is an actor to investigate; scattered one-offs are the perimeter doing routine work."
+    }
+   ]
+  },
+  {
+   "icon": "⟳",
+   "title": "Refresh",
+   "content": "Re-poll on demand; read-only.",
+   "children": [
+    {
+     "selector": "#refresh-btn",
+     "title": "Refresh",
+     "content": "Re-poll this panel now. Read-only re-sample — it never mutates."
+    },
+    {
+     "selector": "#last-refresh",
+     "title": "Refresh freshness",
+     "content": "When this was last read. Check before trusting a status as current."
     }
    ]
   },
   {
    "icon": "⎈",
-   "title": "Actions & controls",
-   "content": "",
+   "title": "Controls",
+   "content": "Read-only — mutations copy signed sovereign-osctl verbs (§1g / R10212).",
    "children": [
-    {
-     "selector": "#refresh-btn",
-     "title": "Refresh",
-     "content": "Pull a fresh read of the perimeter and violations. Read-only."
-    },
-    {
-     "selector": "#last-refresh",
-     "title": "Last refresh",
-     "content": "When the auditor state was last read — check this before trusting a finding as current."
-    },
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Auditor controls — each copies its sovereign-osctl verb (§1g / R10212). Read-only view."
+     "content": "Controls — each copies its exact sovereign-osctl verb. Auditor ops runs through the signed CLI, never from the web (§1g / R10212)."
     }
    ]
   }

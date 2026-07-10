@@ -218,10 +218,16 @@
   .so-node-expanded{margin-top:.55rem; padding-top:.55rem; border-top:1px solid rgba(155,209,255,.13); font-size:.78rem; line-height:1.6; color:var(--muted,#a8a8a8); white-space:pre-line;}
   /* rich expanded cards */
   .so-card{border:1px solid var(--border,#262626); border-radius:7px; padding:.55rem .65rem; margin-top:.45rem; background:var(--bg,#0e0e0e); white-space:normal; line-height:1.55;}
-  .so-card.info{border-color:rgba(155,209,255,.28);}
+  .so-card.info{border-color:rgba(155,209,255,.28); background:rgba(155,209,255,.035);}
+  .so-card.ok{border-color:rgba(127,209,143,.34); background:rgba(127,209,143,.045);}
+  .so-card.warn{border-color:rgba(224,192,122,.38); background:rgba(224,192,122,.05);}
+  .so-card.err{border-color:rgba(224,138,138,.4); background:rgba(224,138,138,.055);}
+  .so-card-label{font-weight:600; font-size:.79rem; margin-bottom:.3rem;}
+  .so-card.ok .so-card-label{color:#7fd18f;} .so-card.warn .so-card-label{color:#e0c07a;} .so-card.err .so-card-label{color:#e08a8a;} .so-card.info .so-card-label{color:var(--accent,#9bd1ff);}
   .so-grid{display:grid; grid-template-columns:auto 1fr; gap:.22rem .6rem; margin:.35rem 0; font-size:.76rem; white-space:normal;}
   .so-grid .k{color:var(--accent,#9bd1ff); font-weight:500;}
-  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;}
+  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;} .so-li .warn{color:#e0c07a;}
+  .so-xref{margin-top:.4rem; font-size:.76rem; color:var(--fg-2,#c8c8c8);} .so-xref .x{color:var(--accent,#9bd1ff); font-weight:500;}
   .so-tip{margin-top:.4rem; font-size:.77rem; color:var(--muted,#a8a8a8);}
   .so-assist-idle{color:var(--muted,#8a8a8a); font-style:italic; padding:.4rem 0;}
   /* highlight the hovered/focused element in the panel content */
@@ -382,25 +388,38 @@
       return {ctx:ctx, nodes:nodes}; })();
     // flatten deepest-first with parent chains
     var FLAT=[]; (function flat(list,chain){ (list||[]).forEach(function(n){ if(n.children&&n.children.length) flat(n.children,chain.concat([n])); FLAT.push({node:n,parents:chain.slice()}); }); })(CAT.nodes,[]);
+    // {{name}} interpolation for dynamic-row templates
+    function interp(s,name){ return (name==null)?(s||''):String(s||'').replace(/\{\{name\}\}/g,name); }
+    // derive a live row's label (nameSelector, then a strong/cell/code heuristic, then text)
+    function rowName(row,ct){ var t=''; if(ct.nameSelector){ try{ var e=row.querySelector(ct.nameSelector); if(e) t=e.textContent||''; }catch(x){} }
+      if(!t){ var s=row.querySelector('strong,code,th,.k,td'); if(s) t=s.textContent||''; }
+      if(!t) t=row.textContent||''; return t.replace(/\s+/g,' ').trim().slice(0,64); }
+    // synthesize a node from a childTemplate bound to one live row
+    function synthRow(n,row){ var ct=n.childTemplate, nm=rowName(row,ct);
+      return {id:n.id, icon:ct.icon||n.icon, title:interp(ct.title||n.title||'{{name}}',nm), content:ct.content||'', expanded:ct.expanded||'', variants:ct.variants, _name:nm}; }
     // variant resolution against the matched element (state-awareness)
     function resolveVar(node,el){ if(!node.variants||!node.variants.length||!el) return node;
       for(var i=0;i<node.variants.length;i++){ var v=node.variants[i], w=v.when||{}, ok=true;
-        if(w.textContains && (el.textContent||'').indexOf(w.textContains)<0) ok=false;
+        if(w.textContains && (el.textContent||'').toLowerCase().indexOf(String(w.textContains).toLowerCase())<0) ok=false;
         if(ok&&w.hasSelector){ try{ if(!el.querySelector(w.hasSelector)) ok=false; }catch(e){ ok=false; } }
-        if(ok) return {id:node.id,title:v.title||node.title,icon:node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded)}; }
+        if(ok) return {id:node.id,title:v.title||node.title,icon:v.icon||node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded),_name:node._name}; }
       return node; }
-    // match a hovered element to the deepest catalogue node
+    // match a hovered element to the deepest catalogue node (static node OR dynamic row)
     function matchNode(el){ var best=null,bd=-1;
-      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node,m=false,tgt=null; if(!n.selector) continue;
-        try{ if(el.matches(n.selector)){m=true;tgt=el;}
-          else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
-        if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node;
+        if(n.selector){ var m=false,tgt=null;
+          try{ if(el.matches(n.selector)){m=true;tgt=el;}
+            else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
+          if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+        if(n.dynamic && n.childTemplate && n.childTemplate.selector){ try{ var row=el.closest(n.childTemplate.selector);
+          if(row){ var d2=e.parents.length+1; if(d2>bd){ bd=d2; best={entry:{node:synthRow(n,row),parents:e.parents.concat([n])},el:row}; } } }catch(y){} } }
       return best; }
     function ctxHtml(){ var c=CAT.ctx; return '<div class="so-ctx"><div class="so-ctx-title">'+(c.icon?esc(c.icon)+' ':'')+esc(c.title||'')+'</div><div class="so-ctx-content">'+esc(c.content||'')+'</div></div>'; }
-    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node;
-      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(r.title||'')+'</div>';
-      h+='<div class="so-node-content">'+esc(r.content||'')+'</div>';
-      if(active && r.expanded) h+='<div class="so-node-expanded">'+r.expanded+'</div>';   // expanded = trusted authored HTML
+    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node, nm=(node._name!=null?node._name:null);
+      var title=interp(r.title||'',nm), cont=interp(r.content||'',nm), exp=interp(r.expanded||'',nm);
+      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(title)+'</div>';
+      h+='<div class="so-node-content">'+esc(cont)+'</div>';
+      if(active && exp) h+='<div class="so-node-expanded">'+exp+'</div>';   // expanded = trusted authored HTML
       return h+'</div>'; }
     var lastHot=null, lastMatched=null;
     function clearHot(){ if(lastHot){ lastHot.classList.remove('so-assist-hot'); lastHot=null; } }
@@ -419,7 +438,7 @@
     // menu links → surface the target panel's context (program-awareness: horizontal jump)
     Array.prototype.forEach.call(document.querySelectorAll('.so-sm-item'),function(it){ var p=findPanel(it.dataset.dir); if(!p) return;
       function show(){ openAssist(); clearHot(); lastMatched=null; it.classList.add('so-assist-hot'); lastHot=it; var here=it.dataset.dir===curDir();
-        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+esc(p.desc||'')+'</div></div>'+
+        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+(p.menuHover?p.menuHover:esc(p.desc||''))+'</div></div>'+
           '<div class="so-assist-idle">'+(here?'You’re on this panel now — hover its contents to explore.':'Click to open this panel.')+'</div>'; }
       it.addEventListener('mouseenter',show); it.addEventListener('focus',show); });
     idle();
@@ -878,95 +897,95 @@ setInterval(load, 5000);
 <script>
 window.SO_ASSIST = {
  "context": {
-  "icon": "⚛",
-  "title": "Science Tools · NVIDIA Warp",
-  "content": "The scientific-computing surface — NVIDIA Warp and the science-tools catalog. These are GPU-accelerated physics/math/simulation kernels, NOT LLMs; they share the hardware but serve a different workload.\n\nRead-only view: the panel shows status and the catalog; running a science job is a gated CLI verb (the write path is the sanctioned control-exec-api POST)."
+  "icon": "◫",
+  "title": "Science",
+  "content": "The GPU-as-scientific-instrument surface. NVIDIA Warp compiles Python kernels to run on the GPU, so the box can do simulation and numeric compute on the very same Blackwell/4090 silicon that serves inference — the machine is a compute instrument, not only an inference server. This panel is where that capability is exposed: is Warp ready, which GPU it targets, and what science tools are available to run on it.\n\nRead the Warp status to know if the GPU compute path is live, and the science-tools catalog for what simulations/solvers the box offers. Read-only: it catalogues and hands you the run command; the tool executes on the GPU when you run it."
  },
  "nodes": [
   {
    "icon": "◆",
-   "title": "Status",
-   "content": "Whether the science surface is up. These tools are simulation kernels, not language models.",
+   "title": "NVIDIA Warp status",
+   "content": "Whether NVIDIA Warp is available — the GPU-accelerated scientific-computing runtime. Warp compiles Python kernels to run on the GPU, so simulation and numeric work run on the same silicon that serves inference.",
    "children": [
     {
      "selector": "#status",
-     "title": "Science status",
-     "content": "Whether the science-tools surface is live. A reminder in context: these are compute kernels (physics/sim), not LLMs — they run ON the GPUs but aren't part of the inference stack.",
+     "title": "Warp status",
+     "content": "Whether NVIDIA Warp is installed and usable. Warp is the scientific-compute surface — GPU-accelerated simulation/numerics — distinct from inference; read it to know if the science-tools below can run."
+    },
+    {
+     "selector": "#warp-dot",
+     "title": "Warp indicator",
+     "content": "The at-a-glance available/unavailable dot. Green = Warp can run GPU kernels; muted = the science tools fall back to CPU or cannot run."
+    },
+    {
+     "selector": "#warp-state",
+     "title": "Warp state",
+     "content": "Warp's runtime state — ready, initializing, or unavailable. Read it with the version; 'ready' means the GPU compute path is live.",
      "variants": [
       {
        "when": {
-        "textContains": "loading"
+        "textContains": "unavailable"
        },
-       "content": "Probing the science-tools surface and Warp runtime."
+       "content": "Warp unavailable — the GPU scientific-compute path is not usable right now.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ Warp unavailable</div>GPU-accelerated science tools cannot run — check the driver/CUDA stack.</div>"
       },
       {
        "when": {
-        "textContains": "ok"
+        "textContains": "ready"
        },
-       "content": "Science tools available — Warp and the catalog are reachable."
+       "content": "Warp ready — GPU-accelerated kernels can run.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Warp ready</div>The GPU scientific-compute path is live.</div>"
       }
      ]
+    },
+    {
+     "selector": "#warp-version",
+     "title": "Warp version",
+     "content": "The installed NVIDIA Warp version. Kernel APIs track the version — pin it so a science tool built against one Warp keeps working."
+    },
+    {
+     "selector": "#warp-stats",
+     "title": "Warp stats",
+     "content": "Warp runtime telemetry — devices seen, kernels compiled. Read it to confirm Warp is actually using the GPU you expect (the Blackwell / 4090), not a fallback."
     }
    ]
   },
   {
    "icon": "▦",
-   "title": "NVIDIA Warp",
-   "content": "The Warp runtime status and how to run a job.",
-   "children": [
-    {
-     "selector": "#warp-dot",
-     "title": "Warp indicator",
-     "content": "At-a-glance dot for Warp availability — green when the runtime is present and usable."
-    },
-    {
-     "selector": "#warp-state",
-     "title": "Warp state",
-     "content": "Whether NVIDIA Warp is installed and ready — the GPU-accelerated simulation framework that backs the science kernels."
-    },
-    {
-     "selector": "#warp-version",
-     "title": "Warp version",
-     "content": "Which Warp version is present — for matching a kernel's requirements against what's installed."
-    },
-    {
-     "selector": "#warp-stats",
-     "title": "Warp stats",
-     "content": "Runtime detail for Warp — device and capability info, so you know what hardware the science jobs will land on."
-    },
-    {
-     "selector": "#run-cmd",
-     "title": "Run command",
-     "content": "The gated CLI verb to run a science job (sovereign-osctl science run). The panel is read-only; this is the command you copy and run yourself.",
-     "expanded": "<div class=\"so-card info\"><div>Science jobs share the GPUs with inference — running one competes with the LLM tiers for VRAM, so mind D-09 pressure before launching.</div></div>"
-    },
-    {
-     "selector": "#copy-run",
-     "title": "Copy run command",
-     "content": "Copies the science-run CLI verb to your clipboard — the web emits, you run it. Never executes from the browser."
-    },
-    {
-     "selector": "#copy-note",
-     "title": "Copy note",
-     "content": "The note on how the copied command is used — a reminder that running it stays operator-driven via the signed CLI."
-    }
-   ]
-  },
-  {
-   "icon": "▤",
-   "title": "Catalog & controls",
-   "content": "The available science tools and the control rail.",
+   "title": "Science-tools catalog",
+   "content": "The catalogue of available science tools — the GPU-accelerated simulation and numeric tools this surface exposes. Each runs on Warp; read the catalog to see what compute the box offers beyond inference.",
    "children": [
     {
      "selector": "#catalog",
      "title": "Science-tools catalog",
-     "content": "Each science tool with its domain, kind, install status, tiers, and status — the menu of GPU-accelerated compute available beyond the LLM stack (fluid sim, FEM, ray-tracing, etc.).",
-     "expanded": "<div class=\"so-card info\"><div>Distinct from the model catalog (D-23) — that's language models; this is physics/math kernels sharing the same silicon.</div></div>"
+     "content": "The available science tools — GPU-accelerated simulations/solvers built on Warp. This is compute-for-science on the same GPUs that serve inference; read a tool for what it computes and how to run it."
     },
+    {
+     "selector": "#run-cmd",
+     "title": "Run command",
+     "content": "The command to launch the selected science tool. Copies the exact invocation — the tool runs on the GPU via Warp when you execute it."
+    },
+    {
+     "selector": "#copy-run",
+     "title": "Copy run command",
+     "content": "Copies the run command for the selected tool. It copies only — the tool runs when you execute the command, using the GPU compute path."
+    },
+    {
+     "selector": "#copy-note",
+     "title": "Copy note",
+     "content": "Confirmation that the run command was copied. The tool has not started — it runs when you execute the copied command."
+    }
+   ]
+  },
+  {
+   "icon": "⎈",
+   "title": "Controls",
+   "content": "Read-only view — mutations copy signed sovereign-osctl verbs (§1g / R10212). The web previews; the box changes only when you run the signed command.",
+   "children": [
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Science controls — the sanctioned write path is the control-exec-api POST (a gated CLI verb), never a direct web mutation (§1g / R10212)."
+     "content": "The control rail — each button copies its exact sovereign-osctl verb. Running a science tool runs through the signed CLI, never from a web click."
     }
    ]
   }

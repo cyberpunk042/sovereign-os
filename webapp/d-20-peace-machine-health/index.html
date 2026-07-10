@@ -496,10 +496,16 @@ a11y; contract test catches drift.
   .so-node-expanded{margin-top:.55rem; padding-top:.55rem; border-top:1px solid rgba(155,209,255,.13); font-size:.78rem; line-height:1.6; color:var(--muted,#a8a8a8); white-space:pre-line;}
   /* rich expanded cards */
   .so-card{border:1px solid var(--border,#262626); border-radius:7px; padding:.55rem .65rem; margin-top:.45rem; background:var(--bg,#0e0e0e); white-space:normal; line-height:1.55;}
-  .so-card.info{border-color:rgba(155,209,255,.28);}
+  .so-card.info{border-color:rgba(155,209,255,.28); background:rgba(155,209,255,.035);}
+  .so-card.ok{border-color:rgba(127,209,143,.34); background:rgba(127,209,143,.045);}
+  .so-card.warn{border-color:rgba(224,192,122,.38); background:rgba(224,192,122,.05);}
+  .so-card.err{border-color:rgba(224,138,138,.4); background:rgba(224,138,138,.055);}
+  .so-card-label{font-weight:600; font-size:.79rem; margin-bottom:.3rem;}
+  .so-card.ok .so-card-label{color:#7fd18f;} .so-card.warn .so-card-label{color:#e0c07a;} .so-card.err .so-card-label{color:#e08a8a;} .so-card.info .so-card-label{color:var(--accent,#9bd1ff);}
   .so-grid{display:grid; grid-template-columns:auto 1fr; gap:.22rem .6rem; margin:.35rem 0; font-size:.76rem; white-space:normal;}
   .so-grid .k{color:var(--accent,#9bd1ff); font-weight:500;}
-  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;}
+  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;} .so-li .warn{color:#e0c07a;}
+  .so-xref{margin-top:.4rem; font-size:.76rem; color:var(--fg-2,#c8c8c8);} .so-xref .x{color:var(--accent,#9bd1ff); font-weight:500;}
   .so-tip{margin-top:.4rem; font-size:.77rem; color:var(--muted,#a8a8a8);}
   .so-assist-idle{color:var(--muted,#8a8a8a); font-style:italic; padding:.4rem 0;}
   /* highlight the hovered/focused element in the panel content */
@@ -660,25 +666,38 @@ a11y; contract test catches drift.
       return {ctx:ctx, nodes:nodes}; })();
     // flatten deepest-first with parent chains
     var FLAT=[]; (function flat(list,chain){ (list||[]).forEach(function(n){ if(n.children&&n.children.length) flat(n.children,chain.concat([n])); FLAT.push({node:n,parents:chain.slice()}); }); })(CAT.nodes,[]);
+    // {{name}} interpolation for dynamic-row templates
+    function interp(s,name){ return (name==null)?(s||''):String(s||'').replace(/\{\{name\}\}/g,name); }
+    // derive a live row's label (nameSelector, then a strong/cell/code heuristic, then text)
+    function rowName(row,ct){ var t=''; if(ct.nameSelector){ try{ var e=row.querySelector(ct.nameSelector); if(e) t=e.textContent||''; }catch(x){} }
+      if(!t){ var s=row.querySelector('strong,code,th,.k,td'); if(s) t=s.textContent||''; }
+      if(!t) t=row.textContent||''; return t.replace(/\s+/g,' ').trim().slice(0,64); }
+    // synthesize a node from a childTemplate bound to one live row
+    function synthRow(n,row){ var ct=n.childTemplate, nm=rowName(row,ct);
+      return {id:n.id, icon:ct.icon||n.icon, title:interp(ct.title||n.title||'{{name}}',nm), content:ct.content||'', expanded:ct.expanded||'', variants:ct.variants, _name:nm}; }
     // variant resolution against the matched element (state-awareness)
     function resolveVar(node,el){ if(!node.variants||!node.variants.length||!el) return node;
       for(var i=0;i<node.variants.length;i++){ var v=node.variants[i], w=v.when||{}, ok=true;
-        if(w.textContains && (el.textContent||'').indexOf(w.textContains)<0) ok=false;
+        if(w.textContains && (el.textContent||'').toLowerCase().indexOf(String(w.textContains).toLowerCase())<0) ok=false;
         if(ok&&w.hasSelector){ try{ if(!el.querySelector(w.hasSelector)) ok=false; }catch(e){ ok=false; } }
-        if(ok) return {id:node.id,title:v.title||node.title,icon:node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded)}; }
+        if(ok) return {id:node.id,title:v.title||node.title,icon:v.icon||node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded),_name:node._name}; }
       return node; }
-    // match a hovered element to the deepest catalogue node
+    // match a hovered element to the deepest catalogue node (static node OR dynamic row)
     function matchNode(el){ var best=null,bd=-1;
-      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node,m=false,tgt=null; if(!n.selector) continue;
-        try{ if(el.matches(n.selector)){m=true;tgt=el;}
-          else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
-        if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node;
+        if(n.selector){ var m=false,tgt=null;
+          try{ if(el.matches(n.selector)){m=true;tgt=el;}
+            else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
+          if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+        if(n.dynamic && n.childTemplate && n.childTemplate.selector){ try{ var row=el.closest(n.childTemplate.selector);
+          if(row){ var d2=e.parents.length+1; if(d2>bd){ bd=d2; best={entry:{node:synthRow(n,row),parents:e.parents.concat([n])},el:row}; } } }catch(y){} } }
       return best; }
     function ctxHtml(){ var c=CAT.ctx; return '<div class="so-ctx"><div class="so-ctx-title">'+(c.icon?esc(c.icon)+' ':'')+esc(c.title||'')+'</div><div class="so-ctx-content">'+esc(c.content||'')+'</div></div>'; }
-    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node;
-      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(r.title||'')+'</div>';
-      h+='<div class="so-node-content">'+esc(r.content||'')+'</div>';
-      if(active && r.expanded) h+='<div class="so-node-expanded">'+r.expanded+'</div>';   // expanded = trusted authored HTML
+    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node, nm=(node._name!=null?node._name:null);
+      var title=interp(r.title||'',nm), cont=interp(r.content||'',nm), exp=interp(r.expanded||'',nm);
+      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(title)+'</div>';
+      h+='<div class="so-node-content">'+esc(cont)+'</div>';
+      if(active && exp) h+='<div class="so-node-expanded">'+exp+'</div>';   // expanded = trusted authored HTML
       return h+'</div>'; }
     var lastHot=null, lastMatched=null;
     function clearHot(){ if(lastHot){ lastHot.classList.remove('so-assist-hot'); lastHot=null; } }
@@ -697,7 +716,7 @@ a11y; contract test catches drift.
     // menu links → surface the target panel's context (program-awareness: horizontal jump)
     Array.prototype.forEach.call(document.querySelectorAll('.so-sm-item'),function(it){ var p=findPanel(it.dataset.dir); if(!p) return;
       function show(){ openAssist(); clearHot(); lastMatched=null; it.classList.add('so-assist-hot'); lastHot=it; var here=it.dataset.dir===curDir();
-        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+esc(p.desc||'')+'</div></div>'+
+        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+(p.menuHover?p.menuHover:esc(p.desc||''))+'</div></div>'+
           '<div class="so-assist-idle">'+(here?'You’re on this panel now — hover its contents to explore.':'Click to open this panel.')+'</div>'; }
       it.addEventListener('mouseenter',show); it.addEventListener('focus',show); });
     idle();
@@ -1337,196 +1356,409 @@ a11y; contract test catches drift.
 <script>
 window.SO_ASSIST = {
  "context": {
-  "icon": "☯",
+  "icon": "◈",
   "title": "D-20 · Peace Machine Health",
-  "content": "The single 'is the box at rest and trustworthy' verdict — five properties (R09966) that must ALL hold, computed by a real validator (/usr/bin/sovereign-os-peace-check --json).\n\nPeace requires capability, not just safety: a box that can't act isn't at peace, it's stuck. A single red property drops the whole verdict. A stale verdict is not a current all-clear."
+  "content": "The box's conscience. The peace machine is defined by five properties (R09966), each enforced by real infrastructure (M048..M058): powerful enough to act, disciplined enough to explain itself, reversible enough to trust, flexible enough to evolve, and — the load-bearing one — sovereign, so intelligence remains in your hands. Every L5+ commit is gated by your MS003 signature precisely to hold that last property.\n\nThe verdict is the conjunction of all five: all of them, or not peace. This is the highest-level health signal on the whole box — above any single panel — computed by /usr/bin/sovereign-os-peace-check --json. When it degrades, read which property slipped and its backing modules. Read-only: running the validator is a signed act."
  },
  "nodes": [
   {
    "icon": "◆",
-   "title": "Live-source banner",
-   "content": "Says whether you're reading the live daemon (/api/d-20/snapshot) or a baked snapshot — the verdict can change fast, so freshness matters.",
+   "title": "Data source",
+   "content": "Whether the verdict is live from the validator or a snapshot.",
    "children": [
     {
-     "selector": "#datasource-banner",
+     "selector": "#ds-state-label",
      "title": "Live vs snapshot",
-     "content": "Green = /api/d-20/snapshot is answering live; muted = the last committed sample.",
+     "content": "Green = the daemon is answering live; muted = a cached snapshot. The verdict + 5 properties are read from sovereign-os-peace-check — a snapshot can show state that an apply has already superseded, so check this before trusting a value as current.",
+     "icon": "◆",
      "variants": [
+      {
+       "when": {
+        "textContains": "connecting"
+       },
+       "content": "Connecting — reaching the daemon; the values below are not confirmed live yet.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Connecting</div>Waiting on the API — treat the numbers as unconfirmed until this goes green.</div>"
+      },
       {
        "when": {
         "textContains": "live"
        },
-       "content": "Live — the values are current."
+       "content": "Live — the values below reflect real state right now.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Live</div>The daemon is answering; everything on the panel is current.</div>"
       },
       {
        "when": {
-        "textContains": "snapshot"
+        "textContains": "offline"
        },
-       "content": "Snapshot — the daemon is unreachable; treat the values as last-known until it goes green."
+       "content": "Offline — showing the last snapshot; the box may have moved on since.",
+       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Offline</div>No live answer — this is a cached snapshot, possibly stale.</div>"
       }
      ]
     },
     {
-     "selector": "#ds-last-update",
-     "title": "Fetch freshness",
-     "content": "When the shown sample was pulled — read it before trusting a value as 'now'."
-    }
-   ]
-  },
-  {
-   "icon": "◎",
-   "title": "Overall verdict",
-   "content": "The one number an operator glances at — do all five properties hold?",
-   "children": [
+     "selector": "#ds-state-detail",
+     "title": "Source detail",
+     "content": "Status line under the banner — endpoint + any degraded note."
+    },
     {
-     "selector": "#verdict",
-     "title": "Overall verdict",
-     "content": "The top-level 'is the box at peace' signal. A single red property below drops it — this is the aggregate, the five properties are why.",
-     "expanded": "<div class=\"so-card info\"><div>Peace is a snapshot, not a promise — check the last-run freshness before trusting the green.</div></div>"
+     "selector": "#ds-last-update",
+     "title": "Source freshness",
+     "content": "When the peace-check was last read. Run the validator (below) for a fresh verdict rather than trusting an old one."
     }
    ]
   },
   {
    "icon": "◈",
-   "title": "The 5 properties (R09966)",
-   "content": "All five must hold. Each is backed by real subsystems (M046..M058) and shows a status plus the concrete checks behind it. Sovereign is the keystone — it makes the other four safe.",
+   "title": "Overall verdict",
+   "content": "The single pass/fail on whether the box is still a peace machine — all five properties holding together. This is the box's conscience in one word; a non-healthy verdict means one of the five properties has slipped and the machine is out of its designed posture.",
    "children": [
     {
-     "selector": "#p1-status",
-     "title": "1 · Powerful",
-     "content": "'Powerful enough to act' (R09967) — is the compute there? Backed by the Blackwell oracle + 4090 scout + AVX cortex. A box that can't act isn't at peace.",
+     "selector": "#verdict",
+     "title": "Peace verdict",
+     "content": "The composite verdict across all five R09966 properties. Peace is not one check — it is the five holding simultaneously. A degraded verdict names which property broke; read the properties below to see which of powerful/legible/reversible/flexible/sovereign slipped.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Five properties, held together</div>The peace machine is defined by five properties (R09966) enforced collectively by M048..M058. The verdict is their conjunction — all five or not peace. It is the highest-level health signal on the box, above any single panel.<div class=\"so-xref\"><span class=\"x\">→</span> the five properties below — each with its backing modules<br><span class=\"x\">→</span> D-06 approvals — property 5 (sovereign) in daily practice</div></div>",
      "variants": [
       {
        "when": {
         "textContains": "HEALTHY"
        },
-       "content": "Powerful is HEALTHY — the compute to do real work is present (Blackwell/4090/AVX)."
-      }
-     ]
-    },
-    {
-     "selector": "#p1-checks",
-     "title": "Powerful — checks",
-     "content": "The evidence: the Blackwell/4090/AVX compute tiers are present and healthy (R09967) — where a Powerful=unhealthy verdict points."
-    },
-    {
-     "selector": "#p2-status",
-     "title": "2 · Disciplined",
-     "content": "'Disciplined enough to explain itself' (R09968) — is it observable? Backed by M049 observability + selfdef MS033 policy trace. An unobservable system can't be trusted even if behaving.",
-     "variants": [
+       "content": "Peace verdict HEALTHY — all five properties hold; the box is in its designed posture.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Peace: HEALTHY</div>All five properties hold — powerful, legible, reversible, flexible, and sovereign.</div>"
+      },
       {
        "when": {
-        "textContains": "HEALTHY"
+        "textContains": "DEGRADED"
        },
-       "content": "Disciplined is HEALTHY — the audit/trace surfaces are live; the box can account for what it did."
-      }
-     ]
-    },
-    {
-     "selector": "#p2-checks",
-     "title": "Disciplined — checks",
-     "content": "The evidence: observability (M049) + policy tracing (MS033) are functioning (R09968) — the box can explain every decision."
-    },
-    {
-     "selector": "#p3-status",
-     "title": "3 · Reversible",
-     "content": "'Reversible enough to trust' (R09969) — can changes be undone? Backed by M047 CRIU + ZFS snapshots + signed rollback (the D-08 recovery points). You trust a system you can roll back.",
-     "variants": [
+       "content": "Peace verdict DEGRADED — at least one property has slipped; read which below.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ Peace: DEGRADED</div>One of the five properties broke — the box is out of its designed posture. Find which below.</div>"
+      },
       {
        "when": {
-        "textContains": "HEALTHY"
+        "textContains": "FAIL"
        },
-       "content": "Reversible is HEALTHY — the recovery points (D-08) and rollback path are intact."
+       "content": "Peace verdict FAIL — a core property is broken; the box is not currently a peace machine.",
+       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Peace: FAIL</div>A load-bearing property is broken. Treat this as the top priority — the design guarantee is not currently met.</div>"
       }
      ]
-    },
-    {
-     "selector": "#p3-checks",
-     "title": "Reversible — checks",
-     "content": "The evidence: CRIU checkpoints, ZFS snapshots, and signed rollback are available (R09969) — every change has a proven undo."
-    },
-    {
-     "selector": "#p4-status",
-     "title": "4 · Flexible",
-     "content": "'Flexible enough to evolve' (R09970) — can it adapt? Backed by M046 runtime adaptation + LoRA Foundry. Peace isn't stasis; a box that can't evolve decays.",
-     "variants": [
-      {
-       "when": {
-        "textContains": "HEALTHY"
-       },
-       "content": "Flexible is HEALTHY — the adaptation machinery (adapters, runtime tuning) is working."
-      }
-     ]
-    },
-    {
-     "selector": "#p4-checks",
-     "title": "Flexible — checks",
-     "content": "The evidence: runtime adaptation + the LoRA Foundry (M046) are functioning (R09970) — the box can improve itself."
-    },
-    {
-     "selector": "#p5-status",
-     "title": "5 · Sovereign",
-     "content": "'Intelligence remains in the user's hands' (R09965) — the keystone. The operator signs every L5+ commit (operator-controlled + selfdef MS003). No matter how capable, the box never acts beyond the operator's authority.",
-     "variants": [
-      {
-       "when": {
-        "textContains": "HEALTHY"
-       },
-       "content": "Sovereign is HEALTHY — signing of high-authority commits is enforced; the human still decides."
-      }
-     ]
-    },
-    {
-     "selector": "#p5-checks",
-     "title": "Sovereign — checks",
-     "content": "The evidence: signing of every L5+ commit is enforced (R09965 + MS003) — the property that makes the other four safe."
     }
    ]
   },
   {
-   "icon": "⎇",
+   "icon": "▦",
+   "title": "5 properties",
+   "content": "The five R09966 properties, each enforced by a named set of modules (M048..M058). They are not slogans — each is backed by real infrastructure, and each has its own check status so you can see exactly which guarantee is holding.",
+   "children": [
+    {
+     "selector": "#p1-status",
+     "title": "Property · powerful enough to act",
+     "content": "Powerful — the box can actually do the work: Blackwell oracle + 4090 scout + AVX cortex. R09967, cross-ref M058. A peace machine that cannot act is not peace, it is paralysis; this property is that it has real capability.",
+     "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">Property 1 — \"powerful enough to act\"</div>Backed by M058 backpressure + the three compute tiers. A peace machine holds all five at once; this property failing means the box has lost this specific guarantee even if the others hold.</div>"
+    },
+    {
+     "selector": "#p2-status",
+     "title": "Property · disciplined enough to explain itself",
+     "content": "Disciplined — every action is legible: M049 observability + selfdef MS033 policy trace. R09968. Power without explanation is not trustworthy; this property is that the box can always show WHY it did a thing.",
+     "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">Property 2 — \"disciplined enough to explain itself\"</div>Backed by M049 spans + MS033 policy trace. A peace machine holds all five at once; this property failing means the box has lost this specific guarantee even if the others hold.</div>"
+    },
+    {
+     "selector": "#p3-status",
+     "title": "Property · reversible enough to trust",
+     "content": "Reversible — anything done can be undone: M047 CRIU + ZFS snapshots + signed rollback. R09969. Trust comes from reversibility, not from hoping nothing goes wrong; this property is that mistakes are recoverable.",
+     "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">Property 3 — \"reversible enough to trust\"</div>Backed by M047 CRIU + ZFS snapshots (D-08). A peace machine holds all five at once; this property failing means the box has lost this specific guarantee even if the others hold.</div>"
+    },
+    {
+     "selector": "#p4-status",
+     "title": "Property · flexible enough to evolve",
+     "content": "Flexible — the box can improve without a rebuild: M046 runtime adaptation + LoRA Foundry. R09970. A frozen system decays; this property is that it adapts through adapters and evals rather than ossifying.",
+     "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">Property 4 — \"flexible enough to evolve\"</div>Backed by M046 LoRA Foundry (D-11). A peace machine holds all five at once; this property failing means the box has lost this specific guarantee even if the others hold.</div>"
+    },
+    {
+     "selector": "#p5-status",
+     "title": "Property · intelligence remains in the user's hands",
+     "content": "Sovereign — you hold the keys: operator MS003 signature gates every L5+ commit. R09965 + selfdef. This is the load-bearing property — everything else serves it. The box is powerful, legible, reversible and flexible SO THAT control stays with you.",
+     "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">Property 5 — \"intelligence remains in the user's hands\"</div>Backed by operator MS003 signature on every L5+ commit. A peace machine holds all five at once; this property failing means the box has lost this specific guarantee even if the others hold.</div>"
+    },
+    {
+     "selector": "p1-checks",
+     "title": "Property checks",
+     "content": "The concrete checks behind this property — the individual verifications that roll up to its status. Read them when the property is amber to see exactly which check failed, not just that the property did."
+    },
+    {
+     "selector": "p2-checks",
+     "title": "Property checks",
+     "content": "The concrete checks behind this property — the individual verifications that roll up to its status. Read them when the property is amber to see exactly which check failed, not just that the property did."
+    },
+    {
+     "selector": "p3-checks",
+     "title": "Property checks",
+     "content": "The concrete checks behind this property — the individual verifications that roll up to its status. Read them when the property is amber to see exactly which check failed, not just that the property did."
+    },
+    {
+     "selector": "p4-checks",
+     "title": "Property checks",
+     "content": "The concrete checks behind this property — the individual verifications that roll up to its status. Read them when the property is amber to see exactly which check failed, not just that the property did."
+    },
+    {
+     "selector": "p5-checks",
+     "title": "Property checks",
+     "content": "The concrete checks behind this property — the individual verifications that roll up to its status. Read them when the property is amber to see exactly which check failed, not just that the property did."
+    }
+   ]
+  },
+  {
+   "icon": "⊞",
    "title": "Validator run",
-   "content": "The verdict is computed, not asserted — this is the real validator's output.",
+   "content": "The last run of /usr/bin/sovereign-os-peace-check --json — the actual command that computes the verdict. The panel reads its output; run it again for a fresh answer.",
    "children": [
     {
      "selector": "#last-run",
-     "title": "Last validator run",
-     "content": "When /usr/bin/sovereign-os-peace-check --json last ran. A stale timestamp means the green may not reflect the box's current state."
+     "title": "Last run",
+     "content": "When the peace-check validator last ran. The verdict above is only as current as this — a fresh verdict needs a fresh run, especially after any change to the box."
     },
     {
      "selector": "#exit-code",
-     "title": "Verdict exit code",
-     "content": "Zero = at peace. Non-zero names which property failed — the machine-readable verdict, and the entry point to the property that dropped.",
+     "title": "Exit code",
+     "content": "The validator's exit code — 0 is peace, non-zero names a failure class. This is the machine-readable verdict; a non-zero code is the same signal as a non-healthy verdict, in a form a script can gate on.",
      "variants": [
       {
        "when": {
         "textContains": "0"
        },
-       "content": "Exit 0 — at peace. All five properties hold."
+       "content": "Exit 0 — the validator confirms peace; all properties passed.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● exit 0</div>The validator confirms the box is a peace machine.</div>"
+      },
+      {
+       "when": {
+        "textContains": "1"
+       },
+       "content": "Non-zero exit — the validator found a broken property; read the output.",
+       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ non-zero exit</div>A property failed — the output below names which.</div>"
       }
      ]
     },
     {
      "selector": "#validator-output",
      "title": "Validator output",
-     "content": "The raw JSON the verdict was derived from — every property's checks and values. Where you go when a property is red and you need the exact failing detail."
-    },
-    {
-     "selector": "#toast",
-     "title": "Copy confirmation",
-     "content": "Confirms a signed verb was copied — validator integration spans M048..M058 (R09980-R09982). Nothing was mutated here."
+     "content": "The raw --json output from the peace-check. This is the ground truth the panel renders from — read it directly when a property is degraded to see the exact failing assertion, not the summarized status.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The ground truth</div>The panel's tiles summarize this JSON. When a property is amber or red, read the raw output — it names the exact check and value that failed, which the summary tile does not.<div class=\"so-tip\">💡 This is the same artifact an audit or a CI gate would consume.</div></div>"
     }
    ]
   },
   {
    "icon": "⎈",
    "title": "Controls",
-   "content": "",
+   "content": "Read-only view — every mutation copies a signed sovereign-osctl verb (§1g / R10212). The web never changes the box; it hands you the exact CLI to run.",
    "children": [
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Peace-machine controls — each copies its sovereign-osctl verb (§1g / R10212). The validator runs via the signed CLI path."
+     "content": "The control rail — each button copies its exact sovereign-osctl command. Running the peace validator runs through the signed CLI after your MS003 signature, never from a web click."
+    }
+   ]
+  }
+ ]
+};
+</script>
+<script>
+window.SO_ASSIST = {
+ "context": {
+  "icon": "◈",
+  "title": "D-20 · Peace Machine Health",
+  "content": "The box's conscience. The peace machine is defined by five properties (R09966), each enforced by real infrastructure (M048..M058): powerful enough to act, disciplined enough to explain itself, reversible enough to trust, flexible enough to evolve, and — the load-bearing one — sovereign, so intelligence remains in your hands. Every L5+ commit is gated by your MS003 signature precisely to hold that last property.\n\nThe verdict is the conjunction of all five: all of them, or not peace. This is the highest-level health signal on the whole box — above any single panel — computed by /usr/bin/sovereign-os-peace-check --json. When it degrades, read which property slipped and its backing modules. Read-only: running the validator is a signed act."
+ },
+ "nodes": [
+  {
+   "icon": "◆",
+   "title": "Data source",
+   "content": "Whether the verdict is live from the validator or a snapshot.",
+   "children": [
+    {
+     "selector": "#ds-state-label",
+     "title": "Live vs snapshot",
+     "content": "Green = the daemon is answering live; muted = a cached snapshot. The verdict + 5 properties are read from sovereign-os-peace-check — a snapshot can show state that an apply has already superseded, so check this before trusting a value as current.",
+     "icon": "◆",
+     "variants": [
+      {
+       "when": {
+        "textContains": "connecting"
+       },
+       "content": "Connecting — reaching the daemon; the values below are not confirmed live yet.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Connecting</div>Waiting on the API — treat the numbers as unconfirmed until this goes green.</div>"
+      },
+      {
+       "when": {
+        "textContains": "live"
+       },
+       "content": "Live — the values below reflect real state right now.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Live</div>The daemon is answering; everything on the panel is current.</div>"
+      },
+      {
+       "when": {
+        "textContains": "offline"
+       },
+       "content": "Offline — showing the last snapshot; the box may have moved on since.",
+       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Offline</div>No live answer — this is a cached snapshot, possibly stale.</div>"
+      }
+     ]
+    },
+    {
+     "selector": "#ds-state-detail",
+     "title": "Source detail",
+     "content": "Status line under the banner — endpoint + any degraded note."
+    },
+    {
+     "selector": "#ds-last-update",
+     "title": "Source freshness",
+     "content": "When the peace-check was last read. Run the validator (below) for a fresh verdict rather than trusting an old one."
+    }
+   ]
+  },
+  {
+   "icon": "◈",
+   "title": "Overall verdict",
+   "content": "The single pass/fail on whether the box is still a peace machine — all five properties holding together. This is the box's conscience in one word; a non-healthy verdict means one of the five properties has slipped and the machine is out of its designed posture.",
+   "children": [
+    {
+     "selector": "#verdict",
+     "title": "Peace verdict",
+     "content": "The composite verdict across all five R09966 properties. Peace is not one check — it is the five holding simultaneously. A degraded verdict names which property broke; read the properties below to see which of powerful/legible/reversible/flexible/sovereign slipped.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Five properties, held together</div>The peace machine is defined by five properties (R09966) enforced collectively by M048..M058. The verdict is their conjunction — all five or not peace. It is the highest-level health signal on the box, above any single panel.<div class=\"so-xref\"><span class=\"x\">→</span> the five properties below — each with its backing modules<br><span class=\"x\">→</span> D-06 approvals — property 5 (sovereign) in daily practice</div></div>",
+     "variants": [
+      {
+       "when": {
+        "textContains": "HEALTHY"
+       },
+       "content": "Peace verdict HEALTHY — all five properties hold; the box is in its designed posture.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Peace: HEALTHY</div>All five properties hold — powerful, legible, reversible, flexible, and sovereign.</div>"
+      },
+      {
+       "when": {
+        "textContains": "DEGRADED"
+       },
+       "content": "Peace verdict DEGRADED — at least one property has slipped; read which below.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ Peace: DEGRADED</div>One of the five properties broke — the box is out of its designed posture. Find which below.</div>"
+      },
+      {
+       "when": {
+        "textContains": "FAIL"
+       },
+       "content": "Peace verdict FAIL — a core property is broken; the box is not currently a peace machine.",
+       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Peace: FAIL</div>A load-bearing property is broken. Treat this as the top priority — the design guarantee is not currently met.</div>"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "icon": "▦",
+   "title": "5 properties",
+   "content": "The five R09966 properties, each enforced by a named set of modules (M048..M058). They are not slogans — each is backed by real infrastructure, and each has its own check status so you can see exactly which guarantee is holding.",
+   "children": [
+    {
+     "selector": "#p1-status",
+     "title": "Property · powerful enough to act",
+     "content": "Powerful — the box can actually do the work: Blackwell oracle + 4090 scout + AVX cortex. R09967, cross-ref M058. A peace machine that cannot act is not peace, it is paralysis; this property is that it has real capability.",
+     "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">Property 1 — \"powerful enough to act\"</div>Backed by M058 backpressure + the three compute tiers. A peace machine holds all five at once; this property failing means the box has lost this specific guarantee even if the others hold.</div>"
+    },
+    {
+     "selector": "#p2-status",
+     "title": "Property · disciplined enough to explain itself",
+     "content": "Disciplined — every action is legible: M049 observability + selfdef MS033 policy trace. R09968. Power without explanation is not trustworthy; this property is that the box can always show WHY it did a thing.",
+     "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">Property 2 — \"disciplined enough to explain itself\"</div>Backed by M049 spans + MS033 policy trace. A peace machine holds all five at once; this property failing means the box has lost this specific guarantee even if the others hold.</div>"
+    },
+    {
+     "selector": "#p3-status",
+     "title": "Property · reversible enough to trust",
+     "content": "Reversible — anything done can be undone: M047 CRIU + ZFS snapshots + signed rollback. R09969. Trust comes from reversibility, not from hoping nothing goes wrong; this property is that mistakes are recoverable.",
+     "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">Property 3 — \"reversible enough to trust\"</div>Backed by M047 CRIU + ZFS snapshots (D-08). A peace machine holds all five at once; this property failing means the box has lost this specific guarantee even if the others hold.</div>"
+    },
+    {
+     "selector": "#p4-status",
+     "title": "Property · flexible enough to evolve",
+     "content": "Flexible — the box can improve without a rebuild: M046 runtime adaptation + LoRA Foundry. R09970. A frozen system decays; this property is that it adapts through adapters and evals rather than ossifying.",
+     "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">Property 4 — \"flexible enough to evolve\"</div>Backed by M046 LoRA Foundry (D-11). A peace machine holds all five at once; this property failing means the box has lost this specific guarantee even if the others hold.</div>"
+    },
+    {
+     "selector": "#p5-status",
+     "title": "Property · intelligence remains in the user's hands",
+     "content": "Sovereign — you hold the keys: operator MS003 signature gates every L5+ commit. R09965 + selfdef. This is the load-bearing property — everything else serves it. The box is powerful, legible, reversible and flexible SO THAT control stays with you.",
+     "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">Property 5 — \"intelligence remains in the user's hands\"</div>Backed by operator MS003 signature on every L5+ commit. A peace machine holds all five at once; this property failing means the box has lost this specific guarantee even if the others hold.</div>"
+    },
+    {
+     "selector": "p1-checks",
+     "title": "Property checks",
+     "content": "The concrete checks behind this property — the individual verifications that roll up to its status. Read them when the property is amber to see exactly which check failed, not just that the property did."
+    },
+    {
+     "selector": "p2-checks",
+     "title": "Property checks",
+     "content": "The concrete checks behind this property — the individual verifications that roll up to its status. Read them when the property is amber to see exactly which check failed, not just that the property did."
+    },
+    {
+     "selector": "p3-checks",
+     "title": "Property checks",
+     "content": "The concrete checks behind this property — the individual verifications that roll up to its status. Read them when the property is amber to see exactly which check failed, not just that the property did."
+    },
+    {
+     "selector": "p4-checks",
+     "title": "Property checks",
+     "content": "The concrete checks behind this property — the individual verifications that roll up to its status. Read them when the property is amber to see exactly which check failed, not just that the property did."
+    },
+    {
+     "selector": "p5-checks",
+     "title": "Property checks",
+     "content": "The concrete checks behind this property — the individual verifications that roll up to its status. Read them when the property is amber to see exactly which check failed, not just that the property did."
+    }
+   ]
+  },
+  {
+   "icon": "⊞",
+   "title": "Validator run",
+   "content": "The last run of /usr/bin/sovereign-os-peace-check --json — the actual command that computes the verdict. The panel reads its output; run it again for a fresh answer.",
+   "children": [
+    {
+     "selector": "#last-run",
+     "title": "Last run",
+     "content": "When the peace-check validator last ran. The verdict above is only as current as this — a fresh verdict needs a fresh run, especially after any change to the box."
+    },
+    {
+     "selector": "#exit-code",
+     "title": "Exit code",
+     "content": "The validator's exit code — 0 is peace, non-zero names a failure class. This is the machine-readable verdict; a non-zero code is the same signal as a non-healthy verdict, in a form a script can gate on.",
+     "variants": [
+      {
+       "when": {
+        "textContains": "0"
+       },
+       "content": "Exit 0 — the validator confirms peace; all properties passed.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● exit 0</div>The validator confirms the box is a peace machine.</div>"
+      },
+      {
+       "when": {
+        "textContains": "1"
+       },
+       "content": "Non-zero exit — the validator found a broken property; read the output.",
+       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ non-zero exit</div>A property failed — the output below names which.</div>"
+      }
+     ]
+    },
+    {
+     "selector": "#validator-output",
+     "title": "Validator output",
+     "content": "The raw --json output from the peace-check. This is the ground truth the panel renders from — read it directly when a property is degraded to see the exact failing assertion, not the summarized status.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The ground truth</div>The panel's tiles summarize this JSON. When a property is amber or red, read the raw output — it names the exact check and value that failed, which the summary tile does not.<div class=\"so-tip\">💡 This is the same artifact an audit or a CI gate would consume.</div></div>"
+    }
+   ]
+  },
+  {
+   "icon": "⎈",
+   "title": "Controls",
+   "content": "Read-only view — every mutation copies a signed sovereign-osctl verb (§1g / R10212). The web never changes the box; it hands you the exact CLI to run.",
+   "children": [
+    {
+     "selector": "#control-surface",
+     "title": "Controls rail",
+     "content": "The control rail — each button copies its exact sovereign-osctl command. Running the peace validator runs through the signed CLI after your MS003 signature, never from a web click."
     }
    ]
   }
