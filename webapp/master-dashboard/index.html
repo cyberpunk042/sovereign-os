@@ -909,20 +909,35 @@ a11y; contract test catches drift.
   .so-sm-item:hover{background:color-mix(in srgb,var(--accent,#9bd1ff) 12%,transparent);}
   .so-sm-item.active{background:color-mix(in srgb,var(--accent,#9bd1ff) 18%,transparent); border-left-color:var(--accent,#9bd1ff);}
   body.so-sm-collapsed .so-sm-item{justify-content:center; padding:.4rem 0;} body.so-sm-collapsed .so-sm-item .lbl, body.so-sm-collapsed .so-sm-item .id{display:none;}
-  /* assistant */
+  /* assistant — full-height contextual side panel (cascade model, ported from devops-control-plane) */
   #so-assist{position:fixed; top:var(--so-header-h); right:0; bottom:0; width:var(--so-assist-w); max-width:92vw; z-index:9450;
     background:var(--panel,#171717); border-left:1px solid var(--border,#262626); transform:translateX(100%); display:flex; flex-direction:column;
     font-family:ui-sans-serif,-apple-system,Segoe UI,Roboto,sans-serif; color:var(--fg,#e6e6e6);}
   body.so-assist-open #so-assist{transform:translateX(0);}
-  .so-assist-h{display:flex; align-items:center; gap:.5rem; padding:.6rem .8rem; border-bottom:1px solid var(--border,#262626);}
+  .so-assist-h{display:flex; align-items:center; gap:.5rem; padding:.55rem .8rem; border-bottom:1px solid var(--border,#262626); flex-shrink:0;}
   .so-assist-h .t{font-weight:600; font-size:.85rem;} .so-assist-h .t .spark{color:var(--accent,#9bd1ff);}
-  .so-assist-body{flex:1; overflow-y:auto; padding:.8rem; font-size:.82rem; line-height:1.5;}
-  .so-assist-sec{margin-bottom:1.1rem;} .so-assist-sec h4{margin:0 0 .3rem; font-size:.72rem; text-transform:uppercase; letter-spacing:.05em; color:var(--muted,#8a8a8a);}
-  .so-assist-hint{color:var(--muted,#8a8a8a); font-style:italic;}
-  #so-assist-el{border:1px dashed var(--border,#262626); border-radius:8px; padding:.6rem .7rem; background:var(--bg,#0e0e0e); min-height:3rem;}
-  #so-assist-el.hot{border-color:var(--accent,#9bd1ff); border-style:solid;}
-  #so-assist-el .lbl{font-weight:600; margin-bottom:.3rem;} #so-assist-el .lbl .id{color:var(--accent,#9bd1ff); font-size:.72rem;}
-  [data-assist].so-assist-hot, .so-sm-item.so-assist-hot{outline:2px solid var(--accent,#9bd1ff); outline-offset:-2px; border-radius:6px;}
+  .so-assist-body{flex:1; overflow-y:auto; overflow-x:hidden; padding:.8rem; font-size:.82rem; line-height:1.55;}
+  /* context header — always-visible "where you are" */
+  .so-ctx{padding:.7rem .85rem; margin:-.8rem -.8rem .9rem; border-bottom:1px solid var(--border,#262626); background:linear-gradient(180deg,rgba(155,209,255,.06),transparent);}
+  .so-ctx-title{font-weight:600; font-size:.92rem; margin-bottom:.35rem;}
+  .so-ctx-content{color:var(--fg-2,#c8c8c8); font-size:.8rem; line-height:1.55; white-space:pre-line;}
+  /* interaction-path nodes */
+  .so-node{padding:.55rem .65rem; margin:.5rem 0; border-left:2px solid transparent; border-radius:0 6px 6px 0; transition:background .12s ease,border-color .12s ease;}
+  .so-node.in-chain{border-left-color:rgba(155,209,255,.18); opacity:.82;}
+  .so-node.active{border-left-color:var(--accent,#9bd1ff); border-left-width:3px; background:rgba(155,209,255,.045); box-shadow:inset 0 0 22px rgba(155,209,255,.03);}
+  .so-node-title{font-weight:600; font-size:.83rem; margin-bottom:.3rem;} .so-node-title .id{color:var(--accent,#9bd1ff); font-size:.72rem; font-weight:500;}
+  .so-node-content{color:var(--fg-2,#c8c8c8); font-size:.8rem; line-height:1.55; white-space:pre-line;}
+  .so-node-expanded{margin-top:.55rem; padding-top:.55rem; border-top:1px solid rgba(155,209,255,.13); font-size:.78rem; line-height:1.6; color:var(--muted,#a8a8a8); white-space:pre-line;}
+  /* rich expanded cards */
+  .so-card{border:1px solid var(--border,#262626); border-radius:7px; padding:.55rem .65rem; margin-top:.45rem; background:var(--bg,#0e0e0e); white-space:normal; line-height:1.55;}
+  .so-card.info{border-color:rgba(155,209,255,.28);}
+  .so-grid{display:grid; grid-template-columns:auto 1fr; gap:.22rem .6rem; margin:.35rem 0; font-size:.76rem; white-space:normal;}
+  .so-grid .k{color:var(--accent,#9bd1ff); font-weight:500;}
+  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;}
+  .so-tip{margin-top:.4rem; font-size:.77rem; color:var(--muted,#a8a8a8);}
+  .so-assist-idle{color:var(--muted,#8a8a8a); font-style:italic; padding:.4rem 0;}
+  /* highlight the hovered/focused element in the panel content */
+  .so-assist-hot{outline:2px solid var(--accent,#9bd1ff); outline-offset:-2px; border-radius:6px;}
   /* responsive — reuse the existing breakpoints */
   @media (max-width:1024px){
     #so-sidemenu{transform:translateX(-100%);} body.so-sm-open #so-sidemenu{transform:translateX(0); width:var(--so-sidemenu-w);}
@@ -1047,11 +1062,7 @@ a11y; contract test catches drift.
     document.body.appendChild(el(
       '<aside id="so-assist" role="complementary" aria-label="assistant"><div class="so-assist-h"><span class="t"><span class="spark">✦</span> Assistant</span>'+
         '<button class="so-h-btn" id="so-assist-close" title="Close" style="margin-left:auto">✕</button></div>'+
-      '<div class="so-assist-body">'+
-        '<div class="so-assist-sec"><h4>This panel — '+title+'</h4><div>'+esc(help)+'</div></div>'+
-        '<div class="so-assist-sec"><h4>Focus / hover</h4><div id="so-assist-el"><span class="so-assist-hint">Hover a menu link or any highlighted control and its explanation appears here.</span></div></div>'+
-        '<div class="so-assist-sec"><h4>Tour</h4><button class="so-h-btn" id="so-tour-btn" style="border-color:var(--border,#262626)">▶ Start tour</button> <span class="so-assist-hint" id="so-tour-status"></span></div>'+
-      '</div></aside>'));
+      '<div class="so-assist-body" id="so-assist-body"></div></aside>'));
   }
   function wire(){
     document.getElementById('so-menu-toggle').addEventListener('click',function(){
@@ -1069,67 +1080,61 @@ a11y; contract test catches drift.
       Array.prototype.forEach.call(document.querySelectorAll('.so-grp'),function(grp){ var any=false;
         Array.prototype.forEach.call(grp.querySelectorAll('.so-sm-item'),function(it){ var hit=!q||it.dataset.label.toLowerCase().indexOf(q)>=0||it.dataset.dir.toLowerCase().indexOf(q)>=0; it.style.display=hit?'':'none'; if(hit)any=true; });
         grp.style.display=any?'':'none'; }); });
-    var box=document.getElementById('so-assist-el');
+    // ── Assistant: contextual cascade panel (model ported from devops-control-plane) ──
+    // catalogue: window.SO_ASSIST = { context:{title,icon,content}, nodes:[{id,title,icon,selector,content,expanded,variants,children}] }
+    //   content = plain teaching text (always shown); expanded = authored rich HTML (shown for the active element).
+    var abody=document.getElementById('so-assist-body');
     function openAssist(){ if(!document.body.classList.contains('so-assist-open')) document.body.classList.add('so-assist-open'); }
-    function clr(tg){ if(tg)tg.classList.remove('so-assist-hot'); }
     function reduced(){ return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
-    // render a gold-data card {id?,title?,msg,more?} into the drawer
-    function renderCard(e,tg){ box.classList.add('hot');
-      var h='';
-      if(e.title) h+='<div class="lbl">'+(e.id?'<span class="id">'+esc(e.id)+'</span> ':'')+esc(e.title)+'</div>';
-      h+='<div>'+esc(e.msg||'')+'</div>';
-      if(e.more) h+='<button class="so-h-btn" id="so-more-btn" style="margin-top:.5rem;border-color:var(--border,#262626);font-size:.74rem">more ▾</button>'+
-        '<div id="so-more" style="display:none;margin-top:.4rem;color:var(--muted,#8a8a8a)">'+esc(e.more)+'</div>';
-      box.innerHTML=h;
-      var mb=document.getElementById('so-more-btn');
-      if(mb) mb.addEventListener('click',function(){ var d=document.getElementById('so-more'); var open=d.style.display!=='none'; d.style.display=open?'none':'block'; mb.textContent=open?'more ▾':'less ▲'; });
-      if(tg)tg.classList.add('so-assist-hot'); openAssist(); }
-    // ── unified gold-data target list: window.SO_ASSIST (selector→{title,msg,more}) ∪ inline [data-assist] ──
-    var TARGETS=[], seen=[];
-    function pushTarget(el,e){ if(!el||seen.indexOf(el)>=0) return; seen.push(el); TARGETS.push({el:el,title:e.title||'',msg:e.msg||'',more:e.more||''}); }
-    try { var SA=window.SO_ASSIST; if(SA&&SA.length) SA.forEach(function(e){ if(!e||!e.sel) return;
-      try { Array.prototype.forEach.call(document.querySelectorAll('#so-content '+e.sel),function(el){ pushTarget(el,e); }); } catch(x){} }); } catch(err){}
-    Array.prototype.forEach.call(document.querySelectorAll('#so-content [data-assist]'),function(el){ pushTarget(el,{msg:el.getAttribute('data-assist')}); });
-    TARGETS.sort(function(a,b){ var p=a.el.compareDocumentPosition(b.el); return (p&Node.DOCUMENT_POSITION_FOLLOWING)?-1:((p&Node.DOCUMENT_POSITION_PRECEDING)?1:0); });
-    TARGETS.forEach(function(t){
-      t.el.addEventListener('mouseenter',function(){renderCard(t,t.el);});
-      t.el.addEventListener('focus',function(){renderCard(t,t.el);});
-      t.el.addEventListener('mouseleave',function(){clr(t.el);});
-      t.el.addEventListener('blur',function(){clr(t.el);}); });
-    // every menu link explains its panel (catalog gold data)
-    Array.prototype.forEach.call(document.querySelectorAll('.so-sm-item'),function(it){
-      var p=findPanel(it.dataset.dir); if(!p) return; var e={title:p.label,id:(p.id!=='—'?p.id:''),msg:p.desc};
-      it.addEventListener('mouseenter',function(){renderCard(e,it);});
-      it.addEventListener('focus',function(){renderCard(e,it);});
-      it.addEventListener('mouseleave',function(){clr(it);});
-      it.addEventListener('blur',function(){clr(it);}); });
-    // ── guided tour: walk the unified gold-data targets in DOM order ──
-    var tour={i:-1,on:false}, tourBtn=document.getElementById('so-tour-btn'), tourStatus=document.getElementById('so-tour-status');
-    function tourClear(){ TARGETS.forEach(function(t){ t.el.classList.remove('so-assist-hot'); }); }
-    function tourEnd(){ tour.on=false; tourClear(); box.classList.remove('hot');
-      box.innerHTML='<span class="so-assist-hint">Hover a menu link or any highlighted control and its explanation appears here.</span>';
-      if(tourStatus) tourStatus.textContent=''; if(tourBtn) tourBtn.textContent='▶ Start tour'; }
-    function tourShow(i){ if(i<0||i>=TARGETS.length){ tourEnd(); return; } tour.i=i; tourClear();
-      var t=TARGETS[i]; t.el.classList.add('so-assist-hot');
-      if(t.el.scrollIntoView) t.el.scrollIntoView({block:'center', behavior: reduced()?'auto':'smooth'});
-      box.classList.add('hot');
-      box.innerHTML=(t.title?'<div class="lbl">'+esc(t.title)+'</div>':'')+'<div style="margin-bottom:.5rem">'+esc(t.msg||'')+'</div>'+
-        (t.more?'<div style="margin-bottom:.5rem;color:var(--muted,#8a8a8a)">'+esc(t.more)+'</div>':'')+
-        '<div style="display:flex;gap:.4rem;align-items:center">'+
-        '<button class="so-h-btn" id="so-tour-prev"'+(i===0?' disabled':'')+'>←</button>'+
-        '<button class="so-h-btn" id="so-tour-next">'+(i===TARGETS.length-1?'done':'→')+'</button>'+
-        '<span class="so-assist-hint">step '+(i+1)+' / '+TARGETS.length+'</span></div>';
-      var pv=document.getElementById('so-tour-prev'), nx=document.getElementById('so-tour-next');
-      if(pv) pv.addEventListener('click',function(){ tourShow(tour.i-1); });
-      if(nx) nx.addEventListener('click',function(){ tour.i===TARGETS.length-1 ? tourEnd() : tourShow(tour.i+1); });
+    var curP=findPanel(curDir());
+    var CAT=(function(){ var sa=window.SO_ASSIST, ctx=null, nodes=[];
+      if(sa && !Array.isArray(sa) && sa.nodes){ ctx=sa.context||null; nodes=sa.nodes||[]; }
+      else if(Array.isArray(sa)){ nodes=sa.map(function(e){ return {id:'',title:e.title||'',selector:e.sel,content:e.msg||'',expanded:e.more?esc(e.more):''}; }); }
+      if(!ctx) ctx={ icon:'✦', title:(curP?((curP.id&&curP.id!=='—'?curP.id+' · ':'')+curP.label):'This panel'), content:(curP?curP.desc:'') };
+      return {ctx:ctx, nodes:nodes}; })();
+    // flatten deepest-first with parent chains
+    var FLAT=[]; (function flat(list,chain){ (list||[]).forEach(function(n){ if(n.children&&n.children.length) flat(n.children,chain.concat([n])); FLAT.push({node:n,parents:chain.slice()}); }); })(CAT.nodes,[]);
+    // variant resolution against the matched element (state-awareness)
+    function resolveVar(node,el){ if(!node.variants||!node.variants.length||!el) return node;
+      for(var i=0;i<node.variants.length;i++){ var v=node.variants[i], w=v.when||{}, ok=true;
+        if(w.textContains && (el.textContent||'').indexOf(w.textContains)<0) ok=false;
+        if(ok&&w.hasSelector){ try{ if(!el.querySelector(w.hasSelector)) ok=false; }catch(e){ ok=false; } }
+        if(ok) return {id:node.id,title:v.title||node.title,icon:node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded)}; }
+      return node; }
+    // match a hovered element to the deepest catalogue node
+    function matchNode(el){ var best=null,bd=-1;
+      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node,m=false,tgt=null; if(!n.selector) continue;
+        try{ if(el.matches(n.selector)){m=true;tgt=el;}
+          else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
+        if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+      return best; }
+    function ctxHtml(){ var c=CAT.ctx; return '<div class="so-ctx"><div class="so-ctx-title">'+(c.icon?esc(c.icon)+' ':'')+esc(c.title||'')+'</div><div class="so-ctx-content">'+esc(c.content||'')+'</div></div>'; }
+    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node;
+      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(r.title||'')+'</div>';
+      h+='<div class="so-node-content">'+esc(r.content||'')+'</div>';
+      if(active && r.expanded) h+='<div class="so-node-expanded">'+r.expanded+'</div>';   // expanded = trusted authored HTML
+      return h+'</div>'; }
+    var lastHot=null, lastMatched=null;
+    function clearHot(){ if(lastHot){ lastHot.classList.remove('so-assist-hot'); lastHot=null; } }
+    function idle(){ lastMatched=null; clearHot(); abody.innerHTML=ctxHtml()+'<div class="so-assist-idle">Hover any value, control, table row, or menu link — its explanation builds here.</div>'; }
+    function showPath(match){ openAssist(); clearHot();
+      var chain=match.entry.parents, node=match.entry.node, parent=chain.length?chain[chain.length-1]:null;
+      var html=ctxHtml(); if(parent) html+=nodeHtml(parent,null,null); html+=nodeHtml(node,true,match.el);
+      abody.innerHTML=html;
+      if(match.el){ match.el.classList.add('so-assist-hot'); lastHot=match.el; }
+      var act=abody.querySelector('.so-node.active'); if(act&&act.scrollIntoView) act.scrollIntoView({block:'center',behavior:reduced()?'auto':'smooth'}); }
+    var content=document.getElementById('so-content');
+    if(content){
+      content.addEventListener('mouseover',function(ev){ var m=matchNode(ev.target); if(m&&m.el!==lastMatched){ lastMatched=m.el; showPath(m); } });
+      content.addEventListener('focusin',function(ev){ var m=matchNode(ev.target); if(m&&m.el!==lastMatched){ lastMatched=m.el; showPath(m); } });
     }
-    function tourStart(){ if(!TARGETS.length){ if(tourStatus) tourStatus.textContent='no annotated elements on this panel yet — the menu links (← left) each carry a description.'; return; }
-      tour.on=true; openAssist(); if(tourBtn) tourBtn.textContent='✕ End tour'; tourShow(0); }
-    if(tourBtn) tourBtn.addEventListener('click',function(){ tour.on ? tourEnd() : tourStart(); });
-    window.addEventListener('keydown',function(ev){ if(!tour.on) return;
-      if(ev.key==='ArrowRight'){ ev.preventDefault(); tour.i===TARGETS.length-1 ? tourEnd() : tourShow(tour.i+1); }
-      else if(ev.key==='ArrowLeft'){ ev.preventDefault(); tourShow(Math.max(0,tour.i-1)); }
-      else if(ev.key==='Escape'){ ev.preventDefault(); tourEnd(); } });
+    // menu links → surface the target panel's context (program-awareness: horizontal jump)
+    Array.prototype.forEach.call(document.querySelectorAll('.so-sm-item'),function(it){ var p=findPanel(it.dataset.dir); if(!p) return;
+      function show(){ openAssist(); clearHot(); lastMatched=null; it.classList.add('so-assist-hot'); lastHot=it; var here=it.dataset.dir===curDir();
+        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+esc(p.desc||'')+'</div></div>'+
+          '<div class="so-assist-idle">'+(here?'You’re on this panel now — hover its contents to explore.':'Click to open this panel.')+'</div>'; }
+      it.addEventListener('mouseenter',show); it.addEventListener('focus',show); });
+    idle();
   }
   function init(){
     var dir=curDir(), cur=findPanel(dir);
@@ -2108,280 +2113,261 @@ refresh();
 setInterval(refresh, 30000);
 </script>
 
+
+
 <!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
 <script>
-window.SO_ASSIST = [
+window.SO_ASSIST = {
+ "context": {
+  "icon": "◎",
+  "title": "D-00 · Master Dashboard",
+  "content": "The aggregator — the front door to the whole cockpit. It doesn't do domain work; it indexes every other panel and answers one question: is the cockpit healthy and is every capability reachable?\n\nStart here when you don't know which panel owns a concern, or when something feels off and you want the box's overall posture at a glance."
+ },
+ "nodes": [
   {
-    "sel": "#stats",
-    "title": "Aggregator summary",
-    "msg": "The front-door roll-up — port, route count, reachability, collisions, selfdef manifests, API version.",
-    "more": "master-dashboard (D-00) is the aggregator: it doesn't do domain work, it indexes every other panel and reports whether the whole cockpit is healthy and reachable. This strip is the one-glance verdict; everything below is the detail behind each number."
+   "icon": "▤",
+   "title": "Aggregator summary",
+   "content": "The one-glance verdict on the cockpit itself — its port, how many panels it knows, how many answer, and the selfdef bridge count. Everything below is the detail behind these numbers.",
+   "children": [
+    {
+     "selector": "#stat-count",
+     "title": "Routes indexed",
+     "content": "How many panel routes the aggregator has discovered — the size of the cockpit. It should track the catalog; a shortfall means a panel exists but isn't wired in.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-li\">A route is 'known' once it's in the catalog — see 'all dashboards' below for the full list.</div></div>"
+    },
+    {
+     "selector": "#stat-reachable",
+     "title": "Reachable routes",
+     "content": "How many indexed routes actually answer right now. Indexed is not the same as live.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-grid\"><span class=\"k\">reachable &lt; indexed</span><span>a panel is catalogued but its <span class='k'>*-api</span> daemon isn't started — run <code>make panel</code></span></div><div class=\"so-tip\">💡 This is the gap between 'declared' and 'running' — the first thing to check when a panel loads blank.</div></div>"
+    },
+    {
+     "selector": "#stat-collisions",
+     "title": "Route collisions",
+     "content": "Two surfaces claiming the same route. Should always be zero — a collision sends an operator to the wrong panel.",
+     "expanded": "<div class=\"so-card info\"><div>The collisions panel below names any offenders. Non-zero here is an integrity bug, not a warning.</div></div>",
+     "variants": [
+      {
+       "when": {
+        "textContains": "0"
+       },
+       "content": "No collisions — every route resolves to exactly one panel. This is the healthy state."
+      }
+     ]
+    },
+    {
+     "selector": "#stat-selfdef",
+     "title": "selfdef manifests",
+     "content": "How many cross-repo selfdef manifests the aggregator found. This is the security bridge inventory — sovereign-os reads typed mirrors selfdef publishes, never selfdef's internals.",
+     "expanded": "<div class=\"so-card info\"><div>Zero here means selfdef isn't publishing, so the security mirror panels (D-13…D-18) will be blind. The M060 producers section below shows each bridge's health.</div></div>"
+    },
+    {
+     "selector": "#stat-version",
+     "title": "API version",
+     "content": "The aggregator build stamp — ties the route table and health contract you're reading to a known version.",
+     "expanded": ""
+    },
+    {
+     "selector": "#stat-port",
+     "title": "Aggregator port",
+     "content": "The port the front door itself answers on — the anchor every reachability check is measured against.",
+     "expanded": ""
+    }
+   ]
   },
   {
-    "sel": "#stat-port",
-    "title": "Aggregator port",
-    "msg": "The port the master-dashboard API is served on.",
-    "more": "Confirms which endpoint the front door itself is answering on — the anchor the route table and health polls are measured relative to."
+   "icon": "✓",
+   "title": "Reachability coverage — everything is reachable",
+   "content": "The anti-minimization instrument at the front door: it proves capability isn't stranded in code, computed from /catalog + /control-systems + /feature-coverage. The mandate is that every capability reaches the operator through a real surface.",
+   "children": [
+    {
+     "selector": "#cov-invisible",
+     "title": "Invisible features",
+     "content": "Capabilities that reach NO surface and NO waiver — powerful code an operator simply cannot find or use. This is the number that must trend to zero.",
+     "expanded": "<div class=\"so-card info\"><div class='so-li no'>✗ Non-zero here is a worklist, not a status — each one is minimization the mandate forbids.</div><div class=\"so-tip\">💡 Cross-reference the anti-minimization-audit panel — it categorises exactly how each capability went dark.</div></div>"
+    },
+    {
+     "selector": "#cov-mapped",
+     "title": "Verb families mapped",
+     "content": "How many operator verb families reach a dashboard. Every capability must surface on a panel or carry an explicit waiver.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-grid\"><span class=\"k\">~85 families</span><span>the feature-coverage gate — each maps to a dashboard or is deliberately cli-only</span></div></div>"
+    },
+    {
+     "selector": "#cov-cli",
+     "title": "CLI-only (waived)",
+     "content": "Verb families intentionally left CLI-only, with a stated waiver — privileged mutation and §17 sovereignty-boundary ops that should never get a web control.",
+     "expanded": "<div class=\"so-card info\"><div>A waiver is an honest, recorded exclusion — not a coverage gap. That distinction is the whole discipline.</div></div>"
+    },
+    {
+     "selector": "#cov-dash",
+     "title": "Dashboards covered",
+     "content": "How many dashboards are catalogued with a real, substantive description — the numerator of 'the operator can find everything'.",
+     "expanded": ""
+    },
+    {
+     "selector": "#cov-sys",
+     "title": "Control systems",
+     "content": "The 11+ real on/off + mode/profile systems (OS profiles, runtime profiles, cpu/gpu modes, auth tiers, selfdef, perimeter, inference tiers…) mapped into the cockpit.",
+     "expanded": ""
+    },
+    {
+     "selector": "#cov-note",
+     "title": "Coverage provenance",
+     "content": "Names the three sources the numbers are computed from — so the audit is auditable, not asserted.",
+     "expanded": ""
+    }
+   ]
   },
   {
-    "sel": "#stat-count",
-    "title": "Routes indexed",
-    "msg": "How many panel routes the aggregator knows about.",
-    "more": "This is the size of the cockpit — every dashboard the front door has discovered and can route to. It should track the catalog; a shortfall means a panel exists but isn't indexed."
+   "icon": "▦",
+   "title": "All dashboards — described",
+   "content": "The global index: every panel with its description, category, and the CLI that reaches its feature today. Lint-locked so a panel can never ship with just a bare label.",
+   "children": [
+    {
+     "selector": "#catalog-count",
+     "title": "Described panels",
+     "content": "How many cockpit panels carry a genuine description. Backed by config/dashboard-catalog.yaml — the front-door proof that the cockpit is self-explaining.",
+     "expanded": ""
+    },
+    {
+     "selector": "#catalog-body",
+     "title": "Catalog table",
+     "content": "Every panel, its description and category. For a panel not yet built as a web surface, the row still shows the operator CLI that reaches the capability — so nothing is hidden just because a dashboard is 'planned'.",
+     "expanded": "<div class=\"so-card info\"><div>This is the navigable map of the whole cockpit — the same descriptions the sidemenu links surface on hover.</div></div>"
+    }
+   ]
   },
   {
-    "sel": "#stat-reachable",
-    "title": "Reachable routes",
-    "msg": "How many indexed routes actually answer right now.",
-    "more": "Indexed ≠ live. This counts the routes whose API is up. Reachable < count means a panel is catalogued but its `*-api` isn't started (`make panel`) — the gap between 'declared' and 'running'."
+   "icon": "⇄",
+   "title": "Routes & collisions",
+   "content": "The aggregator's core artifact — the route table for every panel, plus the integrity check that no two clash.",
+   "children": [
+    {
+     "selector": "#routes-tbody",
+     "title": "Route table",
+     "content": "Per-route: label, source API, reachability, actions. This is how you find which panel owns a concern and whether it's live before you navigate there.",
+     "expanded": "<div class=\"so-card info\"><div>An unreachable row names the source API that isn't answering — turning 'the dashboard is blank' into 'start this service'.</div></div>"
+    },
+    {
+     "selector": "#collisions-body",
+     "title": "Collision list",
+     "content": "The specific colliding routes, if any — which two panels, which shared path. Empty is healthy.",
+     "expanded": ""
+    }
+   ]
   },
   {
-    "sel": "#stat-collisions",
-    "title": "Route collisions",
-    "msg": "Count of routes that clash (two surfaces claiming the same path).",
-    "more": "Should be zero. A collision means two panels resolve to the same route — an ambiguity that sends an operator to the wrong surface. The collisions panel below lists any offenders."
+   "icon": "⛓",
+   "title": "selfdef bridge — M060 mirror producers",
+   "content": "The selfdef → sovereign-os typed-mirror chain that feeds every security panel. sovereign-os consumes read-only published mirrors; it never reaches into selfdef. These banners are 'is the bridge up' — if red, D-13…D-18 are stale even while selfdef itself keeps enforcing.",
+   "children": [
+    {
+     "selector": "#m060-health-banner",
+     "title": "M060 mirror chain",
+     "content": "Whether the mirror-producer chain is healthy end-to-end — the single 'is the security bridge live' signal.",
+     "expanded": "<div class=\"so-card info\"><div class='so-li no'>✗ Red here means the D-13…D-18 mirrors are stale even though selfdef is still enforcing on the IPS side.</div></div>",
+     "variants": [
+      {
+       "when": {
+        "textContains": "healthy"
+       },
+       "content": "The mirror chain is healthy — the security panels are reading live data."
+      },
+      {
+       "when": {
+        "textContains": "offline"
+       },
+       "content": "The chain is offline — the security mirror panels are showing last-known, not live. selfdef is still enforcing; the bridge just isn't publishing."
+      }
+     ]
+    },
+    {
+     "selector": "#m060-health-count",
+     "title": "Mirrors up",
+     "content": "How many of the 10 M060 mirrors are publishing, via the selfdef daemon. Below 10 means a specific domain mirror is down — the tile grid shows which.",
+     "expanded": ""
+    },
+    {
+     "selector": "#m060-health-age",
+     "title": "Mirror data age",
+     "content": "How old the latest mirror sample is. A healthy count with stale age means the mirrors published once then went quiet.",
+     "expanded": ""
+    },
+    {
+     "selector": "#four-watchdog-banner",
+     "title": "four-watchdog IPS spine",
+     "content": "Health of the four always-on guards that keep the intrusion-prevention layer trustworthy. Red means a guard is down and the perimeter's assurance is degraded even if traffic still flows.",
+     "expanded": "<div class=\"so-card info\"><div>Served from the four-watchdog-api contract (proxying node_exporter). Check this before trusting any selfdef mirror as authoritative.</div></div>",
+     "variants": [
+      {
+       "when": {
+        "textContains": "offline"
+       },
+       "content": "A watchdog is down — the IPS spine is degraded. Traffic may still flow but one of its assurances is missing."
+      }
+     ]
+    },
+    {
+     "selector": "#apparmor-banner",
+     "title": "AppArmor enforcement",
+     "content": "Whether the host's mandatory-access-control is enforcing — a top-level trust signal. 'enforcing' is trusted; 'complain' or disabled means confinement is only logging, not blocking.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-grid\"><span class=\"k\">enforcing</span><span>profiles actually block — the box is confined</span><span class=\"k\">complain / off</span><span>an open door that looks closed — a material drop in trust posture</span></div></div>",
+     "variants": [
+      {
+       "when": {
+        "textContains": "enforcing"
+       },
+       "content": "Enforcing — AppArmor profiles are actively blocking. This is the trusted state."
+      },
+      {
+       "when": {
+        "textContains": "offline"
+       },
+       "content": "Not enforcing — confinement is only logging. Treat the box as a materially weaker trust posture until restored."
+      }
+     ]
+    },
+    {
+     "selector": "#ms022-sse-quota-banner",
+     "title": "MS022 SSE quota",
+     "content": "Live panels stream over server-sent events; MS022 caps concurrent subscribers so one client can't starve the rest. This warns when the quota is near its ceiling — the reason a live panel might stop updating.",
+     "expanded": ""
+    },
+    {
+     "selector": "#m060-mirror-grid",
+     "title": "Mirror tiles",
+     "content": "One tile per M060 mirror — click to drill into the panel it feeds. The navigable map from 'a mirror is down' to the exact affected surface.",
+     "expanded": ""
+    }
+   ]
   },
   {
-    "sel": "#stat-selfdef",
-    "title": "selfdef manifests",
-    "msg": "How many selfdef cross-repo manifests the aggregator discovered.",
-    "more": "sovereign-os consumes typed mirrors published by selfdef (the IPS). This counts the cross-repo manifests found — the bridge inventory. Zero here means the selfdef side isn't publishing, so the security mirror panels (D-13..D-18) will be blind."
-  },
-  {
-    "sel": "#stat-version",
-    "title": "API version",
-    "msg": "The master-dashboard API version.",
-    "more": "Stamps the aggregator build so the route table + health contract you're reading are tied to a known version — the thing to cite when a panel's shape disagrees with the front door."
-  },
-  {
-    "sel": "#coverage-stats",
-    "title": "Reachability coverage",
-    "msg": "'Everything is reachable' — the audit that every capability reaches the operator through a real surface.",
-    "more": "Computed from /catalog + /control-systems + /feature-coverage. This is the anti-minimization instrument at the front door: it proves capability isn't stranded in code. The numbers below break it down."
-  },
-  {
-    "sel": "#cov-dash",
-    "title": "Dashboards covered",
-    "msg": "How many dashboards are catalogued and described.",
-    "more": "The described-surface count — a dashboard without a real description is a minimization the catalog lint rejects. This is the numerator of 'the operator can find everything'."
-  },
-  {
-    "sel": "#cov-sys",
-    "title": "Control systems",
-    "msg": "How many real on/off + mode/profile systems are registered.",
-    "more": "The 11+ control systems (OS profiles, runtime profiles, cpu/gpu modes, auth tiers, selfdef, perimeter, inference tiers…) mapped into the cockpit. This is the denominator for 'is every switch reachable'."
-  },
-  {
-    "sel": "#cov-mapped",
-    "title": "Verb families mapped",
-    "msg": "How many operator verb families reach a dashboard.",
-    "more": "~85 verb families across the CLI must each surface on a panel or carry an explicit waiver. This is the feature-coverage gate: every capability maps to a dashboard or is deliberately cli-only."
-  },
-  {
-    "sel": "#cov-cli",
-    "title": "CLI-only (waived)",
-    "msg": "Verb families intentionally left CLI-only, with a waiver.",
-    "more": "Some verbs (privileged mutation, §17 sovereignty-boundary operations) stay CLI by design and never get a web control. A waiver is the honest record of that choice — not a coverage gap, an explicit exclusion."
-  },
-  {
-    "sel": "#cov-invisible",
-    "title": "Invisible features",
-    "msg": "Capabilities that reach NO surface and NO waiver — the real gap.",
-    "more": "This is the number that must trend to zero. An 'invisible' feature is powerful code an operator cannot find or reach — exactly the minimization the mandate forbids. Non-zero here is a worklist, not a status."
-  },
-  {
-    "sel": "#cov-note",
-    "title": "Coverage note",
-    "msg": "Explains how the coverage figures are computed and what 'invisible' means.",
-    "more": "The provenance line for the audit — it names the three sources (/catalog, /control-systems, /feature-coverage) so the numbers are auditable, not asserted."
-  },
-  {
-    "sel": "#catalog-count",
-    "title": "Described panels",
-    "msg": "How many cockpit panels carry a real, substantive description.",
-    "more": "Backed by config/dashboard-catalog.yaml and lint-locked: every panel must have a genuine description, not a bare label. This count is the front-door proof that the cockpit is self-explaining."
-  },
-  {
-    "sel": "#catalog-body",
-    "title": "All dashboards — described",
-    "msg": "The full catalog table: every panel with its description, category, and the CLI that reaches its feature today.",
-    "more": "The global index of the cockpit. For a panel not yet built as a web surface, the row still shows the operator CLI that reaches the capability — so nothing is hidden just because its dashboard is 'planned'."
-  },
-  {
-    "sel": "#controls-count",
-    "title": "Controls indexed",
-    "msg": "How many control surfaces the aggregator sees across panels.",
-    "more": "Counts the panels exposing a control rail (profiles/modes/toggles). The bridge between 'read-only view' and 'operator can act' — click any control to copy its exact osctl verb."
-  },
-  {
-    "sel": "#control-surface",
-    "title": "Controls rail",
-    "msg": "The front-door control rail — profiles, modes, feature toggles; each copies its exact sovereign-osctl command.",
-    "more": "Per §1g / R10212 the web surface never mutates privileged state — every control copies the signed CLI verb instead of executing. This is the aggregated view of the cockpit's switches."
-  },
-  {
-    "sel": "#routes-panel",
-    "title": "Routes panel",
-    "msg": "The full route table — every panel, its source, and whether it's reachable.",
-    "more": "The aggregator's core artifact: label → source → reachable → actions for every surface. This is how you find which panel owns a concern and whether it's live before you navigate there."
-  },
-  {
-    "sel": "#routes-tbody",
-    "title": "Route table",
-    "msg": "Per-route rows: label, source API, reachability, actions.",
-    "more": "Read this to diagnose a dead panel — an unreachable row names the source API that isn't answering, turning 'the dashboard is blank' into 'start this service'."
-  },
-  {
-    "sel": "#collisions-panel",
-    "title": "Collisions panel",
-    "msg": "Any routes that clash on the same path.",
-    "more": "The integrity check for the route table. Empty is healthy; a listed collision is two surfaces fighting over one route and must be disambiguated before an operator is misrouted."
-  },
-  {
-    "sel": "#collisions-body",
-    "title": "Collision list",
-    "msg": "The specific colliding routes, if any.",
-    "more": "Names each clash so it's actionable — which two panels, which shared path. This is the detail behind the collisions stat above."
-  },
-  {
-    "sel": "#discover-panel",
-    "title": "selfdef cross-repo manifests",
-    "msg": "Discovery of the typed manifests selfdef publishes for sovereign-os to consume.",
-    "more": "The bridge inventory: sovereign-os never reaches into selfdef's internals, it reads published typed mirrors. This panel proves the cross-repo contract is discoverable — the foundation the security mirror panels depend on."
-  },
-  {
-    "sel": "#discover-body",
-    "title": "Discovered manifests",
-    "msg": "The cross-repo manifests found, per repo.",
-    "more": "Each entry is a selfdef-side manifest sovereign-os can bind to. A missing expected manifest here is why a downstream mirror (D-13..D-18) would go stale."
-  },
-  {
-    "sel": "#m060-health-banner",
-    "title": "M060 mirror chain health",
-    "msg": "Whether the selfdef → sovereign-os typed-mirror bridge (M060) is healthy end-to-end.",
-    "more": "M060 is the mirror-producer chain that feeds every security panel. This banner is the single 'is the bridge up' signal; if it's red, the D-13..D-18 mirrors are stale even though selfdef itself is still enforcing."
-  },
-  {
-    "sel": "#m060-health-label",
-    "title": "Chain health state",
-    "msg": "The one-word verdict on the M060 mirror chain.",
-    "more": "healthy / degraded / unknown for the whole bridge. 'unknown' means the health endpoint itself couldn't be polled — a different problem from 'degraded'."
-  },
-  {
-    "sel": "#m060-health-detail",
-    "title": "Chain health detail",
-    "msg": "The reason behind the M060 health verdict.",
-    "more": "Turns the banner colour into a diagnosis — which mirror or poll is failing, so you know whether to look selfdef-side or at the bridge."
-  },
-  {
-    "sel": "#m060-health-count",
-    "title": "Mirrors up",
-    "msg": "How many of the 10 M060 mirrors are publishing.",
-    "more": "Served via /v1/m060/health through the selfdef daemon. Below 10 means a specific domain mirror is down — pair with the mirror grid below to see which one, and expect that domain's panel to be stale."
-  },
-  {
-    "sel": "#m060-health-age",
-    "title": "Mirror data age",
-    "msg": "How old the latest mirror sample is.",
-    "more": "Freshness of the bridge. A healthy count with stale age means the mirrors published once and then went quiet — the data is present but no longer live."
-  },
-  {
-    "sel": "#ms022-sse-quota-banner",
-    "title": "MS022 SSE quota",
-    "msg": "Whether the server-sent-events subscriber quota has headroom.",
-    "more": "Live panels stream updates over SSE; MS022 caps concurrent subscribers so one client can't starve the rest. This banner warns when the quota is near its ceiling — the reason a live panel might stop updating."
-  },
-  {
-    "sel": "#ms022-sse-label",
-    "title": "SSE quota state",
-    "msg": "The verdict on SSE subscriber capacity.",
-    "more": "ok / near-limit / unknown. Near-limit means new live-panel connections may be refused until existing ones close."
-  },
-  {
-    "sel": "#ms022-sse-detail",
-    "title": "SSE quota detail",
-    "msg": "The reason behind the SSE quota state.",
-    "more": "Explains the headroom situation — how the active count compares to the ceiling, so you know whether a non-updating panel is a quota problem or a data problem."
-  },
-  {
-    "sel": "#ms022-sse-active",
-    "title": "Active SSE subscribers",
-    "msg": "Current live-stream subscriber count vs the quota.",
-    "more": "Read via node_exporter /metrics. This is the concrete occupancy behind the banner — how many live connections are open right now against the cap."
-  },
-  {
-    "sel": "#four-watchdog-banner",
-    "title": "four-watchdog IPS spine",
-    "msg": "Health of the four-watchdog spine — the IPS's four always-on guards.",
-    "more": "The four-watchdog set is the backbone that keeps the intrusion-prevention layer trustworthy. Served from the four-watchdog-api contract (proxying node_exporter). Red here means a guard is down and the perimeter's assurance is degraded even if traffic still flows."
-  },
-  {
-    "sel": "#four-watchdog-label",
-    "title": "IPS spine state",
-    "msg": "The one-word verdict on the four-watchdog spine.",
-    "more": "healthy / degraded / unknown across the four guards — the summary you check before trusting any selfdef mirror as authoritative."
-  },
-  {
-    "sel": "#four-watchdog-detail",
-    "title": "IPS spine detail",
-    "msg": "The reason behind the spine verdict.",
-    "more": "Names which watchdog is unhealthy so you can go straight to the responsible guard rather than auditing all four."
-  },
-  {
-    "sel": "#four-watchdog-rollup",
-    "title": "Watchdog rollup",
-    "msg": "How many of the four watchdogs are up.",
-    "more": "The concrete count behind the spine banner. Anything under four is a partial spine — the IPS still runs but one of its assurances is missing."
-  },
-  {
-    "sel": "#apparmor-banner",
-    "title": "AppArmor enforcement",
-    "msg": "Whether the host's AppArmor mandatory-access-control is enforcing — a top-level trust signal.",
-    "more": "AppArmor confines processes at the kernel level. 'enforcing' is the trusted state; 'complain' or disabled means confinement is only logging, not blocking — a material drop in the box's trust posture that belongs on the front door."
-  },
-  {
-    "sel": "#apparmor-label",
-    "title": "AppArmor state",
-    "msg": "The AppArmor verdict — enforcing, complain, or unknown.",
-    "more": "The one-word trust signal. Only 'enforcing' means profiles are actually blocking; anything else is an open door that looks closed."
-  },
-  {
-    "sel": "#apparmor-detail",
-    "title": "AppArmor detail",
-    "msg": "The reason behind the AppArmor state.",
-    "more": "Explains a non-enforcing verdict — which profile family is in complain mode, so the restore is targeted rather than a blanket reload."
-  },
-  {
-    "sel": "#apparmor-mode",
-    "title": "AppArmor mode",
-    "msg": "The current enforcement mode, via node_exporter apparmor_profile_* metrics.",
-    "more": "The mode the profiles are running in. This is the metric-backed truth (not a claim) behind the banner — the number to cite when asserting the box is confined."
-  },
-  {
-    "sel": "#m060-mirror-panel",
-    "title": "M060 mirror producers",
-    "msg": "The selfdef → sovereign-os mirror bridge, tile by tile.",
-    "more": "Each mirror producer publishes one domain's typed view (defined in selfdef.toml) that a sovereign-os panel consumes read-only. This panel is the whole bridge at once — the health of every security mirror in one place."
-  },
-  {
-    "sel": "#m060-mirror-grid",
-    "title": "Mirror tiles",
-    "msg": "One tile per M060 mirror — click to drill into its dashboard.",
-    "more": "The navigable map of the bridge: each tile shows a mirror's health and links to the panel it feeds (D-13..D-18 etc.). This is how you go from 'a mirror is down' to the exact affected surface."
-  },
-  {
-    "sel": "#refresh-btn",
-    "title": "Refresh now",
-    "msg": "Re-poll every aggregator source immediately.",
-    "more": "Forces a fresh sweep of routes, coverage, and all health banners instead of waiting for the 30s auto-refresh. Read-only — it re-reads, it changes nothing."
-  },
-  {
-    "sel": "#last-refresh",
-    "title": "Last refresh",
-    "msg": "When the front door last re-polled (auto every 30s).",
-    "more": "Freshness for the whole aggregate view. If a banner looks wrong, check this first — a stale sweep can show a resolved problem as still-red until the next refresh."
+   "icon": "⎈",
+   "title": "Controls & refresh",
+   "content": "The front door reads and navigates; it never mutates. Controls copy signed verbs (R10212); refresh re-polls every source.",
+   "children": [
+    {
+     "selector": "#control-surface",
+     "title": "Controls rail",
+     "content": "The aggregated view of the cockpit's switches — profiles, modes, toggles. Every control copies its exact sovereign-osctl verb rather than executing (§1g / R10212).",
+     "expanded": ""
+    },
+    {
+     "selector": "#refresh-btn",
+     "title": "Refresh now",
+     "content": "Force a fresh sweep of routes, coverage, and every health banner instead of waiting for the 30s auto-refresh. Read-only.",
+     "expanded": ""
+    },
+    {
+     "selector": "#last-refresh",
+     "title": "Last refresh",
+     "content": "When the front door last re-polled. If a banner looks wrong, check this first — a stale sweep can show a resolved problem as still-red.",
+     "expanded": ""
+    }
+   ]
   }
-];
+ ]
+};
 </script>
 </body>
 </html>

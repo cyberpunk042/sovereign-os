@@ -463,20 +463,35 @@ a11y; contract test catches drift.
   .so-sm-item:hover{background:color-mix(in srgb,var(--accent,#9bd1ff) 12%,transparent);}
   .so-sm-item.active{background:color-mix(in srgb,var(--accent,#9bd1ff) 18%,transparent); border-left-color:var(--accent,#9bd1ff);}
   body.so-sm-collapsed .so-sm-item{justify-content:center; padding:.4rem 0;} body.so-sm-collapsed .so-sm-item .lbl, body.so-sm-collapsed .so-sm-item .id{display:none;}
-  /* assistant */
+  /* assistant — full-height contextual side panel (cascade model, ported from devops-control-plane) */
   #so-assist{position:fixed; top:var(--so-header-h); right:0; bottom:0; width:var(--so-assist-w); max-width:92vw; z-index:9450;
     background:var(--panel,#171717); border-left:1px solid var(--border,#262626); transform:translateX(100%); display:flex; flex-direction:column;
     font-family:ui-sans-serif,-apple-system,Segoe UI,Roboto,sans-serif; color:var(--fg,#e6e6e6);}
   body.so-assist-open #so-assist{transform:translateX(0);}
-  .so-assist-h{display:flex; align-items:center; gap:.5rem; padding:.6rem .8rem; border-bottom:1px solid var(--border,#262626);}
+  .so-assist-h{display:flex; align-items:center; gap:.5rem; padding:.55rem .8rem; border-bottom:1px solid var(--border,#262626); flex-shrink:0;}
   .so-assist-h .t{font-weight:600; font-size:.85rem;} .so-assist-h .t .spark{color:var(--accent,#9bd1ff);}
-  .so-assist-body{flex:1; overflow-y:auto; padding:.8rem; font-size:.82rem; line-height:1.5;}
-  .so-assist-sec{margin-bottom:1.1rem;} .so-assist-sec h4{margin:0 0 .3rem; font-size:.72rem; text-transform:uppercase; letter-spacing:.05em; color:var(--muted,#8a8a8a);}
-  .so-assist-hint{color:var(--muted,#8a8a8a); font-style:italic;}
-  #so-assist-el{border:1px dashed var(--border,#262626); border-radius:8px; padding:.6rem .7rem; background:var(--bg,#0e0e0e); min-height:3rem;}
-  #so-assist-el.hot{border-color:var(--accent,#9bd1ff); border-style:solid;}
-  #so-assist-el .lbl{font-weight:600; margin-bottom:.3rem;} #so-assist-el .lbl .id{color:var(--accent,#9bd1ff); font-size:.72rem;}
-  [data-assist].so-assist-hot, .so-sm-item.so-assist-hot{outline:2px solid var(--accent,#9bd1ff); outline-offset:-2px; border-radius:6px;}
+  .so-assist-body{flex:1; overflow-y:auto; overflow-x:hidden; padding:.8rem; font-size:.82rem; line-height:1.55;}
+  /* context header — always-visible "where you are" */
+  .so-ctx{padding:.7rem .85rem; margin:-.8rem -.8rem .9rem; border-bottom:1px solid var(--border,#262626); background:linear-gradient(180deg,rgba(155,209,255,.06),transparent);}
+  .so-ctx-title{font-weight:600; font-size:.92rem; margin-bottom:.35rem;}
+  .so-ctx-content{color:var(--fg-2,#c8c8c8); font-size:.8rem; line-height:1.55; white-space:pre-line;}
+  /* interaction-path nodes */
+  .so-node{padding:.55rem .65rem; margin:.5rem 0; border-left:2px solid transparent; border-radius:0 6px 6px 0; transition:background .12s ease,border-color .12s ease;}
+  .so-node.in-chain{border-left-color:rgba(155,209,255,.18); opacity:.82;}
+  .so-node.active{border-left-color:var(--accent,#9bd1ff); border-left-width:3px; background:rgba(155,209,255,.045); box-shadow:inset 0 0 22px rgba(155,209,255,.03);}
+  .so-node-title{font-weight:600; font-size:.83rem; margin-bottom:.3rem;} .so-node-title .id{color:var(--accent,#9bd1ff); font-size:.72rem; font-weight:500;}
+  .so-node-content{color:var(--fg-2,#c8c8c8); font-size:.8rem; line-height:1.55; white-space:pre-line;}
+  .so-node-expanded{margin-top:.55rem; padding-top:.55rem; border-top:1px solid rgba(155,209,255,.13); font-size:.78rem; line-height:1.6; color:var(--muted,#a8a8a8); white-space:pre-line;}
+  /* rich expanded cards */
+  .so-card{border:1px solid var(--border,#262626); border-radius:7px; padding:.55rem .65rem; margin-top:.45rem; background:var(--bg,#0e0e0e); white-space:normal; line-height:1.55;}
+  .so-card.info{border-color:rgba(155,209,255,.28);}
+  .so-grid{display:grid; grid-template-columns:auto 1fr; gap:.22rem .6rem; margin:.35rem 0; font-size:.76rem; white-space:normal;}
+  .so-grid .k{color:var(--accent,#9bd1ff); font-weight:500;}
+  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;}
+  .so-tip{margin-top:.4rem; font-size:.77rem; color:var(--muted,#a8a8a8);}
+  .so-assist-idle{color:var(--muted,#8a8a8a); font-style:italic; padding:.4rem 0;}
+  /* highlight the hovered/focused element in the panel content */
+  .so-assist-hot{outline:2px solid var(--accent,#9bd1ff); outline-offset:-2px; border-radius:6px;}
   /* responsive — reuse the existing breakpoints */
   @media (max-width:1024px){
     #so-sidemenu{transform:translateX(-100%);} body.so-sm-open #so-sidemenu{transform:translateX(0); width:var(--so-sidemenu-w);}
@@ -601,11 +616,7 @@ a11y; contract test catches drift.
     document.body.appendChild(el(
       '<aside id="so-assist" role="complementary" aria-label="assistant"><div class="so-assist-h"><span class="t"><span class="spark">✦</span> Assistant</span>'+
         '<button class="so-h-btn" id="so-assist-close" title="Close" style="margin-left:auto">✕</button></div>'+
-      '<div class="so-assist-body">'+
-        '<div class="so-assist-sec"><h4>This panel — '+title+'</h4><div>'+esc(help)+'</div></div>'+
-        '<div class="so-assist-sec"><h4>Focus / hover</h4><div id="so-assist-el"><span class="so-assist-hint">Hover a menu link or any highlighted control and its explanation appears here.</span></div></div>'+
-        '<div class="so-assist-sec"><h4>Tour</h4><button class="so-h-btn" id="so-tour-btn" style="border-color:var(--border,#262626)">▶ Start tour</button> <span class="so-assist-hint" id="so-tour-status"></span></div>'+
-      '</div></aside>'));
+      '<div class="so-assist-body" id="so-assist-body"></div></aside>'));
   }
   function wire(){
     document.getElementById('so-menu-toggle').addEventListener('click',function(){
@@ -623,67 +634,61 @@ a11y; contract test catches drift.
       Array.prototype.forEach.call(document.querySelectorAll('.so-grp'),function(grp){ var any=false;
         Array.prototype.forEach.call(grp.querySelectorAll('.so-sm-item'),function(it){ var hit=!q||it.dataset.label.toLowerCase().indexOf(q)>=0||it.dataset.dir.toLowerCase().indexOf(q)>=0; it.style.display=hit?'':'none'; if(hit)any=true; });
         grp.style.display=any?'':'none'; }); });
-    var box=document.getElementById('so-assist-el');
+    // ── Assistant: contextual cascade panel (model ported from devops-control-plane) ──
+    // catalogue: window.SO_ASSIST = { context:{title,icon,content}, nodes:[{id,title,icon,selector,content,expanded,variants,children}] }
+    //   content = plain teaching text (always shown); expanded = authored rich HTML (shown for the active element).
+    var abody=document.getElementById('so-assist-body');
     function openAssist(){ if(!document.body.classList.contains('so-assist-open')) document.body.classList.add('so-assist-open'); }
-    function clr(tg){ if(tg)tg.classList.remove('so-assist-hot'); }
     function reduced(){ return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
-    // render a gold-data card {id?,title?,msg,more?} into the drawer
-    function renderCard(e,tg){ box.classList.add('hot');
-      var h='';
-      if(e.title) h+='<div class="lbl">'+(e.id?'<span class="id">'+esc(e.id)+'</span> ':'')+esc(e.title)+'</div>';
-      h+='<div>'+esc(e.msg||'')+'</div>';
-      if(e.more) h+='<button class="so-h-btn" id="so-more-btn" style="margin-top:.5rem;border-color:var(--border,#262626);font-size:.74rem">more ▾</button>'+
-        '<div id="so-more" style="display:none;margin-top:.4rem;color:var(--muted,#8a8a8a)">'+esc(e.more)+'</div>';
-      box.innerHTML=h;
-      var mb=document.getElementById('so-more-btn');
-      if(mb) mb.addEventListener('click',function(){ var d=document.getElementById('so-more'); var open=d.style.display!=='none'; d.style.display=open?'none':'block'; mb.textContent=open?'more ▾':'less ▲'; });
-      if(tg)tg.classList.add('so-assist-hot'); openAssist(); }
-    // ── unified gold-data target list: window.SO_ASSIST (selector→{title,msg,more}) ∪ inline [data-assist] ──
-    var TARGETS=[], seen=[];
-    function pushTarget(el,e){ if(!el||seen.indexOf(el)>=0) return; seen.push(el); TARGETS.push({el:el,title:e.title||'',msg:e.msg||'',more:e.more||''}); }
-    try { var SA=window.SO_ASSIST; if(SA&&SA.length) SA.forEach(function(e){ if(!e||!e.sel) return;
-      try { Array.prototype.forEach.call(document.querySelectorAll('#so-content '+e.sel),function(el){ pushTarget(el,e); }); } catch(x){} }); } catch(err){}
-    Array.prototype.forEach.call(document.querySelectorAll('#so-content [data-assist]'),function(el){ pushTarget(el,{msg:el.getAttribute('data-assist')}); });
-    TARGETS.sort(function(a,b){ var p=a.el.compareDocumentPosition(b.el); return (p&Node.DOCUMENT_POSITION_FOLLOWING)?-1:((p&Node.DOCUMENT_POSITION_PRECEDING)?1:0); });
-    TARGETS.forEach(function(t){
-      t.el.addEventListener('mouseenter',function(){renderCard(t,t.el);});
-      t.el.addEventListener('focus',function(){renderCard(t,t.el);});
-      t.el.addEventListener('mouseleave',function(){clr(t.el);});
-      t.el.addEventListener('blur',function(){clr(t.el);}); });
-    // every menu link explains its panel (catalog gold data)
-    Array.prototype.forEach.call(document.querySelectorAll('.so-sm-item'),function(it){
-      var p=findPanel(it.dataset.dir); if(!p) return; var e={title:p.label,id:(p.id!=='—'?p.id:''),msg:p.desc};
-      it.addEventListener('mouseenter',function(){renderCard(e,it);});
-      it.addEventListener('focus',function(){renderCard(e,it);});
-      it.addEventListener('mouseleave',function(){clr(it);});
-      it.addEventListener('blur',function(){clr(it);}); });
-    // ── guided tour: walk the unified gold-data targets in DOM order ──
-    var tour={i:-1,on:false}, tourBtn=document.getElementById('so-tour-btn'), tourStatus=document.getElementById('so-tour-status');
-    function tourClear(){ TARGETS.forEach(function(t){ t.el.classList.remove('so-assist-hot'); }); }
-    function tourEnd(){ tour.on=false; tourClear(); box.classList.remove('hot');
-      box.innerHTML='<span class="so-assist-hint">Hover a menu link or any highlighted control and its explanation appears here.</span>';
-      if(tourStatus) tourStatus.textContent=''; if(tourBtn) tourBtn.textContent='▶ Start tour'; }
-    function tourShow(i){ if(i<0||i>=TARGETS.length){ tourEnd(); return; } tour.i=i; tourClear();
-      var t=TARGETS[i]; t.el.classList.add('so-assist-hot');
-      if(t.el.scrollIntoView) t.el.scrollIntoView({block:'center', behavior: reduced()?'auto':'smooth'});
-      box.classList.add('hot');
-      box.innerHTML=(t.title?'<div class="lbl">'+esc(t.title)+'</div>':'')+'<div style="margin-bottom:.5rem">'+esc(t.msg||'')+'</div>'+
-        (t.more?'<div style="margin-bottom:.5rem;color:var(--muted,#8a8a8a)">'+esc(t.more)+'</div>':'')+
-        '<div style="display:flex;gap:.4rem;align-items:center">'+
-        '<button class="so-h-btn" id="so-tour-prev"'+(i===0?' disabled':'')+'>←</button>'+
-        '<button class="so-h-btn" id="so-tour-next">'+(i===TARGETS.length-1?'done':'→')+'</button>'+
-        '<span class="so-assist-hint">step '+(i+1)+' / '+TARGETS.length+'</span></div>';
-      var pv=document.getElementById('so-tour-prev'), nx=document.getElementById('so-tour-next');
-      if(pv) pv.addEventListener('click',function(){ tourShow(tour.i-1); });
-      if(nx) nx.addEventListener('click',function(){ tour.i===TARGETS.length-1 ? tourEnd() : tourShow(tour.i+1); });
+    var curP=findPanel(curDir());
+    var CAT=(function(){ var sa=window.SO_ASSIST, ctx=null, nodes=[];
+      if(sa && !Array.isArray(sa) && sa.nodes){ ctx=sa.context||null; nodes=sa.nodes||[]; }
+      else if(Array.isArray(sa)){ nodes=sa.map(function(e){ return {id:'',title:e.title||'',selector:e.sel,content:e.msg||'',expanded:e.more?esc(e.more):''}; }); }
+      if(!ctx) ctx={ icon:'✦', title:(curP?((curP.id&&curP.id!=='—'?curP.id+' · ':'')+curP.label):'This panel'), content:(curP?curP.desc:'') };
+      return {ctx:ctx, nodes:nodes}; })();
+    // flatten deepest-first with parent chains
+    var FLAT=[]; (function flat(list,chain){ (list||[]).forEach(function(n){ if(n.children&&n.children.length) flat(n.children,chain.concat([n])); FLAT.push({node:n,parents:chain.slice()}); }); })(CAT.nodes,[]);
+    // variant resolution against the matched element (state-awareness)
+    function resolveVar(node,el){ if(!node.variants||!node.variants.length||!el) return node;
+      for(var i=0;i<node.variants.length;i++){ var v=node.variants[i], w=v.when||{}, ok=true;
+        if(w.textContains && (el.textContent||'').indexOf(w.textContains)<0) ok=false;
+        if(ok&&w.hasSelector){ try{ if(!el.querySelector(w.hasSelector)) ok=false; }catch(e){ ok=false; } }
+        if(ok) return {id:node.id,title:v.title||node.title,icon:node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded)}; }
+      return node; }
+    // match a hovered element to the deepest catalogue node
+    function matchNode(el){ var best=null,bd=-1;
+      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node,m=false,tgt=null; if(!n.selector) continue;
+        try{ if(el.matches(n.selector)){m=true;tgt=el;}
+          else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
+        if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+      return best; }
+    function ctxHtml(){ var c=CAT.ctx; return '<div class="so-ctx"><div class="so-ctx-title">'+(c.icon?esc(c.icon)+' ':'')+esc(c.title||'')+'</div><div class="so-ctx-content">'+esc(c.content||'')+'</div></div>'; }
+    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node;
+      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(r.title||'')+'</div>';
+      h+='<div class="so-node-content">'+esc(r.content||'')+'</div>';
+      if(active && r.expanded) h+='<div class="so-node-expanded">'+r.expanded+'</div>';   // expanded = trusted authored HTML
+      return h+'</div>'; }
+    var lastHot=null, lastMatched=null;
+    function clearHot(){ if(lastHot){ lastHot.classList.remove('so-assist-hot'); lastHot=null; } }
+    function idle(){ lastMatched=null; clearHot(); abody.innerHTML=ctxHtml()+'<div class="so-assist-idle">Hover any value, control, table row, or menu link — its explanation builds here.</div>'; }
+    function showPath(match){ openAssist(); clearHot();
+      var chain=match.entry.parents, node=match.entry.node, parent=chain.length?chain[chain.length-1]:null;
+      var html=ctxHtml(); if(parent) html+=nodeHtml(parent,null,null); html+=nodeHtml(node,true,match.el);
+      abody.innerHTML=html;
+      if(match.el){ match.el.classList.add('so-assist-hot'); lastHot=match.el; }
+      var act=abody.querySelector('.so-node.active'); if(act&&act.scrollIntoView) act.scrollIntoView({block:'center',behavior:reduced()?'auto':'smooth'}); }
+    var content=document.getElementById('so-content');
+    if(content){
+      content.addEventListener('mouseover',function(ev){ var m=matchNode(ev.target); if(m&&m.el!==lastMatched){ lastMatched=m.el; showPath(m); } });
+      content.addEventListener('focusin',function(ev){ var m=matchNode(ev.target); if(m&&m.el!==lastMatched){ lastMatched=m.el; showPath(m); } });
     }
-    function tourStart(){ if(!TARGETS.length){ if(tourStatus) tourStatus.textContent='no annotated elements on this panel yet — the menu links (← left) each carry a description.'; return; }
-      tour.on=true; openAssist(); if(tourBtn) tourBtn.textContent='✕ End tour'; tourShow(0); }
-    if(tourBtn) tourBtn.addEventListener('click',function(){ tour.on ? tourEnd() : tourStart(); });
-    window.addEventListener('keydown',function(ev){ if(!tour.on) return;
-      if(ev.key==='ArrowRight'){ ev.preventDefault(); tour.i===TARGETS.length-1 ? tourEnd() : tourShow(tour.i+1); }
-      else if(ev.key==='ArrowLeft'){ ev.preventDefault(); tourShow(Math.max(0,tour.i-1)); }
-      else if(ev.key==='Escape'){ ev.preventDefault(); tourEnd(); } });
+    // menu links → surface the target panel's context (program-awareness: horizontal jump)
+    Array.prototype.forEach.call(document.querySelectorAll('.so-sm-item'),function(it){ var p=findPanel(it.dataset.dir); if(!p) return;
+      function show(){ openAssist(); clearHot(); lastMatched=null; it.classList.add('so-assist-hot'); lastHot=it; var here=it.dataset.dir===curDir();
+        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+esc(p.desc||'')+'</div></div>'+
+          '<div class="so-assist-idle">'+(here?'You’re on this panel now — hover its contents to explore.':'Click to open this panel.')+'</div>'; }
+      it.addEventListener('mouseenter',show); it.addEventListener('focus',show); });
+    idle();
   }
   function init(){
     var dir=curDir(), cur=findPanel(dir);
@@ -1446,196 +1451,209 @@ refresh();
 <script>SovereignControlSurface.load(document.getElementById('control-surface'),{filterSlug:'d-10-eval-history'});</script>
 
 
+
+
 <!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
 <script>
-window.SO_ASSIST = [
+window.SO_ASSIST = {
+ "context": {
+  "icon": "∿",
+  "title": "D-10 · Eval History",
+  "content": "The scoreboard — how the models and fine-tunes are actually performing over time, across white-box and black-box evals. This is the evidence D-11 draws on to decide whether a fine-tune earns promotion.\n\nGates advance only on real eval results here, never on faith. Read-only; running a suite is a signed CLI verb."
+ },
+ "nodes": [
   {
-    "sel": "#datasource-banner",
-    "title": "Live vs snapshot",
-    "msg": "Green = /api/evals/summary is answering live; muted = the baked snapshot.",
-    "more": "Eval history changes only when suites run, so snapshot is less risky here — but a muted banner still means the newest run may not be reflected yet."
+   "icon": "▤",
+   "title": "Summary (last 30d)",
+   "content": "The eval pipeline's activity and headline pass rates. More runs, more confidence in a score trend.",
+   "children": [
+    {
+     "selector": "#total-runs",
+     "title": "Total eval runs",
+     "content": "How many evaluation runs completed in 30 days — the size of the evidence base behind every promotion decision.",
+     "expanded": ""
+    },
+    {
+     "selector": "#bb-pass",
+     "title": "Black-box pass rate",
+     "content": "Pass rate treating the model as opaque (prompt in, answer graded) — the honest measure of whether it actually helps, independent of internals. This is what gates promotion.",
+     "expanded": ""
+    },
+    {
+     "selector": "#wb-pass",
+     "title": "White-box pass rate",
+     "content": "Pass rate inspecting internals/steering — catches models that pass by luck or shortcut. Both BB and WB must hold for a trustworthy candidate.",
+     "expanded": "<div class=\"so-card info\"><div>A high BB with a low WB is the warning sign of a model that's right for the wrong reasons.</div></div>"
+    },
+    {
+     "selector": "#candidate-count",
+     "title": "Promotion candidates",
+     "content": "How many model+adapter candidates currently qualify for promotion — the shortlist feeding D-11's gates. Zero means nothing has earned promotion this window.",
+     "expanded": ""
+    }
+   ]
   },
   {
-    "sel": "#ds-state-label",
-    "title": "Data-source state",
-    "msg": "Which source the page reads — live evals daemon or snapshot.",
-    "more": "live / snapshot / unknown for the evals source. 'unknown' means the health endpoint itself couldn't be reached — a different failure from a plain snapshot fallback."
+   "icon": "◎",
+   "title": "Benchmark suites (M078 / M080)",
+   "content": "The hard-reasoning benchmarks the models are held to. Each shows current black/white-box score + a sparkline trend — direction matters more than the point value.",
+   "children": [
+    {
+     "selector": "#math-cur",
+     "title": "Math",
+     "content": "A hard-reasoning suite (M078 HölderPO target) — math is where shortcut-learning fails, so it's a strong signal of genuine capability.",
+     "expanded": ""
+    },
+    {
+     "selector": "#alf-cur",
+     "title": "ALFWorld",
+     "content": "An agentic/embodied suite — multi-step planning in an environment, not single-shot answers. Strong here means the model can actually act.",
+     "expanded": ""
+    },
+    {
+     "selector": "#arc1-cur",
+     "title": "ARC-AGI-1",
+     "content": "Fluid reasoning on novel puzzles, deliberately resistant to memorization. A meaningful score here is rare and a strong sign of generalization.",
+     "expanded": ""
+    },
+    {
+     "selector": "#arc2-cur",
+     "title": "ARC-AGI-2",
+     "content": "The harder successor — low scores are expected across the field. The frontier signal: any upward movement is demanding evidence of reasoning gain.",
+     "expanded": ""
+    },
+    {
+     "selector": "#sudoku-cur",
+     "title": "Sudoku (M080 HRM/TRM)",
+     "content": "A constraint-satisfaction task with a verifiable answer — near-100% is achievable, so a dip here is an unambiguous regression signal.",
+     "expanded": "<div class=\"so-card info\"><div>Because it's verifiable and near-ceiling, its trend is a sensitive early-warning that something in the reasoning path broke.</div></div>"
+    },
+    {
+     "selector": "#steer-cur",
+     "title": "Steering (white-box)",
+     "content": "An interpretability probe — whether the model's internal representations steer as expected. Reported disaggregated because it's a profile, not a single pass rate.",
+     "expanded": ""
+    },
+    {
+     "selector": "#math-spark",
+     "title": "Math trend",
+     "content": "The score's direction over recent runs. A rising trend is real improvement; a dip after a fine-tune is a regression to investigate before promoting.",
+     "expanded": ""
+    },
+    {
+     "selector": "#alf-spark",
+     "title": "ALFWorld trend",
+     "content": "Agentic capability across runs — a stable high trend is what you want before trusting a model with autonomous multi-step work.",
+     "expanded": ""
+    },
+    {
+     "selector": "#arc1-spark",
+     "title": "ARC-1 trend",
+     "content": "ARC scores move slowly and honestly — a sustained rise is real progress on generalization, not benchmark gaming.",
+     "expanded": ""
+    },
+    {
+     "selector": "#arc2-spark",
+     "title": "ARC-2 trend",
+     "content": "Even small upward movement is significant given the difficulty — read it as a stretch metric, not a pass/fail bar.",
+     "expanded": ""
+    },
+    {
+     "selector": "#sudoku-spark",
+     "title": "Sudoku trend",
+     "content": "A sensitive early-warning — any sustained drop on this near-ceiling task means the reasoning path degraded.",
+     "expanded": ""
+    },
+    {
+     "selector": "#steer-spark",
+     "title": "Steering trend",
+     "content": "Whether the model stays interpretable/steerable across fine-tunes — a capability you don't want to lose even as task scores rise.",
+     "expanded": ""
+    }
+   ]
   },
   {
-    "sel": "#ds-state-detail",
-    "title": "Reachability detail",
-    "msg": "The reason behind the state — reachable, timeout, or endpoint absent.",
-    "more": "Turns 'snapshot' into a diagnosis of whether the evals API is down or just slow."
+   "icon": "≣",
+   "title": "Trends & candidates",
+   "content": "Where a regression localises, which models earned gains, and who's up for promotion — the detail D-11 acts on.",
+   "children": [
+    {
+     "selector": "#task-filter",
+     "title": "Task filter",
+     "content": "Zoom the trend to one task or trace_id — the way into 'did THIS capability regress' rather than the aggregate.",
+     "expanded": ""
+    },
+    {
+     "selector": "#class-filter",
+     "title": "Class filter",
+     "content": "Black-box only vs white-box only — so a BB gain isn't masking a WB regression in the combined view.",
+     "expanded": ""
+    },
+    {
+     "selector": "#window-filter",
+     "title": "Time window",
+     "content": "7d vs 30d lookback — widen to see slow drift, narrow to isolate a recent fine-tune's effect.",
+     "expanded": ""
+    },
+    {
+     "selector": "#apply-btn",
+     "title": "Apply filters",
+     "content": "Run the trend query with the current filters. Read-only — it queries history, it never launches a run.",
+     "expanded": ""
+    },
+    {
+     "selector": "#tasks-tbody",
+     "title": "Per-task trend",
+     "content": "Per-task runs, pass %, trend, last run — where a regression localises to a specific task after a model change.",
+     "expanded": ""
+    },
+    {
+     "selector": "#models-tbody",
+     "title": "Per-model trend (M046)",
+     "content": "Per-model eval average vs baseline, with trend — the LoRA Foundry's report card. 'vs baseline' decides whether a fine-tune earned its keep.",
+     "expanded": ""
+    },
+    {
+     "selector": "#candidates-tbody",
+     "title": "Promotion candidates",
+     "content": "Model+adapter candidates with training, eval gain, gate state, actions. A candidate has a measured gain but must still clear D-11's MS041 gates before going active.",
+     "expanded": "<div class=\"so-card info\"><div>Gates advance only on real eval evidence — never fabricated. A candidate stuck 'pending' hasn't earned all its gates.</div></div>"
+    }
+   ]
   },
   {
-    "sel": "#ds-last-update",
-    "title": "Fetch freshness",
-    "msg": "When the shown eval summary was pulled.",
-    "more": "Tells you whether the latest suite run is included — important right after kicking off a benchmark."
-  },
-  {
-    "sel": "#total-runs",
-    "title": "Total eval runs (30d)",
-    "msg": "How many evaluation runs completed in the last 30 days.",
-    "more": "The activity level of the eval pipeline. This is the evidence base D-11 draws on to decide adapter promotions — more runs, more confidence in a score trend."
-  },
-  {
-    "sel": "#bb-pass",
-    "title": "Black-box pass rate",
-    "msg": "Pass rate across black-box evals (prompt in, answer graded).",
-    "more": "The honest, model-as-opaque measure — did it actually produce the right answer, independent of internals. This is the number that gates promotion when a fine-tune claims to help."
-  },
-  {
-    "sel": "#wb-pass",
-    "title": "White-box pass rate",
-    "msg": "Pass rate across white-box evals (internals/steering inspected).",
-    "more": "Complements black-box: white-box evals check HOW the model got there (activations, steering), catching models that pass by luck or shortcut. Both must hold for a trustworthy candidate."
-  },
-  {
-    "sel": "#candidate-count",
-    "title": "Promotion candidates",
-    "msg": "How many model+adapter candidates currently qualify for promotion.",
-    "more": "The shortlist feeding D-11's promotion gates — candidates whose eval gain is real enough to consider making active. Zero means nothing has earned promotion this window."
-  },
-  {
-    "sel": "#math-cur",
-    "title": "Math benchmark",
-    "msg": "Current black-box score on the math suite (M078 HölderPO target).",
-    "more": "A hard-reasoning benchmark — math is where shortcut-learning fails, so it's a strong signal of genuine capability. The sparkline beside it shows whether the score is trending up or regressing."
-  },
-  {
-    "sel": "#math-spark",
-    "title": "Math trend",
-    "msg": "Sparkline of the math score over recent runs.",
-    "more": "Direction matters more than the point value — a rising math trend is real improvement; a dip after a fine-tune is a regression to investigate before promoting."
-  },
-  {
-    "sel": "#alf-cur",
-    "title": "ALFWorld benchmark",
-    "msg": "Current black-box score on the ALFWorld agentic suite.",
-    "more": "An embodied/agentic task benchmark — tests multi-step planning in an environment, not single-shot answers. Strong here means the model can actually act, not just respond."
-  },
-  {
-    "sel": "#alf-spark",
-    "title": "ALFWorld trend",
-    "msg": "Sparkline of the ALFWorld score over recent runs.",
-    "more": "Tracks agentic capability across runs — a stable high trend is what you want before trusting a model with autonomous multi-step work."
-  },
-  {
-    "sel": "#arc1-cur",
-    "title": "ARC-1 benchmark",
-    "msg": "Current black-box score on ARC-AGI-1 (abstraction & reasoning).",
-    "more": "ARC measures fluid reasoning on novel puzzles — deliberately resistant to memorization. A meaningful score here is rare and a strong sign of genuine generalization."
-  },
-  {
-    "sel": "#arc1-spark",
-    "title": "ARC-1 trend",
-    "msg": "Sparkline of the ARC-1 score over recent runs.",
-    "more": "ARC scores move slowly and honestly — a sustained rise is real progress on generalization, not benchmark gaming."
-  },
-  {
-    "sel": "#arc2-cur",
-    "title": "ARC-2 benchmark",
-    "msg": "Current black-box score on ARC-AGI-2 (the harder successor).",
-    "more": "ARC-2 is deliberately much harder — low scores are expected across the field. It's the frontier signal: movement here is the most demanding evidence of reasoning gain."
-  },
-  {
-    "sel": "#arc2-spark",
-    "title": "ARC-2 trend",
-    "msg": "Sparkline of the ARC-2 score over recent runs.",
-    "more": "Even small upward movement on ARC-2 is significant given its difficulty — read it as a stretch metric, not a pass/fail bar."
-  },
-  {
-    "sel": "#sudoku-cur",
-    "title": "Sudoku benchmark",
-    "msg": "Current black-box score on the Sudoku suite (M080 HRM/TRM target).",
-    "more": "A constraint-satisfaction task with a verifiable answer — near-100% is achievable and expected for a capable model, so a dip here is a clear, unambiguous regression signal."
-  },
-  {
-    "sel": "#sudoku-spark",
-    "title": "Sudoku trend",
-    "msg": "Sparkline of the Sudoku score over recent runs.",
-    "more": "Because Sudoku is verifiable and near-ceiling, its trend is a sensitive early-warning: any sustained drop means something in the reasoning path broke."
-  },
-  {
-    "sel": "#steer-cur",
-    "title": "Steering eval",
-    "msg": "Current white-box steering result (disaggregated).",
-    "more": "A white-box probe of whether the model's internal representations can be steered as expected — an interpretability check, reported disaggregated because it's a profile, not a single pass rate."
-  },
-  {
-    "sel": "#steer-spark",
-    "title": "Steering trend",
-    "msg": "Sparkline of the steering result over recent runs.",
-    "more": "Tracks whether the model stays interpretable/steerable across fine-tunes — a capability you don't want to lose even as task scores rise."
-  },
-  {
-    "sel": "#task-filter",
-    "title": "Task filter",
-    "msg": "Filter the per-task trend by task name or trace_id.",
-    "more": "Zoom the trend table to one task or one eval run — the way into 'did THIS capability regress' rather than the aggregate."
-  },
-  {
-    "sel": "#class-filter",
-    "title": "Class filter",
-    "msg": "Narrow the trend to black-box only or white-box only.",
-    "more": "Separates the two eval modes so a BB gain isn't masking a WB regression (or vice versa) in the combined view."
-  },
-  {
-    "sel": "#window-filter",
-    "title": "Time window",
-    "msg": "Lookback window for the eval trend (7d / 30d).",
-    "more": "Widen to see a slow drift across a month; narrow to focus on the effect of a recent fine-tune."
-  },
-  {
-    "sel": "#apply-btn",
-    "title": "Apply filters",
-    "msg": "Run the per-task trend query with the current filters.",
-    "more": "Refreshes the task and window views. Read-only — it queries eval history, it never launches a run."
-  },
-  {
-    "sel": "#tasks-tbody",
-    "title": "Per-task eval trend",
-    "msg": "Per-task runs, pass %, trend, and last run.",
-    "more": "Where a regression localizes to a specific task — a task whose pass% dropped after a model change is the concrete evidence that change hurt something."
-  },
-  {
-    "sel": "#models-tbody",
-    "title": "Per-model score trend",
-    "msg": "Per-model eval average vs baseline, with trend (M046 LoRA Foundry).",
-    "more": "Ranks models/adapters by measured gain over baseline — the LoRA Foundry's report card. 'vs baseline' is the number that decides whether a fine-tune actually earned its keep."
-  },
-  {
-    "sel": "#candidates-tbody",
-    "title": "Adapter-promotion candidates",
-    "msg": "Model+adapter candidates with training, eval gain, gate state, and actions.",
-    "more": "The promotion shortlist. Gates advance only on real eval evidence (never fabricated); a candidate here has a measured gain but still must clear D-11's MS041 gates before going active."
-  },
-  {
-    "sel": "#refresh-btn",
-    "title": "Refresh",
-    "msg": "Re-poll the eval summary now.",
-    "more": "A fresh read after a suite finishes, instead of waiting for the auto-poll. Read-only."
-  },
-  {
-    "sel": "#run-suite-btn",
-    "title": "Run benchmark suite (operator-signed)",
-    "msg": "Stages a benchmark run — copies the signed CLI verb, doesn't run from the web.",
-    "more": "Eval suites are heavy GPU work; running one goes through the gated osctl path where it's authorised and scheduled against load. R10212 — the panel stages, it never launches from the browser."
-  },
-  {
-    "sel": "#export-btn",
-    "title": "Export 30d eval data (CSV)",
-    "msg": "Copies the command to export the last 30 days of eval results as CSV.",
-    "more": "Lets eval history leave the cockpit for external analysis. The panel shows the trends; this hands you the raw data to chart or archive elsewhere."
-  },
-  {
-    "sel": "#control-surface",
-    "title": "Controls — profiles, modes & toggles",
-    "msg": "The per-panel control rail for eval behaviour.",
-    "more": "Every control copies its exact sovereign-osctl verb (§1g / R10212), never executing from the web."
+   "icon": "⎈",
+   "title": "Actions & controls",
+   "content": "Read-only history; running a suite is heavy GPU work through a signed CLI verb (R10212).",
+   "children": [
+    {
+     "selector": "#run-suite-btn",
+     "title": "Run benchmark suite (operator-signed)",
+     "content": "Stages a benchmark run — heavy GPU work scheduled against load through the gated osctl path. The button copies the signed verb; it never launches from the browser.",
+     "expanded": ""
+    },
+    {
+     "selector": "#export-btn",
+     "title": "Export 30d eval data (CSV)",
+     "content": "Copies the command to export the last 30 days of eval results for external analysis or archival — the raw data behind the trends.",
+     "expanded": ""
+    },
+    {
+     "selector": "#refresh-btn",
+     "title": "Refresh",
+     "content": "Pull a fresh summary after a suite finishes instead of waiting for the auto-poll. Read-only.",
+     "expanded": ""
+    },
+    {
+     "selector": "#control-surface",
+     "title": "Controls rail",
+     "content": "Eval behaviour controls — each copies its exact sovereign-osctl verb (§1g / R10212).",
+     "expanded": ""
+    }
+   ]
   }
-];
+ ]
+};
 </script>
 </body>
 </html>

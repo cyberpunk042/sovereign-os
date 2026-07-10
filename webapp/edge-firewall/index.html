@@ -459,20 +459,35 @@ a11y; contract test catches drift.
   .so-sm-item:hover{background:color-mix(in srgb,var(--accent,#9bd1ff) 12%,transparent);}
   .so-sm-item.active{background:color-mix(in srgb,var(--accent,#9bd1ff) 18%,transparent); border-left-color:var(--accent,#9bd1ff);}
   body.so-sm-collapsed .so-sm-item{justify-content:center; padding:.4rem 0;} body.so-sm-collapsed .so-sm-item .lbl, body.so-sm-collapsed .so-sm-item .id{display:none;}
-  /* assistant */
+  /* assistant — full-height contextual side panel (cascade model, ported from devops-control-plane) */
   #so-assist{position:fixed; top:var(--so-header-h); right:0; bottom:0; width:var(--so-assist-w); max-width:92vw; z-index:9450;
     background:var(--panel,#171717); border-left:1px solid var(--border,#262626); transform:translateX(100%); display:flex; flex-direction:column;
     font-family:ui-sans-serif,-apple-system,Segoe UI,Roboto,sans-serif; color:var(--fg,#e6e6e6);}
   body.so-assist-open #so-assist{transform:translateX(0);}
-  .so-assist-h{display:flex; align-items:center; gap:.5rem; padding:.6rem .8rem; border-bottom:1px solid var(--border,#262626);}
+  .so-assist-h{display:flex; align-items:center; gap:.5rem; padding:.55rem .8rem; border-bottom:1px solid var(--border,#262626); flex-shrink:0;}
   .so-assist-h .t{font-weight:600; font-size:.85rem;} .so-assist-h .t .spark{color:var(--accent,#9bd1ff);}
-  .so-assist-body{flex:1; overflow-y:auto; padding:.8rem; font-size:.82rem; line-height:1.5;}
-  .so-assist-sec{margin-bottom:1.1rem;} .so-assist-sec h4{margin:0 0 .3rem; font-size:.72rem; text-transform:uppercase; letter-spacing:.05em; color:var(--muted,#8a8a8a);}
-  .so-assist-hint{color:var(--muted,#8a8a8a); font-style:italic;}
-  #so-assist-el{border:1px dashed var(--border,#262626); border-radius:8px; padding:.6rem .7rem; background:var(--bg,#0e0e0e); min-height:3rem;}
-  #so-assist-el.hot{border-color:var(--accent,#9bd1ff); border-style:solid;}
-  #so-assist-el .lbl{font-weight:600; margin-bottom:.3rem;} #so-assist-el .lbl .id{color:var(--accent,#9bd1ff); font-size:.72rem;}
-  [data-assist].so-assist-hot, .so-sm-item.so-assist-hot{outline:2px solid var(--accent,#9bd1ff); outline-offset:-2px; border-radius:6px;}
+  .so-assist-body{flex:1; overflow-y:auto; overflow-x:hidden; padding:.8rem; font-size:.82rem; line-height:1.55;}
+  /* context header — always-visible "where you are" */
+  .so-ctx{padding:.7rem .85rem; margin:-.8rem -.8rem .9rem; border-bottom:1px solid var(--border,#262626); background:linear-gradient(180deg,rgba(155,209,255,.06),transparent);}
+  .so-ctx-title{font-weight:600; font-size:.92rem; margin-bottom:.35rem;}
+  .so-ctx-content{color:var(--fg-2,#c8c8c8); font-size:.8rem; line-height:1.55; white-space:pre-line;}
+  /* interaction-path nodes */
+  .so-node{padding:.55rem .65rem; margin:.5rem 0; border-left:2px solid transparent; border-radius:0 6px 6px 0; transition:background .12s ease,border-color .12s ease;}
+  .so-node.in-chain{border-left-color:rgba(155,209,255,.18); opacity:.82;}
+  .so-node.active{border-left-color:var(--accent,#9bd1ff); border-left-width:3px; background:rgba(155,209,255,.045); box-shadow:inset 0 0 22px rgba(155,209,255,.03);}
+  .so-node-title{font-weight:600; font-size:.83rem; margin-bottom:.3rem;} .so-node-title .id{color:var(--accent,#9bd1ff); font-size:.72rem; font-weight:500;}
+  .so-node-content{color:var(--fg-2,#c8c8c8); font-size:.8rem; line-height:1.55; white-space:pre-line;}
+  .so-node-expanded{margin-top:.55rem; padding-top:.55rem; border-top:1px solid rgba(155,209,255,.13); font-size:.78rem; line-height:1.6; color:var(--muted,#a8a8a8); white-space:pre-line;}
+  /* rich expanded cards */
+  .so-card{border:1px solid var(--border,#262626); border-radius:7px; padding:.55rem .65rem; margin-top:.45rem; background:var(--bg,#0e0e0e); white-space:normal; line-height:1.55;}
+  .so-card.info{border-color:rgba(155,209,255,.28);}
+  .so-grid{display:grid; grid-template-columns:auto 1fr; gap:.22rem .6rem; margin:.35rem 0; font-size:.76rem; white-space:normal;}
+  .so-grid .k{color:var(--accent,#9bd1ff); font-weight:500;}
+  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;}
+  .so-tip{margin-top:.4rem; font-size:.77rem; color:var(--muted,#a8a8a8);}
+  .so-assist-idle{color:var(--muted,#8a8a8a); font-style:italic; padding:.4rem 0;}
+  /* highlight the hovered/focused element in the panel content */
+  .so-assist-hot{outline:2px solid var(--accent,#9bd1ff); outline-offset:-2px; border-radius:6px;}
   /* responsive — reuse the existing breakpoints */
   @media (max-width:1024px){
     #so-sidemenu{transform:translateX(-100%);} body.so-sm-open #so-sidemenu{transform:translateX(0); width:var(--so-sidemenu-w);}
@@ -597,11 +612,7 @@ a11y; contract test catches drift.
     document.body.appendChild(el(
       '<aside id="so-assist" role="complementary" aria-label="assistant"><div class="so-assist-h"><span class="t"><span class="spark">✦</span> Assistant</span>'+
         '<button class="so-h-btn" id="so-assist-close" title="Close" style="margin-left:auto">✕</button></div>'+
-      '<div class="so-assist-body">'+
-        '<div class="so-assist-sec"><h4>This panel — '+title+'</h4><div>'+esc(help)+'</div></div>'+
-        '<div class="so-assist-sec"><h4>Focus / hover</h4><div id="so-assist-el"><span class="so-assist-hint">Hover a menu link or any highlighted control and its explanation appears here.</span></div></div>'+
-        '<div class="so-assist-sec"><h4>Tour</h4><button class="so-h-btn" id="so-tour-btn" style="border-color:var(--border,#262626)">▶ Start tour</button> <span class="so-assist-hint" id="so-tour-status"></span></div>'+
-      '</div></aside>'));
+      '<div class="so-assist-body" id="so-assist-body"></div></aside>'));
   }
   function wire(){
     document.getElementById('so-menu-toggle').addEventListener('click',function(){
@@ -619,67 +630,61 @@ a11y; contract test catches drift.
       Array.prototype.forEach.call(document.querySelectorAll('.so-grp'),function(grp){ var any=false;
         Array.prototype.forEach.call(grp.querySelectorAll('.so-sm-item'),function(it){ var hit=!q||it.dataset.label.toLowerCase().indexOf(q)>=0||it.dataset.dir.toLowerCase().indexOf(q)>=0; it.style.display=hit?'':'none'; if(hit)any=true; });
         grp.style.display=any?'':'none'; }); });
-    var box=document.getElementById('so-assist-el');
+    // ── Assistant: contextual cascade panel (model ported from devops-control-plane) ──
+    // catalogue: window.SO_ASSIST = { context:{title,icon,content}, nodes:[{id,title,icon,selector,content,expanded,variants,children}] }
+    //   content = plain teaching text (always shown); expanded = authored rich HTML (shown for the active element).
+    var abody=document.getElementById('so-assist-body');
     function openAssist(){ if(!document.body.classList.contains('so-assist-open')) document.body.classList.add('so-assist-open'); }
-    function clr(tg){ if(tg)tg.classList.remove('so-assist-hot'); }
     function reduced(){ return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
-    // render a gold-data card {id?,title?,msg,more?} into the drawer
-    function renderCard(e,tg){ box.classList.add('hot');
-      var h='';
-      if(e.title) h+='<div class="lbl">'+(e.id?'<span class="id">'+esc(e.id)+'</span> ':'')+esc(e.title)+'</div>';
-      h+='<div>'+esc(e.msg||'')+'</div>';
-      if(e.more) h+='<button class="so-h-btn" id="so-more-btn" style="margin-top:.5rem;border-color:var(--border,#262626);font-size:.74rem">more ▾</button>'+
-        '<div id="so-more" style="display:none;margin-top:.4rem;color:var(--muted,#8a8a8a)">'+esc(e.more)+'</div>';
-      box.innerHTML=h;
-      var mb=document.getElementById('so-more-btn');
-      if(mb) mb.addEventListener('click',function(){ var d=document.getElementById('so-more'); var open=d.style.display!=='none'; d.style.display=open?'none':'block'; mb.textContent=open?'more ▾':'less ▲'; });
-      if(tg)tg.classList.add('so-assist-hot'); openAssist(); }
-    // ── unified gold-data target list: window.SO_ASSIST (selector→{title,msg,more}) ∪ inline [data-assist] ──
-    var TARGETS=[], seen=[];
-    function pushTarget(el,e){ if(!el||seen.indexOf(el)>=0) return; seen.push(el); TARGETS.push({el:el,title:e.title||'',msg:e.msg||'',more:e.more||''}); }
-    try { var SA=window.SO_ASSIST; if(SA&&SA.length) SA.forEach(function(e){ if(!e||!e.sel) return;
-      try { Array.prototype.forEach.call(document.querySelectorAll('#so-content '+e.sel),function(el){ pushTarget(el,e); }); } catch(x){} }); } catch(err){}
-    Array.prototype.forEach.call(document.querySelectorAll('#so-content [data-assist]'),function(el){ pushTarget(el,{msg:el.getAttribute('data-assist')}); });
-    TARGETS.sort(function(a,b){ var p=a.el.compareDocumentPosition(b.el); return (p&Node.DOCUMENT_POSITION_FOLLOWING)?-1:((p&Node.DOCUMENT_POSITION_PRECEDING)?1:0); });
-    TARGETS.forEach(function(t){
-      t.el.addEventListener('mouseenter',function(){renderCard(t,t.el);});
-      t.el.addEventListener('focus',function(){renderCard(t,t.el);});
-      t.el.addEventListener('mouseleave',function(){clr(t.el);});
-      t.el.addEventListener('blur',function(){clr(t.el);}); });
-    // every menu link explains its panel (catalog gold data)
-    Array.prototype.forEach.call(document.querySelectorAll('.so-sm-item'),function(it){
-      var p=findPanel(it.dataset.dir); if(!p) return; var e={title:p.label,id:(p.id!=='—'?p.id:''),msg:p.desc};
-      it.addEventListener('mouseenter',function(){renderCard(e,it);});
-      it.addEventListener('focus',function(){renderCard(e,it);});
-      it.addEventListener('mouseleave',function(){clr(it);});
-      it.addEventListener('blur',function(){clr(it);}); });
-    // ── guided tour: walk the unified gold-data targets in DOM order ──
-    var tour={i:-1,on:false}, tourBtn=document.getElementById('so-tour-btn'), tourStatus=document.getElementById('so-tour-status');
-    function tourClear(){ TARGETS.forEach(function(t){ t.el.classList.remove('so-assist-hot'); }); }
-    function tourEnd(){ tour.on=false; tourClear(); box.classList.remove('hot');
-      box.innerHTML='<span class="so-assist-hint">Hover a menu link or any highlighted control and its explanation appears here.</span>';
-      if(tourStatus) tourStatus.textContent=''; if(tourBtn) tourBtn.textContent='▶ Start tour'; }
-    function tourShow(i){ if(i<0||i>=TARGETS.length){ tourEnd(); return; } tour.i=i; tourClear();
-      var t=TARGETS[i]; t.el.classList.add('so-assist-hot');
-      if(t.el.scrollIntoView) t.el.scrollIntoView({block:'center', behavior: reduced()?'auto':'smooth'});
-      box.classList.add('hot');
-      box.innerHTML=(t.title?'<div class="lbl">'+esc(t.title)+'</div>':'')+'<div style="margin-bottom:.5rem">'+esc(t.msg||'')+'</div>'+
-        (t.more?'<div style="margin-bottom:.5rem;color:var(--muted,#8a8a8a)">'+esc(t.more)+'</div>':'')+
-        '<div style="display:flex;gap:.4rem;align-items:center">'+
-        '<button class="so-h-btn" id="so-tour-prev"'+(i===0?' disabled':'')+'>←</button>'+
-        '<button class="so-h-btn" id="so-tour-next">'+(i===TARGETS.length-1?'done':'→')+'</button>'+
-        '<span class="so-assist-hint">step '+(i+1)+' / '+TARGETS.length+'</span></div>';
-      var pv=document.getElementById('so-tour-prev'), nx=document.getElementById('so-tour-next');
-      if(pv) pv.addEventListener('click',function(){ tourShow(tour.i-1); });
-      if(nx) nx.addEventListener('click',function(){ tour.i===TARGETS.length-1 ? tourEnd() : tourShow(tour.i+1); });
+    var curP=findPanel(curDir());
+    var CAT=(function(){ var sa=window.SO_ASSIST, ctx=null, nodes=[];
+      if(sa && !Array.isArray(sa) && sa.nodes){ ctx=sa.context||null; nodes=sa.nodes||[]; }
+      else if(Array.isArray(sa)){ nodes=sa.map(function(e){ return {id:'',title:e.title||'',selector:e.sel,content:e.msg||'',expanded:e.more?esc(e.more):''}; }); }
+      if(!ctx) ctx={ icon:'✦', title:(curP?((curP.id&&curP.id!=='—'?curP.id+' · ':'')+curP.label):'This panel'), content:(curP?curP.desc:'') };
+      return {ctx:ctx, nodes:nodes}; })();
+    // flatten deepest-first with parent chains
+    var FLAT=[]; (function flat(list,chain){ (list||[]).forEach(function(n){ if(n.children&&n.children.length) flat(n.children,chain.concat([n])); FLAT.push({node:n,parents:chain.slice()}); }); })(CAT.nodes,[]);
+    // variant resolution against the matched element (state-awareness)
+    function resolveVar(node,el){ if(!node.variants||!node.variants.length||!el) return node;
+      for(var i=0;i<node.variants.length;i++){ var v=node.variants[i], w=v.when||{}, ok=true;
+        if(w.textContains && (el.textContent||'').indexOf(w.textContains)<0) ok=false;
+        if(ok&&w.hasSelector){ try{ if(!el.querySelector(w.hasSelector)) ok=false; }catch(e){ ok=false; } }
+        if(ok) return {id:node.id,title:v.title||node.title,icon:node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded)}; }
+      return node; }
+    // match a hovered element to the deepest catalogue node
+    function matchNode(el){ var best=null,bd=-1;
+      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node,m=false,tgt=null; if(!n.selector) continue;
+        try{ if(el.matches(n.selector)){m=true;tgt=el;}
+          else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
+        if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+      return best; }
+    function ctxHtml(){ var c=CAT.ctx; return '<div class="so-ctx"><div class="so-ctx-title">'+(c.icon?esc(c.icon)+' ':'')+esc(c.title||'')+'</div><div class="so-ctx-content">'+esc(c.content||'')+'</div></div>'; }
+    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node;
+      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(r.title||'')+'</div>';
+      h+='<div class="so-node-content">'+esc(r.content||'')+'</div>';
+      if(active && r.expanded) h+='<div class="so-node-expanded">'+r.expanded+'</div>';   // expanded = trusted authored HTML
+      return h+'</div>'; }
+    var lastHot=null, lastMatched=null;
+    function clearHot(){ if(lastHot){ lastHot.classList.remove('so-assist-hot'); lastHot=null; } }
+    function idle(){ lastMatched=null; clearHot(); abody.innerHTML=ctxHtml()+'<div class="so-assist-idle">Hover any value, control, table row, or menu link — its explanation builds here.</div>'; }
+    function showPath(match){ openAssist(); clearHot();
+      var chain=match.entry.parents, node=match.entry.node, parent=chain.length?chain[chain.length-1]:null;
+      var html=ctxHtml(); if(parent) html+=nodeHtml(parent,null,null); html+=nodeHtml(node,true,match.el);
+      abody.innerHTML=html;
+      if(match.el){ match.el.classList.add('so-assist-hot'); lastHot=match.el; }
+      var act=abody.querySelector('.so-node.active'); if(act&&act.scrollIntoView) act.scrollIntoView({block:'center',behavior:reduced()?'auto':'smooth'}); }
+    var content=document.getElementById('so-content');
+    if(content){
+      content.addEventListener('mouseover',function(ev){ var m=matchNode(ev.target); if(m&&m.el!==lastMatched){ lastMatched=m.el; showPath(m); } });
+      content.addEventListener('focusin',function(ev){ var m=matchNode(ev.target); if(m&&m.el!==lastMatched){ lastMatched=m.el; showPath(m); } });
     }
-    function tourStart(){ if(!TARGETS.length){ if(tourStatus) tourStatus.textContent='no annotated elements on this panel yet — the menu links (← left) each carry a description.'; return; }
-      tour.on=true; openAssist(); if(tourBtn) tourBtn.textContent='✕ End tour'; tourShow(0); }
-    if(tourBtn) tourBtn.addEventListener('click',function(){ tour.on ? tourEnd() : tourStart(); });
-    window.addEventListener('keydown',function(ev){ if(!tour.on) return;
-      if(ev.key==='ArrowRight'){ ev.preventDefault(); tour.i===TARGETS.length-1 ? tourEnd() : tourShow(tour.i+1); }
-      else if(ev.key==='ArrowLeft'){ ev.preventDefault(); tourShow(Math.max(0,tour.i-1)); }
-      else if(ev.key==='Escape'){ ev.preventDefault(); tourEnd(); } });
+    // menu links → surface the target panel's context (program-awareness: horizontal jump)
+    Array.prototype.forEach.call(document.querySelectorAll('.so-sm-item'),function(it){ var p=findPanel(it.dataset.dir); if(!p) return;
+      function show(){ openAssist(); clearHot(); lastMatched=null; it.classList.add('so-assist-hot'); lastHot=it; var here=it.dataset.dir===curDir();
+        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+esc(p.desc||'')+'</div></div>'+
+          '<div class="so-assist-idle">'+(here?'You’re on this panel now — hover its contents to explore.':'Click to open this panel.')+'</div>'; }
+      it.addEventListener('mouseenter',show); it.addEventListener('focus',show); });
+    idle();
   }
   function init(){
     var dir=curDir(), cur=findPanel(dir);
@@ -1334,100 +1339,143 @@ refresh();
 setInterval(refresh, 30000);
 </script>
 
+
+
 <!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
 <script>
-window.SO_ASSIST = [
+window.SO_ASSIST = {
+ "context": {
+  "icon": "⛨",
+  "title": "Edge Firewall",
+  "content": "The enforcement-candidate view — which firewall postures (the §1g 4-class ladder) fit the current local + upstream state, ranked as recommendations, with a read-only install-plan preview.\n\nIt recommends and previews; it never installs. Applying a candidate is a signed CLI action (§17 sovereignty boundary — the operator stays in control of enforcement)."
+ },
+ "nodes": [
   {
-    "sel": "#stats",
-    "title": "Firewall posture summary",
-    "msg": "The host firewall audit roll-up — candidates, local/upstream tier, recommendations.",
-    "more": "This is host self-defence (distinct from the selfdef IPS mirror). It reads the current firewall state and rates it against the §1g enforcement ladder — the strip is the at-a-glance verdict. Note: apply/wizard stay CLI-only (operator §17 sovereignty boundary)."
+   "icon": "◆",
+   "title": "Summary",
+   "content": "How many enforcement candidates fit, the local and upstream tiers, and how many recommendations stand.",
+   "children": [
+    {
+     "selector": "#stats",
+     "title": "Firewall summary",
+     "content": "The roll-up — candidate count, local/upstream tier, recommendation count — before the ladder and recommendations below."
+    },
+    {
+     "selector": "#stat-candidates",
+     "title": "Candidates",
+     "content": "How many enforcement postures are viable given the current state — the size of your choice set on the §1g 4-class ladder."
+    },
+    {
+     "selector": "#stat-local",
+     "title": "Local tier",
+     "content": "The enforcement tier active on the box itself — what sovereign-os is enforcing locally right now."
+    },
+    {
+     "selector": "#stat-upstream",
+     "title": "Upstream tier",
+     "content": "The enforcement tier at the upstream edge — what the OPNsense perimeter already covers, so you don't double-enforce.",
+     "expanded": "<div class=\"so-card info\"><div>Read local vs upstream together — if the upstream already blocks something, enforcing it again on-box is wasted effort.</div></div>"
+    },
+    {
+     "selector": "#stat-recs",
+     "title": "Recommendations",
+     "content": "How many recommendations stand for the current state — the actionable subset of the candidate ladder."
+    },
+    {
+     "selector": "#stat-version",
+     "title": "API version",
+     "content": "The version of the edge-firewall daemon answering — for reconciling behaviour against the spec."
+    }
+   ]
   },
   {
-    "sel": "#stat-candidates",
-    "title": "Candidates",
-    "msg": "How many enforcement candidates are available to install.",
-    "more": "The count of firewall layers (nftables/fail2ban/crowdsec/suricata) you could add. Candidates aren't active — they're the menu of what would strengthen the posture."
+   "icon": "≣",
+   "title": "State & ladder",
+   "content": "The current local+upstream posture and the 4-class enforcement ladder it's measured against.",
+   "children": [
+    {
+     "selector": "#state-panel",
+     "title": "Local + upstream state",
+     "content": "The combined posture panel — what's enforced locally and at the edge, side by side."
+    },
+    {
+     "selector": "#state-body",
+     "title": "State detail",
+     "content": "The concrete local + upstream enforcement read — the baseline the recommendations are computed against."
+    },
+    {
+     "selector": "#ladder-panel",
+     "title": "Enforcement ladder",
+     "content": "The §1g 4-class candidate ladder — the rungs of firewall posture from permissive to locked-down."
+    },
+    {
+     "selector": "#ladder-body",
+     "title": "Ladder detail",
+     "content": "Each of the 4 enforcement classes with what it does — the menu of postures you can climb to. Higher rungs trade openness for control.",
+     "expanded": "<div class=\"so-card info\"><div>Pairs with the recommendations table — the ladder is every option; the recommendations are the ones that fit right now.</div></div>"
+    }
+   ]
   },
   {
-    "sel": "#stat-local",
-    "title": "Local tier",
-    "msg": "The current local firewall enforcement tier.",
-    "more": "How hardened the host's own firewall is right now — where it sits on the §1g 4-class ladder. The number the recommendations aim to raise."
+   "icon": "▤",
+   "title": "Recommendations & plan",
+   "content": "What to do about the current state, and a read-only preview of applying it.",
+   "children": [
+    {
+     "selector": "#recs-tbody",
+     "title": "Recommendations",
+     "content": "Each recommendation with its id, label, performance cost, and rationale — the 'given your state, do this' list. Cost is shown so you weigh enforcement against throughput.",
+     "expanded": "<div class=\"so-card info\"><div class='so-li ok'>✓ Each row carries its perf cost — you pick the posture, not the tool, and you see the price before committing.</div></div>"
+    },
+    {
+     "selector": "#plan-select",
+     "title": "Candidate picker",
+     "content": "Pick a candidate to preview its install plan — no change happens until you run the signed CLI verb."
+    },
+    {
+     "selector": "#plan-btn",
+     "title": "Render plan",
+     "content": "Renders the read-only install plan for the picked candidate — what applying it WOULD do, without doing it."
+    },
+    {
+     "selector": "#plan-body",
+     "title": "Install plan preview",
+     "content": "The step-by-step of what applying the chosen candidate would do — a dry read so you see the blast radius before running the signed CLI.",
+     "expanded": "<div class=\"so-card info\"><div class='so-li ok'>✓ Preview-only — this shows the plan; nothing installs until you run the copied osctl verb.</div></div>"
+    }
+   ]
   },
   {
-    "sel": "#stat-upstream",
-    "title": "Upstream tier",
-    "msg": "The upstream (edge) enforcement tier.",
-    "more": "The protection level at the network edge, upstream of this host. Together with the local tier it's the layered-defence picture — a weak local tier matters less behind a strong edge, and vice versa."
+   "icon": "⟳",
+   "title": "Refresh",
+   "content": "Pull a fresh read on demand; the panel also auto-refreshes.",
+   "children": [
+    {
+     "selector": "#refresh-btn",
+     "title": "Refresh now",
+     "content": "Force an immediate re-read. Read-only telemetry — refreshing never changes state, it just re-samples."
+    },
+    {
+     "selector": "#last-refresh",
+     "title": "Refresh freshness",
+     "content": "When the shown values were last pulled — the panel auto-refreshes every 30s, but check this before trusting a value as 'now'."
+    }
+   ]
   },
   {
-    "sel": "#stat-recs",
-    "title": "Recommendations",
-    "msg": "How many improvements are recommended for the current state.",
-    "more": "The count of concrete steps that would raise the posture. Non-zero means there's headroom to harden; the recommendations table names each."
-  },
-  {
-    "sel": "#stat-version",
-    "title": "API version",
-    "msg": "The edge-firewall API version.",
-    "more": "Stamps the audit build so the tiers and recommendations tie to a known version of the firewall contract."
-  },
-  {
-    "sel": "#state-body",
-    "title": "Local + upstream state",
-    "msg": "The current state of the host and edge firewall stacks.",
-    "more": "The detail behind the tier numbers — which layers (nftables, fail2ban, crowdsec, suricata) are up locally and what the upstream edge provides. The raw posture the ladder grades."
-  },
-  {
-    "sel": "#ladder-body",
-    "title": "Enforcement ladder (§1g 4-class)",
-    "msg": "The 4-class enforcement-candidate ladder — each rung a stronger firewall posture.",
-    "more": "The §1g 4-class model of firewall strength: each rung adds a defence layer. This shows which rungs are met and which are candidates — the gap between current and hardened posture."
-  },
-  {
-    "sel": "#recs-tbody",
-    "title": "Recommendations",
-    "msg": "What to add for the current state — id, label, perf cost, rationale.",
-    "more": "Recommendations, not auto-actions: each names a layer to install, its performance cost, and why it helps. Installing is a deliberate CLI step; this tells you what's worth it and what it costs."
-  },
-  {
-    "sel": "#plan-select",
-    "title": "Plan candidate",
-    "msg": "Pick a candidate to preview its install plan.",
-    "more": "Selects which recommendation to render a read-only install plan for — so you see exactly what adding that layer would do before touching the host firewall."
-  },
-  {
-    "sel": "#plan-btn",
-    "title": "Render plan",
-    "msg": "Render the read-only install plan for the selected candidate.",
-    "more": "Plan-first discipline: preview the exact steps without running them. The one thing you don't want to misconfigure remotely is the firewall — this shows the change before you commit."
-  },
-  {
-    "sel": "#plan-body",
-    "title": "Install plan",
-    "msg": "The rendered read-only install plan.",
-    "more": "The concrete steps the selected candidate's install would perform — reviewable before you run the signed CLI. Read-only; the panel plans, the operator executes."
-  },
-  {
-    "sel": "#refresh-btn",
-    "title": "Refresh now",
-    "msg": "Re-audit the firewall posture.",
-    "more": "Re-reads local and upstream state to refresh the tiers and recommendations. Read-only — it audits, it changes nothing."
-  },
-  {
-    "sel": "#last-refresh",
-    "title": "Last refresh",
-    "msg": "When the posture was last audited (auto every 30s).",
-    "more": "Freshness of the tier numbers — a stale audit can lag a firewall layer you just installed or that just failed."
-  },
-  {
-    "sel": "#control-surface",
-    "title": "Controls — profiles, modes & toggles",
-    "msg": "The per-panel control rail for firewall posture.",
-    "more": "Every control copies its exact sovereign-osctl verb (§1g / R10212) — apply and wizard stay CLI-only per the §17 sovereignty boundary; the web previews, it never mutates the firewall."
+   "icon": "⎈",
+   "title": "Controls",
+   "content": "",
+   "children": [
+    {
+     "selector": "#control-surface",
+     "title": "Controls rail",
+     "content": "Profile / mode / feature-toggle controls — each copies its sovereign-osctl verb (§1g / R10212). This view reads state; every mutation runs via the signed CLI, never from the browser."
+    }
+   ]
   }
-];
+ ]
+};
 </script>
 </body>
 </html>

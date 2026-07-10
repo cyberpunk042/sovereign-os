@@ -477,20 +477,35 @@ a11y; contract test catches drift.
   .so-sm-item:hover{background:color-mix(in srgb,var(--accent,#9bd1ff) 12%,transparent);}
   .so-sm-item.active{background:color-mix(in srgb,var(--accent,#9bd1ff) 18%,transparent); border-left-color:var(--accent,#9bd1ff);}
   body.so-sm-collapsed .so-sm-item{justify-content:center; padding:.4rem 0;} body.so-sm-collapsed .so-sm-item .lbl, body.so-sm-collapsed .so-sm-item .id{display:none;}
-  /* assistant */
+  /* assistant — full-height contextual side panel (cascade model, ported from devops-control-plane) */
   #so-assist{position:fixed; top:var(--so-header-h); right:0; bottom:0; width:var(--so-assist-w); max-width:92vw; z-index:9450;
     background:var(--panel,#171717); border-left:1px solid var(--border,#262626); transform:translateX(100%); display:flex; flex-direction:column;
     font-family:ui-sans-serif,-apple-system,Segoe UI,Roboto,sans-serif; color:var(--fg,#e6e6e6);}
   body.so-assist-open #so-assist{transform:translateX(0);}
-  .so-assist-h{display:flex; align-items:center; gap:.5rem; padding:.6rem .8rem; border-bottom:1px solid var(--border,#262626);}
+  .so-assist-h{display:flex; align-items:center; gap:.5rem; padding:.55rem .8rem; border-bottom:1px solid var(--border,#262626); flex-shrink:0;}
   .so-assist-h .t{font-weight:600; font-size:.85rem;} .so-assist-h .t .spark{color:var(--accent,#9bd1ff);}
-  .so-assist-body{flex:1; overflow-y:auto; padding:.8rem; font-size:.82rem; line-height:1.5;}
-  .so-assist-sec{margin-bottom:1.1rem;} .so-assist-sec h4{margin:0 0 .3rem; font-size:.72rem; text-transform:uppercase; letter-spacing:.05em; color:var(--muted,#8a8a8a);}
-  .so-assist-hint{color:var(--muted,#8a8a8a); font-style:italic;}
-  #so-assist-el{border:1px dashed var(--border,#262626); border-radius:8px; padding:.6rem .7rem; background:var(--bg,#0e0e0e); min-height:3rem;}
-  #so-assist-el.hot{border-color:var(--accent,#9bd1ff); border-style:solid;}
-  #so-assist-el .lbl{font-weight:600; margin-bottom:.3rem;} #so-assist-el .lbl .id{color:var(--accent,#9bd1ff); font-size:.72rem;}
-  [data-assist].so-assist-hot, .so-sm-item.so-assist-hot{outline:2px solid var(--accent,#9bd1ff); outline-offset:-2px; border-radius:6px;}
+  .so-assist-body{flex:1; overflow-y:auto; overflow-x:hidden; padding:.8rem; font-size:.82rem; line-height:1.55;}
+  /* context header — always-visible "where you are" */
+  .so-ctx{padding:.7rem .85rem; margin:-.8rem -.8rem .9rem; border-bottom:1px solid var(--border,#262626); background:linear-gradient(180deg,rgba(155,209,255,.06),transparent);}
+  .so-ctx-title{font-weight:600; font-size:.92rem; margin-bottom:.35rem;}
+  .so-ctx-content{color:var(--fg-2,#c8c8c8); font-size:.8rem; line-height:1.55; white-space:pre-line;}
+  /* interaction-path nodes */
+  .so-node{padding:.55rem .65rem; margin:.5rem 0; border-left:2px solid transparent; border-radius:0 6px 6px 0; transition:background .12s ease,border-color .12s ease;}
+  .so-node.in-chain{border-left-color:rgba(155,209,255,.18); opacity:.82;}
+  .so-node.active{border-left-color:var(--accent,#9bd1ff); border-left-width:3px; background:rgba(155,209,255,.045); box-shadow:inset 0 0 22px rgba(155,209,255,.03);}
+  .so-node-title{font-weight:600; font-size:.83rem; margin-bottom:.3rem;} .so-node-title .id{color:var(--accent,#9bd1ff); font-size:.72rem; font-weight:500;}
+  .so-node-content{color:var(--fg-2,#c8c8c8); font-size:.8rem; line-height:1.55; white-space:pre-line;}
+  .so-node-expanded{margin-top:.55rem; padding-top:.55rem; border-top:1px solid rgba(155,209,255,.13); font-size:.78rem; line-height:1.6; color:var(--muted,#a8a8a8); white-space:pre-line;}
+  /* rich expanded cards */
+  .so-card{border:1px solid var(--border,#262626); border-radius:7px; padding:.55rem .65rem; margin-top:.45rem; background:var(--bg,#0e0e0e); white-space:normal; line-height:1.55;}
+  .so-card.info{border-color:rgba(155,209,255,.28);}
+  .so-grid{display:grid; grid-template-columns:auto 1fr; gap:.22rem .6rem; margin:.35rem 0; font-size:.76rem; white-space:normal;}
+  .so-grid .k{color:var(--accent,#9bd1ff); font-weight:500;}
+  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;}
+  .so-tip{margin-top:.4rem; font-size:.77rem; color:var(--muted,#a8a8a8);}
+  .so-assist-idle{color:var(--muted,#8a8a8a); font-style:italic; padding:.4rem 0;}
+  /* highlight the hovered/focused element in the panel content */
+  .so-assist-hot{outline:2px solid var(--accent,#9bd1ff); outline-offset:-2px; border-radius:6px;}
   /* responsive — reuse the existing breakpoints */
   @media (max-width:1024px){
     #so-sidemenu{transform:translateX(-100%);} body.so-sm-open #so-sidemenu{transform:translateX(0); width:var(--so-sidemenu-w);}
@@ -615,11 +630,7 @@ a11y; contract test catches drift.
     document.body.appendChild(el(
       '<aside id="so-assist" role="complementary" aria-label="assistant"><div class="so-assist-h"><span class="t"><span class="spark">✦</span> Assistant</span>'+
         '<button class="so-h-btn" id="so-assist-close" title="Close" style="margin-left:auto">✕</button></div>'+
-      '<div class="so-assist-body">'+
-        '<div class="so-assist-sec"><h4>This panel — '+title+'</h4><div>'+esc(help)+'</div></div>'+
-        '<div class="so-assist-sec"><h4>Focus / hover</h4><div id="so-assist-el"><span class="so-assist-hint">Hover a menu link or any highlighted control and its explanation appears here.</span></div></div>'+
-        '<div class="so-assist-sec"><h4>Tour</h4><button class="so-h-btn" id="so-tour-btn" style="border-color:var(--border,#262626)">▶ Start tour</button> <span class="so-assist-hint" id="so-tour-status"></span></div>'+
-      '</div></aside>'));
+      '<div class="so-assist-body" id="so-assist-body"></div></aside>'));
   }
   function wire(){
     document.getElementById('so-menu-toggle').addEventListener('click',function(){
@@ -637,67 +648,61 @@ a11y; contract test catches drift.
       Array.prototype.forEach.call(document.querySelectorAll('.so-grp'),function(grp){ var any=false;
         Array.prototype.forEach.call(grp.querySelectorAll('.so-sm-item'),function(it){ var hit=!q||it.dataset.label.toLowerCase().indexOf(q)>=0||it.dataset.dir.toLowerCase().indexOf(q)>=0; it.style.display=hit?'':'none'; if(hit)any=true; });
         grp.style.display=any?'':'none'; }); });
-    var box=document.getElementById('so-assist-el');
+    // ── Assistant: contextual cascade panel (model ported from devops-control-plane) ──
+    // catalogue: window.SO_ASSIST = { context:{title,icon,content}, nodes:[{id,title,icon,selector,content,expanded,variants,children}] }
+    //   content = plain teaching text (always shown); expanded = authored rich HTML (shown for the active element).
+    var abody=document.getElementById('so-assist-body');
     function openAssist(){ if(!document.body.classList.contains('so-assist-open')) document.body.classList.add('so-assist-open'); }
-    function clr(tg){ if(tg)tg.classList.remove('so-assist-hot'); }
     function reduced(){ return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
-    // render a gold-data card {id?,title?,msg,more?} into the drawer
-    function renderCard(e,tg){ box.classList.add('hot');
-      var h='';
-      if(e.title) h+='<div class="lbl">'+(e.id?'<span class="id">'+esc(e.id)+'</span> ':'')+esc(e.title)+'</div>';
-      h+='<div>'+esc(e.msg||'')+'</div>';
-      if(e.more) h+='<button class="so-h-btn" id="so-more-btn" style="margin-top:.5rem;border-color:var(--border,#262626);font-size:.74rem">more ▾</button>'+
-        '<div id="so-more" style="display:none;margin-top:.4rem;color:var(--muted,#8a8a8a)">'+esc(e.more)+'</div>';
-      box.innerHTML=h;
-      var mb=document.getElementById('so-more-btn');
-      if(mb) mb.addEventListener('click',function(){ var d=document.getElementById('so-more'); var open=d.style.display!=='none'; d.style.display=open?'none':'block'; mb.textContent=open?'more ▾':'less ▲'; });
-      if(tg)tg.classList.add('so-assist-hot'); openAssist(); }
-    // ── unified gold-data target list: window.SO_ASSIST (selector→{title,msg,more}) ∪ inline [data-assist] ──
-    var TARGETS=[], seen=[];
-    function pushTarget(el,e){ if(!el||seen.indexOf(el)>=0) return; seen.push(el); TARGETS.push({el:el,title:e.title||'',msg:e.msg||'',more:e.more||''}); }
-    try { var SA=window.SO_ASSIST; if(SA&&SA.length) SA.forEach(function(e){ if(!e||!e.sel) return;
-      try { Array.prototype.forEach.call(document.querySelectorAll('#so-content '+e.sel),function(el){ pushTarget(el,e); }); } catch(x){} }); } catch(err){}
-    Array.prototype.forEach.call(document.querySelectorAll('#so-content [data-assist]'),function(el){ pushTarget(el,{msg:el.getAttribute('data-assist')}); });
-    TARGETS.sort(function(a,b){ var p=a.el.compareDocumentPosition(b.el); return (p&Node.DOCUMENT_POSITION_FOLLOWING)?-1:((p&Node.DOCUMENT_POSITION_PRECEDING)?1:0); });
-    TARGETS.forEach(function(t){
-      t.el.addEventListener('mouseenter',function(){renderCard(t,t.el);});
-      t.el.addEventListener('focus',function(){renderCard(t,t.el);});
-      t.el.addEventListener('mouseleave',function(){clr(t.el);});
-      t.el.addEventListener('blur',function(){clr(t.el);}); });
-    // every menu link explains its panel (catalog gold data)
-    Array.prototype.forEach.call(document.querySelectorAll('.so-sm-item'),function(it){
-      var p=findPanel(it.dataset.dir); if(!p) return; var e={title:p.label,id:(p.id!=='—'?p.id:''),msg:p.desc};
-      it.addEventListener('mouseenter',function(){renderCard(e,it);});
-      it.addEventListener('focus',function(){renderCard(e,it);});
-      it.addEventListener('mouseleave',function(){clr(it);});
-      it.addEventListener('blur',function(){clr(it);}); });
-    // ── guided tour: walk the unified gold-data targets in DOM order ──
-    var tour={i:-1,on:false}, tourBtn=document.getElementById('so-tour-btn'), tourStatus=document.getElementById('so-tour-status');
-    function tourClear(){ TARGETS.forEach(function(t){ t.el.classList.remove('so-assist-hot'); }); }
-    function tourEnd(){ tour.on=false; tourClear(); box.classList.remove('hot');
-      box.innerHTML='<span class="so-assist-hint">Hover a menu link or any highlighted control and its explanation appears here.</span>';
-      if(tourStatus) tourStatus.textContent=''; if(tourBtn) tourBtn.textContent='▶ Start tour'; }
-    function tourShow(i){ if(i<0||i>=TARGETS.length){ tourEnd(); return; } tour.i=i; tourClear();
-      var t=TARGETS[i]; t.el.classList.add('so-assist-hot');
-      if(t.el.scrollIntoView) t.el.scrollIntoView({block:'center', behavior: reduced()?'auto':'smooth'});
-      box.classList.add('hot');
-      box.innerHTML=(t.title?'<div class="lbl">'+esc(t.title)+'</div>':'')+'<div style="margin-bottom:.5rem">'+esc(t.msg||'')+'</div>'+
-        (t.more?'<div style="margin-bottom:.5rem;color:var(--muted,#8a8a8a)">'+esc(t.more)+'</div>':'')+
-        '<div style="display:flex;gap:.4rem;align-items:center">'+
-        '<button class="so-h-btn" id="so-tour-prev"'+(i===0?' disabled':'')+'>←</button>'+
-        '<button class="so-h-btn" id="so-tour-next">'+(i===TARGETS.length-1?'done':'→')+'</button>'+
-        '<span class="so-assist-hint">step '+(i+1)+' / '+TARGETS.length+'</span></div>';
-      var pv=document.getElementById('so-tour-prev'), nx=document.getElementById('so-tour-next');
-      if(pv) pv.addEventListener('click',function(){ tourShow(tour.i-1); });
-      if(nx) nx.addEventListener('click',function(){ tour.i===TARGETS.length-1 ? tourEnd() : tourShow(tour.i+1); });
+    var curP=findPanel(curDir());
+    var CAT=(function(){ var sa=window.SO_ASSIST, ctx=null, nodes=[];
+      if(sa && !Array.isArray(sa) && sa.nodes){ ctx=sa.context||null; nodes=sa.nodes||[]; }
+      else if(Array.isArray(sa)){ nodes=sa.map(function(e){ return {id:'',title:e.title||'',selector:e.sel,content:e.msg||'',expanded:e.more?esc(e.more):''}; }); }
+      if(!ctx) ctx={ icon:'✦', title:(curP?((curP.id&&curP.id!=='—'?curP.id+' · ':'')+curP.label):'This panel'), content:(curP?curP.desc:'') };
+      return {ctx:ctx, nodes:nodes}; })();
+    // flatten deepest-first with parent chains
+    var FLAT=[]; (function flat(list,chain){ (list||[]).forEach(function(n){ if(n.children&&n.children.length) flat(n.children,chain.concat([n])); FLAT.push({node:n,parents:chain.slice()}); }); })(CAT.nodes,[]);
+    // variant resolution against the matched element (state-awareness)
+    function resolveVar(node,el){ if(!node.variants||!node.variants.length||!el) return node;
+      for(var i=0;i<node.variants.length;i++){ var v=node.variants[i], w=v.when||{}, ok=true;
+        if(w.textContains && (el.textContent||'').indexOf(w.textContains)<0) ok=false;
+        if(ok&&w.hasSelector){ try{ if(!el.querySelector(w.hasSelector)) ok=false; }catch(e){ ok=false; } }
+        if(ok) return {id:node.id,title:v.title||node.title,icon:node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded)}; }
+      return node; }
+    // match a hovered element to the deepest catalogue node
+    function matchNode(el){ var best=null,bd=-1;
+      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node,m=false,tgt=null; if(!n.selector) continue;
+        try{ if(el.matches(n.selector)){m=true;tgt=el;}
+          else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
+        if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+      return best; }
+    function ctxHtml(){ var c=CAT.ctx; return '<div class="so-ctx"><div class="so-ctx-title">'+(c.icon?esc(c.icon)+' ':'')+esc(c.title||'')+'</div><div class="so-ctx-content">'+esc(c.content||'')+'</div></div>'; }
+    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node;
+      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(r.title||'')+'</div>';
+      h+='<div class="so-node-content">'+esc(r.content||'')+'</div>';
+      if(active && r.expanded) h+='<div class="so-node-expanded">'+r.expanded+'</div>';   // expanded = trusted authored HTML
+      return h+'</div>'; }
+    var lastHot=null, lastMatched=null;
+    function clearHot(){ if(lastHot){ lastHot.classList.remove('so-assist-hot'); lastHot=null; } }
+    function idle(){ lastMatched=null; clearHot(); abody.innerHTML=ctxHtml()+'<div class="so-assist-idle">Hover any value, control, table row, or menu link — its explanation builds here.</div>'; }
+    function showPath(match){ openAssist(); clearHot();
+      var chain=match.entry.parents, node=match.entry.node, parent=chain.length?chain[chain.length-1]:null;
+      var html=ctxHtml(); if(parent) html+=nodeHtml(parent,null,null); html+=nodeHtml(node,true,match.el);
+      abody.innerHTML=html;
+      if(match.el){ match.el.classList.add('so-assist-hot'); lastHot=match.el; }
+      var act=abody.querySelector('.so-node.active'); if(act&&act.scrollIntoView) act.scrollIntoView({block:'center',behavior:reduced()?'auto':'smooth'}); }
+    var content=document.getElementById('so-content');
+    if(content){
+      content.addEventListener('mouseover',function(ev){ var m=matchNode(ev.target); if(m&&m.el!==lastMatched){ lastMatched=m.el; showPath(m); } });
+      content.addEventListener('focusin',function(ev){ var m=matchNode(ev.target); if(m&&m.el!==lastMatched){ lastMatched=m.el; showPath(m); } });
     }
-    function tourStart(){ if(!TARGETS.length){ if(tourStatus) tourStatus.textContent='no annotated elements on this panel yet — the menu links (← left) each carry a description.'; return; }
-      tour.on=true; openAssist(); if(tourBtn) tourBtn.textContent='✕ End tour'; tourShow(0); }
-    if(tourBtn) tourBtn.addEventListener('click',function(){ tour.on ? tourEnd() : tourStart(); });
-    window.addEventListener('keydown',function(ev){ if(!tour.on) return;
-      if(ev.key==='ArrowRight'){ ev.preventDefault(); tour.i===TARGETS.length-1 ? tourEnd() : tourShow(tour.i+1); }
-      else if(ev.key==='ArrowLeft'){ ev.preventDefault(); tourShow(Math.max(0,tour.i-1)); }
-      else if(ev.key==='Escape'){ ev.preventDefault(); tourEnd(); } });
+    // menu links → surface the target panel's context (program-awareness: horizontal jump)
+    Array.prototype.forEach.call(document.querySelectorAll('.so-sm-item'),function(it){ var p=findPanel(it.dataset.dir); if(!p) return;
+      function show(){ openAssist(); clearHot(); lastMatched=null; it.classList.add('so-assist-hot'); lastHot=it; var here=it.dataset.dir===curDir();
+        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+esc(p.desc||'')+'</div></div>'+
+          '<div class="so-assist-idle">'+(here?'You’re on this panel now — hover its contents to explore.':'Click to open this panel.')+'</div>'; }
+      it.addEventListener('mouseenter',show); it.addEventListener('focus',show); });
+    idle();
   }
   function init(){
     var dir=curDir(), cur=findPanel(dir);
@@ -1371,106 +1376,145 @@ a11y; contract test catches drift.
 <script>SovereignControlSurface.load(document.getElementById('control-surface'),{filterSlug:'d-17-quarantine'});</script>
 
 
+
+
 <!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
 <script>
-window.SO_ASSIST = [
+window.SO_ASSIST = {
+ "context": {
+  "icon": "⚠",
+  "title": "D-17 · Quarantine",
+  "content": "A read-only view of what selfdef has blocked and quarantined — subjects whose behaviour didn't match their declaration (MS042). Shown severity-first (critical at top) under the block+quarantine+trace protocol.\n\nRestore or forfeit happens on the IPS side (selfdefctl + MS003, R10122). Forfeit is terminal — the image is purged."
+ },
+ "nodes": [
   {
-    "sel": "#mirror-status-banner",
-    "title": "Mirror status",
-    "msg": "Whether the selfdef quarantine mirror is publishing (online) or absent (offline).",
-    "more": "This panel is a READ-ONLY reflection of selfdef's quarantine (MS007 typed-mirror crate #6 of 9). Offline means the mirror isn't publishing — selfdef is still enforcing quarantine on the IPS side, you just can't see it here until the bridge returns."
+   "icon": "◆",
+   "title": "Mirror status",
+   "content": "This whole panel is a READ-ONLY reflection of selfdef's quarantine (MS007 typed-mirror crate #6 of 9). sovereign-os never mutates it — restore/forfeit happens happens on the IPS side via signed selfdefctl.",
+   "children": [
+    {
+     "selector": "#mirror-status-banner",
+     "title": "Bridge status",
+     "content": "Whether the quarantine mirror is publishing (online) or absent (offline). Offline doesn't mean unprotected — selfdef is still enforcing; you just can't see it here until the bridge returns.",
+     "expanded": "<div class=\"so-card info\"><div class='so-li no'>✗ Offline → the values below are last-known, not live. The enforcement is intact on the IPS.</div></div>",
+     "variants": [
+      {
+       "when": {
+        "textContains": "online"
+       },
+       "content": "Online — this view is live from selfdef's published snapshot."
+      },
+      {
+       "when": {
+        "textContains": "offline"
+       },
+       "content": "Offline — the producer isn't publishing. selfdef is still enforcing quarantine; the mirror just isn't reaching you."
+      }
+     ]
+    },
+    {
+     "selector": "#mirror-last-update",
+     "title": "Last update",
+     "content": "When selfdef captured this snapshot. A stale timestamp means no recent change was published — the values are last-known, not live.",
+     "expanded": ""
+    },
+    {
+     "selector": "#mirror-schema-version",
+     "title": "Schema version",
+     "content": "The contract shape of the mirrored data — cite it if the mirror ever disagrees with what the panel renders.",
+     "expanded": ""
+    }
+   ]
   },
   {
-    "sel": "#mirror-state-label",
-    "title": "Mirror state",
-    "msg": "The one-word verdict — online / offline.",
-    "more": "The quick read on whether this quarantine view is live. sovereign-os never mutates it — restore/forfeit (R10122) happens selfdef-side via signed CLI, so this is purely an observability signal."
+   "icon": "▤",
+   "title": "Severity summary",
+   "content": "Quarantines by severity, worst first — the triage order. Plus what was released or forfeited in the last 24h, so you can see the queue is being worked.",
+   "children": [
+    {
+     "selector": "#s-critical",
+     "title": "Critical",
+     "content": "The most serious mismatches — e.g. a subject declared read-only then wrote. A hard declaration violation. Look here before anything else.",
+     "expanded": "<div class=\"so-card info\"><div class='so-li no'>✗ Critical means a subject broke a hard promise — the perimeter caught it exactly as designed.</div></div>"
+    },
+    {
+     "selector": "#s-major",
+     "title": "Major",
+     "content": "Serious but below critical — a subject exceeded its declared scope in a meaningful way (e.g. FS-only that reached network).",
+     "expanded": ""
+    },
+    {
+     "selector": "#s-minor",
+     "title": "Minor",
+     "content": "Scope drift within the same capability class — often benign mis-scoping rather than attack, but still recorded. The quarantine being careful.",
+     "expanded": ""
+    },
+    {
+     "selector": "#s-info",
+     "title": "Informational",
+     "content": "The subject declared MORE authority than it used — technically a mismatch, practically harmless. Flag to tighten the declaration, not a danger.",
+     "expanded": ""
+    },
+    {
+     "selector": "#s-released",
+     "title": "Released (24h)",
+     "content": "Subjects an operator reviewed and let back out, signed — the recovery side. Evidence the queue is being worked, not just accumulating.",
+     "expanded": ""
+    },
+    {
+     "selector": "#s-forfeited",
+     "title": "Forfeited (24h)",
+     "content": "The terminal outcome — a subject judged unsafe and destroyed (image purged). The decisive end of the protocol when restore isn't warranted.",
+     "expanded": ""
+    }
+   ]
   },
   {
-    "sel": "#mirror-state-detail",
-    "title": "Mirror detail",
-    "msg": "The reason behind the mirror state.",
-    "more": "Explains an offline mirror — the producer is down or unreachable, distinct from the underlying data having a problem. Turns 'offline' into something actionable."
+   "icon": "◫",
+   "title": "Sources & active quarantine",
+   "content": "Where mismatches come from, and the live quarantine ledger.",
+   "children": [
+    {
+     "selector": "#field-chart",
+     "title": "Top mismatch fields",
+     "content": "Which declared field was violated most — the systemic source. If one field dominates, the fix is upstream (a bad declaration template), not per-incident.",
+     "expanded": ""
+    },
+    {
+     "selector": "#quar-tbody",
+     "title": "Active quarantine",
+     "content": "Each quarantine with what's blocked and the specific mismatches that triggered it, under the block+quarantine+trace protocol. Restore/forfeit via signed selfdefctl (R10122).",
+     "expanded": ""
+    },
+    {
+     "selector": "#state-filters",
+     "title": "State filters",
+     "content": "Narrow to a state — e.g. only blocked, to focus on what's actively contained.",
+     "expanded": ""
+    }
+   ]
   },
   {
-    "sel": "#mirror-last-update",
-    "title": "Mirror last update",
-    "msg": "When the producer's snapshot was captured (ISO captured_at).",
-    "more": "Freshness of the reflected data. A stale timestamp means selfdef hasn't published a new quarantine snapshot recently — the values are last-known, not live; restore/forfeit (R10122) via selfdefctl updates the source."
-  },
-  {
-    "sel": "#mirror-schema-version",
-    "title": "Mirror schema version",
-    "msg": "The schema version of the mirrored snapshot.",
-    "more": "Stamps the contract shape so the fields are interpreted against a known version — the thing to cite if the mirror's shape ever disagrees with the panel."
-  },
-  {
-    "sel": "#s-critical",
-    "title": "Critical",
-    "msg": "Critical-severity quarantines — declared RO but wrote (or worse).",
-    "more": "The most serious mismatches, shown first (descending). Critical means a subject violated a hard declaration — e.g. claimed read-only then wrote. These are the ones to look at before anything else."
-  },
-  {
-    "sel": "#s-major",
-    "title": "Major",
-    "msg": "Major-severity quarantines — declared FS-only but reached further.",
-    "more": "Serious but below critical — a subject exceeded its declared scope in a meaningful way (e.g. FS-only that touched network). Real violations, investigated after criticals."
-  },
-  {
-    "sel": "#s-minor",
-    "title": "Minor",
-    "msg": "Minor-severity quarantines — scope drift within the same class.",
-    "more": "Smaller deviations: drift within the same capability class. Often benign mis-scoping rather than attack, but still worth the record — the quarantine is the system being careful."
-  },
-  {
-    "sel": "#s-info",
-    "title": "Informational",
-    "msg": "Informational quarantines — declaration superset (over-declared).",
-    "more": "The subject declared MORE authority than it used — technically a mismatch, practically harmless. Flagged for tidiness (tighten the declaration) rather than danger."
-  },
-  {
-    "sel": "#s-released",
-    "title": "Released (24h)",
-    "msg": "Quarantines released in the last 24h (operator-signed).",
-    "more": "Subjects an operator reviewed and let back out, signed. The recovery side of quarantine — evidence the queue is being worked, not just accumulating."
-  },
-  {
-    "sel": "#s-forfeited",
-    "title": "Forfeited (24h)",
-    "msg": "Quarantines forfeited in the last 24h (image purged).",
-    "more": "The terminal outcome — a quarantined subject judged unsafe and destroyed (image purged). The decisive end of the block+quarantine+trace protocol when restore isn't warranted."
-  },
-  {
-    "sel": "#field-chart",
-    "title": "Top mismatch fields",
-    "msg": "Where mismatches are coming from — the most-violated declaration fields.",
-    "more": "Aggregates quarantines by which declared field was violated, so you see the systemic source — if one field dominates, the fix is upstream (a bad declaration template) rather than per-incident."
-  },
-  {
-    "sel": "#state-filters",
-    "title": "State filters",
-    "msg": "Filter active quarantines by state.",
-    "more": "Narrows the quarantine table to a state — e.g. only blocked, to focus on what's actively contained versus what's already resolved."
-  },
-  {
-    "sel": "#quar-tbody",
-    "title": "Active quarantine",
-    "msg": "Each quarantine with what's blocked, the mismatches, and actions.",
-    "more": "The live quarantine ledger under the block+quarantine+trace protocol — subject, what it's blocked from, and the specific mismatches that triggered it. Restore/forfeit via signed selfdefctl (read-only web, R10122)."
-  },
-  {
-    "sel": "#toast",
-    "title": "Copy confirmation",
-    "msg": "Confirms a CLI verb was copied — web is a read-only mirror consumer.",
-    "more": "Any action copies its signed selfdefctl verb for operator MS003 execution (R10122). This toast confirms the command is on your clipboard; nothing was restored or forfeited here."
-  },
-  {
-    "sel": "#control-surface",
-    "title": "Controls — profiles, modes & toggles",
-    "msg": "The per-panel control rail for the quarantine mirror.",
-    "more": "Every control copies its exact selfdefctl verb (§1g / R10212) — restore/forfeit happen on the IPS side, never from this web view."
+   "icon": "⎈",
+   "title": "Controls",
+   "content": "",
+   "children": [
+    {
+     "selector": "#toast",
+     "title": "Copy confirmation",
+     "content": "Confirms a signed selfdefctl verb was copied for operator MS003 execution (R10122). Nothing was restored or forfeited here.",
+     "expanded": ""
+    },
+    {
+     "selector": "#control-surface",
+     "title": "Controls rail",
+     "content": "Quarantine controls — each copies its selfdefctl verb. Restore/forfeit happen on the IPS side, never from this web view.",
+     "expanded": ""
+    }
+   ]
   }
-];
+ ]
+};
 </script>
 </body>
 </html>
