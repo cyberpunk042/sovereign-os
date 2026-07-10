@@ -91,3 +91,23 @@ def test_d21_lm_orchestration_demo():
     assert re.search(r"if \(!demoActive\(\)\) \{\s*try \{\s*const es = new EventSource", body), (
         "D-21 must open NO EventSource in DEMO mode"
     )
+
+
+def test_d22_lm_status_operability_demo():
+    """SDD-118 — D-22 reuses the shared helper for DEMO mode: opt-in, badged,
+    sample devices with placeholder ids + latency/heatmap, and NO network call in
+    the demo path (no fetch, no EventSource; canned [DEMO] chat reply)."""
+    body = (REPO_ROOT / "webapp" / "d-22-lm-status-operability" / "index.html").read_text(encoding="utf-8")
+    assert "window.soDemo" in body and BADGE_TEXT in body
+    assert "function demoActive()" in body
+    assert "DEMO_DEVICES" in body and "demo/" in body
+    m = re.search(r"if \(demoActive\(\)\) \{(.*?)\n    \}", body, re.DOTALL)
+    assert m and "fetchDevices(" not in m.group(1) and "fetch(" not in m.group(1), (
+        "the D-22 DEMO render path must make NO fetch (SB-077 / R10212)"
+    )
+    assert re.search(r"if \(!demoActive\(\)\) \{\s*try \{\s*const es = new EventSource", body), (
+        "D-22 must open NO EventSource in DEMO mode"
+    )
+    assert re.search(r"if \(demoActive\(\)\) \{[^}]*\[DEMO\]", body, re.DOTALL), (
+        "the D-22 chat must return a canned [DEMO] reply in DEMO mode (no model call)"
+    )
