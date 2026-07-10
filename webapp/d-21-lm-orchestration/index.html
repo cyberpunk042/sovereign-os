@@ -203,7 +203,7 @@
       {id:'D-05', dir:'d-05-traces', label:'D-05 Traces', ico:'⋮', desc:'Distributed span search — 13-field trace tree, OCSF export. Debug why a request went where it did.'},
     ]},
     {name:'Models & Compute', items:[
-      {id:'D-21', dir:'d-21-lm-orchestration', label:'D-21 LM Orchestration', ico:'⛭', desc:'Profiles + model→hardware assignment grid (GPU0/GPU1/CPU0 = Logic/Oracle/Conductor per M075) + CPU AVX-512 / GPU capability panel. Read-only: Apply copies the signed profile verb.'},
+      {id:'D-21', dir:'d-21-lm-orchestration', label:'D-21 LM Orchestration', ico:'⛭', desc:'Profiles + model→hardware assignment grid (GPU0/GPU1/CPU0 = Logic/Oracle/Conductor per M075) + CPU AVX-512 / GPU capability panel. Read-only: Apply copies the signed profile verb.', menuHover:'Where you choose the whole machine’s inference posture in one move. A runtime profile (M076) is not a setting — it is a coherent bundle that assigns every model to a device and pins the CPU cores to match (the SRP split, M075), so picking one rebalances the Conductor, Logic, and Oracle tiers together. This panel lets you preview a profile as a concrete model→hardware grid before you commit it, and shows the silicon it’s built to exploit (the CPU’s AVX-512 extensions for the ternary path, the GPUs’ capabilities like NVFP4). Open it when you want to change how the box thinks as a whole — trade deep-context reach for concurrency, or park the GPUs and run cheap on CPU — rather than tweaking one model. It’s the strategic counterpart to D-03 (which shows how the current assignment is actually serving) and D-09 (which shows the pressure each posture produces). Read-only: applying a profile is a signed verb-chain through osctl, because reshuffling models across devices is a real, heavy operation, not a web click.'},
       {id:'D-24', dir:'d-24-cpu-features', label:'D-24 CPU Features', ico:'⊞', desc:'The deep AVX-512 capability view — extension map, per-AI-workload fit verdict, and advisory. Reuses avx512-advisor. Distinct from D-21 Features-CPU summary.'},
       {id:'D-23', dir:'d-23-models-catalog', label:'D-23 Model Catalog', ico:'▤', desc:'The canonical model registry (models/catalog.yaml) browsed by SRP tier — id, class, engine, precision, params, context, license, purpose, status. The portfolio view (distinct from D-03 live health).'},
       {id:'D-22', dir:'d-22-lm-status-operability', label:'D-22 LM Status & Operability', ico:'◐', desc:'Per-device (CPU0/GPU0/GPU1) Model 0/1/2 status + History|Selected latency + operability Actions/Tests + render-only Chat. Reuses the model-health core; Actions copy signed CLI verbs.'},
@@ -964,35 +964,42 @@
 <script>
 window.SO_ASSIST = {
  "context": {
-  "icon": "◈",
+  "icon": "⛭",
   "title": "D-21 · LM Orchestration",
-  "content": "Where you choose the box's whole inference posture. A runtime profile (M076) is not one setting — it's a coherent bundle that assigns every model to a device and pins the cores to match (the SRP split, M075). Pick a profile and the grid below shows the resulting model→hardware map; apply it and the box rebalances Conductor, Logic and Oracle together.\n\nThis is the 'how should the machine think right now' control: an efficiency profile parks the GPUs and runs ternary on CPU; a concurrency profile spreads across both GPUs; a deep-context profile layer-splits a big model across them. Read-only preview — applying a profile is a signed verb-chain."
+  "content": "Where you set the whole box’s inference posture in a single decision. A runtime profile (M076) is not one knob — it is a coherent bundle that decides which model runs on which device and pins the CPU cores to match (the SRP split, M075). So choosing a profile rebalances all three tiers at once: it can park the GPUs and run cheap ternary on CPU, spread work across both GPUs for concurrency, or layer-split one big model across them for long contexts. This panel is the preview-and-commit surface for that choice: pick a profile, read the resulting model→hardware grid, and see the silicon the profiles are built to exploit.\n\nRead-only. Selecting a profile previews its assignment; applying it is a signed verb-chain, because moving models between devices and re-pinning cores is a real, heavy operation — never a web click."
  },
  "nodes": [
   {
    "icon": "◆",
-   "title": "Live-source banner",
-   "content": "Whether the orchestration grid is live from /api/lm-orchestration/grid or a snapshot — the assignment map only means something if it reflects what's actually loaded.",
+   "title": "Live source",
+   "content": "Whether the assignment grid is live from the orchestration daemon or a snapshot — the map below only means something if it reflects what’s actually loaded right now.",
    "children": [
     {
      "selector": "#data-source-banner",
      "title": "Live vs snapshot",
-     "content": "Green = the orchestration daemon is answering; muted = a snapshot. A snapshot grid can show an assignment that's already been superseded by an apply.",
-     "icon": "◆",
+     "content": "Whether /api/lm-orchestration/grid is answering live. This matters more than on most panels because the grid is a claim about what’s loaded on each device — and if a profile was just applied elsewhere, a snapshot grid could be showing the posture you’re replacing, not the one in force.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A stale grid can describe a superseded posture</div>The assignment grid is a picture of a specific profile resolved onto this hardware. Apply a new profile and the old picture is instantly wrong. So a live feed isn’t a nicety here — a snapshot grid might be telling you where models WERE before the last apply, which is the opposite of useful when you’re deciding the next one.</div><div class=\"so-xref\"><span class=\"x\">→</span> #last-fetch — exactly how old this grid is</div>",
      "variants": [
       {
        "when": {
         "textContains": "connecting"
        },
-       "content": "Connecting — the panel is reaching the orchestration daemon; the grid isn't confirmed live yet.",
-       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Connecting</div>Waiting on /api/lm-orchestration/grid — the assignment map below isn't confirmed current.</div>"
+       "content": "Reaching the orchestration daemon — the assignment grid isn’t confirmed current yet.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Connecting</div>Waiting on /api/lm-orchestration/grid. The model→hardware map below is unconfirmed until this goes live.</div>"
       },
       {
        "when": {
         "textContains": "live"
        },
-       "content": "Live — the assignment grid reflects what's actually loaded now.",
+       "content": "Live — the assignment grid reflects what’s actually loaded on each device now.",
        "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Live</div>The daemon is answering; the model→hardware map is current.</div>"
+      },
+      {
+       "when": {
+        "textContains": "offline"
+       },
+       "content": "No answer — the grid is a cached snapshot that an apply elsewhere may have already replaced.",
+       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Offline</div>The orchestration feed is down. Treat the grid as a possibly-superseded snapshot, not the live posture.</div>"
       }
      ]
     }
@@ -1000,26 +1007,27 @@ window.SO_ASSIST = {
   },
   {
    "icon": "▦",
-   "title": "Profiles · Language Model",
-   "content": "The runtime profiles (M076) — each a whole posture, not a knob. Selecting one previews its assignment in the grid; applying it rebalances the box.",
+   "title": "Profiles",
+   "content": "The M076 runtime profiles — each a whole posture, not a preference. Selecting one previews the assignment it would produce; applying it rebalances every tier together. Read them as a spectrum of trade-offs: cheapest cognition, most concurrency, or longest context — you can’t have all three, and the profile is how you choose.",
    "children": [
     {
      "selector": "#profiles-note",
-     "title": "Profiles note",
-     "content": "The explainer above the profile tiles — how a profile bundles core-pinning, GPU power, and model allocation into one choice. Read it before picking, because a profile changes several things at once."
+     "title": "Profiles explainer",
+     "content": "The note above the profile tiles — how a profile bundles core-pinning, GPU power, and model allocation into one choice. Read it before picking, because a profile changes several things at once, and the explainer is where the non-obvious couplings (that efficiency mode also parks the GPUs, say) are spelled out.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">One choice, several consequences</div>The reason profiles exist rather than individual sliders is that the settings are coupled: core pinning, GPU power state, and model placement have to agree, or you get a posture that fights itself. The note makes those couplings explicit so a profile reads as the single coherent decision it is.</div>"
     },
     {
      "selector": "#profiles",
      "title": "Runtime profiles",
-     "content": "The selectable profiles — ultra-sovereign-efficiency (CPU-only, GPUs asleep), high-concurrency (both GPUs, spread), deep-context (one big model layer-split across both GPUs). Each is verbatim-locked to these three (M076); hover a tile for what that posture does.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Three postures, not settings</div><div class=\"so-grid\"><span class=\"k\">efficiency</span><span>Conductor pinned on ternary BitNet; GPUs asleep — lowest power, cheapest cognition</span><span class=\"k\">concurrency</span><span>asymmetric CPU + dual-GPU split — most parallel agents at once</span><span class=\"k\">deep-context</span><span>a big model layer-split across both GPUs, 4-bit KV — longest contexts</span></div><div class=\"so-xref\"><span class=\"x\">→</span> D-09 shows the CCD/GPU pressure each profile produces<br><span class=\"x\">→</span> Runtime Modes panel is the same M076 profiles from the mode angle</div></div>",
+     "content": "The selectable postures (M076), verbatim-locked to the three the master spec defines: ultra-sovereign-efficiency (CPU-only, GPUs asleep), high-concurrency (both GPUs, work spread), and deep-context (one big model layer-split across both GPUs, 4-bit KV). Hover a tile for what that posture optimizes for; selecting previews it, applying commits it.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Three postures, pick your trade-off</div><div class=\"so-grid\"><span class=\"k\">efficiency</span><span>Conductor on ternary, GPUs asleep — lowest power, cheapest cognition</span><span class=\"k\">concurrency</span><span>asymmetric CPU + dual-GPU split — most parallel agents at once</span><span class=\"k\">deep-context</span><span>a big model layer-split across both GPUs, 4-bit KV — longest contexts</span></div>They’re mutually exclusive by nature: parking the GPUs saves power but caps reach; layer-splitting one model for context leaves no room to spread for concurrency. The profile is where you decide which the box optimizes for right now.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-09 — the pressure each posture produces<br><span class=\"x\">→</span> runtime-modes — the same M076 profiles from the mode angle</div>",
      "dynamic": true,
      "childTemplate": {
-      "selector": "#profiles > *",
+      "selector": "#profiles > *, #profiles .profile",
       "nameSelector": "strong,.name,h3,b",
       "title": "Profile · {{name}}",
-      "content": "The {{name}} runtime profile — a whole posture (cores + GPU power + model allocation). Selecting it previews its assignment; hover for what it optimizes for.",
-      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Profile · {{name}}</div>One of the three M076 postures. Selecting previews the grid; applying rebalances the box via a signed chain.<div class=\"so-tip\">💡 Efficiency parks GPUs; concurrency spreads them; deep-context layer-splits one big model.</div></div>"
+      "content": "The {{name}} runtime profile — a whole posture (cores + GPU power + model allocation), not a setting. Selecting it previews the assignment grid it would produce; applying it rebalances the box via a signed chain. Hover to weigh what it optimizes for against the other two.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Profile · {{name}}</div>One of the three M076 postures. It’s a coherent bundle — pick it and the whole box reorganizes around one trade-off (cheap, concurrent, or long-context). Selecting previews; applying commits the signed chain.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-09 — the pressure {{name}} would produce on the hardware</div>"
      }
     }
    ]
@@ -1027,62 +1035,64 @@ window.SO_ASSIST = {
   {
    "icon": "⊞",
    "title": "Model → hardware assignment",
-   "content": "The resolved map: for the selected profile, which model runs on which device and which cores are pinned. This is the concrete result of the profile choice — the same information the generator produces, shown live.",
+   "content": "The resolved map: for the selected profile, which model runs on which device (Blackwell / 4090 / CPU-Pulse) and which cores are pinned. This is the profile made concrete — the same allocation the generator produces, shown live. It’s what ‘apply’ would actually enact, which is why reading it before applying is the whole point of the preview.",
    "children": [
     {
      "selector": "#grid",
      "title": "Assignment grid",
-     "content": "Each row maps a model to a device (Blackwell / 4090 / CPU-Pulse) and its pinned cores for the selected profile. This is the profile made concrete — read it to see exactly what 'apply' would do before you do it.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The grid is the profile, resolved</div>A profile is abstract until it's resolved against this hardware — the grid is that resolution: real models on real devices, VRAM-checked so nothing is assigned that can't load.<div class=\"so-xref\"><span class=\"x\">→</span> D-03 model health shows how these assignments are performing once live<br><span class=\"x\">→</span> profile-generation is where the 20+ combos come from</div></div>",
+     "content": "Each row maps a model to a device and its pinned cores for the selected profile. A profile is abstract until it’s resolved against this specific hardware — this grid is that resolution, VRAM-checked so nothing is assigned that can’t load. Read it as the answer to ‘what exactly would apply do,’ before you do it.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The grid is the profile, resolved</div>A runtime profile is a strategy; this grid is the strategy compiled against real silicon — real models, on real devices, with real core pins, checked to fit in the actual VRAM. That compilation is why the preview matters: a profile that looks fine in the abstract can turn out not to fit, and the grid catches that before an apply would.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-03 — how these assignments perform once they’re serving<br><span class=\"x\">→</span> profile-generation — where the 20+ hardware×strategy combos come from</div>",
      "dynamic": true,
      "childTemplate": {
       "selector": "#grid tr, #grid > .row",
       "nameSelector": "td,strong,code",
       "title": "Assignment · {{name}}",
-      "content": "The {{name}} assignment — which device this model runs on and its pinned cores for the selected profile. VRAM-checked, so it's an assignment that actually fits.",
-      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Assignment · {{name}}</div>Model→device→cores for the selected profile. This is what 'apply' would enact for this row.<div class=\"so-xref\"><span class=\"x\">→</span> D-03 shows this model's live health once assigned</div></div>"
+      "content": "The {{name}} assignment — which device this model runs on and its pinned cores for the selected profile. VRAM-checked, so it’s an allocation that actually fits. This row is one line of exactly what ‘apply’ would enact.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Assignment · {{name}}</div>Model → device → cores for the selected profile, resolved against real hardware and checked to fit. Read it as the concrete, per-model consequence of the profile choice.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-03 — this model’s live health once the assignment is serving</div>"
      }
     },
     {
      "selector": "#apply-btn",
      "title": "Apply (operator-signed)",
-     "content": "Copies the signed verb-chain that applies the selected profile — rebalancing every tier at once. It's a chain, not a single verb, because switching profiles moves models between devices and re-pins cores together. The button copies; the box only changes when you run it.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why apply is a signed chain</div>Switching profile isn't one action — it unloads and reloads models across devices and re-pins cores. That's why it's a signed verb-chain run through osctl, never a web click (R10212).<div class=\"so-tip\">💡 Preview the grid first; a profile that doesn't fit VRAM is caught before you apply.</div></div>"
+     "content": "Copies the signed verb-chain that applies the selected profile — rebalancing every tier at once. It’s a chain, not a single verb, because switching profiles unloads and reloads models across devices and re-pins cores together; those steps have to happen in order. The button copies; the box only changes when you run it.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why apply is a signed chain, not a click</div>Switching profile isn’t one action — it moves models between devices, changes GPU power states, and re-pins cores, and a half-applied profile is a broken posture. So it’s a signed verb-chain run through osctl (R10212), sequenced and atomic, never a web mutation. Preview the grid first: a profile that doesn’t fit VRAM is caught here, before you commit the chain.</div><div class=\"so-tip\">💡 Read the assignment grid above before applying — the preview is free, a mis-fit apply is not.</div>"
     }
    ]
   },
   {
    "icon": "⚲",
    "title": "Capabilities",
-   "content": "What this specific hardware can do — the CPU and GPU features the profiles are built to exploit. A profile only makes sense against real silicon; this is that silicon.",
+   "content": "The silicon the profiles are built to exploit — the CPU and GPU features that make each posture possible. A profile only makes sense against real hardware; this is that hardware. An efficiency profile leaning on CPU ternary depends on the AVX-512 extensions being present; a deep-context profile depends on the Blackwell’s NVFP4.",
    "children": [
     {
      "selector": "#features-cpu",
      "title": "Features CPU (AVX-512)",
-     "content": "The AVX-512 extensions this CPU exposes — the instructions that make the Conductor's ternary BitNet path fast. A profile that leans on CPU inference depends on these being present (D-24 is the full map).",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why the CPU features gate the efficiency profile</div>The efficiency profile runs models on CPU via AVX-512 ternary kernels. If a needed extension (VNNI, BF16) is missing, that path falls back to something slower — so the feature set decides whether efficiency mode is actually efficient.<div class=\"so-xref\"><span class=\"x\">→</span> D-24 CPU features — the full AVX-512 map + per-workload fit</div></div>"
+     "content": "The AVX-512 extensions this CPU exposes — the instructions that make the Conductor’s ternary BitNet path fast. A profile that leans on CPU inference (efficiency) is only actually efficient if the extensions it needs (VNNI, BF16) are present; a missing one silently falls back to a slower path, so the feature set decides whether efficiency mode earns its name.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The CPU features gate the efficiency profile</div>Ternary inference on CPU is fast because of specific AVX-512 kernels. If a needed extension is absent, that path degrades to something slower — so ‘efficiency’ becomes ‘slow-and-low-power’ rather than ‘cheap-and-fast.’ This is why the profile choice reads against the real feature set, not an assumed one.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-24 cpu-features — the full AVX-512 map and per-workload fit</div>"
     },
     {
      "selector": "#features-gpu",
      "title": "Features GPUs",
-     "content": "What the two GPUs support — the Blackwell's NVFP4 (native 4-bit) and the 4090's capabilities. Deep-context and concurrency profiles exploit these; NVFP4 on the Blackwell is what lets a big model fit at half the VRAM of fp8 (M077)."
+     "content": "What the two GPUs support — the Blackwell’s NVFP4 (native 4-bit) and the 4090’s capabilities. Concurrency and deep-context profiles exploit these; NVFP4 on the Blackwell is specifically what lets a big model fit at a fraction of the VRAM fp8 would need, which is what makes the deep-context posture possible at all.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">NVFP4 is what makes deep-context fit</div>The deep-context profile layer-splits a large model across both GPUs with a 4-bit KV cache. That only fits because the Blackwell stores weights and cache at NVFP4 (native 4-bit) — at fp8 the same model wouldn’t fit in 96 GB. So this capability isn’t a spec detail; it’s the enabling condition for a whole profile.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-11 adapter-status — the NVFP4 adapters that share this capability</div>"
     },
     {
      "selector": "#last-fetch",
-     "title": "Fetch freshness",
-     "content": "When the grid + capabilities were last read. The assignment preview is only as current as this — check before applying a profile off a stale grid."
+     "title": "Grid freshness",
+     "content": "When the grid and capabilities were last read. The assignment preview is only as current as this — apply a profile off a stale grid and you’re acting on where models were, not where they are. On a live feed this stays fresh; an old value is the cue to reconnect before committing anything."
     }
    ]
   },
   {
    "icon": "⎈",
-   "title": "Controls · features & profiles",
-   "content": "Read-only orchestration view — the control rail copies signed sovereign-osctl verbs (§1g / R10212). Selecting previews; applying is a signed chain.",
+   "title": "Controls",
+   "content": "The orchestration control rail — read-only, copying signed osctl verbs (R10212). Selecting a profile previews; applying is a signed chain. The box previews the map but never rebalances itself from the web.",
    "children": [
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Orchestration controls — each copies its exact sovereign-osctl verb. Profile apply and feature toggles run through the signed CLI; the web previews the map but never rebalances the box itself."
+     "content": "The orchestration controls — each copies its exact sovereign-osctl verb. Profile apply and feature toggles run through the signed CLI; this surface shows you the map and hands you the command, but never moves a model or re-pins a core on its own. That separation is the point: seeing a posture is safe, enacting one is deliberate.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Preview here, enact on the CLI</div>The read-only rule (R10212) draws a hard line: the web is where you explore postures and read their consequences; the signed CLI is where you commit one. It means you can study every profile’s grid freely, with zero risk of accidentally rebalancing the box — the mutation only happens when you run the copied, signed chain.</div>"
     }
    ]
   }
