@@ -118,10 +118,16 @@
   .so-node-expanded{margin-top:.55rem; padding-top:.55rem; border-top:1px solid rgba(155,209,255,.13); font-size:.78rem; line-height:1.6; color:var(--muted,#a8a8a8); white-space:pre-line;}
   /* rich expanded cards */
   .so-card{border:1px solid var(--border,#262626); border-radius:7px; padding:.55rem .65rem; margin-top:.45rem; background:var(--bg,#0e0e0e); white-space:normal; line-height:1.55;}
-  .so-card.info{border-color:rgba(155,209,255,.28);}
+  .so-card.info{border-color:rgba(155,209,255,.28); background:rgba(155,209,255,.035);}
+  .so-card.ok{border-color:rgba(127,209,143,.34); background:rgba(127,209,143,.045);}
+  .so-card.warn{border-color:rgba(224,192,122,.38); background:rgba(224,192,122,.05);}
+  .so-card.err{border-color:rgba(224,138,138,.4); background:rgba(224,138,138,.055);}
+  .so-card-label{font-weight:600; font-size:.79rem; margin-bottom:.3rem;}
+  .so-card.ok .so-card-label{color:#7fd18f;} .so-card.warn .so-card-label{color:#e0c07a;} .so-card.err .so-card-label{color:#e08a8a;} .so-card.info .so-card-label{color:var(--accent,#9bd1ff);}
   .so-grid{display:grid; grid-template-columns:auto 1fr; gap:.22rem .6rem; margin:.35rem 0; font-size:.76rem; white-space:normal;}
   .so-grid .k{color:var(--accent,#9bd1ff); font-weight:500;}
-  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;}
+  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;} .so-li .warn{color:#e0c07a;}
+  .so-xref{margin-top:.4rem; font-size:.76rem; color:var(--fg-2,#c8c8c8);} .so-xref .x{color:var(--accent,#9bd1ff); font-weight:500;}
   .so-tip{margin-top:.4rem; font-size:.77rem; color:var(--muted,#a8a8a8);}
   .so-assist-idle{color:var(--muted,#8a8a8a); font-style:italic; padding:.4rem 0;}
   /* highlight the hovered/focused element in the panel content */
@@ -282,25 +288,38 @@
       return {ctx:ctx, nodes:nodes}; })();
     // flatten deepest-first with parent chains
     var FLAT=[]; (function flat(list,chain){ (list||[]).forEach(function(n){ if(n.children&&n.children.length) flat(n.children,chain.concat([n])); FLAT.push({node:n,parents:chain.slice()}); }); })(CAT.nodes,[]);
+    // {{name}} interpolation for dynamic-row templates
+    function interp(s,name){ return (name==null)?(s||''):String(s||'').replace(/\{\{name\}\}/g,name); }
+    // derive a live row's label (nameSelector, then a strong/cell/code heuristic, then text)
+    function rowName(row,ct){ var t=''; if(ct.nameSelector){ try{ var e=row.querySelector(ct.nameSelector); if(e) t=e.textContent||''; }catch(x){} }
+      if(!t){ var s=row.querySelector('strong,code,th,.k,td'); if(s) t=s.textContent||''; }
+      if(!t) t=row.textContent||''; return t.replace(/\s+/g,' ').trim().slice(0,64); }
+    // synthesize a node from a childTemplate bound to one live row
+    function synthRow(n,row){ var ct=n.childTemplate, nm=rowName(row,ct);
+      return {id:n.id, icon:ct.icon||n.icon, title:interp(ct.title||n.title||'{{name}}',nm), content:ct.content||'', expanded:ct.expanded||'', variants:ct.variants, _name:nm}; }
     // variant resolution against the matched element (state-awareness)
     function resolveVar(node,el){ if(!node.variants||!node.variants.length||!el) return node;
       for(var i=0;i<node.variants.length;i++){ var v=node.variants[i], w=v.when||{}, ok=true;
-        if(w.textContains && (el.textContent||'').indexOf(w.textContains)<0) ok=false;
+        if(w.textContains && (el.textContent||'').toLowerCase().indexOf(String(w.textContains).toLowerCase())<0) ok=false;
         if(ok&&w.hasSelector){ try{ if(!el.querySelector(w.hasSelector)) ok=false; }catch(e){ ok=false; } }
-        if(ok) return {id:node.id,title:v.title||node.title,icon:node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded)}; }
+        if(ok) return {id:node.id,title:v.title||node.title,icon:v.icon||node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded),_name:node._name}; }
       return node; }
-    // match a hovered element to the deepest catalogue node
+    // match a hovered element to the deepest catalogue node (static node OR dynamic row)
     function matchNode(el){ var best=null,bd=-1;
-      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node,m=false,tgt=null; if(!n.selector) continue;
-        try{ if(el.matches(n.selector)){m=true;tgt=el;}
-          else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
-        if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node;
+        if(n.selector){ var m=false,tgt=null;
+          try{ if(el.matches(n.selector)){m=true;tgt=el;}
+            else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
+          if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+        if(n.dynamic && n.childTemplate && n.childTemplate.selector){ try{ var row=el.closest(n.childTemplate.selector);
+          if(row){ var d2=e.parents.length+1; if(d2>bd){ bd=d2; best={entry:{node:synthRow(n,row),parents:e.parents.concat([n])},el:row}; } } }catch(y){} } }
       return best; }
     function ctxHtml(){ var c=CAT.ctx; return '<div class="so-ctx"><div class="so-ctx-title">'+(c.icon?esc(c.icon)+' ':'')+esc(c.title||'')+'</div><div class="so-ctx-content">'+esc(c.content||'')+'</div></div>'; }
-    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node;
-      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(r.title||'')+'</div>';
-      h+='<div class="so-node-content">'+esc(r.content||'')+'</div>';
-      if(active && r.expanded) h+='<div class="so-node-expanded">'+r.expanded+'</div>';   // expanded = trusted authored HTML
+    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node, nm=(node._name!=null?node._name:null);
+      var title=interp(r.title||'',nm), cont=interp(r.content||'',nm), exp=interp(r.expanded||'',nm);
+      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(title)+'</div>';
+      h+='<div class="so-node-content">'+esc(cont)+'</div>';
+      if(active && exp) h+='<div class="so-node-expanded">'+exp+'</div>';   // expanded = trusted authored HTML
       return h+'</div>'; }
     var lastHot=null, lastMatched=null;
     function clearHot(){ if(lastHot){ lastHot.classList.remove('so-assist-hot'); lastHot=null; } }
@@ -319,7 +338,7 @@
     // menu links → surface the target panel's context (program-awareness: horizontal jump)
     Array.prototype.forEach.call(document.querySelectorAll('.so-sm-item'),function(it){ var p=findPanel(it.dataset.dir); if(!p) return;
       function show(){ openAssist(); clearHot(); lastMatched=null; it.classList.add('so-assist-hot'); lastHot=it; var here=it.dataset.dir===curDir();
-        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+esc(p.desc||'')+'</div></div>'+
+        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+(p.menuHover?p.menuHover:esc(p.desc||''))+'</div></div>'+
           '<div class="so-assist-idle">'+(here?'You’re on this panel now — hover its contents to explore.':'Click to open this panel.')+'</div>'; }
       it.addEventListener('mouseenter',show); it.addEventListener('focus',show); });
     idle();
@@ -840,7 +859,7 @@ window.SO_ASSIST = {
  "context": {
   "icon": "⊞",
   "title": "CPU / AVX-512 Choice",
-  "content": "The tiered AVX-512 exploitation surface — which instructions (F / VL / BW / VNNI / BF16 / VPOPCNTDQ…) THIS CPU exposes and how they map to the AI workloads they enable (the Pulse ternary path).\n\nLive-probed via avx512-advisor (R272). A missing extension silently changes which inference kernels are viable — this is where you confirm the one you depend on is present."
+  "content": "The CPU's AI-acceleration capability, live-probed from the running processor (the §17 Pulse tier's silicon). Which AVX-512 extensions it exposes (F / VL / BW / VNNI / BF16 / VPOPCNTDQ…), how they map to the AI workloads they enable, and the advisor's verdict on what this box can accelerate on CPU.\n\nIt matters because the Pulse/Conductor tier runs ternary BitNet + quantized inference on AVX-512 — a missing extension silently changes which kernels are viable, so an 'efficiency' runtime profile is only efficient if the extensions it needs are present here. Read-only probe."
  },
  "nodes": [
   {
@@ -851,45 +870,41 @@ window.SO_ASSIST = {
     {
      "selector": "#status",
      "title": "Probe status",
-     "content": "Whether the CPU was live-probed via avx512-advisor. The extensions are fixed hardware, so a successful probe is authoritative.",
+     "content": "Whether the CPU was live-probed. The extensions are fixed hardware, so a successful probe is authoritative — it's the real capability of this processor, not an assumption.",
      "variants": [
-      {
-       "when": {
-        "textContains": "ok"
-       },
-       "content": "Probed — the extension map below reflects this CPU's real capability."
-      },
       {
        "when": {
         "textContains": "error"
        },
-       "content": "Probe failed — the extension map may be incomplete; treat with caution."
+       "content": "Probe failed — the extension map may be incomplete; treat with caution.",
+       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Probe failed</div>Couldn't read the CPU; the map below may be partial.</div>"
       }
      ]
     },
     {
      "selector": "#cpu",
      "title": "CPU summary",
-     "content": "The headline of this CPU's AVX-512 posture — how much of the extension set it exposes, before the per-extension detail."
+     "content": "The headline of this CPU's AVX-512 posture (the §17 Pulse tier's silicon) — how much of the extension set it exposes, before the per-extension detail.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why AVX-512 matters here</div>The Pulse tier's ternary/quantized inference runs on AVX-512 — which extensions this CPU exposes decides which kernels are viable, i.e. how fast the CPU tier can be.<div class=\"so-xref\"><span class=\"x\">→</span> D-24 — the deep AVX-512 map<br><span class=\"x\">→</span> D-21 — the efficiency profile that depends on these</div></div>"
     }
    ]
   },
   {
    "icon": "▦",
    "title": "Extensions & fit",
-   "content": "What this CPU can do, what that enables, and the advisor's verdict.",
+   "content": "What this CPU exposes, what it enables, and the advisor's verdict.",
    "children": [
     {
      "selector": "#extensions",
-     "title": "AVX-512 extension map",
-     "content": "Which instruction sets THIS CPU exposes — the extensions that make the Pulse ternary path fast. Live-probed, not assumed.",
-     "expanded": "<div class=\"so-card info\"><div>Confirm a specific set (VNNI, BF16…) is present here before pinning a workload that depends on it — a missing one silently changes which kernels are viable.</div></div>"
+     "title": "AVX-512 extensions",
+     "content": "Which instruction sets this CPU exposes (F / VL / BW / VNNI / BF16 / VPOPCNTDQ…) — live-probed. These are what make the Pulse ternary path fast; confirm the one a workload needs (VNNI for int8, BF16 for bf16) is present.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The inference-relevant extensions</div><div class=\"so-grid\"><span class=\"k\">VNNI</span><span>int8 fused multiply-add — cheap quantized inference</span><span class=\"k\">BF16</span><span>native bfloat16 precision</span><span class=\"k\">VPOPCNTDQ</span><span>population count — the ternary BitNet hot path</span></div><div class=\"so-tip\">💡 A CPU-pinned workload that needs VNNI but doesn't find it falls back to a slower path.</div></div>"
     },
     {
      "selector": "#workloads",
      "title": "AI workload fit",
-     "content": "How the detected extensions map to the workloads they enable — 'what can this box actually accelerate', not just 'what flags exist'.",
-     "expanded": "<div class=\"so-card info\"><div>VNNI/BF16 present → int8/bf16 inference is cheap; absent → slower fallback. What a runtime profile should honour for CPU vs GPU placement.</div></div>"
+     "content": "How the detected extensions map to the AI workloads they enable — 'what can this box actually accelerate on CPU', not just 'what flags exist'. Each row: the workload, whether it fits, what it needs, what's missing.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Capability → workload</div>VNNI/BF16 present → int8/bf16 CPU inference is cheap; absent → slower fallback. This is what a runtime profile should honour when placing work CPU vs GPU.</div>"
     },
     {
      "selector": "#advisory",
@@ -901,12 +916,86 @@ window.SO_ASSIST = {
   {
    "icon": "⎈",
    "title": "Controls",
-   "content": "",
+   "content": "Read-only — mutations copy signed sovereign-osctl verbs (§1g / R10212).",
    "children": [
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "CPU-feature controls — each copies its sovereign-osctl verb (§1g / R10212). Read-only probe view (mirrors D-24's deep map)."
+     "content": "Controls — each copies its exact sovereign-osctl verb. CPU-feature probe runs through the signed CLI, never from the web (§1g / R10212)."
+    }
+   ]
+  }
+ ]
+};
+</script>
+<script>
+window.SO_ASSIST = {
+ "context": {
+  "icon": "⊞",
+  "title": "CPU / AVX-512 Choice",
+  "content": "The CPU's AI-acceleration capability, live-probed from the running processor (the §17 Pulse tier's silicon). Which AVX-512 extensions it exposes (F / VL / BW / VNNI / BF16 / VPOPCNTDQ…), how they map to the AI workloads they enable, and the advisor's verdict on what this box can accelerate on CPU.\n\nIt matters because the Pulse/Conductor tier runs ternary BitNet + quantized inference on AVX-512 — a missing extension silently changes which kernels are viable, so an 'efficiency' runtime profile is only efficient if the extensions it needs are present here. Read-only probe."
+ },
+ "nodes": [
+  {
+   "icon": "◆",
+   "title": "Status",
+   "content": "Whether the CPU was probed and its headline capability.",
+   "children": [
+    {
+     "selector": "#status",
+     "title": "Probe status",
+     "content": "Whether the CPU was live-probed. The extensions are fixed hardware, so a successful probe is authoritative — it's the real capability of this processor, not an assumption.",
+     "variants": [
+      {
+       "when": {
+        "textContains": "error"
+       },
+       "content": "Probe failed — the extension map may be incomplete; treat with caution.",
+       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Probe failed</div>Couldn't read the CPU; the map below may be partial.</div>"
+      }
+     ]
+    },
+    {
+     "selector": "#cpu",
+     "title": "CPU summary",
+     "content": "The headline of this CPU's AVX-512 posture (the §17 Pulse tier's silicon) — how much of the extension set it exposes, before the per-extension detail.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why AVX-512 matters here</div>The Pulse tier's ternary/quantized inference runs on AVX-512 — which extensions this CPU exposes decides which kernels are viable, i.e. how fast the CPU tier can be.<div class=\"so-xref\"><span class=\"x\">→</span> D-24 — the deep AVX-512 map<br><span class=\"x\">→</span> D-21 — the efficiency profile that depends on these</div></div>"
+    }
+   ]
+  },
+  {
+   "icon": "▦",
+   "title": "Extensions & fit",
+   "content": "What this CPU exposes, what it enables, and the advisor's verdict.",
+   "children": [
+    {
+     "selector": "#extensions",
+     "title": "AVX-512 extensions",
+     "content": "Which instruction sets this CPU exposes (F / VL / BW / VNNI / BF16 / VPOPCNTDQ…) — live-probed. These are what make the Pulse ternary path fast; confirm the one a workload needs (VNNI for int8, BF16 for bf16) is present.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The inference-relevant extensions</div><div class=\"so-grid\"><span class=\"k\">VNNI</span><span>int8 fused multiply-add — cheap quantized inference</span><span class=\"k\">BF16</span><span>native bfloat16 precision</span><span class=\"k\">VPOPCNTDQ</span><span>population count — the ternary BitNet hot path</span></div><div class=\"so-tip\">💡 A CPU-pinned workload that needs VNNI but doesn't find it falls back to a slower path.</div></div>"
+    },
+    {
+     "selector": "#workloads",
+     "title": "AI workload fit",
+     "content": "How the detected extensions map to the AI workloads they enable — 'what can this box actually accelerate on CPU', not just 'what flags exist'. Each row: the workload, whether it fits, what it needs, what's missing.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Capability → workload</div>VNNI/BF16 present → int8/bf16 CPU inference is cheap; absent → slower fallback. This is what a runtime profile should honour when placing work CPU vs GPU.</div>"
+    },
+    {
+     "selector": "#advisory",
+     "title": "Advisory",
+     "content": "The advisor's verdict — 'this box can/can't accelerate X' — turning the raw extension map into an actionable recommendation."
+    }
+   ]
+  },
+  {
+   "icon": "⎈",
+   "title": "Controls",
+   "content": "Read-only — mutations copy signed sovereign-osctl verbs (§1g / R10212).",
+   "children": [
+    {
+     "selector": "#control-surface",
+     "title": "Controls rail",
+     "content": "Controls — each copies its exact sovereign-osctl verb. CPU-feature probe runs through the signed CLI, never from the web (§1g / R10212)."
     }
    ]
   }

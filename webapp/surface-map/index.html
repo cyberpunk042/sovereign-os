@@ -480,10 +480,16 @@ a11y; contract test catches drift.
   .so-node-expanded{margin-top:.55rem; padding-top:.55rem; border-top:1px solid rgba(155,209,255,.13); font-size:.78rem; line-height:1.6; color:var(--muted,#a8a8a8); white-space:pre-line;}
   /* rich expanded cards */
   .so-card{border:1px solid var(--border,#262626); border-radius:7px; padding:.55rem .65rem; margin-top:.45rem; background:var(--bg,#0e0e0e); white-space:normal; line-height:1.55;}
-  .so-card.info{border-color:rgba(155,209,255,.28);}
+  .so-card.info{border-color:rgba(155,209,255,.28); background:rgba(155,209,255,.035);}
+  .so-card.ok{border-color:rgba(127,209,143,.34); background:rgba(127,209,143,.045);}
+  .so-card.warn{border-color:rgba(224,192,122,.38); background:rgba(224,192,122,.05);}
+  .so-card.err{border-color:rgba(224,138,138,.4); background:rgba(224,138,138,.055);}
+  .so-card-label{font-weight:600; font-size:.79rem; margin-bottom:.3rem;}
+  .so-card.ok .so-card-label{color:#7fd18f;} .so-card.warn .so-card-label{color:#e0c07a;} .so-card.err .so-card-label{color:#e08a8a;} .so-card.info .so-card-label{color:var(--accent,#9bd1ff);}
   .so-grid{display:grid; grid-template-columns:auto 1fr; gap:.22rem .6rem; margin:.35rem 0; font-size:.76rem; white-space:normal;}
   .so-grid .k{color:var(--accent,#9bd1ff); font-weight:500;}
-  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;}
+  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;} .so-li .warn{color:#e0c07a;}
+  .so-xref{margin-top:.4rem; font-size:.76rem; color:var(--fg-2,#c8c8c8);} .so-xref .x{color:var(--accent,#9bd1ff); font-weight:500;}
   .so-tip{margin-top:.4rem; font-size:.77rem; color:var(--muted,#a8a8a8);}
   .so-assist-idle{color:var(--muted,#8a8a8a); font-style:italic; padding:.4rem 0;}
   /* highlight the hovered/focused element in the panel content */
@@ -644,25 +650,38 @@ a11y; contract test catches drift.
       return {ctx:ctx, nodes:nodes}; })();
     // flatten deepest-first with parent chains
     var FLAT=[]; (function flat(list,chain){ (list||[]).forEach(function(n){ if(n.children&&n.children.length) flat(n.children,chain.concat([n])); FLAT.push({node:n,parents:chain.slice()}); }); })(CAT.nodes,[]);
+    // {{name}} interpolation for dynamic-row templates
+    function interp(s,name){ return (name==null)?(s||''):String(s||'').replace(/\{\{name\}\}/g,name); }
+    // derive a live row's label (nameSelector, then a strong/cell/code heuristic, then text)
+    function rowName(row,ct){ var t=''; if(ct.nameSelector){ try{ var e=row.querySelector(ct.nameSelector); if(e) t=e.textContent||''; }catch(x){} }
+      if(!t){ var s=row.querySelector('strong,code,th,.k,td'); if(s) t=s.textContent||''; }
+      if(!t) t=row.textContent||''; return t.replace(/\s+/g,' ').trim().slice(0,64); }
+    // synthesize a node from a childTemplate bound to one live row
+    function synthRow(n,row){ var ct=n.childTemplate, nm=rowName(row,ct);
+      return {id:n.id, icon:ct.icon||n.icon, title:interp(ct.title||n.title||'{{name}}',nm), content:ct.content||'', expanded:ct.expanded||'', variants:ct.variants, _name:nm}; }
     // variant resolution against the matched element (state-awareness)
     function resolveVar(node,el){ if(!node.variants||!node.variants.length||!el) return node;
       for(var i=0;i<node.variants.length;i++){ var v=node.variants[i], w=v.when||{}, ok=true;
-        if(w.textContains && (el.textContent||'').indexOf(w.textContains)<0) ok=false;
+        if(w.textContains && (el.textContent||'').toLowerCase().indexOf(String(w.textContains).toLowerCase())<0) ok=false;
         if(ok&&w.hasSelector){ try{ if(!el.querySelector(w.hasSelector)) ok=false; }catch(e){ ok=false; } }
-        if(ok) return {id:node.id,title:v.title||node.title,icon:node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded)}; }
+        if(ok) return {id:node.id,title:v.title||node.title,icon:v.icon||node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded),_name:node._name}; }
       return node; }
-    // match a hovered element to the deepest catalogue node
+    // match a hovered element to the deepest catalogue node (static node OR dynamic row)
     function matchNode(el){ var best=null,bd=-1;
-      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node,m=false,tgt=null; if(!n.selector) continue;
-        try{ if(el.matches(n.selector)){m=true;tgt=el;}
-          else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
-        if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node;
+        if(n.selector){ var m=false,tgt=null;
+          try{ if(el.matches(n.selector)){m=true;tgt=el;}
+            else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
+          if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+        if(n.dynamic && n.childTemplate && n.childTemplate.selector){ try{ var row=el.closest(n.childTemplate.selector);
+          if(row){ var d2=e.parents.length+1; if(d2>bd){ bd=d2; best={entry:{node:synthRow(n,row),parents:e.parents.concat([n])},el:row}; } } }catch(y){} } }
       return best; }
     function ctxHtml(){ var c=CAT.ctx; return '<div class="so-ctx"><div class="so-ctx-title">'+(c.icon?esc(c.icon)+' ':'')+esc(c.title||'')+'</div><div class="so-ctx-content">'+esc(c.content||'')+'</div></div>'; }
-    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node;
-      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(r.title||'')+'</div>';
-      h+='<div class="so-node-content">'+esc(r.content||'')+'</div>';
-      if(active && r.expanded) h+='<div class="so-node-expanded">'+r.expanded+'</div>';   // expanded = trusted authored HTML
+    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node, nm=(node._name!=null?node._name:null);
+      var title=interp(r.title||'',nm), cont=interp(r.content||'',nm), exp=interp(r.expanded||'',nm);
+      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(title)+'</div>';
+      h+='<div class="so-node-content">'+esc(cont)+'</div>';
+      if(active && exp) h+='<div class="so-node-expanded">'+exp+'</div>';   // expanded = trusted authored HTML
       return h+'</div>'; }
     var lastHot=null, lastMatched=null;
     function clearHot(){ if(lastHot){ lastHot.classList.remove('so-assist-hot'); lastHot=null; } }
@@ -681,7 +700,7 @@ a11y; contract test catches drift.
     // menu links → surface the target panel's context (program-awareness: horizontal jump)
     Array.prototype.forEach.call(document.querySelectorAll('.so-sm-item'),function(it){ var p=findPanel(it.dataset.dir); if(!p) return;
       function show(){ openAssist(); clearHot(); lastMatched=null; it.classList.add('so-assist-hot'); lastHot=it; var here=it.dataset.dir===curDir();
-        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+esc(p.desc||'')+'</div></div>'+
+        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+(p.menuHover?p.menuHover:esc(p.desc||''))+'</div></div>'+
           '<div class="so-assist-idle">'+(here?'You’re on this panel now — hover its contents to explore.':'Click to open this panel.')+'</div>'; }
       it.addEventListener('mouseenter',show); it.addEventListener('focus',show); });
     idle();
@@ -1449,211 +1468,238 @@ setInterval(refreshAll, 60000);
 <script>
 window.SO_ASSIST = {
  "context": {
-  "icon": "🗺",
-  "title": "Surface Map",
-  "content": "The §1g 8-surface audit — does every capability reach the operator through real surfaces, not just code? A module strong in core but empty in cli/webapp is powerful and unreachable.\n\nThe audit lives in the modules themselves; this daemon just reads it. Sorted worst-gap-first so the actionable work is at the top."
+  "icon": "◫",
+  "title": "Surface Map · §1g",
+  "content": "The instrument that measures the anti-minimization doctrine. Every module must be present on eight operator-named surfaces (R453) — core, cli, tui, api, mcp, dashboard, webapp, service — because a feature is not delivered until it is reachable everywhere it should be. A module whose core logic works but has no CLI verb, no MCP tool, no visible panel is minimized, and this panel counts exactly that gap.\n\nRead the milestone rollup (R540) to catch 'done' milestones whose modules are still short, the module × surface matrix (largest gap first) for who to build where, and the waivers for gaps that are intentional. §1h (R462) extends the same bar across repos to selfdef. This is the audit behind 'do it properly, do not minimize' — read-only; it measures, it never rewrites a module to pass."
  },
  "nodes": [
   {
-   "icon": "▤",
-   "title": "Summary",
-   "content": "The audit roll-up — modules tracked, the 8 surfaces, how many are at ceiling vs below threshold, and the cross-repo selfdef count.",
+   "icon": "◆",
+   "title": "Status",
+   "content": "The audit service version + scope — this panel is the §1g surface-coverage instrument.",
    "children": [
     {
-     "selector": "#stat-below",
-     "title": "Below threshold",
-     "content": "Modules delivering fewer surfaces than their threshold requires — the worklist. Each is capability under-reachable through too few surfaces.",
-     "expanded": "<div class=\"so-card info\"><div class='so-li no'>✗ Each below-threshold module is capability an operator can't fully get to — the table below names which surfaces they're missing.</div></div>"
-    },
-    {
-     "selector": "#stat-ceiling",
-     "title": "At structural ceiling",
-     "content": "Modules delivering every surface that structurally applies to them. Not every module can hit all 8 (a mirror has no tui) — 'at ceiling' is the honest bar.",
-     "expanded": ""
-    },
-    {
-     "selector": "#stat-modules",
-     "title": "Tracked modules",
-     "content": "The population graded for surface coverage — every module expected to deliver capability across the 8 surfaces.",
-     "expanded": ""
-    },
-    {
-     "selector": "#stat-surfaces",
-     "title": "§1g surfaces",
-     "content": "The count of operator-named surfaces: core / cli / tui / api / mcp / dashboard / webapp / service — the eight ways a capability can reach the operator.",
-     "expanded": ""
-    },
-    {
-     "selector": "#stat-selfdef",
-     "title": "selfdef manifests",
-     "content": "Cross-repo selfdef SurfaceManifests discovered (R462) — the security repo audited by the same 8-surface contract.",
-     "expanded": ""
+     "selector": "#stats",
+     "title": "Audit summary",
+     "content": "The roll-up — audit version, modules scanned, surfaces, ceiling/below counts, and selfdef cross-repo coverage. The one-glance state of the 8-surface delivery contract."
     },
     {
      "selector": "#stat-version",
-     "title": "API version",
-     "content": "The audit build stamp — ties the coverage numbers to a known version of the surface contract.",
-     "expanded": ""
+     "title": "Audit version",
+     "content": "The surface-map audit version answering — for reconciling coverage numbers against the R453 ladder definition."
+    },
+    {
+     "selector": "#stat-modules",
+     "title": "Modules scanned",
+     "content": "How many modules the audit covers. Every one is measured on all 8 surfaces — a low count means the audit itself is not seeing the whole fleet."
+    },
+    {
+     "selector": "#stat-surfaces",
+     "title": "Surfaces",
+     "content": "The 8 operator-named surfaces every module is measured against (R453). Eight is the contract: a feature is not delivered until it is present on all of them."
+    },
+    {
+     "selector": "#stat-ceiling",
+     "title": "At ceiling",
+     "content": "Modules present on all 8 surfaces — fully delivered. This is the number the whole §1g contract is trying to grow.",
+     "variants": [
+      {
+       "when": {
+        "textContains": "0"
+       },
+       "content": "No modules at the full 8-surface ceiling yet — nothing is fully delivered across every surface.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ 0 at ceiling</div>No module reaches all 8 surfaces yet — the contract is aspirational until this climbs.</div>"
+      }
+     ]
+    },
+    {
+     "selector": "#stat-below",
+     "title": "Below threshold",
+     "content": "Modules under the surface threshold — the minimization backlog. Each is a feature that exists but is not reachable everywhere it should be.",
+     "variants": [
+      {
+       "when": {
+        "textContains": "0"
+       },
+       "content": "No modules below threshold — every module clears the surface floor.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● 0 below</div>Every module clears the surface floor — no minimization debt on this axis.</div>"
+      }
+     ]
+    },
+    {
+     "selector": "#stat-selfdef",
+     "title": "Selfdef coverage",
+     "content": "How many cross-repo selfdef SurfaceManifests are discovered (R462). §1h: the contract extends across repos, so selfdef modules are measured too."
     },
     {
      "selector": "#last-refresh",
-     "title": "Last refresh",
-     "content": "When the audit last recomputed. It reads the modules, so a stale scan can lag a module that just added a surface.",
-     "expanded": ""
+     "title": "Audit freshness",
+     "content": "When the audit last ran. Coverage below is only as current as this — a module changed since then would not be re-scored yet, so refresh before trusting a green number."
     }
    ]
   },
   {
    "icon": "◈",
-   "title": "Milestone rollup (R540)",
-   "content": "The program-level view — how the whole module set is progressing toward full surface delivery, distinct from any single module's row.",
+   "title": "Milestone rollup",
+   "content": "The R540 milestone view — surface coverage aggregated to the milestone level, so you can see which milestones are fully delivered vs still minimized. The contract read top-down.",
    "children": [
     {
-     "selector": "#ms-ceiling",
-     "title": "At structural ceiling",
-     "content": "Milestone count of modules delivering every applicable surface — the realistic 'done' number the milestone actually chases.",
-     "expanded": ""
-    },
-    {
-     "selector": "#ms-full8",
-     "title": "At full 8 surfaces",
-     "content": "Modules delivering on all eight surfaces — the gold standard of reachability, reserved for modules where every surface genuinely applies. A small elite set.",
-     "expanded": ""
+     "selector": "#milestone-stats",
+     "title": "Milestone rollup",
+     "content": "Surface coverage rolled up per milestone (R540). A milestone marked done whose modules are below the surface ceiling is exactly the minimization the operator rejects — this catches 'done' that is not actually delivered.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">'Done' means delivered on all 8 surfaces</div>A milestone is not complete because the core logic works — it is complete when its modules reach all 8 surfaces. R540 rolls the per-module matrix up to milestone level so a prematurely-closed milestone stands out.</div><div class=\"so-xref\"><span class=\"x\">→</span> the module × surface matrix below — the per-module detail behind this rollup</div>"
     },
     {
      "selector": "#ms-total",
-     "title": "Total modules",
-     "content": "The full population the milestone tracks — the base for the ceiling/full-8/future figures.",
-     "expanded": ""
+     "title": "Milestones total",
+     "content": "How many milestones the rollup covers — the denominator for the coverage percentages."
+    },
+    {
+     "selector": "#ms-ceiling",
+     "title": "Milestones at ceiling",
+     "content": "Milestones whose modules all reach the 8-surface ceiling — genuinely delivered."
+    },
+    {
+     "selector": "#ms-full8",
+     "title": "Full-8 milestones",
+     "content": "Milestones fully present on all 8 surfaces. The gold standard — delivered, not just coded."
     },
     {
      "selector": "#ms-future",
-     "title": "Future-carrying",
-     "content": "Modules with a surface planned but not yet delivered — tracked so the gap is explicit and scheduled, not silently dropped.",
-     "expanded": ""
+     "title": "Future",
+     "content": "Milestones not yet due — excluded from the minimization count so the backlog is not inflated by work that has not started."
     },
     {
      "selector": "#ms-historic",
-     "title": "Historic note",
-     "content": "Where the milestone came from and how the numbers have moved — the provenance behind the roll-up.",
-     "expanded": ""
+     "title": "Historic",
+     "content": "Milestones from before the contract applied — measured but not held to the current ceiling, so old work does not distort the picture."
     },
     {
      "selector": "#ms-fullset",
-     "title": "Full-set note",
-     "content": "Spells out the full-8 definition so 'full set' isn't ambiguous — the exact contract a module must meet to count as fully reachable.",
-     "expanded": ""
+     "title": "Full set",
+     "content": "The complete milestone set the rollup spans."
     }
    ]
   },
   {
    "icon": "⊞",
-   "title": "The 8 surfaces (R453 ladder)",
-   "content": "Per-surface health — how many modules deliver each. A surface with few modules is a systemic gap: everything strong in core but weak in, say, mcp.",
+   "title": "8 surfaces",
+   "content": "The eight operator-named surfaces (R453 ladder) — the delivery contract in full. Each is a different way a feature must be reachable; a module missing one is minimized, however good its core. The doctrine: a feature is not done until it lives everywhere.",
    "children": [
     {
      "selector": "#surf-core",
-     "title": "core",
-     "content": "The capability itself — the code. Nearly every module has it; a module without core is a shell. The base the other seven expose.",
-     "expanded": ""
+     "title": "Surface · core",
+     "content": "The actual behavior — the thing itself. A feature with no core is vapor; every other surface is a way to reach this one."
     },
     {
      "selector": "#surf-cli",
-     "title": "cli",
-     "content": "The operator's primary hands-on surface — sovereign-osctl verbs. Capability with core but no cli is powerful and only reachable programmatically.",
-     "expanded": ""
+     "title": "Surface · cli",
+     "content": "The sovereign-osctl verb — scriptable, signable operator access. The CLI is the sovereign surface: how you drive the box without trusting a UI.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why every module needs cli</div>A feature present in core but missing on cli is minimized: it works, but not everywhere it must be reachable. The audit counts this because 'it works on my surface' is exactly the shortcut the contract forbids.</div><div class=\"so-xref\"><span class=\"x\">→</span> the matrix below — which modules are short on cli</div>"
     },
     {
      "selector": "#surf-tui",
-     "title": "tui",
-     "content": "The interactive terminal view. Not every capability warrants one (a common structural-ceiling exclusion), so a low count is often expected.",
-     "expanded": ""
+     "title": "Surface · tui",
+     "content": "The terminal UI — interactive local operation without a browser. For an operator at the console, this is the hands-on surface."
     },
     {
      "selector": "#surf-api",
-     "title": "api",
-     "content": "The machine-consumable surface — what dashboards and external tools read. A module with a dashboard but no api is usually mis-audited; the dashboard needs it.",
-     "expanded": ""
+     "title": "Surface · api",
+     "content": "The HTTP endpoint — programmatic loopback access. Every dashboard and webapp reads through here; no API means the visual surfaces have nothing to show."
     },
     {
      "selector": "#surf-mcp",
-     "title": "mcp",
-     "content": "The agent-facing surface — capabilities exposed as MCP tools an AI can invoke. Growing this is how the box becomes controllable by an assistant, not just a human.",
-     "expanded": ""
+     "title": "Surface · mcp",
+     "content": "The model-context-protocol tool — how an AGENT reaches the feature. A missing MCP surface means the box can do a thing but its own agents cannot ask for it.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why every module needs mcp</div>A feature present in core but missing on mcp is minimized: it works, but not everywhere it must be reachable. The audit counts this because 'it works on my surface' is exactly the shortcut the contract forbids.</div><div class=\"so-xref\"><span class=\"x\">→</span> the matrix below — which modules are short on mcp</div>"
     },
     {
      "selector": "#surf-dashboard",
-     "title": "dashboard",
-     "content": "The read-mostly operator view — the cockpit panels. This audit is why every capability should surface here; a module missing its dashboard is invisible to an operator who lives in the cockpit.",
-     "expanded": ""
+     "title": "Surface · dashboard",
+     "content": "The read-only metrics panel — observability of the feature. Without it the feature runs blind."
     },
     {
      "selector": "#surf-webapp",
-     "title": "webapp",
-     "content": "The richer web control surface beyond a read-only dashboard — where an operator acts, within the copy-the-signed-verb boundary.",
-     "expanded": ""
+     "title": "Surface · webapp",
+     "content": "This cockpit surface — the operator visual. This very panel is a webapp surface; a gap here is a feature you cannot see.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why every module needs webapp</div>A feature present in core but missing on webapp is minimized: it works, but not everywhere it must be reachable. The audit counts this because 'it works on my surface' is exactly the shortcut the contract forbids.</div><div class=\"so-xref\"><span class=\"x\">→</span> the matrix below — which modules are short on webapp</div>"
     },
     {
      "selector": "#surf-service",
-     "title": "service",
-     "content": "The always-on surface — a capability running as a managed daemon rather than on-demand. Required for anything that must observe or react continuously.",
-     "expanded": ""
-    },
-    {
-     "selector": "#surfaces-row",
-     "title": "Surface ladder",
-     "content": "All eight surfaces at a glance — the R453 ladder each module's coverage is graded against.",
-     "expanded": ""
+     "title": "Surface · service",
+     "content": "The systemd unit — the daemon that actually runs it. Without a service the feature is a script someone must remember to run."
     }
    ]
   },
   {
-   "icon": "▦",
-   "title": "Coverage detail",
-   "content": "The actionable heart — the module×surface grid, the below-threshold worklist, explicit waivers, and the cross-repo selfdef surfaces.",
+   "icon": "◫",
+   "title": "Coverage matrix",
+   "content": "The module × surface grid, largest gap first — the concrete map of who is short where. Every cell is present/absent, every row a module, every gap a piece of the minimization backlog.",
    "children": [
     {
      "selector": "#matrix-tbody",
      "title": "Module × surface matrix",
-     "content": "Each module's eight-surface row, worst gaps first — where you see exactly which surface a strong module is missing.",
-     "expanded": ""
-    },
+     "content": "Each row: one module and its presence across all 8 surfaces, worst gaps first. A row with holes is a feature not yet delivered everywhere — read the empty cells to see which surfaces to build."
+    }
+   ]
+  },
+  {
+   "icon": "⚠",
+   "title": "Below threshold",
+   "content": "The modules under the surface floor — the priority list. Where the minimization is worst; the audit sorts them up so the biggest gaps get attention first.",
+   "children": [
     {
      "selector": "#below-tbody",
      "title": "Below-threshold modules",
-     "content": "Each module's shortfall and which surfaces it lacks — the prioritized worklist. Closing these is what 'everything reachable' means.",
-     "expanded": ""
-    },
+     "content": "Each row: a module below the surface threshold and how far. The actionable backlog — a module here is what the operator would call minimized, with the missing surfaces named."
+    }
+   ]
+  },
+  {
+   "icon": "⚑",
+   "title": "Waivers",
+   "content": "The explicit, operator-authored exemptions — modules deliberately not held to a surface. A waiver is honesty: it says 'this gap is intentional and here is why', so a real gap is not disguised as an accident.",
+   "children": [
     {
      "selector": "#waivers-tbody",
-     "title": "Explicit waivers",
-     "content": "A module surface intentionally not delivered, with a stated rationale. A waiver is a documented choice, not a silent gap — that distinction is the anti-minimization discipline.",
-     "expanded": ""
-    },
+     "title": "Surface waivers",
+     "content": "Each row: a module with an explicit surface waiver and its rationale. Read the reason to tell an intentional exemption from a gap that should be closed."
+    }
+   ]
+  },
+  {
+   "icon": "◎",
+   "title": "Cross-repo (§1h)",
+   "content": "The selfdef SurfaceManifests discovered across repos (R462) — the contract does not stop at this repo. §1h is cross-repo discovery: selfdef modules are held to the same surface bar.",
+   "children": [
     {
      "selector": "#selfdef-tbody",
-     "title": "selfdef SurfaceManifests (R462)",
-     "content": "The security repo audited by the same 8-surface contract, read-only from its published manifests — the cross-repo half.",
-     "expanded": ""
+     "title": "Selfdef manifests",
+     "content": "Each row: a cross-repo selfdef module and its declared surface coverage (R462). §1h extends the delivery contract beyond this repo so a feature split across repos is still measured whole."
+    }
+   ]
+  },
+  {
+   "icon": "⟳",
+   "title": "Refresh",
+   "content": "Re-run the audit on demand — a read-only re-scan.",
+   "children": [
+    {
+     "selector": "#refresh-btn",
+     "title": "Refresh audit",
+     "content": "Re-scan every module and recompute coverage now — read-only. It re-measures; it never changes a module to move a score."
     }
    ]
   },
   {
    "icon": "⎈",
-   "title": "Actions & controls",
-   "content": "Read-only audit.",
+   "title": "Controls",
+   "content": "Read-only instrument — mutations copy signed sovereign-osctl verbs (§1g / R10212). The audit reads; it never rewrites a module to pass.",
    "children": [
-    {
-     "selector": "#refresh-btn",
-     "title": "Refresh all",
-     "content": "Re-read the modules and cross-repo manifests to refresh every coverage number. Read-only — it audits, it changes nothing.",
-     "expanded": ""
-    },
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Audit controls — each copies its exact sovereign-osctl verb (§1g / R10212).",
-     "expanded": ""
+     "content": "The control rail — each button copies its exact sovereign-osctl verb. A module surface change runs through the signed CLI, never from a web click."
     }
    ]
   }

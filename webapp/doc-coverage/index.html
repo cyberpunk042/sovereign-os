@@ -482,10 +482,16 @@ a11y; contract test catches drift.
   .so-node-expanded{margin-top:.55rem; padding-top:.55rem; border-top:1px solid rgba(155,209,255,.13); font-size:.78rem; line-height:1.6; color:var(--muted,#a8a8a8); white-space:pre-line;}
   /* rich expanded cards */
   .so-card{border:1px solid var(--border,#262626); border-radius:7px; padding:.55rem .65rem; margin-top:.45rem; background:var(--bg,#0e0e0e); white-space:normal; line-height:1.55;}
-  .so-card.info{border-color:rgba(155,209,255,.28);}
+  .so-card.info{border-color:rgba(155,209,255,.28); background:rgba(155,209,255,.035);}
+  .so-card.ok{border-color:rgba(127,209,143,.34); background:rgba(127,209,143,.045);}
+  .so-card.warn{border-color:rgba(224,192,122,.38); background:rgba(224,192,122,.05);}
+  .so-card.err{border-color:rgba(224,138,138,.4); background:rgba(224,138,138,.055);}
+  .so-card-label{font-weight:600; font-size:.79rem; margin-bottom:.3rem;}
+  .so-card.ok .so-card-label{color:#7fd18f;} .so-card.warn .so-card-label{color:#e0c07a;} .so-card.err .so-card-label{color:#e08a8a;} .so-card.info .so-card-label{color:var(--accent,#9bd1ff);}
   .so-grid{display:grid; grid-template-columns:auto 1fr; gap:.22rem .6rem; margin:.35rem 0; font-size:.76rem; white-space:normal;}
   .so-grid .k{color:var(--accent,#9bd1ff); font-weight:500;}
-  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;}
+  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;} .so-li .warn{color:#e0c07a;}
+  .so-xref{margin-top:.4rem; font-size:.76rem; color:var(--fg-2,#c8c8c8);} .so-xref .x{color:var(--accent,#9bd1ff); font-weight:500;}
   .so-tip{margin-top:.4rem; font-size:.77rem; color:var(--muted,#a8a8a8);}
   .so-assist-idle{color:var(--muted,#8a8a8a); font-style:italic; padding:.4rem 0;}
   /* highlight the hovered/focused element in the panel content */
@@ -646,25 +652,38 @@ a11y; contract test catches drift.
       return {ctx:ctx, nodes:nodes}; })();
     // flatten deepest-first with parent chains
     var FLAT=[]; (function flat(list,chain){ (list||[]).forEach(function(n){ if(n.children&&n.children.length) flat(n.children,chain.concat([n])); FLAT.push({node:n,parents:chain.slice()}); }); })(CAT.nodes,[]);
+    // {{name}} interpolation for dynamic-row templates
+    function interp(s,name){ return (name==null)?(s||''):String(s||'').replace(/\{\{name\}\}/g,name); }
+    // derive a live row's label (nameSelector, then a strong/cell/code heuristic, then text)
+    function rowName(row,ct){ var t=''; if(ct.nameSelector){ try{ var e=row.querySelector(ct.nameSelector); if(e) t=e.textContent||''; }catch(x){} }
+      if(!t){ var s=row.querySelector('strong,code,th,.k,td'); if(s) t=s.textContent||''; }
+      if(!t) t=row.textContent||''; return t.replace(/\s+/g,' ').trim().slice(0,64); }
+    // synthesize a node from a childTemplate bound to one live row
+    function synthRow(n,row){ var ct=n.childTemplate, nm=rowName(row,ct);
+      return {id:n.id, icon:ct.icon||n.icon, title:interp(ct.title||n.title||'{{name}}',nm), content:ct.content||'', expanded:ct.expanded||'', variants:ct.variants, _name:nm}; }
     // variant resolution against the matched element (state-awareness)
     function resolveVar(node,el){ if(!node.variants||!node.variants.length||!el) return node;
       for(var i=0;i<node.variants.length;i++){ var v=node.variants[i], w=v.when||{}, ok=true;
-        if(w.textContains && (el.textContent||'').indexOf(w.textContains)<0) ok=false;
+        if(w.textContains && (el.textContent||'').toLowerCase().indexOf(String(w.textContains).toLowerCase())<0) ok=false;
         if(ok&&w.hasSelector){ try{ if(!el.querySelector(w.hasSelector)) ok=false; }catch(e){ ok=false; } }
-        if(ok) return {id:node.id,title:v.title||node.title,icon:node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded)}; }
+        if(ok) return {id:node.id,title:v.title||node.title,icon:v.icon||node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded),_name:node._name}; }
       return node; }
-    // match a hovered element to the deepest catalogue node
+    // match a hovered element to the deepest catalogue node (static node OR dynamic row)
     function matchNode(el){ var best=null,bd=-1;
-      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node,m=false,tgt=null; if(!n.selector) continue;
-        try{ if(el.matches(n.selector)){m=true;tgt=el;}
-          else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
-        if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node;
+        if(n.selector){ var m=false,tgt=null;
+          try{ if(el.matches(n.selector)){m=true;tgt=el;}
+            else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
+          if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+        if(n.dynamic && n.childTemplate && n.childTemplate.selector){ try{ var row=el.closest(n.childTemplate.selector);
+          if(row){ var d2=e.parents.length+1; if(d2>bd){ bd=d2; best={entry:{node:synthRow(n,row),parents:e.parents.concat([n])},el:row}; } } }catch(y){} } }
       return best; }
     function ctxHtml(){ var c=CAT.ctx; return '<div class="so-ctx"><div class="so-ctx-title">'+(c.icon?esc(c.icon)+' ':'')+esc(c.title||'')+'</div><div class="so-ctx-content">'+esc(c.content||'')+'</div></div>'; }
-    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node;
-      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(r.title||'')+'</div>';
-      h+='<div class="so-node-content">'+esc(r.content||'')+'</div>';
-      if(active && r.expanded) h+='<div class="so-node-expanded">'+r.expanded+'</div>';   // expanded = trusted authored HTML
+    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node, nm=(node._name!=null?node._name:null);
+      var title=interp(r.title||'',nm), cont=interp(r.content||'',nm), exp=interp(r.expanded||'',nm);
+      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(title)+'</div>';
+      h+='<div class="so-node-content">'+esc(cont)+'</div>';
+      if(active && exp) h+='<div class="so-node-expanded">'+exp+'</div>';   // expanded = trusted authored HTML
       return h+'</div>'; }
     var lastHot=null, lastMatched=null;
     function clearHot(){ if(lastHot){ lastHot.classList.remove('so-assist-hot'); lastHot=null; } }
@@ -683,7 +702,7 @@ a11y; contract test catches drift.
     // menu links → surface the target panel's context (program-awareness: horizontal jump)
     Array.prototype.forEach.call(document.querySelectorAll('.so-sm-item'),function(it){ var p=findPanel(it.dataset.dir); if(!p) return;
       function show(){ openAssist(); clearHot(); lastMatched=null; it.classList.add('so-assist-hot'); lastHot=it; var here=it.dataset.dir===curDir();
-        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+esc(p.desc||'')+'</div></div>'+
+        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+(p.menuHover?p.menuHover:esc(p.desc||''))+'</div></div>'+
           '<div class="so-assist-idle">'+(here?'You’re on this panel now — hover its contents to explore.':'Click to open this panel.')+'</div>'; }
       it.addEventListener('mouseenter',show); it.addEventListener('focus',show); });
     idle();
@@ -1358,152 +1377,159 @@ setInterval(refreshAll, 60000);
 <script>
 window.SO_ASSIST = {
  "context": {
-  "icon": "▦",
-  "title": "Doc Coverage",
-  "content": "The documentation-completeness scanner — for every tracked module, which of the 6 operator-named doc surfaces (R454 ladder: readme, sdd, helptext, metric-inventory, mandate-row, man-page) exist, and which fall below the threshold.\n\nThis daemon SCANS the tree; it does not author. The source of truth is the modules themselves — a gap here means a real missing doc, not a daemon bug."
+  "icon": "◫",
+  "title": "Doc Coverage · §1g",
+  "content": "The instrument that measures whether every module is actually documented. Documentation is not one README — it is six operator-named kinds (R454): readme (the newcomer), sdd (the changer), helptext (the operator mid-task), metric-inventory (the dashboard reader), mandate-row (the auditor), man-page (the offline reference). Each serves a different reader at a different moment, so a module missing one is under-documented in a specific, nameable way.\n\nRead the matrix (largest gap first) for which module needs which doc — every empty cell is a concrete writing task, not a vague 'needs docs'. §1h (R471) extends the same bar to selfdef across repos. This is the doc half of the anti-minimization contract — read-only; it measures coverage, it does not write the docs for you."
  },
  "nodes": [
   {
    "icon": "◆",
-   "title": "Summary",
-   "content": "How many modules are tracked, how many doc surfaces exist, and how many modules fall short.",
+   "title": "Status",
+   "content": "The doc-coverage audit — the §1g instrument for documentation completeness (R454).",
    "children": [
     {
      "selector": "#stats",
-     "title": "Coverage summary",
-     "content": "The roll-up — tracked modules, doc surfaces, modules below threshold, selfdef manifests — before the matrix and gap list."
+     "title": "Audit summary",
+     "content": "The roll-up — version, modules, doc kinds, gap count, selfdef coverage. Where the fleet stands on the 6-doc-surface contract."
+    },
+    {
+     "selector": "#stat-version",
+     "title": "Audit version",
+     "content": "The doc-coverage audit version — for reconciling against the R454 ladder."
     },
     {
      "selector": "#stat-modules",
-     "title": "Tracked modules",
-     "content": "How many modules the scanner covers — the denominator for coverage. Every one is checked against the 6 doc surfaces."
+     "title": "Modules scanned",
+     "content": "How many modules the doc audit covers — each measured across the 6 doc kinds."
     },
     {
      "selector": "#stat-kinds",
-     "title": "Doc surfaces",
-     "content": "How many of the 6 R454 doc-surface kinds are in play — the breadth of documentation each module is measured against."
+     "title": "Doc kinds",
+     "content": "The 6 operator-named doc surfaces every module must carry (R454). Documentation is not one file — it is six kinds, each for a different reader."
     },
     {
      "selector": "#stat-gaps",
-     "title": "Modules below threshold",
-     "content": "How many modules have fewer doc surfaces than required — the actionable backlog. This is the number to drive down.",
+     "title": "Doc gaps",
+     "content": "Total missing doc surfaces across the fleet — the documentation backlog. Each is a specific missing doc on a specific module, not a vague 'needs docs'.",
      "variants": [
       {
        "when": {
         "textContains": "0"
        },
-       "content": "Zero gaps — every tracked module meets its doc-surface threshold."
+       "content": "No doc gaps — every module carries all 6 doc kinds.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● 0 gaps</div>Every module is documented on all 6 surfaces.</div>"
       }
      ]
     },
     {
      "selector": "#stat-selfdef",
-     "title": "Selfdef manifests",
-     "content": "How many cross-repo selfdef DocManifests (R471) were found — documentation coverage extending beyond this repo."
-    },
-    {
-     "selector": "#stat-version",
-     "title": "API version",
-     "content": "The version of the doc-coverage daemon answering — for reconciling behaviour against the spec."
+     "title": "Selfdef coverage",
+     "content": "Cross-repo selfdef DocManifests discovered (R471) — §1h doc coverage beyond this repo."
     },
     {
      "selector": "#last-refresh",
-     "title": "Refresh freshness",
-     "content": "When the tree was last scanned — coverage reflects the last scan, so check this before trusting a gap as current."
+     "title": "Audit freshness",
+     "content": "When the audit last ran. Coverage below is only as current as this — a module changed since then would not be re-scored yet, so refresh before trusting a green number."
     }
    ]
   },
   {
-   "icon": "⌗",
-   "title": "Doc surfaces (R454 ladder)",
-   "content": "The 6 operator-named documentation kinds every module is scored against.",
+   "icon": "⊞",
+   "title": "6 doc surfaces",
+   "content": "The six operator-named doc kinds (R454) — each written for a different reader at a different moment. A module missing one is under-documented in a specific, nameable way, not just 'thin'. Documentation as a contract, not a courtesy.",
    "children": [
     {
-     "selector": "#kinds-row",
-     "title": "6 doc surfaces",
-     "content": "The R454 ladder — the six documentation kinds a fully-documented module carries."
-    },
-    {
      "selector": "#kind-readme",
-     "title": "readme",
-     "content": "Presence of a module README — the entry-point doc a human reads first."
+     "title": "Doc · readme",
+     "content": "The module README — the front door. If a module has no README, a newcomer has nowhere to start."
     },
     {
      "selector": "#kind-sdd",
-     "title": "sdd",
-     "content": "Presence of an SDD (spec-driven-design) doc — the binding spec the module implements."
+     "title": "Doc · sdd",
+     "content": "The spec-driven-development doc — the design of record. Where the WHY lives; without it a module is code no one can safely change.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why every module needs a sdd</div>Documentation is six kinds because it serves six readers — the newcomer (readme), the changer (sdd), the operator mid-task (helptext), the dashboard reader (metric-inventory), the auditor (mandate-row), the offline reference-seeker (man-page). A missing sdd leaves one reader stranded.</div>"
     },
     {
      "selector": "#kind-helptext",
-     "title": "helptext",
-     "content": "Presence of in-tool helptext — the docs surfaced at point-of-use, not just in files."
+     "title": "Doc · helptext",
+     "content": "The --help output — docs at the point of use. The one surface an operator reads mid-task; a missing --help forces them to leave the terminal.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why every module needs a helptext</div>Documentation is six kinds because it serves six readers — the newcomer (readme), the changer (sdd), the operator mid-task (helptext), the dashboard reader (metric-inventory), the auditor (mandate-row), the offline reference-seeker (man-page). A missing helptext leaves one reader stranded.</div>"
     },
     {
      "selector": "#kind-metric-inventory",
-     "title": "metric-inventory",
-     "content": "Presence of a metric inventory — the documented list of what the module measures/emits."
+     "title": "Doc · metric-inventory",
+     "content": "The catalogue of what the module measures — so its dashboards are documented, not archaeology."
     },
     {
      "selector": "#kind-mandate-row",
-     "title": "mandate-row",
-     "content": "Presence of a mandate-row entry — the module's line in the governance mandate registry."
+     "title": "Doc · mandate-row",
+     "content": "The standing-directive row — traceability to the operator mandate the module answers. How a feature proves it was asked for.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why every module needs a mandate-row</div>Documentation is six kinds because it serves six readers — the newcomer (readme), the changer (sdd), the operator mid-task (helptext), the dashboard reader (metric-inventory), the auditor (mandate-row), the offline reference-seeker (man-page). A missing mandate-row leaves one reader stranded.</div>"
     },
     {
      "selector": "#kind-man-page",
-     "title": "man-page",
-     "content": "Presence of a man-page — the reference documentation for CLI-facing modules."
+     "title": "Doc · man-page",
+     "content": "The man page — the durable reference. The doc that survives when the wiki is down and the author is gone."
     }
    ]
   },
   {
-   "icon": "▤",
-   "title": "Matrix & gaps",
-   "content": "The per-module coverage matrix and the modules that fall short.",
+   "icon": "◫",
+   "title": "Coverage matrix",
+   "content": "The module × doc-kind grid, largest gap first — which module is missing which doc. Every empty cell is a specific doc to write, named by module and kind.",
    "children": [
     {
      "selector": "#matrix-tbody",
-     "title": "Coverage matrix",
-     "content": "Every module × the 6 doc surfaces, sorted largest-gap-first — a whole-tree view of where documentation is thin. The top rows are where authoring effort pays off most.",
-     "expanded": "<div class=\"so-card info\"><div>Sorted by largest gap first — the top of this table is your documentation backlog, in priority order.</div></div>"
-    },
+     "title": "Doc coverage matrix",
+     "content": "Each row: a module and its presence across the 6 doc kinds, worst first. An empty cell is a concrete writing task — 'module M0xx needs an sdd', not 'improve docs'."
+    }
+   ]
+  },
+  {
+   "icon": "⚠",
+   "title": "Below threshold",
+   "content": "Modules under the doc floor (default 3 kinds) — the priority list. Under-documented modules sorted up so the worst-documented get attention first.",
+   "children": [
     {
      "selector": "#gaps-tbody",
      "title": "Below-threshold modules",
-     "content": "Each module under the doc-surface threshold with its shortfall and which surfaces are missing — the concrete to-do list. Cross-reference the module's own repo, since that's where the doc must be authored."
-    },
+     "content": "Each row: a module under the doc threshold and which kinds it lacks. The actionable doc backlog — read the missing kinds to know exactly what to write."
+    }
+   ]
+  },
+  {
+   "icon": "◎",
+   "title": "Cross-repo (§1h)",
+   "content": "Selfdef DocManifests across repos (R471) — the doc contract extends beyond this repo. A feature documented here but not in selfdef is still half-documented.",
+   "children": [
     {
      "selector": "#selfdef-tbody",
-     "title": "Selfdef DocManifests",
-     "content": "Cross-repo selfdef DocManifests (R471) — documentation coverage tracked across sister repos, with repo, module, surfaces, and status."
+     "title": "Selfdef doc manifests",
+     "content": "Each row: a cross-repo selfdef module and its doc coverage (R471). §1h holds selfdef docs to the same 6-surface bar."
     }
    ]
   },
   {
    "icon": "⟳",
    "title": "Refresh",
-   "content": "Pull a fresh read on demand; the panel also auto-refreshes.",
+   "content": "Re-run the audit on demand — a read-only re-scan.",
    "children": [
     {
      "selector": "#refresh-btn",
-     "title": "Refresh now",
-     "content": "Force an immediate re-read. Read-only telemetry — refreshing never changes state, it just re-samples."
-    },
-    {
-     "selector": "#last-refresh",
-     "title": "Refresh freshness",
-     "content": "When the shown values were last pulled — the panel auto-refreshes every 30s, but check this before trusting a value as 'now'."
+     "title": "Refresh audit",
+     "content": "Re-scan every module and recompute coverage now — read-only. It re-measures; it never changes a module to move a score."
     }
    ]
   },
   {
    "icon": "⎈",
    "title": "Controls",
-   "content": "",
+   "content": "Read-only instrument — mutations copy signed sovereign-osctl verbs (§1g / R10212). The audit reads; it never rewrites a module to pass.",
    "children": [
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Profile / mode / feature-toggle controls — each copies its sovereign-osctl verb (§1g / R10212). This view reads state; every mutation runs via the signed CLI, never from the browser."
+     "content": "The control rail — each button copies its exact sovereign-osctl verb. A doc change runs through the signed CLI, never from a web click."
     }
    ]
   }

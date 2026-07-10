@@ -124,10 +124,16 @@
   .so-node-expanded{margin-top:.55rem; padding-top:.55rem; border-top:1px solid rgba(155,209,255,.13); font-size:.78rem; line-height:1.6; color:var(--muted,#a8a8a8); white-space:pre-line;}
   /* rich expanded cards */
   .so-card{border:1px solid var(--border,#262626); border-radius:7px; padding:.55rem .65rem; margin-top:.45rem; background:var(--bg,#0e0e0e); white-space:normal; line-height:1.55;}
-  .so-card.info{border-color:rgba(155,209,255,.28);}
+  .so-card.info{border-color:rgba(155,209,255,.28); background:rgba(155,209,255,.035);}
+  .so-card.ok{border-color:rgba(127,209,143,.34); background:rgba(127,209,143,.045);}
+  .so-card.warn{border-color:rgba(224,192,122,.38); background:rgba(224,192,122,.05);}
+  .so-card.err{border-color:rgba(224,138,138,.4); background:rgba(224,138,138,.055);}
+  .so-card-label{font-weight:600; font-size:.79rem; margin-bottom:.3rem;}
+  .so-card.ok .so-card-label{color:#7fd18f;} .so-card.warn .so-card-label{color:#e0c07a;} .so-card.err .so-card-label{color:#e08a8a;} .so-card.info .so-card-label{color:var(--accent,#9bd1ff);}
   .so-grid{display:grid; grid-template-columns:auto 1fr; gap:.22rem .6rem; margin:.35rem 0; font-size:.76rem; white-space:normal;}
   .so-grid .k{color:var(--accent,#9bd1ff); font-weight:500;}
-  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;}
+  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;} .so-li .warn{color:#e0c07a;}
+  .so-xref{margin-top:.4rem; font-size:.76rem; color:var(--fg-2,#c8c8c8);} .so-xref .x{color:var(--accent,#9bd1ff); font-weight:500;}
   .so-tip{margin-top:.4rem; font-size:.77rem; color:var(--muted,#a8a8a8);}
   .so-assist-idle{color:var(--muted,#8a8a8a); font-style:italic; padding:.4rem 0;}
   /* highlight the hovered/focused element in the panel content */
@@ -288,25 +294,38 @@
       return {ctx:ctx, nodes:nodes}; })();
     // flatten deepest-first with parent chains
     var FLAT=[]; (function flat(list,chain){ (list||[]).forEach(function(n){ if(n.children&&n.children.length) flat(n.children,chain.concat([n])); FLAT.push({node:n,parents:chain.slice()}); }); })(CAT.nodes,[]);
+    // {{name}} interpolation for dynamic-row templates
+    function interp(s,name){ return (name==null)?(s||''):String(s||'').replace(/\{\{name\}\}/g,name); }
+    // derive a live row's label (nameSelector, then a strong/cell/code heuristic, then text)
+    function rowName(row,ct){ var t=''; if(ct.nameSelector){ try{ var e=row.querySelector(ct.nameSelector); if(e) t=e.textContent||''; }catch(x){} }
+      if(!t){ var s=row.querySelector('strong,code,th,.k,td'); if(s) t=s.textContent||''; }
+      if(!t) t=row.textContent||''; return t.replace(/\s+/g,' ').trim().slice(0,64); }
+    // synthesize a node from a childTemplate bound to one live row
+    function synthRow(n,row){ var ct=n.childTemplate, nm=rowName(row,ct);
+      return {id:n.id, icon:ct.icon||n.icon, title:interp(ct.title||n.title||'{{name}}',nm), content:ct.content||'', expanded:ct.expanded||'', variants:ct.variants, _name:nm}; }
     // variant resolution against the matched element (state-awareness)
     function resolveVar(node,el){ if(!node.variants||!node.variants.length||!el) return node;
       for(var i=0;i<node.variants.length;i++){ var v=node.variants[i], w=v.when||{}, ok=true;
-        if(w.textContains && (el.textContent||'').indexOf(w.textContains)<0) ok=false;
+        if(w.textContains && (el.textContent||'').toLowerCase().indexOf(String(w.textContains).toLowerCase())<0) ok=false;
         if(ok&&w.hasSelector){ try{ if(!el.querySelector(w.hasSelector)) ok=false; }catch(e){ ok=false; } }
-        if(ok) return {id:node.id,title:v.title||node.title,icon:node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded)}; }
+        if(ok) return {id:node.id,title:v.title||node.title,icon:v.icon||node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded),_name:node._name}; }
       return node; }
-    // match a hovered element to the deepest catalogue node
+    // match a hovered element to the deepest catalogue node (static node OR dynamic row)
     function matchNode(el){ var best=null,bd=-1;
-      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node,m=false,tgt=null; if(!n.selector) continue;
-        try{ if(el.matches(n.selector)){m=true;tgt=el;}
-          else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
-        if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node;
+        if(n.selector){ var m=false,tgt=null;
+          try{ if(el.matches(n.selector)){m=true;tgt=el;}
+            else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
+          if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+        if(n.dynamic && n.childTemplate && n.childTemplate.selector){ try{ var row=el.closest(n.childTemplate.selector);
+          if(row){ var d2=e.parents.length+1; if(d2>bd){ bd=d2; best={entry:{node:synthRow(n,row),parents:e.parents.concat([n])},el:row}; } } }catch(y){} } }
       return best; }
     function ctxHtml(){ var c=CAT.ctx; return '<div class="so-ctx"><div class="so-ctx-title">'+(c.icon?esc(c.icon)+' ':'')+esc(c.title||'')+'</div><div class="so-ctx-content">'+esc(c.content||'')+'</div></div>'; }
-    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node;
-      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(r.title||'')+'</div>';
-      h+='<div class="so-node-content">'+esc(r.content||'')+'</div>';
-      if(active && r.expanded) h+='<div class="so-node-expanded">'+r.expanded+'</div>';   // expanded = trusted authored HTML
+    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node, nm=(node._name!=null?node._name:null);
+      var title=interp(r.title||'',nm), cont=interp(r.content||'',nm), exp=interp(r.expanded||'',nm);
+      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(title)+'</div>';
+      h+='<div class="so-node-content">'+esc(cont)+'</div>';
+      if(active && exp) h+='<div class="so-node-expanded">'+exp+'</div>';   // expanded = trusted authored HTML
       return h+'</div>'; }
     var lastHot=null, lastMatched=null;
     function clearHot(){ if(lastHot){ lastHot.classList.remove('so-assist-hot'); lastHot=null; } }
@@ -325,7 +344,7 @@
     // menu links → surface the target panel's context (program-awareness: horizontal jump)
     Array.prototype.forEach.call(document.querySelectorAll('.so-sm-item'),function(it){ var p=findPanel(it.dataset.dir); if(!p) return;
       function show(){ openAssist(); clearHot(); lastMatched=null; it.classList.add('so-assist-hot'); lastHot=it; var here=it.dataset.dir===curDir();
-        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+esc(p.desc||'')+'</div></div>'+
+        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+(p.menuHover?p.menuHover:esc(p.desc||''))+'</div></div>'+
           '<div class="so-assist-idle">'+(here?'You’re on this panel now — hover its contents to explore.':'Click to open this panel.')+'</div>'; }
       it.addEventListener('mouseenter',show); it.addEventListener('focus',show); });
     idle();
@@ -979,70 +998,60 @@ window.SO_ASSIST = {
  "context": {
   "icon": "▤",
   "title": "Models & Catalog",
-  "content": "The full model catalog — 68 models across ternary-lm / RLM / SLM / LLM / mixture, every quantization — with VRAM-aware selection. Browse and filter by class, quant, tier, purpose, and VRAM budget.\n\nVRAM-aware means the catalog knows what fits your GPUs; the operator CLI (e.g. models select --class rlm --vram 48) turns a choice into a runtime assignment. Backed by models/catalog.yaml."
+  "content": "The full model portfolio — every model the box can run, across ternary-lm / RLM / SLM / LLM / mixture and every quantization, size, and purpose — with VRAM-aware filtering. Browse and narrow by tier, class, quant, purpose, status, and VRAM budget, then export the result.\n\nVRAM-aware means the catalog knows what fits your GPUs, so the practical question — 'which good model fits this device' — has a direct filter. This is the menu of the possible (distinct from D-03's live serving); the operator CLI turns a choice into a runtime assignment guaranteed to fit. Read-only; selection runs through the signed CLI."
  },
  "nodes": [
   {
    "icon": "◆",
    "title": "Status & summary",
-   "content": "Whether the catalog loaded and the roll-up across classes and tiers.",
+   "content": "Whether the catalog loaded and the portfolio roll-up.",
    "children": [
     {
      "selector": "#status",
      "title": "Catalog status",
-     "content": "Whether the catalog loaded from models/catalog.yaml. If it can't load, none of the selection below is trustworthy.",
+     "content": "Whether the model catalog loaded from models/catalog.yaml. If it can't load, none of the filtering below is trustworthy.",
      "variants": [
-      {
-       "when": {
-        "textContains": "ok"
-       },
-       "content": "Catalog loaded — the full model registry is available to browse and filter."
-      },
       {
        "when": {
         "textContains": "error"
        },
-       "content": "Catalog failed to load — the model list below may be stale or empty."
+       "content": "Catalog failed to load — the list below may be stale or empty.",
+       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Catalog error</div>models/catalog.yaml didn't load.</div>"
       }
      ]
     },
     {
      "selector": "#stats",
      "title": "Catalog summary",
-     "content": "The roll-up across classes and tiers — how broad the local portfolio is (68 models), before you filter into the detail."
-    },
-    {
-     "selector": "#count",
-     "title": "Result count",
-     "content": "How many models match the current filters — narrows as you constrain by class/quant/VRAM, so you can see whether a constraint is too tight."
+     "content": "The roll-up across classes and tiers — how broad the local portfolio is (every class, quantization, size, purpose), VRAM-aware."
     }
    ]
   },
   {
    "icon": "⚲",
    "title": "Filters",
-   "content": "Narrow the 68 models to the ones that fit your need — the practical question is rarely 'which is best' but 'which good model fits this GPU'.",
+   "content": "Narrow the portfolio to what fits your need. The practical question is rarely 'which model is best' but 'which good model fits THIS GPU' — that's what the VRAM filter answers.",
    "children": [
     {
      "selector": "#f-vram",
      "title": "VRAM filter",
-     "content": "Filter to models that fit a given VRAM budget — the most practical filter. Answers 'which good model fits GPU1' so you never assign a model that won't load.",
-     "expanded": "<div class=\"so-card info\"><div class='so-li ok'>✓ VRAM-aware selection is the point — it prevents the classic 'assigned a model that OOMs on load' mistake.</div></div>"
-    },
-    {
-     "selector": "#f-class",
-     "title": "Class filter",
-     "content": "Filter by model class — ternary-lm / RLM / SLM / LLM / mixture. The architecture family, which decides the engine and precision options."
+     "content": "Filter to models that fit a given VRAM budget — the most practical filter. Answers 'which good model fits GPU1' so you never assign one that OOMs on load.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">VRAM-aware selection</div>The point of the catalog: it knows what fits your GPUs. This filter prevents the classic 'assigned a model that won't load' mistake.<div class=\"so-xref\"><span class=\"x\">→</span> D-09 GPU VRAM — the budgets this respects</div></div>"
     },
     {
      "selector": "#f-tier",
      "title": "Tier filter",
-     "content": "Filter by SRP role tier (Logic / Oracle / Conductor) — which serving role a model is intended for."
+     "content": "Filter by SRP role tier (Logic / Oracle / Conductor) — which serving role a model is for."
+    },
+    {
+     "selector": "#f-class",
+     "title": "Class filter",
+     "content": "Filter by model class (ternary-lm / RLM / SLM / LLM / mixture) — the architecture family, which decides engine and precision options."
     },
     {
      "selector": "#f-quant",
-     "title": "Quantization filter",
-     "content": "Filter by quantization — the trade of VRAM footprint vs quality. Lower-bit quants fit more but cost some accuracy."
+     "title": "Quant filter",
+     "content": "Filter by quantization — the trade of VRAM footprint vs quality. Lower-bit fits more but costs some accuracy (NVFP4, Q4, fp8, bf16)."
     },
     {
      "selector": "#f-purpose",
@@ -1052,40 +1061,162 @@ window.SO_ASSIST = {
     {
      "selector": "#f-status",
      "title": "Status filter",
-     "content": "Filter by status — which models are ready, experimental, or deprecated in the registry."
+     "content": "Filter by status — ready / experimental / deprecated in the registry."
+    },
+    {
+     "selector": "#count",
+     "title": "Result count",
+     "content": "How many models match the current filters — narrows as you constrain, so you can see whether a constraint is too tight."
     }
    ]
   },
   {
    "icon": "▦",
-   "title": "Models, export & controls",
-   "content": "The filtered catalog, the export buttons, and the control rail to assign.",
+   "title": "Models & export",
+   "content": "The filtered portfolio and the export of it.",
    "children": [
     {
      "selector": "#rows",
      "title": "Model rows",
-     "content": "Each matching model with id, class, engine, precision, params, context, license, purpose, status — the full registry detail. This is the menu; selection becomes a runtime assignment via the CLI."
+     "content": "Each matching model with id, class, engine, precision, params, context, license, purpose, status — the full registry detail. This is the menu; a choice becomes a runtime assignment via the CLI."
     },
     {
      "selector": "#export-csv",
      "title": "Export CSV",
-     "content": "Download the currently filtered + sorted set as CSV — the same rows you see, for a spreadsheet or an external comparison. Reflects your active filters, so narrow first, then export.",
-     "expanded": "<div class=\"so-card info\"><div class='so-li ok'>✓ Export mirrors the filtered/sorted view — CSV for spreadsheets, JSON for tooling; neither changes the registry.</div></div>"
+     "content": "Download the filtered + sorted set as CSV — the same rows you see, for a spreadsheet or comparison. Reflects your active filters, so narrow first.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Export mirrors the view</div>CSV for spreadsheets, JSON for tooling — both export exactly the filtered/sorted rows; neither changes the registry.</div>"
     },
     {
      "selector": "#export-json",
      "title": "Export JSON",
-     "content": "Download the currently filtered + sorted set as JSON — the machine-readable form for scripting or feeding another tool. Same filtered rows as the CSV export."
-    },
-    {
-     "selector": "#clear-view",
-     "title": "Clear view",
-     "content": "Reset the filters + sort and forget the saved view. The panel remembers your filters + sort in localStorage across reloads (per-browser); this is the escape hatch back to the default all-models view."
-    },
+     "content": "Download the filtered + sorted set as JSON — the machine-readable form for scripting or feeding another tool. Same rows as the CSV export."
+    }
+   ]
+  },
+  {
+   "icon": "⎈",
+   "title": "Controls",
+   "content": "Read-only — mutations copy signed sovereign-osctl verbs (§1g / R10212).",
+   "children": [
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Catalog controls — each copies its sovereign-osctl verb (e.g. models select). Choosing a model becomes a runtime assignment via the signed CLI, never from the web (§1g / R10212)."
+     "content": "Controls — each copies its exact sovereign-osctl verb. Model selection runs through the signed CLI, never from the web (§1g / R10212)."
+    }
+   ]
+  }
+ ]
+};
+</script>
+<script>
+window.SO_ASSIST = {
+ "context": {
+  "icon": "▤",
+  "title": "Models & Catalog",
+  "content": "The full model portfolio — every model the box can run, across ternary-lm / RLM / SLM / LLM / mixture and every quantization, size, and purpose — with VRAM-aware filtering. Browse and narrow by tier, class, quant, purpose, status, and VRAM budget, then export the result.\n\nVRAM-aware means the catalog knows what fits your GPUs, so the practical question — 'which good model fits this device' — has a direct filter. This is the menu of the possible (distinct from D-03's live serving); the operator CLI turns a choice into a runtime assignment guaranteed to fit. Read-only; selection runs through the signed CLI."
+ },
+ "nodes": [
+  {
+   "icon": "◆",
+   "title": "Status & summary",
+   "content": "Whether the catalog loaded and the portfolio roll-up.",
+   "children": [
+    {
+     "selector": "#status",
+     "title": "Catalog status",
+     "content": "Whether the model catalog loaded from models/catalog.yaml. If it can't load, none of the filtering below is trustworthy.",
+     "variants": [
+      {
+       "when": {
+        "textContains": "error"
+       },
+       "content": "Catalog failed to load — the list below may be stale or empty.",
+       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Catalog error</div>models/catalog.yaml didn't load.</div>"
+      }
+     ]
+    },
+    {
+     "selector": "#stats",
+     "title": "Catalog summary",
+     "content": "The roll-up across classes and tiers — how broad the local portfolio is (every class, quantization, size, purpose), VRAM-aware."
+    }
+   ]
+  },
+  {
+   "icon": "⚲",
+   "title": "Filters",
+   "content": "Narrow the portfolio to what fits your need. The practical question is rarely 'which model is best' but 'which good model fits THIS GPU' — that's what the VRAM filter answers.",
+   "children": [
+    {
+     "selector": "#f-vram",
+     "title": "VRAM filter",
+     "content": "Filter to models that fit a given VRAM budget — the most practical filter. Answers 'which good model fits GPU1' so you never assign one that OOMs on load.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">VRAM-aware selection</div>The point of the catalog: it knows what fits your GPUs. This filter prevents the classic 'assigned a model that won't load' mistake.<div class=\"so-xref\"><span class=\"x\">→</span> D-09 GPU VRAM — the budgets this respects</div></div>"
+    },
+    {
+     "selector": "#f-tier",
+     "title": "Tier filter",
+     "content": "Filter by SRP role tier (Logic / Oracle / Conductor) — which serving role a model is for."
+    },
+    {
+     "selector": "#f-class",
+     "title": "Class filter",
+     "content": "Filter by model class (ternary-lm / RLM / SLM / LLM / mixture) — the architecture family, which decides engine and precision options."
+    },
+    {
+     "selector": "#f-quant",
+     "title": "Quant filter",
+     "content": "Filter by quantization — the trade of VRAM footprint vs quality. Lower-bit fits more but costs some accuracy (NVFP4, Q4, fp8, bf16)."
+    },
+    {
+     "selector": "#f-purpose",
+     "title": "Purpose filter",
+     "content": "Filter by intended purpose — reasoning, classification, embedding, etc. Narrows to models suited to the task."
+    },
+    {
+     "selector": "#f-status",
+     "title": "Status filter",
+     "content": "Filter by status — ready / experimental / deprecated in the registry."
+    },
+    {
+     "selector": "#count",
+     "title": "Result count",
+     "content": "How many models match the current filters — narrows as you constrain, so you can see whether a constraint is too tight."
+    }
+   ]
+  },
+  {
+   "icon": "▦",
+   "title": "Models & export",
+   "content": "The filtered portfolio and the export of it.",
+   "children": [
+    {
+     "selector": "#rows",
+     "title": "Model rows",
+     "content": "Each matching model with id, class, engine, precision, params, context, license, purpose, status — the full registry detail. This is the menu; a choice becomes a runtime assignment via the CLI."
+    },
+    {
+     "selector": "#export-csv",
+     "title": "Export CSV",
+     "content": "Download the filtered + sorted set as CSV — the same rows you see, for a spreadsheet or comparison. Reflects your active filters, so narrow first.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Export mirrors the view</div>CSV for spreadsheets, JSON for tooling — both export exactly the filtered/sorted rows; neither changes the registry.</div>"
+    },
+    {
+     "selector": "#export-json",
+     "title": "Export JSON",
+     "content": "Download the filtered + sorted set as JSON — the machine-readable form for scripting or feeding another tool. Same rows as the CSV export."
+    }
+   ]
+  },
+  {
+   "icon": "⎈",
+   "title": "Controls",
+   "content": "Read-only — mutations copy signed sovereign-osctl verbs (§1g / R10212).",
+   "children": [
+    {
+     "selector": "#control-surface",
+     "title": "Controls rail",
+     "content": "Controls — each copies its exact sovereign-osctl verb. Model selection runs through the signed CLI, never from the web (§1g / R10212)."
     }
    ]
   }

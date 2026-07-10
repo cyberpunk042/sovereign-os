@@ -164,10 +164,16 @@
   .so-node-expanded{margin-top:.55rem; padding-top:.55rem; border-top:1px solid rgba(155,209,255,.13); font-size:.78rem; line-height:1.6; color:var(--muted,#a8a8a8); white-space:pre-line;}
   /* rich expanded cards */
   .so-card{border:1px solid var(--border,#262626); border-radius:7px; padding:.55rem .65rem; margin-top:.45rem; background:var(--bg,#0e0e0e); white-space:normal; line-height:1.55;}
-  .so-card.info{border-color:rgba(155,209,255,.28);}
+  .so-card.info{border-color:rgba(155,209,255,.28); background:rgba(155,209,255,.035);}
+  .so-card.ok{border-color:rgba(127,209,143,.34); background:rgba(127,209,143,.045);}
+  .so-card.warn{border-color:rgba(224,192,122,.38); background:rgba(224,192,122,.05);}
+  .so-card.err{border-color:rgba(224,138,138,.4); background:rgba(224,138,138,.055);}
+  .so-card-label{font-weight:600; font-size:.79rem; margin-bottom:.3rem;}
+  .so-card.ok .so-card-label{color:#7fd18f;} .so-card.warn .so-card-label{color:#e0c07a;} .so-card.err .so-card-label{color:#e08a8a;} .so-card.info .so-card-label{color:var(--accent,#9bd1ff);}
   .so-grid{display:grid; grid-template-columns:auto 1fr; gap:.22rem .6rem; margin:.35rem 0; font-size:.76rem; white-space:normal;}
   .so-grid .k{color:var(--accent,#9bd1ff); font-weight:500;}
-  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;}
+  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;} .so-li .warn{color:#e0c07a;}
+  .so-xref{margin-top:.4rem; font-size:.76rem; color:var(--fg-2,#c8c8c8);} .so-xref .x{color:var(--accent,#9bd1ff); font-weight:500;}
   .so-tip{margin-top:.4rem; font-size:.77rem; color:var(--muted,#a8a8a8);}
   .so-assist-idle{color:var(--muted,#8a8a8a); font-style:italic; padding:.4rem 0;}
   /* highlight the hovered/focused element in the panel content */
@@ -328,25 +334,38 @@
       return {ctx:ctx, nodes:nodes}; })();
     // flatten deepest-first with parent chains
     var FLAT=[]; (function flat(list,chain){ (list||[]).forEach(function(n){ if(n.children&&n.children.length) flat(n.children,chain.concat([n])); FLAT.push({node:n,parents:chain.slice()}); }); })(CAT.nodes,[]);
+    // {{name}} interpolation for dynamic-row templates
+    function interp(s,name){ return (name==null)?(s||''):String(s||'').replace(/\{\{name\}\}/g,name); }
+    // derive a live row's label (nameSelector, then a strong/cell/code heuristic, then text)
+    function rowName(row,ct){ var t=''; if(ct.nameSelector){ try{ var e=row.querySelector(ct.nameSelector); if(e) t=e.textContent||''; }catch(x){} }
+      if(!t){ var s=row.querySelector('strong,code,th,.k,td'); if(s) t=s.textContent||''; }
+      if(!t) t=row.textContent||''; return t.replace(/\s+/g,' ').trim().slice(0,64); }
+    // synthesize a node from a childTemplate bound to one live row
+    function synthRow(n,row){ var ct=n.childTemplate, nm=rowName(row,ct);
+      return {id:n.id, icon:ct.icon||n.icon, title:interp(ct.title||n.title||'{{name}}',nm), content:ct.content||'', expanded:ct.expanded||'', variants:ct.variants, _name:nm}; }
     // variant resolution against the matched element (state-awareness)
     function resolveVar(node,el){ if(!node.variants||!node.variants.length||!el) return node;
       for(var i=0;i<node.variants.length;i++){ var v=node.variants[i], w=v.when||{}, ok=true;
-        if(w.textContains && (el.textContent||'').indexOf(w.textContains)<0) ok=false;
+        if(w.textContains && (el.textContent||'').toLowerCase().indexOf(String(w.textContains).toLowerCase())<0) ok=false;
         if(ok&&w.hasSelector){ try{ if(!el.querySelector(w.hasSelector)) ok=false; }catch(e){ ok=false; } }
-        if(ok) return {id:node.id,title:v.title||node.title,icon:node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded)}; }
+        if(ok) return {id:node.id,title:v.title||node.title,icon:v.icon||node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded),_name:node._name}; }
       return node; }
-    // match a hovered element to the deepest catalogue node
+    // match a hovered element to the deepest catalogue node (static node OR dynamic row)
     function matchNode(el){ var best=null,bd=-1;
-      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node,m=false,tgt=null; if(!n.selector) continue;
-        try{ if(el.matches(n.selector)){m=true;tgt=el;}
-          else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
-        if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node;
+        if(n.selector){ var m=false,tgt=null;
+          try{ if(el.matches(n.selector)){m=true;tgt=el;}
+            else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
+          if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+        if(n.dynamic && n.childTemplate && n.childTemplate.selector){ try{ var row=el.closest(n.childTemplate.selector);
+          if(row){ var d2=e.parents.length+1; if(d2>bd){ bd=d2; best={entry:{node:synthRow(n,row),parents:e.parents.concat([n])},el:row}; } } }catch(y){} } }
       return best; }
     function ctxHtml(){ var c=CAT.ctx; return '<div class="so-ctx"><div class="so-ctx-title">'+(c.icon?esc(c.icon)+' ':'')+esc(c.title||'')+'</div><div class="so-ctx-content">'+esc(c.content||'')+'</div></div>'; }
-    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node;
-      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(r.title||'')+'</div>';
-      h+='<div class="so-node-content">'+esc(r.content||'')+'</div>';
-      if(active && r.expanded) h+='<div class="so-node-expanded">'+r.expanded+'</div>';   // expanded = trusted authored HTML
+    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node, nm=(node._name!=null?node._name:null);
+      var title=interp(r.title||'',nm), cont=interp(r.content||'',nm), exp=interp(r.expanded||'',nm);
+      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(title)+'</div>';
+      h+='<div class="so-node-content">'+esc(cont)+'</div>';
+      if(active && exp) h+='<div class="so-node-expanded">'+exp+'</div>';   // expanded = trusted authored HTML
       return h+'</div>'; }
     var lastHot=null, lastMatched=null;
     function clearHot(){ if(lastHot){ lastHot.classList.remove('so-assist-hot'); lastHot=null; } }
@@ -365,7 +384,7 @@
     // menu links → surface the target panel's context (program-awareness: horizontal jump)
     Array.prototype.forEach.call(document.querySelectorAll('.so-sm-item'),function(it){ var p=findPanel(it.dataset.dir); if(!p) return;
       function show(){ openAssist(); clearHot(); lastMatched=null; it.classList.add('so-assist-hot'); lastHot=it; var here=it.dataset.dir===curDir();
-        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+esc(p.desc||'')+'</div></div>'+
+        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+(p.menuHover?p.menuHover:esc(p.desc||''))+'</div></div>'+
           '<div class="so-assist-idle">'+(here?'You’re on this panel now — hover its contents to explore.':'Click to open this panel.')+'</div>'; }
       it.addEventListener('mouseenter',show); it.addEventListener('focus',show); });
     idle();
@@ -939,97 +958,125 @@
 <script>
 window.SO_ASSIST = {
  "context": {
-  "icon": "⛭",
+  "icon": "◈",
   "title": "D-21 · LM Orchestration",
-  "content": "How models bind to hardware — the runtime profiles and the model→device assignment grid (GPU0/GPU1/CPU0 = Logic/Oracle/Conductor per M075), plus the CPU/GPU capability panel that decides what each device can accelerate.\n\nRead-only: Apply copies the signed profile verb (R10212). This is where you see and stage which model runs where."
+  "content": "Where you choose the box's whole inference posture. A runtime profile (M076) is not one setting — it's a coherent bundle that assigns every model to a device and pins the cores to match (the SRP split, M075). Pick a profile and the grid below shows the resulting model→hardware map; apply it and the box rebalances Conductor, Logic and Oracle together.\n\nThis is the 'how should the machine think right now' control: an efficiency profile parks the GPUs and runs ternary on CPU; a concurrency profile spreads across both GPUs; a deep-context profile layer-splits a big model across them. Read-only preview — applying a profile is a signed verb-chain."
  },
  "nodes": [
   {
    "icon": "◆",
    "title": "Live-source banner",
-   "content": "Whether the orchestration state is read live or from a snapshot.",
+   "content": "Whether the orchestration grid is live from /api/lm-orchestration/grid or a snapshot — the assignment map only means something if it reflects what's actually loaded.",
    "children": [
     {
      "selector": "#data-source-banner",
      "title": "Live vs snapshot",
-     "content": "Live = read from the orchestration API; snapshot = the baked copy.",
+     "content": "Green = the orchestration daemon is answering; muted = a snapshot. A snapshot grid can show an assignment that's already been superseded by an apply.",
+     "icon": "◆",
      "variants": [
+      {
+       "when": {
+        "textContains": "connecting"
+       },
+       "content": "Connecting — the panel is reaching the orchestration daemon; the grid isn't confirmed live yet.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Connecting</div>Waiting on /api/lm-orchestration/grid — the assignment map below isn't confirmed current.</div>"
+      },
       {
        "when": {
         "textContains": "live"
        },
-       "content": "Live — the assignment grid is current."
-      },
-      {
-       "when": {
-        "textContains": "snapshot"
-       },
-       "content": "Snapshot — the daemon is unreachable; the assignment may have changed since."
+       "content": "Live — the assignment grid reflects what's actually loaded now.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Live</div>The daemon is answering; the model→hardware map is current.</div>"
       }
      ]
-    },
-    {
-     "selector": "#last-fetch",
-     "title": "Fetch freshness",
-     "content": "When the orchestration state was last read."
-    }
-   ]
-  },
-  {
-   "icon": "◐",
-   "title": "Profiles",
-   "content": "The runtime profiles (M076) that bind a whole set of models to hardware at once — pick one and the grid resolves to it.",
-   "children": [
-    {
-     "selector": "#profiles",
-     "title": "LM profiles",
-     "content": "The runtime profiles — each is a whole model→hardware allocation. Selecting one reshapes the grid below; Apply stages it as a signed verb.",
-     "expanded": "<div class=\"so-card info\"><div>A profile decides which model on which device AND the CPU-feature/GPU posture together — one coherent stance.</div></div>"
-    },
-    {
-     "selector": "#profiles-note",
-     "title": "Profiles note",
-     "content": "What the selected profile implies for the assignment — the intent behind its allocation."
-    },
-    {
-     "selector": "#apply-btn",
-     "title": "Apply profile (operator-signed)",
-     "content": "Stages the selected profile — copies the signed profile verb; it never applies from the web. The gated path binds the models (R10212)."
     }
    ]
   },
   {
    "icon": "▦",
-   "title": "Model → hardware & capabilities",
-   "content": "The assignment grid (which model on which device, per M075 SRP roles) and the capability panel that decides what each device can actually accelerate.",
+   "title": "Profiles · Language Model",
+   "content": "The runtime profiles (M076) — each a whole posture, not a knob. Selecting one previews its assignment in the grid; applying it rebalances the box.",
+   "children": [
+    {
+     "selector": "#profiles-note",
+     "title": "Profiles note",
+     "content": "The explainer above the profile tiles — how a profile bundles core-pinning, GPU power, and model allocation into one choice. Read it before picking, because a profile changes several things at once."
+    },
+    {
+     "selector": "#profiles",
+     "title": "Runtime profiles",
+     "content": "The selectable profiles — ultra-sovereign-efficiency (CPU-only, GPUs asleep), high-concurrency (both GPUs, spread), deep-context (one big model layer-split across both GPUs). Each is verbatim-locked to these three (M076); hover a tile for what that posture does.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Three postures, not settings</div><div class=\"so-grid\"><span class=\"k\">efficiency</span><span>Conductor pinned on ternary BitNet; GPUs asleep — lowest power, cheapest cognition</span><span class=\"k\">concurrency</span><span>asymmetric CPU + dual-GPU split — most parallel agents at once</span><span class=\"k\">deep-context</span><span>a big model layer-split across both GPUs, 4-bit KV — longest contexts</span></div><div class=\"so-xref\"><span class=\"x\">→</span> D-09 shows the CCD/GPU pressure each profile produces<br><span class=\"x\">→</span> Runtime Modes panel is the same M076 profiles from the mode angle</div></div>",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#profiles > *",
+      "nameSelector": "strong,.name,h3,b",
+      "title": "Profile · {{name}}",
+      "content": "The {{name}} runtime profile — a whole posture (cores + GPU power + model allocation). Selecting it previews its assignment; hover for what it optimizes for.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Profile · {{name}}</div>One of the three M076 postures. Selecting previews the grid; applying rebalances the box via a signed chain.<div class=\"so-tip\">💡 Efficiency parks GPUs; concurrency spreads them; deep-context layer-splits one big model.</div></div>"
+     }
+    }
+   ]
+  },
+  {
+   "icon": "⊞",
+   "title": "Model → hardware assignment",
+   "content": "The resolved map: for the selected profile, which model runs on which device and which cores are pinned. This is the concrete result of the profile choice — the same information the generator produces, shown live.",
    "children": [
     {
      "selector": "#grid",
      "title": "Assignment grid",
-     "content": "Which model runs on GPU0 (Logic) / GPU1 (Oracle) / CPU0 (Conductor) per M075. The concrete binding of the SRP roles to physical devices.",
-     "expanded": "<div class=\"so-card info\"><div>Cross-reference D-03 for the live health of each assignment and D-09 for the hardware pressure behind it.</div></div>"
+     "content": "Each row maps a model to a device (Blackwell / 4090 / CPU-Pulse) and its pinned cores for the selected profile. This is the profile made concrete — read it to see exactly what 'apply' would do before you do it.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The grid is the profile, resolved</div>A profile is abstract until it's resolved against this hardware — the grid is that resolution: real models on real devices, VRAM-checked so nothing is assigned that can't load.<div class=\"so-xref\"><span class=\"x\">→</span> D-03 model health shows how these assignments are performing once live<br><span class=\"x\">→</span> profile-generation is where the 20+ combos come from</div></div>",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#grid tr, #grid > .row",
+      "nameSelector": "td,strong,code",
+      "title": "Assignment · {{name}}",
+      "content": "The {{name}} assignment — which device this model runs on and its pinned cores for the selected profile. VRAM-checked, so it's an assignment that actually fits.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Assignment · {{name}}</div>Model→device→cores for the selected profile. This is what 'apply' would enact for this row.<div class=\"so-xref\"><span class=\"x\">→</span> D-03 shows this model's live health once assigned</div></div>"
+     }
     },
     {
+     "selector": "#apply-btn",
+     "title": "Apply (operator-signed)",
+     "content": "Copies the signed verb-chain that applies the selected profile — rebalancing every tier at once. It's a chain, not a single verb, because switching profiles moves models between devices and re-pins cores together. The button copies; the box only changes when you run it.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why apply is a signed chain</div>Switching profile isn't one action — it unloads and reloads models across devices and re-pins cores. That's why it's a signed verb-chain run through osctl, never a web click (R10212).<div class=\"so-tip\">💡 Preview the grid first; a profile that doesn't fit VRAM is caught before you apply.</div></div>"
+    }
+   ]
+  },
+  {
+   "icon": "⚲",
+   "title": "Capabilities",
+   "content": "What this specific hardware can do — the CPU and GPU features the profiles are built to exploit. A profile only makes sense against real silicon; this is that silicon.",
+   "children": [
+    {
      "selector": "#features-cpu",
-     "title": "CPU capabilities",
-     "content": "What the CPU can accelerate (AVX-512 extensions, ternary path) — the constraint on which models the Conductor/Pulse tier can serve. See D-24 for the full map."
+     "title": "Features CPU (AVX-512)",
+     "content": "The AVX-512 extensions this CPU exposes — the instructions that make the Conductor's ternary BitNet path fast. A profile that leans on CPU inference depends on these being present (D-24 is the full map).",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why the CPU features gate the efficiency profile</div>The efficiency profile runs models on CPU via AVX-512 ternary kernels. If a needed extension (VNNI, BF16) is missing, that path falls back to something slower — so the feature set decides whether efficiency mode is actually efficient.<div class=\"so-xref\"><span class=\"x\">→</span> D-24 CPU features — the full AVX-512 map + per-workload fit</div></div>"
     },
     {
      "selector": "#features-gpu",
-     "title": "GPU capabilities",
-     "content": "What each GPU can accelerate — the constraint on which models the Logic/Oracle tiers can serve. Decides CPU vs GPU placement in a profile."
+     "title": "Features GPUs",
+     "content": "What the two GPUs support — the Blackwell's NVFP4 (native 4-bit) and the 4090's capabilities. Deep-context and concurrency profiles exploit these; NVFP4 on the Blackwell is what lets a big model fit at half the VRAM of fp8 (M077)."
+    },
+    {
+     "selector": "#last-fetch",
+     "title": "Fetch freshness",
+     "content": "When the grid + capabilities were last read. The assignment preview is only as current as this — check before applying a profile off a stale grid."
     }
    ]
   },
   {
    "icon": "⎈",
-   "title": "Controls",
-   "content": "",
+   "title": "Controls · features & profiles",
+   "content": "Read-only orchestration view — the control rail copies signed sovereign-osctl verbs (§1g / R10212). Selecting previews; applying is a signed chain.",
    "children": [
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Orchestration controls — each copies its signed sovereign-osctl verb (§1g / R10212). Applying a profile binds models via the gated path, never from the web."
+     "content": "Orchestration controls — each copies its exact sovereign-osctl verb. Profile apply and feature toggles run through the signed CLI; the web previews the map but never rebalances the box itself."
     }
    ]
   }

@@ -500,10 +500,16 @@ a11y; contract test catches drift.
   .so-node-expanded{margin-top:.55rem; padding-top:.55rem; border-top:1px solid rgba(155,209,255,.13); font-size:.78rem; line-height:1.6; color:var(--muted,#a8a8a8); white-space:pre-line;}
   /* rich expanded cards */
   .so-card{border:1px solid var(--border,#262626); border-radius:7px; padding:.55rem .65rem; margin-top:.45rem; background:var(--bg,#0e0e0e); white-space:normal; line-height:1.55;}
-  .so-card.info{border-color:rgba(155,209,255,.28);}
+  .so-card.info{border-color:rgba(155,209,255,.28); background:rgba(155,209,255,.035);}
+  .so-card.ok{border-color:rgba(127,209,143,.34); background:rgba(127,209,143,.045);}
+  .so-card.warn{border-color:rgba(224,192,122,.38); background:rgba(224,192,122,.05);}
+  .so-card.err{border-color:rgba(224,138,138,.4); background:rgba(224,138,138,.055);}
+  .so-card-label{font-weight:600; font-size:.79rem; margin-bottom:.3rem;}
+  .so-card.ok .so-card-label{color:#7fd18f;} .so-card.warn .so-card-label{color:#e0c07a;} .so-card.err .so-card-label{color:#e08a8a;} .so-card.info .so-card-label{color:var(--accent,#9bd1ff);}
   .so-grid{display:grid; grid-template-columns:auto 1fr; gap:.22rem .6rem; margin:.35rem 0; font-size:.76rem; white-space:normal;}
   .so-grid .k{color:var(--accent,#9bd1ff); font-weight:500;}
-  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;}
+  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;} .so-li .warn{color:#e0c07a;}
+  .so-xref{margin-top:.4rem; font-size:.76rem; color:var(--fg-2,#c8c8c8);} .so-xref .x{color:var(--accent,#9bd1ff); font-weight:500;}
   .so-tip{margin-top:.4rem; font-size:.77rem; color:var(--muted,#a8a8a8);}
   .so-assist-idle{color:var(--muted,#8a8a8a); font-style:italic; padding:.4rem 0;}
   /* highlight the hovered/focused element in the panel content */
@@ -664,25 +670,38 @@ a11y; contract test catches drift.
       return {ctx:ctx, nodes:nodes}; })();
     // flatten deepest-first with parent chains
     var FLAT=[]; (function flat(list,chain){ (list||[]).forEach(function(n){ if(n.children&&n.children.length) flat(n.children,chain.concat([n])); FLAT.push({node:n,parents:chain.slice()}); }); })(CAT.nodes,[]);
+    // {{name}} interpolation for dynamic-row templates
+    function interp(s,name){ return (name==null)?(s||''):String(s||'').replace(/\{\{name\}\}/g,name); }
+    // derive a live row's label (nameSelector, then a strong/cell/code heuristic, then text)
+    function rowName(row,ct){ var t=''; if(ct.nameSelector){ try{ var e=row.querySelector(ct.nameSelector); if(e) t=e.textContent||''; }catch(x){} }
+      if(!t){ var s=row.querySelector('strong,code,th,.k,td'); if(s) t=s.textContent||''; }
+      if(!t) t=row.textContent||''; return t.replace(/\s+/g,' ').trim().slice(0,64); }
+    // synthesize a node from a childTemplate bound to one live row
+    function synthRow(n,row){ var ct=n.childTemplate, nm=rowName(row,ct);
+      return {id:n.id, icon:ct.icon||n.icon, title:interp(ct.title||n.title||'{{name}}',nm), content:ct.content||'', expanded:ct.expanded||'', variants:ct.variants, _name:nm}; }
     // variant resolution against the matched element (state-awareness)
     function resolveVar(node,el){ if(!node.variants||!node.variants.length||!el) return node;
       for(var i=0;i<node.variants.length;i++){ var v=node.variants[i], w=v.when||{}, ok=true;
-        if(w.textContains && (el.textContent||'').indexOf(w.textContains)<0) ok=false;
+        if(w.textContains && (el.textContent||'').toLowerCase().indexOf(String(w.textContains).toLowerCase())<0) ok=false;
         if(ok&&w.hasSelector){ try{ if(!el.querySelector(w.hasSelector)) ok=false; }catch(e){ ok=false; } }
-        if(ok) return {id:node.id,title:v.title||node.title,icon:node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded)}; }
+        if(ok) return {id:node.id,title:v.title||node.title,icon:v.icon||node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded),_name:node._name}; }
       return node; }
-    // match a hovered element to the deepest catalogue node
+    // match a hovered element to the deepest catalogue node (static node OR dynamic row)
     function matchNode(el){ var best=null,bd=-1;
-      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node,m=false,tgt=null; if(!n.selector) continue;
-        try{ if(el.matches(n.selector)){m=true;tgt=el;}
-          else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
-        if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node;
+        if(n.selector){ var m=false,tgt=null;
+          try{ if(el.matches(n.selector)){m=true;tgt=el;}
+            else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
+          if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+        if(n.dynamic && n.childTemplate && n.childTemplate.selector){ try{ var row=el.closest(n.childTemplate.selector);
+          if(row){ var d2=e.parents.length+1; if(d2>bd){ bd=d2; best={entry:{node:synthRow(n,row),parents:e.parents.concat([n])},el:row}; } } }catch(y){} } }
       return best; }
     function ctxHtml(){ var c=CAT.ctx; return '<div class="so-ctx"><div class="so-ctx-title">'+(c.icon?esc(c.icon)+' ':'')+esc(c.title||'')+'</div><div class="so-ctx-content">'+esc(c.content||'')+'</div></div>'; }
-    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node;
-      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(r.title||'')+'</div>';
-      h+='<div class="so-node-content">'+esc(r.content||'')+'</div>';
-      if(active && r.expanded) h+='<div class="so-node-expanded">'+r.expanded+'</div>';   // expanded = trusted authored HTML
+    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node, nm=(node._name!=null?node._name:null);
+      var title=interp(r.title||'',nm), cont=interp(r.content||'',nm), exp=interp(r.expanded||'',nm);
+      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(title)+'</div>';
+      h+='<div class="so-node-content">'+esc(cont)+'</div>';
+      if(active && exp) h+='<div class="so-node-expanded">'+exp+'</div>';   // expanded = trusted authored HTML
       return h+'</div>'; }
     var lastHot=null, lastMatched=null;
     function clearHot(){ if(lastHot){ lastHot.classList.remove('so-assist-hot'); lastHot=null; } }
@@ -701,7 +720,7 @@ a11y; contract test catches drift.
     // menu links → surface the target panel's context (program-awareness: horizontal jump)
     Array.prototype.forEach.call(document.querySelectorAll('.so-sm-item'),function(it){ var p=findPanel(it.dataset.dir); if(!p) return;
       function show(){ openAssist(); clearHot(); lastMatched=null; it.classList.add('so-assist-hot'); lastHot=it; var here=it.dataset.dir===curDir();
-        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+esc(p.desc||'')+'</div></div>'+
+        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+(p.menuHover?p.menuHover:esc(p.desc||''))+'</div></div>'+
           '<div class="so-assist-idle">'+(here?'You’re on this panel now — hover its contents to explore.':'Click to open this panel.')+'</div>'; }
       it.addEventListener('mouseenter',show); it.addEventListener('focus',show); });
     idle();
@@ -1422,177 +1441,163 @@ a11y; contract test catches drift.
 <script>
 window.SO_ASSIST = {
  "context": {
-  "icon": "🎫",
+  "icon": "◎",
   "title": "D-14 · Capability Tokens",
-  "content": "A read-only view of selfdef's capability tokens — bundles of fine-grained powers, arranged by Ring 0..4 trust topology (MS039). Each token is a bitfield; click one to decode exactly which powers it grants.\n\nTokens are minted and revoked on the IPS side (selfdefctl + MS003, R10117). A child token can never exceed its parent's authority."
+  "content": "A read-only mirror of selfdef's capability system (MS039). Every privileged action needs a capability token, and every token sits in one of five trust rings (0 kernel-equivalent → 4 untrusted) and inherits from a parent — a child can never hold more than its parent granted. The capability_word packs the exact permissions as bits.\n\nRead it to audit where privilege lives: how many high-ring tokens exist, what each actually grants at the bit level, and how capability flows down the inheritance tree. Tokens are minted/revoked in selfdef (signed selfdefctl + MS003, R10117), never here."
  },
  "nodes": [
   {
    "icon": "◆",
    "title": "Mirror status",
-   "content": "This whole panel is a READ-ONLY reflection of selfdef's capability tokens (MS007 typed-mirror crate #3 of 9). sovereign-os never mutates it — tokens are minted/revoked happens on the IPS side via signed selfdefctl.",
+   "content": "Whether this read-only mirror of the external selfdef IPS is live and current. If the mirror is offline, this whole panel is showing stale capability tokens — trust it accordingly.",
    "children": [
     {
      "selector": "#mirror-status-banner",
-     "title": "Bridge status",
-     "content": "Whether the capability tokens mirror is publishing (online) or absent (offline). Offline doesn't mean unprotected — selfdef is still enforcing; you just can't see it here until the bridge returns.",
-     "expanded": "<div class=\"so-card info\"><div class='so-li no'>✗ Offline → the values below are last-known, not live. The enforcement is intact on the IPS.</div></div>",
+     "title": "Mirror live vs offline",
+     "content": "This panel is a READ-ONLY mirror of selfdef's capability tokens (via the M060 bridge). Green = the selfdef producer is feeding it live; offline = the bridge is stale and everything below is old. The box never manages capability tokens from here — that's selfdefctl + MS003 on the selfdef side.",
+     "icon": "◆",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why this is a mirror, not a control</div>selfdef is the external intrusion-prevention system; sovereign-os only reflects it. This panel reads the mirror so you can see the IPS state in one cockpit, but every change to capability tokens happens in selfdef (signed selfdefctl + MS003), never here.<div class=\"so-li\"><span class=\"ok\">✓</span> live → the mirror is current; this is selfdef's real capability tokens now</div><div class=\"so-li\"><span class=\"warn\">▲</span> offline → the M060 bridge is stale; treat everything below as history</div><div class=\"so-xref\"><span class=\"x\">→</span> D-00 master-dashboard — the M060 chain health across all mirrors<br><span class=\"x\">→</span> D-25 selfdef-management — the mirror-chain detail</div></div>",
      "variants": [
       {
        "when": {
-        "textContains": "online"
+        "textContains": "live"
        },
-       "content": "Online — this view is live from selfdef's published snapshot."
+       "content": "Live — the selfdef producer is feeding this mirror; the capability tokens below is current.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Mirror live</div>selfdef is feeding the bridge; this reflects the real IPS state now.</div>"
       },
       {
        "when": {
         "textContains": "offline"
        },
-       "content": "Offline — the producer isn't publishing. selfdef is still enforcing capability tokens; the mirror just isn't reaching you."
+       "content": "Offline — the M060 bridge to selfdef is stale. Everything below is the last-known capability tokens, not live; don't act on it until the mirror recovers.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Mirror offline</div>The bridge is stale. This is history, not the current IPS state — check D-25 / the M060 chain.</div>"
       }
      ]
     },
     {
+     "selector": "#mirror-state-label",
+     "title": "Mirror label",
+     "content": "One-word mirror state — live or offline. Whether the capability tokens below can be trusted as current."
+    },
+    {
+     "selector": "#mirror-state-detail",
+     "title": "Mirror detail",
+     "content": "The producer/endpoint behind the mirror and why it's live or offline — how the capability tokens reaches this cockpit. Managed via selfdefctl capability-tokens on the selfdef side."
+    },
+    {
      "selector": "#mirror-last-update",
-     "title": "Last update",
-     "content": "When selfdef captured this snapshot. A stale timestamp means no recent change was published — the values are last-known, not live.",
-     "expanded": ""
+     "title": "Mirror freshness",
+     "content": "When the selfdef producer last captured this snapshot (its ISO captured_at). On an offline mirror this is how stale the data is — the gap between then and now."
     },
     {
      "selector": "#mirror-schema-version",
-     "title": "Schema version",
-     "content": "The contract shape of the mirrored data — cite it if the mirror ever disagrees with what the panel renders.",
-     "expanded": ""
+     "title": "Mirror schema",
+     "content": "The MS007 typed-mirror-crate schema version of this snapshot. Confirms the mirror and consumer agree on the data shape; a mismatch would mean the bridge is speaking an older dialect."
     }
    ]
   },
   {
    "icon": "◎",
    "title": "Ring 0..4 trust topology (MS039)",
-   "content": "Concentric trust zones — the innermost holds kernel-equivalent authority, the outermost holds the untrusted. Active token counts per ring tell you where power concentrates.",
+   "content": "selfdef's privilege model: every capability token sits in one of five rings, from Ring 0 (kernel-equivalent) to Ring 4 (untrusted). Lower ring = more power. Reading the distribution tells you where privilege is concentrated — a healthy box has few Ring 0/1 tokens and most at Ring 3/4.",
    "children": [
     {
      "selector": "#r0-active",
-     "title": "Ring 0 — kernel-equiv",
-     "content": "The innermost ring: kernel-equivalent authority, held by the selfdef daemon itself. The most powerful tokens — the count should be tiny and every one accounted for.",
-     "expanded": "<div class=\"so-card info\"><div class='so-li no'>✗ An unexpected Ring 0 token is the single most serious thing on this panel.</div></div>"
+     "title": "Ring 0",
+     "content": "Active capability tokens at Ring 0 — kernel-equivalent (selfdef daemon) — the most privileged, fewest tokens. The MS039 ring model is defence-in-depth: the lower the ring number, the more it can do, so tokens concentrate privilege — a token at Ring 0/1 is far more consequential than one at Ring 3/4."
     },
     {
      "selector": "#r1-active",
-     "title": "Ring 1 — Guardian + audit",
-     "content": "The enforcement/observability ring — Guardian and the audit chain running signed binaries. High trust, one step out from kernel-equivalent.",
-     "expanded": ""
+     "title": "Ring 1",
+     "content": "Active capability tokens at Ring 1 — Guardian + audit (signed bins) — the enforcement layer. The MS039 ring model is defence-in-depth: the lower the ring number, the more it can do, so tokens concentrate privilege — a token at Ring 0/1 is far more consequential than one at Ring 3/4."
     },
     {
      "selector": "#r2-active",
-     "title": "Ring 2 — operator-signed CLI",
-     "content": "The operator's authority ring — where MS003-signed CLI actions act. Human-authorised power.",
-     "expanded": ""
+     "title": "Ring 2",
+     "content": "Active capability tokens at Ring 2 — operator-signed CLI — your authority. The MS039 ring model is defence-in-depth: the lower the ring number, the more it can do, so tokens concentrate privilege — a token at Ring 0/1 is far more consequential than one at Ring 3/4."
     },
     {
      "selector": "#r3-active",
-     "title": "Ring 3 — sandboxed agent",
-     "content": "The confined-execution ring — agents running in sandboxes (D-15). Bounded authority; the ring most tokens legitimately live in during normal work.",
-     "expanded": ""
+     "title": "Ring 3",
+     "content": "Active capability tokens at Ring 3 — sandboxed agent — normal working tokens. The MS039 ring model is defence-in-depth: the lower the ring number, the more it can do, so tokens concentrate privilege — a token at Ring 0/1 is far more consequential than one at Ring 3/4."
     },
     {
      "selector": "#r4-active",
-     "title": "Ring 4 — untrusted / quarantine",
-     "content": "The outermost ring — untrusted or quarantined subjects with minimal authority. The tokens under the most suspicion; pairs with D-17.",
-     "expanded": ""
+     "title": "Ring 4",
+     "content": "Active capability tokens at Ring 4 — untrusted / quarantine — the least privileged. The MS039 ring model is defence-in-depth: the lower the ring number, the more it can do, so tokens concentrate privilege — a token at Ring 0/1 is far more consequential than one at Ring 3/4."
     }
    ]
   },
   {
    "icon": "▤",
-   "title": "Token summary",
-   "content": "The live authority outstanding, plus what's pending, quarantined, or a root (issued directly, not inherited).",
+   "title": "Summary",
+   "content": "The token population — active, pending, quarantined, and how many are roots (no parent). Read quarantined + attention together: those are the tokens selfdef flagged as mismatched (MS042).",
    "children": [
     {
      "selector": "#s-active",
      "title": "Active tokens",
-     "content": "Total live capability tokens across all rings — how much delegated power is currently outstanding.",
-     "expanded": ""
+     "content": "Total active capability tokens across all rings — the live privilege population. Each token grants a specific capability; more tokens = more granted capability to track."
     },
     {
      "selector": "#s-pending",
      "title": "Pending",
-     "content": "Tokens requested but not yet signed into force — they confer nothing until an operator signs (MS003).",
-     "expanded": ""
+     "content": "Tokens awaiting an MS003 signature to activate. Minted but not yet valid — they grant nothing until signed on the selfdef side."
     },
     {
      "selector": "#s-quarantined",
      "title": "Quarantined",
-     "content": "Tokens pulled because behaviour didn't match declaration (MS042) — suspected authority. See D-17 for the mismatch detail.",
-     "expanded": ""
+     "content": "Tokens selfdef quarantined for an MS042 mismatch — the capability didn't match what was declared. A quarantined token is frozen; a non-zero here is a real integrity flag (see D-17)."
     },
     {
      "selector": "#s-attention",
      "title": "Attention",
-     "content": "Pending + quarantined — the single number saying a token decision or investigation is waiting.",
-     "expanded": ""
+     "content": "Pending + quarantined together — the tokens that need a decision or investigation. The actionable subset."
     },
     {
      "selector": "#s-roots",
      "title": "Root tokens",
-     "content": "Tokens with no parent — issued directly, not delegated. They anchor the inheritance graph; authority created rather than inherited, so each deserves scrutiny.",
-     "expanded": ""
+     "content": "Tokens with no parent — the roots of the inheritance tree. Every other token descends from one of these (F04146), so a root is where a whole branch of capability originates."
     }
    ]
   },
   {
-   "icon": "◫",
-   "title": "Tokens, bit decoder & inheritance",
-   "content": "The token ledger, the per-bit decode of a selected token's powers, and the parent-child delegation tree.",
+   "icon": "≣",
+   "title": "Tokens, bits & inheritance",
+   "content": "The live tokens, the bit-level decode of what each grants, and the parent-child tree.",
    "children": [
+    {
+     "selector": "#ring-filters",
+     "title": "Ring filters",
+     "content": "Filter tokens by ring (0..4). Narrow to a privilege level — usually you're auditing the low-ring (high-privilege) tokens."
+    },
     {
      "selector": "#tokens-tbody",
      "title": "Active tokens",
-     "content": "Each token with state, parent, and actions. Click a token to decode its capability bits below; parent links to the inheritance graph.",
-     "expanded": ""
+     "content": "Each token with its ring, state, parent, and actions. Click a token to decode its capability_word bits. Hover for what it grants and where it sits in the tree.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A token is a capability, ringed</div>Each token is a specific granted capability at a specific privilege ring. Its parent is where it inherited from; its bits (below) are exactly what it can do.</div>"
     },
     {
      "selector": "#bit-grid",
      "title": "capability_word bit decoder",
-     "content": "A capability token is a bitfield — each bit is one specific power. This decodes exactly which capabilities the selected token grants, so 'what can this token do' is answered bit-by-bit, not guessed.",
-     "expanded": ""
-    },
-    {
-     "selector": "#bit-target",
-     "title": "Selected token",
-     "content": "Which token's capability_word is loaded into the decoder — the anchor for the bit grid.",
-     "expanded": ""
+     "content": "The bit-level decode of a selected token's capability_word — each bit is one capability the token grants or denies. This is the ground truth of 'what can this token actually do', beneath the friendly label.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why decode to bits</div>A capability_word packs many permissions into one integer; the label summarizes, but the bits are exact. Decoding them is how you confirm a token grants precisely what it should — no hidden extra bit set.<div class=\"so-tip\">💡 A token whose bits exceed its declared capability is an MS042 mismatch — exactly what quarantine (D-17) catches.</div></div>"
     },
     {
      "selector": "#inheritance-graph",
-     "title": "Inheritance graph (F04146)",
-     "content": "Tokens derive from tokens — a child can never exceed its parent's authority. This tree lets you trace any token back to the root authority it flows from.",
-     "expanded": ""
-    },
-    {
-     "selector": "#ring-filters",
-     "title": "Ring filters",
-     "content": "Narrow the token table to one trust ring — the way to audit, say, only Ring 0 where the highest authority lives.",
-     "expanded": ""
+     "title": "Inheritance graph",
+     "content": "The parent-child token tree (F04146) — how capability flows from root tokens down to sandboxed ones. A child can never exceed its parent, so the tree is how selfdef guarantees privilege only narrows as it delegates."
     }
    ]
   },
   {
    "icon": "⎈",
-   "title": "Controls",
-   "content": "",
+   "title": "Actions & controls",
+   "content": "Web is a READ-ONLY mirror consumer — capability tokens is signed/managed via selfdefctl capability-tokens + operator MS003 on the selfdef side, never from here.",
    "children": [
-    {
-     "selector": "#toast",
-     "title": "Copy confirmation",
-     "content": "Confirms a signed selfdefctl verb was copied for operator MS003 execution (R10117). No token was minted or revoked here.",
-     "expanded": ""
-    },
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Token controls — each copies its selfdefctl verb. Tokens are minted/revoked on the IPS side, never from this web view.",
-     "expanded": ""
+     "content": "Mirror controls — each copies its exact selfdefctl capability-tokens verb (§1g / R10212). This panel reads the selfdef mirror; every change to capability tokens runs through the signed selfdef CLI with MS003, never from the web."
     }
    ]
   }

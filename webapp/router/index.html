@@ -483,10 +483,16 @@ a11y; contract test catches drift.
   .so-node-expanded{margin-top:.55rem; padding-top:.55rem; border-top:1px solid rgba(155,209,255,.13); font-size:.78rem; line-height:1.6; color:var(--muted,#a8a8a8); white-space:pre-line;}
   /* rich expanded cards */
   .so-card{border:1px solid var(--border,#262626); border-radius:7px; padding:.55rem .65rem; margin-top:.45rem; background:var(--bg,#0e0e0e); white-space:normal; line-height:1.55;}
-  .so-card.info{border-color:rgba(155,209,255,.28);}
+  .so-card.info{border-color:rgba(155,209,255,.28); background:rgba(155,209,255,.035);}
+  .so-card.ok{border-color:rgba(127,209,143,.34); background:rgba(127,209,143,.045);}
+  .so-card.warn{border-color:rgba(224,192,122,.38); background:rgba(224,192,122,.05);}
+  .so-card.err{border-color:rgba(224,138,138,.4); background:rgba(224,138,138,.055);}
+  .so-card-label{font-weight:600; font-size:.79rem; margin-bottom:.3rem;}
+  .so-card.ok .so-card-label{color:#7fd18f;} .so-card.warn .so-card-label{color:#e0c07a;} .so-card.err .so-card-label{color:#e08a8a;} .so-card.info .so-card-label{color:var(--accent,#9bd1ff);}
   .so-grid{display:grid; grid-template-columns:auto 1fr; gap:.22rem .6rem; margin:.35rem 0; font-size:.76rem; white-space:normal;}
   .so-grid .k{color:var(--accent,#9bd1ff); font-weight:500;}
-  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;}
+  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;} .so-li .warn{color:#e0c07a;}
+  .so-xref{margin-top:.4rem; font-size:.76rem; color:var(--fg-2,#c8c8c8);} .so-xref .x{color:var(--accent,#9bd1ff); font-weight:500;}
   .so-tip{margin-top:.4rem; font-size:.77rem; color:var(--muted,#a8a8a8);}
   .so-assist-idle{color:var(--muted,#8a8a8a); font-style:italic; padding:.4rem 0;}
   /* highlight the hovered/focused element in the panel content */
@@ -647,25 +653,38 @@ a11y; contract test catches drift.
       return {ctx:ctx, nodes:nodes}; })();
     // flatten deepest-first with parent chains
     var FLAT=[]; (function flat(list,chain){ (list||[]).forEach(function(n){ if(n.children&&n.children.length) flat(n.children,chain.concat([n])); FLAT.push({node:n,parents:chain.slice()}); }); })(CAT.nodes,[]);
+    // {{name}} interpolation for dynamic-row templates
+    function interp(s,name){ return (name==null)?(s||''):String(s||'').replace(/\{\{name\}\}/g,name); }
+    // derive a live row's label (nameSelector, then a strong/cell/code heuristic, then text)
+    function rowName(row,ct){ var t=''; if(ct.nameSelector){ try{ var e=row.querySelector(ct.nameSelector); if(e) t=e.textContent||''; }catch(x){} }
+      if(!t){ var s=row.querySelector('strong,code,th,.k,td'); if(s) t=s.textContent||''; }
+      if(!t) t=row.textContent||''; return t.replace(/\s+/g,' ').trim().slice(0,64); }
+    // synthesize a node from a childTemplate bound to one live row
+    function synthRow(n,row){ var ct=n.childTemplate, nm=rowName(row,ct);
+      return {id:n.id, icon:ct.icon||n.icon, title:interp(ct.title||n.title||'{{name}}',nm), content:ct.content||'', expanded:ct.expanded||'', variants:ct.variants, _name:nm}; }
     // variant resolution against the matched element (state-awareness)
     function resolveVar(node,el){ if(!node.variants||!node.variants.length||!el) return node;
       for(var i=0;i<node.variants.length;i++){ var v=node.variants[i], w=v.when||{}, ok=true;
-        if(w.textContains && (el.textContent||'').indexOf(w.textContains)<0) ok=false;
+        if(w.textContains && (el.textContent||'').toLowerCase().indexOf(String(w.textContains).toLowerCase())<0) ok=false;
         if(ok&&w.hasSelector){ try{ if(!el.querySelector(w.hasSelector)) ok=false; }catch(e){ ok=false; } }
-        if(ok) return {id:node.id,title:v.title||node.title,icon:node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded)}; }
+        if(ok) return {id:node.id,title:v.title||node.title,icon:v.icon||node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded),_name:node._name}; }
       return node; }
-    // match a hovered element to the deepest catalogue node
+    // match a hovered element to the deepest catalogue node (static node OR dynamic row)
     function matchNode(el){ var best=null,bd=-1;
-      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node,m=false,tgt=null; if(!n.selector) continue;
-        try{ if(el.matches(n.selector)){m=true;tgt=el;}
-          else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
-        if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node;
+        if(n.selector){ var m=false,tgt=null;
+          try{ if(el.matches(n.selector)){m=true;tgt=el;}
+            else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
+          if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+        if(n.dynamic && n.childTemplate && n.childTemplate.selector){ try{ var row=el.closest(n.childTemplate.selector);
+          if(row){ var d2=e.parents.length+1; if(d2>bd){ bd=d2; best={entry:{node:synthRow(n,row),parents:e.parents.concat([n])},el:row}; } } }catch(y){} } }
       return best; }
     function ctxHtml(){ var c=CAT.ctx; return '<div class="so-ctx"><div class="so-ctx-title">'+(c.icon?esc(c.icon)+' ':'')+esc(c.title||'')+'</div><div class="so-ctx-content">'+esc(c.content||'')+'</div></div>'; }
-    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node;
-      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(r.title||'')+'</div>';
-      h+='<div class="so-node-content">'+esc(r.content||'')+'</div>';
-      if(active && r.expanded) h+='<div class="so-node-expanded">'+r.expanded+'</div>';   // expanded = trusted authored HTML
+    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node, nm=(node._name!=null?node._name:null);
+      var title=interp(r.title||'',nm), cont=interp(r.content||'',nm), exp=interp(r.expanded||'',nm);
+      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(title)+'</div>';
+      h+='<div class="so-node-content">'+esc(cont)+'</div>';
+      if(active && exp) h+='<div class="so-node-expanded">'+exp+'</div>';   // expanded = trusted authored HTML
       return h+'</div>'; }
     var lastHot=null, lastMatched=null;
     function clearHot(){ if(lastHot){ lastHot.classList.remove('so-assist-hot'); lastHot=null; } }
@@ -684,7 +703,7 @@ a11y; contract test catches drift.
     // menu links → surface the target panel's context (program-awareness: horizontal jump)
     Array.prototype.forEach.call(document.querySelectorAll('.so-sm-item'),function(it){ var p=findPanel(it.dataset.dir); if(!p) return;
       function show(){ openAssist(); clearHot(); lastMatched=null; it.classList.add('so-assist-hot'); lastHot=it; var here=it.dataset.dir===curDir();
-        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+esc(p.desc||'')+'</div></div>'+
+        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+(p.menuHover?p.menuHover:esc(p.desc||''))+'</div></div>'+
           '<div class="so-assist-idle">'+(here?'You’re on this panel now — hover its contents to explore.':'Click to open this panel.')+'</div>'; }
       it.addEventListener('mouseenter',show); it.addEventListener('focus',show); });
     idle();
@@ -1307,129 +1326,125 @@ window.SO_ASSIST = {
  "context": {
   "icon": "⎈",
   "title": "Router",
-  "content": "The deterministic request router (SDD-011) — which tier answers a prompt, decided by first-match-wins rules. The same prompt routes the same way every time.\n\nThree backends: Pulse (CPU/AVX-512 ternary), Logic (GPU0), Oracle (GPU1). Pairs with the thinking-router planner (router plan) — this panel is the live rule set + where requests actually landed."
+  "content": "The deterministic request router (SDD-011) — the loopback service (127.0.0.1:8080) every prompt passes through. It classifies a prompt against an ordered rule set (first-match-wins, so it's deterministic — the same prompt always routes the same way) and dispatches it to one of three backends: Pulse (cheap ternary), Logic-Engine (mid-scale Q4), or Oracle-Core (deep reasoning). The doctrine: many prompts don't deserve the expensive model.\n\nRead it to see the routing rules, the backends' health, and where prompts actually landed. Read-only; routing config changes run through the signed CLI (the planner is `router plan`)."
  },
  "nodes": [
   {
-   "icon": "▤",
-   "title": "Summary",
-   "content": "The router service status and where it listens — is the router itself up and reachable.",
+   "icon": "◆",
+   "title": "Status",
+   "content": "Whether the router service is up and listening.",
    "children": [
     {
      "selector": "#stats",
      "title": "Router summary",
-     "content": "Version + service status — the headline of whether routing is live."
+     "content": "The roll-up — API version, router service, listen port (127.0.0.1:8080). The router is the loopback entry every prompt passes through."
     },
     {
      "selector": "#stat-version",
-     "title": "Router version",
-     "content": "The router version (SDD-011), tied to the super-model build."
+     "title": "API version",
+     "content": "The router daemon version answering — for reconciling routing behaviour against SDD-011."
     },
     {
      "selector": "#stat-service",
-     "title": "Service status",
-     "content": "Whether the router service is running. If down, the rules still exist but requests have no dispatcher.",
+     "title": "Router service",
+     "content": "Whether router.service is running. If it's down, prompts have no classifier and can't be dispatched to a tier.",
      "variants": [
       {
        "when": {
         "textContains": "down"
        },
-       "content": "Router service DOWN — rules exist but nothing is dispatching requests to backends."
-      },
-      {
-       "when": {
-        "textContains": "up"
-       },
-       "content": "Router service up — requests are being classified and dispatched."
+       "content": "Router service DOWN — no prompt can be classified or dispatched.",
+       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Router down</div>No routing — prompts can't reach a tier.</div>"
       }
      ]
     },
     {
      "selector": "#stat-listen",
-     "title": "Listen address",
-     "content": "Where the router accepts requests — the endpoint the tiers reach it on."
+     "title": "Listen 8080",
+     "content": "That the router is bound to 127.0.0.1:8080 — loopback only. Every prompt reaches inference through this local port; nothing routes over the network (sovereign by construction)."
     }
    ]
   },
   {
-   "icon": "◈",
+   "icon": "▦",
    "title": "Backends",
-   "content": "The three inference backends the router can dispatch to — each with its health. A down backend means the rules classify but have nowhere to send.",
+   "content": "The three inference backends the router dispatches to — the SRP tiers. A prompt is classified, then sent to whichever backend fits.",
    "children": [
+    {
+     "selector": "#backend-row",
+     "title": "Backends",
+     "content": "The three backends (Pulse / Logic-Engine / Oracle-Core) with their live state. Read them as the router's targets — a down backend means prompts that would route there fall back or fail."
+    },
     {
      "selector": "#backend-pulse",
      "title": "Pulse backend",
-     "content": "The CPU/AVX-512 ternary backend — the sovereign, always-available path. Runs even with no GPU (cross-reference the Trinity Pulse tier and D-09).",
-     "variants": [
-      {
-       "when": {
-        "textContains": "down"
-       },
-       "content": "Pulse backend down — the sovereign CPU path is unavailable; routing must fall to the GPU tiers."
-      }
-     ]
+     "content": "The cheap ternary backend (bitnet.cpp on CPU/Pulse). Where simple, high-volume prompts route — the router's default for anything that doesn't need a GPU.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Pulse backend</div>The Conductor tier as a route target — cheap ternary inference. Most prompts should land here; only harder ones escalate.<div class=\"so-xref\"><span class=\"x\">→</span> D-03 Conductor · D-09 CCD 0</div></div>"
     },
     {
      "selector": "#backend-logic",
-     "title": "Logic backend",
-     "content": "The GPU0 backend — structured reasoning on the Logic tier (M075). One of the three destinations a rule can route to."
+     "title": "Logic-Engine backend",
+     "content": "The RTX 4090 backend — mid-scale Q4 for ingestion/translation. Where moderately-complex prompts route.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Logic-Engine backend</div>The Logic tier as a route target — Q4 models on the sandboxed 4090.<div class=\"so-xref\"><span class=\"x\">→</span> D-21 orchestration · D-15 sandboxes</div></div>"
     },
     {
      "selector": "#backend-oracle",
-     "title": "Oracle backend",
-     "content": "The GPU1 backend — heavy reasoning on the Oracle tier (M075). Where the router sends the hardest prompts.",
-     "expanded": "<div class=\"so-card info\"><div class='so-li no'>✗ If a backend is down, the rules still classify but have nowhere to send — requests stall or fall back.</div></div>"
-    },
-    {
-     "selector": "#backend-row",
-     "title": "Backend row",
-     "content": "The three backends side by side — the at-a-glance health of where requests can go."
+     "title": "Oracle-Core backend",
+     "content": "The Blackwell backend — full-precision/NVFP4 deep reasoning. Where the hardest prompts route, after the router (or an escalation) decides they need depth.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Oracle-Core backend</div>The Oracle tier as a route target — the most expensive cognition, used sparingly.<div class=\"so-xref\"><span class=\"x\">→</span> D-03 Oracle · the escalation ladde</div></div>"
     }
    ]
   },
   {
    "icon": "◫",
-   "title": "Rules & metrics",
-   "content": "The deterministic rule set that classifies each prompt, and the live counts of where requests actually landed.",
+   "title": "Routing rules & counts",
+   "content": "The SDD-011 rules that classify a prompt to a tier (first match wins) and the live counts of where prompts landed. Rules are policy; counts are reality.",
    "children": [
     {
-     "selector": "#rules-tbody",
-     "title": "Routing rules (SDD-011)",
-     "content": "The deterministic, first-match-wins rules deciding which tier answers a prompt. The same prompt routes the same way every time — that determinism is the point.",
-     "expanded": "<div class=\"so-card info\"><div>Pairs with the thinking-router planner (router plan) — this is the live rule set; the planner is the what-if.</div></div>"
+     "selector": "#rules-table",
+     "title": "Routing rules",
+     "content": "The SDD-011 rule table. Rules are evaluated top-down, first-match-wins — so order matters, and a broad rule near the top can shadow specific ones below it.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">First-match-wins</div>The router walks the rules top to bottom and takes the first that matches. It's deterministic (same prompt → same route) and order-sensitive — a catch-all early shadows everything after it.<div class=\"so-xref\"><span class=\"x\">→</span> orchestration panel — the same rules with live metrics</div></div>"
     },
     {
-     "selector": "#rules-table",
-     "title": "Rules table",
-     "content": "The full rule set laid out — each classification rule and its target backend, in priority order."
+     "selector": "#rules-tbody",
+     "title": "Rule rows",
+     "content": "Each rule: a match condition and the tier it routes to. Hover for what the rule matches and where it sends. A prompt takes the first rule that fits."
     },
     {
      "selector": "#metrics-tbody",
      "title": "Route counts",
-     "content": "Per-rule routing-decision counts (Layer B textfile collector) — which rules are actually firing. A rule with zero hits is dead or shadowed by an earlier rule.",
-     "expanded": "<div class=\"so-card info\"><div>The feedback loop for the rules: if everything escalates to Oracle, either the rules or the prompts are heavier than intended.</div></div>"
+     "content": "Live counts of where prompts actually routed, per tier (Layer B textfile collector — scraped from the counter files, not a live tap). This is the feedback loop on the rules: if everything lands on Oracle the rules or the prompts are heavier than intended; if Pulse stays near-zero the cheap tier is being bypassed and every prompt is paying for depth it may not need.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Rules are policy; counts are reality</div>The rule table says where prompts SHOULD go; this table says where they actually WENT. Read them together — a mismatch means the rules no longer reflect the real prompt mix.<div class=\"so-xref\"><span class=\"x\">→</span> rules table above — the policy these counts measure<br><span class=\"x\">→</span> D-04 costs — an Oracle-heavy skew shows up here as spend</div></div>"
+    }
+   ]
+  },
+  {
+   "icon": "⟳",
+   "title": "Refresh",
+   "content": "Re-poll on demand; read-only.",
+   "children": [
+    {
+     "selector": "#refresh-btn",
+     "title": "Refresh all",
+     "content": "Re-poll every table on this panel now — a read-only re-sample. It re-reads state; it never mutates the box or re-runs a route."
+    },
+    {
+     "selector": "#last-refresh",
+     "title": "Refresh freshness",
+     "content": "When this was last read; check before trusting a value as current."
     }
    ]
   },
   {
    "icon": "⎈",
-   "title": "Actions & controls",
-   "content": "",
+   "title": "Controls",
+   "content": "Read-only — mutations copy signed sovereign-osctl verbs (§1g / R10212).",
    "children": [
-    {
-     "selector": "#refresh-btn",
-     "title": "Refresh",
-     "content": "Pull a fresh read of rules, backends, and counts. Read-only."
-    },
-    {
-     "selector": "#last-refresh",
-     "title": "Last refresh",
-     "content": "When the router state was last read — check this before trusting a routing decision as current."
-    },
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Router controls — each copies its sovereign-osctl verb (§1g / R10212). Read-only view."
+     "content": "Controls — each copies its exact sovereign-osctl verb. Router config runs through the signed CLI, never from the web (§1g / R10212)."
     }
    ]
   }

@@ -125,10 +125,16 @@
   .so-node-expanded{margin-top:.55rem; padding-top:.55rem; border-top:1px solid rgba(155,209,255,.13); font-size:.78rem; line-height:1.6; color:var(--muted,#a8a8a8); white-space:pre-line;}
   /* rich expanded cards */
   .so-card{border:1px solid var(--border,#262626); border-radius:7px; padding:.55rem .65rem; margin-top:.45rem; background:var(--bg,#0e0e0e); white-space:normal; line-height:1.55;}
-  .so-card.info{border-color:rgba(155,209,255,.28);}
+  .so-card.info{border-color:rgba(155,209,255,.28); background:rgba(155,209,255,.035);}
+  .so-card.ok{border-color:rgba(127,209,143,.34); background:rgba(127,209,143,.045);}
+  .so-card.warn{border-color:rgba(224,192,122,.38); background:rgba(224,192,122,.05);}
+  .so-card.err{border-color:rgba(224,138,138,.4); background:rgba(224,138,138,.055);}
+  .so-card-label{font-weight:600; font-size:.79rem; margin-bottom:.3rem;}
+  .so-card.ok .so-card-label{color:#7fd18f;} .so-card.warn .so-card-label{color:#e0c07a;} .so-card.err .so-card-label{color:#e08a8a;} .so-card.info .so-card-label{color:var(--accent,#9bd1ff);}
   .so-grid{display:grid; grid-template-columns:auto 1fr; gap:.22rem .6rem; margin:.35rem 0; font-size:.76rem; white-space:normal;}
   .so-grid .k{color:var(--accent,#9bd1ff); font-weight:500;}
-  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;}
+  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;} .so-li .warn{color:#e0c07a;}
+  .so-xref{margin-top:.4rem; font-size:.76rem; color:var(--fg-2,#c8c8c8);} .so-xref .x{color:var(--accent,#9bd1ff); font-weight:500;}
   .so-tip{margin-top:.4rem; font-size:.77rem; color:var(--muted,#a8a8a8);}
   .so-assist-idle{color:var(--muted,#8a8a8a); font-style:italic; padding:.4rem 0;}
   /* highlight the hovered/focused element in the panel content */
@@ -289,25 +295,38 @@
       return {ctx:ctx, nodes:nodes}; })();
     // flatten deepest-first with parent chains
     var FLAT=[]; (function flat(list,chain){ (list||[]).forEach(function(n){ if(n.children&&n.children.length) flat(n.children,chain.concat([n])); FLAT.push({node:n,parents:chain.slice()}); }); })(CAT.nodes,[]);
+    // {{name}} interpolation for dynamic-row templates
+    function interp(s,name){ return (name==null)?(s||''):String(s||'').replace(/\{\{name\}\}/g,name); }
+    // derive a live row's label (nameSelector, then a strong/cell/code heuristic, then text)
+    function rowName(row,ct){ var t=''; if(ct.nameSelector){ try{ var e=row.querySelector(ct.nameSelector); if(e) t=e.textContent||''; }catch(x){} }
+      if(!t){ var s=row.querySelector('strong,code,th,.k,td'); if(s) t=s.textContent||''; }
+      if(!t) t=row.textContent||''; return t.replace(/\s+/g,' ').trim().slice(0,64); }
+    // synthesize a node from a childTemplate bound to one live row
+    function synthRow(n,row){ var ct=n.childTemplate, nm=rowName(row,ct);
+      return {id:n.id, icon:ct.icon||n.icon, title:interp(ct.title||n.title||'{{name}}',nm), content:ct.content||'', expanded:ct.expanded||'', variants:ct.variants, _name:nm}; }
     // variant resolution against the matched element (state-awareness)
     function resolveVar(node,el){ if(!node.variants||!node.variants.length||!el) return node;
       for(var i=0;i<node.variants.length;i++){ var v=node.variants[i], w=v.when||{}, ok=true;
-        if(w.textContains && (el.textContent||'').indexOf(w.textContains)<0) ok=false;
+        if(w.textContains && (el.textContent||'').toLowerCase().indexOf(String(w.textContains).toLowerCase())<0) ok=false;
         if(ok&&w.hasSelector){ try{ if(!el.querySelector(w.hasSelector)) ok=false; }catch(e){ ok=false; } }
-        if(ok) return {id:node.id,title:v.title||node.title,icon:node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded)}; }
+        if(ok) return {id:node.id,title:v.title||node.title,icon:v.icon||node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded),_name:node._name}; }
       return node; }
-    // match a hovered element to the deepest catalogue node
+    // match a hovered element to the deepest catalogue node (static node OR dynamic row)
     function matchNode(el){ var best=null,bd=-1;
-      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node,m=false,tgt=null; if(!n.selector) continue;
-        try{ if(el.matches(n.selector)){m=true;tgt=el;}
-          else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
-        if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node;
+        if(n.selector){ var m=false,tgt=null;
+          try{ if(el.matches(n.selector)){m=true;tgt=el;}
+            else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
+          if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+        if(n.dynamic && n.childTemplate && n.childTemplate.selector){ try{ var row=el.closest(n.childTemplate.selector);
+          if(row){ var d2=e.parents.length+1; if(d2>bd){ bd=d2; best={entry:{node:synthRow(n,row),parents:e.parents.concat([n])},el:row}; } } }catch(y){} } }
       return best; }
     function ctxHtml(){ var c=CAT.ctx; return '<div class="so-ctx"><div class="so-ctx-title">'+(c.icon?esc(c.icon)+' ':'')+esc(c.title||'')+'</div><div class="so-ctx-content">'+esc(c.content||'')+'</div></div>'; }
-    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node;
-      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(r.title||'')+'</div>';
-      h+='<div class="so-node-content">'+esc(r.content||'')+'</div>';
-      if(active && r.expanded) h+='<div class="so-node-expanded">'+r.expanded+'</div>';   // expanded = trusted authored HTML
+    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node, nm=(node._name!=null?node._name:null);
+      var title=interp(r.title||'',nm), cont=interp(r.content||'',nm), exp=interp(r.expanded||'',nm);
+      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(title)+'</div>';
+      h+='<div class="so-node-content">'+esc(cont)+'</div>';
+      if(active && exp) h+='<div class="so-node-expanded">'+exp+'</div>';   // expanded = trusted authored HTML
       return h+'</div>'; }
     var lastHot=null, lastMatched=null;
     function clearHot(){ if(lastHot){ lastHot.classList.remove('so-assist-hot'); lastHot=null; } }
@@ -326,7 +345,7 @@
     // menu links → surface the target panel's context (program-awareness: horizontal jump)
     Array.prototype.forEach.call(document.querySelectorAll('.so-sm-item'),function(it){ var p=findPanel(it.dataset.dir); if(!p) return;
       function show(){ openAssist(); clearHot(); lastMatched=null; it.classList.add('so-assist-hot'); lastHot=it; var here=it.dataset.dir===curDir();
-        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+esc(p.desc||'')+'</div></div>'+
+        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+(p.menuHover?p.menuHover:esc(p.desc||''))+'</div></div>'+
           '<div class="so-assist-idle">'+(here?'You’re on this panel now — hover its contents to explore.':'Click to open this panel.')+'</div>'; }
       it.addEventListener('mouseenter',show); it.addEventListener('focus',show); });
     idle();
@@ -968,159 +987,311 @@ load();
 <script>
 window.SO_ASSIST = {
  "context": {
-  "icon": "⚑",
-  "title": "Flash to USB",
-  "content": "The USB image writer — pick a built image, pick a target block device, and write it. A three-step armed flow (image → device → run) with a mandatory dry-run Plan before the destructive Flash.\n\nSafety is the whole design: the system disks can NEVER be selected, and Flash stays disarmed until you type the exact device path to confirm. Read the arm banner before you run."
+  "icon": "◫",
+  "title": "Flash",
+  "content": "Where a built image is written to a real device — and the most destructive act in the cockpit. Flashing irreversibly wipes the entire target device, so the whole panel is a safety interlock. You flash only images you have already booted in the emulate panel, because a broken image discovered on hardware costs a full re-flash.\n\nThe three steps enforce care: pick the image (check its checksum), pick the target device, then run. Plan is a free dry-run that writes nothing and confirms you targeted the right disk. The real Flash unlocks only after you ARM — re-typing the device's exact path, matched against its fingerprint (size, model, serial, so /dev/sdX renumbering cannot fool you). Disarmed means the device is safe; armed means the next click destroys it. Read the arm state before you click."
  },
  "nodes": [
   {
    "icon": "◆",
    "title": "Status",
-   "content": "Whether the flasher probed the system and is ready.",
+   "content": "The flash workflow state — this panel writes the built image to a REAL device, which irreversibly wipes it. The whole design is safety: you cannot flash until you arm with the exact device path.",
    "children": [
     {
      "selector": "#status",
-     "title": "Flasher status",
-     "content": "Whether the flash tool is ready — image found and block devices probed. The system disks are excluded from selection by design, so you can't wipe the boot drive.",
+     "title": "Flash status",
+     "content": "Where you are in the flash workflow. Flashing is destructive and irreversible — it wipes the target device entirely — so this panel gates every step behind confirmation.",
      "variants": [
       {
        "when": {
-        "textContains": "loading"
+        "textContains": "flashing"
        },
-       "content": "Probing — enumerating the built image and target block devices."
+       "content": "Flashing in progress — do not remove the device or interrupt power until it completes.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ Flashing</div>Writing to the device now — an interrupt here can leave the device unbootable. Let it finish.</div>"
       },
       {
        "when": {
-        "textContains": "ready"
+        "textContains": "done"
        },
-       "content": "Ready — an image and at least one safe target device are available."
+       "content": "Flash complete — the device holds the image and can be booted or emulated.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Flash complete</div>The device is written. Verify by booting it, or emulate the same image first next time.</div>"
       }
      ]
     }
    ]
   },
   {
-   "icon": "▤",
+   "icon": "▦",
    "title": "1 · Image",
-   "content": "The built image that will be written.",
+   "content": "The image to write. This should be an image you already booted successfully in the emulate panel — flashing an untested image to hardware is how you brick a device.",
    "children": [
     {
      "selector": "#image",
      "title": "Image",
-     "content": "The built OS image to write — the source of the flash. If none is found, build one first; you can't flash what doesn't exist.",
-     "variants": [
-      {
-       "when": {
-        "textContains": "no built"
-       },
-       "content": "No built image found — build an image before flashing; there's nothing to write yet."
-      }
-     ]
+     "content": "The disk image to flash. Flash only what you have verified: boot it in the emulate panel first, because a broken image discovered on real hardware costs a re-flash and a reboot cycle."
     },
     {
      "selector": "#image-meta",
-     "title": "Image detail",
-     "content": "The image's metadata — size, build id, so you confirm you're writing the image you intend, not a stale one."
+     "title": "Image metadata",
+     "content": "The image's size, checksum, and build info. Read the checksum — flashing a corrupted image wastes the whole write; the metadata is your pre-flight check."
     }
    ]
   },
   {
-   "icon": "▤",
+   "icon": "⊞",
    "title": "2 · Target device",
-   "content": "The USB device that will be overwritten.",
+   "content": "The device to write to — and the most dangerous choice on the panel. Picking the wrong device wipes the wrong disk, which is why flashing requires arming with the device's exact path and fingerprint.",
    "children": [
     {
      "selector": "#devices",
      "title": "Target device",
-     "content": "The block device to write to — USB targets only. System disks are filtered out and cannot be chosen, so the boot drive is never a valid target.",
-     "expanded": "<div class=\"so-card info\"><div class='so-li ok'>✓ System disks are excluded here by design — the destructive write can only ever land on a removable target.</div></div>"
+     "content": "The device to flash. Choose carefully: flashing wipes the ENTIRE device. The arm step below makes you re-type this path precisely so a mis-click cannot destroy the wrong disk.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">The wrong device is the real risk</div>The image write is destructive to the whole target — every partition, gone. This is why the workflow forces an explicit arm: you must type the device path to confirm, so selecting the wrong device is not enough to lose data.</div><div class=\"so-xref\"><span class=\"x\">→</span> the arm step below — the fingerprint gate that prevents wiping the wrong disk</div>"
     }
    ]
   },
   {
    "icon": "⚠",
-   "title": "3 · Run",
-   "content": "Dry-run Plan first, then the armed destructive Flash.",
+   "title": "3 · Run (armed)",
+   "content": "Plan is a dry-run that writes nothing; Flash is the real, irreversible write — and it only unlocks after you arm by typing the exact device path. This is the safety interlock: destructive by design, gated by confirmation.",
    "children": [
     {
      "selector": "#btn-plan",
      "title": "Plan (dry-run)",
-     "content": "Previews exactly what the flash would do — writes NOTHING. Always run this first to confirm the target and image before the destructive step.",
-     "expanded": "<div class=\"so-card info\"><div class='so-li ok'>✓ Plan is non-destructive — it shows the write plan so there are no surprises when you arm Flash.</div></div>"
-    },
-    {
-     "selector": "#btn-flash",
-     "title": "Flash (destructive)",
-     "content": "Writes the image to the device — irreversibly wipes it. Stays disabled until you arm it by typing the exact device path.",
-     "expanded": "<div class=\"so-card info\"><div class='so-li no'>✗ This is the point of no return — it overwrites the whole target device. The arm gate below is what stands between you and an accidental wipe.</div></div>"
-    },
-    {
-     "selector": "#btn-cancel",
-     "title": "Cancel",
-     "content": "Aborts an in-progress run. Available once a flash is running."
-    },
-    {
-     "selector": "#run-status",
-     "title": "Run status",
-     "content": "The live state of the flash operation — idle, planning, armed, writing, done, or failed."
+     "content": "Previews the flash — what would be written where — WITHOUT touching the device. Always plan first: it is free, it writes nothing, and it confirms you targeted the right device before anything is destroyed.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Plan writes nothing</div>The dry-run computes and shows the exact operations — device, size, checksum — without executing them. It is the free rehearsal before a destructive act; read its output, confirm the device is the one you mean, then arm.</div>"
     },
     {
      "selector": "#arm",
-     "title": "Arm banner",
-     "content": "The safety gate — 'ARM TO FLASH'. Spells out exactly which device will be irreversibly wiped before you can proceed.",
-     "expanded": "<div class=\"so-card info\"><div class='so-li no'>✗ Read this line — it names the device that's about to be destroyed. This is the last checkpoint.</div></div>"
+     "title": "Arm gate",
+     "content": "The arming panel — hidden until you are ready to do the destructive write. It names the exact device that will be wiped and requires you to type its path to proceed. This is the interlock between 'selected' and 'destroyed'.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Arm = deliberate confirmation</div>Selecting a device is not enough to flash it. The arm gate makes you re-type the device path, matching its fingerprint, before Flash unlocks — a deliberate second act so an accidental click cannot wipe a disk.</div>"
     },
     {
      "selector": "#arm-dev",
-     "title": "Device to wipe",
-     "content": "The specific device the arm gate will wipe — named explicitly so you confirm it's the USB, not something else."
+     "title": "Armed device",
+     "content": "The exact device the flash will irreversibly wipe. Read it once more here — this is the last human-readable statement of what is about to be destroyed before you confirm."
     },
     {
      "selector": "#arm-fp",
      "title": "Device fingerprint",
-     "content": "The target's fingerprint (model/serial) — a second confirmation that the device path maps to the physical stick you mean."
+     "content": "The target device's fingerprint — a unique identifier (size + model + serial) that pins WHICH physical device this is. It exists so you confirm the right disk, not just a path that might have shifted (/dev/sdX can renumber).",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why a fingerprint, not just /dev/sdX</div>Device paths like /dev/sdb can change between plugs. The fingerprint (size, model, serial) identifies the actual physical device, so arming confirms the disk itself — not a path that might now point somewhere else.</div>"
     },
     {
      "selector": "#arm-input",
      "title": "Confirm path",
-     "content": "Type the exact device path here to arm Flash — a deliberate friction step so a destructive write is never one accidental click.",
-     "expanded": "<div class=\"so-card info\"><div>Typing the path by hand is the safety: muscle memory can't arm this, only intent can.</div></div>"
+     "content": "Type the device path here to arm. This deliberate re-typing is the interlock: you cannot flash on a click alone; you must prove you know exactly which device by naming it."
     },
     {
      "selector": "#arm-state",
      "title": "Arm state",
-     "content": "Whether Flash is armed or disarmed — the current position of the safety.",
+     "content": "Whether the flash is armed or disarmed. Disarmed = Flash is locked and the device is safe; armed = the next Flash click will irreversibly write. Read it before clicking Flash.",
      "variants": [
-      {
-       "when": {
-        "textContains": "disarmed"
-       },
-       "content": "Disarmed — Flash is locked; type the device path to arm."
-      },
       {
        "when": {
         "textContains": "armed"
        },
-       "content": "ARMED — Flash is live and will wipe the target on run."
+       "content": "ARMED — the next Flash click will irreversibly wipe the device.",
+       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ ARMED</div>The safety is off — Flash will destroy the target device now. Confirm the device one last time.</div>"
+      },
+      {
+       "when": {
+        "textContains": "disarmed"
+       },
+       "content": "Disarmed — Flash is locked; the device is safe.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Disarmed</div>Safe — Flash is locked until you arm with the device path.</div>"
       }
      ]
     },
     {
+     "selector": "#btn-flash",
+     "title": "Flash (destructive)",
+     "content": "The real write — irreversibly wipes the armed device and writes the image. Locked until armed. Once it starts, do not interrupt power or remove the device: an interrupted flash can leave the device unbootable."
+    },
+    {
+     "selector": "#btn-cancel",
+     "title": "Cancel",
+     "content": "Aborts the workflow and disarms. Safe at any point before the write begins; use it the moment anything looks wrong."
+    },
+    {
+     "selector": "#run-status",
+     "title": "Run status",
+     "content": "The live state of the flash run — planning, writing, verifying. Read it during a flash; do not disturb the device until it reports complete."
+    },
+    {
      "selector": "#run-log",
      "title": "Run log",
-     "content": "The live output of the flash run — progress and any errors, streamed as it writes."
+     "content": "The detailed flash log — every step of plan or write. Read it to confirm a successful flash or to diagnose a failed one; this is the record of what actually happened to the device."
     }
    ]
   },
   {
    "icon": "⎈",
    "title": "Controls",
-   "content": "",
+   "content": "Read-only view — mutations copy signed sovereign-osctl verbs (§1g / R10212). The web previews; the box changes only when you run the signed command.",
    "children": [
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Profile / mode / feature-toggle controls — each copies its sovereign-osctl verb (§1g / R10212). This view reads state; every mutation runs via the signed CLI, never from the browser."
+     "content": "The control rail — each button copies its exact sovereign-osctl verb. The flash write runs through the signed CLI, never from a web click."
+    }
+   ]
+  }
+ ]
+};
+</script>
+<script>
+window.SO_ASSIST = {
+ "context": {
+  "icon": "◫",
+  "title": "Flash",
+  "content": "Where a built image is written to a real device — and the most destructive act in the cockpit. Flashing irreversibly wipes the entire target device, so the whole panel is a safety interlock. You flash only images you have already booted in the emulate panel, because a broken image discovered on hardware costs a full re-flash.\n\nThe three steps enforce care: pick the image (check its checksum), pick the target device, then run. Plan is a free dry-run that writes nothing and confirms you targeted the right disk. The real Flash unlocks only after you ARM — re-typing the device's exact path, matched against its fingerprint (size, model, serial, so /dev/sdX renumbering cannot fool you). Disarmed means the device is safe; armed means the next click destroys it. Read the arm state before you click."
+ },
+ "nodes": [
+  {
+   "icon": "◆",
+   "title": "Status",
+   "content": "The flash workflow state — this panel writes the built image to a REAL device, which irreversibly wipes it. The whole design is safety: you cannot flash until you arm with the exact device path.",
+   "children": [
+    {
+     "selector": "#status",
+     "title": "Flash status",
+     "content": "Where you are in the flash workflow. Flashing is destructive and irreversible — it wipes the target device entirely — so this panel gates every step behind confirmation.",
+     "variants": [
+      {
+       "when": {
+        "textContains": "flashing"
+       },
+       "content": "Flashing in progress — do not remove the device or interrupt power until it completes.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ Flashing</div>Writing to the device now — an interrupt here can leave the device unbootable. Let it finish.</div>"
+      },
+      {
+       "when": {
+        "textContains": "done"
+       },
+       "content": "Flash complete — the device holds the image and can be booted or emulated.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Flash complete</div>The device is written. Verify by booting it, or emulate the same image first next time.</div>"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "icon": "▦",
+   "title": "1 · Image",
+   "content": "The image to write. This should be an image you already booted successfully in the emulate panel — flashing an untested image to hardware is how you brick a device.",
+   "children": [
+    {
+     "selector": "#image",
+     "title": "Image",
+     "content": "The disk image to flash. Flash only what you have verified: boot it in the emulate panel first, because a broken image discovered on real hardware costs a re-flash and a reboot cycle."
+    },
+    {
+     "selector": "#image-meta",
+     "title": "Image metadata",
+     "content": "The image's size, checksum, and build info. Read the checksum — flashing a corrupted image wastes the whole write; the metadata is your pre-flight check."
+    }
+   ]
+  },
+  {
+   "icon": "⊞",
+   "title": "2 · Target device",
+   "content": "The device to write to — and the most dangerous choice on the panel. Picking the wrong device wipes the wrong disk, which is why flashing requires arming with the device's exact path and fingerprint.",
+   "children": [
+    {
+     "selector": "#devices",
+     "title": "Target device",
+     "content": "The device to flash. Choose carefully: flashing wipes the ENTIRE device. The arm step below makes you re-type this path precisely so a mis-click cannot destroy the wrong disk.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">The wrong device is the real risk</div>The image write is destructive to the whole target — every partition, gone. This is why the workflow forces an explicit arm: you must type the device path to confirm, so selecting the wrong device is not enough to lose data.</div><div class=\"so-xref\"><span class=\"x\">→</span> the arm step below — the fingerprint gate that prevents wiping the wrong disk</div>"
+    }
+   ]
+  },
+  {
+   "icon": "⚠",
+   "title": "3 · Run (armed)",
+   "content": "Plan is a dry-run that writes nothing; Flash is the real, irreversible write — and it only unlocks after you arm by typing the exact device path. This is the safety interlock: destructive by design, gated by confirmation.",
+   "children": [
+    {
+     "selector": "#btn-plan",
+     "title": "Plan (dry-run)",
+     "content": "Previews the flash — what would be written where — WITHOUT touching the device. Always plan first: it is free, it writes nothing, and it confirms you targeted the right device before anything is destroyed.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Plan writes nothing</div>The dry-run computes and shows the exact operations — device, size, checksum — without executing them. It is the free rehearsal before a destructive act; read its output, confirm the device is the one you mean, then arm.</div>"
+    },
+    {
+     "selector": "#arm",
+     "title": "Arm gate",
+     "content": "The arming panel — hidden until you are ready to do the destructive write. It names the exact device that will be wiped and requires you to type its path to proceed. This is the interlock between 'selected' and 'destroyed'.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Arm = deliberate confirmation</div>Selecting a device is not enough to flash it. The arm gate makes you re-type the device path, matching its fingerprint, before Flash unlocks — a deliberate second act so an accidental click cannot wipe a disk.</div>"
+    },
+    {
+     "selector": "#arm-dev",
+     "title": "Armed device",
+     "content": "The exact device the flash will irreversibly wipe. Read it once more here — this is the last human-readable statement of what is about to be destroyed before you confirm."
+    },
+    {
+     "selector": "#arm-fp",
+     "title": "Device fingerprint",
+     "content": "The target device's fingerprint — a unique identifier (size + model + serial) that pins WHICH physical device this is. It exists so you confirm the right disk, not just a path that might have shifted (/dev/sdX can renumber).",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why a fingerprint, not just /dev/sdX</div>Device paths like /dev/sdb can change between plugs. The fingerprint (size, model, serial) identifies the actual physical device, so arming confirms the disk itself — not a path that might now point somewhere else.</div>"
+    },
+    {
+     "selector": "#arm-input",
+     "title": "Confirm path",
+     "content": "Type the device path here to arm. This deliberate re-typing is the interlock: you cannot flash on a click alone; you must prove you know exactly which device by naming it."
+    },
+    {
+     "selector": "#arm-state",
+     "title": "Arm state",
+     "content": "Whether the flash is armed or disarmed. Disarmed = Flash is locked and the device is safe; armed = the next Flash click will irreversibly write. Read it before clicking Flash.",
+     "variants": [
+      {
+       "when": {
+        "textContains": "armed"
+       },
+       "content": "ARMED — the next Flash click will irreversibly wipe the device.",
+       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ ARMED</div>The safety is off — Flash will destroy the target device now. Confirm the device one last time.</div>"
+      },
+      {
+       "when": {
+        "textContains": "disarmed"
+       },
+       "content": "Disarmed — Flash is locked; the device is safe.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Disarmed</div>Safe — Flash is locked until you arm with the device path.</div>"
+      }
+     ]
+    },
+    {
+     "selector": "#btn-flash",
+     "title": "Flash (destructive)",
+     "content": "The real write — irreversibly wipes the armed device and writes the image. Locked until armed. Once it starts, do not interrupt power or remove the device: an interrupted flash can leave the device unbootable."
+    },
+    {
+     "selector": "#btn-cancel",
+     "title": "Cancel",
+     "content": "Aborts the workflow and disarms. Safe at any point before the write begins; use it the moment anything looks wrong."
+    },
+    {
+     "selector": "#run-status",
+     "title": "Run status",
+     "content": "The live state of the flash run — planning, writing, verifying. Read it during a flash; do not disturb the device until it reports complete."
+    },
+    {
+     "selector": "#run-log",
+     "title": "Run log",
+     "content": "The detailed flash log — every step of plan or write. Read it to confirm a successful flash or to diagnose a failed one; this is the record of what actually happened to the device."
+    }
+   ]
+  },
+  {
+   "icon": "⎈",
+   "title": "Controls",
+   "content": "Read-only view — mutations copy signed sovereign-osctl verbs (§1g / R10212). The web previews; the box changes only when you run the signed command.",
+   "children": [
+    {
+     "selector": "#control-surface",
+     "title": "Controls rail",
+     "content": "The control rail — each button copies its exact sovereign-osctl verb. The flash write runs through the signed CLI, never from a web click."
     }
    ]
   }

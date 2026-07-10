@@ -498,10 +498,16 @@ a11y; contract test catches drift.
   .so-node-expanded{margin-top:.55rem; padding-top:.55rem; border-top:1px solid rgba(155,209,255,.13); font-size:.78rem; line-height:1.6; color:var(--muted,#a8a8a8); white-space:pre-line;}
   /* rich expanded cards */
   .so-card{border:1px solid var(--border,#262626); border-radius:7px; padding:.55rem .65rem; margin-top:.45rem; background:var(--bg,#0e0e0e); white-space:normal; line-height:1.55;}
-  .so-card.info{border-color:rgba(155,209,255,.28);}
+  .so-card.info{border-color:rgba(155,209,255,.28); background:rgba(155,209,255,.035);}
+  .so-card.ok{border-color:rgba(127,209,143,.34); background:rgba(127,209,143,.045);}
+  .so-card.warn{border-color:rgba(224,192,122,.38); background:rgba(224,192,122,.05);}
+  .so-card.err{border-color:rgba(224,138,138,.4); background:rgba(224,138,138,.055);}
+  .so-card-label{font-weight:600; font-size:.79rem; margin-bottom:.3rem;}
+  .so-card.ok .so-card-label{color:#7fd18f;} .so-card.warn .so-card-label{color:#e0c07a;} .so-card.err .so-card-label{color:#e08a8a;} .so-card.info .so-card-label{color:var(--accent,#9bd1ff);}
   .so-grid{display:grid; grid-template-columns:auto 1fr; gap:.22rem .6rem; margin:.35rem 0; font-size:.76rem; white-space:normal;}
   .so-grid .k{color:var(--accent,#9bd1ff); font-weight:500;}
-  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;}
+  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;} .so-li .warn{color:#e0c07a;}
+  .so-xref{margin-top:.4rem; font-size:.76rem; color:var(--fg-2,#c8c8c8);} .so-xref .x{color:var(--accent,#9bd1ff); font-weight:500;}
   .so-tip{margin-top:.4rem; font-size:.77rem; color:var(--muted,#a8a8a8);}
   .so-assist-idle{color:var(--muted,#8a8a8a); font-style:italic; padding:.4rem 0;}
   /* highlight the hovered/focused element in the panel content */
@@ -662,25 +668,38 @@ a11y; contract test catches drift.
       return {ctx:ctx, nodes:nodes}; })();
     // flatten deepest-first with parent chains
     var FLAT=[]; (function flat(list,chain){ (list||[]).forEach(function(n){ if(n.children&&n.children.length) flat(n.children,chain.concat([n])); FLAT.push({node:n,parents:chain.slice()}); }); })(CAT.nodes,[]);
+    // {{name}} interpolation for dynamic-row templates
+    function interp(s,name){ return (name==null)?(s||''):String(s||'').replace(/\{\{name\}\}/g,name); }
+    // derive a live row's label (nameSelector, then a strong/cell/code heuristic, then text)
+    function rowName(row,ct){ var t=''; if(ct.nameSelector){ try{ var e=row.querySelector(ct.nameSelector); if(e) t=e.textContent||''; }catch(x){} }
+      if(!t){ var s=row.querySelector('strong,code,th,.k,td'); if(s) t=s.textContent||''; }
+      if(!t) t=row.textContent||''; return t.replace(/\s+/g,' ').trim().slice(0,64); }
+    // synthesize a node from a childTemplate bound to one live row
+    function synthRow(n,row){ var ct=n.childTemplate, nm=rowName(row,ct);
+      return {id:n.id, icon:ct.icon||n.icon, title:interp(ct.title||n.title||'{{name}}',nm), content:ct.content||'', expanded:ct.expanded||'', variants:ct.variants, _name:nm}; }
     // variant resolution against the matched element (state-awareness)
     function resolveVar(node,el){ if(!node.variants||!node.variants.length||!el) return node;
       for(var i=0;i<node.variants.length;i++){ var v=node.variants[i], w=v.when||{}, ok=true;
-        if(w.textContains && (el.textContent||'').indexOf(w.textContains)<0) ok=false;
+        if(w.textContains && (el.textContent||'').toLowerCase().indexOf(String(w.textContains).toLowerCase())<0) ok=false;
         if(ok&&w.hasSelector){ try{ if(!el.querySelector(w.hasSelector)) ok=false; }catch(e){ ok=false; } }
-        if(ok) return {id:node.id,title:v.title||node.title,icon:node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded)}; }
+        if(ok) return {id:node.id,title:v.title||node.title,icon:v.icon||node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded),_name:node._name}; }
       return node; }
-    // match a hovered element to the deepest catalogue node
+    // match a hovered element to the deepest catalogue node (static node OR dynamic row)
     function matchNode(el){ var best=null,bd=-1;
-      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node,m=false,tgt=null; if(!n.selector) continue;
-        try{ if(el.matches(n.selector)){m=true;tgt=el;}
-          else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
-        if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node;
+        if(n.selector){ var m=false,tgt=null;
+          try{ if(el.matches(n.selector)){m=true;tgt=el;}
+            else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
+          if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+        if(n.dynamic && n.childTemplate && n.childTemplate.selector){ try{ var row=el.closest(n.childTemplate.selector);
+          if(row){ var d2=e.parents.length+1; if(d2>bd){ bd=d2; best={entry:{node:synthRow(n,row),parents:e.parents.concat([n])},el:row}; } } }catch(y){} } }
       return best; }
     function ctxHtml(){ var c=CAT.ctx; return '<div class="so-ctx"><div class="so-ctx-title">'+(c.icon?esc(c.icon)+' ':'')+esc(c.title||'')+'</div><div class="so-ctx-content">'+esc(c.content||'')+'</div></div>'; }
-    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node;
-      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(r.title||'')+'</div>';
-      h+='<div class="so-node-content">'+esc(r.content||'')+'</div>';
-      if(active && r.expanded) h+='<div class="so-node-expanded">'+r.expanded+'</div>';   // expanded = trusted authored HTML
+    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node, nm=(node._name!=null?node._name:null);
+      var title=interp(r.title||'',nm), cont=interp(r.content||'',nm), exp=interp(r.expanded||'',nm);
+      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(title)+'</div>';
+      h+='<div class="so-node-content">'+esc(cont)+'</div>';
+      if(active && exp) h+='<div class="so-node-expanded">'+exp+'</div>';   // expanded = trusted authored HTML
       return h+'</div>'; }
     var lastHot=null, lastMatched=null;
     function clearHot(){ if(lastHot){ lastHot.classList.remove('so-assist-hot'); lastHot=null; } }
@@ -699,7 +718,7 @@ a11y; contract test catches drift.
     // menu links → surface the target panel's context (program-awareness: horizontal jump)
     Array.prototype.forEach.call(document.querySelectorAll('.so-sm-item'),function(it){ var p=findPanel(it.dataset.dir); if(!p) return;
       function show(){ openAssist(); clearHot(); lastMatched=null; it.classList.add('so-assist-hot'); lastHot=it; var here=it.dataset.dir===curDir();
-        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+esc(p.desc||'')+'</div></div>'+
+        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+(p.menuHover?p.menuHover:esc(p.desc||''))+'</div></div>'+
           '<div class="so-assist-idle">'+(here?'You’re on this panel now — hover its contents to explore.':'Click to open this panel.')+'</div>'; }
       it.addEventListener('mouseenter',show); it.addEventListener('focus',show); });
     idle();
@@ -1540,190 +1559,487 @@ a11y; contract test catches drift.
 <script>
 window.SO_ASSIST = {
  "context": {
-  "icon": "◵",
+  "icon": "◈",
   "title": "D-07 · Memory Changes",
-  "content": "The M028 memory system's write surface — the 8 memory types, the 11-stage admission lifecycle a new memory walks, the 7 trust-dimension filters, the recent graph diff, and the changes waiting on your approval.\n\nThe web only EMITS CLI; the daemon executes after an MS003 signature (MS043 R10212 — web-never-mutates). Nothing here writes memory directly."
+  "content": "The window into the box's memory OS (M028) — the eight-tier store (E0260) that is the difference between an agent that repeats your corrections and one that remembers them. Every candidate memory walks an 11-stage admission lifecycle (E0264) and is trust-filtered on seven dimensions (M060) before it is kept, so the store stays signal rather than noise.\n\nRead it to see how full each tier is, what changed in the last 24h, and what memory mutations are waiting on your signature. The RLM navigator (SDD-068) lets you ask the graph a question, read-only, and honest-defers if the local LM is down. Forgetting or force-admitting a memory is a signed act — the web only proposes."
  },
  "nodes": [
   {
    "icon": "◆",
-   "title": "Live-source banner",
-   "content": "Whether memory state is read live from the daemon or a snapshot.",
+   "title": "Data source",
+   "content": "Whether the memory panel is live from /api/d-07 or a snapshot — a forget/admit elsewhere would not show until refreshed.",
    "children": [
     {
-     "selector": "#datasource-banner",
+     "selector": "#ds-state-label",
      "title": "Live vs snapshot",
-     "content": "Green = the D-07 daemon is answering live; muted = a snapshot. Memory changes moment to moment, so freshness matters here.",
+     "content": "Green = the daemon is answering live; muted = a cached snapshot. The whole memory view is read from the M028 store — a snapshot can show state that an apply has already superseded, so check this before trusting a value as current.",
+     "icon": "◆",
      "variants": [
+      {
+       "when": {
+        "textContains": "connecting"
+       },
+       "content": "Connecting — reaching the daemon; the values below are not confirmed live yet.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Connecting</div>Waiting on the API — treat the numbers as unconfirmed until this goes green.</div>"
+      },
       {
        "when": {
         "textContains": "live"
        },
-       "content": "Live — the memory state is current."
+       "content": "Live — the values below reflect real state right now.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Live</div>The daemon is answering; everything on the panel is current.</div>"
       },
       {
        "when": {
-        "textContains": "snapshot"
+        "textContains": "offline"
        },
-       "content": "Snapshot — the daemon is unreachable; entries may have been admitted or forgotten since this was captured."
+       "content": "Offline — showing the last snapshot; the box may have moved on since.",
+       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Offline</div>No live answer — this is a cached snapshot, possibly stale.</div>"
       }
      ]
     },
     {
-     "selector": "#ds-state-label",
-     "title": "Source label",
-     "content": "Which data source is feeding the panel — live daemon vs baked snapshot, in one word."
-    },
-    {
      "selector": "#ds-state-detail",
      "title": "Source detail",
-     "content": "The detail behind the source state — the endpoint and why it's live or fallen back to snapshot."
+     "content": "The longer status under the banner — which endpoint answered and any degraded note. Read it when the banner is amber."
     },
     {
      "selector": "#ds-last-update",
-     "title": "Fetch freshness",
-     "content": "When the memory state was last pulled — check before trusting a count or diff as 'now'."
+     "title": "Source freshness",
+     "content": "When the memory view was last read. A memory admitted or forgotten since then would not appear yet — so a stale time means the counts below may lag reality."
     }
    ]
   },
   {
    "icon": "▦",
-   "title": "Memory types (M028)",
-   "content": "The 8 kinds of memory the system holds — each stored and bounded differently.",
+   "title": "Memory types",
+   "content": "The M028 memory OS is not one store — it is eight tiers (E0260), each holding a different KIND of memory with its own admission and eviction rules. The counts show how full each tier is right now. Understanding which tier a memory lives in tells you how durable it is.",
    "children": [
     {
      "selector": "#t-working",
-     "title": "Working",
-     "content": "KV-bounded short-term items — the scratchpad the box reasons over right now. Bounded, so it sheds oldest under pressure."
+     "title": "Working memory",
+     "content": "The current task's scratch — active branches, local facts, tool outputs. KV-bounded, so it is the smallest and most volatile tier; it is evicted first under pressure. Type 1, M00459.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Working tier</div>This tier is one of the eight M028 memory kinds. What lives here has its own retention: working/KV churn fast, value/semantic persist. The count is items currently held.</div>"
     },
     {
      "selector": "#t-episodic",
-     "title": "Episodic",
-     "content": "Recorded episodes — sequences of what happened, the 'what did I do' trace."
+     "title": "Episodic memory",
+     "content": "Full traces — conversations, task attempts, failures, your corrections. This is the box's autobiography; it is what lets it not repeat a mistake you already corrected. Type 2, M00460."
     },
     {
      "selector": "#t-semantic",
-     "title": "Semantic",
-     "content": "Extracted facts — the distilled knowledge, decoupled from the episode it came from."
+     "title": "Semantic memory",
+     "content": "Distilled facts and knowledge, decoupled from when they were learned. Where an episodic trace becomes a reusable truth. This is what the RLM navigator queries for grounding."
     },
     {
      "selector": "#t-procedural",
-     "title": "Procedural",
-     "content": "Learned skills — the 'how to do X' memory, reusable across tasks."
+     "title": "Procedural memory",
+     "content": "Skills and how-to — the box's learned procedures, not facts. This is the difference between knowing a fact and knowing how to do a thing; it grows from repeated successful traces."
     },
     {
      "selector": "#t-temporal",
-     "title": "Temporal-Graph",
-     "content": "Nodes and edges over time — the relationship graph that lets the RLM navigator answer temporal queries."
+     "title": "Temporal memory",
+     "content": "Time-indexed recall — what was true WHEN. The temporal-query verbs (E0263) read this so the box can reason about change over time, not just current state."
     },
     {
      "selector": "#t-value",
-     "title": "Value",
-     "content": "Value-tagged items — memory weighted by importance, so pruning keeps what matters."
+     "title": "Value memory",
+     "content": "The ground-truth preservation layer (E0260/E0261) — the facts that must never be silently overwritten. This is the anti-drift tier: it is what a later trace is checked AGAINST, not blended into.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Value tier</div>This tier is one of the eight M028 memory kinds. What lives here has its own retention: working/KV churn fast, value/semantic persist. The count is items currently held.</div>"
     },
     {
      "selector": "#t-kv",
-     "title": "KV",
-     "content": "Raw cache entries — the fastest, least-structured tier."
+     "title": "KV cache",
+     "content": "The hot key/value cache — the fast, bounded working set the model reads directly. Distinct from working memory in that it is model-native (attention KV), not task-native. Bounded, so it churns.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">KV tier</div>This tier is one of the eight M028 memory kinds. What lives here has its own retention: working/KV churn fast, value/semantic persist. The count is items currently held.</div>"
     },
     {
      "selector": "#t-reward",
-     "title": "Reward",
-     "content": "Experience base — outcomes tagged for reinforcement, feeding what the box learns to prefer."
+     "title": "Reward memory",
+     "content": "The experience base — outcomes tagged with how they went, feeding the box's sense of what works. This is the substrate reinforcement reads; it is why good and bad outcomes are not treated the same next time."
     }
    ]
   },
   {
-   "icon": "≣",
-   "title": "Lifecycle, trust & diff",
-   "content": "How a memory is admitted, filtered by trust, and what recently changed.",
+   "icon": "⊞",
+   "title": "Admission lifecycle",
+   "content": "Nothing enters long-term memory directly — every candidate walks an 11-stage admission lifecycle (E0264) before it is kept. This is the quality gate on the box's memory: it is why memory does not fill with noise.",
    "children": [
     {
      "selector": "#lifecycle",
      "title": "11-stage admission lifecycle",
-     "content": "The M028 E0264 path a new memory walks before it's admitted (from proposed to committed). No memory enters the store without passing these gates.",
-     "expanded": "<div class=\"so-card info\"><div>The 11 stages are why memory admission is trustworthy — a proposed memory is vetted, not written on sight.</div></div>"
-    },
-    {
-     "selector": "#trust-filters",
-     "title": "7 trust-dimension filters",
-     "content": "The M060 R10095 + MS039 trust axes memory is filtered on — the dimensions that decide whether a memory is credible enough to keep."
-    },
-    {
-     "selector": "#profile-shape",
-     "title": "Profile shape",
-     "content": "The current trust-profile posture (e.g. private) — how strict the trust filtering is for this profile."
-    },
-    {
-     "selector": "#diff-scope",
-     "title": "Diff scope",
-     "content": "Which memory types the recent diff covers — the lens on the last 24h of change."
-    },
-    {
-     "selector": "#diff-base",
-     "title": "Diff base",
-     "content": "The base version the diff is measured from — the 'before' snapshot of the memory graph."
-    },
-    {
-     "selector": "#diff-head",
-     "title": "Diff head",
-     "content": "The head version the diff runs to — the 'after' snapshot. Base→head is the change window."
-    },
-    {
-     "selector": "#diff-stream",
-     "title": "Graph diff",
-     "content": "The recent memory-graph diff (latest 24h) — what was added, changed, or removed. The live pulse of how the box's memory is evolving."
+     "content": "The pipeline every memory candidate traverses before admission (M028 E0264) — from capture through scoring, dedup, trust-filtering, to commit or reject. A memory you see in the store earned its place by passing all eleven stages.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Memory is earned, not stored</div>Raw experience is captured, then scored, deduplicated against what is already known, trust-filtered (below), and only then admitted to a tier — or rejected. The lifecycle is why the store stays signal, not noise; a rejected candidate never becomes a memory.<div class=\"so-xref\"><span class=\"x\">→</span> the 8 memory tiles above are the destinations of this pipeline<br><span class=\"x\">→</span> the 7 trust filters below are one stage of it</div></div>"
     }
    ]
   },
   {
-   "icon": "◈",
-   "title": "Entries, query & approvals",
-   "content": "The addressable store, the RLM navigator, and changes awaiting your sign-off.",
+   "icon": "◎",
+   "title": "Trust filters",
+   "content": "One stage of admission is trust — a candidate is scored on 7 dimensions (M060 R10095 + MS039) before it is allowed in. This is what stops a poisoned or low-confidence memory from becoming ground truth.",
+   "children": [
+    {
+     "selector": "#trust-filters",
+     "title": "7 trust dimensions",
+     "content": "The seven trust dimensions a memory is filtered on (M060 R10095) — freshness and six others. A candidate weak on a dimension is down-weighted or rejected; this is the memory OS defending itself against drift and poisoning.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Seven ways a memory earns trust</div>Each dimension is an independent check — freshness, provenance, corroboration, and so on. A memory admitted despite a weak dimension is flagged; one failing hard is rejected. Together they are why the store can be trusted as ground truth.<div class=\"so-xref\"><span class=\"x\">→</span> D-18 trust scores — the same trust model applied to agents<br><span class=\"x\">→</span> the admission lifecycle above — trust is one of its eleven stages</div></div>"
+    },
+    {
+     "selector": "#profile-shape",
+     "title": "Trust profile shape",
+     "content": "The visual shape of the current trust weighting — which dimensions are weighted up or down right now. A lopsided shape means the box is currently trusting one dimension more than others; read it to see the active bias."
+    }
+   ]
+  },
+  {
+   "icon": "◫",
+   "title": "Recent graph diff",
+   "content": "What changed in the memory graph in the last 24h — admitted, forgotten, re-weighted. Memory is a living graph, not a log; this is the delta view of how it moved.",
+   "children": [
+    {
+     "selector": "#diff-scope",
+     "title": "Diff scope",
+     "content": "Which slice of the memory graph the diff covers. Narrow it to focus the change view on one tier or subgraph rather than the whole store."
+    },
+    {
+     "selector": "#diff-base",
+     "title": "Diff base",
+     "content": "The 'before' point the diff compares from. The diff below is base → head; move the base to see change over a longer window."
+    },
+    {
+     "selector": "#diff-head",
+     "title": "Diff head",
+     "content": "The 'after' point the diff compares to — usually now. Base → head is the change shown; a head in the past lets you inspect a historical change."
+    },
+    {
+     "selector": "#diff-stream",
+     "title": "Diff stream",
+     "content": "The live stream of graph changes — each admit / forget / re-weight as it lands. Read it to watch memory move in real time; a burst of forgets is worth understanding."
+    }
+   ]
+  },
+  {
+   "icon": "⚑",
+   "title": "Pending changes",
+   "content": "Memory changes waiting on your approval — the memory OS emits CLI, the daemon executes only after your MS003 signature (MS043 R10212). Nothing is forgotten or force-admitted without you.",
    "children": [
     {
      "selector": "#pending-changes",
-     "title": "Pending approvals",
-     "content": "Memory changes waiting on your approval — each with its trust delta and requester. You approve via signed CLI; the web only emits the verb.",
-     "expanded": "<div class=\"so-card info\"><div class='so-li no'>✗ These are writes held at the gate — nothing enters memory until you sign the emitted CLI verb.</div></div>"
-    },
+     "title": "Pending memory changes",
+     "content": "Memory operations queued for your signature — a forget, a forced admission, a re-weight. The web only proposes; the daemon acts after MS003. Read each before signing: forgetting a value-tier memory is not reversible the way a snapshot is.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The web proposes; you sign</div>A memory mutation is a real change to what the box knows. So the web emits the CLI verb and it sits here until your signature — the daemon never forgets or admits on a web click (MS043 R10212).<div class=\"so-xref\"><span class=\"x\">→</span> D-06 approvals — the same operator-in-the-loop pattern, box-wide</div></div>"
+    }
+   ]
+  },
+  {
+   "icon": "⊟",
+   "title": "Memory store",
+   "content": "The addressable mem-<id> store (SDD-060) — the individual entries you can inspect and pick to forget. This is memory at the row level, below the tier counts.",
+   "children": [
     {
      "selector": "#memory-entries",
      "title": "Memory entries",
-     "content": "The addressable mem-&lt;id&gt; store (SDD-060) — each entry with state, summary, updated, and a forget action. Pick an entry to stage a forget (via signed CLI)."
-    },
+     "content": "The addressable entries in the store, each a mem-<id> you can inspect or select to forget (/api/d-07/entries). Picking one stages a forget for your signature — this is the row-level view beneath the tier totals above."
+    }
+   ]
+  },
+  {
+   "icon": "⚲",
+   "title": "Memory query",
+   "content": "The RLM navigator (M00472, SDD-068) — a read-only way to ask the memory graph a question, answered by the local LM composing over retrieved slices. Honest-defer: if the LM is unreachable it says so rather than guessing.",
+   "children": [
     {
      "selector": "#nav-q",
-     "title": "Memory query",
-     "content": "Ask the memory — the RLM navigator (M00472, SDD-068) input. Read-only: it selects slices and composes an answer via the local LM.",
-     "expanded": "<div class=\"so-card info\"><div>Honest-defer by design — if the navigator LM is unreachable it says so rather than guessing.</div></div>"
+     "title": "Navigator query",
+     "content": "Your question to the memory graph. The RLM navigator retrieves relevant slices and composes an answer with the local LM — read-only (/api/d-07/navigate). It never writes; it only reads what is already admitted."
     },
     {
      "selector": "#nav-verb",
-     "title": "Query verb",
-     "content": "The M00469 temporal query verb — how the navigation is scoped over time (e.g. as-of, since)."
+     "title": "Navigator verb",
+     "content": "The retrieval verb/mode for the query — how the navigator selects slices before composing. Different verbs read the graph different ways; pick the one matching what you are asking."
     },
     {
      "selector": "#nav-result",
-     "title": "Query result",
-     "content": "The navigator's composed answer — the RLM's read over the selected memory slices, or an honest-defer if it couldn't reach the LM."
-    },
+     "title": "Navigator result",
+     "content": "The composed answer over retrieved memory. If the local LM is unreachable this honest-defers (says it cannot answer) rather than fabricating — a blank or deferred result is the honest mode, not a failure.",
+     "variants": [
+      {
+       "when": {
+        "textContains": "defer"
+       },
+       "content": "Honest-defer — the local LM was unreachable, so the navigator declined to answer rather than guess.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ Deferred</div>The navigator would not fabricate — the local LM is unreachable. This is honesty, not an error.</div>"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "icon": "⇄",
+   "title": "Actions",
+   "content": "Web emits CLI only; the daemon executes after your MS003 signature (MS043 R10212). Forgetting a memory is a signed act.",
+   "children": [
     {
      "selector": "#toast",
-     "title": "Copy toast",
-     "content": "Confirms a CLI verb was copied to your clipboard — the web emits, you run it. MS043 R10212 web-never-mutates in action."
+     "title": "Action feedback",
+     "content": "Transient confirmation that a verb was copied. It confirms the copy only — the memory does not change until you run the signed command."
     }
    ]
   },
   {
    "icon": "⎈",
    "title": "Controls",
-   "content": "",
+   "content": "Read-only view — every mutation copies a signed sovereign-osctl verb (§1g / R10212). The web never changes the box; it hands you the exact CLI to run.",
    "children": [
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Profile / mode / feature-toggle controls — each copies its sovereign-osctl verb (§1g / R10212). This view reads state; every mutation runs via the signed CLI, never from the browser."
+     "content": "The control rail — each button copies its exact sovereign-osctl command. A memory forget or admit runs through the signed CLI after your MS003 signature, never from a web click."
+    }
+   ]
+  }
+ ]
+};
+</script>
+<script>
+window.SO_ASSIST = {
+ "context": {
+  "icon": "◈",
+  "title": "D-07 · Memory Changes",
+  "content": "The window into the box's memory OS (M028) — the eight-tier store (E0260) that is the difference between an agent that repeats your corrections and one that remembers them. Every candidate memory walks an 11-stage admission lifecycle (E0264) and is trust-filtered on seven dimensions (M060) before it is kept, so the store stays signal rather than noise.\n\nRead it to see how full each tier is, what changed in the last 24h, and what memory mutations are waiting on your signature. The RLM navigator (SDD-068) lets you ask the graph a question, read-only, and honest-defers if the local LM is down. Forgetting or force-admitting a memory is a signed act — the web only proposes."
+ },
+ "nodes": [
+  {
+   "icon": "◆",
+   "title": "Data source",
+   "content": "Whether the memory panel is live from /api/d-07 or a snapshot — a forget/admit elsewhere would not show until refreshed.",
+   "children": [
+    {
+     "selector": "#ds-state-label",
+     "title": "Live vs snapshot",
+     "content": "Green = the daemon is answering live; muted = a cached snapshot. The whole memory view is read from the M028 store — a snapshot can show state that an apply has already superseded, so check this before trusting a value as current.",
+     "icon": "◆",
+     "variants": [
+      {
+       "when": {
+        "textContains": "connecting"
+       },
+       "content": "Connecting — reaching the daemon; the values below are not confirmed live yet.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Connecting</div>Waiting on the API — treat the numbers as unconfirmed until this goes green.</div>"
+      },
+      {
+       "when": {
+        "textContains": "live"
+       },
+       "content": "Live — the values below reflect real state right now.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Live</div>The daemon is answering; everything on the panel is current.</div>"
+      },
+      {
+       "when": {
+        "textContains": "offline"
+       },
+       "content": "Offline — showing the last snapshot; the box may have moved on since.",
+       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Offline</div>No live answer — this is a cached snapshot, possibly stale.</div>"
+      }
+     ]
+    },
+    {
+     "selector": "#ds-state-detail",
+     "title": "Source detail",
+     "content": "The longer status under the banner — which endpoint answered and any degraded note. Read it when the banner is amber."
+    },
+    {
+     "selector": "#ds-last-update",
+     "title": "Source freshness",
+     "content": "When the memory view was last read. A memory admitted or forgotten since then would not appear yet — so a stale time means the counts below may lag reality."
+    }
+   ]
+  },
+  {
+   "icon": "▦",
+   "title": "Memory types",
+   "content": "The M028 memory OS is not one store — it is eight tiers (E0260), each holding a different KIND of memory with its own admission and eviction rules. The counts show how full each tier is right now. Understanding which tier a memory lives in tells you how durable it is.",
+   "children": [
+    {
+     "selector": "#t-working",
+     "title": "Working memory",
+     "content": "The current task's scratch — active branches, local facts, tool outputs. KV-bounded, so it is the smallest and most volatile tier; it is evicted first under pressure. Type 1, M00459.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Working tier</div>This tier is one of the eight M028 memory kinds. What lives here has its own retention: working/KV churn fast, value/semantic persist. The count is items currently held.</div>"
+    },
+    {
+     "selector": "#t-episodic",
+     "title": "Episodic memory",
+     "content": "Full traces — conversations, task attempts, failures, your corrections. This is the box's autobiography; it is what lets it not repeat a mistake you already corrected. Type 2, M00460."
+    },
+    {
+     "selector": "#t-semantic",
+     "title": "Semantic memory",
+     "content": "Distilled facts and knowledge, decoupled from when they were learned. Where an episodic trace becomes a reusable truth. This is what the RLM navigator queries for grounding."
+    },
+    {
+     "selector": "#t-procedural",
+     "title": "Procedural memory",
+     "content": "Skills and how-to — the box's learned procedures, not facts. This is the difference between knowing a fact and knowing how to do a thing; it grows from repeated successful traces."
+    },
+    {
+     "selector": "#t-temporal",
+     "title": "Temporal memory",
+     "content": "Time-indexed recall — what was true WHEN. The temporal-query verbs (E0263) read this so the box can reason about change over time, not just current state."
+    },
+    {
+     "selector": "#t-value",
+     "title": "Value memory",
+     "content": "The ground-truth preservation layer (E0260/E0261) — the facts that must never be silently overwritten. This is the anti-drift tier: it is what a later trace is checked AGAINST, not blended into.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Value tier</div>This tier is one of the eight M028 memory kinds. What lives here has its own retention: working/KV churn fast, value/semantic persist. The count is items currently held.</div>"
+    },
+    {
+     "selector": "#t-kv",
+     "title": "KV cache",
+     "content": "The hot key/value cache — the fast, bounded working set the model reads directly. Distinct from working memory in that it is model-native (attention KV), not task-native. Bounded, so it churns.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">KV tier</div>This tier is one of the eight M028 memory kinds. What lives here has its own retention: working/KV churn fast, value/semantic persist. The count is items currently held.</div>"
+    },
+    {
+     "selector": "#t-reward",
+     "title": "Reward memory",
+     "content": "The experience base — outcomes tagged with how they went, feeding the box's sense of what works. This is the substrate reinforcement reads; it is why good and bad outcomes are not treated the same next time."
+    }
+   ]
+  },
+  {
+   "icon": "⊞",
+   "title": "Admission lifecycle",
+   "content": "Nothing enters long-term memory directly — every candidate walks an 11-stage admission lifecycle (E0264) before it is kept. This is the quality gate on the box's memory: it is why memory does not fill with noise.",
+   "children": [
+    {
+     "selector": "#lifecycle",
+     "title": "11-stage admission lifecycle",
+     "content": "The pipeline every memory candidate traverses before admission (M028 E0264) — from capture through scoring, dedup, trust-filtering, to commit or reject. A memory you see in the store earned its place by passing all eleven stages.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Memory is earned, not stored</div>Raw experience is captured, then scored, deduplicated against what is already known, trust-filtered (below), and only then admitted to a tier — or rejected. The lifecycle is why the store stays signal, not noise; a rejected candidate never becomes a memory.<div class=\"so-xref\"><span class=\"x\">→</span> the 8 memory tiles above are the destinations of this pipeline<br><span class=\"x\">→</span> the 7 trust filters below are one stage of it</div></div>"
+    }
+   ]
+  },
+  {
+   "icon": "◎",
+   "title": "Trust filters",
+   "content": "One stage of admission is trust — a candidate is scored on 7 dimensions (M060 R10095 + MS039) before it is allowed in. This is what stops a poisoned or low-confidence memory from becoming ground truth.",
+   "children": [
+    {
+     "selector": "#trust-filters",
+     "title": "7 trust dimensions",
+     "content": "The seven trust dimensions a memory is filtered on (M060 R10095) — freshness and six others. A candidate weak on a dimension is down-weighted or rejected; this is the memory OS defending itself against drift and poisoning.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Seven ways a memory earns trust</div>Each dimension is an independent check — freshness, provenance, corroboration, and so on. A memory admitted despite a weak dimension is flagged; one failing hard is rejected. Together they are why the store can be trusted as ground truth.<div class=\"so-xref\"><span class=\"x\">→</span> D-18 trust scores — the same trust model applied to agents<br><span class=\"x\">→</span> the admission lifecycle above — trust is one of its eleven stages</div></div>"
+    },
+    {
+     "selector": "#profile-shape",
+     "title": "Trust profile shape",
+     "content": "The visual shape of the current trust weighting — which dimensions are weighted up or down right now. A lopsided shape means the box is currently trusting one dimension more than others; read it to see the active bias."
+    }
+   ]
+  },
+  {
+   "icon": "◫",
+   "title": "Recent graph diff",
+   "content": "What changed in the memory graph in the last 24h — admitted, forgotten, re-weighted. Memory is a living graph, not a log; this is the delta view of how it moved.",
+   "children": [
+    {
+     "selector": "#diff-scope",
+     "title": "Diff scope",
+     "content": "Which slice of the memory graph the diff covers. Narrow it to focus the change view on one tier or subgraph rather than the whole store."
+    },
+    {
+     "selector": "#diff-base",
+     "title": "Diff base",
+     "content": "The 'before' point the diff compares from. The diff below is base → head; move the base to see change over a longer window."
+    },
+    {
+     "selector": "#diff-head",
+     "title": "Diff head",
+     "content": "The 'after' point the diff compares to — usually now. Base → head is the change shown; a head in the past lets you inspect a historical change."
+    },
+    {
+     "selector": "#diff-stream",
+     "title": "Diff stream",
+     "content": "The live stream of graph changes — each admit / forget / re-weight as it lands. Read it to watch memory move in real time; a burst of forgets is worth understanding."
+    }
+   ]
+  },
+  {
+   "icon": "⚑",
+   "title": "Pending changes",
+   "content": "Memory changes waiting on your approval — the memory OS emits CLI, the daemon executes only after your MS003 signature (MS043 R10212). Nothing is forgotten or force-admitted without you.",
+   "children": [
+    {
+     "selector": "#pending-changes",
+     "title": "Pending memory changes",
+     "content": "Memory operations queued for your signature — a forget, a forced admission, a re-weight. The web only proposes; the daemon acts after MS003. Read each before signing: forgetting a value-tier memory is not reversible the way a snapshot is.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The web proposes; you sign</div>A memory mutation is a real change to what the box knows. So the web emits the CLI verb and it sits here until your signature — the daemon never forgets or admits on a web click (MS043 R10212).<div class=\"so-xref\"><span class=\"x\">→</span> D-06 approvals — the same operator-in-the-loop pattern, box-wide</div></div>"
+    }
+   ]
+  },
+  {
+   "icon": "⊟",
+   "title": "Memory store",
+   "content": "The addressable mem-<id> store (SDD-060) — the individual entries you can inspect and pick to forget. This is memory at the row level, below the tier counts.",
+   "children": [
+    {
+     "selector": "#memory-entries",
+     "title": "Memory entries",
+     "content": "The addressable entries in the store, each a mem-<id> you can inspect or select to forget (/api/d-07/entries). Picking one stages a forget for your signature — this is the row-level view beneath the tier totals above."
+    }
+   ]
+  },
+  {
+   "icon": "⚲",
+   "title": "Memory query",
+   "content": "The RLM navigator (M00472, SDD-068) — a read-only way to ask the memory graph a question, answered by the local LM composing over retrieved slices. Honest-defer: if the LM is unreachable it says so rather than guessing.",
+   "children": [
+    {
+     "selector": "#nav-q",
+     "title": "Navigator query",
+     "content": "Your question to the memory graph. The RLM navigator retrieves relevant slices and composes an answer with the local LM — read-only (/api/d-07/navigate). It never writes; it only reads what is already admitted."
+    },
+    {
+     "selector": "#nav-verb",
+     "title": "Navigator verb",
+     "content": "The retrieval verb/mode for the query — how the navigator selects slices before composing. Different verbs read the graph different ways; pick the one matching what you are asking."
+    },
+    {
+     "selector": "#nav-result",
+     "title": "Navigator result",
+     "content": "The composed answer over retrieved memory. If the local LM is unreachable this honest-defers (says it cannot answer) rather than fabricating — a blank or deferred result is the honest mode, not a failure.",
+     "variants": [
+      {
+       "when": {
+        "textContains": "defer"
+       },
+       "content": "Honest-defer — the local LM was unreachable, so the navigator declined to answer rather than guess.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ Deferred</div>The navigator would not fabricate — the local LM is unreachable. This is honesty, not an error.</div>"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "icon": "⇄",
+   "title": "Actions",
+   "content": "Web emits CLI only; the daemon executes after your MS003 signature (MS043 R10212). Forgetting a memory is a signed act.",
+   "children": [
+    {
+     "selector": "#toast",
+     "title": "Action feedback",
+     "content": "Transient confirmation that a verb was copied. It confirms the copy only — the memory does not change until you run the signed command."
+    }
+   ]
+  },
+  {
+   "icon": "⎈",
+   "title": "Controls",
+   "content": "Read-only view — every mutation copies a signed sovereign-osctl verb (§1g / R10212). The web never changes the box; it hands you the exact CLI to run.",
+   "children": [
+    {
+     "selector": "#control-surface",
+     "title": "Controls rail",
+     "content": "The control rail — each button copies its exact sovereign-osctl command. A memory forget or admit runs through the signed CLI after your MS003 signature, never from a web click."
     }
    ]
   }

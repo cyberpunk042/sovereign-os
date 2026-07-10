@@ -493,10 +493,16 @@ a11y; contract test catches drift.
   .so-node-expanded{margin-top:.55rem; padding-top:.55rem; border-top:1px solid rgba(155,209,255,.13); font-size:.78rem; line-height:1.6; color:var(--muted,#a8a8a8); white-space:pre-line;}
   /* rich expanded cards */
   .so-card{border:1px solid var(--border,#262626); border-radius:7px; padding:.55rem .65rem; margin-top:.45rem; background:var(--bg,#0e0e0e); white-space:normal; line-height:1.55;}
-  .so-card.info{border-color:rgba(155,209,255,.28);}
+  .so-card.info{border-color:rgba(155,209,255,.28); background:rgba(155,209,255,.035);}
+  .so-card.ok{border-color:rgba(127,209,143,.34); background:rgba(127,209,143,.045);}
+  .so-card.warn{border-color:rgba(224,192,122,.38); background:rgba(224,192,122,.05);}
+  .so-card.err{border-color:rgba(224,138,138,.4); background:rgba(224,138,138,.055);}
+  .so-card-label{font-weight:600; font-size:.79rem; margin-bottom:.3rem;}
+  .so-card.ok .so-card-label{color:#7fd18f;} .so-card.warn .so-card-label{color:#e0c07a;} .so-card.err .so-card-label{color:#e08a8a;} .so-card.info .so-card-label{color:var(--accent,#9bd1ff);}
   .so-grid{display:grid; grid-template-columns:auto 1fr; gap:.22rem .6rem; margin:.35rem 0; font-size:.76rem; white-space:normal;}
   .so-grid .k{color:var(--accent,#9bd1ff); font-weight:500;}
-  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;}
+  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;} .so-li .warn{color:#e0c07a;}
+  .so-xref{margin-top:.4rem; font-size:.76rem; color:var(--fg-2,#c8c8c8);} .so-xref .x{color:var(--accent,#9bd1ff); font-weight:500;}
   .so-tip{margin-top:.4rem; font-size:.77rem; color:var(--muted,#a8a8a8);}
   .so-assist-idle{color:var(--muted,#8a8a8a); font-style:italic; padding:.4rem 0;}
   /* highlight the hovered/focused element in the panel content */
@@ -657,25 +663,38 @@ a11y; contract test catches drift.
       return {ctx:ctx, nodes:nodes}; })();
     // flatten deepest-first with parent chains
     var FLAT=[]; (function flat(list,chain){ (list||[]).forEach(function(n){ if(n.children&&n.children.length) flat(n.children,chain.concat([n])); FLAT.push({node:n,parents:chain.slice()}); }); })(CAT.nodes,[]);
+    // {{name}} interpolation for dynamic-row templates
+    function interp(s,name){ return (name==null)?(s||''):String(s||'').replace(/\{\{name\}\}/g,name); }
+    // derive a live row's label (nameSelector, then a strong/cell/code heuristic, then text)
+    function rowName(row,ct){ var t=''; if(ct.nameSelector){ try{ var e=row.querySelector(ct.nameSelector); if(e) t=e.textContent||''; }catch(x){} }
+      if(!t){ var s=row.querySelector('strong,code,th,.k,td'); if(s) t=s.textContent||''; }
+      if(!t) t=row.textContent||''; return t.replace(/\s+/g,' ').trim().slice(0,64); }
+    // synthesize a node from a childTemplate bound to one live row
+    function synthRow(n,row){ var ct=n.childTemplate, nm=rowName(row,ct);
+      return {id:n.id, icon:ct.icon||n.icon, title:interp(ct.title||n.title||'{{name}}',nm), content:ct.content||'', expanded:ct.expanded||'', variants:ct.variants, _name:nm}; }
     // variant resolution against the matched element (state-awareness)
     function resolveVar(node,el){ if(!node.variants||!node.variants.length||!el) return node;
       for(var i=0;i<node.variants.length;i++){ var v=node.variants[i], w=v.when||{}, ok=true;
-        if(w.textContains && (el.textContent||'').indexOf(w.textContains)<0) ok=false;
+        if(w.textContains && (el.textContent||'').toLowerCase().indexOf(String(w.textContains).toLowerCase())<0) ok=false;
         if(ok&&w.hasSelector){ try{ if(!el.querySelector(w.hasSelector)) ok=false; }catch(e){ ok=false; } }
-        if(ok) return {id:node.id,title:v.title||node.title,icon:node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded)}; }
+        if(ok) return {id:node.id,title:v.title||node.title,icon:v.icon||node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded),_name:node._name}; }
       return node; }
-    // match a hovered element to the deepest catalogue node
+    // match a hovered element to the deepest catalogue node (static node OR dynamic row)
     function matchNode(el){ var best=null,bd=-1;
-      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node,m=false,tgt=null; if(!n.selector) continue;
-        try{ if(el.matches(n.selector)){m=true;tgt=el;}
-          else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
-        if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node;
+        if(n.selector){ var m=false,tgt=null;
+          try{ if(el.matches(n.selector)){m=true;tgt=el;}
+            else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
+          if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+        if(n.dynamic && n.childTemplate && n.childTemplate.selector){ try{ var row=el.closest(n.childTemplate.selector);
+          if(row){ var d2=e.parents.length+1; if(d2>bd){ bd=d2; best={entry:{node:synthRow(n,row),parents:e.parents.concat([n])},el:row}; } } }catch(y){} } }
       return best; }
     function ctxHtml(){ var c=CAT.ctx; return '<div class="so-ctx"><div class="so-ctx-title">'+(c.icon?esc(c.icon)+' ':'')+esc(c.title||'')+'</div><div class="so-ctx-content">'+esc(c.content||'')+'</div></div>'; }
-    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node;
-      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(r.title||'')+'</div>';
-      h+='<div class="so-node-content">'+esc(r.content||'')+'</div>';
-      if(active && r.expanded) h+='<div class="so-node-expanded">'+r.expanded+'</div>';   // expanded = trusted authored HTML
+    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node, nm=(node._name!=null?node._name:null);
+      var title=interp(r.title||'',nm), cont=interp(r.content||'',nm), exp=interp(r.expanded||'',nm);
+      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(title)+'</div>';
+      h+='<div class="so-node-content">'+esc(cont)+'</div>';
+      if(active && exp) h+='<div class="so-node-expanded">'+exp+'</div>';   // expanded = trusted authored HTML
       return h+'</div>'; }
     var lastHot=null, lastMatched=null;
     function clearHot(){ if(lastHot){ lastHot.classList.remove('so-assist-hot'); lastHot=null; } }
@@ -694,7 +713,7 @@ a11y; contract test catches drift.
     // menu links → surface the target panel's context (program-awareness: horizontal jump)
     Array.prototype.forEach.call(document.querySelectorAll('.so-sm-item'),function(it){ var p=findPanel(it.dataset.dir); if(!p) return;
       function show(){ openAssist(); clearHot(); lastMatched=null; it.classList.add('so-assist-hot'); lastHot=it; var here=it.dataset.dir===curDir();
-        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+esc(p.desc||'')+'</div></div>'+
+        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+(p.menuHover?p.menuHover:esc(p.desc||''))+'</div></div>'+
           '<div class="so-assist-idle">'+(here?'You’re on this panel now — hover its contents to explore.':'Click to open this panel.')+'</div>'; }
       it.addEventListener('mouseenter',show); it.addEventListener('focus',show); });
     idle();
@@ -1475,267 +1494,428 @@ window.SO_ASSIST = {
  "context": {
   "icon": "▰",
   "title": "D-09 · Hardware Pressure",
-  "content": "The physical-stress view of the box — is the hardware comfortable or fighting for resources? CPU/memory/IO pressure, per-CCD core load, both GPUs, ZFS latency, and the backpressure rules that automatically shed work when a resource crosses its line.\n\nEverything here is read-only telemetry. When the box feels slow, or autonomy quietly drops, or a job pauses on its own — this panel is where the 'why' lives."
+  "content": "The physical-stress view of the box — is the silicon under strain, and where. Four signals in one place: Linux PSI (are tasks stalling on CPU/RAM/IO), the dual-CCD chiplet load (M070), the two GPUs' pressure (DCGM), and ZFS pool latency (M068). Underneath sits the M058 backpressure ladder — the rules that read these signals and throttle the box before pressure turns into failure.\n\nRead this panel top-to-bottom when something feels slow: PSI tells you WHICH resource is the bottleneck, the CCD/GPU/ZFS sections tell you WHERE, and the rules tell you what the scheduler will do about it. It's telemetry — every control here copies a signed CLI verb rather than acting."
  },
  "nodes": [
   {
-   "icon": "📊",
-   "title": "Linux PSI — pressure stall (M045)",
-   "content": "Pressure Stall Information is smarter than load-average: it measures the time tasks actually spent stalled waiting for a resource, not how many are queued. Three resources, each as a percentage of the last 10 seconds.",
+   "icon": "◆",
+   "title": "Live-source banner",
+   "content": "Whether these pressure numbers are live from the daemon or a baked snapshot — pressure changes second-to-second, so freshness is everything here.",
    "children": [
     {
-     "selector": "#psi-cpu-some",
-     "title": "CPU pressure",
-     "content": "The share of the last 10s where at least one task was stalled waiting for a CPU. Rising here means work is queuing behind compute, not memory or disk.",
-     "expanded": "<div class=\"so-card info\"><div>What it drives:</div><div class=\"so-grid\"><span class=\"k\">&gt; ~30%</span><span>the M058 rule below defers background indexing + evals to protect interactive work</span><span class=\"k\">sustained high</span><span>Pulse (CPU inference) is saturated — the sovereign path is the bottleneck</span></div><div class=\"so-tip\">💡 If batch work 'paused on its own', check this first — the CPU-pressure backpressure rule is usually why.</div></div>"
+     "selector": "#datasource-banner",
+     "title": "Live vs snapshot",
+     "content": "Green means the hardware-pressure daemon (/api/hardware/pressure) is answering right now; muted means you're reading the last committed sample. On a pressure panel a stale read is dangerous — the box could be pinned while this shows calm.",
+     "icon": "◆",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why freshness matters here</div>Pressure is the one thing you never want to read stale. Every other panel can tolerate a few seconds of lag; this one drives the decision \"is the box in trouble right now\".<div class=\"so-grid\"><span class=\"k\">live</span><span>the daemon is polling PSI + DCGM + ZFS and streaming current values</span><span class=\"k\">snapshot</span><span>the daemon is unreachable — values are frozen at the last commit; treat them as history, not now</span></div><div class=\"so-tip\">💡 If this is muted while the box feels slow, the real pressure is unknown — bring the daemon back before trusting anything below.</div></div>",
+     "variants": [
+      {
+       "when": {
+        "textContains": "live"
+       },
+       "content": "Live — the daemon is streaming current PSI, DCGM and ZFS values. What you see is now.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Live</div>The hardware-pressure daemon is answering; the numbers below are the box's real-time state.</div>"
+      },
+      {
+       "when": {
+        "textContains": "snapshot"
+       },
+       "content": "Snapshot — the daemon is unreachable. Every value below is frozen at the last commit and may be badly out of date.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Snapshot</div>Reading the last committed sample, not live hardware. A pinned CPU or a hot GPU would not show here until the daemon returns.</div>"
+      }
+     ]
     },
     {
-     "selector": "#psi-mem-some",
-     "title": "Memory pressure",
-     "content": "The share of the last 10s stalled on memory — reclaim, refault, or swap. This is the early warning before an OOM kill, long before free-memory looks scary.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-grid\"><span class=\"k\">&gt; ~20%</span><span>the M058 rule hibernates idle branches + compacts memory rather than let the kernel reclaim hard</span><span class=\"k\">climbing while VRAM is fine</span><span>the bottleneck is host RAM, not the GPUs</span></div><div class=\"so-tip\">💡 A healthy box keeps this near zero. A steady climb is the signal to shed memory before the kernel does it for you.</div></div>"
+     "selector": "#ds-state-label",
+     "title": "Source label",
+     "content": "The one-word read of where the data comes from — live daemon or snapshot. The fastest glance before you trust a number."
     },
     {
-     "selector": "#psi-io-some",
-     "title": "IO pressure",
-     "content": "The share of the last 10s stalled on block IO — the disk-contention signal. If a ZFS scrub or snapshot feels stuck, this is where it shows.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-grid\"><span class=\"k\">&gt; ~25%</span><span>the M058 rule delays cold scans + avoids large snapshots</span><span class=\"k\">read alongside</span><span>the zpool read/write latency numbers below — pressure is demand, latency is service</span></div><div class=\"so-tip\">💡 Storage-heavy maintenance (scrub, big snapshot) will itself raise this — that's expected, not a fault.</div></div>"
+     "selector": "#ds-state-detail",
+     "title": "Source detail",
+     "content": "The endpoint and status behind the banner (/api/hardware/pressure) — tells you which daemon is feeding the panel and why it's live or fallen back."
+    },
+    {
+     "selector": "#ds-last-update",
+     "title": "Fetch freshness",
+     "content": "When this sample was pulled. On a second-to-second signal like pressure, even a 30s-old read can miss a spike — check this before acting on a value as 'current'."
     }
    ]
   },
   {
-   "icon": "▦",
-   "title": "Dual-CCD cores (M070 · Ryzen 9 9900X)",
-   "content": "The 9900X is two core-complex-dies. Which die a workload is pinned to matters — crossing between them pays the Infinity Fabric latency at the bottom of this section. This is the sovereign CPU compute, split by role.",
+   "icon": "◷",
+   "title": "Linux PSI — pressure stall (M045)",
+   "content": "Linux Pressure Stall Information: for each resource, the share of time tasks were stalled waiting for it. This is the box's pain signal — the M045 governor and the M058 scheduler read PSI directly to decide when to shed load. 'some' = at least one task waiting; the 10s average smooths spikes.",
+   "children": [
+    {
+     "selector": "#psi-cpu-some",
+     "title": "CPU pressure (some, 10s)",
+     "content": "The fraction of the last 10s that at least one task was runnable but waiting for a CPU core. Rising CPU PSI means the cores are oversubscribed — work is queuing, not running. Past 30% the M058 rule below starts shedding speculative work.",
+     "icon": "◷",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">What CPU PSI actually measures</div>Not utilization — stall. A box can be 100% utilized and healthy if nothing is waiting; PSI only climbs when tasks are ready to run but can't get a core.<div class=\"so-grid\"><span class=\"k\">0–10%</span><span>healthy — cores keep up with demand</span><span class=\"k\">10–30%</span><span>contended — latency-sensitive work starts to queue</span><span class=\"k\">&gt;30%</span><span>oversubscribed — the M058 cpu-pressure rule fires (idle speculation)</span></div><div class=\"so-xref\"><span class=\"x\">→</span> the Dual-CCD section below shows WHICH cores are hot<br><span class=\"x\">→</span> the backpressure rule <b>idle CPU PSI &gt; 30%</b> is what acts on this</div></div>",
+     "variants": [
+      {
+       "when": {
+        "textContains": "30"
+       },
+       "content": "CPU PSI is elevated — cores are oversubscribed and work is queuing. The M058 cpu-pressure rule is at or near its trigger; expect speculative work to be shed.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ CPU contended</div>At this level the scheduler favours committed work over speculation. If it climbs, latency-sensitive requests on CCD 0 feel it first.</div>"
+      }
+     ]
+    },
+    {
+     "selector": "#psi-mem-some",
+     "title": "Memory pressure (some, 10s)",
+     "content": "The share of the last 10s spent stalled on memory — reclaim, paging, or allocation waits. Memory PSI is the early-warning for OOM and for thrash: it climbs well before the box actually runs out, giving the M058 ram-pressure rule (>20%) time to hibernate branches.",
+     "icon": "◷",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why memory PSI leads OOM</div>By the time free memory hits zero it's too late. PSI rises as the kernel spends time reclaiming — so a climbing memory-PSI is the signal to shed before the OOM-killer does it for you.<div class=\"so-li\"><span class=\"warn\">▲</span> Rising mem-PSI → the box is spending time freeing memory instead of doing work</div><div class=\"so-li\"><span class=\"no\">✗</span> Sustained high mem-PSI → reclaim can't keep up; the OOM-killer is next</div><div class=\"so-xref\"><span class=\"x\">→</span> the <b>idle RAM PSI &gt; 20%</b> rule hibernates exploration branches to relieve this<br><span class=\"x\">→</span> D-01 sessions shows which branches would be parked</div></div>",
+     "variants": [
+      {
+       "when": {
+        "textContains": "20"
+       },
+       "content": "Memory PSI is elevated — the kernel is spending real time reclaiming. The M058 ram-pressure rule is near trigger; exploration branches may be hibernated to relieve it.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ Memory reclaiming</div>The box is working to free memory. If this holds, expect branch hibernation (D-01) before it reaches OOM territory.</div>"
+      }
+     ]
+    },
+    {
+     "selector": "#psi-io-some",
+     "title": "IO pressure (some, 10s)",
+     "content": "The share of the last 10s stalled on storage IO — reads/writes waiting on the ZFS pool or NVMe. IO PSI is what makes a heavy operation (a scrub, a big snapshot) visible as pain; past 25% the M058 io-pressure rule defers cold scans so live work isn't starved.",
+     "icon": "◷",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">IO pressure vs the ZFS pool</div>This is the top-level 'storage hurts' number; the ZFS section below is the detail behind it (per-op p95 latency, IOPS).<div class=\"so-grid\"><span class=\"k\">&lt;25%</span><span>pool keeps up — reads/writes complete without queuing</span><span class=\"k\">&gt;25%</span><span>storage-bound — the io-pressure rule defers scrubs + large snapshots</span></div><div class=\"so-xref\"><span class=\"x\">→</span> the ZFS/NVMe section shows the read/write p95 latency behind this number<br><span class=\"x\">→</span> a running <b>zpool scrub</b> (Actions) will itself raise IO PSI — run it when this is low</div></div>",
+     "variants": [
+      {
+       "when": {
+        "textContains": "25"
+       },
+       "content": "IO pressure is elevated — storage is the bottleneck and reads/writes are queuing. The io-pressure rule is deferring cold scans and large snapshots to protect live work.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ Storage-bound</div>Live work has priority; background storage maintenance is being held back. Check the ZFS latency below for the cause.</div>"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "icon": "▚",
+   "title": "Dual-CCD utilization (M070)",
+   "content": "The Ryzen 9 9900X has two core-complex dies (CCDs), and the M070 topology mapper pins the software trinity along that physical boundary: CCD 0 is the Pulse Core, CCD 1 carries Weaver + Auditor + Host. Crossing between them costs Infinity-Fabric latency and an L3 miss — so the scheduler keeps work on its own die. Reading the two CCDs against each other tells you whether the pinning is holding.",
    "children": [
     {
      "selector": "#ccd-0",
-     "title": "CCD 0 — Pulse cores",
-     "content": "The first die: the Pulse (CPU / AVX-512 ternary) inference path plus Wasm AOT, acting as the M075 Conductor. This is the tier that runs even with no GPU at all.",
-     "expanded": "<div class=\"so-card info\"><div>Load concentrated here is Pulse doing real inference — healthy, not a problem to chase.</div><div class=\"so-tip\">💡 Pulse is the always-available sovereign path. If the GPUs are under pressure, work falls back here — expect CCD 0 to be busy exactly when you need it most.</div></div>"
+     "title": "CCD 0 — Pulse Core (cores 0–5)",
+     "content": "The first chiplet: 6 cores / 12 threads with their own 32 MB L3, dedicated to the Pulse Core — AVX-512 vector work, ternary bitnet.cpp inference, and Wasm AOT (M075 Conductor tier). This is where latency-sensitive local reasoning runs, so its health decides how snappy the box feels.",
+     "icon": "▚",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why CCD 0 is the Pulse Core</div>The trinity is mapped to hardware along the CCD line so latency-critical work never pays a cross-die penalty.<div class=\"so-grid\"><span class=\"k\">cores 0–5</span><span>6 cores / 12 threads, private 32 MB L3</span><span class=\"k\">role</span><span>Pulse — AVX-512 + bitnet.cpp ternary + Wasm AOT (M075 Conductor)</span><span class=\"k\">why here</span><span>local ternary inference is latency-critical; keeping it on one die avoids Infinity-Fabric hops</span></div><div class=\"so-xref\"><span class=\"x\">→</span> Trinity panel explains the Pulse/Weaver/Auditor split this mirrors in hardware<br><span class=\"x\">→</span> the active Runtime Mode (M076) decides whether these cores are pinned or shared</div></div>",
+     "variants": [
+      {
+       "when": {
+        "textContains": "busy"
+       },
+       "content": "CCD 0 is under heavy load — the Pulse Core's cores are saturated. Local latency-sensitive inference will feel it first; check whether the active runtime mode expected this.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ Pulse Core busy</div>The latency-critical die is saturated. If CCD 1 is idle beside it, the pinning is working as designed; if both are hot you're out of CPU headroom.</div>"
+      }
+     ]
     },
     {
      "selector": "#ccd-0-cores",
-     "title": "CCD 0 per-core load",
-     "content": "Per-core utilization across CCD 0. Uneven cores are normal — the Conductor pins specific work to specific cores.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-grid\"><span class=\"k\">one hot core</span><span>a pinned inference thread — expected</span><span class=\"k\">all cores hot</span><span>Pulse is saturated; the CPU-pressure rule is about to fire</span></div></div>"
+     "title": "CCD 0 core utilization",
+     "content": "Per-core load across the Pulse Core's 6 cores. Watch for one pinned core vs even spread: bitnet.cpp ternary work pins specific cores, so a single hot core here is normal, whereas all six saturated means local inference is at capacity."
     },
     {
      "selector": "#ccd-0-l3miss",
-     "title": "CCD 0 L3 cache miss",
-     "content": "How often CCD 0's last-level cache misses. A high rate means the working set spilled to RAM and the CPU is waiting on memory instead of computing.",
-     "expanded": "<div class=\"so-card info\"><div>For ternary inference this is the difference between fast and stalled — it's the micro-architectural 'why' behind a high CPU PSI.</div></div>"
+     "title": "CCD 0 L3 miss rate",
+     "content": "How often CCD 0's cores miss their private 32 MB L3 and must fetch from memory or across the fabric. A rising L3 miss on the Pulse Core is a quiet performance killer — it means the working set no longer fits in cache, and ternary inference slows even if utilization looks fine.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why L3 misses matter more here</div>The Pulse Core's speed comes from keeping its model + KV working-set in the private 32 MB L3. A high miss rate means it's spilling to RAM or, worse, across the fabric to CCD 1's cache.<div class=\"so-li\"><span class=\"ok\">✓</span> Low miss → working set fits in L3; inference runs at cache speed</div><div class=\"so-li\"><span class=\"warn\">▲</span> High miss → spilling to memory; latency climbs even at the same utilization</div><div class=\"so-tip\">💡 Rising L3 miss with flat utilization is the tell that a model or context grew past the cache — not that the box is busier.</div></div>"
     },
     {
      "selector": "#ccd-1",
-     "title": "CCD 1 — Weaver + Auditor",
-     "content": "The second die: the sandbox fabric (Weaver) and the gatekeeper (Auditor), plus M075 Logic/Oracle GPU scheduling. Kept separate from Pulse so untrusted/security work doesn't pollute the sovereign inference path.",
-     "expanded": "<div class=\"so-card info\"><div>Cross-die traffic between here and CCD 0 is what the Infinity Fabric latency below measures.</div><div class=\"so-tip\">💡 Auditor/Weaver cores busy while Pulse (CCD 0) is idle is the security/sandbox layer working independently — not a problem.</div></div>"
+     "title": "CCD 1 — Weaver + Auditor + Host (cores 6–11)",
+     "content": "The second chiplet: cores 6–9 run Weaver (sandboxed state fabric) + Auditor (the gatekeeper), cores 10–11 are Host, all on a separate 32 MB L3. This die does gRPC streaming, the state engine, and the Marvell 10 GbE drivers (M075 Logic/Oracle scheduling) — the plumbing, kept off the Pulse Core's cores on purpose.",
+     "icon": "▚",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">What CCD 1 carries</div><div class=\"so-grid\"><span class=\"k\">cores 6–9</span><span>Weaver (state fabric) + Auditor (gatekeeper)</span><span class=\"k\">cores 10–11</span><span>Host — OS + drivers</span><span class=\"k\">role</span><span>gRPC streams + state engine + Marvell 10GbE (M075 Logic/Oracle)</span></div><div class=\"so-xref\"><span class=\"x\">→</span> Weaver panel — the sandboxed fabric these cores run<br><span class=\"x\">→</span> Auditor panel — the eBPF gatekeeper that must never be starved</div></div>",
+     "variants": [
+      {
+       "when": {
+        "textContains": "busy"
+       },
+       "content": "CCD 1 is heavily loaded — the fabric/gatekeeper die is busy. Streaming, state writes, or the auditor are working hard; this is healthy under load as long as the Pulse Core (CCD 0) still has headroom.",
+       "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">● Fabric die busy</div>CCD 1 doing its job — streams + state + audit. Balanced-but-busy across both CCDs is the normal full-load shape.</div>"
+      }
+     ]
     },
     {
      "selector": "#ccd-1-cores",
-     "title": "CCD 1 per-core load",
-     "content": "Per-core utilization across CCD 1 — the Weaver/Auditor complex. Balanced-but-busy across both CCDs is the healthy full-load shape.",
-     "expanded": "<div class=\"so-card info\"><div>A hot Auditor core during heavy inspection is the gatekeeper doing its job; it doesn't compete with Pulse on CCD 0.</div></div>"
+     "title": "CCD 1 core utilization",
+     "content": "Per-core load across CCD 1. Because this die mixes Weaver, Auditor and Host, a spread here is expected; the one core you never want starved is the Auditor's — the gatekeeper must always have cycles to inspect."
     },
     {
      "selector": "#ccd-1-l3miss",
-     "title": "CCD 1 L3 cache miss",
-     "content": "Last-level-cache miss rate for the Weaver/Auditor die. A spike during heavy sandbox work means the fabric's working set is thrashing L3 — a candidate for core-pinning review.",
-     "expanded": ""
+     "title": "CCD 1 L3 miss rate",
+     "content": "L3 miss rate on the fabric die's private cache. Less latency-critical than CCD 0's, but a high miss here slows state-fabric writes and streaming — the plumbing the rest of the box depends on."
     },
     {
      "selector": "#if-lat",
      "title": "Infinity Fabric latency",
-     "content": "The cross-CCD interconnect latency. Anything that spans CCD 0 ↔ CCD 1 pays this — it's the hidden tax the M075 core-pinning is designed to avoid.",
-     "expanded": "<div class=\"so-card info\"><div>A mis-pinned job underperforms a correctly-pinned one on identical cores purely because its data keeps hopping the fabric. Rising latency here explains that gap.</div></div>"
+     "content": "The latency to cross between the two CCDs over AMD's Infinity Fabric. This is the tax the M070 mapper works to avoid: every time work hops from CCD 0 to CCD 1 (or reaches the other die's L3) it pays this. A rising number means cross-die traffic — usually a sign scheduling isn't respecting the CCD boundary.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The cost the topology mapper avoids</div>Two dies, one socket — but talking across them isn't free. Infinity Fabric latency is why the trinity is pinned per-CCD in the first place.<div class=\"so-li\"><span class=\"ok\">✓</span> Low + stable → work is staying on its own die; the pinning holds</div><div class=\"so-li\"><span class=\"warn\">▲</span> Rising → cross-CCD traffic; something is reaching across the boundary and paying the fabric tax</div><div class=\"so-xref\"><span class=\"x\">→</span> M070 (R11633–R11637) is the mapper that pins work to avoid this<br><span class=\"x\">→</span> if this climbs while CCD 0 is hot, work may be spilling onto CCD 1</div></div>"
     }
    ]
   },
   {
-   "icon": "◨",
-   "title": "GPU pressure (NVIDIA DCGM)",
-   "content": "Both GPUs, live from DCGM. GPU 0 is the heavy Oracle (Blackwell, 96 GB); GPU 1 is the lighter Scout (4090, 24 GB), handed to a Weaver sandbox via VFIO. Util and VRAM together decide whether the backpressure rules fire.",
+   "icon": "▓",
+   "title": "GPU pressure (DCGM)",
+   "content": "Both GPUs live-probed via NVIDIA DCGM. GPU 0 is the Blackwell PRO 6000 (96 GB) — the Oracle Core, full-precision/NVFP4 deep reasoning (M075). GPU 1 is the RTX 4090 (24 GB) — the Scout / Logic Engine, VFIO-passed into the Weaver sandbox. Read util + VRAM + temp + power together: a GPU can be idle-util but VRAM-full (a model resident, not serving) — that's a capacity signal, not a load one.",
    "children": [
     {
      "selector": "#gpu-0-util",
-     "title": "GPU 0 (Oracle) — utilization",
-     "content": "Compute load on the Blackwell — the heavy-reasoning Oracle tier (M075). Sustained high util is the Oracle earning its keep.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-grid\"><span class=\"k\">watched with</span><span>VRAM — util alone rarely trips backpressure; VRAM does</span><span class=\"k\">if it's pinned high</span><span>large-context reasoning is in flight; check VRAM has room</span></div></div>"
+     "title": "GPU 0 utilization — Oracle Core",
+     "content": "Compute utilization of the Blackwell PRO 6000, the Oracle Core that runs long deep-reasoning at full precision / NVFP4. High util here means the box is doing heavy synthesis; idle util with full VRAM means a large model is resident and waiting, not that the GPU is free.",
+     "icon": "▓",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Reading the Oracle GPU</div><div class=\"so-grid\"><span class=\"k\">card</span><span>Blackwell PRO 6000, 96 GB — the Oracle Core (M075)</span><span class=\"k\">workload</span><span>full-precision / NVFP4 (M077) deep reasoning, the biggest models</span><span class=\"k\">util vs VRAM</span><span>util = is it computing now; VRAM = is a model resident. Idle-util + full-VRAM = loaded-and-waiting</span></div><div class=\"so-xref\"><span class=\"x\">→</span> D-03 model health shows which model is bound to this GPU<br><span class=\"x\">→</span> the <b>Blackwell VRAM &gt; 90%</b> rule below sheds load before this OOMs</div></div>"
     },
     {
      "selector": "#gpu-0-vram",
-     "title": "GPU 0 (Oracle) — VRAM",
-     "content": "VRAM in use of the Blackwell's 96 GB. This is usually the real ceiling for large-context work, not util.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-grid\"><span class=\"k\">&gt; 90%</span><span>the M058 rule trims context + evicts low-value KV + can switch to a smaller oracle</span></div><div class=\"so-tip\">💡 Watch this before blaming latency — a full Oracle GPU quietly shortens effective context.</div></div>"
+     "title": "GPU 0 VRAM — / 96 GB",
+     "content": "Resident VRAM on the Oracle GPU out of 96 GB. This is the hard ceiling on how large a model + KV cache can be here; past 90% the M058 Blackwell-VRAM rule fires to shed load, because a VRAM overrun doesn't slow the GPU — it fails the load outright.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why VRAM is a hard wall</div>Unlike CPU pressure, GPU VRAM doesn't degrade gracefully — cross the ceiling and the allocation fails. That's why there's a dedicated backpressure rule for it.<div class=\"so-grid\"><span class=\"k\">&lt;90%</span><span>headroom — models and KV cache fit</span><span class=\"k\">&gt;90%</span><span>the Blackwell-VRAM rule sheds load; a bigger model would OOM on load</span></div><div class=\"so-xref\"><span class=\"x\">→</span> KV cache % (beside this) is the fastest-growing consumer of this VRAM<br><span class=\"x\">→</span> D-23 model catalog is VRAM-aware — it only offers models that fit here</div></div>",
+     "variants": [
+      {
+       "when": {
+        "textContains": "9"
+       },
+       "content": "VRAM on the Oracle GPU is running high. The Blackwell-VRAM &gt; 90% rule is at or near trigger — the box will shed load rather than risk an OOM on the next model load.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ VRAM near ceiling</div>Close to the 96 GB wall. A VRAM overrun fails the load outright, so the scheduler sheds before it gets there.</div>"
+      }
+     ]
+    },
+    {
+     "selector": "#gpu-0-util-label",
+     "title": "GPU 0 label",
+     "content": "Identifies GPU 0 as the Oracle Core — the role the number above is measuring, so you read the utilization in context of what this GPU is for."
     },
     {
      "selector": "#gpu-0-temp",
-     "title": "GPU 0 (Oracle) — temperature",
-     "content": "Blackwell die temperature. Thermals gate sustained clocks, so a hot Oracle throttles and quietly drops tokens/sec at the same util.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-tip\">💡 A latency regression with no util change often traces back to this number — check temperature before assuming a software cause.</div></div>"
+     "title": "GPU 0 temperature",
+     "content": "Die temperature of the Blackwell. Sustained high temp under load is normal, but a GPU that thermally throttles quietly caps the Oracle's throughput — worth watching alongside power when deep-reasoning latency creeps up."
     },
     {
      "selector": "#gpu-0-pow",
-     "title": "GPU 0 (Oracle) — power",
-     "content": "Board power draw of the Blackwell. Ties directly to the UPS budget, and a runtime-efficiency mode caps it.",
-     "expanded": "<div class=\"so-card info\"><div>If the Oracle feels slow, check whether an efficiency runtime mode is power-limiting it before assuming a fault.</div></div>"
+     "title": "GPU 0 power draw",
+     "content": "Board power of the Oracle GPU in watts. Read with the UPS/PSU budget in mind: two big GPUs at full draw is the peak-power case the power-budget preflight sizes for. Idle power with full VRAM confirms a model is resident but not computing."
     },
     {
      "selector": "#gpu-0-kv",
-     "title": "GPU 0 (Oracle) — KV cache",
-     "content": "KV-cache occupancy on the Oracle GPU. The KV cache holds attention state for in-flight sequences; when it fills, new or long contexts get evicted or rejected.",
-     "expanded": "<div class=\"so-card info\"><div>High KV% alongside high VRAM is exactly the condition the backpressure rule relieves by evicting low-value KV.</div></div>"
+     "title": "GPU 0 KV cache",
+     "content": "How full the Oracle GPU's KV cache is. The KV cache holds the attention keys/values for in-flight contexts (M011) — it grows with context length and concurrency. Near-full means long contexts are packing the GPU; at 100% the box must evict or refuse to extend context.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">What the KV cache is</div>Every token of context a model attends to is cached as key/value tensors in VRAM. It's the memory of the conversation — and it grows linearly with context × concurrency (M011 models it as a hierarchy: VRAM → RAM → NVMe replay).<div class=\"so-li\"><span class=\"ok\">✓</span> Low → plenty of room to extend context or add concurrent sessions</div><div class=\"so-li\"><span class=\"warn\">▲</span> Near-full → long contexts are consuming VRAM; new/longer requests compete</div><div class=\"so-li\"><span class=\"no\">✗</span> 100% → eviction or context-limit; the oldest cached context is dropped</div><div class=\"so-xref\"><span class=\"x\">→</span> D-03 model health shows KV-cache pressure per model<br><span class=\"x\">→</span> this shares the 96 GB with the model weights above — together they hit the VRAM wall</div></div>",
+     "variants": [
+      {
+       "when": {
+        "textContains": "9"
+       },
+       "content": "KV cache on the Oracle GPU is nearly full — long or many concurrent contexts are packing VRAM. New requests or longer contexts will start competing; eviction is near.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ KV cache filling</div>Context memory is running out. The box will soon evict the oldest contexts or refuse to extend — a signal to check concurrent session count in D-01.</div>"
+      }
+     ]
     },
     {
      "selector": "#gpu-1-util",
-     "title": "GPU 1 (Scout) — utilization",
-     "content": "Compute load on the 4090, the lighter Scout tier — handed to a Weaver sandbox via VFIO, so this GPU belongs to the confined fabric, not the host directly.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-grid\"><span class=\"k\">&gt; 85%</span><span>the M058 rule reduces branch width + pushes classification onto the CPU (Pulse)</span></div></div>"
+     "title": "GPU 1 utilization — Scout / Logic Engine",
+     "content": "Compute utilization of the RTX 4090 (24 GB), the Scout / Logic Engine for ingestion + translation + mid-scale Q4 models. It's VFIO-passed into the Weaver sandbox, so its load is untrusted work running in isolation — the box's speculative/scout tier, deliberately walled off from the host.",
+     "icon": "▓",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The sandboxed Scout GPU</div><div class=\"so-grid\"><span class=\"k\">card</span><span>RTX 4090, 24 GB — Scout / Logic Engine (M075)</span><span class=\"k\">workload</span><span>ingestion, translation, mid-scale Q4 models</span><span class=\"k\">isolation</span><span>VFIO passthrough into the Weaver sandbox — untrusted GPU work runs here, walled off</span></div><div class=\"so-xref\"><span class=\"x\">→</span> Weaver panel — the sandbox this GPU is passed into<br><span class=\"x\">→</span> D-15 sandboxes — the isolation tiers that govern it<br><span class=\"x\">→</span> the <b>idle 4090 busy &gt; 85%</b> rule watches this GPU</div></div>"
     },
     {
      "selector": "#gpu-1-vram",
-     "title": "GPU 1 (Scout) — VRAM",
-     "content": "VRAM in use of the 4090's 24 GB — a real constraint that caps Scout model size and branch width.",
-     "expanded": "<div class=\"so-card info\"><div>When this is tight the router leans on CPU classifiers instead of widening GPU branches.</div></div>"
+     "title": "GPU 1 VRAM — / 24 GB",
+     "content": "Resident VRAM on the Scout GPU out of 24 GB — a much tighter budget than the Oracle. This is what caps the size of Q4 scout/ingestion models; the VRAM-aware catalog (D-23) uses this ceiling to decide what can be assigned to the Logic Engine."
     },
     {
      "selector": "#gpu-1-temp",
-     "title": "GPU 1 (Scout) — temperature",
-     "content": "4090 die temperature. Same throttle logic as the Oracle, but contained to Weaver's sandbox since the card is VFIO-passed.",
-     "expanded": ""
+     "title": "GPU 1 temperature",
+     "content": "Die temperature of the sandboxed 4090. Because it runs untrusted scout work, sustained load here is expected — but thermal headroom matters since it shares the chassis (and the power budget) with the much larger Oracle GPU."
     },
     {
      "selector": "#gpu-1-pow",
-     "title": "GPU 1 (Scout) — power",
-     "content": "Board power of the 4090 — part of the same UPS envelope as the Oracle. Two GPUs at full power is the peak-draw case graceful-shutdown is sized against.",
-     "expanded": ""
+     "title": "GPU 1 power draw",
+     "content": "Board power of the Scout GPU. Add it to the Oracle's draw for the box's GPU peak — the combined figure is what the PSU/UPS power-budget preflight (build-configurator) has to cover."
     },
     {
      "selector": "#gpu-1-sandbox",
-     "title": "GPU 1 (Scout) — sandbox",
-     "content": "Which Weaver sandbox currently owns the VFIO-passed 4090. Because it's passed through, exactly one confined context holds it at a time.",
-     "expanded": "<div class=\"so-card info\"><div>This is the link between raw GPU telemetry and the Weaver fabric row that's actually using it — the same context you'd see in D-15.</div></div>"
+     "title": "GPU 1 sandbox state",
+     "content": "The isolation state of the VFIO passthrough that walls the 4090 into the Weaver sandbox. This is a security signal, not a performance one: it confirms untrusted GPU work is contained. A sandbox that isn't intact means scout work could reach the host — which the Auditor exists to prevent.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why the sandbox state is here</div>The 4090 runs untrusted, speculative work. VFIO passthrough gives that work a whole GPU while keeping it off the host's PCIe — the hardware half of the Weaver isolation.<div class=\"so-li\"><span class=\"ok\">✓</span> Intact → scout GPU work is contained; the host is protected</div><div class=\"so-li\"><span class=\"no\">✗</span> Broken → isolation is compromised; untrusted work could reach the host</div><div class=\"so-xref\"><span class=\"x\">→</span> Weaver + D-15 sandboxes — the isolation model this enforces<br><span class=\"x\">→</span> Auditor — the gatekeeper that watches for exactly this kind of breach</div></div>",
+     "variants": [
+      {
+       "when": {
+        "textContains": "intact"
+       },
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">✓ Sandbox intact</div>VFIO isolation holding — the Scout GPU's untrusted work is contained.</div>"
+      },
+      {
+       "when": {
+        "textContains": "broken"
+       },
+       "content": "The GPU sandbox is NOT intact — VFIO isolation is compromised and untrusted scout work could reach the host. This is a security event; the Auditor should already be flagging it.",
+       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Sandbox breach</div>Isolation compromised. Untrusted GPU work is no longer walled off — treat as a security incident, not a performance one.</div>"
+      }
+     ]
     }
    ]
   },
   {
    "icon": "▤",
-   "title": "ZFS / NVMe (M068)",
-   "content": "The tank pool's IO health — where state, snapshots, and context datasets live. IOPS is the demand side; the two latency percentiles are the service side. Demand high + latency rising = the pool is the bottleneck.",
+   "title": "ZFS / NVMe IOPS (M068)",
+   "content": "The storage pressure behind IO-PSI. ZFS (tank) is the box's durable substrate (M068): the state fabric writes here with sync=always, containers and context live here, and snapshots are the rollback points (D-08). IOPS + read/write p95 latency tell you whether storage is keeping up; the dataset table breaks it down per dataset.",
    "children": [
     {
      "selector": "#zpool-iops",
-     "title": "tank IOPS",
-     "content": "Current IO operations per second on the tank pool. High IOPS with rising latency is exactly what the IO-pressure backpressure rule reacts to.",
-     "expanded": ""
+     "title": "Pool IOPS",
+     "content": "Operations per second the ZFS pool is serving. High IOPS isn't bad by itself — it's high IOPS with rising p95 latency (beside this) that means the pool is saturated and IO-PSI will climb. A scrub or a big snapshot shows up here as a burst."
     },
     {
      "selector": "#zpool-rlat",
-     "title": "Read latency (p95)",
-     "content": "95th-percentile read latency — p95, not average, so it catches the tail stalls the average hides.",
-     "expanded": "<div class=\"so-card info\"><div>A p95 blowout during a scrub or heavy snapshot is the concrete symptom behind an IO-pressure event above.</div></div>"
+     "title": "Read latency p95",
+     "content": "The 95th-percentile read latency in microseconds — 95% of reads complete faster than this. p95 (not average) is what you watch because it catches the tail: a good average with a bad p95 means occasional long stalls that a context-fetch or a KV-replay from cold storage would feel.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why p95, not average</div>Averages hide the stalls that actually hurt. One read in twenty being slow is invisible in the mean but is exactly what makes a request feel janky — p95 surfaces it.<div class=\"so-xref\"><span class=\"x\">→</span> the KV cache (GPU section) replays from cold ZFS when it spills — this latency is that cost<br><span class=\"x\">→</span> rising p95 here is the detail behind a rising IO-PSI above</div></div>"
     },
     {
      "selector": "#zpool-wlat",
-     "title": "Write latency (p95)",
-     "content": "95th-percentile write latency. Writes are what atomic state-fabric commits (Weaver → tank/context) depend on, so this gates every rollback-point snapshot.",
-     "expanded": "<div class=\"so-card info\"><div>Pair a rising write p95 with the dataset table to see which dataset is hot — sync=always datasets pay write latency for durability by design.</div></div>"
+     "title": "Write latency p95",
+     "content": "The 95th-percentile write latency in microseconds. This matters most for the state fabric: tank/context is mounted sync=always (M068), so every state write waits for the disk to confirm. High write p95 directly slows state commits — the box's memory of what it's doing.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">sync=always makes writes visible</div>Most systems buffer writes; the state fabric can't — sync=always means a write isn't done until ZFS confirms it's durable. That safety is why write p95 here translates straight into how fast the box can commit state.<div class=\"so-xref\"><span class=\"x\">→</span> Weaver panel — the state-fabric writers this latency gates<br><span class=\"x\">→</span> D-08 rollback points — the snapshots taken on this pool</div></div>"
     },
     {
      "selector": "#zfs-tbody",
-     "title": "Per-dataset table",
-     "content": "Each tank dataset with its usage, compression, recordsize, and sync mode — where you localise a storage problem.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-grid\"><span class=\"k\">recordsize</span><span>explains latency behaviour for that dataset's access pattern</span><span class=\"k\">sync=always</span><span>durable but pays write latency — a deliberate trade you can see here</span><span class=\"k\">usage</span><span>which dataset — context, snapshots, models — is growing</span></div></div>"
+     "title": "ZFS datasets",
+     "content": "Each dataset on the pool with its role and usage — tank/context (the sync=always state fabric), tank/containers (the sandbox images, recordsize 16k), and the snapshot datasets that back rollback. Hover a row for what that dataset does and why its settings are what they are.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The datasets behind the pool</div>One pool, several datasets, each tuned for its job — the table is where you see per-dataset usage rather than the pool aggregate above.</div>",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#zfs-tbody tr",
+      "nameSelector": "td",
+      "title": "Dataset · {{name}}",
+      "content": "The {{name}} dataset — its live usage on the pool. Hover reads the row; what this dataset is for is explained by its role.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Dataset · {{name}}</div>Each dataset is tuned for its job on the shared pool. Read this row's usage against the pool IOPS + p95 latency above — a single hot dataset can drive the whole pool's IO-PSI.<div class=\"so-tip\">💡 tank/context is sync=always (state fabric); tank/containers uses recordsize 16k (sandbox images); snapshot datasets are the D-08 rollback points.</div></div>",
+      "variants": [
+       {
+        "when": {
+         "textContains": "context"
+        },
+        "content": "The tank/context dataset — the state fabric, mounted sync=always so every write is durable before it returns (M068). Its write latency is the box's state-commit speed.",
+        "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">tank/context · sync=always</div>The durability-critical dataset. High write p95 here directly slows how fast the box commits state — see Write latency p95 above.</div>"
+       },
+       {
+        "when": {
+         "textContains": "containers"
+        },
+        "content": "The tank/containers dataset — sandbox/container images at recordsize 16k, tuned for the Weaver fabric's IO pattern (M068).",
+        "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">tank/containers · recordsize 16k</div>Holds the sandbox images. Its record size is tuned for container IO, distinct from the context dataset beside it.</div>"
+       }
+      ]
+     }
     }
    ]
   },
   {
    "icon": "⚖",
-   "title": "M058 backpressure rules",
-   "content": "The hardware-aware scheduler defending itself under load. When a resource crosses its threshold, the scheduler automatically sheds or reshapes work instead of falling over. A firing rule explains why autonomy, context, or background work just changed without anyone touching it.",
+   "title": "Active backpressure rules (M058)",
+   "content": "The M058 Goldilocks scheduler's backpressure ladder — the rules that read every signal above and throttle the box before pressure becomes failure. Each rule is 'signal &gt; threshold → action'. A rule highlighted here is currently firing. This is the box protecting itself: shedding speculation, hibernating branches, deferring scrubs, or handing more decisions to you.",
    "children": [
     {
-     "selector": "#rule-blackwell-vram",
-     "title": "Rule · Blackwell VRAM > 90%",
-     "content": "When Oracle VRAM crosses 90%: reduce context + evict low-value KV + switch to a smaller oracle. The relief valve for the heavy tier.",
-     "expanded": "<div class=\"so-card info\"><div>When it fires, expect shorter effective context and possibly a lighter model answering — a deliberate quality-for-survival trade, not a bug. Read it with the Oracle VRAM/KV stats above.</div></div>",
-     "variants": [
+     "selector": "#backpressure-panel",
+     "title": "The backpressure ladder",
+     "content": "The full set of M058 rules, live. Reading them together tells you the box's current self-protection posture — nothing firing means headroom everywhere; several firing means the box is actively shedding to stay healthy.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The scheduler's core law (M058)</div>\"Never let expensive cognition wait on cheap preparation; never let cheap speculation commit without expensive verification when risk demands it.\"<div class=\"so-tip\">💡 These rules are how that law is enforced in hardware terms — each one trades some autonomy or speculation for stability when a signal crosses its line.</div></div>",
+     "children": [
       {
-       "when": {
-        "textContains": "idle"
-       },
-       "content": "Currently idle — Oracle VRAM is below 90%, so nothing is being trimmed. If it fires, expect shorter context and possibly a smaller model answering."
-      }
-     ]
-    },
-    {
-     "selector": "#rule-4090-busy",
-     "title": "Rule · 4090 busy (util > 85%)",
-     "content": "When Scout util crosses 85%: reduce branch width + use CPU classifiers. Protects the Scout from oversubscription.",
-     "expanded": "<div class=\"so-card info\"><div>Firing here explains why branch-heavy exploration suddenly got narrower or slower — the classification moved to Pulse.</div></div>",
-     "variants": [
+       "selector": "#rule-blackwell-vram",
+       "title": "Rule · Blackwell VRAM > 90%",
+       "content": "When the Oracle GPU's VRAM crosses 90%, the scheduler stops admitting new large-model work to it. This is the hard-wall guard: VRAM overrun fails the load, so the rule sheds before the ceiling rather than after.",
+       "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Guarding the hard VRAM wall</div>GPU VRAM doesn't degrade — it fails. This rule is the one that treats the 96 GB as an absolute ceiling and keeps a margin.<div class=\"so-xref\"><span class=\"x\">→</span> fires on the GPU 0 VRAM reading above<br><span class=\"x\">→</span> D-23's VRAM-aware selection is the preventive side of the same concern</div></div>",
+       "variants": [
+        {
+         "when": {
+          "textContains": "firing"
+         },
+         "content": "This rule is FIRING — Oracle VRAM is over 90% and new large-model work is being held. Check GPU 0 VRAM + KV cache above for what's consuming it.",
+         "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ Firing — VRAM guard active</div>Large-model admission to the Oracle GPU is paused until VRAM drops back under the line.</div>"
+        }
+       ]
+      },
       {
-       "when": {
-        "textContains": "idle"
-       },
-       "content": "Currently idle — the 4090 is under 85% util, branches run at full width."
-      }
-     ]
-    },
-    {
-     "selector": "#rule-cpu-pressure",
-     "title": "Rule · CPU PSI > 30%",
-     "content": "When CPU pressure crosses 30%: defer background indexing + evals to keep interactive inference responsive.",
-     "expanded": "<div class=\"so-card info\"><div>If evals or indexing 'paused on their own', this rule is why — they resume when CPU PSI falls back.</div></div>",
-     "variants": [
+       "selector": "#rule-4090-busy",
+       "title": "Rule · idle 4090 busy > 85%",
+       "content": "When the Scout GPU (4090) is busy above 85%, the scheduler stops sending it new speculative/scout work and lets it drain. Keeps the sandboxed ingestion tier from overcommitting — scout work is deprioritizable by design.",
+       "variants": [
+        {
+         "when": {
+          "textContains": "firing"
+         },
+         "content": "Firing — the Scout GPU is saturated; new speculative work is being held so it can drain. Ingestion/translation throughput is capped until it frees up.",
+         "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ Firing — Scout saturated</div>The 4090 is full; speculation is paused. This is the cheap tier being shed first, exactly as intended.</div>"
+        }
+       ]
+      },
       {
-       "when": {
-        "textContains": "idle"
-       },
-       "content": "Currently idle — CPU pressure is below 30%, so background indexing + evals run normally."
-      }
-     ]
-    },
-    {
-     "selector": "#rule-ram-pressure",
-     "title": "Rule · RAM PSI > 20%",
-     "content": "When memory pressure crosses 20%: hibernate idle branches + compact memory — the pre-OOM defence.",
-     "expanded": "<div class=\"so-card info\"><div>Firing here is the healthy alternative to an OOM kill: it frees RAM deliberately before the kernel is forced to reclaim hard.</div></div>",
-     "variants": [
+       "selector": "#rule-cpu-pressure",
+       "title": "Rule · idle CPU PSI > 30%",
+       "content": "When CPU PSI crosses 30%, the scheduler idles speculative CPU work so committed, latency-sensitive work on the Pulse Core keeps its cores. This is the CPU half of 'don't let cheap speculation starve expensive cognition'.",
+       "variants": [
+        {
+         "when": {
+          "textContains": "firing"
+         },
+         "content": "Firing — CPU PSI is over 30%; speculative CPU work is idled to protect latency-sensitive Pulse-Core work. Check the CPU PSI + CCD 0 load above.",
+         "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ Firing — CPU speculation idled</div>The scheduler is protecting the Pulse Core's cores by shedding speculation until CPU pressure eases.</div>"
+        }
+       ]
+      },
       {
-       "when": {
-        "textContains": "idle"
-       },
-       "content": "Currently idle — memory pressure is below 20%; nothing is being hibernated."
-      }
-     ]
-    },
-    {
-     "selector": "#rule-io-pressure",
-     "title": "Rule · IO PSI > 25%",
-     "content": "When IO pressure crosses 25%: delay cold scans + avoid large snapshots, so storage maintenance doesn't starve live work.",
-     "expanded": "<div class=\"so-card info\"><div>This is why a scheduled scrub or big snapshot may be held back during busy periods — deferred, not cancelled.</div></div>",
-     "variants": [
+       "selector": "#rule-ram-pressure",
+       "title": "Rule · idle RAM PSI > 20%",
+       "content": "When memory PSI crosses 20%, the scheduler hibernates exploration branches to free RAM before the OOM-killer intervenes. Parking a branch is reversible; an OOM kill is not — so the box sheds early.",
+       "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Hibernate before OOM</div>This is the rule that turns the memory-PSI early-warning into an action — it parks the widest, least-committed work first.<div class=\"so-xref\"><span class=\"x\">→</span> relieves the Memory PSI signal above<br><span class=\"x\">→</span> D-01 sessions shows the branches that would be hibernated</div></div>",
+       "variants": [
+        {
+         "when": {
+          "textContains": "firing"
+         },
+         "content": "Firing — memory PSI is over 20%; exploration branches are being hibernated to free RAM. The box is shedding width to avoid an OOM.",
+         "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ Firing — branches hibernating</div>Reversible load-shedding in progress: parked branches resume when memory pressure clears.</div>"
+        }
+       ]
+      },
       {
-       "when": {
-        "textContains": "idle"
-       },
-       "content": "Currently idle — IO pressure is below 25%; scrubs and snapshots run on schedule."
-      }
-     ]
-    },
-    {
-     "selector": "#rule-human-gate",
-     "title": "Rule · human-gate queue > 5",
-     "content": "A governance backpressure, not a hardware one: when the approval queue (D-06) exceeds 5, batch approvals + lower autonomy — keeping you in the loop rather than racing ahead.",
-     "expanded": "<div class=\"so-card info\"><div>When it fires the box does less unattended and groups decisions for you. It's the system choosing your oversight over its own speed.</div></div>",
-     "variants": [
+       "selector": "#rule-io-pressure",
+       "title": "Rule · idle IO PSI > 25%",
+       "content": "When IO PSI crosses 25%, the scheduler defers cold scans and large snapshots so live reads/writes aren't starved. This is why a scheduled scrub can be held back during a busy period — deferred, not cancelled.",
+       "variants": [
+        {
+         "when": {
+          "textContains": "firing"
+         },
+         "content": "Firing — IO PSI is over 25%; cold scans and large snapshots are deferred so live work keeps the disk. A pending scrub is being held until storage frees up.",
+         "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ Firing — storage maintenance deferred</div>Background IO is paused in favour of live work. The deferred scrub/snapshot runs when IO pressure drops.</div>"
+        }
+       ]
+      },
       {
-       "when": {
-        "textContains": "idle"
-       },
-       "content": "Currently idle — the approval queue is at or below 5; autonomy runs at its normal level."
+       "selector": "#rule-human-gate",
+       "title": "Rule · human gate queue depth > 5",
+       "content": "A governance backpressure, not a hardware one: when the approval queue (D-06) grows past 5, the box lowers its autonomy and batches decisions for you — choosing your oversight over its own speed. It's the scheduler deciding that when you're behind, it should slow down and keep you in the loop.",
+       "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">When the box chooses your oversight</div>The only rule here driven by a human signal, not a silicon one. A deep approval queue means the box is outrunning your ability to supervise — so it deliberately does less unattended.<div class=\"so-xref\"><span class=\"x\">→</span> fires on the D-06 pending-approvals queue depth<br><span class=\"x\">→</span> M065 stage-gates are the approvals that fill that queue</div></div>",
+       "variants": [
+        {
+         "when": {
+          "textContains": "firing"
+         },
+         "content": "Firing — the approval queue (D-06) is over 5. The box has lowered autonomy and is batching decisions to keep you in the loop. Clear approvals in D-06 to restore full autonomy.",
+         "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">● Firing — autonomy lowered</div>The box is deliberately doing less unattended because you're behind on approvals. It's a feature: your oversight over its speed.</div>"
+        }
+       ]
       }
      ]
     }
@@ -1744,31 +1924,29 @@ window.SO_ASSIST = {
   {
    "icon": "⎈",
    "title": "Actions & controls",
-   "content": "This panel reads; it never mutates. Every action copies the signed sovereign-osctl verb for you to run through the gated path (R10212) — the cockpit stages, osctl executes.",
+   "content": "Read-only telemetry — refreshing re-samples, everything else copies a signed sovereign-osctl verb for you to run through the gated path (R10212). The cockpit stages; osctl executes.",
    "children": [
     {
      "selector": "#refresh-btn",
      "title": "Refresh",
-     "content": "Pull a fresh telemetry sample right now instead of waiting for the auto-poll — useful just after you've changed load.",
-     "expanded": ""
+     "content": "Pull a fresh pressure sample right now instead of waiting for the auto-poll — useful the moment after you change load and want to see the box react. Read-only: it re-samples, it never changes anything."
     },
     {
      "selector": "#scrub-btn",
      "title": "zpool scrub (operator-signed)",
-     "content": "Stages a tank scrub. A scrub is heavy IO — it will itself raise IO pressure — so it runs through the gated osctl path where it can be authorised and timed against load.",
-     "expanded": "<div class=\"so-card info\"><div>The button copies the signed verb; it never scrubs from the browser (R10212). Run it when IO pressure is low.</div></div>"
+     "content": "Stages a ZFS integrity scrub of the pool — the periodic checksum verification that catches silent data corruption. A scrub is heavy IO and will itself raise IO-PSI, which is exactly why it runs through the gated osctl path where it can be timed against load, not fired from the browser.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why scrub is gated + timed</div>A scrub reads the whole pool to verify checksums — essential for durability, but it competes with live IO.<div class=\"so-li\"><span class=\"ok\">✓</span> Run it when IO-PSI is low — the io-pressure rule will defer it anyway if you don't</div><div class=\"so-li\"><span class=\"warn\">▲</span> Running during a busy period raises IO-PSI and can trip the io-pressure rule</div><div class=\"so-tip\">💡 The button copies the signed verb; it never scrubs from the web (R10212). This is telemetry that stages an action, not a trigger.</div></div>"
     },
     {
      "selector": "#dcgm-export-btn",
      "title": "Copy DCGM export cmd",
-     "content": "Copies the command to export GPU telemetry via NVIDIA DCGM, so the raw metrics can leave the cockpit for an external monitor or SIEM.",
-     "expanded": ""
+     "content": "Copies the command to export raw GPU telemetry via NVIDIA DCGM, so the underlying metrics can leave the cockpit for an external monitor or SIEM. Read-only — it gives you the command; you run it."
     },
     {
      "selector": "#control-surface",
      "title": "Controls — profiles, modes & toggles",
-     "content": "The control rail for hardware behaviour. This is where a runtime mode is selected — the setting that caps GPU power and pins cores, and explains much of the pressure picture above.",
-     "expanded": "<div class=\"so-card info\"><div>Every control copies its exact sovereign-osctl verb (§1g / R10212) rather than executing — the web surface never changes privileged state.</div></div>"
+     "content": "The control rail for hardware behaviour — where the runtime mode (M076) is selected, the one setting that caps GPU power and pins cores and thus explains much of the pressure picture above. Every control copies its exact sovereign-osctl verb rather than executing (§1g / R10212); the web surface never changes privileged state.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The mode drives the pressure</div>Much of what you read on this panel is downstream of one choice: the active runtime mode. An efficiency mode caps GPU power and parks cores; a concurrency mode spreads them.<div class=\"so-xref\"><span class=\"x\">→</span> Runtime Modes panel — the M076 profiles this rail selects<br><span class=\"x\">→</span> when the pressure picture surprises you, check which mode is active first</div></div>"
     }
    ]
   }

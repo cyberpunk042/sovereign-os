@@ -480,10 +480,16 @@ a11y; contract test catches drift.
   .so-node-expanded{margin-top:.55rem; padding-top:.55rem; border-top:1px solid rgba(155,209,255,.13); font-size:.78rem; line-height:1.6; color:var(--muted,#a8a8a8); white-space:pre-line;}
   /* rich expanded cards */
   .so-card{border:1px solid var(--border,#262626); border-radius:7px; padding:.55rem .65rem; margin-top:.45rem; background:var(--bg,#0e0e0e); white-space:normal; line-height:1.55;}
-  .so-card.info{border-color:rgba(155,209,255,.28);}
+  .so-card.info{border-color:rgba(155,209,255,.28); background:rgba(155,209,255,.035);}
+  .so-card.ok{border-color:rgba(127,209,143,.34); background:rgba(127,209,143,.045);}
+  .so-card.warn{border-color:rgba(224,192,122,.38); background:rgba(224,192,122,.05);}
+  .so-card.err{border-color:rgba(224,138,138,.4); background:rgba(224,138,138,.055);}
+  .so-card-label{font-weight:600; font-size:.79rem; margin-bottom:.3rem;}
+  .so-card.ok .so-card-label{color:#7fd18f;} .so-card.warn .so-card-label{color:#e0c07a;} .so-card.err .so-card-label{color:#e08a8a;} .so-card.info .so-card-label{color:var(--accent,#9bd1ff);}
   .so-grid{display:grid; grid-template-columns:auto 1fr; gap:.22rem .6rem; margin:.35rem 0; font-size:.76rem; white-space:normal;}
   .so-grid .k{color:var(--accent,#9bd1ff); font-weight:500;}
-  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;}
+  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;} .so-li .warn{color:#e0c07a;}
+  .so-xref{margin-top:.4rem; font-size:.76rem; color:var(--fg-2,#c8c8c8);} .so-xref .x{color:var(--accent,#9bd1ff); font-weight:500;}
   .so-tip{margin-top:.4rem; font-size:.77rem; color:var(--muted,#a8a8a8);}
   .so-assist-idle{color:var(--muted,#8a8a8a); font-style:italic; padding:.4rem 0;}
   /* highlight the hovered/focused element in the panel content */
@@ -644,25 +650,38 @@ a11y; contract test catches drift.
       return {ctx:ctx, nodes:nodes}; })();
     // flatten deepest-first with parent chains
     var FLAT=[]; (function flat(list,chain){ (list||[]).forEach(function(n){ if(n.children&&n.children.length) flat(n.children,chain.concat([n])); FLAT.push({node:n,parents:chain.slice()}); }); })(CAT.nodes,[]);
+    // {{name}} interpolation for dynamic-row templates
+    function interp(s,name){ return (name==null)?(s||''):String(s||'').replace(/\{\{name\}\}/g,name); }
+    // derive a live row's label (nameSelector, then a strong/cell/code heuristic, then text)
+    function rowName(row,ct){ var t=''; if(ct.nameSelector){ try{ var e=row.querySelector(ct.nameSelector); if(e) t=e.textContent||''; }catch(x){} }
+      if(!t){ var s=row.querySelector('strong,code,th,.k,td'); if(s) t=s.textContent||''; }
+      if(!t) t=row.textContent||''; return t.replace(/\s+/g,' ').trim().slice(0,64); }
+    // synthesize a node from a childTemplate bound to one live row
+    function synthRow(n,row){ var ct=n.childTemplate, nm=rowName(row,ct);
+      return {id:n.id, icon:ct.icon||n.icon, title:interp(ct.title||n.title||'{{name}}',nm), content:ct.content||'', expanded:ct.expanded||'', variants:ct.variants, _name:nm}; }
     // variant resolution against the matched element (state-awareness)
     function resolveVar(node,el){ if(!node.variants||!node.variants.length||!el) return node;
       for(var i=0;i<node.variants.length;i++){ var v=node.variants[i], w=v.when||{}, ok=true;
-        if(w.textContains && (el.textContent||'').indexOf(w.textContains)<0) ok=false;
+        if(w.textContains && (el.textContent||'').toLowerCase().indexOf(String(w.textContains).toLowerCase())<0) ok=false;
         if(ok&&w.hasSelector){ try{ if(!el.querySelector(w.hasSelector)) ok=false; }catch(e){ ok=false; } }
-        if(ok) return {id:node.id,title:v.title||node.title,icon:node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded)}; }
+        if(ok) return {id:node.id,title:v.title||node.title,icon:v.icon||node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded),_name:node._name}; }
       return node; }
-    // match a hovered element to the deepest catalogue node
+    // match a hovered element to the deepest catalogue node (static node OR dynamic row)
     function matchNode(el){ var best=null,bd=-1;
-      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node,m=false,tgt=null; if(!n.selector) continue;
-        try{ if(el.matches(n.selector)){m=true;tgt=el;}
-          else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
-        if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node;
+        if(n.selector){ var m=false,tgt=null;
+          try{ if(el.matches(n.selector)){m=true;tgt=el;}
+            else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
+          if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+        if(n.dynamic && n.childTemplate && n.childTemplate.selector){ try{ var row=el.closest(n.childTemplate.selector);
+          if(row){ var d2=e.parents.length+1; if(d2>bd){ bd=d2; best={entry:{node:synthRow(n,row),parents:e.parents.concat([n])},el:row}; } } }catch(y){} } }
       return best; }
     function ctxHtml(){ var c=CAT.ctx; return '<div class="so-ctx"><div class="so-ctx-title">'+(c.icon?esc(c.icon)+' ':'')+esc(c.title||'')+'</div><div class="so-ctx-content">'+esc(c.content||'')+'</div></div>'; }
-    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node;
-      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(r.title||'')+'</div>';
-      h+='<div class="so-node-content">'+esc(r.content||'')+'</div>';
-      if(active && r.expanded) h+='<div class="so-node-expanded">'+r.expanded+'</div>';   // expanded = trusted authored HTML
+    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node, nm=(node._name!=null?node._name:null);
+      var title=interp(r.title||'',nm), cont=interp(r.content||'',nm), exp=interp(r.expanded||'',nm);
+      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(title)+'</div>';
+      h+='<div class="so-node-content">'+esc(cont)+'</div>';
+      if(active && exp) h+='<div class="so-node-expanded">'+exp+'</div>';   // expanded = trusted authored HTML
       return h+'</div>'; }
     var lastHot=null, lastMatched=null;
     function clearHot(){ if(lastHot){ lastHot.classList.remove('so-assist-hot'); lastHot=null; } }
@@ -681,7 +700,7 @@ a11y; contract test catches drift.
     // menu links → surface the target panel's context (program-awareness: horizontal jump)
     Array.prototype.forEach.call(document.querySelectorAll('.so-sm-item'),function(it){ var p=findPanel(it.dataset.dir); if(!p) return;
       function show(){ openAssist(); clearHot(); lastMatched=null; it.classList.add('so-assist-hot'); lastHot=it; var here=it.dataset.dir===curDir();
-        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+esc(p.desc||'')+'</div></div>'+
+        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+(p.menuHover?p.menuHover:esc(p.desc||''))+'</div></div>'+
           '<div class="so-assist-idle">'+(here?'You’re on this panel now — hover its contents to explore.':'Click to open this panel.')+'</div>'; }
       it.addEventListener('mouseenter',show); it.addEventListener('focus',show); });
     idle();
@@ -1362,152 +1381,162 @@ setInterval(refreshAll, 60000);
 <script>
 window.SO_ASSIST = {
  "context": {
-  "icon": "◳",
-  "title": "UX Design Audit",
-  "content": "The UX-completeness scanner — for every tracked module, how it scores on the 6 operator-named UX dimensions (R457 ladder: action-budget, discoverable, recoverable, next-step, operator-named, readable-30s), and which fall below the threshold.\n\nThe scoring logic lives in the audited modules themselves, NOT in this daemon — it aggregates, it doesn't judge. A low score is the module's real UX debt."
+  "icon": "◫",
+  "title": "UX Design Audit · §1g",
+  "content": "The instrument that scores experience, not just correctness — and the exact bar this cockpit assistant effort is held to. A surface can render perfectly and still fail its operator, so UX is measured on six operator-named dimensions (R457): action-budget (how few steps), discoverable (findable without being told), recoverable (mistakes undoable), next-step (always points forward), operator-named (the operator's words, not the code's), and readable-30s (graspable at a glance).\n\nRead the score matrix (lowest first) for which surface is weak on which quality — every low cell is a concrete fix, not a vague 'improve UX'. §1h (R464) extends the bar to selfdef. This panel is why 'it works' is not enough: a feature is not done until it is usable. Read-only; it scores, it does not redesign for you."
  },
  "nodes": [
   {
    "icon": "◆",
-   "title": "Summary",
-   "content": "How many modules are tracked, how many UX dimensions, and how many modules score below the bar.",
+   "title": "Status",
+   "content": "The UX-design audit — the §1g instrument scoring experience quality (R457). The bar THIS cockpit effort is measured against.",
    "children": [
     {
      "selector": "#stats",
      "title": "Audit summary",
-     "content": "The roll-up — tracked modules, UX dimensions, modules below threshold, selfdef checklists — before the score matrix and shortfall list."
+     "content": "The roll-up — version, modules, dimensions, below-threshold, selfdef. Where the fleet's UX quality stands."
+    },
+    {
+     "selector": "#stat-version",
+     "title": "Audit version",
+     "content": "The UX-audit version — for reconciling scores against the R457 dimension ladder."
     },
     {
      "selector": "#stat-modules",
-     "title": "Tracked modules",
-     "content": "How many modules the audit covers — the denominator. Each is scored on all 6 UX dimensions."
+     "title": "Modules scanned",
+     "content": "How many modules are UX-scored — each rated on 6 dimensions."
     },
     {
      "selector": "#stat-dimensions",
      "title": "UX dimensions",
-     "content": "How many of the 6 R457 UX dimensions are scored — the axes a well-designed module is measured on."
+     "content": "The 6 operator-named UX dimensions (R457). Experience is not one 'looks nice' score — it is six measurable qualities, each a different way a surface can fail its operator."
     },
     {
      "selector": "#stat-below",
-     "title": "Modules below threshold",
-     "content": "How many modules score under the UX bar — the design-debt backlog. The number to drive down.",
+     "title": "Below threshold",
+     "content": "Modules under the UX floor (default 4) — the experience backlog. A module here works but is unpleasant or confusing to use, which the operator counts as not done.",
      "variants": [
       {
        "when": {
         "textContains": "0"
        },
-       "content": "Zero below threshold — every tracked module meets its UX bar."
+       "content": "No modules below the UX floor — every surface clears the experience bar.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● 0 below</div>Every surface clears the UX bar — no experience debt.</div>"
       }
      ]
     },
     {
      "selector": "#stat-selfdef",
-     "title": "Selfdef checklists",
-     "content": "How many cross-repo selfdef UxChecklists (R464) were found — UX coverage extending beyond this repo."
-    },
-    {
-     "selector": "#stat-version",
-     "title": "API version",
-     "content": "The version of the ux-design-audit daemon answering — for reconciling behaviour against the spec."
+     "title": "Selfdef coverage",
+     "content": "Cross-repo selfdef UxChecklists discovered (R464) — §1h UX beyond this repo."
     },
     {
      "selector": "#last-refresh",
-     "title": "Refresh freshness",
-     "content": "When the audit last ran — scores reflect the last run, so check this before trusting a score as current."
+     "title": "Audit freshness",
+     "content": "When the audit last ran. Coverage below is only as current as this — a module changed since then would not be re-scored yet, so refresh before trusting a green number."
     }
    ]
   },
   {
-   "icon": "⌗",
-   "title": "UX dimensions (R457 ladder)",
-   "content": "The 6 operator-named UX axes every module is scored against.",
+   "icon": "⊞",
+   "title": "6 UX dimensions",
+   "content": "The six operator-named UX dimensions (R457 ladder) — the measurable definition of a good surface. Each is a specific way experience is judged: how few steps, how findable, how recoverable, how forward-pointing, how operator-worded, how quickly grasped. The exact bar the assistant work is held to.",
    "children": [
     {
-     "selector": "#dimensions-row",
-     "title": "6 UX dimensions",
-     "content": "The R457 ladder — the six UX qualities a well-designed surface exhibits."
-    },
-    {
      "selector": "#dim-action-budget",
-     "title": "action-budget",
-     "content": "Whether the surface respects an action budget — how few steps a task takes. Bloated action counts are the classic UX failure this catches."
+     "title": "Dimension · action-budget",
+     "content": "How many steps a task costs. A feature that works but takes ten clicks is minimized in UX — the budget is the promise that the common path is short.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why action-budget is scored</div>A surface can render correctly and still fail this dimension. The audit scores it because 'it works' is not 'it is usable'; each dimension is a different failure the operator would notice.</div>"
     },
     {
      "selector": "#dim-discoverable",
-     "title": "discoverable",
-     "content": "Whether functions are discoverable — can a user find what they need without prior knowledge."
+     "title": "Dimension · discoverable",
+     "content": "Can you find it without being told? A control that exists but is hidden is a control that does not exist for most operators.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why discoverable is scored</div>A surface can render correctly and still fail this dimension. The audit scores it because 'it works' is not 'it is usable'; each dimension is a different failure the operator would notice.</div>"
     },
     {
      "selector": "#dim-recoverable",
-     "title": "recoverable",
-     "content": "Whether mistakes are recoverable — can a user undo or back out safely rather than getting stuck."
+     "title": "Dimension · recoverable",
+     "content": "Can you undo a mistake? A surface with no recovery path punishes exploration — recoverability is what makes a UI safe to learn.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why recoverable is scored</div>A surface can render correctly and still fail this dimension. The audit scores it because 'it works' is not 'it is usable'; each dimension is a different failure the operator would notice.</div>"
     },
     {
      "selector": "#dim-next-step",
-     "title": "next-step",
-     "content": "Whether the surface always suggests a clear next step — no dead ends where the user doesn't know what to do."
+     "title": "Dimension · next-step",
+     "content": "Does it tell you what to do next? A dead-end screen leaves the operator guessing; a good surface always points forward.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why next-step is scored</div>A surface can render correctly and still fail this dimension. The audit scores it because 'it works' is not 'it is usable'; each dimension is a different failure the operator would notice.</div>"
     },
     {
      "selector": "#dim-operator-named",
-     "title": "operator-named",
-     "content": "Whether elements use operator-named vocabulary — the words the operator actually uses, not internal jargon."
+     "title": "Dimension · operator-named",
+     "content": "Does it use the operator's words, not the code's? A panel that says 'CCD0' where the operator says 'Pulse cores' is speaking the wrong language.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why operator-named is scored</div>A surface can render correctly and still fail this dimension. The audit scores it because 'it works' is not 'it is usable'; each dimension is a different failure the operator would notice.</div><div class=\"so-tip\">💡 One of the six qualities every panel in this cockpit is being authored to.</div>"
     },
     {
      "selector": "#dim-readable-30s",
-     "title": "readable-30s",
-     "content": "Whether the surface is readable in 30 seconds — can its state be grasped at a glance, the core 'assistant feeling' bar."
+     "title": "Dimension · readable-30s",
+     "content": "Can you grasp it in thirty seconds? If a panel needs a manual to read, its information architecture failed — density is not depth.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why readable-30s is scored</div>A surface can render correctly and still fail this dimension. The audit scores it because 'it works' is not 'it is usable'; each dimension is a different failure the operator would notice.</div><div class=\"so-tip\">💡 One of the six qualities every panel in this cockpit is being authored to.</div>"
     }
    ]
   },
   {
-   "icon": "▤",
-   "title": "Score matrix & shortfalls",
-   "content": "The per-module score matrix and the modules that fall short.",
+   "icon": "◫",
+   "title": "Score matrix",
+   "content": "The module × dimension grid, lowest score first — which surface is weak on which quality. Every low cell is a specific UX fix, named by module and dimension.",
    "children": [
     {
      "selector": "#matrix-tbody",
      "title": "UX score matrix",
-     "content": "Every module × the 6 UX dimensions, sorted lowest-score-first — a whole-tree view of where UX is weakest. The top rows are where design effort pays off most.",
-     "expanded": "<div class=\"so-card info\"><div>Sorted lowest score first — the top of this table is your UX-debt backlog, in priority order.</div></div>"
-    },
+     "content": "Each row: a module scored across the 6 UX dimensions, worst first. A low cell is a concrete fix — 'this panel is not readable in 30s', 'this control is not discoverable' — not a vague 'improve UX'."
+    }
+   ]
+  },
+  {
+   "icon": "⚠",
+   "title": "Below threshold",
+   "content": "Modules under the UX floor — the priority list. The worst experiences sorted up so the most painful surfaces get fixed first.",
+   "children": [
     {
      "selector": "#below-tbody",
      "title": "Below-threshold modules",
-     "content": "Each module under the UX bar with its score, shortfall, and missing dimensions — the concrete design to-do list. Fix lives in the module itself, since that's where the UX is authored."
-    },
+     "content": "Each row: a module under the UX floor and its weakest dimensions. The actionable UX backlog — read the low dimensions to know which quality to raise."
+    }
+   ]
+  },
+  {
+   "icon": "◎",
+   "title": "Cross-repo (§1h)",
+   "content": "Selfdef UxChecklists across repos (R464) — the UX bar extends beyond this repo. A good experience here does not excuse a poor one in selfdef.",
+   "children": [
     {
      "selector": "#selfdef-tbody",
-     "title": "Selfdef UxChecklists",
-     "content": "Cross-repo selfdef UxChecklists (R464) — UX coverage tracked across sister repos, with repo, module, dimensions, and status."
+     "title": "Selfdef UX checklists",
+     "content": "Each row: a cross-repo selfdef module and its UX score (R464). §1h holds selfdef surfaces to the same 6-dimension bar."
     }
    ]
   },
   {
    "icon": "⟳",
    "title": "Refresh",
-   "content": "Pull a fresh read on demand; the panel also auto-refreshes.",
+   "content": "Re-run the audit on demand — a read-only re-scan.",
    "children": [
     {
      "selector": "#refresh-btn",
-     "title": "Refresh now",
-     "content": "Force an immediate re-read. Read-only telemetry — refreshing never changes state, it just re-samples."
-    },
-    {
-     "selector": "#last-refresh",
-     "title": "Refresh freshness",
-     "content": "When the shown values were last pulled — the panel auto-refreshes every 30s, but check this before trusting a value as 'now'."
+     "title": "Refresh audit",
+     "content": "Re-scan every module and recompute coverage now — read-only. It re-measures; it never changes a module to move a score."
     }
    ]
   },
   {
    "icon": "⎈",
    "title": "Controls",
-   "content": "",
+   "content": "Read-only instrument — mutations copy signed sovereign-osctl verbs (§1g / R10212). The audit reads; it never rewrites a module to pass.",
    "children": [
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Profile / mode / feature-toggle controls — each copies its sovereign-osctl verb (§1g / R10212). This view reads state; every mutation runs via the signed CLI, never from the browser."
+     "content": "The control rail — each button copies its exact sovereign-osctl verb. A UX change runs through the signed CLI, never from a web click."
     }
    ]
   }

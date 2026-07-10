@@ -502,10 +502,16 @@ a11y; contract test catches drift.
   .so-node-expanded{margin-top:.55rem; padding-top:.55rem; border-top:1px solid rgba(155,209,255,.13); font-size:.78rem; line-height:1.6; color:var(--muted,#a8a8a8); white-space:pre-line;}
   /* rich expanded cards */
   .so-card{border:1px solid var(--border,#262626); border-radius:7px; padding:.55rem .65rem; margin-top:.45rem; background:var(--bg,#0e0e0e); white-space:normal; line-height:1.55;}
-  .so-card.info{border-color:rgba(155,209,255,.28);}
+  .so-card.info{border-color:rgba(155,209,255,.28); background:rgba(155,209,255,.035);}
+  .so-card.ok{border-color:rgba(127,209,143,.34); background:rgba(127,209,143,.045);}
+  .so-card.warn{border-color:rgba(224,192,122,.38); background:rgba(224,192,122,.05);}
+  .so-card.err{border-color:rgba(224,138,138,.4); background:rgba(224,138,138,.055);}
+  .so-card-label{font-weight:600; font-size:.79rem; margin-bottom:.3rem;}
+  .so-card.ok .so-card-label{color:#7fd18f;} .so-card.warn .so-card-label{color:#e0c07a;} .so-card.err .so-card-label{color:#e08a8a;} .so-card.info .so-card-label{color:var(--accent,#9bd1ff);}
   .so-grid{display:grid; grid-template-columns:auto 1fr; gap:.22rem .6rem; margin:.35rem 0; font-size:.76rem; white-space:normal;}
   .so-grid .k{color:var(--accent,#9bd1ff); font-weight:500;}
-  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;}
+  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;} .so-li .warn{color:#e0c07a;}
+  .so-xref{margin-top:.4rem; font-size:.76rem; color:var(--fg-2,#c8c8c8);} .so-xref .x{color:var(--accent,#9bd1ff); font-weight:500;}
   .so-tip{margin-top:.4rem; font-size:.77rem; color:var(--muted,#a8a8a8);}
   .so-assist-idle{color:var(--muted,#8a8a8a); font-style:italic; padding:.4rem 0;}
   /* highlight the hovered/focused element in the panel content */
@@ -666,25 +672,38 @@ a11y; contract test catches drift.
       return {ctx:ctx, nodes:nodes}; })();
     // flatten deepest-first with parent chains
     var FLAT=[]; (function flat(list,chain){ (list||[]).forEach(function(n){ if(n.children&&n.children.length) flat(n.children,chain.concat([n])); FLAT.push({node:n,parents:chain.slice()}); }); })(CAT.nodes,[]);
+    // {{name}} interpolation for dynamic-row templates
+    function interp(s,name){ return (name==null)?(s||''):String(s||'').replace(/\{\{name\}\}/g,name); }
+    // derive a live row's label (nameSelector, then a strong/cell/code heuristic, then text)
+    function rowName(row,ct){ var t=''; if(ct.nameSelector){ try{ var e=row.querySelector(ct.nameSelector); if(e) t=e.textContent||''; }catch(x){} }
+      if(!t){ var s=row.querySelector('strong,code,th,.k,td'); if(s) t=s.textContent||''; }
+      if(!t) t=row.textContent||''; return t.replace(/\s+/g,' ').trim().slice(0,64); }
+    // synthesize a node from a childTemplate bound to one live row
+    function synthRow(n,row){ var ct=n.childTemplate, nm=rowName(row,ct);
+      return {id:n.id, icon:ct.icon||n.icon, title:interp(ct.title||n.title||'{{name}}',nm), content:ct.content||'', expanded:ct.expanded||'', variants:ct.variants, _name:nm}; }
     // variant resolution against the matched element (state-awareness)
     function resolveVar(node,el){ if(!node.variants||!node.variants.length||!el) return node;
       for(var i=0;i<node.variants.length;i++){ var v=node.variants[i], w=v.when||{}, ok=true;
-        if(w.textContains && (el.textContent||'').indexOf(w.textContains)<0) ok=false;
+        if(w.textContains && (el.textContent||'').toLowerCase().indexOf(String(w.textContains).toLowerCase())<0) ok=false;
         if(ok&&w.hasSelector){ try{ if(!el.querySelector(w.hasSelector)) ok=false; }catch(e){ ok=false; } }
-        if(ok) return {id:node.id,title:v.title||node.title,icon:node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded)}; }
+        if(ok) return {id:node.id,title:v.title||node.title,icon:v.icon||node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded),_name:node._name}; }
       return node; }
-    // match a hovered element to the deepest catalogue node
+    // match a hovered element to the deepest catalogue node (static node OR dynamic row)
     function matchNode(el){ var best=null,bd=-1;
-      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node,m=false,tgt=null; if(!n.selector) continue;
-        try{ if(el.matches(n.selector)){m=true;tgt=el;}
-          else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
-        if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node;
+        if(n.selector){ var m=false,tgt=null;
+          try{ if(el.matches(n.selector)){m=true;tgt=el;}
+            else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
+          if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+        if(n.dynamic && n.childTemplate && n.childTemplate.selector){ try{ var row=el.closest(n.childTemplate.selector);
+          if(row){ var d2=e.parents.length+1; if(d2>bd){ bd=d2; best={entry:{node:synthRow(n,row),parents:e.parents.concat([n])},el:row}; } } }catch(y){} } }
       return best; }
     function ctxHtml(){ var c=CAT.ctx; return '<div class="so-ctx"><div class="so-ctx-title">'+(c.icon?esc(c.icon)+' ':'')+esc(c.title||'')+'</div><div class="so-ctx-content">'+esc(c.content||'')+'</div></div>'; }
-    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node;
-      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(r.title||'')+'</div>';
-      h+='<div class="so-node-content">'+esc(r.content||'')+'</div>';
-      if(active && r.expanded) h+='<div class="so-node-expanded">'+r.expanded+'</div>';   // expanded = trusted authored HTML
+    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node, nm=(node._name!=null?node._name:null);
+      var title=interp(r.title||'',nm), cont=interp(r.content||'',nm), exp=interp(r.expanded||'',nm);
+      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(title)+'</div>';
+      h+='<div class="so-node-content">'+esc(cont)+'</div>';
+      if(active && exp) h+='<div class="so-node-expanded">'+exp+'</div>';   // expanded = trusted authored HTML
       return h+'</div>'; }
     var lastHot=null, lastMatched=null;
     function clearHot(){ if(lastHot){ lastHot.classList.remove('so-assist-hot'); lastHot=null; } }
@@ -703,7 +722,7 @@ a11y; contract test catches drift.
     // menu links → surface the target panel's context (program-awareness: horizontal jump)
     Array.prototype.forEach.call(document.querySelectorAll('.so-sm-item'),function(it){ var p=findPanel(it.dataset.dir); if(!p) return;
       function show(){ openAssist(); clearHot(); lastMatched=null; it.classList.add('so-assist-hot'); lastHot=it; var here=it.dataset.dir===curDir();
-        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+esc(p.desc||'')+'</div></div>'+
+        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+(p.menuHover?p.menuHover:esc(p.desc||''))+'</div></div>'+
           '<div class="so-assist-idle">'+(here?'You’re on this panel now — hover its contents to explore.':'Click to open this panel.')+'</div>'; }
       it.addEventListener('mouseenter',show); it.addEventListener('focus',show); });
     idle();
@@ -1420,49 +1439,62 @@ window.SO_ASSIST = {
  "context": {
   "icon": "◷",
   "title": "D-06 · Pending Approvals",
-  "content": "The decisions waiting on you — actions the policy escalated to a human rather than deciding automatically. Each passes through five stage gates (M065) before it can proceed.\n\nThis is the operator-in-the-loop surface: a growing queue is what the D-09 human-gate backpressure rule reacts to by lowering autonomy. Approve via signed CLI."
+  "content": "The decisions waiting on you. The box is autonomous, but not unbounded — when an action crosses a policy line it escalates to a human rather than deciding alone, and it lands here. Each passes the M065 five stage-gates (SG1 structural → SG2 substrate → SG3 schema lock-in → SG4 whitelabel/legal → SG5 foundation-complete), and each approval you give is signed with your MS003 operator key.\n\nThis is the operator-in-the-loop surface: a growing queue is exactly what the D-09 human-gate rule reacts to by lowering the box's autonomy. Read it to see what's blocked on your decision and how urgent — then approve, deny, or defer via the signed CLI. The web stages the decision; your key commits it."
  },
  "nodes": [
   {
    "icon": "◆",
    "title": "Live-source banner",
-   "content": "Says whether you're reading the live daemon (/api/approvals) or a baked snapshot — the approval queue can change, so freshness matters.",
+   "content": "Whether the queue is live from /api/approvals/pending or a snapshot — approvals arrive and clear, so a stale read can hide something newly waiting on you.",
    "children": [
     {
      "selector": "#datasource-banner",
      "title": "Live vs snapshot",
-     "content": "Green = /api/approvals is answering live; muted = the last committed sample.",
+     "content": "Green = the approvals daemon is answering; muted = a snapshot. A snapshot can miss an approval that just escalated, or show one you've already cleared.",
+     "icon": "◆",
      "variants": [
       {
        "when": {
         "textContains": "live"
        },
-       "content": "Live — the values are current."
+       "content": "Live — the queue is current.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Live</div>The daemon is answering; what's waiting on you is now.</div>"
       },
       {
        "when": {
         "textContains": "snapshot"
        },
-       "content": "Snapshot — the daemon is unreachable; treat the values as last-known until it goes green."
+       "content": "Snapshot — the daemon is unreachable; a new approval may have arrived since this was captured.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Snapshot</div>Reading last-known queue — a fresh escalation might not show yet.</div>"
       }
      ]
     },
     {
+     "selector": "#ds-state-label",
+     "title": "Source label",
+     "content": "One-word source — live daemon vs snapshot. The quick check before trusting the queue is empty."
+    },
+    {
+     "selector": "#ds-state-detail",
+     "title": "Source detail",
+     "content": "The endpoint (/api/approvals/pending) and why it's live or fell back."
+    },
+    {
      "selector": "#ds-last-update",
      "title": "Fetch freshness",
-     "content": "When the shown sample was pulled — read it before trusting a value as 'now'."
+     "content": "When the queue was pulled. Approvals can escalate any moment; check this before assuming nothing is waiting."
     }
    ]
   },
   {
    "icon": "▤",
    "title": "Queue summary",
-   "content": "How much is waiting, how urgent, and how long the oldest has sat — the shape of your decision backlog.",
+   "content": "How much is waiting, how urgent, and how long the oldest has sat. Read the four together: a rising oldest-age with critical items is a queue you're falling behind on — and sessions are blocked behind it (D-01).",
    "children": [
     {
      "selector": "#pending-count",
      "title": "Pending",
-     "content": "How many decisions are waiting on you. Past a threshold, the D-09 human-gate rule batches approvals + lowers autonomy to keep you in the loop.",
+     "content": "How many decisions are waiting on you. Past a threshold the D-09 human-gate rule batches approvals and lowers the box's autonomy to keep you in the loop — so this number literally throttles the machine.",
      "variants": [
       {
        "when": {
@@ -1475,62 +1507,89 @@ window.SO_ASSIST = {
     {
      "selector": "#critical-count",
      "title": "Critical",
-     "content": "The highest-urgency decisions — the ones to clear first. A non-zero here is work actively blocked on you.",
-     "expanded": "<div class=\"so-card info\"><div class='so-li no'>✗ Critical approvals are gating real work — clearing these unblocks sessions (D-01).</div></div>"
+     "content": "The highest-urgency decisions — clear these first. A non-zero here is real work actively blocked on you; each critical is a session (D-01) that can't proceed until you sign.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Critical = work blocked on you</div>A critical approval isn't a notification — it's a stop. Something the box judged too consequential to decide alone is waiting, and whatever depends on it is frozen until you act.<div class=\"so-xref\"><span class=\"x\">→</span> D-01 blocked sessions — the work stalled behind these</div></div>",
+     "variants": [
+      {
+       "when": {
+        "textContains": "0"
+       },
+       "content": "No critical approvals — nothing urgent is blocked on you."
+      }
+     ]
     },
     {
      "selector": "#high-count",
      "title": "High",
-     "content": "High-urgency decisions below critical — the next tier to work down after criticals."
+     "content": "High-urgency decisions below critical — the next tier to work down after the criticals are clear."
     },
     {
      "selector": "#oldest-age",
      "title": "Oldest age",
-     "content": "How long the oldest request has waited — a rising age means the queue is stalling, and sessions may be blocked behind it (D-01)."
+     "content": "How long the oldest request has waited. A rising age means the queue is stalling — and because the box lowers autonomy as the queue grows, a stale queue makes the whole machine more conservative until you catch up."
     }
    ]
   },
   {
    "icon": "◈",
-   "title": "Gates & queue",
-   "content": "The five stage gates each approval passes, and the live queue itself.",
+   "title": "Five stage gates (M065)",
+   "content": "Every pending action passes five gates before it can proceed — the structured path from 'requested' to 'approved'. The gates are why approvals are trustworthy: nothing reaches you unvetted, and nothing proceeds past a gate without your signature.",
    "children": [
     {
      "selector": "#gates-grid",
-     "title": "Five stage gates (M065)",
-     "content": "Each pending action passes five gates before it can proceed — the structured path from 'requested' to 'approved'. Shows where each item is stuck."
-    },
+     "title": "Stage gates",
+     "content": "The M065 five-gate ladder — SG1 structural foundation, SG2 substrate decision, SG3 schema lock-in, SG4 whitelabel/legal, SG5 foundation-complete. Each pending item sits at a gate; the grid shows where. No PR opens past a gate without your MS003-signed sign-off.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why five gates</div>Big decisions aren't one yes/no — they pass through escalating commitment levels, each with its own review.<div class=\"so-grid\"><span class=\"k\">SG1</span><span>structural foundation — is the base sound</span><span class=\"k\">SG2</span><span>substrate decision — the platform choice</span><span class=\"k\">SG3</span><span>schema lock-in — the contracts that are hard to change later</span><span class=\"k\">SG4</span><span>whitelabel / legal — the compliance floor</span><span class=\"k\">SG5</span><span>foundation-complete — the final green light</span></div><div class=\"so-tip\">💡 Each gate is MS003-signed with an M049 trace — so every approval is attributable and auditable.</div></div>"
+    }
+   ]
+  },
+  {
+   "icon": "≣",
+   "title": "The approval queue",
+   "content": "The actual decisions waiting, each with its context and urgency. This is where you read what you're being asked to approve and why — then act via the signed CLI.",
+   "children": [
     {
      "selector": "#approvals-list",
-     "title": "Approval queue",
-     "content": "Each pending decision with its context and urgency — what you're being asked to approve and why. Approve/deny via signed CLI, never from this view."
+     "title": "Pending queue",
+     "content": "Each pending decision with its title, urgency, and context — the concrete 'here's what I want to do, approve it?'. Hover a card for what the action is and what depends on it. Approve, deny, or defer via the signed CLI — never from this view directly.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Reading an approval</div>Each card is a proposed action the box escalated rather than took. Your options are approve (it proceeds, signed), deny (it's rejected), or defer (revisit in 24h).<div class=\"so-li\"><span class=\"ok\">✓</span> approve → the action proceeds under your MS003 signature</div><div class=\"so-li\"><span class=\"no\">✗</span> deny → the action is rejected; the session handles the refusal</div><div class=\"so-li\"><span class=\"warn\">▲</span> defer 24h → pushed out a day without deciding now</div><div class=\"so-xref\"><span class=\"x\">→</span> inspect-detail on a card shows the full context + the M049 trace</div></div>",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#approvals-list > *",
+      "nameSelector": "strong,.title,b,h3",
+      "title": "Approval · {{name}}",
+      "content": "The {{name}} approval — the action the box wants to take and why it escalated to you. Hover reads the card; approve/deny/defer via the signed CLI, never from here.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Approval · {{name}}</div>A proposed action escalated for your decision. Approve (signed), deny, or defer 24h — inspect-detail shows the full context + M049 trace.<div class=\"so-xref\"><span class=\"x\">→</span> whatever session raised this is blocked (D-01) until you act</div></div>"
+     }
     }
    ]
   },
   {
    "icon": "⎈",
    "title": "Actions & controls",
-   "content": "Read-only; approvals are signed CLI verbs (R10212). Batch approve is autonomous-profile only.",
+   "content": "Read-only queue view — approving/denying/deferring are MS003-signed sovereign-osctl verbs. Your key commits; the web only stages.",
    "children": [
     {
      "selector": "#batch-approve-btn",
-     "title": "Batch approve (autonomous only)",
-     "content": "Stages approval of a batch at once — available only under the autonomous profile, where predeclared bounds make batching safe. Copies the signed verb."
+     "title": "Batch-approve (autonomous only)",
+     "content": "Stages approval of a whole batch at once — available ONLY under the autonomous profile, where predeclared bounds (MS040 R09427) make batching safe. Under any other profile it's disabled, because approving in bulk without per-item review defeats the point of the gate.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why batch is profile-gated</div>Batch-approve trades per-item scrutiny for speed. That's only acceptable when the profile has predeclared what's allowed (autonomous, MS040) — otherwise each decision deserves its own look.<div class=\"so-tip\">💡 If this is disabled, you're not on the autonomous profile — approve items individually (D-02 shows the active profile).</div></div>"
     },
     {
      "selector": "#key-status-btn",
-     "title": "Signing key status",
-     "content": "Whether the operator signing key is available — approvals need a signature (MS003), so a missing key blocks the whole queue."
+     "title": "Check MS003 operator key",
+     "content": "Checks whether your operator signing key is available. Approvals need an MS003 signature — so a missing or locked key blocks the ENTIRE queue: you can read but not commit any decision until the key is present.",
+     "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">No key = frozen queue</div>Every approval is signed with the MS003 operator key. Without it, nothing in the queue can be committed — the box will keep escalating and waiting, and its autonomy keeps dropping as the queue grows.<div class=\"so-xref\"><span class=\"x\">→</span> D-02 profile choices — the authority ladder the key sits in</div></div>"
     },
     {
      "selector": "#refresh-btn",
-     "title": "Refresh",
-     "content": "Pull a fresh read of the approval queue on demand — read-only, it never approves or changes anything."
+     "title": "Refresh now",
+     "content": "Pull a fresh queue read on demand. Read-only — it re-samples, it never approves anything."
     },
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Approval controls — each copies its sovereign-osctl verb (§1g / R10212), never executing from the web."
+     "content": "Approval controls — each copies its exact MS003-signed sovereign-osctl verb (§1g / R10212). Approve, deny, defer all run through the signed CLI; the web stages the decision, your key commits it."
     }
    ]
   }

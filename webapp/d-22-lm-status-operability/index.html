@@ -187,10 +187,16 @@
   .so-node-expanded{margin-top:.55rem; padding-top:.55rem; border-top:1px solid rgba(155,209,255,.13); font-size:.78rem; line-height:1.6; color:var(--muted,#a8a8a8); white-space:pre-line;}
   /* rich expanded cards */
   .so-card{border:1px solid var(--border,#262626); border-radius:7px; padding:.55rem .65rem; margin-top:.45rem; background:var(--bg,#0e0e0e); white-space:normal; line-height:1.55;}
-  .so-card.info{border-color:rgba(155,209,255,.28);}
+  .so-card.info{border-color:rgba(155,209,255,.28); background:rgba(155,209,255,.035);}
+  .so-card.ok{border-color:rgba(127,209,143,.34); background:rgba(127,209,143,.045);}
+  .so-card.warn{border-color:rgba(224,192,122,.38); background:rgba(224,192,122,.05);}
+  .so-card.err{border-color:rgba(224,138,138,.4); background:rgba(224,138,138,.055);}
+  .so-card-label{font-weight:600; font-size:.79rem; margin-bottom:.3rem;}
+  .so-card.ok .so-card-label{color:#7fd18f;} .so-card.warn .so-card-label{color:#e0c07a;} .so-card.err .so-card-label{color:#e08a8a;} .so-card.info .so-card-label{color:var(--accent,#9bd1ff);}
   .so-grid{display:grid; grid-template-columns:auto 1fr; gap:.22rem .6rem; margin:.35rem 0; font-size:.76rem; white-space:normal;}
   .so-grid .k{color:var(--accent,#9bd1ff); font-weight:500;}
-  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;}
+  .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;} .so-li .warn{color:#e0c07a;}
+  .so-xref{margin-top:.4rem; font-size:.76rem; color:var(--fg-2,#c8c8c8);} .so-xref .x{color:var(--accent,#9bd1ff); font-weight:500;}
   .so-tip{margin-top:.4rem; font-size:.77rem; color:var(--muted,#a8a8a8);}
   .so-assist-idle{color:var(--muted,#8a8a8a); font-style:italic; padding:.4rem 0;}
   /* highlight the hovered/focused element in the panel content */
@@ -351,25 +357,38 @@
       return {ctx:ctx, nodes:nodes}; })();
     // flatten deepest-first with parent chains
     var FLAT=[]; (function flat(list,chain){ (list||[]).forEach(function(n){ if(n.children&&n.children.length) flat(n.children,chain.concat([n])); FLAT.push({node:n,parents:chain.slice()}); }); })(CAT.nodes,[]);
+    // {{name}} interpolation for dynamic-row templates
+    function interp(s,name){ return (name==null)?(s||''):String(s||'').replace(/\{\{name\}\}/g,name); }
+    // derive a live row's label (nameSelector, then a strong/cell/code heuristic, then text)
+    function rowName(row,ct){ var t=''; if(ct.nameSelector){ try{ var e=row.querySelector(ct.nameSelector); if(e) t=e.textContent||''; }catch(x){} }
+      if(!t){ var s=row.querySelector('strong,code,th,.k,td'); if(s) t=s.textContent||''; }
+      if(!t) t=row.textContent||''; return t.replace(/\s+/g,' ').trim().slice(0,64); }
+    // synthesize a node from a childTemplate bound to one live row
+    function synthRow(n,row){ var ct=n.childTemplate, nm=rowName(row,ct);
+      return {id:n.id, icon:ct.icon||n.icon, title:interp(ct.title||n.title||'{{name}}',nm), content:ct.content||'', expanded:ct.expanded||'', variants:ct.variants, _name:nm}; }
     // variant resolution against the matched element (state-awareness)
     function resolveVar(node,el){ if(!node.variants||!node.variants.length||!el) return node;
       for(var i=0;i<node.variants.length;i++){ var v=node.variants[i], w=v.when||{}, ok=true;
-        if(w.textContains && (el.textContent||'').indexOf(w.textContains)<0) ok=false;
+        if(w.textContains && (el.textContent||'').toLowerCase().indexOf(String(w.textContains).toLowerCase())<0) ok=false;
         if(ok&&w.hasSelector){ try{ if(!el.querySelector(w.hasSelector)) ok=false; }catch(e){ ok=false; } }
-        if(ok) return {id:node.id,title:v.title||node.title,icon:node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded)}; }
+        if(ok) return {id:node.id,title:v.title||node.title,icon:v.icon||node.icon,content:(v.content!==undefined?v.content:node.content),expanded:(v.expanded!==undefined?v.expanded:node.expanded),_name:node._name}; }
       return node; }
-    // match a hovered element to the deepest catalogue node
+    // match a hovered element to the deepest catalogue node (static node OR dynamic row)
     function matchNode(el){ var best=null,bd=-1;
-      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node,m=false,tgt=null; if(!n.selector) continue;
-        try{ if(el.matches(n.selector)){m=true;tgt=el;}
-          else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
-        if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+      for(var i=0;i<FLAT.length;i++){ var e=FLAT[i],n=e.node;
+        if(n.selector){ var m=false,tgt=null;
+          try{ if(el.matches(n.selector)){m=true;tgt=el;}
+            else { var cl=el.closest(n.selector); if(cl){m=true;tgt=cl;} else { var c=el.querySelector(n.selector); if(c){m=true;tgt=c;} } } }catch(x){}
+          if(m){ var d=e.parents.length; if(d>bd){ bd=d; best={entry:e,el:tgt}; } } }
+        if(n.dynamic && n.childTemplate && n.childTemplate.selector){ try{ var row=el.closest(n.childTemplate.selector);
+          if(row){ var d2=e.parents.length+1; if(d2>bd){ bd=d2; best={entry:{node:synthRow(n,row),parents:e.parents.concat([n])},el:row}; } } }catch(y){} } }
       return best; }
     function ctxHtml(){ var c=CAT.ctx; return '<div class="so-ctx"><div class="so-ctx-title">'+(c.icon?esc(c.icon)+' ':'')+esc(c.title||'')+'</div><div class="so-ctx-content">'+esc(c.content||'')+'</div></div>'; }
-    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node;
-      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(r.title||'')+'</div>';
-      h+='<div class="so-node-content">'+esc(r.content||'')+'</div>';
-      if(active && r.expanded) h+='<div class="so-node-expanded">'+r.expanded+'</div>';   // expanded = trusted authored HTML
+    function nodeHtml(node,active,matchEl){ var r=active&&matchEl?resolveVar(node,matchEl):node, nm=(node._name!=null?node._name:null);
+      var title=interp(r.title||'',nm), cont=interp(r.content||'',nm), exp=interp(r.expanded||'',nm);
+      var h='<div class="so-node '+(active?'active':'in-chain')+'"><div class="so-node-title">'+(r.icon?esc(r.icon)+' ':'')+(r.id?'<span class="id">'+esc(r.id)+'</span> ':'')+esc(title)+'</div>';
+      h+='<div class="so-node-content">'+esc(cont)+'</div>';
+      if(active && exp) h+='<div class="so-node-expanded">'+exp+'</div>';   // expanded = trusted authored HTML
       return h+'</div>'; }
     var lastHot=null, lastMatched=null;
     function clearHot(){ if(lastHot){ lastHot.classList.remove('so-assist-hot'); lastHot=null; } }
@@ -388,7 +407,7 @@
     // menu links → surface the target panel's context (program-awareness: horizontal jump)
     Array.prototype.forEach.call(document.querySelectorAll('.so-sm-item'),function(it){ var p=findPanel(it.dataset.dir); if(!p) return;
       function show(){ openAssist(); clearHot(); lastMatched=null; it.classList.add('so-assist-hot'); lastHot=it; var here=it.dataset.dir===curDir();
-        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+esc(p.desc||'')+'</div></div>'+
+        abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+(p.menuHover?p.menuHover:esc(p.desc||''))+'</div></div>'+
           '<div class="so-assist-idle">'+(here?'You’re on this panel now — hover its contents to explore.':'Click to open this panel.')+'</div>'; }
       it.addEventListener('mouseenter',show); it.addEventListener('focus',show); });
     idle();
@@ -1100,97 +1119,111 @@
 <script>
 window.SO_ASSIST = {
  "context": {
-  "icon": "◐",
+  "icon": "◈",
   "title": "D-22 · LM Status & Operability",
-  "content": "Per-device model status (CPU0/GPU0/GPU1 = Conductor/Logic/Oracle per M075) with operability actions and a render-only chat. Reuses the model-health core.\n\nThe chat is the one deliberate read-compute POST in the cockpit (SDD-062): you can send a prompt to a live model here. Actions copy signed CLI verbs; the chat computes but never mutates state."
+  "content": "The hands-on tier: not just whether the models are healthy (that's D-03) but whether you can operate them — see each device's live status and actually talk to the loaded models from here. The chat is the box's own sovereignty proof: it talks to the local loopback router (127.0.0.1), so a prompt you send never leaves the machine (SDD-062). Multi-turn history is kept client-side (SDD-103) — the server holds no conversation.\n\nUse it to sanity-check a model ('is the Oracle actually answering'), to compare devices side by side, or to warm a path before real work. It's the one panel where the web does invoke inference — the single sanctioned loopback POST — while everything else stays read-only."
  },
  "nodes": [
   {
    "icon": "◆",
-   "title": "Live-source banner",
-   "content": "Whether device status is read live or from a snapshot — model state changes under load.",
+   "title": "Live-source + devices",
+   "content": "Whether device status is live, and the per-device roster you can target.",
    "children": [
     {
      "selector": "#data-source-banner",
      "title": "Live vs snapshot",
-     "content": "Live = the device-status daemon is answering; snapshot = the baked copy.",
+     "content": "Green = the lm-status daemon is answering (/api/lm-status/devices); muted = a snapshot. Device status changes as models load — a snapshot can show a device ready that has since dropped.",
+     "icon": "◆",
      "variants": [
+      {
+       "when": {
+        "textContains": "connecting"
+       },
+       "content": "Connecting — reaching the lm-status daemon; device status isn't confirmed live.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Connecting</div>Waiting on /api/lm-status/devices — the roster below isn't confirmed current.</div>"
+      },
       {
        "when": {
         "textContains": "live"
        },
-       "content": "Live — per-device status is current."
-      },
-      {
-       "when": {
-        "textContains": "snapshot"
-       },
-       "content": "Snapshot — the daemon is unreachable; a model may have loaded or unloaded since."
+       "content": "Live — per-device status is current.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Live</div>The daemon is answering; device status is now.</div>"
       }
      ]
     },
     {
-     "selector": "#last-fetch",
-     "title": "Fetch freshness",
-     "content": "When device status was last read — check before trusting a model as 'ready'."
+     "selector": "#devices",
+     "title": "Per-device status",
+     "content": "Each compute device (GPU0 Oracle / GPU1 Logic / CPU-Pulse Conductor) with its SRP role, utilization, VRAM, and the source of its loaded model. These are the chat targets — you pick which device(s) a prompt goes to. Hover a device for its role and readiness.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Devices are the chat targets</div>This roster is dual-purpose: it's the operability status AND the target picker for the chat below. Selecting a device here aims your prompt at that specific tier.<div class=\"so-xref\"><span class=\"x\">→</span> D-03 model health — the deeper serving metrics for these devices<br><span class=\"x\">→</span> D-21 orchestration — how models got assigned to them</div></div>",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#devices > *",
+      "nameSelector": "strong,.label,code,b",
+      "title": "Device · {{name}}",
+      "content": "The {{name}} device — its SRP role, utilization, VRAM, and loaded-model source. Select it to aim the chat at this tier; hover reads its live state.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Device · {{name}}</div>One compute tier you can target. Its role decides what it's good for — Oracle for depth, Logic for ingestion, Conductor for cheap volume.<div class=\"so-xref\"><span class=\"x\">→</span> D-03 shows this device's serving latency + KV health</div></div>"
+     }
     }
    ]
   },
   {
-   "icon": "▦",
-   "title": "Per-device status",
-   "content": "Each device with its role, utilization, VRAM, and which model it's serving — the operability view per SRP tier.",
+   "icon": "▤",
+   "title": "Chat — talk to the local models",
+   "content": "The sovereign chat: prompts go to the local loopback router and never leave the box (SDD-062). Pick target device(s), send, and the conversation builds client-side — the server keeps no history (SDD-103). This is where you actually exercise the models.",
    "children": [
-    {
-     "selector": "#devices",
-     "title": "Device status",
-     "content": "Per-device (CPU0/GPU0/GPU1) role, util, VRAM, and model source — the at-a-glance operability of each SRP tier.",
-     "expanded": "<div class=\"so-card info\"><div>Reuses the D-03 model-health core; here it's paired with the actions and chat to actually exercise a device.</div></div>"
-    },
     {
      "selector": "#selected-summary",
-     "title": "Selected device",
-     "content": "Which device the chat and actions target — the anchor for what you're about to exercise."
-    }
-   ]
-  },
-  {
-   "icon": "💬",
-   "title": "Chat (render-only compute)",
-   "content": "Send a prompt to a live model — the one deliberate read-compute POST in the cockpit (SDD-062). It computes an answer but changes no state.",
-   "children": [
+     "title": "Selected targets",
+     "content": "Which device(s) your prompt will go to — pick from the roster above. Targeting a specific device lets you talk to exactly one tier (e.g. just the Oracle) or compare several; 'none' means nothing is selected yet, so Send has nowhere to go.",
+     "variants": [
+      {
+       "when": {
+        "textContains": "none"
+       },
+       "content": "No targets selected — pick a device from the roster above before sending, or the prompt has nowhere to go.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ No target</div>Select at least one device above; the chat needs a target tier to send to.</div>"
+      }
+     ]
+    },
     {
      "selector": "#chat-log",
-     "title": "Chat log",
-     "content": "The prompt/response history for this session — where the live model's answers render. Compute only; nothing is persisted to the box's state.",
-     "expanded": "<div class=\"so-card info\"><div>This is the exception that proves the rule: the cockpit is otherwise non-mutating, but a chat POST computes a response without changing state (SDD-062).</div></div>"
+     "title": "Conversation",
+     "content": "The multi-turn conversation with the selected device(s). History is kept in-page only (SDD-103) — the server is stateless, so refreshing or 'New chat' clears it and nothing is persisted. If a device is unreachable the reply honest-defers (an error, never a fabricated answer).",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Sovereign by construction</div>Two properties make this chat trustworthy: it's local (loopback only, no network egress) and it's stateless server-side (your history lives in this page, not on disk).<div class=\"so-li\"><span class=\"ok\">✓</span> Local → the prompt + reply never leave the box (SDD-062)</div><div class=\"so-li\"><span class=\"ok\">✓</span> Client-side history → the server holds no conversation (SDD-103)</div><div class=\"so-li\"><span class=\"no\">✗</span> Device unreachable → honest-defer (an error, never a made-up reply)</div><div class=\"so-xref\"><span class=\"x\">→</span> D-05 traces records the span for each generation you run here</div></div>"
     },
     {
      "selector": "#chat-input",
-     "title": "Chat input",
-     "content": "Type a prompt to send to the selected device's model — a live test of what that tier actually produces."
+     "title": "Prompt input",
+     "content": "Where you type the prompt for the selected device(s). It goes to the local router as a proper multi-turn message (the whole in-page history is sent, bounded); nothing is logged server-side."
     },
     {
      "selector": "#chat-send",
      "title": "Send",
-     "content": "Send the prompt to the live model. Read-compute — it runs inference and renders the answer; it mutates nothing."
+     "content": "Sends the prompt to the selected device(s) via the single sanctioned loopback POST — the one place the web invokes inference. Everything else in the cockpit is read-only; this is the deliberate exception, and it's still local-only.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The one sanctioned POST</div>The cockpit's rule is web-never-mutates — except this. Send is the single allowed write, and it's a read-compute against the loopback router (no state changes, no egress), so it stays within the sovereignty boundary.<div class=\"so-tip\">💡 A slow first reply is often a cold KV cache — warm it from D-03 for the deep-context path.</div></div>"
     },
     {
      "selector": "#chat-new",
      "title": "New chat",
-     "content": "Clear the log and start a fresh conversation with the selected model."
+     "content": "Clears the in-page conversation and starts fresh. Because history is client-side only, this simply drops the local buffer — there's nothing on the server to delete."
+    },
+    {
+     "selector": "#last-fetch",
+     "title": "Fetch freshness",
+     "content": "When device status was last read. The roster + utilization are only as current as this; check before trusting a device as 'ready' to target."
     }
    ]
   },
   {
    "icon": "⎈",
-   "title": "Controls",
-   "content": "",
+   "title": "Controls · features & profiles",
+   "content": "Read-only status view (the chat being the one sanctioned loopback exception) — the control rail copies signed sovereign-osctl verbs (§1g / R10212).",
    "children": [
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Operability controls — Actions copy signed CLI verbs (§1g / R10212); the chat is the one read-compute exception. Nothing else mutates from the web."
+     "content": "Operability controls — each copies its exact sovereign-osctl verb. Device/feature changes run through the signed CLI; the panel shows status and lets you talk to the models, but never reconfigures them from the web."
     }
    ]
   }
