@@ -1424,155 +1424,206 @@ a11y; contract test catches drift.
 <script>
 window.SO_ASSIST = {
  "context": {
-  "icon": "⛁",
+  "icon": "⊞",
   "title": "D-13 · Filesystem Grants",
-  "content": "A read-only mirror of selfdef's grant ledger (MS007) — every scoped, time-bounded permission the IPS has issued: filesystem paths, network endpoints, capabilities, communication, sandboxes. Grants are least-privilege through time: each has a TTL and expires unless renewed, so access is temporary by default.\n\nRead it to see the box's live permission surface — what's granted, to whom, and for how long. This is a mirror: grants are issued and revoked in selfdef (signed selfdefctl + MS003, R10115), never from this panel."
+  "content": "What the box is currently ALLOWED to touch — a read-only mirror of selfdef's grant ledger. A grant is a time-boxed permission: this profile may access this path / this capability, until its TTL expires. Grants come in six kinds (filesystem, network, capability, communication, sandbox, attention), and every one is signed and revoked in selfdef with your MS003 key — never from here.\n\nThis panel is the MS007 mirror of that ledger. Read it to see what's permitted right now, how long each grant has left, and what's waiting on your approval. The web only reflects; the authority is selfdefctl + your key (R10119)."
  },
  "nodes": [
   {
-   "icon": "◆",
+   "selector": "#mirror-status-banner",
    "title": "Mirror status",
-   "content": "Whether this read-only mirror of the external selfdef IPS is live and current. If the mirror is offline, this whole panel is showing stale filesystem & resource grants — trust it accordingly.",
-   "children": [
+   "content": "Whether this grants view is a live MS007 mirror snapshot from selfdef or a stale read. It's a mirror, not source — selfdef owns the truth; sovereign-os reflects it read-only.",
+   "icon": "◆",
+   "variants": [
     {
-     "selector": "#mirror-status-banner",
-     "title": "Mirror live vs offline",
-     "content": "This panel is a READ-ONLY mirror of selfdef's filesystem & resource grants (via the M060 bridge). Green = the selfdef producer is feeding it live; offline = the bridge is stale and everything below is old. The box never manages filesystem & resource grants from here — that's selfdefctl + MS003 on the selfdef side.",
-     "icon": "◆",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why this is a mirror, not a control</div>selfdef is the external intrusion-prevention system; sovereign-os only reflects it. This panel reads the mirror so you can see the IPS state in one cockpit, but every change to filesystem & resource grants happens in selfdef (signed selfdefctl + MS003), never here.<div class=\"so-li\"><span class=\"ok\">✓</span> live → the mirror is current; this is selfdef's real filesystem & resource grants now</div><div class=\"so-li\"><span class=\"warn\">▲</span> offline → the M060 bridge is stale; treat everything below as history</div><div class=\"so-xref\"><span class=\"x\">→</span> D-00 master-dashboard — the M060 chain health across all mirrors<br><span class=\"x\">→</span> D-25 selfdef-management — the mirror-chain detail</div></div>",
-     "variants": [
-      {
-       "when": {
-        "textContains": "live"
-       },
-       "content": "Live — the selfdef producer is feeding this mirror; the filesystem & resource grants below is current.",
-       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Mirror live</div>selfdef is feeding the bridge; this reflects the real IPS state now.</div>"
-      },
-      {
-       "when": {
-        "textContains": "offline"
-       },
-       "content": "Offline — the M060 bridge to selfdef is stale. Everything below is the last-known filesystem & resource grants, not live; don't act on it until the mirror recovers.",
-       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Mirror offline</div>The bridge is stale. This is history, not the current IPS state — check D-25 / the M060 chain.</div>"
-      }
-     ]
+     "when": {
+      "textContains": "live"
+     },
+     "content": "Live — the selfdef grants mirror is current.",
+     "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Live</div>selfdef is answering; this snapshot reflects its state now.</div>"
     },
     {
-     "selector": "#mirror-state-label",
-     "title": "Mirror label",
-     "content": "One-word mirror state — live or offline. Whether the filesystem & resource grants below can be trusted as current."
-    },
-    {
-     "selector": "#mirror-state-detail",
-     "title": "Mirror detail",
-     "content": "The producer/endpoint behind the mirror and why it's live or offline — how the filesystem & resource grants reaches this cockpit. Managed via selfdefctl filesystem-grants on the selfdef side."
-    },
-    {
-     "selector": "#mirror-last-update",
-     "title": "Mirror freshness",
-     "content": "When the selfdef producer last captured this snapshot (its ISO captured_at). On an offline mirror this is how stale the data is — the gap between then and now."
-    },
-    {
-     "selector": "#mirror-schema-version",
-     "title": "Mirror schema",
-     "content": "The MS007 typed-mirror-crate schema version of this snapshot. Confirms the mirror and consumer agree on the data shape; a mismatch would mean the bridge is speaking an older dialect."
+     "when": {
+      "textContains": "stale"
+     },
+     "content": "Stale — the selfdef mirror hasn't refreshed; this grants view may lag reality.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Stale</div>Mirror not updating — selfdef's real state may differ from what's shown.</div>"
     }
    ]
   },
   {
+   "selector": "#mirror-state-label",
+   "title": "Mirror state",
+   "content": "One-word health of the mirror link to selfdef. The quick check before trusting any count on this panel."
+  },
+  {
+   "selector": "#mirror-state-detail",
+   "title": "Mirror detail",
+   "content": "Why the mirror is live or stale — the M060 bridge status behind the one-word label."
+  },
+  {
+   "selector": "#mirror-last-update",
+   "title": "Mirror freshness",
+   "content": "When selfdef last pushed this snapshot. A grant can be signed or revoked in selfdef between pushes, so an old timestamp means this view may miss a very recent change."
+  },
+  {
+   "selector": "#mirror-schema-version",
+   "title": "Schema version",
+   "content": "The MS007 mirror schema version. If selfdef and sovereign-os disagree on schema, fields can misalign — this is the compatibility check for the mirror contract.",
+   "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why a mirror has a schema version</div>The mirror is a cross-project data contract (selfdef → sovereign-os over M060). Both sides must agree on field shapes; a schema bump on one side without the other is how a mirror silently shows wrong data. This version is that guard.<div class=\"so-xref\"><span class=\"x\">→</span> D-25 selfdef management — the M060 mirror-chain health</div></div>"
+  },
+  {
    "icon": "▦",
-   "title": "Grant kinds (MS007)",
-   "content": "selfdef's grant model: every access is a scoped, TTL-bounded grant of one kind. The counts show your live permission surface by category — grants are temporary by design, so this is what's actually granted right now.",
+   "title": "Kind summary (MS007)",
+   "content": "How many grants are active per kind. The six kinds are the axes of what a profile can reach — filesystem paths, network egress, host capabilities, IPC channels, sandbox tiers, and attention/steering. Read the spread to see WHERE the box currently has reach.",
    "children": [
     {
      "selector": "#k-filesystem",
      "title": "Filesystem grants",
-     "content": "How many filesystem grants exist — access to specific paths — the most common grant kind. Each grant is a scoped, TTL-bounded permission selfdef issued (MS007); it expires unless renewed, so access is temporary by default."
-    },
-    {
-     "selector": "#ka-filesystem",
-     "title": "Filesystem grants (active)",
-     "content": "How many filesystem grants are currently ACTIVE (not expired). The active count is the live attack-surface for this kind — expired grants no longer grant anything."
+     "content": "Active grants over filesystem paths — the box's permission to read or write specific directories. The '— active' figure is how many are live now; each has a TTL, so this number falls on its own as grants expire.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A filesystem grant is a scoped, expiring path permission</div>Not 'the box can write files' — 'the box may write THIS path, until THIS time, under THIS profile'. Scope + TTL is what keeps a grant from becoming standing access; when it expires the reach is gone without anyone revoking it.<div class=\"so-xref\"><span class=\"x\">→</span> active grants table — the individual filesystem grants + TTL countdown</div></div>",
+     "variants": [
+      {
+       "when": {
+        "textContains": "0"
+       },
+       "content": "No filesystem grants active — the box currently has no path permissions."
+      }
+     ]
     },
     {
      "selector": "#k-network",
      "title": "Network grants",
-     "content": "How many network grants exist — permission to reach a network endpoint — rare on a sovereign box. Each grant is a scoped, TTL-bounded permission selfdef issued (MS007); it expires unless renewed, so access is temporary by default."
-    },
-    {
-     "selector": "#ka-network",
-     "title": "Network grants (active)",
-     "content": "How many network grants are currently ACTIVE (not expired). The active count is the live attack-surface for this kind — expired grants no longer grant anything."
+     "content": "Active grants over network egress — permission to reach specific hosts/ports. On a sovereign box that defaults closed, each network grant is a deliberate hole opened for a reason, with a clock on it.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Egress is closed until granted</div>The default posture is no outbound. A network grant is an explicit, time-boxed exception — which is why they're worth watching: a lingering network grant is standing egress that should have expired.<div class=\"so-xref\"><span class=\"x\">→</span> D-12 networking / edge-firewall — the layers a network grant opens a path through</div></div>",
+     "variants": [
+      {
+       "when": {
+        "textContains": "0"
+       },
+       "content": "No network grants active — egress is fully closed."
+      }
+     ]
     },
     {
      "selector": "#k-capability",
      "title": "Capability grants",
-     "content": "How many capability grants exist — a specific capability token (see D-14) tied to a grant. Each grant is a scoped, TTL-bounded permission selfdef issued (MS007); it expires unless renewed, so access is temporary by default."
-    },
-    {
-     "selector": "#ka-capability",
-     "title": "Capability grants (active)",
-     "content": "How many capability grants are currently ACTIVE (not expired). The active count is the live attack-surface for this kind — expired grants no longer grant anything."
+     "content": "Active grants over host capabilities — Linux capabilities and privileged operations the box may perform. These are the highest-consequence kind: a capability grant can mean the difference between contained and root-adjacent.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Capability grants are the sharpest kind</div>Filesystem and network grants bound reach; capability grants bound POWER (CAP_SYS_ADMIN and friends). A live capability grant is worth reading closely — it's the box being trusted with a privileged operation, time-boxed but potent.<div class=\"so-xref\"><span class=\"x\">→</span> D-14 capability tokens — the bit-level decoder for what a capability word permits</div></div>",
+     "variants": [
+      {
+       "when": {
+        "textContains": "0"
+       },
+       "content": "No capability grants active — the box holds no elevated capabilities."
+      }
+     ]
     },
     {
      "selector": "#k-communication",
      "title": "Communication grants",
-     "content": "How many communication grants exist — permission to talk to another component/agent. Each grant is a scoped, TTL-bounded permission selfdef issued (MS007); it expires unless renewed, so access is temporary by default."
-    },
-    {
-     "selector": "#ka-communication",
-     "title": "Communication grants (active)",
-     "content": "How many communication grants are currently ACTIVE (not expired). The active count is the live attack-surface for this kind — expired grants no longer grant anything."
+     "content": "Active grants over IPC / inter-process communication channels — which components may talk to which. This is how the box bounds internal blast radius: two subsystems can't message unless a grant permits it.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">IPC grants bound internal blast radius</div>Even inside the box, components can't freely message each other — a communication grant is the explicit permission for one to talk to another. So a compromised component can't pivot laterally unless a grant already permitted that channel.<div class=\"so-xref\"><span class=\"x\">→</span> D-16 audit — where a denied IPC attempt is recorded</div></div>",
+     "variants": [
+      {
+       "when": {
+        "textContains": "0"
+       },
+       "content": "No communication grants active — no cross-component IPC is permitted."
+      }
+     ]
     },
     {
      "selector": "#k-sandbox",
      "title": "Sandbox grants",
-     "content": "How many sandbox grants exist — permission tied to a sandbox allocation (D-15). Each grant is a scoped, TTL-bounded permission selfdef issued (MS007); it expires unless renewed, so access is temporary by default."
-    },
-    {
-     "selector": "#ka-sandbox",
-     "title": "Sandbox grants (active)",
-     "content": "How many sandbox grants are currently ACTIVE (not expired). The active count is the live attack-surface for this kind — expired grants no longer grant anything."
+     "content": "Active grants tying work to a sandbox tier — permission to run something at a given isolation level. A sandbox grant is what lets a task escalate from, say, Tier A host tools to a Tier C VM.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Sandbox grants gate isolation level</div>Running riskier work means a higher tier (A→D). A sandbox grant is the permission to use a tier for a task — it's the link between 'what' runs and 'how isolated' it runs.<div class=\"so-xref\"><span class=\"x\">→</span> D-15 sandboxes — the MS036 four-tier topology these grants place work into</div></div>",
+     "variants": [
+      {
+       "when": {
+        "textContains": "0"
+       },
+       "content": "No sandbox grants active — no tier allocations are permitted right now."
+      }
+     ]
     },
     {
      "selector": "#k-attention",
-     "title": "Needs attention",
-     "content": "Grants that are pending approval or quarantined — the ones that need your eye. A non-zero here is where an access decision is waiting or something went wrong."
+     "title": "Attention grants",
+     "content": "Active grants over attention / activation-steering — permission to steer or observe the model's internals (MS039 authority-bounded). The rarest and most sensitive kind: it touches how the model thinks, not just what it can reach.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Attention grants touch the model's internals</div>Where the other kinds bound external reach, an attention grant bounds interpretability/steering access — reading or nudging activations. It's authority-ringed (MS039) precisely because it's power over cognition, not just resources.<div class=\"so-xref\"><span class=\"x\">→</span> MS039 authority rings — the ladder attention grants sit at the top of</div></div>",
+     "variants": [
+      {
+       "when": {
+        "textContains": "0"
+       },
+       "content": "No attention grants active — no steering/interpretability access is open."
+      }
+     ]
     }
    ]
   },
   {
-   "icon": "≣",
-   "title": "Active grants & approvals",
-   "content": "The live grants with their TTL countdown, and any awaiting approval.",
+   "icon": "⧗",
+   "title": "Active grants & pending",
+   "content": "The live grants with their TTL countdowns, the filters to slice them, and the queue of grants awaiting your approval. This is the operational heart: what's permitted, for how long, and what needs a decision.",
    "children": [
     {
      "selector": "#kind-filters",
-     "title": "Kind filters",
-     "content": "Filter the grant list by kind (filesystem/network/capability/…). Narrow to the kind you're auditing."
+     "title": "Kind filter",
+     "content": "Slice the grant tables by kind — show only filesystem, only capability, etc. Use it to answer a focused question ('what network reach is open right now?') without the other kinds' noise."
+    },
+    {
+     "selector": "#state-filter-label",
+     "title": "State filter",
+     "content": "Which grant states are shown (active / expiring / revoked). Filtering to 'expiring' surfaces grants about to lapse — useful before they silently drop reach the box was relying on.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Expiring is the state worth watching</div>Grants self-expire, which is healthy — but it also means reach the box depends on can vanish mid-task. Filtering to expiring is how you spot a grant that should be renewed (or deliberately allowed to lapse) before it drops.<div class=\"so-xref\"><span class=\"x\">→</span> active grants TTL column — the countdown behind each state</div></div>"
     },
     {
      "selector": "#grants-tbody",
-     "title": "Active grants",
-     "content": "Each active grant with its scope, TTL countdown, and actions. Hover a row for what's granted to whom and how long until it expires — a grant with a long TTL is a longer-lived permission worth checking.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Grants are temporary by design</div>Each grant expires on its TTL unless renewed — least-privilege through time. A grant nearing expiry will simply stop granting; one that keeps renewing is effectively permanent and worth review.</div>"
+     "title": "Active grants (TTL countdown)",
+     "content": "Every live grant as a row: id, kind, scope, reason, profile, actor, state, and a TTL countdown. The TTL is the important column — it's the self-expiry that keeps grants from becoming standing access; when it hits zero the permission is gone.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Reading a grant row</div>Scope says what it reaches; reason says why it was granted; TTL says how long it lasts. A grant with a long TTL and a vague reason is exactly the kind of over-broad permission worth revoking early (via selfdefctl).<div class=\"so-li\"><span class=\"ok\">✓</span> short TTL + specific scope → tight, healthy grant</div><div class=\"so-li\"><span class=\"warn\">▲</span> long TTL + broad scope → standing access risk — consider early revoke</div><div class=\"so-xref\"><span class=\"x\">→</span> controls rail — the selfdefctl revoke verb (signed by your MS003 key)</div></div>",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#grants-tbody > tr",
+      "nameSelector": "td:first-child,td",
+      "title": "Grant · {{name}}",
+      "content": "Grant {{name}} — one live permission. Its scope says what it reaches, its TTL how long it lasts. A broad scope with a long TTL is the row to revoke early.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Grant · {{name}}</div>A live, time-boxed permission. Read scope + reason + TTL together; revoke via selfdefctl under your MS003 key if it's broader or longer than the work needs.</div>"
+     }
     },
     {
      "selector": "#pending-tbody",
-     "title": "Pending approval",
-     "content": "Grants awaiting operator approval on the selfdef side. Read-only here — you approve via selfdefctl + MS003, not from this mirror."
+     "title": "Pending operator approval",
+     "content": "Grants requested but not yet signed — waiting on your MS003 key. Until you sign, the permission does NOT exist; the requesting work is blocked. This is the operator-in-the-loop point for new reach.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Nothing here is granted yet</div>A row in pending is a REQUEST, not a permission. The box cannot use it until you sign with your MS003 key via selfdefctl. Reading this queue is reading what the box is asking permission to do.<div class=\"so-xref\"><span class=\"x\">→</span> D-06 pending approvals — the cross-panel approval queue this feeds</div></div>",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#pending-tbody > tr",
+      "nameSelector": "td:first-child,td",
+      "title": "Pending grant · {{name}}",
+      "content": "Pending grant {{name}} — a permission requested but not yet signed. The box cannot use it until you sign with your MS003 key; the requesting work is blocked until then.",
+      "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Pending · {{name}}</div>A request, not a grant. Sign via selfdefctl to authorize; deny to reject. Nothing is permitted until your key commits.<div class=\"so-xref\"><span class=\"x\">→</span> D-06 pending approvals — the shared queue</div></div>"
+     }
     }
    ]
   },
   {
    "icon": "⎈",
-   "title": "Actions & controls",
-   "content": "Web is a READ-ONLY mirror consumer — grants is signed/managed via selfdefctl filesystem-grants + operator MS003 on the selfdef side, never from here.",
+   "title": "Controls",
+   "content": "Read-only mirror. Grants are signed and revoked in selfdef with your MS003 key (R10119) — this panel copies those verbs, it never issues a grant.",
    "children": [
+    {
+     "selector": "#toast",
+     "title": "Status toast",
+     "content": "Transient confirmation of a copied command or a completed read. It never means a grant changed from here — signing/revoking happens in selfdefctl under your key."
+    },
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Mirror controls — each copies its exact selfdefctl filesystem-grants verb (§1g / R10212). This panel reads the selfdef mirror; every change to grants runs through the signed selfdef CLI with MS003, never from the web."
+     "content": "Grant verbs — each copies its exact selfdefctl command (§1g / R10212). Sign a pending grant, revoke a live one, all under your MS003 key; the web stages, your key commits.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why grants can't be issued from the web</div>A grant is a signed authority statement — if a browser could issue one, anything reaching the browser could grant itself reach. So sovereign-os mirrors the ledger read-only and hands you the selfdefctl verb; the MS003 signature happens under your key (R10119).<div class=\"so-xref\"><span class=\"x\">→</span> §1g R10212 — the copy-command, read-only mirror boundary</div></div>"
     }
    ]
   }

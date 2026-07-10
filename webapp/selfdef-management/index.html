@@ -858,70 +858,64 @@ load();
 window.SO_ASSIST = {
  "context": {
   "icon": "⛨",
-  "title": "Self-Defense Management",
-  "content": "The compact hub for selfdef — the on-box intrusion-prevention system. Shows whether the IPS is active and routes into its six mirror dashboards (D-13..D-18). selfdef is the box's immune system: enabled, every action passes its grant/capability/sandbox/audit/quarantine/trust checks.\n\nRead it to confirm the box is defended and to reach the per-domain detail. The web copies the enable/disable command; it never mutates the IPS directly."
+  "title": "selfdef (IPS) management",
+  "content": "A compact index into self-defense: is the IPS up, and the doorway to its six mirror dashboards (D-13…D-18). selfdef is the separate intrusion-prevention project that owns enforcement on this box; sovereign-os reads its state over the M060 mirror and links into each domain.\n\nUse this as the quick 'is self-defense healthy, and where do I go' page. The detail lives in the per-domain mirrors; enforcement lives in selfdefctl under your MS003 key. This view watches, it doesn't arm."
  },
  "nodes": [
   {
    "icon": "⛨",
-   "title": "Self-defense IPS",
-   "content": "The on-box intrusion-prevention system's state — on or off. The web copies the toggle command; it never mutates.",
+   "title": "IPS status",
+   "content": "Whether self-defense is up and the detail behind it. The headline health of the intrusion-prevention system in one place.",
    "children": [
     {
      "selector": "#status",
-     "title": "selfdef status",
-     "content": "Whether selfdef — the on-box IPS — is active. The headline of your defensive posture; the state below has the detail.",
+     "title": "IPS status",
+     "content": "The top-line self-defense state — up or down. If it's down, the box is running without its watchdogs, Tetragon enforcement, or audit chain, and should be treated as unguarded until re-enabled.",
+     "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">Down = the box is unwatched</div>A down IPS means no process watchdog, no in-kernel kill on a violation, no live audit. The box keeps running but nothing guards it — re-enable via selfdefctl before trusting it with sensitive work.<div class=\"so-xref\"><span class=\"x\">→</span> D-25 selfdef management — the fuller IPS + mirror-chain view</div></div>",
      "variants": [
       {
        "when": {
-        "textContains": "off"
+        "textContains": "up"
        },
-       "content": "selfdef is OFF — no on-box intrusion prevention running.",
-       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ selfdef off</div>The IPS is disabled.</div>"
+       "content": "Self-defense UP — the IPS is active."
       },
       {
        "when": {
-        "textContains": "on"
+        "textContains": "down"
        },
-       "content": "selfdef is ON — the IPS is enforcing.",
-       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">✓ selfdef on</div>On-box defense active.</div>"
+       "content": "Self-defense DOWN — the box is unguarded; re-enable via selfdefctl."
       }
      ]
     },
     {
      "selector": "#state",
-     "title": "selfdef state",
-     "content": "The one-word IPS state — the plain read behind the status line (active / inactive / degraded)."
-    }
-   ]
-  },
-  {
-   "icon": "▦",
-   "title": "Detail & mirrors",
-   "content": "The status detail and the drill-in to the six mirror dashboards.",
-   "children": [
+     "title": "IPS state",
+     "content": "The one-word health used across the selfdef surface. The quick glance before drilling into a domain mirror."
+    },
     {
      "selector": "#detail",
      "title": "Status detail",
-     "content": "Why selfdef is on/off/degraded and what it's enforcing — the context behind the headline."
-    },
-    {
-     "selector": "#mirrors",
-     "title": "6 mirror dashboards",
-     "content": "The gateway to selfdef's six mirror dashboards (D-13..D-18) — the per-domain IPS detail. Each is a read-only reflection; open one to drill into that security domain.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The six domains</div>selfdef defends across six domains, each with its own mirror. This hub routes into them (grants, capabilities, sandboxes, audit, quarantine, trust).<div class=\"so-xref\"><span class=\"x\">→</span> D-25 selfdef-management — the fuller management view with chain health</div></div>"
+     "content": "Why the IPS is up or down — which components are healthy or which failed. Turns the one-word state into an accountable explanation.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The 'why' behind the light</div>A green status is only trustworthy if you can see what it's made of — the detail breaks out the components (guardian, Tetragon, watchdogs) so 'up' means 'these are up', not just an unexplained light.<div class=\"so-xref\"><span class=\"x\">→</span> auditor panel — Tetragon + guardian per-check status</div></div>"
     }
    ]
   },
   {
-   "icon": "⎈",
-   "title": "Controls",
-   "content": "Read-only — mutations copy signed sovereign-osctl verbs (§1g / R10212).",
+   "icon": "▤",
+   "title": "Mirror dashboards & controls",
+   "content": "The six selfdef mirror dashboards and the read-only controls. This is the index into the per-domain enforcement views.",
    "children": [
+    {
+     "selector": "#mirrors",
+     "title": "The 6 selfdef mirrors (D-13…D-18)",
+     "content": "Links to the six domain dashboards — grants, capabilities, sandboxes, audit, quarantine, trust. Each mirrors one enforcement concern read-only over M060; this is the doorway into all of them.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Split by concern</div>Self-defense is six legible domains rather than one dense board.<div class=\"so-li\"><span class=\"ok\">✓</span> D-13 grants · D-14 capability tokens · D-15 sandboxes</div><div class=\"so-li\"><span class=\"ok\">✓</span> D-16 audit · D-17 quarantine · D-18 trust scores</div><div class=\"so-tip\">💡 Confirm the IPS is up here, then open the domain your question touches.</div></div>"
+    },
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Controls — each copies its exact sovereign-osctl verb. selfdef enable/disable runs through the signed CLI, never from the web (§1g / R10212)."
+     "content": "selfdef verbs — each copies its exact selfdefctl command (§1g / R10212) under your MS003 key. Management happens in selfdef; this page reflects and links, it never changes enforcement.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A doorway, not a control board</div>Consistent with the whole selfdef surface: sovereign-os is a read-only consumer. This page indexes the mirrors and copies selfdefctl verbs; arming/disarming is selfdef's, under your key.<div class=\"so-xref\"><span class=\"x\">→</span> §1g R10212 — the read-only mirror boundary</div></div>"
     }
    ]
   }

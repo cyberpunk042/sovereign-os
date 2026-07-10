@@ -1432,157 +1432,197 @@ a11y; contract test catches drift.
 <script>
 window.SO_ASSIST = {
  "context": {
-  "icon": "◫",
+  "icon": "▣",
   "title": "D-15 · Sandboxes",
-  "content": "A read-only mirror of selfdef's sandbox isolation (MS036). Untrusted work runs contained, and the containment is graduated to the risk: four tiers from A (safe — logging, parsers) to D (hostile — untrusted binaries, unknown archives). Sandboxes can be CRIU-checkpointed — paused to disk and resumed exactly where they stopped.\n\nRead it to see what's running isolated and how tightly: the tier distribution is the box's risk posture, the resource pressure is what isolation costs. Allocations are managed in selfdef (signed selfdefctl + MS003, R10119), never here."
+  "content": "Where work runs, and how contained it is. Under MS036 (M014 trust boundaries) isolation is graduated across four tiers: deterministic host tools (A), controlled host tools (B), VM tools (C), and disposable microVMs (D). Riskier work runs in a higher tier — untrusted input never touches the host directly.\n\nThis is a read-only mirror of selfdef's sandbox allocator. Read it to see how many cells are running at each tier, the resource pressure they're consuming, and the individual allocations. Allocate / checkpoint / release are selfdefctl verbs under your MS003 key (R10119) — the web only reflects."
  },
  "nodes": [
   {
-   "icon": "◆",
+   "selector": "#mirror-status-banner",
    "title": "Mirror status",
-   "content": "Whether this read-only mirror of the external selfdef IPS is live and current. If the mirror is offline, this whole panel is showing stale sandbox allocations — trust it accordingly.",
+   "content": "Whether this sandbox view is a live MS007 mirror snapshot from selfdef or a stale read. It's a mirror, not source — selfdef owns the truth; sovereign-os reflects it read-only.",
+   "icon": "◆",
+   "variants": [
+    {
+     "when": {
+      "textContains": "live"
+     },
+     "content": "Live — the selfdef sandbox mirror is current.",
+     "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Live</div>selfdef is answering; this snapshot reflects its state now.</div>"
+    },
+    {
+     "when": {
+      "textContains": "stale"
+     },
+     "content": "Stale — the selfdef mirror hasn't refreshed; this sandbox view may lag reality.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Stale</div>Mirror not updating — selfdef's real state may differ from what's shown.</div>"
+    }
+   ]
+  },
+  {
+   "selector": "#mirror-state-label",
+   "title": "Mirror state",
+   "content": "One-word health of the mirror link to selfdef. The quick check before trusting any count on this panel."
+  },
+  {
+   "selector": "#mirror-state-detail",
+   "title": "Mirror detail",
+   "content": "Why the mirror is live or stale — the M060 bridge status behind the one-word label."
+  },
+  {
+   "selector": "#mirror-last-update",
+   "title": "Mirror freshness",
+   "content": "When selfdef last pushed this snapshot. A grant can be signed or revoked in selfdef between pushes, so an old timestamp means this view may miss a very recent change."
+  },
+  {
+   "selector": "#mirror-schema-version",
+   "title": "Schema version",
+   "content": "The MS007 mirror schema version. If selfdef and sovereign-os disagree on schema, fields can misalign — this is the compatibility check for the mirror contract.",
+   "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why a mirror has a schema version</div>The mirror is a cross-project data contract (selfdef → sovereign-os over M060). Both sides must agree on field shapes; a schema bump on one side without the other is how a mirror silently shows wrong data. This version is that guard.<div class=\"so-xref\"><span class=\"x\">→</span> D-25 selfdef management — the M060 mirror-chain health</div></div>"
+  },
+  {
+   "icon": "▦",
+   "title": "MS036 4-tier topology",
+   "content": "The four graduated-isolation tiers and how many cells run in each. The tier is chosen by the work's risk: the more untrusted the input, the higher the tier and the stronger the containment. Reading the spread tells you how much risky work is live.",
    "children": [
     {
-     "selector": "#mirror-status-banner",
-     "title": "Mirror live vs offline",
-     "content": "This panel is a READ-ONLY mirror of selfdef's sandbox allocations (via the M060 bridge). Green = the selfdef producer is feeding it live; offline = the bridge is stale and everything below is old. The box never manages sandbox allocations from here — that's selfdefctl + MS003 on the selfdef side.",
-     "icon": "◆",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why this is a mirror, not a control</div>selfdef is the external intrusion-prevention system; sovereign-os only reflects it. This panel reads the mirror so you can see the IPS state in one cockpit, but every change to sandbox allocations happens in selfdef (signed selfdefctl + MS003), never here.<div class=\"so-li\"><span class=\"ok\">✓</span> live → the mirror is current; this is selfdef's real sandbox allocations now</div><div class=\"so-li\"><span class=\"warn\">▲</span> offline → the M060 bridge is stale; treat everything below as history</div><div class=\"so-xref\"><span class=\"x\">→</span> D-00 master-dashboard — the M060 chain health across all mirrors<br><span class=\"x\">→</span> D-25 selfdef-management — the mirror-chain detail</div></div>",
+     "selector": "#A-running",
+     "title": "Tier A · deterministic host tools",
+     "content": "Cells running the safest class — rg, parsers, formatters, read-only queries (M00227). Tier A runs on the host directly because the work is deterministic and can't do harm; the breakdown shows running / pending / checkpointed for this tier.",
+     "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">Tier A · lowest isolation, lowest risk</div>Deterministic, read-only tools don't need a VM — they can't mutate state or reach out. Tier A is host-native for speed; it's the default for anything provably safe.<div class=\"so-grid\"><span class=\"k\">runs</span><span>rg · parsers · formatters · read-only queries</span><span class=\"k\">isolation</span><span>host-native — no VM overhead</span></div></div>",
      "variants": [
       {
        "when": {
-        "textContains": "live"
+        "textContains": "0"
        },
-       "content": "Live — the selfdef producer is feeding this mirror; the sandbox allocations below is current.",
-       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Mirror live</div>selfdef is feeding the bridge; this reflects the real IPS state now.</div>"
-      },
-      {
-       "when": {
-        "textContains": "offline"
-       },
-       "content": "Offline — the M060 bridge to selfdef is stale. Everything below is the last-known sandbox allocations, not live; don't act on it until the mirror recovers.",
-       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Mirror offline</div>The bridge is stale. This is history, not the current IPS state — check D-25 / the M060 chain.</div>"
+       "content": "No Tier A cells running."
       }
      ]
     },
     {
-     "selector": "#mirror-state-label",
-     "title": "Mirror label",
-     "content": "One-word mirror state — live or offline. Whether the sandbox allocations below can be trusted as current."
-    },
-    {
-     "selector": "#mirror-state-detail",
-     "title": "Mirror detail",
-     "content": "The producer/endpoint behind the mirror and why it's live or offline — how the sandbox allocations reaches this cockpit. Managed via selfdefctl sandboxes on the selfdef side."
-    },
-    {
-     "selector": "#mirror-last-update",
-     "title": "Mirror freshness",
-     "content": "When the selfdef producer last captured this snapshot (its ISO captured_at). On an offline mirror this is how stale the data is — the gap between then and now."
-    },
-    {
-     "selector": "#mirror-schema-version",
-     "title": "Mirror schema",
-     "content": "The MS007 typed-mirror-crate schema version of this snapshot. Confirms the mirror and consumer agree on the data shape; a mismatch would mean the bridge is speaking an older dialect."
-    }
-   ]
-  },
-  {
-   "icon": "◫",
-   "title": "MS036 4-tier isolation",
-   "content": "selfdef graduates sandbox isolation to the risk of the work: Tier A (safe) runs light, Tier D (hostile) runs maximally walled. Matching isolation to risk is the whole point — over-isolating safe work is wasteful, under-isolating hostile input is dangerous. The counts show where work is running by risk tier.",
-   "children": [
-    {
-     "selector": "#A-running",
-     "title": "Tier A — safe",
-     "content": "Running sandboxes at Tier A — safe — logging, parsers, formatters, read-only queries — the most trusted, lightest isolation. The MS036 model graduates isolation to the risk: safe work runs light, hostile input runs walled. A workload's tier is the single decision that decides how contained it is."
-    },
-    {
-     "selector": "#A-breakdown",
-     "title": "Tier A — safe breakdown",
-     "content": "The running / pending / checkpointed split for Tier A. Checkpointed sandboxes are paused (CRIU) but resumable; the breakdown shows how much of this tier is active vs parked."
-    },
-    {
      "selector": "#B-running",
-     "title": "Tier B — moderate",
-     "content": "Running sandboxes at Tier B — moderate — tests, builds, package managers, file edits — normal dev work. The MS036 model graduates isolation to the risk: safe work runs light, hostile input runs walled. A workload's tier is the single decision that decides how contained it is."
-    },
-    {
-     "selector": "#B-breakdown",
-     "title": "Tier B — moderate breakdown",
-     "content": "The running / pending / checkpointed split for Tier B. Checkpointed sandboxes are paused (CRIU) but resumable; the breakdown shows how much of this tier is active vs parked."
+     "title": "Tier B · controlled host tools",
+     "content": "Cells running work that touches host state but is trusted — tests, builds, package managers, file edits (M00228). Still on the host, but controlled: it can write, so it's watched more closely than Tier A.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Tier B · host, but it can write</div>Tier B work mutates the workspace (builds, edits) so it's not read-only-safe, but it's trusted enough to stay off a VM. The line between A and B is exactly write-capability.<div class=\"so-grid\"><span class=\"k\">runs</span><span>tests · builds · package managers · file edits</span><span class=\"k\">isolation</span><span>controlled host — trusted-but-mutating</span></div></div>",
+     "variants": [
+      {
+       "when": {
+        "textContains": "0"
+       },
+       "content": "No Tier B cells running."
+      }
+     ]
     },
     {
      "selector": "#C-running",
-     "title": "Tier C — elevated",
-     "content": "Running sandboxes at Tier C — elevated — installs, unknown scripts, browser actions — needs stronger walls. The MS036 model graduates isolation to the risk: safe work runs light, hostile input runs walled. A workload's tier is the single decision that decides how contained it is."
-    },
-    {
-     "selector": "#C-breakdown",
-     "title": "Tier C — elevated breakdown",
-     "content": "The running / pending / checkpointed split for Tier C. Checkpointed sandboxes are paused (CRIU) but resumable; the breakdown shows how much of this tier is active vs parked."
+     "title": "Tier C · VM tools",
+     "content": "Cells running risky work inside a VM — risky dependency installs, unknown scripts, browser actions (M00229). Once work is untrusted enough that host execution is unsafe, it moves into a VM where a compromise is contained.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Tier C · VM-isolated risky work</div>Installing an unknown dependency or running a fetched script could be hostile — so Tier C puts it in a VM. A breakout costs the attacker a VM escape, not the host. This is where 'don't run untrusted code on the box' becomes structural.<div class=\"so-xref\"><span class=\"x\">→</span> D-13 sandbox grants — the permission that placed work at this tie</div></div>",
+     "variants": [
+      {
+       "when": {
+        "textContains": "0"
+       },
+       "content": "No Tier C cells running."
+      }
+     ]
     },
     {
      "selector": "#D-running",
-     "title": "Tier D — hostile",
-     "content": "Running sandboxes at Tier D — hostile — untrusted binaries, unknown archives, hostile inputs — maximum isolation. The MS036 model graduates isolation to the risk: safe work runs light, hostile input runs walled. A workload's tier is the single decision that decides how contained it is."
-    },
-    {
-     "selector": "#D-breakdown",
-     "title": "Tier D — hostile breakdown",
-     "content": "The running / pending / checkpointed split for Tier D. Checkpointed sandboxes are paused (CRIU) but resumable; the breakdown shows how much of this tier is active vs parked."
+     "title": "Tier D · disposable microVM",
+     "content": "Cells running the most hostile class in throwaway microVMs — untrusted binaries, unknown archives, hostile inputs (M00230). A Tier D cell is expected to be attacked; it's disposable so it's destroyed after use, taking any compromise with it.",
+     "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">Tier D · disposable, assume-hostile</div>Tier D is for input you actively distrust. The microVM is disposable by design — run it, get the result, destroy it. Even a successful exploit inside gains only a VM that's about to be deleted.<div class=\"so-grid\"><span class=\"k\">runs</span><span>untrusted binaries · unknown archives · hostile inputs</span><span class=\"k\">isolation</span><span>disposable microVM — destroyed after use</span></div></div>",
+     "variants": [
+      {
+       "when": {
+        "textContains": "0"
+       },
+       "content": "No Tier D cells running."
+      }
+     ]
     }
    ]
   },
   {
-   "icon": "⚡",
+   "icon": "◷",
    "title": "Resource pressure",
-   "content": "What the running sandboxes cost — memory, CPU, and how many are checkpointed. Sandboxes aren't free; this is their aggregate footprint.",
+   "content": "What the running cells cost — memory, CPU, and the running/checkpointed/quarantined split. Sandboxes aren't free; this section is how you see whether isolation is straining the box.",
    "children": [
     {
      "selector": "#r-mem",
      "title": "Total resident",
-     "content": "Total memory resident across all active sandboxes (MiB). The RAM cost of isolation — each sandbox is a contained environment holding its own state."
+     "content": "Combined memory across all active cells, in MiB. Higher tiers (VMs, microVMs) cost more RAM than host cells, so a memory spike often means Tier C/D work is live.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Isolation has a memory price</div>A Tier A host tool is nearly free; a Tier D microVM carries a whole guest. So resident memory is a rough read of how much high-tier (expensive) isolation is in flight right now.<div class=\"so-xref\"><span class=\"x\">→</span> D-09 hardware pressure — the box-wide memory picture this feeds into</div></div>"
     },
     {
      "selector": "#r-cpu",
      "title": "Aggregate CPU",
-     "content": "Combined CPU across active sandboxes (%). How much of the box's compute is going into contained work right now."
+     "content": "Combined CPU draw across active cells. Sustained high aggregate CPU from sandboxes means heavy contained work — worth correlating with which tier is busy.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">CPU pressure points at the busy tier</div>Sandboxes share the box's cores. A sustained aggregate spike means containment is doing real compute — cross-reference the tier breakdown to see whether it's cheap Tier A work or an expensive Tier C/D VM churning.<div class=\"so-xref\"><span class=\"x\">→</span> D-09 hardware pressure — PSI stall vs raw CPU utilisation</div></div>"
     },
     {
      "selector": "#r-running",
-     "title": "Running",
-     "content": "How many sandbox allocations are actively running — the live isolated workloads."
+     "title": "Running cells",
+     "content": "How many sandbox cells are executing right now across all tiers — the live containment load.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Running is live isolation load</div>Each running cell is a contained unit of work holding resources. Read it against checkpointed (frozen) and quarantined (caught) to see the full disposition — running is only the active slice.<div class=\"so-xref\"><span class=\"x\">→</span> checkpointed / quarantined — the non-running dispositions</div></div>"
     },
     {
      "selector": "#r-cp",
      "title": "Checkpointed",
-     "content": "How many are CRIU-checkpointed — paused to disk, resumable exactly where they left off. The sandbox equivalent of hibernation: it frees resources without losing the work."
+     "content": "Cells frozen to a checkpoint — paused with their state saved, resumable later. Checkpointing is how a sandbox survives without holding resources; a high count means lots of suspended work.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Checkpointed = frozen, not gone</div>A checkpointed cell is snapshotted and paused — it releases live CPU/RAM but can resume exactly where it stopped. It's the sandbox equivalent of hibernation, and it's why suspended work doesn't count against running pressure.<div class=\"so-xref\"><span class=\"x\">→</span> D-08 rollback points — the checkpoint/restore machinery this shares</div></div>"
+    },
+    {
+     "selector": "#r-quar",
+     "title": "Quarantined",
+     "content": "Cells isolated after tripping a policy — held apart pending review rather than destroyed. A non-zero quarantine count means the Auditor caught something and contained it here.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Quarantine = caught and held</div>A quarantined cell violated a boundary and was frozen for inspection instead of being killed outright — evidence preserved. It's the containment endpoint for a caught process.<div class=\"so-xref\"><span class=\"x\">→</span> D-17 quarantine — the full quarantine view this count summarises</div></div>",
+     "variants": [
+      {
+       "when": {
+        "textContains": "0"
+       },
+       "content": "No quarantined cells — nothing has been caught and held."
+      }
+     ]
     }
    ]
   },
   {
    "icon": "≣",
-   "title": "Active allocations",
-   "content": "The live sandbox allocations with their tier and state.",
+   "title": "Allocations & controls",
+   "content": "The individual sandbox allocations and the read-only controls. Each allocation ties a tool to a tier and an isolation mechanism; lifecycle verbs are selfdefctl under your key.",
    "children": [
     {
+     "selector": "#tier-filters",
+     "title": "Tier filter",
+     "content": "Slice the allocation table by tier — show only Tier D microVMs, say, to see exactly what hostile work is live. Focuses the table on the risk level you care about.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Filter to the risk you care about</div>The fastest safety question is 'what untrusted work is live?' — filter to Tier C/D and read the answer directly. Filtering to Tier A/B instead shows the routine host work you can usually ignore.<div class=\"so-xref\"><span class=\"x\">→</span> MS036 tiers — what each tier's containment means</div></div>"
+    },
+    {
      "selector": "#alloc-tbody",
-     "title": "Sandbox allocations",
-     "content": "Each sandbox allocation with its tier, state, and resources. Hover a row for what's running in it and how isolated it is — the tier tells you how much you can trust what's inside.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">An allocation is contained work</div>Each row is one isolated environment. Its tier is its containment level; its state (running / checkpointed) is whether it's active or parked.<div class=\"so-xref\"><span class=\"x\">→</span> D-09 GPU 1 sandbox — the VFIO GPU isolation that pairs with these</div></div>"
-    }
-   ]
-  },
-  {
-   "icon": "⎈",
-   "title": "Actions & controls",
-   "content": "Web is a READ-ONLY mirror consumer — sandboxes is signed/managed via selfdefctl sandboxes + operator MS003 on the selfdef side, never from here.",
-   "children": [
+     "title": "Active allocations",
+     "content": "Every sandbox cell as a row: allocation_id, tier, MS032 profile, isolation mechanism, tool, profile, state, and memory. The tier + isolation columns together say how contained each piece of work is.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Reading an allocation</div>The row ties WHAT (tool) to HOW-CONTAINED (tier + isolation mechanism). A browser action at Tier C in a VM is expected; the same at Tier A on the host would be a misplacement worth questioning.<div class=\"so-xref\"><span class=\"x\">→</span> MS036 tiers above — what each tier's isolation actually is</div></div>",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#alloc-tbody > tr",
+      "nameSelector": "td:first-child,td",
+      "title": "Allocation · {{name}}",
+      "content": "Allocation {{name}} — one sandbox cell. Its tier + isolation columns say how contained it is; a risky tool should be at a high tier, never on the host.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Cell · {{name}}</div>One contained unit of work. Read tier + isolation together — the mechanism should match the risk (VM for untrusted, host for deterministic).</div>"
+     }
+    },
+    {
+     "selector": "#toast",
+     "title": "Status toast",
+     "content": "Transient confirmation of a copied verb or completed read. Never means a cell was allocated or released from here — lifecycle happens in selfdefctl."
+    },
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Mirror controls — each copies its exact selfdefctl sandboxes verb (§1g / R10212). This panel reads the selfdef mirror; every change to sandboxes runs through the signed selfdef CLI with MS003, never from the web."
+     "content": "Sandbox verbs — allocate, checkpoint, release — each copies its exact selfdefctl command (§1g / R10212) under your MS003 key. The web reflects the allocator; it never starts or stops a cell itself.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Lifecycle is selfdef's, under your key</div>Allocating a Tier D microVM or releasing a cell is a privileged, signed operation (R10119). sovereign-os mirrors the allocator read-only and hands you the selfdefctl verb; your MS003 key commits it.<div class=\"so-xref\"><span class=\"x\">→</span> §1g R10212 — the read-only mirror boundary</div></div>"
     }
    ]
   }

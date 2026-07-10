@@ -881,143 +881,135 @@ window.SO_ASSIST = {
  "context": {
   "icon": "⛨",
   "title": "D-25 · Self-Defense Management",
-  "content": "The READ-ONLY consumer hub for selfdef — the external intrusion-prevention system. One place to see whether the IPS is enabled, whether the M060 bridge that mirrors it into this cockpit is healthy, and to drill into the six per-domain mirror panels (D-13..D-18: grants, capabilities, sandboxes, audit, quarantine, trust).\n\nRead it to confirm the box is defended (selfdef on) and that what the mirror panels show is current (chain healthy). Enabling/disabling selfdef is a signed selfdefctl verb (R10212) — this surface reads and routes, it never mutates."
+  "content": "The top-level view of selfdef — the intrusion-prevention system that watches this box. It's a read-only consumer view: selfdef is a separate project that owns enforcement (the guardian daemon, Tetragon eBPF, the four watchdogs), and sovereign-os reads its state over the M060 mirror bridge. This panel answers three things: is self-defense enabled, is the mirror chain healthy, and where do the six per-domain mirrors live.\n\nThink of it as the selfdef front door. From here you confirm the IPS is on and its mirror is fresh, then drill into a specific domain (grants, sandboxes, audit, quarantine, trust, capabilities) via D-13…D-18. Enforcement itself is selfdefctl under your MS003 key — sovereign-os watches, it does not arm."
  },
  "nodes": [
   {
    "icon": "◆",
-   "title": "Status",
-   "content": "Whether the selfdef management view is live.",
+   "title": "Data source",
+   "content": "Whether this view is a live read of selfdef or a snapshot. Everything here is mirrored, so freshness decides how much to trust the 'enabled/healthy' picture.",
    "children": [
     {
      "selector": "#data-source-banner",
-     "title": "Live vs snapshot",
-     "content": "Green = the selfdef management endpoint is answering; muted = a snapshot. This is a READ-ONLY consumer view of the external selfdef IPS.",
+     "title": "Data source",
+     "content": "Live selfdef read vs snapshot. Because enforcement state is safety-critical, a stale banner is a reason to refresh before trusting that self-defense is on.",
      "icon": "◆",
      "variants": [
       {
        "when": {
-        "textContains": "connecting"
+        "textContains": "live"
        },
-       "content": "Connecting to the selfdef endpoint; not confirmed live.",
-       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Connecting</div>Waiting on /api/selfdef.</div>"
+       "content": "Live — selfdef is answering; the IPS state is current.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Live</div>selfdef reachable; enablement and mirror health are now.</div>"
       },
       {
        "when": {
-        "textContains": "live"
+        "textContains": "snapshot"
        },
-       "content": "Live — selfdef management state is current.",
-       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Live</div>The endpoint is answering.</div>"
+       "content": "Snapshot — selfdef unreachable; the IPS state shown may be stale.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Snapshot</div>Can't reach selfdef — 'enabled' here is last-known, not confirmed live.</div>"
       }
      ]
+    },
+    {
+     "selector": "#last-fetch",
+     "title": "Last fetch",
+     "content": "When selfdef was last read. For an IPS, 'is it on?' must be current — treat an old timestamp as unverified and refresh."
     }
    ]
   },
   {
    "icon": "⛨",
    "title": "Self-defense IPS",
-   "content": "Whether the selfdef intrusion-prevention system is enabled — the box's on-box defensive posture. This panel reads it; enabling/disabling is a signed CLI verb (R10212), never a web click.",
+   "content": "Is intrusion prevention enabled, the detail behind that state, and the CLI it's driven from. This is the headline: is the box defending itself right now.",
    "children": [
     {
      "selector": "#sd-enablement",
-     "title": "IPS enablement",
-     "content": "Whether selfdef is ON — the master read of your intrusion-prevention posture. Off means the box is running without on-box IPS; on means the whole selfdef stack (grants, capabilities, sandboxes, audit, quarantine, trust) is enforcing.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The on/off of on-box defense</div>selfdef is the box's immune system. Enabled, every action passes its grant/capability/quarantine checks; disabled, none of that enforcement runs.<div class=\"so-li\"><span class=\"ok\">✓</span> on → the IPS is enforcing across all six domains (D-13..D-18)</div><div class=\"so-li\"><span class=\"no\">✗</span> off → no on-box intrusion prevention is running</div></div>",
+     "title": "IPS enabled",
+     "content": "Whether self-defense is on. This is the single most important bit on the panel — if enforcement is disabled, the box's watchdogs, Tetragon kills, and audit chain are all inactive, and it's running unguarded.",
+     "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">Disabled means unguarded</div>Self-defense off is not a minor state — it means no process watchdog, no in-kernel SIGKILL on a violation, no live audit enforcement. The box still runs, but nothing is watching it. Re-enable via selfdefctl before trusting it with anything sensitive.<div class=\"so-xref\"><span class=\"x\">→</span> auditor panel — Tetragon/guardian status when enabled</div></div>",
      "variants": [
       {
        "when": {
-        "textContains": "off"
+        "textContains": "enabled"
        },
-       "content": "selfdef is OFF — no on-box intrusion prevention is running. The grant/capability/quarantine/trust enforcement is all inactive; the box is undefended at this layer.",
-       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ selfdef off</div>The IPS is disabled — no on-box enforcement.</div>"
+       "content": "Self-defense ENABLED — the IPS is active and watching."
       },
       {
        "when": {
-        "textContains": "on"
+        "textContains": "disabled"
        },
-       "content": "selfdef is ON — the IPS is enforcing across all six domains.",
-       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">✓ selfdef on</div>On-box intrusion prevention is active.</div>"
+       "content": "Self-defense DISABLED — the box is running unguarded; re-enable via selfdefctl."
       }
      ]
     },
     {
      "selector": "#sd-detail",
-     "title": "Enablement detail",
-     "content": "The detail behind the on/off — what selfdef is enforcing and its version. The context the headline compresses."
+     "title": "IPS detail",
+     "content": "The specifics behind the enablement state — which components are up, or why it's off. Reads the 'why' so 'enabled' isn't just a green light but an accountable claim."
     },
     {
      "selector": "#sd-oncli",
-     "title": "On/off command",
-     "content": "The signed selfdefctl command to toggle selfdef — copied, not executed. Enabling/disabling the IPS is a deliberate signed action (R10212), never a web click."
+     "title": "Driven via CLI",
+     "content": "The selfdefctl entry point self-defense is managed from. Enforcement is armed/disarmed there under your MS003 key — never from this web view, by the R10212 boundary.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Managed in selfdef, not here</div>sovereign-os shows selfdef's state but can't change it — the watched box must not control its own watcher. Arming, disarming, and policy changes are selfdefctl operations signed by your key; this panel copies the verb, it doesn't run it.<div class=\"so-xref\"><span class=\"x\">→</span> §1g R10212 — the watched-cannot-arm-the-watcher boundary</div></div>"
     }
    ]
   },
   {
-   "icon": "◈",
+   "icon": "⇄",
    "title": "M060 mirror-chain health",
-   "content": "Whether the M060 bridge that mirrors selfdef into this cockpit is healthy. If the chain is stale, every selfdef mirror panel (D-13..D-18) is showing old data — so this gates trust in all of them.",
+   "content": "The health of the bridge that carries selfdef's state into sovereign-os. Every D-13…D-18 mirror rides this chain — if it's stale, all six domain views are stale together.",
    "children": [
     {
      "selector": "#m060-state",
-     "title": "Chain state",
-     "content": "The M060 mirror-chain health — whether all mirrors are current. This is the same signal the master-dashboard shows; if it's degraded, the six mirror panels are honest-but-stale.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The chain gates the mirrors</div>The D-13..D-18 panels read the M060 mirror, not selfdef directly. If this chain is stale, they're all behind — this is where you find that out.<div class=\"so-xref\"><span class=\"x\">→</span> D-00 master-dashboard — the same chain health up top<br><span class=\"x\">→</span> D-13..D-18 — the mirrors this feeds</div></div>",
+     "title": "Mirror-chain state",
+     "content": "Whether the M060 bridge (selfdef → sovereign-os) is healthy. This is the trust root for every selfdef panel: a broken chain means the grants, sandboxes, audit, and quarantine views are all reading stale data.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">One chain feeds six panels</div>M060 is the single bridge selfdef's state crosses. When it's healthy, D-13…D-18 are live; when it degrades, they ALL lag at once. So this one indicator is the freshness guarantee behind the entire selfdef mirror set.<div class=\"so-xref\"><span class=\"x\">→</span> D-13…D-18 — the six domain mirrors this chain feeds</div></div>",
      "variants": [
-      {
-       "when": {
-        "textContains": "stale"
-       },
-       "content": "The mirror chain is stale — the six selfdef panels are showing old data.",
-       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ Chain stale</div>Mirrors behind — the selfdef panels are out of date.</div>"
-      },
       {
        "when": {
         "textContains": "healthy"
        },
-       "content": "The chain is healthy — the selfdef mirrors are current.",
-       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">✓ Chain healthy</div>All mirrors current.</div>"
+       "content": "M060 chain healthy — all selfdef mirrors are current."
+      },
+      {
+       "when": {
+        "textContains": "degraded"
+       },
+       "content": "M060 chain degraded — every selfdef mirror may be stale; enforcement itself is unaffected."
       }
      ]
     },
     {
      "selector": "#m060-fresh",
-     "title": "Chain freshness",
-     "content": "Whether the newest mirror artifact is fresh — the recency check behind the chain state."
+     "title": "Mirror freshness",
+     "content": "How current the mirror data is. Distinct from whether selfdef is enabled — the IPS can be running fine while the mirror that reports it lags."
     },
     {
      "selector": "#m060-age",
-     "title": "Newest artifact age",
-     "content": "How old the freshest mirrored artifact is. Even a 'healthy' chain that's gone quiet is worth a second look; age is the freshness number."
+     "title": "Mirror age",
+     "content": "How long since the last successful mirror sync. A rising age is the early warning that the chain is degrading before it flips to fully stale.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Age is the leading indicator</div>State flips healthy→degraded at a threshold; age climbs continuously toward it. Watching age catches a slowing mirror before it goes stale, which is why it's shown separately from the binary state.<div class=\"so-xref\"><span class=\"x\">→</span> mirror-chain state — the binary this age feeds</div></div>"
     }
    ]
   },
   {
-   "icon": "▦",
-   "title": "Per-domain panels",
-   "content": "The drill-in to the six selfdef mirror dashboards.",
+   "icon": "▤",
+   "title": "Per-domain mirrors & controls",
+   "content": "The six domain security panels and the read-only controls. selfdef's surface is split by concern; this is the index into it.",
    "children": [
     {
      "selector": "#mirror-panels",
      "title": "Per-domain security panels",
-     "content": "Links into the six selfdef mirror dashboards (D-13 grants, D-14 capabilities, D-15 sandboxes, D-16 audit, D-17 quarantine, D-18 trust). Open a domain for its detail. All read-only mirrors of the external IPS.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Six domains, one IPS</div>selfdef defends across six domains, each with its own mirror panel. This is the hub; the D-13..D-18 panels are the per-domain detail.<div class=\"so-xref\"><span class=\"x\">→</span> D-13 grants · D-14 capabilities · D-15 sandboxes · D-16 audit · D-17 quarantine · D-18 trust</div></div>"
+     "content": "Links to the six selfdef mirror dashboards — grants (D-13), network (D-14?), sandboxes (D-15), audit (D-16), quarantine (D-17), trust (D-18). Each is a read-only view into one enforcement domain; this is the map into them.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Six domains, one IPS</div>Self-defense isn't one dashboard — it's split by concern so each domain is legible on its own.<div class=\"so-li\"><span class=\"ok\">✓</span> D-13 filesystem grants · D-14 capability tokens</div><div class=\"so-li\"><span class=\"ok\">✓</span> D-15 sandboxes · D-16 audit</div><div class=\"so-li\"><span class=\"ok\">✓</span> D-17 quarantine · D-18 trust scores</div><div class=\"so-tip\">💡 Start here to confirm the IPS is on, then drill into the domain your question is about.</div></div>"
     },
-    {
-     "selector": "#last-fetch",
-     "title": "Fetch freshness",
-     "content": "When this management view was last read."
-    }
-   ]
-  },
-  {
-   "icon": "⎈",
-   "title": "Controls · self-defense",
-   "content": "READ-ONLY consumer view — enabling/disabling selfdef is a signed verb (R10212).",
-   "children": [
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Self-defense controls — each copies its signed selfdefctl verb (§1g / R10212). Toggling the IPS runs through the signed CLI; the web reads state and routes to the mirrors, never mutates."
+     "content": "selfdef management verbs — each copies its exact selfdefctl command (§1g / R10212) under your MS003 key. Enable, disable, and policy changes run there; this panel reflects state and hands you the verb.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Reflect, then hand you the verb</div>Consistent with every selfdef panel: sovereign-os is a read-only consumer of the IPS. The controls copy selfdefctl commands for you to run under your key — the web never arms or disarms enforcement itself.<div class=\"so-xref\"><span class=\"x\">→</span> §1g R10212 — the cross-project read-only boundary</div></div>"
     }
    ]
   }
