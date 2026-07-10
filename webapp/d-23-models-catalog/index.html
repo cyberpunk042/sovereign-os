@@ -863,69 +863,53 @@ window.SO_ASSIST = {
  "context": {
   "icon": "▤",
   "title": "D-23 · Model Catalog",
-  "content": "The portfolio view — the canonical model registry (models/catalog.yaml) browsed by SRP tier (Logic / Oracle / Conductor). Every model's id, class, engine, precision, params, context, license, purpose, status.\n\nThis is the menu of what CAN be run, distinct from D-03's live health (what IS running) and D-11's adapters. Read-only."
+  "content": "The portfolio — the canonical model registry (models/catalog.yaml) browsed by SRP tier. Every model the box can run, across ternary / RLM / SLM / LLM / mixture and every quantization, with its class, engine, precision, params, context, license, purpose, and status. This is the menu of the possible.\n\nRead it to answer 'what could I load here', not 'what's loaded' — that's D-03. The registry is VRAM-aware, so the operator CLI turns a choice into a runtime assignment that's guaranteed to fit the target device."
  },
  "nodes": [
   {
+   "selector": "#data-source-banner",
+   "title": "Live vs snapshot",
+   "content": "Green = the daemon (/api/models-catalog/catalog) is answering live; muted = a snapshot. The registry rarely changes, so a snapshot here is low-risk — but a live read confirms you're seeing the current catalog.",
    "icon": "◆",
-   "title": "Live-source banner",
-   "content": "Whether the catalog is read live or from a baked snapshot. The catalog changes rarely, so snapshot is low-risk here.",
-   "children": [
+   "variants": [
     {
-     "selector": "#data-source-banner",
-     "title": "Live vs snapshot",
-     "content": "Live = read from the catalog API; snapshot = the baked copy. Either way it's the registry, not live serving.",
-     "variants": [
-      {
-       "when": {
-        "textContains": "live"
-       },
-       "content": "Live — read from the catalog API."
-      },
-      {
-       "when": {
-        "textContains": "snapshot"
-       },
-       "content": "Snapshot — the baked catalog copy; the registry rarely changes, so this is low-risk."
-      }
-     ]
+     "when": {
+      "textContains": "connecting"
+     },
+     "content": "Connecting — reaching /api/models-catalog/catalog; not confirmed live yet.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Connecting</div>Waiting on /api/models-catalog/catalog.</div>"
     },
     {
-     "selector": "#last-fetch",
-     "title": "Fetch freshness",
-     "content": "When the catalog was last read — rarely matters here since the registry is static, but shown for completeness."
+     "when": {
+      "textContains": "live"
+     },
+     "content": "Live — read from /api/models-catalog/catalog.",
+     "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Live</div>The daemon is answering; current.</div>"
     }
    ]
   },
   {
-   "icon": "▦",
-   "title": "The catalog",
-   "content": "The registry browsed by SRP role tier — the whole portfolio of runnable models. Backed by models/catalog.yaml; the operator CLI turns a choice here into a runtime assignment.",
-   "children": [
-    {
-     "selector": "#summary",
-     "title": "Catalog summary",
-     "content": "The roll-up across tiers and classes — how broad the local model portfolio is, at a glance, before you filter into the detail."
-    },
-    {
-     "selector": "#tiers",
-     "title": "Catalog by SRP tier",
-     "content": "Every model grouped by role tier (Logic / Oracle / Conductor) with its id, class, engine, precision, params, context, license, purpose, status. The menu of what CAN be run.",
-     "expanded": "<div class=\"so-card info\"><div>Distinct from D-03 (live serving health) and D-11 (adapters) — this is the portfolio; those are what's active.</div></div>"
-    }
-   ]
+   "selector": "#summary",
+   "title": "Catalog summary",
+   "content": "The roll-up of the whole model portfolio — how many models across the SRP tiers, drawn from the canonical registry (models/catalog.yaml). This is the menu of what CAN be run, distinct from D-03's what IS running.",
+   "icon": "▤",
+   "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Catalog vs live serving</div>The catalog is the portfolio — every model the box knows how to run, at every quantization. D-03 is the live view of the few that are loaded. Choosing from here (via the CLI) is what turns a catalog entry into a loaded model.<div class=\"so-xref\"><span class=\"x\">→</span> D-03 model health — the models actually resident now<br><span class=\"x\">→</span> D-21 orchestration — how a chosen model gets assigned to a device</div></div>"
   },
   {
-   "icon": "⎈",
-   "title": "Controls",
-   "content": "",
-   "children": [
-    {
-     "selector": "#control-surface",
-     "title": "Controls rail",
-     "content": "Catalog controls — each copies its sovereign-osctl verb (e.g. models select). Choosing a model here becomes a runtime assignment via the signed CLI, never from the web (§1g / R10212)."
-    }
-   ]
+   "selector": "#tiers",
+   "title": "Catalog by SRP tier",
+   "content": "The full registry grouped by SRP role tier (Logic / Oracle / Conductor) — each model with its class, engine, precision, params, context, license, purpose, status. Browse by tier because the tier decides the serving role; hover a tier for what it holds.",
+   "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Grouped by the role it serves</div><div class=\"so-grid\"><span class=\"k\">Conductor</span><span>ternary / BitNet on CPU-Pulse — cheap high-volume</span><span class=\"k\">Logic</span><span>mid-scale Q4 on the 4090 — ingestion / translation</span><span class=\"k\">Oracle</span><span>full-precision / NVFP4 on the Blackwell — deep reasoning</span></div><div class=\"so-tip\">💡 The catalog is VRAM-aware — the CLI (models select --vram N) won't offer a model that can't fit the target device.</div></div>"
+  },
+  {
+   "selector": "#last-fetch",
+   "title": "Fetch freshness",
+   "content": "When the catalog was read. The registry is near-static, so this rarely matters — but it confirms you're browsing the current portfolio, not a stale copy."
+  },
+  {
+   "selector": "#control-surface",
+   "title": "Controls rail",
+   "content": "Catalog controls — each copies its exact sovereign-osctl verb (e.g. models select). Choosing a model becomes a runtime assignment via the signed CLI, never from the web (§1g / R10212)."
   }
  ]
 };
