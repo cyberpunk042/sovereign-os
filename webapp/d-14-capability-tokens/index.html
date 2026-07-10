@@ -1441,177 +1441,163 @@ a11y; contract test catches drift.
 <script>
 window.SO_ASSIST = {
  "context": {
-  "icon": "🎫",
+  "icon": "◎",
   "title": "D-14 · Capability Tokens",
-  "content": "A read-only view of selfdef's capability tokens — bundles of fine-grained powers, arranged by Ring 0..4 trust topology (MS039). Each token is a bitfield; click one to decode exactly which powers it grants.\n\nTokens are minted and revoked on the IPS side (selfdefctl + MS003, R10117). A child token can never exceed its parent's authority."
+  "content": "A read-only mirror of selfdef's capability system (MS039). Every privileged action needs a capability token, and every token sits in one of five trust rings (0 kernel-equivalent → 4 untrusted) and inherits from a parent — a child can never hold more than its parent granted. The capability_word packs the exact permissions as bits.\n\nRead it to audit where privilege lives: how many high-ring tokens exist, what each actually grants at the bit level, and how capability flows down the inheritance tree. Tokens are minted/revoked in selfdef (signed selfdefctl + MS003, R10117), never here."
  },
  "nodes": [
   {
    "icon": "◆",
    "title": "Mirror status",
-   "content": "This whole panel is a READ-ONLY reflection of selfdef's capability tokens (MS007 typed-mirror crate #3 of 9). sovereign-os never mutates it — tokens are minted/revoked happens on the IPS side via signed selfdefctl.",
+   "content": "Whether this read-only mirror of the external selfdef IPS is live and current. If the mirror is offline, this whole panel is showing stale capability tokens — trust it accordingly.",
    "children": [
     {
      "selector": "#mirror-status-banner",
-     "title": "Bridge status",
-     "content": "Whether the capability tokens mirror is publishing (online) or absent (offline). Offline doesn't mean unprotected — selfdef is still enforcing; you just can't see it here until the bridge returns.",
-     "expanded": "<div class=\"so-card info\"><div class='so-li no'>✗ Offline → the values below are last-known, not live. The enforcement is intact on the IPS.</div></div>",
+     "title": "Mirror live vs offline",
+     "content": "This panel is a READ-ONLY mirror of selfdef's capability tokens (via the M060 bridge). Green = the selfdef producer is feeding it live; offline = the bridge is stale and everything below is old. The box never manages capability tokens from here — that's selfdefctl + MS003 on the selfdef side.",
+     "icon": "◆",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why this is a mirror, not a control</div>selfdef is the external intrusion-prevention system; sovereign-os only reflects it. This panel reads the mirror so you can see the IPS state in one cockpit, but every change to capability tokens happens in selfdef (signed selfdefctl + MS003), never here.<div class=\"so-li\"><span class=\"ok\">✓</span> live → the mirror is current; this is selfdef's real capability tokens now</div><div class=\"so-li\"><span class=\"warn\">▲</span> offline → the M060 bridge is stale; treat everything below as history</div><div class=\"so-xref\"><span class=\"x\">→</span> D-00 master-dashboard — the M060 chain health across all mirrors<br><span class=\"x\">→</span> D-25 selfdef-management — the mirror-chain detail</div></div>",
      "variants": [
       {
        "when": {
-        "textContains": "online"
+        "textContains": "live"
        },
-       "content": "Online — this view is live from selfdef's published snapshot."
+       "content": "Live — the selfdef producer is feeding this mirror; the capability tokens below is current.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Mirror live</div>selfdef is feeding the bridge; this reflects the real IPS state now.</div>"
       },
       {
        "when": {
         "textContains": "offline"
        },
-       "content": "Offline — the producer isn't publishing. selfdef is still enforcing capability tokens; the mirror just isn't reaching you."
+       "content": "Offline — the M060 bridge to selfdef is stale. Everything below is the last-known capability tokens, not live; don't act on it until the mirror recovers.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Mirror offline</div>The bridge is stale. This is history, not the current IPS state — check D-25 / the M060 chain.</div>"
       }
      ]
     },
     {
+     "selector": "#mirror-state-label",
+     "title": "Mirror label",
+     "content": "One-word mirror state — live or offline. Whether the capability tokens below can be trusted as current."
+    },
+    {
+     "selector": "#mirror-state-detail",
+     "title": "Mirror detail",
+     "content": "The producer/endpoint behind the mirror and why it's live or offline — how the capability tokens reaches this cockpit. Managed via selfdefctl capability-tokens on the selfdef side."
+    },
+    {
      "selector": "#mirror-last-update",
-     "title": "Last update",
-     "content": "When selfdef captured this snapshot. A stale timestamp means no recent change was published — the values are last-known, not live.",
-     "expanded": ""
+     "title": "Mirror freshness",
+     "content": "When the selfdef producer last captured this snapshot (its ISO captured_at). On an offline mirror this is how stale the data is — the gap between then and now."
     },
     {
      "selector": "#mirror-schema-version",
-     "title": "Schema version",
-     "content": "The contract shape of the mirrored data — cite it if the mirror ever disagrees with what the panel renders.",
-     "expanded": ""
+     "title": "Mirror schema",
+     "content": "The MS007 typed-mirror-crate schema version of this snapshot. Confirms the mirror and consumer agree on the data shape; a mismatch would mean the bridge is speaking an older dialect."
     }
    ]
   },
   {
    "icon": "◎",
    "title": "Ring 0..4 trust topology (MS039)",
-   "content": "Concentric trust zones — the innermost holds kernel-equivalent authority, the outermost holds the untrusted. Active token counts per ring tell you where power concentrates.",
+   "content": "selfdef's privilege model: every capability token sits in one of five rings, from Ring 0 (kernel-equivalent) to Ring 4 (untrusted). Lower ring = more power. Reading the distribution tells you where privilege is concentrated — a healthy box has few Ring 0/1 tokens and most at Ring 3/4.",
    "children": [
     {
      "selector": "#r0-active",
-     "title": "Ring 0 — kernel-equiv",
-     "content": "The innermost ring: kernel-equivalent authority, held by the selfdef daemon itself. The most powerful tokens — the count should be tiny and every one accounted for.",
-     "expanded": "<div class=\"so-card info\"><div class='so-li no'>✗ An unexpected Ring 0 token is the single most serious thing on this panel.</div></div>"
+     "title": "Ring 0",
+     "content": "Active capability tokens at Ring 0 — kernel-equivalent (selfdef daemon) — the most privileged, fewest tokens. The MS039 ring model is defence-in-depth: the lower the ring number, the more it can do, so tokens concentrate privilege — a token at Ring 0/1 is far more consequential than one at Ring 3/4."
     },
     {
      "selector": "#r1-active",
-     "title": "Ring 1 — Guardian + audit",
-     "content": "The enforcement/observability ring — Guardian and the audit chain running signed binaries. High trust, one step out from kernel-equivalent.",
-     "expanded": ""
+     "title": "Ring 1",
+     "content": "Active capability tokens at Ring 1 — Guardian + audit (signed bins) — the enforcement layer. The MS039 ring model is defence-in-depth: the lower the ring number, the more it can do, so tokens concentrate privilege — a token at Ring 0/1 is far more consequential than one at Ring 3/4."
     },
     {
      "selector": "#r2-active",
-     "title": "Ring 2 — operator-signed CLI",
-     "content": "The operator's authority ring — where MS003-signed CLI actions act. Human-authorised power.",
-     "expanded": ""
+     "title": "Ring 2",
+     "content": "Active capability tokens at Ring 2 — operator-signed CLI — your authority. The MS039 ring model is defence-in-depth: the lower the ring number, the more it can do, so tokens concentrate privilege — a token at Ring 0/1 is far more consequential than one at Ring 3/4."
     },
     {
      "selector": "#r3-active",
-     "title": "Ring 3 — sandboxed agent",
-     "content": "The confined-execution ring — agents running in sandboxes (D-15). Bounded authority; the ring most tokens legitimately live in during normal work.",
-     "expanded": ""
+     "title": "Ring 3",
+     "content": "Active capability tokens at Ring 3 — sandboxed agent — normal working tokens. The MS039 ring model is defence-in-depth: the lower the ring number, the more it can do, so tokens concentrate privilege — a token at Ring 0/1 is far more consequential than one at Ring 3/4."
     },
     {
      "selector": "#r4-active",
-     "title": "Ring 4 — untrusted / quarantine",
-     "content": "The outermost ring — untrusted or quarantined subjects with minimal authority. The tokens under the most suspicion; pairs with D-17.",
-     "expanded": ""
+     "title": "Ring 4",
+     "content": "Active capability tokens at Ring 4 — untrusted / quarantine — the least privileged. The MS039 ring model is defence-in-depth: the lower the ring number, the more it can do, so tokens concentrate privilege — a token at Ring 0/1 is far more consequential than one at Ring 3/4."
     }
    ]
   },
   {
    "icon": "▤",
-   "title": "Token summary",
-   "content": "The live authority outstanding, plus what's pending, quarantined, or a root (issued directly, not inherited).",
+   "title": "Summary",
+   "content": "The token population — active, pending, quarantined, and how many are roots (no parent). Read quarantined + attention together: those are the tokens selfdef flagged as mismatched (MS042).",
    "children": [
     {
      "selector": "#s-active",
      "title": "Active tokens",
-     "content": "Total live capability tokens across all rings — how much delegated power is currently outstanding.",
-     "expanded": ""
+     "content": "Total active capability tokens across all rings — the live privilege population. Each token grants a specific capability; more tokens = more granted capability to track."
     },
     {
      "selector": "#s-pending",
      "title": "Pending",
-     "content": "Tokens requested but not yet signed into force — they confer nothing until an operator signs (MS003).",
-     "expanded": ""
+     "content": "Tokens awaiting an MS003 signature to activate. Minted but not yet valid — they grant nothing until signed on the selfdef side."
     },
     {
      "selector": "#s-quarantined",
      "title": "Quarantined",
-     "content": "Tokens pulled because behaviour didn't match declaration (MS042) — suspected authority. See D-17 for the mismatch detail.",
-     "expanded": ""
+     "content": "Tokens selfdef quarantined for an MS042 mismatch — the capability didn't match what was declared. A quarantined token is frozen; a non-zero here is a real integrity flag (see D-17)."
     },
     {
      "selector": "#s-attention",
      "title": "Attention",
-     "content": "Pending + quarantined — the single number saying a token decision or investigation is waiting.",
-     "expanded": ""
+     "content": "Pending + quarantined together — the tokens that need a decision or investigation. The actionable subset."
     },
     {
      "selector": "#s-roots",
      "title": "Root tokens",
-     "content": "Tokens with no parent — issued directly, not delegated. They anchor the inheritance graph; authority created rather than inherited, so each deserves scrutiny.",
-     "expanded": ""
+     "content": "Tokens with no parent — the roots of the inheritance tree. Every other token descends from one of these (F04146), so a root is where a whole branch of capability originates."
     }
    ]
   },
   {
-   "icon": "◫",
-   "title": "Tokens, bit decoder & inheritance",
-   "content": "The token ledger, the per-bit decode of a selected token's powers, and the parent-child delegation tree.",
+   "icon": "≣",
+   "title": "Tokens, bits & inheritance",
+   "content": "The live tokens, the bit-level decode of what each grants, and the parent-child tree.",
    "children": [
+    {
+     "selector": "#ring-filters",
+     "title": "Ring filters",
+     "content": "Filter tokens by ring (0..4). Narrow to a privilege level — usually you're auditing the low-ring (high-privilege) tokens."
+    },
     {
      "selector": "#tokens-tbody",
      "title": "Active tokens",
-     "content": "Each token with state, parent, and actions. Click a token to decode its capability bits below; parent links to the inheritance graph.",
-     "expanded": ""
+     "content": "Each token with its ring, state, parent, and actions. Click a token to decode its capability_word bits. Hover for what it grants and where it sits in the tree.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A token is a capability, ringed</div>Each token is a specific granted capability at a specific privilege ring. Its parent is where it inherited from; its bits (below) are exactly what it can do.</div>"
     },
     {
      "selector": "#bit-grid",
      "title": "capability_word bit decoder",
-     "content": "A capability token is a bitfield — each bit is one specific power. This decodes exactly which capabilities the selected token grants, so 'what can this token do' is answered bit-by-bit, not guessed.",
-     "expanded": ""
-    },
-    {
-     "selector": "#bit-target",
-     "title": "Selected token",
-     "content": "Which token's capability_word is loaded into the decoder — the anchor for the bit grid.",
-     "expanded": ""
+     "content": "The bit-level decode of a selected token's capability_word — each bit is one capability the token grants or denies. This is the ground truth of 'what can this token actually do', beneath the friendly label.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why decode to bits</div>A capability_word packs many permissions into one integer; the label summarizes, but the bits are exact. Decoding them is how you confirm a token grants precisely what it should — no hidden extra bit set.<div class=\"so-tip\">💡 A token whose bits exceed its declared capability is an MS042 mismatch — exactly what quarantine (D-17) catches.</div></div>"
     },
     {
      "selector": "#inheritance-graph",
-     "title": "Inheritance graph (F04146)",
-     "content": "Tokens derive from tokens — a child can never exceed its parent's authority. This tree lets you trace any token back to the root authority it flows from.",
-     "expanded": ""
-    },
-    {
-     "selector": "#ring-filters",
-     "title": "Ring filters",
-     "content": "Narrow the token table to one trust ring — the way to audit, say, only Ring 0 where the highest authority lives.",
-     "expanded": ""
+     "title": "Inheritance graph",
+     "content": "The parent-child token tree (F04146) — how capability flows from root tokens down to sandboxed ones. A child can never exceed its parent, so the tree is how selfdef guarantees privilege only narrows as it delegates."
     }
    ]
   },
   {
    "icon": "⎈",
-   "title": "Controls",
-   "content": "",
+   "title": "Actions & controls",
+   "content": "Web is a READ-ONLY mirror consumer — capability tokens is signed/managed via selfdefctl capability-tokens + operator MS003 on the selfdef side, never from here.",
    "children": [
-    {
-     "selector": "#toast",
-     "title": "Copy confirmation",
-     "content": "Confirms a signed selfdefctl verb was copied for operator MS003 execution (R10117). No token was minted or revoked here.",
-     "expanded": ""
-    },
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Token controls — each copies its selfdefctl verb. Tokens are minted/revoked on the IPS side, never from this web view.",
-     "expanded": ""
+     "content": "Mirror controls — each copies its exact selfdefctl capability-tokens verb (§1g / R10212). This panel reads the selfdef mirror; every change to capability tokens runs through the signed selfdef CLI with MS003, never from the web."
     }
    ]
   }
