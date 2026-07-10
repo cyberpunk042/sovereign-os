@@ -181,3 +181,22 @@ def test_surface_map_registers_module():
 def test_nav_registry_includes_d25():
     nav = (REPO_ROOT / "webapp" / "_shared" / "nav-snippet.html").read_text()
     assert "d-25-selfdef-management" in nav
+
+
+# ── SDD-115: the selfdef-management scaffold stays visible when the daemon is offline ──
+
+def test_sections_always_visible_when_daemon_offline():
+    """The tiles + mirror-panels must render even with the daemon unreachable —
+    an initial paint + a fallback render in the fetch catch (an honest offline
+    state, never blank/seed-frozen). The SDD-111/113 lesson applied to d-25 (SB-077)."""
+    import re
+    body = WEBAPP_HTML.read_text(encoding="utf-8")
+    assert re.search(r"if\s*\(\s*state\.offline\s*\)", body), (
+        "render() must handle the offline case with an explicit honest state"
+    )
+    assert re.search(r"catch\s*\([^)]*\)\s*\{[^}]*render\(\s*\{\s*offline:\s*true", body, re.DOTALL), (
+        "the fetch catch must render render({offline:true}) (never a blank panel)"
+    )
+    assert body.count("render({offline: true})") >= 2, (
+        "an initial paint of the scaffold must run before the live fetch"
+    )
