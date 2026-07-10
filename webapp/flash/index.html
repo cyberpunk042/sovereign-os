@@ -1132,7 +1132,8 @@ window.SO_ASSIST = {
     {
      "selector": "#run-status",
      "title": "Run status",
-     "content": "The live state of the flash run — planning, writing, verifying. Read it during a flash; do not disturb the device until it reports complete."
+     "content": "The live state of the flash run — planning, writing, verifying. Read it during a flash; do not disturb the device until it reports complete.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Where the destructive write is</div>The live flash phase — planning, writing, verifying. During 'writing' the device is being irreversibly overwritten; this status is how you know whether the point of no return has passed.</div>"
     },
     {
      "selector": "#run-log",
@@ -1150,7 +1151,8 @@ window.SO_ASSIST = {
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "The control rail — each button copies its exact sovereign-osctl verb. The flash write runs through the signed CLI, never from a web click."
+     "content": "The control rail — each button copies its exact sovereign-osctl verb. The flash write runs through the signed CLI, never from a web click.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copy-command boundary</div>Each control copies its sovereign-osctl verb (§1g / R10212). Flashing is destructive and signed; the web stages the plan and arming, the actual write runs deliberately.</div>"
     }
    ]
   }

@@ -964,7 +964,8 @@ window.SO_ASSIST = {
     {
      "selector": "#last-fetch",
      "title": "Probe freshness",
-     "content": "When the CPU feature probe last ran. Because features are fixed per boot this rarely matters — but after a kernel or microcode change (which can expose or gate extensions) it’s the confirmation that the map reflects the current boot, not a prior one."
+     "content": "When the CPU feature probe last ran. Because features are fixed per boot this rarely matters — but after a kernel or microcode change (which can expose or gate extensions) it’s the confirmation that the map reflects the current boot, not a prior one.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A probe of fixed silicon</div>When the CPU feature probe last ran. Features are etched in the chip and don't change, so even an old read is authoritative — this timestamp is about the probe's recency, not a risk of drift.</div>"
     }
    ]
   },

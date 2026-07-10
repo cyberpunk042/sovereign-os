@@ -1821,12 +1821,14 @@ window.SO_ASSIST = {
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Memory controls — each copies its exact sovereign-osctl verb (§1g / R10212). Promotions, forgets, and trust edits run through the signed CLI; the web only stages the change, it never rewrites memory directly."
+     "content": "Memory controls — each copies its exact sovereign-osctl verb (§1g / R10212). Promotions, forgets, and trust edits run through the signed CLI; the web only stages the change, it never rewrites memory directly.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copy-command boundary</div>Each control copies its sovereign-osctl memory verb (§1g / R10212). Promotions, forgets, and trust edits are signed CLI actions — the web stages a change, your key commits it.</div>"
     },
     {
      "selector": "#toast",
      "title": "Status toast",
-     "content": "Transient confirmation of a staged action — a copied command or a completed read. It never means memory changed from this view; the CLI is what commits."
+     "content": "Transient confirmation of a staged action — a copied command or a completed read. It never means memory changed from this view; the CLI is what commits.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Confirms the copy, not the change</div>Transient confirmation that a verb was copied. Memory doesn't change from this view — a promotion or forget happens only when you run the signed command.</div>"
     }
    ]
   }

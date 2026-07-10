@@ -1633,7 +1633,8 @@ window.SO_ASSIST = {
     {
      "selector": "#o-host",
      "title": "Host inventory",
-     "content": "Audit entries classified as host inventory — snapshot · drift — the host baseline + changes. Part of the box's behavioural fingerprint in the audit record."
+     "content": "Audit entries classified as host inventory — snapshot · drift — the host baseline + changes. Part of the box's behavioural fingerprint in the audit record.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Host events · snapshot/drift</div>Audit entries for host inventory — snapshots and drift. They record the box's own configuration changing, which is how unexpected drift (a file, a package, a setting moving) gets caught in the chain.</div>"
     },
     {
      "selector": "#o-authority",
@@ -1651,7 +1652,8 @@ window.SO_ASSIST = {
     {
      "selector": "#p-allow",
      "title": "Policy · allow (MS033)",
-     "content": "How many policy evaluations resolved to ALLOW — the action was permitted. The baseline: most decisions on a healthy box allow, because most work is legitimate (MS033, R07731-R07734)."
+     "content": "How many policy evaluations resolved to ALLOW — the action was permitted. The baseline: most decisions on a healthy box allow, because most work is legitimate (MS033, R07731-R07734).",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">ALLOW · permitted outright</div>Policy evaluations that resolved to allow — the routine, permitted actions. A healthy box is mostly allows; the value is in the ratio, since a sudden drop in allows (rise in denies) signals something newly wrong.</div>"
     },
     {
      "selector": "#p-ask",
