@@ -402,6 +402,58 @@ a11y; contract test catches drift.
   pre{background:#0a0a0a;border:1px solid var(--border);border-radius:3px;padding:.6rem .8rem;overflow-x:auto;font-size:.78rem;margin:.4rem 0;white-space:pre-wrap;word-break:break-all}
   .disclaimer{background:#10202a;border:1px solid #20405a;color:var(--accent);padding:.7rem .9rem;border-radius:4px;margin:.6rem 0;font-size:.82rem}
 </style>
+<!-- SDD-116/119 shared demo-mode helper (inlined verbatim from webapp/_shared/demo-mode.{css,js}; opt-in, always-badged sample data — SB-077 reconciliation). -->
+<style>
+/* webapp/_shared/demo-mode.css — SDD-116 DEMO badge.
+ * DEMO mode is opt-in sample data for exploring panels with no daemon. The badge
+ * is a persistent, unmistakable ribbon so DEMO data is NEVER mistaken for real
+ * telemetry (the SB-077 reconciliation). Inlined verbatim into demo-capable
+ * panels alongside demo-mode.js. */
+#so-demo-badge {
+  position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); z-index: 9600;
+  background: #e6c062; color: #0a0a0a; font-weight: 700; font-size: .72rem; letter-spacing: .03em;
+  padding: .28rem .65rem; border-radius: 6px; box-shadow: 0 2px 12px rgba(0, 0, 0, .38);
+  font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif; pointer-events: none;
+}
+#so-demo-badge .sub { font-weight: 400; opacity: .82; }
+</style>
+<script>
+/* webapp/_shared/demo-mode.js — SDD-116 shared DEMO-mode helper (opt-in sample data).
+ *
+ * Reads the `sovereign-os.demo` localStorage flag (schema-guarded) and renders a
+ * persistent DEMO badge. Demo-capable panels call `soDemo.on()` to branch to their
+ * clearly-labelled sample data. The SB-077 reconciliation: DEMO is opt-in (off by
+ * default; never self-enables), ALWAYS badged, and makes ZERO network calls
+ * (R10212 strengthened — the demo render path never fetches). Inlined verbatim into
+ * demo-capable panels alongside demo-mode.css. */
+(function () {
+  "use strict";
+  var DKEY = 'sovereign-os.demo', DSCHEMA = 1;
+  function on() {
+    try {
+      var r = localStorage.getItem(DKEY); var p = r ? JSON.parse(r) : null;
+      return !!(p && p.schema === DSCHEMA && p.on);
+    } catch (e) { return false; }
+  }
+  function set(v) {
+    try { localStorage.setItem(DKEY, JSON.stringify({ schema: DSCHEMA, on: !!v })); } catch (e) {}
+  }
+  function badge() {
+    var b = document.getElementById('so-demo-badge');
+    if (on()) {
+      if (!b) {
+        b = document.createElement('div'); b.id = 'so-demo-badge';
+        b.innerHTML = 'DEMO <span class="sub">· sample data — not real telemetry</span>';
+        b.setAttribute('role', 'status');
+        (document.body || document.documentElement).appendChild(b);
+      }
+    } else if (b) { b.remove(); }
+  }
+  window.soDemo = { on: on, set: set, badge: badge, KEY: DKEY, SCHEMA: DSCHEMA };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', badge);
+  else badge();
+})();
+</script>
 </head>
 <body>
 <!-- APP-SHELL:BEGIN M067 -->
@@ -1540,8 +1592,29 @@ function renderDetect(detect) {
   body.textContent = JSON.stringify(detect, null, 2);
 }
 
+
+const DEMO_NETWORK_EDGE = {
+  version:{version:'demo-2.1.0'},
+  interfaces:{ count:3, interfaces:[
+    {name:'demo-eth0', state:'up', mtu:1500, addrs:['10.0.0.1/24']},
+    {name:'demo-eth1', state:'up', mtu:1500, addrs:['192.168.1.1/24']},
+    {name:'demo-wg0', state:'down', mtu:1420, addrs:[]} ]},
+  natChain:{ available:true, nat_layers_visible:2, masquerade:'demo/eth0', dnat_rules:3 },
+  opnStatus:{ tier:'demo/opnsense-24.7' },
+  opnCaps:{ unlocked_count:2, unlocked:['demo/firewall-api','demo/wireguard'], next_to_unlock:['demo/ids-suricata'] },
+  detect:{ hardware:'demo/x86_64', nics:2, virtualization:'none' }
+};
+function demoActive() { return !!(window.soDemo && window.soDemo.on()); }
 async function refresh() {
   try {
+    if (demoActive()) {
+      const {version,interfaces,natChain,opnStatus,opnCaps,detect} = DEMO_NETWORK_EDGE;
+      renderStats(version,interfaces,natChain,opnStatus,opnCaps);
+      renderInterfaces(interfaces); renderNatChain(natChain);
+      renderCapabilities(opnStatus,opnCaps); renderDetect(detect);
+      el("last-refresh").textContent = new Date().toLocaleTimeString();
+      if (window.soDemo) window.soDemo.badge(); return;
+    }
     const [version, interfaces, natChain, opnStatus, opnCaps,
            detect] =
       await Promise.all(ENDPOINTS.map(fetchJSON));
