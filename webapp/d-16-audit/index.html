@@ -423,6 +423,58 @@ a11y; contract test catches drift.
   .ocsf-badge.host{color:#7ad17a;border-color:#143d14}
   .ocsf-badge.authority{color:#ff7676;border-color:#3d1414}
 </style>
+<!-- SDD-116/119 shared demo-mode helper (inlined verbatim from webapp/_shared/demo-mode.{css,js}; opt-in, always-badged sample data — SB-077 reconciliation). -->
+<style>
+/* webapp/_shared/demo-mode.css — SDD-116 DEMO badge.
+ * DEMO mode is opt-in sample data for exploring panels with no daemon. The badge
+ * is a persistent, unmistakable ribbon so DEMO data is NEVER mistaken for real
+ * telemetry (the SB-077 reconciliation). Inlined verbatim into demo-capable
+ * panels alongside demo-mode.js. */
+#so-demo-badge {
+  position: fixed; top: calc(var(--so-header-h, 48px) + 8px); right: 12px; z-index: 9600;
+  background: #e6c062; color: #0a0a0a; font-weight: 700; font-size: .72rem; letter-spacing: .03em;
+  padding: .28rem .65rem; border-radius: 6px; box-shadow: 0 2px 12px rgba(0, 0, 0, .38);
+  font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif; pointer-events: none;
+}
+#so-demo-badge .sub { font-weight: 400; opacity: .82; }
+</style>
+<script>
+/* webapp/_shared/demo-mode.js — SDD-116 shared DEMO-mode helper (opt-in sample data).
+ *
+ * Reads the `sovereign-os.demo` localStorage flag (schema-guarded) and renders a
+ * persistent DEMO badge. Demo-capable panels call `soDemo.on()` to branch to their
+ * clearly-labelled sample data. The SB-077 reconciliation: DEMO is opt-in (off by
+ * default; never self-enables), ALWAYS badged, and makes ZERO network calls
+ * (R10212 strengthened — the demo render path never fetches). Inlined verbatim into
+ * demo-capable panels alongside demo-mode.css. */
+(function () {
+  "use strict";
+  var DKEY = 'sovereign-os.demo', DSCHEMA = 1;
+  function on() {
+    try {
+      var r = localStorage.getItem(DKEY); var p = r ? JSON.parse(r) : null;
+      return !!(p && p.schema === DSCHEMA && p.on);
+    } catch (e) { return false; }
+  }
+  function set(v) {
+    try { localStorage.setItem(DKEY, JSON.stringify({ schema: DSCHEMA, on: !!v })); } catch (e) {}
+  }
+  function badge() {
+    var b = document.getElementById('so-demo-badge');
+    if (on()) {
+      if (!b) {
+        b = document.createElement('div'); b.id = 'so-demo-badge';
+        b.innerHTML = 'DEMO <span class="sub">· sample data — not real telemetry</span>';
+        b.setAttribute('role', 'status');
+        (document.body || document.documentElement).appendChild(b);
+      }
+    } else if (b) { b.remove(); }
+  }
+  window.soDemo = { on: on, set: set, badge: badge, KEY: DKEY, SCHEMA: DSCHEMA };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', badge);
+  else badge();
+})();
+</script>
 </head>
 <body>
 <!-- APP-SHELL:BEGIN M067 -->
@@ -1094,12 +1146,26 @@ a11y; contract test catches drift.
     spans: [],
   };
 
+  const DEMO_D16 = {
+    schema_version:'1.0.0', mirror_status:'online', captured_at:'2026-06-30T14:00:00Z',
+    integrity:{ head_hash:'demo-9f3ac1', total_entries:18422, continuous:true, first_gap_at:null, verified_at:'2026-06-30T14:00:00Z' },
+    summaries:[ {category:'process_activity', total:8200, allow:8100, deny:60, ask:30, sandbox:10}, {category:'file_system_activity', total:5100, allow:5000, deny:70, ask:20, sandbox:10}, {category:'network_activity', total:3200, allow:3050, deny:120, ask:20, sandbox:10}, {category:'host_inventory', total:900, allow:900, deny:0, ask:0, sandbox:0}, {category:'authority_decision', total:1022, allow:980, deny:20, ask:12, sandbox:10} ],
+    spans:[
+      {trace_id:'demo-tr01', closed_at:'2026-06-30T13:59:00Z', profile:'careful', model:'demo/k2.6', provider:'openrouter', hardware:'blackwell', ocsf_category:'authority_decision', policy_result:'allow', tokens_prompt:820, tokens_completion:210, latency_ms:1400, risk_score:12, chain_hash:'demo-c1', prev_chain_hash:'demo-c0', signature:'demo-sig-01', branch_id:'demo-b1', cost_millicents:58},
+      {trace_id:'demo-tr02', closed_at:'2026-06-30T13:58:00Z', profile:'fast', model:'demo/qwen3', provider:'local', hardware:'rtx4090', ocsf_category:'process_activity', policy_result:'allow', tokens_prompt:400, tokens_completion:120, latency_ms:300, risk_score:4, chain_hash:'demo-c2', prev_chain_hash:'demo-c1', signature:'demo-sig-02', branch_id:'demo-b1', cost_millicents:0},
+      {trace_id:'demo-tr03', closed_at:'2026-06-30T13:57:00Z', profile:'careful', model:'demo/k2.6', provider:'openrouter', hardware:'blackwell', ocsf_category:'network_activity', policy_result:'deny', tokens_prompt:120, tokens_completion:0, latency_ms:90, risk_score:74, chain_hash:'demo-c3', prev_chain_hash:'demo-c2', signature:'demo-sig-03', branch_id:'demo-b2', cost_millicents:8} ]
+  };
+  function demoActive() { return !!(window.soDemo && window.soDemo.on()); }
   async function load() {
     try {
+      if (demoActive()) { seed = Object.assign(seed, DEMO_D16); }
+      else {
       const r = await fetch('/api/d-16/snapshot', { credentials: 'same-origin' });
       if (r.ok) seed = Object.assign(seed, await r.json());
+      }
     } catch (e) { /* mirror offline — keep empty-safe defaults */ }
     renderMirrorBanner();
+    if (demoActive()) { const _l=document.getElementById('mirror-state-label'); if(_l)_l.textContent='mirror: DEMO — sample data'; if(window.soDemo)window.soDemo.badge(); }
     renderIntegrity();
     renderOcsfTiles();
     renderPolicyTiles();

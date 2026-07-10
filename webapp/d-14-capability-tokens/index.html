@@ -423,6 +423,58 @@ a11y; contract test catches drift.
   .ring-card .v{font-size:1.3rem;font-weight:600;font-variant-numeric:tabular-nums;color:var(--fg);margin-top:.2rem}
   .ring-card .d{color:var(--muted);font-size:.7rem}
 </style>
+<!-- SDD-116/119 shared demo-mode helper (inlined verbatim from webapp/_shared/demo-mode.{css,js}; opt-in, always-badged sample data — SB-077 reconciliation). -->
+<style>
+/* webapp/_shared/demo-mode.css — SDD-116 DEMO badge.
+ * DEMO mode is opt-in sample data for exploring panels with no daemon. The badge
+ * is a persistent, unmistakable ribbon so DEMO data is NEVER mistaken for real
+ * telemetry (the SB-077 reconciliation). Inlined verbatim into demo-capable
+ * panels alongside demo-mode.js. */
+#so-demo-badge {
+  position: fixed; top: calc(var(--so-header-h, 48px) + 8px); right: 12px; z-index: 9600;
+  background: #e6c062; color: #0a0a0a; font-weight: 700; font-size: .72rem; letter-spacing: .03em;
+  padding: .28rem .65rem; border-radius: 6px; box-shadow: 0 2px 12px rgba(0, 0, 0, .38);
+  font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif; pointer-events: none;
+}
+#so-demo-badge .sub { font-weight: 400; opacity: .82; }
+</style>
+<script>
+/* webapp/_shared/demo-mode.js — SDD-116 shared DEMO-mode helper (opt-in sample data).
+ *
+ * Reads the `sovereign-os.demo` localStorage flag (schema-guarded) and renders a
+ * persistent DEMO badge. Demo-capable panels call `soDemo.on()` to branch to their
+ * clearly-labelled sample data. The SB-077 reconciliation: DEMO is opt-in (off by
+ * default; never self-enables), ALWAYS badged, and makes ZERO network calls
+ * (R10212 strengthened — the demo render path never fetches). Inlined verbatim into
+ * demo-capable panels alongside demo-mode.css. */
+(function () {
+  "use strict";
+  var DKEY = 'sovereign-os.demo', DSCHEMA = 1;
+  function on() {
+    try {
+      var r = localStorage.getItem(DKEY); var p = r ? JSON.parse(r) : null;
+      return !!(p && p.schema === DSCHEMA && p.on);
+    } catch (e) { return false; }
+  }
+  function set(v) {
+    try { localStorage.setItem(DKEY, JSON.stringify({ schema: DSCHEMA, on: !!v })); } catch (e) {}
+  }
+  function badge() {
+    var b = document.getElementById('so-demo-badge');
+    if (on()) {
+      if (!b) {
+        b = document.createElement('div'); b.id = 'so-demo-badge';
+        b.innerHTML = 'DEMO <span class="sub">· sample data — not real telemetry</span>';
+        b.setAttribute('role', 'status');
+        (document.body || document.documentElement).appendChild(b);
+      }
+    } else if (b) { b.remove(); }
+  }
+  window.soDemo = { on: on, set: set, badge: badge, KEY: DKEY, SCHEMA: DSCHEMA };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', badge);
+  else badge();
+})();
+</script>
 </head>
 <body>
 <!-- APP-SHELL:BEGIN M067 -->
@@ -1117,12 +1169,25 @@ a11y; contract test catches drift.
     if (seed.schema_version) sch.textContent = seed.schema_version;
   }
 
+  const DEMO_D14 = {
+    schema_version:'1.0.0', mirror_status:'online', captured_at:'2026-06-30T14:00:00Z',
+    summaries:[ {ring:'ring1', active:4, pending:0, quarantined:0}, {ring:'ring2', active:6, pending:1, quarantined:0}, {ring:'ring3', active:3, pending:0, quarantined:1} ],
+    tokens:[
+      {token_id:'demo-t01', capability_word:'a1b2c3d4', trust_ring:'ring1', authority_level:'l3_elevated', profile:'careful', sandbox_tier:'tier-a', allowed_tools:['read','list'], state:'active', parent_token_id:null},
+      {token_id:'demo-t02', capability_word:'e5f6a7b8', trust_ring:'ring2', authority_level:'l2_standard', profile:'fast', sandbox_tier:'tier-b', allowed_tools:['read','write'], state:'active', parent_token_id:'demo-t01'},
+      {token_id:'demo-t03', capability_word:'c9d0e1f2', trust_ring:'ring3', authority_level:'l1_limited', profile:'private', sandbox_tier:'tier-c', allowed_tools:['read'], state:'quarantined', parent_token_id:'demo-t01'} ]
+  };
+  function demoActive() { return !!(window.soDemo && window.soDemo.on()); }
   async function load() {
     try {
+      if (demoActive()) { seed = Object.assign(seed, DEMO_D14); }
+      else {
       const r = await fetch('/api/d-14/snapshot', { credentials: 'same-origin' });
       if (r.ok) seed = Object.assign(seed, await r.json());
+      }
     } catch (e) { /* mirror offline — keep empty-safe defaults */ }
     renderMirrorBanner();
+    if (demoActive()) { const _l=document.getElementById('mirror-state-label'); if(_l)_l.textContent='mirror: DEMO — sample data'; if(window.soDemo)window.soDemo.badge(); }
     renderTiles();
     renderTokens();
     if ((seed.tokens || []).length) {

@@ -423,6 +423,58 @@ a11y; contract test catches drift.
   .toast{position:fixed;bottom:1rem;right:1rem;background:var(--panel);border:1px solid var(--accent);color:var(--fg);padding:.5rem .9rem;border-radius:4px;font-size:.78rem;opacity:0;transition:opacity .2s ease;pointer-events:none}
   .toast.show{opacity:1}
 </style>
+<!-- SDD-116/119 shared demo-mode helper (inlined verbatim from webapp/_shared/demo-mode.{css,js}; opt-in, always-badged sample data — SB-077 reconciliation). -->
+<style>
+/* webapp/_shared/demo-mode.css — SDD-116 DEMO badge.
+ * DEMO mode is opt-in sample data for exploring panels with no daemon. The badge
+ * is a persistent, unmistakable ribbon so DEMO data is NEVER mistaken for real
+ * telemetry (the SB-077 reconciliation). Inlined verbatim into demo-capable
+ * panels alongside demo-mode.js. */
+#so-demo-badge {
+  position: fixed; top: calc(var(--so-header-h, 48px) + 8px); right: 12px; z-index: 9600;
+  background: #e6c062; color: #0a0a0a; font-weight: 700; font-size: .72rem; letter-spacing: .03em;
+  padding: .28rem .65rem; border-radius: 6px; box-shadow: 0 2px 12px rgba(0, 0, 0, .38);
+  font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif; pointer-events: none;
+}
+#so-demo-badge .sub { font-weight: 400; opacity: .82; }
+</style>
+<script>
+/* webapp/_shared/demo-mode.js — SDD-116 shared DEMO-mode helper (opt-in sample data).
+ *
+ * Reads the `sovereign-os.demo` localStorage flag (schema-guarded) and renders a
+ * persistent DEMO badge. Demo-capable panels call `soDemo.on()` to branch to their
+ * clearly-labelled sample data. The SB-077 reconciliation: DEMO is opt-in (off by
+ * default; never self-enables), ALWAYS badged, and makes ZERO network calls
+ * (R10212 strengthened — the demo render path never fetches). Inlined verbatim into
+ * demo-capable panels alongside demo-mode.css. */
+(function () {
+  "use strict";
+  var DKEY = 'sovereign-os.demo', DSCHEMA = 1;
+  function on() {
+    try {
+      var r = localStorage.getItem(DKEY); var p = r ? JSON.parse(r) : null;
+      return !!(p && p.schema === DSCHEMA && p.on);
+    } catch (e) { return false; }
+  }
+  function set(v) {
+    try { localStorage.setItem(DKEY, JSON.stringify({ schema: DSCHEMA, on: !!v })); } catch (e) {}
+  }
+  function badge() {
+    var b = document.getElementById('so-demo-badge');
+    if (on()) {
+      if (!b) {
+        b = document.createElement('div'); b.id = 'so-demo-badge';
+        b.innerHTML = 'DEMO <span class="sub">· sample data — not real telemetry</span>';
+        b.setAttribute('role', 'status');
+        (document.body || document.documentElement).appendChild(b);
+      }
+    } else if (b) { b.remove(); }
+  }
+  window.soDemo = { on: on, set: set, badge: badge, KEY: DKEY, SCHEMA: DSCHEMA };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', badge);
+  else badge();
+})();
+</script>
 </head>
 <body>
 <!-- APP-SHELL:BEGIN M067 -->
@@ -1106,12 +1158,25 @@ a11y; contract test catches drift.
     document.getElementById('r-quar').textContent = (seed.summaries || []).reduce((acc, s) => acc + s.quarantined, 0);
   }
 
+  const DEMO_D15 = {
+    schema_version:'1.0.0', mirror_status:'online', captured_at:'2026-06-30T14:00:00Z',
+    summaries:[ {tier:'tier-a', running:2, pending:0, checkpointed:1, quarantined:0}, {tier:'tier-b', running:3, pending:1, checkpointed:0, quarantined:0}, {tier:'tier-c', running:1, pending:0, checkpointed:2, quarantined:1}, {tier:'tier-d', running:0, pending:0, checkpointed:0, quarantined:0} ],
+    allocations:[
+      {allocation_id:'demo-a01', tier:'tier-a', ms032_tier:'A', isolation:'namespace', tool:'demo/inference', profile:'careful', state:'running', resident_mb:2048, cpu_percent:34, allocated_at:'2026-06-30T13:00:00Z', release_at:'2026-06-30T18:00:00Z'},
+      {allocation_id:'demo-a02', tier:'tier-b', ms032_tier:'B', isolation:'nspawn', tool:'demo/build', profile:'fast', state:'running', resident_mb:1024, cpu_percent:12, allocated_at:'2026-06-30T13:30:00Z', release_at:'2026-06-30T15:30:00Z'},
+      {allocation_id:'demo-a03', tier:'tier-c', ms032_tier:'C', isolation:'vm', tool:'demo/untrusted', profile:'private', state:'checkpointed', resident_mb:512, cpu_percent:0, allocated_at:'2026-06-29T22:00:00Z', release_at:'2026-06-30T22:00:00Z'} ]
+  };
+  function demoActive() { return !!(window.soDemo && window.soDemo.on()); }
   async function load() {
     try {
+      if (demoActive()) { seed = Object.assign(seed, DEMO_D15); }
+      else {
       const r = await fetch('/api/d-15/snapshot', { credentials: 'same-origin' });
       if (r.ok) seed = Object.assign(seed, await r.json());
+      }
     } catch (e) { /* mirror offline — keep empty-safe defaults */ }
     renderMirrorBanner();
+    if (demoActive()) { const _l=document.getElementById('mirror-state-label'); if(_l)_l.textContent='mirror: DEMO — sample data'; if(window.soDemo)window.soDemo.badge(); }
     renderTiles();
     renderAllocs();
   }

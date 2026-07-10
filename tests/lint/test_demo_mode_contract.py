@@ -332,3 +332,28 @@ def test_profile_generation_demo():
     assert re.search(r"demoActive\(\)\s*\?\s*DEMO_PROFGEN\s*:\s*await", body), (
         "profile-generation load() must select DEMO_PROFGEN (no fetch) in demo"
     )
+
+
+# ── SDD-125 (DEMO batch 4 — selfdef mirror family) ─────────────────────────────
+
+def test_selfdef_mirror_family_demo_branches_make_no_fetch():
+    """SDD-125 — the five uniform `/api/d-XX/snapshot` mirror panels select the DEMO
+    seed with NO fetch in the demo path (the else-branch holds the real fetch)."""
+    for slug, const in [
+        ("d-13-filesystem-grants", "DEMO_D13"), ("d-14-capability-tokens", "DEMO_D14"),
+        ("d-15-sandboxes", "DEMO_D15"), ("d-16-audit", "DEMO_D16"), ("d-17-quarantine", "DEMO_D17"),
+    ]:
+        body = (REPO_ROOT / "webapp" / slug / "index.html").read_text(encoding="utf-8")
+        assert "window.soDemo" in body[: body.index("</head>")], f"{slug}: helper in <head>"
+        assert f"if (demoActive()) {{ seed = Object.assign(seed, {const}); }}" in body, (
+            f"{slug}: demo branch must select {const} with no fetch"
+        )
+
+
+def test_d12_networking_demo_branch_and_sse_guard():
+    """SDD-125 — d-12 (outlier): demo applies the sample snapshot with no fetch, and the
+    /api/d-12/stream EventSource is skipped in demo."""
+    body = (REPO_ROOT / "webapp" / "d-12-networking" / "index.html").read_text(encoding="utf-8")
+    assert "window.soDemo" in body[: body.index("</head>")], "d-12: helper in <head>"
+    assert "if (demoActive()) { applySnapshot(DEMO_D12);" in body, "d-12 demo branch must applySnapshot(DEMO_D12)"
+    assert "if (!demoActive()) startSSE();" in body, "d-12 must skip the SSE stream in demo"
