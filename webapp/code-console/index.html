@@ -1076,7 +1076,7 @@ window.SO_ASSIST = {
  "context": {
   "icon": "⌘",
   "title": "Code Console",
-  "content": "A claude.ai/code-style interface for the box's OWN local LM. Three panes \u2014 a left session rail (real M057 OS task-sessions), a center conversation with the local model over 127.0.0.1, and a right Plan/artifact pane \u2014 plus a bottom composer with an M075 device target. The whole point: code with your sovereign machine, nothing crossing the network.\n\nHonest by construction (SB-077): the live pieces are the rail + the composer/thread (loopback SSE); the persisted-thread, the Plan pane, and the repo chips have no producer on the box yet and say so \u2014 never fabricated. Read-only (R10212): the ONLY POST is the loopback chat, a non-mutating inference read-compute; every real action is a signed CLI verb."
+  "content": "A claude.ai/code-style interface for the box's OWN local LM. Three panes — a left session rail (real M057 OS task-sessions), a center conversation with the local model over 127.0.0.1, and a right Plan/artifact pane — plus a bottom composer with an M075 device target. The whole point: code with your sovereign machine, nothing crossing the network.\n\nHonest by construction (SB-077): the live pieces are the rail + the composer/thread (loopback SSE); the persisted-thread, the Plan pane, and the repo chips have no producer on the box yet and say so — never fabricated. Read-only (R10212): the ONLY POST is the loopback chat, a non-mutating inference read-compute; every real action is a signed CLI verb."
  },
  "nodes": [
   {
@@ -1088,38 +1088,44 @@ window.SO_ASSIST = {
   {
    "selector": "#cc-rail",
    "title": "Session rail (M057)",
-   "content": "The real OS task-sessions from the M057 lifecycle registry (init \u2192 inference \u2192 response \u2192 validation \u2192 cleanup) \u2014 NOT Claude-Code chat threads (the box holds no conversation store). Empty is honest. Click a session to focus it.",
-   "icon": "☰"
+   "content": "The real OS task-sessions from the M057 lifecycle registry (init → inference → response → validation → cleanup) — NOT Claude-Code chat threads (the box holds no conversation store). Empty is honest. Click a session to focus it.",
+   "icon": "☰",
+   "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Real OS task-sessions (M057)</div>The left rail is the live M057 lifecycle registry — actual task sessions moving through init → inference → … on the box. It's not a mock; these are the real sessions the runtime is tracking.<div class=\"so-xref\"><span class=\"x\">→</span> D-01 active sessions — the fuller M057 lifecycle view</div></div>"
   },
   {
    "selector": "#cc-thread",
    "title": "Conversation",
-   "content": "An IN-PAGE conversation with the local LM (nothing is persisted server-side \u2014 R10212 read-compute; the client keeps the bounded buffer). A persisted-thread producer is honest-deferred (SB-077) until one exists.",
-   "icon": "◐"
+   "content": "An IN-PAGE conversation with the local LM (nothing is persisted server-side — R10212 read-compute; the client keeps the bounded buffer). A persisted-thread producer is honest-deferred (SB-077) until one exists.",
+   "icon": "◐",
+   "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">In-page chat with the local LM</div>A conversation with the box's own model — nothing is persisted server-side (SDD-062 sovereign loopback chat). It's local reasoning, on your hardware, that leaves no trace off the box.<div class=\"so-xref\"><span class=\"x\">→</span> router — where this chat's prompts get tier-routed</div></div>"
   },
   {
    "selector": "#cc-plan",
    "title": "Plan / artifact pane",
    "content": "Honest-deferred (SB-077): there is no plan/artifact producer on the box yet. The pane shows the shape it WILL take (context / steps / artifacts) but never a fabricated plan.",
-   "icon": "≣"
+   "icon": "≣",
+   "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Honest-deferred (SB-077)</div>There is no plan/artifact producer on the box yet — so rather than fake one, this is marked deferred. That honesty is the SDD-102 '$0 is honest' principle: the panel shows what exists, never a stub pretending to work.<div class=\"so-tip\">💡 A deferred feature is a truthful absence, not a bug — the box doesn't pretend capabilities it lacks.</div></div>"
   },
   {
    "selector": "#cc-target",
    "title": "Device target (M075)",
-   "content": "The SRP device you'd prefer \u2014 CPU0 Conductor / GPU0 Logic / GPU1 Oracle, or auto. The loopback router ultimately selects the serving tier; this is a preference, not a fabricated per-device route.",
-   "icon": "⚙"
+   "content": "The SRP device you'd prefer — CPU0 Conductor / GPU0 Logic / GPU1 Oracle, or auto. The loopback router ultimately selects the serving tier; this is a preference, not a fabricated per-device route.",
+   "icon": "⚙",
+   "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Pick the SRP device</div>Which serving device you'd prefer — CPU0 Conductor / GPU0 Logic / GPU1 Oracle, or auto. It's the SRP stack (M075) exposed: you can pin a request to a tier or let the router choose.<div class=\"so-xref\"><span class=\"x\">→</span> D-21 LM orchestration — the SRP devices behind these targets</div></div>"
   },
   {
    "selector": "#cc-send",
    "title": "Send (the one sanctioned POST)",
-   "content": "POSTs the bounded message history to /api/code-console/chat, which proxies the loopback /v1/chat/completions and streams tokens back. This is the SINGLE mutating-looking call in the console \u2014 a non-mutating inference read-compute (SDD-062/112). If the router is down you get an honest error, never a fabricated reply.",
-   "icon": "✈"
+   "content": "POSTs the bounded message history to /api/code-console/chat, which proxies the loopback /v1/chat/completions and streams tokens back. This is the SINGLE mutating-looking call in the console — a non-mutating inference read-compute (SDD-062/112). If the router is down you get an honest error, never a fabricated reply.",
+   "icon": "✈",
+   "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Bounded history to the local proxy</div>Sends the (bounded) message history to /api/code-console/chat, which proxies to the local LM. Bounded because context is finite — old turns drop rather than overflow. Loopback only; the prompt never leaves the box.</div>"
   },
   {
    "selector": ".cc-chip.deferred",
    "title": "Repo chips",
-   "content": "Honest-deferred (SB-077): there is no repo-attach producer on the box, so the chips show '\u2014 no repo producer' rather than inventing repositories.",
-   "icon": "○"
+   "content": "Honest-deferred (SB-077): there is no repo-attach producer on the box, so the chips show '— no repo producer' rather than inventing repositories.",
+   "icon": "○",
+   "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Deferred, not broken (SB-077)</div>A repo-attach producer doesn't exist on the box yet, so the chip is marked deferred rather than wired to nothing. Same SDD-102 honesty: the cockpit never renders a control that silently does nothing.</div>"
   }
  ]
 };

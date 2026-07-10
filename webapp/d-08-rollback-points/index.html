@@ -1485,7 +1485,8 @@ window.SO_ASSIST = {
     {
      "selector": "#ds-last-update",
      "title": "Fetch freshness",
-     "content": "When the inventory was pulled. Snapshots accrue as changes commit; check this before assuming the newest point is shown."
+     "content": "When the inventory was pulled. Snapshots accrue as changes commit; check this before assuming the newest point is shown.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Snapshots accrue between reads</div>New snapshots appear as changes commit — an old timestamp means recent restore points may not be listed yet. Check freshness before assuming your latest good state isn't captured.</div>"
     }
    ]
   },
@@ -1503,17 +1504,20 @@ window.SO_ASSIST = {
     {
      "selector": "#s-commits",
      "title": "MS041 commits (24h)",
-     "content": "How many durable changes (MS041-signed commits) happened in the last 24h. Each is a state change worth being able to undo — this is the change rate the snapshots are protecting against."
+     "content": "How many durable changes (MS041-signed commits) happened in the last 24h. Each is a state change worth being able to undo — this is the change rate the snapshots are protecting against.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Commits are the restore points</div>Each MS041-signed commit is a durable change you could roll back to. The 24h count is how much happened recently — pair it with snapshots to know your granularity of undo.<div class=\"so-xref\"><span class=\"x\">→</span> timeline — commits crossed with snapshots</div></div>"
     },
     {
      "selector": "#s-disk",
      "title": "Disk used (snapshots)",
-     "content": "How much disk the snapshots consume in GiB. Because ZFS snapshots are copy-on-write, this grows only as the live data diverges from them — a large number means lots has changed since the older snapshots."
+     "content": "How much disk the snapshots consume in GiB. Because ZFS snapshots are copy-on-write, this grows only as the live data diverges from them — a large number means lots has changed since the older snapshots.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Snapshots are nearly free until you diverge</div>ZFS snapshots are copy-on-write — they cost almost nothing at creation and only grow as the live data diverges from them. A large snapshot footprint means lots has changed since the old ones, not that snapshots are expensive.</div>"
     },
     {
      "selector": "#s-oldest",
      "title": "Oldest snapshot",
-     "content": "The age of the oldest snapshot — your rollback horizon. You can restore any state back to here; anything older is gone. If this is recent, your undo history is shallow."
+     "content": "The age of the oldest snapshot — your rollback horizon. You can restore any state back to here; anything older is gone. If this is recent, your undo history is shallow.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The oldest snapshot is your horizon</div>You can only roll back as far as the oldest snapshot reaches. If it's recent, your undo window is short; if it's old, you can recover a distant state — at the disk cost of keeping it.</div>"
     },
     {
      "selector": "#s-last-rollback",
@@ -1526,7 +1530,8 @@ window.SO_ASSIST = {
        },
        "content": "No rollback has ever been applied — the box has only ever moved forward."
       }
-     ]
+     ],
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">A rollback is a significant event</div>Rolling back discards everything after the target — it's the reversibility property (D-20 P3) exercised, not a routine action. 'Never' is common and healthy; a recent one means something went wrong enough to undo.<div class=\"so-xref\"><span class=\"x\">→</span> D-20 P3 Reversible — the property this realises</div></div>"
     }
    ]
   },
@@ -1538,7 +1543,8 @@ window.SO_ASSIST = {
     {
      "selector": "#dataset-filters",
      "title": "Dataset filters",
-     "content": "Filter the snapshot list by dataset (tank/context, tank/containers, etc.). Narrow to the dataset you care about — a rollback is usually per-dataset, not the whole pool."
+     "content": "Filter the snapshot list by dataset (tank/context, tank/containers, etc.). Narrow to the dataset you care about — a rollback is usually per-dataset, not the whole pool.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Filter to the dataset you'd restore</div>tank/context, tank/containers, etc. — each dataset snapshots independently. Filter to the one you'd roll back so you're comparing snapshots of the same thing, not mixing datasets.</div>"
     },
     {
      "selector": "#snapshots-tbody",
@@ -1570,7 +1576,8 @@ window.SO_ASSIST = {
     {
      "selector": "#preview-target",
      "title": "Preview target",
-     "content": "Which snapshot the preview is computed against — the state you're considering rolling back to. Pick a snapshot from the inventory to set it."
+     "content": "Which snapshot the preview is computed against — the state you're considering rolling back to. Pick a snapshot from the inventory to set it.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Preview before you commit the undo</div>The snapshot the diff is computed against — the state you're considering restoring. Always preview first: the diff shows exactly what a rollback would discard before you sign it.</div>"
     },
     {
      "selector": "#preview-box",
