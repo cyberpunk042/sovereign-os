@@ -1320,121 +1320,134 @@ setInterval(refreshAll, 60000);
 <script>
 window.SO_ASSIST = {
  "context": {
-  "icon": "🔍",
-  "title": "Auditor",
-  "content": "The Immutable Gatekeeper tier of the trinity (M066) — the box's always-on immune system. It watches with Tetragon (an eBPF observer in the kernel that sees every syscall, below anything a compromised process could hide) and enforces with the Guardian (which acts on violations, up to SIGKILL), recording everything to the immutable audit log (D-16). It cannot be bypassed or turned off from inside — that's what makes the other two tiers trustworthy.\n\nThis panel is the webapp surface of Auditor's R453 §1g ladder (R539). Read it to confirm the perimeter is intact (Tetragon + Guardian + log all up) and to review the violations it has caught. Read-only."
+  "icon": "◉",
+  "title": "Auditor · Immutable Gatekeeper",
+  "content": "The Auditor is the trinity's oversight tier — and unlike the Pulse and Weaver, it does not run here. Per the R10212 boundary, sovereign-os only MIRRORS the Auditor: this panel is a read-only view of selfdef's enforcement (Tetragon eBPF + the guardian daemon), the last policy violation, and the violation history.\n\nThis is the accountability surface. The Auditor watches every process and can SIGKILL a policy violation via Tetragon eBPF — but that power lives in selfdef (MS044), not sovereign-os, on purpose: the thing being watched must not own the watcher. Read this to confirm enforcement is live and to see what it last caught; act via selfdefctl, never from here."
  },
  "nodes": [
   {
-   "icon": "◆",
-   "title": "Status",
-   "content": "Whether the Auditor's enforcement components are up: Tetragon, Guardian, and the audit log.",
+   "icon": "◈",
+   "title": "Auditor summary",
+   "content": "The enforcement header — is Tetragon loaded, is the guardian service up, and where the audit log lives. These three together say whether the box is actually being watched right now.",
    "children": [
     {
      "selector": "#stats",
-     "title": "Auditor summary",
-     "content": "The roll-up — API version, Tetragon, Guardian, audit log. The Auditor is the gatekeeper; all its parts must be up for the box to be trusted."
+     "title": "Auditor header",
+     "content": "The Auditor tier identity, mirrored from selfdef. Per operator §1g this view does not minimize — a down watchdog or a violation is shown in full, never softened."
     },
     {
      "selector": "#stat-version",
-     "title": "API version",
-     "content": "The Auditor daemon version answering — for reconciling the gatekeeper's behaviour against the spec."
+     "title": "Mirror version",
+     "content": "The version of the selfdef auditor status being mirrored. It's a read of selfdefctl auditor output — this panel never computes enforcement itself, it reflects selfdef's.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A mirror version, not a local one</div>This number tracks selfdef's auditor output format, because everything on this panel is a mirror. sovereign-os holds no enforcement state of its own — if this version and selfdef's disagree, the mirror is stale, not the enforcement.<div class=\"so-xref\"><span class=\"x\">→</span> D-25 selfdef management — the M060 mirror chain feeding this</div></div>"
     },
     {
      "selector": "#stat-tetragon",
-     "title": "Tetragon",
-     "content": "Whether Tetragon — the eBPF kernel-perimeter observer — is running. Tetragon is the Auditor's eyes: it sees every syscall at the kernel, below anything a compromised process could hide behind. If it's down, the perimeter is blind.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">eBPF sees below user-space</div>Tetragon runs in the kernel via eBPF, so it observes real syscalls — a malicious process can't fake or bypass what the kernel sees. That's why it's the trustworthy watch layer.</div>",
+     "title": "Tetragon eBPF",
+     "content": "Whether Tetragon — the eBPF layer that observes syscalls and can kill a violating process in-kernel — is loaded and running. If this is down, the box's in-kernel enforcement teeth are gone even if the guardian daemon is up.",
+     "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">Tetragon down = no in-kernel teeth</div>Tetragon is the eBPF program that sees process behaviour at the kernel level and can SIGKILL on a policy match. Without it, the Auditor can still log via the guardian daemon but loses its immediate, in-kernel enforcement — a serious degradation.<div class=\"so-grid\"><span class=\"k\">up</span><span>syscall-level observation + SIGKILL enforcement active</span><span class=\"k\">down</span><span>no in-kernel kill — enforcement falls back to slower paths</span></div><div class=\"so-xref\"><span class=\"x\">→</span> D-16 audit — the audit chain Tetragon events feed</div></div>",
      "variants": [
       {
        "when": {
         "textContains": "down"
        },
-       "content": "Tetragon is DOWN — the eBPF perimeter is blind. The Auditor can't see kernel activity; the box is running unwatched at the layer that matters most.",
-       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Tetragon down</div>The kernel perimeter is blind — a critical enforcement gap.</div>"
+       "content": "Tetragon NOT loaded — in-kernel enforcement is offline; escalate via selfdef."
+      },
+      {
+       "when": {
+        "textContains": "running"
+       },
+       "content": "Tetragon loaded — in-kernel syscall observation and SIGKILL enforcement active."
       }
      ]
     },
     {
      "selector": "#stat-guardian",
      "title": "Guardian service",
-     "content": "Whether the Guardian is running — the service that ACTS on what Tetragon sees, up to SIGKILL on a violation. Tetragon watches; Guardian enforces. Both must be up: eyes without hands, or hands without eyes, is a gap.",
+     "content": "Whether the selfdef guardian daemon is running — the userspace half of enforcement that manages policy, logging, and the watchdog set (MS046 process / MS047 perimeter / MS044 tamper / MS048 config).",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The guardian orchestrates the four watchdogs</div>The guardian daemon is the userspace conductor of the IPS spine: it runs the four watchdogs and ties Tetragon's kernel events to policy and the audit log. Tetragon is the teeth; the guardian is the brain that decides and records.<div class=\"so-grid\"><span class=\"k\">MS046</span><span>process watchdog</span><span class=\"k\">MS047</span><span>perimeter watchdog</span><span class=\"k\">MS044</span><span>tamper-detection watchdog</span><span class=\"k\">MS048</span><span>config watchdog</span></div><div class=\"so-xref\"><span class=\"x\">→</span> D-25 selfdef management — the four-watchdog rollup</div></div>",
      "variants": [
       {
        "when": {
         "textContains": "down"
        },
-       "content": "Guardian is DOWN — violations are seen but not enforced. Tetragon may be watching, but nothing acts on what it finds.",
-       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Guardian down</div>Enforcement is off — violations won't be stopped.</div>"
+       "content": "Guardian daemon down — enforcement orchestration is offline; this is a selfdef incident."
       }
      ]
     },
     {
      "selector": "#stat-log",
-     "title": "Audit log",
-     "content": "Whether the audit log is being written — the immutable record (D-16 hash chain) of what the Auditor saw and did. Without it, enforcement happens but isn't provable after the fact."
+     "title": "Audit log path",
+     "content": "Where the immutable audit log is written. The Auditor is the 'immutable gatekeeper' — its log is append-only evidence, so knowing its location is knowing where the accountability trail lives.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Immutable = append-only evidence</div>The audit log is write-once: entries are appended, never edited or deleted. That immutability is what makes it evidence rather than notes — a violation recorded here can't be quietly erased, not even by a compromised process.<div class=\"so-xref\"><span class=\"x\">→</span> D-16 audit — the tamper-evident chain (MS016) this log anchors</div></div>"
+    },
+    {
+     "selector": "#last-refresh",
+     "title": "Last refresh",
+     "content": "When the auditor status was last mirrored from selfdef. Enforcement state is safety-critical, so a stale read here is worth refreshing before you trust 'all green'."
     }
    ]
   },
   {
-   "icon": "🔍",
-   "title": "Tier status & violations",
-   "content": "The Auditor's live status and the violations it has caught. A violation here is the box's immune system firing — something tried to break a guarantee and was stopped.",
+   "icon": "▤",
+   "title": "Status & violations",
+   "content": "The per-check status, the most recent violation, and the recent history. This is what the Auditor has actually seen and done — the evidence, not just the liveness.",
    "children": [
     {
      "selector": "#status-tbody",
-     "title": "Auditor tier status",
-     "content": "The Auditor's per-component status. Hover a row for that component's role in the gatekeeper. All-green is the trusted state; anything down is a hole in the perimeter."
+     "title": "Tier status (/status)",
+     "content": "The Auditor's per-check status table — each enforcement check and whether it's passing. Read it to see WHICH part of oversight is healthy, not just that 'the auditor' is up.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Status is per-check, not one light</div>Oversight is several checks (Tetragon, guardian, the watchdogs, the log). This table breaks them out so a single failing check is visible rather than averaged into a green blob.<div class=\"so-xref\"><span class=\"x\">→</span> stat-tetragon / stat-guardian — the two headline checks summarised above</div></div>",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#status-tbody > tr",
+      "nameSelector": "td:first-child,td",
+      "title": "Check · {{name}}",
+      "content": "Enforcement check {{name}} — one of the Auditor's oversight checks and its current state. A single failing check here is a real hole in oversight, not an average.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Check · {{name}}</div>One oversight check broken out on its own so its failure is visible, not blended into a summary light.</div>"
+     }
     },
     {
      "selector": "#last-violation-meta",
-     "title": "Last violation (meta)",
-     "content": "The metadata of the most recent violation — when and what. The freshest sign of the immune system firing."
+     "title": "Last violation · meta",
+     "content": "When and what kind — the header of the most recent policy violation the Auditor caught. A recent timestamp here means enforcement fired lately; that's the Auditor working, not a fault in itself.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Recent ≠ broken</div>A fresh violation timestamp is the Auditor catching something, which is the system working as designed. What's worth alarm is the opposite pattern from what you'd expect: a violation with no corresponding SIGKILL, or enforcement checks down while violations keep arriving.<div class=\"so-xref\"><span class=\"x\">→</span> last-violation detail — the exact line for this event</div></div>"
     },
     {
      "selector": "#last-violation-line",
-     "title": "Last violation",
-     "content": "The most recent violation the Auditor caught — what tried to break a guarantee and was stopped. A recent violation isn't necessarily bad (it means enforcement works); a violation you can't explain is what to investigate.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A violation is the immune system working</div>The Auditor catches behaviour that breaks a declared guarantee and stops it (up to SIGKILL). Seeing violations means enforcement is live; the concern is an unexplained one, or the same one repeating.<div class=\"so-xref\"><span class=\"x\">→</span> D-16 audit — the hash-chained record of every violation<br><span class=\"x\">→</span> D-17 quarantine — where a violating component ends up</div></div>"
+     "title": "Last violation · detail",
+     "content": "The raw log line of the most recent violation — the exact process, rule, and action (often a SIGKILL). This is the concrete 'here's what got stopped and why'.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Reading a violation line</div>A violation line is evidence of enforcement doing its job: a process crossed a policy boundary and was caught (and usually killed). It's not necessarily an attack — a misconfigured agent trips the same wire — but it always warrants a look.<div class=\"so-xref\"><span class=\"x\">→</span> D-17 quarantine — where a killed/contained process lands</div></div>"
     },
     {
      "selector": "#history-meta",
-     "title": "History (meta)",
-     "content": "The scope of the violation history shown (last 20) — the window you're looking at."
+     "title": "History · meta",
+     "content": "The window the violation history covers (the last N, per /history?n=20). It frames the list below — how far back the recent-enforcement view reaches.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The window shapes the pattern</div>History is the last N events, not all time — so 'quiet' means quiet within the window. Widen N (via the CLI) when you're hunting a slow-burn pattern that a 20-event view would miss.<div class=\"so-xref\"><span class=\"x\">→</span> D-16 audit — the complete chain when the window isn't enough</div></div>"
     },
     {
      "selector": "#history-lines",
      "title": "Violation history",
-     "content": "The recent history of caught violations. A pattern here is diagnostic: repeated violations from one source is an actor to investigate; scattered one-offs are the perimeter doing routine work."
-    }
-   ]
-  },
-  {
-   "icon": "⟳",
-   "title": "Refresh",
-   "content": "Re-poll on demand; read-only.",
-   "children": [
-    {
-     "selector": "#refresh-btn",
-     "title": "Refresh",
-     "content": "Re-poll this panel now. Read-only re-sample — it never mutates."
-    },
-    {
-     "selector": "#last-refresh",
-     "title": "Refresh freshness",
-     "content": "When this was last read. Check before trusting a status as current."
+     "content": "The recent violations in sequence — the enforcement trail. A cluster of similar violations is a pattern worth investigating; a quiet history means either a well-behaved box or (check freshness) a mirror that isn't updating.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">History is the pattern view</div>One violation is an event; a run of them is a signal. Read the history for repetition — the same rule tripping repeatedly points at a specific misbehaving agent or an attacker probing the same boundary.<div class=\"so-xref\"><span class=\"x\">→</span> D-16 audit — the full immutable chain this history is a slice of</div></div>"
     }
    ]
   },
   {
    "icon": "⎈",
-   "title": "Controls",
-   "content": "Read-only — mutations copy signed sovereign-osctl verbs (§1g / R10212).",
+   "title": "Refresh & controls",
+   "content": "Read-only mirror of selfdef enforcement. You cannot arm or disarm the Auditor from here — that's selfdef's, by the R10212 boundary. Controls copy the inspection verbs only.",
    "children": [
+    {
+     "selector": "#refresh-btn",
+     "title": "Refresh now",
+     "content": "Re-mirror the auditor status, last violation, and history from selfdef. Read-only — it re-reads selfdefctl output; it never changes an enforcement policy."
+    },
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Controls — each copies its exact sovereign-osctl verb. Auditor ops runs through the signed CLI, never from the web (§1g / R10212)."
+     "content": "Auditor inspection verbs — each copies its exact selfdefctl/sovereign-osctl command (§1g / R10212). Enforcement policy is selfdef's to change; sovereign-os can look but not touch, because the watched box must never control its own watcher.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">The watched cannot arm the watcher</div>This is the deepest boundary in the system: if sovereign-os could disable the Auditor, a compromised sovereign-os could blind its own oversight. So enforcement lives in selfdef and this panel is strictly read-only — the separation IS the security property.<div class=\"so-xref\"><span class=\"x\">→</span> §1g R10212 — the cross-project boundary; selfdef owns the Auditor's teeth (MS044)</div></div>"
     }
    ]
   }

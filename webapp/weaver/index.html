@@ -1315,96 +1315,111 @@ setInterval(refreshAll, 60000);
 <script>
 window.SO_ASSIST = {
  "context": {
-  "icon": "☲",
-  "title": "Weaver",
-  "content": "The Sandboxed Fabric tier of the trinity (M066). Weaver is where two things happen: untrusted work runs isolated (Podman containers + VFIO GPU passthrough — the 4090 sandbox, D-09/D-15), and the box's durable state is written (the state fabric on tank/context, ZFS sync=always). It's the 'contain the risk, persist the truth' tier.\n\nThis panel is the webapp surface of Weaver's R453 §1g 8-surface ladder (R536). Read it to see the state fabric's health — what durable-state files exist vs what the master spec §7.1 requires. Read-only; state ops run through the signed CLI."
+  "icon": "⟐",
+  "title": "Weaver · State-Fabric",
+  "content": "The Weaver is the trinity's sandboxed fabric — and this panel is its state layer: the ZFS state-fabric files the box mutates through atomic transitions rather than in-place edits. It's also a §1g compliance instrument: R453 says every module must ship the full eight observability surfaces, and this panel shows the Weaver module's ladder plus the live file inventory against the master-spec catalog.\n\nRead it to answer two questions: is every state-fabric file the spec (§7.1) expects actually present on disk, and does the Weaver module expose all eight surfaces R453 demands? A gap in either is a §1g minimization the operator wants surfaced, never hidden."
  },
  "nodes": [
   {
-   "icon": "◆",
-   "title": "Status & 8-surface ladder",
-   "content": "The Weaver module's shipped-surface status (R453 §1g ladder) and state-file counts. This webapp closes the webapp surface of that ladder (R536).",
+   "icon": "◈",
+   "title": "Weaver summary",
+   "content": "The state-fabric header — version, how many files the catalog expects, how many are present, and the context directory they live under. The present-vs-expected pair is the honest count: it says whether the fabric is complete.",
    "children": [
     {
      "selector": "#stats",
-     "title": "Weaver summary",
-     "content": "The roll-up — API version, state-file count, present count, context dir. Whether the state fabric is intact."
+     "title": "Weaver header",
+     "content": "The Weaver module identity and its §1g ladder posture. Per operator §1g this view does not minimize — a missing surface or file is shown, not rounded away."
     },
     {
      "selector": "#stat-version",
-     "title": "API version",
-     "content": "The Weaver daemon version answering — for reconciling the state-fabric behaviour against the spec."
+     "title": "Spec version",
+     "content": "The master-spec version the file catalog (§7.1) is read from. If files and catalog disagree, this version is the reference the diff is measured against.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The version pins the yardstick</div>The present-vs-catalog diff only means something against a known spec version. If someone updates §7.1, the catalog count moves — this version tells you which revision of the contract you're measuring the live fabric against.<div class=\"so-tip\">💡 A files-vs-catalog mismatch after a version bump is expected drift, not necessarily a fault — re-check post-transition.</div></div>"
     },
     {
      "selector": "#stat-count",
-     "title": "State files",
-     "content": "How many state-fabric files the master spec defines (§7.1) — the expected inventory of the box's durable state."
+     "title": "Catalog count",
+     "content": "How many state-fabric files the master-spec §7.1 catalog defines — the expected total. This is the denominator; present-count is the numerator.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Catalog = the contract</div>The §7.1 catalog is the authoritative list of state-fabric files that should exist. It's static (from the spec), so it doesn't move — which makes it a stable yardstick for what the live inventory should match.<div class=\"so-xref\"><span class=\"x\">→</span> static catalog table below — the full §7.1 list</div></div>"
     },
     {
      "selector": "#stat-present",
-     "title": "Present",
-     "content": "How many of those state files actually exist on disk. Present &lt; count means part of the state fabric is missing — a gap in the box's durable memory.",
+     "title": "Present on disk",
+     "content": "How many catalogued files actually exist live. Present below catalog means the fabric is incomplete — a state file the spec expects isn't there, which can mean a transition never ran or a file was lost.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Present < catalog = a real gap</div>This is the §1g honesty check. If present is under the catalog count, a state-fabric file is missing and the panel says so plainly. Don't read a lower present as 'fine' — it's a concrete absence to chase.<div class=\"so-li\"><span class=\"ok\">✓</span> present == catalog → fabric complete</div><div class=\"so-li\"><span class=\"warn\">▲</span> present < catalog → a spec'd state file is missing</div></div>",
      "variants": [
       {
        "when": {
         "textContains": "0"
        },
-       "content": "No state files present yet — the fabric hasn't been initialized."
+       "content": "No state-fabric files present — the fabric is empty or the mirror is unreadable."
       }
      ]
     },
     {
      "selector": "#stat-ctxdir",
-     "title": "Context dir",
-     "content": "Where the state fabric lives (tank/context) — the ZFS dataset mounted sync=always (D-09/M068) so every state write is durable before it returns."
-    }
-   ]
-  },
-  {
-   "icon": "☲",
-   "title": "State-fabric inventory",
-   "content": "The Weaver's durable-state files: what's live on disk vs what the master spec §7.1 says should exist. The gap between them is the box's state-completeness.",
-   "children": [
-    {
-     "selector": "#list-tbody",
-     "title": "Live state files",
-     "content": "Each state-fabric file with its presence, size, and modified time. Hover a row for what that file holds. These are the box's durable memory — written by Weaver into tank/context with sync=always.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Live vs cataloged</div>This is what's actually on disk right now; the catalog below is what should exist. A file missing here that's in the catalog is a state gap.</div>"
-    },
-    {
-     "selector": "#catalog-tbody",
-     "title": "Master-spec §7.1 catalog",
-     "content": "The canonical list of state files the master spec defines — the operator-named expected inventory. Hover a row for what each file is for. This is the spec; the live list is the reality.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The spec side</div>Each entry is a state file the box is supposed to maintain, per master-spec §7.1. Compare against the live list to find gaps.</div>"
-    }
-   ]
-  },
-  {
-   "icon": "⟳",
-   "title": "Refresh",
-   "content": "Re-poll on demand; read-only.",
-   "children": [
-    {
-     "selector": "#refresh-btn",
-     "title": "Refresh",
-     "content": "Re-poll this panel now. Read-only re-sample — it never mutates."
+     "title": "Context directory",
+     "content": "The directory the state-fabric files live under. Knowing where they are matters because transitions are atomic writes into this dir — it's the one place the Weaver's durable state exists.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">One directory, atomic writes</div>The Weaver's durability is this single directory. Transitions write a new file and atomically swap it in rather than editing in place, so a crash mid-write leaves the old good state, never a half-written one. That's why the fabric is trustworthy under failure.<div class=\"so-xref\"><span class=\"x\">→</span> D-08 rollback points — the snapshots that complement atomic state writes</div></div>"
     },
     {
      "selector": "#last-refresh",
-     "title": "Refresh freshness",
-     "content": "When this was last read. Check before trusting a status as current."
+     "title": "Last refresh",
+     "content": "When the inventory and catalog were last read. State transitions are atomic and can happen between reads, so treat a stale timestamp as a possibly-outdated present-count."
+    }
+   ]
+  },
+  {
+   "icon": "▤",
+   "title": "Surfaces & inventory",
+   "content": "The R453 eight-surface ladder for the Weaver module, the live file inventory, and the static spec catalog. The two tables are meant to be compared: live vs spec.",
+   "children": [
+    {
+     "selector": "#list-tbody",
+     "title": "Live file inventory (/list)",
+     "content": "The state-fabric files that actually exist right now — the /list surface. Each row is a real file on disk; compare it against the static catalog below to see what's present, what's extra, and what's missing.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Live means on-disk now</div>This table is reality: what the filesystem holds this instant. It's the numerator behind present-count. A file here that's NOT in the catalog is unexpected; a catalog file NOT here is the gap.<div class=\"so-xref\"><span class=\"x\">→</span> static catalog — the spec side of this comparison</div></div>",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#list-tbody > tr",
+      "nameSelector": "td:first-child,td",
+      "title": "State file · {{name}}",
+      "content": "State-fabric file {{name}} — one file that exists live on disk. Cross-check it against the §7.1 catalog: if it's here and catalogued, good; here but not catalogued, it's unexpected.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">File · {{name}}</div>A live state-fabric file. Its presence is what makes the present-count; its absence from the catalog would make it a surprise.</div>"
+     }
+    },
+    {
+     "selector": "#catalog-tbody",
+     "title": "Static spec catalog (/state-files, §7.1)",
+     "content": "The master-spec §7.1 list of every state-fabric file that SHOULD exist — the /state-files surface. It's the contract the live inventory is checked against; it doesn't change unless the spec does.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The spec side, immutable</div>Where the live inventory is a snapshot of disk, this is the fixed expectation from the spec. Diffing the two is the whole job of this panel: catalog − live = what's missing.<div class=\"so-tip\">💡 A file in the catalog but absent from /list is exactly the kind of gap §1g forbids hiding.</div></div>",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#catalog-tbody > tr",
+      "nameSelector": "td:first-child,td",
+      "title": "Catalog · {{name}}",
+      "content": "Catalogued file {{name}} — the spec §7.1 says this state-fabric file should exist. If /list doesn't show it, that's the gap §1g forbids hiding.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Expected · {{name}}</div>A file the master spec requires. Compare against the live inventory — catalogued-but-absent is a real missing state file.<div class=\"so-xref\"><span class=\"x\">→</span> live inventory — is {{name}} actually present?</div></div>"
+     }
     }
    ]
   },
   {
    "icon": "⎈",
-   "title": "Controls",
-   "content": "Read-only — mutations copy signed sovereign-osctl verbs (§1g / R10212).",
+   "title": "Refresh & controls",
+   "content": "Read-only mirror. State-fabric transitions are performed by the Weaver runtime, not from here — the controls copy the sovereign-osctl verbs that inspect the fabric.",
    "children": [
+    {
+     "selector": "#refresh-btn",
+     "title": "Refresh now",
+     "content": "Re-read the live inventory and the catalog. Read-only — it re-samples on-disk state; it never writes a state-fabric file or triggers a transition.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A refresh can close a phantom gap</div>If present < catalog right after a transition, the inventory may simply predate the new file landing. Refresh re-reads disk — a gap that closes on refresh was a timing artefact, not a missing file.<div class=\"so-xref\"><span class=\"x\">→</span> present-on-disk — the count this refresh re-derives</div></div>"
+    },
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Controls — each copies its exact sovereign-osctl verb. Weaver state-fabric ops runs through the signed CLI, never from the web (§1g / R10212)."
+     "content": "Weaver inspection verbs — each copies its exact sovereign-osctl command (§1g / R10212). State transitions themselves are atomic operations the runtime performs; the web only reads the fabric, it never mutates it.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why the web never writes the fabric</div>State-fabric files change through atomic transitions in the Weaver runtime — half-written state would corrupt the fabric. A browser can't guarantee atomicity, so it's read-only by contract; the CLI verbs it copies are the safe path.<div class=\"so-xref\"><span class=\"x\">→</span> §1g R10212 — the copy-command, read-only boundary</div></div>"
     }
    ]
   }
