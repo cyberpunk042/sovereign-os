@@ -1315,109 +1315,120 @@ setInterval(refreshAll, 60000);
 window.SO_ASSIST = {
  "context": {
   "icon": "🔍",
-  "title": "Auditor (gatekeeper)",
-  "content": "The always-on immutable gatekeeper of the trinity — Tetragon eBPF perimeter (kernel-level enforcement) + Guardian violation-tail. The last line that cannot be bypassed.\n\nTetragon watches syscalls in-kernel, so a process cannot talk its way past it the way it might a userspace check. Compute (Pulse/Weaver) is only trustworthy because Auditor is watching."
+  "title": "Auditor",
+  "content": "The Immutable Gatekeeper tier of the trinity (M066) — the box's always-on immune system. It watches with Tetragon (an eBPF observer in the kernel that sees every syscall, below anything a compromised process could hide) and enforces with the Guardian (which acts on violations, up to SIGKILL), recording everything to the immutable audit log (D-16). It cannot be bypassed or turned off from inside — that's what makes the other two tiers trustworthy.\n\nThis panel is the webapp surface of Auditor's R453 §1g ladder (R539). Read it to confirm the perimeter is intact (Tetragon + Guardian + log all up) and to review the violations it has caught. Read-only."
  },
  "nodes": [
   {
-   "icon": "▤",
-   "title": "Summary",
-   "content": "The perimeter's health — whether the kernel enforcer and its watcher are up.",
+   "icon": "◆",
+   "title": "Status",
+   "content": "Whether the Auditor's enforcement components are up: Tetragon, Guardian, and the audit log.",
    "children": [
     {
      "selector": "#stats",
      "title": "Auditor summary",
-     "content": "Version + perimeter status — the headline of whether the gatekeeper is intact."
+     "content": "The roll-up — API version, Tetragon, Guardian, audit log. The Auditor is the gatekeeper; all its parts must be up for the box to be trusted."
     },
     {
      "selector": "#stat-version",
-     "title": "Auditor version",
-     "content": "The gatekeeper version, tied to the super-model build (D-19)."
+     "title": "API version",
+     "content": "The Auditor daemon version answering — for reconciling the gatekeeper's behaviour against the spec."
     },
     {
      "selector": "#stat-tetragon",
-     "title": "Tetragon perimeter",
-     "content": "The kernel-level eBPF enforcement — watches syscalls in-kernel, so a process can't talk its way past it. The perimeter itself.",
+     "title": "Tetragon",
+     "content": "Whether Tetragon — the eBPF kernel-perimeter observer — is running. Tetragon is the Auditor's eyes: it sees every syscall at the kernel, below anything a compromised process could hide behind. If it's down, the perimeter is blind.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">eBPF sees below user-space</div>Tetragon runs in the kernel via eBPF, so it observes real syscalls — a malicious process can't fake or bypass what the kernel sees. That's why it's the trustworthy watch layer.</div>",
      "variants": [
       {
        "when": {
         "textContains": "down"
        },
-       "content": "Tetragon is DOWN — the in-kernel perimeter isn't enforcing. This is the most serious state on the panel."
-      },
-      {
-       "when": {
-        "textContains": "up"
-       },
-       "content": "Tetragon is up — the in-kernel perimeter is enforcing."
+       "content": "Tetragon is DOWN — the eBPF perimeter is blind. The Auditor can't see kernel activity; the box is running unwatched at the layer that matters most.",
+       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Tetragon down</div>The kernel perimeter is blind — a critical enforcement gap.</div>"
       }
      ]
     },
     {
      "selector": "#stat-guardian",
-     "title": "Guardian daemon",
-     "content": "Whether the Guardian violation-tail is running and reacting. If it's down, enforcement still happens in-kernel but the response/observability layer is blind — degraded, not safe.",
-     "expanded": "<div class=\"so-card info\"><div>Tetragon blocks; Guardian sees and reacts. Guardian down = you're enforcing but not watching.</div></div>"
+     "title": "Guardian service",
+     "content": "Whether the Guardian is running — the service that ACTS on what Tetragon sees, up to SIGKILL on a violation. Tetragon watches; Guardian enforces. Both must be up: eyes without hands, or hands without eyes, is a gap.",
+     "variants": [
+      {
+       "when": {
+        "textContains": "down"
+       },
+       "content": "Guardian is DOWN — violations are seen but not enforced. Tetragon may be watching, but nothing acts on what it finds.",
+       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Guardian down</div>Enforcement is off — violations won't be stopped.</div>"
+      }
+     ]
     },
     {
      "selector": "#stat-log",
-     "title": "Violation log",
-     "content": "Whether the violation log is being written — the record Guardian tails and the audit chain (D-16) consumes."
+     "title": "Audit log",
+     "content": "Whether the audit log is being written — the immutable record (D-16 hash chain) of what the Auditor saw and did. Without it, enforcement happens but isn't provable after the fact."
     }
    ]
   },
   {
-   "icon": "⚠",
-   "title": "Status & violations",
-   "content": "The perimeter status detail and the violations Tetragon has caught — recent and historical.",
+   "icon": "🔍",
+   "title": "Tier status & violations",
+   "content": "The Auditor's live status and the violations it has caught. A violation here is the box's immune system firing — something tried to break a guarantee and was stopped.",
    "children": [
     {
      "selector": "#status-tbody",
-     "title": "Auditor status (/status)",
-     "content": "The detailed perimeter status — each component of the gatekeeper and its health."
-    },
-    {
-     "selector": "#last-violation-line",
-     "title": "Latest violation (/last-violation)",
-     "content": "The most recent perimeter violation Tetragon caught. Not necessarily an attack — it can be a mis-scoped process — but it IS the perimeter doing its job.",
-     "expanded": "<div class=\"so-card info\"><div>Read this before assuming the box is quiet — a fresh violation is the perimeter actively catching something.</div></div>"
+     "title": "Auditor tier status",
+     "content": "The Auditor's per-component status. Hover a row for that component's role in the gatekeeper. All-green is the trusted state; anything down is a hole in the perimeter."
     },
     {
      "selector": "#last-violation-meta",
-     "title": "Latest violation meta",
-     "content": "Context on the most recent violation — when and what, the header for the line below."
+     "title": "Last violation (meta)",
+     "content": "The metadata of the most recent violation — when and what. The freshest sign of the immune system firing."
     },
     {
-     "selector": "#history-lines",
-     "title": "Violation history (/history)",
-     "content": "The recent violation history (last 20) — the pattern of what the perimeter has been catching. A recurring violation points at a systemic mis-scope."
+     "selector": "#last-violation-line",
+     "title": "Last violation",
+     "content": "The most recent violation the Auditor caught — what tried to break a guarantee and was stopped. A recent violation isn't necessarily bad (it means enforcement works); a violation you can't explain is what to investigate.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A violation is the immune system working</div>The Auditor catches behaviour that breaks a declared guarantee and stops it (up to SIGKILL). Seeing violations means enforcement is live; the concern is an unexplained one, or the same one repeating.<div class=\"so-xref\"><span class=\"x\">→</span> D-16 audit — the hash-chained record of every violation<br><span class=\"x\">→</span> D-17 quarantine — where a violating component ends up</div></div>"
     },
     {
      "selector": "#history-meta",
-     "title": "History meta",
-     "content": "The header/context for the violation history window."
+     "title": "History (meta)",
+     "content": "The scope of the violation history shown (last 20) — the window you're looking at."
+    },
+    {
+     "selector": "#history-lines",
+     "title": "Violation history",
+     "content": "The recent history of caught violations. A pattern here is diagnostic: repeated violations from one source is an actor to investigate; scattered one-offs are the perimeter doing routine work."
+    }
+   ]
+  },
+  {
+   "icon": "⟳",
+   "title": "Refresh",
+   "content": "Re-poll on demand; read-only.",
+   "children": [
+    {
+     "selector": "#refresh-btn",
+     "title": "Refresh",
+     "content": "Re-poll this panel now. Read-only re-sample — it never mutates."
+    },
+    {
+     "selector": "#last-refresh",
+     "title": "Refresh freshness",
+     "content": "When this was last read. Check before trusting a status as current."
     }
    ]
   },
   {
    "icon": "⎈",
-   "title": "Actions & controls",
-   "content": "",
+   "title": "Controls",
+   "content": "Read-only — mutations copy signed sovereign-osctl verbs (§1g / R10212).",
    "children": [
-    {
-     "selector": "#refresh-btn",
-     "title": "Refresh",
-     "content": "Pull a fresh read of the perimeter and violations. Read-only."
-    },
-    {
-     "selector": "#last-refresh",
-     "title": "Last refresh",
-     "content": "When the auditor state was last read — check this before trusting a finding as current."
-    },
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Auditor controls — each copies its sovereign-osctl verb (§1g / R10212). Read-only view."
+     "content": "Controls — each copies its exact sovereign-osctl verb. Auditor ops runs through the signed CLI, never from the web (§1g / R10212)."
     }
    ]
   }

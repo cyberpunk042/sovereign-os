@@ -1310,93 +1310,95 @@ setInterval(refreshAll, 60000);
 window.SO_ASSIST = {
  "context": {
   "icon": "☲",
-  "title": "Weaver (fabric)",
-  "content": "The sandboxed fabric layer of the trinity — Podman/VFIO isolation where untrusted work runs, writing atomic state to the tank/context ZFS dataset on CCD1. Each confined context can be snapshotted and rolled back atomically (the mechanism behind D-08's recovery points).\n\nWeaver is facultative — 'not present' means untrusted GPU work simply has nowhere sandboxed to run, not that something broke."
+  "title": "Weaver",
+  "content": "The Sandboxed Fabric tier of the trinity (M066). Weaver is where two things happen: untrusted work runs isolated (Podman containers + VFIO GPU passthrough — the 4090 sandbox, D-09/D-15), and the box's durable state is written (the state fabric on tank/context, ZFS sync=always). It's the 'contain the risk, persist the truth' tier.\n\nThis panel is the webapp surface of Weaver's R453 §1g 8-surface ladder (R536). Read it to see the state fabric's health — what durable-state files exist vs what the master spec §7.1 requires. Read-only; state ops run through the signed CLI."
  },
  "nodes": [
   {
-   "icon": "▤",
-   "title": "Summary",
-   "content": "Weaver's shipped surfaces, whether the fabric is present, and where it writes state.",
+   "icon": "◆",
+   "title": "Status & 8-surface ladder",
+   "content": "The Weaver module's shipped-surface status (R453 §1g ladder) and state-file counts. This webapp closes the webapp surface of that ladder (R536).",
    "children": [
     {
      "selector": "#stats",
      "title": "Weaver summary",
-     "content": "Version + state-file counts + presence — the headline of the fabric's status."
+     "content": "The roll-up — API version, state-file count, present count, context dir. Whether the state fabric is intact."
     },
     {
      "selector": "#stat-version",
-     "title": "Weaver version",
-     "content": "The fabric version, tied to the super-model build (D-19)."
+     "title": "API version",
+     "content": "The Weaver daemon version answering — for reconciling the state-fabric behaviour against the spec."
     },
     {
      "selector": "#stat-count",
-     "title": "State-file count",
-     "content": "How many state-fabric files Weaver is managing — the size of the confined-context state it holds."
+     "title": "State files",
+     "content": "How many state-fabric files the master spec defines (§7.1) — the expected inventory of the box's durable state."
     },
     {
      "selector": "#stat-present",
-     "title": "Fabric present",
-     "content": "Whether Weaver is installed and available. Facultative — 'not present' just means untrusted GPU work has nowhere sandboxed to run.",
+     "title": "Present",
+     "content": "How many of those state files actually exist on disk. Present &lt; count means part of the state fabric is missing — a gap in the box's durable memory.",
      "variants": [
       {
        "when": {
-        "textContains": "present"
+        "textContains": "0"
        },
-       "content": "Present — the fabric is available; untrusted GPU work can run confined."
-      },
-      {
-       "when": {
-        "textContains": "absent"
-       },
-       "content": "Not present — Weaver isn't installed; there's no sandboxed place for untrusted GPU work (not a fault, it's facultative)."
+       "content": "No state files present yet — the fabric hasn't been initialized."
       }
      ]
     },
     {
      "selector": "#stat-ctxdir",
-     "title": "State-fabric dir",
-     "content": "The tank/context ZFS dataset Weaver writes atomic state into — on ZFS so a context can be snapshotted and rolled back atomically (D-08).",
-     "expanded": "<div class=\"so-card info\"><div>This is why sandboxed work is recoverable: its state lives on a snapshottable dataset, not scattered on disk.</div></div>"
+     "title": "Context dir",
+     "content": "Where the state fabric lives (tank/context) — the ZFS dataset mounted sync=always (D-09/M068) so every state write is durable before it returns."
     }
    ]
   },
   {
-   "icon": "▦",
+   "icon": "☲",
    "title": "State-fabric inventory",
-   "content": "The live confined contexts Weaver is managing, against the static master-spec catalog of what it should hold.",
+   "content": "The Weaver's durable-state files: what's live on disk vs what the master spec §7.1 says should exist. The gap between them is the box's state-completeness.",
    "children": [
     {
      "selector": "#list-tbody",
-     "title": "Live state-fabric (/list)",
-     "content": "Each sandboxed execution context Weaver is currently managing — the confined work running right now, writing atomic state to tank/context."
+     "title": "Live state files",
+     "content": "Each state-fabric file with its presence, size, and modified time. Hover a row for what that file holds. These are the box's durable memory — written by Weaver into tank/context with sync=always.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Live vs cataloged</div>This is what's actually on disk right now; the catalog below is what should exist. A file missing here that's in the catalog is a state gap.</div>"
     },
     {
      "selector": "#catalog-tbody",
-     "title": "Static spec catalog (/state-files)",
-     "content": "The master-spec §7.1 catalog of state files Weaver should hold — the contract, against which the live list is compared."
+     "title": "Master-spec §7.1 catalog",
+     "content": "The canonical list of state files the master spec defines — the operator-named expected inventory. Hover a row for what each file is for. This is the spec; the live list is the reality.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The spec side</div>Each entry is a state file the box is supposed to maintain, per master-spec §7.1. Compare against the live list to find gaps.</div>"
+    }
+   ]
+  },
+  {
+   "icon": "⟳",
+   "title": "Refresh",
+   "content": "Re-poll on demand; read-only.",
+   "children": [
+    {
+     "selector": "#refresh-btn",
+     "title": "Refresh",
+     "content": "Re-poll this panel now. Read-only re-sample — it never mutates."
+    },
+    {
+     "selector": "#last-refresh",
+     "title": "Refresh freshness",
+     "content": "When this was last read. Check before trusting a status as current."
     }
    ]
   },
   {
    "icon": "⎈",
-   "title": "Actions & controls",
-   "content": "",
+   "title": "Controls",
+   "content": "Read-only — mutations copy signed sovereign-osctl verbs (§1g / R10212).",
    "children": [
-    {
-     "selector": "#refresh-btn",
-     "title": "Refresh",
-     "content": "Pull a fresh read of the fabric state. Read-only."
-    },
-    {
-     "selector": "#last-refresh",
-     "title": "Last refresh",
-     "content": "When the fabric state was last read — check this before trusting the weave view as current."
-    },
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Weaver controls — each copies its sovereign-osctl verb (§1g / R10212). Read-only view."
+     "content": "Controls — each copies its exact sovereign-osctl verb. Weaver state-fabric ops runs through the signed CLI, never from the web (§1g / R10212)."
     }
    ]
   }

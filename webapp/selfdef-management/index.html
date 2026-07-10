@@ -852,88 +852,70 @@ load();
 window.SO_ASSIST = {
  "context": {
   "icon": "⛨",
-  "title": "Selfdef (IPS) Management",
-  "content": "The control hub for selfdef — the intrusion-prevention layer — and the gateway to its 6 mirror dashboards (D-13..D-18). One place to read whether selfdef is active and jump into the detailed views.\n\nThe web copies the command; it never mutates. Enabling/disabling selfdef is a signed CLI verb — this panel reads state and routes you to the detail."
+  "title": "Self-Defense Management",
+  "content": "The compact hub for selfdef — the on-box intrusion-prevention system. Shows whether the IPS is active and routes into its six mirror dashboards (D-13..D-18). selfdef is the box's immune system: enabled, every action passes its grant/capability/sandbox/audit/quarantine/trust checks.\n\nRead it to confirm the box is defended and to reach the per-domain detail. The web copies the enable/disable command; it never mutates the IPS directly."
  },
  "nodes": [
   {
-   "icon": "◆",
-   "title": "Status",
-   "content": "Whether selfdef (the IPS) is currently active.",
+   "icon": "⛨",
+   "title": "Self-defense IPS",
+   "content": "The on-box intrusion-prevention system's state — on or off. The web copies the toggle command; it never mutates.",
    "children": [
     {
      "selector": "#status",
-     "title": "Selfdef status",
-     "content": "Whether the selfdef intrusion-prevention layer is active. The headline read of your on-box defensive posture.",
+     "title": "selfdef status",
+     "content": "Whether selfdef — the on-box IPS — is active. The headline of your defensive posture; the state below has the detail.",
      "variants": [
       {
        "when": {
-        "textContains": "loading"
+        "textContains": "off"
        },
-       "content": "Probing selfdef state."
+       "content": "selfdef is OFF — no on-box intrusion prevention running.",
+       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ selfdef off</div>The IPS is disabled.</div>"
       },
       {
        "when": {
-        "textContains": "active"
+        "textContains": "on"
        },
-       "content": "Selfdef ACTIVE — the IPS is enforcing."
-      },
-      {
-       "when": {
-        "textContains": "inactive"
-       },
-       "content": "Selfdef INACTIVE — the IPS is not enforcing; the box is running without intrusion prevention."
+       "content": "selfdef is ON — the IPS is enforcing.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">✓ selfdef on</div>On-box defense active.</div>"
       }
      ]
     },
     {
      "selector": "#state",
-     "title": "Selfdef state",
-     "content": "The one-word state of selfdef (active / inactive / degraded) — the plain read behind the status line.",
-     "variants": [
-      {
-       "when": {
-        "textContains": "inactive"
-       },
-       "content": "Inactive — no IPS enforcement right now."
-      },
-      {
-       "when": {
-        "textContains": "active"
-       },
-       "content": "Active — the IPS is live."
-      }
-     ]
+     "title": "selfdef state",
+     "content": "The one-word IPS state — the plain read behind the status line (active / inactive / degraded)."
     }
    ]
   },
   {
    "icon": "▦",
    "title": "Detail & mirrors",
-   "content": "The status detail and the 6 mirror dashboards for the deep views.",
+   "content": "The status detail and the drill-in to the six mirror dashboards.",
    "children": [
     {
      "selector": "#detail",
      "title": "Status detail",
-     "content": "The detail behind the selfdef state — why it's active/inactive/degraded, and what the enforcement covers. The context the headline compresses."
+     "content": "Why selfdef is on/off/degraded and what it's enforcing — the context behind the headline."
     },
     {
      "selector": "#mirrors",
      "title": "6 mirror dashboards",
-     "content": "The gateway to selfdef's detailed views (D-13..D-18) — the deep IPS surfaces this hub routes into. Each mirror is a focused lens on one aspect of intrusion prevention.",
-     "expanded": "<div class=\"so-card info\"><div>This panel is the hub; the real IPS detail lives in D-13..D-18 — use the mirrors to drill into rules, events, and enforcement specifics.</div></div>"
+     "content": "The gateway to selfdef's six mirror dashboards (D-13..D-18) — the per-domain IPS detail. Each is a read-only reflection; open one to drill into that security domain.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The six domains</div>selfdef defends across six domains, each with its own mirror. This hub routes into them (grants, capabilities, sandboxes, audit, quarantine, trust).<div class=\"so-xref\"><span class=\"x\">→</span> D-25 selfdef-management — the fuller management view with chain health</div></div>"
     }
    ]
   },
   {
    "icon": "⎈",
    "title": "Controls",
-   "content": "",
+   "content": "Read-only — mutations copy signed sovereign-osctl verbs (§1g / R10212).",
    "children": [
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Profile / mode / feature-toggle controls — each copies its sovereign-osctl verb (§1g / R10212). This view reads state; every mutation runs via the signed CLI, never from the browser."
+     "content": "Controls — each copies its exact sovereign-osctl verb. selfdef enable/disable runs through the signed CLI, never from the web (§1g / R10212)."
     }
    ]
   }

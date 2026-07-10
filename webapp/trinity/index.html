@@ -1297,92 +1297,101 @@ window.SO_ASSIST = {
  "context": {
   "icon": "△",
   "title": "Trinity",
-  "content": "The 3-tier AI runtime at a glance — Pulse (CPU/AVX-512 ternary, always-available sovereign compute), Weaver (sandboxed GPU fabric where untrusted work runs), and Auditor (the immutable gatekeeper that cannot be bypassed).\n\nCompute (Pulse/Weaver) is only trustworthy because Auditor is watching it. This panel is the health of all three together — the difference between 'running' and 'running safely'."
+  "content": "The 3-tier runtime at a glance (M066). The box's intelligence is split into three decoupled tiers so trust is structural, not assumed: Pulse computes (AVX-512 ternary on CCD 0), Weaver contains (Podman + VFIO sandboxes + the state fabric), and Auditor watches (Tetragon eBPF, always-on). The founding principle: compute is trustworthy ONLY because the Auditor independently watches it — the tier that acts is never the tier that vouches for it.\n\nRead it to confirm all three are up and healthy. Read-only; profile switches run through the signed CLI, never this surface."
  },
  "nodes": [
   {
-   "icon": "▤",
-   "title": "Summary",
-   "content": "The trinity version and how many of its three tiers are live — the one-glance read on the runtime.",
+   "icon": "◆",
+   "title": "Status",
+   "content": "Whether the trinity service is up and how many tiers are active.",
    "children": [
     {
      "selector": "#stats",
      "title": "Trinity summary",
-     "content": "Version + tier counts — the headline of the 3-tier runtime's health before the per-tier detail below."
+     "content": "The roll-up — API version, tier count, services active. The one-glance 'is the trinity whole' read."
     },
     {
      "selector": "#stat-version",
-     "title": "Trinity version",
-     "content": "Ties the three tiers to a super-model version — so you know the Pulse/Weaver/Auditor you're looking at is the set built together (cross-reference D-19)."
+     "title": "API version",
+     "content": "The trinity daemon version answering — for reconciling this panel's behaviour against the M066 spec."
     },
     {
      "selector": "#stat-tiers",
      "title": "Tiers",
-     "content": "The three tiers the runtime is composed of — Pulse, Weaver, Auditor. Their combined health is the trinity's health."
+     "content": "How many trinity tiers are defined — always three (Pulse, Weaver, Auditor); the M066 decoupled trinity."
     },
     {
      "selector": "#stat-active",
-     "title": "Active tiers",
-     "content": "How many tiers are live. Pulse should always be up (it needs no GPU); a missing Auditor means compute is running unwatched.",
+     "title": "Services active",
+     "content": "How many of the three tier services are up. All three should be — the trinity only holds if the Auditor is watching the other two.",
      "variants": [
       {
        "when": {
         "textContains": "3"
        },
-       "content": "All three tiers active — compute is running and being watched. The healthy state."
+       "content": "All three tiers active — Pulse, Weaver, and Auditor are up; the trinity is whole."
       }
      ]
     }
    ]
   },
   {
-   "icon": "◈",
-   "title": "The three tiers",
-   "content": "Pulse (sovereign CPU compute), Weaver (sandboxed GPU fabric), Auditor (immutable gatekeeper) — each with its health and model assignment.",
+   "icon": "△",
+   "title": "The trinity (M066)",
+   "content": "The decoupled software trinity, manifested on hardware: Pulse computes, Weaver isolates, Auditor watches. The core idea (M066): compute is trustworthy ONLY because the Auditor watches it — the three are separated so no single tier can both act and vouch for itself.",
    "children": [
     {
+     "selector": "#tier-row",
+     "title": "Tiers",
+     "content": "The three trinity tiers at a glance. Read them together: Pulse does the thinking, Weaver contains the risky work, Auditor guarantees neither can misbehave unseen.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why three, decoupled</div><div class=\"so-grid\"><span class=\"k\">Pulse</span><span>Vector Core — AVX-512 / ternary bitnet on CCD 0 (D-09)</span><span class=\"k\">Weaver</span><span>Sandboxed Fabric — Podman + VFIO isolation</span><span class=\"k\">Auditor</span><span>Immutable Gatekeeper — Tetragon eBPF, always-on</span></div><div class=\"so-tip\">💡 Separation is the point: the tier that computes is not the tier that vouches for it. Trust comes from the split.</div></div>"
+    },
+    {
      "selector": "#tier-pulse",
-     "title": "Pulse tier",
-     "content": "The CPU/AVX-512 ternary inference tier — the sovereign, always-available path that runs even with no GPU. The tier the box falls back to under GPU pressure (D-09).",
-     "expanded": "<div class=\"so-card info\"><div>Pulse is why the box is never fully offline for inference — it's the floor beneath the GPU tiers.</div></div>"
+     "title": "Pulse — Vector Core",
+     "content": "The compute tier: AVX-512 vector work + ternary bitnet.cpp inference, pinned to CCD 0 (the Pulse Core, D-09). This is where the box thinks. Hover D-09 for its live core/cache pressure.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Pulse computes</div>The Vector Core — fast local ternary inference on dedicated cores. It's powerful but, by design, doesn't get to vouch for itself; the Auditor does that.<div class=\"so-xref\"><span class=\"x\">→</span> D-09 CCD 0 — Pulse's live hardware<br><span class=\"x\">→</span> D-03 Conductor — Pulse's model tie</div></div>"
     },
     {
      "selector": "#tier-weaver",
-     "title": "Weaver tier",
-     "content": "The sandboxed GPU fabric — Podman/VFIO isolation where untrusted work runs, writing atomic state to tank/context (D-15). The containment half of the trinity."
+     "title": "Weaver — Sandboxed Fabric",
+     "content": "The isolation tier: Podman + VFIO sandboxes where untrusted work runs, plus the state-fabric writers (tank/context). It contains risk so Pulse's compute and the host stay clean. Its own panel has the detail.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Weaver contains</div>The Sandboxed Fabric — untrusted work runs walled off (Podman + VFIO), and durable state is written here. Risk lives inside Weaver so it can't reach Pulse or the host.<div class=\"so-xref\"><span class=\"x\">→</span> Weaver panel — the state-fabric + isolation detail<br><span class=\"x\">→</span> D-15 sandboxes — the isolation tiers</div></div>"
     },
     {
      "selector": "#tier-auditor",
-     "title": "Auditor tier",
-     "content": "The immutable gatekeeper — the perimeter that cannot be bypassed. Compute is only trustworthy because Auditor is watching; this tier's health is the difference between 'running' and 'running safely'.",
-     "expanded": "<div class=\"so-card info\"><div class='so-li no'>✗ Auditor down = Pulse/Weaver are running unwatched — degraded trust even if they're healthy.</div></div>"
+     "title": "Auditor — Immutable Gatekeeper",
+     "content": "The watch tier: Tetragon eBPF at the kernel perimeter + the Guardian violation service. Always on, can't be bypassed — it's what makes Pulse's compute and Weaver's isolation trustworthy. Its panel has the violation history.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Auditor guarantees</div>The Immutable Gatekeeper — an eBPF perimeter that sees everything and can't be turned off from inside. The trinity's compute is only trustworthy because this tier independently watches it.<div class=\"so-xref\"><span class=\"x\">→</span> Auditor panel — Tetragon + Guardian + violation history</div></div>"
+    }
+   ]
+  },
+  {
+   "icon": "⟳",
+   "title": "Refresh",
+   "content": "Re-poll on demand; read-only.",
+   "children": [
+    {
+     "selector": "#refresh-btn",
+     "title": "Refresh",
+     "content": "Re-poll this panel now. Read-only re-sample — it never mutates."
     },
     {
-     "selector": "#tier-row",
-     "title": "Tier row",
-     "content": "The three tiers side by side — the at-a-glance layout of the runtime's health."
+     "selector": "#last-refresh",
+     "title": "Refresh freshness",
+     "content": "When this was last read. Check before trusting a status as current."
     }
    ]
   },
   {
    "icon": "⎈",
-   "title": "Actions & controls",
-   "content": "",
+   "title": "Controls",
+   "content": "Read-only — mutations copy signed sovereign-osctl verbs (§1g / R10212).",
    "children": [
-    {
-     "selector": "#refresh-btn",
-     "title": "Refresh",
-     "content": "Pull a fresh read of all three tiers. Read-only."
-    },
-    {
-     "selector": "#last-refresh",
-     "title": "Last refresh",
-     "content": "When the trinity state was last read — freshness for the tier health above."
-    },
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Trinity controls — each copies its sovereign-osctl verb (§1g / R10212). Read-only view."
+     "content": "Controls — each copies its exact sovereign-osctl verb. Trinity profile switch runs through the signed CLI, never from the web (§1g / R10212)."
     }
    ]
   }
