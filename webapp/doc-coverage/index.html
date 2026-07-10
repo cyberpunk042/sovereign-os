@@ -1397,7 +1397,8 @@ window.SO_ASSIST = {
     {
      "selector": "#stats",
      "title": "Audit summary",
-     "content": "The roll-up — version, modules, doc kinds, gap count, selfdef coverage. Where the fleet stands on the 6-doc-surface contract."
+     "content": "The roll-up — version, modules, doc kinds, gap count, selfdef coverage. Where the fleet stands on the 6-doc-surface contract.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Doc completeness, composed</div>The roll-up — modules, doc kinds, gap count, §1h. Documentation as a measurable §1g axis: not 'are the docs good' but 'does every module carry every required doc surface', countable.</div>"
     },
     {
      "selector": "#stat-version",
@@ -1441,7 +1442,8 @@ window.SO_ASSIST = {
     {
      "selector": "#last-refresh",
      "title": "Audit freshness",
-     "content": "When the audit last ran. Coverage below is only as current as this — a module changed since then would not be re-scored yet, so refresh before trusting a green number."
+     "content": "When the audit last ran. Coverage below is only as current as this — a module changed since then would not be re-scored yet, so refresh before trusting a green number.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Coverage ages with the scan</div>A module documented since the last scan still shows its old gaps until re-run. Re-scan before trusting a gap is still open.</div>"
     }
    ]
   },
@@ -1504,7 +1506,8 @@ window.SO_ASSIST = {
       "title": "Module · {{name}}",
       "content": "Module {{name}} — its presence across the 6 doc kinds, worst first. A red cell is a specific missing surface; the row shows exactly which reader that module leaves stranded.",
       "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Docs · {{name}}</div>One module's doc coverage across the six kinds. Each missing kind is a named reader with no doc.</div>"
-     }
+     },
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The full module × doc-kind grid</div>Every module against all six doc kinds at once — the complete coverage picture. A red cell names a specific reader (newcomer/designer/operator/auditor/maintainer) that module leaves stranded.</div>"
     }
    ]
   },
@@ -1524,7 +1527,8 @@ window.SO_ASSIST = {
       "title": "Gap · {{name}}",
       "content": "Module {{name}} — under the doc threshold, and which kinds it lacks. This is the actionable list: each entry names the exact docs to write.",
       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Gap · {{name}}</div>A module below the doc bar. The listed missing kinds are the concrete write-these-docs task.</div>"
-     }
+     },
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">The write-these-docs worklist</div>Only the modules under threshold, with the exact kinds they lack. Unlike the full matrix this is the actionable subset — each row names the specific docs to author.</div>"
     }
    ]
   },
@@ -1536,7 +1540,8 @@ window.SO_ASSIST = {
     {
      "selector": "#selfdef-tbody",
      "title": "Selfdef doc manifests",
-     "content": "Each row: a cross-repo selfdef module and its doc coverage (R471). §1h holds selfdef docs to the same 6-surface bar."
+     "content": "Each row: a cross-repo selfdef module and its doc coverage (R471). §1h holds selfdef docs to the same 6-surface bar.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">§1h · sister-repo docs</div>Cross-repo selfdef DocManifests (R471). The doc bar extends fleet-wide — this is where a sister repo's undocumented modules get counted against §1h.</div>"
     }
    ]
   },
@@ -1548,7 +1553,8 @@ window.SO_ASSIST = {
     {
      "selector": "#refresh-btn",
      "title": "Refresh audit",
-     "content": "Re-scan every module and recompute coverage now — read-only. It re-measures; it never changes a module to move a score."
+     "content": "Re-scan every module and recompute coverage now — read-only. It re-measures; it never changes a module to move a score.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Re-measure coverage now</div>Re-scans every module and recomputes doc coverage — read-only. A gap that closes on refresh was already documented and just un-rescanned.</div>"
     }
    ]
   },
@@ -1560,7 +1566,8 @@ window.SO_ASSIST = {
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "The control rail — each button copies its exact sovereign-osctl verb. A doc change runs through the signed CLI, never from a web click."
+     "content": "The control rail — each button copies its exact sovereign-osctl verb. A doc change runs through the signed CLI, never from a web click.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copy-command, per §1g</div>Each control copies its exact sovereign-osctl verb (R10212). This panel measures and reports; writing the missing docs is real work done in the repo, not from the cockpit.</div>"
     }
    ]
   }

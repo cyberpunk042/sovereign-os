@@ -1401,7 +1401,8 @@ window.SO_ASSIST = {
     {
      "selector": "#stats",
      "title": "Audit summary",
-     "content": "The roll-up — version, modules, dimensions, below-threshold, selfdef. Where the fleet's UX quality stands."
+     "content": "The roll-up — version, modules, dimensions, below-threshold, selfdef. Where the fleet's UX quality stands.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Usability, composed</div>The roll-up — modules, dimensions, below-threshold, §1h. Experience as a measurable §1g axis: a feature can be correct and documented and still fail the operator, and this makes that failure countable.</div>"
     },
     {
      "selector": "#stat-version",
@@ -1445,7 +1446,8 @@ window.SO_ASSIST = {
     {
      "selector": "#last-refresh",
      "title": "Audit freshness",
-     "content": "When the audit last ran. Coverage below is only as current as this — a module changed since then would not be re-scored yet, so refresh before trusting a green number."
+     "content": "When the audit last ran. Coverage below is only as current as this — a module changed since then would not be re-scored yet, so refresh before trusting a green number.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Scores age with the scan</div>A module improved since the last scan still shows its old UX scores until re-run. Re-scan before trusting a below-threshold reading is current.</div>"
     }
    ]
   },
@@ -1508,7 +1510,8 @@ window.SO_ASSIST = {
       "title": "Module · {{name}}",
       "content": "Module {{name}} — scored across the 6 UX dimensions, worst first. A red dimension is a specific usability failure (buried control, no undo, dead-end) — actionable, not a vague 'improve UX'.",
       "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">UX · {{name}}</div>One module's six-dimension UX scores. The weakest dimension names the exact fix.</div>"
-     }
+     },
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The module × dimension grid</div>Every module scored on all six UX dimensions at once. A red dimension is a specific, actionable failure (buried control, no undo, dead-end) — not a vague 'improve UX'.</div>"
     }
    ]
   },
@@ -1528,7 +1531,8 @@ window.SO_ASSIST = {
       "title": "Module · {{name}}",
       "content": "Module {{name}} — under the UX floor, with its weakest dimensions named. This is the prioritized usability worklist: fix the named dimension, not 'the UX'.",
       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Below floor · {{name}}</div>A module failing the UX bar. Its weakest dimensions are the concrete fixes.</div>"
-     }
+     },
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">The prioritized UX worklist</div>Only the modules under the floor, with their weakest dimensions named. This is the fix-this-specific-dimension list, ordered by how far below the bar each sits.</div>"
     }
    ]
   },
@@ -1540,7 +1544,8 @@ window.SO_ASSIST = {
     {
      "selector": "#selfdef-tbody",
      "title": "Selfdef UX checklists",
-     "content": "Each row: a cross-repo selfdef module and its UX score (R464). §1h holds selfdef surfaces to the same 6-dimension bar."
+     "content": "Each row: a cross-repo selfdef module and its UX score (R464). §1h holds selfdef surfaces to the same 6-dimension bar.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">§1h · sister-repo UX</div>Cross-repo selfdef UxChecklists (R464). Usability is a fleet property — this is where a sister repo's unusable surfaces get counted against §1h.</div>"
     }
    ]
   },
@@ -1552,7 +1557,8 @@ window.SO_ASSIST = {
     {
      "selector": "#refresh-btn",
      "title": "Refresh audit",
-     "content": "Re-scan every module and recompute coverage now — read-only. It re-measures; it never changes a module to move a score."
+     "content": "Re-scan every module and recompute coverage now — read-only. It re-measures; it never changes a module to move a score.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Re-score now</div>Re-scans every module and recomputes UX scores — read-only. A dimension that improves on refresh was already fixed and just un-rescanned.</div>"
     }
    ]
   },
@@ -1564,7 +1570,8 @@ window.SO_ASSIST = {
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "The control rail — each button copies its exact sovereign-osctl verb. A UX change runs through the signed CLI, never from a web click."
+     "content": "The control rail — each button copies its exact sovereign-osctl verb. A UX change runs through the signed CLI, never from a web click.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copy-command, per §1g</div>Each control copies its exact sovereign-osctl verb (R10212). The panel scores experience; improving a dimension is design work in the repo, surfaced here as a verb, not done from the web.</div>"
     }
    ]
   }

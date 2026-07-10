@@ -1525,17 +1525,20 @@ window.SO_ASSIST = {
        "content": "Offline — showing the last snapshot; the box may have moved on since.",
        "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Offline</div>No live answer — this is a cached snapshot, possibly stale.</div>"
       }
-     ]
+     ],
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">One-word authority-mirror health</div>Live or offline — whether the profile/authority snapshot is current. A profile switch elsewhere wouldn't show on a stale mirror, so this gates trust in the active-profile read.</div>"
     },
     {
      "selector": "#mirror-state-detail",
      "title": "Mirror detail",
-     "content": "The longer status line under the banner — which mirror endpoint answered and any degraded note. Read it when the banner is amber to see why."
+     "content": "The longer status line under the banner — which mirror endpoint answered and any degraded note. Read it when the banner is amber to see why.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Which mirror answered</div>The endpoint that responded and any degraded note — an accountable reason behind the one-word state.</div>"
     },
     {
      "selector": "#mirror-last-update",
      "title": "Mirror freshness",
-     "content": "When the authority mirror was last read. A profile switch elsewhere would not show here until the next refresh — so a stale time means a possibly stale active-profile."
+     "content": "When the authority mirror was last read. A profile switch elsewhere would not show here until the next refresh — so a stale time means a possibly stale active-profile.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">When the authority mirror was read</div>The capture time. A profile switch made after this timestamp won't appear here yet — refresh before trusting the active profile is the live one.</div>"
     },
     {
      "selector": "#mirror-schema-version",
@@ -1691,7 +1694,8 @@ window.SO_ASSIST = {
     {
      "selector": "#switch-btn",
      "title": "Switch profile (signed)",
-     "content": "Copies the signed sovereign-osctl verb that switches to the selected profile. It copies only — the box re-caps its authority envelope when you run the signed command, because changing what agents may do is itself a high-authority act."
+     "content": "Copies the signed sovereign-osctl verb that switches to the selected profile. It copies only — the box re-caps its authority envelope when you run the signed command, because changing what agents may do is itself a high-authority act.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copies the signed switch verb</div>Copies the sovereign-osctl verb that switches to the selected profile — it copies only. A profile change reshapes the box's whole authority ceiling, so it's a signed CLI action, never a web click.<div class=\"so-xref\"><span class=\"x\">→</span> §1g R10212 — copy-command boundary</div></div>"
     }
    ]
   },
@@ -1703,7 +1707,8 @@ window.SO_ASSIST = {
     {
      "selector": "#refresh-btn",
      "title": "Refresh all",
-     "content": "Re-poll every table on this panel now — a read-only re-sample. It re-reads state; it never mutates the box."
+     "content": "Re-poll every table on this panel now — a read-only re-sample. It re-reads state; it never mutates the box.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Re-read authority now</div>Re-polls the profile/authority state — read-only. It re-samples; it never changes the active profile.</div>"
     }
    ]
   },
@@ -1715,7 +1720,8 @@ window.SO_ASSIST = {
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "The control rail — each button copies its exact sovereign-osctl command. A profile switch runs through the signed CLI after your MS003 signature, never from a web click."
+     "content": "The control rail — each button copies its exact sovereign-osctl command. A profile switch runs through the signed CLI after your MS003 signature, never from a web click.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copy-command boundary</div>Each control copies its exact sovereign-osctl verb (§1g / R10212). The panel shows the authority ceiling; changing it is a signed operator decision.</div>"
     }
    ]
   }

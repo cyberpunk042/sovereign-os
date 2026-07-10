@@ -1484,22 +1484,26 @@ window.SO_ASSIST = {
     {
      "selector": "#mirror-state-label",
      "title": "Mirror label",
-     "content": "One-word mirror state — live or offline. Whether the capability tokens below can be trusted as current."
+     "content": "One-word mirror state — live or offline. Whether the capability tokens below can be trusted as current.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">One-word mirror health</div>Live or offline — the quick read on whether the capability-token snapshot is current. A token could be minted or quarantined in selfdef between pushes, so this is the first check before trusting the ring counts.</div>"
     },
     {
      "selector": "#mirror-state-detail",
      "title": "Mirror detail",
-     "content": "The producer/endpoint behind the mirror and why it's live or offline — how the capability tokens reaches this cockpit. Managed via selfdefctl capability-tokens on the selfdef side."
+     "content": "The producer/endpoint behind the mirror and why it's live or offline — how the capability tokens reaches this cockpit. Managed via selfdefctl capability-tokens on the selfdef side.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The producer behind the label</div>Which selfdef producer answered and why it's live or offline. It turns 'offline' into an accountable reason (endpoint unreachable vs producer stopped) rather than a bare state.</div>"
     },
     {
      "selector": "#mirror-last-update",
      "title": "Mirror freshness",
-     "content": "When the selfdef producer last captured this snapshot (its ISO captured_at). On an offline mirror this is how stale the data is — the gap between then and now."
+     "content": "When the selfdef producer last captured this snapshot (its ISO captured_at). On an offline mirror this is how stale the data is — the gap between then and now.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">When selfdef last captured this</div>The snapshot's capture time. Capability tokens change as work is authorized and revoked — an old timestamp means a just-minted token may not appear yet.</div>"
     },
     {
      "selector": "#mirror-schema-version",
      "title": "Mirror schema",
-     "content": "The MS007 typed-mirror-crate schema version of this snapshot. Confirms the mirror and consumer agree on the data shape; a mismatch would mean the bridge is speaking an older dialect."
+     "content": "The MS007 typed-mirror-crate schema version of this snapshot. Confirms the mirror and consumer agree on the data shape; a mismatch would mean the bridge is speaking an older dialect.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">MS007 crate compatibility</div>The typed-mirror-crate schema version. If selfdef and sovereign-os disagree on schema, token fields can misalign — this is the guard that the mirror contract still matches on both sides.</div>"
     }
    ]
   },
@@ -1548,7 +1552,8 @@ window.SO_ASSIST = {
     {
      "selector": "#s-active",
      "title": "Active tokens",
-     "content": "Total active capability tokens across all rings — the live privilege population. Each token grants a specific capability; more tokens = more granted capability to track."
+     "content": "Total active capability tokens across all rings — the live privilege population. Each token grants a specific capability; more tokens = more granted capability to track.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The live privilege footprint</div>Total active tokens across all rings — how much capability is currently granted anywhere. Read it against the ring spread: the same total is very different if it's mostly R3 sandboxed vs mostly R0 kernel.</div>"
     },
     {
      "selector": "#s-pending",
@@ -1565,7 +1570,8 @@ window.SO_ASSIST = {
     {
      "selector": "#s-attention",
      "title": "Attention",
-     "content": "Pending + quarantined together — the tokens that need a decision or investigation. The actionable subset."
+     "content": "Pending + quarantined together — the tokens that need a decision or investigation. The actionable subset.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">The tokens needing a decision</div>Pending + quarantined together — the tokens that need your signature or an investigation. It's the single 'what capability state is waiting on a human' number.<div class=\"so-xref\"><span class=\"x\">→</span> s-pending / s-quarantined — the two halves</div></div>"
     },
     {
      "selector": "#s-roots",
@@ -1583,7 +1589,8 @@ window.SO_ASSIST = {
     {
      "selector": "#ring-filters",
      "title": "Ring filters",
-     "content": "Filter tokens by ring (0..4). Narrow to a privilege level — usually you're auditing the low-ring (high-privilege) tokens."
+     "content": "Filter tokens by ring (0..4). Narrow to a privilege level — usually you're auditing the low-ring (high-privilege) tokens.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Slice by privilege level</div>Filter tokens by ring (0–4) — usually you narrow to the highest rings first, because that's where a surprise token matters most. Focuses the table on the privilege level you're auditing.</div>"
     },
     {
      "selector": "#tokens-tbody",
@@ -1621,7 +1628,8 @@ window.SO_ASSIST = {
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Mirror controls — each copies its exact selfdefctl capability-tokens verb (§1g / R10212). This panel reads the selfdef mirror; every change to capability tokens runs through the signed selfdef CLI with MS003, never from the web."
+     "content": "Mirror controls — each copies its exact selfdefctl capability-tokens verb (§1g / R10212). This panel reads the selfdef mirror; every change to capability tokens runs through the signed selfdef CLI with MS003, never from the web.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copy-command mirror boundary</div>Each control copies its selfdefctl capability-token verb (§1g / R10212). Minting and revoking tokens is selfdef's, signed by your key — the web mirrors the ledger read-only.</div>"
     }
    ]
   }

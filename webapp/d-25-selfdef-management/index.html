@@ -910,12 +910,14 @@ window.SO_ASSIST = {
        "content": "Snapshot — selfdef unreachable; the IPS state shown may be stale.",
        "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Snapshot</div>Can't reach selfdef — 'enabled' here is last-known, not confirmed live.</div>"
       }
-     ]
+     ],
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Live vs snapshot, for an IPS</div>Whether this is a live selfdef read or a snapshot. For intrusion prevention, 'is it on' must be current — a snapshot's 'enabled' is last-known, not confirmed, so this gates trust in the headline.</div>"
     },
     {
      "selector": "#last-fetch",
      "title": "Last fetch",
-     "content": "When selfdef was last read. For an IPS, 'is it on?' must be current — treat an old timestamp as unverified and refresh."
+     "content": "When selfdef was last read. For an IPS, 'is it on?' must be current — treat an old timestamp as unverified and refresh.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Freshness for a safety read</div>When selfdef was last read. Enablement state is safety-critical — treat an old timestamp as unverified and refresh before trusting that self-defense is active.</div>"
     }
    ]
   },
@@ -947,7 +949,8 @@ window.SO_ASSIST = {
     {
      "selector": "#sd-detail",
      "title": "IPS detail",
-     "content": "The specifics behind the enablement state — which components are up, or why it's off. Reads the 'why' so 'enabled' isn't just a green light but an accountable claim."
+     "content": "The specifics behind the enablement state — which components are up, or why it's off. Reads the 'why' so 'enabled' isn't just a green light but an accountable claim.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The 'why' behind enabled</div>The specifics behind the enablement state — which components are up, or why it's off. It makes 'enabled' an accountable claim (these are running) rather than an unexplained green light.<div class=\"so-xref\"><span class=\"x\">→</span> auditor — Tetragon + guardian per-check status</div></div>"
     },
     {
      "selector": "#sd-oncli",
@@ -985,7 +988,8 @@ window.SO_ASSIST = {
     {
      "selector": "#m060-fresh",
      "title": "Mirror freshness",
-     "content": "How current the mirror data is. Distinct from whether selfdef is enabled — the IPS can be running fine while the mirror that reports it lags."
+     "content": "How current the mirror data is. Distinct from whether selfdef is enabled — the IPS can be running fine while the mirror that reports it lags.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Mirror-freshness vs IPS-liveness</div>How current the mirror data is — distinct from whether the IPS is enabled. The self-defense can be running fine while the mirror reporting it lags, so this separates 'is it on' from 'is my view of it current'.</div>"
     },
     {
      "selector": "#m060-age",

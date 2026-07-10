@@ -1488,17 +1488,20 @@ window.SO_ASSIST = {
     {
      "selector": "#stats",
      "title": "Audit summary",
-     "content": "The roll-up — audit version, modules scanned, surfaces, ceiling/below counts, and selfdef cross-repo coverage. The one-glance state of the 8-surface delivery contract."
+     "content": "The roll-up — audit version, modules scanned, surfaces, ceiling/below counts, and selfdef cross-repo coverage. The one-glance state of the 8-surface delivery contract.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Delivery completeness, composed</div>The roll-up — modules, surfaces, ceiling/below, §1h. The 8-surface contract as one legible state: 'is every module reachable by every consumer', countable rather than felt.</div>"
     },
     {
      "selector": "#stat-version",
      "title": "Audit version",
-     "content": "The surface-map audit version answering — for reconciling coverage numbers against the R453 ladder definition."
+     "content": "The surface-map audit version answering — for reconciling coverage numbers against the R453 ladder definition.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Pins the surface set</div>The audit version reconciles coverage against the R453 8-surface definition. A version bump can add a surface, re-baselining every module's ceiling — so counts only compare within a version.</div>"
     },
     {
      "selector": "#stat-modules",
      "title": "Modules scanned",
-     "content": "How many modules the audit covers. Every one is measured on all 8 surfaces — a low count means the audit itself is not seeing the whole fleet."
+     "content": "How many modules the audit covers. Every one is measured on all 8 surfaces — a low count means the audit itself is not seeing the whole fleet.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Every module, all eight surfaces</div>How many modules the audit covers — each measured on all 8 surfaces. Coverage is per-module-per-surface, so one module missing one channel is one countable gap.</div>"
     },
     {
      "selector": "#stat-surfaces",
@@ -1545,7 +1548,8 @@ window.SO_ASSIST = {
     {
      "selector": "#last-refresh",
      "title": "Audit freshness",
-     "content": "When the audit last ran. Coverage below is only as current as this — a module changed since then would not be re-scored yet, so refresh before trusting a green number."
+     "content": "When the audit last ran. Coverage below is only as current as this — a module changed since then would not be re-scored yet, so refresh before trusting a green number.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Coverage ages with the scan</div>A module that added a surface since the last scan still shows its old gap until re-run. Re-scan before trusting a below-ceiling reading is current.</div>"
     }
    ]
   },
@@ -1593,7 +1597,8 @@ window.SO_ASSIST = {
     {
      "selector": "#ms-fullset",
      "title": "Full set",
-     "content": "The complete milestone set the rollup spans."
+     "content": "The complete milestone set the rollup spans.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The complete milestone span</div>Every milestone the rollup covers — the full denominator behind the ceiling/full-8 counts. Coverage percentages only mean something against this set.</div>"
     }
    ]
   },
@@ -1668,7 +1673,8 @@ window.SO_ASSIST = {
       "title": "Module · {{name}}",
       "content": "Module {{name}} — its presence across all 8 surfaces, worst gap first. A red cell is a specific missing channel; the row shows exactly which delivery surface that module skipped.",
       "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Surfaces · {{name}}</div>One module's 8-surface coverage. Each missing surface is a named channel the feature doesn't reach yet.</div>"
-     }
+     },
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The module × surface grid</div>Every module against all 8 surfaces at once. A red cell names the exact delivery channel (CLI/TUI/API/MCP/dashboard/webapp/service) that module skipped.</div>"
     }
    ]
   },
@@ -1688,7 +1694,8 @@ window.SO_ASSIST = {
       "title": "Module · {{name}}",
       "content": "Module {{name}} — below the surface threshold and how far. This is the actionable list: each entry names the exact surfaces to add.",
       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Below · {{name}}</div>A module short of the 8-surface bar. The missing surfaces are the concrete build task.</div>"
-     }
+     },
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">The add-these-surfaces worklist</div>Only the modules under threshold, with the surfaces they lack named. The actionable subset — each row is a concrete build-this-channel task.</div>"
     }
    ]
   },
@@ -1708,7 +1715,8 @@ window.SO_ASSIST = {
       "title": "Waiver · {{name}}",
       "content": "Module {{name}} — an explicit surface waiver with rationale. A waiver is the honest 'this surface genuinely doesn't apply here' — read the rationale to confirm it still holds.",
       "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Waiver · {{name}}</div>An operator-accepted surface gap. Honest only while the rationale holds — a stale waiver is a hidden minimization.</div>"
-     }
+     },
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The signed surface-exemption ledger</div>Modules with an explicit surface waiver and rationale. A waiver is the honest 'this channel genuinely doesn't apply here' — read the rationale to confirm it still holds.</div>"
     }
    ]
   },
@@ -1732,7 +1740,8 @@ window.SO_ASSIST = {
     {
      "selector": "#refresh-btn",
      "title": "Refresh audit",
-     "content": "Re-scan every module and recompute coverage now — read-only. It re-measures; it never changes a module to move a score."
+     "content": "Re-scan every module and recompute coverage now — read-only. It re-measures; it never changes a module to move a score.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Re-measure delivery now</div>Re-scans every module and recomputes surface coverage — read-only. A gap that closes on refresh was already delivered and just un-rescanned.</div>"
     }
    ]
   },
@@ -1744,7 +1753,8 @@ window.SO_ASSIST = {
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "The control rail — each button copies its exact sovereign-osctl verb. A module surface change runs through the signed CLI, never from a web click."
+     "content": "The control rail — each button copies its exact sovereign-osctl verb. A module surface change runs through the signed CLI, never from a web click.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copy-command, per §1g</div>Each control copies its exact sovereign-osctl verb (R10212). The panel measures delivery; adding a missing surface is build work in the repo, surfaced here as a verb.</div>"
     }
    ]
   }
