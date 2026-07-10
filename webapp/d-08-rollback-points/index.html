@@ -420,6 +420,58 @@ a11y; contract test catches drift.
   .preview-line{font-family:var(--mono);font-size:.78rem;padding:.05rem 0}
   .preview-line.diff-add{color:var(--good)} .preview-line.diff-del{color:var(--bad)} .preview-line.diff-ctx{color:var(--muted)}
 </style>
+<!-- SDD-116/119 shared demo-mode helper (inlined verbatim from webapp/_shared/demo-mode.{css,js}; opt-in, always-badged sample data — SB-077 reconciliation). -->
+<style>
+/* webapp/_shared/demo-mode.css — SDD-116 DEMO badge.
+ * DEMO mode is opt-in sample data for exploring panels with no daemon. The badge
+ * is a persistent, unmistakable ribbon so DEMO data is NEVER mistaken for real
+ * telemetry (the SB-077 reconciliation). Inlined verbatim into demo-capable
+ * panels alongside demo-mode.js. */
+#so-demo-badge {
+  position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); z-index: 9600;
+  background: #e6c062; color: #0a0a0a; font-weight: 700; font-size: .72rem; letter-spacing: .03em;
+  padding: .28rem .65rem; border-radius: 6px; box-shadow: 0 2px 12px rgba(0, 0, 0, .38);
+  font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif; pointer-events: none;
+}
+#so-demo-badge .sub { font-weight: 400; opacity: .82; }
+</style>
+<script>
+/* webapp/_shared/demo-mode.js — SDD-116 shared DEMO-mode helper (opt-in sample data).
+ *
+ * Reads the `sovereign-os.demo` localStorage flag (schema-guarded) and renders a
+ * persistent DEMO badge. Demo-capable panels call `soDemo.on()` to branch to their
+ * clearly-labelled sample data. The SB-077 reconciliation: DEMO is opt-in (off by
+ * default; never self-enables), ALWAYS badged, and makes ZERO network calls
+ * (R10212 strengthened — the demo render path never fetches). Inlined verbatim into
+ * demo-capable panels alongside demo-mode.css. */
+(function () {
+  "use strict";
+  var DKEY = 'sovereign-os.demo', DSCHEMA = 1;
+  function on() {
+    try {
+      var r = localStorage.getItem(DKEY); var p = r ? JSON.parse(r) : null;
+      return !!(p && p.schema === DSCHEMA && p.on);
+    } catch (e) { return false; }
+  }
+  function set(v) {
+    try { localStorage.setItem(DKEY, JSON.stringify({ schema: DSCHEMA, on: !!v })); } catch (e) {}
+  }
+  function badge() {
+    var b = document.getElementById('so-demo-badge');
+    if (on()) {
+      if (!b) {
+        b = document.createElement('div'); b.id = 'so-demo-badge';
+        b.innerHTML = 'DEMO <span class="sub">· sample data — not real telemetry</span>';
+        b.setAttribute('role', 'status');
+        (document.body || document.documentElement).appendChild(b);
+      }
+    } else if (b) { b.remove(); }
+  }
+  window.soDemo = { on: on, set: set, badge: badge, KEY: DKEY, SCHEMA: DSCHEMA };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', badge);
+  else badge();
+})();
+</script>
 </head>
 <body>
 <!-- APP-SHELL:BEGIN M067 -->
@@ -1078,7 +1130,22 @@ a11y; contract test catches drift.
     last.textContent = 'last fetch: ' + new Date().toLocaleTimeString();
   }
 
+    function demoActive(){return !!(window.soDemo&&window.soDemo.on());}
+  const DEMO_D08 = {
+    snapshotTotal:128, commits24h:14, diskGib:6.4, oldestAge:'12d', lastRollback:'never (demo)',
+    snapshots:[
+      {id:'rpool/sovereign-os@demo-01', dataset:'rpool/sovereign-os', taken:'2026-06-30T14:00:00Z', kind:'pre-commit', used:'128M', refer:'2.1G', tag:'demo/before agent run'},
+      {id:'rpool/memory@demo-02', dataset:'rpool/memory', taken:'2026-06-30T12:00:00Z', kind:'manual', used:'4.2G', refer:'48G', tag:'demo/known-good'},
+      {id:'rpool/audit@demo-03', dataset:'rpool/audit', taken:'2026-06-30T02:00:00Z', kind:'auto', used:'512M', refer:'18G', tag:'demo/nightly'}
+    ],
+    timeline:[
+      {ts:'2026-06-30T14:00:00Z', type:'snapshot', text:'demo/ pre-commit snapshot before agent run'},
+      {ts:'2026-06-30T13:40:00Z', type:'commit', text:'demo/ 3 files changed, signed (MS003)'},
+      {ts:'2026-06-30T02:00:00Z', type:'snapshot', text:'demo/ nightly auto-snapshot'}
+    ]
+  };
   async function load() {
+    if (demoActive()) { seed = Object.assign(seed, DEMO_D08); renderSummary(); renderSnapshots(); renderTimeline(); const _b=document.getElementById('datasource-banner');if(_b){_b.classList.remove('online','offline','unknown');_b.classList.add('unknown');}const _l=document.getElementById('ds-state-label');if(_l)_l.textContent='data source: DEMO — sample data';const _d=document.getElementById('ds-state-detail');if(_d)_d.innerHTML='DEMO mode — sample data, not real telemetry (SB-077)';if(window.soDemo)window.soDemo.badge(); return; }
     let ok = false, errMsg = '';
     try {
       const r = await fetch('/api/d-08/snapshot', { credentials: 'same-origin' });
@@ -1150,6 +1217,7 @@ a11y; contract test catches drift.
     const box = document.getElementById('preview-box');
     box.classList.add('show');
     box.innerHTML = '<div class="preview-line diff-ctx">computing dry-run plan…</div>';
+    if (demoActive()) { box.innerHTML='<div class="preview-line diff-ctx">Dry-run rollback plan is live-only in demo.</div>'; return; }
     let lines;
     try {
       const r = await fetch('/api/d-08/preview?to=' + encodeURIComponent(snapId), { credentials: 'same-origin' });
