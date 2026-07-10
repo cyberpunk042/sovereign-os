@@ -1450,22 +1450,26 @@ window.SO_ASSIST = {
      "content": "Stale — the selfdef mirror hasn't refreshed; this grants view may lag reality.",
      "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Stale</div>Mirror not updating — selfdef's real state may differ from what's shown.</div>"
     }
-   ]
+   ],
+   "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Live vs snapshot, for grants</div>Whether the grant ledger is a live MS007 mirror or a snapshot. A grant can be signed or revoked in selfdef between pushes, so a stale read can show a permission that no longer exists.</div>"
   },
   {
    "selector": "#mirror-state-label",
    "title": "Mirror state",
-   "content": "One-word health of the mirror link to selfdef. The quick check before trusting any count on this panel."
+   "content": "One-word health of the mirror link to selfdef. The quick check before trusting any count on this panel.",
+   "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">One-word grant-mirror health</div>Live or offline — the check before trusting the active-grant list. selfdef owns the truth; this reflects it.</div>"
   },
   {
    "selector": "#mirror-state-detail",
    "title": "Mirror detail",
-   "content": "Why the mirror is live or stale — the M060 bridge status behind the one-word label."
+   "content": "Why the mirror is live or stale — the M060 bridge status behind the one-word label.",
+   "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The M060 bridge status</div>The producer behind the mirror and why it's live or offline — the bridge carrying selfdef's grants into this view.</div>"
   },
   {
    "selector": "#mirror-last-update",
    "title": "Mirror freshness",
-   "content": "When selfdef last pushed this snapshot. A grant can be signed or revoked in selfdef between pushes, so an old timestamp means this view may miss a very recent change."
+   "content": "When selfdef last pushed this snapshot. A grant can be signed or revoked in selfdef between pushes, so an old timestamp means this view may miss a very recent change.",
+   "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">When selfdef last captured</div>The snapshot time. Grants have TTLs and can be revoked any moment, so an old timestamp means a just-changed grant may not appear yet.</div>"
   },
   {
    "selector": "#mirror-schema-version",
@@ -1572,13 +1576,14 @@ window.SO_ASSIST = {
     {
      "selector": "#kind-filters",
      "title": "Kind filter",
-     "content": "Slice the grant tables by kind — show only filesystem, only capability, etc. Use it to answer a focused question ('what network reach is open right now?') without the other kinds' noise."
+     "content": "Slice the grant tables by kind — show only filesystem, only capability, etc. Use it to answer a focused question ('what network reach is open right now?') without the other kinds' noise.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Slice by grant kind</div>Filter the tables by kind (filesystem/network/capability/…) to answer a focused question like 'what network reach is open right now' without the other kinds' noise.</div>"
     },
     {
      "selector": "#state-filter-label",
      "title": "State filter",
      "content": "Which grant states are shown (active / expiring / revoked). Filtering to 'expiring' surfaces grants about to lapse — useful before they silently drop reach the box was relying on.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Expiring is the state worth watching</div>Grants self-expire, which is healthy — but it also means reach the box depends on can vanish mid-task. Filtering to expiring is how you spot a grant that should be renewed (or deliberately allowed to lapse) before it drops.<div class=\"so-xref\"><span class=\"x\">→</span> active grants TTL column — the countdown behind each state</div></div>"
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Slice by grant state</div>Which states are shown — active, expiring, revoked. Filtering to expiring surfaces grants about to lapse, before they silently drop reach the box relied on.</div>"
     },
     {
      "selector": "#grants-tbody",
@@ -1624,7 +1629,7 @@ window.SO_ASSIST = {
      "selector": "#control-surface",
      "title": "Controls rail",
      "content": "Grant verbs — each copies its exact selfdefctl command (§1g / R10212). Sign a pending grant, revoke a live one, all under your MS003 key; the web stages, your key commits.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why grants can't be issued from the web</div>A grant is a signed authority statement — if a browser could issue one, anything reaching the browser could grant itself reach. So sovereign-os mirrors the ledger read-only and hands you the selfdefctl verb; the MS003 signature happens under your key (R10119).<div class=\"so-xref\"><span class=\"x\">→</span> §1g R10212 — the copy-command, read-only mirror boundary</div></div>"
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copy-command mirror boundary</div>Each control copies its selfdefctl grant verb (§1g / R10212). Signing and revoking grants is selfdef's, under your MS003 key — the web mirrors the ledger read-only.</div>"
     }
    ]
   }

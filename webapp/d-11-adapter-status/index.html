@@ -1586,12 +1586,14 @@ window.SO_ASSIST = {
        "content": "Offline — showing the last snapshot; the box may have moved on since.",
        "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Offline</div>No live answer — this is a cached snapshot, possibly stale.</div>"
       }
-     ]
+     ],
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">One-word adapter-feed health</div>Live or snapshot — whether the adapter inventory is current. A promotion or rollback since a snapshot won't show, so this gates trust in the promoted/pending counts.</div>"
     },
     {
      "selector": "#ds-state-detail",
      "title": "Source detail",
-     "content": "Status line under the banner — endpoint + any degraded note."
+     "content": "Status line under the banner — endpoint + any degraded note.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Which adapter feed answered</div>The endpoint behind the banner and any degraded note — the Foundry daemon reachable vs a cached read.</div>"
     },
     {
      "selector": "#ds-last-update",
@@ -1681,7 +1683,8 @@ window.SO_ASSIST = {
       "title": "Adapter · {{name}}",
       "content": "Adapter {{name}} — its base model, precision, training state, and promotion status. A promoted adapter is live; a training-failed one is worth pruning.",
       "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Adapter · {{name}}</div>One LoRA adapter. Read base + precision + status together: it specializes that base, at that VRAM cost, at that trust level.</div>"
-     }
+     },
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The full adapter inventory</div>Every LoRA adapter at once — base, precision, training state, status. The complete specialization roster; a training-failed row is a slot to prune.</div>"
     }
    ]
   },
@@ -1722,7 +1725,8 @@ window.SO_ASSIST = {
       "title": "NVFP4 · {{name}}",
       "content": "4-bit adapter {{name}} and its footprint. NVFP4 (native 4-bit on Blackwell, M077) is what makes many adapters fit at once — this is the cheap-VRAM roster.",
       "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">NVFP4 · {{name}}</div>A 4-bit adapter. Its tiny footprint is why the box can hold many specializations resident at once.</div>"
-     }
+     },
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The 4-bit roster</div>Every NVFP4 adapter and its footprint together — the cheap-VRAM set (M077). This is why the box can keep many specializations resident at once.</div>"
     }
    ]
   },
@@ -1742,7 +1746,8 @@ window.SO_ASSIST = {
       "title": "Event · {{name}}",
       "content": "Promotion/rollback {{name}} — when and why. A rollback row is the system correcting a promotion that regressed in production — the reversibility property (D-20 P3) in action.",
       "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Event · {{name}}</div>A promotion or rollback. Rollbacks are healthy: they're the box undoing a bad promotion, which is exactly what reversibility is for.<div class=\"so-xref\"><span class=\"x\">→</span> D-20 P3 Reversible</div></div>"
-     }
+     },
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The promotion/rollback trail</div>Every promotion and rollback in sequence — the reversibility record. A rollback row is the box correcting a bad promotion (D-20 P3), which is healthy, not alarming.</div>"
     }
    ]
   },
@@ -1806,7 +1811,8 @@ window.SO_ASSIST = {
     {
      "selector": "#export-btn",
      "title": "Export",
-     "content": "Copies the verb to export the adapter inventory — read-only; changes nothing."
+     "content": "Copies the verb to export the adapter inventory — read-only; changes nothing.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Export the inventory</div>Copies the verb to export the adapter inventory — read-only extraction for offline analysis. It changes nothing.</div>"
     }
    ]
   },
@@ -1818,7 +1824,8 @@ window.SO_ASSIST = {
     {
      "selector": "#refresh-btn",
      "title": "Refresh all",
-     "content": "Re-poll every table on this panel now — a read-only re-sample. It re-reads state; it never mutates the box."
+     "content": "Re-poll every table on this panel now — a read-only re-sample. It re-reads state; it never mutates the box.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Re-read adapters</div>Re-polls every table — read-only. Promotion is a signed CLI verb, never this button.</div>"
     }
    ]
   },
@@ -1830,7 +1837,8 @@ window.SO_ASSIST = {
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "The control rail — each button copies its exact sovereign-osctl command. Training or promoting an adapter runs through the signed CLI after your MS003 signature, never from a web click."
+     "content": "The control rail — each button copies its exact sovereign-osctl command. Training or promoting an adapter runs through the signed CLI after your MS003 signature, never from a web click.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copy-command boundary</div>Each control copies its sovereign-osctl verb (§1g / R10212). Training and promotion are signed operations; the web reflects the Foundry and hands you the verb.</div>"
     }
    ]
   }

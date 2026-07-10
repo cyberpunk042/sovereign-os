@@ -1427,12 +1427,14 @@ window.SO_ASSIST = {
        "content": "Offline — showing the last snapshot; the box may have moved on since.",
        "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Offline</div>No live answer — this is a cached snapshot, possibly stale.</div>"
       }
-     ]
+     ],
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">One-word manifest-feed health</div>Live or snapshot — whether the composed-system manifest is current. A module re-pinned since a snapshot won't show, so this gates trust in the version reconciliation.</div>"
     },
     {
      "selector": "#ds-state-detail",
      "title": "Source detail",
-     "content": "Status line under the banner — endpoint + any degraded note."
+     "content": "Status line under the banner — endpoint + any degraded note.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Which manifest feed answered</div>The endpoint behind the banner and any degraded note — the manifest store reachable vs a cached read.</div>"
     },
     {
      "selector": "#ds-last-update",
@@ -1514,7 +1516,8 @@ window.SO_ASSIST = {
       "title": "Module · {{name}}",
       "content": "Module {{name}} — its pinned version in the composed system. A module lagging its expected version is drift; the manifest is where you catch it.",
       "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Module · {{name}}</div>One of the M001..M080 modules and its pinned version. The manifest composition is only as current as its lagging-est module.</div>"
-     }
+     },
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The full module roster</div>Every M001..M080 module and its pinned version at once — the whole composition. A module lagging its expected version is drift; this is where you catch it.</div>"
     },
     {
      "selector": "#export-csv",
@@ -1525,7 +1528,8 @@ window.SO_ASSIST = {
     {
      "selector": "#export-json",
      "title": "Export JSON",
-     "content": "Download the currently filtered manifest as JSON — the machine-readable form for tooling or a saved snapshot. Same filtered rows as the CSV export; client-side only, real rows only."
+     "content": "Download the currently filtered manifest as JSON — the machine-readable form for tooling or a saved snapshot. Same filtered rows as the CSV export; client-side only, real rows only.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The manifest, machine-readable</div>Downloads the filtered manifest as JSON — for scripting or feeding another tool. Read-only extraction; the composed system is unchanged.</div>"
     }
    ]
   },
@@ -1537,7 +1541,8 @@ window.SO_ASSIST = {
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "The control rail — each button copies its exact sovereign-osctl command. A manifest or module change runs through the signed CLI after your MS003 signature, never from a web click."
+     "content": "The control rail — each button copies its exact sovereign-osctl command. A manifest or module change runs through the signed CLI after your MS003 signature, never from a web click.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copy-command boundary</div>Each control copies its sovereign-osctl verb (§1g / R10212). The manifest is the composed-system spec; the panel reads it, it doesn't recompose the box.</div>"
     }
    ]
   }

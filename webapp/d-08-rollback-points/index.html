@@ -1471,17 +1471,20 @@ window.SO_ASSIST = {
        "content": "Snapshot — the daemon is unreachable; a recent rollback point may not appear.",
        "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Snapshot</div>Reading last-known inventory — a just-taken snapshot might be missing.</div>"
       }
-     ]
+     ],
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Live vs snapshot, for restore points</div>Whether the rollback view is live or a snapshot. New ZFS snapshots accrue as changes commit — a stale read can hide your most recent good state to restore to.</div>"
     },
     {
      "selector": "#ds-state-label",
      "title": "Source label",
-     "content": "One-word source read — live rollback daemon vs a baked snapshot, before you trust the inventory as complete."
+     "content": "One-word source read — live rollback daemon vs a baked snapshot, before you trust the inventory as complete.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">One-word rollback-feed health</div>Live rollback daemon vs a baked snapshot — the check before trusting the snapshot inventory is complete.</div>"
     },
     {
      "selector": "#ds-state-detail",
      "title": "Source detail",
-     "content": "The endpoint (/api/d-08/snapshot) and why it's live or fell back."
+     "content": "The endpoint (/api/d-08/snapshot) and why it's live or fell back.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Which rollback feed answered</div>The endpoint behind the banner and why it's live or fell back — an accountable reason, not a bare flag.</div>"
     },
     {
      "selector": "#ds-last-update",
@@ -1596,12 +1599,14 @@ window.SO_ASSIST = {
     {
      "selector": "#toast",
      "title": "Copy toast",
-     "content": "Confirms a CLI verb (a preview or a signed rollback-apply command) was copied to your clipboard — the web emits, you run it. The receipt chain + MS003 verification happen when the daemon executes."
+     "content": "Confirms a CLI verb (a preview or a signed rollback-apply command) was copied to your clipboard — the web emits, you run it. The receipt chain + MS003 verification happen when the daemon executes.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Confirms the copy, not the rollback</div>Confirms a preview or a signed rollback-apply command was copied. Nothing is restored from this view; the destructive rollback runs under your key in the shell.</div>"
     },
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Rollback controls — each copies its exact sovereign-osctl verb (§1g / R10212). Preview is read-only; rollback-apply runs through the signed CLI with an MS003 signature and a receipt chain, never from the web."
+     "content": "Rollback controls — each copies its exact sovereign-osctl verb (§1g / R10212). Preview is read-only; rollback-apply runs through the signed CLI with an MS003 signature and a receipt chain, never from the web.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copy-command boundary</div>Each control copies its sovereign-osctl verb (§1g / R10212). A rollback discards everything after the target — far too consequential for a web click, so it's signed CLI only.</div>"
     }
    ]
   }

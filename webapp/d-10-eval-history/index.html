@@ -1520,12 +1520,14 @@ window.SO_ASSIST = {
        "content": "Offline — showing the last snapshot; the box may have moved on since.",
        "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Offline</div>No live answer — this is a cached snapshot, possibly stale.</div>"
       }
-     ]
+     ],
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">One-word eval-feed health</div>Live or snapshot — whether the eval scores are current. A suite that ran since a snapshot won't show, so this gates trust in a 'passing' reading.</div>"
     },
     {
      "selector": "#ds-state-detail",
      "title": "Source detail",
-     "content": "The status line under the banner — endpoint + any degraded note."
+     "content": "The status line under the banner — endpoint + any degraded note.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Which eval feed answered</div>The endpoint behind the banner and any degraded note — the eval daemon reachable vs a cached read.</div>"
     },
     {
      "selector": "#ds-last-update",
@@ -1652,7 +1654,8 @@ window.SO_ASSIST = {
       "title": "Task · {{name}}",
       "content": "Task {{name}} — its eval trend over the window. A falling row is a regression on that specific capability; read it against the model table to attribute the cause.",
       "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Task · {{name}}</div>One task family's score trend. A drop is a concrete capability regression worth attributing to a model or adapter change.</div>"
-     }
+     },
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The per-task trend board</div>Every task family's eval trend at once — the whole regression picture. A falling row here is a specific capability slipping; read it against the model table to attribute the cause.</div>"
     },
     {
      "selector": "#models-tbody",
@@ -1665,7 +1668,8 @@ window.SO_ASSIST = {
       "title": "Model · {{name}}",
       "content": "Model {{name}} — its score trend (M046). Read it to attribute a task change to a specific model or adapter rather than the box as a whole.",
       "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Model · {{name}}</div>One model's eval trend. Pair it with the task table: a model that regressed on one task points at a bad adapter promotion.</div>"
-     }
+     },
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The per-model trend board</div>Every model's score trend together — where a task change gets attributed to a specific model or adapter rather than the box as a whole.</div>"
     }
    ]
   },
@@ -1685,7 +1689,8 @@ window.SO_ASSIST = {
       "title": "Candidate · {{name}}",
       "content": "Candidate {{name}} — an adapter that passed the eval bar and could be promoted. Its scores are the case for promotion; the MS041 gate is the remaining hurdle.",
       "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Candidate · {{name}}</div>A promotion-eligible adapter. Passing evals earns candidacy; the three MS041 gates decide promotion.<div class=\"so-xref\"><span class=\"x\">→</span> D-11 — the gate this candidate faces</div></div>"
-     }
+     },
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The promotion-eligible pool</div>Every adapter that cleared the eval bar — the queue pressure on the MS041 gate. Their scores are the case for promotion; the gate is the remaining hurdle.<div class=\"so-xref\"><span class=\"x\">→</span> D-11 adapter status — the gate these face</div></div>"
     }
    ]
   },
@@ -1697,7 +1702,8 @@ window.SO_ASSIST = {
     {
      "selector": "#apply-btn",
      "title": "Apply filters",
-     "content": "Applies the task/class/window filters to the trend tables. Read-only — it re-queries the eval store, it does not run an eval."
+     "content": "Applies the task/class/window filters to the trend tables. Read-only — it re-queries the eval store, it does not run an eval.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Filter the trends</div>Applies the task/class/window filters — read-only re-query. It changes the view, never the eval data.</div>"
     },
     {
      "selector": "#run-suite-btn",
@@ -1721,7 +1727,8 @@ window.SO_ASSIST = {
     {
      "selector": "#refresh-btn",
      "title": "Refresh all",
-     "content": "Re-poll every table on this panel now — a read-only re-sample. It re-reads state; it never mutates the box."
+     "content": "Re-poll every table on this panel now — a read-only re-sample. It re-reads state; it never mutates the box.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Re-read eval history</div>Re-polls every table — read-only. It re-samples scores; running a new suite is a separate, compute-heavy CLI verb.</div>"
     }
    ]
   },
@@ -1733,7 +1740,8 @@ window.SO_ASSIST = {
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "The control rail — each button copies its exact sovereign-osctl command. Running a suite runs through the signed CLI after your MS003 signature, never from a web click."
+     "content": "The control rail — each button copies its exact sovereign-osctl command. Running a suite runs through the signed CLI after your MS003 signature, never from a web click.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copy-command boundary</div>Each control copies its sovereign-osctl verb (§1g / R10212). Running an eval is real GPU work, so it's staged as a command you launch deliberately.</div>"
     }
    ]
   }
