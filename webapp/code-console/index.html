@@ -63,7 +63,10 @@
     border-radius:999px; padding:.05rem .5rem; }
   .cc-chip.deferred { border-style:dashed; opacity:.7; }
   /* the 3-pane grid: rail | thread | plan */
-  .cc-grid { display:grid; grid-template-columns:minmax(200px,250px) 1fr minmax(240px,320px);
+  /* center column uses minmax(0,1fr) so it can shrink below its longest word
+     (a bare 1fr can't — that forced the mid-word wrapping); side columns have
+     smaller minima so the thread keeps room. */
+  .cc-grid { display:grid; grid-template-columns:minmax(160px,220px) minmax(0,1fr) minmax(200px,280px);
     gap:0; height:calc(100vh - var(--so-header-h) - 190px); min-height:420px; }
   .cc-pane { border-right:1px solid var(--border); display:flex; flex-direction:column; min-width:0; overflow:hidden; }
   .cc-pane:last-child { border-right:0; }
@@ -79,7 +82,7 @@
   .cc-sess .st { font-size:.72rem; color:var(--muted); }
   .cc-sess .step { font-size:.7rem; color:var(--accent); }
   /* center thread */
-  .cc-msg { margin:0 0 .7rem; padding:.5rem .65rem; border-radius:8px; border:1px solid var(--border); font-size:.85rem; white-space:pre-wrap; word-break:break-word; }
+  .cc-msg { margin:0 0 .7rem; padding:.5rem .65rem; border-radius:8px; border:1px solid var(--border); font-size:.85rem; white-space:pre-wrap; overflow-wrap:break-word; word-break:normal; }
   .cc-msg.user { border-color:rgba(155,209,255,.35); background:rgba(155,209,255,.05); }
   .cc-msg.assistant { background:var(--panel); }
   .cc-msg .who { font-size:.7rem; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin-bottom:.2rem; }
@@ -102,8 +105,18 @@
   button.cc-send:disabled { opacity:.5; cursor:not-allowed; }
   button.cc-ghost { padding:.35rem .7rem; border:1px solid var(--border); background:transparent; color:var(--fg); border-radius:6px; cursor:pointer; font:inherit; font-size:.78rem; }
   button.cc-ghost:hover { border-color:var(--accent); color:var(--accent); }
-  @media (max-width:900px){ .cc-grid { grid-template-columns:1fr; height:auto; }
-    .cc-pane { border-right:0; border-bottom:1px solid var(--border); max-height:340px; } }
+  /* Tight width (viewport ≤1180px) OR the assistant pane open (it steals ~360px):
+     drop to rail + thread side-by-side and let the Plan pane span full width below,
+     so the conversation never gets crushed into a vertical sliver. */
+  body.so-assist-open .cc-grid { grid-template-columns:minmax(150px,200px) minmax(0,1fr); height:auto; min-height:0; }
+  body.so-assist-open .cc-grid > .cc-pane:nth-child(3) { grid-column:1 / -1; border-right:0; border-top:1px solid var(--border); max-height:240px; }
+  body.so-assist-open .cc-grid > .cc-pane { max-height:460px; }
+  @media (max-width:1180px){ .cc-grid { grid-template-columns:minmax(150px,200px) minmax(0,1fr); height:auto; min-height:0; }
+    .cc-grid > .cc-pane:nth-child(3) { grid-column:1 / -1; border-right:0; border-top:1px solid var(--border); max-height:240px; }
+    .cc-grid > .cc-pane { max-height:460px; } }
+  @media (max-width:820px){ .cc-grid, body.so-assist-open .cc-grid { grid-template-columns:1fr; height:auto; }
+    .cc-pane { border-right:0; border-bottom:1px solid var(--border); max-height:340px; }
+    .cc-grid > .cc-pane:nth-child(3), body.so-assist-open .cc-grid > .cc-pane:nth-child(3) { grid-column:auto; border-top:0; } }
   footer { padding:1rem 1.25rem; border-top:1px solid var(--border); color:var(--muted); font-size:.75rem; }
 </style>
 </head>
@@ -623,6 +636,58 @@
   <code>sovereign-osctl …</code> verbs. Operator §1g standing rule (sacrosanct):
   <strong>We do not minimize anything.</strong>
 </footer>
+<!-- SDD-116 shared demo-mode helper (inlined verbatim from webapp/_shared/demo-mode.{css,js}; opt-in, always-badged sample data — SB-077 reconciliation). -->
+<style>
+/* webapp/_shared/demo-mode.css — SDD-116 DEMO badge.
+ * DEMO mode is opt-in sample data for exploring panels with no daemon. The badge
+ * is a persistent, unmistakable ribbon so DEMO data is NEVER mistaken for real
+ * telemetry (the SB-077 reconciliation). Inlined verbatim into demo-capable
+ * panels alongside demo-mode.js. */
+#so-demo-badge {
+  position: fixed; top: calc(var(--so-header-h, 48px) + 8px); right: 12px; z-index: 9600;
+  background: #e6c062; color: #0a0a0a; font-weight: 700; font-size: .72rem; letter-spacing: .03em;
+  padding: .28rem .65rem; border-radius: 6px; box-shadow: 0 2px 12px rgba(0, 0, 0, .38);
+  font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif; pointer-events: none;
+}
+#so-demo-badge .sub { font-weight: 400; opacity: .82; }
+</style>
+<script>
+/* webapp/_shared/demo-mode.js — SDD-116 shared DEMO-mode helper (opt-in sample data).
+ *
+ * Reads the `sovereign-os.demo` localStorage flag (schema-guarded) and renders a
+ * persistent DEMO badge. Demo-capable panels call `soDemo.on()` to branch to their
+ * clearly-labelled sample data. The SB-077 reconciliation: DEMO is opt-in (off by
+ * default; never self-enables), ALWAYS badged, and makes ZERO network calls
+ * (R10212 strengthened — the demo render path never fetches). Inlined verbatim into
+ * demo-capable panels alongside demo-mode.css. */
+(function () {
+  "use strict";
+  var DKEY = 'sovereign-os.demo', DSCHEMA = 1;
+  function on() {
+    try {
+      var r = localStorage.getItem(DKEY); var p = r ? JSON.parse(r) : null;
+      return !!(p && p.schema === DSCHEMA && p.on);
+    } catch (e) { return false; }
+  }
+  function set(v) {
+    try { localStorage.setItem(DKEY, JSON.stringify({ schema: DSCHEMA, on: !!v })); } catch (e) {}
+  }
+  function badge() {
+    var b = document.getElementById('so-demo-badge');
+    if (on()) {
+      if (!b) {
+        b = document.createElement('div'); b.id = 'so-demo-badge';
+        b.innerHTML = 'DEMO <span class="sub">· sample data — not real telemetry</span>';
+        b.setAttribute('role', 'status');
+        (document.body || document.documentElement).appendChild(b);
+      }
+    } else if (b) { b.remove(); }
+  }
+  window.soDemo = { on: on, set: set, badge: badge, KEY: DKEY, SCHEMA: DSCHEMA };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', badge);
+  else badge();
+})();
+</script>
 <script>
   const $ = id => document.getElementById(id);
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
@@ -635,6 +700,23 @@
   let LAST = FIXED_SESSIONS;
   let activeSession = null;
 
+  // ── SDD-116 DEMO mode: opt-in, always-badged sample data (never real; SB-077).
+  // demoActive() gates a render path that makes ZERO network calls (R10212). The
+  // sample ids are obvious placeholders so DEMO can't be mistaken for live state.
+  function demoActive() { return !!(window.soDemo && window.soDemo.on()); }
+  const DEMO_SESSIONS = {
+    producer: 'demo',
+    sessions: [
+      { id: 'demo-session-01', kind: 'task', state: 'inference', step: 4, step_name: 'inference · generating' },
+      { id: 'demo-session-02', kind: 'task', state: 'validation', step: 9, step_name: 'validation · checking output' },
+      { id: 'demo-session-03', kind: 'task', state: 'cleanup', step: 12, step_name: 'cleanup · releasing device' },
+    ],
+  };
+  const DEMO_THREAD = [
+    { role: 'user', content: '[DEMO] Refactor this function to be pure.' },
+    { role: 'assistant', content: '[DEMO] This is sample output — not a real model response. In live mode the box\'s own local LM answers here over the loopback router, and this thread shows real tokens.' },
+  ];
+
   // ── left rail: real M057 task-sessions (relabelled; not chat threads) ──
   function renderRail(data) {
     const sessions = (data && Array.isArray(data.sessions)) ? data.sessions : [];
@@ -643,7 +725,10 @@
       $('cc-rail').innerHTML = '<div class="cc-defer">No active task-sessions.'
         + ' <b>The rail lists OS task-sessions</b> (M057 lifecycle: init → inference'
         + ' → response → validation → cleanup), not chat threads — the box holds no'
-        + ' conversation store. Empty is honest, never fabricated.</div>';
+        + ' conversation store. Empty is honest, never fabricated.'
+        + '<div style="margin-top:.5rem"><button class="cc-ghost" id="cc-demo-on">▸ Enable DEMO mode to explore</button></div></div>';
+      const d = document.getElementById('cc-demo-on');
+      if (d) d.addEventListener('click', () => { if (window.soDemo) { window.soDemo.set(true); } refresh(); });
       renderTabs([]);
       return;
     }
@@ -713,6 +798,14 @@
     btn.disabled = true;
     chatHistory.push({ role: 'user', content: text });
     input.value = '';
+    // SDD-116 DEMO composer: a canned, DEMO-labelled reply with NO network call
+    // (the real loopback POST is never hit in DEMO — SB-077 / R10212).
+    if (demoActive()) {
+      chatHistory.push({ role: 'assistant', content: '[DEMO] Sample reply — no model was called. In live mode this streams real tokens from the box\'s own local LM over the loopback router.' });
+      renderThread();
+      btn.disabled = false;
+      return;
+    }
     renderThread();
     const t = $('cc-thread');
     const out = document.createElement('div');
@@ -758,6 +851,18 @@
   function newChat() { chatHistory = []; renderThread(); }
 
   async function refresh() {
+    // SDD-116 DEMO short-circuit: render badged sample data with ZERO network
+    // calls (no fetch) — the SB-077 reconciliation (opt-in + always-badged).
+    if (demoActive()) {
+      LAST = DEMO_SESSIONS;
+      $('data-source-banner').innerHTML = '<strong>DEMO mode</strong> — sample data, not a live daemon. Disable it in Personalization.';
+      if (!chatHistory.length) { chatHistory = DEMO_THREAD.slice(); }
+      renderRail(LAST);
+      renderThread();
+      if (window.soDemo) window.soDemo.badge();
+      $('last-fetch').textContent = 'DEMO · sample data';
+      return;
+    }
     try {
       const res = await fetch('/api/code-console/sessions', {credentials:'same-origin'});
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -768,6 +873,7 @@
       $('data-source-banner').innerHTML = 'cannot reach the code-console API daemon <span class="muted">('+esc(e.message)+')</span> — the three-pane console stays fully visible (honest empty/deferred)';
     }
     renderRail(LAST);
+    if (window.soDemo) window.soDemo.badge();
     $('last-fetch').textContent = 'last fetch: ' + new Date().toLocaleTimeString();
   }
 
@@ -800,11 +906,15 @@
     } catch (e) { /* ignore malformed query */ }
   })();
 
-  try {
-    const es = new EventSource('/api/code-console/stream');
-    es.addEventListener('session-step-advance', refresh);
-    es.addEventListener('error', () => setInterval(refresh, 15000));
-  } catch (e) { setInterval(refresh, 15000); }
+  // SDD-116 — in DEMO mode we open NO EventSource (zero network calls); the demo
+  // render path is fully client-side. Live mode keeps the SSE + interval refresh.
+  if (!demoActive()) {
+    try {
+      const es = new EventSource('/api/code-console/stream');
+      es.addEventListener('session-step-advance', refresh);
+      es.addEventListener('error', () => setInterval(refresh, 15000));
+    } catch (e) { setInterval(refresh, 15000); }
+  }
 
   refresh();
 </script>
