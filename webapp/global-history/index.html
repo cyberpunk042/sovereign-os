@@ -1342,120 +1342,120 @@ setInterval(refreshAll, 30000);
 <script>
 window.SO_ASSIST = {
  "context": {
-  "icon": "◶",
+  "icon": "◫",
   "title": "Global History",
-  "content": "The unified audit trail — every operator-relevant event across all sources, with a 7-day rollup and a live recent-events feed you can scope and filter.\n\nRead-only by design: there is no mutation to discover here, only the record of what happened. This is where you reconstruct 'what changed and when' across the whole box."
+  "content": "The box-wide timeline. Every subsystem — the audit chain (D-16), the router, memory (D-07), selfdef — emits events, and this panel aggregates them into one cross-box history above any single panel's own view. It is where you answer 'what happened across the whole machine' rather than 'what happened in this one surface'.\n\nRead the sources for which subsystems are feeding the timeline (a silent source is a blind spot), the 7-day summary for the shape of the week aggregated by type, and the recent events for the full-resolution stream when a summary number needs explaining. Read-only aggregation — it collects and shows; it changes nothing."
  },
  "nodes": [
   {
-   "icon": "◆",
+   "icon": "▦",
    "title": "Summary",
-   "content": "How many sources feed history, recent event count, and the 7-day total.",
+   "content": "The cross-box activity roll-up — sources feeding history, a 7-day summary, and recent-event count. This panel aggregates what happened across the whole box into one timeline, above any single panel's own view.",
    "children": [
     {
      "selector": "#stats",
      "title": "History summary",
-     "content": "The roll-up — sources, recent events, 7-day total — before the source list and event feed below."
+     "content": "The roll-up — version, sources, recent events, summary window. The one-glance shape of box-wide activity over the last week."
+    },
+    {
+     "selector": "#stat-version",
+     "title": "History version",
+     "content": "The global-history collector version answering — for reconciling the aggregated timeline against the sources feeding it."
     },
     {
      "selector": "#stat-sources",
      "title": "Sources",
-     "content": "How many event sources feed the unified history — the breadth of what's being recorded. More sources means a more complete audit trail."
+     "content": "How many distinct sources feed the global history — the audit chain, the router, memory, etc. More sources means a fuller timeline; a missing expected source is a gap in the box-wide view."
     },
     {
      "selector": "#stat-recent",
      "title": "Recent events",
-     "content": "How many events are in the current recent window — the live pulse of activity, scopeable below."
+     "content": "How many events in the recent window. A sudden spike or silence is itself a signal — read the events below to see what drove it."
     },
     {
      "selector": "#stat-summary",
-     "title": "7-day total",
-     "content": "Total events over the last 7 days — the weekly volume, a baseline for spotting an unusual spike or lull."
-    },
-    {
-     "selector": "#stat-version",
-     "title": "API version",
-     "content": "The version of the global-history daemon answering — for reconciling behaviour against the spec."
+     "title": "Summary window",
+     "content": "The window the 7-day summary covers. The summary aggregates events into per-day/per-type totals so a trend is visible without reading every event."
     },
     {
      "selector": "#last-refresh",
-     "title": "Refresh freshness",
-     "content": "When history was last pulled — the feed reflects the last read, so check this before treating it as fully current."
+     "title": "Freshness",
+     "content": "When the history was last collected. Events since then would not appear yet — refresh for the current timeline."
     }
    ]
   },
   {
-   "icon": "≣",
-   "title": "Sources & 7-day summary",
-   "content": "Where events come from and the per-source weekly counts.",
+   "icon": "⊞",
+   "title": "Sources",
+   "content": "The sources feeding the global timeline — each subsystem that emits events (audit chain, router, memory, selfdef). The timeline is only as complete as its sources; a source that stops emitting leaves a blind spot.",
    "children": [
     {
      "selector": "#src-tbody",
-     "title": "Sources",
-     "content": "Each event source with its path, whether it exists, and type — the inventory of what's feeding the audit trail. A source marked missing is a blind spot in the record.",
-     "expanded": "<div class=\"so-card info\"><div>If a source shows as not existing, its events aren't in the history — a gap to be aware of when reconstructing a timeline.</div></div>"
-    },
-    {
-     "selector": "#sum-tbody",
-     "title": "7-day summary",
-     "content": "Per-source event counts over 7 days, with each source's last event and availability — where activity is concentrated across the week."
+     "title": "Source rows",
+     "content": "Each row: one event source and its recent contribution. Read them to see which subsystems are active — a source that went silent is either quiet or broken, and both are worth knowing."
     }
    ]
   },
   {
-   "icon": "▤",
+   "icon": "◫",
+   "title": "7-day summary",
+   "content": "Events aggregated over the last week — per-day, per-type totals. This turns a raw event stream into a trend: which kinds of thing happened, how often, on which days.",
+   "children": [
+    {
+     "selector": "#sum-tbody",
+     "title": "Summary rows",
+     "content": "Each row: an aggregated event category over the 7-day window. Read it for the shape of the week — a category that spiked on one day is where to look in the recent events below."
+    }
+   ]
+  },
+  {
+   "icon": "◈",
    "title": "Recent events",
-   "content": "The live event feed, scopeable by time window and count.",
+   "content": "The raw recent-event stream, filterable by window and limit — the box-wide activity log at the event level. This is the ground truth the summary aggregates; drill here when a summary number needs explaining.",
    "children": [
     {
      "selector": "#since-sel",
-     "title": "Time window",
-     "content": "How far back the recent feed reaches (1h … 7d) — narrow it to zoom into a specific incident window."
+     "title": "Since window",
+     "content": "How far back the recent-event list reaches. Narrow it to focus on a burst; widen it to see a longer stretch of box activity."
     },
     {
      "selector": "#limit-in",
      "title": "Event limit",
-     "content": "The max number of recent events to pull — cap it to keep the feed focused, or raise it to see deeper."
+     "content": "The maximum events to show. Raise it to see more of a busy period; the summary above is the un-truncated view if the limit hides something."
     },
     {
      "selector": "#recent-btn",
-     "title": "Refresh recent",
-     "content": "Re-pull the recent feed with the current window and limit — read-only re-sample."
+     "title": "Load recent",
+     "content": "Re-queries the recent events with the current window + limit. Read-only — it re-reads the timeline, it does not change anything."
     },
     {
      "selector": "#ev-tbody",
-     "title": "Event feed",
-     "content": "Each event with timestamp, source, action, and detail — the chronological record. This is where you trace exactly what happened and when across the box.",
-     "expanded": "<div class=\"so-card info\"><div>Cross-reference the source column with D-06 approvals and D-01 sessions to tie an event back to who or what triggered it.</div></div>"
+     "title": "Event rows",
+     "content": "Each row: one box-wide event — its source, type, and time. This is the cross-subsystem timeline at full resolution; read a row to see exactly what happened where, when the summary is not enough."
     }
    ]
   },
   {
    "icon": "⟳",
    "title": "Refresh",
-   "content": "Pull a fresh read on demand; the panel also auto-refreshes.",
+   "content": "Re-collect the global history on demand — a read-only re-aggregation across all sources.",
    "children": [
     {
      "selector": "#refresh-btn",
-     "title": "Refresh now",
-     "content": "Force an immediate re-read. Read-only telemetry — refreshing never changes state, it just re-samples."
-    },
-    {
-     "selector": "#last-refresh",
-     "title": "Refresh freshness",
-     "content": "When the shown values were last pulled — the panel auto-refreshes every 30s, but check this before trusting a value as 'now'."
+     "title": "Refresh",
+     "content": "Re-collect events from every source now — read-only. It re-aggregates the timeline; it changes nothing on the box."
     }
    ]
   },
   {
    "icon": "⎈",
    "title": "Controls",
-   "content": "",
+   "content": "Read-only view — mutations copy signed sovereign-osctl verbs (§1g / R10212). The web previews; the box changes only when you run the signed command.",
    "children": [
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Profile / mode / feature-toggle controls — each copies its sovereign-osctl verb (§1g / R10212). This view reads state; every mutation runs via the signed CLI, never from the browser."
+     "content": "The control rail — each button copies its exact sovereign-osctl verb. Nothing — history is read-only aggregation runs through the signed CLI, never from a web click."
     }
    ]
   }

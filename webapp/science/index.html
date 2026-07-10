@@ -897,95 +897,95 @@ setInterval(load, 5000);
 <script>
 window.SO_ASSIST = {
  "context": {
-  "icon": "⚛",
-  "title": "Science Tools · NVIDIA Warp",
-  "content": "The scientific-computing surface — NVIDIA Warp and the science-tools catalog. These are GPU-accelerated physics/math/simulation kernels, NOT LLMs; they share the hardware but serve a different workload.\n\nRead-only view: the panel shows status and the catalog; running a science job is a gated CLI verb (the write path is the sanctioned control-exec-api POST)."
+  "icon": "◫",
+  "title": "Science",
+  "content": "The GPU-as-scientific-instrument surface. NVIDIA Warp compiles Python kernels to run on the GPU, so the box can do simulation and numeric compute on the very same Blackwell/4090 silicon that serves inference — the machine is a compute instrument, not only an inference server. This panel is where that capability is exposed: is Warp ready, which GPU it targets, and what science tools are available to run on it.\n\nRead the Warp status to know if the GPU compute path is live, and the science-tools catalog for what simulations/solvers the box offers. Read-only: it catalogues and hands you the run command; the tool executes on the GPU when you run it."
  },
  "nodes": [
   {
    "icon": "◆",
-   "title": "Status",
-   "content": "Whether the science surface is up. These tools are simulation kernels, not language models.",
+   "title": "NVIDIA Warp status",
+   "content": "Whether NVIDIA Warp is available — the GPU-accelerated scientific-computing runtime. Warp compiles Python kernels to run on the GPU, so simulation and numeric work run on the same silicon that serves inference.",
    "children": [
     {
      "selector": "#status",
-     "title": "Science status",
-     "content": "Whether the science-tools surface is live. A reminder in context: these are compute kernels (physics/sim), not LLMs — they run ON the GPUs but aren't part of the inference stack.",
+     "title": "Warp status",
+     "content": "Whether NVIDIA Warp is installed and usable. Warp is the scientific-compute surface — GPU-accelerated simulation/numerics — distinct from inference; read it to know if the science-tools below can run."
+    },
+    {
+     "selector": "#warp-dot",
+     "title": "Warp indicator",
+     "content": "The at-a-glance available/unavailable dot. Green = Warp can run GPU kernels; muted = the science tools fall back to CPU or cannot run."
+    },
+    {
+     "selector": "#warp-state",
+     "title": "Warp state",
+     "content": "Warp's runtime state — ready, initializing, or unavailable. Read it with the version; 'ready' means the GPU compute path is live.",
      "variants": [
       {
        "when": {
-        "textContains": "loading"
+        "textContains": "unavailable"
        },
-       "content": "Probing the science-tools surface and Warp runtime."
+       "content": "Warp unavailable — the GPU scientific-compute path is not usable right now.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ Warp unavailable</div>GPU-accelerated science tools cannot run — check the driver/CUDA stack.</div>"
       },
       {
        "when": {
-        "textContains": "ok"
+        "textContains": "ready"
        },
-       "content": "Science tools available — Warp and the catalog are reachable."
+       "content": "Warp ready — GPU-accelerated kernels can run.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Warp ready</div>The GPU scientific-compute path is live.</div>"
       }
      ]
+    },
+    {
+     "selector": "#warp-version",
+     "title": "Warp version",
+     "content": "The installed NVIDIA Warp version. Kernel APIs track the version — pin it so a science tool built against one Warp keeps working."
+    },
+    {
+     "selector": "#warp-stats",
+     "title": "Warp stats",
+     "content": "Warp runtime telemetry — devices seen, kernels compiled. Read it to confirm Warp is actually using the GPU you expect (the Blackwell / 4090), not a fallback."
     }
    ]
   },
   {
    "icon": "▦",
-   "title": "NVIDIA Warp",
-   "content": "The Warp runtime status and how to run a job.",
-   "children": [
-    {
-     "selector": "#warp-dot",
-     "title": "Warp indicator",
-     "content": "At-a-glance dot for Warp availability — green when the runtime is present and usable."
-    },
-    {
-     "selector": "#warp-state",
-     "title": "Warp state",
-     "content": "Whether NVIDIA Warp is installed and ready — the GPU-accelerated simulation framework that backs the science kernels."
-    },
-    {
-     "selector": "#warp-version",
-     "title": "Warp version",
-     "content": "Which Warp version is present — for matching a kernel's requirements against what's installed."
-    },
-    {
-     "selector": "#warp-stats",
-     "title": "Warp stats",
-     "content": "Runtime detail for Warp — device and capability info, so you know what hardware the science jobs will land on."
-    },
-    {
-     "selector": "#run-cmd",
-     "title": "Run command",
-     "content": "The gated CLI verb to run a science job (sovereign-osctl science run). The panel is read-only; this is the command you copy and run yourself.",
-     "expanded": "<div class=\"so-card info\"><div>Science jobs share the GPUs with inference — running one competes with the LLM tiers for VRAM, so mind D-09 pressure before launching.</div></div>"
-    },
-    {
-     "selector": "#copy-run",
-     "title": "Copy run command",
-     "content": "Copies the science-run CLI verb to your clipboard — the web emits, you run it. Never executes from the browser."
-    },
-    {
-     "selector": "#copy-note",
-     "title": "Copy note",
-     "content": "The note on how the copied command is used — a reminder that running it stays operator-driven via the signed CLI."
-    }
-   ]
-  },
-  {
-   "icon": "▤",
-   "title": "Catalog & controls",
-   "content": "The available science tools and the control rail.",
+   "title": "Science-tools catalog",
+   "content": "The catalogue of available science tools — the GPU-accelerated simulation and numeric tools this surface exposes. Each runs on Warp; read the catalog to see what compute the box offers beyond inference.",
    "children": [
     {
      "selector": "#catalog",
      "title": "Science-tools catalog",
-     "content": "Each science tool with its domain, kind, install status, tiers, and status — the menu of GPU-accelerated compute available beyond the LLM stack (fluid sim, FEM, ray-tracing, etc.).",
-     "expanded": "<div class=\"so-card info\"><div>Distinct from the model catalog (D-23) — that's language models; this is physics/math kernels sharing the same silicon.</div></div>"
+     "content": "The available science tools — GPU-accelerated simulations/solvers built on Warp. This is compute-for-science on the same GPUs that serve inference; read a tool for what it computes and how to run it."
     },
+    {
+     "selector": "#run-cmd",
+     "title": "Run command",
+     "content": "The command to launch the selected science tool. Copies the exact invocation — the tool runs on the GPU via Warp when you execute it."
+    },
+    {
+     "selector": "#copy-run",
+     "title": "Copy run command",
+     "content": "Copies the run command for the selected tool. It copies only — the tool runs when you execute the command, using the GPU compute path."
+    },
+    {
+     "selector": "#copy-note",
+     "title": "Copy note",
+     "content": "Confirmation that the run command was copied. The tool has not started — it runs when you execute the copied command."
+    }
+   ]
+  },
+  {
+   "icon": "⎈",
+   "title": "Controls",
+   "content": "Read-only view — mutations copy signed sovereign-osctl verbs (§1g / R10212). The web previews; the box changes only when you run the signed command.",
+   "children": [
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Science controls — the sanctioned write path is the control-exec-api POST (a gated CLI verb), never a direct web mutation (§1g / R10212)."
+     "content": "The control rail — each button copies its exact sovereign-osctl verb. Running a science tool runs through the signed CLI, never from a web click."
     }
    ]
   }
