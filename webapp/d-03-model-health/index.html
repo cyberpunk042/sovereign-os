@@ -1443,205 +1443,315 @@ window.SO_ASSIST = {
  "context": {
   "icon": "♥",
   "title": "D-03 · Model Health",
-  "content": "The live model-serving view — how the models that are actually running right now are behaving, per SRP role. Distinct from D-23 (the catalog of what COULD run) and D-09 (the physical hardware).\n\nWhen answers are slow or a model feels degraded, this is where latency, KV pressure, and per-tier health live."
+  "content": "The live-serving view of the intelligence — not which models exist (that's the catalog, D-23), but which are loaded RIGHT NOW and how they're holding up. The box runs a Single-Responsibility-Principle split (M075): the Conductor on CPU/Pulse for cheap ternary work, the Logic Engine on the RTX 4090 for mid-scale ingestion, the Oracle Core on the Blackwell for deep reasoning. Each tier has its own health — utilization, tokens/sec, VRAM, latency, KV-cache reuse.\n\nRead it to answer 'is inference healthy and where is the pressure': a saturated tier, a bad p99 tail, or a cold KV cache each point at a different fix. It's telemetry — loading/unloading a model is a signed CLI verb."
  },
  "nodes": [
   {
    "icon": "◆",
    "title": "Live-source banner",
-   "content": "Serving state changes fast under load, so the page tells you whether you're reading the live daemon or a baked snapshot.",
+   "content": "Whether these health numbers are live from /api/models/health or a snapshot — model state changes as requests flow, so a stale read misrepresents what's actually serving.",
    "children": [
     {
      "selector": "#datasource-banner",
      "title": "Live vs snapshot",
-     "content": "Green = /api/models/health is answering live; muted = the last committed sample. A model shown 'loaded' on a stale snapshot may already have been evicted.",
-     "expanded": "",
+     "content": "Green = the model-health daemon is answering live; muted = a snapshot. On this panel a snapshot can show a model 'loaded' that has since been unloaded, or miss a tier that just saturated.",
+     "icon": "◆",
      "variants": [
       {
        "when": {
         "textContains": "live"
        },
-       "content": "Live — the numbers reflect the serving layer right now."
+       "content": "Live — utilization, latency and KV numbers are current.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Live</div>The model-health daemon is streaming; the tiers below are their real state now.</div>"
       },
       {
        "when": {
         "textContains": "snapshot"
        },
-       "content": "Snapshot — the models daemon is unreachable; treat load/latency as possibly stale until it goes green."
+       "content": "Snapshot — the daemon is unreachable; every tier reading is frozen and may not reflect what's actually loaded.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Snapshot</div>Reading last-known model state. A tier could have saturated or a model unloaded since this was captured.</div>"
       }
      ]
     },
     {
+     "selector": "#ds-state-label",
+     "title": "Source label",
+     "content": "One-word source — live daemon vs snapshot. The quick check before trusting a tier's health."
+    },
+    {
+     "selector": "#ds-state-detail",
+     "title": "Source detail",
+     "content": "The endpoint (/api/models/health) and why it's live or fell back — which daemon feeds the panel."
+    },
+    {
      "selector": "#ds-last-update",
      "title": "Fetch freshness",
-     "content": "When the shown health sample was pulled — read it before trusting 'loaded', since a load or eviction newer than this won't show yet.",
-     "expanded": ""
+     "content": "When this health sample was pulled. Utilization and latency move fast; check this before treating a tier as healthy 'now'."
     }
    ]
   },
   {
    "icon": "▤",
-   "title": "Loaded-model summary",
-   "content": "How much model is actually resident, by tier. This is committed memory, not the catalog — it trades directly against free VRAM and load latency.",
+   "title": "Summary",
+   "content": "How many models are loaded and where — split across the Blackwell (Oracle), the 4090 (Logic), and CPU/Pulse (Conductor). The shape of what's resident before you look at per-tier health.",
    "children": [
     {
      "selector": "#total-loaded",
      "title": "Total loaded",
-     "content": "Models resident across all tiers right now — the live count, distinct from D-23's catalog of what's available.",
-     "expanded": ""
+     "content": "How many models are resident across all tiers right now. Not the catalog size (D-23) — the live count actually consuming VRAM/RAM and ready to serve."
     },
     {
      "selector": "#bw-count",
-     "title": "Blackwell (Oracle) models",
-     "content": "How many models sit on the heavy 96 GB Oracle GPU. A high count competes for the VRAM the D-09 backpressure rule watches at 90%.",
-     "expanded": ""
+     "title": "Blackwell models",
+     "content": "Models resident on the Blackwell PRO 6000 (the Oracle Core). These are the biggest, full-precision/NVFP4 models — few but heavy; each one is a large slice of the 96 GB."
     },
     {
      "selector": "#rtx-count",
-     "title": "4090 (Logic) models",
-     "content": "Models on the tighter 24 GB Logic GPU — fewer, smaller, because 24 GB is a hard ceiling.",
-     "expanded": ""
+     "title": "4090 models",
+     "content": "Models resident on the RTX 4090 (the Logic Engine). Mid-scale Q4 ingestion/translation models — the 24 GB budget means these are smaller and more numerous than the Oracle's."
     },
     {
      "selector": "#cpu-count",
-     "title": "CPU / Pulse models",
-     "content": "Models on the CPU/Pulse ternary path — the sovereign tier that runs with no GPU at all. Non-zero here is Pulse serving real inference, the fallback that keeps the box useful under GPU pressure.",
-     "expanded": ""
+     "title": "CPU/Pulse models",
+     "content": "Models resident on CPU/Pulse (the Conductor) — ternary BitNet models run via bitnet.cpp on AVX-512 (M073). These cost RAM, not VRAM, and serve the cheap high-volume tier.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why a CPU tier at all</div>Ternary (1.58-bit) models are small and fast enough on AVX-512 that they don't need a GPU — so the cheapest, highest-volume work runs on the Pulse Core and leaves the GPUs for the expensive tiers.<div class=\"so-xref\"><span class=\"x\">→</span> Trinity / router — how work is classified to this cheap tier<br><span class=\"x\">→</span> D-09 CCD 0 — the Pulse cores these run on</div></div>"
     }
    ]
   },
   {
-   "icon": "◈",
+   "icon": "⚙",
    "title": "SRP role health (M075 + M058)",
-   "content": "The three roles the runtime serves through: Conductor (CPU/Pulse orchestration), Logic (4090), Oracle (Blackwell). Util plus VRAM per role show where the serving headroom is — or where backpressure is about to fire.",
+   "content": "The three serving tiers, each mapped to its hardware by the Single-Responsibility split (M075). Read them together: the scheduler (M058) balances work across them, so a saturated Oracle with an idle Logic tier means either the routing is sending everything deep, or the cheaper tiers can't take the work.",
    "children": [
     {
-     "selector": "#conductor-util",
-     "title": "Conductor utilization",
-     "content": "Compute load on the Conductor — lightweight routing/classification on Pulse. It should stay responsive even when Oracle is saturated.",
-     "expanded": "<div class=\"so-card info\"><div>High util here is routing work, not heavy generation — bounded by AVX-512 throughput on the CPU path.</div></div>"
+     "icon": "◈",
+     "title": "Conductor — CPU / Pulse",
+     "content": "The cheap ternary tier on CPU/Pulse. High-volume, low-cost classification and routing work.",
+     "children": [
+      {
+       "selector": "#conductor-util",
+       "title": "Conductor utilization",
+       "content": "Compute utilization of the Conductor tier right now. High util means this tier is actively serving; read it with tokens/sec — high util + low tokens/sec means the tier is busy but stalled (waiting on VRAM, KV, or upstream), not productive."
+      },
+      {
+       "selector": "#conductor-util-fill",
+       "title": "Conductor util bar",
+       "content": "The visual fill of Conductor utilization — the gauge behind the number. Read the number for the value; this is the at-a-glance level."
+      },
+      {
+       "selector": "#conductor-tps",
+       "title": "Conductor tokens/sec",
+       "content": "Throughput of the ternary tier in tokens/sec. This is the tier's productivity — for cheap high-volume work, sustained tokens/sec matters more than latency. A drop with high util means the Pulse cores are contended (check D-09 CPU PSI).",
+       "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Tokens/sec is the Conductor's real metric</div>The Conductor exists for volume, not depth. Its health is throughput — how many cheap decisions per second — not tail latency.<div class=\"so-xref\"><span class=\"x\">→</span> D-09 CPU PSI + CCD 0 load — what caps this tier's throughput</div></div>"
+      },
+      {
+       "selector": "#conductor-models-tbody",
+       "title": "Conductor models",
+       "content": "The ternary models loaded on CPU/Pulse, with per-model health. Hover a row for that model's role and state.",
+       "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The ternary roster</div>BitNet-class 1.58-bit models served via bitnet.cpp — small, RAM-resident, fast on AVX-512.</div>",
+       "dynamic": true,
+       "childTemplate": {
+        "selector": "#conductor-models-tbody tr",
+        "nameSelector": "td",
+        "title": "Model · {{name}}",
+        "content": "The {{name}} model on the Conductor tier (ternary / CPU-Pulse) — its live health. Hover reads the row; util/latency for this model sit in the tables below.",
+        "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Model · {{name}}</div>A model resident on the Conductor tier. Its per-request latency is in the latency table and its context reuse in the KV-cache table below.<div class=\"so-tip\">💡 A loaded model that isn't serving is reclaimable — Unload idle (Actions) frees its VRAM.</div></div>"
+       }
+      }
+     ]
     },
     {
-     "selector": "#conductor-tps",
-     "title": "Conductor tokens/sec",
-     "content": "The Conductor's serving rate — a read on whether the sovereign CPU path is keeping up with routing demand.",
-     "expanded": ""
+     "icon": "◈",
+     "title": "Logic Engine — RTX 4090",
+     "content": "The mid-scale ingestion/translation tier on the 24 GB 4090, VFIO-sandboxed.",
+     "children": [
+      {
+       "selector": "#logic-util",
+       "title": "Logic Engine utilization",
+       "content": "Compute utilization of the Logic Engine tier right now. High util means this tier is actively serving; read it with tokens/sec — high util + low tokens/sec means the tier is busy but stalled (waiting on VRAM, KV, or upstream), not productive."
+      },
+      {
+       "selector": "#logic-util-fill",
+       "title": "Logic util bar",
+       "content": "The visual fill of Logic-Engine utilization — the gauge behind the number."
+      },
+      {
+       "selector": "#logic-vram-pct",
+       "title": "Logic VRAM %",
+       "content": "How full the 4090's 24 GB is. The tighter of the two GPU budgets — it fills fast, so watch this against the models loaded: a near-full 4090 can't take another ingestion model without unloading one first.",
+       "variants": [
+        {
+         "when": {
+          "textContains": "9"
+         },
+         "content": "VRAM on the 4090 is running high — the Logic tier is near its 24 GB ceiling. A new model would need an unload first; the scheduler may refuse mid-scale work.",
+         "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ 4090 VRAM high</div>The tighter GPU budget is nearly full. Loading another Q4 model requires unloading one — check the model table below.</div>"
+        }
+       ]
+      },
+      {
+       "selector": "#logic-vram-fill",
+       "title": "Logic VRAM bar",
+       "content": "The visual fill of the 4090's VRAM — the gauge behind the percentage."
+      },
+      {
+       "selector": "#logic-vram-used",
+       "title": "Logic VRAM used — / 24 GB",
+       "content": "Resident VRAM on the 4090 in GB out of 24. The absolute figure behind the percentage; it's the hard cap on how large a Q4 ingestion model can load here (D-23 is VRAM-aware to respect it)."
+      },
+      {
+       "selector": "#logic-models-tbody",
+       "title": "Logic models",
+       "content": "The Q4 models loaded on the 4090, per-model health. Hover a row for that model's role and state — this tier does ingestion and translation, so expect encoder/translation models here.",
+       "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The sandboxed scout roster</div>Mid-scale Q4 models doing ingestion + translation, running VFIO-isolated in the Weaver sandbox — untrusted input is processed here, walled off from the host.</div>",
+       "dynamic": true,
+       "childTemplate": {
+        "selector": "#logic-models-tbody tr",
+        "nameSelector": "td",
+        "title": "Model · {{name}}",
+        "content": "The {{name}} model on the Logic Engine tier (Q4 / RTX 4090 sandbox) — its live health. Hover reads the row; util/latency for this model sit in the tables below.",
+        "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Model · {{name}}</div>A model resident on the Logic Engine tier. Its per-request latency is in the latency table and its context reuse in the KV-cache table below.<div class=\"so-tip\">💡 A loaded model that isn't serving is reclaimable — Unload idle (Actions) frees its VRAM.</div></div>"
+       }
+      }
+     ]
     },
     {
-     "selector": "#conductor-models-tbody",
-     "title": "Conductor models",
-     "content": "Which small/ternary models are serving the orchestration tier. Empty means routing is falling back elsewhere.",
-     "expanded": ""
-    },
-    {
-     "selector": "#logic-util",
-     "title": "Logic utilization",
-     "content": "Compute load on the 4090 mid-tier. With its VRAM, it shows whether the Logic GPU has headroom or is the bottleneck the D-09 rule will narrow at 85%.",
-     "expanded": ""
-    },
-    {
-     "selector": "#logic-vram-pct",
-     "title": "Logic VRAM %",
-     "content": "Occupancy of the 4090's 24 GB. Near 100% means no room to load another Logic model without unloading one first.",
-     "expanded": ""
-    },
-    {
-     "selector": "#logic-vram-used",
-     "title": "Logic VRAM used",
-     "content": "The absolute GB in use on the 4090 — what you compare against a model's footprint before a load.",
-     "expanded": ""
-    },
-    {
-     "selector": "#logic-models-tbody",
-     "title": "Logic models",
-     "content": "Which models are resident on the 4090 tier — where you confirm the intended Logic model is actually serving, not just catalogued.",
-     "expanded": ""
-    },
-    {
-     "selector": "#oracle-util",
-     "title": "Oracle utilization",
-     "content": "Compute load on the Blackwell heavy tier. Sustained high util is the Oracle doing its job; pair with VRAM to know if it has room for more context.",
-     "expanded": ""
-    },
-    {
-     "selector": "#oracle-vram-pct",
-     "title": "Oracle VRAM %",
-     "content": "Occupancy of the Blackwell's 96 GB — the figure the D-09 rule trips at 90% (trim context + evict KV). The single best predictor of whether large contexts still fit.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-grid\"><span class=\"k\">&gt; 90%</span><span>D-09 backpressure trims context + evicts low-value KV + may switch to a smaller oracle</span></div></div>"
-    },
-    {
-     "selector": "#oracle-vram-used",
-     "title": "Oracle VRAM used",
-     "content": "Absolute GB on the Blackwell — what you check against a large model's footprint before assigning it to Oracle.",
-     "expanded": ""
-    },
-    {
-     "selector": "#oracle-models-tbody",
-     "title": "Oracle models",
-     "content": "Which large models are resident on the Blackwell, and how many share its 96 GB.",
-     "expanded": ""
+     "icon": "◈",
+     "title": "Oracle Core — Blackwell PRO 6000",
+     "content": "The deep-reasoning tier on the 96 GB Blackwell — full-precision / NVFP4, the biggest models.",
+     "children": [
+      {
+       "selector": "#oracle-util",
+       "title": "Oracle Core utilization",
+       "content": "Compute utilization of the Oracle Core tier right now. High util means this tier is actively serving; read it with tokens/sec — high util + low tokens/sec means the tier is busy but stalled (waiting on VRAM, KV, or upstream), not productive."
+      },
+      {
+       "selector": "#oracle-util-fill",
+       "title": "Oracle util bar",
+       "content": "The visual fill of Oracle utilization — the gauge behind the number. Sustained high util here is deep synthesis running."
+      },
+      {
+       "selector": "#oracle-vram-pct",
+       "title": "Oracle VRAM %",
+       "content": "How full the Blackwell's 96 GB is. This is the ceiling on the largest model + its KV cache; past ~90% the M058 Blackwell-VRAM rule (D-09) sheds load, because a big-model load that overruns VRAM fails outright.",
+       "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The Oracle's VRAM is the deep-reasoning budget</div>96 GB sounds vast, but a full-precision frontier model plus a long-context KV cache eats it. This percentage is what decides whether the next deep request fits.<div class=\"so-xref\"><span class=\"x\">→</span> D-09 GPU 0 VRAM + the Blackwell-VRAM &gt; 90% rule<br><span class=\"x\">→</span> the KV-cache section below is the fastest-growing consume</div></div>",
+       "variants": [
+        {
+         "when": {
+          "textContains": "9"
+         },
+         "content": "Oracle VRAM is high — near the 96 GB wall. The Blackwell-VRAM rule (D-09) is close to shedding; a larger model or a longer context may not fit.",
+         "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ Oracle VRAM high</div>Approaching the deep-reasoning ceiling. Load-shedding is near — check KV-cache fill and resident model size.</div>"
+        }
+       ]
+      },
+      {
+       "selector": "#oracle-vram-fill",
+       "title": "Oracle VRAM bar",
+       "content": "The visual fill of the Blackwell's VRAM — the gauge behind the percentage."
+      },
+      {
+       "selector": "#oracle-vram-used",
+       "title": "Oracle VRAM used — / 96 GB",
+       "content": "Resident VRAM on the Blackwell in GB out of 96. The absolute figure — weights + KV cache combined. Watching it climb during a long generation is the KV cache growing with context."
+      },
+      {
+       "selector": "#oracle-models-tbody",
+       "title": "Oracle models",
+       "content": "The full-precision/NVFP4 models loaded on the Blackwell, per-model health. Hover a row for that model's role — these are the deep-reasoning models (M077 NVFP4 for Blackwell-native 4-bit).",
+       "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The deep-reasoning roster</div>Frontier models at full precision or NVFP4 (M077 — Blackwell-native 4-bit, half the VRAM of fp8). Few, heavy, and the box's most expensive cognition.</div>",
+       "dynamic": true,
+       "childTemplate": {
+        "selector": "#oracle-models-tbody tr",
+        "nameSelector": "td",
+        "title": "Model · {{name}}",
+        "content": "The {{name}} model on the Oracle Core tier (full-precision / NVFP4 / Blackwell) — its live health. Hover reads the row; util/latency for this model sit in the tables below.",
+        "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Model · {{name}}</div>A model resident on the Oracle Core tier. Its per-request latency is in the latency table and its context reuse in the KV-cache table below.<div class=\"so-tip\">💡 A loaded model that isn't serving is reclaimable — Unload idle (Actions) frees its VRAM.</div></div>"
+       }
+      }
+     ]
     }
    ]
   },
   {
-   "icon": "∿",
+   "icon": "◷",
    "title": "Latency & KV cache",
-   "content": "How the serving actually feels, and why. Latency percentiles show the experience; KV cache shows the pressure behind a bad tail.",
+   "content": "How fast the loaded models actually respond, and how well their context cache is being reused. Latency tells you the serving experience; KV-cache reuse tells you how much repeated work is being saved.",
    "children": [
     {
      "selector": "#latency-tbody",
-     "title": "Per-model latency p50/p95/p99",
-     "content": "p50 is the typical experience; p95/p99 are the tail users actually feel as 'slow'. A good p50 with a blown p99 means intermittent stalls.",
-     "expanded": "<div class=\"so-card info\"><div>A blown tail usually traces to KV/VRAM pressure — cross-reference the KV table below and the Oracle VRAM above.</div></div>"
+     "title": "Per-model latency p50 / p95 / p99",
+     "content": "Each loaded model's response latency at the 50th, 95th, and 99th percentile over the last hour, plus request rate. Read p99, not p50: the median hides the tail, and it's the p99 — the worst 1% — that users actually feel as 'sometimes it hangs'. A good p50 with a bad p99 is a tier under intermittent pressure.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why p50 / p95 / p99, not average</div>Latency isn't one number — it's a distribution with a tail. The percentiles show the shape.<div class=\"so-grid\"><span class=\"k\">p50</span><span>the typical request — half are faster</span><span class=\"k\">p95</span><span>the slow-ish requests — 1 in 20</span><span class=\"k\">p99</span><span>the tail — the worst 1%, what makes a model feel unreliable</span></div><div class=\"so-xref\"><span class=\"x\">→</span> a bad p99 with a healthy tier util usually means KV-cache misses or VRAM contention<br><span class=\"x\">→</span> D-05 traces shows the actual slow spans behind a bad percentile</div></div>",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#latency-tbody tr",
+      "nameSelector": "td",
+      "title": "Latency · {{name}}",
+      "content": "The {{name}} model's latency distribution (p50/p95/p99) and request rate. Read the p99 — the tail is what users feel. A wide gap between p50 and p99 is intermittent pressure, not a slow model.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Latency · {{name}}</div>p50 is typical, p99 is the worst 1%. A healthy model has a tight spread; a wide one points at KV misses or VRAM contention on its tier.<div class=\"so-xref\"><span class=\"x\">→</span> D-05 traces — the actual slow spans behind a bad p99</div></div>"
+     }
     },
     {
      "selector": "#kvcache-tbody",
-     "title": "KV cache utilization",
-     "content": "Per-model KV fill, max tokens, and prefill hit rate. When fill nears max, long or new contexts get evicted and latency tails grow.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-grid\"><span class=\"k\">high prefill-hit %</span><span>repeated prompts reused cheaply — the lever behind 'warm KV cache' in the actions</span></div></div>"
-    },
+     "title": "KV cache utilization (per-model)",
+     "content": "Per-model KV-cache health: sessions, max tokens, fill, and prefill hit %. The prefill hit % is the one to watch — it's how often a new request reused cached context instead of recomputing it. A high hit rate is a large, cheap speedup; a low one means the cache is thrashing and every request pays full prefill cost.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Prefill hit % is the reuse win</div>The KV cache (M011) lets a model skip recomputing context it's already seen. Prefill hit % measures that reuse — the single biggest lever on effective throughput for repeated or shared-prefix work.<div class=\"so-li\"><span class=\"ok\">✓</span> High hit % → context is being reused; requests are cheap</div><div class=\"so-li\"><span class=\"warn\">▲</span> Low hit % → cache thrashing; every request recomputes its prefill</div><div class=\"so-xref\"><span class=\"x\">→</span> D-09 GPU KV cache — the VRAM this consumes<br><span class=\"x\">→</span> warm KV cache (Actions) pre-loads it for Profile 3</div></div>",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#kvcache-tbody tr",
+      "nameSelector": "td",
+      "title": "KV cache · {{name}}",
+      "content": "The {{name}} model's KV-cache health — sessions, max tokens, fill, and prefill hit %. The prefill hit % is the reuse win: high means cheap repeated context, low means the cache is thrashing.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">KV cache · {{name}}</div>Prefill hit % is the lever — how often this model reused cached context instead of recomputing it. Low hit % + high request rate is where warming (Actions) pays off.<div class=\"so-xref\"><span class=\"x\">→</span> D-09 GPU KV cache — the VRAM this model's cache consumes</div></div>"
+     }
+    }
+   ]
+  },
+  {
+   "icon": "▦",
+   "title": "Availability heatmap",
+   "content": "The 24-hour availability picture — which models were up, degraded, or unavailable over time. The trend view that a point-in-time health check misses.",
+   "children": [
     {
      "selector": "#heatmap-container",
      "title": "Availability heatmap (24h)",
-     "content": "Per-model availability over the last day — green available, yellow degraded, red unavailable. Read the pattern, not just the current colour.",
-     "expanded": "<div class=\"so-card info\"><div>A model that flickers red on a schedule points at a recurring pressure event (a nightly job, an eval run) rather than a one-off fault.</div></div>"
+     "content": "Each loaded model's availability over the last 24 hours — green up, amber degraded, red unavailable. This is where you catch a model that flaps (repeatedly dropping and recovering) rather than one that's cleanly up or down; a flapping model is often a VRAM-pressure or thermal symptom.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Reading the heatmap</div>A point-in-time health check tells you now; the heatmap tells you the pattern. Solid green is trustworthy; a striped amber/red row is a model under intermittent stress worth investigating.<div class=\"so-xref\"><span class=\"x\">→</span> cross-reference a flapping row with D-09 GPU VRAM/temp at those times</div></div>"
     }
    ]
   },
   {
    "icon": "⎈",
    "title": "Actions & controls",
-   "content": "This panel reads; serving is mutated only through signed CLI verbs (R10212). The buttons stage the command; osctl executes.",
+   "content": "Read-only health view — refreshing re-samples; loading/unloading/warming are signed sovereign-osctl verbs. The cockpit stages; osctl executes.",
    "children": [
+    {
+     "selector": "#refresh-btn",
+     "title": "Refresh",
+     "content": "Re-poll model health now — utilization, latency, KV, availability. Read-only re-sample."
+    },
     {
      "selector": "#load-model-btn",
      "title": "Load model (operator-signed)",
-     "content": "Stages a model load — a load commits VRAM and takes time, so it runs through the gated osctl path where it's authorised and traced.",
-     "expanded": "<div class=\"so-card info\"><div>The button copies the signed verb; it never loads from the browser.</div></div>"
+     "content": "Stages loading a model into a tier — a signed CLI verb, because a load claims VRAM and can push a GPU past the shed threshold. The button copies the command; it never loads from the web.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why load is gated</div>Loading a model is a resource commitment — it takes VRAM that another model or KV cache needs. Gating it through osctl keeps that decision deliberate and signed.<div class=\"so-tip\">💡 Check the target tier's VRAM % above before loading — a load that overruns fails outright on the GPU.</div></div>"
     },
     {
      "selector": "#unload-idle-btn",
      "title": "Unload idle models",
-     "content": "Stages eviction of idle models to reclaim the VRAM the counts above show as committed. Executed via osctl, not the browser.",
-     "expanded": ""
+     "content": "Stages unloading models that are resident but not serving — reclaiming VRAM for tiers that need it. The cheap way to relieve a near-full GPU before loading something new."
     },
     {
      "selector": "#warm-kv-btn",
      "title": "Warm KV cache (Profile 3)",
-     "content": "Pre-fills the KV cache so the first requests after a load don't pay cold-prefill latency — the lever that lifts the prefill-hit % above. Tied to the deep-context profile.",
-     "expanded": ""
-    },
-    {
-     "selector": "#refresh-btn",
-     "title": "Refresh",
-     "content": "Pull a fresh health sample after a load/unload instead of waiting for the auto-poll. Read-only.",
-     "expanded": ""
+     "content": "Stages pre-loading the KV cache for Profile 3 (deep-context synthesis, M076) — paying the prefill cost up front so the first long-context request isn't slow. A latency optimization for the deep-reasoning path.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Warming trades startup for first-request speed</div>A cold KV cache makes the first long request pay full prefill. Warming it ahead of time (Profile 3) moves that cost off the critical path.<div class=\"so-xref\"><span class=\"x\">→</span> the KV-cache prefill hit % above is what this improves<br><span class=\"x\">→</span> Runtime Modes / M076 Profile 3 — deep-context synthesis</div></div>"
     },
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Where the runtime profile that shapes model allocation across the three tiers is selected. Every control copies its signed sovereign-osctl verb (§1g / R10212).",
-     "expanded": ""
+     "content": "Model controls — each copies its exact sovereign-osctl verb (§1g / R10212). Loading, unloading, and warming all run through the signed CLI; the web surface never changes what's resident."
     }
    ]
   }
