@@ -855,67 +855,133 @@ window.SO_ASSIST = {
  "context": {
   "icon": "⧉",
   "title": "Thinking Router / Orchestration",
-  "content": "The 7-axis routing brain (SDD-011) — how a prompt is classified and sent to a tier, plus the live metrics of where requests actually landed and the per-profile escalation ladder (CoT → Validator → self-consistency → MoE).\n\nThe rules are the policy; the metrics are reality. Reading them together tells you whether routing is behaving as intended."
+  "content": "The 7-axis routing brain (SDD-011) plus the escalation ladder. It classifies every prompt on seven axes (class, task-type, complexity, privacy, risk, cost, care) to pick a tier — then decides how hard to think: chain-of-thought → validator → self-consistency → mixture-of-experts, climbing only as far as the active runtime profile allows. The rules are the policy; the live metrics are where prompts actually landed.\n\nRead them together to see whether routing behaves as intended. If everything escalates to the expensive path, the rules or the prompts are heavier than they should be. Read-only; config runs through the signed CLI."
  },
  "nodes": [
   {
    "icon": "◆",
    "title": "Status",
-   "content": "Whether the orchestration service is up and serving routing decisions.",
+   "content": "Whether the orchestration/thinking-router service is up.",
    "children": [
     {
      "selector": "#status",
-     "title": "Service status",
-     "content": "Whether the thinking-router/orchestration service is live. If down, prompts have no classifier and fall to a default path.",
+     "title": "Orchestration status",
+     "content": "Whether the thinking-router is live. It classifies prompts and applies the escalation ladder (CoT → Validator → self-consistency → MoE) per the active runtime profile. Down means no classification — prompts fall to a default route.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The escalation ladder</div>The thinking-router doesn't just pick a tier — it can escalate reasoning: chain-of-thought, then a validator, then self-consistency (multiple samples), then mixture-of-experts. Each rung costs more but reasons harder; the active profile sets how far it climbs.</div>",
      "variants": [
       {
        "when": {
         "textContains": "down"
        },
-       "content": "Orchestration DOWN — no 7-axis classification; prompts fall to a default route."
-      },
-      {
-       "when": {
-        "textContains": "ok"
-       },
-       "content": "Orchestration up — prompts are being classified and routed."
+       "content": "Orchestration DOWN — no 7-axis classification or escalation; prompts fall to a default route.",
+       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Orchestration down</div>No thinking-router — prompts route by default only.</div>"
       }
      ]
     },
     {
      "selector": "#stats",
      "title": "Orchestration summary",
-     "content": "The headline counts of routing activity — how much is being classified and where it's going, before the rule/metric detail."
+     "content": "The headline counts of routing + escalation activity before the rule/metric detail."
     }
    ]
   },
   {
    "icon": "◫",
    "title": "Rules & live routing",
-   "content": "The 7-axis rules that decide which tier answers, and the live metrics of where requests actually landed.",
+   "content": "The SDD-011 rules and the live metrics of where requests actually landed — policy vs reality.",
    "children": [
     {
      "selector": "#rules",
-     "title": "7-axis routing rules (SDD-011)",
-     "content": "Seven axes (class, task-type, complexity…) classify a request and route it to a tier. This is the policy — deterministic, so the same prompt routes the same way.",
-     "expanded": "<div class=\"so-card info\"><div>Pairs with the live metrics beside it — rule vs reality. If everything escalates to Oracle, the rules or the prompts are heavier than intended.</div></div>"
+     "title": "Routing rules (SDD-011)",
+     "content": "The 7-axis routing rules — each classifies a prompt (class, task-type, complexity, privacy, risk, cost, care) and sends it to a tier. Deterministic and first-match-wins.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Seven axes</div>A prompt is classified on seven axes — simple/complex, private/public, safe/risky, coding/research/gui, local/cloud, fast/careful, cheap/oracle — and the first matching rule routes it. That's how 'this doesn't deserve the big model' becomes a decision.</div>"
     },
     {
      "selector": "#metrics",
      "title": "Live routing metrics",
-     "content": "Which tier / class / task-type requests actually landed on — the feedback loop for the rules, and where the per-profile escalation (CoT → Validator → self-consistency → MoE) shows its cost."
+     "content": "Where requests actually landed, by tier / class / task-type — the feedback loop for the rules, and where the escalation cost shows. If everything escalates to MoE/Oracle, the prompts or rules are heavier than intended.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Rules vs reality</div>The rules say where prompts should go; these metrics say where they went. A mismatch — everything escalating — is the signal to re-tune the rules or check what's driving complexity.</div>"
     }
    ]
   },
   {
    "icon": "⎈",
    "title": "Controls",
-   "content": "",
+   "content": "Read-only — mutations copy signed sovereign-osctl verbs (§1g / R10212).",
    "children": [
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Orchestration controls — each copies its sovereign-osctl verb (§1g / R10212). Read-only view of the routing brain."
+     "content": "Controls — each copies its exact sovereign-osctl verb. Orchestration config runs through the signed CLI, never from the web (§1g / R10212)."
+    }
+   ]
+  }
+ ]
+};
+</script>
+<script>
+window.SO_ASSIST = {
+ "context": {
+  "icon": "⧉",
+  "title": "Thinking Router / Orchestration",
+  "content": "The 7-axis routing brain (SDD-011) plus the escalation ladder. It classifies every prompt on seven axes (class, task-type, complexity, privacy, risk, cost, care) to pick a tier — then decides how hard to think: chain-of-thought → validator → self-consistency → mixture-of-experts, climbing only as far as the active runtime profile allows. The rules are the policy; the live metrics are where prompts actually landed.\n\nRead them together to see whether routing behaves as intended. If everything escalates to the expensive path, the rules or the prompts are heavier than they should be. Read-only; config runs through the signed CLI."
+ },
+ "nodes": [
+  {
+   "icon": "◆",
+   "title": "Status",
+   "content": "Whether the orchestration/thinking-router service is up.",
+   "children": [
+    {
+     "selector": "#status",
+     "title": "Orchestration status",
+     "content": "Whether the thinking-router is live. It classifies prompts and applies the escalation ladder (CoT → Validator → self-consistency → MoE) per the active runtime profile. Down means no classification — prompts fall to a default route.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The escalation ladder</div>The thinking-router doesn't just pick a tier — it can escalate reasoning: chain-of-thought, then a validator, then self-consistency (multiple samples), then mixture-of-experts. Each rung costs more but reasons harder; the active profile sets how far it climbs.</div>",
+     "variants": [
+      {
+       "when": {
+        "textContains": "down"
+       },
+       "content": "Orchestration DOWN — no 7-axis classification or escalation; prompts fall to a default route.",
+       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Orchestration down</div>No thinking-router — prompts route by default only.</div>"
+      }
+     ]
+    },
+    {
+     "selector": "#stats",
+     "title": "Orchestration summary",
+     "content": "The headline counts of routing + escalation activity before the rule/metric detail."
+    }
+   ]
+  },
+  {
+   "icon": "◫",
+   "title": "Rules & live routing",
+   "content": "The SDD-011 rules and the live metrics of where requests actually landed — policy vs reality.",
+   "children": [
+    {
+     "selector": "#rules",
+     "title": "Routing rules (SDD-011)",
+     "content": "The 7-axis routing rules — each classifies a prompt (class, task-type, complexity, privacy, risk, cost, care) and sends it to a tier. Deterministic and first-match-wins.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Seven axes</div>A prompt is classified on seven axes — simple/complex, private/public, safe/risky, coding/research/gui, local/cloud, fast/careful, cheap/oracle — and the first matching rule routes it. That's how 'this doesn't deserve the big model' becomes a decision.</div>"
+    },
+    {
+     "selector": "#metrics",
+     "title": "Live routing metrics",
+     "content": "Where requests actually landed, by tier / class / task-type — the feedback loop for the rules, and where the escalation cost shows. If everything escalates to MoE/Oracle, the prompts or rules are heavier than intended.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Rules vs reality</div>The rules say where prompts should go; these metrics say where they went. A mismatch — everything escalating — is the signal to re-tune the rules or check what's driving complexity.</div>"
+    }
+   ]
+  },
+  {
+   "icon": "⎈",
+   "title": "Controls",
+   "content": "Read-only — mutations copy signed sovereign-osctl verbs (§1g / R10212).",
+   "children": [
+    {
+     "selector": "#control-surface",
+     "title": "Controls rail",
+     "content": "Controls — each copies its exact sovereign-osctl verb. Orchestration config runs through the signed CLI, never from the web (§1g / R10212)."
     }
    ]
   }

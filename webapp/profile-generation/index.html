@@ -843,30 +843,33 @@ window.SO_ASSIST = {
  "context": {
   "icon": "⌘",
   "title": "Runtime-Profile Generation",
-  "content": "Generate a whole runtime profile from hardware × strategy — the '20+ combos' producer. Each strategy's tier_intent is resolved against the model catalog, so a profile can only reference models that actually fit this hardware.\n\nRead-only: it shows the resolved allocations and the generate command; producing a profile is a signed CLI verb."
+  "content": "Generates whole runtime profiles from hardware × strategy — the '20+ combos' producer. Each strategy's tier_intent is resolved against the VRAM-aware model catalog, so a generated profile can only ever reference models that actually fit this box's GPUs and CPU. That's the guarantee: every profile it emits is loadable; a strategy that wants an unavailable model is flagged, not silently shipped.\n\nRead it to see the resolved allocations each strategy yields and the generate command. Read-only — producing and applying a profile is a signed CLI verb, never a web click."
  },
  "nodes": [
   {
    "icon": "◆",
    "title": "Status",
-   "content": "Whether the generator resolved cleanly against the current catalog.",
+   "content": "Whether the profile generator resolved cleanly against the model catalog.",
    "children": [
     {
      "selector": "#status",
      "title": "Generation status",
-     "content": "Whether the profile generator resolved cleanly against models/catalog.yaml. If a model a strategy wants isn't in the catalog, it flags it here rather than emitting a profile that can't load.",
+     "content": "Whether the runtime-profile generator resolved cleanly. It produces the '20+ combos' from hardware × strategy, resolving each strategy's tier_intent against the catalog — so a profile can only reference models that actually fit this hardware. If a wanted model isn't in the catalog, it flags rather than emitting a broken profile.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Hardware × strategy → profiles</div>The generator crosses this box's hardware with each allocation strategy to produce runtime profiles. Because it resolves against the VRAM-aware catalog, every generated profile is guaranteed loadable — no profile references a model that can't fit.<div class=\"so-xref\"><span class=\"x\">→</span> D-21 — where a generated profile is applied<br><span class=\"x\">→</span> D-23/models-catalog — the catalog it resolves against</div></div>",
      "variants": [
       {
        "when": {
         "textContains": "ok"
        },
-       "content": "Resolved cleanly — every strategy's models exist in the catalog and fit this hardware."
+       "content": "Resolved cleanly — every strategy's models exist in the catalog and fit this hardware.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">✓ Resolved</div>All generated profiles are loadable on this box.</div>"
       },
       {
        "when": {
         "textContains": "error"
        },
-       "content": "Resolution failed — a strategy references a model not in the catalog or that doesn't fit; the flagged profile can't be emitted."
+       "content": "Resolution failed — a strategy references a model not in the catalog or that doesn't fit; the flagged profile can't be emitted.",
+       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Resolution failed</div>A strategy wants a model that isn't available or doesn't fit — profile not emitted.</div>"
       }
      ]
     }
@@ -875,25 +878,90 @@ window.SO_ASSIST = {
   {
    "icon": "▦",
    "title": "Generated profiles",
-   "content": "The runtime profiles produced from hardware × strategy — the resolved allocations each strategy yields for this box.",
+   "content": "The runtime profiles produced from hardware × strategy — each a whole allocation for this box.",
    "children": [
     {
      "selector": "#profiles",
      "title": "Generated profiles",
-     "content": "Each row is a whole allocation (which model on which device, which cores pinned) a strategy produces for THIS hardware — the resolved result AND the generate command.",
-     "expanded": "<div class=\"so-card info\"><div>tier_intent is resolved against the catalog, so a profile never references a model that can't load here. Cross-reference D-21 for how a profile binds at runtime.</div></div>"
+     "content": "Each generated profile is a complete allocation (which model on which device, which cores pinned) a strategy yields for THIS hardware — plus the generate command. Hover for the strategy behind it.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A profile is a resolved allocation</div>tier_intent resolved against the catalog, so a profile never references a model that can't load here. Apply one via D-21; the generate command is copied, never run from the web.</div>"
     }
    ]
   },
   {
    "icon": "⎈",
    "title": "Controls",
-   "content": "",
+   "content": "Read-only — mutations copy signed sovereign-osctl verbs (§1g / R10212).",
    "children": [
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Generation controls — each copies its sovereign-osctl verb (e.g. the generate command). Producing a profile runs via the signed CLI, never from the web (§1g / R10212)."
+     "content": "Controls — each copies its exact sovereign-osctl verb. Profile generation runs through the signed CLI, never from the web (§1g / R10212)."
+    }
+   ]
+  }
+ ]
+};
+</script>
+<script>
+window.SO_ASSIST = {
+ "context": {
+  "icon": "⌘",
+  "title": "Runtime-Profile Generation",
+  "content": "Generates whole runtime profiles from hardware × strategy — the '20+ combos' producer. Each strategy's tier_intent is resolved against the VRAM-aware model catalog, so a generated profile can only ever reference models that actually fit this box's GPUs and CPU. That's the guarantee: every profile it emits is loadable; a strategy that wants an unavailable model is flagged, not silently shipped.\n\nRead it to see the resolved allocations each strategy yields and the generate command. Read-only — producing and applying a profile is a signed CLI verb, never a web click."
+ },
+ "nodes": [
+  {
+   "icon": "◆",
+   "title": "Status",
+   "content": "Whether the profile generator resolved cleanly against the model catalog.",
+   "children": [
+    {
+     "selector": "#status",
+     "title": "Generation status",
+     "content": "Whether the runtime-profile generator resolved cleanly. It produces the '20+ combos' from hardware × strategy, resolving each strategy's tier_intent against the catalog — so a profile can only reference models that actually fit this hardware. If a wanted model isn't in the catalog, it flags rather than emitting a broken profile.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Hardware × strategy → profiles</div>The generator crosses this box's hardware with each allocation strategy to produce runtime profiles. Because it resolves against the VRAM-aware catalog, every generated profile is guaranteed loadable — no profile references a model that can't fit.<div class=\"so-xref\"><span class=\"x\">→</span> D-21 — where a generated profile is applied<br><span class=\"x\">→</span> D-23/models-catalog — the catalog it resolves against</div></div>",
+     "variants": [
+      {
+       "when": {
+        "textContains": "ok"
+       },
+       "content": "Resolved cleanly — every strategy's models exist in the catalog and fit this hardware.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">✓ Resolved</div>All generated profiles are loadable on this box.</div>"
+      },
+      {
+       "when": {
+        "textContains": "error"
+       },
+       "content": "Resolution failed — a strategy references a model not in the catalog or that doesn't fit; the flagged profile can't be emitted.",
+       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Resolution failed</div>A strategy wants a model that isn't available or doesn't fit — profile not emitted.</div>"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "icon": "▦",
+   "title": "Generated profiles",
+   "content": "The runtime profiles produced from hardware × strategy — each a whole allocation for this box.",
+   "children": [
+    {
+     "selector": "#profiles",
+     "title": "Generated profiles",
+     "content": "Each generated profile is a complete allocation (which model on which device, which cores pinned) a strategy yields for THIS hardware — plus the generate command. Hover for the strategy behind it.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A profile is a resolved allocation</div>tier_intent resolved against the catalog, so a profile never references a model that can't load here. Apply one via D-21; the generate command is copied, never run from the web.</div>"
+    }
+   ]
+  },
+  {
+   "icon": "⎈",
+   "title": "Controls",
+   "content": "Read-only — mutations copy signed sovereign-osctl verbs (§1g / R10212).",
+   "children": [
+    {
+     "selector": "#control-surface",
+     "title": "Controls rail",
+     "content": "Controls — each copies its exact sovereign-osctl verb. Profile generation runs through the signed CLI, never from the web (§1g / R10212)."
     }
    ]
   }

@@ -943,52 +943,157 @@ window.SO_ASSIST = {
  "context": {
   "icon": "◑",
   "title": "Runtime Modes (M076)",
-  "content": "The master-spec §18 runtime profiles — ultra-sovereign-efficiency / high-concurrency / deep-context. A mode is a whole posture: pick one and it drives core pinning, GPU power, and model allocation together.\n\nThe active mode explains a lot of what you see elsewhere — an efficiency mode caps GPU power, a concurrency mode spreads cores. When behaviour surprises you, check the mode first."
+  "content": "The master-spec §18 runtime profiles — the three postures the box can run in: ultra-sovereign-efficiency (CPU-only, GPUs asleep, lowest power), high-concurrency (both GPUs spread for maximum parallel agents), and deep-context (one big model layer-split across both GPUs for the longest contexts). A mode is not a setting — it drives core pinning, GPU power, and model allocation together, so it's the single choice that most shapes how the box behaves.\n\nRead it to see which posture is live (it explains much of D-09's pressure and D-03's allocation) and to switch. Switching is a signed CLI verb; the marker file persists the choice."
  },
  "nodes": [
   {
-   "icon": "◈",
-   "title": "Active mode",
-   "content": "Which runtime posture is live, and where its marker file lives. This one choice drives cores, GPU power, and allocation together.",
+   "icon": "◑",
+   "title": "Active runtime mode (M076)",
+   "content": "Which of the three M076 runtime postures is live, and where its marker is. A mode is a whole posture — it drives core pinning, GPU power, and model allocation together — so the active mode explains much of what D-09 and D-03 show.",
    "children": [
     {
      "selector": "#active-mode-banner",
-     "title": "Active runtime mode",
-     "content": "Which mode is currently in effect. A mode is a whole posture — it drives core pinning, GPU power, and model allocation at once (cross-reference D-09's numbers).",
-     "expanded": "<div class=\"so-card info\"><div>When D-09 shows capped GPU power or spread cores, this is usually why — the mode is doing it deliberately.</div></div>"
+     "title": "Active mode",
+     "content": "Which runtime mode is currently in effect. A mode isn't a knob — it's a coherent bundle (ultra-sovereign-efficiency / high-concurrency / deep-context) that reshapes cores, GPU power, and model allocation at once. When behaviour surprises you, check the mode first.",
+     "icon": "◑",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A mode is a whole posture</div><div class=\"so-grid\"><span class=\"k\">efficiency</span><span>CPU-only, GPUs asleep — lowest power, cheapest cognition</span><span class=\"k\">high-concurrency</span><span>asymmetric CPU + dual-GPU — most parallel agents</span><span class=\"k\">deep-context</span><span>one big model layer-split across both GPUs — longest contexts</span></div><div class=\"so-xref\"><span class=\"x\">→</span> D-09 — the CCD/GPU pressure this mode produces<br><span class=\"x\">→</span> D-21 — the same M076 profiles from the orchestration angle</div></div>",
+     "variants": [
+      {
+       "when": {
+        "textContains": "efficiency"
+       },
+       "content": "Ultra-sovereign-efficiency is active — CPU-only, GPUs asleep. Lowest power; GPU-heavy work will be slow because the GPUs are parked by design.",
+       "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">● Efficiency mode</div>GPUs asleep, ternary on CPU. Explains capped GPU power in D-09.</div>"
+      },
+      {
+       "when": {
+        "textContains": "concurrency"
+       },
+       "content": "High-concurrency mode is active — cores spread across both GPUs for maximum parallel agents.",
+       "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">● Concurrency mode</div>Spread for parallelism — explains distributed CCD load in D-09.</div>"
+      },
+      {
+       "when": {
+        "textContains": "deep-context"
+       },
+       "content": "Deep-context mode is active — a big model is layer-split across both GPUs with 4-bit KV for the longest contexts.",
+       "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">● Deep-context mode</div>One big model across both GPUs — explains high combined VRAM.</div>"
+      }
+     ]
     },
     {
      "selector": "#active-mode-label",
      "title": "Active mode label",
-     "content": "The name of the live mode — ultra-sovereign-efficiency, high-concurrency, or deep-context. The one-word read of the box's current posture."
+     "content": "The name of the live mode — the one-word read of the box's current posture."
     },
     {
      "selector": "#active-mode-marker-path",
      "title": "Mode marker path",
-     "content": "Where the active-mode marker file lives on disk — the persistent source of truth the runtime reads, so the mode survives restarts."
+     "content": "Where the active-mode marker file lives (/run/sovereign-os/…) — the persistent source of truth the runtime reads, so the mode survives across reads."
     },
     {
      "selector": "#active-mode-marker-hint",
      "title": "Mode marker hint",
-     "content": "How the mode marker is set — the mechanism behind switching, so you know the mode isn't ephemeral state."
+     "content": "How the marker is set — the mechanism behind a mode switch, confirming the mode is real persistent state, not ephemeral."
+    },
+    {
+     "selector": "#modes-grid",
+     "title": "Runtime modes grid",
+     "content": "The three M076 modes you can switch to — each a coherent bundle of core-pinning + GPU-power + allocation, not a single setting. Picking one reshapes the whole runtime at once.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Switching a mode reshapes everything</div>Selecting a mode changes cores, GPU power, and model placement together — which is why it's a whole posture, and why the banner above shows which one is live.</div>"
     }
    ]
   },
   {
-   "icon": "▦",
-   "title": "Modes & controls",
-   "content": "The menu of available modes, and the control rail to switch.",
+   "icon": "⎈",
+   "title": "Controls",
+   "content": "Read-only — mutations copy signed sovereign-osctl verbs (§1g / R10212).",
    "children": [
-    {
-     "selector": "#modes-grid",
-     "title": "Runtime modes grid",
-     "content": "The §18 modes you can pick from — efficiency, concurrency, deep-context. Each is a coherent bundle of core-pinning + GPU-power + allocation, not a single knob.",
-     "expanded": "<div class=\"so-card info\"><div>Picking a mode reshapes the whole runtime at once — the banner above shows which one is live.</div></div>"
-    },
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Mode controls — each copies its sovereign-osctl verb (§1g / R10212). Switching mode is a signed CLI action, never a web click."
+     "content": "Controls — each copies its exact sovereign-osctl verb. Runtime mode switch runs through the signed CLI, never from the web (§1g / R10212)."
+    }
+   ]
+  }
+ ]
+};
+</script>
+<script>
+window.SO_ASSIST = {
+ "context": {
+  "icon": "◑",
+  "title": "Runtime Modes (M076)",
+  "content": "The master-spec §18 runtime profiles — the three postures the box can run in: ultra-sovereign-efficiency (CPU-only, GPUs asleep, lowest power), high-concurrency (both GPUs spread for maximum parallel agents), and deep-context (one big model layer-split across both GPUs for the longest contexts). A mode is not a setting — it drives core pinning, GPU power, and model allocation together, so it's the single choice that most shapes how the box behaves.\n\nRead it to see which posture is live (it explains much of D-09's pressure and D-03's allocation) and to switch. Switching is a signed CLI verb; the marker file persists the choice."
+ },
+ "nodes": [
+  {
+   "icon": "◑",
+   "title": "Active runtime mode (M076)",
+   "content": "Which of the three M076 runtime postures is live, and where its marker is. A mode is a whole posture — it drives core pinning, GPU power, and model allocation together — so the active mode explains much of what D-09 and D-03 show.",
+   "children": [
+    {
+     "selector": "#active-mode-banner",
+     "title": "Active mode",
+     "content": "Which runtime mode is currently in effect. A mode isn't a knob — it's a coherent bundle (ultra-sovereign-efficiency / high-concurrency / deep-context) that reshapes cores, GPU power, and model allocation at once. When behaviour surprises you, check the mode first.",
+     "icon": "◑",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A mode is a whole posture</div><div class=\"so-grid\"><span class=\"k\">efficiency</span><span>CPU-only, GPUs asleep — lowest power, cheapest cognition</span><span class=\"k\">high-concurrency</span><span>asymmetric CPU + dual-GPU — most parallel agents</span><span class=\"k\">deep-context</span><span>one big model layer-split across both GPUs — longest contexts</span></div><div class=\"so-xref\"><span class=\"x\">→</span> D-09 — the CCD/GPU pressure this mode produces<br><span class=\"x\">→</span> D-21 — the same M076 profiles from the orchestration angle</div></div>",
+     "variants": [
+      {
+       "when": {
+        "textContains": "efficiency"
+       },
+       "content": "Ultra-sovereign-efficiency is active — CPU-only, GPUs asleep. Lowest power; GPU-heavy work will be slow because the GPUs are parked by design.",
+       "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">● Efficiency mode</div>GPUs asleep, ternary on CPU. Explains capped GPU power in D-09.</div>"
+      },
+      {
+       "when": {
+        "textContains": "concurrency"
+       },
+       "content": "High-concurrency mode is active — cores spread across both GPUs for maximum parallel agents.",
+       "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">● Concurrency mode</div>Spread for parallelism — explains distributed CCD load in D-09.</div>"
+      },
+      {
+       "when": {
+        "textContains": "deep-context"
+       },
+       "content": "Deep-context mode is active — a big model is layer-split across both GPUs with 4-bit KV for the longest contexts.",
+       "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">● Deep-context mode</div>One big model across both GPUs — explains high combined VRAM.</div>"
+      }
+     ]
+    },
+    {
+     "selector": "#active-mode-label",
+     "title": "Active mode label",
+     "content": "The name of the live mode — the one-word read of the box's current posture."
+    },
+    {
+     "selector": "#active-mode-marker-path",
+     "title": "Mode marker path",
+     "content": "Where the active-mode marker file lives (/run/sovereign-os/…) — the persistent source of truth the runtime reads, so the mode survives across reads."
+    },
+    {
+     "selector": "#active-mode-marker-hint",
+     "title": "Mode marker hint",
+     "content": "How the marker is set — the mechanism behind a mode switch, confirming the mode is real persistent state, not ephemeral."
+    },
+    {
+     "selector": "#modes-grid",
+     "title": "Runtime modes grid",
+     "content": "The three M076 modes you can switch to — each a coherent bundle of core-pinning + GPU-power + allocation, not a single setting. Picking one reshapes the whole runtime at once.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Switching a mode reshapes everything</div>Selecting a mode changes cores, GPU power, and model placement together — which is why it's a whole posture, and why the banner above shows which one is live.</div>"
+    }
+   ]
+  },
+  {
+   "icon": "⎈",
+   "title": "Controls",
+   "content": "Read-only — mutations copy signed sovereign-osctl verbs (§1g / R10212).",
+   "children": [
+    {
+     "selector": "#control-surface",
+     "title": "Controls rail",
+     "content": "Controls — each copies its exact sovereign-osctl verb. Runtime mode switch runs through the signed CLI, never from the web (§1g / R10212)."
     }
    ]
   }
