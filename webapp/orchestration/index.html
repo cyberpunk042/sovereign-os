@@ -40,6 +40,58 @@
   footer{margin-top:2rem;color:var(--muted);font-size:.75rem;border-top:1px solid var(--border);padding-top:.8rem}
   .standing-rule{color:var(--accent);font-style:italic;margin-top:.4rem}
 </style>
+<!-- SDD-116/119 shared demo-mode helper (inlined verbatim from webapp/_shared/demo-mode.{css,js}; opt-in, always-badged sample data — SB-077 reconciliation). -->
+<style>
+/* webapp/_shared/demo-mode.css — SDD-116 DEMO badge.
+ * DEMO mode is opt-in sample data for exploring panels with no daemon. The badge
+ * is a persistent, unmistakable ribbon so DEMO data is NEVER mistaken for real
+ * telemetry (the SB-077 reconciliation). Inlined verbatim into demo-capable
+ * panels alongside demo-mode.js. */
+#so-demo-badge {
+  position: fixed; top: calc(var(--so-header-h, 48px) + 8px); right: 12px; z-index: 9600;
+  background: #e6c062; color: #0a0a0a; font-weight: 700; font-size: .72rem; letter-spacing: .03em;
+  padding: .28rem .65rem; border-radius: 6px; box-shadow: 0 2px 12px rgba(0, 0, 0, .38);
+  font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif; pointer-events: none;
+}
+#so-demo-badge .sub { font-weight: 400; opacity: .82; }
+</style>
+<script>
+/* webapp/_shared/demo-mode.js — SDD-116 shared DEMO-mode helper (opt-in sample data).
+ *
+ * Reads the `sovereign-os.demo` localStorage flag (schema-guarded) and renders a
+ * persistent DEMO badge. Demo-capable panels call `soDemo.on()` to branch to their
+ * clearly-labelled sample data. The SB-077 reconciliation: DEMO is opt-in (off by
+ * default; never self-enables), ALWAYS badged, and makes ZERO network calls
+ * (R10212 strengthened — the demo render path never fetches). Inlined verbatim into
+ * demo-capable panels alongside demo-mode.css. */
+(function () {
+  "use strict";
+  var DKEY = 'sovereign-os.demo', DSCHEMA = 1;
+  function on() {
+    try {
+      var r = localStorage.getItem(DKEY); var p = r ? JSON.parse(r) : null;
+      return !!(p && p.schema === DSCHEMA && p.on);
+    } catch (e) { return false; }
+  }
+  function set(v) {
+    try { localStorage.setItem(DKEY, JSON.stringify({ schema: DSCHEMA, on: !!v })); } catch (e) {}
+  }
+  function badge() {
+    var b = document.getElementById('so-demo-badge');
+    if (on()) {
+      if (!b) {
+        b = document.createElement('div'); b.id = 'so-demo-badge';
+        b.innerHTML = 'DEMO <span class="sub">· sample data — not real telemetry</span>';
+        b.setAttribute('role', 'status');
+        (document.body || document.documentElement).appendChild(b);
+      }
+    } else if (b) { b.remove(); }
+  }
+  window.soDemo = { on: on, set: set, badge: badge, KEY: DKEY, SCHEMA: DSCHEMA };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', badge);
+  else badge();
+})();
+</script>
 </head>
 <body>
 <!-- APP-SHELL:BEGIN M067 -->
@@ -993,14 +1045,29 @@ function counts(obj, title) {
     + '</div>';
 }
 
+function demoActive() { return !!(window.soDemo && window.soDemo.on()); }
+const DEMO_ORCH = {
+  rules: { rules:[
+    {n:1, match:"demo/task.class == research", tier:"local"},
+    {n:2, match:"demo/task.tokens > 8000", tier:"k2_6_openrouter"},
+    {n:3, match:"demo/task.class == code-review", tier:"k2_6_openrouter"},
+    {n:4, match:"demo/task.risk == high", tier:"openrouter"},
+    {n:5, match:"demo/default", tier:"local"}
+  ] },
+  metrics: {
+    tier_counts:{local:128, k2_6_openrouter:74, openrouter:12, claude:3},
+    class_counts:{research:61, code:88, "code-review":24, ops:44},
+    task_type_counts:{chat:96, edit:73, plan:31, act:20}
+  }
+};
 async function load() {
   try {
-    const r = await fetch("/orchestration.json", { headers: { Accept: "application/json" } });
-    const d = await r.json();
+    const d = demoActive() ? DEMO_ORCH : await (await fetch("/orchestration.json", { headers: { Accept: "application/json" } })).json();
     const rules = (d.rules && d.rules.rules) || [];
     const m = d.metrics || {};
     if (d.rules && d.rules.error) throw new Error(d.rules.error);
-    el("status").textContent = "live ✓ — " + rules.length + " routing rules";
+    el("status").textContent = (demoActive() ? "DEMO — sample data — " : "live ✓ — ") + rules.length + " routing rules";
+    if (demoActive() && window.soDemo) window.soDemo.badge();
     el("status").className = "status ok";
     el("stats").innerHTML =
       '<div class="stat"><div class="k">routing rules</div><div class="v">' + rules.length + '</div></div>'

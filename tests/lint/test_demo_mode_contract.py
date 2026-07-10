@@ -133,3 +133,156 @@ def test_d03_model_health_demo():
     # the helper is inlined in <head> (before the panel script) so soDemo exists first
     head = body[:body.index("</head>")]
     assert "window.soDemo" in head, "the demo helper must load in <head> before the panel script"
+
+
+def test_d23_models_catalog_demo():
+    """SDD-120 (DEMO batch 1 cont.) — D-23 Models Catalog reuses the shared helper:
+    opt-in, badged, sample catalog with placeholder ids, NO network in the demo path
+    (no fetch, no EventSource), helper in <head>."""
+    body = (REPO_ROOT / "webapp" / "d-23-models-catalog" / "index.html").read_text(encoding="utf-8")
+    assert "window.soDemo" in body and BADGE_TEXT in body
+    assert "function demoActive()" in body
+    assert "DEMO_CATALOG" in body and "demo/" in body
+    m = re.search(r"if \(demoActive\(\)\) \{(.*?)\n    \}", body, re.DOTALL)
+    assert m and "fetch(" not in m.group(1), "the D-23 DEMO render path must make NO fetch"
+    assert re.search(r"if \(!demoActive\(\)\) \{\s*try \{\s*const es = new EventSource", body), (
+        "D-23 must open NO EventSource in DEMO mode"
+    )
+    assert "window.soDemo" in body[:body.index("</head>")], "helper must load in <head>"
+
+
+def _assert_head_demo(slug, demo_const):
+    body = (REPO_ROOT / "webapp" / slug / "index.html").read_text(encoding="utf-8")
+    assert "window.soDemo" in body and BADGE_TEXT in body, f"{slug}: helper/badge"
+    assert "function demoActive()" in body, f"{slug}: demoActive gate"
+    assert demo_const in body and "demo/" in body, f"{slug}: sample data placeholders"
+    assert "window.soDemo" in body[:body.index("</head>")], f"{slug}: helper must load in <head>"
+    return body
+
+
+def test_d10_eval_history_demo():
+    """SDD-120 — D-10 Eval History: badged sample evals, no fetch/EventSource in demo."""
+    body = _assert_head_demo("d-10-eval-history", "DEMO_EVALS")
+    assert re.search(r"demoActive\(\)\s*\?\s*DEMO_EVALS\s*:\s*await fetchEvals\(\)", body)
+    assert re.search(r"if \(demoActive\(\)\) throw new Error\('DEMO", body), "no EventSource in demo"
+
+
+def test_d11_adapter_status_demo():
+    """SDD-120 — D-11 Adapter Status: badged sample inventory, no fetch/EventSource in demo."""
+    body = _assert_head_demo("d-11-adapter-status", "DEMO_ADAPTERS")
+    assert re.search(r"demoActive\(\)\s*\?\s*DEMO_ADAPTERS\s*:\s*await fetchAdapters\(\)", body)
+    assert re.search(r"if \(demoActive\(\)\) throw new Error\('DEMO", body), "no EventSource in demo"
+
+
+def test_models_catalog_demo():
+    """SDD-120 — models-catalog: badged sample catalog via load() short-circuit, no fetch in demo."""
+    body = _assert_head_demo("models-catalog", "DEMO_MODELS")
+    m = re.search(r"if \(demoActive\(\)\) \{(.*?)\n    return;\n  \}", body, re.DOTALL)
+    assert m and "fetch(" not in m.group(1), "the models-catalog DEMO load path must make NO fetch"
+
+
+# ── SDD-121 (DEMO batch 2 — hardware + compute posture) ────────────────────────
+
+def test_d09_hardware_pressure_demo():
+    """SDD-121 — D-09 Hardware Pressure: badged sample PSI/CCD/GPU/ZFS/backpressure,
+    refresh() short-circuit (no fetchPressure), /api/hardware/stream skipped in demo."""
+    body = _assert_head_demo("d-09-hardware-pressure", "DEMO_PRESSURE")
+    assert re.search(r"demoActive\(\)\s*\?\s*DEMO_PRESSURE\s*:\s*await fetchPressure\(\)", body)
+    assert "if (!demoActive()) try {\n  const es = new EventSource('/api/hardware/stream')" in body, (
+        "D-09 must skip the hardware EventSource in demo"
+    )
+
+
+def test_runtime_modes_demo():
+    """SDD-121 — runtime-modes: badged sample active mode + modes grid; both render
+    fns short-circuit before any /api/runtime-modes fetch in demo."""
+    body = _assert_head_demo("runtime-modes", "DEMO_MODES")
+    assert body.count("if (demoActive()) {") >= 2, "both render fns need a demo short-circuit"
+    assert "for (const mode of DEMO_MODES.modes)" in body
+
+
+def test_orchestration_demo():
+    """SDD-121 — orchestration: badged sample rules+metrics via load() ternary, no fetch in demo."""
+    body = _assert_head_demo("orchestration", "DEMO_ORCH")
+    assert re.search(r"demoActive\(\)\s*\?\s*DEMO_ORCH\s*:\s*await", body), (
+        "orchestration load() must select DEMO_ORCH (no fetch) in demo"
+    )
+
+
+def test_d24_cpu_features_demo():
+    """SDD-121 — D-24 CPU Features: badged sample probe/workloads/advisory via refresh()
+    short-circuit (render(DEMO_CPU...)), /api/cpu-features/stream skipped in demo."""
+    body = _assert_head_demo("d-24-cpu-features", "DEMO_CPU")
+    assert "render(DEMO_CPU.probe, DEMO_CPU.workloads, DEMO_CPU.advisory)" in body
+    assert "if (!demoActive()) try { const es = new EventSource('/api/cpu-features/stream')" in body, (
+        "D-24 must skip the cpu-features EventSource in demo"
+    )
+
+
+def test_cpu_features_demo():
+    """SDD-121 — cpu-features: badged sample AVX posture via load() ternary, no fetch in demo."""
+    body = _assert_head_demo("cpu-features", "DEMO_AVX")
+    assert re.search(r"demoActive\(\)\s*\?\s*DEMO_AVX\s*:\s*await", body), (
+        "cpu-features load() must select DEMO_AVX (no fetch) in demo"
+    )
+
+
+def test_d04_costs_demo():
+    """SDD-121 — D-04 Costs: badged sample today/projects/profiles/models/trend/policy via
+    refresh() short-circuit (no fetchCosts), /api/costs/stream skipped in demo."""
+    body = _assert_head_demo("d-04-costs", "DEMO_COSTS")
+    assert re.search(r"demoActive\(\)\s*\?\s*DEMO_COSTS\s*:\s*await fetchCosts\(\)", body)
+    assert "if (!demoActive()) try {\n  const es = new EventSource('/api/costs/stream')" in body, (
+        "D-04 must skip the costs EventSource in demo"
+    )
+
+
+# ── SDD-122 (DEMO batch 3 — punchy verdicts + compute meta) ────────────────────
+
+def test_d01_active_sessions_demo():
+    """SDD-122 — D-01 Active Sessions: badged sample summary+sessions via refresh()
+    short-circuit (no fetchSessions), /api/sessions/stream skipped in demo."""
+    body = _assert_head_demo("d-01-active-sessions", "DEMO_SESSIONS")
+    assert re.search(r"demoActive\(\)\s*\?\s*DEMO_SESSIONS\s*:\s*await fetchSessions\(\)", body)
+    assert "if (!demoActive()) try {\n  const es = new EventSource('/api/sessions/stream')" in body, (
+        "D-01 must skip the sessions EventSource in demo"
+    )
+
+
+def test_d20_peace_machine_health_demo():
+    """SDD-122 — D-20 Peace Machine Health: badged sample verdict via load() short-circuit,
+    no /api/d-20/snapshot fetch in demo."""
+    body = _assert_head_demo("d-20-peace-machine-health", "DEMO_D20")
+    m = re.search(r"if \(demoActive\(\)\) \{ seed = Object\.assign\(seed, DEMO_D20\);(.*?)return; \}", body, re.DOTALL)
+    assert m and "fetch(" not in m.group(1), "D-20 demo branch must make NO fetch"
+
+
+def test_d18_trust_scores_demo():
+    """SDD-122 — D-18 Trust Scores: badged sample tiles/tools via load() short-circuit,
+    no /api/d-18/snapshot fetch in demo."""
+    body = _assert_head_demo("d-18-trust-scores", "DEMO_D18")
+    m = re.search(r"if \(demoActive\(\)\) \{ seed = Object\.assign\(seed, DEMO_D18\);(.*?)return; \}", body, re.DOTALL)
+    assert m and "fetch(" not in m.group(1), "D-18 demo branch must make NO fetch"
+
+
+def test_d19_super_model_manifest_demo():
+    """SDD-122 — D-19 Super-Model Manifest: badged sample version/phases/milestones via
+    load() short-circuit, no /api/d-19/snapshot fetch in demo."""
+    body = _assert_head_demo("d-19-super-model-manifest", "DEMO_D19")
+    m = re.search(r"if \(demoActive\(\)\) \{\n      snap = Object\.assign\(snap, DEMO_D19\);(.*?)return;\n    \}", body, re.DOTALL)
+    assert m and "fetch(" not in m.group(1), "D-19 demo branch must make NO fetch"
+
+
+def test_d02_profile_choices_demo():
+    """SDD-122 — D-02 Profile Choices: badged sample active profile via refresh() short-circuit,
+    no /api/profile/show fetch in demo."""
+    body = _assert_head_demo("d-02-profile-choices", "DEMO_PROFILE")
+    assert re.search(r"demoActive\(\)\s*\?\s*DEMO_PROFILE\s*:\s*await fetchActiveProfile\(\)", body)
+
+
+def test_profile_generation_demo():
+    """SDD-122 — profile-generation: badged sample allocations via load() ternary, no fetch in demo."""
+    body = _assert_head_demo("profile-generation", "DEMO_PROFGEN")
+    assert re.search(r"demoActive\(\)\s*\?\s*DEMO_PROFGEN\s*:\s*await", body), (
+        "profile-generation load() must select DEMO_PROFGEN (no fetch) in demo"
+    )
