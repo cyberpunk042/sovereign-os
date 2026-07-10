@@ -102,8 +102,12 @@ if [ "${served}" = "1" ]; then
     && ok "science-api /healthz → ok" || ko "healthz not ok"
   curl -fsS "127.0.0.1:${PORT}/science.json" 2>/dev/null | grep -q '"tools"' \
     && ok "science-api /science.json serves the catalog" || ko "/science.json missing tools"
-  curl -fsS "127.0.0.1:${PORT}/" 2>/dev/null | grep -q "DOCTYPE html" \
-    && ok "science-api / serves the webapp" || ko "webapp not served"
+  wok=0
+  for _ in $(seq 1 20); do
+    if curl -fsS "127.0.0.1:${PORT}/" 2>/dev/null | grep -q "DOCTYPE html"; then wok=1; break; fi
+    sleep 0.3
+  done
+  [ "${wok}" = "1" ] && ok "science-api / serves the webapp" || ko "webapp not served"
   code="$(curl -fsS -o /dev/null -w '%{http_code}' -X POST "127.0.0.1:${PORT}/" 2>/dev/null || true)"
   [ "${code}" = "405" ] && ok "science-api POST → 405 (read-only)" || ko "POST returned ${code}, expected 405"
 else

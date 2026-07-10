@@ -1408,238 +1408,293 @@ refresh();
 <script>
   window.SO_ASSIST = {
  "context": {
-  "icon": "$",
+  "icon": "◍",
   "title": "D-04 · Costs",
-  "content": "What the box is spending — and the honest answer is usually nothing. Sovereign-os inference runs local on the loopback router, so a local request is FREE: $0 here is correct, not a broken meter (SDD-102). Real cost only accrues if a request falls back to a cloud model — and cloud is disabled by default. So this panel is really 'is any cloud spend happening, and is it within the budget you set'.\n\nRead it to confirm the box is staying local (spend near zero), to catch a cloud fallback you didn't expect, and to see the policy that governs cloud at all. The cost policy is operator-controlled; halting cloud routes is a signed panic verb."
+  "content": "The honest ledger — and the point it makes is that the number is mostly zero. The box’s whole cost model rests on a single truth (SDD-102, ‘$0-is-honest’): local inference is free, cloud is off by default, so the vast majority of what a hosted assistant would bill for costs nothing here. What this panel actually watches, then, isn’t a big spend — it’s the rare exception: a prompt that escaped to cloud, and whether the policies that are supposed to prevent that held.\n\nSo read it in two halves. The spend figures (today, per-request, forecast) are the meter, usually near zero. The cost POLICY — cloud off, approval required, private paths never cloud — is the load-bearing part: those are the sovereignty guarantees that keep the meter at zero. And the halt button is the panic switch if cloud ever starts costing when it shouldn’t."
  },
  "nodes": [
   {
    "icon": "◆",
-   "title": "Live-source banner",
-   "content": "Whether the cost figures are live from /api/costs/summary or a snapshot. A panel must always say which it's on — a stale cost read could hide a cloud fallback that just started spending.",
+   "title": "Data source",
+   "content": "Whether the cost figures are live or a snapshot — a stale ledger could hide a cloud spend that just started.",
    "children": [
     {
-     "selector": "#datasource-banner",
+     "selector": "#ds-state-label",
      "title": "Live vs snapshot",
-     "content": "Green = the costs daemon is answering; muted = a snapshot. On a spend panel, a snapshot could miss the moment a request went to cloud.",
-     "icon": "◆",
+     "content": "Whether /api/costs/summary is answering live. Cost matters most at the moment something unexpected starts spending — a cloud route that shouldn’t have opened — so a live feed is what lets this panel catch that as it happens rather than after the budget is gone.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The value of live cost is catching the exception</div>On a box where local is free and cloud is off, the ledger is boring almost all the time — which is exactly why a live read matters: the one time it’s NOT boring (a cloud route opened, spend climbing) is the time you need to see it now, not in an hour’s snapshot.</div><div class=\"so-xref\"><span class=\"x\">→</span> #ds-last-update — how current the figures are</div>",
      "variants": [
+      {
+       "when": {
+        "textContains": "checking"
+       },
+       "content": "Reaching the cost endpoint — the figures aren’t confirmed live yet.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Connecting</div>Waiting on /api/costs/summary. Spend numbers are unconfirmed until this goes live.</div>"
+      },
       {
        "when": {
         "textContains": "live"
        },
-       "content": "Live — spend figures are current.",
-       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Live</div>The daemon is answering; today's spend is now.</div>"
+       "content": "Live — the cost figures reflect spend right now.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Live</div>The cost feed is answering; spend is current.</div>"
       },
       {
        "when": {
-        "textContains": "snapshot"
+        "textContains": "offline"
        },
-       "content": "Snapshot — the daemon is unreachable; a cloud fallback since capture wouldn't show.",
-       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Snapshot</div>Reading last-known spend — a new cloud request might not be counted yet.</div>"
+       "content": "No answer — the ledger is a snapshot; a spend that just started may not show.",
+       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Offline</div>The cost feed is down. A new cloud spend might be invisible here until it recovers.</div>"
       }
      ]
     },
     {
-     "selector": "#ds-state-label",
-     "title": "Source label",
-     "content": "One-word source read — live daemon vs baked snapshot, at a glance before you trust the spend."
-    },
-    {
      "selector": "#ds-state-detail",
      "title": "Source detail",
-     "content": "The endpoint (/api/costs/summary) and why it's live or fell back."
+     "content": "The longer status line — which endpoint answered and, when degraded, why. On a healthy feed it just confirms /api/costs/summary; when amber, it tells you whether the figures below are merely slow or absent."
     },
     {
      "selector": "#ds-last-update",
-     "title": "Fetch freshness",
-     "content": "When spend was last read. Cloud fallbacks can start any time; check this before trusting '$0 today' as final."
+     "title": "Ledger freshness",
+     "content": "When the cost figures were last read. Usually unremarkable — but if a cloud route ever opens, this is the caveat that says how recently you’d have seen the spend start, so a stale timestamp during an anomaly is a reason to refresh before trusting a low number."
     }
    ]
   },
   {
-   "icon": "▤",
-   "title": "Today's budget",
-   "content": "Today's spend against the budget you set (operator-configurable per profile). On a local-only box these should read ~$0 against whatever ceiling you configured — the budget is really a guardrail for the cloud path, not a bill you're running up.",
+   "icon": "▦",
+   "title": "Today’s budget",
+   "content": "Today’s spend against its budget, plus the per-request numbers that would catch a runaway. On a healthy box these hover near zero because everything ran local. The budget and per-request-max exist not because spend is expected but as tripwires: they cap the damage if a cloud route ever opens unexpectedly.",
    "children": [
     {
      "selector": "#today-spend",
-     "title": "Spend today (UTC)",
-     "content": "What's been spent so far today. On a local box this is ~$0 — every non-zero dollar here came from a cloud fallback, so a rising number is the signal that requests are leaving the machine.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why spend should be ~$0</div>Local inference on the loopback router is free — no per-token bill. Spend only appears when a request falls back to a cloud model (disabled by default).<div class=\"so-li\"><span class=\"ok\">✓</span> $0 → everything ran local; the box stayed sovereign and free</div><div class=\"so-li\"><span class=\"warn\">▲</span> &gt;$0 → some request went to cloud — check cost-by-model for which</div><div class=\"so-xref\"><span class=\"x\">→</span> the cost policy below is what gates cloud in the first place</div></div>"
+     "title": "Today’s spend",
+     "content": "What the box has spent today (UTC). On a box running local-only this should be at or near zero — every prompt served free on your own silicon. A non-zero figure here is the signal to investigate: something routed to cloud, and the rest of this panel is where you find out what and why.",
+     "variants": [
+      {
+       "when": {
+        "textContains": "$0"
+       },
+       "content": "Zero spend today — everything ran local and free, as intended.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● $0 today</div>Nothing escaped to cloud — the sovereign, free path handled it all.</div>"
+      },
+      {
+       "when": {
+        "textContains": ""
+       },
+       "content": "Non-zero spend today — something routed to cloud. Check cost-by-profile and the policy below to see what and whether it was allowed.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ Spend today</div>Something cost money — a cloud route opened. Trace it via cost-by-model and confirm the policy permitted it.</div>"
+      }
+     ]
     },
     {
      "selector": "#today-budget",
-     "title": "Daily budget",
-     "content": "The budget ceiling you configured for today. It's a cloud-spend guardrail — if cloud is enabled and spend approaches this, the policy can start refusing cloud fallbacks. On a local-only box it's a safety net that should never be touched."
-    },
-    {
-     "selector": "#today-fill",
-     "title": "Budget fill",
-     "content": "The visual fill of today's spend against the budget — the gauge behind the numbers. Near-empty is the healthy state for a local box."
-    },
-    {
-     "selector": "#today-label",
-     "title": "Budget label",
-     "content": "The label on the budget gauge — spend / ceiling. Read the numbers for the values; this names them."
+     "title": "Today’s budget",
+     "content": "The daily spending cap, configurable per profile. It’s not a target to spend up to — it’s a ceiling, the daily_budget_usd policy made visible. Its job is to bound the worst case: if something starts spending, this is the limit past which the box stops rather than draining an account.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A ceiling, not an allowance</div>The budget isn’t money the box intends to spend — local is free, so it usually spends none of it. It’s a safety bound: a cap on how much damage an unexpected cloud spend could do in a day before the box refuses further cloud routes. Set per profile, because an autonomous profile might warrant a tighter cap than a supervised one.</div><div class=\"so-xref\"><span class=\"x\">→</span> #pol-daily — the policy this cap comes from</div>"
     },
     {
      "selector": "#req-count",
      "title": "Requests today",
-     "content": "How many inference requests ran today. Read it against spend: many requests at $0 is a healthy local box doing real work for free; the same request count with spend means cloud fallbacks."
+     "content": "How many requests the box served today. Read it against today’s spend: a high request count with zero spend is the sovereignty story working — thousands of prompts, all free, all local. The ratio of requests to cost is the honest efficiency number a hosted service would never show you.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The number that makes zero impressive</div>A spend of $0 is only remarkable next to the work it bought. Thousands of requests served for nothing is the whole argument — cognition at no marginal cost. This count is the denominator that turns a boring zero into the point: the box did real work, and it was free.</div>"
     },
     {
      "selector": "#avg-req-cost",
      "title": "Avg cost / request",
-     "content": "Average cost per request — total spend / request count. On a local box this is $0. A non-zero average is the per-request cloud cost, useful for spotting whether one expensive model or many cheap ones drove the spend."
+     "content": "The average cost per request today — almost always zero on a local box. It’s a useful anomaly detector: if this drifts above zero, some fraction of requests are hitting cloud, and the average tells you roughly how large that fraction or how expensive those few are.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A drift detector, not a bill</div>Because local is free, this average lives at zero — so any movement off zero is signal. A small non-zero average means a few requests found cloud; a larger one means either more of them did or the ones that did were expensive. It points you to cost-by-model to see which.</div><div class=\"so-xref\"><span class=\"x\">→</span> #model-tbody — which cloud model the drift came from</div>"
     },
     {
      "selector": "#per-req-max",
      "title": "Per-request max (alert)",
-     "content": "The most expensive single request today — the worst case, not the average. A high max with a low average means one outlier (a big cloud-model prompt); the policy's per_request_max_usd is what caps this.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The max is the outlier catcher</div>Averages hide a single runaway request. This surfaces the priciest call — usually a large cloud fallback — so you can trace it before it repeats.<div class=\"so-xref\"><span class=\"x\">→</span> per_request_max_usd (policy below) is the hard cap on this<br><span class=\"x\">→</span> D-05 traces shows the actual expensive span</div></div>"
+     "content": "The most expensive single request today, and the alert threshold it’s checked against (the per_request_max_usd policy). One pricey request is exactly the kind of thing an average hides, so this surfaces the single worst case — a runaway prompt that escaped to an expensive cloud model would show here first.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The tripwire for a single runaway</div>Averages smooth over outliers; this doesn’t. A per-request max that crosses the alert threshold is the box catching one expensive request — a long cloud generation, a costly model — before it becomes a pattern. It’s the fine-grained companion to the daily budget: one caps the day, this catches the single event.</div><div class=\"so-xref\"><span class=\"x\">→</span> #pol-perreq — the per-request cap policy this enforces</div>"
     },
     {
      "selector": "#eod-forecast",
-     "title": "Forecast end-of-day",
-     "content": "Projected spend by end of day at the current rate. On a local box it stays ~$0; a climbing forecast is an early warning that cloud fallbacks are accumulating faster than expected."
+     "title": "End-of-day forecast",
+     "content": "The projected spend by end of day given the trajectory so far. On a local box this projects to zero; a rising forecast is an early warning that today’s spend is trending toward the budget, giving you time to intervene (or halt cloud) before it’s reached rather than after.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Early warning, so you act before the cap</div>A budget you only notice when you hit it is a budget that already cost you. The forecast is the lead time: if spend is trending up, it projects where the day ends, so you can halt cloud or switch profile before the cap rather than discovering the overage after.</div><div class=\"so-xref\"><span class=\"x\">→</span> #halt-btn — the intervention a rising forecast argues fo</div>"
     }
    ]
   },
   {
-   "icon": "≣",
-   "title": "Cost breakdowns",
-   "content": "Where the (usually zero) cost comes from — by project, by profile, by model. When spend is non-zero, these three tables locate it: which work, under which profile's cloud policy, on which model.",
+   "icon": "◫",
+   "title": "Cost by project",
+   "content": "Spend broken down by project — which workload, if any, is responsible for cost. On a local box this is a table of zeros; when something does spend, this is the first cut at ‘who’ — which project’s work escaped to cloud.",
    "children": [
     {
      "selector": "#project-tbody",
      "title": "Cost by project",
-     "content": "Per-project spend over today / 7d / 30d, with the profile and route each used. Hover a row for that project's spend and whether it went local or cloud. On a local box every project reads $0.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Cost by project</div>Attributes spend to the work that caused it. A project showing cost is one whose requests fell back to cloud — the route column tells you local vs cloud.</div>",
+     "content": "Each row is a project and its spend. Read it to attribute cost: if the ledger is non-zero, this says which project’s work is responsible, narrowing the investigation before you drill into which model or route it used. On a healthy box every row is zero, which is itself the reassuring reading.",
      "dynamic": true,
      "childTemplate": {
       "selector": "#project-tbody tr",
-      "nameSelector": "td",
-      "title": "Project · {{name}}",
-      "content": "The {{name}} project's spend across today/7d/30d, with its profile and route. On a local box this is $0; a cost here means this project's requests went cloud.",
-      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Project · {{name}}</div>Spend attributed to this project. The route column (local vs cloud) is the tell for why it costs anything.</div>"
+      "nameSelector": "td,code,strong",
+      "title": "Row · {{name}}",
+      "content": "The {{name}} row — a project and its spend (zero on a local box; non-zero attributes cost to a workload). Read it against the doctrine: zeros are the box keeping its $0 promise; anything else is the exception to explain.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Project · {{name}}</div>One project’s spend. On a sovereign box it’s zero; a real number is the first clue to which workload escaped to cloud.</div>"
      }
-    },
-    {
-     "selector": "#profile-tbody",
-     "title": "Cost by profile (MS040)",
-     "content": "Spend per operator profile — and crucially, each profile's cloud stance: private (never cloud, R10747), fast (local-only), careful (cloud gated), autonomous (predeclared), experimental (sandbox only), production (strict, R10454). The profile is what decides whether cloud is even reachable.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The profile is the cloud gate</div>Cost isn't just a number per profile — it's a policy. Each profile declares its relationship to cloud, and that's what determines whether any spend is even possible.<div class=\"so-grid\"><span class=\"k\">private</span><span>never cloud (R10747) — always $0, always local</span><span class=\"k\">fast</span><span>local-only</span><span class=\"k\">careful</span><span>cloud allowed but gated (per-request approval)</span><span class=\"k\">autonomous</span><span>cloud within predeclared bounds</span><span class=\"k\">production</span><span>strict (R10454)</span></div><div class=\"so-xref\"><span class=\"x\">→</span> D-02 profile choices — the active profile that governs this</div></div>",
-     "dynamic": true,
-     "childTemplate": {
-      "selector": "#profile-tbody tr",
-      "nameSelector": "td",
-      "title": "Profile · {{name}}",
-      "content": "The {{name}} profile's spend and its cloud stance. The stance — never/local-only/gated/predeclared/strict — is what decides whether this profile can spend at all.",
-      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Profile · {{name}}</div>Cost per profile is really policy per profile. private = always $0; production = strict-gated cloud.</div>"
-     }
-    },
-    {
-     "selector": "#model-tbody",
-     "title": "Cost by model",
-     "content": "Per-model spend with tokens-in, tokens-out, and $/Mtok. Local models are $0/Mtok (free); a non-zero $/Mtok is a cloud model. This is where you see exactly which model, if any, is costing money.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Cost by model</div>$/Mtok is the tell: $0 = a local model (free), non-zero = a cloud model. Tokens-out usually dominates cost, so a chatty cloud model is the expensive one.</div>",
-     "dynamic": true,
-     "childTemplate": {
-      "selector": "#model-tbody tr",
-      "nameSelector": "td",
-      "title": "Model · {{name}}",
-      "content": "The {{name}} model's usage and $/Mtok. $0/Mtok = a local model (free); non-zero = cloud. Tokens-out usually drives the cost.",
-      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Model · {{name}}</div>A local model costs nothing; this row only shows dollars if it's a cloud model.</div>"
-     }
-    },
-    {
-     "selector": "#trend-chart",
-     "title": "30-day spend trend",
-     "content": "Spend over the last 30 days. For a healthy local box this is a flat line at zero; any spikes are days cloud fallbacks happened — worth correlating with what changed (a new project, a profile switch, a cloud-enable)."
     }
    ]
   },
   {
-   "icon": "⚙",
-   "title": "Cost policy (operator-controlled)",
-   "content": "The rules that govern cloud spending — the reason costs are usually zero. These are operator-set: cloud is off by default, private paths never leave the box, and there are hard budget + per-request caps. This is the policy the whole panel is really about.",
+   "icon": "⊞",
+   "title": "Cost by profile (MS040)",
+   "content": "How each authority profile treats cloud — the cloud-routing stance per MS040 profile, across 1-day / 7-day / 30-day windows. This is less about dollars than about policy: it shows, per profile, whether cloud is allowed at all, gated, predeclared, sandbox-only, or strictly forbidden. It’s the map of which postures can even incur cost.",
+   "children": [
+    {
+     "selector": "#profile-tbody",
+     "title": "Cloud stance per profile",
+     "content": "Each profile’s cloud-routing policy over the time windows — private (never cloud, R10747), fast (yes), careful (yes but gated), autonomous (predeclared only), experimental (sandbox only), production (strict, R10454). Read it as the answer to ‘which profile could spend, and under what constraint’ — the private and production profiles are locked down precisely so their work can never leak to a paid cloud path.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Cost policy IS authority policy</div>Whether a profile can route to cloud isn’t a billing setting — it’s a sovereignty and authority decision. The private profile forbids cloud outright (private paths never leave the box); production is strict; autonomous only allows predeclared cloud use. So this matrix is really the authority envelope (D-02) viewed through the cost lens: tighter profiles can’t spend because they can’t reach the paid path.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-02 profile-choices — the authority envelopes these cloud stances belong to<br><span class=\"x\">→</span> #pol-private — the private-paths-never-cloud guarantee</div>",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#profile-tbody tr",
+      "nameSelector": "td,code,strong,th",
+      "title": "Profile · {{name}}",
+      "content": "The {{name}} profile’s cloud stance across the windows — whether it may route to cloud, and under what constraint. Tighter profiles (private, production) forbid or strictly gate cloud, so their work structurally cannot spend; looser ones permit it under approval or predeclaration.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Profile · {{name}}</div>This profile’s cloud-routing policy. It’s an authority decision as much as a cost one — whether {{name}}’s work can reach a paid path at all is set by its MS040 envelope (D-02).</div><div class=\"so-xref\"><span class=\"x\">→</span> D-02 — the authority envelope behind {{name}}</div>"
+     }
+    }
+   ]
+  },
+  {
+   "icon": "◫",
+   "title": "Cost by model",
+   "content": "Spend attributed to specific models — and by extension, to local versus cloud. The local tiers (Conductor, Logic, Oracle) cost nothing; any non-zero row here is a cloud model, so this table is the clearest ‘did we pay for cloud, and for which model’ view.",
+   "children": [
+    {
+     "selector": "#model-tbody",
+     "title": "Cost by model",
+     "content": "Each row is a model with its tokens-out and dollars-per-million-tokens. The local models show $0 per Mtok — that’s the whole point — so any row with a real price is a cloud model, and its token count is how much you leaned on it. Read it to see exactly which cloud model incurred cost, if any, and how heavily it was used.",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#model-tbody tr",
+      "nameSelector": "td,code,strong",
+      "title": "Row · {{name}}",
+      "content": "The {{name}} row — a model with tokens-out and $/Mtok (local = $0; any price is a cloud model). Read it against the doctrine: zeros are the box keeping its $0 promise; anything else is the exception to explain.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Model · {{name}}</div>One model’s cost. Local tiers are $0/Mtok by design; a priced row is a cloud model, and its token count is how heavily it was used.</div>"
+     }
+    }
+   ]
+  },
+  {
+   "icon": "∿",
+   "title": "30-day trend",
+   "content": "The month of spend — the shape over time. On a sovereign box this is a flat line at zero, which is the honest headline: a month of cognition at no marginal cost. A blip is a cloud escalation worth explaining; a rising line is a policy drift worth stopping.",
+   "children": [
+    {
+     "selector": "#trend-chart",
+     "title": "30-day spend trend",
+     "content": "Spend plotted over the last 30 days. The expected shape is flat-at-zero — a month of free local inference — so the chart is really an exception detector: a spike marks a day something routed to cloud, and a sustained rise means cloud use is creeping in against the doctrine. Read the shape, not the magnitude, since the magnitude should be near nothing.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A flat line is the success state</div>Most cost charts trend up and you manage the slope. This one is designed to stay flat at zero, and any deviation is the story — a spike is a one-off escalation to explain, a rising trend is the box drifting away from local-only and toward paid cloud, which the cost policies exist to prevent. Flat is the box keeping its $0-is-honest promise.</div><div class=\"so-xref\"><span class=\"x\">→</span> #pol-cloud — the policy that should keep this flat</div>"
+    }
+   ]
+  },
+  {
+   "icon": "⚑",
+   "title": "Cost policy",
+   "content": "The operator-controlled rules that keep the meter at zero — the load-bearing half of this panel. These aren’t billing preferences; they’re the sovereignty guarantees: cloud off by default, approval required, private paths never cloud, budgets and per-request caps. Read them as the promises the box makes about your data and your money.",
    "children": [
     {
      "selector": "#policy-tbody",
-     "title": "Cost policy",
-     "content": "The operator-controlled cost policy — each key, its current value, and its source. This is the safety envelope around cloud: nothing spends unless these allow it. Hover a key for what it enforces.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Policy is why $0 is the default</div>The policy is deny-by-default for cloud: cloud_enabled is false, private paths are hard-blocked from cloud, and budgets cap what's left. Cost is zero because the policy makes it so — not because nothing's happening.</div>"
+     "title": "Cost policy table",
+     "content": "The full operator-controlled cost policy, verbatim from config. Each row is a guarantee about when and whether the box will ever spend — read together they define the sovereignty envelope around cost: the box does not phone a paid cloud unless these rules explicitly, and reversibly, permit it. This table is why the spend above is usually zero.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The rules that make $0 the default</div>Local-free is only half the story; these policies are the other half — they ensure the box doesn’t quietly opt into paid cloud. Together they enforce cloud-off-by-default with approval gates and hard budget caps, all operator-controlled and reversible. The individual rows below make each guarantee explicit.</div>",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#policy-tbody tr",
+      "nameSelector": "td,code,strong",
+      "title": "Row · {{name}}",
+      "content": "The {{name}} row — one cost-policy rule and its value (a sovereignty guarantee, not a billing preference). Read it against the doctrine: zeros are the box keeping its $0 promise; anything else is the exception to explain.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Policy · {{name}}</div>One operator-controlled cost rule. Together these keep spend at zero by default — cloud off, approval gated, private paths never cloud, hard caps.</div>"
+     }
     },
     {
      "selector": "#pol-cloud",
-     "title": "cloud_enabled",
-     "content": "The master switch for cloud fallback. Default false — so by default NO request ever leaves the box and cost is structurally $0. Flipping this true is what makes any spend possible at all.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">cloud_enabled = the sovereignty switch</div>This one boolean is the difference between a free, fully-local box and one that can spend. Default false is the sovereign default; enabling it is a deliberate operator choice, gated by the rest of the policy.<div class=\"so-tip\">💡 If spend is non-zero, this is true — and the other keys are what's keeping it bounded.</div></div>"
+     "title": "Policy · cloud_enabled",
+     "content": "Whether cloud routing is enabled at all. The default and sovereign posture is OFF — the box serves everything locally and never reaches a paid external model. This is the master switch behind the flat-zero spend: with cloud disabled, no policy below even gets a chance to matter, because nothing can route out.",
+     "variants": [
+      {
+       "when": {
+        "textContains": "false"
+       },
+       "content": "cloud_enabled = false — cloud is off; the box cannot incur cost. The sovereign default.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Cloud off</div>Nothing can route to a paid cloud model — spend is structurally zero.</div>"
+      },
+      {
+       "when": {
+        "textContains": "true"
+       },
+       "content": "cloud_enabled = true — cloud routing is permitted (still gated by the policies below). The box CAN incur cost.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ Cloud on</div>Cloud routing is enabled — spend is possible, bounded by approval and budget policies. Confirm this is intended.</div>"
+      }
+     ]
     },
     {
      "selector": "#pol-approval",
-     "title": "cloud_requires_approval",
-     "content": "Whether a cloud fallback needs an explicit approval first (R10747). When true, no request goes to cloud without passing through D-06 — so even with cloud enabled, each cloud call is a deliberate, signed decision."
+     "title": "Policy · cloud_requires_approval",
+     "content": "Whether any cloud route requires operator approval before it runs (R10747). With this on, even an enabled cloud path can’t spend silently — it queues for your signature first, so cost is never incurred without a human choosing it. It’s the operator-in-the-loop guarantee applied to money.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">No spend without a human choosing it</div>Enabling cloud does not mean cloud spends freely — with approval required, each cloud route is a request you sign, not an automatic action. So even the ‘cloud on’ posture keeps a human between a prompt and a bill, which is the same operator-in-the-loop principle as D-06’s approval queue, applied to money.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-06 pending-approvals — where a cloud route would wait for you</div>"
     },
     {
      "selector": "#pol-daily",
-     "title": "daily_budget_usd",
-     "content": "The hard daily spend ceiling. Once cloud spend hits this, further cloud fallbacks are refused for the day — the guardrail that stops a runaway from draining a budget. It's the ceiling the today's-budget gauge measures against."
+     "title": "Policy · daily_budget_usd",
+     "content": "The hard daily spend cap. Past this, the box stops routing to cloud for the day regardless of demand — the ceiling that bounds a bad day. It’s the policy behind the today’s-budget number above: not an allowance to spend, but the limit that caps the worst case.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The bound on a bad day</div>Even with cloud on and a runaway workload, this is the most the box can spend in a day before it refuses further cloud routes. It converts an open-ended risk (an account drained overnight) into a known, bounded one — the maximum damage a single day can do, set by you.</div>"
     },
     {
      "selector": "#pol-perreq",
-     "title": "per_request_max_usd",
-     "content": "The hard cap on any single request's cost (R10075). A request whose projected cost exceeds this is refused rather than run — the protection against one giant cloud prompt blowing the budget in a single call (it's what the per-request-max alert above watches)."
+     "title": "Policy · per_request_max_usd",
+     "content": "The cap on any single request’s cost (R10075). No one prompt can spend more than this, so a runaway generation on an expensive cloud model is bounded per-request, not just per-day. It’s the fine-grained cap that catches a single costly event the daily budget would only notice in aggregate.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The cap the daily budget can’t provide</div>A daily budget lets one pathological request eat the whole day’s allowance in a single call. This prevents that: no individual request may exceed this cost, so a single runaway generation is stopped on its own terms, not after it has already spent the day’s cap.</div><div class=\"so-xref\"><span class=\"x\">→</span> #per-req-max — the live max this bounds</div>"
     },
     {
      "selector": "#pol-private",
-     "title": "private_paths_never_cloud",
-     "content": "The rule that private-tagged work NEVER goes to cloud, regardless of any other setting (R10081). This is a hard sovereignty guarantee: sensitive paths stay local even if cloud is enabled — the policy can't be configured to leak them.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The unbreakable-private guarantee</div>Some settings are conveniences; this is a guarantee. Private-tagged work is structurally barred from cloud — no budget, approval, or enable flag can route it out. It's the sovereignty floor.<div class=\"so-xref\"><span class=\"x\">→</span> D-02 profiles — the private profile that always honours this</div></div>"
+     "title": "Policy · private_paths_never_cloud",
+     "content": "The guarantee that private paths never route to cloud (R10081) — the data-sovereignty rule, not just a cost one. Work marked private stays on the box no matter what, so sensitive prompts cannot leak to an external model even if cloud is otherwise enabled. This is the policy that makes ‘private’ mean private.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">This one is about your data, not your money</div>Most cost policies bound spend; this one bounds exposure. private_paths_never_cloud means certain work is structurally incapable of leaving the box — no cloud model ever sees it, regardless of the other settings. It’s the sharpest edge of sovereignty here: some of what the box thinks about is guaranteed never to be seen by anyone else’s hardware.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-02 private profile — the authority profile that enforces this end-to-end</div>"
     },
     {
      "selector": "#pol-log",
-     "title": "log_prompts",
-     "content": "Whether prompts are logged (R10747). A privacy control — it governs whether the content of requests is recorded, distinct from the cost accounting. Operator-controlled like the rest of the policy."
+     "title": "Policy · log_prompts",
+     "content": "Whether prompts are logged (R10747). It’s a privacy-and-audit lever: logging aids debugging and the audit trail, but on sensitive work you may want prompts unlogged. Operator-controlled, because the trade-off between having a record and keeping prompts ephemeral is yours to set."
+    }
+   ]
+  },
+  {
+   "icon": "⇄",
+   "title": "Actions",
+   "content": "Refresh re-reads the ledger; halt is the panic switch that kills all cloud routes instantly; export pulls the 30-day cost record. Halt is the one to know — it’s the emergency stop if cloud ever starts spending when it shouldn’t.",
+   "children": [
+    {
+     "selector": "#refresh-btn",
+     "title": "Refresh",
+     "content": "Re-reads the cost figures immediately. Read-only. Most useful during an anomaly — if spend appears, refresh to watch it live and confirm whether a halt has taken effect."
+    },
+    {
+     "selector": "#halt-btn",
+     "title": "Halt cloud routes (panic)",
+     "content": "The emergency stop — kills all cloud routing immediately, forcing everything back to local. This is the button for the moment the ledger shows spend it shouldn’t: it doesn’t wait for a budget to be reached or an approval to resolve, it cuts cloud off now. Use it the instant cloud cost looks wrong; the box keeps serving locally, free, uninterrupted.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">The instant off-switch for cost</div>Every other control here bounds cost gradually — a budget, a per-request cap. This one is immediate and total: all cloud routes halt, spend stops, work continues on the free local tiers. It’s the panic response for an unexpected spend, a misbehaving profile, or a cloud model running away — reach for it first, investigate after.</div><div class=\"so-xref\"><span class=\"x\">→</span> #pol-cloud — the enabled-state this overrides on the spot</div>"
+    },
+    {
+     "selector": "#export-btn",
+     "title": "Copy 30d export cmd",
+     "content": "Copies the command to export the 30-day cost record — read-only extraction for an audit, a report, or offline analysis. The exported ledger is the durable proof of the box’s spend (usually a month of zeros), useful for demonstrating the sovereign cost model to someone who wasn’t watching the meter."
     }
    ]
   },
   {
    "icon": "⎈",
-   "title": "Actions & controls",
-   "content": "Read-only per MS043 R10212 — refreshing re-samples; halting cloud is a signed panic verb. The web reads spend; it never changes the policy from here.",
+   "title": "Controls",
+   "content": "The shared control rail. On the cost panel it’s where a cost concern becomes a posture change — switching to a profile that forbids cloud, for instance — rather than only reacting with halt. Each control copies its signed verb.",
    "children": [
-    {
-     "selector": "#refresh-btn",
-     "title": "Refresh",
-     "content": "Re-poll spend on demand. Read-only re-sample."
-    },
-    {
-     "selector": "#halt-btn",
-     "title": "Halt cloud routes (panic)",
-     "content": "Stages an immediate halt of ALL cloud fallback — the panic switch. If you see unexpected spend, this cuts every cloud route at once, forcing everything local. A signed verb because it's a policy override; copies the command, never halts from the web.",
-     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">The cloud panic switch</div>One action to force the whole box local — every cloud route dead, spend back to $0. It's the emergency response to a surprise bill or a cloud-enable you want to reverse instantly.<div class=\"so-tip\">💡 Because it's disruptive (in-flight cloud work is cut), it's a signed osctl verb, not a web click.</div></div>"
-    },
-    {
-     "selector": "#export-btn",
-     "title": "Copy 30d export cmd",
-     "content": "Copies the command to export 30 days of cost data — for an external audit or finance record. Read-only; it gives you the command to run."
-    },
-    {
-     "selector": "#cost-policy",
-     "title": "Cost policy anchor",
-     "content": "A jump to the cost-policy section — the operator-controlled rules that keep spend bounded."
-    },
-    {
-     "selector": "#costs-export",
-     "title": "Costs export anchor",
-     "content": "A jump to the export control — for pulling the cost record out for audit."
-    },
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Cost controls — each copies its exact sovereign-osctl verb (§1g / R10212). Halting cloud and changing policy run through the signed CLI; the web surface is read-only per MS043."
+     "content": "The profile/mode/feature control rail. Its role here is durable prevention: if cost keeps appearing, the fix isn’t to keep hitting halt — it’s to switch to a profile whose cloud stance forbids the spend (the private or production profile). The rail copies the signed verb for that change; the box adopts the tighter posture only when you run it.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Prevent with a profile, not just halt</div>Halt is the reaction; a profile change is the prevention. If cloud spend recurs, moving to a profile that can’t route to cloud (D-02’s private or production) removes the possibility structurally, so you’re not relying on catching each event. The rail is where that signed posture change is copied from.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-02 profile-choices — the profiles whose cloud stance sets this</div>"
     }
    ]
   }
