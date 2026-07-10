@@ -37,6 +37,16 @@
     { "slug": "weaver",                      "demoConst": null,            "apiPrefix": null,                   "rowSelector": null, "kind": "badge-only", "sdd": "SDD-127" },
     { "slug": "auditor",                     "demoConst": null,            "apiPrefix": null,                   "rowSelector": null, "kind": "badge-only", "sdd": "SDD-127" },
     { "slug": "router",                      "demoConst": null,            "apiPrefix": null,                   "rowSelector": null, "kind": "badge-only", "sdd": "SDD-127" },
-    { "slug": "global-history",              "demoConst": null,            "apiPrefix": null,                   "rowSelector": null, "kind": "badge-only", "sdd": "SDD-127" }
+    { "slug": "global-history",              "demoConst": null,            "apiPrefix": null,                   "rowSelector": null, "kind": "badge-only", "sdd": "SDD-127" },
+    { "slug": "build-configurator",          "demoConst": null,            "apiPrefix": null,                   "rowSelector": null, "kind": "badge-only", "sdd": "SDD-128" },
+    { "slug": "emulate",                      "demoConst": null,            "apiPrefix": null,                   "rowSelector": null, "kind": "badge-only", "sdd": "SDD-128" },
+    { "slug": "flash",                        "demoConst": null,            "apiPrefix": null,                   "rowSelector": null, "kind": "badge-only", "sdd": "SDD-128" },
+    { "slug": "master-dashboard",             "demoConst": null,            "apiPrefix": null,                   "rowSelector": null, "kind": "badge-only", "sdd": "SDD-128" },
+    { "slug": "compliance",                   "demoConst": null,            "apiPrefix": null,                   "rowSelector": null, "kind": "badge-only", "sdd": "SDD-128" },
+    { "slug": "auth-tier",                    "demoConst": null,            "apiPrefix": null,                   "rowSelector": null, "kind": "badge-only", "sdd": "SDD-128" },
+    { "slug": "anti-minimization-audit",      "demoConst": null,            "apiPrefix": null,                   "rowSelector": null, "kind": "badge-only", "sdd": "SDD-128" },
+    { "slug": "surface-map",                  "demoConst": null,            "apiPrefix": null,                   "rowSelector": null, "kind": "badge-only", "sdd": "SDD-128" },
+    { "slug": "doc-coverage",                 "demoConst": null,            "apiPrefix": null,                   "rowSelector": null, "kind": "badge-only", "sdd": "SDD-128" },
+    { "slug": "ux-design-audit",              "demoConst": null,            "apiPrefix": null,                   "rowSelector": null, "kind": "badge-only", "sdd": "SDD-128" }
   ]
 }
