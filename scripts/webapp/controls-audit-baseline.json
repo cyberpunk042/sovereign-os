@@ -1,0 +1,314 @@
+[
+  {
+    "slug": "anti-minimization-audit",
+    "exec_rail": 0,
+    "copy_only": 0,
+    "status": "no-actions"
+  },
+  {
+    "slug": "auditor",
+    "exec_rail": 0,
+    "copy_only": 0,
+    "status": "no-actions"
+  },
+  {
+    "slug": "auth-tier",
+    "exec_rail": 0,
+    "copy_only": 0,
+    "status": "no-actions"
+  },
+  {
+    "slug": "build-configurator",
+    "exec_rail": 0,
+    "copy_only": 0,
+    "status": "no-actions"
+  },
+  {
+    "slug": "code-console",
+    "exec_rail": 0,
+    "copy_only": 0,
+    "status": "no-actions"
+  },
+  {
+    "slug": "compliance",
+    "exec_rail": 0,
+    "copy_only": 0,
+    "status": "no-actions"
+  },
+  {
+    "slug": "cpu-features",
+    "exec_rail": 0,
+    "copy_only": 0,
+    "status": "no-actions"
+  },
+  {
+    "slug": "d-01-active-sessions",
+    "exec_rail": 3,
+    "copy_only": 0,
+    "status": "wired"
+  },
+  {
+    "slug": "d-02-profile-choices",
+    "exec_rail": 0,
+    "copy_only": 0,
+    "status": "no-actions"
+  },
+  {
+    "slug": "d-03-model-health",
+    "exec_rail": 4,
+    "copy_only": 0,
+    "status": "wired"
+  },
+  {
+    "slug": "d-04-costs",
+    "exec_rail": 0,
+    "copy_only": 0,
+    "status": "no-actions"
+  },
+  {
+    "slug": "d-05-traces",
+    "exec_rail": 0,
+    "copy_only": 0,
+    "status": "no-actions"
+  },
+  {
+    "slug": "d-06-pending-approvals",
+    "exec_rail": 0,
+    "copy_only": 0,
+    "status": "no-actions"
+  },
+  {
+    "slug": "d-07-memory-changes",
+    "exec_rail": 8,
+    "copy_only": 0,
+    "status": "wired"
+  },
+  {
+    "slug": "d-08-rollback-points",
+    "exec_rail": 7,
+    "copy_only": 2,
+    "status": "partial"
+  },
+  {
+    "slug": "d-09-hardware-pressure",
+    "exec_rail": 2,
+    "copy_only": 0,
+    "status": "wired"
+  },
+  {
+    "slug": "d-10-eval-history",
+    "exec_rail": 3,
+    "copy_only": 0,
+    "status": "wired"
+  },
+  {
+    "slug": "d-11-adapter-status",
+    "exec_rail": 3,
+    "copy_only": 0,
+    "status": "wired"
+  },
+  {
+    "slug": "d-12-networking",
+    "exec_rail": 0,
+    "copy_only": 1,
+    "status": "copy-only"
+  },
+  {
+    "slug": "d-13-filesystem-grants",
+    "exec_rail": 0,
+    "copy_only": 1,
+    "status": "copy-only"
+  },
+  {
+    "slug": "d-14-capability-tokens",
+    "exec_rail": 0,
+    "copy_only": 1,
+    "status": "copy-only"
+  },
+  {
+    "slug": "d-15-sandboxes",
+    "exec_rail": 0,
+    "copy_only": 1,
+    "status": "copy-only"
+  },
+  {
+    "slug": "d-16-audit",
+    "exec_rail": 0,
+    "copy_only": 1,
+    "status": "copy-only"
+  },
+  {
+    "slug": "d-17-quarantine",
+    "exec_rail": 0,
+    "copy_only": 1,
+    "status": "copy-only"
+  },
+  {
+    "slug": "d-18-trust-scores",
+    "exec_rail": 0,
+    "copy_only": 1,
+    "status": "copy-only"
+  },
+  {
+    "slug": "d-19-super-model-manifest",
+    "exec_rail": 0,
+    "copy_only": 0,
+    "status": "no-actions"
+  },
+  {
+    "slug": "d-20-peace-machine-health",
+    "exec_rail": 0,
+    "copy_only": 1,
+    "status": "copy-only"
+  },
+  {
+    "slug": "d-21-lm-orchestration",
+    "exec_rail": 2,
+    "copy_only": 1,
+    "status": "partial"
+  },
+  {
+    "slug": "d-22-lm-status-operability",
+    "exec_rail": 2,
+    "copy_only": 1,
+    "status": "partial"
+  },
+  {
+    "slug": "d-23-models-catalog",
+    "exec_rail": 0,
+    "copy_only": 0,
+    "status": "no-actions"
+  },
+  {
+    "slug": "d-24-cpu-features",
+    "exec_rail": 0,
+    "copy_only": 0,
+    "status": "no-actions"
+  },
+  {
+    "slug": "d-25-selfdef-management",
+    "exec_rail": 0,
+    "copy_only": 0,
+    "status": "no-actions"
+  },
+  {
+    "slug": "doc-coverage",
+    "exec_rail": 0,
+    "copy_only": 0,
+    "status": "no-actions"
+  },
+  {
+    "slug": "edge-firewall",
+    "exec_rail": 0,
+    "copy_only": 0,
+    "status": "no-actions"
+  },
+  {
+    "slug": "emulate",
+    "exec_rail": 0,
+    "copy_only": 0,
+    "status": "no-actions"
+  },
+  {
+    "slug": "flash",
+    "exec_rail": 0,
+    "copy_only": 0,
+    "status": "no-actions"
+  },
+  {
+    "slug": "global-history",
+    "exec_rail": 0,
+    "copy_only": 0,
+    "status": "no-actions"
+  },
+  {
+    "slug": "master-dashboard",
+    "exec_rail": 0,
+    "copy_only": 0,
+    "status": "no-actions"
+  },
+  {
+    "slug": "models-catalog",
+    "exec_rail": 0,
+    "copy_only": 0,
+    "status": "no-actions"
+  },
+  {
+    "slug": "network-edge",
+    "exec_rail": 0,
+    "copy_only": 0,
+    "status": "no-actions"
+  },
+  {
+    "slug": "orchestration",
+    "exec_rail": 0,
+    "copy_only": 0,
+    "status": "no-actions"
+  },
+  {
+    "slug": "personalization",
+    "exec_rail": 0,
+    "copy_only": 0,
+    "status": "no-actions"
+  },
+  {
+    "slug": "profile-generation",
+    "exec_rail": 0,
+    "copy_only": 1,
+    "status": "copy-only"
+  },
+  {
+    "slug": "router",
+    "exec_rail": 0,
+    "copy_only": 0,
+    "status": "no-actions"
+  },
+  {
+    "slug": "runtime-modes",
+    "exec_rail": 0,
+    "copy_only": 0,
+    "status": "no-actions"
+  },
+  {
+    "slug": "science",
+    "exec_rail": 0,
+    "copy_only": 0,
+    "status": "no-actions"
+  },
+  {
+    "slug": "selfdef-management",
+    "exec_rail": 0,
+    "copy_only": 0,
+    "status": "no-actions"
+  },
+  {
+    "slug": "surface-map",
+    "exec_rail": 0,
+    "copy_only": 0,
+    "status": "no-actions"
+  },
+  {
+    "slug": "trinity",
+    "exec_rail": 0,
+    "copy_only": 0,
+    "status": "no-actions"
+  },
+  {
+    "slug": "ups",
+    "exec_rail": 0,
+    "copy_only": 0,
+    "status": "no-actions"
+  },
+  {
+    "slug": "ux-design-audit",
+    "exec_rail": 0,
+    "copy_only": 0,
+    "status": "no-actions"
+  },
+  {
+    "slug": "weaver",
+    "exec_rail": 0,
+    "copy_only": 0,
+    "status": "no-actions"
+  }
+]
