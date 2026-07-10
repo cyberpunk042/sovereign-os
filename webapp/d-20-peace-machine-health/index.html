@@ -1409,7 +1409,8 @@ window.SO_ASSIST = {
     {
      "selector": "#ds-last-update",
      "title": "Source freshness",
-     "content": "When the peace-check was last read. Run the validator (below) for a fresh verdict rather than trusting an old one."
+     "content": "When the peace-check was last read. Run the validator (below) for a fresh verdict rather than trusting an old one.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Verdict is only as fresh as this</div>The five properties are read at this timestamp. Peace can degrade between reads — run the validator for a live verdict rather than trusting a stale banner.<div class=\"so-xref\"><span class=\"x\">→</span> validator output — the fresh --json ground truth</div></div>"
     }
    ]
   },
@@ -1487,27 +1488,32 @@ window.SO_ASSIST = {
     {
      "selector": "p1-checks",
      "title": "Property checks",
-     "content": "The concrete checks behind this property — the individual verifications that roll up to its status. Read them when the property is amber to see exactly which check failed, not just that the property did."
+     "content": "The checks behind Powerful — is the Blackwell oracle reachable, is the 4090 scout up, does the AVX-512 cortex probe pass. If any hardware leg is down the box can't do the work, and P1 fails.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Powerful is a hardware-liveness sum</div>P1 rolls up the three compute legs — oracle, scout, cortex. It's the one property about capability rather than policy: can the box actually execute, or is a leg dark.<div class=\"so-xref\"><span class=\"x\">→</span> D-09 hardware pressure — the live state of these legs</div></div>"
     },
     {
      "selector": "p2-checks",
      "title": "Property checks",
-     "content": "The concrete checks behind this property — the individual verifications that roll up to its status. Read them when the property is amber to see exactly which check failed, not just that the property did."
+     "content": "The checks behind Disciplined — is M049 observability emitting spans, is the selfdef MS033 policy trace live. Discipline means every action is legible; a dark trace fails P2 even if the box is otherwise healthy.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Disciplined = nothing happens in the dark</div>P2 is the legibility property: every action leaves an M049 span and an MS033 policy trace. It's what makes the box auditable rather than a black box.<div class=\"so-xref\"><span class=\"x\">→</span> D-05 traces — the M049 spans P2 depends on</div></div>"
     },
     {
      "selector": "p3-checks",
      "title": "Property checks",
-     "content": "The concrete checks behind this property — the individual verifications that roll up to its status. Read them when the property is amber to see exactly which check failed, not just that the property did."
+     "content": "The checks behind Reversible — are M047 CRIU checkpoints working, are ZFS snapshots current, is signed rollback armed. If you couldn't undo the last action, P3 fails — reversibility is a live capability, not a promise.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Reversible = every action has an undo</div>P3 verifies the undo machinery is live — CRIU checkpoints, ZFS snapshots, signed rollback. Peace requires that a mistake can always be walked back.<div class=\"so-xref\"><span class=\"x\">→</span> D-08 rollback points — the snapshots behind P3</div></div>"
     },
     {
      "selector": "p4-checks",
      "title": "Property checks",
-     "content": "The concrete checks behind this property — the individual verifications that roll up to its status. Read them when the property is amber to see exactly which check failed, not just that the property did."
+     "content": "The checks behind Flexible — is M046 runtime adaptation available, can the LoRA Foundry fit an adapter. Flexibility means improving without a rebuild; if adaptation is offline, P4 fails.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Flexible = improve without a rebuild</div>P4 checks the box can adapt in place — runtime config (M046) and adapter fitting (LoRA Foundry). It's what lets the system evolve without a full reflash.<div class=\"so-xref\"><span class=\"x\">→</span> D-11 adapter status — the LoRA Foundry behind P4</div></div>"
     },
     {
      "selector": "p5-checks",
      "title": "Property checks",
-     "content": "The concrete checks behind this property — the individual verifications that roll up to its status. Read them when the property is amber to see exactly which check failed, not just that the property did."
+     "content": "The checks behind Sovereign — is the operator MS003 key present and gating L5+ commits. Sovereignty means you hold the keys; if the key is absent or not gating, P5 fails and the box could act without your signature.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Sovereign = you hold the keys</div>P5 is the deepest property: the MS003 key must gate every L5+ commit. Without it the box could take high-authority actions unsigned — sovereignty lost even if every other property is green.<div class=\"so-xref\"><span class=\"x\">→</span> D-02 profile choices — the authority ladder MS003 gates</div></div>"
     }
    ]
   },
@@ -1540,7 +1546,8 @@ window.SO_ASSIST = {
        "content": "Non-zero exit — the validator found a broken property; read the output.",
        "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ non-zero exit</div>A property failed — the output below names which.</div>"
       }
-     ]
+     ],
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Exit code is the machine verdict</div>0 means all five properties hold; non-zero names which failed. It's the scriptable form of the verdict — a monitor watches this integer.<div class=\"so-li\"><span class=\"ok\">✓</span> 0 → peace: all five hold</div><div class=\"so-li\"><span class=\"no\">✗</span> non-zero → a property failed; the code names the class</div></div>"
     },
     {
      "selector": "#validator-output",

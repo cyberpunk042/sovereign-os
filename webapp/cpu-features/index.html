@@ -885,7 +885,8 @@ window.SO_ASSIST = {
        "content": "Probe failed — the extension map may be incomplete; treat with caution.",
        "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Probe failed</div>Couldn't read the CPU; the map below may be partial.</div>"
       }
-     ]
+     ],
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A probe reads fixed silicon</div>Unlike a live metric, CPU features don't change between reads — they're etched in the chip. So a successful probe is authoritative: what it reports is exactly what -march=znver5 can emit, and the box's low-bit math paths depend on it.<div class=\"so-xref\"><span class=\"x\">→</span> D-24 CPU features — the fuller AVX-512 / ZMM capability view</div></div>"
     },
     {
      "selector": "#cpu",
@@ -915,7 +916,8 @@ window.SO_ASSIST = {
     {
      "selector": "#advisory",
      "title": "Advisory",
-     "content": "The advisor's verdict — 'this box can/can't accelerate X' — turning the raw extension map into an actionable recommendation."
+     "content": "The advisor's verdict — 'this box can/can't accelerate X' — turning the raw extension map into an actionable recommendation.",
+     "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">From capability map to recommendation</div>The advisory turns the raw extension list into a decision: whether this box can accelerate a given workload class. It's the difference between 'AVX-512 present' and 'yes, run ternary matmul natively here' — the actionable end of the probe.<div class=\"so-grid\"><span class=\"k\">has AVX-512 + VNNI</span><span>native low-bit / int8 acceleration — run it here</span><span class=\"k\">missing</span><span>fall back to a slower path or a different node</span></div><div class=\"so-tip\">💡 The Pulse tier (M066) is why these extensions matter — bitnet.cpp leans on single-cycle AVX-512.</div></div>"
     }
    ]
   },

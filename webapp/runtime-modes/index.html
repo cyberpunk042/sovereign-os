@@ -990,12 +990,14 @@ window.SO_ASSIST = {
     {
      "selector": "#active-mode-label",
      "title": "Active mode label",
-     "content": "The name of the live mode — the one-word read of the box's current posture."
+     "content": "The name of the live mode — the one-word read of the box's current posture.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The mode is the box's posture</div>A runtime mode (M076) sets how the box behaves as a whole — how conservative routing is, which profiles are allowed, how much autonomy. The label is the one-word read of that posture; switching it re-shapes several behaviours at once, not just one toggle.<div class=\"so-xref\"><span class=\"x\">→</span> D-02 profile choices — the profiles a mode gates</div></div>"
     },
     {
      "selector": "#active-mode-marker-path",
      "title": "Mode marker path",
-     "content": "Where the active-mode marker file lives (/run/sovereign-os/…) — the persistent source of truth the runtime reads, so the mode survives across reads."
+     "content": "Where the active-mode marker file lives (/run/sovereign-os/…) — the persistent source of truth the runtime reads, so the mode survives across reads.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why the mode lives in a file</div>The active-mode marker is a file under /run so the mode is persistent state the runtime reads on every decision — not something held only in a process's memory. That's what makes a mode survive restarts of individual components and stay consistent across the box.<div class=\"so-tip\">💡 Because it's a real file, the mode can't silently disagree between components — they all read the same marker.</div></div>"
     },
     {
      "selector": "#active-mode-marker-hint",

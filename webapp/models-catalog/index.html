@@ -1029,7 +1029,8 @@ window.SO_ASSIST = {
     {
      "selector": "#stats",
      "title": "Catalog summary",
-     "content": "The roll-up across classes and tiers — how broad the local portfolio is (every class, quantization, size, purpose), VRAM-aware."
+     "content": "The roll-up across classes and tiers — how broad the local portfolio is (every class, quantization, size, purpose), VRAM-aware.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Reading the portfolio breadth</div>The roll-up says how complete the local model stack is across the axes that matter — class (ternary/RLM/SLM/LLM/mixture), tier (Logic/Oracle/Conductor), quantization, and purpose. A gap in a class or purpose is a capability the box can't serve locally yet.<div class=\"so-xref\"><span class=\"x\">→</span> D-23 models catalog — the model-health companion to this registry</div></div>"
     }
    ]
   },
@@ -1042,37 +1043,43 @@ window.SO_ASSIST = {
      "selector": "#f-vram",
      "title": "VRAM filter",
      "content": "Filter to models that fit a given VRAM budget — the most practical filter. Answers 'which good model fits GPU1' so you never assign one that OOMs on load.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">VRAM-aware selection</div>The point of the catalog: it knows what fits your GPUs. This filter prevents the classic 'assigned a model that won't load' mistake.<div class=\"so-xref\"><span class=\"x\">→</span> D-09 GPU VRAM — the budgets this respects</div></div>"
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">VRAM fit is the binding constraint</div>A model that doesn't fit the GPU's VRAM can't run, full stop — so this is usually the first filter. It answers 'what's the best model I can actually load on this card', which quantization then trades against quality.<div class=\"so-li\"><span class=\"ok\">✓</span> fits VRAM → loadable now</div><div class=\"so-li\"><span class=\"warn\">▲</span> over budget → needs a lower-bit quant or a bigger card</div><div class=\"so-xref\"><span class=\"x\">→</span> f-quant — the footprint-vs-quality trade that changes the fit</div></div>"
     },
     {
      "selector": "#f-tier",
      "title": "Tier filter",
-     "content": "Filter by SRP role tier (Logic / Oracle / Conductor) — which serving role a model is for."
+     "content": "Filter by SRP role tier (Logic / Oracle / Conductor) — which serving role a model is for.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Tier = SRP serving role</div>The SRP stack splits serving into roles: the Conductor routes, the Logic tier reasons, the Oracle answers. Filtering by tier finds models built for a specific role rather than by raw size.<div class=\"so-grid\"><span class=\"k\">Conductor</span><span>routing / orchestration cortex</span><span class=\"k\">Logic</span><span>reasoning workloads</span><span class=\"k\">Oracle</span><span>knowledge / answer serving</span></div><div class=\"so-xref\"><span class=\"x\">→</span> M075 SRP tiers — the role model behind this filte</div></div>"
     },
     {
      "selector": "#f-class",
      "title": "Class filter",
-     "content": "Filter by model class (ternary-lm / RLM / SLM / LLM / mixture) — the architecture family, which decides engine and precision options."
+     "content": "Filter by model class (ternary-lm / RLM / SLM / LLM / mixture) — the architecture family, which decides engine and precision options.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Class decides the engine</div>A model's class (ternary-lm / RLM / SLM / LLM / mixture) determines which runtime serves it — a ternary-lm runs on bitnet.cpp's low-bit path, an LLM on a general engine. Class isn't cosmetic; it routes the model to its serving stack.<div class=\"so-xref\"><span class=\"x\">→</span> D-21 LM orchestration — how class maps to a serving engine</div></div>"
     },
     {
      "selector": "#f-quant",
      "title": "Quant filter",
-     "content": "Filter by quantization — the trade of VRAM footprint vs quality. Lower-bit fits more but costs some accuracy (NVFP4, Q4, fp8, bf16)."
+     "content": "Filter by quantization — the trade of VRAM footprint vs quality. Lower-bit fits more but costs some accuracy (NVFP4, Q4, fp8, bf16).",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Quantization is VRAM vs quality</div>Lower-bit quantization shrinks the VRAM footprint so more (or bigger) models fit, at some accuracy cost. NVFP4 (M077) is the aggressive end — 4-bit that keeps surprising quality. This filter is how you pick a point on that curve.<div class=\"so-xref\"><span class=\"x\">→</span> M077 NVFP4 — the 4-bit format behind the smallest footprints</div></div>"
     },
     {
      "selector": "#f-purpose",
      "title": "Purpose filter",
-     "content": "Filter by intended purpose — reasoning, classification, embedding, etc. Narrows to models suited to the task."
+     "content": "Filter by intended purpose — reasoning, classification, embedding, etc. Narrows to models suited to the task.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Purpose narrows to the job</div>A model's purpose (reasoning, classification, embedding, generation…) is what it's actually good at. Filtering by purpose stops you loading a reasoning model for an embedding job — matching the model to the task is half of good routing.<div class=\"so-xref\"><span class=\"x\">→</span> D-21 orchestration — purpose feeds the routing decision</div></div>"
     },
     {
      "selector": "#f-status",
      "title": "Status filter",
-     "content": "Filter by status — ready / experimental / deprecated in the registry."
+     "content": "Filter by status — ready / experimental / deprecated in the registry.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Status is the trust gate</div>Ready / experimental / deprecated tells you whether a model is production-safe. Experimental models can serve but shouldn't be defaulted to; deprecated ones are on the way out. This filter is how you keep unstable models out of live routing.<div class=\"so-li\"><span class=\"ok\">✓</span> ready → safe to route to</div><div class=\"so-li\"><span class=\"warn\">▲</span> experimental → usable, not default</div><div class=\"so-li\"><span class=\"no\">✗</span> deprecated → avoid; being retired</div></div>"
     },
     {
      "selector": "#count",
      "title": "Result count",
-     "content": "How many models match the current filters — narrows as you constrain, so you can see whether a constraint is too tight."
+     "content": "How many models match the current filters — narrows as you constrain, so you can see whether a constraint is too tight.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The count is a constraint gauge</div>As you add filters the count falls — it tells you whether a constraint is reasonable (still several matches) or too tight (zero). A zero count means the box has no local model meeting all your constraints at once, not that the catalog is empty.</div>"
     }
    ]
   },
@@ -1084,7 +1091,15 @@ window.SO_ASSIST = {
     {
      "selector": "#rows",
      "title": "Model rows",
-     "content": "Each matching model with id, class, engine, precision, params, context, license, purpose, status — the full registry detail. This is the menu; a choice becomes a runtime assignment via the CLI."
+     "content": "Each matching model with id, class, engine, precision, params, context, license, purpose, status — the full registry detail. This is the menu; a choice becomes a runtime assignment via the CLI.",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#rows > tr",
+      "nameSelector": "td:first-child,td",
+      "title": "Model · {{name}}",
+      "content": "Model {{name}} — one registry entry. Read its class + precision + params + context together: class picks the engine, precision the VRAM cost, context the window it can handle.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Model · {{name}}</div>One catalogued model. Its VRAM fit (from precision × params) decides if it loads here; its tier decides which serving role it fills.<div class=\"so-xref\"><span class=\"x\">→</span> D-21 orchestration — where a selected model runs</div></div>"
+     }
     },
     {
      "selector": "#export-csv",
