@@ -72,6 +72,9 @@ dashboards-lint:  ## Verify Grafana dashboard JSONs + metric lockstep
 demo-preflight:  ## Webapp increment preflight (branch-vs-main + app-shell sync + doc lints)
 	bash scripts/webapp/preflight.sh
 
+controls-audit:  ## Phase 3 read-only audit: which panel actions are exec-rail-wired vs copy-only
+	python3 scripts/webapp/controls-audit.py $(if $(JSON),--json,)
+
 demo-capture:  ## Capture + verify DEMO-mode panels (needs a browser; NODE_PATH to playwright). PANELS=a,b or SDD=SDD-124; OUT=dir
 	NODE_PATH=$${NODE_PATH:-/opt/node22/lib/node_modules} node scripts/webapp/demo-capture.mjs \
 	  $(if $(PANELS),--panels $(PANELS),$(if $(SDD),--sdd $(SDD),--all)) $(if $(OUT),--out $(OUT),)
