@@ -1565,242 +1565,260 @@ a11y; contract test catches drift.
 <script>
 window.SO_ASSIST = {
  "context": {
-  "icon": "◈",
+  "icon": "❖",
   "title": "D-07 · Memory Changes",
-  "content": "The window into the box's memory OS (M028) — the eight-tier store (E0260) that is the difference between an agent that repeats your corrections and one that remembers them. Every candidate memory walks an 11-stage admission lifecycle (E0264) and is trust-filtered on seven dimensions (M060) before it is kept, so the store stays signal rather than noise.\n\nRead it to see how full each tier is, what changed in the last 24h, and what memory mutations are waiting on your signature. The RLM navigator (SDD-068) lets you ask the graph a question, read-only, and honest-defers if the local LM is down. Forgetting or force-admitting a memory is a signed act — the web only proposes."
+  "content": "What the box remembers, and what it's about to change about that. Under M028 memory isn't one blob — it's eight typed tiers (working, episodic, semantic, procedural, temporal-graph, reward, value, KV), each with different retention and trust rules. Nothing enters memory raw: every candidate runs the 11-stage admission lifecycle (observe → classify → quarantine → … → promote → decay → archive) before it's trusted knowledge.\n\nThis panel is the review surface for that flow — the live tier counts, the recent graph diff, the admission pipeline, and the pending changes waiting on a decision. Read it to see what the box learned recently, what it wants to promote or forget, and to run temporal queries (\"was this true then? is it true now? what changed?\") against the memory graph."
  },
  "nodes": [
   {
    "icon": "◆",
-   "title": "Data source",
-   "content": "Whether the memory panel is live from /api/d-07 or a snapshot — a forget/admit elsewhere would not show until refreshed.",
+   "title": "Live-source banner",
+   "content": "Whether the tier counts and diffs are live from the memory daemon or a snapshot. Memory changes constantly as episodes are admitted and decayed, so a stale read misrepresents what the box currently knows.",
    "children": [
     {
-     "selector": "#ds-state-label",
+     "selector": "#datasource-banner",
      "title": "Live vs snapshot",
-     "content": "Green = the daemon is answering live; muted = a cached snapshot. The whole memory view is read from the M028 store — a snapshot can show state that an apply has already superseded, so check this before trusting a value as current.",
+     "content": "Green = the memory daemon is answering and the tier counts are current; muted = a snapshot. On a snapshot, promotions and decays that happened since won't show — the graph you're reviewing is frozen in the past.",
      "icon": "◆",
      "variants": [
       {
        "when": {
-        "textContains": "connecting"
-       },
-       "content": "Connecting — reaching the daemon; the values below are not confirmed live yet.",
-       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Connecting</div>Waiting on the API — treat the numbers as unconfirmed until this goes green.</div>"
-      },
-      {
-       "when": {
         "textContains": "live"
        },
-       "content": "Live — the values below reflect real state right now.",
-       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Live</div>The daemon is answering; everything on the panel is current.</div>"
+       "content": "Live — memory counts and the diff are current.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Live</div>The memory OS is answering; tiers and diff reflect the graph as it is now.</div>"
       },
       {
        "when": {
-        "textContains": "offline"
+        "textContains": "snapshot"
        },
-       "content": "Offline — showing the last snapshot; the box may have moved on since.",
-       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Offline</div>No live answer — this is a cached snapshot, possibly stale.</div>"
+       "content": "Snapshot — the daemon is unreachable; recent admissions/decays aren't reflected.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Snapshot</div>Frozen read — a fact promoted or decayed since capture won't appear.</div>"
       }
      ]
     },
     {
+     "selector": "#ds-state-label",
+     "title": "Source label",
+     "content": "One-word source — live memory daemon vs snapshot. Check it before trusting a tier count of zero."
+    },
+    {
      "selector": "#ds-state-detail",
      "title": "Source detail",
-     "content": "The longer status under the banner — which endpoint answered and any degraded note. Read it when the banner is amber."
+     "content": "The endpoint behind the counts and why it's live or degraded to snapshot."
     },
     {
      "selector": "#ds-last-update",
-     "title": "Source freshness",
-     "content": "When the memory view was last read. A memory admitted or forgotten since then would not appear yet — so a stale time means the counts below may lag reality."
+     "title": "Fetch freshness",
+     "content": "When the memory state was pulled. Admission runs continuously; a candidate can move from quarantine to promoted in seconds, so an old timestamp means the lifecycle view may already be behind.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Freshness matters more here than elsewhere</div>Most panels show slow-moving state. Memory moves fast: the 11-stage pipeline is always running, so an entry you see 'in verify' may already be promoted or decayed. Treat the counts as a recent photograph, not a live feed, unless this is fresh.<div class=\"so-xref\"><span class=\"x\">→</span> 11-stage lifecycle — the pipeline that keeps changing underneath this read</div></div>"
     }
    ]
   },
   {
    "icon": "▦",
-   "title": "Memory types",
-   "content": "The M028 memory OS is not one store — it is eight tiers (E0260), each holding a different KIND of memory with its own admission and eviction rules. The counts show how full each tier is right now. Understanding which tier a memory lives in tells you how durable it is.",
+   "title": "The eight memory tiers (M028)",
+   "content": "Memory is split into eight typed tiers, each holding a different KIND of knowledge with its own retention and trust rules. The counts show how much lives in each. M028 names seven modules (M00459–M00465); the milestone title says eight — the reward tier is that eighth, experience-facing slot.",
    "children": [
     {
      "selector": "#t-working",
-     "title": "Working memory",
-     "content": "The current task's scratch — active branches, local facts, tool outputs. KV-bounded, so it is the smallest and most volatile tier; it is evicted first under pressure. Type 1, M00459.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Working tier</div>This tier is one of the eight M028 memory kinds. What lives here has its own retention: working/KV churn fast, value/semantic persist. The count is items currently held.</div>"
+     "title": "Working memory (M00459)",
+     "content": "The scratchpad — the current task, active branches, local facts, and recent tool outputs. Smallest and most volatile tier: it's context-window-bounded and cleared as tasks close, so a high count here means a deep in-flight task, not accumulated knowledge.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Working ≠ long-term</div>Working memory is the box's RAM, not its disk. It holds what's needed to finish the task in front of it and is discarded when the task ends — only what survives admission gets promoted to a durable tier.<div class=\"so-grid\"><span class=\"k\">holds</span><span>current task · active branches · local facts · tool outputs</span><span class=\"k\">bound</span><span>KV-bounded — it can't grow past the context budget</span><span class=\"k\">fate</span><span>cleared on task close unless promoted to episodic/semantic</span></div></div>",
+     "variants": [
+      {
+       "when": {
+        "textContains": "0"
+       },
+       "content": "Working memory empty — no task is actively in flight."
+      }
+     ]
     },
     {
      "selector": "#t-episodic",
-     "title": "Episodic memory",
-     "content": "Full traces — conversations, task attempts, failures, your corrections. This is the box's autobiography; it is what lets it not repeat a mistake you already corrected. Type 2, M00460."
+     "title": "Episodic memory (M00460)",
+     "content": "The full record — complete traces, conversations, task attempts, failures, and your corrections. This is the raw-experience tier the box distils everything else FROM; it's where a failure or a correction first lands before its lesson is extracted.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Episodic is the source of truth</div>Semantic facts, procedures, and values are all derived from episodes. Keeping the raw episode lets the box re-derive a fact if a summary turns out wrong — the ground-truth preservation layer (M00466) is why nothing is lossy-summarised-only.<div class=\"so-xref\"><span class=\"x\">→</span> recent graph diff — episodes admitted in the last 24h</div></div>"
     },
     {
      "selector": "#t-semantic",
-     "title": "Semantic memory",
-     "content": "Distilled facts and knowledge, decoupled from when they were learned. Where an episodic trace becomes a reusable truth. This is what the RLM navigator queries for grounding."
+     "title": "Semantic memory (M00461)",
+     "content": "Distilled knowledge — facts, concepts, summaries, and project understanding extracted from episodes. This is what the box 'knows' in the everyday sense: durable, deduplicated statements rather than raw transcripts.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Semantic = the extract stage's output</div>A semantic fact is what survives 'extract-facts' + 'verify' in the lifecycle. It's cheaper to query than re-reading episodes, but it's downstream of them — if a semantic fact is wrong, the episode it came from is the appeal.<div class=\"so-tip\">💡 A fact only lands here after the admission trigger fires 8× — one mention isn't knowledge.</div></div>"
     },
     {
      "selector": "#t-procedural",
-     "title": "Procedural memory",
-     "content": "Skills and how-to — the box's learned procedures, not facts. This is the difference between knowing a fact and knowing how to do a thing; it grows from repeated successful traces."
+     "title": "Procedural memory (M00462)",
+     "content": "How-to knowledge — skills, workflows, command recipes, and tool sequences that worked. When the box repeats a successful multi-step procedure without re-deriving it, this tier is why.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Procedural is earned, not told</div>A procedure lands here because a sequence of tool calls succeeded and was worth keeping — it's the box getting faster at things it's already done well, distinct from semantic facts (what's true) and value memory (what's worth doing).<div class=\"so-xref\"><span class=\"x\">→</span> value memory — which approach succeeded, feeding what's kept as procedure</div></div>"
     },
     {
      "selector": "#t-temporal",
-     "title": "Temporal memory",
-     "content": "Time-indexed recall — what was true WHEN. The temporal-query verbs (E0263) read this so the box can reason about change over time, not just current state."
-    },
-    {
-     "selector": "#t-value",
-     "title": "Value memory",
-     "content": "The ground-truth preservation layer (E0260/E0261) — the facts that must never be silently overwritten. This is the anti-drift tier: it is what a later trace is checked AGAINST, not blended into.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Value tier</div>This tier is one of the eight M028 memory kinds. What lives here has its own retention: working/KV churn fast, value/semantic persist. The count is items currently held.</div>"
-    },
-    {
-     "selector": "#t-kv",
-     "title": "KV cache",
-     "content": "The hot key/value cache — the fast, bounded working set the model reads directly. Distinct from working memory in that it is model-native (attention KV), not task-native. Bounded, so it churns.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">KV tier</div>This tier is one of the eight M028 memory kinds. What lives here has its own retention: working/KV churn fast, value/semantic persist. The count is items currently held.</div>"
+     "title": "Temporal-graph memory (M00463)",
+     "content": "Entities, relationships, and timestamps — the graph that tracks how facts CHANGE over time. This is what makes 'was X true then but not now?' answerable: each edge carries a time-range, so contradictions are dated rather than overwritten.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The graph remembers when, not just what</div>Flat memory overwrites: new fact replaces old. The temporal graph keeps both with timestamps, so it can answer true-then / true-now / changed / contradicted-by. Changing facts don't corrupt the record — they extend it.<div class=\"so-xref\"><span class=\"x\">→</span> memory navigator below — the temporal verbs query this graph</div></div>"
     },
     {
      "selector": "#t-reward",
-     "title": "Reward memory",
-     "content": "The experience base — outcomes tagged with how they went, feeding the box's sense of what works. This is the substrate reinforcement reads; it is why good and bad outcomes are not treated the same next time."
+     "title": "Reward memory (the 8th tier)",
+     "content": "The experience base — the reinforcement-shaped record of outcomes the box learns pace and strategy from. M028's module table names seven types; the milestone title says eight, and this is that experience-facing eighth slot (its module id is not fabricated where the spec left it unnamed).",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why eight named as seven</div>The M028 spec is honest about a gap: the milestone titled it '8 memory types' but the module table only named seven (M00459–M00465). Rather than invent an eighth module id, the spec flags the mismatch. This tier holds the reward/experience signal implied by that eighth slot.<div class=\"so-tip\">💡 When a spec under-specifies, the panel says so — it does not manufacture a citation to fill the hole.</div></div>"
+    },
+    {
+     "selector": "#t-value",
+     "title": "Value memory (M00464)",
+     "content": "What worked and what didn't — which model, tool, or profile succeeded on which kind of task. This is the tier that lets the box pick a good approach next time instead of re-litigating; it's the memory behind D-04's cost/quality routing.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Value = outcome-tagged experience</div>Value memory scores approaches by result: this profile nailed this task class, that tool wasted budget. It's what makes routing improve over time rather than staying static.<div class=\"so-xref\"><span class=\"x\">→</span> D-04 costs — where value memory informs which model to route to</div></div>"
+    },
+    {
+     "selector": "#t-kv",
+     "title": "KV memory (M00465)",
+     "content": "Cached model prefixes, reusable prompt blocks, and context blocks — the reuse tier. It's not knowledge, it's precomputation: keeping a KV block means a later call skips recomputing a shared prefix, which is a direct latency and cost saving.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">KV is an optimisation, not a memory of facts</div>The other seven tiers hold what the box knows; KV holds what it's already computed. A hit here shortcuts inference; it carries no trust dimension because it's a cache, not a claim.<div class=\"so-xref\"><span class=\"x\">→</span> D-09 hardware pressure — KV-cache occupancy under memory pressure</div></div>"
     }
    ]
   },
   {
-   "icon": "⊞",
-   "title": "Admission lifecycle",
-   "content": "Nothing enters long-term memory directly — every candidate walks an 11-stage admission lifecycle (E0264) before it is kept. This is the quality gate on the box's memory: it is why memory does not fill with noise.",
+   "icon": "⇉",
+   "title": "11-stage admission lifecycle",
+   "content": "Nothing becomes trusted memory in one step. Every candidate walks an 11-stage pipeline — the structured path from 'just observed' to 'durable knowledge' (or 'decayed away'). This is why the box's memory is trustworthy: raw observation and verified fact are never confused.",
    "children": [
     {
      "selector": "#lifecycle",
-     "title": "11-stage admission lifecycle",
-     "content": "The pipeline every memory candidate traverses before admission (M028 E0264) — from capture through scoring, dedup, trust-filtering, to commit or reject. A memory you see in the store earned its place by passing all eleven stages.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Memory is earned, not stored</div>Raw experience is captured, then scored, deduplicated against what is already known, trust-filtered (below), and only then admitted to a tier — or rejected. The lifecycle is why the store stays signal, not noise; a rejected candidate never becomes a memory.<div class=\"so-xref\"><span class=\"x\">→</span> the 8 memory tiles above are the destinations of this pipeline<br><span class=\"x\">→</span> the 7 trust filters below are one stage of it</div></div>"
+     "title": "Admission pipeline (M00471)",
+     "content": "The 11 stages a memory candidate passes: observe → classify → quarantine → link → score → store-raw → extract-facts → verify → promote → decay → archive. An entry's stage tells you how much to trust it — 'quarantine' is unproven, 'promote' is earned, 'decay' is on its way out.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The stages, and what each buys</div>Each stage is a filter. Quarantine holds the unproven away from trusted memory; verify is the gate to promotion; decay + archive are how stale knowledge leaves without being deleted outright.<div class=\"so-grid\"><span class=\"k\">observe→classify</span><span>seen, then typed into one of the eight tiers</span><span class=\"k\">quarantine</span><span>held apart until proven — untrusted by default</span><span class=\"k\">link→score</span><span>connected to the graph, scored for trust/freshness</span><span class=\"k\">store-raw→extract</span><span>episode kept, facts distilled from it</span><span class=\"k\">verify→promote</span><span>proven, then moved into a trusted tier</span><span class=\"k\">decay→archive</span><span>staleness lowers it, then it's archived not erased</span></div><div class=\"so-tip\">💡 Admission only stores when a candidate's trigger count reaches 8 — transient, low-trust, duplicate, noisy, or unverified inputs are ignored (M00470).</div></div>"
     }
    ]
   },
   {
-   "icon": "◎",
-   "title": "Trust filters",
-   "content": "One stage of admission is trust — a candidate is scored on 7 dimensions (M060 R10095 + MS039) before it is allowed in. This is what stops a poisoned or low-confidence memory from becoming ground truth.",
-   "children": [
-    {
-     "selector": "#trust-filters",
-     "title": "7 trust dimensions",
-     "content": "The seven trust dimensions a memory is filtered on (M060 R10095) — freshness and six others. A candidate weak on a dimension is down-weighted or rejected; this is the memory OS defending itself against drift and poisoning.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Seven ways a memory earns trust</div>Each dimension is an independent check — freshness, provenance, corroboration, and so on. A memory admitted despite a weak dimension is flagged; one failing hard is rejected. Together they are why the store can be trusted as ground truth.<div class=\"so-xref\"><span class=\"x\">→</span> D-18 trust scores — the same trust model applied to agents<br><span class=\"x\">→</span> the admission lifecycle above — trust is one of its eleven stages</div></div>"
-    },
-    {
-     "selector": "#profile-shape",
-     "title": "Trust profile shape",
-     "content": "The visual shape of the current trust weighting — which dimensions are weighted up or down right now. A lopsided shape means the box is currently trusting one dimension more than others; read it to see the active bias."
-    }
-   ]
-  },
-  {
-   "icon": "◫",
-   "title": "Recent graph diff",
-   "content": "What changed in the memory graph in the last 24h — admitted, forgotten, re-weighted. Memory is a living graph, not a log; this is the delta view of how it moved.",
+   "icon": "⧉",
+   "title": "Recent memory graph diff",
+   "content": "What changed in the memory graph over the last 24h — the delta between two memory snapshots (base version → head version). This is the 'what did the box learn or forget recently' view, expressed as a version diff rather than a live count.",
    "children": [
     {
      "selector": "#diff-scope",
      "title": "Diff scope",
-     "content": "Which slice of the memory graph the diff covers. Narrow it to focus the change view on one tier or subgraph rather than the whole store."
+     "content": "Which tiers the diff covers — all-types, or a single memory tier. Narrow it to a tier when you want to see, say, only what semantic memory gained without episodic noise."
     },
     {
      "selector": "#diff-base",
-     "title": "Diff base",
-     "content": "The 'before' point the diff compares from. The diff below is base → head; move the base to see change over a longer window."
+     "title": "Base version",
+     "content": "The 'from' snapshot of the memory graph — the earlier of the two versions being compared. Everything the diff shows is a change relative to this baseline.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Memory is versioned like a repo</div>The graph snapshots as memos.vNNNN. A diff is base→head, exactly like a git range — additions are new/promoted memories, removals are decayed/archived ones. Versioning is what makes 'what changed' answerable at all.<div class=\"so-xref\"><span class=\"x\">→</span> head version — the 'to' snapshot this base is compared against</div></div>"
     },
     {
      "selector": "#diff-head",
-     "title": "Diff head",
-     "content": "The 'after' point the diff compares to — usually now. Base → head is the change shown; a head in the past lets you inspect a historical change."
+     "title": "Head version",
+     "content": "The 'to' snapshot — the later memory-graph version. The diff is everything that happened between base and head: what was admitted, promoted, or decayed in that window."
     },
     {
      "selector": "#diff-stream",
-     "title": "Diff stream",
-     "content": "The live stream of graph changes — each admit / forget / re-weight as it lands. Read it to watch memory move in real time; a burst of forgets is worth understanding."
+     "title": "The change stream",
+     "content": "The actual added / changed / removed memories between the two versions. Each entry is a concrete graph change — a promoted fact, a decayed episode, a re-scored trust value — so you can read exactly what moved.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Reading the stream</div>Additions are knowledge the box gained (new episodes, newly-promoted facts); removals are knowledge it let go (decayed/archived). A busy stream after a working session is healthy; a busy stream while idle is worth a look.<div class=\"so-li\"><span class=\"ok\">✓</span> added → admitted or promoted into a trusted tier</div><div class=\"so-li\"><span class=\"warn\">▲</span> changed → trust or freshness re-scored</div><div class=\"so-li\"><span class=\"no\">✗</span> removed → decayed past threshold and archived</div></div>"
     }
    ]
   },
   {
-   "icon": "⚑",
-   "title": "Pending changes",
-   "content": "Memory changes waiting on your approval — the memory OS emits CLI, the daemon executes only after your MS003 signature (MS043 R10212). Nothing is forgotten or force-admitted without you.",
-   "children": [
-    {
-     "selector": "#pending-changes",
-     "title": "Pending memory changes",
-     "content": "Memory operations queued for your signature — a forget, a forced admission, a re-weight. The web only proposes; the daemon acts after MS003. Read each before signing: forgetting a value-tier memory is not reversible the way a snapshot is.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The web proposes; you sign</div>A memory mutation is a real change to what the box knows. So the web emits the CLI verb and it sits here until your signature — the daemon never forgets or admits on a web click (MS043 R10212).<div class=\"so-xref\"><span class=\"x\">→</span> D-06 approvals — the same operator-in-the-loop pattern, box-wide</div></div>"
-    }
-   ]
-  },
-  {
-   "icon": "⊟",
-   "title": "Memory store",
-   "content": "The addressable mem-<id> store (SDD-060) — the individual entries you can inspect and pick to forget. This is memory at the row level, below the tier counts.",
+   "icon": "≣",
+   "title": "Memory entries",
+   "content": "The live per-entry table — each memory with its tier, its lifecycle stage, and its state. Hover a row to read what that specific memory is and where it sits in the pipeline.",
    "children": [
     {
      "selector": "#memory-entries",
-     "title": "Memory entries",
-     "content": "The addressable entries in the store, each a mem-<id> you can inspect or select to forget (/api/d-07/entries). Picking one stages a forget for your signature — this is the row-level view beneath the tier totals above."
+     "title": "Entries table",
+     "content": "Every tracked memory as a row: mem-id, tier, current lifecycle stage, state, and a summary. The stage column is the important one — it tells you whether a row is quarantined (unproven), promoted (trusted), or decaying (on its way out).",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Columns that matter</div>mem-id is the stable handle; type is the tier; stage is where it is in the 11-step pipeline; state is its health. Two rows with the same summary but different stages are NOT the same trust level.<div class=\"so-xref\"><span class=\"x\">→</span> 11-stage lifecycle — decodes the stage column</div></div>",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#memory-entries > tr",
+      "nameSelector": "td:first-child,td",
+      "title": "Memory · {{name}}",
+      "content": "Memory {{name}} — one tracked entry. The stage cell says where it is in the 11-step pipeline (quarantine=unproven, promote=trusted, decay=leaving); the type cell says which of the eight tiers it lives in.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Entry · {{name}}</div>A single memory row. Read its stage before trusting it — a quarantined entry is a candidate, not knowledge; a promoted one has passed verify.<div class=\"so-xref\"><span class=\"x\">→</span> 11-stage lifecycle — what this row's stage means</div></div>"
+     }
     }
    ]
   },
   {
-   "icon": "⚲",
-   "title": "Memory query",
-   "content": "The RLM navigator (M00472, SDD-068) — a read-only way to ask the memory graph a question, answered by the local LM composing over retrieved slices. Honest-defer: if the LM is unreachable it says so rather than guessing.",
+   "icon": "⌕",
+   "title": "Memory navigator",
+   "content": "Query the memory graph directly — including the temporal verbs that make time-aware questions answerable. This is the operator-facing edge of the RLM navigator (M00472): ask what was true, what is true, and what changed.",
    "children": [
     {
      "selector": "#nav-q",
-     "title": "Navigator query",
-     "content": "Your question to the memory graph. The RLM navigator retrieves relevant slices and composes an answer with the local LM — read-only (/api/d-07/navigate). It never writes; it only reads what is already admitted."
+     "title": "Query box",
+     "content": "What to look up in the memory graph — an entity, fact, or topic. Combined with a temporal verb, it answers not just 'what does the box know about X' but 'what did it know about X, and when'."
     },
     {
      "selector": "#nav-verb",
-     "title": "Navigator verb",
-     "content": "The retrieval verb/mode for the query — how the navigator selects slices before composing. Different verbs read the graph different ways; pick the one matching what you are asking."
+     "title": "Temporal verb (M00469)",
+     "content": "The time dimension of the query — true-now, true-then (--at a date), changed, contradicted-by, last-verified. Without a verb you get the current view; with one you interrogate how a fact moved through time.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The five temporal verbs</div>Flat search asks 'what do you know'. These ask 'when':<div class=\"so-grid\"><span class=\"k\">true-now</span><span>is this the case at present</span><span class=\"k\">true-then</span><span>was this the case at a given past time (--at)</span><span class=\"k\">changed</span><span>how has this fact moved between then and now</span><span class=\"k\">contradicted-by</span><span>what later evidence overturned it</span><span class=\"k\">last-verified</span><span>when was this last confirmed still true</span></div><div class=\"so-xref\"><span class=\"x\">→</span> temporal-graph tier — the timestamped edges these verbs read</div></div>"
     },
     {
      "selector": "#nav-result",
-     "title": "Navigator result",
-     "content": "The composed answer over retrieved memory. If the local LM is unreachable this honest-defers (says it cannot answer) rather than fabricating — a blank or deferred result is the honest mode, not a failure.",
+     "title": "Query result",
+     "content": "The composed answer. Per the RLM navigator (M00472), a query isn't a flat lookup — the navigator gets the memory environment, writes sub-queries over slices, and composes the pieces into one answer.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why results are composed, not fetched</div>The navigator (M00472) treats memory as an environment it scripts against: it spawns child calls over graph slices and assembles them. So a result can synthesise across tiers and time rather than returning one stored row.<div class=\"so-tip\">💡 A composed answer can be right even when no single memory says it — it's derived across the graph.</div></div>"
+    }
+   ]
+  },
+  {
+   "icon": "⧗",
+   "title": "Pending changes",
+   "content": "Memory changes waiting on a decision — promotions, forgets, or trust edits that need sign-off before they alter what the box knows. Changing memory is consequential, so some changes escalate rather than auto-apply.",
+   "children": [
+    {
+     "selector": "#pending-changes",
+     "title": "Pending changes table",
+     "content": "Each proposed memory change as a row: change_id, the operation, which tier it touches, its scope, the trust delta it would apply, and who requested it. A trust delta is the important field — it's how much more (or less) the box would believe something after this change.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Why memory changes gate</div>Silently rewriting what the box believes is dangerous — a bad promotion becomes a 'fact' it acts on. So changes that move trust or forget knowledge can require review, and they land here with their delta visible before they apply.<div class=\"so-xref\"><span class=\"x\">→</span> D-06 pending approvals — where a gated memory change goes for signature</div></div>",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#pending-changes > tr",
+      "nameSelector": "td:first-child,td",
+      "title": "Change · {{name}}",
+      "content": "Pending change {{name}} — a proposed edit to memory awaiting sign-off. Its trust-delta column is how much the box's belief would move; its scope is how far the change reaches. Approve/deny via the signed CLI.",
+      "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Change · {{name}}</div>A staged memory change. The trust delta shows the belief shift it would apply; nothing changes until it's signed.<div class=\"so-xref\"><span class=\"x\">→</span> D-06 pending approvals — where this goes for signature</div></div>"
+     }
+    }
+   ]
+  },
+  {
+   "icon": "⛨",
+   "title": "Trust filters & controls",
+   "content": "The trust dimensions memory is scored on, the profile shape that bounds what's shareable, and the read-only controls. Trust isn't one number — it's several dimensions, and the mirror (M060) is what lets selfdef and sovereign-os share memory safely.",
+   "children": [
+    {
+     "selector": "#trust-filters",
+     "title": "7 trust dimensions (MS039 + M060)",
+     "content": "The dimensions memory is filtered and scored by — the authority-ring model (MS039) applied to knowledge. Filtering by dimension lets you see, e.g., only high-trust facts, or only what crossed the M060 mirror from selfdef.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Trust is multi-dimensional</div>A memory isn't simply trusted or not — it's scored across dimensions (source authority, freshness, verification, ring). MS039 authority rings decide who can assert into which tier; the M060 mirror bridge (R10095) is how selfdef's memory reaches sovereign-os under those rings without collapsing the boundary.<div class=\"so-xref\"><span class=\"x\">→</span> MS039 authority rings — the trust ladder these dimensions implement</div></div>"
+    },
+    {
+     "selector": "#profile-shape",
+     "title": "Profile shape",
+     "content": "Whether memory is shaped private or shareable under the active profile — it bounds what can cross the mirror or leave the box. 'private' means memory stays local; a shareable shape widens what M060 may mirror.",
      "variants": [
       {
        "when": {
-        "textContains": "defer"
+        "textContains": "private"
        },
-       "content": "Honest-defer — the local LM was unreachable, so the navigator declined to answer rather than guess.",
-       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ Deferred</div>The navigator would not fabricate — the local LM is unreachable. This is honesty, not an error.</div>"
+       "content": "Private — memory stays local; nothing is mirrored out under this shape."
       }
      ]
-    }
-   ]
-  },
-  {
-   "icon": "⇄",
-   "title": "Actions",
-   "content": "Web emits CLI only; the daemon executes after your MS003 signature (MS043 R10212). Forgetting a memory is a signed act.",
-   "children": [
-    {
-     "selector": "#toast",
-     "title": "Action feedback",
-     "content": "Transient confirmation that a verb was copied. It confirms the copy only — the memory does not change until you run the signed command."
-    }
-   ]
-  },
-  {
-   "icon": "⎈",
-   "title": "Controls",
-   "content": "Read-only view — every mutation copies a signed sovereign-osctl verb (§1g / R10212). The web never changes the box; it hands you the exact CLI to run.",
-   "children": [
+    },
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "The control rail — each button copies its exact sovereign-osctl command. A memory forget or admit runs through the signed CLI after your MS003 signature, never from a web click."
+     "content": "Memory controls — each copies its exact sovereign-osctl verb (§1g / R10212). Promotions, forgets, and trust edits run through the signed CLI; the web only stages the change, it never rewrites memory directly."
+    },
+    {
+     "selector": "#toast",
+     "title": "Status toast",
+     "content": "Transient confirmation of a staged action — a copied command or a completed read. It never means memory changed from this view; the CLI is what commits."
     }
    ]
   }
