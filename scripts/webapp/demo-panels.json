@@ -21,6 +21,12 @@
     { "slug": "d-18-trust-scores",           "demoConst": "DEMO_D18",      "apiPrefix": "/api/d-18",            "rowSelector": "#tool-tbody tr",           "sdd": "SDD-122" },
     { "slug": "d-19-super-model-manifest",   "demoConst": "DEMO_D19",      "apiPrefix": "/api/d-19",            "rowSelector": "#ms-tbody tr",             "sdd": "SDD-122" },
     { "slug": "d-02-profile-choices",        "demoConst": "DEMO_PROFILE",  "apiPrefix": "/api/profile",         "rowSelector": "#history-tbody tr",        "sdd": "SDD-122" },
-    { "slug": "profile-generation",          "demoConst": "DEMO_PROFGEN",  "apiPrefix": "/profile-generation.json", "rowSelector": "#profiles > *",        "sdd": "SDD-122" }
+    { "slug": "profile-generation",          "demoConst": "DEMO_PROFGEN",  "apiPrefix": "/profile-generation.json", "rowSelector": "#profiles > *",        "sdd": "SDD-122" },
+    { "slug": "d-12-networking",             "demoConst": "DEMO_D12",      "apiPrefix": "/api/d-12",            "rowSelector": "#rules-tbody tr",          "sdd": "SDD-125" },
+    { "slug": "d-13-filesystem-grants",      "demoConst": "DEMO_D13",      "apiPrefix": "/api/d-13",            "rowSelector": "#grants-tbody tr",         "sdd": "SDD-125" },
+    { "slug": "d-14-capability-tokens",      "demoConst": "DEMO_D14",      "apiPrefix": "/api/d-14",            "rowSelector": "#tokens-tbody tr",         "sdd": "SDD-125" },
+    { "slug": "d-15-sandboxes",              "demoConst": "DEMO_D15",      "apiPrefix": "/api/d-15",            "rowSelector": "#alloc-tbody tr",          "sdd": "SDD-125" },
+    { "slug": "d-16-audit",                  "demoConst": "DEMO_D16",      "apiPrefix": "/api/d-16",            "rowSelector": "#span-tbody tr",           "sdd": "SDD-125" },
+    { "slug": "d-17-quarantine",             "demoConst": "DEMO_D17",      "apiPrefix": "/api/d-17",            "rowSelector": "#quar-tbody tr",           "sdd": "SDD-125" }
   ]
 }

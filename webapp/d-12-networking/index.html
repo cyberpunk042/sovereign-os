@@ -419,6 +419,58 @@ a11y; contract test catches drift.
   .toast.show{opacity:1}
   .nft-rule{font-family:var(--mono);font-size:.78rem;padding:.2rem .4rem;border-radius:3px;background:#0a0a0a;border-left:3px solid var(--accent);margin:.1rem 0;white-space:pre-wrap}
 </style>
+<!-- SDD-116/119 shared demo-mode helper (inlined verbatim from webapp/_shared/demo-mode.{css,js}; opt-in, always-badged sample data — SB-077 reconciliation). -->
+<style>
+/* webapp/_shared/demo-mode.css — SDD-116 DEMO badge.
+ * DEMO mode is opt-in sample data for exploring panels with no daemon. The badge
+ * is a persistent, unmistakable ribbon so DEMO data is NEVER mistaken for real
+ * telemetry (the SB-077 reconciliation). Inlined verbatim into demo-capable
+ * panels alongside demo-mode.js. */
+#so-demo-badge {
+  position: fixed; top: calc(var(--so-header-h, 48px) + 8px); right: 12px; z-index: 9600;
+  background: #e6c062; color: #0a0a0a; font-weight: 700; font-size: .72rem; letter-spacing: .03em;
+  padding: .28rem .65rem; border-radius: 6px; box-shadow: 0 2px 12px rgba(0, 0, 0, .38);
+  font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif; pointer-events: none;
+}
+#so-demo-badge .sub { font-weight: 400; opacity: .82; }
+</style>
+<script>
+/* webapp/_shared/demo-mode.js — SDD-116 shared DEMO-mode helper (opt-in sample data).
+ *
+ * Reads the `sovereign-os.demo` localStorage flag (schema-guarded) and renders a
+ * persistent DEMO badge. Demo-capable panels call `soDemo.on()` to branch to their
+ * clearly-labelled sample data. The SB-077 reconciliation: DEMO is opt-in (off by
+ * default; never self-enables), ALWAYS badged, and makes ZERO network calls
+ * (R10212 strengthened — the demo render path never fetches). Inlined verbatim into
+ * demo-capable panels alongside demo-mode.css. */
+(function () {
+  "use strict";
+  var DKEY = 'sovereign-os.demo', DSCHEMA = 1;
+  function on() {
+    try {
+      var r = localStorage.getItem(DKEY); var p = r ? JSON.parse(r) : null;
+      return !!(p && p.schema === DSCHEMA && p.on);
+    } catch (e) { return false; }
+  }
+  function set(v) {
+    try { localStorage.setItem(DKEY, JSON.stringify({ schema: DSCHEMA, on: !!v })); } catch (e) {}
+  }
+  function badge() {
+    var b = document.getElementById('so-demo-badge');
+    if (on()) {
+      if (!b) {
+        b = document.createElement('div'); b.id = 'so-demo-badge';
+        b.innerHTML = 'DEMO <span class="sub">· sample data — not real telemetry</span>';
+        b.setAttribute('role', 'status');
+        (document.body || document.documentElement).appendChild(b);
+      }
+    } else if (b) { b.remove(); }
+  }
+  window.soDemo = { on: on, set: set, badge: badge, KEY: DKEY, SCHEMA: DSCHEMA };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', badge);
+  else badge();
+})();
+</script>
 </head>
 <body>
 <!-- APP-SHELL:BEGIN M067 -->
@@ -1142,8 +1194,20 @@ a11y; contract test catches drift.
 
   function applySnapshot(s) { if (s && typeof s === 'object') { snap = s; render(); } }
 
+  const DEMO_D12 = {
+    mirror_status:'online',
+    summaries:[ {ring:'sovereign_kernel', rule_count:12, total_packets:840213, total_bytes:1048576000, pending_l3:0}, {ring:'trusted_local', rule_count:8, total_packets:120400, total_bytes:52428800, pending_l3:2}, {ring:'sandboxed', rule_count:5, total_packets:4200, total_bytes:1048576, pending_l3:1}, {ring:'experimental', rule_count:3, total_packets:210, total_bytes:65536, pending_l3:0}, {ring:'cloud_external', rule_count:6, total_packets:33100, total_bytes:8388608, pending_l3:0} ],
+    rules:[
+      {handle:'demo-h100', ring:'sovereign_kernel', table:'inet filter', chain:'input', match_expr:'ct state established', disposition:'accept', priority:0, packets:420100, bytes:524288000},
+      {handle:'demo-h101', ring:'trusted_local', table:'inet filter', chain:'forward', match_expr:'ip saddr 10.0.0.0/8', disposition:'accept', priority:10, packets:60200, bytes:26214400},
+      {handle:'demo-h102', ring:'sandboxed', table:'inet filter', chain:'output', match_expr:'tcp dport 443', disposition:'accept', priority:20, packets:2100, bytes:524288},
+      {handle:'demo-h103', ring:'experimental', table:'inet filter', chain:'input', match_expr:'udp dport 53', disposition:'drop', priority:30, packets:105, bytes:32768},
+      {handle:'demo-h104', ring:'cloud_external', table:'inet filter', chain:'forward', match_expr:'ip daddr 0.0.0.0/0', disposition:'reject', priority:40, packets:16550, bytes:4194304} ]
+  };
+  function demoActive() { return !!(window.soDemo && window.soDemo.on()); }
   async function load() {
     try {
+      if (demoActive()) { applySnapshot(DEMO_D12); const _l=document.getElementById('ds-label'); if(_l)_l.textContent='data source: DEMO — sample data'; if(window.soDemo)window.soDemo.badge(); return; }
       const r = await fetch('/api/d-12/snapshot', { credentials: 'same-origin' });
       if (!r.ok) throw new Error('HTTP ' + r.status);
       applySnapshot(await r.json());
@@ -1164,7 +1228,7 @@ a11y; contract test catches drift.
   function poll() { load(); setTimeout(poll, 5000); }
 
   load();
-  startSSE();
+  if (!demoActive()) startSSE();
 
   function emit(cmd) {
     navigator.clipboard.writeText(cmd).then(() => showToast('copied: ' + cmd.slice(0, 60) + (cmd.length > 60 ? '…' : '')));
