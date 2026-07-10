@@ -316,3 +316,23 @@ def test_grid_always_visible_when_daemon_down():
     assert "renderGrid({})" in body, (
         "an initial paint of the fixed grid must run before the live fetch"
     )
+
+
+def test_features_and_profiles_sections_never_collapse_when_offline():
+    """The Features-CPU tier scaffold + Rowhammer row and the Profiles section
+    must render even with no live data (daemon offline) — an honest — per flag
+    and an honest "profiles unavailable" placeholder, never a single collapsed
+    line (the operator's "seeing all sections with all content"; SB-077)."""
+    body = WEBAPP_HTML.read_text(encoding="utf-8")
+    # Features-CPU no longer early-returns a lone "not readable" line: the tiers
+    # loop runs unconditionally (probed flag controls the value, not the render).
+    assert "const probed = cpu.length > 0" in body, (
+        "renderFeatures must always render the tier scaffold, gating only the value"
+    )
+    assert re.search(r"present:\s*probed\s*\?", body), (
+        "each flag must show live state when probed, else an honest — (present:null)"
+    )
+    # Profiles honest placeholder when the live list is empty.
+    assert "profiles unavailable" in body, (
+        "the Profiles section must show an honest placeholder when offline, not collapse"
+    )

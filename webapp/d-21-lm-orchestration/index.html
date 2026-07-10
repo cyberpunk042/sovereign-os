@@ -469,6 +469,12 @@
     PROFILES = data.profiles || [];
     $('profiles-note').textContent = data.note || '';
     if (selectedProfile == null && PROFILES.length) selectedProfile = (PROFILES[0].id || PROFILES[0].mode_id);
+    // The Profiles section stays visible even with no live profiles — an honest
+    // placeholder rather than a collapsed empty row (SB-077; "seeing all sections").
+    if (!PROFILES.length) {
+      $('profiles').innerHTML = '<div class="profile" style="opacity:.6;cursor:default"><div class="name">profiles unavailable</div><div class="desc">lm-orchestration daemon offline — start it to list M076 runtime profiles</div></div>';
+      return;
+    }
     $('profiles').innerHTML = PROFILES.map(p => {
       const id = p.id || p.mode_id;
       const on = id === selectedProfile ? ' on' : '';
@@ -517,26 +523,38 @@
     { t: 'T2 · AI acceleration (INT8/bf16 dot)', flags: ['avx512_vnni', 'avx512vbmi'] },
     { t: 'T3 · Bit manipulation', flags: ['avx512_vpopcntdq'] },
   ];
+  // present === true → ✓ live; false → absent on this CPU; null → not probed
+  // (daemon offline) — honest — never a fabricated ✓ (SB-077).
   function frow(x) {
-    return `<div class="frow"><span>${esc(x.label)}</span><span class="${x.present ? 'yes' : 'no'}">${x.present ? '✓' : '—'}</span></div>`;
+    const s = x.present === true
+      ? '<span class="yes">✓</span>'
+      : (x.present === false
+          ? '<span class="no" title="absent on this CPU">—</span>'
+          : '<span class="no" title="not probed — daemon offline">—</span>');
+    return `<div class="frow"><span>${esc(x.label)}</span>${s}</div>`;
   }
   function renderFeatures(f) {
     const cpu = f.cpu || [];
-    if (!cpu.length) { $('features-cpu').innerHTML = '<div class="muted">/proc/cpuinfo not readable</div>'; }
-    else {
-      const byFlag = {}; cpu.forEach(x => { byFlag[x.flag] = x; });
-      let html = '';
-      const tiered = new Set();
-      CPU_TIERS.forEach(tier => {
-        const rows = tier.flags.map(fl => byFlag[fl]).filter(Boolean);
-        tier.flags.forEach(fl => tiered.add(fl));
-        if (rows.length) html += `<div class="ftier">${esc(tier.t)}</div>` + rows.map(frow).join('');
-      });
-      const rest = cpu.filter(x => !tiered.has(x.flag));
-      if (rest.length) html += '<div class="ftier">Other</div>' + rest.map(frow).join('');
-      html += '<div class="ftier">Etc…</div><div class="frow"><span>Rowhammer mitigation posture</span><span class="deferred" title="no producer yet — honest-deferred (SB-077)">deferred</span></div>';
-      $('features-cpu').innerHTML = html;
-    }
+    const probed = cpu.length > 0;
+    const byFlag = {}; cpu.forEach(x => { byFlag[x.flag] = x; });
+    // The T1/T2/T3 tier scaffold + Etc/Rowhammer row ALWAYS render (design +
+    // operator "seeing all sections with all content"); flags show live state
+    // when probed, an honest — when the daemon is offline. Never collapses to
+    // a single line (that was the grid-invisible minimization, mirrored here).
+    let html = '';
+    if (!probed) html += '<div class="muted" style="margin-bottom:.35rem">/proc/cpuinfo not probed (daemon offline) — flags show — until live</div>';
+    const tiered = new Set();
+    CPU_TIERS.forEach(tier => {
+      tier.flags.forEach(fl => tiered.add(fl));
+      html += `<div class="ftier">${esc(tier.t)}</div>` + tier.flags.map(fl => {
+        const x = byFlag[fl];
+        return frow({ label: fl, present: probed ? !!(x && x.present) : null });
+      }).join('');
+    });
+    const rest = cpu.filter(x => !tiered.has(x.flag));
+    if (rest.length) html += '<div class="ftier">Other</div>' + rest.map(frow).join('');
+    html += '<div class="ftier">Etc…</div><div class="frow"><span>Rowhammer mitigation posture</span><span class="deferred" title="no producer yet — honest-deferred (SB-077)">deferred</span></div>';
+    $('features-cpu').innerHTML = html;
     $('features-gpu').innerHTML = (f.gpu || []).length ? f.gpu.map(g =>
       `<div class="frow"><span><code>${esc(g.name)}</code> (cc ${esc(g.compute_cap)})</span><span>${g.nvfp4_capable ? '<span class="yes">NVFP4</span> ' : ''}${g.tensor_cores ? '<span class="yes">TensorCore</span>' : ''}</span></div>`
     ).join('') : '<div class="muted">no GPU telemetry (nvidia-smi absent or no GPU)</div>';
