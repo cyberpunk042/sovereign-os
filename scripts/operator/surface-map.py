@@ -329,6 +329,17 @@ MODULE_COVERAGE = {
         },
     },
 
+    "code-console": {
+        "shipped_in": "SDD-112 code-console (cockpit panel — a claude.ai/code-style interface for the sovereign local LM; reuses the M057 session-registry core for the rail + the SDD-062/103 loopback prompt engine for the composer)",
+        "surfaces": ["core", "api", "webapp", "service"],
+        "waivers": {
+            "cli":       "not applicable — CLI is `sovereign-osctl sessions` (rail) + `inference prompt` (composer) on the shared cores",
+            "tui":       "not applicable — cockpit web panel, not an interactive TUI",
+            "dashboard": "not applicable — the webapp IS this panel's operator dashboard",
+            "mcp":       "not applicable — read-only render of the shared session-registry + a loopback inference read-compute",
+        },
+    },
+
     "cpu-features": {
         "shipped_in": "D-24-cpu-features (cockpit panel — deep AVX-512 capability + workload-fit + advisory; reuses avx512-advisor)",
         "surfaces": ["core", "api", "webapp", "service"],
