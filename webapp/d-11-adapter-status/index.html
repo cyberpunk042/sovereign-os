@@ -785,6 +785,7 @@ a11y; contract test catches drift.
       <option value="rolled-back">rolled-back</option>
     </select>
     <button id="apply-btn">apply</button>
+    <button id="clear-view" title="reset filters and forget the saved view">clear view</button>
   </div>
   <table>
     <thead>
@@ -865,6 +866,38 @@ a11y; contract test catches drift.
 
 <script>
 const $ = (id) => document.getElementById(id);
+
+// ── view-state persistence (SDD-110) — remember the 4 filters in localStorage,
+//    restore on load. Pure client-side; schema-guarded; a distinct key (never the
+//    personalization key). Seeded ONCE from refresh() once #base-filter's options
+//    exist; restoreView never crashes or applies invalid state. ─────────────────
+const VKEY = "sovereign-os.d-11-adapter-status.view", VSCHEMA = 1;
+const VIEW_FILTER_IDS = ["base-filter", "precision-filter", "training-filter", "status-filter"];
+let viewRestored = false;
+function saveView() {
+  try {
+    const f = {}; VIEW_FILTER_IDS.forEach(id => { f[id] = document.getElementById(id).value; });
+    localStorage.setItem(VKEY, JSON.stringify({ schema: VSCHEMA, f }));
+  } catch (e) { /* storage unavailable — the view just won't persist */ }
+}
+function restoreView() {
+  let v;
+  try { v = JSON.parse(localStorage.getItem(VKEY) || "null"); } catch (e) { return; }
+  if (!v || typeof v !== "object" || v.schema !== VSCHEMA) return;
+  const f = v.f || {};
+  VIEW_FILTER_IDS.forEach(id => {
+    const val = f[id]; if (val == null) return;
+    const sel = document.getElementById(id);
+    // only apply a value that is still a real option (a stale base/precision is dropped)
+    if ([...sel.options].some(o => o.value === val)) sel.value = val;
+  });
+}
+function clearView() {
+  VIEW_FILTER_IDS.forEach(id => { document.getElementById(id).value = ""; });
+  try { localStorage.removeItem(VKEY); } catch (e) { /* ignore */ }
+  refresh();
+}
+
 function escapeHtml(s) { if (s == null) return ''; return String(s).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
 function fmtBytes(b) { if (!b && b !== 0) return '—'; const u=['B','K','M','G','T']; let i=0; while(b>=1024&&i<u.length-1){b/=1024;i++;} return `${b.toFixed(b<10?1:0)} ${u[i]}`; }
 function fmtAge(ts) { if (!ts) return '—'; const ms = Date.now() - new Date(ts).getTime(); const m=Math.floor(ms/60000); if(m<60) return `${m}m`; const h=Math.floor(m/60); if(h<24) return `${h}h`; return `${Math.floor(h/24)}d`; }
@@ -922,6 +955,8 @@ async function refresh() {
   const currentVal = baseFilter.value;
   baseFilter.innerHTML = '<option value="">all base models</option>' + [...bases].sort().map(b => `<option value="${escapeHtml(b)}">${escapeHtml(b)}</option>`).join('');
   baseFilter.value = currentVal;
+  // SDD-110 — seed the saved filters ONCE, now that #base-filter's options exist.
+  if (!viewRestored) { restoreView(); viewRestored = true; }
   // Apply filters
   const fBase = $('base-filter').value;
   const fPrec = $('precision-filter').value;
@@ -1036,7 +1071,10 @@ function jumpToControl(cid, prefill) {
 }
 
 $('refresh-btn').addEventListener('click', refresh);
-$('apply-btn').addEventListener('click', refresh);
+$('apply-btn').addEventListener('click', () => { saveView(); refresh(); });
+// SDD-110 — persist the filters on change; #clear-view resets + forgets them.
+VIEW_FILTER_IDS.forEach(id => $(id).addEventListener('change', () => { saveView(); refresh(); }));
+$('clear-view').addEventListener('click', clearView);
 // SDD-051 — train is the heavy M046 LoRA training pipeline (Stage 3, not a
 // synchronous control). Honest status, no fake command.
 $('train-btn').addEventListener('click', () => {
@@ -1703,6 +1741,11 @@ window.SO_ASSIST = {
      "content": "Applies the filters to the adapter table. Read-only re-query; it does not change any adapter."
     },
     {
+     "selector": "#clear-view",
+     "title": "Clear view",
+     "content": "Reset the filters and forget the saved view. The panel remembers your base/precision/training/status filters in localStorage across reloads (per-browser); this is the escape hatch back to the all-adapters view. Pure client-side, never sent to the server."
+    },
+    {
      "selector": "#train-btn",
      "title": "Train (signed)",
      "content": "Copies the verb to start an adapter training run (M046). Training is a real GPU job — it copies only; the run starts when you execute the signed command."
@@ -1941,6 +1984,11 @@ window.SO_ASSIST = {
      "selector": "#apply-btn",
      "title": "Apply filters",
      "content": "Applies the filters to the adapter table. Read-only re-query; it does not change any adapter."
+    },
+    {
+     "selector": "#clear-view",
+     "title": "Clear view",
+     "content": "Reset the filters and forget the saved view. The panel remembers your base/precision/training/status filters in localStorage across reloads (per-browser); this is the escape hatch back to the all-adapters view. Pure client-side, never sent to the server."
     },
     {
      "selector": "#train-btn",
