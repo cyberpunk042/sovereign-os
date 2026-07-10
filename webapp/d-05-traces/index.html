@@ -1470,266 +1470,294 @@ refresh();
 <script>
 window.SO_ASSIST = {
  "context": {
-  "icon": "◔",
+  "icon": "⋮",
   "title": "D-05 · Traces",
-  "content": "The box's memory of what it did — every operation recorded as a span (M049), and every span mapped to the OCSF security taxonomy (MS026) so the trace log doubles as a security event stream. This is live: the governance producers (memory admits, adapter gates, approval + session decisions) continuously feed it.\n\nRead it to answer 'what happened, in what order, and did anything go wrong': filter by OCSF class or severity, drill into a span's tree + attributes, and — because the trace is deterministic — replay-verify it (MS009) to prove the recorded sequence actually reproduces. It's the audit substrate the whole box is accountable through."
+  "content": "The forensics bench — where you reconstruct exactly what happened to a single request, span by span, when the aggregate dashboards only tell you something went wrong. Each request leaves a trace (M049): a tree of spans recording which tier classified it, which model served it, where the time went, and where it errored. Where D-01 shows the session and D-04 the cost, this shows the causal path, and it is the panel you reach for after a bad response, a mysterious latency, or a routing surprise.\n\nIt has a second identity too: every span is also emitted as an OCSF event (the 16-event taxonomy, selfdef MS026), the security-legible form auditors consume — so a trace is at once a performance record and a security record. And any trace can be replayed and verified (MS009) to confirm its integrity. Read the spans for what happened, the OCSF view for what it meant to security."
  },
  "nodes": [
   {
    "icon": "◆",
-   "title": "Live-source banner",
-   "content": "Whether spans are live from /api/traces/spans or a snapshot. D-05 is genuinely live — the governance producers feed it continuously — so a snapshot means you're missing the most recent operations.",
+   "title": "Data source",
+   "content": "Whether the trace store is live or a snapshot — you usually come here after an event, so the concern is whether the trace you need has been ingested yet.",
    "children": [
     {
-     "selector": "#datasource-banner",
+     "selector": "#ds-state-label",
      "title": "Live vs snapshot",
-     "content": "Green = the traces daemon is streaming spans; muted = a snapshot. New operations arrive constantly, so a snapshot is always behind.",
-     "icon": "◆",
+     "content": "Whether /api/traces/spans is answering live. Unlike the real-time panels, traces are a record you query after the fact — so the live question here is subtler: is the store current enough to hold the trace you are chasing, or is a just-happened request not yet ingested. A stale feed can mean the very trace you need is missing simply because it hasn’t landed.",
      "variants": [
+      {
+       "when": {
+        "textContains": "checking"
+       },
+       "content": "Reaching the trace store — spans aren’t confirmed available yet.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Connecting</div>Waiting on /api/traces/spans. A trace you are looking for may not be queryable until this goes live.</div>"
+      },
       {
        "when": {
         "textContains": "live"
        },
-       "content": "Live — spans are streaming in as operations happen.",
-       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Live</div>The traces daemon is answering; the span log is current.</div>"
+       "content": "Live — the trace store is current and queryable.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Live</div>The store is answering; recent traces should be present.</div>"
       },
       {
        "when": {
-        "textContains": "snapshot"
+        "textContains": "offline"
        },
-       "content": "Snapshot — the daemon is unreachable; recent spans won't show.",
-       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Snapshot</div>Reading last-known spans — anything that happened since is missing.</div>"
+       "content": "No answer — the trace store is a snapshot; a recent trace may be absent, not lost.",
+       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Offline</div>The trace feed is down. A missing trace here may just be unreached, not gone — retry when it recovers.</div>"
       }
      ]
     },
     {
-     "selector": "#ds-state-label",
-     "title": "Source label",
-     "content": "One-word source read — live traces daemon vs a baked snapshot, before you trust the span log as complete."
-    },
-    {
      "selector": "#ds-state-detail",
      "title": "Source detail",
-     "content": "The endpoint (/api/traces/spans) and why it's live or fell back."
+     "content": "The longer status line — which endpoint answered and, when degraded, why. On a healthy feed it confirms /api/traces/spans; when amber it distinguishes a slow store from an unreachable one, which decides whether a missing trace is worth waiting for."
     },
     {
      "selector": "#ds-last-update",
-     "title": "Fetch freshness",
-     "content": "When spans were last pulled. The log grows continuously; check this before treating the view as up-to-the-second."
+     "title": "Store freshness",
+     "content": "When the trace store was last read. It bounds how recent a trace you can expect to find: a request from seconds ago may not be ingested yet, so an old timestamp during a fresh investigation is a reason to refresh before concluding a trace is missing."
     }
    ]
   },
   {
-   "icon": "▤",
+   "icon": "▦",
    "title": "Summary",
-   "content": "The shape of the last hour of activity — how many spans, how many errored, the tail latency, and how many mapped to OCSF security events. Read errors + p95 together: errors tell you what broke, p95 tells you what was slow.",
+   "content": "The last hour in four numbers — span volume, errors, tail latency, and OCSF events emitted. It’s the ‘is anything wrong’ read before you drill into a specific trace: a rising error count or p95 is the cue to search, and the OCSF count confirms the security-event stream is flowing.",
    "children": [
     {
      "selector": "#span-count",
      "title": "Spans (1h)",
-     "content": "How many operations were traced in the last hour — the volume of recorded activity. Each span is one operation with a start, duration, and outcome."
+     "content": "How many spans were recorded in the last hour — the raw volume of traced work. It’s the denominator for the error rate beside it: a hundred errors out of a hundred spans is a crisis, out of a million is noise. Read it first to size everything else.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Volume is context for everything else</div>Every other number on this panel — errors, p95, OCSF counts — only means something against this total. A scary-looking error count is nothing against a million spans and everything against a hundred. So this is the denominator you read first, before deciding whether anything else is worth alarm.</div>"
     },
     {
      "selector": "#error-count",
      "title": "Errors",
-     "content": "How many spans ended in error in the window. This is the direct 'what went wrong' count — a non-zero here is where to filter first, because each error span carries the failure detail.",
+     "content": "How many spans errored in the last hour. Unlike a log count, each of these is a request that failed with a full causal trace attached — so this number isn’t just ‘how many failures,’ it’s ‘how many failures you can fully reconstruct.’ A non-zero count is the invitation to search for the traces behind it.",
      "variants": [
       {
        "when": {
         "textContains": "0"
        },
-       "content": "No error spans in the window — every traced operation completed cleanly."
+       "content": "No errored spans in the last hour — every traced request completed.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● 0 errors</div>Nothing failed in the traced hour.</div>"
+      },
+      {
+       "when": {
+        "textContains": ""
+       },
+       "content": "Errored spans present — each has a full trace. Search to find them and open one to see where it broke.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ Errors traced</div>Some requests failed — and each left a complete trace. Search to reconstruct exactly where.</div>"
       }
      ]
     },
     {
      "selector": "#p95-lat",
      "title": "p95 latency",
-     "content": "The 95th-percentile span duration — 95% of operations finished faster than this. The tail-aware 'how slow was it' read; a bad p95 with few errors means things worked but sluggishly (check D-03 model latency for why)."
+     "content": "The 95th-percentile span latency over the hour — the slow tail, the latency a user actually feels on a bad request. It matters more than an average because tracing exists to explain outliers: a high p95 here is the number that sends you searching for the slow traces behind it, so you can see WHERE the time went, not just that it was slow.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The tail is why traces exist</div>An average latency tells you the system is fine on the whole; the p95 tells you one request in twenty is slow, and tracing is how you find out why. So this number is the bridge from ‘something is slow’ to ‘this span in this trace is where the time went’ — read it, then search the slow window it implies.</div><div class=\"so-xref\"><span class=\"x\">→</span> #spans-tbody — search the slow traces this tail points to</div>"
     },
     {
      "selector": "#ocsf-count",
      "title": "OCSF events",
-     "content": "How many spans mapped to an OCSF security-event class. This is the security-relevant subset of the trace — the operations that matter for the audit trail, not just the perf log."
+     "content": "How many OCSF security events were emitted in the hour. Every span is dual-emitted as an OCSF event (MS026), so this tracks the security-legible stream — a healthy non-zero count confirms the box is producing the audit-grade record, and it is the volume auditors and the SIEM consume, distinct from the raw spans developers read.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">One event, two audiences</div>Each traced operation is written twice — once as a developer span (what happened technically) and once as an OCSF event (what it meant to security). This count tracks the second stream; a zero here while spans flow would mean the security record isn’t being produced, which is itself a finding.</div><div class=\"so-xref\"><span class=\"x\">→</span> the OCSF taxonomy below — the classes these events fall into</div>"
+    }
+   ]
+  },
+  {
+   "icon": "⊟",
+   "title": "Filter",
+   "content": "The query controls — narrow the span search by text, severity, OCSF class, and time window. Tracing is only useful if you can find the one trace you need in millions, so these are the tools that turn a haystack into the specific request you are chasing.",
+   "children": [
+    {
+     "selector": "#search-input",
+     "title": "Search",
+     "content": "Free-text search across spans — a request id, a model name, an error string. It’s the fastest path to a specific trace when you have any identifying detail; combine it with the filters below to cut a huge span set down to the handful that match what you’re investigating.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The needle-finder</div>Tracing is only useful if you can find the one trace among millions. Text search is the direct route when you have a handle — an id from a log, a model name, the error text a user reported. Paired with the severity and time filters, it turns an unmanageable span volume into the specific request you came to reconstruct.</div>"
+    },
+    {
+     "selector": "#severity-select",
+     "title": "Severity filter",
+     "content": "Filter spans by severity. Set it to warn or error to skip the vast volume of routine spans and see only the ones that indicate a problem — the fastest way to jump straight to what went wrong without knowing what you’re looking for yet.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Start from ‘what went wrong’</div>When you know something failed but not what, severity is the shortcut: filter to error and the millions of routine spans vanish, leaving only the failures — each with a full trace. It is the triage that turns ‘something is wrong somewhere’ into a short, investigable list without needing a search term first.</div>"
+    },
+    {
+     "selector": "#ocsf-class-select",
+     "title": "OCSF class filter",
+     "content": "Filter by OCSF event class — narrow to a specific kind of security event (a detection finding, a config change, a cloud exposure). Because every span is also an OCSF event, this lets you search the trace store the way a security analyst would: by event category, not by request detail.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Search by what it meant, not what it was</div>The text search finds a trace by its specifics; this finds traces by their security meaning. Filtering to ‘Detection Finding’ or ‘Ring 4 cloud exposure’ surfaces every request that triggered that class of event, which is how you answer questions like ‘did anything reach cloud today’ across all traces at once.</div><div class=\"so-xref\"><span class=\"x\">→</span> the OCSF taxonomy below — the classes this filter selects from</div>"
+    },
+    {
+     "selector": "#window-select",
+     "title": "Time window",
+     "content": "The time range to search — 1h, 24h, 7d. Narrow it to a burst you’re investigating or widen it to find a rare event. The window bounds how far back the store is queried, so a rare event you can’t find in an hour may need a longer window to appear.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Narrow for noise, widen for rarity</div>The window is a signal-to-noise dial. A tight window around a known incident cuts out unrelated traffic so the relevant traces stand out; a wide window is how you surface a rare event that happens once a week. Match it to what you’re hunting — a burst wants narrow, a needle wants wide.</div>"
+    },
+    {
+     "selector": "#apply-btn",
+     "title": "Apply",
+     "content": "Runs the search with the current filters. Read-only — it queries the trace store and repopulates the span table; it changes nothing about the box, only what you’re looking at."
+    },
+    {
+     "selector": "#clear-btn",
+     "title": "Clear",
+     "content": "Resets the filters to the default view. Use it to start a fresh search after drilling into one investigation, rather than un-setting each filter by hand."
+    }
+   ]
+  },
+  {
+   "icon": "◫",
+   "title": "Spans",
+   "content": "The search results — the spans matching your filters, each a step in some request’s trace. This is the list you scan to find the one trace worth opening; a row’s severity and OCSF class tell you at a glance whether it’s the failure you’re hunting. Click a row to open its full detail.",
+   "children": [
+    {
+     "selector": "#spans-tbody",
+     "title": "Span rows",
+     "content": "Each row is a span — a single operation in a request’s trace, with its OCSF class and severity. Read the list to find the trace you need: an error-severity row is a failure with a full causal tree behind it, a slow one is where a latency lived. Selecting a row opens the detail panel with its full 13-field record and span tree.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A span is one step; the trace is the whole path</div>One request produces many spans — classify, route, infer, validate — linked into a tree. This table lists individual spans; opening one gives you the whole trace it belongs to, so you can follow the request from entry to error. The severity and OCSF columns are the triage: they tell you which span is the one that matters before you open it.</div><div class=\"so-xref\"><span class=\"x\">→</span> #detail-panel — the full trace behind a selected span</div>",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#spans-tbody tr",
+      "nameSelector": "td,code,strong",
+      "title": "Span · {{name}}",
+      "content": "The {{name}} span — one step of a request’s trace, with its OCSF class and severity. An error-severity span is a failure with a full causal tree behind it; a slow one is where latency lived. Click to open its full trace.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Span · {{name}}</div>One operation in a trace. Its severity and OCSF class are the triage — they tell you whether this is the span that matters before you open the whole trace behind it.</div><div class=\"so-xref\"><span class=\"x\">→</span> #detail-panel — this span’s full trace</div>"
+     }
+    }
+   ]
+  },
+  {
+   "icon": "▤",
+   "title": "OCSF taxonomy",
+   "content": "The 16-event security taxonomy (selfdef MS026) that every span is also classified into — the Open Cybersecurity Schema Framework, the standard vocabulary a SIEM or auditor speaks. This is what makes a trace a security record and not just a performance one: each event maps to a class an analyst recognizes. Hover a class to see what it captures.",
+   "children": [
+    {
+     "selector": "#ocsf-tbody",
+     "title": "OCSF event counts",
+     "content": "Each row is an OCSF event class and its count in the window — the security-event breakdown. Read it as the shape of what the box did in security terms: mostly benign observer/config events on a quiet box, a spike in detection findings or cloud-exposure events when something notable happened. It’s the security summary the raw spans don’t give you.",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#ocsf-tbody tr",
+      "nameSelector": "td,code,strong",
+      "title": "OCSF · {{name}}",
+      "content": "The {{name}} OCSF class and its count in the window — one category of the 16-event security taxonomy (MS026). Read it as what the box did in security terms; a spike in a finding or exposure class is the story of the window.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">OCSF · {{name}}</div>One class of the security event taxonomy. Filtering to it surfaces every trace that produced this kind of event — the analyst’s way of searching the box by security meaning rather than request detail.</div>"
+     }
+    },
+    {
+     "selector": "#ocsf-1001",
+     "title": "Class 1001 · System Activity",
+     "content": "OCSF class 1001 — system/observer activity, kernel-level events (L0 Observer). The routine background stream: the box watching itself at the lowest authority level. High volume here is normal and healthy; it’s the baseline hum that makes an anomaly in the higher classes stand out.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The baseline that makes anomalies visible</div>This class is supposed to be loud — the box observing itself continuously at zero authority. Its value isn’t in any single event but as the steady background: when the higher-authority classes (findings, changes, cloud) light up against this quiet hum, the contrast is the signal.</div>"
+    },
+    {
+     "selector": "#ocsf-1003",
+     "title": "Class 1003 · Simulate/Gate",
+     "content": "OCSF class 1003 — L2 Simulate: gate evaluations and restore operations. These are the box reasoning about whether to allow something (a dry-run, a gate check) without committing it. Read them to see the decisions the box weighed but hadn’t yet acted on — the deliberation before a commit.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The thinking before the doing</div>L2 Simulate is where the box evaluates a gate or dry-runs a change without effect. So these events are a window into the box’s deliberation — what it considered and how it decided — separate from the config-change class (5001) that records what it actually did. Together they show intent and action.</div><div class=\"so-xref\"><span class=\"x\">→</span> #ocsf-5001 — the commits these simulations lead to</div>"
+    },
+    {
+     "selector": "#ocsf-2004",
+     "title": "Class 2004 · Detection Finding",
+     "content": "OCSF class 2004 — a Detection Finding: the box (or selfdef) flagged something as suspicious. This is the class to watch — a finding is the immune system noticing a threat, so a spike here is the security story of the window. Each one has a full trace showing exactly what triggered it.",
+     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">The class that means ‘something was noticed’</div>Most OCSF classes are routine activity; a Detection Finding is judgment — selfdef decided something warranted flagging. So this is the highest-signal class on the panel: filter to it to see everything the box found concerning, and open each one’s trace to see what tripped it.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-17 quarantine — where a finding’s subject may be isolated<br><span class=\"x\">→</span> the Auditor — the tier that raises these</div>"
+    },
+    {
+     "selector": "#ocsf-4001",
+     "title": "Class 4001 · Network/Cloud",
+     "content": "OCSF class 4001 — network activity, notably Ring 4 cloud exposure and MS038 grants. On a sovereign box this class should be quiet: Ring 4 is cloud, which is off by default, so an event here means something reached (or was granted the ability to reach) the outermost, least-trusted ring. Read it as the ‘did anything touch cloud’ evidence at the event level.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The class that catches cloud exposure</div>Ring 4 is the cloud boundary, disabled by default — so a 4001 event is the box recording that something crossed, or was granted, that boundary. Paired with D-04’s cost view, it’s how you confirm at the security level (not just the billing level) whether the sovereignty line held.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-04 costs — the same cloud exposure seen as spend</div>"
+    },
+    {
+     "selector": "#ocsf-5001",
+     "title": "Class 5001 · Configuration Change",
+     "content": "OCSF class 5001 — a Configuration Change: L5 Commit / L6 Persist, a profile transition, a real change to the box’s state. These are the high-authority acts that actually altered something, so they’re the class an audit cares most about — each is a moment the box changed, with a trace showing who and why.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The class that records real change</div>A config-change event is the box crossing from thinking to acting — an L5 commit, an L6 persist, a profile switch. Because these require operator authority, each 5001 is an accountable change, and the trace behind it is the record of the decision. It’s where an audit reconstructs ‘when did the box’s posture actually change, and on whose signature.’</div><div class=\"so-xref\"><span class=\"x\">→</span> D-02 profile-choices — the authority behind a profile-transition event</div>"
     }
    ]
   },
   {
    "icon": "⚲",
-   "title": "Filter",
-   "content": "Narrow the span log to what you're chasing — by text, severity, OCSF class, or time window. Tracing is only useful if you can find the one span that matters among thousands.",
+   "title": "Span detail",
+   "content": "The drill-down for a selected span — its full 13-field record, the span tree it sits in, its raw attributes, and its OCSF payload. This is where a row in the list becomes the whole story: the causal tree from request entry to the point of interest, with every attribute the box recorded.",
    "children": [
-    {
-     "selector": "#search-input",
-     "title": "Search spans",
-     "content": "Free-text search across trace_id, operation, and attribute key/values. The way to find a specific span when you know something about it — a trace id from an error, an operation name, an attribute value."
-    },
-    {
-     "selector": "#severity-select",
-     "title": "Severity filter",
-     "content": "Filter by severity — all / warn / info / error. Jump straight to the error/warn spans when you're chasing a failure rather than browsing."
-    },
-    {
-     "selector": "#ocsf-class-select",
-     "title": "OCSF class filter",
-     "content": "Filter by OCSF security-event class (System / Audit / Detection Finding / Network / Config Change). The security lens — show only the spans that map to a given class of security event."
-    },
-    {
-     "selector": "#window-select",
-     "title": "Time window",
-     "content": "How far back to look — last 1h / 24h / 7d. Widen it to catch a pattern; narrow it to zoom into an incident window."
-    },
-    {
-     "selector": "#apply-btn",
-     "title": "Apply filter",
-     "content": "Runs the current filter against the span log. Read-only — it re-queries, it never changes a span."
-    },
-    {
-     "selector": "#clear-btn",
-     "title": "Clear filter",
-     "content": "Resets all filters back to the full span log. The way back to the unfiltered view."
-    }
-   ]
-  },
-  {
-   "icon": "≣",
-   "title": "Spans",
-   "content": "The actual traced operations matching your filter — each with its operation, duration, OCSF class, and severity. Click a span to drill into its detail (fields, tree, attributes, OCSF payload).",
-   "children": [
-    {
-     "selector": "#spans-tbody",
-     "title": "Span rows",
-     "content": "Each span with operation, duration, OCSF class, and severity. Hover a row for what that operation was and whether it errored; click it to open the full detail panel. This is the raw event stream — the record of every operation the box performed.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Reading a span</div>A span is one operation: what ran, how long it took, its OCSF security class, and its outcome. Duration surfaces slow ops; severity surfaces failures; the OCSF class puts it in the security timeline.<div class=\"so-xref\"><span class=\"x\">→</span> click a span → the detail panel shows its tree + attributes + OCSF payload</div></div>",
-     "dynamic": true,
-     "childTemplate": {
-      "selector": "#spans-tbody tr",
-      "nameSelector": "td",
-      "title": "Span · {{name}}",
-      "content": "The {{name}} span — one traced operation with its duration, OCSF class, and severity. Hover reads the row; click for the full detail + tree.",
-      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Span · {{name}}</div>One operation in the trace log. Duration flags slow; severity flags failure; the OCSF class places it in the security timeline.<div class=\"so-xref\"><span class=\"x\">→</span> click → fields, tree, attributes, OCSF payload</div></div>"
-     }
-    }
-   ]
-  },
-  {
-   "icon": "⛨",
-   "title": "OCSF 16-event taxonomy (MS026)",
-   "content": "The Open Cybersecurity Schema Framework classes every span is mapped to (selfdef MS026). OCSF is a standard security-event vocabulary — mapping traces to it means the box's activity log IS a security event stream, legible to selfdef and any SIEM. The count per class shows what kind of activity dominated the window.",
-   "children": [
-    {
-     "selector": "#ocsf-tbody",
-     "title": "OCSF taxonomy",
-     "content": "The full OCSF class table with each class, name, typical emitter, and count in the window. Hover a class for what it captures. This is the security-schema key for reading the spans above.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why map traces to OCSF</div>A raw span log is perf data; the same log mapped to OCSF is a security narrative. It lets 'the box did X' be read as a standard security event — cross-tool, cross-repo (selfdef speaks the same schema).</div>",
-     "dynamic": true,
-     "childTemplate": {
-      "selector": "#ocsf-tbody tr",
-      "nameSelector": "td",
-      "title": "OCSF · {{name}}",
-      "content": "The {{name}} OCSF class and its count in the window — how much of this security-event kind happened. Hover reads the row.",
-      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">OCSF · {{name}}</div>One security-event class from the MS026 taxonomy. Its count is how much of that activity the window saw.</div>"
-     }
-    },
-    {
-     "selector": "#ocsf-1001",
-     "title": "1001 · System Activity",
-     "content": "OCSF class 1001 (System Activity) — emitted by L0 Observer, kernel events. Routine system operations — the baseline hum of the box observed at the kernel level. Grouping spans by OCSF class turns raw traces into a security-legible timeline.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">1001 · System Activity</div>The System Activity OCSF class. Routine system operations — the baseline hum of the box observed at the kernel level. Typical emitter: L0 Observer, kernel events.<div class=\"so-tip\">💡 OCSF is the common security schema (MS026) — mapping every span to it lets sovereign-os and selfdef speak one event language.</div></div>"
-    },
-    {
-     "selector": "#ocsf-1003",
-     "title": "1003 · Audit Activity",
-     "content": "OCSF class 1003 (Audit Activity) — emitted by L2 Simulate, gate eval, restore. Governance operations — gate evaluations, simulations, restores. The spans that record decisions being made and checked. Grouping spans by OCSF class turns raw traces into a security-legible timeline.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">1003 · Audit Activity</div>The Audit Activity OCSF class. Governance operations — gate evaluations, simulations, restores. The spans that record decisions being made and checked. Typical emitter: L2 Simulate, gate eval, restore.<div class=\"so-tip\">💡 OCSF is the common security schema (MS026) — mapping every span to it lets sovereign-os and selfdef speak one event language.</div></div>"
-    },
-    {
-     "selector": "#ocsf-2004",
-     "title": "2004 · Detection Finding",
-     "content": "OCSF class 2004 (Detection Finding) — emitted by Guardian SIGKILL, declaration mismatch, chain break. The security-critical class — a Guardian kill, a declaration mismatch, an audit-chain break. A span here is the box catching something wrong; these are the ones to read first. Grouping spans by OCSF class turns raw traces into a security-legible timeline.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">2004 · Detection Finding</div>The Detection Finding OCSF class. The security-critical class — a Guardian kill, a declaration mismatch, an audit-chain break. A span here is the box catching something wrong; these are the ones to read first. Typical emitter: Guardian SIGKILL, declaration mismatch, chain break.<div class=\"so-tip\">💡 OCSF is the common security schema (MS026) — mapping every span to it lets sovereign-os and selfdef speak one event language.</div></div>"
-    },
-    {
-     "selector": "#ocsf-4001",
-     "title": "4001 · Network Activity",
-     "content": "OCSF class 4001 (Network Activity) — emitted by Ring 4 cloud exposure, MS038 grants. Anything touching the network — a Ring-4 cloud exposure, a network grant. On a sovereign box these are rare and worth noticing, since the default is local-only. Grouping spans by OCSF class turns raw traces into a security-legible timeline.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">4001 · Network Activity</div>The Network Activity OCSF class. Anything touching the network — a Ring-4 cloud exposure, a network grant. On a sovereign box these are rare and worth noticing, since the default is local-only. Typical emitter: Ring 4 cloud exposure, MS038 grants.<div class=\"so-tip\">💡 OCSF is the common security schema (MS026) — mapping every span to it lets sovereign-os and selfdef speak one event language.</div></div>"
-    },
-    {
-     "selector": "#ocsf-5001",
-     "title": "5001 · Configuration Change",
-     "content": "OCSF class 5001 (Configuration Change) — emitted by L5 Commit, L6 Persist, profile transition. State changes — a commit, a persist, a profile transition. The spans that record the box changing its own configuration, which is exactly what an audit wants attributed. Grouping spans by OCSF class turns raw traces into a security-legible timeline.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">5001 · Configuration Change</div>The Configuration Change OCSF class. State changes — a commit, a persist, a profile transition. The spans that record the box changing its own configuration, which is exactly what an audit wants attributed. Typical emitter: L5 Commit, L6 Persist, profile transition.<div class=\"so-tip\">💡 OCSF is the common security schema (MS026) — mapping every span to it lets sovereign-os and selfdef speak one event language.</div></div>"
-    }
-   ]
-  },
-  {
-   "icon": "◈",
-   "title": "Span detail & replay",
-   "content": "The drill-down for one span (opened on click) plus the ability to replay-verify a whole trace. Because operations are deterministic, a recorded trace can be re-run to prove it reproduces — the strongest form of accountability.",
-   "children": [
-    {
-     "selector": "#replay-verify-btn",
-     "title": "MS009 replay verify (operator-signed)",
-     "content": "Stages a deterministic replay of the selected trace (MS009) — re-running the recorded sequence to prove it reproduces exactly. This is accountability by reproduction: not 'the log says X happened' but 'X provably happens again from the same inputs'. MS003-signed, because a replay is a privileged operation.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Replay = accountability by reproduction</div>A log can be doubted; a deterministic replay can't. MS009 re-executes the trace from its recorded inputs and checks the outcome matches — turning the audit trail from a claim into a proof.<div class=\"so-tip\">💡 Signed (MS009 + MS003) because replaying re-runs real operations; it's gated like any privileged verb.</div></div>"
-    },
     {
      "selector": "#detail-panel",
-     "title": "Span detail panel",
-     "content": "The drill-down panel for a clicked span — its fields, tree, raw attributes, and OCSF payload. Where a single span goes from a table row to its full recorded context."
-    },
-    {
-     "selector": "#detail-close",
-     "title": "Close detail",
-     "content": "Closes the span-detail panel and returns to the span list."
+     "title": "Detail panel",
+     "content": "The full detail for the selected span — opened by clicking a span row. It holds the trace tree, the raw attributes, and the OCSF payload, so it’s the complete forensic record of one operation: everything the box knew about this step, in one place. This is where an investigation actually gets answered.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">One place, three views of the same span</div>The detail panel shows the span three ways: the tree (its causal context), the raw attributes (the un-summarized facts), and the OCSF payload (its security meaning). An investigation usually needs all three — the tree to see what led here, the attributes for the specifics, the OCSF form to reconcile with the security record.</div>"
     },
     {
      "selector": "#detail-title",
-     "title": "Span detail title",
-     "content": "Which span is open in the detail panel — the operation you're inspecting."
+     "title": "Detail title",
+     "content": "Which span is open in the detail panel — its identity, so you know which step of which trace you’re reading."
     },
     {
      "selector": "#detail-fields",
-     "title": "Span fields",
-     "content": "The structured fields of the span — trace id, timing, status, the typed metadata. The at-a-glance identity of the operation."
+     "title": "Detail fields",
+     "content": "The 13-field structured record of the span — the standard trace fields (timestamps, ids, tier, model, status). Read across them for the span’s vitals: when it ran, on what, and how it ended.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The span’s vital signs</div>Thirteen standard fields capture the skeleton of any operation — when, how long, which tier, which model, what status, what parent. Read together they answer the basic questions before you dig into the raw attributes: this is the structured summary the free-form attribute bag elaborates on.</div>"
     },
     {
      "selector": "#detail-tree",
      "title": "Span tree",
-     "content": "The span's place in its trace tree — parent and child spans. This is how you see an operation in context: what called it, what it called, where the time went across the whole trace."
+     "content": "The trace tree the selected span belongs to — the parent-and-child spans that make up the whole request. This is the causal path: read it top-down to follow the request from entry through classification, routing, inference, and validation to where it ended. A span deep in the tree is where the interesting thing happened; the tree shows what led there.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The tree is the causality</div>A single span is a moment; the tree is the sequence of moments that produced it. Following it top-down reconstructs the request’s life — which is how you find not just WHERE an error occurred but what led to it, three spans earlier. This is the difference between a log line and a trace: the log says what happened, the tree says why.</div>"
     },
     {
      "selector": "#detail-attrs",
      "title": "Attributes (raw)",
-     "content": "The raw key/value attributes attached to the span — the operation's full recorded detail, including the cost attribute D-04 sums. The ground truth behind the summarized fields."
+     "content": "The raw attribute bag for the span — every key/value the box attached, beyond the standard fields. Read it when the structured fields aren’t enough and you need the un-summarized detail the box recorded about this specific operation.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">When the summary isn’t enough</div>The 13 standard fields are the skeleton; this is everything else the box thought worth recording about the span — flags, intermediate values, context the schema doesn’t have a column for. It’s the layer you drop to when the structured view leaves a question unanswered, the closest thing to seeing exactly what the box saw.</div>"
     },
     {
      "selector": "#detail-ocsf",
-     "title": "OCSF event payload",
-     "content": "The span rendered as its OCSF security-event payload — the standardized form a SIEM or selfdef would consume. Same operation, security-schema shape."
+     "title": "OCSF payload",
+     "content": "The span’s OCSF event payload — the same operation in the security schema, the exact form the SIEM or an auditor receives. Read it to see how this span is represented as a security event, and to confirm the security record matches the performance one.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The security twin of the span</div>This is the span translated into the standard security vocabulary — the record an auditor or SIEM actually consumes. Reading it beside the technical fields confirms the two stories agree: the performance record and the security record are the same event seen through two lenses, and a mismatch between them would itself be worth investigating.</div>"
+    },
+    {
+     "selector": "#detail-close",
+     "title": "Close detail",
+     "content": "Closes the detail panel and returns to the span list. Cosmetic — it changes only what you’re viewing."
+    }
+   ]
+  },
+  {
+   "icon": "⇄",
+   "title": "Actions",
+   "content": "Refresh re-queries the store; replay-verify re-runs a trace to confirm its integrity (MS009). Replay is the notable one — it’s how you prove a trace wasn’t tampered with and that the operation is deterministic.",
+   "children": [
+    {
+     "selector": "#refresh-btn",
+     "title": "Refresh",
+     "content": "Re-runs the current search against the trace store immediately. Read-only. Use it to pull in traces that landed since your last query — useful when investigating something that just happened and may not have been ingested yet."
+    },
+    {
+     "selector": "#replay-verify-btn",
+     "title": "Replay + verify (MS009)",
+     "content": "Replays a selected trace and verifies it — re-running the recorded operation to confirm it produces the same result, and that the trace hasn’t been altered (MS009). It’s the integrity check for the forensic record itself: a trace you can replay to the same outcome is a trace you can trust as evidence. Read-only replay; it confirms, it doesn’t change state.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Proving the record is trustworthy</div>A trace is only useful as evidence if it’s faithful. Replay re-executes the recorded operation and checks the outcome matches, and the verify step confirms the trace’s integrity against the audit chain — so a replayed-and-verified trace is one you can stand behind in an incident review. It’s the difference between a log you hope is accurate and a record you’ve proven is.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-16 audit — the hash chain replay verifies against</div>"
     },
     {
      "selector": "#trace-replay",
-     "title": "Trace replay anchor",
-     "content": "A jump to the replay-verify control — for proving a trace reproduces."
+     "title": "Replay output",
+     "content": "The result of a replay-verify run — whether the trace reproduced faithfully and passed integrity. Read it as the verdict on a trace’s trustworthiness: a clean replay means the record is sound evidence; a mismatch means the operation is non-deterministic or the trace was altered, both of which are worth knowing.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A mismatch is itself a finding</div>A clean replay says the record is faithful — trust it as evidence. A mismatch says one of two things, both important: either the operation is non-deterministic (it does not reproduce, which complicates any guarantee about it) or the trace was altered after the fact (a tampering signal). So the failure case is not a dead end — it is a discovery.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-16 audit — the hash chain a tamper mismatch would implicate</div>"
     }
    ]
   },
   {
    "icon": "⎈",
-   "title": "Actions & controls",
-   "content": "Read-only trace view — refreshing re-samples; replay-verify is an MS009+MS003-signed verb. The web reads the audit trail; replaying runs through the signed CLI.",
+   "title": "Controls",
+   "content": "The shared control rail. On the trace panel it’s context — the investigation is the point — but a trace can reveal a systemic issue (a tier consistently erroring, cloud repeatedly reached) whose fix is a posture change copied from here. Each control copies its signed verb.",
    "children": [
-    {
-     "selector": "#refresh-btn",
-     "title": "Refresh",
-     "content": "Re-poll the span log on demand. Read-only re-sample."
-    },
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Trace controls — each copies its exact sovereign-osctl verb (§1g / R10212). Replay-verify runs through the signed CLI; the web reads spans but never re-executes them from here."
+     "content": "The profile/mode/feature control rail. Its role here is that a trace investigation sometimes ends in a structural fix — if traces keep showing one tier erroring or cloud repeatedly reached, the durable answer is a profile or feature change, whose signed verb is copied from here rather than acting on each trace individually."
     }
    ]
   }
