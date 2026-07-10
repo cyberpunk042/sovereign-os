@@ -1025,7 +1025,8 @@ window.SO_ASSIST = {
        "content": "Catalog failed to load — the list below may be stale or empty.",
        "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Catalog error</div>models/catalog.yaml didn't load.</div>"
       }
-     ]
+     ],
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Catalog loaded, or nothing works</div>Whether the registry (models/catalog.yaml) loaded. If it can't, none of the filtering below is trustworthy — the whole panel is a view onto this one file, so a load failure means you're seeing stale or empty data.</div>"
     },
     {
      "selector": "#stats",
@@ -1100,7 +1101,8 @@ window.SO_ASSIST = {
       "title": "Model · {{name}}",
       "content": "Model {{name}} — one registry entry. Read its class + precision + params + context together: class picks the engine, precision the VRAM cost, context the window it can handle.",
       "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Model · {{name}}</div>One catalogued model. Its VRAM fit (from precision × params) decides if it loads here; its tier decides which serving role it fills.<div class=\"so-xref\"><span class=\"x\">→</span> D-21 orchestration — where a selected model runs</div></div>"
-     }
+     },
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The filtered model set</div>Each matching model with its full attributes — id, class, engine, precision, params, context, license, purpose, status. This is the working shortlist your filters produced; loading one is a signed action on D-03/D-21.</div>"
     },
     {
      "selector": "#export-csv",
@@ -1111,7 +1113,8 @@ window.SO_ASSIST = {
     {
      "selector": "#export-json",
      "title": "Export JSON",
-     "content": "Download the filtered + sorted set as JSON — the machine-readable form for scripting or feeding another tool. Same rows as the CSV export."
+     "content": "Download the filtered + sorted set as JSON — the machine-readable form for scripting or feeding another tool. Same rows as the CSV export.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The shortlist, machine-readable</div>Downloads the filtered set as JSON — for scripting or feeding another tool. Read-only extraction; it reflects your current filters exactly.</div>"
     }
    ]
   },
@@ -1123,7 +1126,8 @@ window.SO_ASSIST = {
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Controls — each copies its exact sovereign-osctl verb. Model selection runs through the signed CLI, never from the web (§1g / R10212)."
+     "content": "Controls — each copies its exact sovereign-osctl verb. Model selection runs through the signed CLI, never from the web (§1g / R10212).",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copy-command boundary</div>Each control copies its sovereign-osctl verb (§1g / R10212). Model selection is browsing; loading a model is a signed verb, never a web click.</div>"
     }
    ]
   }

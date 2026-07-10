@@ -1003,7 +1003,8 @@ window.SO_ASSIST = {
     {
      "selector": "#active-mode-marker-hint",
      "title": "Mode marker hint",
-     "content": "How the marker is set — the mechanism behind a mode switch, confirming the mode is real persistent state, not ephemeral."
+     "content": "How the marker is set — the mechanism behind a mode switch, confirming the mode is real persistent state, not ephemeral.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">How a mode is really set</div>The mechanism behind a mode switch — confirming the mode is persistent state written to the marker file, not an ephemeral UI toggle. It's why every component agrees on the current posture.</div>"
     },
     {
      "selector": "#modes-grid",
@@ -1021,7 +1022,8 @@ window.SO_ASSIST = {
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "Controls — each copies its exact sovereign-osctl verb. Runtime mode switch runs through the signed CLI, never from the web (§1g / R10212)."
+     "content": "Controls — each copies its exact sovereign-osctl verb. Runtime mode switch runs through the signed CLI, never from the web (§1g / R10212).",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copy-command boundary</div>Each control copies its sovereign-osctl verb (§1g / R10212). A mode switch reshapes several behaviours at once, so it's a signed CLI action, not a web click.</div>"
     }
    ]
   }

@@ -955,7 +955,8 @@ window.SO_ASSIST = {
     {
      "selector": "#line-dot",
      "title": "Line indicator",
-     "content": "The at-a-glance on-line/on-battery dot. Green = mains; amber/red = running on battery, where the shutdown guard becomes live."
+     "content": "The at-a-glance on-line/on-battery dot. Green = mains; amber/red = running on battery, where the shutdown guard becomes live.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The at-a-glance power light</div>Green = on mains; amber/red = on battery. The instant read of whether the box is running on wall power or counting down on the UPS — pair it with the runtime estimate.</div>"
     },
     {
      "selector": "#line-state",
@@ -988,7 +989,8 @@ window.SO_ASSIST = {
     {
      "selector": "#source",
      "title": "Power source",
-     "content": "The current power source detail — mains vs battery and any transfer reason. Read it to understand WHY the box is on battery (outage vs a brownout transfer)."
+     "content": "The current power source detail — mains vs battery and any transfer reason. Read it to understand WHY the box is on battery (outage vs a brownout transfer).",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Mains vs battery, in detail</div>The current power-source detail and any transfer event. A recent transfer to battery is the moment the shutdown-guard clock started; this is where you see it happen.</div>"
     },
     {
      "selector": "#stats",
@@ -1034,7 +1036,8 @@ window.SO_ASSIST = {
     {
      "selector": "#thresholds",
      "title": "Threshold table",
-     "content": "The configured shutdown thresholds and what each triggers. Read it to see the full ladder — warn, then begin shutdown — not just the single trigger minute."
+     "content": "The configured shutdown thresholds and what each triggers. Read it to see the full ladder — warn, then begin shutdown — not just the single trigger minute.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">What each threshold triggers</div>The configured shutdown thresholds and their actions. Read them to know exactly when the guard will act — the runtime floor that starts a graceful shutdown, and any warning steps before it.</div>"
     },
     {
      "selector": "#verdict-line",
@@ -1061,7 +1064,8 @@ window.SO_ASSIST = {
     {
      "selector": "#control-surface",
      "title": "Controls rail",
-     "content": "The control rail — each button copies its exact sovereign-osctl verb. An arm/disarm or threshold change runs through the signed CLI, never from a web click."
+     "content": "The control rail — each button copies its exact sovereign-osctl verb. An arm/disarm or threshold change runs through the signed CLI, never from a web click.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copy-command boundary</div>Each control copies its sovereign-osctl verb (§1g / R10212). The shutdown guard is configured via the CLI; the web reads UPS state, it never arms or disarms the guard.</div>"
     }
    ]
   }
