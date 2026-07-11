@@ -211,11 +211,12 @@ const W_TRUST: f64 = 0.001; // trust is 0..1000
 const W_VALUE: f64 = 0.001; // value is 0..1000
 
 /// Hot/cold memory store with staged retrieval.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct MemoryStore {
     hot: Vec<HotMeta>,
     cold: HashMap<u64, GroundTruth>,
     /// Optional capacity bound; `None` = unbounded.
+    #[serde(default)]
     capacity: Option<usize>,
 }
 

@@ -308,6 +308,13 @@ pub struct GatewayServer {
     force_local: bool,
 }
 
+/// The durable memory-store path, from `SOVEREIGN_GATEWAY_MEMORY` (the systemd
+/// unit points it at /var/lib/sovereign-os/memory/cortex.json). Unset ⇒ the
+/// legacy in-process-only behaviour (seed + learn, lost on restart).
+fn memory_store_path() -> Option<std::path::PathBuf> {
+    std::env::var_os("SOVEREIGN_GATEWAY_MEMORY").map(std::path::PathBuf::from)
+}
+
 impl GatewayServer {
     /// A sovereign-by-default daemon: memory seeded for recall, every request
     /// forced local. The inference surfaces (Anthropic Messages / MCP bridge /
@@ -320,7 +327,15 @@ impl GatewayServer {
     /// request opt into cloud spill via its own `allow_cloud` flag — only for
     /// non-sovereign deployments.
     pub fn with_force_local(force_local: bool) -> Self {
-        let cortex = Cortex::with_memory(seed_memory());
+        // Durable memory: if SOVEREIGN_GATEWAY_MEMORY names a readable snapshot,
+        // resume from it so recall survives a restart; otherwise seed. The target
+        // type is inferred from `with_memory`, so the engine stays a pure library.
+        let cortex = match memory_store_path().and_then(|p| std::fs::read_to_string(p).ok()) {
+            Some(json) => {
+                Cortex::with_memory(serde_json::from_str(&json).unwrap_or_else(|_| seed_memory()))
+            }
+            None => Cortex::with_memory(seed_memory()),
+        };
         let mut manifest = GatewayManifest::empty_canonical();
         for record in &mut manifest.surfaces {
             // The surfaces this daemon actually answers route into the engine
@@ -339,6 +354,28 @@ impl GatewayServer {
             manifest,
             force_local,
         }
+    }
+
+    /// Snapshot the process memory to the durable store (atomic write). No-op,
+    /// `Ok(false)`, when SOVEREIGN_GATEWAY_MEMORY is unset. The gateway owns the
+    /// I/O; the memory engine stays a pure library. Called periodically by the
+    /// daemon so recall survives a restart.
+    pub fn persist_memory(&self) -> std::io::Result<bool> {
+        let Some(path) = memory_store_path() else {
+            return Ok(false);
+        };
+        let bytes = {
+            let cortex = self.cortex.lock().expect("cortex poisoned");
+            serde_json::to_vec(&cortex.memory)
+                .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?
+        };
+        if let Some(dir) = path.parent() {
+            std::fs::create_dir_all(dir)?;
+        }
+        let tmp = path.with_extension("tmp");
+        std::fs::write(&tmp, &bytes)?;
+        std::fs::rename(&tmp, &path)?;
+        Ok(true)
     }
 
     /// Handle one NDJSON line and return one NDJSON line of response. Never

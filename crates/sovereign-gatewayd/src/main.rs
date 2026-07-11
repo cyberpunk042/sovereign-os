@@ -78,6 +78,27 @@ fn main() {
         return;
     }
 
+    // Durable memory: periodically snapshot the learning Cortex to the store so
+    // recall survives a restart. Opt-in via SOVEREIGN_GATEWAY_MEMORY (the systemd
+    // unit sets it). ~10s cadence bounds worst-case loss on a hard kill; each
+    // write is atomic (temp + rename), so a crash never leaves a torn file.
+    if std::env::var_os("SOVEREIGN_GATEWAY_MEMORY").is_some() {
+        let secs = std::env::var("SOVEREIGN_GATEWAY_MEMORY_SAVE_SECS")
+            .ok()
+            .and_then(|s| s.parse::<u64>().ok())
+            .filter(|&n| n > 0)
+            .unwrap_or(10);
+        let saver = Arc::clone(&server);
+        std::thread::spawn(move || {
+            loop {
+                std::thread::sleep(std::time::Duration::from_secs(secs));
+                if let Err(e) = saver.persist_memory() {
+                    eprintln!("sovereign-gatewayd: memory persist failed: {e}");
+                }
+            }
+        });
+    }
+
     let addr = arg_value(&args, "--addr")
         .or_else(|| std::env::var("SOVEREIGN_GATEWAY_ADDR").ok())
         .unwrap_or_else(|| DEFAULT_ADDR.to_string());

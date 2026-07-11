@@ -21,10 +21,15 @@ StandardError=journal
 #   [Service]
 #   Environment=SOVEREIGN_GATEWAY_ADDR=0.0.0.0:8787
 Environment=SOVEREIGN_GATEWAY_ADDR=127.0.0.1:8787
+# Durable memory: the daemon resumes from + periodically snapshots the learning
+# Cortex here (atomic writes), so recall survives a restart instead of seeding
+# cold each boot. StateDirectory grants the single writable path under strict.
+Environment=SOVEREIGN_GATEWAY_MEMORY=/var/lib/sovereign-os/memory/cortex.json
+StateDirectory=sovereign-os/memory
 
-# R171 defense-in-depth (Layer-1 lint enforced). The daemon is pure in-memory:
-# it reads no files and writes none, so ProtectSystem=strict (read-only root)
-# leaves it fully functional while denying any filesystem write surface.
+# R171 defense-in-depth (Layer-1 lint enforced). ProtectSystem=strict keeps the
+# whole filesystem read-only EXCEPT the StateDirectory above (the memory
+# snapshot) — the only write surface the daemon has.
 ProtectSystem=strict
 ProtectClock=true
 ProtectHostname=true
