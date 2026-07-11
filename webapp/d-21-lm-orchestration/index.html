@@ -59,6 +59,17 @@
   .profile.on { border-color:var(--accent); }
   .profile .name { color:var(--accent); font-weight:600; }
   .profile .desc { color:var(--muted); font-size:.76rem; margin-top:.2rem; }
+  /* family grouping (D21-1: runtime / orchestration / generated / user) */
+  .fam-head { width:100%; margin:.65rem 0 .05rem; color:var(--muted); font-size:.72rem;
+    text-transform:uppercase; letter-spacing:.04em; border-bottom:1px solid var(--border);
+    padding-bottom:.2rem; display:flex; justify-content:space-between; gap:.5rem; }
+  .fam-head .cnt { color:var(--fg); font-weight:600; }
+  .profile .fam { display:inline-block; font-size:.6rem; padding:0 .32rem; border-radius:3px;
+    margin-left:.4rem; vertical-align:middle; border:1px solid var(--border); color:var(--muted); }
+  .profile .fam.runtime { color:var(--accent); border-color:#2b4658; }
+  .profile .fam.orchestration { color:var(--good); border-color:#1f4d1f; }
+  .profile .fam.generated { color:var(--warn); border-color:#4d431a; }
+  .profile .fam.user { color:#c99bff; border-color:#3a2b52; }
   /* grid */
   .grid {
     display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:1px; /* SDD-137: minmax(0,…) so a wide cell shrinks instead of overflowing */
@@ -812,26 +823,51 @@
     catch (e) { prompt('Copy + run:', cmd); }
   }
 
+  // D21-1: the four families the composer browses, in display order, each with
+  // a human label + one-line meaning (no reused catalog desc — bespoke here).
+  const FAMILY_META = {
+    runtime:       { label: 'Runtime (§18 · locked)',   blurb: 'The 3 master-spec §18 load-balancing profiles — verbatim-locked.' },
+    orchestration: { label: 'Orchestration (repo)',      blurb: 'Workload-intent profiles committed to the repo.' },
+    generated:     { label: 'Generated combos',          blurb: 'OS-profile × strategy, produced live by the SDD-043 generator.' },
+    user:          { label: 'Your drafts',               blurb: 'Profiles you composed and saved (local drafts).' },
+  };
+  let LAST_PROFILES_DATA = null;
+
   function renderProfiles(data) {
+    LAST_PROFILES_DATA = data;
     PROFILES = data.profiles || [];
     $('profiles-note').textContent = data.note || '';
     if (selectedProfile == null && PROFILES.length) selectedProfile = (PROFILES[0].id || PROFILES[0].mode_id);
     // The Profiles section stays visible even with no live profiles — an honest
     // placeholder rather than a collapsed empty row (SB-077; "seeing all sections").
     if (!PROFILES.length) {
-      $('profiles').innerHTML = '<div class="profile" style="opacity:.6;cursor:default"><div class="name">profiles unavailable</div><div class="desc">lm-orchestration daemon offline — start it to list M076 runtime profiles</div></div>';
+      $('profiles').innerHTML = '<div class="profile" style="opacity:.6;cursor:default"><div class="name">profiles unavailable</div><div class="desc">lm-orchestration daemon offline — start it to list the profile families</div></div>';
       return;
     }
-    $('profiles').innerHTML = PROFILES.map(p => {
-      const id = p.id || p.mode_id;
-      const on = id === selectedProfile ? ' on' : '';
-      return `<div class="profile${on}" data-id="${esc(id)}">
-        <div class="name">${esc(p.name || id)}</div>
-        <div class="desc">${esc((p.description || '').split('\n')[0].slice(0,120))}</div>
-      </div>`;
-    }).join('');
+    // Group by family, in FAMILY_META order, so every family is a labelled band
+    // with its live count — the operator sees all families, never a flat blur.
+    const order = data.families || ['runtime', 'orchestration', 'generated', 'user'];
+    const byFam = {};
+    PROFILES.forEach(p => { (byFam[p.family || 'orchestration'] ||= []).push(p); });
+    let html = '';
+    order.forEach(fam => {
+      const list = byFam[fam];
+      if (!list || !list.length) return;
+      const meta = FAMILY_META[fam] || { label: fam, blurb: '' };
+      html += `<div class="fam-head" title="${esc(meta.blurb)}"><span>${esc(meta.label)}</span><span class="cnt">${list.length}</span></div>`;
+      html += list.map(p => {
+        const id = p.id || p.mode_id;
+        const on = id === selectedProfile ? ' on' : '';
+        return `<div class="profile${on}" data-id="${esc(id)}">
+          <div class="name">${esc(p.name || id)}<span class="fam ${esc(fam)}">${esc(fam)}</span></div>
+          <div class="desc">${esc((p.description || '').split('\n')[0].slice(0,140))}</div>
+        </div>`;
+      }).join('');
+    });
+    $('profiles').innerHTML = html;
     document.querySelectorAll('.profile').forEach(el => el.addEventListener('click', () => {
-      selectedProfile = el.dataset.id; renderProfiles({profiles: PROFILES, note: data.note});
+      if (!el.dataset.id) return;
+      selectedProfile = el.dataset.id; renderProfiles(LAST_PROFILES_DATA);
     }));
   }
 
