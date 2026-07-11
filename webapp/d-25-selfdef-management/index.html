@@ -777,7 +777,7 @@
       $('sd-oncli').innerHTML = '—';
       $('m060-state').textContent = 'unreachable'; $('m060-state').className = 'big';
       $('m060-fresh').textContent = '—'; $('m060-age').textContent = '—';
-      $('mirror-panels').innerHTML = '<div class="muted">the selfdef-management daemon is unreachable — the enablement state, the M060 mirror-chain health, and the per-domain panels (D-13..D-18) populate here when it\'s reachable. Nothing is fabricated (SB-077).</div>';
+      $('mirror-panels').innerHTML = '<div class="muted">the selfdef-management daemon is unreachable — the enablement state, the M060 mirror-chain health, and the per-domain panels (D-13..D-18) populate when it\'s reachable. Nothing is fabricated (SB-077).</div>';
       return;
     }
     const sd = state.selfdef || {};

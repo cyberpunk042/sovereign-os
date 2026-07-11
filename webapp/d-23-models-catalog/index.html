@@ -766,7 +766,7 @@
     // never a blank #tiers (SB-077).
     if (data.offline) {
       $('summary').innerHTML = '<span class="muted">models-catalog daemon unreachable</span>';
-      $('tiers').innerHTML = '<div class="muted">the models-catalog daemon is unreachable — the registry (models/catalog.yaml, by SRP tier) will list here when it\'s reachable. Nothing is fabricated (SB-077).</div>';
+      $('tiers').innerHTML = '<div class="muted">the models-catalog daemon is unreachable — the registry (models/catalog.yaml, by SRP tier) populates when it\'s reachable. Nothing is fabricated (SB-077).</div>';
       return;
     }
     $('summary').innerHTML = `<strong>${data.total ?? 0}</strong> models · source <code>${esc(data.catalog_path || 'models/catalog.yaml')}</code>`;
