@@ -241,6 +241,9 @@ packages:
     - git
     - python3-minimal
     - python3-pip
+    - python3-yaml         # PyYAML — ~32 operator/dashboard daemons + provision.sh import yaml at runtime
+    - python3-jsonschema   # catalog/profile schema conformance + perimeter overlap check
+    - prometheus-node-exporter  # scrapes the Layer-B textfile collector (/var/lib/node_exporter/textfile_collector)
     - htop
     - jq
     - ca-certificates
@@ -309,7 +312,11 @@ provisioning:
     dev_tools: true                # node + @anthropic-ai/claude-code (global)
     selfdef: true                  # stage ~/selfdef → /opt/selfdef, build, install units
     root_ghostproxy: true          # stage ~/root-ghostproxy → /opt/root-ghostproxy, install (endpoint)
-    dashboards: true               # deploy panels + enable sovereign-dashboards.service
+    dashboards: true               # deploy panels + enable the dashboard hub + all read-only panel APIs
+    gui: true                      # install a desktop (GNOME) on the mkosi IMAGE so it boots to the dashboards.
+                                   # NOTE: adds ~1GB+ (gnome-core + gdm3 + firefox). The root-reflash install
+                                   # (install-sovereign-root.sh) always installs the GUI regardless; set this
+                                   # false to keep the flash/emulate appliance image headless. Non-fatal on failure.
   firstboot: true                  # install + enable sovereign-firstboot.target + hardware hooks
   posture: installed-off           # selfdef + ghostproxy installed but NOT started on boot
   # APC Smart-UPS (SMT2200C, SmartConnect) power management. provision-bake arms

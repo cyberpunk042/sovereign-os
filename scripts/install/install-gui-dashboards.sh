@@ -108,11 +108,19 @@ enable_unit() { # <unit> — enable via systemctl, else offline wants-symlink
 enable_unit sovereign-dashboards.service
 [ -f "${SRC}/systemd/system/sovereign-master-dashboard-api.service" ] \
   && enable_unit sovereign-master-dashboard-api.service
-# R558 (SDD-070) — the science-tools panel API is read-only observability
-# (catalog + NVIDIA Warp status; no privileged writes), so it is normally
-# enabled like the mirror panels — NOT deploy-only like flash/emulate/ups.
-[ -f "${SRC}/systemd/system/sovereign-science-api.service" ] \
-  && enable_unit sovereign-science-api.service
+# Enable EVERY read-only panel API so the dashboards are LIVE (not just served
+# HTML) on a fresh install — operator directive "dashboards running by default".
+# The privileged execution panels (flash/emulate/ups) + the sole write daemon
+# (control-exec) are the ONLY exceptions — deploy-only, operator-launched (below).
+_API_MANAGED=" sovereign-flash-api sovereign-emulate-api sovereign-ups-api sovereign-control-exec-api sovereign-master-dashboard-api "
+_apin=0
+for _svc in "${SRC}"/systemd/system/sovereign-*-api.service; do
+  [ -f "${_svc}" ] || continue
+  _base="$(basename "${_svc}" .service)"
+  case "${_API_MANAGED}" in *" ${_base} "*) continue;; esac
+  enable_unit "${_base}.service"; _apin=$((_apin+1))
+done
+info "read-only panel APIs enabled: ${_apin} (dashboards live; flash/emulate/ups + control-exec stay operator-launched)"
 
 # Deploy-ONLY (copy, do not enable) the execution-surface panels — flash +
 # emulate. They carry the hardened posture for the lint, but their privileged
@@ -130,6 +138,36 @@ deploy_unit_only() { # <unit> — install the file, never enable
 deploy_unit_only sovereign-flash-api.service
 deploy_unit_only sovereign-emulate-api.service
 deploy_unit_only sovereign-ups-api.service
+
+# ── (3b) system runtime: recurrent timers + config defaults + metrics sink ──
+# Not GUI-specific, but this is the shared in-chroot install point (root reflash +
+# standalone), so make the box self-maintaining + land the config defaults here too
+# (provision-bake does the same on the mkosi image path).
+step "3b/5 recurrent maintenance timers + config defaults + node_exporter"
+# metrics: the textfile-collector sink + its scraper
+mkdir -p /var/lib/node_exporter/textfile_collector 2>/dev/null || true
+if systemctl enable prometheus-node-exporter.service 2>/dev/null; then info "node_exporter enabled (textfile scraper)"; fi
+# runtime config defaults → /etc/sovereign-os (copy-if-ABSENT, never clobber)
+mkdir -p /etc/sovereign-os
+_cn=0
+for _ex in "${SRC}"/config/*.toml.example "${SRC}"/config/*.yaml.example "${SRC}"/config/science/*.toml.example; do
+  [ -f "${_ex}" ] || continue
+  _dst="/etc/sovereign-os/$(basename "${_ex}" .example)"
+  [ -e "${_dst}" ] || { install -m 644 "${_ex}" "${_dst}" 2>/dev/null && _cn=$((_cn+1)); }
+done
+info "config defaults → /etc/sovereign-os (${_cn} file(s))"
+# recurrent maintenance timers — enable them all so the box self-maintains
+# (power-shutdown-guard is armed separately by the UPS/power path)
+_tn=0
+for _tmr in "${SRC}"/systemd/system/sovereign-*.timer; do
+  [ -f "${_tmr}" ] || continue
+  _tb="$(basename "${_tmr}" .timer)"
+  [ "${_tb}" = "sovereign-power-shutdown-guard" ] && continue
+  [ -f "${SRC}/systemd/system/${_tb}.service" ] \
+    && install -m 644 "${SRC}/systemd/system/${_tb}.service" /etc/systemd/system/ 2>/dev/null || true
+  if enable_unit "${_tb}.timer"; then _tn=$((_tn+1)); fi
+done
+info "recurrent maintenance timers enabled (${_tn})"
 
 # ── (4) discoverable launcher: app menu + desktop + login autostart ──
 step "4/5 discoverable launcher (app menu · desktop · autostart)"

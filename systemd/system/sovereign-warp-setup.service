@@ -18,7 +18,7 @@ StandardError=journal
 # python's dist-packages under /usr/local/lib; PrivateTmp gives pip its own
 # build/cache dir; the metrics dir receives the Layer B result sample.
 ProtectSystem=strict
-ReadWritePaths=/usr/local/lib /usr/local/bin /var/lib/node_exporter/textfile_collector /var/lib/sovereign-os /var/log
+ReadWritePaths=/usr/local/lib /usr/local/bin -/var/lib/node_exporter/textfile_collector /var/lib/sovereign-os /var/log
 ProtectHome=true
 ProtectKernelTunables=true
 ProtectKernelModules=true

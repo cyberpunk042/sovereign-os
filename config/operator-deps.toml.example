@@ -30,6 +30,9 @@ install = [
     "zfsutils-linux",  # zpool + zfs userland — required by zfs-tiered profiles (preflight-storage)
     "nodejs",       # Node runtime — required by the [npm] claude-code global (dev workstation)
     "npm",          # npm — installs @anthropic-ai/claude-code
+    "python3-yaml",       # PyYAML — ~32 operator daemons + provision.sh import yaml (image/chroot paths lack it otherwise)
+    "python3-jsonschema", # catalog/profile schema validation (schema conformance + perimeter check-overlap)
+    "prometheus-node-exporter",  # scrapes /var/lib/node_exporter/textfile_collector (else every Layer-B .prom metric is written into the void)
 ]
 
 # ─── Python pip packages ───

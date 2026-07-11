@@ -140,10 +140,13 @@ APT
 apt-get update
 
 # essentials: lvm (root is on LVM!), bootloader, initramfs, login, net, sudo
+# + python3 + PyYAML/jsonschema (the dashboard/operator daemons import yaml at
+#   runtime) + node_exporter (scrapes the Layer-B textfile metrics).
 apt-get install -y --no-install-recommends \
   lvm2 grub-efi-amd64 efibootmgr initramfs-tools \
   sudo locales console-setup keyboard-configuration \
   systemd-resolved netbase iproute2 isc-dhcp-client \
+  python3 python3-yaml python3-jsonschema prometheus-node-exporter \
   ca-certificates curl nano less
 
 # regenerate locale we inherited

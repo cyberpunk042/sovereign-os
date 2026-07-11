@@ -38,10 +38,36 @@ log "starting — operator=${OPERATOR} posture=${POSTURE} repo=${REPO}"
 # own so the sandbox can be built. (Hardware units additionally skip on VMs via
 # ConditionVirtualization=no; these dirs make the generic ones — firstboot
 # completion marker, workstation-shell — succeed everywhere.)
-if mkdir -p /var/lib/sovereign-os /var/log/sovereign-os /etc/bash.bashrc.d 2>/dev/null; then
-  log "state dirs ensured (/var/lib/sovereign-os · /var/log/sovereign-os · /etc/bash.bashrc.d)"
+if mkdir -p /var/lib/sovereign-os /var/log/sovereign-os /etc/bash.bashrc.d \
+           /var/lib/node_exporter/textfile_collector 2>/dev/null; then
+  log "state dirs ensured (/var/lib/sovereign-os · /var/log/sovereign-os · /etc/bash.bashrc.d · node_exporter textfile_collector)"
 else
   log "state-dir creation hiccup (non-fatal)"
+fi
+# node_exporter scrapes the textfile collector — enable it so the Layer-B .prom
+# metrics every recurrent hook + first-boot unit emits are actually collected.
+if [ -f /lib/systemd/system/prometheus-node-exporter.service ] || [ -f /usr/lib/systemd/system/prometheus-node-exporter.service ]; then
+  systemctl enable prometheus-node-exporter.service >/dev/null 2>&1 \
+    && log "prometheus-node-exporter enabled (scrapes the textfile collector)" \
+    || log "node_exporter enable failed (non-fatal)"
+fi
+
+# ── 0b. runtime config defaults → /etc/sovereign-os (operator-editable) ─────
+# Every config/*.{toml,yaml}.example is a runtime default. Lay each down at
+# /etc/sovereign-os/<name> (copy-if-ABSENT — never clobber an operator edit) so
+# the operator gets an editable override AND the daemons that resolve
+# /etc/sovereign-os/<x> find it on any layout (not only the baked /opt fallback).
+# Skips installer-INPUT templates (cloud-init / preseed). power.toml +
+# shutdown-manifest.toml are further armed in §7.
+if [ -d "${REPO}/config" ]; then
+  mkdir -p /etc/sovereign-os
+  cn=0
+  for ex in "${REPO}"/config/*.toml.example "${REPO}"/config/*.yaml.example "${REPO}"/config/science/*.toml.example; do
+    [ -f "${ex}" ] || continue
+    dst="/etc/sovereign-os/$(basename "${ex}" .example)"
+    if [ ! -e "${dst}" ] && install -m 644 "${ex}" "${dst}" 2>/dev/null; then cn=$((cn+1)); fi
+  done
+  [ "${cn}" -gt 0 ] && log "config defaults installed to /etc/sovereign-os (${cn} file(s))"
 fi
 
 # ── 1. operator user ─────────────────────────────────────────────────────
@@ -124,14 +150,50 @@ if [ "${SOVEREIGN_OS_BAKE_GHOSTPROXY:-}" = "1" ] && [ -d /opt/root-ghostproxy ];
   fi
 fi
 
-# ── 5. dashboards hub (enable so the panels are up on boot) ───────────────
+# ── 5. dashboards hub + panel APIs (dashboards LIVE on boot — ON by default) ──
+# The hub (build-configurator) serves every panel's HTML; each panel's live data
+# comes from its own read-only sovereign-<x>-api daemon. Enable the hub + master
+# dashboard + ALL read-only panel APIs so the dashboards show live data out of the
+# box (operator directive: "dashboards running by default"). The privileged
+# execution panels (flash/emulate/ups) + the sole write daemon (control-exec) are
+# deliberately NOT auto-enabled — they are operator-launched (panel.sh) so their
+# privileged actions stay deliberate. Mask any read-only API via
+# SOVEREIGN_OS_DASHBOARD_API_SKIP="sovereign-foo-api,...".
 if [ "${SOVEREIGN_OS_BAKE_DASHBOARDS:-}" = "1" ] && [ -d "${REPO}/systemd/system" ]; then
-  for unit in sovereign-dashboards.service sovereign-master-dashboard-api.service sovereign-science-api.service; do
-    if [ -f "${REPO}/systemd/system/${unit}" ]; then
-      install -m 644 "${REPO}/systemd/system/${unit}" /etc/systemd/system/ 2>/dev/null || true
-      if systemctl enable "${unit}" 2>/dev/null; then log "enabled ${unit}"; else log "enable ${unit} failed (non-fatal)"; fi
-    fi
+  _API_MANAGED="sovereign-flash-api sovereign-emulate-api sovereign-ups-api sovereign-control-exec-api"
+  IFS=',' read -ra _ASKIP <<< "${SOVEREIGN_OS_DASHBOARD_API_SKIP:-}"
+  dn=0
+  for unit in sovereign-dashboards.service sovereign-master-dashboard-api.service; do
+    [ -f "${REPO}/systemd/system/${unit}" ] || continue
+    install -m 644 "${REPO}/systemd/system/${unit}" /etc/systemd/system/ 2>/dev/null || true
+    systemctl enable "${unit}" >/dev/null 2>&1 && dn=$((dn+1))
   done
+  for svc in "${REPO}"/systemd/system/sovereign-*-api.service; do
+    [ -f "${svc}" ] || continue
+    base="$(basename "${svc}" .service)"
+    case " ${_API_MANAGED} " in *" ${base} "*) continue;; esac
+    _sk=0; for s in "${_ASKIP[@]}"; do [ "${base}" = "${s}" ] && _sk=1; done
+    [ "${_sk}" = "1" ] && continue
+    install -m 644 "${svc}" /etc/systemd/system/ 2>/dev/null || true
+    systemctl enable "${base}.service" >/dev/null 2>&1 && dn=$((dn+1))
+  done
+  log "dashboards LIVE — hub + ${dn} panel API service(s) enabled (flash/emulate/ups + control-exec stay operator-launched)"
+fi
+
+# ── 5b. desktop on the IMAGE (opt-in — bake.gui) ──────────────────────────
+# The root-reflash install (install-sovereign-root.sh) ALWAYS installs the GUI;
+# for the mkosi appliance image it is opt-in. When bake.gui is set, run
+# install-gui-dashboards.sh in the postinst (apt is available here) so the
+# flashed image boots straight to a desktop + the dashboards. NON-FATAL — a
+# desktop apt hiccup must never brick the image build (it stays headless).
+if [ "${SOVEREIGN_OS_BAKE_GUI:-}" = "1" ] && [ -x "${REPO}/scripts/install/install-gui-dashboards.sh" ]; then
+  log "installing desktop on the image (bake.gui=1) — ${SOVEREIGN_OS_DESKTOP:-gnome} + graphical.target"
+  if SOVEREIGN_OS_SRC="${REPO}" SOVEREIGN_OS_DESKTOP="${SOVEREIGN_OS_DESKTOP:-gnome}" \
+       bash "${REPO}/scripts/install/install-gui-dashboards.sh" 2>&1 | sed 's/^/provision-bake:   /' >&2; then
+    log "desktop installed on the image"
+  else
+    log "desktop install hiccup (non-fatal — image stays headless; run install-gui-dashboards.sh post-flash)"
+  fi
 fi
 
 # ── 6. first-boot hardware automation (installs + enables the target) ─────
@@ -160,6 +222,32 @@ if [ "${SOVEREIGN_OS_BAKE_FIRSTBOOT:-}" = "1" ] && [ -d "${REPO}/systemd/system"
   else
     log "first-boot target enable failed (non-fatal) — ${n} units installed"
   fi
+fi
+
+# ── 6b. recurrent maintenance timers (self-maintaining box — ON by default) ──
+# Every scripts/hooks/recurrent/*.sh ships a sovereign-<slug>.{service,timer}. On a
+# real provisioned machine (firstboot=true) install + enable them ALL so the box
+# self-maintains out of the box: zfs-scrub, thermal-watch, wattage/telemetry
+# sampling, security-update + model/selfdef sync, tetragon/ghostproxy verify,
+# the Memory-OS lifecycle (janitor/observe), the session reaper, log-rotate,
+# backups. Each hook self-degrades when its dependency is absent. power-shutdown-
+# guard is handled UPS-gated in §7. A profile may mask any via
+# SOVEREIGN_OS_RECURRENT_SKIP="sovereign-foo,sovereign-bar".
+if [ "${SOVEREIGN_OS_BAKE_FIRSTBOOT:-}" = "1" ] && [ -d "${REPO}/systemd/system" ]; then
+  IFS=',' read -ra _RSKIP <<< "${SOVEREIGN_OS_RECURRENT_SKIP:-}"
+  rn=0
+  for tmr in "${REPO}"/systemd/system/sovereign-*.timer; do
+    [ -f "${tmr}" ] || continue
+    base="$(basename "${tmr}" .timer)"
+    [ "${base}" = "sovereign-power-shutdown-guard" ] && continue   # §7 arms it UPS-gated
+    _sk=0; for s in "${_RSKIP[@]}"; do [ "${base}" = "${s}" ] && _sk=1; done
+    [ "${_sk}" = "1" ] && { log "recurrent ${base}.timer skipped (profile mask)"; continue; }
+    [ -f "${REPO}/systemd/system/${base}.service" ] \
+      && install -m 644 "${REPO}/systemd/system/${base}.service" /etc/systemd/system/ 2>/dev/null
+    install -m 644 "${tmr}" /etc/systemd/system/ 2>/dev/null
+    if systemctl enable "${base}.timer" >/dev/null 2>&1; then rn=$((rn+1)); fi
+  done
+  log "recurrent maintenance timers enabled (${rn})"
 fi
 
 # ── 7. UPS / power (APC Smart-UPS SMT2200C SmartConnect, graceful shutdown) ─
