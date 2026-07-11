@@ -976,12 +976,12 @@
         fetchJson('/api/lm-orchestration/profiles'),
         fetchJson('/api/lm-orchestration/features'),
       ]);
-      $('data-source-banner').innerHTML = 'consuming <code>/api/lm-orchestration/{grid,profiles,features}</code>';
+      $('data-source-banner').innerHTML = 'consuming <code>/api/lm-orchestration/*</code> from the lm-orchestration API daemon';
       renderProfiles(profiles);
       renderGrid(grid);
       renderFeatures(features);
     } catch (e) {
-      $('data-source-banner').innerHTML = 'cannot reach the lm-orchestration API daemon <span class="muted">('+esc(e.message)+')</span>';
+      $('data-source-banner').innerHTML = 'cannot reach <code>/api/lm-orchestration/*</code> — is the lm-orchestration API daemon running? <span class="muted">('+esc(e.message)+')</span>';
       // still render the fixed quadrant + profiles/features structure (honest —)
       renderGrid({}); renderProfiles({profiles: PROFILES}); renderFeatures({});
     }

@@ -801,10 +801,10 @@
       const res = await fetch('/api/models-catalog/catalog', {credentials:'same-origin'});
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      $('data-source-banner').innerHTML = 'consuming <code>/api/models-catalog/catalog</code>';
+      $('data-source-banner').innerHTML = 'consuming <code>/api/models-catalog/catalog</code> from the models-catalog API daemon';
       renderTiers(data);
     } catch (e) {
-      $('data-source-banner').innerHTML = 'cannot reach the models-catalog API daemon <span class="muted">('+esc(e.message)+')</span>';
+      $('data-source-banner').innerHTML = 'cannot reach <code>/api/models-catalog/catalog</code> — is the models-catalog API daemon running? <span class="muted">('+esc(e.message)+')</span>';
       renderTiers({offline: true});   // SDD-113 — keep the catalog scaffold visible, never blank
     }
     $('last-fetch').textContent = 'last fetch: ' + new Date().toLocaleTimeString();
