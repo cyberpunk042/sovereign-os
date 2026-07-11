@@ -12,9 +12,9 @@ without reading.
 ```css
 --bg --fg --muted --border
 --accent   /* brand / primary path      (#9bd1ff default) */
---ok       /* green — healthy, safe-run  (#7fd18a) */
---warn     /* amber — heavy, attention   (#e6c07b) */
---danger   /* red   — destructive, error (#e88)    */
+--good     /* green — healthy, safe-run  (#7ad17a) */
+--warn     /* amber — heavy, attention   (#e6c062) */
+--bad      /* red   — destructive, error (#ff7676) */
 ```
 
 ## Button hierarchy — THE rule
@@ -37,7 +37,7 @@ Hard rules:
 ## Execution surfaces
 
 Anything that executes server-side lives in a **console card**: left
-accent bar (`--ok`), tinted background, a status dot (`.run-dot`,
+accent bar (`--good`), tinted background, a status dot (`.run-dot`,
 pulsing amber while busy), the action row, then the live log `<pre>`.
 The card heading states the trust contract verbatim:
 *"executes on the server — the exception to ⚡ YOU RUN"*.
