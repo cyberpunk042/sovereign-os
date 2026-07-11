@@ -90,12 +90,13 @@ def test_sain01_exploit_flags_reach_the_build():
     march, feats = m.cpu_features(profile)
     flags = m.rustflags(march, feats)
     assert "-C target-cpu=znver5" in flags, flags
-    # T1 foundation + T2 compute + T3 byte/permute exploited instructions
-    # (the tiered plan) must all reach the build.
+    # Every AI-workload tier of the canonical M085 note must reach the build
+    # (foundation floor + T1 dot-product + T2 bitwise/attention + T3 VBMI/CD
+    # structuration + T4 pop-count margin).
     for must in (
-        "+avx512f", "+avx512vnni", "+avx512bf16", "+popcnt",   # baseline + INT8/BF16
-        "+avx512vpopcntdq", "+avx512vp2intersect",             # T2 vector popcount + intersect
-        "+avx512vbmi", "+avx512vbmi2", "+avx512bitalg",        # T3 permute/shift/byte-bitalg
+        "+avx512f", "+avx512vnni", "+avx512bf16", "+popcnt",   # foundation + T1 VNNI INT8/BF16 + scalar popcnt
+        "+avx512vpopcntdq", "+avx512vp2intersect",             # T4 margin vector popcount + T2 token-intersect
+        "+avx512vbmi", "+avx512vbmi2", "+avx512bitalg",        # T3 VBMI/CD permute/shift + T4 byte-bitalg
     ):
         assert must in flags, f"sain-01 RUSTFLAGS missing {must}: {flags}"
 
