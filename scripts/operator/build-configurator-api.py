@@ -75,7 +75,9 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -724,8 +726,61 @@ RUN_ACTIONS = {
     "preflight": (lambda: ["scripts/build/orchestrate.sh", "preflight"], False),
     "build":     (lambda: ["scripts/build/orchestrate.sh", "run"], True),
 }
-RUN_LOCK = threading.Lock()
-CURRENT_JOB: dict = {"proc": None, "action": None}
+# ── background runs: a build/dry-run/preflight OUTLIVES the client that started
+# it. Its output streams to a state LOG FILE and its metadata to a STATUS FILE,
+# so navigating away NEVER kills it (the browser can leave, the run keeps going)
+# and any client re-attaches later — /api/run/attach replays the full log so far
+# + follows it live. Survives a daemon restart too (the start_new_session child
+# writes straight to the file, independent of this daemon). ──
+_RUN_STATE_DIR = Path(os.environ.get(
+    "SOVEREIGN_OS_BUILD_STATE_DIR",
+    Path(tempfile.gettempdir()) / f"sovereign-os-build-{os.getuid()}"))
+_RUN_LOG = _RUN_STATE_DIR / "run.log"
+_RUN_STATUS = _RUN_STATE_DIR / "run.json"
+_RUN_START_LOCK = threading.Lock()   # serialise STARTS (one run at a time)
+
+
+def _run_status_read() -> dict:
+    try:
+        return json.loads(_RUN_STATUS.read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+def _run_status_write(d: dict) -> None:
+    try:
+        _RUN_STATE_DIR.mkdir(parents=True, exist_ok=True)
+        _RUN_STATUS.write_text(json.dumps(d))
+    except OSError:
+        pass
+
+
+def _pid_alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+        return True
+    except (OSError, ProcessLookupError):
+        return False
+
+
+def _run_active() -> bool:
+    st = _run_status_read()
+    pid = st.get("pid")
+    return bool(st and not st.get("done") and pid and _pid_alive(int(pid)))
+
+
+def _run_waiter(proc, action: str) -> None:
+    """Background waiter — outlives the request. Appends the exit footer to the
+    log + marks the status done. Daemon thread, one per started run."""
+    rc = proc.wait()
+    try:
+        with open(_RUN_LOG, "ab", buffering=0) as f:
+            f.write(f"\n{'✓' if rc == 0 else '✗'} exit code {rc}\n".encode())
+    except OSError:
+        pass
+    st = _run_status_read()
+    st.update(done=True, exit_code=rc)
+    _run_status_write(st)
 
 # Operator MOK keys (SDD-015: keys live on the host, NEVER in the repo).
 # The signed-posture build needs them in the env; the first Run-console
@@ -804,6 +859,23 @@ class Handler(BaseHTTPRequestHandler):
         path = self.path.split("?", 1)[0].rstrip("/") or "/"
         if path == "/healthz":
             return self._send(200, json.dumps({"ok": True}))
+        # Background-run status + re-attach (survive page navigation). Suffix-
+        # matched so they work whether served at / or /build-configurator/.
+        if path.endswith("/api/run/status"):
+            st = _run_status_read()
+            active = _run_active()
+            try:
+                size = _RUN_LOG.stat().st_size
+            except OSError:
+                size = 0
+            return self._send(200, json.dumps({
+                "running": active, "action": st.get("action"),
+                "profile": st.get("profile"), "started_at": st.get("started_at"),
+                "done": st.get("done", not active), "exit_code": st.get("exit_code"),
+                "log_bytes": size,
+            }))
+        if path.endswith("/api/run/attach"):
+            return self._stream_log(0)
         # Gateway routes come BEFORE this server's own /version — the
         # cockpit's registry identity deliberately shadows it (use
         # /healthz for this server's liveness).
@@ -896,14 +968,14 @@ class Handler(BaseHTTPRequestHandler):
         # (/build-configurator/api/run). Match the endpoint by SUFFIX so it
         # routes identically from either path (and survives a stale cached page).
         if path.endswith("/api/cancel"):
-            proc = CURRENT_JOB.get("proc")
-            if proc and proc.poll() is None:
+            st = _run_status_read()
+            pid = st.get("pid")
+            if pid and _run_active():
                 try:
-                    os.killpg(os.getpgid(proc.pid), 15)
+                    os.killpg(os.getpgid(int(pid)), 15)
                 except (OSError, ProcessLookupError):
                     pass
-                return self._send(200, json.dumps(
-                    {"cancelled": CURRENT_JOB.get("action")}))
+                return self._send(200, json.dumps({"cancelled": st.get("action")}))
             return self._send(200, json.dumps({"cancelled": None}))
         if path.endswith("/api/run"):
             return self._run_action()
@@ -963,49 +1035,91 @@ class Handler(BaseHTTPRequestHandler):
                     str(REPO / argv[0]), *argv[1:]]
             elevation_note = ("  (look for the system password prompt on "
                               "your desktop — polkit/pkexec)\n")
-        if not RUN_LOCK.acquire(blocking=False):
-            return self._send(409, json.dumps(
-                {"error": f"a job is already running: {CURRENT_JOB.get('action')}"}))
-        try:
+        # One run at a time — but the run now OUTLIVES this request: it streams to
+        # a state file (see _run_waiter), so a client navigating away never kills
+        # it. Serialise only the START; then stream this client from the top.
+        with _RUN_START_LOCK:
+            if _run_active():
+                return self._send(409, json.dumps(
+                    {"error": "a run is already in progress",
+                     "action": _run_status_read().get("action")}))
+            key_note = ("  signing: operator MOK auto-injected from "
+                        f"{OPERATOR_KEY_DIR}\n" if operator_key_env() else "")
+            try:
+                _RUN_STATE_DIR.mkdir(parents=True, exist_ok=True)
+                logf = open(_RUN_LOG, "wb", buffering=0)
+            except OSError as e:
+                return self._send(500, json.dumps({"error": f"cannot open run log: {e}"}))
+            logf.write(f"▶ {action} · profile {profile}\n{elevation_note}{key_note}\n".encode())
             env = dict(os.environ, SOVEREIGN_OS_PROFILE=profile,
                        **operator_key_env(), **bake_env)
             if snapshot:
                 env["DEBIAN_SNAPSHOT"] = snapshot
-            proc = subprocess.Popen(
-                argv, cwd=REPO, env=env, stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT, start_new_session=True,
-            )
-            CURRENT_JOB.update(proc=proc, action=action)
-            # Stream: HTTP/1.0-style close-delimited plain text, line-buffered.
-            self.send_response(200)
-            self.send_header("Content-Type", "text/plain; charset=utf-8")
-            self.send_header("Cache-Control", "no-store")
-            self.send_header("X-Accel-Buffering", "no")
-            self.end_headers()
-            key_note = ("  signing: operator MOK auto-injected from "
-                        f"{OPERATOR_KEY_DIR}\n" if operator_key_env() else "")
-            self.wfile.write(
-                f"▶ {action} · profile {profile} · pid {proc.pid}\n"
-                f"{elevation_note}{key_note}\n".encode())
-            self.wfile.flush()
             try:
-                for raw in proc.stdout:
-                    self.wfile.write(ANSI_RE.sub(b"", raw))
-                    self.wfile.flush()
-                rc = proc.wait()
-                self.wfile.write(
-                    f"\n{'✓' if rc == 0 else '✗'} exit code {rc}\n".encode())
-                self.wfile.flush()
-            except (BrokenPipeError, ConnectionResetError):
-                # client went away — stop the job rather than orphan it
-                if proc.poll() is None:
-                    try:
-                        os.killpg(os.getpgid(proc.pid), 15)
-                    except (OSError, ProcessLookupError):
-                        pass
-        finally:
-            CURRENT_JOB.update(proc=None, action=None)
-            RUN_LOCK.release()
+                # stdout → the log FILE (not a pipe): the child keeps writing even
+                # if this daemon or the client goes away — the run is detached.
+                proc = subprocess.Popen(
+                    argv, cwd=REPO, env=env, stdout=logf,
+                    stderr=subprocess.STDOUT, start_new_session=True)
+            except OSError as e:
+                logf.close()
+                return self._send(500, json.dumps(
+                    {"error": f"failed to start {action}: {e}"}))
+            logf.close()   # the child holds its own dup'd fd now
+            _run_status_write({"pid": proc.pid, "action": action, "profile": profile,
+                               "started_at": int(time.time()), "done": False})
+            threading.Thread(target=_run_waiter, args=(proc, action),
+                             daemon=True).start()
+        # Stream from the top; a disconnect just DETACHES — the run lives on and
+        # the operator re-attaches from any page via /api/run/attach.
+        self._stream_log(0)
+
+    def _stream_log(self, from_offset: int):
+        """Replay _RUN_LOG from `from_offset`, then follow it live until the run
+        finishes. Read-only tail — a client disconnect just ends THIS stream and
+        never touches the run. Shared by POST /api/run + GET /api/run/attach."""
+        self.send_response(200)
+        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Accel-Buffering", "no")
+        self.end_headers()
+        try:
+            with open(_RUN_LOG, "rb") as f:
+                f.seek(max(0, from_offset))
+                dead_since = None
+                while True:
+                    chunk = f.read(65536)
+                    if chunk:
+                        self.wfile.write(ANSI_RE.sub(b"", chunk))
+                        self.wfile.flush()
+                        dead_since = None
+                        continue
+                    st = _run_status_read()
+                    if st.get("done"):
+                        tail = f.read()          # footer written before done=True
+                        if tail:
+                            self.wfile.write(ANSI_RE.sub(b"", tail))
+                            self.wfile.flush()
+                        break
+                    if not _run_active():
+                        # pid gone but not marked done — the waiter may be mid-write
+                        # (short race) or was lost to a daemon restart (orphan).
+                        if dead_since is None:
+                            dead_since = time.time()
+                        elif time.time() - dead_since > 3.0:
+                            self.wfile.write(b"\n(run ended)\n")
+                            self.wfile.flush()
+                            break
+                    else:
+                        dead_since = None
+                    time.sleep(0.3)
+        except FileNotFoundError:
+            try:
+                self.wfile.write(b"(no run in progress)\n")
+            except (BrokenPipeError, ConnectionResetError, OSError):
+                pass
+        except (BrokenPipeError, ConnectionResetError, OSError):
+            pass  # client detached — the run + its waiter continue unaffected
 
 
 def main():

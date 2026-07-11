@@ -2361,6 +2361,28 @@ function summarizeRunErrors(text){
   box.style.display = "";
 }
 
+// A run (dry-run/preflight/build) is DETACHED server-side: it streams to a
+// state file, so leaving this page never kills it. We stream the live output
+// here; on return, restoreRun() re-attaches and repaints at current progress.
+function pumpStream(r, log){
+  var reader = r.body.getReader(), dec = new TextDecoder();
+  function pump(){
+    return reader.read().then(function(x){
+      if (x.done){ setRunBusy(false, ""); summarizeRunErrors(log.textContent); return; }
+      log.textContent += dec.decode(x.value, {stream: true});
+      log.scrollTop = log.scrollHeight;
+      return pump();
+    });
+  }
+  return pump();
+}
+
+function attachRun(){                 // replay the in-progress run + follow it live
+  var log = document.getElementById("run-log");
+  return fetch("/api/run/attach").then(function(r){ return pumpStream(r, log); })
+    .catch(function(e){ log.textContent += "\n✗ " + e; setRunBusy(false, ""); });
+}
+
 function runAction(action){
   if (action === "build" &&
       !confirm("REAL image build (~30 min, writes to build/). Continue?")) return;
@@ -2377,26 +2399,34 @@ function runAction(action){
                           bake_selfdef: document.getElementById("bake-selfdef").checked,
                           graceful_shutdown: document.getElementById("bake-graceful").checked}),
   }).then(function(r){
+    if (r.status === 409){ return attachRun(); }   // one already running → attach to it
     if (!r.ok) return r.text().then(function(t){
       var msg = t; try { var j = JSON.parse(t); msg = j.error + (j.fix ? "\n→ " + j.fix : ""); } catch(e){}
       log.textContent = "✗ " + msg;
       setRunBusy(false, "");
     });
-    var reader = r.body.getReader(), dec = new TextDecoder();
-    function pump(){
-      return reader.read().then(function(x){
-        if (x.done){ setRunBusy(false, ""); summarizeRunErrors(log.textContent); return; }
-        log.textContent += dec.decode(x.value, {stream: true});
-        log.scrollTop = log.scrollHeight;
-        return pump();
-      });
-    }
-    return pump();
+    return pumpStream(r, log);
   }).catch(function(e){
     log.textContent += "\n✗ " + e;
     setRunBusy(false, "");
   });
 }
+
+// On load: if a run started earlier is still going (we navigated away and back,
+// or opened this page fresh), restore the busy UI + re-attach at current progress.
+function restoreRun(){
+  fetch("/api/run/status").then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(s){
+      if (s && s.running){
+        document.getElementById("run-log").textContent = "";
+        setRunBusy(true, s.action || "run");
+        attachRun();
+      }
+    }).catch(function(){ /* status unavailable — nothing to restore */ });
+}
+if (document.readyState === "loading")
+  document.addEventListener("DOMContentLoaded", restoreRun);
+else restoreRun();
 document.getElementById("bake-dev").addEventListener("change", regenerate);
 document.getElementById("bake-selfdef").addEventListener("change", regenerate);
 document.getElementById("bake-graceful").addEventListener("change", regenerate);
