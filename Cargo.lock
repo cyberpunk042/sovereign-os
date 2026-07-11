@@ -6055,6 +6055,7 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
+ "sovereign-simd",
  "thiserror",
 ]
 
@@ -6252,6 +6253,14 @@ dependencies = [
 [[package]]
 name = "sovereign-significance"
 version = "0.1.0"
+
+[[package]]
+name = "sovereign-simd"
+version = "0.1.0"
+dependencies = [
+ "rand",
+ "rand_chacha",
+]
 
 [[package]]
 name = "sovereign-simhash"

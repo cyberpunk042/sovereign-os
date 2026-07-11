@@ -1,0 +1,24 @@
+[package]
+name = "sovereign-simd"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "The sanctioned SIMD carve-out: the ONE crate permitted `unsafe` (per operator decision) so the DispatchPath scaffolding gets real AVX-512 intrinsics. Every kernel is a safe wrapper that runtime-detects the CPU and dispatches to an AVX-512 path when present, with a scalar reference fallback that is the source of truth — SIMD is proven equal to scalar by tests."
+
+# DELIBERATE EXCEPTION: this crate does NOT inherit `[lints] workspace = true`.
+# The workspace forbids `unsafe` across all other crates; this is the single
+# carve-out that hosts the intrinsics, approved by the operator. It sets its own
+# lints so `unsafe` is allowed HERE and nowhere else.
+[lints.rust]
+unsafe_code = "allow"
+missing_docs = "warn"
+
+[dependencies]
+
+[dev-dependencies]
+rand = { workspace = true }
+rand_chacha = { workspace = true }

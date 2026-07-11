@@ -90,7 +90,7 @@ impl RmsNorm {
                 got: x.len(),
             });
         }
-        let mean_sq = x.iter().map(|v| v * v).sum::<f32>() / self.dim as f32;
+        let mean_sq = sovereign_simd::sum_of_squares(x) / self.dim as f32;
         let inv_rms = 1.0 / (mean_sq + self.eps).sqrt();
         Ok(x.iter()
             .zip(&self.gain)
