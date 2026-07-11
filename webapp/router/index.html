@@ -419,6 +419,10 @@ a11y; contract test catches drift.
   padding: .28rem .65rem; border-radius: 6px; box-shadow: 0 2px 12px rgba(0, 0, 0, .38);
   font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif; pointer-events: none;
 }
+/* Lift clear of the guided-course rail when it is showing (SDD-203) — the rail
+   occupies the bottom band, so raise the badge above it + a small margin rather
+   than letting it sit directly on the rail. Inert on panels with no course rail. */
+body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 12px); }
 #so-demo-badge .sub { font-weight: 400; opacity: .82; }
 </style>
 <script>
@@ -499,6 +503,9 @@ a11y; contract test catches drift.
   .so-set-switch .knob{position:absolute; top:2px; left:2px; width:18px; height:18px; border-radius:50%; background:var(--muted,#8a8a8a); transition:left .14s ease,background .14s ease;}
   .so-set-switch.on{background:color-mix(in srgb,var(--accent,#9bd1ff) 30%,transparent); border-color:var(--accent,#9bd1ff);}
   .so-set-switch.on .knob{left:20px; background:var(--accent,#9bd1ff);}
+  .so-set-ctl{display:flex; align-items:center; gap:.45rem; flex-shrink:0;}
+  .so-set-mini{height:24px; padding:0 .5rem; font:inherit; font-size:.72rem; cursor:pointer; color:var(--fg,#e6e6e6); background:transparent; border:1px solid var(--border,#3a3a3a); border-radius:6px;}
+  .so-set-mini:hover{background:color-mix(in srgb,var(--accent,#9bd1ff) 14%,transparent); border-color:color-mix(in srgb,var(--accent,#9bd1ff) 40%,transparent);}
   #so-settings-pane .so-set-foot{color:var(--muted,#8a8a8a); font-size:.72rem; padding:.1rem .7rem .5rem;}
   .so-brand{display:flex; align-items:center; gap:.4rem; font-weight:600; letter-spacing:.02em;}
   .so-brand .mark{color:var(--accent,#9bd1ff);}
@@ -803,13 +810,27 @@ a11y; contract test catches drift.
         '<div class="so-set-row"><div class="so-set-lbl"><b>DEMO mode</b>'+
           '<span class="so-set-sub">Explore panels with no daemon — badged sample data, never real telemetry. Off by default.</span></div>'+
           '<button class="so-set-switch" id="so-demo-switch" role="switch" aria-checked="false" aria-label="Toggle DEMO mode"><span class="knob"></span></button></div>'+
+        '<div class="so-set-row" id="so-course-set-row" hidden><div class="so-set-lbl"><b>Guided course</b>'+
+          '<span class="so-set-sub">The bottom journey-rail that tours the box. Toggle it here (updates live); Reset starts the tour over.</span></div>'+
+          '<div class="so-set-ctl"><button class="so-set-mini" id="so-course-reset" type="button">Reset</button>'+
+          '<button class="so-set-switch" id="so-course-switch" role="switch" aria-checked="false" aria-label="Toggle the guided course"><span class="knob"></span></button></div></div>'+
         '<div class="so-set-foot">not for production · saved on this device</div>'+
       '</div>'));
     var setPane=document.getElementById('so-settings-pane'), setBtn=document.getElementById('so-settings-toggle'), demoSw=document.getElementById('so-demo-switch');
     function syncDemoSwitch(){ var on=demoOn(); demoSw.setAttribute('aria-checked',on?'true':'false'); demoSw.classList.toggle('on',on); }
-    function setPaneOpen(open){ setPane.hidden=!open; setBtn.setAttribute('aria-expanded',open?'true':'false'); if(open) syncDemoSwitch(); }
+    // ── Course row: present only when the course snippet is on this panel (it
+    //    exposes window.soCourse). Toggles the bottom journey-rail LIVE (no
+    //    reload — the course re-renders itself); Reset restarts the tour. ──
+    var courseRow=document.getElementById('so-course-set-row'), courseSw=document.getElementById('so-course-switch'), courseReset=document.getElementById('so-course-reset');
+    function syncCourseSwitch(){ var api=window.soCourse;
+      if(!api){ if(courseRow) courseRow.hidden=true; return; }
+      if(courseRow) courseRow.hidden=false;
+      var on=!!api.isOn(); courseSw.setAttribute('aria-checked',on?'true':'false'); courseSw.classList.toggle('on',on); }
+    function setPaneOpen(open){ setPane.hidden=!open; setBtn.setAttribute('aria-expanded',open?'true':'false'); if(open){ syncDemoSwitch(); syncCourseSwitch(); } }
     setBtn.addEventListener('click',function(e){ e.stopPropagation(); setPaneOpen(setPane.hidden); });
     demoSw.addEventListener('click',function(){ demoSet(!demoOn()); });
+    if(courseSw) courseSw.addEventListener('click',function(){ if(window.soCourse){ window.soCourse.setOn(!window.soCourse.isOn()); syncCourseSwitch(); } });
+    if(courseReset) courseReset.addEventListener('click',function(){ if(window.soCourse){ window.soCourse.reset(); syncCourseSwitch(); } });
     document.addEventListener('click',function(e){ if(!setPane.hidden && !setPane.contains(e.target) && e.target!==setBtn && !setBtn.contains(e.target)) setPaneOpen(false); });
     document.addEventListener('keydown',function(e){ if(e.key==='Escape' && !setPane.hidden) setPaneOpen(false); });
     syncDemoSwitch();
@@ -2391,6 +2412,18 @@ window.SO_ASSIST = {
     });
     document.addEventListener('click',function(e){ if(document.body.classList.contains('so-course-jump')){ var ml=document.getElementById('so-course-modlist'); var jb=document.getElementById('so-course-jump'); if(ml && !ml.contains(e.target) && e.target!==jb){ document.body.classList.remove('so-course-jump'); } } });
   }
+  // ── external control surface — the app-shell ⚙ Settings pane drives the course
+  //    from the top-right (toggle the rail live + reset the tour). Read-only to
+  //    the network: pure localStorage + DOM, same as every other course action. ──
+  window.soCourse = {
+    isOn: function(){ return !st.dismissed && (st.started || !st.prompted); },
+    setOn: function(on){
+      if(on){ st.dismissed=false; if(!st.started) st.prompted=false; }
+      else { st.dismissed=true; st.prompted=true; }
+      save(st); render();
+    },
+    reset: function(){ restart(); }   // clear progress + restart the tour from lesson 1
+  };
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',mount); else mount();
 })();
 </script>

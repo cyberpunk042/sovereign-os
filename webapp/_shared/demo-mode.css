@@ -9,4 +9,8 @@
   padding: .28rem .65rem; border-radius: 6px; box-shadow: 0 2px 12px rgba(0, 0, 0, .38);
   font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif; pointer-events: none;
 }
+/* Lift clear of the guided-course rail when it is showing (SDD-203) — the rail
+   occupies the bottom band, so raise the badge above it + a small margin rather
+   than letting it sit directly on the rail. Inert on panels with no course rail. */
+body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 12px); }
 #so-demo-badge .sub { font-weight: 400; opacity: .82; }

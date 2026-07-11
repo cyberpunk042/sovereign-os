@@ -537,6 +537,18 @@ tests/lint/test_course_snippet_contract.py.
     });
     document.addEventListener('click',function(e){ if(document.body.classList.contains('so-course-jump')){ var ml=document.getElementById('so-course-modlist'); var jb=document.getElementById('so-course-jump'); if(ml && !ml.contains(e.target) && e.target!==jb){ document.body.classList.remove('so-course-jump'); } } });
   }
+  // ── external control surface — the app-shell ⚙ Settings pane drives the course
+  //    from the top-right (toggle the rail live + reset the tour). Read-only to
+  //    the network: pure localStorage + DOM, same as every other course action. ──
+  window.soCourse = {
+    isOn: function(){ return !st.dismissed && (st.started || !st.prompted); },
+    setOn: function(on){
+      if(on){ st.dismissed=false; if(!st.started) st.prompted=false; }
+      else { st.dismissed=true; st.prompted=true; }
+      save(st); render();
+    },
+    reset: function(){ restart(); }   // clear progress + restart the tour from lesson 1
+  };
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',mount); else mount();
 })();
 </script>
