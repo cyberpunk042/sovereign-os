@@ -2008,6 +2008,7 @@ window.SO_ASSIST = {
   #so-course-bar{flex:1; min-width:40px; height:5px; border-radius:999px; background:var(--bg,#0e0e0e); border:1px solid var(--border,#262626); overflow:hidden;}
   #so-course-bar > i{display:block; height:100%; width:0; background:var(--accent,#9bd1ff);}
   #so-course-rail .so-course-pct{color:var(--muted,#8a8a8a); font-variant-numeric:tabular-nums; white-space:nowrap;}
+  #so-course-rail.so-course-firstrun{background:linear-gradient(180deg,color-mix(in srgb,var(--accent,#9bd1ff) 12%,var(--panel,#171717)),var(--panel,#171717));}
   .so-course-actions{display:flex; align-items:center; gap:.3rem; flex:none;}
   .so-course-btn{display:inline-flex; align-items:center; justify-content:center; gap:.3rem; height:28px; padding:0 .55rem;
     background:transparent; color:var(--fg,#e6e6e6); border:1px solid var(--border,#262626); border-radius:6px; cursor:pointer; font:inherit; font-size:.76rem;}
@@ -2041,6 +2042,16 @@ window.SO_ASSIST = {
   .so-course-tip{border:1px solid rgba(155,209,255,.28); background:rgba(155,209,255,.05); border-radius:7px; padding:.55rem .7rem; margin:.7rem 0 .2rem;}
   .so-course-tip .lb{font-weight:600; font-size:.76rem; color:var(--accent,#9bd1ff); margin-bottom:.2rem;}
   .so-course-tip .tx{font-size:.8rem; color:var(--fg-2,#c8c8c8);}
+  /* "key things to notice" bullets */
+  .so-course-notice{margin:.7rem 0 .2rem; padding:0; list-style:none;}
+  .so-course-notice li{position:relative; padding-left:1.1rem; margin:.28rem 0; font-size:.8rem; color:var(--fg-2,#c8c8c8);}
+  .so-course-notice li::before{content:'◦'; position:absolute; left:.15rem; color:var(--accent,#9bd1ff);}
+  /* try-it checkpoint */
+  .so-course-todo{display:flex; align-items:flex-start; gap:.5rem; border:1px solid rgba(127,209,143,.4); background:rgba(127,209,143,.05); border-radius:7px; padding:.55rem .7rem; margin:.7rem 0 .2rem; cursor:pointer; user-select:none;}
+  .so-course-todo input{margin-top:.15rem; accent-color:var(--ok,#7fd18a); flex:none;}
+  .so-course-todo .tl{font-size:.8rem; color:var(--fg-2,#c8c8c8);}
+  .so-course-todo .tl b{color:#7fd18f; font-weight:600; display:block; font-size:.74rem; text-transform:uppercase; letter-spacing:.04em; margin-bottom:.15rem;}
+  .so-course-todo.done{opacity:.7;} .so-course-todo.done .tl{text-decoration:line-through; text-decoration-color:var(--muted,#8a8a8a);}
   .so-course-foot{display:flex; align-items:center; gap:.4rem; flex-wrap:wrap; padding:.55rem .9rem; border-top:1px solid var(--border,#262626); flex:none;}
   .so-course-foot .sp{margin-left:auto;}
   /* module jump list */
@@ -2054,6 +2065,12 @@ window.SO_ASSIST = {
   .so-course-mod.done .ml{color:var(--muted,#8a8a8a);}
   .so-course-mod .mk{color:#7fd18f; font-size:.75rem;}
   #so-course-rail .so-course-dismiss{color:var(--muted,#8a8a8a);}
+  /* SPOTLIGHT — course-owned pulse ring on the taught element (mirrors the
+     app-shell deep-link .so-deeplink-hot look; own class so the course owns
+     its lifecycle). Reduced-motion falls back to a static outline. */
+  .so-course-spot{animation:so-course-pulse 2.1s ease; border-radius:6px; scroll-margin:96px;}
+  @keyframes so-course-pulse{0%,100%{box-shadow:none;} 12%,55%{box-shadow:0 0 0 2px var(--accent,#9bd1ff),0 0 16px rgba(155,209,255,.55);}}
+  @media (prefers-reduced-motion: reduce){ .so-course-spot{animation:none; outline:2px solid var(--accent,#9bd1ff); outline-offset:2px;} }
 </style>
 <script>
 (function(){
@@ -2063,10 +2080,15 @@ window.SO_ASSIST = {
   // ── CURRICULUM — compact structure only; the long per-panel teaching text
   //    is pulled from window.__soCatalog (the app-shell catalog, single source
   //    of truth from config/dashboard-catalog.yaml). A lesson is either:
-  //      {c:'concept', t:title, p:[paragraph, ...]}
-  //      {dir:'<panel-slug>', tip:'what to look at while you are here'}
-  //    Modules are ordered by importance and carry a tier label so the less
-  //    central material is integrated but clearly marked. ──
+  //      {c:'concept', t:title, p:[para,...], todo?, spot?}
+  //      {dir:'<slug>', tip:'...', notice?:[...], todo?:'...', spot?:'<css sel>'}
+  //    Optional fields:
+  //      spot   — CSS selector for the element to scroll-to + pulse. Chrome ids
+  //               (#so-settings-toggle, #so-assist-toggle, #so-palette) are
+  //               always present; panel content defaults to '#so-content h1'.
+  //      todo   — a "try it" checkpoint the operator can tick (persisted).
+  //      notice — 2-3 "key things to notice" bullets.
+  //    Modules are ordered by importance and tier-labelled. ──
   var CURRICULUM = [
     {id:'M0', name:'Orientation', tier:'core', lessons:[
       {c:'concept', t:'What sovereign-os is', p:[
@@ -2074,21 +2096,29 @@ window.SO_ASSIST = {
         'The promise is sovereignty: your AI runs on your silicon, and nothing has to cross the network for the box to think. This course walks that promise, surface by surface — most important pieces first, then the rest, all of it integrated and clearly labelled.',
         'You are reading this in the Course rail at the bottom of the screen. It rides along as you explore: press Next and it takes you to the next lesson’s panel and picks up there. Your place is saved on this device, so you can leave and come back.'
       ]},
+      {c:'concept', t:'Two helpers: the Course and the Assistant', p:[
+        'The cockpit has two helpers, and they are different. THIS — the rail along the bottom — is the Course: a journey ACROSS panels that teaches them in order and travels you between them.',
+        'The Assistant is the ✦ drawer on the RIGHT (open it from the header). It explains the ONE panel you are currently on, and can hand your question to the box’s local AI. Use the Assistant for “what is this panel”; use the Course for “show me the whole box, in order.”'
+      ], todo:'Open the ✦ Assistant on the right (header button), read one line, then close it — notice it is about the current panel, not the tour.', spot:'#so-assist-toggle'},
       {c:'concept', t:'The Trinity doctrine', p:[
         'The conceptual heart of the box is the Trinity: three tiers with separated powers, so you can trust compute you cannot personally verify. Pulse does the thinking cheaply on the CPU (ternary / BitNet inference). Weaver shapes and steers the heavier work on a sandboxed GPU fabric. The Auditor watches both from an immutable perch that cannot be bribed or bypassed.',
         'The point is that no single tier can both act and vouch for itself. You will visit each tier’s panel in the next module — this is the lens to hold while you do.'
       ]},
-      {c:'concept', t:'Sovereignty-clean & DEMO mode', p:[
-        'Every cockpit panel is one self-contained page: no framework, no CDN, nothing loaded across the network at runtime. Panels are read-only by default — they observe the box and, for any real action, hand you a signed CLI verb to run yourself.',
-        'Because panels are read-only, you can explore them with no daemon running: turn on DEMO mode (⚙ Settings → DEMO mode) and every panel fills with clearly-badged sample data. Do that now if this box has no live backend — the whole tour works in DEMO.'
-      ]},
-      {dir:'master-dashboard', tip:'This is the front door. Read the four health banners at the top — the M060 selfdef→sovereign-os mirror chain, the SSE subscriber quota, the IPS watchdog spine, and AppArmor. They are the box’s pulse; everything else is a place on this map.'}
+      {c:'concept', t:'Read-only doctrine, the 8 surfaces & DEMO mode', p:[
+        'Every cockpit panel is one self-contained page: no framework, no CDN, nothing loaded across the network at runtime. Panels are read-only by default (R10212) — they observe the box and, for any real action, hand you a signed CLI verb to run yourself. A feature is only “delivered” when it is reachable on all eight operator surfaces: core, CLI, TUI, API, MCP, dashboard, webapp, and service.',
+        'Because panels are read-only, you can explore them with no daemon running: turn on DEMO mode and every panel fills with clearly-badged sample data. Do that now if this box has no live backend — the whole tour works in DEMO.'
+      ], todo:'Open ⚙ Settings (top-right) and toggle DEMO mode on, so panels show badged sample data.', spot:'#so-settings-toggle'},
+      {dir:'master-dashboard', tip:'This is the front door. Read the four health banners at the top — the M060 selfdef→sovereign-os mirror chain, the SSE subscriber quota, the IPS watchdog spine, and AppArmor. They are the box’s pulse; everything else is a place on this map.',
+        notice:['The route table shows every panel and whether the aggregator can reach it.','The collision list flags two things claiming one route.','The four health banners are the single yes/no on whether the defense spine is intact.'],
+        todo:'Press ⌘K (or Ctrl-K) to open the command palette, then type a panel name — that is how you jump anywhere fast.', spot:'#so-palette'}
     ]},
     {id:'M1', name:'Trinity & Orchestration', tier:'core', lessons:[
-      {dir:'trinity', tip:'The one-screen answer to “is the trinity intact” — all three tiers up, each doing only its own job. Confirm this before you trust anything the box produced.'},
+      {dir:'trinity', tip:'The one-screen answer to “is the trinity intact” — all three tiers up, each doing only its own job. Confirm this before you trust anything the box produced.',
+        notice:['Pulse = cheap CPU ternary thinking.','Weaver = sandboxed GPU fabric for heavier/untrusted work.','Auditor = immutable watcher that only judges, never acts.']},
       {dir:'weaver', tip:'The messy, isolated tier. Look for whether the risky work is staying inside its VFIO boundary rather than leaking toward the host.'},
       {dir:'auditor', tip:'A blind Auditor is a security event, not a slow one. Check the perimeter is live and streaming, then read what it has flagged.'},
-      {dir:'router', tip:'Watch where prompts actually landed. The doctrine is that most prompts do not deserve the expensive model — catch everything piling onto the Oracle.'},
+      {dir:'router', tip:'Watch where prompts actually landed. The doctrine is that most prompts do not deserve the expensive model — catch everything piling onto the Oracle.',
+        notice:['Rules are ordered; first match wins, so the same prompt always routes the same way.','Pulse (cheap) → Logic (mid) → Oracle (deep) are the tiers a prompt can land on.']},
       {dir:'runtime-modes', tip:'Each mode is a whole stance (efficiency / concurrency / deep-context). Note the trade-off: you cannot have all three at once.'},
       {dir:'d-01-active-sessions', tip:'A session parked at one lifecycle step is a session that needs attention. Scan for anything stuck.'},
       {dir:'d-03-model-health', tip:'The live-serving view. The p95/p99 tail is what a user feels, not the average — read the tail latencies.'},
@@ -2099,9 +2129,11 @@ window.SO_ASSIST = {
         'This is why the repo exists. You compose an image in the Build Configurator, rehearse it safely in a throwaway QEMU VM (Emulate), and only then write it to real hardware (Flash). A broken build should fail harmlessly in a console you can read — never on the USB key.',
         'The three panels ahead are that pipeline, in order. Treat Flash’s armed state as live: it irreversibly wipes the target device.'
       ]},
-      {dir:'build-configurator', tip:'The factory floor — the one panel where a decision (a kernel march, a VFIO cmdline, an encryption choice) propagates into every other. Nothing here touches a running box.'},
+      {dir:'build-configurator', tip:'The factory floor — the one panel where a decision (a kernel march, a VFIO cmdline, an encryption choice) propagates into every other. Nothing here touches a running box.',
+        notice:['Twelve sections, from hardware preflight to observability.','It emits a reproducible build command + config artifacts — bit-for-bit repeatable.']},
       {dir:'emulate', tip:'uefi boot tests the real secure-boot chain; snapshot mode discards writes so every boot is clean. Rehearse here after any kernel or module change.'},
-      {dir:'flash', tip:'The point of no return. Plan is a free dry-run; the real write unlocks only after you re-type the device path matched to its fingerprint.'}
+      {dir:'flash', tip:'The point of no return. Plan is a free dry-run; the real write unlocks only after you re-type the device path matched to its fingerprint.',
+        notice:['You flash only images already booted on Emulate.','ARM requires re-typing the device path against its size/model/serial fingerprint — so /dev/sdX renumbering cannot fool you.']}
     ]},
     {id:'M3', name:'Models & Compute', tier:'standard', lessons:[
       {dir:'d-21-lm-orchestration', tip:'A runtime profile is not a setting — it rebalances every tier at once. Preview the model→hardware grid before committing.'},
@@ -2122,8 +2154,13 @@ window.SO_ASSIST = {
         'selfdef is the security daemon that RUNS on the OS sovereign-os builds — the Tetragon agent-guard, the notifier and escalation engine, the Ring-0..4 nftables perimeter. It lives in its own repo and is authoritative there.',
         'Inside this cockpit you see selfdef only through read-only “mirror” windows (the M060 bridge): D-13–D-18, D-25, and D-12 networking. sovereign-os observes and toggles selfdef; it never reimplements it. Any control is a signed CLI verb you copy and run. When a mirror looks stale, that is a real signal — the panels freeze at the last good data rather than lie.'
       ]},
+      {c:'concept', t:'Trust, authority & the human gate', p:[
+        'Security here is not one wall but a graded model. Actors carry a trust score across seven dimensions (D-18); capabilities are packed bit-by-bit into tokens (D-14); filesystem access is TTL-bounded so standing access decays on its own (D-13); and an MS040 profile caps both how much authority an agent may reach (L0 Observe → L6 Persist) and which trust ring it runs in (R0 Kernel → R4 Cloud).',
+        'The load-bearing property is that consequential actions stop at a human gate (D-06) for your signature. Sovereignty means the intelligence stays in your hands — every gated commit needs you.'
+      ]},
       {dir:'selfdef-management', tip:'The control room for selfdef itself — is the defense system healthy and enforcing, before you trust any mirror downstream of it.'},
-      {dir:'d-25-selfdef-management', tip:'The bridge monitor. When the M060 chain breaks, the mirror panels silently freeze — which is dangerous precisely because they will not look broken.'},
+      {dir:'d-25-selfdef-management', tip:'The bridge monitor. When the M060 chain breaks, the mirror panels silently freeze — which is dangerous precisely because they will not look broken.',
+        notice:['Healthy chain → D-12–D-18 show live data.','Broken chain → those panels freeze at the last good mirror and will not look broken.']},
       {dir:'d-12-networking', tip:'The firewall, read-only, ring-aware (R0 Kernel → R4 Cloud). Anything pending here is a proposal, never yet live — rules change only through a signature.'},
       {dir:'network-edge', tip:'Watch for multi-NAT: a second NAT hop (an ISP router in front of your firewall) breaks inbound and hides where the real perimeter is.'},
       {dir:'edge-firewall', tip:'The exposure finder — a threat that neither the box nor the upstream edge currently stops. It turns “the edge has gaps” into specific rules.'},
@@ -2133,14 +2170,17 @@ window.SO_ASSIST = {
       {dir:'d-16-audit', tip:'The tamper-evident, hash-chained record. A broken or stale chain is a reason to distrust the box’s self-account until explained.'},
       {dir:'d-17-quarantine', tip:'The middle path between delete-on-suspicion and ignore-on-doubt: contain, keep inspectable, decide deliberately.'},
       {dir:'d-18-trust-scores', tip:'Trust is earned and revocable. A dropping score is an early warning — catch it before it becomes a problem.'},
-      {dir:'d-06-pending-approvals', tip:'Everything the box refused to do on its own. Clearing this queue is the human-in-the-loop, decision by decision.'},
+      {dir:'d-06-pending-approvals', tip:'Everything the box refused to do on its own. Clearing this queue is the human-in-the-loop, decision by decision.',
+        notice:['Consequential actions (L5+ commit, cloud egress, key ops) stop here and wait.','Each gated commit needs your MS003 signature — nothing proceeds silently.']},
       {dir:'d-07-memory-changes', tip:'The eight-tier memory OS — the difference between an agent that repeats your corrections and one that remembers them. Review the recent graph diff.'},
       {dir:'d-20-peace-machine-health', tip:'The box’s conscience in one screen: all five peace properties, or not peace. When a property goes red it points at the subsystem that broke it.'},
       {dir:'compliance', tip:'The top of the anti-minimization stack — surface + doc + anti-minimization + UX, all at once. A red composite sends you to the axis dragging it down.'}
     ]},
     {id:'M5', name:'Hardware & Operations', tier:'standard', lessons:[
       {dir:'d-09-hardware-pressure', tip:'PSI is stall, not utilization — the honest signal of contention. Tell genuine “out of headroom” apart from “just working hard.”'},
-      {dir:'d-04-costs', tip:'The honest ledger: cloud is off by default, so most of what a hosted assistant would bill for costs nothing here ($0 is honest).'},
+      {dir:'d-04-costs', tip:'The honest ledger: cloud is off by default, so most of what a hosted assistant would bill for costs nothing here ($0 is honest).',
+        notice:['Cloud is off by default — the local tiers are free.','The load-bearing truth is $0-is-honest (SDD-102): saying local costs nothing IS the point.'],
+        spot:'#datasource-banner'},
       {dir:'d-08-rollback-points', tip:'The undo button for the whole machine — ZFS snapshots + signed rollback. Confirm a recent point exists before a risky change.'},
       {dir:'d-02-profile-choices', tip:'The authority dial — how much the box may do without your signature (L0..L6 authority × R0..R4 trust ring). The single most consequential control.'},
       {dir:'ups', tip:'The pool runs sync=always, so a dirty power cut risks corruption. Confirm the graceful-shutdown guard is armed.'},
@@ -2152,7 +2192,8 @@ window.SO_ASSIST = {
       {dir:'ux-design-audit', tip:'The bar this very cockpit is held to — a feature can render perfectly and still fail its operator. Every low cell is a concrete fix.'},
       {dir:'anti-minimization-audit', tip:'The cut-corner detector, built from the operator’s own “do not minimize” directive — eight smells of work that looks finished but is not.'},
       {dir:'auth-tier', tip:'Does each surface authenticate as strongly as its capability warrants? A mutating surface authenticating weakly is the priority to fix.'},
-      {dir:'personalization', tip:'The one panel you cannot break — theme, accent, typography, saved locally, deliberately kept apart from any machine state.'}
+      {dir:'personalization', tip:'The one panel you cannot break — theme, accent, typography, saved locally, deliberately kept apart from any machine state.',
+        todo:'Change the theme (◑ in the header) or an accent here — it is the one thing in the cockpit you genuinely cannot break.', spot:'#so-theme'}
     ]},
     {id:'M7', name:'Science & Simulation', tier:'optional', lessons:[
       {dir:'science', tip:'The GPU as a scientific instrument (NVIDIA Warp) — the box is general-purpose compute you own, not a single-purpose appliance. A heavy run competes with inference for VRAM (watch D-09).'}
@@ -2163,16 +2204,19 @@ window.SO_ASSIST = {
   window.__soCourseCurriculum = CURRICULUM;
 
   // ── state (sovereign-os.course) — schema-guarded, separate from
-  //    sovereign-os.assist and sovereign-os.personalization. ──
+  //    sovereign-os.assist and sovereign-os.personalization. Fields are
+  //    additive with safe defaults, so an older stored object still loads. ──
   var CKEY='sovereign-os.course', CSCHEMA=1;
-  function defState(){ return {schema:CSCHEMA, started:false, open:false, mi:0, li:0, done:{}, dismissed:false}; }
+  function defState(){ return {schema:CSCHEMA, started:false, open:false, mi:0, li:0, done:{}, checks:{}, dismissed:false, prompted:false}; }
   function load(){ try{ var p=JSON.parse(localStorage.getItem(CKEY)); if(!p||p.schema!==CSCHEMA) return defState();
-      if(typeof p.done!=='object'||!p.done) p.done={}; return p; }catch(e){ return defState(); } }
+      if(typeof p.done!=='object'||!p.done) p.done={}; if(typeof p.checks!=='object'||!p.checks) p.checks={};
+      if(typeof p.prompted!=='boolean') p.prompted=false; return p; }catch(e){ return defState(); } }
   function save(st){ try{ localStorage.setItem(CKEY, JSON.stringify(st)); }catch(e){} }
   var st = load();
 
   // ── helpers ──
   function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+  function reduced(){ try{ return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){ return false; } }
   function curDir(){ var seg=location.pathname.replace(/\/+$/,'').split('/'); return seg[seg.length-1]||''; }
   function catPanel(dir){ var G=window.__soCatalog||[]; for(var g=0;g<G.length;g++){ var it=G[g].items||[]; for(var i=0;i<it.length;i++){ if(it[i].dir===dir) return it[i]; } } return null; }
   function clampPos(){ if(st.mi<0)st.mi=0; if(st.mi>=CURRICULUM.length)st.mi=CURRICULUM.length-1;
@@ -2182,24 +2226,39 @@ window.SO_ASSIST = {
   function lessonDir(L){ return L && !L.c ? L.dir : null; }
   function lessonTitle(L){ if(L.c) return L.t; var p=catPanel(L.dir); return p?p.label:(L.dir||'panel'); }
   function lessonId(L){ if(L.c) return ''; var p=catPanel(L.dir); return (p&&p.id&&p.id!=='—')?p.id:''; }
-  // linear order for prev/next + progress
   function flat(){ var out=[]; for(var m=0;m<CURRICULUM.length;m++){ for(var l=0;l<CURRICULUM[m].lessons.length;l++){ out.push([m,l]); } } return out; }
   function linIndex(mi,li){ var f=flat(); for(var i=0;i<f.length;i++){ if(f[i][0]===mi&&f[i][1]===li) return i; } return 0; }
   function totalLessons(){ return flat().length; }
   function doneCount(){ var n=0; for(var k in st.done){ if(st.done[k]) n++; } return n; }
+  // resolve the element a lesson wants to spotlight; chrome selectors (outside
+  // #so-content) are allowed; panel content defaults to the panel heading.
+  function spotSelector(L){ if(!L) return null; if(L.spot) return L.spot; if(!L.c && lessonDir(L)===curDir()) return '#so-content h1'; return null; }
+  function spotTarget(L){ var sel=spotSelector(L); if(!sel) return null; try{ return document.querySelector(sel); }catch(e){ return null; } }
+
+  // ── spotlight: scroll the taught element to view + pulse. DOM-only, no I/O. ──
+  var spotTimer=null;
+  function spotlight(L){
+    var el=spotTarget(L); if(!el) return false;
+    try{ el.scrollIntoView({block:'center', behavior: reduced()?'auto':'smooth'}); }catch(e){ try{ el.scrollIntoView(); }catch(e2){} }
+    el.classList.remove('so-course-spot'); void el.offsetWidth; el.classList.add('so-course-spot');
+    if(spotTimer){ clearTimeout(spotTimer); }
+    spotTimer=setTimeout(function(){ try{ el.classList.remove('so-course-spot'); }catch(e){} }, 2300);
+    return true;
+  }
 
   // ── navigation ──
   function markDone(mi,li){ st.done[lessonKey(mi,li)]=true; }
   function openLesson(mi,li){
-    st.mi=mi; st.li=li; st.started=true; st.dismissed=false; clampPos(); save(st);
+    st.mi=mi; st.li=li; st.started=true; st.dismissed=false; st.prompted=true; clampPos(); save(st);
     var L=lessonAt(st.mi,st.li), dir=lessonDir(L);
-    if(dir && dir!==curDir()){ // auto-travel: resume on arrival
+    if(dir && dir!==curDir()){ // auto-travel: resume + spotlight on arrival
       location.href='../'+dir+'/'; return;
     }
     render();
+    // if we are on the lesson's panel, spotlight what it teaches
+    if(dir && dir===curDir()) spotlight(L);
   }
   function go(delta){
-    // advancing forward marks the current lesson complete
     if(delta>0) markDone(st.mi,st.li);
     var f=flat(), i=linIndex(st.mi,st.li)+delta;
     if(i<0) i=0; if(i>=f.length) i=f.length-1;
@@ -2210,7 +2269,7 @@ window.SO_ASSIST = {
   // ── rendering ──
   var railEl, panelEl;
   function setBodyFlags(){
-    document.body.classList.toggle('so-course-on', st.started && !st.dismissed);
+    document.body.classList.toggle('so-course-on', !st.dismissed && (st.started || !st.prompted));
     document.body.classList.toggle('so-course-open', !!(st.open && st.started && !st.dismissed));
     if(!(st.started&&!st.dismissed)) document.body.classList.remove('so-course-jump');
   }
@@ -2218,12 +2277,19 @@ window.SO_ASSIST = {
     if(!railEl) return;
     clampPos();
     setBodyFlags();
-    if(st.dismissed){ railEl.style.display='none'; return; }
+    var showRail = !st.dismissed && (st.started || !st.prompted);
+    if(!showRail){ railEl.style.display='none'; railEl.className=''; return; }
     railEl.style.display='flex';
+    railEl.className = (!st.started && !st.prompted) ? 'so-course-firstrun' : '';
     var m=CURRICULUM[st.mi], L=lessonAt(st.mi,st.li);
     var pct=Math.round(doneCount()/totalLessons()*100);
-    // rail
-    if(!st.started){
+    if(!st.started && !st.prompted){
+      // FIRST-RUN — a one-time invitation (realizes the onboarding DashboardTour step)
+      railEl.innerHTML='<span class="so-course-mark">✦ Welcome to sovereign-os</span>'+
+        '<span class="so-course-where">New here? Take the guided tour — the whole box, most important first, in about '+totalLessons()+' short lessons.</span>'+
+        '<span class="so-course-actions"><button class="so-course-btn primary" id="so-course-start">▶ Take the tour</button>'+
+        '<button class="so-course-btn" id="so-course-notnow">Not now</button></span>';
+    } else if(!st.started){
       railEl.innerHTML='<span class="so-course-mark">✦ Course</span>'+
         '<span class="so-course-where">Guided tour of sovereign-os — '+totalLessons()+' lessons, most important first.</span>'+
         '<span class="so-course-actions"><button class="so-course-btn primary" id="so-course-start">▶ Start the tour</button>'+
@@ -2246,7 +2312,7 @@ window.SO_ASSIST = {
   function renderPanel(){
     if(!panelEl) return;
     var m=CURRICULUM[st.mi], L=lessonAt(st.mi,st.li);
-    var here = lessonDir(L) && lessonDir(L)===curDir();
+    var dir=lessonDir(L), here = dir && dir===curDir();
     var bodyHtml='';
     if(here){ bodyHtml+='<span class="so-course-here">◉ You are on this panel</span><br>'; }
     bodyHtml+='<div class="so-course-lt">'+(lessonId(L)?'<span class="id">'+esc(lessonId(L))+'</span>':'')+esc(lessonTitle(L))+'</div>';
@@ -2254,13 +2320,17 @@ window.SO_ASSIST = {
     if(L.c){ paras=L.p||[]; }
     else { var p=catPanel(L.dir); paras=[ (p&&(p.menuHover||p.desc)) || ('The '+(L.dir||'panel')+' cockpit panel.') ]; }
     for(var i=0;i<paras.length;i++){ bodyHtml+='<p>'+esc(paras[i])+'</p>'; }
+    if(L.notice && L.notice.length){ bodyHtml+='<ul class="so-course-notice">'; for(var n=0;n<L.notice.length;n++){ bodyHtml+='<li>'+esc(L.notice[n])+'</li>'; } bodyHtml+='</ul>'; }
     if(!L.c && L.tip){ bodyHtml+='<div class="so-course-tip"><div class="lb">While you’re here</div><div class="tx">'+esc(L.tip)+'</div></div>'; }
+    if(L.todo){ var ck=!!st.checks[lessonKey(st.mi,st.li)];
+      bodyHtml+='<label class="so-course-todo'+(ck?' done':'')+'" id="so-course-todo"><input type="checkbox" '+(ck?'checked':'')+' aria-label="mark this step done">'+
+        '<span class="tl"><b>Try it</b>'+esc(L.todo)+'</span></label>'; }
 
-    var dir=lessonDir(L);
-    var gotoBtn='';
+    var gotoBtn='', showBtn='';
     if(dir){ gotoBtn = here
       ? '<button class="so-course-btn" id="so-course-goto" disabled>◉ On this panel</button>'
       : '<button class="so-course-btn" id="so-course-goto" title="Open this lesson’s panel">↗ Open '+esc(lessonTitle(L))+'</button>'; }
+    if(spotSelector(L)){ showBtn='<button class="so-course-btn" id="so-course-show" title="Highlight what this lesson points at">◎ Show me</button>'; }
 
     panelEl.innerHTML=
       '<div class="so-course-ph">'+
@@ -2274,7 +2344,7 @@ window.SO_ASSIST = {
       '<div class="so-course-body" id="so-course-scroll">'+bodyHtml+'</div>'+
       '<div class="so-course-foot">'+
         '<button class="so-course-btn" id="so-course-prev2"'+(linIndex(st.mi,st.li)<=0?' disabled':'')+'>◀ Prev</button>'+
-        gotoBtn+
+        showBtn+ gotoBtn+
         '<span class="sp"></span>'+
         '<button class="so-course-btn primary" id="so-course-next2">'+(isLast()?'✓ Finish':'Next ▶')+'</button>'+
       '</div>';
@@ -2297,11 +2367,12 @@ window.SO_ASSIST = {
 
   function setOpen(o){ st.open=!!o; save(st); setBodyFlags();
     var t=document.getElementById('so-course-toggle'); if(t){ t.setAttribute('aria-expanded',st.open?'true':'false'); t.innerHTML=st.open?'⬇ Hide':'⬆ Lesson'; } }
-  function dismiss(){ st.dismissed=true; document.body.classList.remove('so-course-jump'); save(st); render(); }
+  function dismiss(){ st.dismissed=true; st.prompted=true; document.body.classList.remove('so-course-jump'); save(st); render(); }
 
   function wireRail(){
     var b;
     b=document.getElementById('so-course-start'); if(b) b.addEventListener('click',function(){ st.open=true; openLesson(0,0); });
+    b=document.getElementById('so-course-notnow'); if(b) b.addEventListener('click',function(){ st.prompted=true; st.dismissed=true; save(st); render(); });
     b=document.getElementById('so-course-x'); if(b) b.addEventListener('click',dismiss);
     b=document.getElementById('so-course-prev'); if(b) b.addEventListener('click',function(){ go(-1); });
     b=document.getElementById('so-course-next'); if(b) b.addEventListener('click',function(){ if(isLast()){ markDone(st.mi,st.li); save(st); render(); } else go(1); });
@@ -2313,6 +2384,8 @@ window.SO_ASSIST = {
     b=document.getElementById('so-course-prev2'); if(b) b.addEventListener('click',function(){ go(-1); });
     b=document.getElementById('so-course-next2'); if(b) b.addEventListener('click',function(){ if(isLast()){ markDone(st.mi,st.li); save(st); render(); } else go(1); });
     b=document.getElementById('so-course-goto'); if(b && !b.disabled) b.addEventListener('click',function(){ var L=lessonAt(st.mi,st.li); var d=lessonDir(L); if(d) location.href='../'+d+'/'; });
+    b=document.getElementById('so-course-show'); if(b) b.addEventListener('click',function(){ spotlight(lessonAt(st.mi,st.li)); });
+    b=document.getElementById('so-course-todo'); if(b){ var cb=b.querySelector('input'); if(cb) cb.addEventListener('change',function(){ st.checks[lessonKey(st.mi,st.li)]=cb.checked; save(st); b.classList.toggle('done',cb.checked); }); }
     b=document.getElementById('so-course-jump'); if(b) b.addEventListener('click',function(e){ e.stopPropagation(); document.body.classList.toggle('so-course-jump'); });
     var list=panelEl.querySelectorAll('.so-course-mod');
     Array.prototype.forEach.call(list,function(el){ el.addEventListener('click',function(){ var mi=parseInt(el.getAttribute('data-mi'),10)||0; document.body.classList.remove('so-course-jump'); st.open=true; openLesson(mi,0); }); });
@@ -2324,11 +2397,11 @@ window.SO_ASSIST = {
     if(document.getElementById('so-course-hbtn')) return;
     var btn=document.createElement('button');
     btn.id='so-course-hbtn'; btn.className='so-h-btn'; btn.title='Guided course (a tour of sovereign-os)'; btn.innerHTML='✦ Course';
-    // place it just before the Assistant toggle so the two helpers sit together
     var assist=document.getElementById('so-assist-toggle');
     if(assist && assist.parentNode===right) right.insertBefore(btn,assist); else right.appendChild(btn);
     btn.addEventListener('click',function(){
-      if(st.dismissed || !st.started){ st.dismissed=false; st.started=true; st.open=true; if(!st.started){st.mi=0;st.li=0;} save(st); render(); }
+      st.prompted=true;
+      if(st.dismissed || !st.started){ st.dismissed=false; if(st.started) st.open=true; save(st); render(); }
       else { setOpen(!st.open); }
     });
   }
@@ -2340,16 +2413,21 @@ window.SO_ASSIST = {
     panelEl=document.createElement('aside'); panelEl.id='so-course-panel'; panelEl.setAttribute('role','complementary'); panelEl.setAttribute('aria-label','course lesson');
     document.body.appendChild(panelEl); document.body.appendChild(railEl);
     injectHeaderButton();
-    // if we just auto-travelled onto a lesson's panel, keep the lesson open
+    // arriving on a panel that IS the current lesson's panel: mark it seen +
+    // spotlight what it teaches (this is the "walk you through" payoff).
+    clampPos();
+    var L=lessonAt(st.mi,st.li);
+    if(st.started && lessonDir(L) && lessonDir(L)===curDir()){ markDone(st.mi,st.li); save(st); }
     render();
-    // global affordances
+    if(st.started && lessonDir(L) && lessonDir(L)===curDir()){
+      // defer so layout + the app-shell reparent have settled before we scroll
+      setTimeout(function(){ spotlight(L); }, 260);
+    }
     document.addEventListener('keydown',function(e){
       if(e.key==='Escape'){ if(document.body.classList.contains('so-course-jump')){ document.body.classList.remove('so-course-jump'); e.preventDefault(); }
         else if(st.open){ setOpen(false); e.preventDefault(); } }
     });
     document.addEventListener('click',function(e){ if(document.body.classList.contains('so-course-jump')){ var ml=document.getElementById('so-course-modlist'); var jb=document.getElementById('so-course-jump'); if(ml && !ml.contains(e.target) && e.target!==jb){ document.body.classList.remove('so-course-jump'); } } });
-    // re-tuck the rail if the Assistant opens/closes (its class flips on body)
-    // handled purely by CSS (body.so-assist-open) — no JS needed.
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',mount); else mount();
 })();
