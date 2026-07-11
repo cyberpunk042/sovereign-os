@@ -59,6 +59,17 @@
   .profile.on { border-color:var(--accent); }
   .profile .name { color:var(--accent); font-weight:600; }
   .profile .desc { color:var(--muted); font-size:.76rem; margin-top:.2rem; }
+  /* family grouping (D21-1: runtime / orchestration / generated / user) */
+  .fam-head { width:100%; margin:.65rem 0 .05rem; color:var(--muted); font-size:.72rem;
+    text-transform:uppercase; letter-spacing:.04em; border-bottom:1px solid var(--border);
+    padding-bottom:.2rem; display:flex; justify-content:space-between; gap:.5rem; }
+  .fam-head .cnt { color:var(--fg); font-weight:600; }
+  .profile .fam { display:inline-block; font-size:.6rem; padding:0 .32rem; border-radius:3px;
+    margin-left:.4rem; vertical-align:middle; border:1px solid var(--border); color:var(--muted); }
+  .profile .fam.runtime { color:var(--accent); border-color:#2b4658; }
+  .profile .fam.orchestration { color:var(--good); border-color:#1f4d1f; }
+  .profile .fam.generated { color:var(--warn); border-color:#4d431a; }
+  .profile .fam.user { color:#c99bff; border-color:#3a2b52; }
   /* grid */
   .grid {
     display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:1px; /* SDD-137: minmax(0,…) so a wide cell shrinks instead of overflowing */
@@ -66,32 +77,58 @@
     overflow:hidden; position:relative; min-height:300px;
   }
   .cell { background:var(--panel); padding:.75rem .9rem; min-height:150px; }
-  /* Reserve a square bounding box at the intersection for the Apply control:
-     clear each cell's inner (center-facing) corner so no content is ever hidden. */
-  .grid .cell:nth-child(1) { padding-right:3.6rem; padding-bottom:2.6rem; } /* GPU0 top-left  → clear BR */
-  .grid .cell:nth-child(2) { padding-left:3.6rem;  padding-bottom:2.6rem; } /* GPU1 top-right → clear BL */
-  .grid .cell:nth-child(3) { padding-right:3.6rem; padding-top:2.6rem; }    /* EXT  bot-left  → clear TR */
-  .grid .cell:nth-child(4) { padding-left:3.6rem;  padding-top:2.6rem; }    /* CPU0 bot-right → clear TL */
   .cell h3 { margin:0 0 .4rem; font-size:.9rem; display:flex; justify-content:space-between; gap:.5rem; }
   .cell h3 .slot { color:var(--muted); font-size:.78rem; font-weight:400; }
   .cell.na { display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:1.4rem; }
   .mslot { font-size:.8rem; margin:.15rem 0; }
   .mslot .k { color:var(--muted); }
   .pill { display:inline-block; padding:0 .4rem; border-radius:3px; border:1px solid var(--border); font-size:.72rem; color:var(--muted); }
-  /* Apply centered inside the 2×2 quadrant (per the operator's design) */
-  .grid-quad { position:relative; }
-  .apply-wrap { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
-    z-index:2; margin:0; text-align:center; }
-  button.apply {
-    border:2px solid var(--accent); background:var(--bg); color:var(--accent);
-    border-radius:50%; width:96px; height:96px; cursor:pointer; font:inherit;
-    font-size:.9rem; font-weight:600; letter-spacing:.02em;
-    box-shadow:0 0 0 6px var(--bg), 0 2px 12px rgba(0,0,0,.28);
-    transition:transform .12s ease, background .12s ease;
-  }
-  button.apply:hover { background:rgba(155,209,255,.12); transform:scale(1.05); }
-  button.apply:active { transform:scale(.98); }
-  @media (max-width:640px) { .apply-wrap { position:static; transform:none; margin:.6rem auto; } }
+  /* D21-4: per-profile-card Apply — executes through the control-exec rail
+     (sudoer, dry-run→type-to-confirm) inline on the card. Replaces the old
+     floating round button that just scrolled to a distant control card. */
+  .profile .p-apply-row { margin-top:.45rem; display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
+  .profile .p-apply { border:1px solid var(--accent); background:transparent; color:var(--accent);
+    border-radius:4px; padding:.15rem .6rem; font:inherit; font-size:.74rem; cursor:pointer; }
+  .profile .p-apply:hover { background:rgba(155,209,255,.12); }
+  .profile .p-apply.gen { border-color:var(--warn); color:var(--warn); }
+  .profile .p-confirm { font-size:.72rem; border:1px solid var(--border); background:var(--bg);
+    color:var(--fg); border-radius:3px; padding:.1rem .35rem; font-family:var(--mono); width:11rem; }
+  .profile .p-result { font-size:.72rem; line-height:1.4; }
+  .profile .p-result.ok { color:var(--good); }
+  .profile .p-result.dry { color:var(--accent); }
+  .profile .p-result.warn { color:var(--warn); }
+  .profile .p-result.err { color:var(--bad); }
+  .profile .p-result.muted { color:var(--muted); }
+  /* D21-3: per-device model editing ("edit the models for individual card") */
+  .edit-toggle { font-size:.72rem; font-weight:400; border:1px solid var(--border); background:var(--bg);
+    color:var(--muted); border-radius:4px; padding:.1rem .5rem; margin-left:.6rem; cursor:pointer; vertical-align:middle; }
+  .edit-toggle:hover { border-color:var(--accent); color:var(--accent); }
+  .edit-toggle.on { border-color:var(--accent); color:var(--accent); background:rgba(155,209,255,.08); }
+  .cell-edit { margin-top:.55rem; padding-top:.5rem; border-top:1px dashed var(--border); }
+  .cell-edit .k { color:var(--muted); font-size:.74rem; margin-bottom:.25rem; }
+  .cell-edit-row { display:flex; gap:.4rem; align-items:center; flex-wrap:wrap; }
+  .cell-edit select.model-pick { flex:1; min-width:0; background:var(--bg); color:var(--fg); border:1px solid var(--border);
+    border-radius:3px; padding:.18rem .3rem; font-family:var(--mono); font-size:.74rem; }
+  .cell-edit .m-load { border:1px solid var(--accent); background:transparent; color:var(--accent); border-radius:4px;
+    padding:.15rem .6rem; font:inherit; font-size:.74rem; cursor:pointer; }
+  .cell-edit .m-load:hover { background:rgba(155,209,255,.12); }
+  .cell-edit .m-confirm { font-size:.72rem; border:1px solid var(--border); background:var(--bg); color:var(--fg);
+    border-radius:3px; padding:.1rem .35rem; font-family:var(--mono); }
+  .cell-edit .m-result { display:block; margin-top:.3rem; font-size:.72rem; line-height:1.4; }
+  .cell-edit .m-result.ok { color:var(--good); } .cell-edit .m-result.dry { color:var(--accent); }
+  .cell-edit .m-result.warn { color:var(--warn); } .cell-edit .m-result.err { color:var(--bad); }
+  .cell-edit .m-result.muted { color:var(--muted); }
+  /* D21-3: the composer save-bar (compose a whole new profile from the picks) */
+  .compose-bar { margin-top:.7rem; padding:.7rem .9rem; border:1px solid var(--border); border-radius:6px;
+    background:var(--panel); }
+  .compose-bar .k { color:var(--muted); font-size:.76rem; margin-bottom:.45rem; }
+  .compose-row { display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; }
+  .compose-in { background:var(--bg); color:var(--fg); border:1px solid var(--border); border-radius:3px;
+    padding:.2rem .4rem; font-family:var(--mono); font-size:.78rem; }
+  #compose-id { min-width:15rem; }
+  .compose-bar .m-confirm, .compose-bar .p-confirm { background:var(--bg); color:var(--fg); border:1px solid var(--border);
+    border-radius:3px; padding:.15rem .4rem; font-family:var(--mono); font-size:.76rem; }
+  #compose-result { display:block; margin-top:.4rem; }
   /* features */
   .features { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:1rem; } /* SDD-137 */
   .fcol { border:1px solid var(--border); border-radius:6px; background:var(--panel); padding:.6rem .9rem; }
@@ -338,6 +375,7 @@
       {id:'—', dir:'surface-map', label:'Surface Map', ico:'🗺', desc:'The §1g 8-surface taxonomy coverage — which of the 8 operator surfaces each module delivers.', menuHover:'The reachability audit — proof that every module is present on all eight operator-named surfaces (core, cli, tui, api, mcp, dashboard, webapp, service), because a feature is not delivered until it is reachable everywhere it should be. A module whose core logic works but has no CLI verb, no MCP tool, or no visible panel is minimized, and this panel counts exactly that gap, milestone by milestone, so ‘done’ milestones whose modules are still short stand out. It answers ‘is everything actually reachable, or does some capability exist only for those who already know it is there.’ Open it to find invisible (unreachable, unwaived) surfaces, to see which module needs which surface built, and to keep §1g coverage honest. It is the surface axis of the Compliance rollup.'},
       {id:'—', dir:'doc-coverage', label:'Doc Coverage', ico:'☷', desc:'Documentation coverage per module — what\'s documented vs shipped.', menuHover:'The documentation audit — whether every module carries all six operator-named doc kinds (readme, sdd, helptext, metric-inventory, mandate-row, man-page), each written for a different reader at a different moment. A module missing one is under-documented in a specific, nameable way: no readme strands the newcomer, no sdd strands the changer, no helptext strands the operator mid-task. It answers ‘is every module actually documented, and for whom is it not.’ Open it to see the matrix of which module lacks which doc (every empty cell is a concrete writing task, not a vague ‘needs docs’), and to keep the doc half of the delivery contract honest across the fleet. It is the doc axis of the §1g Compliance rollup, extended cross-repo to selfdef via §1h.'},
       {id:'—', dir:'ux-design-audit', label:'UX Design Audit', ico:'◓', desc:'The UX design-stage audit — consistency/accessibility scoring across the panels.', menuHover:'The experience audit — scoring surfaces on six operator-named UX dimensions (action-budget, discoverable, recoverable, next-step, operator-named, readable-30s), because a feature can render perfectly and still fail its operator. It is the exact bar this very cockpit is held to: a surface that works but takes ten clicks, hides its controls, punishes mistakes, or needs a manual to read is not done. It answers ‘is each surface actually usable, not just correct.’ Open it to see which surface is weak on which quality (every low cell is a concrete fix, like ‘add a next-step’ or ‘use the operator’s words’), and to keep usability from being the silent gap behind ‘it technically works.’ It is the UX axis of the §1g Compliance rollup, and the reason ‘it works’ was never enough.'},
+      {id:'—', dir:'feature-test-lab', label:'Feature Test Lab', ico:'🧪', desc:'Live per-feature testing — click Run to exercise a shipped feature for real and watch result / path-taken / timing / pass-fail checks.', menuHover:'The hands-on proving ground — where you drive each shipped feature yourself and watch it work, not a unit-test report but a live bench. Every card runs one real capability: the backend cards shell the actual Rust kernel through sovereign-feature-selftest so a SIMD sum-of-squares or a safetensors load runs on this box and reports the code path it took (which AVX tier fired, which dequant branch), the wall-clock it took, and a pass/fail on each internal check; the client cards exercise in-page cockpit behavior. It answers a question the status panels cannot: not ‘does the config say this is on’ but ‘does it actually do the thing, right now, on this hardware.’ Open it to confirm a feature works after a change, to see the real path and timing a capability takes rather than trust the spec, or to demonstrate the box doing the thing end to end. It is the operator’s live-testing surface — deliberately not automated CI — and it reads real kernels, so a failing check here is a genuine regression, not a stale mirror.'},
       {id:'—', dir:'personalization', label:'Personalization', ico:'✦', desc:'Theme / accent / typography control (localStorage-backed) applied across all panels before paint.', menuHover:'Operator comfort, kept deliberately apart from machine state — theme, accent color, and typography scale for the cockpit, and nothing that touches the box’s behavior. It is the one panel where you genuinely cannot break anything: everything here is presentation, saved locally, so you can make the cockpit easy to read at the bench (larger, high-contrast) or dense at the desk without any risk to the machine. It answers ‘how do I make the cockpit comfortable for me.’ Open it to set the look, or to export and import your preferences as a cosmetic JSON that carries your look between machines with no box state or secrets in it. The strict separation of presentation from state is the point — this is the safe panel, on purpose.'},
     ]},
     {name:'Science & Simulation', items:[
@@ -737,10 +775,25 @@
   <div class="banner muted" id="profiles-note"></div>
   <div class="profiles" id="profiles"></div>
 
-  <h2>Model → hardware assignment</h2>
-  <div class="grid-quad">
-    <div class="grid" id="grid"></div>
-    <div class="apply-wrap"><button class="apply" id="apply-btn" title="Copy the signed apply verb-chain for the selected profile">Apply</button></div>
+  <h2>Model → hardware assignment <button id="edit-models-btn" class="edit-toggle" title="Load a specific model onto a device through the signed rail">✎ Edit models</button></h2>
+  <p class="banner muted" id="grid-note">The grid previews the <em>selected</em> profile's model→device layout. Apply each profile from its own card above — or <strong>Edit models</strong> to load a specific catalog model onto a device.</p>
+  <div class="grid" id="grid"></div>
+  <div id="compose-bar" class="compose-bar" hidden>
+    <div class="k">Save the current per-device picks as a <strong>new</strong> profile (SB-077 — models are catalog-grounded):</div>
+    <div class="compose-row">
+      <input id="compose-id" class="compose-in" placeholder="profile-id (lowercase-hyphen)" spellcheck="false">
+      <select id="compose-intent" class="compose-in" title="workload intent">
+        <option value="custom">intent: custom</option>
+        <option value="coding">coding</option>
+        <option value="thinking">thinking</option>
+        <option value="hybrid">hybrid</option>
+        <option value="full-hybrid">full-hybrid</option>
+        <option value="full-orchestration">full-orchestration</option>
+      </select>
+      <button id="save-draft" class="p-apply" title="Write to your user drafts (~/.sovereign-os/profiles/orchestration/)">Save draft</button>
+      <button id="save-repo" class="p-apply gen" title="Write into the repo (profiles/orchestration/) through the signed rail">Save to repo</button>
+    </div>
+    <span id="compose-result" class="p-result muted"></span>
   </div>
 
   <h2>Capabilities</h2>
@@ -820,28 +873,148 @@
     catch (e) { prompt('Copy + run:', cmd); }
   }
 
+  // D21-1: the four families the composer browses, in display order, each with
+  // a human label + one-line meaning (no reused catalog desc — bespoke here).
+  const FAMILY_META = {
+    runtime:       { label: 'Runtime (§18 · locked)',   blurb: 'The 3 master-spec §18 load-balancing profiles — verbatim-locked.' },
+    orchestration: { label: 'Orchestration (repo)',      blurb: 'Workload-intent profiles committed to the repo.' },
+    generated:     { label: 'Generated combos',          blurb: 'OS-profile × strategy, produced live by the SDD-043 generator.' },
+    user:          { label: 'Your drafts',               blurb: 'Profiles you composed and saved (local drafts).' },
+  };
+  let LAST_PROFILES_DATA = null;
+
   function renderProfiles(data) {
+    LAST_PROFILES_DATA = data;
     PROFILES = data.profiles || [];
     $('profiles-note').textContent = data.note || '';
     if (selectedProfile == null && PROFILES.length) selectedProfile = (PROFILES[0].id || PROFILES[0].mode_id);
     // The Profiles section stays visible even with no live profiles — an honest
     // placeholder rather than a collapsed empty row (SB-077; "seeing all sections").
     if (!PROFILES.length) {
-      $('profiles').innerHTML = '<div class="profile" style="opacity:.6;cursor:default"><div class="name">profiles unavailable</div><div class="desc">lm-orchestration daemon offline — start it to list M076 runtime profiles</div></div>';
+      $('profiles').innerHTML = '<div class="profile" style="opacity:.6;cursor:default"><div class="name">profiles unavailable</div><div class="desc">lm-orchestration daemon offline — start it to list the profile families</div></div>';
       return;
     }
-    $('profiles').innerHTML = PROFILES.map(p => {
-      const id = p.id || p.mode_id;
-      const on = id === selectedProfile ? ' on' : '';
-      return `<div class="profile${on}" data-id="${esc(id)}">
-        <div class="name">${esc(p.name || id)}</div>
-        <div class="desc">${esc((p.description || '').split('\n')[0].slice(0,120))}</div>
-      </div>`;
-    }).join('');
+    // Group by family, in FAMILY_META order, so every family is a labelled band
+    // with its live count — the operator sees all families, never a flat blur.
+    const order = data.families || ['runtime', 'orchestration', 'generated', 'user'];
+    const byFam = {};
+    PROFILES.forEach(p => { (byFam[p.family || 'orchestration'] ||= []).push(p); });
+    let html = '';
+    order.forEach(fam => {
+      const list = byFam[fam];
+      if (!list || !list.length) return;
+      const meta = FAMILY_META[fam] || { label: fam, blurb: '' };
+      html += `<div class="fam-head" title="${esc(meta.blurb)}"><span>${esc(meta.label)}</span><span class="cnt">${list.length}</span></div>`;
+      html += list.map(p => {
+        const id = p.id || p.mode_id;
+        const on = id === selectedProfile ? ' on' : '';
+        const isGen = fam === 'generated';
+        // Generated combos aren't on disk → materialize (Generate) before apply;
+        // every other family applies for real through the exec rail.
+        const applyBtn = isGen
+          ? `<button class="p-apply gen" data-act="gen" data-id="${esc(id)}" data-gen="${esc(p.generate_cmd || '')}" title="Materialize this combo to profiles/runtime/, then it becomes applyable">Generate…</button>`
+          : `<button class="p-apply" data-act="apply" data-id="${esc(id)}" data-fam="${esc(fam)}" title="Apply this profile through the signed control-exec rail (dry-run → type-to-confirm)">Apply</button>`;
+        return `<div class="profile${on}" data-id="${esc(id)}">
+          <div class="name">${esc(p.name || id)}<span class="fam ${esc(fam)}">${esc(fam)}</span></div>
+          <div class="desc">${esc((p.description || '').split('\n')[0].slice(0,140))}</div>
+          <div class="p-apply-row">${applyBtn}<span class="p-result muted"></span></div>
+        </div>`;
+      }).join('');
+    });
+    $('profiles').innerHTML = html;
+    // Card click = select (preview in the grid). Apply/Generate buttons + the
+    // confirm input stop propagation so they never trigger a re-render.
     document.querySelectorAll('.profile').forEach(el => el.addEventListener('click', () => {
-      selectedProfile = el.dataset.id; renderProfiles({profiles: PROFILES, note: data.note});
+      if (!el.dataset.id) return;
+      selectedProfile = el.dataset.id; renderProfiles(LAST_PROFILES_DATA);
     }));
+    document.querySelectorAll('.profile .p-apply[data-act]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const row = btn.closest('.p-apply-row');
+        const resultEl = row.querySelector('.p-result');
+        if (btn.dataset.act === 'gen') {
+          copyCmd(btn.dataset.gen, 'Materialize this generated combo, then Apply it:');
+          setP(resultEl, 'muted', 'copied generate command — run it, then this combo is applyable');
+        } else {
+          applyProfile(btn.dataset.id, btn.dataset.fam, resultEl, false);
+        }
+      });
+    });
   }
+
+  // Only re-render the profiles section when the set actually changed — the SSE
+  // grid tick must not wipe an in-flight Apply (dry-run / confirm input / result)
+  // on a card. Selection changes force a render (LAST_PROFILES_DATA carries it).
+  let LAST_PROFILES_SIG = null;
+  function renderProfilesIfChanged(data) {
+    const sig = JSON.stringify((data.profiles || []).map(p => p.id || p.mode_id)) + '|' + (selectedProfile || '');
+    if (sig === LAST_PROFILES_SIG) { LAST_PROFILES_DATA = data; return; }
+    LAST_PROFILES_SIG = sig;
+    renderProfiles(data);
+  }
+
+  // ── D21-4: real Apply through the control-exec rail ────────────────────────
+  // Each profile card's Apply POSTs the SAME body the shared control-surface
+  // sends (control_id 'runtime-mode', arg id=<profile>) to the signed exec
+  // daemon: DRY-RUN by default, operator-key + type-to-confirm gated, then a
+  // live run. Web itself never mutates (R10212); the sudoer rail does.
+  const EXECUTE_URL = '/api/control/execute';
+  function setP(el, cls, msg) { if (!el) return; el.className = 'p-result ' + cls; el.textContent = msg; }
+
+  function offerConfirm(id, fam, resultEl) {
+    const row = resultEl.closest('.p-apply-row');
+    if (row.querySelector('.p-confirm')) return;  // already offered
+    const inp = document.createElement('input');
+    inp.className = 'p-confirm'; inp.placeholder = 'type "' + id + '" to apply';
+    inp.addEventListener('click', e => e.stopPropagation());
+    const ok = document.createElement('button');
+    ok.className = 'p-apply'; ok.textContent = 'Confirm';
+    ok.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (inp.value.trim() === id) { inp.remove(); ok.remove(); applyProfile(id, fam, resultEl, true); }
+      else setP(resultEl, 'warn', 'type the exact id to confirm');
+    });
+    row.appendChild(inp); row.appendChild(ok);
+  }
+
+  async function applyProfile(id, fam, resultEl, confirmed) {
+    setP(resultEl, 'muted', confirmed ? 'applying…' : 'checking…');
+    try {
+      const res = await fetch(EXECUTE_URL, {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ control_id: 'runtime-mode', args: { id }, confirm: !!confirmed }),
+      });
+      let body = {}; try { body = await res.json(); } catch (e) {}
+      const verb = 'sovereign-osctl trinity profile switch ' + id;
+      if (res.status === 200 && body.dry_run) {
+        setP(resultEl, 'dry', 'dry-run ✓ would run: ' + ((body.would_run || body.argv || []).join(' ')));
+        offerConfirm(id, fam, resultEl);
+      } else if (res.status === 200) {
+        setP(resultEl, 'ok', 'applied ✓ ' + id + (body.exit_code != null ? ' · exit ' + body.exit_code : ''));
+      } else if (res.status === 403 && body.confirm_required && !confirmed) {
+        setP(resultEl, 'dry', 'confirm to apply');
+        offerConfirm(id, fam, resultEl);
+      } else if (res.status === 403) {
+        setP(resultEl, 'warn', body.error || 'operator key not loaded — apply from a signed session');
+      } else if (res.status === 409) {
+        setP(resultEl, 'warn', 'another apply is in flight (or signed-proxy only) — retry');
+      } else if (res.status === 405) {
+        setP(resultEl, 'muted', 'read-only origin — run: ' + verb);
+      } else {
+        setP(resultEl, 'err', body.error || ('HTTP ' + res.status));
+      }
+    } catch (e) {
+      setP(resultEl, 'muted', 'exec rail unreachable — run: sovereign-osctl trinity profile switch ' + id);
+    }
+  }
+
+  // D21-3: "edit models" state — a device-cell model picker sourced from the
+  // catalog (filtered to the tier the device serves), loaded via the rail.
+  let EDIT_MODELS = false;
+  let MODELS_BY_ROLE = {};   // { conductor:[…], logic:[…], oracle:[…] } from /models
+  let LAST_GRID = null;      // last grid payload (so the toggle can re-render frozen)
 
   function cellHtml(c) {
     if (!c.present) return `<div class="cell na" title="${esc(c.label)}">${esc(c.slot)} · N/A</div>`;
@@ -849,10 +1022,27 @@
       `<div class="mslot"><span class="k">Model ${m.slot}${m.core_range ? ' (Core '+esc(m.core_range)+')' : ''}:</span> ${m.id ? '<code>'+esc(m.id)+'</code>' : '<span class="muted">—</span>'} ${m.precision ? '<span class="pill">'+esc(m.precision)+'</span>' : ''}</div>`
     ).join('');
     const util = c.util_pct != null ? c.util_pct.toFixed(0)+'%' : '—';
+    // In edit mode, a role-bearing device gets a tier-filtered model dropdown +
+    // Load — the operator's "edit the models for individual card". Loading binds
+    // that tier to the chosen model (SDD-049) through the signed rail.
+    let editBlk = '';
+    if (EDIT_MODELS && c.role && (MODELS_BY_ROLE[c.role] || []).length) {
+      const cur = (c.models || []).map(m => m.id).find(Boolean) || '';
+      const opts = (MODELS_BY_ROLE[c.role] || []).map(m => {
+        const meta = [m.class, m.size_class, (m.vram_gib_min != null ? m.vram_gib_min + 'GB' : null)].filter(Boolean).join(' · ');
+        return `<option value="${esc(m.id)}"${m.id === cur ? ' selected' : ''}>${esc(m.id)}${meta ? ' — ' + esc(meta) : ''}</option>`;
+      }).join('');
+      editBlk = `<div class="cell-edit">
+        <div class="k">Load a ${esc(c.role)}-tier model onto ${esc(c.slot)}:</div>
+        <div class="cell-edit-row"><select class="model-pick" data-role="${esc(c.role)}">${opts}</select><button class="m-load">Load</button></div>
+        <span class="m-result muted"></span>
+      </div>`;
+    }
     return `<div class="cell">
       <h3>${esc(c.label)} <span class="slot">${esc(c.slot)} · util ${util}</span></h3>
       ${models}
       <div class="mslot"><span class="k">Mode:</span> ${esc(c.mode || '—')}</div>
+      ${editBlk}
     </div>`;
   }
 
@@ -893,8 +1083,70 @@
   ]};
 
   function renderGrid(data) {
+    LAST_GRID = data;
     const cells = (data && data.cells && data.cells.length) ? data.cells : FIXED_CELLS;
     $('grid').innerHTML = cells.map(cellHtml).join('');
+    if (EDIT_MODELS) {
+      $('grid').querySelectorAll('.cell-edit').forEach(blk => {
+        const btn = blk.querySelector('.m-load');
+        const sel = blk.querySelector('.model-pick');
+        const res = blk.querySelector('.m-result');
+        if (btn && sel) btn.addEventListener('click', () => loadModel(sel.value, res, false));
+      });
+    }
+  }
+
+  // ── D21-3: load a specific model onto a device via the control-exec rail ────
+  // Same signed path as profile Apply, but the 'model-load' control
+  // (sovereign-osctl models load <id> --confirm): dry-run → type-to-confirm →
+  // live. Loading binds the device's tier to the chosen catalog model (SDD-049).
+  function setM(el, cls, msg) { if (!el) return; el.className = 'm-result ' + cls; el.textContent = msg; }
+
+  function offerModelConfirm(id, resultEl) {
+    const blk = resultEl.closest('.cell-edit');
+    if (!blk || blk.querySelector('.m-confirm')) return;
+    const row = blk.querySelector('.cell-edit-row');
+    const inp = document.createElement('input');
+    inp.className = 'm-confirm'; inp.placeholder = 'type "' + id + '"';
+    const ok = document.createElement('button');
+    ok.className = 'm-load'; ok.textContent = 'Confirm load';
+    ok.addEventListener('click', () => {
+      if (inp.value.trim() === id) { inp.remove(); ok.remove(); loadModel(id, resultEl, true); }
+      else setM(resultEl, 'warn', 'type the exact id to confirm');
+    });
+    row.appendChild(inp); row.appendChild(ok);
+  }
+
+  async function loadModel(id, resultEl, confirmed) {
+    if (!id) { setM(resultEl, 'warn', 'pick a model first'); return; }
+    setM(resultEl, 'muted', confirmed ? 'loading…' : 'checking…');
+    try {
+      const res = await fetch(EXECUTE_URL, {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ control_id: 'model-load', args: { id }, confirm: !!confirmed }),
+      });
+      let body = {}; try { body = await res.json(); } catch (e) {}
+      const verb = 'sovereign-osctl models load ' + id + ' --confirm';
+      if (res.status === 200 && body.dry_run) {
+        setM(resultEl, 'dry', 'dry-run ✓ would run: ' + ((body.would_run || body.argv || []).join(' ')));
+        offerModelConfirm(id, resultEl);
+      } else if (res.status === 200) {
+        setM(resultEl, 'ok', 'loaded ✓ ' + id + (body.exit_code != null ? ' · exit ' + body.exit_code : ''));
+      } else if (res.status === 403 && body.confirm_required && !confirmed) {
+        setM(resultEl, 'dry', 'confirm to load'); offerModelConfirm(id, resultEl);
+      } else if (res.status === 403) {
+        setM(resultEl, 'warn', body.error || 'operator key not loaded — load from a signed session');
+      } else if (res.status === 409) {
+        setM(resultEl, 'warn', 'a load is already in flight — retry');
+      } else if (res.status === 405) {
+        setM(resultEl, 'muted', 'read-only origin — run: ' + verb);
+      } else {
+        setM(resultEl, 'err', body.error || ('HTTP ' + res.status));
+      }
+    } catch (e) {
+      setM(resultEl, 'muted', 'exec rail unreachable — run: sovereign-osctl models load ' + id + ' --confirm');
+    }
   }
 
   // Authored tiering over the REAL /proc/cpuinfo AVX-512 flags (the flags are
@@ -955,10 +1207,9 @@
     }
   }
 
-  // SDD-055 — Apply EXECUTES via the R10274 control rail (runtime-mode = trinity
-  // profile switch; now rendered on D-21). Pick the profile in the control card
-  // and Execute (dry-run default, operator-key + type-to-confirm). R10212 intact.
-  $('apply-btn').addEventListener('click', () => jumpToControl('runtime-mode'));
+  // D21-4 — Apply now lives on each profile card (applyProfile above), executing
+  // through the same R10274 control-exec rail inline; the old floating button
+  // that only scrolled to a distant control card is gone.
 
   async function fetchJson(path) {
     const res = await fetch(path, {credentials:'same-origin'});
@@ -971,7 +1222,7 @@
     // calls (the SB-077 reconciliation — opt-in + always-badged).
     if (demoActive()) {
       $('data-source-banner').innerHTML = '<strong>DEMO mode</strong> — sample data, not a live daemon. Disable it in Personalization.';
-      renderProfiles(DEMO_PROFILES);
+      renderProfilesIfChanged(DEMO_PROFILES);
       renderGrid(DEMO_GRID);
       renderFeatures(DEMO_FEATURES);
       if (window.soDemo) window.soDemo.badge();
@@ -984,17 +1235,101 @@
         fetchJson('/api/lm-orchestration/profiles'),
         fetchJson('/api/lm-orchestration/features'),
       ]);
+      // Catalog-by-role for the composer's per-device dropdowns — tolerate an
+      // older daemon without the endpoint (keep the last set).
+      MODELS_BY_ROLE = (await fetchJson('/api/lm-orchestration/models').catch(() => ({ by_role: MODELS_BY_ROLE }))).by_role || MODELS_BY_ROLE;
+      // SDD-141 data-source-banner wording (from main); the `*` wildcard covers
+      // the models endpoint the composer added, so the copy stays convergent.
       $('data-source-banner').innerHTML = 'consuming <code>/api/lm-orchestration/*</code> from the lm-orchestration API daemon';
-      renderProfiles(profiles);
-      renderGrid(grid);
+      // Profiles are static config, not live telemetry — only re-render when the
+      // set actually changes, so a live Apply's dry-run/confirm/result on a card
+      // is NOT wiped by the SSE grid tick (D21-4).
+      renderProfilesIfChanged(profiles);
+      // While "Edit models" is active the grid is FROZEN (telemetry paused) so a
+      // half-typed model choice / dry-run / confirm is not wiped by the SSE tick.
+      if (EDIT_MODELS) { LAST_GRID = grid; } else { renderGrid(grid); }
       renderFeatures(features);
     } catch (e) {
       $('data-source-banner').innerHTML = 'cannot reach <code>/api/lm-orchestration/*</code> — is the lm-orchestration API daemon running? <span class="muted">('+esc(e.message)+')</span>';
-      // still render the fixed quadrant + profiles/features structure (honest —)
-      renderGrid({}); renderProfiles({profiles: PROFILES}); renderFeatures({});
+      // still render the fixed grid + profiles/features structure (honest —)
+      renderGrid({}); renderProfilesIfChanged({profiles: PROFILES}); renderFeatures({});
     }
     $('last-fetch').textContent = 'last fetch: ' + new Date().toLocaleTimeString();
   }
+
+  // "Edit models" toggle — enters per-device model editing (grid telemetry
+  // freezes so a choice/dry-run/confirm isn't wiped), and back to the live view.
+  // Edit mode also reveals the composer save-bar (compose a whole new profile).
+  $('edit-models-btn').addEventListener('click', () => {
+    EDIT_MODELS = !EDIT_MODELS;
+    const b = $('edit-models-btn');
+    b.classList.toggle('on', EDIT_MODELS);
+    b.textContent = EDIT_MODELS ? '✓ Done editing' : '✎ Edit models';
+    $('grid-note').innerHTML = EDIT_MODELS
+      ? '<strong>Edit mode</strong> — live telemetry paused. Load a model onto a device, or compose the picks into a new profile below. All writes go through the signed rail (dry-run → type-to-confirm).'
+      : 'The grid previews the <em>selected</em> profile\'s model→device layout. Apply each profile from its own card above — or <strong>Edit models</strong> to load a specific catalog model onto a device.';
+    $('compose-bar').hidden = !EDIT_MODELS;
+    renderGrid(LAST_GRID || {});
+  });
+
+  // ── D21-3: compose a NEW profile from the current per-device picks ──────────
+  // Save-draft (user dir) or Save-to-repo (tracked) — both via the signed
+  // 'profile-compose' control (sovereign-osctl profiles create-orchestration):
+  // catalog-grounded, dry-run → type-to-confirm. Reuses the Edit-mode dropdowns
+  // as the composition source (data-role on each .model-pick).
+  function setC(cls, msg) { const el = $('compose-result'); el.className = 'p-result ' + cls; el.textContent = msg; }
+
+  function offerComposeConfirm(target, id) {
+    const row = $('compose-bar').querySelector('.compose-row');
+    if (row.querySelector('.p-confirm')) return;
+    const inp = document.createElement('input');
+    inp.className = 'p-confirm'; inp.placeholder = 'type "' + id + '"';
+    const ok = document.createElement('button');
+    ok.className = 'p-apply'; ok.textContent = 'Confirm save';
+    ok.addEventListener('click', () => {
+      if (inp.value.trim() === id) { inp.remove(); ok.remove(); saveProfile(target, true); }
+      else setC('warn', 'type the exact id to confirm');
+    });
+    row.appendChild(inp); row.appendChild(ok);
+  }
+
+  async function saveProfile(target, confirmed) {
+    const id = ($('compose-id').value || '').trim();
+    const intent = $('compose-intent').value || 'custom';
+    if (!/^[a-z][a-z0-9-]*$/.test(id)) { setC('warn', 'id must be lowercase-hyphen (^[a-z][a-z0-9-]*$)'); return; }
+    const picks = { conductor: 'none', logic: 'none', oracle: 'none' };
+    document.querySelectorAll('.model-pick[data-role]').forEach(s => { picks[s.dataset.role] = s.value || 'none'; });
+    if (picks.conductor === 'none' && picks.logic === 'none' && picks.oracle === 'none') {
+      setC('warn', 'pick at least one device model to compose a profile'); return;
+    }
+    setC('muted', confirmed ? 'saving…' : 'checking…');
+    try {
+      const r = await fetch(EXECUTE_URL, {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ control_id: 'profile-compose',
+          args: { id, intent, conductor: picks.conductor, logic: picks.logic, oracle: picks.oracle, target },
+          confirm: !!confirmed }),
+      });
+      let b = {}; try { b = await r.json(); } catch (e) {}
+      const verb = 'sovereign-osctl profiles create-orchestration --id ' + id + ' --target ' + target + ' … --confirm';
+      if (r.status === 200 && b.dry_run) {
+        setC('dry', 'dry-run ✓ would write the ' + target + ' profile "' + id + '"'); offerComposeConfirm(target, id);
+      } else if (r.status === 200) {
+        setC('ok', 'saved ✓ ' + target + ' profile "' + id + '" — now in the ' + (target === 'repo' ? 'orchestration' : 'Your drafts') + ' band'); refresh();
+      } else if (r.status === 403 && b.confirm_required && !confirmed) {
+        setC('dry', 'confirm to save'); offerComposeConfirm(target, id);
+      } else if (r.status === 403) {
+        setC('warn', b.error || 'operator key not loaded — save from a signed session');
+      } else if (r.status === 405) {
+        setC('muted', 'read-only origin — run: ' + verb);
+      } else {
+        setC('err', b.error || ('HTTP ' + r.status));
+      }
+    } catch (e) { setC('muted', 'exec rail unreachable — run: ' + 'sovereign-osctl profiles create-orchestration … --confirm'); }
+  }
+  $('save-draft').addEventListener('click', () => saveProfile('draft', false));
+  $('save-repo').addEventListener('click', () => saveProfile('repo', false));
 
   // Initial paint of the fixed structure so the grid is ALWAYS visible; the
   // fetch below fills in live data (or the catch keeps the fixed structure).
@@ -1525,10 +1860,10 @@ window.SO_ASSIST = {
      }
     },
     {
-     "selector": "#apply-btn",
+     "selector": ".profile .p-apply",
      "title": "Apply (operator-signed)",
-     "content": "Copies the signed verb-chain that applies the selected profile — rebalancing every tier at once. It’s a chain, not a single verb, because switching profiles unloads and reloads models across devices and re-pins cores together; those steps have to happen in order. The button copies; the box only changes when you run it.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why apply is a signed chain, not a click</div>Switching profile isn’t one action — it moves models between devices, changes GPU power states, and re-pins cores, and a half-applied profile is a broken posture. So it’s a signed verb-chain run through osctl (R10212), sequenced and atomic, never a web mutation. Preview the grid first: a profile that doesn’t fit VRAM is caught here, before you commit the chain.</div><div class=\"so-tip\">💡 Read the assignment grid above before applying — the preview is free, a mis-fit apply is not.</div>"
+     "content": "Applies THIS profile — the one on its own card — through the signed control-exec rail, right here, no scrolling off to some other control. First click is a dry-run: it shows you the exact sudo verb it would run and changes nothing. Type the profile id to confirm, and only then does the box actually switch. Web never mutates on its own (R10212); the sudoer rail does the work.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Dry-run, then type-to-confirm</div>Switching profile re-points every tier's model→device binding, so it's gated: the first Apply POSTs a dry-run (control_id runtime-mode) and the rail replies with the sudo argv it WOULD run. You then type the profile's id to authorize the live run, which needs the operator key loaded. A generated combo shows <strong>Generate…</strong> instead — it isn't on disk yet, so you materialize it first, then it becomes applyable.</div><div class=\"so-tip\">💡 The dry-run is free and shows the exact command — read it before you confirm.</div>"
     }
    ]
   },

@@ -262,17 +262,32 @@ def test_nav_registry_includes_d21():
 
 # ── SDD-111: full-layout delivery (de-minimization per the operator's design) ──
 
-def test_apply_is_centered_in_the_quadrant():
-    """The Apply control sits centered INSIDE the 2×2 grid (design), not above it —
-    a `.grid-quad` relative wrapper holds `#grid` + an absolutely-centered
-    `.apply-wrap`. Apply still routes to the wired exec-rail control (R10212)."""
+def test_apply_is_per_profile_card_via_exec_rail():
+    """D21-4: Apply lives on EACH profile card and executes through the signed
+    control-exec rail inline (dry-run → type-to-confirm), replacing the old
+    floating round button that merely scrolled to a distant control card
+    (the operator's bug: "the apply move to a card randomly instead of applying
+    using sudoer like normal"). Web itself never mutates (R10212)."""
     body = WEBAPP_HTML.read_text(encoding="utf-8")
-    assert "grid-quad" in body, "the Apply must be centered via a .grid-quad wrapper"
-    assert re.search(r'\.apply-wrap\s*\{[^}]*position:\s*absolute', body), (
-        "the Apply overlay must be absolutely centered in the quadrant"
+    # the floating-quadrant design is gone
+    assert "grid-quad" not in body and "apply-wrap" not in body, (
+        "the floating quadrant Apply button must be removed"
     )
-    assert "jumpToControl('runtime-mode')" in body or 'jumpToControl("runtime-mode")' in body, (
-        "Apply must still route to the wired runtime-mode exec-rail control (R10212)"
+    assert "$('apply-btn')" not in body and 'id="apply-btn"' not in body, (
+        "the single floating #apply-btn must be gone"
+    )
+    # each profile card carries a real Apply/Generate button + result line
+    assert "p-apply" in body and "p-result" in body, (
+        "each profile card must render a .p-apply button + .p-result line"
+    )
+    # Apply POSTs the sanctioned control-exec body (runtime-mode) — the sudoer rail
+    assert "/api/control/execute" in body, "Apply must POST to the control-exec rail"
+    assert re.search(r"control_id:\s*['\"]runtime-mode['\"]", body), (
+        "Apply must execute the allowlisted 'runtime-mode' control (trinity profile switch)"
+    )
+    # dry-run-first + type-to-confirm gate
+    assert "offerConfirm" in body and "dry_run" in body, (
+        "Apply must be dry-run-first with a type-to-confirm gate"
     )
 
 

@@ -31,6 +31,7 @@ EXPECTED_IDS = {
     "adapter-gate-human",
     "approvals-request", "memory-request",
     "profiles-generate-runtime", "peace-check",
+    "profile-compose",
 }
 VALID_KINDS = {"profile", "mode", "toggle", "lifecycle"}
 VALID_SCOPES = {"global", "scoped"}

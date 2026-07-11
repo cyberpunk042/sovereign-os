@@ -3,105 +3,68 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>sovereign-os D-24 cpu features</title>
-<meta name="x-sovereign-module" content="d-24-cpu-features-webapp">
-<meta name="x-sovereign-shipped-in" content="D-24-cpu-features">
+<title>sovereign-os · Feature Test Lab</title>
+<meta name="x-sovereign-module" content="feature-test-lab-webapp">
+<meta name="x-sovereign-shipped-in" content="Feature Test Lab Phase 0a — live per-feature testing + observability (operator live testing, not unit tests)">
 <meta name="x-sovereign-standing-rule" content="We do not minimize anything.">
-<meta name="x-sovereign-catalog-source" content="reuses scripts/hardware/avx512-advisor.py (probe/workloads/advisory)">
-<script>
-  (function(){
-    var KEY = 'sovereign-os.personalization', SCHEMA_V = 1;
-    var DEF = { schema: SCHEMA_V, theme: 'auto', accent: '#9bd1ff', font_scale: 1 };
-    var p;
-    try { var raw = localStorage.getItem(KEY); p = raw ? JSON.parse(raw) : null; if (!p || p.schema !== SCHEMA_V) p = null; } catch(e) { p = null; }
-    if (!p) p = DEF;
-    var resolved = (p.theme === 'dark' || p.theme === 'light') ? p.theme
-      : ((window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark');
-    document.documentElement.setAttribute('data-theme', resolved);
-    document.documentElement.style.setProperty('--so-accent', p.accent || DEF.accent);
-    document.documentElement.style.setProperty('--accent', p.accent || DEF.accent);
-    document.documentElement.style.setProperty('--font-scale', String(p.font_scale || 1));
-  })();
-</script>
 <style>
-  :root {
-    --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --panel:#171717;
-    --border:#262626; --mono:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; --accent:#9bd1ff; --good:#7ad17a; --warn:#e6c062;
-    --bad:#ff7676; --font-scale:1;
+  :root{
+    --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --accent:#9bd1ff;
+    --good:#7ad17a; --bad:#ff7676; --warn:#e6c062;
+    --panel:#171717; --border:#262626;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   }
-  html[data-theme="light"] { --bg:#f6f6f6; --fg:#0e0e0e; --muted:#555; --panel:#ffffff; --border:#d8d8d8; }
-  * { box-sizing:border-box; }
-  body { margin:0; background:var(--bg); color:var(--fg); font-family: var(--mono); font-size: calc(14px * var(--font-scale)); line-height:1.5; }
-  header { padding:1rem 1.25rem; border-bottom:1px solid var(--border); }
-  h1 { margin:0; font-size:1.1rem; }
-  h1 .sub { color:var(--muted); font-weight:400; font-size:.8rem; margin-left:.5rem; }
-  main { padding:1rem 1.25rem; max-width:1100px; }
-  h2 { font-size:.9rem; margin:1.2rem 0 .4rem; color:var(--accent); }
-  .banner { font-size:.78rem; color:var(--muted); margin:.5rem 0; }
-  .muted { color:var(--muted); }
-  code { color:var(--accent); }
-  .grid2 { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:.3rem; } /* SDD-137 */
-  .ext { border:1px solid var(--border); border-radius:4px; padding:.3rem .5rem; font-size:.78rem; display:flex; justify-content:space-between; gap:.5rem; }
-  .yes { color:var(--good); } .no { color:var(--bad); }
-  table { width:100%; border-collapse:collapse; font-size:.8rem; }
-  th, td { text-align:left; padding:.3rem .5rem; border-bottom:1px solid var(--border); }
-  th { color:var(--muted); font-weight:600; }
-  .fit-yes { color:var(--good); } .fit-no { color:var(--warn); }
-  .sev-ok { color:var(--good); } .sev-warn { color:var(--warn); } .sev-critical { color:var(--bad); }
-  footer { padding:1rem 1.25rem; border-top:1px solid var(--border); color:var(--muted); font-size:.75rem; }
+  /* SDD-126 light-theme override (the app-shell theme toggle sets
+     data-theme; the dark :root above is the default). Operator 2026-07-10:
+     "when the theme is light, isn't it supposed to be light". */
+  html[data-theme="light"]{
+    --bg:#f6f6f6; --fg:#0e0e0e; --muted:#555; --accent:#2563a8;
+    --good:#2e7d32; --bad:#c62828; --warn:#a8791a;
+    --panel:#ffffff; --border:#d8d8d8;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:14px;line-height:1.5}
+  body{padding:1.2rem;max-width:1100px;margin:0 auto}
+  h1{font-size:1.4rem;margin:0 0 .2rem 0;font-weight:600}
+  h2{font-size:1rem;margin:1.6rem 0 .5rem 0;font-weight:600;color:var(--accent)}
+  .sub{color:var(--muted);margin-bottom:1rem;font-size:.85rem}
+  .lane-note{color:var(--muted);font-size:.8rem;margin:.1rem 0 .6rem}
+  code{background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:0 .3rem;font-size:.9em}
+  /* test cards */
+  .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:.7rem}
+  .tc{border:1px solid var(--border);border-radius:6px;background:var(--panel);padding:.8rem .9rem;display:flex;flex-direction:column;gap:.4rem}
+  .tc-head{display:flex;justify-content:space-between;align-items:baseline;gap:.5rem}
+  .tc-label{font-weight:600;color:var(--fg)}
+  .tc-lane{font-size:.6rem;text-transform:uppercase;letter-spacing:.05em;border:1px solid var(--border);border-radius:3px;padding:0 .3rem;color:var(--muted)}
+  .tc-lane.backend{color:var(--accent);border-color:#2b4658}
+  .tc-lane.client{color:var(--good);border-color:#1f4d1f}
+  .tc-desc{color:var(--muted);font-size:.78rem}
+  .tc-row{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+  .tc-run{border:1px solid var(--accent);background:transparent;color:var(--accent);border-radius:4px;padding:.15rem .7rem;font:inherit;font-size:.78rem;cursor:pointer}
+  .tc-run:hover{background:rgba(155,209,255,.12)}
+  .tc-run:disabled{opacity:.5;cursor:default}
+  .tc-badge{font-size:.72rem;font-weight:600;border-radius:3px;padding:0 .4rem}
+  .tc-badge.pass{color:var(--good);border:1px solid #1f4d1f}
+  .tc-badge.fail{color:var(--bad);border:1px solid #4d1f1f}
+  .tc-badge.run{color:var(--warn);border:1px solid #4d431a}
+  .tc-result{font-size:.74rem;line-height:1.4;min-height:1em}
+  .tc-result.pass{color:var(--good)} .tc-result.fail{color:var(--bad)}
+  .tc-result.run{color:var(--warn)} .tc-result.muted{color:var(--muted)}
+  .tc-meta{color:var(--muted);font-size:.72rem}
+  .tc-checks{margin:.1rem 0 0;padding:0;list-style:none;font-size:.72rem;display:flex;flex-direction:column;gap:.15rem}
+  .tc-checks li{display:flex;gap:.4rem;align-items:baseline}
+  .tc-checks .ck{flex:0 0 auto}
+  .tc-checks .ck.ok{color:var(--good)} .tc-checks .ck.no{color:var(--bad)}
+  .tc-checks .cd{color:var(--muted)}
+  details.tc-detail{font-size:.72rem}
+  details.tc-detail summary{color:var(--muted);cursor:pointer}
+  details.tc-detail pre{background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:.4rem;overflow-x:auto;max-height:16rem;overflow-y:auto;margin:.3rem 0 0}
+  .tc-history{display:flex;gap:2px;flex-wrap:wrap;margin-top:.1rem}
+  .tc-history .h{width:12px;height:12px;border-radius:2px;border:1px solid var(--border)}
+  .tc-history .h.pass{background:#1f4d1f} .tc-history .h.fail{background:#4d1f1f}
+  footer{margin-top:2rem;color:var(--muted);font-size:.75rem;border-top:1px solid var(--border);padding-top:.8rem}
+  .standing-rule{color:var(--accent);font-style:italic;margin-top:.4rem}
 </style>
-<!-- SDD-116/119 shared demo-mode helper (inlined verbatim from webapp/_shared/demo-mode.{css,js}; opt-in, always-badged sample data — SB-077 reconciliation). -->
-<style>
-/* webapp/_shared/demo-mode.css — SDD-116 DEMO badge.
- * DEMO mode is opt-in sample data for exploring panels with no daemon. The badge
- * is a persistent, unmistakable ribbon so DEMO data is NEVER mistaken for real
- * telemetry (the SB-077 reconciliation). Inlined verbatim into demo-capable
- * panels alongside demo-mode.js. */
-#so-demo-badge {
-  position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); z-index: 9600;
-  background: #e6c062; color: #0a0a0a; font-weight: 700; font-size: .72rem; letter-spacing: .03em;
-  padding: .28rem .65rem; border-radius: 6px; box-shadow: 0 2px 12px rgba(0, 0, 0, .38);
-  font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif; pointer-events: none;
-}
-#so-demo-badge .sub { font-weight: 400; opacity: .82; }
-</style>
-<script>
-/* webapp/_shared/demo-mode.js — SDD-116 shared DEMO-mode helper (opt-in sample data).
- *
- * Reads the `sovereign-os.demo` localStorage flag (schema-guarded) and renders a
- * persistent DEMO badge. Demo-capable panels call `soDemo.on()` to branch to their
- * clearly-labelled sample data. The SB-077 reconciliation: DEMO is opt-in (off by
- * default; never self-enables), ALWAYS badged, and makes ZERO network calls
- * (R10212 strengthened — the demo render path never fetches). Inlined verbatim into
- * demo-capable panels alongside demo-mode.css. */
-(function () {
-  "use strict";
-  var DKEY = 'sovereign-os.demo', DSCHEMA = 1;
-  function on() {
-    try {
-      var r = localStorage.getItem(DKEY); var p = r ? JSON.parse(r) : null;
-      return !!(p && p.schema === DSCHEMA && p.on);
-    } catch (e) { return false; }
-  }
-  function set(v) {
-    try { localStorage.setItem(DKEY, JSON.stringify({ schema: DSCHEMA, on: !!v })); } catch (e) {}
-  }
-  function badge() {
-    var b = document.getElementById('so-demo-badge');
-    if (on()) {
-      if (!b) {
-        b = document.createElement('div'); b.id = 'so-demo-badge';
-        b.innerHTML = 'DEMO <span class="sub">· sample data — not real telemetry</span>';
-        b.setAttribute('role', 'status');
-        (document.body || document.documentElement).appendChild(b);
-      }
-    } else if (b) { b.remove(); }
-  }
-  window.soDemo = { on: on, set: set, badge: badge, KEY: DKEY, SCHEMA: DSCHEMA };
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', badge);
-  else badge();
-})();
-</script>
 </head>
 <body>
 <!-- APP-SHELL:BEGIN M067 -->
@@ -150,7 +113,7 @@
   .so-crumb b{color:var(--fg,#e6e6e6); font-weight:600;}
   .so-pill{display:inline-flex; align-items:center; gap:.35rem; font-size:.72rem; color:var(--muted,#8a8a8a);
     border:1px solid var(--border,#262626); border-radius:999px; padding:.1rem .5rem;}
-  .so-pill .dot{width:7px; height:7px; border-radius:50%; background:var(--good,#7ad17a);}
+  .so-pill .dot{width:7px; height:7px; border-radius:50%; background:var(--ok,#7fd18a);}
   /* sidemenu */
   #so-sidemenu{position:fixed; top:var(--so-header-h); left:0; bottom:0; width:var(--so-sidemenu-w); z-index:9400;
     background:var(--panel,#171717); border-right:1px solid var(--border,#262626); display:flex; flex-direction:column; overflow:hidden;
@@ -726,113 +689,216 @@
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
-
-<header>
-  <h1>D-24 · CPU Features
-    <span class="sub">AVX-512 extension map · per-AI-workload fit · advisory (reuses avx512-advisor)</span></h1>
-</header>
 <main>
-  <div class="banner" id="data-source-banner">connecting to <code>/api/cpu-features/probe</code>…</div>
-  <div class="banner" id="cpu-summary"></div>
-  <h2>AVX-512 extensions</h2>
-  <div class="grid2" id="extensions"></div>
-  <h2>Per-AI-workload fit</h2>
-  <div id="workloads"></div>
-  <h2>Advisory</h2>
-  <div id="advisory"></div>
-  <p class="banner" id="last-fetch"></p>
+  <h1>Feature Test Lab</h1>
+  <p class="sub" id="lab-sub">Live testing — click <em>Run</em> to exercise a shipped feature for real and watch what happens (result · path taken · timing · checks). These are not unit tests; each run drives the real feature.</p>
+
+  <h2>Backend features</h2>
+  <p class="lane-note">Each Run calls the read-only self-test daemon (<code>GET /api/feature-test/run/&lt;feature&gt;</code>), which executes the real Rust kernel and returns its checks.</p>
+  <div class="cards" id="backend-cards"></div>
+
+  <h2>Client features</h2>
+  <p class="lane-note">Each Run exercises the feature directly in this page (the exact DOM/JS the cockpit ships) and observes the result — zero network.</p>
+  <div class="cards" id="client-cards"></div>
+
+  <p class="standing-rule">We do not minimize anything.</p>
 </main>
 <footer>
-  sovereign-os cockpit · D-24 · read-only capability observation (nothing to mutate).
-  Operator §1g standing rule (sacrosanct): <strong>We do not minimize anything.</strong>
+  sovereign-os cockpit · Feature Test Lab · read-only. Backend self-tests run the real feature via
+  <code>sovereign-feature-selftest</code>; client self-tests run in-page. Nothing here mutates the box.
 </footer>
 <script>
   const $ = id => document.getElementById(id);
-  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-  function render(probe, workloads, advisory) {
-    probe = probe || {}; workloads = workloads || {}; advisory = advisory || {};
-    // SDD-115 — the four sections stay visible even with the daemon offline
-    // (the SDD-111/113 "seeing all sections" lesson): an honest unreachable card
-    // in every section, never a blank panel (SB-077).
-    if (probe.offline) {
-      $('cpu-summary').innerHTML = '<span class="muted">cpu-features daemon unreachable</span>';
-      const off = '<div class="muted">the cpu-features daemon is unreachable — this section (the AVX-512 extension map / workload-fit / advisory) populates when it\'s reachable. Nothing is fabricated (SB-077).</div>';
-      $('extensions').innerHTML = off; $('workloads').innerHTML = off; $('advisory').innerHTML = off;
-      return;
-    }
-    $('cpu-summary').innerHTML = probe.error
-      ? '<span class="no">advisor error: '+esc(probe.error)+'</span>'
-      : `<code>${esc(probe.cpu_model||'?')}</code> · AVX-512 ${probe.avx512_supported ? '<span class="yes">supported</span>' : '<span class="no">absent</span>'}`;
-    $('extensions').innerHTML = (probe.extensions || []).map(e =>
-      `<div class="ext"><span><code>${esc(e.flag)}</code> <span class="muted">${esc(e.summary||'')}</span></span><span class="${e.present ? 'yes' : 'no'}">${e.present ? '✓' : '—'}</span></div>`
-    ).join('') || '<div class="muted">no extension data</div>';
-    $('workloads').innerHTML = (workloads.workloads || []).length ? (
-      `<div class="banner"><strong>${workloads.fitting_workload_count ?? 0}</strong> / ${workloads.workload_count ?? 0} workloads fit</div>` +
-      '<table><thead><tr><th>Workload</th><th>Fit</th><th>Why</th></tr></thead><tbody>' +
-      workloads.workloads.map(w => `<tr><td>${esc(w.workload || w.name || '?')}</td><td class="${w.fits ? 'fit-yes' : 'fit-no'}">${w.fits ? 'FIT' : 'gap'}</td><td class="muted">${esc(w.reason || w.note || '')}</td></tr>`).join('') +
-      '</tbody></table>')
-      : '<div class="muted">no workload data</div>';
-    const sev = advisory.severity || 'ok';
-    $('advisory').innerHTML = `<div class="banner">severity: <span class="sev-${esc(sev)}">${esc(sev.toUpperCase())}</span></div>` +
-      ((advisory.advisories || []).length
-        ? '<ul>' + advisory.advisories.map(a => `<li class="muted">${esc(typeof a === 'string' ? a : (a.message || a.hint || JSON.stringify(a)))}</li>`).join('') + '</ul>'
-        : '<div class="muted">no advisories — capabilities meet the AI workload floor</div>');
+  // ── the reusable test-card framework ───────────────────────────────────────
+  // A descriptor: { id, label, lane:'backend'|'client', desc, run:async()=>Result }
+  // Result: { ok, path_taken?, duration_us?, detail, checks:[{name,ok,detail}], raw? }
+  // Backend cards get a default run() that GETs the daemon; client cards supply
+  // their own in-page run(). Both render identically.
+  const HISTORY = {};   // id → array of {ok, ms}
+
+  function fmtDur(us) {
+    if (us == null) return '';
+    if (us < 1000) return us + 'µs';
+    if (us < 1e6) return (us / 1000).toFixed(1) + 'ms';
+    return (us / 1e6).toFixed(2) + 's';
   }
 
-  async function fetchJson(path) { const r = await fetch(path, {credentials:'same-origin'}); if (!r.ok) throw new Error('HTTP '+r.status); return r.json(); }
+  function cardHtml(d) {
+    return `<div class="tc" id="tc-${esc(d.id)}" data-id="${esc(d.id)}">
+      <div class="tc-head"><span class="tc-label">${esc(d.label)}</span><span class="tc-lane ${esc(d.lane)}">${esc(d.lane)}</span></div>
+      <div class="tc-desc">${esc(d.desc)}</div>
+      <div class="tc-row"><button class="tc-run">Run</button><span class="tc-badge muted"></span><span class="tc-meta tc-dur"></span></div>
+      <div class="tc-result muted">not run yet</div>
+      <ul class="tc-checks"></ul>
+      <details class="tc-detail" hidden><summary>raw result</summary><pre></pre></details>
+      <div class="tc-history" title="run history (newest right)"></div>
+    </div>`;
+  }
 
-  function demoActive() { return !!(window.soDemo && window.soDemo.on()); }
-  const DEMO_CPU = {
-    probe: { cpu_model:"demo/AMD Ryzen 9 (sample)", avx512_supported:true, extensions:[
-      {flag:"avx2", summary:"256-bit SIMD", present:true},
-      {flag:"avx512f", summary:"512-bit foundation", present:true},
-      {flag:"avx512_bf16", summary:"bfloat16 dot-product", present:true},
-      {flag:"amx_tile", summary:"tile matrix (AMX)", present:false}
-    ] },
-    workloads: { fitting_workload_count:3, workload_count:4, workloads:[
-      {workload:"demo/llm-inference-q4", fits:true, reason:"AVX-512 + bf16 present"},
-      {workload:"demo/embeddings", fits:true, reason:"AVX2 sufficient"},
-      {workload:"demo/whisper-transcribe", fits:true, reason:"AVX2 sufficient"},
-      {workload:"demo/amx-gemm", fits:false, reason:"AMX tiles absent"}
-    ] },
-    advisory: { severity:"warn", advisories:[
-      "demo/AMX tiles absent — AMX-optimized GEMM paths fall back to AVX-512.",
-      {message:"demo/bf16 present — prefer bf16 model weights for throughput."}
-    ] }
-  };
-  async function refresh() {
-    if (demoActive()) {
-      $('data-source-banner').innerHTML = 'DEMO — sample data, not real telemetry (SB-077)';
-      render(DEMO_CPU.probe, DEMO_CPU.workloads, DEMO_CPU.advisory);
-      $('last-fetch').textContent = 'last fetch: ' + new Date().toLocaleTimeString();
-      if (window.soDemo) window.soDemo.badge();
-      return;
-    }
+  async function backendRun(id) {
+    const res = await fetch('/api/feature-test/run/' + encodeURIComponent(id), { credentials: 'same-origin' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.json();  // the FeatureResult from the Rust bin
+  }
+
+  async function runCard(d) {
+    const card = $('tc-' + d.id);
+    const badge = card.querySelector('.tc-badge');
+    const result = card.querySelector('.tc-result');
+    const dur = card.querySelector('.tc-dur');
+    const checksEl = card.querySelector('.tc-checks');
+    const detail = card.querySelector('.tc-detail');
+    const btn = card.querySelector('.tc-run');
+    btn.disabled = true;
+    badge.className = 'tc-badge run'; badge.textContent = 'running';
+    result.className = 'tc-result run'; result.textContent = 'running…';
+    checksEl.innerHTML = ''; detail.hidden = true;
+    const t0 = performance.now();
     try {
-      const [probe, workloads, advisory] = await Promise.all([
-        fetchJson('/api/cpu-features/probe'), fetchJson('/api/cpu-features/workloads'), fetchJson('/api/cpu-features/advisory')]);
-      $('data-source-banner').innerHTML = 'consuming <code>/api/cpu-features/*</code> from the cpu-features API daemon';
-      render(probe, workloads, advisory);
+      const r = (d.lane === 'backend') ? await backendRun(d.id) : await d.run();
+      const ms = Math.round(performance.now() - t0);
+      if (r && r.error) throw new Error(r.error);
+      const ok = !!r.ok;
+      badge.className = 'tc-badge ' + (ok ? 'pass' : 'fail'); badge.textContent = ok ? 'PASS' : 'FAIL';
+      result.className = 'tc-result ' + (ok ? 'pass' : 'fail');
+      result.textContent = (r.detail || (ok ? 'passed' : 'failed'));
+      const dparts = [];
+      if (r.path_taken) dparts.push('path ' + r.path_taken);
+      dparts.push('took ' + (r.duration_us != null ? fmtDur(r.duration_us) : ms + 'ms'));
+      dur.textContent = dparts.join(' · ');
+      checksEl.innerHTML = (r.checks || []).map(c =>
+        `<li><span class="ck ${c.ok ? 'ok' : 'no'}">${c.ok ? '✓' : '✗'}</span><span><strong>${esc(c.name)}</strong> <span class="cd">${esc(c.detail || '')}</span></span></li>`
+      ).join('');
+      detail.hidden = false;
+      detail.querySelector('pre').textContent = JSON.stringify(r, null, 2);
+      pushHistory(d.id, ok, ms);
     } catch (e) {
-      $('data-source-banner').innerHTML = 'cannot reach <code>/api/cpu-features/*</code> — is the cpu-features API daemon running? <span class="muted">('+esc(e.message)+')</span>';
-      render({offline: true}, {}, {});   // SDD-115 — keep all four sections visible, never blank
+      const ms = Math.round(performance.now() - t0);
+      badge.className = 'tc-badge fail'; badge.textContent = 'ERR';
+      result.className = 'tc-result fail'; result.textContent = 'error: ' + e.message;
+      dur.textContent = ms + 'ms';
+      pushHistory(d.id, false, ms);
+    } finally {
+      btn.disabled = false;
     }
-    $('last-fetch').textContent = 'last fetch: ' + new Date().toLocaleTimeString();
   }
 
-  // SDD-115 — initial paint so the panel is ALWAYS visible; refresh() then fills
-  // live data (or the catch keeps the honest offline scaffold).
-  render({offline: true}, {}, {});
+  function pushHistory(id, ok, ms) {
+    (HISTORY[id] ||= []).push({ ok, ms });
+    const el = $('tc-' + id).querySelector('.tc-history');
+    el.innerHTML = HISTORY[id].slice(-24).map(h =>
+      `<span class="h ${h.ok ? 'pass' : 'fail'}" title="${h.ok ? 'pass' : 'fail'} · ${h.ms}ms"></span>`).join('');
+  }
 
-  if (!demoActive()) try { const es = new EventSource('/api/cpu-features/stream'); es.addEventListener('features-change', refresh); es.addEventListener('error', () => setInterval(refresh, 60000)); }
-  catch (e) { setInterval(refresh, 60000); }
-  refresh();
+  function mount(containerId, descriptors) {
+    $(containerId).innerHTML = descriptors.map(cardHtml).join('');
+    descriptors.forEach(d => {
+      $('tc-' + d.id).querySelector('.tc-run').addEventListener('click', () => runCard(d));
+    });
+  }
+
+  // ── backend-lane cards (run the real Rust self-tests) ──────────────────────
+  const BACKEND = [
+    { id: 'simd-sum-of-squares', label: 'AVX-512 · sum_of_squares', lane: 'backend',
+      desc: 'Runs the real sum_of_squares kernel: proves the SIMD path equals scalar across lengths, reports which path (avx512f vs scalar) the host took, and times both on 1e6 f32.' },
+    { id: 'safetensors-loader', label: 'safetensors loader', lane: 'backend',
+      desc: 'Runs the real loader: parses a safetensors buffer, dequantizes F32 + BF16, reads an HF config (GQA kv-heads / head_dim), and confirms the error taxonomy — missing tensor, unsupported dtype, truncated.' },
+  ];
+
+  // ── client-lane cards (exercise the shipped in-page feature directly) ──────
+  const CLIENT = [
+    { id: 'assistant-speaker', label: 'Assistant Speaker (TTS)', lane: 'client',
+      desc: 'Exercises the app-shell speaker: feature-detects speechSynthesis, speaks a known phrase, and confirms it started + ended (or reports the API is absent).',
+      run: () => new Promise(resolve => {
+        const checks = [];
+        const supported = !!(window.speechSynthesis && typeof window.SpeechSynthesisUtterance !== 'undefined');
+        checks.push({ name: 'speechSynthesis_supported', ok: supported, detail: supported ? 'window.speechSynthesis present' : 'not available in this browser' });
+        if (!supported) {
+          return resolve({ ok: false, detail: 'SpeechSynthesis API not available', checks });
+        }
+        try { window.speechSynthesis.cancel(); } catch (e) {}
+        const u = new SpeechSynthesisUtterance('Sovereign feature test lab: assistant speaker check.');
+        u.volume = 0; // silent — we test the pipeline, not the audio
+        let started = false;
+        const t0 = performance.now();
+        const done = (ok, why) => {
+          checks.push({ name: 'utterance_started', ok: started, detail: started ? 'onstart fired' : 'never started' });
+          checks.push({ name: 'utterance_completed', ok: ok, detail: why });
+          resolve({ ok: ok && started, path_taken: 'speechSynthesis',
+                    duration_us: Math.round((performance.now() - t0) * 1000),
+                    detail: ok && started ? 'spoke to completion (silent)' : ('speaker pipeline issue: ' + why), checks });
+        };
+        u.onstart = () => { started = true; };
+        u.onend = () => done(true, 'onend fired');
+        u.onerror = (e) => done(false, 'onerror: ' + (e.error || 'unknown'));
+        // safety timeout — some engines are slow to fire events
+        setTimeout(() => { if (!started) done(false, 'no start within 3s'); }, 3000);
+        window.speechSynthesis.speak(u);
+      }) },
+
+    { id: 'deep-link-permalink', label: 'Deep-link permalink (#id)', lane: 'client',
+      desc: 'Exercises the app-shell deep-link: sets the URL hash to a content element, fires hashchange, and confirms the target scrolls + gets the .so-deeplink-hot highlight — and that an unknown id is a safe no-op.',
+      run: () => new Promise(resolve => {
+        const checks = [];
+        const content = document.getElementById('so-content');
+        const targetId = 'backend-cards';
+        const t = document.getElementById(targetId);
+        checks.push({ name: 'target_is_deep_linkable', ok: !!(content && t && content.contains(t)), detail: '#' + targetId + ' lives inside #so-content' });
+        if (t) t.classList.remove('so-deeplink-hot');
+        location.hash = '#' + targetId;
+        window.dispatchEvent(new HashChangeEvent('hashchange'));
+        setTimeout(() => {
+          const hot = !!(t && t.classList.contains('so-deeplink-hot'));
+          checks.push({ name: 'highlight_applied', ok: hot, detail: hot ? '.so-deeplink-hot pulse applied to the target' : 'no highlight applied' });
+          let safe = true;
+          try { location.hash = '#so-not-a-real-id-zzz'; window.dispatchEvent(new HashChangeEvent('hashchange')); } catch (e) { safe = false; }
+          checks.push({ name: 'unknown_id_is_safe_noop', ok: safe, detail: 'an unknown / out-of-content id is ignored without error' });
+          try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+          const ok = checks.every(c => c.ok);
+          resolve({ ok, path_taken: 'gotoHash', detail: ok ? 'deep-link scroll + highlight works; unknown id safe' : 'deep-link issue — see checks', checks });
+        }, 260);
+      }) },
+
+    { id: 'keyboard-affordances', label: 'Keyboard affordances (? / j k)', lane: 'client',
+      desc: 'Exercises the app-shell keyboard shortcuts: ? opens the help overlay (Esc closes), / focuses the panel filter, and j highlights a sidemenu item (.kbsel) — the exact handlers every panel ships.',
+      run: () => new Promise(resolve => {
+        const checks = [];
+        const kd = (key) => document.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+        const backdrop = document.getElementById('so-keys-backdrop');
+        kd('?');
+        const helpOpen = !!(backdrop && backdrop.classList.contains('open'));
+        checks.push({ name: 'help_overlay_opens_on_?', ok: helpOpen, detail: helpOpen ? '? opened #so-keys-backdrop' : 'overlay did not open' });
+        kd('Escape');
+        const helpClosed = !!(backdrop && !backdrop.classList.contains('open'));
+        checks.push({ name: 'help_overlay_closes_on_esc', ok: helpClosed, detail: helpClosed ? 'Escape closed the overlay' : 'overlay stayed open' });
+        kd('/');
+        const search = document.getElementById('so-sm-search');
+        const focused = document.activeElement === search;
+        checks.push({ name: 'slash_focuses_panel_filter', ok: focused, detail: focused ? '/ focused #so-sm-search' : 'filter not focused' });
+        if (search) search.blur();
+        kd('j');
+        const sel = document.querySelector('.so-sm-item.kbsel');
+        checks.push({ name: 'j_highlights_a_panel', ok: !!sel, detail: sel ? 'j highlighted a sidemenu item (.kbsel)' : 'no item highlighted' });
+        document.querySelectorAll('.so-sm-item.kbsel').forEach(el => el.classList.remove('kbsel'));
+        const ok = checks.every(c => c.ok);
+        resolve({ ok, path_taken: 'keydown handlers', detail: ok ? '?, Esc, /, and j all fire the shipped handlers' : 'a shortcut misfired — see checks', checks });
+      }) },
+  ];
+
+  mount('backend-cards', BACKEND);
+  mount('client-cards', CLIENT);
 </script>
-
-<!-- SDD-045 shared control-surface (inlined verbatim). -->
-<section style="max-width:1100px;padding:0 1.25rem 1rem"><h2>Controls · features &amp; profiles</h2>
-<div id="control-surface" class="cs-grid"><div class="cs-empty">loading controls…</div></div></section>
+<!-- SDD-045 Phase C — control surface (INLINED per the single-file doctrine).
+     Renders config/control-systems.yaml (served at /control-systems): the
+     global controls (profile / dashboard on-off / auth tier) + the modes &
+     feature toggles that govern THIS panel. Read-only: each control copies
+     its exact sovereign-osctl command. Canonical source (lockstep-linted):
+     webapp/_shared/control-surface.{css,js}. -->
+<h2>controls — profiles, modes &amp; feature toggles</h2>
+<div id="control-surface" class="cs-grid"><div class="cs-empty">loading controls…</div></div>
 <style>
 /* webapp/_shared/control-surface.css — SDD-045 shared control-surface.
  * Renders the control-systems registry (profiles / modes / feature toggles)
@@ -1239,150 +1305,8 @@
   global.SovereignControlSurface = { render: render, load: load };
 })(window);
 </script>
-<script>
-(function(){
-  var el = document.getElementById("control-surface");
-  if (el && window.SovereignControlSurface) { SovereignControlSurface.load(el, {filterSlug:'d-24-cpu-features'}); }
-})();
-</script>
+<script>SovereignControlSurface.load(document.getElementById('control-surface'),{filterSlug:'feature-test-lab'});</script>
 
-
-
-<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
-<script>
-window.SO_ASSIST = {
- "context": {
-  "icon": "⊞",
-  "title": "D-24 · CPU Features",
-  "content": "The deep read on what the CPU can actually do for AI — and why the box’s cheap-cognition claim either holds or doesn’t on this exact silicon. The whole argument that most prompts can run cheaply rests on ternary inference being fast on CPU, and that speed comes from specific AVX-512 instructions: VNNI for integer dot-products, BF16 for half-precision, VPOPCNTDQ for the bit-counting the ternary path leans on. If one is missing, the Conductor tier silently falls back to something slower, and ‘efficiency’ stops being efficient.\n\nSo this panel maps each AVX-512 extension the chip exposes to the workloads it enables, gives a per-workload fit verdict, and surfaces an advisory (from the avx512-advisor, R272). It’s deeper than D-21’s at-a-glance CPU summary — this is the diagnosis of whether CPU inference will fly or crawl."
- },
- "nodes": [
-  {
-   "icon": "◆",
-   "title": "Live source",
-   "content": "Whether the feature probe is live or a snapshot. CPU features don’t change on a running box, so this is the least time-sensitive banner in the cockpit — but a failed probe means the whole map below is unconfirmed.",
-   "children": [
-    {
-     "selector": "#data-source-banner",
-     "title": "Live vs snapshot",
-     "content": "Whether /api/cpu-features/probe answered. Unlike pressure or health, CPU features are fixed for the life of a boot — so ‘stale’ isn’t really a risk here; the concern is a failed probe, where the extension map couldn’t be read at all and everything below is unknown rather than merely old.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Features are static; the probe can still fail</div>A CPU’s instruction set doesn’t change while it runs, so a snapshot of it is as good as live. What this banner really guards against is a probe that didn’t complete — in which case the map below isn’t stale, it’s absent, and a ‘missing’ extension might just be unread rather than truly absent.</div><div class=\"so-xref\"><span class=\"x\">→</span> #last-fetch — when the probe last ran</div>",
-     "variants": [
-      {
-       "when": {
-        "textContains": "connecting"
-       },
-       "content": "Probing the CPU — the extension map isn’t confirmed yet.",
-       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Connecting</div>Waiting on /api/cpu-features/probe. Treat a ‘missing’ extension as unread until this resolves.</div>"
-      },
-      {
-       "when": {
-        "textContains": "live"
-       },
-       "content": "Live — the extension map reflects a completed probe of this CPU.",
-       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Live</div>The probe answered; the AVX-512 map is confirmed for this silicon.</div>"
-      },
-      {
-       "when": {
-        "textContains": "offline"
-       },
-       "content": "Probe failed — the extension map couldn’t be read; ‘missing’ here may mean ‘unknown’.",
-       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Probe failed</div>The CPU probe didn’t complete. Don’t conclude an extension is absent — it may simply be unread.</div>"
-      }
-     ]
-    }
-   ]
-  },
-  {
-   "icon": "▦",
-   "title": "CPU summary",
-   "content": "The chip and its headline AI-relevant capability — model, and whether the AVX-512 stack that ternary inference depends on is present. It’s the one-line answer to ‘can this CPU do cheap cognition well,’ before the per-extension detail below.",
-   "children": [
-    {
-     "selector": "#cpu-summary",
-     "title": "CPU summary",
-     "content": "The processor identity plus a headline verdict on its AI-relevant feature set. This is the fast answer to whether the box’s CPU is the one the ternary path was tuned for — a Zen 5 with the full AVX-512 stack — or something missing pieces that would push work onto the GPUs sooner than intended. The detail below explains any shortfall.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">One line that decides the cheap tier</div>If this summary shows the expected AVX-512 stack present, the Conductor tier can do what it’s designed for: fast ternary inference that keeps most prompts off the expensive GPUs. If it shows gaps, the whole efficiency posture is weaker on this chip — which is a hardware fact worth knowing before you commit to a CPU-leaning profile.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-21 — the efficiency profile that assumes this capability</div>"
-    }
-   ]
-  },
-  {
-   "icon": "⊞",
-   "title": "AVX-512 extensions",
-   "content": "The extension map — which AVX-512 sub-features this CPU exposes. These aren’t interchangeable: each enables a different kind of math, and the ternary/BitNet path depends on a specific few. Hover an extension to see what it does and whether the box’s AI workloads need it.",
-   "children": [
-    {
-     "selector": "#extensions",
-     "title": "Extension map",
-     "content": "The AVX-512 sub-extensions present on this CPU — F, VL, BW, VNNI, BF16, VPOPCNTDQ and others. Each is a distinct instruction family: VNNI accelerates the integer dot-products at the heart of quantized inference, BF16 gives cheap half-precision, VPOPCNTDQ counts bits fast (the ternary path’s bread and butter). A green stack here is what makes CPU inference viable; a gap is where it degrades.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Not one feature — a stack of specialized ones</div><div class=\"so-grid\"><span class=\"k\">F / VL / BW</span><span>the AVX-512 foundation — wide vector ops</span><span class=\"k\">VNNI</span><span>integer dot-product — the core op of quantized inference</span><span class=\"k\">BF16</span><span>cheap half-precision math</span><span class=\"k\">VPOPCNTDQ</span><span>fast bit-counting — the ternary/BitNet path</span></div>The box’s cheap-cognition speed is the sum of these specific extensions, not ‘has AVX-512’ in general. A missing VNNI or VPOPCNTDQ hits ternary inference precisely where it’s hottest.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-09 CCD 0 — the Pulse cores that execute these instructions</div>",
-     "dynamic": true,
-     "childTemplate": {
-      "selector": "#extensions .ext, #extensions tr, #extensions li, #extensions > *",
-      "nameSelector": "strong,code,.name,td,b",
-      "title": "Extension · {{name}}",
-      "content": "The {{name}} AVX-512 extension — one specific instruction family. Whether it’s present decides whether the workloads that depend on it run fast on CPU or fall back. Read it as a capability the ternary path may or may not get to use.",
-      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Extension · {{name}}</div>One AVX-512 sub-feature. It’s not interchangeable with the others — it enables a particular kind of math, and a workload that needs it is slow without it. Present is a green light for that workload on CPU; absent pushes it to a GPU tier.</div>"
-     }
-    }
-   ]
-  },
-  {
-   "icon": "◫",
-   "title": "Per-workload fit",
-   "content": "The useful synthesis: for each AI workload the box runs, a verdict on how well this CPU’s feature set fits it. This turns the raw extension list into an answer — not ‘do we have VNNI’ but ‘will ternary inference actually be fast here.’ Hover a workload for its specific fit.",
-   "children": [
-    {
-     "selector": "#workloads",
-     "title": "Workload fit",
-     "content": "Each AI workload the box runs, with a verdict on how well this CPU serves it given the extensions present. This is the extension map made actionable: it translates ‘has these instructions’ into ‘this workload will run fast / adequately / slowly on CPU.’ A poor fit on a workload you rely on is the signal to route it to a GPU tier instead of the Conductor.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">From ‘has the instruction’ to ‘runs the workload’</div>The raw extension list is data; this is the interpretation. The advisor cross-references what each workload needs against what the CPU has and renders a fit — so you don’t have to know that ternary inference needs VPOPCNTDQ to see that ternary inference fits poorly here. It’s the difference between a spec sheet and advice.</div><div class=\"so-xref\"><span class=\"x\">→</span> #advisory — the recommended action for a poor fit<br><span class=\"x\">→</span> D-21 — routing a poor-CPU-fit workload to a GPU tier instead</div>",
-     "dynamic": true,
-     "childTemplate": {
-      "selector": "#workloads .wl, #workloads tr, #workloads li, #workloads > *",
-      "nameSelector": "strong,code,.name,td,b",
-      "title": "Workload · {{name}}",
-      "content": "The {{name}} workload’s fit on this CPU — how well the extensions present serve it. A good fit means it can run cheaply on the Conductor; a poor fit means it belongs on a GPU tier regardless of the efficiency profile’s intent. This is advice, not a raw feature flag.",
-      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Workload · {{name}}</div>The verdict for one workload — the advisor’s read of whether this CPU serves it well. Read it as routing guidance: a poor fit here is a reason to keep {{name}} on GPU even under an efficiency posture.</div><div class=\"so-xref\"><span class=\"x\">→</span> #advisory — the overall recommendation</div>"
-     }
-    }
-   ]
-  },
-  {
-   "icon": "⚑",
-   "title": "Advisory",
-   "content": "The avx512-advisor’s recommendation (R272) — what to do given the fit above. Where the workload verdicts diagnose, this prescribes: lean on CPU, or route specific work to GPU, or note a missing extension that caps the efficiency posture.",
-   "children": [
-    {
-     "selector": "#advisory",
-     "title": "Advisory",
-     "content": "The actionable recommendation from the avx512-advisor (R272) — given this CPU’s extensions and the workload fits, what posture makes sense. It’s the panel’s conclusion: whether the box can safely lean on cheap CPU inference, or whether a missing extension means certain work belongs on the GPUs regardless of the efficiency profile’s intent.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The panel’s bottom line</div>Everything above is evidence; this is the verdict. The advisor weighs the extension gaps against the workloads and tells you the honest posture — sometimes ‘CPU is fully capable, lean on it,’ sometimes ‘VNNI is absent, keep quantized inference on GPU.’ It’s what stops the efficiency profile from being chosen on a chip that can’t actually deliver it.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-21 — where this advisory should inform the profile choice</div>"
-    },
-    {
-     "selector": "#last-fetch",
-     "title": "Probe freshness",
-     "content": "When the CPU feature probe last ran. Because features are fixed per boot this rarely matters — but after a kernel or microcode change (which can expose or gate extensions) it’s the confirmation that the map reflects the current boot, not a prior one.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A probe of fixed silicon</div>When the CPU feature probe last ran. Features are etched in the chip and don't change, so even an old read is authoritative — this timestamp is about the probe's recency, not a risk of drift.</div>"
-    }
-   ]
-  },
-  {
-   "icon": "⎈",
-   "title": "Controls",
-   "content": "The shared control rail. On a diagnostic panel it’s context: the feature map and advisory tell you a CPU posture, and if that argues for a profile change, the rail copies the signed verb. You diagnose here; you enact on the CLI.",
-   "children": [
-    {
-     "selector": "#control-surface",
-     "title": "Controls rail",
-     "content": "The profile/mode/feature control rail. This panel’s findings often argue for a profile decision — lean on CPU where the advisory says the fit is good, or avoid the efficiency profile where a key extension is missing — and the rail is where that decision becomes a signed osctl verb. The advisory recommends; the rail hands you the command; the box changes only when you run it.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Advice here, profile change on the CLI</div>This panel is deliberately about knowing, not doing — it tells you whether the silicon supports a CPU-leaning posture. Acting on that (choosing or avoiding the efficiency profile) is a signed step, copied from this rail or D-21. The separation keeps the diagnosis free to consult and the posture change behind an operator signature.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-21 — the profile decision this advisory should inform</div>"
-    }
-   ]
-  }
- ]
-};
-</script>
 <!-- COURSE:BEGIN M090 -->
 <style id="so-course-style">
   :root{ --so-course-rail-h:46px; }
@@ -1448,7 +1372,7 @@ window.SO_ASSIST = {
   .so-course-notice li::before{content:'◦'; position:absolute; left:.15rem; color:var(--accent,#9bd1ff);}
   /* try-it checkpoint */
   .so-course-todo{display:flex; align-items:flex-start; gap:.5rem; border:1px solid rgba(127,209,143,.4); background:rgba(127,209,143,.05); border-radius:7px; padding:.55rem .7rem; margin:.7rem 0 .2rem; cursor:pointer; user-select:none;}
-  .so-course-todo input{margin-top:.15rem; accent-color:var(--good,#7ad17a); flex:none;}
+  .so-course-todo input{margin-top:.15rem; accent-color:var(--ok,#7fd18a); flex:none;}
   .so-course-todo .tl{font-size:.8rem; color:var(--fg-2,#c8c8c8);}
   .so-course-todo .tl b{color:#7fd18f; font-weight:600; display:block; font-size:.74rem; text-transform:uppercase; letter-spacing:.04em; margin-bottom:.15rem;}
   .so-course-todo.done{opacity:.7;} .so-course-todo.done .tl{text-decoration:line-through; text-decoration-color:var(--muted,#8a8a8a);}

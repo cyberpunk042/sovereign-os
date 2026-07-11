@@ -182,57 +182,123 @@ def grid_view() -> dict[str, Any]:
 
 
 _ORCH_DIR = _REPO_ROOT / "profiles" / "orchestration"
+_OS_PROFILES_DIR = _REPO_ROOT / "profiles"
+# The 3 SDD-043 named strategies the runtime-combo generator parameterizes over.
+_GEN_STRATEGIES = ("efficiency", "high-concurrency", "deep-context")
+# Operator-authored profiles saved OUTSIDE the repo (drafts). The composer
+# writes here for "Save draft"; "Save to repository" is the gated osctl verb.
+_USER_PROFILES_DIR = Path(os.environ.get(
+    "LM_ORCH_USER_PROFILES_DIR",
+    str(Path.home() / ".sovereign-os" / "profiles" / "orchestration")))
+
+# The runtime-combo generator (SDD-043) — the "20+ combos" source. Optional:
+# a missing/broken generator or absent yaml degrades the Generated family to
+# empty rather than killing the daemon (the other families stay functional).
+_gen = _import_optional(
+    "_gen_runtime", _REPO_ROOT / "scripts" / "operator" / "generate-runtime-profile.py")
+
+
+def _parse_orch_yaml(path: Path, family: str) -> dict[str, Any] | None:
+    """Minimal stdlib parser for an orchestration-profile YAML: extract the
+    top-level id/name/description/intent under `orchestration_profile:` — enough
+    for the Profiles row (the daemon stays dependency-free). Malformed → None."""
+    try:
+        lines = path.read_text().splitlines()
+    except OSError:
+        return None
+    rec: dict[str, Any] = {"family": family}
+    in_block = None
+    for raw in lines:
+        s = raw.strip()
+        if in_block is not None:
+            # first non-empty line of a `description: |` block is the summary
+            if s and "description" not in rec:
+                rec["description"] = s
+            if s and (len(raw) - len(raw.lstrip())) <= in_block:
+                in_block = None
+            continue
+        if s.startswith("#") or not s:
+            continue
+        for key in ("id", "name", "intent"):
+            if s.startswith(f"{key}:"):
+                val = s.split(":", 1)[1].strip().strip('"\'')
+                if val and val != "|":
+                    rec[key] = val
+        if s.startswith("description:"):
+            val = s.split(":", 1)[1].strip()
+            if val in ("|", ">"):
+                in_block = len(raw) - len(raw.lstrip())
+            elif val:
+                rec["description"] = val.strip('"\'')
+    return rec if rec.get("id") else None
 
 
 def _orchestration_profiles() -> list[dict[str, Any]]:
-    """Read the orchestration-intent profile family (profiles/orchestration/
-    *.yaml) with a minimal stdlib parser (the daemon stays dependency-free
-    like every sibling). Extracts the top-level id/name/description/intent
-    under the `orchestration_profile:` key — enough for the Profiles row.
+    """The repo orchestration-intent family (profiles/orchestration/*.yaml).
     Absent dir / malformed file → skipped (never raises)."""
-    out: list[dict[str, Any]] = []
     if not _ORCH_DIR.is_dir():
-        return out
-    for path in sorted(_ORCH_DIR.glob("*.yaml")):
-        try:
-            lines = path.read_text().splitlines()
-        except OSError:
-            continue
-        rec: dict[str, Any] = {"family": "orchestration"}
-        in_block = None
-        for raw in lines:
-            s = raw.strip()
-            if in_block is not None:
-                # first non-empty line of a `description: |` block is the summary
-                if s and "description" not in rec:
-                    rec["description"] = s
-                if s and (len(raw) - len(raw.lstrip())) <= in_block:
-                    in_block = None
+        return []
+    return [r for p in sorted(_ORCH_DIR.glob("*.yaml"))
+            if (r := _parse_orch_yaml(p, "orchestration"))]
+
+
+def _user_profiles() -> list[dict[str, Any]]:
+    """Operator-authored orchestration profiles saved outside the repo
+    (LM_ORCH_USER_PROFILES_DIR — the composer's "Save draft" target). Same
+    minimal parser + shape as the repo family. Absent dir → [] (never raises)."""
+    if not _USER_PROFILES_DIR.is_dir():
+        return []
+    return [r for p in sorted(_USER_PROFILES_DIR.glob("*.yaml"))
+            if (r := _parse_orch_yaml(p, "user"))]
+
+
+def _generated_profiles() -> list[dict[str, Any]]:
+    """The generated runtime-combo family (SDD-043): every OS build profile
+    that declares hardware × the 3 named strategies, produced live by
+    scripts/operator/generate-runtime-profile.py (the "20+ combos" source).
+    Each combo is summarized (id/name/description + os_profile/strategy) with
+    family='generated'. A combo that doesn't apply to a profile's hardware is
+    skipped. Degrades to [] when the generator/yaml is unavailable."""
+    if _gen is None:
+        return []
+    try:
+        os_profiles = sorted(p.stem for p in _OS_PROFILES_DIR.glob("*.yaml"))
+    except OSError:
+        return []
+    out: list[dict[str, Any]] = []
+    for osp in os_profiles:
+        for strat in _GEN_STRATEGIES:
+            try:
+                prof = _gen.generate(osp, strat)
+            except (SystemExit, Exception):  # noqa: BLE001 — degrade per-combo
                 continue
-            if s.startswith("#") or not s:
+            rp = prof.get("runtime_profile", {}) if isinstance(prof, dict) else {}
+            pid = rp.get("id")
+            if not pid:
                 continue
-            for key in ("id", "name", "intent"):
-                if s.startswith(f"{key}:"):
-                    val = s.split(":", 1)[1].strip().strip('"\'')
-                    if val and val != "|":
-                        rec[key] = val
-            if s.startswith("description:"):
-                val = s.split(":", 1)[1].strip()
-                if val in ("|", ">"):
-                    in_block = len(raw) - len(raw.lstrip())
-                elif val:
-                    rec["description"] = val.strip('"\'')
-        if rec.get("id"):
-            out.append(rec)
+            out.append({
+                "family": "generated",
+                "id": pid,
+                "name": rp.get("name", pid),
+                "description": (rp.get("description") or "").split("\n")[0],
+                "os_profile": osp,
+                "strategy": strat,
+                # A generated combo is not on disk; applying it = generate to
+                # profiles/runtime/ then switch (surfaced by D21-2's apply path).
+                "generate_cmd": f"sovereign-osctl profiles generate-runtime {osp} {strat} "
+                                f"--out profiles/runtime/{pid}.yaml",
+                "apply_cmd": f"sovereign-osctl trinity profile switch {pid}",
+            })
     return out
 
 
 def profiles_view() -> dict[str, Any]:
-    """The profiles the Profiles row renders. Two families, both surfaced:
-      - the 3 M076 runtime load-balancing profiles (reused via the shipped
-        runtime-modes lister — the two panels never drift), and
-      - the 5 orchestration-intent profiles (profiles/orchestration/).
-    Each entry carries id/name/description + its Apply verb (clipboard-copied)."""
+    """Every profile family the composer browses, grouped:
+      - runtime      the 3 M076 §18 load-balancing profiles (verbatim-locked),
+      - orchestration the repo orchestration-intent profiles (growable family),
+      - generated    OS-profile × strategy runtime combos (SDD-043 generator),
+      - user         operator-authored drafts (LM_ORCH_USER_PROFILES_DIR).
+    Each entry carries id/name/description/family + its apply/generate verb."""
     try:
         runtime = _rtmodes._list_profiles() if _rtmodes is not None else []
     except Exception:  # noqa: BLE001
@@ -240,17 +306,29 @@ def profiles_view() -> dict[str, Any]:
     for p in runtime:
         pid = p.get("id") or p.get("mode_id") or "?"
         p["family"] = "runtime"
-        # Authoritative verb per config/control-systems.yaml runtime-mode
-        # change_cli (the real `sovereign-osctl` surface).
         p["apply_cmd"] = f"sovereign-osctl trinity profile switch {pid}"
     orchestration = _orchestration_profiles()
     for p in orchestration:
         p["apply_cmd"] = f"sovereign-osctl trinity profile switch {p['id']}"
-    profiles = runtime + orchestration
-    return {"profiles": profiles, "count": len(profiles),
-            "runtime_count": len(runtime), "orchestration_count": len(orchestration),
-            "note": "two families: the 3 M076 runtime load-balancing profiles + "
-                    "the 5 orchestration-intent profiles (profiles/orchestration/)"}
+    generated = _generated_profiles()
+    user = _user_profiles()
+    for p in user:
+        p["apply_cmd"] = f"sovereign-osctl trinity profile switch {p['id']}"
+    profiles = runtime + orchestration + generated + user
+    return {
+        "profiles": profiles,
+        "count": len(profiles),
+        "runtime_count": len(runtime),
+        "orchestration_count": len(orchestration),
+        "generated_count": len(generated),
+        "user_count": len(user),
+        "families": ["runtime", "orchestration", "generated", "user"],
+        "user_profiles_dir": str(_USER_PROFILES_DIR),
+        "note": "four families: 3 runtime (§18 locked) + "
+                f"{len(orchestration)} orchestration (repo) + "
+                f"{len(generated)} generated combos (OS×strategy) + "
+                f"{len(user)} operator drafts",
+    }
 
 
 def features_view() -> dict[str, Any]:
@@ -275,6 +353,41 @@ def features_view() -> dict[str, Any]:
         "tensor_cores": g.get("compute_cap") is not None and g["compute_cap"] >= 7.0,
     } for g in gpus]
     return {"cpu": cpu, "cpu_flags_readable": bool(flags), "gpu": gpu}
+
+
+def models_view() -> dict[str, Any]:
+    """The model catalog grouped by SRP role (conductor / logic / oracle) so the
+    D-21 composer offers per-device model choices FILTERED to the tier that
+    device actually serves — the operator's "edit the models for individual
+    card". Reuses the shared model-health catalog reader + TIER_TO_ROLE (no new
+    data model, no drift). Each model carries the fields a choice needs:
+    id/tier/role/class/size_class/purpose/vram_gib_min/status. Absent catalog →
+    empty groups (never raises)."""
+    try:
+        catalog = _core.load_catalog()
+    except Exception:  # noqa: BLE001
+        catalog = []
+    by_role: dict[str, list[dict[str, Any]]] = {"conductor": [], "logic": [], "oracle": []}
+    for m in catalog:
+        tier = str(m.get("tier", "")).lower()
+        role = _core.TIER_TO_ROLE.get(tier)
+        if role not in by_role:
+            continue
+        by_role[role].append({
+            "id": m.get("id"), "tier": tier, "role": role,
+            "class": m.get("class"), "size_class": m.get("size_class"),
+            "purpose": m.get("purpose") or [], "vram_gib_min": m.get("vram_gib_min"),
+            "status": m.get("status"),
+        })
+    # a device cell maps to a role; the composer keys off this to build the
+    # per-cell dropdown. Load actuation is `models load <id> --confirm` (rail).
+    return {
+        "by_role": by_role,
+        "cell_role": {"GPU0": "logic", "GPU1": "oracle", "CPU0": "conductor"},
+        "counts": {r: len(v) for r, v in by_role.items()},
+        "total": sum(len(v) for v in by_role.values()),
+        "load_cmd": "sovereign-osctl models load <id> --confirm",
+    }
 
 
 def _version_payload() -> dict:
@@ -397,6 +510,10 @@ class LmOrchAPIHandler(BaseHTTPRequestHandler):
                 self._send_json(200, features_view())
                 _emit_metric("features", "ok")
                 return
+            if path == "/api/lm-orchestration/models":
+                self._send_json(200, models_view())
+                _emit_metric("models", "ok")
+                return
         except Exception as e:  # noqa: BLE001
             self._send_json(500, {"error": str(e)})
             _emit_metric(path.lstrip("/") or "unknown", "500")
@@ -453,7 +570,8 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps({"config": _version_payload(),
                           "sample_grid": grid_view(),
                           "sample_profiles": profiles_view(),
-                          "sample_features": features_view()}, indent=2))
+                          "sample_features": features_view(),
+                          "sample_models": models_view()}, indent=2))
         return 0
     return serve(args.bind, args.port)
 

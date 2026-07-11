@@ -33,7 +33,12 @@ EXPECTED_PROFILES = [
 ]
 KNOWN_TIERS = {"pulse", "logic", "oracle", "router"}
 KNOWN_ENGINES = {"bitnet.cpp", "vllm", "vllm-vulkan", "llama.cpp"}
-KNOWN_INTENTS = {"full-orchestration", "coding", "thinking", "hybrid", "full-hybrid"}
+# The 5 named seed intents + `custom` (operator-composed profiles, D-21 composer).
+KNOWN_INTENTS = {"full-orchestration", "coding", "thinking", "hybrid", "full-hybrid", "custom"}
+
+
+def _all_stems() -> list[str]:
+    return sorted(p.stem for p in ORCH_DIR.glob("*.yaml"))
 
 
 def _catalog_ids() -> set[str]:
@@ -54,21 +59,23 @@ def test_schema_present():
     assert SCHEMA.is_file(), f"missing {SCHEMA}"
 
 
-def test_exactly_the_five_profiles_present():
-    """The operator-named 5 orchestration-intent profiles must exist —
-    no more, no fewer (add/rename requires updating EXPECTED_PROFILES in
-    the same commit)."""
-    on_disk = sorted(p.stem for p in ORCH_DIR.glob("*.yaml"))
-    assert on_disk == sorted(EXPECTED_PROFILES), (
-        f"orchestration profile set drift: on-disk {on_disk} vs "
-        f"expected {sorted(EXPECTED_PROFILES)}"
-    )
+def test_the_five_named_profiles_are_a_floor():
+    """The operator-named 5 orchestration-intent profiles must ALWAYS exist —
+    they are a floor, not a ceiling. The family is now growable (D-21 composer
+    writes operator-composed profiles here), so EXTRA profiles are allowed as
+    long as every file schema-validates (test_each_profile_conforms below +
+    tests/schema/test_orchestration_profile_schema_conformance.py). Removing or
+    renaming one of the 5 requires updating EXPECTED_PROFILES in the same commit."""
+    on_disk = set(_all_stems())
+    missing = set(EXPECTED_PROFILES) - on_disk
+    assert not missing, f"the 5 named orchestration profiles must exist; missing: {missing}"
 
 
 def test_top_level_key_is_orchestration_profile():
     """The distinct top-level key guarantees no collision with the
-    verbatim-locked runtime-profile family."""
-    for pid in EXPECTED_PROFILES:
+    verbatim-locked runtime-profile family — checked for EVERY profile on disk
+    (the 5 named + any operator-composed extras)."""
+    for pid in _all_stems():
         d = _load(pid)
         assert "orchestration_profile" in d, f"{pid}: missing orchestration_profile key"
         assert "runtime_profile" not in d, (
@@ -78,7 +85,7 @@ def test_top_level_key_is_orchestration_profile():
 
 def test_each_profile_conforms():
     catalog = _catalog_ids()
-    for pid in EXPECTED_PROFILES:
+    for pid in _all_stems():
         d = _load(pid)
         assert d.get("schema_version"), f"{pid}: missing schema_version"
         op = d["orchestration_profile"]

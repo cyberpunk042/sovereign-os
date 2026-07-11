@@ -154,6 +154,8 @@ dashboards:
      description: "Documentation coverage per module — what's documented vs shipped.", refs: [R454]}
   - {slug: ux-design-audit, category: governance, label: "UX Design Audit", path: /ux-design-audit/, api: sovereign-ux-design-audit-api, status: live,
      description: "The UX design-stage audit — consistency/accessibility scoring across the panels.", refs: [R457]}
+  - {slug: feature-test-lab, category: governance, label: "Feature Test Lab", path: /feature-test-lab/, api: sovereign-feature-test-lab-api, status: live,
+     description: "Live per-feature testing for the operator — click Run to exercise a shipped feature for real and observe result / path-taken / timing / pass-fail checks. Backend features run the real Rust kernel via sovereign-feature-selftest; client features run in-page. Not unit tests — hands-on live testing.", refs: [feature-test-lab]}
   - {slug: personalization, category: governance, label: "Personalization", path: /personalization/, status: snapshot,
      description: "Theme / accent / typography control (localStorage-backed) applied across all panels before paint.", refs: [R10137]}
 

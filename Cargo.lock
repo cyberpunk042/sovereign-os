@@ -4740,6 +4740,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-feature-selftest"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-safetensors-loader",
+ "sovereign-simd",
+]
+
+[[package]]
 name = "sovereign-fenwick"
 version = "0.1.0"
 dependencies = [
