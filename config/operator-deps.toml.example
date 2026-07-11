@@ -15,6 +15,12 @@
 #     --confirm-curl-shell (these pipe untrusted code to bash;
 #     defense-in-depth)
 
+# NOTE — the RUST toolchain is intentionally NOT here. sovereign-os's intelligence
+# layer (crates/ — the Cortex Runtime) needs rust 1.89 / edition 2024, but Debian
+# stable ships 1.85, so it is installed via rustup (pinned in rust-toolchain.toml)
+# as a first-class build-host tool by scripts/install/rust-toolchain.sh — invoked
+# from bootstrap-host.sh (step 3) + provision.sh. apt would only give 1.85.
+
 # ─── Debian / Ubuntu system packages ───
 [apt]
 install = [

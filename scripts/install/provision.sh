@@ -22,7 +22,7 @@
 #
 # Tunable env:
 #   PROVISION_DRY_RUN=1              preview
-#   PROVISION_SKIP="build,dev,selfdef,deps,ups,rules,ghostproxy"  comma-list to skip
+#   PROVISION_SKIP="build,dev,selfdef,intelligence,deps,ups,rules,ghostproxy"  comma-list to skip
 #   PROVISION_GHOSTPROXY=0           opt OUT of the default-on root-ghostproxy step
 #   SOVEREIGN_OS_SELFDEF_DIR=<path>     selfdef checkout (default ~/selfdef)
 #   SOVEREIGN_OS_GHOSTPROXY_DIR=<path>  root-ghostproxy checkout (default ~/root-ghostproxy)
@@ -85,17 +85,27 @@ if skipped selfdef; then warn "skipped (PROVISION_SKIP)"
 elif [ ! -d "${SOVEREIGN_OS_SELFDEF_DIR}/.git" ]; then
   warn "no selfdef checkout at ${SOVEREIGN_OS_SELFDEF_DIR} — skipping (set SOVEREIGN_OS_SELFDEF_DIR)"
 else
-  if command -v cargo >/dev/null 2>&1 || [ -n "${DRY_RUN}" ]; then
-    run "make -C '${SOVEREIGN_OS_SELFDEF_DIR}' build"
-  else
-    warn "cargo absent — installing rust (rustup, user-level) to build selfdef"
-    run "curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal"
-    # shellcheck disable=SC1091
-    [ -n "${DRY_RUN}" ] || . "${HOME}/.cargo/env" 2>/dev/null || true
-    run "make -C '${SOVEREIGN_OS_SELFDEF_DIR}' build"
-  fi
+  # Rust is a first-class toolchain now (bootstrap step 3 + the intelligence
+  # step below) — ensure it here too, idempotently, for a standalone provision.
+  run "scripts/install/rust-toolchain.sh${DRY_RUN:+ --dry-run}"
+  # shellcheck disable=SC1091
+  [ -n "${DRY_RUN}" ] || . "${HOME}/.cargo/env" 2>/dev/null || true
+  run "make -C '${SOVEREIGN_OS_SELFDEF_DIR}' build"
   run "sudo_ sovereign-osctl selfdef install-units"
   run "sudo_ sovereign-osctl selfdef on"
+fi
+
+# ── (3b) intelligence layer: build the Cortex Runtime (crates/) ──────
+# sovereign-os's OWN brain — M009 Deterministic Cortex Runtime + M028 Memory OS +
+# the retrieval/reasoning stack (~712 crates). This was NEVER built by setup, so a
+# fresh install shipped it as UNCOMPILED SOURCE; now it's compiled here so the
+# runtime is actually present. Skip with PROVISION_SKIP=intelligence.
+step "[3b/6] intelligence layer (Deterministic Cortex Runtime — build)"
+if skipped intelligence; then warn "skipped (PROVISION_SKIP)"
+elif [ ! -d crates ]; then
+  warn "no crates/ intelligence layer in this checkout — skipping"
+else
+  run "scripts/build/build-intelligence.sh${DRY_RUN:+ --dry-run}"
 fi
 
 # ── (4) operator-deps overlay (declared apt/pip/npm) ─────────────────

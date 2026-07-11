@@ -1,0 +1,11 @@
+# Pins the Rust toolchain sovereign-os's intelligence layer (crates/ — the
+# Deterministic Cortex Runtime, Memory OS, retrieval/reasoning stack) builds
+# with. edition 2024 requires >= 1.85; the workspace declares rust-version = 1.89.
+# Debian stable ships 1.85 (< 1.89), so the build host installs this via rustup,
+# NOT apt — see scripts/install/rust-toolchain.sh. rustup honours this file
+# automatically, so every `cargo` invocation in this repo uses the pinned
+# toolchain. Bump deliberately and re-verify the workspace build.
+[toolchain]
+channel = "1.89.0"
+components = ["rustfmt", "clippy"]
+profile = "minimal"

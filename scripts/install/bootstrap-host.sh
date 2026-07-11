@@ -206,6 +206,12 @@ else
   run "DEBIAN_FRONTEND=noninteractive apt-get install -y ${missing[*]}"
 fi
 
+# Rust toolchain — a FIRST-CLASS build-host tool: sovereign-os's own intelligence
+# layer (crates/ — the Cortex Runtime) AND selfdef are built with it. Debian ships
+# 1.85, the workspace pins 1.89 (rust-toolchain.toml), so it comes from rustup, not
+# apt. rust-toolchain.sh is root-aware: it installs for the invoking operator.
+run "'${__REPO_ROOT}/scripts/install/rust-toolchain.sh'${DRY_RUN:+ --dry-run}"
+
 # ── (4) operator-deps overlay (best-effort) ──────────────────────────
 step "[4/4] operator deps (apt/pip/npm overlay)"
 if [ -n "${SKIP_OPERATOR_DEPS}" ]; then
