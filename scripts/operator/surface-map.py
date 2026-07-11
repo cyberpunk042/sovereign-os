@@ -624,6 +624,8 @@ def cmd_gaps(args) -> int:
                 print(f"  ◦ {r['module']:25s} "
                       f"surfaces={r['surface_count']}/8 "
                       f"(NA-waivers={r['structural_waiver_count']})")
+        print("  next: run `sovereign-osctl surface-map coverage` "
+              "for the full module-by-surface matrix")
     result = "ok" if not below else "below-threshold"
     _emit_metric("gaps", "all", result)
     return 2 if below else 0

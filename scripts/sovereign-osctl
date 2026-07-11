@@ -95,7 +95,7 @@ COMMANDS:
                                SDD-043: generate a runtime profile from hardware +
                                strategy (efficiency | high-concurrency | deep-context).
                                tier_intent allocations, validated + catalog-resolved.
-  profiles create-orchestration --id <id> [--intent <i>] [--conductor <m>]
+  profiles create-orchestration <id> [--intent <i>] [--conductor <m>]
                                [--logic <m>] [--oracle <m>] [--target draft|repo] [--confirm]
                                D21-3: compose an orchestration-intent profile from
                                per-device model picks (catalog-grounded). DRY-RUN

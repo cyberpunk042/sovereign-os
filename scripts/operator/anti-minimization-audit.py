@@ -898,6 +898,8 @@ def cmd_report(args) -> int:
             n = summary[p]
             mark = "✗" if n > 0 else "✓"
             print(f"  {mark} {p:22s} {n}")
+        print("  next: run `sovereign-osctl anti-minimization-audit scan --pattern <id>` "
+              "to see file:line matches for any non-zero pattern")
     _emit_metric("report", "all", "ok")
     return 0
 

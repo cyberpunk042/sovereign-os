@@ -447,7 +447,7 @@ systems:
     options: [draft, repo]
     options_cli: "sovereign-osctl models list"
     state_cli: "sovereign-osctl trinity profile list"
-    change_cli: "sovereign-osctl profiles create-orchestration --id <id> --intent <intent> --conductor <conductor> --logic <logic> --oracle <oracle> --target <target> --confirm"
+    change_cli: "sovereign-osctl profiles create-orchestration <id> --intent <intent> --conductor <conductor> --logic <logic> --oracle <oracle> --target <target> --confirm"
     state_path: "profiles/orchestration/<id>.yaml (repo) or ~/.sovereign-os/profiles/orchestration/<id>.yaml (draft)"
     privileged: true
     applies_to: [d-21-lm-orchestration]

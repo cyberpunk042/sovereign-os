@@ -42,6 +42,13 @@
     "status": "no-actions"
   },
   {
+    "slug": "course",
+    "exec_rail": 0,
+    "proxy_copy": false,
+    "wireable_gap": false,
+    "status": "no-actions"
+  },
+  {
     "slug": "cpu-features",
     "exec_rail": 0,
     "proxy_copy": false,
@@ -239,6 +246,13 @@
   },
   {
     "slug": "emulate",
+    "exec_rail": 0,
+    "proxy_copy": false,
+    "wireable_gap": false,
+    "status": "no-actions"
+  },
+  {
+    "slug": "feature-test-lab",
     "exec_rail": 0,
     "proxy_copy": false,
     "wireable_gap": false,

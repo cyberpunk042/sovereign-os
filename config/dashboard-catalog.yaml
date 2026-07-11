@@ -13,6 +13,9 @@
 schema_version: "1.0.0"
 
 categories:
+  - id: learn
+    label: "Learn"
+    blurb: "The guided course — a tier-ordered journey through the whole cockpit, most-important pieces first, that survives navigation and walks you panel to panel."
   - id: trinity
     label: "Trinity & Orchestration"
     blurb: "The 3-tier AI runtime — how requests get routed, which model thinks, and how the sandbox + gatekeeper hold the line."
@@ -33,6 +36,10 @@ categories:
     blurb: "Non-LLM domain compute tools — DNA / protein / particle simulation. NVIDIA Warp differentiable particle-sim (GPU or CPU) is integrated; the rest are cataloged."
 
 dashboards:
+  # ── Learn ───────────────────────────────────────────────────────────
+  - {slug: course, category: learn, label: "Course", path: /course/, status: snapshot,
+     description: "The guided course — a persistent bottom journey-rail that walks the operator through sovereign-os module by module, most-important pieces first (Trinity, the build pipeline, security & selfdef), then the rest, clearly tier-labelled (Core/Standard/Advanced/Optional). Survives navigation and travels you panel-to-panel on Next. Client-only (localStorage progress), DEMO-mode friendly. Distinct from the Assistant: a tour ACROSS panels, not help for the one you are on.", refs: [SDD-067, M090]}
+
   # ── Trinity & Orchestration ─────────────────────────────────────────
   - {slug: trinity, category: trinity, label: "Trinity", path: /trinity/, api: sovereign-trinity-api, status: live,
      description: "The 3-tier runtime at a glance — Pulse (CPU/AVX-512 ternary), Weaver (sandboxed GPU fabric), Auditor (immutable gatekeeper): live tier status, model assignments, health.", refs: [master-spec §17]}

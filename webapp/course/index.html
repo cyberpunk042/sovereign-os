@@ -3,14 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>sovereign-os master-dashboard</title>
-<meta name="x-sovereign-module" content="master-dashboard-webapp">
-<meta name="x-sovereign-shipped-in" content="R500 (E11.M2++) + M060 R10137/R10140/R10141 personalization apply-snippet">
+<title>sovereign-os Course</title>
+<meta name="x-sovereign-module" content="course-webapp">
+<meta name="x-sovereign-shipped-in" content="M090 guided-course">
 <meta name="x-sovereign-standing-rule" content="We do not minimize anything.">
-<!-- M060 R10137/R10140/R10141 personalization apply-snippet — runs
-     pre-paint so the operator's theme/accent/typography prefs apply
-     without FOUC. Read prefs from localStorage; never sends to server.
-     The canonical control surface is /webapp/personalization/. -->
+<meta name="x-sovereign-catalog-source" content="config/dashboard-catalog.yaml (learn/course) + webapp/_shared/course-snippet.html curriculum (window.__soCourseCurriculum)">
+<!-- M060 R10137/R10140/R10141 personalization apply-snippet — reads prefs
+     from localStorage and applies them pre-paint so the operator's
+     theme/accent/typography render with no FOUC. Canonical control surface
+     is /webapp/personalization/. -->
 <script>
   (function(){
     var KEY = 'sovereign-os.personalization', SCHEMA_V = 1;
@@ -31,880 +32,56 @@
   })();
 </script>
 <style>
-  /* M060 R10137 light-theme overrides (the apply-snippet sets data-theme;
-     the dark-theme :root in the main stylesheet below is the default). */
-  html[data-theme="light"] {
-    --bg:#f6f6f6; --fg:#0e0e0e; --muted:#555;
-    --panel:#ffffff; --border:#d8d8d8;
+  :root{
+    --bg:#0c0c0c; --fg:#e6e6e6; --fg-2:#c8c8c8; --muted:#8a8a8a; --border:#262626;
+    --panel:#171717; --card:#151515; --accent:#9bd1ff; --ok:#7fd18a; --warn:#e6c07b; --danger:#e88888;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
   }
+  html[data-theme="light"]{ --bg:#f6f6f6; --fg:#0e0e0e; --fg-2:#333; --muted:#555; --panel:#ffffff; --card:#ffffff; --border:#d8d8d8; }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--bg); color:var(--fg); font-family:ui-sans-serif,-apple-system,Segoe UI,Roboto,sans-serif; font-size:calc(1rem*var(--font-scale,1)); line-height:1.55;}
+  .wrap{max-width:900px; margin:0 auto; padding:1.4rem 1.2rem 4rem;}
+  .c-hero{border:1px solid var(--border); background:linear-gradient(180deg,rgba(155,209,255,.06),transparent); border-radius:12px; padding:1.1rem 1.2rem 1.2rem;}
+  .c-hero h1{margin:0 0 .3rem; font-size:1.35rem; letter-spacing:.01em;} .c-hero h1 .sp{color:var(--accent);}
+  .c-hero p{margin:.2rem 0 .8rem; color:var(--fg-2); max-width:64ch;}
+  .c-prog{display:flex; align-items:center; gap:.7rem; margin:.7rem 0 .9rem;}
+  .c-bar{flex:1; height:8px; border-radius:999px; background:var(--bg); border:1px solid var(--border); overflow:hidden;}
+  .c-bar > i{display:block; height:100%; width:0; background:var(--accent);}
+  .c-pct{color:var(--muted); font-variant-numeric:tabular-nums; white-space:nowrap; font-size:.85rem;}
+  .c-cta{display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;}
+  .cbtn{display:inline-flex; align-items:center; gap:.4rem; height:34px; padding:0 .8rem; cursor:pointer; font:inherit; font-size:.85rem;
+    background:transparent; color:var(--fg); border:1px solid var(--border); border-radius:7px;}
+  .cbtn:hover{background:color-mix(in srgb,var(--accent) 14%,transparent); border-color:color-mix(in srgb,var(--accent) 40%,transparent);}
+  .cbtn.primary{background:var(--accent); border-color:var(--accent); color:#08131f; font-weight:600;}
+  .cbtn.primary:hover{filter:brightness(1.06);}
+  .c-note{color:var(--muted); font-size:.78rem; margin-top:.6rem;}
+  .c-mods{margin-top:1.3rem; display:flex; flex-direction:column; gap:.8rem;}
+  .c-mod{border:1px solid var(--border); background:var(--card); border-radius:10px; overflow:hidden;}
+  .c-mod-h{display:flex; align-items:center; gap:.6rem; padding:.7rem .9rem; border-bottom:1px solid var(--border);}
+  .c-mod-h .mid{color:var(--accent); font-weight:600; font-variant-numeric:tabular-nums;}
+  .c-mod-h .mname{font-weight:600;}
+  .c-tier{font-size:.62rem; text-transform:uppercase; letter-spacing:.05em; border:1px solid var(--border); border-radius:999px; padding:.06rem .5rem; color:var(--muted);}
+  .c-tier.core{color:#8fd9ff; border-color:color-mix(in srgb,var(--accent) 55%,transparent);}
+  .c-tier.standard{color:#7fd18f; border-color:rgba(127,209,143,.5);}
+  .c-tier.advanced{color:#e0c07a; border-color:rgba(224,192,122,.5);}
+  .c-tier.optional{color:#a8a8a8;}
+  .c-mod-h .mprog{margin-left:auto; color:var(--muted); font-size:.78rem; font-variant-numeric:tabular-nums;}
+  .c-les{display:flex; align-items:center; gap:.6rem; width:100%; text-align:left; background:transparent; border:0; border-top:1px solid var(--border); cursor:pointer; color:var(--fg); font:inherit; font-size:.85rem; padding:.55rem .9rem;}
+  .c-les:first-child{border-top:0;}
+  .c-les:hover{background:color-mix(in srgb,var(--accent) 10%,transparent);}
+  .c-les .ck{width:1.2rem; text-align:center; flex:none; color:var(--ok);}
+  .c-les .ck.todo{color:var(--muted); opacity:.5;}
+  .c-les .lid{color:var(--accent); font-size:.72rem; font-variant-numeric:tabular-nums; min-width:2.4rem;}
+  .c-les .ltx{flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .c-les .lk{font-size:.66rem; color:var(--muted); border:1px solid var(--border); border-radius:4px; padding:.02rem .35rem;}
+  .c-les.here{background:color-mix(in srgb,var(--accent) 16%,transparent);}
+  .c-les.here .ltx{font-weight:600;}
+  .c-les .arrow{color:var(--muted); flex:none;}
+  .c-les .try{font-size:.62rem; color:var(--ok); border:1px solid rgba(127,209,143,.5); border-radius:4px; padding:.02rem .3rem; flex:none;}
+  .c-done{margin:1.1rem 0 .2rem; border:1px solid rgba(127,209,143,.5); background:rgba(127,209,143,.07); border-radius:10px; padding:.8rem 1rem; display:flex; align-items:center; gap:.7rem;}
+  .c-done .em{font-size:1.35rem; flex:none;}
+  .c-done .tx{color:var(--fg-2); font-size:.9rem;} .c-done .tx b{color:var(--ok);}
 </style>
-
-<!-- M060 R10055 + R10058-R10105 keyboard-nav snippet — see webapp/_shared/nav-snippet.html for full doc -->
-<style>
-  .so-palette-backdrop {
-    position: fixed; inset: 0; background: rgba(0,0,0,.55);
-    z-index: 9000; display: none; align-items: flex-start;
-    justify-content: center; padding-top: 12vh;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  }
-  .so-palette-backdrop.open { display: flex; }
-  .so-palette-box {
-    width: min(560px, 90vw); background: var(--panel, #171717);
-    border: 1px solid var(--accent, #9bd1ff); border-radius: 6px;
-    box-shadow: 0 8px 32px rgba(0,0,0,.6); overflow: hidden;
-  }
-  .so-palette-input {
-    width: 100%; padding: .75rem 1rem; background: transparent;
-    border: 0; border-bottom: 1px solid var(--border, #262626);
-    color: var(--fg, #e6e6e6); font-size: 1rem;
-    font-family: inherit; outline: none;
-  }
-  .so-palette-results { max-height: 50vh; overflow-y: auto; }
-  .so-palette-row {
-    display: flex; align-items: center; gap: .6rem;
-    padding: .5rem .9rem; cursor: pointer; color: var(--fg, #e6e6e6);
-    font-size: .9rem;
-  }
-  .so-palette-row:hover, .so-palette-row.active {
-    background: rgba(155,209,255,.10);
-  }
-  .so-palette-row .id {
-    font-weight: 600; color: var(--accent, #9bd1ff);
-    min-width: 3.5rem; font-size: .82rem;
-  }
-  .so-palette-row .lbl { flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
-  .so-palette-row .pdesc {
-    color: var(--muted, #888); font-size: .72rem; font-weight: 400;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
-  .so-palette-row .hint {
-    font-size: .72rem; color: var(--muted, #888);
-  }
-  .so-palette-footer {
-    padding: .4rem .9rem; font-size: .72rem; color: var(--muted, #888);
-    border-top: 1px solid var(--border, #262626);
-    display: flex; gap: 1rem; flex-wrap: wrap;
-  }
-  .so-palette-footer kbd {
-    background: var(--bg, #0e0e0e); border: 1px solid var(--border, #262626);
-    border-radius: 3px; padding: 0 .35rem; font-size: .7rem;
-    color: var(--fg, #e6e6e6);
-  }
-</style>
-<script>
-  (function(){
-    var ROOT = (function(){
-      // Anchor on our OWN dir name so panel links are correct no matter how the
-      // page URL is formed — /master-dashboard/, /master-dashboard/index.html,
-      // or a sub-path mount (/cockpit/master-dashboard/). The old lastIndexOf
-      // heuristic returned '/master-dashboard/' whenever the URL carried a
-      // trailing filename, nesting every panel under it → the /master-dashboard/
-      // router/ bug. ROOT is the prefix BEFORE our dir (usually '/').
-      var p = window.location.pathname;
-      var i = p.indexOf('/master-dashboard');
-      return i >= 0 ? (p.slice(0, i) + '/') : '/';
-    })();
-    var DASHBOARDS = [
-      { id: 'D-00', dir: 'master-dashboard',          label: 'master dashboard',         shortcut: '1' },
-      { id: 'D-01', dir: 'd-01-active-sessions',      label: 'active sessions',          shortcut: '2' },
-      { id: 'D-02', dir: 'd-02-profile-choices',      label: 'profile choices',          shortcut: '3' },
-      { id: 'D-03', dir: 'd-03-model-health',         label: 'model health',             shortcut: '4' },
-      { id: 'D-04', dir: 'd-04-costs',                label: 'costs',                    shortcut: '5' },
-      { id: 'D-05', dir: 'd-05-traces',               label: 'traces',                   shortcut: '6' },
-      { id: 'D-06', dir: 'd-06-pending-approvals',    label: 'pending approvals',        shortcut: '7' },
-      { id: 'D-07', dir: 'd-07-memory-changes',       label: 'memory changes',           shortcut: '8' },
-      { id: 'D-08', dir: 'd-08-rollback-points',      label: 'rollback points',          shortcut: '9' },
-      { id: 'D-09', dir: 'd-09-hardware-pressure',    label: 'hardware pressure',        shortcut: '0' },
-      { id: 'D-10', dir: 'd-10-eval-history',         label: 'eval history',             shortcut: null },
-      { id: 'D-11', dir: 'd-11-adapter-status',       label: 'adapter status',           shortcut: null },
-      { id: 'D-12a', dir: 'network-edge',             label: 'network edge (D-12 split)', shortcut: null },
-      { id: 'D-12b', dir: 'edge-firewall',            label: 'edge firewall (D-12 split)', shortcut: null },
-      { id: 'D-13', dir: 'd-13-filesystem-grants',    label: 'filesystem grants',        shortcut: null },
-      { id: 'D-14', dir: 'd-14-capability-tokens',    label: 'capability tokens',        shortcut: null },
-      { id: 'D-15', dir: 'd-15-sandboxes',            label: 'sandboxes',                shortcut: null },
-      { id: 'D-16', dir: 'd-16-audit',                label: 'audit chain',              shortcut: null },
-      { id: 'D-17', dir: 'd-17-quarantine',           label: 'quarantine',               shortcut: null },
-      { id: 'D-18', dir: 'd-18-trust-scores',         label: 'trust scores',             shortcut: null },
-      { id: 'D-19', dir: 'd-19-super-model-manifest', label: 'super-model manifest',     shortcut: null },
-      { id: 'D-20', dir: 'd-20-peace-machine-health', label: 'peace-machine health',     shortcut: null },
-      { id: 'cfg',  dir: 'personalization',            label: 'personalization',          shortcut: null },
-    ];
-    // Prefer the catalog's ABSOLUTE path (e.g. '/router/') when present; only
-    // fall back to reconstructing from ROOT for the hardcoded core panels.
-    function jump(d) { window.location.href = (d.path && d.path.charAt(0) === '/') ? d.path : (ROOT + d.dir + '/'); }
-    var SHORTCUT = {};
-    function rebuildShortcuts() { SHORTCUT = {}; DASHBOARDS.forEach(function(d) { if (d.shortcut) SHORTCUT[d.shortcut] = d; }); }
-    rebuildShortcuts();
-
-    // SDD-045 Phase G — front door over the FULL catalog: repopulate the
-    // palette from /catalog so Cmd-K searches EVERY surface (label +
-    // description + category), not just the hardcoded core. Falls back to the
-    // static list if /catalog is unavailable.
-    function loadCatalogIntoPalette() {
-      fetch('/catalog', { headers: { Accept: 'application/json' } })
-        .then(function(r) { return r.json(); })
-        .then(function(cat) {
-          if (!cat || !cat.dashboards || !cat.dashboards.length) return;
-          var prev = {}; DASHBOARDS.forEach(function(d) { prev[d.dir] = d; });
-          var cats = {}; (cat.categories || []).forEach(function(c) { cats[c.id] = c.label || c.id; });
-          var merged = [];
-          cat.dashboards.forEach(function(d) {
-            if (!d.path) return;                 // only reachable panels
-            var p = prev[d.slug] || {};
-            merged.push({ id: p.id || d.slug, dir: d.slug, path: d.path, label: d.label || d.slug,
-                          desc: d.description || '', cat: cats[d.category] || d.category || '',
-                          shortcut: p.shortcut || null });
-          });
-          if (merged.length) {
-            DASHBOARDS = merged; rebuildShortcuts();
-            if (backdrop && backdrop.classList.contains('open')) filterPalette();
-          }
-        }).catch(function() {});
-    }
-
-    var backdrop, input, results, activeIdx = 0, filtered = [];
-    function openPalette() {
-      if (!backdrop) return;
-      backdrop.classList.add('open');
-      input.value = ''; activeIdx = 0;
-      filtered = DASHBOARDS.slice();
-      renderResults();
-      setTimeout(function(){ input.focus(); }, 0);
-    }
-    function closePalette() { if (backdrop) backdrop.classList.remove('open'); }
-    function renderResults() {
-      var html = '';
-      filtered.forEach(function(d, i) {
-        var desc = d.desc ? (d.desc.length > 84 ? d.desc.slice(0, 84) + '…' : d.desc) : '';
-        html += '<div class="so-palette-row' + (i === activeIdx ? ' active' : '') +
-                '" data-idx="' + i + '"><span class="id">' + (d.id || '') + '</span>' +
-                '<span class="lbl">' + d.label +
-                (desc ? '<span class="pdesc">' + desc + '</span>' : '') + '</span>' +
-                (d.shortcut ? '<span class="hint">⌘' + d.shortcut + '</span>'
-                            : (d.cat ? '<span class="hint">' + d.cat + '</span>' : '')) +
-                '</div>';
-      });
-      results.innerHTML = html;
-      Array.prototype.forEach.call(results.querySelectorAll('.so-palette-row'), function(el) {
-        el.addEventListener('click', function() { jump(filtered[Number(el.dataset.idx)]); });
-      });
-      var active = results.querySelector('.so-palette-row.active');
-      if (active && active.scrollIntoView) active.scrollIntoView({ block: 'nearest' });
-    }
-    function filterPalette() {
-      var q = (input.value || '').trim().toLowerCase();
-      filtered = q ? DASHBOARDS.filter(function(d) {
-        return (d.id || '').toLowerCase().indexOf(q) >= 0 ||
-               d.label.toLowerCase().indexOf(q) >= 0 ||
-               d.dir.toLowerCase().indexOf(q) >= 0 ||
-               (d.desc || '').toLowerCase().indexOf(q) >= 0 ||
-               (d.cat || '').toLowerCase().indexOf(q) >= 0;
-      }) : DASHBOARDS.slice();
-      activeIdx = 0;
-      renderResults();
-    }
-
-    // Skip the snippet's Cmd-N jump when the operator is already on
-    // the target dashboard — that way each dashboard's own Cmd-N
-    // handler (e.g. d-05 Cmd-6 focuses search) keeps working without
-    // being clobbered by a no-op page-reload. Detection: the current
-    // pathname contains the target dir as a segment.
-    function isOnDashboard(d) {
-      var p = window.location.pathname;
-      return p.indexOf('/' + d.dir + '/') >= 0 || p.indexOf('/' + d.dir) >= 0 && p.endsWith(d.dir);
-    }
-
-    function onKeydown(e) {
-      var open = backdrop && backdrop.classList.contains('open');
-      if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
-        e.preventDefault(); e.stopImmediatePropagation();
-        open ? closePalette() : openPalette(); return;
-      }
-      if (open) {
-        if (e.key === 'Escape')    { e.preventDefault(); e.stopImmediatePropagation(); closePalette(); return; }
-        if (e.key === 'ArrowDown') { e.preventDefault(); e.stopImmediatePropagation(); activeIdx = Math.min(activeIdx + 1, filtered.length - 1); renderResults(); return; }
-        if (e.key === 'ArrowUp')   { e.preventDefault(); e.stopImmediatePropagation(); activeIdx = Math.max(activeIdx - 1, 0); renderResults(); return; }
-        if (e.key === 'Enter')     { e.preventDefault(); e.stopImmediatePropagation(); if (filtered[activeIdx]) jump(filtered[activeIdx]); return; }
-        return;
-      }
-      if ((e.metaKey || e.ctrlKey) && SHORTCUT[e.key]) {
-        var tgt = e.target;
-        if (tgt && (tgt.tagName === 'INPUT' || tgt.tagName === 'TEXTAREA' || tgt.isContentEditable)) return;
-        // If already on target, let local handlers run (focus search, refresh, etc.)
-        if (isOnDashboard(SHORTCUT[e.key])) return;
-        e.preventDefault(); e.stopImmediatePropagation();
-        jump(SHORTCUT[e.key]);
-      }
-    }
-
-    function init() {
-      // Inject backdrop into <body> on DOMContentLoaded
-      if (!document.getElementById('so-palette-backdrop')) {
-        var d = document.createElement('div');
-        d.className = 'so-palette-backdrop';
-        d.id = 'so-palette-backdrop';
-        d.setAttribute('role', 'dialog');
-        d.setAttribute('aria-modal', 'true');
-        d.setAttribute('aria-label', 'dashboard navigator');
-        d.innerHTML =
-          '<div class="so-palette-box">' +
-            '<input type="text" class="so-palette-input" id="so-palette-input" ' +
-            'placeholder="jump to dashboard… (try: audit / costs / 17)" autocomplete="off">' +
-            '<div class="so-palette-results" id="so-palette-results"></div>' +
-            '<div class="so-palette-footer">' +
-              '<span><kbd>↑</kbd><kbd>↓</kbd> navigate</span>' +
-              '<span><kbd>Enter</kbd> open</span>' +
-              '<span><kbd>Esc</kbd> close</span>' +
-              '<span style="flex:1"></span><span>M060 R10055</span>' +
-            '</div>' +
-          '</div>';
-        document.body.appendChild(d);
-      }
-      backdrop = document.getElementById('so-palette-backdrop');
-      input    = document.getElementById('so-palette-input');
-      results  = document.getElementById('so-palette-results');
-      if (!backdrop || !input || !results) return;
-      input.addEventListener('input', filterPalette);
-      backdrop.addEventListener('click', function(e) { if (e.target === backdrop) closePalette(); });
-      loadCatalogIntoPalette();   // SDD-045 — front door over the full catalog
-    }
-    // Always bind keydown immediately (init may run later)
-    window.addEventListener('keydown', onKeydown);
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
-    else init();
-  })();
-</script>
-<!-- M060 F05100 + WCAG 2.1 AA accessibility snippet — see webapp/_shared/a11y-snippet.html for full doc -->
-<style>
-  /* WCAG 2.1 AA — focus-visible ring on every interactive element. */
-  a:focus-visible,
-  button:focus-visible,
-  input:focus-visible,
-  select:focus-visible,
-  textarea:focus-visible,
-  details:focus-visible,
-  summary:focus-visible,
-  [role="button"]:focus-visible,
-  [tabindex]:focus-visible {
-    outline: 2px solid var(--accent, #9bd1ff);
-    outline-offset: 2px;
-    border-radius: 3px;
-  }
-
-  /* The palette input had `outline: none` for design reasons; the
-     visible focus ring above resupplies the a11y requirement. */
-  .so-palette-input:focus-visible {
-    outline: 2px solid var(--accent, #9bd1ff);
-    outline-offset: -2px;
-  }
-
-  /* Skip-to-content — visually hidden until keyboard-focused,
-     then becomes a high-contrast badge in the top-left corner. */
-  .so-skip-link {
-    position: absolute;
-    left: -10000px;
-    top: auto;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    z-index: 10000;
-  }
-  .so-skip-link:focus {
-    left: 0.5rem;
-    top: 0.5rem;
-    width: auto;
-    height: auto;
-    padding: 0.5rem 1rem;
-    background: var(--accent, #9bd1ff);
-    color: var(--bg, #0e0e0e);
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-weight: 600;
-    text-decoration: none;
-    border-radius: 4px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
-  }
-
-  /* Respect operator's prefers-reduced-motion preference. */
-  @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after {
-      animation-duration: 0.01ms !important;
-      animation-iteration-count: 1 !important;
-      transition-duration: 0.01ms !important;
-      scroll-behavior: auto !important;
-    }
-  }
-</style>
-<script>
-  (function(){
-    // Inject the skip-to-content link as the first child of <body>
-    // so screen readers + tabbing users land on it first. Targets
-    // <main> if present, else falls back to <h1>.
-    function init() {
-      if (document.querySelector('.so-skip-link')) return;
-      var a = document.createElement('a');
-      a.className = 'so-skip-link';
-      a.href = '#so-skip-target';
-      a.textContent = 'skip to content';
-      document.body.insertBefore(a, document.body.firstChild);
-      // Add an id to the first <main>/<h1> so the anchor resolves.
-      var tgt = document.querySelector('main') || document.querySelector('h1');
-      if (tgt && !tgt.id) tgt.id = 'so-skip-target';
-      else if (tgt && tgt.id !== 'so-skip-target') {
-        // Existing id — point the link to it instead.
-        a.href = '#' + tgt.id;
-      }
-    }
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
-    else init();
-  })();
-</script>
-<!-- M060 F05099 + R10142 responsive-layout snippet — see webapp/_shared/responsive-snippet.html for full doc -->
-<style>
-  4K      ≥2400px  — body max-width raises to 1600px (otherwise the
-                     content looks lost on a huge display)
-
-Per "Respect the projects": pure CSS, no fetch/XHR/server-mutation.
-Drops in via the canonical-snippet adoption pattern next to nav +
-a11y; contract test catches drift.
--->
-<style>
-  /* phone: ≤600px — single-column friendly */
-  @media (max-width: 600px) {
-    body { padding: 0.6rem !important; }
-    h1 { font-size: 1.2rem !important; }
-    h2 { font-size: 0.95rem !important; }
-    /* tables shrink rather than scroll horizontally; .num column
-       loses its tabular-nums alignment to save space */
-    table { font-size: 0.78rem !important; }
-    th, td { padding: 0.25rem 0.35rem !important; }
-    /* flex rows always wrap on phone — no horizontal scroll bait */
-    .row { flex-wrap: wrap !important; gap: 0.4rem !important; }
-    /* stats stack 1-up on phone */
-    .stat { flex-basis: 100% !important; }
-    /* panel padding shrinks */
-    .panel { padding: 0.7rem 0.8rem !important; }
-    /* the M060 palette overlay needs to fit narrow viewports */
-    .so-palette-box { width: 96vw !important; }
-    /* mirror banners stack their bits vertically */
-    .mirror-banner { flex-wrap: wrap !important; }
-    .mirror-banner .spacer { flex-basis: 100% !important; height: 0; }
-  }
-
-  /* tablet: 601-1024px — 2-up stat tiles, body stays roomy */
-  @media (min-width: 601px) and (max-width: 1024px) {
-    .stat { flex-basis: calc(50% - 0.3rem) !important; }
-    body { padding: 0.9rem !important; }
-  }
-
-  /* 4K / ultra-wide: ≥2400px — raise body width so content uses the
-     real estate (otherwise it looks marooned in the center) */
-  @media (min-width: 2400px) {
-    body { max-width: 1600px !important; }
-    html { font-size: calc(15px * var(--font-scale, 1)) !important; }
-  }
-</style>
-
-
-<style>
-  /* Operator-§1g UX: readable in 30 seconds, monochrome palette,
-     no JS framework, no CDN, no fonts fetched from elsewhere —
-     sovereignty-clean single-file webapp. */
-  :root {
-    --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --accent:#9bd1ff;
-    --good:#7ad17a; --bad:#ff7676; --warn:#e6c062;
-    --panel:#171717; --border:#262626;
-    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  }
-  *{box-sizing:border-box}
-  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:calc(14px * var(--font-scale, 1));line-height:1.5}
-  body{padding:1.2rem;max-width:1200px;margin:0 auto}
-  h1{font-size:1.4rem;margin:0 0 .2rem 0;font-weight:600}
-  h2{font-size:1rem;margin:1.6rem 0 .4rem 0;font-weight:600;color:var(--accent)}
-  .sub{color:var(--muted);margin-bottom:1.4rem;font-size:.85rem}
-  .panel{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.9rem 1rem;margin:.6rem 0}
-  table{width:100%;border-collapse:collapse;font-size:.85rem}
-  th,td{text-align:left;padding:.4rem .55rem;border-bottom:1px solid var(--border);vertical-align:top}
-  th{color:var(--muted);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
-  tr:last-child td{border-bottom:none}
-  .ok{color:var(--good)}
-  .bad{color:var(--bad)}
-  .warn{color:var(--warn)}
-  .muted{color:var(--muted)}
-  .pill{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.72rem;background:var(--border)}
-  .pill.ok{background:#143d14;color:var(--good)}
-  .pill.bad{background:#3d1414;color:var(--bad)}
-  .err{color:var(--bad);font-style:italic}
-  .row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center}
-  .stat{flex:1 1 180px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.7rem .9rem}
-  .stat .k{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em}
-  .stat .v{font-size:1.4rem;margin-top:.15rem}
-  button{font-family:var(--mono);background:var(--panel);color:var(--fg);border:1px solid var(--border);padding:.35rem .7rem;border-radius:3px;cursor:pointer}
-  button:hover{border-color:var(--accent)}
-  footer{margin-top:2rem;color:var(--muted);font-size:.75rem;border-top:1px solid var(--border);padding-top:.8rem}
-  footer a{color:var(--accent)}
-  .standing-rule{color:var(--accent);font-style:italic;margin-top:.4rem}
-</style>
-<!-- SDD-045 control-surface component, INLINED per the single-file doctrine
-     (canonical source lockstep-linted: webapp/_shared/control-surface.{css,js}).
-     Renders config/control-systems.yaml (served at /control-systems). -->
-<style>
-/* webapp/_shared/control-surface.css — SDD-045 shared control-surface.
- * Renders the control-systems registry (profiles / modes / feature toggles)
- * as a grid of control cards. Monochrome, framework-free; inherits the
- * panel palette variables (--bg/--fg/--muted/--accent/--border/--mono).
- *
- * R10274 (functional cockpit): a control can now be EXECUTED from the card
- * (the sanctioned same-origin control-exec-api POST) — the copyable command
- * is demoted to a labelled fallback. R10212 is preserved: proxy-only controls
- * (selfdef / perimeter) render NO execute affordance, and every per-panel
- * daemon stays read-only — the ONLY write path is the dedicated exec daemon. */
-.cs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: .5rem; }
-.cs-card {
-  display: flex; flex-direction: column; gap: .35rem;
-  padding: .6rem .75rem; border: 1px solid var(--border, #262626);
-  border-radius: .4rem; background: rgba(255, 255, 255, .02);
-  transition: border-color .12s ease;
-}
-.cs-card:hover { border-color: rgba(255, 255, 255, .12); }
-.cs-head { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
-.cs-label { font-weight: 600; flex: 1; }
-.cs-kind {
-  font-size: .7rem; text-transform: uppercase; letter-spacing: .04em;
-  color: var(--muted, #888); border: 1px solid var(--border, #262626);
-  border-radius: 3px; padding: 0 .35rem;
-}
-.cs-global {
-  font-size: .7rem; color: var(--accent, #9bd1ff);
-  border: 1px solid var(--accent, #9bd1ff); border-radius: 3px; padding: 0 .35rem;
-}
-.cs-proxy {
-  font-size: .7rem; color: #e0b050; border: 1px solid #e0b050;
-  border-radius: 3px; padding: 0 .35rem; letter-spacing: .02em;
-}
-.cs-desc { color: var(--muted, #888); font-size: .8rem; line-height: 1.45; }
-.cs-opts { display: flex; flex-wrap: wrap; gap: .3rem; }
-.cs-opt { font-size: .72rem; background: var(--border, #262626); border-radius: 3px; padding: 1px 6px; }
-
-/* ── argument rail: one control per change_cli placeholder ──────────────── */
-.cs-args { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; margin: .1rem 0; }
-.cs-lit { font-family: var(--mono, ui-monospace, monospace); font-size: .74rem; color: var(--muted, #888); }
-.cs-verbs { display: inline-flex; border: 1px solid var(--border, #262626); border-radius: 4px; overflow: hidden; }
-.cs-verb {
-  font-family: var(--mono, ui-monospace, monospace); font-size: .72rem;
-  color: var(--fg, #e6e6e6); background: var(--bg, #0e0e0e);
-  border: 0; border-right: 1px solid var(--border, #262626);
-  padding: .2rem .5rem; cursor: pointer;
-}
-.cs-verb:last-child { border-right: 0; }
-.cs-verb[aria-pressed="true"] { background: var(--accent, #9bd1ff); color: #0a0a0a; font-weight: 600; }
-.cs-arg {
-  font-family: var(--mono, ui-monospace, monospace); font-size: .74rem;
-  color: var(--fg, #e6e6e6); background: var(--bg, #0e0e0e);
-  border: 1px solid var(--border, #262626); border-radius: 4px;
-  padding: .2rem .4rem; min-width: 6ch; max-width: 16ch;
-}
-.cs-arg:focus { outline: 0; border-color: var(--accent, #9bd1ff); }
-
-/* ── action row: Execute (primary) + Copy (fallback) ───────────────────── */
-.cs-actions { display: flex; gap: .35rem; align-items: stretch; margin-top: .1rem; }
-.cs-exec {
-  font-size: .76rem; font-weight: 600; cursor: pointer;
-  color: #0a0a0a; background: var(--accent, #9bd1ff);
-  border: 1px solid var(--accent, #9bd1ff); border-radius: 4px;
-  padding: .28rem .6rem; white-space: nowrap;
-}
-.cs-exec:hover { filter: brightness(1.08); }
-.cs-exec:disabled { opacity: .45; cursor: not-allowed; filter: none; }
-.cs-cmd {
-  font-family: var(--mono, ui-monospace, monospace); font-size: .74rem;
-  text-align: left; color: var(--fg, #e6e6e6); background: var(--bg, #0e0e0e);
-  border: 1px solid var(--border, #262626); border-radius: 4px;
-  padding: .25rem .4rem; cursor: pointer; overflow-x: auto; white-space: nowrap; flex: 1;
-}
-.cs-cmd:hover { border-color: var(--accent, #9bd1ff); }
-.cs-copy { flex: 1; }
-/* result line — dry-run / executed / rejected feedback, always visible */
-.cs-result { font-size: .72rem; line-height: 1.4; min-height: 1em; word-break: break-word; }
-.cs-result.ok { color: #6fcf6f; }
-.cs-result.dry { color: var(--accent, #9bd1ff); }
-.cs-result.warn { color: #e0b050; }
-.cs-result.err { color: #e06a6a; }
-.cs-result.muted { color: var(--muted, #888); }
-/* inline type-to-confirm gate for privileged controls */
-.cs-confirm {
-  display: flex; flex-wrap: wrap; align-items: center; gap: .35rem;
-  padding: .35rem .4rem; margin-top: .1rem;
-  border: 1px dashed var(--accent, #9bd1ff); border-radius: 4px;
-}
-.cs-confirm-msg { font-size: .72rem; color: var(--muted, #888); }
-.cs-confirm-msg code { color: var(--fg, #e6e6e6); }
-.cs-confirm-in { max-width: 14ch; }
-.cs-confirm-cancel { flex: 0 0 auto; }
-.cs-empty { color: var(--muted, #888); }
-</style>
-<script>
-/* webapp/_shared/control-surface.js — SDD-045 shared control-surface renderer.
- *
- * Renders the control-systems registry (config/control-systems.yaml, served
- * as GET /control-systems) — the operator's "everything can be turned on and
- * off + tons of modes and profiles" — as a grid of control cards. Reused by
- * every dashboard so each becomes a CONTROL surface.
- *
- * R10274 — functional cockpit: a control is now EXECUTED from the card. Each
- * change_cli placeholder becomes an input (enum → segmented buttons keyed
- * `verb`/`verbN`; free `<name>` → a datalist input seeded from `options`,
- * matching the server's _action_exec.resolve_argv keying). Execute POSTs
- * {control_id, args, confirm} to the sanctioned same-origin control-exec-api
- * (POST /api/control/execute); the copyable command is demoted to a labelled
- * fallback, and any 405 / unreachable exec front degrades gracefully to Copy.
- *
- * R10212 is preserved: the web still never *arbitrarily* mutates. Proxy-only
- * controls (selfdef / perimeter — mirrors _action_exec.SELFDEF_OWNED, drift-
- * guarded by tests/lint/test_control_surface_execute_boundary.py) render NO
- * execute affordance (signed-proxy badge + copy only). Every per-panel daemon
- * stays read-only (405 on writes); the ONE write path is the dedicated exec
- * daemon, where every action is allowlisted + options-validated + confirm/
- * key-gated + OCSF-5001 audited + DRY_RUN by default.
- *
- * Usage:
- *   const n = SovereignControlSurface.render(el, systems, {
- *     filterSlug: 'runtime-modes',      // only global + systems governing slug
- *     executeUrl: '/api/control/execute', // same-origin sanctioned write daemon
- *     onCopy: (cmd) => showToast(cmd)     // optional copy callback
- *   });
- */
-(function (global) {
-  "use strict";
-
-  // R10212 boundary — mirrors _action_exec.SELFDEF_OWNED. selfdef/perimeter are
-  // signed-proxy ONLY: never executed locally. (drift-guarded by lint.)
-  var PROXY_ONLY = ["selfdef", "perimeter"];
-  var EXECUTE_URL = "/api/control/execute";
-
-  function esc(s) {
-    return String(s == null ? "" : s)
-      .replace(/&/g, "&amp;").replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-  }
-
-  function isProxyOnly(sys) {
-    if (typeof sys.execute_local === "boolean") return !sys.execute_local;
-    return PROXY_ONLY.indexOf(sys.id) >= 0;
-  }
-
-  // Parse a change_cli template, mirroring _action_exec.resolve_argv:
-  //   {a|b}  → enum, arg-key 'verb' (first) / 'verb1' / 'verb2' ...
-  //   <name> → free, arg-key name
-  //   else   → literal token
-  function parseTemplate(changeCli) {
-    var toks = String(changeCli || "").trim().split(/\s+/).filter(Boolean);
-    var out = [], enumSeen = 0;
-    toks.forEach(function (t) {
-      var em = /^\{([a-z0-9|_-]+)\}$/.exec(t);
-      if (em) {
-        out.push({ kind: "enum", key: enumSeen === 0 ? "verb" : "verb" + enumSeen,
-                   alts: em[1].split("|") });
-        enumSeen += 1; return;
-      }
-      var fm = /^<([a-z0-9_-]+)>$/.exec(t);
-      if (fm) { out.push({ kind: "free", key: fm[1] }); return; }
-      out.push({ kind: "lit", text: t });
-    });
-    return out;
-  }
-
-  // Reassemble the concrete command from the template + collected args (for the
-  // Copy fallback + result echo); unfilled placeholders stay as <name>/{a|b}.
-  function assembleCmd(changeCli, args) {
-    return parseTemplate(changeCli).map(function (t) {
-      if (t.kind === "lit") return t.text;
-      if (t.kind === "enum") return args[t.key] || ("{" + t.alts.join("|") + "}");
-      return args[t.key] || ("<" + t.key + ">");
-    }).join(" ");
-  }
-
-  function collectArgs(card) {
-    var args = {};
-    Array.prototype.forEach.call(card.querySelectorAll(".cs-verbs"), function (grp) {
-      var pressed = grp.querySelector('.cs-verb[aria-pressed="true"]');
-      if (pressed) args[grp.getAttribute("data-argkey")] = pressed.getAttribute("data-val");
-    });
-    Array.prototype.forEach.call(card.querySelectorAll("input.cs-arg"), function (inp) {
-      var v = (inp.value || "").trim();
-      if (v) args[inp.getAttribute("data-argkey")] = v;
-    });
-    return args;
-  }
-
-  function copy(text, opts) {
-    if (navigator.clipboard) { try { navigator.clipboard.writeText(text); } catch (e) { /* noop */ } }
-    if (opts && typeof opts.onCopy === "function") opts.onCopy(text);
-  }
-
-  function setResult(el, cls, msg) {
-    if (!el) return;
-    el.className = "cs-result " + cls;
-    el.textContent = msg;
-  }
-
-  function execute(url, controlId, args, confirmed) {
-    return fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({ control_id: controlId, args: args, confirm: !!confirmed })
-    }).then(function (r) {
-      return r.json().then(
-        function (j) { return { status: r.status, body: j || {} }; },
-        function () { return { status: r.status, body: {} }; });
-    });
-  }
-
-  // Inline type-to-confirm gate for privileged controls (replaces window.prompt
-  // — accessible, on-palette, non-blocking). Type the control id, Confirm →
-  // re-execute with confirm:true; Cancel/mismatch → no execution.
-  function askConfirm(card, sys, opts) {
-    var result = card.querySelector(".cs-result");
-    var host = card.querySelector(".cs-confirm");
-    if (!host) {
-      host = document.createElement("div");
-      host.className = "cs-confirm";
-      card.insertBefore(host, result);
-    }
-    host.innerHTML =
-      '<span class="cs-confirm-msg">privileged — type <code>' + esc(sys.id) + "</code> to confirm</span>"
-      + '<input class="cs-arg cs-confirm-in" placeholder="' + esc(sys.id) + '" aria-label="type ' + esc(sys.id) + ' to confirm">'
-      + '<button type="button" class="cs-exec cs-confirm-ok">Confirm</button>'
-      + '<button type="button" class="cs-cmd cs-confirm-cancel">Cancel</button>';
-    var inp = host.querySelector(".cs-confirm-in");
-    if (inp.focus) inp.focus();
-    function done(ok) {
-      var typed = (inp.value || "").trim();
-      if (host.parentNode) host.parentNode.removeChild(host);
-      if (ok && typed === sys.id) execAction(card, sys, opts, true);
-      else setResult(result, "warn", "confirmation " + (ok ? "mismatch" : "cancelled") + " — not executed");
-    }
-    host.querySelector(".cs-confirm-ok").addEventListener("click", function () { done(true); });
-    host.querySelector(".cs-confirm-cancel").addEventListener("click", function () { done(false); });
-    inp.addEventListener("keydown", function (e) { if (e.key === "Enter") done(true); });
-  }
-
-  function execAction(card, sys, opts, confirmed) {
-    var result = card.querySelector(".cs-result");
-    var args = collectArgs(card);
-    var url = (opts && opts.executeUrl) || EXECUTE_URL;
-    setResult(result, "muted", "executing…");
-    execute(url, sys.id, args, confirmed).then(function (res) {
-      var b = res.body || {};
-      if (res.status === 200) {
-        if (b.dry_run) setResult(result, "dry", "dry-run ✓ would run: " + ((b.would_run || []).join(" ") || assembleCmd(sys.change_cli, args)));
-        else setResult(result, "ok", "executed ✓ exit " + (b.exit_code != null ? b.exit_code : 0));
-      } else if (res.status === 403) {
-        if (confirmed) {
-          // already type-confirmed → 403 is a server-side gate (e.g. the
-          // operator key is not loaded). Surface the reason; do NOT re-prompt.
-          setResult(result, "warn", b.error || "not permitted (operator key required)");
-        } else {
-          // privileged control — inline type-to-confirm gate, ONCE
-          askConfirm(card, sys, opts);
-        }
-      } else if (res.status === 409) {
-        setResult(result, "warn", "signed-proxy only (R10212) — command copied");
-        copy(assembleCmd(sys.change_cli, args), opts);
-      } else if (res.status === 400) {
-        setResult(result, "warn", b.error || "invalid arguments — pick a value");
-      } else if (res.status === 404) {
-        setResult(result, "err", b.error || "unknown control");
-      } else if (res.status === 405) {
-        setResult(result, "muted", "execution not available on this origin — command copied");
-        copy(assembleCmd(sys.change_cli, args), opts);
-      } else {
-        setResult(result, "err", b.error || ("error " + res.status));
-      }
-    }).catch(function () {
-      // exec daemon unreachable (per-port-direct read-only front) → copy fallback
-      setResult(result, "muted", "exec endpoint unreachable — command copied");
-      copy(assembleCmd(sys.change_cli, collectArgs(card)), opts);
-    });
-  }
-
-  function argsRailHtml(sys) {
-    var opts = (sys.options || []).map(String);
-    var html = parseTemplate(sys.change_cli).map(function (t) {
-      if (t.kind === "lit") return "";                 // literals live in the Copy line
-      if (t.kind === "enum") {
-        return '<span class="cs-verbs" data-argkey="' + esc(t.key) + '">'
-          + t.alts.map(function (a, i) {
-              return '<button type="button" class="cs-verb" data-val="' + esc(a)
-                + '" aria-pressed="' + (i === 0 ? "true" : "false") + '">' + esc(a) + "</button>";
-            }).join("") + "</span>";
-      }
-      var listId = "csl-" + esc(sys.id) + "-" + esc(t.key);
-      var dl = opts.length
-        ? '<datalist id="' + listId + '">'
-            + opts.map(function (o) { return '<option value="' + esc(o) + '"></option>'; }).join("")
-            + "</datalist>"
-        : "";
-      return '<input class="cs-arg" data-argkey="' + esc(t.key) + '" placeholder="' + esc(t.key) + '"'
-        + (opts.length ? ' list="' + listId + '"' : "") + ">" + dl;
-    }).join("");
-    return html ? '<div class="cs-args">' + html + "</div>" : "";
-  }
-
-  function cardHtml(sys) {
-    var proxy = isProxyOnly(sys);
-    var pills = (sys.options || []).map(function (o) {
-      return '<span class="cs-opt">' + esc(o) + "</span>"; }).join("");
-    var change = sys.change_cli || "";
-    var actions = change
-      ? '<div class="cs-actions">'
-          + (proxy ? "" : '<button type="button" class="cs-exec">Execute</button>')
-          + '<button type="button" class="cs-cmd cs-copy" data-cmd="' + esc(change)
-            + '" title="copy the operator command (fallback)">$ ' + esc(change) + "</button>"
-          + "</div>"
-      : "";
-    return '<div class="cs-card cs-' + esc(sys.kind) + '" data-cid="' + esc(sys.id) + '">'
-      + '<div class="cs-head">'
-      + '<span class="cs-label">' + esc(sys.label) + "</span>"
-      + '<span class="cs-kind">' + esc(sys.kind) + "</span>"
-      + (sys.scope === "global" ? '<span class="cs-global">global</span>' : "")
-      + (proxy ? '<span class="cs-proxy" title="R10212: signed-proxy only — never executed locally">signed proxy</span>' : "")
-      + "</div>"
-      + '<div class="cs-desc">' + esc(sys.description) + "</div>"
-      + (pills ? '<div class="cs-opts">' + pills + "</div>" : "")
-      + argsRailHtml(sys)
-      + actions
-      + '<div class="cs-result muted"></div>'
-      + "</div>";
-  }
-
-  function render(containerEl, systems, opts) {
-    opts = opts || {};
-    var slug = opts.filterSlug || null;
-    var list = (systems || []).filter(function (s) {
-      if (!slug) return true;                       // no filter → all systems
-      return s.scope === "global" ||                // globals show everywhere
-        (s.applies_to || []).indexOf(slug) >= 0;    // + systems governing slug
-    });
-    var byId = {};
-    list.forEach(function (s) { byId[s.id] = s; });
-    containerEl.innerHTML = list.map(cardHtml).join("")
-      || '<div class="cs-empty">(no controls for this surface)</div>';
-
-    // segmented enum toggles
-    Array.prototype.forEach.call(containerEl.querySelectorAll(".cs-verbs"), function (grp) {
-      grp.addEventListener("click", function (e) {
-        var btn = e.target && e.target.classList && e.target.classList.contains("cs-verb") ? e.target : null;
-        if (!btn) return;
-        Array.prototype.forEach.call(grp.querySelectorAll(".cs-verb"), function (b) {
-          b.setAttribute("aria-pressed", b === btn ? "true" : "false");
-        });
-      });
-    });
-    // copy fallback — copies the concrete command assembled from current args
-    Array.prototype.forEach.call(containerEl.querySelectorAll(".cs-copy"), function (b) {
-      b.addEventListener("click", function () {
-        var card = b.parentNode.parentNode;
-        var cmd = assembleCmd(b.getAttribute("data-cmd"), collectArgs(card));
-        copy(cmd, opts);
-        setResult(card.querySelector(".cs-result"), "muted", "copied: " + cmd);
-      });
-    });
-    // execute — the sanctioned R10274 write path
-    Array.prototype.forEach.call(containerEl.querySelectorAll(".cs-exec"), function (b) {
-      b.addEventListener("click", function () {
-        var card = b.parentNode.parentNode;
-        var sys = byId[card.getAttribute("data-cid")];
-        if (sys) execAction(card, sys, opts, false);
-      });
-    });
-    return list.length;
-  }
-
-  // Convenience: load the control registry (same-origin) and render.
-  // Full display data comes from the panel's own read-only /control-systems;
-  // the authoritative execute-local/live overlay comes from /api/control/registry
-  // when the origin is fronted by the exec daemon (else copy-first per PROXY_ONLY).
-  function load(containerEl, opts) {
-    opts = opts || {};
-    var base = fetch("/control-systems", { headers: { Accept: "application/json" } })
-      .then(function (r) { return r.ok ? r.json() : null; })
-      .catch(function () { return null; });
-    var reg = fetch("/api/control/registry", { headers: { Accept: "application/json" } })
-      .then(function (r) { return r.ok ? r.json() : null; })
-      .catch(function () { return null; });
-    return Promise.all([base, reg]).then(function (res) {
-      var b = res[0], g = res[1];
-      if (!b || b.error) {
-        containerEl.innerHTML = '<div class="cs-empty">controls unavailable'
-          + (b && b.error ? ": " + esc(b.error) : "") + "</div>";
-        return 0;
-      }
-      var systems = (b.systems || []).slice();
-      if (g && g.controls) {
-        var execMap = {};
-        g.controls.forEach(function (c) { execMap[c.id] = c.execute_local; });
-        systems.forEach(function (s) { if (s.id in execMap) s.execute_local = execMap[s.id]; });
-        opts.live = !!g.live;
-      }
-      return render(containerEl, systems, opts);
-    });
-  }
-
-  global.SovereignControlSurface = { render: render, load: load };
-})(window);
-</script>
-<!-- SDD-116/119 shared demo-mode helper (inlined verbatim from webapp/_shared/demo-mode.{css,js}; opt-in, always-badged sample data — SB-077 reconciliation). -->
-<style>
-/* webapp/_shared/demo-mode.css — SDD-116 DEMO badge.
- * DEMO mode is opt-in sample data for exploring panels with no daemon. The badge
- * is a persistent, unmistakable ribbon so DEMO data is NEVER mistaken for real
- * telemetry (the SB-077 reconciliation). Inlined verbatim into demo-capable
- * panels alongside demo-mode.js. */
-#so-demo-badge {
-  position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); z-index: 9600;
-  background: #e6c062; color: #0a0a0a; font-weight: 700; font-size: .72rem; letter-spacing: .03em;
-  padding: .28rem .65rem; border-radius: 6px; box-shadow: 0 2px 12px rgba(0, 0, 0, .38);
-  font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif; pointer-events: none;
-}
-#so-demo-badge .sub { font-weight: 400; opacity: .82; }
-</style>
-<script>
-/* webapp/_shared/demo-mode.js — SDD-116 shared DEMO-mode helper (opt-in sample data).
- *
- * Reads the `sovereign-os.demo` localStorage flag (schema-guarded) and renders a
- * persistent DEMO badge. Demo-capable panels call `soDemo.on()` to branch to their
- * clearly-labelled sample data. The SB-077 reconciliation: DEMO is opt-in (off by
- * default; never self-enables), ALWAYS badged, and makes ZERO network calls
- * (R10212 strengthened — the demo render path never fetches). Inlined verbatim into
- * demo-capable panels alongside demo-mode.css. */
-(function () {
-  "use strict";
-  var DKEY = 'sovereign-os.demo', DSCHEMA = 1;
-  function on() {
-    try {
-      var r = localStorage.getItem(DKEY); var p = r ? JSON.parse(r) : null;
-      return !!(p && p.schema === DSCHEMA && p.on);
-    } catch (e) { return false; }
-  }
-  function set(v) {
-    try { localStorage.setItem(DKEY, JSON.stringify({ schema: DSCHEMA, on: !!v })); } catch (e) {}
-  }
-  function badge() {
-    var b = document.getElementById('so-demo-badge');
-    if (on()) {
-      if (!b) {
-        b = document.createElement('div'); b.id = 'so-demo-badge';
-        b.innerHTML = 'DEMO <span class="sub">· sample data — not real telemetry</span>';
-        b.setAttribute('role', 'status');
-        (document.body || document.documentElement).appendChild(b);
-      }
-    } else if (b) { b.remove(); }
-  }
-  window.soDemo = { on: on, set: set, badge: badge, KEY: DKEY, SCHEMA: DSCHEMA };
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', badge);
-  else badge();
-})();
-</script>
 </head>
 <body>
 <!-- APP-SHELL:BEGIN M067 -->
@@ -1529,1514 +706,517 @@ a11y; contract test catches drift.
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
-
-<h1>sovereign-os master-dashboard</h1>
-<p class="sub">
-  Operator-§1g aggregator — Trinity tiers + router + Grafana + selfdef cross-repo manifests under a single super-dashboard.
-  Read-only mirror of <code>sovereign-osctl master-dashboard &lt;verb&gt;</code>.
-  Mutation verbs stay CLI-only (operator §17 sovereignty boundary).
-</p>
-
-<div class="row" id="stats">
-  <div class="stat"><div class="k">aggregator port</div><div class="v" id="stat-port">—</div></div>
-  <div class="stat"><div class="k">routes</div><div class="v" id="stat-count">—</div></div>
-  <div class="stat"><div class="k">reachable</div><div class="v ok" id="stat-reachable">—</div></div>
-  <div class="stat"><div class="k">collisions</div><div class="v" id="stat-collisions">—</div></div>
-  <div class="stat"><div class="k">selfdef manifests</div><div class="v" id="stat-selfdef">—</div></div>
-  <div class="stat"><div class="k">api version</div><div class="v muted" id="stat-version">—</div></div>
-</div>
-
-<!-- SDD-045 Phase B — the described global view. THE list the operator
-     asked for: every dashboard with a REAL description (not a bare label),
-     grouped by category, honestly badged live/snapshot/planned. Sourced
-     from config/dashboard-catalog.yaml via GET /catalog (single source of
-     truth; descriptions never drift from the catalog). -->
-<!-- SDD-045 Phase G — the "WHERE IS EVERYTHING" answer, LIVE: proof on the
-     front door that every surface + verb family is reachable (nothing
-     CLI-only-and-invisible), computed from /catalog + /control-systems +
-     /feature-coverage. -->
-<h2>coverage — everything is reachable</h2>
-<div class="row" id="coverage-stats">
-  <div class="stat"><div class="k">dashboards</div><div class="v" id="cov-dash">—</div></div>
-  <div class="stat"><div class="k">control systems</div><div class="v" id="cov-sys">—</div></div>
-  <div class="stat"><div class="k">verb families mapped</div><div class="v" id="cov-mapped">—</div></div>
-  <div class="stat"><div class="k">cli-only (waived)</div><div class="v" id="cov-cli">—</div></div>
-  <div class="stat"><div class="k">invisible</div><div class="v ok" id="cov-invisible">—</div></div>
-</div>
-<p class="sub" id="cov-note" style="margin:.3rem 0 .8rem"></p>
-
-<h2>all dashboards — described</h2>
-<p class="sub" style="margin:.2rem 0 .8rem">
-  Every operator surface with a real explanation. Click a live/snapshot
-  card to open it; a <span class="pill">planned</span> card shows the CLI
-  that reaches the feature today. <span id="catalog-count" class="muted"></span>
-</p>
-<div id="catalog-body">
-  <div class="muted">loading described catalog…</div>
-</div>
+<main id="course-syllabus" class="wrap">
+  <section class="c-hero">
+    <h1><span class="sp">✦</span> The sovereign-os Course</h1>
+    <p>A guided journey through the whole cockpit — most-important pieces first (the Trinity, the build pipeline, security &amp; selfdef), then the rest, every module clearly tier-labelled. The course opens a slim rail along the bottom and, on <b>Next</b>, travels you to each lesson's panel and resumes there. Your place is saved on this device. It works in <b>DEMO mode</b>, so you can take the whole tour with no daemon running.</p>
+    <div class="c-prog"><span class="c-bar"><i id="c-bar-fill"></i></span><span class="c-pct" id="c-pct">0 of 0 · 0%</span></div>
+    <div class="c-cta">
+      <button class="cbtn primary" id="c-start">▶ Start the tour</button>
+      <button class="cbtn" id="c-reset" title="Clear saved progress on this device">↺ Reset progress</button>
+    </div>
+    <div class="c-note">Not the Assistant — that's the ✦ drawer on the right, contextual help for the panel you're on. The Course is a tour <i>across</i> panels.</div>
+  </section>
+  <div class="c-mods" id="c-mods"></div>
+  <!-- SDD-045 Phase C — control surface (INLINED per the single-file doctrine).
+     Renders config/control-systems.yaml (served at /control-systems): the
+     global controls (profile / dashboard on-off / auth tier) + the modes &
+     feature toggles that govern THIS panel. Read-only: each control copies
+     its exact sovereign-osctl command. Canonical source (lockstep-linted):
+     webapp/_shared/control-surface.{css,js}. -->
+<h2>controls — the box's toggles &amp; profiles, for reference</h2>
+<div id="control-surface" class="cs-grid"><div class="cs-empty">loading controls…</div></div>
 <style>
-  .cat-group { margin: .4rem 0 1.1rem; }
-  .cat-group > .cat-head { display:flex; align-items:baseline; gap:.6rem; margin:.6rem 0 .3rem; }
-  .cat-group > .cat-head .cat-label { color:var(--accent); font-weight:600; font-size:.95rem; }
-  .cat-group > .cat-head .cat-blurb { color:var(--muted); font-size:.8rem; }
-  .cat-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:.5rem; }
-  .dash-card { display:flex; flex-direction:column; gap:.3rem; padding:.6rem .75rem;
-    border:1px solid var(--border); border-radius:.4rem; background:rgba(255,255,255,.02);
-    text-decoration:none; color:inherit; transition:border-color .1s ease, transform .1s ease; }
-  a.dash-card:hover { border-color:var(--accent); transform:translateY(-1px); }
-  .dash-card .dc-head { display:flex; align-items:center; gap:.5rem; }
-  .dash-card .dc-label { font-weight:600; font-size:.9rem; flex:1; }
-  .dash-card .dc-desc { color:var(--muted); font-size:.8rem; line-height:1.45; }
-  .dash-card .dc-cli { font-size:.74rem; color:var(--fg); background:var(--bg);
-    border:1px solid var(--border); border-radius:3px; padding:.2rem .4rem; overflow-x:auto; white-space:nowrap; }
-  .pill.live     { background:#143d14; color:var(--good); }
-  .pill.snapshot { background:#3a3410; color:var(--warn); }
-  .pill.planned  { background:#26262e; color:var(--accent); }
+/* webapp/_shared/control-surface.css — SDD-045 shared control-surface.
+ * Renders the control-systems registry (profiles / modes / feature toggles)
+ * as a grid of control cards. Monochrome, framework-free; inherits the
+ * panel palette variables (--bg/--fg/--muted/--accent/--border/--mono).
+ *
+ * R10274 (functional cockpit): a control can now be EXECUTED from the card
+ * (the sanctioned same-origin control-exec-api POST) — the copyable command
+ * is demoted to a labelled fallback. R10212 is preserved: proxy-only controls
+ * (selfdef / perimeter) render NO execute affordance, and every per-panel
+ * daemon stays read-only — the ONLY write path is the dedicated exec daemon. */
+.cs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: .5rem; }
+.cs-card {
+  display: flex; flex-direction: column; gap: .35rem;
+  padding: .6rem .75rem; border: 1px solid var(--border, #262626);
+  border-radius: .4rem; background: rgba(255, 255, 255, .02);
+  transition: border-color .12s ease;
+}
+.cs-card:hover { border-color: rgba(255, 255, 255, .12); }
+.cs-head { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.cs-label { font-weight: 600; flex: 1; }
+.cs-kind {
+  font-size: .7rem; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--muted, #888); border: 1px solid var(--border, #262626);
+  border-radius: 3px; padding: 0 .35rem;
+}
+.cs-global {
+  font-size: .7rem; color: var(--accent, #9bd1ff);
+  border: 1px solid var(--accent, #9bd1ff); border-radius: 3px; padding: 0 .35rem;
+}
+.cs-proxy {
+  font-size: .7rem; color: #e0b050; border: 1px solid #e0b050;
+  border-radius: 3px; padding: 0 .35rem; letter-spacing: .02em;
+}
+.cs-desc { color: var(--muted, #888); font-size: .8rem; line-height: 1.45; }
+.cs-opts { display: flex; flex-wrap: wrap; gap: .3rem; }
+.cs-opt { font-size: .72rem; background: var(--border, #262626); border-radius: 3px; padding: 1px 6px; }
+
+/* ── argument rail: one control per change_cli placeholder ──────────────── */
+.cs-args { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; margin: .1rem 0; }
+.cs-lit { font-family: var(--mono, ui-monospace, monospace); font-size: .74rem; color: var(--muted, #888); }
+.cs-verbs { display: inline-flex; border: 1px solid var(--border, #262626); border-radius: 4px; overflow: hidden; }
+.cs-verb {
+  font-family: var(--mono, ui-monospace, monospace); font-size: .72rem;
+  color: var(--fg, #e6e6e6); background: var(--bg, #0e0e0e);
+  border: 0; border-right: 1px solid var(--border, #262626);
+  padding: .2rem .5rem; cursor: pointer;
+}
+.cs-verb:last-child { border-right: 0; }
+.cs-verb[aria-pressed="true"] { background: var(--accent, #9bd1ff); color: #0a0a0a; font-weight: 600; }
+.cs-arg {
+  font-family: var(--mono, ui-monospace, monospace); font-size: .74rem;
+  color: var(--fg, #e6e6e6); background: var(--bg, #0e0e0e);
+  border: 1px solid var(--border, #262626); border-radius: 4px;
+  padding: .2rem .4rem; min-width: 6ch; max-width: 16ch;
+}
+.cs-arg:focus { outline: 0; border-color: var(--accent, #9bd1ff); }
+
+/* ── action row: Execute (primary) + Copy (fallback) ───────────────────── */
+.cs-actions { display: flex; gap: .35rem; align-items: stretch; margin-top: .1rem; }
+.cs-exec {
+  font-size: .76rem; font-weight: 600; cursor: pointer;
+  color: #0a0a0a; background: var(--accent, #9bd1ff);
+  border: 1px solid var(--accent, #9bd1ff); border-radius: 4px;
+  padding: .28rem .6rem; white-space: nowrap;
+}
+.cs-exec:hover { filter: brightness(1.08); }
+.cs-exec:disabled { opacity: .45; cursor: not-allowed; filter: none; }
+.cs-cmd {
+  font-family: var(--mono, ui-monospace, monospace); font-size: .74rem;
+  text-align: left; color: var(--fg, #e6e6e6); background: var(--bg, #0e0e0e);
+  border: 1px solid var(--border, #262626); border-radius: 4px;
+  padding: .25rem .4rem; cursor: pointer; overflow-x: auto; white-space: nowrap; flex: 1;
+}
+.cs-cmd:hover { border-color: var(--accent, #9bd1ff); }
+.cs-copy { flex: 1; }
+/* result line — dry-run / executed / rejected feedback, always visible */
+.cs-result { font-size: .72rem; line-height: 1.4; min-height: 1em; word-break: break-word; }
+.cs-result.ok { color: #6fcf6f; }
+.cs-result.dry { color: var(--accent, #9bd1ff); }
+.cs-result.warn { color: #e0b050; }
+.cs-result.err { color: #e06a6a; }
+.cs-result.muted { color: var(--muted, #888); }
+/* inline type-to-confirm gate for privileged controls */
+.cs-confirm {
+  display: flex; flex-wrap: wrap; align-items: center; gap: .35rem;
+  padding: .35rem .4rem; margin-top: .1rem;
+  border: 1px dashed var(--accent, #9bd1ff); border-radius: 4px;
+}
+.cs-confirm-msg { font-size: .72rem; color: var(--muted, #888); }
+.cs-confirm-msg code { color: var(--fg, #e6e6e6); }
+.cs-confirm-in { max-width: 14ch; }
+.cs-confirm-cancel { flex: 0 0 auto; }
+.cs-empty { color: var(--muted, #888); }
 </style>
-
-<!-- SDD-045 §4 — the Controls surface: everything that can be turned on/off,
-     every mode + profile, from config/control-systems.yaml. -->
-<h2>controls — profiles, modes &amp; feature toggles</h2>
-<p class="sub" style="margin:.2rem 0 .8rem">
-  Everything that can be turned on/off, every mode and profile. Web is
-  read-only: click a control to copy the exact <code>sovereign-osctl</code>
-  command. <span id="controls-count" class="muted"></span>
-</p>
-<div id="control-surface" class="cs-grid">
-  <div class="cs-empty">loading controls…</div>
-</div>
-
-<h2>routes</h2>
-<div class="panel" id="routes-panel">
-  <table>
-    <thead>
-      <tr><th>slug</th><th>port</th><th>healthz</th><th>subpath</th><th>label</th><th>source</th><th>reachable</th><th>actions</th></tr>
-    </thead>
-    <tbody id="routes-tbody"><tr><td colspan="8" class="muted">loading…</td></tr></tbody>
-  </table>
-</div>
-
-<h2>collisions</h2>
-<div class="panel" id="collisions-panel">
-  <div id="collisions-body" class="muted">loading…</div>
-</div>
-
-<h2>selfdef cross-repo manifests</h2>
-<div class="panel" id="discover-panel">
-  <div id="discover-body" class="muted">loading…</div>
-</div>
-
-<h2>M060 mirror producers (selfdef → sovereign-os bridge)</h2>
-<div id="m060-health-banner" class="m060-health-banner unknown" role="status" aria-live="polite">
-  <span class="dot"></span>
-  <strong id="m060-health-label">chain health: unknown</strong>
-  <span id="m060-health-detail" class="muted">
-    polling <code>GET /v1/m060/health</code> via the selfdef daemon…
-  </span>
-  <span class="spacer"></span>
-  <span class="muted" id="m060-health-count">— / 10 mirrors</span>
-  <span class="muted">· age <span id="m060-health-age">—</span></span>
-</div>
-<style>
-  .m060-health-banner { display:flex; align-items:center; gap:.6rem;
-    padding:.5rem .8rem; border:1px solid var(--border, #2a2a2a);
-    border-radius:.4rem; margin:.4rem 0 .8rem; font-size:.85rem;
-    background:rgba(255,255,255,.02); }
-  .m060-health-banner.online      { border-color:#1f7a3a; background:rgba(31,122,58,.10); }
-  .m060-health-banner.degraded    { border-color:#7a701f; background:rgba(122,112,31,.10); }
-  .m060-health-banner.stale       { border-color:#7a701f; background:rgba(122,112,31,.10); }
-  .m060-health-banner.offline     { border-color:#7a3a1f; background:rgba(122,58,31,.10); }
-  .m060-health-banner.unreachable { border-color:#7a3a1f; background:rgba(122,58,31,.10); }
-  .m060-health-banner.unknown     { border-color:#444; background:rgba(255,255,255,.04); }
-  .m060-health-banner .dot { width:.55rem; height:.55rem; border-radius:50%;
-    background:#888; box-shadow:0 0 .35rem rgba(255,255,255,.2); }
-  .m060-health-banner.online .dot      { background:#1f7a3a; box-shadow:0 0 .35rem rgba(31,122,58,.7); }
-  .m060-health-banner.degraded .dot    { background:#7a701f; box-shadow:0 0 .35rem rgba(122,112,31,.7); }
-  .m060-health-banner.stale .dot       { background:#7a701f; box-shadow:0 0 .35rem rgba(122,112,31,.7); }
-  .m060-health-banner.offline .dot     { background:#7a3a1f; box-shadow:0 0 .35rem rgba(122,58,31,.7); }
-  .m060-health-banner.unreachable .dot { background:#7a3a1f; box-shadow:0 0 .35rem rgba(122,58,31,.7); }
-  .m060-health-banner .spacer { flex:1; }
-</style>
-
-<!-- MS022 SSE subscriber-quota banner. Pairs with selfdef commit 77b4499
-     (sse_quota_metrics.rs 6 gauges) + sovereign-os commit 69f8dba (3
-     Prometheus alerts + Grafana dashboard). Polls the same /api/m060/health
-     endpoint shape — the m060-health-api daemon proxies node_exporter's
-     selfdef_sse_subscribers_global_saturation gauge into the response
-     body's `ms022.saturation` field when present. Honest-offline when
-     node_exporter or the producer haven't published yet. -->
-<div id="ms022-sse-quota-banner" class="ms022-banner unknown" role="status" aria-live="polite">
-  <span class="dot"></span>
-  <strong id="ms022-sse-label">SSE quota: unknown</strong>
-  <span id="ms022-sse-detail" class="muted">
-    polling selfdef <code>/metrics</code> via node_exporter…
-  </span>
-  <span class="spacer"></span>
-  <span class="muted" id="ms022-sse-active">— / — subscribers</span>
-  <span class="muted">·
-    <a href="/d/sovereign-os-ms022-sse-quota" target="_blank"
-       style="color:inherit;text-decoration:underline">Grafana</a>
-  </span>
-</div>
-<style>
-  /* Reuse the m060-health-banner palette for consistency. */
-  .ms022-banner { display:flex; align-items:center; gap:.6rem;
-    padding:.5rem .8rem; border:1px solid var(--border, #2a2a2a);
-    border-radius:.4rem; margin:.4rem 0 .8rem; font-size:.85rem;
-    background:rgba(255,255,255,.02); }
-  .ms022-banner.ok        { border-color:#1f7a3a; background:rgba(31,122,58,.10); }
-  .ms022-banner.approaching { border-color:#7a701f; background:rgba(122,112,31,.10); }
-  .ms022-banner.saturated { border-color:#7a3a1f; background:rgba(122,58,31,.10); }
-  .ms022-banner.unknown   { border-color:#444; background:rgba(255,255,255,.04); }
-  .ms022-banner .dot { width:.55rem; height:.55rem; border-radius:50%;
-    background:#888; box-shadow:0 0 .35rem rgba(255,255,255,.2); }
-  .ms022-banner.ok .dot          { background:#1f7a3a; box-shadow:0 0 .35rem rgba(31,122,58,.7); }
-  .ms022-banner.approaching .dot { background:#7a701f; box-shadow:0 0 .35rem rgba(122,112,31,.7); }
-  .ms022-banner.saturated .dot   { background:#7a3a1f; box-shadow:0 0 .35rem rgba(122,58,31,.7); }
-  .ms022-banner .spacer { flex:1; }
-</style>
-
-<!-- Four-watchdog (IPS spine) banner. Pairs with selfdef commits
-     7869a45 + a009b39 (textfile producer + 2 systemd units) +
-     sovereign-os commits 795cd12 (alerts + runbook) + 985c565
-     (Grafana dashboard) + bde651c (threshold-lockstep contract).
-     Polls /api/four-watchdog/state which is the contract endpoint
-     served by scripts/operator/four-watchdog-api.py (proxies
-     node_exporter's /metrics for the 4 canonical gauges). The
-     observer-fault state takes precedence over rollup-severity per
-     the wrapper's honest-offline contract — when emit_failed=1 OR
-     the observer is silent, the other gauges cannot be trusted. -->
-<div id="four-watchdog-banner" class="four-watchdog-banner unknown" role="status" aria-live="polite">
-  <span class="dot"></span>
-  <strong id="four-watchdog-label">IPS spine: unknown</strong>
-  <span id="four-watchdog-detail" class="muted">
-    polling four-watchdog observer via <code>/api/four-watchdog/state</code>…
-  </span>
-  <span class="spacer"></span>
-  <span class="muted" id="four-watchdog-rollup">— / —</span>
-  <span class="muted">·
-    <a href="/d/sovereign-os-four-watchdog" target="_blank"
-       style="color:inherit;text-decoration:underline">Grafana</a>
-  </span>
-</div>
-<style>
-  /* Four-watchdog banner — reuses the m060-health-banner palette
-     for consistency. State classes match the proxy daemon's
-     classify_state output (ok/warn/critical/observer-fault/
-     unreachable/unknown). */
-  .four-watchdog-banner { display:flex; align-items:center; gap:.6rem;
-    padding:.5rem .8rem; border:1px solid var(--border, #2a2a2a);
-    border-radius:.4rem; margin:.4rem 0 .8rem; font-size:.85rem;
-    background:rgba(255,255,255,.02); }
-  .four-watchdog-banner.ok             { border-color:#1f7a3a; background:rgba(31,122,58,.10); }
-  .four-watchdog-banner.warn           { border-color:#7a701f; background:rgba(122,112,31,.10); }
-  .four-watchdog-banner.critical       { border-color:#7a3a1f; background:rgba(122,58,31,.10); }
-  .four-watchdog-banner.observer-fault { border-color:#7a3a1f; background:rgba(122,58,31,.10); }
-  .four-watchdog-banner.unreachable    { border-color:#7a3a1f; background:rgba(122,58,31,.10); }
-  .four-watchdog-banner.unknown        { border-color:#444; background:rgba(255,255,255,.04); }
-  .four-watchdog-banner .dot { width:.55rem; height:.55rem; border-radius:50%;
-    background:#888; box-shadow:0 0 .35rem rgba(255,255,255,.2); }
-  .four-watchdog-banner.ok .dot             { background:#1f7a3a; box-shadow:0 0 .35rem rgba(31,122,58,.7); }
-  .four-watchdog-banner.warn .dot           { background:#7a701f; box-shadow:0 0 .35rem rgba(122,112,31,.7); }
-  .four-watchdog-banner.critical .dot       { background:#7a3a1f; box-shadow:0 0 .35rem rgba(122,58,31,.7); }
-  .four-watchdog-banner.observer-fault .dot { background:#7a3a1f; box-shadow:0 0 .35rem rgba(122,58,31,.7); }
-  .four-watchdog-banner.unreachable .dot    { background:#7a3a1f; box-shadow:0 0 .35rem rgba(122,58,31,.7); }
-  .four-watchdog-banner .spacer { flex:1; }
-</style>
-
-<!-- AppArmor profile-enforcement banner. Pairs with selfdef commit
-     4680ed8 (apparmor-textfile producer + 2 systemd units) +
-     sovereign-os commits acd6d27 (4 alerts) + 190e18d (runbook +
-     dashboard #25). State classes match the proxy daemon's
-     classify_state output (ok / not-loaded / complain / observer-fault /
-     unreachable / unknown). The complain-mode state is the signature
-     IPS-drift hazard the observer was built to catch — operator
-     aa-complain'd for debugging and forgot to restore. -->
-<div id="apparmor-banner" class="apparmor-banner unknown" role="status" aria-live="polite">
-  <span class="dot"></span>
-  <strong id="apparmor-label">AppArmor: unknown</strong>
-  <span id="apparmor-detail" class="muted">
-    polling <code>selfdef_apparmor_profile_*</code> via node_exporter…
-  </span>
-  <span class="spacer" style="flex:1"></span>
-  <span class="muted" id="apparmor-mode">mode: —</span>
-  <span class="muted">·
-    <a href="/d/sovereign-os-selfdef-apparmor" target="_blank"
-       style="color:inherit;text-decoration:underline">Grafana</a>
-  </span>
-</div>
-<style>
-  .apparmor-banner { display:flex; align-items:center; gap:.6rem;
-    padding:.5rem .8rem; border:1px solid var(--border, #2a2a2a);
-    border-radius:.4rem; margin:.4rem 0 .8rem; font-size:.85rem;
-    background:rgba(255,255,255,.02); }
-  .apparmor-banner.ok             { border-color:#1f7a3a; background:rgba(31,122,58,.10); }
-  .apparmor-banner.complain       { border-color:#7a3a1f; background:rgba(122,58,31,.10); }
-  .apparmor-banner.not-loaded     { border-color:#7a3a1f; background:rgba(122,58,31,.10); }
-  .apparmor-banner.observer-fault { border-color:#7a3a1f; background:rgba(122,58,31,.10); }
-  .apparmor-banner.unreachable    { border-color:#7a3a1f; background:rgba(122,58,31,.10); }
-  .apparmor-banner.unknown        { border-color:#444; background:rgba(255,255,255,.04); }
-  .apparmor-banner .dot { width:.55rem; height:.55rem; border-radius:50%;
-    background:#888; box-shadow:0 0 .35rem rgba(255,255,255,.2); }
-  .apparmor-banner.ok .dot             { background:#1f7a3a; box-shadow:0 0 .35rem rgba(31,122,58,.7); }
-  .apparmor-banner.complain .dot       { background:#7a3a1f; box-shadow:0 0 .35rem rgba(122,58,31,.7); }
-  .apparmor-banner.not-loaded .dot     { background:#7a3a1f; box-shadow:0 0 .35rem rgba(122,58,31,.7); }
-  .apparmor-banner.observer-fault .dot { background:#7a3a1f; box-shadow:0 0 .35rem rgba(122,58,31,.7); }
-  .apparmor-banner.unreachable .dot    { background:#7a3a1f; box-shadow:0 0 .35rem rgba(122,58,31,.7); }
-  .apparmor-banner .spacer { flex:1; }
-</style>
-
-<div class="panel" id="m060-mirror-panel">
-  <div class="muted" style="margin-bottom:.4rem;font-size:.85rem">
-    Live producer health across the 8 cross-repo mirror dashboards.
-    Green = <code>selfdefd</code> is publishing this domain to
-    <code>/run/sovereign-os/selfdef-mirror/</code>; red = no resident
-    store yet (enable <code>[deployment].selfdef_mirror_dir</code> in
-    <code>selfdef.toml</code>). Click a tile to drill into its dashboard.
-  </div>
-  <div id="m060-mirror-grid" class="m060-grid"></div>
-</div>
-<style>
-  .m060-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:.5rem; }
-  .m060-tile { display:flex; align-items:center; gap:.5rem; padding:.5rem .65rem;
-    border:1px solid var(--border, #2a2a2a); border-radius:.35rem; text-decoration:none; color:inherit;
-    font-size:.82rem; background:rgba(255,255,255,.02); transition:transform .1s ease,border-color .1s ease; }
-  .m060-tile:hover { transform:translateY(-1px); border-color:#888; }
-  .m060-tile.online  { border-color:#1f7a3a; background:rgba(31,122,58,.10); }
-  .m060-tile.offline { border-color:#7a3a1f; background:rgba(122,58,31,.10); }
-  .m060-tile.unknown { border-color:#7a701f; background:rgba(122,112,31,.10); }
-  /* M060 chain-health corrupt state — artifact is present on disk but
-     fails JSON parse (degraded chain). Distinct from offline (no file)
-     and online (file present + parseable). Red border + crit color so
-     the operator sees it during a degraded-chain incident response. */
-  .m060-tile.corrupt { border-color:#ff3a3a; background:rgba(255,58,58,.10);
-    box-shadow:0 0 .4rem rgba(255,58,58,.45) inset; }
-  .m060-tile.stale   { border-color:#e6c062; background:rgba(230,192,98,.10); }
-  .m060-tile .dot { width:.5rem; height:.5rem; border-radius:50%; flex-shrink:0; }
-  .m060-tile.online .dot  { background:#1f7a3a; box-shadow:0 0 .3rem rgba(31,122,58,.7); }
-  .m060-tile.offline .dot { background:#7a3a1f; }
-  .m060-tile.corrupt .dot { background:#ff3a3a; box-shadow:0 0 .3rem rgba(255,58,58,.8); }
-  .m060-tile.stale .dot   { background:#e6c062; }
-  .m060-tile.unknown .dot { background:#7a701f; }
-  .m060-tile .id { font-weight:600; }
-  .m060-tile .label { color:var(--muted, #888); }
-</style>
-
-<h2>refresh</h2>
-<div class="panel">
-  <div class="row">
-    <button id="refresh-btn">refresh now</button>
-    <span class="muted">auto-refresh every 30s — last refresh <span id="last-refresh">never</span></span>
-    <span class="spacer" style="flex:1"></span>
-    <a href="../personalization/" class="muted" style="font-size:.85rem;border:1px solid var(--border);padding:.25rem .6rem;border-radius:3px;text-decoration:none">⚙ personalization</a>
-  </div>
-</div>
-
-<footer>
-  <div>shipped in <code>R500 (E11.M2++)</code> · serves the <code>/webapp/</code> path of the R498 API daemon (<code>scripts/operator/master-dashboard-api.py</code>) · backing CLI <code>sovereign-osctl master-dashboard</code> · MCP via <code>scripts/interop/mcp-aggregate.py</code> (R499)</div>
-  <div class="standing-rule">"We do not minimize anything." — operator §1g standing rule (sacrosanct)</div>
-</footer>
-
 <script>
-"use strict";
-// Operator-§1g UX rule: no external dependencies, no CDN fetches.
-// Same-origin XHR only — the R498 API daemon serves both this webapp
-// and the JSON endpoints under the same host:port binding.
+/* webapp/_shared/control-surface.js — SDD-045 shared control-surface renderer.
+ *
+ * Renders the control-systems registry (config/control-systems.yaml, served
+ * as GET /control-systems) — the operator's "everything can be turned on and
+ * off + tons of modes and profiles" — as a grid of control cards. Reused by
+ * every dashboard so each becomes a CONTROL surface.
+ *
+ * R10274 — functional cockpit: a control is now EXECUTED from the card. Each
+ * change_cli placeholder becomes an input (enum → segmented buttons keyed
+ * `verb`/`verbN`; free `<name>` → a datalist input seeded from `options`,
+ * matching the server's _action_exec.resolve_argv keying). Execute POSTs
+ * {control_id, args, confirm} to the sanctioned same-origin control-exec-api
+ * (POST /api/control/execute); the copyable command is demoted to a labelled
+ * fallback, and any 405 / unreachable exec front degrades gracefully to Copy.
+ *
+ * R10212 is preserved: the web still never *arbitrarily* mutates. Proxy-only
+ * controls (selfdef / perimeter — mirrors _action_exec.SELFDEF_OWNED, drift-
+ * guarded by tests/lint/test_control_surface_execute_boundary.py) render NO
+ * execute affordance (signed-proxy badge + copy only). Every per-panel daemon
+ * stays read-only (405 on writes); the ONE write path is the dedicated exec
+ * daemon, where every action is allowlisted + options-validated + confirm/
+ * key-gated + OCSF-5001 audited + DRY_RUN by default.
+ *
+ * Usage:
+ *   const n = SovereignControlSurface.render(el, systems, {
+ *     filterSlug: 'runtime-modes',      // only global + systems governing slug
+ *     executeUrl: '/api/control/execute', // same-origin sanctioned write daemon
+ *     onCopy: (cmd) => showToast(cmd)     // optional copy callback
+ *   });
+ */
+(function (global) {
+  "use strict";
 
-const ENDPOINTS = ["/version", "/routes", "/collisions", "/health", "/discover", "/toggles"];
+  // R10212 boundary — mirrors _action_exec.SELFDEF_OWNED. selfdef/perimeter are
+  // signed-proxy ONLY: never executed locally. (drift-guarded by lint.)
+  var PROXY_ONLY = ["selfdef", "perimeter"];
+  var EXECUTE_URL = "/api/control/execute";
 
-function demoActive(){return !!(window.soDemo&&window.soDemo.on());}
-const DEMO_MASTER = {
-  "/version": {version:"demo/v0.2"},
-  "/routes": {aggregator_port:8443, count:7, routes:[
-    {slug:"demo/d-09-hardware-pressure", port:8409, healthz_path:"/healthz", subpath:"/d-09", label:"Hardware Pressure", source_repo:"demo/sovereign-os"},
-    {slug:"demo/d-03-model-health", port:8403, healthz_path:"/healthz", subpath:"/d-03", label:"Model Health", source_repo:"demo/sovereign-os"},
-    {slug:"demo/d-04-costs", port:8404, healthz_path:"/healthz", subpath:"/d-04", label:"Costs", source_repo:"demo/sovereign-os"},
-    {slug:"demo/d-01-active-sessions", port:8401, healthz_path:"/healthz", subpath:"/d-01", label:"Active Sessions", source_repo:"demo/sovereign-os"},
-    {slug:"demo/d-21-lm-orchestration", port:8421, healthz_path:"/healthz", subpath:"/d-21", label:"LM Orchestration", source_repo:"demo/sovereign-os"},
-    {slug:"demo/code-console", port:8412, healthz_path:"/healthz", subpath:"/code-console", label:"Code Console", source_repo:"demo/sovereign-os"},
-    {slug:"demo/d-22-lm-status-operability", port:8422, healthz_path:"/healthz", subpath:"/d-22", label:"LM Status & Operability", source_repo:"demo/sovereign-os"}
-  ]},
-  "/health": {reachable:7, count:7, probes:[
-    {port:8409,reachable:true},{port:8403,reachable:true},{port:8404,reachable:true},
-    {port:8401,reachable:true},{port:8421,reachable:true},{port:8412,reachable:true},{port:8422,reachable:true}
-  ]},
-  "/collisions": {has_collisions:false, port_collisions:{}, subpath_collisions:{}},
-  "/discover": {count:4, discovered:[
-    {slug:"demo/selfdef-networking", port:8512, subpath:"/d-12", auth_tier:"L1", source_repo:"demo/selfdef"},
-    {slug:"demo/selfdef-capability-tokens", port:8514, subpath:"/d-14", auth_tier:"L1", source_repo:"demo/selfdef"},
-    {slug:"demo/selfdef-audit", port:8516, subpath:"/d-16", auth_tier:"L1", source_repo:"demo/selfdef"},
-    {slug:"demo/selfdef-quarantine", port:8517, subpath:"/d-17", auth_tier:"L2", source_repo:"demo/selfdef"}
-  ], errors:[], manifest_dir:"demo/etc/sovereign-os/dashboards"},
-  "/toggles": {enabled_count:6, dashboards:[
-    {slug:"demo/d-09-hardware-pressure", toggleable:true, enabled:true},
-    {slug:"demo/d-03-model-health", toggleable:true, enabled:true},
-    {slug:"demo/d-04-costs", toggleable:true, enabled:true},
-    {slug:"demo/d-01-active-sessions", toggleable:true, enabled:true},
-    {slug:"demo/d-21-lm-orchestration", toggleable:true, enabled:true},
-    {slug:"demo/code-console", toggleable:true, enabled:true},
-    {slug:"demo/d-22-lm-status-operability", toggleable:true, enabled:false}
-  ]},
-  "/catalog": {categories:[
-    {id:"demo/compute", label:"Compute", blurb:"demo/ models, hardware, cost — the inference substrate"},
-    {id:"demo/defense", label:"Defense", blurb:"demo/ the selfdef spine — trust, audit, quarantine"},
-    {id:"demo/operate", label:"Operate", blurb:"demo/ hands-on surfaces — console, sessions, rollback"}
-  ], dashboards:[
-    {slug:"demo/d-09-hardware-pressure", label:"Hardware Pressure", description:"demo/ GPU + RAM + ZFS pressure at a glance", status:"live", category:"demo/compute", path:"/d-09"},
-    {slug:"demo/d-03-model-health", label:"Model Health", description:"demo/ per-backend liveness + latency", status:"live", category:"demo/compute", path:"/d-03"},
-    {slug:"demo/d-04-costs", label:"Costs", description:"demo/ blended spend vs the pre-mission baseline", status:"snapshot", category:"demo/compute", path:"/d-04"},
-    {slug:"demo/d-20-peace-machine-health", label:"Peace Machine Health", description:"demo/ the peace-check validator verdict", status:"live", category:"demo/defense", path:"/d-20"},
-    {slug:"demo/d-18-trust-scores", label:"Trust Scores", description:"demo/ per-tool trust ledger", status:"snapshot", category:"demo/defense", path:"/d-18"},
-    {slug:"demo/d-17-quarantine", label:"Quarantine", description:"demo/ isolated artifacts awaiting review", status:"live", category:"demo/defense", path:"/d-17"},
-    {slug:"demo/code-console", label:"Code Console", description:"demo/ the operator's exec surface", status:"live", category:"demo/operate", path:"/code-console"},
-    {slug:"demo/d-08-rollback-points", label:"Rollback Points", description:"demo/ ZFS snapshots you can roll back to", status:"planned", category:"demo/operate", cli:"sovereign-osctl rollback list"}
-  ]},
-  "/control-systems": {systems:[
-    {id:"demo/profiles-switch"},{id:"demo/profiles-generate-runtime"},{id:"demo/peace-check"},
-    {id:"demo/dashboards-toggle"},{id:"demo/rollback-apply"},{id:"demo/quarantine-release"},
-    {id:"demo/trust-recompute"},{id:"demo/audit-export"}
-  ]},
-  "/feature-coverage": {mapped_to_dashboard:22, cli_only_waived:5, verb_families_total:27},
-  "/api/m060/health": {state:"online", artifacts_present:10, artifacts_expected:10, newest_age_seconds:42, artifacts:[
-    {artifact:"active-profile.json", present:true, parses_as_json:true, age_seconds:42, last_publish_at:"demo/2026-07-11T00:00:42Z"},
-    {artifact:"rules.json", present:true, parses_as_json:true, age_seconds:53, last_publish_at:"demo/2026-07-11T00:00:31Z"},
-    {artifact:"grants.json", present:true, parses_as_json:true, age_seconds:61, last_publish_at:"demo/2026-07-11T00:00:23Z"},
-    {artifact:"capability-tokens.json", present:true, parses_as_json:true, age_seconds:48, last_publish_at:"demo/2026-07-11T00:00:36Z"},
-    {artifact:"sandboxes.json", present:true, parses_as_json:true, age_seconds:39, last_publish_at:"demo/2026-07-11T00:00:45Z"},
-    {artifact:"audit.json", present:true, parses_as_json:true, age_seconds:44, last_publish_at:"demo/2026-07-11T00:00:40Z"},
-    {artifact:"quarantine.json", present:true, parses_as_json:true, age_seconds:57, last_publish_at:"demo/2026-07-11T00:00:27Z"},
-    {artifact:"trust-scores.json", present:true, parses_as_json:true, age_seconds:50, last_publish_at:"demo/2026-07-11T00:00:34Z"}
-  ]},
-  "/api/ms022/sse-quota": {state:"ok", metrics:{global_active:3, global_cap:64, global_saturation:0.05, per_token_saturated:0}},
-  "/api/four-watchdog/state": {state:"ok", metrics:{worst_severity:0, observer_age_seconds:12}}
-};
-// SDD-134 — a healthy per-mirror snapshot for the M060 grid demo path (all online).
-const DEMO_M060_MIRROR = {state:"online", captured_at:"demo/2026-07-11T00:00:42Z"};
-async function fetchJSON(path) {
-  if (demoActive()) return DEMO_MASTER[path] !== undefined ? DEMO_MASTER[path] : {};
-  const res = await fetch(path, {headers: {"Accept": "application/json"}});
-  if (!res.ok) throw new Error(path + " → " + res.status);
-  return await res.json();
-}
+  function esc(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
 
-function el(id) { return document.getElementById(id); }
+  function isProxyOnly(sys) {
+    if (typeof sys.execute_local === "boolean") return !sys.execute_local;
+    return PROXY_ONLY.indexOf(sys.id) >= 0;
+  }
 
-function pill(text, klass) {
-  const s = document.createElement("span");
-  s.className = "pill " + (klass || "");
-  s.textContent = text;
-  return s;
-}
-
-function renderStats(version, routes, health, collisions, discover) {
-  version = version || {}; routes = routes || {}; health = health || {}; collisions = collisions || {}; discover = discover || {};
-  const D = "—";
-  el("stat-port").textContent = routes.aggregator_port != null ? routes.aggregator_port : D;
-  el("stat-count").textContent = routes.count != null ? routes.count : D;
-  el("stat-reachable").textContent = health.reachable != null ? (health.reachable + " / " + health.count) : D;
-  el("stat-reachable").className = "v " + (health.reachable == null ? "muted" : (health.reachable === health.count ? "ok" : "warn"));
-  el("stat-collisions").textContent = collisions.has_collisions === undefined ? D : (collisions.has_collisions ? "yes" : "clean");
-  el("stat-collisions").className = "v " + (collisions.has_collisions === undefined ? "muted" : (collisions.has_collisions ? "bad" : "ok"));
-  el("stat-selfdef").textContent = discover.count != null ? discover.count : D;
-  el("stat-version").textContent = version.version != null ? version.version : D;
-}
-
-function renderRoutes(routes, health, toggles) {
-  const _tb = el("routes-tbody");
-  if (!routes || !routes.routes) { _tb.innerHTML = '<tr><td colspan="7" class="muted">route table unreachable — populates when /routes + /health are reachable. Nothing is fabricated (SB-077).</td></tr>'; return; }
-  const reachableByPort = {};
-  for (const p of ((health && health.probes) || [])) reachableByPort[p.port] = p.reachable;
-  // M060 R10129 — per-route operator on/off state from /toggles
-  const toggleBySlug = {};
-  for (const t of (toggles && toggles.dashboards) || []) toggleBySlug[t.slug] = t;
-  const tbody = el("routes-tbody");
-  tbody.innerHTML = "";
-  for (const r of routes.routes) {
-    const tr = document.createElement("tr");
-    const reach = reachableByPort[r.port];
-    const tog = toggleBySlug[r.slug];
-    const disabled = tog && tog.toggleable && !tog.enabled;
-    // the "main one" is a hub — subpath is a live link to each dashboard
-    const link = "<a href=\"" + r.subpath + "\">" + r.subpath + "</a>";
-    tr.innerHTML =
-      "<td><code>" + r.slug + "</code></td>" +
-      "<td>" + r.port + "</td>" +
-      "<td><code>" + r.healthz_path + "</code></td>" +
-      "<td><code>" + link + "</code></td>" +
-      "<td>" + r.label + "</td>" +
-      "<td class=muted>" + r.source_repo + "</td>" +
-      "<td></td>" +
-      "<td></td>";
-    const actionsCell = tr.lastElementChild;
-    const statusCell = actionsCell.previousElementSibling;
-    // operator on/off pill (only for toggleable cockpit dashboards)
-    if (tog && tog.toggleable) {
-      statusCell.appendChild(pill(tog.enabled ? "on" : "OFF", tog.enabled ? "ok" : "bad"));
-    }
-    statusCell.appendChild(
-      pill(reach ? "tcp-open" : "tcp-closed", reach ? "ok" : "bad")
-    );
-    // M060 R10129 — operator toggle actions. Webapp is READ-ONLY (web NEVER
-    // mutates per the cross-repo doctrine); the button copies the right
-    // sovereign-osctl command to the clipboard for the operator to paste.
-    if (tog && tog.toggleable) {
-      if (tog.enabled) {
-        actionsCell.appendChild(copyBtn(
-          "copy: disable",
-          "sovereign-osctl dashboards disable " + r.slug,
-          "danger"
-        ));
-      } else {
-        actionsCell.appendChild(copyBtn(
-          "copy: enable",
-          "sovereign-osctl dashboards enable " + r.slug
-        ));
+  // Parse a change_cli template, mirroring _action_exec.resolve_argv:
+  //   {a|b}  → enum, arg-key 'verb' (first) / 'verb1' / 'verb2' ...
+  //   <name> → free, arg-key name
+  //   else   → literal token
+  function parseTemplate(changeCli) {
+    var toks = String(changeCli || "").trim().split(/\s+/).filter(Boolean);
+    var out = [], enumSeen = 0;
+    toks.forEach(function (t) {
+      var em = /^\{([a-z0-9|_-]+)\}$/.exec(t);
+      if (em) {
+        out.push({ kind: "enum", key: enumSeen === 0 ? "verb" : "verb" + enumSeen,
+                   alts: em[1].split("|") });
+        enumSeen += 1; return;
       }
-    }
-    if (disabled) tr.style.opacity = "0.55";
-    tbody.appendChild(tr);
-  }
-}
-
-// Web-is-read-only clipboard helper — operator pastes the command in shell.
-function copyBtn(label, cmd, klass) {
-  const b = document.createElement("button");
-  b.textContent = label;
-  if (klass) b.className = klass;
-  b.title = cmd;
-  b.style.marginLeft = ".25rem";
-  b.addEventListener("click", function () {
-    navigator.clipboard.writeText(cmd).then(function () {
-      showCopyToast("copied: " + cmd);
+      var fm = /^<([a-z0-9_-]+)>$/.exec(t);
+      if (fm) { out.push({ kind: "free", key: fm[1] }); return; }
+      out.push({ kind: "lit", text: t });
     });
-  });
-  return b;
-}
-
-function showCopyToast(msg) {
-  let t = document.getElementById("copy-toast");
-  if (!t) {
-    t = document.createElement("div");
-    t.id = "copy-toast";
-    t.style.cssText = "position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);" +
-      "background:#1f7a3a;color:#fff;padding:.6rem 1rem;border-radius:.4rem;" +
-      "font-size:.85rem;opacity:0;transition:opacity .2s ease;pointer-events:none;z-index:9999";
-    document.body.appendChild(t);
-  }
-  t.textContent = msg;
-  t.style.opacity = "1";
-  clearTimeout(showCopyToast._h);
-  showCopyToast._h = setTimeout(function () { t.style.opacity = "0"; }, 1800);
-}
-
-function renderCollisions(collisions) {
-  const body = el("collisions-body");
-  body.innerHTML = "";
-  if (!collisions || collisions.has_collisions === undefined) { body.className = "muted"; body.textContent = "collision check unavailable — /collisions unreachable. Nothing is fabricated (SB-077)."; return; }
-  if (!collisions.has_collisions) {
-    body.className = "ok";
-    body.textContent = "✓ no port or subpath collisions across built-in routes.";
-    return;
-  }
-  body.className = "bad";
-  const lines = [];
-  for (const [p, slugs] of Object.entries(collisions.port_collisions || {}))
-    lines.push("port " + p + " → " + slugs.join(", "));
-  for (const [s, slugs] of Object.entries(collisions.subpath_collisions || {}))
-    lines.push("subpath " + s + " → " + slugs.join(", "));
-  body.textContent = "✗ collisions: " + lines.join(" · ");
-}
-
-function renderDiscover(discover) {
-  const body = el("discover-body");
-  body.innerHTML = "";
-  if (!discover || discover.count === undefined) { body.className = "muted"; body.textContent = "selfdef discovery unavailable — /discover unreachable. Nothing is fabricated (SB-077)."; return; }
-  if (discover.count === 0 && (!discover.errors || discover.errors.length === 0)) {
-    body.className = "muted";
-    body.textContent = "(no selfdef manifests under " + discover.manifest_dir + ")";
-    return;
-  }
-  body.className = "";
-  if (discover.count > 0) {
-    const t = document.createElement("table");
-    t.innerHTML =
-      "<thead><tr><th>slug</th><th>port</th><th>subpath</th><th>auth-tier</th><th>source</th></tr></thead><tbody></tbody>";
-    for (const m of discover.discovered) {
-      const tr = document.createElement("tr");
-      tr.innerHTML =
-        "<td><code>" + m.slug + "</code></td>" +
-        "<td>" + m.port + "</td>" +
-        "<td><code>" + m.subpath + "</code></td>" +
-        "<td>" + (m.auth_tier || "—") + "</td>" +
-        "<td class=muted>" + m.source_repo + "</td>";
-      t.querySelector("tbody").appendChild(tr);
-    }
-    body.appendChild(t);
-  }
-  if (discover.errors && discover.errors.length > 0) {
-    const errs = document.createElement("div");
-    errs.className = "err";
-    errs.textContent = discover.errors.length + " manifest error(s) — see /discover JSON.";
-    body.appendChild(errs);
-  }
-}
-
-// M060 cross-repo mirror producers — the 8 selfdef → sovereign-os bridges.
-// Each polls its own snapshot endpoint and reports mirror_status (online/
-// offline). Per-domain endpoint + dashboard subpath. The `artifact`
-// field maps the tile to its publish filename so the per-artifact health
-// merge can identify corrupt/stale state without an extra round-trip.
-const M060_MIRRORS = [
-  {id: "D-02", label: "active-profile",    artifact: "active-profile.json",   snapshot: "/api/profile/show",  subpath: "../d-02-profile-choices/"},
-  {id: "D-12", label: "rules",             artifact: "rules.json",            snapshot: "/api/d-12/snapshot", subpath: "../edge-firewall/"},
-  {id: "D-13", label: "grants",            artifact: "grants.json",           snapshot: "/api/d-13/snapshot", subpath: "../d-13-filesystem-grants/"},
-  {id: "D-14", label: "capability-tokens", artifact: "capability-tokens.json",snapshot: "/api/d-14/snapshot", subpath: "../d-14-capability-tokens/"},
-  {id: "D-15", label: "sandboxes",         artifact: "sandboxes.json",        snapshot: "/api/d-15/snapshot", subpath: "../d-15-sandboxes/"},
-  {id: "D-16", label: "audit-chain",       artifact: "audit.json",            snapshot: "/api/d-16/snapshot", subpath: "../d-16-audit/"},
-  {id: "D-17", label: "quarantine",        artifact: "quarantine.json",       snapshot: "/api/d-17/snapshot", subpath: "../d-17-quarantine/"},
-  {id: "D-18", label: "trust-scores",      artifact: "trust-scores.json",     snapshot: "/api/d-18/snapshot", subpath: "../d-18-trust-scores/"},
-];
-
-async function fetchMirrorStatus(m) {
-  if (demoActive()) return {id: m.id, label: m.label, subpath: m.subpath, state: DEMO_M060_MIRROR.state, captured_at: DEMO_M060_MIRROR.captured_at};
-  try {
-    const r = await fetch(m.snapshot, {headers: {"Accept": "application/json"}});
-    if (!r.ok) return {id: m.id, label: m.label, subpath: m.subpath, state: "unknown", err: "HTTP " + r.status};
-    const j = await r.json();
-    return {id: m.id, label: m.label, subpath: m.subpath,
-            state: j.mirror_status === "online" ? "online" : "offline",
-            captured_at: j.captured_at || null};
-  } catch (e) {
-    return {id: m.id, label: m.label, subpath: m.subpath, state: "unknown", err: String(e)};
-  }
-}
-
-// M060 chain-health banner: polls /api/m060/health proxied from
-// the selfdef daemon /v1/m060/health and renders state badge +
-// fresh-mirror count + newest-age. Refreshes alongside the M060
-// grid below.
-async function renderM060HealthBanner() {
-  const banner = el("m060-health-banner");
-  if (!banner) return;
-  let payload;
-  if (demoActive()) { payload = DEMO_MASTER["/api/m060/health"]; }
-  else try {
-    const r = await fetch("/api/m060/health", {headers: {"Accept": "application/json"}});
-    payload = r.ok ? await r.json() : null;
-  } catch (e) { payload = null; }
-  if (!payload) {
-    payload = {state: "unreachable", artifacts_present: 0, artifacts_expected: 10};
-  }
-  const state = String(payload.state || "unknown");
-  const knownStates = ["online", "degraded", "stale", "offline", "unreachable", "unknown"];
-  banner.classList.remove(...knownStates);
-  banner.classList.add(knownStates.indexOf(state) >= 0 ? state : "unknown");
-  const labelEl = el("m060-health-label");
-  const detailEl = el("m060-health-detail");
-  const countEl = el("m060-health-count");
-  const ageEl = el("m060-health-age");
-  if (labelEl) labelEl.textContent = "chain health: " + state;
-  const present = Number(payload.artifacts_present || 0);
-  const expected = Number(payload.artifacts_expected || 10);
-  if (countEl) countEl.textContent = present + " / " + expected + " mirrors";
-  const age = payload.newest_age_seconds;
-  if (ageEl) ageEl.textContent = (age == null) ? "—" : (age + "s");
-  if (detailEl) {
-    if (state === "online")          detailEl.innerHTML = 'all 10 mirrors fresh + parseable';
-    else if (state === "degraded")   detailEl.innerHTML = 'partial population OR some artifacts fail JSON-parse';
-    else if (state === "stale")      detailEl.innerHTML = 'newest artifact age > 5 min (mirror-export loop stuck?)';
-    else if (state === "offline")    detailEl.innerHTML = 'no artifacts present — daemon not running OR <code>selfdef_mirror_dir</code> unset';
-    else if (state === "unreachable")detailEl.innerHTML = '<code>selfdefd</code> not reachable (UNIX socket + TCP both failed)';
-    else                             detailEl.innerHTML = 'polling <code>GET /v1/m060/health</code> via the selfdef daemon…';
-  }
-}
-
-// MS022 SSE subscriber-quota banner: polls /api/ms022/sse-quota proxied
-// from the selfdef daemon's /metrics endpoint (selfdef commit 77b4499).
-// Classifies into ok / approaching / saturated / unreachable matching
-// the 3 sovereign-os alert rules in ms022-sse-quota.rules.yml.
-async function renderMS022SseQuotaBanner() {
-  const banner = el("ms022-sse-quota-banner");
-  if (!banner) return;
-  let payload;
-  if (demoActive()) { payload = DEMO_MASTER["/api/ms022/sse-quota"]; }
-  else try {
-    const r = await fetch("/api/ms022/sse-quota", {headers: {"Accept": "application/json"}});
-    payload = r.ok ? await r.json() : null;
-  } catch (e) { payload = null; }
-  if (!payload) payload = {state: "unreachable", metrics: null};
-  const state = String(payload.state || "unknown");
-  const knownStates = ["ok", "approaching", "saturated", "unknown"];
-  banner.classList.remove(...knownStates);
-  banner.classList.add(knownStates.indexOf(state) >= 0 ? state : "unknown");
-  const labelEl = el("ms022-sse-label");
-  const detailEl = el("ms022-sse-detail");
-  const activeEl = el("ms022-sse-active");
-  if (labelEl) labelEl.textContent = "SSE quota: " + state;
-  const m = payload.metrics || {};
-  const active = (typeof m.global_active === "number") ? m.global_active : "—";
-  const cap = (typeof m.global_cap === "number") ? m.global_cap : "—";
-  if (activeEl) activeEl.textContent = active + " / " + cap + " subscribers";
-  if (detailEl) {
-    if (state === "ok") {
-      const sat = (typeof m.global_saturation === "number")
-        ? (m.global_saturation * 100).toFixed(1) + "%"
-        : "—";
-      detailEl.innerHTML = "saturation " + sat + " · no tokens at cap";
-    } else if (state === "approaching") {
-      const sat = (typeof m.global_saturation === "number")
-        ? (m.global_saturation * 100).toFixed(1) + "%"
-        : "—";
-      const ptSat = m.per_token_saturated || 0;
-      detailEl.innerHTML = "saturation " + sat
-        + (ptSat > 0 ? (" · " + ptSat + " tokens at cap") : "")
-        + ' — see <code>MS022SseGlobalQuotaApproaching</code> alert';
-    } else if (state === "saturated") {
-      detailEl.innerHTML = '<strong>quota saturated</strong> — new subscribers refused (HTTP 429). '
-        + 'See <code>MS022SseGlobalQuotaSaturated</code> alert';
-    } else {
-      detailEl.innerHTML = 'polling selfdef <code>/metrics</code> via node_exporter…';
-    }
-  }
-}
-
-// Four-watchdog (IPS spine) banner: polls /api/four-watchdog/state
-// proxied from node_exporter's /metrics endpoint (selfdef commits
-// 7869a45 + a009b39). Classifies into ok / warn / critical /
-// observer-fault / unreachable matching the 4 sovereign-os alert
-// rules in four-watchdog.rules.yml. The observer-fault state takes
-// precedence over rollup-severity per the wrapper's honest-offline
-// contract.
-async function renderFourWatchdogBanner() {
-  const banner = el("four-watchdog-banner");
-  if (!banner) return;
-  let payload;
-  if (demoActive()) { payload = DEMO_MASTER["/api/four-watchdog/state"]; }
-  else try {
-    const r = await fetch("/api/four-watchdog/state", {headers: {"Accept": "application/json"}});
-    payload = r.ok ? await r.json() : null;
-  } catch (e) { payload = null; }
-  if (!payload) payload = {state: "unreachable", metrics: null};
-  const state = String(payload.state || "unknown");
-  const knownStates = ["ok", "warn", "critical", "observer-fault", "unreachable", "unknown"];
-  banner.classList.remove(...knownStates);
-  banner.classList.add(knownStates.indexOf(state) >= 0 ? state : "unknown");
-  const labelEl = el("four-watchdog-label");
-  const detailEl = el("four-watchdog-detail");
-  const rollupEl = el("four-watchdog-rollup");
-  if (labelEl) labelEl.textContent = "IPS spine: " + state;
-  const m = payload.metrics || {};
-  const worst = (typeof m.worst_severity === "number") ? m.worst_severity : "—";
-  const sevLabel = {0: "OK", 1: "WARN", 2: "CRITICAL"}[worst] || "—";
-  if (rollupEl) rollupEl.textContent = "rollup " + sevLabel;
-  if (detailEl) {
-    if (state === "ok") {
-      detailEl.innerHTML = "all 4 watchdogs healthy (MS046 process · MS047 perimeter · MS044 tamper · MS048 config)";
-    } else if (state === "warn") {
-      detailEl.innerHTML = "a watchdog reports WARN — see <code>FourWatchdogAnyWarn</code> alert";
-    } else if (state === "critical") {
-      detailEl.innerHTML = '<strong>a watchdog reports CRITICAL</strong> — IPS-spine subsystem degraded. '
-        + "See <code>FourWatchdogWorstSeverityCritical</code> alert";
-    } else if (state === "observer-fault") {
-      const age = (typeof m.observer_age_seconds === "number") ? m.observer_age_seconds + "s" : "—";
-      detailEl.innerHTML = '<strong>observer wedged</strong> — gauges stale (age ' + age + '). '
-        + "See <code>FourWatchdogTextfileEmitFailed</code> or <code>FourWatchdogObserverSilent</code> alert";
-    } else {
-      detailEl.innerHTML = "polling four-watchdog observer via <code>/api/four-watchdog/state</code>…";
-    }
-  }
-}
-
-// AppArmor profile-enforcement banner. Polls node_exporter's /metrics
-// for the selfdef_apparmor_profile_* gauges shipped by the selfdef-
-// apparmor-textfile.{service,timer} pair (selfdef commit 4680ed8) and
-// classifies into ok / complain / not-loaded / observer-fault /
-// unreachable matching the 4 sovereign-os alert rules. The
-// observer-fault and complain states are the signature IPS-drift
-// hazards the observer was built to catch.
-async function renderApparmorBanner() {
-  const banner = el("apparmor-banner");
-  if (!banner) return;
-  // Fetch the node_exporter /metrics endpoint and grep for the
-  // 4 canonical AppArmor gauges. Honest-offline when unreachable.
-  let metrics_text = null;
-  // SDD-134 — DEMO shows an enforcing profile (healthy front door); zero network.
-  if (demoActive()) {
-    metrics_text = 'selfdef_apparmor_textfile_emit_failed 0\n'
-      + 'selfdef_apparmor_profile_loaded{profile="/usr/bin/selfdefd"} 1\n'
-      + 'selfdef_apparmor_profile_enforce{profile="/usr/bin/selfdefd"} 1\n'
-      + 'selfdef_apparmor_profile_complain{profile="/usr/bin/selfdefd"} 0\n';
-  }
-  if (!demoActive()) try {
-    const r = await fetch("/api/node-exporter/metrics", {headers: {"Accept": "text/plain"}});
-    if (r.ok) metrics_text = await r.text();
-  } catch (e) { metrics_text = null; }
-  // Fall back to direct node_exporter probe (operator drop-in proxy).
-  if (!metrics_text && !demoActive()) {
-    try {
-      const r = await fetch("/metrics", {headers: {"Accept": "text/plain"}});
-      if (r.ok) metrics_text = await r.text();
-    } catch (e) { metrics_text = null; }
+    return out;
   }
 
-  let state = "unreachable";
-  let mode = "—";
-  let detail = "polling <code>selfdef_apparmor_profile_*</code> via node_exporter…";
-
-  if (metrics_text) {
-    // Parse the 4 canonical gauges. Look for the exact metric+label combos.
-    const m = metrics_text;
-    const emit_failed = /^selfdef_apparmor_textfile_emit_failed (\d)/m.exec(m);
-    const loaded = /^selfdef_apparmor_profile_loaded\{profile="\/usr\/bin\/selfdefd"\} (\d)/m.exec(m);
-    const enforce = /^selfdef_apparmor_profile_enforce\{profile="\/usr\/bin\/selfdefd"\} (\d)/m.exec(m);
-    const complain = /^selfdef_apparmor_profile_complain\{profile="\/usr\/bin\/selfdefd"\} (\d)/m.exec(m);
-
-    if (emit_failed && emit_failed[1] === "1") {
-      state = "observer-fault";
-      mode = "—";
-      detail = '<strong>observer wedged</strong> — kernel AppArmor missing OR wrapper broken. '
-        + 'See <code>SelfdefApparmorTextfileEmitFailed</code> alert';
-    } else if (loaded && loaded[1] === "0") {
-      state = "not-loaded";
-      mode = "absent";
-      detail = '<strong>profile NOT loaded</strong> — selfdefd running without AppArmor confinement. '
-        + 'See <code>SelfdefApparmorProfileNotLoaded</code> alert';
-    } else if (complain && complain[1] === "1") {
-      state = "complain";
-      mode = "complain";
-      detail = '<strong>COMPLAIN mode</strong> — profile only LOGS violations, does NOT enforce. '
-        + 'Run <code>aa-enforce /etc/apparmor.d/usr.bin.selfdefd</code> to restore';
-    } else if (enforce && enforce[1] === "1") {
-      state = "ok";
-      mode = "enforce";
-      detail = "AppArmor enforcing the selfdefd profile";
-    } else {
-      state = "unknown";
-      mode = "—";
-      detail = "gauges present but state indeterminate";
-    }
+  // Reassemble the concrete command from the template + collected args (for the
+  // Copy fallback + result echo); unfilled placeholders stay as <name>/{a|b}.
+  function assembleCmd(changeCli, args) {
+    return parseTemplate(changeCli).map(function (t) {
+      if (t.kind === "lit") return t.text;
+      if (t.kind === "enum") return args[t.key] || ("{" + t.alts.join("|") + "}");
+      return args[t.key] || ("<" + t.key + ">");
+    }).join(" ");
   }
 
-  const knownStates = ["ok", "complain", "not-loaded", "observer-fault", "unreachable", "unknown"];
-  banner.classList.remove(...knownStates);
-  banner.classList.add(state);
-  const labelEl = el("apparmor-label");
-  const detailEl = el("apparmor-detail");
-  const modeEl = el("apparmor-mode");
-  if (labelEl) labelEl.textContent = "AppArmor: " + state;
-  if (detailEl) detailEl.innerHTML = detail;
-  if (modeEl) modeEl.textContent = "mode: " + mode;
-}
-
-// Build a {artifact -> health object} lookup from /api/m060/health
-// so the grid renderer can drill from per-artifact state (corrupt /
-// stale / fresh) into the right tile. Single fetch, then merge.
-async function fetchM060ArtifactHealthMap() {
-  if (demoActive()) {
-    const map = {};
-    for (const a of (DEMO_MASTER["/api/m060/health"].artifacts || [])) map[a.artifact] = a;
-    return map;
-  }
-  try {
-    const r = await fetch("/api/m060/health", {headers: {"Accept": "application/json"}});
-    if (!r.ok) return null;
-    const j = await r.json();
-    const map = {};
-    for (const a of (j.artifacts || [])) {
-      map[a.artifact] = a;
-    }
-    return map;
-  } catch (e) { return null; }
-}
-
-// STALE_AGE_SECS matches selfdef-api::m060_health::STALE_AGE_SECS (5 min).
-const M060_TILE_STALE_AGE_SECS = 5 * 60;
-
-// Classify a tile's state by merging the per-mirror snapshot probe
-// with the per-artifact health probe from /api/m060/health:
-//   - corrupt : artifact present but parses_as_json=false (DEGRADED)
-//   - stale   : artifact present + parseable but age > 5 min
-//   - online  : artifact present + parseable + fresh
-//   - offline : artifact absent (honest-offline; no resident store)
-//   - unknown : snapshot fetch failed AND no chain-health data
-// The chain-health data is authoritative when present; the snapshot
-// probe is the fallback when /api/m060/health is itself unreachable.
-function classifyTileState(snapState, artifactHealth) {
-  if (artifactHealth) {
-    if (!artifactHealth.present) return "offline";
-    if (artifactHealth.parses_as_json === false) return "corrupt";
-    if (typeof artifactHealth.age_seconds === "number"
-        && artifactHealth.age_seconds > M060_TILE_STALE_AGE_SECS) return "stale";
-    return "online";
-  }
-  // /api/m060/health unreachable — fall back to the per-mirror snapshot
-  // probe which only carries online/offline (no corrupt detection).
-  return snapState;
-}
-
-async function renderM060Grid() {
-  const grid = el("m060-mirror-grid");
-  if (!grid) return;
-  // Render the chain-health banner alongside the per-mirror grid.
-  renderM060HealthBanner();
-  // MS022 SSE quota banner — same refresh cadence; the quota state
-  // is checked on the same tick the chain-wide health is.
-  renderMS022SseQuotaBanner();
-  // Four-watchdog (IPS spine) banner — same refresh cadence; the
-  // IPS-spine state is checked on the same tick as the chain-wide
-  // health is.
-  renderFourWatchdogBanner();
-  // AppArmor profile-enforcement banner — same cadence.
-  renderApparmorBanner();
-  // Fetch chain-health once for the WHOLE grid (the response carries
-  // every artifact), then fetch each per-mirror snapshot in parallel.
-  const [artifactMap, ...states] = await Promise.all([
-    fetchM060ArtifactHealthMap(),
-    ...M060_MIRRORS.map(fetchMirrorStatus),
-  ]);
-  grid.innerHTML = "";
-  for (let i = 0; i < states.length; i++) {
-    const s = states[i];
-    const mirror = M060_MIRRORS[i];
-    const ah = artifactMap ? artifactMap[mirror.artifact] : null;
-    const finalState = classifyTileState(s.state, ah);
-    const a = document.createElement("a");
-    a.className = "m060-tile " + finalState;
-    a.href = s.subpath;
-    // Operator hover-help: surface the underlying reason in the title
-    // attribute (browser tooltip) so the operator can hover any tile
-    // to understand WHY it's in the state it is, without opening the
-    // full per-dashboard view.
-    let title;
-    if (ah && !ah.present) {
-      title = "OFFLINE: artifact " + mirror.artifact + " not present in mirror dir";
-    } else if (ah && ah.parses_as_json === false) {
-      title = "CORRUPT: " + mirror.artifact + " present but fails JSON-parse (degraded chain)";
-    } else if (ah && typeof ah.age_seconds === "number" && ah.age_seconds > M060_TILE_STALE_AGE_SECS) {
-      title = "STALE: " + mirror.artifact + " last published " + ah.age_seconds + "s ago";
-    } else if (ah && ah.last_publish_at) {
-      title = "last update: " + ah.last_publish_at;
-    } else if (s.captured_at) {
-      title = "last update: " + s.captured_at;
-    } else {
-      title = s.err || "";
-    }
-    a.title = title;
-    a.innerHTML = '<span class="dot"></span>' +
-      '<span class="id">' + s.id + '</span>' +
-      '<span class="label">' + s.label + '</span>';
-    grid.appendChild(a);
-  }
-}
-
-// SDD-045 Phase B — the described global view. Fetches GET /catalog
-// (the described dashboard-catalog) and renders every surface with its
-// REAL description, grouped by category, honestly badged. Web is
-// read-only: live/snapshot cards LINK to the panel; planned cards show
-// the CLI that reaches the feature today (copy-on-click). Escapes all
-// catalog text — the catalog is trusted-authored but we never inject raw.
-function escapeHTML(s) {
-  return String(s == null ? "" : s)
-    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-// SDD-045 Phase G — the coverage capstone: prove on the front door that every
-// surface + verb family is reachable, computed live from the three ledgers.
-async function renderCoverage() {
-  try {
-    const [cat, cs, fc] = await Promise.all([
-      fetchJSON("/catalog"), fetchJSON("/control-systems"), fetchJSON("/feature-coverage"),
-    ]);
-    const dashes = cat.dashboards || [];
-    const live = dashes.filter((d) => d.status === "live").length;
-    el("cov-dash").textContent = dashes.length + " (" + live + " live)";
-    el("cov-sys").textContent = (cs.systems || []).length;
-    el("cov-mapped").textContent = fc.mapped_to_dashboard != null ? fc.mapped_to_dashboard : "—";
-    el("cov-cli").textContent = fc.cli_only_waived != null ? fc.cli_only_waived : "—";
-    el("cov-invisible").textContent = "0";
-    const note = el("cov-note");
-    if (note) note.textContent =
-      "Every one of " + (fc.verb_families_total || "?") + " sovereign-osctl verb families reaches a dashboard "
-      + "or is an explicit cli-only waiver — nothing is invisible (locked by test_feature_coverage.py).";
-  } catch (e) {
-    const note = el("cov-note");
-    if (note) note.textContent = "coverage summary unavailable: " + e.message;
-  }
-}
-
-// SDD-045 §4 — render the Controls surface from /control-systems via the
-// shared control-surface component. Read-only: copies the exact command.
-function renderControls() {
-  const box = el("control-surface");
-  if (!box || !window.SovereignControlSurface) return;
-  SovereignControlSurface.load(box, { onCopy: (cmd) => showCopyToast("copied: " + cmd) })
-    .then((n) => {
-      const c = el("controls-count");
-      if (c) c.textContent = "— " + n + " control systems";
+  function collectArgs(card) {
+    var args = {};
+    Array.prototype.forEach.call(card.querySelectorAll(".cs-verbs"), function (grp) {
+      var pressed = grp.querySelector('.cs-verb[aria-pressed="true"]');
+      if (pressed) args[grp.getAttribute("data-argkey")] = pressed.getAttribute("data-val");
     });
-}
+    Array.prototype.forEach.call(card.querySelectorAll("input.cs-arg"), function (inp) {
+      var v = (inp.value || "").trim();
+      if (v) args[inp.getAttribute("data-argkey")] = v;
+    });
+    return args;
+  }
 
-async function renderCatalog() {
-  const body = el("catalog-body");
-  if (!body) return;
-  let cat;
-  try {
-    cat = await fetchJSON("/catalog");
-  } catch (e) {
-    body.innerHTML = '<div class="err">catalog unavailable: ' + escapeHTML(e.message) + '</div>';
-    return;
+  function copy(text, opts) {
+    if (navigator.clipboard) { try { navigator.clipboard.writeText(text); } catch (e) { /* noop */ } }
+    if (opts && typeof opts.onCopy === "function") opts.onCopy(text);
   }
-  if (cat.error) {
-    body.innerHTML = '<div class="err">catalog error: ' + escapeHTML(cat.error) + '</div>';
-    return;
+
+  function setResult(el, cls, msg) {
+    if (!el) return;
+    el.className = "cs-result " + cls;
+    el.textContent = msg;
   }
-  const cats = cat.categories || [];
-  const dashboards = cat.dashboards || [];
-  const countEl = el("catalog-count");
-  if (countEl) {
-    countEl.textContent = "— " + dashboards.length + " surfaces across " + cats.length + " categories";
+
+  function execute(url, controlId, args, confirmed) {
+    return fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ control_id: controlId, args: args, confirm: !!confirmed })
+    }).then(function (r) {
+      return r.json().then(
+        function (j) { return { status: r.status, body: j || {} }; },
+        function () { return { status: r.status, body: {} }; });
+    });
   }
-  // group dashboards by category, preserving the catalog's category order
-  const byCat = {};
-  for (const d of dashboards) (byCat[d.category] = byCat[d.category] || []).push(d);
-  // ROOT for building panel links — anchor on our own dir name so it's correct
-  // regardless of URL form (/master-dashboard/, .../index.html, sub-path mount).
-  // The old replace(/\/[^/]*$/,"/") returned '/master-dashboard/' for the dir
-  // URL, nesting every card link under it → the /master-dashboard/router/ bug.
-  const ROOT = (function () {
-    var p = window.location.pathname;
-    var i = p.indexOf("/master-dashboard");
-    return i >= 0 ? (p.slice(0, i) + "/") : "/";
-  })();
-  let html = "";
-  for (const c of cats) {
-    const items = byCat[c.id] || [];
-    if (!items.length) continue;
-    html += '<div class="cat-group"><div class="cat-head">' +
-      '<span class="cat-label">' + escapeHTML(c.label || c.id) + '</span>' +
-      '<span class="cat-blurb">' + escapeHTML(c.blurb || "") + '</span>' +
-      '</div><div class="cat-grid">';
-    for (const d of items) {
-      const status = escapeHTML(d.status || "");
-      const label = escapeHTML(d.label || d.slug);
-      const desc = escapeHTML(d.description || "");
-      const head = '<div class="dc-head"><span class="dc-label">' + label + '</span>' +
-        '<span class="pill ' + status + '">' + status + '</span></div>';
-      const descEl = '<div class="dc-desc">' + desc + '</div>';
-      if (d.path) {
-        // live/snapshot — the whole card links to the panel. Prefer the
-        // catalog's ABSOLUTE path (e.g. '/router/'); only fall back to
-        // ROOT+slug for entries lacking an absolute path.
-        const href = (String(d.path).charAt(0) === "/")
-          ? escapeHTML(String(d.path))
-          : (ROOT + escapeHTML(String(d.slug)) + "/");
-        html += '<a class="dash-card" href="' + href + '">' + head + descEl + '</a>';
+
+  // Inline type-to-confirm gate for privileged controls (replaces window.prompt
+  // — accessible, on-palette, non-blocking). Type the control id, Confirm →
+  // re-execute with confirm:true; Cancel/mismatch → no execution.
+  function askConfirm(card, sys, opts) {
+    var result = card.querySelector(".cs-result");
+    var host = card.querySelector(".cs-confirm");
+    if (!host) {
+      host = document.createElement("div");
+      host.className = "cs-confirm";
+      card.insertBefore(host, result);
+    }
+    host.innerHTML =
+      '<span class="cs-confirm-msg">privileged — type <code>' + esc(sys.id) + "</code> to confirm</span>"
+      + '<input class="cs-arg cs-confirm-in" placeholder="' + esc(sys.id) + '" aria-label="type ' + esc(sys.id) + ' to confirm">'
+      + '<button type="button" class="cs-exec cs-confirm-ok">Confirm</button>'
+      + '<button type="button" class="cs-cmd cs-confirm-cancel">Cancel</button>';
+    var inp = host.querySelector(".cs-confirm-in");
+    if (inp.focus) inp.focus();
+    function done(ok) {
+      var typed = (inp.value || "").trim();
+      if (host.parentNode) host.parentNode.removeChild(host);
+      if (ok && typed === sys.id) execAction(card, sys, opts, true);
+      else setResult(result, "warn", "confirmation " + (ok ? "mismatch" : "cancelled") + " — not executed");
+    }
+    host.querySelector(".cs-confirm-ok").addEventListener("click", function () { done(true); });
+    host.querySelector(".cs-confirm-cancel").addEventListener("click", function () { done(false); });
+    inp.addEventListener("keydown", function (e) { if (e.key === "Enter") done(true); });
+  }
+
+  function execAction(card, sys, opts, confirmed) {
+    var result = card.querySelector(".cs-result");
+    var args = collectArgs(card);
+    var url = (opts && opts.executeUrl) || EXECUTE_URL;
+    setResult(result, "muted", "executing…");
+    execute(url, sys.id, args, confirmed).then(function (res) {
+      var b = res.body || {};
+      if (res.status === 200) {
+        if (b.dry_run) setResult(result, "dry", "dry-run ✓ would run: " + ((b.would_run || []).join(" ") || assembleCmd(sys.change_cli, args)));
+        else setResult(result, "ok", "executed ✓ exit " + (b.exit_code != null ? b.exit_code : 0));
+      } else if (res.status === 403) {
+        if (confirmed) {
+          // already type-confirmed → 403 is a server-side gate (e.g. the
+          // operator key is not loaded). Surface the reason; do NOT re-prompt.
+          setResult(result, "warn", b.error || "not permitted (operator key required)");
+        } else {
+          // privileged control — inline type-to-confirm gate, ONCE
+          askConfirm(card, sys, opts);
+        }
+      } else if (res.status === 409) {
+        setResult(result, "warn", "signed-proxy only (R10212) — command copied");
+        copy(assembleCmd(sys.change_cli, args), opts);
+      } else if (res.status === 400) {
+        setResult(result, "warn", b.error || "invalid arguments — pick a value");
+      } else if (res.status === 404) {
+        setResult(result, "err", b.error || "unknown control");
+      } else if (res.status === 405) {
+        setResult(result, "muted", "execution not available on this origin — command copied");
+        copy(assembleCmd(sys.change_cli, args), opts);
       } else {
-        // planned (no panel yet) — show the CLI that reaches it today
-        const cli = d.cli ? '<div class="dc-cli" title="click to copy" data-cli="' +
-          escapeHTML(d.cli) + '">$ ' + escapeHTML(d.cli) + '</div>' : "";
-        html += '<div class="dash-card">' + head + descEl + cli + '</div>';
+        setResult(result, "err", b.error || ("error " + res.status));
       }
-    }
-    html += '</div></div>';
+    }).catch(function () {
+      // exec daemon unreachable (per-port-direct read-only front) → copy fallback
+      setResult(result, "muted", "exec endpoint unreachable — command copied");
+      copy(assembleCmd(sys.change_cli, collectArgs(card)), opts);
+    });
   }
-  body.innerHTML = html || '<div class="muted">(catalog empty)</div>';
-  // copy-on-click for planned CLI chips (web is read-only; operator pastes)
-  Array.prototype.forEach.call(body.querySelectorAll(".dc-cli[data-cli]"), function (chip) {
-    chip.style.cursor = "pointer";
-    chip.addEventListener("click", function () {
-      navigator.clipboard.writeText(chip.dataset.cli).then(function () {
-        showCopyToast("copied: " + chip.dataset.cli);
+
+  function argsRailHtml(sys) {
+    var opts = (sys.options || []).map(String);
+    var html = parseTemplate(sys.change_cli).map(function (t) {
+      if (t.kind === "lit") return "";                 // literals live in the Copy line
+      if (t.kind === "enum") {
+        return '<span class="cs-verbs" data-argkey="' + esc(t.key) + '">'
+          + t.alts.map(function (a, i) {
+              return '<button type="button" class="cs-verb" data-val="' + esc(a)
+                + '" aria-pressed="' + (i === 0 ? "true" : "false") + '">' + esc(a) + "</button>";
+            }).join("") + "</span>";
+      }
+      var listId = "csl-" + esc(sys.id) + "-" + esc(t.key);
+      var dl = opts.length
+        ? '<datalist id="' + listId + '">'
+            + opts.map(function (o) { return '<option value="' + esc(o) + '"></option>'; }).join("")
+            + "</datalist>"
+        : "";
+      return '<input class="cs-arg" data-argkey="' + esc(t.key) + '" placeholder="' + esc(t.key) + '"'
+        + (opts.length ? ' list="' + listId + '"' : "") + ">" + dl;
+    }).join("");
+    return html ? '<div class="cs-args">' + html + "</div>" : "";
+  }
+
+  function cardHtml(sys) {
+    var proxy = isProxyOnly(sys);
+    var pills = (sys.options || []).map(function (o) {
+      return '<span class="cs-opt">' + esc(o) + "</span>"; }).join("");
+    var change = sys.change_cli || "";
+    var actions = change
+      ? '<div class="cs-actions">'
+          + (proxy ? "" : '<button type="button" class="cs-exec">Execute</button>')
+          + '<button type="button" class="cs-cmd cs-copy" data-cmd="' + esc(change)
+            + '" title="copy the operator command (fallback)">$ ' + esc(change) + "</button>"
+          + "</div>"
+      : "";
+    return '<div class="cs-card cs-' + esc(sys.kind) + '" data-cid="' + esc(sys.id) + '">'
+      + '<div class="cs-head">'
+      + '<span class="cs-label">' + esc(sys.label) + "</span>"
+      + '<span class="cs-kind">' + esc(sys.kind) + "</span>"
+      + (sys.scope === "global" ? '<span class="cs-global">global</span>' : "")
+      + (proxy ? '<span class="cs-proxy" title="R10212: signed-proxy only — never executed locally">signed proxy</span>' : "")
+      + "</div>"
+      + '<div class="cs-desc">' + esc(sys.description) + "</div>"
+      + (pills ? '<div class="cs-opts">' + pills + "</div>" : "")
+      + argsRailHtml(sys)
+      + actions
+      + '<div class="cs-result muted"></div>'
+      + "</div>";
+  }
+
+  function render(containerEl, systems, opts) {
+    opts = opts || {};
+    var slug = opts.filterSlug || null;
+    var list = (systems || []).filter(function (s) {
+      if (!slug) return true;                       // no filter → all systems
+      return s.scope === "global" ||                // globals show everywhere
+        (s.applies_to || []).indexOf(slug) >= 0;    // + systems governing slug
+    });
+    var byId = {};
+    list.forEach(function (s) { byId[s.id] = s; });
+    containerEl.innerHTML = list.map(cardHtml).join("")
+      || '<div class="cs-empty">(no controls for this surface)</div>';
+
+    // segmented enum toggles
+    Array.prototype.forEach.call(containerEl.querySelectorAll(".cs-verbs"), function (grp) {
+      grp.addEventListener("click", function (e) {
+        var btn = e.target && e.target.classList && e.target.classList.contains("cs-verb") ? e.target : null;
+        if (!btn) return;
+        Array.prototype.forEach.call(grp.querySelectorAll(".cs-verb"), function (b) {
+          b.setAttribute("aria-pressed", b === btn ? "true" : "false");
+        });
       });
     });
-  });
-}
-
-async function refresh() {
-  try {
-    // The described catalog is served by the same daemon; render it on
-    // every refresh so status badges stay current. Fired independently so
-    // a catalog hiccup never blanks the routes/health view.
-    renderCatalog();
-    renderControls();
-    renderCoverage();
-    renderM060Grid(); // SDD-133: moved ahead of the gather — its own per-mirror fetches carry honest-offline fallbacks, so one dead /version../toggles probe can no longer blank it.
-    // SDD-133 front-door resilience — allSettled so ONE dead endpoint no longer
-    // blanks the whole main view; each section gets its value or {} and renders
-    // an honest 'unreachable' scaffold (never blank, never throws).
-    const _settled = await Promise.allSettled(ENDPOINTS.map(fetchJSON));
-    const [version, routes, collisions, health, discover, toggles] =
-      _settled.map(function (r) { return r.status === "fulfilled" ? r.value : {}; });
-    renderStats(version, routes, health, collisions, discover);
-    renderRoutes(routes, health, toggles);
-    if (toggles && toggles.enabled_count !== undefined && routes.count !== undefined) {
-      const c = el("stat-count");
-      if (c) c.textContent = routes.count + " (" + toggles.enabled_count + " on)";
-    }
-    renderCollisions(collisions);
-    renderDiscover(discover);
-    el("last-refresh").textContent = new Date().toLocaleTimeString();
-  } catch (e) {
-    el("last-refresh").innerHTML = "<span class=bad>error: " + e.message + "</span>";
+    // copy fallback — copies the concrete command assembled from current args
+    Array.prototype.forEach.call(containerEl.querySelectorAll(".cs-copy"), function (b) {
+      b.addEventListener("click", function () {
+        var card = b.parentNode.parentNode;
+        var cmd = assembleCmd(b.getAttribute("data-cmd"), collectArgs(card));
+        copy(cmd, opts);
+        setResult(card.querySelector(".cs-result"), "muted", "copied: " + cmd);
+      });
+    });
+    // execute — the sanctioned R10274 write path
+    Array.prototype.forEach.call(containerEl.querySelectorAll(".cs-exec"), function (b) {
+      b.addEventListener("click", function () {
+        var card = b.parentNode.parentNode;
+        var sys = byId[card.getAttribute("data-cid")];
+        if (sys) execAction(card, sys, opts, false);
+      });
+    });
+    return list.length;
   }
-}
 
-// SDD-133 — initial honest-offline paint so every section is visible from t=0
-renderStats({}, {}, {}, {}, {}); renderRoutes({}, {}, {}); renderCollisions({}); renderDiscover({});
-document.getElementById("refresh-btn").addEventListener("click", refresh);
-window.soDemoApply = refresh;
-refresh();
-setInterval(refresh, 30000);
+  // Convenience: load the control registry (same-origin) and render.
+  // Full display data comes from the panel's own read-only /control-systems;
+  // the authoritative execute-local/live overlay comes from /api/control/registry
+  // when the origin is fronted by the exec daemon (else copy-first per PROXY_ONLY).
+  function load(containerEl, opts) {
+    opts = opts || {};
+    var base = fetch("/control-systems", { headers: { Accept: "application/json" } })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .catch(function () { return null; });
+    var reg = fetch("/api/control/registry", { headers: { Accept: "application/json" } })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .catch(function () { return null; });
+    return Promise.all([base, reg]).then(function (res) {
+      var b = res[0], g = res[1];
+      if (!b || b.error) {
+        containerEl.innerHTML = '<div class="cs-empty">controls unavailable'
+          + (b && b.error ? ": " + esc(b.error) : "") + "</div>";
+        return 0;
+      }
+      var systems = (b.systems || []).slice();
+      if (g && g.controls) {
+        var execMap = {};
+        g.controls.forEach(function (c) { execMap[c.id] = c.execute_local; });
+        systems.forEach(function (s) { if (s.id in execMap) s.execute_local = execMap[s.id]; });
+        opts.live = !!g.live;
+      }
+      return render(containerEl, systems, opts);
+    });
+  }
+
+  global.SovereignControlSurface = { render: render, load: load };
+})(window);
 </script>
-
-
-
-<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
+<script>SovereignControlSurface.load(document.getElementById('control-surface'),{filterSlug:'course'});</script>
+</main>
 <script>
-window.SO_ASSIST = {
- "context": {
-  "icon": "◎",
-  "title": "D-00 · Master Dashboard",
-  "content": "The front door and the switchboard — the only panel whose subject is all the OTHER panels. It answers a question none of them can: not “how is this subsystem,” but “is the whole surface reachable, is anything colliding, and is the defense spine intact?” Three things live here. First, the map: the route table, the coverage proof that nothing is stranded off the §1g reachability contract, and the collision list where two things fight over one route. Second, discovery: the cross-repo manifests selfdef publishes into this box. Third — and most important on a bad day — the four health banners that are the machine’s pulse: the M060 mirror chain, the MS022 SSE quota, the four-watchdog IPS spine, and AppArmor enforcement.\n\nOpen it first on any session for the whole picture; open it when a panel seems missing or misrouted; open it for a single read on whether the safety spine is healthy before you trust anything downstream. Read-only aggregation."
- },
- "nodes": [
-  {
-   "icon": "▦",
-   "title": "Summary",
-   "content": "The aggregator’s own vital signs — the port it serves on, how many routes it knows, how many are reachable, how many collide, and how many selfdef manifests it discovered. It is the health of the switchboard itself: if these are wrong, every map below is suspect.",
-   "children": [
-    {
-     "selector": "#stat-port",
-     "title": "Aggregator port",
-     "content": "The local port the master aggregator serves on. Everything on this panel is assembled by that one process, so this confirms which aggregator instance you’re reading — relevant only when something is misconfigured, but the first thing to check if the whole panel looks empty.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Where the cockpit is served</div>The loopback port the dashboard API answers on. Every panel is a client of this local endpoint — it's the door all cockpit reads come through, loopback-only by the sovereign contract.</div>"
-    },
-    {
-     "selector": "#stat-count",
-     "title": "Routes",
-     "content": "How many panel routes the aggregator knows about in total. This is the denominator for coverage: reachable + collisions + anything else all sum against this. A count far below the ~51 panels means the aggregator isn’t seeing the whole surface, which is a discovery problem, not a panel problem.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The map’s completeness starts here</div>If the aggregator only knows about 30 routes, the coverage view below can only ever describe those 30 — the other panels are invisible to it. So this total is the sanity check on the whole map: it should track the real panel count, and a shortfall means the switchboard has a blind spot before any per-route detail matters.</div><div class=\"so-xref\"><span class=\"x\">→</span> #stat-reachable — how many of these actually answe</div>"
-    },
-    {
-     "selector": "#stat-reachable",
-     "title": "Reachable",
-     "content": "How many known routes the aggregator can actually reach right now. The gap between this and the total is the immediate problem list: a route that’s known but not reachable is a panel the front door points at but can’t open. On a healthy box these two numbers match.",
-     "variants": [
-      {
-       "when": {
-        "textContains": "0"
-       },
-       "content": "Zero reachable — the aggregator knows routes but can reach none of them, which points at the aggregator itself being isolated, not the panels being down.",
-       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ 0 reachable</div>Nothing answers — this is almost always the aggregator being cut off, not every panel failing at once.</div>"
+(function(){
+  "use strict";
+  var CKEY='sovereign-os.course', CSCHEMA=1;
+  function defState(){ return {schema:CSCHEMA, started:false, open:false, mi:0, li:0, done:{}, dismissed:false}; }
+  function load(){ try{ var p=JSON.parse(localStorage.getItem(CKEY)); if(!p||p.schema!==CSCHEMA) return defState(); if(typeof p.done!=='object'||!p.done)p.done={}; return p; }catch(e){ return defState(); } }
+  function save(st){ try{ localStorage.setItem(CKEY, JSON.stringify(st)); }catch(e){} }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+  function catPanel(dir){ var G=window.__soCatalog||[]; for(var g=0;g<G.length;g++){ var it=G[g].items||[]; for(var i=0;i<it.length;i++){ if(it[i].dir===dir) return it[i]; } } return null; }
+
+  function render(){
+    var CUR = window.__soCourseCurriculum || [];
+    var st = load();
+    var total=0, done=0;
+    for(var m=0;m<CUR.length;m++){ for(var l=0;l<CUR[m].lessons.length;l++){ total++; if(st.done[CUR[m].id+'.'+l]) done++; } }
+    var pct = total? Math.round(done/total*100) : 0;
+    var fill=document.getElementById('c-bar-fill'); if(fill) fill.style.width=pct+'%';
+    var pc=document.getElementById('c-pct'); if(pc) pc.textContent=done+' of '+total+' · '+pct+'%';
+
+    // primary button: Start (fresh) or Resume (in progress)
+    var startBtn=document.getElementById('c-start');
+    if(startBtn){
+      if(st.started){
+        var m2=CUR[st.mi]||CUR[0], L=m2?m2.lessons[st.li]:null;
+        var lbl = L ? (L.c ? L.t : ((catPanel(L.dir)||{}).label||L.dir)) : '';
+        startBtn.innerHTML='▷ Resume · '+esc((m2?m2.id:'')+' '+lbl);
+      } else {
+        startBtn.innerHTML='▶ Start the tour';
       }
-     ],
-     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Is the aggregator answering</div>Whether the master-dashboard API is reachable. If it's down, this front-door view can't aggregate the other panels' state — a red here means the cockpit's overview is blind, even if individual panels work.</div>"
-    },
-    {
-     "selector": "#stat-collisions",
-     "title": "Collisions",
-     "content": "How many routes are claimed by more than one target — two things fighting over the same path. A collision is an ambiguity the router can’t resolve cleanly, so it’s a correctness bug in the surface, not just untidiness. Zero is the healthy state; anything above is listed in detail below.",
-     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">A collision is an unresolved ambiguity</div>When two panels or systems register the same route, a request to it is ambiguous — the aggregator has to pick, and either choice might be wrong. That’s why collisions are surfaced as a first-class number: they’re not cosmetic, they mean the map has a genuine conflict that a human needs to resolve.</div><div class=\"so-xref\"><span class=\"x\">→</span> #collisions-body — the specific routes in conflict</div>"
-    },
-    {
-     "selector": "#stat-selfdef",
-     "title": "Selfdef manifests",
-     "content": "How many cross-repo manifests selfdef has published into this box — the §1h discovery count. Each is a declaration from the selfdef repo about surfaces it owns here; this number is how you confirm the cross-repo bridge is actually delivering manifests, not silently empty.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The §1h bridge, counted</div>sovereign-os and selfdef are separate repos, but selfdef owns real surfaces on this box (the firewall mirror, the audit chain). It declares them through manifests this aggregator discovers. This count is the proof that discovery is live — a zero here when selfdef is installed means the bridge is down, which the M060 banner below would also show.</div><div class=\"so-xref\"><span class=\"x\">→</span> #discover-body — the discovered manifests themselves<br><span class=\"x\">→</span> #m060-health-banner — the mirror chain that carries them</div>"
-    },
-    {
-     "selector": "#stat-version",
-     "title": "API version",
-     "content": "The aggregator’s API version — for reconciling the route/coverage shapes against the expected contract when a field looks wrong. Rarely the thing you came for, but the tiebreaker when the panel’s data shape doesn’t match what a downstream tool expects.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Pins the aggregator</div>The dashboard daemon version answering — the reference for reconciling the aggregated fields. A version change can alter what's rolled up.</div>"
     }
-   ]
-  },
-  {
-   "icon": "⊞",
-   "title": "Coverage",
-   "content": "The proof that everything is reachable — the §1g reachability contract made visible. It breaks the surface into dashboards, control systems, mapped verb families, deliberately CLI-only (waived) routes, and — the one to watch — invisible routes: things that exist but aren’t reachable from the front door. Invisible is the failure state this whole view exists to catch.",
-   "children": [
-    {
-     "selector": "#cov-dash",
-     "title": "Dashboards covered",
-     "content": "How many dashboard panels the coverage view accounts for. Read it against the total route count — this is the share of the surface that is user-facing dashboards, as opposed to control systems or CLI-only verbs. A drop here means a dashboard fell off the reachable set.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Dashboards are one class of surface</div>The coverage view splits the box into kinds — dashboards, control systems, verb families. Dashboards are the screens a person opens; this count is how many of them are accounted for. A dashboard that exists but isn’t counted here has slipped off the reachable set, which is what ‘invisible’ below would catch.</div><div class=\"so-xref\"><span class=\"x\">→</span> #cov-invisible — where a dropped dashboard would surface</div>"
-    },
-    {
-     "selector": "#cov-sys",
-     "title": "Control systems",
-     "content": "How many control systems are covered — the non-dashboard machinery (aggregators, mirrors, daemons) that the front door also tracks. These are reachable surfaces that aren’t panels; coverage counts them so the map is of the whole box, not just its screens.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The box is more than its screens</div>Not every surface is a dashboard — aggregators, the M060 mirror, daemons are all reachable systems with no panel. Coverage counts them too, because §1g reachability is about the whole machine: a control system that’s unreachable is as much a gap as a missing dashboard, just less visible.</div>"
-    },
-    {
-     "selector": "#cov-mapped",
-     "title": "Verb families mapped",
-     "content": "How many verb families are mapped to a reachable surface — the operator CLI verbs that have a home on the map. A verb family that isn’t mapped is a command with no discoverable surface, which is a §1g gap: the capability exists but isn’t reachable through the front door.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A verb needs a home to be discoverable</div>Every sovereign-osctl verb family should map to some surface — a panel, a control — so an operator can find it without already knowing it exists. An unmapped verb family is a capability reachable only by memory, which is the discoverability failure the §1g contract is meant to prevent.</div><div class=\"so-xref\"><span class=\"x\">→</span> surface-map — the per-module audit of this mapping</div>"
-    },
-    {
-     "selector": "#cov-cli",
-     "title": "CLI-only (waived)",
-     "content": "How many routes are deliberately CLI-only and waived from the reachability requirement. This is the honest exception list: some things are meant to be command-line only (dangerous or expert operations), and a waiver records that on purpose — so they don’t count as invisible failures.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Waived is intentional, invisible is not</div>The difference between these two is the whole point of the coverage view. A CLI-only route with a waiver is a considered decision — this belongs on the command line, not the web. An invisible route is an accident — it exists but nobody declared it should be unreachable. Waivers keep the accidents visible by accounting for the intentional ones.</div><div class=\"so-xref\"><span class=\"x\">→</span> #cov-invisible — the unwaived, accidental gaps</div>"
-    },
-    {
-     "selector": "#cov-invisible",
-     "title": "Invisible",
-     "content": "How many routes exist but are NOT reachable from the front door and have NO waiver — the accidental gaps. This is the number the coverage contract is really about: every invisible route is a capability stranded off the map, reachable by no one who doesn’t already know it’s there. Zero is the goal.",
-     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Invisible = stranded, unowned</div>An invisible route is the anti-minimization failure in its purest form: a thing that was built but not wired into the reachable surface. Nobody waived it (so it’s not intentional) and nobody can reach it from the front door (so it’s effectively lost). This count going above zero is a coverage regression to chase down.</div><div class=\"so-xref\"><span class=\"x\">→</span> surface-map — the §1g instrument that audits this across all modules</div>"
-    }
-   ]
-  },
-  {
-   "icon": "▤",
-   "title": "All dashboards",
-   "content": "The described catalog of every panel — the global index the front door became. It’s the human-readable version of the route table: each panel with what it’s for. This is the index the Assistant sidemenu draws on, so it’s also where a panel’s one-line identity lives.",
-   "children": [
-    {
-     "selector": "#catalog-count",
-     "title": "Planned panels",
-     "content": "How many panels the catalog plans for. Read against the reachable count above, it’s the gap between intent (planned) and reality (reachable + described) — a catalog that plans more than exist is a roadmap; one that describes fewer than exist is a documentation gap.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Planned vs present is a roadmap read</div>The catalog can list panels that don’t exist yet — that’s a roadmap, not a bug. The gap between planned and reachable tells you how much of the intended surface is actually built. It’s the one place ‘what we mean to have’ and ‘what we have’ sit side by side.</div>"
-    },
-    {
-     "selector": "#catalog-body",
-     "title": "Panel catalog",
-     "content": "The described list of every panel — each with its purpose. This is the front door’s global index and the source the sidemenu descriptions draw from. Hover a row to read a panel’s identity; it’s the fastest way to answer “what is that panel for” without opening it.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The single source of each panel’s identity</div>This catalog is where a panel’s one-line description lives — and the Assistant sidemenu reads the same text. So it’s not just a list; it’s the canonical answer to what each panel is for, which is why keeping it accurate keeps the whole index honest.</div>",
-     "dynamic": true,
-     "childTemplate": {
-      "selector": "#catalog-body tr, #catalog-body > *",
-      "nameSelector": "td,code,strong,a,.name",
-      "title": "Panel · {{name}}",
-      "content": "The {{name}} panel, from the front-door catalog — its one-line identity. This is where a panel’s purpose is described for the index and the sidemenu; hover to recall what {{name}} is for without opening it.",
-      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Panel · {{name}}</div>One entry in the global index. The catalog is the single source of each panel’s short description — the same text the Assistant sidemenu shows.</div>"
-     }
-    }
-   ]
-  },
-  {
-   "icon": "◫",
-   "title": "Routes",
-   "content": "The raw route table — every path the aggregator knows, its target slug, and whether it’s reachable. Where coverage is the summary, this is the detail: the actual rows behind the reachable/invisible counts. It’s where you go when a count is wrong and you need to see WHICH route.",
-   "children": [
-    {
-     "selector": "#routes-panel",
-     "title": "Route table",
-     "content": "The full route→panel table. Read it when a coverage number surprises you — it’s the ground truth the summary aggregates, showing each route’s target and reachability directly. A route here that’s unreachable is the specific thing behind an ‘invisible’ or a failed-reachable count.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The detail behind every coverage number</div>Coverage up top is the summary; this table is the itemized reality. When ‘45 of 46 reachable’ leaves you wondering which one, this is where the answer is — one row per route, reachability shown directly, no aggregation hiding the specific failure.</div>"
-    },
-    {
-     "selector": "#routes-tbody",
-     "title": "Route rows",
-     "content": "Each row is one route: its path, the panel it targets, and whether the aggregator can reach it. Hover a row for that route’s status — this is the per-route view where ‘45 reachable of 46’ becomes ‘this one route is the one that’s down.’",
-     "dynamic": true,
-     "childTemplate": {
-      "selector": "#routes-tbody tr",
-      "nameSelector": "td,code,a,strong",
-      "title": "Route · {{name}}",
-      "content": "The {{name}} route — its target panel and whether the aggregator can reach it. An unreachable route here is the specific thing behind an ‘invisible’ or failed-reachable count above; a reachable one is a working door on the map.",
-      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Route · {{name}}</div>One row of the route table: path → target → reachability. This is the ground truth the coverage summary aggregates — when a count is off, this is the row that explains it.</div><div class=\"so-xref\"><span class=\"x\">→</span> #cov-invisible — where an unreachable route is counted</div>"
-     },
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Every registered panel route</div>All cockpit routes at once — the map of which panel serves what. It's the registry the front door aggregates from; a missing route is a panel the overview can't reach.</div>"
-    }
-   ]
-  },
-  {
-   "icon": "⚠",
-   "title": "Collisions",
-   "content": "The routes claimed by more than one target — the ambiguities. Each collision is two things registering the same path, which the aggregator can’t resolve without guessing. This section is empty on a healthy box; when it’s not, each entry is a conflict a human has to settle.",
-   "children": [
-    {
-     "selector": "#collisions-panel",
-     "title": "Collision detail",
-     "content": "The detailed collision view. When the collision count is above zero, this is where you see which routes conflict and which targets are fighting over them — the information needed to decide which one keeps the route and which must move.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A conflict a human must settle</div>The aggregator can detect a collision but can’t resolve it — deciding which target rightfully owns a contested route is a judgment call. So this view exists to hand you exactly what you need for that call: the route, and both claimants. On a healthy box it’s empty; when it isn’t, it’s a to-do, not just a warning.</div>"
-    },
-    {
-     "selector": "#collisions-body",
-     "title": "Collision rows",
-     "content": "Each row is a route claimed by two or more targets. Read it as a merge conflict in the surface: two systems both think they own this path, and until one yields, requests to it are ambiguous. This is the actionable list behind the collision count.",
-     "dynamic": true,
-     "childTemplate": {
-      "selector": "#collisions-body tr, #collisions-body > *",
-      "nameSelector": "td,code,a,strong",
-      "title": "Collision · {{name}}",
-      "content": "The {{name}} collision — a route two or more targets both claim. Until one target yields the path, requests to it are ambiguous and the aggregator has to guess. This row is the conflict a human needs to resolve.",
-      "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Collision · {{name}}</div>Two systems registering one route — a merge conflict in the surface. Read which targets are fighting; resolving it means one keeps the route and the other moves.</div>"
-     },
-     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Route conflicts caught</div>Any two panels claiming the same route — a collision the aggregator flags. Collisions mean an ambiguous cockpit; this table is where they surface before they confuse navigation.</div>"
-    }
-   ]
-  },
-  {
-   "icon": "◎",
-   "title": "Cross-repo manifests",
-   "content": "The manifests selfdef publishes into this box — the §1h discovery detail. sovereign-os and selfdef are separate repos, but selfdef owns real surfaces here (the firewall mirror, the audit chain, trust bands), and it declares them through these manifests. This is how the front door knows about surfaces it doesn’t itself own.",
-   "children": [
-    {
-     "selector": "#discover-panel",
-     "title": "Manifest discovery",
-     "content": "The cross-repo manifest discovery view. It’s the proof that the selfdef bridge is delivering — each manifest is selfdef declaring a surface it owns on this box. An empty view when selfdef is installed means the bridge (M060, below) is down.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Discovery is the bridge’s receipt</div>Every manifest here is selfdef reaching across the repo boundary to say ‘I own this surface on your box.’ Their presence is the working proof of the §1h cross-repo contract; their absence, with selfdef installed, is the first symptom that the M060 bridge has stopped delivering.</div><div class=\"so-xref\"><span class=\"x\">→</span> #m060-health-banner — the bridge whose output this is</div>"
-    },
-    {
-     "selector": "#discover-body",
-     "title": "Manifest rows",
-     "content": "Each row is a manifest selfdef published — a surface it owns here, declared across the repo boundary. Hover a row to see what selfdef is claiming ownership of; together they’re the map of where selfdef reaches into sovereign-os.",
-     "dynamic": true,
-     "childTemplate": {
-      "selector": "#discover-body tr, #discover-body > *",
-      "nameSelector": "td,code,a,strong",
-      "title": "Manifest · {{name}}",
-      "content": "The {{name}} manifest — a surface selfdef declares it owns on this box, discovered across the repo boundary (§1h). It’s selfdef reaching into sovereign-os; this row is one place that reach is mapped.",
-      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Manifest · {{name}}</div>A cross-repo declaration from selfdef. Its presence proves the M060 bridge is delivering; its absence, when selfdef is installed, means the bridge is down.</div><div class=\"so-xref\"><span class=\"x\">→</span> #m060-health-banner — the bridge that carries this</div>"
-     },
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">What the aggregator found</div>The discovered panels/services — how the front door learns what exists. Read it against the route table to see what's registered vs what's actually answering.</div>"
-    }
-   ]
-  },
-  {
-   "icon": "◈",
-   "title": "M060 mirror chain",
-   "content": "The health of the selfdef→sovereign-os bridge (M060) — the mirror chain that carries selfdef’s data (firewall rules, audit state) into this box’s panels. This is the single most load-bearing integration on the machine: when it’s down, every selfdef mirror panel (D-12, D-13…D-18) is showing stale data, whether or not they say so.",
-   "children": [
-    {
-     "selector": "#m060-health-banner",
-     "title": "M060 chain health",
-     "content": "Whether the M060 mirror chain — the selfdef→sovereign-os bridge — is healthy. A green chain means the selfdef mirror panels are current; a broken chain means they’re frozen at the last successful mirror, which is dangerous precisely because those panels won’t look broken, just wrong.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">One bridge, many downstream panels</div>M060 is the pipe that carries selfdef’s truth (rules, grants, audit chain, trust bands) into sovereign-os’s read-only mirrors. So this one banner’s health propagates: a broken chain silently staleifies D-12 networking, D-13 grants, D-16 audit, and the rest. It’s why the front door surfaces it prominently — a lot of trust rides on this one green light.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-25 selfdef-management — the mirror chain in detail<br><span class=\"x\">→</span> D-12 / D-16 — panels that go silently stale if this breaks</div>",
-     "variants": [
-      {
-       "when": {
-        "textContains": "unknown"
-       },
-       "content": "Chain health unknown — the aggregator hasn’t confirmed the mirror bridge yet; treat downstream selfdef panels as unverified until this resolves.",
-       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ M060 unknown</div>The bridge health isn’t confirmed. The selfdef mirror panels may be current or stale — you can’t tell until this resolves.</div>"
-      },
-      {
-       "when": {
-        "textContains": "healthy"
-       },
-       "content": "Chain healthy — the selfdef mirror is flowing; downstream mirror panels are current.",
-       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● M060 healthy</div>The bridge is flowing — D-12/D-13…D-18 are showing live selfdef data.</div>"
-      },
-      {
-       "when": {
-        "textContains": "degraded"
-       },
-       "content": "Chain degraded — the mirror is stale or failing; selfdef panels downstream are showing old data.",
-       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ M060 degraded</div>The bridge is broken — every selfdef mirror panel is frozen at the last good mirror, even though they won’t say so.</div>"
+
+    // modules
+    var host=document.getElementById('c-mods'); if(!host) return;
+    var out='';
+    for(var mi=0; mi<CUR.length; mi++){
+      var mod=CUR[mi];
+      var md=0; for(var k=0;k<mod.lessons.length;k++){ if(st.done[mod.id+'.'+k]) md++; }
+      out+='<div class="c-mod">'+
+        '<div class="c-mod-h"><span class="mid">'+esc(mod.id)+'</span><span class="mname">'+esc(mod.name)+'</span>'+
+          '<span class="c-tier '+esc(mod.tier)+'">'+esc(mod.tier)+'</span>'+
+          '<span class="mprog">'+md+'/'+mod.lessons.length+'</span></div>';
+      for(var li=0; li<mod.lessons.length; li++){
+        var L=mod.lessons[li];
+        var isDone=!!st.done[mod.id+'.'+li];
+        var isHere = st.started && st.mi===mi && st.li===li;
+        var title, idtxt='', kind;
+        if(L.c){ title=L.t; kind='concept'; }
+        else { var p=catPanel(L.dir); title=p?p.label:L.dir; idtxt=(p&&p.id&&p.id!=='—')?p.id:''; kind='panel'; }
+        var tried = L.todo && (st.checks||{})[mod.id+'.'+li];
+        out+='<button class="c-les'+(isHere?' here':'')+'" data-mi="'+mi+'" data-li="'+li+'">'+
+          '<span class="ck'+(isDone?'':' todo')+'">'+(isDone?'✓':'○')+'</span>'+
+          '<span class="lid">'+esc(idtxt)+'</span>'+
+          '<span class="ltx">'+esc(title)+'</span>'+
+          (tried?'<span class="try">✓ tried</span>':'')+
+          '<span class="lk">'+kind+'</span>'+
+          '<span class="arrow">›</span></button>';
       }
-     ]
-    },
-    {
-     "selector": "#m060-health-detail",
-     "title": "M060 detail",
-     "content": "The longer M060 status line — which doctor check failed and why, when the chain is degraded. On a healthy chain it just confirms the selfdef daemon is answering; when degraded, it’s where you learn whether the mirror is slow, partial, or fully down, which decides how much to distrust the downstream panels.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The mirror-chain, from the front door</div>The M060 bridge health as the overview sees it — the same selfdef mirror the D-13…D-18 panels ride. A degraded chain here means every selfdef mirror is stale at once.<div class=\"so-xref\"><span class=\"x\">→</span> D-25 selfdef management — the mirror chain in full</div></div>"
-    },
-    {
-     "selector": "#m060-health-count",
-     "title": "M060 mirror count",
-     "content": "How many mirrors the chain is carrying (of the expected set). A count below expected means some mirrors are flowing and others aren’t — a partial bridge, where some selfdef panels are current and others stale. It’s more informative than the banner alone: it says how MUCH of the bridge is up.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A partial bridge is the tricky state</div>The banner is binary-ish; this count reveals the middle ground. Say 7 of 10 mirrors flow — then D-13 grants might be current while D-16 audit is stale, and nothing looks obviously broken. This number is how you catch a partial bridge before you trust a downstream panel that happens to be on a dead producer.</div><div class=\"so-xref\"><span class=\"x\">→</span> #m060-mirror-grid — which specific producers are the dead ones</div>"
-    },
-    {
-     "selector": "#m060-health-age",
-     "title": "M060 freshness",
-     "content": "How long since the last successful mirror. This is the concrete staleness number for every downstream selfdef panel: if the age is minutes, D-12’s firewall rules and D-16’s audit chain are minutes old, regardless of what those panels imply. A climbing age is the bridge failing in slow motion.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The staleness stamp on every selfdef panel</div>Downstream mirror panels rarely show their own age — they just display data. This one number is that missing timestamp for all of them at once: read it as ‘everything selfdef is showing is at least this old.’ A steadily climbing age is the bridge dying quietly, before any banner turns red.</div>"
+      out+='</div>';
     }
-   ]
-  },
-  {
-   "icon": "⊟",
-   "title": "MS022 SSE quota",
-   "content": "The server-sent-events subscriber quota (MS022) — how many live event streams are active against an operator-asserted ceiling. Panels that update live hold an SSE subscription; this is the budget for them. It matters because exhausting the quota means new live views silently fall back to polling or go stale.",
-   "children": [
-    {
-     "selector": "#ms022-sse-quota-banner",
-     "title": "SSE quota status",
-     "content": "Whether the live-event subscriber count is within its MS022 ceiling. Green means live panels can open streams; near the ceiling means the next live view won’t get real-time updates. It’s a quiet limit — nothing errors, things just stop being live.",
-     "variants": [
-      {
-       "when": {
-        "textContains": "unknown"
-       },
-       "content": "SSE quota unknown — the subscriber count hasn’t been read yet.",
-       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ SSE unknown</div>The live-stream budget isn’t confirmed — can’t yet say whether new live views will get real-time updates.</div>"
-      },
-      {
-       "when": {
-        "textContains": "exhausted"
-       },
-       "content": "SSE quota exhausted — new live views will fall back to polling or stale data without erroring.",
-       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ SSE exhausted</div>The live-stream budget is spent. New panels won’t stream — they’ll quietly poll or freeze.</div>"
-      }
-     ],
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The live-update budget (MS022)</div>Whether the SSE (server-sent-events) quota has headroom. The cockpit's live updates ride SSE; if the quota is exhausted, panels fall back to manual refresh — this banner is the early warning.</div>"
-    },
-    {
-     "selector": "#ms022-sse-detail",
-     "title": "SSE detail",
-     "content": "The longer SSE status — which node_exporter reading backs it and any degraded note. Read it when the quota banner is amber to see whether the ceiling is genuinely reached or the count simply can’t be read.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">SSE quota detail</div>The specifics behind the SSE budget — connections used vs the MS022 cap. Reading it tells you how much live-update capacity remains before panels stop auto-refreshing.</div>"
-    },
-    {
-     "selector": "#ms022-sse-active",
-     "title": "SSE active subscribers",
-     "content": "How many live SSE streams are currently open, against the ceiling. This is the concrete budget reading: each live-updating panel is one subscriber, so a high count near the ceiling explains why a newly-opened live view might not be updating in real time.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Each live panel spends one from the budget</div>A panel that streams updates holds an SSE subscription for as long as it’s open. Leave several live views open across tabs and the count climbs toward the operator-set ceiling — at which point the next live view silently can’t stream. This number is why ‘it stopped updating’ sometimes has nothing to do with the data and everything to do with the budget.</div>"
-    }
-   ]
-  },
-  {
-   "icon": "⚑",
-   "title": "Four-watchdog IPS spine",
-   "content": "The health of the IPS spine — whether the Guardian Daemon (Tetragon eBPF) is up and streaming. This is the boundary where sovereign-os CHECKS but selfdef OWNS (R10212): this box verifies the Tetragon socket is alive; selfdef runs the daemon. It’s the last-line perimeter, so its health is a security fact, not just an operational one.",
-   "children": [
-    {
-     "selector": "#four-watchdog-banner",
-     "title": "IPS spine status",
-     "content": "Whether the four-watchdog IPS spine — the Guardian/Tetragon perimeter — is intact. A healthy spine means the eBPF gatekeeper is watching syscalls at the kernel boundary; a broken one means the box’s last line of enforcement is down, which is a security event, not a warning.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">sovereign-os checks, selfdef owns</div>The Guardian Daemon (Tetragon) enforces at the kernel via eBPF — the perimeter that can’t be bypassed from userspace. Per the R10212 boundary, this box doesn’t run it; it verifies the Tetragon socket is active and streaming. So this banner is a check on selfdef’s daemon: green means the immutable gatekeeper is watching, red means it isn’t.</div><div class=\"so-xref\"><span class=\"x\">→</span> Auditor panel — the gatekeeper this spine belongs to<br><span class=\"x\">→</span> D-16 audit — the tamper-evident record the spine feeds</div>",
-     "variants": [
-      {
-       "when": {
-        "textContains": "unknown"
-       },
-       "content": "IPS spine health unknown — the Tetragon socket hasn’t been confirmed.",
-       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ IPS unknown</div>The perimeter daemon’s status isn’t confirmed — can’t yet say the last line is up.</div>"
-      },
-      {
-       "when": {
-        "textContains": "down"
-       },
-       "content": "IPS spine down — Guardian/Tetragon isn’t streaming; the kernel-level perimeter is not enforcing.",
-       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ IPS down</div>The immutable gatekeeper is not watching. Treat this as a security event — the last line of enforcement is offline.</div>"
-      }
-     ]
-    },
-    {
-     "selector": "#four-watchdog-detail",
-     "title": "IPS spine detail",
-     "content": "The longer spine status — which of the four watchdog checks failed and why. When the spine is degraded, this is where you learn whether it’s the Tetragon socket, its streaming, or a downstream check — the difference between ‘daemon down’ and ‘daemon up but a check failed.’",
-     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">The IPS spine, summarized</div>The four-watchdog rollup (MS046 process / MS047 perimeter / MS044 tamper / MS048 config) as the front door sees it. A CRITICAL here means an IPS-spine subsystem failed — the single most important line on the overview.<div class=\"so-xref\"><span class=\"x\">→</span> auditor — the enforcement these watchdogs run</div></div>"
-    },
-    {
-     "selector": "#four-watchdog-rollup",
-     "title": "IPS rollup",
-     "content": "The rolled-up verdict across the four watchdog checks. Read it as the spine’s composite: all four green is an intact perimeter; any red pulls the whole rollup down, because the IPS spine is only as strong as its weakest watchdog.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Weakest-link, on purpose</div>The rollup is a conjunction, not an average — four green makes it green, one red makes it red. That’s deliberate for a security spine: a perimeter with one hole isn’t 75% secure, it’s breached. So the rollup refuses to look healthy while any watchdog is down.</div><div class=\"so-xref\"><span class=\"x\">→</span> #four-watchdog-detail — which of the four is the red one</div>"
-    }
-   ]
-  },
-  {
-   "icon": "⊞",
-   "title": "AppArmor",
-   "content": "AppArmor enforcement status — whether Mandatory Access Control is active and enforcing on the box. AppArmor confines what even a compromised process can do, restricting user namespaces and unconfined apps. It’s the host-hardening layer beneath the IPS spine: Tetragon watches, AppArmor confines.",
-   "children": [
-    {
-     "selector": "#apparmor-banner",
-     "title": "AppArmor status",
-     "content": "Whether AppArmor is enforcing. In the secure profile the box runs restrictive user namespaces with AppArmor enforced — so ‘enforcing’ is the expected, hardened state. ‘Complain’ or ‘disabled’ means MAC isn’t actively confining, which widens what a compromised process could reach.",
-     "variants": [
-      {
-       "when": {
-        "textContains": "unknown"
-       },
-       "content": "AppArmor status unknown — enforcement hasn’t been read yet.",
-       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ AppArmor unknown</div>MAC enforcement isn’t confirmed — can’t yet say processes are confined.</div>"
-      },
-      {
-       "when": {
-        "textContains": "enforc"
-       },
-       "content": "AppArmor enforcing — Mandatory Access Control is active and confining processes.",
-       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● AppArmor enforcing</div>MAC is active — even a compromised process is boxed in by its profile.</div>"
-      },
-      {
-       "when": {
-        "textContains": "disabled"
-       },
-       "content": "AppArmor not enforcing — MAC is off or in complain mode; confinement isn’t active.",
-       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ AppArmor off</div>Processes aren’t MAC-confined — a compromise has far more reach than the hardened profile intends.</div>"
-      }
-     ],
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">MAC enforcement status</div>Whether AppArmor mandatory-access-control is enforcing. MAC confines each process to a declared profile — a permissive or disabled AppArmor is a weaker containment posture worth surfacing on the front door.</div>"
-    },
-    {
-     "selector": "#apparmor-detail",
-     "title": "AppArmor detail",
-     "content": "The longer AppArmor status — the source of the reading and any note. Read it when the banner is amber to tell ‘genuinely not enforcing’ from ‘couldn’t read the mode.’",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">AppArmor profile detail</div>The specifics — how many profiles are enforcing vs complain-mode. Enforcing profiles actively block out-of-policy actions; complain-mode only logs them, so the split tells you how much MAC is really protecting.</div>"
-    },
-    {
-     "selector": "#apparmor-mode",
-     "title": "AppArmor mode",
-     "content": "The active AppArmor mode — enforce, complain, or disabled. Enforce is the hardened state (violations blocked); complain logs but allows; disabled is off. This is the concrete answer to how strong the MAC layer is right now.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Enforce vs complain is not a small difference</div><div class=\"so-grid\"><span class=\"k\">enforce</span><span>violations are BLOCKED — the confinement is real</span><span class=\"k\">complain</span><span>violations are LOGGED but ALLOWED — visibility without protection</span><span class=\"k\">disabled</span><span>no MAC — profiles aren’t consulted at all</span></div>Complain mode is the trap: it looks active in logs but confines nothing, so a box that should be ‘enforce’ sitting in ‘complain’ is unprotected while appearing instrumented.</div>"
-    }
-   ]
-  },
-  {
-   "icon": "◎",
-   "title": "M060 mirror producers",
-   "content": "The producer side of the M060 bridge — the specific selfdef mirrors feeding this box, from selfdef.toml. Where the M060 banner is the chain’s overall health, this grid is the per-producer view: which individual mirrors are flowing and which aren’t.",
-   "children": [
-    {
-     "selector": "#m060-mirror-grid",
-     "title": "Mirror producers",
-     "content": "The grid of individual M060 mirror producers declared in selfdef.toml — each a specific stream (rules, grants, audit, trust) from selfdef. Read it to see which mirrors are healthy at the producer level; a single dead producer is why one selfdef panel is stale while the others are fine.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The per-stream view of the bridge</div>The M060 banner is the chain’s overall health; this grid is its parts. Each producer feeds one kind of selfdef data into one set of panels — so when the count says ‘7 of 10’, this is where you see WHICH three are dead and therefore which selfdef panels to distrust.</div><div class=\"so-xref\"><span class=\"x\">→</span> #m060-health-count — the count this grid itemizes</div>",
-     "dynamic": true,
-     "childTemplate": {
-      "selector": "#m060-mirror-grid tr, #m060-mirror-grid > *",
-      "nameSelector": "td,code,strong,.name",
-      "title": "Mirror · {{name}}",
-      "content": "The {{name}} mirror producer — one selfdef stream (rules, grants, audit, or trust) feeding this box. Its health is per-producer: a single dead {{name}} mirror is why one selfdef panel is stale while its siblings are current.",
-      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Mirror · {{name}}</div>One producer in the M060 chain. The overall banner is the chain’s health; this is the individual stream — read it to localize which selfdef data is flowing and which isn’t.</div>"
-     }
-    }
-   ]
-  },
-  {
-   "icon": "⎈",
-   "title": "Controls",
-   "content": "The shared control rail. On the front door it’s context rather than the focus — the map above is what you came for — but it’s where a fix lives if the coverage or health views surface something that a profile or feature change would address. Each control copies its signed verb.",
-   "children": [
-    {
-     "selector": "#control-surface",
-     "title": "Controls rail",
-     "content": "The profile/mode/feature control rail. On the aggregator it’s the least of the panel — the map and health spine are the point — but it’s here so a diagnosis (a missing surface, a degraded spine) can lead to an action without leaving the front door. Each control copies its exact sovereign-osctl verb.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Diagnosis-to-action, without leaving the map</div>The front door’s job is mostly to show you where a problem is; the rail is so you can act on it in place. If coverage shows a gap or the spine shows a degraded watchdog, the fix — a profile change, a feature toggle — is a copied signed verb away, rather than a hunt for the right panel.</div>"
-    }
-   ]
-  },
-  {
-   "icon": "⟳",
-   "title": "Refresh",
-   "content": "Re-poll the whole aggregate. The front door auto-refreshes every 30 seconds; this forces it now.",
-   "children": [
-    {
-     "selector": "#refresh-btn",
-     "title": "Refresh now",
-     "content": "Re-reads the entire aggregate immediately rather than waiting for the 30-second auto-refresh. Read-only. Use it after installing or fixing something to confirm the front door now sees it — a new panel reachable, a mended bridge, a restored spine.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Re-aggregate the overview</div>Re-reads every rolled-up figure — read-only. It re-samples the front-door aggregation; it never changes any panel's state.</div>"
-    },
-    {
-     "selector": "#last-refresh",
-     "title": "Auto-refresh clock",
-     "content": "When the aggregate last refreshed. Because the front door polls every 30s, a stale time here means the aggregator itself may be stuck — on a healthy box this is never more than 30 seconds old, so an older value is itself a signal that the switchboard needs attention.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A clock that’s also a health check</div>On most panels the refresh time is just information. Here it’s diagnostic: the front door refreshes itself every 30 seconds, so this should never read older than that. When it does, the aggregator — the thing assembling this whole map — is stuck, which means the map itself can’t be trusted until it recovers.</div>"
-    }
-   ]
+    var banner = (total>0 && done>=total)
+      ? '<div class="c-done"><span class="em">🎓</span><span class="tx"><b>Course complete.</b> You’ve toured all '+total+' lessons of sovereign-os. Restart anytime with “Reset progress”, or revisit any single lesson below.</span></div>'
+      : '';
+    host.innerHTML=banner+out;
+    var rows=host.querySelectorAll('.c-les');
+    Array.prototype.forEach.call(rows,function(el){ el.addEventListener('click',function(){ openLesson(parseInt(el.getAttribute('data-mi'),10)||0, parseInt(el.getAttribute('data-li'),10)||0); }); });
   }
- ]
-};
+
+  function openLesson(mi,li){
+    var CUR=window.__soCourseCurriculum||[]; var st=load();
+    st.started=true; st.open=true; st.dismissed=false; st.mi=mi; st.li=li; save(st);
+    var mod=CUR[mi]; var L=mod?mod.lessons[li]:null;
+    if(L && !L.c && L.dir){ location.href='../'+L.dir+'/'; }      // panel lesson → travel there
+    else { location.href='../course/'; }                          // concept lesson → open the rail here
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){
+    render();
+    var s=document.getElementById('c-start');
+    if(s) s.addEventListener('click', function(){ var st=load(); if(st.started){ openLesson(st.mi,st.li); } else { openLesson(0,0); } });
+    var r=document.getElementById('c-reset');
+    if(r) r.addEventListener('click', function(){ save(defState()); render(); });
+  });
+})();
 </script>
 <!-- COURSE:BEGIN M090 -->
 <style id="so-course-style">

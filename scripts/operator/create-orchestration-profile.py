@@ -151,7 +151,7 @@ def _to_yaml(profile: dict[str, Any]) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Compose a D-21 orchestration profile")
-    p.add_argument("--id", required=True)
+    p.add_argument("id", help="profile id (positional; filename stem)")
     p.add_argument("--intent", default="custom")
     p.add_argument("--name", default="")
     p.add_argument("--conductor", default="none")

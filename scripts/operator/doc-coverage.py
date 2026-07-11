@@ -408,6 +408,8 @@ def cmd_gaps(args) -> int:
                   f"docs={r['doc_surface_count']}/{len(DOC_KINDS)} "
                   f"(short by {r['shortfall']}; missing: "
                   f"{','.join(r['missing_from'])})")
+        print("  next: run `sovereign-osctl doc-coverage scan --module <m>` "
+              "to see which doc surfaces a module is missing")
     result = "ok" if not below else "below-threshold"
     _emit_metric("gaps", "all", result)
     return 2 if below else 0
