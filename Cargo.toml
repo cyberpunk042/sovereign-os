@@ -33,3 +33,7 @@ missing_docs = "warn"
 field_reassign_with_default = "allow"
 # loop-index style is fine when the loop also reads other slices
 needless_range_loop = "allow"
+# Rust 1.89 (the AVX-512 floor) extended `collapsible_if` to fold `if cond { if let
+# … }` into let-chains. The pre-1.89 codebase predates that style; allow it rather
+# than churn many crates. Revisit if the codebase is swept to let-chains later.
+collapsible_if = "allow"
