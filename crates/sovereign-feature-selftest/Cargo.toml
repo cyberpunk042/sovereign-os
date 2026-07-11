@@ -16,3 +16,4 @@ workspace = true
 serde = { workspace = true }
 serde_json = { workspace = true }
 sovereign-simd = { path = "../sovereign-simd" }
+sovereign-safetensors-loader = { path = "../sovereign-safetensors-loader" }

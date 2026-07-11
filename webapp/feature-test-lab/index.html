@@ -787,6 +787,8 @@
   const BACKEND = [
     { id: 'simd-sum-of-squares', label: 'AVX-512 · sum_of_squares', lane: 'backend',
       desc: 'Runs the real sum_of_squares kernel: proves the SIMD path equals scalar across lengths, reports which path (avx512f vs scalar) the host took, and times both on 1e6 f32.' },
+    { id: 'safetensors-loader', label: 'safetensors loader', lane: 'backend',
+      desc: 'Runs the real loader: parses a safetensors buffer, dequantizes F32 + BF16, reads an HF config (GQA kv-heads / head_dim), and confirms the error taxonomy — missing tensor, unsupported dtype, truncated.' },
   ];
 
   // ── client-lane cards (exercise the shipped in-page feature directly) ──────

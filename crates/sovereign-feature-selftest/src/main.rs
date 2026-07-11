@@ -77,7 +77,9 @@ fn selftest_simd_sum_of_squares() -> FeatureResult {
     let path = if has_avx512f() { "avx512f" } else { "scalar" };
 
     // 1. equality across lengths that straddle the 16-lane chunk + remainder.
-    let lengths = [0usize, 1, 7, 15, 16, 17, 31, 32, 33, 64, 100, 257, 1000, 4096];
+    let lengths = [
+        0usize, 1, 7, 15, 16, 17, 31, 32, 33, 64, 100, 257, 1000, 4096,
+    ];
     let mut worst_delta = 0.0f32;
     let mut eq_ok = true;
     for &n in &lengths {
@@ -160,16 +162,204 @@ fn selftest_simd_sum_of_squares() -> FeatureResult {
     }
 }
 
+/// Build a minimal safetensors byte buffer: `[8-byte LE header len][JSON header]
+/// [tensor data]`. Each tensor is (name, dtype-string, shape, f32 values). F32 is
+/// written little-endian; BF16 as the upper 16 bits of each f32; a dtype string
+/// the loader doesn't decode (e.g. "I64") is written as zero-filled bytes so the
+/// unsupported-dtype path can be exercised.
+fn build_safetensors(tensors: &[(&str, &str, Vec<usize>, Vec<f32>)]) -> Vec<u8> {
+    let mut data = Vec::new();
+    let mut header = serde_json::Map::new();
+    for (name, dtype, shape, vals) in tensors {
+        let start = data.len();
+        match *dtype {
+            "F32" => {
+                for &v in vals {
+                    data.extend_from_slice(&v.to_le_bytes());
+                }
+            }
+            "BF16" => {
+                for &v in vals {
+                    let bf16 = (v.to_bits() >> 16) as u16;
+                    data.extend_from_slice(&bf16.to_le_bytes());
+                }
+            }
+            _ => {
+                // an undecodable dtype: reserve 8 bytes per element
+                data.extend(std::iter::repeat_n(0u8, vals.len().max(1) * 8));
+            }
+        }
+        let end = data.len();
+        header.insert(
+            (*name).to_string(),
+            serde_json::json!({ "dtype": dtype, "shape": shape, "data_offsets": [start, end] }),
+        );
+    }
+    let header_bytes = serde_json::to_vec(&header).unwrap_or_default();
+    let mut out = Vec::new();
+    out.extend_from_slice(&(header_bytes.len() as u64).to_le_bytes());
+    out.extend_from_slice(&header_bytes);
+    out.extend_from_slice(&data);
+    out
+}
+
+/// Live self-test of the safetensors loader (`sovereign-safetensors-loader`):
+/// exercises the real parser + dequantizer + config reader + error taxonomy on
+/// a hand-built buffer — no model file, no network. (A full model-forward decode
+/// self-test using the loader's GQA fixture is a Phase-0c follow-up.)
+fn selftest_safetensors_loader() -> FeatureResult {
+    use sovereign_safetensors_loader::{Config, LoaderError, SafeTensors};
+
+    let started = Instant::now();
+    let mut checks = Vec::new();
+    let mut all_ok = true;
+
+    // 1. parse a valid buffer + dequantize F32 exactly and BF16 within tolerance.
+    let buf = build_safetensors(&[
+        ("w", "F32", vec![4], vec![1.0, 2.0, 3.0, 4.0]),
+        ("wb", "BF16", vec![2], vec![1.5, -2.0]), // exact in bf16
+    ]);
+    let parse_ok = match SafeTensors::parse(&buf) {
+        Ok(st) => {
+            let mut names = st.names();
+            names.sort_unstable();
+            let names_ok = names == ["w", "wb"];
+            let f32_ok = st
+                .tensor_f32("w")
+                .map(|v| v == [1.0, 2.0, 3.0, 4.0])
+                .unwrap_or(false);
+            let bf16_ok = st
+                .tensor_f32("wb")
+                .map(|v| v.len() == 2 && (v[0] - 1.5).abs() < 1e-2 && (v[1] + 2.0).abs() < 1e-2)
+                .unwrap_or(false);
+            checks.push(Check {
+                name: "parse_and_names".into(),
+                ok: names_ok,
+                detail: format!("names = {names:?}"),
+            });
+            checks.push(Check {
+                name: "dequant_f32_exact".into(),
+                ok: f32_ok,
+                detail: "tensor_f32(\"w\") == [1,2,3,4]".into(),
+            });
+            checks.push(Check {
+                name: "dequant_bf16".into(),
+                ok: bf16_ok,
+                detail: "tensor_f32(\"wb\") ≈ [1.5, -2.0]".into(),
+            });
+            names_ok && f32_ok && bf16_ok
+        }
+        Err(e) => {
+            checks.push(Check {
+                name: "parse_valid_buffer".into(),
+                ok: false,
+                detail: format!("parse failed: {e}"),
+            });
+            false
+        }
+    };
+    all_ok &= parse_ok;
+
+    // 2. Config::from_json — HF field names + derived GQA kv-heads / head_dim.
+    let cfg_json = br#"{"hidden_size":8,"num_hidden_layers":2,"num_attention_heads":4,
+        "num_key_value_heads":2,"vocab_size":32,"intermediate_size":16,"tie_word_embeddings":true}"#;
+    let cfg_ok = match Config::from_json(cfg_json) {
+        Ok(c) => {
+            let ok = c.model_dim == 8
+                && c.n_heads == 4
+                && c.kv_heads() == 2
+                && c.head_dim() == 2
+                && c.tied;
+            checks.push(Check {
+                name: "config_from_json".into(),
+                ok,
+                detail: format!(
+                    "model_dim={} n_heads={} kv_heads={} head_dim={} tied={}",
+                    c.model_dim,
+                    c.n_heads,
+                    c.kv_heads(),
+                    c.head_dim(),
+                    c.tied
+                ),
+            });
+            ok
+        }
+        Err(e) => {
+            checks.push(Check {
+                name: "config_from_json".into(),
+                ok: false,
+                detail: format!("config parse failed: {e}"),
+            });
+            false
+        }
+    };
+    all_ok &= cfg_ok;
+
+    // 3. error taxonomy — a missing tensor, an unsupported dtype, a truncated
+    //    buffer each raise the RIGHT LoaderError (negative-path live testing).
+    let missing_ok = matches!(
+        SafeTensors::parse(&buf).and_then(|st| st.tensor_f32("nope")),
+        Err(LoaderError::MissingTensor(_))
+    );
+    checks.push(Check {
+        name: "error_missing_tensor".into(),
+        ok: missing_ok,
+        detail: "tensor_f32(unknown) → MissingTensor".into(),
+    });
+
+    let ubuf = build_safetensors(&[("x", "I64", vec![1], vec![0.0])]);
+    let dtype_ok = matches!(
+        SafeTensors::parse(&ubuf).and_then(|st| st.tensor_f32("x")),
+        Err(LoaderError::UnsupportedDtype { .. })
+    );
+    checks.push(Check {
+        name: "error_unsupported_dtype".into(),
+        ok: dtype_ok,
+        detail: "dtype I64 → UnsupportedDtype".into(),
+    });
+
+    let truncated = &buf[..6.min(buf.len())]; // shorter than the 8-byte header-len prefix
+    let trunc_ok = matches!(
+        SafeTensors::parse(truncated),
+        Err(LoaderError::Truncated(_)) | Err(LoaderError::Json(_))
+    );
+    checks.push(Check {
+        name: "error_truncated".into(),
+        ok: trunc_ok,
+        detail: "6-byte buffer → Truncated/Json".into(),
+    });
+
+    all_ok &= missing_ok && dtype_ok && trunc_ok;
+
+    FeatureResult {
+        feature: "safetensors-loader",
+        label: "safetensors loader",
+        ok: all_ok,
+        path_taken: "parse + dequant + config + errors".into(),
+        duration_us: started.elapsed().as_micros(),
+        detail: if all_ok {
+            "loader parses, dequantizes F32/BF16, reads config, and raises the right errors".into()
+        } else {
+            "loader self-test failed — see checks".into()
+        },
+        checks,
+    }
+}
+
 /// The registry of features the lab can self-test. Grows as cards are added
-/// (D21-lab Phase 0b: safetensors loader; Phase 0c: cockpit surfaces).
+/// (Phase 0c: cockpit surfaces + a full model-forward decode).
 fn run(feature: &str) -> Option<FeatureResult> {
     match feature {
         "simd-sum-of-squares" => Some(selftest_simd_sum_of_squares()),
+        "safetensors-loader" => Some(selftest_safetensors_loader()),
         _ => None,
     }
 }
 
-const FEATURES: &[(&str, &str)] = &[("simd-sum-of-squares", "AVX-512 · sum_of_squares")];
+const FEATURES: &[(&str, &str)] = &[
+    ("simd-sum-of-squares", "AVX-512 · sum_of_squares"),
+    ("safetensors-loader", "safetensors loader"),
+];
 
 fn print_json(v: &impl Serialize) {
     match serde_json::to_string_pretty(v) {
