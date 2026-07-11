@@ -637,6 +637,9 @@ a11y; contract test catches drift.
   // ── catalog: groups → panels, with per-panel assistant data (desc).
   //    Generated from config/dashboard-catalog.yaml (single source of truth). ──
   var GROUPS = [
+    {name:'Learn', items:[
+      {id:'—', dir:'course', label:'Course', ico:'✦', desc:'The guided course — a persistent bottom journey-rail that walks you through sovereign-os module by module, most-important pieces first (Trinity, the build pipeline, security & selfdef), then the rest, clearly tier-labelled. Survives navigation; press Next and it travels you to the next lesson’s panel. Distinct from the Assistant (this is a tour ACROSS panels, not help for the one you are on).', menuHover:'The guided tour of the whole box — start here if you are new. Where the Assistant explains the panel you are on, the Course is a linear journey ACROSS panels: it opens a slim rail along the bottom, teaches one lesson at a time, and on Next travels you to that lesson’s panel and resumes there, so exploring and learning are the same motion. It is ordered by importance — Orientation and the Trinity first, then the build pipeline, then models, security & selfdef, hardware, governance, and finally the optional science tools — with every module tier-labelled (Core / Standard / Advanced / Optional) so nothing is hidden and nothing pretends to be more central than it is. Your place and progress are saved on this device, so you can leave, explore freely, and come back to exactly where you were. Open it to get the lay of the land in order rather than clicking around blind; it works in DEMO mode, so you can take the whole tour with no daemon running.'}
+    ]},
     {name:'Trinity & Orchestration', items:[
       {id:'—', dir:'trinity', label:'Trinity', ico:'△', desc:'The 3-tier runtime at a glance — Pulse (CPU/AVX-512 ternary), Weaver (sandboxed GPU fabric), Auditor (immutable gatekeeper): live tier status, model assignments, health.', menuHover:'The three-part mind of the box at a glance — Pulse, Weaver, and Auditor (M066), the arrangement that lets you trust compute you cannot personally verify. Pulse does the thinking on cheap CPU ternary, Weaver shapes and steers it on the sandboxed GPU fabric, and the Auditor watches both from an immutable perch that cannot be bribed or bypassed. The whole point is separation of powers: no single tier can both act and vouch for itself. Open it for the one-screen answer to ‘is the trinity intact’ — all three up, each doing its own job — before you rely on anything the box produced. It is the parent of the Weaver and Auditor panels and the human-readable face of what D-16 (the audit chain) and D-18 (trust) enforce underneath.'},
       {id:'—', dir:'weaver', label:'Weaver (fabric)', ico:'☲', desc:'The sandboxed fabric layer — Podman/VFIO isolation, the state-fabric (tank/context) writers, CCD1 allocation. Where untrusted work runs.', menuHover:'The sandboxed fabric layer — where untrusted and heavy work actually runs, walled off from everything that matters. Weaver owns the GPU fabric (Podman + VFIO isolation), the writers that persist state into tank/context, and the CCD1 core allocation, so it is the tier you look at to answer ‘where is the risky work contained, and is the containment holding.’ It is deliberately the messy tier — bursty, GPU-hungry, running things the box does not fully trust — which is exactly why it is isolated. Open it when you want to see what the fabric is doing, whether a sandbox has the resources it needs, or whether Weaver’s work is staying inside its VFIO boundary rather than leaking toward the host. It sits under the Trinity umbrella beside Pulse (compute) and the Auditor (the watcher that keeps Weaver honest).'},
@@ -702,6 +705,11 @@ a11y; contract test catches drift.
       {id:'—', dir:'science', label:'Science Tools', ico:'⚛', desc:'The operator\'s science catalog — DNA / protein / particle tools. NVIDIA Warp (particles) is integrated: a differentiable particle sim on GPU (RTX PRO 6000) or CPU fallback. Read-only; running a sim is the gated sovereign-osctl science run.', menuHover:'The GPU as a scientific instrument — NVIDIA Warp compiling Python kernels to run simulation and numeric compute on the same Blackwell and 4090 silicon that serves inference, so the machine is a compute instrument, not only an inference server. It answers ‘what can the box compute for me beyond serving models, and is that capability ready.’ Open it to confirm Warp is live and which GPU it targets, to browse the available science tools, or to run a simulation — remembering that a heavy run competes for the very VRAM inference needs (watch D-09). It is the panel that shows the box is general-purpose compute you own, not a single-purpose appliance, and it draws on the same GPU budget the orchestration and hardware-pressure panels track.'},
     ]},
   ];
+  // Expose the catalog (labels + rich per-panel narratives) so the course
+  // snippet can reuse them without duplicating the text — config/dashboard-
+  // catalog.yaml stays the single source of truth. Set at parse time so the
+  // course block (injected before </body>) always sees it.
+  window.__soCatalog = GROUPS;
   var PKEY='sovereign-os.personalization', PSCHEMA=1;
   function loadPrefs(){ try{var r=localStorage.getItem(PKEY);var p=r?JSON.parse(r):null;if(!p||p.schema!==PSCHEMA)return{schema:PSCHEMA,theme:'auto',accent:'#9bd1ff',font_scale:1};return p;}catch(e){return{schema:PSCHEMA,theme:'auto',accent:'#9bd1ff',font_scale:1};} }
   function savePrefs(p){ try{localStorage.setItem(PKEY,JSON.stringify(p));}catch(e){} }
@@ -1997,5 +2005,377 @@ window.SO_ASSIST = {
  ]
 };
 </script>
+<!-- COURSE:BEGIN M090 -->
+<style id="so-course-style">
+  :root{ --so-course-rail-h:46px; }
+  /* keep panel content clear of the fixed rail when the course is showing */
+  body.so-course-on #so-content{ margin-bottom:var(--so-course-rail-h); }
+  @media (prefers-reduced-motion: no-preference){
+    #so-course-rail,#so-course-panel{transition:transform .18s ease,opacity .18s ease}
+    .so-course-btn,.so-course-mod{transition:background .12s ease,border-color .12s ease}
+  }
+  /* the always-present journey rail — spans the content band, tucked
+     between the sidemenu (left) and the Assistant (right, when open) so it
+     never overlaps either. */
+  #so-course-rail{position:fixed; left:var(--so-sidemenu-w); right:0; bottom:0; height:var(--so-course-rail-h); z-index:9350;
+    display:flex; align-items:center; gap:.6rem; padding:0 .7rem; box-sizing:border-box;
+    background:var(--panel,#171717); border-top:1px solid var(--border,#262626); color:var(--fg,#e6e6e6);
+    font-family:ui-sans-serif,-apple-system,Segoe UI,Roboto,sans-serif; font-size:.8rem;}
+  body.so-sm-collapsed #so-course-rail{left:var(--so-sidemenu-w-collapsed);}
+  body.so-assist-open #so-course-rail{right:var(--so-assist-w);}
+  @media (max-width:1024px){ #so-course-rail{left:0 !important; right:0 !important;} }
+  #so-course-rail .so-course-mark{color:var(--accent,#9bd1ff); font-weight:600; white-space:nowrap;}
+  #so-course-rail .so-course-where{color:var(--muted,#8a8a8a); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;}
+  #so-course-rail .so-course-where b{color:var(--fg,#e6e6e6); font-weight:600;}
+  #so-course-bar{flex:1; min-width:40px; height:5px; border-radius:999px; background:var(--bg,#0e0e0e); border:1px solid var(--border,#262626); overflow:hidden;}
+  #so-course-bar > i{display:block; height:100%; width:0; background:var(--accent,#9bd1ff);}
+  #so-course-rail .so-course-pct{color:var(--muted,#8a8a8a); font-variant-numeric:tabular-nums; white-space:nowrap;}
+  .so-course-actions{display:flex; align-items:center; gap:.3rem; flex:none;}
+  .so-course-btn{display:inline-flex; align-items:center; justify-content:center; gap:.3rem; height:28px; padding:0 .55rem;
+    background:transparent; color:var(--fg,#e6e6e6); border:1px solid var(--border,#262626); border-radius:6px; cursor:pointer; font:inherit; font-size:.76rem;}
+  .so-course-btn:hover{background:color-mix(in srgb,var(--accent,#9bd1ff) 14%,transparent); border-color:color-mix(in srgb,var(--accent,#9bd1ff) 40%,transparent);}
+  .so-course-btn[disabled]{opacity:.35; cursor:not-allowed;}
+  /* the one primary action per view (design-grammar rule 2) */
+  .so-course-btn.primary{background:var(--accent,#9bd1ff); border-color:var(--accent,#9bd1ff); color:#08131f; font-weight:600;}
+  .so-course-btn.primary:hover{filter:brightness(1.06);}
+  /* the expandable reading panel — grows upward from the rail, same band */
+  #so-course-panel{position:fixed; left:var(--so-sidemenu-w); right:0; bottom:var(--so-course-rail-h); z-index:9349;
+    max-height:min(62vh,560px); display:none; flex-direction:column; box-sizing:border-box;
+    background:var(--panel,#171717); border-top:1px solid var(--border,#262626); border-left:1px solid var(--border,#262626);
+    box-shadow:0 -12px 34px rgba(0,0,0,.4); color:var(--fg,#e6e6e6); font-family:ui-sans-serif,-apple-system,Segoe UI,Roboto,sans-serif;}
+  body.so-course-open #so-course-panel{display:flex;}
+  body.so-sm-collapsed #so-course-panel{left:var(--so-sidemenu-w-collapsed);}
+  body.so-assist-open #so-course-panel{right:var(--so-assist-w);}
+  @media (max-width:1024px){ #so-course-panel{left:0 !important; right:0 !important; max-height:74vh;} }
+  .so-course-ph{display:flex; align-items:center; gap:.6rem; padding:.6rem .9rem; border-bottom:1px solid var(--border,#262626); flex:none;}
+  .so-course-ph .so-course-modname{color:var(--muted,#8a8a8a); font-size:.72rem; text-transform:uppercase; letter-spacing:.06em;}
+  .so-course-tier{font-size:.64rem; text-transform:uppercase; letter-spacing:.05em; border:1px solid var(--border,#3a3a3a); border-radius:999px; padding:.05rem .45rem; color:var(--muted,#a8a8a8);}
+  .so-course-tier.core{color:#8fd9ff; border-color:color-mix(in srgb,var(--accent,#9bd1ff) 55%,transparent);}
+  .so-course-tier.standard{color:#7fd18f; border-color:rgba(127,209,143,.5);}
+  .so-course-tier.advanced{color:#e0c07a; border-color:rgba(224,192,122,.5);}
+  .so-course-tier.optional{color:#a8a8a8;}
+  .so-course-ph .sp{margin-left:auto;}
+  .so-course-body{flex:1; overflow-y:auto; padding:.9rem 1rem 1.1rem; font-size:.85rem; line-height:1.62;}
+  .so-course-lt{font-size:1.02rem; font-weight:600; margin:0 0 .55rem;}
+  .so-course-lt .id{color:var(--accent,#9bd1ff); font-size:.8rem; font-weight:500; margin-right:.35rem;}
+  .so-course-body p{margin:.5rem 0; color:var(--fg-2,#c8c8c8);}
+  .so-course-here{display:inline-flex; align-items:center; gap:.35rem; font-size:.72rem; color:#7fd18f; border:1px solid rgba(127,209,143,.5); border-radius:999px; padding:.08rem .5rem; margin-bottom:.5rem;}
+  .so-course-tip{border:1px solid rgba(155,209,255,.28); background:rgba(155,209,255,.05); border-radius:7px; padding:.55rem .7rem; margin:.7rem 0 .2rem;}
+  .so-course-tip .lb{font-weight:600; font-size:.76rem; color:var(--accent,#9bd1ff); margin-bottom:.2rem;}
+  .so-course-tip .tx{font-size:.8rem; color:var(--fg-2,#c8c8c8);}
+  .so-course-foot{display:flex; align-items:center; gap:.4rem; flex-wrap:wrap; padding:.55rem .9rem; border-top:1px solid var(--border,#262626); flex:none;}
+  .so-course-foot .sp{margin-left:auto;}
+  /* module jump list */
+  #so-course-modlist{position:absolute; left:.9rem; bottom:calc(100% - 2px); width:min(320px,80vw); max-height:52vh; overflow-y:auto;
+    background:var(--card,#151515); border:1px solid var(--border,#262626); border-radius:9px; box-shadow:0 10px 34px rgba(0,0,0,.5); padding:.3rem; display:none; z-index:9351;}
+  body.so-course-jump #so-course-modlist{display:block;}
+  .so-course-mod{display:flex; align-items:center; gap:.5rem; width:100%; text-align:left; background:transparent; border:0; border-radius:6px; cursor:pointer; color:var(--fg,#e6e6e6); font:inherit; font-size:.8rem; padding:.4rem .55rem;}
+  .so-course-mod:hover{background:color-mix(in srgb,var(--accent,#9bd1ff) 12%,transparent);}
+  .so-course-mod .mi{color:var(--muted,#8a8a8a); font-variant-numeric:tabular-nums; min-width:1.6rem;}
+  .so-course-mod .ml{flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .so-course-mod.done .ml{color:var(--muted,#8a8a8a);}
+  .so-course-mod .mk{color:#7fd18f; font-size:.75rem;}
+  #so-course-rail .so-course-dismiss{color:var(--muted,#8a8a8a);}
+</style>
+<script>
+(function(){
+  "use strict";
+  if (window.__soCourse) return; window.__soCourse = true;
+
+  // ── CURRICULUM — compact structure only; the long per-panel teaching text
+  //    is pulled from window.__soCatalog (the app-shell catalog, single source
+  //    of truth from config/dashboard-catalog.yaml). A lesson is either:
+  //      {c:'concept', t:title, p:[paragraph, ...]}
+  //      {dir:'<panel-slug>', tip:'what to look at while you are here'}
+  //    Modules are ordered by importance and carry a tier label so the less
+  //    central material is integrated but clearly marked. ──
+  var CURRICULUM = [
+    {id:'M0', name:'Orientation', tier:'core', lessons:[
+      {c:'concept', t:'What sovereign-os is', p:[
+        'sovereign-os is not an app you install — it is a build pipeline and lifecycle toolkit for a sovereign, local-first AI workstation. You use it to build your own bootable OS image, reproducibly and from spec, then to operate that box for its whole life: pre-install, install, and every day after.',
+        'The promise is sovereignty: your AI runs on your silicon, and nothing has to cross the network for the box to think. This course walks that promise, surface by surface — most important pieces first, then the rest, all of it integrated and clearly labelled.',
+        'You are reading this in the Course rail at the bottom of the screen. It rides along as you explore: press Next and it takes you to the next lesson’s panel and picks up there. Your place is saved on this device, so you can leave and come back.'
+      ]},
+      {c:'concept', t:'The Trinity doctrine', p:[
+        'The conceptual heart of the box is the Trinity: three tiers with separated powers, so you can trust compute you cannot personally verify. Pulse does the thinking cheaply on the CPU (ternary / BitNet inference). Weaver shapes and steers the heavier work on a sandboxed GPU fabric. The Auditor watches both from an immutable perch that cannot be bribed or bypassed.',
+        'The point is that no single tier can both act and vouch for itself. You will visit each tier’s panel in the next module — this is the lens to hold while you do.'
+      ]},
+      {c:'concept', t:'Sovereignty-clean & DEMO mode', p:[
+        'Every cockpit panel is one self-contained page: no framework, no CDN, nothing loaded across the network at runtime. Panels are read-only by default — they observe the box and, for any real action, hand you a signed CLI verb to run yourself.',
+        'Because panels are read-only, you can explore them with no daemon running: turn on DEMO mode (⚙ Settings → DEMO mode) and every panel fills with clearly-badged sample data. Do that now if this box has no live backend — the whole tour works in DEMO.'
+      ]},
+      {dir:'master-dashboard', tip:'This is the front door. Read the four health banners at the top — the M060 selfdef→sovereign-os mirror chain, the SSE subscriber quota, the IPS watchdog spine, and AppArmor. They are the box’s pulse; everything else is a place on this map.'}
+    ]},
+    {id:'M1', name:'Trinity & Orchestration', tier:'core', lessons:[
+      {dir:'trinity', tip:'The one-screen answer to “is the trinity intact” — all three tiers up, each doing only its own job. Confirm this before you trust anything the box produced.'},
+      {dir:'weaver', tip:'The messy, isolated tier. Look for whether the risky work is staying inside its VFIO boundary rather than leaking toward the host.'},
+      {dir:'auditor', tip:'A blind Auditor is a security event, not a slow one. Check the perimeter is live and streaming, then read what it has flagged.'},
+      {dir:'router', tip:'Watch where prompts actually landed. The doctrine is that most prompts do not deserve the expensive model — catch everything piling onto the Oracle.'},
+      {dir:'runtime-modes', tip:'Each mode is a whole stance (efficiency / concurrency / deep-context). Note the trade-off: you cannot have all three at once.'},
+      {dir:'d-01-active-sessions', tip:'A session parked at one lifecycle step is a session that needs attention. Scan for anything stuck.'},
+      {dir:'d-03-model-health', tip:'The live-serving view. The p95/p99 tail is what a user feels, not the average — read the tail latencies.'},
+      {dir:'d-05-traces', tip:'The debugger’s panel. After a bad or slow response, the trace is the ground truth the summary dashboards abstract away.'}
+    ]},
+    {id:'M2', name:'The Build Pipeline', tier:'core', lessons:[
+      {c:'concept', t:'Build → Emulate → Flash', p:[
+        'This is why the repo exists. You compose an image in the Build Configurator, rehearse it safely in a throwaway QEMU VM (Emulate), and only then write it to real hardware (Flash). A broken build should fail harmlessly in a console you can read — never on the USB key.',
+        'The three panels ahead are that pipeline, in order. Treat Flash’s armed state as live: it irreversibly wipes the target device.'
+      ]},
+      {dir:'build-configurator', tip:'The factory floor — the one panel where a decision (a kernel march, a VFIO cmdline, an encryption choice) propagates into every other. Nothing here touches a running box.'},
+      {dir:'emulate', tip:'uefi boot tests the real secure-boot chain; snapshot mode discards writes so every boot is clean. Rehearse here after any kernel or module change.'},
+      {dir:'flash', tip:'The point of no return. Plan is a free dry-run; the real write unlocks only after you re-type the device path matched to its fingerprint.'}
+    ]},
+    {id:'M3', name:'Models & Compute', tier:'standard', lessons:[
+      {dir:'d-21-lm-orchestration', tip:'A runtime profile is not a setting — it rebalances every tier at once. Preview the model→hardware grid before committing.'},
+      {dir:'d-23-models-catalog', tip:'The portfolio of models the box COULD run. Shop here by tier before loading; loading itself is a signed action elsewhere.'},
+      {dir:'d-24-cpu-features', tip:'The cheap-cognition story rests on ternary running fast on CPU. A missing AVX-512 extension silently downgrades it — read the per-workload fit verdict.'},
+      {dir:'models-catalog', tip:'The working selector — filter by VRAM budget. A model that will not fit is not a candidate no matter how good.'},
+      {dir:'cpu-features', tip:'The selection-oriented sibling of D-24: which instruction families this chip exposes and the workloads they enable.'},
+      {dir:'orchestration', tip:'The layer above tier choice — how HARD to reason (CoT → validator → self-consistency → MoE). Too eager wastes compute; too shy gives shallow answers.'},
+      {dir:'profile-generation', tip:'The profile foundry — what a strategy would actually look like on THIS silicon, before you apply one.'},
+      {dir:'d-22-lm-status-operability', tip:'Device-by-device, plus the sovereign loopback chat: your AI, your silicon, nothing crossing the network. Confirm a device is not just loaded but responding.'},
+      {dir:'code-console', tip:'Sit down and code with the local model over loopback. It is honest by construction — the parts with no producer yet say so rather than faking them.'},
+      {dir:'d-10-eval-history', tip:'The report card. Black-box pass is the number that cannot be gamed — read it before promoting anything.'},
+      {dir:'d-11-adapter-status', tip:'LoRA specializations. A rollback here is the system working, not failing; promotion runs a triple-gate.'},
+      {dir:'d-19-super-model-manifest', tip:'The bill of materials for the whole box. A module lagging its expected version is often the root of a problem surfacing elsewhere.'}
+    ]},
+    {id:'M4', name:'Security & selfdef', tier:'core', lessons:[
+      {c:'concept', t:'The selfdef boundary', p:[
+        'selfdef is the security daemon that RUNS on the OS sovereign-os builds — the Tetragon agent-guard, the notifier and escalation engine, the Ring-0..4 nftables perimeter. It lives in its own repo and is authoritative there.',
+        'Inside this cockpit you see selfdef only through read-only “mirror” windows (the M060 bridge): D-13–D-18, D-25, and D-12 networking. sovereign-os observes and toggles selfdef; it never reimplements it. Any control is a signed CLI verb you copy and run. When a mirror looks stale, that is a real signal — the panels freeze at the last good data rather than lie.'
+      ]},
+      {dir:'selfdef-management', tip:'The control room for selfdef itself — is the defense system healthy and enforcing, before you trust any mirror downstream of it.'},
+      {dir:'d-25-selfdef-management', tip:'The bridge monitor. When the M060 chain breaks, the mirror panels silently freeze — which is dangerous precisely because they will not look broken.'},
+      {dir:'d-12-networking', tip:'The firewall, read-only, ring-aware (R0 Kernel → R4 Cloud). Anything pending here is a proposal, never yet live — rules change only through a signature.'},
+      {dir:'network-edge', tip:'Watch for multi-NAT: a second NAT hop (an ISP router in front of your firewall) breaks inbound and hides where the real perimeter is.'},
+      {dir:'edge-firewall', tip:'The exposure finder — a threat that neither the box nor the upstream edge currently stops. It turns “the edge has gaps” into specific rules.'},
+      {dir:'d-13-filesystem-grants', tip:'TTL-bounded grants: standing access is what attackers inherit, so the live list is the true filesystem attack surface right now.'},
+      {dir:'d-14-capability-tokens', tip:'Not “can act” but which specific capabilities, at the bit level. Audit a token that looks too powerful.'},
+      {dir:'d-15-sandboxes', tip:'Containment strength, from namespaces up to full VFIO passthrough. A security question: is the 4090 actually sandboxed rather than host-claimed?'},
+      {dir:'d-16-audit', tip:'The tamper-evident, hash-chained record. A broken or stale chain is a reason to distrust the box’s self-account until explained.'},
+      {dir:'d-17-quarantine', tip:'The middle path between delete-on-suspicion and ignore-on-doubt: contain, keep inspectable, decide deliberately.'},
+      {dir:'d-18-trust-scores', tip:'Trust is earned and revocable. A dropping score is an early warning — catch it before it becomes a problem.'},
+      {dir:'d-06-pending-approvals', tip:'Everything the box refused to do on its own. Clearing this queue is the human-in-the-loop, decision by decision.'},
+      {dir:'d-07-memory-changes', tip:'The eight-tier memory OS — the difference between an agent that repeats your corrections and one that remembers them. Review the recent graph diff.'},
+      {dir:'d-20-peace-machine-health', tip:'The box’s conscience in one screen: all five peace properties, or not peace. When a property goes red it points at the subsystem that broke it.'},
+      {dir:'compliance', tip:'The top of the anti-minimization stack — surface + doc + anti-minimization + UX, all at once. A red composite sends you to the axis dragging it down.'}
+    ]},
+    {id:'M5', name:'Hardware & Operations', tier:'standard', lessons:[
+      {dir:'d-09-hardware-pressure', tip:'PSI is stall, not utilization — the honest signal of contention. Tell genuine “out of headroom” apart from “just working hard.”'},
+      {dir:'d-04-costs', tip:'The honest ledger: cloud is off by default, so most of what a hosted assistant would bill for costs nothing here ($0 is honest).'},
+      {dir:'d-08-rollback-points', tip:'The undo button for the whole machine — ZFS snapshots + signed rollback. Confirm a recent point exists before a risky change.'},
+      {dir:'d-02-profile-choices', tip:'The authority dial — how much the box may do without your signature (L0..L6 authority × R0..R4 trust ring). The single most consequential control.'},
+      {dir:'ups', tip:'The pool runs sync=always, so a dirty power cut risks corruption. Confirm the graceful-shutdown guard is armed.'},
+      {dir:'global-history', tip:'The whole-machine timeline across six sources. Correlation lives here — an event from one source next to one from another is how a cross-subsystem pattern becomes visible.'}
+    ]},
+    {id:'M6', name:'Governance & Meta', tier:'advanced', lessons:[
+      {dir:'surface-map', tip:'The reachability audit — a feature is not delivered until it is present on all eight operator surfaces (core/cli/tui/api/mcp/dashboard/webapp/service).'},
+      {dir:'doc-coverage', tip:'Every empty cell is a concrete writing task, not a vague “needs docs.” Six doc kinds, each for a different reader.'},
+      {dir:'ux-design-audit', tip:'The bar this very cockpit is held to — a feature can render perfectly and still fail its operator. Every low cell is a concrete fix.'},
+      {dir:'anti-minimization-audit', tip:'The cut-corner detector, built from the operator’s own “do not minimize” directive — eight smells of work that looks finished but is not.'},
+      {dir:'auth-tier', tip:'Does each surface authenticate as strongly as its capability warrants? A mutating surface authenticating weakly is the priority to fix.'},
+      {dir:'personalization', tip:'The one panel you cannot break — theme, accent, typography, saved locally, deliberately kept apart from any machine state.'}
+    ]},
+    {id:'M7', name:'Science & Simulation', tier:'optional', lessons:[
+      {dir:'science', tip:'The GPU as a scientific instrument (NVIDIA Warp) — the box is general-purpose compute you own, not a single-purpose appliance. A heavy run competes with inference for VRAM (watch D-09).'}
+    ]}
+  ];
+  // Expose the curriculum so the /course/ syllabus landing page can render the
+  // same structure without duplicating it (set at parse time, before </body>).
+  window.__soCourseCurriculum = CURRICULUM;
+
+  // ── state (sovereign-os.course) — schema-guarded, separate from
+  //    sovereign-os.assist and sovereign-os.personalization. ──
+  var CKEY='sovereign-os.course', CSCHEMA=1;
+  function defState(){ return {schema:CSCHEMA, started:false, open:false, mi:0, li:0, done:{}, dismissed:false}; }
+  function load(){ try{ var p=JSON.parse(localStorage.getItem(CKEY)); if(!p||p.schema!==CSCHEMA) return defState();
+      if(typeof p.done!=='object'||!p.done) p.done={}; return p; }catch(e){ return defState(); } }
+  function save(st){ try{ localStorage.setItem(CKEY, JSON.stringify(st)); }catch(e){} }
+  var st = load();
+
+  // ── helpers ──
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+  function curDir(){ var seg=location.pathname.replace(/\/+$/,'').split('/'); return seg[seg.length-1]||''; }
+  function catPanel(dir){ var G=window.__soCatalog||[]; for(var g=0;g<G.length;g++){ var it=G[g].items||[]; for(var i=0;i<it.length;i++){ if(it[i].dir===dir) return it[i]; } } return null; }
+  function clampPos(){ if(st.mi<0)st.mi=0; if(st.mi>=CURRICULUM.length)st.mi=CURRICULUM.length-1;
+    var m=CURRICULUM[st.mi]; if(st.li<0)st.li=0; if(st.li>=m.lessons.length)st.li=m.lessons.length-1; }
+  function lessonKey(mi,li){ return CURRICULUM[mi].id+'.'+li; }
+  function lessonAt(mi,li){ return CURRICULUM[mi].lessons[li]; }
+  function lessonDir(L){ return L && !L.c ? L.dir : null; }
+  function lessonTitle(L){ if(L.c) return L.t; var p=catPanel(L.dir); return p?p.label:(L.dir||'panel'); }
+  function lessonId(L){ if(L.c) return ''; var p=catPanel(L.dir); return (p&&p.id&&p.id!=='—')?p.id:''; }
+  // linear order for prev/next + progress
+  function flat(){ var out=[]; for(var m=0;m<CURRICULUM.length;m++){ for(var l=0;l<CURRICULUM[m].lessons.length;l++){ out.push([m,l]); } } return out; }
+  function linIndex(mi,li){ var f=flat(); for(var i=0;i<f.length;i++){ if(f[i][0]===mi&&f[i][1]===li) return i; } return 0; }
+  function totalLessons(){ return flat().length; }
+  function doneCount(){ var n=0; for(var k in st.done){ if(st.done[k]) n++; } return n; }
+
+  // ── navigation ──
+  function markDone(mi,li){ st.done[lessonKey(mi,li)]=true; }
+  function openLesson(mi,li){
+    st.mi=mi; st.li=li; st.started=true; st.dismissed=false; clampPos(); save(st);
+    var L=lessonAt(st.mi,st.li), dir=lessonDir(L);
+    if(dir && dir!==curDir()){ // auto-travel: resume on arrival
+      location.href='../'+dir+'/'; return;
+    }
+    render();
+  }
+  function go(delta){
+    // advancing forward marks the current lesson complete
+    if(delta>0) markDone(st.mi,st.li);
+    var f=flat(), i=linIndex(st.mi,st.li)+delta;
+    if(i<0) i=0; if(i>=f.length) i=f.length-1;
+    openLesson(f[i][0], f[i][1]);
+  }
+  function isLast(){ return linIndex(st.mi,st.li) >= totalLessons()-1; }
+
+  // ── rendering ──
+  var railEl, panelEl;
+  function setBodyFlags(){
+    document.body.classList.toggle('so-course-on', st.started && !st.dismissed);
+    document.body.classList.toggle('so-course-open', !!(st.open && st.started && !st.dismissed));
+    if(!(st.started&&!st.dismissed)) document.body.classList.remove('so-course-jump');
+  }
+  function render(){
+    if(!railEl) return;
+    clampPos();
+    setBodyFlags();
+    if(st.dismissed){ railEl.style.display='none'; return; }
+    railEl.style.display='flex';
+    var m=CURRICULUM[st.mi], L=lessonAt(st.mi,st.li);
+    var pct=Math.round(doneCount()/totalLessons()*100);
+    // rail
+    if(!st.started){
+      railEl.innerHTML='<span class="so-course-mark">✦ Course</span>'+
+        '<span class="so-course-where">Guided tour of sovereign-os — '+totalLessons()+' lessons, most important first.</span>'+
+        '<span class="so-course-actions"><button class="so-course-btn primary" id="so-course-start">▶ Start the tour</button>'+
+        '<button class="so-course-btn so-course-dismiss" id="so-course-x" title="Dismiss (re-open from the ✦ Course header button)" aria-label="Dismiss course">✕</button></span>';
+    } else {
+      railEl.innerHTML='<span class="so-course-mark">✦ Course</span>'+
+        '<span class="so-course-where"><b>'+esc(m.id)+'</b> '+esc(m.name)+' · '+esc(lessonTitle(L))+'</span>'+
+        '<span id="so-course-bar" aria-hidden="true"><i style="width:'+pct+'%"></i></span>'+
+        '<span class="so-course-pct">'+(linIndex(st.mi,st.li)+1)+'/'+totalLessons()+' · '+pct+'%</span>'+
+        '<span class="so-course-actions">'+
+          '<button class="so-course-btn" id="so-course-prev" title="Previous lesson" aria-label="Previous lesson"'+(linIndex(st.mi,st.li)<=0?' disabled':'')+'>◀</button>'+
+          '<button class="so-course-btn" id="so-course-toggle" title="Expand / collapse the lesson" aria-expanded="'+(st.open?'true':'false')+'">'+(st.open?'⬇ Hide':'⬆ Lesson')+'</button>'+
+          '<button class="so-course-btn primary" id="so-course-next" title="'+(isLast()?'Finish':'Next lesson (travels to its panel)')+'">'+(isLast()?'✓ Finish':'Next ▶')+'</button>'+
+          '<button class="so-course-btn so-course-dismiss" id="so-course-x" title="Dismiss" aria-label="Dismiss course">✕</button>'+
+        '</span>';
+    }
+    wireRail();
+    renderPanel();
+  }
+  function renderPanel(){
+    if(!panelEl) return;
+    var m=CURRICULUM[st.mi], L=lessonAt(st.mi,st.li);
+    var here = lessonDir(L) && lessonDir(L)===curDir();
+    var bodyHtml='';
+    if(here){ bodyHtml+='<span class="so-course-here">◉ You are on this panel</span><br>'; }
+    bodyHtml+='<div class="so-course-lt">'+(lessonId(L)?'<span class="id">'+esc(lessonId(L))+'</span>':'')+esc(lessonTitle(L))+'</div>';
+    var paras;
+    if(L.c){ paras=L.p||[]; }
+    else { var p=catPanel(L.dir); paras=[ (p&&(p.menuHover||p.desc)) || ('The '+(L.dir||'panel')+' cockpit panel.') ]; }
+    for(var i=0;i<paras.length;i++){ bodyHtml+='<p>'+esc(paras[i])+'</p>'; }
+    if(!L.c && L.tip){ bodyHtml+='<div class="so-course-tip"><div class="lb">While you’re here</div><div class="tx">'+esc(L.tip)+'</div></div>'; }
+
+    var dir=lessonDir(L);
+    var gotoBtn='';
+    if(dir){ gotoBtn = here
+      ? '<button class="so-course-btn" id="so-course-goto" disabled>◉ On this panel</button>'
+      : '<button class="so-course-btn" id="so-course-goto" title="Open this lesson’s panel">↗ Open '+esc(lessonTitle(L))+'</button>'; }
+
+    panelEl.innerHTML=
+      '<div class="so-course-ph">'+
+        '<span class="so-course-modname">'+esc(m.id)+' · '+esc(m.name)+'</span>'+
+        '<span class="so-course-tier '+esc(m.tier)+'">'+esc(m.tier)+'</span>'+
+        '<span class="sp"></span>'+
+        '<button class="so-course-btn" id="so-course-jump" title="Jump to a module" aria-haspopup="true">≣ Modules</button>'+
+        '<button class="so-course-btn" id="so-course-close" title="Collapse" aria-label="Collapse lesson">✕</button>'+
+        buildModList()+
+      '</div>'+
+      '<div class="so-course-body" id="so-course-scroll">'+bodyHtml+'</div>'+
+      '<div class="so-course-foot">'+
+        '<button class="so-course-btn" id="so-course-prev2"'+(linIndex(st.mi,st.li)<=0?' disabled':'')+'>◀ Prev</button>'+
+        gotoBtn+
+        '<span class="sp"></span>'+
+        '<button class="so-course-btn primary" id="so-course-next2">'+(isLast()?'✓ Finish':'Next ▶')+'</button>'+
+      '</div>';
+    wirePanel();
+    var sc=document.getElementById('so-course-scroll'); if(sc) sc.scrollTop=0;
+  }
+  function buildModList(){
+    var rows='';
+    for(var i=0;i<CURRICULUM.length;i++){
+      var mod=CURRICULUM[i];
+      var allDone=true; for(var l=0;l<mod.lessons.length;l++){ if(!st.done[lessonKey(i,l)]){ allDone=false; break; } }
+      rows+='<button class="so-course-mod'+(allDone?' done':'')+'" data-mi="'+i+'">'+
+        '<span class="mi">'+esc(mod.id)+'</span>'+
+        '<span class="ml">'+esc(mod.name)+'</span>'+
+        '<span class="so-course-tier '+esc(mod.tier)+'">'+esc(mod.tier)+'</span>'+
+        (allDone?'<span class="mk">✓</span>':'')+'</button>';
+    }
+    return '<div id="so-course-modlist" role="menu" aria-label="course modules">'+rows+'</div>';
+  }
+
+  function setOpen(o){ st.open=!!o; save(st); setBodyFlags();
+    var t=document.getElementById('so-course-toggle'); if(t){ t.setAttribute('aria-expanded',st.open?'true':'false'); t.innerHTML=st.open?'⬇ Hide':'⬆ Lesson'; } }
+  function dismiss(){ st.dismissed=true; document.body.classList.remove('so-course-jump'); save(st); render(); }
+
+  function wireRail(){
+    var b;
+    b=document.getElementById('so-course-start'); if(b) b.addEventListener('click',function(){ st.open=true; openLesson(0,0); });
+    b=document.getElementById('so-course-x'); if(b) b.addEventListener('click',dismiss);
+    b=document.getElementById('so-course-prev'); if(b) b.addEventListener('click',function(){ go(-1); });
+    b=document.getElementById('so-course-next'); if(b) b.addEventListener('click',function(){ if(isLast()){ markDone(st.mi,st.li); save(st); render(); } else go(1); });
+    b=document.getElementById('so-course-toggle'); if(b) b.addEventListener('click',function(){ setOpen(!st.open); });
+  }
+  function wirePanel(){
+    var b;
+    b=document.getElementById('so-course-close'); if(b) b.addEventListener('click',function(){ setOpen(false); });
+    b=document.getElementById('so-course-prev2'); if(b) b.addEventListener('click',function(){ go(-1); });
+    b=document.getElementById('so-course-next2'); if(b) b.addEventListener('click',function(){ if(isLast()){ markDone(st.mi,st.li); save(st); render(); } else go(1); });
+    b=document.getElementById('so-course-goto'); if(b && !b.disabled) b.addEventListener('click',function(){ var L=lessonAt(st.mi,st.li); var d=lessonDir(L); if(d) location.href='../'+d+'/'; });
+    b=document.getElementById('so-course-jump'); if(b) b.addEventListener('click',function(e){ e.stopPropagation(); document.body.classList.toggle('so-course-jump'); });
+    var list=panelEl.querySelectorAll('.so-course-mod');
+    Array.prototype.forEach.call(list,function(el){ el.addEventListener('click',function(){ var mi=parseInt(el.getAttribute('data-mi'),10)||0; document.body.classList.remove('so-course-jump'); st.open=true; openLesson(mi,0); }); });
+  }
+
+  // ── header launch button (re-open after dismiss / toggle the lesson) ──
+  function injectHeaderButton(){
+    var right=document.querySelector('#so-header .so-h-right'); if(!right) return;
+    if(document.getElementById('so-course-hbtn')) return;
+    var btn=document.createElement('button');
+    btn.id='so-course-hbtn'; btn.className='so-h-btn'; btn.title='Guided course (a tour of sovereign-os)'; btn.innerHTML='✦ Course';
+    // place it just before the Assistant toggle so the two helpers sit together
+    var assist=document.getElementById('so-assist-toggle');
+    if(assist && assist.parentNode===right) right.insertBefore(btn,assist); else right.appendChild(btn);
+    btn.addEventListener('click',function(){
+      if(st.dismissed || !st.started){ st.dismissed=false; st.started=true; st.open=true; if(!st.started){st.mi=0;st.li=0;} save(st); render(); }
+      else { setOpen(!st.open); }
+    });
+  }
+
+  // ── mount ──
+  function mount(){
+    if(document.getElementById('so-course-rail')) return;
+    railEl=document.createElement('div'); railEl.id='so-course-rail'; railEl.setAttribute('role','region'); railEl.setAttribute('aria-label','guided course');
+    panelEl=document.createElement('aside'); panelEl.id='so-course-panel'; panelEl.setAttribute('role','complementary'); panelEl.setAttribute('aria-label','course lesson');
+    document.body.appendChild(panelEl); document.body.appendChild(railEl);
+    injectHeaderButton();
+    // if we just auto-travelled onto a lesson's panel, keep the lesson open
+    render();
+    // global affordances
+    document.addEventListener('keydown',function(e){
+      if(e.key==='Escape'){ if(document.body.classList.contains('so-course-jump')){ document.body.classList.remove('so-course-jump'); e.preventDefault(); }
+        else if(st.open){ setOpen(false); e.preventDefault(); } }
+    });
+    document.addEventListener('click',function(e){ if(document.body.classList.contains('so-course-jump')){ var ml=document.getElementById('so-course-modlist'); var jb=document.getElementById('so-course-jump'); if(ml && !ml.contains(e.target) && e.target!==jb){ document.body.classList.remove('so-course-jump'); } } });
+    // re-tuck the rail if the Assistant opens/closes (its class flips on body)
+    // handled purely by CSS (body.so-assist-open) — no JS needed.
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',mount); else mount();
+})();
+</script>
+<!-- COURSE:END M090 -->
 </body>
 </html>
