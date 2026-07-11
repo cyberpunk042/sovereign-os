@@ -1,0 +1,28 @@
+[package]
+name = "sovereign-safetensors-loader"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Loads a Llama-family model from HuggingFace safetensors (+ config.json) into the runtime's existing multi-head QuantModel — dense f32, dequantizing bf16/f16 on load and permuting HF rotate-half q/k into the runtime's interleaved-RoPE layout. Turns the from-scratch inference stack from 'random weights → gibberish' into 'give it a real model'. GGUF-Q dequant + a real tokenizer bridge are named follow-ups."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+half = { workspace = true }
+sovereign-mha-block = { path = "../sovereign-mha-block" }
+sovereign-decoder-layer = { path = "../sovereign-decoder-layer" }
+sovereign-quant-model = { path = "../sovereign-quant-model" }
+sovereign-quant-llm = { path = "../sovereign-quant-llm" }
+sovereign-rmsnorm = { path = "../sovereign-rmsnorm" }
+sovereign-sampler = { path = "../sovereign-sampler" }
+sovereign-tokenizer = { path = "../sovereign-tokenizer" }
+sovereign-linear = { path = "../sovereign-linear" }
+sovereign-vnni = { path = "../sovereign-vnni" }
