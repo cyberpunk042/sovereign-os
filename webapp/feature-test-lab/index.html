@@ -819,6 +819,54 @@
         setTimeout(() => { if (!started) done(false, 'no start within 3s'); }, 3000);
         window.speechSynthesis.speak(u);
       }) },
+
+    { id: 'deep-link-permalink', label: 'Deep-link permalink (#id)', lane: 'client',
+      desc: 'Exercises the app-shell deep-link: sets the URL hash to a content element, fires hashchange, and confirms the target scrolls + gets the .so-deeplink-hot highlight — and that an unknown id is a safe no-op.',
+      run: () => new Promise(resolve => {
+        const checks = [];
+        const content = document.getElementById('so-content');
+        const targetId = 'backend-cards';
+        const t = document.getElementById(targetId);
+        checks.push({ name: 'target_is_deep_linkable', ok: !!(content && t && content.contains(t)), detail: '#' + targetId + ' lives inside #so-content' });
+        if (t) t.classList.remove('so-deeplink-hot');
+        location.hash = '#' + targetId;
+        window.dispatchEvent(new HashChangeEvent('hashchange'));
+        setTimeout(() => {
+          const hot = !!(t && t.classList.contains('so-deeplink-hot'));
+          checks.push({ name: 'highlight_applied', ok: hot, detail: hot ? '.so-deeplink-hot pulse applied to the target' : 'no highlight applied' });
+          let safe = true;
+          try { location.hash = '#so-not-a-real-id-zzz'; window.dispatchEvent(new HashChangeEvent('hashchange')); } catch (e) { safe = false; }
+          checks.push({ name: 'unknown_id_is_safe_noop', ok: safe, detail: 'an unknown / out-of-content id is ignored without error' });
+          try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+          const ok = checks.every(c => c.ok);
+          resolve({ ok, path_taken: 'gotoHash', detail: ok ? 'deep-link scroll + highlight works; unknown id safe' : 'deep-link issue — see checks', checks });
+        }, 260);
+      }) },
+
+    { id: 'keyboard-affordances', label: 'Keyboard affordances (? / j k)', lane: 'client',
+      desc: 'Exercises the app-shell keyboard shortcuts: ? opens the help overlay (Esc closes), / focuses the panel filter, and j highlights a sidemenu item (.kbsel) — the exact handlers every panel ships.',
+      run: () => new Promise(resolve => {
+        const checks = [];
+        const kd = (key) => document.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+        const backdrop = document.getElementById('so-keys-backdrop');
+        kd('?');
+        const helpOpen = !!(backdrop && backdrop.classList.contains('open'));
+        checks.push({ name: 'help_overlay_opens_on_?', ok: helpOpen, detail: helpOpen ? '? opened #so-keys-backdrop' : 'overlay did not open' });
+        kd('Escape');
+        const helpClosed = !!(backdrop && !backdrop.classList.contains('open'));
+        checks.push({ name: 'help_overlay_closes_on_esc', ok: helpClosed, detail: helpClosed ? 'Escape closed the overlay' : 'overlay stayed open' });
+        kd('/');
+        const search = document.getElementById('so-sm-search');
+        const focused = document.activeElement === search;
+        checks.push({ name: 'slash_focuses_panel_filter', ok: focused, detail: focused ? '/ focused #so-sm-search' : 'filter not focused' });
+        if (search) search.blur();
+        kd('j');
+        const sel = document.querySelector('.so-sm-item.kbsel');
+        checks.push({ name: 'j_highlights_a_panel', ok: !!sel, detail: sel ? 'j highlighted a sidemenu item (.kbsel)' : 'no item highlighted' });
+        document.querySelectorAll('.so-sm-item.kbsel').forEach(el => el.classList.remove('kbsel'));
+        const ok = checks.every(c => c.ok);
+        resolve({ ok, path_taken: 'keydown handlers', detail: ok ? '?, Esc, /, and j all fire the shipped handlers' : 'a shortcut misfired — see checks', checks });
+      }) },
   ];
 
   mount('backend-cards', BACKEND);
