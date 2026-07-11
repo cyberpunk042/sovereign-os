@@ -1577,8 +1577,9 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
     var slug = opts.filterSlug || null;
     var list = (systems || []).filter(function (s) {
       if (!slug) return true;                       // no filter → all systems
-      return s.scope === "global" ||                // globals show everywhere
-        (s.applies_to || []).indexOf(slug) >= 0;    // + systems governing slug
+      // SRP: a panel shows ONLY the controls that GOVERN it (its applies_to) —
+      // no "global" controls bleeding onto every dashboard.
+      return (s.applies_to || []).indexOf(slug) >= 0;
     });
     var byId = {};
     list.forEach(function (s) { byId[s.id] = s; });
@@ -1641,7 +1642,12 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
         systems.forEach(function (s) { if (s.id in execMap) s.execute_local = execMap[s.id]; });
         opts.live = !!g.live;
       }
-      return render(containerEl, systems, opts);
+      var n = render(containerEl, systems, opts);
+      // SRP: no control governs this panel -> hide the section (heading too)
+      var h = containerEl.previousElementSibling;
+      containerEl.style.display = n ? "" : "none";
+      if (h && /^H[1-6]$/.test(h.tagName)) h.style.display = n ? "" : "none";
+      return n;
     });
   }
 

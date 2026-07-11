@@ -105,12 +105,21 @@ def test_options_non_empty():
 
 
 def test_global_systems_render_on_every_header():
-    """The global-scope systems are the per-panel header controls. There must
-    be at least the profile picker; all global systems must be real."""
+    """`scope: global` marks a SYSTEM-WIDE control (a "global" category badge) —
+    NOT a control that renders on every panel. Per SRP (control-surface.js filters
+    strictly by `applies_to`), each global control shows only on its home panel(s);
+    the OS-profile picker must exist and every global system must be a real id."""
     globals_ = {s["id"] for s in _systems() if s["scope"] == "global"}
-    assert "os-profile" in globals_, "the OS-profile picker must be a global header control"
+    assert "os-profile" in globals_, "the OS-profile picker must be a global-scope control"
     # every global system is a known system
     assert globals_ <= EXPECTED_IDS
+    # SRP invariant: a global control must still have a home (an applies_to), so
+    # it is reachable somewhere — it just no longer bleeds onto unrelated panels.
+    for s in _systems():
+        if s["scope"] == "global":
+            assert s.get("applies_to"), (
+                f"global control {s['id']!r} has no applies_to — after the SRP "
+                f"change it would be unreachable (it no longer renders everywhere)")
 
 
 def test_applies_to_slugs_exist_in_catalog():
