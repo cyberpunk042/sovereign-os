@@ -563,6 +563,8 @@ a11y; contract test catches drift.
   .so-grid .k{color:var(--accent,#9bd1ff); font-weight:500;}
   .so-li{margin:.2rem 0; font-size:.77rem; color:var(--fg-2,#c8c8c8);} .so-li .ok{color:#7fd18f;} .so-li .no{color:#e08a8a;} .so-li .warn{color:#e0c07a;}
   .so-xref{margin-top:.4rem; font-size:.76rem; color:var(--fg-2,#c8c8c8);} .so-xref .x{color:var(--accent,#9bd1ff); font-weight:500;}
+  /* SDD-135 — sibling D-xx references in the assistant become deep links to ../<slug>/ */
+  a.so-dxx-link{color:var(--accent,#9bd1ff); text-decoration:none; border-bottom:1px dotted var(--accent,#9bd1ff);} a.so-dxx-link:hover{border-bottom-style:solid;}
   .so-tip{margin-top:.4rem; font-size:.77rem; color:var(--muted,#a8a8a8);}
   .so-assist-idle{color:var(--muted,#8a8a8a); font-style:italic; padding:.4rem 0;}
   /* responsive — reuse the existing breakpoints */
@@ -879,12 +881,25 @@ a11y; contract test catches drift.
       h+='<div class="so-node-content">'+esc(cont)+'</div>';
       if(active && exp) h+='<div class="so-node-expanded">'+exp+'</div>';   // expanded = trusted authored HTML
       return h+'</div>'; }
+    // ── SDD-135: linkify sibling D-xx mentions in the assistant into ../<slug>/ deep links ──
+    // Post-render DOM text-node pass (never re-wraps an existing <a>; never self-links the
+    // current panel). Presentation-only — creates anchors, no fetch/mutation (R10212 intact).
+    var ID2DIR={}; GROUPS.forEach(function(g){ g.items.forEach(function(it){ if(it.id&&it.id!=='—') ID2DIR[it.id]=it.dir; }); });
+    function linkifyDxx(root){ if(!root||!document.createTreeWalker) return; var here=curDir();
+      var tw=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,null), todo=[], tn;
+      while((tn=tw.nextNode())){ if(tn.nodeValue.indexOf('D-')<0) continue;
+        var p=tn.parentNode, inA=false; while(p&&p!==root){ if(p.nodeName==='A'){inA=true;break;} p=p.parentNode; } if(inA) continue; todo.push(tn); }
+      todo.forEach(function(t){ var s=t.nodeValue, re=/\bD-\d{2}[ab]?\b/g, frag=document.createDocumentFragment(), last=0, m, hit=false;
+        while((m=re.exec(s))){ var id=m[0], dir=ID2DIR[id]; if(!dir||dir===here) continue;
+          if(m.index>last) frag.appendChild(document.createTextNode(s.slice(last,m.index)));
+          var a=document.createElement('a'); a.href='../'+dir+'/'; a.textContent=id; a.className='so-dxx-link'; a.title='open '+id; frag.appendChild(a); last=m.index+id.length; hit=true; }
+        if(!hit) return; if(last<s.length) frag.appendChild(document.createTextNode(s.slice(last))); t.parentNode.replaceChild(frag,t); }); }
     var lastMatched=null;
-    function idle(){ lastMatched=null; abody.innerHTML=ctxHtml()+'<div class="so-assist-idle">Hover any value, control, table row, or menu link — its explanation builds here.</div>'; }
+    function idle(){ lastMatched=null; abody.innerHTML=ctxHtml()+'<div class="so-assist-idle">Hover any value, control, table row, or menu link — its explanation builds here.</div>'; linkifyDxx(abody); }
     function showPath(match){ if(assistDismissed) return; openAssist();
       var chain=match.entry.parents, node=match.entry.node, parent=chain.length?chain[chain.length-1]:null;
       var html=ctxHtml(); if(parent) html+=nodeHtml(parent,null,null); html+=nodeHtml(node,true,match.el);
-      abody.innerHTML=html;
+      abody.innerHTML=html; linkifyDxx(abody);
       var act=abody.querySelector('.so-node.active'); if(act&&act.scrollIntoView) act.scrollIntoView({block:'center',behavior:reduced()?'auto':'smooth'}); }
     // hover-intent debounce: quick pass-through toward the panel shouldn't hijack the content; a settle of SWAP_DELAY does
     var swapTimer=null; var SWAP_DELAY=140;
@@ -900,7 +915,7 @@ a11y; contract test catches drift.
     Array.prototype.forEach.call(document.querySelectorAll('.so-sm-item'),function(it){ var p=findPanel(it.dataset.dir); if(!p) return;
       function show(){ if(assistDismissed) return; openAssist(); lastMatched=null; var here=it.dataset.dir===curDir();
         abody.innerHTML='<div class="so-ctx"><div class="so-ctx-title">'+(p.id&&p.id!=='—'?'<span class="id" style="color:var(--accent,#9bd1ff);font-size:.72rem">'+esc(p.id)+'</span> ':'')+esc(p.label)+'</div><div class="so-ctx-content">'+(p.menuHover?p.menuHover:esc(p.desc||''))+'</div></div>'+
-          '<div class="so-assist-idle">'+(here?'You’re on this panel now — hover its contents to explore.':'Click to open this panel.')+'</div>'; }
+          '<div class="so-assist-idle">'+(here?'You’re on this panel now — hover its contents to explore.':'Click to open this panel.')+'</div>'; linkifyDxx(abody); }
       it.addEventListener('mouseenter',function(){ queueSwap(show); }); it.addEventListener('mouseleave',function(){ clearTimeout(swapTimer); }); it.addEventListener('focus',show); });
 
     // ── command palette (⌘K) — built into the shell so it works on EVERY panel (full GROUPS catalog) ──
