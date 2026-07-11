@@ -396,7 +396,7 @@ a11y; contract test catches drift.
   footer{margin-top:2rem;color:var(--muted);font-size:.75rem;border-top:1px solid var(--border);padding-top:.8rem}
   .standing-rule{color:var(--accent);font-style:italic;margin-top:.4rem}
   code{color:var(--accent)}
-  pre{background:#0a0a0a;border:1px solid var(--border);border-radius:3px;padding:.6rem .8rem;overflow-x:auto;font-size:.78rem;margin:.4rem 0;white-space:pre-wrap;word-break:break-all}
+  pre{background:#0a0a0a;border:1px solid var(--border);border-radius:3px;padding:.6rem .8rem;overflow-x:auto;font-size:.78rem;margin:.4rem 0;white-space:pre-wrap;overflow-wrap:anywhere} /* SDD-138: pre-wrap + overflow-wrap:anywhere wraps long tokens gracefully; the break-all forced ugly mid-word wraps and defeated overflow-x:auto */
   .disclaimer{background:#10202a;border:1px solid #20405a;color:var(--accent);padding:.7rem .9rem;border-radius:4px;margin:.6rem 0;font-size:.82rem}
   .ev-src{display:inline-block;min-width:5rem;color:var(--accent)}
   .ev-act{display:inline-block;min-width:5rem;color:var(--warn)}
