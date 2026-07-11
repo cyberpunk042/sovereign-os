@@ -183,10 +183,10 @@
   },
   {
     "slug": "d-20-peace-machine-health",
-    "exec_rail": 0,
+    "exec_rail": 2,
     "proxy_copy": false,
-    "wireable_gap": true,
-    "status": "wireable-gap"
+    "wireable_gap": false,
+    "status": "wired"
   },
   {
     "slug": "d-21-lm-orchestration",
@@ -295,10 +295,10 @@
   },
   {
     "slug": "profile-generation",
-    "exec_rail": 0,
+    "exec_rail": 2,
     "proxy_copy": false,
-    "wireable_gap": true,
-    "status": "wireable-gap"
+    "wireable_gap": false,
+    "status": "wired"
   },
   {
     "slug": "router",

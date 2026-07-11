@@ -8547,6 +8547,14 @@ case "${cmd}" in
     # dashboard from this same core. Verbs: snapshot / properties (+ --json).
     "${__REPO_ROOT}/scripts/manifest/peace-machine.py" "$@"
     ;;
+  peace-check)
+    # SDD-132: thin wrapper so the D-20 "re-run" control can execute via the
+    # exec-rail (change_cli must start with sovereign-osctl). Execs the standalone
+    # validator binary /usr/bin/sovereign-os-peace-check (R09980-R09982). Read-only:
+    # the validator computes the 5-property verdict + publishes it; nothing mutates
+    # host state. Verbs/flags pass through (the control models the one-shot --json).
+    exec /usr/bin/sovereign-os-peace-check "$@"
+    ;;
   dashboards)
     # M060 R10038 + R10129-R10132: operator dashboard on/off toggles —
     # "everything can be turned on and off". Lists every cockpit dashboard +

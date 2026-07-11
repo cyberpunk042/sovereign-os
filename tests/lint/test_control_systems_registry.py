@@ -30,6 +30,7 @@ EXPECTED_IDS = {
     "memory-forget", "memory-undo",
     "adapter-gate-human",
     "approvals-request", "memory-request",
+    "profiles-generate-runtime", "peace-check",
 }
 VALID_KINDS = {"profile", "mode", "toggle", "lifecycle"}
 VALID_SCOPES = {"global", "scoped"}

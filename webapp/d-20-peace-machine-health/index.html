@@ -1099,7 +1099,7 @@ a11y; contract test catches drift.
 <h2>last validator run (<code>/usr/bin/sovereign-os-peace-check --json</code>)</h2>
 <div class="panel">
   <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem">
-    <button onclick="emit('sudo /usr/bin/sovereign-os-peace-check --json')">copy: rerun (root)</button>
+    <button onclick="jumpToControl('peace-check')" title="re-run via the controls rail — dry-run + operator-key + type-to-confirm (R10212)">▶ re-run (controls)</button>
     <button onclick="emit('sovereign-os-peace-check --watch --interval 30s')">copy: watch mode</button>
     <button onclick="emit('journalctl -u sovereign-os-peace-check.service --since 1h')">copy: 1h journal</button>
     <span class="muted" style="margin-left:auto;font-size:.74rem">last run: <span id="last-run">2026-05-19T03:55Z</span> · exit code: <span id="exit-code" class="ok">0</span></span>
@@ -1196,6 +1196,12 @@ a11y; contract test catches drift.
     render();
   }
 
+  function jumpToControl(cid) {
+    const s = document.getElementById('control-surface');
+    const c = s && s.querySelector('[data-cid="' + cid + '"]');
+    (c || s || document.body).scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (c) { c.style.outline = '2px solid var(--accent,#9bd1ff)'; setTimeout(() => { c.style.outline = ''; }, 1600); }
+  }
   function emit(cmd) {
     navigator.clipboard.writeText(cmd).then(() => showToast('copied: ' + cmd.slice(0, 60) + (cmd.length > 60 ? '…' : '')));
   }
