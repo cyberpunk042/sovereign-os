@@ -16,3 +16,6 @@ workspace = true
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
+# the sum-of-squares reduction runs through the SIMD carve-out (AVX-512F when
+# present, scalar fallback otherwise) — this crate itself stays forbid(unsafe).
+sovereign-simd = { path = "../sovereign-simd" }
