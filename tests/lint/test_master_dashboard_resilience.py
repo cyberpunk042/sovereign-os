@@ -41,6 +41,19 @@ def test_render_sections_have_honest_unreachable_scaffolds():
         assert needle in body, f"a gather-path section is missing its honest offline scaffold: {needle!r}"
 
 
+def test_offline_scaffolds_carry_the_canonical_sb077_clause():
+    """SDD-142: the three section scaffolds use the canonical honesty clause
+    'Nothing is fabricated (SB-077).' — uniform with the daemon-unreachable cards
+    (SDD-140) and the data-source banners (SDD-141), not the older
+    '(SB-077)' / '(nothing fabricated, SB-077)' variants."""
+    body = _body()
+    for lead in ("route table unreachable", "collision check unavailable", "selfdef discovery unavailable"):
+        i = body.index(lead)
+        assert "Nothing is fabricated (SB-077)." in body[i:i + 200], (
+            f"the {lead!r} scaffold must carry the canonical 'Nothing is fabricated (SB-077).' clause"
+        )
+
+
 def test_initial_offline_paint_present():
     body = _body()
     assert "initial honest-offline paint" in body, (
