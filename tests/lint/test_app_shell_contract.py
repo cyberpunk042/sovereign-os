@@ -29,6 +29,7 @@ _BLOCK_RE = re.compile(re.escape(BEGIN) + r".*?" + re.escape(END), re.DOTALL)
 
 # Opt-in adoption list — grow one/few at a time (lockstep with the generator).
 ADOPTED_APP_SHELL_PANELS = [
+    "course",
     "anti-minimization-audit", "auditor", "auth-tier", "build-configurator",
     "compliance", "cpu-features", "d-01-active-sessions", "d-02-profile-choices",
     "d-03-model-health", "d-04-costs", "d-05-traces", "d-06-pending-approvals",

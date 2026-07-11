@@ -3,17 +3,25 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>sovereign-os D-24 cpu features</title>
-<meta name="x-sovereign-module" content="d-24-cpu-features-webapp">
-<meta name="x-sovereign-shipped-in" content="D-24-cpu-features">
+<title>sovereign-os Course</title>
+<meta name="x-sovereign-module" content="course-webapp">
+<meta name="x-sovereign-shipped-in" content="M090 guided-course">
 <meta name="x-sovereign-standing-rule" content="We do not minimize anything.">
-<meta name="x-sovereign-catalog-source" content="reuses scripts/hardware/avx512-advisor.py (probe/workloads/advisory)">
+<meta name="x-sovereign-catalog-source" content="config/dashboard-catalog.yaml (learn/course) + webapp/_shared/course-snippet.html curriculum (window.__soCourseCurriculum)">
+<!-- M060 R10137/R10140/R10141 personalization apply-snippet — reads prefs
+     from localStorage and applies them pre-paint so the operator's
+     theme/accent/typography render with no FOUC. Canonical control surface
+     is /webapp/personalization/. -->
 <script>
   (function(){
     var KEY = 'sovereign-os.personalization', SCHEMA_V = 1;
     var DEF = { schema: SCHEMA_V, theme: 'auto', accent: '#9bd1ff', font_scale: 1 };
     var p;
-    try { var raw = localStorage.getItem(KEY); p = raw ? JSON.parse(raw) : null; if (!p || p.schema !== SCHEMA_V) p = null; } catch(e) { p = null; }
+    try {
+      var raw = localStorage.getItem(KEY);
+      p = raw ? JSON.parse(raw) : null;
+      if (!p || p.schema !== SCHEMA_V) p = null;
+    } catch(e) { p = null; }
     if (!p) p = DEF;
     var resolved = (p.theme === 'dark' || p.theme === 'light') ? p.theme
       : ((window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark');
@@ -24,84 +32,56 @@
   })();
 </script>
 <style>
-  :root {
-    --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --panel:#171717;
-    --border:#262626; --mono:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; --accent:#9bd1ff; --good:#7ad17a; --warn:#e6c062;
-    --bad:#ff7676; --font-scale:1;
+  :root{
+    --bg:#0c0c0c; --fg:#e6e6e6; --fg-2:#c8c8c8; --muted:#8a8a8a; --border:#262626;
+    --panel:#171717; --card:#151515; --accent:#9bd1ff; --ok:#7fd18a; --warn:#e6c07b; --danger:#e88888;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
   }
-  html[data-theme="light"] { --bg:#f6f6f6; --fg:#0e0e0e; --muted:#555; --panel:#ffffff; --border:#d8d8d8; }
-  * { box-sizing:border-box; }
-  body { margin:0; background:var(--bg); color:var(--fg); font-family: var(--mono); font-size: calc(14px * var(--font-scale)); line-height:1.5; }
-  header { padding:1rem 1.25rem; border-bottom:1px solid var(--border); }
-  h1 { margin:0; font-size:1.1rem; }
-  h1 .sub { color:var(--muted); font-weight:400; font-size:.8rem; margin-left:.5rem; }
-  main { padding:1rem 1.25rem; max-width:1100px; }
-  h2 { font-size:.9rem; margin:1.2rem 0 .4rem; color:var(--accent); }
-  .banner { font-size:.78rem; color:var(--muted); margin:.5rem 0; }
-  .muted { color:var(--muted); }
-  code { color:var(--accent); }
-  .grid2 { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:.3rem; } /* SDD-137 */
-  .ext { border:1px solid var(--border); border-radius:4px; padding:.3rem .5rem; font-size:.78rem; display:flex; justify-content:space-between; gap:.5rem; }
-  .yes { color:var(--good); } .no { color:var(--bad); }
-  table { width:100%; border-collapse:collapse; font-size:.8rem; }
-  th, td { text-align:left; padding:.3rem .5rem; border-bottom:1px solid var(--border); }
-  th { color:var(--muted); font-weight:600; }
-  .fit-yes { color:var(--good); } .fit-no { color:var(--warn); }
-  .sev-ok { color:var(--good); } .sev-warn { color:var(--warn); } .sev-critical { color:var(--bad); }
-  footer { padding:1rem 1.25rem; border-top:1px solid var(--border); color:var(--muted); font-size:.75rem; }
+  html[data-theme="light"]{ --bg:#f6f6f6; --fg:#0e0e0e; --fg-2:#333; --muted:#555; --panel:#ffffff; --card:#ffffff; --border:#d8d8d8; }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--bg); color:var(--fg); font-family:ui-sans-serif,-apple-system,Segoe UI,Roboto,sans-serif; font-size:calc(1rem*var(--font-scale,1)); line-height:1.55;}
+  .wrap{max-width:900px; margin:0 auto; padding:1.4rem 1.2rem 4rem;}
+  .c-hero{border:1px solid var(--border); background:linear-gradient(180deg,rgba(155,209,255,.06),transparent); border-radius:12px; padding:1.1rem 1.2rem 1.2rem;}
+  .c-hero h1{margin:0 0 .3rem; font-size:1.35rem; letter-spacing:.01em;} .c-hero h1 .sp{color:var(--accent);}
+  .c-hero p{margin:.2rem 0 .8rem; color:var(--fg-2); max-width:64ch;}
+  .c-prog{display:flex; align-items:center; gap:.7rem; margin:.7rem 0 .9rem;}
+  .c-bar{flex:1; height:8px; border-radius:999px; background:var(--bg); border:1px solid var(--border); overflow:hidden;}
+  .c-bar > i{display:block; height:100%; width:0; background:var(--accent);}
+  .c-pct{color:var(--muted); font-variant-numeric:tabular-nums; white-space:nowrap; font-size:.85rem;}
+  .c-cta{display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;}
+  .cbtn{display:inline-flex; align-items:center; gap:.4rem; height:34px; padding:0 .8rem; cursor:pointer; font:inherit; font-size:.85rem;
+    background:transparent; color:var(--fg); border:1px solid var(--border); border-radius:7px;}
+  .cbtn:hover{background:color-mix(in srgb,var(--accent) 14%,transparent); border-color:color-mix(in srgb,var(--accent) 40%,transparent);}
+  .cbtn.primary{background:var(--accent); border-color:var(--accent); color:#08131f; font-weight:600;}
+  .cbtn.primary:hover{filter:brightness(1.06);}
+  .c-note{color:var(--muted); font-size:.78rem; margin-top:.6rem;}
+  .c-mods{margin-top:1.3rem; display:flex; flex-direction:column; gap:.8rem;}
+  .c-mod{border:1px solid var(--border); background:var(--card); border-radius:10px; overflow:hidden;}
+  .c-mod-h{display:flex; align-items:center; gap:.6rem; padding:.7rem .9rem; border-bottom:1px solid var(--border);}
+  .c-mod-h .mid{color:var(--accent); font-weight:600; font-variant-numeric:tabular-nums;}
+  .c-mod-h .mname{font-weight:600;}
+  .c-tier{font-size:.62rem; text-transform:uppercase; letter-spacing:.05em; border:1px solid var(--border); border-radius:999px; padding:.06rem .5rem; color:var(--muted);}
+  .c-tier.core{color:#8fd9ff; border-color:color-mix(in srgb,var(--accent) 55%,transparent);}
+  .c-tier.standard{color:#7fd18f; border-color:rgba(127,209,143,.5);}
+  .c-tier.advanced{color:#e0c07a; border-color:rgba(224,192,122,.5);}
+  .c-tier.optional{color:#a8a8a8;}
+  .c-mod-h .mprog{margin-left:auto; color:var(--muted); font-size:.78rem; font-variant-numeric:tabular-nums;}
+  .c-les{display:flex; align-items:center; gap:.6rem; width:100%; text-align:left; background:transparent; border:0; border-top:1px solid var(--border); cursor:pointer; color:var(--fg); font:inherit; font-size:.85rem; padding:.55rem .9rem;}
+  .c-les:first-child{border-top:0;}
+  .c-les:hover{background:color-mix(in srgb,var(--accent) 10%,transparent);}
+  .c-les .ck{width:1.2rem; text-align:center; flex:none; color:var(--ok);}
+  .c-les .ck.todo{color:var(--muted); opacity:.5;}
+  .c-les .lid{color:var(--accent); font-size:.72rem; font-variant-numeric:tabular-nums; min-width:2.4rem;}
+  .c-les .ltx{flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .c-les .lk{font-size:.66rem; color:var(--muted); border:1px solid var(--border); border-radius:4px; padding:.02rem .35rem;}
+  .c-les.here{background:color-mix(in srgb,var(--accent) 16%,transparent);}
+  .c-les.here .ltx{font-weight:600;}
+  .c-les .arrow{color:var(--muted); flex:none;}
+  .c-les .try{font-size:.62rem; color:var(--ok); border:1px solid rgba(127,209,143,.5); border-radius:4px; padding:.02rem .3rem; flex:none;}
+  .c-done{margin:1.1rem 0 .2rem; border:1px solid rgba(127,209,143,.5); background:rgba(127,209,143,.07); border-radius:10px; padding:.8rem 1rem; display:flex; align-items:center; gap:.7rem;}
+  .c-done .em{font-size:1.35rem; flex:none;}
+  .c-done .tx{color:var(--fg-2); font-size:.9rem;} .c-done .tx b{color:var(--ok);}
 </style>
-<!-- SDD-116/119 shared demo-mode helper (inlined verbatim from webapp/_shared/demo-mode.{css,js}; opt-in, always-badged sample data — SB-077 reconciliation). -->
-<style>
-/* webapp/_shared/demo-mode.css — SDD-116 DEMO badge.
- * DEMO mode is opt-in sample data for exploring panels with no daemon. The badge
- * is a persistent, unmistakable ribbon so DEMO data is NEVER mistaken for real
- * telemetry (the SB-077 reconciliation). Inlined verbatim into demo-capable
- * panels alongside demo-mode.js. */
-#so-demo-badge {
-  position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); z-index: 9600;
-  background: #e6c062; color: #0a0a0a; font-weight: 700; font-size: .72rem; letter-spacing: .03em;
-  padding: .28rem .65rem; border-radius: 6px; box-shadow: 0 2px 12px rgba(0, 0, 0, .38);
-  font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif; pointer-events: none;
-}
-#so-demo-badge .sub { font-weight: 400; opacity: .82; }
-</style>
-<script>
-/* webapp/_shared/demo-mode.js — SDD-116 shared DEMO-mode helper (opt-in sample data).
- *
- * Reads the `sovereign-os.demo` localStorage flag (schema-guarded) and renders a
- * persistent DEMO badge. Demo-capable panels call `soDemo.on()` to branch to their
- * clearly-labelled sample data. The SB-077 reconciliation: DEMO is opt-in (off by
- * default; never self-enables), ALWAYS badged, and makes ZERO network calls
- * (R10212 strengthened — the demo render path never fetches). Inlined verbatim into
- * demo-capable panels alongside demo-mode.css. */
-(function () {
-  "use strict";
-  var DKEY = 'sovereign-os.demo', DSCHEMA = 1;
-  function on() {
-    try {
-      var r = localStorage.getItem(DKEY); var p = r ? JSON.parse(r) : null;
-      return !!(p && p.schema === DSCHEMA && p.on);
-    } catch (e) { return false; }
-  }
-  function set(v) {
-    try { localStorage.setItem(DKEY, JSON.stringify({ schema: DSCHEMA, on: !!v })); } catch (e) {}
-  }
-  function badge() {
-    var b = document.getElementById('so-demo-badge');
-    if (on()) {
-      if (!b) {
-        b = document.createElement('div'); b.id = 'so-demo-badge';
-        b.innerHTML = 'DEMO <span class="sub">· sample data — not real telemetry</span>';
-        b.setAttribute('role', 'status');
-        (document.body || document.documentElement).appendChild(b);
-      }
-    } else if (b) { b.remove(); }
-  }
-  window.soDemo = { on: on, set: set, badge: badge, KEY: DKEY, SCHEMA: DSCHEMA };
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', badge);
-  else badge();
-})();
-</script>
 </head>
 <body>
 <!-- APP-SHELL:BEGIN M067 -->
@@ -725,113 +705,26 @@
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
-
-<header>
-  <h1>D-24 · CPU Features
-    <span class="sub">AVX-512 extension map · per-AI-workload fit · advisory (reuses avx512-advisor)</span></h1>
-</header>
-<main>
-  <div class="banner" id="data-source-banner">connecting to <code>/api/cpu-features/probe</code>…</div>
-  <div class="banner" id="cpu-summary"></div>
-  <h2>AVX-512 extensions</h2>
-  <div class="grid2" id="extensions"></div>
-  <h2>Per-AI-workload fit</h2>
-  <div id="workloads"></div>
-  <h2>Advisory</h2>
-  <div id="advisory"></div>
-  <p class="banner" id="last-fetch"></p>
-</main>
-<footer>
-  sovereign-os cockpit · D-24 · read-only capability observation (nothing to mutate).
-  Operator §1g standing rule (sacrosanct): <strong>We do not minimize anything.</strong>
-</footer>
-<script>
-  const $ = id => document.getElementById(id);
-  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-
-  function render(probe, workloads, advisory) {
-    probe = probe || {}; workloads = workloads || {}; advisory = advisory || {};
-    // SDD-115 — the four sections stay visible even with the daemon offline
-    // (the SDD-111/113 "seeing all sections" lesson): an honest unreachable card
-    // in every section, never a blank panel (SB-077).
-    if (probe.offline) {
-      $('cpu-summary').innerHTML = '<span class="muted">cpu-features daemon unreachable</span>';
-      const off = '<div class="muted">the cpu-features daemon is unreachable — this section (the AVX-512 extension map / workload-fit / advisory) populates when it\'s reachable. Nothing is fabricated (SB-077).</div>';
-      $('extensions').innerHTML = off; $('workloads').innerHTML = off; $('advisory').innerHTML = off;
-      return;
-    }
-    $('cpu-summary').innerHTML = probe.error
-      ? '<span class="no">advisor error: '+esc(probe.error)+'</span>'
-      : `<code>${esc(probe.cpu_model||'?')}</code> · AVX-512 ${probe.avx512_supported ? '<span class="yes">supported</span>' : '<span class="no">absent</span>'}`;
-    $('extensions').innerHTML = (probe.extensions || []).map(e =>
-      `<div class="ext"><span><code>${esc(e.flag)}</code> <span class="muted">${esc(e.summary||'')}</span></span><span class="${e.present ? 'yes' : 'no'}">${e.present ? '✓' : '—'}</span></div>`
-    ).join('') || '<div class="muted">no extension data</div>';
-    $('workloads').innerHTML = (workloads.workloads || []).length ? (
-      `<div class="banner"><strong>${workloads.fitting_workload_count ?? 0}</strong> / ${workloads.workload_count ?? 0} workloads fit</div>` +
-      '<table><thead><tr><th>Workload</th><th>Fit</th><th>Why</th></tr></thead><tbody>' +
-      workloads.workloads.map(w => `<tr><td>${esc(w.workload || w.name || '?')}</td><td class="${w.fits ? 'fit-yes' : 'fit-no'}">${w.fits ? 'FIT' : 'gap'}</td><td class="muted">${esc(w.reason || w.note || '')}</td></tr>`).join('') +
-      '</tbody></table>')
-      : '<div class="muted">no workload data</div>';
-    const sev = advisory.severity || 'ok';
-    $('advisory').innerHTML = `<div class="banner">severity: <span class="sev-${esc(sev)}">${esc(sev.toUpperCase())}</span></div>` +
-      ((advisory.advisories || []).length
-        ? '<ul>' + advisory.advisories.map(a => `<li class="muted">${esc(typeof a === 'string' ? a : (a.message || a.hint || JSON.stringify(a)))}</li>`).join('') + '</ul>'
-        : '<div class="muted">no advisories — capabilities meet the AI workload floor</div>');
-  }
-
-  async function fetchJson(path) { const r = await fetch(path, {credentials:'same-origin'}); if (!r.ok) throw new Error('HTTP '+r.status); return r.json(); }
-
-  function demoActive() { return !!(window.soDemo && window.soDemo.on()); }
-  const DEMO_CPU = {
-    probe: { cpu_model:"demo/AMD Ryzen 9 (sample)", avx512_supported:true, extensions:[
-      {flag:"avx2", summary:"256-bit SIMD", present:true},
-      {flag:"avx512f", summary:"512-bit foundation", present:true},
-      {flag:"avx512_bf16", summary:"bfloat16 dot-product", present:true},
-      {flag:"amx_tile", summary:"tile matrix (AMX)", present:false}
-    ] },
-    workloads: { fitting_workload_count:3, workload_count:4, workloads:[
-      {workload:"demo/llm-inference-q4", fits:true, reason:"AVX-512 + bf16 present"},
-      {workload:"demo/embeddings", fits:true, reason:"AVX2 sufficient"},
-      {workload:"demo/whisper-transcribe", fits:true, reason:"AVX2 sufficient"},
-      {workload:"demo/amx-gemm", fits:false, reason:"AMX tiles absent"}
-    ] },
-    advisory: { severity:"warn", advisories:[
-      "demo/AMX tiles absent — AMX-optimized GEMM paths fall back to AVX-512.",
-      {message:"demo/bf16 present — prefer bf16 model weights for throughput."}
-    ] }
-  };
-  async function refresh() {
-    if (demoActive()) {
-      $('data-source-banner').innerHTML = 'DEMO — sample data, not real telemetry (SB-077)';
-      render(DEMO_CPU.probe, DEMO_CPU.workloads, DEMO_CPU.advisory);
-      $('last-fetch').textContent = 'last fetch: ' + new Date().toLocaleTimeString();
-      if (window.soDemo) window.soDemo.badge();
-      return;
-    }
-    try {
-      const [probe, workloads, advisory] = await Promise.all([
-        fetchJson('/api/cpu-features/probe'), fetchJson('/api/cpu-features/workloads'), fetchJson('/api/cpu-features/advisory')]);
-      $('data-source-banner').innerHTML = 'consuming <code>/api/cpu-features/*</code> from the cpu-features API daemon';
-      render(probe, workloads, advisory);
-    } catch (e) {
-      $('data-source-banner').innerHTML = 'cannot reach <code>/api/cpu-features/*</code> — is the cpu-features API daemon running? <span class="muted">('+esc(e.message)+')</span>';
-      render({offline: true}, {}, {});   // SDD-115 — keep all four sections visible, never blank
-    }
-    $('last-fetch').textContent = 'last fetch: ' + new Date().toLocaleTimeString();
-  }
-
-  // SDD-115 — initial paint so the panel is ALWAYS visible; refresh() then fills
-  // live data (or the catch keeps the honest offline scaffold).
-  render({offline: true}, {}, {});
-
-  if (!demoActive()) try { const es = new EventSource('/api/cpu-features/stream'); es.addEventListener('features-change', refresh); es.addEventListener('error', () => setInterval(refresh, 60000)); }
-  catch (e) { setInterval(refresh, 60000); }
-  refresh();
-</script>
-
-<!-- SDD-045 shared control-surface (inlined verbatim). -->
-<section style="max-width:1100px;padding:0 1.25rem 1rem"><h2>Controls · features &amp; profiles</h2>
-<div id="control-surface" class="cs-grid"><div class="cs-empty">loading controls…</div></div></section>
+<main id="course-syllabus" class="wrap">
+  <section class="c-hero">
+    <h1><span class="sp">✦</span> The sovereign-os Course</h1>
+    <p>A guided journey through the whole cockpit — most-important pieces first (the Trinity, the build pipeline, security &amp; selfdef), then the rest, every module clearly tier-labelled. The course opens a slim rail along the bottom and, on <b>Next</b>, travels you to each lesson's panel and resumes there. Your place is saved on this device. It works in <b>DEMO mode</b>, so you can take the whole tour with no daemon running.</p>
+    <div class="c-prog"><span class="c-bar"><i id="c-bar-fill"></i></span><span class="c-pct" id="c-pct">0 of 0 · 0%</span></div>
+    <div class="c-cta">
+      <button class="cbtn primary" id="c-start">▶ Start the tour</button>
+      <button class="cbtn" id="c-reset" title="Clear saved progress on this device">↺ Reset progress</button>
+    </div>
+    <div class="c-note">Not the Assistant — that's the ✦ drawer on the right, contextual help for the panel you're on. The Course is a tour <i>across</i> panels.</div>
+  </section>
+  <div class="c-mods" id="c-mods"></div>
+  <!-- SDD-045 Phase C — control surface (INLINED per the single-file doctrine).
+     Renders config/control-systems.yaml (served at /control-systems): the
+     global controls (profile / dashboard on-off / auth tier) + the modes &
+     feature toggles that govern THIS panel. Read-only: each control copies
+     its exact sovereign-osctl command. Canonical source (lockstep-linted):
+     webapp/_shared/control-surface.{css,js}. -->
+<h2>controls — the box's toggles &amp; profiles, for reference</h2>
+<div id="control-surface" class="cs-grid"><div class="cs-empty">loading controls…</div></div>
 <style>
 /* webapp/_shared/control-surface.css — SDD-045 shared control-surface.
  * Renders the control-systems registry (profiles / modes / feature toggles)
@@ -1238,149 +1131,91 @@
   global.SovereignControlSurface = { render: render, load: load };
 })(window);
 </script>
+<script>SovereignControlSurface.load(document.getElementById('control-surface'),{filterSlug:'course'});</script>
+</main>
 <script>
 (function(){
-  var el = document.getElementById("control-surface");
-  if (el && window.SovereignControlSurface) { SovereignControlSurface.load(el, {filterSlug:'d-24-cpu-features'}); }
-})();
-</script>
+  "use strict";
+  var CKEY='sovereign-os.course', CSCHEMA=1;
+  function defState(){ return {schema:CSCHEMA, started:false, open:false, mi:0, li:0, done:{}, dismissed:false}; }
+  function load(){ try{ var p=JSON.parse(localStorage.getItem(CKEY)); if(!p||p.schema!==CSCHEMA) return defState(); if(typeof p.done!=='object'||!p.done)p.done={}; return p; }catch(e){ return defState(); } }
+  function save(st){ try{ localStorage.setItem(CKEY, JSON.stringify(st)); }catch(e){} }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+  function catPanel(dir){ var G=window.__soCatalog||[]; for(var g=0;g<G.length;g++){ var it=G[g].items||[]; for(var i=0;i<it.length;i++){ if(it[i].dir===dir) return it[i]; } } return null; }
 
+  function render(){
+    var CUR = window.__soCourseCurriculum || [];
+    var st = load();
+    var total=0, done=0;
+    for(var m=0;m<CUR.length;m++){ for(var l=0;l<CUR[m].lessons.length;l++){ total++; if(st.done[CUR[m].id+'.'+l]) done++; } }
+    var pct = total? Math.round(done/total*100) : 0;
+    var fill=document.getElementById('c-bar-fill'); if(fill) fill.style.width=pct+'%';
+    var pc=document.getElementById('c-pct'); if(pc) pc.textContent=done+' of '+total+' · '+pct+'%';
 
-
-<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
-<script>
-window.SO_ASSIST = {
- "context": {
-  "icon": "⊞",
-  "title": "D-24 · CPU Features",
-  "content": "The deep read on what the CPU can actually do for AI — and why the box’s cheap-cognition claim either holds or doesn’t on this exact silicon. The whole argument that most prompts can run cheaply rests on ternary inference being fast on CPU, and that speed comes from specific AVX-512 instructions: VNNI for integer dot-products, BF16 for half-precision, VPOPCNTDQ for the bit-counting the ternary path leans on. If one is missing, the Conductor tier silently falls back to something slower, and ‘efficiency’ stops being efficient.\n\nSo this panel maps each AVX-512 extension the chip exposes to the workloads it enables, gives a per-workload fit verdict, and surfaces an advisory (from the avx512-advisor, R272). It’s deeper than D-21’s at-a-glance CPU summary — this is the diagnosis of whether CPU inference will fly or crawl."
- },
- "nodes": [
-  {
-   "icon": "◆",
-   "title": "Live source",
-   "content": "Whether the feature probe is live or a snapshot. CPU features don’t change on a running box, so this is the least time-sensitive banner in the cockpit — but a failed probe means the whole map below is unconfirmed.",
-   "children": [
-    {
-     "selector": "#data-source-banner",
-     "title": "Live vs snapshot",
-     "content": "Whether /api/cpu-features/probe answered. Unlike pressure or health, CPU features are fixed for the life of a boot — so ‘stale’ isn’t really a risk here; the concern is a failed probe, where the extension map couldn’t be read at all and everything below is unknown rather than merely old.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Features are static; the probe can still fail</div>A CPU’s instruction set doesn’t change while it runs, so a snapshot of it is as good as live. What this banner really guards against is a probe that didn’t complete — in which case the map below isn’t stale, it’s absent, and a ‘missing’ extension might just be unread rather than truly absent.</div><div class=\"so-xref\"><span class=\"x\">→</span> #last-fetch — when the probe last ran</div>",
-     "variants": [
-      {
-       "when": {
-        "textContains": "connecting"
-       },
-       "content": "Probing the CPU — the extension map isn’t confirmed yet.",
-       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Connecting</div>Waiting on /api/cpu-features/probe. Treat a ‘missing’ extension as unread until this resolves.</div>"
-      },
-      {
-       "when": {
-        "textContains": "live"
-       },
-       "content": "Live — the extension map reflects a completed probe of this CPU.",
-       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Live</div>The probe answered; the AVX-512 map is confirmed for this silicon.</div>"
-      },
-      {
-       "when": {
-        "textContains": "offline"
-       },
-       "content": "Probe failed — the extension map couldn’t be read; ‘missing’ here may mean ‘unknown’.",
-       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Probe failed</div>The CPU probe didn’t complete. Don’t conclude an extension is absent — it may simply be unread.</div>"
+    // primary button: Start (fresh) or Resume (in progress)
+    var startBtn=document.getElementById('c-start');
+    if(startBtn){
+      if(st.started){
+        var m2=CUR[st.mi]||CUR[0], L=m2?m2.lessons[st.li]:null;
+        var lbl = L ? (L.c ? L.t : ((catPanel(L.dir)||{}).label||L.dir)) : '';
+        startBtn.innerHTML='▷ Resume · '+esc((m2?m2.id:'')+' '+lbl);
+      } else {
+        startBtn.innerHTML='▶ Start the tour';
       }
-     ]
     }
-   ]
-  },
-  {
-   "icon": "▦",
-   "title": "CPU summary",
-   "content": "The chip and its headline AI-relevant capability — model, and whether the AVX-512 stack that ternary inference depends on is present. It’s the one-line answer to ‘can this CPU do cheap cognition well,’ before the per-extension detail below.",
-   "children": [
-    {
-     "selector": "#cpu-summary",
-     "title": "CPU summary",
-     "content": "The processor identity plus a headline verdict on its AI-relevant feature set. This is the fast answer to whether the box’s CPU is the one the ternary path was tuned for — a Zen 5 with the full AVX-512 stack — or something missing pieces that would push work onto the GPUs sooner than intended. The detail below explains any shortfall.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">One line that decides the cheap tier</div>If this summary shows the expected AVX-512 stack present, the Conductor tier can do what it’s designed for: fast ternary inference that keeps most prompts off the expensive GPUs. If it shows gaps, the whole efficiency posture is weaker on this chip — which is a hardware fact worth knowing before you commit to a CPU-leaning profile.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-21 — the efficiency profile that assumes this capability</div>"
+
+    // modules
+    var host=document.getElementById('c-mods'); if(!host) return;
+    var out='';
+    for(var mi=0; mi<CUR.length; mi++){
+      var mod=CUR[mi];
+      var md=0; for(var k=0;k<mod.lessons.length;k++){ if(st.done[mod.id+'.'+k]) md++; }
+      out+='<div class="c-mod">'+
+        '<div class="c-mod-h"><span class="mid">'+esc(mod.id)+'</span><span class="mname">'+esc(mod.name)+'</span>'+
+          '<span class="c-tier '+esc(mod.tier)+'">'+esc(mod.tier)+'</span>'+
+          '<span class="mprog">'+md+'/'+mod.lessons.length+'</span></div>';
+      for(var li=0; li<mod.lessons.length; li++){
+        var L=mod.lessons[li];
+        var isDone=!!st.done[mod.id+'.'+li];
+        var isHere = st.started && st.mi===mi && st.li===li;
+        var title, idtxt='', kind;
+        if(L.c){ title=L.t; kind='concept'; }
+        else { var p=catPanel(L.dir); title=p?p.label:L.dir; idtxt=(p&&p.id&&p.id!=='—')?p.id:''; kind='panel'; }
+        var tried = L.todo && (st.checks||{})[mod.id+'.'+li];
+        out+='<button class="c-les'+(isHere?' here':'')+'" data-mi="'+mi+'" data-li="'+li+'">'+
+          '<span class="ck'+(isDone?'':' todo')+'">'+(isDone?'✓':'○')+'</span>'+
+          '<span class="lid">'+esc(idtxt)+'</span>'+
+          '<span class="ltx">'+esc(title)+'</span>'+
+          (tried?'<span class="try">✓ tried</span>':'')+
+          '<span class="lk">'+kind+'</span>'+
+          '<span class="arrow">›</span></button>';
+      }
+      out+='</div>';
     }
-   ]
-  },
-  {
-   "icon": "⊞",
-   "title": "AVX-512 extensions",
-   "content": "The extension map — which AVX-512 sub-features this CPU exposes. These aren’t interchangeable: each enables a different kind of math, and the ternary/BitNet path depends on a specific few. Hover an extension to see what it does and whether the box’s AI workloads need it.",
-   "children": [
-    {
-     "selector": "#extensions",
-     "title": "Extension map",
-     "content": "The AVX-512 sub-extensions present on this CPU — F, VL, BW, VNNI, BF16, VPOPCNTDQ and others. Each is a distinct instruction family: VNNI accelerates the integer dot-products at the heart of quantized inference, BF16 gives cheap half-precision, VPOPCNTDQ counts bits fast (the ternary path’s bread and butter). A green stack here is what makes CPU inference viable; a gap is where it degrades.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Not one feature — a stack of specialized ones</div><div class=\"so-grid\"><span class=\"k\">F / VL / BW</span><span>the AVX-512 foundation — wide vector ops</span><span class=\"k\">VNNI</span><span>integer dot-product — the core op of quantized inference</span><span class=\"k\">BF16</span><span>cheap half-precision math</span><span class=\"k\">VPOPCNTDQ</span><span>fast bit-counting — the ternary/BitNet path</span></div>The box’s cheap-cognition speed is the sum of these specific extensions, not ‘has AVX-512’ in general. A missing VNNI or VPOPCNTDQ hits ternary inference precisely where it’s hottest.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-09 CCD 0 — the Pulse cores that execute these instructions</div>",
-     "dynamic": true,
-     "childTemplate": {
-      "selector": "#extensions .ext, #extensions tr, #extensions li, #extensions > *",
-      "nameSelector": "strong,code,.name,td,b",
-      "title": "Extension · {{name}}",
-      "content": "The {{name}} AVX-512 extension — one specific instruction family. Whether it’s present decides whether the workloads that depend on it run fast on CPU or fall back. Read it as a capability the ternary path may or may not get to use.",
-      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Extension · {{name}}</div>One AVX-512 sub-feature. It’s not interchangeable with the others — it enables a particular kind of math, and a workload that needs it is slow without it. Present is a green light for that workload on CPU; absent pushes it to a GPU tier.</div>"
-     }
-    }
-   ]
-  },
-  {
-   "icon": "◫",
-   "title": "Per-workload fit",
-   "content": "The useful synthesis: for each AI workload the box runs, a verdict on how well this CPU’s feature set fits it. This turns the raw extension list into an answer — not ‘do we have VNNI’ but ‘will ternary inference actually be fast here.’ Hover a workload for its specific fit.",
-   "children": [
-    {
-     "selector": "#workloads",
-     "title": "Workload fit",
-     "content": "Each AI workload the box runs, with a verdict on how well this CPU serves it given the extensions present. This is the extension map made actionable: it translates ‘has these instructions’ into ‘this workload will run fast / adequately / slowly on CPU.’ A poor fit on a workload you rely on is the signal to route it to a GPU tier instead of the Conductor.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">From ‘has the instruction’ to ‘runs the workload’</div>The raw extension list is data; this is the interpretation. The advisor cross-references what each workload needs against what the CPU has and renders a fit — so you don’t have to know that ternary inference needs VPOPCNTDQ to see that ternary inference fits poorly here. It’s the difference between a spec sheet and advice.</div><div class=\"so-xref\"><span class=\"x\">→</span> #advisory — the recommended action for a poor fit<br><span class=\"x\">→</span> D-21 — routing a poor-CPU-fit workload to a GPU tier instead</div>",
-     "dynamic": true,
-     "childTemplate": {
-      "selector": "#workloads .wl, #workloads tr, #workloads li, #workloads > *",
-      "nameSelector": "strong,code,.name,td,b",
-      "title": "Workload · {{name}}",
-      "content": "The {{name}} workload’s fit on this CPU — how well the extensions present serve it. A good fit means it can run cheaply on the Conductor; a poor fit means it belongs on a GPU tier regardless of the efficiency profile’s intent. This is advice, not a raw feature flag.",
-      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Workload · {{name}}</div>The verdict for one workload — the advisor’s read of whether this CPU serves it well. Read it as routing guidance: a poor fit here is a reason to keep {{name}} on GPU even under an efficiency posture.</div><div class=\"so-xref\"><span class=\"x\">→</span> #advisory — the overall recommendation</div>"
-     }
-    }
-   ]
-  },
-  {
-   "icon": "⚑",
-   "title": "Advisory",
-   "content": "The avx512-advisor’s recommendation (R272) — what to do given the fit above. Where the workload verdicts diagnose, this prescribes: lean on CPU, or route specific work to GPU, or note a missing extension that caps the efficiency posture.",
-   "children": [
-    {
-     "selector": "#advisory",
-     "title": "Advisory",
-     "content": "The actionable recommendation from the avx512-advisor (R272) — given this CPU’s extensions and the workload fits, what posture makes sense. It’s the panel’s conclusion: whether the box can safely lean on cheap CPU inference, or whether a missing extension means certain work belongs on the GPUs regardless of the efficiency profile’s intent.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The panel’s bottom line</div>Everything above is evidence; this is the verdict. The advisor weighs the extension gaps against the workloads and tells you the honest posture — sometimes ‘CPU is fully capable, lean on it,’ sometimes ‘VNNI is absent, keep quantized inference on GPU.’ It’s what stops the efficiency profile from being chosen on a chip that can’t actually deliver it.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-21 — where this advisory should inform the profile choice</div>"
-    },
-    {
-     "selector": "#last-fetch",
-     "title": "Probe freshness",
-     "content": "When the CPU feature probe last ran. Because features are fixed per boot this rarely matters — but after a kernel or microcode change (which can expose or gate extensions) it’s the confirmation that the map reflects the current boot, not a prior one.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A probe of fixed silicon</div>When the CPU feature probe last ran. Features are etched in the chip and don't change, so even an old read is authoritative — this timestamp is about the probe's recency, not a risk of drift.</div>"
-    }
-   ]
-  },
-  {
-   "icon": "⎈",
-   "title": "Controls",
-   "content": "The shared control rail. On a diagnostic panel it’s context: the feature map and advisory tell you a CPU posture, and if that argues for a profile change, the rail copies the signed verb. You diagnose here; you enact on the CLI.",
-   "children": [
-    {
-     "selector": "#control-surface",
-     "title": "Controls rail",
-     "content": "The profile/mode/feature control rail. This panel’s findings often argue for a profile decision — lean on CPU where the advisory says the fit is good, or avoid the efficiency profile where a key extension is missing — and the rail is where that decision becomes a signed osctl verb. The advisory recommends; the rail hands you the command; the box changes only when you run it.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Advice here, profile change on the CLI</div>This panel is deliberately about knowing, not doing — it tells you whether the silicon supports a CPU-leaning posture. Acting on that (choosing or avoiding the efficiency profile) is a signed step, copied from this rail or D-21. The separation keeps the diagnosis free to consult and the posture change behind an operator signature.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-21 — the profile decision this advisory should inform</div>"
-    }
-   ]
+    var banner = (total>0 && done>=total)
+      ? '<div class="c-done"><span class="em">🎓</span><span class="tx"><b>Course complete.</b> You’ve toured all '+total+' lessons of sovereign-os. Restart anytime with “Reset progress”, or revisit any single lesson below.</span></div>'
+      : '';
+    host.innerHTML=banner+out;
+    var rows=host.querySelectorAll('.c-les');
+    Array.prototype.forEach.call(rows,function(el){ el.addEventListener('click',function(){ openLesson(parseInt(el.getAttribute('data-mi'),10)||0, parseInt(el.getAttribute('data-li'),10)||0); }); });
   }
- ]
-};
+
+  function openLesson(mi,li){
+    var CUR=window.__soCourseCurriculum||[]; var st=load();
+    st.started=true; st.open=true; st.dismissed=false; st.mi=mi; st.li=li; save(st);
+    var mod=CUR[mi]; var L=mod?mod.lessons[li]:null;
+    if(L && !L.c && L.dir){ location.href='../'+L.dir+'/'; }      // panel lesson → travel there
+    else { location.href='../course/'; }                          // concept lesson → open the rail here
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){
+    render();
+    var s=document.getElementById('c-start');
+    if(s) s.addEventListener('click', function(){ var st=load(); if(st.started){ openLesson(st.mi,st.li); } else { openLesson(0,0); } });
+    var r=document.getElementById('c-reset');
+    if(r) r.addEventListener('click', function(){ save(defState()); render(); });
+  });
+})();
 </script>
 <!-- COURSE:BEGIN M090 -->
 <style id="so-course-style">
