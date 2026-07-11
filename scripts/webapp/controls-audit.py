@@ -30,34 +30,54 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 WEBAPP = REPO / "webapp"
 
-# Panel-specific affordance signatures (the shared SovereignControlSurface control
-# cards are excluded: they already execute via the exec-rail with a copy fallback by
-# design — its internal clipboard helper is `copy(text, opts)` /
-# `navigator.clipboard.writeText`, which we deliberately DON'T count).
-# A panel that WIRES an action to the exec-rail calls jumpToControl(<cid>); a panel
-# that leaves an action copy-only defines/calls copyCmd()/emit()/copyApply() that
-# writes a `sovereign-osctl …` command to the clipboard for the operator to paste.
+# Classification is by the ACTION's true nature (not just the presence of a copy
+# helper — several panels keep a defined-but-dead copyCmd/actionCmd or a neutralized
+# emit that copies nothing). The reliable signals:
+#   - a panel WIRES actions to the exec-rail iff it calls jumpToControl(<cid>) (the
+#     control card then executes via /api/control/execute).
+#   - a panel that emits a `selfdefctl …` command to the clipboard is copy-only BY
+#     DESIGN: selfdef/perimeter are PROXY_ONLY / SELFDEF_OWNED (control-surface.js
+#     PROXY_ONLY + _action_exec.SELFDEF_OWNED) — the web may NEVER execute them
+#     locally (R10212), so they render copy-only and this is correct, not a gap.
+#   - a panel that copies a non-selfdef `sovereign-os…ctl …` (or `sovereign-os-*`)
+#     command to the clipboard WITHOUT a jumpToControl is a real wiring GAP — but
+#     only wireable once a matching control exists in config/control-systems.yaml
+#     with the panel in its applies_to.
 EXEC_RAIL = re.compile(r"jumpToControl\s*\(")
-COPY_CMD = re.compile(r"\b(?:copyCmd|copyApply)\s*\(")
-# an `emit(<cmd>)` call that actually copies (some panels neutralize emit to a no-op —
-# those don't count). We treat a defined-and-called emit that writes to the clipboard
-# as copy-only; the neutralized ones are `function emit(){}`-shaped and excluded.
-EMIT_ACTIVE = re.compile(r"function emit\([^)]*\)\s*\{[^}]*clipboard")
+# selfdefctl in a clipboard/emit context → proxy-only (copy-only by design)
+PROXY_COPY = re.compile(r"clipboard\.writeText\([^)]*selfdefctl|emit\(\s*['\"`][^'\"`]*selfdefctl")
+# a sovereign command copied to the clipboard (the real gap signal), excluding selfdefctl
+CLIP = re.compile(r"clipboard\.writeText\(\s*([^)]*)")
+
+
+def _copies_wireable_cmd(html: str) -> bool:
+    # a literal, non-selfdef sovereign command copied to the clipboard — via emit('…')
+    # (e.g. d-20's `emit('sudo /usr/bin/sovereign-os-peace-check …')`) or writeText('…')
+    for m in re.finditer(r"(?:emit|writeText)\(\s*['\"`]([^'\"`]*sovereign-os[^'\"`]*)['\"`]", html):
+        if "selfdefctl" not in m.group(1):
+            return True
+    # data-cmd tiles copied via copyCmd(node) (e.g. profile-generation's generate-runtime)
+    return bool(re.search(r"sovereign-osctl[^'\"`<]*generate-runtime", html))
 
 
 def classify_panel(slug: str, html: str) -> dict:
     exec_rail = len(EXEC_RAIL.findall(html))
-    copy_only = len(COPY_CMD.findall(html)) + (1 if EMIT_ACTIVE.search(html) else 0)
+    proxy = bool(PROXY_COPY.search(html))
+    wireable = _copies_wireable_cmd(html) and not exec_rail
+    if exec_rail:
+        status = "wired"
+    elif proxy:
+        status = "proxy-copy-only"       # copy-only by R10212 design — NOT a wiring gap
+    elif wireable:
+        status = "wireable-gap"          # real gap (needs a matching registry control)
+    else:
+        status = "no-actions"
     return {
         "slug": slug,
         "exec_rail": exec_rail,
-        "copy_only": copy_only,
-        "status": (
-            "wired" if exec_rail and not copy_only
-            else "partial" if exec_rail and copy_only
-            else "copy-only" if copy_only
-            else "no-actions"
-        ),
+        "proxy_copy": proxy,
+        "wireable_gap": wireable,
+        "status": status,
     }
 
 
@@ -74,22 +94,23 @@ def main() -> int:
         print(json.dumps(rows, indent=2))
         return 0
 
-    worklist = sorted(
-        [r for r in rows if r["copy_only"] > 0],
-        key=lambda r: (-r["copy_only"], r["slug"]),
-    )
     wired = [r for r in rows if r["status"] == "wired"]
+    proxy = [r for r in rows if r["status"] == "proxy-copy-only"]
+    gaps = sorted([r for r in rows if r["status"] == "wireable-gap"], key=lambda r: r["slug"])
     no_actions = [r for r in rows if r["status"] == "no-actions"]
 
     print(f"Controls audit — {len(rows)} panels")
-    print(f"  exec-rail wired (no copy-only): {len(wired)}")
-    print(f"  copy-only command emits present: {len(worklist)}")
-    print(f"  no panel-specific actions:       {len(no_actions)}")
+    print(f"  wired (actions execute via the exec-rail):  {len(wired)}")
+    print(f"  proxy-copy-only (selfdef/perimeter — copy-only BY R10212 design, not a gap): {len(proxy)}")
+    print(f"  wireable-gap (real gap — needs a matching registry control):  {len(gaps)}")
+    print(f"  no panel-specific actions:                  {len(no_actions)}")
     print()
-    print("Ranked wiring worklist (most copy-only emits first):")
-    print(f"  {'panel':32} {'exec-rail':>9} {'copy-only':>9}  status")
-    for r in worklist:
-        print(f"  {r['slug']:32} {r['exec_rail']:>9} {r['copy_only']:>9}  {r['status']}")
+    print("Wiring worklist (the ONLY genuine gaps — each needs a new control-systems entry first):")
+    for r in gaps:
+        print(f"  {r['slug']}")
+    print()
+    print("proxy-copy-only (leave as-is — R10212 forbids local execution of selfdef/perimeter):")
+    print("  " + ", ".join(r["slug"] for r in proxy))
     return 0
 
 
