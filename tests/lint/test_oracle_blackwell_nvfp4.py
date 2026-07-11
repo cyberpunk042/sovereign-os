@@ -30,16 +30,31 @@ def _dry_run_env(**overrides) -> dict:
     """A DRY-RUN env isolated from the operator's ACTIVE runtime profile.
 
     start-oracle-core.sh's `runtime_profile_override ORACLE_MODEL` reads the
-    active runtime profile from `$SOVEREIGN_OS_RUNTIME_PROFILE` /
-    `/etc/sovereign-os/active-runtime-profile` / `~/.sovereign-os/active-runtime-profile`
-    and, if it names a model, fills an empty ORACLE_MODEL from it — which on a
-    developer box (where a profile like `high-concurrency-burst` is active and
-    pins a specific oracle model) DEFEATS these quantization→model default
-    tests and makes them fail only there, not on a clean CI box. Neutralise all
-    three sources so the test hermetically exercises the script's OWN default
-    selection logic."""
-    env = {k: v for k, v in os.environ.items()
-           if k != "SOVEREIGN_OS_RUNTIME_PROFILE"}
+    active runtime profile from three sources, in this precedence order (see
+    `runtime_profile_active_file` in scripts/build/lib/runtime-profile.sh):
+      1. `$SOVEREIGN_OS_RUNTIME_PROFILE`
+      2. `/etc/sovereign-os/active-runtime-profile`
+      3. `~/.sovereign-os/active-runtime-profile`
+    and, if the active profile names an oracle model, fills an empty
+    ORACLE_MODEL from it — which on a developer box (where a profile like
+    `high-concurrency-burst` is active and pins a specific oracle model)
+    DEFEATS these quantization->model default tests and makes them fail only
+    there, not on a clean CI box.
+
+    Deleting the env var + repointing $HOME is NOT enough: source 2 (`/etc/…`)
+    is a system path that cannot be redirected without root, so a box that has
+    `/etc/sovereign-os/active-runtime-profile` still leaks its profile in.
+    Because source 1 takes precedence and, when set, short-circuits BOTH file
+    sources, we pin `$SOVEREIGN_OS_RUNTIME_PROFILE` to a deliberately ABSENT
+    sentinel id: `runtime_profile_active_file` resolves it to
+    `profiles/runtime/<sentinel>.yaml`, finds no such file, and reports "none
+    active" — so no ambient profile (env, /etc, or $HOME) can leak, and the
+    test hermetically exercises the script's OWN default selection logic.
+    ($HOME is still repointed as defence-in-depth.)"""
+    env = dict(os.environ)
+    # Source 1 wins and, being non-empty, skips the /etc + $HOME file lookups;
+    # the sentinel names no real profiles/runtime/*.yaml -> "none active".
+    env["SOVEREIGN_OS_RUNTIME_PROFILE"] = "__hermetic_test_no_profile__"
     env["HOME"] = "/nonexistent"      # no ~/.sovereign-os/active-runtime-profile
     env["SOVEREIGN_OS_DRY_RUN"] = "1"
     env.update(overrides)
