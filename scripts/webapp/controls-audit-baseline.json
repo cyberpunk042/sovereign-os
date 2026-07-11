@@ -190,7 +190,7 @@
   },
   {
     "slug": "d-21-lm-orchestration",
-    "exec_rail": 2,
+    "exec_rail": 1,
     "proxy_copy": false,
     "wireable_gap": false,
     "status": "wired"

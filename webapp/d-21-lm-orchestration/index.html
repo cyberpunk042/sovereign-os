@@ -77,32 +77,28 @@
     overflow:hidden; position:relative; min-height:300px;
   }
   .cell { background:var(--panel); padding:.75rem .9rem; min-height:150px; }
-  /* Reserve a square bounding box at the intersection for the Apply control:
-     clear each cell's inner (center-facing) corner so no content is ever hidden. */
-  .grid .cell:nth-child(1) { padding-right:3.6rem; padding-bottom:2.6rem; } /* GPU0 top-left  → clear BR */
-  .grid .cell:nth-child(2) { padding-left:3.6rem;  padding-bottom:2.6rem; } /* GPU1 top-right → clear BL */
-  .grid .cell:nth-child(3) { padding-right:3.6rem; padding-top:2.6rem; }    /* EXT  bot-left  → clear TR */
-  .grid .cell:nth-child(4) { padding-left:3.6rem;  padding-top:2.6rem; }    /* CPU0 bot-right → clear TL */
   .cell h3 { margin:0 0 .4rem; font-size:.9rem; display:flex; justify-content:space-between; gap:.5rem; }
   .cell h3 .slot { color:var(--muted); font-size:.78rem; font-weight:400; }
   .cell.na { display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:1.4rem; }
   .mslot { font-size:.8rem; margin:.15rem 0; }
   .mslot .k { color:var(--muted); }
   .pill { display:inline-block; padding:0 .4rem; border-radius:3px; border:1px solid var(--border); font-size:.72rem; color:var(--muted); }
-  /* Apply centered inside the 2×2 quadrant (per the operator's design) */
-  .grid-quad { position:relative; }
-  .apply-wrap { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
-    z-index:2; margin:0; text-align:center; }
-  button.apply {
-    border:2px solid var(--accent); background:var(--bg); color:var(--accent);
-    border-radius:50%; width:96px; height:96px; cursor:pointer; font:inherit;
-    font-size:.9rem; font-weight:600; letter-spacing:.02em;
-    box-shadow:0 0 0 6px var(--bg), 0 2px 12px rgba(0,0,0,.28);
-    transition:transform .12s ease, background .12s ease;
-  }
-  button.apply:hover { background:rgba(155,209,255,.12); transform:scale(1.05); }
-  button.apply:active { transform:scale(.98); }
-  @media (max-width:640px) { .apply-wrap { position:static; transform:none; margin:.6rem auto; } }
+  /* D21-4: per-profile-card Apply — executes through the control-exec rail
+     (sudoer, dry-run→type-to-confirm) inline on the card. Replaces the old
+     floating round button that just scrolled to a distant control card. */
+  .profile .p-apply-row { margin-top:.45rem; display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
+  .profile .p-apply { border:1px solid var(--accent); background:transparent; color:var(--accent);
+    border-radius:4px; padding:.15rem .6rem; font:inherit; font-size:.74rem; cursor:pointer; }
+  .profile .p-apply:hover { background:rgba(155,209,255,.12); }
+  .profile .p-apply.gen { border-color:var(--warn); color:var(--warn); }
+  .profile .p-confirm { font-size:.72rem; border:1px solid var(--border); background:var(--bg);
+    color:var(--fg); border-radius:3px; padding:.1rem .35rem; font-family:var(--mono); width:11rem; }
+  .profile .p-result { font-size:.72rem; line-height:1.4; }
+  .profile .p-result.ok { color:var(--good); }
+  .profile .p-result.dry { color:var(--accent); }
+  .profile .p-result.warn { color:var(--warn); }
+  .profile .p-result.err { color:var(--bad); }
+  .profile .p-result.muted { color:var(--muted); }
   /* features */
   .features { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:1rem; } /* SDD-137 */
   .fcol { border:1px solid var(--border); border-radius:6px; background:var(--panel); padding:.6rem .9rem; }
@@ -741,10 +737,8 @@
   <div class="profiles" id="profiles"></div>
 
   <h2>Model → hardware assignment</h2>
-  <div class="grid-quad">
-    <div class="grid" id="grid"></div>
-    <div class="apply-wrap"><button class="apply" id="apply-btn" title="Copy the signed apply verb-chain for the selected profile">Apply</button></div>
-  </div>
+  <p class="banner muted">The grid previews the <em>selected</em> profile's model→device layout. Apply each profile from its own card above — it executes through the signed control-exec rail (dry-run first, then type-to-confirm).</p>
+  <div class="grid" id="grid"></div>
 
   <h2>Capabilities</h2>
   <div class="features">
@@ -858,17 +852,106 @@
       html += list.map(p => {
         const id = p.id || p.mode_id;
         const on = id === selectedProfile ? ' on' : '';
+        const isGen = fam === 'generated';
+        // Generated combos aren't on disk → materialize (Generate) before apply;
+        // every other family applies for real through the exec rail.
+        const applyBtn = isGen
+          ? `<button class="p-apply gen" data-act="gen" data-id="${esc(id)}" data-gen="${esc(p.generate_cmd || '')}" title="Materialize this combo to profiles/runtime/, then it becomes applyable">Generate…</button>`
+          : `<button class="p-apply" data-act="apply" data-id="${esc(id)}" data-fam="${esc(fam)}" title="Apply this profile through the signed control-exec rail (dry-run → type-to-confirm)">Apply</button>`;
         return `<div class="profile${on}" data-id="${esc(id)}">
           <div class="name">${esc(p.name || id)}<span class="fam ${esc(fam)}">${esc(fam)}</span></div>
           <div class="desc">${esc((p.description || '').split('\n')[0].slice(0,140))}</div>
+          <div class="p-apply-row">${applyBtn}<span class="p-result muted"></span></div>
         </div>`;
       }).join('');
     });
     $('profiles').innerHTML = html;
+    // Card click = select (preview in the grid). Apply/Generate buttons + the
+    // confirm input stop propagation so they never trigger a re-render.
     document.querySelectorAll('.profile').forEach(el => el.addEventListener('click', () => {
       if (!el.dataset.id) return;
       selectedProfile = el.dataset.id; renderProfiles(LAST_PROFILES_DATA);
     }));
+    document.querySelectorAll('.profile .p-apply[data-act]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const row = btn.closest('.p-apply-row');
+        const resultEl = row.querySelector('.p-result');
+        if (btn.dataset.act === 'gen') {
+          copyCmd(btn.dataset.gen, 'Materialize this generated combo, then Apply it:');
+          setP(resultEl, 'muted', 'copied generate command — run it, then this combo is applyable');
+        } else {
+          applyProfile(btn.dataset.id, btn.dataset.fam, resultEl, false);
+        }
+      });
+    });
+  }
+
+  // Only re-render the profiles section when the set actually changed — the SSE
+  // grid tick must not wipe an in-flight Apply (dry-run / confirm input / result)
+  // on a card. Selection changes force a render (LAST_PROFILES_DATA carries it).
+  let LAST_PROFILES_SIG = null;
+  function renderProfilesIfChanged(data) {
+    const sig = JSON.stringify((data.profiles || []).map(p => p.id || p.mode_id)) + '|' + (selectedProfile || '');
+    if (sig === LAST_PROFILES_SIG) { LAST_PROFILES_DATA = data; return; }
+    LAST_PROFILES_SIG = sig;
+    renderProfiles(data);
+  }
+
+  // ── D21-4: real Apply through the control-exec rail ────────────────────────
+  // Each profile card's Apply POSTs the SAME body the shared control-surface
+  // sends (control_id 'runtime-mode', arg id=<profile>) to the signed exec
+  // daemon: DRY-RUN by default, operator-key + type-to-confirm gated, then a
+  // live run. Web itself never mutates (R10212); the sudoer rail does.
+  const EXECUTE_URL = '/api/control/execute';
+  function setP(el, cls, msg) { if (!el) return; el.className = 'p-result ' + cls; el.textContent = msg; }
+
+  function offerConfirm(id, fam, resultEl) {
+    const row = resultEl.closest('.p-apply-row');
+    if (row.querySelector('.p-confirm')) return;  // already offered
+    const inp = document.createElement('input');
+    inp.className = 'p-confirm'; inp.placeholder = 'type "' + id + '" to apply';
+    inp.addEventListener('click', e => e.stopPropagation());
+    const ok = document.createElement('button');
+    ok.className = 'p-apply'; ok.textContent = 'Confirm';
+    ok.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (inp.value.trim() === id) { inp.remove(); ok.remove(); applyProfile(id, fam, resultEl, true); }
+      else setP(resultEl, 'warn', 'type the exact id to confirm');
+    });
+    row.appendChild(inp); row.appendChild(ok);
+  }
+
+  async function applyProfile(id, fam, resultEl, confirmed) {
+    setP(resultEl, 'muted', confirmed ? 'applying…' : 'checking…');
+    try {
+      const res = await fetch(EXECUTE_URL, {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ control_id: 'runtime-mode', args: { id }, confirm: !!confirmed }),
+      });
+      let body = {}; try { body = await res.json(); } catch (e) {}
+      const verb = 'sovereign-osctl trinity profile switch ' + id;
+      if (res.status === 200 && body.dry_run) {
+        setP(resultEl, 'dry', 'dry-run ✓ would run: ' + ((body.would_run || body.argv || []).join(' ')));
+        offerConfirm(id, fam, resultEl);
+      } else if (res.status === 200) {
+        setP(resultEl, 'ok', 'applied ✓ ' + id + (body.exit_code != null ? ' · exit ' + body.exit_code : ''));
+      } else if (res.status === 403 && body.confirm_required && !confirmed) {
+        setP(resultEl, 'dry', 'confirm to apply');
+        offerConfirm(id, fam, resultEl);
+      } else if (res.status === 403) {
+        setP(resultEl, 'warn', body.error || 'operator key not loaded — apply from a signed session');
+      } else if (res.status === 409) {
+        setP(resultEl, 'warn', 'another apply is in flight (or signed-proxy only) — retry');
+      } else if (res.status === 405) {
+        setP(resultEl, 'muted', 'read-only origin — run: ' + verb);
+      } else {
+        setP(resultEl, 'err', body.error || ('HTTP ' + res.status));
+      }
+    } catch (e) {
+      setP(resultEl, 'muted', 'exec rail unreachable — run: sovereign-osctl trinity profile switch ' + id);
+    }
   }
 
   function cellHtml(c) {
@@ -983,10 +1066,9 @@
     }
   }
 
-  // SDD-055 — Apply EXECUTES via the R10274 control rail (runtime-mode = trinity
-  // profile switch; now rendered on D-21). Pick the profile in the control card
-  // and Execute (dry-run default, operator-key + type-to-confirm). R10212 intact.
-  $('apply-btn').addEventListener('click', () => jumpToControl('runtime-mode'));
+  // D21-4 — Apply now lives on each profile card (applyProfile above), executing
+  // through the same R10274 control-exec rail inline; the old floating button
+  // that only scrolled to a distant control card is gone.
 
   async function fetchJson(path) {
     const res = await fetch(path, {credentials:'same-origin'});
@@ -999,7 +1081,7 @@
     // calls (the SB-077 reconciliation — opt-in + always-badged).
     if (demoActive()) {
       $('data-source-banner').innerHTML = '<strong>DEMO mode</strong> — sample data, not a live daemon. Disable it in Personalization.';
-      renderProfiles(DEMO_PROFILES);
+      renderProfilesIfChanged(DEMO_PROFILES);
       renderGrid(DEMO_GRID);
       renderFeatures(DEMO_FEATURES);
       if (window.soDemo) window.soDemo.badge();
@@ -1013,13 +1095,16 @@
         fetchJson('/api/lm-orchestration/features'),
       ]);
       $('data-source-banner').innerHTML = 'consuming <code>/api/lm-orchestration/{grid,profiles,features}</code>';
-      renderProfiles(profiles);
+      // Profiles are static config, not live telemetry — only re-render when the
+      // set actually changes, so a live Apply's dry-run/confirm/result on a card
+      // is NOT wiped by the SSE grid tick (D21-4).
+      renderProfilesIfChanged(profiles);
       renderGrid(grid);
       renderFeatures(features);
     } catch (e) {
       $('data-source-banner').innerHTML = 'cannot reach the lm-orchestration API daemon <span class="muted">('+esc(e.message)+')</span>';
-      // still render the fixed quadrant + profiles/features structure (honest —)
-      renderGrid({}); renderProfiles({profiles: PROFILES}); renderFeatures({});
+      // still render the fixed grid + profiles/features structure (honest —)
+      renderGrid({}); renderProfilesIfChanged({profiles: PROFILES}); renderFeatures({});
     }
     $('last-fetch').textContent = 'last fetch: ' + new Date().toLocaleTimeString();
   }
@@ -1553,10 +1638,10 @@ window.SO_ASSIST = {
      }
     },
     {
-     "selector": "#apply-btn",
+     "selector": ".profile .p-apply",
      "title": "Apply (operator-signed)",
-     "content": "Copies the signed verb-chain that applies the selected profile — rebalancing every tier at once. It’s a chain, not a single verb, because switching profiles unloads and reloads models across devices and re-pins cores together; those steps have to happen in order. The button copies; the box only changes when you run it.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why apply is a signed chain, not a click</div>Switching profile isn’t one action — it moves models between devices, changes GPU power states, and re-pins cores, and a half-applied profile is a broken posture. So it’s a signed verb-chain run through osctl (R10212), sequenced and atomic, never a web mutation. Preview the grid first: a profile that doesn’t fit VRAM is caught here, before you commit the chain.</div><div class=\"so-tip\">💡 Read the assignment grid above before applying — the preview is free, a mis-fit apply is not.</div>"
+     "content": "Applies THIS profile — the one on its own card — through the signed control-exec rail, right here, no scrolling off to some other control. First click is a dry-run: it shows you the exact sudo verb it would run and changes nothing. Type the profile id to confirm, and only then does the box actually switch. Web never mutates on its own (R10212); the sudoer rail does the work.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Dry-run, then type-to-confirm</div>Switching profile re-points every tier's model→device binding, so it's gated: the first Apply POSTs a dry-run (control_id runtime-mode) and the rail replies with the sudo argv it WOULD run. You then type the profile's id to authorize the live run, which needs the operator key loaded. A generated combo shows <strong>Generate…</strong> instead — it isn't on disk yet, so you materialize it first, then it becomes applyable.</div><div class=\"so-tip\">💡 The dry-run is free and shows the exact command — read it before you confirm.</div>"
     }
    ]
   },
