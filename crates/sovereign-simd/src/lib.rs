@@ -137,7 +137,9 @@ mod tests {
     fn simd_equals_scalar_across_lengths() {
         let mut rng = ChaCha8Rng::seed_from_u64(0x50_1D_5A_1D);
         // lengths straddling the 16-lane boundary + the remainder tail
-        for &n in &[0usize, 1, 7, 15, 16, 17, 31, 32, 33, 64, 100, 257, 1000, 4096] {
+        for &n in &[
+            0usize, 1, 7, 15, 16, 17, 31, 32, 33, 64, 100, 257, 1000, 4096,
+        ] {
             let x: Vec<f32> = (0..n).map(|_| rng.random_range(-3.0f32..3.0)).collect();
             let simd = sum_of_squares(&x);
             let scalar = sum_of_squares_scalar(&x);
@@ -163,7 +165,10 @@ mod tests {
             // SAFETY: guarded by `has_avx512f()` returning true.
             let direct = unsafe { sum_of_squares_avx512f(&x) };
             #[cfg(target_arch = "x86_64")]
-            assert!(close(direct, scalar), "intrinsic {direct} vs scalar {scalar}");
+            assert!(
+                close(direct, scalar),
+                "intrinsic {direct} vs scalar {scalar}"
+            );
         } else {
             // fallback path must still match
             assert!(close(sum_of_squares(&x), scalar));
