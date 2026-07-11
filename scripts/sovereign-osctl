@@ -5220,8 +5220,28 @@ _trinity_profile() {
   local sub="${1:-list}"
   shift || true
   local runtime_dir="${__REPO_ROOT}/profiles/runtime"
+  local orch_dir="${__REPO_ROOT}/profiles/orchestration"
+  # Operator-authored drafts live outside the repo (composer Save-draft target;
+  # mirrors LM_ORCH_USER_PROFILES_DIR in the D-21 daemon).
+  local user_dir="${SOVEREIGN_OS_USER_PROFILES_DIR:-${HOME}/.sovereign-os/profiles/orchestration}"
   local active_file="/etc/sovereign-os/active-runtime-profile"
   [ -w /etc 2>/dev/null ] || active_file="${HOME}/.sovereign-os/active-runtime-profile"
+
+  # Resolve a profile id to (path, family) across ALL on-disk families —
+  # runtime (§18), orchestration (repo), user (drafts). Generated combos are
+  # NOT on disk (materialize first with `profiles generate-runtime … --out`).
+  # Prints "<family>\t<path>" on success; empty + rc1 when unresolved.
+  _resolve_profile() {
+    local pid="$1" d fam
+    for pair in "runtime:${runtime_dir}" "orchestration:${orch_dir}" "user:${user_dir}"; do
+      fam="${pair%%:*}"; d="${pair#*:}"
+      if [ -f "${d}/${pid}.yaml" ]; then
+        printf '%s\t%s\n' "${fam}" "${d}/${pid}.yaml"
+        return 0
+      fi
+    done
+    return 1
+  }
 
   case "${sub}" in
     list)
@@ -5229,22 +5249,36 @@ _trinity_profile() {
         log_error "runtime profiles dir missing: ${runtime_dir}"
         return 1
       fi
-      echo "  Runtime profiles (master spec § 18):"
-      echo
       local active=""
       [ -f "${active_file}" ] && active="$(cat "${active_file}")"
-      for f in "${runtime_dir}"/*.yaml; do
-        [ -f "${f}" ] || continue
-        local id name desc
-        id="$(basename "$f" .yaml)"
-        name="$(grep '^\s*name:' "${f}" | head -1 | sed 's/.*name:\s*//' | tr -d '"')"
-        local marker="  "
-        [ "${id}" = "${active}" ] && marker="* "
-        printf "  %s%-30s %s\n" "${marker}" "${id}" "${name}"
+      # All on-disk families (generated combos are produced on demand, not
+      # listed here — see `profiles generate-runtime`).
+      local fam_label
+      for pair in "runtime:${runtime_dir}:Runtime profiles (master spec § 18)" \
+                  "orchestration:${orch_dir}:Orchestration-intent profiles (repo)" \
+                  "user:${user_dir}:Operator drafts"; do
+        local fam d
+        fam="${pair%%:*}"; d="$(printf '%s' "${pair}" | cut -d: -f2)"; fam_label="${pair##*:}"
+        [ -d "${d}" ] || continue
+        local any=0
+        for f in "${d}"/*.yaml; do [ -f "${f}" ] && { any=1; break; }; done
+        [ "${any}" = 1 ] || continue
+        echo "  ${fam_label}:"
+        echo
+        for f in "${d}"/*.yaml; do
+          [ -f "${f}" ] || continue
+          local id name
+          id="$(basename "$f" .yaml)"
+          name="$(grep '^\s*name:' "${f}" | head -1 | sed 's/.*name:\s*//' | tr -d '"')"
+          local marker="  "
+          [ "${id}" = "${active}" ] && marker="* "
+          printf "  %s%-32s %s\n" "${marker}" "${id}" "${name}"
+        done
+        echo
       done
-      echo
       echo "  * = currently active"
-      echo "  detail: sovereign-osctl trinity profile show <id>"
+      echo "  generated combos: sovereign-osctl profiles generate-runtime <os-profile> <strategy>"
+      echo "  detail:           sovereign-osctl trinity profile show <id>"
       ;;
     show)
       local id="${1:-}"
@@ -5252,17 +5286,21 @@ _trinity_profile() {
         log_error "usage: sovereign-osctl trinity profile show <id>"
         return 2
       fi
-      local f="${runtime_dir}/${id}.yaml"
-      if [ ! -f "${f}" ]; then
-        log_error "no such runtime profile: ${id}"
-        log_error "  available: $(ls ${runtime_dir}/*.yaml 2>/dev/null | xargs -n1 basename | sed 's/\.yaml//' | tr '\n' ' ')"
+      local resolved fam f
+      resolved="$(_resolve_profile "${id}")" || {
+        log_error "no such profile: ${id}"
+        log_error "  available (all families): $(ls ${runtime_dir}/*.yaml ${orch_dir}/*.yaml ${user_dir}/*.yaml 2>/dev/null | xargs -n1 basename 2>/dev/null | sed 's/\.yaml//' | tr '\n' ' ')"
+        log_error "  (generated combos are not on disk — materialize with: sovereign-osctl profiles generate-runtime <os-profile> <strategy> --out …)"
         return 1
-      fi
+      }
+      fam="${resolved%%$'\t'*}"; f="${resolved#*$'\t'}"
       RUNTIME_FILE="${f}" python3 - <<'PY'
 import os, yaml
 with open(os.environ["RUNTIME_FILE"]) as fh:
     data = yaml.safe_load(fh) or {}
-rp = data.get("runtime_profile", {})
+# runtime profiles carry `runtime_profile`; orchestration/user drafts carry
+# `orchestration_profile` — resolve whichever this profile uses.
+rp = data.get("runtime_profile") or data.get("orchestration_profile") or {}
 print(f"  id:            {rp.get('id', '?')}")
 print(f"  name:          {rp.get('name', '?')}")
 print(f"  description:")
@@ -5321,15 +5359,22 @@ PY
         log_error "usage: sovereign-osctl trinity profile switch <id>"
         return 2
       fi
-      local f="${runtime_dir}/${id}.yaml"
-      if [ ! -f "${f}" ]; then
-        log_error "no such runtime profile: ${id}"
+      local resolved fam f
+      resolved="$(_resolve_profile "${id}")" || {
+        log_error "no such profile: ${id}"
+        log_error "  available (all families): $(ls ${runtime_dir}/*.yaml ${orch_dir}/*.yaml ${user_dir}/*.yaml 2>/dev/null | xargs -n1 basename 2>/dev/null | sed 's/\.yaml//' | tr '\n' ' ')"
+        log_error "  (generated combos are not on disk — materialize with: sovereign-osctl profiles generate-runtime <os-profile> <strategy> --out …)"
         return 1
-      fi
+      }
+      fam="${resolved%%$'\t'*}"; f="${resolved#*$'\t'}"
       mkdir -p "$(dirname "${active_file}")" 2>/dev/null || true
-      echo "${id}" > "${active_file}"
-      log_info "active runtime profile set to: ${id}"
+      printf '%s\n' "${id}" > "${active_file}"
+      log_info "active profile set to: ${id} (family: ${fam})"
       log_info "  (R151 wires start scripts to honor this; until then the YAML is the contract)"
+      if [ "${fam}" != "runtime" ]; then
+        log_info "  this ${fam} profile binds models per tier via its allocations;"
+        log_info "  actuate a specific device now with: sovereign-osctl models load <model-id> --confirm"
+      fi
       ;;
     *)
       log_error "unknown trinity profile subcommand: ${sub}"
