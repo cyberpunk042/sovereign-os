@@ -77,6 +77,10 @@
   .c-les.here{background:color-mix(in srgb,var(--accent) 16%,transparent);}
   .c-les.here .ltx{font-weight:600;}
   .c-les .arrow{color:var(--muted); flex:none;}
+  .c-les .try{font-size:.62rem; color:var(--ok); border:1px solid rgba(127,209,143,.5); border-radius:4px; padding:.02rem .3rem; flex:none;}
+  .c-done{margin:1.1rem 0 .2rem; border:1px solid rgba(127,209,143,.5); background:rgba(127,209,143,.07); border-radius:10px; padding:.8rem 1rem; display:flex; align-items:center; gap:.7rem;}
+  .c-done .em{font-size:1.35rem; flex:none;}
+  .c-done .tx{color:var(--fg-2); font-size:.9rem;} .c-done .tx b{color:var(--ok);}
 </style>
 </head>
 <body>
@@ -1177,16 +1181,21 @@
         var title, idtxt='', kind;
         if(L.c){ title=L.t; kind='concept'; }
         else { var p=catPanel(L.dir); title=p?p.label:L.dir; idtxt=(p&&p.id&&p.id!=='—')?p.id:''; kind='panel'; }
+        var tried = L.todo && (st.checks||{})[mod.id+'.'+li];
         out+='<button class="c-les'+(isHere?' here':'')+'" data-mi="'+mi+'" data-li="'+li+'">'+
           '<span class="ck'+(isDone?'':' todo')+'">'+(isDone?'✓':'○')+'</span>'+
           '<span class="lid">'+esc(idtxt)+'</span>'+
           '<span class="ltx">'+esc(title)+'</span>'+
+          (tried?'<span class="try">✓ tried</span>':'')+
           '<span class="lk">'+kind+'</span>'+
           '<span class="arrow">›</span></button>';
       }
       out+='</div>';
     }
-    host.innerHTML=out;
+    var banner = (total>0 && done>=total)
+      ? '<div class="c-done"><span class="em">🎓</span><span class="tx"><b>Course complete.</b> You’ve toured all '+total+' lessons of sovereign-os. Restart anytime with “Reset progress”, or revisit any single lesson below.</span></div>'
+      : '';
+    host.innerHTML=banner+out;
     var rows=host.querySelectorAll('.c-les');
     Array.prototype.forEach.call(rows,function(el){ el.addEventListener('click',function(){ openLesson(parseInt(el.getAttribute('data-mi'),10)||0, parseInt(el.getAttribute('data-li'),10)||0); }); });
   }
@@ -1490,6 +1499,9 @@
     openLesson(f[i][0], f[i][1]);
   }
   function isLast(){ return linIndex(st.mi,st.li) >= totalLessons()-1; }
+  function isComplete(){ return st.started && doneCount() >= totalLessons(); }
+  function checkCount(){ var n=0; for(var k in st.checks){ if(st.checks[k]) n++; } return n; }
+  function restart(){ st.done={}; st.mi=0; st.li=0; st.started=true; st.dismissed=false; save(st); render(); }
 
   // ── rendering ──
   var railEl, panelEl;
@@ -1519,6 +1531,17 @@
         '<span class="so-course-where">Guided tour of sovereign-os — '+totalLessons()+' lessons, most important first.</span>'+
         '<span class="so-course-actions"><button class="so-course-btn primary" id="so-course-start">▶ Start the tour</button>'+
         '<button class="so-course-btn so-course-dismiss" id="so-course-x" title="Dismiss (re-open from the ✦ Course header button)" aria-label="Dismiss course">✕</button></span>';
+    } else if(isComplete()){
+      // COMPLETION — the journey has an ending, plus an invitation to walk it again
+      railEl.innerHTML='<span class="so-course-mark">🎓 Course complete</span>'+
+        '<span class="so-course-where">You’ve toured all '+totalLessons()+' lessons of sovereign-os.</span>'+
+        '<span id="so-course-bar" aria-hidden="true"><i style="width:100%"></i></span>'+
+        '<span class="so-course-pct">'+totalLessons()+'/'+totalLessons()+' · 100%</span>'+
+        '<span class="so-course-actions">'+
+          '<button class="so-course-btn" id="so-course-toggle" title="Show / hide the summary" aria-expanded="'+(st.open?'true':'false')+'">'+(st.open?'⬇ Hide':'⬆ Summary')+'</button>'+
+          '<button class="so-course-btn primary" id="so-course-restart" title="Start the tour over">↺ Restart</button>'+
+          '<button class="so-course-btn so-course-dismiss" id="so-course-x" title="Dismiss" aria-label="Dismiss course">✕</button>'+
+        '</span>';
     } else {
       railEl.innerHTML='<span class="so-course-mark">✦ Course</span>'+
         '<span class="so-course-where"><b>'+esc(m.id)+'</b> '+esc(m.name)+' · '+esc(lessonTitle(L))+'</span>'+
@@ -1536,6 +1559,26 @@
   }
   function renderPanel(){
     if(!panelEl) return;
+    if(isComplete()){
+      var checks=checkCount();
+      panelEl.innerHTML=
+        '<div class="so-course-ph"><span class="so-course-modname">✦ Course complete</span><span class="sp"></span>'+
+          '<button class="so-course-btn" id="so-course-close" title="Collapse" aria-label="Collapse">✕</button></div>'+
+        '<div class="so-course-body">'+
+          '<div class="so-course-lt">🎓 You’ve completed the tour</div>'+
+          '<p>All '+totalLessons()+' lessons across '+CURRICULUM.length+' modules — from the Trinity and the build pipeline through security &amp; selfdef, models, hardware, governance, and the optional science tools.</p>'+
+          '<p>You ticked '+checks+' hands-on checkpoint'+(checks===1?'':'s')+' along the way.</p>'+
+          '<ul class="so-course-notice"><li>Restart to walk the whole tour again.</li><li>Open the syllabus to revisit any single module or lesson.</li><li>The ✦ Assistant (right) stays available for per-panel help anytime.</li></ul>'+
+        '</div>'+
+        '<div class="so-course-foot">'+
+          '<button class="so-course-btn primary" id="so-course-restart2">↺ Restart the tour</button>'+
+          '<a class="so-course-btn" id="so-course-syllabus" href="../course/" title="Open the syllabus">≣ Open the syllabus</a>'+
+          '<span class="sp"></span>'+
+          '<button class="so-course-btn" id="so-course-close2">Close</button>'+
+        '</div>';
+      wireComplete();
+      return;
+    }
     var m=CURRICULUM[st.mi], L=lessonAt(st.mi,st.li);
     var dir=lessonDir(L), here = dir && dir===curDir();
     var bodyHtml='';
@@ -1599,9 +1642,17 @@
     b=document.getElementById('so-course-start'); if(b) b.addEventListener('click',function(){ st.open=true; openLesson(0,0); });
     b=document.getElementById('so-course-notnow'); if(b) b.addEventListener('click',function(){ st.prompted=true; st.dismissed=true; save(st); render(); });
     b=document.getElementById('so-course-x'); if(b) b.addEventListener('click',dismiss);
+    b=document.getElementById('so-course-restart'); if(b) b.addEventListener('click',restart);
     b=document.getElementById('so-course-prev'); if(b) b.addEventListener('click',function(){ go(-1); });
     b=document.getElementById('so-course-next'); if(b) b.addEventListener('click',function(){ if(isLast()){ markDone(st.mi,st.li); save(st); render(); } else go(1); });
     b=document.getElementById('so-course-toggle'); if(b) b.addEventListener('click',function(){ setOpen(!st.open); });
+  }
+  function wireComplete(){
+    var b;
+    b=document.getElementById('so-course-close'); if(b) b.addEventListener('click',function(){ setOpen(false); });
+    b=document.getElementById('so-course-close2'); if(b) b.addEventListener('click',function(){ setOpen(false); });
+    b=document.getElementById('so-course-restart2'); if(b) b.addEventListener('click',restart);
+    // the syllabus link is a plain <a href> — no JS needed
   }
   function wirePanel(){
     var b;
