@@ -1934,7 +1934,7 @@ function renderStats(version, routes, health, collisions, discover) {
 
 function renderRoutes(routes, health, toggles) {
   const _tb = el("routes-tbody");
-  if (!routes || !routes.routes) { _tb.innerHTML = '<tr><td colspan="7" class="muted">route table unreachable — populates when /routes + /health are reachable (nothing fabricated, SB-077)</td></tr>'; return; }
+  if (!routes || !routes.routes) { _tb.innerHTML = '<tr><td colspan="7" class="muted">route table unreachable — populates when /routes + /health are reachable. Nothing is fabricated (SB-077).</td></tr>'; return; }
   const reachableByPort = {};
   for (const p of ((health && health.probes) || [])) reachableByPort[p.port] = p.reachable;
   // M060 R10129 — per-route operator on/off state from /toggles
@@ -2023,7 +2023,7 @@ function showCopyToast(msg) {
 function renderCollisions(collisions) {
   const body = el("collisions-body");
   body.innerHTML = "";
-  if (!collisions || collisions.has_collisions === undefined) { body.className = "muted"; body.textContent = "collision check unavailable — /collisions unreachable (SB-077)"; return; }
+  if (!collisions || collisions.has_collisions === undefined) { body.className = "muted"; body.textContent = "collision check unavailable — /collisions unreachable. Nothing is fabricated (SB-077)."; return; }
   if (!collisions.has_collisions) {
     body.className = "ok";
     body.textContent = "✓ no port or subpath collisions across built-in routes.";
@@ -2041,7 +2041,7 @@ function renderCollisions(collisions) {
 function renderDiscover(discover) {
   const body = el("discover-body");
   body.innerHTML = "";
-  if (!discover || discover.count === undefined) { body.className = "muted"; body.textContent = "selfdef discovery unavailable — /discover unreachable (SB-077)"; return; }
+  if (!discover || discover.count === undefined) { body.className = "muted"; body.textContent = "selfdef discovery unavailable — /discover unreachable. Nothing is fabricated (SB-077)."; return; }
   if (discover.count === 0 && (!discover.errors || discover.errors.length === 0)) {
     body.className = "muted";
     body.textContent = "(no selfdef manifests under " + discover.manifest_dir + ")";
