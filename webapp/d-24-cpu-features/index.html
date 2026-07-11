@@ -803,10 +803,10 @@
     try {
       const [probe, workloads, advisory] = await Promise.all([
         fetchJson('/api/cpu-features/probe'), fetchJson('/api/cpu-features/workloads'), fetchJson('/api/cpu-features/advisory')]);
-      $('data-source-banner').innerHTML = 'consuming <code>/api/cpu-features/{probe,workloads,advisory}</code>';
+      $('data-source-banner').innerHTML = 'consuming <code>/api/cpu-features/*</code> from the cpu-features API daemon';
       render(probe, workloads, advisory);
     } catch (e) {
-      $('data-source-banner').innerHTML = 'cannot reach the cpu-features API daemon <span class="muted">('+esc(e.message)+')</span>';
+      $('data-source-banner').innerHTML = 'cannot reach <code>/api/cpu-features/*</code> — is the cpu-features API daemon running? <span class="muted">('+esc(e.message)+')</span>';
       render({offline: true}, {}, {});   // SDD-115 — keep all four sections visible, never blank
     }
     $('last-fetch').textContent = 'last fetch: ' + new Date().toLocaleTimeString();
