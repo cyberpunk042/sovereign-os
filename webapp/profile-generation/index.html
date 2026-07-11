@@ -1083,6 +1083,12 @@ html[data-theme="light"] {
 const el = (id) => document.getElementById(id);
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;" }[c]));
 
+function jumpToControl(cid) {
+  const s = document.getElementById('control-surface');
+  const c = s && s.querySelector('[data-cid="' + cid + '"]');
+  (c || s || document.body).scrollIntoView({ behavior: 'smooth', block: 'center' });
+  if (c) { c.style.outline = '2px solid var(--accent,#9bd1ff)'; setTimeout(() => { c.style.outline = ''; }, 1600); }
+}
 function copyCmd(node) {
   node.addEventListener("click", () => { if (navigator.clipboard) navigator.clipboard.writeText(node.dataset.cmd); node.textContent = "✓ copied — " + node.dataset.cmd; });
 }
@@ -1128,6 +1134,7 @@ async function load() {
       return '<div class="panel"><h3>' + esc(p.id) + '</h3>'
         + (p.error ? '<div class="bad">parse error: ' + esc(p.error) + '</div>' : allocTable(rp))
         + '<div class="cmd" data-cmd="' + esc(cmd) + '" title="click to copy">$ ' + esc(cmd) + '</div>'
+        + '<button type="button" class="cmd-run" onclick="jumpToControl(\'profiles-generate-runtime\')" title="run via the controls rail — dry-run + operator-key + type-to-confirm (R10212)">▶ run via controls</button>'
         + '</div>';
     }).join("");
     document.querySelectorAll(".cmd").forEach(copyCmd);

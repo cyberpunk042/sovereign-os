@@ -41,7 +41,7 @@ coverage:
   weaver:
     [state-fabric]
   d-20-peace-machine-health:
-    [peace-machine]
+    [peace-machine, peace-check]
   router:
     [router]
   orchestration:

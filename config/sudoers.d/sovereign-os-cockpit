@@ -30,6 +30,8 @@
 # selfdef + perimeter are DELIBERATELY absent (R10212: proxy-only, never granted).
 Cmnd_Alias SOVEREIGN_OS_COCKPIT = \
     /usr/local/bin/sovereign-osctl profiles switch *, \
+    /usr/local/bin/sovereign-osctl profiles generate-runtime *, \
+    /usr/local/bin/sovereign-osctl peace-check --json, \
     /usr/local/bin/sovereign-osctl trinity profile switch *, \
     /usr/local/bin/sovereign-osctl profiles flex set *, \
     /usr/local/bin/sovereign-osctl cpu-mode set *, \

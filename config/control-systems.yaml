@@ -698,3 +698,45 @@ systems:
     privileged: false
     applies_to: [d-07-memory-changes]
     refs: [scripts/intelligence/memory-decide.py]
+
+  # SDD-132 (Phase 3 operability) — the 2 genuine wireable gaps the R10212-honest
+  # audit (SDD-131) surfaced. Both sovereign-os-owned + read-only + non-privileged
+  # (no sudoers grant); they execute via the exec-rail (dry-run + confirm), so the
+  # panels stop being copy-only without any change to the R10212 write boundary.
+  - id: profiles-generate-runtime
+    kind: lifecycle
+    scope: scoped
+    label: "Generate Runtime Profile"
+    description: >-
+      Generate a whole runtime profile from an OS/hardware profile x a strategy
+      (SDD-043 Phase 3) — sizes tier_intent allocations to the declared GPUs/CPU
+      and catalog-resolves them before printing. Pick the hardware profile (<hw>,
+      e.g. sain-01) and the strategy. Read-only: prints the generated profile to
+      stdout (add --out to write); non-privileged, no host mutation.
+    options: [efficiency, high-concurrency, deep-context]
+    options_cli: "sovereign-osctl profiles list"
+    state_cli: "sovereign-osctl profiles generate-runtime --help"
+    change_cli: "sovereign-osctl profiles generate-runtime <hw> {efficiency|high-concurrency|deep-context}"
+    state_path: "profiles/runtime/*.yaml (generated; stdout by default)"
+    privileged: false
+    applies_to: [profile-generation]
+    refs: [scripts/operator/generate-runtime-profile.py]
+
+  - id: peace-check
+    kind: lifecycle
+    scope: scoped
+    label: "Peace-Check (re-run)"
+    description: >-
+      Re-run the sovereign-os peace-machine validator (R09980-R09982) that computes
+      the 5 closing-manifesto properties + the exit-0-iff-all-pass verdict D-20
+      reads. Runs the one-shot --json check via the sovereign-osctl wrapper.
+      Read-only (the validator computes + publishes; nothing here mutates host
+      state); --watch and the journal stay copy-only CLI fallbacks.
+    options: [json]
+    options_cli: "sovereign-osctl peace-machine snapshot --json"
+    state_cli: "sovereign-osctl peace-machine snapshot --json"
+    change_cli: "sovereign-osctl peace-check --json"
+    state_path: "/run/sovereign-os/peace-check.json (validator-published verdict)"
+    privileged: false
+    applies_to: [d-20-peace-machine-health]
+    refs: [scripts/manifest/peace-machine.py]
