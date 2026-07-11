@@ -1,0 +1,50 @@
+{
+  "scores": [
+    {
+      "module": "bashrc",
+      "score": 4,
+      "total": 6
+    },
+    {
+      "module": "network-edge",
+      "score": 5,
+      "total": 6
+    },
+    {
+      "module": "global-history",
+      "score": 5,
+      "total": 6
+    },
+    {
+      "module": "surface-map",
+      "score": 5,
+      "total": 6
+    },
+    {
+      "module": "doc-coverage",
+      "score": 5,
+      "total": 6
+    },
+    {
+      "module": "anti-minimization-audit",
+      "score": 5,
+      "total": 6
+    },
+    {
+      "module": "auth-tier",
+      "score": 6,
+      "total": 6
+    },
+    {
+      "module": "edge-firewall",
+      "score": 6,
+      "total": 6
+    },
+    {
+      "module": "master-dashboard",
+      "score": 6,
+      "total": 6
+    }
+  ],
+  "count": 9
+}
