@@ -56,7 +56,7 @@ import os
 import shutil
 import subprocess
 import sys
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, HTTPServer, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
@@ -2054,7 +2054,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
-        self.wfile.write(body)
+        try:
+            self.wfile.write(body)
+        except (BrokenPipeError, ConnectionResetError):
+            pass  # client disconnected — not an error
 
     def _send_html(self, body_str: str, status: int = 200) -> None:
         body = body_str.encode("utf-8")
@@ -2063,7 +2066,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
-        self.wfile.write(body)
+        try:
+            self.wfile.write(body)
+        except (BrokenPipeError, ConnectionResetError):
+            pass  # client disconnected (e.g. a probe that gave up) — not an error
 
     def _check_auth(self) -> bool:
         """R250 (SDD-026 Z-1 auth): IP allowlist + Bearer-token check.
@@ -2126,6 +2132,13 @@ class DashboardHandler(BaseHTTPRequestHandler):
         return True
 
     def do_GET(self) -> None:  # noqa: N802
+        # Fast liveness probe — NO auth, NO gather_all(). gather_all() can take
+        # >3s (40 hardware cards), which would time out panel.sh's
+        # `curl --max-time 3` probe on the full page and make the dashboard look
+        # "down" when it actually bound fine. Health checks hit this instead.
+        if self.path.split("?", 1)[0] in ("/healthz", "/health"):
+            self._send_json({"ok": True})
+            return
         if not self._check_auth():
             return
         path = self.path
@@ -2289,7 +2302,9 @@ def main() -> int:
     global AUTH_CONFIG
     AUTH_CONFIG = load_auth_config()
     try:
-        srv = HTTPServer((host, port), DashboardHandler)
+        # Threaded so a slow full-page render (gather_all ~3-4s) never blocks a
+        # concurrent health probe or a second client.
+        srv = ThreadingHTTPServer((host, port), DashboardHandler)
     except OSError as e:
         print(f"ERROR bind {host}:{port}: {e}", file=sys.stderr)
         return 2

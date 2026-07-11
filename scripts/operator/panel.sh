@@ -117,7 +117,7 @@ start_server configurator "${CFG_PORT}" /healthz \
   python3 scripts/operator/build-configurator-api.py && cfg_ok=1
 
 DASH_PORT="${DASH_BIND##*:}"
-start_server runtime-dashboard "${DASH_PORT}" / \
+start_server runtime-dashboard "${DASH_PORT}" /healthz \
   python3 scripts/dashboard/serve.py --bind "${DASH_BIND}" && dash_ok=1
 
 # Panel data APIs — start EVERY scripts/operator/*-api.py so the panels
