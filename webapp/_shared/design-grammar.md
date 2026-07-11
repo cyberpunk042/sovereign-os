@@ -17,6 +17,22 @@ without reading.
 --bad      /* red   — destructive, error (#ff7676) */
 ```
 
+### Scale (SDD-145 — declared in the synced app-shell `:root`, reach all panels)
+
+Grounded on the fleet's dominant literals. `--fs-*`/`--space-*` are **rem** so they
+auto-compose with the personalization `--font-scale` zoom (the html root is
+`calc(14px * var(--font-scale))`) — **never** wrap them in `calc(*--font-scale)`.
+
+```css
+/* type */    --fs-2xs:.7  --fs-xs:.72 --fs-sm:.78 --fs-base:.85 --fs-md:1 --fs-lg:1.4  (rem)
+/* radius */  --radius-xs:2 --radius-sm:3 --radius-md:4 --radius-lg:6 (px) · --radius-pill:999px
+/* space */   --space-2xs:.2 --space-xs:.3 --space-sm:.4 --space-md:.6 --space-lg:.9 --space-xl:1 --space-2xl:1.2 --space-3xl:1.6  (rem)
+```
+
+Prefer `var(--fs-*)` / `var(--radius-*)` / `var(--space-*)` over raw literals; genuine
+one-offs (and the `@media print` `pt` sheet + `50%` circles) stay literal. build-configurator
+is the reference adopter.
+
 ## Button hierarchy — THE rule
 
 | Class | Look | Use for | Per view |

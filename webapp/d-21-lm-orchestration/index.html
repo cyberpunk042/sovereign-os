@@ -145,6 +145,12 @@
 <style id="so-app-shell-style">
   :root{
     --so-header-h:48px; --so-sidemenu-w:244px; --so-sidemenu-w-collapsed:56px; --so-assist-w:360px;
+    /* SDD-145 design-token scale — grounded on the fleet's dominant literals.
+       fs/space are rem so they auto-compose with the personalization --font-scale
+       zoom (the html root is calc(14px*--font-scale)); never wrap these in calc(). */
+    --fs-2xs:.7rem; --fs-xs:.72rem; --fs-sm:.78rem; --fs-base:.85rem; --fs-md:1rem; --fs-lg:1.4rem;
+    --radius-xs:2px; --radius-sm:3px; --radius-md:4px; --radius-lg:6px; --radius-pill:999px;
+    --space-2xs:.2rem; --space-xs:.3rem; --space-sm:.4rem; --space-md:.6rem; --space-lg:.9rem; --space-xl:1rem; --space-2xl:1.2rem; --space-3xl:1.6rem;
   }
   #so-content{ margin-top:var(--so-header-h); margin-left:var(--so-sidemenu-w); }
   body.so-sm-collapsed #so-content{ margin-left:var(--so-sidemenu-w-collapsed); }
@@ -1235,13 +1241,27 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
     }
   }
 
-  // Authored tiering over the REAL /proc/cpuinfo AVX-512 flags (the flags are
-  // real; the T1/T2/T3 grouping is a presentation). "Etc… Rowhammer" has no
-  // producer → an explicit honest-deferred row (SB-077 — never a fabricated ✓).
+  // Tiering over the REAL /proc/cpuinfo AVX-512 flags, grouped by AI-workload
+  // tier per the canonical M085 note (2026-07-02) and mirrored EXACTLY from
+  // config/hardware/m086-avx512-simd-lift-plan.yaml + scripts/hardware/
+  // avx512-advisor.py TIER_INSTRUCTIONS (flag→tier), so this panel and the spec
+  // never disagree. Every instruction family the CPU can exploit is shown:
+  //   T1  Quantisation & dot-product (VNNI) — VPDPBUSD INT8, VDPBF16PS BF16
+  //   T2  Bitwise logic & attention        — VPTERNLOG LUT (avx512f), VP2INTERSECT
+  //   T3  Structure, prune & KV-cache (VBMI/CD) — VPERMB/VPSHLDV, VPCOMPRESS/EXPAND
+  //   T4  Pop-count margin (ternary/mask)  — VPOPCNTDQ, BITALG
+  // popcount is the T4 MARGIN, NOT T3 (operator 2026-07-11: "popcount as t3 …
+  // thats wrong, that would be T4"; T3 is the VBMI/CD structuration tier). The
+  // Foundation floor (VL/BW/DQ) are the prerequisites every tier stands on.
+  // Flags the daemon does not probe (bf16/vbmi2/vp2intersect/bitalg) render an
+  // honest — never a fabricated ✓ (SB-077); "Etc… Rowhammer" has no producer →
+  // an explicit honest-deferred row.
   const CPU_TIERS = [
-    { t: 'T1 · Foundation & vector width', flags: ['avx512f', 'avx512vl', 'avx512bw', 'avx512dq'] },
-    { t: 'T2 · AI acceleration (INT8/bf16 dot)', flags: ['avx512_vnni', 'avx512vbmi'] },
-    { t: 'T3 · Bit manipulation', flags: ['avx512_vpopcntdq'] },
+    { t: 'Foundation floor · vector width (prerequisites)', flags: ['avx512vl', 'avx512bw', 'avx512dq'] },
+    { t: 'T1 · Quantisation & dot-product (VNNI · VPDPBUSD/VDPBF16PS)', flags: ['avx512_vnni', 'avx512_bf16'] },
+    { t: 'T2 · Bitwise logic & attention (VPTERNLOG LUT · VP2INTERSECT)', flags: ['avx512f', 'avx512_vp2intersect'] },
+    { t: 'T3 · Structure, prune & KV-cache (VBMI/CD · VPERMB/VPCOMPRESSB)', flags: ['avx512vbmi', 'avx512_vbmi2'] },
+    { t: 'T4 · Pop-count margin (ternary/mask · VPOPCNTDQ/BITALG)', flags: ['avx512_vpopcntdq', 'avx512_bitalg'] },
   ];
   // present === true → ✓ live; false → absent on this CPU; null → not probed
   // (daemon offline) — honest — never a fabricated ✓ (SB-077).
