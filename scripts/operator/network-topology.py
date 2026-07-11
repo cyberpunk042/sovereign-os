@@ -555,6 +555,8 @@ def cmd_detect(args) -> int:
         print(f"  Capabilities unlocked: {capabilities['unlocked_count']}/{capabilities['unlocked_count'] + len(capabilities['next_to_unlock'])}")
         if capabilities['next_to_unlock']:
             print(f"  Next-to-unlock: {capabilities['next_to_unlock'][0]}")
+        print("  next: run `sovereign-osctl network-edge opnsense status` "
+              "to probe the OPNsense API tier (unlocks the full NAT-chain view)")
     _emit_metric("sovereign_os_operator_network_topology_query_total", "detect", "ok")
     return 0
 
