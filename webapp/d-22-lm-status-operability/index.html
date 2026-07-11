@@ -89,9 +89,12 @@
   button.act:disabled, button.act.deferred { opacity:.5; cursor:not-allowed; border-style:dashed; }
   button.act:disabled:hover, button.act.deferred:hover { border-color:var(--border); color:var(--fg); }
   /* SDD-111 full layout: History|Selected two-column + right-side operability cluster */
-  .devgrid { display:grid; grid-template-columns:1fr minmax(230px,290px); gap:1rem; align-items:start; }
-  .hs-cols { display:grid; grid-template-columns:1fr 1fr; gap:.7rem; }
-  .hs-col { border:1px solid var(--border); border-radius:6px; background:var(--panel); padding:.5rem .7rem; min-height:120px; }
+  /* SDD-137: minmax(0,…) so the table-bearing columns shrink instead of overflowing;
+     collapse also on body.so-assist-open (viewport-keyed media query alone won't fire
+     when the assistant steals ~360px of #so-content). */
+  .devgrid { display:grid; grid-template-columns:minmax(0,1fr) minmax(230px,290px); gap:1rem; align-items:start; }
+  .hs-cols { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:.7rem; min-width:0; }
+  .hs-col { border:1px solid var(--border); border-radius:6px; background:var(--panel); padding:.5rem .7rem; min-height:120px; min-width:0; overflow-x:auto; }
   .hs-head { font-size:.7rem; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin:0 0 .4rem; border-bottom:1px solid var(--border); padding-bottom:.25rem; }
   .hs-col table { width:100%; border-collapse:collapse; }
   .hs-col th { text-align:left; color:var(--muted); font-weight:400; font-size:.74rem; padding:.12rem .3rem .12rem 0; vertical-align:top; }
@@ -110,6 +113,7 @@
   button.selbtn.on { border-color:var(--accent); color:var(--accent); }
   button.selbtn:disabled { opacity:.4; cursor:not-allowed; }
   @media (max-width:820px) { .devgrid { grid-template-columns:1fr; } .hs-cols { grid-template-columns:1fr; } }
+  body.so-assist-open .devgrid { grid-template-columns:1fr; } /* SDD-137 */
   .selected-bar { margin:.5rem 0; }
   .chip {
     display:inline-block; padding:.15rem .5rem; margin-right:.35rem;

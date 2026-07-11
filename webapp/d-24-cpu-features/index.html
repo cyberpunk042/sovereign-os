@@ -40,7 +40,7 @@
   .banner { font-size:.78rem; color:var(--muted); margin:.5rem 0; }
   .muted { color:var(--muted); }
   code { color:var(--accent); }
-  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:.3rem; }
+  .grid2 { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:.3rem; } /* SDD-137 */
   .ext { border:1px solid var(--border); border-radius:4px; padding:.3rem .5rem; font-size:.78rem; display:flex; justify-content:space-between; gap:.5rem; }
   .yes { color:var(--good); } .no { color:var(--bad); }
   table { width:100%; border-collapse:collapse; font-size:.8rem; }

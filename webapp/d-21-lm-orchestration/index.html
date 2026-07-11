@@ -61,7 +61,7 @@
   .profile .desc { color:var(--muted); font-size:.76rem; margin-top:.2rem; }
   /* grid */
   .grid {
-    display:grid; grid-template-columns:1fr 1fr; gap:1px;
+    display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:1px; /* SDD-137: minmax(0,…) so a wide cell shrinks instead of overflowing */
     background:var(--border); border:1px solid var(--border); border-radius:6px;
     overflow:hidden; position:relative; min-height:300px;
   }
@@ -93,7 +93,7 @@
   button.apply:active { transform:scale(.98); }
   @media (max-width:640px) { .apply-wrap { position:static; transform:none; margin:.6rem auto; } }
   /* features */
-  .features { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+  .features { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:1rem; } /* SDD-137 */
   .fcol { border:1px solid var(--border); border-radius:6px; background:var(--panel); padding:.6rem .9rem; }
   .fcol h3 { margin:0 0 .4rem; font-size:.88rem; }
   .frow { font-size:.8rem; display:flex; justify-content:space-between; padding:.15rem 0; border-bottom:1px solid var(--border); }

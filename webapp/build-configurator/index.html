@@ -69,9 +69,15 @@
   header.topbar a.nav { color:var(--muted); font-size:.78rem; text-decoration:none;
     border:1px solid var(--border); padding:.2rem .55rem; border-radius:3px; }
   header.topbar a.nav:hover { color:var(--fg); border-color:var(--accent); }
-  .wrap { display:grid; grid-template-columns: 1fr 470px; gap:0; align-items:start; }
+  /* SDD-137: minmax(0,1fr) so the left column shrinks below its widest <pre>/<table>
+     instead of overflowing; the collapse also fires on body.so-assist-open (the
+     assistant steals ~360px of #so-content without changing the viewport, so a
+     viewport-keyed media query alone never triggers). */
+  .wrap { display:grid; grid-template-columns: minmax(0,1fr) 470px; gap:0; align-items:start; }
   @media (max-width: 1050px){ .wrap { grid-template-columns: 1fr; } }
-  .left { padding:1.1rem 1.2rem 4rem; }
+  body.so-assist-open .wrap { grid-template-columns: 1fr; }
+  body.so-assist-open .right { position:static; max-height:none; border-left:0; border-top:1px solid var(--border); }
+  .left { padding:1.1rem 1.2rem 4rem; min-width:0; }
   .right {
     position: sticky; top:54px; max-height: calc(100vh - 54px); overflow:auto;
     border-left:1px solid var(--border); padding:1.1rem 1.1rem 3rem; background:var(--bg);
@@ -115,7 +121,7 @@
     border-radius:4px; padding:.3rem .5rem; font-family:inherit; font-size:.78rem;
   }
   input[type=number] { width:6.2rem; }
-  .kv { display:grid; grid-template-columns: 150px 1fr; gap:.35rem .7rem; align-items:center; font-size:.78rem; }
+  .kv { display:grid; grid-template-columns: 150px minmax(0,1fr); gap:.35rem .7rem; align-items:center; font-size:.78rem; } /* SDD-137 */
   .kv code { color:var(--accent); }
   fieldset { border:0; padding:0; margin:0 0 .5rem; }
   fieldset legend { font-size:.74rem; color:var(--muted); padding:0 0 .25rem; }
