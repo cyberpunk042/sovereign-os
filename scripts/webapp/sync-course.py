@@ -1,0 +1,147 @@
+#!/usr/bin/env python3
+"""sync-course.py — guided-course distributor (the 6th canonical per-panel
+snippet, sibling of sync-app-shell.py).
+
+Injects the canonical course block (webapp/_shared/course-snippet.html, between
+the COURSE:BEGIN / COURSE:END markers, inclusive) into each adopted panel. Unlike
+the app-shell block (which is reparented from the TOP of <body>), the course
+block is injected just BEFORE </body> so it parses AFTER the app-shell block —
+that guarantees window.__soCatalog (set by the app-shell) is already defined when
+the course script runs, so lessons can reuse the per-panel narratives without
+duplicating them.
+
+Idempotent: a panel that already carries a block gets it REPLACED, so re-running
+is a no-op when nothing changed. Per the sovereignty-clean doctrine there is no
+shared runtime asset — the block is DUPLICATED verbatim into every adopted panel
+and enforced identical by tests/lint/test_course_snippet_contract.py.
+
+Adoption is the app-shell adopted list PLUS the course page itself: the course
+reads window.__soCatalog, which only exists where the app-shell is present, so
+the course set must stay a subset of the app-shell set. We reuse ADOPTED_PANELS
+from sync-app-shell.py (single source of truth) and add "course".
+
+Mutation discipline (mirrors sync-app-shell.py):
+  * DRY-RUN by default — prints WOULD; requires --apply to write.
+  * Reports WOULD/DID/SKIP <path>: <reason> per panel.
+  * --check verifies every adopted panel's block matches canonical
+    (exit 1 on drift) and writes nothing.
+
+Usage:
+  python3 scripts/webapp/sync-course.py                 # dry-run over the adopted list
+  python3 scripts/webapp/sync-course.py --apply         # write the adopted list
+  python3 scripts/webapp/sync-course.py --panel trinity --apply
+  python3 scripts/webapp/sync-course.py --check         # CI-style drift check
+"""
+from __future__ import annotations
+
+import argparse
+import re
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from importlib import import_module
+
+_shell = import_module("sync-app-shell")  # reuse the single adopted-panel list
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+WEBAPP = REPO_ROOT / "webapp"
+SNIPPET = WEBAPP / "_shared" / "course-snippet.html"
+
+BEGIN = "<!-- COURSE:BEGIN M090 -->"
+END = "<!-- COURSE:END M090 -->"
+
+# The course rides on every app-shell-adopted panel (it needs window.__soCatalog,
+# which the app-shell provides) plus the course landing page itself.
+ADOPTED_PANELS = list(dict.fromkeys(_shell.ADOPTED_PANELS + ["course"]))
+
+_BLOCK_RE = re.compile(re.escape(BEGIN) + r".*?" + re.escape(END), re.DOTALL)
+# Match the closing </body> at the start of a line (optionally indented) so we
+# inject just before it — after the app-shell block that lives near <body>.
+_ENDBODY_RE = re.compile(r"^[ \t]*</body\s*>", re.IGNORECASE | re.MULTILINE)
+
+
+def canonical_block() -> str:
+    src = SNIPPET.read_text(encoding="utf-8")
+    i, j = src.find(BEGIN), src.find(END)
+    if i < 0 or j < 0:
+        sys.exit(f"FATAL: markers not found in {SNIPPET}")
+    return src[i : j + len(END)]
+
+
+def _panel_path(slug: str) -> Path:
+    return WEBAPP / slug / "index.html"
+
+
+def render(html: str, block: str) -> tuple[str, str]:
+    """Return (new_html, action). action ∈ replace|insert|unchanged|no-body."""
+    if _BLOCK_RE.search(html):
+        new = _BLOCK_RE.sub(lambda _m: block, html, count=1)
+        return new, ("unchanged" if new == html else "replace")
+    m = _ENDBODY_RE.search(html)
+    if not m:
+        return html, "no-body"
+    at = m.start()
+    new = html[:at] + block + "\n" + html[at:]
+    return new, "insert"
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description="Sync the course block into adopted cockpit panels.")
+    ap.add_argument("--apply", action="store_true", help="write changes (default: dry-run)")
+    ap.add_argument("--panel", action="append", default=None, help="panel slug (repeatable); default = the adopted list")
+    ap.add_argument("--all", action="store_true", help="operate over the full adopted list")
+    ap.add_argument("--check", action="store_true", help="verify blocks match canonical; write nothing; exit 1 on drift")
+    args = ap.parse_args()
+
+    block = canonical_block()
+    targets = args.panel if args.panel else ADOPTED_PANELS
+
+    drift, changed = [], 0
+    for slug in targets:
+        path = _panel_path(slug)
+        if not path.is_file():
+            print(f"SKIP {slug}: index.html not found")
+            continue
+        html = path.read_text(encoding="utf-8")
+
+        if args.check:
+            found = _BLOCK_RE.search(html)
+            if not found:
+                print(f"DRIFT {slug}: no course block")
+                drift.append(slug)
+            elif found.group(0) != block:
+                print(f"DRIFT {slug}: block differs from canonical")
+                drift.append(slug)
+            else:
+                print(f"OK    {slug}")
+            continue
+
+        new, action = render(html, block)
+        if action == "no-body":
+            print(f"SKIP {slug}: no </body> tag")
+            continue
+        if action == "unchanged":
+            print(f"SKIP {slug}: already current")
+            continue
+        changed += 1
+        if args.apply:
+            path.write_text(new, encoding="utf-8")
+            print(f"DID  {action} {path.relative_to(REPO_ROOT)}")
+        else:
+            print(f"WOULD {action} {path.relative_to(REPO_ROOT)}")
+
+    if args.check:
+        if drift:
+            print(f"\n{len(drift)} panel(s) drifted from canonical — run: python3 scripts/webapp/sync-course.py --apply")
+            return 1
+        print("\nall adopted panels current.")
+        return 0
+
+    if not args.apply and changed:
+        print(f"\n{changed} panel(s) WOULD change — re-run with --apply to write.")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

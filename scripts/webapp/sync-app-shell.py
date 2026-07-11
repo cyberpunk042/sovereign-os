@@ -41,6 +41,7 @@ END = "<!-- APP-SHELL:END M067 -->"
 # time; only listed panels are touched — the rest stay exactly as they are.
 # Keep in lockstep with tests/lint/test_app_shell_contract.py.
 ADOPTED_PANELS = [
+    "course",
     "anti-minimization-audit", "auditor", "auth-tier", "build-configurator",
     "compliance", "cpu-features", "d-01-active-sessions", "d-02-profile-choices",
     "d-03-model-health", "d-04-costs", "d-05-traces", "d-06-pending-approvals",

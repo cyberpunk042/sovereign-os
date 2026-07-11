@@ -1,44 +1,85 @@
-<!-- ─────────────────────────────────────────────────────────────────
-M067 app-shell snippet — canonical source-of-truth (SDD-067).
-
-The persistent cockpit chrome: a top HEADER (brand · breadcrumb ·
-status pill · ⌘K launcher · theme toggle · ✦ Assistant) + a grouped
-collapsible SIDEMENU + a client-side ASSISTANT drawer (contextual help).
-
-The SIDEMENU is self-documenting: every link carries a real, strong
-description (assistant data), sourced from config/dashboard-catalog.yaml
-(the authoritative panel registry) — hovering / focusing a link surfaces
-that panel's explanation in the Assistant drawer, and the same text is
-the panel's own "This panel" help. Content elements a panel annotates
-with data-assist get their own hover-help + a guided tour that walks them.
-
-Per the sovereignty-clean doctrine there is NO shared runtime asset — this
-block (catalog + all descriptions included) is duplicated verbatim into
-each adopted panel's <body> by scripts/webapp/sync-app-shell.py and
-enforced identical by tests/lint/test_app_shell_contract.py. The catalog
-is generated from config/dashboard-catalog.yaml; to change a description,
-edit the yaml and regenerate (single source of truth).
-
-The chrome navigates + explains and does not mutate server state, with ONE
-sanctioned exception (R10212): the Assistant's "Ask" footer may POST to the
-loopback chat (/api/code-console/chat, 127.0.0.1 only) — the same
-non-mutating inference read-compute the Code Console / D-22 panels use. No
-other fetch/XHR/sendBeacon/form-POST is permitted, and nothing crosses the
-network. The ChatGPT / Claude buttons are the operator deliberately opening
-their own question in an external tab (a navigation, not a box call).
-
-Distribution: the generator injects THIS block as the first child of
-<body>. At DOMContentLoaded the script reparents the panel's existing body
-content into a #so-content wrapper (moves nodes, never rewrites) and
-appends the fixed header / sidemenu / assistant as siblings, then offsets
-#so-content by the chrome. No per-panel markup is edited.
-
-Integrates with the four existing canonical <head> snippets (theme toggle
-reuses the sovereign-os.personalization key; ⌘K button dispatches to the
-palette; hover-help fires on keyboard focus for a11y; sidemenu goes off-
-canvas at the existing ≤1024px breakpoint). Chrome is ghost/.btn — NEVER
-`.primary`, NEVER server-mutating. Motion gated by prefers-reduced-motion.
-──────────────────────────────────────────────────────────────────── -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sovereign-os Course</title>
+<meta name="x-sovereign-module" content="course-webapp">
+<meta name="x-sovereign-shipped-in" content="M090 guided-course">
+<meta name="x-sovereign-standing-rule" content="We do not minimize anything.">
+<meta name="x-sovereign-catalog-source" content="config/dashboard-catalog.yaml (learn/course) + webapp/_shared/course-snippet.html curriculum (window.__soCourseCurriculum)">
+<!-- M060 R10137/R10140/R10141 personalization apply-snippet — reads prefs
+     from localStorage and applies them pre-paint so the operator's
+     theme/accent/typography render with no FOUC. Canonical control surface
+     is /webapp/personalization/. -->
+<script>
+  (function(){
+    var KEY = 'sovereign-os.personalization', SCHEMA_V = 1;
+    var DEF = { schema: SCHEMA_V, theme: 'auto', accent: '#9bd1ff', font_scale: 1 };
+    var p;
+    try {
+      var raw = localStorage.getItem(KEY);
+      p = raw ? JSON.parse(raw) : null;
+      if (!p || p.schema !== SCHEMA_V) p = null;
+    } catch(e) { p = null; }
+    if (!p) p = DEF;
+    var resolved = (p.theme === 'dark' || p.theme === 'light') ? p.theme
+      : ((window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark');
+    document.documentElement.setAttribute('data-theme', resolved);
+    document.documentElement.style.setProperty('--so-accent', p.accent || DEF.accent);
+    document.documentElement.style.setProperty('--accent', p.accent || DEF.accent);
+    document.documentElement.style.setProperty('--font-scale', String(p.font_scale || 1));
+  })();
+</script>
+<style>
+  :root{
+    --bg:#0c0c0c; --fg:#e6e6e6; --fg-2:#c8c8c8; --muted:#8a8a8a; --border:#262626;
+    --panel:#171717; --card:#151515; --accent:#9bd1ff; --ok:#7fd18a; --warn:#e6c07b; --danger:#e88888;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  html[data-theme="light"]{ --bg:#f6f6f6; --fg:#0e0e0e; --fg-2:#333; --muted:#555; --panel:#ffffff; --card:#ffffff; --border:#d8d8d8; }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--bg); color:var(--fg); font-family:ui-sans-serif,-apple-system,Segoe UI,Roboto,sans-serif; font-size:calc(1rem*var(--font-scale,1)); line-height:1.55;}
+  .wrap{max-width:900px; margin:0 auto; padding:1.4rem 1.2rem 4rem;}
+  .c-hero{border:1px solid var(--border); background:linear-gradient(180deg,rgba(155,209,255,.06),transparent); border-radius:12px; padding:1.1rem 1.2rem 1.2rem;}
+  .c-hero h1{margin:0 0 .3rem; font-size:1.35rem; letter-spacing:.01em;} .c-hero h1 .sp{color:var(--accent);}
+  .c-hero p{margin:.2rem 0 .8rem; color:var(--fg-2); max-width:64ch;}
+  .c-prog{display:flex; align-items:center; gap:.7rem; margin:.7rem 0 .9rem;}
+  .c-bar{flex:1; height:8px; border-radius:999px; background:var(--bg); border:1px solid var(--border); overflow:hidden;}
+  .c-bar > i{display:block; height:100%; width:0; background:var(--accent);}
+  .c-pct{color:var(--muted); font-variant-numeric:tabular-nums; white-space:nowrap; font-size:.85rem;}
+  .c-cta{display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;}
+  .cbtn{display:inline-flex; align-items:center; gap:.4rem; height:34px; padding:0 .8rem; cursor:pointer; font:inherit; font-size:.85rem;
+    background:transparent; color:var(--fg); border:1px solid var(--border); border-radius:7px;}
+  .cbtn:hover{background:color-mix(in srgb,var(--accent) 14%,transparent); border-color:color-mix(in srgb,var(--accent) 40%,transparent);}
+  .cbtn.primary{background:var(--accent); border-color:var(--accent); color:#08131f; font-weight:600;}
+  .cbtn.primary:hover{filter:brightness(1.06);}
+  .c-note{color:var(--muted); font-size:.78rem; margin-top:.6rem;}
+  .c-mods{margin-top:1.3rem; display:flex; flex-direction:column; gap:.8rem;}
+  .c-mod{border:1px solid var(--border); background:var(--card); border-radius:10px; overflow:hidden;}
+  .c-mod-h{display:flex; align-items:center; gap:.6rem; padding:.7rem .9rem; border-bottom:1px solid var(--border);}
+  .c-mod-h .mid{color:var(--accent); font-weight:600; font-variant-numeric:tabular-nums;}
+  .c-mod-h .mname{font-weight:600;}
+  .c-tier{font-size:.62rem; text-transform:uppercase; letter-spacing:.05em; border:1px solid var(--border); border-radius:999px; padding:.06rem .5rem; color:var(--muted);}
+  .c-tier.core{color:#8fd9ff; border-color:color-mix(in srgb,var(--accent) 55%,transparent);}
+  .c-tier.standard{color:#7fd18f; border-color:rgba(127,209,143,.5);}
+  .c-tier.advanced{color:#e0c07a; border-color:rgba(224,192,122,.5);}
+  .c-tier.optional{color:#a8a8a8;}
+  .c-mod-h .mprog{margin-left:auto; color:var(--muted); font-size:.78rem; font-variant-numeric:tabular-nums;}
+  .c-les{display:flex; align-items:center; gap:.6rem; width:100%; text-align:left; background:transparent; border:0; border-top:1px solid var(--border); cursor:pointer; color:var(--fg); font:inherit; font-size:.85rem; padding:.55rem .9rem;}
+  .c-les:first-child{border-top:0;}
+  .c-les:hover{background:color-mix(in srgb,var(--accent) 10%,transparent);}
+  .c-les .ck{width:1.2rem; text-align:center; flex:none; color:var(--ok);}
+  .c-les .ck.todo{color:var(--muted); opacity:.5;}
+  .c-les .lid{color:var(--accent); font-size:.72rem; font-variant-numeric:tabular-nums; min-width:2.4rem;}
+  .c-les .ltx{flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .c-les .lk{font-size:.66rem; color:var(--muted); border:1px solid var(--border); border-radius:4px; padding:.02rem .35rem;}
+  .c-les.here{background:color-mix(in srgb,var(--accent) 16%,transparent);}
+  .c-les.here .ltx{font-weight:600;}
+  .c-les .arrow{color:var(--muted); flex:none;}
+</style>
+</head>
+<body>
 <!-- APP-SHELL:BEGIN M067 -->
 <style id="so-app-shell-style">
   :root{
@@ -660,3 +701,884 @@ canvas at the existing ≤1024px breakpoint). Chrome is ghost/.btn — NEVER
 })();
 </script>
 <!-- APP-SHELL:END M067 -->
+<main id="course-syllabus" class="wrap">
+  <section class="c-hero">
+    <h1><span class="sp">✦</span> The sovereign-os Course</h1>
+    <p>A guided journey through the whole cockpit — most-important pieces first (the Trinity, the build pipeline, security &amp; selfdef), then the rest, every module clearly tier-labelled. The course opens a slim rail along the bottom and, on <b>Next</b>, travels you to each lesson's panel and resumes there. Your place is saved on this device. It works in <b>DEMO mode</b>, so you can take the whole tour with no daemon running.</p>
+    <div class="c-prog"><span class="c-bar"><i id="c-bar-fill"></i></span><span class="c-pct" id="c-pct">0 of 0 · 0%</span></div>
+    <div class="c-cta">
+      <button class="cbtn primary" id="c-start">▶ Start the tour</button>
+      <button class="cbtn" id="c-reset" title="Clear saved progress on this device">↺ Reset progress</button>
+    </div>
+    <div class="c-note">Not the Assistant — that's the ✦ drawer on the right, contextual help for the panel you're on. The Course is a tour <i>across</i> panels.</div>
+  </section>
+  <div class="c-mods" id="c-mods"></div>
+  <!-- SDD-045 Phase C — control surface (INLINED per the single-file doctrine).
+     Renders config/control-systems.yaml (served at /control-systems): the
+     global controls (profile / dashboard on-off / auth tier) + the modes &
+     feature toggles that govern THIS panel. Read-only: each control copies
+     its exact sovereign-osctl command. Canonical source (lockstep-linted):
+     webapp/_shared/control-surface.{css,js}. -->
+<h2>controls — the box's toggles &amp; profiles, for reference</h2>
+<div id="control-surface" class="cs-grid"><div class="cs-empty">loading controls…</div></div>
+<style>
+/* webapp/_shared/control-surface.css — SDD-045 shared control-surface.
+ * Renders the control-systems registry (profiles / modes / feature toggles)
+ * as a grid of control cards. Monochrome, framework-free; inherits the
+ * panel palette variables (--bg/--fg/--muted/--accent/--border/--mono).
+ *
+ * R10274 (functional cockpit): a control can now be EXECUTED from the card
+ * (the sanctioned same-origin control-exec-api POST) — the copyable command
+ * is demoted to a labelled fallback. R10212 is preserved: proxy-only controls
+ * (selfdef / perimeter) render NO execute affordance, and every per-panel
+ * daemon stays read-only — the ONLY write path is the dedicated exec daemon. */
+.cs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: .5rem; }
+.cs-card {
+  display: flex; flex-direction: column; gap: .35rem;
+  padding: .6rem .75rem; border: 1px solid var(--border, #262626);
+  border-radius: .4rem; background: rgba(255, 255, 255, .02);
+  transition: border-color .12s ease;
+}
+.cs-card:hover { border-color: rgba(255, 255, 255, .12); }
+.cs-head { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.cs-label { font-weight: 600; flex: 1; }
+.cs-kind {
+  font-size: .7rem; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--muted, #888); border: 1px solid var(--border, #262626);
+  border-radius: 3px; padding: 0 .35rem;
+}
+.cs-global {
+  font-size: .7rem; color: var(--accent, #9bd1ff);
+  border: 1px solid var(--accent, #9bd1ff); border-radius: 3px; padding: 0 .35rem;
+}
+.cs-proxy {
+  font-size: .7rem; color: #e0b050; border: 1px solid #e0b050;
+  border-radius: 3px; padding: 0 .35rem; letter-spacing: .02em;
+}
+.cs-desc { color: var(--muted, #888); font-size: .8rem; line-height: 1.45; }
+.cs-opts { display: flex; flex-wrap: wrap; gap: .3rem; }
+.cs-opt { font-size: .72rem; background: var(--border, #262626); border-radius: 3px; padding: 1px 6px; }
+
+/* ── argument rail: one control per change_cli placeholder ──────────────── */
+.cs-args { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; margin: .1rem 0; }
+.cs-lit { font-family: var(--mono, ui-monospace, monospace); font-size: .74rem; color: var(--muted, #888); }
+.cs-verbs { display: inline-flex; border: 1px solid var(--border, #262626); border-radius: 4px; overflow: hidden; }
+.cs-verb {
+  font-family: var(--mono, ui-monospace, monospace); font-size: .72rem;
+  color: var(--fg, #e6e6e6); background: var(--bg, #0e0e0e);
+  border: 0; border-right: 1px solid var(--border, #262626);
+  padding: .2rem .5rem; cursor: pointer;
+}
+.cs-verb:last-child { border-right: 0; }
+.cs-verb[aria-pressed="true"] { background: var(--accent, #9bd1ff); color: #0a0a0a; font-weight: 600; }
+.cs-arg {
+  font-family: var(--mono, ui-monospace, monospace); font-size: .74rem;
+  color: var(--fg, #e6e6e6); background: var(--bg, #0e0e0e);
+  border: 1px solid var(--border, #262626); border-radius: 4px;
+  padding: .2rem .4rem; min-width: 6ch; max-width: 16ch;
+}
+.cs-arg:focus { outline: 0; border-color: var(--accent, #9bd1ff); }
+
+/* ── action row: Execute (primary) + Copy (fallback) ───────────────────── */
+.cs-actions { display: flex; gap: .35rem; align-items: stretch; margin-top: .1rem; }
+.cs-exec {
+  font-size: .76rem; font-weight: 600; cursor: pointer;
+  color: #0a0a0a; background: var(--accent, #9bd1ff);
+  border: 1px solid var(--accent, #9bd1ff); border-radius: 4px;
+  padding: .28rem .6rem; white-space: nowrap;
+}
+.cs-exec:hover { filter: brightness(1.08); }
+.cs-exec:disabled { opacity: .45; cursor: not-allowed; filter: none; }
+.cs-cmd {
+  font-family: var(--mono, ui-monospace, monospace); font-size: .74rem;
+  text-align: left; color: var(--fg, #e6e6e6); background: var(--bg, #0e0e0e);
+  border: 1px solid var(--border, #262626); border-radius: 4px;
+  padding: .25rem .4rem; cursor: pointer; overflow-x: auto; white-space: nowrap; flex: 1;
+}
+.cs-cmd:hover { border-color: var(--accent, #9bd1ff); }
+.cs-copy { flex: 1; }
+/* result line — dry-run / executed / rejected feedback, always visible */
+.cs-result { font-size: .72rem; line-height: 1.4; min-height: 1em; word-break: break-word; }
+.cs-result.ok { color: #6fcf6f; }
+.cs-result.dry { color: var(--accent, #9bd1ff); }
+.cs-result.warn { color: #e0b050; }
+.cs-result.err { color: #e06a6a; }
+.cs-result.muted { color: var(--muted, #888); }
+/* inline type-to-confirm gate for privileged controls */
+.cs-confirm {
+  display: flex; flex-wrap: wrap; align-items: center; gap: .35rem;
+  padding: .35rem .4rem; margin-top: .1rem;
+  border: 1px dashed var(--accent, #9bd1ff); border-radius: 4px;
+}
+.cs-confirm-msg { font-size: .72rem; color: var(--muted, #888); }
+.cs-confirm-msg code { color: var(--fg, #e6e6e6); }
+.cs-confirm-in { max-width: 14ch; }
+.cs-confirm-cancel { flex: 0 0 auto; }
+.cs-empty { color: var(--muted, #888); }
+</style>
+<script>
+/* webapp/_shared/control-surface.js — SDD-045 shared control-surface renderer.
+ *
+ * Renders the control-systems registry (config/control-systems.yaml, served
+ * as GET /control-systems) — the operator's "everything can be turned on and
+ * off + tons of modes and profiles" — as a grid of control cards. Reused by
+ * every dashboard so each becomes a CONTROL surface.
+ *
+ * R10274 — functional cockpit: a control is now EXECUTED from the card. Each
+ * change_cli placeholder becomes an input (enum → segmented buttons keyed
+ * `verb`/`verbN`; free `<name>` → a datalist input seeded from `options`,
+ * matching the server's _action_exec.resolve_argv keying). Execute POSTs
+ * {control_id, args, confirm} to the sanctioned same-origin control-exec-api
+ * (POST /api/control/execute); the copyable command is demoted to a labelled
+ * fallback, and any 405 / unreachable exec front degrades gracefully to Copy.
+ *
+ * R10212 is preserved: the web still never *arbitrarily* mutates. Proxy-only
+ * controls (selfdef / perimeter — mirrors _action_exec.SELFDEF_OWNED, drift-
+ * guarded by tests/lint/test_control_surface_execute_boundary.py) render NO
+ * execute affordance (signed-proxy badge + copy only). Every per-panel daemon
+ * stays read-only (405 on writes); the ONE write path is the dedicated exec
+ * daemon, where every action is allowlisted + options-validated + confirm/
+ * key-gated + OCSF-5001 audited + DRY_RUN by default.
+ *
+ * Usage:
+ *   const n = SovereignControlSurface.render(el, systems, {
+ *     filterSlug: 'runtime-modes',      // only global + systems governing slug
+ *     executeUrl: '/api/control/execute', // same-origin sanctioned write daemon
+ *     onCopy: (cmd) => showToast(cmd)     // optional copy callback
+ *   });
+ */
+(function (global) {
+  "use strict";
+
+  // R10212 boundary — mirrors _action_exec.SELFDEF_OWNED. selfdef/perimeter are
+  // signed-proxy ONLY: never executed locally. (drift-guarded by lint.)
+  var PROXY_ONLY = ["selfdef", "perimeter"];
+  var EXECUTE_URL = "/api/control/execute";
+
+  function esc(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  function isProxyOnly(sys) {
+    if (typeof sys.execute_local === "boolean") return !sys.execute_local;
+    return PROXY_ONLY.indexOf(sys.id) >= 0;
+  }
+
+  // Parse a change_cli template, mirroring _action_exec.resolve_argv:
+  //   {a|b}  → enum, arg-key 'verb' (first) / 'verb1' / 'verb2' ...
+  //   <name> → free, arg-key name
+  //   else   → literal token
+  function parseTemplate(changeCli) {
+    var toks = String(changeCli || "").trim().split(/\s+/).filter(Boolean);
+    var out = [], enumSeen = 0;
+    toks.forEach(function (t) {
+      var em = /^\{([a-z0-9|_-]+)\}$/.exec(t);
+      if (em) {
+        out.push({ kind: "enum", key: enumSeen === 0 ? "verb" : "verb" + enumSeen,
+                   alts: em[1].split("|") });
+        enumSeen += 1; return;
+      }
+      var fm = /^<([a-z0-9_-]+)>$/.exec(t);
+      if (fm) { out.push({ kind: "free", key: fm[1] }); return; }
+      out.push({ kind: "lit", text: t });
+    });
+    return out;
+  }
+
+  // Reassemble the concrete command from the template + collected args (for the
+  // Copy fallback + result echo); unfilled placeholders stay as <name>/{a|b}.
+  function assembleCmd(changeCli, args) {
+    return parseTemplate(changeCli).map(function (t) {
+      if (t.kind === "lit") return t.text;
+      if (t.kind === "enum") return args[t.key] || ("{" + t.alts.join("|") + "}");
+      return args[t.key] || ("<" + t.key + ">");
+    }).join(" ");
+  }
+
+  function collectArgs(card) {
+    var args = {};
+    Array.prototype.forEach.call(card.querySelectorAll(".cs-verbs"), function (grp) {
+      var pressed = grp.querySelector('.cs-verb[aria-pressed="true"]');
+      if (pressed) args[grp.getAttribute("data-argkey")] = pressed.getAttribute("data-val");
+    });
+    Array.prototype.forEach.call(card.querySelectorAll("input.cs-arg"), function (inp) {
+      var v = (inp.value || "").trim();
+      if (v) args[inp.getAttribute("data-argkey")] = v;
+    });
+    return args;
+  }
+
+  function copy(text, opts) {
+    if (navigator.clipboard) { try { navigator.clipboard.writeText(text); } catch (e) { /* noop */ } }
+    if (opts && typeof opts.onCopy === "function") opts.onCopy(text);
+  }
+
+  function setResult(el, cls, msg) {
+    if (!el) return;
+    el.className = "cs-result " + cls;
+    el.textContent = msg;
+  }
+
+  function execute(url, controlId, args, confirmed) {
+    return fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ control_id: controlId, args: args, confirm: !!confirmed })
+    }).then(function (r) {
+      return r.json().then(
+        function (j) { return { status: r.status, body: j || {} }; },
+        function () { return { status: r.status, body: {} }; });
+    });
+  }
+
+  // Inline type-to-confirm gate for privileged controls (replaces window.prompt
+  // — accessible, on-palette, non-blocking). Type the control id, Confirm →
+  // re-execute with confirm:true; Cancel/mismatch → no execution.
+  function askConfirm(card, sys, opts) {
+    var result = card.querySelector(".cs-result");
+    var host = card.querySelector(".cs-confirm");
+    if (!host) {
+      host = document.createElement("div");
+      host.className = "cs-confirm";
+      card.insertBefore(host, result);
+    }
+    host.innerHTML =
+      '<span class="cs-confirm-msg">privileged — type <code>' + esc(sys.id) + "</code> to confirm</span>"
+      + '<input class="cs-arg cs-confirm-in" placeholder="' + esc(sys.id) + '" aria-label="type ' + esc(sys.id) + ' to confirm">'
+      + '<button type="button" class="cs-exec cs-confirm-ok">Confirm</button>'
+      + '<button type="button" class="cs-cmd cs-confirm-cancel">Cancel</button>';
+    var inp = host.querySelector(".cs-confirm-in");
+    if (inp.focus) inp.focus();
+    function done(ok) {
+      var typed = (inp.value || "").trim();
+      if (host.parentNode) host.parentNode.removeChild(host);
+      if (ok && typed === sys.id) execAction(card, sys, opts, true);
+      else setResult(result, "warn", "confirmation " + (ok ? "mismatch" : "cancelled") + " — not executed");
+    }
+    host.querySelector(".cs-confirm-ok").addEventListener("click", function () { done(true); });
+    host.querySelector(".cs-confirm-cancel").addEventListener("click", function () { done(false); });
+    inp.addEventListener("keydown", function (e) { if (e.key === "Enter") done(true); });
+  }
+
+  function execAction(card, sys, opts, confirmed) {
+    var result = card.querySelector(".cs-result");
+    var args = collectArgs(card);
+    var url = (opts && opts.executeUrl) || EXECUTE_URL;
+    setResult(result, "muted", "executing…");
+    execute(url, sys.id, args, confirmed).then(function (res) {
+      var b = res.body || {};
+      if (res.status === 200) {
+        if (b.dry_run) setResult(result, "dry", "dry-run ✓ would run: " + ((b.would_run || []).join(" ") || assembleCmd(sys.change_cli, args)));
+        else setResult(result, "ok", "executed ✓ exit " + (b.exit_code != null ? b.exit_code : 0));
+      } else if (res.status === 403) {
+        if (confirmed) {
+          // already type-confirmed → 403 is a server-side gate (e.g. the
+          // operator key is not loaded). Surface the reason; do NOT re-prompt.
+          setResult(result, "warn", b.error || "not permitted (operator key required)");
+        } else {
+          // privileged control — inline type-to-confirm gate, ONCE
+          askConfirm(card, sys, opts);
+        }
+      } else if (res.status === 409) {
+        setResult(result, "warn", "signed-proxy only (R10212) — command copied");
+        copy(assembleCmd(sys.change_cli, args), opts);
+      } else if (res.status === 400) {
+        setResult(result, "warn", b.error || "invalid arguments — pick a value");
+      } else if (res.status === 404) {
+        setResult(result, "err", b.error || "unknown control");
+      } else if (res.status === 405) {
+        setResult(result, "muted", "execution not available on this origin — command copied");
+        copy(assembleCmd(sys.change_cli, args), opts);
+      } else {
+        setResult(result, "err", b.error || ("error " + res.status));
+      }
+    }).catch(function () {
+      // exec daemon unreachable (per-port-direct read-only front) → copy fallback
+      setResult(result, "muted", "exec endpoint unreachable — command copied");
+      copy(assembleCmd(sys.change_cli, collectArgs(card)), opts);
+    });
+  }
+
+  function argsRailHtml(sys) {
+    var opts = (sys.options || []).map(String);
+    var html = parseTemplate(sys.change_cli).map(function (t) {
+      if (t.kind === "lit") return "";                 // literals live in the Copy line
+      if (t.kind === "enum") {
+        return '<span class="cs-verbs" data-argkey="' + esc(t.key) + '">'
+          + t.alts.map(function (a, i) {
+              return '<button type="button" class="cs-verb" data-val="' + esc(a)
+                + '" aria-pressed="' + (i === 0 ? "true" : "false") + '">' + esc(a) + "</button>";
+            }).join("") + "</span>";
+      }
+      var listId = "csl-" + esc(sys.id) + "-" + esc(t.key);
+      var dl = opts.length
+        ? '<datalist id="' + listId + '">'
+            + opts.map(function (o) { return '<option value="' + esc(o) + '"></option>'; }).join("")
+            + "</datalist>"
+        : "";
+      return '<input class="cs-arg" data-argkey="' + esc(t.key) + '" placeholder="' + esc(t.key) + '"'
+        + (opts.length ? ' list="' + listId + '"' : "") + ">" + dl;
+    }).join("");
+    return html ? '<div class="cs-args">' + html + "</div>" : "";
+  }
+
+  function cardHtml(sys) {
+    var proxy = isProxyOnly(sys);
+    var pills = (sys.options || []).map(function (o) {
+      return '<span class="cs-opt">' + esc(o) + "</span>"; }).join("");
+    var change = sys.change_cli || "";
+    var actions = change
+      ? '<div class="cs-actions">'
+          + (proxy ? "" : '<button type="button" class="cs-exec">Execute</button>')
+          + '<button type="button" class="cs-cmd cs-copy" data-cmd="' + esc(change)
+            + '" title="copy the operator command (fallback)">$ ' + esc(change) + "</button>"
+          + "</div>"
+      : "";
+    return '<div class="cs-card cs-' + esc(sys.kind) + '" data-cid="' + esc(sys.id) + '">'
+      + '<div class="cs-head">'
+      + '<span class="cs-label">' + esc(sys.label) + "</span>"
+      + '<span class="cs-kind">' + esc(sys.kind) + "</span>"
+      + (sys.scope === "global" ? '<span class="cs-global">global</span>' : "")
+      + (proxy ? '<span class="cs-proxy" title="R10212: signed-proxy only — never executed locally">signed proxy</span>' : "")
+      + "</div>"
+      + '<div class="cs-desc">' + esc(sys.description) + "</div>"
+      + (pills ? '<div class="cs-opts">' + pills + "</div>" : "")
+      + argsRailHtml(sys)
+      + actions
+      + '<div class="cs-result muted"></div>'
+      + "</div>";
+  }
+
+  function render(containerEl, systems, opts) {
+    opts = opts || {};
+    var slug = opts.filterSlug || null;
+    var list = (systems || []).filter(function (s) {
+      if (!slug) return true;                       // no filter → all systems
+      return s.scope === "global" ||                // globals show everywhere
+        (s.applies_to || []).indexOf(slug) >= 0;    // + systems governing slug
+    });
+    var byId = {};
+    list.forEach(function (s) { byId[s.id] = s; });
+    containerEl.innerHTML = list.map(cardHtml).join("")
+      || '<div class="cs-empty">(no controls for this surface)</div>';
+
+    // segmented enum toggles
+    Array.prototype.forEach.call(containerEl.querySelectorAll(".cs-verbs"), function (grp) {
+      grp.addEventListener("click", function (e) {
+        var btn = e.target && e.target.classList && e.target.classList.contains("cs-verb") ? e.target : null;
+        if (!btn) return;
+        Array.prototype.forEach.call(grp.querySelectorAll(".cs-verb"), function (b) {
+          b.setAttribute("aria-pressed", b === btn ? "true" : "false");
+        });
+      });
+    });
+    // copy fallback — copies the concrete command assembled from current args
+    Array.prototype.forEach.call(containerEl.querySelectorAll(".cs-copy"), function (b) {
+      b.addEventListener("click", function () {
+        var card = b.parentNode.parentNode;
+        var cmd = assembleCmd(b.getAttribute("data-cmd"), collectArgs(card));
+        copy(cmd, opts);
+        setResult(card.querySelector(".cs-result"), "muted", "copied: " + cmd);
+      });
+    });
+    // execute — the sanctioned R10274 write path
+    Array.prototype.forEach.call(containerEl.querySelectorAll(".cs-exec"), function (b) {
+      b.addEventListener("click", function () {
+        var card = b.parentNode.parentNode;
+        var sys = byId[card.getAttribute("data-cid")];
+        if (sys) execAction(card, sys, opts, false);
+      });
+    });
+    return list.length;
+  }
+
+  // Convenience: load the control registry (same-origin) and render.
+  // Full display data comes from the panel's own read-only /control-systems;
+  // the authoritative execute-local/live overlay comes from /api/control/registry
+  // when the origin is fronted by the exec daemon (else copy-first per PROXY_ONLY).
+  function load(containerEl, opts) {
+    opts = opts || {};
+    var base = fetch("/control-systems", { headers: { Accept: "application/json" } })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .catch(function () { return null; });
+    var reg = fetch("/api/control/registry", { headers: { Accept: "application/json" } })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .catch(function () { return null; });
+    return Promise.all([base, reg]).then(function (res) {
+      var b = res[0], g = res[1];
+      if (!b || b.error) {
+        containerEl.innerHTML = '<div class="cs-empty">controls unavailable'
+          + (b && b.error ? ": " + esc(b.error) : "") + "</div>";
+        return 0;
+      }
+      var systems = (b.systems || []).slice();
+      if (g && g.controls) {
+        var execMap = {};
+        g.controls.forEach(function (c) { execMap[c.id] = c.execute_local; });
+        systems.forEach(function (s) { if (s.id in execMap) s.execute_local = execMap[s.id]; });
+        opts.live = !!g.live;
+      }
+      return render(containerEl, systems, opts);
+    });
+  }
+
+  global.SovereignControlSurface = { render: render, load: load };
+})(window);
+</script>
+<script>SovereignControlSurface.load(document.getElementById('control-surface'),{filterSlug:'course'});</script>
+</main>
+<script>
+(function(){
+  "use strict";
+  var CKEY='sovereign-os.course', CSCHEMA=1;
+  function defState(){ return {schema:CSCHEMA, started:false, open:false, mi:0, li:0, done:{}, dismissed:false}; }
+  function load(){ try{ var p=JSON.parse(localStorage.getItem(CKEY)); if(!p||p.schema!==CSCHEMA) return defState(); if(typeof p.done!=='object'||!p.done)p.done={}; return p; }catch(e){ return defState(); } }
+  function save(st){ try{ localStorage.setItem(CKEY, JSON.stringify(st)); }catch(e){} }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+  function catPanel(dir){ var G=window.__soCatalog||[]; for(var g=0;g<G.length;g++){ var it=G[g].items||[]; for(var i=0;i<it.length;i++){ if(it[i].dir===dir) return it[i]; } } return null; }
+
+  function render(){
+    var CUR = window.__soCourseCurriculum || [];
+    var st = load();
+    var total=0, done=0;
+    for(var m=0;m<CUR.length;m++){ for(var l=0;l<CUR[m].lessons.length;l++){ total++; if(st.done[CUR[m].id+'.'+l]) done++; } }
+    var pct = total? Math.round(done/total*100) : 0;
+    var fill=document.getElementById('c-bar-fill'); if(fill) fill.style.width=pct+'%';
+    var pc=document.getElementById('c-pct'); if(pc) pc.textContent=done+' of '+total+' · '+pct+'%';
+
+    // primary button: Start (fresh) or Resume (in progress)
+    var startBtn=document.getElementById('c-start');
+    if(startBtn){
+      if(st.started){
+        var m2=CUR[st.mi]||CUR[0], L=m2?m2.lessons[st.li]:null;
+        var lbl = L ? (L.c ? L.t : ((catPanel(L.dir)||{}).label||L.dir)) : '';
+        startBtn.innerHTML='▷ Resume · '+esc((m2?m2.id:'')+' '+lbl);
+      } else {
+        startBtn.innerHTML='▶ Start the tour';
+      }
+    }
+
+    // modules
+    var host=document.getElementById('c-mods'); if(!host) return;
+    var out='';
+    for(var mi=0; mi<CUR.length; mi++){
+      var mod=CUR[mi];
+      var md=0; for(var k=0;k<mod.lessons.length;k++){ if(st.done[mod.id+'.'+k]) md++; }
+      out+='<div class="c-mod">'+
+        '<div class="c-mod-h"><span class="mid">'+esc(mod.id)+'</span><span class="mname">'+esc(mod.name)+'</span>'+
+          '<span class="c-tier '+esc(mod.tier)+'">'+esc(mod.tier)+'</span>'+
+          '<span class="mprog">'+md+'/'+mod.lessons.length+'</span></div>';
+      for(var li=0; li<mod.lessons.length; li++){
+        var L=mod.lessons[li];
+        var isDone=!!st.done[mod.id+'.'+li];
+        var isHere = st.started && st.mi===mi && st.li===li;
+        var title, idtxt='', kind;
+        if(L.c){ title=L.t; kind='concept'; }
+        else { var p=catPanel(L.dir); title=p?p.label:L.dir; idtxt=(p&&p.id&&p.id!=='—')?p.id:''; kind='panel'; }
+        out+='<button class="c-les'+(isHere?' here':'')+'" data-mi="'+mi+'" data-li="'+li+'">'+
+          '<span class="ck'+(isDone?'':' todo')+'">'+(isDone?'✓':'○')+'</span>'+
+          '<span class="lid">'+esc(idtxt)+'</span>'+
+          '<span class="ltx">'+esc(title)+'</span>'+
+          '<span class="lk">'+kind+'</span>'+
+          '<span class="arrow">›</span></button>';
+      }
+      out+='</div>';
+    }
+    host.innerHTML=out;
+    var rows=host.querySelectorAll('.c-les');
+    Array.prototype.forEach.call(rows,function(el){ el.addEventListener('click',function(){ openLesson(parseInt(el.getAttribute('data-mi'),10)||0, parseInt(el.getAttribute('data-li'),10)||0); }); });
+  }
+
+  function openLesson(mi,li){
+    var CUR=window.__soCourseCurriculum||[]; var st=load();
+    st.started=true; st.open=true; st.dismissed=false; st.mi=mi; st.li=li; save(st);
+    var mod=CUR[mi]; var L=mod?mod.lessons[li]:null;
+    if(L && !L.c && L.dir){ location.href='../'+L.dir+'/'; }      // panel lesson → travel there
+    else { location.href='../course/'; }                          // concept lesson → open the rail here
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){
+    render();
+    var s=document.getElementById('c-start');
+    if(s) s.addEventListener('click', function(){ var st=load(); if(st.started){ openLesson(st.mi,st.li); } else { openLesson(0,0); } });
+    var r=document.getElementById('c-reset');
+    if(r) r.addEventListener('click', function(){ save(defState()); render(); });
+  });
+})();
+</script>
+<!-- COURSE:BEGIN M090 -->
+<style id="so-course-style">
+  :root{ --so-course-rail-h:46px; }
+  /* keep panel content clear of the fixed rail when the course is showing */
+  body.so-course-on #so-content{ margin-bottom:var(--so-course-rail-h); }
+  @media (prefers-reduced-motion: no-preference){
+    #so-course-rail,#so-course-panel{transition:transform .18s ease,opacity .18s ease}
+    .so-course-btn,.so-course-mod{transition:background .12s ease,border-color .12s ease}
+  }
+  /* the always-present journey rail — spans the content band, tucked
+     between the sidemenu (left) and the Assistant (right, when open) so it
+     never overlaps either. */
+  #so-course-rail{position:fixed; left:var(--so-sidemenu-w); right:0; bottom:0; height:var(--so-course-rail-h); z-index:9350;
+    display:flex; align-items:center; gap:.6rem; padding:0 .7rem; box-sizing:border-box;
+    background:var(--panel,#171717); border-top:1px solid var(--border,#262626); color:var(--fg,#e6e6e6);
+    font-family:ui-sans-serif,-apple-system,Segoe UI,Roboto,sans-serif; font-size:.8rem;}
+  body.so-sm-collapsed #so-course-rail{left:var(--so-sidemenu-w-collapsed);}
+  body.so-assist-open #so-course-rail{right:var(--so-assist-w);}
+  @media (max-width:1024px){ #so-course-rail{left:0 !important; right:0 !important;} }
+  #so-course-rail .so-course-mark{color:var(--accent,#9bd1ff); font-weight:600; white-space:nowrap;}
+  #so-course-rail .so-course-where{color:var(--muted,#8a8a8a); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;}
+  #so-course-rail .so-course-where b{color:var(--fg,#e6e6e6); font-weight:600;}
+  #so-course-bar{flex:1; min-width:40px; height:5px; border-radius:999px; background:var(--bg,#0e0e0e); border:1px solid var(--border,#262626); overflow:hidden;}
+  #so-course-bar > i{display:block; height:100%; width:0; background:var(--accent,#9bd1ff);}
+  #so-course-rail .so-course-pct{color:var(--muted,#8a8a8a); font-variant-numeric:tabular-nums; white-space:nowrap;}
+  .so-course-actions{display:flex; align-items:center; gap:.3rem; flex:none;}
+  .so-course-btn{display:inline-flex; align-items:center; justify-content:center; gap:.3rem; height:28px; padding:0 .55rem;
+    background:transparent; color:var(--fg,#e6e6e6); border:1px solid var(--border,#262626); border-radius:6px; cursor:pointer; font:inherit; font-size:.76rem;}
+  .so-course-btn:hover{background:color-mix(in srgb,var(--accent,#9bd1ff) 14%,transparent); border-color:color-mix(in srgb,var(--accent,#9bd1ff) 40%,transparent);}
+  .so-course-btn[disabled]{opacity:.35; cursor:not-allowed;}
+  /* the one primary action per view (design-grammar rule 2) */
+  .so-course-btn.primary{background:var(--accent,#9bd1ff); border-color:var(--accent,#9bd1ff); color:#08131f; font-weight:600;}
+  .so-course-btn.primary:hover{filter:brightness(1.06);}
+  /* the expandable reading panel — grows upward from the rail, same band */
+  #so-course-panel{position:fixed; left:var(--so-sidemenu-w); right:0; bottom:var(--so-course-rail-h); z-index:9349;
+    max-height:min(62vh,560px); display:none; flex-direction:column; box-sizing:border-box;
+    background:var(--panel,#171717); border-top:1px solid var(--border,#262626); border-left:1px solid var(--border,#262626);
+    box-shadow:0 -12px 34px rgba(0,0,0,.4); color:var(--fg,#e6e6e6); font-family:ui-sans-serif,-apple-system,Segoe UI,Roboto,sans-serif;}
+  body.so-course-open #so-course-panel{display:flex;}
+  body.so-sm-collapsed #so-course-panel{left:var(--so-sidemenu-w-collapsed);}
+  body.so-assist-open #so-course-panel{right:var(--so-assist-w);}
+  @media (max-width:1024px){ #so-course-panel{left:0 !important; right:0 !important; max-height:74vh;} }
+  .so-course-ph{display:flex; align-items:center; gap:.6rem; padding:.6rem .9rem; border-bottom:1px solid var(--border,#262626); flex:none;}
+  .so-course-ph .so-course-modname{color:var(--muted,#8a8a8a); font-size:.72rem; text-transform:uppercase; letter-spacing:.06em;}
+  .so-course-tier{font-size:.64rem; text-transform:uppercase; letter-spacing:.05em; border:1px solid var(--border,#3a3a3a); border-radius:999px; padding:.05rem .45rem; color:var(--muted,#a8a8a8);}
+  .so-course-tier.core{color:#8fd9ff; border-color:color-mix(in srgb,var(--accent,#9bd1ff) 55%,transparent);}
+  .so-course-tier.standard{color:#7fd18f; border-color:rgba(127,209,143,.5);}
+  .so-course-tier.advanced{color:#e0c07a; border-color:rgba(224,192,122,.5);}
+  .so-course-tier.optional{color:#a8a8a8;}
+  .so-course-ph .sp{margin-left:auto;}
+  .so-course-body{flex:1; overflow-y:auto; padding:.9rem 1rem 1.1rem; font-size:.85rem; line-height:1.62;}
+  .so-course-lt{font-size:1.02rem; font-weight:600; margin:0 0 .55rem;}
+  .so-course-lt .id{color:var(--accent,#9bd1ff); font-size:.8rem; font-weight:500; margin-right:.35rem;}
+  .so-course-body p{margin:.5rem 0; color:var(--fg-2,#c8c8c8);}
+  .so-course-here{display:inline-flex; align-items:center; gap:.35rem; font-size:.72rem; color:#7fd18f; border:1px solid rgba(127,209,143,.5); border-radius:999px; padding:.08rem .5rem; margin-bottom:.5rem;}
+  .so-course-tip{border:1px solid rgba(155,209,255,.28); background:rgba(155,209,255,.05); border-radius:7px; padding:.55rem .7rem; margin:.7rem 0 .2rem;}
+  .so-course-tip .lb{font-weight:600; font-size:.76rem; color:var(--accent,#9bd1ff); margin-bottom:.2rem;}
+  .so-course-tip .tx{font-size:.8rem; color:var(--fg-2,#c8c8c8);}
+  .so-course-foot{display:flex; align-items:center; gap:.4rem; flex-wrap:wrap; padding:.55rem .9rem; border-top:1px solid var(--border,#262626); flex:none;}
+  .so-course-foot .sp{margin-left:auto;}
+  /* module jump list */
+  #so-course-modlist{position:absolute; left:.9rem; bottom:calc(100% - 2px); width:min(320px,80vw); max-height:52vh; overflow-y:auto;
+    background:var(--card,#151515); border:1px solid var(--border,#262626); border-radius:9px; box-shadow:0 10px 34px rgba(0,0,0,.5); padding:.3rem; display:none; z-index:9351;}
+  body.so-course-jump #so-course-modlist{display:block;}
+  .so-course-mod{display:flex; align-items:center; gap:.5rem; width:100%; text-align:left; background:transparent; border:0; border-radius:6px; cursor:pointer; color:var(--fg,#e6e6e6); font:inherit; font-size:.8rem; padding:.4rem .55rem;}
+  .so-course-mod:hover{background:color-mix(in srgb,var(--accent,#9bd1ff) 12%,transparent);}
+  .so-course-mod .mi{color:var(--muted,#8a8a8a); font-variant-numeric:tabular-nums; min-width:1.6rem;}
+  .so-course-mod .ml{flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .so-course-mod.done .ml{color:var(--muted,#8a8a8a);}
+  .so-course-mod .mk{color:#7fd18f; font-size:.75rem;}
+  #so-course-rail .so-course-dismiss{color:var(--muted,#8a8a8a);}
+</style>
+<script>
+(function(){
+  "use strict";
+  if (window.__soCourse) return; window.__soCourse = true;
+
+  // ── CURRICULUM — compact structure only; the long per-panel teaching text
+  //    is pulled from window.__soCatalog (the app-shell catalog, single source
+  //    of truth from config/dashboard-catalog.yaml). A lesson is either:
+  //      {c:'concept', t:title, p:[paragraph, ...]}
+  //      {dir:'<panel-slug>', tip:'what to look at while you are here'}
+  //    Modules are ordered by importance and carry a tier label so the less
+  //    central material is integrated but clearly marked. ──
+  var CURRICULUM = [
+    {id:'M0', name:'Orientation', tier:'core', lessons:[
+      {c:'concept', t:'What sovereign-os is', p:[
+        'sovereign-os is not an app you install — it is a build pipeline and lifecycle toolkit for a sovereign, local-first AI workstation. You use it to build your own bootable OS image, reproducibly and from spec, then to operate that box for its whole life: pre-install, install, and every day after.',
+        'The promise is sovereignty: your AI runs on your silicon, and nothing has to cross the network for the box to think. This course walks that promise, surface by surface — most important pieces first, then the rest, all of it integrated and clearly labelled.',
+        'You are reading this in the Course rail at the bottom of the screen. It rides along as you explore: press Next and it takes you to the next lesson’s panel and picks up there. Your place is saved on this device, so you can leave and come back.'
+      ]},
+      {c:'concept', t:'The Trinity doctrine', p:[
+        'The conceptual heart of the box is the Trinity: three tiers with separated powers, so you can trust compute you cannot personally verify. Pulse does the thinking cheaply on the CPU (ternary / BitNet inference). Weaver shapes and steers the heavier work on a sandboxed GPU fabric. The Auditor watches both from an immutable perch that cannot be bribed or bypassed.',
+        'The point is that no single tier can both act and vouch for itself. You will visit each tier’s panel in the next module — this is the lens to hold while you do.'
+      ]},
+      {c:'concept', t:'Sovereignty-clean & DEMO mode', p:[
+        'Every cockpit panel is one self-contained page: no framework, no CDN, nothing loaded across the network at runtime. Panels are read-only by default — they observe the box and, for any real action, hand you a signed CLI verb to run yourself.',
+        'Because panels are read-only, you can explore them with no daemon running: turn on DEMO mode (⚙ Settings → DEMO mode) and every panel fills with clearly-badged sample data. Do that now if this box has no live backend — the whole tour works in DEMO.'
+      ]},
+      {dir:'master-dashboard', tip:'This is the front door. Read the four health banners at the top — the M060 selfdef→sovereign-os mirror chain, the SSE subscriber quota, the IPS watchdog spine, and AppArmor. They are the box’s pulse; everything else is a place on this map.'}
+    ]},
+    {id:'M1', name:'Trinity & Orchestration', tier:'core', lessons:[
+      {dir:'trinity', tip:'The one-screen answer to “is the trinity intact” — all three tiers up, each doing only its own job. Confirm this before you trust anything the box produced.'},
+      {dir:'weaver', tip:'The messy, isolated tier. Look for whether the risky work is staying inside its VFIO boundary rather than leaking toward the host.'},
+      {dir:'auditor', tip:'A blind Auditor is a security event, not a slow one. Check the perimeter is live and streaming, then read what it has flagged.'},
+      {dir:'router', tip:'Watch where prompts actually landed. The doctrine is that most prompts do not deserve the expensive model — catch everything piling onto the Oracle.'},
+      {dir:'runtime-modes', tip:'Each mode is a whole stance (efficiency / concurrency / deep-context). Note the trade-off: you cannot have all three at once.'},
+      {dir:'d-01-active-sessions', tip:'A session parked at one lifecycle step is a session that needs attention. Scan for anything stuck.'},
+      {dir:'d-03-model-health', tip:'The live-serving view. The p95/p99 tail is what a user feels, not the average — read the tail latencies.'},
+      {dir:'d-05-traces', tip:'The debugger’s panel. After a bad or slow response, the trace is the ground truth the summary dashboards abstract away.'}
+    ]},
+    {id:'M2', name:'The Build Pipeline', tier:'core', lessons:[
+      {c:'concept', t:'Build → Emulate → Flash', p:[
+        'This is why the repo exists. You compose an image in the Build Configurator, rehearse it safely in a throwaway QEMU VM (Emulate), and only then write it to real hardware (Flash). A broken build should fail harmlessly in a console you can read — never on the USB key.',
+        'The three panels ahead are that pipeline, in order. Treat Flash’s armed state as live: it irreversibly wipes the target device.'
+      ]},
+      {dir:'build-configurator', tip:'The factory floor — the one panel where a decision (a kernel march, a VFIO cmdline, an encryption choice) propagates into every other. Nothing here touches a running box.'},
+      {dir:'emulate', tip:'uefi boot tests the real secure-boot chain; snapshot mode discards writes so every boot is clean. Rehearse here after any kernel or module change.'},
+      {dir:'flash', tip:'The point of no return. Plan is a free dry-run; the real write unlocks only after you re-type the device path matched to its fingerprint.'}
+    ]},
+    {id:'M3', name:'Models & Compute', tier:'standard', lessons:[
+      {dir:'d-21-lm-orchestration', tip:'A runtime profile is not a setting — it rebalances every tier at once. Preview the model→hardware grid before committing.'},
+      {dir:'d-23-models-catalog', tip:'The portfolio of models the box COULD run. Shop here by tier before loading; loading itself is a signed action elsewhere.'},
+      {dir:'d-24-cpu-features', tip:'The cheap-cognition story rests on ternary running fast on CPU. A missing AVX-512 extension silently downgrades it — read the per-workload fit verdict.'},
+      {dir:'models-catalog', tip:'The working selector — filter by VRAM budget. A model that will not fit is not a candidate no matter how good.'},
+      {dir:'cpu-features', tip:'The selection-oriented sibling of D-24: which instruction families this chip exposes and the workloads they enable.'},
+      {dir:'orchestration', tip:'The layer above tier choice — how HARD to reason (CoT → validator → self-consistency → MoE). Too eager wastes compute; too shy gives shallow answers.'},
+      {dir:'profile-generation', tip:'The profile foundry — what a strategy would actually look like on THIS silicon, before you apply one.'},
+      {dir:'d-22-lm-status-operability', tip:'Device-by-device, plus the sovereign loopback chat: your AI, your silicon, nothing crossing the network. Confirm a device is not just loaded but responding.'},
+      {dir:'code-console', tip:'Sit down and code with the local model over loopback. It is honest by construction — the parts with no producer yet say so rather than faking them.'},
+      {dir:'d-10-eval-history', tip:'The report card. Black-box pass is the number that cannot be gamed — read it before promoting anything.'},
+      {dir:'d-11-adapter-status', tip:'LoRA specializations. A rollback here is the system working, not failing; promotion runs a triple-gate.'},
+      {dir:'d-19-super-model-manifest', tip:'The bill of materials for the whole box. A module lagging its expected version is often the root of a problem surfacing elsewhere.'}
+    ]},
+    {id:'M4', name:'Security & selfdef', tier:'core', lessons:[
+      {c:'concept', t:'The selfdef boundary', p:[
+        'selfdef is the security daemon that RUNS on the OS sovereign-os builds — the Tetragon agent-guard, the notifier and escalation engine, the Ring-0..4 nftables perimeter. It lives in its own repo and is authoritative there.',
+        'Inside this cockpit you see selfdef only through read-only “mirror” windows (the M060 bridge): D-13–D-18, D-25, and D-12 networking. sovereign-os observes and toggles selfdef; it never reimplements it. Any control is a signed CLI verb you copy and run. When a mirror looks stale, that is a real signal — the panels freeze at the last good data rather than lie.'
+      ]},
+      {dir:'selfdef-management', tip:'The control room for selfdef itself — is the defense system healthy and enforcing, before you trust any mirror downstream of it.'},
+      {dir:'d-25-selfdef-management', tip:'The bridge monitor. When the M060 chain breaks, the mirror panels silently freeze — which is dangerous precisely because they will not look broken.'},
+      {dir:'d-12-networking', tip:'The firewall, read-only, ring-aware (R0 Kernel → R4 Cloud). Anything pending here is a proposal, never yet live — rules change only through a signature.'},
+      {dir:'network-edge', tip:'Watch for multi-NAT: a second NAT hop (an ISP router in front of your firewall) breaks inbound and hides where the real perimeter is.'},
+      {dir:'edge-firewall', tip:'The exposure finder — a threat that neither the box nor the upstream edge currently stops. It turns “the edge has gaps” into specific rules.'},
+      {dir:'d-13-filesystem-grants', tip:'TTL-bounded grants: standing access is what attackers inherit, so the live list is the true filesystem attack surface right now.'},
+      {dir:'d-14-capability-tokens', tip:'Not “can act” but which specific capabilities, at the bit level. Audit a token that looks too powerful.'},
+      {dir:'d-15-sandboxes', tip:'Containment strength, from namespaces up to full VFIO passthrough. A security question: is the 4090 actually sandboxed rather than host-claimed?'},
+      {dir:'d-16-audit', tip:'The tamper-evident, hash-chained record. A broken or stale chain is a reason to distrust the box’s self-account until explained.'},
+      {dir:'d-17-quarantine', tip:'The middle path between delete-on-suspicion and ignore-on-doubt: contain, keep inspectable, decide deliberately.'},
+      {dir:'d-18-trust-scores', tip:'Trust is earned and revocable. A dropping score is an early warning — catch it before it becomes a problem.'},
+      {dir:'d-06-pending-approvals', tip:'Everything the box refused to do on its own. Clearing this queue is the human-in-the-loop, decision by decision.'},
+      {dir:'d-07-memory-changes', tip:'The eight-tier memory OS — the difference between an agent that repeats your corrections and one that remembers them. Review the recent graph diff.'},
+      {dir:'d-20-peace-machine-health', tip:'The box’s conscience in one screen: all five peace properties, or not peace. When a property goes red it points at the subsystem that broke it.'},
+      {dir:'compliance', tip:'The top of the anti-minimization stack — surface + doc + anti-minimization + UX, all at once. A red composite sends you to the axis dragging it down.'}
+    ]},
+    {id:'M5', name:'Hardware & Operations', tier:'standard', lessons:[
+      {dir:'d-09-hardware-pressure', tip:'PSI is stall, not utilization — the honest signal of contention. Tell genuine “out of headroom” apart from “just working hard.”'},
+      {dir:'d-04-costs', tip:'The honest ledger: cloud is off by default, so most of what a hosted assistant would bill for costs nothing here ($0 is honest).'},
+      {dir:'d-08-rollback-points', tip:'The undo button for the whole machine — ZFS snapshots + signed rollback. Confirm a recent point exists before a risky change.'},
+      {dir:'d-02-profile-choices', tip:'The authority dial — how much the box may do without your signature (L0..L6 authority × R0..R4 trust ring). The single most consequential control.'},
+      {dir:'ups', tip:'The pool runs sync=always, so a dirty power cut risks corruption. Confirm the graceful-shutdown guard is armed.'},
+      {dir:'global-history', tip:'The whole-machine timeline across six sources. Correlation lives here — an event from one source next to one from another is how a cross-subsystem pattern becomes visible.'}
+    ]},
+    {id:'M6', name:'Governance & Meta', tier:'advanced', lessons:[
+      {dir:'surface-map', tip:'The reachability audit — a feature is not delivered until it is present on all eight operator surfaces (core/cli/tui/api/mcp/dashboard/webapp/service).'},
+      {dir:'doc-coverage', tip:'Every empty cell is a concrete writing task, not a vague “needs docs.” Six doc kinds, each for a different reader.'},
+      {dir:'ux-design-audit', tip:'The bar this very cockpit is held to — a feature can render perfectly and still fail its operator. Every low cell is a concrete fix.'},
+      {dir:'anti-minimization-audit', tip:'The cut-corner detector, built from the operator’s own “do not minimize” directive — eight smells of work that looks finished but is not.'},
+      {dir:'auth-tier', tip:'Does each surface authenticate as strongly as its capability warrants? A mutating surface authenticating weakly is the priority to fix.'},
+      {dir:'personalization', tip:'The one panel you cannot break — theme, accent, typography, saved locally, deliberately kept apart from any machine state.'}
+    ]},
+    {id:'M7', name:'Science & Simulation', tier:'optional', lessons:[
+      {dir:'science', tip:'The GPU as a scientific instrument (NVIDIA Warp) — the box is general-purpose compute you own, not a single-purpose appliance. A heavy run competes with inference for VRAM (watch D-09).'}
+    ]}
+  ];
+  // Expose the curriculum so the /course/ syllabus landing page can render the
+  // same structure without duplicating it (set at parse time, before </body>).
+  window.__soCourseCurriculum = CURRICULUM;
+
+  // ── state (sovereign-os.course) — schema-guarded, separate from
+  //    sovereign-os.assist and sovereign-os.personalization. ──
+  var CKEY='sovereign-os.course', CSCHEMA=1;
+  function defState(){ return {schema:CSCHEMA, started:false, open:false, mi:0, li:0, done:{}, dismissed:false}; }
+  function load(){ try{ var p=JSON.parse(localStorage.getItem(CKEY)); if(!p||p.schema!==CSCHEMA) return defState();
+      if(typeof p.done!=='object'||!p.done) p.done={}; return p; }catch(e){ return defState(); } }
+  function save(st){ try{ localStorage.setItem(CKEY, JSON.stringify(st)); }catch(e){} }
+  var st = load();
+
+  // ── helpers ──
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+  function curDir(){ var seg=location.pathname.replace(/\/+$/,'').split('/'); return seg[seg.length-1]||''; }
+  function catPanel(dir){ var G=window.__soCatalog||[]; for(var g=0;g<G.length;g++){ var it=G[g].items||[]; for(var i=0;i<it.length;i++){ if(it[i].dir===dir) return it[i]; } } return null; }
+  function clampPos(){ if(st.mi<0)st.mi=0; if(st.mi>=CURRICULUM.length)st.mi=CURRICULUM.length-1;
+    var m=CURRICULUM[st.mi]; if(st.li<0)st.li=0; if(st.li>=m.lessons.length)st.li=m.lessons.length-1; }
+  function lessonKey(mi,li){ return CURRICULUM[mi].id+'.'+li; }
+  function lessonAt(mi,li){ return CURRICULUM[mi].lessons[li]; }
+  function lessonDir(L){ return L && !L.c ? L.dir : null; }
+  function lessonTitle(L){ if(L.c) return L.t; var p=catPanel(L.dir); return p?p.label:(L.dir||'panel'); }
+  function lessonId(L){ if(L.c) return ''; var p=catPanel(L.dir); return (p&&p.id&&p.id!=='—')?p.id:''; }
+  // linear order for prev/next + progress
+  function flat(){ var out=[]; for(var m=0;m<CURRICULUM.length;m++){ for(var l=0;l<CURRICULUM[m].lessons.length;l++){ out.push([m,l]); } } return out; }
+  function linIndex(mi,li){ var f=flat(); for(var i=0;i<f.length;i++){ if(f[i][0]===mi&&f[i][1]===li) return i; } return 0; }
+  function totalLessons(){ return flat().length; }
+  function doneCount(){ var n=0; for(var k in st.done){ if(st.done[k]) n++; } return n; }
+
+  // ── navigation ──
+  function markDone(mi,li){ st.done[lessonKey(mi,li)]=true; }
+  function openLesson(mi,li){
+    st.mi=mi; st.li=li; st.started=true; st.dismissed=false; clampPos(); save(st);
+    var L=lessonAt(st.mi,st.li), dir=lessonDir(L);
+    if(dir && dir!==curDir()){ // auto-travel: resume on arrival
+      location.href='../'+dir+'/'; return;
+    }
+    render();
+  }
+  function go(delta){
+    // advancing forward marks the current lesson complete
+    if(delta>0) markDone(st.mi,st.li);
+    var f=flat(), i=linIndex(st.mi,st.li)+delta;
+    if(i<0) i=0; if(i>=f.length) i=f.length-1;
+    openLesson(f[i][0], f[i][1]);
+  }
+  function isLast(){ return linIndex(st.mi,st.li) >= totalLessons()-1; }
+
+  // ── rendering ──
+  var railEl, panelEl;
+  function setBodyFlags(){
+    document.body.classList.toggle('so-course-on', st.started && !st.dismissed);
+    document.body.classList.toggle('so-course-open', !!(st.open && st.started && !st.dismissed));
+    if(!(st.started&&!st.dismissed)) document.body.classList.remove('so-course-jump');
+  }
+  function render(){
+    if(!railEl) return;
+    clampPos();
+    setBodyFlags();
+    if(st.dismissed){ railEl.style.display='none'; return; }
+    railEl.style.display='flex';
+    var m=CURRICULUM[st.mi], L=lessonAt(st.mi,st.li);
+    var pct=Math.round(doneCount()/totalLessons()*100);
+    // rail
+    if(!st.started){
+      railEl.innerHTML='<span class="so-course-mark">✦ Course</span>'+
+        '<span class="so-course-where">Guided tour of sovereign-os — '+totalLessons()+' lessons, most important first.</span>'+
+        '<span class="so-course-actions"><button class="so-course-btn primary" id="so-course-start">▶ Start the tour</button>'+
+        '<button class="so-course-btn so-course-dismiss" id="so-course-x" title="Dismiss (re-open from the ✦ Course header button)" aria-label="Dismiss course">✕</button></span>';
+    } else {
+      railEl.innerHTML='<span class="so-course-mark">✦ Course</span>'+
+        '<span class="so-course-where"><b>'+esc(m.id)+'</b> '+esc(m.name)+' · '+esc(lessonTitle(L))+'</span>'+
+        '<span id="so-course-bar" aria-hidden="true"><i style="width:'+pct+'%"></i></span>'+
+        '<span class="so-course-pct">'+(linIndex(st.mi,st.li)+1)+'/'+totalLessons()+' · '+pct+'%</span>'+
+        '<span class="so-course-actions">'+
+          '<button class="so-course-btn" id="so-course-prev" title="Previous lesson" aria-label="Previous lesson"'+(linIndex(st.mi,st.li)<=0?' disabled':'')+'>◀</button>'+
+          '<button class="so-course-btn" id="so-course-toggle" title="Expand / collapse the lesson" aria-expanded="'+(st.open?'true':'false')+'">'+(st.open?'⬇ Hide':'⬆ Lesson')+'</button>'+
+          '<button class="so-course-btn primary" id="so-course-next" title="'+(isLast()?'Finish':'Next lesson (travels to its panel)')+'">'+(isLast()?'✓ Finish':'Next ▶')+'</button>'+
+          '<button class="so-course-btn so-course-dismiss" id="so-course-x" title="Dismiss" aria-label="Dismiss course">✕</button>'+
+        '</span>';
+    }
+    wireRail();
+    renderPanel();
+  }
+  function renderPanel(){
+    if(!panelEl) return;
+    var m=CURRICULUM[st.mi], L=lessonAt(st.mi,st.li);
+    var here = lessonDir(L) && lessonDir(L)===curDir();
+    var bodyHtml='';
+    if(here){ bodyHtml+='<span class="so-course-here">◉ You are on this panel</span><br>'; }
+    bodyHtml+='<div class="so-course-lt">'+(lessonId(L)?'<span class="id">'+esc(lessonId(L))+'</span>':'')+esc(lessonTitle(L))+'</div>';
+    var paras;
+    if(L.c){ paras=L.p||[]; }
+    else { var p=catPanel(L.dir); paras=[ (p&&(p.menuHover||p.desc)) || ('The '+(L.dir||'panel')+' cockpit panel.') ]; }
+    for(var i=0;i<paras.length;i++){ bodyHtml+='<p>'+esc(paras[i])+'</p>'; }
+    if(!L.c && L.tip){ bodyHtml+='<div class="so-course-tip"><div class="lb">While you’re here</div><div class="tx">'+esc(L.tip)+'</div></div>'; }
+
+    var dir=lessonDir(L);
+    var gotoBtn='';
+    if(dir){ gotoBtn = here
+      ? '<button class="so-course-btn" id="so-course-goto" disabled>◉ On this panel</button>'
+      : '<button class="so-course-btn" id="so-course-goto" title="Open this lesson’s panel">↗ Open '+esc(lessonTitle(L))+'</button>'; }
+
+    panelEl.innerHTML=
+      '<div class="so-course-ph">'+
+        '<span class="so-course-modname">'+esc(m.id)+' · '+esc(m.name)+'</span>'+
+        '<span class="so-course-tier '+esc(m.tier)+'">'+esc(m.tier)+'</span>'+
+        '<span class="sp"></span>'+
+        '<button class="so-course-btn" id="so-course-jump" title="Jump to a module" aria-haspopup="true">≣ Modules</button>'+
+        '<button class="so-course-btn" id="so-course-close" title="Collapse" aria-label="Collapse lesson">✕</button>'+
+        buildModList()+
+      '</div>'+
+      '<div class="so-course-body" id="so-course-scroll">'+bodyHtml+'</div>'+
+      '<div class="so-course-foot">'+
+        '<button class="so-course-btn" id="so-course-prev2"'+(linIndex(st.mi,st.li)<=0?' disabled':'')+'>◀ Prev</button>'+
+        gotoBtn+
+        '<span class="sp"></span>'+
+        '<button class="so-course-btn primary" id="so-course-next2">'+(isLast()?'✓ Finish':'Next ▶')+'</button>'+
+      '</div>';
+    wirePanel();
+    var sc=document.getElementById('so-course-scroll'); if(sc) sc.scrollTop=0;
+  }
+  function buildModList(){
+    var rows='';
+    for(var i=0;i<CURRICULUM.length;i++){
+      var mod=CURRICULUM[i];
+      var allDone=true; for(var l=0;l<mod.lessons.length;l++){ if(!st.done[lessonKey(i,l)]){ allDone=false; break; } }
+      rows+='<button class="so-course-mod'+(allDone?' done':'')+'" data-mi="'+i+'">'+
+        '<span class="mi">'+esc(mod.id)+'</span>'+
+        '<span class="ml">'+esc(mod.name)+'</span>'+
+        '<span class="so-course-tier '+esc(mod.tier)+'">'+esc(mod.tier)+'</span>'+
+        (allDone?'<span class="mk">✓</span>':'')+'</button>';
+    }
+    return '<div id="so-course-modlist" role="menu" aria-label="course modules">'+rows+'</div>';
+  }
+
+  function setOpen(o){ st.open=!!o; save(st); setBodyFlags();
+    var t=document.getElementById('so-course-toggle'); if(t){ t.setAttribute('aria-expanded',st.open?'true':'false'); t.innerHTML=st.open?'⬇ Hide':'⬆ Lesson'; } }
+  function dismiss(){ st.dismissed=true; document.body.classList.remove('so-course-jump'); save(st); render(); }
+
+  function wireRail(){
+    var b;
+    b=document.getElementById('so-course-start'); if(b) b.addEventListener('click',function(){ st.open=true; openLesson(0,0); });
+    b=document.getElementById('so-course-x'); if(b) b.addEventListener('click',dismiss);
+    b=document.getElementById('so-course-prev'); if(b) b.addEventListener('click',function(){ go(-1); });
+    b=document.getElementById('so-course-next'); if(b) b.addEventListener('click',function(){ if(isLast()){ markDone(st.mi,st.li); save(st); render(); } else go(1); });
+    b=document.getElementById('so-course-toggle'); if(b) b.addEventListener('click',function(){ setOpen(!st.open); });
+  }
+  function wirePanel(){
+    var b;
+    b=document.getElementById('so-course-close'); if(b) b.addEventListener('click',function(){ setOpen(false); });
+    b=document.getElementById('so-course-prev2'); if(b) b.addEventListener('click',function(){ go(-1); });
+    b=document.getElementById('so-course-next2'); if(b) b.addEventListener('click',function(){ if(isLast()){ markDone(st.mi,st.li); save(st); render(); } else go(1); });
+    b=document.getElementById('so-course-goto'); if(b && !b.disabled) b.addEventListener('click',function(){ var L=lessonAt(st.mi,st.li); var d=lessonDir(L); if(d) location.href='../'+d+'/'; });
+    b=document.getElementById('so-course-jump'); if(b) b.addEventListener('click',function(e){ e.stopPropagation(); document.body.classList.toggle('so-course-jump'); });
+    var list=panelEl.querySelectorAll('.so-course-mod');
+    Array.prototype.forEach.call(list,function(el){ el.addEventListener('click',function(){ var mi=parseInt(el.getAttribute('data-mi'),10)||0; document.body.classList.remove('so-course-jump'); st.open=true; openLesson(mi,0); }); });
+  }
+
+  // ── header launch button (re-open after dismiss / toggle the lesson) ──
+  function injectHeaderButton(){
+    var right=document.querySelector('#so-header .so-h-right'); if(!right) return;
+    if(document.getElementById('so-course-hbtn')) return;
+    var btn=document.createElement('button');
+    btn.id='so-course-hbtn'; btn.className='so-h-btn'; btn.title='Guided course (a tour of sovereign-os)'; btn.innerHTML='✦ Course';
+    // place it just before the Assistant toggle so the two helpers sit together
+    var assist=document.getElementById('so-assist-toggle');
+    if(assist && assist.parentNode===right) right.insertBefore(btn,assist); else right.appendChild(btn);
+    btn.addEventListener('click',function(){
+      if(st.dismissed || !st.started){ st.dismissed=false; st.started=true; st.open=true; if(!st.started){st.mi=0;st.li=0;} save(st); render(); }
+      else { setOpen(!st.open); }
+    });
+  }
+
+  // ── mount ──
+  function mount(){
+    if(document.getElementById('so-course-rail')) return;
+    railEl=document.createElement('div'); railEl.id='so-course-rail'; railEl.setAttribute('role','region'); railEl.setAttribute('aria-label','guided course');
+    panelEl=document.createElement('aside'); panelEl.id='so-course-panel'; panelEl.setAttribute('role','complementary'); panelEl.setAttribute('aria-label','course lesson');
+    document.body.appendChild(panelEl); document.body.appendChild(railEl);
+    injectHeaderButton();
+    // if we just auto-travelled onto a lesson's panel, keep the lesson open
+    render();
+    // global affordances
+    document.addEventListener('keydown',function(e){
+      if(e.key==='Escape'){ if(document.body.classList.contains('so-course-jump')){ document.body.classList.remove('so-course-jump'); e.preventDefault(); }
+        else if(st.open){ setOpen(false); e.preventDefault(); } }
+    });
+    document.addEventListener('click',function(e){ if(document.body.classList.contains('so-course-jump')){ var ml=document.getElementById('so-course-modlist'); var jb=document.getElementById('so-course-jump'); if(ml && !ml.contains(e.target) && e.target!==jb){ document.body.classList.remove('so-course-jump'); } } });
+    // re-tuck the rail if the Assistant opens/closes (its class flips on body)
+    // handled purely by CSS (body.so-assist-open) — no JS needed.
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',mount); else mount();
+})();
+</script>
+<!-- COURSE:END M090 -->
+</body>
+</html>
