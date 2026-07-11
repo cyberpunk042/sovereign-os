@@ -470,6 +470,8 @@ def cmd_recent(args) -> int:
               f"sources={','.join(sources)} count={len(events)} ──")
         for e in events:
             print(f"  {e['timestamp']}  [{e['source']:<8}] {e['action']:<10}  {e['detail'][:100]}")
+        print("  next: run `sovereign-osctl global-history summary` "
+              "for the per-source liveness rollup")
     _emit_metric("sovereign_os_operator_global_history_query_total", "recent", ",".join(sources), "ok")
     return 0
 
