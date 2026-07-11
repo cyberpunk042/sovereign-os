@@ -249,6 +249,18 @@ html[data-theme="light"] {
   .so-cmdk-foot{padding:.4rem .9rem; font-size:.7rem; color:var(--muted,#8a8a8a); border-top:1px solid var(--border,#262626);
     display:flex; gap:.9rem; flex-wrap:wrap;}
   .so-cmdk-foot kbd{background:var(--bg,#0e0e0e); border:1px solid var(--border,#262626); border-radius:3px; padding:0 .35rem; font-size:.68rem; color:var(--fg,#e6e6e6);}
+  /* deep-link (#id permalink) transient highlight + keyboard affordances */
+  .so-deeplink-hot{animation:so-dl-pulse 2.1s ease; border-radius:6px;}
+  @keyframes so-dl-pulse{0%,100%{box-shadow:none;} 12%,55%{box-shadow:0 0 0 2px var(--accent,#9bd1ff),0 0 14px rgba(155,209,255,.5);}}
+  .so-sm-item.kbsel{background:color-mix(in srgb,var(--accent,#9bd1ff) 22%,transparent); outline:1px solid var(--accent,#9bd1ff); outline-offset:-1px;}
+  #so-keys-backdrop{position:fixed; inset:0; z-index:9600; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.5);}
+  #so-keys-backdrop.open{display:flex;}
+  .so-keys-box{width:min(430px,92vw); background:var(--panel,#171717); border:1px solid var(--border,#262626); border-radius:10px; padding:1rem 1.15rem; font-size:.84rem; box-shadow:0 10px 40px rgba(0,0,0,.5);}
+  .so-keys-box h3{margin:0 0 .7rem; font-size:.92rem;} .so-keys-box .spark{color:var(--accent,#9bd1ff);}
+  .so-keys-box dl{display:grid; grid-template-columns:auto 1fr; gap:.45rem .9rem; margin:0; align-items:center;}
+  .so-keys-box dt{text-align:right; white-space:nowrap;} .so-keys-box dd{margin:0; color:var(--muted,#8a8a8a);}
+  .so-keys-box kbd{background:var(--bg,#0e0e0e); border:1px solid var(--border,#262626); border-radius:3px; padding:0 .35rem; font-size:.72rem; color:var(--fg,#e6e6e6);}
+  @media (prefers-reduced-motion: reduce){ .so-deeplink-hot{animation:none; outline:2px solid var(--accent,#9bd1ff); outline-offset:-2px;} }
   /* assistant "Ask" footer — hand off the current context to ChatGPT / Claude / the local AI */
   .so-ask{flex-shrink:0; border-top:1px solid var(--border,#262626); background:var(--panel,#171717); padding:.55rem .7rem .65rem;}
   .so-ask-h{display:flex; align-items:center; gap:.4rem; font-size:.72rem; color:var(--muted,#8a8a8a); text-transform:uppercase; letter-spacing:.05em; margin-bottom:.4rem;}
@@ -655,12 +667,52 @@ html[data-theme="light"] {
 
     idle();
   }
+  // Deep-links (#id permalink → scroll+highlight) + keyboard affordances. Client-side only, non-mutating.
+  function keysAndDeepLinks(){
+    var content=document.getElementById('so-content');
+    function typing(t){ if(!t) return false; var n=(t.tagName||'').toLowerCase(); return n==='input'||n==='textarea'||n==='select'||t.isContentEditable; }
+    function reduced(){ return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
+    // #<id> in the URL → scroll the matching content element into view + transient highlight (shareable "link to this row/stat")
+    function gotoHash(){ var id=(location.hash||'').replace(/^#/,''); if(!id) return; var t=null; try{ t=document.getElementById(id); }catch(e){}
+      if(!t || (content && !content.contains(t))) return;
+      try{ t.scrollIntoView({block:'center',behavior:reduced()?'auto':'smooth'}); }catch(e){}
+      t.classList.remove('so-deeplink-hot'); void t.offsetWidth; t.classList.add('so-deeplink-hot');
+      setTimeout(function(){ t.classList.remove('so-deeplink-hot'); },2200); }
+    window.addEventListener('hashchange',gotoHash);
+    if(location.hash) setTimeout(gotoHash,120);
+    // keyboard shortcut help overlay (?)
+    var kb=el('<div id="so-keys-backdrop" role="dialog" aria-modal="true" aria-label="keyboard shortcuts"><div class="so-keys-box">'
+      +'<h3><span class="spark">✦</span> Keyboard shortcuts</h3><dl>'
+      +'<dt><kbd>⌘</kbd>/<kbd>Ctrl</kbd> <kbd>K</kbd></dt><dd>command palette — jump to a panel</dd>'
+      +'<dt><kbd>/</kbd></dt><dd>focus the panel filter</dd>'
+      +'<dt><kbd>j</kbd> <kbd>k</kbd></dt><dd>move through panels</dd>'
+      +'<dt><kbd>↵</kbd></dt><dd>open the highlighted panel</dd>'
+      +'<dt><kbd>?</kbd></dt><dd>this help</dd>'
+      +'<dt><kbd>esc</kbd></dt><dd>close</dd></dl></div></div>');
+    document.body.appendChild(kb);
+    function keysOpen(o){ kb.classList.toggle('open',o); }
+    kb.addEventListener('click',function(e){ if(e.target===kb) keysOpen(false); });
+    // j/k highlight through the VISIBLE sidemenu items; Enter opens
+    var kbIdx=-1;
+    function visItems(){ return Array.prototype.filter.call(document.querySelectorAll('.so-sm-item'),function(it){ return it.offsetParent!==null; }); }
+    function moveSel(d){ var items=visItems(); if(!items.length) return; kbIdx=Math.max(0,Math.min(items.length-1,(kbIdx<0?(d>0?0:items.length-1):kbIdx+d)));
+      items.forEach(function(it,i){ it.classList.toggle('kbsel',i===kbIdx); }); var cur=items[kbIdx]; if(cur&&cur.scrollIntoView) cur.scrollIntoView({block:'nearest'}); }
+    document.addEventListener('keydown',function(e){
+      if(kb.classList.contains('open')){ if(e.key==='Escape'){ keysOpen(false); e.preventDefault(); } return; }
+      if(e.metaKey||e.ctrlKey||e.altKey || typing(e.target)) return;
+      if(e.key==='/'){ var s=document.getElementById('so-sm-search'); if(s){ s.focus(); e.preventDefault(); } }
+      else if(e.key==='?'){ keysOpen(true); e.preventDefault(); }
+      else if(e.key==='j'){ moveSel(1); e.preventDefault(); }
+      else if(e.key==='k'){ moveSel(-1); e.preventDefault(); }
+      else if(e.key==='Enter'){ var items=visItems(); if(kbIdx>=0&&items[kbIdx]){ e.preventDefault(); if(items[kbIdx].click) items[kbIdx].click(); else if(items[kbIdx].href) location.href=items[kbIdx].href; } }
+    });
+  }
   function init(){
     var dir=curDir(), cur=findPanel(dir);
     var content=document.createElement('div'); content.id='so-content';
     while(document.body.firstChild){ content.appendChild(document.body.firstChild); }
     document.body.appendChild(content);
-    buildHeader(cur); buildSidemenu(dir); buildAssistant(cur); wire();
+    buildHeader(cur); buildSidemenu(dir); buildAssistant(cur); wire(); keysAndDeepLinks();
     applyTheme(loadPrefs()); syncThemeBtn(loadPrefs());
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
