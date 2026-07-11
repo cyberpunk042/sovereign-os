@@ -41,16 +41,57 @@ DIAG=(dmidecode lshw lspci lsusb lsblk nvme smartctl sensors nvidia-smi zpool zf
 # boot chain) BEFORE flashing. HIGH-RISK primitives — enabled because image
 # verification is the whole point; drop them if you'd rather verify only in QEMU.
 IMAGE=(losetup mount umount)
+# process control: panel.sh reclaims a prior (root-owned) panel server's port with
+# `sudo -n kill <pid>` when an earlier `sudo` run left a server behind.
+PROC=(kill)
 
-resolve() {  # print full path if the command exists (incl. sbin), else nothing
-  local c="$1" p d
-  if p="$(command -v "$c" 2>/dev/null)" && [ -n "$p" ]; then echo "$p"; return; fi
-  # sudo-relevant tools (losetup/dmidecode/nvme/smartctl/sensors) live in sbin,
-  # which is often absent from a login PATH — search it explicitly.
-  for d in /usr/bin /bin /usr/sbin /sbin; do
-    [ -x "$d/$c" ] && { echo "$d/$c"; return 0; }
-  done
-  return 0   # not found → empty output, still success (caller skips empties)
+# The cockpit CONTROL SURFACE (config/control-systems.yaml → _action_exec.py)
+# executes each privileged action as `sudo -n sovereign-osctl <verb>`. Rather than
+# grant sovereign-osctl WHOLESALE (which would be both too broad AND breach the
+# R10212 selfdef boundary by granting `selfdef`/`perimeter`), the design (SDD-047
+# Q-047-A/C) folds a SECOND, PER-VERB scoped alias — SOVEREIGN_OS_COCKPIT — for
+# exactly the sovereign-os-OWNED control verbs. Its reviewed, test-verified source
+# is config/sudoers.d/sovereign-os-cockpit (kept in lockstep with the registry by
+# tests/lint/test_cockpit_action_exec_sudoers.py, which also proves selfdef +
+# perimeter are NEVER present). We read that alias in verbatim so there is ONE
+# source of truth, and grant it to the resolved operator user below.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+COCKPIT_DRAFT="${REPO_ROOT}/config/sudoers.d/sovereign-os-cockpit"
+
+resolve() {  # print full path(s) for the command: the PATH hit + its symlink target
+  local c="$1" p d found=""
+  # Require an ABSOLUTE path — `command -v kill` returns the shell builtin name
+  # "kill" (not a path); accepting it would emit an invalid, cwd-relative rule.
+  if p="$(command -v "$c" 2>/dev/null)" && [ "${p#/}" != "$p" ]; then found="$p"; fi
+  if [ -z "${found}" ]; then
+    # sudo-relevant tools (losetup/dmidecode/nvme…) + the operator CLIs live in
+    # sbin / /usr/local/bin, often absent from a login PATH — search explicitly.
+    for d in /usr/local/bin /usr/local/sbin /usr/bin /bin /usr/sbin /sbin; do
+      [ -x "$d/$c" ] && { found="$d/$c"; break; }
+    done
+  fi
+  [ -n "${found}" ] || return 0   # not found → empty output (caller skips empties)
+  echo "${found}"
+  # ALSO emit the canonical target: sovereign-osctl is a symlink into the repo,
+  # and sudo may compare either the symlink or the resolved path — list both so
+  # the rule matches regardless.
+  local real; real="$(readlink -f "${found}" 2>/dev/null || true)"
+  [ -n "${real}" ] && [ "${real}" != "${found}" ] && echo "${real}"
+}
+
+# Extract the reviewed SOVEREIGN_OS_COCKPIT Cmnd_Alias from the draft verbatim
+# (its verb set stays in lockstep with the control registry via the lint). Emits
+# nothing if the draft is absent (partial checkout) — the OPS bucket still installs.
+cockpit_alias() {
+  [ -f "${COCKPIT_DRAFT}" ] || return 0
+  # print from the 'Cmnd_Alias SOVEREIGN_OS_COCKPIT' header through the first line
+  # that does NOT end in a backslash (the alias' last continued line).
+  awk '
+    /^Cmnd_Alias SOVEREIGN_OS_COCKPIT/ { inblk=1 }
+    inblk { print }
+    inblk && !/\\[[:space:]]*$/ { exit }
+  ' "${COCKPIT_DRAFT}"
 }
 
 build_body() {
@@ -60,19 +101,37 @@ build_body() {
   echo "# operator: ${OPERATOR}"
   local paths=()
   local c p
-  for c in "${DIAG[@]}" "${IMAGE[@]}"; do
-    p="$(resolve "$c")"
-    [ -n "$p" ] && paths+=("$p")
+  # resolve() may emit TWO lines (path + symlink target) — read line-by-line.
+  for c in "${DIAG[@]}" "${IMAGE[@]}" "${PROC[@]}"; do
+    while IFS= read -r p; do
+      [ -n "$p" ] && paths+=("$p")
+    done < <(resolve "$c")
   done
   if [ "${#paths[@]}" -eq 0 ]; then
     echo "# (no allow-listed commands found on PATH)" >&2
     return 1
   fi
+  # dedup (a symlink + its target can collide; DIAG/CLI may overlap)
+  local uniq=() p2 dup
+  for p in "${paths[@]}"; do
+    dup=0; for p2 in "${uniq[@]}"; do [ "$p" = "$p2" ] && { dup=1; break; }; done
+    [ "$dup" = 0 ] && uniq+=("$p")
+  done
+  paths=("${uniq[@]}")
   # one Cmnd_Alias keeps the spec readable + auditable
   local joined
   joined="$(printf '%s, ' "${paths[@]}")"; joined="${joined%, }"
   echo "Cmnd_Alias SOVEREIGN_OS_OPS = ${joined}"
-  echo "${OPERATOR} ALL=(root) NOPASSWD: SOVEREIGN_OS_OPS"
+  # second bucket: the per-verb cockpit control surface (R10212-safe — selfdef +
+  # perimeter are absent by construction). Folded from the reviewed draft.
+  local cockpit; cockpit="$(cockpit_alias)"
+  if [ -n "${cockpit}" ]; then
+    echo ""
+    echo "${cockpit}"
+    echo "${OPERATOR} ALL=(root) NOPASSWD: SOVEREIGN_OS_OPS, SOVEREIGN_OS_COCKPIT"
+  else
+    echo "${OPERATOR} ALL=(root) NOPASSWD: SOVEREIGN_OS_OPS"
+  fi
 }
 
 cmd_print() { build_body; }

@@ -891,7 +891,11 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path = self.path.split("?", 1)[0].rstrip("/")
-        if path == "/api/cancel":
+        # The hub serves this page at BOTH / and /build-configurator/ (as a
+        # sibling panel), so the Run console's relative POST can arrive prefixed
+        # (/build-configurator/api/run). Match the endpoint by SUFFIX so it
+        # routes identically from either path (and survives a stale cached page).
+        if path.endswith("/api/cancel"):
             proc = CURRENT_JOB.get("proc")
             if proc and proc.poll() is None:
                 try:
@@ -901,7 +905,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, json.dumps(
                     {"cancelled": CURRENT_JOB.get("action")}))
             return self._send(200, json.dumps({"cancelled": None}))
-        if path == "/api/run":
+        if path.endswith("/api/run"):
             return self._run_action()
         return self._send(404, json.dumps({"error": "not found", "path": path}))
 

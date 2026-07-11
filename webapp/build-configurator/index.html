@@ -1733,7 +1733,7 @@ function hookUnitState(id){
   return u ? (u.active === "active" ? "active" : u.enabled) : "not installed";
 }
 function fetchHost(then){
-  fetch("./host.json", {cache:"no-store"}).then(function(r){
+  fetch("/host.json", {cache:"no-store"}).then(function(r){
     if (!r.ok) throw 0; return r.json();
   }).then(function(h){
     D.host = h;
@@ -2362,7 +2362,7 @@ function runAction(action){
   log.textContent = "";
   document.getElementById("run-errors").style.display = "none";
   setRunBusy(true, action);
-  fetch("./api/run", {
+  fetch("/api/run", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify({action: action, profile: state.profile,
@@ -2398,7 +2398,7 @@ document.getElementById("run-dry").addEventListener("click", function(){ runActi
 document.getElementById("run-preflight").addEventListener("click", function(){ runAction("preflight"); });
 document.getElementById("run-build").addEventListener("click", function(){ runAction("build"); });
 document.getElementById("run-cancel").addEventListener("click", function(){
-  fetch("./api/cancel", {method:"POST"});
+  fetch("/api/cancel", {method:"POST"});
 });
 
 // target toggle: image build ↔ manage the running host
@@ -2470,7 +2470,7 @@ function renderTools(){
 
 /* live mirror merge: tools + any parseable profile detail + hw configs */
 function tryMirror(){
-  fetch("./data.json", {cache:"no-store"}).then(function(r){
+  fetch("/data.json", {cache:"no-store"}).then(function(r){
     if (!r.ok) throw 0; return r.json();
   }).then(function(j){
     var liveDetail = j.detail && Object.keys(j.detail).length;
