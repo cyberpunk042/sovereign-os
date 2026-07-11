@@ -1,0 +1,18 @@
+[package]
+name = "sovereign-feature-selftest"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Per-feature LIVE self-tests for the Feature Test Lab cockpit panel — the operator exercises each shipped feature and observes result / path-taken / timing / checks as JSON. Not unit tests: each self-test runs the real feature (e.g. the AVX-512 sum_of_squares kernel) and reports what actually happened. Modeled on the sovereign-telemetry probe (JSON on stdout, graceful, exit 0)."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+sovereign-simd = { path = "../sovereign-simd" }
