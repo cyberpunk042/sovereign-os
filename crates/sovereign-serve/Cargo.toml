@@ -36,3 +36,7 @@ sovereign-context-budget = { path = "../sovereign-context-budget" }
 # multi-head QuantLlm via the loader carve-out — distinct from the sine-filler demo.
 sovereign-safetensors-loader = { path = "../sovereign-safetensors-loader" }
 sovereign-quant-llm = { path = "../sovereign-quant-llm" }
+# Real HF byte-level BPE tokenizer — lets `--model <dir>` run genuine trained
+# models (a real vocab, not the 256-byte default) when a tokenizer.json is present.
+sovereign-hf-tokenizer = { path = "../sovereign-hf-tokenizer" }
+sovereign-logit-mask = { path = "../sovereign-logit-mask" }

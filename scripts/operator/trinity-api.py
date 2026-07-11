@@ -96,6 +96,22 @@ if _spec is None or _spec.loader is None:
 _inspect = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_inspect)
 
+# Import the shared, read-only probe of the live sovereign-gatewayd (:8787).
+# A browser can't cross-origin fetch :8787 from this same-origin panel, so the
+# daemon probes the gateway server-side and serves it at /gateway — the cockpit
+# thereby reflects the REAL running brain (routing ledger, sovereignty tripwire,
+# persisted memory). Load is best-effort: a missing helper degrades /gateway to
+# a structured "unavailable", never a daemon crash.
+_GATEWAY_PROBE_PATH = _REPO_ROOT / "scripts" / "operator" / "lib" / "gateway_probe.py"
+try:
+    _gspec = importlib.util.spec_from_file_location(
+        "_gateway_probe", _GATEWAY_PROBE_PATH
+    )
+    _gateway_probe = importlib.util.module_from_spec(_gspec)  # type: ignore[arg-type]
+    _gspec.loader.exec_module(_gateway_probe)  # type: ignore[union-attr]
+except (OSError, ImportError, AttributeError):
+    _gateway_probe = None
+
 
 def _emit_metric(endpoint: str, result: str) -> None:
     """Best-effort textfile-collector emit (Layer B per SDD-016)."""
@@ -208,6 +224,18 @@ class TrinityAPIHandler(BaseHTTPRequestHandler):
                 self._send_json(200, _inspect.status_payload())
                 _emit_metric("tiers", "ok")
                 return
+            if path == "/gateway":
+                # Live read-only probe of sovereign-gatewayd (:8787): the running
+                # cortex daemon the Trinity cycle executes on. Never mutates.
+                if _gateway_probe is None:
+                    self._send_json(200, {
+                        "up": False,
+                        "error": "gateway_probe helper unavailable",
+                    })
+                else:
+                    self._send_json(200, _gateway_probe.probe_gateway())
+                _emit_metric("gateway", "ok")
+                return
             if path.startswith("/tiers/"):
                 tier = path[len("/tiers/"):]
                 fn = _TIER_FN.get(tier)
@@ -233,7 +261,7 @@ class TrinityAPIHandler(BaseHTTPRequestHandler):
         self._send_json(404, {
             "error": f"unknown endpoint: {path!r}",
             "available": ["/version", "/tiers", "/tiers/<name>",
-                          "/webapp/", "/healthz"],
+                          "/gateway", "/webapp/", "/healthz"],
         })
         _emit_metric(
             path.lstrip("/").replace("-", "_").replace("/", "_")
@@ -268,7 +296,7 @@ def serve(bind: str = API_BIND, port: int = API_PORT) -> int:
         flush=True,
     )
     print(f"  data source: {_INSPECT_PATH}", flush=True)
-    print(f"  endpoints:   /version /tiers /tiers/<name> /webapp/ "
+    print(f"  endpoints:   /version /tiers /tiers/<name> /gateway /webapp/ "
           f"+ /healthz", flush=True)
     print(f"  webapp:      {WEBAPP_PATH}", flush=True)
     if bind != "127.0.0.1":

@@ -377,16 +377,124 @@ fn handle_http_conn(server: &GatewayServer, stream: TcpStream) -> std::io::Resul
 
     // Refuse an over-cap Content-Length BEFORE allocating, so a client can't
     // exhaust memory by claiming a huge body (the buffer is never sized to it).
-    let reply = if content_length > http::MAX_BODY_BYTES {
-        http::payload_too_large()
-    } else {
-        // Body of exactly Content-Length bytes (0 for GETs).
-        let mut body = vec![0u8; content_length];
-        if content_length > 0 {
-            reader.read_exact(&mut body)?;
-        }
-        let body = String::from_utf8_lossy(&body);
-        http::respond(server, &method, &path, &body)
-    };
+    if content_length > http::MAX_BODY_BYTES {
+        return write_http(&mut writer, &http::payload_too_large());
+    }
+    // Body of exactly Content-Length bytes (0 for GETs).
+    let mut body_bytes = vec![0u8; content_length];
+    if content_length > 0 {
+        reader.read_exact(&mut body_bytes)?;
+    }
+    let body = String::from_utf8_lossy(&body_bytes);
+
+    // The OpenAI chat shim streams SSE token-by-token, which the pure
+    // request→reply `respond()` cannot express — special-case it here so the
+    // cockpit chat console (scripts/inference/prompt.py) gets live deltas.
+    let route = path.split('?').next().unwrap_or(&path).trim_end_matches('/');
+    if method == "POST" && route == "/v1/chat/completions" {
+        return stream_chat_completions(server, &mut writer, &body);
+    }
+
+    let reply = http::respond(server, &method, &path, &body);
     write_http(&mut writer, &reply)
+}
+
+/// Write one SSE event (`data: {json}\n\n`) and flush.
+fn write_sse(writer: &mut TcpStream, obj: &serde_json::Value) -> std::io::Result<()> {
+    writer.write_all(format!("data: {obj}\n\n").as_bytes())?;
+    writer.flush()
+}
+
+/// Flatten OpenAI `messages` into a single prompt for the base model (join each
+/// turn's non-empty content with newlines; a base completion model continues it).
+fn chat_prompt(req: &serde_json::Value) -> String {
+    let mut parts: Vec<String> = Vec::new();
+    if let Some(msgs) = req.get("messages").and_then(|m| m.as_array()) {
+        for m in msgs {
+            if let Some(c) = m.get("content").and_then(|c| c.as_str())
+                && !c.trim().is_empty()
+            {
+                parts.push(c.to_string());
+            }
+        }
+    }
+    parts.join("\n")
+}
+
+/// Serve `POST /v1/chat/completions` as OpenAI-compatible SSE — the exact shape
+/// `scripts/inference/prompt.py` consumes: `data: {chunk}` per decoded delta, a
+/// final chunk carrying `finish_reason:"stop"` + `usage.completion_tokens`, then
+/// `data: [DONE]`. Generation runs on the locally-loaded model; a missing model
+/// is an honest 503 (never fabricated output).
+fn stream_chat_completions(
+    server: &GatewayServer,
+    writer: &mut TcpStream,
+    body: &str,
+) -> std::io::Result<()> {
+    let req: serde_json::Value = match serde_json::from_str(body) {
+        Ok(v) => v,
+        Err(e) => {
+            return write_http(writer, &http::err(400, format!("invalid chat request: {e}")));
+        }
+    };
+    if !server.has_generator() {
+        return write_http(
+            writer,
+            &http::err(
+                503,
+                "no local model loaded — set SOVEREIGN_GATEWAY_MODEL to a model dir \
+                 (config.json + *.safetensors + tokenizer.json), e.g. via \
+                 scripts/intelligence/fetch-model.sh"
+                    .to_string(),
+            ),
+        );
+    }
+    let prompt = chat_prompt(&req);
+    let max_new = req
+        .get("max_tokens")
+        .and_then(serde_json::Value::as_u64)
+        .unwrap_or(96)
+        .clamp(1, 1024) as usize;
+
+    // SSE response head, then stream.
+    writer.write_all(
+        b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n\
+          Cache-Control: no-store\r\nConnection: close\r\n\r\n",
+    )?;
+    writer.flush()?;
+
+    let id = "chatcmpl-sovereign";
+    let mut io_err: Option<std::io::Error> = None;
+    let gen_res = server.generate_chat(&prompt, max_new, |chunk| {
+        if io_err.is_some() {
+            return;
+        }
+        let obj = serde_json::json!({
+            "id": id, "object": "chat.completion.chunk",
+            "choices": [{"index": 0, "delta": {"content": chunk}}],
+        });
+        if let Err(e) = write_sse(writer, &obj) {
+            io_err = Some(e);
+        }
+    });
+    if let Some(e) = io_err {
+        return Err(e); // client hung up mid-stream
+    }
+    let final_obj = match gen_res {
+        Ok(n) => serde_json::json!({
+            "id": id, "object": "chat.completion.chunk",
+            "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+            "usage": {"completion_tokens": n, "prompt_tokens": 0, "total_tokens": n},
+        }),
+        Err(e) => serde_json::json!({
+            "id": id, "object": "chat.completion.chunk",
+            "choices": [{"index": 0,
+                "delta": {"content": format!("[gateway generation error: {e}]")},
+                "finish_reason": "stop"}],
+        }),
+    };
+    let _ = write_sse(writer, &final_obj);
+    let _ = writer.write_all(b"data: [DONE]\n\n");
+    let _ = writer.flush();
+    Ok(())
 }

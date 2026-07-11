@@ -1221,6 +1221,22 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
   <div class="stat"><div class="k">CPU/Pulse models</div><div class="v accent" id="cpu-count">—</div></div>
 </div>
 
+<!-- Live Sovereign Gateway (:8787) — the M048 sovereign router in front of every
+     model: it decides route / placement / precision before a token is generated.
+     Served read-only at /api/models/gateway (model-health-api probes :8787
+     server-side; the browser can't cross-origin to it). Surfaces the never-cloud-
+     spill tripwire, the routing ledger, and the persisted Memory-OS snapshot. -->
+<h2>sovereign gateway <span class="muted" style="font-weight:400;font-size:.8rem">— sovereign-gatewayd · 127.0.0.1:8787 · the router in front of every model</span></h2>
+<div id="gw-tripwire" class="panel" style="border-left:3px solid var(--muted,#555)"><span class="muted">probing gateway…</span></div>
+<div class="row">
+  <div class="stat"><div class="k">gateway</div><div class="v" id="gw-up">—</div></div>
+  <div class="stat"><div class="k">requests</div><div class="v" id="gw-requests">—</div></div>
+  <div class="stat"><div class="k">learned</div><div class="v ok" id="gw-learned">—</div></div>
+  <div class="stat"><div class="k">cloud spills</div><div class="v" id="gw-spills">—</div></div>
+  <div class="stat"><div class="k">persisted memory</div><div class="v accent" id="gw-memory">—</div></div>
+</div>
+<div class="panel" id="gw-roles"><span class="muted">route ledger loading…</span></div>
+
 <h2>SRP role health (M075 + M058)</h2>
 <div class="row">
   <div class="role-card conductor">
@@ -1475,6 +1491,73 @@ async function refresh() {
   } else {
     hm.innerHTML = '<div class="muted">no heatmap data — accumulates over 24h of inference activity</div>';
   }
+  refreshGateway();  // live sovereign-gatewayd (:8787) probe — same cadence as health
+}
+
+// ── Live Sovereign Gateway (:8787) ────────────────────────────────────────
+const DEMO_GATEWAY = {
+  up: true, error: null,
+  health: {live_surfaces: 4, force_local: true, total_requests: 128, cloud_spills: 0, never_cloud_spill_holds: true},
+  ledger: {total_requests: 128, committed: 120, refused: 2, learned: 118,
+           by_role: {oracle: 64, logic: 48, conductor: 16}, cloud_spills: 0,
+           predictions: 96, prediction_agreements: 90, dry_runs: 6},
+  surfaces: [], doctrine: null,
+  memory: {path: "/var/lib/sovereign-os/memory/cortex.json", exists: true,
+           items: 120, cold: 120, capacity: null, mtime: 0, error: null},
+};
+
+async function fetchGatewayData() {
+  try {
+    const res = await fetch('/api/models/gateway', {credentials: 'same-origin'});
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return await res.json();
+  } catch (e) { return {up: false, error: e.message, memory: null}; }
+}
+
+function renderGatewaySection(g) {
+  const tw = $('gw-tripwire');
+  if (!g || g.up === false) {
+    $('gw-up').innerHTML = '<span class="bad">down</span>';
+    tw.style.borderLeft = '3px solid var(--muted,#555)';
+    tw.innerHTML = '<strong>gateway offline</strong> <span class="muted">— ' +
+      escapeHtml((g && g.error) || 'unreachable') +
+      '. <code>systemctl start sovereign-gatewayd</code></span>';
+    const mem = g && g.memory;
+    $('gw-memory').innerHTML = (mem && mem.exists) ? (escapeHtml(mem.items) + ' <small class="muted">on disk</small>') : '—';
+    $('gw-requests').textContent = '—'; $('gw-learned').textContent = '—'; $('gw-spills').textContent = '—';
+    $('gw-roles').innerHTML = '<span class="muted">gateway offline — no route ledger</span>';
+    return;
+  }
+  const h = g.health || {}, L = g.ledger || {}, mem = g.memory || {};
+  const spills = h.cloud_spills || L.cloud_spills || 0;
+  $('gw-up').innerHTML = '<span class="ok">up</span>';
+  $('gw-requests').textContent = (L.total_requests ?? h.total_requests ?? '—');
+  $('gw-learned').textContent = (L.learned ?? '—');
+  $('gw-spills').innerHTML = spills === 0 ? '<span class="ok">0</span>' : '<span class="bad">' + escapeHtml(spills) + '</span>';
+  $('gw-memory').innerHTML = mem.exists ? (escapeHtml(mem.items) + ' <small class="muted">items</small>') : 'none';
+  const holds = (h.never_cloud_spill_holds !== false) && (spills === 0);
+  tw.style.borderLeft = '3px solid ' + (holds ? 'var(--good,#7ad17a)' : 'var(--bad,#ff7676)');
+  tw.innerHTML = holds
+    ? '<strong style="color:var(--good,#7ad17a)">◆ SOVEREIGN</strong> <span class="muted">— force-local ' +
+        (h.force_local ? 'on' : 'off') + ', 0 cloud spills across ' + (L.total_requests || 0) +
+        ' request(s). Never-cloud-spill holds.</span>'
+    : '<strong style="color:var(--bad,#ff7676)">▲ CLOUD SPILL</strong> <span class="muted">— ' + escapeHtml(spills) +
+        ' request(s) left the box. Sovereignty invariant BROKEN.</span>';
+  const roles = L.by_role || {};
+  const keys = Object.keys(roles);
+  $('gw-roles').innerHTML = keys.length
+    ? '<div class="muted" style="font-size:.72rem;margin-bottom:.3rem">route ledger — decisions by SRP role</div>' +
+        keys.map(function (r) {
+          return '<span style="display:inline-block;margin:.15rem .3rem .15rem 0;padding:.1rem .5rem;border:1px solid var(--border,#2a2a2a);border-radius:12px"><code>' +
+            escapeHtml(r) + '</code> ' + escapeHtml(roles[r]) + '</span>';
+        }).join('') +
+        ' <span class="muted" style="margin-left:.4rem">committed ' + (L.committed ?? '—') +
+        ' · predictions ' + (L.predictions ?? '—') + ' (' + (L.prediction_agreements ?? '—') + ' agreed)</span>'
+    : '<span class="muted">no requests yet — the ledger fills as the gateway routes</span>';
+}
+
+async function refreshGateway() {
+  renderGatewaySection(demoActive() ? DEMO_GATEWAY : await fetchGatewayData());
 }
 
 $('refresh-btn').addEventListener('click', refresh);

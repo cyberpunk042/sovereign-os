@@ -37,7 +37,7 @@ coverage:
   d-11-adapter-status:
     [adapters]
   trinity:
-    [trinity, inference, weaver, auditor]
+    [trinity, inference, weaver, auditor, gateway]
   weaver:
     [state-fabric]
   d-20-peace-machine-health:

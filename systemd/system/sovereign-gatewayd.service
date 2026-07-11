@@ -26,6 +26,13 @@ Environment=SOVEREIGN_GATEWAY_ADDR=127.0.0.1:8787
 # cold each boot. StateDirectory grants the single writable path under strict.
 Environment=SOVEREIGN_GATEWAY_MEMORY=/var/lib/sovereign-os/memory/cortex.json
 StateDirectory=sovereign-os/memory
+# Optional local generation. Point at a model dir (config.json + *.safetensors +
+# tokenizer.json) and the gateway loads it at startup and serves the OpenAI chat
+# shim (/v1/chat/completions) — the sovereign brain generates locally, and the
+# cockpit chat console (prompt.py) reaches it here. Absent OR not-yet-fetched ⇒
+# the gateway stays a pure decision/routing surface (no error). Fetch a small
+# real model with:  scripts/intelligence/fetch-model.sh /var/lib/sovereign-os/models/smollm-135m
+Environment=SOVEREIGN_GATEWAY_MODEL=/var/lib/sovereign-os/models/smollm-135m
 
 # R171 defense-in-depth (Layer-1 lint enforced). ProtectSystem=strict keeps the
 # whole filesystem read-only EXCEPT the StateDirectory above (the memory

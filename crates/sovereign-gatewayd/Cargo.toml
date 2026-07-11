@@ -24,3 +24,11 @@ sovereign-gateway = { path = "../sovereign-gateway" }
 sovereign-router-7axis = { path = "../sovereign-router-7axis" }
 sovereign-srp-scheduler = { path = "../sovereign-srp-scheduler" }
 sovereign-value-plane = { path = "../sovereign-value-plane" }
+# Optional local generation: when SOVEREIGN_GATEWAY_MODEL names a model dir, the
+# gateway loads real weights + a real tokenizer and serves the OpenAI chat shim
+# (/v1/chat/completions) itself — the sovereign brain generates, not just routes.
+sovereign-safetensors-loader = { path = "../sovereign-safetensors-loader" }
+sovereign-quant-model = { path = "../sovereign-quant-model" }
+sovereign-hf-tokenizer = { path = "../sovereign-hf-tokenizer" }
+sovereign-logit-mask = { path = "../sovereign-logit-mask" }
+sovereign-stream-decode = { path = "../sovereign-stream-decode" }

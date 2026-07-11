@@ -185,6 +185,12 @@ COMMANDS:
   science info <id> [--json]   Full detail for one science tool
   science install [--json]     How each integrated tool is obtained (advisory)
 
+  gateway [--addr host:port] [--json]
+                               Live probe of sovereign-gatewayd (:8787) — the M048
+                               provider-inversion gateway over the cortex: sovereignty
+                               tripwire (never-cloud-spill), cost/route ledger, live
+                               surfaces + persisted Memory-OS snapshot (read-only)
+
   audit friction               Runtime friction-audit (lspci/lscpu/IOMMU)
   audit perimeter              Perimeter integrity (Tetragon policy)
   audit storage                ZFS pool + dataset health
@@ -6546,6 +6552,16 @@ case "${cmd}" in
     # `run` delegates to scripts/science/warp-runner.py (GPU cuda:0 or CPU
     # fallback); everything else is stdlib-only.
     "${__REPO_ROOT}/scripts/science/science.py" "$@"
+    ;;
+  gateway)
+    # Live read-only probe of sovereign-gatewayd (:8787): the M048 provider-
+    # inversion gateway over the deterministic cortex engine. Prints the
+    # sovereignty tripwire (never-cloud-spill), the cost/route ledger, live
+    # surfaces and the persisted Memory-OS snapshot. Human summary by default;
+    # add --json for the machine shape. Same server-side probe the trinity +
+    # model-health cockpit panels render (scripts/operator/lib/gateway_probe.py).
+    #   gateway [--addr host:port] [--json]
+    exec python3 "${__REPO_ROOT}/scripts/operator/lib/gateway_probe.py" "$@"
     ;;
   network)
     # R220 (SDD-026 Z-7): per-component network state surface.

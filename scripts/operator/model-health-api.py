@@ -73,6 +73,21 @@ if _spec is None or _spec.loader is None:
 _core = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_core)
 
+# Shared read-only probe of the live sovereign-gatewayd (:8787) — surfaced here
+# so the model-health cockpit shows the running brain's sovereignty tripwire +
+# routing ledger + persisted memory alongside the tier backends. Server-side
+# (a browser can't cross-origin fetch :8787); best-effort load so a missing
+# helper degrades /api/models/gateway to "unavailable", never a daemon crash.
+_GATEWAY_PROBE_PATH = _REPO_ROOT / "scripts" / "operator" / "lib" / "gateway_probe.py"
+try:
+    _gspec = importlib.util.spec_from_file_location(
+        "_gateway_probe", _GATEWAY_PROBE_PATH
+    )
+    _gateway_probe = importlib.util.module_from_spec(_gspec)  # type: ignore[arg-type]
+    _gspec.loader.exec_module(_gateway_probe)  # type: ignore[union-attr]
+except (OSError, ImportError, AttributeError):
+    _gateway_probe = None
+
 
 def _emit_metric(endpoint: str, result: str) -> None:
     if DRY_RUN:
@@ -184,6 +199,18 @@ class ModelHealthAPIHandler(BaseHTTPRequestHandler):
                 self._send_json(200, {"gpus": _core.collect_gpus()})
                 _emit_metric("gpus", "ok")
                 return
+            if path == "/api/models/gateway":
+                # Live read-only probe of sovereign-gatewayd (:8787): the
+                # sovereign router in front of every model. Never mutates.
+                if _gateway_probe is None:
+                    self._send_json(200, {
+                        "up": False,
+                        "error": "gateway_probe helper unavailable",
+                    })
+                else:
+                    self._send_json(200, _gateway_probe.probe_gateway())
+                _emit_metric("gateway", "ok")
+                return
         except Exception as e:  # noqa: BLE001
             self._send_json(500, {"error": str(e)})
             _emit_metric(path.lstrip("/") or "unknown", "500")
@@ -191,7 +218,8 @@ class ModelHealthAPIHandler(BaseHTTPRequestHandler):
         self._send_json(404, {
             "error": f"unknown endpoint: {path!r}",
             "available": ["/api/models/health", "/api/models/catalog",
-                          "/api/models/gpus", "/api/models/stream",
+                          "/api/models/gpus", "/api/models/gateway",
+                          "/api/models/stream",
                           "/version", "/healthz", "/webapp/"],
         })
         _emit_metric(path.lstrip("/") or "unknown", "404")

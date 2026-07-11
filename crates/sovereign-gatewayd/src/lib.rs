@@ -306,6 +306,59 @@ pub struct GatewayServer {
     /// it reaches the router — the gateway owning Privacy + Routing on the
     /// client's behalf (the doctrine: the client never holds provider keys).
     force_local: bool,
+    /// Optional local generation engine (real weights + real tokenizer). Loaded
+    /// from `SOVEREIGN_GATEWAY_MODEL`; `None` ⇒ the gateway is a pure
+    /// decision/routing surface and the OpenAI chat shim stays disabled.
+    generator: Option<Mutex<Generator>>,
+}
+
+/// A loaded local generation engine: real weights + a real byte-level BPE
+/// tokenizer. Behind a `Mutex` because generation mutates the model's decode
+/// state (KV/position). Populated only when a model dir is configured.
+struct Generator {
+    model: sovereign_quant_model::QuantModel,
+    tokenizer: sovereign_hf_tokenizer::HfBpeTokenizer,
+}
+
+/// Load the model dir named by `SOVEREIGN_GATEWAY_MODEL` (`config.json` + a
+/// `*.safetensors` + `tokenizer.json`) into a [`Generator`].
+///
+/// `Ok(None)` when no model is configured, or the dir is configured but not yet
+/// fetched (silent — the gateway simply stays a decision surface). `Err` only
+/// when a present model is malformed / vocab-mismatched, so a real
+/// misconfiguration is loud but never crashes the daemon.
+fn load_generator_from_env() -> Result<Option<Generator>, String> {
+    let Some(dir) = std::env::var_os("SOVEREIGN_GATEWAY_MODEL") else {
+        return Ok(None);
+    };
+    let dir = dir.to_string_lossy().into_owned();
+    let cfg_path = format!("{dir}/config.json");
+    if !std::path::Path::new(&cfg_path).exists() {
+        return Ok(None); // configured but not fetched — not an error
+    }
+    use sovereign_safetensors_loader::{Config, load};
+    let cfg = std::fs::read(&cfg_path).map_err(|e| format!("read config.json: {e}"))?;
+    let config = Config::from_json(&cfg).map_err(|e| format!("config.json: {e}"))?;
+    let st_path = std::fs::read_dir(&dir)
+        .map_err(|e| format!("read dir {dir}: {e}"))?
+        .filter_map(Result::ok)
+        .map(|e| e.path())
+        .find(|p| p.extension().is_some_and(|x| x == "safetensors"))
+        .ok_or_else(|| format!("no *.safetensors in {dir}"))?;
+    let st = std::fs::read(&st_path).map_err(|e| format!("read weights: {e}"))?;
+    let model = load(&st, &config).map_err(|e| format!("weight load: {e}"))?;
+    let tok_bytes = std::fs::read(format!("{dir}/tokenizer.json"))
+        .map_err(|e| format!("read tokenizer.json: {e}"))?;
+    let tokenizer = sovereign_hf_tokenizer::HfBpeTokenizer::from_tokenizer_json(&tok_bytes)
+        .map_err(|e| format!("tokenizer.json: {e}"))?;
+    if model.vocab() != tokenizer.vocab_size() {
+        return Err(format!(
+            "vocab mismatch: model {} vs tokenizer {}",
+            model.vocab(),
+            tokenizer.vocab_size()
+        ));
+    }
+    Ok(Some(Generator { model, tokenizer }))
 }
 
 /// The durable memory-store path, from `SOVEREIGN_GATEWAY_MEMORY` (the systemd
@@ -336,15 +389,39 @@ impl GatewayServer {
             }
             None => Cortex::with_memory(seed_memory()),
         };
+        // Optional local generation: when a model dir is configured + present,
+        // the gateway generates locally and the OpenAI chat shim goes Live.
+        let generator = match load_generator_from_env() {
+            Ok(Some(g)) => {
+                eprintln!(
+                    "sovereign-gatewayd: local generator loaded (vocab {}, {} layers) \
+                     — /v1/chat/completions live",
+                    g.model.vocab(),
+                    g.model.layers()
+                );
+                Some(g)
+            }
+            Ok(None) => None,
+            Err(e) => {
+                eprintln!(
+                    "sovereign-gatewayd: model load failed, generation disabled: {e}"
+                );
+                None
+            }
+        };
+        let gen_live = generator.is_some();
+
         let mut manifest = GatewayManifest::empty_canonical();
         for record in &mut manifest.surfaces {
             // The surfaces this daemon actually answers route into the engine
-            // (or expose the ledger); the rest stay Disabled until built.
+            // (or expose the ledger); the rest stay Disabled until built. The
+            // OpenAI shim goes Live only when a local model is loaded.
             record.state = match record.surface {
                 GatewaySurface::AnthropicMessages
                 | GatewaySurface::McpBridge
                 | GatewaySurface::ClaudeCode
                 | GatewaySurface::CostRouteLedger => SurfaceState::Live,
+                GatewaySurface::OpenAiShim if gen_live => SurfaceState::Live,
                 _ => SurfaceState::Disabled,
             };
         }
@@ -353,7 +430,56 @@ impl GatewayServer {
             ledger: Mutex::new(Ledger::default()),
             manifest,
             force_local,
+            generator: generator.map(Mutex::new),
         }
+    }
+
+    /// Whether a local generation model is loaded (the OpenAI chat shim answers).
+    pub fn has_generator(&self) -> bool {
+        self.generator.is_some()
+    }
+
+    /// Generate a completion for `prompt`, streaming decoded UTF-8 chunks to
+    /// `on_chunk` as tokens are produced (multi-byte characters are never split
+    /// across chunks). Returns the number of tokens generated, or an error
+    /// string when no model is loaded / generation fails. BOS is prepended.
+    pub fn generate_chat<F: FnMut(&str)>(
+        &self,
+        prompt: &str,
+        max_new: usize,
+        mut on_chunk: F,
+    ) -> Result<usize, String> {
+        use sovereign_logit_mask::LogitMask;
+        use sovereign_stream_decode::Utf8Stream;
+        let Some(engine) = &self.generator else {
+            return Err("no local model loaded".to_string());
+        };
+        let mut guard = engine.lock().map_err(|_| "generator poisoned".to_string())?;
+        let Generator { model, tokenizer } = &mut *guard;
+
+        let mut ids: Vec<usize> = Vec::new();
+        if let Some(bos) = tokenizer.bos_id() {
+            ids.push(bos as usize);
+        }
+        ids.extend(tokenizer.encode(prompt).into_iter().map(|t| t as usize));
+
+        let mask = LogitMask::new();
+        let mut stream = Utf8Stream::new();
+        let mut count = 0usize;
+        model
+            .generate_masked_with(&ids, max_new, 0, &mask, |tok| {
+                count += 1;
+                let chunk = stream.push(&tokenizer.token_bytes(tok as u32));
+                if !chunk.is_empty() {
+                    on_chunk(&chunk);
+                }
+            })
+            .map_err(|e| e.to_string())?;
+        let tail = stream.finish();
+        if !tail.is_empty() {
+            on_chunk(&tail);
+        }
+        Ok(count)
     }
 
     /// Snapshot the process memory to the durable store (atomic write). No-op,

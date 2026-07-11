@@ -1,0 +1,18 @@
+[package]
+name = "sovereign-hf-tokenizer"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Loads a HuggingFace `tokenizer.json` (GPT-2 byte-level BPE: explicit vocab + ranked merges + byte↔unicode map) and provides faithful encode/decode, so the sovereign quant runtime can run REAL trained models (Llama/SmolLM-family) instead of only the 256-vocab byte tokenizer. Pure Rust + serde_json — no external tokenizer, regex, or sentencepiece dependency (sovereignty-clean)."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }

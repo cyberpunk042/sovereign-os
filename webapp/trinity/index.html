@@ -1204,6 +1204,27 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
   <div class="tier" id="tier-auditor"><h3>Auditor</h3><div class="meta">loading…</div></div>
 </div>
 
+<!-- Live Sovereign Gateway (:8787) — the M048 provider-inversion daemon running
+     over the deterministic cortex engine: the live process the Trinity cycle
+     (decide → ratify → learn) actually executes on. Served read-only at /gateway
+     by trinity-api, which probes the gateway SERVER-SIDE (the browser can't
+     cross-origin fetch :8787). Surfaces the sovereignty tripwire (never-cloud-
+     spill), the cost/route ledger, the gateway surfaces, and the persisted
+     Memory-OS snapshot (activation-#2 durable memory made visible). -->
+<h2>live sovereign gateway <span class="muted" style="font-weight:400;font-size:.8rem">— sovereign-gatewayd · 127.0.0.1:8787 · the cortex daemon the Trinity runs on</span></h2>
+<div id="gw-tripwire" class="panel" style="border-left:3px solid var(--muted)"><span class="muted">probing gateway…</span></div>
+<div class="row" id="gw-stats">
+  <div class="stat"><div class="k">gateway</div><div class="v" id="gw-up">—</div></div>
+  <div class="stat"><div class="k">live surfaces</div><div class="v" id="gw-surfaces">—</div></div>
+  <div class="stat"><div class="k">requests</div><div class="v" id="gw-requests">—</div></div>
+  <div class="stat"><div class="k">learned</div><div class="v" id="gw-learned">—</div></div>
+  <div class="stat"><div class="k">persisted memory</div><div class="v" id="gw-memory">—</div></div>
+</div>
+<div class="row" style="align-items:flex-start;gap:.8rem">
+  <div class="tier" id="gw-ledger" style="flex:1 1 280px"><h3>cost / route ledger</h3><div class="meta">loading…</div></div>
+  <div class="tier" id="gw-surfacelist" style="flex:1 1 280px"><h3>gateway surfaces</h3><div class="meta">loading…</div></div>
+</div>
+
 <h2>refresh</h2>
 <div class="panel">
   <div class="row">
@@ -1739,8 +1760,86 @@ async function refreshTiers() {
   }
 }
 
+function renderGateway(g) {
+  const tw = el("gw-tripwire");
+  if (!g || g.up === false) {
+    el("gw-up").innerHTML = '<span class="pill bad">down</span>';
+    const err = (g && g.error) ? g.error : "unreachable";
+    tw.style.borderLeft = "3px solid var(--muted)";
+    tw.innerHTML = '<strong>gateway offline</strong> <span class="muted">— ' + esc(err) +
+      '. Start it: <code>systemctl start sovereign-gatewayd</code></span>';
+    // Persisted memory is on disk, so it renders even when the daemon is down.
+    const mem = (g && g.memory) ? g.memory : null;
+    el("gw-memory").innerHTML = (mem && mem.exists)
+      ? esc(mem.items) + ' <small class="muted">on disk</small>'
+      : '<span class="muted">—</span>';
+    el("gw-surfaces").textContent = "—";
+    el("gw-requests").textContent = "—";
+    el("gw-learned").textContent = "—";
+    el("gw-ledger").innerHTML = '<h3>cost / route ledger</h3><div class="meta muted">gateway offline</div>';
+    el("gw-surfacelist").innerHTML = '<h3>gateway surfaces</h3><div class="meta muted">gateway offline</div>';
+    return;
+  }
+  const h = g.health || {}, L = g.ledger || {}, mem = g.memory || {};
+  el("gw-up").innerHTML = '<span class="pill ok">up</span>';
+  el("gw-surfaces").textContent = (h.live_surfaces != null) ? h.live_surfaces : "—";
+  el("gw-requests").textContent = (h.total_requests != null) ? h.total_requests
+    : ((L.total_requests != null) ? L.total_requests : "—");
+  el("gw-learned").textContent = (L.learned != null) ? L.learned : "—";
+  el("gw-memory").innerHTML = mem.exists
+    ? esc(mem.items) + ' <small class="muted">items</small>'
+    : '<span class="muted">none</span>';
+
+  // Sovereignty tripwire — the never-cloud-spill invariant, front and centre.
+  const holds = (h.never_cloud_spill_holds !== false) && ((h.cloud_spills || 0) === 0);
+  if (holds) {
+    tw.style.borderLeft = "3px solid var(--good)";
+    tw.innerHTML = '<strong style="color:var(--good)">◆ SOVEREIGN</strong> ' +
+      '<span class="muted">— force-local ' + (h.force_local ? "on" : "off") +
+      ', 0 cloud spills across ' + esc(L.total_requests || 0) +
+      ' request(s). The never-cloud-spill invariant holds.</span>';
+  } else {
+    tw.style.borderLeft = "3px solid var(--bad)";
+    tw.innerHTML = '<strong style="color:var(--bad)">▲ CLOUD SPILL</strong> ' +
+      '<span class="muted">— ' + esc(h.cloud_spills || 0) +
+      ' request(s) left the box. The sovereignty invariant is BROKEN.</span>';
+  }
+
+  const roles = L.by_role || {};
+  const roleRows = Object.keys(roles).map(function(r) {
+    return '<div class="kv"><span class="k">' + esc(r) + '</span><span>' + esc(roles[r]) + '</span></div>';
+  }).join("") || '<div class="kv"><span class="k muted">no requests yet</span><span></span></div>';
+  el("gw-ledger").innerHTML =
+    '<h3>cost / route ledger</h3>' +
+    '<div class="kv"><span class="k">committed</span><span>' + esc(L.committed) + '</span></div>' +
+    '<div class="kv"><span class="k">learned</span><span>' + esc(L.learned) + '</span></div>' +
+    '<div class="kv"><span class="k">refused</span><span>' + esc(L.refused) + '</span></div>' +
+    '<div class="kv"><span class="k">predictions</span><span>' + esc(L.predictions) +
+      ' (' + esc(L.prediction_agreements) + ' agreed)</span></div>' +
+    '<div class="kv"><span class="k">cloud spills</span><span>' +
+      pill((L.cloud_spills || 0) === 0, "0", String(L.cloud_spills)) + '</span></div>' +
+    '<div class="meta" style="margin-top:.5rem">by role</div>' + roleRows;
+
+  const surfaces = g.surfaces || [];
+  const surfRows = surfaces.map(function(s) {
+    return '<div class="kv"><span class="k">' + esc(s.surface) + ' <code>' + esc(s.bind_path) + '</code></span><span>' +
+      (s.state === "live"
+        ? '<span class="pill ok">live</span>'
+        : '<span class="pill bad">' + esc(s.state) + '</span>') + '</span></div>';
+  }).join("") || '<div class="meta muted">no surfaces</div>';
+  el("gw-surfacelist").innerHTML = '<h3>gateway surfaces</h3>' + surfRows;
+}
+
+async function refreshGateway() {
+  try {
+    renderGateway(await fetchJSON("/gateway"));
+  } catch (e) {
+    renderGateway({up: false, error: e.message});
+  }
+}
+
 async function refreshAll() {
-  await Promise.all([refreshVersion(), refreshTiers()]);
+  await Promise.all([refreshVersion(), refreshTiers(), refreshGateway()]);
   el("last-refresh").textContent = new Date().toLocaleTimeString();
 }
 

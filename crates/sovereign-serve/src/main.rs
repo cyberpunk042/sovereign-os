@@ -292,24 +292,102 @@ fn run_model_dir(dir: &str, prompts: &[&str]) {
             return;
         }
     };
-    let mut llm = match load_llm(&st_bytes, &config, Tokenizer::default()) {
-        Ok(l) => l,
-        Err(e) => {
-            eprintln!(
-                "serve --model: load failed: {e}\n\
-                 (note: the default tokenizer is vocab 256; a real vocab bridge is a follow-up)"
-            );
-            return;
-        }
-    };
     let ps: Vec<&str> = if prompts.is_empty() {
         vec!["hello"]
     } else {
         prompts.to_vec()
     };
+
+    // Real-model path: a `<dir>/tokenizer.json` pairs the loaded weights with a
+    // real byte-level BPE vocab (SmolLM/Llama-family), so generation is genuine
+    // rather than vocab-256 gibberish. Falls through to the byte tokenizer when
+    // no tokenizer.json is present (the offline synthetic fixtures).
+    let tok_path = format!("{dir}/tokenizer.json");
+    if std::path::Path::new(&tok_path).exists() {
+        run_real_model(&st_bytes, &config, &tok_path, &ps);
+        return;
+    }
+
+    let mut llm = match load_llm(&st_bytes, &config, Tokenizer::default()) {
+        Ok(l) => l,
+        Err(e) => {
+            eprintln!(
+                "serve --model: load failed: {e}\n\
+                 (note: the default tokenizer is vocab 256; drop a tokenizer.json in \
+                 the model dir to run a real vocab)"
+            );
+            return;
+        }
+    };
     for p in ps {
         match llm.complete(p, 16, 0) {
             Ok(text) => println!("model  ok   | {p:?} -> {text:?}"),
+            Err(e) => println!("model  ERR  | {p:?} -> {e}"),
+        }
+    }
+}
+
+/// Run a REAL trained model: load the weights into a [`QuantModel`], pair them
+/// with a real HF byte-level BPE tokenizer, prepend BOS, and generate through
+/// the engine directly — the genuine end-to-end proof of local inference on a
+/// downloaded checkpoint (no external tokenizer/regex dep).
+fn run_real_model(
+    st_bytes: &[u8],
+    config: &sovereign_safetensors_loader::Config,
+    tok_path: &str,
+    ps: &[&str],
+) {
+    use sovereign_hf_tokenizer::HfBpeTokenizer;
+    use sovereign_logit_mask::LogitMask;
+    use sovereign_safetensors_loader::load;
+
+    let tok_bytes = match std::fs::read(tok_path) {
+        Ok(b) => b,
+        Err(e) => {
+            eprintln!("serve --model: cannot read {tok_path}: {e}");
+            return;
+        }
+    };
+    let tok = match HfBpeTokenizer::from_tokenizer_json(&tok_bytes) {
+        Ok(t) => t,
+        Err(e) => {
+            eprintln!("serve --model: bad tokenizer.json: {e}");
+            return;
+        }
+    };
+    let mut model = match load(st_bytes, config) {
+        Ok(m) => m,
+        Err(e) => {
+            eprintln!("serve --model: weight load failed: {e}");
+            return;
+        }
+    };
+    if model.vocab() != tok.vocab_size() {
+        eprintln!(
+            "serve --model: vocab mismatch: tokenizer {} vs model {}",
+            tok.vocab_size(),
+            model.vocab()
+        );
+        return;
+    }
+    println!(
+        "model loaded: vocab={} layers={} (real tokenizer: {} pieces)",
+        model.vocab(),
+        model.layers(),
+        tok.vocab_size()
+    );
+    let mask = LogitMask::new();
+    for p in ps {
+        let mut ids: Vec<usize> = Vec::new();
+        if let Some(bos) = tok.bos_id() {
+            ids.push(bos as usize);
+        }
+        ids.extend(tok.encode(p).into_iter().map(|t| t as usize));
+        match model.generate_masked(&ids, 24, 0, &mask) {
+            Ok(out) => {
+                let out_u32: Vec<u32> = out.iter().map(|&t| t as u32).collect();
+                println!("model  ok   | {p:?} -> {:?}", tok.decode(&out_u32));
+            }
             Err(e) => println!("model  ERR  | {p:?} -> {e}"),
         }
     }

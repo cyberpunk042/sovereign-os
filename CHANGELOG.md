@@ -12,6 +12,81 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — the gateway generates: OpenAI chat shim on :8787 + the cockpit talks to the brain (2026-07-11)
+
+`sovereign-gatewayd` stops being a pure decision surface and becomes a local generation brain: it
+loads real weights + a real tokenizer at startup and serves the OpenAI chat shim, and the cockpit
+chat console now talks to it.
+
+- **Local generation in the daemon.** When `SOVEREIGN_GATEWAY_MODEL` names a model dir
+  (`config.json` + `*.safetensors` + `tokenizer.json`), the gateway loads it into a `QuantModel` +
+  `HfBpeTokenizer` at startup and flips the manifest's `open-ai-shim` surface **Live**. Absent /
+  not-yet-fetched ⇒ it stays a pure decision surface (no error). New `GatewayServer::generate_chat`
+  streams decoded UTF-8 chunks token-by-token.
+- **`POST /v1/chat/completions` (OpenAI SSE).** A new streaming path in the HTTP transport emits
+  `data: {chunk}` deltas + a final `finish_reason`/`usage` chunk + `data: [DONE]` — the exact shape
+  `scripts/inference/prompt.py` consumes. A modelless gateway answers an honest `503`.
+- **`DecoderLayer: … + Send`** — a one-line supertrait so a built model can be owned by the
+  thread-per-connection daemon (every block is plain owned data, so `Send` was already satisfied;
+  no call-site changes; workspace + the inference-crate tests stay green).
+- **The cockpit talks to the brain.** `prompt.py` (the code-console / lm-status chat engine) now
+  targets the sovereign gateway (:8787) first, falling back to the tier router (:8080) when the
+  gateway is down or carries no model — chat degrades gracefully. Env-overridable; the honest-error
+  contract (SB-077) is preserved. Verified end-to-end: prompt.py → gateway :8787 → *"The capital of
+  France is"* → *" Paris. It is the largest city in France…"* (streamed SSE, real SmolLM-135M).
+- The `sovereign-gatewayd.service` unit gains the optional `SOVEREIGN_GATEWAY_MODEL` env.
+
+### Added — the sovereign brain does REAL inference: HF tokenizer bridge + real-model generation (2026-07-11)
+
+The Rust intelligence layer's weight loader was real but tokenizer-crippled (a hardcoded 256-vocab
+byte tokenizer, so any genuine 32k+ vocab model hit `VocabMismatch`). This closes the gap:
+`sovereign-serve --model DIR` now runs a real trained checkpoint and generates COHERENT text.
+
+- NEW crate **`sovereign-hf-tokenizer`** — a faithful loader for a HuggingFace `tokenizer.json`
+  (GPT-2 byte-level BPE: explicit vocab + ranked merges + the byte↔unicode alphabet). Pure Rust +
+  `serde_json` with a **hand-rolled GPT-2 pre-tokenizer** — no external `tokenizers`/`regex`/
+  `sentencepiece` dependency (the workspace rolls its own; sovereignty-clean). Validated against
+  SmolLM's real vocab (`the`→1195, ` the`→260, ` quick`→2365, individual-digit splitting, exact
+  round-trip decode); 6 unit tests.
+- **`sovereign-serve --model DIR`** now uses it when a `<dir>/tokenizer.json` is present: it loads
+  the weights into a `QuantModel` (the loader carve-out), pairs them with the real tokenizer,
+  prepends BOS, and generates through the engine directly — a **zero-ripple** path that touches
+  neither `QuantLlm` nor its tests. Falls back to the byte tokenizer for the vocab-256 fixtures.
+- **Proof (real SmolLM-135M, ~0.5 GB, CPU, 4.2 s for 3×24 tokens):**
+  - *"The capital of France is"* → *" Paris. It is the largest city in France…"*
+  - *"Once upon a time"* → *", there was a little girl named Lily. She loved to play with her friends…"*
+  This proves the whole sovereign transformer (RoPE, GQA, SwiGLU, RMSNorm, the HF q/k permute,
+  greedy sampling) is **numerically HF-Llama-compatible** — the runtime does genuine local
+  inference on real downloaded weights, not just synthetic filler.
+- NEW `scripts/intelligence/fetch-model.sh` — opt-in, manual-only helper to fetch a small real
+  model (default SmolLM-135M). Never wired into provisioning or first-boot.
+
+### Added — the sovereign gateway brain: durable memory + live cockpit (2026-07-11)
+
+The dormant Rust intelligence layer's `sovereign-gatewayd` (M048 provider-inversion gateway
+over the deterministic cortex engine) becomes a real, self-remembering daemon the cockpit can
+watch — the durable-memory + cockpit activations of the brain arc.
+
+- **Durable Memory-OS.** `MemoryStore` now serialises (serde); `sovereign-gatewayd` resumes
+  from `SOVEREIGN_GATEWAY_MEMORY` at boot and a background thread atomically snapshots the
+  learning Cortex (temp-write + rename; cadence `SOVEREIGN_GATEWAY_MEMORY_SAVE_SECS`). The unit
+  points it at `/var/lib/sovereign-os/memory/cortex.json` (`StateDirectory` — the one writable
+  path under `ProtectSystem=strict`). Verified end-to-end: an empty store stays empty (load
+  works, no cold re-seed), a fresh seed persists to disk (save works), and learned commits
+  accumulate across restarts (the store grew 3→4→5 over three daemon lifetimes). Recall no
+  longer resets each boot.
+- **Cockpit ↔ live gateway (read-only).** NEW `scripts/operator/lib/gateway_probe.py` — a
+  stdlib server-side probe of the running gateway (:8787): `GET /health` + `/admin/ledger` +
+  `/manifest` plus the persisted snapshot on disk, degrading to a structured `{up:false}` when
+  the daemon is down (a browser can't cross-origin fetch :8787, so the same-origin api daemons
+  proxy it). Wired into `trinity-api` (`GET /gateway`) and `model-health-api`
+  (`GET /api/models/gateway`); the **trinity** and **d-03-model-health** panels render a "Live
+  Sovereign Gateway" section — the never-cloud-spill sovereignty tripwire, the cost/route
+  ledger (committed / learned / by-role), the live gateway surfaces, and the persisted-memory
+  item count. New osctl verb `sovereign-osctl gateway [--json]` prints the same probe.
+  Read-only at every surface. `tests/lint/test_gateway_cockpit_contract.py` guards the shape +
+  graceful degradation; the 93 panel-contract lints stay green.
+
 ### Added — Live-reload for the dev operator panels (2026-07-11)
 
 Operator directive (verbatim): *"couldn't there be a live-reload feature now that I think

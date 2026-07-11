@@ -4801,8 +4801,13 @@ dependencies = [
  "serde_json",
  "sovereign-cortex",
  "sovereign-gateway",
+ "sovereign-hf-tokenizer",
+ "sovereign-logit-mask",
+ "sovereign-quant-model",
  "sovereign-router-7axis",
+ "sovereign-safetensors-loader",
  "sovereign-srp-scheduler",
+ "sovereign-stream-decode",
  "sovereign-value-plane",
 ]
 
@@ -4878,6 +4883,15 @@ dependencies = [
  "serde",
  "serde_json",
  "sovereign-count-min",
+]
+
+[[package]]
+name = "sovereign-hf-tokenizer"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
 ]
 
 [[package]]
@@ -6267,7 +6281,9 @@ dependencies = [
  "sovereign-context-budget",
  "sovereign-decoder-stack",
  "sovereign-ffn",
+ "sovereign-hf-tokenizer",
  "sovereign-llm",
+ "sovereign-logit-mask",
  "sovereign-pii-redact",
  "sovereign-quant-llm",
  "sovereign-rmsnorm",

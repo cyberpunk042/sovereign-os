@@ -54,8 +54,11 @@ pub enum LayerError {
 ///
 /// Object-safe, so a [`LayerStack`] can hold any mix of block types. Requires
 /// `Debug` (every block type derives it) so a stack of trait objects is itself
-/// `Debug`.
-pub trait DecoderLayer: std::fmt::Debug {
+/// `Debug`, and `Send` so a built model can be owned by a worker/daemon thread
+/// (the gateway serves generation from thread-per-connection handlers). Every
+/// block type is plain owned data (`Vec<f32>` weights + scalars), so `Send` is
+/// already satisfied — this only records the guarantee the trait object needs.
+pub trait DecoderLayer: std::fmt::Debug + Send {
     /// Consume `hidden`, advance this layer's KV cache, return the next hidden
     /// state. The error message is the underlying block's, stringified.
     fn step(&mut self, hidden: &[f32]) -> Result<Vec<f32>, String>;

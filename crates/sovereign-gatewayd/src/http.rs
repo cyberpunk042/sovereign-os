@@ -199,7 +199,7 @@ fn render(status: u16, resp: &GatewayResponse) -> HttpReply {
 }
 
 /// Build an error reply with a JSON body matching the daemon's error shape.
-fn err(status: u16, message: String) -> HttpReply {
+pub fn err(status: u16, message: String) -> HttpReply {
     render(status, &GatewayResponse::Error { message })
 }
 

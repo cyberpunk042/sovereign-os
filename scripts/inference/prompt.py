@@ -2,10 +2,11 @@
 """scripts/inference/prompt.py — the M058 single-prompt inference engine (SDD-062).
 
 The real `inference prompt <text>` verb + the shared engine the D-22 web chat proxy
-reuses. Routes an operator prompt through the LOOPBACK router
-(`SOVEREIGN_OS_ROUTER_URL/v1/chat/completions`, default 127.0.0.1:8080), which
-`classify()`s the tier + proxies/streams the backend's response body
-(`router.py`). Streams token deltas, measures `tokens_per_sec`, and publishes the
+reuses. Routes an operator prompt to the LOOPBACK sovereign gateway
+(`SOVEREIGN_OS_ROUTER_URL/v1/chat/completions`, default 127.0.0.1:8787 — the M048
+brain that generates locally on its OpenAI shim), falling back to the tier router
+(:8080, `router.py`) when the gateway is down/modelless. Streams token deltas,
+measures `tokens_per_sec`, and publishes the
 REAL measured telemetry to `/run/sovereign-os/model-state.json` (preserving the
 SDD-049 `loaded` set) + `model-latency.json`, so D-22's device grid shows live stats.
 
@@ -36,7 +37,13 @@ from typing import Any, Iterator
 
 _INFER = Path(__file__).resolve().parent
 
-ROUTER_URL = os.environ.get("SOVEREIGN_OS_ROUTER_URL", "http://127.0.0.1:8080")
+# The console + CLI talk to the SOVEREIGN GATEWAY first (M048, 127.0.0.1:8787) —
+# the local brain that owns routing AND, when a model is loaded, generates on its
+# OpenAI shim (/v1/chat/completions). It falls back to the tier inference router
+# (:8080) when the gateway is down or carries no model, so chat degrades
+# gracefully instead of breaking. Override either with the env vars.
+ROUTER_URL = os.environ.get("SOVEREIGN_OS_ROUTER_URL", "http://127.0.0.1:8787")
+FALLBACK_URL = os.environ.get("SOVEREIGN_OS_ROUTER_FALLBACK_URL", "http://127.0.0.1:8080")
 MODEL_STATE_PATH = Path(os.environ.get(
     "SOVEREIGN_OS_MODEL_STATE", "/run/sovereign-os/model-state.json"))
 MODEL_LATENCY_PATH = Path(os.environ.get(
@@ -94,17 +101,32 @@ def _read_json(path: Path) -> dict[str, Any]:
 
 
 def _stream_completion(body: dict[str, Any], timeout: int) -> Iterator[str]:
-    """POST to the loopback router /v1/chat/completions (stream:true) and yield raw
-    SSE `data:` payload strings. Isolated for testability (monkeypatch this)."""
+    """POST to the sovereign gateway /v1/chat/completions (stream:true) and yield raw
+    SSE `data:` payload strings; fall back to the tier router (:8080) when the gateway
+    is unreachable or carries no model (HTTP 5xx). Isolated for testability (monkeypatch
+    this). Raises the last transport error only when EVERY target fails."""
     data = json.dumps(body).encode("utf-8")
-    req = urllib.request.Request(f"{ROUTER_URL}/v1/chat/completions", data=data,
-                                 headers={"Content-Type": "application/json"},
-                                 method="POST")
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        for raw in resp:
-            line = raw.decode("utf-8", "replace").strip()
-            if line.startswith("data:"):
-                yield line[5:].strip()
+    urls = [ROUTER_URL] + ([FALLBACK_URL] if FALLBACK_URL and FALLBACK_URL != ROUTER_URL else [])
+    last_err: Exception | None = None
+    for base in urls:
+        req = urllib.request.Request(f"{base}/v1/chat/completions", data=data,
+                                     headers={"Content-Type": "application/json"},
+                                     method="POST")
+        try:
+            # HTTPError (e.g. gateway 503 "no model") is a URLError subclass — caught,
+            # so a modelless gateway transparently defers to the tier router.
+            resp = urllib.request.urlopen(req, timeout=timeout)
+        except (urllib.error.URLError, OSError) as e:
+            last_err = e
+            continue
+        with resp:
+            for raw in resp:
+                line = raw.decode("utf-8", "replace").strip()
+                if line.startswith("data:"):
+                    yield line[5:].strip()
+            return  # streamed to completion from this target
+    if last_err is not None:
+        raise last_err
 
 
 def _bound_messages(messages: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], str | None]:
@@ -182,7 +204,8 @@ def run(text: str = "", *, messages: list[dict[str, Any]] | None = None,
                     yield {"type": "token", "text": delta}
     except (urllib.error.URLError, ConnectionError, OSError, TimeoutError) as e:
         yield {"type": "error", "tier": tier,
-               "error": f"router unreachable at {ROUTER_URL} ({e}) — start it: "
+               "error": f"router unreachable at {ROUTER_URL} (fallback {FALLBACK_URL}) ({e}) — "
+               "start the sovereign gateway (sovereign-gatewayd on :8787) or run "
                "`sovereign-osctl inference start router` (backend is hardware-gated)"}
         return
     elapsed = max(time.monotonic() - started, 1e-6)
