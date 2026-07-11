@@ -1824,31 +1824,70 @@ const ENDPOINTS = ["/version", "/routes", "/collisions", "/health", "/discover",
 function demoActive(){return !!(window.soDemo&&window.soDemo.on());}
 const DEMO_MASTER = {
   "/version": {version:"demo/v0.2"},
-  "/routes": {aggregator_port:8443, count:3, routes:[
+  "/routes": {aggregator_port:8443, count:7, routes:[
     {slug:"demo/d-09-hardware-pressure", port:8409, healthz_path:"/healthz", subpath:"/d-09", label:"Hardware Pressure", source_repo:"demo/sovereign-os"},
+    {slug:"demo/d-03-model-health", port:8403, healthz_path:"/healthz", subpath:"/d-03", label:"Model Health", source_repo:"demo/sovereign-os"},
     {slug:"demo/d-04-costs", port:8404, healthz_path:"/healthz", subpath:"/d-04", label:"Costs", source_repo:"demo/sovereign-os"},
-    {slug:"demo/code-console", port:8412, healthz_path:"/healthz", subpath:"/code-console", label:"Code Console", source_repo:"demo/sovereign-os"}
+    {slug:"demo/d-01-active-sessions", port:8401, healthz_path:"/healthz", subpath:"/d-01", label:"Active Sessions", source_repo:"demo/sovereign-os"},
+    {slug:"demo/d-21-lm-orchestration", port:8421, healthz_path:"/healthz", subpath:"/d-21", label:"LM Orchestration", source_repo:"demo/sovereign-os"},
+    {slug:"demo/code-console", port:8412, healthz_path:"/healthz", subpath:"/code-console", label:"Code Console", source_repo:"demo/sovereign-os"},
+    {slug:"demo/d-22-lm-status-operability", port:8422, healthz_path:"/healthz", subpath:"/d-22", label:"LM Status & Operability", source_repo:"demo/sovereign-os"}
   ]},
-  "/health": {reachable:3, count:3, probes:[{port:8409,reachable:true},{port:8404,reachable:true},{port:8412,reachable:true}]},
+  "/health": {reachable:7, count:7, probes:[
+    {port:8409,reachable:true},{port:8403,reachable:true},{port:8404,reachable:true},
+    {port:8401,reachable:true},{port:8421,reachable:true},{port:8412,reachable:true},{port:8422,reachable:true}
+  ]},
   "/collisions": {has_collisions:false, port_collisions:{}, subpath_collisions:{}},
-  "/discover": {count:2, discovered:[
+  "/discover": {count:4, discovered:[
     {slug:"demo/selfdef-networking", port:8512, subpath:"/d-12", auth_tier:"L1", source_repo:"demo/selfdef"},
-    {slug:"demo/selfdef-audit", port:8516, subpath:"/d-16", auth_tier:"L1", source_repo:"demo/selfdef"}
+    {slug:"demo/selfdef-capability-tokens", port:8514, subpath:"/d-14", auth_tier:"L1", source_repo:"demo/selfdef"},
+    {slug:"demo/selfdef-audit", port:8516, subpath:"/d-16", auth_tier:"L1", source_repo:"demo/selfdef"},
+    {slug:"demo/selfdef-quarantine", port:8517, subpath:"/d-17", auth_tier:"L2", source_repo:"demo/selfdef"}
   ], errors:[], manifest_dir:"demo/etc/sovereign-os/dashboards"},
-  "/toggles": {enabled_count:3, dashboards:[
+  "/toggles": {enabled_count:6, dashboards:[
     {slug:"demo/d-09-hardware-pressure", toggleable:true, enabled:true},
+    {slug:"demo/d-03-model-health", toggleable:true, enabled:true},
     {slug:"demo/d-04-costs", toggleable:true, enabled:true},
-    {slug:"demo/code-console", toggleable:true, enabled:true}
+    {slug:"demo/d-01-active-sessions", toggleable:true, enabled:true},
+    {slug:"demo/d-21-lm-orchestration", toggleable:true, enabled:true},
+    {slug:"demo/code-console", toggleable:true, enabled:true},
+    {slug:"demo/d-22-lm-status-operability", toggleable:true, enabled:false}
   ]},
-  "/catalog": {categories:[{id:"demo/compute", label:"Compute", blurb:"demo/ sample category"}], dashboards:[
-    {slug:"demo/d-09-hardware-pressure", label:"Hardware Pressure", description:"demo/ sample dashboard", status:"live", category:"demo/compute", path:"/d-09", cli:"demo/ sovereign-osctl dashboards enable d-09"}
+  "/catalog": {categories:[
+    {id:"demo/compute", label:"Compute", blurb:"demo/ models, hardware, cost — the inference substrate"},
+    {id:"demo/defense", label:"Defense", blurb:"demo/ the selfdef spine — trust, audit, quarantine"},
+    {id:"demo/operate", label:"Operate", blurb:"demo/ hands-on surfaces — console, sessions, rollback"}
+  ], dashboards:[
+    {slug:"demo/d-09-hardware-pressure", label:"Hardware Pressure", description:"demo/ GPU + RAM + ZFS pressure at a glance", status:"live", category:"demo/compute", path:"/d-09"},
+    {slug:"demo/d-03-model-health", label:"Model Health", description:"demo/ per-backend liveness + latency", status:"live", category:"demo/compute", path:"/d-03"},
+    {slug:"demo/d-04-costs", label:"Costs", description:"demo/ blended spend vs the pre-mission baseline", status:"snapshot", category:"demo/compute", path:"/d-04"},
+    {slug:"demo/d-20-peace-machine-health", label:"Peace Machine Health", description:"demo/ the peace-check validator verdict", status:"live", category:"demo/defense", path:"/d-20"},
+    {slug:"demo/d-18-trust-scores", label:"Trust Scores", description:"demo/ per-tool trust ledger", status:"snapshot", category:"demo/defense", path:"/d-18"},
+    {slug:"demo/d-17-quarantine", label:"Quarantine", description:"demo/ isolated artifacts awaiting review", status:"live", category:"demo/defense", path:"/d-17"},
+    {slug:"demo/code-console", label:"Code Console", description:"demo/ the operator's exec surface", status:"live", category:"demo/operate", path:"/code-console"},
+    {slug:"demo/d-08-rollback-points", label:"Rollback Points", description:"demo/ ZFS snapshots you can roll back to", status:"planned", category:"demo/operate", cli:"sovereign-osctl rollback list"}
   ]},
-  "/control-systems": {systems:[]},
-  "/feature-coverage": {mapped_to_dashboard:20, cli_only_waived:5, verb_families_total:25},
-  "/api/m060/health": {state:"online", artifacts_present:10, artifacts_expected:10, newest_age_seconds:42, artifacts:[]},
+  "/control-systems": {systems:[
+    {id:"demo/profiles-switch"},{id:"demo/profiles-generate-runtime"},{id:"demo/peace-check"},
+    {id:"demo/dashboards-toggle"},{id:"demo/rollback-apply"},{id:"demo/quarantine-release"},
+    {id:"demo/trust-recompute"},{id:"demo/audit-export"}
+  ]},
+  "/feature-coverage": {mapped_to_dashboard:22, cli_only_waived:5, verb_families_total:27},
+  "/api/m060/health": {state:"online", artifacts_present:10, artifacts_expected:10, newest_age_seconds:42, artifacts:[
+    {artifact:"active-profile.json", present:true, parses_as_json:true, age_seconds:42, last_publish_at:"demo/2026-07-11T00:00:42Z"},
+    {artifact:"rules.json", present:true, parses_as_json:true, age_seconds:53, last_publish_at:"demo/2026-07-11T00:00:31Z"},
+    {artifact:"grants.json", present:true, parses_as_json:true, age_seconds:61, last_publish_at:"demo/2026-07-11T00:00:23Z"},
+    {artifact:"capability-tokens.json", present:true, parses_as_json:true, age_seconds:48, last_publish_at:"demo/2026-07-11T00:00:36Z"},
+    {artifact:"sandboxes.json", present:true, parses_as_json:true, age_seconds:39, last_publish_at:"demo/2026-07-11T00:00:45Z"},
+    {artifact:"audit.json", present:true, parses_as_json:true, age_seconds:44, last_publish_at:"demo/2026-07-11T00:00:40Z"},
+    {artifact:"quarantine.json", present:true, parses_as_json:true, age_seconds:57, last_publish_at:"demo/2026-07-11T00:00:27Z"},
+    {artifact:"trust-scores.json", present:true, parses_as_json:true, age_seconds:50, last_publish_at:"demo/2026-07-11T00:00:34Z"}
+  ]},
   "/api/ms022/sse-quota": {state:"ok", metrics:{global_active:3, global_cap:64, global_saturation:0.05, per_token_saturated:0}},
   "/api/four-watchdog/state": {state:"ok", metrics:{worst_severity:0, observer_age_seconds:12}}
 };
+// SDD-134 — a healthy per-mirror snapshot for the M060 grid demo path (all online).
+const DEMO_M060_MIRROR = {state:"online", captured_at:"demo/2026-07-11T00:00:42Z"};
 async function fetchJSON(path) {
   if (demoActive()) return DEMO_MASTER[path] !== undefined ? DEMO_MASTER[path] : {};
   const res = await fetch(path, {headers: {"Accept": "application/json"}});
@@ -2035,6 +2074,7 @@ const M060_MIRRORS = [
 ];
 
 async function fetchMirrorStatus(m) {
+  if (demoActive()) return {id: m.id, label: m.label, subpath: m.subpath, state: DEMO_M060_MIRROR.state, captured_at: DEMO_M060_MIRROR.captured_at};
   try {
     const r = await fetch(m.snapshot, {headers: {"Accept": "application/json"}});
     if (!r.ok) return {id: m.id, label: m.label, subpath: m.subpath, state: "unknown", err: "HTTP " + r.status};
@@ -2055,7 +2095,8 @@ async function renderM060HealthBanner() {
   const banner = el("m060-health-banner");
   if (!banner) return;
   let payload;
-  try {
+  if (demoActive()) { payload = DEMO_MASTER["/api/m060/health"]; }
+  else try {
     const r = await fetch("/api/m060/health", {headers: {"Accept": "application/json"}});
     payload = r.ok ? await r.json() : null;
   } catch (e) { payload = null; }
@@ -2094,7 +2135,8 @@ async function renderMS022SseQuotaBanner() {
   const banner = el("ms022-sse-quota-banner");
   if (!banner) return;
   let payload;
-  try {
+  if (demoActive()) { payload = DEMO_MASTER["/api/ms022/sse-quota"]; }
+  else try {
     const r = await fetch("/api/ms022/sse-quota", {headers: {"Accept": "application/json"}});
     payload = r.ok ? await r.json() : null;
   } catch (e) { payload = null; }
@@ -2145,7 +2187,8 @@ async function renderFourWatchdogBanner() {
   const banner = el("four-watchdog-banner");
   if (!banner) return;
   let payload;
-  try {
+  if (demoActive()) { payload = DEMO_MASTER["/api/four-watchdog/state"]; }
+  else try {
     const r = await fetch("/api/four-watchdog/state", {headers: {"Accept": "application/json"}});
     payload = r.ok ? await r.json() : null;
   } catch (e) { payload = null; }
@@ -2193,6 +2236,13 @@ async function renderApparmorBanner() {
   // Fetch the node_exporter /metrics endpoint and grep for the
   // 4 canonical AppArmor gauges. Honest-offline when unreachable.
   let metrics_text = null;
+  // SDD-134 — DEMO shows an enforcing profile (healthy front door); zero network.
+  if (demoActive()) {
+    metrics_text = 'selfdef_apparmor_textfile_emit_failed 0\n'
+      + 'selfdef_apparmor_profile_loaded{profile="/usr/bin/selfdefd"} 1\n'
+      + 'selfdef_apparmor_profile_enforce{profile="/usr/bin/selfdefd"} 1\n'
+      + 'selfdef_apparmor_profile_complain{profile="/usr/bin/selfdefd"} 0\n';
+  }
   if (!demoActive()) try {
     const r = await fetch("/api/node-exporter/metrics", {headers: {"Accept": "text/plain"}});
     if (r.ok) metrics_text = await r.text();
@@ -2258,6 +2308,11 @@ async function renderApparmorBanner() {
 // so the grid renderer can drill from per-artifact state (corrupt /
 // stale / fresh) into the right tile. Single fetch, then merge.
 async function fetchM060ArtifactHealthMap() {
+  if (demoActive()) {
+    const map = {};
+    for (const a of (DEMO_MASTER["/api/m060/health"].artifacts || [])) map[a.artifact] = a;
+    return map;
+  }
   try {
     const r = await fetch("/api/m060/health", {headers: {"Accept": "application/json"}});
     if (!r.ok) return null;
