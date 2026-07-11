@@ -32,7 +32,7 @@ import re
 import sys
 import tempfile
 from pathlib import Path
-from typing import Any
+from typing import Any, NoReturn
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 REPO_ORCH_DIR = REPO_ROOT / "profiles" / "orchestration"
@@ -67,7 +67,7 @@ def _load_catalog() -> dict[str, dict]:
     return {str(m.get("id")): m for m in mh.load_catalog()}
 
 
-def _fail(msg: str, code: int = 2) -> "NoReturn":  # type: ignore[valid-type]
+def _fail(msg: str, code: int = 2) -> NoReturn:
     print(f"error: {msg}", file=sys.stderr)
     raise SystemExit(code)
 
