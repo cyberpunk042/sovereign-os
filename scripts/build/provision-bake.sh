@@ -196,6 +196,48 @@ if [ "${SOVEREIGN_OS_BAKE_GUI:-}" = "1" ] && [ -x "${REPO}/scripts/install/insta
   fi
 fi
 
+# ── 5c. live-reload on the installed box (SDD-203 — ON by default) ────────
+# The operator keeps developing on the LIVE /opt/sovereign-os checkout after
+# install (/usr/local/lib/sovereign-os → /opt/sovereign-os). Two moving parts,
+# both dev-ergonomic and toggleable off for a locked build (bake.livereload=0):
+#   • the broker (sovereign-livereload-broker.service) watches the tree + offers
+#     each open panel a refresh when something IT depends on changes — webapp +
+#     shelled-script edits already take effect on the next request (the daemons
+#     read fresh), so those become a pure refresh;
+#   • each enabled panel API is wrapped through reload-run.py via a DROP-IN, so
+#     an edit to a daemon's OWN .py re-execs it IN PLACE (same PID, no kill, no
+#     systemctl restart). The shipped unit files stay byte-identical — the
+#     override lives only in /etc/systemd/system/<unit>.d/livereload.conf.
+if [ "${SOVEREIGN_OS_BAKE_LIVERELOAD:-1}" = "1" ] && [ -d "${REPO}/systemd/system" ]; then
+  _RR="/usr/local/lib/sovereign-os/scripts/operator/lib/reload-run.py"
+  if [ -f "${REPO}/systemd/system/sovereign-livereload-broker.service" ]; then
+    install -m 644 "${REPO}/systemd/system/sovereign-livereload-broker.service" \
+      /etc/systemd/system/ 2>/dev/null || true
+    systemctl enable sovereign-livereload-broker.service >/dev/null 2>&1 || true
+  fi
+  # Wrap every ENABLED sovereign python service (installed to /etc by §5) in the
+  # self-re-exec launcher. Read the ORIGINAL ExecStart script from the installed
+  # unit so the override is exact; regenerated each provision (idempotent).
+  _lr=0
+  for _u in /etc/systemd/system/sovereign-*-api.service \
+            /etc/systemd/system/sovereign-dashboards.service; do
+    [ -f "${_u}" ] || continue
+    _base="$(basename "${_u}")"
+    _script="$(grep -oE '/usr/local/lib/sovereign-os/scripts/operator/[a-z0-9-]+\.py' "${_u}" | head -1)"
+    [ -n "${_script}" ] || continue
+    mkdir -p "/etc/systemd/system/${_base}.d"
+    {
+      printf '[Service]\n'
+      printf 'Environment=SOVEREIGN_OS_LIVERELOAD=1\n'
+      printf 'ExecStart=\n'
+      printf 'ExecStart=/usr/bin/python3 %s %s\n' "${_RR}" "${_script}"
+    } > "/etc/systemd/system/${_base}.d/livereload.conf"
+    _lr=$((_lr+1))
+  done
+  systemctl daemon-reload >/dev/null 2>&1 || true
+  log "live-reload ON — broker enabled + ${_lr} service(s) wrapped for in-place self-re-exec (edit /opt/sovereign-os live; bake.livereload=0 to disable)"
+fi
+
 # ── 6. first-boot hardware automation (installs + enables the target) ─────
 # The wired first-boot units (ConditionFirstBoot=yes) run the hardware-specific
 # setup on the real machine's first boot: vfio-bind, network-vlan, tetragon

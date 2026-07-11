@@ -1097,6 +1097,71 @@ a11y; contract test catches drift.
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
 })();
 </script>
+<!-- LIVERELOAD:BEGIN M203 — dev live-reload client (SDD-203). LOOPBACK-ONLY and
+     READ-ONLY: a GET EventSource to the `make panel` broker (127.0.0.1:8136)
+     that offers a refresh when THIS panel's own assets, data daemon, or the
+     scripts it shells actually change. It never mutates server state (a refresh
+     is navigation — consistent with the chrome's "navigates + explains, never
+     executes" charter), fires only on a real relevant change (the broker scopes
+     per panel), and is completely inert unless the loopback broker is running,
+     so it ships harmless in the image. Backing broker:
+     scripts/operator/livereload-broker.py; daemon self-reload:
+     scripts/operator/lib/reload-run.py. -->
+<script>
+(function(){
+  "use strict";
+  if (window.__soLiveReload) return; window.__soLiveReload = true;
+  try {
+    var h = location.hostname;
+    if (h!=="127.0.0.1" && h!=="localhost" && h!=="::1" && h!=="[::1]") return; // dev / loopback only
+    var PORT = 8136;                          // sovereign-os live-reload broker (make panel)
+    var seg = /^\/([a-z0-9][a-z0-9-]*)\//.exec(location.pathname);  // hub-served: /<slug>/
+    var qs = "?port=" + encodeURIComponent(location.port||"")
+           + (seg ? "&panel=" + encodeURIComponent(seg[1]) : "");  // own-port: broker maps port→slug
+    var es=null, fails=0, hits=0, box=null;
+    function build(){
+      box=document.createElement("div");
+      box.setAttribute("role","status"); box.setAttribute("aria-live","polite");
+      box.style.cssText="position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:2147483000;"
+        +"display:flex;align-items:center;gap:.55rem;padding:.5rem .55rem .5rem .82rem;border-radius:10px;"
+        +"background:var(--panel,#171717);color:var(--fg,#e6e6e6);"
+        +"border:1px solid color-mix(in srgb,var(--accent,#9bd1ff) 45%,transparent);"
+        +"box-shadow:0 8px 30px rgba(0,0,0,.5);max-width:92vw;"
+        +"font:500 13px/1.35 ui-sans-serif,-apple-system,Segoe UI,Roboto,sans-serif;";
+      var dot=document.createElement("span");
+      dot.style.cssText="width:8px;height:8px;border-radius:50%;background:var(--good,#7ad17a);flex:none;";
+      var msg=document.createElement("span"); msg.className="so-lr-msg";
+      var refresh=document.createElement("button"); refresh.type="button"; refresh.textContent="Refresh";
+      refresh.style.cssText="cursor:pointer;font:inherit;padding:.22rem .62rem;border-radius:7px;color:var(--fg,#e6e6e6);"
+        +"border:1px solid var(--accent,#9bd1ff);background:color-mix(in srgb,var(--accent,#9bd1ff) 16%,transparent);";
+      refresh.addEventListener("click",function(){ location.reload(); });
+      var close=document.createElement("button"); close.type="button"; close.textContent="✕";
+      close.setAttribute("aria-label","dismiss");
+      close.style.cssText="cursor:pointer;font:inherit;padding:.22rem .5rem;border-radius:7px;"
+        +"border:1px solid transparent;background:transparent;color:var(--muted,#8a8a8a);";
+      close.addEventListener("click",function(){ if(box&&box.parentNode) box.parentNode.removeChild(box); box=null; hits=0; });
+      box.appendChild(dot); box.appendChild(msg); box.appendChild(refresh); box.appendChild(close);
+      (document.body||document.documentElement).appendChild(box);
+      return msg;
+    }
+    function toast(){
+      hits++;
+      var msg = box ? box.querySelector(".so-lr-msg") : build();
+      msg.textContent = hits>1 ? ("Panel updated · "+hits+" changes — refresh to load")
+                               : "This panel updated — refresh to load";
+    }
+    function connect(){
+      try { es=new EventSource("http://127.0.0.1:"+PORT+"/events"+qs); }
+      catch(e){ return; }
+      es.onopen=function(){ fails=0; };
+      es.addEventListener("reload",function(){ toast(); });
+      es.onerror=function(){ if(++fails>=5 && es){ es.close(); es=null; } }; // broker absent → quit quietly
+    }
+    connect();
+  } catch(e){ /* live-reload is best-effort; it must never break a panel */ }
+})();
+</script>
+<!-- LIVERELOAD:END M203 -->
 <!-- APP-SHELL:END M067 -->
 
 

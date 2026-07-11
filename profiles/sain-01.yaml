@@ -317,6 +317,9 @@ provisioning:
                                    # NOTE: adds ~1GB+ (gnome-core + gdm3 + firefox). The root-reflash install
                                    # (install-sovereign-root.sh) always installs the GUI regardless; set this
                                    # false to keep the flash/emulate appliance image headless. Non-fatal on failure.
+    livereload: true               # SDD-203: keep developing on the live /opt/sovereign-os checkout after flashing —
+                                   # a broker offers open panels a refresh + each panel API self-re-execs in place
+                                   # (no kill) on an edit to its own .py. Set false for a locked, non-dev image.
   firstboot: true                  # install + enable sovereign-firstboot.target + hardware hooks
   posture: installed-off           # selfdef + ghostproxy installed but NOT started on boot
   # APC Smart-UPS (SMT2200C, SmartConnect) power management. provision-bake arms

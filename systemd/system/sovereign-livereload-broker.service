@@ -1,0 +1,47 @@
+[Unit]
+Description=Sovereign live-reload broker — dev file-watcher + SSE refresh-notify (R559, SDD-203)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/operator/livereload-broker.py
+# ONE loopback file-watcher for the whole panel fleet. When the operator keeps
+# developing on the installed box (editing the live /opt/sovereign-os checkout),
+# open panels are offered a refresh the moment something they depend on changes.
+# Read-only: it watches files + streams change notices; it never writes, never
+# executes, never leaves 127.0.0.1. Enabled by provision-bake ONLY when
+# live-reload is baked on (SOVEREIGN_OS_BAKE_LIVERELOAD); a locked build omits it
+# and the in-panel client falls inert.
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/lib/sovereign-os/scripts/operator/livereload-broker.py
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+# Loopback-only broker; the port is fixed in the daemon (127.0.0.1:8136).
+Environment=SOVEREIGN_OS_LIVERELOAD_PORT=8136
+
+# R171 defense-in-depth (Layer 1 lint enforced). The broker only READS the
+# repo tree (webapp/ + scripts/ + config/) to watch mtimes — no write path, so
+# ProtectSystem=strict (whole fs read-only) is exactly right; no ReadWritePaths.
+ProtectSystem=strict
+ProtectHome=true
+ProtectClock=true
+ProtectHostname=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+NoNewPrivileges=true
+PrivateTmp=true
+# Loopback default — capability lockdown matches.
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+
+[Install]
+WantedBy=multi-user.target

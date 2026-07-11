@@ -371,6 +371,7 @@ properties:
           root_ghostproxy: { type: boolean }
           dashboards: { type: boolean }
           gui: { type: boolean }   # install a desktop on the mkosi image (root-reflash always installs GUI)
+          livereload: { type: boolean }   # SDD-203 live-reload on the installed box (default ON; false = locked build)
       firstboot: { type: boolean }
       posture:
         type: string

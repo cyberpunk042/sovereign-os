@@ -26,6 +26,26 @@ def _read(p: Path) -> str:
     return p.read_text(encoding="utf-8")
 
 
+def _dry_run_env(**overrides) -> dict:
+    """A DRY-RUN env isolated from the operator's ACTIVE runtime profile.
+
+    start-oracle-core.sh's `runtime_profile_override ORACLE_MODEL` reads the
+    active runtime profile from `$SOVEREIGN_OS_RUNTIME_PROFILE` /
+    `/etc/sovereign-os/active-runtime-profile` / `~/.sovereign-os/active-runtime-profile`
+    and, if it names a model, fills an empty ORACLE_MODEL from it — which on a
+    developer box (where a profile like `high-concurrency-burst` is active and
+    pins a specific oracle model) DEFEATS these quantization→model default
+    tests and makes them fail only there, not on a clean CI box. Neutralise all
+    three sources so the test hermetically exercises the script's OWN default
+    selection logic."""
+    env = {k: v for k, v in os.environ.items()
+           if k != "SOVEREIGN_OS_RUNTIME_PROFILE"}
+    env["HOME"] = "/nonexistent"      # no ~/.sovereign-os/active-runtime-profile
+    env["SOVEREIGN_OS_DRY_RUN"] = "1"
+    env.update(overrides)
+    return env
+
+
 # --- Structural ---
 
 
@@ -219,12 +239,8 @@ def test_dry_run_smoke():
     result = subprocess.run(
         ["bash", str(ORACLE_SH)],
         capture_output=True, text=True, timeout=15,
-        env={
-            **os.environ,
-            "SOVEREIGN_OS_DRY_RUN": "1",
-            # Force a clean env so detector branches don't surprise us
-            "ORACLE_QUANTIZATION": "",
-        },
+        # Force a clean env so detector branches don't surprise us
+        env=_dry_run_env(ORACLE_QUANTIZATION=""),
     )
     assert result.returncode == 0, (
         f"DRY_RUN failed: stderr={result.stderr[:500]}, "
@@ -240,12 +256,7 @@ def test_dry_run_explicit_nvfp4_selects_nvfp4_path():
     result = subprocess.run(
         ["bash", str(ORACLE_SH)],
         capture_output=True, text=True, timeout=15,
-        env={
-            **os.environ,
-            "SOVEREIGN_OS_DRY_RUN": "1",
-            "ORACLE_QUANTIZATION": "nvfp4",
-            "ORACLE_MODEL": "",
-        },
+        env=_dry_run_env(ORACLE_QUANTIZATION="nvfp4", ORACLE_MODEL=""),
     )
     assert result.returncode == 0
     combined = result.stdout + result.stderr
@@ -258,12 +269,7 @@ def test_dry_run_explicit_bf16_selects_bf16_path():
     result = subprocess.run(
         ["bash", str(ORACLE_SH)],
         capture_output=True, text=True, timeout=15,
-        env={
-            **os.environ,
-            "SOVEREIGN_OS_DRY_RUN": "1",
-            "ORACLE_QUANTIZATION": "bf16",
-            "ORACLE_MODEL": "",
-        },
+        env=_dry_run_env(ORACLE_QUANTIZATION="bf16", ORACLE_MODEL=""),
     )
     assert result.returncode == 0
     combined = result.stdout + result.stderr

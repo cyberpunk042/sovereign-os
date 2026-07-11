@@ -12,6 +12,60 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — Live-reload for the dev operator panels (2026-07-11)
+
+Operator directive (verbatim): *"couldn't there be a live-reload feature now that I think
+about it that is enabled by default ? so that I dont have to redo make panel everytime. one
+way that doesn't even need to kill anything if possible ? aren't those static assets ? in
+the page if a panel has updated there could be a notification at the bottom center and offer
+to refresh the page. and we dont reload something for nothing I guess but the reload include
+the services / apis behind. no matter how complex and long we can take the time. no rush, do
+this right and performant"*.
+
+Editing a panel no longer needs a stop + rerun — in dev (`make panel`) AND on a flashed box
+(the operator keeps developing on the live `/opt/sovereign-os` checkout). Shipped ON by
+default; a locked build sets `bake.livereload:false`. See SDD-203.
+
+- Round 559 — NEW `scripts/operator/lib/reload-run.py`: a **self-re-exec launcher** every
+  panel daemon runs through. It `runpy`-runs the daemon in-process (same PID, owns the
+  socket) and, on an edit to the daemon's OWN `.py`, `os.execv`s the **same process image**
+  in place — no external kill, no `Ctrl-C` (the operator's "doesn't even need to kill
+  anything"); the socket re-binds in milliseconds (`allow_reuse_address`). Lazy-import files
+  appearing later are absorbed (never bounce mid-request); a crashed daemon stays recoverable
+  (a non-daemon watcher re-execs on the next save). Disabled it is a transparent pass-through.
+- Round 559 — NEW `scripts/operator/livereload-broker.py`: ONE loopback file-watcher on
+  `:8136` for the whole fleet (performant — not one watcher per daemon) that pushes
+  `event: reload` over SSE **only for paths a panel depends on** (its `webapp/<slug>/`,
+  `webapp/_shared/`, its daemon source + the `scripts/…`/`config/…` that daemon shells —
+  parsed once at startup, stdlib-only). Nothing reloads "for nothing". Read-only; never
+  leaves 127.0.0.1; not shipped/enabled in the image.
+- Round 559 — the SDD-067 app-shell block (`webapp/_shared/app-shell-snippet.html`, synced
+  byte-identical to all 52 adopted panels) gains a small `EventSource` client that shows a
+  **bottom-centre "This panel updated — Refresh"** toast on a relevant change. It is
+  loopback-gated (inert in the image), **non-mutating** (a GET stream + a `location.reload()`
+  navigation — adds no `fetch`/XHR/POST, so `test_app_shell_chrome_is_non_mutating` stays
+  green), coalesces a burst into one toast, and never auto-reloads (it *offers*, per "offer
+  to refresh the page"). Static HTML + shelled-script edits need NO restart (a pure refresh);
+  only a daemon's own `.py` triggers the in-place re-exec ("include the services / apis
+  behind").
+- Round 559 — `scripts/operator/panel.sh` starts the broker first, then wraps the two main
+  servers + every panel daemon in `reload-run.py`. **ON by default**; opt out
+  `SOVEREIGN_OS_LIVERELOAD=0`.
+- Round 559 — **installed-box wiring** (so it works on a flashed OS, no `make panel`): NEW
+  `systemd/system/sovereign-livereload-broker.service` (R171-hardened, loopback :8136);
+  `scripts/build/provision-bake.sh` §5c (mkosi image) + `scripts/install/install-gui-dashboards.sh`
+  §3c (root-reflash) enable the broker and generate a systemd **drop-in** per enabled panel
+  API + the hub that wraps `ExecStart` through `reload-run.py` and sets
+  `SOVEREIGN_OS_LIVERELOAD=1` — so a daemon's own `.py` edit re-execs it in place (same PID,
+  no `systemctl restart`). **Shipped unit files stay byte-identical** (the wrap lives only in
+  the drop-in), so every per-unit lint is untouched. Gated on the NEW bake flag
+  `SOVEREIGN_OS_BAKE_LIVERELOAD` (`profiles/*.yaml` `provisioning.bake.livereload`, default
+  true; mkosi-emit + schema); `sain-01` sets it on.
+- Round 559 — NEW `tests/lint/test_live_reload_contract.py` (client present + loopback-gated
+  + `EventSource`-only + broker/port consistency + daemons compile + panel.sh wiring) + NEW
+  `tests/nspawn/test_live_reload.sh` (broker SSE relevant-notifies / irrelevant-stays-silent
+  + in-place self-re-exec proven by **same PID + fresh code**).
+
 ### Added — Science-tools catalog + NVIDIA Warp particle-sim integration & panel (2026-07-09)
 
 Operator directive (verbatim): *"There should be somewhere something about Science

@@ -32,7 +32,15 @@ make panel          # or: scripts/operator/panel.sh
 | `http://127.0.0.1:8100/master-dashboard/` | **The cockpit front door** — coverage summary, control surface, described catalog, ⌘K palette, + every panel served statically | copies commands; never mutates |
 | `http://127.0.0.1:8443/` | **Runtime dashboard** — live GPU / network / CPU / FS / RAID cards | never |
 
-`Ctrl-C` in that terminal stops both servers.
+`Ctrl-C` in that terminal stops every panel (the live-reload broker included).
+
+**Live-reload (on by default, SDD-203).** While `make panel` is running, editing a panel's
+HTML/CSS/JS, a script it shells, or its data daemon is picked up automatically — an open
+page shows a bottom-centre **"This panel updated — Refresh"** toast; click it (nothing
+reloads without your consent). No stop-and-rerun. Static and shelled-script edits are a pure
+refresh; an edit to a daemon's own `.py` is reloaded **in place, with no kill** (same PID).
+Opt out with `SOVEREIGN_OS_LIVERELOAD=0 make panel`. It is loopback-only dev tooling — the
+broker and the in-panel client are inert in the shipped image.
 
 Every dashboard is a **control surface** — profiles, modes and feature toggles
 you can drive (it copies the exact `sovereign-osctl` command; the web never

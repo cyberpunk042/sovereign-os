@@ -169,6 +169,35 @@ for _tmr in "${SRC}"/systemd/system/sovereign-*.timer; do
 done
 info "recurrent maintenance timers enabled (${_tn})"
 
+# ── (3c) live-reload — keep developing on the deployed tree (SDD-203; ON default) ──
+# A broker watches the tree + offers open panels a refresh; each enabled panel API
+# is wrapped through reload-run.py via a drop-in so an edit to its OWN .py re-execs
+# it in place (same PID, no kill). Webapp/shelled-script edits are already a pure
+# refresh (daemons read fresh). The shipped units stay byte-identical — the wrap
+# lives only in a drop-in. Set SOVEREIGN_OS_BAKE_LIVERELOAD=0 for a locked build.
+step "3c/5 live-reload broker + self-re-exec wrapping (bake.livereload; default on)"
+if [ "${SOVEREIGN_OS_BAKE_LIVERELOAD:-1}" = "1" ]; then
+  _RR="/usr/local/lib/sovereign-os/scripts/operator/lib/reload-run.py"
+  [ -f "${SRC}/systemd/system/sovereign-livereload-broker.service" ] \
+    && enable_unit sovereign-livereload-broker.service
+  _lr=0
+  for _u in /etc/systemd/system/sovereign-*-api.service \
+            /etc/systemd/system/sovereign-dashboards.service; do
+    [ -f "${_u}" ] || continue
+    _b="$(basename "${_u}")"
+    _s="$(grep -oE '/usr/local/lib/sovereign-os/scripts/operator/[a-z0-9-]+\.py' "${_u}" | head -1)"
+    [ -n "${_s}" ] || continue
+    mkdir -p "/etc/systemd/system/${_b}.d"
+    printf '[Service]\nEnvironment=SOVEREIGN_OS_LIVERELOAD=1\nExecStart=\nExecStart=/usr/bin/python3 %s %s\n' \
+      "${_RR}" "${_s}" > "/etc/systemd/system/${_b}.d/livereload.conf"
+    _lr=$((_lr+1))
+  done
+  systemctl daemon-reload 2>/dev/null || true
+  info "live-reload ON — broker + ${_lr} service(s) self-re-exec on edit (SOVEREIGN_OS_BAKE_LIVERELOAD=0 to disable)"
+else
+  info "live-reload disabled (SOVEREIGN_OS_BAKE_LIVERELOAD=0)"
+fi
+
 # ── (4) discoverable launcher: app menu + desktop + login autostart ──
 step "4/5 discoverable launcher (app menu · desktop · autostart)"
 LAUNCHER="${SRC}/share/applications/sovereign-dashboards.desktop"

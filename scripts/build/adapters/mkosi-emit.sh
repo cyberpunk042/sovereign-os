@@ -57,6 +57,10 @@ bake_repo = bool(prov_bake.get("repo"))
 bake_ghostproxy = bool(prov_bake.get("root_ghostproxy"))
 bake_dashboards = bool(prov_bake.get("dashboards"))
 bake_gui = bool(prov_bake.get("gui"))  # install a desktop on the image (else headless appliance)
+# Live-reload on the installed box (SDD-203) — DEFAULT ON so the operator can keep
+# developing on the live /opt/sovereign-os checkout after flashing. A locked build
+# sets provisioning.bake.livereload:false.
+bake_livereload = bool(prov_bake.get("livereload", True))
 bake_firstboot = bool(prov.get("firstboot"))
 posture = prov.get("posture", "installed-off")
 prov_power = (prov.get("power") or {})
@@ -431,6 +435,7 @@ if run_provision:
               SOVEREIGN_OS_BAKE_GHOSTPROXY="{'1' if bake_ghostproxy else ''}" \\
               SOVEREIGN_OS_BAKE_DASHBOARDS="{'1' if bake_dashboards else ''}" \\
               SOVEREIGN_OS_BAKE_GUI="{'1' if bake_gui else ''}" \\
+              SOVEREIGN_OS_BAKE_LIVERELOAD="{'1' if bake_livereload else '0'}" \\
               SOVEREIGN_OS_BAKE_FIRSTBOOT="{'1' if bake_firstboot else ''}" \\
               SOVEREIGN_OS_UPS="{'1' if ups_enabled else ''}" \\
               SOVEREIGN_OS_UPS_SHUTDOWN_MIN="{ups_shutdown_min}" \\

@@ -27,6 +27,27 @@ cd "${__REPO_ROOT}"
 CFG_PORT="${SOVEREIGN_OS_PANEL_CONFIGURATOR_PORT:-8100}"
 DASH_BIND="${SOVEREIGN_OS_PANEL_DASHBOARD_BIND:-127.0.0.1:8443}"
 
+# Live-reload (SDD-203) — ON by default. Two moving parts, both dev-only:
+#   • self-re-exec: every daemon is launched THROUGH reload-run.py, so an edit
+#     to a daemon's OWN .py reloads it in place (same PID, no kill, no rerun).
+#     Static HTML/CSS/JS and shelled-out scripts need NO restart at all — the
+#     daemons read them fresh per request — so those are a pure browser refresh.
+#   • broker (:8136): one file-watcher for the whole tree; each open panel gets
+#     a bottom-centre "refresh" toast when something IT depends on changes.
+# Opt out entirely with SOVEREIGN_OS_LIVERELOAD=0.
+LR_PORT="${SOVEREIGN_OS_LIVERELOAD_PORT:-8136}"
+case "${SOVEREIGN_OS_LIVERELOAD:-1}" in
+  0|no|off|false) LR_ON=0 ;;
+  *)              LR_ON=1 ;;
+esac
+if [ "${LR_ON}" = 1 ]; then
+  export SOVEREIGN_OS_LIVERELOAD=1 SOVEREIGN_OS_LIVERELOAD_PORT="${LR_PORT}"
+  LR_WRAP=(python3 scripts/operator/lib/reload-run.py)   # self-re-exec supervisor
+else
+  export SOVEREIGN_OS_LIVERELOAD=0
+  LR_WRAP=(python3)                                        # transparent: no watcher
+fi
+
 bold='\033[1m'; green='\033[32m'; yellow='\033[33m'; cyan='\033[36m'; reset='\033[0m'
 
 command -v python3 >/dev/null || { echo "python3 required"; exit 2; }
@@ -64,7 +85,8 @@ takeover_port() { # <port> → 0 if free (possibly after takeover), 1 if foreign
     # abandoned run — the launcher could not restart itself).
     *scripts/operator/*-api.py*|*build-configurator-api.py*|\
     *dashboard/serve.py*|*master-dashboard-api.py*|\
-    *m060-health-api.py*|*ms022-sse-quota-api.py*|*four-watchdog-api.py*)
+    *m060-health-api.py*|*ms022-sse-quota-api.py*|*four-watchdog-api.py*|\
+    *livereload-broker.py*|*lib/reload-run.py*)
       echo -e "  ${yellow}↻${reset} :${port} held by previous panel (pid ${pid}) — replacing"
       kill "${pid}" 2>/dev/null || sudo -n kill "${pid}" 2>/dev/null || {
         echo -e "  ${yellow}✗${reset} cannot kill pid ${pid} on :${port} (other user?) — stop it manually"; return 1; }
@@ -111,14 +133,24 @@ start_server() { # <name> <port> <probe-path> <cmd...>
   return 1
 }
 
+# Live-reload broker first, so panels can connect the moment they load. NOT
+# wrapped in reload-run: it holds open SSE connections a re-exec would drop
+# (clients auto-reconnect anyway); editing the broker itself is rare — just
+# restart make panel.
+lr_ok=0
+if [ "${LR_ON}" = 1 ]; then
+  start_server livereload-broker "${LR_PORT}" /healthz \
+    python3 scripts/operator/livereload-broker.py && lr_ok=1
+fi
+
 cfg_ok=0; dash_ok=0
 start_server configurator "${CFG_PORT}" /healthz \
   env BUILD_CONFIGURATOR_API_PORT="${CFG_PORT}" \
-  python3 scripts/operator/build-configurator-api.py && cfg_ok=1
+  "${LR_WRAP[@]}" scripts/operator/build-configurator-api.py && cfg_ok=1
 
 DASH_PORT="${DASH_BIND##*:}"
 start_server runtime-dashboard "${DASH_PORT}" /healthz \
-  python3 scripts/dashboard/serve.py --bind "${DASH_BIND}" && dash_ok=1
+  "${LR_WRAP[@]}" scripts/dashboard/serve.py --bind "${DASH_BIND}" && dash_ok=1
 
 # Panel data APIs — start EVERY scripts/operator/*-api.py so the panels
 # have live data (not empty tiles). Each API's port comes from its systemd
@@ -154,7 +186,7 @@ if [ -z "${SOVEREIGN_OS_PANEL_APIS_OFF:-}" ]; then
       continue
     fi
     cockpit_total=$((cockpit_total+1))
-    start_server "${name}-api" "${port}" /healthz python3 "${api}" \
+    start_server "${name}-api" "${port}" /healthz "${LR_WRAP[@]}" "${api}" \
       && cockpit_up=$((cockpit_up+1))
   done
 fi
@@ -167,11 +199,18 @@ echo -e "  ${green}●${reset} GLOBAL VIEW          ${cyan}http://127.0.0.1:${CF
 echo -e "  ${green}●${reset} cockpit              ${cyan}http://127.0.0.1:${CFG_PORT}/master-dashboard/${reset}"
 echo -e "      └ ${cockpit_up}/${cockpit_total} panel data APIs up (SOVEREIGN_OS_PANEL_APIS_OFF=1 for lean mode)"
 echo -e "  ${green}●${reset} runtime dashboard    ${cyan}http://${DASH_BIND}/${reset}"
+if [ "${LR_ON}" = 1 ] && [ "${lr_ok}" = 1 ]; then
+  echo -e "  ${green}●${reset} live-reload          ${cyan}on${reset} — edit any panel/script/daemon; open pages offer a refresh (no make panel rerun)"
+elif [ "${LR_ON}" = 1 ]; then
+  echo -e "  ${yellow}⚠${reset} live-reload broker did NOT come up on :${LR_PORT} — see ${LOG_DIR}/livereload-broker.log"
+else
+  echo -e "  ${yellow}○${reset} live-reload          off (SOVEREIGN_OS_LIVERELOAD=0)"
+fi
 echo
 echo -e "  Host-mutating commands stay ${bold}⚡ YOU RUN${reset}; the Run console executes"
 echo -e "  whitelisted build actions server-side with live streamed logs."
 echo -e "  Runbook: ${cyan}docs/src/ops/run-on-host.md${reset}"
 echo
-echo -e "  ${bold}Ctrl-C stops both servers.${reset}"
+echo -e "  ${bold}Ctrl-C stops every panel${reset} (broker included)."
 
 wait
