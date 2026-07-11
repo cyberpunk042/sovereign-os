@@ -99,6 +99,25 @@
   .profile .p-result.warn { color:var(--warn); }
   .profile .p-result.err { color:var(--bad); }
   .profile .p-result.muted { color:var(--muted); }
+  /* D21-3: per-device model editing ("edit the models for individual card") */
+  .edit-toggle { font-size:.72rem; font-weight:400; border:1px solid var(--border); background:var(--bg);
+    color:var(--muted); border-radius:4px; padding:.1rem .5rem; margin-left:.6rem; cursor:pointer; vertical-align:middle; }
+  .edit-toggle:hover { border-color:var(--accent); color:var(--accent); }
+  .edit-toggle.on { border-color:var(--accent); color:var(--accent); background:rgba(155,209,255,.08); }
+  .cell-edit { margin-top:.55rem; padding-top:.5rem; border-top:1px dashed var(--border); }
+  .cell-edit .k { color:var(--muted); font-size:.74rem; margin-bottom:.25rem; }
+  .cell-edit-row { display:flex; gap:.4rem; align-items:center; flex-wrap:wrap; }
+  .cell-edit select.model-pick { flex:1; min-width:0; background:var(--bg); color:var(--fg); border:1px solid var(--border);
+    border-radius:3px; padding:.18rem .3rem; font-family:var(--mono); font-size:.74rem; }
+  .cell-edit .m-load { border:1px solid var(--accent); background:transparent; color:var(--accent); border-radius:4px;
+    padding:.15rem .6rem; font:inherit; font-size:.74rem; cursor:pointer; }
+  .cell-edit .m-load:hover { background:rgba(155,209,255,.12); }
+  .cell-edit .m-confirm { font-size:.72rem; border:1px solid var(--border); background:var(--bg); color:var(--fg);
+    border-radius:3px; padding:.1rem .35rem; font-family:var(--mono); }
+  .cell-edit .m-result { display:block; margin-top:.3rem; font-size:.72rem; line-height:1.4; }
+  .cell-edit .m-result.ok { color:var(--good); } .cell-edit .m-result.dry { color:var(--accent); }
+  .cell-edit .m-result.warn { color:var(--warn); } .cell-edit .m-result.err { color:var(--bad); }
+  .cell-edit .m-result.muted { color:var(--muted); }
   /* features */
   .features { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:1rem; } /* SDD-137 */
   .fcol { border:1px solid var(--border); border-radius:6px; background:var(--panel); padding:.6rem .9rem; }
@@ -736,8 +755,8 @@
   <div class="banner muted" id="profiles-note"></div>
   <div class="profiles" id="profiles"></div>
 
-  <h2>Model → hardware assignment</h2>
-  <p class="banner muted">The grid previews the <em>selected</em> profile's model→device layout. Apply each profile from its own card above — it executes through the signed control-exec rail (dry-run first, then type-to-confirm).</p>
+  <h2>Model → hardware assignment <button id="edit-models-btn" class="edit-toggle" title="Load a specific model onto a device through the signed rail">✎ Edit models</button></h2>
+  <p class="banner muted" id="grid-note">The grid previews the <em>selected</em> profile's model→device layout. Apply each profile from its own card above — or <strong>Edit models</strong> to load a specific catalog model onto a device.</p>
   <div class="grid" id="grid"></div>
 
   <h2>Capabilities</h2>
@@ -954,16 +973,39 @@
     }
   }
 
+  // D21-3: "edit models" state — a device-cell model picker sourced from the
+  // catalog (filtered to the tier the device serves), loaded via the rail.
+  let EDIT_MODELS = false;
+  let MODELS_BY_ROLE = {};   // { conductor:[…], logic:[…], oracle:[…] } from /models
+  let LAST_GRID = null;      // last grid payload (so the toggle can re-render frozen)
+
   function cellHtml(c) {
     if (!c.present) return `<div class="cell na" title="${esc(c.label)}">${esc(c.slot)} · N/A</div>`;
     const models = (c.models || []).map(m =>
       `<div class="mslot"><span class="k">Model ${m.slot}${m.core_range ? ' (Core '+esc(m.core_range)+')' : ''}:</span> ${m.id ? '<code>'+esc(m.id)+'</code>' : '<span class="muted">—</span>'} ${m.precision ? '<span class="pill">'+esc(m.precision)+'</span>' : ''}</div>`
     ).join('');
     const util = c.util_pct != null ? c.util_pct.toFixed(0)+'%' : '—';
+    // In edit mode, a role-bearing device gets a tier-filtered model dropdown +
+    // Load — the operator's "edit the models for individual card". Loading binds
+    // that tier to the chosen model (SDD-049) through the signed rail.
+    let editBlk = '';
+    if (EDIT_MODELS && c.role && (MODELS_BY_ROLE[c.role] || []).length) {
+      const cur = (c.models || []).map(m => m.id).find(Boolean) || '';
+      const opts = (MODELS_BY_ROLE[c.role] || []).map(m => {
+        const meta = [m.class, m.size_class, (m.vram_gib_min != null ? m.vram_gib_min + 'GB' : null)].filter(Boolean).join(' · ');
+        return `<option value="${esc(m.id)}"${m.id === cur ? ' selected' : ''}>${esc(m.id)}${meta ? ' — ' + esc(meta) : ''}</option>`;
+      }).join('');
+      editBlk = `<div class="cell-edit">
+        <div class="k">Load a ${esc(c.role)}-tier model onto ${esc(c.slot)}:</div>
+        <div class="cell-edit-row"><select class="model-pick">${opts}</select><button class="m-load">Load</button></div>
+        <span class="m-result muted"></span>
+      </div>`;
+    }
     return `<div class="cell">
       <h3>${esc(c.label)} <span class="slot">${esc(c.slot)} · util ${util}</span></h3>
       ${models}
       <div class="mslot"><span class="k">Mode:</span> ${esc(c.mode || '—')}</div>
+      ${editBlk}
     </div>`;
   }
 
@@ -1004,8 +1046,70 @@
   ]};
 
   function renderGrid(data) {
+    LAST_GRID = data;
     const cells = (data && data.cells && data.cells.length) ? data.cells : FIXED_CELLS;
     $('grid').innerHTML = cells.map(cellHtml).join('');
+    if (EDIT_MODELS) {
+      $('grid').querySelectorAll('.cell-edit').forEach(blk => {
+        const btn = blk.querySelector('.m-load');
+        const sel = blk.querySelector('.model-pick');
+        const res = blk.querySelector('.m-result');
+        if (btn && sel) btn.addEventListener('click', () => loadModel(sel.value, res, false));
+      });
+    }
+  }
+
+  // ── D21-3: load a specific model onto a device via the control-exec rail ────
+  // Same signed path as profile Apply, but the 'model-load' control
+  // (sovereign-osctl models load <id> --confirm): dry-run → type-to-confirm →
+  // live. Loading binds the device's tier to the chosen catalog model (SDD-049).
+  function setM(el, cls, msg) { if (!el) return; el.className = 'm-result ' + cls; el.textContent = msg; }
+
+  function offerModelConfirm(id, resultEl) {
+    const blk = resultEl.closest('.cell-edit');
+    if (!blk || blk.querySelector('.m-confirm')) return;
+    const row = blk.querySelector('.cell-edit-row');
+    const inp = document.createElement('input');
+    inp.className = 'm-confirm'; inp.placeholder = 'type "' + id + '"';
+    const ok = document.createElement('button');
+    ok.className = 'm-load'; ok.textContent = 'Confirm load';
+    ok.addEventListener('click', () => {
+      if (inp.value.trim() === id) { inp.remove(); ok.remove(); loadModel(id, resultEl, true); }
+      else setM(resultEl, 'warn', 'type the exact id to confirm');
+    });
+    row.appendChild(inp); row.appendChild(ok);
+  }
+
+  async function loadModel(id, resultEl, confirmed) {
+    if (!id) { setM(resultEl, 'warn', 'pick a model first'); return; }
+    setM(resultEl, 'muted', confirmed ? 'loading…' : 'checking…');
+    try {
+      const res = await fetch(EXECUTE_URL, {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ control_id: 'model-load', args: { id }, confirm: !!confirmed }),
+      });
+      let body = {}; try { body = await res.json(); } catch (e) {}
+      const verb = 'sovereign-osctl models load ' + id + ' --confirm';
+      if (res.status === 200 && body.dry_run) {
+        setM(resultEl, 'dry', 'dry-run ✓ would run: ' + ((body.would_run || body.argv || []).join(' ')));
+        offerModelConfirm(id, resultEl);
+      } else if (res.status === 200) {
+        setM(resultEl, 'ok', 'loaded ✓ ' + id + (body.exit_code != null ? ' · exit ' + body.exit_code : ''));
+      } else if (res.status === 403 && body.confirm_required && !confirmed) {
+        setM(resultEl, 'dry', 'confirm to load'); offerModelConfirm(id, resultEl);
+      } else if (res.status === 403) {
+        setM(resultEl, 'warn', body.error || 'operator key not loaded — load from a signed session');
+      } else if (res.status === 409) {
+        setM(resultEl, 'warn', 'a load is already in flight — retry');
+      } else if (res.status === 405) {
+        setM(resultEl, 'muted', 'read-only origin — run: ' + verb);
+      } else {
+        setM(resultEl, 'err', body.error || ('HTTP ' + res.status));
+      }
+    } catch (e) {
+      setM(resultEl, 'muted', 'exec rail unreachable — run: sovereign-osctl models load ' + id + ' --confirm');
+    }
   }
 
   // Authored tiering over the REAL /proc/cpuinfo AVX-512 flags (the flags are
@@ -1094,12 +1198,17 @@
         fetchJson('/api/lm-orchestration/profiles'),
         fetchJson('/api/lm-orchestration/features'),
       ]);
-      $('data-source-banner').innerHTML = 'consuming <code>/api/lm-orchestration/{grid,profiles,features}</code>';
+      // Catalog-by-role for the composer's per-device dropdowns — tolerate an
+      // older daemon without the endpoint (keep the last set).
+      MODELS_BY_ROLE = (await fetchJson('/api/lm-orchestration/models').catch(() => ({ by_role: MODELS_BY_ROLE }))).by_role || MODELS_BY_ROLE;
+      $('data-source-banner').innerHTML = 'consuming <code>/api/lm-orchestration/{grid,profiles,features,models}</code>';
       // Profiles are static config, not live telemetry — only re-render when the
       // set actually changes, so a live Apply's dry-run/confirm/result on a card
       // is NOT wiped by the SSE grid tick (D21-4).
       renderProfilesIfChanged(profiles);
-      renderGrid(grid);
+      // While "Edit models" is active the grid is FROZEN (telemetry paused) so a
+      // half-typed model choice / dry-run / confirm is not wiped by the SSE tick.
+      if (EDIT_MODELS) { LAST_GRID = grid; } else { renderGrid(grid); }
       renderFeatures(features);
     } catch (e) {
       $('data-source-banner').innerHTML = 'cannot reach the lm-orchestration API daemon <span class="muted">('+esc(e.message)+')</span>';
@@ -1108,6 +1217,19 @@
     }
     $('last-fetch').textContent = 'last fetch: ' + new Date().toLocaleTimeString();
   }
+
+  // "Edit models" toggle — enters per-device model editing (grid telemetry
+  // freezes so a choice/dry-run/confirm isn't wiped), and back to the live view.
+  $('edit-models-btn').addEventListener('click', () => {
+    EDIT_MODELS = !EDIT_MODELS;
+    const b = $('edit-models-btn');
+    b.classList.toggle('on', EDIT_MODELS);
+    b.textContent = EDIT_MODELS ? '✓ Done editing' : '✎ Edit models';
+    $('grid-note').innerHTML = EDIT_MODELS
+      ? '<strong>Edit mode</strong> — live telemetry paused. Pick a model per device and Load it through the signed rail (dry-run → type-to-confirm). Loading binds that device\'s tier to the model (SDD-049).'
+      : 'The grid previews the <em>selected</em> profile\'s model→device layout. Apply each profile from its own card above — or <strong>Edit models</strong> to load a specific catalog model onto a device.';
+    renderGrid(LAST_GRID || {});
+  });
 
   // Initial paint of the fixed structure so the grid is ALWAYS visible; the
   // fetch below fills in live data (or the catch keeps the fixed structure).

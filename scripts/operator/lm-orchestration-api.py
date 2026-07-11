@@ -355,6 +355,41 @@ def features_view() -> dict[str, Any]:
     return {"cpu": cpu, "cpu_flags_readable": bool(flags), "gpu": gpu}
 
 
+def models_view() -> dict[str, Any]:
+    """The model catalog grouped by SRP role (conductor / logic / oracle) so the
+    D-21 composer offers per-device model choices FILTERED to the tier that
+    device actually serves — the operator's "edit the models for individual
+    card". Reuses the shared model-health catalog reader + TIER_TO_ROLE (no new
+    data model, no drift). Each model carries the fields a choice needs:
+    id/tier/role/class/size_class/purpose/vram_gib_min/status. Absent catalog →
+    empty groups (never raises)."""
+    try:
+        catalog = _core.load_catalog()
+    except Exception:  # noqa: BLE001
+        catalog = []
+    by_role: dict[str, list[dict[str, Any]]] = {"conductor": [], "logic": [], "oracle": []}
+    for m in catalog:
+        tier = str(m.get("tier", "")).lower()
+        role = _core.TIER_TO_ROLE.get(tier)
+        if role not in by_role:
+            continue
+        by_role[role].append({
+            "id": m.get("id"), "tier": tier, "role": role,
+            "class": m.get("class"), "size_class": m.get("size_class"),
+            "purpose": m.get("purpose") or [], "vram_gib_min": m.get("vram_gib_min"),
+            "status": m.get("status"),
+        })
+    # a device cell maps to a role; the composer keys off this to build the
+    # per-cell dropdown. Load actuation is `models load <id> --confirm` (rail).
+    return {
+        "by_role": by_role,
+        "cell_role": {"GPU0": "logic", "GPU1": "oracle", "CPU0": "conductor"},
+        "counts": {r: len(v) for r, v in by_role.items()},
+        "total": sum(len(v) for v in by_role.values()),
+        "load_cmd": "sovereign-osctl models load <id> --confirm",
+    }
+
+
 def _version_payload() -> dict:
     return {
         "service": "lm-orchestration-api",
@@ -475,6 +510,10 @@ class LmOrchAPIHandler(BaseHTTPRequestHandler):
                 self._send_json(200, features_view())
                 _emit_metric("features", "ok")
                 return
+            if path == "/api/lm-orchestration/models":
+                self._send_json(200, models_view())
+                _emit_metric("models", "ok")
+                return
         except Exception as e:  # noqa: BLE001
             self._send_json(500, {"error": str(e)})
             _emit_metric(path.lstrip("/") or "unknown", "500")
@@ -531,7 +570,8 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps({"config": _version_payload(),
                           "sample_grid": grid_view(),
                           "sample_profiles": profiles_view(),
-                          "sample_features": features_view()}, indent=2))
+                          "sample_features": features_view(),
+                          "sample_models": models_view()}, indent=2))
         return 0
     return serve(args.bind, args.port)
 

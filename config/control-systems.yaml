@@ -390,7 +390,7 @@ systems:
     change_cli: "sovereign-osctl models load <id> --confirm"
     state_path: "/run/sovereign-os/model-state.json + /etc/sovereign-os/inference-<tier>.env + systemd tier units"
     privileged: true
-    applies_to: [d-03-model-health]
+    applies_to: [d-03-model-health, d-21-lm-orchestration]
     refs: [scripts/models/load.py]
 
   # ── 20. Model unload — stop a role's tier (D-03, SDD-049) ────────────
