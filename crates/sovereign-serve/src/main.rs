@@ -98,12 +98,28 @@ USAGE:
                                        N tokens before generating
     sovereign-serve --xtc PROMPT…      decode with XTC (exclude-top-choices) sampling
     sovereign-serve --dry PROMPT…      decode with DRY (don't-repeat-yourself) sampling
+    sovereign-serve --model DIR PROMPT…  load a REAL Llama-family safetensors model
+                                       from DIR (config.json + *.safetensors) into
+                                       the multi-head engine and generate
     sovereign-serve --help             print this help and exit";
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     if args.iter().any(|a| a == "--help" || a == "-h") {
         println!("{USAGE}");
+        return;
+    }
+    // `--model <dir>`: run a REAL (Llama-family safetensors) model via the loader
+    // carve-out instead of the sine-filler demo — a distinct, self-contained path.
+    if let Some(i) = args.iter().position(|a| a == "--model") {
+        let dir = args.get(i + 1).map(String::as_str).unwrap_or("");
+        let prompts: Vec<&str> = args
+            .iter()
+            .enumerate()
+            .filter(|(j, a)| !a.starts_with('-') && *j != i + 1)
+            .map(|(_, a)| a.as_str())
+            .collect();
+        run_model_dir(dir, &prompts);
         return;
     }
     let stream = args.iter().any(|a| a == "--stream");
@@ -233,6 +249,69 @@ fn main() {
         // Fixed seed so an identical prompt resolves as a $0 cache hit.
         let session: Vec<(&str, usize, u64)> = prompts.iter().map(|p| (*p, 16, 0u64)).collect();
         run_session(&mut server, &session, generate);
+    }
+}
+
+/// `--model <dir>`: load a real Llama-family model (`<dir>/config.json` + a
+/// `*.safetensors`) into the multi-head `QuantLlm` via the loader carve-out and
+/// generate for each prompt. This is the keystone's real consumer.
+///
+/// Current limits (named follow-ups): uses the byte-level [`Tokenizer::default`]
+/// (vocab 256), so it only accepts a vocab-256 model today — a real vocab bridge
+/// is required for genuine models; GGUF-Q and real-model coherence are follow-ups.
+fn run_model_dir(dir: &str, prompts: &[&str]) {
+    use sovereign_safetensors_loader::{Config, load_llm};
+    let cfg_path = format!("{dir}/config.json");
+    let cfg_bytes = match std::fs::read(&cfg_path) {
+        Ok(b) => b,
+        Err(e) => {
+            eprintln!("serve --model: cannot read {cfg_path}: {e}");
+            return;
+        }
+    };
+    let config = match Config::from_json(&cfg_bytes) {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("serve --model: bad config.json: {e}");
+            return;
+        }
+    };
+    let st_path = std::fs::read_dir(dir).ok().and_then(|rd| {
+        rd.filter_map(Result::ok)
+            .map(|e| e.path())
+            .find(|p| p.extension().is_some_and(|x| x == "safetensors"))
+    });
+    let Some(st_path) = st_path else {
+        eprintln!("serve --model: no *.safetensors found in {dir}");
+        return;
+    };
+    let st_bytes = match std::fs::read(&st_path) {
+        Ok(b) => b,
+        Err(e) => {
+            eprintln!("serve --model: cannot read {}: {e}", st_path.display());
+            return;
+        }
+    };
+    let mut llm = match load_llm(&st_bytes, &config, Tokenizer::default()) {
+        Ok(l) => l,
+        Err(e) => {
+            eprintln!(
+                "serve --model: load failed: {e}\n\
+                 (note: the default tokenizer is vocab 256; a real vocab bridge is a follow-up)"
+            );
+            return;
+        }
+    };
+    let ps: Vec<&str> = if prompts.is_empty() {
+        vec!["hello"]
+    } else {
+        prompts.to_vec()
+    };
+    for p in ps {
+        match llm.complete(p, 16, 0) {
+            Ok(text) => println!("model  ok   | {p:?} -> {text:?}"),
+            Err(e) => println!("model  ERR  | {p:?} -> {e}"),
+        }
     }
 }
 

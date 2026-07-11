@@ -32,3 +32,7 @@ sovereign-secret-scan = { path = "../sovereign-secret-scan" }
 sovereign-pii-redact = { path = "../sovereign-pii-redact" }
 sovereign-toxicity = { path = "../sovereign-toxicity" }
 sovereign-context-budget = { path = "../sovereign-context-budget" }
+# `--model <dir>` loads a real (Llama-family safetensors) model into the existing
+# multi-head QuantLlm via the loader carve-out — distinct from the sine-filler demo.
+sovereign-safetensors-loader = { path = "../sovereign-safetensors-loader" }
+sovereign-quant-llm = { path = "../sovereign-quant-llm" }

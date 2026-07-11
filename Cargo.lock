@@ -6140,6 +6140,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-safetensors-loader"
+version = "0.1.0"
+dependencies = [
+ "half",
+ "serde",
+ "serde_json",
+ "sovereign-decoder-layer",
+ "sovereign-linear",
+ "sovereign-mha-block",
+ "sovereign-quant-llm",
+ "sovereign-quant-model",
+ "sovereign-rmsnorm",
+ "sovereign-sampler",
+ "sovereign-tokenizer",
+ "sovereign-vnni",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-sampler"
 version = "0.1.0"
 dependencies = [
@@ -6240,7 +6259,9 @@ dependencies = [
  "sovereign-ffn",
  "sovereign-llm",
  "sovereign-pii-redact",
+ "sovereign-quant-llm",
  "sovereign-rmsnorm",
+ "sovereign-safetensors-loader",
  "sovereign-sampler",
  "sovereign-secret-scan",
  "sovereign-token-meter",
