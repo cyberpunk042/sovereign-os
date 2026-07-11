@@ -183,7 +183,7 @@ set +e
 out="$("${OSCTL}" trinity profile show no-such-profile 2>&1)"
 rc=$?
 set -e
-if [ "${rc}" -eq 1 ] && grep -q "no such runtime profile" <<< "${out}"; then
+if [ "${rc}" -eq 1 ] && grep -q "no such profile" <<< "${out}"; then
   ok "profile show missing → exit 1 + clear error"
 else
   ko "profile show missing-gate broken (rc=${rc})"
@@ -205,7 +205,7 @@ set +e
 out="$("${OSCTL}" trinity profile switch high-concurrency-burst 2>&1)"
 rc=$?
 set -e
-if [ "${rc}" -eq 0 ] && grep -q "active runtime profile set to: high-concurrency-burst" <<< "${out}"; then
+if [ "${rc}" -eq 0 ] && grep -q "active profile set to: high-concurrency-burst" <<< "${out}"; then
   ok "profile switch → exit 0 + confirmation"
 else
   ko "profile switch broken (rc=${rc})"
@@ -225,7 +225,7 @@ set +e
 out="$("${OSCTL}" trinity profile switch no-such 2>&1)"
 rc=$?
 set -e
-if [ "${rc}" -eq 1 ] && grep -q "no such runtime profile" <<< "${out}"; then
+if [ "${rc}" -eq 1 ] && grep -q "no such profile" <<< "${out}"; then
   ok "profile switch missing → exit 1"
 else
   ko "profile switch missing-gate broken (rc=${rc})"

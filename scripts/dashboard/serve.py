@@ -2308,6 +2308,18 @@ def main() -> int:
     except OSError as e:
         print(f"ERROR bind {host}:{port}: {e}", file=sys.stderr)
         return 2
+    if args.once:
+        # --once dispatches the single request to a worker thread and
+        # handle_request() returns as soon as that thread is spawned — NOT when
+        # the response is written. ThreadingHTTPServer's workers are daemons by
+        # default, so main() reaching `finally: server_close()` + returning
+        # kills the worker mid-render before it flushes the response → the
+        # client sees an empty reply (curl rc=52), deterministically, because
+        # the full-page render (~40 cards, 3-4s) is always still in flight.
+        # Make the worker non-daemon so server_close() (block_on_close) joins it
+        # and the response completes before exit. serve_forever() (the normal
+        # path) is unaffected — it keeps running, so its daemon workers finish.
+        srv.daemon_threads = False
     auth_banner = "no-auth (cycle-8 SEED)"
     if AUTH_CONFIG is not None:
         token_state = "token-present" if AUTH_CONFIG.get("token") else "token-MISSING-from-env"
