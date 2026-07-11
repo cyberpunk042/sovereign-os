@@ -121,6 +121,18 @@ def test_course_uses_its_own_schema_guarded_state():
     )
 
 
+def test_course_spotlight_is_dom_only_and_motion_gated():
+    """The on-panel spotlight must scroll + pulse in the DOM only (no I/O — the
+    client-only assertion above already forbids fetch/XHR), and its pulse must be
+    gated behind prefers-reduced-motion with a static-outline fallback."""
+    block = _canonical_block()
+    assert "scrollIntoView" in block, "spotlight must scroll the taught element into view"
+    assert "so-course-spot" in block, "spotlight must apply the course-owned pulse class"
+    assert "@media (prefers-reduced-motion: reduce)" in block, (
+        "the spotlight pulse must have a reduced-motion static-outline fallback"
+    )
+
+
 def test_adopted_panels_embed_identical_block():
     """Every adopted panel MUST embed the byte-identical canonical block."""
     block = _canonical_block()
