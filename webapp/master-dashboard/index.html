@@ -1814,19 +1814,23 @@ function pill(text, klass) {
 }
 
 function renderStats(version, routes, health, collisions, discover) {
-  el("stat-port").textContent = routes.aggregator_port;
-  el("stat-count").textContent = routes.count;
-  el("stat-reachable").textContent = health.reachable + " / " + health.count;
-  el("stat-reachable").className = "v " + (health.reachable === health.count ? "ok" : "warn");
-  el("stat-collisions").textContent = collisions.has_collisions ? "yes" : "clean";
-  el("stat-collisions").className = "v " + (collisions.has_collisions ? "bad" : "ok");
-  el("stat-selfdef").textContent = discover.count;
-  el("stat-version").textContent = version.version;
+  version = version || {}; routes = routes || {}; health = health || {}; collisions = collisions || {}; discover = discover || {};
+  const D = "—";
+  el("stat-port").textContent = routes.aggregator_port != null ? routes.aggregator_port : D;
+  el("stat-count").textContent = routes.count != null ? routes.count : D;
+  el("stat-reachable").textContent = health.reachable != null ? (health.reachable + " / " + health.count) : D;
+  el("stat-reachable").className = "v " + (health.reachable == null ? "muted" : (health.reachable === health.count ? "ok" : "warn"));
+  el("stat-collisions").textContent = collisions.has_collisions === undefined ? D : (collisions.has_collisions ? "yes" : "clean");
+  el("stat-collisions").className = "v " + (collisions.has_collisions === undefined ? "muted" : (collisions.has_collisions ? "bad" : "ok"));
+  el("stat-selfdef").textContent = discover.count != null ? discover.count : D;
+  el("stat-version").textContent = version.version != null ? version.version : D;
 }
 
 function renderRoutes(routes, health, toggles) {
+  const _tb = el("routes-tbody");
+  if (!routes || !routes.routes) { _tb.innerHTML = '<tr><td colspan="7" class="muted">route table unreachable — populates when /routes + /health are reachable (nothing fabricated, SB-077)</td></tr>'; return; }
   const reachableByPort = {};
-  for (const p of health.probes) reachableByPort[p.port] = p.reachable;
+  for (const p of ((health && health.probes) || [])) reachableByPort[p.port] = p.reachable;
   // M060 R10129 — per-route operator on/off state from /toggles
   const toggleBySlug = {};
   for (const t of (toggles && toggles.dashboards) || []) toggleBySlug[t.slug] = t;
@@ -1913,6 +1917,7 @@ function showCopyToast(msg) {
 function renderCollisions(collisions) {
   const body = el("collisions-body");
   body.innerHTML = "";
+  if (!collisions || collisions.has_collisions === undefined) { body.className = "muted"; body.textContent = "collision check unavailable — /collisions unreachable (SB-077)"; return; }
   if (!collisions.has_collisions) {
     body.className = "ok";
     body.textContent = "✓ no port or subpath collisions across built-in routes.";
@@ -1930,6 +1935,7 @@ function renderCollisions(collisions) {
 function renderDiscover(discover) {
   const body = el("discover-body");
   body.innerHTML = "";
+  if (!discover || discover.count === undefined) { body.className = "muted"; body.textContent = "selfdef discovery unavailable — /discover unreachable (SB-077)"; return; }
   if (discover.count === 0 && (!discover.errors || discover.errors.length === 0)) {
     body.className = "muted";
     body.textContent = "(no selfdef manifests under " + discover.manifest_dir + ")";
@@ -2424,24 +2430,29 @@ async function refresh() {
     renderCatalog();
     renderControls();
     renderCoverage();
-    const [version, routes, collisions, health, discover, toggles] = await Promise.all(
-      ENDPOINTS.map(fetchJSON)
-    );
+    renderM060Grid(); // SDD-133: moved ahead of the gather — its own per-mirror fetches carry honest-offline fallbacks, so one dead /version../toggles probe can no longer blank it.
+    // SDD-133 front-door resilience — allSettled so ONE dead endpoint no longer
+    // blanks the whole main view; each section gets its value or {} and renders
+    // an honest 'unreachable' scaffold (never blank, never throws).
+    const _settled = await Promise.allSettled(ENDPOINTS.map(fetchJSON));
+    const [version, routes, collisions, health, discover, toggles] =
+      _settled.map(function (r) { return r.status === "fulfilled" ? r.value : {}; });
     renderStats(version, routes, health, collisions, discover);
     renderRoutes(routes, health, toggles);
-    if (toggles) {
+    if (toggles && toggles.enabled_count !== undefined && routes.count !== undefined) {
       const c = el("stat-count");
       if (c) c.textContent = routes.count + " (" + toggles.enabled_count + " on)";
     }
     renderCollisions(collisions);
     renderDiscover(discover);
-    renderM060Grid(); // fires its own per-mirror fetches; not on the gather path
     el("last-refresh").textContent = new Date().toLocaleTimeString();
   } catch (e) {
     el("last-refresh").innerHTML = "<span class=bad>error: " + e.message + "</span>";
   }
 }
 
+// SDD-133 — initial honest-offline paint so every section is visible from t=0
+renderStats({}, {}, {}, {}, {}); renderRoutes({}, {}, {}); renderCollisions({}); renderDiscover({});
 document.getElementById("refresh-btn").addEventListener("click", refresh);
 window.soDemoApply = refresh;
 refresh();
