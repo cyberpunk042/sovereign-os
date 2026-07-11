@@ -42,9 +42,12 @@ properties:
         type: string
         minLength: 30
       intent:
-        description: The workload-intent this profile optimizes for.
+        description: >-
+          The workload-intent this profile optimizes for. The 5 named intents
+          are the seed family; `custom` is for operator-composed profiles
+          (D-21 composer) so the family can grow beyond the seed.
         type: string
-        enum: [full-orchestration, coding, thinking, hybrid, full-hybrid]
+        enum: [full-orchestration, coding, thinking, hybrid, full-hybrid, custom]
       hardware_profile_compat:
         type: array
         items:

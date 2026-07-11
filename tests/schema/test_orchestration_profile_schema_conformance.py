@@ -55,13 +55,14 @@ def test_schema_file_present():
     assert SCHEMA_FILE.is_file(), f"orchestration-profile schema missing: {SCHEMA_FILE}"
 
 
-def test_the_five_intent_profiles_present():
-    """The operator-named 5 orchestration-intent profiles must exist."""
+def test_the_five_intent_profiles_are_a_floor():
+    """The operator-named 5 orchestration-intent profiles must always exist (a
+    floor). The family is growable (D-21 composer), so extra operator-composed
+    profiles are allowed — each is schema-validated by the parametrized test
+    below, which already runs over EVERY file on disk."""
     ids = {p.stem for p in _all_orchestration_files()}
-    assert ids == EXPECTED_PROFILES, (
-        f"orchestration profile set drift: {sorted(ids)} vs "
-        f"{sorted(EXPECTED_PROFILES)}"
-    )
+    missing = EXPECTED_PROFILES - ids
+    assert not missing, f"the 5 named orchestration profiles must exist; missing: {missing}"
 
 
 @pytest.mark.parametrize("op_file", _all_orchestration_files(), ids=lambda p: p.stem)

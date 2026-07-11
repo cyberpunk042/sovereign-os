@@ -118,6 +118,17 @@
   .cell-edit .m-result.ok { color:var(--good); } .cell-edit .m-result.dry { color:var(--accent); }
   .cell-edit .m-result.warn { color:var(--warn); } .cell-edit .m-result.err { color:var(--bad); }
   .cell-edit .m-result.muted { color:var(--muted); }
+  /* D21-3: the composer save-bar (compose a whole new profile from the picks) */
+  .compose-bar { margin-top:.7rem; padding:.7rem .9rem; border:1px solid var(--border); border-radius:6px;
+    background:var(--panel); }
+  .compose-bar .k { color:var(--muted); font-size:.76rem; margin-bottom:.45rem; }
+  .compose-row { display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; }
+  .compose-in { background:var(--bg); color:var(--fg); border:1px solid var(--border); border-radius:3px;
+    padding:.2rem .4rem; font-family:var(--mono); font-size:.78rem; }
+  #compose-id { min-width:15rem; }
+  .compose-bar .m-confirm, .compose-bar .p-confirm { background:var(--bg); color:var(--fg); border:1px solid var(--border);
+    border-radius:3px; padding:.15rem .4rem; font-family:var(--mono); font-size:.76rem; }
+  #compose-result { display:block; margin-top:.4rem; }
   /* features */
   .features { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:1rem; } /* SDD-137 */
   .fcol { border:1px solid var(--border); border-radius:6px; background:var(--panel); padding:.6rem .9rem; }
@@ -758,6 +769,23 @@
   <h2>Model → hardware assignment <button id="edit-models-btn" class="edit-toggle" title="Load a specific model onto a device through the signed rail">✎ Edit models</button></h2>
   <p class="banner muted" id="grid-note">The grid previews the <em>selected</em> profile's model→device layout. Apply each profile from its own card above — or <strong>Edit models</strong> to load a specific catalog model onto a device.</p>
   <div class="grid" id="grid"></div>
+  <div id="compose-bar" class="compose-bar" hidden>
+    <div class="k">Save the current per-device picks as a <strong>new</strong> profile (SB-077 — models are catalog-grounded):</div>
+    <div class="compose-row">
+      <input id="compose-id" class="compose-in" placeholder="profile-id (lowercase-hyphen)" spellcheck="false">
+      <select id="compose-intent" class="compose-in" title="workload intent">
+        <option value="custom">intent: custom</option>
+        <option value="coding">coding</option>
+        <option value="thinking">thinking</option>
+        <option value="hybrid">hybrid</option>
+        <option value="full-hybrid">full-hybrid</option>
+        <option value="full-orchestration">full-orchestration</option>
+      </select>
+      <button id="save-draft" class="p-apply" title="Write to your user drafts (~/.sovereign-os/profiles/orchestration/)">Save draft</button>
+      <button id="save-repo" class="p-apply gen" title="Write into the repo (profiles/orchestration/) through the signed rail">Save to repo</button>
+    </div>
+    <span id="compose-result" class="p-result muted"></span>
+  </div>
 
   <h2>Capabilities</h2>
   <div class="features">
@@ -997,7 +1025,7 @@
       }).join('');
       editBlk = `<div class="cell-edit">
         <div class="k">Load a ${esc(c.role)}-tier model onto ${esc(c.slot)}:</div>
-        <div class="cell-edit-row"><select class="model-pick">${opts}</select><button class="m-load">Load</button></div>
+        <div class="cell-edit-row"><select class="model-pick" data-role="${esc(c.role)}">${opts}</select><button class="m-load">Load</button></div>
         <span class="m-result muted"></span>
       </div>`;
     }
@@ -1220,16 +1248,77 @@
 
   // "Edit models" toggle — enters per-device model editing (grid telemetry
   // freezes so a choice/dry-run/confirm isn't wiped), and back to the live view.
+  // Edit mode also reveals the composer save-bar (compose a whole new profile).
   $('edit-models-btn').addEventListener('click', () => {
     EDIT_MODELS = !EDIT_MODELS;
     const b = $('edit-models-btn');
     b.classList.toggle('on', EDIT_MODELS);
     b.textContent = EDIT_MODELS ? '✓ Done editing' : '✎ Edit models';
     $('grid-note').innerHTML = EDIT_MODELS
-      ? '<strong>Edit mode</strong> — live telemetry paused. Pick a model per device and Load it through the signed rail (dry-run → type-to-confirm). Loading binds that device\'s tier to the model (SDD-049).'
+      ? '<strong>Edit mode</strong> — live telemetry paused. Load a model onto a device, or compose the picks into a new profile below. All writes go through the signed rail (dry-run → type-to-confirm).'
       : 'The grid previews the <em>selected</em> profile\'s model→device layout. Apply each profile from its own card above — or <strong>Edit models</strong> to load a specific catalog model onto a device.';
+    $('compose-bar').hidden = !EDIT_MODELS;
     renderGrid(LAST_GRID || {});
   });
+
+  // ── D21-3: compose a NEW profile from the current per-device picks ──────────
+  // Save-draft (user dir) or Save-to-repo (tracked) — both via the signed
+  // 'profile-compose' control (sovereign-osctl profiles create-orchestration):
+  // catalog-grounded, dry-run → type-to-confirm. Reuses the Edit-mode dropdowns
+  // as the composition source (data-role on each .model-pick).
+  function setC(cls, msg) { const el = $('compose-result'); el.className = 'p-result ' + cls; el.textContent = msg; }
+
+  function offerComposeConfirm(target, id) {
+    const row = $('compose-bar').querySelector('.compose-row');
+    if (row.querySelector('.p-confirm')) return;
+    const inp = document.createElement('input');
+    inp.className = 'p-confirm'; inp.placeholder = 'type "' + id + '"';
+    const ok = document.createElement('button');
+    ok.className = 'p-apply'; ok.textContent = 'Confirm save';
+    ok.addEventListener('click', () => {
+      if (inp.value.trim() === id) { inp.remove(); ok.remove(); saveProfile(target, true); }
+      else setC('warn', 'type the exact id to confirm');
+    });
+    row.appendChild(inp); row.appendChild(ok);
+  }
+
+  async function saveProfile(target, confirmed) {
+    const id = ($('compose-id').value || '').trim();
+    const intent = $('compose-intent').value || 'custom';
+    if (!/^[a-z][a-z0-9-]*$/.test(id)) { setC('warn', 'id must be lowercase-hyphen (^[a-z][a-z0-9-]*$)'); return; }
+    const picks = { conductor: 'none', logic: 'none', oracle: 'none' };
+    document.querySelectorAll('.model-pick[data-role]').forEach(s => { picks[s.dataset.role] = s.value || 'none'; });
+    if (picks.conductor === 'none' && picks.logic === 'none' && picks.oracle === 'none') {
+      setC('warn', 'pick at least one device model to compose a profile'); return;
+    }
+    setC('muted', confirmed ? 'saving…' : 'checking…');
+    try {
+      const r = await fetch(EXECUTE_URL, {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ control_id: 'profile-compose',
+          args: { id, intent, conductor: picks.conductor, logic: picks.logic, oracle: picks.oracle, target },
+          confirm: !!confirmed }),
+      });
+      let b = {}; try { b = await r.json(); } catch (e) {}
+      const verb = 'sovereign-osctl profiles create-orchestration --id ' + id + ' --target ' + target + ' … --confirm';
+      if (r.status === 200 && b.dry_run) {
+        setC('dry', 'dry-run ✓ would write the ' + target + ' profile "' + id + '"'); offerComposeConfirm(target, id);
+      } else if (r.status === 200) {
+        setC('ok', 'saved ✓ ' + target + ' profile "' + id + '" — now in the ' + (target === 'repo' ? 'orchestration' : 'Your drafts') + ' band'); refresh();
+      } else if (r.status === 403 && b.confirm_required && !confirmed) {
+        setC('dry', 'confirm to save'); offerComposeConfirm(target, id);
+      } else if (r.status === 403) {
+        setC('warn', b.error || 'operator key not loaded — save from a signed session');
+      } else if (r.status === 405) {
+        setC('muted', 'read-only origin — run: ' + verb);
+      } else {
+        setC('err', b.error || ('HTTP ' + r.status));
+      }
+    } catch (e) { setC('muted', 'exec rail unreachable — run: ' + 'sovereign-osctl profiles create-orchestration … --confirm'); }
+  }
+  $('save-draft').addEventListener('click', () => saveProfile('draft', false));
+  $('save-repo').addEventListener('click', () => saveProfile('repo', false));
 
   // Initial paint of the fixed structure so the grid is ALWAYS visible; the
   // fetch below fills in live data (or the catch keeps the fixed structure).

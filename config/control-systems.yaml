@@ -432,6 +432,27 @@ systems:
     applies_to: [d-03-model-health]
     refs: [scripts/models/warm.py]
 
+  - id: profile-compose
+    kind: lifecycle
+    scope: scoped
+    label: "Compose Profile"
+    description: >-
+      Compose a NEW orchestration-intent profile from per-device model picks
+      (the D-21 composer) and save it — as a draft (the operator's user dir) or
+      into the repo (profiles/orchestration/<id>.yaml). Catalog-grounded: every
+      model must be a real catalog id of the matching tier. DRY-RUN by default;
+      the real write is operator-key + type-to-confirm gated. Grows the
+      orchestration family (the lint floor keeps the 5 named + schema-validates
+      the new one).
+    options: [draft, repo]
+    options_cli: "sovereign-osctl models list"
+    state_cli: "sovereign-osctl trinity profile list"
+    change_cli: "sovereign-osctl profiles create-orchestration --id <id> --intent <intent> --conductor <conductor> --logic <logic> --oracle <oracle> --target <target> --confirm"
+    state_path: "profiles/orchestration/<id>.yaml (repo) or ~/.sovereign-os/profiles/orchestration/<id>.yaml (draft)"
+    privileged: true
+    applies_to: [d-21-lm-orchestration]
+    refs: [scripts/operator/create-orchestration-profile.py]
+
   # ── 22. Snapshot create — take a manual ZFS snapshot (D-08, SDD-050) ──
   - id: snapshot-create
     kind: lifecycle

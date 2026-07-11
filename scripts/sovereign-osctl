@@ -95,6 +95,11 @@ COMMANDS:
                                SDD-043: generate a runtime profile from hardware +
                                strategy (efficiency | high-concurrency | deep-context).
                                tier_intent allocations, validated + catalog-resolved.
+  profiles create-orchestration --id <id> [--intent <i>] [--conductor <m>]
+                               [--logic <m>] [--oracle <m>] [--target draft|repo] [--confirm]
+                               D21-3: compose an orchestration-intent profile from
+                               per-device model picks (catalog-grounded). DRY-RUN
+                               unless --confirm; draft = user dir, repo = tracked.
 
   whitelabel show              Show active whitelabel branding
   whitelabel apply <id>        Re-render whitelabel surfaces on the running system
@@ -1768,6 +1773,14 @@ PY
       shift 2 || true
       python3 "${__REPO_ROOT}/scripts/operator/generate-runtime-profile.py" \
         --hardware "${hw}" --strategy "${strat}" "$@"
+      ;;
+    create-orchestration)
+      # D21-3: compose a NEW orchestration-intent profile from per-device model
+      # picks (the D-21 cockpit composer). Grounded — every model must be a real
+      # catalog id of the matching tier. Writes a draft (user dir) or into the
+      # repo (--target repo); DRY-RUN unless --confirm. The cockpit path runs
+      # this through the signed exec rail (operator-key + type-to-confirm).
+      python3 "${__REPO_ROOT}/scripts/operator/create-orchestration-profile.py" "$@"
       ;;
     *)
       log_error "unknown profiles subcommand: ${sub}"
