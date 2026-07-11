@@ -16,7 +16,7 @@ set -euo pipefail
 DRY_RUN=""; [ "${1:-}" = "--dry-run" ] && DRY_RUN=1
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"; cd "${REPO}"
 PROFILE="${SOVEREIGN_OS_RUST_PROFILE:-release}"
-BINDIR="${SOVEREIGN_OS_RUST_BINDIR:-/usr/local/lib/sovereign-os/bin}"
+BINDIR="${SOVEREIGN_OS_RUST_BINDIR:-/usr/local/bin}"
 
 # 1) toolchain (idempotent — installs nothing if a new-enough cargo is present)
 "${REPO}/scripts/install/rust-toolchain.sh" ${DRY_RUN:+--dry-run}

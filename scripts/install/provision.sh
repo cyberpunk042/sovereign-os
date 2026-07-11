@@ -100,12 +100,20 @@ fi
 # the retrieval/reasoning stack (~712 crates). This was NEVER built by setup, so a
 # fresh install shipped it as UNCOMPILED SOURCE; now it's compiled here so the
 # runtime is actually present. Skip with PROVISION_SKIP=intelligence.
-step "[3b/6] intelligence layer (Deterministic Cortex Runtime — build)"
+step "[3b/6] intelligence layer (Deterministic Cortex Runtime — build + activate)"
 if skipped intelligence; then warn "skipped (PROVISION_SKIP)"
 elif [ ! -d crates ]; then
   warn "no crates/ intelligence layer in this checkout — skipping"
 else
   run "scripts/build/build-intelligence.sh${DRY_RUN:+ --dry-run}"
+  # activate the gateway daemon — the first runnable intelligence service: a
+  # long-lived, local-first Cortex behind the M048 gateway (loopback :8787).
+  # The binary was just installed to /usr/local/bin by build-intelligence.sh.
+  if [ -f systemd/system/sovereign-gatewayd.service ]; then
+    run "sudo_ install -m 644 systemd/system/sovereign-gatewayd.service /etc/systemd/system/"
+    run "sudo_ systemctl enable --now sovereign-gatewayd.service"
+    ok "sovereign-gatewayd enabled (GET http://127.0.0.1:8787/health)"
+  fi
 fi
 
 # ── (4) operator-deps overlay (declared apt/pip/npm) ─────────────────
