@@ -915,6 +915,12 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
 <style id="so-app-shell-style">
   :root{
     --so-header-h:48px; --so-sidemenu-w:244px; --so-sidemenu-w-collapsed:56px; --so-assist-w:360px;
+    /* SDD-145 design-token scale — grounded on the fleet's dominant literals.
+       fs/space are rem so they auto-compose with the personalization --font-scale
+       zoom (the html root is calc(14px*--font-scale)); never wrap these in calc(). */
+    --fs-2xs:.7rem; --fs-xs:.72rem; --fs-sm:.78rem; --fs-base:.85rem; --fs-md:1rem; --fs-lg:1.4rem;
+    --radius-xs:2px; --radius-sm:3px; --radius-md:4px; --radius-lg:6px; --radius-pill:999px;
+    --space-2xs:.2rem; --space-xs:.3rem; --space-sm:.4rem; --space-md:.6rem; --space-lg:.9rem; --space-xl:1rem; --space-2xl:1.2rem; --space-3xl:1.6rem;
   }
   #so-content{ margin-top:var(--so-header-h); margin-left:var(--so-sidemenu-w); }
   body.so-sm-collapsed #so-content{ margin-left:var(--so-sidemenu-w-collapsed); }
