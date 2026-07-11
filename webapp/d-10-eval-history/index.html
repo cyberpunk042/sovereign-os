@@ -716,7 +716,8 @@ a11y; contract test catches drift.
     var title=cur?((cur.id!=='—'?esc(cur.id)+' ':'')+esc(cur.label)):'this panel';
     document.body.appendChild(el(
       '<aside id="so-assist" role="complementary" aria-label="assistant"><div class="so-assist-h"><span class="t"><span class="spark">✦</span> Assistant</span>'+
-        '<button class="so-h-btn" id="so-assist-close" title="Close" style="margin-left:auto">✕</button></div>'+
+        '<button class="so-h-btn" id="so-assist-speak" title="Read this pane aloud" aria-label="Read assistant pane aloud" aria-pressed="false" style="margin-left:auto">🔊</button>'+
+        '<button class="so-h-btn" id="so-assist-close" title="Close" aria-label="Close assistant">✕</button></div>'+
       '<div class="so-assist-body" id="so-assist-body"></div>'+
       '<div class="so-ask" id="so-ask">'+
         '<div class="so-ask-h"><span>✦ ask about this</span><span class="chev" id="so-ask-chev" title="collapse/expand" role="button" tabindex="0">▾</span></div>'+
@@ -749,6 +750,21 @@ a11y; contract test catches drift.
     function setAssist(open){ document.body.classList.toggle('so-assist-open',!!open); assistDismissed=!open; saveAssist(open); }
     document.getElementById('so-assist-toggle').addEventListener('click',function(){ setAssist(!document.body.classList.contains('so-assist-open')); });
     document.getElementById('so-assist-close').addEventListener('click',function(){ setAssist(false); });
+    // Speaker: read the assistant pane aloud via browser-native SpeechSynthesis (no backend, no network — passes the non-mutating chrome contract). Feature-detected; toggles play/stop; stops when the pane closes.
+    (function(){ var speakBtn=document.getElementById('so-assist-speak'), synth=window.speechSynthesis; if(!speakBtn) return;
+      if(!synth || typeof window.SpeechSynthesisUtterance==='undefined'){ speakBtn.style.display='none'; return; }
+      var speaking=false;
+      function stopSpeak(){ try{ synth.cancel(); }catch(e){} speaking=false; speakBtn.setAttribute('aria-pressed','false'); speakBtn.textContent='🔊'; speakBtn.title='Read this pane aloud'; }
+      function startSpeak(){ var host=document.getElementById('so-assist-body'); var txt=host?(host.innerText||host.textContent||''):''; txt=txt.replace(/\s+/g,' ').trim(); if(!txt) return;
+        try{ synth.cancel(); }catch(e){} var u=new window.SpeechSynthesisUtterance(txt); u.rate=1; u.pitch=1;
+        u.onend=stopSpeak; u.onerror=stopSpeak;
+        speaking=true; speakBtn.setAttribute('aria-pressed','true'); speakBtn.textContent='⏹'; speakBtn.title='Stop reading';
+        synth.speak(u); }
+      speakBtn.addEventListener('click',function(){ if(speaking) stopSpeak(); else startSpeak(); });
+      document.getElementById('so-assist-close').addEventListener('click',stopSpeak);
+      document.getElementById('so-assist-toggle').addEventListener('click',function(){ if(!document.body.classList.contains('so-assist-open')) stopSpeak(); });
+      window.addEventListener('beforeunload',stopSpeak);
+    })();
     document.getElementById('so-palette').addEventListener('click',function(){ cmdkOpen(); });
     Array.prototype.forEach.call(document.querySelectorAll('.so-grp-h'),function(b){ b.addEventListener('click',function(){b.parentNode.classList.toggle('closed');}); });
     var s=document.getElementById('so-sm-search');
