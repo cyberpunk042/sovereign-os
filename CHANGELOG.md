@@ -136,6 +136,22 @@ blocker to running a real model, and it made SDD-205's Anthropic endpoint return
 - Verified: mha-block 28 tests (8 new, incl. "a distinct base yields distinct decode output"), loader 13 (6 new);
   clippy `-D warnings` clean; downstream quant-llm/gatewayd/decoder-layer/inference-demo build unchanged. Sampling
   params + chat template + quantized loading are the tracked next arcs. MS003 `unsigned-pending-MS003`.
+### Added — Compute Plane Phase 2, increment 5: observability — the plane + registry surface on D-22 (2026-07-12)
+
+The live state of the compute plane + model registry becomes visible where the operator already watches
+per-device model status (the D-22 LM Status & Operability panel). SDD-902.
+
+- NEW read-only `GET /api/lm-status/compute-plane` (lm-status-operability-api) joins the compute plane (jobs-api
+  `/plane.json` — devices with live free VRAM + `effective_free` after claims + the outstanding claims) with the
+  gateway registry (`/v1/models` — loaded primary / CPU secondaries / GPU proxies with device+VRAM + the
+  `background` target) + the `model-serve` jobs. Each half degrades independently (an `offline` flag).
+- A "Compute Plane & Models" section on D-22 renders it — a devices/VRAM table, the claims, the gateway models
+  (background badged), serving jobs — riding D-22's existing SSE + 5s poll, with a demo fixture. The
+  `model-serve start/stop/background` verbs are clipboard-copied signed CLI (R10212 — no web mutation).
+- Verified: an http test asserts the endpoint joins plane + registry + serving and degrades when the upstreams
+  are down; a webapp-contract test locks the section + the copyable verbs + the demo fixture. 24 D-22 contract
+  tests.
+
 ### Added — the `sovereign-osctl model-serve` verb: launch a GPU model in one command (2026-07-12)
 
 The operability capstone for Compute Plane Phase 2 (SDD-902) — launching a GPU-hosted model no longer means

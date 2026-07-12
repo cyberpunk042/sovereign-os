@@ -25,6 +25,7 @@ registry, built in three increments over the shared plane.
 | **2b** | streaming to a GPU proxy — transcode the upstream SSE into Anthropic events | ✓ shipped |
 | **3** | routing (model / background hint) + background jobs target the secondary + docs | ✓ shipped |
 | **4** | the Code Console UX loop — the model registry + background alias reach the console chat | ✓ shipped |
+| **5** | observability — the compute plane + registry surface on D-22 (VRAM, claims, models, background) | ✓ shipped |
 
 ## Increment 1 (shipped)
 
@@ -148,6 +149,26 @@ what the gateway can serve is visible and usable from the Code Console.
   target; a jobs-runtime test locks the console-api proxy + composer model wiring.
   16 gateway transport + 62 lib+http + 15 jobs-runtime tests; clippy `-D warnings`
   clean.
+
+## Increment 5 — observability (shipped)
+
+The live state of everything above — made visible where the operator already watches
+per-device model status: the **D-22 LM Status & Operability** panel.
+
+- **`GET /api/lm-status/compute-plane`** (lm-status-operability-api) — a read-only
+  proxy that joins the compute plane (jobs-api `/plane.json` — devices with live free
+  VRAM + `effective_free` after claims + the outstanding claims) with the gateway
+  registry (`/v1/models` — loaded primary / CPU secondaries / GPU proxies with
+  device + VRAM, and the `background` target) + the `model-serve` jobs. Each half
+  degrades independently (an `offline` flag) rather than raising.
+- **The "Compute Plane & Models" section** on D-22 renders it: a devices table
+  (free / effective-free VRAM), the VRAM claims, the gateway models (the background
+  one badged), and serving jobs — riding D-22's existing SSE + 5s poll, with a demo
+  fixture for DEMO mode. The `model-serve start/stop/background` verbs are offered as
+  **clipboard-copied signed CLI** (R10212 — the panel never mutates over HTTP).
+- **Verified:** an http test asserts the endpoint joins plane + registry + serving
+  and degrades when the upstreams are down; a webapp-contract test locks the section +
+  the copyable verbs + the demo fixture. 24 D-22 contract tests.
 
 ## Honest gating
 
