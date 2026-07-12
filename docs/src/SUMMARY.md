@@ -67,3 +67,8 @@
 
 - [Use the box as your AI backend](./ai-backend.md)
 - [Reasoning & operability](./reasoning-operability.md)
+
+# Design record
+
+- [SDD catalog](./sdd-catalog.md)
+- [Standing directives](./standing-directives.md)

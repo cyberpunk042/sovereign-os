@@ -12,6 +12,22 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — unfreeze the mdbook: generated SDD catalog + standing-directives, enforced (2026-07-12)
+
+Phase-1 audit (SDD-958; closes ledger F-2026-033). The published mdbook (`docs/src/SUMMARY.md`) had hand-curated SDD
+links frozen at SDD-067 — the book trailed the repo by ~90 SDDs (the whole intelligence layer + the phase-1 audit
+arc) with no page for the July standing-directives.
+
+- **`scripts/docs/gen-sdd-catalog.py`**: generates `docs/src/sdd-catalog.md` (every SDD by number) +
+  `docs/src/standing-directives.md` (the operator directives incl the three July ones) from the file tree. Run it
+  after adding an SDD/directive.
+- **`docs/src/SUMMARY.md`**: a new "Design record" section links both generated chapters (additive — the curated
+  intro links are kept).
+- **`tests/lint/test_mdbook_catalog_sync.py`**: re-runs the generator and fails CI if either page is stale
+  (regen-and-compare + a newest-SDD anti-freeze guard + link resolution). Same self-maintaining discipline as the
+  `context.md` counts-contract and the island register — the book can never freeze behind the design record again.
+
+
 ### Docs — serve-vs-gatewayd architecture decision package (2026-07-12)
 
 Phase-1 audit (SDD-957; scopes ledger F-2026-089 — **open, awaiting operator decision Q-957-A**). A code comparison of
