@@ -17,12 +17,19 @@
 //!   counts; weight tying; the HF→interleaved RoPE row-permutation; shape
 //!   validation; a synthetic-fixture test proving parse + dequant + shape +
 //!   forward + deterministic decode **offline**.
+//! - **In (added SDD-900):** `rope_theta` + `rope_scaling` are now parsed from
+//!   `config.json` and threaded into each block via
+//!   [`MhaDecoderBlock::with_rope`], so Llama-3 (500000) / Qwen2 (1000000) /
+//!   Mistral decode at their trained frequency base instead of a hardcoded
+//!   10000. Linear / dynamic-NTK / YaRN scaling are applied; llama3 scaling
+//!   applies the exact base (short-context coherent; the freq ramp is a noted
+//!   follow-up).
 //! - **Out (named follow-ups):** GGUF Q4_K/Q8_0 dequant (needs a from-scratch
 //!   block-dequant); a real **tokenizer bridge** (the runtime tokenizer is
 //!   byte-BPE — a real model's SentencePiece/BPE vocab needs translating);
-//!   non-default `rope_theta` (the block uses `Rope::new`, base 10000); and
-//!   **real-model coherence**, which cannot be verified in this environment
-//!   (no network to model hosts, no model file on disk).
+//!   the llama3 low/high-freq ramp; and **real-model coherence**, which cannot
+//!   be verified in this environment (no network to model hosts, no model file
+//!   on disk).
 //!
 //! So: this lands + verifies the *machinery*. Point it at a real Llama-family
 //! safetensors with a matching tokenizer and it builds a runnable model; whether
@@ -37,7 +44,7 @@ use std::collections::BTreeMap;
 use serde::Deserialize;
 use sovereign_decoder_layer::{DecoderLayer, LayerStack};
 use sovereign_linear::Precision;
-use sovereign_mha_block::{MhaBlockWeights, MhaDecoderBlock};
+use sovereign_mha_block::{MhaBlockWeights, MhaDecoderBlock, RopeScaling, RopeScalingKind};
 use sovereign_quant_llm::QuantLlm;
 use sovereign_quant_model::QuantModel;
 use sovereign_rmsnorm::RmsNorm;
@@ -123,12 +130,79 @@ pub struct Config {
     /// Explicit per-head dimension (`head_dim`); defaults to `model_dim / n_heads`.
     #[serde(rename = "head_dim", default)]
     pub head_dim: Option<usize>,
+    /// RoPE frequency base (`rope_theta`). Defaults to 10000 (the pre-Llama-3
+    /// convention); modern models train with 500000 (Llama-3) / 1000000 (Qwen2)
+    /// and decode incoherently at 10000 — this is THE field that unblocks them.
+    #[serde(rename = "rope_theta", default = "default_rope_theta")]
+    pub rope_theta: f32,
+    /// Optional RoPE position scaling (`rope_scaling`), for long-context models.
+    #[serde(rename = "rope_scaling", default)]
+    pub rope_scaling: Option<RopeScalingCfg>,
+}
+
+/// Default frequency base when `config.json` omits `rope_theta`.
+fn default_rope_theta() -> f32 {
+    10000.0
+}
+
+fn default_scaling_factor() -> f32 {
+    1.0
+}
+fn default_beta_fast() -> f32 {
+    32.0
+}
+fn default_beta_slow() -> f32 {
+    1.0
+}
+
+/// The `rope_scaling` block of an HF `config.json`. Accepts both the newer
+/// `rope_type` and the older `type` key. Translated to a runtime
+/// [`RopeScaling`] by [`Config::rope_scaling_resolved`].
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct RopeScalingCfg {
+    /// Scaling family: `linear` / `dynamic` / `yarn` / `llama3` (case-insensitive).
+    #[serde(rename = "rope_type", alias = "type", default)]
+    pub rope_type: String,
+    /// Scaling factor (`factor`).
+    #[serde(default = "default_scaling_factor")]
+    pub factor: f32,
+    /// Trained context (`original_max_position_embeddings`), needed by YaRN.
+    #[serde(rename = "original_max_position_embeddings", default)]
+    pub original_ctx: Option<usize>,
+    /// YaRN high-frequency ramp threshold (`beta_fast`).
+    #[serde(default = "default_beta_fast")]
+    pub beta_fast: f32,
+    /// YaRN low-frequency ramp threshold (`beta_slow`).
+    #[serde(default = "default_beta_slow")]
+    pub beta_slow: f32,
 }
 
 impl Config {
     /// Parse an HF `config.json`.
     pub fn from_json(bytes: &[u8]) -> Result<Self, LoaderError> {
         serde_json::from_slice(bytes).map_err(|e| LoaderError::Json(e.to_string()))
+    }
+
+    /// Resolve `rope_scaling` into the runtime [`RopeScaling`] the block builder
+    /// takes, or `None` when absent / an unrecognized `rope_type` (in which case
+    /// the base `rope_theta` alone applies — never a fabricated scaling).
+    #[must_use]
+    pub fn rope_scaling_resolved(&self) -> Option<RopeScaling> {
+        let cfg = self.rope_scaling.as_ref()?;
+        let kind = match cfg.rope_type.to_ascii_lowercase().as_str() {
+            "linear" => RopeScalingKind::Linear,
+            "dynamic" | "dynamic-ntk" | "ntk" => RopeScalingKind::Dynamic,
+            "yarn" => RopeScalingKind::Yarn,
+            "llama3" => RopeScalingKind::Llama3,
+            _ => return None,
+        };
+        Some(RopeScaling {
+            kind,
+            factor: cfg.factor,
+            original_ctx: cfg.original_ctx,
+            beta_fast: cfg.beta_fast,
+            beta_slow: cfg.beta_slow,
+        })
     }
     /// Effective key/value head count.
     #[must_use]
@@ -371,7 +445,10 @@ pub fn load(model_bytes: &[u8], config: &Config) -> Result<QuantModel, LoaderErr
             w_down: st.tensor_exact(&p("mlp.down_proj.weight"), md * hidden)?,
         };
         let block = MhaDecoderBlock::from_weights(&weights, Precision::F32)
-            .map_err(|e| LoaderError::Build(format!("layer {i}: {e}")))?;
+            .map_err(|e| LoaderError::Build(format!("layer {i}: {e}")))?
+            // Thread the model's real RoPE base + scaling into every block (the
+            // fix for modern models — default 10000 decodes them as garbage).
+            .with_rope(config.rope_theta, config.rope_scaling_resolved().as_ref());
         layers.push(Box::new(block));
     }
 
@@ -562,6 +639,8 @@ mod tests {
             eps: 1e-6,
             tied: false,
             head_dim: Some(HD),
+            rope_theta: 10000.0,
+            rope_scaling: None,
         };
         (bytes, cfg)
     }
@@ -654,5 +733,95 @@ mod tests {
         assert_eq!(a.len(), 6);
         // NOT asserted: semantic coherence — the fixture weights are synthetic;
         // real-model coherence is the gated follow-up.
+    }
+
+    // ---- RoPE config parsing (SDD-900) ----
+
+    #[test]
+    fn rope_theta_defaults_to_10000_when_absent() {
+        let cfg = Config::from_json(
+            br#"{"hidden_size":8,"num_hidden_layers":1,"num_attention_heads":2,
+                 "vocab_size":16,"intermediate_size":16}"#,
+        )
+        .unwrap();
+        assert_eq!(cfg.rope_theta, 10000.0);
+        assert!(cfg.rope_scaling.is_none());
+        assert!(cfg.rope_scaling_resolved().is_none());
+    }
+
+    #[test]
+    fn rope_theta_parsed_from_config() {
+        // A Llama-3-shaped base must survive the round trip.
+        let cfg = Config::from_json(
+            br#"{"hidden_size":8,"num_hidden_layers":1,"num_attention_heads":2,
+                 "vocab_size":16,"intermediate_size":16,"rope_theta":500000.0}"#,
+        )
+        .unwrap();
+        assert_eq!(cfg.rope_theta, 500000.0);
+    }
+
+    #[test]
+    fn rope_scaling_linear_resolves() {
+        // Older "type" key.
+        let cfg = Config::from_json(
+            br#"{"hidden_size":8,"num_hidden_layers":1,"num_attention_heads":2,
+                 "vocab_size":16,"intermediate_size":16,
+                 "rope_scaling":{"type":"linear","factor":4.0}}"#,
+        )
+        .unwrap();
+        let s = cfg.rope_scaling_resolved().expect("resolves");
+        assert_eq!(s.kind, RopeScalingKind::Linear);
+        assert_eq!(s.factor, 4.0);
+    }
+
+    #[test]
+    fn rope_scaling_llama3_resolves_with_original_ctx() {
+        // Newer "rope_type" key + the Llama-3.1 shape.
+        let cfg = Config::from_json(
+            br#"{"hidden_size":8,"num_hidden_layers":1,"num_attention_heads":2,
+                 "vocab_size":16,"intermediate_size":16,"rope_theta":500000.0,
+                 "rope_scaling":{"rope_type":"llama3","factor":8.0,
+                   "original_max_position_embeddings":8192,
+                   "low_freq_factor":1.0,"high_freq_factor":4.0}}"#,
+        )
+        .unwrap();
+        assert_eq!(cfg.rope_theta, 500000.0);
+        let s = cfg.rope_scaling_resolved().expect("resolves");
+        assert_eq!(s.kind, RopeScalingKind::Llama3);
+        assert_eq!(s.factor, 8.0);
+        assert_eq!(s.original_ctx, Some(8192));
+    }
+
+    #[test]
+    fn rope_scaling_yarn_carries_betas() {
+        let cfg = Config::from_json(
+            br#"{"hidden_size":8,"num_hidden_layers":1,"num_attention_heads":2,
+                 "vocab_size":16,"intermediate_size":16,
+                 "rope_scaling":{"rope_type":"yarn","factor":4.0,
+                   "original_max_position_embeddings":4096,
+                   "beta_fast":32.0,"beta_slow":1.0}}"#,
+        )
+        .unwrap();
+        let s = cfg.rope_scaling_resolved().expect("resolves");
+        assert_eq!(s.kind, RopeScalingKind::Yarn);
+        assert_eq!(s.original_ctx, Some(4096));
+        assert_eq!((s.beta_fast, s.beta_slow), (32.0, 1.0));
+    }
+
+    #[test]
+    fn unknown_rope_type_yields_no_scaling_not_an_error() {
+        // Honest: an unrecognized type falls back to base-theta only, never a
+        // fabricated scaling and never a parse failure.
+        let cfg = Config::from_json(
+            br#"{"hidden_size":8,"num_hidden_layers":1,"num_attention_heads":2,
+                 "vocab_size":16,"intermediate_size":16,
+                 "rope_scaling":{"rope_type":"someNewMethod","factor":2.0}}"#,
+        )
+        .unwrap();
+        assert!(cfg.rope_scaling.is_some(), "the block is parsed");
+        assert!(
+            cfg.rope_scaling_resolved().is_none(),
+            "but resolves to no scaling"
+        );
     }
 }

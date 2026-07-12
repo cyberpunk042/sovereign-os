@@ -12,6 +12,24 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Fixed — real RoPE: `rope_theta` + `rope_scaling` from the model config (modern models decode coherently) (2026-07-12)
+
+Arc 1 of the Phase-1 audit (SDD-900; closes ledger F-2026-080). Every decoder block was built with a **hardcoded
+RoPE base of 10000**, so Llama-3 (500000), Qwen2 (1000000), Mistral etc. decoded as garbage — the single biggest
+blocker to running a real model, and it made SDD-205's Anthropic endpoint return gibberish from VS Code / Claude Code.
+
+- **`sovereign-mha-block`**: new `MhaDecoderBlock::with_rope(theta_base, scaling)` builder (additive — existing
+  callers/tests untouched) + public `RopeScalingKind` (Linear/Dynamic/Yarn/Llama3) + `RopeScaling`, mapping onto
+  `sovereign-rope`'s existing (previously-unplumbed) `with_base` / `ntk_aware_base` / `with_yarn`.
+- **`sovereign-safetensors-loader`**: `Config` now parses `rope_theta` (default 10000) + `rope_scaling` (both the
+  newer `rope_type` and older `type` key), resolves it, and threads it into every block. Unknown scaling type ⇒
+  base-theta only (never a fabricated scaling, never a parse failure — SB-077).
+- Honest partial support: YaRN without a known original context, and the llama3 frequency ramp, fall back to the
+  correct base theta (the dominant win) rather than fabricating a scaling.
+- Verified: mha-block 28 tests (8 new, incl. "a distinct base yields distinct decode output"), loader 13 (6 new);
+  clippy `-D warnings` clean; downstream quant-llm/gatewayd/decoder-layer/inference-demo build unchanged. Sampling
+  params + chat template + quantized loading are the tracked next arcs. MS003 `unsigned-pending-MS003`.
+
 ### Added — the gateway safety spine: input screening + output redaction, made real on the daemon (2026-07-12)
 
 First chunk of the Phase-1 audit's Arc 2 (SDD-206; closes ledger F-2026-081 + F-2026-082). The running
