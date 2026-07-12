@@ -450,9 +450,18 @@ mod tests {
         // Read-only invariant: the request ledger + learned state are untouched;
         // ONLY the dry-run counter moves.
         let led = body_of(&respond(&s, "GET", "/admin/ledger", ""));
-        assert_eq!(led["ledger"]["total_requests"], 0, "coat must not inflate requests");
-        assert_eq!(led["ledger"]["learned"], 0, "coat must not learn into memory");
-        assert!(led["ledger"]["dry_runs"].as_u64().unwrap() >= 1, "coat must count as a dry-run");
+        assert_eq!(
+            led["ledger"]["total_requests"], 0,
+            "coat must not inflate requests"
+        );
+        assert_eq!(
+            led["ledger"]["learned"], 0,
+            "coat must not learn into memory"
+        );
+        assert!(
+            led["ledger"]["dry_runs"].as_u64().unwrap() >= 1,
+            "coat must count as a dry-run"
+        );
     }
 
     #[test]
@@ -464,9 +473,19 @@ mod tests {
         assert_eq!(v["trace"]["rung"], "CoT");
         assert_eq!(v["trace"]["recalled_total"], 0, "CoT must recall no memory");
         // the C-MCTS + DFS rungs are reachable and behaviourally labelled.
-        let cm = body_of(&respond(&s, "POST", "/v1/coat", &serde_json::json!({"problem":"x","rung":"cmcts"}).to_string()));
+        let cm = body_of(&respond(
+            &s,
+            "POST",
+            "/v1/coat",
+            &serde_json::json!({"problem":"x","rung":"cmcts"}).to_string(),
+        ));
         assert_eq!(cm["trace"]["rung"], "C-MCTS");
-        let df = body_of(&respond(&s, "POST", "/v1/coat", &serde_json::json!({"problem":"x","rung":"dfs"}).to_string()));
+        let df = body_of(&respond(
+            &s,
+            "POST",
+            "/v1/coat",
+            &serde_json::json!({"problem":"x","rung":"dfs"}).to_string(),
+        ));
         assert_eq!(df["trace"]["strategy"], "dfs");
         // an unknown rung is an engine refusal (422), a bad body is 400, GET is 405.
         let bad = serde_json::json!({"problem": "x", "rung": "bogus"}).to_string();

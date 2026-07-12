@@ -391,7 +391,11 @@ fn handle_http_conn(server: &GatewayServer, stream: TcpStream) -> std::io::Resul
     // The OpenAI chat shim streams SSE token-by-token, which the pure
     // request→reply `respond()` cannot express — special-case it here so the
     // cockpit chat console (scripts/inference/prompt.py) gets live deltas.
-    let route = path.split('?').next().unwrap_or(&path).trim_end_matches('/');
+    let route = path
+        .split('?')
+        .next()
+        .unwrap_or(&path)
+        .trim_end_matches('/');
     if method == "POST" && route == "/v1/chat/completions" {
         return stream_chat_completions(server, &mut writer, &body);
     }
@@ -435,7 +439,10 @@ fn stream_chat_completions(
     let req: serde_json::Value = match serde_json::from_str(body) {
         Ok(v) => v,
         Err(e) => {
-            return write_http(writer, &http::err(400, format!("invalid chat request: {e}")));
+            return write_http(
+                writer,
+                &http::err(400, format!("invalid chat request: {e}")),
+            );
         }
     };
     if !server.has_generator() {
