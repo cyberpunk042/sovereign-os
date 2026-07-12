@@ -915,6 +915,9 @@ html[data-theme="light"] {
 .coat-recall { font-size:.72rem; margin-top:.25rem; color:var(--muted,#888); }
 .coat-mem { display:inline-block; border:1px solid var(--border,#333); border-radius:3px;
   padding:0 .3rem; margin:0 .15rem .15rem 0; font-family:var(--mono,monospace); font-size:.68rem; }
+.coat-src { font-size:.68rem; border-radius:3px; padding:0 .35rem; border:1px solid var(--border,#333); }
+.coat-src-model { color:var(--accent,#9bd1ff); border-color:var(--accent,#9bd1ff); }
+.coat-src-heuristic { color:var(--muted,#888); }
 </style>
 <h2>reasoning — CoAT deliberation <span class="muted" style="font-weight:400;font-size:.8rem">— the sovereign-coat engine: iterative MCTS that recalls associative memory at every step (read-only)</span></h2>
 <div class="panel">
@@ -922,11 +925,15 @@ html[data-theme="light"] {
     <input id="coat-problem" type="text" placeholder="a problem to deliberate about…" style="flex:1;min-width:15rem">
     <label class="muted" style="font-size:.72rem">rung
       <select id="coat-rung" style="vertical-align:middle">
-        <option value="coat" selected>CoAT — MCTS + memory</option>
+        <option value="coat" selected>CoAT — memory-steered</option>
+        <option value="cmcts">C-MCTS — constrained</option>
         <option value="mcts">MCTS — UCT</option>
-        <option value="tot">ToT — tree</option>
+        <option value="tot">ToT — BFS</option>
+        <option value="dfs">ToT — DFS</option>
         <option value="cot">CoT — chain</option>
       </select></label>
+    <label class="muted" style="font-size:.72rem">topic
+      <input id="coat-topic" type="number" min="0" value="15" style="width:5rem;vertical-align:middle" title="recall sketch bitset (coarse pre-filter; recall also keys on each thought)"></label>
     <button id="coat-btn">▷ deliberate</button>
   </div>
   <div id="coat-result" class="muted" style="margin-top:.6rem">— enter a problem and deliberate: the engine searches a tree of thoughts and recalls Memory-OS knowledge that modulates each thought's value (CoAT)</div>
@@ -1415,7 +1422,8 @@ const DEMO_MEM = { cortex:{ exists:true, count:120, cold_count:120, by_type:{sem
     {id:2,type:"episodic",trust:700,value_score:500,summary:"demo/ a partially-related episode",derived_facts:[],flags:["readable"]},
   ]},
   python:{ exists:true, count:24, active:22, changes:8, path:"demo/store.json", entries:[{id:"m-01",type:"semantic",stage:"consolidated",state:"active",summary:"demo/ operator prefers the careful profile"},{id:"m-02",type:"episodic",stage:"raw",state:"active",summary:"demo/ last build succeeded on znver5"}] } };
-const DEMO_COAT = { rung:"CoAT", iterations:64, nodes_expanded:31, recalled_total:12,
+const DEMO_COAT = { rung:"CoAT", strategy:"uct", thought_source:"heuristic", iterations:64,
+  nodes_expanded:31, abandoned:2, branches_committed:3, branches_pruned:6, recalled_total:12, path_value:0.97,
   best_path:[
     {depth:1,category:"understand",text:"demo/ restate the problem: prove the routing invariant holds under load",prior:0.86,value:0.97,visits:22,recall:[{id:1,relevance:1.0,note:"mem#1"},{id:2,relevance:0.58,note:"mem#2"}]},
     {depth:2,category:"plan",text:"demo/ decompose into (a) steady-state and (b) burst; check each tier's admission rule",prior:0.84,value:0.98,visits:9,recall:[{id:1,relevance:1.0,note:"mem#1"}]},
@@ -1541,9 +1549,10 @@ async function coatDeliberate(){
   if (!problem){ el("coat-result").innerHTML = "<span class='muted'>enter a problem first</span>"; return; }
   if (demoActive()){ renderCoat(DEMO_COAT); return; }
   const rung = el("coat-rung").value;
+  const topic = el("coat-topic").value || "15";
   el("coat-result").textContent = "deliberating…";
   try{
-    const q = new URLSearchParams({ problem: problem, rung: rung });
+    const q = new URLSearchParams({ problem: problem, rung: rung, topic: topic });
     const d = await (await fetch("/brain/coat?" + q.toString())).json();
     if (d.error){ el("coat-result").innerHTML = "<span class='bad'>" + esc(d.error) + "</span>"; return; }
     renderCoat(d);
@@ -1572,13 +1581,21 @@ function renderCoat(d){
       + "</div>";
   }).join("");
   const nodes = (d.nodes_expanded != null) ? d.nodes_expanded : (d.tree || []).length;
+  const src = d.thought_source || "?";
+  // map to a fixed class (no interpolation of data into the attribute) so this is
+  // safe without single-quote escaping — the shared esc() escapes & < > " only.
+  const srcClass = src === "model" ? "coat-src-model" : "coat-src-heuristic";
+  const srcChip = "<span class=\"coat-src " + srcClass + "\" title=\"where the thoughts came from\">"
+    + (src === "model" ? "model-generated" : "heuristic (no model loaded)") + "</span>";
   el("coat-result").innerHTML =
     "<div class='coat-sum'><strong>" + esc(d.rung || "CoAT") + "</strong> "
-    + "<span class='typechip'>read-only · not learned</span> "
-    + "<span class='muted' style='font-size:.8rem'>" + esc(d.iterations || 0) + " iterations · "
-    + esc(nodes) + " nodes · " + esc(d.recalled_total || 0) + " memory items recalled</span></div>"
+    + "<span class='muted' style='font-size:.72rem'>" + esc(d.strategy || "") + "</span> "
+    + "<span class='typechip'>read-only · not learned</span> " + srcChip + " "
+    + "<span class='muted' style='font-size:.8rem'>" + esc(d.iterations || 0) + " iters · "
+    + esc(nodes) + " nodes · " + esc(d.abandoned || 0) + " backtracked · "
+    + esc(d.recalled_total || 0) + " recalled · path_value " + esc((d.path_value != null ? Number(d.path_value).toFixed(2) : "?")) + "</span></div>"
     + "<div class='coat-path'>" + (steps || "<span class='muted'>no reasoning path</span>") + "</div>"
-    + "<div class='muted' style='font-size:.72rem;margin-top:.4rem'>the winning chain — each step's value is the backpropagated MCTS estimate; ↑ marks a thought lifted by recalled memory (CoAT's mechanism)</div>";
+    + "<div class='muted' style='font-size:.72rem;margin-top:.4rem'>the winning chain — each step's value is the backpropagated look-ahead estimate; ↑ marks a thought steered by recalled memory (CoAT); abandoned branches were backtracked out of. Thoughts are model-free placeholders unless a model is loaded.</div>";
 }
 
 // interactive clarification (QCFA / AskUserQuestion) — same behaviour as the

@@ -211,7 +211,7 @@ pub enum GatewayRequest {
     /// reasoning engine, where every expansion recalls associative memory from
     /// this daemon's live Cortex Memory-OS. Returns the winning reasoning trace +
     /// the full search tree. The `rung` selects the ladder preset
-    /// (`cot`/`tot`/`mcts`/`coat`, default `coat`).
+    /// (`cot`/`tot`/`dfs`/`mcts`/`cmcts`/`coat`, default `coat`).
     Coat {
         /// The problem statement to deliberate about.
         problem: String,
@@ -224,6 +224,12 @@ pub enum GatewayRequest {
         /// Which rung of the reasoning ladder to run.
         #[serde(default)]
         rung: String,
+        /// Epoch tick for freshness decay (the caller's clock). Default 100.
+        #[serde(default = "default_recall_now")]
+        now: u64,
+        /// Freshness half-life in ticks. Default 1000.
+        #[serde(default = "default_recall_half_life")]
+        half_life: u64,
     },
     /// Return the 6-surface gateway manifest.
     Manifest,
@@ -308,7 +314,8 @@ pub struct Ledger {
     /// Of those, how many had the learned prior agree with the live verdict.
     /// The ratio is how well the engine is learning its own dynamics.
     pub prediction_agreements: u64,
-    /// Read-only ops handled (`explain` + `deliberate`). Counted for request-mix
+    /// Read-only ops handled (`explain` + `simple-explain` + `deliberate` +
+    /// `coat`). Counted for request-mix
     /// observability; the decision-ledger fields above and the engine's learned
     /// state are untouched by these ops — the auditor guarantee still holds.
     pub dry_runs: u64,
@@ -338,20 +345,56 @@ pub struct Health {
 /// same two-brain store the `/brain/` observatory browses.
 struct CortexRecall<'a> {
     cortex: &'a Cortex,
+    /// Epoch tick + decay half-life for freshness — supplied by the caller so
+    /// recall tracks the store's own clock rather than a frozen constant.
+    now: u64,
+    half_life: u64,
 }
+
+/// Default epoch tick for a CoAT recall (matches the seeded store's freshness).
+fn default_recall_now() -> u64 {
+    100
+}
+
+/// Default freshness half-life for a CoAT recall.
+fn default_recall_half_life() -> u64 {
+    1000
+}
+
+/// FNV-1a over a thought's alphanumeric tokens → a 64-bit sketch. Keying recall
+/// on THIS (per-thought text) is what lets recall **steer** — different thoughts
+/// probe different memory — not merely lift every thought's value uniformly.
+fn text_sketch(text: &str) -> u64 {
+    let mut bits = 0u64;
+    for tok in text.split(|c: char| !c.is_alphanumeric()).filter(|t| !t.is_empty()) {
+        let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+        for b in tok.as_bytes() {
+            h ^= b.to_ascii_lowercase() as u64;
+            h = h.wrapping_mul(0x0000_0100_0000_01b3);
+        }
+        bits |= 1u64 << (h % 64);
+    }
+    bits
+}
+
+/// The Memory-OS relevance kernel `(overlap·1 + trust·0.001 + value·0.001)·decay`
+/// sits on an **absolute** ~0..6 scale (a shared sketch bit is worth 1.0). Map it
+/// to `[0,1]` with a saturating `rel/(rel+K)` so a WEAK hit stays weak — never
+/// renormalized to 1.0 the way a within-batch max would fake it.
+const RECALL_SCALE: f64 = 2.0;
 
 impl AssociativeMemory for CortexRecall<'_> {
     fn recall(&self, ctx: &ThoughtContext, k: usize) -> Vec<Recall> {
-        // Memory-OS staged scan keyed on the problem's topic/entity sketches.
-        // Fixed now/half_life match the demo freshness of the seeded store.
-        let hits = self.cortex.recall(ctx.topic, ctx.entity, 100, 1000, k);
-        // Normalize relevance into [0,1] by the batch max so the strongest recall
-        // reads ~1.0; the engine's recall_weight then modulates the thought value.
-        let max = hits.iter().map(|(_, r)| *r).fold(0.0_f64, f64::max).max(1e-9);
+        // Key on the EVOLVING THOUGHT (ctx.text) OR'd with the problem sketch, so
+        // different thoughts recall different memory — the CoAT steering signal.
+        let text_bits = text_sketch(&ctx.text);
+        let topic = ctx.topic | text_bits;
+        let entity = ctx.entity | text_bits.rotate_left(29);
+        let hits = self.cortex.recall(topic, entity, self.now, self.half_life, k);
         hits.into_iter()
-            .map(|(id, r)| Recall {
+            .map(|(id, rel)| Recall {
                 id,
-                relevance: (r / max).clamp(0.0, 1.0),
+                relevance: (rel / (rel + RECALL_SCALE)).clamp(0.0, 1.0),
                 note: format!("mem#{id}"),
             })
             .collect()
@@ -359,19 +402,22 @@ impl AssociativeMemory for CortexRecall<'_> {
 }
 
 /// A deterministic, model-free thought source: structured, category-phased
-/// candidate thoughts so the search harness + the associative recall are
-/// demonstrable WITHOUT a loaded model. The thought *content* is the model-gated
-/// half of CoAT (see `docs/standing-directives/2026-07-12-deliberate-reasoning.md`);
-/// when a generator is present a model-driven source replaces this, unchanged
-/// search + memory around it.
+/// candidate thoughts so the search harness + associative recall are demonstrable
+/// WITHOUT a loaded model. It IS the source when no generator is loaded; the
+/// trace flags `thought_source="heuristic"` so a consumer never mistakes these
+/// placeholders for reasoning. RAG-aware: it notes how much memory was recalled.
 struct HeuristicThoughts;
 
 impl ThoughtSource for HeuristicThoughts {
-    fn expand(&mut self, problem: &Problem, path: &[PathStep], k: usize) -> Vec<ThoughtSeed> {
+    fn expand(
+        &mut self,
+        problem: &Problem,
+        path: &[PathStep],
+        associated: &[Recall],
+        k: usize,
+    ) -> Vec<ThoughtSeed> {
         use ThoughtCategory::{Code, Plan, Reflect, Summarize, Understand};
         let depth = path.len();
-        // Phase the constrained action space by reasoning depth: understand →
-        // plan → work/reflect → summarize. Never an action outside the space.
         let palette: [ThoughtCategory; 3] = match depth {
             0 => [Understand, Plan, Reflect],
             1 => [Plan, Code, Reflect],
@@ -379,18 +425,93 @@ impl ThoughtSource for HeuristicThoughts {
             _ => [Summarize, Reflect, Code],
         };
         let head: String = problem.statement.chars().take(48).collect();
+        let hint = if associated.is_empty() {
+            String::new()
+        } else {
+            format!(" \u{2039}recalled {}\u{203a}", associated.len())
+        };
         (0..k)
             .map(|i| {
                 let category = palette[i % palette.len()];
                 ThoughtSeed {
                     category,
-                    text: format!("[{category:?}] {head} (d{depth}#{i})"),
-                    // Deterministic priors: first candidate strongest, decaying by
-                    // index and slightly by depth (prefer shallow commits).
+                    text: format!("[{category:?}] {head} (d{depth}#{i}){hint}"),
                     prior: (0.86 - 0.11 * i as f64 - 0.02 * depth as f64).clamp(0.05, 0.95),
                 }
             })
             .collect()
+    }
+
+    fn label(&self) -> &str {
+        "heuristic"
+    }
+}
+
+/// The **model-backed** thought source, used when a generator is loaded: it
+/// prompts the local model with the reasoning path + the memory recalled for it
+/// (RAG) and structures the completion into thought seeds. Makes the directive's
+/// "a model-driven source replaces the heuristic when present" literally true;
+/// the trace flags `thought_source="model"`.
+struct ModelThoughts<'a> {
+    server: &'a GatewayServer,
+}
+
+/// Structure a raw model completion into up to `k` seeds: split into fragments,
+/// phase categories by depth, decay priors by order. Extracted so the structuring
+/// is unit-tested without a model.
+fn model_seeds_from(completion: &str, depth: usize, k: usize) -> Vec<ThoughtSeed> {
+    use ThoughtCategory::{Code, Plan, Reflect, Summarize, Understand};
+    let palette: [ThoughtCategory; 3] = match depth {
+        0 => [Understand, Plan, Reflect],
+        1 => [Plan, Code, Reflect],
+        2 => [Code, Reflect, Summarize],
+        _ => [Summarize, Reflect, Code],
+    };
+    let frags: Vec<String> = completion
+        .split(['\n', '.', ';'])
+        .map(|s| s.trim())
+        .filter(|s| s.len() > 1)
+        .map(|s| s.chars().take(80).collect())
+        .collect();
+    if frags.is_empty() {
+        return Vec::new();
+    }
+    (0..k)
+        .map(|i| ThoughtSeed {
+            category: palette[i % palette.len()],
+            text: frags.get(i).cloned().unwrap_or_else(|| frags[i % frags.len()].clone()),
+            prior: (0.86 - 0.11 * i as f64 - 0.02 * depth as f64).clamp(0.05, 0.95),
+        })
+        .collect()
+}
+
+impl ThoughtSource for ModelThoughts<'_> {
+    fn expand(
+        &mut self,
+        problem: &Problem,
+        path: &[PathStep],
+        associated: &[Recall],
+        k: usize,
+    ) -> Vec<ThoughtSeed> {
+        let mut prompt = format!("Problem: {}\n", problem.statement);
+        if !path.is_empty() {
+            prompt.push_str("Reasoning so far:\n");
+            for (i, s) in path.iter().enumerate() {
+                prompt.push_str(&format!("{}. {}\n", i + 1, s.text));
+            }
+        }
+        if !associated.is_empty() {
+            let notes: Vec<&str> = associated.iter().map(|r| r.note.as_str()).collect();
+            prompt.push_str(&format!("Recalled: {}\n", notes.join(", ")));
+        }
+        prompt.push_str("Next reasoning step:");
+        let mut out = String::new();
+        let _ = self.server.generate_chat(&prompt, 48, |c| out.push_str(c));
+        model_seeds_from(&out, path.len(), k)
+    }
+
+    fn label(&self) -> &str {
+        "model"
     }
 }
 
@@ -637,7 +758,9 @@ impl GatewayServer {
                 topic,
                 entity,
                 rung,
-            } => self.coat(problem, topic, entity, &rung),
+                now,
+                half_life,
+            } => self.coat(problem, topic, entity, &rung, now, half_life),
             GatewayRequest::Manifest => GatewayResponse::Manifest {
                 manifest: self.manifest.clone(),
             },
@@ -730,24 +853,50 @@ impl GatewayServer {
     /// Cortex Memory-OS at every expansion (CoAT's defining mechanism). Like
     /// `deliberate`, it decides without learning — only the dry-run counter
     /// moves, so a deliberation never pollutes memory or inflates the request
-    /// ledger. The `rung` selects the ladder preset.
-    fn coat(&self, problem: String, topic: u64, entity: u64, rung: &str) -> GatewayResponse {
+    /// ledger. `rung` selects the ladder preset; `now`/`half_life` are the
+    /// caller's clock for freshness decay. When a model is loaded, thoughts come
+    /// from the model ([`ModelThoughts`]); otherwise from [`HeuristicThoughts`] —
+    /// the trace's `thought_source` says which.
+    fn coat(
+        &self,
+        problem: String,
+        topic: u64,
+        entity: u64,
+        rung: &str,
+        now: u64,
+        half_life: u64,
+    ) -> GatewayResponse {
         let config = match rung.trim().to_ascii_lowercase().as_str() {
             "cot" => CoatConfig::cot(),
             "tot" => CoatConfig::tot(),
+            "dfs" | "tot-dfs" => CoatConfig::tot_dfs(),
             "mcts" => CoatConfig::mcts(),
+            "cmcts" | "c-mcts" => CoatConfig::cmcts(),
             "coat" | "" => CoatConfig::coat(),
             other => {
                 return GatewayResponse::Error {
-                    message: format!("unknown reasoning rung '{other}' (want cot|tot|mcts|coat)"),
+                    message: format!(
+                        "unknown reasoning rung '{other}' (want cot|tot|dfs|mcts|cmcts|coat)"
+                    ),
                 };
             }
         };
         let prob = Problem { statement: problem, topic, entity };
         let result = {
             let cortex = self.cortex.lock().expect("cortex poisoned");
-            let memory = CortexRecall { cortex: &cortex };
-            CoatEngine::new(HeuristicThoughts, memory, config).deliberate(&prob)
+            let memory = CortexRecall { cortex: &cortex, now, half_life };
+            if self.has_generator() {
+                // Model calls are expensive: one per expansion, no rollout, capped
+                // budget — so a deliberation stays bounded when model-backed.
+                let cfg = CoatConfig {
+                    rollout: false,
+                    iterations: config.iterations.min(12),
+                    ..config
+                };
+                CoatEngine::new(ModelThoughts { server: self }, memory, cfg).deliberate(&prob)
+            } else {
+                CoatEngine::new(HeuristicThoughts, memory, config).deliberate(&prob)
+            }
         };
         self.ledger.lock().expect("ledger poisoned").dry_runs += 1;
         match result {
@@ -894,7 +1043,7 @@ impl GatewayServer {
         ));
 
         s.push_str(
-            "# HELP sovereign_gateway_dry_runs_total Read-only ops (explain + deliberate) handled.\n",
+            "# HELP sovereign_gateway_dry_runs_total Read-only ops (explain + simple-explain + deliberate + coat) handled.\n",
         );
         s.push_str("# TYPE sovereign_gateway_dry_runs_total counter\n");
         s.push_str(&format!(
@@ -1223,5 +1372,33 @@ mod tests {
         let aged = s.maintain(u64::MAX / 2, 1);
         // It returns a count without panicking; the exact number is engine-owned.
         let _ = aged;
+    }
+
+    #[test]
+    fn model_seeds_from_structures_a_completion() {
+        // A model completion becomes up to k phased seeds; garbage yields none.
+        let seeds = model_seeds_from("first idea. second idea; third", 0, 3);
+        assert_eq!(seeds.len(), 3);
+        assert_eq!(seeds[0].text, "first idea");
+        assert_eq!(seeds[1].text, "second idea");
+        assert!(seeds[0].prior > seeds[1].prior, "priors decay by order");
+        // depth 0 → the understand/plan/reflect phase.
+        assert_eq!(seeds[0].category, ThoughtCategory::Understand);
+        // empty / whitespace completion → no seeds (the engine then dries the node).
+        assert!(model_seeds_from("   \n  ", 0, 3).is_empty());
+    }
+
+    #[test]
+    fn coat_recall_normalization_keeps_weak_hits_weak() {
+        // The absolute rel/(rel+K) map must NOT renormalize a lone weak hit to 1.0
+        // the way a batch-max would. A single 1-bit-overlap hit stays well below 1.
+        let s = GatewayServer::new();
+        let cortex = s.cortex.lock().unwrap();
+        let rc = CortexRecall { cortex: &cortex, now: 100, half_life: 1000 };
+        // A context whose sketch overlaps the seeded store weakly.
+        let ctx = ThoughtContext { topic: 1, entity: 0, text: "z".into() };
+        for r in rc.recall(&ctx, 4) {
+            assert!(r.relevance < 0.99, "a weak hit must not read as maximal support: {}", r.relevance);
+        }
     }
 }

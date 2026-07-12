@@ -12,6 +12,34 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Changed — reasoning engine hardened: an adversarial review found the mechanics were presets/labels; made them real (2026-07-12)
+
+A "push it to the limits" review (three independent adversarial reviewers + live verification) found the
+search *harness* was correct but several reasoning *mechanics* were presets/labels, and the CoAT centerpiece
+was inert in production (recall *lifted* values but did not *steer* which path won). Every finding is now
+closed — the ladder rungs are behaviourally distinct:
+
+- **CoAT now steers, not just lifts.** `CortexRecall` keys recall on the **per-thought** `ctx.text`
+  (FNV-1a sketch OR'd with the problem sketch), not only the problem — so different thoughts recall
+  different memory and recall can change which path wins. Relevance now uses an **absolute** `rel/(rel+K)`
+  scale so a weak hit stays weak (the old within-batch-max faked maximal support). Recall also conditions
+  thought **generation** (RAG). Proven by `coat_recall_steers_the_winning_path` + a normalization test.
+- **Simulation is a real look-ahead rollout** to `max_depth` (not a one-step value relabeled "playout").
+- **Backtracking is real** — a thought below `prune_below` is abandoned and its M007 branch pruned during
+  the search; the trace reports `abandoned` / `branches_committed` / `branches_pruned`.
+- **ToT offers real BFS and DFS** search strategies (`SearchStrategy`), not only UCT.
+- **C-MCTS is load-bearing** — categories are phase-gated per depth, so constraining changes the search;
+  there is a `cmcts()` preset and a "C-MCTS" rung. `rung()` is now behavioural (can't mislabel).
+- **Model-backed thoughts when a model is loaded** (`ModelThoughts` via the generator); the trace's new
+  `thought_source` field says `"model"` vs `"heuristic"`, and the panel shows a chip — placeholders are
+  never passed off as reasoning. The `expand()` seed set is truncated to `expand_k` (protects the CoT
+  chain invariant); degenerate configs are rejected.
+- **Defects fixed:** brain-api now surfaces a gateway 4xx (e.g. a bad rung) as its **structured message**
+  instead of "unreachable"; `now`/`half_life` are caller-supplied (not a frozen constant); the `dry_runs`
+  metric/doc now names all four read-only ops; `esc()` escapes single quotes; the read-only-memory invariant
+  is asserted (`learned==0`, `dry_runs>=1`). The directive's overstatements (BFS/DFS, the `value-plane`
+  mapping, "external" info, C-MCTS as a rung) are corrected to match the code.
+
 ### Added — the CoAT engine: one parameterized MCTS that IS the whole reasoning ladder, recalling the live Memory-OS (2026-07-12)
 
 Increment 2 of "both, sequenced": the runtime that makes the reasoning progression real. `sovereign-coat`

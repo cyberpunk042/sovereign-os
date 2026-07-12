@@ -97,21 +97,31 @@ GATEWAY = REPO / "crates" / "sovereign-gatewayd" / "src"
 def test_coat_engine_crate_is_the_whole_ladder():
     assert COAT.is_file(), "the sovereign-coat engine crate is missing"
     src = _read(COAT)
-    # one parameterized MCTS that IS the ladder: a preset per rung.
-    for preset in ("fn cot(", "fn tot(", "fn mcts(", "fn coat("):
+    # one parameterized MCTS that IS the ladder: a preset per rung, each distinct.
+    for preset in ("fn cot(", "fn tot(", "fn tot_dfs(", "fn mcts(", "fn cmcts(", "fn coat("):
         assert preset in src, f"coat config missing the ladder preset: {preset!r}"
     # the model-gated inputs are traits, so the harness is testable without a model.
     for trait in ("trait ThoughtSource", "trait AssociativeMemory"):
         assert trait in src, f"coat missing the pluggable trait: {trait!r}"
-    # C-MCTS: a bounded action space of exactly five categories.
+    # C-MCTS: a bounded action space of exactly five categories, and a real gate.
     assert "enum ThoughtCategory" in src and "ALL: [ThoughtCategory; 5]" in src, \
         "coat must constrain the action space to five categories (C-MCTS)"
-    # the four MCTS phases must all be present in the search.
+    assert "fn allowed_at" in src and "constrain" in src, \
+        "C-MCTS must phase-gate categories per depth (load-bearing, not a label)"
+    # ToT: real BFS and DFS strategies, not only UCT.
+    assert "enum SearchStrategy" in src and "Bfs" in src and "Dfs" in src, \
+        "ToT must offer real BFS/DFS search strategies"
+    # the four MCTS phases; Simulation is a real look-ahead rollout.
     low = src.lower()
     for phase in ("selection", "expansion", "simulation", "backprop"):
         assert phase in low, f"coat engine missing MCTS phase: {phase!r}"
-    # CoAT's mechanism: recall modulates value; and it drives the real branch tree.
+    assert "rollout" in src, "Simulation must be a real look-ahead rollout"
+    # real backtracking: a dead-end thought is abandoned + its branch pruned.
+    assert "prune_below" in src and "fn abandon" in src, "coat must backtrack (abandon dead ends)"
+    # CoAT: recall modulates value AND is surfaced honestly; drives the real tree.
     assert "recall_weight" in src, "coat must let recall modulate value (CoAT)"
+    assert "thought_source" in src and 'fn label' in src, \
+        "the trace must flag whether thoughts came from a model or the heuristic"
     assert "sovereign_branch_tree" in src, "coat must search the real M007 branch tree"
 
 
@@ -123,6 +133,16 @@ def test_gateway_exposes_v1_coat_over_the_live_memory():
     assert "CoatTrace" in lib, "gateway missing the CoatTrace response"
     assert "CortexRecall" in lib, "gateway must adapt the live Cortex as CoAT's associative memory"
     assert "/v1/coat" in http, "gateway must route POST /v1/coat"
+    # STEERING: recall must key on the per-thought text (ctx.text), not only the
+    # problem — else recall can never change which path wins.
+    assert "text_sketch" in lib and "ctx.text" in lib, \
+        "CortexRecall must key on the per-thought ctx.text so recall can steer"
+    # normalization must be absolute (rel/(rel+K)), not within-batch max.
+    assert "RECALL_SCALE" in lib and "/ (rel + RECALL_SCALE)" in lib, \
+        "recall relevance must use an absolute scale so a weak hit stays weak"
+    # model-backed thoughts when a generator is present.
+    assert "ModelThoughts" in lib and "has_generator()" in lib, \
+        "a model-driven thought source must replace the heuristic when a model is loaded"
     # the cortex must expose the associative recall the engine pulls.
     cortex = _read(REPO / "crates" / "sovereign-cortex" / "src" / "lib.rs")
     assert "pub fn recall(" in cortex, "cortex must expose recall() for the CoAT engine"

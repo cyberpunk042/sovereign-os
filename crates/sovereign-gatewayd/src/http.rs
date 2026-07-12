@@ -44,7 +44,8 @@ struct DeliberateBody {
 }
 
 /// The `POST /v1/coat` body: the problem to deliberate about, optional recall
-/// sketches (topic/entity), and the ladder rung (`cot`/`tot`/`mcts`/`coat`).
+/// sketches (topic/entity), the ladder rung (`cot`/`tot`/`dfs`/`mcts`/`cmcts`/
+/// `coat`), and the caller's freshness clock (`now`/`half_life`).
 #[derive(serde::Deserialize)]
 struct CoatBody {
     problem: String,
@@ -54,6 +55,8 @@ struct CoatBody {
     entity: u64,
     #[serde(default)]
     rung: String,
+    now: Option<u64>,
+    half_life: Option<u64>,
 }
 
 /// Maximum request-body size the daemon will read. A `Content-Length` larger
@@ -201,6 +204,8 @@ pub fn respond(server: &GatewayServer, method: &str, path: &str, body: &str) -> 
                     topic: b.topic,
                     entity: b.entity,
                     rung: b.rung,
+                    now: b.now.unwrap_or(100),
+                    half_life: b.half_life.unwrap_or(1000),
                 });
                 let status = match resp {
                     GatewayResponse::Error { .. } => 422,
@@ -440,9 +445,14 @@ mod tests {
             v["trace"]["recalled_total"].as_u64().unwrap() >= 1,
             "CoAT must recall associative memory from the live Cortex"
         );
-        // Read-only: the request ledger is untouched (only dry-runs move).
+        // No model loaded → thoughts are honestly flagged heuristic.
+        assert_eq!(v["trace"]["thought_source"], "heuristic");
+        // Read-only invariant: the request ledger + learned state are untouched;
+        // ONLY the dry-run counter moves.
         let led = body_of(&respond(&s, "GET", "/admin/ledger", ""));
-        assert_eq!(led["ledger"]["total_requests"], 0);
+        assert_eq!(led["ledger"]["total_requests"], 0, "coat must not inflate requests");
+        assert_eq!(led["ledger"]["learned"], 0, "coat must not learn into memory");
+        assert!(led["ledger"]["dry_runs"].as_u64().unwrap() >= 1, "coat must count as a dry-run");
     }
 
     #[test]
@@ -452,6 +462,12 @@ mod tests {
         let cot = serde_json::json!({"problem": "x", "rung": "cot"}).to_string();
         let v = body_of(&respond(&s, "POST", "/v1/coat", &cot));
         assert_eq!(v["trace"]["rung"], "CoT");
+        assert_eq!(v["trace"]["recalled_total"], 0, "CoT must recall no memory");
+        // the C-MCTS + DFS rungs are reachable and behaviourally labelled.
+        let cm = body_of(&respond(&s, "POST", "/v1/coat", &serde_json::json!({"problem":"x","rung":"cmcts"}).to_string()));
+        assert_eq!(cm["trace"]["rung"], "C-MCTS");
+        let df = body_of(&respond(&s, "POST", "/v1/coat", &serde_json::json!({"problem":"x","rung":"dfs"}).to_string()));
+        assert_eq!(df["trace"]["strategy"], "dfs");
         // an unknown rung is an engine refusal (422), a bad body is 400, GET is 405.
         let bad = serde_json::json!({"problem": "x", "rung": "bogus"}).to_string();
         assert_eq!(respond(&s, "POST", "/v1/coat", &bad).status, 422);

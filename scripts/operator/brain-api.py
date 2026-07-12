@@ -262,12 +262,26 @@ def coat_deliberate(params: dict) -> dict:
     try:
         with urllib.request.urlopen(req, timeout=15) as r:  # noqa: S310 (loopback)
             resp = json.loads(r.read().decode("utf-8", "replace"))
+    except urllib.error.HTTPError as e:
+        # A request-level refusal (e.g. 422 unknown rung) — surface the gateway's
+        # STRUCTURED message, not a misleading "unreachable". HTTPError subclasses
+        # URLError, so this arm must precede the connectivity arm.
+        try:
+            body = json.loads(e.read().decode("utf-8", "replace"))
+            msg = body.get("message") or body.get("error") or f"gateway HTTP {e.code}"
+        except (ValueError, OSError):
+            msg = f"gateway HTTP {e.code}"
+        return {"error": msg, "best_path": [], "tree": []}
     except (urllib.error.URLError, OSError, ValueError) as e:
         return {"error": f"gateway unreachable at {GATEWAY_ADDR}: {e}",
                 "best_path": [], "tree": []}
+    if not isinstance(resp, dict):
+        return {"error": "unexpected gateway response", "best_path": [], "tree": []}
     if resp.get("kind") == "error":
         return {"error": resp.get("message", "gateway error"), "best_path": [], "tree": []}
     trace = resp.get("trace") or {}
+    if not isinstance(trace, dict):
+        trace = {}
     trace.setdefault("best_path", [])
     trace.setdefault("tree", [])
     return trace
