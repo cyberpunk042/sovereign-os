@@ -12,6 +12,28 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — deliberate reasoning: the CoT → ToT → MCTS → C-MCTS → CoAT progression, mapped onto the box's own primitives (2026-07-12)
+
+Third in the reasoning/interaction trilogy after QCFA (align on intent) and Plan Mode (review the plan):
+this codifies how the AI *thinks* — deliberate, search-based reasoning instead of a single reactive pass.
+The sovereign thesis: each rung of the ladder already maps onto a real execution primitive, not a borrowed
+metaphor. Increment 1 of "both, sequenced" — the directive + scaffold posture; the `sovereign-coat` engine
+follows.
+
+- NEW standing directive `docs/standing-directives/2026-07-12-deliberate-reasoning.md` (registered in
+  INDEX) — maps **CoT** → a single `Cortex::act` path, **ToT** → `sovereign-branch-tree`
+  (fork/commit/prune/lineage) + `sovereign-value-plane` scoring, **MCTS** → the same tree + the value-plane
+  "MCTS + PRM" critic + backprop over `lineage()`, **C-MCTS** → the cortex's bounded `NextAction` /
+  constrained routing categories, and **CoAT** (the centerpiece) → `Cortex::deliberate` forking branches
+  against the **recalled** context where "recalled memory modulates the reward" — the Memory-OS `retrieve()`
+  IS CoAT's associative memory. Honest gating: the search harness ships + is tested today; useful thoughts
+  are model-gated.
+- The reasoning scaffold (`config/prompts/qcfa-system-prompt.md`) gains a **DELIBERATE REASONING** posture:
+  CoT (reason step by step, show your work) for the routine, branch-and-backtrack ToT for the genuinely
+  hard, and always recall before concluding (CoAT).
+- `tests/lint/test_deliberate_reasoning_contract.py` guards the progression, the primitive mapping, that
+  the mapped crates actually exist, and the scaffold posture.
+
 ### Added — Plan Mode presented for approval in the cockpit (2026-07-11)
 
 Completes the plan → approve flow: the sovereign AI proposes a PLAN (summary + numbered steps) and

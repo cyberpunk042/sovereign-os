@@ -11,6 +11,7 @@ work on?".
 | 2026-Q2 | [mandate-review-2026-Q2.md](./mandate-review-2026-Q2.md) | review-record | quarterly snapshot + new-axis intake process (R285 closes E9.M3) |
 | 2026-07-11 | [qcfa-interactive-clarification.md](./2026-07-11-qcfa-interactive-clarification.md) | active | interaction framework — QCFA + AskUserQuestion + suggestions (E4 UX / E5 AI) |
 | 2026-07-11 | [plan-mode-user-approval.md](./2026-07-11-plan-mode-user-approval.md) | active | safety framework — Plan Mode + User Approval + permission modes (manual/auto/bypass) (E4 UX / E5 AI / E6 Health) |
+| 2026-07-12 | [deliberate-reasoning.md](./2026-07-12-deliberate-reasoning.md) | active | reasoning framework — CoT → ToT → MCTS → C-MCTS → CoAT (centerpiece); maps onto branch-tree + value-plane + cortex.deliberate + Memory-OS recall (E5 AI) |
 
 ## Re-arming /goal autopilot
 
