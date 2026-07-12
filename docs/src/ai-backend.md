@@ -138,13 +138,24 @@ interactive chat:
   `POST /v1/models/load {id, dir}`. Address one by name: `{"model":"<id>", …}`.
   Different models generate concurrently; the same model serialises.
 - **GPU serve-processes** — big models run as a **separate** llama-server / vLLM
-  process on a GPU. A `model-serve` background job places it on a device by free VRAM
-  (the compute plane), launches it, and calls `POST /v1/models/register` so the
-  gateway **proxies** requests to it — translating between the Anthropic surface and
-  the backend's OpenAI dialect automatically.
+  process on a GPU. One command launches one:
+
+  ```bash
+  # place on a GPU by free VRAM, launch llama-server, register a gateway proxy
+  sovereign-osctl model-serve start big-llama --model /models/llama-70b --vram 40
+  sovereign-osctl model-serve list          # serving jobs + the gateway registry
+  sovereign-osctl model-serve stop big-llama # cancel → unregister + release VRAM
+  ```
+
+  Under the hood a `model-serve` job places it on a device by free VRAM (the compute
+  plane), launches it, and calls `POST /v1/models/register` so the gateway **proxies**
+  requests to it — translating between the Anthropic surface and the backend's OpenAI
+  dialect automatically. Then address it by id (`{"model":"big-llama"}`) from any
+  Anthropic/OpenAI client, or make it the background target.
 - **The `"background"` alias** — send `{"model":"background", …}` and the gateway
-  routes to whichever model you designated with `POST /v1/models/background {id}`
-  (or `SOVEREIGN_GATEWAY_BACKGROUND_MODEL`). Background deliberation jobs use this by
+  routes to whichever model you designated with `sovereign-osctl model-serve
+  background <id>` (or `POST /v1/models/background {id}`, or
+  `SOVEREIGN_GATEWAY_BACKGROUND_MODEL`). Background deliberation jobs use this by
   default. If nothing is designated (or the designated model isn't loaded), it falls
   back to the primary — an honest default, never a dead route.
 

@@ -47,7 +47,7 @@ coverage:
   orchestration:
     [cot, mcp-aggregate, research-loop, architecture-qa]
   code-console:
-    [jobs, plane]
+    [jobs, plane, model-serve]
   d-01-active-sessions:
     [sessions]
   d-05-traces:

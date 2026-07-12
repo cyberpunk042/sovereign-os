@@ -6599,6 +6599,18 @@ case "${cmd}" in
     #   plane            human summary
     exec python3 "${__REPO_ROOT}/scripts/operator/lib/jobs_cli.py" plane "$@"
     ;;
+  model-serve)
+    # Launch / stop / list a GPU serve-process model (SDD-902): the ergonomic front
+    # to the jobs-api `model-serve` job kind. `start` places a model on a GPU by free
+    # VRAM (the compute plane), launches llama-server / vLLM, and registers it as a
+    # gateway PROXY backend so /v1/messages + the OpenAI shim reach it; `stop` cancels
+    # (unregister + release VRAM); `background` designates the "background" alias.
+    #   model-serve start <id> --model <path> --vram N [--engine llama-server|vllm] [--port P] [--dialect openai|anthropic] [--device auto|logic|oracle]
+    #   model-serve stop <id>
+    #   model-serve list
+    #   model-serve background [<id> | --clear]
+    exec python3 "${__REPO_ROOT}/scripts/operator/lib/model_serve_cli.py" "$@"
+    ;;
   network)
     # R220 (SDD-026 Z-7): per-component network state surface.
     # internet / DNS / cloudflared / tailscale / traefik / docker.

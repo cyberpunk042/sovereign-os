@@ -117,6 +117,22 @@ blocker to running a real model, and it made SDD-205's Anthropic endpoint return
 - Verified: mha-block 28 tests (8 new, incl. "a distinct base yields distinct decode output"), loader 13 (6 new);
   clippy `-D warnings` clean; downstream quant-llm/gatewayd/decoder-layer/inference-demo build unchanged. Sampling
   params + chat template + quantized loading are the tracked next arcs. MS003 `unsigned-pending-MS003`.
+### Added — the `sovereign-osctl model-serve` verb: launch a GPU model in one command (2026-07-12)
+
+The operability capstone for Compute Plane Phase 2 (SDD-902) — launching a GPU-hosted model no longer means
+hand-crafting a `jobs submit` JSON.
+
+- NEW `scripts/operator/lib/model_serve_cli.py` + the osctl `model-serve)` verb:
+  - `start <id> --model <path> --vram N [--engine llama-server|vllm] [--port P] [--dialect openai|anthropic]
+    [--device auto|logic|oracle]` — builds the serve-process argv and submits the `model-serve` job (which places
+    on a device by free VRAM, launches the engine, and registers a gateway proxy).
+  - `stop <id>` — cancels the serving job (→ unregister + release VRAM); `list` — serving jobs + the gateway
+    registry (`GET /v1/models`); `background [<id>|--clear]` — designate the `"background"` alias.
+- Stdlib-only, loopback (jobs-api :8142 + gateway :8787); degrades gracefully when either is down. Mapped to the
+  Code Console in feature-coverage. Verified: a test asserts `serve_command` builds the engine argv and `start`
+  submits a `model-serve` job with the right meta (endpoint/dialect/vram/command) to a mock jobs-api. 16
+  jobs-runtime tests.
+
 ### Added — Compute Plane Phase 2, increment 4: the Code Console UX loop — the model registry reaches the chat (2026-07-12)
 
 The multi-model registry + the `"background"` alias become visible and usable from the operator's actual chat

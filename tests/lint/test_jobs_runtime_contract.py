@@ -281,6 +281,58 @@ def test_the_code_console_wires_the_model_registry():
         "the picker must offer the 'background' alias"
 
 
+def test_model_serve_cli_builds_and_submits():
+    """The `osctl model-serve` operability verb: `serve_command` builds the engine
+    argv, and `start` submits a model-serve job to jobs-api with the right meta."""
+    import json as _json
+    import threading as _threading
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    sys.path.insert(0, str(LIB))
+    msc = _load("model_serve_cli", LIB / "model_serve_cli.py")
+    # engine argv templates (no shell)
+    llama = msc.serve_command("llama-server", "/m/x", 8090)
+    assert llama[:3] == ["llama-server", "--model", "/m/x"] and "8090" in llama
+    assert msc.serve_command("vllm", "/m/x", 8091)[:2] == ["vllm", "serve"]
+
+    seen: list[dict] = []
+
+    class _H(BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+
+        def do_POST(self):
+            n = int(self.headers.get("Content-Length", 0))
+            seen.append(_json.loads(self.rfile.read(n) or b"{}"))
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(b'{"id":"job-1","state":"queued"}')
+
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), _H)
+    _threading.Thread(target=srv.serve_forever, daemon=True).start()
+    msc.JOBS_ADDR = f"127.0.0.1:{srv.server_address[1]}"
+    try:
+        rc = msc.main(["start", "big", "--model", "/models/llama-70b", "--vram", "40",
+                       "--port", "8090", "--dialect", "openai", "--device", "oracle", "--json"])
+        assert rc == 0, "start must succeed against a live jobs-api"
+        assert seen, "start must POST to jobs-api"
+        body = seen[0]
+        assert body["kind"] == "model-serve" and body["title"] == "big" and body["device"] == "oracle"
+        meta = body["meta"]
+        assert meta["endpoint"] == "127.0.0.1:8090" and meta["dialect"] == "openai"
+        assert meta["vram_gb"] == 40 and meta["model_id"] == "big"
+        assert meta["command"][0] == "llama-server", "the runner launches the serve argv"
+    finally:
+        srv.shutdown()
+
+    # osctl wires the verb to the CLI
+    osctl = (REPO / "scripts" / "sovereign-osctl").read_text(encoding="utf-8")
+    assert "model-serve)" in osctl and "model_serve_cli.py" in osctl, "osctl model-serve verb missing"
+    cov = (REPO / "config" / "feature-coverage.yaml").read_text(encoding="utf-8")
+    assert "model-serve" in cov, "model-serve verb not mapped in feature-coverage"
+
+
 def test_systemd_unit_is_hardened():
     unit = REPO / "systemd" / "system" / "sovereign-jobs-api.service"
     assert unit.is_file(), "the jobs-api systemd unit is missing"

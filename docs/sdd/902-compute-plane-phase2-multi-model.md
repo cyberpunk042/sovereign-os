@@ -156,10 +156,12 @@ what the gateway can serve is visible and usable from the Code Console.
   authority becomes load-bearing there (a served model and a GPU job claim from ONE
   VRAM view). The **serve-process itself is operator-provided** (`meta.command`): this
   round ships the plane/register/proxy/lifecycle plumbing, not a bundled llama-server
-  or vLLM binary — those are installed on the box. Increment 3 (above) adds the
-  `"background"` routing + background-job targeting; a one-shot ergonomic
-  `model-serve` *submit* verb on osctl is a small follow-up (the job kind + registry
-  already exist, so an operator submits it via `jobs submit` today).
+  or vLLM binary — those are installed on the box. Increment 3 adds the `"background"`
+  routing + background-job targeting; the **`sovereign-osctl model-serve`** verb
+  (`scripts/operator/lib/model_serve_cli.py`) is the ergonomic front — `start <id>
+  --model <path> --vram N [--engine llama-server|vllm]` builds the serve argv +
+  submits the `model-serve` job, `stop <id>` cancels it, `list` shows serving jobs +
+  the gateway registry, `background [<id>|--clear]` designates the alias.
 - **Streaming to a GPU proxy is supported** (increment 2b) — the upstream SSE is
   transcoded to Anthropic events; the `"background"` alias resolving to a proxy
   streams the same way.
