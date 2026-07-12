@@ -199,6 +199,29 @@ impl QuantModel {
         self
     }
 
+    /// Replace the token sampler (builder; mirrors [`with_logit_softcap`]).
+    ///
+    /// The safetensors loader assembles every model with `Sampler::greedy()`;
+    /// this lets a caller run the same assembled model at a chosen
+    /// temperature / top-p / top-k. It is the **model-side** half of
+    /// configurable generation — wiring a per-request sampler from the gateway's
+    /// HTTP parameters is a separate, daemon-side follow-up.
+    ///
+    /// [`with_logit_softcap`]: Self::with_logit_softcap
+    pub fn with_sampler(mut self, sampler: Sampler) -> Self {
+        self.sampler = sampler;
+        self
+    }
+
+    /// The active token sampler. Its [`config`] carries the temperature /
+    /// top-k / top-p / penalties actually used at decode time, so callers (and
+    /// tests) can introspect how this model will sample.
+    ///
+    /// [`config`]: sovereign_sampler::Sampler::config
+    pub fn sampler(&self) -> &Sampler {
+        &self.sampler
+    }
+
     /// Number of layers.
     pub fn layers(&self) -> usize {
         self.stack.depth()
@@ -436,6 +459,21 @@ mod tests {
         assert!(out.iter().all(|&t| t < 8));
         // 3 prompt + 6 generated = 9 positions in the stack
         assert_eq!(m.position(), 9);
+    }
+
+    #[test]
+    fn with_sampler_replaces_the_sampler_and_is_observable() {
+        // Assembled greedy (as the loader does), then re-pointed at a warm
+        // sampler via the builder — the sampler() getter must reflect it.
+        let m = mixed_model(8, Sampler::greedy());
+        assert_eq!(m.sampler().config.temperature, 0.0, "starts greedy");
+        let warm = m.with_sampler(Sampler::new(SamplerConfig {
+            temperature: 0.8,
+            top_p: Some(0.9),
+            ..Default::default()
+        }));
+        assert_eq!(warm.sampler().config.temperature, 0.8);
+        assert_eq!(warm.sampler().config.top_p, Some(0.9));
     }
 
     #[test]
