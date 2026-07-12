@@ -177,6 +177,14 @@ pub enum GatewayRequest {
         /// The simplified request.
         request: SimpleRequest,
     },
+    /// Decide a simplified request WITHOUT learning — the read-only sibling of
+    /// [`Self::SimpleInfer`]. Returns the full decision (route/device/verdict)
+    /// so an observatory can preview routing without polluting memory (only the
+    /// dry-run counter moves). The [`SimpleRequest`] axes + quality shape.
+    SimpleExplain {
+        /// The simplified request.
+        request: SimpleRequest,
+    },
     /// Dry-run a request and return the plain-language rationale (M015
     /// human-gate) — read-only: the engine decides but does not learn or
     /// account, so an auditor can ask "what would you do, and why" safely.
@@ -526,6 +534,7 @@ impl GatewayServer {
         match req {
             GatewayRequest::Infer { request } => self.infer(*request),
             GatewayRequest::SimpleInfer { request } => self.infer(request.into_cortex()),
+            GatewayRequest::SimpleExplain { request } => self.decide(request.into_cortex()),
             GatewayRequest::Explain { request } => self.explain(*request),
             GatewayRequest::Deliberate {
                 request,
@@ -559,6 +568,31 @@ impl GatewayServer {
         match result {
             Ok(decision) => GatewayResponse::Explanation {
                 explanation: decision.explain(),
+            },
+            Err(e) => GatewayResponse::Error {
+                message: e.to_string(),
+            },
+        }
+    }
+
+    /// Decide WITHOUT learning — the read-only routing preview. `act` (tick +
+    /// execute) is side-effect-free, so this returns the FULL decision
+    /// (route/device/verdict/summary) with `learned: false`; only the dry-run
+    /// counter moves, so a probe never pollutes memory or inflates the request
+    /// ledger. The same Privacy policy applies.
+    fn decide(&self, mut request: CortexRequest) -> GatewayResponse {
+        if self.force_local {
+            request.allow_cloud = false;
+        }
+        let result = {
+            let cortex = self.cortex.lock().expect("cortex poisoned");
+            cortex.act(&request)
+        };
+        self.ledger.lock().expect("ledger poisoned").dry_runs += 1;
+        match result {
+            Ok((decision, _cycle)) => GatewayResponse::Decision {
+                decision: Box::new(decision),
+                learned: false,
             },
             Err(e) => GatewayResponse::Error {
                 message: e.to_string(),
@@ -816,6 +850,29 @@ mod tests {
         // but it is counted for request-mix observability.
         let ledger = s.ledger.lock().unwrap();
         assert_eq!(ledger.total_requests, 0);
+        assert_eq!(ledger.dry_runs, 1);
+    }
+
+    #[test]
+    fn simple_explain_decides_without_learning() {
+        let s = GatewayServer::new();
+        let demo = demo_requests()[0].clone();
+        let line = serde_json::json!({
+            "op": "simple-explain",
+            "request": { "axes": demo.axes, "expected_quality": 0.9 },
+        })
+        .to_string();
+        let out = s.handle_line(&line);
+        let v: serde_json::Value = serde_json::from_str(&out).unwrap();
+        // Returns the FULL decision, but flagged never-learned.
+        assert_eq!(v["kind"], "decision");
+        assert_eq!(v["learned"], false, "a routing preview must never learn");
+        assert!(v["decision"]["route"]["role"].is_string());
+        // Read-only: no request/learn accounting, only the dry-run counter moves —
+        // so an observatory probe never pollutes memory or the request ledger.
+        let ledger = s.ledger.lock().unwrap();
+        assert_eq!(ledger.total_requests, 0);
+        assert_eq!(ledger.learned, 0);
         assert_eq!(ledger.dry_runs, 1);
     }
 

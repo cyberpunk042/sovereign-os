@@ -12,6 +12,21 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — read-only routing probe: preview without polluting memory (2026-07-11)
+
+The Sovereign Brain panel's routing probe sent `/v1/simple`, which LEARNS — so every probe grew the
+brain's memory. This adds a read-only decide path so previewing is side-effect-free.
+
+- NEW gateway endpoint **`POST /v1/simple-explain`** — the read-only sibling of `/v1/simple`: it
+  decides via `Cortex::act` (tick + execute, both `&self`) and returns the FULL decision
+  (route/device/verdict/summary) with `learned: false`. No memory admit and no request/learned ledger
+  movement — only the honest `dry_runs` counter (`GatewayServer::decide` + `GatewayRequest::SimpleExplain`).
+- `brain-api.py`'s routing probe now POSTs `/v1/simple-explain`, and the panel labels it a read-only
+  preview. Proven: 3 probes left memory unchanged (2 → 2); a control `/v1/simple` then grew it (2 → 3);
+  ledger `dry_runs 3, learned 1, total_requests 1`.
+- Rust unit test `simple_explain_decides_without_learning`; the brain contract asserts the probe uses
+  the no-learn endpoint.
+
 ### Added — the Sovereign Brain panel: observe + operate the intelligence layer (2026-07-11)
 
 The earlier cockpit work bolted a status *strip* onto trinity/model-health — a tripwire, ledger

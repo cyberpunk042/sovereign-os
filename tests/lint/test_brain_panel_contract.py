@@ -42,6 +42,11 @@ def test_brain_api_is_read_only_over_memory():
         "do_POST must accept only /brain/chat"
     for forbidden in ('open(PY_STORE, "w"', 'open(path, "w"', "def forget", "def clear"):
         assert forbidden not in src, f"brain-api must not {forbidden} — memory is read-only here"
+    # the routing probe must use the no-learn endpoint so previewing never
+    # pollutes memory (the /v1/simple-explain read-only sibling of /v1/simple).
+    assert "/v1/simple-explain" in src, "routing probe must use /v1/simple-explain (no-learn)"
+    assert "/v1/simple\"" not in src.replace("/v1/simple-explain", ""), \
+        "routing probe must not POST the learning /v1/simple"
 
 
 def test_brain_panel_renders_memory_and_operate():

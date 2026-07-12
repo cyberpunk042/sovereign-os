@@ -151,6 +151,20 @@ pub fn respond(server: &GatewayServer, method: &str, path: &str, body: &str) -> 
             Err(e) => err(400, format!("invalid simple request body: {e}")),
         },
 
+        // Read-only sibling of /v1/simple: decide + return the full decision, but
+        // DO NOT learn (the observatory routing probe — no memory pollution).
+        ("POST", "/v1/simple-explain") => match serde_json::from_str::<SimpleRequest>(body) {
+            Ok(request) => {
+                let resp = server.handle(GatewayRequest::SimpleExplain { request });
+                let status = match resp {
+                    GatewayResponse::Error { .. } => 422,
+                    _ => 200,
+                };
+                render(status, &resp)
+            }
+            Err(e) => err(400, format!("invalid simple request body: {e}")),
+        },
+
         ("POST", "/v1/deliberate") => match serde_json::from_str::<DeliberateBody>(body) {
             Ok(b) => {
                 let resp = server.handle(GatewayRequest::Deliberate {
@@ -176,7 +190,8 @@ pub fn respond(server: &GatewayServer, method: &str, path: &str, body: &str) -> 
         | (_, "/mcp")
         | (_, "/v1/explain")
         | (_, "/v1/deliberate")
-        | (_, "/v1/simple") => err(405, format!("method {method} not allowed on {route}")),
+        | (_, "/v1/simple")
+        | (_, "/v1/simple-explain") => err(405, format!("method {method} not allowed on {route}")),
         _ => err(404, format!("no route for {method} {route}")),
     }
 }

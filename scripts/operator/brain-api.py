@@ -200,8 +200,9 @@ def daemon_map() -> list[dict]:
 
 
 def route_probe(params: dict) -> dict:
-    """Send one 7-axis request to the gateway (POST /v1/simple) and return the
-    decision. This is a REAL request the brain also learns from (honest)."""
+    """Preview one 7-axis routing decision (POST /v1/simple-explain) — the
+    read-only sibling of /v1/simple: the gateway decides and returns the full
+    decision but does NOT learn, so probing never pollutes memory."""
     axes = {k: (params.get(k, [d])[0] if isinstance(params.get(k), list) else params.get(k, d))
             for k, d in (("complexity", "complex"), ("privacy", "private"),
                          ("safety", "safe"), ("domain", "research"),
@@ -212,7 +213,7 @@ def route_probe(params: dict) -> dict:
     except (TypeError, ValueError):
         q = 0.9
     body = json.dumps({"axes": axes, "expected_quality": max(0.0, min(1.0, q))}).encode()
-    req = urllib.request.Request(f"http://{GATEWAY_ADDR}/v1/simple", data=body,
+    req = urllib.request.Request(f"http://{GATEWAY_ADDR}/v1/simple-explain", data=body,
                                  headers={"Content-Type": "application/json"}, method="POST")
     try:
         with urllib.request.urlopen(req, timeout=8) as r:  # noqa: S310 (loopback)
