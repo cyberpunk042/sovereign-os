@@ -44,7 +44,9 @@ import json
 import os
 import sys
 import time
+import urllib.error
 import urllib.parse
+import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -114,6 +116,20 @@ def _sessions_view() -> dict:
         return model
     except Exception as e:  # noqa: BLE001
         return {"sessions": [], "summary": {}, "producer": "error", "note": str(e)}
+
+
+def _jobs_view() -> dict:
+    """The RIGHT pane's Background Tasks half: a read-only proxy of the jobs-api
+    runtime (:8142). Graceful when the runtime is down — the pane then shows
+    'runtime offline' rather than erroring. Submission/cancel are NOT here; they
+    are MS003-signed `sovereign-osctl jobs …` verbs through control-exec (R10212)."""
+    addr = os.environ.get("SOVEREIGN_JOBS_API_ADDR", "127.0.0.1:8142")
+    try:
+        with urllib.request.urlopen(f"http://{addr}/jobs.json", timeout=5) as r:  # noqa: S310 (loopback)
+            return json.loads(r.read().decode("utf-8", "replace"))
+    except (urllib.error.URLError, OSError, ValueError) as e:
+        return {"jobs": [], "summary": {"total": 0, "running": 0, "queued": 0},
+                "offline": True, "note": f"jobs-api unreachable at {addr}: {e}"}
 
 
 def _version_payload() -> dict:
@@ -272,6 +288,11 @@ class CodeConsoleAPIHandler(BaseHTTPRequestHandler):
             if path == "/api/code-console/sessions":
                 self._send_json(200, _sessions_view())
                 _emit_metric("sessions", "ok")
+                return
+            if path == "/api/code-console/jobs":
+                # read-only proxy of the Background Tasks runtime (jobs-api :8142)
+                self._send_json(200, _jobs_view())
+                _emit_metric("jobs", "ok")
                 return
         except Exception as e:  # noqa: BLE001
             self._send_json(500, {"error": str(e)})

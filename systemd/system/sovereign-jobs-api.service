@@ -1,0 +1,51 @@
+[Unit]
+Description=Sovereign Jobs API — the Background Tasks runtime (launch/track/cancel long-running work off the request path)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/operator/jobs-api.py
+# The job runtime behind the Code Console's Background Tasks pane: it runs
+# background CoAT deliberations, model evals, secondary-model loads and GPU jobs
+# in a bounded worker pool, persists them to /var/lib/sovereign-os/jobs, and
+# mirrors jobs from the RTX-4090 passthrough VM (POST /jobs/ingest). READ
+# endpoints feed the pane; submit/cancel arrive as `sovereign-osctl jobs …` verbs
+# through control-exec-api (the ONE sanctioned execute path).
+After=network.target
+Wants=sovereign-gatewayd.service
+
+[Service]
+Type=simple
+WorkingDirectory=/usr/local/lib/sovereign-os
+ExecStart=/usr/bin/python3 /usr/local/lib/sovereign-os/scripts/operator/jobs-api.py
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+# Loopback-by-default — the operator's §1g exposure decision. To expose beyond
+# loopback, drop /etc/systemd/system/sovereign-jobs-api.service.d/bind.conf.
+Environment=SOVEREIGN_JOBS_API_PORT=8142
+Environment=SOVEREIGN_GATEWAY_ADDR=127.0.0.1:8787
+Environment=SOVEREIGN_OS_JOBS_DIR=/var/lib/sovereign-os/jobs
+
+# R171 defense-in-depth (Layer-1 lint enforced). It persists the job registry, so
+# the jobs dir is read-write; everything else is locked down.
+ProtectSystem=strict
+ProtectHome=true
+ProtectClock=true
+ProtectHostname=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+ReadWritePaths=/var/lib/sovereign-os/jobs
+ReadWritePaths=/var/lib/node_exporter/textfile_collector
+NoNewPrivileges=true
+PrivateTmp=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+
+[Install]
+WantedBy=multi-user.target

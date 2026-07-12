@@ -6577,6 +6577,20 @@ case "${cmd}" in
     #   permission [--mode manual|auto|bypass] <command…>
     exec python3 "${__REPO_ROOT}/scripts/operator/lib/permission_classifier.py" "$@"
     ;;
+  jobs)
+    # Background Tasks runtime (jobs-api :8142) — the long-running work the box
+    # runs OFF the request path: a background CoAT deliberation, a model eval, a
+    # secondary-model load, a GPU job, or a job mirrored from the RTX-4090 VM.
+    # list / status <id> are read-only; submit / cancel are the ACTIONS the
+    # cockpit routes through control-exec-api. Rendered live in the Code Console's
+    # Background Tasks pane.
+    #   jobs [--json] list
+    #   jobs [--json] status <id>
+    #   jobs [--json] submit deliberation --problem "…" [--rung coat]
+    #   jobs [--json] submit eval -- python3 scripts/models/eval.py …
+    #   jobs [--json] cancel <id>
+    exec python3 "${__REPO_ROOT}/scripts/operator/lib/jobs_cli.py" "$@"
+    ;;
   network)
     # R220 (SDD-026 Z-7): per-component network state surface.
     # internet / DNS / cloudflared / tailscale / traefik / docker.

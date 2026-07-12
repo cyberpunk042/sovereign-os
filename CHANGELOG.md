@@ -12,6 +12,38 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — Background Tasks: a job runtime + a Code Console Plan-pane split, like claude.ai/code (2026-07-12)
+
+The box now runs long-running work OFF the request path and shows it in a supplementary pane that splits the
+Code Console's right Plan pane 50/50 — a background CoAT deliberation, a model eval, a secondary-model load, a
+GPU job, and jobs mirrored from the RTX-4090 passthrough VM (operator-directed; plan approved: runtime +
+Plan-pane split + 4090-VM bridge). SDD-204.
+
+- NEW `scripts/operator/lib/jobs_store.py` — a PERSISTED job registry (atomic temp+rename → survives restart)
+  with create/update/list/ingest/prune + a summary.
+- NEW `scripts/operator/jobs-api.py` (:8142) — the runtime: a bounded worker pool drives a job
+  queued→running→(done|failed|cancelled) with live progress. Kinds: `deliberation` (calls the gateway
+  `/v1/coat`), `eval`/`model-load`/`gpu-job` (a no-shell subprocess runner with PID-tracked cancellation),
+  `demo`, and `vm-job` (mirrored from the VM, not host-run). Orphaned `running` jobs are marked failed on
+  restart — never a zombie. Read endpoints feed the pane; submit/cancel/ingest are the runtime control surface.
+- NEW `sovereign-osctl jobs list|status|submit|cancel` (`scripts/operator/lib/jobs_cli.py`). `list`/`status`
+  are read-only; **submit/cancel are the ACTIONS** the cockpit routes through the sanctioned `control-exec-api`
+  — the pane never POSTs a mutation (R10212), it copies the signed osctl verb.
+- The **Code Console Plan pane splits 50/50** (`webapp/code-console/`): Plan/artifact on top, a live
+  **Background Tasks** list below (state · progress · kind · device · cancel), fed by a read-only
+  `code-console-api` proxy `/api/code-console/jobs`. A header toggle shows/hides it (persisted); "＋ deliberate"
+  and per-task cancel copy the `sovereign-osctl jobs …` verb; graceful when the runtime is down; DEMO-safe
+  (zero network in DEMO — SB-077).
+- NEW `scripts/jobs/vm-bridge-guest.py` — the **4090-VM bridge**: runs inside the VFIO passthrough VM, probes
+  its `nvidia-smi`, and POSTs entries to the host `jobs-api` `POST /jobs/ingest` (upserted as `vm-job` rows), so
+  the host cockpit sees jobs on the passed-through GPU.
+- NEW `systemd/system/sovereign-jobs-api.service` (R171-hardened; jobs dir read-write). feature-coverage maps
+  `jobs → code-console`. `tests/lint/test_jobs_runtime_contract.py` guards the registry, the worker lifecycle,
+  cancellation, graceful failure without a gateway, the surfaces, the unit, and the bridge.
+- Honest gating (SB-077): runtime + pane + CLI + ingest are live and tested; the guest→host **channel** for the
+  VM bridge (libvirt NAT gateway / vsock, via `SOVEREIGN_JOBS_HOST`) is the deployment step and is inert until
+  wired — and says so.
+
 ### Changed — reasoning engine hardened: an adversarial review found the mechanics were presets/labels; made them real (2026-07-12)
 
 A "push it to the limits" review (three independent adversarial reviewers + live verification) found the

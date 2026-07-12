@@ -105,6 +105,32 @@
   .cc-defer b { color:var(--fg); font-style:normal; }
   /* right plan pane */
   .cc-plan-item { border-left:2px solid var(--border); padding:.15rem 0 .15rem .6rem; margin:.35rem 0; font-size:.8rem; color:var(--muted); }
+  /* Background Tasks split: the right Plan pane divides 50/50 (Plan top, Tasks
+     bottom); when toggled off, Plan takes the full height. */
+  .cc-plan-split { display:flex; flex-direction:column; height:100%; min-height:0; }
+  .cc-plan-top { flex:1 1 50%; overflow:auto; min-height:0; }
+  .cc-tasks { flex:1 1 50%; display:flex; flex-direction:column; min-height:0; border-top:1px solid var(--border); }
+  .cc-plan-split.tasks-off .cc-tasks { flex:0 0 auto; }
+  .cc-plan-split.tasks-off .cc-tasks-body { display:none; }
+  .cc-tasks-h { display:flex; align-items:center; gap:.5rem; padding:.3rem .5rem; font-size:.74rem; color:var(--muted); border-bottom:1px solid var(--border); }
+  .cc-tasks-body { flex:1; overflow:auto; padding:.3rem .5rem; }
+  .cc-tasks-toggle, .cc-task-new { margin-left:auto; font:inherit; font-size:.7rem; background:transparent; color:var(--muted); border:1px solid var(--border); border-radius:3px; padding:0 .4rem; cursor:pointer; }
+  .cc-task-new { margin-left:0; }
+  .cc-tasks-toggle:hover, .cc-task-new:hover, .cc-task-x:hover { color:var(--fg); border-color:var(--fg); }
+  .cc-task { border-left:2px solid var(--border); padding:.3rem .5rem; margin:.35rem 0; font-size:.78rem; }
+  .cc-task.on-run { border-left-color:var(--accent,#9bd1ff); }
+  .cc-task.on-fail { border-left-color:#e06c75; }
+  .cc-task-h { display:flex; align-items:center; gap:.4rem; }
+  .cc-task-st { font-size:.62rem; text-transform:uppercase; letter-spacing:.04em; border:1px solid var(--border); border-radius:3px; padding:0 .3rem; }
+  .cc-task-st.running { color:var(--accent,#9bd1ff); border-color:var(--accent,#9bd1ff); }
+  .cc-task-st.done { color:#98c379; }
+  .cc-task-st.failed { color:#e06c75; border-color:#e06c75; }
+  .cc-task-st.cancelled { color:var(--muted); }
+  .cc-task-dev { font-family:var(--mono,monospace); font-size:.66rem; color:var(--muted); }
+  .cc-task-x { margin-left:auto; background:transparent; border:1px solid var(--border); border-radius:3px; color:var(--muted); cursor:pointer; font-size:.7rem; padding:0 .35rem; }
+  .cc-task-bar { height:3px; background:var(--border); border-radius:2px; margin-top:.3rem; overflow:hidden; }
+  .cc-task-bar > i { display:block; height:100%; background:var(--accent,#9bd1ff); transition:width .3s; }
+  .cc-task-out { color:var(--muted); font-size:.7rem; margin-top:.2rem; word-break:break-word; }
   /* bottom composer */
   .cc-composer { border-top:1px solid var(--border); background:var(--panel); padding:.6rem 1.25rem; }
   .cc-composer-row { display:flex; gap:.5rem; align-items:flex-end; }
@@ -866,8 +892,18 @@
       <div class="cc-pane-body" id="cc-thread"></div>
     </div>
     <div class="cc-pane">
-      <div class="cc-pane-h"><span>Plan</span><span class="muted">artifact</span></div>
-      <div class="cc-pane-body" id="cc-plan"></div>
+      <div class="cc-pane-h"><span>Plan</span><span class="muted">artifact</span>
+        <button class="cc-tasks-toggle" id="cc-tasks-toggle" title="show/hide Background Tasks (splits this pane)">◱ Tasks</button></div>
+      <div class="cc-pane-body cc-plan-split" id="cc-plan-split">
+        <div class="cc-plan-top" id="cc-plan"></div>
+        <div class="cc-tasks" id="cc-tasks-wrap">
+          <div class="cc-tasks-h"><span>Background Tasks</span>
+            <span class="muted" id="cc-tasks-count">—</span>
+            <span style="flex:1"></span>
+            <button class="cc-task-new" id="cc-task-new" title="copy an osctl command to deliberate in the background">＋ deliberate</button></div>
+          <div class="cc-tasks-body" id="cc-tasks"></div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -1061,6 +1097,78 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
       + '<div class="cc-plan-item">Artifacts · files / diffs produced</div>';
   }
 
+  // ── right/bottom: Background Tasks (the jobs-api runtime, :8142) ──
+  // The Tasks half splits the Plan pane 50/50. READ-ONLY (R10212): it polls the
+  // runtime; submit/cancel are MS003-signed `sovereign-osctl jobs …` verbs copied
+  // to the clipboard, never web mutations from this panel.
+  const DEMO_TASKS = { jobs: [
+    {id:'a1b2c3', kind:'deliberation', title:'optimize the SRP scheduler admission rule', device:'rtx-pro', state:'running', progress:62, output:''},
+    {id:'vm01', kind:'vm-job', title:'llama-3 finetune epoch 3/5', device:'rtx-4090-vm', state:'running', progress:58, output:''},
+    {id:'d4e5f6', kind:'eval', title:'gsm8k on the logic model', device:'rtx-pro', state:'done', progress:100, output:'demo/ 71.2% (1319 items)'},
+    {id:'g7h8i9', kind:'model-load', title:'load secondary model (qwen-7b)', device:'cpu', state:'failed', progress:40, error:'demo/ OOM on host'},
+  ], summary: {total:4, running:2, queued:0} };
+
+  function ccToast(text) {
+    const c = $('cc-tasks-count'); if (!c) return;
+    const prev = c.textContent; c.textContent = text;
+    setTimeout(() => { if (c.textContent === text) c.textContent = prev; }, 1600);
+  }
+  function copyCli(cmd, note) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(cmd).then(() => ccToast(note || '✓ copied'), () => ccToast('⚠ run: ' + cmd));
+    } else { ccToast('run: ' + cmd); }
+  }
+  function renderTasks(data) {
+    const jobs = (data && data.jobs) || [];
+    const s = (data && data.summary) || {};
+    const count = $('cc-tasks-count');
+    if (count) count.textContent = (data && data.offline) ? 'runtime offline'
+      : ((s.total || 0) + ' · ' + (s.running || 0) + ' running');
+    const host = $('cc-tasks'); if (!host) return;
+    if (!jobs.length) {
+      host.innerHTML = (data && data.offline)
+        ? '<div class="cc-defer">jobs-api (:8142) not reachable — start it to run Background Tasks.</div>'
+        : '<div class="cc-defer">No background tasks. Use ＋ deliberate above, or <code>sovereign-osctl jobs submit …</code>.</div>';
+      return;
+    }
+    host.innerHTML = jobs.map(j => {
+      const cls = j.state === 'running' ? ' on-run' : (j.state === 'failed' ? ' on-fail' : '');
+      const cancellable = (j.state === 'running' || j.state === 'queued');
+      const out = j.output || j.error || '';
+      const pct = Math.max(0, Math.min(100, j.progress || 0));
+      return '<div class="cc-task' + cls + '"><div class="cc-task-h">'
+        + '<span class="cc-task-st ' + esc(j.state) + '">' + esc(j.state) + '</span>'
+        + '<span>' + esc(j.title || j.kind) + '</span>'
+        + '<span class="cc-task-dev">' + esc(j.kind) + '·' + esc(j.device) + '</span>'
+        + (cancellable ? '<button class="cc-task-x" data-cancel="' + esc(j.id) + '" title="copy the cancel command">⊗</button>' : '')
+        + '</div><div class="cc-task-bar"><i style="width:' + pct + '%"></i></div>'
+        + (out ? '<div class="cc-task-out">' + esc(out) + '</div>' : '') + '</div>';
+    }).join('');
+    Array.prototype.forEach.call(host.querySelectorAll('[data-cancel]'), b => {
+      b.addEventListener('click', () => copyCli('sovereign-osctl jobs cancel ' + b.getAttribute('data-cancel'), '✓ copied cancel command'));
+    });
+  }
+  async function refreshTasks() {
+    if (demoActive()) {
+      renderTasks(DEMO_TASKS);
+      return;
+    }
+    try {
+      const res = await fetch('/api/code-console/jobs', {credentials:'same-origin'});
+      renderTasks(await res.json());
+    } catch (e) { renderTasks({jobs:[], offline:true}); }
+  }
+  function toggleTasks() {
+    const split = $('cc-plan-split'); if (!split) return;
+    split.classList.toggle('tasks-off');
+    try { localStorage.setItem('cc-tasks-off', split.classList.contains('tasks-off') ? '1' : '0'); } catch (e) {}
+  }
+  function newTask() {
+    const q = ($('cc-input') && $('cc-input').value || '').trim() || 'a problem to deliberate on';
+    copyCli('sovereign-osctl jobs submit deliberation --problem ' + JSON.stringify(q),
+      '✓ copied submit command — run it to start a background deliberation');
+  }
+
   // ── interactive clarification (QCFA / AskUserQuestion) ──
   // The model (under the QCFA scaffold) emits questions in a fenced
   // ```askuserquestion JSON block; render them as clickable options + a free-text
@@ -1231,6 +1339,10 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
   renderRail(FIXED_SESSIONS);
   renderThread();
   renderPlan();
+  renderTasks({jobs: []});
+  (function () { try { if (localStorage.getItem('cc-tasks-off') === '1') $('cc-plan-split').classList.add('tasks-off'); } catch (e) {} })();
+  if ($('cc-tasks-toggle')) $('cc-tasks-toggle').addEventListener('click', toggleTasks);
+  if ($('cc-task-new')) $('cc-task-new').addEventListener('click', newTask);
 
   $('cc-send').addEventListener('click', sendChat);
   $('cc-new').addEventListener('click', newChat);
@@ -1266,6 +1378,8 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
   }
 
   refresh();
+  refreshTasks();
+  setInterval(refreshTasks, 2500);
 </script>
 
 <!-- SDD-045 shared control-surface (inlined verbatim from webapp/_shared/control-surface.{css,js}; lockstep-linted). -->
