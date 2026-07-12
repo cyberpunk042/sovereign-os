@@ -122,7 +122,11 @@ pub struct Problem {
 impl Problem {
     /// A problem with no sketch bits (recall keys on the path text only).
     pub fn new(statement: impl Into<String>) -> Self {
-        Problem { statement: statement.into(), topic: 0, entity: 0 }
+        Problem {
+            statement: statement.into(),
+            topic: 0,
+            entity: 0,
+        }
     }
 }
 
@@ -294,7 +298,10 @@ impl CoatConfig {
 
     /// **ToT (DFS)** — depth-first variant of [`Self::tot`].
     pub fn tot_dfs() -> Self {
-        CoatConfig { strategy: SearchStrategy::Dfs, ..CoatConfig::tot() }
+        CoatConfig {
+            strategy: SearchStrategy::Dfs,
+            ..CoatConfig::tot()
+        }
     }
 
     /// **MCTS** — UCT selection + rollout simulation + backprop.
@@ -316,13 +323,20 @@ impl CoatConfig {
     /// **C-MCTS** — MCTS with the action space constrained (phase-gated
     /// categories), so the branching is bounded by structure, not just `expand_k`.
     pub fn cmcts() -> Self {
-        CoatConfig { constrain: true, ..CoatConfig::mcts() }
+        CoatConfig {
+            constrain: true,
+            ..CoatConfig::mcts()
+        }
     }
 
     /// **CoAT** ⭐ — C-MCTS with associative memory recalled at every expansion,
     /// conditioning generation and steering which path wins. The default.
     pub fn coat() -> Self {
-        CoatConfig { recall_k: 3, recall_weight: 0.35, ..CoatConfig::cmcts() }
+        CoatConfig {
+            recall_k: 3,
+            recall_weight: 0.35,
+            ..CoatConfig::cmcts()
+        }
     }
 
     /// The rung name this config corresponds to — derived from **behaviour**, not
@@ -412,7 +426,11 @@ pub struct CoatEngine<T: ThoughtSource, M: AssociativeMemory> {
 impl<T: ThoughtSource, M: AssociativeMemory> CoatEngine<T, M> {
     /// Build an engine from a thought source, an associative memory, and a config.
     pub fn new(thoughts: T, memory: M, config: CoatConfig) -> Self {
-        CoatEngine { thoughts, memory, config }
+        CoatEngine {
+            thoughts,
+            memory,
+            config,
+        }
     }
 
     /// Run the full deliberation and return the reasoning trace.
@@ -424,7 +442,9 @@ impl<T: ThoughtSource, M: AssociativeMemory> CoatEngine<T, M> {
         let mut tree = Tree::new();
         for _ in 0..self.config.iterations {
             let selected = self.select(&mut tree);
-            let node = self.expand(&mut tree, problem, selected).unwrap_or(selected);
+            let node = self
+                .expand(&mut tree, problem, selected)
+                .unwrap_or(selected);
             let reward = self.simulate(problem, &tree, node);
             tree.backprop(node, reward);
             // Backtracking: abandon a freshly-scored thought below the floor.
@@ -483,17 +503,26 @@ impl<T: ThoughtSource, M: AssociativeMemory> CoatEngine<T, M> {
             // Node-level associative recall for the path so far (CoAT RAG input).
             let associated = self.recall_for(problem, tree, parent, "");
             let path = tree.path_steps(parent);
-            let mut seeds = self.thoughts.expand(problem, &path, &associated, self.config.expand_k);
+            let mut seeds = self
+                .thoughts
+                .expand(problem, &path, &associated, self.config.expand_k);
             seeds.truncate(self.config.expand_k); // enforce k (protects the CoT invariant)
             if self.config.constrain {
                 let allowed = ThoughtCategory::allowed_at(
                     tree.nodes[parent].depth + 1,
                     self.config.max_depth,
                 );
-                let kept: Vec<ThoughtSeed> =
-                    seeds.iter().filter(|s| allowed.contains(&s.category)).cloned().collect();
+                let kept: Vec<ThoughtSeed> = seeds
+                    .iter()
+                    .filter(|s| allowed.contains(&s.category))
+                    .cloned()
+                    .collect();
                 // Never dead-end a node purely from constraint: keep one if all gated.
-                seeds = if kept.is_empty() { seeds.into_iter().take(1).collect() } else { kept };
+                seeds = if kept.is_empty() {
+                    seeds.into_iter().take(1).collect()
+                } else {
+                    kept
+                };
             }
             seeds.reverse(); // pop() yields source order
             tree.nodes[parent].untried = seeds;
@@ -545,13 +574,22 @@ impl<T: ThoughtSource, M: AssociativeMemory> CoatEngine<T, M> {
         let mut depth = tree.nodes[node].depth;
         while depth < self.config.max_depth {
             let assoc = self.recall_for_path(problem, &path, "");
-            let mut seeds = self.thoughts.expand(problem, &path, &assoc, self.config.expand_k);
+            let mut seeds = self
+                .thoughts
+                .expand(problem, &path, &assoc, self.config.expand_k);
             seeds.truncate(self.config.expand_k);
             if self.config.constrain {
                 let allowed = ThoughtCategory::allowed_at(depth + 1, self.config.max_depth);
-                let kept: Vec<ThoughtSeed> =
-                    seeds.iter().filter(|s| allowed.contains(&s.category)).cloned().collect();
-                seeds = if kept.is_empty() { seeds.into_iter().take(1).collect() } else { kept };
+                let kept: Vec<ThoughtSeed> = seeds
+                    .iter()
+                    .filter(|s| allowed.contains(&s.category))
+                    .cloned()
+                    .collect();
+                seeds = if kept.is_empty() {
+                    seeds.into_iter().take(1).collect()
+                } else {
+                    kept
+                };
             }
             if seeds.is_empty() {
                 break;
@@ -567,7 +605,10 @@ impl<T: ThoughtSource, M: AssociativeMemory> CoatEngine<T, M> {
             }
             let (seed, v) = chosen.expect("seeds non-empty");
             best = best.max(v);
-            path.push(PathStep { category: seed.category, text: seed.text });
+            path.push(PathStep {
+                category: seed.category,
+                text: seed.text,
+            });
             depth += 1;
         }
         best
@@ -616,7 +657,12 @@ impl Tree {
             visits: 0,
             value_sum: 0.0,
         };
-        Tree { nodes: vec![root], branches: BranchTree::new(), root: 0, abandoned_count: 0 }
+        Tree {
+            nodes: vec![root],
+            branches: BranchTree::new(),
+            root: 0,
+            abandoned_count: 0,
+        }
     }
 
     fn push_child(&mut self, parent: usize, branch_id: u64, thought: Thought) -> usize {
@@ -645,7 +691,10 @@ impl Tree {
         let mut cur = Some(node);
         while let Some(i) = cur {
             if let Some(t) = &self.nodes[i].thought {
-                chain.push(PathStep { category: t.category, text: t.text.clone() });
+                chain.push(PathStep {
+                    category: t.category,
+                    text: t.text.clone(),
+                });
             }
             cur = self.nodes[i].parent;
         }
@@ -655,8 +704,7 @@ impl Tree {
 
     /// The accumulated path text including a candidate `next` thought.
     fn path_text(&self, node: usize, next: &str) -> String {
-        let mut parts: Vec<String> =
-            self.path_steps(node).into_iter().map(|s| s.text).collect();
+        let mut parts: Vec<String> = self.path_steps(node).into_iter().map(|s| s.text).collect();
         if !next.is_empty() {
             parts.push(next.to_string());
         }
@@ -746,7 +794,11 @@ impl Tree {
 
     fn mean_value(&self, node: usize) -> f64 {
         let n = &self.nodes[node];
-        if n.visits == 0 { 0.0 } else { n.value_sum / n.visits as f64 }
+        if n.visits == 0 {
+            0.0
+        } else {
+            n.value_sum / n.visits as f64
+        }
     }
 
     /// The winning path: from the root, descend to the highest-value non-abandoned
@@ -846,7 +898,11 @@ impl Tree {
                 parent: n.parent,
                 depth: n.depth,
                 category: n.thought.as_ref().map(|t| t.category),
-                text: n.thought.as_ref().map(|t| t.text.clone()).unwrap_or_default(),
+                text: n
+                    .thought
+                    .as_ref()
+                    .map(|t| t.text.clone())
+                    .unwrap_or_default(),
                 prior: n.thought.as_ref().map(|t| t.prior).unwrap_or(0.0),
                 value: self.mean_value(i),
                 visits: n.visits,
@@ -862,7 +918,11 @@ impl Tree {
             .iter()
             .map(|s| s.value)
             .fold(f64::INFINITY, f64::min);
-        let path_value = if path_value.is_finite() { path_value } else { 0.0 };
+        let path_value = if path_value.is_finite() {
+            path_value
+        } else {
+            0.0
+        };
 
         let nodes_expanded = self.nodes.len().saturating_sub(1);
         let summary = format!(
@@ -999,7 +1059,13 @@ mod tests {
     /// categories available (so `constrain` has something to gate).
     struct Fixed;
     impl ThoughtSource for Fixed {
-        fn expand(&mut self, _p: &Problem, path: &[PathStep], _a: &[Recall], k: usize) -> Vec<ThoughtSeed> {
+        fn expand(
+            &mut self,
+            _p: &Problem,
+            path: &[PathStep],
+            _a: &[Recall],
+            k: usize,
+        ) -> Vec<ThoughtSeed> {
             (0..k)
                 .map(|i| ThoughtSeed {
                     category: ThoughtCategory::ALL[(path.len() + i) % 5],
@@ -1016,10 +1082,24 @@ mod tests {
     /// Two equal-prior seeds: "supported" and "bare" — the CoAT-steering probe.
     struct TwoEqual;
     impl ThoughtSource for TwoEqual {
-        fn expand(&mut self, _p: &Problem, _path: &[PathStep], _a: &[Recall], _k: usize) -> Vec<ThoughtSeed> {
+        fn expand(
+            &mut self,
+            _p: &Problem,
+            _path: &[PathStep],
+            _a: &[Recall],
+            _k: usize,
+        ) -> Vec<ThoughtSeed> {
             vec![
-                ThoughtSeed { category: ThoughtCategory::Plan, text: "supported".into(), prior: 0.5 },
-                ThoughtSeed { category: ThoughtCategory::Plan, text: "bare".into(), prior: 0.5 },
+                ThoughtSeed {
+                    category: ThoughtCategory::Plan,
+                    text: "supported".into(),
+                    prior: 0.5,
+                },
+                ThoughtSeed {
+                    category: ThoughtCategory::Plan,
+                    text: "bare".into(),
+                    prior: 0.5,
+                },
             ]
         }
     }
@@ -1028,17 +1108,39 @@ mod tests {
     /// other is good — exercises backtracking (rollout can't rescue the trap).
     struct DeadEnd;
     impl ThoughtSource for DeadEnd {
-        fn expand(&mut self, _p: &Problem, path: &[PathStep], _a: &[Recall], _k: usize) -> Vec<ThoughtSeed> {
+        fn expand(
+            &mut self,
+            _p: &Problem,
+            path: &[PathStep],
+            _a: &[Recall],
+            _k: usize,
+        ) -> Vec<ThoughtSeed> {
             if path.is_empty() {
                 vec![
-                    ThoughtSeed { category: ThoughtCategory::Plan, text: "trap".into(), prior: 0.05 },
-                    ThoughtSeed { category: ThoughtCategory::Plan, text: "good".into(), prior: 0.9 },
+                    ThoughtSeed {
+                        category: ThoughtCategory::Plan,
+                        text: "trap".into(),
+                        prior: 0.05,
+                    },
+                    ThoughtSeed {
+                        category: ThoughtCategory::Plan,
+                        text: "good".into(),
+                        prior: 0.9,
+                    },
                 ]
             } else if path.iter().any(|s| s.text == "trap") {
                 // everything under the trap stays low — a genuine dead end
-                vec![ThoughtSeed { category: ThoughtCategory::Code, text: "dead".into(), prior: 0.05 }]
+                vec![ThoughtSeed {
+                    category: ThoughtCategory::Code,
+                    text: "dead".into(),
+                    prior: 0.05,
+                }]
             } else {
-                vec![ThoughtSeed { category: ThoughtCategory::Code, text: format!("cont{}", path.len()), prior: 0.85 }]
+                vec![ThoughtSeed {
+                    category: ThoughtCategory::Code,
+                    text: format!("cont{}", path.len()),
+                    prior: 0.85,
+                }]
             }
         }
     }
@@ -1048,7 +1150,11 @@ mod tests {
     impl AssociativeMemory for KeyedMemory {
         fn recall(&self, ctx: &ThoughtContext, k: usize) -> Vec<Recall> {
             if k > 0 && ctx.text.contains("supported") {
-                vec![Recall { id: 1, relevance: 1.0, note: "prior success".into() }]
+                vec![Recall {
+                    id: 1,
+                    relevance: 1.0,
+                    note: "prior success".into(),
+                }]
             } else {
                 Vec::new()
             }
@@ -1062,10 +1168,19 @@ mod tests {
     #[test]
     fn empty_problem_and_bad_config_are_errors() {
         let mut e = CoatEngine::new(Fixed, NoMemory, CoatConfig::coat());
-        assert!(matches!(e.deliberate(&Problem::new("   ")), Err(CoatError::EmptyProblem)));
-        let bad = CoatConfig { expand_k: 0, ..CoatConfig::coat() };
+        assert!(matches!(
+            e.deliberate(&Problem::new("   ")),
+            Err(CoatError::EmptyProblem)
+        ));
+        let bad = CoatConfig {
+            expand_k: 0,
+            ..CoatConfig::coat()
+        };
         let mut e2 = CoatEngine::new(Fixed, NoMemory, bad);
-        assert!(matches!(e2.deliberate(&problem()), Err(CoatError::InvalidConfig(_))));
+        assert!(matches!(
+            e2.deliberate(&problem()),
+            Err(CoatError::InvalidConfig(_))
+        ));
     }
 
     #[test]
@@ -1074,7 +1189,11 @@ mod tests {
         let t = e.deliberate(&problem()).unwrap();
         assert_eq!(t.rung, "CoT");
         assert_eq!(t.thought_source, "heuristic");
-        assert_eq!(t.tree.len(), t.best_path.len() + 1, "CoT must be a single chain");
+        assert_eq!(
+            t.tree.len(),
+            t.best_path.len() + 1,
+            "CoT must be a single chain"
+        );
         assert!(!t.best_path.is_empty());
     }
 
@@ -1083,10 +1202,24 @@ mod tests {
         // A source that returns 2 seeds for k=1 must NOT break the chain invariant.
         struct Chatty;
         impl ThoughtSource for Chatty {
-            fn expand(&mut self, _p: &Problem, _pa: &[PathStep], _a: &[Recall], _k: usize) -> Vec<ThoughtSeed> {
+            fn expand(
+                &mut self,
+                _p: &Problem,
+                _pa: &[PathStep],
+                _a: &[Recall],
+                _k: usize,
+            ) -> Vec<ThoughtSeed> {
                 vec![
-                    ThoughtSeed { category: ThoughtCategory::Plan, text: "a".into(), prior: 0.8 },
-                    ThoughtSeed { category: ThoughtCategory::Code, text: "b".into(), prior: 0.7 },
+                    ThoughtSeed {
+                        category: ThoughtCategory::Plan,
+                        text: "a".into(),
+                        prior: 0.8,
+                    },
+                    ThoughtSeed {
+                        category: ThoughtCategory::Code,
+                        text: "b".into(),
+                        prior: 0.7,
+                    },
                 ]
             }
         }
@@ -1095,7 +1228,11 @@ mod tests {
         // every node has at most one child → tree is a chain
         for n in &t.tree {
             let kids = t.tree.iter().filter(|c| c.parent == Some(n.id)).count();
-            assert!(kids <= 1, "expand_k=1 must be enforced; node {} has {kids} kids", n.id);
+            assert!(
+                kids <= 1,
+                "expand_k=1 must be enforced; node {} has {kids} kids",
+                n.id
+            );
         }
     }
 
@@ -1112,12 +1249,18 @@ mod tests {
     #[test]
     fn backtracking_abandons_a_dead_end() {
         // prune_below fires on the low-value "trap"; the search recovers to "good".
-        let cfg = CoatConfig { prune_below: 0.3, ..CoatConfig::mcts() };
+        let cfg = CoatConfig {
+            prune_below: 0.3,
+            ..CoatConfig::mcts()
+        };
         let mut e = CoatEngine::new(DeadEnd, NoMemory, cfg);
         let t = e.deliberate(&problem()).unwrap();
         assert!(t.abandoned >= 1, "the trap must be abandoned");
         assert!(t.branches_pruned >= 1, "an abandoned branch must be pruned");
-        assert_eq!(t.best_path[0].text, "good", "the winning path avoids the dead end");
+        assert_eq!(
+            t.best_path[0].text, "good",
+            "the winning path avoids the dead end"
+        );
     }
 
     #[test]
@@ -1126,10 +1269,16 @@ mod tests {
         let mut e = CoatEngine::new(Fixed, NoMemory, cfg);
         let t = e.deliberate(&problem()).unwrap();
         assert_eq!(t.rung, "MCTS");
-        assert_eq!(t.tree[0].visits, cfg.iterations, "root visits must equal the budget");
+        assert_eq!(
+            t.tree[0].visits, cfg.iterations,
+            "root visits must equal the budget"
+        );
         for n in &t.tree {
             if let Some(p) = n.parent {
-                assert!(t.tree[p].visits >= n.visits, "parent must dominate child visits");
+                assert!(
+                    t.tree[p].visits >= n.visits,
+                    "parent must dominate child visits"
+                );
             }
         }
     }
@@ -1141,40 +1290,87 @@ mod tests {
         // propagated the subtree, only look-ahead (rollout) can see it.
         struct Lookahead;
         impl ThoughtSource for Lookahead {
-            fn expand(&mut self, _p: &Problem, path: &[PathStep], _a: &[Recall], k: usize) -> Vec<ThoughtSeed> {
+            fn expand(
+                &mut self,
+                _p: &Problem,
+                path: &[PathStep],
+                _a: &[Recall],
+                k: usize,
+            ) -> Vec<ThoughtSeed> {
                 if path.is_empty() {
                     return vec![
-                        ThoughtSeed { category: ThoughtCategory::Plan, text: "slow-burn".into(), prior: 0.55 },
-                        ThoughtSeed { category: ThoughtCategory::Plan, text: "flashy".into(), prior: 0.85 },
+                        ThoughtSeed {
+                            category: ThoughtCategory::Plan,
+                            text: "slow-burn".into(),
+                            prior: 0.55,
+                        },
+                        ThoughtSeed {
+                            category: ThoughtCategory::Plan,
+                            text: "flashy".into(),
+                            prior: 0.85,
+                        },
                     ];
                 }
                 let root = &path[0].text;
                 let prior = if root == "slow-burn" { 0.99 } else { 0.10 };
                 (0..k)
-                    .map(|i| ThoughtSeed { category: ThoughtCategory::Code, text: format!("c{i}"), prior })
+                    .map(|i| ThoughtSeed {
+                        category: ThoughtCategory::Code,
+                        text: format!("c{i}"),
+                        prior,
+                    })
                     .collect()
             }
         }
         // Budget = 2: just enough to expand each root child once, not to drill them,
         // so a node's value is its FIRST-visit estimate — prior alone vs look-ahead.
-        let tight = |rollout| CoatConfig { iterations: 2, rollout, prune_below: 0.0, ..CoatConfig::mcts() };
+        let tight = |rollout| CoatConfig {
+            iterations: 2,
+            rollout,
+            prune_below: 0.0,
+            ..CoatConfig::mcts()
+        };
         // Without rollout: the flashy prior (0.85) wins — no look-ahead.
         let mut greedy = CoatEngine::new(Lookahead, NoMemory, tight(false));
-        assert_eq!(greedy.deliberate(&problem()).unwrap().best_path[0].text, "flashy");
+        assert_eq!(
+            greedy.deliberate(&problem()).unwrap().best_path[0].text,
+            "flashy"
+        );
         // With rollout: look-ahead sees slow-burn leads to 0.99 and prefers it.
         let mut looka = CoatEngine::new(Lookahead, NoMemory, tight(true));
-        assert_eq!(looka.deliberate(&problem()).unwrap().best_path[0].text, "slow-burn",
-            "rollout must let a strong continuation win before averaging has propagated it");
+        assert_eq!(
+            looka.deliberate(&problem()).unwrap().best_path[0].text,
+            "slow-burn",
+            "rollout must let a strong continuation win before averaging has propagated it"
+        );
     }
 
     #[test]
     fn constrain_changes_the_search() {
         // Fixed offers all 5 categories; constraining must gate some out, yielding
         // a different set of categories in the tree than the unconstrained run.
-        let mut unc = CoatEngine::new(Fixed, NoMemory, CoatConfig { constrain: false, ..CoatConfig::mcts() });
-        let mut con = CoatEngine::new(Fixed, NoMemory, CoatConfig { constrain: true, ..CoatConfig::mcts() });
+        let mut unc = CoatEngine::new(
+            Fixed,
+            NoMemory,
+            CoatConfig {
+                constrain: false,
+                ..CoatConfig::mcts()
+            },
+        );
+        let mut con = CoatEngine::new(
+            Fixed,
+            NoMemory,
+            CoatConfig {
+                constrain: true,
+                ..CoatConfig::mcts()
+            },
+        );
         let cats = |t: &CoatTrace| {
-            let mut v: Vec<String> = t.tree.iter().filter_map(|n| n.category.map(|c| format!("{c:?}"))).collect();
+            let mut v: Vec<String> = t
+                .tree
+                .iter()
+                .filter_map(|n| n.category.map(|c| format!("{c:?}")))
+                .collect();
             v.sort();
             v.dedup();
             v
@@ -1192,8 +1388,14 @@ mod tests {
                 })
             })
         };
-        assert!(violates(&u), "unconstrained search should place out-of-phase categories");
-        assert!(!violates(&c), "constrained search must gate every node to its phase");
+        assert!(
+            violates(&u),
+            "unconstrained search should place out-of-phase categories"
+        );
+        assert!(
+            !violates(&c),
+            "constrained search must gate every node to its phase"
+        );
     }
 
     #[test]
@@ -1202,7 +1404,10 @@ mod tests {
         let t = e.deliberate(&problem()).unwrap();
         for n in &t.tree {
             if let Some(c) = n.category {
-                assert!(ThoughtCategory::ALL.contains(&c), "action outside the constrained space");
+                assert!(
+                    ThoughtCategory::ALL.contains(&c),
+                    "action outside the constrained space"
+                );
             }
         }
     }
@@ -1213,19 +1418,32 @@ mod tests {
         let mut on = CoatEngine::new(TwoEqual, KeyedMemory, CoatConfig::coat());
         let won = on.deliberate(&problem()).unwrap();
         assert_eq!(won.rung, "CoAT");
-        assert_eq!(won.best_path[0].text, "supported",
-            "recall must steer the supported thought onto the winning path");
-        assert!(won.recalled_total > 0, "CoAT must recall associative memory");
-        assert!(won.best_path[0].value > won.best_path[0].prior,
-            "recall must modulate value above the bare prior");
+        assert_eq!(
+            won.best_path[0].text, "supported",
+            "recall must steer the supported thought onto the winning path"
+        );
+        assert!(
+            won.recalled_total > 0,
+            "CoAT must recall associative memory"
+        );
+        assert!(
+            won.best_path[0].value > won.best_path[0].prior,
+            "recall must modulate value above the bare prior"
+        );
 
         // Recall OFF: no memory lift; value equals prior.
-        let off_cfg = CoatConfig { recall_weight: 0.0, recall_k: 0, ..CoatConfig::coat() };
+        let off_cfg = CoatConfig {
+            recall_weight: 0.0,
+            recall_k: 0,
+            ..CoatConfig::coat()
+        };
         let mut off = CoatEngine::new(TwoEqual, KeyedMemory, off_cfg);
         let plain = off.deliberate(&problem()).unwrap();
         assert_eq!(plain.recalled_total, 0, "recall_k 0 must pull no memory");
-        assert!((plain.best_path[0].value - plain.best_path[0].prior).abs() < 1e-9,
-            "without recall, value must equal the prior");
+        assert!(
+            (plain.best_path[0].value - plain.best_path[0].prior).abs() < 1e-9,
+            "without recall, value must equal the prior"
+        );
     }
 
     #[test]
@@ -1236,7 +1454,11 @@ mod tests {
                 .unwrap()
                 .summary
         };
-        assert_eq!(run(), run(), "same inputs must yield the same trace (replayability)");
+        assert_eq!(
+            run(),
+            run(),
+            "same inputs must yield the same trace (replayability)"
+        );
     }
 
     #[test]
@@ -1253,8 +1475,14 @@ mod tests {
     fn winning_branch_is_committed_and_traces_serialize() {
         let mut e = CoatEngine::new(Fixed, KeyedMemory, CoatConfig::coat());
         let t = e.deliberate(&problem()).unwrap();
-        assert!(t.branches_committed >= 1, "the winning path must commit branches");
-        assert!(t.tree.iter().any(|n| n.on_best_path), "some node must be on the best path");
+        assert!(
+            t.branches_committed >= 1,
+            "the winning path must commit branches"
+        );
+        assert!(
+            t.tree.iter().any(|n| n.on_best_path),
+            "some node must be on the best path"
+        );
         let j = serde_json::to_string(&t).unwrap();
         let back: CoatTrace = serde_json::from_str(&j).unwrap();
         assert_eq!(back.summary, t.summary);

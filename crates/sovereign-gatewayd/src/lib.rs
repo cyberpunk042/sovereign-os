@@ -37,8 +37,8 @@ use std::sync::Mutex;
 use serde::{Deserialize, Serialize};
 
 use sovereign_coat::{
-    AssociativeMemory, CoatConfig, CoatEngine, CoatTrace, PathStep, Problem, Recall, ThoughtCategory,
-    ThoughtContext, ThoughtSeed, ThoughtSource,
+    AssociativeMemory, CoatConfig, CoatEngine, CoatTrace, PathStep, Problem, Recall,
+    ThoughtCategory, ThoughtContext, ThoughtSeed, ThoughtSource,
 };
 use sovereign_cortex::{Cortex, CortexRequest, Deliberation, seed_memory};
 use sovereign_gateway::{GatewayManifest, GatewaySurface, SCHEMA_VERSION, SurfaceState};
@@ -366,7 +366,10 @@ fn default_recall_half_life() -> u64 {
 /// probe different memory — not merely lift every thought's value uniformly.
 fn text_sketch(text: &str) -> u64 {
     let mut bits = 0u64;
-    for tok in text.split(|c: char| !c.is_alphanumeric()).filter(|t| !t.is_empty()) {
+    for tok in text
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|t| !t.is_empty())
+    {
         let mut h: u64 = 0xcbf2_9ce4_8422_2325;
         for b in tok.as_bytes() {
             h ^= b.to_ascii_lowercase() as u64;
@@ -390,7 +393,9 @@ impl AssociativeMemory for CortexRecall<'_> {
         let text_bits = text_sketch(&ctx.text);
         let topic = ctx.topic | text_bits;
         let entity = ctx.entity | text_bits.rotate_left(29);
-        let hits = self.cortex.recall(topic, entity, self.now, self.half_life, k);
+        let hits = self
+            .cortex
+            .recall(topic, entity, self.now, self.half_life, k);
         hits.into_iter()
             .map(|(id, rel)| Recall {
                 id,
@@ -479,7 +484,10 @@ fn model_seeds_from(completion: &str, depth: usize, k: usize) -> Vec<ThoughtSeed
     (0..k)
         .map(|i| ThoughtSeed {
             category: palette[i % palette.len()],
-            text: frags.get(i).cloned().unwrap_or_else(|| frags[i % frags.len()].clone()),
+            text: frags
+                .get(i)
+                .cloned()
+                .unwrap_or_else(|| frags[i % frags.len()].clone()),
             prior: (0.86 - 0.11 * i as f64 - 0.02 * depth as f64).clamp(0.05, 0.95),
         })
         .collect()
@@ -623,9 +631,7 @@ impl GatewayServer {
             }
             Ok(None) => None,
             Err(e) => {
-                eprintln!(
-                    "sovereign-gatewayd: model load failed, generation disabled: {e}"
-                );
+                eprintln!("sovereign-gatewayd: model load failed, generation disabled: {e}");
                 None
             }
         };
@@ -674,7 +680,9 @@ impl GatewayServer {
         let Some(engine) = &self.generator else {
             return Err("no local model loaded".to_string());
         };
-        let mut guard = engine.lock().map_err(|_| "generator poisoned".to_string())?;
+        let mut guard = engine
+            .lock()
+            .map_err(|_| "generator poisoned".to_string())?;
         let Generator { model, tokenizer } = &mut *guard;
 
         let mut ids: Vec<usize> = Vec::new();
@@ -881,10 +889,18 @@ impl GatewayServer {
                 };
             }
         };
-        let prob = Problem { statement: problem, topic, entity };
+        let prob = Problem {
+            statement: problem,
+            topic,
+            entity,
+        };
         let result = {
             let cortex = self.cortex.lock().expect("cortex poisoned");
-            let memory = CortexRecall { cortex: &cortex, now, half_life };
+            let memory = CortexRecall {
+                cortex: &cortex,
+                now,
+                half_life,
+            };
             if self.has_generator() {
                 // Model calls are expensive: one per expansion, no rollout, capped
                 // budget — so a deliberation stays bounded when model-backed.
@@ -900,8 +916,12 @@ impl GatewayServer {
         };
         self.ledger.lock().expect("ledger poisoned").dry_runs += 1;
         match result {
-            Ok(trace) => GatewayResponse::CoatTrace { trace: Box::new(trace) },
-            Err(e) => GatewayResponse::Error { message: e.to_string() },
+            Ok(trace) => GatewayResponse::CoatTrace {
+                trace: Box::new(trace),
+            },
+            Err(e) => GatewayResponse::Error {
+                message: e.to_string(),
+            },
         }
     }
 
@@ -1394,11 +1414,23 @@ mod tests {
         // the way a batch-max would. A single 1-bit-overlap hit stays well below 1.
         let s = GatewayServer::new();
         let cortex = s.cortex.lock().unwrap();
-        let rc = CortexRecall { cortex: &cortex, now: 100, half_life: 1000 };
+        let rc = CortexRecall {
+            cortex: &cortex,
+            now: 100,
+            half_life: 1000,
+        };
         // A context whose sketch overlaps the seeded store weakly.
-        let ctx = ThoughtContext { topic: 1, entity: 0, text: "z".into() };
+        let ctx = ThoughtContext {
+            topic: 1,
+            entity: 0,
+            text: "z".into(),
+        };
         for r in rc.recall(&ctx, 4) {
-            assert!(r.relevance < 0.99, "a weak hit must not read as maximal support: {}", r.relevance);
+            assert!(
+                r.relevance < 0.99,
+                "a weak hit must not read as maximal support: {}",
+                r.relevance
+            );
         }
     }
 }

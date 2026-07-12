@@ -135,9 +135,7 @@ pub fn respond(server: &GatewayServer, method: &str, path: &str, body: &str) -> 
         ("GET", "/v1/models") => anthropic_models(),
         ("POST", "/v1/messages/count_tokens") => anthropic_count_tokens(body),
 
-        ("POST", "/v1/infer")
-        | ("POST", "/mcp")
-        | ("POST", "/v1/explain") => {
+        ("POST", "/v1/infer") | ("POST", "/mcp") | ("POST", "/v1/explain") => {
             match serde_json::from_str::<CortexRequest>(body) {
                 Ok(request) => {
                     // `/v1/explain` is the read-only dry-run; the rest run the
@@ -269,14 +267,21 @@ pub fn err(status: u16, message: String) -> HttpReply {
 
 /// Render an arbitrary JSON value at a status (not the tagged GatewayResponse).
 fn json_reply(status: u16, v: &serde_json::Value) -> HttpReply {
-    HttpReply { status, content_type: "application/json", body: v.to_string() }
+    HttpReply {
+        status,
+        content_type: "application/json",
+        body: v.to_string(),
+    }
 }
 
 /// The Anthropic error envelope: `{"type":"error","error":{"type","message"}}`.
 pub fn anthropic_err(status: u16, kind: &str, message: String) -> HttpReply {
-    json_reply(status, &serde_json::json!({
-        "type": "error", "error": { "type": kind, "message": message }
-    }))
+    json_reply(
+        status,
+        &serde_json::json!({
+            "type": "error", "error": { "type": kind, "message": message }
+        }),
+    )
 }
 
 /// A rough token count (~4 chars/token). Usage is best-effort on a base model
@@ -328,7 +333,11 @@ pub fn anthropic_prompt(req: &serde_json::Value) -> String {
             if text.trim().is_empty() {
                 continue;
             }
-            let tag = if role == "assistant" { "Assistant" } else { "Human" };
+            let tag = if role == "assistant" {
+                "Assistant"
+            } else {
+                "Human"
+            };
             parts.push(format!("{tag}: {text}"));
         }
     }
@@ -349,27 +358,37 @@ pub fn anthropic_max_tokens(req: &serde_json::Value) -> usize {
 /// model regardless of the requested id, but tools (VS Code) query this to
 /// populate a model picker, so answer with the sovereign model.
 fn anthropic_models() -> HttpReply {
-    json_reply(200, &serde_json::json!({
-        "data": [{
-            "type": "model",
-            "id": "sovereign-local",
-            "display_name": "Sovereign Local (gateway)",
-            "created_at": "2026-01-01T00:00:00Z",
-        }],
-        "has_more": false,
-        "first_id": "sovereign-local",
-        "last_id": "sovereign-local",
-    }))
+    json_reply(
+        200,
+        &serde_json::json!({
+            "data": [{
+                "type": "model",
+                "id": "sovereign-local",
+                "display_name": "Sovereign Local (gateway)",
+                "created_at": "2026-01-01T00:00:00Z",
+            }],
+            "has_more": false,
+            "first_id": "sovereign-local",
+            "last_id": "sovereign-local",
+        }),
+    )
 }
 
 /// `POST /v1/messages/count_tokens` — the Anthropic token-count shape. Best-effort
 /// (~4 chars/token) over the flattened prompt.
 fn anthropic_count_tokens(body: &str) -> HttpReply {
     match serde_json::from_str::<serde_json::Value>(body) {
-        Ok(req) => json_reply(200, &serde_json::json!({
-            "input_tokens": approx_tokens(&anthropic_prompt(&req))
-        })),
-        Err(e) => anthropic_err(400, "invalid_request_error", format!("invalid request: {e}")),
+        Ok(req) => json_reply(
+            200,
+            &serde_json::json!({
+                "input_tokens": approx_tokens(&anthropic_prompt(&req))
+            }),
+        ),
+        Err(e) => anthropic_err(
+            400,
+            "invalid_request_error",
+            format!("invalid request: {e}"),
+        ),
     }
 }
 
@@ -380,10 +399,18 @@ fn anthropic_message(server: &GatewayServer, body: &str) -> HttpReply {
     let req: serde_json::Value = match serde_json::from_str(body) {
         Ok(v) => v,
         Err(e) => {
-            return anthropic_err(400, "invalid_request_error", format!("invalid messages request: {e}"));
+            return anthropic_err(
+                400,
+                "invalid_request_error",
+                format!("invalid messages request: {e}"),
+            );
         }
     };
-    let model = req.get("model").and_then(|m| m.as_str()).unwrap_or("sovereign-local").to_string();
+    let model = req
+        .get("model")
+        .and_then(|m| m.as_str())
+        .unwrap_or("sovereign-local")
+        .to_string();
     if !server.has_generator() {
         return anthropic_err(
             503,
@@ -398,16 +425,19 @@ fn anthropic_message(server: &GatewayServer, body: &str) -> HttpReply {
     let mut out = String::new();
     let generated = server.generate_chat(&prompt, max_new, |c| out.push_str(c));
     match generated {
-        Ok(n) => json_reply(200, &serde_json::json!({
-            "id": "msg_sovereign",
-            "type": "message",
-            "role": "assistant",
-            "model": model,
-            "content": [{ "type": "text", "text": out }],
-            "stop_reason": "end_turn",
-            "stop_sequence": serde_json::Value::Null,
-            "usage": { "input_tokens": approx_tokens(&prompt), "output_tokens": n },
-        })),
+        Ok(n) => json_reply(
+            200,
+            &serde_json::json!({
+                "id": "msg_sovereign",
+                "type": "message",
+                "role": "assistant",
+                "model": model,
+                "content": [{ "type": "text", "text": out }],
+                "stop_reason": "end_turn",
+                "stop_sequence": serde_json::Value::Null,
+                "usage": { "input_tokens": approx_tokens(&prompt), "output_tokens": n },
+            }),
+        ),
         Err(e) => anthropic_err(500, "api_error", format!("generation error: {e}")),
     }
 }
@@ -470,7 +500,12 @@ mod tests {
         assert_eq!(v["type"], "error");
         assert_eq!(v["error"]["type"], "api_error");
         // The sovereign DECISION moved to /v1/infer, which still runs the engine.
-        let dec = respond(&s, "POST", "/v1/infer", &serde_json::to_string(&demo_requests()[0]).unwrap());
+        let dec = respond(
+            &s,
+            "POST",
+            "/v1/infer",
+            &serde_json::to_string(&demo_requests()[0]).unwrap(),
+        );
         assert_eq!(dec.status, 200);
         assert_eq!(body_of(&dec)["kind"], "decision");
         let led = body_of(&respond(&s, "GET", "/admin/ledger", ""));
@@ -491,11 +526,23 @@ mod tests {
         let p = anthropic_prompt(&req);
         assert!(p.contains("System: S"));
         assert!(p.contains("Human: u1"));
-        assert!(p.contains("Assistant: a1"), "assistant text block flattened");
-        assert!(p.contains("Human: u2"), "user content-block array flattened");
-        assert!(p.trim_end().ends_with("Assistant:"), "ends open for the assistant to continue");
+        assert!(
+            p.contains("Assistant: a1"),
+            "assistant text block flattened"
+        );
+        assert!(
+            p.contains("Human: u2"),
+            "user content-block array flattened"
+        );
+        assert!(
+            p.trim_end().ends_with("Assistant:"),
+            "ends open for the assistant to continue"
+        );
         assert!(!p.contains("image"), "non-text blocks are skipped");
-        assert_eq!(anthropic_max_tokens(&serde_json::json!({"max_tokens": 5})), 5);
+        assert_eq!(
+            anthropic_max_tokens(&serde_json::json!({"max_tokens": 5})),
+            5
+        );
     }
 
     #[test]
@@ -508,13 +555,17 @@ mod tests {
         assert!(mv["data"][0]["id"].is_string());
         assert_eq!(mv["has_more"], false);
         // count_tokens flattens the prompt and returns a positive count
-        let body = serde_json::json!({"messages": [{"role": "user", "content": "hello world"}]}).to_string();
+        let body = serde_json::json!({"messages": [{"role": "user", "content": "hello world"}]})
+            .to_string();
         let c = respond(&s, "POST", "/v1/messages/count_tokens", &body);
         assert_eq!(c.status, 200);
         assert!(body_of(&c)["input_tokens"].as_u64().unwrap() >= 1);
         // wrong method → 405
         assert_eq!(respond(&s, "POST", "/v1/models", "").status, 405);
-        assert_eq!(respond(&s, "GET", "/v1/messages/count_tokens", "").status, 405);
+        assert_eq!(
+            respond(&s, "GET", "/v1/messages/count_tokens", "").status,
+            405
+        );
     }
 
     #[test]
@@ -662,9 +713,18 @@ mod tests {
         // Read-only invariant: the request ledger + learned state are untouched;
         // ONLY the dry-run counter moves.
         let led = body_of(&respond(&s, "GET", "/admin/ledger", ""));
-        assert_eq!(led["ledger"]["total_requests"], 0, "coat must not inflate requests");
-        assert_eq!(led["ledger"]["learned"], 0, "coat must not learn into memory");
-        assert!(led["ledger"]["dry_runs"].as_u64().unwrap() >= 1, "coat must count as a dry-run");
+        assert_eq!(
+            led["ledger"]["total_requests"], 0,
+            "coat must not inflate requests"
+        );
+        assert_eq!(
+            led["ledger"]["learned"], 0,
+            "coat must not learn into memory"
+        );
+        assert!(
+            led["ledger"]["dry_runs"].as_u64().unwrap() >= 1,
+            "coat must count as a dry-run"
+        );
     }
 
     #[test]
@@ -676,9 +736,19 @@ mod tests {
         assert_eq!(v["trace"]["rung"], "CoT");
         assert_eq!(v["trace"]["recalled_total"], 0, "CoT must recall no memory");
         // the C-MCTS + DFS rungs are reachable and behaviourally labelled.
-        let cm = body_of(&respond(&s, "POST", "/v1/coat", &serde_json::json!({"problem":"x","rung":"cmcts"}).to_string()));
+        let cm = body_of(&respond(
+            &s,
+            "POST",
+            "/v1/coat",
+            &serde_json::json!({"problem":"x","rung":"cmcts"}).to_string(),
+        ));
         assert_eq!(cm["trace"]["rung"], "C-MCTS");
-        let df = body_of(&respond(&s, "POST", "/v1/coat", &serde_json::json!({"problem":"x","rung":"dfs"}).to_string()));
+        let df = body_of(&respond(
+            &s,
+            "POST",
+            "/v1/coat",
+            &serde_json::json!({"problem":"x","rung":"dfs"}).to_string(),
+        ));
         assert_eq!(df["trace"]["strategy"], "dfs");
         // an unknown rung is an engine refusal (422), a bad body is 400, GET is 405.
         let bad = serde_json::json!({"problem": "x", "rung": "bogus"}).to_string();

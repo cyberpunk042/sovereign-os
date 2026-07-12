@@ -6,7 +6,7 @@ regressions. Mirrors selfdef's `docs/review/phase-N/` pattern.
 
 | Phase | Trigger | Status | Charter |
 |---|---|---|---|
-| — | — | — | — |
+| [phase-1](phase-1/) | operator-authored (2026-07-12) — whole-repo improvement audit | open (ledger populated; 100+ findings `F-2026-NNN`) | [phase-1/00-charter.md](phase-1/00-charter.md) |
 
 ## When a phase opens
 
