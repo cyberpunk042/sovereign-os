@@ -399,6 +399,17 @@ fn handle_http_conn(server: &GatewayServer, stream: TcpStream) -> std::io::Resul
     if method == "POST" && route == "/v1/chat/completions" {
         return stream_chat_completions(server, &mut writer, &body);
     }
+    // Anthropic Messages API: stream as SSE when the client asks; otherwise fall
+    // through to the non-streaming JSON path in http::respond.
+    if method == "POST" && route == "/v1/messages" {
+        let wants_stream = serde_json::from_str::<serde_json::Value>(&body)
+            .ok()
+            .and_then(|v| v.get("stream").and_then(serde_json::Value::as_bool))
+            .unwrap_or(false);
+        if wants_stream {
+            return stream_anthropic_messages(server, &mut writer, &body);
+        }
+    }
 
     let reply = http::respond(server, &method, &path, &body);
     write_http(&mut writer, &reply)
@@ -408,6 +419,114 @@ fn handle_http_conn(server: &GatewayServer, stream: TcpStream) -> std::io::Resul
 fn write_sse(writer: &mut TcpStream, obj: &serde_json::Value) -> std::io::Result<()> {
     writer.write_all(format!("data: {obj}\n\n").as_bytes())?;
     writer.flush()
+}
+
+/// Write one NAMED SSE event (`event: X\ndata: {json}\n\n`) and flush — the
+/// Anthropic stream uses named events (unlike the OpenAI shim's bare `data:`).
+fn write_sse_event(
+    writer: &mut TcpStream,
+    event: &str,
+    obj: &serde_json::Value,
+) -> std::io::Result<()> {
+    writer.write_all(format!("event: {event}\ndata: {obj}\n\n").as_bytes())?;
+    writer.flush()
+}
+
+/// Serve `POST /v1/messages` with `stream:true` as Anthropic-compatible SSE:
+/// `message_start` → `content_block_start` → `content_block_delta`* →
+/// `content_block_stop` → `message_delta` → `message_stop`. Generation runs on
+/// the locally-loaded model; a missing model is an honest Anthropic error.
+fn stream_anthropic_messages(
+    server: &GatewayServer,
+    writer: &mut TcpStream,
+    body: &str,
+) -> std::io::Result<()> {
+    let req: serde_json::Value = match serde_json::from_str(body) {
+        Ok(v) => v,
+        Err(e) => {
+            return write_http(
+                writer,
+                &http::anthropic_err(400, "invalid_request_error", format!("invalid messages request: {e}")),
+            );
+        }
+    };
+    if !server.has_generator() {
+        return write_http(
+            writer,
+            &http::anthropic_err(
+                503,
+                "api_error",
+                "no local model loaded — set SOVEREIGN_GATEWAY_MODEL to a model dir \
+                 (config.json + *.safetensors + tokenizer.json)"
+                    .to_string(),
+            ),
+        );
+    }
+    let model = req.get("model").and_then(|m| m.as_str()).unwrap_or("sovereign-local").to_string();
+    let prompt = http::anthropic_prompt(&req);
+    let max_new = http::anthropic_max_tokens(&req);
+    let input_tokens = http::approx_tokens(&prompt);
+    let id = "msg_sovereign";
+
+    // SSE head, then the Anthropic event sequence.
+    writer.write_all(
+        b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n\
+          Cache-Control: no-store\r\nConnection: close\r\n\r\n",
+    )?;
+    writer.flush()?;
+
+    write_sse_event(writer, "message_start", &serde_json::json!({
+        "type": "message_start",
+        "message": {
+            "id": id, "type": "message", "role": "assistant", "model": model,
+            "content": [], "stop_reason": serde_json::Value::Null, "stop_sequence": serde_json::Value::Null,
+            "usage": { "input_tokens": input_tokens, "output_tokens": 0 },
+        }
+    }))?;
+    write_sse_event(writer, "content_block_start", &serde_json::json!({
+        "type": "content_block_start", "index": 0,
+        "content_block": { "type": "text", "text": "" }
+    }))?;
+
+    let mut io_err: Option<std::io::Error> = None;
+    let gen_res = server.generate_chat(&prompt, max_new, |chunk| {
+        if io_err.is_some() {
+            return;
+        }
+        let obj = serde_json::json!({
+            "type": "content_block_delta", "index": 0,
+            "delta": { "type": "text_delta", "text": chunk },
+        });
+        if let Err(e) = write_sse_event(writer, "content_block_delta", &obj) {
+            io_err = Some(e);
+        }
+    });
+    if let Some(e) = io_err {
+        return Err(e); // client hung up mid-stream
+    }
+
+    // A generation error is surfaced honestly as a final text delta.
+    let output_tokens = match gen_res {
+        Ok(n) => n,
+        Err(e) => {
+            let _ = write_sse_event(writer, "content_block_delta", &serde_json::json!({
+                "type": "content_block_delta", "index": 0,
+                "delta": { "type": "text_delta", "text": format!("[gateway generation error: {e}]") },
+            }));
+            0
+        }
+    };
+
+    write_sse_event(writer, "content_block_stop", &serde_json::json!({
+        "type": "content_block_stop", "index": 0
+    }))?;
+    write_sse_event(writer, "message_delta", &serde_json::json!({
+        "type": "message_delta",
+        "delta": { "stop_reason": "end_turn", "stop_sequence": serde_json::Value::Null },
+        "usage": { "output_tokens": output_tokens },
+    }))?;
+    write_sse_event(writer, "message_stop", &serde_json::json!({ "type": "message_stop" }))?;
+    Ok(())
 }
 
 /// Flatten OpenAI `messages` into a single prompt for the base model (join each

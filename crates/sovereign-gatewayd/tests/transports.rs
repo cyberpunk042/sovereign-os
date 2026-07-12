@@ -306,15 +306,42 @@ fn http_health_get_is_200_invariant_holds() {
 }
 
 #[test]
-fn http_post_messages_runs_engine_and_metrics_reflect_it() {
+fn http_infer_runs_engine_and_messages_speaks_anthropic() {
     let d = spawn("--http");
 
-    let (status, body) = http_request(&d.addr, "POST", "/v1/messages", &demo_request_json());
+    // /v1/infer is the routing DECISION (runs the engine).
+    let (status, body) = http_request(&d.addr, "POST", "/v1/infer", &demo_request_json());
     assert!(status.starts_with("HTTP/1.1 200"), "status: {status}");
     let v: serde_json::Value = serde_json::from_str(&body).unwrap();
     assert_eq!(v["kind"], "decision");
 
-    // /metrics is Prometheus text and shows the request we just made.
+    // /v1/messages is the Anthropic Messages API; no model loaded here → an honest
+    // Anthropic error envelope (never a fabricated message). Both non-stream…
+    let anthropic = serde_json::json!({
+        "model": "claude-3-5-sonnet", "max_tokens": 16,
+        "messages": [{"role": "user", "content": "hi"}],
+    })
+    .to_string();
+    let (astatus, abody) = http_request(&d.addr, "POST", "/v1/messages", &anthropic);
+    assert!(astatus.starts_with("HTTP/1.1 503"), "status: {astatus}");
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&abody).unwrap()["type"],
+        "error"
+    );
+    // …and the streaming path fail the same way (no model → Anthropic error, not SSE).
+    let streamed = serde_json::json!({
+        "model": "claude-3-5-sonnet", "max_tokens": 16, "stream": true,
+        "messages": [{"role": "user", "content": "hi"}],
+    })
+    .to_string();
+    let (sstatus, sbody) = http_request(&d.addr, "POST", "/v1/messages", &streamed);
+    assert!(sstatus.starts_with("HTTP/1.1 503"), "status: {sstatus}");
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&sbody).unwrap()["type"],
+        "error"
+    );
+
+    // /metrics reflects the one engine request (/v1/messages didn't touch it).
     let (mstatus, mbody) = http_request(&d.addr, "GET", "/metrics", "");
     assert!(mstatus.starts_with("HTTP/1.1 200"), "status: {mstatus}");
     assert!(
