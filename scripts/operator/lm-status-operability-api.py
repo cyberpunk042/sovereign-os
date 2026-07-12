@@ -48,7 +48,9 @@ import json
 import os
 import sys
 import time
+import urllib.error
 import urllib.parse
+import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -115,6 +117,42 @@ def _emit_metric(endpoint: str, result: str) -> None:
             f.write(f'{METRIC_NAME}{{endpoint="{endpoint}",result="{result}"}} 1\n')
     except OSError:
         pass
+
+
+GATEWAY = os.environ.get("SOVEREIGN_OS_ROUTER_URL", "http://127.0.0.1:8787")
+JOBS_ADDR = os.environ.get("SOVEREIGN_JOBS_API_ADDR", "127.0.0.1:8142")
+
+
+def _fetch_json(url: str, timeout: float = 3.0) -> dict[str, Any] | None:
+    try:
+        with urllib.request.urlopen(url, timeout=timeout) as r:  # noqa: S310 (loopback)
+            return json.loads(r.read().decode("utf-8", "replace") or "{}")
+    except (urllib.error.URLError, OSError, ValueError):
+        return None
+
+
+def compute_plane_view() -> dict[str, Any]:
+    """The Sovereign Compute Plane (jobs-api :8142 /plane.json — devices with LIVE
+    free VRAM + outstanding claims) joined with the gateway model registry (:8787
+    /v1/models — the loaded primary + CPU secondaries + GPU proxies with device/VRAM,
+    and the designated `background` model) + the `model-serve` jobs. Read-only; each
+    half degrades independently (an `offline` flag) rather than raising, so the panel
+    shows what it can when the gateway or the plane is down (SB-077)."""
+    plane = _fetch_json(f"http://{JOBS_ADDR}/plane.json")
+    registry = _fetch_json(f"{GATEWAY}/v1/models")
+    jobs = _fetch_json(f"http://{JOBS_ADDR}/jobs.json") or {}
+    serving = [j for j in jobs.get("jobs", []) if j.get("kind") == "model-serve"] \
+        if isinstance(jobs.get("jobs"), list) else []
+    return {
+        "plane": plane or {"offline": True},
+        "registry": {
+            "models": (registry or {}).get("data", []),
+            "background": (registry or {}).get("background"),
+            "offline": registry is None,
+        },
+        "serving": serving,
+        "producer": "lm-status-operability-api",
+    }
 
 
 def devices_view() -> dict[str, Any]:
@@ -303,6 +341,12 @@ class LmStatusAPIHandler(BaseHTTPRequestHandler):
                 self._send_json(200, devices_view())
                 _emit_metric("devices", "ok")
                 return
+            if path == "/api/lm-status/compute-plane":
+                # read-only proxy: the compute plane (:8142) + the gateway model
+                # registry (:8787) — devices/VRAM claims + loaded models/proxies/background
+                self._send_json(200, compute_plane_view())
+                _emit_metric("compute-plane", "ok")
+                return
         except Exception as e:  # noqa: BLE001
             self._send_json(500, {"error": str(e)})
             _emit_metric(path.lstrip("/") or "unknown", "500")
@@ -310,8 +354,8 @@ class LmStatusAPIHandler(BaseHTTPRequestHandler):
         self._send_json(404, {
             "error": f"unknown endpoint: {path!r}",
             "available": ["/api/lm-status/health", "/api/lm-status/devices",
-                          "/api/lm-status/stream", "/version", "/healthz",
-                          "/webapp/"],
+                          "/api/lm-status/compute-plane", "/api/lm-status/stream",
+                          "/version", "/healthz", "/webapp/"],
         })
         _emit_metric(path.lstrip("/") or "unknown", "404")
 

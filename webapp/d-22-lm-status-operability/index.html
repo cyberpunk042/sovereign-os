@@ -870,6 +870,11 @@
 
   <div id="devices"></div>
 
+  <section id="compute-plane" style="margin:1rem 0">
+    <h2>Compute Plane &amp; Models <span class="muted" style="font-weight:400;font-size:.8rem">— live VRAM · claims · the gateway model registry (SDD-902)</span></h2>
+    <div id="cp-body" class="muted">connecting to <code>/api/lm-status/compute-plane</code>…</div>
+  </section>
+
   <div class="chat">
     <h2>Chat <span class="muted" style="font-weight:400;font-size:.8rem">— targets: <span id="selected-summary">(none)</span></span></h2>
     <div class="selected-bar">
@@ -1305,6 +1310,79 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
     }
   }
 
+  // ---- Compute Plane & Models: the plane (VRAM + claims) + the gateway registry ----
+  const DEMO_PLANE = {
+    plane: { devices: [
+        { key:'gpu0', role:'oracle', name:'Blackwell PRO 6000', total_gb:96, live_free_gb:90, claimed_gb:40, effective_free_gb:50 },
+        { key:'gpu1', role:'logic', name:'RTX 4090', total_gb:24, live_free_gb:20, claimed_gb:0, effective_free_gb:20 },
+        { key:'cpu', role:'conductor', name:'Host CPU (bitnet.cpp)', total_gb:0, live_free_gb:0, claimed_gb:0, effective_free_gb:null },
+      ],
+      claims: [{ id:'job-1', vram_gb:40, device:'gpu0', kind:'model-serve', job:'big-llama' }] },
+    registry: { models: [
+        { id:'primary', display_name:'Sovereign primary (primary)', device:'cpu', vram_gb:0 },
+        { id:'big-llama', display_name:'Sovereign big-llama (proxy)', device:'gpu0', vram_gb:40 },
+      ], background:'big-llama', offline:false },
+    serving: [{ state:'running', title:'big-llama', meta:{ endpoint:'127.0.0.1:8090' } }],
+  };
+  function _modelKind(m) { const g = String(m.display_name || '').match(/\((\w+)\)\s*$/); return g ? g[1] : ''; }
+  function renderComputePlane(data) {
+    const host = $('cp-body'); if (!host) return;
+    const plane = (data && data.plane) || {}; const reg = (data && data.registry) || {};
+    const devs = plane.devices || []; const claims = plane.claims || [];
+    const models = reg.models || []; const serving = (data && data.serving) || [];
+    let h = '';
+    if (plane.offline) {
+      h += '<div class="muted">compute plane offline (jobs-api :8142)</div>';
+    } else {
+      h += '<div style="font-weight:600;margin:.2rem 0">Devices</div><div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:.8rem;width:100%">'
+        + '<tr class="muted"><th style="text-align:left;padding:.15rem .5rem">device</th><th style="text-align:left">role</th><th style="text-align:left">name</th><th style="text-align:right;padding-right:.5rem">free VRAM</th><th style="text-align:right;padding-right:.5rem">effective</th></tr>';
+      devs.forEach(d => {
+        const eff = d.effective_free_gb == null ? 'cpu' : (d.effective_free_gb + ' GB');
+        const free = d.total_gb ? (d.live_free_gb + '/' + d.total_gb + ' GB') : '—';
+        h += '<tr><td style="padding:.15rem .5rem"><code>' + esc(d.key) + '</code></td><td>' + esc(d.role)
+          + '</td><td>' + esc(d.name) + '</td><td style="text-align:right;padding-right:.5rem">' + esc(free)
+          + '</td><td style="text-align:right;padding-right:.5rem">' + esc(eff) + '</td></tr>';
+      });
+      h += '</table></div>';
+      if (claims.length) {
+        h += '<div style="font-weight:600;margin:.5rem 0 .2rem">VRAM claims (' + claims.length + ')</div>';
+        claims.forEach(c => { h += '<div class="muted" style="font-size:.8rem">• ' + esc(c.vram_gb) + ' GB on <code>' + esc(c.device) + '</code> — ' + esc(c.kind) + ': ' + esc(c.job || c.id) + '</div>'; });
+      } else { h += '<div class="muted" style="font-size:.8rem;margin-top:.3rem">no VRAM claims</div>'; }
+    }
+    h += '<div style="font-weight:600;margin:.6rem 0 .2rem">Gateway models '
+      + (reg.offline ? '<span class="muted">(gateway offline)</span>' : '<span class="muted" style="font-weight:400">— background → <code>' + esc(reg.background || 'none') + '</code></span>') + '</div>';
+    if (!reg.offline) {
+      if (!models.length) h += '<div class="muted" style="font-size:.8rem">no model loaded</div>';
+      models.forEach(m => {
+        const bg = (m.id === reg.background) ? ' <span class="chip">background</span>' : '';
+        const dev = (m.device && m.device !== 'cpu') ? ' · <code>' + esc(m.device) + '</code>' + (m.vram_gb ? ' ' + m.vram_gb + 'GB' : '') : '';
+        h += '<div style="font-size:.8rem;margin:.1rem 0"><code>' + esc(m.id) + '</code> <span class="muted">' + esc(_modelKind(m)) + '</span>' + dev + bg + '</div>';
+      });
+    }
+    if (serving.length) {
+      h += '<div style="font-weight:600;margin:.6rem 0 .2rem">Serving jobs</div>';
+      serving.forEach(j => { const ep = (j.meta || {}).endpoint || ''; h += '<div style="font-size:.8rem"><span class="chip">' + esc(j.state || '?') + '</span> ' + esc(j.title || '') + ' <span class="muted">' + esc(ep) + '</span></div>'; });
+    }
+    h += '<div style="margin-top:.6rem;display:flex;gap:.4rem;flex-wrap:wrap">'
+      + '<button class="act" data-cp="start">＋ launch a GPU model</button>'
+      + '<button class="act" data-cp="background">set background…</button>'
+      + '<button class="act" data-cp="list">list (CLI)</button></div>';
+    host.innerHTML = h;
+    host.querySelectorAll('[data-cp]').forEach(b => b.addEventListener('click', () => {
+      const v = b.getAttribute('data-cp');
+      if (v === 'start') copyCmd('sovereign-osctl model-serve start <id> --model <path> --vram <N>', 'launch a GPU serve-process model (places by VRAM, registers a gateway proxy)');
+      else if (v === 'background') copyCmd('sovereign-osctl model-serve background <id>', 'designate the model the "background" alias routes to');
+      else copyCmd('sovereign-osctl model-serve list', 'serving jobs + the gateway registry');
+    }));
+  }
+  async function refreshComputePlane() {
+    if (demoActive()) { renderComputePlane(DEMO_PLANE); return; }
+    try {
+      const r = await fetch('/api/lm-status/compute-plane', { credentials:'same-origin' });
+      renderComputePlane(await r.json());
+    } catch (e) { const host = $('cp-body'); if (host) host.innerHTML = '<div class="muted">compute-plane endpoint unreachable</div>'; }
+  }
+
   async function refresh() {
     // SDD-118 DEMO short-circuit: badged sample devices, ZERO network calls
     // (the SB-077 reconciliation — opt-in + always-badged).
@@ -1313,6 +1391,7 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
       $('data-source-banner').innerHTML = '<strong>DEMO mode</strong> — sample data, not a live daemon. Disable it in Personalization.';
       draw(DEMO_DEVICES);
       renderSelected();
+      renderComputePlane(DEMO_PLANE);
       if (window.soDemo) window.soDemo.badge();
       $('last-fetch').textContent = 'DEMO · sample data';
       return;
@@ -1320,6 +1399,7 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
     const data = await fetchDevices();
     draw(data);
     renderSelected();
+    refreshComputePlane();
     if (window.soDemo) window.soDemo.badge();
     $('last-fetch').textContent = 'last fetch: ' + new Date().toLocaleTimeString();
   }

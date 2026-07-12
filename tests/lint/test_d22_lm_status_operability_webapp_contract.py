@@ -209,6 +209,40 @@ def test_api_daemon_devices_endpoint_shape():
         proc.wait(timeout=3)
 
 
+def test_webapp_has_the_compute_plane_and_models_section():
+    """The observability loop (SDD-902): D-22 surfaces the compute plane (VRAM +
+    claims) + the gateway model registry (loaded models / proxies / background), and
+    offers the model-serve verbs as clipboard-copied signed CLI (never web writes)."""
+    body = WEBAPP_HTML.read_text(encoding="utf-8")
+    for token in ('id="compute-plane"', "renderComputePlane", "refreshComputePlane",
+                  "/api/lm-status/compute-plane"):
+        assert token in body, f"the Compute Plane & Models section is missing: {token!r}"
+    # the model-serve operability verbs are clipboard-copied (R10212), not POSTed
+    assert "sovereign-osctl model-serve" in body, "the model-serve verbs must be offered"
+    # demo parity — a zero-network sample so DEMO mode stays offline
+    assert "DEMO_PLANE" in body, "the section must have a demo fixture (zero network calls)"
+
+
+def test_api_daemon_compute_plane_endpoint_shape():
+    """/api/lm-status/compute-plane joins the plane (:8142) + the gateway registry
+    (:8787). With neither upstream running it degrades — the halves flag offline
+    rather than the endpoint erroring (SB-077)."""
+    port = _free_port()
+    proc = _spawn_api(port)
+    try:
+        with urllib.request.urlopen(
+            f"http://127.0.0.1:{port}/api/lm-status/compute-plane", timeout=3
+        ) as r:
+            data = json.loads(r.read())
+        assert "plane" in data and "registry" in data and "serving" in data, \
+            "the compute-plane view must carry plane + registry + serving"
+        assert "models" in data["registry"] and "background" in data["registry"], \
+            "the registry half must carry the models list + the background target"
+    finally:
+        proc.kill()
+        proc.wait(timeout=3)
+
+
 def test_api_daemon_is_read_only():
     """POST/PUT/DELETE must be fail-closed with 405 (R10212)."""
     port = _free_port()
