@@ -82,6 +82,39 @@ blocker to running a real model, and it made SDD-205's Anthropic endpoint return
 - Verified: mha-block 28 tests (8 new, incl. "a distinct base yields distinct decode output"), loader 13 (6 new);
   clippy `-D warnings` clean; downstream quant-llm/gatewayd/decoder-layer/inference-demo build unchanged. Sampling
   params + chat template + quantized loading are the tracked next arcs. MS003 `unsigned-pending-MS003`.
+### Added — Compute Plane Phase 2, increment 2b: streaming to a GPU proxy (VS Code / Claude Code stream from GPU-hosted models) (2026-07-12)
+
+Editors stream by default, so this is what makes a GPU-hosted model actually usable from them. SDD-902.
+
+- A `stream:true` request for a proxy model now opens a streaming connection to the upstream serve-process and
+  **transcodes its SSE into the Anthropic event sequence as tokens arrive** (`stream_proxy_message`) — replacing
+  the increment-2 honest-error gate.
+- An `openai` backend's `/v1/chat/completions` deltas become `content_block_delta` events (dechunking
+  `Transfer-Encoding: chunked`, as llama-server / vLLM emit); an `anthropic` backend's SSE is relayed verbatim.
+  A pre-stream upstream failure is an honest Anthropic error; a client hang-up mid-stream ends the relay cleanly.
+- Verified end-to-end: a mock chunked OpenAI-SSE upstream registered as a proxy → `POST /v1/messages {stream:true}`
+  yields `message_start → content_block_delta* → message_stop` with the transcoded text + `stop_reason:end_turn`.
+  15 gateway transport tests (1 new); clippy `-D warnings` clean.
+
+### Added — Compute Plane Phase 2, increment 3: background routing — work targets the secondary, the primary stays free (2026-07-12)
+
+The routing that makes the two backend kinds usable as background compute. SDD-902.
+
+- **The reserved `"background"` model alias.** A request for `model: "background"` (Anthropic `/v1/messages`, the
+  OpenAI shim, or `/v1/coat`) routes to a *designated* secondary — CPU resident or GPU proxy. `set_background` /
+  `background_id` / `expand_alias` on the gateway; NEW `POST /v1/models/background {id}` designates it (loopback-
+  trust), seeded from `SOVEREIGN_GATEWAY_BACKGROUND_MODEL`. **Honest fallback:** a designated-but-unloaded id (or
+  none) resolves to the primary, never a dead id. `expand_alias` runs at every entry point (message, streaming,
+  and inside `generate_chat`), so the alias targets the same backend whichever kind it is.
+- **Background deliberations run on the secondary.** `GatewayRequest::Coat` + the `/v1/coat` body carry an
+  optional `model`; `ModelThoughts` expands the reasoning through it. The jobs-api deliberation runner sends
+  `model: "background"` by default (override via `meta.model`), so a background CoAT job keeps the interactive
+  primary responsive — falling back to the primary when nothing is designated.
+- Verified: gateway lib/http tests (alias designates + falls back on unload, `POST /v1/models/background` reports
+  `active`, a `model:"background"` message reaches the designated proxy end-to-end, `/v1/coat` accepts the hint) +
+  a jobs-runtime test asserting the deliberation sends the `"background"` alias. 62 gateway lib+http + 14 jobs-
+  runtime tests; clippy `-D warnings` clean.
+
 ### Added — Compute Plane Phase 2, increment 2: a GPU serve-process backend the gateway proxies to (2026-07-12)
 
 The second backend kind (option c): a real large model runs on the RTX PRO 6000 / VFIO-passed 4090 while the
