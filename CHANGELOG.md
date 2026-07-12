@@ -12,6 +12,25 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — gateway API reference: route-parity contract + routing-vs-generation clarification (2026-07-12)
+
+Phase-1 audit (SDD-956; closes ledger F-2026-094). The gateway API reference (`docs/src/ai-backend.md`) already
+enumerates every route, but nothing kept it honest against the daemon code — the pre-existing contract lint only
+checked a static hand-listed subset.
+
+- **`tests/lint/test_gateway_route_parity.py`**: extracts the served route set from the daemon dispatch
+  (`sovereign-gatewayd/src/http.rs` + the `main.rs` streaming intercepts) and the documented set from
+  `ai-backend.md`, and asserts they are equal **both directions** — a served-but-undocumented route fails CI, a
+  documented-but-unserved route fails CI. Parity is 19==19 today. Same counts-as-contract discipline as
+  `context.md` (SDD-952) and the island register (SDD-955), applied to the HTTP surface. `ai-backend.md` is left
+  untouched (complete + accurate); the lint only keeps it that way.
+- **Clarified (SDD-956)** the routing-vs-generation "two brains": the generation path
+  (`safetensors-loader → quant-model → …`) serves `/v1/messages` + `/v1/chat/completions` and produces text; the
+  routing path (`sovereign-cortex`) serves `/v1/infer`/`/v1/simple`/`/v1/explain`/`/v1/deliberate`/`/v1/coat` and
+  produces a decision/rationale/trace — never text. `/v1/deliberate` (best-of-N) and `/v1/coat` (CoAT ladder trace)
+  are distinct shapes, not duplicates.
+
+
 ### Added — wire-the-island register: built-but-unwired crates become a machine-enforced register (2026-07-12)
 
 Phase-1 audit (SDD-955; closes ledger F-2026-093 — the audit's #1 theme). A dependency-graph pass over all 714 crate
