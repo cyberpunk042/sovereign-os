@@ -346,6 +346,23 @@ def _plane_mod():
     return _load("compute_plane", LIB / "compute_plane.py")
 
 
+def test_place_and_claim_is_atomic_no_overcommit():
+    """The no-OOM invariant: place+claim is atomic, so a second admission observes
+    the first's committed VRAM and cannot over-commit the same device (the check-then-
+    act race that `place()` then a separate `claim()` allowed)."""
+    cp = _plane_mod()
+    p = cp.ComputePlane(probe=lambda: [
+        {"key": "gpu0", "role": cp.ROLE_LOGIC, "name": "RTX 4090", "total_gb": 24.0, "live_free_gb": 24.0},
+    ])
+    assert p.place_and_claim("a", 20, cp.ROLE_LOGIC) == "gpu0", "the first 20 GB claim fits + is recorded"
+    # a second 20 GB claim now sees only 4 GB effective-free → cannot place (no over-commit)
+    assert p.place_and_claim("b", 20, cp.ROLE_LOGIC) is None, "20 GB must not fit after 20 GB is claimed"
+    assert p.place_and_claim("c", 4, cp.ROLE_LOGIC) == "gpu0", "4 GB still fits the remaining headroom"
+    # releasing the first frees the device again
+    assert p.release("a")
+    assert p.place_and_claim("d", 18, cp.ROLE_LOGIC) == "gpu0", "releasing frees the VRAM for a new claim"
+
+
 def test_compute_plane_places_by_live_vram_fit():
     cp = _plane_mod()
     # Oracle (PRO 6000, 96 GB, 90 free) + Logic (4090, 24 GB, 20 free)

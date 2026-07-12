@@ -79,41 +79,75 @@ class ComputePlane:
         self._claims: dict[str, dict] = {}
 
     # ── inventory ────────────────────────────────────────────────────────
-    def _devices(self) -> list[dict]:
-        """The current device list: the CPU (Conductor) + every probed GPU,
-        each with live free VRAM and the VRAM this plane has claimed on it."""
+    def _probe_devices(self) -> list[dict]:
+        """The device inventory WITHOUT claim math — the CPU (Conductor) + every
+        probed GPU, each with total + live free VRAM. The probe (nvidia-smi) is slow
+        I/O, so it runs OUTSIDE `_lock`."""
         devices = [{
             "key": "cpu", "role": ROLE_CONDUCTOR, "name": "Host CPU (bitnet.cpp)",
             "total_gb": 0.0, "live_free_gb": 0.0,  # CPU has no VRAM budget (ternary)
         }]
         devices.extend(self._probe())
-        with _lock:
-            for d in devices:
-                d["claimed_gb"] = round(
-                    sum(c["vram_gb"] for c in self._claims.values() if c["device"] == d["key"]), 1)
-                # the CPU always has room for CPU/ternary work (no VRAM gate)
-                d["effective_free_gb"] = (
-                    float("inf") if d["key"] == "cpu"
-                    else round(max(0.0, d["live_free_gb"] - d["claimed_gb"]), 1))
         return devices
 
-    # ── placement ────────────────────────────────────────────────────────
-    def place(self, need_gb: float, role_pref: str | None = None) -> str | None:
-        """Return a device key whose effective free VRAM covers `need_gb`,
-        preferring `role_pref`'s device; else None (the caller queues). A job that
-        needs no VRAM (`need_gb == 0`) is CPU/ternary work → the Conductor."""
-        need = float(need_gb or 0)
-        devices = self._devices()
+    def _annotate_claims(self, devices: list[dict]) -> list[dict]:
+        """Add `claimed_gb` + `effective_free_gb` (live free − claims) to probed
+        devices. The CALLER must hold `_lock` (claims are read here)."""
+        for d in devices:
+            d["claimed_gb"] = round(
+                sum(c["vram_gb"] for c in self._claims.values() if c["device"] == d["key"]), 1)
+            # the CPU always has room for CPU/ternary work (no VRAM gate)
+            d["effective_free_gb"] = (
+                float("inf") if d["key"] == "cpu"
+                else round(max(0.0, d["live_free_gb"] - d["claimed_gb"]), 1))
+        return devices
+
+    def _devices(self) -> list[dict]:
+        """The device list with live free VRAM + this plane's claims subtracted."""
+        devices = self._probe_devices()
+        with _lock:
+            self._annotate_claims(devices)
+        return devices
+
+    @staticmethod
+    def _pick(devices: list[dict], need: float, role_pref: str | None) -> str | None:
+        """Pick a device key from ALREADY-annotated `devices` whose effective free
+        VRAM covers `need` (preferring `role_pref`, then most headroom); `need <= 0`
+        → the CPU (Conductor); None when nothing fits."""
         if need <= 0:
             cpu = next((d for d in devices if d["key"] == "cpu"), None)
             return cpu["key"] if cpu else (devices[0]["key"] if devices else None)
-        # VRAM-needing work: GPUs only (the CPU has no VRAM budget), fit by live
-        # effective free VRAM, preferring the requested role, then most headroom.
         fit = [d for d in devices if d["key"] != "cpu" and d["effective_free_gb"] >= need]
         if not fit:
             return None
         preferred = [d for d in fit if role_pref and d["role"] == role_pref]
         return max(preferred or fit, key=lambda d: d["effective_free_gb"])["key"]
+
+    # ── placement ────────────────────────────────────────────────────────
+    def place(self, need_gb: float, role_pref: str | None = None) -> str | None:
+        """Return a device key whose effective free VRAM covers `need_gb` (read-only
+        preview). For admission use `place_and_claim` — `place` then a separate
+        `claim` is a check-then-act race that can over-commit a device."""
+        return self._pick(self._devices(), float(need_gb or 0), role_pref)
+
+    def place_and_claim(self, claim_id: str, need_gb: float, role_pref: str | None = None,
+                        kind: str = "job", job: str = "") -> str | None:
+        """ATOMIC place + claim under a SINGLE `_lock` hold: pick a fitting device and
+        record the claim before any other admission can observe the (now-committed)
+        VRAM. Two concurrent jobs can no longer both pass the fit check on the same
+        device and over-commit it — the invariant behind 'a GPU job never OOMs the
+        box'. Returns the device key, or None when nothing fits (the caller queues)."""
+        need = float(need_gb or 0)
+        devices = self._probe_devices()  # slow probe OUTSIDE the lock
+        with _lock:
+            self._annotate_claims(devices)
+            device = self._pick(devices, need, role_pref)
+            if device is None:
+                return None
+            if need > 0:
+                self._claims[claim_id] = {
+                    "device": device, "vram_gb": need, "kind": kind, "job": job}
+            return device
 
     def claim(self, claim_id: str, device: str, vram_gb: float, kind: str = "job", job: str = "") -> dict:
         with _lock:

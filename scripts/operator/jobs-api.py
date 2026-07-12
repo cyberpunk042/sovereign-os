@@ -134,30 +134,39 @@ def _run_deliberation(job: dict, cancel: threading.Event) -> tuple[bool, str]:
 
 def _run_command(job: dict, cancel: threading.Event) -> tuple[bool, str]:
     """Generic runner: launch job.meta.command (a LIST, no shell) as a subprocess,
-    capture output, honor cancellation by terminating the process."""
+    capture output, honor cancellation by terminating the process. Output is
+    redirected to a temp file (NOT a PIPE): a PIPE the runner only drains after the
+    process exits deadlocks a chatty child that fills the ~64 KB pipe buffer (it
+    blocks on write() and never exits)."""
     cmd = job["meta"].get("command")
     if not isinstance(cmd, list) or not cmd:
         return False, "job has no command list to run"
+    log = tempfile.NamedTemporaryFile(mode="w+", prefix="job-", suffix=".log", delete=False)
+    log.close()
     try:
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                 text=True, cwd=str(REPO))
+        with open(log.name, "w", encoding="utf-8") as out:
+            proc = subprocess.Popen(cmd, stdout=out, stderr=subprocess.STDOUT,
+                                    text=True, cwd=str(REPO))
     except (OSError, ValueError) as e:
+        os.unlink(log.name)
         return False, f"failed to launch: {e}"
-    STORE.update(job["id"], pid=proc.pid, progress=10)
-    while proc.poll() is None:
-        if cancel.is_set():
-            proc.terminate()
-            try:
-                proc.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                proc.kill()
-            return False, "cancelled"
-        time.sleep(0.3)
-    out = (proc.stdout.read() if proc.stdout else "") or ""
-    tail = "\n".join(out.strip().splitlines()[-12:])
-    if proc.returncode == 0:
-        return True, tail or "completed"
-    return False, tail or f"exited {proc.returncode}"
+    try:
+        STORE.update(job["id"], pid=proc.pid, progress=10)
+        while proc.poll() is None:
+            if cancel.is_set():
+                _terminate(proc)
+                return False, "cancelled"
+            time.sleep(0.3)
+        tail = _tail_file(log.name)
+        if proc.returncode == 0:
+            return True, tail or "completed"
+        return False, tail or f"exited {proc.returncode}"
+    finally:
+        _terminate(proc)
+        try:
+            os.unlink(log.name)
+        except OSError:
+            pass
 
 
 def _gateway_post(path: str, obj: dict) -> tuple[bool, str]:
@@ -203,6 +212,10 @@ def _terminate(proc: subprocess.Popen) -> None:
         proc.wait(timeout=5)
     except subprocess.TimeoutExpired:
         proc.kill()
+        try:  # reap after SIGKILL so it doesn't linger as a zombie
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            pass
 
 
 def _tail_file(path: str, n: int = 12) -> str:
@@ -241,9 +254,12 @@ def _run_model_serve(job: dict, cancel: threading.Event) -> tuple[bool, str]:
     except (OSError, ValueError) as e:
         os.unlink(log.name)
         return False, f"failed to launch serve process: {e}"
-    STORE.update(job["id"], pid=proc.pid, progress=15,
-                 output=f"launching {model_id} on {device}…")
+    # From here the process is LIVE — every post-launch statement (including the first
+    # STORE.update, which rewrites the registry and can raise) must be under the
+    # try/finally so a failure still terminates the process + unregisters + unlinks.
     try:
+        STORE.update(job["id"], pid=proc.pid, progress=15,
+                     output=f"launching {model_id} on {device}…")
         if not _wait_endpoint(endpoint, proc, cancel, ready_timeout):
             if cancel.is_set():
                 return False, "cancelled before ready"
@@ -303,22 +319,29 @@ def run_job(jid: str) -> None:
         return
     cancel = _cancel_event(jid)
 
-    # ── admission: place on a device by live free VRAM, or wait ──
+    # ── admission: ATOMICALLY place + claim a device by live free VRAM, or wait ──
+    # place_and_claim commits the VRAM under one lock, so two concurrent admissions
+    # can't both pass the fit check on the same device and over-commit it.
     need = float((job.get("meta") or {}).get("vram_gb", 0) or 0)
     claimed = False
     if need > 0:
+        announced = False
         while True:
             if cancel.is_set():
                 STORE.update(jid, state="cancelled", finished=_js._now())
                 return
-            device = PLANE.place(need, _role_pref(job))
+            device = PLANE.place_and_claim(jid, need, _role_pref(job),
+                                           kind=job["kind"], job=job["title"])
             if device:
-                PLANE.claim(jid, device, need, kind=job["kind"], job=job["title"])
                 STORE.update(jid, device=device)
                 claimed = True
                 break
-            STORE.update(jid, state="queued",
-                         output=f"waiting for {need:g} GB free VRAM (compute plane)…")
+            # Announce the wait ONCE (not every 2s) — each STORE.update rewrites the
+            # whole registry, so a long wait must not become a disk-write storm.
+            if not announced:
+                STORE.update(jid, state="queued",
+                             output=f"waiting for {need:g} GB free VRAM (compute plane)…")
+                announced = True
             time.sleep(2)
 
     try:
@@ -341,6 +364,10 @@ def run_job(jid: str) -> None:
     finally:
         if claimed:
             PLANE.release(jid)
+        # the job is terminal — drop its cancel Event so `_CANCELS` can't grow
+        # unbounded over a long-lived daemon (one entry per job otherwise).
+        with _CANCELS_LOCK:
+            _CANCELS.pop(jid, None)
 
 
 def submit(kind: str, title: str, device: str = "cpu", meta: dict | None = None) -> dict:

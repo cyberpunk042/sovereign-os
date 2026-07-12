@@ -41,6 +41,13 @@ use sovereign_gatewayd::http;
 
 const DEFAULT_ADDR: &str = "127.0.0.1:8787";
 
+/// Upper bound on a single dechunked block AND on the total buffered by a proxy
+/// stream/read, so a malformed or runaway upstream (a bogus giant chunk-size line,
+/// or a body with no newline) can't exhaust memory or abort the daemon on a
+/// multi-gigabyte allocation. Upstreams are loopback serve-processes, but a buggy
+/// one must degrade, not crash the whole gateway.
+const MAX_PROXY_BYTES: usize = 16 << 20; // 16 MiB
+
 const USAGE: &str = "\
 sovereign-gatewayd — the persistent gateway service over the sovereign-cortex engine
 
@@ -700,10 +707,15 @@ fn next_proxy_block(reader: &mut BufReader<TcpStream>, chunked: bool) -> Vec<u8>
         if reader.read_line(&mut sz).unwrap_or(0) == 0 {
             return Vec::new();
         }
-        let n = usize::from_str_radix(sz.trim(), 16).unwrap_or(0);
-        if n == 0 {
-            return Vec::new(); // terminal chunk
-        }
+        // The chunk-size line may carry extensions ("1a;ext=v") — parse only the
+        // size token. A `0` size is the terminal chunk; an unparseable or over-cap
+        // size ends the stream rather than aborting on a huge allocation (F1/F7).
+        let tok = sz.trim().split(';').next().unwrap_or("").trim();
+        let n = match usize::from_str_radix(tok, 16) {
+            Ok(0) => return Vec::new(), // terminal chunk
+            Ok(n) if n <= MAX_PROXY_BYTES => n,
+            _ => return Vec::new(), // unparseable / over-cap
+        };
         let mut buf = vec![0u8; n];
         if reader.read_exact(&mut buf).is_err() {
             return Vec::new();
@@ -794,7 +806,7 @@ fn stream_proxy_message(
     };
     if up_status != 200 {
         let mut errbody = String::new();
-        let _ = reader.read_to_string(&mut errbody);
+        let _ = (&mut reader).take(64 * 1024).read_to_string(&mut errbody);
         return write_http(
             writer,
             &http::anthropic_err(
@@ -842,6 +854,7 @@ fn stream_proxy_message(
     let mut line_buf: Vec<u8> = Vec::new();
     let mut out_chars = 0usize;
     let mut stop_reason = "end_turn".to_string();
+    let mut saw_terminal = false; // did the upstream signal a clean end ([DONE]/finish_reason)?
     'body: loop {
         let block = next_proxy_block(&mut reader, chunked);
         if block.is_empty() {
@@ -860,8 +873,13 @@ fn stream_proxy_message(
             continue;
         }
 
-        // openai backend: accumulate + process complete `data:` lines
+        // openai backend: accumulate + process complete `data:` lines. Bound the
+        // buffer so an upstream that streams without a newline can't grow it without
+        // limit (F2).
         line_buf.extend_from_slice(&block);
+        if line_buf.len() > MAX_PROXY_BYTES {
+            break;
+        }
         while let Some(pos) = line_buf.iter().position(|&b| b == b'\n') {
             let line_bytes: Vec<u8> = line_buf.drain(..=pos).collect();
             let line = String::from_utf8_lossy(&line_bytes);
@@ -871,6 +889,7 @@ fn stream_proxy_message(
             };
             let payload = payload.trim();
             if payload == "[DONE]" {
+                saw_terminal = true;
                 break 'body;
             }
             let Ok(v) = serde_json::from_str::<serde_json::Value>(payload) else {
@@ -899,18 +918,26 @@ fn stream_proxy_message(
                 .pointer("/choices/0/finish_reason")
                 .and_then(|r| r.as_str())
             {
-                stop_reason = match r {
-                    "length" => "max_tokens",
-                    "stop" => "end_turn",
-                    o => o,
-                }
-                .to_string();
+                saw_terminal = true;
+                stop_reason = http::map_openai_finish(r).to_string();
             }
         }
     }
 
     // ---- openai: close the Anthropic envelope ----
     if openai {
+        // An upstream that died/timed out mid-stream ended WITHOUT a terminal marker;
+        // surface that honestly rather than presenting a clean `end_turn` (F6).
+        if !saw_terminal {
+            let _ = write_sse_event(
+                writer,
+                "error",
+                &serde_json::json!({
+                    "type": "error",
+                    "error": { "type": "api_error", "message": "upstream stream ended before completion" },
+                }),
+            );
+        }
         write_sse_event(
             writer,
             "content_block_stop",
@@ -921,7 +948,10 @@ fn stream_proxy_message(
             "message_delta",
             &serde_json::json!({
                 "type": "message_delta",
-                "delta": { "stop_reason": stop_reason, "stop_sequence": serde_json::Value::Null },
+                "delta": {
+                    "stop_reason": if saw_terminal { serde_json::Value::String(stop_reason) } else { serde_json::Value::Null },
+                    "stop_sequence": serde_json::Value::Null,
+                },
                 "usage": { "output_tokens": out_chars.div_ceil(4) },
             }),
         )?;
@@ -953,7 +983,7 @@ fn stream_proxy_chat_completions(
         };
     if up_status != 200 {
         let mut errbody = String::new();
-        let _ = reader.read_to_string(&mut errbody);
+        let _ = (&mut reader).take(64 * 1024).read_to_string(&mut errbody);
         return write_http(
             writer,
             &http::err(

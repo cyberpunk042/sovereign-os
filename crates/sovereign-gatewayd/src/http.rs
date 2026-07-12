@@ -548,8 +548,11 @@ fn proxy_forward(endpoint: &str, path: &str, body: &str) -> Result<(u16, String)
     stream
         .write_all(request.as_bytes())
         .map_err(|e| e.to_string())?;
+    // Bound the read so a runaway upstream can't exhaust memory (F2). 16 MiB is far
+    // beyond any real non-streaming message; past it the reply is truncated + parsed.
     let mut resp = String::new();
-    stream
+    (&mut stream)
+        .take(16 * 1024 * 1024)
         .read_to_string(&mut resp)
         .map_err(|e| e.to_string())?;
     let status = resp
@@ -606,16 +609,19 @@ fn proxy_message(
     }
 }
 
-/// Flatten an Anthropic message `content` (a string or an array of text blocks) to a
-/// plain OpenAI string.
+/// Flatten an Anthropic message `content` (a string or an array of blocks) to a plain
+/// OpenAI string. Only `type == "text"` blocks are included — a non-text block that
+/// happens to carry a `text` field must not leak into the prompt (F10), matching
+/// `block_text`'s filter for the local path.
 fn flatten_content(content: Option<&serde_json::Value>) -> String {
     match content {
         Some(serde_json::Value::String(s)) => s.clone(),
         Some(serde_json::Value::Array(blocks)) => blocks
             .iter()
+            .filter(|b| b.get("type").and_then(|t| t.as_str()) == Some("text"))
             .filter_map(|b| b.get("text").and_then(|t| t.as_str()))
             .collect::<Vec<_>>()
-            .join(""),
+            .join("\n"),
         _ => String::new(),
     }
 }
@@ -651,16 +657,36 @@ pub fn anthropic_to_openai_chat(req: &serde_json::Value) -> serde_json::Value {
         messages
             .push(serde_json::json!({"role": role, "content": flatten_content(m.get("content"))}));
     }
+    // Forward the requested max_tokens to the upstream WITHOUT the local base-model
+    // clamp (F5): a capable GPU backend can serve far more than 4096, and it enforces
+    // its own limits. Only a sane floor default when the client omits it.
+    let max_tokens = req
+        .get("max_tokens")
+        .and_then(serde_json::Value::as_u64)
+        .filter(|&n| n > 0)
+        .unwrap_or(1024);
     let mut out = serde_json::json!({
         "model": req.get("model").cloned().unwrap_or(serde_json::Value::String("local".into())),
         "messages": messages,
-        "max_tokens": anthropic_max_tokens(req),
+        "max_tokens": max_tokens,
         "stream": false,
     });
     if let Some(t) = req.get("temperature") {
         out["temperature"] = t.clone();
     }
     out
+}
+
+/// Map an OpenAI `finish_reason` to a VALID Anthropic `stop_reason` — never a
+/// pass-through of an OpenAI-only value (e.g. `tool_calls`/`content_filter`), which
+/// isn't a legal Anthropic value. `pub` so the streaming transcoder shares it (F9).
+pub fn map_openai_finish(finish: &str) -> &'static str {
+    match finish {
+        "length" => "max_tokens",
+        "tool_calls" | "function_call" => "tool_use",
+        // "stop", "content_filter", or anything unknown → the safe Anthropic default
+        _ => "end_turn",
+    }
 }
 
 /// Translate an OpenAI `/v1/chat/completions` response into the Anthropic message
@@ -673,12 +699,8 @@ fn openai_to_anthropic_message(oai: &serde_json::Value, model: &str) -> serde_js
     let finish = oai
         .pointer("/choices/0/finish_reason")
         .and_then(|v| v.as_str())
-        .unwrap_or("end_turn");
-    let stop_reason = match finish {
-        "length" => "max_tokens",
-        "stop" => "end_turn",
-        other => other,
-    };
+        .unwrap_or("stop");
+    let stop_reason = map_openai_finish(finish);
     let input = oai
         .pointer("/usage/prompt_tokens")
         .and_then(serde_json::Value::as_u64)
@@ -1083,6 +1105,38 @@ mod tests {
         assert!(
             body_of(&clear)["active"].is_null(),
             "cleared → no active background model"
+        );
+    }
+
+    #[test]
+    fn openai_finish_maps_to_valid_anthropic_stop_reasons() {
+        // F9 — never pass an OpenAI-only value through as an Anthropic stop_reason.
+        assert_eq!(map_openai_finish("length"), "max_tokens");
+        assert_eq!(map_openai_finish("stop"), "end_turn");
+        assert_eq!(map_openai_finish("tool_calls"), "tool_use");
+        assert_eq!(map_openai_finish("content_filter"), "end_turn");
+        assert_eq!(map_openai_finish("something_new"), "end_turn");
+    }
+
+    #[test]
+    fn proxy_translation_is_unclamped_and_text_only() {
+        // F5 — a capable GPU backend gets the requested max_tokens, not the local 4096 clamp.
+        let req = serde_json::json!({"max_tokens": 16000, "messages": [{"role": "user", "content": "hi"}]});
+        let oai = anthropic_to_openai_chat(&req);
+        assert_eq!(
+            oai["max_tokens"], 16000,
+            "the proxy must not clamp to the local 4096"
+        );
+        // F10 — a non-text block carrying a stray `text` field must NOT leak into the prompt.
+        let req2 = serde_json::json!({"messages": [{"role": "user", "content": [
+            {"type": "image", "text": "SECRET"}, {"type": "text", "text": "hello"}]}]});
+        let content = anthropic_to_openai_chat(&req2)["messages"][0]["content"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        assert!(
+            content.contains("hello") && !content.contains("SECRET"),
+            "non-text block leaked: {content}"
         );
     }
 

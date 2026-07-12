@@ -141,6 +141,10 @@ def _models_view() -> dict:
     try:
         with urllib.request.urlopen(f"{base}/v1/models", timeout=3) as r:  # noqa: S310 (loopback)
             data = json.loads(r.read().decode("utf-8", "replace"))
+        # a valid-JSON-but-wrong-type body (a list / string) must degrade, not raise
+        # AttributeError on `.get` (which would surface as a 500, not an offline flag).
+        if not isinstance(data, dict):
+            data = {}
         models = [
             {"id": m.get("id"), "display_name": m.get("display_name"),
              "device": m.get("device"), "vram_gb": m.get("vram_gb")}

@@ -470,6 +470,48 @@ fn http_streams_a_proxy_backend_through_the_openai_shim() {
 }
 
 #[test]
+fn http_survives_a_malicious_upstream_chunk_size() {
+    // F1/F6: a bogus giant chunk-size line must NOT abort the daemon on a huge
+    // allocation; the stream ends gracefully with an honest `error` event, and the
+    // daemon keeps serving.
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let up = listener.local_addr().unwrap().to_string();
+    std::thread::spawn(move || {
+        if let Ok((mut sock, _)) = listener.accept() {
+            let mut buf = [0u8; 2048];
+            let _ = sock.read(&mut buf);
+            // 200 + chunked, then a 16-hex-digit chunk size (~18 EB) a naive
+            // `vec![0u8; n]` would abort on. Then close.
+            let _ = sock.write_all(b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\nffffffffffffffff\r\n");
+        }
+    });
+    let d = spawn("--http");
+    let reg =
+        serde_json::json!({ "id": "bad-gpu", "endpoint": up, "dialect": "openai" }).to_string();
+    let (rs, _) = http_request(&d.addr, "POST", "/v1/models/register", &reg);
+    assert!(rs.starts_with("HTTP/1.1 200"), "register: {rs}");
+
+    let streamed = serde_json::json!({
+        "model": "bad-gpu", "max_tokens": 16, "stream": true,
+        "messages": [{"role": "user", "content": "hi"}],
+    })
+    .to_string();
+    let (ss, sb) = http_request(&d.addr, "POST", "/v1/messages", &streamed);
+    assert!(ss.starts_with("HTTP/1.1 200"), "stream status: {ss}");
+    assert!(
+        sb.contains("event: error"),
+        "a truncated stream must emit an honest error; sse:\n{sb}"
+    );
+    assert!(sb.contains("event: message_stop"), "sse:\n{sb}");
+    // the daemon is still alive (it did not abort) — it serves a subsequent request
+    let (hs, _) = http_request(&d.addr, "GET", "/health", "");
+    assert!(
+        hs.starts_with("HTTP/1.1 200"),
+        "daemon must survive the bad upstream: {hs}"
+    );
+}
+
+#[test]
 fn http_simple_runs_engine_from_minimal_input_over_socket() {
     let d = spawn("--http");
     let reqs = sovereign_cortex::demo_requests();

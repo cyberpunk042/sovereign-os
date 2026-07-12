@@ -126,7 +126,10 @@ JOBS_ADDR = os.environ.get("SOVEREIGN_JOBS_API_ADDR", "127.0.0.1:8142")
 def _fetch_json(url: str, timeout: float = 3.0) -> dict[str, Any] | None:
     try:
         with urllib.request.urlopen(url, timeout=timeout) as r:  # noqa: S310 (loopback)
-            return json.loads(r.read().decode("utf-8", "replace") or "{}")
+            data = json.loads(r.read().decode("utf-8", "replace") or "{}")
+        # coerce to a dict — a valid-JSON-but-wrong-type body (a list / string) must
+        # degrade like an offline upstream, never raise `AttributeError` on `.get`.
+        return data if isinstance(data, dict) else None
     except (urllib.error.URLError, OSError, ValueError):
         return None
 
