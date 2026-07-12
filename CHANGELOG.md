@@ -12,6 +12,24 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Fixed — durable memory is never silently lost: corruption recovery + bounded growth (2026-07-12)
+
+Phase-1 audit (SDD-901; closes ledger F-2026-084 partially). The gateway daemon persists its learning Cortex's
+`MemoryStore` to `SOVEREIGN_GATEWAY_MEMORY`, but the load was `from_str(&json).unwrap_or_else(seed_memory)` — any
+parse failure (a torn file from a hard kill, a manual edit, a struct-shape change) **silently discarded all
+learned memory** and reseeded with no signal; and the store grew unbounded.
+
+- **`sovereign-memory-os`**: new `MemoryStore::set_capacity(Option<usize>)` (sets the bound and evicts the
+  lowest-value residents down to it — value-based, needs no clock, can never over-evict) + `capacity()` getter.
+- **`sovereign-gatewayd`**: new pure `load_memory_from(path)` — an unparseable store is **moved aside to
+  `<path>.corrupt` (atomic rename) and reseeded loudly**, preserving the old bytes for recovery instead of
+  discarding them; the store is then capped via `SOVEREIGN_GATEWAY_MEMORY_CAP` (default 4096, `0` = unbounded).
+- Backward-compatible on-disk format; zero behaviour change when `SOVEREIGN_GATEWAY_MEMORY` is unset.
+- Deferred (Q-901-001): the M028 decay pass stays unscheduled until the admission clock is unified — bounded
+  growth already caps accumulation clock-independently. Verified: memory-os 40 tests (2 new), gatewayd lib 55
+  (4 new incl. corruption-recovery), clippy `-D warnings` clean, downstream unchanged. MS003 `unsigned-pending-MS003`.
+
+
 ### Fixed — real RoPE: `rope_theta` + `rope_scaling` from the model config (modern models decode coherently) (2026-07-12)
 
 Arc 1 of the Phase-1 audit (SDD-900; closes ledger F-2026-080). Every decoder block was built with a **hardcoded

@@ -271,6 +271,26 @@ impl MemoryStore {
         }
     }
 
+    /// Set (or clear) the capacity bound and immediately enforce it: if a bound
+    /// is set and the store already holds more, the lowest-value items are
+    /// evicted down to it. `None` removes the bound (unbounded). This lets a
+    /// daemon cap a store it seeded or loaded unbounded — a long-running cortex
+    /// keeps its best memories instead of growing without limit. Value-based
+    /// (not time-based), so it needs no wall-clock and can never over-evict.
+    pub fn set_capacity(&mut self, capacity: Option<usize>) {
+        self.capacity = capacity;
+        if let Some(cap) = capacity {
+            while self.hot.len() > cap {
+                self.evict_lowest_value();
+            }
+        }
+    }
+
+    /// The current capacity bound (`None` = unbounded).
+    pub fn capacity(&self) -> Option<usize> {
+        self.capacity
+    }
+
     /// Number of resident items.
     pub fn len(&self) -> usize {
         self.hot.len()
@@ -553,6 +573,43 @@ mod tests {
             s.admit(meta_val(id, id), gt("x"));
         }
         assert_eq!(s.len(), 10);
+    }
+
+    #[test]
+    fn set_capacity_bounds_a_previously_unbounded_store() {
+        // Seed unbounded, then cap: the lowest-value items are evicted down to
+        // the bound (the daemon capping a store it seeded/loaded unbounded).
+        let mut s = MemoryStore::new();
+        for id in 1..=5 {
+            s.admit(meta_val(id, id * 100), gt("x")); // values 100..500
+        }
+        assert_eq!(s.len(), 5);
+        assert_eq!(s.capacity(), None);
+        s.set_capacity(Some(2));
+        assert_eq!(s.capacity(), Some(2));
+        assert_eq!(s.len(), 2, "evicted down to the new bound");
+        // The two highest-value survive; the lowest three are gone.
+        assert!(s.ground_truth(5).is_some() && s.ground_truth(4).is_some());
+        assert!(
+            s.ground_truth(1).is_none()
+                && s.ground_truth(2).is_none()
+                && s.ground_truth(3).is_none()
+        );
+        // Subsequent admits stay bounded.
+        s.admit(meta_val(6, 999), gt("top"));
+        assert_eq!(s.len(), 2);
+        assert!(s.ground_truth(6).is_some());
+    }
+
+    #[test]
+    fn set_capacity_none_removes_the_bound() {
+        let mut s = MemoryStore::with_capacity(1);
+        s.set_capacity(None);
+        assert_eq!(s.capacity(), None);
+        for id in 0..5 {
+            s.admit(meta_val(id, id), gt("x"));
+        }
+        assert_eq!(s.len(), 5, "unbounded again");
     }
 
     // --- embedding rerank ---
