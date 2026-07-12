@@ -48,6 +48,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
 import jobs_store as _js  # noqa: E402
+import compute_plane as _plane  # noqa: E402
 
 VERSION = "1"
 PORT = int(os.environ.get("SOVEREIGN_JOBS_API_PORT", "8142"))
@@ -57,6 +58,7 @@ REPO = Path(__file__).resolve().parents[2]
 CONTROL_SYSTEMS = REPO / "config" / "control-systems.yaml"
 
 STORE = _js.JobStore()
+PLANE = _plane.ComputePlane()   # the Sovereign Compute Plane — VRAM-fit placement
 _POOL = ThreadPoolExecutor(max_workers=MAX_WORKERS)
 _CANCELS: dict[str, threading.Event] = {}
 _CANCELS_LOCK = threading.Lock()
@@ -161,28 +163,64 @@ _RUNNERS = {
 }
 
 
+def _role_pref(job: dict) -> str | None:
+    """Map a job's requested device label to an SRP role for placement."""
+    dev = str(job.get("device", "")).lower()
+    if "4090" in dev or "3090" in dev or dev == "logic":
+        return _plane.ROLE_LOGIC
+    if "pro" in dev or "oracle" in dev or "blackwell" in dev:
+        return _plane.ROLE_ORACLE
+    return None
+
+
 def run_job(jid: str) -> None:
-    """Execute one job to a terminal state, updating the registry as it goes."""
+    """Execute one job to a terminal state, updating the registry as it goes.
+    A VRAM-needing job is PLACED on a device by the compute plane first (or waits
+    for one to free), and releases its claim when it finishes — so a GPU job never
+    OOMs the box."""
     job = STORE.get(jid)
     if not job or job["state"] in _js.TERMINAL:
         return
     cancel = _cancel_event(jid)
-    STORE.update(jid, state="running", started=_js._now(), progress=max(job["progress"], 5))
-    runner = _RUNNERS.get(job["kind"])
-    if runner is None:
-        STORE.update(jid, state="failed", error=f"no runner for kind {job['kind']}", finished=_js._now())
-        return
+
+    # ── admission: place on a device by live free VRAM, or wait ──
+    need = float((job.get("meta") or {}).get("vram_gb", 0) or 0)
+    claimed = False
+    if need > 0:
+        while True:
+            if cancel.is_set():
+                STORE.update(jid, state="cancelled", finished=_js._now())
+                return
+            device = PLANE.place(need, _role_pref(job))
+            if device:
+                PLANE.claim(jid, device, need, kind=job["kind"], job=job["title"])
+                STORE.update(jid, device=device)
+                claimed = True
+                break
+            STORE.update(jid, state="queued",
+                         output=f"waiting for {need:g} GB free VRAM (compute plane)…")
+            time.sleep(2)
+
     try:
-        ok, msg = runner(job, cancel)
-    except Exception as e:  # a runner crash must not take down the worker
-        STORE.update(jid, state="failed", error=f"runner error: {e}", finished=_js._now())
-        return
-    if cancel.is_set():
-        STORE.update(jid, state="cancelled", finished=_js._now(), output=msg)
-    elif ok:
-        STORE.update(jid, state="done", progress=100, finished=_js._now(), output=msg)
-    else:
-        STORE.update(jid, state="failed", finished=_js._now(), error=msg)
+        STORE.update(jid, state="running", started=_js._now(), progress=max(job["progress"], 5))
+        runner = _RUNNERS.get(job["kind"])
+        if runner is None:
+            STORE.update(jid, state="failed", error=f"no runner for kind {job['kind']}", finished=_js._now())
+            return
+        try:
+            ok, msg = runner(job, cancel)
+        except Exception as e:  # a runner crash must not take down the worker
+            STORE.update(jid, state="failed", error=f"runner error: {e}", finished=_js._now())
+            return
+        if cancel.is_set():
+            STORE.update(jid, state="cancelled", finished=_js._now(), output=msg)
+        elif ok:
+            STORE.update(jid, state="done", progress=100, finished=_js._now(), output=msg)
+        else:
+            STORE.update(jid, state="failed", finished=_js._now(), error=msg)
+    finally:
+        if claimed:
+            PLANE.release(jid)
 
 
 def submit(kind: str, title: str, device: str = "cpu", meta: dict | None = None) -> dict:
@@ -248,7 +286,10 @@ class Handler(BaseHTTPRequestHandler):
             jobs = STORE.list()
             return self._send(200, json.dumps({
                 "jobs": jobs, "summary": _js.summary(jobs), "gateway_addr": GATEWAY_ADDR,
+                "plane": PLANE.state(),
             }, indent=2))
+        if path == "/plane.json":
+            return self._send(200, json.dumps(PLANE.state(), indent=2))
         if path.startswith("/jobs/"):
             job = STORE.get(path[len("/jobs/"):])
             if job:

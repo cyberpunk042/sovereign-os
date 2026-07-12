@@ -6591,6 +6591,14 @@ case "${cmd}" in
     #   jobs [--json] cancel <id>
     exec python3 "${__REPO_ROOT}/scripts/operator/lib/jobs_cli.py" "$@"
     ;;
+  plane)
+    # The Sovereign Compute Plane (via jobs-api :8142) — the box's devices with
+    # LIVE free VRAM + the outstanding claims (model residents + running GPU
+    # jobs), placed by the M075 SRP doctrine. Read-only. A GPU job is placed on a
+    # device that fits, or waits, so it never OOMs the box.
+    #   plane            human summary
+    exec python3 "${__REPO_ROOT}/scripts/operator/lib/jobs_cli.py" plane "$@"
+    ;;
   network)
     # R220 (SDD-026 Z-7): per-component network state surface.
     # internet / DNS / cloudflared / tailscale / traefik / docker.

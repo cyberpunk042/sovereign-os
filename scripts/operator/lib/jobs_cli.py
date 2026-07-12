@@ -66,6 +66,7 @@ def main(argv: list[str]) -> int:
     sub = ap.add_subparsers(dest="cmd")
 
     sub.add_parser("list", help="list all jobs")
+    sub.add_parser("plane", help="the compute plane — devices + live free VRAM + claims")
     p_status = sub.add_parser("status", help="one job's status")
     p_status.add_argument("id")
     p_cancel = sub.add_parser("cancel", help="cancel a job")
@@ -90,6 +91,24 @@ def main(argv: list[str]) -> int:
     args = ap.parse_args(argv)
     cmd = args.cmd or "list"
 
+    if cmd == "plane":
+        d = _call("GET", "/plane.json")
+        if args.json:
+            print(json.dumps(d, indent=2))
+            return 1 if d.get("error") else 0
+        if d.get("error"):
+            print(f"error: {d['error']}", file=sys.stderr)
+            return 1
+        s = d.get("summary", {})
+        print(f"compute plane — {s.get('gpus', 0)} GPU(s) · {s.get('free_vram_gb', 0)}/"
+              f"{s.get('total_vram_gb', 0)} GB free · {s.get('active_claims', 0)} claim(s)")
+        for dev in d.get("devices", []):
+            eff = dev.get("effective_free_gb")
+            eff = "cpu" if eff is None else f"{eff:g}GB free"
+            print(f"  {dev['key']:<6} {dev['role']:<9} {dev.get('name', ''):<28} {eff}")
+        for c in d.get("claims", []):
+            print(f"  claim {c['id']}  {c['vram_gb']:g}GB on {c['device']}  ({c['kind']}: {c.get('job', '')})")
+        return 0
     if cmd == "list":
         return _print(_call("GET", "/jobs.json"), args.json)
     if cmd == "status":

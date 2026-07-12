@@ -33,6 +33,28 @@ those crates were built and tested but wired only into the non-daemon `sovereign
 - **Observability**: `/metrics` gains `sovereign_gateway_guard_{injections,redactions,enabled}`.
 - Verified: `cargo test -p sovereign-gatewayd` (lib 51 incl. 11 new spine tests, main 4, transports 14), clippy
   `-D warnings` clean, fmt clean. TLS deferred (SDD-206 non-goal). MS003 `unsigned-pending-MS003`.
+### Added — the Sovereign Compute Plane, Phase 1: a GPU job never OOMs the box (2026-07-12)
+
+Operator-directed (the Background Tasks "massive" pass — "my rtx4090 jobs or a secondary model in general …
+lets discuss and plan"). Discussed + planned: ONE compute plane placing both background models and GPU jobs
+across the host PRO 6000 + the VFIO-passed 4090/3090 by live VRAM. A 4-phase roadmap was approved; this is
+**Phase 1** (the plane core). SDD-206.
+
+- NEW `scripts/operator/lib/compute_plane.py` — extends the M075 SRP doctrine (Conductor=CPU, Logic=4090,
+  Oracle=PRO 6000; fit by precision + VRAM) from static capacities to **live free VRAM**. Probes host GPUs via
+  `nvidia-smi`, tracks **claims** (a device + VRAM held for a job's life), and `place(need_gb, role_pref)`
+  returns a device whose effective free VRAM (live − claims) covers the need (prefer role, else wait); a
+  no-VRAM job → the CPU. Degrade-safe (no `nvidia-smi` → CPU-only; a GPU job honestly waits, never fabricates).
+- `jobs-api` (SDD-204) now **places a `meta.vram_gb>0` job before it runs** — it waits (`queued`, "waiting for
+  N GB free VRAM…") until a device fits, claims it, runs, and releases on completion. So a GPU job **never OOMs
+  the box**; concurrent GPU jobs serialise by VRAM. NEW `GET /plane.json` + `sovereign-osctl plane` (read-only
+  devices + claims); feature-coverage maps `plane → code-console`.
+- `tests/lint/test_jobs_runtime_contract.py` extended: fit-by-live-VRAM (a 40 GB model excludes the 24 GB
+  Logic; a claim removes headroom → queue), the CPU-only degrade, and jobs-api queues-not-OOMs a job when VRAM
+  is exhausted (and keeps it cancellable while waiting). Verified live (`/plane.json` + `sovereign-osctl plane`).
+- Honest gating: the canonical rule is the Rust `sovereign-srp-scheduler::place()` (Phase 2 wires the gateway
+  for model residents); the 4090 is VM-isolated so Phase 1 sees host devices only (Phase 3 adds the VM); the
+  wait holds a worker (a Phase-4 admission scheduler refines it).
 
 ### Added — user documentation: "Use the box as your AI backend" + "Reasoning & operability" (2026-07-12)
 
