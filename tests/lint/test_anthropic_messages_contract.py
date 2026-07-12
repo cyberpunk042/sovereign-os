@@ -84,8 +84,12 @@ def test_gpu_proxy_backend_and_dialect_translation():
     for fn in ("fn proxy_message", "fn anthropic_to_openai_chat", "fn openai_to_anthropic_message"):
         assert fn in http, f"the dialect translation is missing: {fn!r}"
     assert "/v1/chat/completions" in http, "openai backends are reached on /v1/chat/completions"
-    # streaming to a proxy is honestly gated (never silently served by the primary)
+    # streaming to a proxy (increment 2b): the upstream SSE is transcoded to the
+    # Anthropic event sequence, not gated or served by the primary
     assert "resolve_proxy" in main, "the streaming path must recognise proxy models"
+    assert "fn stream_proxy_message" in main, "streaming to a proxy backend must transcode the SSE"
+    assert "content_block_delta" in main and "message_stop" in main, \
+        "the proxy stream must emit the Anthropic event sequence"
 
 
 def test_background_alias_routing():

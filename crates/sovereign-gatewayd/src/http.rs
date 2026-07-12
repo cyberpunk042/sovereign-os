@@ -619,7 +619,8 @@ fn flatten_content(content: Option<&serde_json::Value>) -> String {
 
 /// Translate an Anthropic `/v1/messages` request into an OpenAI
 /// `/v1/chat/completions` request (system + messages, max_tokens, temperature).
-fn anthropic_to_openai_chat(req: &serde_json::Value) -> serde_json::Value {
+/// `pub` so the streaming proxy (the binary, increment 2b) reuses it.
+pub fn anthropic_to_openai_chat(req: &serde_json::Value) -> serde_json::Value {
     let mut messages = Vec::new();
     match req.get("system") {
         Some(serde_json::Value::String(s)) if !s.is_empty() => {

@@ -22,7 +22,8 @@ registry, built in three increments over the shared plane.
 |---|----------|--------|
 | **1** | in-gateway CPU multi-model registry | ✓ shipped |
 | **2** | GPU serve-process backend (plane-placed llama-server/vLLM) the gateway proxies to | ✓ shipped |
-| **3** | routing (model / background hint) + background jobs target the secondary + docs | ✓ this round |
+| **2b** | streaming to a GPU proxy — transcode the upstream SSE into Anthropic events | ✓ shipped |
+| **3** | routing (model / background hint) + background jobs target the secondary + docs | ✓ shipped |
 
 ## Increment 1 (shipped)
 
@@ -70,9 +71,15 @@ serving interactive chat.
   `anthropic`-dialect backend (another sovereign-gatewayd, e.g. on the 4090-VM) is
   forwarded verbatim. Verified by two http tests (a mock Anthropic upstream +
   a mock OpenAI upstream asserting the translated path/body and the mapped reply).
-- **Honest streaming gate.** A proxy model requested with `stream:true` returns an
-  Anthropic `invalid_request_error` (retry non-streaming) rather than silently
-  substituting the primary's stream — proxy streaming is increment 2b.
+- **Streaming (increment 2b, shipped).** A proxy model requested with `stream:true`
+  opens a streaming connection to the upstream and transcodes its SSE into the
+  Anthropic event sequence as tokens arrive (`stream_proxy_message`): an `openai`
+  backend's `/v1/chat/completions` deltas become `content_block_delta` events
+  (dechunking `Transfer-Encoding: chunked`), an `anthropic` backend's SSE is relayed
+  verbatim. A pre-stream upstream failure is an honest Anthropic error; a client
+  hang-up mid-stream ends the relay cleanly. Verified end-to-end (a mock chunked
+  OpenAI SSE upstream → the Anthropic `message_start … content_block_delta* …
+  message_stop` sequence with the transcoded text).
 - **`model-serve` job kind** (jobs-api). A VRAM-needing job, so the compute plane
   PLACES it on a device (or waits) + CLAIMS the VRAM. The runner launches the
   serve-process argv (`meta.command`, no shell), waits for `meta.endpoint` to accept
@@ -123,8 +130,8 @@ proxy — leaving the primary free.
   `"background"` routing + background-job targeting; a one-shot ergonomic
   `model-serve` *submit* verb on osctl is a small follow-up (the job kind + registry
   already exist, so an operator submits it via `jobs submit` today).
-- **Streaming to a GPU proxy is not yet supported** (increment 2b) — honestly gated,
-  not silently degraded. Streaming the `"background"` alias to a *CPU* secondary
-  works; the alias resolving to a *proxy* under `stream:true` hits the same 2b gate.
+- **Streaming to a GPU proxy is supported** (increment 2b) — the upstream SSE is
+  transcoded to Anthropic events; the `"background"` alias resolving to a proxy
+  streams the same way.
 - Loopback-trust on load/unload/register/background (no cloud auth on a sovereign
   box); the requested `model` id is echoed; quality is model-gated as ever.

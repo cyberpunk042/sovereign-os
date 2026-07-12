@@ -62,6 +62,20 @@ blocker to running a real model, and it made SDD-205's Anthropic endpoint return
 - Verified: mha-block 28 tests (8 new, incl. "a distinct base yields distinct decode output"), loader 13 (6 new);
   clippy `-D warnings` clean; downstream quant-llm/gatewayd/decoder-layer/inference-demo build unchanged. Sampling
   params + chat template + quantized loading are the tracked next arcs. MS003 `unsigned-pending-MS003`.
+### Added — Compute Plane Phase 2, increment 2b: streaming to a GPU proxy (VS Code / Claude Code stream from GPU-hosted models) (2026-07-12)
+
+Editors stream by default, so this is what makes a GPU-hosted model actually usable from them. SDD-902.
+
+- A `stream:true` request for a proxy model now opens a streaming connection to the upstream serve-process and
+  **transcodes its SSE into the Anthropic event sequence as tokens arrive** (`stream_proxy_message`) — replacing
+  the increment-2 honest-error gate.
+- An `openai` backend's `/v1/chat/completions` deltas become `content_block_delta` events (dechunking
+  `Transfer-Encoding: chunked`, as llama-server / vLLM emit); an `anthropic` backend's SSE is relayed verbatim.
+  A pre-stream upstream failure is an honest Anthropic error; a client hang-up mid-stream ends the relay cleanly.
+- Verified end-to-end: a mock chunked OpenAI-SSE upstream registered as a proxy → `POST /v1/messages {stream:true}`
+  yields `message_start → content_block_delta* → message_stop` with the transcoded text + `stop_reason:end_turn`.
+  15 gateway transport tests (1 new); clippy `-D warnings` clean.
+
 ### Added — Compute Plane Phase 2, increment 3: background routing — work targets the secondary, the primary stays free (2026-07-12)
 
 The routing that makes the two backend kinds usable as background compute. SDD-902.

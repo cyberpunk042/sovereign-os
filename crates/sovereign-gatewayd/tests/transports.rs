@@ -351,6 +351,90 @@ fn http_infer_runs_engine_and_messages_speaks_anthropic() {
     assert!(mbody.contains("sovereign_gateway_never_cloud_spill_holds 1"));
 }
 
+/// A mock GPU serve-process speaking OpenAI `/v1/chat/completions` SSE over
+/// `Transfer-Encoding: chunked` (as llama-server / vLLM do). Returns its address.
+fn spawn_mock_openai_sse_upstream() -> String {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let addr = listener.local_addr().unwrap().to_string();
+    std::thread::spawn(move || {
+        // Serve a couple of streamed requests (register probe is non-streaming; the
+        // real one streams), so accept in a loop.
+        for conn in listener.incoming() {
+            let Ok(mut sock) = conn else { break };
+            let mut buf = [0u8; 4096];
+            let _ = sock.read(&mut buf);
+            // one SSE frame per chunk, split mid-stream, then [DONE]
+            let frames = [
+                r#"data: {"choices":[{"delta":{"content":"Hello"}}]}"#,
+                r#"data: {"choices":[{"delta":{"content":" from the GPU"},"finish_reason":"stop"}]}"#,
+                "data: [DONE]",
+            ];
+            let mut body = String::new();
+            for f in frames {
+                let frame = format!("{f}\n\n");
+                body.push_str(&format!("{:x}\r\n{}\r\n", frame.len(), frame));
+            }
+            body.push_str("0\r\n\r\n"); // terminal chunk
+            let resp = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n{body}"
+            );
+            let _ = sock.write_all(resp.as_bytes());
+        }
+    });
+    addr
+}
+
+#[test]
+fn http_streams_a_proxy_backend_as_anthropic_sse() {
+    // Increment 2b: a `stream:true` request for a GPU proxy model transcodes the
+    // upstream's OpenAI SSE into the Anthropic event sequence, rather than the old
+    // honest-error gate. Register a mock OpenAI upstream, then stream through it.
+    let up = spawn_mock_openai_sse_upstream();
+    let d = spawn("--http");
+
+    let reg = serde_json::json!({
+        "id": "gpu-stream", "endpoint": up, "device": "logic",
+        "vram_gb": 18.0, "dialect": "openai",
+    })
+    .to_string();
+    let (rstatus, _) = http_request(&d.addr, "POST", "/v1/models/register", &reg);
+    assert!(
+        rstatus.starts_with("HTTP/1.1 200"),
+        "register status: {rstatus}"
+    );
+
+    let streamed = serde_json::json!({
+        "model": "gpu-stream", "max_tokens": 32, "stream": true,
+        "messages": [{"role": "user", "content": "hi"}],
+    })
+    .to_string();
+    let (sstatus, sbody) = http_request(&d.addr, "POST", "/v1/messages", &streamed);
+    assert!(
+        sstatus.starts_with("HTTP/1.1 200"),
+        "stream status: {sstatus}"
+    );
+    // the Anthropic event envelope, transcoded from the OpenAI chunks
+    assert!(sbody.contains("event: message_start"), "sse:\n{sbody}");
+    assert!(
+        sbody.contains("event: content_block_delta"),
+        "sse:\n{sbody}"
+    );
+    assert!(
+        sbody.contains("\"text\":\"Hello\""),
+        "first delta transcoded; sse:\n{sbody}"
+    );
+    assert!(
+        sbody.contains("\"text\":\" from the GPU\""),
+        "second delta; sse:\n{sbody}"
+    );
+    assert!(sbody.contains("event: message_stop"), "sse:\n{sbody}");
+    // finish_reason:stop → anthropic end_turn
+    assert!(
+        sbody.contains("\"stop_reason\":\"end_turn\""),
+        "sse:\n{sbody}"
+    );
+}
+
 #[test]
 fn http_simple_runs_engine_from_minimal_input_over_socket() {
     let d = spawn("--http");

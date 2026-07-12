@@ -161,8 +161,10 @@ curl -s http://127.0.0.1:8787/v1/messages \
        "messages":[{"role":"user","content":"summarise this log…"}]}'
 ```
 
-> Streaming (`stream:true`) to a GPU **proxy** isn't supported yet — it returns an
-> honest error asking you to retry non-streaming. Streaming a CPU secondary works.
+> Streaming (`stream:true`) works against every backend: a CPU secondary streams
+> directly, and a GPU **proxy** streams too — the gateway transcodes the upstream
+> serve-process's SSE into the Anthropic event sequence as tokens arrive. So VS Code
+> / Claude Code get token-by-token output from a GPU-hosted model with no extra setup.
 
 ## The sovereign posture (what makes this different from a cloud endpoint)
 

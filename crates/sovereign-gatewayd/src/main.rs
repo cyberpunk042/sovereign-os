@@ -584,21 +584,11 @@ fn stream_anthropic_messages(
     // inc.3) so a streamed background request targets the secondary, and the proxy
     // guard below sees the concrete id.
     let model = server.expand_alias(Some(&requested)).unwrap_or(requested);
-    // A GPU proxy backend is reached via the non-streaming path (increment 2);
-    // streaming forward is increment 2b. Error honestly rather than silently
-    // substituting the primary's stream for the requested proxy model.
-    if server.resolve_proxy(&model).is_some() {
-        return write_http(
-            writer,
-            &http::anthropic_err(
-                400,
-                "invalid_request_error",
-                format!(
-                    "model '{model}' is a GPU proxy backend; streaming to proxy backends \
-                     is not yet supported — retry with stream:false"
-                ),
-            ),
-        );
+    // A GPU proxy backend streams via the upstream serve-process (increment 2b):
+    // transcode its SSE into the Anthropic event sequence, rather than substituting
+    // the primary's stream for the requested proxy model.
+    if let Some((endpoint, dialect)) = server.resolve_proxy(&model) {
+        return stream_proxy_message(writer, &endpoint, &dialect, &model, &req, body);
     }
     if !server.has_generator() {
         return write_http(
@@ -699,6 +689,252 @@ fn stream_anthropic_messages(
         "message_stop",
         &serde_json::json!({ "type": "message_stop" }),
     )?;
+    Ok(())
+}
+
+/// Stream a proxy-backed model as Anthropic SSE (Phase 2 increment 2b). Opens a
+/// streaming connection to the upstream serve-process: an `anthropic` backend's SSE
+/// is relayed verbatim (it already speaks the Anthropic event sequence); an `openai`
+/// backend (llama-server / vLLM) has its `/v1/chat/completions` deltas transcoded
+/// into `message_start → content_block_delta* → message_stop` as they arrive.
+/// Dechunks `Transfer-Encoding: chunked` upstreams. A pre-stream upstream failure is
+/// an honest Anthropic error; a client hang-up mid-stream ends the relay cleanly.
+fn stream_proxy_message(
+    writer: &mut TcpStream,
+    endpoint: &str,
+    dialect: &str,
+    model: &str,
+    req: &serde_json::Value,
+    body: &str,
+) -> std::io::Result<()> {
+    // ---- connect + send the upstream request ----
+    let mut up = match TcpStream::connect(endpoint) {
+        Ok(s) => s,
+        Err(e) => {
+            return write_http(
+                writer,
+                &http::anthropic_err(502, "api_error", format!("proxy connect {endpoint}: {e}")),
+            );
+        }
+    };
+    let _ = up.set_read_timeout(Some(std::time::Duration::from_secs(300)));
+    let (path, up_body) = if dialect == "anthropic" {
+        ("/v1/messages", body.to_string())
+    } else {
+        let mut oai = http::anthropic_to_openai_chat(req);
+        oai["stream"] = serde_json::Value::Bool(true);
+        ("/v1/chat/completions", oai.to_string())
+    };
+    let request = format!(
+        "POST {path} HTTP/1.1\r\nHost: {endpoint}\r\nContent-Type: application/json\r\n\
+         Accept: text/event-stream\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{up_body}",
+        up_body.len()
+    );
+    if up
+        .write_all(request.as_bytes())
+        .and_then(|()| up.flush())
+        .is_err()
+    {
+        return write_http(
+            writer,
+            &http::anthropic_err(
+                502,
+                "api_error",
+                format!("proxy write to {endpoint} failed"),
+            ),
+        );
+    }
+
+    // ---- read the upstream response head (status + headers) ----
+    let mut reader = BufReader::new(up);
+    let mut status_line = String::new();
+    if reader.read_line(&mut status_line).unwrap_or(0) == 0 {
+        return write_http(
+            writer,
+            &http::anthropic_err(
+                502,
+                "api_error",
+                format!("proxy {endpoint} sent no response"),
+            ),
+        );
+    }
+    let up_status = status_line
+        .split_whitespace()
+        .nth(1)
+        .and_then(|s| s.parse::<u16>().ok())
+        .unwrap_or(502);
+    let mut chunked = false;
+    loop {
+        let mut h = String::new();
+        if reader.read_line(&mut h).unwrap_or(0) == 0 {
+            break;
+        }
+        if h == "\r\n" || h == "\n" {
+            break;
+        }
+        let lower = h.to_ascii_lowercase();
+        if lower.starts_with("transfer-encoding:") && lower.contains("chunked") {
+            chunked = true;
+        }
+    }
+    if up_status != 200 {
+        let mut errbody = String::new();
+        let _ = reader.read_to_string(&mut errbody);
+        return write_http(
+            writer,
+            &http::anthropic_err(
+                502,
+                "api_error",
+                format!("proxy upstream {up_status}: {}", errbody.trim()),
+            ),
+        );
+    }
+
+    // ---- committed to streaming: send our SSE head ----
+    writer.write_all(
+        b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n\
+          Cache-Control: no-store\r\nConnection: close\r\n\r\n",
+    )?;
+    writer.flush()?;
+
+    // openai backends need the Anthropic envelope head; anthropic backends relay
+    // their own message_start.
+    let openai = dialect != "anthropic";
+    if openai {
+        write_sse_event(
+            writer,
+            "message_start",
+            &serde_json::json!({
+                "type": "message_start",
+                "message": {
+                    "id": "msg_sovereign_proxy", "type": "message", "role": "assistant", "model": model,
+                    "content": [], "stop_reason": serde_json::Value::Null, "stop_sequence": serde_json::Value::Null,
+                    "usage": { "input_tokens": 0, "output_tokens": 0 },
+                }
+            }),
+        )?;
+        write_sse_event(
+            writer,
+            "content_block_start",
+            &serde_json::json!({
+                "type": "content_block_start", "index": 0,
+                "content_block": { "type": "text", "text": "" }
+            }),
+        )?;
+    }
+
+    // ---- stream the body: dechunk, and for openai transcode each delta ----
+    let mut line_buf: Vec<u8> = Vec::new();
+    let mut out_chars = 0usize;
+    let mut stop_reason = "end_turn".to_string();
+    'body: loop {
+        let block: Vec<u8> = if chunked {
+            let mut sz = String::new();
+            if reader.read_line(&mut sz).unwrap_or(0) == 0 {
+                break;
+            }
+            let n = usize::from_str_radix(sz.trim(), 16).unwrap_or(0);
+            if n == 0 {
+                break; // terminal chunk
+            }
+            let mut buf = vec![0u8; n];
+            if reader.read_exact(&mut buf).is_err() {
+                break;
+            }
+            let mut crlf = [0u8; 2];
+            let _ = reader.read_exact(&mut crlf);
+            buf
+        } else {
+            let mut buf = [0u8; 4096];
+            match reader.read(&mut buf) {
+                Ok(0) | Err(_) => break,
+                Ok(k) => buf[..k].to_vec(),
+            }
+        };
+
+        if !openai {
+            // anthropic backend: its bytes ARE the Anthropic SSE — relay verbatim
+            if writer
+                .write_all(&block)
+                .and_then(|()| writer.flush())
+                .is_err()
+            {
+                break; // client hung up
+            }
+            continue;
+        }
+
+        // openai backend: accumulate + process complete `data:` lines
+        line_buf.extend_from_slice(&block);
+        while let Some(pos) = line_buf.iter().position(|&b| b == b'\n') {
+            let line_bytes: Vec<u8> = line_buf.drain(..=pos).collect();
+            let line = String::from_utf8_lossy(&line_bytes);
+            let line = line.trim();
+            let Some(payload) = line.strip_prefix("data:") else {
+                continue;
+            };
+            let payload = payload.trim();
+            if payload == "[DONE]" {
+                break 'body;
+            }
+            let Ok(v) = serde_json::from_str::<serde_json::Value>(payload) else {
+                continue;
+            };
+            if let Some(delta) = v
+                .pointer("/choices/0/delta/content")
+                .and_then(|c| c.as_str())
+                && !delta.is_empty()
+            {
+                out_chars += delta.chars().count();
+                if write_sse_event(
+                    writer,
+                    "content_block_delta",
+                    &serde_json::json!({
+                        "type": "content_block_delta", "index": 0,
+                        "delta": { "type": "text_delta", "text": delta },
+                    }),
+                )
+                .is_err()
+                {
+                    break 'body; // client hung up
+                }
+            }
+            if let Some(r) = v
+                .pointer("/choices/0/finish_reason")
+                .and_then(|r| r.as_str())
+            {
+                stop_reason = match r {
+                    "length" => "max_tokens",
+                    "stop" => "end_turn",
+                    o => o,
+                }
+                .to_string();
+            }
+        }
+    }
+
+    // ---- openai: close the Anthropic envelope ----
+    if openai {
+        write_sse_event(
+            writer,
+            "content_block_stop",
+            &serde_json::json!({ "type": "content_block_stop", "index": 0 }),
+        )?;
+        write_sse_event(
+            writer,
+            "message_delta",
+            &serde_json::json!({
+                "type": "message_delta",
+                "delta": { "stop_reason": stop_reason, "stop_sequence": serde_json::Value::Null },
+                "usage": { "output_tokens": out_chars.div_ceil(4) },
+            }),
+        )?;
+        write_sse_event(
+            writer,
+            "message_stop",
+            &serde_json::json!({ "type": "message_stop" }),
+        )?;
+    }
     Ok(())
 }
 
