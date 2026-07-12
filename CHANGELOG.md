@@ -12,6 +12,32 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — the Anthropic Messages API on the gateway: use the box from VS Code / Claude Code (2026-07-12)
+
+Operator-directed ("make it compatible with Anthropic Messages API structure, so I can use it in vscode and
+whatever else compatible"). `sovereign-gatewayd` (:8787) now speaks the **Anthropic Messages API**, so VS Code
+extensions (Cline / Claude Dev), Claude Code (`ANTHROPIC_BASE_URL`), and the Anthropic SDKs drive the box's
+OWN local model on loopback. Fulfils the pre-existing M034 "Anthropic-first" spec (`/v1/messages` had been a
+decision stub). SDD-205.
+
+- **`POST /v1/messages`** is the Anthropic Messages API: accepts `{model, max_tokens, system?, messages[],
+  stream?}` (content a string OR a `[{type:"text",text}]` block array), generates from the local model, and
+  returns the Anthropic shape — non-stream `{type:"message", role:"assistant", content:[{type:"text",text}],
+  stop_reason:"end_turn", usage:{input_tokens,output_tokens}}` OR, on `stream:true`, the SSE event sequence
+  `message_start → content_block_start → content_block_delta(text_delta)* → content_block_stop → message_delta
+  → message_stop` (intercepted in main.rs like the OpenAI shim; non-stream in http.rs).
+- NEW **`GET /v1/models`** (Anthropic models list) + **`POST /v1/messages/count_tokens`**.
+- The sovereign routing **DECISION** that `/v1/messages` used to return moved fully to **`/v1/infer`**
+  (`{kind:"decision"}`); the OpenAI shim `/v1/chat/completions` stays as the secondary compat surface.
+- **Loopback-trust** (`x-api-key` / `anthropic-version` accepted, not validated — no cloud auth on a sovereign
+  box); **never fabricated** (no model → an honest Anthropic error envelope 503, SB-077); the requested model
+  id is echoed back, the box serves its one local model.
+- **Verified LIVE end-to-end with SmolLM-135M:** non-stream returned the Anthropic message shape; `stream:true`
+  emitted the full Anthropic SSE token-by-token. Output *quality* is model-gated (a base model rambles; a
+  stop-sequence + instruct model is a follow-up), but the *compatibility* the editors need is complete.
+- NEW `docs/sdd/205-anthropic-messages-api.md` (mission + wiring how-to for VS Code / Claude Code / Cline) +
+  `tests/lint/test_anthropic_messages_contract.py`; the gateway lib + transport tests were repointed.
+
 ### Changed — the Code Console, brought to a high standard: the Plan pane goes live and unifies questions / plans / tasks / reasoning (2026-07-12)
 
 Operator-directed ("make sure the console is fully developed and proper relative to everything — questions /

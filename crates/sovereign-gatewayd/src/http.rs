@@ -13,8 +13,10 @@
 //! GET  /manifest       -> {"kind":"manifest", …}   the 6-surface contract
 //! GET  /admin/ledger   -> {"kind":"ledger", …}     cost/route ledger (surface 6)
 //! GET  /metrics        -> Prometheus text          ledger + health for the cockpit
-//! POST /v1/messages    -> {"kind":"decision", …}   Anthropic-path bind (surface 1)
-//! POST /v1/infer       -> {"kind":"decision", …}   raw engine alias
+//! POST /v1/messages    -> {"type":"message", …}    Anthropic Messages API (surface 1); stream:true = SSE
+//! GET  /v1/models      -> {"data":[…]}             Anthropic models list (the local model)
+//! POST /v1/messages/count_tokens -> {"input_tokens":N}  Anthropic token count (best-effort)
+//! POST /v1/infer       -> {"kind":"decision", …}   raw engine alias (the routing DECISION)
 //! POST /mcp            -> {"kind":"decision", …}   MCP-bridge bind (surface 3)
 //! POST /v1/simple      -> {"kind":"decision", …}     simplified request (axes + quality)
 //! POST /v1/explain     -> {"kind":"explanation",…} dry-run rationale (read-only)
@@ -125,8 +127,15 @@ pub fn respond(server: &GatewayServer, method: &str, path: &str, body: &str) -> 
             body: server.metrics_prometheus(),
         },
 
-        ("POST", "/v1/messages")
-        | ("POST", "/v1/infer")
+        // The Anthropic Messages API over the locally-loaded model — VS Code
+        // (Cline / Claude Dev), Claude Code (ANTHROPIC_BASE_URL), and anything
+        // else that speaks Anthropic point here. Non-streaming; `stream:true` is
+        // served as SSE in main.rs. The sovereign routing DECISION is /v1/infer.
+        ("POST", "/v1/messages") => anthropic_message(server, body),
+        ("GET", "/v1/models") => anthropic_models(),
+        ("POST", "/v1/messages/count_tokens") => anthropic_count_tokens(body),
+
+        ("POST", "/v1/infer")
         | ("POST", "/mcp")
         | ("POST", "/v1/explain") => {
             match serde_json::from_str::<CortexRequest>(body) {
@@ -221,6 +230,8 @@ pub fn respond(server: &GatewayServer, method: &str, path: &str, body: &str) -> 
             err(405, format!("method {method} not allowed on {route}"))
         }
         (_, "/v1/messages")
+        | (_, "/v1/messages/count_tokens")
+        | (_, "/v1/models")
         | (_, "/v1/infer")
         | (_, "/mcp")
         | (_, "/v1/explain")
@@ -252,6 +263,153 @@ fn render(status: u16, resp: &GatewayResponse) -> HttpReply {
 /// Build an error reply with a JSON body matching the daemon's error shape.
 pub fn err(status: u16, message: String) -> HttpReply {
     render(status, &GatewayResponse::Error { message })
+}
+
+// ── the Anthropic Messages API (surface 1) ──────────────────────────────────
+
+/// Render an arbitrary JSON value at a status (not the tagged GatewayResponse).
+fn json_reply(status: u16, v: &serde_json::Value) -> HttpReply {
+    HttpReply { status, content_type: "application/json", body: v.to_string() }
+}
+
+/// The Anthropic error envelope: `{"type":"error","error":{"type","message"}}`.
+pub fn anthropic_err(status: u16, kind: &str, message: String) -> HttpReply {
+    json_reply(status, &serde_json::json!({
+        "type": "error", "error": { "type": kind, "message": message }
+    }))
+}
+
+/// A rough token count (~4 chars/token). Usage is best-effort on a base model
+/// (the generator does not surface the exact prompt-token count).
+pub fn approx_tokens(s: &str) -> u64 {
+    ((s.chars().count() as u64) / 4).max(1)
+}
+
+/// The text of an Anthropic content value: a plain string, or the concatenation
+/// of the `text` blocks in a content-block array (non-text blocks are skipped —
+/// the base model is text-only).
+fn block_text(v: &serde_json::Value) -> String {
+    if let Some(s) = v.as_str() {
+        return s.to_string();
+    }
+    if let Some(arr) = v.as_array() {
+        let mut out = String::new();
+        for b in arr {
+            if b.get("type").and_then(|t| t.as_str()) == Some("text")
+                && let Some(t) = b.get("text").and_then(|t| t.as_str())
+            {
+                if !out.is_empty() {
+                    out.push('\n');
+                }
+                out.push_str(t);
+            }
+        }
+        return out;
+    }
+    String::new()
+}
+
+/// Flatten an Anthropic Messages request (optional `system` + `messages`, each
+/// content a string OR an array of `{type:"text",text}` blocks) into one chat
+/// prompt for the base model — Claude-style role tags, ending with `Assistant:`
+/// so a base completion model continues as the assistant.
+pub fn anthropic_prompt(req: &serde_json::Value) -> String {
+    let mut parts: Vec<String> = Vec::new();
+    if let Some(sys) = req.get("system") {
+        let s = block_text(sys);
+        if !s.trim().is_empty() {
+            parts.push(format!("System: {s}"));
+        }
+    }
+    if let Some(msgs) = req.get("messages").and_then(|m| m.as_array()) {
+        for m in msgs {
+            let role = m.get("role").and_then(|r| r.as_str()).unwrap_or("user");
+            let text = m.get("content").map(block_text).unwrap_or_default();
+            if text.trim().is_empty() {
+                continue;
+            }
+            let tag = if role == "assistant" { "Assistant" } else { "Human" };
+            parts.push(format!("{tag}: {text}"));
+        }
+    }
+    parts.push("Assistant:".to_string());
+    parts.join("\n\n")
+}
+
+/// The `max_tokens` a Messages request asks for, clamped. Anthropic requires it;
+/// default generously if a client omits it.
+pub fn anthropic_max_tokens(req: &serde_json::Value) -> usize {
+    req.get("max_tokens")
+        .and_then(serde_json::Value::as_u64)
+        .unwrap_or(256)
+        .clamp(1, 4096) as usize
+}
+
+/// `GET /v1/models` — the Anthropic models-list shape. The box serves ONE local
+/// model regardless of the requested id, but tools (VS Code) query this to
+/// populate a model picker, so answer with the sovereign model.
+fn anthropic_models() -> HttpReply {
+    json_reply(200, &serde_json::json!({
+        "data": [{
+            "type": "model",
+            "id": "sovereign-local",
+            "display_name": "Sovereign Local (gateway)",
+            "created_at": "2026-01-01T00:00:00Z",
+        }],
+        "has_more": false,
+        "first_id": "sovereign-local",
+        "last_id": "sovereign-local",
+    }))
+}
+
+/// `POST /v1/messages/count_tokens` — the Anthropic token-count shape. Best-effort
+/// (~4 chars/token) over the flattened prompt.
+fn anthropic_count_tokens(body: &str) -> HttpReply {
+    match serde_json::from_str::<serde_json::Value>(body) {
+        Ok(req) => json_reply(200, &serde_json::json!({
+            "input_tokens": approx_tokens(&anthropic_prompt(&req))
+        })),
+        Err(e) => anthropic_err(400, "invalid_request_error", format!("invalid request: {e}")),
+    }
+}
+
+/// `POST /v1/messages` (non-streaming): generate from the local model and return
+/// the Anthropic message shape. Streaming (`stream:true`) is intercepted in
+/// main.rs; a missing model is an honest Anthropic error (never fabricated).
+fn anthropic_message(server: &GatewayServer, body: &str) -> HttpReply {
+    let req: serde_json::Value = match serde_json::from_str(body) {
+        Ok(v) => v,
+        Err(e) => {
+            return anthropic_err(400, "invalid_request_error", format!("invalid messages request: {e}"));
+        }
+    };
+    let model = req.get("model").and_then(|m| m.as_str()).unwrap_or("sovereign-local").to_string();
+    if !server.has_generator() {
+        return anthropic_err(
+            503,
+            "api_error",
+            "no local model loaded — set SOVEREIGN_GATEWAY_MODEL to a model dir \
+             (config.json + *.safetensors + tokenizer.json)"
+                .to_string(),
+        );
+    }
+    let prompt = anthropic_prompt(&req);
+    let max_new = anthropic_max_tokens(&req);
+    let mut out = String::new();
+    let generated = server.generate_chat(&prompt, max_new, |c| out.push_str(c));
+    match generated {
+        Ok(n) => json_reply(200, &serde_json::json!({
+            "id": "msg_sovereign",
+            "type": "message",
+            "role": "assistant",
+            "model": model,
+            "content": [{ "type": "text", "text": out }],
+            "stop_reason": "end_turn",
+            "stop_sequence": serde_json::Value::Null,
+            "usage": { "input_tokens": approx_tokens(&prompt), "output_tokens": n },
+        })),
+        Err(e) => anthropic_err(500, "api_error", format!("generation error: {e}")),
+    }
 }
 
 #[cfg(test)]
@@ -295,18 +453,68 @@ mod tests {
     }
 
     #[test]
-    fn post_messages_runs_the_engine() {
+    fn post_messages_speaks_the_anthropic_api() {
         let s = srv();
-        let body = serde_json::to_string(&demo_requests()[0]).unwrap();
+        // /v1/messages is now the Anthropic Messages API. A bare server has no
+        // model → an honest Anthropic ERROR envelope (503), never a fabricated
+        // message. VS Code / Claude Code / Cline point ANTHROPIC_BASE_URL here.
+        let body = serde_json::json!({
+            "model": "claude-3-5-sonnet", "max_tokens": 64,
+            "system": "be terse",
+            "messages": [{"role": "user", "content": "hi"}],
+        })
+        .to_string();
         let r = respond(&s, "POST", "/v1/messages", &body);
-        assert_eq!(r.status, 200);
+        assert_eq!(r.status, 503);
         let v = body_of(&r);
-        assert_eq!(v["kind"], "decision");
-        assert!(v["decision"]["route"]["role"].is_string());
-        // The engine actually ran: the ledger advanced + nothing spilled.
+        assert_eq!(v["type"], "error");
+        assert_eq!(v["error"]["type"], "api_error");
+        // The sovereign DECISION moved to /v1/infer, which still runs the engine.
+        let dec = respond(&s, "POST", "/v1/infer", &serde_json::to_string(&demo_requests()[0]).unwrap());
+        assert_eq!(dec.status, 200);
+        assert_eq!(body_of(&dec)["kind"], "decision");
         let led = body_of(&respond(&s, "GET", "/admin/ledger", ""));
         assert_eq!(led["ledger"]["total_requests"], 1);
         assert_eq!(led["ledger"]["cloud_spills"], 0);
+    }
+
+    #[test]
+    fn anthropic_prompt_flattens_system_roles_and_content_blocks() {
+        let req = serde_json::json!({
+            "system": "S",
+            "messages": [
+                {"role": "user", "content": "u1"},
+                {"role": "assistant", "content": [{"type": "text", "text": "a1"}, {"type": "image", "source": {}}]},
+                {"role": "user", "content": [{"type": "text", "text": "u2"}]},
+            ],
+        });
+        let p = anthropic_prompt(&req);
+        assert!(p.contains("System: S"));
+        assert!(p.contains("Human: u1"));
+        assert!(p.contains("Assistant: a1"), "assistant text block flattened");
+        assert!(p.contains("Human: u2"), "user content-block array flattened");
+        assert!(p.trim_end().ends_with("Assistant:"), "ends open for the assistant to continue");
+        assert!(!p.contains("image"), "non-text blocks are skipped");
+        assert_eq!(anthropic_max_tokens(&serde_json::json!({"max_tokens": 5})), 5);
+    }
+
+    #[test]
+    fn anthropic_models_and_count_tokens_endpoints() {
+        let s = srv();
+        let m = respond(&s, "GET", "/v1/models", "");
+        assert_eq!(m.status, 200);
+        let mv = body_of(&m);
+        assert_eq!(mv["data"][0]["type"], "model");
+        assert!(mv["data"][0]["id"].is_string());
+        assert_eq!(mv["has_more"], false);
+        // count_tokens flattens the prompt and returns a positive count
+        let body = serde_json::json!({"messages": [{"role": "user", "content": "hello world"}]}).to_string();
+        let c = respond(&s, "POST", "/v1/messages/count_tokens", &body);
+        assert_eq!(c.status, 200);
+        assert!(body_of(&c)["input_tokens"].as_u64().unwrap() >= 1);
+        // wrong method → 405
+        assert_eq!(respond(&s, "POST", "/v1/models", "").status, 405);
+        assert_eq!(respond(&s, "GET", "/v1/messages/count_tokens", "").status, 405);
     }
 
     #[test]
@@ -322,9 +530,13 @@ mod tests {
 
     #[test]
     fn malformed_body_is_400() {
-        let r = respond(&srv(), "POST", "/v1/messages", "{not json");
-        assert_eq!(r.status, 400);
-        assert_eq!(body_of(&r)["kind"], "error");
+        // /v1/messages returns the Anthropic error envelope; /v1/infer the daemon's.
+        let a = respond(&srv(), "POST", "/v1/messages", "{not json");
+        assert_eq!(a.status, 400);
+        assert_eq!(body_of(&a)["type"], "error");
+        let d = respond(&srv(), "POST", "/v1/infer", "{not json");
+        assert_eq!(d.status, 400);
+        assert_eq!(body_of(&d)["kind"], "error");
     }
 
     #[test]
@@ -479,7 +691,7 @@ mod tests {
     fn metrics_is_prometheus_text_and_reflects_the_engine() {
         let s = srv();
         let body = serde_json::to_string(&demo_requests()[0]).unwrap();
-        let _ = respond(&s, "POST", "/v1/messages", &body); // one committed decision
+        let _ = respond(&s, "POST", "/v1/infer", &body); // one committed decision
 
         let r = respond(&s, "GET", "/metrics", "");
         assert_eq!(r.status, 200);
