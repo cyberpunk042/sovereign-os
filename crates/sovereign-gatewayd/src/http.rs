@@ -137,6 +137,7 @@ pub fn respond(server: &GatewayServer, method: &str, path: &str, body: &str) -> 
         ("GET", "/v1/models") => anthropic_models(server),
         ("POST", "/v1/models/load") => models_load(server, body),
         ("POST", "/v1/models/unload") => models_unload(server, body),
+        ("POST", "/v1/models/register") => models_register(server, body),
         ("POST", "/v1/messages/count_tokens") => anthropic_count_tokens(body),
 
         ("POST", "/v1/infer") | ("POST", "/mcp") | ("POST", "/v1/explain") => {
@@ -236,6 +237,7 @@ pub fn respond(server: &GatewayServer, method: &str, path: &str, body: &str) -> 
         | (_, "/v1/models")
         | (_, "/v1/models/load")
         | (_, "/v1/models/unload")
+        | (_, "/v1/models/register")
         | (_, "/v1/infer")
         | (_, "/mcp")
         | (_, "/v1/explain")
@@ -374,11 +376,17 @@ fn anthropic_models(server: &GatewayServer) -> HttpReply {
             "created_at": "2026-01-01T00:00:00Z",
         })]
     } else {
-        loaded.iter().map(|(id, primary)| serde_json::json!({
-            "type": "model", "id": id,
-            "display_name": format!("Sovereign {} ({})", id, if *primary { "primary" } else { "secondary" }),
-            "created_at": "2026-01-01T00:00:00Z",
-        })).collect()
+        loaded
+            .iter()
+            .map(|(id, kind, device, vram)| {
+                serde_json::json!({
+                    "type": "model", "id": id,
+                    "display_name": format!("Sovereign {id} ({kind})"),
+                    "device": device, "vram_gb": vram,
+                    "created_at": "2026-01-01T00:00:00Z",
+                })
+            })
+            .collect()
     };
     let first = data
         .first()
@@ -443,6 +451,214 @@ fn models_unload(server: &GatewayServer, body: &str) -> HttpReply {
     )
 }
 
+/// `POST /v1/models/register` — a `model-serve` job registers a GPU serve-process
+/// backend: `{id, endpoint, device?, vram_gb?}`. Future `{model: id}` requests are
+/// proxied to `endpoint`. Loopback-trust.
+fn models_register(server: &GatewayServer, body: &str) -> HttpReply {
+    let req: serde_json::Value = match serde_json::from_str(body) {
+        Ok(v) => v,
+        Err(e) => {
+            return anthropic_err(
+                400,
+                "invalid_request_error",
+                format!("invalid register body: {e}"),
+            );
+        }
+    };
+    let (Some(id), Some(endpoint)) = (
+        req.get("id").and_then(|v| v.as_str()),
+        req.get("endpoint").and_then(|v| v.as_str()),
+    ) else {
+        return anthropic_err(
+            400,
+            "invalid_request_error",
+            "register needs {id, endpoint}".to_string(),
+        );
+    };
+    let device = req.get("device").and_then(|v| v.as_str()).unwrap_or("gpu");
+    let vram = req
+        .get("vram_gb")
+        .and_then(serde_json::Value::as_f64)
+        .unwrap_or(0.0);
+    let dialect = req
+        .get("dialect")
+        .and_then(|v| v.as_str())
+        .unwrap_or("openai");
+    match server.register_proxy(id, endpoint, device, vram, dialect) {
+        Ok(()) => json_reply(
+            200,
+            &serde_json::json!({"registered": id, "endpoint": endpoint, "dialect": dialect}),
+        ),
+        Err(e) => anthropic_err(422, "api_error", format!("register failed: {e}")),
+    }
+}
+
+/// A minimal blocking HTTP POST to an upstream (`host:port`) — forwards a request
+/// to a GPU serve-process backend and returns `(status, body)`. Non-streaming; the
+/// streaming forward is a follow-up (increment 2b).
+fn proxy_forward(endpoint: &str, path: &str, body: &str) -> Result<(u16, String), String> {
+    use std::io::{Read, Write};
+    let mut stream =
+        std::net::TcpStream::connect(endpoint).map_err(|e| format!("connect {endpoint}: {e}"))?;
+    let _ = stream.set_read_timeout(Some(std::time::Duration::from_secs(120)));
+    let request = format!(
+        "POST {path} HTTP/1.1\r\nHost: {endpoint}\r\nContent-Type: application/json\r\n\
+         Content-Length: {}\r\nConnection: close\r\n\r\n{body}",
+        body.len()
+    );
+    stream
+        .write_all(request.as_bytes())
+        .map_err(|e| e.to_string())?;
+    let mut resp = String::new();
+    stream
+        .read_to_string(&mut resp)
+        .map_err(|e| e.to_string())?;
+    let status = resp
+        .lines()
+        .next()
+        .and_then(|l| l.split_whitespace().nth(1))
+        .and_then(|s| s.parse::<u16>().ok())
+        .unwrap_or(502);
+    let reply_body = resp
+        .split_once("\r\n\r\n")
+        .map(|(_, b)| b)
+        .unwrap_or("")
+        .to_string();
+    Ok((status, reply_body))
+}
+
+/// Forward an Anthropic `/v1/messages` request to a proxy backend, translating for
+/// its dialect. An `anthropic` backend is forwarded verbatim; an `openai` backend
+/// (llama-server / vLLM) has the request translated to `/v1/chat/completions` and
+/// its reply translated back to the Anthropic message shape.
+fn proxy_message(
+    endpoint: &str,
+    dialect: &str,
+    model: &str,
+    req: &serde_json::Value,
+    body: &str,
+) -> HttpReply {
+    if dialect == "anthropic" {
+        return match proxy_forward(endpoint, "/v1/messages", body) {
+            Ok((status, resp)) => HttpReply {
+                status,
+                content_type: "application/json",
+                body: resp,
+            },
+            Err(e) => anthropic_err(502, "api_error", format!("proxy to {endpoint} failed: {e}")),
+        };
+    }
+    let oai_req = anthropic_to_openai_chat(req);
+    match proxy_forward(endpoint, "/v1/chat/completions", &oai_req.to_string()) {
+        Ok((200, resp)) => match serde_json::from_str::<serde_json::Value>(&resp) {
+            Ok(oai) => json_reply(200, &openai_to_anthropic_message(&oai, model)),
+            Err(e) => anthropic_err(
+                502,
+                "api_error",
+                format!("proxy {endpoint} sent non-JSON: {e}"),
+            ),
+        },
+        Ok((status, resp)) => HttpReply {
+            status,
+            content_type: "application/json",
+            body: resp,
+        },
+        Err(e) => anthropic_err(502, "api_error", format!("proxy to {endpoint} failed: {e}")),
+    }
+}
+
+/// Flatten an Anthropic message `content` (a string or an array of text blocks) to a
+/// plain OpenAI string.
+fn flatten_content(content: Option<&serde_json::Value>) -> String {
+    match content {
+        Some(serde_json::Value::String(s)) => s.clone(),
+        Some(serde_json::Value::Array(blocks)) => blocks
+            .iter()
+            .filter_map(|b| b.get("text").and_then(|t| t.as_str()))
+            .collect::<Vec<_>>()
+            .join(""),
+        _ => String::new(),
+    }
+}
+
+/// Translate an Anthropic `/v1/messages` request into an OpenAI
+/// `/v1/chat/completions` request (system + messages, max_tokens, temperature).
+fn anthropic_to_openai_chat(req: &serde_json::Value) -> serde_json::Value {
+    let mut messages = Vec::new();
+    match req.get("system") {
+        Some(serde_json::Value::String(s)) if !s.is_empty() => {
+            messages.push(serde_json::json!({"role": "system", "content": s}));
+        }
+        Some(serde_json::Value::Array(blocks)) => {
+            let sys = blocks
+                .iter()
+                .filter_map(|b| b.get("text").and_then(|t| t.as_str()))
+                .collect::<Vec<_>>()
+                .join("\n");
+            if !sys.is_empty() {
+                messages.push(serde_json::json!({"role": "system", "content": sys}));
+            }
+        }
+        _ => {}
+    }
+    for m in req
+        .get("messages")
+        .and_then(|v| v.as_array())
+        .into_iter()
+        .flatten()
+    {
+        let role = m.get("role").and_then(|r| r.as_str()).unwrap_or("user");
+        messages
+            .push(serde_json::json!({"role": role, "content": flatten_content(m.get("content"))}));
+    }
+    let mut out = serde_json::json!({
+        "model": req.get("model").cloned().unwrap_or(serde_json::Value::String("local".into())),
+        "messages": messages,
+        "max_tokens": anthropic_max_tokens(req),
+        "stream": false,
+    });
+    if let Some(t) = req.get("temperature") {
+        out["temperature"] = t.clone();
+    }
+    out
+}
+
+/// Translate an OpenAI `/v1/chat/completions` response into the Anthropic message
+/// shape the local client expects.
+fn openai_to_anthropic_message(oai: &serde_json::Value, model: &str) -> serde_json::Value {
+    let text = oai
+        .pointer("/choices/0/message/content")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    let finish = oai
+        .pointer("/choices/0/finish_reason")
+        .and_then(|v| v.as_str())
+        .unwrap_or("end_turn");
+    let stop_reason = match finish {
+        "length" => "max_tokens",
+        "stop" => "end_turn",
+        other => other,
+    };
+    let input = oai
+        .pointer("/usage/prompt_tokens")
+        .and_then(serde_json::Value::as_u64)
+        .unwrap_or(0);
+    let output = oai
+        .pointer("/usage/completion_tokens")
+        .and_then(serde_json::Value::as_u64)
+        .unwrap_or(0);
+    serde_json::json!({
+        "id": "msg_sovereign_proxy",
+        "type": "message",
+        "role": "assistant",
+        "model": model,
+        "content": [{"type": "text", "text": text}],
+        "stop_reason": stop_reason,
+        "stop_sequence": serde_json::Value::Null,
+        "usage": {"input_tokens": input, "output_tokens": output},
+    })
+}
+
 /// `POST /v1/messages/count_tokens` — the Anthropic token-count shape. Best-effort
 /// (~4 chars/token) over the flattened prompt.
 fn anthropic_count_tokens(body: &str) -> HttpReply {
@@ -480,6 +696,14 @@ fn anthropic_message(server: &GatewayServer, body: &str) -> HttpReply {
         .and_then(|m| m.as_str())
         .unwrap_or("sovereign-local")
         .to_string();
+    // GPU serve-process backend (Phase 2 inc.2): a proxy-backed model forwards to the
+    // upstream llama-server / vLLM instead of generating locally. An `openai` backend
+    // (the llama-server/vLLM default) has the request translated to
+    // `/v1/chat/completions` and its reply translated back to the Anthropic shape; an
+    // `anthropic` backend (another sovereign-gatewayd) is forwarded verbatim.
+    if let Some((endpoint, dialect)) = server.resolve_proxy(&model) {
+        return proxy_message(&endpoint, &dialect, &model, &req, body);
+    }
     if !server.has_generator() {
         return anthropic_err(
             503,
@@ -638,6 +862,124 @@ mod tests {
         assert_eq!(body_of(&u)["unloaded"], false);
         // wrong method on the model routes → 405
         assert_eq!(respond(&s, "GET", "/v1/models/load", "").status, 405);
+    }
+
+    #[test]
+    fn proxy_backend_forwards_to_upstream() {
+        use std::io::{Read, Write};
+        // a mock GPU serve-process that returns a fixed Anthropic message
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let handle = std::thread::spawn(move || {
+            if let Ok((mut sock, _)) = listener.accept() {
+                let mut buf = [0u8; 2048];
+                let _ = sock.read(&mut buf);
+                let payload = r#"{"type":"message","role":"assistant","model":"upstream","content":[{"type":"text","text":"from the GPU backend"}],"stop_reason":"end_turn"}"#;
+                let resp = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{payload}",
+                    payload.len()
+                );
+                let _ = sock.write_all(resp.as_bytes());
+            }
+        });
+        let s = srv();
+        // register the mock as an anthropic-dialect proxy on the oracle device
+        s.register_proxy("big", &addr.to_string(), "oracle", 40.0, "anthropic")
+            .unwrap();
+        // a request for model "big" is PROXIED to the upstream + its response returned
+        let body = serde_json::json!({
+            "model": "big", "max_tokens": 8,
+            "messages": [{"role": "user", "content": "hi"}],
+        })
+        .to_string();
+        let r = respond(&s, "POST", "/v1/messages", &body);
+        handle.join().unwrap();
+        assert_eq!(r.status, 200);
+        let v = body_of(&r);
+        assert_eq!(v["type"], "message");
+        assert_eq!(
+            v["content"][0]["text"], "from the GPU backend",
+            "the gateway forwarded to the backend"
+        );
+        // and it lists as a proxy on its placed device
+        let models = body_of(&respond(&s, "GET", "/v1/models", ""));
+        let big = models["data"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|m| m["id"] == "big")
+            .unwrap();
+        assert_eq!(big["device"], "oracle");
+        // register needs {id, endpoint}; unload removes the proxy
+        assert_eq!(respond(&s, "POST", "/v1/models/register", "{}").status, 400);
+        assert_eq!(
+            body_of(&respond(
+                &s,
+                "POST",
+                "/v1/models/unload",
+                &serde_json::json!({"id":"big"}).to_string()
+            ))["unloaded"],
+            true
+        );
+    }
+
+    #[test]
+    fn proxy_backend_translates_openai_dialect() {
+        use std::io::{Read, Write};
+        // a mock llama-server / vLLM upstream: OpenAI /v1/chat/completions shape
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let handle = std::thread::spawn(move || {
+            if let Ok((mut sock, _)) = listener.accept() {
+                let mut buf = [0u8; 4096];
+                let _ = sock.read(&mut buf);
+                let seen = String::from_utf8_lossy(&buf).to_string();
+                let payload = r#"{"choices":[{"message":{"role":"assistant","content":"translated OpenAI reply"},"finish_reason":"stop"}],"usage":{"prompt_tokens":7,"completion_tokens":3}}"#;
+                let resp = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{payload}",
+                    payload.len()
+                );
+                let _ = sock.write_all(resp.as_bytes());
+                seen
+            } else {
+                String::new()
+            }
+        });
+        let s = srv();
+        // register through the HTTP surface with dialect "openai" (the default too)
+        let reg = serde_json::json!({"id":"gpu-llama","endpoint":addr.to_string(),"device":"logic","vram_gb":18.0,"dialect":"openai"}).to_string();
+        assert_eq!(
+            body_of(&respond(&s, "POST", "/v1/models/register", &reg))["dialect"],
+            "openai"
+        );
+        // an Anthropic request (with a system prompt) → translated → OpenAI upstream → Anthropic reply
+        let body = serde_json::json!({
+            "model": "gpu-llama", "max_tokens": 16, "system": "be terse",
+            "messages": [{"role": "user", "content": [{"type":"text","text":"hi there"}]}],
+        })
+        .to_string();
+        let r = respond(&s, "POST", "/v1/messages", &body);
+        let seen = handle.join().unwrap();
+        assert_eq!(r.status, 200);
+        // the upstream saw an OpenAI chat request (translated), not the Anthropic body
+        assert!(
+            seen.contains("/v1/chat/completions"),
+            "request must be translated to the OpenAI path"
+        );
+        assert!(
+            seen.contains("\"role\":\"system\"") && seen.contains("be terse"),
+            "system prompt must carry over"
+        );
+        // the reply is translated back to the Anthropic message shape
+        let v = body_of(&r);
+        assert_eq!(v["type"], "message");
+        assert_eq!(v["content"][0]["text"], "translated OpenAI reply");
+        assert_eq!(
+            v["stop_reason"], "end_turn",
+            "openai finish_reason stop → anthropic end_turn"
+        );
+        assert_eq!(v["usage"]["input_tokens"], 7);
+        assert_eq!(v["usage"]["output_tokens"], 3);
     }
 
     #[test]

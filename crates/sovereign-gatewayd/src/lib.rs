@@ -545,6 +545,11 @@ pub struct GatewayServer {
     /// whose `model` names one routes to it; otherwise the primary. GPU models
     /// are proxied serve-processes (Phase 2 increment 2), not held here.
     secondaries: RwLock<BTreeMap<String, Arc<Mutex<Generator>>>>,
+    /// GPU serve-process backends (Phase 2 increment 2): a model id → an upstream
+    /// `host:port` a `model-serve` job placed on a GPU (llama-server / vLLM). A
+    /// request whose `model` names one is PROXIED to that backend, not generated
+    /// locally. Behind an RwLock so register/unregister never blocks a request.
+    proxies: RwLock<BTreeMap<String, ProxyBackend>>,
     /// The id under which the primary is listed by `/v1/models`.
     primary_id: String,
     /// The safety spine: input prompt screening + output secret/PII redaction
@@ -563,6 +568,22 @@ pub struct GatewayServer {
 struct Generator {
     model: sovereign_quant_model::QuantModel,
     tokenizer: sovereign_hf_tokenizer::HfBpeTokenizer,
+}
+
+/// A GPU serve-process backend the gateway proxies to (Phase 2 increment 2): a
+/// `model-serve` job placed a llama-server / vLLM on a GPU + registered it here.
+#[derive(Clone, Debug)]
+struct ProxyBackend {
+    /// Upstream `host:port` speaking an OpenAI- or Anthropic-compatible API.
+    endpoint: String,
+    /// The compute-plane device it was placed on (observability).
+    device: String,
+    /// VRAM it claimed on that device.
+    vram_gb: f64,
+    /// The upstream's API dialect: `"openai"` (llama-server / vLLM — the request is
+    /// translated to `/v1/chat/completions` and the reply back to the Anthropic
+    /// shape) or `"anthropic"` (another sovereign-gatewayd — forwarded verbatim).
+    dialect: String,
 }
 
 /// Runtime policy for the gateway **safety spine** — the input-screening +
@@ -970,6 +991,7 @@ impl GatewayServer {
             force_local,
             generator: generator.map(|g| Arc::new(Mutex::new(g))),
             secondaries: RwLock::new(BTreeMap::new()),
+            proxies: RwLock::new(BTreeMap::new()),
             primary_id: std::env::var("SOVEREIGN_GATEWAY_MODEL_ID")
                 .unwrap_or_else(|_| "primary".to_string()),
             guard,
@@ -1016,22 +1038,84 @@ impl GatewayServer {
         Ok(())
     }
 
-    /// Unload a secondary model. Returns whether it was present.
-    pub fn unload_model(&self, id: &str) -> bool {
-        self.secondaries
+    /// Register a GPU serve-process backend (Phase 2 increment 2): future requests
+    /// for `id` are PROXIED to `endpoint` speaking `dialect` (`"openai"` /
+    /// `"anthropic"`). Errors if `id` collides with the primary.
+    pub fn register_proxy(
+        &self,
+        id: &str,
+        endpoint: &str,
+        device: &str,
+        vram_gb: f64,
+        dialect: &str,
+    ) -> Result<(), String> {
+        if id == self.primary_id {
+            return Err(format!("'{id}' is the primary model id"));
+        }
+        let dialect = match dialect {
+            "anthropic" => "anthropic",
+            _ => "openai",
+        };
+        let mut map = self
+            .proxies
             .write()
-            .map(|mut m| m.remove(id).is_some())
-            .unwrap_or(false)
+            .map_err(|_| "registry poisoned".to_string())?;
+        map.insert(
+            id.to_string(),
+            ProxyBackend {
+                endpoint: endpoint.to_string(),
+                device: device.to_string(),
+                vram_gb,
+                dialect: dialect.to_string(),
+            },
+        );
+        Ok(())
     }
 
-    /// The loaded models as `(id, is_primary)` — the primary + every secondary.
-    pub fn list_models(&self) -> Vec<(String, bool)> {
+    /// The upstream `(endpoint, dialect)` for `model` if it is a proxy backend — the
+    /// signal to the HTTP handlers to forward instead of generating locally.
+    pub fn resolve_proxy(&self, model: &str) -> Option<(String, String)> {
+        self.proxies.read().ok().and_then(|m| {
+            m.get(model)
+                .map(|p| (p.endpoint.clone(), p.dialect.clone()))
+        })
+    }
+
+    /// Unload a secondary model OR unregister a proxy backend. Returns whether one
+    /// was present.
+    pub fn unload_model(&self, id: &str) -> bool {
+        let local = self
+            .secondaries
+            .write()
+            .map(|mut m| m.remove(id).is_some())
+            .unwrap_or(false);
+        let proxy = self
+            .proxies
+            .write()
+            .map(|mut m| m.remove(id).is_some())
+            .unwrap_or(false);
+        local || proxy
+    }
+
+    /// The loaded models as `(id, kind, device, vram_gb)` — the primary + CPU
+    /// secondaries + GPU proxy backends. `kind` is `primary`/`secondary`/`proxy`;
+    /// CPU residents report `device="cpu"`, GPU proxies their placed device + VRAM.
+    pub fn list_models(&self) -> Vec<(String, &'static str, String, f64)> {
         let mut out = Vec::new();
         if self.generator.is_some() {
-            out.push((self.primary_id.clone(), true));
+            out.push((self.primary_id.clone(), "primary", "cpu".to_string(), 0.0));
         }
         if let Ok(map) = self.secondaries.read() {
-            out.extend(map.keys().map(|id| (id.clone(), false)));
+            out.extend(
+                map.keys()
+                    .map(|id| (id.clone(), "secondary", "cpu".to_string(), 0.0)),
+            );
+        }
+        if let Ok(map) = self.proxies.read() {
+            out.extend(
+                map.iter()
+                    .map(|(id, p)| (id.clone(), "proxy", p.device.clone(), p.vram_gb)),
+            );
         }
         out
     }

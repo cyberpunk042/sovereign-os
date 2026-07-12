@@ -69,6 +69,25 @@ def test_multi_model_registry_and_load_unload():
     assert '("POST", "/v1/models/unload") => models_unload' in http, "POST /v1/models/unload must exist"
 
 
+def test_gpu_proxy_backend_and_dialect_translation():
+    lib = _read(REPO / "crates" / "sovereign-gatewayd" / "src" / "lib.rs")
+    http = _read(HTTP)
+    main = _read(MAIN)
+    # the gateway holds GPU serve-process PROXY backends, each with an API dialect
+    for tok in ("struct ProxyBackend", "fn register_proxy", "fn resolve_proxy", "dialect"):
+        assert tok in lib, f"the proxy backend registry is missing: {tok!r}"
+    # a model-serve job registers its backend through this endpoint
+    assert '("POST", "/v1/models/register") => models_register' in http, \
+        "POST /v1/models/register must wire in a serve-process backend"
+    # an openai-dialect backend (llama-server/vLLM) is translated to the OpenAI
+    # chat path and its reply mapped back to the Anthropic message shape
+    for fn in ("fn proxy_message", "fn anthropic_to_openai_chat", "fn openai_to_anthropic_message"):
+        assert fn in http, f"the dialect translation is missing: {fn!r}"
+    assert "/v1/chat/completions" in http, "openai backends are reached on /v1/chat/completions"
+    # streaming to a proxy is honestly gated (never silently served by the primary)
+    assert "resolve_proxy" in main, "the streaming path must recognise proxy models"
+
+
 def test_companion_endpoints_and_decision_moved():
     http = _read(HTTP)
     assert '("GET", "/v1/models") => anthropic_models' in http, "GET /v1/models must exist"

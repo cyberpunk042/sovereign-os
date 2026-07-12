@@ -27,7 +27,7 @@ REGISTRY = JOBS_DIR / "registry.json"
 
 # The v1 job kinds. `vm-job` entries are mirrored from the passthrough VM bridge
 # and are not executed by the host worker.
-KINDS = ("deliberation", "eval", "model-load", "gpu-job", "vm-job", "demo")
+KINDS = ("deliberation", "eval", "model-load", "gpu-job", "vm-job", "demo", "model-serve")
 # Lifecycle states.
 STATES = ("queued", "running", "done", "failed", "cancelled")
 # Terminal states (the worker never resumes these).

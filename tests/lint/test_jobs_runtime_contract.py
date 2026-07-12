@@ -114,6 +114,82 @@ def test_deliberation_fails_gracefully_without_a_gateway(tmp_path):
     assert cur["state"] == "failed" and "unreachable" in cur["error"].lower()
 
 
+def test_model_serve_launches_registers_and_unregisters(tmp_path):
+    """A model-serve job PLACES VRAM, launches the serve process, registers a gateway
+    proxy once its endpoint is up, and on cancel terminates it + unregisters."""
+    import json as _json
+    import socket as _socket
+    import threading as _threading
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    api = _api_mod(tmp_path / "serve")
+    cp = api._plane
+    # a plane with one GPU that has room for the model
+    api.PLANE = cp.ComputePlane(probe=lambda: [
+        {"key": "gpu0", "role": cp.ROLE_LOGIC, "name": "RTX 4090", "total_gb": 24.0, "live_free_gb": 20.0},
+    ])
+    # a mock gateway capturing register / unload POSTs
+    seen: list[tuple[str, dict]] = []
+
+    class _H(BaseHTTPRequestHandler):
+        def log_message(self, *a):  # silence
+            pass
+
+        def do_POST(self):
+            n = int(self.headers.get("Content-Length", 0))
+            body = _json.loads(self.rfile.read(n) or b"{}")
+            seen.append((self.path, body))
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(b'{"ok":true}')
+
+    gw = ThreadingHTTPServer(("127.0.0.1", 0), _H)
+    _threading.Thread(target=gw.serve_forever, daemon=True).start()
+    api.GATEWAY_ADDR = f"127.0.0.1:{gw.server_address[1]}"
+
+    # a free port for the mock serve process to bind
+    probe = _socket.socket()
+    probe.bind(("127.0.0.1", 0))
+    serve_port = probe.getsockname()[1]
+    probe.close()
+    endpoint = f"127.0.0.1:{serve_port}"
+    serve_src = (
+        "import socket,time;"
+        "s=socket.socket();s.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1);"
+        f"s.bind(('127.0.0.1',{serve_port}));s.listen(8);time.sleep(600)"
+    )
+    try:
+        job = api.submit("model-serve", "gpu-llama", device="logic", meta={
+            "command": [sys.executable, "-c", serve_src],
+            "endpoint": endpoint, "model_id": "gpu-llama", "dialect": "openai",
+            "vram_gb": 12, "ready_timeout": 15,
+        })
+        # wait until it registers the proxy (serving)
+        for _ in range(1000):
+            if any(p == "/v1/models/register" for p, _ in seen):
+                break
+            time.sleep(0.02)
+        reg = next((b for p, b in seen if p == "/v1/models/register"), None)
+        assert reg is not None, "model-serve must register a gateway proxy once its endpoint is up"
+        assert reg["id"] == "gpu-llama" and reg["endpoint"] == endpoint
+        assert reg["dialect"] == "openai" and reg["vram_gb"] == 12
+        assert reg["device"] == "gpu0", "it must register the ACTUAL plane-placed device"
+        assert api.STORE.get(job["id"])["state"] == "running", "a serving job stays running until stopped"
+        # cancel → terminate serve process, unregister proxy, release VRAM
+        api.cancel(job["id"])
+        for _ in range(1000):
+            if api.STORE.get(job["id"])["state"] in api._js.TERMINAL:
+                break
+            time.sleep(0.02)
+        assert api.STORE.get(job["id"])["state"] == "cancelled"
+        assert any(p == "/v1/models/unload" for p, _ in seen), "on stop it must unregister the proxy"
+        # the VRAM claim was released — the device is free again
+        assert api.PLANE.place(20, cp.ROLE_LOGIC) == "gpu0", "cancel must release the plane VRAM claim"
+    finally:
+        gw.shutdown()
+
+
 def test_osctl_jobs_verb_and_cli_exist():
     osctl = (REPO / "scripts" / "sovereign-osctl").read_text(encoding="utf-8")
     assert "jobs)" in osctl and "jobs_cli.py" in osctl, "osctl jobs verb missing"

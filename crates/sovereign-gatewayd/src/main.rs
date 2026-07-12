@@ -575,6 +575,27 @@ fn stream_anthropic_messages(
             );
         }
     };
+    let model = req
+        .get("model")
+        .and_then(|m| m.as_str())
+        .unwrap_or("sovereign-local")
+        .to_string();
+    // A GPU proxy backend is reached via the non-streaming path (increment 2);
+    // streaming forward is increment 2b. Error honestly rather than silently
+    // substituting the primary's stream for the requested proxy model.
+    if server.resolve_proxy(&model).is_some() {
+        return write_http(
+            writer,
+            &http::anthropic_err(
+                400,
+                "invalid_request_error",
+                format!(
+                    "model '{model}' is a GPU proxy backend; streaming to proxy backends \
+                     is not yet supported — retry with stream:false"
+                ),
+            ),
+        );
+    }
     if !server.has_generator() {
         return write_http(
             writer,
@@ -587,11 +608,6 @@ fn stream_anthropic_messages(
             ),
         );
     }
-    let model = req
-        .get("model")
-        .and_then(|m| m.as_str())
-        .unwrap_or("sovereign-local")
-        .to_string();
     let prompt = http::anthropic_prompt(&req);
     let max_new = http::anthropic_max_tokens(&req);
     let input_tokens = http::approx_tokens(&prompt);

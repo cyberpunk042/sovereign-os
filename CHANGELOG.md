@@ -62,11 +62,34 @@ blocker to running a real model, and it made SDD-205's Anthropic endpoint return
 - Verified: mha-block 28 tests (8 new, incl. "a distinct base yields distinct decode output"), loader 13 (6 new);
   clippy `-D warnings` clean; downstream quant-llm/gatewayd/decoder-layer/inference-demo build unchanged. Sampling
   params + chat template + quantized loading are the tracked next arcs. MS003 `unsigned-pending-MS003`.
+### Added — Compute Plane Phase 2, increment 2: a GPU serve-process backend the gateway proxies to (2026-07-12)
+
+The second backend kind (option c): a real large model runs on the RTX PRO 6000 / VFIO-passed 4090 while the
+CPU primary keeps serving interactive chat. SDD-902.
+
+- **Gateway proxy registry.** `ProxyBackend { endpoint, device, vram_gb, dialect }`; `register_proxy` /
+  `resolve_proxy`; `unload_model` removes proxies too; `GET /v1/models` now reports each resident's `device` +
+  `vram_gb`. NEW `POST /v1/models/register {id, endpoint, device?, vram_gb?, dialect?}` (loopback-trust).
+- **Dialect translation.** llama-server / vLLM speak OpenAI `/v1/chat/completions`, not Anthropic — so an
+  `openai`-dialect backend has the Anthropic `/v1/messages` request translated (`anthropic_to_openai_chat`) and
+  the reply mapped back (`openai_to_anthropic_message`: content, stop_reason, usage); an `anthropic`-dialect
+  backend (another sovereign-gatewayd) is forwarded verbatim. Two http tests (mock Anthropic + mock OpenAI
+  upstreams) prove both paths. Streaming to a proxy is honestly gated (retry non-streaming), never silently
+  served by the primary.
+- **`model-serve` job kind** (jobs-api). A VRAM-needing job: the compute plane PLACES + CLAIMS the device, the
+  runner launches the serve-process argv (`meta.command`, no shell), waits for `meta.endpoint` to accept
+  connections (bounded, degrade-safe), registers the gateway proxy on the ACTUAL placed device, stays running
+  until cancelled; on ANY exit it terminates the process + unregisters the proxy, and run_job's `finally`
+  releases the plane claim — no leaked VRAM or stale proxy.
+- Verified LIVE (mock gateway + mock serve process): place → launch → register on `gpu0` → cancel → unregister →
+  the plane frees the claim. 60 gateway lib+http tests (2 new proxy tests) + 13 jobs-runtime tests (1 new
+  model-serve integration test); clippy `-D warnings` clean.
+
 ### Added — Compute Plane Phase 2, increment 1: the gateway hosts a secondary model (2026-07-12)
 
 Operator-directed (the Background Tasks "massive" pass, option c). The gateway's own generator is CPU, so
 "a secondary model" is two backend kinds under one registry (in-gateway CPU + GPU serve-process proxy) over
-the shared plane. Increment 1 ships the in-gateway CPU multi-model registry. SDD-900 (this session's 900 band).
+the shared plane. Increment 1 ships the in-gateway CPU multi-model registry. SDD-902 (the shared general 900 band; renumbered from 900 to avoid a collision with a parallel general-session's SDD-900/901).
 
 - The gateway's single `generator` becomes a **registry**: a primary + an `RwLock` map of secondaries. A
   generation clones the resident `Arc` and releases the registry, so different models run concurrently, the

@@ -35,8 +35,10 @@ from __future__ import annotations
 
 import json
 import os
+import socket
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import urllib.error
@@ -154,12 +156,126 @@ def _run_command(job: dict, cancel: threading.Event) -> tuple[bool, str]:
     return False, tail or f"exited {proc.returncode}"
 
 
+def _gateway_post(path: str, obj: dict) -> tuple[bool, str]:
+    """POST JSON to the local gateway (loopback). Returns (ok, message)."""
+    body = json.dumps(obj).encode("utf-8")
+    req = urllib.request.Request(f"http://{GATEWAY_ADDR}{path}", data=body,
+                                 headers={"Content-Type": "application/json"}, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=15) as r:  # noqa: S310 (loopback)
+            return True, r.read().decode("utf-8", "replace")
+    except urllib.error.HTTPError as e:
+        return False, f"HTTP {e.code}: {e.read().decode('utf-8', 'replace')[:200]}"
+    except (urllib.error.URLError, OSError, ValueError) as e:
+        return False, f"gateway unreachable at {GATEWAY_ADDR}: {e}"
+
+
+def _wait_endpoint(endpoint: str, proc: subprocess.Popen, cancel: threading.Event, timeout: float) -> bool:
+    """Poll a `host:port` until it accepts a TCP connection, the serve process dies,
+    the deadline passes, or cancellation. True iff the endpoint came up."""
+    host, _, port = endpoint.partition(":")
+    try:
+        port_n = int(port)
+    except ValueError:
+        return False
+    deadline = time.monotonic() + max(1.0, float(timeout))
+    while time.monotonic() < deadline:
+        if cancel.is_set() or proc.poll() is not None:
+            return False
+        try:
+            with socket.create_connection((host or "127.0.0.1", port_n), timeout=1):
+                return True
+        except OSError:
+            time.sleep(0.5)
+    return False
+
+
+def _terminate(proc: subprocess.Popen) -> None:
+    """Stop a serve process: SIGTERM, then SIGKILL if it lingers."""
+    if proc.poll() is not None:
+        return
+    proc.terminate()
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+
+
+def _tail_file(path: str, n: int = 12) -> str:
+    try:
+        with open(path, encoding="utf-8", errors="replace") as f:
+            return "\n".join(f.read().strip().splitlines()[-n:])
+    except OSError:
+        return ""
+
+
+def _run_model_serve(job: dict, cancel: threading.Event) -> tuple[bool, str]:
+    """Launch a GPU serve-process (llama-server / vLLM) on the plane-placed device,
+    register it as a gateway PROXY backend, and keep it alive until cancelled. On any
+    exit it terminates the process + unregisters the proxy; run_job's finally releases
+    the plane VRAM claim. `meta`: command[] (argv, no shell), endpoint 'host:port',
+    model_id, dialect (openai|anthropic), ready_timeout."""
+    job = STORE.get(job["id"]) or job  # pick up the plane-placed device key
+    meta = job.get("meta") or {}
+    cmd = meta.get("command")
+    if not isinstance(cmd, list) or not cmd:
+        return False, "model-serve needs meta.command (the serve-process argv, no shell)"
+    endpoint = str(meta.get("endpoint") or "")
+    if ":" not in endpoint:
+        return False, "model-serve needs meta.endpoint ('host:port' the serve-process listens on)"
+    model_id = str(meta.get("model_id") or job["title"])
+    dialect = "anthropic" if str(meta.get("dialect", "")).lower() == "anthropic" else "openai"
+    device = str(job.get("device") or "gpu")
+    vram = float(meta.get("vram_gb", 0) or 0)
+    ready_timeout = float(meta.get("ready_timeout", 120) or 120)
+
+    log = tempfile.NamedTemporaryFile(mode="w+", prefix="model-serve-", suffix=".log", delete=False)
+    log.close()
+    try:
+        with open(log.name, "w", encoding="utf-8") as out:
+            proc = subprocess.Popen(cmd, stdout=out, stderr=subprocess.STDOUT, text=True, cwd=str(REPO))
+    except (OSError, ValueError) as e:
+        os.unlink(log.name)
+        return False, f"failed to launch serve process: {e}"
+    STORE.update(job["id"], pid=proc.pid, progress=15,
+                 output=f"launching {model_id} on {device}…")
+    try:
+        if not _wait_endpoint(endpoint, proc, cancel, ready_timeout):
+            if cancel.is_set():
+                return False, "cancelled before ready"
+            return False, _tail_file(log.name) or f"serve process never opened {endpoint} (timeout {ready_timeout:g}s)"
+        ok, why = _gateway_post("/v1/models/register",
+                                {"id": model_id, "endpoint": endpoint, "device": device,
+                                 "vram_gb": vram, "dialect": dialect})
+        if not ok:
+            return False, f"gateway register failed: {why}"
+        STORE.update(job["id"], progress=100,
+                     output=f"serving {model_id} at {endpoint} ({device}, {dialect}) — cancel to stop")
+        while proc.poll() is None:
+            if cancel.is_set():
+                return False, "cancelled"
+            time.sleep(0.5)
+        # the serve process exited on its own
+        tail = _tail_file(log.name)
+        if proc.returncode == 0:
+            return True, tail or "serve process exited cleanly"
+        return False, tail or f"serve process exited {proc.returncode}"
+    finally:
+        _terminate(proc)
+        _gateway_post("/v1/models/unload", {"id": model_id})  # idempotent best-effort
+        try:
+            os.unlink(log.name)
+        except OSError:
+            pass
+
+
 _RUNNERS = {
     "demo": _run_demo,
     "deliberation": _run_deliberation,
     "eval": _run_command,
     "model-load": _run_command,
     "gpu-job": _run_command,
+    "model-serve": _run_model_serve,
 }
 
 
