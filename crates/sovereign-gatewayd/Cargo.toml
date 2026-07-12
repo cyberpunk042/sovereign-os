@@ -33,3 +33,11 @@ sovereign-quant-model = { path = "../sovereign-quant-model" }
 sovereign-hf-tokenizer = { path = "../sovereign-hf-tokenizer" }
 sovereign-logit-mask = { path = "../sovereign-logit-mask" }
 sovereign-stream-decode = { path = "../sovereign-stream-decode" }
+# Safety spine: the gateway is the ecosystem's declared privacy + redaction
+# chokepoint (see sovereign-gateway GatewayResponsibility). These crates make
+# that real on the running daemon — input prompts are screened for injection,
+# and generated output is redacted for secrets + PII before it leaves the box.
+sovereign-injection-detect = { path = "../sovereign-injection-detect" }
+sovereign-secret-scan = { path = "../sovereign-secret-scan" }
+sovereign-pii-redact = { path = "../sovereign-pii-redact" }
+sovereign-toxicity = { path = "../sovereign-toxicity" }

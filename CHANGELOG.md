@@ -12,6 +12,28 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — the gateway safety spine: input screening + output redaction, made real on the daemon (2026-07-12)
+
+First chunk of the Phase-1 audit's Arc 2 (SDD-206; closes ledger F-2026-081 + F-2026-082). The running
+`sovereign-gatewayd` now enforces the Privacy + Redaction responsibilities the M048 gateway declares — previously
+those crates were built and tested but wired only into the non-daemon `sovereign-serve`, so the daemon did none of it.
+
+- **Safety spine wired into `generate_chat`** (the single chokepoint behind all four generation surfaces — OpenAI
+  + Anthropic, stream + non-stream): input prompts screened for injection (`sovereign-injection-detect`); generated
+  output redacted for secrets (`sovereign-secret-scan`) + PII (`sovereign-pii-redact`) and scored for toxicity
+  (`sovereign-toxicity`, flag-only, never censors). `GuardConfig` is env-resolved, secure-by-default; injection
+  *blocking* is opt-in (fail-open) so a false positive never silently swallows a prompt.
+- **`StreamGuard`** — a cross-decode-chunk-safe streaming redactor: holds back a 256-byte window and releases only
+  to the last ASCII-whitespace boundary, so a secret split across two generated chunks is caught before any byte
+  leaves the box. Bounded memory; guard-disabled ⇒ exact legacy passthrough.
+- **Transport hardening**: bearer auth (`SOVEREIGN_GATEWAY_TOKEN`, constant-time compare, `401` else — the minimum
+  gate for a non-loopback bind); per-connection read/write deadline (`SOVEREIGN_GATEWAY_TIMEOUT_SECS`, default 30s,
+  bounds slow-loris); honest over-capacity back-pressure (HTTP `503` + `Retry-After` / NDJSON error line instead of
+  a silent drop).
+- **Observability**: `/metrics` gains `sovereign_gateway_guard_{injections,redactions,enabled}`.
+- Verified: `cargo test -p sovereign-gatewayd` (lib 51 incl. 11 new spine tests, main 4, transports 14), clippy
+  `-D warnings` clean, fmt clean. TLS deferred (SDD-206 non-goal). MS003 `unsigned-pending-MS003`.
+
 ### Added — user documentation: "Use the box as your AI backend" + "Reasoning & operability" (2026-07-12)
 
 Operator-directed ("we need to do the documentation too"). The session's features had design docs (SDDs) but
