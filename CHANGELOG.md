@@ -12,6 +12,30 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Changed — the Code Console, brought to a high standard: the Plan pane goes live and unifies questions / plans / tasks / reasoning (2026-07-12)
+
+Operator-directed ("make sure the console is fully developed and proper relative to everything — questions /
+plans / background tasks — aim for high standards"). The console had the pieces but they didn't cohere: the
+Plan pane was a static placeholder while Plan Mode rendered plans only in chat and a background deliberation
+threw its reasoning away. Now the Plan pane is the live home for "what the AI is thinking right now" (SDD-204).
+
+- The **Plan pane is live**: it mirrors the **active Plan-Mode plan** from the conversation (summary + numbered
+  steps + the four approvals, which feed back to the chat), and renders a clicked deliberation's **CoAT
+  reasoning trace** (a mini observatory: per-step category, backpropagated value, ↑ recall-lifted, recalled
+  memory). The header reflects its mode — plan / reasoning / artifact. Artifacts + repo chips stay honest-
+  deferred (SB-077) until a producer lands.
+- **Deliberation jobs now keep the full compact trace** (best_path + values + recall), not just a summary line
+  — so a finished background deliberation is clickable and its reasoning renders in the pane, and can be
+  **brought into the conversation** as a turn.
+- Background Task rows for deliberations are clickable ("◔ reasoning"); everything stays R10212 (reads + the
+  one chat POST; submit/cancel are copied osctl verbs) and DEMO-safe (a demo trace ships).
+- **Fixed** a latent bug: a Plan-Mode card whose question carried raw newlines (the numbered steps) failed
+  `JSON.parse` and rendered as a `<pre>` fallback instead of an interactive card. A lenient `parseAUQ` now
+  escapes raw control chars in an otherwise-compact envelope, and the DEMO plan card's steps are properly
+  escaped — so questions AND plans render interactively in the console.
+- `tests/lint/test_code_console_webapp_contract.py` gains `test_plan_pane_is_live_for_plans_and_reasoning`;
+  the scaffold contract tracks `renderPlanPane()`.
+
 ### Added — Background Tasks: a job runtime + a Code Console Plan-pane split, like claude.ai/code (2026-07-12)
 
 The box now runs long-running work OFF the request path and shows it in a supplementary pane that splits the

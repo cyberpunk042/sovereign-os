@@ -109,6 +109,18 @@ def _run_deliberation(job: dict, cancel: threading.Event) -> tuple[bool, str]:
     except (urllib.error.URLError, OSError, ValueError) as e:
         return False, f"gateway unreachable at {GATEWAY_ADDR}: {e}"
     trace = resp.get("trace") or {}
+    # Keep a COMPACT trace on the job (best path + values + recall) so the Code
+    # Console can render the reasoning when the task is clicked — not just a line.
+    best = [{
+        "depth": s.get("depth"), "category": s.get("category"), "text": s.get("text"),
+        "prior": s.get("prior"), "value": s.get("value"), "visits": s.get("visits"),
+        "recall": [{"id": r.get("id"), "relevance": r.get("relevance")} for r in s.get("recall", [])],
+    } for s in trace.get("best_path", [])]
+    STORE.update(job["id"], meta={**job["meta"], "trace": {
+        "rung": trace.get("rung"), "summary": trace.get("summary"),
+        "path_value": trace.get("path_value"), "recalled_total": trace.get("recalled_total"),
+        "thought_source": trace.get("thought_source"), "best_path": best,
+    }})
     return True, trace.get("summary", "deliberation complete")
 
 

@@ -164,7 +164,7 @@ def test_scaffold_is_always_visible_offline():
     assert re.search(r"renderRail\(\s*FIXED_SESSIONS\s*\)", body), (
         "an initial paint of the rail must run before the live fetch"
     )
-    for fn in ("renderThread()", "renderPlan()"):
+    for fn in ("renderThread()", "renderPlanPane()"):
         assert fn in body, f"the initial paint must call {fn}"
     # the fetch catch must fall back to the fixed model, never leave the rail blank
     assert re.search(r"catch\s*\([^)]*\)\s*\{[^}]*FIXED_SESSIONS", body, re.DOTALL), (
@@ -183,6 +183,33 @@ def test_honest_deferred_panes_never_fabricated():
     assert "task-session" in body.lower()
     # repo chips are an explicit deferred chip, never invented repos
     assert re.search(r'cc-chip deferred', body), "repo chips must render as a deferred chip"
+
+
+def test_plan_pane_is_live_for_plans_and_reasoning():
+    """The right Plan pane is no longer a static placeholder: it mirrors the active
+    Plan-Mode plan from the conversation and renders a clicked deliberation's CoAT
+    reasoning trace. Artifacts stay honest-deferred (SB-077) — the real producers
+    (Plan Mode + the CoAT engine + the jobs runtime) now feed it."""
+    body = WEBAPP_HTML.read_text(encoding="utf-8")
+    # the live dispatcher + its producers
+    for fn in ("function renderPlanPane", "function activePlan", "function renderTraceHTML", "function renderPlanHTML"):
+        assert fn in body, f"the live Plan pane is missing {fn}"
+    # a deliberation task with a trace is clickable → renders in the Plan pane
+    assert "data-trace" in body and "focusTask" in body, "a deliberation task must open its trace in the Plan pane"
+    # the plan pane reflects its mode (plan / reasoning / artifact) in the header
+    assert 'id="cc-plan-head"' in body, "the Plan pane header must reflect what it shows"
+    # a finished deliberation can be brought into the conversation
+    assert "bringTrace" in body, "a trace must be bring-able into the conversation"
+    # the AUQ parser is lenient (a plan card with raw newlines must still parse),
+    # and no stray control bytes leaked into the file
+    assert "function parseAUQ" in body, "the AUQ parser must tolerate raw control chars"
+    raw = WEBAPP_HTML.read_bytes()
+    stray = [b for b in raw if b < 0x20 and b not in (9, 10, 13)]
+    assert not stray, f"no stray control bytes allowed in the panel ({len(stray)} found)"
+
+    # the jobs runtime keeps the FULL trace on a deliberation job (what the pane reads)
+    japi = (REPO_ROOT / "scripts" / "operator" / "jobs-api.py").read_text(encoding="utf-8")
+    assert '"trace"' in japi and "best_path" in japi, "deliberation jobs must persist the CoAT trace"
 
 
 def test_composer_targets_m075_devices():

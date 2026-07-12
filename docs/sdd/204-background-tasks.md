@@ -43,3 +43,21 @@ piece is the guest→host **channel** for the VM bridge (the guest must reach th
 gateway IP or a virtio-vsock proxy, set via `SOVEREIGN_JOBS_HOST`); until wired, the guest agent is inert
 (it probes but does not report) and says so. Model-backed thought generation for `deliberation` jobs is the
 same model-gating the CoAT engine already discloses.
+
+## Addendum (2026-07-12) — the Plan pane goes live; the console cohered
+
+Operator follow-up: *"lets make sure that the console is fully developed and proper relative to everything,
+questions/plans/background tasks and etc… lets aim for high standards."* The console had the parts but they
+didn't talk: SDD-112's right Plan pane was a static honest-deferred placeholder while Plan Mode rendered plans
+only in chat, and a background deliberation discarded its reasoning. High-standard pass:
+
+- **The Plan pane is now a LIVE producer** (`renderPlanPane`), superseding SDD-112's honest-deferred plan
+  placeholder for two real feeds: (1) the **active Plan-Mode plan** mirrored from the conversation
+  (`activePlan` — the latest `askuserquestion` whose header is "Plan"/whose options are the four approvals),
+  rendered as summary + numbered steps + the approvals (which feed back to the chat via `answerAUQ`); (2) a
+  clicked deliberation's **CoAT trace** (`renderTraceHTML`) as a mini observatory. The header (`#cc-plan-head`)
+  reflects plan / reasoning / artifact. **Artifacts + repo chips stay honest-deferred** (SB-077) — no producer.
+- **Deliberation jobs persist a compact trace** (best_path + values + recall) in `jobs-api`, so a finished job
+  is clickable ("◔ reasoning") and its reasoning renders in the pane + can be brought into the conversation
+  (`bringTrace`). R10212 preserved (reads + the one chat POST; submit/cancel are copied osctl verbs); DEMO-safe.
+- Guards: `test_code_console_webapp_contract::test_plan_pane_is_live_for_plans_and_reasoning`.

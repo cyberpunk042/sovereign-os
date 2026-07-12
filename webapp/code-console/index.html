@@ -131,6 +131,20 @@
   .cc-task-bar { height:3px; background:var(--border); border-radius:2px; margin-top:.3rem; overflow:hidden; }
   .cc-task-bar > i { display:block; height:100%; background:var(--accent,#9bd1ff); transition:width .3s; }
   .cc-task-out { color:var(--muted); font-size:.7rem; margin-top:.2rem; word-break:break-word; }
+  .cc-task.has-trace { cursor:pointer; }
+  .cc-task.has-trace:hover { border-left-color:var(--accent,#9bd1ff); }
+  .cc-task-view { font-size:.66rem; color:var(--accent,#9bd1ff); margin-left:auto; }
+  .cc-task.has-trace .cc-task-x { margin-left:.35rem; }
+  /* LIVE Plan pane — the active plan (from the conversation) + a reasoning trace */
+  .cc-plan-summary { font-weight:600; font-size:.85rem; margin:.1rem 0 .4rem; white-space:pre-wrap; }
+  .cc-plan-steps { margin:.2rem 0 .5rem 1.1rem; padding:0; font-size:.8rem; }
+  .cc-plan-steps li { margin:.2rem 0; }
+  .cc-plan-actions { display:flex; gap:.4rem; margin-top:.5rem; }
+  .cc-trace-sum { margin-bottom:.4rem; }
+  .cc-trace-step { border-left:2px solid var(--border); padding:.25rem .5rem; margin:.3rem 0; background:rgba(255,255,255,.02); border-radius:0 .3rem .3rem 0; }
+  .cc-trace-h { display:flex; align-items:center; gap:.5rem; }
+  .cc-trace-cat { font-size:.62rem; text-transform:uppercase; letter-spacing:.04em; font-weight:600; color:var(--accent,#9bd1ff); border:1px solid var(--border); border-radius:3px; padding:0 .3rem; }
+  .cc-trace-txt { font-size:.8rem; margin-top:.15rem; }
   /* bottom composer */
   .cc-composer { border-top:1px solid var(--border); background:var(--panel); padding:.6rem 1.25rem; }
   .cc-composer-row { display:flex; gap:.5rem; align-items:flex-end; }
@@ -892,7 +906,7 @@
       <div class="cc-pane-body" id="cc-thread"></div>
     </div>
     <div class="cc-pane">
-      <div class="cc-pane-h"><span>Plan</span><span class="muted">artifact</span>
+      <div class="cc-pane-h"><span>Plan</span><span class="muted" id="cc-plan-head">artifact</span>
         <button class="cc-tasks-toggle" id="cc-tasks-toggle" title="show/hide Background Tasks (splits this pane)">◱ Tasks</button></div>
       <div class="cc-pane-body cc-plan-split" id="cc-plan-split">
         <div class="cc-plan-top" id="cc-plan"></div>
@@ -1018,7 +1032,7 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
   const DEMO_THREAD = [
     { role: 'user', content: '[DEMO] Refactor this function to be pure.' },
     { role: 'assistant', content: '[DEMO] Before I refactor — one clarification (this card is live: click an option and it becomes your next turn):\n\n```askuserquestion\n{"questions":[{"header":"Returns","question":"How should the pure version return results?","multiSelect":false,"options":[{"label":"Fresh value","description":"return a new object, mutate nothing"},{"label":"Result tuple","description":"return (value, error) instead of throwing"}]}]}\n```' },
-    { role: 'assistant', content: '[DEMO] Plan Mode — here is my plan; I hold execution until you approve:\n\n```askuserquestion\n{"questions":[{"header":"Plan","question":"Refactor the function to be pure\n1. Read the function + its callers\n2. Extract the side effects into the caller\n3. Return a fresh value; add a unit test","multiSelect":false,"options":[{"label":"Approve","description":"execute exactly as proposed"},{"label":"Reject","description":"block it; I will suggest another approach"},{"label":"Approve with changes","description":"adjust the steps first"},{"label":"Approve and remember","description":"approve + skip the prompt for matching steps"}]}]}\n```' },
+    { role: 'assistant', content: '[DEMO] Plan Mode — here is my plan; I hold execution until you approve:\n\n```askuserquestion\n{"questions":[{"header":"Plan","question":"Refactor the function to be pure\\n1. Read the function + its callers\\n2. Extract the side effects into the caller\\n3. Return a fresh value; add a unit test","multiSelect":false,"options":[{"label":"Approve","description":"execute exactly as proposed"},{"label":"Reject","description":"block it; I will suggest another approach"},{"label":"Approve with changes","description":"adjust the steps first"},{"label":"Approve and remember","description":"approve + skip the prompt for matching steps"}]}]}\n```' },
     { role: 'assistant', content: '[DEMO] This is sample output — not a real model response. In live mode the box\'s own local LM answers here over the loopback router, and this thread shows real tokens (with the QCFA thinking-partner scaffold when SOVEREIGN_OS_QCFA=1).' },
   ];
 
@@ -1085,16 +1099,101 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
     t.innerHTML = html;
     hydrateAUQ(t);  // turn any ```askuserquestion block into interactive choices
     t.scrollTop = t.scrollHeight;
+    if (typeof renderPlanPane === 'function') renderPlanPane();  // reflect a new plan
   }
 
-  // ── right: honest-deferred Plan/artifact pane ──
-  function renderPlan() {
-    $('cc-plan').innerHTML = '<div class="cc-defer">No plan/artifact producer on the'
-      + ' box yet — <b>honest-deferred</b> (SB-077). This pane will show the agent\'s'
-      + ' plan + artifacts when a producer lands. It is never fabricated.</div>'
-      + '<div class="cc-plan-item">Context · the active session\'s scope</div>'
-      + '<div class="cc-plan-item">Steps · the plan the agent proposes</div>'
-      + '<div class="cc-plan-item">Artifacts · files / diffs produced</div>';
+  // ── right: LIVE Plan pane — the home for "what the AI is thinking now" ──
+  // Priority: a focused deliberation's reasoning trace > the active Plan-Mode plan
+  // from the conversation > the honest-deferred artifacts note. Plans + traces are
+  // REAL producers now (Plan Mode + the CoAT engine); artifacts stay deferred.
+  let focusedTrace = null;   // {rung, summary, best_path, _title} of a clicked task
+
+  // The latest assistant turn's Plan-Mode plan (an askuserquestion whose header is
+  // "Plan" / whose options are the four approvals), or null.
+  function activePlan() {
+    const hist = (demoActive() && !chatHistory.length) ? DEMO_THREAD : chatHistory;
+    for (let i = hist.length - 1; i >= 0; i--) {
+      if (hist[i].role !== 'assistant') continue;
+      AUQ_RE.lastIndex = 0; let m;
+      while ((m = AUQ_RE.exec(hist[i].content))) {
+        const spec = parseAUQ(m[1]);
+        if (!spec) continue;
+        const q = (spec.questions || [])[0];
+        const isPlan = q && (q.header === 'Plan' || (q.options || []).some(o => o.label === 'Approve'));
+        if (isPlan) return { spec: spec, raw: m[1].trim() };
+      }
+    }
+    return null;
+  }
+
+  function renderTraceHTML(t) {
+    const steps = (t.best_path || []).map(s => {
+      const rec = (s.recall || []).map(r => 'mem#' + esc(r.id) + '·' + Number(r.relevance || 0).toFixed(2)).join(' ');
+      const lift = (s.value != null && s.prior != null && s.value > s.prior + 1e-6);
+      return '<div class="cc-trace-step"><div class="cc-trace-h">'
+        + '<span class="cc-trace-cat">' + esc(s.category || '') + '</span>'
+        + '<span class="muted" style="font-size:.72rem">v ' + Number(s.value || 0).toFixed(2) + (lift ? ' ↑ recall' : '') + '</span></div>'
+        + '<div class="cc-trace-txt">' + esc(s.text || '') + '</div>'
+        + (rec ? '<div class="muted" style="font-size:.68rem;margin-top:.15rem">↳ ' + rec + '</div>' : '') + '</div>';
+    }).join('');
+    return '<div class="cc-trace-sum"><strong>' + esc(t.rung || 'CoAT') + '</strong> '
+      + '<span class="muted" style="font-size:.72rem">' + esc(t.summary || '') + '</span></div>'
+      + (steps || '<div class="cc-defer">no reasoning path recorded</div>');
+  }
+
+  function renderPlanHTML(plan) {
+    const q = plan.spec.questions[0];
+    const lines = (q.question || '').split('\n');
+    const summary = lines[0] || 'Plan';
+    const steps = lines.slice(1).map(s => s.trim()).filter(Boolean);
+    return '<div class="cc-plan-summary">' + esc(summary) + '</div>'
+      + (steps.length ? '<ol class="cc-plan-steps">' + steps.map(s => '<li>' + esc(s.replace(/^\d+\.\s*/, '')) + '</li>').join('') + '</ol>' : '')
+      + '<div class="cc-auq" data-auq="' + esc(plan.raw) + '"></div>';  // the four approvals, hydrated below
+  }
+
+  function renderPlanPane() {
+    const head = $('cc-plan-head');
+    const host = $('cc-plan');
+    // 1) a clicked deliberation's reasoning trace
+    if (focusedTrace) {
+      if (head) head.textContent = 'reasoning · ' + (focusedTrace._title || 'deliberation');
+      host.innerHTML = renderTraceHTML(focusedTrace)
+        + '<div class="cc-plan-actions"><button class="cc-ghost" id="cc-plan-back">← plan</button>'
+        + '<button class="cc-ghost" id="cc-trace-bring">＋ to conversation</button></div>';
+      if ($('cc-plan-back')) $('cc-plan-back').addEventListener('click', () => { focusedTrace = null; renderPlanPane(); });
+      if ($('cc-trace-bring')) $('cc-trace-bring').addEventListener('click', bringTrace);
+      return;
+    }
+    // 2) the active Plan-Mode plan from the conversation
+    const plan = activePlan();
+    if (plan) {
+      if (head) head.textContent = 'plan · from the conversation';
+      host.innerHTML = renderPlanHTML(plan);
+      hydrateAUQ(host);  // the approvals feed back to the chat via answerAUQ
+      return;
+    }
+    // 3) honest-deferred artifacts (SB-077 — no producer yet)
+    if (head) head.textContent = 'artifact';
+    host.innerHTML = '<div class="cc-defer">No <b>plan</b> in the conversation and no <b>reasoning trace</b> focused.'
+      + ' Propose a plan (Plan Mode) or run a background deliberation to fill this pane — it mirrors the'
+      + ' live plan + reasoning. <b>Artifacts</b> (files / diffs) stay honest-deferred (SB-077) until a producer lands.</div>'
+      + '<div class="cc-plan-item">Plan · the steps the agent proposes (live from chat)</div>'
+      + '<div class="cc-plan-item">Reasoning · a clicked deliberation\'s CoAT trace (live)</div>'
+      + '<div class="cc-plan-item">Artifacts · files / diffs produced (deferred)</div>';
+  }
+
+  function bringTrace() {
+    if (!focusedTrace) return;
+    const chain = (focusedTrace.best_path || []).map((s, i) => (i + 1) + '. [' + s.category + '] ' + s.text).join('\n');
+    chatHistory.push({ role: 'assistant', content: '[background deliberation · ' + (focusedTrace.rung || 'CoAT') + '] '
+      + (focusedTrace.summary || '') + (chain ? '\n\n' + chain : '') });
+    renderThread();
+  }
+
+  // Focus a deliberation task → show its trace in the Plan pane.
+  function focusTask(trace, title) {
+    focusedTrace = Object.assign({}, trace, { _title: title });
+    renderPlanPane();
   }
 
   // ── right/bottom: Background Tasks (the jobs-api runtime, :8142) ──
@@ -1102,7 +1201,11 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
   // runtime; submit/cancel are MS003-signed `sovereign-osctl jobs …` verbs copied
   // to the clipboard, never web mutations from this panel.
   const DEMO_TASKS = { jobs: [
-    {id:'a1b2c3', kind:'deliberation', title:'optimize the SRP scheduler admission rule', device:'rtx-pro', state:'running', progress:62, output:''},
+    {id:'a1b2c3', kind:'deliberation', title:'optimize the SRP scheduler admission rule', device:'rtx-pro', state:'done', progress:100, output:'demo/ CoAT · best path 4 steps, path_value=0.98', meta:{trace:{rung:'CoAT', summary:'demo/ CoAT · 64 iters · 4-step path · 12 recalled', best_path:[
+      {depth:1, category:'understand', text:'demo/ restate: bound tail latency under burst without starving steady-state', prior:0.86, value:0.97, visits:22, recall:[{id:1, relevance:1.0},{id:2, relevance:0.58}]},
+      {depth:2, category:'plan', text:'demo/ split admission into steady + burst credits; check each tier rule', prior:0.84, value:0.98, visits:9, recall:[{id:1, relevance:1.0}]},
+      {depth:3, category:'code', text:'demo/ instrument the SRP scheduler and replay the burst trace', prior:0.82, value:1.0, visits:3, recall:[{id:1, relevance:1.0}]},
+    ]}}},
     {id:'vm01', kind:'vm-job', title:'llama-3 finetune epoch 3/5', device:'rtx-4090-vm', state:'running', progress:58, output:''},
     {id:'d4e5f6', kind:'eval', title:'gsm8k on the logic model', device:'rtx-pro', state:'done', progress:100, output:'demo/ 71.2% (1319 items)'},
     {id:'g7h8i9', kind:'model-load', title:'load secondary model (qwen-7b)', device:'cpu', state:'failed', progress:40, error:'demo/ OOM on host'},
@@ -1118,8 +1221,10 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
       navigator.clipboard.writeText(cmd).then(() => ccToast(note || '✓ copied'), () => ccToast('⚠ run: ' + cmd));
     } else { ccToast('run: ' + cmd); }
   }
+  let ccJobs = [];   // last jobs list — for looking up a trace on click
   function renderTasks(data) {
     const jobs = (data && data.jobs) || [];
+    ccJobs = jobs;
     const s = (data && data.summary) || {};
     const count = $('cc-tasks-count');
     if (count) count.textContent = (data && data.offline) ? 'runtime offline'
@@ -1134,18 +1239,26 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
     host.innerHTML = jobs.map(j => {
       const cls = j.state === 'running' ? ' on-run' : (j.state === 'failed' ? ' on-fail' : '');
       const cancellable = (j.state === 'running' || j.state === 'queued');
+      const hasTrace = !!(j.meta && j.meta.trace && (j.meta.trace.best_path || []).length);
       const out = j.output || j.error || '';
       const pct = Math.max(0, Math.min(100, j.progress || 0));
-      return '<div class="cc-task' + cls + '"><div class="cc-task-h">'
+      return '<div class="cc-task' + cls + (hasTrace ? ' has-trace' : '') + '"' + (hasTrace ? ' data-trace="' + esc(j.id) + '" title="click to see the reasoning trace in the Plan pane"' : '') + '><div class="cc-task-h">'
         + '<span class="cc-task-st ' + esc(j.state) + '">' + esc(j.state) + '</span>'
         + '<span>' + esc(j.title || j.kind) + '</span>'
         + '<span class="cc-task-dev">' + esc(j.kind) + '·' + esc(j.device) + '</span>'
+        + (hasTrace ? '<span class="cc-task-view">◔ reasoning</span>' : '')
         + (cancellable ? '<button class="cc-task-x" data-cancel="' + esc(j.id) + '" title="copy the cancel command">⊗</button>' : '')
         + '</div><div class="cc-task-bar"><i style="width:' + pct + '%"></i></div>'
         + (out ? '<div class="cc-task-out">' + esc(out) + '</div>' : '') + '</div>';
     }).join('');
     Array.prototype.forEach.call(host.querySelectorAll('[data-cancel]'), b => {
-      b.addEventListener('click', () => copyCli('sovereign-osctl jobs cancel ' + b.getAttribute('data-cancel'), '✓ copied cancel command'));
+      b.addEventListener('click', e => { e.stopPropagation(); copyCli('sovereign-osctl jobs cancel ' + b.getAttribute('data-cancel'), '✓ copied cancel command'); });
+    });
+    Array.prototype.forEach.call(host.querySelectorAll('[data-trace]'), el => {
+      el.addEventListener('click', () => {
+        const j = ccJobs.find(x => x.id === el.getAttribute('data-trace'));
+        if (j && j.meta && j.meta.trace) { focusTask(j.meta.trace, j.title); $('cc-plan-split').classList.remove('tasks-off'); }
+      });
     });
   }
   async function refreshTasks() {
@@ -1175,13 +1288,21 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
   // "Other", and feed the picked answer back as the next turn. Graceful: an
   // unparseable block falls back to a plain code block (never raw-swallowed).
   const AUQ_RE = /```askuserquestion\s*([\s\S]*?)```/g;
+  // Parse an askuserquestion block leniently: strict JSON first, then a fallback
+  // that escapes raw control chars (a model may emit real newlines inside a string
+  // in otherwise-compact JSON — e.g. plan steps). Returns null if still unparseable.
+  function parseAUQ(raw) {
+    const s = (raw || '').trim();
+    try { return JSON.parse(s); } catch (_) {}
+    try { return JSON.parse(s.replace(/[\u0000-\u001f]/g, c => '\\u' + c.charCodeAt(0).toString(16).padStart(4, '0'))); } catch (_) {}
+    return null;
+  }
   function renderAssistantHTML(text) {
     let html = '', last = 0, m;
     AUQ_RE.lastIndex = 0;
     while ((m = AUQ_RE.exec(text))) {
       html += esc(text.slice(last, m.index));
-      let ok = false;
-      try { JSON.parse(m[1].trim()); ok = true; } catch (_) {}
+      const ok = parseAUQ(m[1]) !== null;
       html += ok
         ? '<div class="cc-auq" data-auq="' + esc(m[1].trim()) + '"></div>'
         : '<pre style="white-space:pre-wrap;margin:.3rem 0">' + esc(m[0]) + '</pre>';
@@ -1193,7 +1314,8 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
   function hydrateAUQ(root) {
     root.querySelectorAll('.cc-auq[data-auq]').forEach(function (node) {
       if (node.dataset.done) return;
-      let spec; try { spec = JSON.parse(node.getAttribute('data-auq')); } catch (_) { return; }
+      const spec = parseAUQ(node.getAttribute('data-auq'));
+      if (!spec) return;
       const qs = (spec && spec.questions) || [];
       if (!qs.length) return;
       const chosen = {};
@@ -1338,7 +1460,7 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
   // visible (SDD-111 lesson); refresh() then fills the live rail.
   renderRail(FIXED_SESSIONS);
   renderThread();
-  renderPlan();
+  renderPlanPane();
   renderTasks({jobs: []});
   (function () { try { if (localStorage.getItem('cc-tasks-off') === '1') $('cc-plan-split').classList.add('tasks-off'); } catch (e) {} })();
   if ($('cc-tasks-toggle')) $('cc-tasks-toggle').addEventListener('click', toggleTasks);
