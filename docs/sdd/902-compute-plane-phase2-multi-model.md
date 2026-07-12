@@ -21,8 +21,8 @@ registry, built in three increments over the shared plane.
 | # | Delivers | Status |
 |---|----------|--------|
 | **1** | in-gateway CPU multi-model registry | ✓ shipped |
-| **2** | GPU serve-process backend (plane-placed llama-server/vLLM) the gateway proxies to | ✓ this round |
-| 3 | routing (model / background hint) + background jobs target the secondary + full docs | planned |
+| **2** | GPU serve-process backend (plane-placed llama-server/vLLM) the gateway proxies to | ✓ shipped |
+| **3** | routing (model / background hint) + background jobs target the secondary + docs | ✓ this round |
 
 ## Increment 1 (shipped)
 
@@ -84,6 +84,34 @@ serving interactive chat.
   mock serve process): place → launch → register on `gpu0` → cancel → unregister →
   the plane frees the claim.
 
+## Increment 3 (shipped)
+
+The routing that makes the two backend kinds usable *as background compute*: work
+that shouldn't block interactive chat targets a **secondary** — CPU resident or GPU
+proxy — leaving the primary free.
+
+- **The reserved `"background"` alias.** A request for `model: "background"` (the
+  Anthropic/OpenAI surfaces, `/v1/coat`, or the OpenAI shim) routes to a *designated*
+  background model. `set_background(id)` / `background_id()` / `expand_alias()` on the
+  server; NEW `POST /v1/models/background {id}` designates it (loopback-trust),
+  seeded from `SOVEREIGN_GATEWAY_BACKGROUND_MODEL`. **Honest fallback:** a designated
+  id that is not currently loaded (or none designated) resolves to `None` → the
+  primary, never a dead id. `expand_alias` runs at *every* routing entry point (the
+  non-streaming message path, the streaming path, and inside `generate_chat` itself),
+  so the alias targets the same backend whether it is a CPU secondary or a GPU proxy.
+- **Background deliberations run on the secondary.** `GatewayRequest::Coat` (and the
+  `/v1/coat` body) carry an optional `model`; `ModelThoughts` expands the reasoning
+  through it. The jobs-api deliberation runner sends `model: "background"` by default
+  (overridable via `meta.model`), so a background CoAT job runs on the secondary and
+  the interactive primary stays responsive — falling back to the primary honestly
+  when no background model is designated.
+- **Verified:** gateway lib/http tests — the alias designates + falls back when the
+  model is unloaded, `POST /v1/models/background` reports `active`, a
+  `model:"background"` message reaches the designated proxy end-to-end, `/v1/coat`
+  accepts a model hint; a jobs-runtime test asserts the deliberation sends the
+  `"background"` alias to a mock gateway. 62 gateway lib+http + 14 jobs-runtime tests;
+  clippy `-D warnings` clean.
+
 ## Honest gating
 
 - Increment 1 is **CPU-scale**: a secondary is a second in-process `QuantModel`
@@ -91,9 +119,12 @@ serving interactive chat.
   authority becomes load-bearing there (a served model and a GPU job claim from ONE
   VRAM view). The **serve-process itself is operator-provided** (`meta.command`): this
   round ships the plane/register/proxy/lifecycle plumbing, not a bundled llama-server
-  or vLLM binary — those are installed on the box (increment 3 wires an ergonomic
-  `model-serve` submit + background jobs that target the secondary).
+  or vLLM binary — those are installed on the box. Increment 3 (above) adds the
+  `"background"` routing + background-job targeting; a one-shot ergonomic
+  `model-serve` *submit* verb on osctl is a small follow-up (the job kind + registry
+  already exist, so an operator submits it via `jobs submit` today).
 - **Streaming to a GPU proxy is not yet supported** (increment 2b) — honestly gated,
-  not silently degraded.
-- Loopback-trust on load/unload/register (no cloud auth on a sovereign box); the
-  requested `model` id is echoed; quality is model-gated as ever.
+  not silently degraded. Streaming the `"background"` alias to a *CPU* secondary
+  works; the alias resolving to a *proxy* under `stream:true` hits the same 2b gate.
+- Loopback-trust on load/unload/register/background (no cloud auth on a sovereign
+  box); the requested `model` id is echoed; quality is model-gated as ever.

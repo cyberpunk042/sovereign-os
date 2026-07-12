@@ -114,6 +114,45 @@ def test_deliberation_fails_gracefully_without_a_gateway(tmp_path):
     assert cur["state"] == "failed" and "unreachable" in cur["error"].lower()
 
 
+def test_background_deliberation_targets_the_secondary(tmp_path):
+    """A deliberation job sends the reserved model alias `"background"` to /v1/coat
+    so it runs on the secondary, keeping the primary free for interactive chat."""
+    import json as _json
+    import threading as _threading
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    api = _api_mod(tmp_path / "bg")
+    seen: list[dict] = []
+
+    class _H(BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+
+        def do_POST(self):
+            n = int(self.headers.get("Content-Length", 0))
+            seen.append(_json.loads(self.rfile.read(n) or b"{}"))
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(b'{"kind":"coat-trace","trace":{"summary":"ok","best_path":[]}}')
+
+    gw = ThreadingHTTPServer(("127.0.0.1", 0), _H)
+    _threading.Thread(target=gw.serve_forever, daemon=True).start()
+    api.GATEWAY_ADDR = f"127.0.0.1:{gw.server_address[1]}"
+    try:
+        job = api.submit("deliberation", "plan the migration", meta={"rung": "cot"})
+        for _ in range(600):
+            if api.STORE.get(job["id"])["state"] in api._js.TERMINAL:
+                break
+            time.sleep(0.02)
+        assert api.STORE.get(job["id"])["state"] == "done"
+        assert seen, "the deliberation must call the gateway"
+        assert seen[0].get("model") == "background", \
+            "a background deliberation must target the secondary via the 'background' alias"
+    finally:
+        gw.shutdown()
+
+
 def test_model_serve_launches_registers_and_unregisters(tmp_path):
     """A model-serve job PLACES VRAM, launches the serve process, registers a gateway
     proxy once its endpoint is up, and on cancel terminates it + unregisters."""

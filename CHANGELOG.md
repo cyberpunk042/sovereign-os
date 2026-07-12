@@ -62,6 +62,25 @@ blocker to running a real model, and it made SDD-205's Anthropic endpoint return
 - Verified: mha-block 28 tests (8 new, incl. "a distinct base yields distinct decode output"), loader 13 (6 new);
   clippy `-D warnings` clean; downstream quant-llm/gatewayd/decoder-layer/inference-demo build unchanged. Sampling
   params + chat template + quantized loading are the tracked next arcs. MS003 `unsigned-pending-MS003`.
+### Added — Compute Plane Phase 2, increment 3: background routing — work targets the secondary, the primary stays free (2026-07-12)
+
+The routing that makes the two backend kinds usable as background compute. SDD-902.
+
+- **The reserved `"background"` model alias.** A request for `model: "background"` (Anthropic `/v1/messages`, the
+  OpenAI shim, or `/v1/coat`) routes to a *designated* secondary — CPU resident or GPU proxy. `set_background` /
+  `background_id` / `expand_alias` on the gateway; NEW `POST /v1/models/background {id}` designates it (loopback-
+  trust), seeded from `SOVEREIGN_GATEWAY_BACKGROUND_MODEL`. **Honest fallback:** a designated-but-unloaded id (or
+  none) resolves to the primary, never a dead id. `expand_alias` runs at every entry point (message, streaming,
+  and inside `generate_chat`), so the alias targets the same backend whichever kind it is.
+- **Background deliberations run on the secondary.** `GatewayRequest::Coat` + the `/v1/coat` body carry an
+  optional `model`; `ModelThoughts` expands the reasoning through it. The jobs-api deliberation runner sends
+  `model: "background"` by default (override via `meta.model`), so a background CoAT job keeps the interactive
+  primary responsive — falling back to the primary when nothing is designated.
+- Verified: gateway lib/http tests (alias designates + falls back on unload, `POST /v1/models/background` reports
+  `active`, a `model:"background"` message reaches the designated proxy end-to-end, `/v1/coat` accepts the hint) +
+  a jobs-runtime test asserting the deliberation sends the `"background"` alias. 62 gateway lib+http + 14 jobs-
+  runtime tests; clippy `-D warnings` clean.
+
 ### Added — Compute Plane Phase 2, increment 2: a GPU serve-process backend the gateway proxies to (2026-07-12)
 
 The second backend kind (option c): a real large model runs on the RTX PRO 6000 / VFIO-passed 4090 while the

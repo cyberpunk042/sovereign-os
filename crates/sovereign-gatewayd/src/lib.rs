@@ -230,6 +230,11 @@ pub enum GatewayRequest {
         /// Freshness half-life in ticks. Default 1000.
         #[serde(default = "default_recall_half_life")]
         half_life: u64,
+        /// Which model expands the reasoning (Phase 2 increment 3). `"background"`
+        /// routes to the designated secondary so a background deliberation leaves
+        /// the primary free; `None` uses the primary.
+        #[serde(default)]
+        model: Option<String>,
     },
     /// Return the 6-surface gateway manifest.
     Manifest,
@@ -459,6 +464,10 @@ impl ThoughtSource for HeuristicThoughts {
 /// the trace flags `thought_source="model"`.
 struct ModelThoughts<'a> {
     server: &'a GatewayServer,
+    /// Which model expands the reasoning (Phase 2 increment 3): a background
+    /// deliberation passes `"background"` so it runs on the secondary, leaving the
+    /// primary free for interactive chat. `None` uses the primary.
+    model: Option<String>,
 }
 
 /// Structure a raw model completion into up to `k` seeds: split into fragments,
@@ -516,7 +525,7 @@ impl ThoughtSource for ModelThoughts<'_> {
         let mut out = String::new();
         let _ = self
             .server
-            .generate_chat(None, &prompt, 48, |c| out.push_str(c));
+            .generate_chat(self.model.as_deref(), &prompt, 48, |c| out.push_str(c));
         model_seeds_from(&out, path.len(), k)
     }
 
@@ -550,6 +559,12 @@ pub struct GatewayServer {
     /// request whose `model` names one is PROXIED to that backend, not generated
     /// locally. Behind an RwLock so register/unregister never blocks a request.
     proxies: RwLock<BTreeMap<String, ProxyBackend>>,
+    /// The model id the reserved `"background"` alias resolves to (Phase 2
+    /// increment 3): background work — deliberation jobs, the Code Console's
+    /// background tab — targets this so the primary stays free for interactive
+    /// chat. `None` (or a designated-but-unloaded id) falls back to the primary.
+    /// Seeded from `SOVEREIGN_GATEWAY_BACKGROUND_MODEL`, runtime-settable.
+    background: RwLock<Option<String>>,
     /// The id under which the primary is listed by `/v1/models`.
     primary_id: String,
     /// The safety spine: input prompt screening + output secret/PII redaction
@@ -992,6 +1007,11 @@ impl GatewayServer {
             generator: generator.map(|g| Arc::new(Mutex::new(g))),
             secondaries: RwLock::new(BTreeMap::new()),
             proxies: RwLock::new(BTreeMap::new()),
+            background: RwLock::new(
+                std::env::var("SOVEREIGN_GATEWAY_BACKGROUND_MODEL")
+                    .ok()
+                    .filter(|s| !s.is_empty()),
+            ),
             primary_id: std::env::var("SOVEREIGN_GATEWAY_MODEL_ID")
                 .unwrap_or_else(|_| "primary".to_string()),
             guard,
@@ -1081,6 +1101,46 @@ impl GatewayServer {
         })
     }
 
+    /// The reserved model id that routes to the designated background model.
+    pub const BACKGROUND_ALIAS: &'static str = "background";
+
+    /// Designate (or clear, with `None`) the model the `"background"` alias routes
+    /// to (Phase 2 increment 3). Loopback-trust operator action.
+    pub fn set_background(&self, id: Option<&str>) {
+        if let Ok(mut b) = self.background.write() {
+            *b = id.filter(|s| !s.is_empty()).map(str::to_string);
+        }
+    }
+
+    /// The background model id IF one is designated AND currently loaded (a
+    /// secondary or a proxy). A designated-but-unloaded id returns `None` so the
+    /// `"background"` alias falls back to the primary honestly, never a dead id.
+    pub fn background_id(&self) -> Option<String> {
+        let id = self.background.read().ok().and_then(|b| b.clone())?;
+        let loaded = self
+            .secondaries
+            .read()
+            .map(|m| m.contains_key(&id))
+            .unwrap_or(false)
+            || self
+                .proxies
+                .read()
+                .map(|m| m.contains_key(&id))
+                .unwrap_or(false);
+        loaded.then_some(id)
+    }
+
+    /// Expand the reserved `"background"` alias to the designated background model
+    /// id (or `None` → the primary). Any other id passes through unchanged. Used at
+    /// every routing entry point so a background hint targets the same backend
+    /// whether it is a CPU secondary or a GPU proxy.
+    pub fn expand_alias(&self, model: Option<&str>) -> Option<String> {
+        match model {
+            Some(Self::BACKGROUND_ALIAS) => self.background_id(),
+            other => other.map(str::to_string),
+        }
+    }
+
     /// Unload a secondary model OR unregister a proxy backend. Returns whether one
     /// was present.
     pub fn unload_model(&self, id: &str) -> bool {
@@ -1158,7 +1218,11 @@ impl GatewayServer {
             }
         }
 
-        let Some(engine) = self.resolve_model(model) else {
+        // Expand the reserved "background" alias to the designated model (else the
+        // primary), so background work routes to the secondary and the same alias
+        // works from every caller.
+        let target = self.expand_alias(model);
+        let Some(engine) = self.resolve_model(target.as_deref()) else {
             return Err("no local model loaded".to_string());
         };
         let mut guard = engine
@@ -1316,7 +1380,8 @@ impl GatewayServer {
                 rung,
                 now,
                 half_life,
-            } => self.coat(problem, topic, entity, &rung, now, half_life),
+                model,
+            } => self.coat(problem, topic, entity, &rung, now, half_life, model),
             GatewayRequest::Manifest => GatewayResponse::Manifest {
                 manifest: self.manifest.clone(),
             },
@@ -1413,6 +1478,9 @@ impl GatewayServer {
     /// caller's clock for freshness decay. When a model is loaded, thoughts come
     /// from the model ([`ModelThoughts`]); otherwise from [`HeuristicThoughts`] —
     /// the trace's `thought_source` says which.
+    // One argument per `GatewayRequest::Coat` field it destructures; a param struct
+    // would only duplicate that variant.
+    #[allow(clippy::too_many_arguments)]
     fn coat(
         &self,
         problem: String,
@@ -1421,6 +1489,7 @@ impl GatewayServer {
         rung: &str,
         now: u64,
         half_life: u64,
+        model: Option<String>,
     ) -> GatewayResponse {
         let config = match rung.trim().to_ascii_lowercase().as_str() {
             "cot" => CoatConfig::cot(),
@@ -1457,7 +1526,15 @@ impl GatewayServer {
                     iterations: config.iterations.min(12),
                     ..config
                 };
-                CoatEngine::new(ModelThoughts { server: self }, memory, cfg).deliberate(&prob)
+                CoatEngine::new(
+                    ModelThoughts {
+                        server: self,
+                        model,
+                    },
+                    memory,
+                    cfg,
+                )
+                .deliberate(&prob)
             } else {
                 CoatEngine::new(HeuristicThoughts, memory, config).deliberate(&prob)
             }
@@ -1921,6 +1998,59 @@ mod tests {
         // with nothing loaded, resolution yields nothing (an honest error at generate).
         assert!(s.resolve_model(Some("anything")).is_none());
         assert!(s.resolve_model(None).is_none());
+    }
+
+    #[test]
+    fn background_alias_designates_and_falls_back() {
+        // Use a proxy backend as the designated background model — it needs no real
+        // weights, so the alias logic is testable without a loaded generator.
+        let s = GatewayServer::new();
+        // undesignated: the alias resolves to nothing (→ the primary at generate).
+        assert_eq!(s.expand_alias(Some(GatewayServer::BACKGROUND_ALIAS)), None);
+        assert_eq!(s.background_id(), None);
+        // a non-alias id always passes through unchanged.
+        assert_eq!(s.expand_alias(Some("fast")).as_deref(), Some("fast"));
+        assert_eq!(s.expand_alias(None), None);
+        // register a GPU proxy and designate it as background.
+        s.register_proxy("gpu-big", "127.0.0.1:9", "logic", 18.0, "openai")
+            .unwrap();
+        s.set_background(Some("gpu-big"));
+        assert_eq!(s.background_id().as_deref(), Some("gpu-big"));
+        assert_eq!(
+            s.expand_alias(Some(GatewayServer::BACKGROUND_ALIAS))
+                .as_deref(),
+            Some("gpu-big"),
+            "the alias now resolves to the designated backend"
+        );
+        // unloading the designated model → the alias falls back honestly (no dead id).
+        assert!(s.unload_model("gpu-big"));
+        assert_eq!(
+            s.background_id(),
+            None,
+            "a designated-but-unloaded background id must not resolve"
+        );
+        assert_eq!(s.expand_alias(Some(GatewayServer::BACKGROUND_ALIAS)), None);
+        // clearing the designation.
+        s.set_background(Some("gpu-big"));
+        s.set_background(None);
+        assert_eq!(s.background_id(), None);
+    }
+
+    #[test]
+    fn coat_accepts_a_model_hint() {
+        // The CoAT request carries an optional model (background routing); with no
+        // generator it runs the heuristic source and still returns a trace.
+        let s = GatewayServer::new();
+        let line = serde_json::json!({
+            "op": "coat", "problem": "plan a migration", "rung": "cot",
+            "model": "background",
+        })
+        .to_string();
+        let v: serde_json::Value = serde_json::from_str(&s.handle_line(&line)).unwrap();
+        assert_eq!(
+            v["kind"], "coat-trace",
+            "a model hint must not break the coat surface"
+        );
     }
 
     #[test]

@@ -88,6 +88,26 @@ def test_gpu_proxy_backend_and_dialect_translation():
     assert "resolve_proxy" in main, "the streaming path must recognise proxy models"
 
 
+def test_background_alias_routing():
+    lib = _read(REPO / "crates" / "sovereign-gatewayd" / "src" / "lib.rs")
+    http = _read(HTTP)
+    main = _read(MAIN)
+    # the reserved "background" alias + its designation + honest fallback
+    for tok in ("BACKGROUND_ALIAS", "fn expand_alias", "fn background_id", "fn set_background"):
+        assert tok in lib, f"the background alias plumbing is missing: {tok!r}"
+    # the designation endpoint (which model "background" routes to)
+    assert '("POST", "/v1/models/background") => models_background' in http, \
+        "POST /v1/models/background must designate the background model"
+    # both routing entry points (non-stream + stream) expand the alias, so a
+    # background hint targets the secondary whether CPU resident or GPU proxy
+    assert "expand_alias" in http and "expand_alias" in main, \
+        "both the message and streaming paths must expand the background alias"
+    # background jobs target the secondary: the deliberation runner sends the alias
+    jobs = _read(REPO / "scripts" / "operator" / "jobs-api.py")
+    assert '"model": meta.get("model", "background")' in jobs, \
+        "a background deliberation must target the secondary via the 'background' alias"
+
+
 def test_companion_endpoints_and_decision_moved():
     http = _read(HTTP)
     assert '("GET", "/v1/models") => anthropic_models' in http, "GET /v1/models must exist"

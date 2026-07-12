@@ -59,6 +59,11 @@ struct CoatBody {
     rung: String,
     now: Option<u64>,
     half_life: Option<u64>,
+    /// Which model expands the reasoning (Phase 2 increment 3): `"background"`
+    /// routes to the designated secondary (a background deliberation keeps the
+    /// primary free); omitted uses the primary.
+    #[serde(default)]
+    model: Option<String>,
 }
 
 /// Maximum request-body size the daemon will read. A `Content-Length` larger
@@ -138,6 +143,7 @@ pub fn respond(server: &GatewayServer, method: &str, path: &str, body: &str) -> 
         ("POST", "/v1/models/load") => models_load(server, body),
         ("POST", "/v1/models/unload") => models_unload(server, body),
         ("POST", "/v1/models/register") => models_register(server, body),
+        ("POST", "/v1/models/background") => models_background(server, body),
         ("POST", "/v1/messages/count_tokens") => anthropic_count_tokens(body),
 
         ("POST", "/v1/infer") | ("POST", "/mcp") | ("POST", "/v1/explain") => {
@@ -218,6 +224,7 @@ pub fn respond(server: &GatewayServer, method: &str, path: &str, body: &str) -> 
                     rung: b.rung,
                     now: b.now.unwrap_or(100),
                     half_life: b.half_life.unwrap_or(1000),
+                    model: b.model,
                 });
                 let status = match resp {
                     GatewayResponse::Error { .. } => 422,
@@ -238,6 +245,7 @@ pub fn respond(server: &GatewayServer, method: &str, path: &str, body: &str) -> 
         | (_, "/v1/models/load")
         | (_, "/v1/models/unload")
         | (_, "/v1/models/register")
+        | (_, "/v1/models/background")
         | (_, "/v1/infer")
         | (_, "/mcp")
         | (_, "/v1/explain")
@@ -493,6 +501,34 @@ fn models_register(server: &GatewayServer, body: &str) -> HttpReply {
     }
 }
 
+/// `POST /v1/models/background` — designate the model the reserved `"background"`
+/// alias routes to (Phase 2 increment 3): `{id}` to set, `{id: null}` or `{}` to
+/// clear. Background work (deliberation jobs, the Code Console background tab) sends
+/// `model:"background"` so it runs on the secondary and the primary stays free.
+/// `active` reports whether the designated id is currently loaded (else the alias
+/// falls back to the primary). Loopback-trust.
+fn models_background(server: &GatewayServer, body: &str) -> HttpReply {
+    let req: serde_json::Value = match serde_json::from_str(body) {
+        Ok(v) => v,
+        Err(e) => {
+            return anthropic_err(
+                400,
+                "invalid_request_error",
+                format!("invalid background body: {e}"),
+            );
+        }
+    };
+    let id = req.get("id").and_then(|v| v.as_str());
+    server.set_background(id);
+    json_reply(
+        200,
+        &serde_json::json!({
+            "background": id,
+            "active": server.background_id(),
+        }),
+    )
+}
+
 /// A minimal blocking HTTP POST to an upstream (`host:port`) — forwards a request
 /// to a GPU serve-process backend and returns `(status, body)`. Non-streaming; the
 /// streaming forward is a follow-up (increment 2b).
@@ -691,11 +727,15 @@ fn anthropic_message(server: &GatewayServer, body: &str) -> HttpReply {
             );
         }
     };
-    let model = req
+    let requested = req
         .get("model")
         .and_then(|m| m.as_str())
         .unwrap_or("sovereign-local")
         .to_string();
+    // Expand the reserved "background" alias to the designated backend (a CPU
+    // secondary or a GPU proxy), so background work routes off the primary (Phase 2
+    // inc.3). A non-alias id passes through; an undesignated alias falls to primary.
+    let model = server.expand_alias(Some(&requested)).unwrap_or(requested);
     // GPU serve-process backend (Phase 2 inc.2): a proxy-backed model forwards to the
     // upstream llama-server / vLLM instead of generating locally. An `openai` backend
     // (the llama-server/vLLM default) has the request translated to
@@ -980,6 +1020,60 @@ mod tests {
         );
         assert_eq!(v["usage"]["input_tokens"], 7);
         assert_eq!(v["usage"]["output_tokens"], 3);
+    }
+
+    #[test]
+    fn background_alias_routes_to_the_designated_proxy() {
+        use std::io::{Read, Write};
+        // a mock OpenAI upstream (the designated background backend)
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let handle = std::thread::spawn(move || {
+            if let Ok((mut sock, _)) = listener.accept() {
+                let mut buf = [0u8; 2048];
+                let _ = sock.read(&mut buf);
+                let payload = r#"{"choices":[{"message":{"role":"assistant","content":"from the background model"},"finish_reason":"stop"}],"usage":{"prompt_tokens":4,"completion_tokens":5}}"#;
+                let resp = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{payload}",
+                    payload.len()
+                );
+                let _ = sock.write_all(resp.as_bytes());
+            }
+        });
+        let s = srv();
+        // register the backend, then designate it as the "background" target
+        s.register_proxy("bg-gpu", &addr.to_string(), "logic", 18.0, "openai")
+            .unwrap();
+        let set = respond(
+            &s,
+            "POST",
+            "/v1/models/background",
+            &serde_json::json!({"id":"bg-gpu"}).to_string(),
+        );
+        assert_eq!(
+            body_of(&set)["active"],
+            "bg-gpu",
+            "the designated model is loaded → active"
+        );
+        // a request for the reserved alias "background" reaches that backend
+        let body = serde_json::json!({
+            "model": "background", "max_tokens": 8,
+            "messages": [{"role": "user", "content": "hi"}],
+        })
+        .to_string();
+        let r = respond(&s, "POST", "/v1/messages", &body);
+        handle.join().unwrap();
+        assert_eq!(r.status, 200);
+        assert_eq!(
+            body_of(&r)["content"][0]["text"],
+            "from the background model"
+        );
+        // clearing the designation → the alias no longer resolves to a backend
+        let clear = respond(&s, "POST", "/v1/models/background", "{}");
+        assert!(
+            body_of(&clear)["active"].is_null(),
+            "cleared → no active background model"
+        );
     }
 
     #[test]

@@ -90,8 +90,12 @@ and read-only surfaces run on the deterministic engine and never need one.
 | Method + path | Purpose | Shape |
 |---|---|---|
 | `POST /v1/messages` | **Anthropic Messages API** (generate) | `{model, max_tokens, system?, messages[], stream?}` → `{type:"message", content:[{type:"text",text}], stop_reason, usage}`; `stream:true` = Anthropic SSE |
-| `GET /v1/models` | Anthropic models list | `{data:[{type:"model", id, display_name}], has_more:false}` |
+| `GET /v1/models` | Anthropic models list (loaded residents + proxies, with `device`/`vram_gb`) | `{data:[{type:"model", id, display_name, device, vram_gb}], has_more:false}` |
 | `POST /v1/messages/count_tokens` | Anthropic token count | `{input_tokens:N}` |
+| `POST /v1/models/load` | load a **secondary** CPU model | `{id, dir}` → `{loaded:id}` |
+| `POST /v1/models/unload` | unload a secondary / unregister a proxy | `{id}` → `{unloaded:bool}` |
+| `POST /v1/models/register` | register a **GPU serve-process** backend (a `model-serve` job does this) | `{id, endpoint, device?, vram_gb?, dialect?}` → `{registered:id}` |
+| `POST /v1/models/background` | designate the model the `"background"` alias routes to | `{id}` → `{background:id, active:id\|null}` |
 | `POST /v1/chat/completions` | **OpenAI shim** (generate, SSE) | OpenAI chat request → OpenAI `chat.completion.chunk` deltas + `[DONE]` |
 | `POST /v1/infer` (alias `/mcp`) | routing **DECISION** (no generation) | cortex request → `{kind:"decision", decision:{route, device, verdict, …}}` |
 | `POST /v1/simple` | simplified decision (7 axes + `expected_quality`) — learns | `{axes:{…}, expected_quality}` → `{kind:"decision", learned}` |
@@ -122,6 +126,43 @@ curl -N http://127.0.0.1:8787/v1/messages \
   -d '{"model":"sovereign-local","max_tokens":64,"stream":true,
        "messages":[{"role":"user","content":"Say hi."}]}'
 ```
+
+## Multiple models & background compute
+
+The gateway hosts more than one model at once, so background work never blocks your
+interactive chat:
+
+- **Primary** — the CPU model loaded at startup (`SOVEREIGN_GATEWAY_MODEL`). This is
+  what interactive requests hit by default.
+- **Secondaries** — additional CPU models loaded at runtime with
+  `POST /v1/models/load {id, dir}`. Address one by name: `{"model":"<id>", …}`.
+  Different models generate concurrently; the same model serialises.
+- **GPU serve-processes** — big models run as a **separate** llama-server / vLLM
+  process on a GPU. A `model-serve` background job places it on a device by free VRAM
+  (the compute plane), launches it, and calls `POST /v1/models/register` so the
+  gateway **proxies** requests to it — translating between the Anthropic surface and
+  the backend's OpenAI dialect automatically.
+- **The `"background"` alias** — send `{"model":"background", …}` and the gateway
+  routes to whichever model you designated with `POST /v1/models/background {id}`
+  (or `SOVEREIGN_GATEWAY_BACKGROUND_MODEL`). Background deliberation jobs use this by
+  default. If nothing is designated (or the designated model isn't loaded), it falls
+  back to the primary — an honest default, never a dead route.
+
+```bash
+# designate a loaded secondary (or a registered GPU proxy) as the background model
+curl -s http://127.0.0.1:8787/v1/models/background \
+  -H 'content-type: application/json' -d '{"id":"fast"}'
+# → {"background":"fast","active":"fast"}
+
+# now background work targets it, leaving the primary free
+curl -s http://127.0.0.1:8787/v1/messages \
+  -H 'content-type: application/json' \
+  -d '{"model":"background","max_tokens":64,
+       "messages":[{"role":"user","content":"summarise this log…"}]}'
+```
+
+> Streaming (`stream:true`) to a GPU **proxy** isn't supported yet — it returns an
+> honest error asking you to retry non-streaming. Streaming a CPU secondary works.
 
 ## The sovereign posture (what makes this different from a cloud endpoint)
 

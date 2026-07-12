@@ -575,11 +575,15 @@ fn stream_anthropic_messages(
             );
         }
     };
-    let model = req
+    let requested = req
         .get("model")
         .and_then(|m| m.as_str())
         .unwrap_or("sovereign-local")
         .to_string();
+    // Expand the reserved "background" alias to the designated backend (Phase 2
+    // inc.3) so a streamed background request targets the secondary, and the proxy
+    // guard below sees the concrete id.
+    let model = server.expand_alias(Some(&requested)).unwrap_or(requested);
     // A GPU proxy backend is reached via the non-streaming path (increment 2);
     // streaming forward is increment 2b. Error honestly rather than silently
     // substituting the primary's stream for the requested proxy model.

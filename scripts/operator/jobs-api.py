@@ -89,12 +89,16 @@ def _run_demo(job: dict, cancel: threading.Event) -> tuple[bool, str]:
 
 
 def _run_deliberation(job: dict, cancel: threading.Event) -> tuple[bool, str]:
-    """Run a background CoAT deliberation via the gateway (:8787 /v1/coat)."""
+    """Run a background CoAT deliberation via the gateway (:8787 /v1/coat). Being
+    background work, it targets the secondary via the `"background"` model alias
+    (meta.model overrides) so the interactive primary stays free — the gateway
+    honestly falls back to the primary when no background model is designated."""
     meta = job["meta"]
     body = json.dumps({
         "problem": meta.get("problem", job["title"]),
         "rung": meta.get("rung", "coat"),
         "topic": int(meta.get("topic", 15)),
+        "model": meta.get("model", "background"),
     }).encode()
     STORE.update(job["id"], progress=15)
     if cancel.is_set():
