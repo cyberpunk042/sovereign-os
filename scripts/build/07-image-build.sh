@@ -93,10 +93,61 @@ stage_selfdef_source() {
     | ( cd "${dest}" && tar -xf - )
 }
 
+# Stage the COMPILED intelligence layer (crates/ → daemon binaries) into the
+# image (mkosi.extra → /usr/local/bin). Built on the BUILD HOST, not in the bake
+# container: the bake has NO external network (snapshot mirror only) and apt
+# cargo is older than the pinned 1.89, so rustup cannot fetch the toolchain there
+# — an in-container build is impossible. The host carries rustup 1.89 and the
+# image is the same arch/distro (trixie/x86_64), so the binaries run as-is. This
+# is the same "STAGED from the build host" pattern as Claude Code.
+# Gated on SOVEREIGN_OS_BAKE_INTELLIGENCE (opt-in, like BAKE_SELFDEF).
+stage_intelligence_binaries() {
+  local dest="$1"   # mkosi.extra/usr/local/bin
+  [ -n "${SOVEREIGN_OS_BAKE_INTELLIGENCE:-}" ] || return 0
+  if [ -n "${SOVEREIGN_OS_DRY_RUN:-}" ]; then
+    log_info "dry-run — skipping intelligence-layer host build/stage"
+    return 0
+  fi
+  log_info "building intelligence layer on host → staging daemons to ${dest}"
+  mkdir -p "${dest}"
+  if SOVEREIGN_OS_RUST_BINDIR="${dest}" "${__SCRIPT_DIR}/build-intelligence.sh"; then
+    log_info "staged $(find "${dest}" -maxdepth 1 -type f 2>/dev/null | wc -l) intelligence daemon(s) → image /usr/local/bin"
+  else
+    log_warn "intelligence host build failed — flashed image falls back to a provision-time build (non-fatal)"
+  fi
+}
+
+# Stage a small REAL model into the image (mkosi.extra → /var/lib/sovereign-os/
+# models/<name>) so sovereign-gatewayd generates out of the box on first boot
+# (its unit points SOVEREIGN_GATEWAY_MODEL here). Fetched on the host (network
+# available). Gated on SOVEREIGN_OS_BAKE_MODEL (opt-in — adds ~0.5 GB to the
+# image). The gateway degrades to decision-only if this is skipped.
+stage_intelligence_model() {
+  local dest="$1"   # mkosi.extra/var/lib/sovereign-os/models/smollm-135m
+  [ -n "${SOVEREIGN_OS_BAKE_MODEL:-}" ] || return 0
+  if [ -n "${SOVEREIGN_OS_DRY_RUN:-}" ]; then
+    log_info "dry-run — skipping model fetch/stage"
+    return 0
+  fi
+  local repo="${SOVEREIGN_OS_BAKE_MODEL_REPO:-HuggingFaceTB/SmolLM-135M}"
+  log_info "fetching ${repo} on host → staging model to ${dest}"
+  mkdir -p "${dest}"
+  if MODEL_REPO="${repo}" "${__SCRIPT_DIR}/../intelligence/fetch-model.sh" "${dest}"; then
+    log_info "staged model ${repo} → image (gateway generates on first boot)"
+  else
+    log_warn "model fetch failed — gateway runs decision-only until a model is fetched (non-fatal)"
+  fi
+}
+
 case "${SOVEREIGN_OS_SUBSTRATE}" in
   mkosi)
     stage_kernel_debs "${SOVEREIGN_OS_BUILD_OUT}/mkosi.extra/var/cache/local-debs"
     stage_selfdef_source "${SOVEREIGN_OS_BUILD_OUT}/mkosi.extra/opt/selfdef"
+    # The sovereign brain: compiled daemons + (optionally) a real model, staged
+    # from the host so the flashed image ships them ready (the bake can't build
+    # the 1.89-pinned crates offline).
+    stage_intelligence_binaries "${SOVEREIGN_OS_BUILD_OUT}/mkosi.extra/usr/local/bin"
+    stage_intelligence_model "${SOVEREIGN_OS_BUILD_OUT}/mkosi.extra/var/lib/sovereign-os/models/smollm-135m"
     cd "${SOVEREIGN_OS_BUILD_OUT}" || exit 1
     if [ -n "${SOVEREIGN_OS_DRY_RUN:-}" ]; then
       log_warn "SOVEREIGN_OS_DRY_RUN — skipping 'mkosi build'"

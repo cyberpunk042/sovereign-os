@@ -12,6 +12,28 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — the compiled brain ships in the image: host-copy bake path (2026-07-11)
+
+A freshly flashed SAIN-01 can boot with the sovereign brain already compiled + enabled (and
+optionally a model), so it generates out of the box — no first-boot compile.
+
+- **Host-copy staging (not in-container).** The bake has no external network (snapshot mirror only)
+  and apt cargo predates the pinned 1.89, so rustup cannot fetch the toolchain there — an
+  in-container build is impossible. So `scripts/build/07-image-build.sh` builds the intelligence
+  layer on the BUILD HOST (rustup 1.89) and stages the daemon binaries into
+  `mkosi.extra/usr/local/bin` (`stage_intelligence_binaries`) — the same "staged from the build
+  host" pattern as Claude Code. The binaries link only glibc/libm/libgcc, so they run in the image
+  with zero added packages.
+- **Optional baked model.** `stage_intelligence_model` fetches a small real model (default
+  SmolLM-135M) into `mkosi.extra/var/lib/sovereign-os/models/…` so the gateway generates on first
+  boot.
+- **Auto-start.** `provision-bake.sh` installs + enables `sovereign-gatewayd.service` when the
+  binary was staged (guarded so a source-only image never enables a unit with no `ExecStart`).
+- Gated on opt-in knobs `SOVEREIGN_OS_BAKE_INTELLIGENCE` + `SOVEREIGN_OS_BAKE_MODEL` (env, dry-run
+  safe). Absent ⇒ the image ships source and builds the brain at provision time (the prior
+  behaviour). Verified: `SOVEREIGN_OS_RUST_BINDIR=<stage> build-intelligence.sh` stages all 9
+  daemons; the gatewayd binary is glibc-only portable.
+
 ### Added — the gateway generates: OpenAI chat shim on :8787 + the cockpit talks to the brain (2026-07-11)
 
 `sovereign-gatewayd` stops being a pure decision surface and becomes a local generation brain: it

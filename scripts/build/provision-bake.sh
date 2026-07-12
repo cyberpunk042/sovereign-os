@@ -238,6 +238,29 @@ if [ "${SOVEREIGN_OS_BAKE_LIVERELOAD:-1}" = "1" ] && [ -d "${REPO}/systemd/syste
   log "live-reload ON — broker enabled + ${_lr} service(s) wrapped for in-place self-re-exec (edit /opt/sovereign-os live; bake.livereload=0 to disable)"
 fi
 
+# ── 5d. the sovereign brain (intelligence layer) — gatewayd auto-start ────
+# When the intelligence layer was staged into the image (bake.intelligence via
+# step 07 → /usr/local/bin/sovereign-gatewayd), install + enable its unit so the
+# flashed image auto-starts the gateway: it resumes durable memory, and — if a
+# model was baked (bake.model → /var/lib/sovereign-os/models/…) — serves the
+# OpenAI chat shim so the cockpit chat works out of the box. No model ⇒ it runs
+# as a pure decision surface (chat falls back to the tier router). Gated on the
+# staged binary so a source-only image never enables a unit with no ExecStart.
+if [ "${SOVEREIGN_OS_BAKE_INTELLIGENCE:-}" = "1" ] && [ -f "${REPO}/systemd/system/sovereign-gatewayd.service" ]; then
+  if [ -x /usr/local/bin/sovereign-gatewayd ]; then
+    install -m 644 "${REPO}/systemd/system/sovereign-gatewayd.service" /etc/systemd/system/ 2>/dev/null || true
+    _model="none"
+    [ -f /var/lib/sovereign-os/models/smollm-135m/config.json ] && _model="baked"
+    if systemctl enable sovereign-gatewayd.service >/dev/null 2>&1; then
+      log "sovereign brain LIVE — gatewayd enabled (baked binary; model: ${_model})"
+    else
+      log "gatewayd enable failed (non-fatal)"
+    fi
+  else
+    log "bake.intelligence=1 but /usr/local/bin/sovereign-gatewayd not staged — gatewayd NOT enabled (check step-07 host build)"
+  fi
+fi
+
 # ── 6. first-boot hardware automation (installs + enables the target) ─────
 # The wired first-boot units (ConditionFirstBoot=yes) run the hardware-specific
 # setup on the real machine's first boot: vfio-bind, network-vlan, tetragon
