@@ -1,4 +1,4 @@
-# SDD-206 — The Sovereign Compute Plane (Phase 1: VRAM-fit job placement)
+# SDD-207 — The Sovereign Compute Plane (Phase 1: VRAM-fit job placement)
 
 > Status: draft
 > Owner: operator-directed; agent-authored

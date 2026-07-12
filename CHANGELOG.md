@@ -38,7 +38,7 @@ those crates were built and tested but wired only into the non-daemon `sovereign
 Operator-directed (the Background Tasks "massive" pass — "my rtx4090 jobs or a secondary model in general …
 lets discuss and plan"). Discussed + planned: ONE compute plane placing both background models and GPU jobs
 across the host PRO 6000 + the VFIO-passed 4090/3090 by live VRAM. A 4-phase roadmap was approved; this is
-**Phase 1** (the plane core). SDD-206.
+**Phase 1** (the plane core). SDD-207.
 
 - NEW `scripts/operator/lib/compute_plane.py` — extends the M075 SRP doctrine (Conductor=CPU, Logic=4090,
   Oracle=PRO 6000; fit by precision + VRAM) from static capacities to **live free VRAM**. Probes host GPUs via
