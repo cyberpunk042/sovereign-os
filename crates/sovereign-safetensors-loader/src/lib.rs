@@ -43,13 +43,16 @@ use std::collections::BTreeMap;
 
 use serde::Deserialize;
 use sovereign_decoder_layer::{DecoderLayer, LayerStack};
-use sovereign_linear::Precision;
 use sovereign_mha_block::{MhaBlockWeights, MhaDecoderBlock, RopeScaling, RopeScalingKind};
 use sovereign_quant_llm::QuantLlm;
 use sovereign_quant_model::QuantModel;
 use sovereign_rmsnorm::RmsNorm;
-use sovereign_sampler::Sampler;
 use sovereign_tokenizer::Tokenizer;
+
+// Re-exported so callers of the precision- / sampler-selectable loaders can name
+// the knobs without adding a direct dependency on the underlying crates.
+pub use sovereign_linear::Precision;
+pub use sovereign_sampler::Sampler;
 
 /// Schema version of the loader surface.
 pub const SCHEMA_VERSION: &str = "1.0.0";
@@ -391,9 +394,59 @@ pub fn permute_qk_hf_to_interleaved(
 // ── assembly ─────────────────────────────────────────────────────────────────
 
 /// Load a model's tensors (safetensors bytes) + `Config` into a runnable
-/// [`QuantModel`] at dense f32. Applies the HF→interleaved RoPE permutation to
-/// q/k and honors `tie_word_embeddings`.
+/// [`QuantModel`] at dense f32 with greedy sampling — the defaults.
+///
+/// Applies the HF→interleaved RoPE permutation to q/k and honors
+/// `tie_word_embeddings`. For a non-f32 runtime precision or a non-greedy
+/// sampler, use [`load_at_precision`], [`load_with_sampler`], or
+/// [`load_configured`] — this is `load_configured(.., F32, greedy())`.
 pub fn load(model_bytes: &[u8], config: &Config) -> Result<QuantModel, LoaderError> {
+    load_configured(model_bytes, config, Precision::F32, Sampler::greedy())
+}
+
+/// Load at a caller-chosen runtime `precision` (greedy sampling).
+///
+/// The decoder blocks are built at `precision` instead of the f32 default, so a
+/// real checkpoint can run as Ternary / NVFP4 / INT8 / BF16 in-memory — a 7B
+/// model at ~7GB (INT8) / ~14GB (BF16) instead of ~28GB f32, the local-sovereign
+/// premise. Weights are still parsed from f32/f16/bf16 tensors and quantized
+/// down at load; loading an *already*-quantized checkpoint (GGUF Q4_K/Q8_0,
+/// GPTQ, AWQ) is a separate, larger follow-up (no dequant-from-disk path exists
+/// yet — see [`LoaderError::UnsupportedDtype`]).
+pub fn load_at_precision(
+    model_bytes: &[u8],
+    config: &Config,
+    precision: Precision,
+) -> Result<QuantModel, LoaderError> {
+    load_configured(model_bytes, config, precision, Sampler::greedy())
+}
+
+/// Load with a caller-supplied `sampler` (dense f32).
+///
+/// The default loaders hardwire `Sampler::greedy()`, so temperature / top-p /
+/// top-k are unreachable even when a request asks for them; this threads a
+/// chosen sampler into the assembled model. (Wiring per-request HTTP sampling
+/// parameters into the daemon is a separate, gateway-side follow-up.)
+pub fn load_with_sampler(
+    model_bytes: &[u8],
+    config: &Config,
+    sampler: Sampler,
+) -> Result<QuantModel, LoaderError> {
+    load_configured(model_bytes, config, Precision::F32, sampler)
+}
+
+/// Load with both a caller-chosen runtime `precision` and `sampler` — the full
+/// configurable entry point the convenience loaders delegate to.
+///
+/// Applies the HF→interleaved RoPE permutation to q/k, threads the model's real
+/// `rope_theta` + `rope_scaling` into every block, and honors
+/// `tie_word_embeddings`.
+pub fn load_configured(
+    model_bytes: &[u8],
+    config: &Config,
+    precision: Precision,
+    sampler: Sampler,
+) -> Result<QuantModel, LoaderError> {
     let st = SafeTensors::parse(model_bytes)?;
     let md = config.model_dim;
     let hd = config.head_dim();
@@ -444,7 +497,7 @@ pub fn load(model_bytes: &[u8], config: &Config) -> Result<QuantModel, LoaderErr
             w_up: st.tensor_exact(&p("mlp.up_proj.weight"), hidden * md)?,
             w_down: st.tensor_exact(&p("mlp.down_proj.weight"), md * hidden)?,
         };
-        let block = MhaDecoderBlock::from_weights(&weights, Precision::F32)
+        let block = MhaDecoderBlock::from_weights(&weights, precision)
             .map_err(|e| LoaderError::Build(format!("layer {i}: {e}")))?
             // Thread the model's real RoPE base + scaling into every block (the
             // fix for modern models — default 10000 decodes them as garbage).
@@ -455,7 +508,6 @@ pub fn load(model_bytes: &[u8], config: &Config) -> Result<QuantModel, LoaderErr
     let stack = LayerStack::new(layers).map_err(|e| LoaderError::Build(e.to_string()))?;
     let embedding = st.tensor_exact("model.embed_tokens.weight", vocab * md)?;
     let final_norm = RmsNorm::with_gain(st.tensor_exact("model.norm.weight", md)?, config.eps);
-    let sampler = Sampler::greedy();
 
     if config.tied {
         QuantModel::new_tied(vocab, md, embedding, stack, final_norm, sampler)
@@ -733,6 +785,73 @@ mod tests {
         assert_eq!(a.len(), 6);
         // NOT asserted: semantic coherence — the fixture weights are synthetic;
         // real-model coherence is the gated follow-up.
+    }
+
+    // ---- Configurable load: precision + sampler (SDD-953) ----
+
+    #[test]
+    fn load_at_precision_builds_non_f32_runtime() {
+        // Real weights (parsed f32) quantized DOWN into the runtime block at a
+        // caller-chosen precision — the 7B-≠-28GB path. Each variant must still
+        // produce finite logits from the synthetic fixture.
+        let (bytes, cfg) = fixture(Dt::F32);
+        for p in [
+            Precision::Bf16,
+            Precision::Int8,
+            Precision::Nvfp4,
+            Precision::Ternary,
+        ] {
+            let mut model = load_at_precision(&bytes, &cfg, p)
+                .unwrap_or_else(|e| panic!("load at {p:?} failed: {e:?}"));
+            let logits = model.forward(1).expect("forward");
+            assert_eq!(logits.len(), V, "{p:?} vocab width");
+            assert!(
+                logits.iter().all(|v: &f32| v.is_finite()),
+                "{p:?} logits finite"
+            );
+        }
+    }
+
+    #[test]
+    fn load_defaults_to_f32_greedy() {
+        // The default loader is exactly load_configured(.., F32, greedy()).
+        let (bytes, cfg) = fixture(Dt::F32);
+        let model = load(&bytes, &cfg).expect("load");
+        assert_eq!(
+            model.sampler().config.temperature,
+            0.0,
+            "default sampler is greedy"
+        );
+    }
+
+    #[test]
+    fn load_with_sampler_threads_temperature() {
+        // The loader hardwires greedy; load_with_sampler lets a caller pick the
+        // temperature so it is honored at decode time.
+        let (bytes, cfg) = fixture(Dt::F32);
+        let sampler = Sampler::new(sovereign_sampler::SamplerConfig {
+            temperature: 0.7,
+            ..Default::default()
+        });
+        let model = load_with_sampler(&bytes, &cfg, sampler).expect("load with sampler");
+        assert_eq!(model.sampler().config.temperature, 0.7);
+    }
+
+    #[test]
+    fn load_configured_sets_both_axes() {
+        // Both knobs at once: a non-f32 runtime precision AND a non-greedy sampler.
+        let (bytes, cfg) = fixture(Dt::F32);
+        let sampler = Sampler::new(sovereign_sampler::SamplerConfig {
+            temperature: 0.5,
+            top_k: Some(20),
+            ..Default::default()
+        });
+        let mut model =
+            load_configured(&bytes, &cfg, Precision::Int8, sampler).expect("configured load");
+        assert_eq!(model.sampler().config.temperature, 0.5);
+        assert_eq!(model.sampler().config.top_k, Some(20));
+        let logits = model.forward(1).expect("forward");
+        assert_eq!(logits.len(), V);
     }
 
     // ---- RoPE config parsing (SDD-950) ----

@@ -12,6 +12,26 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — configurable model load: the loader stops hardcoding F32-greedy (2026-07-12)
+
+Phase-1 audit (SDD-953; closes the self-contained halves of ledger F-2026-085 + F-2026-086). `sovereign-safetensors-loader::load`
+assembled every model at a hardcoded `Precision::F32` (a 7B model needs ~28GB, undercutting the "local sovereign"
+premise) with a hardcoded `Sampler::greedy()` (so temperature/top_p/top_k were unreachable at the model level) —
+even though the decoder stack is already precision-heterogeneous and the sampler/quant machinery are built and tested.
+
+- **`sovereign-safetensors-loader`**: `load` refactored into `load_configured(bytes, config, precision, sampler)` plus
+  delegating wrappers `load_at_precision` (caller precision, greedy) and `load_with_sampler` (F32, caller sampler).
+  `load` keeps its exact signature and defaults (F32/greedy), so all existing call sites are byte-identical. A real
+  checkpoint can now load as Ternary/NVFP4/INT8/BF16 in-memory. `Precision` + `Sampler` are re-exported.
+- **`sovereign-quant-model`**: new `with_sampler(Sampler)` builder + `sampler()` getter — an assembled model can be
+  re-pointed at a warm sampler and introspected (the hook the gateway's future per-request sampling wiring plugs into).
+- **Deferred (tracked):** GGUF/pre-quantized-checkpoint dequant (no dequant-from-disk path exists — milestone-scoped)
+  and threading per-request HTTP sampling params into `generate_chat` (owned by the parallel Anthropic-Messages-API
+  session; this change only provides the model-side hook).
+- Also removes two zombie `docs/sdd/INDEX.md` rows (900/901) a `merge=union` re-added for SDD files that had been
+  renumbered to 950/951 — the union-merge deletion hazard; the canonical rows are 950/951.
+
+
 ### Fixed — context.md counts-as-contract: the re-orientation surface can't silently drift again (2026-07-12)
 
 Phase-1 audit (SDD-952; closes ledger F-2026-030). `context.md` — the operator's "read me first after every
