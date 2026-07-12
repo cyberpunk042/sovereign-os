@@ -12,6 +12,29 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — the Sovereign Brain panel: observe + operate the intelligence layer (2026-07-11)
+
+The earlier cockpit work bolted a status *strip* onto trinity/model-health — a tripwire, ledger
+counters, and a memory *count*. That is not observing the brain, and it left the crates nebulous.
+This is the dedicated observatory + console: you look INTO the brain and drive it.
+
+- NEW `scripts/operator/brain-api.py` (port 8141) — read-only over the gateway's read surfaces + a
+  non-mutating decide/chat compute; reuses `gateway_probe`. Endpoints: `/brain.json` (status +
+  memory summary + daemon map), `/brain/memory` (the DECODED cortex store — every hot meta's CoALA
+  type / trust / value / freshness / flags + its cold ground-truth episode·summary·facts — beside
+  the Python Memory-OS operational store), `/brain/route` (a 7-axis decide probe), `POST /brain/chat`
+  (streamed from the :8787 OpenAI shim), `/brain/daemons` (the 9-daemon crate map). Forget/clear stay
+  CLI-gated (SDD-052).
+- NEW `webapp/brain/index.html` — a full contract-compliant panel: the **memory browser** (the
+  actual learned memories, not a count; both stores side by side), live gateway telemetry + the
+  never-cloud-spill tripwire, a **routing probe** (pick the 7 axes → watch the brain decide, and
+  learn), inline **chat** with the local model, and the **daemon/crate map** that de-nebulizes the
+  layer. Demo-capable.
+- Wired in: `sovereign-brain-api.service`, a `dashboard-catalog` entry + app-shell nav entry (slug
+  `brain`, category trinity), the demo manifest, the app-shell/controls-audit baselines, and
+  `tests/lint/test_brain_panel_contract.py`. Full lint green (5924); the panel serves live and its
+  feeds decode real memory + stream real generation.
+
 ### Added — the compiled brain ships in the image: host-copy bake path (2026-07-11)
 
 A freshly flashed SAIN-01 can boot with the sovereign brain already compiled + enabled (and

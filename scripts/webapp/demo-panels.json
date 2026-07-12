@@ -32,6 +32,7 @@
     { "slug": "network-edge",                "demoConst": "DEMO_NETWORK_EDGE",  "apiPrefix": "/interfaces",     "rowSelector": "#iface-tbody tr",          "sdd": "SDD-126" },
     { "slug": "selfdef-management",          "demoConst": "DEMO_SELFDEF",  "apiPrefix": "/selfdef-management.json", "rowSelector": null,                  "sdd": "SDD-126" },
     { "slug": "ups",                         "demoConst": "DEMO_UPS",      "apiPrefix": "/ups.json",            "rowSelector": null,                       "sdd": "SDD-126" },
+    { "slug": "brain",                       "demoConst": "DEMO_BRAIN",    "apiPrefix": "/brain.json",          "rowSelector": "#mem-rows tr",             "sdd": "SDD-126" },
     { "slug": "science",                     "demoConst": "DEMO_SCIENCE",  "apiPrefix": "/science.json",        "rowSelector": "#catalog tr",              "sdd": "SDD-126" },
     { "slug": "trinity",                     "demoConst": null,            "apiPrefix": null,                   "rowSelector": null, "kind": "badge-only", "sdd": "SDD-127" },
     { "slug": "weaver",                      "demoConst": null,            "apiPrefix": null,                   "rowSelector": null, "kind": "badge-only", "sdd": "SDD-127" },

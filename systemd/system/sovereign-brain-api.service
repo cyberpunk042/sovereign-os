@@ -1,0 +1,52 @@
+[Unit]
+Description=Sovereign Brain API + panel — observe + operate the intelligence layer (cortex memory, gateway, generation)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/operator/brain-api.py
+# Read-only observatory + console for the Rust intelligence layer: serves
+# webapp/brain/ + /brain.json + /brain/memory (the DECODED cortex memory + the
+# Python Memory-OS store) + /brain/route (a decide probe) + POST /brain/chat
+# (proxied to the sovereign-gatewayd OpenAI shim on :8787). It never edits
+# memory; forget/clear stay CLI-gated. panel.sh discovers it by the
+# Environment=…PORT= line.
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/usr/local/lib/sovereign-os
+ExecStart=/usr/bin/python3 /usr/local/lib/sovereign-os/scripts/operator/brain-api.py
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+# Loopback-by-default — operator-§1g exposure decision is theirs. To expose
+# beyond loopback, drop /etc/systemd/system/sovereign-brain-api.service.d/bind.conf:
+#   [Service]
+#   Environment=BRAIN_API_BIND=0.0.0.0
+Environment=BRAIN_API_BIND=127.0.0.1
+Environment=BRAIN_API_PORT=8141
+# Where it probes the brain (aligns with the gatewayd unit's defaults).
+Environment=SOVEREIGN_GATEWAY_ADDR=127.0.0.1:8787
+
+# R171 defense-in-depth (Layer-1 lint enforced). Read-only HTTP surface; reads
+# the memory stores under /var/lib/sovereign-os/memory + probes :8787.
+ProtectSystem=strict
+ProtectHome=true
+ProtectClock=true
+ProtectHostname=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+ReadWritePaths=/var/lib/node_exporter/textfile_collector
+NoNewPrivileges=true
+PrivateTmp=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+
+[Install]
+WantedBy=multi-user.target

@@ -43,6 +43,8 @@ dashboards:
   # ── Trinity & Orchestration ─────────────────────────────────────────
   - {slug: trinity, category: trinity, label: "Trinity", path: /trinity/, api: sovereign-trinity-api, status: live,
      description: "The 3-tier runtime at a glance — Pulse (CPU/AVX-512 ternary), Weaver (sandboxed GPU fabric), Auditor (immutable gatekeeper): live tier status, model assignments, health.", refs: [master-spec §17]}
+  - {slug: brain, category: trinity, label: "Sovereign Brain", path: /brain/, api: sovereign-brain-api, status: live,
+     description: "Observe + operate the Rust intelligence layer: the DECODED cortex memory (the 8 CoALA types, trust/value, ground-truths) plus the Python Memory-OS beside it, live gateway telemetry + the never-cloud-spill tripwire, a routing probe that shows the brain decide, inline chat with the local model (:8787 shim), and the daemon/crate map.", refs: [M048, M028, M009]}
   - {slug: weaver, category: trinity, label: "Weaver (fabric)", path: /weaver/, api: sovereign-weaver-api, status: live,
      description: "The sandboxed fabric layer — Podman/VFIO isolation, the state-fabric (tank/context) writers, CCD1 allocation. Where untrusted work runs.", refs: [master-spec §17]}
   - {slug: auditor, category: trinity, label: "Auditor (gatekeeper)", path: /auditor/, api: sovereign-auditor-api, status: live,

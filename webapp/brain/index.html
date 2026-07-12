@@ -3,404 +3,50 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>sovereign-os network-edge</title>
-<meta name="x-sovereign-module" content="network-edge-webapp">
-<meta name="x-sovereign-shipped-in" content="R509 (E11.M8++)">
+<title>sovereign-os · Sovereign Brain</title>
+<meta name="x-sovereign-module" content="brain-webapp">
+<meta name="x-sovereign-shipped-in" content="the Sovereign Brain observatory + console (M048 gateway over the cortex + Memory-OS)">
 <meta name="x-sovereign-standing-rule" content="We do not minimize anything.">
-<!-- M060 R10137/R10140/R10141 personalization apply-snippet — same
-     ~20 lines that ship in master-dashboard's <head>; reads prefs
-     from localStorage and applies them pre-paint so the operator's
-     theme/accent/typography choices render with no FOUC. The
-     canonical control surface is /webapp/personalization/. -->
-<script>
-  (function(){
-    var KEY = 'sovereign-os.personalization', SCHEMA_V = 1;
-    var DEF = { schema: SCHEMA_V, theme: 'auto', accent: '#9bd1ff', font_scale: 1 };
-    var p;
-    try {
-      var raw = localStorage.getItem(KEY);
-      p = raw ? JSON.parse(raw) : null;
-      if (!p || p.schema !== SCHEMA_V) p = null;
-    } catch(e) { p = null; }
-    if (!p) p = DEF;
-    var resolved = (p.theme === 'dark' || p.theme === 'light') ? p.theme
-      : ((window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark');
-    document.documentElement.setAttribute('data-theme', resolved);
-    document.documentElement.style.setProperty('--so-accent', p.accent || DEF.accent);
-    document.documentElement.style.setProperty('--accent', p.accent || DEF.accent);
-    document.documentElement.style.setProperty('--font-scale', String(p.font_scale || 1));
-  })();
-</script>
 <style>
-  /* M060 R10137 light-theme overrides (the apply-snippet above sets
-     data-theme; the dark-theme :root in the main stylesheet below is
-     the default). */
-  html[data-theme="light"] {
-    --bg:#f6f6f6; --fg:#0e0e0e; --muted:#555;
-    --panel:#ffffff; --border:#d8d8d8;
-  }
-</style>
-
-<!-- M060 R10055 + R10058-R10105 keyboard-nav snippet — see webapp/_shared/nav-snippet.html for full doc -->
-<style>
-  .so-palette-backdrop {
-    position: fixed; inset: 0; background: rgba(0,0,0,.55);
-    z-index: 9000; display: none; align-items: flex-start;
-    justify-content: center; padding-top: 12vh;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  }
-  .so-palette-backdrop.open { display: flex; }
-  .so-palette-box {
-    width: min(560px, 90vw); background: var(--panel, #171717);
-    border: 1px solid var(--accent, #9bd1ff); border-radius: 6px;
-    box-shadow: 0 8px 32px rgba(0,0,0,.6); overflow: hidden;
-  }
-  .so-palette-input {
-    width: 100%; padding: .75rem 1rem; background: transparent;
-    border: 0; border-bottom: 1px solid var(--border, #262626);
-    color: var(--fg, #e6e6e6); font-size: 1rem;
-    font-family: inherit; outline: none;
-  }
-  .so-palette-results { max-height: 50vh; overflow-y: auto; }
-  .so-palette-row {
-    display: flex; align-items: center; gap: .6rem;
-    padding: .5rem .9rem; cursor: pointer; color: var(--fg, #e6e6e6);
-    font-size: .9rem;
-  }
-  .so-palette-row:hover, .so-palette-row.active {
-    background: rgba(155,209,255,.10);
-  }
-  .so-palette-row .id {
-    font-weight: 600; color: var(--accent, #9bd1ff);
-    min-width: 3.5rem; font-size: .82rem;
-  }
-  .so-palette-row .lbl { flex: 1; }
-  .so-palette-row .hint {
-    font-size: .72rem; color: var(--muted, #888);
-  }
-  .so-palette-footer {
-    padding: .4rem .9rem; font-size: .72rem; color: var(--muted, #888);
-    border-top: 1px solid var(--border, #262626);
-    display: flex; gap: 1rem; flex-wrap: wrap;
-  }
-  .so-palette-footer kbd {
-    background: var(--bg, #0e0e0e); border: 1px solid var(--border, #262626);
-    border-radius: 3px; padding: 0 .35rem; font-size: .7rem;
-    color: var(--fg, #e6e6e6);
-  }
-</style>
-<script>
-  (function(){
-    var ROOT = (function(){
-      var p = window.location.pathname.replace(/\/$/, '');
-      var i = p.lastIndexOf('/');
-      return i > 0 ? p.slice(0, i + 1) : '/';
-    })();
-    var DASHBOARDS = [
-      { id: 'D-00', dir: 'master-dashboard',          label: 'master dashboard',         shortcut: '1' },
-      { id: 'D-01', dir: 'd-01-active-sessions',      label: 'active sessions',          shortcut: '2' },
-      { id: 'D-02', dir: 'd-02-profile-choices',      label: 'profile choices',          shortcut: '3' },
-      { id: 'D-03', dir: 'd-03-model-health',         label: 'model health',             shortcut: '4' },
-      { id: 'D-04', dir: 'd-04-costs',                label: 'costs',                    shortcut: '5' },
-      { id: 'D-05', dir: 'd-05-traces',               label: 'traces',                   shortcut: '6' },
-      { id: 'D-06', dir: 'd-06-pending-approvals',    label: 'pending approvals',        shortcut: '7' },
-      { id: 'D-07', dir: 'd-07-memory-changes',       label: 'memory changes',           shortcut: '8' },
-      { id: 'D-08', dir: 'd-08-rollback-points',      label: 'rollback points',          shortcut: '9' },
-      { id: 'D-09', dir: 'd-09-hardware-pressure',    label: 'hardware pressure',        shortcut: '0' },
-      { id: 'D-10', dir: 'd-10-eval-history',         label: 'eval history',             shortcut: null },
-      { id: 'D-11', dir: 'd-11-adapter-status',       label: 'adapter status',           shortcut: null },
-      { id: 'D-12a', dir: 'network-edge',             label: 'network edge (D-12 split)', shortcut: null },
-      { id: 'D-12b', dir: 'edge-firewall',            label: 'edge firewall (D-12 split)', shortcut: null },
-      { id: 'D-13', dir: 'd-13-filesystem-grants',    label: 'filesystem grants',        shortcut: null },
-      { id: 'D-14', dir: 'd-14-capability-tokens',    label: 'capability tokens',        shortcut: null },
-      { id: 'D-15', dir: 'd-15-sandboxes',            label: 'sandboxes',                shortcut: null },
-      { id: 'D-16', dir: 'd-16-audit',                label: 'audit chain',              shortcut: null },
-      { id: 'D-17', dir: 'd-17-quarantine',           label: 'quarantine',               shortcut: null },
-      { id: 'D-18', dir: 'd-18-trust-scores',         label: 'trust scores',             shortcut: null },
-      { id: 'D-19', dir: 'd-19-super-model-manifest', label: 'super-model manifest',     shortcut: null },
-      { id: 'D-20', dir: 'd-20-peace-machine-health', label: 'peace-machine health',     shortcut: null },
-      { id: 'cfg',  dir: 'personalization',            label: 'personalization',          shortcut: null },
-    ];
-    function jump(d) { window.location.href = ROOT + d.dir + '/'; }
-    var SHORTCUT = {};
-    DASHBOARDS.forEach(function(d) { if (d.shortcut) SHORTCUT[d.shortcut] = d; });
-
-    var backdrop, input, results, activeIdx = 0, filtered = [];
-    function openPalette() {
-      if (!backdrop) return;
-      backdrop.classList.add('open');
-      input.value = ''; activeIdx = 0;
-      filtered = DASHBOARDS.slice();
-      renderResults();
-      setTimeout(function(){ input.focus(); }, 0);
-    }
-    function closePalette() { if (backdrop) backdrop.classList.remove('open'); }
-    function renderResults() {
-      var html = '';
-      filtered.forEach(function(d, i) {
-        html += '<div class="so-palette-row' + (i === activeIdx ? ' active' : '') +
-                '" data-idx="' + i + '"><span class="id">' + d.id + '</span>' +
-                '<span class="lbl">' + d.label + '</span>' +
-                (d.shortcut ? '<span class="hint">⌘' + d.shortcut + '</span>' : '') +
-                '</div>';
-      });
-      results.innerHTML = html;
-      Array.prototype.forEach.call(results.querySelectorAll('.so-palette-row'), function(el) {
-        el.addEventListener('click', function() { jump(filtered[Number(el.dataset.idx)]); });
-      });
-      var active = results.querySelector('.so-palette-row.active');
-      if (active && active.scrollIntoView) active.scrollIntoView({ block: 'nearest' });
-    }
-    function filterPalette() {
-      var q = (input.value || '').trim().toLowerCase();
-      filtered = q ? DASHBOARDS.filter(function(d) {
-        return d.id.toLowerCase().indexOf(q) >= 0 ||
-               d.label.toLowerCase().indexOf(q) >= 0 ||
-               d.dir.toLowerCase().indexOf(q) >= 0;
-      }) : DASHBOARDS.slice();
-      activeIdx = 0;
-      renderResults();
-    }
-
-    // Skip the snippet's Cmd-N jump when the operator is already on
-    // the target dashboard — that way each dashboard's own Cmd-N
-    // handler (e.g. d-05 Cmd-6 focuses search) keeps working without
-    // being clobbered by a no-op page-reload. Detection: the current
-    // pathname contains the target dir as a segment.
-    function isOnDashboard(d) {
-      var p = window.location.pathname;
-      return p.indexOf('/' + d.dir + '/') >= 0 || p.indexOf('/' + d.dir) >= 0 && p.endsWith(d.dir);
-    }
-
-    function onKeydown(e) {
-      var open = backdrop && backdrop.classList.contains('open');
-      if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
-        e.preventDefault(); e.stopImmediatePropagation();
-        open ? closePalette() : openPalette(); return;
-      }
-      if (open) {
-        if (e.key === 'Escape')    { e.preventDefault(); e.stopImmediatePropagation(); closePalette(); return; }
-        if (e.key === 'ArrowDown') { e.preventDefault(); e.stopImmediatePropagation(); activeIdx = Math.min(activeIdx + 1, filtered.length - 1); renderResults(); return; }
-        if (e.key === 'ArrowUp')   { e.preventDefault(); e.stopImmediatePropagation(); activeIdx = Math.max(activeIdx - 1, 0); renderResults(); return; }
-        if (e.key === 'Enter')     { e.preventDefault(); e.stopImmediatePropagation(); if (filtered[activeIdx]) jump(filtered[activeIdx]); return; }
-        return;
-      }
-      if ((e.metaKey || e.ctrlKey) && SHORTCUT[e.key]) {
-        var tgt = e.target;
-        if (tgt && (tgt.tagName === 'INPUT' || tgt.tagName === 'TEXTAREA' || tgt.isContentEditable)) return;
-        // If already on target, let local handlers run (focus search, refresh, etc.)
-        if (isOnDashboard(SHORTCUT[e.key])) return;
-        e.preventDefault(); e.stopImmediatePropagation();
-        jump(SHORTCUT[e.key]);
-      }
-    }
-
-    function init() {
-      // Inject backdrop into <body> on DOMContentLoaded
-      if (!document.getElementById('so-palette-backdrop')) {
-        var d = document.createElement('div');
-        d.className = 'so-palette-backdrop';
-        d.id = 'so-palette-backdrop';
-        d.setAttribute('role', 'dialog');
-        d.setAttribute('aria-modal', 'true');
-        d.setAttribute('aria-label', 'dashboard navigator');
-        d.innerHTML =
-          '<div class="so-palette-box">' +
-            '<input type="text" class="so-palette-input" id="so-palette-input" ' +
-            'placeholder="jump to dashboard… (try: audit / costs / 17)" autocomplete="off">' +
-            '<div class="so-palette-results" id="so-palette-results"></div>' +
-            '<div class="so-palette-footer">' +
-              '<span><kbd>↑</kbd><kbd>↓</kbd> navigate</span>' +
-              '<span><kbd>Enter</kbd> open</span>' +
-              '<span><kbd>Esc</kbd> close</span>' +
-              '<span style="flex:1"></span><span>M060 R10055</span>' +
-            '</div>' +
-          '</div>';
-        document.body.appendChild(d);
-      }
-      backdrop = document.getElementById('so-palette-backdrop');
-      input    = document.getElementById('so-palette-input');
-      results  = document.getElementById('so-palette-results');
-      if (!backdrop || !input || !results) return;
-      input.addEventListener('input', filterPalette);
-      backdrop.addEventListener('click', function(e) { if (e.target === backdrop) closePalette(); });
-    }
-    // Always bind keydown immediately (init may run later)
-    window.addEventListener('keydown', onKeydown);
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
-    else init();
-  })();
-</script>
-<!-- M060 F05100 + WCAG 2.1 AA accessibility snippet — see webapp/_shared/a11y-snippet.html for full doc -->
-<style>
-  /* WCAG 2.1 AA — focus-visible ring on every interactive element. */
-  a:focus-visible,
-  button:focus-visible,
-  input:focus-visible,
-  select:focus-visible,
-  textarea:focus-visible,
-  details:focus-visible,
-  summary:focus-visible,
-  [role="button"]:focus-visible,
-  [tabindex]:focus-visible {
-    outline: 2px solid var(--accent, #9bd1ff);
-    outline-offset: 2px;
-    border-radius: 3px;
-  }
-
-  /* The palette input had `outline: none` for design reasons; the
-     visible focus ring above resupplies the a11y requirement. */
-  .so-palette-input:focus-visible {
-    outline: 2px solid var(--accent, #9bd1ff);
-    outline-offset: -2px;
-  }
-
-  /* Skip-to-content — visually hidden until keyboard-focused,
-     then becomes a high-contrast badge in the top-left corner. */
-  .so-skip-link {
-    position: absolute;
-    left: -10000px;
-    top: auto;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    z-index: 10000;
-  }
-  .so-skip-link:focus {
-    left: 0.5rem;
-    top: 0.5rem;
-    width: auto;
-    height: auto;
-    padding: 0.5rem 1rem;
-    background: var(--accent, #9bd1ff);
-    color: var(--bg, #0e0e0e);
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-weight: 600;
-    text-decoration: none;
-    border-radius: 4px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
-  }
-
-  /* Respect operator's prefers-reduced-motion preference. */
-  @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after {
-      animation-duration: 0.01ms !important;
-      animation-iteration-count: 1 !important;
-      transition-duration: 0.01ms !important;
-      scroll-behavior: auto !important;
-    }
-  }
-</style>
-<script>
-  (function(){
-    // Inject the skip-to-content link as the first child of <body>
-    // so screen readers + tabbing users land on it first. Targets
-    // <main> if present, else falls back to <h1>.
-    function init() {
-      if (document.querySelector('.so-skip-link')) return;
-      var a = document.createElement('a');
-      a.className = 'so-skip-link';
-      a.href = '#so-skip-target';
-      a.textContent = 'skip to content';
-      document.body.insertBefore(a, document.body.firstChild);
-      // Add an id to the first <main>/<h1> so the anchor resolves.
-      var tgt = document.querySelector('main') || document.querySelector('h1');
-      if (tgt && !tgt.id) tgt.id = 'so-skip-target';
-      else if (tgt && tgt.id !== 'so-skip-target') {
-        // Existing id — point the link to it instead.
-        a.href = '#' + tgt.id;
-      }
-    }
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
-    else init();
-  })();
-</script>
-<!-- M060 F05099 + R10142 responsive-layout snippet — see webapp/_shared/responsive-snippet.html for full doc -->
-<style>
-  4K      ≥2400px  — body max-width raises to 1600px (otherwise the
-                     content looks lost on a huge display)
-
-Per "Respect the projects": pure CSS, no fetch/XHR/server-mutation.
-Drops in via the canonical-snippet adoption pattern next to nav +
-a11y; contract test catches drift.
--->
-<style>
-  /* phone: ≤600px — single-column friendly */
-  @media (max-width: 600px) {
-    body { padding: 0.6rem !important; }
-    h1 { font-size: 1.2rem !important; }
-    h2 { font-size: 0.95rem !important; }
-    /* tables shrink rather than scroll horizontally; .num column
-       loses its tabular-nums alignment to save space */
-    table { font-size: 0.78rem !important; }
-    th, td { padding: 0.25rem 0.35rem !important; }
-    /* flex rows always wrap on phone — no horizontal scroll bait */
-    .row { flex-wrap: wrap !important; gap: 0.4rem !important; }
-    /* stats stack 1-up on phone */
-    .stat { flex-basis: 100% !important; }
-    /* panel padding shrinks */
-    .panel { padding: 0.7rem 0.8rem !important; }
-    /* the M060 palette overlay needs to fit narrow viewports */
-    .so-palette-box { width: 96vw !important; }
-    /* mirror banners stack their bits vertically */
-    .mirror-banner { flex-wrap: wrap !important; }
-    .mirror-banner .spacer { flex-basis: 100% !important; height: 0; }
-  }
-
-  /* tablet: 601-1024px — 2-up stat tiles, body stays roomy */
-  @media (min-width: 601px) and (max-width: 1024px) {
-    .stat { flex-basis: calc(50% - 0.3rem) !important; }
-    body { padding: 0.9rem !important; }
-  }
-
-  /* 4K / ultra-wide: ≥2400px — raise body width so content uses the
-     real estate (otherwise it looks marooned in the center) */
-  @media (min-width: 2400px) {
-    body { max-width: 1600px !important; }
-    html { font-size: calc(15px * var(--font-scale, 1)) !important; }
-  }
-</style>
-
-
-<style>
-  /* Operator-§1g UX: readable in 30 seconds, monochrome palette,
-     no JS framework, no CDN, no fonts fetched from elsewhere —
-     sovereignty-clean single-file webapp. */
-  :root {
+  :root{
     --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --accent:#9bd1ff;
     --good:#7ad17a; --bad:#ff7676; --warn:#e6c062;
     --panel:#171717; --border:#262626;
     --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   }
   *{box-sizing:border-box}
-  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:calc(14px * var(--font-scale, 1));line-height:1.5}
-  body{padding:1.2rem;max-width:1200px;margin:0 auto}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:14px;line-height:1.5}
+  body{padding:1.2rem;max-width:1100px;margin:0 auto}
   h1{font-size:1.4rem;margin:0 0 .2rem 0;font-weight:600}
   h2{font-size:1rem;margin:1.6rem 0 .4rem 0;font-weight:600;color:var(--accent)}
-  .sub{color:var(--muted);margin-bottom:1.4rem;font-size:.85rem}
+  .sub{color:var(--muted);margin-bottom:1rem;font-size:.85rem}
   .panel{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.9rem 1rem;margin:.6rem 0}
-  table{width:100%;border-collapse:collapse;font-size:.85rem}
-  th,td{text-align:left;padding:.4rem .55rem;border-bottom:1px solid var(--border);vertical-align:top}
-  th{color:var(--muted);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
-  tr:last-child td{border-bottom:none}
-  .ok{color:var(--good)} .bad{color:var(--bad)} .warn{color:var(--warn)} .muted{color:var(--muted)}
-  .pill{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.72rem;background:var(--border)}
-  .pill.ok{background:#143d14;color:var(--good)}
-  .pill.warn{background:#3d3014;color:var(--warn)}
-  .pill.bad{background:#3d1414;color:var(--bad)}
   .row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center}
-  .stat{flex:1 1 180px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.7rem .9rem}
+  .muted{color:var(--muted)}
+  code{background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:0 .3rem;font-size:.9em}
+  .status{font-size:.75rem}
+  .status.ok{color:var(--good)} .status.bad{color:var(--bad)} .status.warn{color:var(--warn)}
+  .stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.5rem;margin:.5rem 0}
+  .stat{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.7rem .9rem}
   .stat .k{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em}
-  .stat .v{font-size:1.4rem;margin-top:.15rem}
-  button{font-family:var(--mono);background:var(--panel);color:var(--fg);border:1px solid var(--border);padding:.35rem .7rem;border-radius:3px;cursor:pointer}
-  button:hover{border-color:var(--accent)}
+  .stat .v{font-size:1.6rem;margin-top:.15rem;font-variant-numeric:tabular-nums}
+  .stat .v small{font-size:.9rem;color:var(--muted)}
+  .stat.good .v{color:var(--good)} .stat.warn .v{color:var(--warn)} .stat.bad .v{color:var(--bad)}
+  .bar{height:.55rem;border-radius:3px;background:var(--border);overflow:hidden;margin-top:.4rem}
+  .bar > i{display:block;height:100%;background:var(--good);transition:width .5s}
+  .badge{display:inline-flex;align-items:center;gap:.3rem;font-size:.74rem;border:1px solid var(--border);border-radius:12px;padding:.1rem .55rem}
+  .badge.ok{color:var(--good);border-color:var(--good)} .badge.bad{color:var(--bad);border-color:var(--bad)} .badge.warn{color:var(--warn);border-color:var(--warn)}
+  .dot{display:inline-block;width:.6rem;height:.6rem;border-radius:50%;background:var(--muted);margin-right:.35rem;vertical-align:middle}
+  .dot.on{background:var(--good)} .dot.batt{background:var(--warn)} .dot.off{background:var(--bad)}
+  table{width:100%;border-collapse:collapse;font-size:.82rem;margin-top:.3rem}
+  th,td{text-align:left;padding:.3rem .5rem;border-bottom:1px solid var(--border)}
+  th{color:var(--muted);font-weight:600;font-size:.72rem;text-transform:uppercase}
   footer{margin-top:2rem;color:var(--muted);font-size:.75rem;border-top:1px solid var(--border);padding-top:.8rem}
   .standing-rule{color:var(--accent);font-style:italic;margin-top:.4rem}
-  .cap-row{display:flex;gap:.5rem;align-items:flex-start;padding:.25rem 0}
-  .level-badge{display:inline-block;min-width:1.5rem;text-align:center;background:var(--border);border-radius:3px;padding:1px 6px;font-size:.72rem;color:var(--accent)}
-  code{color:var(--accent)}
-  pre{background:#0a0a0a;border:1px solid var(--border);border-radius:3px;padding:.6rem .8rem;overflow-x:auto;font-size:.78rem;margin:.4rem 0;white-space:pre-wrap;overflow-wrap:anywhere} /* SDD-138 */
-  .disclaimer{background:#10202a;border:1px solid #20405a;color:var(--accent);padding:.7rem .9rem;border-radius:4px;margin:.6rem 0;font-size:.82rem}
+  .banner{display:none;margin:.6rem 0;padding:.7rem .9rem;border-radius:8px;font-size:.9rem;border:1px solid transparent}
+  .banner.warn{background:rgba(220,160,20,.12);border-color:var(--warn);color:var(--warn)}
+  .banner.danger{background:rgba(220,60,60,.14);border-color:var(--bad);color:var(--bad)}
+  .banner strong{letter-spacing:.02em}
 </style>
 <!-- SDD-116/119 shared demo-mode helper (inlined verbatim from webapp/_shared/demo-mode.{css,js}; opt-in, always-badged sample data — SB-077 reconciliation). -->
 <style>
@@ -458,6 +104,12 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
   else badge();
 })();
 </script>
+<style>
+/* SDD-126 — light-theme var override (parity with the panels that already had it). */
+html[data-theme="light"] {
+  --bg:#f6f6f6; --fg:#0e0e0e; --muted:#555; --panel:#ffffff; --border:#d8d8d8;
+}
+</style>
 </head>
 <body>
 <!-- APP-SHELL:BEGIN M067 -->
@@ -1172,62 +824,80 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
 <!-- LIVERELOAD:END M203 -->
 <!-- APP-SHELL:END M067 -->
 
-<h1>sovereign-os network-edge</h1>
+<style>
+  /* brain-panel controls (selects / range / chat) — inherit the panel palette */
+  .bx-axes{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.4rem;width:100%}
+  .bx-axes label{display:flex;flex-direction:column;gap:.15rem;font-size:.72rem;color:var(--muted)}
+  select,input[type=text]{background:var(--bg);color:var(--fg);border:1px solid var(--border);border-radius:4px;padding:.3rem .4rem;font-family:var(--mono);font-size:.85rem}
+  button{background:var(--panel);color:var(--fg);border:1px solid var(--border);border-radius:4px;padding:.35rem .8rem;font-family:var(--mono);font-size:.85rem;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  .mem-episode{color:var(--muted);font-size:.78rem}
+  .typechip{display:inline-block;border:1px solid var(--border);border-radius:10px;padding:0 .4rem;font-size:.7rem;color:var(--accent)}
+  #chat-log{border:1px solid var(--border);border-radius:4px;padding:.5rem;background:var(--bg);max-height:16rem;overflow:auto}
+  .chat-you{color:var(--accent)} .chat-brain{color:var(--fg)}
+</style>
+
+<h1>Sovereign Brain</h1>
 <p class="sub">
-  Operator-§1g multi-NAT edge-network surface — workstation → OPNsense → ISP-router → public chain, VPN bridge, OPNsense capability ladder.
-  Read-only mirror of <code>sovereign-osctl network-edge &lt;verb&gt;</code>.
-  network-edge has no mutation verbs at any surface — OPNsense config changes stay operator-driven via the OPNsense UI/API directly (operator §17 sovereignty boundary, outside the sovereign-os boundary).
+  The Rust intelligence layer made observable + operable: the M048 gateway over the deterministic
+  cortex (<code>127.0.0.1:8787</code>), its Memory-OS, and the daemons behind it. Look into it — and
+  drive it. Read-only over the gateway's read surfaces + a non-mutating decide/chat compute; forget
+  stays CLI-gated.
+  <span id="status" class="status">loading…</span>
 </p>
+<div id="gw-tripwire" class="banner"></div>
 
-<div class="row" id="stats">
-  <div class="stat"><div class="k">interfaces</div><div class="v" id="stat-ifaces">—</div></div>
-  <div class="stat"><div class="k">NAT layers</div><div class="v" id="stat-nat">—</div></div>
-  <div class="stat"><div class="k">VPN bridge</div><div class="v" id="stat-vpn">—</div></div>
-  <div class="stat"><div class="k">OPNsense tier</div><div class="v" id="stat-tier">—</div></div>
-  <div class="stat"><div class="k">capabilities</div><div class="v" id="stat-caps">—</div></div>
-  <div class="stat"><div class="k">api version</div><div class="v muted" id="stat-version">—</div></div>
+<h2>live gateway</h2>
+<div class="panel">
+  <div class="row" style="margin-bottom:.3rem">
+    <span class="status"><span id="gw-dot" class="dot off"></span><span id="gw-state" style="font-size:.95rem">—</span></span>
+    <span class="muted" id="gw-model"></span>
+    <span style="flex:1"></span>
+    <span class="muted" id="gw-addr"></span>
+  </div>
+  <div class="stats" id="gw-stats"></div>
 </div>
 
-<div class="disclaimer">
-  operator §17 sovereignty boundary: OPNsense configuration changes are operator-driven via the OPNsense UI / API directly — this surface is read-only and runs entirely on the workstation.
+<h2>memory <span class="muted" style="font-weight:400;font-size:.8rem">— what the brain has learned (the 8 CoALA types), not a count</span></h2>
+<div class="panel">
+  <div class="row" id="mem-summary"><span class="muted">loading memory…</span></div>
+  <div class="stats" id="mem-bytype"></div>
+  <table>
+    <thead><tr><th>id</th><th>type</th><th>trust</th><th>value</th><th>summary / episode</th></tr></thead>
+    <tbody id="mem-rows"><tr><td colspan="5" class="muted">loading…</td></tr></tbody>
+  </table>
+  <div class="muted" id="py-mem" style="font-size:.78rem;margin-top:.5rem"></div>
 </div>
 
-<h2>interfaces</h2>
+<h2>routing probe <span class="muted" style="font-weight:400;font-size:.8rem">— watch the brain decide (a real request it also learns from)</span></h2>
+<div class="panel">
+  <div class="bx-axes" id="probe-axes"></div>
+  <div class="row" style="margin-top:.5rem;align-items:center">
+    <label class="muted" style="font-size:.72rem">expected quality <span id="probe-q-val">0.90</span>
+      <input id="probe-quality" type="range" min="0" max="1" step="0.05" value="0.9" style="vertical-align:middle"></label>
+    <span style="flex:1"></span>
+    <button id="probe-btn">▷ probe route</button>
+  </div>
+  <div id="probe-result" class="muted" style="margin-top:.6rem">— pick the 7 axes and probe to see the route / device / verdict</div>
+</div>
+
+<h2>chat with the brain <span class="muted" style="font-weight:400;font-size:.8rem">— the :8787 OpenAI shim (streamed)</span></h2>
+<div class="panel">
+  <div id="chat-log"><span class="muted">the local model answers here — needs a model loaded (SOVEREIGN_GATEWAY_MODEL)</span></div>
+  <div class="row" style="margin-top:.4rem">
+    <input id="chat-input" type="text" placeholder="ask the brain…">
+    <button id="chat-send">send</button>
+  </div>
+  <div class="muted" id="chat-note" style="font-size:.74rem;margin-top:.3rem"></div>
+</div>
+
+<h2>daemons <span class="muted" style="font-weight:400;font-size:.8rem">— what the intelligence layer actually is</span></h2>
 <div class="panel">
   <table>
-    <thead>
-      <tr><th>name</th><th>state</th><th>mtu</th><th>addrs</th></tr>
-    </thead>
-    <tbody id="iface-tbody"><tr><td colspan="4" class="muted">loading…</td></tr></tbody>
+    <thead><tr><th>daemon</th><th>role</th><th>what it is</th><th>installed</th></tr></thead>
+    <tbody id="daemon-rows"><tr><td colspan="4" class="muted">loading…</td></tr></tbody>
   </table>
 </div>
-
-<h2>NAT chain (multi-NAT visibility)</h2>
-<div class="panel" id="nat-panel">
-  <div id="nat-body" class="muted">loading…</div>
-</div>
-
-<h2>OPNsense capability ladder</h2>
-<div class="panel" id="caps-panel">
-  <div id="caps-body" class="muted">loading…</div>
-</div>
-
-<h2>full detect bundle</h2>
-<div class="panel">
-  <details>
-    <summary class="muted">expand raw JSON (full detection bundle including default_gateway, vpn_bridge, opnsense state + operator-named edge hardware)</summary>
-    <pre id="detect-body" class="muted">loading…</pre>
-  </details>
-</div>
-
-<h2>refresh</h2>
-<div class="panel">
-  <div class="row">
-    <button id="refresh-btn">refresh now</button>
-    <span class="muted">auto-refresh every 30s — last refresh <span id="last-refresh">never</span></span>
-  </div>
-</div>
-
 
 <!-- SDD-045 Phase C — control surface (INLINED per the single-file doctrine).
      Renders config/control-systems.yaml (served at /control-systems): the
@@ -1649,181 +1319,187 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
   global.SovereignControlSurface = { render: render, load: load };
 })(window);
 </script>
-<script>SovereignControlSurface.load(document.getElementById('control-surface'),{filterSlug:'network-edge'});</script>
+<script>SovereignControlSurface.load(document.getElementById('control-surface'),{filterSlug:'brain'});</script>
 
 <footer>
-  <div>shipped in <code>R509 (E11.M8++)</code> · serves the <code>/webapp/</code> path of the R507 network-edge-api daemon (<code>scripts/operator/network-edge-api.py</code>) · backing CLI <code>sovereign-osctl network-edge</code> (dispatches to <code>network-topology.py</code>, R449 lineage) · MCP via <code>scripts/interop/mcp-aggregate.py</code> (R508)</div>
-  <div class="standing-rule">"We do not minimize anything." — operator §1g standing rule (sacrosanct)</div>
+  <div>data: <code>GET /brain.json</code> + <code>/brain/memory</code> ← <code>scripts/operator/brain-api.py</code> (probes <code>sovereign-gatewayd :8787</code> + the Memory-OS stores) · operate: <code>/brain/route</code> (decide) · <code>POST /brain/chat</code> (the :8787 OpenAI shim)</div>
+  <div class="standing-rule">"We do not minimize anything." — operator §1g standing rule</div>
 </footer>
 
 <script>
 "use strict";
-// Operator-§1g UX rule: no external dependencies, no CDN fetches.
-// Same-origin XHR only — the R507 API daemon serves both this webapp
-// and the JSON endpoints under the same host:port binding.
+const el = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;" }[c]));
+function card(k, v, cls){ return `<div class="stat ${cls||''}"><div class="k">${k}</div><div class="v">${v}</div></div>`; }
+function fmtScore(v){ return v == null ? "—" : (v / 1000).toFixed(2); }  // 0..1000 -> 0..1
 
-const ENDPOINTS = ["/version", "/interfaces", "/nat-chain",
-                   "/opnsense/status", "/opnsense/capabilities",
-                   "/detect"];
+const AXES = [
+  ["complexity", ["simple","complex"], "complex"],
+  ["privacy",    ["private","public"], "private"],
+  ["safety",     ["safe","risky"],     "safe"],
+  ["domain",     ["coding","research","gui"], "research"],
+  ["locality",   ["local","cloud"],    "local"],
+  ["latency",    ["fast","careful"],   "careful"],
+  ["quality",    ["cheap","oracle"],   "oracle"],
+];
 
-async function fetchJSON(path) {
-  const res = await fetch(path, {headers: {"Accept": "application/json"}});
-  if (!res.ok) throw new Error(path + " → " + res.status);
-  return await res.json();
-}
-
-function el(id) { return document.getElementById(id); }
-
-function renderStats(version, interfaces, natChain, opnStatus,
-                    opnCaps) {
-  el("stat-ifaces").textContent = interfaces.count;
-  el("stat-nat").textContent =
-    natChain.available ? (natChain.nat_layers_visible || "?") : "n/a";
-  el("stat-vpn").textContent =
-    opnStatus && opnStatus.tier ? "—" : "—";
-  el("stat-tier").textContent =
-    (opnStatus && opnStatus.tier) || "unknown";
-  el("stat-caps").textContent =
-    (opnCaps.unlocked_count || 0) + " unlocked";
-  el("stat-version").textContent = version.version;
-}
-
-function renderInterfaces(interfaces) {
-  const tbody = el("iface-tbody");
-  tbody.innerHTML = "";
-  const list = interfaces.interfaces || [];
-  if (list.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="4" class="muted">no interfaces detected</td></tr>';
-    return;
-  }
-  for (const i of list) {
-    const tr = document.createElement("tr");
-    const state = i.state || "?";
-    const stateClass = state === "up" ? "ok" :
-      state === "down" ? "bad" : "muted";
-    const addrs = (i.addrs || []).join(", ") || "—";
-    tr.innerHTML =
-      "<td><code>" + (i.name || "?") + "</code></td>" +
-      "<td class=" + stateClass + ">" + state + "</td>" +
-      "<td>" + (i.mtu != null ? i.mtu : "—") + "</td>" +
-      "<td class=muted>" + addrs + "</td>";
-    tbody.appendChild(tr);
-  }
-}
-
-function renderNatChain(natChain) {
-  const body = el("nat-body");
-  body.innerHTML = "";
-  body.className = "";
-  if (!natChain.available) {
-    body.className = "muted";
-    body.textContent = "NAT-chain detection unavailable.";
-    return;
-  }
-  const pre = document.createElement("pre");
-  pre.textContent = JSON.stringify(natChain, null, 2);
-  body.appendChild(pre);
-}
-
-function renderCapabilities(opnStatus, opnCaps) {
-  const body = el("caps-body");
-  body.innerHTML = "";
-  body.className = "";
-  const tier = document.createElement("div");
-  tier.innerHTML = "<strong>tier:</strong> <code>" +
-    ((opnStatus && opnStatus.tier) || "unknown") +
-    "</code>  ·  unlocked: " + (opnCaps.unlocked_count || 0);
-  body.appendChild(tier);
-
-  const unlocked = opnCaps.unlocked || [];
-  if (unlocked.length > 0) {
-    const ul = document.createElement("div");
-    ul.style.marginTop = ".5rem";
-    ul.innerHTML = "<strong>unlocked:</strong>";
-    body.appendChild(ul);
-    for (const c of unlocked) {
-      const row = document.createElement("div");
-      row.className = "cap-row";
-      const badge = document.createElement("span");
-      badge.className = "pill ok";
-      badge.textContent = "✓";
-      row.appendChild(badge);
-      const txt = document.createElement("span");
-      txt.textContent = c;
-      row.appendChild(txt);
-      body.appendChild(row);
-    }
-  }
-
-  const next = opnCaps.next_to_unlock || [];
-  if (next.length > 0) {
-    const nu = document.createElement("div");
-    nu.style.marginTop = ".5rem";
-    nu.innerHTML = "<strong>next to unlock:</strong>";
-    body.appendChild(nu);
-    for (const c of next) {
-      const row = document.createElement("div");
-      row.className = "cap-row";
-      const badge = document.createElement("span");
-      badge.className = "pill warn";
-      badge.textContent = "→";
-      row.appendChild(badge);
-      const txt = document.createElement("span");
-      txt.className = "muted";
-      txt.textContent = c;
-      row.appendChild(txt);
-      body.appendChild(row);
-    }
-  }
-}
-
-function renderDetect(detect) {
-  const body = el("detect-body");
-  body.className = "";
-  body.textContent = JSON.stringify(detect, null, 2);
-}
-
-
-const DEMO_NETWORK_EDGE = {
-  version:{version:'demo-2.1.0'},
-  interfaces:{ count:3, interfaces:[
-    {name:'demo-eth0', state:'up', mtu:1500, addrs:['10.0.0.1/24']},
-    {name:'demo-eth1', state:'up', mtu:1500, addrs:['192.168.1.1/24']},
-    {name:'demo-wg0', state:'down', mtu:1420, addrs:[]} ]},
-  natChain:{ available:true, nat_layers_visible:2, masquerade:'demo/eth0', dnat_rules:3 },
-  opnStatus:{ tier:'demo/opnsense-24.7' },
-  opnCaps:{ unlocked_count:2, unlocked:['demo/firewall-api','demo/wireguard'], next_to_unlock:['demo/ids-suricata'] },
-  detect:{ hardware:'demo/x86_64', nics:2, virtualization:'none' }
+// SDD-119 DEMO — badged sample brain (no daemon). "demo/" markers per SB-077.
+const DEMO_BRAIN = {
+  gateway_addr: "127.0.0.1:8787",
+  gateway: { up:true,
+    health:{live_surfaces:5, force_local:true, total_requests:128, cloud_spills:0, never_cloud_spill_holds:true},
+    ledger:{total_requests:128, committed:120, learned:118, refused:2, by_role:{oracle:64,logic:48,conductor:16}, predictions:96, prediction_agreements:90},
+    surfaces:[{surface:"anthropic-messages",state:"live"},{surface:"open-ai-shim",state:"live"},{surface:"mcp-bridge",state:"live"}],
+    memory:{exists:true, items:120} },
+  cortex_memory: { exists:true, count:120, cold_count:120, by_type:{semantic:40,episodic:70,procedural:10} },
+  python_memory: { exists:true, count:24, active:22, changes:8, path:"demo/store.json" },
+  daemons: [
+    {bin:"sovereign-gatewayd",role:"gateway",what:"demo/ M048 gateway over the cortex",installed:true},
+    {bin:"sovereign-cortex",role:"engine",what:"deterministic cortex runtime",installed:true},
+  ],
 };
-function demoActive() { return !!(window.soDemo && window.soDemo.on()); }
-async function refresh() {
-  try {
-    if (demoActive()) {
-      const {version,interfaces,natChain,opnStatus,opnCaps,detect} = DEMO_NETWORK_EDGE;
-      renderStats(version,interfaces,natChain,opnStatus,opnCaps);
-      renderInterfaces(interfaces); renderNatChain(natChain);
-      renderCapabilities(opnStatus,opnCaps); renderDetect(detect);
-      el("last-refresh").textContent = new Date().toLocaleTimeString();
-      if (window.soDemo) window.soDemo.badge(); return;
-    }
-    const [version, interfaces, natChain, opnStatus, opnCaps,
-           detect] =
-      await Promise.all(ENDPOINTS.map(fetchJSON));
-    renderStats(version, interfaces, natChain, opnStatus, opnCaps);
-    renderInterfaces(interfaces);
-    renderNatChain(natChain);
-    renderCapabilities(opnStatus, opnCaps);
-    renderDetect(detect);
-    el("last-refresh").textContent = new Date().toLocaleTimeString();
-  } catch (e) {
-    el("last-refresh").innerHTML =
-      "<span class=bad>error: " + e.message + "</span>";
+const DEMO_MEM = { cortex:{ exists:true, count:120, cold_count:120, by_type:{semantic:40,episodic:70},
+  items:[
+    {id:1,type:"semantic",trust:850,value_score:700,summary:"demo/ prior successful run of this task class",derived_facts:["role=Oracle"],flags:["readable"]},
+    {id:2,type:"episodic",trust:700,value_score:500,summary:"demo/ a partially-related episode",derived_facts:[],flags:["readable"]},
+  ]},
+  python:{ exists:true, count:24, active:22, changes:8, path:"demo/store.json", entries:[] } };
+
+function demoActive(){ return !!(window.soDemo && window.soDemo.on()); }
+
+function renderGateway(g, addr){
+  const tw = el("gw-tripwire");
+  if (!g || g.up === false){
+    el("gw-dot").className = "dot off"; el("gw-state").textContent = "gateway offline"; el("gw-state").className = "";
+    el("gw-model").textContent = ""; el("gw-addr").textContent = addr || "";
+    tw.style.display = "none"; el("gw-stats").innerHTML = ""; return;
   }
+  const h = g.health || {}, L = g.ledger || {}, mem = g.memory || {};
+  const holds = (h.never_cloud_spill_holds !== false) && ((h.cloud_spills || 0) === 0);
+  el("gw-dot").className = "dot on"; el("gw-state").textContent = "up"; el("gw-state").className = "";
+  el("gw-model").textContent = mem.exists ? "· memory " + mem.items + " items" : "";
+  el("gw-addr").textContent = addr || "";
+  tw.style.cssText = "display:block;border:1px solid " + (holds ? "var(--good)" : "var(--bad)") +
+    ";color:" + (holds ? "var(--good)" : "var(--bad)") + ";background:rgba(120,180,120,.06)";
+  tw.innerHTML = holds
+    ? "<strong>◆ SOVEREIGN</strong> — force-local " + (h.force_local ? "on" : "off") + ", 0 cloud spills across " +
+        (L.total_requests || 0) + " request(s). The never-cloud-spill invariant holds."
+    : "<strong>▲ CLOUD SPILL</strong> — " + (h.cloud_spills || 0) + " request(s) left the box. Sovereignty invariant BROKEN.";
+  el("gw-stats").innerHTML = [
+    card("requests", L.total_requests != null ? L.total_requests : "—", ""),
+    card("committed", L.committed != null ? L.committed : "—", "good"),
+    card("learned", L.learned != null ? L.learned : "—", "good"),
+    card("live surfaces", h.live_surfaces != null ? h.live_surfaces : (g.surfaces || []).filter(s => s.state === "live").length, ""),
+    card("cloud spills", (h.cloud_spills || 0), (h.cloud_spills || 0) === 0 ? "good" : "bad"),
+  ].join("");
 }
 
-document.getElementById("refresh-btn").addEventListener("click", refresh);
-refresh();
-setInterval(refresh, 30000);
+function renderMemSummary(cm, pym){
+  el("mem-summary").innerHTML = cm && cm.exists
+    ? "<span>Rust cortex store: <strong>" + cm.count + "</strong> hot memories · " + (cm.cold_count || 0) + " ground-truths</span>"
+    : '<span class="muted">cortex store empty / unreadable' + (cm && cm.error ? ": " + esc(cm.error) : "") + "</span>";
+  const bt = (cm && cm.by_type) || {};
+  el("mem-bytype").innerHTML = Object.keys(bt).length ? Object.keys(bt).sort().map(t => card(t, bt[t], "")).join("") : "";
+  el("py-mem").innerHTML = pym && pym.exists
+    ? "second brain — Python Memory-OS: <strong>" + pym.active + "</strong> active / " + pym.count + " entries · " + pym.changes + " change-ledger records"
+    : '<span class="muted">Python Memory-OS store not present (' + esc((pym && pym.path) || "") + ")</span>";
+}
+
+function renderMemRows(cm){
+  const items = (cm && cm.items) || [];
+  el("mem-rows").innerHTML = items.length
+    ? items.map(i => {
+        const ep = i.summary || i.raw_episode || "";
+        const facts = (i.derived_facts || []).length ? " · facts: " + esc(i.derived_facts.join(", ")) : "";
+        return "<tr><td><code>" + esc(i.id) + "</code></td><td><span class='typechip'>" + esc(i.type) + "</span></td>" +
+          "<td>" + fmtScore(i.trust) + "</td><td>" + fmtScore(i.value_score) + "</td>" +
+          "<td>" + esc(ep) + "<span class='mem-episode'>" + facts + (i.summary_suspect ? " ⚠ summary-suspect" : "") + "</span></td></tr>";
+      }).join("")
+    : '<tr><td colspan="5" class="muted">no learned memories yet — the brain fills this as it commits decisions</td></tr>';
+}
+
+function renderDaemons(ds){
+  el("daemon-rows").innerHTML = (ds || []).map(d =>
+    "<tr><td><code>" + esc(d.bin) + "</code></td><td class='muted'>" + esc(d.role) + "</td>" +
+    "<td class='muted' style='font-size:.78rem'>" + esc(d.what) + "</td><td>" +
+    (d.installed ? "<span class='badge ok'>installed</span>" : "<span class='badge warn'>source-only</span>") + "</td></tr>").join("");
+}
+
+async function refreshBrain(){
+  try{
+    const d = demoActive() ? DEMO_BRAIN : await (await fetch("/brain.json", { headers: { Accept: "application/json" } })).json();
+    if (demoActive()){ el("status").textContent = "DEMO — sample data"; el("status").className = "status ok"; if (window.soDemo) window.soDemo.badge(); }
+    else { el("status").textContent = "live ✓ · refreshes every 5s"; el("status").className = "status ok"; }
+    renderGateway(d.gateway, d.gateway_addr);
+    renderMemSummary(d.cortex_memory, d.python_memory);
+    renderDaemons(d.daemons);
+  } catch (e){ el("status").textContent = "live ✗ — " + e.message; el("status").className = "status bad"; }
+}
+async function refreshMemory(){
+  try{
+    const d = demoActive() ? DEMO_MEM : await (await fetch("/brain/memory", { headers: { Accept: "application/json" } })).json();
+    renderMemRows(d.cortex);
+  } catch (e){ /* keep prior rows */ }
+}
+
+function buildAxes(){
+  el("probe-axes").innerHTML = AXES.map(([k, opts, def]) =>
+    "<label>" + k + "<select id='ax-" + k + "'>" +
+    opts.map(o => "<option" + (o === def ? " selected" : "") + ">" + o + "</option>").join("") + "</select></label>").join("");
+}
+async function probe(){
+  if (demoActive()){ el("probe-result").innerHTML = "<span class='muted'>DEMO — the routing probe needs the live gateway</span>"; return; }
+  const q = new URLSearchParams();
+  AXES.forEach(([k]) => q.set(k, el("ax-" + k).value));
+  q.set("expected_quality", el("probe-quality").value);
+  el("probe-result").textContent = "probing…";
+  try{
+    const d = await (await fetch("/brain/route?" + q.toString())).json();
+    if (d.error){ el("probe-result").innerHTML = "<span class='bad'>" + esc(d.error) + "</span>"; return; }
+    el("probe-result").innerHTML =
+      "<div><strong>route → " + esc(d.role) + "</strong> " + (d.learned ? "<span class='typechip'>learned</span>" : "") + "</div>" +
+      "<div class='muted' style='font-size:.82rem;margin-top:.25rem'>" + esc(d.reason || "") + "</div>" +
+      "<div style='font-size:.82rem;margin-top:.25rem'>" + esc(d.summary || "") + "</div>";
+    refreshMemory(); refreshBrain();  // the probe was learned — watch memory grow
+  } catch (e){ el("probe-result").innerHTML = "<span class='bad'>" + esc(e.message) + "</span>"; }
+}
+
+function chatAppend(cls, text){
+  const d = document.createElement("div"); d.className = cls; d.textContent = text;
+  const log = el("chat-log"); log.appendChild(d); log.scrollTop = log.scrollHeight; return d;
+}
+async function chat(){
+  const q = el("chat-input").value.trim(); if (!q) return;
+  el("chat-input").value = ""; chatAppend("chat-you", "you: " + q);
+  if (demoActive()){ chatAppend("chat-brain", "brain (demo): the local model answers here on a live box with a model loaded."); return; }
+  const out = chatAppend("chat-brain", "brain: ");
+  try{
+    const r = await fetch("/brain/chat", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages: [{ role: "user", content: q }], max_tokens: 96 }) });
+    const reader = r.body.getReader(); const dec = new TextDecoder(); let buf = "";
+    for (;;){
+      const { done, value } = await reader.read(); if (done) break;
+      buf += dec.decode(value, { stream: true }); let idx;
+      while ((idx = buf.indexOf("\n")) >= 0){
+        const line = buf.slice(0, idx).trim(); buf = buf.slice(idx + 1);
+        if (!line.startsWith("data:")) continue;
+        const p = line.slice(5).trim(); if (p === "[DONE]") return;
+        try{ const c = JSON.parse(p); const t = ((c.choices || [{}])[0].delta || {}).content;
+          if (t){ out.textContent += t; el("chat-log").scrollTop = el("chat-log").scrollHeight; } } catch (_){}
+      }
+    }
+  } catch (e){ out.textContent += " [error: " + e.message + "]"; }
+}
+
+buildAxes();
+el("probe-btn").addEventListener("click", probe);
+el("probe-quality").addEventListener("input", () => { el("probe-q-val").textContent = parseFloat(el("probe-quality").value).toFixed(2); });
+el("chat-send").addEventListener("click", chat);
+el("chat-input").addEventListener("keydown", e => { if (e.key === "Enter") chat(); });
+
+function refreshAll(){ refreshBrain(); refreshMemory(); }
+refreshAll();
+setInterval(refreshAll, 5000);
 </script>
 
 
@@ -1832,163 +1508,40 @@ setInterval(refresh, 30000);
 <script>
 window.SO_ASSIST = {
  "context": {
-  "icon": "◫",
-  "title": "Network Edge",
-  "content": "The map of the box's boundary with the world. The design is dual-NIC (E0808) with OPNsense as the perimeter authority (E0809) — an upstream interface facing the edge and a LAN interface facing the local network. This panel detects that topology and, crucially, makes multi-NAT visible: one NAT hop is a normal edge, but two or more (an ISP router in front of your firewall) breaks inbound connectivity and hides where the real perimeter is.\n\nRead the interfaces for the paths in and out, the NAT chain for how many translations sit between the box and the internet, and the OPNsense capability ladder for how much the edge can enforce before traffic reaches the box. Read-only detection; the firewall rules themselves live on selfdef (D-12)."
+  "icon": "◆",
+  "title": "Sovereign Brain · observe + operate",
+  "content": "The Rust intelligence layer, made concrete. This is the M048 gateway (sovereign-gatewayd on :8787) over the deterministic cortex — the brain that persists memory, routes every request, and (with a model loaded) generates. Everything here is real: the memory table is the ACTUAL learned content (the 8 CoALA types, their trust/value/freshness and cold ground-truths), not a count; the routing probe sends a real 7-axis request and shows the decision the brain reaches (and learns from); chat streams from the local model. Read-only over the gateway's read surfaces plus a non-mutating decide/chat compute — forget/clear stay CLI-gated (SDD-052)."
  },
  "nodes": [
   {
-   "icon": "▦",
-   "title": "Summary",
-   "content": "The network-edge roll-up — interfaces, NAT hops, VPN, edge tier, capabilities. This panel maps the boundary between the box and the world: the dual-NIC edge where OPNsense is the perimeter authority (E0808/E0809).",
-   "children": [
-    {
-     "selector": "#stats",
-     "title": "Edge summary",
-     "content": "The roll-up — interface count, NAT hops, VPN state, edge tier, capabilities, version. The one-glance shape of the network boundary.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The edge posture at a glance</div>The roll-up — interfaces, NAT hops, VPN, edge tier, capabilities. It's the one-line answer to 'how is the box connected to the world and how much does the perimeter protect it'.</div>"
-    },
-    {
-     "selector": "#stat-ifaces",
-     "title": "Interfaces",
-     "content": "How many network interfaces the box sees. The dual-NIC design (E0808) means an upstream NIC and a LAN NIC; extra interfaces are worth understanding — each is a path in or out.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Dual-NIC by design (E08x)</div>The interface count reflects the dual-NIC design — separate paths for management and traffic. More than the expected NICs can mean a bridge or a VM tap; fewer means an interface is down.<div class=\"so-xref\"><span class=\"x\">→</span> iface table — the per-interface roles</div></div>"
-    },
-    {
-     "selector": "#stat-nat",
-     "title": "NAT hops",
-     "content": "How many NAT translations sit between the box and the internet. Multi-NAT (double-NAT) breaks inbound connectivity and hides the real edge — this count surfaces a layered NAT you may not have intended.",
-     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Why NAT hops matter</div>Each NAT hop rewrites addresses. One is normal (the edge router); two or more (double-NAT) means an extra router is translating — which breaks port-forwarding and obscures where the real perimeter is. A hop count above 1 is a topology question.</div>"
-    },
-    {
-     "selector": "#stat-vpn",
-     "title": "VPN",
-     "content": "Whether a VPN tunnel is active at the edge. A VPN changes what 'the internet' means for the box — read it with the NAT chain to understand the real egress path.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A VPN redefines 'the edge'</div>Whether a tunnel is active. A VPN changes what 'outside' means — egress goes through the tunnel, so the perimeter effectively moves. It's important context for reading the NAT chain below.</div>"
-    },
-    {
-     "selector": "#stat-tier",
-     "title": "Edge tier",
-     "content": "The detected capability tier of the edge — how much the perimeter (OPNsense) can enforce. A low tier means the box must defend itself more, because the edge does less.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Edge capability tier</div>How much the perimeter (OPNsense) can enforce — a detected capability level. A higher tier means the upstream can do more of the filtering, letting the box lean on defense-in-depth.</div>"
-    },
-    {
-     "selector": "#stat-caps",
-     "title": "Capabilities",
-     "content": "How many OPNsense edge capabilities were detected. The perimeter authority's feature set — what it can filter, route, and inspect on the box's behalf.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">What the perimeter can actually do</div>How many OPNsense edge capabilities were detected. The perimeter's abilities aren't assumed — they're probed, so the box knows which protections it can delegate upstream vs must enforce locally.</div>"
-    },
-    {
-     "selector": "#stat-version",
-     "title": "Version",
-     "content": "The network-edge detector version answering — for reconciling the detected topology + NAT chain against the expected dual-NIC design.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Pins the detector</div>The network-edge detector version — the reference for how interfaces, NAT, and capabilities are enumerated. A version change can alter what's probed.</div>"
-    },
-    {
-     "selector": "#last-refresh",
-     "title": "Freshness",
-     "content": "When this was last read. The values are only as current as this — refresh before trusting them after any change.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Topology can shift</div>When this was read. A VPN toggling or an interface going down changes the picture, so an old timestamp means the edge posture shown may be stale.</div>"
-    }
-   ]
-  },
-  {
-   "icon": "⊞",
-   "title": "Interfaces",
-   "content": "The network interfaces — the physical and virtual paths in and out of the box. In the dual-NIC design each has a role (upstream vs LAN); an unexpected interface is a path worth accounting for.",
-   "children": [
-    {
-     "selector": "#iface-tbody",
-     "title": "Interface rows",
-     "content": "Each row: one interface, its addresses and role. Read them against the dual-NIC design — the upstream NIC faces the edge, the LAN NIC faces the local network; anything else is worth understanding.",
-     "dynamic": true,
-     "childTemplate": {
-      "selector": "#iface-tbody > tr",
-      "nameSelector": "td:first-child,td",
-      "title": "Interface · {{name}}",
-      "content": "Interface {{name}} — its addresses and role. Read it against the dual-NIC design: management and traffic should be separate paths, so an interface in the wrong role is worth noting.",
-      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Iface · {{name}}</div>One network interface. Its role (management vs traffic) is the thing to verify against the dual-NIC design.</div>"
-     },
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Every interface and its role</div>All network interfaces at once — addresses and roles. Read against the dual-NIC design: management and traffic should be separate paths, so a NIC in the wrong role stands out.</div>"
-    }
-   ]
-  },
-  {
    "icon": "◈",
-   "title": "NAT chain",
-   "content": "The chain of NAT translations from the box to the internet (multi-NAT visibility). This is the honest picture of the egress path — one hop is a normal edge, two or more is double-NAT that breaks inbound and hides the perimeter.",
-   "children": [
-    {
-     "selector": "#nat-panel",
-     "title": "NAT chain",
-     "content": "The full NAT hop chain. Read it top to bottom: each hop is a router rewriting addresses. More than one hop means the real edge is not where you think, and inbound connectivity is likely broken.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">One hop good, two hops trouble</div>A single NAT (the edge router) is expected. Double-NAT — an ISP router in front of your OPNsense — means two translations, which breaks port-forwarding and VPN inbound. This chain makes a hidden second NAT visible.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-12 networking — the firewall rules that ride on top of this edge</div>"
-    },
-    {
-     "selector": "#nat-body",
-     "title": "NAT hop rows",
-     "content": "Each row: one NAT hop with its translated addresses. The number of rows is the story — count them to know if the box is single- or multi-NATed.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Each hop is a layer of indirection</div>One row per NAT translation between the box and the internet. More hops means more indirection — harder to reach the box directly, but also more places a misconfiguration could break connectivity.</div>"
-    }
-   ]
+   "title": "Memory browser",
+   "selector": "#mem-rows",
+   "content": "The actual learned memories from the Rust cortex store (cortex.json) — not a count. Each row: the memory id, its type (one of the 8 CoALA kinds: working / episodic / semantic / procedural / temporal-graph / value / kv / reward), trust and value normalised to 0..1, and the cold ground-truth (the raw episode, the summary, the derived facts). The 'second brain' line below is the Python Memory-OS operational store beside it — the two brains that now share a persistence substrate."
   },
   {
-   "icon": "◎",
-   "title": "OPNsense capabilities",
-   "content": "The capability ladder of the edge (OPNsense perimeter authority, E0809) — what the edge can enforce. The more the edge does, the less the box must; a low-capability edge shifts defense onto the box itself.",
-   "children": [
-    {
-     "selector": "#caps-panel",
-     "title": "Capability ladder",
-     "content": "The detected OPNsense edge capabilities, as a ladder. Read it to know how much perimeter defense you have: a capable edge filters and inspects before traffic reaches the box; a weak one leaves that to the box.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The edge is the perimeter authority</div>OPNsense is the box's perimeter (E0809). Its capabilities decide how much filtering happens before the box — a high tier means defense-in-depth; a low tier means the box's own selfdef rules (D-12) are the primary line.</div>"
-    },
-    {
-     "selector": "#caps-body",
-     "title": "Capability rows",
-     "content": "Each row: one detected edge capability. Read them to see exactly what the perimeter can and cannot do on the box's behalf.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Reading the capability ladder</div>Each row is one detected edge capability. Read them to know exactly what the perimeter can enforce — the concrete list behind the tier summary.</div>"
-    }
-   ]
+   "icon": "▷",
+   "title": "Routing probe",
+   "selector": "#probe-axes",
+   "content": "Pick the 7 task axes + a quality dial and watch the brain DECIDE: which SRP role (Conductor / Logic / Oracle), which device, the verdict + score. It sends POST /v1/simple, so it is a real request the brain also LEARNS from — the memory table above then shows it grow. For a no-side-effect check from the CLI, use `sovereign-osctl gateway`."
   },
   {
-   "icon": "⚲",
-   "title": "Detect bundle",
-   "content": "The full detection bundle — the raw evidence behind the summary. When a number above looks wrong, this is the ground truth the panel computed it from.",
-   "children": [
-    {
-     "selector": "#detect-body",
-     "title": "Detection bundle",
-     "content": "The raw network-edge detection output. Read it directly when the summary surprises you — it shows the actual interfaces, routes, and NAT evidence the detector found, not the summarized version.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The raw detection, when summaries aren't enough</div>The unprocessed network-edge detection output. Read it directly when a summary looks wrong — it's the ground truth the panel renders from, useful for debugging a surprising tier or NAT reading.</div>"
-    }
-   ]
+   "icon": "◆",
+   "title": "Sovereignty tripwire",
+   "selector": "#gw-tripwire",
+   "content": "The never-cloud-spill invariant, front and centre. Green (◆ SOVEREIGN) means force-local is on and zero requests have ever left the box. Red means a spill happened and the sovereignty guarantee is broken — the one number that must always be 0."
   },
   {
-   "icon": "⟳",
-   "title": "Refresh",
-   "content": "Re-poll on demand — a read-only re-sample.",
-   "children": [
-    {
-     "selector": "#refresh-btn",
-     "title": "Refresh",
-     "content": "Re-read state now — read-only. It re-samples; it does not change anything.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Re-detect the edge</div>Re-reads interfaces, NAT, and capabilities — read-only. It re-samples; it never changes a route or a rule.</div>"
-    }
-   ]
+   "icon": "⌨",
+   "title": "Chat with the brain",
+   "selector": "#chat-log",
+   "content": "Talk to the local model through the gateway's OpenAI shim (:8787 /v1/chat/completions), streamed token-by-token by brain-api. Needs a model loaded (SOVEREIGN_GATEWAY_MODEL, or fetch one with scripts/intelligence/fetch-model.sh); without one the gateway stays a pure decision surface and this reports it honestly."
   },
   {
-   "icon": "⎈",
-   "title": "Controls",
-   "content": "Read-only view — mutations copy signed sovereign-osctl verbs (§1g / R10212). The web previews; the box changes only when you run the signed command.",
-   "children": [
-    {
-     "selector": "#control-surface",
-     "title": "Controls rail",
-     "content": "The control rail — each button copies its exact sovereign-osctl verb. An edge/network change runs through the signed CLI, never from a web click.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copy-command boundary</div>Each control copies its sovereign-osctl verb (§1g / R10212). The panel detects the edge; changing it is a signed action, often at the OPNsense perimeter.</div>"
-    }
-   ]
+   "icon": "▣",
+   "title": "Daemons",
+   "selector": "#daemon-rows",
+   "content": "What the intelligence layer actually is — the nine daemon binaries (gateway, cortex engine, serve, chat, agent-runtime, and more) and whether each is installed on this box. De-nebulizes the 712-crate layer into the concrete processes it ships."
   }
  ]
 };
