@@ -141,8 +141,11 @@ interactive chat:
   process on a GPU. One command launches one:
 
   ```bash
-  # place on a GPU by free VRAM, launch llama-server, register a gateway proxy
-  sovereign-osctl model-serve start big-llama --model /models/llama-70b --vram 40
+  # place on a GPU by free VRAM, launch the engine, register a gateway proxy.
+  # vLLM is provisioned (operator-deps [pip]) → --engine vllm works out of the box;
+  # llama-server (llama.cpp) is a manual install. `start` preflights the engine and
+  # refuses with a hint if it isn't installed.
+  sovereign-osctl model-serve start big-llama --model /models/llama-70b --vram 40 --engine vllm
   sovereign-osctl model-serve list          # serving jobs + the gateway registry
   sovereign-osctl model-serve stop big-llama # cancel → unregister + release VRAM
   ```

@@ -312,6 +312,8 @@ def test_model_serve_cli_builds_and_submits():
     srv = ThreadingHTTPServer(("127.0.0.1", 0), _H)
     _threading.Thread(target=srv.serve_forever, daemon=True).start()
     msc.JOBS_ADDR = f"127.0.0.1:{srv.server_address[1]}"
+    # this test exercises the submit/meta logic, not engine presence — skip preflight
+    os.environ["SOVEREIGN_MODEL_SERVE_NO_PREFLIGHT"] = "1"
     try:
         rc = msc.main(["start", "big", "--model", "/models/llama-70b", "--vram", "40",
                        "--port", "8090", "--dialect", "openai", "--device", "oracle", "--json"])
@@ -325,6 +327,16 @@ def test_model_serve_cli_builds_and_submits():
         assert meta["command"][0] == "llama-server", "the runner launches the serve argv"
     finally:
         srv.shutdown()
+        os.environ.pop("SOVEREIGN_MODEL_SERVE_NO_PREFLIGHT", None)
+
+    # start PREFLIGHTS the engine: a missing binary fails at submit, not opaquely at
+    # launch. Guarded so a box that happens to have llama-server installed doesn't
+    # false-fail the assertion.
+    import shutil as _shutil
+    os.environ.pop("SOVEREIGN_MODEL_SERVE_NO_PREFLIGHT", None)
+    if _shutil.which("llama-server") is None:
+        rc = msc.main(["start", "x", "--model", "/m", "--vram", "1", "--json"])
+        assert rc == 1, "start must refuse when the serve engine is not on PATH"
 
     # osctl wires the verb to the CLI
     osctl = (REPO / "scripts" / "sovereign-osctl").read_text(encoding="utf-8")

@@ -22,6 +22,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import sys
 import urllib.error
 import urllib.request
@@ -106,6 +107,18 @@ def main(argv: list[str]) -> int:
         except ValueError as e:
             print(f"error: {e}", file=sys.stderr)
             return 2
+        # Preflight: the serve engine must be installed on PATH, else the job would
+        # only fail opaquely at launch. `vllm` is provisioned via operator-deps [pip];
+        # `llama-server` (llama.cpp) is a build/manual install. Skippable for advanced
+        # setups (a wrapper elsewhere) via SOVEREIGN_MODEL_SERVE_NO_PREFLIGHT=1.
+        binary = command[0]
+        if not os.environ.get("SOVEREIGN_MODEL_SERVE_NO_PREFLIGHT") and shutil.which(binary) is None:
+            hint = ("vllm is provisioned via operator-deps [pip]"
+                    if binary == "vllm"
+                    else "build/install llama.cpp for 'llama-server', or use --engine vllm")
+            print(f"error: serve engine '{binary}' is not on PATH — install it first ({hint}).",
+                  file=sys.stderr)
+            return 1
         meta = {"command": command, "endpoint": f"127.0.0.1:{args.port}",
                 "model_id": args.id, "dialect": args.dialect, "vram_gb": args.vram,
                 "ready_timeout": args.ready_timeout}

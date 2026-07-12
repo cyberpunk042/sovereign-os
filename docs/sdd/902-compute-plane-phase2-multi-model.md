@@ -176,13 +176,17 @@ per-device model status: the **D-22 LM Status & Operability** panel.
   (RAM, no GPU VRAM). Increment 2 adds the **GPU** kind (above) — the shared-plane
   authority becomes load-bearing there (a served model and a GPU job claim from ONE
   VRAM view). The **serve-process itself is operator-provided** (`meta.command`): this
-  round ships the plane/register/proxy/lifecycle plumbing, not a bundled llama-server
-  or vLLM binary — those are installed on the box. Increment 3 adds the `"background"`
-  routing + background-job targeting; the **`sovereign-osctl model-serve`** verb
-  (`scripts/operator/lib/model_serve_cli.py`) is the ergonomic front — `start <id>
-  --model <path> --vram N [--engine llama-server|vllm]` builds the serve argv +
-  submits the `model-serve` job, `stop <id>` cancels it, `list` shows serving jobs +
-  the gateway registry, `background [<id>|--clear]` designates the alias.
+  round ships the plane/register/proxy/lifecycle plumbing. The serve engine itself:
+  **`vllm` is provisioned** via `config/operator-deps.toml.example` `[pip]`, so
+  `model-serve --engine vllm` works on the box; `llama-server` (llama.cpp) is a
+  build/manual install. `model-serve start` **preflights** the chosen engine (via
+  `shutil.which`) and refuses at submit with a clear hint when it is absent, rather
+  than failing opaquely at launch (skippable via `SOVEREIGN_MODEL_SERVE_NO_PREFLIGHT`).
+  Increment 3 adds the `"background"` routing + background-job targeting; the
+  **`sovereign-osctl model-serve`** verb (`scripts/operator/lib/model_serve_cli.py`) is
+  the ergonomic front — `start <id> --model <path> --vram N [--engine llama-server|vllm]`
+  builds the serve argv + submits the `model-serve` job, `stop <id>` cancels it, `list`
+  shows serving jobs + the gateway registry, `background [<id>|--clear]` designates the alias.
 - **Streaming to a GPU proxy is supported** (increment 2b) — the upstream SSE is
   transcoded to Anthropic events; the `"background"` alias resolving to a proxy
   streams the same way.
