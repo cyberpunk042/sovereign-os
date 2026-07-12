@@ -410,6 +410,9 @@ fn anthropic_models(server: &GatewayServer) -> HttpReply {
         200,
         &serde_json::json!({
             "data": data, "has_more": false, "first_id": first, "last_id": last,
+            // the model the "background" alias resolves to (null = none designated /
+            // designated-but-unloaded → the primary), so a UI can show it (inc.3/UX loop)
+            "background": server.background_id(),
         }),
     )
 }
@@ -1055,6 +1058,12 @@ mod tests {
             body_of(&set)["active"],
             "bg-gpu",
             "the designated model is loaded → active"
+        );
+        // GET /v1/models surfaces the background target (so a UI can show it)
+        assert_eq!(
+            body_of(&respond(&s, "GET", "/v1/models", ""))["background"],
+            "bg-gpu",
+            "the models list reports the designated background model"
         );
         // a request for the reserved alias "background" reaches that backend
         let body = serde_json::json!({

@@ -132,6 +132,27 @@ def _jobs_view() -> dict:
                 "offline": True, "note": f"jobs-api unreachable at {addr}: {e}"}
 
 
+def _models_view() -> dict:
+    """The gateway's live model registry (primary + CPU secondaries + GPU proxies,
+    with device/VRAM) + the designated `background` model — a read-only proxy of the
+    gateway (:8787 `GET /v1/models`) so the composer's model picker + a status strip
+    show what the box can serve. Graceful when the gateway is down/modelless."""
+    base = os.environ.get("SOVEREIGN_OS_ROUTER_URL", "http://127.0.0.1:8787")
+    try:
+        with urllib.request.urlopen(f"{base}/v1/models", timeout=3) as r:  # noqa: S310 (loopback)
+            data = json.loads(r.read().decode("utf-8", "replace"))
+        models = [
+            {"id": m.get("id"), "display_name": m.get("display_name"),
+             "device": m.get("device"), "vram_gb": m.get("vram_gb")}
+            for m in data.get("data", []) if isinstance(m, dict)
+        ]
+        return {"models": models, "background": data.get("background"),
+                "producer": "sovereign-gatewayd"}
+    except (urllib.error.URLError, OSError, ValueError) as e:
+        return {"models": [], "background": None, "offline": True,
+                "note": f"gateway unreachable at {base}: {e}"}
+
+
 def _version_payload() -> dict:
     return {
         "service": "code-console-api",
@@ -244,6 +265,7 @@ class CodeConsoleAPIHandler(BaseHTTPRequestHandler):
             return
         text = str(req.get("prompt", ""))
         target = str(req.get("target", ""))  # M075 device target (auto|CPU0|GPU0|GPU1); router honors + strips it
+        model = str(req.get("model", "") or "auto")  # gateway model id / "background" alias / "auto"
         self.send_response(200)
         self.send_header("Content-Type", "text/event-stream")
         self.send_header("Cache-Control", "no-cache")
@@ -252,8 +274,8 @@ class CodeConsoleAPIHandler(BaseHTTPRequestHandler):
         _emit_metric("chat", "open")
         done = None
         try:
-            for ev in (_prompt.run(messages=messages, target=target) if messages is not None
-                       else _prompt.run(text, target=target)):
+            for ev in (_prompt.run(messages=messages, model=model, target=target) if messages is not None
+                       else _prompt.run(text, model=model, target=target)):
                 self.wfile.write(
                     f"event: {ev['type']}\ndata: {json.dumps(ev)}\n\n".encode("utf-8"))
                 self.wfile.flush()
@@ -294,13 +316,19 @@ class CodeConsoleAPIHandler(BaseHTTPRequestHandler):
                 self._send_json(200, _jobs_view())
                 _emit_metric("jobs", "ok")
                 return
+            if path == "/api/code-console/models":
+                # read-only proxy of the gateway's model registry (:8787 /v1/models)
+                self._send_json(200, _models_view())
+                _emit_metric("models", "ok")
+                return
         except Exception as e:  # noqa: BLE001
             self._send_json(500, {"error": str(e)})
             _emit_metric(path.lstrip("/") or "unknown", "500")
             return
         self._send_json(404, {
             "error": f"unknown endpoint: {path!r}",
-            "available": ["/api/code-console/sessions", "/api/code-console/stream",
+            "available": ["/api/code-console/sessions", "/api/code-console/jobs",
+                          "/api/code-console/models", "/api/code-console/stream",
                           "/api/code-console/chat (POST)", "/version", "/healthz", "/webapp/"],
         })
         _emit_metric(path.lstrip("/") or "unknown", "404")

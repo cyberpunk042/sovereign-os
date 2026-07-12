@@ -692,73 +692,59 @@ fn stream_anthropic_messages(
     Ok(())
 }
 
-/// Stream a proxy-backed model as Anthropic SSE (Phase 2 increment 2b). Opens a
-/// streaming connection to the upstream serve-process: an `anthropic` backend's SSE
-/// is relayed verbatim (it already speaks the Anthropic event sequence); an `openai`
-/// backend (llama-server / vLLM) has its `/v1/chat/completions` deltas transcoded
-/// into `message_start → content_block_delta* → message_stop` as they arrive.
-/// Dechunks `Transfer-Encoding: chunked` upstreams. A pre-stream upstream failure is
-/// an honest Anthropic error; a client hang-up mid-stream ends the relay cleanly.
-fn stream_proxy_message(
-    writer: &mut TcpStream,
-    endpoint: &str,
-    dialect: &str,
-    model: &str,
-    req: &serde_json::Value,
-    body: &str,
-) -> std::io::Result<()> {
-    // ---- connect + send the upstream request ----
-    let mut up = match TcpStream::connect(endpoint) {
-        Ok(s) => s,
-        Err(e) => {
-            return write_http(
-                writer,
-                &http::anthropic_err(502, "api_error", format!("proxy connect {endpoint}: {e}")),
-            );
+/// Read one decoded body block from a proxy upstream: the next dechunked chunk, or up
+/// to 4 KiB of a raw (unchunked) body. An empty `Vec` signals end-of-stream.
+fn next_proxy_block(reader: &mut BufReader<TcpStream>, chunked: bool) -> Vec<u8> {
+    if chunked {
+        let mut sz = String::new();
+        if reader.read_line(&mut sz).unwrap_or(0) == 0 {
+            return Vec::new();
         }
-    };
-    let _ = up.set_read_timeout(Some(std::time::Duration::from_secs(300)));
-    let (path, up_body) = if dialect == "anthropic" {
-        ("/v1/messages", body.to_string())
+        let n = usize::from_str_radix(sz.trim(), 16).unwrap_or(0);
+        if n == 0 {
+            return Vec::new(); // terminal chunk
+        }
+        let mut buf = vec![0u8; n];
+        if reader.read_exact(&mut buf).is_err() {
+            return Vec::new();
+        }
+        let mut crlf = [0u8; 2];
+        let _ = reader.read_exact(&mut crlf);
+        buf
     } else {
-        let mut oai = http::anthropic_to_openai_chat(req);
-        oai["stream"] = serde_json::Value::Bool(true);
-        ("/v1/chat/completions", oai.to_string())
-    };
+        let mut buf = [0u8; 4096];
+        match reader.read(&mut buf) {
+            Ok(0) | Err(_) => Vec::new(),
+            Ok(k) => buf[..k].to_vec(),
+        }
+    }
+}
+
+/// Connect to a proxy upstream, POST `path` + `body` (streaming), and read the
+/// response head. Returns the reader positioned at the body plus `(status, chunked)`,
+/// or an error string on a transport failure (connect / write / no response).
+fn open_proxy_stream(
+    endpoint: &str,
+    path: &str,
+    body: &str,
+) -> Result<(BufReader<TcpStream>, u16, bool), String> {
+    let mut up =
+        TcpStream::connect(endpoint).map_err(|e| format!("proxy connect {endpoint}: {e}"))?;
+    let _ = up.set_read_timeout(Some(std::time::Duration::from_secs(300)));
     let request = format!(
         "POST {path} HTTP/1.1\r\nHost: {endpoint}\r\nContent-Type: application/json\r\n\
-         Accept: text/event-stream\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{up_body}",
-        up_body.len()
+         Accept: text/event-stream\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+        body.len()
     );
-    if up
-        .write_all(request.as_bytes())
+    up.write_all(request.as_bytes())
         .and_then(|()| up.flush())
-        .is_err()
-    {
-        return write_http(
-            writer,
-            &http::anthropic_err(
-                502,
-                "api_error",
-                format!("proxy write to {endpoint} failed"),
-            ),
-        );
-    }
-
-    // ---- read the upstream response head (status + headers) ----
+        .map_err(|_| format!("proxy write to {endpoint} failed"))?;
     let mut reader = BufReader::new(up);
     let mut status_line = String::new();
     if reader.read_line(&mut status_line).unwrap_or(0) == 0 {
-        return write_http(
-            writer,
-            &http::anthropic_err(
-                502,
-                "api_error",
-                format!("proxy {endpoint} sent no response"),
-            ),
-        );
+        return Err(format!("proxy {endpoint} sent no response"));
     }
-    let up_status = status_line
+    let status = status_line
         .split_whitespace()
         .nth(1)
         .and_then(|s| s.parse::<u16>().ok())
@@ -777,6 +763,35 @@ fn stream_proxy_message(
             chunked = true;
         }
     }
+    Ok((reader, status, chunked))
+}
+
+/// Stream a proxy-backed model as Anthropic SSE (Phase 2 increment 2b). Opens a
+/// streaming connection to the upstream serve-process: an `anthropic` backend's SSE
+/// is relayed verbatim (it already speaks the Anthropic event sequence); an `openai`
+/// backend (llama-server / vLLM) has its `/v1/chat/completions` deltas transcoded
+/// into `message_start → content_block_delta* → message_stop` as they arrive.
+/// Dechunks `Transfer-Encoding: chunked` upstreams. A pre-stream upstream failure is
+/// an honest Anthropic error; a client hang-up mid-stream ends the relay cleanly.
+fn stream_proxy_message(
+    writer: &mut TcpStream,
+    endpoint: &str,
+    dialect: &str,
+    model: &str,
+    req: &serde_json::Value,
+    body: &str,
+) -> std::io::Result<()> {
+    let (path, up_body) = if dialect == "anthropic" {
+        ("/v1/messages", body.to_string())
+    } else {
+        let mut oai = http::anthropic_to_openai_chat(req);
+        oai["stream"] = serde_json::Value::Bool(true);
+        ("/v1/chat/completions", oai.to_string())
+    };
+    let (mut reader, up_status, chunked) = match open_proxy_stream(endpoint, path, &up_body) {
+        Ok(t) => t,
+        Err(e) => return write_http(writer, &http::anthropic_err(502, "api_error", e)),
+    };
     if up_status != 200 {
         let mut errbody = String::new();
         let _ = reader.read_to_string(&mut errbody);
@@ -828,29 +843,10 @@ fn stream_proxy_message(
     let mut out_chars = 0usize;
     let mut stop_reason = "end_turn".to_string();
     'body: loop {
-        let block: Vec<u8> = if chunked {
-            let mut sz = String::new();
-            if reader.read_line(&mut sz).unwrap_or(0) == 0 {
-                break;
-            }
-            let n = usize::from_str_radix(sz.trim(), 16).unwrap_or(0);
-            if n == 0 {
-                break; // terminal chunk
-            }
-            let mut buf = vec![0u8; n];
-            if reader.read_exact(&mut buf).is_err() {
-                break;
-            }
-            let mut crlf = [0u8; 2];
-            let _ = reader.read_exact(&mut crlf);
-            buf
-        } else {
-            let mut buf = [0u8; 4096];
-            match reader.read(&mut buf) {
-                Ok(0) | Err(_) => break,
-                Ok(k) => buf[..k].to_vec(),
-            }
-        };
+        let block = next_proxy_block(&mut reader, chunked);
+        if block.is_empty() {
+            break;
+        }
 
         if !openai {
             // anthropic backend: its bytes ARE the Anthropic SSE — relay verbatim
@@ -938,6 +934,56 @@ fn stream_proxy_message(
     Ok(())
 }
 
+/// Stream a proxy-backed model through the OpenAI shim (`/v1/chat/completions`) —
+/// the surface the Code Console chat (scripts/inference/prompt.py) rides. The
+/// upstream is an `openai`-dialect serve-process, so its SSE (`data: {chunk}` …
+/// `data: [DONE]`) is relayed to the client verbatim (dechunked). `anthropic`-dialect
+/// proxies are reached via `/v1/messages` instead.
+fn stream_proxy_chat_completions(
+    writer: &mut TcpStream,
+    endpoint: &str,
+    req: &serde_json::Value,
+) -> std::io::Result<()> {
+    let mut oai = req.clone();
+    oai["stream"] = serde_json::Value::Bool(true);
+    let (mut reader, up_status, chunked) =
+        match open_proxy_stream(endpoint, "/v1/chat/completions", &oai.to_string()) {
+            Ok(t) => t,
+            Err(e) => return write_http(writer, &http::err(502, e)),
+        };
+    if up_status != 200 {
+        let mut errbody = String::new();
+        let _ = reader.read_to_string(&mut errbody);
+        return write_http(
+            writer,
+            &http::err(
+                502,
+                format!("proxy upstream {up_status}: {}", errbody.trim()),
+            ),
+        );
+    }
+    writer.write_all(
+        b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n\
+          Cache-Control: no-store\r\nConnection: close\r\n\r\n",
+    )?;
+    writer.flush()?;
+    // relay the upstream's OpenAI SSE verbatim (already the shape prompt.py consumes)
+    loop {
+        let block = next_proxy_block(&mut reader, chunked);
+        if block.is_empty() {
+            break;
+        }
+        if writer
+            .write_all(&block)
+            .and_then(|()| writer.flush())
+            .is_err()
+        {
+            break; // client hung up
+        }
+    }
+    Ok(())
+}
+
 /// Flatten OpenAI `messages` into a single prompt for the base model (join each
 /// turn's non-empty content with newlines; a base completion model continues it).
 fn chat_prompt(req: &serde_json::Value) -> String {
@@ -973,6 +1019,30 @@ fn stream_chat_completions(
             );
         }
     };
+    // Expand the "background" alias, then route a GPU proxy through the upstream
+    // (Phase 2 inc.2b/UX-loop): the Console chat rides this shim, so it must reach
+    // proxy + background-designated models instead of silently using the primary.
+    let requested = req
+        .get("model")
+        .and_then(|m| m.as_str())
+        .unwrap_or("sovereign-local")
+        .to_string();
+    let model = server.expand_alias(Some(&requested)).unwrap_or(requested);
+    if let Some((endpoint, dialect)) = server.resolve_proxy(&model) {
+        if dialect == "anthropic" {
+            return write_http(
+                writer,
+                &http::err(
+                    400,
+                    format!(
+                        "model '{model}' is an anthropic-dialect proxy — reach it via the \
+                         /v1/messages surface, not the OpenAI shim"
+                    ),
+                ),
+            );
+        }
+        return stream_proxy_chat_completions(writer, &endpoint, &req);
+    }
     if !server.has_generator() {
         return write_http(
             writer,
@@ -1001,23 +1071,18 @@ fn stream_chat_completions(
 
     let id = "chatcmpl-sovereign";
     let mut io_err: Option<std::io::Error> = None;
-    let gen_res = server.generate_chat(
-        req.get("model").and_then(serde_json::Value::as_str),
-        &prompt,
-        max_new,
-        |chunk| {
-            if io_err.is_some() {
-                return;
-            }
-            let obj = serde_json::json!({
-                "id": id, "object": "chat.completion.chunk",
-                "choices": [{"index": 0, "delta": {"content": chunk}}],
-            });
-            if let Err(e) = write_sse(writer, &obj) {
-                io_err = Some(e);
-            }
-        },
-    );
+    let gen_res = server.generate_chat(Some(model.as_str()), &prompt, max_new, |chunk| {
+        if io_err.is_some() {
+            return;
+        }
+        let obj = serde_json::json!({
+            "id": id, "object": "chat.completion.chunk",
+            "choices": [{"index": 0, "delta": {"content": chunk}}],
+        });
+        if let Err(e) = write_sse(writer, &obj) {
+            io_err = Some(e);
+        }
+    });
     if let Some(e) = io_err {
         return Err(e); // client hung up mid-stream
     }

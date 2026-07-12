@@ -100,6 +100,26 @@ blocker to running a real model, and it made SDD-205's Anthropic endpoint return
 - Verified: mha-block 28 tests (8 new, incl. "a distinct base yields distinct decode output"), loader 13 (6 new);
   clippy `-D warnings` clean; downstream quant-llm/gatewayd/decoder-layer/inference-demo build unchanged. Sampling
   params + chat template + quantized loading are the tracked next arcs. MS003 `unsigned-pending-MS003`.
+### Added — Compute Plane Phase 2, increment 4: the Code Console UX loop — the model registry reaches the chat (2026-07-12)
+
+The multi-model registry + the `"background"` alias become visible and usable from the operator's actual chat
+surface (the Code Console). SDD-902.
+
+- **The OpenAI shim is now a full peer of the Anthropic surface.** The Console chat rides `prompt.py` → the
+  gateway OpenAI shim (`/v1/chat/completions`), which now **expands the `"background"` alias** and **routes GPU
+  proxies**: an `openai`-dialect backend's SSE is relayed verbatim (`stream_proxy_chat_completions`), an
+  `anthropic`-dialect proxy is an honest error pointing at `/v1/messages`. So `"background"`-that-resolves-to-a-
+  proxy no longer silently falls back to the primary. The proxy transport is factored into shared
+  `open_proxy_stream` / `next_proxy_block` helpers used by both streaming paths.
+- **`GET /v1/models` reports the `background` target** so a UI can show where the alias points.
+- **Console wiring.** `code-console-api` gains a read-only `GET /api/code-console/models` (proxying the gateway
+  registry) and threads a `model` id from the chat body into the inference runner. The webapp composer gains a
+  **Model picker** (primary / secondaries / GPU proxies / the `"background"` alias / `auto`) + a live "N models
+  loaded · background → …" status, and sends the chosen model on every chat; it degrades to `auto` offline.
+- Verified: a transport test streams a proxy through the OpenAI shim; an http test asserts `GET /v1/models`
+  reports the background target; a jobs-runtime test locks the console-api proxy + composer wiring. 16 transport +
+  62 lib+http + 15 jobs-runtime tests; clippy `-D warnings` clean.
+
 ### Added — Compute Plane Phase 2, increment 2b: streaming to a GPU proxy (VS Code / Claude Code stream from GPU-hosted models) (2026-07-12)
 
 Editors stream by default, so this is what makes a GPU-hosted model actually usable from them. SDD-902.

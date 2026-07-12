@@ -263,6 +263,24 @@ def test_the_code_console_pane_and_proxy_exist():
     assert "code-console:" in cov and "jobs" in cov, "jobs verb not mapped to code-console"
 
 
+def test_the_code_console_wires_the_model_registry():
+    """The UX loop: the console reads the gateway model registry, the composer picks a
+    model (incl. the 'background' alias), and the chat POST carries it."""
+    api = (REPO / "scripts" / "operator" / "code-console-api.py").read_text(encoding="utf-8")
+    # a read-only proxy of GET /v1/models + the chat POST threads a model id
+    assert "/api/code-console/models" in api and "_models_view" in api, \
+        "code-console-api must proxy the gateway model registry"
+    assert 'req.get("model"' in api and "model=model" in api, \
+        "the chat proxy must thread a model id to the inference runner"
+    panel = (REPO / "webapp" / "code-console" / "index.html").read_text(encoding="utf-8")
+    for token in ("cc-model", "renderModels", "refreshModels", "/api/code-console/models"):
+        assert token in panel, f"the model picker wiring is missing: {token!r}"
+    # the composer send body carries the chosen model (incl. the 'background' alias)
+    assert "model: ($('cc-model')" in panel, "the chat send must include the selected model"
+    assert "value=\"background\"" in panel or "'background'" in panel, \
+        "the picker must offer the 'background' alias"
+
+
 def test_systemd_unit_is_hardened():
     unit = REPO / "systemd" / "system" / "sovereign-jobs-api.service"
     assert unit.is_file(), "the jobs-api systemd unit is missing"

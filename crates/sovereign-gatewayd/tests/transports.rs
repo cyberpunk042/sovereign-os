@@ -436,6 +436,40 @@ fn http_streams_a_proxy_backend_as_anthropic_sse() {
 }
 
 #[test]
+fn http_streams_a_proxy_backend_through_the_openai_shim() {
+    // The Code Console chat rides the OpenAI shim (scripts/inference/prompt.py). A
+    // proxy model there relays the upstream's OpenAI SSE verbatim (UX loop) — it must
+    // reach the GPU backend, not silently fall back to the primary.
+    let up = spawn_mock_openai_sse_upstream();
+    let d = spawn("--http");
+
+    let reg = serde_json::json!({
+        "id": "gpu-oai", "endpoint": up, "device": "logic", "vram_gb": 18.0, "dialect": "openai",
+    })
+    .to_string();
+    let (rstatus, _) = http_request(&d.addr, "POST", "/v1/models/register", &reg);
+    assert!(rstatus.starts_with("HTTP/1.1 200"), "register: {rstatus}");
+
+    let streamed = serde_json::json!({
+        "model": "gpu-oai", "max_tokens": 32, "stream": true,
+        "messages": [{"role": "user", "content": "hi"}],
+    })
+    .to_string();
+    let (sstatus, sbody) = http_request(&d.addr, "POST", "/v1/chat/completions", &streamed);
+    assert!(sstatus.starts_with("HTTP/1.1 200"), "stream: {sstatus}");
+    // the upstream OpenAI SSE relayed verbatim — bare `data:` chunks, not Anthropic events
+    assert!(
+        sbody.contains("\"content\":\"Hello\""),
+        "relayed openai chunk; sse:\n{sbody}"
+    );
+    assert!(
+        sbody.contains("\"content\":\" from the GPU\""),
+        "sse:\n{sbody}"
+    );
+    assert!(sbody.contains("[DONE]"), "sse:\n{sbody}");
+}
+
+#[test]
 fn http_simple_runs_engine_from_minimal_input_over_socket() {
     let d = spawn("--http");
     let reqs = sovereign_cortex::demo_requests();

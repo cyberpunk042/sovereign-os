@@ -928,6 +928,12 @@
       <button class="cc-send" id="cc-send">Send</button>
     </div>
     <div class="cc-tools">
+      <label>Model
+        <select class="cc-select" id="cc-model" title="Which gateway model serves this chat — the primary, a loaded secondary, a GPU proxy, or the 'background' alias">
+          <option value="auto">auto · gateway default</option>
+        </select>
+      </label>
+      <span class="muted" id="cc-models-note" title="live gateway model registry (GET /v1/models)"></span>
       <label>Target
         <select class="cc-select" id="cc-target" title="M075 SRP device target — the loopback router selects the serving tier">
           <option value="auto">auto · router selects tier</option>
@@ -1271,6 +1277,39 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
       renderTasks(await res.json());
     } catch (e) { renderTasks({jobs:[], offline:true}); }
   }
+
+  // ---- the gateway model registry: fills the composer's Model picker + a status ----
+  const DEMO_MODELS = { models: [
+    { id:'primary', display_name:'Sovereign primary (primary)', device:'cpu', vram_gb:0 },
+    { id:'qwen-7b', display_name:'Sovereign qwen-7b (secondary)', device:'cpu', vram_gb:0 },
+    { id:'llama-70b-gpu', display_name:'Sovereign llama-70b-gpu (proxy)', device:'oracle', vram_gb:40 },
+  ], background:'llama-70b-gpu' };
+  function renderModels(data) {
+    const sel = $('cc-model'); if (!sel) return;
+    const models = (data && data.models) || [];
+    const bg = (data && data.background) || null;
+    const cur = sel.value || 'auto';
+    let html = '<option value="auto">auto · gateway default</option>';
+    html += '<option value="background">background · ' + (bg ? esc(bg) : 'none set') + '</option>';
+    models.forEach(m => {
+      const dev = (m.device && m.device !== 'cpu')
+        ? ' · ' + esc(m.device) + (m.vram_gb ? ' ' + m.vram_gb + 'GB' : '') : '';
+      html += '<option value="' + esc(m.id) + '">' + esc(m.id) + dev + '</option>';
+    });
+    sel.innerHTML = html;
+    if (Array.prototype.some.call(sel.options, o => o.value === cur)) sel.value = cur;
+    const note = $('cc-models-note');
+    if (note) note.textContent = models.length
+      ? (models.length + ' model' + (models.length > 1 ? 's' : '') + ' loaded' + (bg ? ' · background → ' + bg : ''))
+      : ((data && data.offline) ? 'gateway offline' : 'no model loaded');
+  }
+  async function refreshModels() {
+    if (demoActive()) { renderModels(DEMO_MODELS); return; }
+    try {
+      const res = await fetch('/api/code-console/models', {credentials:'same-origin'});
+      renderModels(await res.json());
+    } catch (e) { renderModels({models:[], offline:true}); }
+  }
   function toggleTasks() {
     const split = $('cc-plan-split'); if (!split) return;
     split.classList.toggle('tasks-off');
@@ -1396,7 +1435,7 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
       const r = await fetch('/api/code-console/chat', {
         method: 'POST', credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: chatHistory.slice(-CHAT_MAX_TURNS), target: ($('cc-target') && $('cc-target').value) || 'auto' }),
+        body: JSON.stringify({ messages: chatHistory.slice(-CHAT_MAX_TURNS), model: ($('cc-model') && $('cc-model').value) || 'auto', target: ($('cc-target') && $('cc-target').value) || 'auto' }),
       });
       if (!r.ok || !r.body) throw new Error('HTTP ' + r.status);
       const reader = r.body.getReader(), dec = new TextDecoder();
@@ -1502,6 +1541,8 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
   refresh();
   refreshTasks();
   setInterval(refreshTasks, 2500);
+  refreshModels();
+  setInterval(refreshModels, 5000);
 </script>
 
 <!-- SDD-045 shared control-surface (inlined verbatim from webapp/_shared/control-surface.{css,js}; lockstep-linted). -->

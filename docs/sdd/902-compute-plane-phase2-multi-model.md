@@ -24,6 +24,7 @@ registry, built in three increments over the shared plane.
 | **2** | GPU serve-process backend (plane-placed llama-server/vLLM) the gateway proxies to | ✓ shipped |
 | **2b** | streaming to a GPU proxy — transcode the upstream SSE into Anthropic events | ✓ shipped |
 | **3** | routing (model / background hint) + background jobs target the secondary + docs | ✓ shipped |
+| **4** | the Code Console UX loop — the model registry + background alias reach the console chat | ✓ shipped |
 
 ## Increment 1 (shipped)
 
@@ -118,6 +119,35 @@ proxy — leaving the primary free.
   accepts a model hint; a jobs-runtime test asserts the deliberation sends the
   `"background"` alias to a mock gateway. 62 gateway lib+http + 14 jobs-runtime tests;
   clippy `-D warnings` clean.
+
+## Increment 4 — the Code Console UX loop (shipped)
+
+The registry + the `"background"` alias reach the operator's actual chat surface, so
+what the gateway can serve is visible and usable from the Code Console.
+
+- **The OpenAI shim is now a full peer of the Anthropic surface.** The Console chat
+  rides `scripts/inference/prompt.py` → the gateway's OpenAI shim
+  (`/v1/chat/completions`). That shim now **expands the `"background"` alias** and
+  **routes GPU proxies**: an `openai`-dialect backend's SSE is relayed verbatim
+  (`stream_proxy_chat_completions`), an `anthropic`-dialect proxy is an honest error
+  pointing at `/v1/messages`. So a `"background"`-that-resolves-to-a-proxy no longer
+  silently falls back to the primary — the console reaches the real backend. (The
+  proxy transport is factored into shared `open_proxy_stream` / `next_proxy_block`
+  helpers used by both the Anthropic and OpenAI streaming paths.)
+- **`GET /v1/models` reports the `background` target**, so a UI can show which model
+  the alias points at.
+- **Console wiring.** `code-console-api` gains a read-only `GET /api/code-console/models`
+  (proxying `GET /v1/models`) and threads a `model` id from the chat body into the
+  inference runner. The webapp composer gains a **Model picker** (primary / loaded
+  secondaries / GPU proxies / the `"background"` alias / `auto`) fed by that endpoint,
+  a small "N models loaded · background → …" status, and sends the chosen model on
+  every chat. The picker degrades to `auto` when the gateway is offline. Background
+  deliberation jobs already target the secondary (increment 3).
+- **Verified:** a gateway transport test streams a proxy through the OpenAI shim
+  (verbatim relay); an http test asserts `GET /v1/models` reports the background
+  target; a jobs-runtime test locks the console-api proxy + composer model wiring.
+  16 gateway transport + 62 lib+http + 15 jobs-runtime tests; clippy `-D warnings`
+  clean.
 
 ## Honest gating
 
