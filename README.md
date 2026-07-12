@@ -130,6 +130,8 @@ sovereign-osctl journal errors          # every warn/error across log files
 
 | If you want to… | Read |
 |---|---|
+| **Use the box from VS Code / Claude Code** (the local model over the Anthropic + OpenAI APIs) | [`docs/src/ai-backend.md`](docs/src/ai-backend.md) |
+| Deliberate reasoning (CoAT), the Brain observatory, Background Tasks, the Code Console | [`docs/src/reasoning-operability.md`](docs/src/reasoning-operability.md) |
 | Understand WHAT you're building (the Trinity, SAIN-01 hardware spec, runtime profiles) | [`docs/src/sain-01-master-spec.md`](docs/src/sain-01-master-spec.md) |
 | Walk through the FULL lifecycle from clone → daily-use → decommission | [`docs/src/operator-journey.md`](docs/src/operator-journey.md) |
 | End-to-end step-by-step install for your specific profile | [`docs/src/install-runbook.md`](docs/src/install-runbook.md) + [`docs/src/profiles/`](docs/src/profiles/) |

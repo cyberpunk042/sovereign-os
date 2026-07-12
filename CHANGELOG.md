@@ -12,6 +12,25 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — user documentation: "Use the box as your AI backend" + "Reasoning & operability" (2026-07-12)
+
+Operator-directed ("we need to do the documentation too"). The session's features had design docs (SDDs) but
+no user-facing guide. Two new mdBook chapters, integrated into the existing book + README (not a new system).
+
+- NEW `docs/src/ai-backend.md` — run the gateway + load a model; wire **VS Code (Cline/Claude Dev)**, **Claude
+  Code (`ANTHROPIC_BASE_URL`)**, and the **Anthropic SDK**; the OpenAI-shim alternative; a full **gateway
+  endpoint reference** (`/v1/messages`, `/v1/models`, `/v1/messages/count_tokens`, `/v1/chat/completions`,
+  `/v1/infer` decision, `/v1/simple`, `/v1/explain`, `/v1/deliberate`, `/v1/coat`, health/manifest/ledger/metrics)
+  with curl examples; and the sovereign posture (loopback-trust, never-fabricated, no cloud spill, model-gated).
+- NEW `docs/src/reasoning-operability.md` — the CoT→ToT→MCTS→C-MCTS→CoAT ladder + `/v1/coat`; the Brain
+  observatory (`/brain/`); Background Tasks (the jobs runtime + `sovereign-osctl jobs` + the 4090-VM bridge);
+  the Code Console (the unified questions/plans/tasks/reasoning surface); and the interaction doctrine.
+- Registered both in `docs/src/SUMMARY.md` (new "Using the box" section) + linked from `README.md`'s "Where to
+  read next"; cross-linked the design SDDs (205/204/112/011) + the standing directives.
+- NEW `tests/lint/test_ai_backend_docs_contract.py` guards the pages exist, are registered + linked, cover the
+  load-bearing content (editor wiring, the endpoint reference, the ladder, tasks, the console), and that every
+  relative link in them RESOLVES (no broken cross-links).
+
 ### Added — the Anthropic Messages API on the gateway: use the box from VS Code / Claude Code (2026-07-12)
 
 Operator-directed ("make it compatible with Anthropic Messages API structure, so I can use it in vscode and

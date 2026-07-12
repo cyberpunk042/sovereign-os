@@ -62,3 +62,8 @@
 - [The cockpit — dashboards + control surface](./ops/cockpit.md)
 - [Profile authoring](./ops/profiles.md)
 - [Whitelabel authoring](./ops/whitelabel.md)
+
+# Using the box (AI backend & reasoning)
+
+- [Use the box as your AI backend](./ai-backend.md)
+- [Reasoning & operability](./reasoning-operability.md)
