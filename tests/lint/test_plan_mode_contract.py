@@ -76,6 +76,18 @@ def test_classifier_decides_correctly_per_mode():
         assert pc.decide(cmd, "auto")["action"] == "block", f"must block: {cmd}"
 
 
+def test_plans_are_presented_for_approval_via_the_auq_envelope():
+    # Plan Mode reuses the interactive-clarification rendering: the AI proposes a
+    # plan inside the ```askuserquestion envelope, with the four approvals as
+    # options — so every chat surface already renders it (no new UI).
+    sc = _read(REPO / "config" / "prompts" / "qcfa-system-prompt.md")
+    assert "PLAN MODE" in sc, "scaffold must instruct Plan Mode"
+    for approval in ("Approve", "Reject", "Approve with changes", "Approve and remember"):
+        assert approval in sc, f"scaffold plan-mode missing approval: {approval!r}"
+    assert "askuserquestion" in sc, "plans must be presented via the AUQ envelope"
+    assert "askuserquestion" in _read(DIRECTIVE), "directive must note the AUQ-envelope reuse"
+
+
 def test_control_exec_enforces_the_gate_and_cli_exists():
     src = _read(REPO / "scripts" / "operator" / "control-exec-api.py")
     assert "permission_classifier" in src and "_permission.decide" in src, \

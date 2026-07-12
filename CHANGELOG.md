@@ -12,6 +12,19 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — Plan Mode presented for approval in the cockpit (2026-07-11)
+
+Completes the plan → approve flow: the sovereign AI proposes a PLAN (summary + numbered steps) and
+presents it for approval, reusing the interactive-clarification rendering already on every chat surface.
+
+- The scaffold (`config/prompts/qcfa-system-prompt.md`) now instructs Plan Mode: for a mutating /
+  consequential task, propose a plan inside the ` ```askuserquestion ` envelope with the four approvals
+  as options (Approve / Reject / Approve with changes / Approve and remember), holding execution until
+  approved. So the plan renders as a clickable card on code-console, the Sovereign Brain panel, and
+  lm-status — no new UI. A destructive step is auto-blocked by Auto regardless.
+- The AUQ question class now preserves newlines so numbered plan steps render as lines; the
+  code-console DEMO thread shows a live plan card.
+
 ### Added — Plan Mode + User Approval + Auto-mode safety classifier (2026-07-11)
 
 Companion to the QCFA framework: where QCFA aligns on intent before acting, this reviews the plan

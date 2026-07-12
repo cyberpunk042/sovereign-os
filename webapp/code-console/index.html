@@ -90,7 +90,7 @@
   /* interactive clarification (QCFA / AskUserQuestion) card */
   .cc-auq { border:1px solid var(--accent); border-radius:8px; padding:.55rem .65rem; margin:.45rem 0; background:rgba(155,209,255,.05); }
   .cc-auq-h { font-size:.68rem; text-transform:uppercase; letter-spacing:.04em; color:var(--accent); }
-  .cc-auq-q { font-weight:600; margin:.15rem 0 .4rem; white-space:normal; }
+  .cc-auq-q { font-weight:600; margin:.15rem 0 .4rem; white-space:pre-wrap; }
   .cc-auq-opt { display:block; width:100%; text-align:left; margin:.2rem 0; padding:.35rem .5rem; border:1px solid var(--border); border-radius:6px; background:var(--panel); color:var(--fg); font:inherit; cursor:pointer; }
   .cc-auq-opt:hover { border-color:var(--accent); }
   .cc-auq-opt.picked { border-color:var(--accent); background:rgba(155,209,255,.12); }
@@ -982,6 +982,7 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
   const DEMO_THREAD = [
     { role: 'user', content: '[DEMO] Refactor this function to be pure.' },
     { role: 'assistant', content: '[DEMO] Before I refactor — one clarification (this card is live: click an option and it becomes your next turn):\n\n```askuserquestion\n{"questions":[{"header":"Returns","question":"How should the pure version return results?","multiSelect":false,"options":[{"label":"Fresh value","description":"return a new object, mutate nothing"},{"label":"Result tuple","description":"return (value, error) instead of throwing"}]}]}\n```' },
+    { role: 'assistant', content: '[DEMO] Plan Mode — here is my plan; I hold execution until you approve:\n\n```askuserquestion\n{"questions":[{"header":"Plan","question":"Refactor the function to be pure\n1. Read the function + its callers\n2. Extract the side effects into the caller\n3. Return a fresh value; add a unit test","multiSelect":false,"options":[{"label":"Approve","description":"execute exactly as proposed"},{"label":"Reject","description":"block it; I will suggest another approach"},{"label":"Approve with changes","description":"adjust the steps first"},{"label":"Approve and remember","description":"approve + skip the prompt for matching steps"}]}]}\n```' },
     { role: 'assistant', content: '[DEMO] This is sample output — not a real model response. In live mode the box\'s own local LM answers here over the loopback router, and this thread shows real tokens (with the QCFA thinking-partner scaffold when SOVEREIGN_OS_QCFA=1).' },
   ];
 

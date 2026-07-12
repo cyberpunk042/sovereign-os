@@ -69,10 +69,15 @@ Set via `SOVEREIGN_OS_PERMISSION_MODE` (or `config/permission-modes.yaml`):
   (`scripts/operator/control-exec-api.py`): allowlisted control-id + dry-run
   default + confirm gate + audit. The permission mode + classifier layer onto it —
   the daemon `decide()`s each action, so **auto blocks destructive, manual
-  confirms, bypass proceeds**. The `sovereign-agent-runtime` ReAct loop is a
-  consumer: it proposes a plan (a fenced ` ```plan ` block), the cockpit renders
-  the plan with the four approvals, and on approve each step executes through the
-  gated daemon per the active mode.
+  confirms, bypass proceeds**. The plan itself is **presented for approval by
+  reusing the interactive-clarification rendering**: the AI proposes a plan
+  (summary + numbered steps) inside the same fenced ` ```askuserquestion `
+  envelope, with the four approvals as the options — so every chat surface
+  (code-console, the Sovereign Brain panel, lm-status) renders the plan with
+  clickable Approve / Reject / Approve-with-changes / Approve-and-remember, no new
+  UI. On approve, each step executes through the gated daemon per the active mode;
+  a destructive step is auto-blocked by Auto regardless. The
+  `sovereign-agent-runtime` ReAct loop is the same kind of consumer.
 - **External agents / operators.** This file is the operating manual: propose a
   plan first, present it for approval, honor the permission mode. The AI adopts
   Plan Mode by default on any mutating / consequential request.
