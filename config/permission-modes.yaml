@@ -1,0 +1,57 @@
+# config/permission-modes.yaml — Plan Mode + User Approval permission modes.
+#
+# The canonical config for the plan-mode / user-approval framework
+# (docs/standing-directives/2026-07-11-plan-mode-user-approval.md). It names the
+# permission modes, the approval verbs, and lets the operator EXTEND the Auto-mode
+# safety classifier's destructive-pattern list without touching code
+# (scripts/operator/lib/permission_classifier.py reads `destructive_extra`).
+#
+# Active mode: SOVEREIGN_OS_PERMISSION_MODE=manual|auto|bypass (default manual).
+schema_version: "1.0.0"
+
+# Sovereign default: never act unreviewed.
+default_mode: manual
+
+# ── the three permission modes ────────────────────────────────────────────────
+modes:
+  manual:
+    summary: >-
+      Pause for explicit approval on anything that mutates (file edits, shell
+      commands, privileged controls). Reads proceed; a destructive action is
+      confirm-gated AND flagged DANGER. The sovereign default — maps onto the
+      cockpit's dry-run-default + operator-key + type-to-confirm gate.
+    routine: allow
+    unknown: confirm
+    destructive: confirm-danger
+  auto:
+    summary: >-
+      A safety classifier auto-BLOCKS destructive operations, lets routine
+      (read-only) actions proceed without a prompt, and confirms the unknown
+      middle. The "let it operate, but the classifier guards the cliff" mode.
+    routine: allow
+    unknown: confirm
+    destructive: block
+  bypass:
+    summary: >-
+      Skip all permission gates (the --dangerously-skip-permissions analogue).
+      Removes the manual-review safeguard — for trusted, non-interactive runs
+      only. Nothing is classified; everything proceeds.
+    routine: allow
+    unknown: allow
+    destructive: allow
+
+# ── the approval verbs (what the operator can do at a plan/approval prompt) ────
+# Mapped onto the existing cockpit primitives (control-exec-api dry-run + confirm).
+approvals:
+  - approve            # execute exactly as proposed
+  - reject             # block execution; suggest an alternative / different approach
+  - approve-with-changes  # modify the input (args / paths / constraints) before executing
+  - approve-and-remember  # echo a permission rule so matching calls skip the prompt next time
+
+# ── operator-tunable Auto-mode extension ──────────────────────────────────────
+# Extra destructive regexes the Auto classifier will BLOCK, as "<regex> | <reason>".
+# The built-in list (rm -rf, dd of=/dev/*, mkfs, wipefs, nvme format, zpool/zfs
+# destroy, force-push, git reset --hard, fork bomb, curl|sh, poweroff, …) always
+# applies; these are additive. Sovereign-specific example commented below.
+destructive_extra: []
+  # - "\\bflash\\b.*/dev/nvme | flashing to an OS disk (only /dev/sda is allowed)"

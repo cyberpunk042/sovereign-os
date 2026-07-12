@@ -54,6 +54,16 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import _action_exec  # noqa: E402
 
+# The Plan Mode / User Approval Auto-mode safety classifier (lib/). Import
+# directly so this daemon can gate destructive controls before they execute.
+import importlib.util  # noqa: E402
+
+_pc_spec = importlib.util.spec_from_file_location(
+    "_permission_classifier",
+    Path(__file__).resolve().parent / "lib" / "permission_classifier.py")
+_permission = importlib.util.module_from_spec(_pc_spec)
+_pc_spec.loader.exec_module(_permission)
+
 API_BIND = os.environ.get("CONTROL_EXEC_API_BIND", "127.0.0.1")
 API_PORT = int(os.environ.get("CONTROL_EXEC_API_PORT", "8130"))
 DRY_RUN = bool(os.environ.get("CONTROL_EXEC_API_DRY_RUN"))
@@ -163,12 +173,30 @@ class ControlExecAPIHandler(BaseHTTPRequestHandler):
                                            "placeholder -> value"})
             return
         confirm = bool(body.get("confirm"))
+        # ── Plan Mode / User Approval permission gate ──────────────────────────
+        # Classify this control's change_cli under the active permission mode.
+        # AUTO auto-BLOCKS a destructive control before it can reach the primitive
+        # (the safety-classifier guarantee); manual/bypass fall through to the
+        # existing dry-run + operator-key + type-to-confirm gate. The verdict
+        # rides on every response so the cockpit can show it.
+        mode = _permission.default_mode()
+        change_cli = (_action_exec.load_registry().get(control_id) or {}).get("change_cli", "")
+        decision = _permission.decide(change_cli, mode)
+        if decision["action"] == "block":
+            self._send_json(403, {
+                "code": 403, "ok": False, "blocked": True,
+                "control_id": control_id, "permission": decision,
+                "error": decision["message"],
+            })
+            return
         # dry_run is left to the primitive (SOVEREIGN_OS_ACTION_EXEC_LIVE gate) —
         # the daemon never forces a live execution.
         result = _action_exec.execute(
             control_id, {str(k): str(v) for k, v in args.items()},
             confirm=confirm, actor="cockpit-web",
         )
+        if isinstance(result, dict):
+            result["permission"] = decision
         self._send_json(int(result.get("code", 500)), result)
 
     def do_PUT(self) -> None:  # noqa: N802

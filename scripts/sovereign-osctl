@@ -190,6 +190,11 @@ COMMANDS:
                                provider-inversion gateway over the cortex: sovereignty
                                tripwire (never-cloud-spill), cost/route ledger, live
                                surfaces + persisted Memory-OS snapshot (read-only)
+  permission [--mode manual|auto|bypass] <command…>
+                               Plan Mode / User Approval Auto-mode safety classifier —
+                               classify a command (destructive/routine/unknown) + decide
+                               allow/block/confirm under a permission mode (enforced in
+                               control-exec-api)
 
   audit friction               Runtime friction-audit (lspci/lscpu/IOMMU)
   audit perimeter              Perimeter integrity (Tetragon policy)
@@ -6562,6 +6567,15 @@ case "${cmd}" in
     # model-health cockpit panels render (scripts/operator/lib/gateway_probe.py).
     #   gateway [--addr host:port] [--json]
     exec python3 "${__REPO_ROOT}/scripts/operator/lib/gateway_probe.py" "$@"
+    ;;
+  permission)
+    # Plan Mode / User Approval — the Auto-mode safety classifier
+    # (docs/standing-directives/2026-07-11-plan-mode-user-approval.md). Classify a
+    # command as destructive / routine / unknown and decide allow / block /
+    # confirm under a permission mode (manual/auto/bypass). Enforced live in
+    # control-exec-api; this is the CLI + library face.
+    #   permission [--mode manual|auto|bypass] <command…>
+    exec python3 "${__REPO_ROOT}/scripts/operator/lib/permission_classifier.py" "$@"
     ;;
   network)
     # R220 (SDD-026 Z-7): per-component network state surface.

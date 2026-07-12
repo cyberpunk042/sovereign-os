@@ -12,6 +12,30 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — Plan Mode + User Approval + Auto-mode safety classifier (2026-07-11)
+
+Companion to the QCFA framework: where QCFA aligns on intent before acting, this reviews the plan
+before executing. The AI proposes a plan and holds execution; the operator Approves / Rejects /
+Approves-with-changes / Approves-and-remembers; permission modes (manual/auto/bypass) control how
+often it stops; and an Auto-mode safety classifier auto-blocks destructive ops. Built on
+sovereign-os's existing approval gates. One framework, two homes.
+
+- NEW standing directive `docs/standing-directives/2026-07-11-plan-mode-user-approval.md` (registered
+  in INDEX) — canonical for both the local sovereign AI and external agents/operators.
+- NEW `scripts/operator/lib/permission_classifier.py` — the Auto-mode safety classifier: classifies a
+  command destructive / routine / unknown and decides allow / block / confirm per mode. **manual** →
+  confirm mutating (destructive flagged DANGER); **auto** → BLOCK destructive, allow routine, confirm
+  unknown; **bypass** → allow. Destructive families: `rm -rf`, `dd of=/dev/*`, `mkfs`/`wipefs`, `nvme
+  format`, `zpool`/`zfs destroy`, force-push, `git reset --hard`, fork bomb, `curl|sh`, `poweroff`, …
+  Extensible via config; stdlib-only; tested.
+- NEW `config/permission-modes.yaml` — the modes + the 4 approvals + the operator-tunable
+  `destructive_extra` extension point. `SOVEREIGN_OS_PERMISSION_MODE` (default manual).
+- `control-exec-api` (the ONE sanctioned execute daemon) now consults the classifier under the active
+  mode: **Auto BLOCKS a destructive control (403) before it reaches the primitive**; the verdict rides
+  on every response. Layers onto the existing dry-run-default + operator-key + type-to-confirm gate.
+- NEW osctl verb `sovereign-osctl permission [--mode …] <command>`; `tests/lint/test_plan_mode_contract.py`
+  guards the directive, config, classifier decisions, and enforcement.
+
 ### Added — interactive clarification across every chat surface (2026-07-11)
 
 Extends the QCFA/AUQ interactive rendering (first shipped on the code console) to the other chat
