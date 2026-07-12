@@ -12,6 +12,23 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — wire-the-island register: built-but-unwired crates become a machine-enforced register (2026-07-12)
+
+Phase-1 audit (SDD-955; closes ledger F-2026-093 — the audit's #1 theme). A dependency-graph pass over all 714 crate
+manifests found the **35 pure-library `sovereign-*` crates** (`src/lib.rs`, no binary) that appear in **no other
+crate's `Cargo.toml`** — depended on by nothing that runs.
+
+- **`docs/review/phase-1/island-register.md`**: the 35 enumerated, each with a disposition (14 aspirational — need a
+  real model / GPU / ZFS / CRIU / VM / network integration or an operator decision; 21 wireable) + a concrete
+  trigger, plus the inventory summary and the two-parallel-stacks root cause (the wired `safetensors` path vs the
+  demo-only `sovereign-llm` island hub).
+- **`tests/lint/test_island_register.py`**: recomputes the set and asserts register == computed **both directions**
+  — a new orphan fails CI until registered; a newly-wired island fails CI until its row is removed. Same
+  counts-as-contract discipline as `context.md`, applied to dead crates.
+- **Correction**: `sovereign-world-model` + `sovereign-hrm-runtime` were flagged as islands but are run-reachable
+  via `sovereign-cortex` (a gatewayd dependency) — annotated in the ledger.
+
+
 ### Fixed — auto-mode permission classifier: flag normalization + honest framing (2026-07-12)
 
 Phase-1 audit (SDD-954; closes ledger F-2026-092). The Auto-mode safety classifier
