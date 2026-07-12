@@ -129,6 +129,15 @@
   .chat-log { padding:.75rem .9rem; min-height:120px; max-height:320px; overflow-y:auto; font-size:.85rem; }
   .chat-msg { margin:0 0 .5rem; }
   .chat-msg .who { color:var(--accent); }
+  /* interactive clarification (QCFA / AskUserQuestion) card */
+  .auq{border:1px solid var(--accent);border-radius:8px;padding:.5rem .6rem;margin:.4rem 0;background:rgba(155,209,255,.05)}
+  .auq-h{font-size:.68rem;text-transform:uppercase;letter-spacing:.04em;color:var(--accent)}
+  .auq-q{font-weight:600;margin:.15rem 0 .4rem}
+  .auq-opt{display:block;width:100%;text-align:left;margin:.2rem 0;padding:.35rem .5rem;border:1px solid var(--border);border-radius:6px;background:var(--panel);color:var(--fg);font:inherit;cursor:pointer}
+  .auq-opt:hover{border-color:var(--accent)} .auq-opt.picked{border-color:var(--accent);background:rgba(155,209,255,.12)}
+  .auq-opt .d{display:block;color:var(--muted);font-size:.76rem;margin-top:.1rem;font-weight:400}
+  .auq-other{display:flex;gap:.3rem;margin-top:.3rem} .auq-other input{flex:1;background:var(--bg);color:var(--fg);border:1px solid var(--border);border-radius:6px;padding:.3rem .4rem;font:inherit}
+  .auq.answered{opacity:.6} .auq.answered .auq-opt,.auq.answered input{pointer-events:none}
   .composer { display:flex; gap:.5rem; padding:.5rem .9rem .9rem; }
   .composer textarea {
     flex:1; background:var(--bg); color:var(--fg); border:1px solid var(--border);
@@ -1158,6 +1167,50 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
   // stream, and appends the assistant reply to the buffer. Honest error on no backend.
   const CHAT_MAX_TURNS = 8;          // mirrors the server MAX_CHAT_TURNS bound
   let chatHistory = [];              // [{role, content}] — in-page only, no persistence
+  // interactive clarification (QCFA / AskUserQuestion) — same as the code console:
+  // a fenced ```askuserquestion block becomes clickable options + a free-text
+  // "Other"; the picked answer feeds back as the next turn. Graceful <pre> fallback.
+  const AUQ_RE = /```askuserquestion\s*([\s\S]*?)```/g;
+  function auqRenderHTML(text){
+    let html = '', last = 0, m; AUQ_RE.lastIndex = 0;
+    while ((m = AUQ_RE.exec(text))){
+      html += esc(text.slice(last, m.index));
+      let ok = false; try { JSON.parse(m[1].trim()); ok = true; } catch (_){}
+      html += ok ? '<div class="auq" data-auq="' + esc(m[1].trim()) + '"></div>'
+                 : '<pre style="white-space:pre-wrap;margin:.3rem 0">' + esc(m[0]) + '</pre>';
+      last = m.index + m[0].length;
+    }
+    return html + esc(text.slice(last));
+  }
+  function auqHydrate(root, onAnswer){
+    root.querySelectorAll('.auq[data-auq]').forEach(function(node){
+      if (node.dataset.done) return;
+      let spec; try { spec = JSON.parse(node.getAttribute('data-auq')); } catch (_){ return; }
+      const qs = (spec && spec.questions) || []; if (!qs.length) return;
+      const chosen = {};
+      node.innerHTML = qs.map(function(q, qi){
+        const opts = (q.options || []).map(function(o, oi){
+          return '<button class="auq-opt" data-q="' + qi + '" data-o="' + oi + '">' + esc(o.label)
+            + (o.description ? '<span class="d">' + esc(o.description) + '</span>' : '') + '</button>';
+        }).join('');
+        return '<div>' + (q.header ? '<div class="auq-h">' + esc(q.header) + '</div>' : '')
+          + '<div class="auq-q">' + esc(q.question || '') + '</div>' + opts
+          + '<div class="auq-other"><input type="text" placeholder="Other…" data-q="' + qi + '" aria-label="other answer">'
+          + '<button class="auq-opt" data-other="' + qi + '" style="width:auto" title="submit">↵</button></div></div>';
+      }).join('');
+      function commit(qi, label, btn){
+        chosen[qi] = label;
+        if (btn){ node.querySelectorAll('button[data-q="' + qi + '"]').forEach(function(x){ x.classList.remove('picked'); }); btn.classList.add('picked'); }
+        if (qs.length === 1 || Object.keys(chosen).length === qs.length){
+          node.classList.add('answered'); node.dataset.done = '1';
+          const txt = qs.map(function(q, i){ const h = q.header || q.question || ('Q' + (i + 1)); return chosen[i] != null ? (h + ': ' + chosen[i]) : null; }).filter(Boolean).join(' · ');
+          onAnswer(txt);
+        }
+      }
+      node.querySelectorAll('button[data-o]').forEach(function(b){ b.addEventListener('click', function(){ commit(+b.dataset.q, ((qs[+b.dataset.q].options || [])[+b.dataset.o] || {}).label, b); }); });
+      node.querySelectorAll('button[data-other]').forEach(function(b){ b.addEventListener('click', function(){ const qi = +b.dataset.other; const inp = node.querySelector('input[data-q="' + qi + '"]'); const v = (inp && inp.value || '').trim(); if (v) commit(qi, v, null); }); });
+    });
+  }
   async function sendChat() {
     const btn = $('chat-send'), input = $('chat-input');
     const text = (input.value || '').trim();
@@ -1205,7 +1258,12 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
       // append the assistant reply to the client-side buffer (skip honest-defer errors,
       // so a retry re-sends the same history rather than a poisoned turn).
       if (!hadError && out.textContent && out.textContent !== '(no response)') {
-        chatHistory.push({ role: 'assistant', content: out.textContent });
+        const full = out.textContent;
+        chatHistory.push({ role: 'assistant', content: full });
+        // re-render: turn any ```askuserquestion block into an interactive card
+        out.innerHTML = auqRenderHTML(full);
+        auqHydrate(out, function (t) { $('chat-input').value = t; sendChat(); });
+        $('chat-log').scrollTop = $('chat-log').scrollHeight;
       }
     } catch (e) {
       out.className = 'chat-msg muted';

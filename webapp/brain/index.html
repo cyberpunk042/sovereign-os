@@ -835,6 +835,15 @@ html[data-theme="light"] {
   .typechip{display:inline-block;border:1px solid var(--border);border-radius:10px;padding:0 .4rem;font-size:.7rem;color:var(--accent)}
   #chat-log{border:1px solid var(--border);border-radius:4px;padding:.5rem;background:var(--bg);max-height:16rem;overflow:auto}
   .chat-you{color:var(--accent)} .chat-brain{color:var(--fg)}
+  /* interactive clarification (QCFA / AskUserQuestion) card */
+  .auq{border:1px solid var(--accent);border-radius:8px;padding:.5rem .6rem;margin:.4rem 0;background:rgba(155,209,255,.05)}
+  .auq-h{font-size:.68rem;text-transform:uppercase;letter-spacing:.04em;color:var(--accent)}
+  .auq-q{font-weight:600;margin:.15rem 0 .4rem}
+  .auq-opt{display:block;width:100%;text-align:left;margin:.2rem 0;padding:.35rem .5rem;border:1px solid var(--border);border-radius:6px;background:var(--panel);color:var(--fg);font:inherit;cursor:pointer}
+  .auq-opt:hover{border-color:var(--accent)} .auq-opt.picked{border-color:var(--accent);background:rgba(155,209,255,.12)}
+  .auq-opt .d{display:block;color:var(--muted);font-size:.76rem;margin-top:.1rem;font-weight:400}
+  .auq-other{display:flex;gap:.3rem;margin-top:.3rem} .auq-other input{flex:1;background:var(--bg);color:var(--fg);border:1px solid var(--border);border-radius:6px;padding:.3rem .4rem;font:inherit}
+  .auq.answered{opacity:.6} .auq.answered .auq-opt,.auq.answered input{pointer-events:none}
 </style>
 
 <h1>Sovereign Brain</h1>
@@ -1483,6 +1492,53 @@ async function probe(){
   } catch (e){ el("probe-result").innerHTML = "<span class='bad'>" + esc(e.message) + "</span>"; }
 }
 
+// interactive clarification (QCFA / AskUserQuestion) — same behaviour as the
+// code console: a fenced ```askuserquestion block becomes clickable options + a
+// free-text "Other", and the picked answer feeds back as the next turn. Graceful
+// <pre> fallback if unparseable, so a question is never raw-swallowed.
+const AUQ_RE = /```askuserquestion\s*([\s\S]*?)```/g;
+function auqRenderHTML(text){
+  let html = "", last = 0, m; AUQ_RE.lastIndex = 0;
+  while ((m = AUQ_RE.exec(text))){
+    html += esc(text.slice(last, m.index));
+    let ok = false; try { JSON.parse(m[1].trim()); ok = true; } catch (_){}
+    html += ok ? '<div class="auq" data-auq="' + esc(m[1].trim()) + '"></div>'
+               : '<pre style="white-space:pre-wrap;margin:.3rem 0">' + esc(m[0]) + '</pre>';
+    last = m.index + m[0].length;
+  }
+  return html + esc(text.slice(last));
+}
+function auqHydrate(root, onAnswer){
+  root.querySelectorAll('.auq[data-auq]').forEach(function(node){
+    if (node.dataset.done) return;
+    let spec; try { spec = JSON.parse(node.getAttribute('data-auq')); } catch (_){ return; }
+    const qs = (spec && spec.questions) || []; if (!qs.length) return;
+    const chosen = {};
+    node.innerHTML = qs.map(function(q, qi){
+      const opts = (q.options || []).map(function(o, oi){
+        return '<button class="auq-opt" data-q="' + qi + '" data-o="' + oi + '">' + esc(o.label)
+          + (o.description ? '<span class="d">' + esc(o.description) + '</span>' : '') + '</button>';
+      }).join("");
+      return '<div>' + (q.header ? '<div class="auq-h">' + esc(q.header) + '</div>' : '')
+        + '<div class="auq-q">' + esc(q.question || "") + '</div>' + opts
+        + '<div class="auq-other"><input type="text" placeholder="Other…" data-q="' + qi + '" aria-label="other answer">'
+        + '<button class="auq-opt" data-other="' + qi + '" style="width:auto" title="submit">↵</button></div></div>';
+    }).join("");
+    function commit(qi, label, btn){
+      chosen[qi] = label;
+      if (btn){ node.querySelectorAll('button[data-q="' + qi + '"]').forEach(function(x){ x.classList.remove("picked"); }); btn.classList.add("picked"); }
+      if (qs.length === 1 || Object.keys(chosen).length === qs.length){
+        node.classList.add("answered"); node.dataset.done = "1";
+        const txt = qs.map(function(q, i){ const h = q.header || q.question || ("Q" + (i + 1)); return chosen[i] != null ? (h + ": " + chosen[i]) : null; }).filter(Boolean).join(" · ");
+        onAnswer(txt);
+      }
+    }
+    node.querySelectorAll('button[data-o]').forEach(function(b){ b.addEventListener("click", function(){ commit(+b.dataset.q, ((qs[+b.dataset.q].options || [])[+b.dataset.o] || {}).label, b); }); });
+    node.querySelectorAll('button[data-other]').forEach(function(b){ b.addEventListener("click", function(){ const qi = +b.dataset.other; const inp = node.querySelector('input[data-q="' + qi + '"]'); const v = (inp && inp.value || "").trim(); if (v) commit(qi, v, null); }); });
+  });
+}
+
+const brainChat = [];
 function chatAppend(cls, text){
   const d = document.createElement("div"); d.className = cls; d.textContent = text;
   const log = el("chat-log"); log.appendChild(d); log.scrollTop = log.scrollHeight; return d;
@@ -1490,24 +1546,34 @@ function chatAppend(cls, text){
 async function chat(){
   const q = el("chat-input").value.trim(); if (!q) return;
   el("chat-input").value = ""; chatAppend("chat-you", "you: " + q);
+  brainChat.push({ role: "user", content: q });
   if (demoActive()){ chatAppend("chat-brain", "brain (demo): the local model answers here on a live box with a model loaded."); return; }
-  const out = chatAppend("chat-brain", "brain: ");
+  const out = chatAppend("chat-brain", "");
+  out.innerHTML = '<span class="muted">brain: </span>'; const span = document.createElement("span"); out.appendChild(span);
+  let acc = "";
   try{
     const r = await fetch("/brain/chat", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages: [{ role: "user", content: q }], max_tokens: 96 }) });
-    const reader = r.body.getReader(); const dec = new TextDecoder(); let buf = "";
-    for (;;){
-      const { done, value } = await reader.read(); if (done) break;
-      buf += dec.decode(value, { stream: true }); let idx;
+      body: JSON.stringify({ messages: brainChat.slice(-8), max_tokens: 96 }) });
+    const reader = r.body.getReader(); const dec = new TextDecoder(); let buf = "", stop = false;
+    while (!stop){
+      const rd = await reader.read(); if (rd.done) break;
+      buf += dec.decode(rd.value, { stream: true }); let idx;
       while ((idx = buf.indexOf("\n")) >= 0){
         const line = buf.slice(0, idx).trim(); buf = buf.slice(idx + 1);
         if (!line.startsWith("data:")) continue;
-        const p = line.slice(5).trim(); if (p === "[DONE]") return;
+        const p = line.slice(5).trim(); if (p === "[DONE]"){ stop = true; break; }
         try{ const c = JSON.parse(p); const t = ((c.choices || [{}])[0].delta || {}).content;
-          if (t){ out.textContent += t; el("chat-log").scrollTop = el("chat-log").scrollHeight; } } catch (_){}
+          if (t){ acc += t; span.textContent = acc; el("chat-log").scrollTop = el("chat-log").scrollHeight; } } catch (_){}
       }
     }
-  } catch (e){ out.textContent += " [error: " + e.message + "]"; }
+    if (acc){
+      brainChat.push({ role: "assistant", content: acc });
+      // re-render: turn any ```askuserquestion block into an interactive card
+      out.innerHTML = '<span class="muted">brain: </span>' + auqRenderHTML(acc);
+      auqHydrate(out, function(t){ el("chat-input").value = t; chat(); });
+      el("chat-log").scrollTop = el("chat-log").scrollHeight;
+    }
+  } catch (e){ span.textContent = acc + " [error: " + e.message + "]"; }
 }
 
 buildAxes();

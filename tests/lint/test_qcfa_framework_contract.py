@@ -58,13 +58,16 @@ def test_scaffold_specifies_the_renderable_envelope():
     assert '"questions"' in sc and '"options"' in sc, "scaffold must define the JSON shape"
 
 
-def test_code_console_renders_auq_interactively():
-    body = _read(REPO / "webapp" / "code-console" / "index.html")
-    assert "renderAssistantHTML" in body and "hydrateAUQ" in body, "no AUQ renderer"
-    assert "askuserquestion" in body, "console must detect the askuserquestion envelope"
-    assert "answerAUQ" in body, "console must feed the picked answer back as a turn"
-    assert "cc-auq" in body, "AUQ card markup/styles missing"
-    assert "<pre" in body, "an unparseable block must fall back to a code block, never raw-swallowed"
+def test_all_chat_surfaces_render_auq_interactively():
+    # every chat surface must render the clarification as interactive choices —
+    # not raw text / a code block — with a graceful <pre> fallback if unparseable.
+    for slug in ("code-console", "brain", "d-22-lm-status-operability"):
+        body = _read(REPO / "webapp" / slug / "index.html")
+        assert "askuserquestion" in body, f"{slug}: must detect the askuserquestion envelope"
+        assert ("renderAssistantHTML" in body or "auqRenderHTML" in body), f"{slug}: no AUQ renderer"
+        assert ("hydrateAUQ" in body or "auqHydrate" in body), f"{slug}: no AUQ hydrate (interactive)"
+        assert ("cc-auq" in body or 'class="auq' in body), f"{slug}: no AUQ card markup"
+        assert "<pre" in body, f"{slug}: no graceful code-block fallback (never raw-swallow a question)"
 
 
 def test_prompt_injects_qcfa_opt_in_without_double_inject(monkeypatch):

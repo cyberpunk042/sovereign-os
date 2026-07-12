@@ -12,6 +12,18 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — interactive clarification across every chat surface (2026-07-11)
+
+Extends the QCFA/AUQ interactive rendering (first shipped on the code console) to the other chat
+surfaces, so the thinking-partner behaviour is consistent everywhere.
+
+- The **Sovereign Brain panel chat** (`/brain/`) and **lm-status (D-22)** chats now detect the fenced
+  ` ```askuserquestion ` envelope and render clickable options + a free-text "Other", feeding the
+  picked answer back as the next turn — graceful `<pre>` fallback if unparseable. The brain chat also
+  gained a small in-page history so a clarification answer continues the thread.
+- `tests/lint/test_qcfa_framework_contract.py` now asserts ALL chat surfaces (code-console, brain,
+  lm-status) render AUQ interactively. The renderers are functionally verified (node); full lint green.
+
 ### Added — QCFA + interactive-clarification framework (2026-07-11)
 
 Codifies the operator's directive to make AI an interactive thinking partner (not a typewriter):
