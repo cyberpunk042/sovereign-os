@@ -12,6 +12,22 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Fixed — MASTER-PLAN count reconciliation + milestone-completeness contract (2026-07-12)
+
+Phase-1 audit (SDD-959; closes ledger F-2026-032). `docs/MASTER-PLAN.md` self-contradicted on the milestone count —
+it stated both "128" and "130", its sovereign-os cell (82) trailed the file tree (84, with M085/M086 missing from
+the enumeration), and the D-16/D-12 rows read "not yet wired" while the dashboards had shipped.
+
+- **`docs/MASTER-PLAN.md`**: the count is single-valued at 132 (intro + table + header + status line reconciled);
+  M085/M086 added to the enumeration (annotated as operator-note milestones, 0 R-rows); the D-16 audit-chain +
+  D-12 networking rows updated to "at prod" (cited to `webapp/d-16-audit/` + `webapp/d-12-networking/` + context.md).
+- **`tests/lint/test_master_plan_counts.py`**: every `backlog/milestones/M*.md` must be enumerated, no stale
+  entries, the sovereign-os cell equals the file count, the combined total equals selfdef + sovereign-os, and the
+  three stated totals agree — the 128-vs-130 contradiction guard. Same counts-as-contract discipline as
+  `context.md` (SDD-952) and the mdbook catalog (SDD-958). The cross-repo selfdef count is checked for internal
+  consistency only (selfdef isn't in this checkout).
+
+
 ### Added — unfreeze the mdbook: generated SDD catalog + standing-directives, enforced (2026-07-12)
 
 Phase-1 audit (SDD-958; closes ledger F-2026-033). The published mdbook (`docs/src/SUMMARY.md`) had hand-curated SDD
