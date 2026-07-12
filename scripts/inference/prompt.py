@@ -52,7 +52,38 @@ MAX_PROMPT_CHARS = int(os.environ.get("SOVEREIGN_OS_MAX_PROMPT_CHARS", "8000"))
 MAX_CHAT_TURNS = int(os.environ.get("SOVEREIGN_OS_MAX_CHAT_TURNS", "8"))  # SDD-103
 DEFAULT_TIMEOUT = int(os.environ.get("SOVEREIGN_OS_PROMPT_TIMEOUT", "300"))
 
+# QCFA + interactive-clarification scaffold (docs/standing-directives/
+# 2026-07-11-qcfa-interactive-clarification.md). OPT-IN via SOVEREIGN_OS_QCFA so
+# a base completion model's chat is never degraded; recommended on once a capable
+# instruct model is loaded. Injected as a leading `system` turn — the gateway
+# OpenAI shim + the tier router both flatten a system role into the prompt.
+QCFA_ENABLED = os.environ.get("SOVEREIGN_OS_QCFA", "").strip().lower() \
+    not in ("", "0", "false", "no", "off")
+QCFA_SCAFFOLD = Path(os.environ.get(
+    "SOVEREIGN_OS_QCFA_SCAFFOLD",
+    str(_INFER.parents[1] / "config" / "prompts" / "qcfa-system-prompt.md")))
+
 _CHAT_ROLES = frozenset({"user", "assistant", "system"})
+
+
+def _qcfa_system_content() -> str | None:
+    """The QCFA/AUQ system-scaffold text when enabled + present, else None."""
+    if not QCFA_ENABLED:
+        return None
+    try:
+        return QCFA_SCAFFOLD.read_text(encoding="utf-8").strip() or None
+    except OSError:
+        return None
+
+
+def _maybe_prepend_qcfa(chat: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Prepend the QCFA/AUQ scaffold as a leading `system` turn (once), unless the
+    conversation already carries a system turn — a caller-supplied system prompt
+    wins, and we never double-inject."""
+    content = _qcfa_system_content()
+    if not content or any(m.get("role") == "system" for m in chat):
+        return chat
+    return [{"role": "system", "content": content}, *chat]
 
 # tier (router classify) → model-health role (model-state.json tokens_per_sec key).
 _TIER_ROLE = {"pulse": "conductor", "logic_engine": "logic", "logic": "logic",
@@ -174,6 +205,9 @@ def run(text: str = "", *, messages: list[dict[str, Any]] | None = None,
                    "error": f"prompt exceeds {MAX_PROMPT_CHARS} chars (bounded read-compute)"}
             return
         chat = [{"role": "user", "content": text}]
+    # Interactive-clarification scaffold (opt-in) — makes the sovereign AI a
+    # thinking partner (hold execution, interview first) when a capable model runs.
+    chat = _maybe_prepend_qcfa(chat)
     body = {"model": model, "messages": chat,
             "stream": True, "stream_options": {"include_usage": True}}
     # M075 device-target override (cpu0/gpu0/gpu1) — the router honors it as an

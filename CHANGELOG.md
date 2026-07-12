@@ -12,6 +12,31 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — QCFA + interactive-clarification framework (2026-07-11)
+
+Codifies the operator's directive to make AI an interactive thinking partner (not a typewriter):
+QCFA (Task / Context / References / Framework-Evaluate) + AskUserQuestion (hold execution, interview)
++ suggestions. One framework, two homes.
+
+- NEW standing directive `docs/standing-directives/2026-07-11-qcfa-interactive-clarification.md`
+  (registered in INDEX) — the canonical interaction model for BOTH the local sovereign AI (the
+  gateway model + agent-runtime + chat surfaces) AND external agents/operators working on the repo.
+- NEW reusable scaffold `config/prompts/qcfa-system-prompt.md` — the QCFA/AUQ system prompt: structure
+  intent; hold execution + ask 1–4 decision-shaped questions + suggest; iterate; then execute.
+- `scripts/inference/prompt.py` injects the scaffold as a leading `system` turn, OPT-IN via
+  `SOVEREIGN_OS_QCFA` (default off, so a base completion model's chat is never degraded; recommended
+  on once a capable instruct model is loaded). Never double-injects over a caller-supplied system
+  turn; every chat surface routes through it, so one switch applies everywhere. The 20 prompt tests
+  stay green.
+- The scaffold has the model emit questions in a machine-parseable envelope (a fenced
+  ` ```askuserquestion ` JSON block), and the **code console renders it interactively**: the chat
+  (`webapp/code-console/index.html`) parses the block into clickable options + a free-text "Other"
+  and feeds the picked answer back as the next turn — a graceful `<pre>` fallback if unparseable, so
+  a question is never raw-swallowed. The DEMO thread shows a live card. This is the difference
+  between a thinking partner and raw text.
+- `tests/lint/test_qcfa_framework_contract.py` guards the directive, the scaffold + its envelope, the
+  opt-in wiring, and the console's interactive rendering.
+
 ### Added — Sovereign Brain refinements: second-brain browser, cross-links, memory controls (2026-07-11)
 
 Three follow-ups closing out the brain panel's observability + operability.

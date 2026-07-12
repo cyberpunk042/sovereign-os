@@ -9,6 +9,7 @@ work on?".
 |------|------|--------|-------|
 | 2026-05-17 | [operator-mandate.md](./2026-05-17-operator-mandate.md) | active | E1 (Hardware-stack), E2 (Software-stack), E3 (Network), E4 (Dashboard/UX), E5 (AI/LLM), E6 (Health/Doctor), E7 (Interop/MCP), E8 (REPL tiers), E9 (Process) |
 | 2026-Q2 | [mandate-review-2026-Q2.md](./mandate-review-2026-Q2.md) | review-record | quarterly snapshot + new-axis intake process (R285 closes E9.M3) |
+| 2026-07-11 | [qcfa-interactive-clarification.md](./2026-07-11-qcfa-interactive-clarification.md) | active | interaction framework — QCFA + AskUserQuestion + suggestions (E4 UX / E5 AI) |
 
 ## Re-arming /goal autopilot
 

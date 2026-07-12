@@ -87,6 +87,18 @@
   .cc-msg.assistant { background:var(--panel); }
   .cc-msg .who { font-size:.7rem; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin-bottom:.2rem; }
   .cc-msg.user .who { color:var(--accent); }
+  /* interactive clarification (QCFA / AskUserQuestion) card */
+  .cc-auq { border:1px solid var(--accent); border-radius:8px; padding:.55rem .65rem; margin:.45rem 0; background:rgba(155,209,255,.05); }
+  .cc-auq-h { font-size:.68rem; text-transform:uppercase; letter-spacing:.04em; color:var(--accent); }
+  .cc-auq-q { font-weight:600; margin:.15rem 0 .4rem; white-space:normal; }
+  .cc-auq-opt { display:block; width:100%; text-align:left; margin:.2rem 0; padding:.35rem .5rem; border:1px solid var(--border); border-radius:6px; background:var(--panel); color:var(--fg); font:inherit; cursor:pointer; }
+  .cc-auq-opt:hover { border-color:var(--accent); }
+  .cc-auq-opt.picked { border-color:var(--accent); background:rgba(155,209,255,.12); }
+  .cc-auq-opt .d { display:block; color:var(--muted); font-size:.76rem; margin-top:.1rem; white-space:normal; font-weight:400; }
+  .cc-auq-other { display:flex; gap:.3rem; margin-top:.35rem; }
+  .cc-auq-other input { flex:1; background:var(--bg); color:var(--fg); border:1px solid var(--border); border-radius:6px; padding:.3rem .4rem; font:inherit; }
+  .cc-auq.answered { opacity:.6; }
+  .cc-auq.answered .cc-auq-opt, .cc-auq.answered input { pointer-events:none; }
   /* honest-deferred cards (SB-077) — visible scaffold, never blank/fabricated */
   .cc-defer { border:1px dashed var(--border); border-radius:8px; padding:.7rem .8rem;
     color:var(--muted); font-size:.8rem; font-style:italic; line-height:1.5; }
@@ -969,7 +981,8 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
   };
   const DEMO_THREAD = [
     { role: 'user', content: '[DEMO] Refactor this function to be pure.' },
-    { role: 'assistant', content: '[DEMO] This is sample output — not a real model response. In live mode the box\'s own local LM answers here over the loopback router, and this thread shows real tokens.' },
+    { role: 'assistant', content: '[DEMO] Before I refactor — one clarification (this card is live: click an option and it becomes your next turn):\n\n```askuserquestion\n{"questions":[{"header":"Returns","question":"How should the pure version return results?","multiSelect":false,"options":[{"label":"Fresh value","description":"return a new object, mutate nothing"},{"label":"Result tuple","description":"return (value, error) instead of throwing"}]}]}\n```' },
+    { role: 'assistant', content: '[DEMO] This is sample output — not a real model response. In live mode the box\'s own local LM answers here over the loopback router, and this thread shows real tokens (with the QCFA thinking-partner scaffold when SOVEREIGN_OS_QCFA=1).' },
   ];
 
   // ── left rail: real M057 task-sessions (relabelled; not chat threads) ──
@@ -1029,9 +1042,11 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
     } else {
       html += chatHistory.map(m =>
         `<div class="cc-msg ${m.role === 'user' ? 'user' : 'assistant'}">`
-        + `<div class="who">${m.role === 'user' ? 'you' : 'local LM'}</div>${esc(m.content)}</div>`).join('');
+        + `<div class="who">${m.role === 'user' ? 'you' : 'local LM'}</div>`
+        + `${m.role === 'user' ? esc(m.content) : renderAssistantHTML(m.content)}</div>`).join('');
     }
     t.innerHTML = html;
+    hydrateAUQ(t);  // turn any ```askuserquestion block into interactive choices
     t.scrollTop = t.scrollHeight;
   }
 
@@ -1043,6 +1058,82 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
       + '<div class="cc-plan-item">Context · the active session\'s scope</div>'
       + '<div class="cc-plan-item">Steps · the plan the agent proposes</div>'
       + '<div class="cc-plan-item">Artifacts · files / diffs produced</div>';
+  }
+
+  // ── interactive clarification (QCFA / AskUserQuestion) ──
+  // The model (under the QCFA scaffold) emits questions in a fenced
+  // ```askuserquestion JSON block; render them as clickable options + a free-text
+  // "Other", and feed the picked answer back as the next turn. Graceful: an
+  // unparseable block falls back to a plain code block (never raw-swallowed).
+  const AUQ_RE = /```askuserquestion\s*([\s\S]*?)```/g;
+  function renderAssistantHTML(text) {
+    let html = '', last = 0, m;
+    AUQ_RE.lastIndex = 0;
+    while ((m = AUQ_RE.exec(text))) {
+      html += esc(text.slice(last, m.index));
+      let ok = false;
+      try { JSON.parse(m[1].trim()); ok = true; } catch (_) {}
+      html += ok
+        ? '<div class="cc-auq" data-auq="' + esc(m[1].trim()) + '"></div>'
+        : '<pre style="white-space:pre-wrap;margin:.3rem 0">' + esc(m[0]) + '</pre>';
+      last = m.index + m[0].length;
+    }
+    html += esc(text.slice(last));
+    return html;
+  }
+  function hydrateAUQ(root) {
+    root.querySelectorAll('.cc-auq[data-auq]').forEach(function (node) {
+      if (node.dataset.done) return;
+      let spec; try { spec = JSON.parse(node.getAttribute('data-auq')); } catch (_) { return; }
+      const qs = (spec && spec.questions) || [];
+      if (!qs.length) return;
+      const chosen = {};
+      node.innerHTML = qs.map(function (q, qi) {
+        const opts = (q.options || []).map(function (o, oi) {
+          return '<button class="cc-auq-opt" data-q="' + qi + '" data-o="' + oi + '">'
+            + esc(o.label) + (o.description ? '<span class="d">' + esc(o.description) + '</span>' : '') + '</button>';
+        }).join('');
+        return '<div data-qi="' + qi + '">'
+          + (q.header ? '<div class="cc-auq-h">' + esc(q.header) + '</div>' : '')
+          + '<div class="cc-auq-q">' + esc(q.question || '') + '</div>' + opts
+          + '<div class="cc-auq-other"><input type="text" placeholder="Other…" data-q="' + qi + '" aria-label="other answer">'
+          + '<button class="cc-auq-opt" data-other="' + qi + '" style="width:auto" title="submit">↵</button></div></div>';
+      }).join('');
+      function commit(qi, label, btn) {
+        chosen[qi] = label;
+        if (btn) {
+          node.querySelectorAll('button[data-q="' + qi + '"]').forEach(function (x) { x.classList.remove('picked'); });
+          btn.classList.add('picked');
+        }
+        if (qs.length === 1 || Object.keys(chosen).length === qs.length) {
+          node.classList.add('answered'); node.dataset.done = '1';
+          const txt = qs.map(function (q, i) {
+            const h = q.header || q.question || ('Q' + (i + 1));
+            return chosen[i] != null ? (h + ': ' + chosen[i]) : null;
+          }).filter(Boolean).join(' · ');
+          answerAUQ(txt);
+        }
+      }
+      node.querySelectorAll('button[data-o]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          commit(+b.dataset.q, ((qs[+b.dataset.q].options || [])[+b.dataset.o] || {}).label, b);
+        });
+      });
+      node.querySelectorAll('button[data-other]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          const qi = +b.dataset.other;
+          const inp = node.querySelector('input[data-q="' + qi + '"]');
+          const v = (inp && inp.value || '').trim();
+          if (v) commit(qi, v, null);
+        });
+      });
+    });
+  }
+  function answerAUQ(text) {
+    if (!text) return;
+    const input = $('cc-input');
+    input.value = text;
+    sendChat();
   }
 
   // ── composer: the ONE sanctioned POST (loopback chat SSE) ──
@@ -1095,7 +1186,9 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
         }
       }
       if (!acc && !hadError) span.textContent = '(no response)';
-      if (!hadError && acc) chatHistory.push({ role: 'assistant', content: acc });
+      // Persist the turn + re-render so any ```askuserquestion block becomes an
+      // interactive card (replacing the raw streamed text).
+      if (!hadError && acc) { chatHistory.push({ role: 'assistant', content: acc }); renderThread(); }
       else if (hadError) chatHistory.pop && null;  // keep the user turn; error not persisted
     } catch (e) {
       span.textContent = '⚠ chat failed: ' + e.message + ' (is the router running? sovereign-osctl inference start router)';
