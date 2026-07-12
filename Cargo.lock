@@ -4815,6 +4815,7 @@ dependencies = [
  "sovereign-hf-tokenizer",
  "sovereign-injection-detect",
  "sovereign-logit-mask",
+ "sovereign-memory-os",
  "sovereign-pii-redact",
  "sovereign-quant-model",
  "sovereign-router-7axis",

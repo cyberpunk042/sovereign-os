@@ -793,6 +793,66 @@ fn memory_store_path() -> Option<std::path::PathBuf> {
     std::env::var_os("SOVEREIGN_GATEWAY_MEMORY").map(std::path::PathBuf::from)
 }
 
+/// Default cap on resident learned memories. A long-running daemon that learns
+/// on every request would otherwise grow the store without bound (and re-persist
+/// the whole thing every snapshot). The cap keeps the highest-value memories and
+/// evicts the rest — value-based, so it needs no clock. `0` ⇒ unbounded.
+const DEFAULT_MEMORY_CAPACITY: usize = 4096;
+
+/// Resolve the memory capacity bound from `SOVEREIGN_GATEWAY_MEMORY_CAP`
+/// (`0` ⇒ unbounded). Absent ⇒ [`DEFAULT_MEMORY_CAPACITY`].
+fn memory_capacity_from_env() -> Option<usize> {
+    let cap = std::env::var("SOVEREIGN_GATEWAY_MEMORY_CAP")
+        .ok()
+        .and_then(|v| v.trim().parse::<usize>().ok())
+        .unwrap_or(DEFAULT_MEMORY_CAPACITY);
+    (cap > 0).then_some(cap)
+}
+
+/// How the durable memory at a path was resolved.
+#[derive(Debug, PartialEq, Eq)]
+pub enum MemoryLoadOutcome {
+    /// No store on disk (fresh box) — a seeded store.
+    Fresh,
+    /// A valid store was loaded from disk.
+    Loaded,
+    /// The store was present but unparseable; it was moved aside (to the
+    /// returned path, when the move succeeded) and a fresh seed used. The old
+    /// bytes are **preserved for recovery, never silently discarded**.
+    Recovered(Option<std::path::PathBuf>),
+}
+
+/// Load the durable memory store at `path`, recovering safely from corruption.
+///
+/// The daemon's previous behaviour was `from_str(..).unwrap_or_else(seed)` — any
+/// parse error (a truncated/torn file, a manual edit, a struct-shape change)
+/// silently **discarded all learned memory** and reseeded, with no signal. This
+/// instead moves the unparseable file aside to `<path>.corrupt` and reseeds
+/// loudly, so the learned state is preserved for forensic recovery and the
+/// operator is told. Pure (takes a path, reads no env) so it is unit-testable.
+fn load_memory_from(
+    path: &std::path::Path,
+) -> (sovereign_memory_os::MemoryStore, MemoryLoadOutcome) {
+    let Ok(json) = std::fs::read_to_string(path) else {
+        // Absent or unreadable — a fresh box. (Unreadable-but-present is rare;
+        // treated as fresh rather than crashing the daemon at startup.)
+        return (seed_memory(), MemoryLoadOutcome::Fresh);
+    };
+    match serde_json::from_str::<sovereign_memory_os::MemoryStore>(&json) {
+        Ok(store) => (store, MemoryLoadOutcome::Loaded),
+        Err(_) => {
+            // NEVER silently discard learned memory: move the corrupt file aside
+            // (atomic rename; keep it for recovery), then reseed.
+            let backup = path.with_extension("corrupt");
+            let moved = std::fs::rename(path, &backup).is_ok();
+            (
+                seed_memory(),
+                MemoryLoadOutcome::Recovered(moved.then_some(backup)),
+            )
+        }
+    }
+}
+
 impl GatewayServer {
     /// A sovereign-by-default daemon: memory seeded for recall, every request
     /// forced local. The inference surfaces (Anthropic Messages / MCP bridge /
@@ -805,15 +865,42 @@ impl GatewayServer {
     /// request opt into cloud spill via its own `allow_cloud` flag — only for
     /// non-sovereign deployments.
     pub fn with_force_local(force_local: bool) -> Self {
-        // Durable memory: if SOVEREIGN_GATEWAY_MEMORY names a readable snapshot,
-        // resume from it so recall survives a restart; otherwise seed. The target
-        // type is inferred from `with_memory`, so the engine stays a pure library.
-        let cortex = match memory_store_path().and_then(|p| std::fs::read_to_string(p).ok()) {
-            Some(json) => {
-                Cortex::with_memory(serde_json::from_str(&json).unwrap_or_else(|_| seed_memory()))
+        // Durable memory: if SOVEREIGN_GATEWAY_MEMORY names a store, resume from
+        // it so recall survives a restart; otherwise seed. Corruption is
+        // recovered (moved aside + reseeded loudly), never silently discarded.
+        // The store is then capped so a long-running cortex can't grow unbounded.
+        let mut memory = match memory_store_path() {
+            Some(path) => {
+                let (store, outcome) = load_memory_from(&path);
+                match &outcome {
+                    MemoryLoadOutcome::Loaded => {
+                        eprintln!(
+                            "sovereign-gatewayd: durable memory resumed from {} ({} item(s))",
+                            path.display(),
+                            store.len()
+                        );
+                    }
+                    MemoryLoadOutcome::Recovered(backup) => {
+                        eprintln!(
+                            "sovereign-gatewayd: durable memory at {} was unparseable — moved aside to {} and reseeded; \
+                             learned state PRESERVED for recovery, not discarded",
+                            path.display(),
+                            backup
+                                .as_deref()
+                                .map(|p| p.display().to_string())
+                                .unwrap_or_else(
+                                    || "<backup failed — original left in place>".into()
+                                )
+                        );
+                    }
+                    MemoryLoadOutcome::Fresh => {}
+                }
+                store
             }
-            None => Cortex::with_memory(seed_memory()),
+            None => seed_memory(),
         };
+        memory.set_capacity(memory_capacity_from_env());
+        let cortex = Cortex::with_memory(memory);
         // Optional local generation: when a model dir is configured + present,
         // the gateway generates locally and the OpenAI chat shim goes Live.
         let generator = match load_generator_from_env() {
@@ -1439,11 +1526,76 @@ fn role_key(role: &sovereign_router_7axis::SrpRole) -> String {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::{AtomicU64, Ordering};
+
     use super::*;
     use sovereign_cortex::demo_requests;
 
     fn infer_line(req: &CortexRequest) -> String {
         serde_json::json!({ "op": "infer", "request": req }).to_string()
+    }
+
+    /// A unique temp path per call (process id + a counter), so parallel tests
+    /// never collide. Not created — the caller decides.
+    fn temp_mem_path() -> std::path::PathBuf {
+        static N: AtomicU64 = AtomicU64::new(0);
+        let n = N.fetch_add(1, Ordering::Relaxed);
+        std::env::temp_dir().join(format!("sov-gwd-mem-{}-{n}.json", std::process::id()))
+    }
+
+    // ---- durable memory: corruption recovery (F-2026-084) ----
+
+    #[test]
+    fn load_memory_absent_path_is_a_fresh_seed() {
+        let p = temp_mem_path(); // never created
+        let (store, outcome) = load_memory_from(&p);
+        assert_eq!(outcome, MemoryLoadOutcome::Fresh);
+        assert!(!store.is_empty(), "a fresh box seeds recall memory");
+    }
+
+    #[test]
+    fn load_memory_reads_back_a_valid_store() {
+        let p = temp_mem_path();
+        let seeded = seed_memory();
+        std::fs::write(&p, serde_json::to_vec(&seeded).unwrap()).unwrap();
+        let (store, outcome) = load_memory_from(&p);
+        assert_eq!(outcome, MemoryLoadOutcome::Loaded);
+        assert_eq!(store.len(), seeded.len(), "the persisted store round-trips");
+        let _ = std::fs::remove_file(&p);
+    }
+
+    #[test]
+    fn load_memory_recovers_corruption_without_discarding() {
+        let p = temp_mem_path();
+        std::fs::write(&p, b"{ this is not valid memory json ]").unwrap();
+        let (store, outcome) = load_memory_from(&p);
+        // Reseeded, NOT left empty…
+        assert!(!store.is_empty(), "recovery reseeds recall memory");
+        // …and the unparseable bytes were moved aside for forensics, not lost.
+        match outcome {
+            MemoryLoadOutcome::Recovered(Some(backup)) => {
+                assert!(
+                    backup.exists(),
+                    "the corrupt file is preserved at {backup:?}"
+                );
+                assert!(!p.exists(), "the original path was moved aside");
+                let saved = std::fs::read_to_string(&backup).unwrap();
+                assert!(
+                    saved.contains("not valid memory json"),
+                    "original bytes preserved"
+                );
+                let _ = std::fs::remove_file(&backup);
+            }
+            other => panic!("expected Recovered(Some(_)), got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn memory_capacity_env_default_is_bounded() {
+        // Absent env ⇒ the finite default, not unbounded.
+        if std::env::var_os("SOVEREIGN_GATEWAY_MEMORY_CAP").is_none() {
+            assert_eq!(memory_capacity_from_env(), Some(DEFAULT_MEMORY_CAPACITY));
+        }
     }
 
     #[test]

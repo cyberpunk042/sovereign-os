@@ -20,6 +20,8 @@ path = "src/main.rs"
 serde = { workspace = true }
 serde_json = { workspace = true }
 sovereign-cortex = { path = "../sovereign-cortex" }
+# The durable-memory store type, for corruption-safe load + a capacity bound.
+sovereign-memory-os = { path = "../sovereign-memory-os" }
 sovereign-coat = { path = "../sovereign-coat" }
 sovereign-gateway = { path = "../sovereign-gateway" }
 sovereign-router-7axis = { path = "../sovereign-router-7axis" }
