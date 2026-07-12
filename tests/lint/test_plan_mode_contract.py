@@ -76,6 +76,43 @@ def test_classifier_decides_correctly_per_mode():
         assert pc.decide(cmd, "auto")["action"] == "block", f"must block: {cmd}"
 
 
+def test_classifier_normalizes_rm_flags_split_uppercase_reordered():
+    """F-2026-092 regression: the old combined-token regex only matched flags
+    written together, so split / uppercase / reordered `rm` recursion escaped to
+    `confirm`. Flag normalization must classify every arrangement destructive."""
+    spec = importlib.util.spec_from_file_location("_pc", CLASSIFIER)
+    pc = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(pc)
+
+    # every recursive/force arrangement → destructive → block under Auto
+    for cmd in ("rm -rf /x", "rm -r -f /x", "rm -R -f /x", "rm -fr /x",
+                "rm -Rf /x", "rm --recursive --force /x", "rm -r /x",
+                "rm --force x", "sudo rm -r -f /var/x"):
+        assert pc.classify(cmd)["verdict"] == "destructive", f"must flag: {cmd}"
+        assert pc.decide(cmd, "auto")["action"] == "block", f"must block: {cmd}"
+
+    # a plain, non-recursive `rm` is NOT auto-blocked, but still gated (confirm,
+    # never a silent allow) — fail-safe, not fail-open.
+    assert pc.classify("rm file.txt")["verdict"] == "unknown"
+    assert pc.decide("rm file.txt", "auto")["action"] == "confirm"
+
+
+def test_classifier_doctrine_framed_as_best_effort_not_a_boundary():
+    """F-2026-092: the classifier is a best-effort UX heuristic, not a security
+    boundary — the module + the directive must say so, so no one mistakes a
+    `block` for adversary containment."""
+    src = CLASSIFIER.read_text(encoding="utf-8")
+    assert "best-effort" in src.lower() and "not a security boundary" in src.lower(), (
+        "permission_classifier docstring must frame itself as best-effort UX, "
+        "not a security boundary"
+    )
+    directive = _read(DIRECTIVE)
+    assert "best-effort" in directive.lower(), (
+        "the plan-mode directive must note the classifier is best-effort UX "
+        "(the real boundary is the allowlisted execute daemon + sandbox)"
+    )
+
+
 def test_plans_are_presented_for_approval_via_the_auq_envelope():
     # Plan Mode reuses the interactive-clarification rendering: the AI proposes a
     # plan inside the ```askuserquestion envelope, with the four approvals as

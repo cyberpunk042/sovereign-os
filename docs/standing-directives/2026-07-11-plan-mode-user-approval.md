@@ -55,10 +55,21 @@ Set via `SOVEREIGN_OS_PERMISSION_MODE` (or `config/permission-modes.yaml`):
   type-to-confirm gate.
 - **auto** — a **safety classifier**
   ([`scripts/operator/lib/permission_classifier.py`](../../scripts/operator/lib/permission_classifier.py))
-  auto-BLOCKS destructive operations (rm -rf, dd of=/dev/*, mkfs/wipefs, nvme
-  format, zpool/zfs destroy, force-push, git reset --hard, fork bomb, curl|sh,
-  poweroff, …), lets routine actions proceed, and confirms the unknown middle.
-  Extensible via `config/permission-modes.yaml` `destructive_extra`.
+  auto-BLOCKS destructive operations (rm recursive/force in any flag form, dd
+  of=/dev/*, mkfs/wipefs, nvme format, zpool/zfs destroy, force-push, git reset
+  --hard, fork bomb, curl|sh, poweroff, …), lets routine actions proceed, and
+  confirms the unknown middle. Extensible via `config/permission-modes.yaml`
+  `destructive_extra`.
+
+  > **The classifier is a best-effort UX heuristic, not a security boundary.**
+  > It reduces footguns for a cooperative caller; it does not contain an
+  > adversary. It fails **safe** — an unrecognized or obfuscated mutation lands
+  > in `unknown` → confirm, never a silent allow — but quoting / `$IFS` /
+  > variable / base64 obfuscation can still evade the `destructive`
+  > classification. The **actual boundary** is the allowlisted execute daemon
+  > (`control-exec-api`: allowlisted control-id + dry-run default + audit) plus
+  > the fs sandbox around the execution paths. Read a `block` as "spared the
+  > operator a likely mistake", never as "an attacker was stopped".
 - **bypass** — skip all gates (the `--dangerously-skip-permissions` analogue).
   Removes the manual-review safeguard; trusted non-interactive runs only.
 

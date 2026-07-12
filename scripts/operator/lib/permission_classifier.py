@@ -15,6 +15,17 @@ allow / block / confirm under the active permission mode:
               (read-only) ops proceed, and asks to confirm the unknown middle.
   - bypass  — skip all gates (the --dangerously-skip-permissions analogue).
 
+IMPORTANT — this is a BEST-EFFORT UX HEURISTIC, not a security boundary. It
+reduces footguns for a cooperative caller; it does NOT contain an adversary.
+Its pattern/flag matching is deliberately conservative and fails SAFE (an
+unrecognized or obfuscated mutation lands in `unknown` → confirm, never a silent
+allow), but quoting / `$IFS` / variable / base64 obfuscation can still evade the
+`destructive` classification. The ACTUAL boundary is the allowlisted execute
+daemon (control-exec-api: allowlisted control-id + dry-run default + audit) and
+the fs sandbox around the execution paths — not this regex. Treat a `block`
+verdict as "spared the operator a likely mistake", never as "an attacker was
+stopped".
+
 Sovereignty-clean: stdlib only (re + os). Patterns default in-code and may be
 extended from config/permission-modes.yaml (no PyYAML dependency — a tiny
 list-reader). This never executes anything; it only judges.
@@ -34,8 +45,9 @@ MODES = ("manual", "auto", "bypass")
 # Deliberately conservative (better to over-flag → confirm than to auto-run a
 # wipe). Ordered most-specific first; the first match wins with its reason.
 _DESTRUCTIVE = [
-    (r"\brm\s+(-\w*\s+)*-\w*[rf]\w*[rf]\w*", "recursive/forced file delete (rm -rf)"),
-    (r"\brm\s+(-\w+\s+)*--(recursive|force)\b", "recursive/forced file delete (rm --force)"),
+    # NOTE: `rm` is handled by _rm_recursive_or_force() (flag normalization),
+    # NOT a regex — a single combined-token pattern missed split (`rm -r -f`)
+    # and uppercase (`-R`) flags (F-2026-092).
     (r"\bdd\b.*\bof=/dev/(sd|nvme|vd|mmcblk|disk)", "dd writing to a raw block device"),
     (r"\b(mkfs|wipefs|blkdiscard|sgdisk|fdisk|parted|cfdisk)\b", "filesystem/partition table operation"),
     (r"\bnvme\s+(format|sanitize)\b", "nvme format/sanitize (device wipe)"),
@@ -100,6 +112,45 @@ def _config_extra_destructive() -> list[tuple[str, str]]:
     return out
 
 
+def _rm_recursive_or_force(cmd: str) -> str | None:
+    """Flag-normalized `rm` danger check. Returns a reason when an `rm` in `cmd`
+    carries recursive (`-r` / `-R` / `--recursive`) or force (`-f` / `--force`)
+    semantics in ANY flag arrangement — combined (`-rf`), split (`-r -f`),
+    reordered (`-fr`), uppercase (`-R`), or long (`--recursive --force`) — else
+    None.
+
+    Replaces the single combined-token regex that only matched flags written
+    together, so `rm -r -f /x` and `rm -R -f /x` escaped to `confirm`
+    (F-2026-092). Best-effort UX, NOT a security boundary: quoting / `$IFS` /
+    variable obfuscation still evade it and fall through to `unknown` → confirm
+    (never a silent allow); the real boundary is the allowlisted execute daemon
+    + fs sandbox, not this heuristic.
+    """
+    toks = cmd.split()
+    for i, tok in enumerate(toks):
+        if tok.rsplit("/", 1)[-1] != "rm":
+            continue
+        recursive = force = False
+        for opt in toks[i + 1:]:
+            if opt == "--":
+                break  # end of options; only operands (paths) follow
+            if opt == "--recursive":
+                recursive = True
+            elif opt == "--force":
+                force = True
+            elif re.fullmatch(r"-[A-Za-z]+", opt):  # a short-flag cluster
+                if "r" in opt or "R" in opt:
+                    recursive = True
+                if "f" in opt:
+                    force = True
+        if recursive or force:
+            what = "/".join(
+                w for w, on in (("recursive", recursive), ("force", force)) if on
+            )
+            return f"{what} file delete (rm)"
+    return None
+
+
 def default_mode() -> str:
     m = os.environ.get("SOVEREIGN_OS_PERMISSION_MODE", "manual").strip().lower()
     return m if m in MODES else "manual"
@@ -120,6 +171,9 @@ def classify(command: str) -> dict:
     cmd = (command or "").strip()
     if not cmd:
         return {"verdict": "routine", "reason": "empty", "matched": None}
+    rm_reason = _rm_recursive_or_force(cmd)
+    if rm_reason:
+        return {"verdict": "destructive", "reason": rm_reason, "matched": "rm-flag-normalized"}
     for rx, reason in _DESTRUCTIVE + _config_extra_destructive():
         if re.search(rx, cmd):
             return {"verdict": "destructive", "reason": reason, "matched": rx}

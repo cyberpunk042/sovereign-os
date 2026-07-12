@@ -12,6 +12,24 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Fixed — auto-mode permission classifier: flag normalization + honest framing (2026-07-12)
+
+Phase-1 audit (SDD-954; closes ledger F-2026-092). The Auto-mode safety classifier
+(`scripts/operator/lib/permission_classifier.py`) matched destructive `rm` via a single combined-token regex, so
+split (`rm -r -f`) and uppercase (`rm -R -f`) flags escaped the `destructive` verdict and fell to `confirm` —
+undercutting Auto mode's job to block the recursive-delete class.
+
+- **`permission_classifier.py`**: the two fragile `rm` regexes are replaced by `_rm_recursive_or_force()`, which
+  flag-normalizes recursive (`-r`/`-R`/`--recursive`) and force (`-f`/`--force`) across split / combined / reordered
+  / uppercase / long forms (and `sudo rm …`). Tightening-only (nothing that blocked/confirmed becomes allow) and
+  fail-safe (unrecognized / obfuscated mutations still land in `unknown` → confirm, never a silent allow).
+- **Doctrine reframe**: the module docstring and the plan-mode/user-approval directive now state the classifier is a
+  **best-effort UX heuristic, not a security boundary** — the real boundary is the allowlisted execute daemon
+  (`control-exec-api`) + fs sandbox (F-2026-081); a `block` means "spared the operator a mistake", not "an attacker
+  was stopped".
+- Regression + framing tests in `tests/lint/test_plan_mode_contract.py`.
+
+
 ### Added — configurable model load: the loader stops hardcoding F32-greedy (2026-07-12)
 
 Phase-1 audit (SDD-953; closes the self-contained halves of ledger F-2026-085 + F-2026-086). `sovereign-safetensors-loader::load`
