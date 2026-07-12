@@ -12,6 +12,18 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Docs — serve-vs-gatewayd architecture decision package (2026-07-12)
+
+Phase-1 audit (SDD-957; scopes ledger F-2026-089 — **open, awaiting operator decision Q-957-A**). A code comparison of
+`sovereign-serve` vs `sovereign-gatewayd` (post-SDD-206) corrects the finding's premise twice: serve's real library
+pipeline is only cache→complexity→budget (the pii/secret/toxicity are opt-in flags in its demo binary), and SDD-206
+already put those safety filters into `gatewayd::generate_chat`. serve has no network interface (a library fn + a
+CLI demo with a toy model) so it cannot be the daemon, and it is dead (0 non-test consumers). The only real delta:
+a completion cache + token-budget refusal (complexity is superseded by router-7axis). Recommendation: **Option A** —
+fold cache + token-meter into `generate_chat` via the SDD-206 insertion pattern, skip complexity, retire serve;
+sequenced with the parallel sessions that own `generate_chat`. Decision document only — no code change.
+
+
 ### Added — gateway API reference: route-parity contract + routing-vs-generation clarification (2026-07-12)
 
 Phase-1 audit (SDD-956; closes ledger F-2026-094). The gateway API reference (`docs/src/ai-backend.md`) already
