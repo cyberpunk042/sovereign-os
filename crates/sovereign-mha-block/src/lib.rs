@@ -196,6 +196,57 @@ pub struct MhaDecoderBlock {
     position: usize,
 }
 
+/// The RoPE position-scaling family a model config asks for (HuggingFace
+/// `rope_scaling.rope_type`). Applied on top of the frequency base
+/// (`rope_theta`) by [`MhaDecoderBlock::with_rope`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RopeScalingKind {
+    /// Linear position interpolation (`type: "linear"`): divide every position
+    /// by `factor` so an extended context compresses into the trained range.
+    Linear,
+    /// Dynamic NTK (`type: "dynamic"`): raise the frequency base by `factor`.
+    Dynamic,
+    /// YaRN (`type: "yarn"`): NTK-by-parts per-frequency interpolation.
+    Yarn,
+    /// Llama-3 frequency smoothing (`type: "llama3"`). The base theta is applied
+    /// exactly; the low/high-frequency ramp is not yet modeled by
+    /// [`sovereign_rope`], so extension beyond the trained context is
+    /// approximate (honest partial support — short-context is exact).
+    Llama3,
+}
+
+/// A resolved RoPE scaling request. Built by the model loader from the config's
+/// `rope_scaling` block and handed to [`MhaDecoderBlock::with_rope`]. Plain data
+/// (no serde) — the config-parsing layer owns deserialization.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RopeScaling {
+    /// Which scaling family to apply.
+    pub kind: RopeScalingKind,
+    /// The scaling factor (`rope_scaling.factor`, e.g. 8.0 for Llama-3.1).
+    pub factor: f32,
+    /// The model's trained context (`original_max_position_embeddings`), needed
+    /// by YaRN; `None` when the config omits it.
+    pub original_ctx: Option<usize>,
+    /// YaRN high-frequency ramp threshold (`beta_fast`, default 32).
+    pub beta_fast: f32,
+    /// YaRN low-frequency ramp threshold (`beta_slow`, default 1).
+    pub beta_slow: f32,
+}
+
+impl RopeScaling {
+    /// A scaling request with the canonical YaRN ramp defaults (`beta_fast = 32`,
+    /// `beta_slow = 1`).
+    pub fn new(kind: RopeScalingKind, factor: f32, original_ctx: Option<usize>) -> Self {
+        Self {
+            kind,
+            factor,
+            original_ctx,
+            beta_fast: 32.0,
+            beta_slow: 1.0,
+        }
+    }
+}
+
 impl MhaDecoderBlock {
     /// Quantize `weights` into a runnable block at `precision`.
     pub fn from_weights(
@@ -312,6 +363,64 @@ impl MhaDecoderBlock {
     /// Whether this block uses YaRN RoPE scaling.
     pub fn rope_is_yarn(&self) -> bool {
         self.rope.yarn_train > 0
+    }
+
+    /// Set the RoPE frequency base (`rope_theta`) and, optionally, a scaling
+    /// family — the config-driven replacement for the hardcoded base-10000
+    /// [`Rope::new`] the block defaults to. This is THE fix for running modern
+    /// models: Llama-3 (500000), Qwen2 (1000000), Mistral, etc. all train with a
+    /// non-default base, and decoding them at 10000 produces incoherent output.
+    /// Must be called before any `step` (it rebuilds the RoPE head).
+    ///
+    /// Scaling is applied on top of the base per [`RopeScalingKind`]. `None`
+    /// (the common case — most base models ship no `rope_scaling`) uses the base
+    /// alone.
+    pub fn with_rope(mut self, theta_base: f32, scaling: Option<&RopeScaling>) -> Self {
+        let hd = self.head_dim;
+        self.rope = match scaling {
+            None => Rope::with_base(hd, theta_base),
+            Some(s) => match s.kind {
+                RopeScalingKind::Linear => {
+                    // Position interpolation: compress positions by `factor`.
+                    let mut r = Rope::with_base(hd, theta_base);
+                    if s.factor > 0.0 {
+                        r.position_scale = 1.0 / s.factor;
+                    }
+                    r
+                }
+                RopeScalingKind::Dynamic => {
+                    // Dynamic NTK: stretch the base so low-frequency pairs cover
+                    // the extended context.
+                    let base = sovereign_rope::ntk_aware_base(hd, theta_base, s.factor.max(1.0));
+                    Rope::with_base(hd, base)
+                }
+                RopeScalingKind::Yarn => {
+                    let train = s.original_ctx.unwrap_or(0);
+                    let target = ((train as f32) * s.factor.max(1.0)) as usize;
+                    if train > 0 && target > train && s.beta_fast > s.beta_slow {
+                        // with_yarn(head_dim, theta, train, target, alpha, beta):
+                        // alpha is the low-freq threshold (beta_slow), beta the
+                        // high-freq threshold (beta_fast).
+                        Rope::with_yarn(hd, theta_base, train, target, s.beta_slow, s.beta_fast)
+                    } else {
+                        // Not enough info to model YaRN — the correct base is
+                        // still the dominant win (honest partial support).
+                        Rope::with_base(hd, theta_base)
+                    }
+                }
+                RopeScalingKind::Llama3 => {
+                    // The base theta is exact; the llama3 low/high-freq ramp is
+                    // not yet modeled (short-context generation is coherent).
+                    Rope::with_base(hd, theta_base)
+                }
+            },
+        };
+        self
+    }
+
+    /// The RoPE frequency base (`theta_base`) in effect (10000 by default).
+    pub fn rope_theta_base(&self) -> f32 {
+        self.rope.theta_base
     }
 
     /// Enable **sliding-window attention** with span `window`: each step
@@ -910,6 +1019,129 @@ mod tests {
                 expected: 8,
                 got: 2
             }
+        );
+    }
+
+    #[test]
+    fn default_rope_base_is_10000() {
+        let w = weights(4, 4, 1, 1, 4);
+        let block = MhaDecoderBlock::from_weights(&w, Precision::F32).unwrap();
+        assert_eq!(block.rope_theta_base(), sovereign_rope::DEFAULT_THETA_BASE);
+    }
+
+    #[test]
+    fn with_rope_sets_the_base_theta() {
+        // The core fix: a Llama-3-style base must actually reach the RoPE head.
+        let w = weights(4, 4, 1, 1, 4);
+        let block = MhaDecoderBlock::from_weights(&w, Precision::F32)
+            .unwrap()
+            .with_rope(500000.0, None);
+        assert_eq!(block.rope_theta_base(), 500000.0);
+        assert_eq!(
+            block.rope_position_scale(),
+            1.0,
+            "no scaling ⇒ unit position scale"
+        );
+        assert!(!block.rope_is_yarn());
+    }
+
+    #[test]
+    fn with_rope_linear_scaling_sets_position_scale() {
+        let w = weights(4, 4, 1, 1, 4);
+        let s = RopeScaling::new(RopeScalingKind::Linear, 4.0, None);
+        let block = MhaDecoderBlock::from_weights(&w, Precision::F32)
+            .unwrap()
+            .with_rope(10000.0, Some(&s));
+        assert_eq!(block.rope_theta_base(), 10000.0, "linear keeps the base");
+        assert_eq!(
+            block.rope_position_scale(),
+            0.25,
+            "position_scale = 1/factor"
+        );
+    }
+
+    #[test]
+    fn with_rope_dynamic_ntk_raises_the_base() {
+        let w = weights(4, 4, 1, 1, 4);
+        let s = RopeScaling::new(RopeScalingKind::Dynamic, 8.0, None);
+        let block = MhaDecoderBlock::from_weights(&w, Precision::F32)
+            .unwrap()
+            .with_rope(10000.0, Some(&s));
+        assert!(
+            block.rope_theta_base() > 10000.0,
+            "dynamic-NTK stretches the base above the trained theta, got {}",
+            block.rope_theta_base()
+        );
+        assert_eq!(block.rope_position_scale(), 1.0);
+    }
+
+    #[test]
+    fn with_rope_yarn_engages_when_context_is_known() {
+        let w = weights(4, 4, 1, 1, 4);
+        let s = RopeScaling::new(RopeScalingKind::Yarn, 4.0, Some(2048));
+        let block = MhaDecoderBlock::from_weights(&w, Precision::F32)
+            .unwrap()
+            .with_rope(10000.0, Some(&s));
+        assert!(
+            block.rope_is_yarn(),
+            "YaRN should engage with a known original context"
+        );
+        assert_eq!(block.rope_theta_base(), 10000.0);
+    }
+
+    #[test]
+    fn with_rope_yarn_falls_back_to_base_without_context() {
+        let w = weights(4, 4, 1, 1, 4);
+        let s = RopeScaling::new(RopeScalingKind::Yarn, 4.0, None); // no original_ctx
+        let block = MhaDecoderBlock::from_weights(&w, Precision::F32)
+            .unwrap()
+            .with_rope(500000.0, Some(&s));
+        assert!(
+            !block.rope_is_yarn(),
+            "no context ⇒ honest fallback, not fabricated YaRN"
+        );
+        assert_eq!(
+            block.rope_theta_base(),
+            500000.0,
+            "the correct base still applies"
+        );
+    }
+
+    #[test]
+    fn with_rope_llama3_applies_base_only() {
+        let w = weights(4, 4, 1, 1, 4);
+        let s = RopeScaling::new(RopeScalingKind::Llama3, 8.0, Some(8192));
+        let block = MhaDecoderBlock::from_weights(&w, Precision::F32)
+            .unwrap()
+            .with_rope(500000.0, Some(&s));
+        assert_eq!(block.rope_theta_base(), 500000.0);
+        assert_eq!(
+            block.rope_position_scale(),
+            1.0,
+            "base-only (honest partial support)"
+        );
+    }
+
+    #[test]
+    fn changing_the_base_changes_the_output() {
+        // A different base must actually alter decode — proves the RoPE head is
+        // wired, not a no-op field.
+        let w = weights(8, 8, 2, 2, 8);
+        let mut a = MhaDecoderBlock::from_weights(&w, Precision::F32)
+            .unwrap()
+            .with_rope(10000.0, None);
+        let mut b = MhaDecoderBlock::from_weights(&w, Precision::F32)
+            .unwrap()
+            .with_rope(500000.0, None);
+        let h = mat(0.5, 8);
+        // Prime a couple of positions so RoPE at pos>0 differentiates the bases.
+        let _ = a.step(&h).unwrap();
+        let _ = b.step(&h).unwrap();
+        let oa = a.step(&h).unwrap();
+        let ob = b.step(&h).unwrap();
+        assert_ne!(
+            oa, ob,
+            "distinct RoPE bases must yield distinct decode output"
         );
     }
 }
