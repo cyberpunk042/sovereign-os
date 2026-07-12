@@ -446,7 +446,11 @@ fn stream_anthropic_messages(
         Err(e) => {
             return write_http(
                 writer,
-                &http::anthropic_err(400, "invalid_request_error", format!("invalid messages request: {e}")),
+                &http::anthropic_err(
+                    400,
+                    "invalid_request_error",
+                    format!("invalid messages request: {e}"),
+                ),
             );
         }
     };
@@ -462,7 +466,11 @@ fn stream_anthropic_messages(
             ),
         );
     }
-    let model = req.get("model").and_then(|m| m.as_str()).unwrap_or("sovereign-local").to_string();
+    let model = req
+        .get("model")
+        .and_then(|m| m.as_str())
+        .unwrap_or("sovereign-local")
+        .to_string();
     let prompt = http::anthropic_prompt(&req);
     let max_new = http::anthropic_max_tokens(&req);
     let input_tokens = http::approx_tokens(&prompt);
@@ -475,18 +483,26 @@ fn stream_anthropic_messages(
     )?;
     writer.flush()?;
 
-    write_sse_event(writer, "message_start", &serde_json::json!({
-        "type": "message_start",
-        "message": {
-            "id": id, "type": "message", "role": "assistant", "model": model,
-            "content": [], "stop_reason": serde_json::Value::Null, "stop_sequence": serde_json::Value::Null,
-            "usage": { "input_tokens": input_tokens, "output_tokens": 0 },
-        }
-    }))?;
-    write_sse_event(writer, "content_block_start", &serde_json::json!({
-        "type": "content_block_start", "index": 0,
-        "content_block": { "type": "text", "text": "" }
-    }))?;
+    write_sse_event(
+        writer,
+        "message_start",
+        &serde_json::json!({
+            "type": "message_start",
+            "message": {
+                "id": id, "type": "message", "role": "assistant", "model": model,
+                "content": [], "stop_reason": serde_json::Value::Null, "stop_sequence": serde_json::Value::Null,
+                "usage": { "input_tokens": input_tokens, "output_tokens": 0 },
+            }
+        }),
+    )?;
+    write_sse_event(
+        writer,
+        "content_block_start",
+        &serde_json::json!({
+            "type": "content_block_start", "index": 0,
+            "content_block": { "type": "text", "text": "" }
+        }),
+    )?;
 
     let mut io_err: Option<std::io::Error> = None;
     let gen_res = server.generate_chat(&prompt, max_new, |chunk| {
@@ -509,23 +525,39 @@ fn stream_anthropic_messages(
     let output_tokens = match gen_res {
         Ok(n) => n,
         Err(e) => {
-            let _ = write_sse_event(writer, "content_block_delta", &serde_json::json!({
-                "type": "content_block_delta", "index": 0,
-                "delta": { "type": "text_delta", "text": format!("[gateway generation error: {e}]") },
-            }));
+            let _ = write_sse_event(
+                writer,
+                "content_block_delta",
+                &serde_json::json!({
+                    "type": "content_block_delta", "index": 0,
+                    "delta": { "type": "text_delta", "text": format!("[gateway generation error: {e}]") },
+                }),
+            );
             0
         }
     };
 
-    write_sse_event(writer, "content_block_stop", &serde_json::json!({
-        "type": "content_block_stop", "index": 0
-    }))?;
-    write_sse_event(writer, "message_delta", &serde_json::json!({
-        "type": "message_delta",
-        "delta": { "stop_reason": "end_turn", "stop_sequence": serde_json::Value::Null },
-        "usage": { "output_tokens": output_tokens },
-    }))?;
-    write_sse_event(writer, "message_stop", &serde_json::json!({ "type": "message_stop" }))?;
+    write_sse_event(
+        writer,
+        "content_block_stop",
+        &serde_json::json!({
+            "type": "content_block_stop", "index": 0
+        }),
+    )?;
+    write_sse_event(
+        writer,
+        "message_delta",
+        &serde_json::json!({
+            "type": "message_delta",
+            "delta": { "stop_reason": "end_turn", "stop_sequence": serde_json::Value::Null },
+            "usage": { "output_tokens": output_tokens },
+        }),
+    )?;
+    write_sse_event(
+        writer,
+        "message_stop",
+        &serde_json::json!({ "type": "message_stop" }),
+    )?;
     Ok(())
 }
 
