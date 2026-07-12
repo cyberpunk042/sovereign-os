@@ -1603,11 +1603,20 @@ function renderCoat(d){
 // free-text "Other", and the picked answer feeds back as the next turn. Graceful
 // <pre> fallback if unparseable, so a question is never raw-swallowed.
 const AUQ_RE = /```askuserquestion\s*([\s\S]*?)```/g;
+// Parse an askuserquestion block leniently: strict JSON, then a fallback that
+// escapes raw control chars (a model may emit real newlines inside a string in
+// otherwise-compact JSON — e.g. plan steps). Null if still unparseable.
+function parseAUQ(raw){
+  const s = (raw || "").trim();
+  try { return JSON.parse(s); } catch (_){}
+  try { return JSON.parse(s.replace(/[\u0000-\u001f]/g, c => "\\u" + c.charCodeAt(0).toString(16).padStart(4, "0"))); } catch (_){}
+  return null;
+}
 function auqRenderHTML(text){
   let html = "", last = 0, m; AUQ_RE.lastIndex = 0;
   while ((m = AUQ_RE.exec(text))){
     html += esc(text.slice(last, m.index));
-    let ok = false; try { JSON.parse(m[1].trim()); ok = true; } catch (_){}
+    const ok = parseAUQ(m[1]) !== null;
     html += ok ? '<div class="auq" data-auq="' + esc(m[1].trim()) + '"></div>'
                : '<pre style="white-space:pre-wrap;margin:.3rem 0">' + esc(m[0]) + '</pre>';
     last = m.index + m[0].length;
@@ -1617,7 +1626,8 @@ function auqRenderHTML(text){
 function auqHydrate(root, onAnswer){
   root.querySelectorAll('.auq[data-auq]').forEach(function(node){
     if (node.dataset.done) return;
-    let spec; try { spec = JSON.parse(node.getAttribute('data-auq')); } catch (_){ return; }
+    const spec = parseAUQ(node.getAttribute('data-auq'));
+    if (!spec) return;
     const qs = (spec && spec.questions) || []; if (!qs.length) return;
     const chosen = {};
     node.innerHTML = qs.map(function(q, qi){

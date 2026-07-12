@@ -32,7 +32,10 @@ threw its reasoning away. Now the Plan pane is the live home for "what the AI is
 - **Fixed** a latent bug: a Plan-Mode card whose question carried raw newlines (the numbered steps) failed
   `JSON.parse` and rendered as a `<pre>` fallback instead of an interactive card. A lenient `parseAUQ` now
   escapes raw control chars in an otherwise-compact envelope, and the DEMO plan card's steps are properly
-  escaped — so questions AND plans render interactively in the console.
+  escaped — so questions AND plans render interactively in the console. The same lenient `parseAUQ` was
+  applied to the other two chat surfaces (the Sovereign Brain observatory + lm-status), so a real model
+  emitting raw-newline plan cards renders interactively there too; `test_all_chat_surfaces_render_auq_interactively`
+  now asserts the lenient parse + a no-stray-control-bytes guard on all three panels.
 - `tests/lint/test_code_console_webapp_contract.py` gains `test_plan_pane_is_live_for_plans_and_reasoning`;
   the scaffold contract tracks `renderPlanPane()`.
 

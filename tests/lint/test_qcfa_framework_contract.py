@@ -68,6 +68,11 @@ def test_all_chat_surfaces_render_auq_interactively():
         assert ("hydrateAUQ" in body or "auqHydrate" in body), f"{slug}: no AUQ hydrate (interactive)"
         assert ("cc-auq" in body or 'class="auq' in body), f"{slug}: no AUQ card markup"
         assert "<pre" in body, f"{slug}: no graceful code-block fallback (never raw-swallow a question)"
+        # the parse must be LENIENT — a plan card whose steps carry raw newlines must
+        # still render as an interactive card, not a dead <pre> (all surfaces).
+        assert "parseAUQ" in body, f"{slug}: AUQ parse must tolerate raw control chars (parseAUQ)"
+        stray = [b for b in (REPO / "webapp" / slug / "index.html").read_bytes() if b < 0x20 and b not in (9, 10, 13)]
+        assert not stray, f"{slug}: {len(stray)} stray control byte(s) in the panel"
 
 
 def test_prompt_injects_qcfa_opt_in_without_double_inject(monkeypatch):
