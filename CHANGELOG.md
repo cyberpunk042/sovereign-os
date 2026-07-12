@@ -47,6 +47,26 @@ blocker to running a real model, and it made SDD-205's Anthropic endpoint return
 - Verified: mha-block 28 tests (8 new, incl. "a distinct base yields distinct decode output"), loader 13 (6 new);
   clippy `-D warnings` clean; downstream quant-llm/gatewayd/decoder-layer/inference-demo build unchanged. Sampling
   params + chat template + quantized loading are the tracked next arcs. MS003 `unsigned-pending-MS003`.
+### Added — Compute Plane Phase 2, increment 1: the gateway hosts a secondary model (2026-07-12)
+
+Operator-directed (the Background Tasks "massive" pass, option c). The gateway's own generator is CPU, so
+"a secondary model" is two backend kinds under one registry (in-gateway CPU + GPU serve-process proxy) over
+the shared plane. Increment 1 ships the in-gateway CPU multi-model registry. SDD-900 (this session's 900 band).
+
+- The gateway's single `generator` becomes a **registry**: a primary + an `RwLock` map of secondaries. A
+  generation clones the resident `Arc` and releases the registry, so different models run concurrently, the
+  same model serialises, and load/unload never blocks an in-flight request.
+- `generate_chat(model, …)` **routes** by model id (a named secondary else the primary); all four call sites
+  pass it; the **safety spine** (injection screen + secret/PII redaction) is preserved on every route.
+- NEW `POST /v1/models/load {id, dir}` + `POST /v1/models/unload {id}` (loopback-trust operator actions);
+  `GET /v1/models` now lists the **loaded** residents. A bad dir is an honest Anthropic 422, never a fabricated
+  model.
+- The shared VRAM authority (SDD-207): jobs-api `POST /plane/{place,claim,release}` — so model residents and
+  GPU jobs claim from ONE view and never double-book (CPU residents claim no VRAM).
+- Verified LIVE with a real model: `/v1/models` → load `fast` → `[primary, fast]` → a `{"model":"fast"}` message
+  routed to the secondary → unload → `[primary]`. 53 lib + 4 bin + 14 transport tests; clippy clean.
+- Honest gating: increment 1 is CPU-scale; big GPU models are increment 2 (a plane-placed llama-server/vLLM
+  serve process the gateway proxies to), where the shared-plane authority becomes load-bearing.
 
 ### Added — the gateway safety spine: input screening + output redaction, made real on the daemon (2026-07-12)
 

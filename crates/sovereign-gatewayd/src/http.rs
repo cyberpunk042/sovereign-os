@@ -134,7 +134,9 @@ pub fn respond(server: &GatewayServer, method: &str, path: &str, body: &str) -> 
         // else that speaks Anthropic point here. Non-streaming; `stream:true` is
         // served as SSE in main.rs. The sovereign routing DECISION is /v1/infer.
         ("POST", "/v1/messages") => anthropic_message(server, body),
-        ("GET", "/v1/models") => anthropic_models(),
+        ("GET", "/v1/models") => anthropic_models(server),
+        ("POST", "/v1/models/load") => models_load(server, body),
+        ("POST", "/v1/models/unload") => models_unload(server, body),
         ("POST", "/v1/messages/count_tokens") => anthropic_count_tokens(body),
 
         ("POST", "/v1/infer") | ("POST", "/mcp") | ("POST", "/v1/explain") => {
@@ -232,6 +234,8 @@ pub fn respond(server: &GatewayServer, method: &str, path: &str, body: &str) -> 
         (_, "/v1/messages")
         | (_, "/v1/messages/count_tokens")
         | (_, "/v1/models")
+        | (_, "/v1/models/load")
+        | (_, "/v1/models/unload")
         | (_, "/v1/infer")
         | (_, "/mcp")
         | (_, "/v1/explain")
@@ -356,24 +360,59 @@ pub fn anthropic_max_tokens(req: &serde_json::Value) -> usize {
         .clamp(1, 4096) as usize
 }
 
-/// `GET /v1/models` — the Anthropic models-list shape. The box serves ONE local
-/// model regardless of the requested id, but tools (VS Code) query this to
-/// populate a model picker, so answer with the sovereign model.
-fn anthropic_models() -> HttpReply {
-    json_reply(
-        200,
-        &serde_json::json!({
-            "data": [{
-                "type": "model",
-                "id": "sovereign-local",
-                "display_name": "Sovereign Local (gateway)",
-                "created_at": "2026-01-01T00:00:00Z",
-            }],
-            "has_more": false,
-            "first_id": "sovereign-local",
-            "last_id": "sovereign-local",
-        }),
-    )
+/// `GET /v1/models` — the Anthropic models-list shape, listing the LOADED local
+/// models (the primary + any secondaries loaded via `/v1/models/load`). Tools
+/// (VS Code) query this to populate a model picker.
+fn anthropic_models(server: &GatewayServer) -> HttpReply {
+    let loaded = server.list_models();
+    let data: Vec<serde_json::Value> = if loaded.is_empty() {
+        // no model loaded: still answer with the sovereign placeholder id so a
+        // client's picker isn't empty (a generate then returns an honest 503).
+        vec![serde_json::json!({
+            "type": "model", "id": "sovereign-local",
+            "display_name": "Sovereign Local (no model loaded)",
+            "created_at": "2026-01-01T00:00:00Z",
+        })]
+    } else {
+        loaded.iter().map(|(id, primary)| serde_json::json!({
+            "type": "model", "id": id,
+            "display_name": format!("Sovereign {} ({})", id, if *primary { "primary" } else { "secondary" }),
+            "created_at": "2026-01-01T00:00:00Z",
+        })).collect()
+    };
+    let first = data.first().and_then(|m| m["id"].as_str()).unwrap_or("").to_string();
+    let last = data.last().and_then(|m| m["id"].as_str()).unwrap_or("").to_string();
+    json_reply(200, &serde_json::json!({
+        "data": data, "has_more": false, "first_id": first, "last_id": last,
+    }))
+}
+
+/// `POST /v1/models/load` — load a SECONDARY in-process CPU model (Phase 2
+/// multi-model): `{id, dir}`. Loopback-trust; an operator action.
+fn models_load(server: &GatewayServer, body: &str) -> HttpReply {
+    let req: serde_json::Value = match serde_json::from_str(body) {
+        Ok(v) => v,
+        Err(e) => return anthropic_err(400, "invalid_request_error", format!("invalid load body: {e}")),
+    };
+    let (Some(id), Some(dir)) = (
+        req.get("id").and_then(|v| v.as_str()),
+        req.get("dir").and_then(|v| v.as_str()),
+    ) else {
+        return anthropic_err(400, "invalid_request_error", "load needs {id, dir}".to_string());
+    };
+    match server.load_model(id, dir) {
+        Ok(()) => json_reply(200, &serde_json::json!({"loaded": id, "dir": dir})),
+        Err(e) => anthropic_err(422, "api_error", format!("load failed: {e}")),
+    }
+}
+
+/// `POST /v1/models/unload` — unload a secondary model: `{id}`.
+fn models_unload(server: &GatewayServer, body: &str) -> HttpReply {
+    let req: serde_json::Value = serde_json::from_str(body).unwrap_or(serde_json::Value::Null);
+    let Some(id) = req.get("id").and_then(|v| v.as_str()) else {
+        return anthropic_err(400, "invalid_request_error", "unload needs {id}".to_string());
+    };
+    json_reply(200, &serde_json::json!({"unloaded": server.unload_model(id)}))
 }
 
 /// `POST /v1/messages/count_tokens` — the Anthropic token-count shape. Best-effort
@@ -425,7 +464,7 @@ fn anthropic_message(server: &GatewayServer, body: &str) -> HttpReply {
     let prompt = anthropic_prompt(&req);
     let max_new = anthropic_max_tokens(&req);
     let mut out = String::new();
-    let generated = server.generate_chat(&prompt, max_new, |c| out.push_str(c));
+    let generated = server.generate_chat(Some(&model), &prompt, max_new, |c| out.push_str(c));
     match generated {
         Ok(n) => json_reply(
             200,
@@ -545,6 +584,27 @@ mod tests {
             anthropic_max_tokens(&serde_json::json!({"max_tokens": 5})),
             5
         );
+    }
+
+    #[test]
+    fn multi_model_load_unload_and_list() {
+        let s = srv(); // bare server, no model loaded
+        // /v1/models lists the placeholder when nothing is loaded
+        let m = body_of(&respond(&s, "GET", "/v1/models", ""));
+        assert_eq!(m["data"][0]["type"], "model");
+        // loading a secondary from a bad dir → 422 Anthropic error (never fabricated)
+        let bad = serde_json::json!({"id": "fast", "dir": "/no/such/model/dir"}).to_string();
+        let r = respond(&s, "POST", "/v1/models/load", &bad);
+        assert_eq!(r.status, 422);
+        assert_eq!(body_of(&r)["type"], "error");
+        // load needs {id, dir}
+        assert_eq!(respond(&s, "POST", "/v1/models/load", "{}").status, 400);
+        // unload of an absent model → false, 200
+        let u = respond(&s, "POST", "/v1/models/unload", &serde_json::json!({"id": "nope"}).to_string());
+        assert_eq!(u.status, 200);
+        assert_eq!(body_of(&u)["unloaded"], false);
+        // wrong method on the model routes → 405
+        assert_eq!(respond(&s, "GET", "/v1/models/load", "").status, 405);
     }
 
     #[test]

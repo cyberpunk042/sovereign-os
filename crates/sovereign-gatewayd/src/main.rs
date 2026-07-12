@@ -626,7 +626,7 @@ fn stream_anthropic_messages(
     )?;
 
     let mut io_err: Option<std::io::Error> = None;
-    let gen_res = server.generate_chat(&prompt, max_new, |chunk| {
+    let gen_res = server.generate_chat(Some(model.as_str()), &prompt, max_new, |chunk| {
         if io_err.is_some() {
             return;
         }
@@ -745,7 +745,7 @@ fn stream_chat_completions(
 
     let id = "chatcmpl-sovereign";
     let mut io_err: Option<std::io::Error> = None;
-    let gen_res = server.generate_chat(&prompt, max_new, |chunk| {
+    let gen_res = server.generate_chat(req.get("model").and_then(serde_json::Value::as_str), &prompt, max_new, |chunk| {
         if io_err.is_some() {
             return;
         }

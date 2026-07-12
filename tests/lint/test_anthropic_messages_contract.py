@@ -54,6 +54,21 @@ def test_streaming_is_the_anthropic_sse_sequence():
         assert event in main, f"Anthropic SSE event missing: {event}"
 
 
+def test_multi_model_registry_and_load_unload():
+    lib = _read(REPO / "crates" / "sovereign-gatewayd" / "src" / "lib.rs")
+    http = _read(HTTP)
+    # the single generator became a registry with routing (Phase 2 increment 1)
+    assert "secondaries" in lib and "fn resolve_model" in lib, "gateway must route by model id"
+    assert "fn load_model" in lib and "fn unload_model" in lib and "fn list_models" in lib, \
+        "the gateway must load/unload/list secondary models"
+    # generate_chat takes a model id (routing), preserving the safety spine
+    assert "pub fn generate_chat<F: FnMut(&str)>(\n        &self,\n        model: Option<&str>," in lib, \
+        "generate_chat must route by model id"
+    # the load/unload HTTP surface
+    assert '("POST", "/v1/models/load") => models_load' in http, "POST /v1/models/load must exist"
+    assert '("POST", "/v1/models/unload") => models_unload' in http, "POST /v1/models/unload must exist"
+
+
 def test_companion_endpoints_and_decision_moved():
     http = _read(HTTP)
     assert '("GET", "/v1/models") => anthropic_models' in http, "GET /v1/models must exist"
