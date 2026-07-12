@@ -1,9 +1,9 @@
-# SDD-901 — Durable memory: never silently lost (corruption recovery + bounded growth)
+# SDD-951 — Durable memory: never silently lost (corruption recovery + bounded growth)
 
 > Status: draft
 > Owner: operator-directed ("continue" — Phase-1 audit, Arc 3); agent-authored
 > Last updated: 2026-07-12
-> Number band: **900–999 (general / audit session)** per SDD-100 — this session's reserved band (SDD-900 was the first).
+> Number band: **950–999 (general / audit session)** per SDD-100 — this session's reserved band (SDD-950 was the first).
 > Closes findings: **F-2026-084** (durable memory — corruption = silent total loss; unbounded growth), *partially* — the corruption-recovery + bounded-growth halves. The decay half is explicitly deferred (see Non-goals). From `docs/review/phase-1/99-findings-ledger.md`.
 > Derived from / extends: `sovereign-gatewayd`'s durable-memory path (SDD — the gateway daemon's `SOVEREIGN_GATEWAY_MEMORY` snapshot) + `sovereign-memory-os` (`MemoryStore`).
 
@@ -71,9 +71,9 @@ unbounded.)
 
 | Q | Question | Status |
 |---|---|---|
-| Q-901-001 | Unify the admission clock (a process monotonic epoch) so the M028 decay pass can be scheduled safely. | open — the deferred decay half |
-| Q-901-002 | Move the daemon to a versioned `MemoryOsSnapshot` on disk (schema_version + doctrine + `validate()`) with a migration hook? | open |
-| Q-901-003 | Rotate multiple `.corrupt` backups (`.corrupt.1`, …) instead of overwriting a single one? | open — single backup for now |
+| Q-951-001 | Unify the admission clock (a process monotonic epoch) so the M028 decay pass can be scheduled safely. | open — the deferred decay half |
+| Q-951-002 | Move the daemon to a versioned `MemoryOsSnapshot` on disk (schema_version + doctrine + `validate()`) with a migration hook? | open |
+| Q-951-003 | Rotate multiple `.corrupt` backups (`.corrupt.1`, …) instead of overwriting a single one? | open — single backup for now |
 
 ## Verification
 
@@ -87,7 +87,7 @@ unbounded.)
 
 ## Way forward
 
-The decay half (Q-901-001) is the natural follow-up once the admission clock is unified — at which point the
+The decay half (Q-951-001) is the natural follow-up once the admission clock is unified — at which point the
 existing `GatewayServer::maintain` can be scheduled from a timer thread safely. Together with this SDD's
 corruption-recovery + bounded-growth, that closes F-2026-084 fully.
 
@@ -97,5 +97,5 @@ corruption-recovery + bounded-growth, that closes F-2026-084 fully.
 - `crates/sovereign-gatewayd/src/lib.rs` — `load_memory_from`, `MemoryLoadOutcome`, `memory_capacity_from_env`, `with_force_local`
 - `crates/sovereign-memory-os/src/engine.rs` — `MemoryStore::set_capacity` / `capacity` / `evict_lowest_value`
 - SDD-100 — the per-session number-band convention this SDD's 900-band placement follows
-- SDD-900 — real RoPE (this session's prior Arc-1 chunk)
+- SDD-950 — real RoPE (this session's prior Arc-1 chunk)
 - MS003 `unsigned-pending-MS003`

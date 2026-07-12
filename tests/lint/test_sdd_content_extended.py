@@ -50,12 +50,23 @@ def test_at_least_30_sdds():
     )
 
 
+def _sdd_band(n: int) -> int:
+    """The session sub-band a number belongs to, per the SDD-100 band table.
+    Hundreds-blocks (recover 100-199, header-sidemenu 200-299, science 300-399),
+    plus the 2026-07 split of the former 900-999 general catch-all into disjoint
+    per-session sub-bands: compute-plane 900-949, phase-1 audit 950-999 (two
+    unassigned sessions collided on the shared catch-all — SDD-100 amendment)."""
+    if n >= 950:
+        return 950
+    return (n // 100) * 100
+
+
 def test_sdd_numbers_sequential_no_huge_gaps():
-    """WITHIN a session number-band (a hundreds-block, per docs/sdd/README.md +
-    SDD-100) SDD numbers stay tight (gap <= 5 — catches drift / a missed renumber).
-    Band BOUNDARIES (crossing hundreds — e.g. 071 → 100 into the recover-projects
-    band) are INTENTIONAL gaps and allowed: per-session bands (recover 100-199,
-    header-sidemenu 200-299, science 300-399, general 900+) keep the 3 parallel
+    """WITHIN a session number-band (per docs/sdd/README.md + SDD-100) SDD numbers
+    stay tight (gap <= 5 — catches drift / a missed renumber). Band BOUNDARIES
+    (crossing into another session's band — e.g. 071 → 100 into recover-projects,
+    or 900 → 950 from compute-plane into the phase-1-audit sub-band) are
+    INTENTIONAL gaps and allowed: the disjoint per-session bands keep parallel
     sessions from colliding on SDD numbers."""
     files = _sdd_files()
     nums = sorted(
@@ -63,7 +74,7 @@ def test_sdd_numbers_sequential_no_huge_gaps():
     )
     for i in range(len(nums) - 1):
         a, b = nums[i], nums[i + 1]
-        if a // 100 != b // 100:
+        if _sdd_band(a) != _sdd_band(b):
             continue  # band boundary — an intentional per-session gap
         assert b - a <= 5, (
             f"SDD numbering gap > 5 between {a:03d} and {b:03d} within a band "

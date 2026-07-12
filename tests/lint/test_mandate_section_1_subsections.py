@@ -221,7 +221,13 @@ def test_e11_modules_sequential():
     nums = sorted(int(i) for i in e11_ids)
     blocks: dict[int, list[int]] = {}
     for n in nums:
-        blocks.setdefault(n // 100, []).append(n)
+        # Sub-band key mirrors _sdd_band() in test_sdd_content_extended.py: the
+        # 2026-07 SDD-100 amendment split the former 900-999 catch-all into
+        # disjoint per-session sub-bands (compute-plane 900-949, phase-1 audit
+        # 950-999) so two unassigned sessions can't collide. Band 9xx therefore
+        # keys as two disjoint sub-bands, not one hundreds-block.
+        band = 950 if n >= 950 else (n // 100)
+        blocks.setdefault(band, []).append(n)
     for blk, members in blocks.items():
         lo, hi = min(members), max(members)
         missing = set(range(lo, hi + 1)) - set(members)

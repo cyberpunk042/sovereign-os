@@ -17,7 +17,7 @@
 //!   counts; weight tying; the HF→interleaved RoPE row-permutation; shape
 //!   validation; a synthetic-fixture test proving parse + dequant + shape +
 //!   forward + deterministic decode **offline**.
-//! - **In (added SDD-900):** `rope_theta` + `rope_scaling` are now parsed from
+//! - **In (added SDD-950):** `rope_theta` + `rope_scaling` are now parsed from
 //!   `config.json` and threaded into each block via
 //!   [`MhaDecoderBlock::with_rope`], so Llama-3 (500000) / Qwen2 (1000000) /
 //!   Mistral decode at their trained frequency base instead of a hardcoded
@@ -735,7 +735,7 @@ mod tests {
         // real-model coherence is the gated follow-up.
     }
 
-    // ---- RoPE config parsing (SDD-900) ----
+    // ---- RoPE config parsing (SDD-950) ----
 
     #[test]
     fn rope_theta_defaults_to_10000_when_absent() {
