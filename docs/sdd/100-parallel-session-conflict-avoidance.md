@@ -48,7 +48,15 @@ produces two independent conflict classes — both hit repeatedly on 2026-07-09:
   | recover-projects (Memory-OS + infra, this session) | 100–199 | E11.M100–M199 |
   | header-sidemenu (cockpit app-shell) | 200–299 | E11.M200–M299 |
   | science-tools | 300–399 | E11.M300–M399 |
-  | any new / general / unassigned session | 900–999 | E11.M900–M999 |
+  | compute-plane (multi-model / GPU) | 900–949 | E11.M900–M949 |
+  | phase-1 audit / improvement | 950–999 | E11.M950–M999 |
+
+  > **Amendment (2026-07-12):** the single "any new / general / unassigned → 900–999" catch-all was itself a
+  > collision source — TWO unassigned sessions (compute-plane + the phase-1 audit) each grabbed the next free
+  > 900-number and collided on SDD-900. **Fix: every unassigned session claims its OWN disjoint sub-band and
+  > records it as a row above** (compute-plane 900–949, phase-1 audit 950–999). A new unassigned session takes
+  > the next free 100-wide block (e.g. `800–899`, then `600–699`, …) — never the shared catch-all. The
+  > `test_sdd_numbers_unique` lint is the backstop; the disjoint bands make a collision structurally impossible.
 
 - **De-magic the counts** — the count-churn surfaces drop their hardcoded integers (the real
   assertion is already glob/set-based): `test_recurrent_hooks_contract.py` (the

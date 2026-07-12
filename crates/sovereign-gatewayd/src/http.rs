@@ -380,11 +380,22 @@ fn anthropic_models(server: &GatewayServer) -> HttpReply {
             "created_at": "2026-01-01T00:00:00Z",
         })).collect()
     };
-    let first = data.first().and_then(|m| m["id"].as_str()).unwrap_or("").to_string();
-    let last = data.last().and_then(|m| m["id"].as_str()).unwrap_or("").to_string();
-    json_reply(200, &serde_json::json!({
-        "data": data, "has_more": false, "first_id": first, "last_id": last,
-    }))
+    let first = data
+        .first()
+        .and_then(|m| m["id"].as_str())
+        .unwrap_or("")
+        .to_string();
+    let last = data
+        .last()
+        .and_then(|m| m["id"].as_str())
+        .unwrap_or("")
+        .to_string();
+    json_reply(
+        200,
+        &serde_json::json!({
+            "data": data, "has_more": false, "first_id": first, "last_id": last,
+        }),
+    )
 }
 
 /// `POST /v1/models/load` — load a SECONDARY in-process CPU model (Phase 2
@@ -392,13 +403,23 @@ fn anthropic_models(server: &GatewayServer) -> HttpReply {
 fn models_load(server: &GatewayServer, body: &str) -> HttpReply {
     let req: serde_json::Value = match serde_json::from_str(body) {
         Ok(v) => v,
-        Err(e) => return anthropic_err(400, "invalid_request_error", format!("invalid load body: {e}")),
+        Err(e) => {
+            return anthropic_err(
+                400,
+                "invalid_request_error",
+                format!("invalid load body: {e}"),
+            );
+        }
     };
     let (Some(id), Some(dir)) = (
         req.get("id").and_then(|v| v.as_str()),
         req.get("dir").and_then(|v| v.as_str()),
     ) else {
-        return anthropic_err(400, "invalid_request_error", "load needs {id, dir}".to_string());
+        return anthropic_err(
+            400,
+            "invalid_request_error",
+            "load needs {id, dir}".to_string(),
+        );
     };
     match server.load_model(id, dir) {
         Ok(()) => json_reply(200, &serde_json::json!({"loaded": id, "dir": dir})),
@@ -410,9 +431,16 @@ fn models_load(server: &GatewayServer, body: &str) -> HttpReply {
 fn models_unload(server: &GatewayServer, body: &str) -> HttpReply {
     let req: serde_json::Value = serde_json::from_str(body).unwrap_or(serde_json::Value::Null);
     let Some(id) = req.get("id").and_then(|v| v.as_str()) else {
-        return anthropic_err(400, "invalid_request_error", "unload needs {id}".to_string());
+        return anthropic_err(
+            400,
+            "invalid_request_error",
+            "unload needs {id}".to_string(),
+        );
     };
-    json_reply(200, &serde_json::json!({"unloaded": server.unload_model(id)}))
+    json_reply(
+        200,
+        &serde_json::json!({"unloaded": server.unload_model(id)}),
+    )
 }
 
 /// `POST /v1/messages/count_tokens` — the Anthropic token-count shape. Best-effort
@@ -600,7 +628,12 @@ mod tests {
         // load needs {id, dir}
         assert_eq!(respond(&s, "POST", "/v1/models/load", "{}").status, 400);
         // unload of an absent model → false, 200
-        let u = respond(&s, "POST", "/v1/models/unload", &serde_json::json!({"id": "nope"}).to_string());
+        let u = respond(
+            &s,
+            "POST",
+            "/v1/models/unload",
+            &serde_json::json!({"id": "nope"}).to_string(),
+        );
         assert_eq!(u.status, 200);
         assert_eq!(body_of(&u)["unloaded"], false);
         // wrong method on the model routes → 405

@@ -745,18 +745,23 @@ fn stream_chat_completions(
 
     let id = "chatcmpl-sovereign";
     let mut io_err: Option<std::io::Error> = None;
-    let gen_res = server.generate_chat(req.get("model").and_then(serde_json::Value::as_str), &prompt, max_new, |chunk| {
-        if io_err.is_some() {
-            return;
-        }
-        let obj = serde_json::json!({
-            "id": id, "object": "chat.completion.chunk",
-            "choices": [{"index": 0, "delta": {"content": chunk}}],
-        });
-        if let Err(e) = write_sse(writer, &obj) {
-            io_err = Some(e);
-        }
-    });
+    let gen_res = server.generate_chat(
+        req.get("model").and_then(serde_json::Value::as_str),
+        &prompt,
+        max_new,
+        |chunk| {
+            if io_err.is_some() {
+                return;
+            }
+            let obj = serde_json::json!({
+                "id": id, "object": "chat.completion.chunk",
+                "choices": [{"index": 0, "delta": {"content": chunk}}],
+            });
+            if let Err(e) = write_sse(writer, &obj) {
+                io_err = Some(e);
+            }
+        },
+    );
     if let Some(e) = io_err {
         return Err(e); // client hung up mid-stream
     }

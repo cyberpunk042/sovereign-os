@@ -514,7 +514,9 @@ impl ThoughtSource for ModelThoughts<'_> {
         }
         prompt.push_str("Next reasoning step:");
         let mut out = String::new();
-        let _ = self.server.generate_chat(None, &prompt, 48, |c| out.push_str(c));
+        let _ = self
+            .server
+            .generate_chat(None, &prompt, 48, |c| out.push_str(c));
         model_seeds_from(&out, path.len(), k)
     }
 
@@ -968,7 +970,8 @@ impl GatewayServer {
             force_local,
             generator: generator.map(|g| Arc::new(Mutex::new(g))),
             secondaries: RwLock::new(BTreeMap::new()),
-            primary_id: std::env::var("SOVEREIGN_GATEWAY_MODEL_ID").unwrap_or_else(|_| "primary".to_string()),
+            primary_id: std::env::var("SOVEREIGN_GATEWAY_MODEL_ID")
+                .unwrap_or_else(|_| "primary".to_string()),
             guard,
             guard_injections: std::sync::atomic::AtomicU64::new(0),
             guard_secrets: std::sync::atomic::AtomicU64::new(0),
@@ -1005,7 +1008,10 @@ impl GatewayServer {
         let g = load_generator_from_dir(dir)?.ok_or_else(|| {
             format!("no model at {dir} (need config.json + *.safetensors + tokenizer.json)")
         })?;
-        let mut map = self.secondaries.write().map_err(|_| "registry poisoned".to_string())?;
+        let mut map = self
+            .secondaries
+            .write()
+            .map_err(|_| "registry poisoned".to_string())?;
         map.insert(id.to_string(), Arc::new(Mutex::new(g)));
         Ok(())
     }
@@ -1816,9 +1822,18 @@ mod tests {
         assert!(!s.has_generator());
         assert!(s.list_models().is_empty());
         // can't shadow the primary id; a missing dir errors; nothing to unload.
-        assert!(s.load_model("primary", "/x").is_err(), "cannot load under the primary id");
-        assert!(s.load_model("fast", "/no/such/dir").is_err(), "a bad dir must error, not fabricate");
-        assert!(!s.unload_model("fast"), "unload of an absent model is false");
+        assert!(
+            s.load_model("primary", "/x").is_err(),
+            "cannot load under the primary id"
+        );
+        assert!(
+            s.load_model("fast", "/no/such/dir").is_err(),
+            "a bad dir must error, not fabricate"
+        );
+        assert!(
+            !s.unload_model("fast"),
+            "unload of an absent model is false"
+        );
         // with nothing loaded, resolution yields nothing (an honest error at generate).
         assert!(s.resolve_model(Some("anything")).is_none());
         assert!(s.resolve_model(None).is_none());

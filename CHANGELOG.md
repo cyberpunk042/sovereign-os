@@ -12,9 +12,24 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Fixed — context.md counts-as-contract: the re-orientation surface can't silently drift again (2026-07-12)
+
+Phase-1 audit (SDD-952; closes ledger F-2026-030). `context.md` — the operator's "read me first after every
+compaction" surface — was ~6 weeks stale and self-contradictory (it stated both "29 crates" and "476 crates"
+while the tree held 714; "17 of 21 dashboards"; "29 SDDs"), despite its own "never silently let it drift" banner.
+
+- **`context.md`**: a new "Current state (2026-07-12 — counts machine-verified)" section at the top (the stale
+  "Current arc" header retitled "Historical arc") with a fenced `COUNTS-CONTRACT` block (crates 714 / dashboards
+  25 / panels 55 / SDDs 134 / milestones 85, each with its source path) + a recent-arcs summary. The historical
+  resume-cycle log below is left intact.
+- **`tests/lint/test_context_md_counts.py`**: a new lint that parses the block and asserts every count against
+  the live tree — a drift now **fails CI** with a `stated -> actual` diff, so the surface can't rot silently.
+- The same pattern is the fix for MASTER-PLAN / mdbook drift (F-2026-032/033), tracked separately.
+
+
 ### Fixed — durable memory is never silently lost: corruption recovery + bounded growth (2026-07-12)
 
-Phase-1 audit (SDD-901; closes ledger F-2026-084 partially). The gateway daemon persists its learning Cortex's
+Phase-1 audit (SDD-951; closes ledger F-2026-084 partially). The gateway daemon persists its learning Cortex's
 `MemoryStore` to `SOVEREIGN_GATEWAY_MEMORY`, but the load was `from_str(&json).unwrap_or_else(seed_memory)` — any
 parse failure (a torn file from a hard kill, a manual edit, a struct-shape change) **silently discarded all
 learned memory** and reseeded with no signal; and the store grew unbounded.
@@ -32,7 +47,7 @@ learned memory** and reseeded with no signal; and the store grew unbounded.
 
 ### Fixed — real RoPE: `rope_theta` + `rope_scaling` from the model config (modern models decode coherently) (2026-07-12)
 
-Arc 1 of the Phase-1 audit (SDD-900; closes ledger F-2026-080). Every decoder block was built with a **hardcoded
+Arc 1 of the Phase-1 audit (SDD-950; closes ledger F-2026-080). Every decoder block was built with a **hardcoded
 RoPE base of 10000**, so Llama-3 (500000), Qwen2 (1000000), Mistral etc. decoded as garbage — the single biggest
 blocker to running a real model, and it made SDD-205's Anthropic endpoint return gibberish from VS Code / Claude Code.
 

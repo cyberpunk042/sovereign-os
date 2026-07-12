@@ -16,7 +16,31 @@
 
 Full doctrine: `docs/standing-directives/two-ultimate-solutions.md`.
 
-## Current arc (2026-05-28): M060 cross-repo mirror producers — COMPLETE
+## Current state (2026-07-12 — counts machine-verified)
+
+> **Last updated: 2026-07-12.** This section supersedes the historical-arc log below it. The counts here are enforced by `tests/lint/test_context_md_counts.py` — if the tree changes and these drift, CI fails, so this "read me first" surface can never silently rot again (the recurring `F-2026-030` drift closed by SDD-952).
+
+<!-- COUNTS-CONTRACT: each row is verified against the filesystem by tests/lint/test_context_md_counts.py.
+     Update the numbers here when the tree changes — the lint fails on drift. Do NOT rename the labels
+     (the lint matches them). -->
+
+| metric | count | source of truth |
+|---|---:|---|
+| workspace crates | 714 | `crates/*/` |
+| dashboards (d-nn) | 25 | `webapp/d-*/` |
+| cockpit panels (total) | 55 | `webapp/*/index.html` |
+| sdd files | 134 | `docs/sdd/<NNN>-*.md` |
+| milestone files | 85 | `backlog/milestones/*.md` |
+
+<!-- END COUNTS-CONTRACT -->
+
+**Recent arcs (newest first), beyond the 2026-05 M060 historical arc below:**
+
+- **Phase-1 whole-repo improvement audit** (`docs/review/phase-1/`) — 100+ ranked findings `F-2026-NNN`; the map for ongoing SDD work. In-flight closures (this general/audit session, SDD **900-band** per SDD-100): **SDD-950** real RoPE (`rope_theta`/`rope_scaling` — modern models decode coherently, F-2026-080); **SDD-206** gateway safety spine (injection screen + secret/PII redaction + auth/timeouts, F-2026-081/082); **SDD-951** durable-memory corruption recovery + bounded growth (F-2026-084); **SDD-952** this drift fix (F-2026-030).
+- **The July intelligence layer** — the Sovereign Brain observatory, the CoAT reasoning engine (`sovereign-coat`, CoT→ToT→MCTS→C-MCTS→CoAT), the Background-Tasks job runtime + compute plane, Plan Mode / User Approval / the auto-mode safety classifier, QCFA + interactive AUQ clarification, the HF-BPE tokenizer, and durable gateway memory. The Anthropic Messages API (`/v1/messages`, **SDD-205**) makes the box drive VS Code / Claude Code against its own local model.
+- Parallel sessions run per the **SDD-100 number-band convention** (`recover 100–199`, `header-sidemenu 200–299`, `science-tools 300–399`, general/audit `900–999`) so SDD numbers can't collide.
+
+## Historical arc (2026-05-28): M060 cross-repo mirror producers — COMPLETE
 
 The 7 sovereign-os mirror dashboards (D-12 rules, D-13 grants, D-14
 capability-tokens, D-15 sandboxes, D-16 audit-chain, D-17 quarantine,

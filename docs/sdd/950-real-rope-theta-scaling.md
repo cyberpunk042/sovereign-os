@@ -1,9 +1,9 @@
-# SDD-900 — Real RoPE: `rope_theta` + `rope_scaling` from the model config (make modern models decode coherently)
+# SDD-950 — Real RoPE: `rope_theta` + `rope_scaling` from the model config (make modern models decode coherently)
 
 > Status: draft
 > Owner: operator-directed ("we continue" — Arc 1 of the Phase-1 audit); agent-authored
 > Last updated: 2026-07-12
-> Number band: **900–999 (general / audit session)** per SDD-100 — this session claims its own band so it can never collide with the recover / header-sidemenu / science-tools sessions.
+> Number band: **950–999 (general / audit session)** per SDD-100 — this session claims its own band so it can never collide with the recover / header-sidemenu / science-tools sessions.
 > Closes findings: **F-2026-080** (the RoPE frequency base was hardcoded to 10000, so Llama-3 / Qwen2 / Mistral decoded as garbage). From `docs/review/phase-1/99-findings-ledger.md` (Arc 1 — "make the real model real").
 > Derived from / extends: the safetensors loader (`sovereign-safetensors-loader`), `sovereign-mha-block`, `sovereign-rope` (which already carried `with_base` / `ntk_aware_base` / `with_yarn` — unplumbed), and the Anthropic Messages API (SDD-205) + safety spine (SDD-206), which serve/guard whatever this decodes.
 
@@ -80,8 +80,8 @@ rope_theta" doc-limitation is replaced with the "In" note.
 
 | Q | Question | Status |
 |---|---|---|
-| Q-900-001 | Model the llama3 low/high-freq ramp in `sovereign-rope` (a `with_llama3` constructor), or leave base-only? | open — base-only for now (short-context exact) |
-| Q-900-002 | Should `max_position_embeddings` also be parsed to auto-derive a default context-extension when `rope_scaling` is absent? | open |
+| Q-950-001 | Model the llama3 low/high-freq ramp in `sovereign-rope` (a `with_llama3` constructor), or leave base-only? | open — base-only for now (short-context exact) |
+| Q-950-002 | Should `max_position_embeddings` also be parsed to auto-derive a default context-extension when `rope_scaling` is absent? | open |
 
 ## Verification
 
