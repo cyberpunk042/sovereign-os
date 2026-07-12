@@ -56,8 +56,19 @@ MODES:
     -h, --help     print this help and exit
 
 ENVIRONMENT:
-    SOVEREIGN_GATEWAY_ADDR     bind address (default 127.0.0.1:8787)
-    SOVEREIGN_GATEWAY_MAX_CONN max concurrent connections (default 256)";
+    SOVEREIGN_GATEWAY_ADDR         bind address (default 127.0.0.1:8787)
+    SOVEREIGN_GATEWAY_MAX_CONN     max concurrent connections (default 256)
+    SOVEREIGN_GATEWAY_TIMEOUT_SECS per-connection read/write deadline (default 30; 0 disables)
+    SOVEREIGN_GATEWAY_TOKEN        require Authorization: Bearer <token> on the HTTP surface (unset = open)
+
+  Safety spine (input screening + output redaction; all default on):
+    SOVEREIGN_GATEWAY_GUARD                  master switch (0 disables the spine)
+    SOVEREIGN_GATEWAY_GUARD_REDACT_SECRETS   redact secrets from generated output
+    SOVEREIGN_GATEWAY_GUARD_REDACT_PII       redact PII from generated output
+    SOVEREIGN_GATEWAY_GUARD_SCREEN_INJECTION screen prompts for injection
+    SOVEREIGN_GATEWAY_GUARD_BLOCK_INJECTION  refuse flagged prompts (default off = log-only)
+    SOVEREIGN_GATEWAY_GUARD_INJECTION_THRESHOLD  risk threshold in [0,1] (default 0.5)
+    SOVEREIGN_GATEWAY_GUARD_TOXICITY         score output toxicity (flag-only, never censors)";
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
@@ -188,6 +199,66 @@ fn max_connections() -> usize {
         .unwrap_or(DEFAULT_MAX_CONNECTIONS)
 }
 
+/// Default per-connection read/write timeout. A client that opens a socket and
+/// then dribbles (or never sends) bytes can otherwise pin a handler thread
+/// forever; with the [`DEFAULT_MAX_CONNECTIONS`] cap, enough such clients wedge
+/// the whole daemon (slow-loris). A deadline bounds each blocking read/write so
+/// a stalled peer is dropped. Override with `SOVEREIGN_GATEWAY_TIMEOUT_SECS`;
+/// `0` disables the deadline (legacy behaviour).
+const DEFAULT_TIMEOUT_SECS: u64 = 30;
+
+fn conn_timeout() -> Option<std::time::Duration> {
+    let secs = std::env::var("SOVEREIGN_GATEWAY_TIMEOUT_SECS")
+        .ok()
+        .and_then(|v| v.trim().parse::<u64>().ok())
+        .unwrap_or(DEFAULT_TIMEOUT_SECS);
+    (secs > 0).then(|| std::time::Duration::from_secs(secs))
+}
+
+/// The shared secret required on the HTTP surface, from `SOVEREIGN_GATEWAY_TOKEN`.
+/// Unset ⇒ no auth (loopback-default deployments). When set, every HTTP request
+/// must carry `Authorization: Bearer <token>` or it is refused `401`. This is the
+/// minimum gate that lets the daemon bind beyond loopback (`--addr 0.0.0.0:…`)
+/// without exposing memory-mutating + ledger surfaces to any reachable client,
+/// and matches what real OpenAI/Anthropic clients already send.
+fn auth_token() -> Option<String> {
+    std::env::var("SOVEREIGN_GATEWAY_TOKEN")
+        .ok()
+        .map(|t| t.trim().to_string())
+        .filter(|t| !t.is_empty())
+}
+
+/// Whether the presented `Authorization` header carries the expected bearer
+/// token. The scheme is matched case-insensitively (`Bearer`); the token is
+/// compared in length-independent constant time so a matching prefix can't be
+/// discovered by timing.
+fn authorized(header: Option<&str>, expected: &str) -> bool {
+    let Some(header) = header else {
+        return false;
+    };
+    let Some(rest) = header.strip_prefix("Bearer ").or_else(|| {
+        // Case-insensitive scheme without allocating the whole header lowercase.
+        let (scheme, rest) = header.split_once(' ')?;
+        scheme.eq_ignore_ascii_case("bearer").then_some(rest)
+    }) else {
+        return false;
+    };
+    constant_time_eq(rest.trim().as_bytes(), expected.as_bytes())
+}
+
+/// Constant-time byte-slice equality (no early-out on first mismatch). Folds the
+/// length difference in so unequal-length inputs also take the full pass.
+fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
+    let mut diff = (a.len() ^ b.len()) as u8;
+    let n = a.len().max(b.len());
+    for i in 0..n {
+        let x = a.get(i).copied().unwrap_or(0);
+        let y = b.get(i).copied().unwrap_or(0);
+        diff |= x ^ y;
+    }
+    diff == 0
+}
+
 /// Decrements the active-connection counter when its handler thread ends.
 struct ConnGuard(Arc<AtomicUsize>);
 impl Drop for ConnGuard {
@@ -203,8 +274,10 @@ fn serve(
     listener: TcpListener,
     server: &Arc<GatewayServer>,
     handle: fn(&GatewayServer, TcpStream) -> std::io::Result<()>,
+    reject: fn(TcpStream),
 ) -> std::io::Result<()> {
     let max = max_connections();
+    let timeout = conn_timeout();
     let active = Arc::new(AtomicUsize::new(0));
     for stream in listener.incoming() {
         let stream = match stream {
@@ -214,10 +287,18 @@ fn serve(
                 continue;
             }
         };
+        // Bound every blocking read/write so a stalled peer can't pin a handler
+        // thread indefinitely (slow-loris). Applied before the cap check so even
+        // the rejection write can't hang.
+        if let Some(t) = timeout {
+            let _ = stream.set_read_timeout(Some(t));
+            let _ = stream.set_write_timeout(Some(t));
+        }
         if active.load(Ordering::Relaxed) >= max {
-            // At capacity — close immediately instead of spawning another
-            // thread, applying back-pressure under a connection flood.
-            drop(stream);
+            // At capacity — send a protocol-appropriate rejection (HTTP 503 +
+            // Retry-After / an NDJSON error line) so the client sees a
+            // retryable status instead of a bare connection reset, then close.
+            reject(stream);
             continue;
         }
         active.fetch_add(1, Ordering::Relaxed);
@@ -246,7 +327,30 @@ fn run_tcp(server: &Arc<GatewayServer>, addr: &str) -> std::io::Result<()> {
     eprintln!(
         "sovereign-gatewayd: listening on {addr} (NDJSON; ops: infer/manifest/health/ledger)"
     );
-    serve(listener, server, handle_conn)
+    serve(listener, server, handle_conn, reject_ndjson_overloaded)
+}
+
+/// Over-capacity rejection for the NDJSON surface: one error line, then close.
+fn reject_ndjson_overloaded(mut stream: TcpStream) {
+    let _ = writeln!(
+        stream,
+        "{{\"kind\":\"error\",\"message\":\"gateway at capacity, retry shortly\"}}"
+    );
+    let _ = stream.flush();
+}
+
+/// Over-capacity rejection for the HTTP surface: `503 Service Unavailable` with
+/// a `Retry-After` hint so clients back off instead of hot-looping, then close.
+fn reject_http_overloaded(mut stream: TcpStream) {
+    const BODY: &str = "{\"error\":\"gateway at capacity\"}";
+    let head = format!(
+        "HTTP/1.1 503 {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nRetry-After: 1\r\nConnection: close\r\n\r\n",
+        http::reason(503),
+        BODY.len()
+    );
+    let _ = stream.write_all(head.as_bytes());
+    let _ = stream.write_all(BODY.as_bytes());
+    let _ = stream.flush();
 }
 
 fn handle_conn(server: &GatewayServer, stream: TcpStream) -> std::io::Result<()> {
@@ -295,7 +399,7 @@ fn run_http(server: &Arc<GatewayServer>, addr: &str) -> std::io::Result<()> {
         "sovereign-gatewayd: HTTP listening on {addr} \
          (GET /health /manifest /admin/ledger /metrics; POST /v1/messages /v1/infer /mcp /v1/simple /v1/explain /v1/deliberate /v1/coat)"
     );
-    serve(listener, server, handle_http_conn)
+    serve(listener, server, handle_http_conn, reject_http_overloaded)
 }
 
 /// Per request-line / header-line byte cap, and the maximum header count. An
@@ -348,9 +452,11 @@ fn handle_http_conn(server: &GatewayServer, stream: TcpStream) -> std::io::Resul
     let method = parts.next().unwrap_or("").to_string();
     let path = parts.next().unwrap_or("/").to_string();
 
-    // Headers until the blank line; the only one we act on is Content-Length.
-    // Each line is capped and the count is bounded (no unbounded header flood).
+    // Headers until the blank line. We act on Content-Length (body sizing) and
+    // Authorization (bearer gate). Each line is capped and the count is bounded
+    // (no unbounded header flood).
     let mut content_length = 0usize;
+    let mut authorization: Option<String> = None;
     let mut header_count = 0usize;
     loop {
         header_count += 1;
@@ -369,11 +475,26 @@ fn handle_http_conn(server: &GatewayServer, stream: TcpStream) -> std::io::Resul
         if trimmed.is_empty() {
             break;
         }
-        if let Some((k, v)) = trimmed.split_once(':')
-            && k.trim().eq_ignore_ascii_case("content-length")
-        {
-            content_length = v.trim().parse().unwrap_or(0);
+        if let Some((k, v)) = trimmed.split_once(':') {
+            let k = k.trim();
+            if k.eq_ignore_ascii_case("content-length") {
+                content_length = v.trim().parse().unwrap_or(0);
+            } else if k.eq_ignore_ascii_case("authorization") {
+                authorization = Some(v.trim().to_string());
+            }
         }
+    }
+
+    // Bearer gate: when SOVEREIGN_GATEWAY_TOKEN is set, every HTTP request must
+    // carry a matching `Authorization: Bearer <token>`. Checked after the header
+    // loop (so the request is fully framed) and before any routing / generation.
+    if let Some(expected) = auth_token()
+        && !authorized(authorization.as_deref(), &expected)
+    {
+        return write_http(
+            &mut writer,
+            &http::err(401, "missing or invalid bearer token".to_string()),
+        );
     }
 
     // Refuse an over-cap Content-Length BEFORE allocating, so a client can't
@@ -656,4 +777,43 @@ fn stream_chat_completions(
     let _ = writer.write_all(b"data: [DONE]\n\n");
     let _ = writer.flush();
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{authorized, conn_timeout, constant_time_eq};
+
+    #[test]
+    fn constant_time_eq_matches_std_eq() {
+        assert!(constant_time_eq(b"secret-token", b"secret-token"));
+        assert!(!constant_time_eq(b"secret-token", b"secret-toke"));
+        assert!(!constant_time_eq(b"secret-token", b"secret-tokeX"));
+        assert!(!constant_time_eq(b"", b"x"));
+        assert!(constant_time_eq(b"", b""));
+    }
+
+    #[test]
+    fn authorized_accepts_the_expected_bearer_token() {
+        assert!(authorized(Some("Bearer s3cr3t"), "s3cr3t"));
+        // Scheme is case-insensitive; surrounding whitespace on the token trimmed.
+        assert!(authorized(Some("bearer s3cr3t"), "s3cr3t"));
+        assert!(authorized(Some("BEARER  s3cr3t "), "s3cr3t"));
+    }
+
+    #[test]
+    fn authorized_rejects_wrong_missing_or_malformed() {
+        assert!(!authorized(Some("Bearer wrong"), "s3cr3t"));
+        assert!(!authorized(Some("s3cr3t"), "s3cr3t"), "no Bearer scheme");
+        assert!(!authorized(Some("Basic s3cr3t"), "s3cr3t"), "wrong scheme");
+        assert!(!authorized(None, "s3cr3t"), "no header at all");
+    }
+
+    #[test]
+    fn conn_timeout_defaults_to_a_bounded_deadline() {
+        // Unset ⇒ the 30s default (a finite deadline, not None).
+        // (Env is process-global; we only assert the unset default here.)
+        if std::env::var_os("SOVEREIGN_GATEWAY_TIMEOUT_SECS").is_none() {
+            assert_eq!(conn_timeout(), Some(std::time::Duration::from_secs(30)));
+        }
+    }
 }

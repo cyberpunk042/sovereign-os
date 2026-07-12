@@ -4813,12 +4813,16 @@ dependencies = [
  "sovereign-cortex",
  "sovereign-gateway",
  "sovereign-hf-tokenizer",
+ "sovereign-injection-detect",
  "sovereign-logit-mask",
+ "sovereign-pii-redact",
  "sovereign-quant-model",
  "sovereign-router-7axis",
  "sovereign-safetensors-loader",
+ "sovereign-secret-scan",
  "sovereign-srp-scheduler",
  "sovereign-stream-decode",
+ "sovereign-toxicity",
  "sovereign-value-plane",
 ]
 
