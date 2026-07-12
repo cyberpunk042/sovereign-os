@@ -51,11 +51,29 @@ def test_brain_api_is_read_only_over_memory():
 
 def test_brain_panel_renders_memory_and_operate():
     body = _read("webapp/brain/index.html")
-    assert 'id="mem-rows"' in body and "renderMemRows" in body, "memory browser missing"
+    assert 'id="mem-rows"' in body and "renderMemRows" in body, "cortex memory browser missing"
+    assert 'id="pymem-rows"' in body and "renderPyMemRows" in body, "Python Memory-OS browser missing"
     assert 'id="probe-axes"' in body and "buildAxes" in body, "routing probe missing"
     assert 'id="chat-log"' in body and "/brain/chat" in body, "chat console missing"
     assert 'id="daemon-rows"' in body and "renderDaemons" in body, "daemon map missing"
     assert 'id="gw-tripwire"' in body, "sovereignty tripwire missing"
+
+
+def test_brain_memory_lifecycle_controls_are_surfaced():
+    # the CLI-gated Memory-OS lifecycle (forget/undo/decide) is offered on the
+    # brain panel via the control-surface (copy-able commands; mutation stays CLI).
+    cs = _read("config/control-systems.yaml")
+    import yaml  # PyYAML is available in the lint env
+    systems = yaml.safe_load(cs)["systems"]
+    on_brain = {s["id"] for s in systems if "brain" in (s.get("applies_to") or [])}
+    assert {"memory-forget", "memory-undo"} <= on_brain, \
+        f"forget/undo must be surfaced on the brain panel (got {on_brain})"
+
+
+def test_old_strips_cross_link_to_the_brain():
+    for slug in ("trinity", "d-03-model-health"):
+        body = _read(f"webapp/{slug}/index.html")
+        assert "../brain/" in body, f"{slug} must link to the Sovereign Brain observatory"
 
 
 def test_brain_is_registered_everywhere():

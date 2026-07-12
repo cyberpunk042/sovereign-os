@@ -12,6 +12,19 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — Sovereign Brain refinements: second-brain browser, cross-links, memory controls (2026-07-11)
+
+Three follow-ups closing out the brain panel's observability + operability.
+
+- **The second brain is now browsable.** The panel showed the Rust cortex memory in full but the
+  Python Memory-OS only as a summary; it now renders the operational entries (id / type / stage /
+  state / summary) as a table beside the cortex store — the two brains, side by side.
+- **One clear home.** The `trinity` + `d-03-model-health` "Live Gateway" strips now link to the
+  Sovereign Brain observatory (framed as summaries), so there is a single detailed home.
+- **Memory lifecycle from the panel.** The CLI-gated Memory-OS controls (forget / undo / decide /
+  request; SDD-052/059) are surfaced on the brain panel via the control-surface — copy-able,
+  refuse-by-default, mutation stays CLI (`applies_to: […, brain]`). Contract-asserted.
+
 ### Added — read-only routing probe: preview without polluting memory (2026-07-11)
 
 The Sovereign Brain panel's routing probe sent `/v1/simple`, which LEARNS — so every probe grew the

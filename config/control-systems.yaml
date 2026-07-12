@@ -560,7 +560,7 @@ systems:
     change_cli: "sovereign-osctl memory-changes {approve|reject} <id> --confirm"
     state_path: "Memory OS state /run/sovereign-os/memory.json (pending queue)"
     privileged: true
-    applies_to: [d-07-memory-changes]
+    applies_to: [d-07-memory-changes, brain]
     refs: [scripts/intelligence/memory-decide.py]
 
   # ── 27. Session lifecycle decision — hibernate/resume/kill a session (D-01, SDD-053) ──
@@ -628,7 +628,7 @@ systems:
     change_cli: "sovereign-osctl memory-changes forget <id> --confirm"
     state_path: "M028 memory-entry store /var/lib/sovereign-os/memory/store.json"
     privileged: true
-    applies_to: [d-07-memory-changes]
+    applies_to: [d-07-memory-changes, brain]
     refs: [scripts/intelligence/memory-store.py]
 
   # ── 30. Memory undo — reverse a memory change (D-07, SDD-059) ──
@@ -648,7 +648,7 @@ systems:
     change_cli: "sovereign-osctl memory-changes undo <id> --confirm"
     state_path: "M028 memory change-ledger /var/lib/sovereign-os/memory/changes.json"
     privileged: true
-    applies_to: [d-07-memory-changes]
+    applies_to: [d-07-memory-changes, brain]
     refs: [scripts/intelligence/memory-store.py]
 
   # ── 31. Adapter human gate — operator sign-off of the MS041 human gate (D-11, SDD-061) ──
@@ -717,7 +717,7 @@ systems:
     change_cli: "sovereign-osctl memory-changes request {promote|pin|forget} --mtype <mtype>"
     state_path: "M028 memory pending queue /var/lib/sovereign-os/memory/state.json"
     privileged: false
-    applies_to: [d-07-memory-changes]
+    applies_to: [d-07-memory-changes, brain]
     refs: [scripts/intelligence/memory-decide.py]
 
   # SDD-132 (Phase 3 operability) — the 2 genuine wireable gaps the R10212-honest

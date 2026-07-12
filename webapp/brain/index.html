@@ -858,7 +858,7 @@ html[data-theme="light"] {
   <div class="stats" id="gw-stats"></div>
 </div>
 
-<h2>memory <span class="muted" style="font-weight:400;font-size:.8rem">— what the brain has learned (the 8 CoALA types), not a count</span></h2>
+<h2>cortex memory <span class="muted" style="font-weight:400;font-size:.8rem">— what the Rust brain has learned (the 8 CoALA types), not a count</span></h2>
 <div class="panel">
   <div class="row" id="mem-summary"><span class="muted">loading memory…</span></div>
   <div class="stats" id="mem-bytype"></div>
@@ -866,7 +866,15 @@ html[data-theme="light"] {
     <thead><tr><th>id</th><th>type</th><th>trust</th><th>value</th><th>summary / episode</th></tr></thead>
     <tbody id="mem-rows"><tr><td colspan="5" class="muted">loading…</td></tr></tbody>
   </table>
-  <div class="muted" id="py-mem" style="font-size:.78rem;margin-top:.5rem"></div>
+</div>
+
+<h2>second brain <span class="muted" style="font-weight:400;font-size:.8rem">— the Python Memory-OS operational store (M028): reversible entries + a change ledger, beside the Rust cortex</span></h2>
+<div class="panel">
+  <div class="row" id="pymem-summary"><span class="muted">loading…</span></div>
+  <table>
+    <thead><tr><th>id</th><th>type</th><th>stage</th><th>state</th><th>summary</th></tr></thead>
+    <tbody id="pymem-rows"><tr><td colspan="5" class="muted">—</td></tr></tbody>
+  </table>
 </div>
 
 <h2>routing probe <span class="muted" style="font-weight:400;font-size:.8rem">— watch the brain decide (read-only preview — no learning)</span></h2>
@@ -1363,7 +1371,7 @@ const DEMO_MEM = { cortex:{ exists:true, count:120, cold_count:120, by_type:{sem
     {id:1,type:"semantic",trust:850,value_score:700,summary:"demo/ prior successful run of this task class",derived_facts:["role=Oracle"],flags:["readable"]},
     {id:2,type:"episodic",trust:700,value_score:500,summary:"demo/ a partially-related episode",derived_facts:[],flags:["readable"]},
   ]},
-  python:{ exists:true, count:24, active:22, changes:8, path:"demo/store.json", entries:[] } };
+  python:{ exists:true, count:24, active:22, changes:8, path:"demo/store.json", entries:[{id:"m-01",type:"semantic",stage:"consolidated",state:"active",summary:"demo/ operator prefers the careful profile"},{id:"m-02",type:"episodic",stage:"raw",state:"active",summary:"demo/ last build succeeded on znver5"}] } };
 
 function demoActive(){ return !!(window.soDemo && window.soDemo.on()); }
 
@@ -1400,7 +1408,7 @@ function renderMemSummary(cm, pym){
     : '<span class="muted">cortex store empty / unreadable' + (cm && cm.error ? ": " + esc(cm.error) : "") + "</span>";
   const bt = (cm && cm.by_type) || {};
   el("mem-bytype").innerHTML = Object.keys(bt).length ? Object.keys(bt).sort().map(t => card(t, bt[t], "")).join("") : "";
-  el("py-mem").innerHTML = pym && pym.exists
+  el("pymem-summary").innerHTML = pym && pym.exists
     ? "second brain — Python Memory-OS: <strong>" + pym.active + "</strong> active / " + pym.count + " entries · " + pym.changes + " change-ledger records"
     : '<span class="muted">Python Memory-OS store not present (' + esc((pym && pym.path) || "") + ")</span>";
 }
@@ -1416,6 +1424,16 @@ function renderMemRows(cm){
           "<td>" + esc(ep) + "<span class='mem-episode'>" + facts + (i.summary_suspect ? " ⚠ summary-suspect" : "") + "</span></td></tr>";
       }).join("")
     : '<tr><td colspan="5" class="muted">no learned memories yet — the brain fills this as it commits decisions</td></tr>';
+}
+
+function renderPyMemRows(pym){
+  const es = (pym && pym.entries) || [];
+  el("pymem-rows").innerHTML = es.length
+    ? es.map(e => "<tr><td><code>" + esc(e.id) + "</code></td><td><span class='typechip'>" + esc(e.type || "?") + "</span></td>" +
+        "<td class='muted'>" + esc(e.stage || "—") + "</td><td>" +
+        (e.state === "forgotten" ? "<span class='muted'>forgotten</span>" : esc(e.state || "active")) + "</td>" +
+        "<td>" + esc(e.summary || "") + "</td></tr>").join("")
+    : '<tr><td colspan="5" class="muted">' + ((pym && pym.exists) ? "no entries yet" : "Python Memory-OS store not present") + "</td></tr>";
 }
 
 function renderDaemons(ds){
@@ -1439,6 +1457,7 @@ async function refreshMemory(){
   try{
     const d = demoActive() ? DEMO_MEM : await (await fetch("/brain/memory", { headers: { Accept: "application/json" } })).json();
     renderMemRows(d.cortex);
+    renderPyMemRows(d.python);
   } catch (e){ /* keep prior rows */ }
 }
 
