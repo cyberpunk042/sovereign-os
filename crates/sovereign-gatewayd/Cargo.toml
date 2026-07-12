@@ -43,3 +43,6 @@ sovereign-injection-detect = { path = "../sovereign-injection-detect" }
 sovereign-secret-scan = { path = "../sovereign-secret-scan" }
 sovereign-pii-redact = { path = "../sovereign-pii-redact" }
 sovereign-toxicity = { path = "../sovereign-toxicity" }
+# Admission control: bound how fast expensive generation requests are admitted, so a
+# runaway/buggy client can't peg the box's CPU/GPU (a token bucket in front of generate).
+sovereign-rate-limit = { path = "../sovereign-rate-limit" }

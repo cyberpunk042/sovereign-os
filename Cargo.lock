@@ -4818,6 +4818,7 @@ dependencies = [
  "sovereign-memory-os",
  "sovereign-pii-redact",
  "sovereign-quant-model",
+ "sovereign-rate-limit",
  "sovereign-router-7axis",
  "sovereign-safetensors-loader",
  "sovereign-secret-scan",

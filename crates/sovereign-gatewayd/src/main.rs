@@ -67,6 +67,8 @@ ENVIRONMENT:
     SOVEREIGN_GATEWAY_MAX_CONN     max concurrent connections (default 256)
     SOVEREIGN_GATEWAY_TIMEOUT_SECS per-connection read/write deadline (default 30; 0 disables)
     SOVEREIGN_GATEWAY_TOKEN        require Authorization: Bearer <token> on the HTTP surface (unset = open)
+    SOVEREIGN_GATEWAY_RATE_CAPACITY  generation burst size — token-bucket capacity (default 60; 0 disables)
+    SOVEREIGN_GATEWAY_RATE_PER_SEC   sustained generation rate — tokens/sec refill (default 20)
 
   Safety spine (input screening + output redaction; all default on):
     SOVEREIGN_GATEWAY_GUARD                  master switch (0 disables the spine)
@@ -524,6 +526,28 @@ fn handle_http_conn(server: &GatewayServer, stream: TcpStream) -> std::io::Resul
         .next()
         .unwrap_or(&path)
         .trim_end_matches('/');
+
+    // Admission control on the expensive generation endpoints: a token bucket bounds
+    // how fast they are admitted so a runaway client can't peg the box. Refuse with
+    // 429 in the requested API's error shape, BEFORE any generation work.
+    let is_generation =
+        method == "POST" && matches!(route, "/v1/messages" | "/v1/chat/completions");
+    if is_generation && !server.admit_generation() {
+        let reply = if route == "/v1/chat/completions" {
+            http::err(
+                429,
+                "rate limit exceeded — too many generation requests".to_string(),
+            )
+        } else {
+            http::anthropic_err(
+                429,
+                "rate_limit_error",
+                "rate limit exceeded — too many generation requests".to_string(),
+            )
+        };
+        return write_http(&mut writer, &reply);
+    }
+
     if method == "POST" && route == "/v1/chat/completions" {
         return stream_chat_completions(server, &mut writer, &body);
     }

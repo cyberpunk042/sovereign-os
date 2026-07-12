@@ -224,6 +224,22 @@ per-device model status (the D-22 LM Status & Operability panel). SDD-902.
   are down; a webapp-contract test locks the section + the copyable verbs + the demo fixture. 24 D-22 contract
   tests.
 
+### Added — wire an island crate: `sovereign-rate-limit` → gateway generation admission control (2026-07-12)
+
+De-islanding pass (SDD-955 island register): `sovereign-rate-limit` was a real, tested, zero-reverse-dependency
+crate — built but wired into nothing. It is now the gateway's generation admission control.
+
+- `sovereign-gatewayd` depends on `sovereign-rate-limit`; a `TokenBucket` (capacity + refill from
+  `SOVEREIGN_GATEWAY_RATE_CAPACITY` / `_PER_SEC`, defaults 60 burst / 20-per-sec, 0 disables) bounds how fast the
+  expensive generation endpoints (`/v1/messages`, `/v1/chat/completions`) are admitted, so a runaway/buggy client
+  can't peg the box's CPU/GPU. `admit_generation()` spends one token at the HTTP boundary — BEFORE any generation
+  work; a refusal is a `429` in the requested API's error shape (`rate_limit_error` / OpenAI), tallied on
+  `/metrics` as `sovereign_gateway_rate_limited_total`. Fail-open on a poisoned lock (availability > strictness).
+- The island register (`docs/review/phase-1/island-register.md`) drops the `sovereign-rate-limit` row (35 → 34);
+  `tests/lint/test_island_register.py` enforces that a wired crate leaves the register (and stays green).
+- Verified: a transport test with a 2-token no-refill bucket admits 2 requests then `429`s the 3rd and the
+  refusal shows on `/metrics`. 64 lib+http + 4 bin + 18 transport tests (1 new); clippy `-D warnings` + fmt clean.
+
 ### Added — the `sovereign-osctl model-serve` verb: launch a GPU model in one command (2026-07-12)
 
 The operability capstone for Compute Plane Phase 2 (SDD-902) — launching a GPU-hosted model no longer means

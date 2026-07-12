@@ -7,7 +7,7 @@
 
 The audit's dominant theme is **built-but-unwired islands**: real, tested crates that nothing which runs depends on. The sharpest, most objective signal is a **pure-library crate (`src/lib.rs`, no `main.rs`/`bin/`) that appears in NO other crate's `Cargo.toml`** — it is depended on by nothing at all, not even a demo or a test.
 
-There are **35** such crates today (excluding the 418 `sovereign-cockpit-*` leaf UI widgets, which are a known family consumed by the webapp, not by other crates; and excluding binaries, whose lack of reverse-deps is expected). Each is either **wireable** (a plausible in-repo consumer could pull it in crate-to-crate, no new gateway HTTP surface) or **aspirational** (needs a real model / GPU / system-level integration like ZFS/CRIU/VM/network, or an operator decision, before it can be wired). Every one carries a **trigger** — the concrete thing that would activate it — so a rediscovery is an owned backlog item, not a surprise.
+There are **34** such crates today (excluding the 418 `sovereign-cockpit-*` leaf UI widgets, which are a known family consumed by the webapp, not by other crates; and excluding binaries, whose lack of reverse-deps is expected). *(Was 35 — `sovereign-rate-limit` was wired into `sovereign-gatewayd` as generation admission control, so it left the register.)* Each is either **wireable** (a plausible in-repo consumer could pull it in crate-to-crate, no new gateway HTTP surface) or **aspirational** (needs a real model / GPU / system-level integration like ZFS/CRIU/VM/network, or an operator decision, before it can be wired). Every one carries a **trigger** — the concrete thing that would activate it — so a rediscovery is an owned backlog item, not a surprise.
 
 The lint keeps this honest **both directions**: add a new pure-library crate with no consumer and CI fails until it is registered here (wire it, or record its trigger); wire an existing island (give it a consumer) and CI fails until its row is removed. The register can only drift toward "everything is either wired or consciously parked."
 
@@ -21,7 +21,7 @@ There are **two parallel generation stacks**. The *wired* one in `gatewayd` runs
 
 ## Inventory summary (non-cockpit core islands)
 
-Per the dependency closure from the three production binaries (`sovereign-gatewayd`, `sovereign-telemetry`, `sovereign-resource-control`): **53 crates run**; the rest are islands — **418 cockpit-\*** (a family, not enumerated) **+ ~241 non-cockpit** library crates, of which the **35 below have literally zero reverse-dependencies** (the enforced set). The remaining ~206 non-cockpit islands are reachable today only through the `sovereign-llm` / `sovereign-retrieval` hubs (demo/island-only) — a softer signal, not enforced here.
+Per the dependency closure from the three production binaries (`sovereign-gatewayd`, `sovereign-telemetry`, `sovereign-resource-control`): **53 crates run**; the rest are islands — **418 cockpit-\*** (a family, not enumerated) **+ ~241 non-cockpit** library crates, of which the **34 below have literally zero reverse-dependencies** (the enforced set). The remaining ~206 non-cockpit islands are reachable today only through the `sovereign-llm` / `sovereign-retrieval` hubs (demo/island-only) — a softer signal, not enforced here.
 
 <!-- ISLAND-REGISTER: pure-library sovereign-* crates (src/lib.rs, no main.rs/bin) with ZERO
      reverse-dependencies across all crates/*/Cargo.toml. Verified by
@@ -54,7 +54,6 @@ Per the dependency closure from the three production binaries (`sovereign-gatewa
 | sovereign-network-zerotrust | aspirational | real network policy enforcement at the bridge |
 | sovereign-observability-events | wireable | `sovereign-telemetry` emits/consumes its event type |
 | sovereign-pcie-topology | wireable | the GPU plane (SDD-207) reads PCIe topology from it |
-| sovereign-rate-limit | wireable | the gateway adds a rate-limit middleware in front of generate |
 | sovereign-replay-export-bundle | wireable | an audit/replay export consumer |
 | sovereign-replay-playback-rate | wireable | a replay-playback consumer |
 | sovereign-sandbox-profile | aspirational | the real execution-path boundary (F-2026-081) selects a profile |

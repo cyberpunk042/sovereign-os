@@ -42,6 +42,7 @@ use sovereign_coat::{
 };
 use sovereign_cortex::{Cortex, CortexRequest, Deliberation, seed_memory};
 use sovereign_gateway::{GatewayManifest, GatewaySurface, SCHEMA_VERSION, SurfaceState};
+use sovereign_rate_limit::TokenBucket;
 use sovereign_router_7axis::{Complexity, TaskAxes};
 use sovereign_srp_scheduler::{Precision, RolePressure, Workload, WorkloadClass};
 use sovereign_value_plane::{IntelligenceTier, NextAction, RewardVector};
@@ -575,6 +576,14 @@ pub struct GatewayServer {
     guard_injections: std::sync::atomic::AtomicU64,
     guard_secrets: std::sync::atomic::AtomicU64,
     guard_pii: std::sync::atomic::AtomicU64,
+    /// Admission control on generation requests: a token bucket that bounds how fast
+    /// the expensive generate endpoints are admitted, so a runaway client can't peg
+    /// the box. `None` disables it (capacity 0). `rate_start` is the monotonic origin
+    /// for the injected `now_ms` the bucket takes.
+    rate: Option<Mutex<TokenBucket>>,
+    rate_start: std::time::Instant,
+    /// Count of requests refused by the rate limiter (surfaced on `/metrics`).
+    rate_limited: std::sync::atomic::AtomicU64,
 }
 
 /// A loaded local generation engine: real weights + a real byte-level BPE
@@ -1018,6 +1027,20 @@ impl GatewayServer {
             guard_injections: std::sync::atomic::AtomicU64::new(0),
             guard_secrets: std::sync::atomic::AtomicU64::new(0),
             guard_pii: std::sync::atomic::AtomicU64::new(0),
+            rate: {
+                // capacity = burst size, per_sec = sustained rate; capacity 0 disables.
+                let cap = std::env::var("SOVEREIGN_GATEWAY_RATE_CAPACITY")
+                    .ok()
+                    .and_then(|s| s.parse::<f64>().ok())
+                    .unwrap_or(60.0);
+                let per_sec = std::env::var("SOVEREIGN_GATEWAY_RATE_PER_SEC")
+                    .ok()
+                    .and_then(|s| s.parse::<f64>().ok())
+                    .unwrap_or(20.0);
+                (cap > 0.0).then(|| Mutex::new(TokenBucket::new(cap, per_sec.max(0.0), 0)))
+            },
+            rate_start: std::time::Instant::now(),
+            rate_limited: std::sync::atomic::AtomicU64::new(0),
         }
     }
 
@@ -1139,6 +1162,28 @@ impl GatewayServer {
             Some(Self::BACKGROUND_ALIAS) => self.background_id(),
             other => other.map(str::to_string),
         }
+    }
+
+    /// Admission control for a generation request: spend one token from the rate
+    /// bucket. Returns `true` if admitted, `false` if the caller should refuse with
+    /// `429`. Disabled (always `true`) when no limiter is configured; fail-open on a
+    /// poisoned lock (availability over strictness). Tallies refusals for `/metrics`.
+    pub fn admit_generation(&self) -> bool {
+        let Some(bucket) = self.rate.as_ref() else {
+            return true;
+        };
+        let now_ms = self.rate_start.elapsed().as_millis() as u64;
+        let admitted = bucket.lock().map(|mut b| b.try_one(now_ms)).unwrap_or(true);
+        if !admitted {
+            self.rate_limited
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        }
+        admitted
+    }
+
+    /// Count of generation requests refused by the rate limiter (for `/metrics`).
+    pub fn rate_limited_count(&self) -> u64 {
+        self.rate_limited.load(std::sync::atomic::Ordering::Relaxed)
     }
 
     /// Unload a secondary model OR unregister a proxy backend. Returns whether one
@@ -1735,6 +1780,14 @@ impl GatewayServer {
         s.push_str(&format!(
             "sovereign_gateway_guard_enabled {}\n",
             u8::from(self.guard.enabled)
+        ));
+        s.push_str(
+            "# HELP sovereign_gateway_rate_limited_total Generation requests refused by the rate limiter.\n",
+        );
+        s.push_str("# TYPE sovereign_gateway_rate_limited_total counter\n");
+        s.push_str(&format!(
+            "sovereign_gateway_rate_limited_total {}\n",
+            self.rate_limited_count()
         ));
 
         s

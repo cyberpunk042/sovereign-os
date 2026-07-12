@@ -512,6 +512,46 @@ fn http_survives_a_malicious_upstream_chunk_size() {
 }
 
 #[test]
+fn http_rate_limits_generation() {
+    // A tiny bucket (capacity 2, no refill) admits 2 generation requests then 429s the
+    // 3rd — proving admission control (sovereign-rate-limit) is wired in front of
+    // generate. No model is loaded, so an admitted request is a 503; the point is that
+    // the 3rd is refused BEFORE any work, and the refusal is tallied on /metrics.
+    let d = spawn_with_env(
+        "--http",
+        &[
+            ("SOVEREIGN_GATEWAY_RATE_CAPACITY", "2"),
+            ("SOVEREIGN_GATEWAY_RATE_PER_SEC", "0"),
+        ],
+    );
+    let body = serde_json::json!({
+        "model": "x", "max_tokens": 4, "messages": [{"role": "user", "content": "hi"}],
+    })
+    .to_string();
+    let (s1, _) = http_request(&d.addr, "POST", "/v1/messages", &body);
+    let (s2, _) = http_request(&d.addr, "POST", "/v1/messages", &body);
+    let (s3, b3) = http_request(&d.addr, "POST", "/v1/messages", &body);
+    assert!(
+        s1.starts_with("HTTP/1.1 503"),
+        "1st admitted (503 no model): {s1}"
+    );
+    assert!(s2.starts_with("HTTP/1.1 503"), "2nd admitted: {s2}");
+    assert!(
+        s3.starts_with("HTTP/1.1 429"),
+        "3rd must be rate-limited: {s3}"
+    );
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&b3).unwrap()["error"]["type"],
+        "rate_limit_error"
+    );
+    let (_, m) = http_request(&d.addr, "GET", "/metrics", "");
+    assert!(
+        m.contains("sovereign_gateway_rate_limited_total 1"),
+        "metrics:\n{m}"
+    );
+}
+
+#[test]
 fn http_simple_runs_engine_from_minimal_input_over_socket() {
     let d = spawn("--http");
     let reqs = sovereign_cortex::demo_requests();
