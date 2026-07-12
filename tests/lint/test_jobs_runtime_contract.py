@@ -126,6 +126,10 @@ def test_compute_plane_surfaces_exist():
     assert "compute_plane" in api and "PLANE" in api and "PLANE.place" in api, \
         "jobs-api must place jobs via the compute plane"
     assert "/plane.json" in api, "jobs-api must expose the compute-plane state"
+    # the plane is the SINGLE VRAM claims authority: the gateway registers model
+    # residents here so models + jobs share one VRAM view (no double-booking)
+    for ep in ("/plane/place", "/plane/claim", "/plane/release"):
+        assert ep in api, f"the compute plane must expose the claim endpoint {ep}"
     osctl = (REPO / "scripts" / "sovereign-osctl").read_text(encoding="utf-8")
     assert "plane)" in osctl, "osctl plane verb missing"
     cov = (REPO / "config" / "feature-coverage.yaml").read_text(encoding="utf-8")

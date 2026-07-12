@@ -328,6 +328,18 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(404, json.dumps({"error": "no such job"}))
         if path == "/jobs/ingest":
             return self._send(200, json.dumps(STORE.ingest(body)))
+        # ── the compute plane is the SINGLE VRAM claims authority: the gateway
+        # registers model residents here so models + jobs share one VRAM view ──
+        if path == "/plane/place":
+            device = PLANE.place(float(body.get("need_gb", 0) or 0), body.get("role"))
+            return self._send(200, json.dumps({"device": device}))
+        if path == "/plane/claim":
+            cid = str(body.get("id") or _js.new_id())
+            rec = PLANE.claim(cid, str(body.get("device", "")), float(body.get("vram_gb", 0) or 0),
+                              kind=str(body.get("kind", "model")), job=str(body.get("job", "")))
+            return self._send(200, json.dumps(rec))
+        if path == "/plane/release":
+            return self._send(200, json.dumps({"released": PLANE.release(str(body.get("id", "")))}))
         return self._send(404, json.dumps({"error": "unknown route"}))
 
 
