@@ -43,6 +43,19 @@ struct DeliberateBody {
     tier: IntelligenceTier,
 }
 
+/// The `POST /v1/coat` body: the problem to deliberate about, optional recall
+/// sketches (topic/entity), and the ladder rung (`cot`/`tot`/`mcts`/`coat`).
+#[derive(serde::Deserialize)]
+struct CoatBody {
+    problem: String,
+    #[serde(default)]
+    topic: u64,
+    #[serde(default)]
+    entity: u64,
+    #[serde(default)]
+    rung: String,
+}
+
 /// Maximum request-body size the daemon will read. A `Content-Length` larger
 /// than this is refused with `413` *before* any buffer is allocated, so a
 /// client cannot exhaust memory by claiming a huge body. Cortex requests are a
@@ -181,6 +194,23 @@ pub fn respond(server: &GatewayServer, method: &str, path: &str, body: &str) -> 
             Err(e) => err(400, format!("invalid deliberate body: {e}")),
         },
 
+        ("POST", "/v1/coat") => match serde_json::from_str::<CoatBody>(body) {
+            Ok(b) => {
+                let resp = server.handle(GatewayRequest::Coat {
+                    problem: b.problem,
+                    topic: b.topic,
+                    entity: b.entity,
+                    rung: b.rung,
+                });
+                let status = match resp {
+                    GatewayResponse::Error { .. } => 422,
+                    _ => 200,
+                };
+                render(status, &resp)
+            }
+            Err(e) => err(400, format!("invalid coat body: {e}")),
+        },
+
         // A known resource with the wrong verb is 405; anything else is 404.
         (_, "/health") | (_, "/manifest") | (_, "/admin/ledger") | (_, "/metrics") => {
             err(405, format!("method {method} not allowed on {route}"))
@@ -190,6 +220,7 @@ pub fn respond(server: &GatewayServer, method: &str, path: &str, body: &str) -> 
         | (_, "/mcp")
         | (_, "/v1/explain")
         | (_, "/v1/deliberate")
+        | (_, "/v1/coat")
         | (_, "/v1/simple")
         | (_, "/v1/simple-explain") => err(405, format!("method {method} not allowed on {route}")),
         _ => err(404, format!("no route for {method} {route}")),
@@ -386,6 +417,46 @@ mod tests {
             400
         );
         assert_eq!(respond(&srv(), "GET", "/v1/deliberate", "").status, 405);
+    }
+
+    #[test]
+    fn post_coat_deliberates_with_associative_recall_read_only() {
+        let s = srv();
+        // topic 0b1111 overlaps the seeded memory → the CoAT engine recalls real
+        // associative evidence at expansion (its defining mechanism).
+        let body = serde_json::json!({
+            "problem": "prove the routing invariant holds",
+            "topic": 15,
+            "rung": "coat",
+        })
+        .to_string();
+        let r = respond(&s, "POST", "/v1/coat", &body);
+        assert_eq!(r.status, 200);
+        let v = body_of(&r);
+        assert_eq!(v["kind"], "coat-trace");
+        assert_eq!(v["trace"]["rung"], "CoAT");
+        assert!(!v["trace"]["best_path"].as_array().unwrap().is_empty());
+        assert!(
+            v["trace"]["recalled_total"].as_u64().unwrap() >= 1,
+            "CoAT must recall associative memory from the live Cortex"
+        );
+        // Read-only: the request ledger is untouched (only dry-runs move).
+        let led = body_of(&respond(&s, "GET", "/admin/ledger", ""));
+        assert_eq!(led["ledger"]["total_requests"], 0);
+    }
+
+    #[test]
+    fn coat_rungs_and_errors() {
+        let s = srv();
+        // the CoT rung yields a linear chain, no recall.
+        let cot = serde_json::json!({"problem": "x", "rung": "cot"}).to_string();
+        let v = body_of(&respond(&s, "POST", "/v1/coat", &cot));
+        assert_eq!(v["trace"]["rung"], "CoT");
+        // an unknown rung is an engine refusal (422), a bad body is 400, GET is 405.
+        let bad = serde_json::json!({"problem": "x", "rung": "bogus"}).to_string();
+        assert_eq!(respond(&s, "POST", "/v1/coat", &bad).status, 422);
+        assert_eq!(respond(&s, "POST", "/v1/coat", "{nope}").status, 400);
+        assert_eq!(respond(&s, "GET", "/v1/coat", "").status, 405);
     }
 
     #[test]

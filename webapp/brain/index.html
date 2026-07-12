@@ -898,6 +898,40 @@ html[data-theme="light"] {
   <div id="probe-result" class="muted" style="margin-top:.6rem">— pick the 7 axes and probe to see the route / device / verdict</div>
 </div>
 
+<style>
+/* CoAT observatory — the sovereign-coat deliberation trace. Monochrome; uses
+   the panel palette vars. Each step shows the backpropagated MCTS value vs the
+   bare prior, the visit count, and the associative memory recalled there. */
+.coat-sum { margin-bottom:.5rem; }
+.coat-path { display:flex; flex-direction:column; gap:.4rem; }
+.coat-step { border:1px solid var(--border,#262626); border-left:2px solid var(--border,#262626);
+  border-radius:.35rem; padding:.4rem .55rem; background:rgba(255,255,255,.02); }
+.coat-step-h { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
+.coat-cat { font-size:.68rem; text-transform:uppercase; letter-spacing:.05em; font-weight:600;
+  border:1px solid var(--border,#333); border-radius:3px; padding:0 .35rem; color:var(--accent,#9bd1ff); }
+.coat-val { font-size:.78rem; }
+.coat-val.up { color:var(--accent,#9bd1ff); }
+.coat-txt { font-size:.86rem; margin-top:.2rem; }
+.coat-recall { font-size:.72rem; margin-top:.25rem; color:var(--muted,#888); }
+.coat-mem { display:inline-block; border:1px solid var(--border,#333); border-radius:3px;
+  padding:0 .3rem; margin:0 .15rem .15rem 0; font-family:var(--mono,monospace); font-size:.68rem; }
+</style>
+<h2>reasoning — CoAT deliberation <span class="muted" style="font-weight:400;font-size:.8rem">— the sovereign-coat engine: iterative MCTS that recalls associative memory at every step (read-only)</span></h2>
+<div class="panel">
+  <div class="row" style="align-items:center;gap:.5rem;flex-wrap:wrap">
+    <input id="coat-problem" type="text" placeholder="a problem to deliberate about…" style="flex:1;min-width:15rem">
+    <label class="muted" style="font-size:.72rem">rung
+      <select id="coat-rung" style="vertical-align:middle">
+        <option value="coat" selected>CoAT — MCTS + memory</option>
+        <option value="mcts">MCTS — UCT</option>
+        <option value="tot">ToT — tree</option>
+        <option value="cot">CoT — chain</option>
+      </select></label>
+    <button id="coat-btn">▷ deliberate</button>
+  </div>
+  <div id="coat-result" class="muted" style="margin-top:.6rem">— enter a problem and deliberate: the engine searches a tree of thoughts and recalls Memory-OS knowledge that modulates each thought's value (CoAT)</div>
+</div>
+
 <h2>chat with the brain <span class="muted" style="font-weight:400;font-size:.8rem">— the :8787 OpenAI shim (streamed)</span></h2>
 <div class="panel">
   <div id="chat-log"><span class="muted">the local model answers here — needs a model loaded (SOVEREIGN_GATEWAY_MODEL)</span></div>
@@ -1339,7 +1373,7 @@ html[data-theme="light"] {
 <script>SovereignControlSurface.load(document.getElementById('control-surface'),{filterSlug:'brain'});</script>
 
 <footer>
-  <div>data: <code>GET /brain.json</code> + <code>/brain/memory</code> ← <code>scripts/operator/brain-api.py</code> (probes <code>sovereign-gatewayd :8787</code> + the Memory-OS stores) · operate: <code>/brain/route</code> (decide) · <code>POST /brain/chat</code> (the :8787 OpenAI shim)</div>
+  <div>data: <code>GET /brain.json</code> + <code>/brain/memory</code> ← <code>scripts/operator/brain-api.py</code> (probes <code>sovereign-gatewayd :8787</code> + the Memory-OS stores) · operate: <code>/brain/route</code> (decide) · <code>/brain/coat</code> (CoAT deliberate) · <code>POST /brain/chat</code> (the :8787 OpenAI shim)</div>
   <div class="standing-rule">"We do not minimize anything." — operator §1g standing rule</div>
 </footer>
 
@@ -1381,6 +1415,13 @@ const DEMO_MEM = { cortex:{ exists:true, count:120, cold_count:120, by_type:{sem
     {id:2,type:"episodic",trust:700,value_score:500,summary:"demo/ a partially-related episode",derived_facts:[],flags:["readable"]},
   ]},
   python:{ exists:true, count:24, active:22, changes:8, path:"demo/store.json", entries:[{id:"m-01",type:"semantic",stage:"consolidated",state:"active",summary:"demo/ operator prefers the careful profile"},{id:"m-02",type:"episodic",stage:"raw",state:"active",summary:"demo/ last build succeeded on znver5"}] } };
+const DEMO_COAT = { rung:"CoAT", iterations:64, nodes_expanded:31, recalled_total:12,
+  best_path:[
+    {depth:1,category:"understand",text:"demo/ restate the problem: prove the routing invariant holds under load",prior:0.86,value:0.97,visits:22,recall:[{id:1,relevance:1.0,note:"mem#1"},{id:2,relevance:0.58,note:"mem#2"}]},
+    {depth:2,category:"plan",text:"demo/ decompose into (a) steady-state and (b) burst; check each tier's admission rule",prior:0.84,value:0.98,visits:9,recall:[{id:1,relevance:1.0,note:"mem#1"}]},
+    {depth:3,category:"code",text:"demo/ instrument the SRP scheduler and replay the burst trace",prior:0.82,value:1.0,visits:3,recall:[{id:1,relevance:1.0,note:"mem#1"}]},
+  ],
+  tree:[] };
 
 function demoActive(){ return !!(window.soDemo && window.soDemo.on()); }
 
@@ -1492,6 +1533,54 @@ async function probe(){
   } catch (e){ el("probe-result").innerHTML = "<span class='bad'>" + esc(e.message) + "</span>"; }
 }
 
+// CoAT deliberation — run the sovereign-coat reasoning engine (GET /brain/coat →
+// POST :8787 /v1/coat) and render the winning reasoning trace. Read-only: the
+// gateway decides without learning, so a deliberation never pollutes memory.
+async function coatDeliberate(){
+  const problem = el("coat-problem").value.trim();
+  if (!problem){ el("coat-result").innerHTML = "<span class='muted'>enter a problem first</span>"; return; }
+  if (demoActive()){ renderCoat(DEMO_COAT); return; }
+  const rung = el("coat-rung").value;
+  el("coat-result").textContent = "deliberating…";
+  try{
+    const q = new URLSearchParams({ problem: problem, rung: rung });
+    const d = await (await fetch("/brain/coat?" + q.toString())).json();
+    if (d.error){ el("coat-result").innerHTML = "<span class='bad'>" + esc(d.error) + "</span>"; return; }
+    renderCoat(d);
+  } catch (e){ el("coat-result").innerHTML = "<span class='bad'>" + esc(e.message) + "</span>"; }
+}
+function renderCoat(d){
+  const path = d.best_path || [];
+  const steps = path.map(function(s){
+    const rec = (s.recall || []).map(function(r){
+      const rel = (r.relevance != null) ? Number(r.relevance).toFixed(2) : "?";
+      return "<span class='coat-mem' title='associative memory recalled at this thought'>mem#" + esc(r.id) + " · " + rel + "</span>";
+    }).join(" ");
+    const lift = (s.value != null && s.prior != null && s.value > s.prior + 1e-6);
+    const val = (s.value != null) ? Number(s.value).toFixed(2) : "?";
+    const pri = (s.prior != null) ? Number(s.prior).toFixed(2) : "?";
+    return "<div class='coat-step'>"
+      + "<div class='coat-step-h'>"
+      + "<span class='coat-cat'>" + esc(s.category || "") + "</span>"
+      + "<span class='coat-val" + (lift ? " up" : "") + "' title='backpropagated MCTS value vs the bare prior'>value " + val
+      + " <span class='muted'>(prior " + pri + ")</span>" + (lift ? " ↑ memory-lifted" : "") + "</span>"
+      + "<span style='flex:1'></span>"
+      + "<span class='muted' style='font-size:.72rem'>×" + esc(s.visits != null ? s.visits : "?") + " visits</span>"
+      + "</div>"
+      + "<div class='coat-txt'>" + esc(s.text || "") + "</div>"
+      + (rec ? "<div class='coat-recall'>↳ recalled: " + rec + "</div>" : "")
+      + "</div>";
+  }).join("");
+  const nodes = (d.nodes_expanded != null) ? d.nodes_expanded : (d.tree || []).length;
+  el("coat-result").innerHTML =
+    "<div class='coat-sum'><strong>" + esc(d.rung || "CoAT") + "</strong> "
+    + "<span class='typechip'>read-only · not learned</span> "
+    + "<span class='muted' style='font-size:.8rem'>" + esc(d.iterations || 0) + " iterations · "
+    + esc(nodes) + " nodes · " + esc(d.recalled_total || 0) + " memory items recalled</span></div>"
+    + "<div class='coat-path'>" + (steps || "<span class='muted'>no reasoning path</span>") + "</div>"
+    + "<div class='muted' style='font-size:.72rem;margin-top:.4rem'>the winning chain — each step's value is the backpropagated MCTS estimate; ↑ marks a thought lifted by recalled memory (CoAT's mechanism)</div>";
+}
+
 // interactive clarification (QCFA / AskUserQuestion) — same behaviour as the
 // code console: a fenced ```askuserquestion block becomes clickable options + a
 // free-text "Other", and the picked answer feeds back as the next turn. Graceful
@@ -1579,6 +1668,8 @@ async function chat(){
 buildAxes();
 el("probe-btn").addEventListener("click", probe);
 el("probe-quality").addEventListener("input", () => { el("probe-q-val").textContent = parseFloat(el("probe-quality").value).toFixed(2); });
+el("coat-btn").addEventListener("click", coatDeliberate);
+el("coat-problem").addEventListener("keydown", e => { if (e.key === "Enter") coatDeliberate(); });
 el("chat-send").addEventListener("click", chat);
 el("chat-input").addEventListener("keydown", e => { if (e.key === "Enter") chat(); });
 

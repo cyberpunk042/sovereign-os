@@ -1,0 +1,19 @@
+[package]
+name = "sovereign-coat"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "CoAT — Chain-of-Associated-Thoughts: iterative MCTS deliberation over the M007 branch tree, where every expansion recalls associative memory that modulates a thought's value. One engine that IS the whole reasoning ladder — CoT (branch=1) -> ToT (branch>1) -> MCTS (UCT select/expand/simulate/backprop) -> C-MCTS (bounded action categories) -> CoAT (memory recall). Generic over a thought source + an associative memory, so the search harness is deterministic and testable without a model."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+sovereign-branch-tree = { path = "../sovereign-branch-tree" }

@@ -781,6 +781,27 @@ impl Cortex {
         })
     }
 
+    /// Associative recall for the CoAT reasoning engine (`sovereign-coat`): the
+    /// Memory-OS staged scan, exposed as `(id, relevance)` pairs so callers need
+    /// not depend on the `sovereign-memory-os` `Hit` type. This is the same
+    /// `retrieve` that feeds `deliberate`'s evidence boost — surfaced so an
+    /// external MCTS can pull associative memory at every expansion (CoAT's
+    /// defining mechanism). Read-only.
+    pub fn recall(
+        &self,
+        topic: u64,
+        entity: u64,
+        now: u64,
+        half_life: u64,
+        k: usize,
+    ) -> Vec<(u64, f64)> {
+        self.memory
+            .retrieve(&Query::new(topic, entity, now, half_life), k)
+            .into_iter()
+            .map(|hit| (hit.id, hit.relevance))
+            .collect()
+    }
+
     /// Shared front of the pipeline: route → place → recall + evidence boost.
     fn prepare(&self, req: &CortexRequest) -> Result<Prepared, CortexError> {
         let route = route(&req.axes)?;

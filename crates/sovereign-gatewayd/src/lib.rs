@@ -36,6 +36,10 @@ use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
 
+use sovereign_coat::{
+    AssociativeMemory, CoatConfig, CoatEngine, CoatTrace, PathStep, Problem, Recall, ThoughtCategory,
+    ThoughtContext, ThoughtSeed, ThoughtSource,
+};
 use sovereign_cortex::{Cortex, CortexRequest, Deliberation, seed_memory};
 use sovereign_gateway::{GatewayManifest, GatewaySurface, SCHEMA_VERSION, SurfaceState};
 use sovereign_router_7axis::{Complexity, TaskAxes};
@@ -203,6 +207,24 @@ pub enum GatewayRequest {
         /// How much compute to spend (fanout budget): `reflex` … `experimental`.
         tier: IntelligenceTier,
     },
+    /// CoAT deliberation (read-only): run the `sovereign-coat` iterative MCTS
+    /// reasoning engine, where every expansion recalls associative memory from
+    /// this daemon's live Cortex Memory-OS. Returns the winning reasoning trace +
+    /// the full search tree. The `rung` selects the ladder preset
+    /// (`cot`/`tot`/`mcts`/`coat`, default `coat`).
+    Coat {
+        /// The problem statement to deliberate about.
+        problem: String,
+        /// Topic sketch bitset for associative recall (Memory-OS `Query`).
+        #[serde(default)]
+        topic: u64,
+        /// Entity sketch bitset for associative recall.
+        #[serde(default)]
+        entity: u64,
+        /// Which rung of the reasoning ladder to run.
+        #[serde(default)]
+        rung: String,
+    },
     /// Return the 6-surface gateway manifest.
     Manifest,
     /// Return liveness + the never-cloud-spill invariant state.
@@ -234,6 +256,12 @@ pub enum GatewayResponse {
     Deliberation {
         /// The winner + every candidate assessment + the branch tree.
         deliberation: Box<Deliberation>,
+    },
+    /// A CoAT deliberation result (read-only): the winning reasoning trace + the
+    /// full search tree, with the associative memory recalled at each node.
+    CoatTrace {
+        /// The reasoning trace produced by `sovereign-coat`.
+        trace: Box<CoatTrace>,
     },
     /// The gateway manifest.
     Manifest {
@@ -301,6 +329,69 @@ pub struct Health {
     pub cloud_spills: u64,
     /// The headline safety invariant: `cloud_spills == 0`.
     pub never_cloud_spill_holds: bool,
+}
+
+/// Adapts the daemon's live Cortex Memory-OS to the CoAT
+/// [`AssociativeMemory`] trait: the associative recall the engine pulls at every
+/// expansion is the box's **real** memory, not a stub. This is what makes the
+/// gateway's CoAT the sovereign-native reasoning framework — it recalls from the
+/// same two-brain store the `/brain/` observatory browses.
+struct CortexRecall<'a> {
+    cortex: &'a Cortex,
+}
+
+impl AssociativeMemory for CortexRecall<'_> {
+    fn recall(&self, ctx: &ThoughtContext, k: usize) -> Vec<Recall> {
+        // Memory-OS staged scan keyed on the problem's topic/entity sketches.
+        // Fixed now/half_life match the demo freshness of the seeded store.
+        let hits = self.cortex.recall(ctx.topic, ctx.entity, 100, 1000, k);
+        // Normalize relevance into [0,1] by the batch max so the strongest recall
+        // reads ~1.0; the engine's recall_weight then modulates the thought value.
+        let max = hits.iter().map(|(_, r)| *r).fold(0.0_f64, f64::max).max(1e-9);
+        hits.into_iter()
+            .map(|(id, r)| Recall {
+                id,
+                relevance: (r / max).clamp(0.0, 1.0),
+                note: format!("mem#{id}"),
+            })
+            .collect()
+    }
+}
+
+/// A deterministic, model-free thought source: structured, category-phased
+/// candidate thoughts so the search harness + the associative recall are
+/// demonstrable WITHOUT a loaded model. The thought *content* is the model-gated
+/// half of CoAT (see `docs/standing-directives/2026-07-12-deliberate-reasoning.md`);
+/// when a generator is present a model-driven source replaces this, unchanged
+/// search + memory around it.
+struct HeuristicThoughts;
+
+impl ThoughtSource for HeuristicThoughts {
+    fn expand(&mut self, problem: &Problem, path: &[PathStep], k: usize) -> Vec<ThoughtSeed> {
+        use ThoughtCategory::{Code, Plan, Reflect, Summarize, Understand};
+        let depth = path.len();
+        // Phase the constrained action space by reasoning depth: understand →
+        // plan → work/reflect → summarize. Never an action outside the space.
+        let palette: [ThoughtCategory; 3] = match depth {
+            0 => [Understand, Plan, Reflect],
+            1 => [Plan, Code, Reflect],
+            2 => [Code, Reflect, Summarize],
+            _ => [Summarize, Reflect, Code],
+        };
+        let head: String = problem.statement.chars().take(48).collect();
+        (0..k)
+            .map(|i| {
+                let category = palette[i % palette.len()];
+                ThoughtSeed {
+                    category,
+                    text: format!("[{category:?}] {head} (d{depth}#{i})"),
+                    // Deterministic priors: first candidate strongest, decaying by
+                    // index and slightly by depth (prefer shallow commits).
+                    prior: (0.86 - 0.11 * i as f64 - 0.02 * depth as f64).clamp(0.05, 0.95),
+                }
+            })
+            .collect()
+    }
 }
 
 /// The persistent gateway service. Owns one [`Cortex`] (the engine) and one
@@ -541,6 +632,12 @@ impl GatewayServer {
                 candidates,
                 tier,
             } => self.deliberate(*request, candidates, tier),
+            GatewayRequest::Coat {
+                problem,
+                topic,
+                entity,
+                rung,
+            } => self.coat(problem, topic, entity, &rung),
             GatewayRequest::Manifest => GatewayResponse::Manifest {
                 manifest: self.manifest.clone(),
             },
@@ -625,6 +722,37 @@ impl GatewayServer {
             Err(e) => GatewayResponse::Error {
                 message: e.to_string(),
             },
+        }
+    }
+
+    /// CoAT deliberation (read-only): run the `sovereign-coat` iterative MCTS
+    /// reasoning engine, recalling associative memory from this daemon's live
+    /// Cortex Memory-OS at every expansion (CoAT's defining mechanism). Like
+    /// `deliberate`, it decides without learning — only the dry-run counter
+    /// moves, so a deliberation never pollutes memory or inflates the request
+    /// ledger. The `rung` selects the ladder preset.
+    fn coat(&self, problem: String, topic: u64, entity: u64, rung: &str) -> GatewayResponse {
+        let config = match rung.trim().to_ascii_lowercase().as_str() {
+            "cot" => CoatConfig::cot(),
+            "tot" => CoatConfig::tot(),
+            "mcts" => CoatConfig::mcts(),
+            "coat" | "" => CoatConfig::coat(),
+            other => {
+                return GatewayResponse::Error {
+                    message: format!("unknown reasoning rung '{other}' (want cot|tot|mcts|coat)"),
+                };
+            }
+        };
+        let prob = Problem { statement: problem, topic, entity };
+        let result = {
+            let cortex = self.cortex.lock().expect("cortex poisoned");
+            let memory = CortexRecall { cortex: &cortex };
+            CoatEngine::new(HeuristicThoughts, memory, config).deliberate(&prob)
+        };
+        self.ledger.lock().expect("ledger poisoned").dry_runs += 1;
+        match result {
+            Ok(trace) => GatewayResponse::CoatTrace { trace: Box::new(trace) },
+            Err(e) => GatewayResponse::Error { message: e.to_string() },
         }
     }
 

@@ -12,6 +12,33 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — the CoAT engine: one parameterized MCTS that IS the whole reasoning ladder, recalling the live Memory-OS (2026-07-12)
+
+Increment 2 of "both, sequenced": the runtime that makes the reasoning progression real. `sovereign-coat`
+is a single iterative-MCTS engine over the M007 branch tree, and the earlier rungs fall out as presets —
+CoT (`expand_k = 1`), ToT (branch, greedy), MCTS (UCT select/expand/simulate/backprop), C-MCTS (a bounded
+five-category action space), and **CoAT** (the default): every expansion recalls associative memory that
+modulates the thought's value. The two model-gated inputs are traits (`ThoughtSource`, `AssociativeMemory`),
+so the search harness is deterministic + fully tested without a model; only the thought *content* is
+model-gated.
+
+- NEW crate `sovereign-coat` — the engine (`CoatEngine`, `CoatConfig::{cot,tot,mcts,coat}`, `ThoughtCategory`,
+  `CoatTrace`). 8 unit tests prove each rung, the UCT/backprop invariants (root visits == budget; parent
+  dominates child), the constrained action space, determinism, and — the centerpiece — that **recall lifts
+  a memory-supported thought onto the winning path** while an equal-prior bare thought does not. Clippy
+  `-D warnings` clean.
+- The gateway exposes **`POST /v1/coat`** (`GatewayRequest::Coat` → `CoatTrace`), running the engine with the
+  daemon's **live Cortex Memory-OS as CoAT's associative memory** (`CortexRecall` adapter over the new
+  `Cortex::recall`). Read-only: it decides without learning (only the dry-run counter moves). A heuristic,
+  model-free `ThoughtSource` makes the search + recall demonstrable today; a model-driven source replaces it
+  when a generator is loaded. Verified live: a CoAT deliberation recalls 128 items from the seeded store and
+  the recall boosts each step's value above its bare prior.
+- The Sovereign Brain observatory gains a **CoAT deliberation** card (`/brain/coat` in `brain-api.py`,
+  `webapp/brain/`): pick a rung, deliberate, and watch the winning reasoning chain with each step's
+  backpropagated value vs prior, visit count, and the memory recalled there (↑ marks a memory-lifted thought).
+- `tests/lint/test_deliberate_reasoning_contract.py` extended: the crate is the whole ladder, the gateway
+  endpoint runs over the live memory, and the observatory surfaces it.
+
 ### Added — deliberate reasoning: the CoT → ToT → MCTS → C-MCTS → CoAT progression, mapped onto the box's own primitives (2026-07-12)
 
 Third in the reasoning/interaction trilogy after QCFA (align on intent) and Plan Mode (review the plan):

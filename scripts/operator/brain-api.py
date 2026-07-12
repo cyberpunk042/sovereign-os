@@ -33,6 +33,8 @@ Endpoints:
   GET  /brain/memory         — the FULL decoded memory (both stores)
   GET  /brain/daemons        — the intelligence-layer daemon/crate map
   GET  /brain/route?complexity=…&privacy=…&…&expected_quality=0.9
+  GET  /brain/coat?problem=…&rung=coat&topic=15 — CoAT deliberation (iterative
+                             MCTS + associative recall from the live Memory-OS)
                              — one routing decision (decide + learn)
   POST /brain/chat           — {messages:[…]} → streamed SSE from the :8787 shim
   GET  /version /healthz /control-systems
@@ -232,6 +234,45 @@ def route_probe(params: dict) -> dict:
     }
 
 
+def coat_deliberate(params: dict) -> dict:
+    """Run one CoAT deliberation (POST /v1/coat) — the `sovereign-coat` iterative
+    MCTS reasoning engine, recalling associative memory from the live Cortex
+    Memory-OS at every expansion (CoAT's defining mechanism). Read-only: the
+    gateway decides without learning, so a deliberation never pollutes memory."""
+    def _one(key, default):
+        v = params.get(key, default)
+        return v[0] if isinstance(v, list) else v
+
+    problem = (_one("problem", "") or "").strip()
+    if not problem:
+        return {"error": "problem is required", "best_path": [], "tree": []}
+    rung = (_one("rung", "coat") or "coat").strip().lower()
+    try:
+        topic = int(_one("topic", "15") or 15)          # 0b1111 overlaps seeded memory
+    except (TypeError, ValueError):
+        topic = 15
+    try:
+        entity = int(_one("entity", "0") or 0)
+    except (TypeError, ValueError):
+        entity = 0
+    body = json.dumps({"problem": problem, "topic": topic,
+                       "entity": entity, "rung": rung}).encode()
+    req = urllib.request.Request(f"http://{GATEWAY_ADDR}/v1/coat", data=body,
+                                 headers={"Content-Type": "application/json"}, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=15) as r:  # noqa: S310 (loopback)
+            resp = json.loads(r.read().decode("utf-8", "replace"))
+    except (urllib.error.URLError, OSError, ValueError) as e:
+        return {"error": f"gateway unreachable at {GATEWAY_ADDR}: {e}",
+                "best_path": [], "tree": []}
+    if resp.get("kind") == "error":
+        return {"error": resp.get("message", "gateway error"), "best_path": [], "tree": []}
+    trace = resp.get("trace") or {}
+    trace.setdefault("best_path", [])
+    trace.setdefault("tree", [])
+    return trace
+
+
 def assemble_brain() -> dict:
     """The panel's primary feed: live status + memory summary + daemon map."""
     mem = cortex_memory(limit=0)          # summary only (counts + by_type)
@@ -275,6 +316,9 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/brain/route":
             q = urllib.parse.parse_qs(parsed.query)
             return self._send(200, json.dumps(route_probe(q), indent=2))
+        if path == "/brain/coat":
+            q = urllib.parse.parse_qs(parsed.query)
+            return self._send(200, json.dumps(coat_deliberate(q), indent=2))
         if path in ("/control-systems", "/control-systems.json"):
             return self._send(200, json.dumps(_load_control_systems()))
         if path == "/":

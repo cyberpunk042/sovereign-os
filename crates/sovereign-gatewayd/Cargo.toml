@@ -20,6 +20,7 @@ path = "src/main.rs"
 serde = { workspace = true }
 serde_json = { workspace = true }
 sovereign-cortex = { path = "../sovereign-cortex" }
+sovereign-coat = { path = "../sovereign-coat" }
 sovereign-gateway = { path = "../sovereign-gateway" }
 sovereign-router-7axis = { path = "../sovereign-router-7axis" }
 sovereign-srp-scheduler = { path = "../sovereign-srp-scheduler" }

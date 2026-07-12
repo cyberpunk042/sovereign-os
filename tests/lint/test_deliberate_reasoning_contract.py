@@ -12,10 +12,10 @@ primitive, not a borrowed metaphor:
   * the directive maps each technique onto the primitive that implements it
     (branch-tree, value-plane, cortex.deliberate, Memory-OS recall);
   * those primitive crates actually exist;
-  * the CoT posture is in the reasoning scaffold so external agents adopt it.
-
-The CoAT engine (sovereign-coat crate + /v1/coat + /brain/ observatory) is guarded
-by its own assertions once that round lands.
+  * the CoT posture is in the reasoning scaffold so external agents adopt it;
+  * the engine round: the sovereign-coat crate is one parameterized MCTS that IS
+    the whole ladder (a preset per rung), the gateway exposes /v1/coat over the
+    live cortex memory, and the /brain/ observatory surfaces it.
 
 Stdlib + pytest only.
 """
@@ -86,3 +86,52 @@ def test_cot_posture_is_in_the_reasoning_scaffold():
     for token in ("chain of thought", "step by step", "backtrack",
                   "tree of thoughts", "recall"):
         assert token in low, f"scaffold reasoning posture missing: {token!r}"
+
+
+# --- the engine round: sovereign-coat + the /v1/coat + /brain/coat surfaces ---
+
+COAT = REPO / "crates" / "sovereign-coat" / "src" / "lib.rs"
+GATEWAY = REPO / "crates" / "sovereign-gatewayd" / "src"
+
+
+def test_coat_engine_crate_is_the_whole_ladder():
+    assert COAT.is_file(), "the sovereign-coat engine crate is missing"
+    src = _read(COAT)
+    # one parameterized MCTS that IS the ladder: a preset per rung.
+    for preset in ("fn cot(", "fn tot(", "fn mcts(", "fn coat("):
+        assert preset in src, f"coat config missing the ladder preset: {preset!r}"
+    # the model-gated inputs are traits, so the harness is testable without a model.
+    for trait in ("trait ThoughtSource", "trait AssociativeMemory"):
+        assert trait in src, f"coat missing the pluggable trait: {trait!r}"
+    # C-MCTS: a bounded action space of exactly five categories.
+    assert "enum ThoughtCategory" in src and "ALL: [ThoughtCategory; 5]" in src, \
+        "coat must constrain the action space to five categories (C-MCTS)"
+    # the four MCTS phases must all be present in the search.
+    low = src.lower()
+    for phase in ("selection", "expansion", "simulation", "backprop"):
+        assert phase in low, f"coat engine missing MCTS phase: {phase!r}"
+    # CoAT's mechanism: recall modulates value; and it drives the real branch tree.
+    assert "recall_weight" in src, "coat must let recall modulate value (CoAT)"
+    assert "sovereign_branch_tree" in src, "coat must search the real M007 branch tree"
+
+
+def test_gateway_exposes_v1_coat_over_the_live_memory():
+    lib = _read(GATEWAY / "lib.rs")
+    http = _read(GATEWAY / "http.rs")
+    # the request/response variants + the handler wired to the real cortex memory.
+    assert "GatewayRequest::Coat" in lib or "Coat {" in lib, "gateway missing the Coat request"
+    assert "CoatTrace" in lib, "gateway missing the CoatTrace response"
+    assert "CortexRecall" in lib, "gateway must adapt the live Cortex as CoAT's associative memory"
+    assert "/v1/coat" in http, "gateway must route POST /v1/coat"
+    # the cortex must expose the associative recall the engine pulls.
+    cortex = _read(REPO / "crates" / "sovereign-cortex" / "src" / "lib.rs")
+    assert "pub fn recall(" in cortex, "cortex must expose recall() for the CoAT engine"
+
+
+def test_brain_observatory_surfaces_coat():
+    api = _read(REPO / "scripts" / "operator" / "brain-api.py")
+    assert "/brain/coat" in api and "def coat_deliberate" in api, \
+        "brain-api must proxy /brain/coat to the gateway"
+    panel = _read(REPO / "webapp" / "brain" / "index.html")
+    for token in ("coat-btn", "coatDeliberate", "renderCoat", "/brain/coat"):
+        assert token in panel, f"brain panel missing CoAT observatory piece: {token!r}"
