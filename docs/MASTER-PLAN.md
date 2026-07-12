@@ -1,6 +1,6 @@
 # docs/MASTER-PLAN.md — cross-repo synthesis of the two-ultimate-solutions catalog
 
-> Single-page synthesis of the existing 128 milestones across both repos —
+> Single-page synthesis of the existing 132 milestones across both repos —
 > **selfdef** (Solution 2: IPS daemon) + **sovereign-os** (Solution 1: AI
 > workstation runtime + cockpit). Factually derived from
 > `selfdef/backlog/milestones/MS*.md` + `sovereign-os/backlog/milestones/M*.md`;
@@ -11,7 +11,7 @@
 
 | dimension | selfdef | sovereign-os | combined |
 |---|---:|---:|---:|
-| Milestones (M*.md files) | 48 | 82 | **130** |
+| Milestones (M*.md files) | 48 | 84 | **132** |
 | R-rows | 11,520 | 14,080 | **25,600** |
 | Each R-row is a non-negotiable requirement; combined catalog satisfies the operator's stated "10,000+ requirements" mandate (~2.5× over). |
 
@@ -38,13 +38,13 @@
 | `selfdef-sandbox-mirror` (MS007) | D-15 sandboxes dashboard | **at prod** |
 | `selfdef-quarantine-mirror` (MS007) | D-17 quarantine dashboard | **at prod** |
 | `selfdef-trust-score-mirror` (MS007) | D-18 trust-scores dashboard | **at prod** |
-| `selfdef-audit-mirror` (MS007) | D-16 audit chain | catalog ✓ (not yet wired) |
-| `selfdef-rules-mirror` (MS007) | D-12 networking (in part) | catalog ✓ (not yet wired) |
+| `selfdef-audit-mirror` (MS007) | D-16 audit chain | **at prod** (`webapp/d-16-audit/` renders the mirror — context.md M060 arc) |
+| `selfdef-rules-mirror` (MS007) | D-12 networking (in part) | **at prod** (`webapp/d-12-networking/` shipped — context.md M060 arc) |
 | `selfdef-cli-mirror` + `selfdef-tui-mirror` (MS007) | sovereign-os surface integration | catalog ✓ |
 | MS039 authority levels + MS040 profiles + MS042 tool authority + MS044 Guardian | M079 activation steering safety surface | catalog ✓ |
 | MS035 capability_word.compute_mode | M080 model portfolio extension | catalog ✓ |
 
-## The 130 milestones (by repo, by ID)
+## The 132 milestones (by repo, by ID)
 
 ### selfdef · MS001–MS048 (11,520 R-rows)
 
@@ -181,11 +181,15 @@
 - [M082-tdd-harness-architecture-hardware-free-validation](../backlog/milestones/M082-tdd-harness-architecture-hardware-free-validation.md)  ·  240 R-rows  ·  M082 — TDD Harness Architecture — hardware-free validation (macro-arc PRs 9 + 10)
 - [M083-dflash-speculative-decoding-fast-path](../backlog/milestones/M083-dflash-speculative-decoding-fast-path.md)  ·  170 R-rows  ·  M083 — DFlash speculative decoding fast-path — task-type-gated 3× decode acceleration
 - [M084-opnsense-sdwan-boundary-contract-tetragon-dropout-resilience](../backlog/milestones/M084-opnsense-sdwan-boundary-contract-tetragon-dropout-resilience.md)  ·  170 R-rows  ·  M084 — OPNsense/SD-WAN boundary contract + Tetragon-dropout resilience (Zero-Trust dual-NIC perimeter)
+- [M085-zen5-avx512-three-tier-instruction-exploitation](../backlog/milestones/M085-zen5-avx512-three-tier-instruction-exploitation.md)  ·  operator-note (0 R-rows)  ·  M085 — Zen 5 AVX-512 three-tier instruction exploitation (T1 quant/dot · T2 bitwise/attention · T3 structure/prune/KV)
+- [M086-avx512-scalar-reference-to-simd-lift-plan](../backlog/milestones/M086-avx512-scalar-reference-to-simd-lift-plan.md)  ·  operator-note (0 R-rows)  ·  M086 — AVX-512 scalar-reference → real-SIMD lift plan (per flag)
 
 ## Status conventions (per `selfdef/context.md` + `sovereign-os/context.md`)
 
 - **catalog ✓** = the milestone's R-rows are written + traceable to the
-  source dump (avx-plus-plus, the transposition dump, or earlier). All 130 milestones meet this bar.
+  source dump (avx-plus-plus, the transposition dump, or earlier). All 130 R-row-bearing
+  milestones meet this bar; M085–M086 are operator-note transcription milestones (2026-07-02
+  handwritten note) carrying design references rather than R-rows — 132 milestones total.
 - **at prod** = the milestone's deliverable has reached production through
   all §1g layers (core → cli → tui → api → mcp → dashboard → webapp →
   service). M060 mirror producers are the most recent to reach this bar
