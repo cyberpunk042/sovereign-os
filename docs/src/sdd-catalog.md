@@ -5,7 +5,7 @@
 > page drifts from `docs/sdd/`, so the published book can never freeze behind the
 > design record again (F-2026-033).
 
-Every Spec-Driven-Development design doc in `docs/sdd/` (166 total), by number.
+Every Spec-Driven-Development design doc in `docs/sdd/` (167 total), by number.
 
 - [SDD-000 — Project charter](../sdd/000-charter.md)
 - [SDD-001 — Cross-repo boundaries: contract between sovereign-os, info-hub, selfdef](../sdd/001-cross-repo-boundaries.md)
@@ -173,3 +173,4 @@ Every Spec-Driven-Development design doc in `docs/sdd/` (166 total), by number.
 - [SDD-981 — the parallel-session communication protocol (sessions talk to each other, and to the operator)](../sdd/981-session-communication-protocol.md)
 - [SDD-982 — wire the session identity / resolver / comms protocol into the agent brain surfaces](../sdd/982-wire-session-protocol-into-agent-brain.md)
 - [SDD-983 — cold-start signpost for the July intelligence-layer arc (handoff 008 + the gateway /v1 API reference)](../sdd/983-intelligence-arc-cold-start-signpost.md)
+- [SDD-984 — MS003 commit-authority / signed-mutation gating: decision-package (F-2026-034)](../sdd/984-ms003-commit-authority-decision-package.md)

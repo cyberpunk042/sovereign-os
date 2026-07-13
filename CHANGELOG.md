@@ -12,6 +12,22 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — MS003 commit-authority decision-package (2026-07-13)
+
+Operator-directed ("yes lets go, lets do it") (SDD-984). Scopes F-2026-034 (CRIT) — the cross-cutting blocker
+every SDD-142..204 ships `unsigned-pending-MS003` against. A DECISION-PACKAGE, not an implementation: research
+found MS003 is a **selfdef-owned milestone** (no local spec), so the core policy question — does a
+locally-executed sovereign-os-owned mutation get a real signature, and who mints it — is operator-gated.
+
+- **`docs/sdd/984-ms003-commit-authority-decision-package.md`** — current state (presence-gate + confirm +
+  audit; `signature` is a placeholder; no mutation-signing crypto exists), the surfaces re-baselined (34 owned
+  controls + 6 decision-writers + selfdefctl parity proxy + M065 sign-off), three options (A selfdef-mints /
+  B recommended sovereign-os-mints-ed25519-selfdef-verifies / C formalize-honestly-unsigned), 6 open questions,
+  and the blocking cross-repo step (the selfdef MS003 signature format).
+- F-2026-034 ledger back-annotation (scoped, not closed; SDD-055→SDD-015/048 mislabel corrected).
+- First real use of the SDD-981 board: coordination messages to operator + the core-runtime lane.
+- Docs only — every mutation surface read, never written; collision-safe.
+
 ### Added — cold-start signpost for the July intelligence-layer arc (2026-07-13)
 
 Operator-directed ("lets go then" — the recommended next collision-safe audit item) (SDD-983). Closes
