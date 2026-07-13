@@ -19,8 +19,8 @@ thiserror = { workspace = true }
 sovereign-cockpit-banner-state = { path = "../sovereign-cockpit-banner-state" }
 sovereign-cockpit-context-panel = { path = "../sovereign-cockpit-context-panel" }
 sovereign-cockpit-toast-tray = { path = "../sovereign-cockpit-toast-tray" }
-
-[dev-dependencies]
+# Enum inputs to build(...): needed by the CLI (src/main.rs) to construct the
+# example BannerState/ContextPanel, and by the lib tests.
 sovereign-execution-mode-registry = { path = "../sovereign-execution-mode-registry" }
 sovereign-profile-bundles = { path = "../sovereign-profile-bundles" }
 sovereign-hardware-thermal-policy = { path = "../sovereign-hardware-thermal-policy" }

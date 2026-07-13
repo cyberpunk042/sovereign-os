@@ -1,6 +1,6 @@
 # Runtime binaries
 
-> The **21 Rust binary crates** (`crates/*/src/main.rs`) are the executable runtime surface of
+> The **27 Rust binary crates** (`crates/*/src/main.rs`) are the executable runtime surface of
 > sovereign-os. Everything else in `crates/` is a library consumed by these (or an island —
 > see the phase-1 audit's island register). This page maps each binary to its **role**, how it
 > is **invoked**, and what it **does**. Enforced complete by `tests/lint/test_binaries_doc.py`.
@@ -28,6 +28,12 @@ the Rust binaries below are the compute/runtime core.
 | **`sovereign-replay-export-bundle`** | operator / validate | Builds an example replay ExportBundle (thread + cursor + bookmarks); `--validate FILE` validates a bundle JSON's cross-references, exit != 0 on a mismatch. |
 | **`sovereign-dashboard-layout`** | operator / reference + validate | The 12-column dashboard widget grid + 8 widget kinds; `--check FILE` validates a DashboardLayout / LayoutManifest against the grid bounds + slot coverage. |
 | **`sovereign-whitelabel`** | operator / reference + validate | The M081 rebrand model (4 categories / 4 strategies / 3 lifecycle stages); `--check FILE` enforces the E0785 legal-compliance rule (must-not-touch never modified, must-rebrand always) on a rebrand plan. |
+| **`sovereign-continuity-levels`** | operator / reference + validate | The E0456 8-level continuity ladder (depth + cloud-typical / station-owned per level); `--check FILE` validates a continuity level value. |
+| **`sovereign-cpu-dispatch`** | operator / query + validate | The 4 ranked dispatch paths (scalar → avx2 → avx512 → zen5-avx512); `--select FILE` runs the real `select_best()` on CpuFeatures, `--check FILE` gates the chosen path against an expected one. |
+| **`sovereign-dashboard-snapshot`** | operator / validate | Builds an example cockpit DashboardSnapshot (banner + context + toasts) and `--validate FILE` validates a snapshot JSON, exit != 0 on schema/consistency failure. |
+| **`sovereign-data-plane`** | operator / set algebra | Exact RoaringBitmap set operations over JSON id arrays — `--union` / `--intersect` / `--cardinality` / `--contains` (the integer-set analogue of comm/sort -u). |
+| **`sovereign-intake`** | operator / reference + validate | The intake model (10 task sources / 3 privacy contexts / the gateway-stamped fields); `--check FILE` validates an IntakeRequest's identity (request_id + client_id). |
+| **`sovereign-replay-playback-rate`** | operator / query + validate | The 6 replay speeds (0.25x…8x) with wall-time factors; `--interval MS` computes each rate's advance interval, `--rate NAME` reports one, `--check FILE` validates a rate state. |
 
 ## Dev / demo CLIs
 
@@ -72,6 +78,12 @@ sovereign-harness-layers         → the 5-layer test pyramid (classify test dir
 sovereign-replay-export-bundle   → build/validate a replay export bundle
 sovereign-dashboard-layout       → 12-col widget grid (validate layouts)
 sovereign-whitelabel             → M081 rebrand model (validate a rebrand plan)
+sovereign-continuity-levels      → the 8-level continuity ladder (validate a level)
+sovereign-cpu-dispatch           → the 4 CPU dispatch paths (select_best + gate)
+sovereign-dashboard-snapshot     → build/validate a cockpit snapshot
+sovereign-data-plane             → RoaringBitmap set algebra (union/intersect/…)
+sovereign-intake                 → intake model (validate request identity)
+sovereign-replay-playback-rate   → the 6 replay speeds (interval/rate/validate)
 sovereign-feature-selftest       → feature-test-lab
 
 dev/demo: cortex · agent-runtime · inference-demo · chat · serve   (manual / brain-api)

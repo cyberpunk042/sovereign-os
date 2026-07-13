@@ -291,6 +291,20 @@ per-device model status (the D-22 LM Status & Operability panel). SDD-902.
   are down; a webapp-contract test locks the section + the copyable verbs + the demo fixture. 24 D-22 contract
   tests.
 
+### Added — de-islanding big bite #3: 6 more model crates gain runnable CLIs (2026-07-12)
+
+Second parallel batch (SDD-955) — 6 more zero-reverse-dependency crates, each a genuine runnable `main.rs` doing
+REAL work over real input. Built concurrently by 6 sub-agents, verified + integrated. Register 20 → 14.
+
+- **`sovereign-continuity-levels`** — the E0456 8-level continuity ladder; `--check` validates a level value.
+- **`sovereign-cpu-dispatch`** — runs the real `select_best()` CPU-dispatch-path selector; `--check` gates it.
+- **`sovereign-dashboard-snapshot`** — builds a cockpit snapshot; `--validate` checks a snapshot JSON.
+- **`sovereign-data-plane`** — exact RoaringBitmap set algebra over JSON id arrays (union / intersect / …).
+- **`sovereign-intake`** — validates an IntakeRequest's identity (request_id + client_id).
+- **`sovereign-replay-playback-rate`** — computes replay advance intervals; `--check` validates a rate state.
+
+Per-crate tests (10 + 13 + 12 + 18 + 14 + 21); clippy `-D warnings` + fmt clean across all six.
+
 ### Added — de-islanding big bite: 6 model crates gain runnable CLIs in one batch (2026-07-12)
 
 A parallel batch de-islanding pass (SDD-955) — 6 zero-reverse-dependency model crates, each given a genuine
