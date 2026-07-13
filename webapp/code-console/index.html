@@ -1079,8 +1079,24 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
     const repos = '<span class="cc-repos"><span class="muted" style="font-size:.72rem">repos:</span>'
       + '<span class="cc-chip deferred" title="no repo-attach producer yet — honest-deferred (SB-077)">— no repo producer</span></span>';
     $('cc-tabs').innerHTML = tabs + repos;
-    $('cc-tabs').querySelectorAll('.cc-tab').forEach(b => b.addEventListener('click', () => {
-      activeSession = b.dataset.sid; renderRail(LAST); renderThread();
+    $('cc-tabs').querySelectorAll('.cc-tab').forEach(b => b.addEventListener('click', async () => {
+      const id = b.dataset.sid;
+      let next = id;
+      // Route activation through the tab-strip crate: it validates the id (rejects a stale
+      // tab) and returns the resolved active tab. Falls back to the raw id if the bridge is
+      // absent, so the panel keeps working offline.
+      const act = window.__ccTabActivate;
+      if (act) {
+        try {
+          const strip = {
+            schema_version: '1.0.0', active: 0,
+            tabs: (sessions || []).slice(0, 6).map(s => ({ id: s.id, kind: 'conversation', label: s.id, payload_id: s.id, pinned: false })),
+          };
+          const resolved = await act(JSON.stringify(strip), id);
+          if (resolved) next = resolved;
+        } catch (_) {}
+      }
+      activeSession = next; renderRail(LAST); renderThread();
     }));
   }
 
@@ -2538,8 +2554,11 @@ window.SO_ASSIST = {
 <!-- COURSE:END M090 -->
 <script type="module">
   // cockpit-crate runtime (F-2026-001): run the real sovereign-cockpit-* crates.
-  import { enhance } from '/_shared/cockpit-runtime.js';
+  import { enhance, tabActivate } from '/_shared/cockpit-runtime.js';
   enhance(document).catch(() => {});   // additive + graceful: no-op if the bridge is absent
+  // Invasive adoption (F-2026-001): the session tab bar routes activation through the REAL
+  // sovereign-cockpit-tab-strip crate. Exposed for the panel's own renderTabs() below.
+  window.__ccTabActivate = tabActivate;
 </script>
 </body>
 </html>

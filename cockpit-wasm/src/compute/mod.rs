@@ -17,4 +17,5 @@ pub mod segmented_control;
 pub mod stat_trend;
 pub mod status_aggregator;
 pub mod stepper;
+pub mod tab_strip;
 pub mod tree_view;

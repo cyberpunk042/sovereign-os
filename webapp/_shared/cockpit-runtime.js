@@ -87,6 +87,15 @@ async function bcall(fn, ...args) {
   return J(m[fn](...args));
 }
 
+/** Route a tab activation through the REAL sovereign-cockpit-tab-strip crate: it validates
+ *  the id (rejecting an unknown tab) and returns the resolved active id — or null if the
+ *  bridge is unavailable, so a panel can fall back to its own logic. Used by panels that
+ *  make the crate the source of truth for their tab bar (F-2026-001, invasive adoption). */
+export async function tabActivate(stateJson, id) {
+  const r = await bcall('tab_strip_activate', stateJson, id);
+  return (r && r.ok) ? r.active_id : null;
+}
+
 // ---- the WCAG audit: every meaningful token pair, judged by the real crate -----
 
 const PAIRS = [
@@ -827,4 +836,4 @@ export async function enhance(root = document) {
   return true;
 }
 
-export default { bridge, contrast, relTime, wordCount, truncate, validate, auditPalette, enhance };
+export default { bridge, contrast, relTime, wordCount, truncate, validate, auditPalette, enhance, tabActivate };
