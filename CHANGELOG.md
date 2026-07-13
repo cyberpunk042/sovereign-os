@@ -12,6 +12,17 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Changed — cargo-workspace CI timeout headroom (2026-07-13)
+
+Phase-1 audit (SDD-970; closes ledger F-2026-050 core). The cargo-workspace job builds the whole 717+ crate
+workspace (fmt + clippy + test + release build) in one job; warm runs take ~6-7 min but a cold-cache run would
+exceed the 10-min budget and fail PRs spuriously.
+
+- `.github/workflows/test.yml`: `cargo-workspace` `timeout-minutes` 10 → 30 (headroom; zero coverage change).
+- **`tests/lint/test_ci_cargo_timeout.py`**: the job's timeout-minutes must stay ≥ 20 — floor guard against
+  regression as the workspace grows.
+- Splitting the release build into its own parallel job (faster fmt/clippy/test feedback) scoped as follow-up.
+
 ### Added — navigation companion for the 640 KB standing-directive (2026-07-13)
 
 Phase-1 audit (SDD-969; closes ledger F-2026-039 at its "at minimum" bar). The 2026-05-17 operator-mandate

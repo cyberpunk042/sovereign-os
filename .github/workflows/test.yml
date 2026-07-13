@@ -529,7 +529,13 @@ jobs:
   cargo-workspace:
     name: cargo workspace (runtime crates + dashboard-coverage + mirror-publisher)
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Headroom for a COLD-CACHE run: fmt + clippy + test + `build --release --workspace`
+    # over 717+ crates. Warm (Swatinem/rust-cache) runs finish in ~6-7 min, but a
+    # toolchain bump / lockfile change / cache eviction rebuilds everything and would
+    # blow a 10-minute budget, failing the PR spuriously (F-2026-050). The floor is
+    # guarded by tests/lint/test_ci_cargo_timeout.py. Splitting the release build into
+    # its own parallel job (for faster fmt/clippy/test feedback) is a follow-up.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
