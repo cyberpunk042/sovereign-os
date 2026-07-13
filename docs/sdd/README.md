@@ -15,7 +15,15 @@ on 2026-07-09 — SDD-070), each session allocates numbers **within its own disj
 | **recover-projects** (Memory-OS + infra) | **100–199** | **E11.M100–M199** |
 | **header-sidemenu** (cockpit app-shell) | **200–299** | **E11.M200–M299** |
 | **science-tools** | **300–399** | **E11.M300–M399** |
-| any new / general / unassigned session | **900–999** | **E11.M900–M999** |
+| **cockpit-wasm bridge** (F-2026-001) | **800–899** | **E11.M800–M899** |
+| **compute-plane** (multi-model / GPU) | **900–949** | **E11.M900–M949** |
+| **phase-1 audit** / improvement | **950–999** | **E11.M950–M999** |
+
+> There is **no shared "any new / unassigned → 900–999" catch-all** — it was itself a collision
+> source (two unassigned sessions both grabbed the next free 900-number: SDD-900 on 2026-07-12,
+> SDD-969 on 2026-07-13). **Every new unassigned session claims its OWN disjoint 100-wide block**
+> and adds a row here (next free block: `800–899` is taken → `700–799`, then `600–699`, …).
+> See SDD-100 amendments (2026-07-12, 2026-07-13).
 
 The historical `064–071` / `E11.M32–M38` numbers (allocated before banding) stay as-is — the
 bands apply going **forward**. Gaps between bands are intentional and allowed (the lint

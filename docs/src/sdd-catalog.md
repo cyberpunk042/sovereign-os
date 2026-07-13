@@ -5,7 +5,7 @@
 > page drifts from `docs/sdd/`, so the published book can never freeze behind the
 > design record again (F-2026-033).
 
-Every Spec-Driven-Development design doc in `docs/sdd/` (155 total), by number.
+Every Spec-Driven-Development design doc in `docs/sdd/` (157 total), by number.
 
 - [SDD-000 — Project charter](../sdd/000-charter.md)
 - [SDD-001 — Cross-repo boundaries: contract between sovereign-os, info-hub, selfdef](../sdd/001-cross-repo-boundaries.md)
@@ -157,9 +157,10 @@ Every Spec-Driven-Development design doc in `docs/sdd/` (155 total), by number.
 - [SDD-966 — per-unit systemd coverage contract](../sdd/966-per-unit-systemd-coverage.md)
 - [SDD-967 — hook hygiene: delete the legacy vfio-bind duplicate + executability & dangling-reference contracts](../sdd/967-hook-hygiene-and-vfio-bind-dedup.md)
 - [SDD-968 — shell-safety-flags contract for entry-point scripts](../sdd/968-shell-safety-flags-contract.md)
-- [SDD-969 — navigation companion for the 640 KB standing-directive](../sdd/969-standing-mandate-navigation.md)
+- [SDD-969 — Cockpit wasm bridge: the typed cockpit crates run in the browser](../sdd/969-cockpit-wasm-bridge.md)
 - [SDD-970 — cargo-workspace CI timeout headroom + floor guard](../sdd/970-ci-cargo-workspace-timeout.md)
 - [SDD-971 — consolidated deferred-work register](../sdd/971-deferred-work-register.md)
 - [SDD-972 — per-milestone backlog delivery roll-up](../sdd/972-backlog-delivery-rollup.md)
 - [SDD-973 — exotic tool-domain discoverability index](../sdd/973-exotic-tools-discoverability.md)
-- [SDD-969 — Cockpit wasm bridge: the typed cockpit crates run in the browser](../sdd/969-cockpit-wasm-bridge.md)
+- [SDD-974 — workspace-hygiene baseline contract](../sdd/974-workspace-hygiene-baseline-contract.md)
+- [SDD-975 — navigation companion for the 640 KB standing-directive](../sdd/975-standing-mandate-navigation.md)

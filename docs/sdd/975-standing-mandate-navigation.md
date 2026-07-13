@@ -1,10 +1,10 @@
-# SDD-969 — navigation companion for the 640 KB standing-directive
+# SDD-975 — navigation companion for the 640 KB standing-directive
 
 > Status: draft
 > Owner: operator-directed ("we continue" — Phase-1 audit); agent-authored
 > Last updated: 2026-07-13
 > Closes findings: **F-2026-039** (giant single-file standing directive), at the finding's explicit "at minimum" bar.
-> Mandate module: **E11.M969** (operator-mandate cross-link).
+> Mandate module: **E11.M975** (operator-mandate cross-link).
 > Number band: **950–999 (general / audit session)** per SDD-100.
 
 ## Mission
@@ -33,7 +33,7 @@ Fails CI if any `##`/`###` section heading in the mandate is added, renamed, or 
 
 ## Verification
 
-- `git status` on the mandate `.md`: **unmodified** by this change except the normal single `E11.M969` row append (the established agent-append location under Epic E11 in §3); the sacrosanct §1 verbatim content is byte-untouched.
+- `git status` on the mandate `.md`: **unmodified** by this change except the normal single `E11.M975` row append (the established agent-append location under Epic E11 in §3); the sacrosanct §1 verbatim content is byte-untouched.
 - `python3 -m pytest tests/lint/test_mandate_navigation.py` — **3 passed** (companion exists + links the mandate; every one of the mandate's section headings is navigable).
 - `ruff` clean; full `tests/lint` + `tests/schema` green.
 
@@ -45,7 +45,7 @@ Fails CI if any `##`/`###` section heading in the mandate is added, renamed, or 
 
 ## Safety invariants
 
-Adds a navigation companion + a read-only lint; the sacrosanct mandate content is not modified (only the routine `E11.M969` cross-link row is appended, as every audit SDD does). No crate code, no runtime behavior, no gateway touch. R10212/SB-077 untouched. MS003 `unsigned-pending-MS003`.
+Adds a navigation companion + a read-only lint; the sacrosanct mandate content is not modified (only the routine `E11.M975` cross-link row is appended, as every audit SDD does). No crate code, no runtime behavior, no gateway touch. R10212/SB-077 untouched. MS003 `unsigned-pending-MS003`.
 
 ## Cross-references
 

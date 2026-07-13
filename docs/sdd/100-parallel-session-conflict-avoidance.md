@@ -50,6 +50,7 @@ produces two independent conflict classes — both hit repeatedly on 2026-07-09:
   | science-tools | 300–399 | E11.M300–M399 |
   | compute-plane (multi-model / GPU) | 900–949 | E11.M900–M949 |
   | phase-1 audit / improvement | 950–999 | E11.M950–M999 |
+  | cockpit-wasm bridge (F-2026-001) | 800–899 | E11.M800–M899 |
 
   > **Amendment (2026-07-12):** the single "any new / general / unassigned → 900–999" catch-all was itself a
   > collision source — TWO unassigned sessions (compute-plane + the phase-1 audit) each grabbed the next free
@@ -57,6 +58,20 @@ produces two independent conflict classes — both hit repeatedly on 2026-07-09:
   > records it as a row above** (compute-plane 900–949, phase-1 audit 950–999). A new unassigned session takes
   > the next free 100-wide block (e.g. `800–899`, then `600–699`, …) — never the shared catch-all. The
   > `test_sdd_numbers_unique` lint is the backstop; the disjoint bands make a collision structurally impossible.
+
+  > **Amendment (2026-07-13):** it happened again — the **cockpit-wasm bridge** session (F-2026-001) took
+  > **SDD-969**, inside the phase-1-audit band (950–999), colliding with the audit session's own SDD-969
+  > (standing-mandate navigation). Root cause was twofold: (1) the new session drew from the audit band instead
+  > of claiming its own disjoint block per the rule above; (2) the `test_sdd_numbers_unique` backstop passed on
+  > the cockpit PR because that branch was cut before the audit's 969 merged — a **stale-green** merge (GitHub
+  > merged without re-running the lint against the post-merge tree). **Resolution:** the cockpit-wasm session is
+  > assigned its own **800–899** block (row above); the audit session yielded its 969 → **975** (its own band);
+  > the cockpit-wasm 969 is grandfathered (its future SDDs use 800–899). **Prevention for the stale-green class:**
+  > enable GitHub branch protection *"require branches to be up to date before merging"* on `main` so a PR must
+  > re-run `test_sdd_numbers_unique` against the current tree before it can merge — the operator setting that
+  > makes the existing lint actually block cross-session number reuse. (Operator decision 2026-07-13; the
+  > 950–969-for-cockpit split first proposed was corrected to 800–899 because 950–968 are already audit-consumed
+  > and the audit session already owns all of 950–999 per the 2026-07-12 amendment.)
 
 - **De-magic the counts** — the count-churn surfaces drop their hardcoded integers (the real
   assertion is already glob/set-based): `test_recurrent_hooks_contract.py` (the
