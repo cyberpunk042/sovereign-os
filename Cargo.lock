@@ -4466,6 +4466,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cpu-pinning"
+version = "0.1.0"
+dependencies = [
+ "sovereign-cpu-topology",
+]
+
+[[package]]
 name = "sovereign-cpu-topology"
 version = "0.1.0"
 dependencies = [

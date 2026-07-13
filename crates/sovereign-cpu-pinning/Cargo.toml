@@ -1,0 +1,16 @@
+[package]
+name = "sovereign-cpu-pinning"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Emit systemd AllowedCPUs= resource-control drop-ins that pin the Trinity CPU agents (Pulse / Weaver+Auditor / System-Host) to their CCD cores, from the single-source-of-truth sovereign-cpu-topology partition (E0672-E0674). The CPU-affinity counterpart to sovereign-resource-control's weight/limit drop-ins."
+
+[lints]
+workspace = true
+
+[dependencies]
+sovereign-cpu-topology = { path = "../sovereign-cpu-topology" }

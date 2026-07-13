@@ -83,6 +83,12 @@ SDD_VECTOR = "E1.M41"
 # Note: §19.2 names the layers; the systemd service unit names land them.
 # Pulse = sovereign-pulse.service; Weaver = (state-fabric process; CPU thread)
 # Auditor = sovereign-guardian-core; Host = anything else.
+#
+# CANONICAL SOURCE OF TRUTH for these core ranges: the Rust crate
+# `sovereign-cpu-topology` (E0672-E0674), which the `sovereign-cpu-pinning` binary
+# emits as systemd `AllowedCPUs=` drop-ins. The table below mirrors it for the
+# stdlib-only runtime verifier; keep the two in lockstep (a future round can have this
+# shell out to `sovereign-cpu-pinning` so the ranges live in exactly one place).
 DEFAULT_LAYER_CATALOG: list[dict[str, Any]] = [
     {
         "layer": "Pulse Core",

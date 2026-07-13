@@ -252,6 +252,23 @@ per-device model status (the D-22 LM Status & Operability panel). SDD-902.
   are down; a webapp-contract test locks the section + the copyable verbs + the demo fixture. 24 D-22 contract
   tests.
 
+### Added — build a subsystem to de-island a crate: `sovereign-cpu-pinning` (Trinity CPU-agent pinning) (2026-07-12)
+
+De-islanding pass #4 (SDD-955), the "build the subsystem" path. `sovereign-cpu-topology` (the AMD Zen5 CCD
+partition — Pulse / Weaver+Auditor / System-Host core allocations) was a zero-reverse-dependency crate, yet its
+exact ranges were **hardcoded** in `scripts/hardware/ccd-pinning.py` — the classic two-parallel-stacks island.
+
+- NEW `sovereign-cpu-pinning` crate (lib + binary): consumes `sovereign-cpu-topology::allocations()` (validating
+  the partition first) and emits deployable systemd **`AllowedCPUs=` drop-ins** that pin the Trinity CPU agents to
+  their cores — the CPU-affinity counterpart to `sovereign-resource-control`'s `CPUWeight` drop-ins. CLI mirrors it
+  (`--unit NAME` / `--help`); drop-ins land at `/etc/systemd/system/<unit>.d/50-sovereign-cpu-pinning.conf`. Pulse
+  → `sovereign-pulse.service` (CPUs 0-11), Weaver+Auditor → the weaver/auditor services (12-19), System-Host →
+  `system.slice` (20-23) — every range read from the topology crate, never re-hardcoded.
+- `ccd-pinning.py` now names `sovereign-cpu-topology` / `sovereign-cpu-pinning` as the canonical source of truth
+  (a follow-up can have it shell out so the ranges live in exactly one place).
+- The island register drops `sovereign-cpu-topology` (32 → 31); the enforcing lint stays green. 3 crate tests
+  (drop-in per unit, cpusets sourced from topology, section by unit kind); `cargo test`/`clippy -D warnings` clean.
+
 ### Added — wire an island crate: `sovereign-hardware-dispatch-eligibility` → telemetry eligibility tableau (2026-07-12)
 
 De-islanding pass #3 (SDD-955 island register), crossing into the hardware domain. `sovereign-hardware-dispatch-
