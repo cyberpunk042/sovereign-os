@@ -16,6 +16,8 @@ the Rust binaries below are the compute/runtime core.
 | **`sovereign-telemetry`** | `sovereign-telemetry-textfile.timer` → `scripts/hooks/recurrent/sovereign-telemetry-textfile.sh` (periodic) | Probes host state and emits Prometheus **textfile** metrics (M045/M013) for node-exporter to scrape. |
 | **`sovereign-resource-control`** | `Makefile` (`bins`) + `scripts/operator/brain-api.py` | Resource / cgroup control helper for the compute plane. |
 | **`sovereign-feature-selftest`** | `sovereign-feature-test-lab-api.service` + `scripts/operator/feature-test-lab-api.py` | The feature self-test runner behind the feature-test-lab surface. |
+| **`sovereign-cpu-pinning`** | operator / provisioning (emits config) | Emits systemd `AllowedCPUs=` drop-ins pinning the Trinity CPU agents (Pulse / Weaver+Auditor / System-Host) to their CCD cores, from the `sovereign-cpu-topology` source of truth — the CPU-affinity counterpart to `sovereign-resource-control`. |
+| **`sovereign-pcie-advisor`** | operator / provisioning (emits + validates config) | Prints the recommended ProArt X870E-Creator PCIe layout and validates a proposed one against the E0027 lane-sharing trap, from the `sovereign-pcie-topology` source of truth. `--check FILE` exits non-zero on a lane-sharing / duplicate-slot conflict. |
 
 ## Dev / demo CLIs
 
@@ -48,6 +50,8 @@ sovereign-gatewayd (daemon)                     ← the only always-on Rust serv
 
 sovereign-telemetry (periodic)   → node-exporter textfiles
 sovereign-resource-control       → cgroup / compute-plane control
+sovereign-cpu-pinning            → systemd AllowedCPUs= drop-ins (Trinity core pinning)
+sovereign-pcie-advisor           → recommended/validated PCIe layout (lane-sharing trap)
 sovereign-feature-selftest       → feature-test-lab
 
 dev/demo: cortex · agent-runtime · inference-demo · chat · serve   (manual / brain-api)

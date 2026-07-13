@@ -265,6 +265,20 @@ per-device model status (the D-22 LM Status & Operability panel). SDD-902.
   are down; a webapp-contract test locks the section + the copyable verbs + the demo fixture. 24 D-22 contract
   tests.
 
+### Added — de-island a crate with a subsystem: `sovereign-pcie-advisor` (catch the PCIe lane-sharing trap) (2026-07-12)
+
+De-islanding pass #5 (SDD-955). `sovereign-pcie-topology` (the ProArt X870E-Creator slot map + lane-sharing
+validator) was zero-reverse-dependency — its own doc even flagged a *divergent* `board-advisor-x870e-creator.py`.
+Nothing ran the validator, so the E0027 trap (populating `PCIEX16_2` + `M.2_2` together silently halves a GPU's
+bandwidth) could only be caught after a benchmark came back mysteriously halved.
+
+- NEW `sovereign-pcie-advisor` crate (lib + binary): consumes `sovereign-pcie-topology` and (default) prints the
+  slot map (flagging lane-sharing pairs) + the recommended layout + its validation; `--check FILE` validates a
+  proposed `[{slot, device}]` population and exits non-zero on a lane-sharing / duplicate-slot conflict — so a bad
+  hardware layout is caught before it's populated. Slot ranges come from the topology crate, the source of truth.
+- The island register drops `sovereign-pcie-topology` (31 → 30); enforcing lint green. 2 crate tests (advisory
+  validates; the lane-sharing trap is rejected); `cargo test` / `clippy -D warnings` clean.
+
 ### Added — build a subsystem to de-island a crate: `sovereign-cpu-pinning` (Trinity CPU-agent pinning) (2026-07-12)
 
 De-islanding pass #4 (SDD-955), the "build the subsystem" path. `sovereign-cpu-topology` (the AMD Zen5 CCD

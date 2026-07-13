@@ -5717,6 +5717,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-pcie-advisor"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "sovereign-pcie-topology",
+]
+
+[[package]]
 name = "sovereign-pcie-topology"
 version = "0.1.0"
 dependencies = [
