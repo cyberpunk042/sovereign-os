@@ -5,7 +5,7 @@
 > page drifts from `docs/sdd/`, so the published book can never freeze behind the
 > design record again (F-2026-033).
 
-Every Spec-Driven-Development design doc in `docs/sdd/` (164 total), by number.
+Every Spec-Driven-Development design doc in `docs/sdd/` (165 total), by number.
 
 - [SDD-000 — Project charter](../sdd/000-charter.md)
 - [SDD-001 — Cross-repo boundaries: contract between sovereign-os, info-hub, selfdef](../sdd/001-cross-repo-boundaries.md)
@@ -171,3 +171,4 @@ Every Spec-Driven-Development design doc in `docs/sdd/` (164 total), by number.
 - [SDD-979 — cached-RAG in sovereign-serve (retrieval × the cost-aware cache)](../sdd/979-serve-cached-rag.md)
 - [SDD-980 — auto-resolve parallel-session SDD conflicts (session identity + a resolver that renumbers, verifies, and warns)](../sdd/980-sdd-conflict-auto-resolution.md)
 - [SDD-981 — the parallel-session communication protocol (sessions talk to each other, and to the operator)](../sdd/981-session-communication-protocol.md)
+- [SDD-982 — wire the session identity / resolver / comms protocol into the agent brain surfaces](../sdd/982-wire-session-protocol-into-agent-brain.md)

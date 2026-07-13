@@ -117,6 +117,7 @@ across all ecosystem projects:
 | **Real-substrate execution** | L3+ tests must execute the actual code path, not stubs. The sovereign-os arc proved: L1+L2 passed while L3 caught 8 real bugs. |
 | **Direct-to-main on `sovereign-os`** | Per operator directive; small substantive commits, one round per logical unit, L3-gated. Other ecosystem repos use feature branch + normal PR when ready. |
 | **Layer 0 = operator words verbatim** | All operator directives logged verbatim to `raw/notes/` before acting. Sacrosanct. |
+| **Parallel-session protocol** (sovereign-os) | Several sessions work `sovereign-os` in parallel, each in its own SDD number-band (SDD-100). At session start: **identify yourself** (`python3 scripts/git/session_comms.py whoami`; confirm your row in `docs/sdd/SESSIONS.md`) and **check your inbox** (`session_comms.py inbox`). Number collisions **self-heal** (`scripts/git/sdd_conflict_resolver.py`, SDD-980); message other sessions or the operator on the board (`session_comms.py post --to <session\|operator\|all> …`, SDD-981). Full protocol: `context.md` "Parallel-session conventions". |
 
 Operator will expand these with concrete requirements + milestones —
 when that chunk arrives, add it BELOW this section, don't overwrite.
