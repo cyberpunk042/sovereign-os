@@ -86,6 +86,33 @@ Phase-1 audit (SDD-967; closes ledger F-2026-021 + F-2026-023).
   `test_no_dangling_hook_path_references` (every hook path in the dispatch wiring — phases.yaml +
   systemd units — resolves to a real file, so a delete/rename can't leave a dangling wiring ref).
 
+### Added — Cockpit wasm bridge: the typed cockpit crates run in the browser (2026-07-13)
+
+Phase-1 audit (SDD-969; closes ledger **F-2026-001** partial — the #1 crate finding). **413 of 418
+`sovereign-cockpit-*` crates (~58% of the workspace) are consumed by nothing that runs**: they encode the
+cockpit's UX-state as typed, tested Rust, but the webapp is hand-written HTML/JS (zero `wasm-bindgen`/`cdylib`/
+`wasm32`), so every panel re-implements crate logic in JS that can drift. Operator chose the audit's option (a):
+**build the wasm bridge**. Shipped end-to-end on the first crate + established the repeatable pattern.
+
+- **`cockpit-wasm/`** (NEW facade crate, wasm-bindgen over `sovereign-cockpit-banner-state`) — exports
+  `banner_severity` / `banner_state` / `banner_validate` / `schema_version`, wrapping the crate's REAL
+  `compute_severity` / `build` / `validate`. **Deliberately OUTSIDE the workspace** (`[workspace].exclude`):
+  wasm-bindgen emits `unsafe` glue and `sovereign-simd` is the one sanctioned unsafe crate, so exclusion keeps
+  that invariant true + keeps the wasm toolchain off the 714-crate CI (F-2026-050).
+- **`webapp/_shared/cockpit-wasm/{cockpit_wasm.js,cockpit_wasm_bg.wasm}`** (NEW committed artifact, reproduced by
+  `cockpit-wasm/build.sh`) + **`webapp/_shared/cockpit-wasm/demo.html`** (NEW served demo, co-located with the
+  wasm; a demonstrator, not a nav panel — promotion is a follow-up) — computes banner severity live in-browser
+  via the real Rust; tamper the stored severity and the crate's `validate()` catches it; degrades offline.
+- **`scripts/operator/cockpit-bridge-api.py`** + **`sovereign-cockpit-bridge-api.service`** (NEW, loopback :8137,
+  read-only) — serves the panel + wasm with the correct `application/wasm` MIME the other panel APIs lacked.
+- **`tests/lint/test_cockpit_wasm_bridge.py`** (NEW, 8 cases) — facade excluded + wasm cdylib over a real crate;
+  artifact is valid wasm with the 4 exports; panel imports+calls the real logic+degrades; api wasm-MIME+read-only.
+
+Verified: `cargo test` 5 passed (facade); `build.sh --smoke` EXECUTES the exports in node — 7/7 severity cases
+match the crate + tamper rejected; live serving confirmed (wasm `application/wasm`, POST 405, traversal 404);
+`pytest tests/lint/test_cockpit_wasm_bridge.py` 8 passed; full `tests/lint` green. The other 412 cockpit crates
+are follow-up thin wrappers on this pattern.
+
 ### Added — per-unit systemd coverage contract (2026-07-13)
 
 Phase-1 audit (SDD-966; closes ledger F-2026-054). ~41 of 111 units had no name-specific test.

@@ -1,0 +1,28 @@
+[package]
+name = "cockpit-wasm"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.89"
+license = "MIT OR Apache-2.0"
+publish = false
+description = "The browser bridge for sovereign-os's typed cockpit crates (audit F-2026-001). A wasm-bindgen facade over the sovereign-cockpit-* state crates so the webapp runs the REAL Rust decision logic (first: sovereign-cockpit-banner-state::compute_severity) instead of re-implementing it in hand-written JS that can silently drift. DELIBERATELY OUTSIDE the workspace (root Cargo.toml [workspace].exclude): wasm-bindgen's macro emits `unsafe` glue, and the workspace keeps sovereign-simd as its ONE sanctioned unsafe crate — excluding this keeps that operator decision literally true and keeps the wasm/browser toolchain out of the 714-crate CI (audit F-2026-050)."
+
+# NOT a workspace member — see root Cargo.toml [workspace].exclude = ["cockpit-wasm"].
+# It therefore does NOT inherit the workspace `unsafe_code = "forbid"` lint;
+# wasm-bindgen's macro expansion emits unsafe glue. Hand-written facade code
+# below stays entirely safe (no `unsafe` blocks authored here).
+[lints.rust]
+unsafe_code = "allow"
+missing_docs = "warn"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+wasm-bindgen = "=0.2.100"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sovereign-cockpit-banner-state = { path = "../crates/sovereign-cockpit-banner-state" }
+sovereign-execution-mode-registry = { path = "../crates/sovereign-execution-mode-registry" }
+sovereign-profile-bundles = { path = "../crates/sovereign-profile-bundles" }
+sovereign-hardware-thermal-policy = { path = "../crates/sovereign-hardware-thermal-policy" }

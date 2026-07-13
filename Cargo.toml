@@ -1,6 +1,12 @@
 [workspace]
 resolver = "2"
 members = ["crates/*"]
+# cockpit-wasm is the browser bridge for the sovereign-cockpit-* crates (audit
+# F-2026-001). It is DELIBERATELY excluded: it needs wasm-bindgen's generated
+# `unsafe` glue, and sovereign-simd is the workspace's ONE sanctioned unsafe
+# crate. Keeping it out of the workspace preserves that operator decision and
+# keeps the wasm/browser toolchain off the 714-crate CI path (F-2026-050).
+exclude = ["cockpit-wasm"]
 
 [workspace.package]
 version = "0.1.0"
