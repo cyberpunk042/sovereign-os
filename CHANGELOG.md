@@ -12,6 +12,20 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — workspace-hygiene baseline contract (2026-07-13)
+
+Phase-1 audit (SDD-974; closes ledger F-2026-004, surfaces F-2026-096). The audit found the 717-crate
+workspace's hygiene exemplary and asked for a lint so "the bar never silently drops".
+
+- **`tests/lint/test_workspace_hygiene_baseline.py`**: six invariants recomputed from the tree (drift fails
+  CI both directions) — root lints forbid `unsafe`/warn `missing_docs`; every manifest has a `description`;
+  per-crate tests except `{sovereign-feature-selftest}`; marker-free (`todo!()`/`unimplemented!()`/`FIXME`/
+  `TODO`); no `/home`/`/Users`/`/root` paths; `unsafe` confined to `{sovereign-simd}` (the sanctioned
+  AVX-512 carve-out).
+- **F-2026-096 surfaced**: the finding's "all inherit workspace lints" claim doesn't fully hold — 202 cockpit
+  crates don't declare `[lints] workspace=true`, so they don't inherit the compile-time `unsafe` ban (latent).
+  Invariant 6 is the repo-wide compensating control; manifest-unification deferred (hot-file collision).
+
 ### Added — exotic tool-domain discoverability index (2026-07-13)
 
 Phase-1 audit (SDD-973; closes ledger F-2026-027). Six scripts/<domain>/ trees (science/research/insights/
