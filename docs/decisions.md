@@ -847,6 +847,40 @@ wiki/log/2026-07-03-sovereign-os-endpoint-prep-directive.md`.
 
 ---
 
+### D-020 — 2026-07-13 — the July intelligence-layer arc landed as the box's reasoning architecture (retroactive record; SDD-983)
+
+**Decision**: (retroactive record) The 2026-07-11/12 intelligence-layer arc is the adopted
+architecture for the box's reasoning + external-agent surface. Its shape:
+structured deliberation via a single MCTS engine parameterized into CoT→ToT→
+MCTS→C-MCTS→CoAT presets (`crates/sovereign-coat`, wired to `POST /v1/coat`);
+durable background deliberation via the jobs runtime (`scripts/operator/jobs_store.py`
++ `jobs-api.py:8142`); a read-only Brain observatory (`brain-api.py:8141`); an
+Anthropic-compatible surface (`/v1/messages`, SDD-205) so external agents drive
+the local model; Plan-mode / AUQ / the auto-mode classifier for approval gating;
+an HF-BPE tokenizer; and durable Cortex memory across restarts. Honesty is a
+first-class constraint — every CoAT trace flags `thought_source: heuristic|model`.
+
+**Why this is a retroactive entry**: the arc shipped and merged with no decisions
+record (last entry was D-019, 2026-07-03) — the Phase-1 audit filed this gap as
+F-2026-036 (HIGH) / F-2026-060 (CRIT). This entry + handoff 008 + the `/v1` API
+reference close that documentation gap (SDD-983). No new policy is decided here;
+it records the architecture already in `main`.
+
+**Affected items**: `docs/handoff/008-july-intelligence-layer-arc.md` (new) +
+`docs/src/gateway-api-reference.md` (new) + `docs/src/SUMMARY.md` +
+`context.md` intelligence-layer anchor + `docs/handoff/INDEX.md` row +
+`docs/review/phase-1/99-findings-ledger.md` (F-2026-060/036/064 marked addressed).
+
+**Open sub-decision (operator-gated)**: F-2026-034 — MS003 commit-authority
+signing for all mutation surfaces; until then the arc's mutating paths remain
+`unsigned-pending-MS003`. Robustness follow-ups: F-2026-063/090 (route
+model-backed CoAT through the jobs runtime so it never holds the generation
+mutex) + F-2026-062/091 (per-kind jobs sandbox + growth).
+
+**Reversibility**: high — documentation of already-shipped state (trivially revertible); no runtime change.
+
+---
+
 ## Cross-references
 
 - Charter: `docs/sdd/000-charter.md`

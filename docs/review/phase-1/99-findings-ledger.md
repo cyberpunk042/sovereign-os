@@ -137,6 +137,7 @@
 - **Action**: re-validate the blocker (likely obsolete), then execute the 3 phases — this is the biggest planned operator-value unlock already specced.
 
 ### F-2026-036 · HIGH · No handoff exists for the July 11–12 intelligence arc
+> **Status (2026-07-13):** **closed by SDD-983.** Authored `docs/handoff/008-july-intelligence-layer-arc.md` (+ INDEX row) and decisions entry D-020 (2026-07-13), cross-linked from `context.md`. (No `SHIPPED.md` exists in this repo — the CHANGELOG + handoff 008 + D-020 carry the "shipped" record.)
 - Handoff INDEX tops out at 007 (2026-07-08). The largest recent arc (15 commits) has no cold-start anchor, no SHIPPED.md rows, no decisions.md entries (last is D-019, 2026-07-03), no backlog note. Only the three standing-directives (2026-07-11/12) document it — and nothing cross-links them. Action: author handoff 008 + SHIPPED rows + D-020+ decisions entries.
 
 ### F-2026-037 · MED · Deferred-work items promised in docs (consolidated register)
@@ -203,6 +204,7 @@ The docs already promise these; they need owners/ordering, not rediscovery:
 > Overall verdict from the arc review: high-quality, internally consistent; reuses existing crates via traits (CoAT drives M007 `BranchTree` + cortex value-plane + Memory-OS recall); CHANGELOG + 3 standing-directives + SDD-204 updated; real behavioral tests (14 CoAT unit tests + gatewayd integration tests). Items below are the hardening/wiring tail.
 
 ### F-2026-060 · CRIT · The arc exists only on this branch and in CHANGELOG/directives — no state surface knows it
+> **Status (2026-07-13):** **closed by SDD-983.** The arc is merged to `main`; it now has a cold-start anchor (`docs/handoff/008-july-intelligence-layer-arc.md`), a `context.md` intelligence-layer anchor pointing at it, a decisions record (D-020), and a gateway `/v1` API reference in the mdbook. Follow-up hardening (F-2026-034/062/063/090/091) tracked in handoff 008.
 - Unmerged, was-unpushed (pushed with this audit), zero coverage in context.md / SHIPPED.md / backlog / decisions.md / handoffs / mdbook. Action: land it (PR), then handoff 008 + context.md arc section + SHIPPED rows + D-020+ decision entries (same items as F-2026-036 — this is the producing side).
 
 ### F-2026-061 · MED · Auto-mode safety classifier over-claims "auto-blocks destructive"
@@ -215,6 +217,7 @@ The docs already promise these; they need owners/ordering, not rediscovery:
 - `gatewayd lib.rs:888` — one model call per expansion (≤12 iters) blocks the HTTP handler; the jobs runtime already provides the correct off-path escape (`_run_deliberation`). Action: timeout on the sync path + steer the brain webapp to the background-jobs path for model-backed deliberation.
 
 ### F-2026-064 · LOW · `/v1/simple-explain` (and `/v1/simple`, `/v1/deliberate`) undocumented
+> **Status (2026-07-13):** **closed by SDD-983.** `docs/src/gateway-api-reference.md` documents every `/v1` route from `crates/sovereign-gatewayd/src/http.rs` (the deliberation ladder, the Anthropic surface, model-management, observability), and explicitly delineates `/v1/deliberate` (flat best-of-N) vs `/v1/coat` (tree/ladder search) per this finding. Linked from SUMMARY.md (in the book) + handoff 008.
 - Only CHANGELOG + code comments; `/v1/coat` by contrast has a standing directive. Also: `/v1/deliberate` (cortex best-of-N) vs `/v1/coat` (CoAT ladder) overlap in naming — delineate or fold best-of-N into the ladder narrative. Action: a gateway API reference page (see also H-section: the Anthropic-compliance conversation will need exactly this page).
 
 ### F-2026-065 · LOW · Daemon-path `.expect()` invariants

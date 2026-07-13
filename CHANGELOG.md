@@ -12,6 +12,24 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — cold-start signpost for the July intelligence-layer arc (2026-07-13)
+
+Operator-directed ("lets go then" — the recommended next collision-safe audit item) (SDD-983). Closes
+F-2026-060 (CRIT), F-2026-036 (HIGH), F-2026-064 (LOW). The July 11–12 intelligence-layer arc (Brain
+observatory, CoAT engine, background-jobs runtime, Anthropic Messages API, Plan-mode/AUQ/classifier, HF-BPE
+tokenizer, durable Cortex memory) shipped + merged with no cold-start signpost. Docs only.
+
+- **`docs/handoff/008-july-intelligence-layer-arc.md`** — the cold-start anchor (what shipped + evidence
+  paths, ports brain 8141 / jobs 8142 / gateway 8787, verified-good properties, open follow-ups, next-work
+  order); supersedes handoff 007.
+- **`docs/src/gateway-api-reference.md`** — every `/v1` route from `crates/sovereign-gatewayd/src/http.rs`
+  (deliberation ladder, Anthropic surface, model-mgmt, observability); delineates `/v1/deliberate` (best-of-N)
+  vs `/v1/coat` (tree/ladder) per F-2026-064; linked from SUMMARY.md.
+- **`docs/decisions.md` D-020** — retroactive architecture record (documenting shipped state; names the open
+  F-2026-034 MS003 sub-decision). `context.md` + handoff INDEX + findings-ledger back-annotations.
+- Verified: context.md counts + catalog-sync + reachability + uniqueness lints green; API page linked (no
+  orphan); no code/behaviour change (`http.rs` read-only).
+
 ### Changed — surface the parallel-session protocol in the agent brain files (2026-07-13)
 
 Operator-directed ("you did not even update claude and agents.md files and such") (SDD-982). SDD-980/981
