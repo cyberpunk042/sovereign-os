@@ -24,14 +24,30 @@ REPO="$(cd "${HERE}/.." && pwd)"
 OUT="${REPO}/webapp/_shared/cockpit-wasm"
 REL="${HERE}/target/wasm32-unknown-unknown/release/cockpit_wasm.wasm"
 
+# wasm-opt feature flags matching wasm-bindgen output (else it fails validation).
+WOPT="-Oz --enable-reference-types --enable-bulk-memory --enable-mutable-globals --enable-nontrapping-float-to-int --enable-sign-ext"
+
+_wasmopt() {  # shrink in place if wasm-opt is present; no-op otherwise
+  command -v wasm-opt >/dev/null 2>&1 && wasm-opt ${WOPT} "$1" -o "$1" 2>/dev/null || true
+}
+
 build_demo() {
   echo "==> demo: cargo build --release --target wasm32-unknown-unknown (default features)"
   ( cd "${HERE}" && cargo build --release --target wasm32-unknown-unknown )
-  rm -rf "${OUT:?}"/*.wasm "${OUT}"/*.js
+  rm -f "${OUT}"/cockpit_wasm.js "${OUT}"/cockpit_wasm_bg.wasm
   mkdir -p "${OUT}"
   wasm-bindgen --target web --out-dir "${OUT}" "${REL}"
-  rm -f "${OUT}"/*.d.ts
-  echo "    committed demo: $(du -h "${OUT}/cockpit_wasm_bg.wasm" | cut -f1) wasm + $(du -h "${OUT}/cockpit_wasm.js" | cut -f1) glue (banner-only)"
+  rm -f "${OUT}"/cockpit_wasm.d.ts "${OUT}"/cockpit_wasm_bg.wasm.d.ts
+  echo "    committed demo: $(du -h "${OUT}/cockpit_wasm_bg.wasm" | cut -f1) (banner-only, crates.html loads the full bridge)"
+}
+
+build_full() {
+  echo "==> full: cargo build --release --features bridges (all ~418 crates)"
+  ( cd "${HERE}" && cargo build --release --target wasm32-unknown-unknown --features bridges )
+  wasm-bindgen --target web --out-name cockpit_wasm_full --out-dir "${OUT}" "${REL}"
+  rm -f "${OUT}"/cockpit_wasm_full.d.ts "${OUT}"/cockpit_wasm_full_bg.wasm.d.ts
+  _wasmopt "${OUT}/cockpit_wasm_full_bg.wasm"
+  echo "    committed full bridge: $(du -h "${OUT}/cockpit_wasm_full_bg.wasm" | cut -f1) wasm + $(du -h "${OUT}/cockpit_wasm_full.js" | cut -f1) glue"
 }
 
 case "${1:-}" in
@@ -69,8 +85,12 @@ console.log(`    demo smoke: ${ok}/${cases.length} banner cases + validate + tam
 JS
     node "${SM}/smoke.cjs"
     ;;
+  --demo)
+    build_demo
+    ;;
   *)
     build_demo
+    build_full
     ;;
 esac
 echo "==> done"

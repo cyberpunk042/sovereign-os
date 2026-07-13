@@ -127,6 +127,28 @@ def assemble_signals() -> dict:
     }
 
 
+def assemble_context() -> dict:
+    """The raw sovereign-cockpit-context-panel inputs from real host state (the
+    sidebar envelope's fields). The crate validates the envelope in wasm (e.g.
+    the M-invariant: Replay mode requires an open conversation). Honest defaults
+    where a real source isn't wired yet."""
+    return {
+        "mode": "plan",
+        "bundle": "careful",
+        "conversation_id": "",
+        "workspace_label": "sain-01",
+        "branch_id": "main",
+        "sources": {
+            "mode": "default — no persistent execution-mode source wired yet",
+            "bundle": "default — active-bundle source not wired yet",
+            "conversation_id": "default — no active conversation source wired yet",
+            "workspace_label": "default (sain-01 profile)",
+            "branch_id": "default (main)",
+        },
+        "validated_by": "sovereign-cockpit-context-panel::validate() in wasm on the panel",
+    }
+
+
 class Handler(BaseHTTPRequestHandler):
     def _send(self, code, body, ctype="application/json"):
         data = body if isinstance(body, bytes) else body.encode("utf-8")
@@ -150,6 +172,13 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, json.dumps(assemble_bridge(), indent=2))
         if path in ("/signals.json", "/signals"):
             return self._send(200, json.dumps(assemble_signals(), indent=2))
+        if path in ("/context.json", "/context"):
+            return self._send(200, json.dumps(assemble_context(), indent=2))
+        if path == "/crates":
+            crates = WASM_DIR / "crates.html"
+            if crates.is_file():
+                return self._send(200, crates.read_bytes(), "text/html; charset=utf-8")
+            return self._send(404, json.dumps({"error": "crates surface not found"}))
         if path == "/":
             if PANEL.is_file():
                 return self._send(200, PANEL.read_bytes(), "text/html; charset=utf-8")

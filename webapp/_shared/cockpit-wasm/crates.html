@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sovereign-os · Cockpit Crates (wasm)</title>
+<meta name="x-sovereign-module" content="cockpit-crates-surface">
+<meta name="x-sovereign-shipped-in" content="the M060 cockpit UX-state family running live in the browser via wasm (F-2026-001)">
+<meta name="x-sovereign-standing-rule" content="We do not minimize anything.">
+<style>
+  :root{
+    --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --accent:#9bd1ff;
+    --good:#7ad17a; --bad:#ff7676; --warn:#e6c062;
+    --panel:#171717; --border:#262626;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  html[data-theme="light"]{
+    --bg:#f6f6f6; --fg:#161616; --muted:#666; --accent:#1e6fb8;
+    --good:#2f8f2f; --bad:#c02626; --warn:#a67a10; --panel:#fff; --border:#d8d8d8;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:14px;line-height:1.5}
+  body{padding:1.2rem;max-width:1040px;margin:0 auto}
+  h1{font-size:1.4rem;margin:0 0 .2rem 0;font-weight:600}
+  h2{font-size:1.02rem;margin:1.8rem 0 .5rem 0;font-weight:600;color:var(--accent);border-bottom:1px solid var(--border);padding-bottom:.25rem}
+  .sub{color:var(--muted);margin-bottom:1rem;font-size:.85rem}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.9rem 1rem;margin:.6rem 0}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:.7rem}
+  .row{display:flex;gap:.8rem;flex-wrap:wrap;align-items:flex-end}
+  .muted{color:var(--muted)}
+  code{background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:0 .3rem;font-size:.9em}
+  label{display:flex;flex-direction:column;gap:.2rem;font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+  select,input,textarea{background:var(--bg);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:.35rem .5rem;font-family:var(--mono);font-size:.9rem}
+  textarea{width:100%;min-height:4rem}
+  pre{background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:.6rem;overflow-x:auto;font-size:.8rem;margin:.4rem 0}
+  .sev{display:inline-flex;align-items:center;gap:.4rem;font-weight:600;border:1px solid var(--border);border-radius:4px;padding:.25rem .7rem}
+  .sev.calm{color:var(--muted)} .sev.notice{color:var(--accent);border-color:var(--accent)}
+  .sev.warn{color:var(--warn);border-color:var(--warn)} .sev.critical{color:var(--bad);border-color:var(--bad)}
+  .pill{display:inline-block;font-size:.72rem;border:1px solid var(--border);border-radius:12px;padding:.1rem .55rem}
+  .pill.ok{color:var(--good);border-color:var(--good)} .pill.bad{color:var(--bad);border-color:var(--bad)}
+  .big{font-size:1.5rem;font-variant-numeric:tabular-nums}
+  .swatch{display:inline-block;width:1.4rem;height:1.4rem;border:1px solid var(--border);border-radius:3px;vertical-align:middle}
+  button{background:var(--panel);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:.3rem .7rem;font-family:var(--mono);cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  @media (prefers-reduced-motion: reduce){*{transition:none !important}}
+</style>
+</head>
+<body>
+  <h1>Cockpit Crates <span class="muted" style="font-size:.9rem">· wasm</span></h1>
+  <p class="sub">
+    The <strong>M060 cockpit UX-state family</strong> — <span id="crate-count">418</span> typed Rust crates —
+    running <strong>live in your browser</strong> through the full <code>cockpit-wasm</code> bridge. Every value
+    below is computed by the <em>real crate</em>, the same logic the daemon trusts, not a JS re-implementation
+    (audit <code>F-2026-001</code>). bridge: <span id="bridge-status" class="pill">loading…</span>
+  </p>
+
+  <h2>Host-state loops — the daemon produces, the crate decides, the cockpit renders</h2>
+  <div class="grid">
+    <div class="panel">
+      <div style="font-weight:600;margin-bottom:.3rem">banner-state <span class="muted" style="font-weight:400">· top bar</span></div>
+      <div>banner: <span id="bn-sev" class="sev calm">—</span> <span class="muted" style="font-size:.78rem">temp <span id="bn-temp">—</span></span></div>
+      <div class="muted" style="font-size:.75rem;margin-top:.4rem">mode <code id="bn-mode">—</code> · bundle <code id="bn-bundle">—</code> · thermal <code id="bn-thermal">—</code> · alerts <code id="bn-alerts">—</code></div>
+      <div class="muted" style="font-size:.72rem;margin-top:.3rem">severity computed by <code>sovereign-cockpit-banner-state</code> from live <code>/signals.json</code></div>
+    </div>
+    <div class="panel">
+      <div style="font-weight:600;margin-bottom:.3rem">context-panel <span class="muted" style="font-weight:400">· sidebar envelope</span></div>
+      <div>validate(): <span id="cx-valid" class="pill">—</span> <span id="cx-err" class="muted" style="font-size:.75rem"></span></div>
+      <div class="muted" style="font-size:.75rem;margin-top:.4rem">mode <code id="cx-mode">—</code> · workspace <code id="cx-ws">—</code> · branch <code id="cx-branch">—</code></div>
+      <div class="muted" style="font-size:.72rem;margin-top:.3rem">envelope validated by <code>sovereign-cockpit-context-panel</code> from <code>/context.json</code></div>
+    </div>
+  </div>
+
+  <h2>Interactive crates — vary the input, the crate computes</h2>
+  <div class="grid">
+
+    <div class="panel">
+      <div style="font-weight:600">color-contrast <span class="muted" style="font-weight:400">· WCAG</span></div>
+      <div class="row" style="margin:.5rem 0">
+        <label>fg <input type="color" id="cc-fg" value="#000000"></label>
+        <label>bg <input type="color" id="cc-bg" value="#ffffff"></label>
+        <label>large <input type="checkbox" id="cc-large"></label>
+      </div>
+      <div><span class="swatch" id="cc-prev"></span> ratio <span class="big" id="cc-ratio">—</span>
+        <span id="cc-aa" class="pill">AA</span> <span id="cc-aaa" class="pill">AAA</span></div>
+    </div>
+
+    <div class="panel">
+      <div style="font-weight:600">word-count <span class="muted" style="font-weight:400">· reading time</span></div>
+      <textarea id="wc-text" style="margin:.4rem 0">The sovereign machine thinks locally.</textarea>
+      <div class="row"><label>wpm <input id="wc-wpm" type="number" value="200" min="1" style="width:6rem"></label></div>
+      <div id="wc-out" class="muted" style="font-size:.82rem;margin-top:.4rem">—</div>
+    </div>
+
+    <div class="panel">
+      <div style="font-weight:600">pagination</div>
+      <div class="row" style="margin:.4rem 0">
+        <label>page <input id="pg-page" type="number" value="2" min="1" style="width:5rem"></label>
+        <label>per <input id="pg-per" type="number" value="10" min="1" style="width:5rem"></label>
+        <label>total <input id="pg-total" type="number" value="95" min="0" style="width:6rem"></label>
+      </div>
+      <div id="pg-out" class="muted" style="font-size:.82rem">—</div>
+    </div>
+
+    <div class="panel">
+      <div style="font-weight:600">text-truncation</div>
+      <div class="row" style="margin:.4rem 0">
+        <label>max <input id="tt-max" type="number" value="12" min="1" style="width:5rem"></label>
+        <label>where <select id="tt-strat"><option>end</option><option>middle</option><option>start</option></select></label>
+      </div>
+      <input id="tt-text" value="sovereign-cockpit-text-truncation" style="width:100%">
+      <div id="tt-out" style="margin-top:.4rem">—</div>
+    </div>
+
+    <div class="panel">
+      <div style="font-weight:600">relative-time</div>
+      <div class="row" style="margin:.4rem 0">
+        <label>seconds ago <input id="rt-ago" type="range" min="0" max="864000" value="300" style="width:12rem"></label>
+      </div>
+      <div>“<span id="rt-out" class="big" style="font-size:1.1rem">—</span>” <span class="muted" id="rt-tense"></span></div>
+    </div>
+
+    <div class="panel">
+      <div style="font-weight:600">day-divider</div>
+      <div class="row" style="margin:.4rem 0">
+        <label>hours ago <input id="dd-ago" type="range" min="0" max="240" value="2" style="width:12rem"></label>
+      </div>
+      <div>bucket: <span id="dd-out" class="pill">—</span></div>
+    </div>
+
+  </div>
+
+  <h2>Validator — run any of the <span id="uv-count">412</span> uniform crates’ real <code>validate()</code></h2>
+  <div class="panel">
+    <div class="row" style="margin-bottom:.5rem">
+      <label style="flex:1">crate <select id="uv-fn" style="width:100%"></select></label>
+    </div>
+    <textarea id="uv-json">{"schema_version":"1.0.0"}</textarea>
+    <div class="row" style="margin-top:.4rem;align-items:center">
+      <button id="uv-run">validate</button>
+      <span id="uv-out" class="pill">—</span> <span id="uv-err" class="muted" style="font-size:.8rem"></span>
+    </div>
+    <p class="muted" style="font-size:.74rem;margin:.5rem 0 0">
+      Each option runs that crate's own <code>validate()</code> compiled to wasm — paste a candidate state and see
+      the crate's real verdict (unknown fields / invariant violations rejected with the crate's own error).
+    </p>
+  </div>
+
+  <p class="muted" style="font-size:.78rem;margin-top:1.5rem">
+    This surface loads the full <code>cockpit_wasm_full</code> bridge (all <span id="fc2">418</span> crates). It is the
+    reference/exercise surface — every crate genuinely runs here; adopting them inside the domain panels (so a
+    panel's own state is crate-computed) is the next track. Degrades honestly if the wasm can't load.
+  </p>
+
+<script type="module">
+  import initFull, * as W from '/_shared/cockpit-wasm/cockpit_wasm_full.js';
+  const $ = (id) => document.getElementById(id);
+  const setStatus = (t, ok) => { const e = $('bridge-status'); e.textContent = t; e.className = 'pill ' + (ok ? 'ok' : 'bad'); };
+  const hexRgb = (h) => ({ r: parseInt(h.slice(1, 3), 16), g: parseInt(h.slice(3, 5), 16), b: parseInt(h.slice(5, 7), 16) });
+  const J = (s) => { try { return JSON.parse(s); } catch (e) { return null; } };
+
+  // --- host-state loops ---
+  async function tickBanner() {
+    try {
+      const s = await (await fetch('/signals.json', { cache: 'no-store' })).json();
+      const st = J(W.banner_state(s.mode, s.bundle, s.worst_thermal, s.open_alerts, new Date().toISOString()));
+      const el = $('bn-sev'); el.textContent = st.severity; el.className = 'sev ' + st.severity;
+      $('bn-mode').textContent = s.mode; $('bn-bundle').textContent = s.bundle;
+      $('bn-thermal').textContent = s.worst_thermal; $('bn-alerts').textContent = s.open_alerts;
+      $('bn-temp').textContent = s.temp_c != null ? s.temp_c + '°C' : 'n/a';
+    } catch (e) { $('bn-sev').textContent = 'offline'; }
+  }
+  async function tickContext() {
+    try {
+      const c = await (await fetch('/context.json', { cache: 'no-store' })).json();
+      const env = { schema_version: '1.0.0', conversation_id: c.conversation_id, bundle: c.bundle,
+        mode: c.mode, workspace_label: c.workspace_label, branch_id: c.branch_id, refreshed_at: new Date().toISOString() };
+      const v = J(W.context_panel_validate(JSON.stringify(env)));
+      const el = $('cx-valid'); el.textContent = v.ok ? 'ok' : 'FAIL'; el.className = 'pill ' + (v.ok ? 'ok' : 'bad');
+      $('cx-err').textContent = v.error || ''; $('cx-mode').textContent = c.mode;
+      $('cx-ws').textContent = c.workspace_label; $('cx-branch').textContent = c.branch_id;
+    } catch (e) { $('cx-valid').textContent = 'offline'; }
+  }
+
+  // --- interactive crates ---
+  function cc() {
+    try {
+      const v = J(W.color_contrast_verdict(JSON.stringify(hexRgb($('cc-fg').value)), JSON.stringify(hexRgb($('cc-bg').value)), $('cc-large').checked));
+      $('cc-ratio').textContent = v.ratio.toFixed(2);
+      $('cc-prev').style.background = $('cc-bg').value; $('cc-prev').style.borderColor = $('cc-fg').value;
+      $('cc-aa').className = 'pill ' + (v.passes_aa ? 'ok' : 'bad'); $('cc-aaa').className = 'pill ' + (v.passes_aaa ? 'ok' : 'bad');
+    } catch (e) { $('cc-ratio').textContent = 'err'; }
+  }
+  function wc() {
+    const r = J(W.word_count_count($('wc-text').value, Math.max(1, +$('wc-wpm').value || 1)));
+    if (r && r.ok) { const v = r.value; $('wc-out').textContent = `${v.words} words · ${v.chars} chars · ${(v.reading_time_ms/1000).toFixed(1)}s read`; }
+    else $('wc-out').textContent = (r && r.error) || 'err';
+  }
+  function pg() {
+    const n = J(W.pagination_new(+$('pg-page').value || 1, +$('pg-per').value || 1, +$('pg-total').value || 0));
+    if (!n || !n.ok) { $('pg-out').textContent = (n && n.error) || 'err'; return; }
+    const i = J(W.pagination_info(JSON.stringify(n.value)));
+    const v = i.value || i;
+    $('pg-out').textContent = `page ${v.page}/${v.total_pages} · items ${v.range[0]}–${v.range[1]} of ${v.total} · ${v.can_prev?'‹prev ':''}${v.can_next?'next›':''}`;
+  }
+  function tt() {
+    const r = J(W.text_truncation_truncate($('tt-text').value, Math.max(1, +$('tt-max').value || 1), $('tt-strat').value, '…'));
+    $('tt-out').innerHTML = (r && r.ok) ? '<code>' + (r.value || '').replace(/</g,'&lt;') + '</code>' : ((r && r.error) || 'err');
+  }
+  function rt() {
+    const now = Date.now(), item = now - (+$('rt-ago').value) * 1000;
+    const f = J(W.relative_time_format(now, item)); $('rt-out').textContent = (f && (f.value ?? f)) || 'err';
+    const c = J(W.relative_time_classify(now, item)); $('rt-tense').textContent = c && c.tense ? '· ' + c.tense : '';
+  }
+  function dd() {
+    const now = Date.now(), item = now - (+$('dd-ago').value) * 3600 * 1000;
+    let b = W.day_divider_classify(now, item); try { b = JSON.parse(b); } catch (e) {}
+    $('dd-out').textContent = b;
+  }
+
+  // --- validator picker over every uniform crate ---
+  function buildValidator() {
+    const fns = Object.keys(W).filter(k => k.endsWith('_validate') && !k.endsWith('_schema_version')).sort();
+    $('uv-count').textContent = fns.length; $('crate-count').textContent = fns.length + 6; $('fc2').textContent = fns.length + 6;
+    const sel = $('uv-fn');
+    sel.innerHTML = fns.map(f => `<option>${f}</option>`).join('');
+    const run = () => {
+      const fn = sel.value; try {
+        const r = J(W[fn]($('uv-json').value));
+        $('uv-out').textContent = r.ok ? 'ok' : 'FAIL'; $('uv-out').className = 'pill ' + (r.ok ? 'ok' : 'bad');
+        $('uv-err').textContent = r.error || '';
+      } catch (e) { $('uv-out').textContent = 'err'; $('uv-err').textContent = String(e.message || e); }
+    };
+    $('uv-run').addEventListener('click', run);
+  }
+
+  async function main() {
+    try {
+      await initFull();
+      setStatus('full bridge loaded — every crate live', true);
+      cc(); wc(); pg(); tt(); rt(); dd();
+      ['cc-fg','cc-bg','cc-large'].forEach(id => $(id).addEventListener('input', cc));
+      ['wc-text','wc-wpm'].forEach(id => $(id).addEventListener('input', wc));
+      ['pg-page','pg-per','pg-total'].forEach(id => $(id).addEventListener('input', pg));
+      ['tt-text','tt-max','tt-strat'].forEach(id => $(id).addEventListener('input', tt));
+      $('rt-ago').addEventListener('input', rt); $('dd-ago').addEventListener('input', dd);
+      buildValidator();
+      tickBanner(); tickContext(); setInterval(() => { tickBanner(); tickContext(); }, 4000);
+    } catch (e) {
+      setStatus('wasm unavailable — ' + String(e.message || e).slice(0, 60), false);
+    }
+  }
+  main();
+</script>
+</body>
+</html>
