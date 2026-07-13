@@ -150,6 +150,7 @@ The docs already promise these; they need owners/ordering, not rediscovery:
 10. MS043 selfdef mirror-crate implementations marked "impl pending" (`context.md:203`) — verify against the M060 completion claim and close one way or the other.
 
 ### F-2026-038 · MED · Backlog granularity gap
+> **Status (2026-07-13):** **CLOSED by SDD-972** (`docs/sdd/972-backlog-delivery-rollup.md`). `scripts/backlog/gen-shipped-rollup.py` generates `backlog/SHIPPED-ROLLUP.md` — per milestone: catalogued R-rows + delivered? + shipped surfaces; grand roll-up **7 of 84 milestones (8%) have production delivery recorded**, 14,079 distinct R-rows. `tests/lint/test_shipped_rollup.py` regen-compares so it can't drift. **Metric note**: the finding's "shipped-percentage" was reinterpreted honestly — SHIPPED rows are delivered *surfaces* (several per R-row; M060 = 288 surfaces vs 170 R-rows → a literal ratio of 169%), so a shipped-÷-R-rows % is meaningless; the roll-up reports milestone delivery **coverage** (a real %) + per-milestone **depth** instead.
 - `backlog/epics|features|modules|requirements/` each contain only an INDEX.md — the 14,080 R-rows live embedded in 85 milestone files; SHIPPED.md self-describes as a "SAMPLED snapshot" with a literal "state TBD" section (line 962). Action: accept the R-row model but add the missing axis: a generated per-milestone shipped-percentage roll-up (script that counts SHIPPED rows vs R-rows per milestone) so "how done is M0xx" becomes queryable instead of TBD.
 
 ### F-2026-039 · LOW · Giant single-file standing directive
