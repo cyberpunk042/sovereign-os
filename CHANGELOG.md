@@ -12,6 +12,19 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Changed — surface the parallel-session protocol in the agent brain files (2026-07-13)
+
+Operator-directed ("you did not even update claude and agents.md files and such") (SDD-982). SDD-980/981
+shipped the machinery but a fresh/post-compaction session couldn't discover it. Wired it into the two
+surfaces a session reads:
+
+- **`context.md`** "Parallel-session conventions" grew 3→6 steps: identify yourself (SESSIONS.md +
+  `session_comms.py whoami`), collisions self-heal (SDD-980 resolver), talk to sessions + operator (SDD-981
+  board — inbox/post/reply/thread). The higher-up summary bullet now names all three.
+- **`scripts/claude-code-env/templates/CLAUDE.md`** (the per-session CLAUDE.md the env-bootstrap installs)
+  gained a methodology-table row: at session start `whoami` + check `inbox`; collisions self-heal; message
+  the board. Docs only; no behaviour change.
+
 ### Added — parallel-session communication protocol: sessions ↔ sessions ↔ operator (2026-07-13)
 
 Operator-directed ("what about the communication protocol between each sessions and me yeah, lets do, point 1.

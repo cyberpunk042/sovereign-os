@@ -29,7 +29,7 @@ Full doctrine: `docs/standing-directives/two-ultimate-solutions.md`.
 | workspace crates | 717 | `crates/*/` |
 | dashboards (d-nn) | 25 | `webapp/d-*/` |
 | cockpit panels (total) | 55 | `webapp/*/index.html` |
-| sdd files | 164 | `docs/sdd/<NNN>-*.md` |
+| sdd files | 165 | `docs/sdd/<NNN>-*.md` |
 | milestone files | 85 | `backlog/milestones/*.md` |
 
 <!-- END COUNTS-CONTRACT -->
@@ -38,7 +38,7 @@ Full doctrine: `docs/standing-directives/two-ultimate-solutions.md`.
 
 - **Phase-1 whole-repo improvement audit** (`docs/review/phase-1/`) — 100+ ranked findings `F-2026-NNN`; the map for ongoing SDD work. In-flight closures (this general/audit session, SDD **900-band** per SDD-100): **SDD-950** real RoPE (`rope_theta`/`rope_scaling` — modern models decode coherently, F-2026-080); **SDD-206** gateway safety spine (injection screen + secret/PII redaction + auth/timeouts, F-2026-081/082); **SDD-951** durable-memory corruption recovery + bounded growth (F-2026-084); **SDD-952** this drift fix (F-2026-030).
 - **The July intelligence layer** — the Sovereign Brain observatory, the CoAT reasoning engine (`sovereign-coat`, CoT→ToT→MCTS→C-MCTS→CoAT), the Background-Tasks job runtime + compute plane, Plan Mode / User Approval / the auto-mode safety classifier, QCFA + interactive AUQ clarification, the HF-BPE tokenizer, and durable gateway memory. The Anthropic Messages API (`/v1/messages`, **SDD-205**) makes the box drive VS Code / Claude Code against its own local model.
-- Parallel sessions run per the **SDD-100 number-band convention** (`recover 100–199`, `header-sidemenu 200–299`, `science-tools 300–399`, `compute-plane 900–949`, `phase-1 audit 950–999`, `cockpit-wasm 800–899`) so SDD numbers can't collide; each unassigned session claims its own disjoint 100-wide block (never a shared catch-all), and `test_sdd_numbers_unique` is the backstop.
+- Parallel sessions run per the **SDD-100 number-band convention** (`recover 100–199`, `header-sidemenu 200–299`, `science-tools 300–399`, `compute-plane 900–949`, `phase-1 audit 950–999`, `cockpit-wasm 800–899`) so SDD numbers can't collide; each unassigned session claims its own disjoint 100-wide block (never a shared catch-all), and `test_sdd_numbers_unique` is the backstop. Sessions **identify themselves** in `docs/sdd/SESSIONS.md`, an out-of-band slip **self-heals** via `scripts/git/sdd_conflict_resolver.py` (SDD-980), and sessions **talk to each other + the operator** on `docs/sdd/MESSAGES.md` via `scripts/git/session_comms.py` (SDD-981). See "Parallel-session conventions" below.
 
 ## Historical arc (2026-05-28): M060 cross-repo mirror producers — COMPLETE
 
@@ -332,13 +332,18 @@ Verbatim operator rules, never relax these:
 9. **"never include model identifier in commit messages / PR bodies / pushed artifacts"** — chat replies only.
 10. **"the AI does NOT decide when it's complete"** — operator-controlled session-end via `/goal`. Continue endlessly.
 
-## Parallel-session conventions (SDD-100 — 3 sessions at once)
+## Parallel-session conventions (SDD-100 / 980 / 981 — several sessions at once)
 
-sovereign-os is worked by **3 sessions in parallel** (recover-projects / header-sidemenu /
-science-tools), each on its own branch merging to `main`. To stop the merge conflicts that
-recurred 2026-07-09 (the SDD-070 number collision + INDEX/mandate append conflicts):
+sovereign-os is worked by **several sessions in parallel**, each on its own branch merging to
+`main`. The registry of who's who is [`docs/sdd/SESSIONS.md`](docs/sdd/SESSIONS.md) (session-id →
+band → branch → purpose). To stop the merge conflicts that recurred 2026-07-09 (the SDD-070
+number collision + INDEX/mandate append conflicts):
 
-1. **Pick SDD-NNN / E11.M## numbers in YOUR session's band** — recover-projects **100–199**,
+1. **Identify yourself.** Confirm (or add) your row in [`docs/sdd/SESSIONS.md`](docs/sdd/SESSIONS.md);
+   `python3 scripts/git/session_comms.py whoami` resolves your session from the branch. Set the
+   `> Number band: **lo–hi**` line in every SDD you author to your band — it's your authorship
+   signature the auto-resolver trusts (SDD-980).
+2. **Pick SDD-NNN / E11.M## numbers in YOUR session's band** — recover-projects **100–199**,
    header-sidemenu **200–299**, science-tools **300–399**, compute-plane **900–949**,
    phase-1 audit **950–999**, cockpit-wasm **800–899** (SDD + E11.M##); each unassigned session
    claims its OWN disjoint 100-wide block, never a shared catch-all.
@@ -346,11 +351,22 @@ recurred 2026-07-09 (the SDD-070 number collision + INDEX/mandate append conflic
    historical 064–071 / M32–M38 stay as-is; bands apply going forward. Never pick a number
    outside your band — that's how collisions happen (2026-07-13: the cockpit-wasm session took
    969 in the audit band → dup-969; audit yielded 969→975, cockpit-wasm reassigned to 800–899).
-2. **The append-only registries are `merge=union`** ([`.gitattributes`](.gitattributes)) —
+3. **The append-only registries are `merge=union`** ([`.gitattributes`](.gitattributes)) —
    `docs/sdd/INDEX.md`, the operator-mandate, `docs/src/lifecycle/ongoing.md`,
-   `docs/observability/dashboards/README.md`, `docs/decisions.md`. Two branches appending
-   different rows merge cleanly (both kept); you never hand-resolve a registry row conflict.
-3. **Don't hardcode registry counts** ("N recurrent hooks", "N timers") in prose or test
+   `docs/observability/dashboards/README.md`, `docs/decisions.md`, plus `SESSIONS.md` /
+   `RESOLUTION-LOG.md` / `MESSAGES.md`. Two branches appending different rows merge cleanly
+   (both kept); you never hand-resolve a registry row conflict.
+4. **Collisions self-heal (SDD-980).** If an out-of-band number still slips through, the
+   auto-resolver renumbers the intruder into its own band, verifies (uniqueness / contiguity /
+   counts lints), and logs to [`docs/sdd/RESOLUTION-LOG.md`](docs/sdd/RESOLUTION-LOG.md); on doubt
+   it reverts + warns. It runs from the `post-merge`/`post-rewrite` hooks, or by hand:
+   `python3 scripts/git/sdd_conflict_resolver.py --check` (report) / `--dry-run` / `--apply`.
+5. **Talk to the other sessions and the operator (SDD-981).** Messages go on the board
+   [`docs/sdd/MESSAGES.md`](docs/sdd/MESSAGES.md) via `scripts/git/session_comms.py`:
+   `inbox` (your open mail — the `post-merge` hook nudges you when a pull brings new), `post --to
+   <session|operator|all> --subject … --body …`, `reply <id> --body …`, `thread <id>`. `to`/`from`
+   are a session-id, `operator`, or `all` (broadcast). Check your inbox at session start.
+6. **Don't hardcode registry counts** ("N recurrent hooks", "N timers") in prose or test
    docstrings — a magic integer is a shared value two sessions both bump. The real assertions
    are glob/set-based; keep prose count-free.
 
