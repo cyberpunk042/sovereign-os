@@ -12,6 +12,17 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — navigation companion for the 640 KB standing-directive (2026-07-13)
+
+Phase-1 audit (SDD-969; closes ledger F-2026-039 at its "at minimum" bar). The 2026-05-17 operator-mandate
+file is ~640 KB (multi-KB single mandate-table rows) — slow to open, undiffable.
+
+- **`…-operator-mandate-NAVIGATION.md`**: a section-level map (6 sections + §1.0–§1h verbatim-paste
+  subdirectives + Epics E1–E11) — reproduces no content; navigation only. Deliberately a companion, not a
+  split (sacrosanct §1 byte-risk) and not a per-row index (would CI-couple the most-appended file).
+- **`tests/lint/test_mandate_navigation.py`**: every `##`/`###` heading in the mandate is reflected in the
+  companion — structural drift guard, checks headings only (routine `E11.M###` row appends need no update).
+
 ### Added — shell-safety-flags contract (2026-07-13)
 
 Phase-1 audit (SDD-968; closes ledger F-2026-024). Investigation found the finding's premise didn't hold —
