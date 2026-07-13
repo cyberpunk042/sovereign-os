@@ -12,6 +12,16 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — consolidated deferred-work register (2026-07-13)
+
+Phase-1 audit (SDD-971; closes ledger F-2026-037 at the consolidation core). The ~10 docs-promised deferred
+items were scattered across decisions/SDDs/context — rediscovered each pass.
+
+- **`docs/review/phase-1/deferred-work-register.md`**: one table — each item with source-refs + one-line scope
+  + proposed order + owner=`operator-to-assign` (sequencing/ownership is an operator decision-package). Pointer
+  index, not a re-spec.
+- **`tests/lint/test_deferred_work_register.py`**: every cited SDD + doc path resolves (dangling-reference guard).
+
 ### Changed — cargo-workspace CI timeout headroom (2026-07-13)
 
 Phase-1 audit (SDD-970; closes ledger F-2026-050 core). The cargo-workspace job builds the whole 717+ crate
