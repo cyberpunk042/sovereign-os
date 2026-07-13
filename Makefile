@@ -6,7 +6,7 @@ SHELL := /bin/bash
 PROFILE ?= sain-01
 
 .PHONY: help setup dev-deps validate lint unit l3 l3-fast test smoke dry-run \
-        preflight ci all clean clean-pyc dashboards-lint install uninstall bins panel bootstrap \
+        preflight ci all clean clean-pyc dashboards-lint install install-units uninstall uninstall-units bins panel bootstrap \
         operator-sudo operator-sudo-uninstall demo-capture demo-preflight _require-pytest
 
 .DEFAULT_GOAL := help
@@ -144,6 +144,39 @@ install:  ## Install sovereign-osctl + manpage to PREFIX (default: /usr/local)
 	@echo "  $(DESTDIR)$(PREFIX)/bin/sovereign-osctl"
 	@echo "  $(DESTDIR)$(SOVEREIGN_OS_LIB)/  (lib + hooks + profiles + inference + whitelabel)"
 	@echo "  $(DESTDIR)$(PREFIX)/share/man/man1/sovereign-osctl.1  (if pandoc)"
+	@echo "Note: this installs the shared libs + osctl. The systemd fleet (111 units)"
+	@echo "      + the script trees the units reference is installed by 'make install-units'."
+
+# Absolute install roots the systemd units reference in their ExecStart lines.
+# These are FIXED, not PREFIX-relative: the shipped unit files hardcode them, so
+# install-units stages the script trees at exactly these paths (honoring DESTDIR
+# for staged / packaged installs). The two-prefix doctrine (operator-API scripts
+# under /usr/local/lib; hook/inference/hardware scripts under the /opt vendor tree)
+# is documented in systemd/system/README.md and enforced by
+# tests/lint/test_systemd_install_coverage.py (every unit ExecStart must stay
+# within this set, and its script must exist in-repo).
+SOVEREIGN_OS_OPT   ?= /opt/sovereign-os
+SOVEREIGN_OS_OPLIB ?= /usr/local/lib/sovereign-os
+SYSTEMD_UNIT_DIR   ?= /etc/systemd/system
+
+install-units:  ## Install the full systemd unit fleet + the script trees the units reference (DESTDIR-stageable; run daemon-reload + enable after)
+	@echo "Installing systemd fleet to $(DESTDIR)$(SYSTEMD_UNIT_DIR)"
+	@echo "  operator-API scripts -> $(DESTDIR)$(SOVEREIGN_OS_OPLIB)/scripts/operator"
+	@echo "  hook/inference/hardware scripts -> $(DESTDIR)$(SOVEREIGN_OS_OPT)/scripts/{hooks,inference,hardware}"
+	@install -d "$(DESTDIR)$(SYSTEMD_UNIT_DIR)"
+	@install -m 644 systemd/system/*.service systemd/system/*.timer systemd/system/*.target "$(DESTDIR)$(SYSTEMD_UNIT_DIR)/"
+	@install -d "$(DESTDIR)$(SOVEREIGN_OS_OPLIB)/scripts/operator" \
+	            "$(DESTDIR)$(SOVEREIGN_OS_OPT)/scripts/hooks" \
+	            "$(DESTDIR)$(SOVEREIGN_OS_OPT)/scripts/inference" \
+	            "$(DESTDIR)$(SOVEREIGN_OS_OPT)/scripts/hardware"
+	@cp -r scripts/operator/*  "$(DESTDIR)$(SOVEREIGN_OS_OPLIB)/scripts/operator/"
+	@cp -r scripts/hooks/*     "$(DESTDIR)$(SOVEREIGN_OS_OPT)/scripts/hooks/"
+	@cp -r scripts/inference/* "$(DESTDIR)$(SOVEREIGN_OS_OPT)/scripts/inference/"
+	@cp -r scripts/hardware/*  "$(DESTDIR)$(SOVEREIGN_OS_OPT)/scripts/hardware/"
+	@echo "Installed $(words $(wildcard systemd/system/*.service)) service + $(words $(wildcard systemd/system/*.timer)) timer + $(words $(wildcard systemd/system/*.target)) target units + their script trees."
+	@echo "Activate as root, selectively per profile:"
+	@echo "  sudo systemctl daemon-reload"
+	@echo "  sudo systemctl enable --now <unit>   # e.g. sovereign-gatewayd.service"
 
 # SDD-043 Phase 1: the Rust binaries compile for the active profile's CPU
 # ISA (VNNI/BF16/popcnt/… derived from hardware.cpu.features by
@@ -177,3 +210,13 @@ uninstall:  ## Remove sovereign-osctl + manpage + the `bins` binaries from PREFI
 	@rm -f  "$(DESTDIR)$(PREFIX)/bin/sovereign-resource-control"
 	@rm -f  "$(DESTDIR)$(PREFIX)/bin/sovereign-gatewayd"
 	@echo "Uninstalled sovereign-osctl + lib + manpage + bins from PREFIX=$(PREFIX)"
+
+uninstall-units:  ## Remove the systemd unit files + the install-units script trees (disable first: systemctl disable --now <unit>)
+	@for u in systemd/system/*.service systemd/system/*.timer systemd/system/*.target; do \
+	  rm -f "$(DESTDIR)$(SYSTEMD_UNIT_DIR)/$$(basename $$u)"; \
+	done
+	@rm -rf "$(DESTDIR)$(SOVEREIGN_OS_OPLIB)/scripts/operator" \
+	        "$(DESTDIR)$(SOVEREIGN_OS_OPT)/scripts/hooks" \
+	        "$(DESTDIR)$(SOVEREIGN_OS_OPT)/scripts/inference" \
+	        "$(DESTDIR)$(SOVEREIGN_OS_OPT)/scripts/hardware"
+	@echo "Removed the systemd fleet unit files + install-units script trees (run 'systemctl daemon-reload')."

@@ -12,6 +12,19 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — systemd install coverage: make install-units (2026-07-13)
+
+Phase-1 audit (SDD-964; closes the file-side core of ledger F-2026-051). The 111 systemd units + the scripts they call
+were never installed by `make`, and the unit README documented only 4 of 111.
+
+- **`make install-units`** (+ `uninstall-units`): DESTDIR-clean staging of every `*.{service,timer,target}` →
+  `/etc/systemd/system/` + the three script trees at the roots their `ExecStart` hardcodes (operator-API →
+  `/usr/local/lib`, hooks/inference/hardware → `/opt`). Prints the `daemon-reload` + `enable` activation step.
+- **`systemd/system/README.md`**: extended (additively) with the full 111-unit fleet + the two-prefix doctrine.
+- **`tests/lint/test_systemd_install_coverage.py`**: every unit `ExecStart` script exists in-repo (88/0-missing);
+  prefixes ⊆ the two documented roots; install-units stages all 3 trees; README counts match tree — coverage contract.
+- Q-964-A (unify the two prefixes vs keep the split) deferred to the operator; recommendation: keep.
+
 ### Added — developer bootstrap: single-source dev deps (2026-07-13)
 
 Phase-1 audit (SDD-963; closes ledger F-2026-022 + F-2026-056 + F-2026-026 + F-2026-055). A fresh clone couldn't
