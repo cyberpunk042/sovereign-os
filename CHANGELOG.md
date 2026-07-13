@@ -265,6 +265,17 @@ per-device model status (the D-22 LM Status & Operability panel). SDD-902.
   are down; a webapp-contract test locks the section + the copyable verbs + the demo fixture. 24 D-22 contract
   tests.
 
+### Added — de-islanding big round: runnable surfaces for built-but-unwired model crates (2026-07-12)
+
+A batch de-islanding pass (SDD-955), one PR. Each crate below was a real, tested, zero-reverse-dependency
+library that nothing ran; each now has a genuine runnable consumer (validates or checks real input, never a
+forced print). The enforcing island lint stays green.
+
+- **`sovereign-inheritance-check`** (NEW binary) → de-islands `sovereign-inheritance-artifacts`. Prints the
+  canonical M042 8-artifact durable-inheritance manifest (VISION / ARCHITECTURE / METHODOLOGY / PROFILES / POLICY
+  / MODEL_REGISTRY / HARDWARE_PROFILES / EVALS) and `--check ROOT` verifies the files exist — "does the box carry
+  its executable memory?" made checkable.
+
 ### Added — de-island a crate with a subsystem: `sovereign-pcie-advisor` (catch the PCIe lane-sharing trap) (2026-07-12)
 
 De-islanding pass #5 (SDD-955). `sovereign-pcie-topology` (the ProArt X870E-Creator slot map + lane-sharing

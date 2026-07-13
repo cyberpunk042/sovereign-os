@@ -1,0 +1,16 @@
+[package]
+name = "sovereign-inheritance-check"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Emit the canonical M042 8-artifact durable-inheritance manifest (VISION/ARCHITECTURE/METHODOLOGY/PROFILES/POLICY/MODEL_REGISTRY/HARDWARE_PROFILES/EVALS) and verify the files exist under a target root, from the single-source-of-truth sovereign-inheritance-artifacts crate. The box's executable memory, made checkable."
+
+[lints]
+workspace = true
+
+[dependencies]
+sovereign-inheritance-artifacts = { path = "../sovereign-inheritance-artifacts" }

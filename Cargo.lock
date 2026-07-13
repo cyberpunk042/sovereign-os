@@ -5156,6 +5156,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-inheritance-check"
+version = "0.1.0"
+dependencies = [
+ "sovereign-inheritance-artifacts",
+]
+
+[[package]]
 name = "sovereign-inheritance-contracts"
 version = "0.1.0"
 dependencies = [
