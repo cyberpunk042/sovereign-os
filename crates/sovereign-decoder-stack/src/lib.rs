@@ -19,7 +19,7 @@
 //! is deterministic under a seed, a whole generation is reproducible and
 //! replayable — the property the sovereign runtime's ledger relies on.
 //!
-//! [`sovereign-transformer-block`]: https://docs.rs/sovereign-transformer-block
+//! [`sovereign-transformer-block`]: https://github.com/cyberpunk042/sovereign-os/tree/main/crates/sovereign-transformer-block
 //!
 //! Standing rule: We do not minimize anything.
 

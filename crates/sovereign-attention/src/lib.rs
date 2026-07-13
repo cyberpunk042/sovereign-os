@@ -21,7 +21,7 @@
 //! equals the naive result to floating-point tolerance, and that both stay
 //! finite under scores large enough to overflow a naive `exp`.
 //!
-//! [`sovereign-kv-cache`]: https://docs.rs/sovereign-kv-cache
+//! [`sovereign-kv-cache`]: https://github.com/cyberpunk042/sovereign-os/tree/main/crates/sovereign-kv-cache
 //!
 //! Standing rule: We do not minimize anything.
 

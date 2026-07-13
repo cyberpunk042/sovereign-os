@@ -17,7 +17,7 @@
 //! is evicted and the block reproduces the unbounded quant-block exactly —
 //! pinned as a cross-crate test.
 //!
-//! [`sovereign-quant-block`]: https://docs.rs/sovereign-quant-block
+//! [`sovereign-quant-block`]: https://github.com/cyberpunk042/sovereign-os/tree/main/crates/sovereign-quant-block
 //! [`WindowedKv`]: sovereign_kv_window::WindowedKv
 //!
 //! Standing rule: We do not minimize anything.

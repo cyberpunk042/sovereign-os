@@ -19,7 +19,7 @@
 //! position-encoding stage that feeds [`sovereign-attention`]: rotate the
 //! queries and keys by their positions, then attend.
 //!
-//! [`sovereign-attention`]: https://docs.rs/sovereign-attention
+//! [`sovereign-attention`]: https://github.com/cyberpunk042/sovereign-os/tree/main/crates/sovereign-attention
 //!
 //! Standing rule: We do not minimize anything.
 

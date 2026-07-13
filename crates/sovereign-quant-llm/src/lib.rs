@@ -16,7 +16,7 @@
 //! tokenizer's (checked at construction), and decoding is reproducible per
 //! seed. Constrained decoding is available via [`complete_constrained`].
 //!
-//! [`sovereign-llm`]: https://docs.rs/sovereign-llm
+//! [`sovereign-llm`]: https://github.com/cyberpunk042/sovereign-os/tree/main/crates/sovereign-llm
 //! [`QuantModel`]: sovereign_quant_model::QuantModel
 //!
 //! Standing rule: We do not minimize anything.

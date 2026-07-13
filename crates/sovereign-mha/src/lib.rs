@@ -19,7 +19,7 @@
 //! `num_q_heads · head_dim` output. The KV-grouping map and the reduction to
 //! the single-head kernel are pinned as tests.
 //!
-//! [`sovereign-attention`]: https://docs.rs/sovereign-attention
+//! [`sovereign-attention`]: https://github.com/cyberpunk042/sovereign-os/tree/main/crates/sovereign-attention
 //!
 //! Standing rule: We do not minimize anything.
 

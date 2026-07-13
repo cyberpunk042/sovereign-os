@@ -15,7 +15,7 @@
 //!
 //! Composes [`sovereign-tool-dispatch`].
 //!
-//! [`sovereign-tool-dispatch`]: https://docs.rs/sovereign-tool-dispatch
+//! [`sovereign-tool-dispatch`]: https://github.com/cyberpunk042/sovereign-os/tree/main/crates/sovereign-tool-dispatch
 //!
 //! Standing rule: We do not minimize anything.
 

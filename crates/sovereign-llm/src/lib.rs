@@ -1096,7 +1096,7 @@ pub struct CachedCompletion {
 ///
 /// Activates [`sovereign-semantic-cache`], previously built but unused.
 ///
-/// [`sovereign-semantic-cache`]: https://docs.rs/sovereign-semantic-cache
+/// [`sovereign-semantic-cache`]: https://github.com/cyberpunk042/sovereign-os/tree/main/crates/sovereign-semantic-cache
 pub struct SemanticCachedLlm {
     inner: SovereignLlm,
     cache: sovereign_semantic_cache::SemanticCache,

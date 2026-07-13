@@ -14,8 +14,8 @@
 //!
 //! Composes [`sovereign-logit-mask`] and [`sovereign-no-repeat-ngram`].
 //!
-//! [`sovereign-logit-mask`]: https://docs.rs/sovereign-logit-mask
-//! [`sovereign-no-repeat-ngram`]: https://docs.rs/sovereign-no-repeat-ngram
+//! [`sovereign-logit-mask`]: https://github.com/cyberpunk042/sovereign-os/tree/main/crates/sovereign-logit-mask
+//! [`sovereign-no-repeat-ngram`]: https://github.com/cyberpunk042/sovereign-os/tree/main/crates/sovereign-no-repeat-ngram
 //!
 //! Standing rule: We do not minimize anything.
 

@@ -14,8 +14,8 @@
 //!
 //! Composes [`sovereign-agent-loop`] and [`sovereign-llm`].
 //!
-//! [`sovereign-agent-loop`]: https://docs.rs/sovereign-agent-loop
-//! [`sovereign-llm`]: https://docs.rs/sovereign-llm
+//! [`sovereign-agent-loop`]: https://github.com/cyberpunk042/sovereign-os/tree/main/crates/sovereign-agent-loop
+//! [`sovereign-llm`]: https://github.com/cyberpunk042/sovereign-os/tree/main/crates/sovereign-llm
 //!
 //! Standing rule: We do not minimize anything.
 

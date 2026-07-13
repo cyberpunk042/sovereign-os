@@ -17,9 +17,9 @@
 //! and a single-layer stack reproduces the underlying block exactly (pinned
 //! as a test).
 //!
-//! [`sovereign-transformer-block`]: https://docs.rs/sovereign-transformer-block
-//! [`sovereign-quant-block`]: https://docs.rs/sovereign-quant-block
-//! [`sovereign-mha-block`]: https://docs.rs/sovereign-mha-block
+//! [`sovereign-transformer-block`]: https://github.com/cyberpunk042/sovereign-os/tree/main/crates/sovereign-transformer-block
+//! [`sovereign-quant-block`]: https://github.com/cyberpunk042/sovereign-os/tree/main/crates/sovereign-quant-block
+//! [`sovereign-mha-block`]: https://github.com/cyberpunk042/sovereign-os/tree/main/crates/sovereign-mha-block
 //!
 //! Standing rule: We do not minimize anything.
 

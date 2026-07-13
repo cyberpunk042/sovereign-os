@@ -13,7 +13,7 @@
 //! result is greedy (argmax each step), and with a wider beam the returned
 //! sequence's cumulative log-prob is never worse than greedy's.
 //!
-//! [`sovereign-decoder-stack`]: https://docs.rs/sovereign-decoder-stack
+//! [`sovereign-decoder-stack`]: https://github.com/cyberpunk042/sovereign-os/tree/main/crates/sovereign-decoder-stack
 //!
 //! Standing rule: We do not minimize anything.
 
