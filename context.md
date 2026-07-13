@@ -29,7 +29,7 @@ Full doctrine: `docs/standing-directives/two-ultimate-solutions.md`.
 | workspace crates | 717 | `crates/*/` |
 | dashboards (d-nn) | 25 | `webapp/d-*/` |
 | cockpit panels (total) | 55 | `webapp/*/index.html` |
-| sdd files | 165 | `docs/sdd/<NNN>-*.md` |
+| sdd files | 166 | `docs/sdd/<NNN>-*.md` |
 | milestone files | 85 | `backlog/milestones/*.md` |
 
 <!-- END COUNTS-CONTRACT -->
@@ -37,7 +37,7 @@ Full doctrine: `docs/standing-directives/two-ultimate-solutions.md`.
 **Recent arcs (newest first), beyond the 2026-05 M060 historical arc below:**
 
 - **Phase-1 whole-repo improvement audit** (`docs/review/phase-1/`) — 100+ ranked findings `F-2026-NNN`; the map for ongoing SDD work. In-flight closures (this general/audit session, SDD **900-band** per SDD-100): **SDD-950** real RoPE (`rope_theta`/`rope_scaling` — modern models decode coherently, F-2026-080); **SDD-206** gateway safety spine (injection screen + secret/PII redaction + auth/timeouts, F-2026-081/082); **SDD-951** durable-memory corruption recovery + bounded growth (F-2026-084); **SDD-952** this drift fix (F-2026-030).
-- **The July intelligence layer** — the Sovereign Brain observatory, the CoAT reasoning engine (`sovereign-coat`, CoT→ToT→MCTS→C-MCTS→CoAT), the Background-Tasks job runtime + compute plane, Plan Mode / User Approval / the auto-mode safety classifier, QCFA + interactive AUQ clarification, the HF-BPE tokenizer, and durable gateway memory. The Anthropic Messages API (`/v1/messages`, **SDD-205**) makes the box drive VS Code / Claude Code against its own local model.
+- **The July intelligence layer** — the Sovereign Brain observatory, the CoAT reasoning engine (`sovereign-coat`, CoT→ToT→MCTS→C-MCTS→CoAT), the Background-Tasks job runtime + compute plane, Plan Mode / User Approval / the auto-mode safety classifier, QCFA + interactive AUQ clarification, the HF-BPE tokenizer, and durable gateway memory. The Anthropic Messages API (`/v1/messages`, **SDD-205**) makes the box drive VS Code / Claude Code against its own local model. **Cold-start anchor: [`docs/handoff/008-july-intelligence-layer-arc.md`](docs/handoff/008-july-intelligence-layer-arc.md)** (SDD-983 — closes F-2026-060/036); gateway `/v1` API reference: [`docs/src/gateway-api-reference.md`](docs/src/gateway-api-reference.md) (F-2026-064). Follow-up hardening open: F-2026-034 (MS003 signing) · F-2026-063/090 (route model-backed CoAT through jobs) · F-2026-062/091 (jobs sandbox + growth).
 - Parallel sessions run per the **SDD-100 number-band convention** (`recover 100–199`, `header-sidemenu 200–299`, `science-tools 300–399`, `compute-plane 900–949`, `phase-1 audit 950–999`, `cockpit-wasm 800–899`) so SDD numbers can't collide; each unassigned session claims its own disjoint 100-wide block (never a shared catch-all), and `test_sdd_numbers_unique` is the backstop. Sessions **identify themselves** in `docs/sdd/SESSIONS.md`, an out-of-band slip **self-heals** via `scripts/git/sdd_conflict_resolver.py` (SDD-980), and sessions **talk to each other + the operator** on `docs/sdd/MESSAGES.md` via `scripts/git/session_comms.py` (SDD-981). See "Parallel-session conventions" below.
 
 ## Historical arc (2026-05-28): M060 cross-repo mirror producers — COMPLETE
