@@ -49,7 +49,6 @@ config/auto/build
 
 # Editors
 .idea/
-.vscode/
 *.swp
 *~
 .DS_Store

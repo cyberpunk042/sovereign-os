@@ -1,0 +1,39 @@
+{
+  "// perf": "sovereign-os has ~74k build-artifact files (target/, build/, cockpit-wasm/target/). Without these excludes VS Code's file watcher + rust-analyzer re-scan ALL of them on every rebase/checkout and pin the CPU. Reload the window once after this lands (Ctrl+Shift+P -> Reload Window).",
+
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/target/**": true,
+    "**/build/**": true,
+    "**/cockpit-wasm/target/**": true,
+    "**/node_modules/**": true,
+    "**/__pycache__/**": true,
+    "**/*.wasm": true
+  },
+
+  "search.exclude": {
+    "**/target": true,
+    "**/build": true,
+    "**/cockpit-wasm/target": true,
+    "**/node_modules": true,
+    "**/__pycache__": true,
+    "**/*.wasm": true,
+    "**/*.pyc": true
+  },
+
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/*.pyc": true
+  },
+
+  "// rust-analyzer": "717 crates -- keep it from re-checking the whole workspace on every save (the other big rebase-time CPU spike).",
+  "rust-analyzer.files.excludeDirs": ["target", "build", "cockpit-wasm/target"],
+  "rust-analyzer.check.workspace": false,
+  "rust-analyzer.checkOnSave": false,
+  "rust-analyzer.cargo.buildScripts.enable": false,
+
+  "git.autorefresh": true,
+  "git.autofetch": false,
+  "typescript.tsserver.watchOptions": { "watchDirectory": "useFsEventsOnParentDirectory" }
+}
