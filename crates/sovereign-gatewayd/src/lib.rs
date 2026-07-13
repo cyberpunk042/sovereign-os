@@ -31,7 +31,7 @@
 
 pub mod http;
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, VecDeque};
 use std::sync::{Arc, Mutex, RwLock};
 
 use serde::{Deserialize, Serialize};
@@ -42,9 +42,11 @@ use sovereign_coat::{
 };
 use sovereign_cortex::{Cortex, CortexRequest, Deliberation, seed_memory};
 use sovereign_gateway::{GatewayManifest, GatewaySurface, SCHEMA_VERSION, SurfaceState};
+use sovereign_observability_events::{EventKind, ObservabilitySpan};
 use sovereign_rate_limit::TokenBucket;
 use sovereign_router_7axis::{Complexity, TaskAxes};
 use sovereign_srp_scheduler::{Precision, RolePressure, Workload, WorkloadClass};
+use sovereign_trace_context::{BranchId, TraceId};
 use sovereign_value_plane::{IntelligenceTier, NextAction, RewardVector};
 
 /// A simplified client request: the client supplies the task descriptor (the
@@ -584,6 +586,12 @@ pub struct GatewayServer {
     rate_start: std::time::Instant,
     /// Count of requests refused by the rate limiter (surfaced on `/metrics`).
     rate_limited: std::sync::atomic::AtomicU64,
+    /// Structured runtime observability: a bounded ring of the most recent
+    /// [`ObservabilitySpan`]s (one per local model call), exposed read-only on
+    /// `GET /v1/events`. Oldest is dropped past `EVENTS_CAP`.
+    events: Mutex<VecDeque<ObservabilitySpan>>,
+    /// Monotonic per-request trace-id source for the spans.
+    trace_seq: std::sync::atomic::AtomicU64,
 }
 
 /// A loaded local generation engine: real weights + a real byte-level BPE
@@ -1041,6 +1049,8 @@ impl GatewayServer {
             },
             rate_start: std::time::Instant::now(),
             rate_limited: std::sync::atomic::AtomicU64::new(0),
+            events: Mutex::new(VecDeque::new()),
+            trace_seq: std::sync::atomic::AtomicU64::new(1),
         }
     }
 
@@ -1186,6 +1196,52 @@ impl GatewayServer {
         self.rate_limited.load(std::sync::atomic::Ordering::Relaxed)
     }
 
+    /// Bound on the observability event ring — the most recent N spans are kept.
+    const EVENTS_CAP: usize = 256;
+
+    /// Push a span onto the bounded event ring (drops the oldest past the cap).
+    fn record_event(&self, span: ObservabilitySpan) {
+        if let Ok(mut ring) = self.events.lock() {
+            if ring.len() >= Self::EVENTS_CAP {
+                ring.pop_front();
+            }
+            ring.push_back(span);
+        }
+    }
+
+    /// The next monotonic trace id for a request's span.
+    fn next_trace_id(&self) -> TraceId {
+        TraceId(
+            self.trace_seq
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed) as u128,
+        )
+    }
+
+    /// Record a `model_call` observability span for a completed LOCAL generation
+    /// (Phase-1 de-island of `sovereign-observability-events`). Surfaced on
+    /// `GET /v1/events`. Cheap + non-blocking; a poisoned ring is skipped.
+    pub fn record_model_call(&self, model: &str, tokens: u64, latency_ms: u64) {
+        let mut span = ObservabilitySpan::new(
+            EventKind::ModelCall,
+            "sovereign-gateway",
+            self.next_trace_id(),
+            BranchId(0),
+        );
+        span.model = Some(model.to_string());
+        span.provider = Some("local".to_string());
+        span.tokens = Some(tokens);
+        span.latency_ms = Some(latency_ms);
+        self.record_event(span);
+    }
+
+    /// A snapshot of the recent observability spans (newest last), for `/v1/events`.
+    pub fn recent_events(&self) -> Vec<ObservabilitySpan> {
+        self.events
+            .lock()
+            .map(|r| r.iter().cloned().collect())
+            .unwrap_or_default()
+    }
+
     /// Unload a secondary model OR unregister a proxy backend. Returns whether one
     /// was present.
     pub fn unload_model(&self, id: &str) -> bool {
@@ -1241,6 +1297,8 @@ impl GatewayServer {
         use sovereign_logit_mask::LogitMask;
         use sovereign_stream_decode::Utf8Stream;
 
+        let t0 = std::time::Instant::now(); // for the model_call observability span
+
         // ---- safety spine, input side: screen the prompt for injection ----
         if self.guard.enabled && self.guard.screen_injection {
             let det = sovereign_injection_detect::scan(prompt);
@@ -1267,6 +1325,7 @@ impl GatewayServer {
         // primary), so background work routes to the secondary and the same alias
         // works from every caller.
         let target = self.expand_alias(model);
+        let model_label = target.clone().unwrap_or_else(|| self.primary_id.clone());
         let Some(engine) = self.resolve_model(target.as_deref()) else {
             return Err("no local model loaded".to_string());
         };
@@ -1331,6 +1390,7 @@ impl GatewayServer {
                     );
                 }
             }
+            self.record_model_call(&model_label, count as u64, t0.elapsed().as_millis() as u64);
             return Ok(count);
         }
 
@@ -1348,6 +1408,7 @@ impl GatewayServer {
         if !tail.is_empty() {
             on_chunk(&tail);
         }
+        self.record_model_call(&model_label, count as u64, t0.elapsed().as_millis() as u64);
         Ok(count)
     }
 
@@ -2103,6 +2164,35 @@ mod tests {
         assert_eq!(
             v["kind"], "coat-trace",
             "a model hint must not break the coat surface"
+        );
+    }
+
+    #[test]
+    fn observability_ring_records_model_calls_and_is_bounded() {
+        let s = GatewayServer::new();
+        assert!(s.recent_events().is_empty());
+        s.record_model_call("fast", 12, 34);
+        let ev = s.recent_events();
+        assert_eq!(ev.len(), 1);
+        assert_eq!(ev[0].kind, EventKind::ModelCall);
+        assert_eq!(ev[0].model.as_deref(), Some("fast"));
+        assert_eq!(ev[0].tokens, Some(12));
+        assert_eq!(ev[0].latency_ms, Some(34));
+        assert_eq!(ev[0].provider.as_deref(), Some("local"));
+        // the ring is bounded — pushing past the cap drops the oldest, never grows
+        for i in 0..(GatewayServer::EVENTS_CAP as u64 + 50) {
+            s.record_model_call("m", i, 0);
+        }
+        let ev = s.recent_events();
+        assert_eq!(
+            ev.len(),
+            GatewayServer::EVENTS_CAP,
+            "ring must stay bounded"
+        );
+        // trace ids are monotonic + distinct across records
+        assert!(
+            ev.first().unwrap().trace_id.0 < ev.last().unwrap().trace_id.0,
+            "trace ids must advance"
         );
     }
 

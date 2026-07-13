@@ -141,6 +141,7 @@ pub fn respond(server: &GatewayServer, method: &str, path: &str, body: &str) -> 
         // served as SSE in main.rs. The sovereign routing DECISION is /v1/infer.
         ("POST", "/v1/messages") => anthropic_message(server, body),
         ("GET", "/v1/models") => anthropic_models(server),
+        ("GET", "/v1/events") => events(server),
         ("POST", "/v1/models/load") => models_load(server, body),
         ("POST", "/v1/models/unload") => models_unload(server, body),
         ("POST", "/v1/models/register") => models_register(server, body),
@@ -415,6 +416,17 @@ fn anthropic_models(server: &GatewayServer) -> HttpReply {
             // designated-but-unloaded → the primary), so a UI can show it (inc.3/UX loop)
             "background": server.background_id(),
         }),
+    )
+}
+
+/// `GET /v1/events` — the recent runtime observability spans (one `model_call` per
+/// local generation; the `sovereign-observability-events` 13-field taxonomy), newest
+/// last. Read-only; a bounded ring, so this is the last N, not a full history.
+fn events(server: &GatewayServer) -> HttpReply {
+    let events = server.recent_events();
+    json_reply(
+        200,
+        &serde_json::json!({ "count": events.len(), "events": events }),
     )
 }
 
@@ -1139,6 +1151,23 @@ mod tests {
             content.contains("hello") && !content.contains("SECRET"),
             "non-text block leaked: {content}"
         );
+    }
+
+    #[test]
+    fn events_endpoint_returns_the_observability_span_ring() {
+        let s = srv();
+        // empty ring initially
+        let v = body_of(&respond(&s, "GET", "/v1/events", ""));
+        assert_eq!(v["count"], 0);
+        assert!(v["events"].as_array().unwrap().is_empty());
+        // a recorded model call surfaces on the endpoint (snake_case event kind)
+        s.record_model_call("primary", 5, 10);
+        let v = body_of(&respond(&s, "GET", "/v1/events", ""));
+        assert_eq!(v["count"], 1);
+        assert_eq!(v["events"][0]["kind"], "model_call");
+        assert_eq!(v["events"][0]["model"], "primary");
+        assert_eq!(v["events"][0]["tokens"], 5);
+        assert_eq!(v["events"][0]["provider"], "local");
     }
 
     #[test]

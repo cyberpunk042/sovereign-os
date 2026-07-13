@@ -224,6 +224,20 @@ per-device model status (the D-22 LM Status & Operability panel). SDD-902.
   are down; a webapp-contract test locks the section + the copyable verbs + the demo fixture. 24 D-22 contract
   tests.
 
+### Added — wire an island crate: `sovereign-observability-events` → `GET /v1/events` span stream (2026-07-12)
+
+De-islanding pass #2 (SDD-955 island register). `sovereign-observability-events` (the 13-field runtime span
+taxonomy — `model_call` … `cost_event`) was zero-reverse-dependency. Its register trigger named the hardware-
+telemetry binary, but the natural consumer is the **gateway** — it makes the model calls the taxonomy describes.
+
+- `sovereign-gatewayd` depends on it (+ `sovereign-trace-context` for TraceId/BranchId). The server keeps a
+  bounded ring (256) of `ObservabilitySpan`s + a monotonic trace-id source; `generate_chat` records a
+  `model_call` span (model, tokens, latency_ms, provider=local) on every local generation.
+- NEW read-only `GET /v1/events` → `{count, events:[…]}` (newest last; the last N, a ring not a full history).
+- The island register drops the row (34 → 33); the enforcing lint stays green. Both wired crates now run in prod.
+- Verified: a lib test (record + snake_case kind + bounded ring + monotonic trace ids) + an http test. 66 lib+http
+  + 4 bin + 18 transport tests (2 new); clippy `-D warnings` + fmt clean.
+
 ### Added — wire an island crate: `sovereign-rate-limit` → gateway generation admission control (2026-07-12)
 
 De-islanding pass (SDD-955 island register): `sovereign-rate-limit` was a real, tested, zero-reverse-dependency

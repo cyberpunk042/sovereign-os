@@ -4816,6 +4816,7 @@ dependencies = [
  "sovereign-injection-detect",
  "sovereign-logit-mask",
  "sovereign-memory-os",
+ "sovereign-observability-events",
  "sovereign-pii-redact",
  "sovereign-quant-model",
  "sovereign-rate-limit",
@@ -4825,6 +4826,7 @@ dependencies = [
  "sovereign-srp-scheduler",
  "sovereign-stream-decode",
  "sovereign-toxicity",
+ "sovereign-trace-context",
  "sovereign-value-plane",
 ]
 

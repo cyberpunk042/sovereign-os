@@ -96,6 +96,7 @@ and read-only surfaces run on the deterministic engine and never need one.
 | `POST /v1/models/unload` | unload a secondary / unregister a proxy | `{id}` → `{unloaded:bool}` |
 | `POST /v1/models/register` | register a **GPU serve-process** backend (a `model-serve` job does this) | `{id, endpoint, device?, vram_gb?, dialect?}` → `{registered:id}` |
 | `POST /v1/models/background` | designate the model the `"background"` alias routes to | `{id}` → `{background:id, active:id\|null}` |
+| `GET /v1/events` | recent runtime observability spans (one `model_call` per local generation) | `{count:N, events:[{kind:"model_call", model, tokens, latency_ms, provider, …}]}` |
 | `POST /v1/chat/completions` | **OpenAI shim** (generate, SSE) | OpenAI chat request → OpenAI `chat.completion.chunk` deltas + `[DONE]` |
 | `POST /v1/infer` (alias `/mcp`) | routing **DECISION** (no generation) | cortex request → `{kind:"decision", decision:{route, device, verdict, …}}` |
 | `POST /v1/simple` | simplified decision (7 axes + `expected_quality`) — learns | `{axes:{…}, expected_quality}` → `{kind:"decision", learned}` |
