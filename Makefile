@@ -5,9 +5,9 @@
 SHELL := /bin/bash
 PROFILE ?= sain-01
 
-.PHONY: help setup validate lint unit l3 l3-fast test smoke dry-run \
-        preflight ci all clean dashboards-lint install uninstall bins panel bootstrap \
-        operator-sudo operator-sudo-uninstall demo-capture demo-preflight
+.PHONY: help setup dev-deps validate lint unit l3 l3-fast test smoke dry-run \
+        preflight ci all clean clean-pyc dashboards-lint install uninstall bins panel bootstrap \
+        operator-sudo operator-sudo-uninstall demo-capture demo-preflight _require-pytest
 
 .DEFAULT_GOAL := help
 
@@ -24,6 +24,9 @@ help:  ## Show this help
 
 setup:  ## One-command fresh-clone bootstrap (git hooks + deps + smoke)
 	scripts/setup.sh
+
+dev-deps:  ## Install the Python test/lint deps (pytest pyyaml jsonschema) from requirements-dev.txt
+	python3 -m pip install -r requirements-dev.txt
 
 panel:  ## Start the operator panels (build configurator :8100 + runtime dashboard :8443) — no sudo
 	scripts/operator/panel.sh
@@ -46,10 +49,15 @@ operator-sudo-uninstall:  ## Remove the operator NOPASSWD sudoers drop-in
 validate:  ## Validate all profiles against schema + mixin merger
 	scripts/validate-profiles.sh
 
-lint:  ## Run all Layer 1 lint suites
+_require-pytest:  # internal: fail with a friendly hint if pytest isn't installed
+	@python3 -c 'import pytest' 2>/dev/null || { \
+	  echo "pytest is not installed — run 'make dev-deps' (installs pytest pyyaml jsonschema from requirements-dev.txt)"; \
+	  exit 1; }
+
+lint: _require-pytest  ## Run all Layer 1 lint suites
 	python3 -m pytest tests/schema tests/lint -v
 
-unit:  ## Run all Layer 2 unit tests
+unit: _require-pytest  ## Run all Layer 2 unit tests
 	python3 -m pytest tests/unit -v
 
 l3:  ## Run all Layer 3 nspawn-style tests (full suite, ~30+ seconds)
@@ -66,7 +74,7 @@ l3-fast:  ## Run a fast representative subset of L3 tests (~5 seconds)
 	  bash "$$t" >/dev/null && echo "    PASS" || { echo "    FAIL"; exit 1; }; \
 	done
 
-dashboards-lint:  ## Verify Grafana dashboard JSONs + metric lockstep
+dashboards-lint: _require-pytest  ## Verify Grafana dashboard JSONs + metric lockstep
 	python3 -m pytest tests/lint/test_dashboard_json_valid.py tests/lint/test_dashboard_metrics_lockstep.py -v
 
 demo-preflight:  ## Webapp increment preflight (branch-vs-main + app-shell sync + doc lints)
@@ -93,10 +101,15 @@ smoke: validate l3-fast dry-run  ## Combined smoke: validate + L3 fast + orchest
 
 all: setup test smoke  ## Full operator-side bootstrap-and-test loop
 
-clean:  ## Remove build state + temporary files
+clean: clean-pyc  ## Remove build state + temporary files (incl. __pycache__)
 	@rm -rf ~/.sovereign-os/build-state ~/.sovereign-os/log
 	@rm -rf .sovereign-os/
 	@echo "cleaned local sovereign-os state"
+
+clean-pyc:  ## Remove Python bytecode cruft (__pycache__ dirs + *.pyc) from the tree
+	@find . -type d -name __pycache__ -prune -exec rm -rf {} + 2>/dev/null || true
+	@find . -type f -name '*.pyc' -delete 2>/dev/null || true
+	@echo "cleaned __pycache__ + *.pyc"
 
 PREFIX ?= /usr/local
 SOVEREIGN_OS_LIB ?= $(PREFIX)/lib/sovereign-os

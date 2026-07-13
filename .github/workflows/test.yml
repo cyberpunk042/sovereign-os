@@ -31,7 +31,7 @@ jobs:
       - name: install deps
         run: |
           python3 -m pip install --upgrade pip
-          python3 -m pip install pytest pyyaml jsonschema
+          python3 -m pip install -r requirements-dev.txt
       - name: pytest layer 1
         run: |
           python3 -m pytest tests/schema tests/lint -v
@@ -64,7 +64,7 @@ jobs:
       - name: install deps
         run: |
           python3 -m pip install --upgrade pip
-          python3 -m pip install pytest pyyaml jsonschema
+          python3 -m pip install -r requirements-dev.txt
       - name: cross-repo contract gates
         run: |
           # Every cross-repo gate is exactly a tests/lint file that reads
@@ -94,7 +94,7 @@ jobs:
       - name: install deps
         run: |
           python3 -m pip install --upgrade pip
-          python3 -m pip install pytest pyyaml jsonschema
+          python3 -m pip install -r requirements-dev.txt
       - name: pytest layer 2
         run: |
           python3 -m pytest tests/unit -v
@@ -123,7 +123,7 @@ jobs:
           # pytest is required because tests/nspawn/test_makefile_execution.sh's
           # `make lint` subtest invokes `python3 -m pytest tests/schema tests/lint`.
           # Without pytest, make lint fails immediately, taking down layer-3.
-          python3 -m pip install pytest pyyaml jsonschema
+          python3 -m pip install -r requirements-dev.txt
       - name: profile schema-validation (raw + resolved)
         run: |
           scripts/validate-profiles.sh

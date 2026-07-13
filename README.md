@@ -62,7 +62,12 @@ You need a working Debian 13 / Ubuntu 24.04 (or compatible) machine with:
 - **GCC 14** (`apt install gcc-14 g++-14`)
 - **64GB free disk** (kernel compile is hungry; tmpfs is even better)
 - **mkosi** or **live-build** (the build picks; mkosi is default per SDD-003)
-- **Python 3.11+** with `pyyaml` + `jsonschema`
+- **Python 3.11+** — install the test/lint deps with `make dev-deps` (pins one
+  list, `requirements-dev.txt`: `pytest` + `pyyaml` + `jsonschema`)
+- **Rust 1.89+** (edition 2024) for the `crates/` intelligence layer. Debian
+  stable ships 1.85 — install the pinned toolchain via rustup with
+  `scripts/install/rust-toolchain.sh` (user-level `~/.cargo`/`~/.rustup`, never
+  apt; also run by `make provision`). Not needed for an image-only build.
 - **Network access** to deb.debian.org + huggingface.co (post-install model pulls)
 
 You can RUN sovereign-os on the **target hardware** (SAIN-01 or a profile).
