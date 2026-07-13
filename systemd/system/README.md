@@ -1,8 +1,54 @@
 # systemd unit files
 
-These are template units shipped with sovereign-os. Installation
-copies them to `/etc/systemd/system/` and writes per-service env
-files to `/etc/sovereign-os/inference-*.env`.
+These are the systemd units shipped with sovereign-os. The full fleet is
+**111 units** (91 `.service` · 19 `.timer` · 1 `.target`) — the inference tier
+below is only 4 of them.
+
+## The full fleet + `make install-units`
+
+`make install` installs the shared libraries + `sovereign-osctl` (and `make bins`
+installs the Rust daemons), but **it does not install the units** — that is
+`make install-units`. It stages, DESTDIR-clean:
+
+- every `systemd/system/*.{service,timer,target}` → `/etc/systemd/system/`, and
+- the three **script trees the units reference** (see the two-prefix doctrine
+  below), so a booted box actually has the scripts each `ExecStart` points at.
+
+```sh
+# Stage/verify without touching the live system:
+make install-units DESTDIR=/tmp/stage
+
+# Real install (root), then activate selectively per profile:
+sudo make install-units
+sudo systemctl daemon-reload
+sudo systemctl enable --now sovereign-gatewayd.service   # …and the units your profile needs
+```
+
+`make uninstall-units` removes the unit files + the staged script trees (disable
+the units first). The Rust-daemon units (`sovereign-gatewayd.service`,
+`sovereign-power-shutdown-guard.*`) are also handled by
+`scripts/install/install-sovereign-root.sh` during a full root install.
+
+### Two-prefix doctrine
+
+A unit's `ExecStart` points at one of two script roots, by ownership:
+
+| Script family | Install root | Units | Why this root |
+|---|---|---|---|
+| operator-API (`scripts/operator/…`) | `/usr/local/lib/sovereign-os/scripts/operator` | ~54 | FHS `/usr/local/lib` — the operator control-plane, installed with the rest of `PREFIX=/usr/local`. |
+| hooks / inference / hardware (`scripts/{hooks,inference,hardware}/…`) | `/opt/sovereign-os/scripts/…` | ~34 | The `/opt` vendor tree the image build lays down for boot-time hooks + inference + hardware drivers. |
+
+A handful of units call an installed binary directly (`/usr/local/bin/sovereign-gatewayd`,
+`/usr/local/bin/guardian-core`) rather than a script — those come from `make bins`
+/ the root installer.
+
+`tests/lint/test_systemd_install_coverage.py` enforces this doctrine: every unit's
+`ExecStart` script resolves to a real in-repo file, every referenced prefix stays
+within the two documented roots, `make install-units` stages all three script
+trees, and the fleet counts here match the tree — so the fleet can't grow a unit
+that points at a missing script or an undocumented prefix.
+
+## The inference tier (4 of the 111 units)
 
 | Unit | Tier | Default port |
 |---|---|---|
@@ -11,7 +57,7 @@ files to `/etc/sovereign-os/inference-*.env`.
 | `sovereign-oracle-core.service` | Oracle Core (vLLM + DFlash on Blackwell) | 8083 |
 | `sovereign-router.service` | OpenAI-compatible front | 8080 |
 
-## Install (post-image-boot)
+## Install (inference tier — env files + selective enable)
 
 ```sh
 sudo cp systemd/system/*.service /etc/systemd/system/
