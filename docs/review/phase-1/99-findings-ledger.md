@@ -40,6 +40,7 @@
 - **Related**: F-2026-050 (CI time), F-2026-040 (webapp duplication the crates were meant to prevent).
 
 ### F-2026-002 · HIGH · 35 non-cockpit orphan crates need entry-point-or-dead triage
+> **Status (2026-07-13):** **CLOSED by SDD-955** (island register) — annotated by SDD-962. The per-crate disposition table this asks for shipped as `docs/review/phase-1/island-register.md`: 35 crates (now 33 — a parallel session wired `rate-limit` + `observability-events`, enforced by the register's lint), each with a `wireable`/`aspirational` disposition + a concrete trigger. The two headline crates named here (`sovereign-holderpo`, `sovereign-worker-fleet`) are registered `aspirational` with triggers.
 - **Evidence**: 0 internal consumers, not binaries: `sovereign-base-os, -cgroup-systemd, -continuity-levels, -continuity-manager, -cpu-dispatch, -cpu-topology, -dashboard-layout, -dashboard-snapshot, -data-plane, -execution-env, -fs-boundary, -hardware-dispatch-eligibility, -harness-layers, -hibernation, -holderpo, -inheritance-artifacts, -intake, -mode-transition-log, -module-facets, -network-boundary, -network-zerotrust, -observability-events, -pcie-topology, -rate-limit, -replay-export-bundle, -replay-playback-rate, -sandbox-profile, -save-state, -vm-channel, -vm-workload, -whitelabel, -worker-fleet, -zfs-commit-gate, -zfs-provisioning-plan, -zfs-snapshot-policy`.
 - **Action**: per-crate one-line disposition table (consumed-by-scripts / future-entry-point / wire-me / archive-me). Special note: `sovereign-holderpo` (the HölderPO post-training pillar) and `sovereign-worker-fleet` are headline features of the two-ultimate-solutions doctrine yet nothing consumes them — either wire into `sovereign-cortex`/`gatewayd` or mark explicitly aspirational.
 
@@ -53,6 +54,7 @@
 - **Action**: add a lint-contract test asserting these invariants so the bar never silently drops (marker-free code, per-crate tests, no absolute paths).
 
 ### F-2026-005 · MED · The 9 binaries are the real runtime surface — document them as such
+> **Status (2026-07-13):** **CLOSED by SDD-962** (`docs/src/binaries.md`). All 9 binary crates mapped to role → invocation → purpose (production daemon `gatewayd`; periodic `telemetry`; helpers `resource-control` / `feature-selftest`; dev/demo `cortex` / `agent-runtime` / `inference-demo` / `chat` / `serve`) + a compose diagram, wired into the mdbook; `tests/lint/test_binaries_doc.py` enforces every binary crate stays documented.
 - `sovereign-agent-runtime, -chat, -cortex, -feature-selftest, -gatewayd, -inference-demo, -resource-control, -serve, -telemetry`. No single doc lists "these are the executables, this is what each is for, this is how they compose." Action: a `docs/architecture/binaries.md` (or mdbook page) mapping binary → systemd unit → panel → script callers.
 
 ### F-2026-006 · MED · `sovereign-inference-demo` runs on untrained pseudo-weights

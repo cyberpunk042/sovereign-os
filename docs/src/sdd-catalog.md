@@ -5,7 +5,7 @@
 > page drifts from `docs/sdd/`, so the published book can never freeze behind the
 > design record again (F-2026-033).
 
-Every Spec-Driven-Development design doc in `docs/sdd/` (143 total), by number.
+Every Spec-Driven-Development design doc in `docs/sdd/` (144 total), by number.
 
 - [SDD-000 — Project charter](../sdd/000-charter.md)
 - [SDD-001 — Cross-repo boundaries: contract between sovereign-os, info-hub, selfdef](../sdd/001-cross-repo-boundaries.md)
@@ -150,3 +150,4 @@ Every Spec-Driven-Development design doc in `docs/sdd/` (143 total), by number.
 - [SDD-959 — MASTER-PLAN count reconciliation + a milestone-completeness contract](../sdd/959-master-plan-count-reconciliation.md)
 - [SDD-960 — real workspace metadata + kill the dead docs.rs links](../sdd/960-workspace-metadata-and-dead-doc-links.md)
 - [SDD-961 — SDD INDEX status hygiene: drop stale branch refs + a hygiene contract](../sdd/961-sdd-index-status-hygiene.md)
+- [SDD-962 — runtime binaries reference + close the orphan-crate triage](../sdd/962-runtime-binaries-reference.md)
