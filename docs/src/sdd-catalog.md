@@ -5,7 +5,7 @@
 > page drifts from `docs/sdd/`, so the published book can never freeze behind the
 > design record again (F-2026-033).
 
-Every Spec-Driven-Development design doc in `docs/sdd/` (169 total), by number.
+Every Spec-Driven-Development design doc in `docs/sdd/` (170 total), by number.
 
 - [SDD-000 — Project charter](../sdd/000-charter.md)
 - [SDD-001 — Cross-repo boundaries: contract between sovereign-os, info-hub, selfdef](../sdd/001-cross-repo-boundaries.md)
@@ -176,3 +176,4 @@ Every Spec-Driven-Development design doc in `docs/sdd/` (169 total), by number.
 - [SDD-984 — MS003 commit-authority / signed-mutation gating: decision-package (F-2026-034)](../sdd/984-ms003-commit-authority-decision-package.md)
 - [SDD-985 — cockpit functional-execution close-out: decision-package (F-2026-035)](../sdd/985-cockpit-execute-unlock-decision-package.md)
 - [SDD-986 — crate dependency-graph contract: orphan discovery becomes a CI signal (F-2026-009)](../sdd/986-crate-dependency-graph-contract.md)
+- [SDD-987 — local pre-push `cargo fmt` gate: unformatted Rust can't reach the remote (F-2026-095)](../sdd/987-pre-push-fmt-gate.md)

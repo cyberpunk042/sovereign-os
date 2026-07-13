@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# scripts/git-hooks/pre-push — mirror CI's `cargo fmt --all --check` gate locally
+# so unformatted Rust can't reach the remote (F-2026-095 / SDD-987).
+#
+# Why: the July intelligence-layer arc was authored on a long-lived branch that
+# never opened a PR, so it bypassed CI — and landed with 52 `cargo fmt` violations
+# (`sovereign-coat` 39, `sovereign-gatewayd` 13) that were only caught weeks later
+# by the audit (F-2026-095). CI DOES gate fmt (`.github/workflows/test.yml`
+# `cargo fmt --all --check`), but only once code reaches a PR. This runs the exact
+# same check at `git push` time, so the round-trip is local, not a red PR later.
+#
+# It reads fmt's exit code DIRECTLY (never through a pipe — a pipe reports the
+# tail/grep exit and masks a fmt failure). Skips gracefully when the Rust
+# toolchain is absent (docs-only machines shouldn't be blocked). Bypass one push
+# with `git push --no-verify`.
+set -uo pipefail
+
+root="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+cd "${root}" || exit 0
+
+# No Rust toolchain (or no rustfmt component) → nothing to check; don't block.
+command -v cargo >/dev/null 2>&1 || exit 0
+cargo fmt --version >/dev/null 2>&1 || exit 0
+
+# The CI-exact gate. Capture output; read cargo's OWN exit code (not a pipe's).
+fmt_out="$(cargo fmt --all --check 2>&1)"
+fmt_rc=$?
+if [ "${fmt_rc}" -ne 0 ]; then
+  red=$'\033[1;31m'; ylw=$'\033[33m'; rst=$'\033[0m'
+  {
+    echo ""
+    echo "${red}✗ sovereign-os · pre-push: 'cargo fmt --all --check' failed — unformatted Rust.${rst}"
+    echo "${ylw}  CI (.github/workflows/test.yml) runs this exact gate; the push would fail there.${rst}"
+    echo "${ylw}  Fix it now:${rst}   ${red}cargo fmt --all${rst}   ${ylw}then re-push.${rst}"
+    echo "${ylw}  (Bypass once — not recommended: git push --no-verify)${rst}"
+    echo ""
+    printf '%s\n' "${fmt_out}" | head -20
+    echo ""
+  } >&2
+  exit 1
+fi
+exit 0

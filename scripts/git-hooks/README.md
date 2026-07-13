@@ -36,6 +36,20 @@ Env vars:
 - `SOVEREIGN_OS_PRECOMMIT_FULL=1` — run the entire L3 suite (~30+
   seconds; matches CI exactly)
 
+### `pre-push`
+
+Runs the CI-exact **`cargo fmt --all --check`** before a push reaches the remote
+(SDD-987). CI gates fmt (`.github/workflows/test.yml`), but only once code opens a
+PR — the July intelligence-layer arc landed 52 fmt violations because it lived on
+a long-lived branch that bypassed CI (F-2026-095). This makes the round-trip local.
+
+- Reads cargo's exit code **directly** (never through a pipe, which would mask a
+  fmt failure); blocks the push + prints `cargo fmt --all` as the fix on violations.
+- **Skips gracefully** when the Rust toolchain (or rustfmt) is absent — docs-only
+  machines aren't blocked.
+- Bypass one push (not recommended): `git push --no-verify`.
+- `tests/lint/test_fmt_hook_contract.py` keeps the hook and CI in lockstep.
+
 ### `post-merge` + `post-rewrite`
 
 Fire after `git pull` / `git merge` (`post-merge`) and after `git rebase` /
