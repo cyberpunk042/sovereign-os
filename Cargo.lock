@@ -6483,6 +6483,7 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
+ "sovereign-hardware-dispatch-eligibility",
  "sovereign-hardware-load-sample",
  "sovereign-hardware-registry",
  "sovereign-hardware-thermal-policy",

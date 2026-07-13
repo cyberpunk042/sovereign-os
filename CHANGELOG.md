@@ -252,6 +252,20 @@ per-device model status (the D-22 LM Status & Operability panel). SDD-902.
   are down; a webapp-contract test locks the section + the copyable verbs + the demo fixture. 24 D-22 contract
   tests.
 
+### Added — wire an island crate: `sovereign-hardware-dispatch-eligibility` → telemetry eligibility tableau (2026-07-12)
+
+De-islanding pass #3 (SDD-955 island register), crossing into the hardware domain. `sovereign-hardware-dispatch-
+eligibility` (which hardware targets can take a workload, given live load) was zero-reverse-dependency — and it
+needs exactly a `HardwareRegistry` + `LoadSnapshot`, which `sovereign-telemetry` already builds every sample.
+
+- `sovereign-telemetry` depends on it; after measuring live load it computes an `EligibilityTableau` for a
+  baseline (no-VRAM, any-role) workload and emits it under `derived.dispatch_eligibility` (+ an `eligible_targets`
+  summary) in its JSON document — so the telemetry sample now says which hardware can take work right now.
+- Fixed a latent API gap the wiring exposed: `WorkloadRequest.max_latency`'s `LatencyTier` is re-exported from
+  `sovereign-hardware-registry` (telemetry imports it there); no crate change needed once the path was corrected.
+- The island register drops the row (33 → 32); the enforcing lint stays green. A telemetry test asserts the
+  tableau computes (5 targets) and surfaces in the JSON. `cargo test`/`clippy -D warnings` clean.
+
 ### Added — wire an island crate: `sovereign-observability-events` → `GET /v1/events` span stream (2026-07-12)
 
 De-islanding pass #2 (SDD-955 island register). `sovereign-observability-events` (the 13-field runtime span

@@ -17,8 +17,9 @@ use std::process::Command;
 use std::thread::sleep;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use sovereign_hardware_dispatch_eligibility::{EligibilityTableau, WorkloadRequest};
 use sovereign_hardware_load_sample::LoadSnapshot;
-use sovereign_hardware_registry::{HardwareRegistry, HardwareTarget};
+use sovereign_hardware_registry::{HardwareRegistry, HardwareTarget, LatencyTier};
 use sovereign_hardware_thermal_policy::ThermalPolicy;
 use sovereign_observability_fabric::{ObservabilityFabric, ObservabilitySource, SourceState};
 use sovereign_pressure_reactions::{ReactionThresholds, derive_reactions};
@@ -225,6 +226,10 @@ struct Sample {
     )>,
     thermal_any_shutdown: bool,
     reactions: Vec<sovereign_pressure_reactions::Reaction>,
+    /// Which hardware targets can take a baseline workload right now, given live load
+    /// (the E0470 dispatch-eligibility tableau). `None` only if the registry/load
+    /// disagree on the target set (never fabricated).
+    eligibility: Option<EligibilityTableau>,
 }
 
 /// Probe the running system once into a typed [`Sample`].
@@ -276,6 +281,21 @@ fn sample() -> Sample {
     let thermal_any_shutdown = thermal.any_shutdown(&load);
     let reactions = derive_reactions(&pressure, &load, &registry, ReactionThresholds::default());
 
+    // Dispatch eligibility — which targets can take a baseline (no-VRAM, any-role)
+    // workload given the live load just measured. Computed from the registry + load
+    // this binary already holds; `None` only on a registry/load target-set mismatch.
+    let eligibility = EligibilityTableau::compute(
+        &WorkloadRequest {
+            vram_needed_gb: 0,
+            max_latency: LatencyTier::Heavy,
+            require_role: None,
+            max_util_pct: 101, // never exclude on utilization for the baseline probe
+        },
+        &registry,
+        &load,
+    )
+    .ok();
+
     Sample {
         at,
         pressure,
@@ -286,6 +306,7 @@ fn sample() -> Sample {
         thermal_verdicts,
         thermal_any_shutdown,
         reactions,
+        eligibility,
     }
 }
 
@@ -310,6 +331,11 @@ impl Sample {
                 "thermal_verdicts": thermal_verdicts,
                 "thermal_any_shutdown": self.thermal_any_shutdown,
                 "adaptive_reactions": self.reactions,
+                "dispatch_eligibility": self.eligibility,
+                "eligible_targets": self
+                    .eligibility
+                    .as_ref()
+                    .map(EligibilityTableau::eligible_targets),
             },
         })
     }
@@ -441,5 +467,29 @@ fn main() {
             break;
         }
         sleep(Duration::from_secs(interval_secs));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sample_computes_the_dispatch_eligibility_tableau() {
+        // Wiring the sovereign-hardware-dispatch-eligibility island: telemetry
+        // computes the tableau from the registry + load it already holds, and emits
+        // it in the JSON document. Probes degrade to canonical values in CI.
+        let s = sample();
+        let tableau = s
+            .eligibility
+            .as_ref()
+            .expect("eligibility must compute from the canonical registry + load");
+        assert_eq!(tableau.results.len(), 5, "one result per hardware target");
+        let j = s.to_json();
+        assert!(
+            j["derived"]["dispatch_eligibility"]["results"].is_array(),
+            "the tableau must surface in the JSON document"
+        );
+        assert!(j["derived"]["eligible_targets"].is_array());
     }
 }

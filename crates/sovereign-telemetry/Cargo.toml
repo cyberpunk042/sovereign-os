@@ -19,5 +19,8 @@ sovereign-pressure-sensors = { path = "../sovereign-pressure-sensors" }
 sovereign-hardware-load-sample = { path = "../sovereign-hardware-load-sample" }
 sovereign-hardware-registry = { path = "../sovereign-hardware-registry" }
 sovereign-hardware-thermal-policy = { path = "../sovereign-hardware-thermal-policy" }
+# Dispatch eligibility: which hardware targets can take a workload right now, given
+# live load — computed from the registry + LoadSnapshot this binary already builds.
+sovereign-hardware-dispatch-eligibility = { path = "../sovereign-hardware-dispatch-eligibility" }
 sovereign-pressure-reactions = { path = "../sovereign-pressure-reactions" }
 sovereign-observability-fabric = { path = "../sovereign-observability-fabric" }
