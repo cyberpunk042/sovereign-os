@@ -7,4 +7,6 @@ root="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
 # shellcheck source=lib/ownership-warn.sh
 . "${root}/scripts/git-hooks/lib/ownership-warn.sh" 2>/dev/null || exit 0
 ownership_warn "post-merge (git pull)"
+# shellcheck source=lib/sdd-resolve.sh
+. "${root}/scripts/git-hooks/lib/sdd-resolve.sh" 2>/dev/null && sdd_resolve "post-merge (git pull)"
 exit 0
