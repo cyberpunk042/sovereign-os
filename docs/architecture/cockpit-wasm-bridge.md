@@ -319,7 +319,81 @@ tests/lint/test_cockpit_wasm_bridge.py     the contract lint that keeps all of t
 
 ---
 
-## 10. Common questions
+## 10. Coverage — which crate runs where
+
+This is the live map of the mission (**F-2026-001**): which cockpit crates are actually *run*
+by something today.
+
+### Runnable vs. used-in-a-panel
+
+Two different bars, both worth tracking:
+
+- **Runnable** — reachable from the browser at all. **All 418** cockpit crates clear this bar:
+  the 398 uniform `validate()` crates + 19 bespoke + 12 compute wrappers all compile into the
+  full bridge and execute on the **`/crates` surface** (`webapp/_shared/cockpit-wasm/crates.html`):
+  the validator runs any uniform crate's `validate()`, and the compute/bespoke sections run their
+  real logic on editable input.
+- **Used in a panel** — a real dashboard panel runs the crate on its own live data. This is the
+  deeper bar; the rest of this section is that map.
+
+### Universal passes — every one of the 55 panels
+
+Applied by `cockpit-runtime.js` to every panel that includes the runtime (all 55):
+
+| crate | what it does on every panel |
+|---|---|
+| **color-contrast** | a real WCAG audit of the panel's own color tokens, shown as an a11y badge |
+| **relative-time** | rewrites visible ISO timestamps to "3 minutes ago" |
+| **facet-counts** (via control-systems) | facets the controls that *govern* this panel (kind / scope / access), when ≥2 apply |
+
+### Per-panel crate sections — 30 panels
+
+Each of these panels runs one or more crates on its own fetched data (additive sections;
+a panel can carry several):
+
+| panel | crate(s) it runs |
+|---|---|
+| ux-design-audit, personalization | color-contrast (full matrix / theme check) |
+| doc-coverage | word-count |
+| d-06-pending-approvals | alert-group (severity rollup) |
+| d-17-quarantine | facet-counts + alert-group (per-tool worst severity) |
+| d-14-capability-tokens | facet-counts + tree-view (inheritance outline) |
+| d-01-active-sessions | facet-counts + progress-tracker + stepper (lifecycle) |
+| d-18-trust-scores | facet-counts + progress-tracker (mean score) |
+| code-console | facet-counts + progress-tracker (job progress) |
+| d-16-audit, d-08-rollback-points, global-history | facet-counts + day-divider (timeline by day) |
+| d-10-eval-history | facet-counts + filter-state (staged filter) |
+| d-05-traces | filter-state (staged filter) |
+| runtime-modes | segmented-control (mode navigator) |
+| d-21-lm-orchestration | radio-group (profile selector) |
+| models-catalog, d-23, d-11, d-15, d-12, d-13, d-19, d-20, d-07, d-03, d-04, d-09, d-02, master-dashboard | facet-counts |
+
+### Crate → number of panels
+
+`facet-counts` 23 · `progress-tracker` 3 · `day-divider` 3 · `alert-group` 2 · `filter-state` 2 ·
+`color-contrast` 2 · `word-count` 1 · `tree-view` 1 · `stepper` 1 · `segmented-control` 1 ·
+`radio-group` 1 · `relative-time` (universal). **13 crates run in panels.**
+
+### Deliberately not forced into a panel
+
+- **multi-select-list** — no panel has a multi-row selection UI.
+- **checkbox-tree** — no panel has a checked/indeterminate *hierarchy* (d-14 has a tree but its
+  nodes carry a status, not a check-state; d-02 has tri-state cells but they're flat, not nested).
+
+Both run live on the `/crates` surface; they were left out of the panels rather than wired to a
+contrived widget.
+
+### The remaining frontier
+
+The **398 uniform `validate()` crates** encode the state invariants of UI *widgets* (accordion,
+tabs, breadcrumbs, item-pin, …). They are runnable (validator surface) but not yet *used in a
+panel*, because a panel would have to route its hand-rolled widget through the crate — a
+per-widget rewrite of the panels' JS, which is a larger, non-additive effort than everything
+above. That is the next mountain, tracked but not yet climbed.
+
+---
+
+## 11. Common questions
 
 **Why not just rewrite the panels in Rust?** The panels are deliberately plain, self-contained HTML
 that work with no build step and no network. The bridge keeps that property — it *adds* real Rust
