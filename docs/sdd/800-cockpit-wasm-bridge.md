@@ -1,10 +1,10 @@
-# SDD-974 — Cockpit wasm bridge: the typed cockpit crates run in the browser
+# SDD-800 — Cockpit wasm bridge: the typed cockpit crates run in the browser
 
 > Status: draft
 > Owner: operator-directed ("build the wasm bridge" — Phase-1 audit F-2026-001); agent-authored
 > Last updated: 2026-07-13
 > Closes findings: **F-2026-001** (partial — the 413 `sovereign-cockpit-*` crates are consumed by nothing; the audit's option (a): "wasm-pack a facade and progressively move panel state logic into the typed crates"). First crate bridged; the pattern + toolchain + contract are established for the rest.
-> Mandate module: **E11.M974** (operator-mandate cross-link).
+> Mandate module: **E11.M800** (operator-mandate cross-link).
 > Number band: **950–999 (general / audit session)** per SDD-100.
 
 ## Mission

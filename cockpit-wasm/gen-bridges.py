@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """gen-bridges.py — generate the uniform `<slug>_validate` wasm bridges for the
-sovereign-cockpit-* crate family (audit F-2026-001 / SDD-974).
+sovereign-cockpit-* crate family (audit F-2026-001 / SDD-800).
 
 ~399 cockpit crates share the exact shape `Type::validate(&self) -> Result<(), E>`
 on a serde-`Deserialize` primary type. This scans them, and for each ELIGIBLE

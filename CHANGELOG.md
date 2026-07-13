@@ -12,6 +12,16 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — scripts health-baseline contract (2026-07-13)
+
+Phase-1 audit (SDD-969; closes ledger F-2026-020). The operator-script surface was at an exemplary
+baseline with no guard — the scripts-surface parallel to the crate-hygiene contract (SDD-974).
+
+- **`tests/lint/test_scripts_health_baseline.py`**: three tree-recomputed invariants — every
+  `scripts/**/*.sh` passes `bash -n` (102 files, parse-only); every `scripts/**/*.py` byte-compiles
+  (299 files, never imported); `sovereign-osctl`'s 29 called `cmd_*` all resolve to definitions (a
+  dispatch to a missing handler fails CI, not the operator's terminal).
+
 ### Fixed — SDD-969 cross-session number collision + band-scheme drift (2026-07-13)
 
 The cockpit-wasm bridge session (F-2026-001) took SDD-969 inside the phase-1-audit band (950–999),
@@ -118,7 +128,7 @@ Phase-1 audit (SDD-967; closes ledger F-2026-021 + F-2026-023).
 
 ### Added — Cockpit wasm bridge round 3: the final 19 bespoke crates — 418/418 (2026-07-13)
 
-Phase-1 audit (SDD-974; F-2026-001 — cockpit family COMPLETE). The 19 crates without the uniform
+Phase-1 audit (SDD-800; F-2026-001 — cockpit family COMPLETE). The 19 crates without the uniform
 `validate(&self)` were bridged **by hand** over their real decision fns (the macro can't):
 
 - **`cockpit-wasm/src/bespoke/<slug>.rs`** (NEW, 19 modules) — each a `#[wasm_bindgen]` wrapper over the
@@ -140,7 +150,7 @@ clean; committed demo still 128 KB; `pytest tests/lint/test_cockpit_wasm_bridge.
 
 ### Added — Cockpit wasm bridge round 2: 398 more cockpit crates, generated + feature-gated (2026-07-13)
 
-Phase-1 audit (SDD-974; F-2026-001 continued). The family is uniform — **~399 of 418 crates** share
+Phase-1 audit (SDD-800; F-2026-001 continued). The family is uniform — **~399 of 418 crates** share
 `Type::validate(&self) -> Result<(), E>` on a serde type — so the bridge scales **mechanically**:
 
 - **`cockpit-wasm/gen-bridges.py`** (NEW) emits one `bridge_validate!(<slug>_validate, …::Type)` line per
@@ -161,7 +171,7 @@ clean; `pytest tests/lint/test_cockpit_wasm_bridge.py` 12 passed. F-2026-001: 39
 
 ### Added — Cockpit wasm bridge: the typed cockpit crates run in the browser (2026-07-13)
 
-Phase-1 audit (SDD-974; closes ledger **F-2026-001** partial — the #1 crate finding). **413 of 418
+Phase-1 audit (SDD-800; closes ledger **F-2026-001** partial — the #1 crate finding). **413 of 418
 `sovereign-cockpit-*` crates (~58% of the workspace) are consumed by nothing that runs**: they encode the
 cockpit's UX-state as typed, tested Rust, but the webapp is hand-written HTML/JS (zero `wasm-bindgen`/`cdylib`/
 `wasm32`), so every panel re-implements crate logic in JS that can drift. Operator chose the audit's option (a):
