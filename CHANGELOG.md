@@ -12,6 +12,16 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — shell-safety-flags contract (2026-07-13)
+
+Phase-1 audit (SDD-968; closes ledger F-2026-024). Investigation found the finding's premise didn't hold —
+the "missing set -euo pipefail" candidates are deliberate (provision-bake.sh "NON-FATAL BY DESIGN"; preflight.sh
+a fail-counter) or sourced libs / a neutralized template; 0 entry-points ship with zero safety flags.
+
+- **`tests/lint/test_shell_safety_flags.py`**: every executable `scripts/**/*.sh` outside `lib/`/`templates/`
+  sources `common.sh` or sets a safety flag (`set -e`/`-u`/`-o pipefail`). Requires safety present, does not
+  mandate `-e` (respects the deliberate non-`-e` designs). 91 entry-points guarded, 0 violations.
+
 ### Changed — hook hygiene: dedup vfio-bind + hook contracts (2026-07-13)
 
 Phase-1 audit (SDD-967; closes ledger F-2026-021 + F-2026-023).
