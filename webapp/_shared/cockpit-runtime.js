@@ -134,6 +134,12 @@ export async function checklistToggle(stateJson, id, tsMs, currentlyDone) {
   const r = await bcall('checklist_toggle', stateJson, id, tsMs, currentlyDone);
   return (r && r.ok) ? { done: r.done, total: r.total, percent: r.percent, value: r.value } : null;
 }
+/** Resolve a radio-group selection through the crate (target = an option id or an arrow token).
+ *  Returns {selected, valid, value} or null when the bridge is absent. */
+export async function radioSelect(stateJson, target) {
+  const r = await bcall('radio_group_select', stateJson, target);
+  return (r && r.ok) ? { selected: r.selected, valid: r.valid, value: r.value } : null;
+}
 
 // ---- the WCAG audit: every meaningful token pair, judged by the real crate -----
 
@@ -875,4 +881,4 @@ export async function enhance(root = document) {
   return true;
 }
 
-export default { bridge, contrast, relTime, wordCount, truncate, validate, auditPalette, enhance, tabActivate, autocompleteNav, keystrokeResolve, stepperAdvance, collapsibleToggle, checklistToggle };
+export default { bridge, contrast, relTime, wordCount, truncate, validate, auditPalette, enhance, tabActivate, autocompleteNav, keystrokeResolve, stepperAdvance, collapsibleToggle, checklistToggle, radioSelect };

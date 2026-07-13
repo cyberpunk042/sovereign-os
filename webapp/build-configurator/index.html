@@ -1942,7 +1942,19 @@ function renderProfiles(){
     l.appendChild(nm);
     var ds = document.createElement("span"); ds.className="pdesc"; ds.textContent = p.desc || "";
     l.appendChild(ds);
-    l.addEventListener("click", function(){ state.profile = p.id; loadProfile(); });
+    l.addEventListener("click", async function(){
+      var next = p.id;
+      // resolve the single-select through the REAL sovereign-cockpit-radio-group crate (it
+      // validates the option); fall back to the raw id when the bridge is absent.
+      var sel = window.__cockpitRadioSelect;
+      if (sel) { try {
+        var rg = { schema_version:'1.0.0', required:true, selected: state.profile,
+          options: D.profiles.map(function(x){ return { id:x.id, label:(x.name||x.id), enabled:true }; }) };
+        var r = await sel(JSON.stringify(rg), p.id);
+        if (r && r.selected) next = r.selected;
+      } catch(_){} }
+      state.profile = next; loadProfile();
+    });
     c.appendChild(l);
   });
 }
@@ -1955,7 +1967,17 @@ function renderMicrocode(opts, def){
     var l = document.createElement("label"); l.className="chk"; l.htmlFor=id;
     var r = document.createElement("input"); r.type="radio"; r.name="microcode"; r.id=id;
     r.value=mc; r.checked = (mc === (state.microcode||def));
-    r.addEventListener("change", function(){ state.microcode = mc; regenerate(); });
+    r.addEventListener("change", async function(){
+      var next = mc;
+      var sel = window.__cockpitRadioSelect;   // resolve via the radio-group crate (validated single-select)
+      if (sel) { try {
+        var rg = { schema_version:'1.0.0', required:true, selected:(state.microcode||def),
+          options: opts.map(function(x){ return { id:x, label:x, enabled:true }; }) };
+        var rr = await sel(JSON.stringify(rg), mc);
+        if (rr && rr.selected) next = rr.selected;
+      } catch(_){} }
+      state.microcode = next; regenerate();
+    });
     l.appendChild(r);
     var s=document.createElement("span"); s.textContent=mc; l.appendChild(s);
     el.appendChild(l);
@@ -4588,11 +4610,12 @@ window.SO_ASSIST = {
 <!-- COURSE:END M090 -->
 <script type="module">
   // cockpit-crate runtime (F-2026-001): run the real sovereign-cockpit-* crates.
-  import { enhance, collapsibleToggle, checklistToggle } from '/_shared/cockpit-runtime.js';
+  import { enhance, collapsibleToggle, checklistToggle, radioSelect } from '/_shared/cockpit-runtime.js';
   enhance(document).catch(() => {});   // additive + graceful: no-op if the bridge is absent
-  // Invasive adoption: the section folds + BIOS checklist route through their crates (see above).
+  // Invasive adoption: the folds, BIOS checklist, and profile/microcode radios route through their crates.
   window.__cockpitCollapsibleToggle = collapsibleToggle;
   window.__cockpitChecklistToggle = checklistToggle;
+  window.__cockpitRadioSelect = radioSelect;
 </script>
 </body>
 </html>
