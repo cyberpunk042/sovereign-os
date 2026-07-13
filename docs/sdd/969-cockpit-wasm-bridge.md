@@ -41,9 +41,21 @@ Keeps the bridge honest both ways: facade excluded from the workspace + is a was
 - `pytest tests/lint/test_cockpit_wasm_bridge.py` → **8 passed**.
 - Full `tests/lint` + `tests/schema` green.
 
+## Round 2 — scaling the bridge to the whole cockpit family
+
+A survey found the family is remarkably uniform: **~399 of the 418 crates** share the exact shape `Type::validate(&self) -> Result<(), E>` on a serde-`Deserialize` primary type. That regularity is bridged **mechanically, not by hand**:
+
+- **`cockpit-wasm/gen-bridges.py`** scans the crates and, for each uniform one, emits one `bridge_validate!(<slug>_validate, sovereign_cockpit_<slug>::Type)` line into `src/bridges.rs` (a generated, `#![rustfmt::skip]` file) plus an *optional* path-dep + a `dep:` entry in the `bridges` feature list. Deterministic + idempotent; `--count N` bridges the first N (rounds), `--count all` the whole family.
+- **`bridge_validate!`** (a `macro_rules!` in `lib.rs`) expands to a `#[wasm_bindgen] pub fn <slug>_validate(json)` that parses the crate's primary type and runs its **real** `validate()`, returning `{"ok",…}` — never panics.
+- **Feature-gated to keep the repo lean.** The generated module is behind `#[cfg(feature = "bridges")]`. The **default** (committed) build is the banner-only demo — **128 KB**. The **full** bridge (all 398, **~4.4 MB**, 399 `_validate` exports) compiles only under `--features bridges` and is **built on demand + verified, never committed** (`make cockpit-wasm-all` / `cockpit-wasm/build.sh --verify-all`; a lint ceiling fails CI if the full build is ever committed).
+
+This de-islands **398 more cockpit crates** in source: each is now an (optional) dependency of `cockpit-wasm` with a real, compiling, browser-runnable consumer — F-2026-001's core for the uniform family. The `test_cockpit_wasm_bridge.py` contract pins that the generated `bridges.rs` / optional-deps / feature-list stay a consistent set over real cockpit crates, and a `--features bridges` native test proves a generated bridge reaches the crate's real `validate()` (valid → ok, schema-mismatch → its real error, garbage → parse guard).
+
+**Verified (round 2):** `gen-bridges.py --count all` → 398 bridged, 19 ineligible; `cargo build --release --target wasm32 --features bridges` → 399 `_validate` exports in 18 s; `build.sh --verify-all` executes a sample in node (valid/invalid/parse-guard OK); `cargo test --features bridges` 6 passed; clippy (default + `--features bridges`) clean; committed demo stays 128 KB; `pytest tests/lint/test_cockpit_wasm_bridge.py` 12 passed.
+
 ## Non-goals / follow-ups
 
-- **The other 412 cockpit crates** stay JS-only for now; each is a follow-up thin wrapper on the pattern this SDD lands (tracked against F-2026-001).
-- **`wasm-opt`** size reduction (binaryen) is a follow-up; 187 KB unoptimized is fine for the first proof.
+- **The 19 ineligible crates** (no `validate`, an extra-arg `validate`, or a non-`Deserialize` primary type — e.g. `pagination`, `relative-time`, `search-highlight`, `word-count`) get **bespoke** bridges in a following round (their own decision fns), not the uniform macro.
+- **`wasm-opt`** further size reduction of the full build (binaryen) is a follow-up; the committed demo is already 128 KB (opt-level="z" + strip).
 - **Nav-panel promotion** (adopt the demo into the cockpit app-shell / dashboard-catalog) + **progressive panel migration** (moving an existing production banner from its JS copy to the wasm call) are the natural next increments now that the bridge is proven.
 - MS003: `unsigned-pending-MS003` (read-only surfaces; the api mutates nothing).

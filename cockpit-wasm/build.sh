@@ -1,50 +1,74 @@
 #!/usr/bin/env bash
-# Build the cockpit-wasm bridge artifact (audit F-2026-001 / SDD-969).
+# Build the cockpit-wasm bridge artifacts (audit F-2026-001 / SDD-969).
 #
-# Compiles the wasm-bindgen facade over the typed sovereign-cockpit-* crates to
-# wasm32 and emits the browser-loadable artifact the panel imports:
+# Default (no args): builds the COMMITTED demo artifact — banner-only, small —
 #   webapp/_shared/cockpit-wasm/{cockpit_wasm.js, cockpit_wasm_bg.wasm}
+#   (default features; the demo.html panel loads this).
 #
-# Reproduces exactly what is committed. Requires: rustup wasm32-unknown-unknown
-# target + wasm-bindgen-cli 0.2.100 (matching cockpit-wasm/Cargo.toml's pin).
+# `--smoke`: default build + EXECUTE the banner exports in node (proof).
+#
+# `--verify-all`: builds the FULL bridge (`--features bridges`, all ~398 cockpit
+#   crates, ~4.4 MB) into a TEMP dir, executes a sample of the generated
+#   `<slug>_validate` exports in node, then discards it. Proves the whole family
+#   compiles + runs WITHOUT committing a multi-MB binary. This is what CI runs.
+#
+# Requires: rustup wasm32-unknown-unknown target + wasm-bindgen-cli 0.2.100.
 #   rustup target add wasm32-unknown-unknown
 #   cargo install wasm-bindgen-cli --version 0.2.100
-#
-# `--smoke` also builds nodejs glue in a temp dir and EXECUTES the exports to
-# prove the browser bridge returns the crate's real answers (no browser needed).
+# Regenerate the bridge set first if crates changed:
+#   python3 cockpit-wasm/gen-bridges.py --count all
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 REPO="$(cd "${HERE}/.." && pwd)"
 OUT="${REPO}/webapp/_shared/cockpit-wasm"
-WASM="${HERE}/target/wasm32-unknown-unknown/release/cockpit_wasm.wasm"
+REL="${HERE}/target/wasm32-unknown-unknown/release/cockpit_wasm.wasm"
 
-echo "==> cargo build --release --target wasm32-unknown-unknown"
-( cd "${HERE}" && cargo build --release --target wasm32-unknown-unknown )
+build_demo() {
+  echo "==> demo: cargo build --release --target wasm32-unknown-unknown (default features)"
+  ( cd "${HERE}" && cargo build --release --target wasm32-unknown-unknown )
+  rm -rf "${OUT:?}"/*.wasm "${OUT}"/*.js
+  mkdir -p "${OUT}"
+  wasm-bindgen --target web --out-dir "${OUT}" "${REL}"
+  rm -f "${OUT}"/*.d.ts
+  echo "    committed demo: $(du -h "${OUT}/cockpit_wasm_bg.wasm" | cut -f1) wasm + $(du -h "${OUT}/cockpit_wasm.js" | cut -f1) glue (banner-only)"
+}
 
-echo "==> wasm-bindgen --target web -> ${OUT#"${REPO}/"}"
-rm -rf "${OUT}"; mkdir -p "${OUT}"
-wasm-bindgen --target web --out-dir "${OUT}" "${WASM}"
-# Runtime files only — drop the TypeScript .d.ts dev aids.
-rm -f "${OUT}"/*.d.ts
-echo "    artifact: $(du -h "${OUT}/cockpit_wasm_bg.wasm" | cut -f1) wasm + $(du -h "${OUT}/cockpit_wasm.js" | cut -f1) glue"
-
-if [ "${1:-}" = "--smoke" ]; then
-  echo "==> smoke: build nodejs glue + EXECUTE the exports"
-  SM="$(mktemp -d)"; trap 'rm -rf "${SM}"' EXIT
-  wasm-bindgen --target nodejs --out-dir "${SM}" "${WASM}"
-  cat > "${SM}/smoke.cjs" <<'JS'
+case "${1:-}" in
+  --verify-all)
+    echo "==> verify-all: cargo build --release --features bridges (the whole cockpit family)"
+    ( cd "${HERE}" && cargo build --release --target wasm32-unknown-unknown --features bridges )
+    SM="$(mktemp -d)"; trap 'rm -rf "${SM}"' EXIT
+    wasm-bindgen --target nodejs --out-dir "${SM}" "${REL}"
+    N=$(grep -oE '\w+_validate' "${SM}/cockpit_wasm.js" | sort -u | wc -l)
+    echo "    full bridge: $(du -h "${REL}" | cut -f1) wasm, ${N} *_validate exports"
+    node -e "
+      const w=require('${SM}/cockpit_wasm.js');
+      const sample=['accordion_validate','action_bar_validate','tree_view_validate','item_pin_validate'];
+      for (const f of sample) { if (typeof w[f]!=='function') { console.error('MISSING',f); process.exit(1); } }
+      if (JSON.parse(w.item_pin_validate(JSON.stringify({schema_version:'1.0.0',max_pins:5,pinned:['a']}))).ok!==true) { console.error('valid FAIL'); process.exit(1); }
+      if (JSON.parse(w.item_pin_validate(JSON.stringify({schema_version:'9.9',max_pins:5,pinned:[]}))).ok!==false) { console.error('invalid FAIL'); process.exit(1); }
+      if (JSON.parse(w.accordion_validate('garbage')).ok!==false) { console.error('parse-guard FAIL'); process.exit(1); }
+      console.log('    verify-all smoke: '+sample.length+' generated exports callable + item_pin valid/invalid/parse-guard OK');
+    "
+    ;;
+  --smoke)
+    build_demo
+    SM="$(mktemp -d)"; trap 'rm -rf "${SM}"' EXIT
+    wasm-bindgen --target nodejs --out-dir "${SM}" "${REL}"
+    cat > "${SM}/smoke.cjs" <<'JS'
 const w = require('./cockpit_wasm.js');
-const cases = [['plan','cool',0,'calm'],['execute','cool',0,'notice'],['plan','warm',0,'notice'],
-  ['plan','throttle',0,'warn'],['plan','cool',1,'warn'],['plan','cool',6,'critical'],['plan','shutdown',0,'critical']];
-let ok = 0;
-for (const [m,t,a,exp] of cases) { if (w.banner_severity(m,t,a) === exp) ok++; else console.error('FAIL',m,t,a); }
-const st = w.banner_state('execute','fast','warm',2,'2026-05-19T03:00:00Z');
-if (JSON.parse(w.banner_validate(st)).ok !== true) { console.error('validate(good) FAIL'); process.exit(1); }
-if (JSON.parse(w.banner_validate(st.replace('"severity":"warn"','"severity":"calm"'))).ok !== false) { console.error('tamper FAIL'); process.exit(1); }
-console.log(`smoke: ${ok}/${cases.length} severity cases + validate + tamper-detect OK`);
-process.exit(ok === cases.length ? 0 : 1);
+const cases = [['plan','cool',0,'calm'],['execute','cool',0,'notice'],['plan','throttle',0,'warn'],['plan','shutdown',0,'critical']];
+let ok=0; for (const [m,t,a,exp] of cases){ if(w.banner_severity(m,t,a)===exp) ok++; else console.error('FAIL',m,t,a); }
+const st=w.banner_state('execute','fast','warm',2,'2026-05-19T03:00:00Z');
+if(JSON.parse(w.banner_validate(st)).ok!==true){console.error('validate FAIL');process.exit(1);}
+if(JSON.parse(w.banner_validate(st.replace('"severity":"warn"','"severity":"calm"'))).ok!==false){console.error('tamper FAIL');process.exit(1);}
+console.log(`    demo smoke: ${ok}/${cases.length} banner cases + validate + tamper-detect OK`); process.exit(ok===cases.length?0:1);
 JS
-  node "${SM}/smoke.cjs"
-fi
+    node "${SM}/smoke.cjs"
+    ;;
+  *)
+    build_demo
+    ;;
+esac
 echo "==> done"

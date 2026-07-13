@@ -7,7 +7,7 @@ PROFILE ?= sain-01
 
 .PHONY: help setup dev-deps validate lint unit l3 l3-fast test smoke dry-run \
         preflight ci all clean clean-pyc dashboards-lint install install-units uninstall uninstall-units bins panel bootstrap \
-        operator-sudo operator-sudo-uninstall demo-capture demo-preflight cockpit-wasm _require-pytest
+        operator-sudo operator-sudo-uninstall demo-capture demo-preflight cockpit-wasm cockpit-wasm-all _require-pytest
 
 .DEFAULT_GOAL := help
 
@@ -83,8 +83,11 @@ demo-preflight:  ## Webapp increment preflight (branch-vs-main + app-shell sync 
 controls-audit:  ## Phase 3 read-only audit: which panel actions are exec-rail-wired vs copy-only
 	python3 scripts/webapp/controls-audit.py $(if $(JSON),--json,)
 
-cockpit-wasm:  ## Rebuild the cockpit wasm bridge artifact (F-2026-001). Needs wasm32 target + wasm-bindgen 0.2.100. SMOKE=1 also executes it in node
+cockpit-wasm:  ## Rebuild the committed cockpit wasm DEMO artifact (banner-only). Needs wasm32 target + wasm-bindgen 0.2.100. SMOKE=1 executes it in node
 	bash cockpit-wasm/build.sh $(if $(SMOKE),--smoke,)
+
+cockpit-wasm-all:  ## Build + verify the FULL cockpit bridge (all ~398 crates, --features bridges) in a temp dir; commits nothing (F-2026-001)
+	bash cockpit-wasm/build.sh --verify-all
 
 demo-capture:  ## Capture + verify DEMO-mode panels (needs a browser; NODE_PATH to playwright). PANELS=a,b or SDD=SDD-124; OUT=dir
 	NODE_PATH=$${NODE_PATH:-/opt/node22/lib/node_modules} node scripts/webapp/demo-capture.mjs \

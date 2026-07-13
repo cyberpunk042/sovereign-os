@@ -86,6 +86,27 @@ Phase-1 audit (SDD-967; closes ledger F-2026-021 + F-2026-023).
   `test_no_dangling_hook_path_references` (every hook path in the dispatch wiring — phases.yaml +
   systemd units — resolves to a real file, so a delete/rename can't leave a dangling wiring ref).
 
+### Added — Cockpit wasm bridge round 2: 398 more cockpit crates, generated + feature-gated (2026-07-13)
+
+Phase-1 audit (SDD-969; F-2026-001 continued). The family is uniform — **~399 of 418 crates** share
+`Type::validate(&self) -> Result<(), E>` on a serde type — so the bridge scales **mechanically**:
+
+- **`cockpit-wasm/gen-bridges.py`** (NEW) emits one `bridge_validate!(<slug>_validate, …::Type)` line per
+  uniform crate into a generated `src/bridges.rs`, plus an optional path-dep + a `dep:` entry in a `bridges`
+  feature. The **`bridge_validate!`** macro expands to a `#[wasm_bindgen]` fn running the crate's REAL
+  `validate()`. 398 crates bridged this round; 19 ineligible (bespoke later).
+- **Feature-gated for repo health**: the generated module is behind `#[cfg(feature = "bridges")]`. The
+  committed demo build stays **banner-only, 128 KB**; the full family (all 398, ~4.4 MB, 399 `_validate`
+  exports) builds only under `--features bridges` — on demand + verified (`make cockpit-wasm-all`),
+  **never committed** (a lint size-ceiling enforces it).
+- **`tests/lint/test_cockpit_wasm_bridge.py`**: now also pins `bridges.rs` / optional-deps / feature-list to
+  the same real-crate set + a ≥300 coverage floor; a `--features bridges` native test proves a generated
+  bridge reaches the crate's real `validate()` (valid→ok, schema-mismatch→its real error, garbage→parse guard).
+
+Verified: `cargo build --features bridges` → 399 exports (18 s); `build.sh --verify-all` runs a sample in node
+(item-pin valid/invalid/parse-guard OK); `cargo test --features bridges` 6 passed; clippy default + bridges
+clean; `pytest tests/lint/test_cockpit_wasm_bridge.py` 12 passed. F-2026-001: 399/418 cockpit crates now bridged.
+
 ### Added — Cockpit wasm bridge: the typed cockpit crates run in the browser (2026-07-13)
 
 Phase-1 audit (SDD-969; closes ledger **F-2026-001** partial — the #1 crate finding). **413 of 418

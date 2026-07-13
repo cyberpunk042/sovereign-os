@@ -29,6 +29,13 @@ UNIT = REPO / "systemd" / "system" / "sovereign-cockpit-bridge-api.service"
 
 EXPORTS = ["banner_severity", "banner_state", "banner_validate", "schema_version"]
 
+CARGO = CRATE / "Cargo.toml"
+BRIDGES_RS = CRATE / "src" / "bridges.rs"
+# The committed artifact is the banner-only DEMO. The full family (~398 crates,
+# ~4.4 MB, --features bridges) is built on demand + verified, never committed —
+# this ceiling makes an accidental commit of the full build fail CI.
+DEMO_WASM_MAX_BYTES = 600 * 1024
+
 
 def test_facade_crate_exists_and_is_excluded_from_workspace():
     assert (CRATE / "Cargo.toml").is_file(), "cockpit-wasm/Cargo.toml missing"
@@ -60,7 +67,13 @@ def test_committed_artifact_is_a_real_wasm_module():
     wasm = ARTIFACT / "cockpit_wasm_bg.wasm"
     assert js.is_file(), f"missing built glue {js} (run cockpit-wasm/build.sh)"
     assert wasm.is_file(), f"missing built wasm {wasm} (run cockpit-wasm/build.sh)"
-    assert wasm.read_bytes()[:4] == b"\x00asm", "artifact is not a valid wasm module (bad magic)"
+    data = wasm.read_bytes()
+    assert data[:4] == b"\x00asm", "artifact is not a valid wasm module (bad magic)"
+    assert len(data) <= DEMO_WASM_MAX_BYTES, (
+        f"committed wasm is {len(data)} bytes — that looks like the FULL bridge, not "
+        f"the banner-only demo. Rebuild with `make cockpit-wasm` (default features); "
+        f"the full --features bridges build is never committed."
+    )
 
 
 def test_glue_exports_the_bridge_surface():
@@ -100,3 +113,57 @@ def test_build_script_is_reproducible_and_executable():
     assert build.is_file(), "cockpit-wasm/build.sh missing (reproduces the artifact)"
     import os
     assert os.access(build, os.X_OK), "cockpit-wasm/build.sh must be executable"
+
+
+# --- the generated bridge family (gen-bridges.py) --------------------------
+
+
+def _bridged_idents() -> set[str]:
+    br = BRIDGES_RS.read_text(encoding="utf-8") if BRIDGES_RS.is_file() else ""
+    return set(re.findall(r"sovereign_cockpit_(\w+)::", br))
+
+
+def test_generated_bridge_set_is_internally_consistent():
+    """bridges.rs, the optional cockpit deps, and the `bridges` feature list must
+    describe the SAME crate set — gen-bridges.py writes all three together."""
+    cargo = CARGO.read_text(encoding="utf-8")
+    rs = _bridged_idents()
+    dep = {
+        s.replace("-", "_")
+        for s in re.findall(
+            r"sovereign-cockpit-([a-z0-9-]+)\s*=\s*\{[^}]*optional\s*=\s*true", cargo
+        )
+    }
+    feat = {
+        s.replace("-", "_")
+        for s in re.findall(r'"dep:sovereign-cockpit-([a-z0-9-]+)"', cargo)
+    }
+    assert rs == dep == feat, (
+        "gen-bridges.py outputs drifted — regenerate: "
+        "`python3 cockpit-wasm/gen-bridges.py --count all`. "
+        f"rs-only={sorted(rs - dep)} dep-only={sorted(dep - rs)} feat-only={sorted(feat - rs)}"
+    )
+
+
+def test_every_bridged_crate_is_a_real_cockpit_crate():
+    for ident in _bridged_idents():
+        d = REPO / "crates" / ("sovereign-cockpit-" + ident.replace("_", "-"))
+        assert (d / "src" / "lib.rs").is_file(), f"bridged crate does not exist: {ident}"
+
+
+def test_bridge_covers_most_of_the_cockpit_family():
+    """The whole point of F-2026-001: most cockpit crates get a runnable consumer."""
+    n = len(_bridged_idents())
+    assert n >= 300, (
+        f"only {n} cockpit crates bridged — expected most of the ~398 uniform family. "
+        f"Run `python3 cockpit-wasm/gen-bridges.py --count all`."
+    )
+
+
+def test_macro_and_feature_gate_are_wired():
+    lib = (CRATE / "src" / "lib.rs").read_text(encoding="utf-8")
+    assert "macro_rules! bridge_validate" in lib, "the bridge_validate! macro must exist"
+    assert 'cfg(feature = "bridges")' in lib and "mod bridges" in lib, (
+        "the generated bridges module must be behind the `bridges` feature "
+        "(keeps the committed demo build banner-only)"
+    )

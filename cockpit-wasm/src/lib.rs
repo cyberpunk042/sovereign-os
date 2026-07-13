@@ -28,6 +28,40 @@ use sovereign_execution_mode_registry::ExecutionMode;
 use sovereign_hardware_thermal_policy::ThermalVerdict;
 use sovereign_profile_bundles::BundleName;
 
+/// Generated per-crate `<slug>_validate` bridges — one `bridge_validate!` line
+/// per uniform cockpit crate, produced by `cockpit-wasm/gen-bridges.py`. Behind
+/// the `bridges` feature so the default (committed demo) build stays banner-only
+/// + small; the full family compiles under `--features bridges`.
+#[cfg(feature = "bridges")]
+mod bridges;
+
+/// Generate a `#[wasm_bindgen] pub fn <name>(json)` that parses a cockpit
+/// crate's primary type and runs its **real** `validate()`, returning
+/// `{"ok":bool,"error":string|null}` (never panics). This is the uniform bridge
+/// for the ~399 cockpit crates whose `validate(&self) -> Result<(), E>` is the
+/// invariant the webapp must not silently re-implement in drifting JS.
+#[macro_export]
+macro_rules! bridge_validate {
+    ($name:ident, $ty:path) => {
+        #[wasm_bindgen]
+        pub fn $name(json: &str) -> String {
+            match ::serde_json::from_str::<$ty>(json) {
+                Ok(v) => match v.validate() {
+                    Ok(()) => {
+                        ::serde_json::json!({ "ok": true, "error": ::serde_json::Value::Null })
+                            .to_string()
+                    }
+                    Err(e) => {
+                        ::serde_json::json!({ "ok": false, "error": e.to_string() }).to_string()
+                    }
+                },
+                Err(e) => ::serde_json::json!({ "ok": false, "error": format!("parse: {}", e) })
+                    .to_string(),
+            }
+        }
+    };
+}
+
 /// Serialize a serde value to its bare kebab token (drops the JSON quotes).
 fn kebab<T: Serialize>(v: &T) -> String {
     serde_json::to_string(v)
@@ -164,5 +198,28 @@ mod tests {
     #[test]
     fn schema_version_is_exposed() {
         assert_eq!(schema_version(), SCHEMA_VERSION);
+    }
+
+    // A generated `<slug>_validate` bridge must reach the crate's REAL validate()
+    // — not just parse — returning its real error. Runs under --features bridges.
+    #[cfg(feature = "bridges")]
+    #[test]
+    fn generated_bridge_reaches_real_validate() {
+        let ok = crate::bridges::item_pin_validate(
+            r#"{"schema_version":"1.0.0","max_pins":5,"pinned":["a"]}"#,
+        );
+        assert!(ok.contains("\"ok\":true"), "{ok}");
+        let bad = crate::bridges::item_pin_validate(
+            r#"{"schema_version":"9.9","max_pins":5,"pinned":[]}"#,
+        );
+        assert!(
+            bad.contains("\"ok\":false") && bad.contains("schema version mismatch"),
+            "{bad}"
+        );
+        let parse = crate::bridges::item_pin_validate("garbage");
+        assert!(
+            parse.contains("\"ok\":false") && parse.contains("parse:"),
+            "{parse}"
+        );
     }
 }

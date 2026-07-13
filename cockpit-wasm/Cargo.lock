@@ -20,7 +20,405 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
+ "sovereign-cockpit-accent-color-policy",
+ "sovereign-cockpit-accordion",
+ "sovereign-cockpit-achievement-toast",
+ "sovereign-cockpit-action-bar",
+ "sovereign-cockpit-action-discoverability",
+ "sovereign-cockpit-action-menu",
+ "sovereign-cockpit-action-search-bar",
+ "sovereign-cockpit-action-throttle",
+ "sovereign-cockpit-action-trigger-button",
+ "sovereign-cockpit-activity-feed",
+ "sovereign-cockpit-agenda-view",
+ "sovereign-cockpit-alert-acknowledge",
+ "sovereign-cockpit-alert-group",
+ "sovereign-cockpit-alert-tile-board",
+ "sovereign-cockpit-alpha-index",
+ "sovereign-cockpit-aria-live-router",
+ "sovereign-cockpit-attachment-tray",
+ "sovereign-cockpit-attention-cue",
+ "sovereign-cockpit-audit-trail",
+ "sovereign-cockpit-autocomplete-list",
+ "sovereign-cockpit-avatar-stack",
+ "sovereign-cockpit-banner-bus",
  "sovereign-cockpit-banner-state",
+ "sovereign-cockpit-battery-indicator",
+ "sovereign-cockpit-bottom-sheet",
+ "sovereign-cockpit-breadcrumb-trail",
+ "sovereign-cockpit-breakpoint-state",
+ "sovereign-cockpit-bulk-action",
+ "sovereign-cockpit-bulk-selection",
+ "sovereign-cockpit-byte-size-formatter",
+ "sovereign-cockpit-calendar-grid",
+ "sovereign-cockpit-card-grid",
+ "sovereign-cockpit-carousel",
+ "sovereign-cockpit-cascading-select",
+ "sovereign-cockpit-celebration",
+ "sovereign-cockpit-cell-editor",
+ "sovereign-cockpit-cell-format",
+ "sovereign-cockpit-cell-range-select",
+ "sovereign-cockpit-changelog-pane",
+ "sovereign-cockpit-chart-legend",
+ "sovereign-cockpit-cheatsheet-builder",
+ "sovereign-cockpit-checkbox-tree",
+ "sovereign-cockpit-checklist",
+ "sovereign-cockpit-clipboard-buffer",
+ "sovereign-cockpit-clipboard-history",
+ "sovereign-cockpit-clock-display",
+ "sovereign-cockpit-coachmark-tour",
+ "sovereign-cockpit-code-block-actions",
+ "sovereign-cockpit-code-fold",
+ "sovereign-cockpit-code-gutter",
+ "sovereign-cockpit-code-lang-guess",
+ "sovereign-cockpit-collapsible-region",
+ "sovereign-cockpit-collapsible-section",
+ "sovereign-cockpit-color-blind-mode",
+ "sovereign-cockpit-color-mode",
+ "sovereign-cockpit-color-picker",
+ "sovereign-cockpit-color-swatch",
+ "sovereign-cockpit-column-config",
+ "sovereign-cockpit-column-filter",
+ "sovereign-cockpit-column-pin",
+ "sovereign-cockpit-column-resize",
+ "sovereign-cockpit-column-visibility",
+ "sovereign-cockpit-combobox-state",
+ "sovereign-cockpit-command-palette",
+ "sovereign-cockpit-comment-thread",
+ "sovereign-cockpit-confirmation-modal",
+ "sovereign-cockpit-connectivity-state",
+ "sovereign-cockpit-consent-prompt",
+ "sovereign-cockpit-context-help",
+ "sovereign-cockpit-context-menu",
+ "sovereign-cockpit-context-panel",
+ "sovereign-cockpit-cooldown-meter",
+ "sovereign-cockpit-cost-meter",
+ "sovereign-cockpit-countdown-timer",
+ "sovereign-cockpit-cpu-meter",
+ "sovereign-cockpit-currency-formatter",
+ "sovereign-cockpit-dashboard-grid",
+ "sovereign-cockpit-dashboard-profile",
+ "sovereign-cockpit-data-grid-sort",
+ "sovereign-cockpit-date-range-picker",
+ "sovereign-cockpit-day-schedule",
+ "sovereign-cockpit-deep-link-codec",
+ "sovereign-cockpit-density-mode",
+ "sovereign-cockpit-destructive-confirm",
+ "sovereign-cockpit-detail-panel",
+ "sovereign-cockpit-dictation-state",
+ "sovereign-cockpit-did-you-mean",
+ "sovereign-cockpit-diff-stats",
+ "sovereign-cockpit-dirty-fields",
+ "sovereign-cockpit-disk-meter",
+ "sovereign-cockpit-dnd-target",
+ "sovereign-cockpit-do-not-disturb",
+ "sovereign-cockpit-dock-position",
+ "sovereign-cockpit-draft-autosave",
+ "sovereign-cockpit-drag-drop",
+ "sovereign-cockpit-drag-handle",
+ "sovereign-cockpit-drag-snap-grid",
+ "sovereign-cockpit-drag-state",
+ "sovereign-cockpit-drop-indicator",
+ "sovereign-cockpit-drop-zone-set",
+ "sovereign-cockpit-duration-formatter",
+ "sovereign-cockpit-edit-mode",
+ "sovereign-cockpit-elevation-stack",
+ "sovereign-cockpit-emergency-stop",
+ "sovereign-cockpit-emoji-reactions",
+ "sovereign-cockpit-emoji-shortcode",
+ "sovereign-cockpit-empty-search-state",
+ "sovereign-cockpit-empty-state",
+ "sovereign-cockpit-entity-chip-bar",
+ "sovereign-cockpit-environment-pill",
+ "sovereign-cockpit-error-banner",
+ "sovereign-cockpit-error-state-screen",
+ "sovereign-cockpit-export-bundle",
+ "sovereign-cockpit-export-format-picker",
+ "sovereign-cockpit-external-link-policy",
+ "sovereign-cockpit-fab",
+ "sovereign-cockpit-facet-counts",
+ "sovereign-cockpit-favorites",
+ "sovereign-cockpit-feature-promo-banner",
+ "sovereign-cockpit-feature-toggle-grid",
+ "sovereign-cockpit-feature-tour",
+ "sovereign-cockpit-fetch-state",
+ "sovereign-cockpit-field-error",
+ "sovereign-cockpit-field-help",
+ "sovereign-cockpit-filter-builder",
+ "sovereign-cockpit-filter-chip-bar",
+ "sovereign-cockpit-filter-state",
+ "sovereign-cockpit-find-replace-bar",
+ "sovereign-cockpit-flame-graph",
+ "sovereign-cockpit-floating-panel-stack",
+ "sovereign-cockpit-focus-mode",
+ "sovereign-cockpit-focus-ring",
+ "sovereign-cockpit-focus-trap",
+ "sovereign-cockpit-footer-bar",
+ "sovereign-cockpit-form-validity",
+ "sovereign-cockpit-frame-budget",
+ "sovereign-cockpit-freshness-badge",
+ "sovereign-cockpit-frozen-columns",
+ "sovereign-cockpit-fuzzy-ranker",
+ "sovereign-cockpit-global-search",
+ "sovereign-cockpit-grid-cursor",
+ "sovereign-cockpit-grouped-list",
+ "sovereign-cockpit-gutter-marker-set",
+ "sovereign-cockpit-haptic-cue-policy",
+ "sovereign-cockpit-help-overlay",
+ "sovereign-cockpit-hero-stat-tile",
+ "sovereign-cockpit-high-contrast-mode",
+ "sovereign-cockpit-hint-card",
+ "sovereign-cockpit-history-stack",
+ "sovereign-cockpit-hover-card",
+ "sovereign-cockpit-hover-preview",
+ "sovereign-cockpit-icon-set-registry",
+ "sovereign-cockpit-idle-lock-screen",
+ "sovereign-cockpit-image-load-state",
+ "sovereign-cockpit-image-viewer-zoom",
+ "sovereign-cockpit-incident-card",
+ "sovereign-cockpit-incremental-search",
+ "sovereign-cockpit-infinite-scroll",
+ "sovereign-cockpit-inline-annotation",
+ "sovereign-cockpit-inline-rename",
+ "sovereign-cockpit-input-debouncer",
+ "sovereign-cockpit-input-mask",
+ "sovereign-cockpit-input-mode",
+ "sovereign-cockpit-input-validator-set",
+ "sovereign-cockpit-item-pin",
+ "sovereign-cockpit-job-progress-card",
+ "sovereign-cockpit-job-tracker",
+ "sovereign-cockpit-json-viewer",
+ "sovereign-cockpit-kanban-board",
+ "sovereign-cockpit-kbd-hint",
+ "sovereign-cockpit-key-binding-display",
+ "sovereign-cockpit-key-stack",
+ "sovereign-cockpit-keyboard-chord-detector",
+ "sovereign-cockpit-keyboard-layout",
+ "sovereign-cockpit-keyboard-pillbox",
+ "sovereign-cockpit-keymap-editor",
+ "sovereign-cockpit-keystroke-map",
+ "sovereign-cockpit-keystroke-sequence",
+ "sovereign-cockpit-kpi-tile-grid",
+ "sovereign-cockpit-language-pack",
+ "sovereign-cockpit-lazy-loader",
+ "sovereign-cockpit-leaderboard",
+ "sovereign-cockpit-lightbox-overlay",
+ "sovereign-cockpit-linkify",
+ "sovereign-cockpit-live-collab-cursors",
+ "sovereign-cockpit-loading-eta",
+ "sovereign-cockpit-locale-state",
+ "sovereign-cockpit-log-level-filter",
+ "sovereign-cockpit-log-tail-viewer",
+ "sovereign-cockpit-macro-recorder",
+ "sovereign-cockpit-marquee-loop",
+ "sovereign-cockpit-memory-meter",
+ "sovereign-cockpit-mention-resolver",
+ "sovereign-cockpit-mention-suggester",
+ "sovereign-cockpit-merge-conflict-ui",
+ "sovereign-cockpit-message-composer",
+ "sovereign-cockpit-metric-card",
+ "sovereign-cockpit-mini-map",
+ "sovereign-cockpit-minimap-state",
+ "sovereign-cockpit-modal-stack",
+ "sovereign-cockpit-mode-profile-switch",
+ "sovereign-cockpit-month-picker",
+ "sovereign-cockpit-multi-line-input",
+ "sovereign-cockpit-multi-select-list",
+ "sovereign-cockpit-multi-sort",
+ "sovereign-cockpit-multi-step-form",
+ "sovereign-cockpit-network-meter",
+ "sovereign-cockpit-notification-center",
+ "sovereign-cockpit-notification-prefs",
+ "sovereign-cockpit-number-format",
+ "sovereign-cockpit-numeric-stepper",
+ "sovereign-cockpit-object-fit",
+ "sovereign-cockpit-onboarding-flow",
+ "sovereign-cockpit-online-status",
+ "sovereign-cockpit-operation-receipt",
+ "sovereign-cockpit-output-pane",
+ "sovereign-cockpit-overflow-shadow",
+ "sovereign-cockpit-page-title",
+ "sovereign-cockpit-page-transition",
+ "sovereign-cockpit-pagination-status",
+ "sovereign-cockpit-pane-layout",
+ "sovereign-cockpit-paste-format-detector",
+ "sovereign-cockpit-permission-prompt",
+ "sovereign-cockpit-personalization",
+ "sovereign-cockpit-pill-input",
+ "sovereign-cockpit-pin-board",
+ "sovereign-cockpit-pinned-shortcuts",
+ "sovereign-cockpit-pip-window",
+ "sovereign-cockpit-pipeline-stage",
+ "sovereign-cockpit-playback-scrubber",
+ "sovereign-cockpit-popover-anchor",
+ "sovereign-cockpit-popover-stack",
+ "sovereign-cockpit-presence-mode",
+ "sovereign-cockpit-presence-roster",
+ "sovereign-cockpit-preset-chip-bar",
+ "sovereign-cockpit-press-and-hold",
+ "sovereign-cockpit-print-options",
+ "sovereign-cockpit-priority-display",
+ "sovereign-cockpit-progress-bar",
+ "sovereign-cockpit-progress-segmented",
+ "sovereign-cockpit-progress-tracker",
+ "sovereign-cockpit-pull-to-refresh",
+ "sovereign-cockpit-quick-action",
+ "sovereign-cockpit-quick-action-bar",
+ "sovereign-cockpit-quick-filter",
+ "sovereign-cockpit-quick-jump",
+ "sovereign-cockpit-quick-notes",
+ "sovereign-cockpit-radial-gauge",
+ "sovereign-cockpit-radio-group",
+ "sovereign-cockpit-rate-limit-banner",
+ "sovereign-cockpit-rating-stars",
+ "sovereign-cockpit-reading-progress",
+ "sovereign-cockpit-recent-files",
+ "sovereign-cockpit-recent-items",
+ "sovereign-cockpit-recipient-list",
+ "sovereign-cockpit-reorderable-list",
+ "sovereign-cockpit-reply-form",
+ "sovereign-cockpit-request-list",
+ "sovereign-cockpit-resize-handle",
+ "sovereign-cockpit-resize-observer",
+ "sovereign-cockpit-result-card",
+ "sovereign-cockpit-result-page-cursor",
+ "sovereign-cockpit-retry-banner",
+ "sovereign-cockpit-rich-text-toolbar",
+ "sovereign-cockpit-rollout-banner",
+ "sovereign-cockpit-route-history",
+ "sovereign-cockpit-row-actions",
+ "sovereign-cockpit-row-density",
+ "sovereign-cockpit-row-expansion",
+ "sovereign-cockpit-row-hover-affordance",
+ "sovereign-cockpit-rubber-band",
+ "sovereign-cockpit-save-as-suggest",
+ "sovereign-cockpit-saved-search-set",
+ "sovereign-cockpit-saved-view",
+ "sovereign-cockpit-screen-reader-hints",
+ "sovereign-cockpit-scroll-anchor",
+ "sovereign-cockpit-scroll-lock",
+ "sovereign-cockpit-scroll-restore",
+ "sovereign-cockpit-scroll-shadow-state",
+ "sovereign-cockpit-scroll-spy",
+ "sovereign-cockpit-search-filter",
+ "sovereign-cockpit-search-input",
+ "sovereign-cockpit-search-scope",
+ "sovereign-cockpit-secret-reveal",
+ "sovereign-cockpit-segmented-control",
+ "sovereign-cockpit-selection-summary",
+ "sovereign-cockpit-service-status",
+ "sovereign-cockpit-settings-form",
+ "sovereign-cockpit-share-link",
+ "sovereign-cockpit-shimmer-phase",
+ "sovereign-cockpit-shortcut-conflicts",
+ "sovereign-cockpit-shortcut-recorder",
+ "sovereign-cockpit-side-by-side-diff",
+ "sovereign-cockpit-side-drawer",
+ "sovereign-cockpit-side-nav-state",
+ "sovereign-cockpit-side-panel-state",
+ "sovereign-cockpit-skeleton-list",
+ "sovereign-cockpit-skeleton-loader",
+ "sovereign-cockpit-skeleton-template",
+ "sovereign-cockpit-skip-link-set",
+ "sovereign-cockpit-snackbar-queue",
+ "sovereign-cockpit-snapshot-toolbar",
+ "sovereign-cockpit-snippet-library",
+ "sovereign-cockpit-sound-preferences",
+ "sovereign-cockpit-spacing-scale",
+ "sovereign-cockpit-sparkline",
+ "sovereign-cockpit-spinner-pool",
+ "sovereign-cockpit-split-button",
+ "sovereign-cockpit-split-pane",
+ "sovereign-cockpit-split-view-state",
+ "sovereign-cockpit-stack-trace-viewer",
+ "sovereign-cockpit-stale-banner",
+ "sovereign-cockpit-stat-card",
+ "sovereign-cockpit-stat-trend",
+ "sovereign-cockpit-state",
+ "sovereign-cockpit-status-aggregator",
+ "sovereign-cockpit-status-badge",
+ "sovereign-cockpit-status-bar-segments",
+ "sovereign-cockpit-status-light",
+ "sovereign-cockpit-status-page-list",
+ "sovereign-cockpit-status-pulse",
+ "sovereign-cockpit-step-dots",
+ "sovereign-cockpit-step-indicator",
+ "sovereign-cockpit-stepper",
+ "sovereign-cockpit-streak-indicator",
+ "sovereign-cockpit-stream-pause",
+ "sovereign-cockpit-stream-render-state",
+ "sovereign-cockpit-submenu-tree",
+ "sovereign-cockpit-swipe-gesture",
+ "sovereign-cockpit-sync-status",
+ "sovereign-cockpit-tab-history",
+ "sovereign-cockpit-tab-manager",
+ "sovereign-cockpit-tab-overflow",
+ "sovereign-cockpit-tab-strip",
+ "sovereign-cockpit-table-of-contents",
+ "sovereign-cockpit-table-row-selection",
+ "sovereign-cockpit-table-summary-row",
+ "sovereign-cockpit-tag-cloud",
+ "sovereign-cockpit-tag-color-palette",
+ "sovereign-cockpit-tag-input",
+ "sovereign-cockpit-tap-target",
+ "sovereign-cockpit-task-stack",
+ "sovereign-cockpit-text-diff",
+ "sovereign-cockpit-text-direction-mode",
+ "sovereign-cockpit-text-input-counter",
+ "sovereign-cockpit-text-metrics",
+ "sovereign-cockpit-text-selection-range",
+ "sovereign-cockpit-text-size-policy",
+ "sovereign-cockpit-text-truncate",
+ "sovereign-cockpit-theme-palette",
+ "sovereign-cockpit-thumbs-vote",
+ "sovereign-cockpit-ticker-tape",
+ "sovereign-cockpit-tile-grid-layout",
+ "sovereign-cockpit-time-picker",
+ "sovereign-cockpit-time-range-selector",
+ "sovereign-cockpit-timeline-axis",
+ "sovereign-cockpit-timezone-bar",
+ "sovereign-cockpit-tip-bar",
+ "sovereign-cockpit-titlebar-config",
+ "sovereign-cockpit-toast-position",
+ "sovereign-cockpit-toast-tray",
+ "sovereign-cockpit-todo-list",
+ "sovereign-cockpit-toggle-event",
+ "sovereign-cockpit-toggle-tray",
+ "sovereign-cockpit-toolbar-overflow",
+ "sovereign-cockpit-tooltip-catalog",
+ "sovereign-cockpit-tooltip-delay",
+ "sovereign-cockpit-trash-buffer",
+ "sovereign-cockpit-tree-view",
+ "sovereign-cockpit-trend-bar",
+ "sovereign-cockpit-tri-state-checkbox",
+ "sovereign-cockpit-turn-annotation",
+ "sovereign-cockpit-type-to-confirm",
+ "sovereign-cockpit-typeahead",
+ "sovereign-cockpit-typing-indicator",
+ "sovereign-cockpit-typography-scale",
+ "sovereign-cockpit-undo-redo-stack",
+ "sovereign-cockpit-undo-stack",
+ "sovereign-cockpit-unread-dot",
+ "sovereign-cockpit-unsaved-guard",
+ "sovereign-cockpit-update-prompt",
+ "sovereign-cockpit-upload-progress",
+ "sovereign-cockpit-usage-meter",
+ "sovereign-cockpit-validation-summary",
+ "sovereign-cockpit-view-mode-toggle",
+ "sovereign-cockpit-vim-mode-indicator",
+ "sovereign-cockpit-virtual-grid",
+ "sovereign-cockpit-virtual-list",
+ "sovereign-cockpit-virtual-tree-window",
+ "sovereign-cockpit-volume-meter",
+ "sovereign-cockpit-watchlist",
+ "sovereign-cockpit-whats-new-feed",
+ "sovereign-cockpit-widget-registry",
+ "sovereign-cockpit-window-position",
+ "sovereign-cockpit-wizard-flow",
+ "sovereign-cockpit-workspace-state",
+ "sovereign-cockpit-workspace-switcher",
+ "sovereign-cockpit-zoom-level",
+ "sovereign-cockpit-zoom-pan-canvas",
  "sovereign-execution-mode-registry",
  "sovereign-hardware-thermal-policy",
  "sovereign-profile-bundles",
@@ -119,6 +517,204 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-accent-color-policy"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-accordion"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-achievement-toast"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-action-bar"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-action-discoverability"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-action-menu"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-action-search-bar"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-action-throttle"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-action-trigger-button"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-activity-feed"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-agenda-view"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-alert-acknowledge"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-alert-group"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-alert-tile-board"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-alpha-index"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-aria-live-router"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-attachment-tray"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-attention-cue"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-audit-trail"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-autocomplete-list"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-avatar-stack"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-banner-bus"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-banner-state"
 version = "0.1.0"
 dependencies = [
@@ -128,6 +724,3433 @@ dependencies = [
  "sovereign-hardware-registry",
  "sovereign-hardware-thermal-policy",
  "sovereign-profile-bundles",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-battery-indicator"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-bottom-sheet"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-breadcrumb-trail"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-breakpoint-state"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-bulk-action"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-bulk-selection"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-byte-size-formatter"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-calendar-grid"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-card-grid"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-carousel"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-cascading-select"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-celebration"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-cell-editor"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-cell-format"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-cell-range-select"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-changelog-pane"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-chart-legend"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-cheatsheet-builder"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-checkbox-tree"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-checklist"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-clipboard-buffer"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-clipboard-history"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-clock-display"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-coachmark-tour"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-code-block-actions"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-code-fold"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-code-gutter"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-code-lang-guess"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-collapsible-region"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-collapsible-section"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-color-blind-mode"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-color-mode"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-color-picker"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-color-swatch"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-column-config"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-column-filter"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-column-pin"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-column-resize"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-column-visibility"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-combobox-state"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-command-palette"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-execution-mode-registry",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-comment-thread"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-confirmation-modal"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-connectivity-state"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-consent-prompt"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-context-help"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-context-menu"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-context-panel"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-execution-mode-registry",
+ "sovereign-profile-bundles",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-cooldown-meter"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-cost-meter"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-countdown-timer"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-cpu-meter"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-currency-formatter"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-dashboard-grid"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-dashboard-profile"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-data-grid-sort"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-date-range-picker"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-day-schedule"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-deep-link-codec"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-density-mode"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-destructive-confirm"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-detail-panel"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-dictation-state"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-did-you-mean"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-diff-stats"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-dirty-fields"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-disk-meter"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-dnd-target"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-do-not-disturb"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-dock-position"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-draft-autosave"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-drag-drop"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-drag-handle"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-drag-snap-grid"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-drag-state"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-drop-indicator"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-drop-zone-set"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-duration-formatter"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-edit-mode"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-elevation-stack"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-emergency-stop"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-emoji-reactions"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-emoji-shortcode"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-empty-search-state"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-empty-state"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-entity-chip-bar"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-environment-pill"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-error-banner"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-cockpit-banner-state",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-error-state-screen"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-export-bundle"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-export-format-picker"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-external-link-policy"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-fab"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-facet-counts"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-favorites"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-feature-promo-banner"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-feature-toggle-grid"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-feature-tour"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-fetch-state"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-field-error"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-field-help"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-filter-builder"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-filter-chip-bar"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-filter-state"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-find-replace-bar"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-flame-graph"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-floating-panel-stack"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-focus-mode"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-focus-ring"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-focus-trap"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-footer-bar"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-form-validity"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-frame-budget"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-freshness-badge"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-frozen-columns"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-fuzzy-ranker"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-global-search"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-grid-cursor"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-grouped-list"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-gutter-marker-set"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-haptic-cue-policy"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-help-overlay"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-hero-stat-tile"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-high-contrast-mode"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-hint-card"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-history-stack"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-hover-card"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-hover-preview"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-icon-set-registry"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-idle-lock-screen"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-image-load-state"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-image-viewer-zoom"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-incident-card"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-incremental-search"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-infinite-scroll"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-inline-annotation"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-inline-rename"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-input-debouncer"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-input-mask"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-input-mode"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-input-validator-set"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-item-pin"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-job-progress-card"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-job-tracker"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-json-viewer"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-kanban-board"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-kbd-hint"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-key-binding-display"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-key-stack"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-keyboard-chord-detector"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-keyboard-layout"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-keyboard-pillbox"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-keymap-editor"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-keystroke-map"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-keystroke-sequence"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-kpi-tile-grid"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-language-pack"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-lazy-loader"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-leaderboard"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-lightbox-overlay"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-linkify"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-live-collab-cursors"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-loading-eta"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-locale-state"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-log-level-filter"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-log-tail-viewer"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-macro-recorder"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-marquee-loop"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-memory-meter"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-mention-resolver"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-mention-suggester"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-merge-conflict-ui"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-message-composer"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-metric-card"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-mini-map"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-minimap-state"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-modal-stack"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-mode-profile-switch"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-month-picker"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-multi-line-input"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-multi-select-list"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-multi-sort"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-multi-step-form"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-network-meter"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-notification-center"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-cockpit-banner-state",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-notification-prefs"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-number-format"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-numeric-stepper"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-object-fit"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-onboarding-flow"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-online-status"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-operation-receipt"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-output-pane"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-overflow-shadow"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-page-title"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-page-transition"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-pagination-status"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-pane-layout"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-paste-format-detector"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-permission-prompt"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-personalization"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-dashboard-coverage",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-pill-input"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-pin-board"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-pinned-shortcuts"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-pip-window"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-pipeline-stage"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-playback-scrubber"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-popover-anchor"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-popover-stack"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-presence-mode"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-presence-roster"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-preset-chip-bar"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-press-and-hold"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-print-options"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-priority-display"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-progress-bar"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-progress-segmented"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-progress-tracker"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-pull-to-refresh"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-quick-action"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-quick-action-bar"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-quick-filter"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-quick-jump"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-quick-notes"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-radial-gauge"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-radio-group"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-rate-limit-banner"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-rating-stars"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-reading-progress"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-recent-files"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-recent-items"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-recipient-list"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-reorderable-list"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-reply-form"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-request-list"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-resize-handle"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-resize-observer"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-result-card"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-result-page-cursor"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-retry-banner"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-rich-text-toolbar"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-rollout-banner"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-route-history"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-row-actions"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-row-density"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-row-expansion"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-row-hover-affordance"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-rubber-band"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-save-as-suggest"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-saved-search-set"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-saved-view"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-screen-reader-hints"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-scroll-anchor"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-scroll-lock"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-scroll-restore"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-scroll-shadow-state"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-scroll-spy"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-search-filter"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-search-input"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-search-scope"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-secret-reveal"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-segmented-control"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-selection-summary"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-service-status"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-settings-form"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-share-link"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-shimmer-phase"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-shortcut-conflicts"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-shortcut-recorder"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-side-by-side-diff"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-side-drawer"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-side-nav-state"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-side-panel-state"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-skeleton-list"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-skeleton-loader"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-skeleton-template"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-skip-link-set"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-snackbar-queue"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-snapshot-toolbar"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-snippet-library"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-sound-preferences"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-cockpit-banner-state",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-spacing-scale"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-sparkline"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-spinner-pool"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-split-button"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-split-pane"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-split-view-state"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-stack-trace-viewer"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-stale-banner"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-stat-card"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-stat-trend"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-state"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-cockpit-personalization",
+ "sovereign-dashboard-coverage",
+ "sovereign-dashboard-toggle",
+ "sovereign-mirror-publisher",
+ "sovereign-module-catalog",
+ "sovereign-trinity",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-status-aggregator"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-status-badge"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-status-bar-segments"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-status-light"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-status-page-list"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-status-pulse"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-step-dots"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-step-indicator"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-stepper"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-streak-indicator"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-stream-pause"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-stream-render-state"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-submenu-tree"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-swipe-gesture"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-sync-status"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-tab-history"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-tab-manager"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-tab-overflow"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-tab-strip"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-table-of-contents"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-table-row-selection"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-table-summary-row"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-tag-cloud"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-tag-color-palette"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-tag-input"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-tap-target"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-task-stack"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-text-diff"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-text-direction-mode"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-text-input-counter"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-text-metrics"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-text-selection-range"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-text-size-policy"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-text-truncate"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-theme-palette"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-thumbs-vote"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-ticker-tape"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-tile-grid-layout"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-time-picker"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-time-range-selector"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-timeline-axis"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-timezone-bar"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-tip-bar"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-titlebar-config"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-toast-position"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-toast-tray"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-cockpit-banner-state",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-todo-list"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-toggle-event"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-toggle-tray"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-toolbar-overflow"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-tooltip-catalog"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-tooltip-delay"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-trash-buffer"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-tree-view"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-trend-bar"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-tri-state-checkbox"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-turn-annotation"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-conversation-thread",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-type-to-confirm"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-typeahead"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-typing-indicator"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-typography-scale"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-undo-redo-stack"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-undo-stack"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-unread-dot"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-unsaved-guard"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-update-prompt"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-upload-progress"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-usage-meter"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-validation-summary"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-view-mode-toggle"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-vim-mode-indicator"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-virtual-grid"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-virtual-list"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-virtual-tree-window"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-volume-meter"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-watchlist"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-whats-new-feed"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-widget-registry"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-window-position"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-wizard-flow"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-workspace-state"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-workspace-switcher"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-zoom-level"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-zoom-pan-canvas"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-conversation-thread"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-dashboard-coverage"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-dashboard-toggle"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-dashboard-coverage",
  "thiserror",
 ]
 
@@ -171,7 +4194,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-mirror-publisher"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-module-catalog"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-profile-bundles"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-trinity"
 version = "0.1.0"
 dependencies = [
  "serde",
