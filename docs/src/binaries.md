@@ -1,6 +1,6 @@
 # Runtime binaries
 
-> The **33 Rust binary crates** (`crates/*/src/main.rs`) are the executable runtime surface of
+> The **41 Rust binary crates** (`crates/*/src/main.rs`) are the executable runtime surface of
 > sovereign-os. Everything else in `crates/` is a library consumed by these (or an island —
 > see the phase-1 audit's island register). This page maps each binary to its **role**, how it
 > is **invoked**, and what it **does**. Enforced complete by `tests/lint/test_binaries_doc.py`.
@@ -40,6 +40,14 @@ the Rust binaries below are the compute/runtime core.
 | **`sovereign-fs-boundary`** | operator / classify + validate | The `/ai-exchange/{inbox,outbox,artifacts}` filesystem boundary; classifies paths (allowed/denied, `..`-escape safe) and `--check FILE` validates a boundary-query config. |
 | **`sovereign-sandbox-profile`** | operator / reference + validate | The 8 sandbox profiles by dimension (fs / network / gpu / isolation); `--check FILE` resolves a profile set + flags a dimension constrained by two profiles. |
 | **`sovereign-network-boundary`** | operator / reference + validate | The 5-rung network profile ladder (offline → authenticated-browser); `--check FILE` decides allow/deny per tool intent via `is_within_allowance`. |
+| **`sovereign-base-os`** | operator / reference + validate | The base-OS provisioning model — 10 OS responsibilities each tagged declarative (continuity) vs imperative (hardware reality) per E0459, + 5 config modes with network posture; `--check FILE` validates a BaseOsConfig (all 10 covered once, each strategy matching `is_hardware_reality()`). |
+| **`sovereign-hibernation`** | operator / reference + validate | The hibernation/resume model — classifies a HibernationRecord's resumability (`is_resumable`) + its wait-condition; `--check FILE` validates a record, exit != 0 when not resumable. |
+| **`sovereign-holderpo`** | operator / reference + compute | The HölderPO post-training model — the Hölder mean M_p, the 4 anneal schedules (`p_at_step`), trajectory-prob aggregation + group-relative advantages; `--compute FILE` runs the real ops over JSON, `--check FILE` validates a HolderPoConfig. |
+| **`sovereign-network-zerotrust`** | operator / validate + emit | The §8 NIC zero-trust posture model; `--check FILE` validates a NIC policy against the zero-trust rules, `--emit` prints the canonical zero-trust NIC config. |
+| **`sovereign-save-state`** | operator / reference + validate | The 5-layer save-state completeness gate (every layer must be captured for a resumable state); `--check FILE` validates a SaveState's layer coverage + round-trip invariants. |
+| **`sovereign-vm-channel`** | operator / reference + validate | The E0120 Host↔4090 communication boundary — 4 channels / 8 message types / the M00224 "VM output is a candidate, never committed directly" invariant; `--check FILE` validates a channel-message envelope against its direction + candidate rules. |
+| **`sovereign-vm-workload`** | operator / reference + validate | The VM-workload appropriateness gate over 13 workloads (`is_vm_appropriate`); `--check FILE` decides whether a workload belongs in the quarantined 4090 VM. |
+| **`sovereign-worker-fleet`** | operator / reference + validate | The N-worker fleet-health decision (`summarise()` → a FleetVerdict taxonomy: healthy / degraded / …); `--check FILE` summarises a fleet snapshot into its verdict. |
 
 ## Dev / demo CLIs
 
@@ -96,6 +104,14 @@ sovereign-zfs-commit-gate        → the commit gate (test_score>=80) decision
 sovereign-fs-boundary            → /ai-exchange path classification
 sovereign-sandbox-profile        → 8 sandbox profiles by dimension
 sovereign-network-boundary       → the 5-rung network profile ladder
+sovereign-base-os                → base-OS provisioning model (10 responsibilities, E0459 strategy)
+sovereign-hibernation            → hibernation/resume model (is_resumable + wait-condition)
+sovereign-holderpo               → HölderPO post-training math (Hölder mean + anneal schedules)
+sovereign-network-zerotrust      → §8 NIC zero-trust policy (validate + emit)
+sovereign-save-state             → 5-layer save-state completeness gate
+sovereign-vm-channel             → Host↔4090 channel protocol (M00224 candidate invariant)
+sovereign-vm-workload            → VM-workload appropriateness gate (13 workloads)
+sovereign-worker-fleet           → N-worker fleet-health decision (FleetVerdict)
 sovereign-feature-selftest       → feature-test-lab
 
 dev/demo: cortex · agent-runtime · inference-demo · chat · serve   (manual / brain-api)

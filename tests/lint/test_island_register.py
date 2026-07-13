@@ -95,8 +95,13 @@ def _register_rows() -> list[tuple[str, str]]:
 
 
 def test_register_has_a_parseable_block():
-    rows = _register_rows()
-    assert rows, "the ISLAND-REGISTER block has no crate rows"
+    # The ISLAND-REGISTER markers must exist and parse. Zero rows is a VALID
+    # state — the terminal "fully drained" win: every former island now has a
+    # real consumer, so SDD-955 closes F-2026-093 completely. Protection is
+    # unchanged: a NEW pure-library zero-reverse-dep crate still fails
+    # test_register_matches_the_computed_islands_both_directions until it is
+    # registered here.
+    _register_rows()  # raises if the <!-- ISLAND-REGISTER --> block is missing
 
 
 def test_every_register_row_declares_a_valid_disposition():

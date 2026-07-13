@@ -313,6 +313,38 @@ per-device model status (the D-22 LM Status & Operability panel). SDD-902.
   are down; a webapp-contract test locks the section + the copyable verbs + the demo fixture. 24 D-22 contract
   tests.
 
+### Added — de-islanding big bite #5: the last 8 islands — the register drains to ZERO (2026-07-12)
+
+Fifth (final) parallel batch (SDD-955), clearing the enforced island register **8 → 0**. These were the
+crates the register itself labelled "aspirational" (VM / hibernation / ZFS-CRIU / network / post-training /
+host-provisioning) — yet on inspection every one carried a real checkable / computable / emittable model
+exercisable **without** the live subsystem, so none needed a forced or thin de-islanding. Built concurrently
+by 8 sub-agents, each a genuine runnable `main.rs`, each verified (test + clippy `-D warnings` + fmt) before
+integration. This closes **F-2026-093** completely: the register now sits at its terminal "everything is
+either wired or de-islanded, nothing parked" state.
+
+- **`sovereign-base-os`** — the base-OS provisioning model (10 responsibilities tagged declarative/imperative
+  per E0459 + 5 config modes); `--check` validates a BaseOsConfig against `is_hardware_reality()`.
+- **`sovereign-hibernation`** — classifies a HibernationRecord's resumability (`is_resumable` + wait-condition);
+  `--check` validates a record.
+- **`sovereign-holderpo`** — the HölderPO post-training math (Hölder mean M_p, 4 anneal schedules, trajectory
+  aggregation, group-relative advantages); `--compute` runs the real ops, `--check` validates a config.
+- **`sovereign-network-zerotrust`** — the §8 NIC zero-trust posture model; `--check` validates a NIC policy,
+  `--emit` prints the canonical config.
+- **`sovereign-save-state`** — the 5-layer save-state completeness gate; `--check` validates layer coverage +
+  round-trip invariants.
+- **`sovereign-vm-channel`** — the E0120 Host↔4090 boundary (4 channels / 8 message types / the M00224
+  "VM output is a candidate, never committed" invariant); `--check` validates a channel-message envelope.
+- **`sovereign-vm-workload`** — the VM-workload appropriateness gate over 13 workloads (`is_vm_appropriate`);
+  `--check` decides quarantined-VM fit.
+- **`sovereign-worker-fleet`** — the N-worker fleet-health decision (`summarise()` → FleetVerdict); `--check`
+  summarises a fleet snapshot.
+
+Per-crate tests (12 + 13 + 28 + 13 + 13 + 16 + 10 + 18 = 123 across lib+bin); clippy `-D warnings` + fmt clean
+across all eight. The island-register lint now accepts a **zero-row** register as the valid drained state (a new
+zero-reverse-dep pure library still fails it until registered), and `docs/src/binaries.md` grows to **41**
+documented binary crates.
+
 ### Added — de-islanding big bite #4: 6 aspirational config crates get validate/emit CLIs (2026-07-12)
 
 Third parallel batch (SDD-955), into the "aspirational" tier. On inspection these 6 crates were NOT pure runtime
