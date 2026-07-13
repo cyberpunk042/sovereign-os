@@ -135,10 +135,18 @@ def test_resolve_sain01_deny_strips_phone_home():
 
 
 def test_resolve_sain01_keeps_hardware_block():
-    """Hardware block from sain-01 profile must survive merge."""
+    """Hardware block from sain-01 profile must survive merge.
+
+    SDD-993 three-card reality: RTX 5090 (internal primary) + RTX 4090 (OcuLink
+    eGPU) + RTX PRO 6000 (future upgrade path — kept additively, not discarded)."""
     effective = profile_merger.resolve("sain-01")
     assert effective["hardware"]["cpu"]["march"] == "znver5"
-    assert len(effective["hardware"]["gpu"]) == 2
+    gpus = effective["hardware"]["gpu"]
+    assert len(gpus) == 3
+    models = [g.get("model") for g in gpus]
+    assert "rtx-5090" in models and "rtx-4090" in models
+    # the RTX 5090 is the declared internal primary
+    assert any(g.get("model") == "rtx-5090" and g.get("role") == "primary" for g in gpus)
 
 
 def test_resolve_old_workstation_succeeds():
