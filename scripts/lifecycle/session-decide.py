@@ -94,6 +94,28 @@ _TRANSITION = {
 _WRITE_LOCK = threading.Lock()
 
 
+# MS003 (SDD-989) — sign records with the operator ed25519 key when present. The
+# import is best-effort and `ms003.sign()` never raises + falls back to the
+# `unsigned-pending-MS003` placeholder when no operator key is provisioned, so a
+# keyless node's output is byte-identical to the pre-MS003 behaviour.
+try:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lib"))
+    import ms003 as _ms003
+except Exception:  # pragma: no cover - defensive import guard
+    _ms003 = None
+
+
+def _sign(record: dict[str, Any]) -> str:
+    return _ms003.sign(record) if _ms003 is not None else _UNSIGNED
+
+
+def _signed(record: dict[str, Any]) -> dict[str, Any]:
+    """Set `record['signature']` via MS003 and return the record. Keyless → the
+    `unsigned-pending-MS003` placeholder (identical to pre-MS003 output)."""
+    record["signature"] = _sign(record)
+    return record
+
+
 def _now() -> str:
     return datetime.now(tz=timezone.utc).isoformat()
 
@@ -155,9 +177,9 @@ def _emit_span(decision: dict[str, Any]) -> None:
 
 def _record(session_id: str, verb: str, new_state: str, actor: str,
             rationale: str, decided_ts: str) -> None:
-    decision = {"id": session_id, "verb": verb, "state": new_state,
-                "decided_by": actor, "decided_ts": decided_ts,
-                "rationale": rationale, "signature": _UNSIGNED}
+    decision = _signed({"id": session_id, "verb": verb, "state": new_state,
+                        "decided_by": actor, "decided_ts": decided_ts,
+                        "rationale": rationale, "signature": _UNSIGNED})
     _append_ledger(decision)
     _emit_span(decision)
 
@@ -211,8 +233,8 @@ def decide(session_id: str, verb: str, *, actor: str = "operator",
         except OSError as e:
             return {"ok": False, "code": 1, "id": session_id, "error": f"write failed: {e}"}
         _record(session_id, verb, new_state, actor, rationale, decided_ts)
-        result = {"ok": True, "code": 200, "verb": verb, "id": session_id,
-                  "state": new_state, "signature": _UNSIGNED}
+        result = _signed({"ok": True, "code": 200, "verb": verb, "id": session_id,
+                          "state": new_state, "signature": _UNSIGNED})
         # SDD-057 (M047 save-state) — hibernate captures the session's 5-layer
         # save-state; resume restores it. Best-effort: a save-state failure does
         # NOT undo the registry transition (the state change already committed);
@@ -255,8 +277,8 @@ def hibernate_all(*, actor: str = "operator", rationale: str = "",
             return {"ok": False, "code": 1, "error": f"write failed: {e}"}
         for sid in actives:
             _record(sid, "hibernate-all", "hibernated", actor, rationale, decided_ts)
-        return {"ok": True, "code": 200, "verb": "hibernate-all",
-                "hibernated": actives, "count": len(actives), "signature": _UNSIGNED}
+        return _signed({"ok": True, "code": 200, "verb": "hibernate-all",
+                        "hibernated": actives, "count": len(actives), "signature": _UNSIGNED})
 
 
 def _print(obj: Any) -> None:

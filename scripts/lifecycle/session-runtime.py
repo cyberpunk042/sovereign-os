@@ -128,6 +128,28 @@ def _spawn_scope(scope_cmd: list[str], unit: str) -> int | None:
     return None
 
 
+# MS003 (SDD-989) — sign records with the operator ed25519 key when present. The
+# import is best-effort and `ms003.sign()` never raises + falls back to the
+# `unsigned-pending-MS003` placeholder when no operator key is provisioned, so a
+# keyless node's output is byte-identical to the pre-MS003 behaviour.
+try:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lib"))
+    import ms003 as _ms003
+except Exception:  # pragma: no cover - defensive import guard
+    _ms003 = None
+
+
+def _sign(record: dict[str, Any]) -> str:
+    return _ms003.sign(record) if _ms003 is not None else _UNSIGNED
+
+
+def _signed(record: dict[str, Any]) -> dict[str, Any]:
+    """Set `record['signature']` via MS003 and return the record. Keyless → the
+    `unsigned-pending-MS003` placeholder (identical to pre-MS003 output)."""
+    record["signature"] = _sign(record)
+    return record
+
+
 def _append_ledger(record: dict[str, Any]) -> None:
     """Best-effort durable append to the session-decisions JSONL. Never raises."""
     try:
@@ -141,7 +163,7 @@ def _append_ledger(record: dict[str, Any]) -> None:
 def _emit_span(op: str, sid: str, extra: dict[str, Any]) -> None:
     """Best-effort OCSF-5001 (Configuration Change) M049 span. Never raises."""
     ms = int(datetime.now(tz=timezone.utc).timestamp() * 1000)
-    span = {
+    span = _signed({
         "trace_id": f"session-{op}-{sid}-{ms:x}",
         "span_id": f"srt-{ms:x}",
         "parent_span_id": None,
@@ -155,7 +177,7 @@ def _emit_span(op: str, sid: str, extra: dict[str, Any]) -> None:
         "profile": os.environ.get("SOVEREIGN_OS_ACTIVE_PROFILE", "private"),
         "signature": _UNSIGNED,
         "schema_version": SCHEMA_VERSION,
-    }
+    })
     try:
         SPAN_STORE.parent.mkdir(parents=True, exist_ok=True)
         with SPAN_STORE.open("a", encoding="utf-8") as fh:
@@ -297,8 +319,8 @@ def reap(*, actor: str = "operator") -> dict[str, Any]:
             except OSError as e:
                 return {"ok": False, "code": 1, "error": f"registry write failed: {e}"}
     for sid in reaped:
-        _append_ledger({"verb": "reap", "id": sid, "ts": _now(), "actor": actor,
-                        "reason": "process-exited", "signature": _UNSIGNED})
+        _append_ledger(_signed({"verb": "reap", "id": sid, "ts": _now(), "actor": actor,
+                                "reason": "process-exited", "signature": _UNSIGNED}))
         _emit_span("reap", sid, {"reason": "process-exited"})
     return {"ok": True, "code": 200, "verb": "reap", "reaped": reaped, "count": len(reaped)}
 

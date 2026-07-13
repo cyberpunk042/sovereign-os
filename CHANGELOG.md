@@ -12,6 +12,25 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Changed — MS003 writer sweep: real signatures on the decision-writers (Option B, PR 2) (2026-07-13)
+
+Operator-directed ("MS003 implementation arc") (SDD-990). Advances F-2026-034 (CRIT) — PR 2 of the arc, consuming the
+SDD-989 primitive. Wires `ms003.sign()` into the **eight runtime decision/mutation writers** that until now hard-coded
+the `unsigned-pending-MS003` placeholder: `scripts/intelligence/{memory-store,memory-decide}.py`,
+`scripts/inference/{adapter-decide,adapter-gate}.py`,
+`scripts/lifecycle/{approval-decide,save-state,session-decide,session-runtime}.py`. Each gained a best-effort import +
+`_sign()`/`_signed()` helpers; every record-construction site is wrapped `{...}` → `_signed({...})`. With an operator
+key provisioned, every persisted mutation/decision record now carries a **real ed25519 signature** that
+`ms003.verify()` accepts; **without a key the output is byte-identical to before** (`sign()` falls back to the
+placeholder and never raises, so no node/CI changes until `gen-key` runs). Care taken for two site shapes: records that
+gain fields after the placeholder line are signed after full assembly; the `memory-store` undo re-signs its change
+record after flipping `reversed` (signatures are point-in-time). Provenance spans that borrow a decision's signature are
+left as linkages (decision signed before emit). New `tests/unit/test_ms003_writer_signing.py` — 4 tests proving the
+wiring end-to-end (memory-decide in-process + approval-decide subprocess): a provisioned key yields a durable ledger
+record whose signature verifies and whose tampering is rejected; keyless → placeholder. Verified: writer-signing 4
+passed; full tests/unit 505 passed; ruff clean. No new dependency, no gatewayd/cockpit/`unsafe`/crate edits.
+F-2026-034 producer half now complete; the selfdef-side verifier remains (selfdef-owned).
+
 ### Added — MS003 ed25519 signing primitive (Option B, producer half) (2026-07-13)
 
 Operator-directed (AskUserQuestion → "B — sovereign-os mints") (SDD-989). Advances F-2026-034 (CRIT) — the

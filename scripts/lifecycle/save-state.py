@@ -84,6 +84,28 @@ _VERBS = ("save-state", "restore")
 _WRITE_LOCK = threading.Lock()
 
 
+# MS003 (SDD-989) — sign records with the operator ed25519 key when present. The
+# import is best-effort and `ms003.sign()` never raises + falls back to the
+# `unsigned-pending-MS003` placeholder when no operator key is provisioned, so a
+# keyless node's output is byte-identical to the pre-MS003 behaviour.
+try:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lib"))
+    import ms003 as _ms003
+except Exception:  # pragma: no cover - defensive import guard
+    _ms003 = None
+
+
+def _sign(record: dict[str, Any]) -> str:
+    return _ms003.sign(record) if _ms003 is not None else _UNSIGNED
+
+
+def _signed(record: dict[str, Any]) -> dict[str, Any]:
+    """Set `record['signature']` via MS003 and return the record. Keyless → the
+    `unsigned-pending-MS003` placeholder (identical to pre-MS003 output)."""
+    record["signature"] = _sign(record)
+    return record
+
+
 def _now() -> str:
     return datetime.now(tz=timezone.utc).isoformat()
 
@@ -133,7 +155,7 @@ def _append_ledger(record: dict[str, Any]) -> None:
 
 def _emit_span(record: dict[str, Any]) -> None:
     ms = int(datetime.now(tz=timezone.utc).timestamp() * 1000)
-    span = {
+    span = _signed({
         "trace_id": f"save-state-{record['id']}-{ms:x}",
         "span_id": f"ss-{ms:x}",
         "parent_span_id": None,
@@ -149,7 +171,7 @@ def _emit_span(record: dict[str, Any]) -> None:
         "profile": os.environ.get("SOVEREIGN_OS_ACTIVE_PROFILE", "private"),
         "signature": _UNSIGNED,
         "schema_version": SCHEMA_VERSION,
-    }
+    })
     try:
         SPAN_STORE.parent.mkdir(parents=True, exist_ok=True)
         with SPAN_STORE.open("a", encoding="utf-8") as fh:
@@ -284,11 +306,14 @@ def capture(session_id: str, *, actor: str = "operator", confirm: bool = False) 
             missing.append("criu-checkpoint")
 
         is_true = len(missing) == 0
-        record: dict[str, Any] = {
+        # sign the canonical save-state record; the manifest written below is the
+        # durable signed artifact (the `manifest` pointer added afterward is a
+        # storage locator, not part of the signed save-state content).
+        record: dict[str, Any] = _signed({
             "schema_version": SCHEMA_VERSION, "verb": "save-state", "id": session_id,
             "ts": ts, "actor": actor, "captured": captured, "missing": missing,
             "is_true_save_state": is_true, "layers": layers, "signature": _UNSIGNED,
-        }
+        })
 
         if dry:
             why = "no --confirm" if not confirm else "SOVEREIGN_OS_DRY_RUN=1"
@@ -305,10 +330,10 @@ def capture(session_id: str, *, actor: str = "operator", confirm: bool = False) 
         except OSError as e:
             return {"ok": False, "code": 1, "id": session_id, "error": f"manifest write failed: {e}"}
         record["manifest"] = str(manifest)
-        _append_ledger({"ts": ts, "verb": "save-state", "id": session_id,
-                        "captured": captured, "missing": missing,
-                        "is_true_save_state": is_true, "manifest": str(manifest),
-                        "signature": _UNSIGNED})
+        _append_ledger(_signed({"ts": ts, "verb": "save-state", "id": session_id,
+                                "captured": captured, "missing": missing,
+                                "is_true_save_state": is_true, "manifest": str(manifest),
+                                "signature": _UNSIGNED}))
         _emit_span(record)
         return {"ok": True, "code": 200, **record}
 
@@ -362,17 +387,17 @@ def restore(session_id: str, *, actor: str = "operator", confirm: bool = False) 
     plan["memory-record"] = {"note": "memory restore is a Stage-4 follow-up (record is a reference)"}
     plan["profile-state"] = {"note": "profile restore is a Stage-4 follow-up"}
 
-    record = {"schema_version": SCHEMA_VERSION, "verb": "restore", "id": session_id,
-              "ts": _now(), "actor": actor, "from_manifest": str(man_path),
-              "plan": plan, "signature": _UNSIGNED}
+    record = _signed({"schema_version": SCHEMA_VERSION, "verb": "restore", "id": session_id,
+                      "ts": _now(), "actor": actor, "from_manifest": str(man_path),
+                      "plan": plan, "signature": _UNSIGNED})
     if dry:
         why = "no --confirm" if not confirm else "SOVEREIGN_OS_DRY_RUN=1"
         record["dry_run"] = True
         record["note"] = (f"DRY-RUN ({why}) — plan only; the real criu restore + zfs "
                           "rollback run live + operator-key + type-to-confirm gated")
         return {"ok": True, "code": 200, **record}
-    _append_ledger({"ts": record["ts"], "verb": "restore", "id": session_id,
-                    "from_manifest": str(man_path), "signature": _UNSIGNED})
+    _append_ledger(_signed({"ts": record["ts"], "verb": "restore", "id": session_id,
+                            "from_manifest": str(man_path), "signature": _UNSIGNED}))
     _emit_span({**record, "captured": None, "is_true_save_state": None})
     return {"ok": True, "code": 200, **record}
 
