@@ -310,6 +310,24 @@ function facetEnhancer({ endpoint, pick, facets, title, marker, top = 6 }) {
   };
 }
 
+// Group a panel's timeline/event rows into day buckets (today / yesterday / earlier-this-week
+// / older) via the REAL sovereign-cockpit-day-divider crate, computed against the live clock.
+function dayGroupEnhancer({ endpoint, pick, ts, title, marker }) {
+  return async function (root) {
+    if (root.querySelector(`[data-cockpit-crates="${marker}"]`)) return;
+    let data; try { data = await (await fetch(endpoint, { cache: 'no-store' })).json(); } catch (_) { return; }
+    const rows = pick(data); if (!Array.isArray(rows) || !rows.length) return;
+    const stamps = rows.map(r => Date.parse(ts(r) || '') || 0).filter(Boolean).sort((a, b) => b - a);
+    if (!stamps.length) return;
+    const r = await bcall('day_divider_group', Date.now(), JSON.stringify(stamps));
+    if (!Array.isArray(r) || !r.length) return;
+    const sec = section(title); sec.setAttribute('data-cockpit-crates', marker);
+    sec.appendChild(el('div', 'color:var(--muted,#888);font-size:.8rem;margin-bottom:.3rem', `${stamps.length} events bucketed by day by the crate:`));
+    for (const pair of r) sec.appendChild(el('div', '', `${pair[0]}: ${(pair[1] || []).length}`));
+    (root.body || document.body).appendChild(sec);
+  };
+}
+
 const enhanceModelsCatalog = facetEnhancer({
   endpoint: '/api/models-catalog/catalog',
   pick: d => d.models || (d.catalog && d.catalog.models) || (Array.isArray(d) ? d : []),
@@ -512,12 +530,18 @@ const ENHANCERS = {
   'runtime-modes-webapp': enhanceRuntimeModes,
   'models-catalog-webapp': enhanceModelsCatalog,
   'd-23-models-catalog-webapp': enhanceModelsCatalog,
-  // Audit spans grouped by OCSF category / policy result / profile / provider.
-  'd-16-audit-webapp': facetEnhancer({
-    endpoint: '/api/d-16/snapshot', pick: d => d.spans || [],
-    facets: { category: s => s.ocsf_category, policy: s => s.policy_result, profile: s => s.profile, provider: s => s.provider },
-    title: 'Audit spans faceted — sovereign-cockpit-facet-counts (wasm)', marker: 'd16',
-  }),
+  // Audit spans: faceted + bucketed by day (closed_at).
+  'd-16-audit-webapp': compose(
+    facetEnhancer({
+      endpoint: '/api/d-16/snapshot', pick: d => d.spans || [],
+      facets: { category: s => s.ocsf_category, policy: s => s.policy_result, profile: s => s.profile, provider: s => s.provider },
+      title: 'Audit spans faceted — sovereign-cockpit-facet-counts (wasm)', marker: 'd16',
+    }),
+    dayGroupEnhancer({
+      endpoint: '/api/d-16/snapshot', pick: d => d.spans || [], ts: s => s.closed_at,
+      title: 'Audit spans by day — sovereign-cockpit-day-divider (wasm)', marker: 'd16dd',
+    }),
+  ),
   // Adapter inventory grouped by status / precision / training.
   'd-11-adapter-status-webapp': facetEnhancer({
     endpoint: '/api/adapters/inventory', pick: d => d.adapters || [],
@@ -644,12 +668,18 @@ const ENHANCERS = {
     facets: { profile: p => p.profile, route: p => p.dominant_route },
     title: 'Project spend faceted — sovereign-cockpit-facet-counts (wasm)', marker: 'd04',
   }),
-  // Rollback snapshots grouped by kind / dataset.
-  'd-08-rollback-points-webapp': facetEnhancer({
-    endpoint: '/api/d-08/snapshot', pick: d => d.snapshots || [],
-    facets: { kind: s => s.kind, dataset: s => s.dataset },
-    title: 'Rollback snapshots faceted — sovereign-cockpit-facet-counts (wasm)', marker: 'd08',
-  }),
+  // Rollback snapshots faceted (by kind/dataset) + the activity timeline bucketed by day.
+  'd-08-rollback-points-webapp': compose(
+    facetEnhancer({
+      endpoint: '/api/d-08/snapshot', pick: d => d.snapshots || [],
+      facets: { kind: s => s.kind, dataset: s => s.dataset },
+      title: 'Rollback snapshots faceted — sovereign-cockpit-facet-counts (wasm)', marker: 'd08',
+    }),
+    dayGroupEnhancer({
+      endpoint: '/api/d-08/snapshot', pick: d => d.timeline || [], ts: e => e.ts,
+      title: 'Rollback timeline by day — sovereign-cockpit-day-divider (wasm)', marker: 'd08dd',
+    }),
+  ),
   // ZFS datasets grouped by sync mode / record size.
   'd-09-hardware-pressure-webapp': facetEnhancer({
     endpoint: '/api/hardware/pressure', pick: d => (d.zfs && d.zfs.datasets) || [],
@@ -681,12 +711,18 @@ const ENHANCERS = {
       title: 'Mean job progress — sovereign-cockpit-progress-tracker (wasm)', marker: 'ccpg', unit: 'jobs',
     }),
   ),
-  // Global history events grouped by source / action.
-  'global-history-webapp': facetEnhancer({
-    endpoint: '/recent?limit=200', pick: d => d.events || [],
-    facets: { source: e => e.source, action: e => e.action },
-    title: 'History events faceted — sovereign-cockpit-facet-counts (wasm)', marker: 'gh',
-  }),
+  // Global history events: faceted (source/action) + bucketed by day (timestamp).
+  'global-history-webapp': compose(
+    facetEnhancer({
+      endpoint: '/recent?limit=200', pick: d => d.events || [],
+      facets: { source: e => e.source, action: e => e.action },
+      title: 'History events faceted — sovereign-cockpit-facet-counts (wasm)', marker: 'gh',
+    }),
+    dayGroupEnhancer({
+      endpoint: '/recent?limit=200', pick: d => d.events || [], ts: e => e.timestamp,
+      title: 'History events by day — sovereign-cockpit-day-divider (wasm)', marker: 'ghdd',
+    }),
+  ),
 };
 
 /**
