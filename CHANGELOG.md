@@ -12,6 +12,20 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Fixed — SDD INDEX status hygiene: stale branch refs dropped + a hygiene contract (2026-07-13)
+
+Phase-1 audit (SDD-961; closes the objective core of ledger F-2026-031). `docs/sdd/INDEX.md` had 71 rows referencing
+a stale ephemeral feature branch (`on branch claude/recover-projects-b0oT6`) for a dormant, long-merged session,
+and an undocumented Status vocabulary.
+
+- **`docs/sdd/INDEX.md`**: the 71 branch refs → `(recover-projects session)` (ephemeral branch dropped, honest
+  session provenance kept); a Status vocabulary legend added to the header (draft/review/scoping/accepted/active/complete).
+- **`tests/lint/test_sdd_index_hygiene.py`**: blocks feature-branch references + status words outside the documented
+  vocabulary from returning.
+- The subjective status-value reconciliation (flip merged `draft` SDDs → accepted/complete) is left to each
+  authoring session against the legend — a per-SDD judgement, not a unilateral mass-relabel of other sessions' rows.
+
+
 ### Fixed — real workspace metadata + dead docs.rs links removed (2026-07-13)
 
 Phase-1 audit (SDD-960; closes ledger F-2026-003). Root `Cargo.toml` `[workspace.package]` carried template
