@@ -90,6 +90,7 @@
 - `scripts/build/orchestrate.sh:352` dispatches hooks via `find … -executable`; a hook that loses `+x` is silently skipped (0 currently non-executable). Action: lint test asserting every `scripts/hooks/**/*.sh` is executable.
 
 ### F-2026-024 · LOW · A few scripts lack `set -euo pipefail` without sourcing `common.sh`
+> **Status (2026-07-13):** **CLOSED by SDD-968** (`docs/sdd/968-shell-safety-flags-contract.md`) — **investigated; premise didn't hold as an oversight**. The candidates omit `-e` deliberately: `provision-bake.sh` is documented "NON-FATAL BY DESIGN" (in-image postinst, each step self-handles), `preflight.sh` is a fail-counter (`fails=$((fails+1))` … `exit "$fails"` — `-e` would abort before reporting); the rest are sourced libs (inherit the caller's options; `common.sh` sets the flags) + one operator-neutralized template. Empirically 0 executable entry-points ship with zero safety flags. Rather than force `-e` (which would break the deliberate designs), `tests/lint/test_shell_safety_flags.py` locks in the good state: every executable entry-point (excl lib/templates) sources `common.sh` or sets a safety flag — safety **present**, `-e` not mandated. 91 entry-points guarded, 0 violations.
 - e.g. `scripts/webapp/preflight.sh`. Action: targeted sweep of the handful that neither set it nor source `scripts/build/lib/common.sh` (which sets it at line 44).
 
 ### F-2026-025 · MED · The 9,081-line `sovereign-osctl` monolith

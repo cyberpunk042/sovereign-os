@@ -5,7 +5,7 @@
 > page drifts from `docs/sdd/`, so the published book can never freeze behind the
 > design record again (F-2026-033).
 
-Every Spec-Driven-Development design doc in `docs/sdd/` (149 total), by number.
+Every Spec-Driven-Development design doc in `docs/sdd/` (150 total), by number.
 
 - [SDD-000 — Project charter](../sdd/000-charter.md)
 - [SDD-001 — Cross-repo boundaries: contract between sovereign-os, info-hub, selfdef](../sdd/001-cross-repo-boundaries.md)
@@ -156,3 +156,4 @@ Every Spec-Driven-Development design doc in `docs/sdd/` (149 total), by number.
 - [SDD-965 — ARCHITECTURE.md Stage-2 refresh + currency contract](../sdd/965-architecture-doc-stage2-refresh.md)
 - [SDD-966 — per-unit systemd coverage contract](../sdd/966-per-unit-systemd-coverage.md)
 - [SDD-967 — hook hygiene: delete the legacy vfio-bind duplicate + executability & dangling-reference contracts](../sdd/967-hook-hygiene-and-vfio-bind-dedup.md)
+- [SDD-968 — shell-safety-flags contract for entry-point scripts](../sdd/968-shell-safety-flags-contract.md)
