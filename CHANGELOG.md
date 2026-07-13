@@ -291,6 +291,26 @@ per-device model status (the D-22 LM Status & Operability panel). SDD-902.
   are down; a webapp-contract test locks the section + the copyable verbs + the demo fixture. 24 D-22 contract
   tests.
 
+### Added — de-islanding big bite: 6 model crates gain runnable CLIs in one batch (2026-07-12)
+
+A parallel batch de-islanding pass (SDD-955) — 6 zero-reverse-dependency model crates, each given a genuine
+runnable `main.rs` that does REAL work (validates real input against the crate's own rules), never a thin print.
+Built concurrently by 6 sub-agents, each verified + integrated. Island register 26 → 20; the enforcing lint +
+binaries-doc lint (21 binary crates) stay green.
+
+- **`sovereign-cgroup-systemd`** — lists the 8 M045 OS primitives; `--check FILE` validates a `PrimitiveSnapshot`.
+- **`sovereign-continuity-manager`** — the lifecycle states + allowed-transition matrix; `--check FILE` validates
+  signed (MS003) lifecycle transitions, refusing illegal/unsigned moves.
+- **`sovereign-harness-layers`** — the M082 5-layer TDD test pyramid; `--check FILE` classifies test directories.
+- **`sovereign-replay-export-bundle`** — builds an example replay `ExportBundle`; `--validate FILE` checks a
+  bundle JSON's cross-references (thread/cursor/bookmarks).
+- **`sovereign-dashboard-layout`** — the 12-column widget grid + 8 widget kinds; `--check FILE` validates a
+  `DashboardLayout` / `LayoutManifest` against grid bounds + slot coverage.
+- **`sovereign-whitelabel`** — the M081 rebrand model; `--check FILE` enforces the E0785 legal-compliance rule
+  (must-not-touch never modified, must-rebrand always) on a rebrand plan.
+
+Per-crate tests (18 + 20 + 18 + 13 + 21 + 13); clippy `-D warnings` + fmt clean across all six.
+
 ### Added — de-islanding big round: runnable surfaces for built-but-unwired model crates (2026-07-12)
 
 A batch de-islanding pass (SDD-955), one PR. Each crate below was a real, tested, zero-reverse-dependency

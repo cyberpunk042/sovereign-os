@@ -19,8 +19,9 @@ thiserror = { workspace = true }
 sovereign-conversation-thread = { path = "../sovereign-conversation-thread" }
 sovereign-replay-cursor = { path = "../sovereign-replay-cursor" }
 sovereign-replay-bookmark-set = { path = "../sovereign-replay-bookmark-set" }
-
-[dev-dependencies]
+# Needed by the CLI (src/main.rs) to open a real ReplayCursor via ReplayCursor::open,
+# which requires ExecutionMode::Replay. Promoted from dev-dependencies so the binary
+# (not just tests) can construct the example bundle with the real library API.
 sovereign-execution-mode-registry = { path = "../sovereign-execution-mode-registry" }
 
 [features]

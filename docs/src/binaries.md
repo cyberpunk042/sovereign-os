@@ -1,6 +1,6 @@
 # Runtime binaries
 
-> The **15 Rust binary crates** (`crates/*/src/main.rs`) are the executable runtime surface of
+> The **21 Rust binary crates** (`crates/*/src/main.rs`) are the executable runtime surface of
 > sovereign-os. Everything else in `crates/` is a library consumed by these (or an island —
 > see the phase-1 audit's island register). This page maps each binary to its **role**, how it
 > is **invoked**, and what it **does**. Enforced complete by `tests/lint/test_binaries_doc.py`.
@@ -22,6 +22,12 @@ the Rust binaries below are the compute/runtime core.
 | **`sovereign-execution-env`** | operator / reference | Lists the E0553 execution-environment taxonomy — the 9 environments (ModelServer / Repl / Shell / Container / VM / Browser / …) each mapped to its isolation level, + the 10 observation categories a run is watched by. A discoverable reference over the model crate. |
 | **`sovereign-module-facets`** | operator / reference + validate | Lists the E0477 uniform module interface — the 6 facets every module must expose (state / events / policy-hooks / profile-knobs / rollback / learning-signal); `--check FILE` validates a ModuleDescriptor JSON against the canonical set. |
 | **`sovereign-mode-transition-log`** | operator / audit | Renders an example append-only ExecutionMode transition record and `--validate FILE` validates a transition log JSON (legal mode shifts), exiting non-zero on an invalid log. |
+| **`sovereign-cgroup-systemd`** | operator / reference + validate | Lists the 8 M045 OS primitives (cgroupv2 / systemd / psi / ebpf / apparmor / namespaces / zfs / luks-tpm-fido2); `--check FILE` validates a PrimitiveSnapshot JSON + reports available_count. |
+| **`sovereign-continuity-manager`** | operator / reference + validate | Lists the continuity lifecycle states/primitives + the allowed-transition matrix; `--check FILE` validates signed (MS003) lifecycle transitions, exit != 0 on an illegal/unsigned move. |
+| **`sovereign-harness-layers`** | operator / reference + validate | Lists the M082 5-layer TDD test pyramid (virtualization / CI trigger / retries per layer); `--check FILE` classifies test directories to their layer, flagging unrecognized ones. |
+| **`sovereign-replay-export-bundle`** | operator / validate | Builds an example replay ExportBundle (thread + cursor + bookmarks); `--validate FILE` validates a bundle JSON's cross-references, exit != 0 on a mismatch. |
+| **`sovereign-dashboard-layout`** | operator / reference + validate | The 12-column dashboard widget grid + 8 widget kinds; `--check FILE` validates a DashboardLayout / LayoutManifest against the grid bounds + slot coverage. |
+| **`sovereign-whitelabel`** | operator / reference + validate | The M081 rebrand model (4 categories / 4 strategies / 3 lifecycle stages); `--check FILE` enforces the E0785 legal-compliance rule (must-not-touch never modified, must-rebrand always) on a rebrand plan. |
 
 ## Dev / demo CLIs
 
@@ -60,6 +66,12 @@ sovereign-inheritance-check      → verify the box's 8 durable inheritance arti
 sovereign-execution-env          → reference the 9 execution envs + isolation levels
 sovereign-module-facets          → the 6-facet module interface (list + validate)
 sovereign-mode-transition-log    → example transition record + validate a log
+sovereign-cgroup-systemd         → the 8 OS primitives (list + validate a snapshot)
+sovereign-continuity-manager     → lifecycle states + validate signed transitions
+sovereign-harness-layers         → the 5-layer test pyramid (classify test dirs)
+sovereign-replay-export-bundle   → build/validate a replay export bundle
+sovereign-dashboard-layout       → 12-col widget grid (validate layouts)
+sovereign-whitelabel             → M081 rebrand model (validate a rebrand plan)
 sovereign-feature-selftest       → feature-test-lab
 
 dev/demo: cortex · agent-runtime · inference-demo · chat · serve   (manual / brain-api)
