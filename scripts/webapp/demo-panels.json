@@ -1,58 +1,394 @@
 {
-  "_comment": "Single source of truth for DEMO-capable cockpit panels (SDD-116 rollout). Consumed by scripts/webapp/demo-capture.mjs (capture + verify) AND tests/lint/test_demo_mode_contract.py (generic contract checks). Per panel: slug = webapp/<slug>/index.html; demoConst = the client-side DEMO_<X> sample constant; apiPrefix = the panel's OWN data endpoint that MUST see zero calls in the demo path (not /api/control/registry, not /api/code-console/chat — those are chrome, fired on user action only); rowSelector = a selector whose count proves sample rows rendered (null = skip the row assertion, still assert badge + zero-api + no-errors); headInjected = whether the shared helper is inlined in <head> (the SDD-119 rule; the three SDD-116/117/118 panels predate it and inline in <body> — they still pass at runtime, verified by demo-capture.mjs); kind = 'rich' (default; has DEMO_<X> sample data) or 'badge-only' (SDD-127; static/chrome panels with no telemetry to sample — the inlined helper just auto-renders the badge, demoConst/apiPrefix/rowSelector are null, nothing is fabricated per SB-077); sdd = the SDD that shipped the demo treatment.",
+  "_comment": "Single source of truth for DEMO-capable cockpit panels (SDD-116 rollout). Consumed by scripts/webapp/demo-capture.mjs (capture + verify) AND tests/lint/test_demo_mode_contract.py (generic contract checks). Per panel: slug = webapp/<slug>/index.html; demoConst = the client-side DEMO_<X> sample constant; apiPrefix = the panel's OWN data endpoint that MUST see zero calls in the demo path (not /api/control/registry, not /api/code-console/chat \u2014 those are chrome, fired on user action only); rowSelector = a selector whose count proves sample rows rendered (null = skip the row assertion, still assert badge + zero-api + no-errors); headInjected = whether the shared helper is inlined in <head> (the SDD-119 rule; the three SDD-116/117/118 panels predate it and inline in <body> \u2014 they still pass at runtime, verified by demo-capture.mjs); kind = 'rich' (default; has DEMO_<X> sample data) or 'badge-only' (SDD-127; static/chrome panels with no telemetry to sample \u2014 the inlined helper just auto-renders the badge, demoConst/apiPrefix/rowSelector are null, nothing is fabricated per SB-077); sdd = the SDD that shipped the demo treatment.",
   "schema": 1,
   "panels": [
-    { "slug": "code-console",                "demoConst": "DEMO_SESSIONS", "apiPrefix": "/api/code-console",    "rowSelector": null,                       "headInjected": false, "sdd": "SDD-116" },
-    { "slug": "d-21-lm-orchestration",       "demoConst": "DEMO_GRID",     "apiPrefix": "/api/lm-orchestration","rowSelector": null,                       "headInjected": false, "sdd": "SDD-117" },
-    { "slug": "d-22-lm-status-operability",  "demoConst": "DEMO_DEVICES",  "apiPrefix": "/api/lm-status",       "rowSelector": null,                       "headInjected": false, "sdd": "SDD-118" },
-    { "slug": "d-03-model-health",           "demoConst": "DEMO_HEALTH",   "apiPrefix": "/api/models",          "rowSelector": null,                       "sdd": "SDD-119" },
-    { "slug": "d-23-models-catalog",         "demoConst": "DEMO_CATALOG",  "apiPrefix": "/api/models-catalog",  "rowSelector": null,                       "sdd": "SDD-120" },
-    { "slug": "models-catalog",              "demoConst": "DEMO_MODELS",   "apiPrefix": "/models-catalog.json", "rowSelector": "#rows tr",                 "sdd": "SDD-120" },
-    { "slug": "d-11-adapter-status",         "demoConst": "DEMO_ADAPTERS", "apiPrefix": "/api/adapters",        "rowSelector": "#adapters-tbody tr",       "sdd": "SDD-120" },
-    { "slug": "d-10-eval-history",           "demoConst": "DEMO_EVALS",    "apiPrefix": "/api/evals",           "rowSelector": "#tasks-tbody tr",          "sdd": "SDD-120" },
-    { "slug": "d-09-hardware-pressure",      "demoConst": "DEMO_PRESSURE", "apiPrefix": "/api/hardware",        "rowSelector": "#zfs-tbody tr",            "sdd": "SDD-121" },
-    { "slug": "runtime-modes",               "demoConst": "DEMO_MODES",    "apiPrefix": "/api/runtime-modes",   "rowSelector": "#modes-grid .mode-card",   "sdd": "SDD-121" },
-    { "slug": "orchestration",               "demoConst": "DEMO_ORCH",     "apiPrefix": "/orchestration.json",  "rowSelector": "#rules tr",                "sdd": "SDD-121" },
-    { "slug": "d-24-cpu-features",           "demoConst": "DEMO_CPU",      "apiPrefix": "/api/cpu-features",    "rowSelector": "#workloads tbody tr",      "sdd": "SDD-121" },
-    { "slug": "cpu-features",                "demoConst": "DEMO_AVX",      "apiPrefix": "/cpu-avx.json",        "rowSelector": "#workloads tr",            "sdd": "SDD-121" },
-    { "slug": "d-04-costs",                  "demoConst": "DEMO_COSTS",    "apiPrefix": "/api/costs",           "rowSelector": "#project-tbody tr",        "sdd": "SDD-121" },
-    { "slug": "d-01-active-sessions",        "demoConst": "DEMO_SESSIONS", "apiPrefix": "/api/sessions",        "rowSelector": "#sessions-tbody tr",       "sdd": "SDD-122" },
-    { "slug": "d-20-peace-machine-health",   "demoConst": "DEMO_D20",      "apiPrefix": "/api/d-20",            "rowSelector": "#validator-output *",      "sdd": "SDD-122" },
-    { "slug": "d-18-trust-scores",           "demoConst": "DEMO_D18",      "apiPrefix": "/api/d-18",            "rowSelector": "#tool-tbody tr",           "sdd": "SDD-122" },
-    { "slug": "d-19-super-model-manifest",   "demoConst": "DEMO_D19",      "apiPrefix": "/api/d-19",            "rowSelector": "#ms-tbody tr",             "sdd": "SDD-122" },
-    { "slug": "d-02-profile-choices",        "demoConst": "DEMO_PROFILE",  "apiPrefix": "/api/profile",         "rowSelector": "#history-tbody tr",        "sdd": "SDD-122" },
-    { "slug": "profile-generation",          "demoConst": "DEMO_PROFGEN",  "apiPrefix": "/profile-generation.json", "rowSelector": "#profiles > *",        "sdd": "SDD-122" },
-    { "slug": "d-12-networking",             "demoConst": "DEMO_D12",      "apiPrefix": "/api/d-12",            "rowSelector": "#rules-tbody tr",          "sdd": "SDD-125" },
-    { "slug": "d-13-filesystem-grants",      "demoConst": "DEMO_D13",      "apiPrefix": "/api/d-13",            "rowSelector": "#grants-tbody tr",         "sdd": "SDD-125" },
-    { "slug": "d-14-capability-tokens",      "demoConst": "DEMO_D14",      "apiPrefix": "/api/d-14",            "rowSelector": "#tokens-tbody tr",         "sdd": "SDD-125" },
-    { "slug": "d-15-sandboxes",              "demoConst": "DEMO_D15",      "apiPrefix": "/api/d-15",            "rowSelector": "#alloc-tbody tr",          "sdd": "SDD-125" },
-    { "slug": "d-16-audit",                  "demoConst": "DEMO_D16",      "apiPrefix": "/api/d-16",            "rowSelector": "#span-tbody tr",           "sdd": "SDD-125" },
-    { "slug": "d-17-quarantine",             "demoConst": "DEMO_D17",      "apiPrefix": "/api/d-17",            "rowSelector": "#quar-tbody tr",           "sdd": "SDD-125" },
-    { "slug": "edge-firewall",               "demoConst": "DEMO_EDGE_FIREWALL", "apiPrefix": "/candidates",     "rowSelector": "#recs-tbody tr",           "sdd": "SDD-126" },
-    { "slug": "network-edge",                "demoConst": "DEMO_NETWORK_EDGE",  "apiPrefix": "/interfaces",     "rowSelector": "#iface-tbody tr",          "sdd": "SDD-126" },
-    { "slug": "selfdef-management",          "demoConst": "DEMO_SELFDEF",  "apiPrefix": "/selfdef-management.json", "rowSelector": null,                  "sdd": "SDD-126" },
-    { "slug": "ups",                         "demoConst": "DEMO_UPS",      "apiPrefix": "/ups.json",            "rowSelector": null,                       "sdd": "SDD-126" },
-    { "slug": "brain",                       "demoConst": "DEMO_BRAIN",    "apiPrefix": "/brain.json",          "rowSelector": "#mem-rows tr",             "sdd": "SDD-126" },
-    { "slug": "science",                     "demoConst": "DEMO_SCIENCE",  "apiPrefix": "/science.json",        "rowSelector": "#catalog tr",              "sdd": "SDD-126" },
-    { "slug": "trinity",                     "demoConst": null,            "apiPrefix": null,                   "rowSelector": null, "kind": "badge-only", "sdd": "SDD-127" },
-    { "slug": "weaver",                      "demoConst": null,            "apiPrefix": null,                   "rowSelector": null, "kind": "badge-only", "sdd": "SDD-127" },
-    { "slug": "auditor",                     "demoConst": null,            "apiPrefix": null,                   "rowSelector": null, "kind": "badge-only", "sdd": "SDD-127" },
-    { "slug": "router",                      "demoConst": null,            "apiPrefix": null,                   "rowSelector": null, "kind": "badge-only", "sdd": "SDD-127" },
-    { "slug": "global-history",              "demoConst": null,            "apiPrefix": null,                   "rowSelector": null, "kind": "badge-only", "sdd": "SDD-127" },
-    { "slug": "build-configurator",          "demoConst": null,            "apiPrefix": null,                   "rowSelector": null, "kind": "badge-only", "sdd": "SDD-128" },
-    { "slug": "emulate",                      "demoConst": null,            "apiPrefix": null,                   "rowSelector": null, "kind": "badge-only", "sdd": "SDD-128" },
-    { "slug": "flash",                        "demoConst": null,            "apiPrefix": null,                   "rowSelector": null, "kind": "badge-only", "sdd": "SDD-128" },
-    { "slug": "master-dashboard",             "demoConst": "DEMO_MASTER",   "apiPrefix": "/routes",              "rowSelector": "#routes-tbody tr",         "sdd": "SDD-129" },
-    { "slug": "compliance",                   "demoConst": null,            "apiPrefix": null,                   "rowSelector": null, "kind": "badge-only", "sdd": "SDD-128" },
-    { "slug": "auth-tier",                    "demoConst": null,            "apiPrefix": null,                   "rowSelector": null, "kind": "badge-only", "sdd": "SDD-128" },
-    { "slug": "anti-minimization-audit",      "demoConst": null,            "apiPrefix": null,                   "rowSelector": null, "kind": "badge-only", "sdd": "SDD-128" },
-    { "slug": "surface-map",                  "demoConst": null,            "apiPrefix": null,                   "rowSelector": null, "kind": "badge-only", "sdd": "SDD-128" },
-    { "slug": "doc-coverage",                 "demoConst": null,            "apiPrefix": null,                   "rowSelector": null, "kind": "badge-only", "sdd": "SDD-128" },
-    { "slug": "ux-design-audit",              "demoConst": null,            "apiPrefix": null,                   "rowSelector": null, "kind": "badge-only", "sdd": "SDD-128" },
-    { "slug": "d-25-selfdef-management",      "demoConst": "DEMO_D25",      "apiPrefix": "/api/selfdef-management", "rowSelector": "#mirror-panels a",     "sdd": "SDD-129" },
-    { "slug": "d-05-traces",                  "demoConst": "DEMO_D05",      "apiPrefix": "/api/traces",          "rowSelector": "#spans-tbody tr",          "sdd": "SDD-129" },
-    { "slug": "d-07-memory-changes",          "demoConst": "DEMO_D07",      "apiPrefix": "/api/d-07",            "rowSelector": "#memory-entries > *",      "sdd": "SDD-129" },
-    { "slug": "d-08-rollback-points",         "demoConst": "DEMO_D08",      "apiPrefix": "/api/d-08",            "rowSelector": "#snapshots-tbody tr",      "sdd": "SDD-129" },
-    { "slug": "d-06-pending-approvals",       "demoConst": "DEMO_D06",      "apiPrefix": "/api/approvals",       "rowSelector": "#approvals-list > *",      "sdd": "SDD-129" }
+    {
+      "slug": "code-console",
+      "demoConst": "DEMO_SESSIONS",
+      "apiPrefix": "/api/code-console",
+      "rowSelector": null,
+      "headInjected": false,
+      "sdd": "SDD-116"
+    },
+    {
+      "slug": "d-21-lm-orchestration",
+      "demoConst": "DEMO_GRID",
+      "apiPrefix": "/api/lm-orchestration",
+      "rowSelector": null,
+      "headInjected": false,
+      "sdd": "SDD-117"
+    },
+    {
+      "slug": "d-22-lm-status-operability",
+      "demoConst": "DEMO_DEVICES",
+      "apiPrefix": "/api/lm-status",
+      "rowSelector": null,
+      "headInjected": false,
+      "sdd": "SDD-118"
+    },
+    {
+      "slug": "d-03-model-health",
+      "demoConst": "DEMO_HEALTH",
+      "apiPrefix": "/api/models",
+      "rowSelector": null,
+      "sdd": "SDD-119"
+    },
+    {
+      "slug": "d-23-models-catalog",
+      "demoConst": "DEMO_CATALOG",
+      "apiPrefix": "/api/models-catalog",
+      "rowSelector": null,
+      "sdd": "SDD-120"
+    },
+    {
+      "slug": "models-catalog",
+      "demoConst": "DEMO_MODELS",
+      "apiPrefix": "/models-catalog.json",
+      "rowSelector": "#rows tr",
+      "sdd": "SDD-120"
+    },
+    {
+      "slug": "d-11-adapter-status",
+      "demoConst": "DEMO_ADAPTERS",
+      "apiPrefix": "/api/adapters",
+      "rowSelector": "#adapters-tbody tr",
+      "sdd": "SDD-120"
+    },
+    {
+      "slug": "d-10-eval-history",
+      "demoConst": "DEMO_EVALS",
+      "apiPrefix": "/api/evals",
+      "rowSelector": "#tasks-tbody tr",
+      "sdd": "SDD-120"
+    },
+    {
+      "slug": "d-09-hardware-pressure",
+      "demoConst": "DEMO_PRESSURE",
+      "apiPrefix": "/api/hardware",
+      "rowSelector": "#zfs-tbody tr",
+      "sdd": "SDD-121"
+    },
+    {
+      "slug": "runtime-modes",
+      "demoConst": "DEMO_MODES",
+      "apiPrefix": "/api/runtime-modes",
+      "rowSelector": "#modes-grid .mode-card",
+      "sdd": "SDD-121"
+    },
+    {
+      "slug": "orchestration",
+      "demoConst": "DEMO_ORCH",
+      "apiPrefix": "/orchestration.json",
+      "rowSelector": "#rules tr",
+      "sdd": "SDD-121"
+    },
+    {
+      "slug": "d-24-cpu-features",
+      "demoConst": "DEMO_CPU",
+      "apiPrefix": "/api/cpu-features",
+      "rowSelector": "#workloads tbody tr",
+      "sdd": "SDD-121"
+    },
+    {
+      "slug": "cpu-features",
+      "demoConst": "DEMO_AVX",
+      "apiPrefix": "/cpu-avx.json",
+      "rowSelector": "#workloads tr",
+      "sdd": "SDD-121"
+    },
+    {
+      "slug": "d-04-costs",
+      "demoConst": "DEMO_COSTS",
+      "apiPrefix": "/api/costs",
+      "rowSelector": "#project-tbody tr",
+      "sdd": "SDD-121"
+    },
+    {
+      "slug": "d-01-active-sessions",
+      "demoConst": "DEMO_SESSIONS",
+      "apiPrefix": "/api/sessions",
+      "rowSelector": "#sessions-tbody tr",
+      "sdd": "SDD-122"
+    },
+    {
+      "slug": "d-20-peace-machine-health",
+      "demoConst": "DEMO_D20",
+      "apiPrefix": "/api/d-20",
+      "rowSelector": "#validator-output *",
+      "sdd": "SDD-122"
+    },
+    {
+      "slug": "d-18-trust-scores",
+      "demoConst": "DEMO_D18",
+      "apiPrefix": "/api/d-18",
+      "rowSelector": "#tool-tbody tr",
+      "sdd": "SDD-122"
+    },
+    {
+      "slug": "d-19-super-model-manifest",
+      "demoConst": "DEMO_D19",
+      "apiPrefix": "/api/d-19",
+      "rowSelector": "#ms-tbody tr",
+      "sdd": "SDD-122"
+    },
+    {
+      "slug": "d-02-profile-choices",
+      "demoConst": "DEMO_PROFILE",
+      "apiPrefix": "/api/profile",
+      "rowSelector": "#history-tbody tr",
+      "sdd": "SDD-122"
+    },
+    {
+      "slug": "profile-generation",
+      "demoConst": "DEMO_PROFGEN",
+      "apiPrefix": "/profile-generation.json",
+      "rowSelector": "#profiles > *",
+      "sdd": "SDD-122"
+    },
+    {
+      "slug": "d-12-networking",
+      "demoConst": "DEMO_D12",
+      "apiPrefix": "/api/d-12",
+      "rowSelector": "#rules-tbody tr",
+      "sdd": "SDD-125"
+    },
+    {
+      "slug": "d-13-filesystem-grants",
+      "demoConst": "DEMO_D13",
+      "apiPrefix": "/api/d-13",
+      "rowSelector": "#grants-tbody tr",
+      "sdd": "SDD-125"
+    },
+    {
+      "slug": "d-14-capability-tokens",
+      "demoConst": "DEMO_D14",
+      "apiPrefix": "/api/d-14",
+      "rowSelector": "#tokens-tbody tr",
+      "sdd": "SDD-125"
+    },
+    {
+      "slug": "d-15-sandboxes",
+      "demoConst": "DEMO_D15",
+      "apiPrefix": "/api/d-15",
+      "rowSelector": "#alloc-tbody tr",
+      "sdd": "SDD-125"
+    },
+    {
+      "slug": "d-16-audit",
+      "demoConst": "DEMO_D16",
+      "apiPrefix": "/api/d-16",
+      "rowSelector": "#span-tbody tr",
+      "sdd": "SDD-125"
+    },
+    {
+      "slug": "d-17-quarantine",
+      "demoConst": "DEMO_D17",
+      "apiPrefix": "/api/d-17",
+      "rowSelector": "#quar-tbody tr",
+      "sdd": "SDD-125"
+    },
+    {
+      "slug": "edge-firewall",
+      "demoConst": "DEMO_EDGE_FIREWALL",
+      "apiPrefix": "/candidates",
+      "rowSelector": "#recs-tbody tr",
+      "sdd": "SDD-126"
+    },
+    {
+      "slug": "network-edge",
+      "demoConst": "DEMO_NETWORK_EDGE",
+      "apiPrefix": "/interfaces",
+      "rowSelector": "#iface-tbody tr",
+      "sdd": "SDD-126"
+    },
+    {
+      "slug": "selfdef-management",
+      "demoConst": "DEMO_SELFDEF",
+      "apiPrefix": "/selfdef-management.json",
+      "rowSelector": null,
+      "sdd": "SDD-126"
+    },
+    {
+      "slug": "ups",
+      "demoConst": "DEMO_UPS",
+      "apiPrefix": "/ups.json",
+      "rowSelector": null,
+      "sdd": "SDD-126"
+    },
+    {
+      "slug": "brain",
+      "demoConst": "DEMO_BRAIN",
+      "apiPrefix": "/brain.json",
+      "rowSelector": "#mem-rows tr",
+      "sdd": "SDD-126"
+    },
+    {
+      "slug": "science",
+      "demoConst": "DEMO_SCIENCE",
+      "apiPrefix": "/science.json",
+      "rowSelector": "#catalog tr",
+      "sdd": "SDD-126"
+    },
+    {
+      "slug": "trinity",
+      "demoConst": null,
+      "apiPrefix": null,
+      "rowSelector": null,
+      "kind": "badge-only",
+      "sdd": "SDD-127"
+    },
+    {
+      "slug": "weaver",
+      "demoConst": null,
+      "apiPrefix": null,
+      "rowSelector": null,
+      "kind": "badge-only",
+      "sdd": "SDD-127"
+    },
+    {
+      "slug": "auditor",
+      "demoConst": null,
+      "apiPrefix": null,
+      "rowSelector": null,
+      "kind": "badge-only",
+      "sdd": "SDD-127"
+    },
+    {
+      "slug": "router",
+      "demoConst": null,
+      "apiPrefix": null,
+      "rowSelector": null,
+      "kind": "badge-only",
+      "sdd": "SDD-127"
+    },
+    {
+      "slug": "global-history",
+      "demoConst": null,
+      "apiPrefix": null,
+      "rowSelector": null,
+      "kind": "badge-only",
+      "sdd": "SDD-127"
+    },
+    {
+      "slug": "build-configurator",
+      "demoConst": null,
+      "apiPrefix": null,
+      "rowSelector": null,
+      "kind": "badge-only",
+      "sdd": "SDD-128"
+    },
+    {
+      "slug": "emulate",
+      "demoConst": null,
+      "apiPrefix": null,
+      "rowSelector": null,
+      "kind": "badge-only",
+      "sdd": "SDD-128"
+    },
+    {
+      "slug": "flash",
+      "demoConst": null,
+      "apiPrefix": null,
+      "rowSelector": null,
+      "kind": "badge-only",
+      "sdd": "SDD-128"
+    },
+    {
+      "slug": "master-dashboard",
+      "demoConst": "DEMO_MASTER",
+      "apiPrefix": "/routes",
+      "rowSelector": "#routes-tbody tr",
+      "sdd": "SDD-129"
+    },
+    {
+      "slug": "compliance",
+      "demoConst": null,
+      "apiPrefix": null,
+      "rowSelector": null,
+      "kind": "badge-only",
+      "sdd": "SDD-128"
+    },
+    {
+      "slug": "auth-tier",
+      "demoConst": null,
+      "apiPrefix": null,
+      "rowSelector": null,
+      "kind": "badge-only",
+      "sdd": "SDD-128"
+    },
+    {
+      "slug": "anti-minimization-audit",
+      "demoConst": null,
+      "apiPrefix": null,
+      "rowSelector": null,
+      "kind": "badge-only",
+      "sdd": "SDD-128"
+    },
+    {
+      "slug": "surface-map",
+      "demoConst": null,
+      "apiPrefix": null,
+      "rowSelector": null,
+      "kind": "badge-only",
+      "sdd": "SDD-128"
+    },
+    {
+      "slug": "doc-coverage",
+      "demoConst": null,
+      "apiPrefix": null,
+      "rowSelector": null,
+      "kind": "badge-only",
+      "sdd": "SDD-128"
+    },
+    {
+      "slug": "ux-design-audit",
+      "demoConst": null,
+      "apiPrefix": null,
+      "rowSelector": null,
+      "kind": "badge-only",
+      "sdd": "SDD-128"
+    },
+    {
+      "slug": "d-25-selfdef-management",
+      "demoConst": "DEMO_D25",
+      "apiPrefix": "/api/selfdef-management",
+      "rowSelector": "#mirror-panels a",
+      "sdd": "SDD-129"
+    },
+    {
+      "slug": "d-05-traces",
+      "demoConst": "DEMO_D05",
+      "apiPrefix": "/api/traces",
+      "rowSelector": "#spans-tbody tr",
+      "sdd": "SDD-129"
+    },
+    {
+      "slug": "d-07-memory-changes",
+      "demoConst": "DEMO_D07",
+      "apiPrefix": "/api/d-07",
+      "rowSelector": "#memory-entries > *",
+      "sdd": "SDD-129"
+    },
+    {
+      "slug": "d-08-rollback-points",
+      "demoConst": "DEMO_D08",
+      "apiPrefix": "/api/d-08",
+      "rowSelector": "#snapshots-tbody tr",
+      "sdd": "SDD-129"
+    },
+    {
+      "slug": "d-06-pending-approvals",
+      "demoConst": "DEMO_D06",
+      "apiPrefix": "/api/approvals",
+      "rowSelector": "#approvals-list > *",
+      "sdd": "SDD-129"
+    },
+    {
+      "slug": "d-26-friction-audit",
+      "demoConst": "DEMO",
+      "apiPrefix": "/api/d-26",
+      "rowSelector": "#fa-rows *",
+      "sdd": "F-2026-001"
+    }
   ]
 }
