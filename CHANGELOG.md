@@ -12,6 +12,21 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — developer bootstrap: single-source dev deps (2026-07-13)
+
+Phase-1 audit (SDD-963; closes ledger F-2026-022 + F-2026-056 + F-2026-026 + F-2026-055). A fresh clone couldn't
+reach a working test/lint loop, and CI declared its Python deps inline in four jobs.
+
+- **`requirements-dev.txt`**: the ONE dev-dep list (`pytest` + `pyyaml` + `jsonschema`). `make dev-deps` installs
+  it; all four CI installs now `pip install -r requirements-dev.txt` (single-sourced).
+- **`make clean-pyc`** (removes `__pycache__` + `*.pyc`, folded into `make clean`) closes F-2026-026.
+- **`_require-pytest`** guard on `lint`/`unit`/`dashboards-lint` → "run `make dev-deps`" instead of a raw
+  `ModuleNotFoundError`; `setup.sh` verifies pytest too.
+- **README prerequisites**: Python line → `make dev-deps`; new Rust 1.89 paragraph names
+  `scripts/install/rust-toolchain.sh` (closes F-2026-055).
+- **`tests/lint/test_dev_deps_single_source.py`**: keeps local + CI deps single-sourced (no inline pytest install,
+  `make dev-deps` + guard present) — drift contract.
+
 ### Added — runtime binaries reference (2026-07-13)
 
 Phase-1 audit (SDD-962; closes ledger F-2026-005 + F-2026-002). The 9 Rust binary crates are the executable runtime

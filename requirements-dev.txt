@@ -1,0 +1,21 @@
+# requirements-dev.txt — the Python dev/test dependencies for sovereign-os.
+#
+# SINGLE SOURCE OF TRUTH. This is the ONE list that:
+#   • `make dev-deps` installs locally (fresh-clone bootstrap), and
+#   • the CI test jobs install (.github/workflows/test.yml — `pip install -r`).
+#
+# tests/lint/test_dev_deps_single_source.py fails CI if CI ever grows an inline
+# `pip install pytest|pyyaml|jsonschema` again instead of referencing this file,
+# or if this file stops covering the packages the harness needs — so the local
+# dev env and the CI env can never silently drift apart.
+#
+# These are the ONLY Python deps the repo's own test/lint harness needs:
+#   pytest      — the tests/schema, tests/lint, tests/unit runner (make lint/unit)
+#   pyyaml      — profile/config YAML parsing in the lint + schema suites
+#   jsonschema  — profile-schema validation (scripts/validate-profiles.sh, tests)
+#
+# Unpinned to track the CI runners' latest (matching the historical CI behaviour);
+# pin here if a future SDD wants reproducible dev environments.
+pytest
+pyyaml
+jsonschema

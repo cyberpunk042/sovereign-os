@@ -45,11 +45,12 @@ fi
 # ----------- (2) Python dependencies ---------------
 
 echo -e "${bold}[2/5] python3 dependencies${reset}"
-for mod in yaml jsonschema; do
+# Import names for the requirements-dev.txt triple (pyyaml imports as `yaml`).
+for mod in yaml jsonschema pytest; do
   if python3 -c "import ${mod}" 2>/dev/null; then
     echo -e "  ${green}✓${reset} python3 has ${mod}"
   else
-    echo -e "  ${red}✗${reset} python3 missing ${mod} (try: apt install python3-${mod} OR pip install ${mod})"
+    echo -e "  ${red}✗${reset} python3 missing ${mod} — run \`make dev-deps\` (installs pytest pyyaml jsonschema from requirements-dev.txt)"
     failed=1
   fi
 done

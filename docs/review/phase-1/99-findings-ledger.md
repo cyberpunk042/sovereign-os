@@ -81,6 +81,7 @@
 - Referenced by nothing; its sibling `vfio-bind-4090.sh` is wired into `sovereign-vfio-bind.service`, `config/bootstrap/phases.yaml`, and 8 docs. Action: either wire the 3090 variant in as a hardware-profile alternative (probably the intent) or delete it.
 
 ### F-2026-022 · MED · Local test/lint entrypoints assume pytest that setup never installs
+> **Status (2026-07-13):** **CLOSED by SDD-963** (`docs/sdd/963-developer-bootstrap-dev-deps.md`). `requirements-dev.txt` is now the single dev-dep source; `make dev-deps` installs it; a `_require-pytest` guard on `lint`/`unit`/`dashboards-lint` prints "run `make dev-deps`" instead of a raw `ModuleNotFoundError`; `setup.sh` verifies pytest too. `tests/lint/test_dev_deps_single_source.py` keeps CI and local deps single-sourced.
 - `Makefile` `lint`/`unit`/`test`/`ci`/`dashboards-lint` all run `python3 -m pytest`; pytest is only installed inside CI (`pip install pytest pyyaml jsonschema` in test.yml). No root `requirements.txt`, no dev-env bootstrap target. Action: `make dev-deps` (or extend `setup.sh`) installing `pytest pyyaml jsonschema`, plus a friendly "pytest missing — run make dev-deps" guard in the Makefile.
 
 ### F-2026-023 · LOW · Glob-dispatch depends on the executable bit
@@ -93,6 +94,7 @@
 - Single bash file, 376KB, 30 verbs. It works, but it is the largest untestable unit in the repo (bash, no unit tests of its dispatch/parsing). Options: (a) split verbs into `scripts/osctl.d/<verb>.sh` sourced modules with a thin dispatcher; (b) golden-output tests for `--help`/`status --json` shapes; (c) longer-term: promote to a Rust binary (the workspace already has the discipline) — candidate `sovereign-osctl` crate.
 
 ### F-2026-026 · OPP · `__pycache__` dirs in the working tree (untracked, but noise)
+> **Status (2026-07-13):** **CLOSED by SDD-963.** `make clean-pyc` removes `__pycache__/` + `*.pyc` and is folded into `make clean`; the sweep cleared all in-tree `__pycache__` dirs (count 0 after run).
 - Present across `scripts/*/`; correctly gitignored. Action: add a `make clean-pyc` or pre-commit hook step; cosmetic.
 
 ### F-2026-027 · OPP · Exotic one-script domains are hidden capabilities
@@ -170,9 +172,11 @@ The docs already promise these; they need owners/ordering, not rediscovery:
 - 70 unit names appear in tests; fleet-wide hardening lints cover the rest in aggregate. Action: extend the fleet lint to assert existence/enable-wiring per unit name generated from the `systemd/system/` listing (cheap dynamic parametrization).
 
 ### F-2026-055 · LOW · README prerequisites omit the Rust 1.89 pin
+> **Status (2026-07-13):** **CLOSED by SDD-963.** README prerequisites now carry a Rust 1.89 paragraph naming `scripts/install/rust-toolchain.sh` (rustup, user-level, Debian ships 1.85, also run by `make provision`).
 - Debian stable ships 1.85; the repo needs rustup-pinned 1.89 via `scripts/install/rust-toolchain.sh` — not mentioned in README prerequisites. Action: one paragraph.
 
 ### F-2026-056 · LOW · Local dev-deps bootstrap missing (same root cause as F-2026-022)
+> **Status (2026-07-13):** **CLOSED by SDD-963** (same fix as F-2026-022). `make dev-deps` + `requirements-dev.txt` install `pytest pyyaml jsonschema` locally; README + `setup.sh` both point at `make dev-deps`.
 - CI installs `pytest pyyaml jsonschema` inline in every job; nothing installs them locally (`validate-profiles.sh` exits 2 without jsonschema). Action: `make dev-deps` + mention in README/setup.sh.
 
 ### F-2026-057 · INFO · Healthy baselines worth protecting (system surfaces)
