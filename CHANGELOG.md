@@ -12,6 +12,18 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — local pre-push cargo-fmt gate (2026-07-13)
+
+Operator-directed ("we continue") (SDD-987). Closes F-2026-095 (MED, root-cause half). The July arc landed
+52 fmt violations because it lived on a long-lived branch that bypassed CI's fmt gate until the audit.
+
+- **`scripts/git-hooks/pre-push`** — runs the CI-exact `cargo fmt --all --check` before a push reaches the
+  remote; reads cargo's exit directly (no pipe masking), blocks + prints `cargo fmt --all` on violations,
+  skips gracefully without the Rust toolchain, `git push --no-verify` to bypass.
+- **`tests/lint/test_fmt_hook_contract.py`** — keeps the hook and CI in lockstep (both must run the same gate).
+- Verified: hook `bash -n` clean + executable; `cargo fmt --all --check` exit 0 on the tree; 4 contract tests +
+  hook-hygiene/scripts/shell-safety green; ruff clean. Collision-safe.
+
 ### Added — crate dependency-graph contract lint (2026-07-13)
 
 Operator-directed ("we continue") (SDD-986). Closes F-2026-009 (OPP). Turns the audit's ad-hoc 413-orphan
