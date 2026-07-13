@@ -12,6 +12,17 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — per-unit systemd coverage contract (2026-07-13)
+
+Phase-1 audit (SDD-966; closes ledger F-2026-054). ~41 of 111 units had no name-specific test.
+
+- **`tests/lint/test_systemd_unit_coverage.py`**: pytest-parametrized over every
+  `systemd/system/*.{service,timer,target}` — each unit gets a `test_unit_is_reachable[<unit>]`
+  (not orphaned: [Install] / same-stem .timer / a dependency of another unit / phases.yaml /
+  install-referenced) + `test_unit_is_structurally_valid[<unit>]` (service→[Service]+Exec*;
+  timer→[Timer]+schedule; target→[Unit]) case. 223 cases, 0 orphans, 0 malformed. New units
+  are covered automatically. Complements the SDD-964 install-coverage contract.
+
 ### Changed — ARCHITECTURE.md Stage-2 refresh (2026-07-13)
 
 Phase-1 audit (SDD-965; closes ledger F-2026-053). ARCHITECTURE.md was frozen at the arc-opening

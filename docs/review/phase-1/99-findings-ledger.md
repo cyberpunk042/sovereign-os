@@ -171,6 +171,7 @@ The docs already promise these; they need owners/ordering, not rediscovery:
 - `Last updated: 2026-05-16`; still describes PR 5/6 profile stubs as future ("Features | Stage 2+") while 5 full profiles + mixins/runtime/orchestration families exist and README declares Stage-2 onset. Action: refresh alongside context.md (F-2026-030); add the intelligence layer + binary/daemon topology.
 
 ### F-2026-054 · LOW · ~41 of 111 systemd units have no name-specific test
+> **Status (2026-07-13):** **CLOSED by SDD-966** (`docs/sdd/966-per-unit-systemd-coverage.md`). `tests/lint/test_systemd_unit_coverage.py` is `pytest.mark.parametrize`d over every `systemd/system/*.{service,timer,target}` (dynamic — new units auto-covered), giving each unit a name-specific `test_unit_is_reachable[<unit>]` (no orphans: [Install]/same-stem timer/dependency/phases.yaml/install-referenced) + `test_unit_is_structurally_valid[<unit>]` (service→[Service]+Exec*; timer→[Timer]+schedule; target→[Unit]) case. 223 cases, 0 orphans / 0 malformed. Complements the SDD-964 install-coverage contract.
 - 70 unit names appear in tests; fleet-wide hardening lints cover the rest in aggregate. Action: extend the fleet lint to assert existence/enable-wiring per unit name generated from the `systemd/system/` listing (cheap dynamic parametrization).
 
 ### F-2026-055 · LOW · README prerequisites omit the Rust 1.89 pin
