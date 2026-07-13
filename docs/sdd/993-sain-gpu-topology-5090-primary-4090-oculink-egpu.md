@@ -1,4 +1,6 @@
-# SDD-993 — SAIN GPU topology change: RTX 5090 internal primary (~350 W) + RTX 4090 as OcuLink eGPU
+# SDD-993 — SAIN GPU topology: RTX PRO 6000 primary (main) + RTX 5090 internal secondary (~350 W) + RTX 4090 OcuLink eGPU
+
+> Topology correction (2026-07-13): the **RTX PRO 6000 96 GB is the primary/main Oracle card** (installed). The **RTX 5090 32 GB** is the new **internal secondary** (~350 W). The **RTX 4090 24 GB** is the **OcuLink eGPU** (third card). All three are in the build; the two internal cards run **x8/x8** and **M.2_2 stays empty**. (The filename slug says "5090-primary" from an earlier misread — the content here is authoritative.)
 
 > Status: active — reconcile landed (definitional anchor + the full SAIN/eGPU reconcile shipped on branch)
 > Owner: operator-directed 2026-07-13 (hardware-change directive, verbatim below); agent-authored.
@@ -17,42 +19,51 @@
 
 Sequencing (operator, same session): **SAIN / eGPU first; DSpark second.** This SDD is the SAIN/eGPU definitional anchor. The DSpark-from-DeepSeek adoption is a **separate follow-up** (its own SDD) — deliberately out of scope here.
 
-## What changes (the new SAIN-01 GPU topology)
+## What changes (the SAIN-01 GPU topology)
 
-| | Old canonical spec | New (this SDD) |
+**All three cards are in the build.** The RTX PRO 6000 is the **main / primary** card (Oracle Core) and stays exactly where it was. The change is: the RTX 4090 **moves out** of its internal slot to become an **OcuLink eGPU**, and the **new RTX 5090** takes the 4090's vacated internal x8 secondary slot.
+
+| Card | Role | Bus | Power |
+|---|---|---|---|
+| **RTX PRO 6000 Blackwell 96 GB** | **PRIMARY — Oracle Core (main card)** | internal, PCIEX16_1 **x8** | ~600 W |
+| **RTX 5090 32 GB (TUF-RTX5090-O32G-GAMING)** | **secondary** (new card; Blackwell GB202, 512-bit) | internal, PCIEX16_2 **x8** | **~350 W** (power-limited from 575 W stock) |
+| **RTX 4090 24 GB** | **secondary / eGPU** (Logic Engine / speculative-decoding draft) | **OcuLink-to-M.2 on a chipset M.2 slot, PCIe 4.0 x4** | ~350 W |
+
+One primary (PRO 6000) + **two secondaries** (the 5090 internal + the 4090 eGPU). No future/missing card — everything is installed.
+
+| | Before this change | After |
 |---|---|---|
-| **Internal primary GPU** | RTX PRO 6000 Blackwell 96 GB (Slot 1, x8) — *future/aspirational per operator verbatim* | **RTX 5090 32 GB (TUF-RTX5090-O32G-GAMING), power-limited ~350 W** |
-| **Second GPU** | RTX 4090 24 GB (Slot 2, x8, VFIO-isolated) | **RTX 4090 24 GB as an OcuLink eGPU** (external dock) |
-| **Internal PCIe split** | x8 / x8 bifurcation across two internal cards | **single internal GPU → full x16** (no bifurcation) |
-| **Chipset M.2 slot ("M.2_2")** | MUST remain empty (populating it dropped Slot 2 to x4) | **deliberately populated** with the OcuLink-to-M.2 adapter |
-| **4090 link** | internal PCIe (x8) | **OcuLink SFF-8611 → PCIe 4.0 x4** (via the M.2 adapter) |
+| Internal card 1 | RTX PRO 6000 (x8, Oracle) | RTX PRO 6000 (x8, Oracle) — **unchanged** |
+| Internal card 2 | RTX 4090 (x8, VFIO) | **RTX 5090** (x8, secondary) — the 4090 left this slot |
+| eGPU | — | **RTX 4090** on OcuLink (chipset M.2, PCIe 4.0 x4) |
+| PCIe split | x8 / x8 (two internal) | **x8 / x8 (two internal) — still applies** |
+| M.2_2 | empty (protects PCIEX16_2) | **empty — still required** (it shares lanes with PCIEX16_2 where the 5090 sits) |
 
-**The "M.2_2 must remain empty" invariant is RETIRED for this topology.** It existed solely to protect the two-internal-GPU x8/x8 split; with one internal GPU that constraint no longer applies, and the slot's new job is to carry the OcuLink link to the 4090.
+**The "M.2_2 must remain empty" rule STANDS.** With two internal cards (PRO 6000 + 5090) the x8/x8 bifurcation is real, and M.2_2 shares lanes with PCIEX16_2 (the 5090's slot). The OcuLink-to-M.2 adapter for the 4090 goes on a **chipset M.2 slot** (the operator's "chipset remaining nvme slot") — **NOT** M.2_2.
 
 ## Researched facts (grounded, not invented)
 
-- **RTX 5090 (TUF-RTX5090-O32G-GAMING)**: 32 GB GDDR7, 512-bit, 28 Gbps; 21,760 CUDA cores; Blackwell; PCIe 5.0 x16; **stock TGP 575 W** (1× 12V-2×6 / 12VHPWR). [ASUS techspec]
-- **OcuLink-to-M.2 adapter (SFF-8612 host → SFF-8611)**: exposes the M.2 M-key slot's **PCIe 4.0 x4** as an external OcuLink link — **64 Gbps ≈ 7.9 GB/s**, native PCIe, far above Thunderbolt's effective eGPU bandwidth. Adequate for **inference** (weights resident in VRAM; host↔device traffic is model-load + token I/O, not per-layer streaming); **not** suited to training or cross-link tensor-parallel.
+- **RTX 5090 (TUF-RTX5090-O32G-GAMING)** — the secondary: 32 GB GDDR7, 512-bit, 28 Gbps; 21,760 CUDA cores; Blackwell GB202; PCIe 5.0; **stock TGP 575 W**. Same Blackwell FP4/NVFP4 family + 512-bit bus as the PRO 6000 primary — a capable second Blackwell card, not a downgrade. [ASUS techspec]
+- **RTX PRO 6000 Blackwell 96 GB** — the primary/main Oracle Core: 96 GB GDDR7 / 512-bit / 1.8 TB/s / FP4 Tensor Cores / ~600 W. Unchanged by this directive; it remains the large-VRAM Oracle.
+- **OcuLink-to-M.2 adapter (SFF-8612 host → SFF-8611)**: exposes a chipset M.2 M-key slot's **PCIe 4.0 x4** as an external OcuLink link — **64 Gbps ≈ 7.9 GB/s**, native PCIe, far above Thunderbolt's effective eGPU bandwidth. Adequate for **inference** (weights VRAM-resident; host↔device traffic is model-load + token I/O); **not** suited to training or cross-link tensor-parallel.
 
-## The ~350 W power limit — the maths
+## The ~350 W power limit — the maths (applies to the RTX 5090 secondary)
 
-Stock TGP is **575 W**. Target ≈ **350 W → 350 / 575 ≈ 61 % of stock.** Blackwell's voltage/frequency curve is steep near stock: the top ~40 % of the power budget buys only single-digit-percent extra throughput, so a limit near ~60 % sits close to the efficiency knee — it keeps the large majority of inference throughput while cutting heat, noise, and sustained draw substantially. It also fits a saner whole-box power/thermal budget: a ~350 W internal 5090 **plus** the OcuLink-attached 4090 (itself ~350–400 W) plus the Ryzen 9 9900X (~120 W) stays within a single quality PSU's sane continuous envelope. Applied with `nvidia-smi -pl 350` (persisted via the runtime profile); the exact value is tunable against measured perf/thermals per the operator's "based on the right maths and need for performance."
+The 5090's stock TGP is **575 W**. Target ≈ **350 W → 350 / 575 ≈ 61 % of stock.** Blackwell's voltage/frequency curve is steep near stock: the top ~40 % of the power budget buys only single-digit-percent extra throughput, so a limit near ~60 % sits close to the efficiency knee — it keeps the large majority of inference throughput while cutting heat, noise, and sustained draw. It also fits the whole-box budget: PRO 6000 ~600 W (primary) + 5090 ~350 W + 4090 ~350 W + Ryzen 9 9900X ~120 W under the 1600 W-minimum PSU. Applied with `nvidia-smi -pl 350` (persisted via the runtime profile); tunable per measured perf/thermals per the operator's "based on the right maths and need for performance." This extends the operator's prior "the RTX 4090 which should be sli[ght]ly reduce[d]" power-limit discipline to the new 5090.
 
-This aligns with an existing operator directive already in the mandate ("the RTX 4090 which should be sli[ght]ly reduce[d]") — power-limiting the second card is prior art; this extends the same discipline to the new primary.
+## The PRO 6000 is the main card (not future)
 
-## Relationship to the RTX PRO 6000 (additive — not discarded)
-
-The operator's verbatim has always framed the PRO 6000 Blackwell 96 GB as **future** ("your **future** NVIDIA RTX PRO 6000 Blackwell with your **current** RTX 4090", `verbatim-surface.md`). This directive makes the **RTX 5090 the operative *now* internal primary**; the PRO 6000 96 GB stays documented as the **future large-VRAM Oracle-Core upgrade path** (per *adding ≠ discarding*). When/if it lands, the 5090 (32 GB) can move to secondary or to the eGPU dock. The reconcile must therefore present a **three-card reality** — 5090 (now-primary, internal), 4090 (now-secondary, eGPU), PRO 6000 (future primary) — not silently overwrite the PRO-6000 plan.
+Earlier spec text framed the PRO 6000 as *future* ("your **future** NVIDIA RTX PRO 6000 Blackwell with your **current** RTX 4090"). That is **superseded**: the PRO 6000 **is installed and is the main/primary Oracle Core.** The reconcile presents the real **three-card build** — PRO 6000 (primary, internal x8) + RTX 5090 (secondary, internal x8) + RTX 4090 (secondary, OcuLink eGPU) — all present.
 
 ## VRAM + role implications (for the reconcile)
 
-- Internal primary VRAM: **24 GB (4090) → 32 GB (5090)** — a real bump for the now-config, still well short of the 96 GB PRO-6000 future.
-- The Oracle-Core / Logic-Engine SRP mapping needs re-seating: the 5090 (32 GB) is the new host-resident primary; the 4090 (24 GB) is the isolable eGPU. Model→GPU placement tables (`sain-01-master-spec.md` §, `trinity-runtime-profiles.md`, `model-catalog.md` VRAM-ceiling claims) must reflect a 32 GB internal ceiling and a 24 GB eGPU.
-- The fleet predicate `any_gpu_vram_at_least_80gib` (predicate-coverage dashboard) still requires the 96 GB PRO 6000 to pass — the 5090's 32 GB does not clear an 80 GiB bar; that threshold's semantics are a reconcile decision, not a silent change.
+- The Oracle Core stays on the **PRO 6000 (96 GB)** — the large-VRAM primary, unchanged. The **RTX 5090 (32 GB, Blackwell)** is the new internal secondary (a second Oracle-capable / Logic card); the **RTX 4090 (24 GB)** is the OcuLink eGPU (Logic / speculative-decoding draft).
+- Both internal cards are Blackwell (PRO 6000 GB202GL + 5090 GB202) → FP4/NVFP4 native paths run on both.
+- The fleet predicate `any_gpu_vram_at_least_80gib` (predicate-coverage dashboard) is satisfied by the 96 GB PRO 6000 primary — no change needed to the threshold.
 
 ## VFIO / IOMMU note
 
-The 4090 was VFIO-isolated as an internal card sharing the CPU's IOMMU topology. On an OcuLink eGPU it sits on its own downstream PCIe path — still `vfio-pci`-isolable (arguably a **cleaner** isolation boundary, its own IOMMU group by construction), but the bind script, the `vfio-pci.ids` list, the "distinct IOMMU groups" wording, and the boot-time bifurcation notes all need reconcile **in lockstep with their pinning lints** (see below).
+The 4090 was VFIO-isolated as an internal card. On the OcuLink eGPU it sits on its own downstream PCIe path — still `vfio-pci`-isolable (arguably a **cleaner** IOMMU-group boundary by construction). The bind script + `vfio-pci.ids` list + IOMMU-group wording are reconciled in lockstep with their pinning lints (below). The two internal cards (PRO 6000 + 5090) keep their x8/x8 IOMMU groups.
 
 ## VFIO is OPT-IN — bare-metal is the default (operator directive 2026-07-13)
 
@@ -68,16 +79,16 @@ This SDD started as a definitional anchor and now carries the **full SAIN/eGPU r
 
 Each a coherent surface-group + its lockstep lint(s). ✅ = landed this session.
 
-1. ✅ **Canonical machine-readable** — `profiles/sain-01.yaml` GPU block (5090 primary + 4090 secondary/host-resident + PRO 6000 future; PCI IDs; power `tdp_watts: 350`; `m2_2_empty` → `m2_2_oculink_egpu`; VFIO opt-in) + `schemas/profile.schema.yaml` (sku/connection/link props + `secondary`/`future` role enum) + `crates/sovereign-pcie-topology` recommended layout + `friction-audit-spec.sh`, with `test_sain01_profile_verbatim.py`, `test_vfio_bind_verbatim.py`, `test_profile_schema_conformance.py` reframed in lockstep.
-2. ✅ **Operator-readable spec** — `docs/src/sain-01-master-spec.md` §1 hardware table + PCIe-topology § + Weaver/Phase-IV VFIO-opt-in reframe; `docs/src/profiles/sain-01.md` (3-GPU table, first-boot hook note, recovery table); the 4 pinning lints verified green.
-3. ✅ **The LM Orchestration prepared eGPU slot** — the D-21 "Ext-GPU" cell (`docs/operator/d21-lm-orchestration-cockpit.md`, `scripts/operator/lm-orchestration-api.py`, `webapp/d-21-lm-orchestration/index.html`): `Future / External GPU` → registered **RTX 4090 (OcuLink eGPU)**; `test_d21_lm_orchestration_webapp_contract.py` green.
-4. ✅ **eGPU milestone reframe** — `backlog/milestones/M040-*.md`: additive OcuLink-vs-USB4 reconcile note (verbatim rows untouched; the operator's own "performance: 4090 on host" now the default); `test_m040_hyper_features.py` green.
-5. ✅ **Runtime power profiles** — `profiles/runtime/{high-concurrency-burst,deep-context-synthesis}.yaml` primary 600 → 350 W + NOW-vs-future reconcile notes; `trinity-runtime-profiles.md` regenerated; `test_runtime_profiles_verbatim.py` green. Also `generate-runtime-profile.py` excludes `role: future` GPUs and the high-concurrency oracle intent gains `multimodal` so the 32 GB primary lands the Nemotron-NVFP4 reasoner.
-6. ✅ **Model catalog + placement** — `docs/src/model-catalog.md`: the Nemotron-NVFP4 entry now names the 32 GB internal 5090 as the SAIN NOW Oracle-Core pick + the 4090 as the OcuLink eGPU.
-7. ⏳ **Install / lifecycle runbooks** — `install-runbook.md`, `ops/install.md`, `operator-journey.md`, `bootstrap-phases.md`, `lifecycle/post-install.md`, `m060-deployment-guide.md`: the `vfio-bind-4090` flow + PCI IDs + power-limit step. (The bind hook is already opt-in-safe; the runbook prose reconcile is the remaining tail — low blast-radius, no behaviour change.)
-8. ✅ **Observability dashboards** — the `any_gpu_vram_at_least_80gib` predicate comment reflects the three-card reality (a NOW 5090/4090 SAIN does not clear 80 GiB; only future PRO 6000 boxes do). The `selfdef_scheduler_gpu3090_*` metric names are deliberately preserved for the prometheus contract (labels already read "4090").
-9. ✅ **Decisions + mandate** — `docs/decisions.md` **D-021**; mandate row E11.M993 already registers the directive verbatim. (`verbatim-surface.md` is GENERATED with a drift detector — the directive is registered in the mandate + this SDD + INDEX, NOT hand-appended to the generated file.)
-10. ⏳ **DSpark-from-DeepSeek** — separate SDD (PR 2): DSpark is DeepSeek's open-source speculative-decoding framework (Markov-head draft + semi-autoregressive chunking; "DeepSpec"); slot it into the Logic Engine speculative-decoding role (draft on the 4090 eGPU, verify on the 5090). Deferred per operator sequencing.
+1. ✅ **Canonical machine-readable** — `profiles/sain-01.yaml` GPU block (PRO 6000 `role: primary` + RTX 5090 `role: secondary` + RTX 4090 `role: egpu`; power; `m2_2_empty` blocker RESTORED; VFIO opt-in) + `schemas/profile.schema.yaml` (`egpu` role) + `crates/sovereign-pcie-topology` + `sovereign-pcie-advisor` (x8/x8 layout, M.2_2 empty) + `friction-audit-spec.sh`, with `test_sain01_profile_verbatim.py`, `test_profile_schema_conformance.py` reframed in lockstep.
+2. ✅ **Operator-readable spec** — `docs/src/sain-01-master-spec.md` §1 hardware table (3 cards: PRO 6000 primary + 5090 secondary + 4090 eGPU) + PCIe-topology § (x8/x8, M.2_2 empty); `docs/src/profiles/sain-01.md` (hardware table, inference stack, first-boot + recovery); the 4 pinning lints green.
+3. ✅ **LM Orchestration panel** — the D-21 grid (`d21-lm-orchestration-cockpit.md`, `lm-orchestration-api.py`, `webapp/d-21-lm-orchestration/index.html`): the three installed cards — GPU0 = PRO 6000 (Oracle primary), GPU1 = RTX 5090 (secondary), Ext-GPU = RTX 4090 (OcuLink eGPU); `test_d21_lm_orchestration_webapp_contract.py` green.
+4. ✅ **eGPU milestone reframe** — `backlog/milestones/M040-*.md`: additive OcuLink-vs-USB4 reconcile note (verbatim rows untouched); `test_m040_hyper_features.py` green.
+5. ✅ **Hardware/inference config reconciles** — `config/hardware/m003-hardware-topology.yaml` + `config/inference/m077-nvfp4-pipeline.yaml`: additive `sdd_993_reconcile` blocks (verbatim inventory untouched; both internal cards are Blackwell FP4; the Oracle stays on the PRO 6000); `profiles/runtime/*.yaml` + `trinity-runtime-profiles.md`.
+6. ✅ **Model catalog + placement** — `models/catalog.yaml` (regenerates `model-catalog.md`): the Nemotron-NVFP4 note names the PRO 6000 primary Oracle + the 5090 secondary + the 4090 eGPU (all Blackwell FP4).
+7. ⏳ **Install / lifecycle runbooks** — remaining prose (`ops/install.md`, `bootstrap-phases.md`, `lifecycle/post-install.md`, `m060-deployment-guide.md`) referencing the vfio-bind flow — low blast-radius, no behaviour change.
+8. ✅ **Observability dashboards** — the `any_gpu_vram_at_least_80gib` predicate is SATISFIED by the 96 GB PRO 6000 primary; comment updated. The `selfdef_scheduler_gpu3090_*` metric names are deliberately preserved for the prometheus contract (labels already read "4090").
+9. ✅ **Decisions + mandate** — `docs/decisions.md` **D-021**; INDEX row 993 corrected; mandate row E11.M993 registers the directive verbatim.
+10. ⏳ **DSpark-from-DeepSeek** — separate SDD (PR 2): DSpark is DeepSeek's open-source speculative-decoding framework (Markov-head draft + semi-autoregressive chunking; "DeepSpec"); slot it into the Logic Engine speculative-decoding role (draft on the 4090 eGPU, verify on the PRO 6000 / 5090). Deferred per operator sequencing.
 
 ## Non-goals
 

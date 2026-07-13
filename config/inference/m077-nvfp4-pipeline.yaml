@@ -75,3 +75,14 @@ validation:
   module: M01284
   run: "12-billion-parameter model on 10 trillion tokens — the longest publicly documented training run in 4-bit precision to date"
   result: "training loss and downstream task accuracies comparable to an FP8 baseline"
+
+# ── SDD-993 reconcile (operator directive 2026-07-13) — ADDITIVE ──────────────
+# The verbatim hardware_target above names the RTX PRO 6000 96GB — the PRIMARY /
+# main Oracle Core, which is correct and unchanged. SDD-993 ADDS a second Blackwell
+# card: the RTX 5090 (GB202) internal secondary — the SAME cuda_arch sm_120 — so
+# the NVFP4 pipeline now has TWO Blackwell FP4 cards on the box. Verbatim fields
+# untouched (§1g). adding != discarding.
+sdd_993_reconcile:
+  primary_target: "RTX PRO 6000 Blackwell 96 GB (GB202GL, sm_120) — the main Oracle Core; full NVFP4 pretraining + inference of large models (verbatim hardware_target above, unchanged)."
+  secondary_target: "RTX 5090 (Blackwell GB202, sm_120, 32 GB, native FP4/NVFP4 Tensor Cores) — a second Blackwell FP4 card (internal secondary); runs NVFP4 inference of smaller oracle models (e.g. Nemotron-3-Nano-Omni-30B-Reasoning-NVFP4, 24 GB fits its 32 GB)."
+  blackwell_family: "Both internal cards are the same Blackwell sm_120 FP4 family (PRO 6000 GB202GL + 5090 GB202); the 4090 eGPU is Ada (fallback dequant per the ecosystem caveat above)."

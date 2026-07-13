@@ -30,28 +30,25 @@ from; everything else is operator-customized.
 |---|---|---|
 | **CPU** | AMD Ryzen 9 9900X (Zen 5) | Single-cycle native AVX-512 (true 512-bit ZMM registers; legacy Zens double-pumped 256-bit) |
 | **Motherboard** | ASUS ProArt X870E-Creator | Dual PCIe 5.0 slots in x8/x8 symmetric · IOMMU topology for VFIO |
-| **GPU primary (internal)** | RTX 5090 32GB GDDR7 (TUF-RTX5090-O32G-GAMING), power-limited ~350W | Oracle Core — host-resident primary; full x16 (SDD-993) |
-| **GPU secondary (OcuLink eGPU)** | RTX 4090 (24GB GDDR6X) | Logic Engine — **host-resident by default** (work locally on the workstation); VFIO-isolated sandbox is an **opt-in** mode (§17); **speculative decoding** (the DSpark draft/verify role); now via an OcuLink-to-M.2 eGPU, PCIe 4.0 x4 |
-| **GPU future** | RTX PRO 6000 Blackwell (96GB GDDR7) | Future large-VRAM Oracle-Core upgrade path — un-quantized / FP16 residence (kept per SDD-993, not discarded) |
+| **GPU primary (internal, main card)** | RTX PRO 6000 Blackwell 96GB GDDR7, ~600W | Oracle Core — the large-VRAM primary; internal, PCIEX16_1 x8 (SDD-993). Installed. |
+| **GPU secondary (internal)** | RTX 5090 32GB GDDR7 (TUF-RTX5090-O32G-GAMING), power-limited ~350W | New card; Blackwell GB202, 512-bit — same FP4/NVFP4 family as the PRO 6000; internal, PCIEX16_2 x8. Took the 4090's vacated internal slot. |
+| **GPU secondary (OcuLink eGPU)** | RTX 4090 (24GB GDDR6X), ~350W | Logic Engine / speculative-decoding draft — **host-resident by default** (work locally); VFIO-isolated sandbox is an **opt-in** mode (§17); on an OcuLink-to-M.2 adapter in a **chipset M.2 slot**, PCIe 4.0 x4 |
 | **Memory** | 256GB DDR5 (initial 128GB) | High system context + ZFS ARC headroom |
 | **Storage** | 2× NVMe PCIe 5.0 in ZFS RAID-0 | 31.5 GB/s sequential target |
 | **Network** | Marvell AQC113C 10GbE + Intel I226-V 2.5GbE | Asymmetric VLAN — mgmt vs data |
 
 ### Hardware constraints (operator MUST honor these)
 
-- **PCIe topology (SDD-993)**: with one internal GPU, Slot 1 runs the RTX 5090
-  at full **x16** (the old two-internal-GPU x8/x8 symmetry no longer applies).
-  Slot 2 (PCIEX16_2) is left empty; the RTX 4090 is on an **OcuLink eGPU** off
-  M.2_2 at PCIe 4.0 x4 — enough for inference (weights VRAM-resident), not for
-  training. If the future RTX PRO 6000 lands, revisit x8/x8 for two internal cards.
-- **M.2_2 now hosts the OcuLink eGPU link (SDD-993)**. With the RTX 4090 moved
-  to an OcuLink eGPU, there is one internal GPU (the RTX 5090) at full x16, so
-  the old "M.2_2 must remain empty to preserve x8/x8" rule is **retired** —
-  M.2_2 deliberately carries the OcuLink-to-M.2 adapter (PCIe 4.0 x4) feeding
-  the 4090. (PCIEX16_2 still physically shares lanes with M.2_2, but nothing is
-  in PCIEX16_2 now, so the sharing is inert.) The friction-audit checks for the
-  OcuLink constraint — see `scripts/hooks/pre-install/friction-audit-spec.sh`
-  and `scripts/hooks/post-install/friction-audit-runtime.sh`.
+- **PCIe topology (SDD-993)**: TWO internal cards — RTX PRO 6000 (PCIEX16_1) +
+  RTX 5090 (PCIEX16_2) — run **x8/x8**. The RTX 4090 moved OUT to an **OcuLink
+  eGPU** on a **chipset M.2 slot** (PCIe 4.0 x4 — enough for inference, not for
+  training). The 4090 vacated its internal slot; the RTX 5090 took it.
+- **M.2_2 MUST remain empty (SDD-993)**. M.2_2 shares lanes with PCIEX16_2 (the
+  RTX 5090's slot); populating M.2_2 drops the 5090 to x4. So the OcuLink-to-M.2
+  adapter for the 4090 eGPU goes on a **chipset M.2 slot** (the "remaining nvme
+  slot"), **NOT** M.2_2. The friction-audit checks the M.2_2-empty constraint —
+  see `scripts/hooks/pre-install/friction-audit-spec.sh` and
+  `scripts/hooks/post-install/friction-audit-runtime.sh`.
 - **Dual-CCD aware execution**: the 9900X has 2 Core-Complex-Dies
   (CCD0 = cores 0–5 → 32MB L3; CCD1 = cores 6–11 → 32MB L3). Crossing the
   Infinity Fabric between dies costs ~50–100ns. Workloads MUST pin to one

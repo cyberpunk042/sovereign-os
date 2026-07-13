@@ -99,14 +99,14 @@ def test_sain01_vfio_companion_present():
 def test_sain01_m2_2_constraint_declared():
     """sain-01 must declare an M.2_2 PCIe constraint (ASUS ProArt X870E).
 
-    SDD-993: the 4090 moved to an OcuLink eGPU, so M.2_2 now HOSTS the
-    OcuLink-to-M.2 adapter (the old must-remain-empty x8/x8 bifurcation rule is
-    retired — one internal GPU runs full x16). The profile must still DECLARE an
-    M.2_2 constraint — now `m2_2_oculink_egpu` (info), not `m2_2_empty` (blocker).
+    SDD-993: TWO internal cards — RTX PRO 6000 (PCIEX16_1) + RTX 5090 (PCIEX16_2)
+    — run x8/x8, so M.2_2 (which shares lanes with PCIEX16_2) MUST remain empty or
+    the 5090 drops to x4. The OcuLink 4090 eGPU is on a separate chipset M.2 slot,
+    not M.2_2. The profile must declare the `m2_2_empty` blocker constraint.
     """
     sain01 = _load_yaml(PROFILE_DIR / "sain-01.yaml")
     constraints = sain01["hardware"]["motherboard"]["pcie_constraints"]
     assert any(
-        c.get("check") == "m2_2_oculink_egpu"
+        c.get("check") == "m2_2_empty"
         for c in constraints
-    ), "sain-01 must declare the m2_2_oculink_egpu constraint (SDD-993)"
+    ), "sain-01 must declare the m2_2_empty constraint (SDD-993; two internal cards x8/x8)"

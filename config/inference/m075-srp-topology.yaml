@@ -64,3 +64,13 @@ topology_branches:
 decay_prevention:
   module: M01252
   rule: "SRP boundary enforced to prevent code maintenance decay"
+
+# ── SDD-993 reconcile (operator directive 2026-07-13) — ADDITIVE ──────────────
+# The verbatim agents/topology above map Oracle=PRO 6000 + Logic=RTX 4090. Under
+# SDD-993 that mapping holds — the PRO 6000 stays the Oracle Core (primary/main),
+# and the RTX 4090 stays the Logic Engine but now runs on an OcuLink eGPU. A NEW
+# card is added: the RTX 5090 (internal secondary). Verbatim untouched (§1g).
+sdd_993_reconcile:
+  oracle: "RTX PRO 6000 96 GB — Oracle Core (primary/main), internal PCIEX16_1 x8. Unchanged."
+  logic: "RTX 4090 24 GB — Logic Engine, now on an OcuLink eGPU (chipset M.2, PCIe 4.0 x4); host-resident by default, opt-in VFIO. Also the DSpark speculative-decoding DRAFT card."
+  new_secondary: "RTX 5090 32 GB (Blackwell GB202, ~350 W) — new internal secondary (PCIEX16_2 x8); a second Blackwell card between Logic and Oracle in capability (32 GB). Two internal cards run x8/x8; M.2_2 stays empty."

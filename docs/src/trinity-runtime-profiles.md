@@ -11,8 +11,8 @@ This doc is regenerated from `profiles/runtime/*.yaml` on every invocation of `s
 | ID | Name | Hardware compat | System total (W) |
 |----|------|-----------------|------------------|
 | `ultra-sovereign-efficiency` | Ultra-Sovereign Efficiency | sain-01 | ~150 |
-| `high-concurrency-burst` | High-Concurrency Agent Burst | sain-01 | ~950 |
-| `deep-context-synthesis` | Deep Context Synthesis | sain-01 | ~850 |
+| `high-concurrency-burst` | High-Concurrency Agent Burst | sain-01 | ~1240 |
+| `deep-context-synthesis` | Deep Context Synthesis | sain-01 | ~1130 |
 
 ## Ultra-Sovereign Efficiency
 
@@ -60,13 +60,12 @@ DeepSeek-R1-Distill-Llama-70B on the large-VRAM oracle GPU (llama.cpp FP16).
 Use for: multi-agent code-repo processing · long-running parallel
 inference tasks · burst workloads.
 
-RECONCILE NOTE (SDD-993, 2026-07-13): this hand-authored profile models
-the large-VRAM oracle config — the DeepSeek-R1-70B-FP16 (88 GB) placement
-is the FUTURE RTX PRO 6000 96 GB path. On the NOW internal primary — the
-RTX 5090 (32 GB, power-limited ~350 W) — size the oracle to real VRAM with
-scripts/operator/generate-runtime-profile.py (it lands the Nemotron-NVFP4
-reasoner at 24 GB). The RTX 4090 is now a host-resident OcuLink eGPU
-(opt-in vfio). See docs/sdd/993-*.md.
+RECONCILE NOTE (SDD-993, 2026-07-13): the large-VRAM oracle GPU is the
+RTX PRO 6000 96 GB primary/main card (installed) — the DeepSeek-R1-70B-FP16
+(88 GB) placement is on it. The RTX 5090 32 GB (~350 W) is the new internal
+secondary (Blackwell); the RTX 4090 is a host-resident OcuLink eGPU (opt-in
+vfio). Two internal cards run x8/x8. To size any tier to real VRAM use
+scripts/operator/generate-runtime-profile.py. See docs/sdd/993-*.md.
 
 **Hardware-profile compatibility:** sain-01
 
@@ -86,9 +85,10 @@ reasoner at 24 GB). The RTX 4090 is now a host-resident OcuLink eGPU
 **Expected power draw (W):**
 
 - cpu: 170
-- gpu_primary: 350
+- gpu_primary: 600
 - gpu_secondary: 350
-- system_total: ~950
+- gpu_egpu: 350
+- system_total: ~1240
 
 **Observability:**
 
@@ -105,13 +105,12 @@ Use for: whole-application source parsing · telemetry-wide reasoning ·
 long-context architectural analysis · codebase validation across
 1M+ token windows.
 
-RECONCILE NOTE (SDD-993, 2026-07-13): cross-GPU tensor-parallel here
-assumed two internal x8/x8 cards. Under the new topology the RTX 4090 is
-an OcuLink eGPU (PCIe 4.0 x4) — fine for VRAM-resident inference, but
-cross-link tensor-parallel over an x4 eGPU link is bandwidth-bound and NOT
-recommended; deep-context on the NOW hardware runs on the internal RTX 5090
-(32 GB) alone until the future RTX PRO 6000 96 GB lands. DeepSeek-V3-Quant
-(120 GB) is the future-oracle placement. See docs/sdd/993-*.md.
+RECONCILE NOTE (SDD-993, 2026-07-13): cross-GPU tensor-parallel spans the
+two INTERNAL cards — RTX PRO 6000 96 GB (primary) + RTX 5090 32 GB
+(secondary) — which run x8/x8 and can P2P. The RTX 4090 is an OcuLink eGPU
+(PCIe 4.0 x4): fine for VRAM-resident inference, but do NOT tensor-parallel
+across it (the x4 eGPU link is bandwidth-bound). DeepSeek-V3-Quant (120 GB)
+is the large-oracle placement on the PRO 6000. See docs/sdd/993-*.md.
 
 **Hardware-profile compatibility:** sain-01
 
@@ -129,9 +128,10 @@ recommended; deep-context on the NOW hardware runs on the internal RTX 5090
 **Expected power draw (W):**
 
 - cpu: 80
-- gpu_primary: 350
+- gpu_primary: 600
 - gpu_secondary: 350
-- system_total: ~850
+- gpu_egpu: 350
+- system_total: ~1130
 
 **Observability:**
 

@@ -106,9 +106,10 @@ properties:
             vram_gb: { type: integer, minimum: 1 }
             role:
               type: string
-              # SDD-993: `future` = documented-but-not-installed upgrade path;
-              # a GPU may be attached via an external link (see `connection`).
-              enum: [primary, vfio, headless, secondary, future]
+              # SDD-993: `egpu` = installed but attached via an external link
+              # (OcuLink, see `connection`); `future` = a documented-but-not-yet-
+              # installed upgrade path.
+              enum: [primary, vfio, headless, secondary, egpu, future]
             driver: { type: string }
             vfio_companion:
               type: string

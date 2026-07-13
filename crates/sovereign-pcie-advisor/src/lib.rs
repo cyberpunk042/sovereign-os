@@ -40,8 +40,8 @@ pub fn recommended_advisory() -> String {
     }
     let layout = recommended_layout();
     s.push_str(
-        "\nRecommended layout (E0028 / SDD-993 — one internal GPU at x16; \
-         M.2_2 carries the OcuLink 4090 eGPU; PCIEX16_2 left empty):\n",
+        "\nRecommended layout (E0028 / SDD-993 — two internal cards at x8/x8 \
+         (PRO 6000 + RTX 5090); M.2_2 left EMPTY; OcuLink 4090 eGPU on a chipset M.2):\n",
     );
     for p in &layout {
         s.push_str(&format!("  {:?} ← {}\n", p.slot, p.device));
@@ -63,9 +63,12 @@ mod tests {
     #[test]
     fn advisory_shows_the_recommended_layout_and_validates() {
         let a = recommended_advisory();
-        // SDD-993 topology: internal RTX 5090 primary + RTX 4090 on the OcuLink eGPU (in M.2_2).
+        // SDD-993 topology: PRO 6000 primary + RTX 5090 internal secondary (both x8),
+        // RTX 4090 on the OcuLink eGPU (chipset M.2, not M.2_2).
         assert!(
-            a.contains("rtx-5090-primary") && a.contains("oculink-4090-egpu"),
+            a.contains("rtx-pro-6000-primary")
+                && a.contains("rtx-5090-secondary")
+                && a.contains("oculink-4090-egpu"),
             "layout: {a}"
         );
         assert!(

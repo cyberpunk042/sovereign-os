@@ -9,17 +9,16 @@
 //! # Source agreement — this map matches the applied profile; the board-advisor diverges
 //!
 //! The lane-sharing pair `PCIEX16_2 ↔ M.2_2` here is a **physical board fact**
-//! (electrical, independent of what is plugged in) and remains correct. What
-//! CHANGED (SDD-993, operator hardware change 2026-07-13): the second GPU (RTX
-//! 4090) moved OFF `PCIEX16_2` onto an **OcuLink eGPU** fed by an OcuLink-to-M.2
-//! adapter in `M.2_2`. With one internal GPU (the RTX 5090 in `PCIEX16_1` at full
-//! x16) the old "M.2_2 must remain empty to keep the 2nd GPU at x8" rule is
-//! retired — and populating `M.2_2` is now *valid precisely because `PCIEX16_2`
-//! is empty* (no lane-sharing conflict). `profiles/sain-01.yaml`
-//! `hardware.motherboard.pcie_constraints` now declares the `m2_2_oculink_egpu`
-//! constraint, pinned by `tests/schema/test_profile_schema_conformance.py` and
-//! `tests/lint/test_sain01_profile_verbatim.py`. So this crate still agrees with
-//! the tested profile (E0027/M00031); only the recommended layout flips.
+//! (electrical, independent of what is plugged in) and remains correct. Under
+//! SDD-993 (operator hardware change 2026-07-13) the SAIN-01 runs **two internal
+//! cards** — RTX PRO 6000 (`PCIEX16_1`) + RTX 5090 (`PCIEX16_2`) at **x8/x8** —
+//! so `M.2_2` (which shares lanes with `PCIEX16_2`, the 5090's slot) **MUST stay
+//! empty** or the 5090 drops to x4. The RTX 4090 moved OFF an internal slot onto
+//! an **OcuLink eGPU** fed by an OcuLink-to-M.2 adapter in a **chipset M.2 slot**
+//! (`M.2_3`/`M.2_4`), NOT `M.2_2`. `profiles/sain-01.yaml`
+//! `hardware.motherboard.pcie_constraints` declares the `m2_2_empty` blocker,
+//! pinned by `tests/schema/test_profile_schema_conformance.py` and
+//! `tests/lint/test_sain01_profile_verbatim.py`.
 //!
 //! The one DIVERGENT source is `scripts/hardware/board-advisor-x870e-creator.py`,
 //! which models three PCIe slots (PCIE_1/2/3) with `PCIE_3 ↔ M.2_3` under
@@ -119,28 +118,34 @@ pub struct Placement {
     pub device: String,
 }
 
-/// The recommended layout (E0028, revised SDD-993): the single internal GPU
-/// (RTX 5090) in `PCIEX16_1` at full x16, the RTX 4090 moved to an OcuLink eGPU
-/// via an OcuLink-to-M.2 adapter in `M.2_2`, plus NVMe. `PCIEX16_2` is now empty,
-/// which is exactly what makes populating its lane-sharing partner `M.2_2` valid.
+/// The recommended layout (E0028, SDD-993): TWO internal cards — RTX PRO 6000
+/// (`PCIEX16_1`) + RTX 5090 (`PCIEX16_2`) at x8/x8 — with `M.2_2` LEFT EMPTY
+/// (it shares lanes with `PCIEX16_2`, so populating it would drop the 5090 to
+/// x4). NVMe on `M.2_1` + `M.2_3`; the OcuLink 4090 eGPU adapter on the chipset
+/// `M.2_4`. Conflict-free: the only lane-sharing pair (`PCIEX16_2` ↔ `M.2_2`)
+/// never has both members populated.
 #[must_use]
 pub fn recommended_layout() -> Vec<Placement> {
     vec![
         Placement {
             slot: PcieSlot::X16_1,
-            device: "rtx-5090-primary".into(),
+            device: "rtx-pro-6000-primary".into(),
+        },
+        Placement {
+            slot: PcieSlot::X16_2,
+            device: "rtx-5090-secondary".into(),
         },
         Placement {
             slot: PcieSlot::M2_1,
             device: "nvme-zfs-0".into(),
         },
         Placement {
-            slot: PcieSlot::M2_2,
-            device: "oculink-4090-egpu".into(),
+            slot: PcieSlot::M2_3,
+            device: "nvme-zfs-1".into(),
         },
         Placement {
-            slot: PcieSlot::M2_3,
-            device: "nvme-chipset".into(),
+            slot: PcieSlot::M2_4,
+            device: "oculink-4090-egpu".into(),
         },
     ]
 }
@@ -213,17 +218,18 @@ mod tests {
 
     #[test]
     fn recommended_layout_is_conflict_free() {
-        // SDD-993: M.2_2 now hosts the OcuLink 4090 eGPU; this is conflict-free
-        // precisely because PCIEX16_2 (its lane-sharing partner) is left empty.
+        // SDD-993: two internal cards (PRO 6000 in X16_1 + RTX 5090 in X16_2) at
+        // x8/x8; M.2_2 MUST stay empty (it shares lanes with X16_2/the 5090).
+        // Conflict-free because the lane-sharing pair never both-populated.
         validate(&recommended_layout()).unwrap();
         let layout = recommended_layout();
         assert!(
-            layout.iter().any(|p| p.slot == PcieSlot::M2_2),
-            "M.2_2 now carries the OcuLink 4090 eGPU adapter"
+            layout.iter().any(|p| p.slot == PcieSlot::X16_2),
+            "PCIEX16_2 carries the RTX 5090 secondary (x8)"
         );
         assert!(
-            !layout.iter().any(|p| p.slot == PcieSlot::X16_2),
-            "PCIEX16_2 must stay empty so populating its partner M.2_2 is safe"
+            !layout.iter().any(|p| p.slot == PcieSlot::M2_2),
+            "M.2_2 must stay empty (shares lanes with PCIEX16_2 / the 5090)"
         );
     }
 

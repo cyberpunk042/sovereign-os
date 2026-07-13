@@ -19,13 +19,12 @@ runtime_profile:
     long-context architectural analysis · codebase validation across
     1M+ token windows.
 
-    RECONCILE NOTE (SDD-993, 2026-07-13): cross-GPU tensor-parallel here
-    assumed two internal x8/x8 cards. Under the new topology the RTX 4090 is
-    an OcuLink eGPU (PCIe 4.0 x4) — fine for VRAM-resident inference, but
-    cross-link tensor-parallel over an x4 eGPU link is bandwidth-bound and NOT
-    recommended; deep-context on the NOW hardware runs on the internal RTX 5090
-    (32 GB) alone until the future RTX PRO 6000 96 GB lands. DeepSeek-V3-Quant
-    (120 GB) is the future-oracle placement. See docs/sdd/993-*.md.
+    RECONCILE NOTE (SDD-993, 2026-07-13): cross-GPU tensor-parallel spans the
+    two INTERNAL cards — RTX PRO 6000 96 GB (primary) + RTX 5090 32 GB
+    (secondary) — which run x8/x8 and can P2P. The RTX 4090 is an OcuLink eGPU
+    (PCIe 4.0 x4): fine for VRAM-resident inference, but do NOT tensor-parallel
+    across it (the x4 eGPU link is bandwidth-bound). DeepSeek-V3-Quant (120 GB)
+    is the large-oracle placement on the PRO 6000. See docs/sdd/993-*.md.
 
   hardware_profile_compat:
     - sain-01
@@ -62,9 +61,10 @@ runtime_profile:
 
   expected_power_draw_watts:
     cpu: 80
-    gpu_primary: 350   # RTX 5090 power-limited (SDD-993); 600 was the future PRO-6000 figure
-    gpu_secondary: 350
-    system_total: ~850
+    gpu_primary: 600   # RTX PRO 6000 (primary Oracle, SDD-993)
+    gpu_secondary: 350   # RTX 5090 (internal secondary, power-limited)
+    gpu_egpu: 350        # RTX 4090 (OcuLink eGPU)
+    system_total: ~1130
 
   observability:
     primary_metric: sovereign_os_inference_route_total{tier="oracle"}

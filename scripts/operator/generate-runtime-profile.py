@@ -59,13 +59,17 @@ def _hardware(os_profile_id: str) -> tuple[list[dict], int]:
         raise SystemExit(2)
     hw = _load_yaml(p).get("hardware") or {}
     gpus = []
-    # SDD-993: `role: future` GPUs (e.g. the not-yet-installed RTX PRO 6000) are
-    # documented upgrade paths, not physically present — they get no cuda index
-    # and are excluded from allocations / tensor-parallel enumeration.
+    # SDD-993: `role: future` GPUs (not-yet-installed upgrade paths) get no cuda
+    # index and are excluded from allocations. Installed GPUs — primary/secondary
+    # (internal) and egpu (OcuLink) — are enumerated. `internal` flags whether a
+    # GPU can participate in cross-link tensor-parallel: an OcuLink eGPU (role
+    # `egpu`, PCIe 4.0 x4) is fine for single-GPU tiers but is bandwidth-bound for
+    # tensor-parallel, so it is excluded from the deep-context TP set.
     present = [g for g in (hw.get("gpu") or []) if g.get("role") != "future"]
     for i, g in enumerate(present):
         gpus.append({"cuda": i, "vram_gb": int(g.get("vram_gb") or 0),
-                     "model": g.get("model"), "role": g.get("role")})
+                     "model": g.get("model"), "role": g.get("role"),
+                     "internal": g.get("role") != "egpu"})
     cores = ((hw.get("cpu") or {}).get("cores") or {}).get("physical") or 0
     return gpus, int(cores)
 
@@ -124,19 +128,22 @@ def _strategy_allocations(strategy: str, gpus: list[dict], cores: int) -> list[d
         return allocs
 
     if strategy == "deep-context":
-        if not gpus:
+        # Cross-link tensor-parallel spans the INTERNAL cards only — an OcuLink
+        # eGPU (PCIe 4.0 x4) is bandwidth-bound for TP (SDD-993), so exclude it.
+        tp_gpus = [g for g in gpus if g.get("internal", True)] or gpus
+        if not tp_gpus:
             print("error: deep-context needs at least one GPU", file=sys.stderr)
             raise SystemExit(2)
-        total = sum(g["vram_gb"] for g in gpus)
-        target = ",".join(f"cuda:{g['cuda']}" for g in sorted(gpus, key=lambda g: g["cuda"]))
+        total = sum(g["vram_gb"] for g in tp_gpus)
+        target = ",".join(f"cuda:{g['cuda']}" for g in sorted(tp_gpus, key=lambda g: g["cuda"]))
         alloc = {
             "agent_id": "deep_reasoner_01", "tier": "oracle",
             "target_hardware": target, "engine": "vllm",
             "tier_intent": {"class": ["llm", "mixture", "rlm"],
                             "vram_budget_gib": _budget(total)},
         }
-        if len(gpus) > 1:
-            alloc["tensor_parallel_size"] = len(gpus)
+        if len(tp_gpus) > 1:
+            alloc["tensor_parallel_size"] = len(tp_gpus)
         return [alloc]
 
     print(f"error: unknown strategy '{strategy}' "

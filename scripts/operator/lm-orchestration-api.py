@@ -104,13 +104,20 @@ _core = _import("_modelhealth_core", _REPO_ROOT / "scripts" / "inference" / "mod
 _rtmodes = _import_optional("_runtimemodes_api", _REPO_ROOT / "scripts" / "operator" / "runtime-modes-api.py")
 
 # The panel's four hardware cells (M075 SRP topology + the sketched Ext-GPU).
-# SDD-993: internal primary is the RTX 5090 (Oracle Core; the RTX PRO 6000 96 GB
-# is the future upgrade path). The RTX 4090 is now the registered OcuLink eGPU
-# (host-resident by default; opt-in VFIO sandbox) filling the external-GPU slot.
+# SDD-993 three-card build mapped onto the fixed 4 cells (all cards installed):
+#   GPU0    = RTX PRO 6000 96 GB → Oracle Core (primary/main; internal x8). This
+#             is the biggest card, so model-health assigns it role "oracle".
+#   GPU1    = RTX 5090 32 GB → internal secondary (Blackwell; internal x8). The
+#             next-biggest GPU, so model-health assigns it role "logic".
+#   EXT_GPU = RTX 4090 on the OcuLink eGPU → speculative-decoding draft / scout
+#             (host-resident by default; opt-in VFIO). model-health assigns oracle
+#             + logic only, so this cell binds a draft model manually.
+#   CPU0    = Ryzen 9 9900X → Conductor / Pulse.
+# One primary (PRO 6000) + two secondaries (RTX 5090 internal + RTX 4090 eGPU).
 GRID = [
-    {"slot": "GPU0", "role": "logic", "label": "Logic Engine (GPU 0)"},
-    {"slot": "GPU1", "role": "oracle", "label": "Oracle Core (GPU 1, RTX 5090 — PRO 6000 future)"},
-    {"slot": "EXT_GPU", "role": None, "label": "RTX 4090 (OcuLink eGPU)"},
+    {"slot": "GPU0", "role": "oracle", "label": "Oracle Core — RTX PRO 6000 96GB (primary, internal)"},
+    {"slot": "GPU1", "role": "logic", "label": "Logic / secondary — RTX 5090 32GB (Blackwell, internal)"},
+    {"slot": "EXT_GPU", "role": None, "label": "RTX 4090 (OcuLink eGPU) — draft / scout"},
     {"slot": "CPU0", "role": "conductor", "label": "Ryzen 9 9900X AM5 AVX-512"},
 ]
 

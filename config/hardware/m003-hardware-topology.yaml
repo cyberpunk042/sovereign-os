@@ -47,3 +47,20 @@ p2p_iommu_note: "CUDA bare-metal PCIe P2P incompatible with IOMMU on Linux"
 nic_drivers:
   - {nic: "Marvell AQC113C 10GbE", driver: "atlantic"}
   - {nic: "Intel I226-V 2.5GbE", driver: "igc"}
+
+# ── SDD-993 reconcile (operator directive 2026-07-13) — ADDITIVE ──────────────
+# The inventory / better_layout / power_envelope above stay verbatim per §1g "we
+# do not minimize anything". SDD-993 change: the RTX 4090 moved OUT of its internal
+# slot to an OcuLink eGPU, and a new RTX 5090 took the 4090's internal x8 slot. The
+# RTX PRO 6000 remains the primary/main Oracle Core (unchanged). Three cards, all
+# installed. adding != discarding.
+sdd_993_reconcile:
+  # PRIMARY / main Oracle Core — unchanged from the verbatim inventory above.
+  primary: {component: "RTX PRO 6000 Blackwell", spec: "96 GB GDDR7 / 512-bit / 1.8 TB/s / FP4 Tensor Cores / ~600W — Oracle Core; internal, PCIEX16_1 x8. Installed (the main card)."}
+  # Two secondaries: the new 5090 (internal) + the 4090 (moved to OcuLink eGPU).
+  secondaries:
+    - {component: "RTX 5090 (Blackwell GB202)", spec: "32 GB GDDR7 / 512-bit / 28 Gbps / 21,760 CUDA / native FP4 + NVFP4 Tensor Cores / power-limited ~350W (575W stock) — internal, PCIEX16_2 x8. New card; took the 4090's vacated internal slot."}
+    - {component: "RTX 4090 (OcuLink eGPU)", spec: "24 GB GDDR6X / OcuLink-to-M.2 on a CHIPSET M.2 slot, PCIe 4.0 x4 (64 Gbps) / ~350W / host-resident by default, opt-in VFIO — Logic Engine / speculative-decoding draft"}
+  blackwell_fp4: "BOTH internal cards are Blackwell — PRO 6000 (GB202GL) primary + RTX 5090 (GB202) secondary — so FP4/NVFP4 native tensor-core paths (M077 NVFP4 pipeline, model-catalog NVFP4 variants) run on both. The Oracle Core stays on the 96 GB PRO 6000."
+  pcie_now: "TWO internal cards (PRO 6000 in PCIEX16_1 + RTX 5090 in PCIEX16_2) => x8/x8 (the verbatim 'better_layout' still holds). M.2_2 MUST stay empty (shares lanes with PCIEX16_2/the 5090); the OcuLink 4090 eGPU is on a chipset M.2 slot, NOT M.2_2."
+  power_now: "PRO 6000 ~600W (primary) + 5090 ~350W + 4090-eGPU ~350W + CPU ~120W — within the 1600W-minimum PSU (verbatim power_envelope)."

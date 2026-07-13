@@ -16,11 +16,15 @@ panel. It composes three already-shipped sources — no new data model:
 | Assignment grid | `scripts/inference/model-health.py` snapshot (shared with D-03) reshaped to GPU0/GPU1/Ext-GPU/CPU0 cells with Model 0/1/2 + Mode |
 | Features CPU / GPUs | `/proc/cpuinfo` AVX-512 flags (VNNI/VPDPBUSD, VPOPCNTDQ…) + GPU compute-cap (NVFP4 on Blackwell) |
 
-Device → SRP role: **GPU0 = Logic**, **GPU1 = Oracle (internal RTX 5090; the
-RTX PRO 6000 96 GB is the future upgrade path)**, **CPU0 = Conductor** (Ryzen 9
-9900X, cores split 1-7 / 8-15 / 16-24 across Model 0/1/2). The **Ext-GPU** cell
-is the registered **RTX 4090 (OcuLink eGPU)** per SDD-993 (host-resident by
-default; opt-in VFIO sandbox); it shows N/A until a model is bound to it.
+Device → SRP role (SDD-993 three-card build — one primary + **two secondaries**,
+all installed): **GPU0 = Oracle Core — RTX PRO 6000 96 GB** (primary/main card,
+internal x8; model-health assigns the biggest GPU role `oracle`); **GPU1 =
+Logic / secondary — RTX 5090 32 GB** (Blackwell GB202, internal x8; the
+next-biggest GPU, role `logic`); **Ext-GPU = RTX 4090 (OcuLink eGPU)** —
+speculative-decoding draft / scout (host-resident by default, opt-in VFIO;
+model-health assigns oracle+logic to GPUs, so a draft model is bound here
+manually); **CPU0 = Conductor** (Ryzen 9 9900X, cores split 1-7 / 8-15 / 16-24
+across Model 0/1/2).
 
 ## Read-only boundary (R10212)
 

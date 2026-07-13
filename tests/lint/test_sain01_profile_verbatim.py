@@ -172,29 +172,32 @@ def test_no_silent_arch_corruption():
 
 def test_gpu_topology_present():
     """§1.1 GPU topology (SDD-993) MUST appear in profile hardware section
-    (slug or verbatim form): the RTX 5090 internal primary, the RTX 4090
-    (now the OcuLink eGPU), and the RTX PRO 6000 future path — all three."""
+    (slug or verbatim form): all three installed cards — the RTX PRO 6000
+    primary/main Oracle, the RTX 5090 internal secondary, and the RTX 4090
+    OcuLink eGPU."""
     body_lower = _read_profile().lower()
-    primary_present = "rtx 5090" in body_lower or "rtx-5090" in body_lower
+    primary_present = "rtx pro 6000" in body_lower or "rtx-pro-6000" in body_lower
+    secondary_present = "rtx 5090" in body_lower or "rtx-5090" in body_lower
     egpu_present = "rtx 4090" in body_lower or "rtx-4090" in body_lower
-    future_present = "rtx pro 6000" in body_lower or "rtx-pro-6000" in body_lower
-    assert primary_present, "internal primary GPU (RTX 5090) missing"
+    assert primary_present, "primary/main Oracle GPU (RTX PRO 6000) missing"
+    assert secondary_present, "internal secondary GPU (RTX 5090) missing"
     assert egpu_present, "OcuLink eGPU (RTX 4090) missing"
-    assert future_present, "future Oracle-Core path (RTX PRO 6000) missing"
-    # the RTX 5090 must be the declared role: primary
+    # the RTX PRO 6000 is the declared role: primary (main card)
     assert "role: primary" in _read_profile(), "no role: primary GPU declared"
 
 
-def test_m2_2_oculink_constraint_documented():
-    """§1.2 (SDD-993): M.2_2 now HOSTS the OcuLink-to-M.2 adapter for the RTX
-    4090 eGPU (the old must-remain-empty x8/x8 bifurcation rule is retired —
-    one internal GPU runs full x16). The profile MUST document the M.2_2
-    constraint in its OcuLink form."""
+def test_m2_2_empty_constraint_documented():
+    """§1.2 (SDD-993): with TWO internal cards (PRO 6000 + 5090) running x8/x8,
+    M.2_2 (which shares lanes with PCIEX16_2, the 5090's slot) MUST remain empty
+    or the 5090 drops to x4. The OcuLink 4090 eGPU is on a separate chipset M.2
+    slot — NOT M.2_2. The profile MUST document the M.2_2-empty constraint."""
     body = _read_profile()
     assert "M.2_2" in body, (
         "profile missing M.2_2 slot constraint documentation"
     )
     body_lower = body.lower()
-    assert "oculink" in body_lower, (
-        "profile mentions M.2_2 but not the OcuLink eGPU role (SDD-993)"
+    assert "m2_2_empty" in body_lower or "m.2_2 must" in body_lower or "m.2_2 must remain empty" in body_lower, (
+        "profile mentions M.2_2 but not the must-remain-empty constraint (SDD-993)"
     )
+    # the OcuLink eGPU is still documented (on a chipset slot, not M.2_2)
+    assert "oculink" in body_lower, "profile missing the OcuLink eGPU (RTX 4090) documentation"

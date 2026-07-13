@@ -881,22 +881,23 @@ mutex) + F-2026-062/091 (per-kind jobs sandbox + growth).
 
 ---
 
-### D-021 — 2026-07-13 — SAIN GPU topology re-seated: RTX 5090 internal primary (~350W) + RTX 4090 OcuLink eGPU; VFIO sandbox is opt-in, bare-metal is the default (SDD-993)
+### D-021 — 2026-07-13 — SAIN GPU topology: RTX PRO 6000 primary (main) + RTX 5090 internal secondary (~350W) + RTX 4090 OcuLink eGPU; VFIO opt-in (SDD-993)
 
-**Question**: How does the SAIN-01 GPU topology change now that the RTX 4090 becomes an OcuLink eGPU and an RTX 5090 (power-limited ~350 W) becomes the internal primary — and should the second GPU be VFIO-isolated by default or a bare-metal opt-in?
+**Question**: How does the SAIN-01 GPU topology change now that the RTX 4090 becomes an OcuLink eGPU and a new RTX 5090 (power-limited ~350 W) is added — and should the eGPU be VFIO-isolated by default or a bare-metal opt-in?
 
-**Source**: docs/sdd/993-sain-gpu-topology-5090-primary-4090-oculink-egpu.md (operator directive 2026-07-13; reconcile roadmap + VFIO-opt-in section)
+**Source**: docs/sdd/993-sain-gpu-topology-5090-primary-4090-oculink-egpu.md (operator directive 2026-07-13 + topology correction; VFIO-opt-in section)
 
-**Decision**: Per the operator's 2026-07-13 hardware-change directive, the SAIN-01
-internal primary GPU is now the **RTX 5090 32 GB (TUF-RTX5090-O32G-GAMING),
-power-limited ~350 W** (from the 575 W stock TGP, ≈ 61% — near Blackwell's
-efficiency knee), running the **full x16** (the two-internal-GPU x8/x8
-bifurcation no longer applies). The **RTX 4090 24 GB** moves to an **OcuLink
-eGPU** (OcuLink-to-M.2 SFF-8612→SFF-8611 adapter in the chipset's remaining M.2_2
-slot, PCIe 4.0 x4 / 64 Gbps) — so the *"M.2_2 must remain empty"* invariant is
-**retired** (the slot now carries the OcuLink link; PCIEX16_2 is empty). The
-**RTX PRO 6000 96 GB stays the documented *future* Oracle-Core path** (additive,
-not discarded) — a three-card reality.
+**Decision**: Per the operator's 2026-07-13 hardware-change directive, all **three
+cards are in the build**: the **RTX PRO 6000 Blackwell 96 GB (~600 W) is the
+primary/main Oracle Core** (internal, PCIEX16_1 x8) — unchanged; the **RTX 4090
+24 GB** moves OUT of its internal slot to an **OcuLink eGPU** (OcuLink-to-M.2
+adapter on a **chipset M.2 slot**, PCIe 4.0 x4 / 64 Gbps); and the new **RTX 5090
+32 GB (TUF-RTX5090-O32G-GAMING), power-limited ~350 W** (Blackwell GB202, 512-bit
+— same FP4/NVFP4 family as the PRO 6000) takes the 4090's vacated **internal x8
+slot** (PCIEX16_2). Two internal cards ⇒ **x8/x8 bifurcation stands**, and
+**M.2_2 MUST remain empty** (it shares lanes with PCIEX16_2 / the 5090) — the
+OcuLink adapter is on a chipset M.2, NOT M.2_2. One primary (PRO 6000) + **two
+secondaries** (5090 internal + 4090 eGPU). No future/missing card.
 
 **VFIO is opt-in (operator directive, verbatim)**: *"I want to be able to work
 locally on my workstation most of the time, not in a VM by default."* The 4090's
@@ -908,16 +909,16 @@ opted in. The isolation machinery is preserved, not removed — this flips the
 4090 on host" verbatim.
 
 **Affected items** (the SDD-993 reconcile, this session): `profiles/sain-01.yaml`
-GPU block (5090 primary + 4090 secondary/host-resident + PRO 6000 future; power
-`tdp_watts: 350`; m2_2 constraint → `m2_2_oculink_egpu`) + `schemas/profile.schema.yaml`
-(sku/connection/link props + `secondary`/`future` roles) + `crates/sovereign-pcie-topology`
-(recommended layout) + friction-audit + 5 pinning lints reframed + `sain-01-master-spec.md`
-+ `profiles/sain-01.md` + the generator (`generate-runtime-profile.py` excludes
-`role: future`; high-concurrency oracle resolves to Nemotron-NVFP4 on the 32 GB
-primary) + M040 additive OcuLink reframe + `profiles/runtime/*.yaml` 600→350 W +
-`trinity-runtime-profiles.md` regen + D-21 Ext-GPU cell → registered RTX 4090
-(OcuLink eGPU) + `model-catalog.md` + the `any_gpu_vram_at_least_80gib` predicate
-comment. **DSpark-from-DeepSeek is a separate follow-up SDD (PR 2)** per operator
+GPU block (PRO 6000 primary + 5090 secondary + 4090 egpu; `m2_2_empty` constraint
+restored) + `schemas/profile.schema.yaml` (sku/connection/link props + `egpu`
+role) + `crates/sovereign-pcie-topology` + `sovereign-pcie-advisor` (recommended
+layout x8/x8, M.2_2 empty) + friction-audit + pinning lints + `sain-01-master-spec.md`
++ `profiles/sain-01.md` + `config/hardware/m003` + `config/inference/m077` additive
+reconciles (both internal cards are Blackwell FP4; PRO 6000 stays the Oracle) +
+M040 additive OcuLink note + `profiles/runtime/*.yaml` + `model-catalog.md` + the
+D-21 LM-orchestration panel (three cards) + install/journey runbooks. **The
+`any_gpu_vram_at_least_80gib` predicate is satisfied by the 96 GB PRO 6000
+primary.** **DSpark-from-DeepSeek is a separate follow-up SDD (PR 2)** per operator
 sequencing (SAIN/eGPU first).
 
 **Reversibility**: high for the docs/labels; medium for the profile role default
