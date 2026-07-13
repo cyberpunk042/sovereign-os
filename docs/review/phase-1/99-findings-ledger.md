@@ -101,6 +101,7 @@
 - Present across `scripts/*/`; correctly gitignored. Action: add a `make clean-pyc` or pre-commit hook step; cosmetic.
 
 ### F-2026-027 · OPP · Exotic one-script domains are hidden capabilities
+> **Status (2026-07-13):** **CLOSED by SDD-973** (`docs/sdd/973-exotic-tools-discoverability.md`) via the docs surface. `docs/src/exotic-tools.md` documents all 8 top-level scripts across the 6 domains (science/research/insights/history/weaver/pulse) — role + invocation + existing surface — wired into SUMMARY (in the mdbook); `tests/lint/test_exotic_tools_doc.py` keeps it complete (every exotic-domain script documented, no ghost refs, SUMMARY-linked). **Not done (deliberately, OPP scope)**: building osctl verbs/APIs/panel cards for the un-surfaced domains (each its own feature arc) + authoring in the reserved 300–399 science-tools band (another session's home). science + weaver already had operator-API backends; the gap was purely discoverability (docs-refs were 0 for all six).
 - `scripts/science/warp-runner.py`, `scripts/research/loop.py`, `scripts/insights/synthesize.py`, `scripts/history/aggregate.py`, `scripts/weaver/atomic-state.py`, `scripts/pulse/{build-bitnet.sh,wasm-aot.sh}` — each is a lone entry point with no panel/doc/osctl verb exposing it (SDD band 300–399 "science-tools" is reserved and entirely unused). Action: either surface them (osctl verbs + docs + panel cards) or fold them into their parent domains; the science-tools SDD band is the natural home.
 
 ---

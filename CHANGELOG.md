@@ -12,6 +12,16 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — exotic tool-domain discoverability index (2026-07-13)
+
+Phase-1 audit (SDD-973; closes ledger F-2026-027). Six scripts/<domain>/ trees (science/research/insights/
+history/weaver/pulse) held lone specialist entry points with zero docs/index — hidden capabilities.
+
+- **`docs/src/exotic-tools.md`**: maps the 8 top-level scripts to role + invocation + existing surface; wired
+  into SUMMARY. A discoverability surface, not new osctl/panel infra.
+- **`tests/lint/test_exotic_tools_doc.py`**: every exotic-domain script documented + no ghost refs + SUMMARY
+  links it — completeness contract.
+
 ### Added — per-milestone backlog delivery roll-up (2026-07-13)
 
 Phase-1 audit (SDD-972; closes ledger F-2026-038). "How done is M0xx" was only in SHIPPED.md's SAMPLED /
