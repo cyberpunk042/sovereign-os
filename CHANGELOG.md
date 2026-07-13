@@ -12,6 +12,22 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Fixed — gateway daemon survives a poisoned lock instead of cascading (2026-07-13)
+
+Operator-directed (phase-1 audit continuation) (SDD-992). Closes F-2026-065 (LOW, daemon-path half). Every mutex access
+on the gateway request path used `.lock().expect("… poisoned")`; a poisoned `Mutex` stays poisoned, so one panicking
+request thread cascaded — every subsequent request that locked the same mutex panicked too, taking the daemon down one
+request at a time. Fix: two guards matched to what each lock protects. `cortex_guard()` DECLINES a poisoned cortex (the
+decision engine may hold torn state) — handlers return `GatewayResponse::Error` instead of panicking (`persist_memory`
+maps to an I/O error; `maintain` skips the cycle). `ledger_guard()` RECOVERS a poisoned ledger via `into_inner()` (pure
+counters — dropping an already-computed response over a stat lock would be wrong). 15 daemon call sites converted. The
+two `sovereign-coat` `.expect()`s are pure-lib invariant guards, not lock state — kept, per the finding. New tests poison
+a mutex the real way (a thread panics holding the guard) and assert the daemon declines/recovers gracefully:
+`cortex_guard_declines_a_poisoned_lock_instead_of_panicking`, `infer_on_a_poisoned_cortex_returns_error_not_panic`,
+`ledger_guard_recovers_a_poisoned_lock_and_keeps_serving`. Verified: `cargo test -p sovereign-gatewayd` 71 lib + 4 + 18
+integration passed (+3); `cargo fmt --all --check` exit 0; clippy clean. gatewayd-crate only, no coat/cockpit/webapp/
+`scripts/operator` edits.
+
 ### Fixed — CoAT no longer serializes generation: cortex lock narrowed to per-recall (2026-07-13)
 
 Operator-directed ("CoAT-through-jobs runtime fix") (SDD-991). Advances F-2026-063 (MED) + F-2026-090 (OPP).

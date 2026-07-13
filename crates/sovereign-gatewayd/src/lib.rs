@@ -1439,6 +1439,27 @@ impl GatewayServer {
         &self.guard
     }
 
+    /// Lock the Cortex, mapping a POISONED mutex to a graceful gateway error
+    /// instead of a panic. F-2026-065: `.lock().expect()` on a poisoned lock
+    /// panics the request thread — and a poisoned lock stays poisoned, so every
+    /// subsequent request that locks the Cortex panics too (a cascade that takes
+    /// the whole daemon down one request at a time). A poisoned Cortex means a
+    /// prior panic mid-mutation, so the decision engine may hold torn state: the
+    /// daemon DECLINES the request rather than serve it.
+    fn cortex_guard(&self) -> Result<std::sync::MutexGuard<'_, Cortex>, GatewayResponse> {
+        self.cortex.lock().map_err(|_| GatewayResponse::Error {
+            message: "cortex lock poisoned — request declined".to_string(),
+        })
+    }
+
+    /// Lock the Ledger (pure request counters). F-2026-065: unlike the Cortex, a
+    /// poisoned Ledger holds no torn state worth declining a request over — the
+    /// guarded ops are counter increments — so RECOVER the guard (`into_inner`)
+    /// and keep serving rather than drop an already-computed response.
+    fn ledger_guard(&self) -> std::sync::MutexGuard<'_, Ledger> {
+        self.ledger.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
     /// Snapshot the process memory to the durable store (atomic write). No-op,
     /// `Ok(false)`, when SOVEREIGN_GATEWAY_MEMORY is unset. The gateway owns the
     /// I/O; the memory engine stays a pure library. Called periodically by the
@@ -1448,7 +1469,12 @@ impl GatewayServer {
             return Ok(false);
         };
         let bytes = {
-            let cortex = self.cortex.lock().expect("cortex poisoned");
+            // F-2026-065: a poisoned lock aborts the snapshot with an I/O error
+            // rather than panicking the periodic persist task.
+            let cortex = self
+                .cortex
+                .lock()
+                .map_err(|_| std::io::Error::other("cortex lock poisoned"))?;
             serde_json::to_vec(&cortex.memory)
                 .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?
         };
@@ -1506,7 +1532,7 @@ impl GatewayServer {
                 health: self.health(),
             },
             GatewayRequest::Ledger => GatewayResponse::Ledger {
-                ledger: self.ledger.lock().expect("ledger poisoned").clone(),
+                ledger: self.ledger_guard().clone(),
             },
         }
     }
@@ -1519,10 +1545,13 @@ impl GatewayServer {
             request.allow_cloud = false;
         }
         let result = {
-            let cortex = self.cortex.lock().expect("cortex poisoned");
+            let cortex = match self.cortex_guard() {
+                Ok(g) => g,
+                Err(e) => return e,
+            };
             cortex.tick(&request)
         };
-        self.ledger.lock().expect("ledger poisoned").dry_runs += 1;
+        self.ledger_guard().dry_runs += 1;
         match result {
             Ok(decision) => GatewayResponse::Explanation {
                 explanation: decision.explain(),
@@ -1543,10 +1572,13 @@ impl GatewayServer {
             request.allow_cloud = false;
         }
         let result = {
-            let cortex = self.cortex.lock().expect("cortex poisoned");
+            let cortex = match self.cortex_guard() {
+                Ok(g) => g,
+                Err(e) => return e,
+            };
             cortex.act(&request)
         };
-        self.ledger.lock().expect("ledger poisoned").dry_runs += 1;
+        self.ledger_guard().dry_runs += 1;
         match result {
             Ok((decision, _cycle)) => GatewayResponse::Decision {
                 decision: Box::new(decision),
@@ -1572,10 +1604,13 @@ impl GatewayServer {
             request.allow_cloud = false;
         }
         let result = {
-            let cortex = self.cortex.lock().expect("cortex poisoned");
+            let cortex = match self.cortex_guard() {
+                Ok(g) => g,
+                Err(e) => return e,
+            };
             cortex.deliberate(&request, &candidates, tier)
         };
-        self.ledger.lock().expect("ledger poisoned").dry_runs += 1;
+        self.ledger_guard().dry_runs += 1;
         match result {
             Ok(deliberation) => GatewayResponse::Deliberation {
                 deliberation: Box::new(deliberation),
@@ -1658,7 +1693,7 @@ impl GatewayServer {
                 CoatEngine::new(HeuristicThoughts, memory, config).deliberate(&prob)
             }
         };
-        self.ledger.lock().expect("ledger poisoned").dry_runs += 1;
+        self.ledger_guard().dry_runs += 1;
         match result {
             Ok(trace) => GatewayResponse::CoatTrace {
                 trace: Box::new(trace),
@@ -1678,13 +1713,16 @@ impl GatewayServer {
         }
 
         let result = {
-            let mut cortex = self.cortex.lock().expect("cortex poisoned");
+            let mut cortex = match self.cortex_guard() {
+                Ok(g) => g,
+                Err(e) => return e,
+            };
             cortex.act_and_learn(&request)
         };
 
         match result {
             Ok((decision, _cycle, learned)) => {
-                let mut ledger = self.ledger.lock().expect("ledger poisoned");
+                let mut ledger = self.ledger_guard();
                 ledger.total_requests += 1;
                 let role_key = role_key(&decision.route.role);
                 *ledger.by_role.entry(role_key).or_insert(0) += 1;
@@ -1711,7 +1749,7 @@ impl GatewayServer {
                 }
             }
             Err(e) => {
-                let mut ledger = self.ledger.lock().expect("ledger poisoned");
+                let mut ledger = self.ledger_guard();
                 ledger.total_requests += 1;
                 ledger.refused += 1;
                 GatewayResponse::Error {
@@ -1725,13 +1763,17 @@ impl GatewayServer {
     /// `ttl` ticks relative to `now`. Returns how many were aged. A daemon
     /// calls this periodically; a CLI never needs to.
     pub fn maintain(&self, now: u64, ttl: u64) -> usize {
-        let mut cortex = self.cortex.lock().expect("cortex poisoned");
+        // F-2026-065: skip this hygiene cycle on a poisoned lock rather than
+        // panic the periodic maintenance task (it runs again next tick).
+        let Ok(mut cortex) = self.cortex.lock() else {
+            return 0;
+        };
         cortex.maintain(now, ttl)
     }
 
     /// Current health snapshot, including the never-cloud-spill invariant.
     pub fn health(&self) -> Health {
-        let ledger = self.ledger.lock().expect("ledger poisoned");
+        let ledger = self.ledger_guard();
         Health {
             schema_version: SCHEMA_VERSION,
             live_surfaces: self.manifest.live_count(),
@@ -1751,7 +1793,7 @@ impl GatewayServer {
     /// existing cockpit (node_exporter scrape → Grafana) can chart the daemon
     /// without a new pipeline. Mirrors the metric style of `sovereign-telemetry`.
     pub fn metrics_prometheus(&self) -> String {
-        let ledger = self.ledger.lock().expect("ledger poisoned").clone();
+        let ledger = self.ledger_guard().clone();
         let mut s = String::new();
 
         s.push_str(
@@ -2565,5 +2607,65 @@ mod tests {
             s.cortex.try_lock().is_ok(),
             "coat must not leave the cortex lock held",
         );
+    }
+
+    /// Poison a mutex by panicking a thread while it holds the guard — the
+    /// condition F-2026-065 hardens the daemon against. Silences the intentional
+    /// panic's stderr so the test output stays clean.
+    fn poison<T: Send>(m: &Mutex<T>) {
+        let prev = std::panic::take_hook();
+        std::panic::set_hook(Box::new(|_| {}));
+        let joined = std::thread::scope(|scope| {
+            scope
+                .spawn(|| {
+                    let _g = m.lock().unwrap();
+                    panic!("intentional poison for the F-2026-065 test");
+                })
+                .join()
+        });
+        std::panic::set_hook(prev);
+        assert!(joined.is_err(), "the poisoning thread must have panicked");
+        assert!(m.is_poisoned(), "the mutex must now be poisoned");
+    }
+
+    #[test]
+    fn cortex_guard_declines_a_poisoned_lock_instead_of_panicking() {
+        // F-2026-065: a poisoned Cortex must DECLINE with a graceful error, not
+        // panic the request thread (which would cascade to every later request).
+        let s = GatewayServer::new();
+        poison(&s.cortex);
+        match s.cortex_guard() {
+            Err(GatewayResponse::Error { message }) => {
+                assert!(message.contains("poisoned"), "message: {message}");
+            }
+            other => panic!("expected a graceful Error, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn infer_on_a_poisoned_cortex_returns_error_not_panic() {
+        // End-to-end: the /v1/infer handler must survive a poisoned Cortex.
+        let s = GatewayServer::new();
+        poison(&s.cortex);
+        let req = demo_requests()[0].clone();
+        match s.infer(req) {
+            GatewayResponse::Error { message } => {
+                assert!(message.contains("poisoned"), "message: {message}");
+            }
+            other => panic!("expected a graceful Error, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn ledger_guard_recovers_a_poisoned_lock_and_keeps_serving() {
+        // F-2026-065: the Ledger holds only counters, so a poisoned lock is
+        // RECOVERED (not declined) — a stat-lock poison must never drop a request.
+        let s = GatewayServer::new();
+        poison(&s.ledger);
+        // Both helper + the health handler that reads it must return, not panic.
+        let _g = s.ledger_guard();
+        drop(_g);
+        let h = s.health();
+        assert_eq!(h.total_requests, 0, "recovered ledger reads its counters");
     }
 }
