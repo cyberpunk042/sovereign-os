@@ -12,6 +12,18 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — crate dependency-graph contract lint (2026-07-13)
+
+Operator-directed ("we continue") (SDD-986). Closes F-2026-009 (OPP). Turns the audit's ad-hoc 413-orphan
+discovery into a standing CI signal.
+
+- **`tests/lint/test_crate_graph_contract.py`** — parses every `crates/*/Cargo.toml` (repo convention; the
+  pytest lint job has no `cargo`), builds the internal dependency graph (reachable = depended-on by another
+  workspace crate OR a binary), and asserts **every orphan is `sovereign-cockpit-*`** (orphan-by-design,
+  wasm-bridged per SDD-800). Empirical: 717 crates / 41 binaries / 265 consumed / 413 orphans, all cockpit,
+  0 non-cockpit — a NEW non-cockpit orphan now fails the instant it lands.
+- Verified: 2 passed; ruff clean; corroborates SDD-962's F-2026-002 closure. One new lint file — collision-safe.
+
 ### Added — cockpit functional-execution close-out decision-package (2026-07-13)
 
 Operator-directed ("scope F-2026-035") (SDD-985). The "single largest planned UX unlock" turns out to be
