@@ -8,7 +8,6 @@
 <meta name="x-sovereign-shipped-in" content="R-impl-SDD040-phaseE-item2">
 <meta name="x-sovereign-standing-rule" content="We do not minimize anything.">
 <meta name="x-sovereign-catalog-source" content="M060 friction-audit boot-time gate — 6 hardware/integrity gates (PCIe/ZFS/memory/immutability/MS003-signature/timeout) rendered by sovereign-cockpit-friction-audit-panel; selfdef owns the verdict ring, cockpit renders only">
-<meta name="x-sovereign-closing-doctrine" content="powerful · disciplined · reversible · flexible · sovereign — five properties enforced by M048..M058 modules collectively (R09966)">
 <!-- M060 R10137/R10140/R10141 personalization apply-snippet — same
      ~20 lines that ship in master-dashboard's <head>; reads prefs
      from localStorage and applies them pre-paint so the operator's
@@ -1801,214 +1800,43 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
 <script>
 window.SO_ASSIST = {
  "context": {
-  "icon": "◈",
-  "title": "D-20 · Peace Machine Health",
-  "content": "The box's conscience. The peace machine is defined by five properties (R09966), each enforced by real infrastructure (M048..M058): powerful enough to act, disciplined enough to explain itself, reversible enough to trust, flexible enough to evolve, and — the load-bearing one — sovereign, so intelligence remains in your hands. Every L5+ commit is gated by your MS003 signature precisely to hold that last property.\n\nThe verdict is the conjunction of all five: all of them, or not peace. This is the highest-level health signal on the whole box — above any single panel — computed by /usr/bin/sovereign-os-peace-check --json. When it degrades, read which property slipped and its backing modules. Read-only: running the validator is a signed act."
+  "icon": "⚙",
+  "title": "D-26 · Friction Audit",
+  "content": "The boot-time honesty gate. Before the box trusts itself it runs six hardware and integrity checks — PCIe bifurcation, ZFS pool health, memory geometry, script immutability, the MS003 signature chain, and a gate-timeout backstop — each recorded as PASS, FAIL, SKIP, or OVERRIDE.\n\nThe verdicts are written by selfdef into its friction-audit ring; this panel only renders them (the sacrosanct cross-repo rule), running the real sovereign-cockpit-friction-audit-panel crate in your browser to lay out the six-gate table. A gate with no verdict shows a gray dash — never a fabricated pass. Read-only."
  },
  "nodes": [
   {
    "icon": "◆",
    "title": "Data source",
-   "content": "Whether the verdict is live from the validator or a snapshot.",
+   "content": "Whether the six gates are live from selfdef's friction-audit ring, or the ring is absent (in which case every gate renders gray — honest, not fabricated).",
    "children": [
     {
-     "selector": "#ds-state-label",
-     "title": "Live vs snapshot",
-     "content": "Green = the daemon is answering live; muted = a cached snapshot. The verdict + 5 properties are read from sovereign-os-peace-check — a snapshot can show state that an apply has already superseded, so check this before trusting a value as current.",
-     "icon": "◆",
-     "variants": [
-      {
-       "when": {
-        "textContains": "connecting"
-       },
-       "content": "Connecting — reaching the daemon; the values below are not confirmed live yet.",
-       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Connecting</div>Waiting on the API — treat the numbers as unconfirmed until this goes green.</div>"
-      },
-      {
-       "when": {
-        "textContains": "live"
-       },
-       "content": "Live — the values below reflect real state right now.",
-       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Live</div>The daemon is answering; everything on the panel is current.</div>"
-      },
-      {
-       "when": {
-        "textContains": "offline"
-       },
-       "content": "Offline — showing the last snapshot; the box may have moved on since.",
-       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Offline</div>No live answer — this is a cached snapshot, possibly stale.</div>"
-      }
-     ],
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">One-word peace-feed health</div>Live or snapshot — whether the five-property verdict is current. Peace can degrade between reads, so an offline feed is a reason to run the validator for a fresh verdict.</div>"
-    },
-    {
-     "selector": "#ds-state-detail",
-     "title": "Source detail",
-     "content": "Status line under the banner — endpoint + any degraded note.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Which peace feed answered</div>The endpoint behind the banner and any degraded note — the peace daemon reachable vs a cached read.</div>"
-    },
-    {
-     "selector": "#ds-last-update",
-     "title": "Source freshness",
-     "content": "When the peace-check was last read. Run the validator (below) for a fresh verdict rather than trusting an old one.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Verdict is only as fresh as this</div>The five properties are read at this timestamp. Peace can degrade between reads — run the validator for a live verdict rather than trusting a stale banner.<div class=\"so-xref\"><span class=\"x\">→</span> validator output — the fresh --json ground truth</div></div>"
+     "selector": "#datasource-banner",
+     "content": "Online = consuming /api/d-26/snapshot from the friction-audit daemon. Unreachable = the daemon is not running; the panel still renders, with every gate gray.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">selfdef owns the authority</div>selfdef writes the verdict ring at /var/cache/selfdef/friction-audit/ring; sovereign-os only reads and renders it. If selfdef is not writing on this box, the honest state is an empty panel — six gray gates — not an invented PASS.</div>"
     }
    ]
   },
   {
-   "icon": "◈",
+   "icon": "⚙",
    "title": "Overall verdict",
-   "content": "The single pass/fail on whether the box is still a peace machine — all five properties holding together. This is the box's conscience in one word; a non-healthy verdict means one of the five properties has slipped and the machine is out of its designed posture.",
+   "content": "The aggregate colour across all six gates, computed by the crate: red if any gate failed, yellow on an override, green when all pass, gray when nothing has reported yet.",
    "children": [
     {
-     "selector": "#verdict",
-     "title": "Peace verdict",
-     "content": "The composite verdict across all five R09966 properties. Peace is not one check — it is the five holding simultaneously. A degraded verdict names which property broke; read the properties below to see which of powerful/legible/reversible/flexible/sovereign slipped.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Five properties, held together</div>The peace machine is defined by five properties (R09966) enforced collectively by M048..M058. The verdict is their conjunction — all five or not peace. It is the highest-level health signal on the box, above any single panel.<div class=\"so-xref\"><span class=\"x\">→</span> the five properties below — each with its backing modules<br><span class=\"x\">→</span> D-06 approvals — property 5 (sovereign) in daily practice</div></div>",
-     "variants": [
-      {
-       "when": {
-        "textContains": "HEALTHY"
-       },
-       "content": "Peace verdict HEALTHY — all five properties hold; the box is in its designed posture.",
-       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Peace: HEALTHY</div>All five properties hold — powerful, legible, reversible, flexible, and sovereign.</div>"
-      },
-      {
-       "when": {
-        "textContains": "DEGRADED"
-       },
-       "content": "Peace verdict DEGRADED — at least one property has slipped; read which below.",
-       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ Peace: DEGRADED</div>One of the five properties broke — the box is out of its designed posture. Find which below.</div>"
-      },
-      {
-       "when": {
-        "textContains": "FAIL"
-       },
-       "content": "Peace verdict FAIL — a core property is broken; the box is not currently a peace machine.",
-       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Peace: FAIL</div>A load-bearing property is broken. Treat this as the top priority — the design guarantee is not currently met.</div>"
-      }
-     ]
+     "selector": "#fa-aggregate",
+     "content": "friction-audit: RED (a gate FAILED) · YELLOW (an OVERRIDE is standing) · GREEN (all gates PASSED) · GRAY (no verdicts yet). This is friction_audit_panel_aggregate() from the crate — the panel does not compute it."
     }
    ]
   },
   {
-   "icon": "▦",
-   "title": "5 properties",
-   "content": "The five R09966 properties, each enforced by a named set of modules (M048..M058). They are not slogans — each is backed by real infrastructure, and each has its own check status so you can see exactly which guarantee is holding.",
+   "icon": "▤",
+   "title": "The six gates",
+   "content": "The fixed six-gate table, always in the same order, rendered by friction_audit_panel_render(). Each row shows the gate, its badge (PASS/FAIL/SKIP/OVRD or gray '—'), a freshness detail, and a runbook link when the crate supplies one.",
    "children": [
     {
-     "selector": "#p1-status",
-     "title": "Property · powerful enough to act",
-     "content": "Powerful — the box can actually do the work: Blackwell oracle + 4090 scout + AVX cortex. R09967, cross-ref M058. A peace machine that cannot act is not peace, it is paralysis; this property is that it has real capability.",
-     "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">Property 1 — \"powerful enough to act\"</div>Backed by M058 backpressure + the three compute tiers. A peace machine holds all five at once; this property failing means the box has lost this specific guarantee even if the others hold.</div>"
-    },
-    {
-     "selector": "#p2-status",
-     "title": "Property · disciplined enough to explain itself",
-     "content": "Disciplined — every action is legible: M049 observability + selfdef MS033 policy trace. R09968. Power without explanation is not trustworthy; this property is that the box can always show WHY it did a thing.",
-     "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">Property 2 — \"disciplined enough to explain itself\"</div>Backed by M049 spans + MS033 policy trace. A peace machine holds all five at once; this property failing means the box has lost this specific guarantee even if the others hold.</div>"
-    },
-    {
-     "selector": "#p3-status",
-     "title": "Property · reversible enough to trust",
-     "content": "Reversible — anything done can be undone: M047 CRIU + ZFS snapshots + signed rollback. R09969. Trust comes from reversibility, not from hoping nothing goes wrong; this property is that mistakes are recoverable.",
-     "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">Property 3 — \"reversible enough to trust\"</div>Backed by M047 CRIU + ZFS snapshots (D-08). A peace machine holds all five at once; this property failing means the box has lost this specific guarantee even if the others hold.</div>"
-    },
-    {
-     "selector": "#p4-status",
-     "title": "Property · flexible enough to evolve",
-     "content": "Flexible — the box can improve without a rebuild: M046 runtime adaptation + LoRA Foundry. R09970. A frozen system decays; this property is that it adapts through adapters and evals rather than ossifying.",
-     "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">Property 4 — \"flexible enough to evolve\"</div>Backed by M046 LoRA Foundry (D-11). A peace machine holds all five at once; this property failing means the box has lost this specific guarantee even if the others hold.</div>"
-    },
-    {
-     "selector": "#p5-status",
-     "title": "Property · intelligence remains in the user's hands",
-     "content": "Sovereign — you hold the keys: operator MS003 signature gates every L5+ commit. R09965 + selfdef. This is the load-bearing property — everything else serves it. The box is powerful, legible, reversible and flexible SO THAT control stays with you.",
-     "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">Property 5 — \"intelligence remains in the user's hands\"</div>Backed by operator MS003 signature on every L5+ commit. A peace machine holds all five at once; this property failing means the box has lost this specific guarantee even if the others hold.</div>"
-    },
-    {
-     "selector": "p1-checks",
-     "title": "Property checks",
-     "content": "The checks behind Powerful — is the Blackwell oracle reachable, is the 4090 scout up, does the AVX-512 cortex probe pass. If any hardware leg is down the box can't do the work, and P1 fails.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Powerful is a hardware-liveness sum</div>P1 rolls up the three compute legs — oracle, scout, cortex. It's the one property about capability rather than policy: can the box actually execute, or is a leg dark.<div class=\"so-xref\"><span class=\"x\">→</span> D-09 hardware pressure — the live state of these legs</div></div>"
-    },
-    {
-     "selector": "p2-checks",
-     "title": "Property checks",
-     "content": "The checks behind Disciplined — is M049 observability emitting spans, is the selfdef MS033 policy trace live. Discipline means every action is legible; a dark trace fails P2 even if the box is otherwise healthy.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Disciplined = nothing happens in the dark</div>P2 is the legibility property: every action leaves an M049 span and an MS033 policy trace. It's what makes the box auditable rather than a black box.<div class=\"so-xref\"><span class=\"x\">→</span> D-05 traces — the M049 spans P2 depends on</div></div>"
-    },
-    {
-     "selector": "p3-checks",
-     "title": "Property checks",
-     "content": "The checks behind Reversible — are M047 CRIU checkpoints working, are ZFS snapshots current, is signed rollback armed. If you couldn't undo the last action, P3 fails — reversibility is a live capability, not a promise.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Reversible = every action has an undo</div>P3 verifies the undo machinery is live — CRIU checkpoints, ZFS snapshots, signed rollback. Peace requires that a mistake can always be walked back.<div class=\"so-xref\"><span class=\"x\">→</span> D-08 rollback points — the snapshots behind P3</div></div>"
-    },
-    {
-     "selector": "p4-checks",
-     "title": "Property checks",
-     "content": "The checks behind Flexible — is M046 runtime adaptation available, can the LoRA Foundry fit an adapter. Flexibility means improving without a rebuild; if adaptation is offline, P4 fails.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Flexible = improve without a rebuild</div>P4 checks the box can adapt in place — runtime config (M046) and adapter fitting (LoRA Foundry). It's what lets the system evolve without a full reflash.<div class=\"so-xref\"><span class=\"x\">→</span> D-11 adapter status — the LoRA Foundry behind P4</div></div>"
-    },
-    {
-     "selector": "p5-checks",
-     "title": "Property checks",
-     "content": "The checks behind Sovereign — is the operator MS003 key present and gating L5+ commits. Sovereignty means you hold the keys; if the key is absent or not gating, P5 fails and the box could act without your signature.",
-     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Sovereign = you hold the keys</div>P5 is the deepest property: the MS003 key must gate every L5+ commit. Without it the box could take high-authority actions unsigned — sovereignty lost even if every other property is green.<div class=\"so-xref\"><span class=\"x\">→</span> D-02 profile choices — the authority ladder MS003 gates</div></div>"
-    }
-   ]
-  },
-  {
-   "icon": "⊞",
-   "title": "Validator run",
-   "content": "The last run of /usr/bin/sovereign-os-peace-check --json — the actual command that computes the verdict. The panel reads its output; run it again for a fresh answer.",
-   "children": [
-    {
-     "selector": "#last-run",
-     "title": "Last run",
-     "content": "When the peace-check validator last ran. The verdict above is only as current as this — a fresh verdict needs a fresh run, especially after any change to the box.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">When peace was last validated</div>When the peace-check validator last ran. The verdict is only as current as this — a property could have failed since, so run the validator for a live answer rather than trusting the banner.</div>"
-    },
-    {
-     "selector": "#exit-code",
-     "title": "Exit code",
-     "content": "The validator's exit code — 0 is peace, non-zero names a failure class. This is the machine-readable verdict; a non-zero code is the same signal as a non-healthy verdict, in a form a script can gate on.",
-     "variants": [
-      {
-       "when": {
-        "textContains": "0"
-       },
-       "content": "Exit 0 — the validator confirms peace; all properties passed.",
-       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● exit 0</div>The validator confirms the box is a peace machine.</div>"
-      },
-      {
-       "when": {
-        "textContains": "1"
-       },
-       "content": "Non-zero exit — the validator found a broken property; read the output.",
-       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ non-zero exit</div>A property failed — the output below names which.</div>"
-      }
-     ],
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Exit code is the machine verdict</div>0 means all five properties hold; non-zero names which failed. It's the scriptable form of the verdict — a monitor watches this integer.<div class=\"so-li\"><span class=\"ok\">✓</span> 0 → peace: all five hold</div><div class=\"so-li\"><span class=\"no\">✗</span> non-zero → a property failed; the code names the class</div></div>"
-    },
-    {
-     "selector": "#validator-output",
-     "title": "Validator output",
-     "content": "The raw --json output from the peace-check. This is the ground truth the panel renders from — read it directly when a property is degraded to see the exact failing assertion, not the summarized status.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The ground truth</div>The panel's tiles summarize this JSON. When a property is amber or red, read the raw output — it names the exact check and value that failed, which the summary tile does not.<div class=\"so-tip\">💡 This is the same artifact an audit or a CI gate would consume.</div></div>"
-    }
-   ]
-  },
-  {
-   "icon": "⎈",
-   "title": "Controls",
-   "content": "Read-only view — every mutation copies a signed sovereign-osctl verb (§1g / R10212). The web never changes the box; it hands you the exact CLI to run.",
-   "children": [
-    {
-     "selector": "#control-surface",
-     "title": "Controls rail",
-     "content": "The control rail — each button copies its exact sovereign-osctl command. Running the peace validator runs through the signed CLI after your MS003 signature, never from a web click.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copy-command boundary</div>Each control copies its sovereign-osctl verb (§1g / R10212). Running the peace-check is a read-only validation you launch; the panel renders its verdict.</div>"
+     "selector": "#fa-rows",
+     "content": "PCIe bifurcation · ZFS pool health · memory geometry · script immutability · MS003 signature · gate timeout. The badge, colour, detail, and runbook route all come straight from the crate's RenderRow — the cockpit only draws them.",
+     "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">Rendered by the crate, not the panel</div>The panel fetches the Panel snapshot and hands it to the real sovereign-cockpit-friction-audit-panel crate compiled to wasm. The crate decides the fixed order, the per-gate badge and colour, and the gray '—' for any gate with no verdict — the exact same decision logic selfdef's own tooling uses.<div class=\"so-xref\"><span class=\"x\">→</span> D-20 peace-machine — the higher-level 'is the box at peace' verdict this feeds into</div></div>"
     }
    ]
   }
