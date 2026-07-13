@@ -522,6 +522,64 @@ function filterStateEnhancer({ inputs, applyBtn, title, marker }) {
   };
 }
 
+// d-04-costs: the real budget gauge (cost-meter: Normal/Warning/Critical/Exceeded from
+// spend vs budget) + the spend trend (stat-trend: direction + %, cost is lower-better).
+async function enhanceCosts(root) {
+  if (root.querySelector('[data-cockpit-crates="d04cm"]')) return;
+  let data; try { data = await (await fetch('/api/costs/summary', { cache: 'no-store' })).json(); } catch (_) { return; }
+  const sec = section('Budget gauge + spend trend — cost-meter / stat-trend (wasm)');
+  sec.setAttribute('data-cockpit-crates', 'd04cm');
+  let any = false;
+  const today = data && data.today;
+  if (today && today.budget > 0) {
+    const r = await bcall('cost_meter_level', today.budget, today.spend || 0, 8000, 9500);
+    if (r && r.ok) { sec.appendChild(el('div', '', `budget gauge: ${(r.usage_bp / 100).toFixed(1)}% used · ${r.level} · ${r.remaining} remaining (crate)`)); any = true; }
+  }
+  const trend = (data && data.trend30d) || [];
+  if (trend.length >= 2) {
+    const prev = Number(trend[trend.length - 2].spend) || 0, cur = Number(trend[trend.length - 1].spend) || 0;
+    const t = await bcall('stat_trend_compute', prev, cur, 50, 'lower-better');
+    if (t && t.ok) { sec.appendChild(el('div', '', `spend trend: ${t.direction} ${(t.percent_change_x100 / 100).toFixed(1)}% · ${t.color_hint} (crate)`)); any = true; }
+  }
+  if (any) (root.body || document.body).appendChild(sec);
+}
+
+// d-20-peace-machine-health: roll the property statuses into one headline + a percentage
+// breakdown with the REAL status-aggregator crate (worst-wins).
+const D20_STATUS = { healthy: 'ok', degraded: 'degraded', failing: 'down', unknown: 'unknown' };
+async function enhancePeaceHealth(root) {
+  if (root.querySelector('[data-cockpit-crates="d20sa"]')) return;
+  let data; try { data = await (await fetch('/api/d-20/snapshot', { cache: 'no-store' })).json(); } catch (_) { return; }
+  const props = (data && data.properties) || [];
+  if (!props.length) return;
+  const subs = props.map((p, i) => ({ id: 'p' + (i + 1), name: 'property ' + (i + 1), status: D20_STATUS[p.status] || 'unknown' }));
+  const r = await bcall('status_aggregator_headline', JSON.stringify(subs));
+  if (!r || !r.ok) return;
+  const p = r.percentages || {};
+  const sec = section('Overall health — sovereign-cockpit-status-aggregator (wasm)');
+  sec.setAttribute('data-cockpit-crates', 'd20sa');
+  sec.appendChild(el('div', '', `headline: ${r.headline} — ${p.ok}% ok · ${p.degraded}% degraded · ${p.down}% down · ${p.unknown}% unknown (crate)`));
+  (root.body || document.body).appendChild(sec);
+}
+
+// d-09-hardware-pressure: total ZFS usage across datasets, rendered by the REAL
+// byte-size-formatter crate (returns a bare string, so call it directly, not via bcall).
+async function enhanceZfsSizes(root) {
+  if (root.querySelector('[data-cockpit-crates="d09bs"]')) return;
+  let data; try { data = await (await fetch('/api/hardware/pressure', { cache: 'no-store' })).json(); } catch (_) { return; }
+  const ds = (data && data.zfs && data.zfs.datasets) || [];
+  if (!ds.length) return;
+  const total = ds.reduce((a, d) => a + (Number(d.used_bytes) || 0), 0);
+  if (total <= 0) return;
+  const m = await bridge(); if (!m || typeof m.byte_size_format !== 'function') return;
+  const fmt = m.byte_size_format(total, 'iec', 1);
+  if (typeof fmt !== 'string' || fmt.charAt(0) === '{') return;
+  const sec = section('ZFS usage total — sovereign-cockpit-byte-size-formatter (wasm)');
+  sec.setAttribute('data-cockpit-crates', 'd09bs');
+  sec.appendChild(el('div', '', `${ds.length} datasets · ${fmt} used total (crate-formatted)`));
+  (root.body || document.body).appendChild(sec);
+}
+
 const ENHANCERS = {
   'ux-design-audit-webapp': enhanceUxDesignAudit,
   'personalization-webapp': enhancePersonalization,
@@ -625,12 +683,15 @@ const ENHANCERS = {
     facets: { status: m => m.status, family: m => m.family, tag: m => m.tag },
     title: 'Milestones faceted — sovereign-cockpit-facet-counts (wasm)', marker: 'd19',
   }),
-  // Peace-machine properties grouped by health status.
-  'd-20-peace-machine-health-webapp': facetEnhancer({
-    endpoint: '/api/d-20/snapshot', pick: d => d.properties || [],
-    facets: { status: p => p.status },
-    title: 'Peace-machine properties faceted — sovereign-cockpit-facet-counts (wasm)', marker: 'd20',
-  }),
+  // Peace-machine properties faceted + rolled into one headline (status-aggregator).
+  'd-20-peace-machine-health-webapp': compose(
+    facetEnhancer({
+      endpoint: '/api/d-20/snapshot', pick: d => d.properties || [],
+      facets: { status: p => p.status },
+      title: 'Peace-machine properties faceted — sovereign-cockpit-facet-counts (wasm)', marker: 'd20',
+    }),
+    enhancePeaceHealth,
+  ),
   // Pending memory changes grouped by op / memory-type / scope.
   'd-07-memory-changes-webapp': facetEnhancer({
     endpoint: '/api/d-07/snapshot', pick: d => d.pending || [],
@@ -662,12 +723,15 @@ const ENHANCERS = {
     facets: { role: m => m.role, precision: m => m.precision },
     title: 'Model health faceted — sovereign-cockpit-facet-counts (wasm)', marker: 'd03',
   }),
-  // Project spend grouped by profile / dominant route.
-  'd-04-costs-webapp': facetEnhancer({
-    endpoint: '/api/costs/summary', pick: d => d.projects || [],
-    facets: { profile: p => p.profile, route: p => p.dominant_route },
-    title: 'Project spend faceted — sovereign-cockpit-facet-counts (wasm)', marker: 'd04',
-  }),
+  // Project spend faceted + the crate budget gauge & spend trend.
+  'd-04-costs-webapp': compose(
+    facetEnhancer({
+      endpoint: '/api/costs/summary', pick: d => d.projects || [],
+      facets: { profile: p => p.profile, route: p => p.dominant_route },
+      title: 'Project spend faceted — sovereign-cockpit-facet-counts (wasm)', marker: 'd04',
+    }),
+    enhanceCosts,
+  ),
   // Rollback snapshots faceted (by kind/dataset) + the activity timeline bucketed by day.
   'd-08-rollback-points-webapp': compose(
     facetEnhancer({
@@ -680,12 +744,15 @@ const ENHANCERS = {
       title: 'Rollback timeline by day — sovereign-cockpit-day-divider (wasm)', marker: 'd08dd',
     }),
   ),
-  // ZFS datasets grouped by sync mode / record size.
-  'd-09-hardware-pressure-webapp': facetEnhancer({
-    endpoint: '/api/hardware/pressure', pick: d => (d.zfs && d.zfs.datasets) || [],
-    facets: { sync: z => z.sync, recordsize: z => z.recordsize },
-    title: 'ZFS datasets faceted — sovereign-cockpit-facet-counts (wasm)', marker: 'd09',
-  }),
+  // ZFS datasets faceted (sync/recordsize) + crate-formatted total usage.
+  'd-09-hardware-pressure-webapp': compose(
+    facetEnhancer({
+      endpoint: '/api/hardware/pressure', pick: d => (d.zfs && d.zfs.datasets) || [],
+      facets: { sync: z => z.sync, recordsize: z => z.recordsize },
+      title: 'ZFS datasets faceted — sovereign-cockpit-facet-counts (wasm)', marker: 'd09',
+    }),
+    enhanceZfsSizes,
+  ),
   // Profile transitions grouped by from / to profile.
   'd-02-profile-choices-webapp': facetEnhancer({
     endpoint: '/api/profile/show', pick: d => d.history || [],
