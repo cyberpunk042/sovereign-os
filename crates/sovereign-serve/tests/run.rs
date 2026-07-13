@@ -137,3 +137,29 @@ fn help_exits_zero() {
     assert!(out.status.success());
     assert!(String::from_utf8_lossy(&out.stdout).contains("USAGE"));
 }
+
+#[test]
+fn rag_grounds_the_prompt_and_a_repeat_is_free() {
+    // `--rag` grounds each query in the knowledge store, then serves the grounded
+    // prompt through the cache — the repeat of a deterministic grounded prompt is
+    // a $0 exact cache hit (retrieval + the cost-aware cache combined).
+    let out = Command::new(env!("CARGO_BIN_EXE_sovereign-serve"))
+        .args(["--rag", "what is sovereignty"])
+        .output()
+        .expect("run sovereign-serve --rag");
+    assert!(out.status.success(), "exit: {:?}", out.status);
+    let s = String::from_utf8_lossy(&out.stdout);
+    assert!(s.contains("grounded=true"), "query was not grounded:\n{s}");
+    assert!(
+        s.contains("Context:"),
+        "the served prompt was not augmented with retrieval:\n{s}"
+    );
+    assert!(
+        s.contains("hit=exact"),
+        "the repeated grounded query was not a $0 cache hit:\n{s}"
+    );
+    assert!(
+        s.contains("cache hit(s) ($0)"),
+        "no $0 cache-hit summary:\n{s}"
+    );
+}

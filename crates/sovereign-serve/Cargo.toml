@@ -40,3 +40,6 @@ sovereign-quant-llm = { path = "../sovereign-quant-llm" }
 # models (a real vocab, not the 256-byte default) when a tokenizer.json is present.
 sovereign-hf-tokenizer = { path = "../sovereign-hf-tokenizer" }
 sovereign-logit-mask = { path = "../sovereign-logit-mask" }
+# `--rag`: ground each prompt via the retrieval hub before serving, so the
+# cost-aware cache keys on the grounded prompt (a repeated grounded query is $0).
+sovereign-retrieval = { path = "../sovereign-retrieval" }

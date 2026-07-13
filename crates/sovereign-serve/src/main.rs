@@ -77,6 +77,33 @@ fn runtime() -> SovereignLlm {
     SovereignLlm::new(tok, cfg).unwrap()
 }
 
+/// A small BM25 knowledge base for `--rag` — short documents about the box, so a
+/// query resolves to a real grounding hit before serving.
+fn rag_knowledge_store() -> sovereign_retrieval::Bm25Store {
+    let mut s = sovereign_retrieval::Bm25Store::new();
+    for (id, text) in [
+        (
+            "sovereignty",
+            "Sovereignty means the box runs entirely on local hardware with no cloud call and no external dependency.",
+        ),
+        (
+            "cost",
+            "Local inference has zero per-token cost; the only cost is electricity plus the one-time hardware.",
+        ),
+        (
+            "privacy",
+            "Because nothing leaves the machine, every prompt and output stays private by construction.",
+        ),
+        (
+            "offline",
+            "The assistant keeps working with the network unplugged; the weights and tokenizer are on disk.",
+        ),
+    ] {
+        s.add(id, text);
+    }
+    s
+}
+
 const USAGE: &str = "\
 sovereign-serve — the $0-aware serving assembly (cache -> complexity -> budget -> generate -> account)
 
@@ -88,6 +115,9 @@ USAGE:
     sovereign-serve --no-repeat-ngram N PROMPT…  block repeated N-grams (unified path)
     sovereign-serve --semantic PROMPT… enable the semantic cache tier: a
                                        paraphrase of a served prompt is a $0 hit
+    sovereign-serve --rag [PROMPT…]    ground each query in a BM25 knowledge store,
+                                       then serve the grounded prompt through the
+                                       cache: a repeated grounded query is a $0 hit
     sovereign-serve --redact PROMPT…   scrub secrets + PII from each completion
                                        before it is cached/returned (egress gate)
     sovereign-serve --screen PROMPT…   refuse a completion flagged toxic by the
@@ -124,6 +154,7 @@ fn main() {
     }
     let stream = args.iter().any(|a| a == "--stream");
     let semantic = args.iter().any(|a| a == "--semantic");
+    let rag = args.iter().any(|a| a == "--rag");
     let redact = args.iter().any(|a| a == "--redact");
     let screen = args.iter().any(|a| a == "--screen");
     let xtc = args.iter().any(|a| a == "--xtc");
@@ -221,6 +252,40 @@ fn main() {
         }
         Ok(text)
     };
+
+    if rag {
+        // Retrieval-augmented serving: ground each query in the knowledge store,
+        // then serve the GROUNDED prompt through the cache. Because augmentation
+        // is deterministic (same query → same retrieved docs → same grounded
+        // prompt), a repeated grounded query is a $0 cache hit — retrieval and the
+        // cost-aware cache combined into one capability.
+        const TOP_K: usize = 2;
+        let retriever = rag_knowledge_store();
+        let queries: Vec<&str> = if prompts.is_empty() {
+            vec!["what is sovereignty", "how much does it cost"]
+        } else {
+            prompts.clone()
+        };
+        // Own the grounded prompts; serve each twice so the repeat shows as $0.
+        let grounded: Vec<String> = queries
+            .iter()
+            .map(|q| sovereign_retrieval::augment_prompt(&retriever, q, TOP_K))
+            .collect();
+        for (q, g) in queries.iter().zip(&grounded) {
+            println!("rag    | query={q:?} grounded={}", g.as_str() != *q);
+        }
+        let mut server = Server::new(64);
+        if semantic {
+            server = server.with_semantic(64, 0.6);
+        }
+        let mut session: Vec<(&str, usize, u64)> = Vec::new();
+        for g in &grounded {
+            session.push((g.as_str(), 16, 0));
+            session.push((g.as_str(), 16, 0)); // repeat → $0 cache hit
+        }
+        run_session(&mut server, &session, generate);
+        return;
+    }
 
     if prompts.is_empty() {
         // Demo: a small total-token budget so the session shows a real refusal,

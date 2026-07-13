@@ -6330,6 +6330,7 @@ dependencies = [
  "sovereign-logit-mask",
  "sovereign-pii-redact",
  "sovereign-quant-llm",
+ "sovereign-retrieval",
  "sovereign-rmsnorm",
  "sovereign-safetensors-loader",
  "sovereign-sampler",
