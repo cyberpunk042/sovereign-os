@@ -96,6 +96,17 @@ export async function tabActivate(stateJson, id) {
   return (r && r.ok) ? r.active_id : null;
 }
 
+/** SYNC command-palette highlight navigation via the REAL sovereign-cockpit-autocomplete-list
+ *  crate (wrap-around). `op` is "down" | "up". Returns the new highlight index, or null when the
+ *  bridge isn't loaded yet (so the caller keeps its own fallback). Sync on purpose — it uses the
+ *  already-loaded module (populated by bridge()/enhance()), so a keydown handler stays instant.
+ *  Used by the shared Ctrl-K palette (F-2026-001, invasive adoption across all panels). */
+export function autocompleteNav(stateJson, op) {
+  if (!_mod || typeof _mod.autocomplete_nav !== 'function') return null;
+  const r = J(_mod.autocomplete_nav(stateJson, op));
+  return (r && r.ok && typeof r.highlight === 'number') ? r.highlight : null;
+}
+
 // ---- the WCAG audit: every meaningful token pair, judged by the real crate -----
 
 const PAIRS = [
@@ -836,4 +847,4 @@ export async function enhance(root = document) {
   return true;
 }
 
-export default { bridge, contrast, relTime, wordCount, truncate, validate, auditPalette, enhance, tabActivate };
+export default { bridge, contrast, relTime, wordCount, truncate, validate, auditPalette, enhance, tabActivate, autocompleteNav };

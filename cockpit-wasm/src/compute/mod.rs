@@ -4,6 +4,7 @@
 
 pub mod alert_group;
 pub mod alert_tile_board;
+pub mod autocomplete_list;
 pub mod byte_size_formatter;
 pub mod checkbox_tree;
 pub mod cost_meter;

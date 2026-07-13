@@ -617,11 +617,26 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
     function cmdkIsOpen(){ return cmdkBack.classList.contains('open'); }
     function cmdkOpen(){ cmdkBack.classList.add('open'); cmdkIn.value=''; cmdkFilt=CMDK.slice(); cmdkAct=0; cmdkRender(); setTimeout(function(){ cmdkIn.focus(); },0); }
     function cmdkClose(){ cmdkBack.classList.remove('open'); }
+    // F-2026-001 (invasive adoption): route the highlight cursor through the REAL
+    // sovereign-cockpit-autocomplete-list crate (wrap-around) when the wasm bridge is loaded;
+    // otherwise fall back to the local clamp, so the palette always works.
+    function cmdkNav(op){
+      var fb = op==='down' ? Math.min(cmdkAct+1,cmdkFilt.length-1) : Math.max(cmdkAct-1,0);
+      var nav = window.__cockpitAutocompleteNav;
+      if(nav){ try{
+        var st = JSON.stringify({ schema_version:'1.0.0', query:(cmdkIn.value||''),
+          suggestions: cmdkFilt.map(function(d){ return { id:d.dir, label:d.label, secondary:d.grp||'' }; }),
+          highlight: cmdkAct });
+        var h = nav(st, op);
+        if(h!=null && h>=0 && h<cmdkFilt.length) return h;   // crate-computed (wraps)
+      }catch(_){} }
+      return fb;
+    }
     cmdkIn.addEventListener('input',cmdkFilter);
     cmdkBack.addEventListener('click',function(e){ if(e.target===cmdkBack) cmdkClose(); });
     cmdkIn.addEventListener('keydown',function(e){
-      if(e.key==='ArrowDown'){ e.preventDefault(); cmdkAct=Math.min(cmdkAct+1,cmdkFilt.length-1); cmdkRender(); }
-      else if(e.key==='ArrowUp'){ e.preventDefault(); cmdkAct=Math.max(cmdkAct-1,0); cmdkRender(); }
+      if(e.key==='ArrowDown'){ e.preventDefault(); cmdkAct=cmdkNav('down'); cmdkRender(); }
+      else if(e.key==='ArrowUp'){ e.preventDefault(); cmdkAct=cmdkNav('up'); cmdkRender(); }
       else if(e.key==='Enter'){ e.preventDefault(); cmdkGo(cmdkFilt[cmdkAct]); }
       else if(e.key==='Escape'){ e.preventDefault(); cmdkClose(); } });
 
@@ -818,6 +833,13 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
 })();
 </script>
 <!-- LIVERELOAD:END M203 -->
+<script type="module">
+  // F-2026-001 (invasive adoption): expose the crate-backed command-palette navigator to the
+  // (non-module) app-shell above. Shares the one cockpit-runtime module the panel already loads,
+  // so it reads the same wasm bridge. No-op until the bridge finishes loading (palette falls back).
+  import { autocompleteNav } from '/_shared/cockpit-runtime.js';
+  window.__cockpitAutocompleteNav = autocompleteNav;
+</script>
 <!-- APP-SHELL:END M067 -->
 
 <header>
