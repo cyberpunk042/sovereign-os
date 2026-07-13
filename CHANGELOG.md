@@ -12,6 +12,16 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — scripts health-baseline contract (2026-07-13)
+
+Phase-1 audit (SDD-976; closes ledger F-2026-020). The operator-script surface was at an exemplary
+baseline with no guard — the scripts-surface parallel to the crate-hygiene contract (SDD-974).
+
+- **`tests/lint/test_scripts_health_baseline.py`**: three tree-recomputed invariants — every
+  `scripts/**/*.sh` passes `bash -n` (102 files, parse-only); every `scripts/**/*.py` byte-compiles
+  (299 files, never imported); `sovereign-osctl`'s 29 called `cmd_*` all resolve to definitions (a
+  dispatch to a missing handler fails CI, not the operator's terminal).
+
 ### Fixed — SDD-969 cross-session number collision + band-scheme drift (2026-07-13)
 
 The cockpit-wasm bridge session (F-2026-001) took SDD-969 inside the phase-1-audit band (950–999),

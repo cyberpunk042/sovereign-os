@@ -77,6 +77,7 @@
 ## C. Scripts + operator surface — F-2026-020 .. 029
 
 ### F-2026-020 · LOW · Health baseline (protect it)
+> **Status (2026-07-13):** **CLOSED by SDD-976** (`docs/sdd/976-scripts-health-baseline-contract.md`). `tests/lint/test_scripts_health_baseline.py` recomputes three invariants from the tree so the baseline can't silently drop: every `scripts/**/*.sh` passes `bash -n` (102, parse-only), every `scripts/**/*.py` passes `py_compile` (299, never imported), and `sovereign-osctl`'s called `cmd_*` set ⊆ its defined set (29 ⊆ 29 — a dispatch to a missing handler fails CI). The port-map / systemd-pairing half of this finding was already held by `test_dashboard_port_and_reference_integrity.py`; this closes the orthogonal parse/compile/dispatch axis.
 - 397 scripts (103 sh / 294 py): **0** `bash -n` failures, **0** `py_compile` failures. `sovereign-osctl` (9,081 lines, 30 `cmd_*` verbs): every dispatch target exists. 53 operator API daemons with a collision-free sequential port map (8090–8135, 8140, 8142, 8160, 7711–7713, 8787) guarded by `tests/lint/test_dashboard_port_and_reference_integrity.py`. systemd↔API pairing is 1:1 (52 units; `build-configurator-api` intentionally unit-less via `make panel`).
 
 ### F-2026-021 · MED · Orphaned hook: `scripts/hooks/post-install/vfio-bind-3090.sh`

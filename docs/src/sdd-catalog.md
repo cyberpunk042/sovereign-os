@@ -5,8 +5,7 @@
 > page drifts from `docs/sdd/`, so the published book can never freeze behind the
 > design record again (F-2026-033).
 
-Every Spec-Driven-Development design doc in `docs/sdd/` (157 total), by number.
-Every Spec-Driven-Development design doc in `docs/sdd/` (156 total), by number.
+Every Spec-Driven-Development design doc in `docs/sdd/` (158 total), by number.
 
 - [SDD-000 — Project charter](../sdd/000-charter.md)
 - [SDD-001 — Cross-repo boundaries: contract between sovereign-os, info-hub, selfdef](../sdd/001-cross-repo-boundaries.md)
@@ -165,4 +164,4 @@ Every Spec-Driven-Development design doc in `docs/sdd/` (156 total), by number.
 - [SDD-973 — exotic tool-domain discoverability index](../sdd/973-exotic-tools-discoverability.md)
 - [SDD-974 — workspace-hygiene baseline contract](../sdd/974-workspace-hygiene-baseline-contract.md)
 - [SDD-975 — navigation companion for the 640 KB standing-directive](../sdd/975-standing-mandate-navigation.md)
-- [SDD-974 — Cockpit wasm bridge: the typed cockpit crates run in the browser](../sdd/974-cockpit-wasm-bridge.md)
+- [SDD-976 — scripts health-baseline contract](../sdd/976-scripts-health-baseline-contract.md)
