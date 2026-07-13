@@ -12,6 +12,17 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — deepen chat RAG with the rerank pipeline (2026-07-13)
+
+Operator-directed ("Deepen chat RAG (reranking pipeline)") (SDD-977; advances F-2026-093, builds on SDD-976).
+SDD-976's `--rag` used only the retrieval hub's base BM25 store; this exercises its decorator surface.
+
+- **`sovereign-chat --rerank [QUERY…]`** (implies `--rag`): wraps the knowledge store in the hub's
+  Reranked → Deduped → Diversified decorator chain (each a Retriever over the last) before grounding. A
+  generic `drive_rag<Ret: Retriever>` helper lets the plain + reranked pipelines share one path without boxing.
+- Verified: `cargo test -p sovereign-chat` 25 passed; live `--rerank` runs the full BM25 → rerank → dedup →
+  diversify pipeline and grounds.
+
 ### Added — retrieval-augmented chat: wire the retrieval hub into sovereign-chat (2026-07-13)
 
 Operator-directed ("crates integrations from the bottom to avoid collision") (SDD-976; advances ledger

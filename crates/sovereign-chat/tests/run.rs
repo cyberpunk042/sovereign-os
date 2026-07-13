@@ -79,6 +79,26 @@ fn rag_mode_grounds_a_known_query() {
 }
 
 #[test]
+fn rerank_pipeline_grounds_a_known_query() {
+    // `--rerank` runs the fuller retrieval pipeline (rerank → dedup → diversify)
+    // and still grounds a corpus query — the decorator chain executes.
+    let out = Command::new(env!("CARGO_BIN_EXE_sovereign-chat"))
+        .args(["--rerank", "what is sovereignty"])
+        .output()
+        .expect("run sovereign-chat --rerank");
+    assert!(out.status.success(), "exit: {:?}", out.status);
+    let s = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        s.contains("rerank → dedup → diversify"),
+        "not the rerank pipeline:\n{s}"
+    );
+    assert!(
+        s.contains("grounded: true"),
+        "the rerank pipeline did not ground the corpus query:\n{s}"
+    );
+}
+
+#[test]
 fn rag_mode_leaves_an_unmatched_query_ungrounded() {
     // A query with no overlap with the corpus retrieves nothing → ungrounded,
     // proving the grounding signal reflects real retrieval, not a constant.
