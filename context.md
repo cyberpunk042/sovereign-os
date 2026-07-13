@@ -27,8 +27,8 @@ Full doctrine: `docs/standing-directives/two-ultimate-solutions.md`.
 | metric | count | source of truth |
 |---|---:|---|
 | workspace crates | 717 | `crates/*/` |
-| dashboards (d-nn) | 26 | `webapp/d-*/` |
-| cockpit panels (total) | 56 | `webapp/*/index.html` |
+| dashboards (d-nn) | 27 | `webapp/d-*/` |
+| cockpit panels (total) | 57 | `webapp/*/index.html` |
 | sdd files | 175 | `docs/sdd/<NNN>-*.md` |
 | milestone files | 85 | `backlog/milestones/*.md` |
 

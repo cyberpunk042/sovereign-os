@@ -3,10 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>sovereign-os edge-firewall</title>
-<meta name="x-sovereign-module" content="edge-firewall-webapp">
-<meta name="x-sovereign-shipped-in" content="R506 (E11.M9++)">
+<title>sovereign-os D-27 guardian daemon</title>
+<meta name="x-sovereign-module" content="d-27-guardian-webapp">
+<meta name="x-sovereign-shipped-in" content="R-impl-SDD040-phaseE-item2">
 <meta name="x-sovereign-standing-rule" content="We do not minimize anything.">
+<meta name="x-sovereign-catalog-source" content="selfdef IPS Guardian Daemon (sain-01 §10 guardian-core) — recent kill/audit verdicts + 3-step SIGKILL/audit/console response rendered by sovereign-cockpit-guardian-panel; selfdef owns the verdict ring + Tetragon socket, cockpit renders only">
 <!-- M060 R10137/R10140/R10141 personalization apply-snippet — same
      ~20 lines that ship in master-dashboard's <head>; reads prefs
      from localStorage and applies them pre-paint so the operator's
@@ -363,12 +364,10 @@ a11y; contract test catches drift.
 
 
 <style>
-  /* Operator-§1g UX: readable in 30 seconds, monochrome palette,
-     no JS framework, no CDN, no fonts fetched from elsewhere —
-     sovereignty-clean single-file webapp. */
   :root {
     --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --accent:#9bd1ff;
     --good:#7ad17a; --bad:#ff7676; --warn:#e6c062;
+    --p-powerful:#9bd1ff; --p-disciplined:#7ad17a; --p-reversible:#e6c062; --p-flexible:#c4a8e0; --p-sovereign:#f4a460;
     --panel:#171717; --border:#262626;
     --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   }
@@ -384,24 +383,40 @@ a11y; contract test catches drift.
   th{color:var(--muted);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
   tr:last-child td{border-bottom:none}
   .ok{color:var(--good)} .bad{color:var(--bad)} .warn{color:var(--warn)} .muted{color:var(--muted)}
-  .pill{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.72rem;background:var(--border)}
-  .pill.ok{background:#143d14;color:var(--good)}
-  .pill.warn{background:#3d3014;color:var(--warn)}
-  .pill.bad{background:#3d1414;color:var(--bad)}
-  .row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center}
-  .stat{flex:1 1 180px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.7rem .9rem}
-  .stat .k{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em}
-  .stat .v{font-size:1.4rem;margin-top:.15rem}
-  button,select{font-family:var(--mono);background:var(--panel);color:var(--fg);border:1px solid var(--border);padding:.35rem .7rem;border-radius:3px;cursor:pointer}
+  .num{font-variant-numeric:tabular-nums;text-align:right}
+  .row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:stretch}
+  .pill{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.72rem;background:var(--border);font-weight:500}
+  .pill.ok{background:#143d14;color:var(--good)} .pill.bad{background:#3d1414;color:var(--bad)} .pill.warn{background:#3d2f14;color:var(--warn)}
+  .pill.accent{background:#143d3d;color:var(--accent)}
+  .property-card{flex:1 1 200px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.8rem 1rem;border-left:4px solid currentColor;position:relative}
+  .property-card.powerful{color:var(--p-powerful)} .property-card.disciplined{color:var(--p-disciplined)}
+  .property-card.reversible{color:var(--p-reversible)} .property-card.flexible{color:var(--p-flexible)}
+  .property-card.sovereign{color:var(--p-sovereign)}
+  .property-card .nm{font-size:.95rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+  .property-card .quote{color:var(--muted);font-size:.78rem;font-style:italic;margin:.3rem 0;border-left:2px solid var(--border);padding-left:.5rem}
+  .property-card .status{font-size:1.6rem;font-weight:700;color:var(--fg);margin-top:.3rem}
+  .property-card .backed{color:var(--muted);font-size:.7rem;margin-top:.4rem;line-height:1.3}
+  .property-card.healthy .status{color:var(--good)}
+  .property-card.degraded .status{color:var(--warn)}
+  .property-card.failing .status{color:var(--bad)}
+  .property-card .check-list{margin-top:.4rem;padding-top:.4rem;border-top:1px solid var(--border)}
+  .check-row{font-size:.74rem;color:var(--muted);display:flex;gap:.3rem;align-items:center;padding:.1rem 0}
+  .check-row.ok::before{content:"✓";color:var(--good);width:1ch}
+  .check-row.warn::before{content:"!";color:var(--warn);width:1ch}
+  .check-row.bad::before{content:"✗";color:var(--bad);width:1ch}
+  .validator-output{background:#0a0a0a;border:1px solid var(--border);border-radius:3px;padding:.6rem .8rem;font-family:var(--mono);font-size:.78rem;white-space:pre;color:var(--fg);max-height:280px;overflow-y:auto}
+  .validator-line.ok{color:var(--good)} .validator-line.bad{color:var(--bad)} .validator-line.warn{color:var(--warn)} .validator-line.muted{color:var(--muted)}
+  button{background:var(--panel);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:.35rem .8rem;font-family:inherit;font-size:.85rem;cursor:pointer}
   button:hover{border-color:var(--accent)}
-  footer{margin-top:2rem;color:var(--muted);font-size:.75rem;border-top:1px solid var(--border);padding-top:.8rem}
-  footer a{color:var(--accent)}
-  .standing-rule{color:var(--accent);font-style:italic;margin-top:.4rem}
-  .candidate-row{display:flex;gap:.5rem;align-items:center;padding:.25rem 0}
-  .level-badge{display:inline-block;min-width:1.5rem;text-align:center;background:var(--border);border-radius:3px;padding:1px 6px;font-size:.72rem;color:var(--accent)}
-  code{color:var(--accent)}
-  pre{background:#0a0a0a;border:1px solid var(--border);border-radius:3px;padding:.6rem .8rem;overflow-x:auto;font-size:.78rem;margin:.4rem 0}
-  .disclaimer{background:#2a1010;border:1px solid #5a2020;color:var(--warn);padding:.7rem .9rem;border-radius:4px;margin:.6rem 0;font-size:.82rem}
+  .verdict-banner{padding:1rem 1.2rem;border-radius:4px;font-size:1.1rem;font-weight:600;text-align:center;margin:.5rem 0;border:2px solid currentColor}
+  .verdict-banner.healthy{color:var(--good);background:rgba(122,209,122,.07)}
+  .verdict-banner.degraded{color:var(--warn);background:rgba(230,192,98,.07)}
+  .verdict-banner.failing{color:var(--bad);background:rgba(255,118,118,.07)}
+  .footer{margin-top:2rem;padding-top:1rem;border-top:1px solid var(--border);color:var(--muted);font-size:.78rem}
+  a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+  code{color:var(--accent);background:#0a0a0a;padding:0 3px;border-radius:2px;font-size:.82rem}
+  .toast{position:fixed;bottom:1rem;right:1rem;background:var(--panel);border:1px solid var(--accent);color:var(--fg);padding:.5rem .9rem;border-radius:4px;font-size:.78rem;opacity:0;transition:opacity .2s ease;pointer-events:none}
+  .toast.show{opacity:1}
 </style>
 <!-- SDD-116/119 shared demo-mode helper (inlined verbatim from webapp/_shared/demo-mode.{css,js}; opt-in, always-badged sample data — SB-077 reconciliation). -->
 <style>
@@ -1212,58 +1227,156 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
 </script>
 <!-- APP-SHELL:END M067 -->
 
-<h1>sovereign-os edge-firewall</h1>
-<p class="sub">
-  Operator-§1g 4-class enforcement-candidate ladder — workstation-side firewall state + recommendations.
-  Read-only mirror of <code>sovereign-osctl edge-firewall &lt;verb&gt;</code>.
-  Mutation verb <code>install</code> and interactive <code>wizard</code> stay CLI-only (operator §17 sovereignty boundary).
-</p>
 
-<div class="row" id="stats">
-  <div class="stat"><div class="k">candidates</div><div class="v" id="stat-candidates">—</div></div>
-  <div class="stat"><div class="k">local tier</div><div class="v" id="stat-local">—</div></div>
-  <div class="stat"><div class="k">upstream tier</div><div class="v" id="stat-upstream">—</div></div>
-  <div class="stat"><div class="k">recommendations</div><div class="v muted" id="stat-recs">—</div></div>
-  <div class="stat"><div class="k">api version</div><div class="v muted" id="stat-version">—</div></div>
+
+
+<h1>D-27 — guardian daemon</h1>
+<div class="sub">the selfdef IPS Guardian Daemon (sain-01 §10 guardian-core) — its recent kill/audit verdicts + the 3-step SIGKILL/audit/console response, rendered by <code>sovereign-cockpit-guardian-panel</code> in-browser (wasm) · selfdef owns the verdict ring + the Tetragon socket; the cockpit only renders it — <a href="../master-dashboard/">D-00 main</a></div>
+
+<!-- Data-source status banner -->
+<div id="datasource-banner" class="ds-banner unknown" role="status" aria-live="polite">
+  <span class="dot"></span>
+  <strong id="ds-state-label">data source: ?</strong>
+  <span id="ds-state-detail" class="muted">checking <code>/api/d-27/snapshot</code>…</span>
+  <span class="spacer"></span>
+  <span class="muted" id="ds-last-update">last fetch: —</span>
 </div>
+<style>
+  .ds-banner { display:flex; align-items:center; gap:.6rem; padding:.55rem .85rem;
+    border:1px solid var(--border, #2a2a2a); border-radius:.4rem; margin:.55rem 0 1rem;
+    font-size:.85rem; background:rgba(255,255,255,.02); }
+  .ds-banner .dot { width:.6rem; height:.6rem; border-radius:50%; background:var(--muted,#888); flex:none; }
+  .ds-banner.online  { border-color:#1f7a3a; background:rgba(31,122,58,.10); }
+  .ds-banner.online  .dot { background:#2ecc71; }
+  .ds-banner.offline { border-color:#7a1f1f; background:rgba(122,31,31,.10); }
+  .ds-banner.offline .dot { background:#e74c3c; }
+  .ds-banner .spacer { flex:1; }
+  .gp-agg { display:inline-flex; align-items:center; gap:.5rem; padding:.4rem .8rem; border-radius:.4rem;
+    font-weight:600; letter-spacing:.02em; border:1px solid var(--border,#2a2a2a); }
+  .gp-agg.green  { color:#2ecc71; border-color:#1f7a3a; background:rgba(31,122,58,.10); }
+  .gp-agg.yellow { color:#e0a800; border-color:#7a5c1f; background:rgba(122,92,31,.10); }
+  .gp-agg.red    { color:#e74c3c; border-color:#7a1f1f; background:rgba(122,31,31,.10); }
+  .gp-agg.gray   { color:var(--muted,#888); }
+  table.gp-rows { width:100%; border-collapse:collapse; font-size:.86rem; margin-top:.4rem; }
+  table.gp-rows th, table.gp-rows td { text-align:left; padding:.45rem .6rem; border-bottom:1px solid var(--border,#222); }
+  table.gp-rows th { color:var(--muted,#888); font-weight:600; font-size:.74rem; text-transform:uppercase; letter-spacing:.04em; }
+  table.gp-rows tr.agg td { font-weight:600; background:rgba(255,255,255,.02); }
+  .gp-badge { font-weight:700; font-size:.72rem; padding:.1rem .45rem; border-radius:.3rem; }
+  .gp-badge.green  { color:#2ecc71; background:rgba(31,122,58,.14); }
+  .gp-badge.yellow { color:#e0a800; background:rgba(122,92,31,.14); }
+  .gp-badge.red    { color:#e74c3c; background:rgba(122,31,31,.14); }
+  .gp-badge.gray   { color:var(--muted,#888); background:rgba(255,255,255,.04); }
+</style>
 
-<h2>local + upstream state</h2>
-<div class="panel" id="state-panel">
-  <div id="state-body" class="muted">loading…</div>
-</div>
+<h2>overall verdict</h2>
+<div><span class="gp-agg gray" id="g-aggregate">guardian: —</span></div>
 
-<h2>enforcement-candidate ladder (§1g 4-class)</h2>
-<div class="panel" id="ladder-panel">
-  <div id="ladder-body" class="muted">loading…</div>
-</div>
-
-<h2>recommendations for current state</h2>
+<h2>recent guardian verdicts (crate-rendered · aggregate + newest-first)</h2>
 <div class="panel">
-  <table>
-    <thead>
-      <tr><th>id</th><th>label</th><th>perf cost</th><th>rationale</th></tr>
-    </thead>
-    <tbody id="recs-tbody"><tr><td colspan="4" class="muted">loading…</td></tr></tbody>
+  <table class="gp-rows">
+    <thead><tr><th>what</th><th>status</th><th>detail</th><th>runbook</th></tr></thead>
+    <tbody id="g-rows"><tr><td colspan="4" class="muted">loading…</td></tr></tbody>
   </table>
 </div>
 
-<h2>install plan (read-only preview)</h2>
-<div class="panel">
-  <div class="row">
-    <label class="muted">candidate</label>
-    <select id="plan-select"><option value="">— pick a candidate —</option></select>
-    <button id="plan-btn">render plan</button>
-  </div>
-  <div id="plan-body" class="muted" style="margin-top:.7rem">no plan rendered.</div>
+<div class="footer">
+  D-27 · <a href="../master-dashboard/">D-00 main</a> · <a href="../d-26-friction-audit/">D-26 friction-audit</a> · <a href="../d-20-peace-machine-health/">D-20 peace</a> · <a href="../auditor/">auditor</a><br>
+  source: selfdef IPS Guardian Daemon (sain-01 §10 guardian-core) · rendered by sovereign-cockpit-guardian-panel (wasm) · selfdef owns /var/cache/selfdef/guardian/ring + the Tetragon socket — the cockpit renders, never fabricates
 </div>
 
-<h2>refresh</h2>
-<div class="panel">
-  <div class="row">
-    <button id="refresh-btn">refresh now</button>
-    <span class="muted">auto-refresh every 30s — last refresh <span id="last-refresh">never</span></span>
-  </div>
-</div>
+<div class="toast" id="toast">copied</div>
+
+<script>
+  // globals for inline onclick + the shared control surface below
+  function jumpToControl(cid) {
+    const s = document.getElementById('control-surface');
+    const c = s && s.querySelector('[data-cid="' + cid + '"]');
+    (c || s || document.body).scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (c) { c.style.outline = '2px solid var(--accent,#9bd1ff)'; setTimeout(() => { c.style.outline = ''; }, 1600); }
+  }
+  function emit(cmd) {
+    navigator.clipboard.writeText(cmd).then(() => showToast('copied: ' + cmd.slice(0, 60) + (cmd.length > 60 ? '…' : '')));
+  }
+  function showToast(msg) {
+    const t = document.getElementById('toast'); if (!t) return;
+    t.textContent = msg; t.classList.add('show');
+    clearTimeout(showToast._h); showToast._h = setTimeout(() => t.classList.remove('show'), 1800);
+  }
+  window.addEventListener('keydown', e => {
+    if ((e.metaKey || e.ctrlKey) && e.key === '0') { e.preventDefault(); window.location.href = '../master-dashboard/'; }
+  });
+</script>
+
+<script type="module">
+  // The verdict table is rendered by the REAL sovereign-cockpit-guardian-panel crate in wasm
+  // (F-2026-001): fetch the Panel snapshot, hand it to guardian_panel_render(), draw its
+  // RenderRow[] (an aggregate row + one row per recent kill/audit verdict). Read-only + honest —
+  // no verdicts renders just the aggregate row (Gray/Yellow), never a fabricated kill.
+  import { bridge } from '/_shared/cockpit-runtime.js';
+  const esc = s => String(s == null ? '' : s).replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
+  let seed = { schema_version: '1.0.0', now_ms: 0, socket_present: false, recent_verdicts: [] };
+
+  const DEMO = (() => {
+    const now = 1789000000000;
+    return {
+      schema_version: '1.0.0', now_ms: now, socket_present: true,
+      recent_verdicts: [
+        { event_id: 'demo/ev1', action: 'sigkill', target_pid: 4242, target_cgroup: '/demo', target_container_id: 'demo/ctr', target_binary_path: '/usr/bin/demo-evil', ts_ms: now - 60000, hostname: 'demo/sain-01',
+          response_steps: [{ step: 'sigkill', outcome: { outcome: 'ok' } }, { step: 'audit-append', outcome: { outcome: 'ok' } }, { step: 'console-alert', outcome: { outcome: 'ok' } }] },
+        { event_id: 'demo/ev2', action: 'process-related', target_pid: 88, target_cgroup: '/demo', target_container_id: '', target_binary_path: '/bin/demo-curl', ts_ms: now - 180000, hostname: 'demo/sain-01', response_steps: [] },
+      ],
+    };
+  })();
+  function demoActive() { return !!(window.soDemo && window.soDemo.on()); }
+
+  async function renderViaCrate() {
+    const rowsEl = document.getElementById('g-rows'), aggEl = document.getElementById('g-aggregate');
+    const m = await bridge();
+    if (!m || typeof m.guardian_panel_render !== 'function') {
+      rowsEl.innerHTML = '<tr><td colspan="4" class="muted">crate bridge unavailable — run <code>make cockpit-wasm</code></td></tr>'; return;
+    }
+    let rows = [], agg = 'gray';
+    try {
+      const r = JSON.parse(m.guardian_panel_render(JSON.stringify(seed))); if (r.ok) rows = r.value || [];
+      const a = JSON.parse(m.guardian_panel_aggregate(JSON.stringify(seed))); if (a.ok) agg = a.value || 'gray';
+    } catch (_) {}
+    aggEl.className = 'gp-agg ' + agg;
+    aggEl.textContent = 'guardian: ' + agg.toUpperCase();
+    rowsEl.innerHTML = rows.map(row =>
+      `<tr class="${row.kind === 'aggregate' ? 'agg' : ''}"><td>${esc(row.label)}</td>`
+      + `<td><span class="gp-badge ${esc(row.color)}">${esc(row.badge)}</span></td>`
+      + `<td class="muted">${esc(row.detail)}</td>`
+      + `<td>${row.runbook_route ? `<a href="${esc(row.runbook_route)}">runbook</a>` : '<span class="muted">—</span>'}</td></tr>`
+    ).join('') || '<tr><td colspan="4" class="muted">no verdicts</td></tr>';
+  }
+  function dsBanner(ok, errMsg) {
+    const b = document.getElementById('datasource-banner'); if (!b) return;
+    b.classList.remove('online', 'offline', 'unknown'); b.classList.add(ok ? 'online' : 'offline');
+    document.getElementById('ds-state-label').textContent = ok ? 'data source: online' : 'data source: unreachable';
+    document.getElementById('ds-state-detail').innerHTML = ok
+      ? 'consuming <code>/api/d-27/snapshot</code> from the guardian API daemon'
+      : 'cannot reach <code>/api/d-27/snapshot</code> — is the guardian API daemon running? ' + (errMsg ? '<span class="muted">(' + esc(errMsg) + ')</span>' : '');
+    document.getElementById('ds-last-update').textContent = 'last fetch: ' + new Date().toLocaleTimeString();
+  }
+  async function load() {
+    if (demoActive()) {
+      seed = DEMO; await renderViaCrate();
+      const b = document.getElementById('datasource-banner'); if (b) { b.classList.remove('online', 'offline'); b.classList.add('unknown'); }
+      document.getElementById('ds-state-label').textContent = 'data source: DEMO — sample data';
+      document.getElementById('ds-state-detail').innerHTML = 'DEMO mode — sample data, not real telemetry (SB-077)';
+      if (window.soDemo) window.soDemo.badge(); return;
+    }
+    let ok = false, errMsg = '';
+    try {
+      const r = await fetch('/api/d-27/snapshot', { credentials: 'same-origin' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      seed = Object.assign({ schema_version: '1.0.0', now_ms: 0, socket_present: false, recent_verdicts: [] }, await r.json()); ok = true;
+    } catch (e) { errMsg = e.message; seed = { schema_version: '1.0.0', now_ms: Date.now(), socket_present: false, recent_verdicts: [] }; }
+    dsBanner(ok, errMsg);
+    await renderViaCrate();
+  }
+  load(); setInterval(load, 30000);
+</script>
 
 
 <!-- SDD-045 Phase C — control surface (INLINED per the single-file doctrine).
@@ -1686,195 +1799,8 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
   global.SovereignControlSurface = { render: render, load: load };
 })(window);
 </script>
-<script>SovereignControlSurface.load(document.getElementById('control-surface'),{filterSlug:'edge-firewall'});</script>
+<script>SovereignControlSurface.load(document.getElementById('control-surface'),{filterSlug:'d-27-guardian'});</script>
 
-<footer>
-  <div>shipped in <code>R506 (E11.M9++)</code> · serves the <code>/webapp/</code> path of the R504 edge-firewall-api daemon (<code>scripts/operator/edge-firewall-api.py</code>) · backing CLI <code>sovereign-osctl edge-firewall</code> · MCP via <code>scripts/interop/mcp-aggregate.py</code> (R505)</div>
-  <div class="standing-rule">"We do not minimize anything." — operator §1g standing rule (sacrosanct)</div>
-</footer>
-
-<script>
-"use strict";
-// Operator-§1g UX rule: no external dependencies, no CDN fetches.
-// Same-origin XHR only — the R504 API daemon serves both this webapp
-// and the JSON endpoints under the same host:port binding.
-
-const ENDPOINTS = ["/version", "/state", "/candidates", "/recommend"];
-
-async function fetchJSON(path) {
-  const res = await fetch(path, {headers: {"Accept": "application/json"}});
-  if (!res.ok) throw new Error(path + " → " + res.status);
-  return await res.json();
-}
-
-function el(id) { return document.getElementById(id); }
-
-function renderStats(version, state, candidates, recommend) {
-  el("stat-candidates").textContent = candidates.count;
-  el("stat-local").textContent = (state.local && state.local.tier) || "unknown";
-  el("stat-upstream").textContent = (state.upstream && state.upstream.tier) || "unknown";
-  el("stat-recs").textContent = recommend.count;
-  el("stat-recs").className = "v " +
-    (recommend.count === 0 ? "ok" : "warn");
-  el("stat-version").textContent = version.version;
-}
-
-function renderState(state) {
-  const body = el("state-body");
-  body.innerHTML = "";
-  body.className = "";
-  const mk = (title, obj) => {
-    const wrap = document.createElement("div");
-    wrap.style.marginBottom = ".6rem";
-    const h = document.createElement("strong");
-    h.textContent = title;
-    wrap.appendChild(h);
-    const pre = document.createElement("pre");
-    pre.textContent = JSON.stringify(obj, null, 2);
-    wrap.appendChild(pre);
-    return wrap;
-  };
-  body.appendChild(mk("local", state.local || {}));
-  body.appendChild(mk("upstream", state.upstream || {}));
-}
-
-function renderLadder(candidates) {
-  const body = el("ladder-body");
-  body.innerHTML = "";
-  body.className = "";
-  const sel = el("plan-select");
-  sel.innerHTML = '<option value="">— pick a candidate —</option>';
-  for (const c of candidates.candidates) {
-    const row = document.createElement("div");
-    row.className = "candidate-row";
-    const id = document.createElement("span");
-    id.className = "level-badge";
-    id.textContent = c.id;
-    row.appendChild(id);
-    const lbl = document.createElement("strong");
-    lbl.textContent = c.label;
-    row.appendChild(lbl);
-    const cost = document.createElement("span");
-    cost.className = "pill " + (c.perf_cost === "low" ? "ok" :
-                                c.perf_cost === "medium" ? "warn" : "bad");
-    cost.textContent = "perf: " + c.perf_cost;
-    row.appendChild(cost);
-    body.appendChild(row);
-
-    const sub = document.createElement("div");
-    sub.className = "muted";
-    sub.style.paddingLeft = "2.5rem";
-    sub.style.fontSize = ".78rem";
-    sub.textContent = "apt: " + (c.apt_packages || []).join(", ") +
-      "  ·  units: " + (c.systemd_units || []).join(", ");
-    body.appendChild(sub);
-
-    const opt = document.createElement("option");
-    opt.value = c.id;
-    opt.textContent = c.id + " — " + c.label;
-    sel.appendChild(opt);
-  }
-}
-
-function renderRecs(recommend) {
-  const tbody = el("recs-tbody");
-  tbody.innerHTML = "";
-  const recs = recommend.recommendations || [];
-  if (recs.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="4" class="ok">no upgrades recommended — current posture covers the upstream tier.</td></tr>';
-    return;
-  }
-  for (const r of recs) {
-    const tr = document.createElement("tr");
-    tr.innerHTML =
-      "<td><code>" + r.id + "</code></td>" +
-      "<td>" + (r.label || "") + "</td>" +
-      "<td>" + (r.perf_cost || "") + "</td>" +
-      "<td class=muted>" + (r.rationale || "") + "</td>";
-    tbody.appendChild(tr);
-  }
-}
-
-async function renderPlan() {
-  const id = el("plan-select").value;
-  const body = el("plan-body");
-  if (!id) {
-    body.className = "muted";
-    body.textContent = "no plan rendered.";
-    return;
-  }
-  body.className = "muted";
-  body.textContent = "loading plan for " + id + "…";
-  try {
-    const plan = await fetchJSON("/install-plan?candidate=" + encodeURIComponent(id));
-    body.className = "";
-    body.innerHTML = "";
-
-    const disc = document.createElement("div");
-    disc.className = "disclaimer";
-    disc.textContent = "operator §17 sovereignty boundary: " +
-      (plan.wire_contract || "actual mutation requires the CLI install verb.");
-    body.appendChild(disc);
-
-    const mk = (title, lines) => {
-      const h = document.createElement("strong");
-      h.textContent = title;
-      body.appendChild(h);
-      const pre = document.createElement("pre");
-      pre.textContent = (lines || []).join("\n");
-      body.appendChild(pre);
-    };
-    mk("install_steps", plan.install_steps);
-    mk("rollback_steps", plan.rollback_steps);
-
-    const na = document.createElement("p");
-    na.innerHTML = "<strong>next action:</strong> <code>" +
-      (plan.next_action || "") + "</code>";
-    body.appendChild(na);
-  } catch (e) {
-    body.className = "bad";
-    body.textContent = "error: " + e.message;
-  }
-}
-
-
-const DEMO_EDGE_FIREWALL = {
-  version:{version:'demo-1.4.0'},
-  state:{ local:{tier:'demo/hardened', nftables:true, fail2ban:true, ssh_hardened:true}, upstream:{tier:'demo/opnsense', model:'OPNsense 24.7', vpn:'wireguard'} },
-  candidates:{ count:3, candidates:[
-    {id:'demo-c1', label:'Suricata IDS', perf_cost:'medium', apt_packages:['suricata'], systemd_units:['suricata.service']},
-    {id:'demo-c2', label:'CrowdSec', perf_cost:'low', apt_packages:['crowdsec'], systemd_units:['crowdsec.service']},
-    {id:'demo-c3', label:'Zeek monitor', perf_cost:'high', apt_packages:['zeek'], systemd_units:['zeek.service']} ]},
-  recommend:{ count:1, recommendations:[ {id:'demo-c2', label:'CrowdSec', perf_cost:'low', rationale:'demo/ low overhead, community blocklists'} ]}
-};
-function demoActive() { return !!(window.soDemo && window.soDemo.on()); }
-async function refresh() {
-  try {
-    if (demoActive()) {
-      const {version,state,candidates,recommend} = DEMO_EDGE_FIREWALL;
-      renderStats(version,state,candidates,recommend); renderState(state);
-      renderLadder(candidates); renderRecs(recommend);
-      el("last-refresh").textContent = new Date().toLocaleTimeString();
-      if (window.soDemo) window.soDemo.badge(); return;
-    }
-    const [version, state, candidates, recommend] = await Promise.all(
-      ENDPOINTS.map(fetchJSON)
-    );
-    renderStats(version, state, candidates, recommend);
-    renderState(state);
-    renderLadder(candidates);
-    renderRecs(recommend);
-    el("last-refresh").textContent = new Date().toLocaleTimeString();
-  } catch (e) {
-    el("last-refresh").innerHTML = "<span class=bad>error: " + e.message + "</span>";
-  }
-}
-
-document.getElementById("refresh-btn").addEventListener("click", refresh);
-document.getElementById("plan-btn").addEventListener("click", renderPlan);
-refresh();
-setInterval(refresh, 30000);
-</script>
 
 
 
@@ -1882,185 +1808,43 @@ setInterval(refresh, 30000);
 <script>
 window.SO_ASSIST = {
  "context": {
-  "icon": "◫",
-  "title": "Edge Firewall",
-  "content": "The instrument that decides how much the box should firewall itself, given what the edge already does. Defense-in-depth is two lines: the upstream edge (OPNsense) and the box's own local rules. This panel reads both and finds the exposure — a threat that neither the edge nor the box currently stops.\n\nEnforcement candidates are grouped on a 4-class ladder (§1g) from baseline must-haves to situational hardening, and the recommendations turn 'the edge has gaps' into specific rules the box could add. The install plan previews exactly what applying a recommendation would change — read it first, because a firewall rule can cut off access you rely on. Read-only: it recommends and previews; enforcing a rule is a signed act, and the rules themselves live on selfdef (D-12)."
+  "icon": "⛨",
+  "title": "D-27 · Guardian Daemon",
+  "content": "The selfdef IPS Guardian (sain-01 §10 guardian-core) — the circuit-breaker that watches the Tetragon sovereign-kernel-fence and kills what crosses it. When a process trips the fence it runs a three-step response: SIGKILL the offender, append the event to the audit chain, and raise a console alert.\n\nThe verdicts and the socket state are owned by selfdef, written to its guardian ring; this panel only renders them (the sacrosanct cross-repo rule), running the real sovereign-cockpit-guardian-panel crate in your browser to lay out the aggregate + one row per recent verdict. No verdicts renders just the aggregate — never a fabricated kill. Read-only."
  },
  "nodes": [
   {
-   "icon": "▦",
-   "title": "Summary",
-   "content": "The edge-firewall roll-up — enforcement candidates, local + upstream state, recommendations. This panel decides how much firewalling the box should do itself given what the edge already enforces.",
+   "icon": "◆",
+   "title": "Data source",
+   "content": "Whether the verdicts are live from selfdef's guardian ring, or the ring/socket is absent (the aggregate then reports the degraded state honestly).",
    "children": [
     {
-     "selector": "#stats",
-     "title": "Firewall summary",
-     "content": "The roll-up — candidates, local + upstream state, recommendation count, version. Where the box stands on self-enforcement vs edge-enforcement.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The enforcement picture at a glance</div>The roll-up — candidates, local + upstream state, recommendation count. The one-line read of defense-in-depth: what the box enforces, what the perimeter enforces, and what's proposed.</div>"
-    },
-    {
-     "selector": "#stat-candidates",
-     "title": "Candidates",
-     "content": "How many enforcement candidates were identified — rules the box could enforce itself. Each is a defense the edge is not providing that the box could add.",
-     "variants": [
-      {
-       "when": {
-        "textContains": "0"
-       },
-       "content": "No enforcement candidates — the current posture needs no additional local firewalling.",
-       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● 0 candidates</div>The edge covers what is needed — no local enforcement to add right now.</div>"
-      }
-     ],
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Candidates are rules you could enforce</div>Enforcement candidates are protections the box identified it COULD apply but hasn't. They're the gap between the current posture and a hardened one — proposals, not active rules.</div>"
-    },
-    {
-     "selector": "#stat-local",
-     "title": "Local state",
-     "content": "Whether the box's own firewall is active and what it enforces. The box's self-defense line — read it with upstream to see the whole picture.",
-     "variants": [
-      {
-       "when": {
-        "textContains": "inactive"
-       },
-       "content": "Local firewall inactive — the box is relying entirely on the edge.",
-       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ Local off</div>The box is not self-enforcing — all defense is at the edge. If the edge is weak, the box is exposed.</div>"
-      }
-     ],
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Local · the box's own firewall</div>What the box itself enforces (nftables). This is the inner ring of defense-in-depth — even if the perimeter is breached, the box's own rules still apply.<div class=\"so-xref\"><span class=\"x\">→</span> D-12 networking — the local nftables rules</div></div>"
-    },
-    {
-     "selector": "#stat-upstream",
-     "title": "Upstream state",
-     "content": "What the upstream edge (OPNsense) is enforcing. The perimeter line — a strong upstream means the box can enforce less; a weak one means it must enforce more.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Upstream · the OPNsense perimeter</div>What the edge firewall (OPNsense) enforces — the outer ring. Reading local and upstream together is the defense-in-depth picture: two independent layers, so one failing doesn't open the box.</div>"
-    },
-    {
-     "selector": "#stat-recs",
-     "title": "Recommendations",
-     "content": "How many recommendations apply to the current state — the actionable list of what to enforce given the edge's gaps.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Recommendations are the actionable gap</div>How many recommendations apply now — specific rules the current state warrants. Unlike raw candidates, these are contextual: the box thinks these particular protections are worth adding given what it sees.</div>"
-    },
-    {
-     "selector": "#stat-version",
-     "title": "Version",
-     "content": "The edge-firewall analyzer version answering — for reconciling the enforcement recommendations against the current 4-class candidate ladder.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Pins the analyzer</div>The edge-firewall analyzer version — the reference for how candidates and recommendations are computed. A version change can alter the analysis.</div>"
-    },
-    {
-     "selector": "#last-refresh",
-     "title": "Freshness",
-     "content": "When this was last read. The values are only as current as this — refresh before trusting them after any change.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Enforcement state can shift</div>When this was read. A rule change on either layer moves the picture, so an old timestamp means the local/upstream state shown may be stale.</div>"
+     "selector": "#datasource-banner",
+     "content": "Online = consuming /api/d-27/snapshot from the guardian daemon. Unreachable = the daemon is not running; the panel still renders, showing whatever the crate reports.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">selfdef owns the authority</div>selfdef runs the Guardian circuit-breaker and writes its verdict ring at /var/cache/selfdef/guardian/ring; sovereign-os only reads and renders it. If selfdef is not writing on this box, the honest state is an empty verdict list — never an invented kill.</div>"
     }
    ]
   },
   {
-   "icon": "◈",
-   "title": "Local + upstream state",
-   "content": "The two enforcement lines side by side — what the box enforces locally and what the edge enforces upstream. Defense-in-depth is both; a gap in one that the other does not cover is exposure.",
+   "icon": "⛨",
+   "title": "Overall verdict",
+   "content": "The aggregate colour across recent verdicts, computed by the crate: red when a response step failed, yellow when the Tetragon socket is absent, green when all is nominal, gray when nothing has reported.",
    "children": [
     {
-     "selector": "#state-panel",
-     "title": "Enforcement state",
-     "content": "The combined local + upstream enforcement picture. Read it as defense-in-depth: a threat should be stopped at the edge OR the box. Something neither covers is the exposure this panel exists to surface.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Two lines, read together</div>The edge (upstream) and the box (local) are two firewall lines. Ideal is defense-in-depth — both active. A weak edge is tolerable if the box self-enforces; a passive box is tolerable behind a strong edge; neither is the danger.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-12 networking — the actual nftables rules the box enforces<br><span class=\"x\">→</span> network-edge — the OPNsense capabilities behind 'upstream'</div>"
-    },
-    {
-     "selector": "#state-body",
-     "title": "State detail",
-     "content": "The per-line detail behind the summary — exactly what local and upstream each enforce. Read it to find the specific gap, not just that one exists.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Defense in depth, read as two rings</div>The per-line detail behind the summary — exactly what local and upstream each enforce. Read it as concentric rings: perimeter (OPNsense) then host (nftables), each covering what the other might miss.</div>"
+     "selector": "#g-aggregate",
+     "content": "guardian: RED (a response step FAILED) · YELLOW (Tetragon socket absent) · GREEN (nominal) · GRAY (no verdicts yet). This is guardian_panel_aggregate() from the crate — the panel does not compute it."
     }
    ]
   },
   {
-   "icon": "⊞",
-   "title": "Candidate ladder",
-   "content": "The 4-class enforcement-candidate ladder (§1g) — the categories of rule the box could add, ordered by importance. This turns 'the edge has gaps' into a prioritized list of specific defenses.",
+   "icon": "▤",
+   "title": "Recent verdicts",
+   "content": "The aggregate row plus one row per recent kill/audit verdict, newest first, rendered by guardian_panel_render(). Each verdict shows the offending binary, event id, target PID, freshness, and host.",
    "children": [
     {
-     "selector": "#ladder-panel",
-     "title": "Candidate ladder",
-     "content": "The four classes of enforcement candidate. Read it to understand what kinds of defense are being recommended and why — each class is a category of threat the box could close locally.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Four classes of self-enforcement</div>The ladder groups candidate rules by class (§1g 4-class) — from must-have baseline protections to situational hardening. A candidate's class tells you how urgent adding it is, independent of the edge.</div>"
-    },
-    {
-     "selector": "#ladder-body",
-     "title": "Class rows",
-     "content": "Each row: one enforcement class and what it covers. Read a class to see the category of defense — this is the taxonomy the recommendations are drawn from.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Four classes of protection</div>Each row is one enforcement class and what it covers. Reading a class tells you what kind of threat that tier of rule addresses — the taxonomy behind the candidates.</div>"
-    }
-   ]
-  },
-  {
-   "icon": "◫",
-   "title": "Recommendations",
-   "content": "The specific enforcement recommendations for the current state — what to add given what the edge does not cover. Each is a concrete rule the box could enforce, not a vague 'harden the firewall'.",
-   "children": [
-    {
-     "selector": "#recs-tbody",
-     "title": "Recommendation rows",
-     "content": "Each row: a specific recommended rule and why the current state calls for it. Read the reason — a recommendation exists because the edge is not covering that threat and the box could.",
-     "dynamic": true,
-     "childTemplate": {
-      "selector": "#recs-tbody > tr",
-      "nameSelector": "td:first-child,td",
-      "title": "Rec · {{name}}",
-      "content": "Recommendation {{name}} — a specific rule the current state warrants, and why. Preview its install plan before applying; rules are signed via the CLI, never enforced from the web.",
-      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Rec · {{name}}</div>One recommended firewall rule. The 'why' ties it to the current state; preview the plan before signing it in.</div>"
-     },
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The recommended-rules worklist</div>Every applicable recommendation at once — specific rules the current state warrants, each with its rationale. Preview a plan before applying; rules are signed via the CLI.</div>"
-    }
-   ]
-  },
-  {
-   "icon": "⇄",
-   "title": "Install plan",
-   "content": "A read-only preview of what applying a recommendation would do — the plan before the act. Selecting a recommendation shows its plan; applying it is a signed CLI act, never a web click.",
-   "children": [
-    {
-     "selector": "#plan-select",
-     "title": "Plan target",
-     "content": "Pick which recommendation to preview. Selecting it renders the install plan below — read-only; nothing is enforced until you run the signed command.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Preview before you enforce</div>Pick a recommendation to render its install plan. Nothing changes on selection — it stages the diff so you see exactly what a rule would do before it's ever applied.</div>"
-    },
-    {
-     "selector": "#plan-btn",
-     "title": "Preview plan",
-     "content": "Renders the read-only install plan for the selected recommendation. It previews only — it copies the plan; the rule is enforced when you run the signed verb, not when you click here.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Renders intent, doesn't enforce</div>Builds the read-only install plan for the selected recommendation. It's a preview action — it computes what the rule would do; enforcing it is a separate, signed CLI step.</div>"
-    },
-    {
-     "selector": "#plan-body",
-     "title": "Plan preview",
-     "content": "The read-only plan for the selected recommendation — exactly what applying it would change. Read it before signing: a firewall rule can cut off access you rely on, so preview first.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The plan is read-only intent</div>The exact rule a recommendation would install — shown, not run. Applying it is a signed CLI verb; this is the 'here's what would happen' you review first, per the copy-command boundary.<div class=\"so-xref\"><span class=\"x\">→</span> §1g R10212 — copy-command, not execute</div></div>"
-    }
-   ]
-  },
-  {
-   "icon": "⟳",
-   "title": "Refresh",
-   "content": "Re-poll on demand — a read-only re-sample.",
-   "children": [
-    {
-     "selector": "#refresh-btn",
-     "title": "Refresh",
-     "content": "Re-read state now — read-only. It re-samples; it does not change anything.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Re-analyze the edge</div>Re-reads local and upstream state and recomputes recommendations — read-only. It re-samples; it never applies a rule.</div>"
-    }
-   ]
-  },
-  {
-   "icon": "⎈",
-   "title": "Controls",
-   "content": "Read-only view — mutations copy signed sovereign-osctl verbs (§1g / R10212). The web previews; the box changes only when you run the signed command.",
-   "children": [
-    {
-     "selector": "#control-surface",
-     "title": "Controls rail",
-     "content": "The control rail — each button copies its exact sovereign-osctl verb. A firewall enforcement change runs through the signed CLI, never from a web click.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copy-command boundary</div>Each control copies its sovereign-osctl verb (§1g / R10212). The panel analyzes; enforcing a rule is a signed action, previewed first as a read-only plan.</div>"
+     "selector": "#g-rows",
+     "content": "The first row is the aggregate (socket state + verdict count); the rest are individual verdicts. Badge, colour, detail, and runbook route all come straight from the crate's RenderRow — the cockpit only draws them.",
+     "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">The three-step response</div>Each verdict carries the Guardian response: SIGKILL the offender, append to the audit chain, raise a console alert. A failed step turns the aggregate red. The crate decides all of this — the same decision logic selfdef's own tooling uses.<div class=\"so-xref\"><span class=\"x\">→</span> D-16 audit — where the audit-append step lands<br><span class=\"x\">→</span> D-26 friction-audit — the boot-time gate that precedes runtime enforcement</div></div>"
     }
    ]
   }

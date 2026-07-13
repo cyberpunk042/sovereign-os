@@ -56,7 +56,7 @@ ADOPTED_PANELS = [
     "models-catalog", "network-edge", "orchestration", "personalization",
     "profile-generation", "router", "runtime-modes", "selfdef-management",
     "science", "surface-map", "trinity", "ups", "ux-design-audit", "weaver",
-    "feature-test-lab", "d-26-friction-audit",
+    "feature-test-lab", "d-26-friction-audit", "d-27-guardian",
 ]
 
 _BLOCK_RE = re.compile(re.escape(BEGIN) + r".*?" + re.escape(END), re.DOTALL)

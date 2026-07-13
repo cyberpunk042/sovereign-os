@@ -389,6 +389,13 @@
       "apiPrefix": "/api/d-26",
       "rowSelector": "#fa-rows *",
       "sdd": "F-2026-001"
+    },
+    {
+      "slug": "d-27-guardian",
+      "demoConst": "DEMO",
+      "apiPrefix": "/api/d-27",
+      "rowSelector": "#g-rows *",
+      "sdd": "F-2026-001"
     }
   ]
 }
