@@ -216,27 +216,75 @@ async function enhanceDocCoverage(root) {
   (root.body || document.body).appendChild(s);
 }
 
-// d-06-pending-approvals: roll up the live approvals by severity with the REAL
-// sovereign-cockpit-alert-group crate (replacing the panel's hand-rolled sort).
-const SEV = { critical: 'critical', high: 'error', medium: 'warning', low: 'info' };
-async function enhanceApprovals(root) {
-  if (root.querySelector('[data-cockpit-crates="appr"]')) return;
-  let data; try { data = await (await fetch('/api/approvals/pending', { cache: 'no-store' })).json(); } catch (_) { return; }
-  const list = Array.isArray(data) ? data : (data.approvals || data.pending || []);
-  if (!list.length) return;
-  const events = list.map(a => ({
-    tag: a.kind || a.type || a.severity || 'approval',
-    severity: SEV[a.severity] || 'info',
-    ts_ms: Date.parse(a.ts || a.created_at || a.created || '') || 0,
-  }));
-  const r = await bcall('alert_group_rollup', JSON.stringify(events));
-  if (!r || !r.ok) return;
-  const s = section('Pending approvals rolled up — sovereign-cockpit-alert-group (wasm)');
-  s.setAttribute('data-cockpit-crates', 'appr');
-  s.appendChild(el('div', '', `${r.total} pending across ${r.groups.length} group(s) — grouped + severity-ordered by the crate, not the panel's JS:`));
-  for (const g of r.groups) s.appendChild(el('div', 'color:var(--muted,#888)', `   ${g.tag}: ${g.count} · worst ${g.max_severity}`));
-  (root.body || document.body).appendChild(s);
+// A rollup section: group a panel's live rows by tag, keeping the WORST severity
+// per group, via the REAL sovereign-cockpit-alert-group crate. Additive + graceful.
+function alertRollupEnhancer({ endpoint, pick, tag, severity, ts, sevMap, title, marker, unit = 'rows' }) {
+  return async function (root) {
+    if (root.querySelector(`[data-cockpit-crates="${marker}"]`)) return;
+    let data; try { data = await (await fetch(endpoint, { cache: 'no-store' })).json(); } catch (_) { return; }
+    const list = pick(data); if (!Array.isArray(list) || !list.length) return;
+    const map = sevMap || (x => x);
+    const events = list.map(it => ({ tag: String(tag(it) || '—'), severity: map(severity(it)) || 'info', ts_ms: Date.parse(ts ? ts(it) : '') || 0 }));
+    const r = await bcall('alert_group_rollup', JSON.stringify(events));
+    if (!r || !r.ok) return;
+    const s = section(title); s.setAttribute('data-cockpit-crates', marker);
+    s.appendChild(el('div', '', `${r.total} ${unit} across ${r.groups.length} group(s) — worst severity per group, computed by the crate:`));
+    for (const g of r.groups) s.appendChild(el('div', 'color:var(--muted,#888)', `   ${g.tag}: ${g.count} · worst ${g.max_severity}`));
+    (root.body || document.body).appendChild(s);
+  };
 }
+
+// An inheritance/hierarchy outline: flatten a panel's parent/child rows to visible
+// DFS order via the REAL sovereign-cockpit-tree-view crate. Roots = missing/unknown parent.
+function treeOutlineEnhancer({ endpoint, pick, id, parent, label, title, marker }) {
+  return async function (root) {
+    if (root.querySelector(`[data-cockpit-crates="${marker}"]`)) return;
+    let data; try { data = await (await fetch(endpoint, { cache: 'no-store' })).json(); } catch (_) { return; }
+    const rows = pick(data); if (!Array.isArray(rows) || !rows.length) return;
+    const ids = new Set(rows.map(it => String(id(it))));
+    const nodes = rows.map(it => {
+      const p = parent(it); const ps = p != null ? String(p) : null;
+      return { id: String(id(it)), label: String(label ? label(it) : id(it)), parent_id: ps && ids.has(ps) ? ps : null, expanded: true };
+    });
+    const r = await bcall('tree_view_visible', JSON.stringify({ schema_version: '1.0.0', nodes, selected: null }));
+    if (!Array.isArray(r) || !r.length) return;
+    const s = section(title); s.setAttribute('data-cockpit-crates', marker);
+    s.appendChild(el('div', 'color:var(--muted,#888);font-size:.8rem;margin-bottom:.3rem', `${r.length} nodes flattened to visible order by the crate:`));
+    for (const n of r) s.appendChild(el('div', '', `${'· '.repeat(n.depth)}${n.id}${n.has_children ? ' ▾' : ''}`));
+    (root.body || document.body).appendChild(s);
+  };
+}
+
+// A mean-progress aggregate over a panel's rows via the REAL sovereign-cockpit-progress-tracker crate.
+function progressAggEnhancer({ endpoint, pick, progress, title, marker, unit = 'items' }) {
+  return async function (root) {
+    if (root.querySelector(`[data-cockpit-crates="${marker}"]`)) return;
+    let data; try { data = await (await fetch(endpoint, { cache: 'no-store' })).json(); } catch (_) { return; }
+    const rows = pick(data); if (!Array.isArray(rows) || !rows.length) return;
+    const tasks = rows.map((it, i) => ({ id: 't' + i, label: 't' + i, kind: 'determinate', progress: Math.max(0, Math.min(100, Math.round(progress(it) || 0))), eta_seconds: 0, started_at: '2026-01-01T00:00:00Z' }));
+    const r = await bcall('progress_summary', JSON.stringify(tasks));
+    if (!r || !r.ok) return;
+    const s = section(title); s.setAttribute('data-cockpit-crates', marker);
+    s.appendChild(el('div', '', `crate-computed mean progress: ${r.average}% across ${r.tasks.length} ${unit}`));
+    (root.body || document.body).appendChild(s);
+  };
+}
+
+// Run several enhancers on one panel; each guards its own marker, so all are idempotent.
+const compose = (...fns) => async (root) => { for (const f of fns) { try { await f(root); } catch (_) {} } };
+
+// d-06-pending-approvals: roll up the live approvals by severity with the REAL alert-group crate.
+const SEV = { critical: 'critical', high: 'error', medium: 'warning', low: 'info' };
+const enhanceApprovals = alertRollupEnhancer({
+  endpoint: '/api/approvals/pending',
+  pick: d => Array.isArray(d) ? d : (d.approvals || d.pending || []),
+  tag: a => a.kind || a.type || a.severity || 'approval',
+  severity: a => a.severity, sevMap: x => SEV[x] || 'info',
+  ts: a => a.ts || a.created_at || a.created,
+  title: 'Pending approvals rolled up — sovereign-cockpit-alert-group (wasm)', marker: 'appr', unit: 'pending',
+});
+// Quarantine severity tokens -> the alert-group crate's info/warning/error/critical.
+const SEV17 = { critical: 'critical', major: 'error', minor: 'warning', informational: 'info' };
 
 // Generic facet rollup: fetch a panel's live rows, count its categorical fields,
 // and run the REAL sovereign-cockpit-facet-counts crate to pick the top buckets —
@@ -294,29 +342,93 @@ const ENHANCERS = {
     facets: { tier: a => a.tier, state: a => a.state, isolation: a => a.isolation, profile: a => a.profile },
     title: 'Sandbox allocations faceted — sovereign-cockpit-facet-counts (wasm)', marker: 'd15',
   }),
-  // Capability tokens grouped by trust ring / authority level / state / sandbox tier.
-  'd-14-capability-tokens-webapp': facetEnhancer({
-    endpoint: '/api/d-14/snapshot', pick: d => d.tokens || [],
-    facets: { ring: t => t.trust_ring, authority: t => t.authority_level, state: t => t.state, tier: t => t.sandbox_tier },
-    title: 'Capability tokens faceted — sovereign-cockpit-facet-counts (wasm)', marker: 'd14',
+  // Capability tokens: faceted + the crate-flattened token inheritance tree (parent_token_id).
+  'd-14-capability-tokens-webapp': compose(
+    facetEnhancer({
+      endpoint: '/api/d-14/snapshot', pick: d => d.tokens || [],
+      facets: { ring: t => t.trust_ring, authority: t => t.authority_level, state: t => t.state, tier: t => t.sandbox_tier },
+      title: 'Capability tokens faceted — sovereign-cockpit-facet-counts (wasm)', marker: 'd14',
+    }),
+    treeOutlineEnhancer({
+      endpoint: '/api/d-14/snapshot', pick: d => d.tokens || [],
+      id: t => t.token_id, parent: t => t.parent_token_id,
+      title: 'Token inheritance outline — sovereign-cockpit-tree-view (wasm)', marker: 'd14tv',
+    }),
+  ),
+  // Quarantine: faceted + per-tool worst-severity rollup (alert-group).
+  'd-17-quarantine-webapp': compose(
+    facetEnhancer({
+      endpoint: '/api/d-17/snapshot', pick: d => d.entries || [],
+      facets: { severity: e => e.max_severity, state: e => e.state, tool: e => e.tool },
+      title: 'Quarantine entries faceted — sovereign-cockpit-facet-counts (wasm)', marker: 'd17',
+    }),
+    alertRollupEnhancer({
+      endpoint: '/api/d-17/snapshot', pick: d => d.entries || [],
+      tag: e => e.tool, severity: e => e.max_severity, sevMap: x => SEV17[x] || 'info', ts: e => e.blocked_at,
+      title: 'Quarantine by tool — sovereign-cockpit-alert-group (wasm)', marker: 'd17ag', unit: 'entries',
+    }),
+  ),
+  // Active sessions: faceted + mean lifecycle progress (step 1..12 -> progress-tracker).
+  'd-01-active-sessions-webapp': compose(
+    facetEnhancer({
+      endpoint: '/api/sessions/active', pick: d => d.sessions || [],
+      facets: { kind: s => s.kind, profile: s => s.profile, state: s => s.state },
+      title: 'Active sessions faceted — sovereign-cockpit-facet-counts (wasm)', marker: 'd01',
+    }),
+    progressAggEnhancer({
+      endpoint: '/api/sessions/active', pick: d => d.sessions || [],
+      progress: s => (s.step / 12) * 100,
+      title: 'Session lifecycle progress — sovereign-cockpit-progress-tracker (wasm)', marker: 'd01pg', unit: 'sessions',
+    }),
+  ),
+  // Trust scores: faceted + crate-computed mean score (0..1000 -> progress-tracker).
+  'd-18-trust-scores-webapp': compose(
+    facetEnhancer({
+      endpoint: '/api/d-18/snapshot', pick: d => d.tools || [],
+      facets: { band: t => t.band, score: t => t.current_score >= 800 ? 'high (>=800)' : t.current_score >= 500 ? 'mid (500-799)' : 'low (<500)' },
+      title: 'Trust scores faceted — sovereign-cockpit-facet-counts (wasm)', marker: 'd18',
+    }),
+    progressAggEnhancer({
+      endpoint: '/api/d-18/snapshot', pick: d => d.tools || [],
+      progress: t => t.current_score / 10,
+      title: 'Mean trust score — sovereign-cockpit-progress-tracker (wasm)', marker: 'd18pg', unit: 'tools',
+    }),
+  ),
+  // Firewall rules grouped by ring / disposition / chain.
+  'd-12-networking-webapp': facetEnhancer({
+    endpoint: '/api/d-12/snapshot', pick: d => d.rules || [],
+    facets: { ring: r => r.ring, disposition: r => r.disposition, chain: r => r.chain },
+    title: 'Firewall rules faceted — sovereign-cockpit-facet-counts (wasm)', marker: 'd12',
   }),
-  // Quarantine entries grouped by severity / state / offending tool.
-  'd-17-quarantine-webapp': facetEnhancer({
-    endpoint: '/api/d-17/snapshot', pick: d => d.entries || [],
-    facets: { severity: e => e.max_severity, state: e => e.state, tool: e => e.tool },
-    title: 'Quarantine entries faceted — sovereign-cockpit-facet-counts (wasm)', marker: 'd17',
+  // Filesystem grants grouped by kind / state / profile.
+  'd-13-filesystem-grants-webapp': facetEnhancer({
+    endpoint: '/api/d-13/snapshot', pick: d => d.grants || [],
+    facets: { kind: g => g.kind, state: g => g.state, profile: g => g.profile },
+    title: 'Filesystem grants faceted — sovereign-cockpit-facet-counts (wasm)', marker: 'd13',
   }),
-  // Active sessions grouped by kind / profile / lifecycle state.
-  'd-01-active-sessions-webapp': facetEnhancer({
-    endpoint: '/api/sessions/active', pick: d => d.sessions || [],
-    facets: { kind: s => s.kind, profile: s => s.profile, state: s => s.state },
-    title: 'Active sessions faceted — sovereign-cockpit-facet-counts (wasm)', marker: 'd01',
+  // Super-model milestones grouped by status / family / tag.
+  'd-19-super-model-manifest-webapp': facetEnhancer({
+    endpoint: '/api/d-19/snapshot', pick: d => d.milestones || [],
+    facets: { status: m => m.status, family: m => m.family, tag: m => m.tag },
+    title: 'Milestones faceted — sovereign-cockpit-facet-counts (wasm)', marker: 'd19',
   }),
-  // Trust scores grouped by band + a derived score bucket.
-  'd-18-trust-scores-webapp': facetEnhancer({
-    endpoint: '/api/d-18/snapshot', pick: d => d.tools || [],
-    facets: { band: t => t.band, score: t => t.current_score >= 800 ? 'high (>=800)' : t.current_score >= 500 ? 'mid (500-799)' : 'low (<500)' },
-    title: 'Trust scores faceted — sovereign-cockpit-facet-counts (wasm)', marker: 'd18',
+  // Peace-machine properties grouped by health status.
+  'd-20-peace-machine-health-webapp': facetEnhancer({
+    endpoint: '/api/d-20/snapshot', pick: d => d.properties || [],
+    facets: { status: p => p.status },
+    title: 'Peace-machine properties faceted — sovereign-cockpit-facet-counts (wasm)', marker: 'd20',
+  }),
+  // Pending memory changes grouped by op / memory-type / scope.
+  'd-07-memory-changes-webapp': facetEnhancer({
+    endpoint: '/api/d-07/snapshot', pick: d => d.pending || [],
+    facets: { op: p => p.op, mtype: p => p.mtype, scope: p => p.scope },
+    title: 'Pending memory changes faceted — sovereign-cockpit-facet-counts (wasm)', marker: 'd07',
+  }),
+  // Eval tasks grouped by intervention class + a derived pass-rate bucket.
+  'd-10-eval-history-webapp': facetEnhancer({
+    endpoint: '/api/evals/summary', pick: d => d.tasks || [],
+    facets: { class: t => t.intervention_class, pass: t => t.pass_pct >= 80 ? 'pass (>=80)' : t.pass_pct >= 50 ? 'mid (50-79)' : 'low (<50)' },
+    title: 'Eval tasks faceted — sovereign-cockpit-facet-counts (wasm)', marker: 'd10',
   }),
 };
 
