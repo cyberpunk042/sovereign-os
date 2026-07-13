@@ -16,9 +16,11 @@ panel. It composes three already-shipped sources — no new data model:
 | Assignment grid | `scripts/inference/model-health.py` snapshot (shared with D-03) reshaped to GPU0/GPU1/Ext-GPU/CPU0 cells with Model 0/1/2 + Mode |
 | Features CPU / GPUs | `/proc/cpuinfo` AVX-512 flags (VNNI/VPDPBUSD, VPOPCNTDQ…) + GPU compute-cap (NVFP4 on Blackwell) |
 
-Device → SRP role: **GPU0 = Logic**, **GPU1 = Oracle (Blackwell)**, **CPU0 =
-Conductor** (Ryzen 9 9900X, cores split 1-7 / 8-15 / 16-24 across Model 0/1/2).
-An **Ext-GPU** cell shows N/A until an external card is registered.
+Device → SRP role: **GPU0 = Logic**, **GPU1 = Oracle (internal RTX 5090; the
+RTX PRO 6000 96 GB is the future upgrade path)**, **CPU0 = Conductor** (Ryzen 9
+9900X, cores split 1-7 / 8-15 / 16-24 across Model 0/1/2). The **Ext-GPU** cell
+is the registered **RTX 4090 (OcuLink eGPU)** per SDD-993 (host-resident by
+default; opt-in VFIO sandbox); it shows N/A until a model is bound to it.
 
 ## Read-only boundary (R10212)
 

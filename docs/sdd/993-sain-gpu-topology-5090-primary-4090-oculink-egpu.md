@@ -1,10 +1,11 @@
 # SDD-993 — SAIN GPU topology change: RTX 5090 internal primary (~350 W) + RTX 4090 as OcuLink eGPU
 
-> Status: draft
+> Status: active — reconcile landed (definitional anchor + the full SAIN/eGPU reconcile shipped on branch)
 > Owner: operator-directed 2026-07-13 (hardware-change directive, verbatim below); agent-authored.
-> Derivation: operator directive (new hardware). Definitional anchor for the reconcile arc.
+> Derivation: operator directive (new hardware). Definitional anchor + reconcile for the SAIN/eGPU arc.
 > Mandate module: **E11.M993**.
 > Number band: **950–999 (phase-1 audit / general session)** per SDD-100.
+> Decision record: **D-021** (`docs/decisions.md`).
 
 ## Operator directive (verbatim — sacrosanct, 2026-07-13)
 
@@ -53,24 +54,30 @@ The operator's verbatim has always framed the PRO 6000 Blackwell 96 GB as **futu
 
 The 4090 was VFIO-isolated as an internal card sharing the CPU's IOMMU topology. On an OcuLink eGPU it sits on its own downstream PCIe path — still `vfio-pci`-isolable (arguably a **cleaner** isolation boundary, its own IOMMU group by construction), but the bind script, the `vfio-pci.ids` list, the "distinct IOMMU groups" wording, and the boot-time bifurcation notes all need reconcile **in lockstep with their pinning lints** (see below).
 
-## Scope of THIS SDD
+## VFIO is OPT-IN — bare-metal is the default (operator directive 2026-07-13)
 
-Definitional only: this SDD **states** the new topology, the researched facts, the power maths, and the reconcile roadmap. It **edits no pinned hardware surface** — so it cannot break the verbatim-pinning lints — and registers the operator directive (mandate row E11.M993). Every canonical-surface change lands in the follow-up reconcile increments below, each updating its surface **and its lockstep lint together**.
+Operator, verbatim: *"also what is this VFIO GPU thing … I like the idea of a sandbox but at the same time it should be an option, a config I can opt in or not … I want to be able to work locally on my workstation most of the time, not in a VM by default."*
 
-## Reconcile roadmap (named follow-ups — the "lot of documentation update")
+The reconcile flips the **default** from "4090 VFIO-isolated" to **host-resident / bare-metal**: the 4090's declared `role` is `secondary` (directly usable by the host inference stack — Logic Engine / speculative-decoding draft, worked-on locally). The VFIO-isolated sandbox (§17 dual-GPU SRP perimeter) is an **opt-in** mode — set `role: vfio` in the profile and `vfio-bind-4090.sh` binds it at boot; with the default role the bind hook is a clean no-op. **The isolation machinery is preserved, not removed** — this is a default-flip, and it is consistent with the operator's own M040 E0384 "performance profile: 4090 on host" verbatim.
 
-Ordered, each a coherent surface-group + its lockstep lint(s):
+## Scope of THIS SDD — reconcile SHIPPED
 
-1. **Canonical machine-readable** — `profiles/sain-01.yaml` GPU block (5090 primary + 4090-eGPU; PCI IDs; power `tdp_watts: 350`; retire/rewrite the "M.2_2 must remain empty" note; VFIO/IOMMU) **+ `tests/lint/test_sain01_profile_verbatim.py` + `test_vfio_bind_verbatim.py`** in lockstep.
-2. **Operator-readable spec** — `docs/src/sain-01-master-spec.md` §1 hardware table + PCIe-lane §, `docs/src/profiles/sain-01.md` **+ its 4 pinning lints** (`test_handoff_docs_content.py`, `test_pulse_build_bitnet_contract.py`, `test_trinity_tui_contract.py`, `test_trinity_webapp_contract.py` — verify which strings each pins).
-3. **The LM Orchestration prepared eGPU slot** — the D-21 "Ext-GPU" cell (`docs/operator/d21-lm-orchestration-cockpit.md`, `scripts/operator/lm-orchestration-api.py`, `webapp/d-21-lm-orchestration/index.html`, `docs/sdd/111-d21-d22-full-layout.md` grid contract): relabel `Future / External GPU` → the registered **RTX 4090 (OcuLink eGPU)**, and give the slot a real registration/role path.
-4. **eGPU milestone reframe** — `backlog/milestones/M040-*.md` E0383/E0384: the operator's eGPU is **OcuLink (PCIe-native), not USB4 "not ideal"** — reframe accordingly **+ `test_m040_hyper_features.py`**.
-5. **Runtime power profiles** — `profiles/runtime/*.yaml` (source of the generated `trinity-runtime-profiles.md`; do-not-edit the generated file): primary 350 W (was 600), re-seat the 5090/4090 device roles **+ `test_runtime_profiles_verbatim.py`**.
-6. **Model catalog + placement** — `docs/src/model-catalog.md` VRAM-ceiling claims (24 GB → 32 GB internal; 24 GB eGPU).
-7. **Install / lifecycle runbooks** — `install-runbook.md`, `ops/install.md`, `operator-journey.md`, `bootstrap-phases.md`, `lifecycle/post-install.md`, `m060-deployment-guide.md`: the `vfio-bind-4090` flow + PCI IDs + power-limit step for an OcuLink 4090.
-8. **Observability dashboards** — the hardcoded `4090`/`3090`/`Blackwell` GPU labels + `selfdef_scheduler_gpu3090_util` metric names + the `any_gpu_vram_at_least_80gib` predicate.
-9. **Verbatim + decisions** — append the new directive to `docs/src/verbatim-surface.md` (additive; its lint enforces a *minimum* size) and add a `docs/decisions.md` entry; refresh the mandate GPU rows.
-10. **DSpark-from-DeepSeek** — separate SDD (PR 2): research what "DSpark" is (candidate: an NVIDIA DGX-Spark-class node running DeepSeek, or a DeepSeek serving artifact) and slot it into the compute-plane device registry (`SDD-207` phases, `compute_plane.py`) / gateway `/v1/models/background`+`register` proxy (`SDD-902`) — the same registration path the Ext-GPU cell scaffolds toward.
+This SDD started as a definitional anchor and now carries the **full SAIN/eGPU reconcile** (below). It **states** the new topology + researched facts + power maths + VFIO-opt-in default, and it **drove** the canonical-surface edits — each surface updated in lockstep with its pinning lint (reframed, never silently broken). The DSpark-from-DeepSeek adoption remains a **separate follow-up SDD** (PR 2) per operator sequencing.
+
+## Reconcile roadmap — status (the "lot of documentation update")
+
+Each a coherent surface-group + its lockstep lint(s). ✅ = landed this session.
+
+1. ✅ **Canonical machine-readable** — `profiles/sain-01.yaml` GPU block (5090 primary + 4090 secondary/host-resident + PRO 6000 future; PCI IDs; power `tdp_watts: 350`; `m2_2_empty` → `m2_2_oculink_egpu`; VFIO opt-in) + `schemas/profile.schema.yaml` (sku/connection/link props + `secondary`/`future` role enum) + `crates/sovereign-pcie-topology` recommended layout + `friction-audit-spec.sh`, with `test_sain01_profile_verbatim.py`, `test_vfio_bind_verbatim.py`, `test_profile_schema_conformance.py` reframed in lockstep.
+2. ✅ **Operator-readable spec** — `docs/src/sain-01-master-spec.md` §1 hardware table + PCIe-topology § + Weaver/Phase-IV VFIO-opt-in reframe; `docs/src/profiles/sain-01.md` (3-GPU table, first-boot hook note, recovery table); the 4 pinning lints verified green.
+3. ✅ **The LM Orchestration prepared eGPU slot** — the D-21 "Ext-GPU" cell (`docs/operator/d21-lm-orchestration-cockpit.md`, `scripts/operator/lm-orchestration-api.py`, `webapp/d-21-lm-orchestration/index.html`): `Future / External GPU` → registered **RTX 4090 (OcuLink eGPU)**; `test_d21_lm_orchestration_webapp_contract.py` green.
+4. ✅ **eGPU milestone reframe** — `backlog/milestones/M040-*.md`: additive OcuLink-vs-USB4 reconcile note (verbatim rows untouched; the operator's own "performance: 4090 on host" now the default); `test_m040_hyper_features.py` green.
+5. ✅ **Runtime power profiles** — `profiles/runtime/{high-concurrency-burst,deep-context-synthesis}.yaml` primary 600 → 350 W + NOW-vs-future reconcile notes; `trinity-runtime-profiles.md` regenerated; `test_runtime_profiles_verbatim.py` green. Also `generate-runtime-profile.py` excludes `role: future` GPUs and the high-concurrency oracle intent gains `multimodal` so the 32 GB primary lands the Nemotron-NVFP4 reasoner.
+6. ✅ **Model catalog + placement** — `docs/src/model-catalog.md`: the Nemotron-NVFP4 entry now names the 32 GB internal 5090 as the SAIN NOW Oracle-Core pick + the 4090 as the OcuLink eGPU.
+7. ⏳ **Install / lifecycle runbooks** — `install-runbook.md`, `ops/install.md`, `operator-journey.md`, `bootstrap-phases.md`, `lifecycle/post-install.md`, `m060-deployment-guide.md`: the `vfio-bind-4090` flow + PCI IDs + power-limit step. (The bind hook is already opt-in-safe; the runbook prose reconcile is the remaining tail — low blast-radius, no behaviour change.)
+8. ✅ **Observability dashboards** — the `any_gpu_vram_at_least_80gib` predicate comment reflects the three-card reality (a NOW 5090/4090 SAIN does not clear 80 GiB; only future PRO 6000 boxes do). The `selfdef_scheduler_gpu3090_*` metric names are deliberately preserved for the prometheus contract (labels already read "4090").
+9. ✅ **Decisions + mandate** — `docs/decisions.md` **D-021**; mandate row E11.M993 already registers the directive verbatim. (`verbatim-surface.md` is GENERATED with a drift detector — the directive is registered in the mandate + this SDD + INDEX, NOT hand-appended to the generated file.)
+10. ⏳ **DSpark-from-DeepSeek** — separate SDD (PR 2): DSpark is DeepSeek's open-source speculative-decoding framework (Markov-head draft + semi-autoregressive chunking; "DeepSpec"); slot it into the Logic Engine speculative-decoding role (draft on the 4090 eGPU, verify on the 5090). Deferred per operator sequencing.
 
 ## Non-goals
 

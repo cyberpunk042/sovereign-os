@@ -170,7 +170,7 @@ wired them as a systemd `oneshot`. Otherwise invoke manually:
 
 ```sh
 sudo scripts/hooks/post-install/friction-audit-runtime.sh      # validate real hardware
-sudo scripts/hooks/post-install/vfio-bind-4090.sh              # bind 4090 to vfio-pci
+sudo scripts/hooks/post-install/vfio-bind-4090.sh              # opt-in (role: vfio) → bind 4090 to vfio-pci; no-op by default (SDD-993)
 sudo scripts/hooks/post-install/network-vlan-config.sh         # VLAN 100/200 split
 sudo scripts/hooks/post-install/tetragon-policy-load.sh        # load sovereign-kernel-fence
 sudo scripts/hooks/post-install/zfs-arc-clamp.sh               # clamp ARC to 128 GB
@@ -179,8 +179,10 @@ sudo scripts/hooks/post-install/workstation-shell-setup.sh     # bash-completion
 sudo scripts/hooks/post-install/first-login-assistant.sh       # interactive customization
 ```
 
-Reboot once after `vfio-bind-4090.sh` so the VFIO module owns the
-4090 from initramfs.
+If the VFIO sandbox is opted into (`role: vfio` on the 4090), reboot once
+after `vfio-bind-4090.sh` so the VFIO module owns the 4090 from initramfs.
+By default the 4090 is host-resident (bare-metal) and the bind hook is a
+no-op — no reboot needed for that (SDD-993).
 
 ## 4. POST-INSTALL — inference stack
 

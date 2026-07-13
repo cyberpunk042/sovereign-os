@@ -12,19 +12,28 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
-### Docs — SAIN GPU topology change: RTX 5090 internal primary + RTX 4090 as OcuLink eGPU (definitional anchor) (2026-07-13)
+### Changed — SAIN GPU topology re-seated: RTX 5090 internal primary + RTX 4090 OcuLink eGPU; VFIO now opt-in (2026-07-13)
 
-Operator-directed hardware change (SDD-993). The SAIN-01 internal primary GPU becomes an **RTX 5090 32GB
-(TUF-RTX5090-O32G-GAMING)** power-limited to **~350W**; the **RTX 4090 24GB** moves from internal-VFIO-secondary to an
-**OcuLink eGPU** (OcuLink-to-M.2 adapter in the chipset's remaining M.2 slot). One internal GPU → full x16 (the old
+Operator-directed hardware change (SDD-993, decision **D-021**). The SAIN-01 internal primary GPU becomes an **RTX 5090
+32GB (TUF-RTX5090-O32G-GAMING)** power-limited to **~350W**; the **RTX 4090 24GB** moves from internal-VFIO-secondary to
+an **OcuLink eGPU** (OcuLink-to-M.2 adapter in the chipset's remaining M.2 slot). One internal GPU → full x16 (the old
 x8/x8 bifurcation no longer applies); the "M.2_2 must remain empty" invariant is retired (that slot now carries the
 OcuLink link, PCIe 4.0 x4 / 64 Gbps). Grounded in researched specs (5090 stock TGP 575W → 350/575 ≈ 61%, near the
 Blackwell efficiency knee; OcuLink-M.2 ≈ 7.9 GB/s, fine for inference). The RTX PRO 6000 96GB stays the documented
-*future* Oracle-Core path (three-card reality, additive). This is the **definitional anchor** only — it edits no
-pinned hardware surface (so it can't break the ~10 verbatim-pinning lints) and names a 10-step reconcile roadmap
-(sain-01.yaml, master-spec/profile, the D-21 "Ext-GPU" slot, M040 USB4→OcuLink, runtime power profiles, model-catalog
-VRAM, runbooks, dashboards, verbatim/decisions) — each surface to be updated in lockstep with its lint in follow-up
-increments. DSpark-from-DeepSeek is a separate follow-up SDD. Docs-only; no code/behaviour change.
+*future* Oracle-Core path (three-card reality, additive).
+
+**VFIO is now opt-in** (operator: *"not in a VM by default"*): the 4090's default `role` is host-resident (bare-metal,
+directly usable by the host inference stack); the VFIO-isolated sandbox is an opt-in mode (`role: vfio`), and
+`vfio-bind-4090.sh` no-ops unless opted in. The isolation machinery is preserved — a default-flip, not a removal.
+
+**Reconcile landed this session** (each surface with its lockstep lint): `profiles/sain-01.yaml` GPU block +
+`schemas/profile.schema.yaml` + `crates/sovereign-pcie-topology` recommended layout + `friction-audit-spec.sh` + 6
+reframed lints; `sain-01-master-spec.md` + `profiles/sain-01.md` (VFIO opt-in reframe); the generator
+(`generate-runtime-profile.py` excludes `role: future`; high-concurrency oracle resolves to Nemotron-NVFP4 on the 32GB
+primary); M040 additive OcuLink-vs-USB4 note (verbatim rows untouched); `profiles/runtime/*.yaml` 600→350W +
+`trinity-runtime-profiles.md` regen; the D-21 "Ext-GPU" cell → registered RTX 4090 (OcuLink eGPU); `model-catalog.md`;
+the `any_gpu_vram_at_least_80gib` predicate comment; `docs/decisions.md` D-021. Remaining tail (⏳): install/lifecycle
+runbook prose (behaviour already opt-in-safe). DSpark-from-DeepSeek is a separate follow-up SDD (PR 2).
 
 ### Fixed — gateway daemon survives a poisoned lock instead of cascading (2026-07-13)
 

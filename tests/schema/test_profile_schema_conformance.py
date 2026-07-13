@@ -75,20 +75,38 @@ def test_sain01_zfs_context_sync_always():
 
 
 def test_sain01_vfio_companion_present():
-    """All role=vfio GPUs must declare vfio_companion."""
+    """VFIO sandbox is OPT-IN (SDD-993 + operator directive 2026-07-13: "not in
+    a VM by default"). The default posture is host-resident/bare-metal, so no GPU
+    carries role=vfio by default — but the opt-in machinery must be READY: the
+    4090 (the sandboxable eGPU) must declare `vfio_companion` so that flipping it
+    to `role: vfio` binds cleanly. And any GPU that IS opted into vfio must carry
+    a companion."""
     sain01 = _load_yaml(PROFILE_DIR / "sain-01.yaml")
     gpus = sain01["hardware"]["gpu"]
-    vfio_gpus = [g for g in gpus if g.get("role") == "vfio"]
-    assert vfio_gpus, "sain-01 must declare at least one vfio GPU"
-    for g in vfio_gpus:
-        assert g.get("vfio_companion"), f"GPU {g.get('model')} missing vfio_companion"
+    # opt-in readiness: the 4090 sandbox candidate declares its companion
+    egpu = next((g for g in gpus if g.get("model") == "rtx-4090"), None)
+    assert egpu is not None, "sain-01 must declare the RTX 4090 (OcuLink eGPU)"
+    assert egpu.get("vfio_companion"), (
+        "the RTX 4090 must declare vfio_companion so the opt-in VFIO sandbox "
+        "binds cleanly when enabled (role: vfio)"
+    )
+    # every GPU actually opted into vfio must carry a companion
+    for g in gpus:
+        if g.get("role") == "vfio":
+            assert g.get("vfio_companion"), f"GPU {g.get('model')} missing vfio_companion"
 
 
-def test_sain01_m2_2_empty_constraint_declared():
-    """sain-01 must declare the m2_2_empty PCIe blocker (ASUS ProArt X870E)."""
+def test_sain01_m2_2_constraint_declared():
+    """sain-01 must declare an M.2_2 PCIe constraint (ASUS ProArt X870E).
+
+    SDD-993: the 4090 moved to an OcuLink eGPU, so M.2_2 now HOSTS the
+    OcuLink-to-M.2 adapter (the old must-remain-empty x8/x8 bifurcation rule is
+    retired — one internal GPU runs full x16). The profile must still DECLARE an
+    M.2_2 constraint — now `m2_2_oculink_egpu` (info), not `m2_2_empty` (blocker).
+    """
     sain01 = _load_yaml(PROFILE_DIR / "sain-01.yaml")
     constraints = sain01["hardware"]["motherboard"]["pcie_constraints"]
     assert any(
-        c.get("check") == "m2_2_empty" and c.get("severity") == "blocker"
+        c.get("check") == "m2_2_oculink_egpu"
         for c in constraints
-    ), "sain-01 must declare m2_2_empty as blocker"
+    ), "sain-01 must declare the m2_2_oculink_egpu constraint (SDD-993)"

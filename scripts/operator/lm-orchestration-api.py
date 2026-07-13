@@ -104,10 +104,13 @@ _core = _import("_modelhealth_core", _REPO_ROOT / "scripts" / "inference" / "mod
 _rtmodes = _import_optional("_runtimemodes_api", _REPO_ROOT / "scripts" / "operator" / "runtime-modes-api.py")
 
 # The panel's four hardware cells (M075 SRP topology + the sketched Ext-GPU).
+# SDD-993: internal primary is the RTX 5090 (Oracle Core; the RTX PRO 6000 96 GB
+# is the future upgrade path). The RTX 4090 is now the registered OcuLink eGPU
+# (host-resident by default; opt-in VFIO sandbox) filling the external-GPU slot.
 GRID = [
     {"slot": "GPU0", "role": "logic", "label": "Logic Engine (GPU 0)"},
-    {"slot": "GPU1", "role": "oracle", "label": "Oracle Core (GPU 1, Blackwell)"},
-    {"slot": "EXT_GPU", "role": None, "label": "Future / External GPU"},
+    {"slot": "GPU1", "role": "oracle", "label": "Oracle Core (GPU 1, RTX 5090 — PRO 6000 future)"},
+    {"slot": "EXT_GPU", "role": None, "label": "RTX 4090 (OcuLink eGPU)"},
     {"slot": "CPU0", "role": "conductor", "label": "Ryzen 9 9900X AM5 AVX-512"},
 ]
 

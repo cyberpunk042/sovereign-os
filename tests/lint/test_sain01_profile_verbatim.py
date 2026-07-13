@@ -103,8 +103,9 @@ def test_hardware_skus_present():
     # in inventory-catalog + C-16 concept; profile uses architecture-level)
     sku_alternatives = [
         ("Ryzen 9 9900X", "znver5"),          # CPU (verbatim OR znver5)
-        ("RTX PRO 6000", "rtx-pro-6000"),    # primary GPU (Blackwell)
-        ("RTX 4090", "rtx-4090"),             # secondary GPU (procured 2026-06-10; replaced the spec'd 3090)
+        ("RTX 5090", "rtx-5090"),             # internal primary GPU (SDD-993, power-limited ~350W)
+        ("RTX 4090", "rtx-4090"),             # now the OcuLink eGPU (was internal-VFIO secondary)
+        ("RTX PRO 6000", "rtx-pro-6000"),    # future large-VRAM Oracle-Core path (kept, not discarded)
         ("ProArt X870E", "x870e"),            # motherboard
         ("Marvell AQC113C", "marvell"),       # 10GbE NIC vendor
     ]
@@ -169,34 +170,31 @@ def test_no_silent_arch_corruption():
     )
 
 
-def test_dual_gpu_present():
-    """§1.1 dual-GPU layout MUST appear in profile hardware section
-    (slug or verbatim form)."""
+def test_gpu_topology_present():
+    """§1.1 GPU topology (SDD-993) MUST appear in profile hardware section
+    (slug or verbatim form): the RTX 5090 internal primary, the RTX 4090
+    (now the OcuLink eGPU), and the RTX PRO 6000 future path — all three."""
     body_lower = _read_profile().lower()
-    # Primary GPU: rtx pro 6000 (operator verbatim) OR rtx-pro-6000 (slug)
-    primary_present = (
-        "rtx pro 6000" in body_lower
-        or "rtx-pro-6000" in body_lower
-    )
-    secondary_present = (
-        "rtx 4090" in body_lower
-        or "rtx-4090" in body_lower
-    )
-    assert primary_present, "primary GPU (RTX PRO 6000 / Blackwell) missing"
-    assert secondary_present, "secondary GPU (RTX 4090) missing"
+    primary_present = "rtx 5090" in body_lower or "rtx-5090" in body_lower
+    egpu_present = "rtx 4090" in body_lower or "rtx-4090" in body_lower
+    future_present = "rtx pro 6000" in body_lower or "rtx-pro-6000" in body_lower
+    assert primary_present, "internal primary GPU (RTX 5090) missing"
+    assert egpu_present, "OcuLink eGPU (RTX 4090) missing"
+    assert future_present, "future Oracle-Core path (RTX PRO 6000) missing"
+    # the RTX 5090 must be the declared role: primary
+    assert "role: primary" in _read_profile(), "no role: primary GPU declared"
 
 
-def test_m2_2_empty_constraint_documented():
-    """§1.2 'M.2_2 slot must remain empty' constraint MUST be
-    documented in profile (operator's hard constraint to preserve
-    x8/x8 GPU bifurcation)."""
+def test_m2_2_oculink_constraint_documented():
+    """§1.2 (SDD-993): M.2_2 now HOSTS the OcuLink-to-M.2 adapter for the RTX
+    4090 eGPU (the old must-remain-empty x8/x8 bifurcation rule is retired —
+    one internal GPU runs full x16). The profile MUST document the M.2_2
+    constraint in its OcuLink form."""
     body = _read_profile()
     assert "M.2_2" in body, (
-        "profile missing M.2_2 slot constraint documentation (operator "
-        "§1.2 verbatim constraint: 'M.2_2 slot must remain empty')"
+        "profile missing M.2_2 slot constraint documentation"
     )
-    # Should also mention x8/x8 or bifurcation
     body_lower = body.lower()
-    assert "x8" in body_lower or "bifurcation" in body_lower, (
-        "profile mentions M.2_2 but not the x8/x8 / bifurcation reason"
+    assert "oculink" in body_lower, (
+        "profile mentions M.2_2 but not the OcuLink eGPU role (SDD-993)"
     )

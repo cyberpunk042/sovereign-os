@@ -59,7 +59,11 @@ def _hardware(os_profile_id: str) -> tuple[list[dict], int]:
         raise SystemExit(2)
     hw = _load_yaml(p).get("hardware") or {}
     gpus = []
-    for i, g in enumerate(hw.get("gpu") or []):
+    # SDD-993: `role: future` GPUs (e.g. the not-yet-installed RTX PRO 6000) are
+    # documented upgrade paths, not physically present — they get no cuda index
+    # and are excluded from allocations / tensor-parallel enumeration.
+    present = [g for g in (hw.get("gpu") or []) if g.get("role") != "future"]
+    for i, g in enumerate(present):
         gpus.append({"cuda": i, "vram_gb": int(g.get("vram_gb") or 0),
                      "model": g.get("model"), "role": g.get("role")})
     cores = ((hw.get("cpu") or {}).get("cores") or {}).get("physical") or 0
@@ -102,7 +106,11 @@ def _strategy_allocations(strategy: str, gpus: list[dict], cores: int) -> list[d
             allocs.append({
                 "agent_id": "deep_reasoner_01", "tier": "oracle",
                 "target_hardware": f"cuda:{big['cuda']}", "engine": "vllm",
-                "tier_intent": {"class": ["rlm", "llm", "mixture"],
+                # `multimodal` included so a 32 GB-class primary (RTX 5090, SDD-993)
+                # can still land the master-spec Oracle pick — Nemotron-3-Nano-Omni
+                # reasoner — at NVFP4 (24 GiB); on a large card the rlm/llm/mixture
+                # reasoners rank ahead of it (spend-the-budget within class order).
+                "tier_intent": {"class": ["rlm", "llm", "mixture", "multimodal"],
                                 "vram_budget_gib": _budget(big["vram_gb"])},
             })
         elif by_vram:
@@ -110,7 +118,7 @@ def _strategy_allocations(strategy: str, gpus: list[dict], cores: int) -> list[d
             allocs.append({
                 "agent_id": "deep_reasoner_01", "tier": "oracle",
                 "target_hardware": f"cuda:{big['cuda']}", "engine": "vllm",
-                "tier_intent": {"class": ["rlm", "llm"],
+                "tier_intent": {"class": ["rlm", "llm", "multimodal"],
                                 "vram_budget_gib": _budget(big["vram_gb"])},
             })
         return allocs

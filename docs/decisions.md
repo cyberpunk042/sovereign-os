@@ -881,6 +881,52 @@ mutex) + F-2026-062/091 (per-kind jobs sandbox + growth).
 
 ---
 
+### D-021 — 2026-07-13 — SAIN GPU topology re-seated: RTX 5090 internal primary (~350W) + RTX 4090 OcuLink eGPU; VFIO sandbox is opt-in, bare-metal is the default (SDD-993)
+
+**Question**: How does the SAIN-01 GPU topology change now that the RTX 4090 becomes an OcuLink eGPU and an RTX 5090 (power-limited ~350 W) becomes the internal primary — and should the second GPU be VFIO-isolated by default or a bare-metal opt-in?
+
+**Source**: docs/sdd/993-sain-gpu-topology-5090-primary-4090-oculink-egpu.md (operator directive 2026-07-13; reconcile roadmap + VFIO-opt-in section)
+
+**Decision**: Per the operator's 2026-07-13 hardware-change directive, the SAIN-01
+internal primary GPU is now the **RTX 5090 32 GB (TUF-RTX5090-O32G-GAMING),
+power-limited ~350 W** (from the 575 W stock TGP, ≈ 61% — near Blackwell's
+efficiency knee), running the **full x16** (the two-internal-GPU x8/x8
+bifurcation no longer applies). The **RTX 4090 24 GB** moves to an **OcuLink
+eGPU** (OcuLink-to-M.2 SFF-8612→SFF-8611 adapter in the chipset's remaining M.2_2
+slot, PCIe 4.0 x4 / 64 Gbps) — so the *"M.2_2 must remain empty"* invariant is
+**retired** (the slot now carries the OcuLink link; PCIEX16_2 is empty). The
+**RTX PRO 6000 96 GB stays the documented *future* Oracle-Core path** (additive,
+not discarded) — a three-card reality.
+
+**VFIO is opt-in (operator directive, verbatim)**: *"I want to be able to work
+locally on my workstation most of the time, not in a VM by default."* The 4090's
+default `role` is **host-resident** (bare-metal, directly usable by the host
+inference stack); the VFIO-isolated sandbox (§17 dual-GPU SRP perimeter) is an
+**opt-in** mode (`role: vfio`), and `vfio-bind-4090.sh` is a clean no-op unless
+opted in. The isolation machinery is preserved, not removed — this flips the
+*default*, consistent with the operator's own M040 E0384 "performance profile:
+4090 on host" verbatim.
+
+**Affected items** (the SDD-993 reconcile, this session): `profiles/sain-01.yaml`
+GPU block (5090 primary + 4090 secondary/host-resident + PRO 6000 future; power
+`tdp_watts: 350`; m2_2 constraint → `m2_2_oculink_egpu`) + `schemas/profile.schema.yaml`
+(sku/connection/link props + `secondary`/`future` roles) + `crates/sovereign-pcie-topology`
+(recommended layout) + friction-audit + 5 pinning lints reframed + `sain-01-master-spec.md`
++ `profiles/sain-01.md` + the generator (`generate-runtime-profile.py` excludes
+`role: future`; high-concurrency oracle resolves to Nemotron-NVFP4 on the 32 GB
+primary) + M040 additive OcuLink reframe + `profiles/runtime/*.yaml` 600→350 W +
+`trinity-runtime-profiles.md` regen + D-21 Ext-GPU cell → registered RTX 4090
+(OcuLink eGPU) + `model-catalog.md` + the `any_gpu_vram_at_least_80gib` predicate
+comment. **DSpark-from-DeepSeek is a separate follow-up SDD (PR 2)** per operator
+sequencing (SAIN/eGPU first).
+
+**Reversibility**: high for the docs/labels; medium for the profile role default
+(operator can re-enable the mandatory-VFIO posture by setting `role: vfio`). No
+irreversible runtime change; the physical build validates the PCI IDs / power
+limit.
+
+---
+
 ## Cross-references
 
 - Charter: `docs/sdd/000-charter.md`

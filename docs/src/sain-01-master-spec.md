@@ -30,22 +30,28 @@ from; everything else is operator-customized.
 |---|---|---|
 | **CPU** | AMD Ryzen 9 9900X (Zen 5) | Single-cycle native AVX-512 (true 512-bit ZMM registers; legacy Zens double-pumped 256-bit) |
 | **Motherboard** | ASUS ProArt X870E-Creator | Dual PCIe 5.0 slots in x8/x8 symmetric · IOMMU topology for VFIO |
-| **GPU primary** | RTX PRO 6000 Blackwell (96GB GDDR7) | Oracle Core — large-scale model residence; FP16 / un-quantized |
-| **GPU secondary** | RTX 4090 (24GB GDDR6X) | Logic Engine — VFIO-isolated sandbox; speculative decoding |
+| **GPU primary (internal)** | RTX 5090 32GB GDDR7 (TUF-RTX5090-O32G-GAMING), power-limited ~350W | Oracle Core — host-resident primary; full x16 (SDD-993) |
+| **GPU secondary (OcuLink eGPU)** | RTX 4090 (24GB GDDR6X) | Logic Engine — **host-resident by default** (work locally on the workstation); VFIO-isolated sandbox is an **opt-in** mode (§17); **speculative decoding** (the DSpark draft/verify role); now via an OcuLink-to-M.2 eGPU, PCIe 4.0 x4 |
+| **GPU future** | RTX PRO 6000 Blackwell (96GB GDDR7) | Future large-VRAM Oracle-Core upgrade path — un-quantized / FP16 residence (kept per SDD-993, not discarded) |
 | **Memory** | 256GB DDR5 (initial 128GB) | High system context + ZFS ARC headroom |
 | **Storage** | 2× NVMe PCIe 5.0 in ZFS RAID-0 | 31.5 GB/s sequential target |
 | **Network** | Marvell AQC113C 10GbE + Intel I226-V 2.5GbE | Asymmetric VLAN — mgmt vs data |
 
 ### Hardware constraints (operator MUST honor these)
 
-- **PCIe lane symmetry**: Slot 1 (Blackwell) and Slot 2 (4090) MUST operate
-  at x8/x8. The CPU has 24 usable PCIe lanes; this is the only symmetric
-  configuration that runs both GPUs at full bandwidth.
-- **M.2_2 MUST remain empty**. Populating it triggers bifurcation that drops
-  Slot 2 to x4 and destroys execution symmetry. The friction-audit at
-  build-time AND boot-time checks for this — see
-  `scripts/hooks/pre-install/friction-audit-spec.sh` and
-  `scripts/hooks/post-install/friction-audit-runtime.sh`.
+- **PCIe topology (SDD-993)**: with one internal GPU, Slot 1 runs the RTX 5090
+  at full **x16** (the old two-internal-GPU x8/x8 symmetry no longer applies).
+  Slot 2 (PCIEX16_2) is left empty; the RTX 4090 is on an **OcuLink eGPU** off
+  M.2_2 at PCIe 4.0 x4 — enough for inference (weights VRAM-resident), not for
+  training. If the future RTX PRO 6000 lands, revisit x8/x8 for two internal cards.
+- **M.2_2 now hosts the OcuLink eGPU link (SDD-993)**. With the RTX 4090 moved
+  to an OcuLink eGPU, there is one internal GPU (the RTX 5090) at full x16, so
+  the old "M.2_2 must remain empty to preserve x8/x8" rule is **retired** —
+  M.2_2 deliberately carries the OcuLink-to-M.2 adapter (PCIe 4.0 x4) feeding
+  the 4090. (PCIEX16_2 still physically shares lanes with M.2_2, but nothing is
+  in PCIEX16_2 now, so the sharing is inert.) The friction-audit checks for the
+  OcuLink constraint — see `scripts/hooks/pre-install/friction-audit-spec.sh`
+  and `scripts/hooks/post-install/friction-audit-runtime.sh`.
 - **Dual-CCD aware execution**: the 9900X has 2 Core-Complex-Dies
   (CCD0 = cores 0–5 → 32MB L3; CCD1 = cores 6–11 → 32MB L3). Crossing the
   Infinity Fabric between dies costs ~50–100ns. Workloads MUST pin to one
@@ -114,7 +120,11 @@ avoids constant small-kernel context-switching on the GPUs.
 
 **Runtime selection**:
 - Rootless Podman for sub-agent containers (no Docker daemon overhead)
-- VFIO 4090 for the Logic Engine sandbox
+- The Logic Engine runs on the 4090 **host-resident by default** (bare-metal,
+  worked-on locally). The **opt-in** VFIO sandbox (set `role: vfio` in the
+  profile) hands the 4090 to an isolated sandbox instead — a config choice, not
+  a mandatory posture (SDD-993; operator directive 2026-07-13: "not in a VM by
+  default"). See §4.3 / `vfio-bind-4090.sh` — a clean no-op unless opted in.
 - Atomic state writes via O_DIRECT + POSIX AIO + ZFS `sync=always` on
   `tank/context`
 
@@ -271,8 +281,10 @@ ZFS ARC clamped to 128GB (half of 256GB) via
 
 **Master spec sections**: 12 Phase IV + §§ 4.3 (VFIO), 8 (asymmetric networking).
 
-**What happens**: Podman installed (rootless ready) → VFIO 4090 bound at
-boot (`vfio-pci.ids=10de:2684,10de:22ba` in kernel cmdline) → asymmetric
+**What happens**: Podman installed (rootless ready) → **if** the profile opts
+into the VFIO sandbox (`role: vfio` on the 4090), it is bound to vfio-pci at
+boot (`vfio-pci.ids=10de:2684,10de:22ba` in kernel cmdline); by default the
+4090 is host-resident and the bind hook is a no-op (SDD-993) → asymmetric
 networking applied:
 - `enp6s0` (Intel 2.5GbE) → mgmt VLAN 100, default gateway, DNS
 - `enp5s0` (Marvell 10GbE) → data VLAN 200, MTU 9000 jumbo, no default gateway

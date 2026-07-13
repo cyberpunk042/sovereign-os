@@ -7,12 +7,13 @@ The SAIN-01 AI Workstation. See [`profiles/sain-01.yaml`](https://github.com/cyb
 | Component | Spec |
 |---|---|
 | **CPU** | AMD Ryzen 9 9900X — Zen 5; 12C/24T dual-CCD; `-march=znver5` with single-cycle 512-bit AVX-512 + VNNI |
-| **Primary GPU** | NVIDIA RTX PRO 6000 Blackwell 96 GB — host-resident; hosts the Oracle Core |
-| **VFIO GPU** | NVIDIA RTX 4090 24 GB — `vfio-pci` bound; isolated for Logic Engine sandbox |
+| **Primary GPU (internal)** | NVIDIA RTX 5090 32 GB (TUF-RTX5090-O32G-GAMING), power-limited ~350 W — host-resident; hosts the Oracle Core; full x16 (SDD-993) |
+| **Secondary GPU (OcuLink eGPU)** | NVIDIA RTX 4090 24 GB — **host-resident by default** (Logic Engine / speculative-decoding draft/verify, worked-on locally); the `vfio-pci`-bound sandbox is an **opt-in** mode (`role: vfio`); now via an OcuLink-to-M.2 eGPU at PCIe 4.0 x4 |
+| **Future GPU** | NVIDIA RTX PRO 6000 Blackwell 96 GB — future large-VRAM Oracle-Core upgrade path (kept, not discarded) |
 | **Memory** | 256 GB DDR5 (128 GB minimum); ECC unavailable on consumer DDR5 |
 | **Storage** | Dual PCIe 5.0 NVMe in RAID 0 (operator-accepted no-redundancy trade-off) |
 | **Network** | Intel I226-V 2.5 GbE (mgmt VLAN 100) + Marvell AQC113C 10 GbE (data VLAN 200, MTU 9000) |
-| **Motherboard** | ASUS ProArt X870E-Creator; PCIe constraint: **M.2_2 must remain empty** |
+| **Motherboard** | ASUS ProArt X870E-Creator; PCIe: **M.2_2 hosts the OcuLink eGPU link** (SDD-993 — the old must-remain-empty rule is retired) |
 
 ## CCD partition (SRP Trinity mapping)
 
@@ -35,8 +36,8 @@ CCD 1  (cores 10-11, mask 0xf00000)   → Host / kernel / IRQ
 | Tier | Backend | Hardware |
 |---|---|---|
 | **Pulse** | bitnet.cpp | CCD 0 (CPU) |
-| **Logic Engine** | vLLM (primary) + llama.cpp (fallback) | RTX 4090 (VFIO sandbox via podman) |
-| **Oracle Core** | vLLM + DFlash drafts | RTX PRO 6000 Blackwell (host-resident) |
+| **Logic Engine** | vLLM (primary) + llama.cpp (fallback) | RTX 4090 (host-resident by default; opt-in VFIO sandbox via podman; OcuLink eGPU) |
+| **Oracle Core** | vLLM + DFlash / DSpark drafts | RTX 5090 (host-resident; RTX PRO 6000 when it lands) |
 | **Router** | OpenAI-compatible front | 127.0.0.1:8080 |
 
 ## Default model picks
@@ -79,8 +80,8 @@ SOVEREIGN_OS_CONFIRM_DESTROY=YES \
 ```
 
 First-boot hook order:
-1. `friction-audit-runtime` — confirms x8/x8 PCIe + AVX-512 + ZFS health
-2. `vfio-bind-4090` — binds 4090 to vfio-pci
+1. `friction-audit-runtime` — confirms the PCIe topology (5090 x16 + OcuLink 4090) + AVX-512 + ZFS health
+2. `vfio-bind-4090` — **only if opted in** (`role: vfio`): binds the 4090 to vfio-pci; a no-op by default (host-resident)
 3. `network-vlan-config` — applies asymmetric VLAN (R158 lands master-spec defaults)
 4. `tetragon-policy-load` — loads sovereign-kernel-fence
 5. `arc-clamp-128gb` — clamps ZFS ARC at 128 GB
@@ -106,8 +107,8 @@ sovereign-osctl maintenance arc-status       # ZFS ARC stats
 | Failure | Recovery |
 |---|---|
 | Build fails mid-step | `scripts/build/orchestrate.sh recover` (4 ranked options) |
-| friction-audit FAIL at boot (PCIe x8) | Power down · check M.2_2 is empty · check BIOS bifurcation |
-| VFIO bind FAIL | Check kernel cmdline has `vfio-pci.ids=10de:2684,10de:22ba` · `dmesg \| grep -i iommu` |
+| friction-audit FAIL at boot (5090 not x16) | Power down · confirm the 5090 is the sole internal card (PCIEX16_2 empty) · check the OcuLink-to-M.2 adapter seats in M.2_2 · check BIOS lane config |
+| VFIO bind FAIL (opt-in sandbox only) | Only relevant if `role: vfio` is set · check kernel cmdline has `vfio-pci.ids=10de:2684,10de:22ba` · `dmesg \| grep -i iommu` |
 | Tetragon not active | `systemctl status tetragon` · `sovereign-osctl perimeter reload` |
 | Hardening drop-in mismatch | `sovereign-osctl audit drift` to see which; re-apply with the post-install hook |
 
