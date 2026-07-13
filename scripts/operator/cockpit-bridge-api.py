@@ -3,14 +3,18 @@
 
 Read-only static server for the shared wasm asset `webapp/_shared/cockpit-wasm/`
 (the wasm-bindgen facade over the typed `sovereign-cockpit-*` crates — first
-crate bridged: sovereign-cockpit-banner-state) and its `demo.html`. Unlike the
-other panel APIs this one assembles NO host data: the bridge
-computes everything client-side in wasm, so the crate's own decision logic runs
-in the browser instead of a hand-written JS copy that can drift (SDD-800).
+crate bridged: sovereign-cockpit-banner-state) and its `demo.html`.
 
-It exists only to serve the panel with the correct `application/wasm` MIME (and
-to give the master-dashboard registry a real reachable api). POST → 405.
-Endpoints: GET /healthz · /version · /bridge.json · / (panel) · static passthrough.
+It is also the PRODUCER half of the banner-state loop (F-2026-001): `/signals.json`
+gathers the raw banner inputs from real host state (live hwmon temp, etc.), each
+tagged with its provenance. It never computes the banner severity — the
+sovereign-cockpit-banner-state crate does that in wasm on the panel, so the
+rendered banner cannot drift from the crate the daemon trusts. That is the crate
+doing its designed job: the daemon-side produces signals, the crate is the
+authoritative logic, the cockpit renders.
+
+Serves the panel with the correct `application/wasm` MIME. Read-only; POST → 405.
+Endpoints: GET /healthz · /version · /bridge.json · /signals.json · / (panel) · static.
 """
 from __future__ import annotations
 
@@ -61,6 +65,68 @@ def assemble_bridge() -> dict:
     }
 
 
+# --- the PRODUCER half of the banner-state loop (F-2026-001) ----------------
+# The crate is the typed source-of-truth the daemon PRODUCES and the cockpit
+# RENDERS. This gathers the raw banner signals from real host state (each tagged
+# with its provenance) — it does NOT compute the banner severity: the
+# sovereign-cockpit-banner-state crate does that in wasm on the panel, so the
+# rendered banner can never drift from the crate's own logic.
+
+def _max_hwmon_temp_c():
+    """Highest live hwmon temperature in °C, or None if unreadable."""
+    best = None
+    try:
+        for p in Path("/sys/class/hwmon").glob("hwmon*/temp1_input"):
+            try:
+                v = int(p.read_text().strip()) / 1000.0
+            except (OSError, ValueError):
+                continue
+            if v > 0 and (best is None or v > best):
+                best = v
+    except OSError:
+        pass
+    return best
+
+
+def _thermal_verdict(temp_c):
+    """Map a live max temp to a ThermalVerdict token. Gather-step generic
+    thresholds — the real per-target policy is sovereign-hardware-thermal-policy
+    (a separate integration). Returns (verdict, provenance)."""
+    if temp_c is None:
+        return "cool", "default (no live temp readable)"
+    if temp_c >= 90:
+        v = "shutdown"
+    elif temp_c >= 80:
+        v = "throttle"
+    elif temp_c >= 65:
+        v = "warm"
+    else:
+        v = "cool"
+    return v, f"live (max hwmon {temp_c:.1f}°C → generic threshold)"
+
+
+def assemble_signals() -> dict:
+    """The raw banner-state inputs from real host state, with per-signal
+    provenance. Read-only; degrades to honest defaults."""
+    temp_c = _max_hwmon_temp_c()
+    verdict, thermal_src = _thermal_verdict(temp_c)
+    return {
+        "mode": "plan",
+        "bundle": "careful",
+        "worst_thermal": verdict,
+        "open_alerts": 0,
+        "temp_c": round(temp_c, 1) if temp_c is not None else None,
+        "sources": {
+            "mode": "default — no persistent execution-mode source wired yet",
+            "bundle": "default — active-bundle source not wired yet",
+            "worst_thermal": thermal_src,
+            "open_alerts": "default — alerts source not wired yet",
+        },
+        "computed_by": "NOT here — sovereign-cockpit-banner-state computes the "
+                       "severity + envelope in wasm on the panel from these signals",
+    }
+
+
 class Handler(BaseHTTPRequestHandler):
     def _send(self, code, body, ctype="application/json"):
         data = body if isinstance(body, bytes) else body.encode("utf-8")
@@ -82,6 +148,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, json.dumps({"module": "cockpit-bridge-api", "version": VERSION}))
         if path in ("/bridge.json", "/bridge"):
             return self._send(200, json.dumps(assemble_bridge(), indent=2))
+        if path in ("/signals.json", "/signals"):
+            return self._send(200, json.dumps(assemble_signals(), indent=2))
         if path == "/":
             if PANEL.is_file():
                 return self._send(200, PANEL.read_bytes(), "text/html; charset=utf-8")

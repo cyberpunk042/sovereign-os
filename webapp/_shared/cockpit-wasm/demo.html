@@ -57,7 +57,28 @@
     </div>
   </div>
 
-  <h2>Live signals → severity</h2>
+  <h2>Live banner — the crate driving real host state</h2>
+  <div class="panel">
+    <div class="row" style="justify-content:space-between;align-items:center">
+      <div>banner: <span id="live-sev" class="sev calm">—</span></div>
+      <div class="muted" style="font-size:.78rem">live temp <span id="live-temp">—</span> · updated <span id="live-age">—</span></div>
+    </div>
+    <div class="row" style="margin-top:.6rem;gap:1.2rem;font-size:.82rem">
+      <span>mode <code id="lv-mode">—</code></span>
+      <span>bundle <code id="lv-bundle">—</code></span>
+      <span>thermal <code id="lv-thermal">—</code></span>
+      <span>alerts <code id="lv-alerts">—</code></span>
+    </div>
+    <div id="live-prov" class="muted" style="font-size:.72rem;margin-top:.5rem"></div>
+    <p class="muted" style="font-size:.78rem;margin:.6rem 0 0">
+      The <code>cockpit-bridge-api</code> <code>/signals.json</code> producer gathers the raw signals from real host
+      state (live hwmon temp, etc.); <strong>the severity is computed by <code>sovereign-cockpit-banner-state</code>
+      in wasm</strong> — not by the API or this page — so the banner can never drift from the crate the daemon
+      trusts. This is the producer → crate → render loop (F-2026-001).
+    </p>
+  </div>
+
+  <h2>Playground — vary the signals by hand</h2>
   <div class="panel">
     <div class="row">
       <label>mode
@@ -117,6 +138,27 @@
     }
   }
 
+  const setSev = (id, sev) => { const el = $(id); el.textContent = sev; el.className = 'sev ' + sev; };
+
+  // The producer→crate→render loop: fetch real host signals, let the CRATE
+  // (wasm) compute the authoritative banner, render it. No logic lives here.
+  async function tickLive() {
+    try {
+      const s = await (await fetch('/signals.json', { cache: 'no-store' })).json();
+      const state = JSON.parse(banner_state(s.mode, s.bundle, s.worst_thermal, s.open_alerts, new Date().toISOString()));
+      const v = JSON.parse(banner_validate(JSON.stringify(state)));
+      setSev('live-sev', v.ok ? state.severity : 'critical');
+      $('lv-mode').textContent = s.mode; $('lv-bundle').textContent = s.bundle;
+      $('lv-thermal').textContent = s.worst_thermal; $('lv-alerts').textContent = s.open_alerts;
+      $('live-temp').textContent = (s.temp_c != null ? s.temp_c + '°C' : 'n/a');
+      $('live-age').textContent = new Date().toLocaleTimeString();
+      $('live-prov').textContent = 'provenance — ' + Object.entries(s.sources || {}).map(([k, val]) => k + ': ' + val).join('   ·   ');
+    } catch (e) {
+      $('live-sev').textContent = 'offline';
+      $('live-prov').textContent = 'signals unavailable: ' + String(e.message || e).slice(0, 80);
+    }
+  }
+
   async function main() {
     try {
       await init();                 // fetch + instantiate the .wasm
@@ -125,9 +167,12 @@
       for (const id of ['mode', 'bundle', 'thermal', 'alerts'])
         $(id).addEventListener('input', render);
       render();
+      tickLive();                   // start the live producer→crate→render loop
+      setInterval(tickLive, 4000);
     } catch (e) {
       setStatus('wasm unavailable — bridge offline (' + String(e.message || e).slice(0, 60) + ')', false);
       $('severity').textContent = 'n/a';
+      $('live-sev').textContent = 'n/a';
       $('state').textContent = 'The wasm module could not load. This page needs '
         + '/_shared/cockpit-wasm/cockpit_wasm.js + cockpit_wasm_bg.wasm served alongside it.';
     }
