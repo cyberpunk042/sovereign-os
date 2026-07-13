@@ -12,6 +12,19 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — runtime binaries reference (2026-07-13)
+
+Phase-1 audit (SDD-962; closes ledger F-2026-005 + F-2026-002). The 9 Rust binary crates are the executable runtime
+surface but had no single map.
+
+- **`docs/src/binaries.md`**: each binary mapped to role → invocation → purpose — production (`gatewayd`,
+  `telemetry`, `resource-control`, `feature-selftest`) vs dev/demo CLIs (`cortex`, `agent-runtime`,
+  `inference-demo`, `chat`, `serve`) + a compose diagram; wired into SUMMARY.
+- **`tests/lint/test_binaries_doc.py`**: every binary crate must stay documented (completeness contract).
+- F-2026-002 (the 35-orphan triage) closed by annotation — already delivered by the island register (SDD-955),
+  now 33 after a parallel session wired two islands.
+
+
 ### Fixed — SDD INDEX status hygiene: stale branch refs dropped + a hygiene contract (2026-07-13)
 
 Phase-1 audit (SDD-961; closes the objective core of ledger F-2026-031). `docs/sdd/INDEX.md` had 71 rows referencing
