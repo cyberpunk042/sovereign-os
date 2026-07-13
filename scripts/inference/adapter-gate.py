@@ -80,6 +80,28 @@ _GATE_FIELD = {"human": "human", "snapshot": "snapshot",
 _ALL_GATES = ("snapshot", "test_eval", "oracle", "human")
 
 
+# MS003 (SDD-989) — sign records with the operator ed25519 key when present. The
+# import is best-effort and `ms003.sign()` never raises + falls back to the
+# `unsigned-pending-MS003` placeholder when no operator key is provisioned, so a
+# keyless node's output is byte-identical to the pre-MS003 behaviour.
+try:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lib"))
+    import ms003 as _ms003
+except Exception:  # pragma: no cover - defensive import guard
+    _ms003 = None
+
+
+def _sign(record: dict[str, Any]) -> str:
+    return _ms003.sign(record) if _ms003 is not None else _UNSIGNED
+
+
+def _signed(record: dict[str, Any]) -> dict[str, Any]:
+    """Set `record['signature']` via MS003 and return the record. Keyless → the
+    `unsigned-pending-MS003` placeholder (identical to pre-MS003 output)."""
+    record["signature"] = _sign(record)
+    return record
+
+
 def _now() -> str:
     return datetime.now(tz=timezone.utc).isoformat()
 
@@ -284,14 +306,14 @@ def _advance_gate(adapter_id: str, verb: str, *, evidence: dict[str, Any],
             _atomic_write(ADAPTER_REGISTRY, reg)
         except OSError as e:
             return {"ok": False, "code": 1, "id": adapter_id, "error": f"write failed: {e}"}
-        rec = {"id": adapter_id, "verb": f"gate-{verb}", "gate": field,
-               "decided_by": actor, "decided_ts": ts, "evidence": ge[field],
-               "signature": _UNSIGNED}
+        rec = _signed({"id": adapter_id, "verb": f"gate-{verb}", "gate": field,
+                       "decided_by": actor, "decided_ts": ts, "evidence": ge[field],
+                       "signature": _UNSIGNED})
         _append_ledger(rec)
         _emit_span(rec)
-        return {"ok": True, "code": 200, "verb": verb, "id": adapter_id,
-                "gate": field, "state": "passed", "evidence": ge[field],
-                "signature": _UNSIGNED}
+        return _signed({"ok": True, "code": 200, "verb": verb, "id": adapter_id,
+                        "gate": field, "state": "passed", "evidence": ge[field],
+                        "signature": _UNSIGNED})
 
 
 def _defer(verb: str, adapter_id: str, reason: str) -> dict[str, Any]:

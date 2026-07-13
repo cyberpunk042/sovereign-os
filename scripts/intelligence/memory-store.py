@@ -75,6 +75,28 @@ _LIFECYCLE_STAGES = ("observe", "classify", "quarantine", "link", "score",
                      "store-raw", "extract-facts", "verify", "promote", "decay", "archive")
 
 
+# MS003 (SDD-989) — sign records with the operator ed25519 key when present. The
+# import is best-effort and `ms003.sign()` never raises + falls back to the
+# `unsigned-pending-MS003` placeholder when no operator key is provisioned, so a
+# keyless node's output is byte-identical to the pre-MS003 behaviour.
+try:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lib"))
+    import ms003 as _ms003
+except Exception:  # pragma: no cover - defensive import guard
+    _ms003 = None
+
+
+def _sign(record: dict[str, Any]) -> str:
+    return _ms003.sign(record) if _ms003 is not None else _UNSIGNED
+
+
+def _signed(record: dict[str, Any]) -> dict[str, Any]:
+    """Set `record['signature']` via MS003 and return the record. Keyless → the
+    `unsigned-pending-MS003` placeholder (identical to pre-MS003 output)."""
+    record["signature"] = _sign(record)
+    return record
+
+
 def _now() -> str:
     return datetime.now(tz=timezone.utc).isoformat()
 
@@ -106,7 +128,7 @@ def _atomic_write(path: Path, obj: Any) -> None:
 
 def _emit_span(op: str, mem_id: str, actor: str, extra: dict[str, Any]) -> None:
     ms = int(datetime.now(tz=timezone.utc).timestamp() * 1000)
-    span = {
+    span = _signed({
         "trace_id": f"memory-store-{mem_id}-{ms:x}",
         "span_id": f"ms-{ms:x}",
         "parent_span_id": None,
@@ -120,7 +142,7 @@ def _emit_span(op: str, mem_id: str, actor: str, extra: dict[str, Any]) -> None:
         "profile": os.environ.get("SOVEREIGN_OS_ACTIVE_PROFILE", "private"),
         "signature": _UNSIGNED,
         "schema_version": SCHEMA_VERSION,
-    }
+    })
     try:
         SPAN_STORE.parent.mkdir(parents=True, exist_ok=True)
         with SPAN_STORE.open("a", encoding="utf-8") as fh:
@@ -259,8 +281,8 @@ def forget(mem_id: str, *, actor: str = "operator", confirm: bool = False,
         store = _read_json(STORE, {})
         store.setdefault("entries", {})[mem_id] = entry
         cid = f"chg-{secrets.token_hex(4)}"
-        change = {"id": cid, "op": "forget", "mem_id": mem_id, "prev": prev,
-                  "ts": ts, "actor": actor, "reversed": False, "signature": _UNSIGNED}
+        change = _signed({"id": cid, "op": "forget", "mem_id": mem_id, "prev": prev,
+                          "ts": ts, "actor": actor, "reversed": False, "signature": _UNSIGNED})
         led = _read_json(CHANGES, {})
         changes = led.get("changes")
         if not isinstance(changes, list):
@@ -274,8 +296,8 @@ def forget(mem_id: str, *, actor: str = "operator", confirm: bool = False,
             return {"ok": False, "code": 1, "id": mem_id, "error": f"write failed: {e}"}
         _emit_span("forget", mem_id, actor, {"change_id": cid})
         _reconcile_safe()
-        return {"ok": True, "code": 200, "verb": "forget", "id": mem_id,
-                "state": "forgotten", "change_id": cid, "signature": _UNSIGNED}
+        return _signed({"ok": True, "code": 200, "verb": "forget", "id": mem_id,
+                        "state": "forgotten", "change_id": cid, "signature": _UNSIGNED})
 
 
 def undo(change_id: str, *, actor: str = "operator", confirm: bool = False) -> dict[str, Any]:
@@ -318,6 +340,9 @@ def undo(change_id: str, *, actor: str = "operator", confirm: bool = False) -> d
         ents[mem_id]["updated"] = ts
         change["reversed"] = True
         change["reversed_ts"] = ts
+        # re-sign: the change record was mutated in place (reversed flip), so its
+        # prior signature no longer covers it (MS003 signatures are point-in-time).
+        _signed(change)
         try:
             _atomic_write(STORE, store)
             _atomic_write(CHANGES, led)
@@ -325,8 +350,8 @@ def undo(change_id: str, *, actor: str = "operator", confirm: bool = False) -> d
             return {"ok": False, "code": 1, "id": change_id, "error": f"write failed: {e}"}
         _emit_span("undo", str(mem_id), actor, {"change_id": change_id})
         _reconcile_safe()
-        return {"ok": True, "code": 200, "verb": "undo", "id": change_id,
-                "mem_id": mem_id, "restored_state": prev_state, "signature": _UNSIGNED}
+        return _signed({"ok": True, "code": 200, "verb": "undo", "id": change_id,
+                        "mem_id": mem_id, "restored_state": prev_state, "signature": _UNSIGNED})
 
 
 def purge(*, older_than_days: int = 30, confirm: bool = False,
@@ -401,9 +426,9 @@ def purge(*, older_than_days: int = 30, confirm: bool = False,
         for mid in stale:
             _emit_span("purge", mid, actor, {"older_than_days": days})
         _reconcile_safe()
-        return {"ok": True, "code": 200, "verb": "purge", "dry_run": False,
-                "older_than_days": days, "purged": stale, "count": len(stale),
-                "signature": _UNSIGNED}
+        return _signed({"ok": True, "code": 200, "verb": "purge", "dry_run": False,
+                        "older_than_days": days, "purged": stale, "count": len(stale),
+                        "signature": _UNSIGNED})
 
 
 def store_list() -> list[dict[str, Any]]:

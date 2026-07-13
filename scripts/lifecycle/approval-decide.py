@@ -66,6 +66,28 @@ _UNSIGNED = "unsigned-pending-MS003"
 _WRITE_LOCK = threading.Lock()
 
 
+# MS003 (SDD-989) — sign records with the operator ed25519 key when present. The
+# import is best-effort and `ms003.sign()` never raises + falls back to the
+# `unsigned-pending-MS003` placeholder when no operator key is provisioned, so a
+# keyless node's output is byte-identical to the pre-MS003 behaviour.
+try:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lib"))
+    import ms003 as _ms003
+except Exception:  # pragma: no cover - defensive import guard
+    _ms003 = None
+
+
+def _sign(record: dict[str, Any]) -> str:
+    return _ms003.sign(record) if _ms003 is not None else _UNSIGNED
+
+
+def _signed(record: dict[str, Any]) -> dict[str, Any]:
+    """Set `record['signature']` via MS003 and return the record. Keyless → the
+    `unsigned-pending-MS003` placeholder (identical to pre-MS003 output)."""
+    record["signature"] = _sign(record)
+    return record
+
+
 def _now() -> str:
     return datetime.now(tz=timezone.utc).isoformat()
 
@@ -182,6 +204,7 @@ def decide(id_or_latest: str, verb: str, *, actor: str = "operator",
         if verb == "defer":
             target["defer_until"] = until or (
                 datetime.now(tz=timezone.utc) + timedelta(hours=24)).isoformat()
+        _signed(target)  # sign after the approval record is fully assembled
         if gate_signs:
             gates = reg.get("gates")
             if not isinstance(gates, dict):
@@ -194,14 +217,14 @@ def decide(id_or_latest: str, verb: str, *, actor: str = "operator",
         except OSError as e:
             return {"ok": False, "code": 1, "id": rid, "error": f"write failed: {e}"}
 
-        decision = {"id": rid, "verb": verb, "status": new_status, "gate": gate,
-                    "decided_by": actor, "decided_ts": decided_ts,
-                    "rationale": rationale, "signature": _UNSIGNED,
-                    "trace_id": target.get("trace_id")}
+        decision = _signed({"id": rid, "verb": verb, "status": new_status, "gate": gate,
+                            "decided_by": actor, "decided_ts": decided_ts,
+                            "rationale": rationale, "signature": _UNSIGNED,
+                            "trace_id": target.get("trace_id")})
         _append_ledger(decision)
         _emit_span(decision)
-        return {"ok": True, "code": 200, "verb": verb, "id": rid, "status": new_status,
-                "gate_signed": gate if gate_signs else None, "signature": _UNSIGNED}
+        return _signed({"ok": True, "code": 200, "verb": verb, "id": rid, "status": new_status,
+                        "gate_signed": gate if gate_signs else None, "signature": _UNSIGNED})
 
 
 def request(*, title: str, severity: str = "medium", gate: str = "L4→L5",
