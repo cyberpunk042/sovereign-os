@@ -12,6 +12,30 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — self-healing parallel-session SDD conflicts: session registry + auto-resolver (2026-07-13)
+
+Operator-directed ("we could have actually useful ones to resolves conflict, automatically and then give a
+warning if we can't … we know the logic and how to resolve the conflict of numbers and lines"; aggressiveness
+"Auto-apply, verify, warn on doubt"; + "a way for sessions to identify themselves … even talk to each other /
+talk to me"; + "a note about what was done … and potentiel further needs") (SDD-980). Makes the SDD-100 band
+convention self-healing — docs + scripts + `.gitattributes` only, collision-safe.
+
+- **`scripts/git/sdd_conflict_resolver.py`** (stdlib; `--check`/`--dry-run`/`--apply`) — on a duplicate SDD
+  number, the file whose declared `Number band:` does NOT contain the number is the intruder; it is renumbered
+  into the next free slot of its own band (rename + internal refs + **surgical** INDEX/mandate row renumber,
+  each row identified by its self-declaring last cell — never a blind global replace), the catalog + counts
+  are regenerated, and it **verifies** with the uniqueness/contiguity/counts lints; on any doubt it **reverts
+  and warns** with the exact fix. Wired into `post-merge`/`post-rewrite` (`lib/sdd-resolve.sh`) — silent on the
+  happy path, changes left UNSTAGED, never auto-commits.
+- **`docs/sdd/SESSIONS.md`** — the session registry (sessions identify themselves: id→band→branch→purpose).
+- **`docs/sdd/RESOLUTION-LOG.md`** — append-only cross-session ledger (what was resolved + follow-ups);
+  `merge=union`, the seed of the session↔session / session↔operator message board.
+- Fixed `SDD-800`'s stale band declaration (`950–999`→`800–899`) — the exact drift the new
+  `test_sdd_band_declaration_matches_number.py` forbids.
+- Verified: live plant of a cockpit-wasm intruder at SDD-979 → `--apply` renamed to 801, renumbered both
+  rows, owner kept 979, 3 lints green, ledger written; warn-on-doubt live (no-band intruder → no-op + warn);
+  `test_sdd_conflict_resolver.py` 4/4, `test_session_registry.py` 3, `test_sdd_band_declaration_matches_number.py` 1.
+
 ### Added — retrieval hub decorator flags + cached-RAG serving (2026-07-13)
 
 Operator-directed ("1 and 2 both, sequentially, big PR, do not minimize") (SDD-978 + SDD-979; advances

@@ -5,7 +5,7 @@
 > page drifts from `docs/sdd/`, so the published book can never freeze behind the
 > design record again (F-2026-033).
 
-Every Spec-Driven-Development design doc in `docs/sdd/` (162 total), by number.
+Every Spec-Driven-Development design doc in `docs/sdd/` (163 total), by number.
 
 - [SDD-000 — Project charter](../sdd/000-charter.md)
 - [SDD-001 — Cross-repo boundaries: contract between sovereign-os, info-hub, selfdef](../sdd/001-cross-repo-boundaries.md)
@@ -169,3 +169,4 @@ Every Spec-Driven-Development design doc in `docs/sdd/` (162 total), by number.
 - [SDD-977 — deepen chat RAG with the rerank → dedup → diversify pipeline](../sdd/977-rag-reranking-pipeline.md)
 - [SDD-978 — expose the retrieval hub's decorator surface as chat flags](../sdd/978-chat-retrieval-decorator-flags.md)
 - [SDD-979 — cached-RAG in sovereign-serve (retrieval × the cost-aware cache)](../sdd/979-serve-cached-rag.md)
+- [SDD-980 — auto-resolve parallel-session SDD conflicts (session identity + a resolver that renumbers, verifies, and warns)](../sdd/980-sdd-conflict-auto-resolution.md)

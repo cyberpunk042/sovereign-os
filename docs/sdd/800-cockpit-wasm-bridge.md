@@ -5,7 +5,7 @@
 > Last updated: 2026-07-13
 > Closes findings: **F-2026-001** (partial — the 413 `sovereign-cockpit-*` crates are consumed by nothing; the audit's option (a): "wasm-pack a facade and progressively move panel state logic into the typed crates"). First crate bridged; the pattern + toolchain + contract are established for the rest.
 > Mandate module: **E11.M800** (operator-mandate cross-link).
-> Number band: **950–999 (general / audit session)** per SDD-100.
+> Number band: **800–899 (cockpit-wasm bridge session)** per SDD-100.
 
 ## Mission
 

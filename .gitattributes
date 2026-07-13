@@ -15,3 +15,9 @@ docs/standing-directives/2026-05-17-operator-mandate.md  merge=union
 docs/src/lifecycle/ongoing.md                           merge=union
 docs/observability/dashboards/README.md                 merge=union
 docs/decisions.md                                       merge=union
+# SDD-980 — the parallel-session registry + the auto-resolver's cross-session
+# ledger are append-only too: every session appends its own row / note, so union
+# keeps them all. The resolver (scripts/git/sdd_conflict_resolver.py) reads
+# SESSIONS.md and appends to RESOLUTION-LOG.md.
+docs/sdd/SESSIONS.md                                     merge=union
+docs/sdd/RESOLUTION-LOG.md                              merge=union

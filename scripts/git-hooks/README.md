@@ -56,6 +56,28 @@ They are **silent when ownership is clean**, and deliberately ignore transient
 artifacts (`__pycache__/*.pyc`, `node_modules`, …) — only tracked files count.
 Shared logic lives in `lib/ownership-warn.sh` (sourced, never installed as a hook).
 
+**They also run the SDD-collision auto-resolver** (SDD-980) after the merge/rebase.
+SDD-100 gives each parallel session a disjoint number band, but a session can
+still take a number OUTSIDE its band — and two differently-slugged files sharing
+a number do **not** git-conflict (they just coexist), so the mistake only shows
+up when the uniqueness lint goes red *after* the pull. `lib/sdd-resolve.sh` fires
+`scripts/git/sdd_conflict_resolver.py --apply`, which:
+
+- renumbers the out-of-band **intruder** into the next free slot of *its own*
+  band (the file whose declared `Number band:` does not contain the number);
+- rewrites its file + INDEX row + mandate row, regenerates the mdbook catalog +
+  `context.md` counts;
+- **verifies** with the uniqueness / contiguity / counts lints — and on any
+  doubt (ambiguous ownership, band full, lint still red) **reverts and warns**
+  with the exact manual fix;
+- appends every action (or warning) to `docs/sdd/RESOLUTION-LOG.md` — the
+  cross-session ledger.
+
+It is **silent + fast when there is no collision**, leaves its changes UNSTAGED
+for you to review (`git status`) and commit, and never fails the hook. Run it by
+hand anytime: `python3 scripts/git/sdd_conflict_resolver.py --check` (report) /
+`--dry-run` (preview) / `--apply` (resolve).
+
 ## Why?
 
 The sovereign-os repo runs direct-push-to-main per the operator's
