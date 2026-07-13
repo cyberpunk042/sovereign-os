@@ -1003,12 +1003,26 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
       else if(e.key==='Escape'){ e.preventDefault(); cmdkClose(); } });
 
     // ── global shortcuts — capture phase so we supersede the head-snippet palette uniformly ──
+    // F-2026-001 (invasive adoption): the Ctrl/Cmd chords resolve to their action through the REAL
+    // sovereign-cockpit-keystroke-map crate when the bridge is loaded; otherwise the inline map
+    // below is the fallback, so the shortcuts always work.
+    var APPSHELL_KEYMAP = JSON.stringify({ schema_version:'1.0.0', bindings:[
+      { modifiers:{ctrl:true,shift:false,alt:false,meta:false}, key:'k', action_id:'palette',   scope:'global', description:'toggle command palette' },
+      { modifiers:{ctrl:true,shift:false,alt:false,meta:false}, key:'b', action_id:'sidemenu',  scope:'global', description:'toggle sidemenu' },
+      { modifiers:{ctrl:true,shift:false,alt:false,meta:false}, key:'j', action_id:'assistant', scope:'global', description:'toggle assistant' } ] });
+    function appshellAction(k){
+      var kl=(k||'').toLowerCase();
+      var res=window.__cockpitKeystrokeResolve;
+      if(res){ try{ var a=res(APPSHELL_KEYMAP, kl); if(a) return a; }catch(_){} }
+      return kl==='k'?'palette':kl==='b'?'sidemenu':kl==='j'?'assistant':null;   // fallback
+    }
     window.addEventListener('keydown',function(e){ var k=e.key;
-      if((e.metaKey||e.ctrlKey)&&(k==='k'||k==='K')){ e.preventDefault(); e.stopImmediatePropagation(); cmdkIsOpen()?cmdkClose():cmdkOpen(); return; }
+      var action=(e.metaKey||e.ctrlKey)?appshellAction(k):null;
+      if(action==='palette'){ e.preventDefault(); e.stopImmediatePropagation(); cmdkIsOpen()?cmdkClose():cmdkOpen(); return; }
       if(cmdkIsOpen()){ if(k==='Escape'){ e.preventDefault(); e.stopImmediatePropagation(); cmdkClose(); } return; }
-      if((e.metaKey||e.ctrlKey)&&(k==='b'||k==='B')){ e.preventDefault(); e.stopImmediatePropagation();
+      if(action==='sidemenu'){ e.preventDefault(); e.stopImmediatePropagation();
         if(window.matchMedia('(max-width:1024px)').matches) document.body.classList.toggle('so-sm-open'); else document.body.classList.toggle('so-sm-collapsed'); return; }
-      if((e.metaKey||e.ctrlKey)&&(k==='j'||k==='J')){ e.preventDefault(); e.stopImmediatePropagation(); setAssist(!document.body.classList.contains('so-assist-open')); return; }
+      if(action==='assistant'){ e.preventDefault(); e.stopImmediatePropagation(); setAssist(!document.body.classList.contains('so-assist-open')); return; }
     },true);
 
     // ── wheel spillover: when the main area can't scroll further, feed the wheel to the assistant body ──
@@ -1199,8 +1213,9 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
   // F-2026-001 (invasive adoption): expose the crate-backed command-palette navigator to the
   // (non-module) app-shell above. Shares the one cockpit-runtime module the panel already loads,
   // so it reads the same wasm bridge. No-op until the bridge finishes loading (palette falls back).
-  import { autocompleteNav } from '/_shared/cockpit-runtime.js';
+  import { autocompleteNav, keystrokeResolve } from '/_shared/cockpit-runtime.js';
   window.__cockpitAutocompleteNav = autocompleteNav;
+  window.__cockpitKeystrokeResolve = keystrokeResolve;
 </script>
 <!-- APP-SHELL:END M067 -->
 

@@ -10,6 +10,7 @@ pub mod checkbox_tree;
 pub mod cost_meter;
 pub mod facet_counts;
 pub mod filter_state;
+pub mod keystroke_map;
 pub mod multi_select_list;
 pub mod progress_tracker;
 pub mod radio_group;
