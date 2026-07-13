@@ -1122,8 +1122,22 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
   let LAST = {devices: []};
 
   function bind() {
-    document.querySelectorAll('.tab:not(.empty)').forEach(t => t.addEventListener('click', () => {
-      activeTab[t.dataset.slot] = parseInt(t.dataset.tab, 10);
+    document.querySelectorAll('.tab:not(.empty)').forEach(t => t.addEventListener('click', async () => {
+      const slot = t.dataset.slot, id = t.dataset.tab;
+      let next = parseInt(id, 10);
+      // Route through the tab-strip crate: it validates the id against this device's present
+      // tabs and returns the resolved active tab. Falls back to the raw index if the bridge
+      // is absent, so the panel keeps working offline.
+      const act = window.__d22TabActivate;
+      if (act) {
+        try {
+          const ids = Array.from(document.querySelectorAll('.tab[data-slot="' + slot + '"]:not(.empty)')).map(x => x.dataset.tab);
+          const strip = { schema_version: '1.0.0', active: 0, tabs: ids.map(i => ({ id: i, kind: 'dashboard', label: 'Model ' + i, payload_id: i, pinned: false })) };
+          const resolved = await act(JSON.stringify(strip), id);
+          if (resolved != null) next = parseInt(resolved, 10);
+        } catch (_) {}
+      }
+      activeTab[slot] = next;
       draw(LAST);
     }));
     document.querySelectorAll('button.act:not(:disabled)').forEach(b => b.addEventListener('click', () => {
@@ -2496,8 +2510,11 @@ window.SO_ASSIST = {
 <!-- COURSE:END M090 -->
 <script type="module">
   // cockpit-crate runtime (F-2026-001): run the real sovereign-cockpit-* crates.
-  import { enhance } from '/_shared/cockpit-runtime.js';
+  import { enhance, tabActivate } from '/_shared/cockpit-runtime.js';
   enhance(document).catch(() => {});   // additive + graceful: no-op if the bridge is absent
+  // Invasive adoption (F-2026-001): the per-device model tab bar routes activation through
+  // the REAL sovereign-cockpit-tab-strip crate. Exposed for the panel's own bind() below.
+  window.__d22TabActivate = tabActivate;
 </script>
 </body>
 </html>
