@@ -68,6 +68,26 @@ else
   fi
 fi
 
+# ── (1b) build the cockpit-wasm full bridge so the panels' crate features run ──
+# The panels load webapp/_shared/cockpit-wasm/cockpit_wasm_full.js (~3.8 MB) to run the real
+# sovereign-cockpit-* crates in-browser (F-2026-001 / SDD-800). It is gitignored + built on
+# demand, so WITHOUT this step the panels deploy but every crate feature silently no-ops (they
+# still render — graceful degradation). Build it HERE, into SRC, before the deploy serves webapp/.
+# Build as the invoking (non-root) user, who owns the rustup toolchain; graceful if it is absent.
+step "1b/5 build cockpit-wasm full bridge (crate features → panels)"
+FULL_BRIDGE="${SRC}/webapp/_shared/cockpit-wasm/cockpit_wasm_full.js"
+BUILD_USER="${SUDO_USER:-$(id -un)}"
+info "building the full cockpit-wasm bridge as '${BUILD_USER}' (needs rustup wasm32-unknown-unknown + wasm-bindgen 0.2.100)…"
+if su - "${BUILD_USER}" -c "cd '${SRC}' && bash cockpit-wasm/build.sh --full" >/dev/null 2>&1 && [ -f "${FULL_BRIDGE}" ]; then
+  info "built full bridge ($(du -h "${SRC}/webapp/_shared/cockpit-wasm/cockpit_wasm_full_bg.wasm" 2>/dev/null | cut -f1)) — the cockpit crates now run live in the panels"
+elif [ -f "${FULL_BRIDGE}" ]; then
+  red "WARN: rebuild failed — serving the existing prebuilt full bridge (it may be stale)."
+else
+  red "WARN: full cockpit-wasm bridge unavailable (wasm toolchain absent?)."
+  red "      Panels will run WITHOUT crate features — they still render, degraded gracefully."
+  red "      Fix: run 'make cockpit-wasm' as a user with rustup wasm32-unknown-unknown + wasm-bindgen 0.2.100, then re-run this installer."
+fi
+
 # ── (2) deploy the dashboard app tree ──
 # build-configurator-api.py resolves REPO = parents[2], so it must live at
 # ${PREFIX_LIB}/scripts/operator/... and read ${PREFIX_LIB}/{webapp,profiles,config}.

@@ -88,6 +88,11 @@ JS
   --demo)
     build_demo
     ;;
+  --full)
+    # ONLY the full bridge (gitignored) — used by the deploy/install so it does not rewrite the
+    # committed banner-only demo artifact. Assumes wasm32 target + wasm-bindgen 0.2.100 present.
+    build_full
+    ;;
   *)
     build_demo
     build_full
