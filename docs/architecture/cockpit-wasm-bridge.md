@@ -329,12 +329,13 @@ by something today.
 Two different bars, both worth tracking:
 
 - **Runnable** — reachable from the browser at all. **All 418** cockpit crates clear this bar:
-  the 398 uniform `validate()` crates + 19 bespoke + 12 compute wrappers all compile into the
+  the 398 uniform `validate()` crates + 19 bespoke + 17 compute wrappers all compile into the
   full bridge and execute on the **`/crates` surface** (`webapp/_shared/cockpit-wasm/crates.html`):
-  the validator runs any uniform crate's `validate()`, and the compute/bespoke sections run their
-  real logic on editable input.
-- **Used in a panel** — a real dashboard panel runs the crate on its own live data. This is the
-  deeper bar; the rest of this section is that map.
+  the validator runs any uniform crate's `validate()`, and the 16 compute cards run their real
+  logic on editable input.
+- **Used in a panel** — a real dashboard panel runs the crate on its own live data (additive
+  section), or the panel's own widget is *driven by* the crate (invasive adoption). This is the
+  deeper bar; the rest of this section is that map. **18 crates clear it.**
 
 ### Universal passes — every one of the 55 panels
 
@@ -346,7 +347,7 @@ Applied by `cockpit-runtime.js` to every panel that includes the runtime (all 55
 | **relative-time** | rewrites visible ISO timestamps to "3 minutes ago" |
 | **facet-counts** (via control-systems) | facets the controls that *govern* this panel (kind / scope / access), when ≥2 apply |
 
-### Per-panel crate sections — 30 panels
+### Per-panel crate sections — additive
 
 Each of these panels runs one or more crates on its own fetched data (additive sections;
 a panel can carry several):
@@ -366,13 +367,27 @@ a panel can carry several):
 | d-05-traces | filter-state (staged filter) |
 | runtime-modes | segmented-control (mode navigator) |
 | d-21-lm-orchestration | radio-group (profile selector) |
-| models-catalog, d-23, d-11, d-15, d-12, d-13, d-19, d-20, d-07, d-03, d-04, d-09, d-02, master-dashboard | facet-counts |
+| d-04-costs | facet-counts + cost-meter (budget gauge) + stat-trend (spend trend) |
+| d-20-peace-machine-health | facet-counts + status-aggregator (health headline) |
+| d-09-hardware-pressure | facet-counts + byte-size-formatter (total usage) |
+| models-catalog, d-23, d-11, d-15, d-12, d-13, d-19, d-07, d-03, d-02, master-dashboard | facet-counts |
+
+### Panels whose own widget is *driven by* the crate — invasive adoption
+
+The deeper form: the panel's real hand-rolled widget makes the crate its source of truth,
+with a fallback so it still works offline (see §10.1 below).
+
+| panel | widget → crate |
+|---|---|
+| code-console | session tab bar → **tab-strip** (`activate` validates the tab id) |
+| d-22-lm-status-operability | per-device model tabs → **tab-strip** (same, index-keyed) |
 
 ### Crate → number of panels
 
-`facet-counts` 23 · `progress-tracker` 3 · `day-divider` 3 · `alert-group` 2 · `filter-state` 2 ·
-`color-contrast` 2 · `word-count` 1 · `tree-view` 1 · `stepper` 1 · `segmented-control` 1 ·
-`radio-group` 1 · `relative-time` (universal). **13 crates run in panels.**
+`facet-counts` 23 · `progress-tracker` 3 · `day-divider` 3 · `tab-strip` 2 · `alert-group` 2 ·
+`filter-state` 2 · `color-contrast` 2 · `word-count` 1 · `tree-view` 1 · `stepper` 1 ·
+`segmented-control` 1 · `radio-group` 1 · `cost-meter` 1 · `stat-trend` 1 · `status-aggregator` 1 ·
+`byte-size-formatter` 1 · `relative-time` (universal). **18 crates run in panels.**
 
 ### Deliberately not forced into a panel
 
@@ -383,13 +398,27 @@ a panel can carry several):
 Both run live on the `/crates` surface; they were left out of the panels rather than wired to a
 contrived widget.
 
-### The remaining frontier
+## 10.1 The invasive-adoption pattern (widgets driven by the crate)
 
-The **398 uniform `validate()` crates** encode the state invariants of UI *widgets* (accordion,
-tabs, breadcrumbs, item-pin, …). They are runnable (validator surface) but not yet *used in a
-panel*, because a panel would have to route its hand-rolled widget through the crate — a
-per-widget rewrite of the panels' JS, which is a larger, non-additive effort than everything
-above. That is the next mountain, tracked but not yet climbed.
+Most of the **398 uniform `validate()` crates** encode the state invariants of UI *widgets*
+(accordion, tabs, breadcrumbs, item-pin, …). Using one *in a panel* means the panel's own
+hand-rolled widget routes its transitions through the crate — the frontier the tab bars opened.
+The repeatable recipe:
+
+1. **Expose the widget's real transition** as a compute wrapper (e.g. `tab_strip_activate(state, id)`
+   runs the crate's `activate()`, which *rejects* an unknown id — the invariant a hand-rolled bar
+   silently violates). One file in `cockpit-wasm/src/compute/`, then rebuild the full bridge.
+2. **Export a thin helper** from `cockpit-runtime.js` (e.g. `tabActivate(state, id)`) that returns
+   the crate's resolved result, or `null` when the bridge is absent.
+3. **The panel drives its widget through it, with a fallback.** The panel builds the crate state
+   from its live data, routes the interaction through the helper, and uses the crate's answer when
+   present — else its original behavior. So the crate is the source of truth *when present*, and
+   the panel still works offline. This keeps the panels-always-work-offline doctrine intact even
+   for an invasive change.
+
+Proven on the two tab bars (code-console, d-22). The remaining widget crates follow the same three
+steps; each is bespoke per-widget work, so it is climbed one clean widget at a time rather than in
+a sweep.
 
 ---
 
