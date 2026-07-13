@@ -1525,7 +1525,7 @@ var BAKED = {
         ],
         post_install_first_boot: [
           { id:"friction-audit-runtime",        type:"validation",  mandatory:true },
-          { id:"vfio-bind-3090",                type:"setup",       mandatory:true, note:"binds the 4090 — script reads PCI IDs from profile; legacy name" },
+          { id:"vfio-bind-4090",                type:"setup",       mandatory:true, note:"binds the passthrough GPU — script reads PCI IDs from the profile" },
           { id:"network-vlan-config",           type:"network",     mandatory:true },
           { id:"tetragon-policy-load",          type:"security",    mandatory:true },
           { id:"arc-clamp-128gb",               type:"setup",       mandatory:true },
@@ -2638,7 +2638,7 @@ var GLOSSARY = {
   "zfs-datasets-create": "Creates tank/models, tank/context, tank/agents with their tuned properties.",
   "mok-enroll": "Enrolls your Machine Owner Key into firmware — needed for the 'signed' posture; skip if secure boot is off.",
   "friction-audit-runtime": "First-boot re-validation that the running system matches the spec.",
-  "vfio-bind-3090": "Binds the passthrough GPU to vfio-pci. Reads PCI IDs from the profile, so it binds the 4090 despite the legacy name.",
+  "vfio-bind-4090": "Binds the passthrough GPU to vfio-pci. Reads PCI IDs from the profile.",
   "network-vlan-config": "Applies the VLAN-asymmetric layout (mgmt 100 / data 200).",
   "tetragon-policy-load": "Loads the kernel-perimeter eBPF policies.",
   "arc-clamp-128gb": "Clamps the ZFS ARC cache so it can't starve model inference of RAM.",
