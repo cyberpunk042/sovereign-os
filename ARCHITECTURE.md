@@ -6,8 +6,10 @@
 > (SAIN-01 milestone + 11 epics + L1-L3 syntheses). This document
 > **names** the baseline, sketches the boundaries, and points the
 > reader to the authoritative artifacts.
-> Last updated: 2026-05-16
-> Lock contract: `docs/sdd/001-cross-repo-boundaries.md` (this PR).
+> Last updated: 2026-07-13 (Stage-2 refresh — profiles realised, intelligence
+> layer added; the info-hub-owned baseline below is unchanged). Original
+> arc-opening draft: 2026-05-16.
+> Lock contract: `docs/sdd/001-cross-repo-boundaries.md`.
 
 ## The four-repo ecosystem
 
@@ -133,12 +135,16 @@ stage has its own concerns, scripts, configs, tests:
 Threading through every lifecycle stage:
 
 ### 1. Profiles
-The OS is **multi-profile from day 1**:
-- Default: `sain-01` (info-hub milestone target).
-- Alternate: `old-workstation` (11 GB RAM + 8 GB GPU).
-- Reserved: `minimal`, `developer`, `headless` (slots; substantive bodies deferred per Q-012).
+The OS is **multi-profile from day 1**. All five profiles now exist as full,
+schema-conformant `profiles/*.yaml` bodies (no longer reserved stubs):
+- `sain-01` — the info-hub milestone target (default).
+- `old-workstation` — 11 GB RAM + 8 GB GPU.
+- `minimal` · `developer` · `headless` — realised profiles (were Q-012 reserved slots).
 
-Profiles are schema-conformant (PR 5 SDD-004 defines the schema; PR 6 lands the first two stubs). Schema covers: identity, hardware target, kernel config, package sets, activation hooks per lifecycle phase, whitelabel binding, observability binding.
+Profiles are schema-conformant against SDD-004; the schema + mixin/runtime/orchestration
+families are validated in CI (`make validate`, `scripts/validate-profiles.sh`). The schema
+covers: identity, hardware target, kernel config, package sets, activation hooks per
+lifecycle phase, whitelabel binding, observability binding.
 
 ### 2. Whitelabel
 The OS rebrands away from its upstream substrate (Debian 13 working hypothesis). Every Debian identity surface (per PR 7 audit) gets routed through the whitelabel mechanism (PR 8). Legal-obligation minimum stays (DFSG + Debian trademark).
@@ -153,6 +159,28 @@ The OS rebrands away from its upstream substrate (Debian 13 working hypothesis).
 - Pipeline-level: profiles / substrates / whitelabel / lifecycle hooks add cleanly.
 - Image-level: build is resumable + state-aware (IaC bar's restart-from-state).
 - Installed-OS level: lifecycle-management tools (Q-019) let the operator add tools / services / models in place.
+
+## The intelligence layer (Stage-2)
+
+Beyond the foundation IaC, sovereign-os grew a **Rust intelligence layer** under
+`crates/` — the box's own local-AI backend, so it can drive tools (VS Code, Claude
+Code) against a model it runs itself rather than a remote API.
+
+- **`sovereign-gatewayd`** is the one persistent daemon (`sovereign-gatewayd.service`,
+  loopback `127.0.0.1:8787`). It speaks the **Anthropic Messages API** (`/v1/messages`,
+  SDD-205) + an OpenAI shim over the local model, with the safety spine (injection
+  screen + secret/PII redaction + auth/timeouts, SDD-206) in front and durable memory
+  behind it.
+- The **generation stack** runs inside the daemon: `safetensors-loader → quant-model`
+  with real RoPE / precision-selectable load / sampler (SDD-953/950), and the
+  `sovereign-cortex` routing/reasoning brain (the CoAT engine + job runtime).
+- The **binaries** — one daemon, a periodic telemetry emitter, control/test helpers,
+  and a set of dev/demo + config-generator CLIs — are mapped in
+  [`docs/src/binaries.md`](docs/src/binaries.md); the AI-backend usage is in
+  [`docs/src/ai-backend.md`](docs/src/ai-backend.md).
+
+This layer is Stage-2 work (it postdates the foundation Gate 5); the foundation IaC
+(profiles, whitelabel, observability, evolvability) remains the substrate it runs on.
 
 ## SFIF mapping (this arc itself)
 
@@ -169,6 +197,14 @@ discipline:
 Five stage gates: Gate 1 after PR 3 · Gate 2 after PR 4 (substrate) ·
 Gate 3 after PR 6 (schema) · Gate 4 after PR 8 (whitelabel + legal) ·
 Gate 5 after PR 10 (foundation-complete; authorizes Stage 2).
+
+> **Current state (2026-07 — post-Gate-5, Stage-2 underway):** the table above is the
+> original arc plan. The foundation landed (5 realised profiles · whitelabel · the
+> observability + build/orchestration families · the nspawn TDD tier), Gate 5 passed,
+> and Stage-2 is underway — the build/orchestration scripts, the operator control-plane
+> (`scripts/operator/` + the systemd fleet, see [`systemd/system/README.md`](systemd/system/README.md)),
+> and the Rust **intelligence layer** above are live. The QEMU/chroot TDD tiers remain
+> scaffolds (F-2026-052). See [`context.md`](context.md) for the current-arc detail.
 
 ## Authoritative references (cross-repo)
 
