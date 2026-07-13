@@ -12,6 +12,18 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Changed — hook hygiene: dedup vfio-bind + hook contracts (2026-07-13)
+
+Phase-1 audit (SDD-967; closes ledger F-2026-021 + F-2026-023).
+
+- **Removed** `scripts/hooks/post-install/vfio-bind-3090.sh` — a byte-identical, profile-driven
+  duplicate of `vfio-bind-4090.sh` (the build-configurator itself called it a "legacy name" that
+  "binds the 4090"). Repointed the one webapp build-step referrer to the canonical `vfio-bind-4090`.
+- **`tests/lint/test_hook_hygiene.py`**: `test_all_hooks_executable` (every hook keeps its +x bit —
+  orchestrate.sh's `find -executable` dispatch can't silently skip one, F-2026-023) +
+  `test_no_dangling_hook_path_references` (every hook path in the dispatch wiring — phases.yaml +
+  systemd units — resolves to a real file, so a delete/rename can't leave a dangling wiring ref).
+
 ### Added — per-unit systemd coverage contract (2026-07-13)
 
 Phase-1 audit (SDD-966; closes ledger F-2026-054). ~41 of 111 units had no name-specific test.

@@ -78,6 +78,7 @@
 - 397 scripts (103 sh / 294 py): **0** `bash -n` failures, **0** `py_compile` failures. `sovereign-osctl` (9,081 lines, 30 `cmd_*` verbs): every dispatch target exists. 53 operator API daemons with a collision-free sequential port map (8090–8135, 8140, 8142, 8160, 7711–7713, 8787) guarded by `tests/lint/test_dashboard_port_and_reference_integrity.py`. systemd↔API pairing is 1:1 (52 units; `build-configurator-api` intentionally unit-less via `make panel`).
 
 ### F-2026-021 · MED · Orphaned hook: `scripts/hooks/post-install/vfio-bind-3090.sh`
+> **Status (2026-07-13):** **CLOSED by SDD-967** (`docs/sdd/967-hook-hygiene-and-vfio-bind-dedup.md`) — **deleted** (not wired). Evidence made the choice unambiguous: the 3090 + 4090 scripts are byte-identical except the self-naming comment on line 2, both read PCI IDs from the profile (no GPU-specific logic), and the build-configurator's own entry called `vfio-bind-3090` a "legacy name" that "binds the 4090". Removed the duplicate; repointed its only source referrer (the webapp build-step id + description key) to the canonical `vfio-bind-4090`. `tests/lint/test_hook_hygiene.py::test_no_dangling_hook_path_references` now guards the dispatch wiring so a hook delete/rename can't leave a dangling reference.
 - Referenced by nothing; its sibling `vfio-bind-4090.sh` is wired into `sovereign-vfio-bind.service`, `config/bootstrap/phases.yaml`, and 8 docs. Action: either wire the 3090 variant in as a hardware-profile alternative (probably the intent) or delete it.
 
 ### F-2026-022 · MED · Local test/lint entrypoints assume pytest that setup never installs
@@ -85,6 +86,7 @@
 - `Makefile` `lint`/`unit`/`test`/`ci`/`dashboards-lint` all run `python3 -m pytest`; pytest is only installed inside CI (`pip install pytest pyyaml jsonschema` in test.yml). No root `requirements.txt`, no dev-env bootstrap target. Action: `make dev-deps` (or extend `setup.sh`) installing `pytest pyyaml jsonschema`, plus a friendly "pytest missing — run make dev-deps" guard in the Makefile.
 
 ### F-2026-023 · LOW · Glob-dispatch depends on the executable bit
+> **Status (2026-07-13):** **CLOSED by SDD-967.** `tests/lint/test_hook_hygiene.py::test_all_hooks_executable` asserts every `scripts/hooks/**/*.sh` carries its `+x` bit, so a hook that loses executability is caught in CI instead of being silently skipped by orchestrate.sh's `find -executable` dispatch at install time.
 - `scripts/build/orchestrate.sh:352` dispatches hooks via `find … -executable`; a hook that loses `+x` is silently skipped (0 currently non-executable). Action: lint test asserting every `scripts/hooks/**/*.sh` is executable.
 
 ### F-2026-024 · LOW · A few scripts lack `set -euo pipefail` without sourcing `common.sh`
