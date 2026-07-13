@@ -1,6 +1,6 @@
 # Runtime binaries
 
-> The **9 Rust binary crates** (`crates/*/src/main.rs`) are the executable runtime surface of
+> The **15 Rust binary crates** (`crates/*/src/main.rs`) are the executable runtime surface of
 > sovereign-os. Everything else in `crates/` is a library consumed by these (or an island —
 > see the phase-1 audit's island register). This page maps each binary to its **role**, how it
 > is **invoked**, and what it **does**. Enforced complete by `tests/lint/test_binaries_doc.py`.
@@ -19,6 +19,9 @@ the Rust binaries below are the compute/runtime core.
 | **`sovereign-cpu-pinning`** | operator / provisioning (emits config) | Emits systemd `AllowedCPUs=` drop-ins pinning the Trinity CPU agents (Pulse / Weaver+Auditor / System-Host) to their CCD cores, from the `sovereign-cpu-topology` source of truth — the CPU-affinity counterpart to `sovereign-resource-control`. |
 | **`sovereign-pcie-advisor`** | operator / provisioning (emits + validates config) | Prints the recommended ProArt X870E-Creator PCIe layout and validates a proposed one against the E0027 lane-sharing trap, from the `sovereign-pcie-topology` source of truth. `--check FILE` exits non-zero on a lane-sharing / duplicate-slot conflict. |
 | **`sovereign-inheritance-check`** | operator / governance (verify) | Prints the canonical M042 8-artifact durable-inheritance manifest (VISION/ARCHITECTURE/METHODOLOGY/PROFILES/POLICY/MODEL_REGISTRY/HARDWARE_PROFILES/EVALS) and `--check ROOT` verifies the files exist, from the `sovereign-inheritance-artifacts` source of truth. |
+| **`sovereign-execution-env`** | operator / reference | Lists the E0553 execution-environment taxonomy — the 9 environments (ModelServer / Repl / Shell / Container / VM / Browser / …) each mapped to its isolation level, + the 10 observation categories a run is watched by. A discoverable reference over the model crate. |
+| **`sovereign-module-facets`** | operator / reference + validate | Lists the E0477 uniform module interface — the 6 facets every module must expose (state / events / policy-hooks / profile-knobs / rollback / learning-signal); `--check FILE` validates a ModuleDescriptor JSON against the canonical set. |
+| **`sovereign-mode-transition-log`** | operator / audit | Renders an example append-only ExecutionMode transition record and `--validate FILE` validates a transition log JSON (legal mode shifts), exiting non-zero on an invalid log. |
 
 ## Dev / demo CLIs
 
@@ -54,6 +57,9 @@ sovereign-resource-control       → cgroup / compute-plane control
 sovereign-cpu-pinning            → systemd AllowedCPUs= drop-ins (Trinity core pinning)
 sovereign-pcie-advisor           → recommended/validated PCIe layout (lane-sharing trap)
 sovereign-inheritance-check      → verify the box's 8 durable inheritance artifacts
+sovereign-execution-env          → reference the 9 execution envs + isolation levels
+sovereign-module-facets          → the 6-facet module interface (list + validate)
+sovereign-mode-transition-log    → example transition record + validate a log
 sovereign-feature-selftest       → feature-test-lab
 
 dev/demo: cortex · agent-runtime · inference-demo · chat · serve   (manual / brain-api)

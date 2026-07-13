@@ -275,6 +275,13 @@ forced print). The enforcing island lint stays green.
   canonical M042 8-artifact durable-inheritance manifest (VISION / ARCHITECTURE / METHODOLOGY / PROFILES / POLICY
   / MODEL_REGISTRY / HARDWARE_PROFILES / EVALS) and `--check ROOT` verifies the files exist — "does the box carry
   its executable memory?" made checkable.
+- **`sovereign-execution-env`** (added a `main.rs`) → de-islands itself. Lists the E0553 execution-environment
+  taxonomy — the 9 environments each mapped to its isolation level + the 10 observation categories.
+- **`sovereign-module-facets`** (added a `main.rs`) → de-islands itself. Lists the E0477 uniform module
+  interface (the 6 facets every module must expose) and `--check FILE` validates a ModuleDescriptor against them.
+- **`sovereign-mode-transition-log`** (added a `main.rs`) → de-islands itself. Renders an example append-only
+  ExecutionMode transition record and `--validate FILE` validates a transition log (legal mode shifts only).
+- Island register 30 → 26 this round; the enforcing lint + the binaries-doc lint stay green.
 
 ### Added — de-island a crate with a subsystem: `sovereign-pcie-advisor` (catch the PCIe lane-sharing trap) (2026-07-12)
 
