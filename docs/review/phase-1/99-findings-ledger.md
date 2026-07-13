@@ -70,6 +70,7 @@
 - Workspace `version = "0.1.0"` while `context.md:134` defers "MS007 crate version + schema_version bumps (Patch Pass B+C) to pre-1.0 lockdown". Action: keep, but record the trigger condition in one place (currently only in stale context.md).
 
 ### F-2026-009 · OPP · Dependency-graph guard
+> **Status (2026-07-13):** **closed by SDD-986.** `tests/lint/test_crate_graph_contract.py` builds the internal graph by parsing every `crates/*/Cargo.toml` (repo convention — the pytest lint job has no `cargo`) and asserts every orphan is in the `sovereign-cockpit-*` family (orphan-by-design, wasm-bridged per SDD-800). Empirical: 717 crates / 41 binaries / 265 consumed / 413 orphans, **all cockpit, 0 non-cockpit** — so a NEW non-cockpit orphan fails the instant it lands. Corroborates SDD-962's F-2026-002 closure.
 - The orphan analysis in this audit was ad-hoc. Action: commit a `tests/lint/test_crate_graph_contract.py` that (a) regenerates the internal dependency graph from `cargo metadata`, (b) asserts the known-consumed set, (c) fails when a NEW orphan appears — turning the 413-orphan discovery from an archaeology event into a CI signal.
 
 ---
