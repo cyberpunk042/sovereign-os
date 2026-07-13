@@ -41,6 +41,12 @@ mod bridges;
 #[cfg(feature = "bridges")]
 mod bespoke;
 
+/// Compute wrappers exposing high-value uniform crates' REAL derived-output logic
+/// (grouping / faceting / tree flattening / selection / state machines) beyond
+/// `validate()`, so panels can run it. Same `bridges` feature gate.
+#[cfg(feature = "bridges")]
+mod compute;
+
 /// Generate a `#[wasm_bindgen] pub fn <name>(json)` that parses a cockpit
 /// crate's primary type and runs its **real** `validate()`, returning
 /// `{"ok":bool,"error":string|null}` (never panics). This is the uniform bridge

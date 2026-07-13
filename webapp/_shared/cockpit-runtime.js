@@ -81,6 +81,11 @@ export async function validate(fn, json) {
   const m = await bridge(); if (!m || typeof m[fn] !== 'function') return null;
   return J(m[fn](json));
 }
+/** Call any exported crate compute fn by name; parsed result or null. */
+async function bcall(fn, ...args) {
+  const m = await bridge(); if (!m || typeof m[fn] !== 'function') return null;
+  return J(m[fn](...args));
+}
 
 // ---- the WCAG audit: every meaningful token pair, judged by the real crate -----
 
@@ -211,10 +216,51 @@ async function enhanceDocCoverage(root) {
   (root.body || document.body).appendChild(s);
 }
 
+// d-06-pending-approvals: roll up the live approvals by severity with the REAL
+// sovereign-cockpit-alert-group crate (replacing the panel's hand-rolled sort).
+const SEV = { critical: 'critical', high: 'error', medium: 'warning', low: 'info' };
+async function enhanceApprovals(root) {
+  if (root.querySelector('[data-cockpit-crates="appr"]')) return;
+  let data; try { data = await (await fetch('/api/approvals/pending', { cache: 'no-store' })).json(); } catch (_) { return; }
+  const list = Array.isArray(data) ? data : (data.approvals || data.pending || []);
+  if (!list.length) return;
+  const events = list.map(a => ({
+    tag: a.kind || a.type || a.severity || 'approval',
+    severity: SEV[a.severity] || 'info',
+    ts_ms: Date.parse(a.ts || a.created_at || a.created || '') || 0,
+  }));
+  const r = await bcall('alert_group_rollup', JSON.stringify(events));
+  if (!r || !r.ok) return;
+  const s = section('Pending approvals rolled up — sovereign-cockpit-alert-group (wasm)');
+  s.setAttribute('data-cockpit-crates', 'appr');
+  s.appendChild(el('div', '', `${r.total} pending across ${r.groups.length} group(s) — grouped + severity-ordered by the crate, not the panel's JS:`));
+  for (const g of r.groups) s.appendChild(el('div', 'color:var(--muted,#888)', `   ${g.tag}: ${g.count} · worst ${g.max_severity}`));
+  (root.body || document.body).appendChild(s);
+}
+
+// models-catalog: facet the live model list with the REAL sovereign-cockpit-facet-counts crate.
+async function enhanceModelsCatalog(root) {
+  if (root.querySelector('[data-cockpit-crates="mcat"]')) return;
+  let data; try { data = await (await fetch('/api/models-catalog/catalog', { cache: 'no-store' })).json(); } catch (_) { return; }
+  const models = data.models || (data.catalog && data.catalog.models) || (Array.isArray(data) ? data : []);
+  if (!models.length) return;
+  const counts = {};
+  const bump = (f, b) => { if (b == null || b === '') return; (counts[f] = counts[f] || {})[b] = (counts[f][b] || 0) + 1; };
+  for (const mdl of models) { bump('class', mdl.class); bump('tier', mdl.tier || mdl.srp_tier); bump('quant', mdl.quantization || mdl.quant); }
+  const r = await bcall('facet_counts_top', JSON.stringify(counts), 6);
+  if (!r || r.ok === false) return;
+  const s = section('Model-catalog facets — sovereign-cockpit-facet-counts (wasm)');
+  s.setAttribute('data-cockpit-crates', 'mcat');
+  for (const [facet, top] of Object.entries(r)) s.appendChild(el('div', '', `${facet}: ` + top.map(([b, n]) => `${b} (${n})`).join(' · ')));
+  (root.body || document.body).appendChild(s);
+}
+
 const ENHANCERS = {
   'ux-design-audit-webapp': enhanceUxDesignAudit,
   'personalization-webapp': enhancePersonalization,
   'doc-coverage-webapp': enhanceDocCoverage,
+  'd-06-pending-approvals-webapp': enhanceApprovals,
+  'models-catalog-webapp': enhanceModelsCatalog,
 };
 
 /**

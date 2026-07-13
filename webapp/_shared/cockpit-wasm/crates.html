@@ -130,6 +130,17 @@
 
   </div>
 
+  <h2>Uniform crate compute — the crates’ derived-output logic, run live</h2>
+  <div class="panel">
+    <p class="muted" style="font-size:.78rem;margin:0 0 .6rem">
+      Beyond <code>validate()</code>: these expose each uniform crate’s REAL derived output — grouping, faceting,
+      tree flattening, selection replay, state-machine steps. Edit the input JSON and the crate recomputes live.
+      This is the exact logic a panel calls instead of re-implementing it in drifting JS
+      (<code>d-06-pending-approvals</code> already rolls its approvals up through <code>alert-group</code>).
+    </p>
+    <div id="compute-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(20rem,1fr));gap:.7rem"></div>
+  </div>
+
   <h2>Validator — run any of the <span id="uv-count">412</span> uniform crates’ real <code>validate()</code></h2>
   <div class="panel">
     <div class="row" style="margin-bottom:.5rem">
@@ -218,6 +229,66 @@
     $('dd-out').textContent = b;
   }
 
+  // --- uniform crate compute: real derived-output logic, editable input ---
+  const CLICKS = '[{"id":"b","kind":"plain"},{"id":"d","kind":"range"}]';
+  const esc = (s) => String(s).replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
+  const COMPUTE = [
+    { k: 'alert-group', fn: 'alert_group_rollup', sub: 'rollup(events) — group + severity-max + latest',
+      args: t => [t], preset: '[{"tag":"disk","severity":"critical","ts_ms":3},{"tag":"net","severity":"warning","ts_ms":2},{"tag":"disk","severity":"info","ts_ms":5}]',
+      render: r => r.ok ? `${r.total} events → ` + r.groups.map(g => `<b>${esc(g.tag)}</b> ×${g.count} · worst <i>${esc(g.max_severity)}</i>`).join(' · ') : ('err: ' + esc(r.error)) },
+    { k: 'alert-tile-board', fn: 'alert_tile_board_ordered', sub: 'ordered() — pinned, then unacked, severity, ts',
+      args: t => [t], preset: '[{"schema_version":"1.0.0","id":"a","title":"Disk full","severity":"critical","summary":"root 98%","pinned":false,"acknowledged":false,"ts_ms":100},{"schema_version":"1.0.0","id":"b","title":"Update","severity":"notice","summary":"apt","pinned":true,"acknowledged":false,"ts_ms":50}]',
+      render: r => Array.isArray(r) ? 'order: ' + r.map(t => `<b>${esc(t.id)}</b>${t.pinned ? '📌' : ''}(${esc(t.severity)})`).join(' → ') : ('err: ' + esc(r.error || '')) },
+    { k: 'facet-counts', fn: 'facet_counts_top', sub: 'top(counts, 2) — highest buckets per facet',
+      args: t => [t, 2], preset: '{"kind":{"decision":12,"audit":5,"note":1},"tier":{"gold":3,"silver":2}}',
+      render: r => Object.entries(r).map(([f, top]) => `<b>${esc(f)}</b>: ` + top.map(([b, n]) => `${esc(b)}(${n})`).join(', ')).join(' &nbsp; ') },
+    { k: 'tree-view', fn: 'tree_view_visible', sub: 'visible_rows() — DFS flatten collapsed subtrees',
+      args: t => [t], preset: '{"schema_version":"1.0.0","nodes":[{"id":"root","label":"Root","parent_id":null,"expanded":true},{"id":"a","label":"A","parent_id":"root","expanded":false},{"id":"a1","label":"A1","parent_id":"a","expanded":false},{"id":"b","label":"B","parent_id":"root","expanded":false}],"selected":null}',
+      render: r => Array.isArray(r) ? 'visible: ' + r.map(n => `${'· '.repeat(n.depth)}<b>${esc(n.id)}</b>${n.has_children ? (n.expanded ? ' ▾' : ' ▸') : ''}`).join('&nbsp; ') : 'err' },
+    { k: 'checkbox-tree', fn: 'checkbox_tree_states', sub: 'compute_state() — parent tri-state from leaves',
+      args: t => [t], preset: '{"schema_version":"1.0.0","nodes":[{"id":"root","label":"Root","parent_id":null,"leaf_state":"unchecked"},{"id":"a","label":"A","parent_id":"root","leaf_state":"checked"},{"id":"b","label":"B","parent_id":"root","leaf_state":"unchecked"}]}',
+      render: r => Object.entries(r).map(([id, s]) => `<b>${esc(id)}</b>:${esc(s)}`).join(' · ') },
+    { k: 'multi-select-list', fn: 'multi_select_apply', sub: 'click replay — plain, then range b→d',
+      args: t => [t, CLICKS], preset: '{"schema_version":"1.0.0","items":["a","b","c","d","e"],"anchor":null,"selected":[]}',
+      render: r => `selected [${(r.selected || []).map(esc).join(', ')}] · ${r.count} item(s)` },
+    { k: 'search-filter', fn: 'search_filter_spec', sub: 'canonical spec — query, facets, sort',
+      args: t => [t], preset: '{"schema_version":"1.0.0","query_text":"gpu","facets":{"kind":["decision"]},"sort_key":"ts","sort_direction":"desc"}',
+      render: r => r.ok ? `query “${esc(r.spec.query)}” · facets ${esc(JSON.stringify(r.spec.facets))} · sort ${esc(r.spec.sort.key)}/${esc(r.spec.sort.direction)}` : ('err: ' + esc(r.error)) },
+    { k: 'filter-state', fn: 'filter_state_apply', sub: 'apply() — pending edits become applied',
+      args: t => [t], preset: '{"schema_version":"1.0.0","pending":{"kind":"decision","tier":"gold"},"applied":{}}',
+      render: r => r.ok ? 'applied ' + esc(JSON.stringify(r.value.applied)) : ('err: ' + esc(r.error)) },
+    { k: 'segmented-control', fn: 'segmented_control_move', sub: 'move("next") — advance active segment',
+      args: t => [t, 'next'], preset: '{"schema_version":"1.0.0","segments":[{"id":"day","label":"Day","enabled":true},{"id":"week","label":"Week","enabled":true},{"id":"month","label":"Month","enabled":true}],"active":"day"}',
+      render: r => r.ok ? 'selected → <b>' + esc(r.selected) + '</b>' : ('err: ' + esc(r.error)) },
+    { k: 'radio-group', fn: 'radio_group_select', sub: 'select("down") — arrow-key navigation',
+      args: t => [t, 'down'], preset: '{"schema_version":"1.0.0","options":[{"id":"low","label":"Low","enabled":true},{"id":"med","label":"Med","enabled":true},{"id":"high","label":"High","enabled":true}],"selected":"low","required":true}',
+      render: r => r.ok ? 'selected → <b>' + esc(r.selected) + '</b> · valid ' + r.valid : ('err: ' + esc(r.error)) },
+    { k: 'stepper', fn: 'stepper_advance', sub: 'advance("complete") — guarded state machine',
+      args: t => [t, 'complete'], preset: '{"schema_version":"1.0.0","steps":[{"id":"s1","label":"Scan","skippable":false,"status":"active"},{"id":"s2","label":"Plan","skippable":true,"status":"not-started"},{"id":"s3","label":"Apply","skippable":false,"status":"not-started"}],"active":0}',
+      render: r => r.ok ? r.value.steps.map(s => `${esc(s.id)}:${esc(s.status)}`).join(' · ') + ' · active ' + r.value.active : ('err: ' + esc(r.error)) },
+    { k: 'progress-tracker', fn: 'progress_summary', sub: 'aggregate — mean progress across tasks',
+      args: t => [t], preset: '[{"id":"t1","label":"Index","kind":"determinate","progress":80,"eta_seconds":10,"started_at":"2026-01-01T00:00:00Z"},{"id":"t2","label":"Embed","kind":"determinate","progress":40,"eta_seconds":5,"started_at":"2026-01-01T00:00:00Z"}]',
+      render: r => r.ok ? 'average ' + r.average + '% across ' + r.tasks.length + ' task(s)' : ('err: ' + esc(r.error)) },
+  ];
+  function renderCompute() {
+    const grid = $('compute-grid'); if (!grid) return;
+    for (const c of COMPUTE) {
+      const card = document.createElement('div');
+      card.className = 'panel'; card.style.cssText = 'margin:0;padding:.6rem';
+      const head = document.createElement('div');
+      head.innerHTML = `<code>${c.k}</code> <span class="muted" style="font-size:.72rem">${c.sub}</span>`;
+      const ta = document.createElement('textarea'); ta.value = c.preset; ta.spellcheck = false;
+      ta.style.cssText = 'width:100%;height:3.6rem;font-family:ui-monospace,monospace;font-size:.7rem;margin:.35rem 0';
+      const out = document.createElement('div'); out.style.cssText = 'font-size:.8rem;min-height:1.1rem;word-break:break-word';
+      const run = () => {
+        try { const r = J(W[c.fn](...c.args(ta.value))); out.innerHTML = (r == null) ? 'err' : c.render(r); }
+        catch (e) { out.textContent = String(e.message || e); }
+      };
+      ta.addEventListener('input', run);
+      card.append(head, ta, out); grid.appendChild(card); run();
+    }
+  }
+
   // --- validator picker over every uniform crate ---
   function buildValidator() {
     const fns = Object.keys(W).filter(k => k.endsWith('_validate') && !k.endsWith('_schema_version')).sort();
@@ -244,6 +315,7 @@
       ['pg-page','pg-per','pg-total'].forEach(id => $(id).addEventListener('input', pg));
       ['tt-text','tt-max','tt-strat'].forEach(id => $(id).addEventListener('input', tt));
       $('rt-ago').addEventListener('input', rt); $('dd-ago').addEventListener('input', dd);
+      renderCompute();
       buildValidator();
       tickBanner(); tickContext(); setInterval(() => { tickBanner(); tickContext(); }, 4000);
     } catch (e) {
