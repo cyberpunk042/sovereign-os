@@ -5,7 +5,7 @@
 > page drifts from `docs/sdd/`, so the published book can never freeze behind the
 > design record again (F-2026-033).
 
-Every Spec-Driven-Development design doc in `docs/sdd/` (154 total), by number.
+Every Spec-Driven-Development design doc in `docs/sdd/` (155 total), by number.
 
 - [SDD-000 — Project charter](../sdd/000-charter.md)
 - [SDD-001 — Cross-repo boundaries: contract between sovereign-os, info-hub, selfdef](../sdd/001-cross-repo-boundaries.md)
@@ -161,3 +161,4 @@ Every Spec-Driven-Development design doc in `docs/sdd/` (154 total), by number.
 - [SDD-970 — cargo-workspace CI timeout headroom + floor guard](../sdd/970-ci-cargo-workspace-timeout.md)
 - [SDD-971 — consolidated deferred-work register](../sdd/971-deferred-work-register.md)
 - [SDD-972 — per-milestone backlog delivery roll-up](../sdd/972-backlog-delivery-rollup.md)
+- [SDD-973 — exotic tool-domain discoverability index](../sdd/973-exotic-tools-discoverability.md)

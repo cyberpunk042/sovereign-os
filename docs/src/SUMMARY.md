@@ -68,6 +68,7 @@
 - [Use the box as your AI backend](./ai-backend.md)
 - [Reasoning & operability](./reasoning-operability.md)
 - [Runtime binaries](./binaries.md)
+- [Exotic tool domains](./exotic-tools.md)
 
 # Design record
 
