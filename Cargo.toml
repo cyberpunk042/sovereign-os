@@ -7,8 +7,8 @@ version = "0.1.0"
 edition = "2024"
 rust-version = "1.89"
 license = "AGPL-3.0-or-later"
-repository = "https://example.org/you/sovereign-os"
-authors = ["You <you@example.org>"]
+repository = "https://github.com/cyberpunk042/sovereign-os"
+authors = ["cyberpunk042"]
 publish = false
 
 [workspace.dependencies]

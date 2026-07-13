@@ -16,7 +16,7 @@
 //!
 //! Composes [`sovereign-agent-loop`].
 //!
-//! [`sovereign-agent-loop`]: https://docs.rs/sovereign-agent-loop
+//! [`sovereign-agent-loop`]: https://github.com/cyberpunk042/sovereign-os/tree/main/crates/sovereign-agent-loop
 //!
 //! Standing rule: We do not minimize anything.
 
@@ -535,7 +535,7 @@ impl Retriever for AnnStore {
 /// Backed by [`sovereign-binary-quant`], which was previously built but unused;
 /// this store is its consumer.
 ///
-/// [`sovereign-binary-quant`]: https://docs.rs/sovereign-binary-quant
+/// [`sovereign-binary-quant`]: https://github.com/cyberpunk042/sovereign-os/tree/main/crates/sovereign-binary-quant
 pub struct BinaryHammingStore {
     /// `(id, text)` aligned by index with `codes`.
     docs: Vec<(String, String)>,
@@ -618,7 +618,7 @@ impl Retriever for BinaryHammingStore {
 /// Backed by [`sovereign-ivf`], previously built but unused; this store is its
 /// consumer.
 ///
-/// [`sovereign-ivf`]: https://docs.rs/sovereign-ivf
+/// [`sovereign-ivf`]: https://github.com/cyberpunk042/sovereign-os/tree/main/crates/sovereign-ivf
 pub struct IvfStore {
     /// `(id, text)` aligned by index with `vectors`.
     docs: Vec<(String, String)>,
@@ -759,7 +759,7 @@ impl Retriever for IvfStore {
 /// Backed by [`sovereign-matryoshka`], previously built but unused; this store is
 /// its consumer.
 ///
-/// [`sovereign-matryoshka`]: https://docs.rs/sovereign-matryoshka
+/// [`sovereign-matryoshka`]: https://github.com/cyberpunk042/sovereign-os/tree/main/crates/sovereign-matryoshka
 pub struct MatryoshkaStore {
     /// `(id, text)` aligned by index with `vectors`.
     docs: Vec<(String, String)>,
@@ -871,7 +871,7 @@ impl Retriever for MatryoshkaStore {
 /// Backed by [`sovereign-vptree`], previously built but unused; this store is its
 /// consumer.
 ///
-/// [`sovereign-vptree`]: https://docs.rs/sovereign-vptree
+/// [`sovereign-vptree`]: https://github.com/cyberpunk042/sovereign-os/tree/main/crates/sovereign-vptree
 pub struct VpTreeStore {
     /// `(id, text)` aligned by index with `vectors`.
     docs: Vec<(String, String)>,
@@ -994,7 +994,7 @@ impl Retriever for VpTreeStore {
 /// used; the vocabulary grows incrementally as documents are added (no rebuild),
 /// and the store implements [`Retriever`] so it drops into [`RagResponder`].
 ///
-/// [`sovereign-bktree`]: https://docs.rs/sovereign-bktree
+/// [`sovereign-bktree`]: https://github.com/cyberpunk042/sovereign-os/tree/main/crates/sovereign-bktree
 pub struct FuzzyTermStore {
     /// `(id, lowercased-token-list)` per document.
     docs: Vec<(String, String, Vec<String>)>,
@@ -1144,7 +1144,7 @@ impl Retriever for FuzzyTermStore {
 /// Backed by [`sovereign-ivf-pq`], previously built but unused; this store is its
 /// consumer.
 ///
-/// [`sovereign-ivf-pq`]: https://docs.rs/sovereign-ivf-pq
+/// [`sovereign-ivf-pq`]: https://github.com/cyberpunk042/sovereign-os/tree/main/crates/sovereign-ivf-pq
 pub struct IvfPqStore {
     /// `(id, text)` aligned by index with `vectors`.
     docs: Vec<(String, String)>,

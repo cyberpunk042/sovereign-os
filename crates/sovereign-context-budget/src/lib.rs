@@ -13,7 +13,7 @@
 //!
 //! Composes [`sovereign-tokenizer`].
 //!
-//! [`sovereign-tokenizer`]: https://docs.rs/sovereign-tokenizer
+//! [`sovereign-tokenizer`]: https://github.com/cyberpunk042/sovereign-os/tree/main/crates/sovereign-tokenizer
 //!
 //! Standing rule: We do not minimize anything.
 

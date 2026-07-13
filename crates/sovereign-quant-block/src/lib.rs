@@ -22,7 +22,7 @@
 //! residual streams). [`bits_per_param`](QuantDecoderBlock::bits_per_param)
 //! reports the real footprint the chosen precision implies.
 //!
-//! [`sovereign-transformer-block`]: https://docs.rs/sovereign-transformer-block
+//! [`sovereign-transformer-block`]: https://github.com/cyberpunk042/sovereign-os/tree/main/crates/sovereign-transformer-block
 //!
 //! Standing rule: We do not minimize anything.
 

@@ -24,7 +24,7 @@
 //! grouping runs, and the zeroed-sublayer block is the identity.
 //!
 //! [`Linear`]: sovereign_linear::Linear
-//! [`sovereign-quant-block`]: https://docs.rs/sovereign-quant-block
+//! [`sovereign-quant-block`]: https://github.com/cyberpunk042/sovereign-os/tree/main/crates/sovereign-quant-block
 //!
 //! Standing rule: We do not minimize anything.
 

@@ -17,7 +17,7 @@
 //! Both models are `Clone` ([`sovereign-decoder-stack`]), which is what lets
 //! the draft propose on a throwaway fork without committing.
 //!
-//! [`sovereign-decoder-stack`]: https://docs.rs/sovereign-decoder-stack
+//! [`sovereign-decoder-stack`]: https://github.com/cyberpunk042/sovereign-os/tree/main/crates/sovereign-decoder-stack
 //!
 //! Standing rule: We do not minimize anything.
 

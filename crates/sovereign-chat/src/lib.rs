@@ -19,7 +19,7 @@
 //!
 //! Composes [`sovereign-llm`].
 //!
-//! [`sovereign-llm`]: https://docs.rs/sovereign-llm
+//! [`sovereign-llm`]: https://github.com/cyberpunk042/sovereign-os/tree/main/crates/sovereign-llm
 //!
 //! Standing rule: We do not minimize anything.
 

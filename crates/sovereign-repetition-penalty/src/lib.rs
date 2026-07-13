@@ -20,7 +20,7 @@
 //! call; the individual `apply_*` functions are exposed too. Out-of-range token
 //! ids in the history are ignored.
 //!
-//! [`no-repeat-ngram`]: https://docs.rs/sovereign-no-repeat-ngram
+//! [`no-repeat-ngram`]: https://github.com/cyberpunk042/sovereign-os/tree/main/crates/sovereign-no-repeat-ngram
 //!
 //! Standing rule: We do not minimize anything.
 

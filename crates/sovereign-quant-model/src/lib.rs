@@ -20,7 +20,7 @@
 //! [`generate`](QuantModel::generate) / [`generate_masked`](QuantModel::generate_masked)
 //! ingest a prompt and decode autoregressively, reproducibly per seed.
 //!
-//! [`sovereign-decoder-stack`]: https://docs.rs/sovereign-decoder-stack
+//! [`sovereign-decoder-stack`]: https://github.com/cyberpunk042/sovereign-os/tree/main/crates/sovereign-decoder-stack
 //! [`LayerStack`]: sovereign_decoder_layer::LayerStack
 //!
 //! Standing rule: We do not minimize anything.

@@ -12,6 +12,20 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Fixed — real workspace metadata + dead docs.rs links removed (2026-07-13)
+
+Phase-1 audit (SDD-960; closes ledger F-2026-003). Root `Cargo.toml` `[workspace.package]` carried template
+placeholders (`repository = "https://example.org/you/sovereign-os"`, `authors = ["You <you@example.org>"]`)
+inherited by all 714 crates, and 23 crate `lib.rs` headers linked `https://docs.rs/sovereign-*` — dead under
+`publish = false`.
+
+- **`Cargo.toml`**: `repository` → `https://github.com/cyberpunk042/sovereign-os`, `authors` → `["cyberpunk042"]`
+  (the already-public identity; one edit, all crates inherit it).
+- **23 crates**: the dead docs.rs reference-links repointed to the GitHub source (doc comments only).
+- **`tests/lint/test_workspace_metadata.py`**: blocks placeholder workspace metadata and any `docs.rs/sovereign-*`
+  link from returning.
+
+
 ### Fixed — MASTER-PLAN count reconciliation + milestone-completeness contract (2026-07-12)
 
 Phase-1 audit (SDD-959; closes ledger F-2026-032). `docs/MASTER-PLAN.md` self-contradicted on the milestone count —

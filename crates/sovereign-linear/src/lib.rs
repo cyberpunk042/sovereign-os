@@ -20,7 +20,7 @@
 //!   dots (the operator's `VPDOTBF16PLUS`, [`sovereign-vnni`] `MatBf16`) — the
 //!   second Zen-5 tier-1 dot path: half f32's weight memory at f32 range.
 //!
-//! [`sovereign-vnni`]: https://docs.rs/sovereign-vnni
+//! [`sovereign-vnni`]: https://github.com/cyberpunk042/sovereign-os/tree/main/crates/sovereign-vnni
 //!
 //! The point is *substitutability*: the same `forward(x)` contract regardless
 //! of precision, so a model can pick a precision per layer and the rest of the
@@ -28,8 +28,8 @@
 //! of ternary on uniform-magnitude weights, and argmax-preservation under
 //! NVFP4 are pinned as tests.
 //!
-//! [`sovereign-bitlinear-core`]: https://docs.rs/sovereign-bitlinear-core
-//! [`sovereign-nvfp4-runtime`]: https://docs.rs/sovereign-nvfp4-runtime
+//! [`sovereign-bitlinear-core`]: https://github.com/cyberpunk042/sovereign-os/tree/main/crates/sovereign-bitlinear-core
+//! [`sovereign-nvfp4-runtime`]: https://github.com/cyberpunk042/sovereign-os/tree/main/crates/sovereign-nvfp4-runtime
 //!
 //! Standing rule: We do not minimize anything.
 

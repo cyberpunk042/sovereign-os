@@ -16,7 +16,7 @@
 //! Composes [`sovereign-embed`].
 //!
 //! [`embed`]: sovereign_embed::embed
-//! [`sovereign-embed`]: https://docs.rs/sovereign-embed
+//! [`sovereign-embed`]: https://github.com/cyberpunk042/sovereign-os/tree/main/crates/sovereign-embed
 //!
 //! Standing rule: We do not minimize anything.
 

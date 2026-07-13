@@ -44,6 +44,7 @@
 - **Action**: per-crate one-line disposition table (consumed-by-scripts / future-entry-point / wire-me / archive-me). Special note: `sovereign-holderpo` (the HölderPO post-training pillar) and `sovereign-worker-fleet` are headline features of the two-ultimate-solutions doctrine yet nothing consumes them — either wire into `sovereign-cortex`/`gatewayd` or mark explicitly aspirational.
 
 ### F-2026-003 · HIGH · Placeholder workspace metadata + unreachable docs.rs links
+> **Status (2026-07-13):** **CLOSED by SDD-960** (`docs/sdd/960-workspace-metadata-and-dead-doc-links.md`). Root `Cargo.toml` metadata is now real (`repository = github.com/cyberpunk042/sovereign-os`, `authors = ["cyberpunk042"]` — the already-public identity, inherited by all 714 crates); the 23 dead `docs.rs/sovereign-*` header links are repointed to the GitHub source; `tests/lint/test_workspace_metadata.py` blocks placeholder metadata + dead docs.rs links from returning. Building local rustdoc as a panel (the alternative) stays a follow-up (F-2026-093).
 - **Evidence**: root `Cargo.toml`: `repository = "https://example.org/you/sovereign-os"`, `authors = ["You <you@example.org>"]`, inherited by all 714 crates. Crate lib.rs headers link `https://docs.rs/sovereign-*` which cannot resolve (`publish = false` workspace-wide).
 - **Action**: set the real repo URL/author; either drop docs.rs header links or build+publish local rustdoc (see F-2026-093 rustdoc-as-panel opportunity).
 

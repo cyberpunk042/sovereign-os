@@ -12,7 +12,7 @@
 //! lossless — it inherits the byte-level base vocabulary — and compresses the
 //! training corpus into fewer tokens than raw bytes; both are pinned as tests.
 //!
-//! [`sovereign-tokenizer`]: https://docs.rs/sovereign-tokenizer
+//! [`sovereign-tokenizer`]: https://github.com/cyberpunk042/sovereign-os/tree/main/crates/sovereign-tokenizer
 //! [`Tokenizer::from_merges`]: sovereign_tokenizer::Tokenizer::from_merges
 //!
 //! Standing rule: We do not minimize anything.
