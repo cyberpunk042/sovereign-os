@@ -403,6 +403,13 @@
       "apiPrefix": "/api/d-28",
       "rowSelector": "#p-rows *",
       "sdd": "F-2026-001"
+    },
+    {
+      "slug": "d-29-scheduler",
+      "demoConst": "DEMO",
+      "apiPrefix": "/api/d-29",
+      "rowSelector": "#sch-rows *",
+      "sdd": "F-2026-001"
     }
   ]
 }

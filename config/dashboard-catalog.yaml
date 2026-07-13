@@ -75,6 +75,8 @@ dashboards:
      description: "The selfdef IPS Guardian Daemon (sain-01 §10 guardian-core) — recent kill/audit verdicts + the 3-step SIGKILL/audit/console response, rendered in-browser by sovereign-cockpit-guardian-panel. Read-only: selfdef owns the verdict ring + the Tetragon socket, the cockpit renders and never fabricates a kill.", refs: [M060, F-2026-001]}
   - {slug: d-28-perimeter, category: security, label: "D-28 Perimeter Fence", path: /d-28-perimeter/, api: sovereign-perimeter-api, status: snapshot,
      description: "The selfdef IPS security perimeter (Tetragon sovereign-kernel-fence) — recent SIGKILL/allowlist/extension-allowed verdicts + the active signed extensions, rendered in-browser by sovereign-cockpit-perimeter-panel. Read-only: selfdef owns the verdict ring + TracingPolicy, the cockpit renders and never fabricates.", refs: [M060, F-2026-001]}
+  - {slug: d-29-scheduler, category: security, label: "D-29 Goldilocks Scheduler", path: /d-29-scheduler/, api: sovereign-scheduler-api, status: snapshot,
+     description: "The selfdef IPS Goldilocks Scheduler — recent 7-axis routing decisions (latency/cost/risk/energy/human-attention/hardware-pressure/compound) + the 6 backpressure surfaces, rendered in-browser by sovereign-cockpit-scheduler-panel. Read-only: selfdef owns the decision ring, the cockpit renders and never fabricates a route.", refs: [M060, F-2026-001]}
   - {slug: d-05-traces, category: trinity, label: "D-05 Traces", path: /d-05-traces/, api: sovereign-traces-api, status: live,
      description: "Distributed span search — 13-field trace tree, OCSF export. Debug why a request went where it did.", refs: [M049]}
 
