@@ -43,9 +43,11 @@ sovereign-cockpit-alert-group = { path = "../crates/sovereign-cockpit-alert-grou
 sovereign-cockpit-alert-tile-board = { path = "../crates/sovereign-cockpit-alert-tile-board", optional = true }
 sovereign-cockpit-alpha-index = { path = "../crates/sovereign-cockpit-alpha-index", optional = true }
 sovereign-cockpit-aria-live-router = { path = "../crates/sovereign-cockpit-aria-live-router", optional = true }
+sovereign-cockpit-aspect-ratio-box = { path = "../crates/sovereign-cockpit-aspect-ratio-box", optional = true }
 sovereign-cockpit-attachment-tray = { path = "../crates/sovereign-cockpit-attachment-tray", optional = true }
 sovereign-cockpit-attention-cue = { path = "../crates/sovereign-cockpit-attention-cue", optional = true }
 sovereign-cockpit-audit-trail = { path = "../crates/sovereign-cockpit-audit-trail", optional = true }
+sovereign-cockpit-auto-link = { path = "../crates/sovereign-cockpit-auto-link", optional = true }
 sovereign-cockpit-autocomplete-list = { path = "../crates/sovereign-cockpit-autocomplete-list", optional = true }
 sovereign-cockpit-avatar-stack = { path = "../crates/sovereign-cockpit-avatar-stack", optional = true }
 sovereign-cockpit-banner-bus = { path = "../crates/sovereign-cockpit-banner-bus", optional = true }
@@ -57,6 +59,7 @@ sovereign-cockpit-bulk-action = { path = "../crates/sovereign-cockpit-bulk-actio
 sovereign-cockpit-bulk-selection = { path = "../crates/sovereign-cockpit-bulk-selection", optional = true }
 sovereign-cockpit-byte-size-formatter = { path = "../crates/sovereign-cockpit-byte-size-formatter", optional = true }
 sovereign-cockpit-calendar-grid = { path = "../crates/sovereign-cockpit-calendar-grid", optional = true }
+sovereign-cockpit-callout-arrow = { path = "../crates/sovereign-cockpit-callout-arrow", optional = true }
 sovereign-cockpit-card-grid = { path = "../crates/sovereign-cockpit-card-grid", optional = true }
 sovereign-cockpit-carousel = { path = "../crates/sovereign-cockpit-carousel", optional = true }
 sovereign-cockpit-cascading-select = { path = "../crates/sovereign-cockpit-cascading-select", optional = true }
@@ -80,6 +83,7 @@ sovereign-cockpit-code-lang-guess = { path = "../crates/sovereign-cockpit-code-l
 sovereign-cockpit-collapsible-region = { path = "../crates/sovereign-cockpit-collapsible-region", optional = true }
 sovereign-cockpit-collapsible-section = { path = "../crates/sovereign-cockpit-collapsible-section", optional = true }
 sovereign-cockpit-color-blind-mode = { path = "../crates/sovereign-cockpit-color-blind-mode", optional = true }
+sovereign-cockpit-color-contrast = { path = "../crates/sovereign-cockpit-color-contrast", optional = true }
 sovereign-cockpit-color-mode = { path = "../crates/sovereign-cockpit-color-mode", optional = true }
 sovereign-cockpit-color-picker = { path = "../crates/sovereign-cockpit-color-picker", optional = true }
 sovereign-cockpit-color-swatch = { path = "../crates/sovereign-cockpit-color-swatch", optional = true }
@@ -106,8 +110,10 @@ sovereign-cockpit-dashboard-grid = { path = "../crates/sovereign-cockpit-dashboa
 sovereign-cockpit-dashboard-profile = { path = "../crates/sovereign-cockpit-dashboard-profile", optional = true }
 sovereign-cockpit-data-grid-sort = { path = "../crates/sovereign-cockpit-data-grid-sort", optional = true }
 sovereign-cockpit-date-range-picker = { path = "../crates/sovereign-cockpit-date-range-picker", optional = true }
+sovereign-cockpit-day-divider = { path = "../crates/sovereign-cockpit-day-divider", optional = true }
 sovereign-cockpit-day-schedule = { path = "../crates/sovereign-cockpit-day-schedule", optional = true }
 sovereign-cockpit-deep-link-codec = { path = "../crates/sovereign-cockpit-deep-link-codec", optional = true }
+sovereign-cockpit-delta-pill = { path = "../crates/sovereign-cockpit-delta-pill", optional = true }
 sovereign-cockpit-density-mode = { path = "../crates/sovereign-cockpit-density-mode", optional = true }
 sovereign-cockpit-destructive-confirm = { path = "../crates/sovereign-cockpit-destructive-confirm", optional = true }
 sovereign-cockpit-detail-panel = { path = "../crates/sovereign-cockpit-detail-panel", optional = true }
@@ -163,11 +169,13 @@ sovereign-cockpit-footer-bar = { path = "../crates/sovereign-cockpit-footer-bar"
 sovereign-cockpit-form-validity = { path = "../crates/sovereign-cockpit-form-validity", optional = true }
 sovereign-cockpit-frame-budget = { path = "../crates/sovereign-cockpit-frame-budget", optional = true }
 sovereign-cockpit-freshness-badge = { path = "../crates/sovereign-cockpit-freshness-badge", optional = true }
+sovereign-cockpit-friction-audit-panel = { path = "../crates/sovereign-cockpit-friction-audit-panel", optional = true }
 sovereign-cockpit-frozen-columns = { path = "../crates/sovereign-cockpit-frozen-columns", optional = true }
 sovereign-cockpit-fuzzy-ranker = { path = "../crates/sovereign-cockpit-fuzzy-ranker", optional = true }
 sovereign-cockpit-global-search = { path = "../crates/sovereign-cockpit-global-search", optional = true }
 sovereign-cockpit-grid-cursor = { path = "../crates/sovereign-cockpit-grid-cursor", optional = true }
 sovereign-cockpit-grouped-list = { path = "../crates/sovereign-cockpit-grouped-list", optional = true }
+sovereign-cockpit-guardian-panel = { path = "../crates/sovereign-cockpit-guardian-panel", optional = true }
 sovereign-cockpit-gutter-marker-set = { path = "../crates/sovereign-cockpit-gutter-marker-set", optional = true }
 sovereign-cockpit-haptic-cue-policy = { path = "../crates/sovereign-cockpit-haptic-cue-policy", optional = true }
 sovereign-cockpit-help-overlay = { path = "../crates/sovereign-cockpit-help-overlay", optional = true }
@@ -245,9 +253,11 @@ sovereign-cockpit-output-pane = { path = "../crates/sovereign-cockpit-output-pan
 sovereign-cockpit-overflow-shadow = { path = "../crates/sovereign-cockpit-overflow-shadow", optional = true }
 sovereign-cockpit-page-title = { path = "../crates/sovereign-cockpit-page-title", optional = true }
 sovereign-cockpit-page-transition = { path = "../crates/sovereign-cockpit-page-transition", optional = true }
+sovereign-cockpit-pagination = { path = "../crates/sovereign-cockpit-pagination", optional = true }
 sovereign-cockpit-pagination-status = { path = "../crates/sovereign-cockpit-pagination-status", optional = true }
 sovereign-cockpit-pane-layout = { path = "../crates/sovereign-cockpit-pane-layout", optional = true }
 sovereign-cockpit-paste-format-detector = { path = "../crates/sovereign-cockpit-paste-format-detector", optional = true }
+sovereign-cockpit-perimeter-panel = { path = "../crates/sovereign-cockpit-perimeter-panel", optional = true }
 sovereign-cockpit-permission-prompt = { path = "../crates/sovereign-cockpit-permission-prompt", optional = true }
 sovereign-cockpit-personalization = { path = "../crates/sovereign-cockpit-personalization", optional = true }
 sovereign-cockpit-pill-input = { path = "../crates/sovereign-cockpit-pill-input", optional = true }
@@ -281,6 +291,7 @@ sovereign-cockpit-reading-progress = { path = "../crates/sovereign-cockpit-readi
 sovereign-cockpit-recent-files = { path = "../crates/sovereign-cockpit-recent-files", optional = true }
 sovereign-cockpit-recent-items = { path = "../crates/sovereign-cockpit-recent-items", optional = true }
 sovereign-cockpit-recipient-list = { path = "../crates/sovereign-cockpit-recipient-list", optional = true }
+sovereign-cockpit-relative-time = { path = "../crates/sovereign-cockpit-relative-time", optional = true }
 sovereign-cockpit-reorderable-list = { path = "../crates/sovereign-cockpit-reorderable-list", optional = true }
 sovereign-cockpit-reply-form = { path = "../crates/sovereign-cockpit-reply-form", optional = true }
 sovereign-cockpit-request-list = { path = "../crates/sovereign-cockpit-request-list", optional = true }
@@ -300,6 +311,7 @@ sovereign-cockpit-rubber-band = { path = "../crates/sovereign-cockpit-rubber-ban
 sovereign-cockpit-save-as-suggest = { path = "../crates/sovereign-cockpit-save-as-suggest", optional = true }
 sovereign-cockpit-saved-search-set = { path = "../crates/sovereign-cockpit-saved-search-set", optional = true }
 sovereign-cockpit-saved-view = { path = "../crates/sovereign-cockpit-saved-view", optional = true }
+sovereign-cockpit-scheduler-panel = { path = "../crates/sovereign-cockpit-scheduler-panel", optional = true }
 sovereign-cockpit-screen-reader-hints = { path = "../crates/sovereign-cockpit-screen-reader-hints", optional = true }
 sovereign-cockpit-scroll-anchor = { path = "../crates/sovereign-cockpit-scroll-anchor", optional = true }
 sovereign-cockpit-scroll-lock = { path = "../crates/sovereign-cockpit-scroll-lock", optional = true }
@@ -307,6 +319,8 @@ sovereign-cockpit-scroll-restore = { path = "../crates/sovereign-cockpit-scroll-
 sovereign-cockpit-scroll-shadow-state = { path = "../crates/sovereign-cockpit-scroll-shadow-state", optional = true }
 sovereign-cockpit-scroll-spy = { path = "../crates/sovereign-cockpit-scroll-spy", optional = true }
 sovereign-cockpit-search-filter = { path = "../crates/sovereign-cockpit-search-filter", optional = true }
+sovereign-cockpit-search-highlight = { path = "../crates/sovereign-cockpit-search-highlight", optional = true }
+sovereign-cockpit-search-history = { path = "../crates/sovereign-cockpit-search-history", optional = true }
 sovereign-cockpit-search-input = { path = "../crates/sovereign-cockpit-search-input", optional = true }
 sovereign-cockpit-search-scope = { path = "../crates/sovereign-cockpit-search-scope", optional = true }
 sovereign-cockpit-secret-reveal = { path = "../crates/sovereign-cockpit-secret-reveal", optional = true }
@@ -316,6 +330,7 @@ sovereign-cockpit-service-status = { path = "../crates/sovereign-cockpit-service
 sovereign-cockpit-settings-form = { path = "../crates/sovereign-cockpit-settings-form", optional = true }
 sovereign-cockpit-share-link = { path = "../crates/sovereign-cockpit-share-link", optional = true }
 sovereign-cockpit-shimmer-phase = { path = "../crates/sovereign-cockpit-shimmer-phase", optional = true }
+sovereign-cockpit-shortcut-cheatsheet = { path = "../crates/sovereign-cockpit-shortcut-cheatsheet", optional = true }
 sovereign-cockpit-shortcut-conflicts = { path = "../crates/sovereign-cockpit-shortcut-conflicts", optional = true }
 sovereign-cockpit-shortcut-recorder = { path = "../crates/sovereign-cockpit-shortcut-recorder", optional = true }
 sovereign-cockpit-side-by-side-diff = { path = "../crates/sovereign-cockpit-side-by-side-diff", optional = true }
@@ -375,6 +390,7 @@ sovereign-cockpit-text-metrics = { path = "../crates/sovereign-cockpit-text-metr
 sovereign-cockpit-text-selection-range = { path = "../crates/sovereign-cockpit-text-selection-range", optional = true }
 sovereign-cockpit-text-size-policy = { path = "../crates/sovereign-cockpit-text-size-policy", optional = true }
 sovereign-cockpit-text-truncate = { path = "../crates/sovereign-cockpit-text-truncate", optional = true }
+sovereign-cockpit-text-truncation = { path = "../crates/sovereign-cockpit-text-truncation", optional = true }
 sovereign-cockpit-theme-palette = { path = "../crates/sovereign-cockpit-theme-palette", optional = true }
 sovereign-cockpit-thumbs-vote = { path = "../crates/sovereign-cockpit-thumbs-vote", optional = true }
 sovereign-cockpit-ticker-tape = { path = "../crates/sovereign-cockpit-ticker-tape", optional = true }
@@ -386,6 +402,7 @@ sovereign-cockpit-timezone-bar = { path = "../crates/sovereign-cockpit-timezone-
 sovereign-cockpit-tip-bar = { path = "../crates/sovereign-cockpit-tip-bar", optional = true }
 sovereign-cockpit-titlebar-config = { path = "../crates/sovereign-cockpit-titlebar-config", optional = true }
 sovereign-cockpit-toast-position = { path = "../crates/sovereign-cockpit-toast-position", optional = true }
+sovereign-cockpit-toast-stack = { path = "../crates/sovereign-cockpit-toast-stack", optional = true }
 sovereign-cockpit-toast-tray = { path = "../crates/sovereign-cockpit-toast-tray", optional = true }
 sovereign-cockpit-todo-list = { path = "../crates/sovereign-cockpit-todo-list", optional = true }
 sovereign-cockpit-toggle-event = { path = "../crates/sovereign-cockpit-toggle-event", optional = true }
@@ -411,6 +428,7 @@ sovereign-cockpit-upload-progress = { path = "../crates/sovereign-cockpit-upload
 sovereign-cockpit-usage-meter = { path = "../crates/sovereign-cockpit-usage-meter", optional = true }
 sovereign-cockpit-validation-summary = { path = "../crates/sovereign-cockpit-validation-summary", optional = true }
 sovereign-cockpit-view-mode-toggle = { path = "../crates/sovereign-cockpit-view-mode-toggle", optional = true }
+sovereign-cockpit-views = { path = "../crates/sovereign-cockpit-views", optional = true }
 sovereign-cockpit-vim-mode-indicator = { path = "../crates/sovereign-cockpit-vim-mode-indicator", optional = true }
 sovereign-cockpit-virtual-grid = { path = "../crates/sovereign-cockpit-virtual-grid", optional = true }
 sovereign-cockpit-virtual-list = { path = "../crates/sovereign-cockpit-virtual-list", optional = true }
@@ -421,6 +439,7 @@ sovereign-cockpit-whats-new-feed = { path = "../crates/sovereign-cockpit-whats-n
 sovereign-cockpit-widget-registry = { path = "../crates/sovereign-cockpit-widget-registry", optional = true }
 sovereign-cockpit-window-position = { path = "../crates/sovereign-cockpit-window-position", optional = true }
 sovereign-cockpit-wizard-flow = { path = "../crates/sovereign-cockpit-wizard-flow", optional = true }
+sovereign-cockpit-word-count = { path = "../crates/sovereign-cockpit-word-count", optional = true }
 sovereign-cockpit-workspace-state = { path = "../crates/sovereign-cockpit-workspace-state", optional = true }
 sovereign-cockpit-workspace-switcher = { path = "../crates/sovereign-cockpit-workspace-switcher", optional = true }
 sovereign-cockpit-zoom-level = { path = "../crates/sovereign-cockpit-zoom-level", optional = true }
@@ -450,9 +469,11 @@ bridges = [
     "dep:sovereign-cockpit-alert-tile-board",
     "dep:sovereign-cockpit-alpha-index",
     "dep:sovereign-cockpit-aria-live-router",
+    "dep:sovereign-cockpit-aspect-ratio-box",
     "dep:sovereign-cockpit-attachment-tray",
     "dep:sovereign-cockpit-attention-cue",
     "dep:sovereign-cockpit-audit-trail",
+    "dep:sovereign-cockpit-auto-link",
     "dep:sovereign-cockpit-autocomplete-list",
     "dep:sovereign-cockpit-avatar-stack",
     "dep:sovereign-cockpit-banner-bus",
@@ -464,6 +485,7 @@ bridges = [
     "dep:sovereign-cockpit-bulk-selection",
     "dep:sovereign-cockpit-byte-size-formatter",
     "dep:sovereign-cockpit-calendar-grid",
+    "dep:sovereign-cockpit-callout-arrow",
     "dep:sovereign-cockpit-card-grid",
     "dep:sovereign-cockpit-carousel",
     "dep:sovereign-cockpit-cascading-select",
@@ -487,6 +509,7 @@ bridges = [
     "dep:sovereign-cockpit-collapsible-region",
     "dep:sovereign-cockpit-collapsible-section",
     "dep:sovereign-cockpit-color-blind-mode",
+    "dep:sovereign-cockpit-color-contrast",
     "dep:sovereign-cockpit-color-mode",
     "dep:sovereign-cockpit-color-picker",
     "dep:sovereign-cockpit-color-swatch",
@@ -513,8 +536,10 @@ bridges = [
     "dep:sovereign-cockpit-dashboard-profile",
     "dep:sovereign-cockpit-data-grid-sort",
     "dep:sovereign-cockpit-date-range-picker",
+    "dep:sovereign-cockpit-day-divider",
     "dep:sovereign-cockpit-day-schedule",
     "dep:sovereign-cockpit-deep-link-codec",
+    "dep:sovereign-cockpit-delta-pill",
     "dep:sovereign-cockpit-density-mode",
     "dep:sovereign-cockpit-destructive-confirm",
     "dep:sovereign-cockpit-detail-panel",
@@ -570,11 +595,13 @@ bridges = [
     "dep:sovereign-cockpit-form-validity",
     "dep:sovereign-cockpit-frame-budget",
     "dep:sovereign-cockpit-freshness-badge",
+    "dep:sovereign-cockpit-friction-audit-panel",
     "dep:sovereign-cockpit-frozen-columns",
     "dep:sovereign-cockpit-fuzzy-ranker",
     "dep:sovereign-cockpit-global-search",
     "dep:sovereign-cockpit-grid-cursor",
     "dep:sovereign-cockpit-grouped-list",
+    "dep:sovereign-cockpit-guardian-panel",
     "dep:sovereign-cockpit-gutter-marker-set",
     "dep:sovereign-cockpit-haptic-cue-policy",
     "dep:sovereign-cockpit-help-overlay",
@@ -652,9 +679,11 @@ bridges = [
     "dep:sovereign-cockpit-overflow-shadow",
     "dep:sovereign-cockpit-page-title",
     "dep:sovereign-cockpit-page-transition",
+    "dep:sovereign-cockpit-pagination",
     "dep:sovereign-cockpit-pagination-status",
     "dep:sovereign-cockpit-pane-layout",
     "dep:sovereign-cockpit-paste-format-detector",
+    "dep:sovereign-cockpit-perimeter-panel",
     "dep:sovereign-cockpit-permission-prompt",
     "dep:sovereign-cockpit-personalization",
     "dep:sovereign-cockpit-pill-input",
@@ -688,6 +717,7 @@ bridges = [
     "dep:sovereign-cockpit-recent-files",
     "dep:sovereign-cockpit-recent-items",
     "dep:sovereign-cockpit-recipient-list",
+    "dep:sovereign-cockpit-relative-time",
     "dep:sovereign-cockpit-reorderable-list",
     "dep:sovereign-cockpit-reply-form",
     "dep:sovereign-cockpit-request-list",
@@ -707,6 +737,7 @@ bridges = [
     "dep:sovereign-cockpit-save-as-suggest",
     "dep:sovereign-cockpit-saved-search-set",
     "dep:sovereign-cockpit-saved-view",
+    "dep:sovereign-cockpit-scheduler-panel",
     "dep:sovereign-cockpit-screen-reader-hints",
     "dep:sovereign-cockpit-scroll-anchor",
     "dep:sovereign-cockpit-scroll-lock",
@@ -714,6 +745,8 @@ bridges = [
     "dep:sovereign-cockpit-scroll-shadow-state",
     "dep:sovereign-cockpit-scroll-spy",
     "dep:sovereign-cockpit-search-filter",
+    "dep:sovereign-cockpit-search-highlight",
+    "dep:sovereign-cockpit-search-history",
     "dep:sovereign-cockpit-search-input",
     "dep:sovereign-cockpit-search-scope",
     "dep:sovereign-cockpit-secret-reveal",
@@ -723,6 +756,7 @@ bridges = [
     "dep:sovereign-cockpit-settings-form",
     "dep:sovereign-cockpit-share-link",
     "dep:sovereign-cockpit-shimmer-phase",
+    "dep:sovereign-cockpit-shortcut-cheatsheet",
     "dep:sovereign-cockpit-shortcut-conflicts",
     "dep:sovereign-cockpit-shortcut-recorder",
     "dep:sovereign-cockpit-side-by-side-diff",
@@ -782,6 +816,7 @@ bridges = [
     "dep:sovereign-cockpit-text-selection-range",
     "dep:sovereign-cockpit-text-size-policy",
     "dep:sovereign-cockpit-text-truncate",
+    "dep:sovereign-cockpit-text-truncation",
     "dep:sovereign-cockpit-theme-palette",
     "dep:sovereign-cockpit-thumbs-vote",
     "dep:sovereign-cockpit-ticker-tape",
@@ -793,6 +828,7 @@ bridges = [
     "dep:sovereign-cockpit-tip-bar",
     "dep:sovereign-cockpit-titlebar-config",
     "dep:sovereign-cockpit-toast-position",
+    "dep:sovereign-cockpit-toast-stack",
     "dep:sovereign-cockpit-toast-tray",
     "dep:sovereign-cockpit-todo-list",
     "dep:sovereign-cockpit-toggle-event",
@@ -818,6 +854,7 @@ bridges = [
     "dep:sovereign-cockpit-usage-meter",
     "dep:sovereign-cockpit-validation-summary",
     "dep:sovereign-cockpit-view-mode-toggle",
+    "dep:sovereign-cockpit-views",
     "dep:sovereign-cockpit-vim-mode-indicator",
     "dep:sovereign-cockpit-virtual-grid",
     "dep:sovereign-cockpit-virtual-list",
@@ -828,6 +865,7 @@ bridges = [
     "dep:sovereign-cockpit-widget-registry",
     "dep:sovereign-cockpit-window-position",
     "dep:sovereign-cockpit-wizard-flow",
+    "dep:sovereign-cockpit-word-count",
     "dep:sovereign-cockpit-workspace-state",
     "dep:sovereign-cockpit-workspace-switcher",
     "dep:sovereign-cockpit-zoom-level",

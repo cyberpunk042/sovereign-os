@@ -35,6 +35,12 @@ use sovereign_profile_bundles::BundleName;
 #[cfg(feature = "bridges")]
 mod bridges;
 
+/// Hand-written bespoke bridges (round 3) — the ~19 cockpit crates without a
+/// uniform `validate()`, each wrapped over its real decision/compute fn. Same
+/// `bridges` feature gate as the generated set.
+#[cfg(feature = "bridges")]
+mod bespoke;
+
 /// Generate a `#[wasm_bindgen] pub fn <name>(json)` that parses a cockpit
 /// crate's primary type and runs its **real** `validate()`, returning
 /// `{"ok":bool,"error":string|null}` (never panics). This is the uniform bridge

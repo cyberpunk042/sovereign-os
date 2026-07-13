@@ -1,4 +1,4 @@
-"""Cockpit wasm-bridge contract (audit F-2026-001 / SDD-969).
+"""Cockpit wasm-bridge contract (audit F-2026-001 / SDD-974).
 
 The 413 `sovereign-cockpit-*` crates encode the cockpit's UX-state logic in
 typed, tested Rust — but the webapp is hand-written HTML/JS, so nothing runs
@@ -22,7 +22,7 @@ REPO = Path(__file__).resolve().parents[2]
 CRATE = REPO / "cockpit-wasm"
 ARTIFACT = REPO / "webapp" / "_shared" / "cockpit-wasm"
 # Served demonstrator, co-located with the wasm under _shared (not a nav panel;
-# nav-panel promotion is a follow-up per SDD-969).
+# nav-panel promotion is a follow-up per SDD-974).
 PANEL = ARTIFACT / "demo.html"
 API = REPO / "scripts" / "operator" / "cockpit-bridge-api.py"
 UNIT = REPO / "systemd" / "system" / "sovereign-cockpit-bridge-api.service"
@@ -31,6 +31,7 @@ EXPORTS = ["banner_severity", "banner_state", "banner_validate", "schema_version
 
 CARGO = CRATE / "Cargo.toml"
 BRIDGES_RS = CRATE / "src" / "bridges.rs"
+BESPOKE_DIR = CRATE / "src" / "bespoke"
 # The committed artifact is the banner-only DEMO. The full family (~398 crates,
 # ~4.4 MB, --features bridges) is built on demand + verified, never committed —
 # this ceiling makes an accidental commit of the full build fail CI.
@@ -118,16 +119,33 @@ def test_build_script_is_reproducible_and_executable():
 # --- the generated bridge family (gen-bridges.py) --------------------------
 
 
-def _bridged_idents() -> set[str]:
+def _uniform_idents() -> set[str]:
+    """Crate idents bridged by the generated macro (src/bridges.rs)."""
     br = BRIDGES_RS.read_text(encoding="utf-8") if BRIDGES_RS.is_file() else ""
     return set(re.findall(r"sovereign_cockpit_(\w+)::", br))
 
 
+def _bespoke_idents() -> set[str]:
+    """Crate idents imported by the hand-written bespoke bridges (src/bespoke/*.rs)."""
+    out: set[str] = set()
+    if BESPOKE_DIR.is_dir():
+        for f in BESPOKE_DIR.glob("*.rs"):
+            if f.name == "mod.rs":
+                continue
+            out |= set(re.findall(r"use sovereign_cockpit_(\w+)::", f.read_text(encoding="utf-8")))
+    return out
+
+
+def _all_bridged_idents() -> set[str]:
+    return _uniform_idents() | _bespoke_idents()
+
+
 def test_generated_bridge_set_is_internally_consistent():
-    """bridges.rs, the optional cockpit deps, and the `bridges` feature list must
-    describe the SAME crate set — gen-bridges.py writes all three together."""
+    """The optional cockpit deps + the `bridges` feature list must equal the union
+    of the generated (bridges.rs) and bespoke (bespoke/*.rs) crate sets —
+    gen-bridges.py writes deps + feature + bespoke/mod.rs together."""
     cargo = CARGO.read_text(encoding="utf-8")
-    rs = _bridged_idents()
+    expected = _all_bridged_idents()
     dep = {
         s.replace("-", "_")
         for s in re.findall(
@@ -138,24 +156,39 @@ def test_generated_bridge_set_is_internally_consistent():
         s.replace("-", "_")
         for s in re.findall(r'"dep:sovereign-cockpit-([a-z0-9-]+)"', cargo)
     }
-    assert rs == dep == feat, (
+    assert dep == feat == expected, (
         "gen-bridges.py outputs drifted — regenerate: "
-        "`python3 cockpit-wasm/gen-bridges.py --count all`. "
-        f"rs-only={sorted(rs - dep)} dep-only={sorted(dep - rs)} feat-only={sorted(feat - rs)}"
+        "`python3 cockpit-wasm/gen-bridges.py --count all` then `cargo fmt`. "
+        f"missing-dep={sorted(expected - dep)} extra-dep={sorted(dep - expected)} "
+        f"missing-feat={sorted(expected - feat)} extra-feat={sorted(feat - expected)}"
     )
 
 
 def test_every_bridged_crate_is_a_real_cockpit_crate():
-    for ident in _bridged_idents():
+    for ident in _all_bridged_idents():
         d = REPO / "crates" / ("sovereign-cockpit-" + ident.replace("_", "-"))
         assert (d / "src" / "lib.rs").is_file(), f"bridged crate does not exist: {ident}"
 
 
-def test_bridge_covers_most_of_the_cockpit_family():
-    """The whole point of F-2026-001: most cockpit crates get a runnable consumer."""
-    n = len(_bridged_idents())
-    assert n >= 300, (
-        f"only {n} cockpit crates bridged — expected most of the ~398 uniform family. "
+def test_every_bespoke_file_is_declared_in_mod():
+    """Each src/bespoke/<slug>.rs must be declared in the generated bespoke/mod.rs."""
+    if not BESPOKE_DIR.is_dir():
+        return
+    mod = (BESPOKE_DIR / "mod.rs").read_text(encoding="utf-8")
+    declared = set(re.findall(r"pub mod (\w+);", mod))
+    files = {f.stem for f in BESPOKE_DIR.glob("*.rs") if f.name != "mod.rs"}
+    assert files == declared, (
+        f"bespoke/mod.rs out of sync — regenerate. undeclared={sorted(files - declared)} "
+        f"stale={sorted(declared - files)}"
+    )
+
+
+def test_bridge_covers_the_whole_cockpit_family():
+    """F-2026-001: essentially every cockpit crate gets a runnable consumer —
+    the uniform family via the macro + the non-uniform tail via bespoke bridges."""
+    n = len(_all_bridged_idents())
+    assert n >= 410, (
+        f"only {n} cockpit crates bridged — expected ~417 (398 uniform + ~19 bespoke). "
         f"Run `python3 cockpit-wasm/gen-bridges.py --count all`."
     )
 

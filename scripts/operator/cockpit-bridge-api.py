@@ -6,7 +6,7 @@ Read-only static server for the shared wasm asset `webapp/_shared/cockpit-wasm/`
 crate bridged: sovereign-cockpit-banner-state) and its `demo.html`. Unlike the
 other panel APIs this one assembles NO host data: the bridge
 computes everything client-side in wasm, so the crate's own decision logic runs
-in the browser instead of a hand-written JS copy that can drift (SDD-969).
+in the browser instead of a hand-written JS copy that can drift (SDD-974).
 
 It exists only to serve the panel with the correct `application/wasm` MIME (and
 to give the master-dashboard registry a real reachable api). POST → 405.
@@ -28,7 +28,7 @@ REPO = Path(__file__).resolve().parents[2]
 WEBAPP_ROOT = REPO / "webapp"
 WASM_DIR = WEBAPP_ROOT / "_shared" / "cockpit-wasm"
 # The demo page lives beside the wasm it loads (under _shared, so it is a served
-# demonstrator, not a nav panel — nav-panel promotion is a follow-up per SDD-969).
+# demonstrator, not a nav panel — nav-panel promotion is a follow-up per SDD-974).
 PANEL = WASM_DIR / "demo.html"
 
 STATIC_TYPES = {

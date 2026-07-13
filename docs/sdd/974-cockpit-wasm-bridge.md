@@ -1,10 +1,10 @@
-# SDD-969 — Cockpit wasm bridge: the typed cockpit crates run in the browser
+# SDD-974 — Cockpit wasm bridge: the typed cockpit crates run in the browser
 
 > Status: draft
 > Owner: operator-directed ("build the wasm bridge" — Phase-1 audit F-2026-001); agent-authored
 > Last updated: 2026-07-13
 > Closes findings: **F-2026-001** (partial — the 413 `sovereign-cockpit-*` crates are consumed by nothing; the audit's option (a): "wasm-pack a facade and progressively move panel state logic into the typed crates"). First crate bridged; the pattern + toolchain + contract are established for the rest.
-> Mandate module: **E11.M969** (operator-mandate cross-link).
+> Mandate module: **E11.M974** (operator-mandate cross-link).
 > Number band: **950–999 (general / audit session)** per SDD-100.
 
 ## Mission
@@ -53,9 +53,19 @@ This de-islands **398 more cockpit crates** in source: each is now an (optional)
 
 **Verified (round 2):** `gen-bridges.py --count all` → 398 bridged, 19 ineligible; `cargo build --release --target wasm32 --features bridges` → 399 `_validate` exports in 18 s; `build.sh --verify-all` executes a sample in node (valid/invalid/parse-guard OK); `cargo test --features bridges` 6 passed; clippy (default + `--features bridges`) clean; committed demo stays 128 KB; `pytest tests/lint/test_cockpit_wasm_bridge.py` 12 passed.
 
+## Round 3 — the 19 bespoke crates (the whole family, 418/418)
+
+The 19 crates without the uniform `validate(&self)` were bridged **by hand** over their real decision/compute fns (not the macro), completing the family:
+
+- **`cockpit-wasm/src/bespoke/<slug>.rs`** — one hand-written module per crate, each a `#[wasm_bindgen]` wrapper over the crate's genuine surface: `color-contrast`→`verdict` (WCAG ratio + AA/AAA), `pagination`→`new`/`info`/`next`/`prev`/`goto`, `word-count`→`count`, `day-divider`→`classify`/`group`, `relative-time`→`format`/`classify`, `text-truncation`→`truncate`, `toast-stack`/`search-history`→functional mutations (parse state → mutate a copy → return new state), `views`→`missing_views`+`is_complete`, the audit panels (`friction`/`guardian`/`perimeter`/`scheduler`)→their pure `any_*`/`aggregate_*`/`render` decisions, etc. Filesystem loaders (`load_from_ring`/`load_from_paths`) and the wall-clock are deliberately **not** bridged — pure functions only; a clock is passed in as an epoch arg.
+- **`gen-bridges.py` now also manages the bespoke set**: it scans `src/bespoke/*.rs`, writes `src/bespoke/mod.rs`, and folds those crates' optional deps + `dep:` feature entries into the same generated blocks (so an import like the transitive `sovereign-cockpit-keystroke-map` can't be forgotten). The `bridges` feature is the union of the 398 generated + the bespoke set = **417 cockpit deps**; with banner-state that is the full **418/418**.
+- This round also **fixed a latent round-2 defect**: the generated `bridges.rs` had used `#![rustfmt::skip]` (an unstable *inner* attribute, E0658) which broke the `--features bridges` build; it is replaced by a `cargo fmt` normalisation step (the contract lint is regex-based, so wrapping-independent).
+
+**Verified (round 3):** `cargo build --features bridges` clean (465 exports); the bespoke bridges execute in node — `color_contrast_verdict(black,white)` → 21:1 AA+AAA, `pagination_info(2/10/95)` → range [10,19]/10 pages, `word_count_count` / `day_divider_classify` / `text_truncation_truncate` correct, bad tokens → graceful parse errors; `cargo test --features bridges` 6 passed; clippy (default + bridges) + fmt clean; committed demo still 128 KB; `pytest tests/lint/test_cockpit_wasm_bridge.py` 13 passed. **F-2026-001: 418/418 cockpit crates bridged.**
+
 ## Non-goals / follow-ups
 
-- **The 19 ineligible crates** (no `validate`, an extra-arg `validate`, or a non-`Deserialize` primary type — e.g. `pagination`, `relative-time`, `search-highlight`, `word-count`) get **bespoke** bridges in a following round (their own decision fns), not the uniform macro.
 - **`wasm-opt`** further size reduction of the full build (binaryen) is a follow-up; the committed demo is already 128 KB (opt-level="z" + strip).
+- **Nav-panel promotion + progressive panel migration** (moving a production panel from its JS copy to a `<crate>_validate` / bespoke call) remain the next increments now that the whole family is callable.
 - **Nav-panel promotion** (adopt the demo into the cockpit app-shell / dashboard-catalog) + **progressive panel migration** (moving an existing production banner from its JS copy to the wasm call) are the natural next increments now that the bridge is proven.
 - MS003: `unsigned-pending-MS003` (read-only surfaces; the api mutates nothing).

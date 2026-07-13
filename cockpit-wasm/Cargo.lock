@@ -36,9 +36,11 @@ dependencies = [
  "sovereign-cockpit-alert-tile-board",
  "sovereign-cockpit-alpha-index",
  "sovereign-cockpit-aria-live-router",
+ "sovereign-cockpit-aspect-ratio-box",
  "sovereign-cockpit-attachment-tray",
  "sovereign-cockpit-attention-cue",
  "sovereign-cockpit-audit-trail",
+ "sovereign-cockpit-auto-link",
  "sovereign-cockpit-autocomplete-list",
  "sovereign-cockpit-avatar-stack",
  "sovereign-cockpit-banner-bus",
@@ -51,6 +53,7 @@ dependencies = [
  "sovereign-cockpit-bulk-selection",
  "sovereign-cockpit-byte-size-formatter",
  "sovereign-cockpit-calendar-grid",
+ "sovereign-cockpit-callout-arrow",
  "sovereign-cockpit-card-grid",
  "sovereign-cockpit-carousel",
  "sovereign-cockpit-cascading-select",
@@ -74,6 +77,7 @@ dependencies = [
  "sovereign-cockpit-collapsible-region",
  "sovereign-cockpit-collapsible-section",
  "sovereign-cockpit-color-blind-mode",
+ "sovereign-cockpit-color-contrast",
  "sovereign-cockpit-color-mode",
  "sovereign-cockpit-color-picker",
  "sovereign-cockpit-color-swatch",
@@ -100,8 +104,10 @@ dependencies = [
  "sovereign-cockpit-dashboard-profile",
  "sovereign-cockpit-data-grid-sort",
  "sovereign-cockpit-date-range-picker",
+ "sovereign-cockpit-day-divider",
  "sovereign-cockpit-day-schedule",
  "sovereign-cockpit-deep-link-codec",
+ "sovereign-cockpit-delta-pill",
  "sovereign-cockpit-density-mode",
  "sovereign-cockpit-destructive-confirm",
  "sovereign-cockpit-detail-panel",
@@ -157,11 +163,13 @@ dependencies = [
  "sovereign-cockpit-form-validity",
  "sovereign-cockpit-frame-budget",
  "sovereign-cockpit-freshness-badge",
+ "sovereign-cockpit-friction-audit-panel",
  "sovereign-cockpit-frozen-columns",
  "sovereign-cockpit-fuzzy-ranker",
  "sovereign-cockpit-global-search",
  "sovereign-cockpit-grid-cursor",
  "sovereign-cockpit-grouped-list",
+ "sovereign-cockpit-guardian-panel",
  "sovereign-cockpit-gutter-marker-set",
  "sovereign-cockpit-haptic-cue-policy",
  "sovereign-cockpit-help-overlay",
@@ -239,9 +247,11 @@ dependencies = [
  "sovereign-cockpit-overflow-shadow",
  "sovereign-cockpit-page-title",
  "sovereign-cockpit-page-transition",
+ "sovereign-cockpit-pagination",
  "sovereign-cockpit-pagination-status",
  "sovereign-cockpit-pane-layout",
  "sovereign-cockpit-paste-format-detector",
+ "sovereign-cockpit-perimeter-panel",
  "sovereign-cockpit-permission-prompt",
  "sovereign-cockpit-personalization",
  "sovereign-cockpit-pill-input",
@@ -275,6 +285,7 @@ dependencies = [
  "sovereign-cockpit-recent-files",
  "sovereign-cockpit-recent-items",
  "sovereign-cockpit-recipient-list",
+ "sovereign-cockpit-relative-time",
  "sovereign-cockpit-reorderable-list",
  "sovereign-cockpit-reply-form",
  "sovereign-cockpit-request-list",
@@ -294,6 +305,7 @@ dependencies = [
  "sovereign-cockpit-save-as-suggest",
  "sovereign-cockpit-saved-search-set",
  "sovereign-cockpit-saved-view",
+ "sovereign-cockpit-scheduler-panel",
  "sovereign-cockpit-screen-reader-hints",
  "sovereign-cockpit-scroll-anchor",
  "sovereign-cockpit-scroll-lock",
@@ -301,6 +313,8 @@ dependencies = [
  "sovereign-cockpit-scroll-shadow-state",
  "sovereign-cockpit-scroll-spy",
  "sovereign-cockpit-search-filter",
+ "sovereign-cockpit-search-highlight",
+ "sovereign-cockpit-search-history",
  "sovereign-cockpit-search-input",
  "sovereign-cockpit-search-scope",
  "sovereign-cockpit-secret-reveal",
@@ -310,6 +324,7 @@ dependencies = [
  "sovereign-cockpit-settings-form",
  "sovereign-cockpit-share-link",
  "sovereign-cockpit-shimmer-phase",
+ "sovereign-cockpit-shortcut-cheatsheet",
  "sovereign-cockpit-shortcut-conflicts",
  "sovereign-cockpit-shortcut-recorder",
  "sovereign-cockpit-side-by-side-diff",
@@ -369,6 +384,7 @@ dependencies = [
  "sovereign-cockpit-text-selection-range",
  "sovereign-cockpit-text-size-policy",
  "sovereign-cockpit-text-truncate",
+ "sovereign-cockpit-text-truncation",
  "sovereign-cockpit-theme-palette",
  "sovereign-cockpit-thumbs-vote",
  "sovereign-cockpit-ticker-tape",
@@ -380,6 +396,7 @@ dependencies = [
  "sovereign-cockpit-tip-bar",
  "sovereign-cockpit-titlebar-config",
  "sovereign-cockpit-toast-position",
+ "sovereign-cockpit-toast-stack",
  "sovereign-cockpit-toast-tray",
  "sovereign-cockpit-todo-list",
  "sovereign-cockpit-toggle-event",
@@ -405,6 +422,7 @@ dependencies = [
  "sovereign-cockpit-usage-meter",
  "sovereign-cockpit-validation-summary",
  "sovereign-cockpit-view-mode-toggle",
+ "sovereign-cockpit-views",
  "sovereign-cockpit-vim-mode-indicator",
  "sovereign-cockpit-virtual-grid",
  "sovereign-cockpit-virtual-list",
@@ -415,6 +433,7 @@ dependencies = [
  "sovereign-cockpit-widget-registry",
  "sovereign-cockpit-window-position",
  "sovereign-cockpit-wizard-flow",
+ "sovereign-cockpit-word-count",
  "sovereign-cockpit-workspace-state",
  "sovereign-cockpit-workspace-switcher",
  "sovereign-cockpit-zoom-level",
@@ -661,6 +680,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-aspect-ratio-box"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-attachment-tray"
 version = "0.1.0"
 dependencies = [
@@ -680,6 +708,15 @@ dependencies = [
 
 [[package]]
 name = "sovereign-cockpit-audit-trail"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-auto-link"
 version = "0.1.0"
 dependencies = [
  "serde",
@@ -792,6 +829,15 @@ dependencies = [
 
 [[package]]
 name = "sovereign-cockpit-calendar-grid"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-callout-arrow"
 version = "0.1.0"
 dependencies = [
  "serde",
@@ -999,6 +1045,15 @@ dependencies = [
 
 [[package]]
 name = "sovereign-cockpit-color-blind-mode"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-color-contrast"
 version = "0.1.0"
 dependencies = [
  "serde",
@@ -1244,6 +1299,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-day-divider"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-day-schedule"
 version = "0.1.0"
 dependencies = [
@@ -1254,6 +1318,15 @@ dependencies = [
 
 [[package]]
 name = "sovereign-cockpit-deep-link-codec"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-delta-pill"
 version = "0.1.0"
 dependencies = [
  "serde",
@@ -1758,6 +1831,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-friction-audit-panel"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-frozen-columns"
 version = "0.1.0"
 dependencies = [
@@ -1795,6 +1877,15 @@ dependencies = [
 
 [[package]]
 name = "sovereign-cockpit-grouped-list"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-guardian-panel"
 version = "0.1.0"
 dependencies = [
  "serde",
@@ -2497,6 +2588,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-pagination"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-pagination-status"
 version = "0.1.0"
 dependencies = [
@@ -2516,6 +2616,15 @@ dependencies = [
 
 [[package]]
 name = "sovereign-cockpit-paste-format-detector"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-perimeter-panel"
 version = "0.1.0"
 dependencies = [
  "serde",
@@ -2822,6 +2931,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-relative-time"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-reorderable-list"
 version = "0.1.0"
 dependencies = [
@@ -2993,6 +3111,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-scheduler-panel"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-screen-reader-hints"
 version = "0.1.0"
 dependencies = [
@@ -3048,6 +3175,24 @@ dependencies = [
 
 [[package]]
 name = "sovereign-cockpit-search-filter"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-search-highlight"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-search-history"
 version = "0.1.0"
 dependencies = [
  "serde",
@@ -3133,6 +3278,16 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-shortcut-cheatsheet"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-cockpit-keystroke-map",
  "thiserror",
 ]
 
@@ -3675,6 +3830,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-text-truncation"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-theme-palette"
 version = "0.1.0"
 dependencies = [
@@ -3766,6 +3930,15 @@ dependencies = [
 
 [[package]]
 name = "sovereign-cockpit-toast-position"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-toast-stack"
 version = "0.1.0"
 dependencies = [
  "serde",
@@ -4001,6 +4174,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-views"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "sovereign-cockpit-vim-mode-indicator"
 version = "0.1.0"
 dependencies = [
@@ -4083,6 +4263,15 @@ dependencies = [
 
 [[package]]
 name = "sovereign-cockpit-wizard-flow"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-cockpit-word-count"
 version = "0.1.0"
 dependencies = [
  "serde",

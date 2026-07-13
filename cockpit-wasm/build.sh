@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build the cockpit-wasm bridge artifacts (audit F-2026-001 / SDD-969).
+# Build the cockpit-wasm bridge artifacts (audit F-2026-001 / SDD-974).
 #
 # Default (no args): builds the COMMITTED demo artifact — banner-only, small —
 #   webapp/_shared/cockpit-wasm/{cockpit_wasm.js, cockpit_wasm_bg.wasm}
@@ -49,7 +49,9 @@ case "${1:-}" in
       if (JSON.parse(w.item_pin_validate(JSON.stringify({schema_version:'1.0.0',max_pins:5,pinned:['a']}))).ok!==true) { console.error('valid FAIL'); process.exit(1); }
       if (JSON.parse(w.item_pin_validate(JSON.stringify({schema_version:'9.9',max_pins:5,pinned:[]}))).ok!==false) { console.error('invalid FAIL'); process.exit(1); }
       if (JSON.parse(w.accordion_validate('garbage')).ok!==false) { console.error('parse-guard FAIL'); process.exit(1); }
-      console.log('    verify-all smoke: '+sample.length+' generated exports callable + item_pin valid/invalid/parse-guard OK');
+      // a bespoke bridge runs the crate's real compute (WCAG contrast black-on-white = 21:1)
+      if (JSON.parse(w.color_contrast_verdict('{\"r\":0,\"g\":0,\"b\":0}','{\"r\":255,\"g\":255,\"b\":255}',false)).ratio!==21.0) { console.error('bespoke color-contrast FAIL'); process.exit(1); }
+      console.log('    verify-all smoke: '+sample.length+' generated exports callable + item_pin valid/invalid/parse-guard + bespoke color-contrast OK');
     "
     ;;
   --smoke)

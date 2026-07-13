@@ -2,7 +2,7 @@
 Description=Sovereign Cockpit Bridge API + panel — the typed cockpit crates run in-browser via wasm
 Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/operator/cockpit-bridge-api.py
 # Read-only static server for webapp/cockpit-bridge/ + the shared wasm-bindgen
-# asset webapp/_shared/cockpit-wasm/ (audit F-2026-001 / SDD-969). It assembles
+# asset webapp/_shared/cockpit-wasm/ (audit F-2026-001 / SDD-974). It assembles
 # NO host data: the bridge computes client-side in wasm, so a panel runs the
 # real sovereign-cockpit-* crate logic instead of a hand-written JS copy. Exists
 # only to serve the panel with the correct application/wasm MIME. panel.sh

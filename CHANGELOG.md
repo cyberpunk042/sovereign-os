@@ -116,9 +116,31 @@ Phase-1 audit (SDD-967; closes ledger F-2026-021 + F-2026-023).
   `test_no_dangling_hook_path_references` (every hook path in the dispatch wiring — phases.yaml +
   systemd units — resolves to a real file, so a delete/rename can't leave a dangling wiring ref).
 
+### Added — Cockpit wasm bridge round 3: the final 19 bespoke crates — 418/418 (2026-07-13)
+
+Phase-1 audit (SDD-974; F-2026-001 — cockpit family COMPLETE). The 19 crates without the uniform
+`validate(&self)` were bridged **by hand** over their real decision fns (the macro can't):
+
+- **`cockpit-wasm/src/bespoke/<slug>.rs`** (NEW, 19 modules) — each a `#[wasm_bindgen]` wrapper over the
+  crate's genuine surface: `color-contrast`→`verdict` (WCAG ratio + AA/AAA), `pagination`→`info`/`next`/`goto`,
+  `word-count`→`count`, `day-divider`→`classify`/`group`, `relative-time`→`format`, `text-truncation`→`truncate`,
+  `toast-stack`/`search-history`→functional mutations (parse→mutate copy→return new state), `views`→coverage,
+  the audit panels→their pure `any_*`/`aggregate_*`/`render`. Filesystem loaders + wall-clock deliberately not
+  bridged (pure fns; a clock is passed in).
+- **`gen-bridges.py`** now also scans `src/bespoke/*.rs`, writes `bespoke/mod.rs`, and folds those crates'
+  optional deps + feature entries into the generated blocks (auto-catching the transitive `keystroke-map`).
+  The `bridges` feature = 398 generated ∪ 19 bespoke = **417 cockpit deps** (+ banner-state = 418/418).
+- Fixed a latent round-2 defect: `bridges.rs` had used `#![rustfmt::skip]` (unstable inner attr, E0658) which
+  broke `--features bridges`; replaced with a `cargo fmt` normalisation step.
+
+Verified: `cargo build --features bridges` clean (465 exports); bespoke bridges execute in node
+(`color_contrast_verdict(black,white)`→21:1 AA+AAA, `pagination_info`→correct range/pages, word-count/day-divider/
+truncation correct, bad tokens→graceful); `cargo test --features bridges` 6 passed; clippy default+bridges + fmt
+clean; committed demo still 128 KB; `pytest tests/lint/test_cockpit_wasm_bridge.py` 13 passed. **F-2026-001: 418/418.**
+
 ### Added — Cockpit wasm bridge round 2: 398 more cockpit crates, generated + feature-gated (2026-07-13)
 
-Phase-1 audit (SDD-969; F-2026-001 continued). The family is uniform — **~399 of 418 crates** share
+Phase-1 audit (SDD-974; F-2026-001 continued). The family is uniform — **~399 of 418 crates** share
 `Type::validate(&self) -> Result<(), E>` on a serde type — so the bridge scales **mechanically**:
 
 - **`cockpit-wasm/gen-bridges.py`** (NEW) emits one `bridge_validate!(<slug>_validate, …::Type)` line per
@@ -139,7 +161,7 @@ clean; `pytest tests/lint/test_cockpit_wasm_bridge.py` 12 passed. F-2026-001: 39
 
 ### Added — Cockpit wasm bridge: the typed cockpit crates run in the browser (2026-07-13)
 
-Phase-1 audit (SDD-969; closes ledger **F-2026-001** partial — the #1 crate finding). **413 of 418
+Phase-1 audit (SDD-974; closes ledger **F-2026-001** partial — the #1 crate finding). **413 of 418
 `sovereign-cockpit-*` crates (~58% of the workspace) are consumed by nothing that runs**: they encode the
 cockpit's UX-state as typed, tested Rust, but the webapp is hand-written HTML/JS (zero `wasm-bindgen`/`cdylib`/
 `wasm32`), so every panel re-implements crate logic in JS that can drift. Operator chose the audit's option (a):
