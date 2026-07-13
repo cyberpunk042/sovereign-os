@@ -12,6 +12,17 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — panel reserved-port contract lint (2026-07-13)
+
+Operator-directed ("we continue") (SDD-988). Closes F-2026-075 (LOW). Promotes panel.sh's runtime port-collision
+guard (the 2026-07-03 ux-design-audit-api:8100 incident) into a CI contract.
+
+- **`tests/lint/test_panel_reserved_ports.py`** — reads the reserved ports (configurator 8100 / dashboard 8443 /
+  live-reload 8136) from panel.sh's own defaults (the same single source the runtime guard uses) and fails if
+  any `sovereign-*-api.service` unit declares one. Read-only — no panel.sh edit; pairs with the existing
+  no-two-units-share-a-port lint.
+- Verified: 2 passed (53 API units, 0 collisions); ruff clean. Collision-safe.
+
 ### Added — local pre-push cargo-fmt gate (2026-07-13)
 
 Operator-directed ("we continue") (SDD-987). Closes F-2026-095 (MED, root-cause half). The July arc landed
