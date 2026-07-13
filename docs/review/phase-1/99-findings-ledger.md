@@ -136,6 +136,7 @@
 - Handoff INDEX tops out at 007 (2026-07-08). The largest recent arc (15 commits) has no cold-start anchor, no SHIPPED.md rows, no decisions.md entries (last is D-019, 2026-07-03), no backlog note. Only the three standing-directives (2026-07-11/12) document it — and nothing cross-links them. Action: author handoff 008 + SHIPPED rows + D-020+ decisions entries.
 
 ### F-2026-037 · MED · Deferred-work items promised in docs (consolidated register)
+> **Status (2026-07-13):** **consolidation CLOSED by SDD-971** (`docs/sdd/971-deferred-work-register.md`). All 10 items are now in one place — `docs/review/phase-1/deferred-work-register.md` — each with source-refs + one-line scope + proposed order + owner=`operator-to-assign`; `tests/lint/test_deferred_work_register.py` guards that every cited SDD/doc path resolves. **Left to operator (decision-package)**: owner assignment + final sequencing; and per-item live-status reconciliation (items 7–8 cross-repo selfdef vs the M060 claim; item 10 Q-067 vs the Brain/Code-Console arc). Executing any item is its own future arc.
 The docs already promise these; they need owners/ordering, not rediscovery:
 1. Telemetry-sink choice + Grafana JSON dashboards (`docs/decisions.md:205,411,427`).
 2. Layer 4 QEMU + Layer 5 hardware conformance suites (`docs/decisions.md:547`, SDD-020; `tests/chroot` + `tests/qemu` are scaffolds only).
