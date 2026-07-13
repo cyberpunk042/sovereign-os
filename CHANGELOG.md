@@ -12,6 +12,23 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — retrieval hub decorator flags + cached-RAG serving (2026-07-13)
+
+Operator-directed ("1 and 2 both, sequentially, big PR, do not minimize") (SDD-978 + SDD-979; advances
+F-2026-093). A two-part crate-integration arc that runs the full `sovereign-retrieval` surface in shipping
+binaries — entirely in the crate layer, off the shared-registry collision surface.
+
+- **`sovereign-retrieval`** (additive): `impl Retriever for Box<R>` (a boxed retriever is a retriever) + a
+  `augment_prompt(retriever, prompt, top_k)` free fn factored out of `RagResponder::augment` (ground without
+  generating). No behaviour change; 63 tests pass.
+- **`sovereign-chat` (SDD-978)**: `--hybrid` / `--rerank` / `--injection-filter` / `--keyphrase` flags
+  (combinable, each implies `--rag`), assembled by `build_retriever` into one `Box<dyn Retriever>` with a
+  labelled pipeline (`keyphrase → hybrid(BM25+embed) → rerank → dedup → diversify → injection-filter`).
+- **`sovereign-serve` (SDD-979)**: `--rag` grounds each query then serves the grounded prompt through the
+  cost-aware cache — a repeated grounded query is a genuine $0 exact cache hit (retrieval × the cache).
+- Verified: `cargo test` chat 28 / serve 18 / retrieval 63 passed; live full chat pipeline grounds; live
+  serve `--rag` shows first-serve miss then $0 exact hit on repeat; fmt --all --check + clippy clean.
+
 ### Added — deepen chat RAG with the rerank pipeline (2026-07-13)
 
 Operator-directed ("Deepen chat RAG (reranking pipeline)") (SDD-977; advances F-2026-093, builds on SDD-976).

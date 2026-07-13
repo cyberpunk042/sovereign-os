@@ -99,6 +99,51 @@ fn rerank_pipeline_grounds_a_known_query() {
 }
 
 #[test]
+fn full_retrieval_pipeline_grounds_and_labels() {
+    // All decorator flags at once compose into one pipeline that still grounds a
+    // corpus query; the header names each stage.
+    let out = Command::new(env!("CARGO_BIN_EXE_sovereign-chat"))
+        .args([
+            "--hybrid",
+            "--rerank",
+            "--injection-filter",
+            "--keyphrase",
+            "what is sovereignty",
+        ])
+        .output()
+        .expect("run sovereign-chat full pipeline");
+    assert!(out.status.success(), "exit: {:?}", out.status);
+    let s = String::from_utf8_lossy(&out.stdout);
+    for stage in [
+        "hybrid",
+        "rerank",
+        "dedup",
+        "diversify",
+        "injection-filter",
+        "keyphrase",
+    ] {
+        assert!(s.contains(stage), "pipeline header missing {stage}:\n{s}");
+    }
+    assert!(
+        s.contains("grounded: true"),
+        "the full pipeline did not ground the corpus query:\n{s}"
+    );
+}
+
+#[test]
+fn hybrid_flag_implies_rag_and_grounds() {
+    // `--hybrid` alone (no `--rag`) still enters RAG mode and grounds.
+    let out = Command::new(env!("CARGO_BIN_EXE_sovereign-chat"))
+        .args(["--hybrid", "what is sovereignty"])
+        .output()
+        .expect("run sovereign-chat --hybrid");
+    assert!(out.status.success());
+    let s = String::from_utf8_lossy(&out.stdout);
+    assert!(s.contains("hybrid(BM25+embed)"), "not hybrid mode:\n{s}");
+    assert!(s.contains("grounded: true"), "hybrid did not ground:\n{s}");
+}
+
+#[test]
 fn rag_mode_leaves_an_unmatched_query_ungrounded() {
     // A query with no overlap with the corpus retrieves nothing → ungrounded,
     // proving the grounding signal reflects real retrieval, not a constant.

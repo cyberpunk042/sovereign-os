@@ -20,7 +20,10 @@ use sovereign_chat::{ChatSession, Role};
 use sovereign_decoder_stack::StackConfig;
 use sovereign_ffn::SwiGlu;
 use sovereign_llm::SovereignLlm;
-use sovereign_retrieval::{Bm25Store, Deduped, Diversified, RagResponder, Reranked, Retriever};
+use sovereign_retrieval::{
+    Bm25Store, Deduped, Diversified, HybridStore, InjectionFiltered, KeyphraseQuery, RagResponder,
+    Reranked, Retriever,
+};
 use sovereign_rmsnorm::RmsNorm;
 use sovereign_sampler::{Sampler, SamplerConfig};
 use sovereign_tokenizer::Tokenizer;
@@ -70,40 +73,100 @@ fn runtime(sampler: SamplerConfig) -> SovereignLlm {
     SovereignLlm::new(tok, cfg).unwrap()
 }
 
-/// A small built-in knowledge base so `--rag` retrieves real grounding. BM25
-/// over these short documents gives the retrieval path something to rank; the
-/// texts are about the box itself so a demo question resolves to a real hit.
-fn knowledge_store() -> Bm25Store {
-    let mut s = Bm25Store::new();
-    s.add(
+/// The built-in knowledge base — short documents about the box itself, so a demo
+/// question resolves to a real retrieval hit. Shared by the BM25 and hybrid
+/// stores so both back the same corpus.
+const DOCS: [(&str, &str); 5] = [
+    (
         "sovereignty",
         "Sovereignty means the box runs entirely on local hardware with no cloud call and no external dependency.",
-    );
-    s.add(
+    ),
+    (
         "cost",
         "Local inference has zero per-token cost; the only cost is electricity plus the one-time hardware.",
-    );
-    s.add(
+    ),
+    (
         "privacy",
         "Because nothing leaves the machine, every prompt and output stays private by construction.",
-    );
-    s.add(
+    ),
+    (
         "rust",
         "Rust gives memory safety without a garbage collector through its ownership model.",
-    );
-    s.add(
+    ),
+    (
         "offline",
         "The assistant keeps working with the network unplugged; the weights and tokenizer are on disk.",
-    );
+    ),
+];
+
+/// A BM25 store over [`DOCS`] — the default `--rag` retriever (lexical).
+fn knowledge_store() -> Bm25Store {
+    let mut s = Bm25Store::new();
+    for (id, text) in DOCS {
+        s.add(id, text);
+    }
     s
 }
 
+/// A hybrid store over [`DOCS`] — `--hybrid` fuses BM25 with the built-in
+/// embedding tier, so a paraphrase with no exact term overlap can still rank.
+fn hybrid_store() -> HybridStore {
+    let mut s = HybridStore::new();
+    for (id, text) in DOCS {
+        s.add(id, text);
+    }
+    s
+}
+
+/// Which retrieval decorators the `--rag` path composes, from the command line.
+#[derive(Clone, Copy, Default)]
+struct RagFlags {
+    /// `--hybrid`: fuse BM25 with the embedding tier (base store).
+    hybrid: bool,
+    /// `--rerank`: coverage-rerank → dedup → MMR-diversify the results.
+    rerank: bool,
+    /// `--injection-filter`: drop retrieved passages that look like prompt injection.
+    injection_filter: bool,
+    /// `--keyphrase`: distill each query to its keyphrases before retrieval.
+    keyphrase: bool,
+}
+
+/// Assemble the retriever from the flags into one `Box<dyn Retriever>` (the
+/// concrete type varies per flag combination), returning it with a human label
+/// of the pipeline. Each decorator is a `Retriever` over the previous, so they
+/// compose in a fixed, sensible order: base store → result reshapers (rerank,
+/// dedup, diversify) → injection filter → query distiller (outermost, so the
+/// distilled query flows down through the whole chain).
+fn build_retriever(flags: RagFlags) -> (Box<dyn Retriever>, String) {
+    let (mut r, mut label): (Box<dyn Retriever>, String) = if flags.hybrid {
+        (Box::new(hybrid_store()), "hybrid(BM25+embed)".into())
+    } else {
+        (Box::new(knowledge_store()), "BM25".into())
+    };
+    if flags.rerank {
+        r = Box::new(Diversified::new(
+            Deduped::with_defaults(Reranked::with_defaults(r)),
+            0.7,
+            4,
+            8,
+        ));
+        label = format!("{label} → rerank → dedup → diversify");
+    }
+    if flags.injection_filter {
+        r = Box::new(InjectionFiltered::with_defaults(r));
+        label = format!("{label} → injection-filter");
+    }
+    if flags.keyphrase {
+        r = Box::new(KeyphraseQuery::with_defaults(r));
+        label = format!("keyphrase → {label}");
+    }
+    (r, label)
+}
+
 /// Drive a built [`RagResponder`] over the queries, printing per-query whether
-/// retrieval grounded the prompt. Generic over the retriever so the plain and
-/// reranked pipelines (different concrete `Retriever` types) share one path
-/// without boxing.
-fn drive_rag<Ret: Retriever>(
-    mut rag: RagResponder<LlmResponder, Ret>,
+/// retrieval grounded the prompt.
+fn drive_rag(
+    mut rag: RagResponder<LlmResponder, Box<dyn Retriever>>,
     queries: &[&str],
     pipeline: &str,
 ) {
@@ -120,15 +183,13 @@ fn drive_rag<Ret: Retriever>(
 }
 
 /// Run the retrieval-augmented path: each user message is grounded in the
-/// BM25-retrieved documents before the runtime generates a reply. This wires the
-/// runtime as a [`Responder`], wraps it in a [`RagResponder`] over the built-in
-/// [`knowledge_store`], and drives it — a real second consumer of the retrieval
-/// hub beyond the mega-demo. With `rerank`, the store is wrapped in the hub's
-/// coverage-rerank → dedup → MMR-diversify decorator chain (each a `Retriever`
-/// over the last), exercising the fuller retrieval pipeline, not just top-k BM25.
-/// The weights are random so the replies are gibberish; the point is that
-/// retrieval fires and grounds the prompt.
-fn run_rag(messages: &[String], sampler: SamplerConfig, rerank: bool) {
+/// retrieved documents before the runtime generates a reply. This wires the
+/// runtime as a [`Responder`], wraps it in a [`RagResponder`] over a retriever
+/// assembled from `flags` (base BM25 or hybrid, optionally reranked / injection-
+/// filtered / keyphrase-distilled), and drives it — a real consumer of the
+/// retrieval hub's full surface beyond the mega-demo. The weights are random so
+/// the replies are gibberish; the point is that retrieval fires and grounds.
+fn run_rag(messages: &[String], sampler: SamplerConfig, flags: RagFlags) {
     const TOP_K: usize = 2;
     let responder = LlmResponder::new(runtime(sampler), 6);
 
@@ -139,27 +200,12 @@ fn run_rag(messages: &[String], sampler: SamplerConfig, rerank: bool) {
         messages.iter().map(String::as_str).collect()
     };
 
-    if rerank {
-        // coverage-rerank → dedup → diversify, each wrapping the previous
-        // Retriever; `lambda = 0.7` trades relevance against diversity.
-        let pipeline = Diversified::new(
-            Deduped::with_defaults(Reranked::with_defaults(knowledge_store())),
-            0.7,
-            4,
-            8,
-        );
-        drive_rag(
-            RagResponder::new(responder, pipeline, TOP_K),
-            &queries,
-            "top-2 BM25 → rerank → dedup → diversify",
-        );
-    } else {
-        drive_rag(
-            RagResponder::new(responder, knowledge_store(), TOP_K),
-            &queries,
-            "top-2 BM25 grounding",
-        );
-    }
+    let (retriever, label) = build_retriever(flags);
+    drive_rag(
+        RagResponder::new(responder, retriever, TOP_K),
+        &queries,
+        &format!("top-{TOP_K} {label}"),
+    );
 }
 
 /// Parse `--temperature/-T`, `--top-k`, `--top-p`, `--typical-p` decode flags
@@ -257,9 +303,13 @@ USAGE:
     sovereign-chat MESSAGE [MESSAGE…] run your messages as turns (history bounded)
     sovereign-chat --rag [QUERY…]    retrieval-augmented mode: ground each query
                                      in a small BM25 knowledge store before reply
-    sovereign-chat --rerank [QUERY…] --rag plus the rerank → dedup → diversify
-                                     retrieval pipeline (implies --rag)
     sovereign-chat --help            print this help and exit
+
+RETRIEVAL PIPELINE (each implies --rag; combinable):
+        --hybrid          fuse BM25 with the embedding tier (base store)
+        --rerank          coverage-rerank → dedup → MMR-diversify the results
+        --injection-filter drop retrieved passages that look like prompt injection
+        --keyphrase       distill each query to its keyphrases before retrieval
 
 DECODE CONTROLS (apply to generation; any combination):
     -T, --temperature F   softmax temperature (<=0 greedy; default 1.0)
@@ -277,21 +327,37 @@ fn main() {
         return;
     }
 
-    // `--rag` selects the retrieval-augmented path; `--rerank` implies it and
-    // adds the rerank→dedup→diversify pipeline. Strip both before flag parsing
-    // so they aren't mistaken for messages.
-    let rerank = raw.iter().any(|a| a == "--rerank");
-    let rag_mode = rerank || raw.iter().any(|a| a == "--rag");
+    // `--rag` selects the retrieval-augmented path; the pipeline flags below each
+    // imply it. Strip all of them before flag parsing so they aren't mistaken
+    // for messages.
+    let flags = RagFlags {
+        hybrid: raw.iter().any(|a| a == "--hybrid"),
+        rerank: raw.iter().any(|a| a == "--rerank"),
+        injection_filter: raw.iter().any(|a| a == "--injection-filter"),
+        keyphrase: raw.iter().any(|a| a == "--keyphrase"),
+    };
+    let rag_mode = raw.iter().any(|a| a == "--rag")
+        || flags.hybrid
+        || flags.rerank
+        || flags.injection_filter
+        || flags.keyphrase;
+    let rag_words = [
+        "--rag",
+        "--hybrid",
+        "--rerank",
+        "--injection-filter",
+        "--keyphrase",
+    ];
     let raw: Vec<String> = raw
         .into_iter()
-        .filter(|a| a != "--rag" && a != "--rerank")
+        .filter(|a| !rag_words.contains(&a.as_str()))
         .collect();
 
     let (sampler_cfg, args) = parse_sampler_args(&raw);
     let (format, args) = extract_format(&args);
 
     if rag_mode {
-        run_rag(&args, sampler_cfg, rerank);
+        run_rag(&args, sampler_cfg, flags);
         return;
     }
 
@@ -469,6 +535,52 @@ mod tests {
             aug.to_lowercase().contains("local hardware"),
             "reranked pipeline retrieved the wrong doc:\n{aug}"
         );
+    }
+
+    #[test]
+    fn build_retriever_grounds_and_labels_across_flag_combos() {
+        // Every flag combination assembles into one Box<dyn Retriever> that still
+        // retrieves a corpus match, and the label names the composed pipeline.
+        let combos = [
+            RagFlags::default(),
+            RagFlags {
+                hybrid: true,
+                ..Default::default()
+            },
+            RagFlags {
+                rerank: true,
+                injection_filter: true,
+                keyphrase: true,
+                ..Default::default()
+            },
+            RagFlags {
+                hybrid: true,
+                rerank: true,
+                injection_filter: true,
+                keyphrase: true,
+            },
+        ];
+        for flags in combos {
+            let (retriever, label) = build_retriever(flags);
+            assert!(!label.is_empty(), "empty pipeline label");
+            let ctx = retriever.retrieve_context("what is sovereignty", 2);
+            assert!(!ctx.is_empty(), "pipeline {label:?} retrieved nothing");
+            if flags.hybrid {
+                assert!(label.contains("hybrid"), "hybrid not labelled: {label}");
+            }
+            if flags.keyphrase {
+                assert!(
+                    label.starts_with("keyphrase"),
+                    "keyphrase not outermost: {label}"
+                );
+            }
+            if flags.injection_filter {
+                assert!(
+                    label.contains("injection-filter"),
+                    "filter not labelled: {label}"
+                );
+            }
+        }
     }
 
     #[test]

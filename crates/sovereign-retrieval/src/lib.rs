@@ -40,6 +40,36 @@ pub trait Retriever {
     fn retrieve_context(&self, query: &str, k: usize) -> Vec<String>;
 }
 
+/// A boxed retriever is a retriever — so a pipeline assembled from optional
+/// decorators (whose concrete type varies per combination) can be held as a
+/// single `Box<dyn Retriever>` and still drop into [`RagResponder`].
+impl<R: Retriever + ?Sized> Retriever for Box<R> {
+    fn retrieve_context(&self, query: &str, k: usize) -> Vec<String> {
+        (**self).retrieve_context(query, k)
+    }
+}
+
+/// Build the context-augmented prompt: prepend the top-`k` retrieved documents
+/// as a `Context:` block, returning `prompt` unchanged when nothing is
+/// retrieved. Shared by [`RagResponder::augment`] and any caller that wants
+/// grounding *without* generation — e.g. a cost-aware server that caches the
+/// grounded prompt so a repeated grounded query is a `$0` hit.
+pub fn augment_prompt(retriever: &(impl Retriever + ?Sized), prompt: &str, top_k: usize) -> String {
+    let hits = retriever.retrieve_context(prompt, top_k);
+    if hits.is_empty() {
+        return prompt.to_string();
+    }
+    let mut out = String::from("Context:\n");
+    for h in &hits {
+        out.push_str("- ");
+        out.push_str(h);
+        out.push('\n');
+    }
+    out.push('\n');
+    out.push_str(prompt);
+    out
+}
+
 /// A stored document.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Document {
@@ -1663,19 +1693,7 @@ impl<R: Responder, Ret: Retriever> RagResponder<R, Ret> {
     /// Build the context-augmented prompt for `prompt` (exposed for testing /
     /// inspection). Returns `prompt` unchanged if nothing is retrieved.
     pub fn augment(&self, prompt: &str) -> String {
-        let hits = self.retriever.retrieve_context(prompt, self.top_k);
-        if hits.is_empty() {
-            return prompt.to_string();
-        }
-        let mut out = String::from("Context:\n");
-        for h in &hits {
-            out.push_str("- ");
-            out.push_str(h);
-            out.push('\n');
-        }
-        out.push('\n');
-        out.push_str(prompt);
-        out
+        augment_prompt(&self.retriever, prompt, self.top_k)
     }
 }
 
