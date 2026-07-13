@@ -405,6 +405,105 @@ async function enhanceActiveFilterSpec(root) {
   sec.appendChild(el('div', '', `${chips.length} active chips across ${nFacets} facet(s), crate-validated — ` + parts.join(' · ')));
 }
 
+// d-01-active-sessions: render a real session's M057 lifecycle as a step bar built + validated
+// by the REAL sovereign-cockpit-stepper crate; complete/back preview the crate's own transitions
+// (it does NOT advance the real session). Additive + graceful.
+const LIFECYCLE = ['Intake', 'Normalize', 'Profile', 'Map', 'Plan', 'Route', 'Execute', 'Observe', 'Evaluate', 'Commit', 'Learn', 'Archive'];
+async function enhanceSessionSteps(root) {
+  if (root.querySelector('[data-cockpit-crates="d01st"]')) return;
+  let data; try { data = await (await fetch('/api/sessions/active', { cache: 'no-store' })).json(); } catch (_) { return; }
+  const sessions = (data && data.sessions) || [];
+  if (!sessions.length) return;
+  const sess = sessions[0];
+  const cur = Math.max(1, Math.min(LIFECYCLE.length, (sess.step | 0) || 1));
+  let state = {
+    schema_version: '1.0.0', active: cur - 1,
+    steps: LIFECYCLE.map((label, i) => ({ id: 's' + (i + 1), label, skippable: false, status: (i + 1) < cur ? 'done' : ((i + 1) === cur ? 'active' : 'not-started') })),
+  };
+  const sec = section('Session lifecycle — sovereign-cockpit-stepper (wasm)');
+  sec.setAttribute('data-cockpit-crates', 'd01st');
+  sec.appendChild(el('div', 'color:var(--muted,#888);font-size:.78rem;margin-bottom:.4rem', `preview of session ${sess.id || ''} — the crate drives the steps, it does not advance the real session`));
+  const barEl = el('div', 'display:flex;gap:.2rem;flex-wrap:wrap;margin-bottom:.4rem');
+  const navEl = el('div', 'display:flex;gap:.3rem');
+  const paint = () => {
+    barEl.innerHTML = '';
+    state.steps.forEach((s, i) => {
+      const bg = s.status === 'done' ? 'var(--good,#7ad17a)' : (s.status === 'active' ? 'var(--accent,#9bd1ff)' : 'var(--border,#333)');
+      const cell = el('span', `padding:.15rem .4rem;border-radius:3px;font-size:.72rem;background:${bg};color:${s.status === 'not-started' ? 'var(--muted,#888)' : '#000'}`, s.label);
+      if (i === state.active) cell.style.outline = '2px solid var(--fg,#ddd)';
+      barEl.appendChild(cell);
+    });
+  };
+  const step = async (op) => { const r = await bcall('stepper_advance', JSON.stringify(state), op); if (r && r.ok && r.value) { state = r.value; paint(); } };
+  [['✓ complete', 'complete'], ['◀ back', 'back']].forEach(([lbl, op]) => {
+    const b = el('button', 'padding:.2rem .55rem;border:1px solid var(--border,#333);border-radius:3px;cursor:pointer;font:inherit;background:transparent;color:inherit', lbl);
+    b.addEventListener('click', () => step(op)); navEl.appendChild(b);
+  });
+  sec.append(barEl, navEl);
+  (root.body || document.body).appendChild(sec);
+  paint();
+}
+
+// d-21-lm-orchestration: a functional radio-group over the FETCHED orchestration profiles,
+// selection computed by the REAL sovereign-cockpit-radio-group crate (click + arrow wrap). Preview.
+async function enhanceOrchestrationRadio(root) {
+  if (root.querySelector('[data-cockpit-crates="d21rg"]')) return;
+  let data; try { data = await (await fetch('/api/lm-orchestration/profiles', { cache: 'no-store' })).json(); } catch (_) { return; }
+  const profiles = (data && data.profiles) || [];
+  if (profiles.length < 2) return;
+  const options = profiles.map(p => ({ id: String(p.id || p.mode_id), label: String(p.name || p.id || p.mode_id), enabled: true }));
+  let state = { schema_version: '1.0.0', options, selected: options[0].id, required: true };
+  const sec = section('Orchestration profile selector — sovereign-cockpit-radio-group (wasm)');
+  sec.setAttribute('data-cockpit-crates', 'd21rg');
+  sec.appendChild(el('div', 'color:var(--muted,#888);font-size:.78rem;margin-bottom:.4rem', 'preview: the crate computes the selection (arrows wrap) — it does not apply a profile'));
+  const rowEl = el('div', 'display:flex;flex-direction:column;gap:.25rem;margin-bottom:.4rem');
+  const navEl = el('div', 'display:flex;gap:.3rem');
+  const paint = () => {
+    rowEl.innerHTML = '';
+    for (const o of state.options) {
+      const b = el('button', 'text-align:left;padding:.2rem .5rem;border:1px solid var(--border,#333);border-radius:3px;cursor:pointer;font:inherit;background:transparent;color:inherit', (o.id === state.selected ? '● ' : '○ ') + o.label);
+      b.addEventListener('click', () => sel(o.id)); rowEl.appendChild(b);
+    }
+  };
+  const sel = async (target) => { const r = await bcall('radio_group_select', JSON.stringify(state), target); if (r && r.ok && r.value) { state = r.value; paint(); } };
+  [['▲ up', 'up'], ['▼ down', 'down']].forEach(([lbl, op]) => {
+    const b = el('button', 'padding:.2rem .55rem;border:1px solid var(--border,#333);border-radius:3px;cursor:pointer;font:inherit;background:transparent;color:inherit', lbl);
+    b.addEventListener('click', () => sel(op)); navEl.appendChild(b);
+  });
+  sec.append(rowEl, navEl);
+  (root.body || document.body).appendChild(sec);
+  paint();
+}
+
+// Panels with a staged (pending) vs applied filter (edit fields + an Apply button) — reflect
+// that pending->applied commit through the REAL sovereign-cockpit-filter-state crate: show how
+// many edits are pending, and on Apply run filter_state_apply. Additive + graceful.
+function filterStateEnhancer({ inputs, applyBtn, title, marker }) {
+  return async function (root) {
+    if (root.querySelector(`[data-cockpit-crates="${marker}"]`)) return;
+    const q = sel => (root.querySelector ? root.querySelector(sel) : null);
+    const readVals = () => { const o = {}; for (const k in inputs) { const e = q(inputs[k]); if (e && e.value != null && e.value !== '') o[k] = String(e.value); } return o; };
+    const btn = q(applyBtn);
+    if (!btn) return;  // this panel doesn't have the staged-filter UI
+    let applied = readVals();
+    const sec = section(title); sec.setAttribute('data-cockpit-crates', marker);
+    const out = el('div', 'font-size:.85rem'); sec.appendChild(out);
+    (root.body || document.body).appendChild(sec);
+    const refresh = async (commit) => {
+      const pending = readVals();
+      if (commit) { const r = await bcall('filter_state_apply', JSON.stringify({ schema_version: '1.0.0', pending, applied })); if (r && r.ok && r.value) applied = r.value.applied || pending; }
+      const keys = Object.keys(Object.assign({}, pending, applied));
+      const dirty = keys.filter(k => pending[k] !== applied[k]);
+      out.textContent = dirty.length
+        ? `${dirty.length} pending filter edit(s) not yet applied: ${dirty.join(', ')}`
+        : ('filter applied (crate-committed): ' + (Object.keys(applied).map(k => `${k}=${applied[k]}`).join(', ') || '(defaults)'));
+    };
+    if (btn) btn.addEventListener('click', () => setTimeout(() => refresh(true), 0));
+    for (const k in inputs) { const e = q(inputs[k]); if (e) { e.addEventListener('input', () => refresh(false)); e.addEventListener('change', () => refresh(false)); } }
+    refresh(false);
+  };
+}
+
 const ENHANCERS = {
   'ux-design-audit-webapp': enhanceUxDesignAudit,
   'personalization-webapp': enhancePersonalization,
@@ -469,6 +568,7 @@ const ENHANCERS = {
       progress: s => (s.step / 12) * 100,
       title: 'Session lifecycle progress — sovereign-cockpit-progress-tracker (wasm)', marker: 'd01pg', unit: 'sessions',
     }),
+    enhanceSessionSteps,
   ),
   // Trust scores: faceted + crate-computed mean score (0..1000 -> progress-tracker).
   'd-18-trust-scores-webapp': compose(
@@ -514,11 +614,24 @@ const ENHANCERS = {
     title: 'Pending memory changes faceted — sovereign-cockpit-facet-counts (wasm)', marker: 'd07',
   }),
   // Eval tasks grouped by intervention class + a derived pass-rate bucket.
-  'd-10-eval-history-webapp': facetEnhancer({
-    endpoint: '/api/evals/summary', pick: d => d.tasks || [],
-    facets: { class: t => t.intervention_class, pass: t => t.pass_pct >= 80 ? 'pass (>=80)' : t.pass_pct >= 50 ? 'mid (50-79)' : 'low (<50)' },
-    title: 'Eval tasks faceted — sovereign-cockpit-facet-counts (wasm)', marker: 'd10',
+  'd-10-eval-history-webapp': compose(
+    facetEnhancer({
+      endpoint: '/api/evals/summary', pick: d => d.tasks || [],
+      facets: { class: t => t.intervention_class, pass: t => t.pass_pct >= 80 ? 'pass (>=80)' : t.pass_pct >= 50 ? 'mid (50-79)' : 'low (<50)' },
+      title: 'Eval tasks faceted — sovereign-cockpit-facet-counts (wasm)', marker: 'd10',
+    }),
+    filterStateEnhancer({
+      inputs: { task: '#task-filter', class: '#class-filter', window: '#window-filter' }, applyBtn: '#apply-btn',
+      title: 'Staged filter — sovereign-cockpit-filter-state (wasm)', marker: 'd10fs',
+    }),
+  ),
+  // Traces: staged (pending -> Apply) filter committed through the filter-state crate.
+  'd-05-traces-webapp': filterStateEnhancer({
+    inputs: { q: '#search-input', severity: '#severity-select', ocsf_class: '#ocsf-class-select', window: '#window-select' }, applyBtn: '#apply-btn',
+    title: 'Staged filter — sovereign-cockpit-filter-state (wasm)', marker: 'd05fs',
   }),
+  // Orchestration: a functional radio-group over the fetched profiles (radio-group crate).
+  'd-21-lm-orchestration-webapp': enhanceOrchestrationRadio,
   // Model health grouped by role / precision.
   'd-03-model-health-webapp': facetEnhancer({
     endpoint: '/api/models/health', pick: d => d.models || [],
