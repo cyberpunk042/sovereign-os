@@ -313,6 +313,25 @@ per-device model status (the D-22 LM Status & Operability panel). SDD-902.
   are down; a webapp-contract test locks the section + the copyable verbs + the demo fixture. 24 D-22 contract
   tests.
 
+### Added — de-islanding big bite #4: 6 aspirational config crates get validate/emit CLIs (2026-07-12)
+
+Third parallel batch (SDD-955), into the "aspirational" tier. On inspection these 6 crates were NOT pure runtime
+stubs — each has a real policy/decision model a config tool surfaces WITHOUT the live system (validate a policy /
+emit deployable artifacts, exactly like `sovereign-cpu-pinning`). The full runtime integration (live ZFS host,
+kernel sandbox, network enforcement) remains future work; these make the models real + checkable now. Register
+14 → 8; the enforcing lint stays green.
+
+- **`sovereign-zfs-snapshot-policy`** — emits the snapshot systemd units (timer+service per cadence) + `--check`
+  runs `plan_pruning()` producing the `zfs destroy` plan.
+- **`sovereign-zfs-provisioning-plan`** — emits a REVIEW-ONLY zpool/zfs script (never executes; device-safe) +
+  `--check` validates a plan (shell-safe tokens, target device).
+- **`sovereign-zfs-commit-gate`** — the 4-stage commit gate (commit only at test_score ≥ 80); `--check` decides.
+- **`sovereign-fs-boundary`** — classifies paths against the `/ai-exchange` boundary (`..`-escape safe).
+- **`sovereign-sandbox-profile`** — 8 sandbox profiles by dimension; `--check` flags a double-constrained dimension.
+- **`sovereign-network-boundary`** — the 5-rung network profile ladder; `--check` decides allow/deny per intent.
+
+Per-crate tests (17 + 11 + 27 + 19 + 13 + 11); clippy `-D warnings` + fmt clean across all six.
+
 ### Added — de-islanding big bite #3: 6 more model crates gain runnable CLIs (2026-07-12)
 
 Second parallel batch (SDD-955) — 6 more zero-reverse-dependency crates, each a genuine runnable `main.rs` doing

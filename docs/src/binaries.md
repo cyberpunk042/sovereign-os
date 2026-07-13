@@ -1,6 +1,6 @@
 # Runtime binaries
 
-> The **27 Rust binary crates** (`crates/*/src/main.rs`) are the executable runtime surface of
+> The **33 Rust binary crates** (`crates/*/src/main.rs`) are the executable runtime surface of
 > sovereign-os. Everything else in `crates/` is a library consumed by these (or an island —
 > see the phase-1 audit's island register). This page maps each binary to its **role**, how it
 > is **invoked**, and what it **does**. Enforced complete by `tests/lint/test_binaries_doc.py`.
@@ -34,6 +34,12 @@ the Rust binaries below are the compute/runtime core.
 | **`sovereign-data-plane`** | operator / set algebra | Exact RoaringBitmap set operations over JSON id arrays — `--union` / `--intersect` / `--cardinality` / `--contains` (the integer-set analogue of comm/sort -u). |
 | **`sovereign-intake`** | operator / reference + validate | The intake model (10 task sources / 3 privacy contexts / the gateway-stamped fields); `--check FILE` validates an IntakeRequest's identity (request_id + client_id). |
 | **`sovereign-replay-playback-rate`** | operator / query + validate | The 6 replay speeds (0.25x…8x) with wall-time factors; `--interval MS` computes each rate's advance interval, `--rate NAME` reports one, `--check FILE` validates a rate state. |
+| **`sovereign-zfs-snapshot-policy`** | operator / emit + validate | Emits the canonical ZFS snapshot systemd units (a .timer + oneshot .service per daily/weekly/monthly cadence) from the retention model; `--check FILE` runs `plan_pruning()` on a snapshot inventory and prints the `zfs destroy` plan. |
+| **`sovereign-zfs-provisioning-plan`** | operator / emit + validate | Emits a REVIEW-ONLY `zpool create` / `zfs create` / `zfs set` script from the provisioning model (never executes, device-safety checked); `--check FILE` validates a plan (shell-safe tokens, target device). |
+| **`sovereign-zfs-commit-gate`** | operator / reference + validate | The 4-stage ZFS commit gate (commit permitted only at test_score ≥ 80; rollback always); `--check FILE` runs the real gate decision on a GateCycle, flagging violations. |
+| **`sovereign-fs-boundary`** | operator / classify + validate | The `/ai-exchange/{inbox,outbox,artifacts}` filesystem boundary; classifies paths (allowed/denied, `..`-escape safe) and `--check FILE` validates a boundary-query config. |
+| **`sovereign-sandbox-profile`** | operator / reference + validate | The 8 sandbox profiles by dimension (fs / network / gpu / isolation); `--check FILE` resolves a profile set + flags a dimension constrained by two profiles. |
+| **`sovereign-network-boundary`** | operator / reference + validate | The 5-rung network profile ladder (offline → authenticated-browser); `--check FILE` decides allow/deny per tool intent via `is_within_allowance`. |
 
 ## Dev / demo CLIs
 
@@ -84,6 +90,12 @@ sovereign-dashboard-snapshot     → build/validate a cockpit snapshot
 sovereign-data-plane             → RoaringBitmap set algebra (union/intersect/…)
 sovereign-intake                 → intake model (validate request identity)
 sovereign-replay-playback-rate   → the 6 replay speeds (interval/rate/validate)
+sovereign-zfs-snapshot-policy    → emit snapshot systemd units + prune plan
+sovereign-zfs-provisioning-plan  → emit review-only zpool/zfs commands + validate
+sovereign-zfs-commit-gate        → the commit gate (test_score>=80) decision
+sovereign-fs-boundary            → /ai-exchange path classification
+sovereign-sandbox-profile        → 8 sandbox profiles by dimension
+sovereign-network-boundary       → the 5-rung network profile ladder
 sovereign-feature-selftest       → feature-test-lab
 
 dev/demo: cortex · agent-runtime · inference-demo · chat · serve   (manual / brain-api)

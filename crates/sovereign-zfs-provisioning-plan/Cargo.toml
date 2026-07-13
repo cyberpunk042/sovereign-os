@@ -14,8 +14,6 @@ workspace = true
 
 [dependencies]
 serde = { workspace = true }
+serde_json = { workspace = true }
 thiserror = { workspace = true }
 sovereign-zfs-dataset-layout = { path = "../sovereign-zfs-dataset-layout" }
-
-[dev-dependencies]
-serde_json = { workspace = true }
