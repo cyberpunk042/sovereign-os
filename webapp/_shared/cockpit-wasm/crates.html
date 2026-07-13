@@ -269,6 +269,21 @@
     { k: 'progress-tracker', fn: 'progress_summary', sub: 'aggregate — mean progress across tasks',
       args: t => [t], preset: '[{"id":"t1","label":"Index","kind":"determinate","progress":80,"eta_seconds":10,"started_at":"2026-01-01T00:00:00Z"},{"id":"t2","label":"Embed","kind":"determinate","progress":40,"eta_seconds":5,"started_at":"2026-01-01T00:00:00Z"}]',
       render: r => r.ok ? 'average ' + r.average + '% across ' + r.tasks.length + ' task(s)' : ('err: ' + esc(r.error)) },
+    { k: 'cost-meter', fn: 'cost_meter_level', sub: 'level() — budget gauge zone + usage + remaining',
+      args: t => { const o = JSON.parse(t); return [o.budget, o.spent, o.warn_bp, o.critical_bp]; },
+      preset: '{"budget":5000,"spent":4200,"warn_bp":8000,"critical_bp":9500}',
+      render: r => r.ok ? `<b>${esc(r.level)}</b> · ${(r.usage_bp / 100).toFixed(1)}% used · ${r.remaining} remaining` : ('err: ' + esc(r.error)) },
+    { k: 'status-aggregator', fn: 'status_aggregator_headline', sub: 'headline() — worst-wins + % breakdown',
+      args: t => [t], preset: '[{"id":"a","name":"Kernel","status":"ok"},{"id":"b","name":"Net","status":"degraded"},{"id":"c","name":"Disk","status":"ok"}]',
+      render: r => r.ok ? `headline <b>${esc(r.headline)}</b> · ${r.percentages.ok}% ok · ${r.percentages.degraded}% degraded · ${r.percentages.down}% down` : ('err: ' + esc(r.error)) },
+    { k: 'stat-trend', fn: 'stat_trend_compute', sub: 'trend(prev, cur, polarity) — dir + % + color',
+      args: t => { const o = JSON.parse(t); return [o.previous, o.current, o.flat_x100, o.polarity]; },
+      preset: '{"previous":100,"current":130,"flat_x100":50,"polarity":"lower-better"}',
+      render: r => r.ok ? `<b>${esc(r.direction)}</b> ${(r.percent_change_x100 / 100).toFixed(1)}% · ${esc(r.color_hint)}` : ('err: ' + esc(r.error)) },
+    { k: 'byte-size-formatter', fn: 'byte_size_format', sub: 'format(bytes) — SI / IEC human string', raw: true,
+      args: t => { const o = JSON.parse(t); return [o.bytes, o.unit, o.precision]; },
+      preset: '{"bytes":1610612736,"unit":"iec","precision":1}',
+      render: r => (typeof r === 'string' && r.charAt(0) !== '{') ? `<b>${esc(r)}</b>` : ('err: ' + esc((r && r.error) || r)) },
   ];
   function renderCompute() {
     const grid = $('compute-grid'); if (!grid) return;
@@ -281,8 +296,11 @@
       ta.style.cssText = 'width:100%;height:3.6rem;font-family:ui-monospace,monospace;font-size:.7rem;margin:.35rem 0';
       const out = document.createElement('div'); out.style.cssText = 'font-size:.8rem;min-height:1.1rem;word-break:break-word';
       const run = () => {
-        try { const r = J(W[c.fn](...c.args(ta.value))); out.innerHTML = (r == null) ? 'err' : c.render(r); }
-        catch (e) { out.textContent = String(e.message || e); }
+        try {
+          const raw = W[c.fn](...c.args(ta.value));
+          const r = c.raw ? raw : J(raw);        // some crates return a bare string, not JSON
+          out.innerHTML = (r == null) ? 'err' : c.render(r);
+        } catch (e) { out.textContent = String(e.message || e); }
       };
       ta.addEventListener('input', run);
       card.append(head, ta, out); grid.appendChild(card); run();
