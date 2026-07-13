@@ -12,6 +12,27 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — MS003 ed25519 signing primitive (Option B, producer half) (2026-07-13)
+
+Operator-directed (AskUserQuestion → "B — sovereign-os mints") (SDD-989). Advances F-2026-034 (CRIT) — the
+`unsigned-pending-MS003` placeholder every SDD-142..204 record carries. Implements the operator's Option-B choice
+from SDD-984: **sovereign-os mints a real ed25519 signature over each record with the operator key identity; selfdef
+verifies.** Real signatures now, with no coupling to selfdef uptime (preserves MS043 offline-survivability) and the
+R10212 selfdef boundary untouched (signs only records sovereign-os already authors). **PR 1 of 2 = the producer
+PRIMITIVE only** (crypto reviewed in isolation; PR 2 sweeps the ~8 writers). New `scripts/lib/ms003.py`:
+`sign(record)` → `ms003:ed25519:<keyid>:<sig>` when an operator key is present, else the historical placeholder —
+**never raises** (a signing fault degrades to the placeholder, never breaks a mutation write); `verify()` (selfdef-side
+reference), `canonical_bytes()` (record minus `signature`, sort_keys, compact, UTF-8 — the byte contract),
+`is_signed()`, `keyid()`, provisioning CLI `gen-key`/`pubkey`/`status`. **No new dependency**: the `cryptography` wheel
+is unimportable here, so signing shells to the system `openssl` (already a hard dep), keeping the scripts stdlib-only +
+locally verifiable. **Opportunistic**: a real signature needs both an ed25519-capable openssl and a key at
+`$SOVEREIGN_OS_MS003_KEY` (default `~/.sovereign-os/ms003.key`); a keyless node behaves exactly as today.
+Wire format (the contract selfdef implements): keyid = first 16 of base64url(raw 32-byte pubkey), sig =
+base64url(64-byte ed25519 sig), signed bytes = `canonical_bytes`. New `tests/unit/test_ms003_sign.py` — 6 tests
+(no-key fallback, never-raises, canonical determinism, placeholder-never-verifies, and a skip-if-no-ed25519 full
+round-trip with tamper + wrong-key rejection). Verified: pytest 6 passed; CLI gen-key→sign→verify smoke; ruff clean.
+No record writer modified (PR 2), no gatewayd/cockpit/`unsafe`/crate edits. F-2026-034 stays OPEN (producer half).
+
 ### Added — panel reserved-port contract lint (2026-07-13)
 
 Operator-directed ("we continue") (SDD-988). Closes F-2026-075 (LOW). Promotes panel.sh's runtime port-collision
