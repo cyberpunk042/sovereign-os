@@ -29,7 +29,7 @@ Full doctrine: `docs/standing-directives/two-ultimate-solutions.md`.
 | workspace crates | 717 | `crates/*/` |
 | dashboards (d-nn) | 25 | `webapp/d-*/` |
 | cockpit panels (total) | 55 | `webapp/*/index.html` |
-| sdd files | 156 | `docs/sdd/<NNN>-*.md` |
+| sdd files | 157 | `docs/sdd/<NNN>-*.md` |
 | milestone files | 85 | `backlog/milestones/*.md` |
 
 <!-- END COUNTS-CONTRACT -->
@@ -38,7 +38,7 @@ Full doctrine: `docs/standing-directives/two-ultimate-solutions.md`.
 
 - **Phase-1 whole-repo improvement audit** (`docs/review/phase-1/`) — 100+ ranked findings `F-2026-NNN`; the map for ongoing SDD work. In-flight closures (this general/audit session, SDD **900-band** per SDD-100): **SDD-950** real RoPE (`rope_theta`/`rope_scaling` — modern models decode coherently, F-2026-080); **SDD-206** gateway safety spine (injection screen + secret/PII redaction + auth/timeouts, F-2026-081/082); **SDD-951** durable-memory corruption recovery + bounded growth (F-2026-084); **SDD-952** this drift fix (F-2026-030).
 - **The July intelligence layer** — the Sovereign Brain observatory, the CoAT reasoning engine (`sovereign-coat`, CoT→ToT→MCTS→C-MCTS→CoAT), the Background-Tasks job runtime + compute plane, Plan Mode / User Approval / the auto-mode safety classifier, QCFA + interactive AUQ clarification, the HF-BPE tokenizer, and durable gateway memory. The Anthropic Messages API (`/v1/messages`, **SDD-205**) makes the box drive VS Code / Claude Code against its own local model.
-- Parallel sessions run per the **SDD-100 number-band convention** (`recover 100–199`, `header-sidemenu 200–299`, `science-tools 300–399`, general/audit `900–999`) so SDD numbers can't collide.
+- Parallel sessions run per the **SDD-100 number-band convention** (`recover 100–199`, `header-sidemenu 200–299`, `science-tools 300–399`, `compute-plane 900–949`, `phase-1 audit 950–999`, `cockpit-wasm 800–899`) so SDD numbers can't collide; each unassigned session claims its own disjoint 100-wide block (never a shared catch-all), and `test_sdd_numbers_unique` is the backstop.
 
 ## Historical arc (2026-05-28): M060 cross-repo mirror producers — COMPLETE
 
@@ -339,10 +339,13 @@ science-tools), each on its own branch merging to `main`. To stop the merge conf
 recurred 2026-07-09 (the SDD-070 number collision + INDEX/mandate append conflicts):
 
 1. **Pick SDD-NNN / E11.M## numbers in YOUR session's band** — recover-projects **100–199**,
-   header-sidemenu **200–299**, science-tools **300–399**, general **900–999** (SDD + E11.M##).
+   header-sidemenu **200–299**, science-tools **300–399**, compute-plane **900–949**,
+   phase-1 audit **950–999**, cockpit-wasm **800–899** (SDD + E11.M##); each unassigned session
+   claims its OWN disjoint 100-wide block, never a shared catch-all.
    The band table + "how to add an SDD" is [`docs/sdd/README.md`](docs/sdd/README.md). The
    historical 064–071 / M32–M38 stay as-is; bands apply going forward. Never pick a number
-   outside your band — that's how collisions happen.
+   outside your band — that's how collisions happen (2026-07-13: the cockpit-wasm session took
+   969 in the audit band → dup-969; audit yielded 969→975, cockpit-wasm reassigned to 800–899).
 2. **The append-only registries are `merge=union`** ([`.gitattributes`](.gitattributes)) —
    `docs/sdd/INDEX.md`, the operator-mandate, `docs/src/lifecycle/ongoing.md`,
    `docs/observability/dashboards/README.md`, `docs/decisions.md`. Two branches appending

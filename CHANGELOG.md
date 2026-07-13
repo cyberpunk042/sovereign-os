@@ -12,6 +12,22 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Fixed — SDD-969 cross-session number collision + band-scheme drift (2026-07-13)
+
+The cockpit-wasm bridge session (F-2026-001) took SDD-969 inside the phase-1-audit band (950–999),
+colliding with the audit session's own SDD-969 — main's `test_sdd_numbers_unique` went red on all
+three surfaces (file / INDEX / mandate). The `test_sdd_numbers_unique` backstop had passed on the
+cockpit PR because its branch was cut before the audit's 969 merged (a stale-green merge).
+
+- **Resolved the live collision**: the audit session yielded its 969 → **975** (its own band; renamed
+  doc + INDEX + mandate + catalog), leaving the cockpit-wasm 969 intact.
+- **Fixed the band-scheme drift**: `docs/sdd/README.md` still advertised the retired "any new →
+  900–999" catch-all (superseded by the 2026-07-12 SDD-100 amendment) — a session reading it grabs a
+  900-number. Updated it + SDD-100 + context.md to the disjoint sub-bands and assigned the cockpit-wasm
+  session its own **800–899** block.
+- **Recommended prevention** (operator setting): enable branch protection "require branches up to date
+  before merging" so a PR must re-run the uniqueness lint against the current tree before it can merge.
+
 ### Added — workspace-hygiene baseline contract (2026-07-13)
 
 Phase-1 audit (SDD-974; closes ledger F-2026-004, surfaces F-2026-096). The audit found the 717-crate

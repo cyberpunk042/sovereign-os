@@ -1,8 +1,8 @@
-"""Standing-mandate navigation-map completeness (F-2026-039 / SDD-969).
+"""Standing-mandate navigation-map completeness (F-2026-039 / SDD-975).
 
 `docs/standing-directives/2026-05-17-operator-mandate.md` is a ~640 KB single file
 (its mandate-table rows are multi-KB each), which makes it slow to open and hard to
-diff. SDD-969 adds a section-level navigation companion
+diff. SDD-975 adds a section-level navigation companion
 (`…-operator-mandate-NAVIGATION.md`) so a reader can jump to the right section
 without loading the whole file — it reproduces no content (the mandate stays the
 single sacrosanct source), only a map of its structure.
@@ -39,7 +39,7 @@ def _mandate_headings() -> list[str]:
 
 
 def test_navigation_companion_exists():
-    assert NAV.is_file(), f"missing navigation companion {NAV} (SDD-969)"
+    assert NAV.is_file(), f"missing navigation companion {NAV} (SDD-975)"
     assert MANDATE.is_file(), f"missing mandate file {MANDATE}"
 
 
