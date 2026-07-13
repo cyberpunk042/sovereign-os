@@ -338,11 +338,79 @@ async function enhanceControlSystems(root, slug) {
   (root.body || document.body).appendChild(sec);
 }
 
+// runtime-modes: a FUNCTIONAL segmented control built from the panel's real modes, whose
+// selection is computed by the REAL sovereign-cockpit-segmented-control crate (next / prev /
+// select). A read-only preview — it explores the modes, it does NOT switch the live mode
+// (that stays a signed action elsewhere). Additive + graceful.
+async function enhanceRuntimeModes(root) {
+  if (root.querySelector('[data-cockpit-crates="rm"]')) return;
+  let list; try { list = await (await fetch('/api/runtime-modes/list', { cache: 'no-store' })).json(); } catch (_) { return; }
+  const modes = (list && list.modes) || [];
+  if (modes.length < 2) return;
+  let active = null; try { const a = await (await fetch('/api/runtime-modes/active', { cache: 'no-store' })).json(); active = a && a.active; } catch (_) {}
+  const segments = modes.map(mo => ({ id: String(mo.id), label: String(mo.name || mo.id), enabled: !mo.absent }));
+  let state = { schema_version: '1.0.0', segments, active: segments.some(s => s.id === active) ? String(active) : segments[0].id };
+  const sec = section('Mode navigator — sovereign-cockpit-segmented-control (wasm)');
+  sec.setAttribute('data-cockpit-crates', 'rm');
+  sec.appendChild(el('div', 'color:var(--muted,#888);font-size:.78rem;margin-bottom:.45rem', 'preview: the crate computes the selection — it does not switch the live mode'));
+  const rowEl = el('div', 'display:flex;gap:.3rem;flex-wrap:wrap;margin-bottom:.4rem');
+  const navEl = el('div', 'display:flex;gap:.3rem;margin-bottom:.4rem');
+  const outEl = el('div', 'font-size:.85rem');
+  const paint = () => {
+    rowEl.innerHTML = '';
+    for (const s of state.segments) {
+      const on = s.id === state.active;
+      const b = el('button', 'padding:.25rem .6rem;border:1px solid var(--border,#333);border-radius:3px;cursor:pointer;font:inherit;'
+        + 'background:' + (on ? 'var(--accent,#9bd1ff)' : 'transparent') + ';color:' + (on ? '#000' : 'inherit'), s.label);
+      b.disabled = !s.enabled;
+      b.addEventListener('click', () => move('select:' + s.id));
+      rowEl.appendChild(b);
+    }
+    outEl.textContent = 'crate-selected: ' + state.active;
+  };
+  const move = async (op) => {
+    const r = await bcall('segmented_control_move', JSON.stringify(state), op);
+    if (r && r.ok && r.value) { state = r.value; paint(); }
+  };
+  ['◀ prev', 'next ▶'].forEach((lbl, i) => {
+    const b = el('button', 'padding:.2rem .55rem;border:1px solid var(--border,#333);border-radius:3px;cursor:pointer;font:inherit;background:transparent;color:inherit', lbl);
+    b.addEventListener('click', () => move(i === 0 ? 'prev' : 'next'));
+    navEl.appendChild(b);
+  });
+  sec.append(rowEl, navEl, outEl);
+  (root.body || document.body).appendChild(sec);
+  paint();
+}
+
+// Universal: the panels' filter chips follow a `.filter.on` convention, each carrying one
+// data-<facet> value. Reflect the operator's ACTIVE filter through the REAL search-filter
+// crate — validate + canonicalize it (dedupe/sort facet values) — and keep it live as they
+// toggle. Skips panels with no such chips. Additive + graceful.
+async function enhanceActiveFilterSpec(root) {
+  const chips = Array.from((root.querySelectorAll && root.querySelectorAll('.filter.on')) || []);
+  const facets = {};
+  for (const chip of chips) {
+    const e = Object.entries(chip.dataset || {})[0]; if (!e) continue;
+    const [k, v] = e; if (v == null || v === '') continue;
+    facets[k] = facets[k] || []; if (facets[k].indexOf(String(v)) < 0) facets[k].push(String(v));
+  }
+  const nFacets = Object.keys(facets).length;
+  let sec = root.querySelector && root.querySelector('[data-cockpit-crates="fs"]');
+  if (!nFacets) { if (sec) sec.remove(); return; }  // nothing selected → no section
+  const r = await bcall('search_filter_spec', JSON.stringify({ schema_version: '1.0.0', query_text: '', facets, sort_key: '', sort_direction: 'asc' }));
+  if (!r || !r.ok || !r.spec) return;
+  if (!sec) { sec = section('Active filter, canonicalized — sovereign-cockpit-search-filter (wasm)'); sec.setAttribute('data-cockpit-crates', 'fs'); (root.body || document.body).appendChild(sec); }
+  while (sec.childNodes.length > 1) sec.removeChild(sec.lastChild);  // keep the <h2>, refresh body
+  const parts = Object.entries(r.spec.facets).map(([k, vs]) => `${k}: ${vs.join(', ')}`);
+  sec.appendChild(el('div', '', `${chips.length} active chips across ${nFacets} facet(s), crate-validated — ` + parts.join(' · ')));
+}
+
 const ENHANCERS = {
   'ux-design-audit-webapp': enhanceUxDesignAudit,
   'personalization-webapp': enhancePersonalization,
   'doc-coverage-webapp': enhanceDocCoverage,
   'd-06-pending-approvals-webapp': enhanceApprovals,
+  'runtime-modes-webapp': enhanceRuntimeModes,
   'models-catalog-webapp': enhanceModelsCatalog,
   'd-23-models-catalog-webapp': enhanceModelsCatalog,
   // Audit spans grouped by OCSF category / policy result / profile / provider.
@@ -527,6 +595,19 @@ export async function enhance(root = document) {
     if (fn) await fn(root, audit);
   } catch (_) {}
   try { if (mod) await enhanceControlSystems(root, mod.replace(/-webapp$/, '')); } catch (_) {}
+  try {
+    await enhanceActiveFilterSpec(root);
+    // keep the canonical-filter section live as the operator toggles chips (bind once)
+    const host = root.body || (root.ownerDocument && root.ownerDocument.body) || (typeof document !== 'undefined' && document.body);
+    if (host && !host.__csFilterBound) {
+      host.__csFilterBound = true;
+      host.addEventListener('click', (e) => {
+        if (e.target && e.target.closest && e.target.closest('.filter')) {
+          setTimeout(() => { enhanceActiveFilterSpec(root).catch(() => {}); }, 0);
+        }
+      });
+    }
+  } catch (_) {}
   return true;
 }
 
