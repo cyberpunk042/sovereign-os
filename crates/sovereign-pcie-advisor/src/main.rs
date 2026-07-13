@@ -41,7 +41,10 @@ fn main() {
             }
         };
         match check(&placements) {
-            Ok(()) => println!("OK — no lane-sharing conflict in {} placement(s)", placements.len()),
+            Ok(()) => println!(
+                "OK — no lane-sharing conflict in {} placement(s)",
+                placements.len()
+            ),
             Err(e) => {
                 eprintln!("CONFLICT — {e}");
                 std::process::exit(1);

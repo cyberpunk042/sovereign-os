@@ -21,9 +21,8 @@ use sovereign_inheritance_artifacts::ArtifactManifest;
 #[must_use]
 pub fn manifest_text() -> String {
     let m = ArtifactManifest::empty_canonical();
-    let mut s = String::from(
-        "Durable inheritance artifacts (M042 — the box's executable memory):\n\n",
-    );
+    let mut s =
+        String::from("Durable inheritance artifacts (M042 — the box's executable memory):\n\n");
     for p in &m.artifacts {
         s.push_str(&format!(
             "  {}. {:<26} {}\n",

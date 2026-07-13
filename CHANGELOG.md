@@ -12,6 +12,21 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Changed — ARCHITECTURE.md Stage-2 refresh (2026-07-13)
+
+Phase-1 audit (SDD-965; closes ledger F-2026-053). ARCHITECTURE.md was frozen at the arc-opening
+(2026-05-16) — profiles framed as future "PR 5/6 stubs", no mention of the Stage-2 intelligence layer.
+
+- **Profiles** section: the 5 profiles are realised, schema-conformant `profiles/*.yaml` bodies (dropped
+  the reserved-stub framing).
+- **New "The intelligence layer (Stage-2)" section**: the `crates/` Rust workspace — `gatewayd` daemon
+  (Anthropic Messages API + safety spine + durable memory) + the in-daemon generation/reasoning stack —
+  cross-linked to `binaries.md` + `ai-backend.md`.
+- **SFIF mapping**: a Current-state (2026-07, post-Gate-5) note supersedes the "Stage 2+" future-tense.
+- Info-hub-owned baseline (four-repo ecosystem, 11 epics) left byte-unchanged.
+- **`tests/lint/test_architecture_doc_current.py`**: every profile named + gatewayd/binaries.md referenced —
+  currency contract guarding against scaffold-era regression.
+
 ### Added — systemd install coverage: make install-units (2026-07-13)
 
 Phase-1 audit (SDD-964; closes the file-side core of ledger F-2026-051). The 111 systemd units + the scripts they call

@@ -5,7 +5,7 @@
 > page drifts from `docs/sdd/`, so the published book can never freeze behind the
 > design record again (F-2026-033).
 
-Every Spec-Driven-Development design doc in `docs/sdd/` (146 total), by number.
+Every Spec-Driven-Development design doc in `docs/sdd/` (147 total), by number.
 
 - [SDD-000 — Project charter](../sdd/000-charter.md)
 - [SDD-001 — Cross-repo boundaries: contract between sovereign-os, info-hub, selfdef](../sdd/001-cross-repo-boundaries.md)
@@ -153,3 +153,4 @@ Every Spec-Driven-Development design doc in `docs/sdd/` (146 total), by number.
 - [SDD-962 — runtime binaries reference + close the orphan-crate triage](../sdd/962-runtime-binaries-reference.md)
 - [SDD-963 — developer bootstrap: single-source dev deps + pyc hygiene + README prerequisites](../sdd/963-developer-bootstrap-dev-deps.md)
 - [SDD-964 — systemd install coverage: `make install-units` + two-prefix doctrine + coverage contract](../sdd/964-systemd-install-coverage.md)
+- [SDD-965 — ARCHITECTURE.md Stage-2 refresh + currency contract](../sdd/965-architecture-doc-stage2-refresh.md)

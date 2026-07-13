@@ -31,9 +31,10 @@ pub fn recommended_advisory() -> String {
     s.push_str("Slots (lane-sharing pairs starve each other if both populated):\n");
     for spec in slot_map() {
         match spec.shares_with {
-            Some(other) => {
-                s.push_str(&format!("  {:?} — shares lanes with {other:?}\n", spec.slot))
-            }
+            Some(other) => s.push_str(&format!(
+                "  {:?} — shares lanes with {other:?}\n",
+                spec.slot
+            )),
             None => s.push_str(&format!("  {:?}\n", spec.slot)),
         }
     }
@@ -59,17 +60,32 @@ mod tests {
     #[test]
     fn advisory_shows_the_recommended_layout_and_validates() {
         let a = recommended_advisory();
-        assert!(a.contains("blackwell-oracle") && a.contains("rocm-4090"), "layout: {a}");
-        assert!(a.contains("shares lanes with"), "must flag a lane-sharing pair: {a}");
-        assert!(a.contains("validates: OK"), "recommended layout must validate: {a}");
+        assert!(
+            a.contains("blackwell-oracle") && a.contains("rocm-4090"),
+            "layout: {a}"
+        );
+        assert!(
+            a.contains("shares lanes with"),
+            "must flag a lane-sharing pair: {a}"
+        );
+        assert!(
+            a.contains("validates: OK"),
+            "recommended layout must validate: {a}"
+        );
     }
 
     #[test]
     fn check_catches_the_lane_sharing_trap() {
         // populating both lane-sharing slots (X16_2 + M.2_2) is the E0027 trap
         let trap = vec![
-            Placement { slot: PcieSlot::X16_2, device: "rocm-4090".into() },
-            Placement { slot: PcieSlot::M2_2, device: "nvme-extra".into() },
+            Placement {
+                slot: PcieSlot::X16_2,
+                device: "rocm-4090".into(),
+            },
+            Placement {
+                slot: PcieSlot::M2_2,
+                device: "nvme-extra".into(),
+            },
         ];
         assert!(
             matches!(check(&trap), Err(PcieError::LaneSharingConflict(..))),
