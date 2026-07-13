@@ -13,7 +13,9 @@
 
 #![forbid(unsafe_code)]
 
-use sovereign_cpu_topology::{CoreAllocation, TopologyError, TrinityRole, allocations, validate_partition};
+use sovereign_cpu_topology::{
+    CoreAllocation, TopologyError, TrinityRole, allocations, validate_partition,
+};
 
 /// A systemd unit and the resource-control drop-in body that pins it to its cores.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -33,9 +35,10 @@ pub struct UnitDropin {
 pub fn units_for(role: TrinityRole) -> &'static [&'static str] {
     match role {
         TrinityRole::Pulse => &["sovereign-pulse.service"],
-        TrinityRole::WeaverAuditor => {
-            &["sovereign-weaver-api.service", "sovereign-auditor-api.service"]
-        }
+        TrinityRole::WeaverAuditor => &[
+            "sovereign-weaver-api.service",
+            "sovereign-auditor-api.service",
+        ],
         TrinityRole::SystemHost => &["system.slice"],
     }
 }
@@ -102,8 +105,15 @@ mod tests {
         // Pulse (1 unit) + Weaver+Auditor (2 units) + System-Host (1 unit) = 4.
         assert_eq!(d.len(), 4, "one drop-in per (role, unit)");
         // Pulse pins its service to the topology's cpuset, in the [Service] section.
-        let pulse = d.iter().find(|x| x.unit == "sovereign-pulse.service").unwrap();
-        assert!(pulse.body.contains("AllowedCPUs=0-11"), "body: {}", pulse.body);
+        let pulse = d
+            .iter()
+            .find(|x| x.unit == "sovereign-pulse.service")
+            .unwrap();
+        assert!(
+            pulse.body.contains("AllowedCPUs=0-11"),
+            "body: {}",
+            pulse.body
+        );
         assert!(pulse.body.contains("[Service]"));
         // The OS host reserve is a slice → [Slice].
         let sys = d.iter().find(|x| x.unit == "system.slice").unwrap();
@@ -111,7 +121,8 @@ mod tests {
         // Every cpuset comes FROM sovereign-cpu-topology, not a local hardcode.
         for a in allocations() {
             assert!(
-                d.iter().any(|x| x.body.contains(&format!("AllowedCPUs={}", a.cpuset))),
+                d.iter()
+                    .any(|x| x.body.contains(&format!("AllowedCPUs={}", a.cpuset))),
                 "no drop-in carries the topology cpuset {:?}",
                 a.cpuset
             );
