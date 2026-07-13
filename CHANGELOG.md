@@ -12,6 +12,16 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — per-milestone backlog delivery roll-up (2026-07-13)
+
+Phase-1 audit (SDD-972; closes ledger F-2026-038). "How done is M0xx" was only in SHIPPED.md's SAMPLED /
+state-TBD snapshot. A literal shipped-÷-R-rows % misleads (SHIPPED rows are surfaces, several per R-row).
+
+- **`scripts/backlog/gen-shipped-rollup.py`** + **`backlog/SHIPPED-ROLLUP.md`**: per milestone — catalogued
+  R-rows + delivered? + shipped surfaces (depth signal, not a %). Grand roll-up: 7 of 84 milestones (8%) have
+  production delivery recorded; 14,079 distinct catalogued R-rows.
+- **`tests/lint/test_shipped_rollup.py`**: regen-and-compare + every-milestone-present — sync contract.
+
 ### Added — consolidated deferred-work register (2026-07-13)
 
 Phase-1 audit (SDD-971; closes ledger F-2026-037 at the consolidation core). The ~10 docs-promised deferred
