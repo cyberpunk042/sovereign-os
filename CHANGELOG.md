@@ -12,6 +12,19 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — retrieval-augmented chat: wire the retrieval hub into sovereign-chat (2026-07-13)
+
+Operator-directed ("crates integrations from the bottom to avoid collision") (SDD-976; advances ledger
+F-2026-093). The full `sovereign-retrieval` RAG hub (~20 store types, RagResponder, 63 tests) was consumed
+by nothing but the 152-crate mega-demo; the chat binary did plain generation. This gives the retrieval
+cluster a real second consumer — entirely in the crate layer, off the shared-registry collision surface.
+
+- **`sovereign-chat --rag [QUERY…]`**: a retrieval-augmented mode — a built-in BM25 `knowledge_store`, the
+  runtime wrapped as a `Responder` via `LlmResponder`, then `RagResponder` grounding each query with top-2
+  retrieval. Reports per-query whether retrieval actually grounded the prompt.
+- Verified: `cargo test -p sovereign-chat` 13 passed (RAG unit + binary-integration, grounded + ungrounded
+  cases); live run grounds a corpus query (BM25 hit) and correctly leaves an unmatched query ungrounded.
+
 ### Added — scripts health-baseline contract (2026-07-13)
 
 Phase-1 audit (SDD-969; closes ledger F-2026-020). The operator-script surface was at an exemplary

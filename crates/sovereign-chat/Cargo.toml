@@ -30,3 +30,9 @@ sovereign-rmsnorm = { path = "../sovereign-rmsnorm" }
 sovereign-ffn = { path = "../sovereign-ffn" }
 sovereign-sampler = { path = "../sovereign-sampler" }
 sovereign-decoder-stack = { path = "../sovereign-decoder-stack" }
+# `--rag` mode: ground replies in a small BM25 knowledge store via the
+# retrieval hub, wrapping the runtime as a Responder (lights up the retrieval
+# island cluster with a real second consumer beyond the mega-demo).
+sovereign-retrieval = { path = "../sovereign-retrieval" }
+sovereign-agent-runtime = { path = "../sovereign-agent-runtime" }
+sovereign-agent-loop = { path = "../sovereign-agent-loop" }

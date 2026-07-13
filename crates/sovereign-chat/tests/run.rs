@@ -57,3 +57,36 @@ fn help_exits_zero() {
     assert!(out.status.success());
     assert!(String::from_utf8_lossy(&out.stdout).contains("USAGE"));
 }
+
+#[test]
+fn rag_mode_grounds_a_known_query() {
+    // `--rag QUERY` retrieves from the built-in BM25 store and grounds the reply
+    // — the retrieval hub running as a real second consumer through the binary.
+    let out = Command::new(env!("CARGO_BIN_EXE_sovereign-chat"))
+        .args(["--rag", "what is sovereignty"])
+        .output()
+        .expect("run sovereign-chat --rag");
+    assert!(out.status.success(), "exit: {:?}", out.status);
+    let s = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        s.contains("retrieval-augmented mode"),
+        "not in RAG mode:\n{s}"
+    );
+    assert!(
+        s.contains("grounded: true"),
+        "the corpus query was not grounded by retrieval:\n{s}"
+    );
+}
+
+#[test]
+fn rag_mode_leaves_an_unmatched_query_ungrounded() {
+    // A query with no overlap with the corpus retrieves nothing → ungrounded,
+    // proving the grounding signal reflects real retrieval, not a constant.
+    let out = Command::new(env!("CARGO_BIN_EXE_sovereign-chat"))
+        .args(["--rag", "zzzq wibble frobnicate"])
+        .output()
+        .expect("run sovereign-chat --rag");
+    assert!(out.status.success());
+    let s = String::from_utf8_lossy(&out.stdout);
+    assert!(s.contains("grounded: false"), "unexpected grounding:\n{s}");
+}
