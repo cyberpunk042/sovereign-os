@@ -30,6 +30,15 @@ none is a persistent service.
 | **`sovereign-chat`** | Interactive chat CLI over the local model. |
 | **`sovereign-serve`** | The parallel serving orchestrator (cache → complexity → budget). Currently **dead relative to the daemon** — see the SDD-957 decision package (F-2026-089). |
 
+## Operator config generators
+
+Deterministic CLIs that **emit systemd/host configuration** from a Rust source-of-truth
+model, for an operator (or the build) to review and place. Not services — they print and exit.
+
+| Binary | Role |
+|---|---|
+| **`sovereign-cpu-pinning`** | Emits the `AllowedCPUs=` resource-control drop-ins that pin the Trinity CPU agents (Pulse / Weaver+Auditor / System-Host) to their CCD cores, from the single-source-of-truth `sovereign-cpu-topology` partition (E0672-E0674). Default prints every unit's drop-in preceded by its `/etc/systemd/system/<unit>.d/…` path; `--unit <name>` restricts to one. The CPU-affinity counterpart to `sovereign-resource-control`'s weight/limit drop-ins; replaces the hardcoded ranges once duplicated in `scripts/hardware/ccd-pinning.py`. |
+
 ## How they compose
 
 ```
@@ -42,6 +51,7 @@ sovereign-resource-control       → cgroup / compute-plane control
 sovereign-feature-selftest       → feature-test-lab
 
 dev/demo: cortex · agent-runtime · inference-demo · chat · serve   (manual / brain-api)
+config-gen: cpu-pinning   → systemd AllowedCPUs= drop-ins (from sovereign-cpu-topology)
 ```
 
 The production runtime is **one daemon** (`gatewayd`) plus a periodic metrics emitter and a
