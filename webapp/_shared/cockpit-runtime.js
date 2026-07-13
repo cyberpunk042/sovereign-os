@@ -238,22 +238,36 @@ async function enhanceApprovals(root) {
   (root.body || document.body).appendChild(s);
 }
 
-// models-catalog: facet the live model list with the REAL sovereign-cockpit-facet-counts crate.
-async function enhanceModelsCatalog(root) {
-  if (root.querySelector('[data-cockpit-crates="mcat"]')) return;
-  let data; try { data = await (await fetch('/api/models-catalog/catalog', { cache: 'no-store' })).json(); } catch (_) { return; }
-  const models = data.models || (data.catalog && data.catalog.models) || (Array.isArray(data) ? data : []);
-  if (!models.length) return;
-  const counts = {};
-  const bump = (f, b) => { if (b == null || b === '') return; (counts[f] = counts[f] || {})[b] = (counts[f][b] || 0) + 1; };
-  for (const mdl of models) { bump('class', mdl.class); bump('tier', mdl.tier || mdl.srp_tier); bump('quant', mdl.quantization || mdl.quant); }
-  const r = await bcall('facet_counts_top', JSON.stringify(counts), 6);
-  if (!r || r.ok === false) return;
-  const s = section('Model-catalog facets — sovereign-cockpit-facet-counts (wasm)');
-  s.setAttribute('data-cockpit-crates', 'mcat');
-  for (const [facet, top] of Object.entries(r)) s.appendChild(el('div', '', `${facet}: ` + top.map(([b, n]) => `${b} (${n})`).join(' · ')));
-  (root.body || document.body).appendChild(s);
+// Generic facet rollup: fetch a panel's live rows, count its categorical fields,
+// and run the REAL sovereign-cockpit-facet-counts crate to pick the top buckets —
+// the same "group + count" the panels otherwise hand-roll in JS. Additive + graceful:
+// a missing bridge, dead endpoint, or empty data is a silent no-op.
+function facetEnhancer({ endpoint, pick, facets, title, marker, top = 6 }) {
+  return async function (root) {
+    if (root.querySelector(`[data-cockpit-crates="${marker}"]`)) return;
+    let data; try { data = await (await fetch(endpoint, { cache: 'no-store' })).json(); } catch (_) { return; }
+    const items = pick(data);
+    if (!Array.isArray(items) || !items.length) return;
+    const counts = {};
+    const bump = (f, b) => { if (b == null || b === '') return; (counts[f] = counts[f] || {})[String(b)] = (counts[f][String(b)] || 0) + 1; };
+    for (const it of items) for (const f in facets) bump(f, facets[f](it));
+    if (!Object.keys(counts).length) return;
+    const r = await bcall('facet_counts_top', JSON.stringify(counts), top);
+    if (!r || r.ok === false || !Object.keys(r).length) return;
+    const s = section(title);
+    s.setAttribute('data-cockpit-crates', marker);
+    s.appendChild(el('div', 'color:var(--muted,#888);font-size:.8rem;margin-bottom:.3rem', `${items.length} rows, faceted + ranked by the crate:`));
+    for (const [facet, buckets] of Object.entries(r)) s.appendChild(el('div', '', `${facet}: ` + buckets.map(([b, n]) => `${b} (${n})`).join(' · ')));
+    (root.body || document.body).appendChild(s);
+  };
 }
+
+const enhanceModelsCatalog = facetEnhancer({
+  endpoint: '/api/models-catalog/catalog',
+  pick: d => d.models || (d.catalog && d.catalog.models) || (Array.isArray(d) ? d : []),
+  facets: { class: m => m.class, tier: m => m.tier || m.srp_tier, quant: m => m.quantization || m.quant },
+  title: 'Model-catalog facets — sovereign-cockpit-facet-counts (wasm)', marker: 'mcat',
+});
 
 const ENHANCERS = {
   'ux-design-audit-webapp': enhanceUxDesignAudit,
@@ -261,6 +275,49 @@ const ENHANCERS = {
   'doc-coverage-webapp': enhanceDocCoverage,
   'd-06-pending-approvals-webapp': enhanceApprovals,
   'models-catalog-webapp': enhanceModelsCatalog,
+  'd-23-models-catalog-webapp': enhanceModelsCatalog,
+  // Audit spans grouped by OCSF category / policy result / profile / provider.
+  'd-16-audit-webapp': facetEnhancer({
+    endpoint: '/api/d-16/snapshot', pick: d => d.spans || [],
+    facets: { category: s => s.ocsf_category, policy: s => s.policy_result, profile: s => s.profile, provider: s => s.provider },
+    title: 'Audit spans faceted — sovereign-cockpit-facet-counts (wasm)', marker: 'd16',
+  }),
+  // Adapter inventory grouped by status / precision / training.
+  'd-11-adapter-status-webapp': facetEnhancer({
+    endpoint: '/api/adapters/inventory', pick: d => d.adapters || [],
+    facets: { status: a => a.status, precision: a => a.precision, training: a => a.training },
+    title: 'Adapter inventory faceted — sovereign-cockpit-facet-counts (wasm)', marker: 'd11',
+  }),
+  // Sandbox allocations grouped by tier / state / isolation / profile.
+  'd-15-sandboxes-webapp': facetEnhancer({
+    endpoint: '/api/d-15/snapshot', pick: d => d.allocations || [],
+    facets: { tier: a => a.tier, state: a => a.state, isolation: a => a.isolation, profile: a => a.profile },
+    title: 'Sandbox allocations faceted — sovereign-cockpit-facet-counts (wasm)', marker: 'd15',
+  }),
+  // Capability tokens grouped by trust ring / authority level / state / sandbox tier.
+  'd-14-capability-tokens-webapp': facetEnhancer({
+    endpoint: '/api/d-14/snapshot', pick: d => d.tokens || [],
+    facets: { ring: t => t.trust_ring, authority: t => t.authority_level, state: t => t.state, tier: t => t.sandbox_tier },
+    title: 'Capability tokens faceted — sovereign-cockpit-facet-counts (wasm)', marker: 'd14',
+  }),
+  // Quarantine entries grouped by severity / state / offending tool.
+  'd-17-quarantine-webapp': facetEnhancer({
+    endpoint: '/api/d-17/snapshot', pick: d => d.entries || [],
+    facets: { severity: e => e.max_severity, state: e => e.state, tool: e => e.tool },
+    title: 'Quarantine entries faceted — sovereign-cockpit-facet-counts (wasm)', marker: 'd17',
+  }),
+  // Active sessions grouped by kind / profile / lifecycle state.
+  'd-01-active-sessions-webapp': facetEnhancer({
+    endpoint: '/api/sessions/active', pick: d => d.sessions || [],
+    facets: { kind: s => s.kind, profile: s => s.profile, state: s => s.state },
+    title: 'Active sessions faceted — sovereign-cockpit-facet-counts (wasm)', marker: 'd01',
+  }),
+  // Trust scores grouped by band + a derived score bucket.
+  'd-18-trust-scores-webapp': facetEnhancer({
+    endpoint: '/api/d-18/snapshot', pick: d => d.tools || [],
+    facets: { band: t => t.band, score: t => t.current_score >= 800 ? 'high (>=800)' : t.current_score >= 500 ? 'mid (500-799)' : 'low (<500)' },
+    title: 'Trust scores faceted — sovereign-cockpit-facet-counts (wasm)', marker: 'd18',
+  }),
 };
 
 /**
