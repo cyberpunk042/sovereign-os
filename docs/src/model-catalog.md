@@ -1133,10 +1133,10 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 > smallest-footprint variant — fits the secondary RTX 4090
 > (24GB VRAM, now an OcuLink eGPU per SDD-993) with thin margin
 > (offload + careful KV management), lands comfortably on the
-> **internal RTX 5090 (32GB)** as the SAIN NOW Oracle-Core pick
-> (the generator resolves the high-concurrency oracle tier to
-> exactly this NVFP4 variant), AND leaves substantial headroom
-> on the future RTX PRO 6000 for parallel workloads.
+> internal RTX 5090 (32GB) as the SAIN NOW Oracle-Core pick (the
+> generator resolves the high-concurrency oracle tier to exactly
+> this NVFP4 variant), AND leaves substantial headroom on the
+> future RTX PRO 6000 for parallel workloads.
 > Caveat: Blackwell-native FP4 path; older Ada/Hopper
 > deployment requires fallback dequant which loses the
 > NVFP4 performance advantage.
