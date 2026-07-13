@@ -1,4 +1,4 @@
-"""Scripts health-baseline contract (F-2026-020 / SDD-976).
+"""Scripts health-baseline contract (F-2026-020 / SDD-969).
 
 The audit found the operator-script surface at an exemplary baseline — every
 shell script parses, every Python script byte-compiles, and every verb

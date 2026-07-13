@@ -1,4 +1,4 @@
-"""Cockpit wasm-bridge contract (audit F-2026-001 / SDD-974).
+"""Cockpit wasm-bridge contract (audit F-2026-001 / SDD-800).
 
 The 413 `sovereign-cockpit-*` crates encode the cockpit's UX-state logic in
 typed, tested Rust — but the webapp is hand-written HTML/JS, so nothing runs
@@ -22,7 +22,7 @@ REPO = Path(__file__).resolve().parents[2]
 CRATE = REPO / "cockpit-wasm"
 ARTIFACT = REPO / "webapp" / "_shared" / "cockpit-wasm"
 # Served demonstrator, co-located with the wasm under _shared (not a nav panel;
-# nav-panel promotion is a follow-up per SDD-974).
+# nav-panel promotion is a follow-up per SDD-800).
 PANEL = ARTIFACT / "demo.html"
 API = REPO / "scripts" / "operator" / "cockpit-bridge-api.py"
 UNIT = REPO / "systemd" / "system" / "sovereign-cockpit-bridge-api.service"

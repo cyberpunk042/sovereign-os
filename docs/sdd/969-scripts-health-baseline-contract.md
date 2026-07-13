@@ -1,10 +1,10 @@
-# SDD-976 — scripts health-baseline contract
+# SDD-969 — scripts health-baseline contract
 
 > Status: draft
 > Owner: operator-directed ("we continue" — Phase-1 audit); agent-authored
 > Last updated: 2026-07-13
 > Closes findings: **F-2026-020** (scripts health baseline — protect it).
-> Mandate module: **E11.M976** (operator-mandate cross-link).
+> Mandate module: **E11.M969** (operator-mandate cross-link).
 > Number band: **950–999 (phase-1 audit session)** per SDD-100.
 
 ## Mission
