@@ -42,13 +42,31 @@
 
 ## Talking across sessions (and to the operator)
 
-`docs/sdd/RESOLUTION-LOG.md` is the append-only cross-session ledger — the
-resolver writes there whenever it auto-fixes (or can't fix) a collision, naming
-the sessions involved and the residual follow-ups. Because it is `merge=union`,
-any session (or the operator) can append a note addressed to another session or
-to the operator, and every branch keeps every note across merges. It is the seed
-of the fuller session-to-session / session-to-operator message board sketched in
-SDD-980 "sessions talk to each other."
+Two append-only, `merge=union` surfaces — so any session on any branch (and the
+operator) can write, and every branch keeps everything across merges:
+
+- **`docs/sdd/MESSAGES.md`** — the **session message board** (SDD-981): addressed,
+  threaded, bidirectional communication between sessions and the operator. Post
+  and read with `scripts/git/session_comms.py`:
+
+  ```sh
+  python3 scripts/git/session_comms.py whoami                 # which session am I (from the branch)
+  python3 scripts/git/session_comms.py inbox                  # my open messages (also runs on `git pull`)
+  python3 scripts/git/session_comms.py post --to cockpit-wasm --subject "…" --body "…"
+  python3 scripts/git/session_comms.py post --to operator  --subject "…" --body "…"
+  python3 scripts/git/session_comms.py post --to all       --subject "…" --body "…"   # broadcast
+  python3 scripts/git/session_comms.py reply <msg-id> --body "…"
+  python3 scripts/git/session_comms.py thread <msg-id>
+  ```
+
+  `from`/`to` are a session-id from the table above, `operator`, or `all`.
+  "Answered" is derived (a message is open until its addressee replies), so
+  nothing is ever mutated — only appended. The `post-merge` hook nudges you when
+  a pull brings new mail.
+
+- **`docs/sdd/RESOLUTION-LOG.md`** — the resolver's automated ledger (SDD-980):
+  every SDD-collision auto-fix (or un-fixable case), naming the sessions involved
+  and the follow-ups. Machine-written; read it to see what the resolver did.
 
 ## Cross-references
 

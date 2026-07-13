@@ -12,6 +12,24 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — parallel-session communication protocol: sessions ↔ sessions ↔ operator (2026-07-13)
+
+Operator-directed ("what about the communication protocol between each sessions and me yeah, lets do, point 1.
+and lets do this right and make sure its documented properly") (SDD-981). Builds on SDD-980's session identity —
+turns the resolver's ledger seed into a real bidirectional channel. Docs + scripts + `.gitattributes` only.
+
+- **`scripts/git/session_comms.py`** (stdlib; `whoami`/`post`/`reply`/`ack`/`inbox`/`thread`/`list`) — addressed,
+  threaded messages between any session and between sessions and the operator. `from`/`to` are a session-id
+  (from SESSIONS.md), `operator`, or `all` (broadcast).
+- **`docs/sdd/MESSAGES.md`** — append-only 7-column board (`msg-id · utc · from · to · re · subject · body`),
+  `merge=union`. Design: one message = one line (union-safe), ids unique without coordination, identity from
+  the branch, and **derived** answered-state (open until the addressee replies — never a mutable flag).
+- **Discovery**: the `post-merge` hook nudges you when a pull brings new mail (`lib/session-inbox-notify.sh`),
+  silent when empty; `inbox` on demand.
+- New lints: `test_session_comms.py` (9 hermetic cases) + `test_messages_board.py` (board integrity).
+- Verified live: whoami→phase-1-audit; direct+broadcast+operator posts; a reply flips the message to answered;
+  thread renders the chain; pipe+newline body round-trips.
+
 ### Added — self-healing parallel-session SDD conflicts: session registry + auto-resolver (2026-07-13)
 
 Operator-directed ("we could have actually useful ones to resolves conflict, automatically and then give a

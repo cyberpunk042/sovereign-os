@@ -21,3 +21,7 @@ docs/decisions.md                                       merge=union
 # SESSIONS.md and appends to RESOLUTION-LOG.md.
 docs/sdd/SESSIONS.md                                     merge=union
 docs/sdd/RESOLUTION-LOG.md                              merge=union
+# SDD-981 — the session message board is one message per row, append-only; union
+# keeps every session's messages across merges. Managed by
+# scripts/git/session_comms.py.
+docs/sdd/MESSAGES.md                                    merge=union

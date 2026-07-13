@@ -78,6 +78,13 @@ for you to review (`git status`) and commit, and never fails the hook. Run it by
 hand anytime: `python3 scripts/git/sdd_conflict_resolver.py --check` (report) /
 `--dry-run` (preview) / `--apply` (resolve).
 
+**`post-merge` also nudges you about new session mail** (SDD-981). If a pull
+brings messages addressed to your session on the board (`docs/sdd/MESSAGES.md`),
+`lib/session-inbox-notify.sh` prints a one-line "you have N open message(s) — run
+… inbox" — silent when your inbox is empty. Read/send with
+`python3 scripts/git/session_comms.py inbox` / `post --to <session|operator|all>
+--subject … --body …` / `reply <id> --body …` / `thread <id>`. See SDD-981.
+
 ## Why?
 
 The sovereign-os repo runs direct-push-to-main per the operator's
