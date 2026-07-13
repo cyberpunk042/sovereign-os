@@ -5,7 +5,7 @@
 > page drifts from `docs/sdd/`, so the published book can never freeze behind the
 > design record again (F-2026-033).
 
-Every Spec-Driven-Development design doc in `docs/sdd/` (159 total), by number.
+Every Spec-Driven-Development design doc in `docs/sdd/` (160 total), by number.
 
 - [SDD-000 — Project charter](../sdd/000-charter.md)
 - [SDD-001 — Cross-repo boundaries: contract between sovereign-os, info-hub, selfdef](../sdd/001-cross-repo-boundaries.md)
@@ -166,3 +166,4 @@ Every Spec-Driven-Development design doc in `docs/sdd/` (159 total), by number.
 - [SDD-974 — workspace-hygiene baseline contract](../sdd/974-workspace-hygiene-baseline-contract.md)
 - [SDD-975 — navigation companion for the 640 KB standing-directive](../sdd/975-standing-mandate-navigation.md)
 - [SDD-976 — retrieval-augmented chat (wire the retrieval hub into `sovereign-chat`)](../sdd/976-retrieval-augmented-chat.md)
+- [SDD-977 — deepen chat RAG with the rerank → dedup → diversify pipeline](../sdd/977-rag-reranking-pipeline.md)

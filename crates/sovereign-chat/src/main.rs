@@ -20,7 +20,7 @@ use sovereign_chat::{ChatSession, Role};
 use sovereign_decoder_stack::StackConfig;
 use sovereign_ffn::SwiGlu;
 use sovereign_llm::SovereignLlm;
-use sovereign_retrieval::{Bm25Store, RagResponder};
+use sovereign_retrieval::{Bm25Store, Deduped, Diversified, RagResponder, Reranked, Retriever};
 use sovereign_rmsnorm::RmsNorm;
 use sovereign_sampler::{Sampler, SamplerConfig};
 use sovereign_tokenizer::Tokenizer;
@@ -98,25 +98,16 @@ fn knowledge_store() -> Bm25Store {
     s
 }
 
-/// Run the retrieval-augmented path: each user message is grounded in the
-/// top-`k` BM25-retrieved documents before the runtime generates a reply. This
-/// wires the runtime as a [`Responder`], wraps it in a [`RagResponder`] over the
-/// built-in [`knowledge_store`], and drives it — a real second consumer of the
-/// retrieval hub beyond the mega-demo. The weights are random so the replies are
-/// gibberish; the point is that retrieval fires and grounds the prompt.
-fn run_rag(messages: &[String], sampler: SamplerConfig) {
-    const TOP_K: usize = 2;
-    let responder = LlmResponder::new(runtime(sampler), 6);
-    let mut rag = RagResponder::new(responder, knowledge_store(), TOP_K);
-
-    let demo = ["what is sovereignty", "tell me about cost"];
-    let queries: Vec<&str> = if messages.is_empty() {
-        demo.to_vec()
-    } else {
-        messages.iter().map(String::as_str).collect()
-    };
-
-    println!("retrieval-augmented mode (top-{TOP_K} BM25 grounding)\n");
+/// Drive a built [`RagResponder`] over the queries, printing per-query whether
+/// retrieval grounded the prompt. Generic over the retriever so the plain and
+/// reranked pipelines (different concrete `Retriever` types) share one path
+/// without boxing.
+fn drive_rag<Ret: Retriever>(
+    mut rag: RagResponder<LlmResponder, Ret>,
+    queries: &[&str],
+    pipeline: &str,
+) {
+    println!("retrieval-augmented mode ({pipeline})\n");
     for (i, q) in queries.iter().enumerate() {
         // `augment` shows what retrieval prepended; if it changed the prompt, a
         // document was retrieved and the reply is grounded.
@@ -125,6 +116,49 @@ fn run_rag(messages: &[String], sampler: SamplerConfig) {
             Ok(reply) => println!("q{i}: {q:?}\n     grounded: {grounded}\n     reply: {reply:?}"),
             Err(e) => println!("q{i}: error: {e}"),
         }
+    }
+}
+
+/// Run the retrieval-augmented path: each user message is grounded in the
+/// BM25-retrieved documents before the runtime generates a reply. This wires the
+/// runtime as a [`Responder`], wraps it in a [`RagResponder`] over the built-in
+/// [`knowledge_store`], and drives it — a real second consumer of the retrieval
+/// hub beyond the mega-demo. With `rerank`, the store is wrapped in the hub's
+/// coverage-rerank → dedup → MMR-diversify decorator chain (each a `Retriever`
+/// over the last), exercising the fuller retrieval pipeline, not just top-k BM25.
+/// The weights are random so the replies are gibberish; the point is that
+/// retrieval fires and grounds the prompt.
+fn run_rag(messages: &[String], sampler: SamplerConfig, rerank: bool) {
+    const TOP_K: usize = 2;
+    let responder = LlmResponder::new(runtime(sampler), 6);
+
+    let demo = ["what is sovereignty", "tell me about cost"];
+    let queries: Vec<&str> = if messages.is_empty() {
+        demo.to_vec()
+    } else {
+        messages.iter().map(String::as_str).collect()
+    };
+
+    if rerank {
+        // coverage-rerank → dedup → diversify, each wrapping the previous
+        // Retriever; `lambda = 0.7` trades relevance against diversity.
+        let pipeline = Diversified::new(
+            Deduped::with_defaults(Reranked::with_defaults(knowledge_store())),
+            0.7,
+            4,
+            8,
+        );
+        drive_rag(
+            RagResponder::new(responder, pipeline, TOP_K),
+            &queries,
+            "top-2 BM25 → rerank → dedup → diversify",
+        );
+    } else {
+        drive_rag(
+            RagResponder::new(responder, knowledge_store(), TOP_K),
+            &queries,
+            "top-2 BM25 grounding",
+        );
     }
 }
 
@@ -223,6 +257,8 @@ USAGE:
     sovereign-chat MESSAGE [MESSAGE…] run your messages as turns (history bounded)
     sovereign-chat --rag [QUERY…]    retrieval-augmented mode: ground each query
                                      in a small BM25 knowledge store before reply
+    sovereign-chat --rerank [QUERY…] --rag plus the rerank → dedup → diversify
+                                     retrieval pipeline (implies --rag)
     sovereign-chat --help            print this help and exit
 
 DECODE CONTROLS (apply to generation; any combination):
@@ -241,16 +277,21 @@ fn main() {
         return;
     }
 
-    // `--rag` selects the retrieval-augmented path; strip it before flag parsing
-    // so it isn't mistaken for a message.
-    let rag_mode = raw.iter().any(|a| a == "--rag");
-    let raw: Vec<String> = raw.into_iter().filter(|a| a != "--rag").collect();
+    // `--rag` selects the retrieval-augmented path; `--rerank` implies it and
+    // adds the rerank→dedup→diversify pipeline. Strip both before flag parsing
+    // so they aren't mistaken for messages.
+    let rerank = raw.iter().any(|a| a == "--rerank");
+    let rag_mode = rerank || raw.iter().any(|a| a == "--rag");
+    let raw: Vec<String> = raw
+        .into_iter()
+        .filter(|a| a != "--rag" && a != "--rerank")
+        .collect();
 
     let (sampler_cfg, args) = parse_sampler_args(&raw);
     let (format, args) = extract_format(&args);
 
     if rag_mode {
-        run_rag(&args, sampler_cfg);
+        run_rag(&args, sampler_cfg, rerank);
         return;
     }
 
@@ -404,6 +445,29 @@ mod tests {
         assert!(
             aug.ends_with("what is sovereignty"),
             "the query must be appended after the context:\n{aug}"
+        );
+    }
+
+    #[test]
+    fn reranked_pipeline_still_grounds_a_known_query() {
+        // `--rerank`: wrap the store in coverage-rerank → dedup → diversify
+        // (each a Retriever over the last) and confirm grounding still fires.
+        let responder = LlmResponder::new(runtime(SamplerConfig::default()), 6);
+        let pipeline = Diversified::new(
+            Deduped::with_defaults(Reranked::with_defaults(knowledge_store())),
+            0.7,
+            4,
+            8,
+        );
+        let rag = RagResponder::new(responder, pipeline, 2);
+        let aug = rag.augment("what is sovereignty");
+        assert!(
+            aug.contains("Context:"),
+            "reranked pipeline did not ground:\n{aug}"
+        );
+        assert!(
+            aug.to_lowercase().contains("local hardware"),
+            "reranked pipeline retrieved the wrong doc:\n{aug}"
         );
     }
 
