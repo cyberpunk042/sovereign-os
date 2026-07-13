@@ -317,6 +317,27 @@ const enhanceModelsCatalog = facetEnhancer({
   title: 'Model-catalog facets — sovereign-cockpit-facet-counts (wasm)', marker: 'mcat',
 });
 
+// Universal: every panel renders only the control-systems that GOVERN it (matched by
+// applies_to == the panel slug). Facet that per-panel control set by kind / scope /
+// access via the REAL facet-counts crate — the crate section for the many panels whose
+// only structured data is their governing controls. Skips when <2 controls apply.
+async function enhanceControlSystems(root, slug) {
+  if (!slug || root.querySelector('[data-cockpit-crates="cs"]')) return;
+  let data; try { data = await (await fetch('/control-systems', { headers: { Accept: 'application/json' }, cache: 'no-store' })).json(); } catch (_) { return; }
+  const mine = ((data && data.systems) || []).filter(s => (s.applies_to || []).indexOf(slug) >= 0);
+  if (mine.length < 2) return;
+  const counts = {};
+  const bump = (f, b) => { if (b == null || b === '') return; (counts[f] = counts[f] || {})[String(b)] = (counts[f][String(b)] || 0) + 1; };
+  for (const s of mine) { bump('kind', s.kind); bump('scope', s.scope); bump('access', s.privileged ? 'privileged' : 'open'); }
+  const r = await bcall('facet_counts_top', JSON.stringify(counts), 6);
+  if (!r || r.ok === false || !Object.keys(r).length) return;
+  const sec = section('Controls governing this panel — sovereign-cockpit-facet-counts (wasm)');
+  sec.setAttribute('data-cockpit-crates', 'cs');
+  sec.appendChild(el('div', 'color:var(--muted,#888);font-size:.8rem;margin-bottom:.3rem', `${mine.length} controls apply to this surface, faceted by the crate:`));
+  for (const [facet, buckets] of Object.entries(r)) sec.appendChild(el('div', '', `${facet}: ` + buckets.map(([b, n]) => `${b} (${n})`).join(' · ')));
+  (root.body || document.body).appendChild(sec);
+}
+
 const ENHANCERS = {
   'ux-design-audit-webapp': enhanceUxDesignAudit,
   'personalization-webapp': enhancePersonalization,
@@ -445,11 +466,12 @@ export async function enhance(root = document) {
   let audit = [];
   try { audit = await auditPalette(root); if (audit.length) a11yBadge(root, audit); } catch (_) {}
   try { await applyRelTime(root); } catch (_) {}
+  const mod = (root.querySelector?.('meta[name="x-sovereign-module"]') || {}).content;
   try {
-    const mod = (root.querySelector?.('meta[name="x-sovereign-module"]') || {}).content;
     const fn = ENHANCERS[mod];
     if (fn) await fn(root, audit);
   } catch (_) {}
+  try { if (mod) await enhanceControlSystems(root, mod.replace(/-webapp$/, '')); } catch (_) {}
   return true;
 }
 
