@@ -5,7 +5,7 @@
 > page drifts from `docs/sdd/`, so the published book can never freeze behind the
 > design record again (F-2026-033).
 
-Every Spec-Driven-Development design doc in `docs/sdd/` (173 total), by number.
+Every Spec-Driven-Development design doc in `docs/sdd/` (174 total), by number.
 
 - [SDD-000 — Project charter](../sdd/000-charter.md)
 - [SDD-001 — Cross-repo boundaries: contract between sovereign-os, info-hub, selfdef](../sdd/001-cross-repo-boundaries.md)
@@ -180,3 +180,4 @@ Every Spec-Driven-Development design doc in `docs/sdd/` (173 total), by number.
 - [SDD-988 — panel reserved-port contract: tribal knowledge becomes a CI signal (F-2026-075)](../sdd/988-panel-reserved-port-contract.md)
 - [SDD-989 — MS003 signing primitive: sovereign-os mints ed25519 (Option B, producer half) (F-2026-034)](../sdd/989-ms003-signing-primitive.md)
 - [SDD-990 — MS003 writer sweep: wire the signing primitive into the decision-writers (F-2026-034)](../sdd/990-ms003-writer-sweep.md)
+- [SDD-991 — CoAT no longer serializes generation: narrow the cortex lock to per-recall (F-2026-063/090)](../sdd/991-coat-cortex-lock-narrowing.md)

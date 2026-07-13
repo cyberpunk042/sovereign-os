@@ -352,7 +352,13 @@ pub struct Health {
 /// gateway's CoAT the sovereign-native reasoning framework — it recalls from the
 /// same two-brain store the `/brain/` observatory browses.
 struct CortexRecall<'a> {
-    cortex: &'a Cortex,
+    /// The shared Cortex mutex — locked PER RECALL, never held across a whole
+    /// deliberation. A model-backed CoAT runs up to 12 expansions; holding the
+    /// cortex lock across that loop serialized every other decision surface
+    /// (`/v1/infer`, `/v1/explain`, other `/v1/coat`) behind it (F-2026-063/090).
+    /// Borrowing the mutex (not a guard) lets each recall take the lock briefly —
+    /// the same short-hold pattern `infer()` uses — so deliberation interleaves.
+    cortex: &'a Mutex<Cortex>,
     /// Epoch tick + decay half-life for freshness — supplied by the caller so
     /// recall tracks the store's own clock rather than a frozen constant.
     now: u64,
@@ -401,9 +407,14 @@ impl AssociativeMemory for CortexRecall<'_> {
         let text_bits = text_sketch(&ctx.text);
         let topic = ctx.topic | text_bits;
         let entity = ctx.entity | text_bits.rotate_left(29);
-        let hits = self
-            .cortex
-            .recall(topic, entity, self.now, self.half_life, k);
+        // Lock only for THIS recall (F-2026-063/090). A poisoned lock degrades to
+        // no recall — best-effort associative memory — rather than panicking the
+        // request thread mid-deliberation (softer than the daemon-path `.expect()`
+        // this replaced; cf. F-2026-065).
+        let hits = match self.cortex.lock() {
+            Ok(cortex) => cortex.recall(topic, entity, self.now, self.half_life, k),
+            Err(_) => return Vec::new(),
+        };
         hits.into_iter()
             .map(|(id, rel)| Recall {
                 id,
@@ -1618,9 +1629,11 @@ impl GatewayServer {
             entity,
         };
         let result = {
-            let cortex = self.cortex.lock().expect("cortex poisoned");
+            // Do NOT hold the cortex lock across the deliberation — `CortexRecall`
+            // now locks per recall (F-2026-063/090), so a model-backed CoAT's ≤12
+            // expansions never serialize `/v1/infer` and friends behind one lock.
             let memory = CortexRecall {
-                cortex: &cortex,
+                cortex: &self.cortex,
                 now,
                 half_life,
             };
@@ -2492,9 +2505,9 @@ mod tests {
         // The absolute rel/(rel+K) map must NOT renormalize a lone weak hit to 1.0
         // the way a batch-max would. A single 1-bit-overlap hit stays well below 1.
         let s = GatewayServer::new();
-        let cortex = s.cortex.lock().unwrap();
+        // CortexRecall now borrows the mutex + locks per recall — no pre-lock held.
         let rc = CortexRecall {
-            cortex: &cortex,
+            cortex: &s.cortex,
             now: 100,
             half_life: 1000,
         };
@@ -2511,5 +2524,46 @@ mod tests {
                 r.relevance
             );
         }
+    }
+
+    #[test]
+    fn coat_recall_releases_the_cortex_lock_between_recalls() {
+        // The F-2026-063/090 fix: a CoAT recall must hold the cortex mutex ONLY for
+        // its own duration, never across the deliberation. Proof: after a recall,
+        // the mutex is immediately re-lockable (the guard was dropped), so a
+        // concurrent `/v1/infer` would not be blocked waiting on the recall.
+        let s = GatewayServer::new();
+        let rc = CortexRecall {
+            cortex: &s.cortex,
+            now: 100,
+            half_life: 1000,
+        };
+        let ctx = ThoughtContext {
+            topic: 1,
+            entity: 0,
+            text: "release".into(),
+        };
+        let _ = rc.recall(&ctx, 4);
+        assert!(
+            s.cortex.try_lock().is_ok(),
+            "recall must not hold the cortex lock after returning",
+        );
+    }
+
+    #[test]
+    fn coat_does_not_hold_the_cortex_lock_across_deliberation() {
+        // End-to-end guard: a full heuristic `/v1/coat` deliberation (multiple
+        // recalls across the search tree) must leave the cortex mutex free the
+        // instant it returns — the whole-loop lock-hold that serialized all
+        // generation (F-2026-063/090) is gone.
+        let s = GatewayServer::new();
+        let resp = s.coat("plan a migration".into(), 15, 0, "coat", 100, 1000, None);
+        matches!(resp, GatewayResponse::CoatTrace { .. })
+            .then_some(())
+            .expect("heuristic coat returns a trace");
+        assert!(
+            s.cortex.try_lock().is_ok(),
+            "coat must not leave the cortex lock held",
+        );
     }
 }

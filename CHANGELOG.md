@@ -12,6 +12,25 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Fixed — CoAT no longer serializes generation: cortex lock narrowed to per-recall (2026-07-13)
+
+Operator-directed ("CoAT-through-jobs runtime fix") (SDD-991). Advances F-2026-063 (MED) + F-2026-090 (OPP).
+`GatewayServer::coat()` held the shared `self.cortex` mutex across the whole CoAT deliberation (up to 12
+model-backed expansions) because `CortexRecall` borrowed `&Cortex` — and that is the same mutex `infer()`/`explain`/
+`simple`/`deliberate`/every other `/v1/coat` locks, so one model-backed CoAT serialized all other generation for the
+full deliberation. Fix: `CortexRecall` now borrows the mutex (`&Mutex<Cortex>`) and locks **per recall** — the brief
+short-hold pattern `infer()` already uses — and `coat()` no longer pre-locks, so between expansions the cortex mutex is
+free and `/v1/infer` (and every other decision surface) interleaves instead of blocking. Routing the caller through the
+background-jobs runtime alone would NOT have fixed this (`_run_deliberation` issues the same synchronous `POST /v1/coat`);
+the serialization had to be fixed in `coat()`. CoAT is read-only on the cortex, so per-recall locking is safe; the poison
+path now degrades to empty recall instead of panicking the request thread (softer than the whole-loop `.expect()`, a nod
+to F-2026-065). New tests `coat_recall_releases_the_cortex_lock_between_recalls` +
+`coat_does_not_hold_the_cortex_lock_across_deliberation` prove the mutex is free after a recall and after a full
+deliberation. Verified: `cargo test -p sovereign-gatewayd` 68 lib + 18 integration passed; `cargo fmt --all --check`
+exit 0; clippy clean. gatewayd-crate only (private struct), no cockpit/webapp/`scripts/operator` edits. Deferred
+follow-ups: async caller (webapp→jobs UI, contended surface) and a model-backed integration test (needs a loadable
+model fixture, overlaps F-2026-066).
+
 ### Changed — MS003 writer sweep: real signatures on the decision-writers (Option B, PR 2) (2026-07-13)
 
 Operator-directed ("MS003 implementation arc") (SDD-990). Advances F-2026-034 (CRIT) — PR 2 of the arc, consuming the
