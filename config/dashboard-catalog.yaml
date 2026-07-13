@@ -73,6 +73,8 @@ dashboards:
      description: "The M060 boot-time friction-audit gate — 6 hardware/integrity gates (PCIe/ZFS/memory/immutability/MS003-signature/timeout) rendered in-browser by sovereign-cockpit-friction-audit-panel. Read-only: selfdef owns the verdict ring, the cockpit renders it and never fabricates PASS/FAIL.", refs: [M060, F-2026-001]}
   - {slug: d-27-guardian, category: security, label: "D-27 Guardian Daemon", path: /d-27-guardian/, api: sovereign-guardian-api, status: snapshot,
      description: "The selfdef IPS Guardian Daemon (sain-01 §10 guardian-core) — recent kill/audit verdicts + the 3-step SIGKILL/audit/console response, rendered in-browser by sovereign-cockpit-guardian-panel. Read-only: selfdef owns the verdict ring + the Tetragon socket, the cockpit renders and never fabricates a kill.", refs: [M060, F-2026-001]}
+  - {slug: d-28-perimeter, category: security, label: "D-28 Perimeter Fence", path: /d-28-perimeter/, api: sovereign-perimeter-api, status: snapshot,
+     description: "The selfdef IPS security perimeter (Tetragon sovereign-kernel-fence) — recent SIGKILL/allowlist/extension-allowed verdicts + the active signed extensions, rendered in-browser by sovereign-cockpit-perimeter-panel. Read-only: selfdef owns the verdict ring + TracingPolicy, the cockpit renders and never fabricates.", refs: [M060, F-2026-001]}
   - {slug: d-05-traces, category: trinity, label: "D-05 Traces", path: /d-05-traces/, api: sovereign-traces-api, status: live,
      description: "Distributed span search — 13-field trace tree, OCSF export. Debug why a request went where it did.", refs: [M049]}
 

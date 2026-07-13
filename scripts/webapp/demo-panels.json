@@ -396,6 +396,13 @@
       "apiPrefix": "/api/d-27",
       "rowSelector": "#g-rows *",
       "sdd": "F-2026-001"
+    },
+    {
+      "slug": "d-28-perimeter",
+      "demoConst": "DEMO",
+      "apiPrefix": "/api/d-28",
+      "rowSelector": "#p-rows *",
+      "sdd": "F-2026-001"
     }
   ]
 }

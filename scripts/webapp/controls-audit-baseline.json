@@ -252,6 +252,13 @@
     "status": "wired"
   },
   {
+    "slug": "d-28-perimeter",
+    "exec_rail": 1,
+    "proxy_copy": false,
+    "wireable_gap": false,
+    "status": "wired"
+  },
+  {
     "slug": "doc-coverage",
     "exec_rail": 0,
     "proxy_copy": false,
