@@ -451,6 +451,61 @@ const ENHANCERS = {
     facets: { class: t => t.intervention_class, pass: t => t.pass_pct >= 80 ? 'pass (>=80)' : t.pass_pct >= 50 ? 'mid (50-79)' : 'low (<50)' },
     title: 'Eval tasks faceted — sovereign-cockpit-facet-counts (wasm)', marker: 'd10',
   }),
+  // Model health grouped by role / precision.
+  'd-03-model-health-webapp': facetEnhancer({
+    endpoint: '/api/models/health', pick: d => d.models || [],
+    facets: { role: m => m.role, precision: m => m.precision },
+    title: 'Model health faceted — sovereign-cockpit-facet-counts (wasm)', marker: 'd03',
+  }),
+  // Project spend grouped by profile / dominant route.
+  'd-04-costs-webapp': facetEnhancer({
+    endpoint: '/api/costs/summary', pick: d => d.projects || [],
+    facets: { profile: p => p.profile, route: p => p.dominant_route },
+    title: 'Project spend faceted — sovereign-cockpit-facet-counts (wasm)', marker: 'd04',
+  }),
+  // Rollback snapshots grouped by kind / dataset.
+  'd-08-rollback-points-webapp': facetEnhancer({
+    endpoint: '/api/d-08/snapshot', pick: d => d.snapshots || [],
+    facets: { kind: s => s.kind, dataset: s => s.dataset },
+    title: 'Rollback snapshots faceted — sovereign-cockpit-facet-counts (wasm)', marker: 'd08',
+  }),
+  // ZFS datasets grouped by sync mode / record size.
+  'd-09-hardware-pressure-webapp': facetEnhancer({
+    endpoint: '/api/hardware/pressure', pick: d => (d.zfs && d.zfs.datasets) || [],
+    facets: { sync: z => z.sync, recordsize: z => z.recordsize },
+    title: 'ZFS datasets faceted — sovereign-cockpit-facet-counts (wasm)', marker: 'd09',
+  }),
+  // Profile transitions grouped by from / to profile.
+  'd-02-profile-choices-webapp': facetEnhancer({
+    endpoint: '/api/profile/show', pick: d => d.history || [],
+    facets: { from: h => h.from, to: h => h.to },
+    title: 'Profile transitions faceted — sovereign-cockpit-facet-counts (wasm)', marker: 'd02',
+  }),
+  // Master dashboard catalog grouped by status / category.
+  'master-dashboard-webapp': facetEnhancer({
+    endpoint: '/catalog', pick: d => d.dashboards || [],
+    facets: { status: c => c.status, category: c => c.category },
+    title: 'Dashboard catalog faceted — sovereign-cockpit-facet-counts (wasm)', marker: 'md',
+  }),
+  // Code-console jobs: faceted by state/kind/device + mean job progress.
+  'code-console-webapp': compose(
+    facetEnhancer({
+      endpoint: '/api/code-console/jobs', pick: d => d.jobs || [],
+      facets: { state: j => j.state, kind: j => j.kind, device: j => j.device },
+      title: 'Jobs faceted — sovereign-cockpit-facet-counts (wasm)', marker: 'cc',
+    }),
+    progressAggEnhancer({
+      endpoint: '/api/code-console/jobs', pick: d => d.jobs || [],
+      progress: j => j.progress,
+      title: 'Mean job progress — sovereign-cockpit-progress-tracker (wasm)', marker: 'ccpg', unit: 'jobs',
+    }),
+  ),
+  // Global history events grouped by source / action.
+  'global-history-webapp': facetEnhancer({
+    endpoint: '/recent?limit=200', pick: d => d.events || [],
+    facets: { source: e => e.source, action: e => e.action },
+    title: 'History events faceted — sovereign-cockpit-facet-counts (wasm)', marker: 'gh',
+  }),
 };
 
 /**

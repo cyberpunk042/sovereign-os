@@ -2807,5 +2807,10 @@ window.SO_ASSIST = {
 })();
 </script>
 <!-- COURSE:END M090 -->
+<script type="module">
+  // cockpit-crate runtime (F-2026-001): run the real sovereign-cockpit-* crates.
+  import { enhance } from '/_shared/cockpit-runtime.js';
+  enhance(document).catch(() => {});   // additive + graceful: no-op if the bridge is absent
+</script>
 </body>
 </html>
