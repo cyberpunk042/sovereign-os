@@ -7,6 +7,8 @@ pub mod alert_tile_board;
 pub mod autocomplete_list;
 pub mod byte_size_formatter;
 pub mod checkbox_tree;
+pub mod checklist;
+pub mod collapsible_section;
 pub mod cost_meter;
 pub mod facet_counts;
 pub mod filter_state;

@@ -557,6 +557,7 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
       {id:'D-17', dir:'d-17-quarantine', label:'D-17 Quarantine', ico:'⚠', desc:'selfdef quarantine mirror — what\'s been isolated and why.', menuHover:'The holding cell — the MS042 quarantine where things selfdef has judged untrustworthy are isolated pending disposition. Rather than delete on suspicion or ignore on doubt, quarantine is the middle path: contain it, keep it inspectable, decide deliberately. It answers ‘what has the box flagged as suspect, why, and what is waiting to be dealt with.’ Open it to review quarantined items, to understand what tripped the judgment that put them there, or to confirm a threat is contained rather than loose. It is a selfdef mirror (read-only via M060), the disposition side of the trust machinery whose scores you read on D-18, and it works with the audit chain (D-16) that records why each item was quarantined.'},
       {id:'D-18', dir:'d-18-trust-scores', label:'D-18 Trust Scores', ico:'★', desc:'selfdef trust-score mirror — per-entity trust levels driving policy.', menuHover:'The trust ledger — the bands that rate how much the box trusts each actor, model, or source, the same seven-dimension trust model that gates what enters memory (D-07) now applied across the machine. Trust here is earned and revocable, not assumed: a low band constrains what something is allowed to influence, and a dropping score is an early warning that something is behaving less trustworthily than it did. It answers ‘how much does the box trust each thing, and is any trust eroding.’ Open it to see the trust landscape, to understand why an actor is constrained, or to catch a trust drop before it becomes a problem. It is a selfdef mirror (read-only via M060) and the scoring layer behind the quarantine decisions (D-17) and capability grants (D-13/D-14).'},
       {id:'D-20', dir:'d-20-peace-machine-health', label:'D-20 Peace Machine Health', ico:'☮', desc:'The M059 peace-machine 5-property verdict — the top-level \'is the system at peace\' signal.', menuHover:'The box’s conscience in one screen — the verdict on whether it is still a peace machine, meaning all five R09966 properties hold at once: powerful enough to act, disciplined enough to explain itself, reversible enough to trust, flexible enough to evolve, and — the load-bearing one — sovereign, so intelligence stays in your hands. The verdict is a conjunction: all five, or not peace. It answers the highest-level question about the box, above any single subsystem: ‘is the machine still behaving as designed.’ Open it for a one-read health check on the whole doctrine, and when it degrades, to see which property slipped and its backing modules. Each property maps to real infrastructure (M047 rollback, M049 observability, MS003 signatures), so a red property points you straight at the subsystem that broke it.'},
+      {id:'D-26', dir:'d-26-friction-audit', label:'D-26 Friction Audit', ico:'⚙', desc:'The M060 boot-time friction-audit gate — 6 hardware/integrity gates (PCIe / ZFS / memory / immutability / MS003 signature / timeout), PASS/FAIL/SKIP/OVERRIDE, rendered in-browser by sovereign-cockpit-friction-audit-panel. Read-only: selfdef owns the verdict ring, the cockpit renders it.', menuHover:'The boot-time honesty gate — the six hardware and integrity checks the machine runs before it trusts itself: PCIe bifurcation, ZFS pool health, memory geometry, script immutability, the MS003 signature chain, and a gate-timeout backstop. Each renders PASS, FAIL, SKIP, or OVERRIDE, and the panel is emphatic about what it does NOT know: a gate with no verdict shows a gray dash, never a fabricated pass. It answers ‘did the box clear its own preflight, and if not, which gate stopped it.’ The verdicts are written by selfdef into its friction-audit ring; this panel only renders them (the sacrosanct cross-repo rule), running the real sovereign-cockpit-friction-audit-panel crate in your browser to lay out the six-gate table. Open it after a boot or a firmware change to confirm the machine still passes its own gate, or when something downstream feels wrong and you want to rule out a preflight regression. It sits beside D-20 (the peace verdict) and the selfdef mirror panels as the earliest, most literal ‘is the foundation sound’ signal.'},
       {id:'—', dir:'compliance', label:'Compliance', ico:'⚖', desc:'The §1g/§1h compliance aggregator — per-module pass/fail against the operator mandate.', menuHover:'The top of the anti-minimization stack — the meta-instrument that composes the four §1g audits (surface-map, doc-coverage, anti-minimization, ux-design) into one verdict, because ‘done properly’ is all four at once: a feature can be delivered on every surface and still be undocumented, or documented and still unusable. §1h then extends the same bar across repos to selfdef. It answers ‘is the whole fleet honoring the delivery contract, and where is the leverage to improve it.’ Open it for the single composite read, the worst-modules list ranked by combined gap (the highest-leverage cleanups), and the trend of whether the fleet is honoring the contract more or less over time. It rolls up the four instrument panels beneath it; a red composite sends you to whichever axis is dragging it down.'},
       {id:'—', dir:'auth-tier', label:'Auth Tier', ico:'🔑', desc:'The 6-tier auth ladder (no-auth → basic → advanced → social → enterprise → network) + per-surface requirement.', menuHover:'The authentication-strength audit — a ladder of operator-named tiers measuring how strongly each surface proves who is calling and what they may do, and an upgrade-priority matrix ranking who is under-authenticating for their power. A module’s correct tier is set by what it can do: a surface that can mutate the box belongs high on the ladder, one that only reads can sit lower, and a mutating surface authenticating weakly is the priority to fix. It answers ‘does each surface authenticate as strongly as its capability warrants.’ Open it to audit the fleet’s auth posture, to find the biggest auth gaps, or before hardening a surface that can change the box. It is one of the §1g instruments the Compliance panel rolls up, alongside the surface, doc, and UX audits.'},
       {id:'—', dir:'anti-minimization-audit', label:'Anti-Minimization Audit', ico:'⛶', desc:'The \'do not minimize\' audit — flags where scope was silently shrunk vs the mandate.', menuHover:'The cut-corner detector, built from the operator’s own directive: do not minimize. It greps the whole fleet for eight nameable smells of work that looks finished but is not — a TODO with no anchor, an empty stub, a silent skip, a surface or doc gap, a mandate-TODO owed upward, minimizing language (‘just’, ‘basic’, ‘for now’), and a status that claims done over a stub. Each finding is a specific place a corner was cut and not owned. It answers ‘where is the fleet pretending to be more finished than it is.’ Open it to see the minimization debt, to distinguish intentional waived shortcuts from accidental ones, and to find modules short on both surface and doc axes at once (the efficient place to start). It is a §1g instrument feeding the Compliance rollup; a finding is a corner to close, not to explain away.'},
@@ -1797,10 +1798,23 @@ function renderBios(){
     div.className = "bios-item" + (state.bios[item.id] ? " checked" : "");
     var head = document.createElement("div"); head.className = "bi-head";
     var box = document.createElement("input"); box.type="checkbox"; box.checked = state.bios[item.id];
-    box.addEventListener("change", function(){
+    box.addEventListener("change", async function(){
+      var was = !!state.bios[item.id];
       state.bios[item.id] = box.checked;
       div.className = "bios-item" + (box.checked ? " checked" : "");
-      biosProgress(); regenerate();
+      // route the toggle + progress rollup through the REAL sovereign-cockpit-checklist crate
+      // (F-2026-001); fall back to the local biosProgress() count when the bridge is absent.
+      var handled = false, tog = window.__cockpitChecklistToggle;
+      if (tog) { try {
+        var items = D.hw.board.bios;
+        var st = { schema_version:'1.0.0', items: items.map(function(i){
+          return { id:i.id, label:(i.set||i.id).slice(0,80),
+            completed_at_ms: (i.id===item.id ? (was?1:null) : (state.bios[i.id]?1:null)) }; }) };
+        var r = await tog(JSON.stringify(st), item.id, 1, was);
+        if (r) { document.getElementById("bios-progress").textContent = r.done + "/" + r.total + " confirmed"; handled = true; }
+      } catch(_){} }
+      if (!handled) biosProgress();
+      regenerate();
     });
     head.appendChild(box);
     var set = document.createElement("span"); set.className="bi-set"; set.textContent = item.set;
@@ -1929,7 +1943,19 @@ function renderProfiles(){
     l.appendChild(nm);
     var ds = document.createElement("span"); ds.className="pdesc"; ds.textContent = p.desc || "";
     l.appendChild(ds);
-    l.addEventListener("click", function(){ state.profile = p.id; loadProfile(); });
+    l.addEventListener("click", async function(){
+      var next = p.id;
+      // resolve the single-select through the REAL sovereign-cockpit-radio-group crate (it
+      // validates the option); fall back to the raw id when the bridge is absent.
+      var sel = window.__cockpitRadioSelect;
+      if (sel) { try {
+        var rg = { schema_version:'1.0.0', required:true, selected: state.profile,
+          options: D.profiles.map(function(x){ return { id:x.id, label:(x.name||x.id), enabled:true }; }) };
+        var r = await sel(JSON.stringify(rg), p.id);
+        if (r && r.selected) next = r.selected;
+      } catch(_){} }
+      state.profile = next; loadProfile();
+    });
     c.appendChild(l);
   });
 }
@@ -1942,7 +1968,17 @@ function renderMicrocode(opts, def){
     var l = document.createElement("label"); l.className="chk"; l.htmlFor=id;
     var r = document.createElement("input"); r.type="radio"; r.name="microcode"; r.id=id;
     r.value=mc; r.checked = (mc === (state.microcode||def));
-    r.addEventListener("change", function(){ state.microcode = mc; regenerate(); });
+    r.addEventListener("change", async function(){
+      var next = mc;
+      var sel = window.__cockpitRadioSelect;   // resolve via the radio-group crate (validated single-select)
+      if (sel) { try {
+        var rg = { schema_version:'1.0.0', required:true, selected:(state.microcode||def),
+          options: opts.map(function(x){ return { id:x, label:x, enabled:true }; }) };
+        var rr = await sel(JSON.stringify(rg), mc);
+        if (rr && rr.selected) next = rr.selected;
+      } catch(_){} }
+      state.microcode = next; regenerate();
+    });
     l.appendChild(r);
     var s=document.createElement("span"); s.textContent=mc; l.appendChild(s);
     el.appendChild(l);
@@ -2507,13 +2543,24 @@ document.getElementById("obs-retention").addEventListener("input", function(e){ 
 document.getElementById("obs-endpoint").addEventListener("input", function(e){ state.obs.endpoint=e.target.value; regenerate(); });
 document.getElementById("wl-profile").addEventListener("change", function(e){ state.whitelabel=e.target.value; regenerate(); });
 
-// fold/unfold section cards
+// fold/unfold section cards — the collapse state routes through the REAL
+// sovereign-cockpit-collapsible-section crate (F-2026-001); a direct toggle is the
+// fallback when the wasm bridge is absent, so the folds always work.
+var __bcCollapse = { schema_version:'1.0.0', default_collapsed:false, states:{} };
 Array.prototype.forEach.call(document.querySelectorAll("section.card > h2"), function(h){
-  h.addEventListener("click", function(e){
+  h.addEventListener("click", async function(e){
     if (e.target.closest("input,select,button,a,label")) return;
-    var card = h.parentElement;
-    card.classList.toggle("closed");
-    h.querySelector(".tw").textContent = card.classList.contains("closed") ? "▸" : "▾";
+    var card = h.parentElement, id = card.id || "";
+    var collapsed = null;
+    var tog = window.__cockpitCollapsibleToggle;
+    if (tog && id) { try {
+      __bcCollapse.states[id] = card.classList.contains("closed");   // sync current -> crate
+      var r = await tog(JSON.stringify(__bcCollapse), id);
+      if (r) { __bcCollapse = r.value; collapsed = r.collapsed; }
+    } catch(_){} }
+    if (collapsed === null) collapsed = !card.classList.contains("closed");   // fallback
+    card.classList.toggle("closed", collapsed);
+    h.querySelector(".tw").textContent = collapsed ? "▸" : "▾";
   });
 });
 
@@ -4564,8 +4611,12 @@ window.SO_ASSIST = {
 <!-- COURSE:END M090 -->
 <script type="module">
   // cockpit-crate runtime (F-2026-001): run the real sovereign-cockpit-* crates.
-  import { enhance } from '/_shared/cockpit-runtime.js';
+  import { enhance, collapsibleToggle, checklistToggle, radioSelect } from '/_shared/cockpit-runtime.js';
   enhance(document).catch(() => {});   // additive + graceful: no-op if the bridge is absent
+  // Invasive adoption: the folds, BIOS checklist, and profile/microcode radios route through their crates.
+  window.__cockpitCollapsibleToggle = collapsibleToggle;
+  window.__cockpitChecklistToggle = checklistToggle;
+  window.__cockpitRadioSelect = radioSelect;
 </script>
 </body>
 </html>

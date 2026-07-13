@@ -164,9 +164,13 @@ Under the hood these call `cockpit-wasm/build.sh`, which:
 Requirements (one-time): `rustup target add wasm32-unknown-unknown` and
 `cargo install wasm-bindgen-cli --version 0.2.100`.
 
-> **To see the crate features light up in the browser, you must have run `make cockpit-wasm`
-> locally** — that's what writes the full bridge the panels load. It's gitignored, so a fresh
-> clone won't have it until you build it.
+> **The deploy builds the full bridge automatically.** `scripts/install/install-gui-dashboards.sh`
+> (which the image bake also calls) runs `cockpit-wasm/build.sh --full` as the toolchain-owning
+> user *before* it deploys `webapp/`, so the panels' crate features ship. If the wasm toolchain is
+> absent at install time it warns and continues — the panels still render, just with the crate
+> features off — and you can run `make cockpit-wasm` later to turn them on. Locally, `make
+> cockpit-wasm` is still the one-liner to build it (it's gitignored, so a fresh clone won't have it
+> until built).
 
 ### 5.4 Why the facade lives *outside* the Rust workspace
 

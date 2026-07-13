@@ -69,6 +69,8 @@ dashboards:
      description: "A claude.ai/code-style interface for the sovereign LOCAL LM — a left M057 session rail, a center conversation with the local model over the loopback router, a right Plan/artifact pane, and a bottom composer with an M075 device target. Read-only (R10212): the one sanctioned POST is the loopback chat; persisted-thread + Plan + repo chips are honest-deferred (SB-077).", refs: [SDD-112, SDD-062, M057, M075, R10212]}
   - {slug: d-25-selfdef-management, category: security, label: "D-25 Self-Defense Management", path: /d-25-selfdef-management/, api: sovereign-selfdef-management-api, status: live,
      description: "READ-ONLY consumer view (R10212) of the selfdef IPS — on/off enablement + M060 mirror-chain health + links to the 6 domain panels (D-13..D-18). Derives state via the m060-health probe() proxy; on/off is a clipboard-copied signed CLI verb.", refs: [M060, R10212, SDD-001]}
+  - {slug: d-26-friction-audit, category: security, label: "D-26 Friction Audit", path: /d-26-friction-audit/, api: sovereign-friction-audit-api, status: snapshot,
+     description: "The M060 boot-time friction-audit gate — 6 hardware/integrity gates (PCIe/ZFS/memory/immutability/MS003-signature/timeout) rendered in-browser by sovereign-cockpit-friction-audit-panel. Read-only: selfdef owns the verdict ring, the cockpit renders it and never fabricates PASS/FAIL.", refs: [M060, F-2026-001]}
   - {slug: d-05-traces, category: trinity, label: "D-05 Traces", path: /d-05-traces/, api: sovereign-traces-api, status: live,
      description: "Distributed span search — 13-field trace tree, OCSF export. Debug why a request went where it did.", refs: [M049]}
 
