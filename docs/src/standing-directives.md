@@ -6,6 +6,7 @@
 
 Operator standing-directives (verbatim mandate records), newest by date last.
 
+- [Navigation — 2026-05-17 operator mandate](../standing-directives/2026-05-17-operator-mandate-NAVIGATION.md)
 - [Standing operator mandate — 2026-05-17](../standing-directives/2026-05-17-operator-mandate.md)
 - [Standing directive — Plan Mode + User Approval (2026-07-11)](../standing-directives/2026-07-11-plan-mode-user-approval.md)
 - [Standing directive — QCFA + interactive clarification (2026-07-11)](../standing-directives/2026-07-11-qcfa-interactive-clarification.md)
