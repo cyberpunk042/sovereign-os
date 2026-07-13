@@ -12,6 +12,20 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — cockpit functional-execution close-out decision-package (2026-07-13)
+
+Operator-directed ("scope F-2026-035") (SDD-985). The "single largest planned UX unlock" turns out to be
+**~90% already shipped**: research found Phase 1 (the `control-surface.js` Execute button + type-to-confirm +
+graceful degrade) done, Phase 2 done for the SDD-048..052 engines, Phase 3 partial by design. The stall was
+documentation, not engineering. Docs only.
+
+- **`docs/sdd/985-cockpit-execute-unlock-decision-package.md`** — the reconciliation: what's actually shipped
+  vs the plan, the MS003 independence (Execute ships on presence+confirm, not a real signature), and the
+  operator decisions (D1 close Q-047-D as obsolete — branch merged via PRs #110–#118; D2 ratify Q-047-B
+  selfdef-proxy; D3 ratify the Phase-0.5 sudoers reversal; D4 add the `cockpit_action_total` alert rules).
+- F-2026-035 de-escalated from "stalled HIGH" to "shipped; close-out pending" in the ledger.
+- Docs only — every surface read, never written; collision-safe.
+
 ### Added — MS003 commit-authority decision-package (2026-07-13)
 
 Operator-directed ("yes lets go, lets do it") (SDD-984). Scopes F-2026-034 (CRIT) — the cross-cutting blocker
