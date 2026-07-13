@@ -117,6 +117,24 @@ export function keystrokeResolve(mapJson, key) {
   return (r && r.ok) ? (r.action_id || null) : null;
 }
 
+// --- panel widget adoption helpers (F-2026-001) — a panel drives its own widget through the
+//     crate; each returns the crate's new state, or null when the bridge is absent (fall back). ---
+/** Advance a Stepper through the crate (op: complete/back/next/skip/fail). Returns new state or null. */
+export async function stepperAdvance(stateJson, op) {
+  const r = await bcall('stepper_advance', stateJson, op);
+  return (r && r.ok) ? r.value : null;
+}
+/** Toggle a collapsible section through the crate. Returns {collapsed, value} or null. */
+export async function collapsibleToggle(stateJson, id) {
+  const r = await bcall('collapsible_toggle', stateJson, id);
+  return (r && r.ok) ? { collapsed: r.collapsed, value: r.value } : null;
+}
+/** Toggle a checklist item through the crate. Returns {done, total, percent, value} or null. */
+export async function checklistToggle(stateJson, id, tsMs, currentlyDone) {
+  const r = await bcall('checklist_toggle', stateJson, id, tsMs, currentlyDone);
+  return (r && r.ok) ? { done: r.done, total: r.total, percent: r.percent, value: r.value } : null;
+}
+
 // ---- the WCAG audit: every meaningful token pair, judged by the real crate -----
 
 const PAIRS = [
@@ -857,4 +875,4 @@ export async function enhance(root = document) {
   return true;
 }
 
-export default { bridge, contrast, relTime, wordCount, truncate, validate, auditPalette, enhance, tabActivate, autocompleteNav, keystrokeResolve };
+export default { bridge, contrast, relTime, wordCount, truncate, validate, auditPalette, enhance, tabActivate, autocompleteNav, keystrokeResolve, stepperAdvance, collapsibleToggle, checklistToggle };

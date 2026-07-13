@@ -1797,10 +1797,23 @@ function renderBios(){
     div.className = "bios-item" + (state.bios[item.id] ? " checked" : "");
     var head = document.createElement("div"); head.className = "bi-head";
     var box = document.createElement("input"); box.type="checkbox"; box.checked = state.bios[item.id];
-    box.addEventListener("change", function(){
+    box.addEventListener("change", async function(){
+      var was = !!state.bios[item.id];
       state.bios[item.id] = box.checked;
       div.className = "bios-item" + (box.checked ? " checked" : "");
-      biosProgress(); regenerate();
+      // route the toggle + progress rollup through the REAL sovereign-cockpit-checklist crate
+      // (F-2026-001); fall back to the local biosProgress() count when the bridge is absent.
+      var handled = false, tog = window.__cockpitChecklistToggle;
+      if (tog) { try {
+        var items = D.hw.board.bios;
+        var st = { schema_version:'1.0.0', items: items.map(function(i){
+          return { id:i.id, label:(i.set||i.id).slice(0,80),
+            completed_at_ms: (i.id===item.id ? (was?1:null) : (state.bios[i.id]?1:null)) }; }) };
+        var r = await tog(JSON.stringify(st), item.id, 1, was);
+        if (r) { document.getElementById("bios-progress").textContent = r.done + "/" + r.total + " confirmed"; handled = true; }
+      } catch(_){} }
+      if (!handled) biosProgress();
+      regenerate();
     });
     head.appendChild(box);
     var set = document.createElement("span"); set.className="bi-set"; set.textContent = item.set;
@@ -2507,13 +2520,24 @@ document.getElementById("obs-retention").addEventListener("input", function(e){ 
 document.getElementById("obs-endpoint").addEventListener("input", function(e){ state.obs.endpoint=e.target.value; regenerate(); });
 document.getElementById("wl-profile").addEventListener("change", function(e){ state.whitelabel=e.target.value; regenerate(); });
 
-// fold/unfold section cards
+// fold/unfold section cards — the collapse state routes through the REAL
+// sovereign-cockpit-collapsible-section crate (F-2026-001); a direct toggle is the
+// fallback when the wasm bridge is absent, so the folds always work.
+var __bcCollapse = { schema_version:'1.0.0', default_collapsed:false, states:{} };
 Array.prototype.forEach.call(document.querySelectorAll("section.card > h2"), function(h){
-  h.addEventListener("click", function(e){
+  h.addEventListener("click", async function(e){
     if (e.target.closest("input,select,button,a,label")) return;
-    var card = h.parentElement;
-    card.classList.toggle("closed");
-    h.querySelector(".tw").textContent = card.classList.contains("closed") ? "▸" : "▾";
+    var card = h.parentElement, id = card.id || "";
+    var collapsed = null;
+    var tog = window.__cockpitCollapsibleToggle;
+    if (tog && id) { try {
+      __bcCollapse.states[id] = card.classList.contains("closed");   // sync current -> crate
+      var r = await tog(JSON.stringify(__bcCollapse), id);
+      if (r) { __bcCollapse = r.value; collapsed = r.collapsed; }
+    } catch(_){} }
+    if (collapsed === null) collapsed = !card.classList.contains("closed");   // fallback
+    card.classList.toggle("closed", collapsed);
+    h.querySelector(".tw").textContent = collapsed ? "▸" : "▾";
   });
 });
 
@@ -4564,8 +4588,11 @@ window.SO_ASSIST = {
 <!-- COURSE:END M090 -->
 <script type="module">
   // cockpit-crate runtime (F-2026-001): run the real sovereign-cockpit-* crates.
-  import { enhance } from '/_shared/cockpit-runtime.js';
+  import { enhance, collapsibleToggle, checklistToggle } from '/_shared/cockpit-runtime.js';
   enhance(document).catch(() => {});   // additive + graceful: no-op if the bridge is absent
+  // Invasive adoption: the section folds + BIOS checklist route through their crates (see above).
+  window.__cockpitCollapsibleToggle = collapsibleToggle;
+  window.__cockpitChecklistToggle = checklistToggle;
 </script>
 </body>
 </html>
