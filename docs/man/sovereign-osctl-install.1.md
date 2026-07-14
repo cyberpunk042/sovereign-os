@@ -135,6 +135,7 @@ operator use.
 
 **sovereign-osctl decommission wipe**
 :   Run phase 3 against block devices declared in `SOVEREIGN_OS_WIPE_DEVICES`. Uses `blkdiscard` for SSDs or `shred` otherwise and requires the destructive confirmation gate.
+
 ## install
 
 **sovereign-osctl install image <img> --to <dev>**
@@ -183,30 +184,37 @@ operator use.
 
 **sovereign-osctl network-install-advisor {list|show|coexist|recommend}**
 :   R297 (E2.M11): operator-pull network install-layer advisor — DNS / Cloudflared / Tailscale / Traefik with docker-vs-system install matrix + per-layer pros/cons + recommended defaults. Operator-named (§1b verbatim): "the DNS, the Cloudflared ? the tailscale, Traefik, non docker vs docker install ? when possible ? container level vs system level".
+
 ## operator-posture
 
 **sovereign-osctl operator-posture {status|advisory}**
 :   R300 (E1.M25): holistic operator-posture rollup. Synthesizes R292 (oc-headroom) + R294 (psu-oc) + R296 (thermal-oc-budget) + R298 (storage-health) + R299 (bios-directives) into ONE worst-axis verdict. Operator-named (§1b verbatim).
+
 ## install-mode
 
 **sovereign-osctl install-mode {list|show|recommend}**
 :   R310 (E2.M16): container-vs-system install-mode advisor. Per-installable component, advises system vs container based on isolation_need + dependency_footprint + ipc_requirement + root_required + gpu_passthrough + kernel_module. Emits operator-readable tradeoff matrix. Operator-named (§1b verbatim: "non docker vs docker install ? when possible ? container level vs system level").
+
 ## config-snapshot-diff
 
 **sovereign-osctl config-snapshot-diff {diff}**
 :   R335 (E2.M26): config-snapshot-diff verb. Given two R332 snapshots, emits per-overlay drift (added / removed / changed + per-key dotted-path diff). Sibling to R334 runtime diff.
+
 ## snapshot-diff
 
 **sovereign-osctl snapshot-diff {diff}**
 :   R334 (E2.M25): snapshot-diff verb. Given two R322 state snapshots, emits per-probe diff (rc/verdict changes, new/ resolved attention items). Pre/post-change auditing.
+
 ## config-restore
 
 **sovereign-osctl config-restore {verify|apply}**
 :   R333 (E2.M24): config-restore companion to R332. Reads R332 snapshot JSON + verifies sha256s + replays overlays back to disk under triple-gate. Records to R327 audit log.
+
 ## config-snapshot
 
 **sovereign-osctl config-snapshot {capture|audit}**
 :   R332 (E2.M23): config-snapshot for backup/migration. Captures complete operator-customized state into ONE portable JSON: overlays + audit + windows + inventory + helper-library manifest. Distinct from R322 state-snapshot (runtime-state).
+
 ## overlay-drift
 
 **sovereign-osctl overlay-drift {list|show|audit}**
