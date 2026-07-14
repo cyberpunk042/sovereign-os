@@ -55,8 +55,8 @@ Run `sovereign-osctl help` for the complete version-matched grammar.
 
 ## overview
 
-**sovereign-osctl overview [arguments]**
-:   Operator command in the operations surface. Inspect the live help and status/plan forms before use.
+**sovereign-osctl overview [--json]**
+:   Show a consolidated single-screen snapshot of pipeline phases, bootstrap verification, Trinity state, model residency, active profile and whitelabel, kernel, and Tetragon perimeter. Use `--json` for fleet aggregation.
 
 Run `sovereign-osctl help` for the complete version-matched grammar.
 
