@@ -141,6 +141,8 @@ EXEMPT_PATTERNS: list[tuple[str, str]] = [
      "operator shell-setup counter; one-shot install telemetry."),
     (r"^sovereign_os_dflash_[a-z0-9_]+$",
      "dflash decision/invocation telemetry; operator-tool usage, not health."),
+    (r"^sovereign_os_dspark_[a-z0-9_]+$",
+     "dspark decision/invocation telemetry (the DFlash successor); operator-tool usage, not health."),
     (r"^sovereign_os_notify_[a-z0-9_]+$",
      "notify-dispatch out-of-band echo telemetry (delivery ok/fail/events + "
      "last-run); the PRIMARY alerting path IS Prometheus (these rules) — notify "

@@ -279,6 +279,12 @@ DFlash speculative decoding (R157 — master spec Block 7):
 - `sovereign_os_dflash_decision_total{task_type,decision}` — per-task-type gating decisions from `scripts/inference/dflash-wrap.sh` (enabled/disabled/disabled-no-install)
 - `sovereign_os_dflash_last_invocation_timestamp{task_type}` — last DFlash decision per task type
 
+DSpark speculative decoding (the DFlash successor — DeepSeek 2026-06-27; opt-in, on-by-default):
+- `sovereign_os_dspark_decision_total{task_type,decision}` — per-task-type gating decisions from `scripts/inference/dspark-wrap.sh` (enabled/disabled/downshift-dflash/disabled-no-install)
+- `sovereign_os_dspark_last_invocation_timestamp{task_type}` — last DSpark decision per task type
+- `sovereign_os_dspark_toggle_total{action}` — on/off flips from `scripts/inference/dspark-ctl.py` (`sovereign-osctl dspark {enable|disable}`)
+- `sovereign_os_dspark_toggle_last_timestamp` — last DSpark on/off toggle
+
 ### Substrate fabric (R158-R159 — master spec §§ 8, 22)
 
 Asymmetric Zero-Trust network rendering (R158 — master spec § 8):

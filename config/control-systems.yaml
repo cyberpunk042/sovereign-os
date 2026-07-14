@@ -120,6 +120,30 @@ systems:
     applies_to: [runtime-modes, d-09-hardware-pressure]
     refs: [config/gpu-policy.toml.example]
 
+  # ── 5b. DSpark speculative decoding — opt-in, ON BY DEFAULT for now ──
+  - id: dspark-speculative-decoding
+    kind: toggle
+    scope: scoped
+    label: "DSpark Speculative Decoding"
+    description: >-
+      DeepSeek's DSpark lossless speculative decoding — the DFlash (M083)
+      successor. The DFlash parallel draft backbone + a lightweight Markov
+      head verify a 5-token block (DSpark-5) in one target forward pass by
+      rejection sampling: 60-85% faster per-user generation while preserving
+      the target model's output distribution EXACTLY. Opt-in like everything,
+      but ON by default for now (operator, 2026-07-13). Draft runs on the
+      Oracle Core (Blackwell); it can retarget the 5090 Logic tier after the
+      2026-07 GPU swap. Wired via scripts/inference/dspark-wrap.sh with the
+      DSPARK_ENABLE_OVERRIDE / DSPARK_DISABLE_OVERRIDE knobs (DISABLE wins).
+    options: ["on", "off"]
+    options_cli: "sovereign-osctl dspark status"
+    state_cli: "sovereign-osctl dspark status"
+    change_cli: "sovereign-osctl dspark {enable|disable}"
+    state_path: "/etc/sovereign-os/dspark.toml"
+    privileged: true
+    applies_to: [d-21-lm-orchestration, d-22-lm-status-operability, orchestration, runtime-modes]
+    refs: [config/inference/m083-dflash-speculative-decoding.yaml, scripts/inference/dspark-wrap.sh]
+
   # ── 6. Dashboard toggles — every dashboard on/off (global) ───────────
   - id: dashboard-toggle
     kind: toggle

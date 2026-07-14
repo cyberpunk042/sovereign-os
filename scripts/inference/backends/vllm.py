@@ -3,6 +3,12 @@
 Per SDD-011 + E109 (DFlash integration): vLLM v0.20.1+ pinned.
 DFlash speculative-decoding drafts wired when the target model has a
 pre-trained DFlash checkpoint on Z-Lab's HuggingFace org.
+
+DSpark (DeepSeek, 2026-06-27) — the DFlash successor — is preferred when a
+DSpark draft checkpoint is supplied: it reuses the DFlash draft backbone plus a
+lightweight Markov head, verifies a DSpark-5 (5-token) block in one target
+forward pass via rejection sampling, and is LOSSLESS. Opt-in but on-by-default
+(see config/inference/m083-...yaml `dspark:` + scripts/inference/dspark-wrap.sh).
 """
 
 from __future__ import annotations
@@ -28,6 +34,8 @@ class VllmBackend(Backend):
         tier: str = "logic_engine",
         tensor_parallel_size: int = 1,
         dflash_draft_model: str | None = None,
+        dspark_draft_model: str | None = None,
+        dspark_num_speculative_tokens: int = 5,  # DSpark-5 (shipped default)
         kv_cache_dtype: str = "auto",  # "fp8" for Blackwell deep-context per L0
         gpu_memory_utilization: float = 0.92,
     ):
@@ -35,6 +43,8 @@ class VllmBackend(Backend):
         self.tier = tier
         self.tensor_parallel_size = tensor_parallel_size
         self.dflash_draft_model = dflash_draft_model
+        self.dspark_draft_model = dspark_draft_model
+        self.dspark_num_speculative_tokens = dspark_num_speculative_tokens
         self.kv_cache_dtype = kv_cache_dtype
         self.gpu_memory_utilization = gpu_memory_utilization
 
@@ -67,9 +77,19 @@ class VllmBackend(Backend):
         if self.kv_cache_dtype != "auto":
             argv += ["--kv-cache-dtype", self.kv_cache_dtype]
 
-        # DFlash speculative decoding (E109) — only when a draft checkpoint
-        # is supplied; vLLM 0.20.1+ understands the speculative-config flag
-        if self.dflash_draft_model:
+        # Speculative decoding — only when a draft checkpoint is supplied;
+        # vLLM 0.20.1+ understands the speculative-config flag. DSpark (the
+        # DFlash successor, DeepSeek 2026-06-27) is PREFERRED when present: it
+        # reuses the DFlash draft backbone + a Markov head, verifies a DSpark-5
+        # block by rejection sampling, and is LOSSLESS. Falls back to plain
+        # DFlash (E109) when only a DFlash checkpoint is given.
+        if self.dspark_draft_model:
+            argv += [
+                "--speculative-config",
+                f'{{"model": "{self.dspark_draft_model}", "method": "dspark", '
+                f'"num_speculative_tokens": {self.dspark_num_speculative_tokens}}}',
+            ]
+        elif self.dflash_draft_model:
             argv += [
                 "--speculative-config",
                 f'{{"model": "{self.dflash_draft_model}", "method": "dflash"}}',
@@ -99,6 +119,8 @@ class VllmBackend(Backend):
         model_path: str,
         *,
         dflash_draft_model: str | None = None,
+        dspark_draft_model: str | None = None,
+        dspark_num_speculative_tokens: int = 5,
         kv_cache_dtype: str = "fp8",
     ) -> "VllmBackend":
         cfg = BackendConfig(
@@ -115,6 +137,8 @@ class VllmBackend(Backend):
             tier="oracle_core",
             tensor_parallel_size=1,
             dflash_draft_model=dflash_draft_model,
+            dspark_draft_model=dspark_draft_model,
+            dspark_num_speculative_tokens=dspark_num_speculative_tokens,
             kv_cache_dtype=kv_cache_dtype,
             gpu_memory_utilization=0.92,
         )

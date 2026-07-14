@@ -39,6 +39,8 @@ Cmnd_Alias SOVEREIGN_OS_COCKPIT = \
     /usr/local/bin/sovereign-osctl gpu-mode set *, \
     /usr/local/bin/sovereign-osctl dashboards enable *, \
     /usr/local/bin/sovereign-osctl dashboards disable *, \
+    /usr/local/bin/sovereign-osctl dspark enable, \
+    /usr/local/bin/sovereign-osctl dspark disable, \
     /usr/local/bin/sovereign-osctl auth-tier set *, \
     /usr/local/bin/sovereign-osctl inference start *, \
     /usr/local/bin/sovereign-osctl inference stop *, \

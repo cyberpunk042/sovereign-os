@@ -1214,7 +1214,16 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
   ], gpu: [
     {name:'demo RTX 4090',compute_cap:'8.9',tensor_cores:true},
     {name:'demo RTX 6000 Blackwell',compute_cap:'10.0',nvfp4_capable:true,tensor_cores:true},
-  ]};
+  ], dspark: {
+    enabled:true, enabled_reason:'opt-in default-on', method:'dspark', block_size:5, lossless:true,
+    opt_in:true, default_enabled:true, successor_to:'M083 DFlash',
+    speedup:'60-85% (V4-Flash) / 57-78% (Pro) faster per-user generation over MTP-1',
+    chat_acceptance:'45.7% -> 95.7% with domain confidence thresholding',
+    architecture:'DFlash parallel draft backbone + a lightweight Markov head; block verified in one target forward pass by rejection sampling',
+    draft_tier:'Oracle Core (Blackwell PRO 6000)',
+    hardware_note:'RTX 5090 replaces the RTX 4090 (external) in ~2-3 days; the draft can retarget the 5090 Logic tier',
+    toggle_cli:'sovereign-osctl dspark {enable|disable}', state_path:'/etc/sovereign-os/dspark.toml',
+  }};
 
   function renderGrid(data) {
     LAST_GRID = data;
@@ -1337,9 +1346,35 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
     if (rest.length) html += '<div class="ftier">Other</div>' + rest.map(frow).join('');
     html += '<div class="ftier">Etc…</div><div class="frow"><span>Rowhammer mitigation posture</span><span class="deferred" title="no producer yet — honest-deferred (SB-077)">deferred</span></div>';
     $('features-cpu').innerHTML = html;
-    $('features-gpu').innerHTML = (f.gpu || []).length ? f.gpu.map(g =>
+    const gpuRows = (f.gpu || []).length ? f.gpu.map(g =>
       `<div class="frow"><span><code>${esc(g.name)}</code> (cc ${esc(g.compute_cap)})</span><span>${g.nvfp4_capable ? '<span class="yes">NVFP4</span> ' : ''}${g.tensor_cores ? '<span class="yes">TensorCore</span>' : ''}</span></div>`
     ).join('') : '<div class="muted">no GPU telemetry (nvidia-smi absent or no GPU)</div>';
+    $('features-gpu').innerHTML = gpuRows + renderDspark(f.dspark);
+  }
+
+  // DSpark speculative decoding — the DFlash (M083) successor, surfaced in the
+  // operator's chosen home (Features GPUs, 2026-07-13). Read-only mirror of
+  // /api/lm-orchestration/features.dspark; honest-deferred when the daemon
+  // doesn't supply it (older daemon / offline). Toggle actuation is the
+  // clipboard-copied signed CLI verb (web never mutates, R10212).
+  function renderDspark(d) {
+    if (!d) {
+      return '<div class="ftier" style="margin-top:.7rem">DSpark speculative decoding</div>'
+        + '<div class="frow"><span>DFlash (M083) successor</span><span class="deferred" title="daemon offline or older daemon — honest-deferred (SB-077)">deferred</span></div>';
+    }
+    const on = !!d.enabled;
+    const badge = on
+      ? '<span class="yes">ON</span> <span class="deferred">opt-in · default-on</span>'
+      : '<span class="no">OFF</span> <span class="deferred">' + esc(d.enabled_reason || '') + '</span>';
+    const cli = esc(d.toggle_cli || 'sovereign-osctl dspark {enable|disable}');
+    return '<div class="ftier" style="margin-top:.7rem">DSpark speculative decoding <span class="deferred">— DFlash (M083) successor · lossless</span></div>'
+      + `<div class="frow"><span>status</span><span>${badge}</span></div>`
+      + `<div class="frow"><span>draft block</span><span>DSpark-${esc(d.block_size)} ${d.lossless ? '<span class="yes">lossless</span>' : ''}</span></div>`
+      + `<div class="frow"><span>speedup</span><span class="deferred">${esc(d.speedup)}</span></div>`
+      + (d.chat_acceptance ? `<div class="frow"><span>chat acceptance</span><span class="deferred">${esc(d.chat_acceptance)}</span></div>` : '')
+      + `<div class="frow"><span>draft tier</span><span class="deferred">${esc(d.draft_tier)}</span></div>`
+      + (d.hardware_note ? `<div class="frow"><span>hardware</span><span class="deferred">${esc(d.hardware_note)}</span></div>` : '')
+      + `<div class="frow"><span>toggle</span><span><code style="cursor:pointer" title="copy the signed CLI verb" onclick="copyCmd('${cli}','DSpark on/off — opt-in, default-on')">${cli}</code></span></div>`;
   }
 
   // SDD-055 — scroll to a functional control in the rail + highlight it. Controls
@@ -2035,8 +2070,8 @@ window.SO_ASSIST = {
     {
      "selector": "#features-gpu",
      "title": "Features GPUs",
-     "content": "What the two GPUs support — the Blackwell’s NVFP4 (native 4-bit) and the 4090’s capabilities. Concurrency and deep-context profiles exploit these; NVFP4 on the Blackwell is specifically what lets a big model fit at a fraction of the VRAM fp8 would need, which is what makes the deep-context posture possible at all.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">NVFP4 is what makes deep-context fit</div>The deep-context profile layer-splits a large model across both GPUs with a 4-bit KV cache. That only fits because the Blackwell stores weights and cache at NVFP4 (native 4-bit) — at fp8 the same model wouldn’t fit in 96 GB. So this capability isn’t a spec detail; it’s the enabling condition for a whole profile.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-11 adapter-status — the NVFP4 adapters that share this capability</div>"
+     "content": "What the two GPUs support — the Blackwell’s NVFP4 (native 4-bit) and the 4090’s capabilities. Concurrency and deep-context profiles exploit these; NVFP4 on the Blackwell is specifically what lets a big model fit at a fraction of the VRAM fp8 would need, which is what makes the deep-context posture possible at all. DSpark (the DFlash M083 successor) is the speed layer on top: it runs a small draft on the Blackwell and verifies a 5-token block in one target pass — losslessly — for 60-85% faster generation. It is opt-in but on by default.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">NVFP4 is what makes deep-context fit</div>The deep-context profile layer-splits a large model across both GPUs with a 4-bit KV cache. That only fits because the Blackwell stores weights and cache at NVFP4 (native 4-bit) — at fp8 the same model wouldn’t fit in 96 GB. So this capability isn’t a spec detail; it’s the enabling condition for a whole profile.</div><div class=\"so-card info\"><div class=\"so-card-label\">DSpark = lossless speed, on by default</div>DSpark builds on the DFlash draft backbone already resident on the Oracle Core (Blackwell): DFlash drafts every position in one pass, a lightweight Markov head biases each token, and the target model verifies the whole DSpark-5 block in a single forward pass by rejection sampling — so the output distribution is preserved exactly (lossless). Unlike DFlash (which gated creative off), DSpark defaults ON for every task type. Env knobs DSPARK_DISABLE_OVERRIDE / DSPARK_ENABLE_OVERRIDE force it per-invocation (DISABLE wins).</div><div class=\"so-xref\"><span class=\"x\">→</span> D-11 adapter-status — the NVFP4 adapters that share this capability</div>"
     },
     {
      "selector": "#last-fetch",

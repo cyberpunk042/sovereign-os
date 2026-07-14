@@ -21,7 +21,7 @@ coverage:
      psu-oc-mode, raid, ram-advisor, storage-health, thermal-oc-budget, thermals,
      virt-info, wattage-heat-trend, xmp-oc-room, diagnose]
   runtime-modes:
-    [cpu-mode, cpu-isolation, gpu-mode, hugepages, irq-affinity, nvidia-mps,
+    [cpu-mode, cpu-isolation, gpu-mode, dspark, hugepages, irq-affinity, nvidia-mps,
      nvidia-persistence, power-profiles, thp-mode, workload-knobs, workload-mode,
      kernel, kernel-cmdline]
   cpu-features:

@@ -61,6 +61,7 @@ API_PORT = int(os.environ.get("LM_ORCH_API_PORT", "8129"))
 DRY_RUN = bool(os.environ.get("LM_ORCH_API_DRY_RUN"))
 STREAM_INTERVAL = float(os.environ.get("LM_ORCH_STREAM_INTERVAL", "3.0"))
 CPUINFO_PATH = Path(os.environ.get("LM_ORCH_CPUINFO", "/proc/cpuinfo"))
+DSPARK_STATE = Path(os.environ.get("DSPARK_STATE", "/etc/sovereign-os/dspark.toml"))
 API_VERSION = "1.0.0"
 SHIPPED_IN = "D-21-lm-orchestration"
 
@@ -331,10 +332,60 @@ def profiles_view() -> dict[str, Any]:
     }
 
 
+# DSpark — the DFlash (M083) successor. Stable contract facts mirrored from
+# config/inference/m083-dflash-speculative-decoding.yaml (`dspark:` block); the
+# only runtime read is the on/off toggle state, kept consistent with the
+# scripts/inference/dspark-wrap.sh precedence (DISABLE > ENABLE > state > on).
+DSPARK = {
+    "method": "dspark",
+    "block_size": 5,                 # DSpark-5 (shipped default)
+    "lossless": True,
+    "opt_in": True,
+    "default_enabled": True,         # "on by default for now" (operator 2026-07-13)
+    "successor_to": "M083 DFlash",
+    "released": "2026-06-27",
+    "origin": "DeepSeek (open source); DeepSpec trainer is MIT-licensed",
+    "speedup": "60-85% (V4-Flash) / 57-78% (Pro) faster per-user generation over MTP-1",
+    "chat_acceptance": "45.7% -> 95.7% with domain confidence thresholding",
+    "architecture": "DFlash parallel draft backbone + a lightweight Markov head; block verified in one target forward pass by rejection sampling",
+    "draft_tier": "Oracle Core (Blackwell PRO 6000) — vLLM + DFlash backbone already resident",
+    "hardware_note": "RTX 5090 replaces the RTX 4090 (which becomes an external GPU) in ~2-3 days; the draft/scout can retarget the 5090 Logic tier once present",
+    "control_id": "dspark-speculative-decoding",
+    "toggle_cli": "sovereign-osctl dspark {enable|disable}",
+    "state_path": str(DSPARK_STATE),
+    "wrapper": "scripts/inference/dspark-wrap.sh",
+    "config_ref": "config/inference/m083-dflash-speculative-decoding.yaml (dspark:)",
+}
+
+
+def _dspark_enabled() -> tuple[bool, str]:
+    """DSpark on/off with the wrapper's precedence: DSPARK_DISABLE_OVERRIDE wins,
+    then DSPARK_ENABLE_OVERRIDE, then the state file (`enabled = false` → off),
+    else opt-in default-ON. Never raises."""
+    if os.environ.get("DSPARK_DISABLE_OVERRIDE"):
+        return False, "operator-override (DSPARK_DISABLE_OVERRIDE)"
+    if os.environ.get("DSPARK_ENABLE_OVERRIDE"):
+        return True, "operator-override (DSPARK_ENABLE_OVERRIDE)"
+    try:
+        for line in DSPARK_STATE.read_text().splitlines():
+            s = line.strip().replace(" ", "")
+            if s.startswith("enabled=false"):
+                return False, f"toggle off in {DSPARK_STATE}"
+    except OSError:
+        pass
+    return True, "opt-in default-on"
+
+
+def _dspark_view() -> dict[str, Any]:
+    enabled, reason = _dspark_enabled()
+    return {**DSPARK, "enabled": enabled, "enabled_reason": reason}
+
+
 def features_view() -> dict[str, Any]:
     """Features CPU (AVX-512 flags from /proc/cpuinfo) + Features GPUs
-    (capability flags from the model-health GPU probe). Absent cpuinfo →
-    all unknown; absent GPUs → empty (honest, never raises)."""
+    (capability flags from the model-health GPU probe) + DSpark speculative
+    decoding (the DFlash successor, opt-in/default-on). Absent cpuinfo → all
+    unknown; absent GPUs → empty (honest, never raises)."""
     flags: set[str] = set()
     try:
         for line in CPUINFO_PATH.read_text().splitlines():
@@ -352,7 +403,7 @@ def features_view() -> dict[str, Any]:
         "nvfp4_capable": bool(g.get("is_blackwell")),  # Blackwell → NVFP4
         "tensor_cores": g.get("compute_cap") is not None and g["compute_cap"] >= 7.0,
     } for g in gpus]
-    return {"cpu": cpu, "cpu_flags_readable": bool(flags), "gpu": gpu}
+    return {"cpu": cpu, "cpu_flags_readable": bool(flags), "gpu": gpu, "dspark": _dspark_view()}
 
 
 def models_view() -> dict[str, Any]:

@@ -6643,6 +6643,17 @@ case "${cmd}" in
     shift || true
     "${__REPO_ROOT}/scripts/hardware/gpu-mode.py" "${sub}" "$@"
     ;;
+  dspark)
+    # DSpark speculative decoding on/off — the DFlash (M083) successor
+    # (DeepSeek 2026-06-27), lossless speculative decoding. Opt-in but ON BY
+    # DEFAULT for now. `status` is read-only; enable/disable persist
+    # /etc/sovereign-os/dspark.toml, which the dspark-wrap.sh gate + the D-21
+    # lm-orchestration features API both read. Verbs: status [--json] /
+    # enable / disable.
+    sub="${1:-status}"
+    shift || true
+    "${__REPO_ROOT}/scripts/inference/dspark-ctl.py" "${sub}" "$@"
+    ;;
   gpu-remediate)
     # R249 (SDD-026 Z-5 closure): auto-apply R219 fix commands.
     # Operator-named "warn deviance from perfection" loop closure.

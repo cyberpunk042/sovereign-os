@@ -79,3 +79,100 @@ router_signal:
 layer5_validation:
   module: M01405
   scope: "benchmark the 3x claim on the operator's real code+math workload (hardware-required; catalogued forward)"
+
+# ============================================================================
+# DSpark — the DFlash SUCCESSOR (DeepSeek, open-sourced 2026-06-27). Operator
+# directive (2026-07-13, verbatim): "search for Dspark from Deepseek online and
+# we are going to implement that ... opt-in like we want everything but on by
+# default for now and we find it a proper place an a panel, like for the LM
+# Orchestrator Features GPUs section". DSpark is speculative decoding built
+# DIRECTLY on DFlash: DFlash is DSpark's parallel draft BACKBONE; DSpark adds a
+# lightweight sequential "Markov head" (a prefix-dependent bias added before
+# sampling each drafted token, cutting suffix decay) + domain confidence
+# thresholding, extending the gain from code/math to CHAT — and it is LOSSLESS
+# (the whole draft block is verified in ONE target forward pass by rejection
+# sampling, preserving the target model's output distribution EXACTLY). SAME
+# lineage as M083 DFlash, modeled here as the DFlash fast-path's successor — NOT
+# a separate milestone (M084-M086 are already claimed by unrelated milestones,
+# and DFlash IS the backbone, so the honest home is right here).
+#
+# Sources (operator-required web citations, research 2026-07-13):
+#   - marktechpost.com/2026/06/27/deepseek-releases-dspark-a-speculative-
+#     decoding-framework-that-accelerates-deepseek-v4-per-user-generation-60-85-
+#     over-mtp-1  (architecture: DFlash backbone + Markov head; DSpark-5;
+#     rejection-sampling verify; 60-85% V4-Flash / 57-78% Pro; acceptance
+#     45.7%->95.7% via confidence thresholding; DeepSpec MIT training codebase)
+#   - venturebeat.com/orchestration/deepseek-open-sources-dspark-a-new-framework-
+#     to-speed-up-llm-inference-by-up-to-85
+#   - fullstack.com/labs/resources/blog/what-deepseeks-dspark-means-for-llm-performance
+#   - medium.com/data-science-collective/deepseeks-dspark-the-breakthrough-that-
+#     makes-llms-up-to-85-faster-without-a-new-model-868542e96c3d
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+dspark:
+  successor_to: M083                     # DFlash IS DSpark's draft backbone (same lineage)
+  released: "2026-06-27"
+  origin: "DeepSeek (open source); DeepSpec training+eval codebase is MIT-licensed (3 stages: data prep, training, evaluation; default 1 node x 8 GPUs)"
+  operator_directive: "opt-in like we want everything but on by default for now ... a panel, like for the LM Orchestrator Features GPUs section"
+
+  # ── the architecture (research-sourced) ──
+  architecture:
+    draft_backbone: "DFlash (M083) — parallel draft that emits base logits for every position in one pass"
+    sequential_head: "lightweight Markov head — a prefix-dependent bias added before sampling each drafted token (cuts suffix decay)"
+    verification: "the target model verifies the WHOLE draft block in ONE forward pass via rejection sampling"
+    lossless: true                       # preserves the target model's output distribution EXACTLY
+    production_config: "DSpark-5 — a 5-token draft block with the Markov head (the shipped default)"
+    block_size_tested_up_to: 16          # 4->16 adds only 0.2-1.3% per-round latency
+    confidence_thresholding: "domain confidence gate — raised chat acceptance 45.7% -> 95.7%"
+
+  # ── measured gains over MTP-1 (research-sourced) ──
+  speedup:
+    v4_flash: "60-85% faster per-user generation"
+    v4_pro: "57-78% faster per-user generation"
+    vs_dflash_offline: "16-18% higher accepted length"
+    note: "lossless — unlike quantization there is no quality trade to buy the speed"
+
+  # ── the operator's toggle: OPT-IN but ON BY DEFAULT for now ──
+  toggle:
+    opt_in: true
+    default_enabled: true                # "on by default for now" (operator, 2026-07-13)
+    control: dspark-speculative-decoding # -> config/control-systems.yaml entry id
+    rationale: "DSpark is lossless + confidence-gated, so — unlike DFlash which gates creative OFF — it defaults ON for ALL task types"
+
+  # ── the gated wrapper (mirrors the DFlash argv-prefix shape) ──
+  gated_wrapper:
+    script: "scripts/inference/dspark-wrap.sh"
+    shape: "argv-prefix wrapper, gating BEFORE the backend sees argv (DFlash-sibling); default-ON for every task type since DSpark is lossless"
+    block_knob: "DSPARK_BLOCK (default 5 = DSpark-5)"
+
+  # ── operator override knobs (DISABLE wins, mirrors DFlash) ──
+  override_knobs:
+    enable: "DSPARK_ENABLE_OVERRIDE"
+    disable: "DSPARK_DISABLE_OVERRIDE"
+    precedence: "DISABLE wins when both set"
+
+  # ── per-backend integration (vLLM is the Oracle/Logic serving path) ──
+  backend_bindings:
+    - {backend: vllm, argv: '--speculative-config ''{"method":"dspark","num_speculative_tokens":5,...}'''}
+    - {backend: llama_cpp, argv: "--draft-model ${DSPARK_PATH}/draft.gguf"}
+    - {backend: transformers, env: "PYTHONPATH=${DSPARK_PATH} generation strategy"}
+
+  # ── graceful degradation — never a hard failure ──
+  graceful_degradation:
+    rule: "absent DSpark install -> fall back to the DFlash draft (code/math) then vanilla decoding + a clearly-tagged downshift, never a hard failure"
+
+  # ── observability (Layer B counters, DFlash-sibling namespace) ──
+  observability:
+    layer_b_counters: {metric: "sovereign_os_dspark_*", of: "decision, acceptance_rate, accepted_length, speedup"}
+    layer_a_journal: {sink: "journald decision+reason log (SDD-016 pipeline)"}
+
+  # ── where the draft runs (SRP topology + the incoming hardware change) ──
+  placement:
+    draft_tier: "Oracle Core (Blackwell PRO 6000) — vLLM + the DFlash backbone is already resident there (M075 SRP)"
+    hardware_transition_2026_07: "RTX 5090 replaces the RTX 4090 (which becomes an EXTERNAL GPU) in ~2-3 days; the draft/scout can retarget the 5090 Logic tier once present"
+
+  # ── the panel surface (operator's chosen home) ──
+  panel_surface:
+    dashboard: d-21-lm-orchestration
+    section: "Features GPUs"
+    endpoint: "/api/lm-orchestration/features (dspark block)"
