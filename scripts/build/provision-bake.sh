@@ -294,7 +294,8 @@ if [ "${SOVEREIGN_OS_BAKE_FIRSTBOOT:-}" = "1" ] && [ -d "${REPO}/systemd/system"
             sovereign-zfs-arc-clamp.service sovereign-nvidia-driver-install.service
             sovereign-nvidia-driver-bind.service
             sovereign-warp-setup.service
-            sovereign-workstation-shell-setup.service)
+            sovereign-workstation-shell-setup.service
+            sovereign-inference-model-provision.service)
   n=0
   for u in "${FB_UNITS[@]}"; do
     if [ -f "${REPO}/systemd/system/${u}" ]; then

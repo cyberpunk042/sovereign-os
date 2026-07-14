@@ -44,7 +44,7 @@ install = [
 # ─── Python pip packages ───
 [pip]
 install = [
-    "huggingface_hub",   # R242 model toolchain
+    "huggingface_hub",   # R242 model toolchain — huggingface-cli download for the SDD-702 model pull
     "transformers",      # HF reference runtime (E1.M14 workload-fit)
     "vllm",              # Oracle-tier RLM serving
     "trl",               # SFT/DPO training pipeline
