@@ -16,12 +16,20 @@ baseline can neither rot nor be quietly weakened:
   6. `unsafe` is confined to the single sanctioned carve-out (`sovereign-simd`,
      the one crate the operator permits `unsafe` in for AVX-512 intrinsics).
 
-Invariant (6) is also the *compensating control* for a latent gap this audit
-surfaced (F-2026-096): 202 cockpit crates do not declare `[lints] workspace =
-true`, so they do not inherit the compile-time `unsafe_code = "forbid"` ban. The
-inheritance itself is a manifest-unification follow-up owned elsewhere; until
-then, this grep-level assertion guarantees at CI time that none of those crates
-actually uses `unsafe` — the ban's practical guarantee holds repo-wide.
+  7. every member crate inherits the workspace lints at compile time
+     (`[lints] workspace = true`), except the one sanctioned carve-out
+     (`sovereign-simd`, which declares its own `[lints.rust] unsafe_code =
+     "allow"`) — so the `unsafe_code = "forbid"` ban is enforced by the
+     COMPILER on every other crate, not merely observed by a grep.
+
+Invariant (7) closes F-2026-096 (SDD-710): the audit found 202 cockpit crates
+declaring no `[lints]` table, so the compile-time `unsafe_code = "forbid"` ban
+did not reach them — the ban's repo-wide guarantee rested on invariant (6)'s
+grep alone. SDD-710 swept `[lints] workspace = true` into all of them, and this
+invariant now pins that at CI time so a NEW crate without the inherit line fails
+here. Invariant (6) is retained as a defence-in-depth co-guarantee (it also
+catches an `unsafe` slipped into `sovereign-simd`-adjacent code or a manifest
+edited to opt out), not merely a compensating control.
 """
 from __future__ import annotations
 
@@ -170,3 +178,54 @@ def test_unsafe_is_confined_to_the_sanctioned_carveout():
         f"UNSAFE_ALLOWLIST names crate(s) that no longer use unsafe: {stale} — "
         f"drop them so the carve-out stays minimal"
     )
+
+
+# --- 7. every crate inherits the workspace lints at COMPILE time -------------
+# (F-2026-096 closed by SDD-710) — the manifest-level guarantee behind (6).
+
+def _declares_workspace_lints(cargo_toml: Path) -> bool:
+    """True iff the manifest carries `[lints]` with `workspace = true`. Parsed,
+    not grepped, so whitespace/ordering can't fool it."""
+    try:
+        import tomllib
+        data = tomllib.loads(cargo_toml.read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001 - a manifest that won't parse fails elsewhere
+        return False
+    return data.get("lints", {}).get("workspace") is True
+
+
+def test_every_crate_inherits_workspace_lints_at_compile_time():
+    """Every member crate MUST declare `[lints] workspace = true` so the root
+    `unsafe_code = "forbid"` ban is enforced by the compiler — except the single
+    sanctioned carve-out, which declares its own per-crate lint override. A new
+    crate that forgets the inherit line (the F-2026-096 gap) fails here."""
+    missing = [
+        c.name for c in _crate_dirs()
+        if c.name not in UNSAFE_ALLOWLIST
+        and not _declares_workspace_lints(c / "Cargo.toml")
+    ]
+    assert not missing, (
+        f"{len(missing)} crate(s) do not declare `[lints] workspace = true`, so "
+        f"they do not inherit the compile-time `unsafe_code = \"forbid\"` ban "
+        f"(F-2026-096 / SDD-710): {sorted(missing)[:10]}"
+    )
+
+
+def test_the_unsafe_carveout_opts_out_of_the_forbid_ban_explicitly():
+    """The one carve-out must declare its own `[lints.rust] unsafe_code =
+    "allow"` (not silently omit `[lints]`), so its exception is auditable in the
+    manifest rather than implicit."""
+    import tomllib
+    for name in UNSAFE_ALLOWLIST:
+        manifest = CRATES / name / "Cargo.toml"
+        assert manifest.is_file(), f"carve-out crate {name} not found at {manifest}"
+        data = tomllib.loads(manifest.read_text(encoding="utf-8"))
+        rust = data.get("lints", {}).get("rust", {})
+        allow = rust.get("unsafe_code")
+        # tomllib maps a bare string; a table-with-level parses to a dict
+        level = allow.get("level") if isinstance(allow, dict) else allow
+        assert level == "allow", (
+            f"{name} is the sanctioned unsafe carve-out but its manifest does not "
+            f"declare `[lints.rust] unsafe_code = \"allow\"` (got {allow!r}) — the "
+            f"exception must be explicit + auditable, not an omitted [lints] table"
+        )
