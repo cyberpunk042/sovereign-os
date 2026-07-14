@@ -156,7 +156,9 @@
       "m060-health",
       "bashrc",
       "ms022-doctor",
-      "m060-doctor"
+      "m060-doctor",
+      "commands",
+      "completion"
     ],
     "governance": [
       "operator-rules",

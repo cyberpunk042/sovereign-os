@@ -126,16 +126,23 @@ man:  ## Regenerate the committed sovereign-osctl(1) roff artifact (requires pan
 man-check:  ## Verify the committed roff artifact matches the Markdown source
 	bash scripts/docs/build-sovereign-osctl-manpage.sh check
 
-install:  ## Install sovereign-osctl + manpage to PREFIX (default: /usr/local)
+install:  ## Install sovereign-osctl + manpages + command discovery to PREFIX (default: /usr/local)
 	@echo "Installing to PREFIX=$(PREFIX)"
 	@install -d "$(DESTDIR)$(PREFIX)/bin" \
 	            "$(DESTDIR)$(SOVEREIGN_OS_LIB)/lib" \
+	            "$(DESTDIR)$(SOVEREIGN_OS_LIB)/operator" \
+	            "$(DESTDIR)$(SOVEREIGN_OS_LIB)/share" \
 	            "$(DESTDIR)$(SOVEREIGN_OS_LIB)/hooks" \
 	            "$(DESTDIR)$(SOVEREIGN_OS_LIB)/whitelabel" \
 	            "$(DESTDIR)$(SOVEREIGN_OS_LIB)/profiles" \
 	            "$(DESTDIR)$(SOVEREIGN_OS_LIB)/inference" \
-	            "$(DESTDIR)$(PREFIX)/share/man/man1"
+	            "$(DESTDIR)$(PREFIX)/share/man/man1" \
+	            "$(DESTDIR)$(PREFIX)/share/bash-completion/completions" \
+	            "$(DESTDIR)$(PREFIX)/share/zsh/site-functions" \
+	            "$(DESTDIR)$(PREFIX)/share/fish/vendor_completions.d"
 	@install -m 755 scripts/sovereign-osctl "$(DESTDIR)$(PREFIX)/bin/sovereign-osctl"
+	@install -m 755 scripts/operator/command-discovery.py "$(DESTDIR)$(SOVEREIGN_OS_LIB)/operator/command-discovery.py"
+	@install -m 644 docs/man/sovereign-osctl-command-topics.json "$(DESTDIR)$(SOVEREIGN_OS_LIB)/share/sovereign-osctl-command-topics.json"
 	@install -m 644 scripts/build/lib/common.sh "$(DESTDIR)$(SOVEREIGN_OS_LIB)/lib/common.sh"
 	@install -m 644 scripts/build/lib/observability.sh "$(DESTDIR)$(SOVEREIGN_OS_LIB)/lib/observability.sh"
 	@install -m 644 scripts/build/lib/state.sh "$(DESTDIR)$(SOVEREIGN_OS_LIB)/lib/state.sh"
@@ -146,10 +153,14 @@ install:  ## Install sovereign-osctl + manpage to PREFIX (default: /usr/local)
 	@cp -r profiles/* "$(DESTDIR)$(SOVEREIGN_OS_LIB)/profiles/"
 	@cp -r whitelabel "$(DESTDIR)$(SOVEREIGN_OS_LIB)/"
 	@install -m 644 docs/man/sovereign-osctl*.1 "$(DESTDIR)$(PREFIX)/share/man/man1/"
+	@python3 scripts/operator/command-discovery.py --registry docs/man/sovereign-osctl-command-topics.json completion bash > "$(DESTDIR)$(PREFIX)/share/bash-completion/completions/sovereign-osctl"
+	@python3 scripts/operator/command-discovery.py --registry docs/man/sovereign-osctl-command-topics.json completion zsh > "$(DESTDIR)$(PREFIX)/share/zsh/site-functions/_sovereign-osctl"
+	@python3 scripts/operator/command-discovery.py --registry docs/man/sovereign-osctl-command-topics.json completion fish > "$(DESTDIR)$(PREFIX)/share/fish/vendor_completions.d/sovereign-osctl.fish"
 	@echo "Installed:"
 	@echo "  $(DESTDIR)$(PREFIX)/bin/sovereign-osctl"
 	@echo "  $(DESTDIR)$(SOVEREIGN_OS_LIB)/  (lib + hooks + profiles + inference + whitelabel)"
 	@echo "  $(DESTDIR)$(PREFIX)/share/man/man1/sovereign-osctl*.1"
+	@echo "  Bash/Zsh/Fish completion files under $(DESTDIR)$(PREFIX)/share/"
 	@echo "Note: this installs the shared libs + osctl. The systemd fleet (111 units)"
 	@echo "      + the script trees the units reference is installed by 'make install-units'."
 
@@ -208,9 +219,12 @@ bins:  ## Build + install the Rust binaries (CPU-tuned for PROFILE) to PREFIX/bi
 	@echo "  $(DESTDIR)$(PREFIX)/bin/sovereign-resource-control"
 	@echo "  $(DESTDIR)$(PREFIX)/bin/sovereign-gatewayd         (sovereign-gatewayd.service)"
 
-uninstall:  ## Remove sovereign-osctl + manpage + the `bins` binaries from PREFIX
+uninstall:  ## Remove sovereign-osctl + manpages + completions + the `bins` binaries from PREFIX
 	@rm -f  "$(DESTDIR)$(PREFIX)/bin/sovereign-osctl"
 	@rm -f  "$(DESTDIR)$(PREFIX)/share/man/man1/sovereign-osctl"*.1
+	@rm -f  "$(DESTDIR)$(PREFIX)/share/bash-completion/completions/sovereign-osctl"
+	@rm -f  "$(DESTDIR)$(PREFIX)/share/zsh/site-functions/_sovereign-osctl"
+	@rm -f  "$(DESTDIR)$(PREFIX)/share/fish/vendor_completions.d/sovereign-osctl.fish"
 	@rm -rf "$(DESTDIR)$(SOVEREIGN_OS_LIB)"
 	@rm -f  "$(DESTDIR)$(PREFIX)/bin/sovereign-telemetry"
 	@rm -f  "$(DESTDIR)$(PREFIX)/bin/sovereign-resource-control"
