@@ -12,6 +12,24 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — agent-runtime backend hotswap: local model ↔ hosted Claude (2026-07-14)
+
+Operator-directed (*"there should be a hotswap for [the] anthropic local ai API vs the claude ai anthropic
+API for both. and it should be clear and easy how to swap this"*) (SDD-707). Closes F-2026-116; corrects
+SDD-705/706. A double-check found the repo is Anthropic-first — `sovereign-gatewayd --http` serves an
+Anthropic `/v1/messages` API + an OpenAI shim on `:8787` through the SDD-206 safety spine — but SDD-705/706
+had pinned both agent runtimes to the raw vLLM `:8000`, bypassing the spine with no path to hosted Claude.
+Now the local backend is repointed to the `:8787` gateway, and a `backend {local|anthropic|show}` hotswap is
+added for both runtimes via a new `scripts/operator/agent-backend.py` (the single config renderer + swap:
+flips OpenClaw's `agents.defaults.model.primary` and open-computer's `OPENAI_BASE_URL` to Anthropic's
+OpenAI-compat endpoint). The hosted-Claude key is operator-supplied in a root-only
+`/etc/sovereign-os/anthropic-key.env` — **never baked** — and both runtime units `EnvironmentFile` it.
+`sovereign-osctl {openclaw,open-computer} backend …` is the clear/easy surface, parallel to
+`sovereign-osctl frontend set` (the Desktop, SDD-704). New 10-case `test_agent_backend_hotswap_contract.py`;
+grounding verified per runtime; SDD-705/706 lints updated to pin the delegation. Two upstream-behaviour items
+(OpenClaw's local `anthropic-messages` path-append; Pi's tolerance of Anthropic OpenAI-compat quirks) are
+box smoke-tests — the swap mechanism itself is verified.
+
 ### Added — open-computer: a QEMU AI-sandbox service, preconfigured to the local model (2026-07-14)
 
 Operator-directed (*"this open-computer interesting alternative … integrate in the build"*)

@@ -18,6 +18,8 @@ Group=operator
 # HOME relocated to the state root so the CLI's checkout + base image + agent overlays
 # live under a writable tree OUTSIDE /home (keeps ProtectHome=read-only viable).
 EnvironmentFile=-/etc/sovereign-os/open-computer.env
+# SDD-707: the hosted-Claude key (only used when backend=anthropic; operator-supplied, never baked).
+EnvironmentFile=-/etc/sovereign-os/anthropic-key.env
 Environment=PATH=/usr/local/bin:/usr/bin:/bin
 ExecStart=/usr/local/lib/sovereign-os/scripts/operator/open-computer-run.sh
 Restart=on-failure
