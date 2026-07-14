@@ -405,8 +405,8 @@ Run `sovereign-osctl help` for the complete version-matched grammar.
 
 ## psu-oc-mode
 
-**sovereign-osctl psu-oc-mode [arguments]**
-:   Operator command in the hardware surface. Inspect the live help and status/plan forms before use.
+**sovereign-osctl psu-oc-mode {status|recipe|recommend}**
+:   Combine the operator-declared physical OC-switch state of the be quiet! Dark Power Pro 13 1600W with the hardware overlay and return safe-ceiling recommendations for overclocking composition. The OS cannot detect the physical switch.
 
 Run `sovereign-osctl help` for the complete version-matched grammar.
 
@@ -440,8 +440,8 @@ Run `sovereign-osctl help` for the complete version-matched grammar.
 
 ## cpu-hotswap
 
-**sovereign-osctl cpu-hotswap [arguments]**
-:   Operator command in the hardware surface. Inspect the live help and status/plan forms before use.
+**sovereign-osctl cpu-hotswap {status|per-cpu|transitions|swap-hint}**
+:   Inspect per-CPU governor, EPP, and driver state; enumerate available transitions; and emit an operator-runnable swap hint. The command is the detection side of CPU mode switching.
 
 Run `sovereign-osctl help` for the complete version-matched grammar.
 
