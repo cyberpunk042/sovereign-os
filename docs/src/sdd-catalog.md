@@ -5,7 +5,7 @@
 > page drifts from `docs/sdd/`, so the published book can never freeze behind the
 > design record again (F-2026-033).
 
-Every Spec-Driven-Development design doc in `docs/sdd/` (177 total), by number.
+Every Spec-Driven-Development design doc in `docs/sdd/` (178 total), by number.
 
 - [SDD-000 — Project charter](../sdd/000-charter.md)
 - [SDD-001 — Cross-repo boundaries: contract between sovereign-os, info-hub, selfdef](../sdd/001-cross-repo-boundaries.md)
@@ -184,3 +184,4 @@ Every Spec-Driven-Development design doc in `docs/sdd/` (177 total), by number.
 - [SDD-992 — the gateway daemon survives a poisoned lock instead of cascading (F-2026-065)](../sdd/992-daemon-lock-poison-graceful.md)
 - [SDD-993 — SAIN GPU topology: RTX PRO 6000 primary (main) + RTX 5090 internal secondary (~350 W) + RTX 4090 OcuLink eGPU](../sdd/993-sain-gpu-topology-5090-primary-4090-oculink-egpu.md)
 - [SDD-994 — the inference router bounds the request body instead of crashing / over-allocating (F-2026-097)](../sdd/994-router-content-length-bounds.md)
+- [SDD-995 — the crate-inventory generator gains a `--check` freshness gate + sync lint (F-2026-098)](../sdd/995-crate-inventory-check-gate.md)

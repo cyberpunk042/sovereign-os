@@ -12,6 +12,18 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — crate-inventory generator gains a `--check` freshness gate + sync lint (2026-07-14)
+
+Operator-directed (phase-1 audit continuation, "continue") (SDD-995). Closes F-2026-098 (LOW).
+`scripts/docs/gen-crate-inventory.py` (generates `docs/architecture/crate-inventory.md`, the map of every
+workspace crate) was the one living-doc generator without a `--check` gate — its `main()` unconditionally
+wrote the page, with no lint, so a crate added/removed/re-described could silently leave the inventory
+stale. The page-building body is now factored into `render() -> str`; `main()` gains `--check` (regenerate
+in-memory → compare → exit 1 on drift, else rewrite), matching `gen-sdd-catalog.py`. New
+`tests/lint/test_crate_inventory_sync.py` (4 cases) fails CI if the committed page drifts from the tree.
+Inventory content unchanged — staleness is now a CI failure, not a silent gap. Generator + 1 lint; no
+crate/runtime/webapp change.
+
 ### Fixed — inference router bounds the request body instead of crashing / over-allocating (2026-07-14)
 
 Operator-directed (phase-1 audit continuation, "we continue") (SDD-994). Closes F-2026-097 (LOW). The
