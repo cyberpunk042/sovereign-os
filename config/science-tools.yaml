@@ -43,7 +43,8 @@ catalog:
         simulation (warp.sim: particles / cloth / rigid-body). NOT an LLM. The
         pip wheel bundles the CUDA 12 runtime, so GPU works with just the NVIDIA
         driver; runs on CPU when no CUDA GPU is present. On SAIN-01 the host
-        targets the RTX PRO 6000 (cuda:0) — the RTX 4090 is VFIO-isolated.
+        targets the RTX PRO 6000 (cuda:0). The RTX 4090 is the OcuLink eGPU
+        (host-resident by default; VFIO-isolated only when opted in, SDD-993).
 
     # ── DNA / genomics ──────────────────────────────────────────────────
     - id: evo-arc-institute

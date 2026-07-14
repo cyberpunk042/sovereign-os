@@ -2185,7 +2185,7 @@ window.SO_ASSIST = {
     {
      "selector": "#gpu-1-util",
      "title": "GPU 1 util — 4090 / Scout",
-     "content": "Utilization of the RTX 4090 (24 GB, VFIO-isolated) — the Scout tier: mid-scale Q4 work, ingestion, translation, and speculative branches. Because it is passed through to a sandbox via VFIO, its utilization is the load of contained, untrusted-ish work — read it to see how busy the sandbox is, knowing that whatever runs here cannot touch the host or the Blackwell.",
+     "content": "Utilization of the RTX 4090 (24 GB, OcuLink eGPU) — the Logic Engine / Scout tier: mid-scale Q4 work, ingestion, translation, and speculative branches (the DSpark draft target). The 4090 is host-resident by default (SDD-993); only when opted into a VFIO sandbox is its utilization the load of contained, untrusted-ish work that cannot touch the host or the Blackwell.",
      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The 4090 is deliberately walled off</div>VFIO hands this card whole into a sandbox (D-15), so the host driver never touches it. That isolation is the point: the Scout runs the work you want contained. Its 24 GB is a much tighter budget than the Blackwell’s, so it saturates VRAM sooner — the 4090-busy backpressure rule watches exactly this to shed branch width onto CPU when it fills.</div><div class=\"so-xref\"><span class=\"x\">→</span> #gpu-1-sandbox — the VFIO sandbox state<br><span class=\"x\">→</span> #rule-4090-busy — sheds work when this card is busy<br><span class=\"x\">→</span> D-15 sandboxes — the containment this util runs inside</div>"
     },
     {
