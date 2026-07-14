@@ -142,7 +142,7 @@ fail2ban + sshd config).
 Per-item runtime probe + recommended value + operator-readable
 rationale.
 Complements R299 (BIOS layer) + R171 (systemd unit layer).
-## auth-tier
+.SS auth-tier
 .TP
 \f[B]sovereign-osctl auth-tier list-tiers\f[R]
 R450 (E11.M7): operator §1g 6-tier
@@ -169,7 +169,7 @@ cockpit dashboard.
 sovereign-os NEVER mutates IPS state; grant ops are selfdefctl + MS003
 on the IPS side only.
 Verbs: snapshot / summaries (+ \[en]json).
-## quarantine-mirror
+.SS quarantine-mirror
 .TP
 \f[B]sovereign-osctl quarantine-mirror [arguments]\f[R]
 M060 D-17 (R10121-R10122): READ-ONLY consumer of the selfdef tool-
@@ -180,7 +180,7 @@ cockpit dashboard.
 sovereign-os NEVER mutates IPS state; trace/release/ forfeit are
 selfdefctl + MS003 only.
 Verbs: snapshot / summaries (+ \[en]json).
-## trust-mirror
+.SS trust-mirror
 .TP
 \f[B]sovereign-osctl trust-mirror [arguments]\f[R]
 M060 D-18 (R10123): READ-ONLY consumer of the selfdef tool trust-score
@@ -191,7 +191,7 @@ dashboard.
 sovereign-os NEVER mutates IPS state; score reset is selfdefctl + MS003
 only.
 Verbs: snapshot / bands (+ \[en]json).
-## capability-mirror
+.SS capability-mirror
 .TP
 \f[B]sovereign-osctl capability-mirror [arguments]\f[R]
 M060 D-14 (R10116-R10117): READ-ONLY consumer of the selfdef capability-
@@ -202,7 +202,7 @@ dashboard.
 sovereign-os NEVER mutates IPS state; token issue/revoke are selfdefctl
 + MS003 only.
 Verbs: snapshot / summaries (+ \[en]json).
-## audit-mirror
+.SS audit-mirror
 .TP
 \f[B]sovereign-osctl audit-mirror [arguments]\f[R]
 M060 D-16 (R10120): READ-ONLY consumer of the selfdef audit-chain mirror
@@ -213,7 +213,7 @@ dashboard.
 Chain is APPEND- ONLY by MS016 R03567 doctrine \[em] the operator has NO
 mutation surface; verify / show / export are selfdefctl + MS003 only.
 Verbs: snapshot / integrity (+ \[en]json).
-## rules-mirror
+.SS rules-mirror
 .TP
 \f[B]sovereign-osctl rules-mirror [arguments]\f[R]
 M060 D-12 (MS024 + MS038 + MS039): READ-ONLY consumer of the selfdef
@@ -223,7 +223,7 @@ D-12 networking dashboards (edge-firewall + network-edge).
 Rule installation lives in selfdefctl + nft at the IPS layer (operator
 MS003 only) \[em] this dispatch only OBSERVES the live state.
 Verbs: snapshot / summaries (+ \[en]json).
-## peace-machine
+.SS peace-machine
 .TP
 \f[B]sovereign-osctl peace-machine [arguments]\f[R]
 M060 D-20 (R10126-R10128): peace-machine health \[em]
@@ -235,7 +235,7 @@ verdict read from the sovereign-os-peace-check validator
 Read-only; the sovereign-peace-machine-api daemon serves the D-20
 cockpit dashboard from this same core.
 Verbs: snapshot / properties (+ \[en]json).
-## peace-check
+.SS peace-check
 .TP
 \f[B]sovereign-osctl peace-check [arguments]\f[R]
 SDD-132: thin wrapper so the D-20 \[lq]re-run\[rq] control can execute
@@ -245,7 +245,7 @@ Execs the standalone validator binary /usr/bin/sovereign-os-peace-check
 Read-only: the validator computes the 5-property verdict + publishes it;
 nothing mutates host state.
 Verbs/flags pass through (the control models the one-shot \[en]json).
-## auditor
+.SS auditor
 .TP
 \f[B]sovereign-osctl auditor status\f[R]
 Brief Auditor panel (tetragon /
