@@ -10,7 +10,7 @@ for dev runs), polls nvidia-smi for live per-GPU power.draw + power.limit,
 matches each device against the operator's policy by model_hint
 substring, and emits:
 
-  - Banner per GPU (`  ✓ RTX PRO 6000 (idx=0)  draw=275W  limit=600W  ✓`)
+  - Banner per GPU (`  ✓ RTX PRO 6000 Max-Q (idx=0)  draw=275W  limit=300W  ✓`)
   - Deviance lines for each mismatch with an actionable nvidia-smi fix
   - Layer B Prometheus textfile metrics:
       sovereign_os_gpu_power_limit_watts{gpu="...",idx="N"}

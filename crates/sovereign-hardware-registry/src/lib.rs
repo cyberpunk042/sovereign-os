@@ -22,7 +22,9 @@ pub const SCHEMA_VERSION: &str = "1.0.0";
 pub enum HardwareTarget {
     /// Ryzen 9 9900X — Conductor / Pulse role.
     CpuPulse,
-    /// RTX 4090 24GB — Logic Engine role (ROCm).
+    /// Logic Engine device — the RTX 5090 32GB (CUDA) per D-022 (SDD-993). The
+    /// variant name + `rocm-4090` wire token are legacy stable keys: the backing
+    /// card changed (was the RTX 4090), the discriminator did not.
     #[serde(rename = "rocm-4090")]
     Rocm4090,
     /// Blackwell PRO 6000 96GB — Oracle Core.
@@ -143,11 +145,11 @@ impl HardwareRegistry {
             },
             HardwareRecord {
                 target: HardwareTarget::Rocm4090,
-                vendor: "NVIDIA RTX 4090".into(),
-                vram_gb: 24,
+                vendor: "NVIDIA RTX 5090".into(),
+                vram_gb: 32,
                 role: SrpRole::Logic,
                 latency_tier: LatencyTier::Brisk,
-                driver: "ROCm-6.2".into(),
+                driver: "CUDA-13.0".into(),
             },
             HardwareRecord {
                 target: HardwareTarget::BlackwellOracle,
@@ -273,9 +275,9 @@ mod tests {
     }
 
     #[test]
-    fn vram_totals_24_plus_96() {
+    fn vram_totals_32_plus_96() {
         let r = HardwareRegistry::canonical();
-        assert_eq!(r.total_local_vram_gb(), 24 + 96);
+        assert_eq!(r.total_local_vram_gb(), 32 + 96);
     }
 
     #[test]

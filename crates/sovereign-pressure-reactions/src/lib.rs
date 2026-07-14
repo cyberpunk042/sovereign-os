@@ -292,7 +292,7 @@ mod tests {
         // assert the guard: an all-idle load on a present GPU fires, proving
         // the presence gate is what suppresses absent hardware.
         let reg = HardwareRegistry::canonical();
-        // canonical 4090 is present (24GB) → idle fires.
+        // canonical Logic device (RTX 5090, 32GB per D-022) is present → idle fires.
         let mut load = LoadSnapshot::empty_canonical("t"); // all util 0 = idle
         // Oracle present too; both idle → both fire. Confirms presence-gated.
         set_util(&mut load, HardwareTarget::BlackwellOracle, 0);

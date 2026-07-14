@@ -20,7 +20,7 @@ Constrained-hardware target: the operator's existing workstation. ~11 GB RAM + 8
 | Kernel | custom `-march=znver5` | substrate-default (stock Debian) |
 | Secure boot | signed (operator MOK) | shim (Microsoft chain) |
 | Inference Pulse | bitnet.cpp on CCD 0 | not applicable (no AVX-512) |
-| Inference Logic | vLLM on VFIO 4090 | llama.cpp on 8 GB GPU |
+| Inference Logic | vLLM on RTX 5090 (host-resident, D-022) | llama.cpp on 8 GB GPU |
 | Inference Oracle | vLLM + DFlash on Blackwell | not applicable |
 | Tetragon perimeter | required | optional |
 

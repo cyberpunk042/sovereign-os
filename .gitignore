@@ -14,6 +14,9 @@ __pycache__/
 *.raw
 *.sbom.json
 
+# npm cache/logs when HOME resolves to the repo (transient env noise)
+/.npm/
+
 # Live-build / debootstrap working dirs
 /cache/
 /chroot/

@@ -26,18 +26,29 @@ import threading
 
 # SRP roles + their canonical device envelope (mirrors HardwareTarget::for_role).
 ROLE_CONDUCTOR = "conductor"   # CPU — ternary
-ROLE_LOGIC = "logic"           # RTX 4090 24 GB — quantized (VFIO VM; Phase 3)
-ROLE_ORACLE = "oracle"         # Blackwell PRO 6000 96 GB — fp16
+ROLE_LOGIC = "logic"           # RTX 5090 32 GB — quantized (D-022; internal PCIEX16_2)
+ROLE_ORACLE = "oracle"         # Blackwell PRO 6000 Max-Q 96 GB — fp16
 
 _lock = threading.RLock()
 
 
 def _role_for_gpu(name: str) -> str:
-    """Map a probed GPU name to an SRP role by the M075 topology."""
+    """Map a probed GPU name to an SRP role by the M075 topology (D-022).
+
+    The Logic Engine tier runs on the RTX 5090 (internal PCIEX16_2, 32 GB).
+    The PRO 6000 Max-Q / Blackwell big-VRAM card is the Oracle. The RTX 4090
+    OcuLink eGPU is the DSpark speculative-decode draft, not a Trinity tier —
+    but if it is the only quantized device present it stands in for Logic.
+    """
     n = name.lower()
-    if "4090" in n or "3090" in n:
+    # PRO 6000 / Blackwell big-VRAM → Oracle (the deep-reasoning device).
+    if "pro 6000" in n or "blackwell" in n or "6000" in n:
+        return ROLE_ORACLE
+    # RTX 5090 → Logic (D-022). 4090/3090 stand in as the quantized tier when
+    # the 5090 is absent.
+    if "5090" in n or "4090" in n or "3090" in n:
         return ROLE_LOGIC
-    # PRO 6000 / Blackwell / anything else big → Oracle (the deep-reasoning device)
+    # Anything else big/unknown → Oracle (deep-reasoning fallback).
     return ROLE_ORACLE
 
 

@@ -324,7 +324,7 @@ The target hardware boots. Post-install hooks run in order. The
 first-login assistant walks the operator through final customization.
 
 By the end you have:
-- VFIO 4090 bound (sain-01)
+- VFIO 4090 eGPU sandbox available (sain-01, opt-in per SDD-993)
 - Network VLANs configured (target → master spec § 8 values after R158)
 - Tetragon perimeter active
 - Hardening drop-ins applied (auditd/fail2ban/unattended/sshd/pwquality per SDD-024)

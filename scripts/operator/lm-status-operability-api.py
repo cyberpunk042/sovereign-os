@@ -20,9 +20,9 @@ Sovereignty (stdlib-only, zero deps):
     fail-closed with 405.
   - same-origin webapp (no CDN, no cross-origin script per §1g UX rule)
 
-Device mapping (M075 SRP topology): CPU0 = Conductor (Pulse, bitnet.cpp),
-GPU0 = Logic Engine, GPU1 = Oracle Core (Blackwell). Model 0/1/2 = the
-per-role candidate/loaded models from the model-health snapshot.
+Device mapping (M075 SRP topology, D-022): CPU0 = Conductor (Pulse, bitnet.cpp),
+GPU0 = Oracle Core (Blackwell PRO 6000 Max-Q), GPU1 = Logic Engine (RTX 5090).
+Model 0/1/2 = the per-role candidate/loaded models from the model-health snapshot.
 
 Endpoints (the exact contract webapp/d-22-lm-status-operability/index.html
 fetches):
@@ -102,8 +102,8 @@ if _pspec is not None and _pspec.loader is not None:
 # Device slot → SRP role (M075). The panel's three device columns.
 DEVICES = [
     {"slot": "CPU0", "role": "conductor", "label": "Ryzen 9 9900X AM5 AVX-512"},
-    {"slot": "GPU0", "role": "logic", "label": "Logic Engine"},
-    {"slot": "GPU1", "role": "oracle", "label": "Oracle Core (Blackwell)"},
+    {"slot": "GPU0", "role": "oracle", "label": "Oracle Core (Blackwell PRO 6000 Max-Q)"},
+    {"slot": "GPU1", "role": "logic", "label": "Logic Engine (RTX 5090)"},
 ]
 
 
