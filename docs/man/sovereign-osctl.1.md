@@ -1,4 +1,4 @@
-% SOVEREIGN-OSCTL(1) sovereign-os 0.2.0 | sovereign-os Operator Manual
+% SOVEREIGN-OSCTL(1) sovereign-os 0.3.0 | sovereign-os Operator Manual
 % cyberpunk042 and sovereign-os contributors
 % 2026-07-14
 
@@ -22,8 +22,9 @@ installed library tree.
 The active OS profile is read from
 `/etc/sovereign-os/active-profile` and falls back to `sain-01`.
 Commands that mutate state retain their command-specific confirmation,
-privilege, and dry-run gates. Consult **sovereign-osctl help** for the
-complete version-matched syntax of every subcommand.
+privilege, and dry-run gates. **sovereign-osctl help** is a discovery
+summary, not an exhaustive grammar; use the topic pages below and the
+command-specific help implemented by delegated tools where available.
 
 # PRIMARY COMMAND FAMILIES
 
@@ -101,7 +102,9 @@ workflows, ownership, and examples are divided by operator concern:
 # COMPLETE TOP-LEVEL COMMAND INDEX
 
 This index is pinned by a lint contract to the real top-level dispatcher.
-For subcommands and options, run **sovereign-osctl help**.
+For subcommands and options, consult the owning topic page. The live
+**sovereign-osctl help** output summarizes the primary surface but does
+not currently enumerate every delegated command.
 
 **status**,  **overview**,  **doctor**,  **assistant**,  **profiles**,  **whitelabel**
 
