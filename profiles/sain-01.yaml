@@ -361,6 +361,24 @@ provisioning:
                                    # (no kill) on an edit to its own .py. Set false for a locked, non-dev image.
   firstboot: true                  # install + enable sovereign-firstboot.target + hardware hooks
   posture: installed-off           # selfdef + ghostproxy installed but NOT started on boot
+  # Oracle-tier inference model (SDD-702). The vLLM Oracle Core (Blackwell,
+  # sovereign-oracle-core.service) serves this from /mnt/vault/models;
+  # inference-model-provision.sh downloads it there at first boot and points
+  # ORACLE_MODEL at it. Operator-chosen upgrade from the repo's default
+  # Nemotron-30B-A3B (which left ~66GB of the 96GB card idle) to the researched
+  # best single-96GB fit. vLLM comes from operator-deps [pip]; serving stays
+  # operator-launched per posture. (Pulse tier = BitNet ternary, Logic = Qwen3-Coder
+  # keep their own defaults.)
+  model:
+    # Llama 4 Scout — 109B total / 17B-active MoE: ~55-60GB at Q4, fits the 96GB
+    # card with wide KV-cache headroom, MoE-fast decode, 10M context (agentic/
+    # long-context reasoning). GATED on HF: needs SOVEREIGN_OS_HF_TOKEN — the hook
+    # degrades gracefully (non-fatal, resumable post-flash) when absent. An
+    # ungated alternative that also fits: a 70B-dense at FP8, or a Qwen3 large model.
+    repo: meta-llama/Llama-4-Scout-17B-16E-Instruct
+    local_dir: /mnt/vault/models/llama-4-scout-17b-16e-instruct   # where the Oracle Core (ReadOnlyPaths=/mnt/vault/models) reads it
+    quantization: fp8              # vLLM --quantization; fp8 fits the 96GB card with wide KV headroom
+    min_free_gb: 120              # refuse the download if /mnt/vault/models has less headroom than this
   # NVIDIA ≥570 driver (SDD-701). trixie ships 550.163, which predates the
   # Blackwell GB202 (PRO 6000 Max-Q + 5090) — the baked nvidia-open-kernel-dkms
   # (550) is SUPERSEDED at first boot by the pinned open-kernel .run that

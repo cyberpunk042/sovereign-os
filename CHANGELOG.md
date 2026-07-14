@@ -12,6 +12,20 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — inference model provisioning: the vLLM Oracle tier gets a real model at first boot (2026-07-14)
+
+Operator-directed build-and-flash readiness, inference (operator upgraded the Oracle model to Llama 4 Scout)
+(SDD-702). Closes F-2026-112 (HIGH). The repo has a 3-tier inference architecture (Pulse=BitNet ternary,
+Logic=Qwen3-Coder, Oracle=vLLM on Blackwell) whose serve units read `/mnt/vault/models/<name>`, and vLLM is
+already in operator-deps `[pip]` — but nothing downloaded any model, so the inference tier was weightless. New
+first-boot `inference-model-provision.sh` hook + unit downloads the profile's `provisioning.model` (default
+upgraded to `meta-llama/Llama-4-Scout-17B-16E-Instruct` — ~60GB Q4, fits the 96GB card w/ KV headroom) to
+`/mnt/vault/models` via `huggingface-cli` (sharded, resumable, gated-token aware via `SOVEREIGN_OS_HF_TOKEN`),
+then points `ORACLE_MODEL` at it. Fully non-fatal (missing CLI/token/space/error → clean skip; never bricks
+first boot; resumable post-flash) + VM-skipped + idempotent; the unit requires the ZFS vault mount and doesn't
+time out the download. Serving stays operator-launched per the installed-off posture. New
+`test_inference_model_provision_contract.py` (6 cases). 1 hook + 1 unit + 1 lint + profile block + schema.
+
 ### Added — NVIDIA GPU bring-up: install the pinned ≥570 driver + apply the power caps at boot (2026-07-14)
 
 Operator-directed build-and-flash readiness review, GPU bring-up (driver channel: CUDA-repo-pinned `.run`

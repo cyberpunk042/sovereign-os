@@ -1,0 +1,46 @@
+[Unit]
+Description=sovereign-os inference model provisioning (one-shot, first boot)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/hooks/post-install/inference-model-provision.sh
+ConditionFirstBoot=yes
+# SAIN-01 bare-metal — skip on a VM/emulator (no GPU + no tank/models to serve).
+ConditionVirtualization=no
+After=sovereign-friction-audit.service sovereign-nvidia-driver-install.service
+# The model lands on the ZFS vault dataset — require it mounted before the pull.
+RequiresMountsFor=/mnt/vault/models
+PartOf=sovereign-firstboot.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+EnvironmentFile=-/etc/sovereign-os/active-profile.env
+# Downloads the profile's provisioning.model to tank/models. Best-effort +
+# resumable: a gated repo needs SOVEREIGN_OS_HF_TOKEN and the huggingface CLI
+# (operator-deps [pip]); when either is absent it skips cleanly (never bricks
+# first boot). Re-run later with `systemctl start sovereign-inference-model-provision`.
+ExecStart=/opt/sovereign-os/scripts/hooks/post-install/inference-model-provision.sh
+StandardOutput=journal
+StandardError=journal
+# A multi-GB model pull can take a long time — do not time it out.
+TimeoutStartSec=0
+# Keep the huggingface cache inside the writable model tree (RWP below).
+Environment=HF_HOME=/mnt/vault/models/.hf-cache
+# Downloads weights into /mnt/vault/models; sets ORACLE_MODEL in /etc/sovereign-os;
+# reads the profile; talks to huggingface.co. ProtectSystem=strict + a narrow RWP.
+# R171 defense-in-depth (Layer 1 lint enforced)
+ProtectSystem=strict
+ProtectHome=true
+ProtectControlGroups=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectClock=true
+ProtectHostname=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
+ReadWritePaths=/mnt/vault/models /etc/sovereign-os /var/lib/node_exporter/textfile_collector
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=sovereign-firstboot.target

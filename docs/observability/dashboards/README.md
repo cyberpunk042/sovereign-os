@@ -142,6 +142,8 @@ panel queries lock to them.
 - `sovereign_os_post_install_nvidia_driver_install_total{profile,result}` — pinned ≥570 driver install (SDD-701)
 - `sovereign_os_post_install_nvidia_driver_version_info{profile,version,module_type}` — installed driver version/module-type
 - `sovereign_os_post_install_nvidia_power_limit_total{profile,result}` — per-card power caps applied (SDD-701)
+- `sovereign_os_post_install_model_provision_total{profile,result}` — inference model download outcome (SDD-702)
+- `sovereign_os_post_install_model_info{profile,repo}` — provisioned model repo id
 - `sovereign_os_post_install_vfio_bind_total{profile,result}`
 - `sovereign_os_post_install_arc_clamp_total{profile,result}`
 - `sovereign_os_post_install_arc_max_bytes{profile}` — applied ZFS ARC ceiling
