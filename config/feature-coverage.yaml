@@ -117,6 +117,8 @@ coverage:
 cli_only:
   - {verb: assistant, rationale: "first-login interactive guide (modal onboarding flow), not a persistent dashboard surface"}
   - {verb: bashrc, rationale: "shell integration installer (aliases + completion) — a dotfile action, no dashboard"}
+  - {verb: commands, rationale: "machine-readable CLI discovery inventory generated from the manual ownership registry; no runtime dashboard state to render"}
+  - {verb: completion, rationale: "Bash/Zsh/Fish integration emitted from the command registry; a shell installation artifact, not a dashboard"}
   - {verb: repl, rationale: "interactive read-eval-print shell — a terminal, not a dashboard"}
   - {verb: workflow, rationale: "multi-agent workflow script runner — an execution engine, not a viewable surface"}
   - {verb: version, rationale: "prints the CLI version string; nothing to render"}

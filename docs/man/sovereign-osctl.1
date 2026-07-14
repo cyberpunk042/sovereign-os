@@ -24,7 +24,9 @@ sovereign-osctl - lifecycle management CLI for sovereign-os
 \f[B]sovereign-osctl\f[R] \f[I]command\f[R] [\f[I]subcommand\f[R]]
 [\f[I]options\f[R]]
 .PP
-\f[B]sovereign-osctl\f[R] {\f[B]help\f[R] | \f[B]version\f[R]}
+\f[B]sovereign-osctl\f[R] {\f[B]help\f[R] [\f[I]command-or-topic\f[R]] |
+\f[B]commands\f[R] [\f[B]\[en]json\f[R]] | \f[B]completion\f[R]
+{\f[B]bash\f[R] | \f[B]zsh\f[R] | \f[B]fish\f[R]} | \f[B]version\f[R]}
 .SH DESCRIPTION
 .PP
 \f[B]sovereign-osctl\f[R] is the single operator entry point for
@@ -38,9 +40,13 @@ The active OS profile is read from
 \f[V]sain-01\f[R].
 Commands that mutate state retain their command-specific confirmation,
 privilege, and dry-run gates.
-\f[B]sovereign-osctl help\f[R] is a discovery summary, not an exhaustive
-grammar; use the topic pages below and the command-specific help
-implemented by delegated tools where available.
+Bare \f[B]sovereign-osctl help\f[R] is a discovery summary;
+\f[B]sovereign-osctl help\f[R] \f[I]command-or-topic\f[R] opens the
+owning topic page.
+\f[B]sovereign-osctl commands\f[R] is the complete registry-backed
+inventory.
+Use the command-specific help implemented by delegated tools where
+available.
 .SH PRIMARY COMMAND FAMILIES
 .TP
 \f[B]status\f[R] [\f[B]\[en]json\f[R]], \f[B]overview\f[R], \f[B]doctor\f[R]
@@ -86,6 +92,10 @@ Begin the interactive, confirmation-gated decommission flow.
 \f[B]ux-design-audit\f[R], \f[B]anti-minimization-audit\f[R],
 \f[B]architecture-qa\f[R], \f[B]coverage\f[R] : Inspect the
 project\[cq]s governance and operator-surface contracts.
+.TP
+\f[B]commands\f[R], \f[B]help\f[R], \f[B]completion\f[R], \f[B]version\f[R]
+Discover the complete command surface, route to owning manuals, emit
+Bash/Zsh/Fish completion, and inspect the installed CLI version.
 .SH MANUAL SUITE
 .PP
 The main page explains the lifecycle and safety model.
@@ -123,8 +133,9 @@ configuration snapshots, and decommissioning.
 This index is pinned by a lint contract to the real top-level
 dispatcher.
 For subcommands and options, consult the owning topic page.
-The live \f[B]sovereign-osctl help\f[R] output summarizes the primary
-surface but does not currently enumerate every delegated command.
+The live \f[B]sovereign-osctl commands\f[R] output is generated from the
+same ownership registry.
+Bare \f[B]sovereign-osctl help\f[R] remains a concise summary.
 .PP
 \f[B]status\f[R], \f[B]overview\f[R], \f[B]doctor\f[R],
 \f[B]assistant\f[R], \f[B]profiles\f[R], \f[B]whitelabel\f[R]
@@ -234,6 +245,9 @@ surface but does not currently enumerate every delegated command.
 .PP
 \f[B]global-history\f[R], \f[B]bashrc\f[R], \f[B]ms022-doctor\f[R],
 \f[B]m060-doctor\f[R]
+.PP
+\f[B]commands\f[R], \f[B]completion\f[R], \f[B]help\f[R],
+\f[B]version\f[R]
 .SH ENVIRONMENT
 .TP
 \f[B]SOVEREIGN_OS_LIB\f[R]

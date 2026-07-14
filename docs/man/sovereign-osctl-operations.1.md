@@ -14,7 +14,7 @@ sovereign-osctl-operations - operations, observability, and recovery
 
 System status, diagnostics, maintenance, metrics, alerts, journals, histories, snapshots, notifications, dashboards, and daily operator workflows.
 
-This page owns 37 top-level commands. Ownership is defined in
+This page owns 39 top-level commands. Ownership is defined in
 `docs/man/sovereign-osctl-command-topics.json` and checked against the
 real dispatcher. The synopsis and descriptions are grounded in the
 command handler or delegated-script contract at this build revision.
@@ -44,6 +44,9 @@ operator use.
     sovereign-osctl alerts --json
     sovereign-osctl journal errors
     sovereign-osctl maintenance list
+    sovereign-osctl commands --json
+    sovereign-osctl help thermals
+    sovereign-osctl completion zsh > ~/.zfunc/_sovereign-osctl
 
 # COMMAND REFERENCE
 
@@ -66,6 +69,20 @@ operator use.
 
 **sovereign-osctl assistant [<sub>]**
 :   First-login assistant: full | status | reset | list
+
+## commands
+
+**sovereign-osctl commands [--json]**
+:   List every registry-owned top-level command, grouped by manual topic. Use
+    `--json` for a stable machine-readable inventory or `--format words` for
+    completion integrations.
+
+## completion
+
+**sovereign-osctl completion {bash|zsh|fish}**
+:   Emit shell completion generated from the same command-topic registry used
+    by **commands** and contextual **help**. The installed completion files are
+    generated from this interface during `make install`.
 
 ## maintenance
 

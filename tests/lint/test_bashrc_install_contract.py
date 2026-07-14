@@ -292,18 +292,10 @@ def test_completion_uses_complete_builtin():
 
 
 def test_completion_covers_top_level_subcommands():
-    """Tab-completion MUST enumerate the operator-discoverable
-    top-level subcommands (≥10)."""
+    """Tab-completion MUST consume the canonical command registry."""
     body = _read(BASHRC_SH)
-    # The completion script has an opts= line with subcommand names
-    expected_subcommands = [
-        "status", "doctor", "profiles", "whitelabel", "models",
-        "trinity", "bashrc", "guide", "morning-brief",
-    ]
-    for cmd in expected_subcommands:
-        assert cmd in body, (
-            f"completion missing subcommand {cmd!r}"
-        )
+    assert "sovereign-osctl commands --format words" in body
+    assert 'opts="status overview doctor' not in body
 
 
 # --- DRY_RUN safety ---

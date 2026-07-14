@@ -29,7 +29,7 @@ System status, diagnostics, maintenance, metrics, alerts, journals,
 histories, snapshots, notifications, dashboards, and daily operator
 workflows.
 .PP
-This page owns 37 top-level commands.
+This page owns 39 top-level commands.
 Ownership is defined in
 \f[V]docs/man/sovereign-osctl-command-topics.json\f[R] and checked
 against the real dispatcher.
@@ -67,6 +67,9 @@ sovereign-osctl doctor
 sovereign-osctl alerts --json
 sovereign-osctl journal errors
 sovereign-osctl maintenance list
+sovereign-osctl commands --json
+sovereign-osctl help thermals
+sovereign-osctl completion zsh > \[ti]/.zfunc/_sovereign-osctl
 \f[R]
 .fi
 .SH COMMAND REFERENCE
@@ -88,6 +91,19 @@ Sanity checks across the system
 .TP
 \f[B]sovereign-osctl assistant []\f[R]
 First-login assistant: full | status | reset | list
+.SS commands
+.TP
+\f[B]sovereign-osctl commands [\[en]json]\f[R]
+List every registry-owned top-level command, grouped by manual topic.
+Use \f[V]--json\f[R] for a stable machine-readable inventory or
+\f[V]--format words\f[R] for completion integrations.
+.SS completion
+.TP
+\f[B]sovereign-osctl completion {bash|zsh|fish}\f[R]
+Emit shell completion generated from the same command-topic registry
+used by \f[B]commands\f[R] and contextual \f[B]help\f[R].
+The installed completion files are generated from this interface during
+\f[V]make install\f[R].
 .SS maintenance
 .TP
 \f[B]sovereign-osctl maintenance list\f[R]

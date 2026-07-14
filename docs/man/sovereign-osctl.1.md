@@ -10,7 +10,7 @@ sovereign-osctl - lifecycle management CLI for sovereign-os
 
 **sovereign-osctl** *command* [*subcommand*] [*options*]
 
-**sovereign-osctl** {**help** | **version**}
+**sovereign-osctl** {**help** [*command-or-topic*] | **commands** [**--json**] | **completion** {**bash** | **zsh** | **fish**} | **version**}
 
 # DESCRIPTION
 
@@ -22,9 +22,10 @@ installed library tree.
 The active OS profile is read from
 `/etc/sovereign-os/active-profile` and falls back to `sain-01`.
 Commands that mutate state retain their command-specific confirmation,
-privilege, and dry-run gates. **sovereign-osctl help** is a discovery
-summary, not an exhaustive grammar; use the topic pages below and the
-command-specific help implemented by delegated tools where available.
+privilege, and dry-run gates. Bare **sovereign-osctl help** is a discovery
+summary; **sovereign-osctl help** *command-or-topic* opens the owning topic
+page. **sovereign-osctl commands** is the complete registry-backed inventory.
+Use the command-specific help implemented by delegated tools where available.
 
 # PRIMARY COMMAND FAMILIES
 
@@ -70,6 +71,10 @@ command-specific help implemented by delegated tools where available.
 **anti-minimization-audit**, **architecture-qa**, **coverage**
 :   Inspect the project's governance and operator-surface contracts.
 
+**commands**, **help**, **completion**, **version**
+:   Discover the complete command surface, route to owning manuals, emit
+    Bash/Zsh/Fish completion, and inspect the installed CLI version.
+
 # MANUAL SUITE
 
 The main page explains the lifecycle and safety model. Detailed syntax,
@@ -103,8 +108,8 @@ workflows, ownership, and examples are divided by operator concern:
 
 This index is pinned by a lint contract to the real top-level dispatcher.
 For subcommands and options, consult the owning topic page. The live
-**sovereign-osctl help** output summarizes the primary surface but does
-not currently enumerate every delegated command.
+**sovereign-osctl commands** output is generated from the same ownership
+registry. Bare **sovereign-osctl help** remains a concise summary.
 
 **status**,  **overview**,  **doctor**,  **assistant**,  **profiles**,  **whitelabel**
 
@@ -167,6 +172,8 @@ not currently enumerate every delegated command.
 **surface-map**,  **weaver**,  **auditor**,  **master-dashboard**,  **edge-firewall**,  **network-edge**
 
 **global-history**,  **bashrc**,  **ms022-doctor**,  **m060-doctor**
+
+**commands**,  **completion**,  **help**,  **version**
 
 # ENVIRONMENT
 

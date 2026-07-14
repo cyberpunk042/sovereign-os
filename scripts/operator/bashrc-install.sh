@@ -124,16 +124,9 @@ _sovereign_osctl_complete() {
   cur="\${COMP_WORDS[COMP_CWORD]}"
   prev="\${COMP_WORDS[COMP_CWORD-1]}"
 
-  # Top-level subcommands (derived from osctl dispatcher)
+  # Top-level subcommands (registry-backed; never hand-maintained here)
   if [[ \${COMP_CWORD} -eq 1 ]]; then
-    opts="status overview doctor assistant profiles whitelabel \\
-          perimeter models audit maintenance metrics journal \\
-          history thermals alerts env init trinity wizard \\
-          bootstrap secure-boot install hooks decommission \\
-          inference version help bashrc autohealth dashboard \\
-          guide morning-brief next-action coverage doctrine-status \\
-          architecture-qa repl layers search verbatim-render \\
-          quarterly-review ccd-pinning state-fabric network-topology"
+    opts="\$(sovereign-osctl commands --format words 2>/dev/null)"
     COMPREPLY=( \$(compgen -W "\${opts}" -- "\${cur}") )
     return 0
   fi

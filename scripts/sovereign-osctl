@@ -70,6 +70,34 @@ unset _lib_candidates _cand
 
 # ------------------------------ help -----------------------------------------
 
+_command_discovery_helper() {
+  local candidate
+  for candidate in \
+      "${__REPO_ROOT}/scripts/operator/command-discovery.py" \
+      "${__REPO_ROOT}/operator/command-discovery.py"; do
+    if [ -f "${candidate}" ]; then
+      printf '%s\n' "${candidate}"
+      return 0
+    fi
+  done
+  log_error "command discovery helper not found under ${__REPO_ROOT}"
+  return 1
+}
+
+_run_command_discovery() {
+  local helper
+  helper="$(_command_discovery_helper)" || return
+  python3 "${helper}" "$@"
+}
+
+_contextual_help() {
+  if [ "$#" -eq 0 ]; then
+    cmd_help
+  else
+    _run_command_discovery help "$@"
+  fi
+}
+
 cmd_help() {
   cat <<'EOF'
 sovereign-osctl — sovereign-os lifecycle management
@@ -82,6 +110,9 @@ COMMANDS:
   status [--json]              System state overview (--json for fleet aggregation)
   assistant [<sub>]            First-login assistant: full | status | reset | list
   doctor                       Sanity checks across the system
+  commands [--json]            Complete registry-backed top-level command inventory
+  help <command|topic>         Open the owning manual page
+  completion {bash|zsh|fish}   Emit registry-backed shell completion
 
   profiles list                List declared profiles
   profiles show <id>           Print profile YAML (raw, no mixin resolution)
@@ -9369,8 +9400,10 @@ AUDITOR_HELP
     # See scripts/diagnostics/observability-status.py --help.
     "${__REPO_ROOT}/scripts/diagnostics/observability-status.py" "$@"
     ;;
+  commands) _run_command_discovery commands "$@" ;;
+  completion) _run_command_discovery completion "$@" ;;
   version|--version|-V) cmd_version "$@" ;;
-  help|--help|-h|"") cmd_help ;;
+  help|--help|-h|"") _contextual_help "$@" ;;
   *)
     log_error "unknown command: ${cmd}"
     cmd_help
