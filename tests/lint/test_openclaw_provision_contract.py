@@ -97,8 +97,9 @@ def test_hook_local_endpoint_and_non_fatal():
     body = HOOK.read_text(encoding="utf-8")
     assert "set -euo pipefail" in body, "hook missing bash strict mode"
     assert "npm install -g openclaw" in body, "hook does not install openclaw"
-    assert "openclaw.json" in body, "hook does not render the openclaw config"
-    assert 'api: "openai-completions"' in body, "hook config not an OpenAI-compatible provider"
+    # SDD-707: config rendering moved to agent-backend.py (the single renderer + hotswap);
+    # the hook now delegates. The provider/config shape is pinned by the SDD-707 contract.
+    assert "agent-backend.py" in body, "hook does not delegate config rendering to agent-backend.py"
     assert "provisioning.openclaw.endpoint" in body, "hook does not read the profile endpoint"
     # Non-fatal discipline: a first-boot install that can't reach the network must skip,
     # never brick. Each skip path exits 0.

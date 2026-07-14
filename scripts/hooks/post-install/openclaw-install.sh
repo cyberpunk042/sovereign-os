@@ -39,13 +39,19 @@ emit_oc_metric() {
     "profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"$1\""
 }
 
+backend="$(profile_field provisioning.openclaw.backend)"
 endpoint="$(profile_field provisioning.openclaw.endpoint)"
 model_id="$(profile_field provisioning.openclaw.model_id)"
+anthropic_endpoint="$(profile_field provisioning.openclaw.anthropic_endpoint)"
+anthropic_model="$(profile_field provisioning.openclaw.anthropic_model)"
 gw_port="$(profile_field provisioning.openclaw.gateway_port)"
 node_major="$(profile_field provisioning.openclaw.node_major)"
 operator="$(profile_field provisioning.operator.username)"
-: "${endpoint:=http://127.0.0.1:8000/v1}"
+: "${backend:=local}"
+: "${endpoint:=http://127.0.0.1:8787}"            # SDD-707: LOCAL = the safety-spine gateway (Anthropic Messages), not raw vLLM
 : "${model_id:=local-oracle}"
+: "${anthropic_endpoint:=https://api.anthropic.com}"
+: "${anthropic_model:=claude-sonnet-4-6}"
 : "${gw_port:=18789}"
 : "${node_major:=24}"
 : "${operator:=operator}"
@@ -107,45 +113,32 @@ if ! command -v openclaw >/dev/null 2>&1; then
 fi
 log_info "openclaw present: $(command -v openclaw) ($(openclaw --version 2>/dev/null || echo '?'))"
 
-# ---- render the preconfig → the local endpoint (installed-off) ----
+# ---- render the preconfig via the single backend renderer (SDD-707) ----
+# agent-backend.py owns openclaw.json (two coexisting providers: local safety-spine
+# gateway + hosted Claude) and the local↔anthropic hotswap. No external channels are
+# baked; the cloud key is operator-supplied (never here).
 install -d -m 750 "${OC_CFG_DIR}"
-# openclaw.json (JSON5) — a custom vLLM provider at the local endpoint + a wildcard
-# allowlist so /v1/models discovery advertises whatever the router is serving. A
-# loopback baseUrl accepts the non-secret placeholder key (VLLM_API_KEY). models.mode
-# 'merge' keeps any hosted fallbacks if the operator later adds a real provider.
-cat > "${OC_CFG_DIR}/openclaw.json" <<JSON5
-{
-  // sovereign-os SDD-705 preconfig — points OpenClaw at the LOCAL vLLM endpoint.
-  // No external channels are configured (operator adds those). Hot-reloaded by the gateway.
-  models: {
-    mode: "merge",
-    providers: {
-      vllm: {
-        baseUrl: "${endpoint}",
-        apiKey: "\${VLLM_API_KEY}",
-        api: "openai-completions",
-        timeoutSeconds: 300,
-        models: [
-          { id: "${model_id}", name: "Local vLLM (sovereign)", contextWindow: 128000, maxTokens: 8192,
-            cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } },
-        ],
-      },
-    },
-  },
-  agents: { defaults: { models: { "vllm/*": {} } } },
-  gateway: { mode: "local", bind: "loopback", port: ${gw_port} },
-}
-JSON5
+_AB="${__REPO_ROOT}/scripts/operator/agent-backend.py"
+if [ -f "${_AB}" ]; then
+  SOVEREIGN_OS_OPENCLAW_HOME="${OC_HOME}" python3 "${_AB}" openclaw provision \
+    --backend "${backend}" \
+    --local-endpoint "${endpoint}" --local-model "${model_id}" \
+    --anthropic-endpoint "${anthropic_endpoint}" --anthropic-model "${anthropic_model}" \
+    --gateway-port "${gw_port}" >/dev/null \
+    && log_info "openclaw config rendered (backend=${backend}, local=${endpoint}, cloud=${anthropic_endpoint})" \
+    || log_warn "agent-backend render hiccup (non-fatal)"
+else
+  log_warn "agent-backend.py not staged — openclaw config not rendered"
+fi
 
-# The gateway process environment (the runtime unit EnvironmentFiles this). A loopback
-# endpoint accepts a non-secret marker; the operator overrides it if vLLM enforces auth.
+# The gateway process environment (the runtime unit EnvironmentFiles this + the separate
+# anthropic-key.env). HOME points the daemon at its state dir.
 if [ ! -s "${ENV_FILE}" ]; then
   install -d -m 755 /etc/sovereign-os
   cat > "${ENV_FILE}" <<ENV
-# /etc/sovereign-os/openclaw.env — OpenClaw gateway env (SDD-705). VLLM_API_KEY is a
-# non-secret loopback marker; set a real key here if the vLLM endpoint enforces auth.
+# /etc/sovereign-os/openclaw.env — OpenClaw gateway env (SDD-705/707). The hosted-Claude
+# key lives in the root-only /etc/sovereign-os/anthropic-key.env (operator-supplied).
 HOME=${OC_HOME}
-VLLM_API_KEY=vllm-local
 ENV
 fi
 

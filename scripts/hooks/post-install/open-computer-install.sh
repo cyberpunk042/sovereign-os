@@ -48,8 +48,14 @@ repo="$(profile_field provisioning.open_computer.repo)"
 base_url="$(profile_field provisioning.open_computer.base_image_url)"
 node_major="$(profile_field provisioning.open_computer.node_major)"
 operator="$(profile_field provisioning.operator.username)"
-: "${endpoint:=http://127.0.0.1:8000/v1}"
+backend="$(profile_field provisioning.open_computer.backend)"
+anthropic_endpoint="$(profile_field provisioning.open_computer.anthropic_endpoint)"
+anthropic_model="$(profile_field provisioning.open_computer.anthropic_model)"
+: "${backend:=local}"
+: "${endpoint:=http://127.0.0.1:8787/v1}"          # SDD-707: LOCAL = the gateway OpenAI-compat shim, not raw vLLM
 : "${model_id:=local-oracle}"
+: "${anthropic_endpoint:=https://api.anthropic.com/v1/}"
+: "${anthropic_model:=claude-sonnet-4-6}"
 : "${web_port:=9800}"
 : "${repo:=https://github.com/Mintplex-Labs/anything-llm}"
 : "${node_major:=22}"
@@ -138,21 +144,25 @@ if [ ! -s "${OC_BASE}/base.qcow2" ] && [ -n "${base_url}" ]; then
   fi
 fi
 
-# ---- (5) LLM preconfig (env the interface-service reads) ----
-# 127.0.0.1 on the HOST is auto-rewritten to the QEMU user-net gateway 10.0.2.2 for the
-# guest by open-computer, so the host-local vLLM endpoint is reachable from the VM.
+# ---- (5) LLM preconfig via the single backend renderer (SDD-707) ----
+# agent-backend.py owns open-computer.env (OPENAI_* per active backend) + the
+# local↔anthropic hotswap. 127.0.0.1 on the HOST is auto-rewritten to the QEMU user-net
+# gateway 10.0.2.2 for the guest, so the host-local endpoint is reachable from the VM.
+# The cloud key is operator-supplied (anthropic-key.env), never baked here.
 install -d -m 755 /etc/sovereign-os
-cat > "${ENV_FILE}" <<ENV
-# /etc/sovereign-os/open-computer.env — open-computer LLM backend (SDD-706). Points at
-# the LOCAL vLLM endpoint; OPENAI_API_KEY may stay empty for a keyless local server.
-HOME=${OC_ROOT}
-OPENAI_BASE_URL=${endpoint}
-OPENAI_MODEL=${model_id}
-OPENAI_API_KEY=
-PORT=${web_port}
-OPEN_COMPUTER_BASE_DIR=${OC_BASE}
-OPEN_COMPUTER_AGENTS_DIR=${OC_AGENTS}
-ENV
+_AB="${__REPO_ROOT}/scripts/operator/agent-backend.py"
+if [ -f "${_AB}" ]; then
+  SOVEREIGN_OS_OPEN_COMPUTER_ROOT="${OC_ROOT}" SOVEREIGN_OS_OPEN_COMPUTER_ENV="${ENV_FILE}" \
+    python3 "${_AB}" open-computer provision \
+      --backend "${backend}" \
+      --local-endpoint "${endpoint}" --local-model "${model_id}" \
+      --anthropic-endpoint "${anthropic_endpoint}" --anthropic-model "${anthropic_model}" \
+      --web-port "${web_port}" >/dev/null \
+    && log_info "open-computer env rendered (backend=${backend}, local=${endpoint}, cloud=${anthropic_endpoint})" \
+    || log_warn "agent-backend render hiccup (non-fatal)"
+else
+  log_warn "agent-backend.py not staged — open-computer.env not rendered"
+fi
 
 chown -R "${operator}:${operator}" "${OC_ROOT}" 2>/dev/null || true
 

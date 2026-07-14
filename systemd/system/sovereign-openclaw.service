@@ -17,6 +17,8 @@ Group=operator
 # tree OUTSIDE /home. That lets the daemon keep ProtectHome=read-only (it never writes
 # real /home or /root) while still persisting its config across restarts (not tmpfs).
 EnvironmentFile=-/etc/sovereign-os/openclaw.env
+# SDD-707: the hosted-Claude key (only used when backend=anthropic; operator-supplied, never baked).
+EnvironmentFile=-/etc/sovereign-os/anthropic-key.env
 Environment=PATH=/usr/local/bin:/usr/bin:/bin
 StateDirectory=sovereign-os/openclaw
 # `openclaw gateway` reads the bind/port from ~/.openclaw/openclaw.json (rendered by

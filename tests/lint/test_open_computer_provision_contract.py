@@ -89,7 +89,9 @@ def test_hook_qemu_baseimage_localendpoint_nonfatal():
     body = HOOK.read_text(encoding="utf-8")
     assert "set -euo pipefail" in body, "hook missing bash strict mode"
     assert "qemu-system-x86" in body, "hook does not install QEMU"
-    assert "OPENAI_BASE_URL" in body, "hook does not preconfigure the LLM backend"
+    # SDD-707: LLM env rendering moved to agent-backend.py (single renderer + hotswap);
+    # the hook delegates. The OPENAI_* shape is pinned by the SDD-707 contract.
+    assert "agent-backend.py" in body, "hook does not delegate LLM preconfig to agent-backend.py"
     assert "provisioning.open_computer.endpoint" in body, "hook does not read the profile endpoint"
     # Resumable base-image pull (upstream's fetch script is NOT resumable — we use curl -C -).
     assert "curl -fL -C -" in body, "hook base-image download is not resumable (curl -C -)"

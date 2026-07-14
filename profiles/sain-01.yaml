@@ -393,8 +393,11 @@ provisioning:
   # Oracle endpoint so agents run on-box against the sovereign model — no external
   # provider, no baked channel credentials. Installed-off: `sovereign-osctl openclaw on`.
   openclaw:
-    endpoint: http://127.0.0.1:8000/v1        # the local OpenAI-compatible vLLM router/Oracle endpoint
-    model_id: local-oracle                     # id advertised to OpenClaw; maps to the served Oracle model
+    backend: local                             # SDD-707: default backend; swap live with `sovereign-osctl openclaw backend {local|anthropic}`
+    endpoint: http://127.0.0.1:8787            # LOCAL Anthropic-Messages endpoint = the on-box safety-spine gateway (sovereign-gatewayd --http)
+    model_id: local-oracle                     # local model id (served by the gateway over the direct stack)
+    anthropic_endpoint: https://api.anthropic.com   # hosted Claude — used when backend=anthropic (real ANTHROPIC_API_KEY, operator-supplied, never baked)
+    anthropic_model: claude-sonnet-4-6         # Claude model on the anthropic backend (operator can set any current Claude model)
     gateway_port: 18789                        # OpenClaw gateway bind (loopback)
     node_major: 24                             # NodeSource major (OpenClaw engines: >=24.15 <25 recommended, or >=22.22.3 <23); 24.x satisfies the recommended band
   # open-computer preconfig (SDD-706). The QEMU AI-sandbox runs on-box; its LLM backend
@@ -402,8 +405,11 @@ provisioning:
   # 10.0.2.2 for the guest). Installed-off: `sovereign-osctl open-computer on`. Heavy
   # (~3GB base image + QEMU/KVM); provisioned at first boot, non-fatal + idempotent.
   open_computer:
-    endpoint: http://127.0.0.1:8000/v1         # the local vLLM router/Oracle endpoint (host side)
-    model_id: local-oracle                     # OPENAI_MODEL advertised to open-computer
+    backend: local                             # SDD-707: default backend; swap live with `sovereign-osctl open-computer backend {local|anthropic}`
+    endpoint: http://127.0.0.1:8787/v1         # LOCAL OpenAI-compat endpoint = the gateway shim (host side; 127.0.0.1 auto-rewritten to 10.0.2.2 in-guest)
+    model_id: local-oracle                     # OPENAI_MODEL advertised to open-computer (local)
+    anthropic_endpoint: https://api.anthropic.com/v1/   # hosted Claude OpenAI-compat endpoint — used when backend=anthropic (real key, operator-supplied, never baked)
+    anthropic_model: claude-sonnet-4-6         # Claude model on the anthropic backend (operator can set any current Claude model)
     web_port: 9800                             # open-computer agent UI/control base port (kiosk target)
     repo: https://github.com/Mintplex-Labs/anything-llm   # sparse-cloned for the open-computer/ subdir
     base_image_url: https://cdn.anythingllm.com/support/open-computer/base-images/06_08_2026/x64-base-image.tar

@@ -436,8 +436,15 @@ properties:
         type: object
         additionalProperties: false
         properties:
-          endpoint: { type: string }             # local OpenAI-compatible base URL (e.g. http://127.0.0.1:8000/v1)
-          model_id: { type: string }             # model id to advertise to OpenClaw (matches the served model)
+          # SDD-707: two coexisting providers + a hotswap. `backend` picks which is
+          # active at provision time; `sovereign-osctl openclaw backend {local|anthropic}`
+          # flips it live (changes agents.defaults.model.primary). The cloud key is NEVER
+          # baked — the operator supplies ANTHROPIC_API_KEY at runtime.
+          backend: { type: string, enum: [local, anthropic] }   # active model backend (default local)
+          endpoint: { type: string }             # LOCAL Anthropic-Messages base URL — the on-box safety-spine gateway (http://127.0.0.1:8787)
+          model_id: { type: string }             # local model id advertised to OpenClaw (served by the gateway)
+          anthropic_endpoint: { type: string }   # hosted Claude base URL (https://api.anthropic.com)
+          anthropic_model: { type: string }      # Claude model id used on the anthropic backend
           gateway_port: { type: integer, minimum: 1, maximum: 65535 }   # OpenClaw gateway bind port (default 18789)
           node_major: { type: integer, minimum: 18 }   # NodeSource major to install if the baked node is too old for OpenClaw
       # open-computer preconfiguration (SDD-706). When bake.open_computer is set, a
@@ -450,8 +457,14 @@ properties:
         type: object
         additionalProperties: false
         properties:
-          endpoint: { type: string }             # local OpenAI-compatible base URL (host 127.0.0.1 — auto-rewritten to 10.0.2.2 in-guest)
-          model_id: { type: string }             # OPENAI_MODEL advertised to open-computer
+          # SDD-707: open-computer is OpenAI-format only, so the hotswap flips OPENAI_BASE_URL
+          # between the LOCAL gateway shim and Anthropic's OpenAI-compat endpoint.
+          # `sovereign-osctl open-computer backend {local|anthropic}` does it live. Cloud key never baked.
+          backend: { type: string, enum: [local, anthropic] }   # active model backend (default local)
+          endpoint: { type: string }             # LOCAL OpenAI-compat base URL — the gateway shim (http://127.0.0.1:8787/v1; 127.0.0.1 auto-rewritten to 10.0.2.2 in-guest)
+          model_id: { type: string }             # OPENAI_MODEL advertised to open-computer (local)
+          anthropic_endpoint: { type: string }   # hosted Claude OpenAI-compat base URL (https://api.anthropic.com/v1/)
+          anthropic_model: { type: string }      # Claude model id used on the anthropic backend
           web_port: { type: integer, minimum: 1, maximum: 65535 }   # agent UI/control base port (open-computer default 9800)
           repo: { type: string }                 # upstream git repo to clone (sparse: the open-computer subdir)
           base_image_url: { type: string }        # base.qcow2 tar CDN url (updatable; sha256-verified)

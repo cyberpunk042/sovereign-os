@@ -126,11 +126,15 @@ COMMANDS:
   openclaw status              SDD-705 OpenClaw gateway daemon: installed · enabled · active · config
   openclaw on | off            Enable+start / stop+disable the OpenClaw daemon (installed-off; root)
   openclaw install             Run the first-boot installer now (Node + npm + preconfig → local endpoint; root)
+  openclaw backend {local|anthropic|show} [--key K]
+                               SDD-707 hotswap: local safety-spine gateway ↔ hosted Claude (root)
   openclaw logs [N] | doctor   Tail the gateway journal / check node+openclaw+config health
 
   open-computer status         SDD-706 open-computer QEMU AI-sandbox: installed · active · /dev/kvm · UI port
   open-computer on | off       Enable+start / stop+disable the sandbox VM (installed-off; root)
   open-computer install        Run the first-boot installer now (QEMU/KVM + Node + build + ~3GB base image; root)
+  open-computer backend {local|anthropic|show} [--key K]
+                               SDD-707 hotswap: local gateway shim ↔ hosted Claude (root)
   open-computer url | logs | doctor   Print the UI URL / tail the journal / check qemu+kvm+node+base health
 
   models docs [--check|--stdout]  Regenerate docs/src/model-catalog.md (R206, SDD-028 pattern)
@@ -2108,10 +2112,16 @@ cmd_openclaw() {
       if command -v openclaw >/dev/null 2>&1; then echo "  openclaw: $(command -v openclaw)"; else echo "  openclaw: MISSING — run: sovereign-osctl openclaw install"; fi
       [ -s /etc/sovereign-os/openclaw.env ] && echo "  env:     /etc/sovereign-os/openclaw.env" || echo "  env:     absent"
       [ -f "${HOME}/.openclaw/openclaw.json" ] && echo "  config:  ${HOME}/.openclaw/openclaw.json" || echo "  config:  ~/.openclaw/openclaw.json absent (installer renders it)"
+      python3 "${__REPO_ROOT}/scripts/operator/agent-backend.py" openclaw show 2>/dev/null || true
+      ;;
+    backend)
+      # SDD-707: hotswap local (safety-spine gateway) ↔ anthropic (hosted Claude).
+      # `backend show` is read-only; local/anthropic write config + restart (root).
+      exec python3 "${__REPO_ROOT}/scripts/operator/agent-backend.py" openclaw "$@"
       ;;
     *)
       log_error "unknown openclaw subcommand: ${sub}"
-      echo "usage: sovereign-osctl openclaw {status|on|off|start|stop|restart|logs|install|install-units|doctor}" >&2
+      echo "usage: sovereign-osctl openclaw {status|on|off|start|stop|restart|logs|install|install-units|backend|doctor}" >&2
       exit 2
       ;;
   esac
@@ -2204,10 +2214,15 @@ cmd_open_computer() {
       command -v node >/dev/null 2>&1 && echo "  node:    $(node --version 2>/dev/null)" || echo "  node:    MISSING"
       [ -s /var/lib/sovereign-os/open-computer/base_image/base.qcow2 ] && echo "  base:    present" || echo "  base:    absent (~3GB — run: sovereign-osctl open-computer install)"
       [ -s "${ENVF}" ] && echo "  config:  ${ENVF}" || echo "  config:  absent"
+      python3 "${__REPO_ROOT}/scripts/operator/agent-backend.py" open-computer show 2>/dev/null || true
+      ;;
+    backend)
+      # SDD-707: hotswap local (gateway OpenAI shim) ↔ anthropic (hosted Claude OpenAI-compat).
+      exec python3 "${__REPO_ROOT}/scripts/operator/agent-backend.py" open-computer "$@"
       ;;
     *)
       log_error "unknown open-computer subcommand: ${sub}"
-      echo "usage: sovereign-osctl open-computer {status|on|off|start|stop|restart|logs|install|install-units|url|doctor}" >&2
+      echo "usage: sovereign-osctl open-computer {status|on|off|start|stop|restart|logs|install|install-units|url|backend|doctor}" >&2
       exit 2
       ;;
   esac
