@@ -376,6 +376,42 @@ def classify_model_class(request_body: dict[str, Any]) -> str:
     return ""
 
 
+# Generous body cap for the inference front door: long-context prompts can be
+# large, but a client must not be able to force an unbounded allocation via a
+# huge (or malformed) Content-Length. 16 MiB fits very long prompts with room
+# to spare while keeping the read bounded (memory-DoS guard).
+_MAX_BODY = 16 * 1024 * 1024
+
+
+def parse_content_length(
+    raw: str | None, max_body: int = _MAX_BODY
+) -> tuple[int | None, tuple[int, str] | None]:
+    """Parse a Content-Length header into a bounded byte count.
+
+    Returns ``(length, error)`` where ``error`` is ``None`` on success, else an
+    ``(http_status, message)`` pair the caller sends instead of crashing or
+    over-allocating:
+
+    - header absent/empty     → ``(0, None)`` (no body; JSON defaults to ``{}``)
+    - non-numeric / malformed → ``(None, (400, ...))`` — was an uncaught
+      ``ValueError`` that crashed the handler
+    - negative                → ``(None, (400, ...))``
+    - larger than ``max_body`` → ``(None, (413, ...))`` — was an unbounded
+      ``rfile.read(length)`` memory-DoS
+    """
+    if raw is None or raw == "":
+        return 0, None
+    try:
+        n = int(raw)
+    except (TypeError, ValueError):
+        return None, (400, "malformed Content-Length header")
+    if n < 0:
+        return None, (400, "negative Content-Length")
+    if n > max_body:
+        return None, (413, f"request body exceeds {max_body} bytes")
+    return n, None
+
+
 class RouterHandler(http.server.BaseHTTPRequestHandler):
     server_version = "sovereign-os-router/0.1"
 
@@ -408,7 +444,10 @@ class RouterHandler(http.server.BaseHTTPRequestHandler):
                 _INFLIGHT -= 1
 
     def _do_post_inner(self) -> None:
-        length = int(self.headers.get("Content-Length", 0))
+        length, err = parse_content_length(self.headers.get("Content-Length"))
+        if err is not None:
+            self.send_error(*err)
+            return
         raw = self.rfile.read(length)
         try:
             body = json.loads(raw or b"{}")
