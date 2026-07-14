@@ -30,7 +30,7 @@ from; everything else is operator-customized.
 |---|---|---|
 | **CPU** | AMD Ryzen 9 9900X (Zen 5) | Single-cycle native AVX-512 (true 512-bit ZMM registers; legacy Zens double-pumped 256-bit) |
 | **Motherboard** | ASUS ProArt X870E-Creator | Dual PCIe 5.0 slots in x8/x8 symmetric · IOMMU topology for VFIO |
-| **GPU primary (internal, main card)** | RTX PRO 6000 Blackwell 96GB GDDR7, ~600W | Oracle Core — the large-VRAM primary; internal, PCIEX16_1 x8 (SDD-993). Installed. |
+| **GPU primary (internal, main card)** | RTX PRO 6000 Blackwell **Max-Q** 96GB GDDR7, ~300W (Max-Q edition — NOT the 600W workstation card) | Oracle Core — the large-VRAM primary; internal, PCIEX16_1 x8 (SDD-993). Installed. |
 | **GPU secondary (internal)** | RTX 5090 32GB GDDR7 (TUF-RTX5090-O32G-GAMING), power-limited ~350W | New card; Blackwell GB202, 512-bit — same FP4/NVFP4 family as the PRO 6000; internal, PCIEX16_2 x8. Took the 4090's vacated internal slot. |
 | **GPU secondary (OcuLink eGPU)** | RTX 4090 (24GB GDDR6X), ~350W | Logic Engine / speculative-decoding draft — **host-resident by default** (work locally); VFIO-isolated sandbox is an **opt-in** mode (§17); on an OcuLink-to-M.2 adapter in a **chipset M.2 slot**, PCIe 4.0 x4 |
 | **Memory** | 256GB DDR5 (initial 128GB) | High system context + ZFS ARC headroom |

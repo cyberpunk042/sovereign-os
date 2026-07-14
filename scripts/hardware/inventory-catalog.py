@@ -16,8 +16,9 @@ Operator-supplied verbatim (this round's spec drop):
   - PSU:    be Quiet! Dark Power Pro 13 1600W (R313)
   - Board:  ASUS ProArt X870E-Creator WiFi (R312)
   - CPU:    Ryzen 9 9900X (Zen5, AVX-512 native)
-  - GPU1:   RTX 4090 24GB
-  - GPU2:   RTX PRO 6000 98GB
+  - GPU1:   RTX PRO 6000 Blackwell Max-Q 96GB (primary, PCIEX16_1 x8)
+  - GPU2:   RTX 5090 32GB (internal secondary, PCIEX16_2 x8)
+  - GPU3:   RTX 4090 24GB (OcuLink eGPU, chipset M.2, PCIe 4.0 x4)
 
 Operator caveat: "Not that we want to be rigid but if that help for
 anything." → catalog ships defaults; operator overlay swaps any slot.
@@ -201,40 +202,61 @@ DEFAULT_COMPONENTS: list[dict[str, Any]] = [
         "capacity_gb": 2000,
         "interface": "PCIe Gen4 x4 / Gen5 x2 NVMe 2.0",
         "form_factor": "M.2",
-        "board_slot": "M.2_2",
-        "negotiated_speed_note": "Second Gen5 slot — operator can "
-                                  "alternatively use as Gen4 x4 to "
-                                  "preserve Gen5 lanes for PCIE_1 GPU.",
+        "board_slot": "M.2_3 (chipset)",
+        "negotiated_speed_note": "Chipset M.2 (Gen4 x4). M.2_2 is NOT used — "
+                                  "it shares lanes with PCIEX16_2 (the RTX 5090) "
+                                  "and MUST stay empty per SDD-993; the second "
+                                  "NVMe lives on a chipset M.2 slot instead.",
         "related_advisor": "R298 (storage-health)",
         "operator_caveat": None,
     },
 
-    # ── GPU ──────────────────────────────────────────────
+    # ── GPU (SDD-993: 3 cards — PRO 6000 primary + RTX 5090 secondary
+    #        internal at x8/x8 + RTX 4090 OcuLink eGPU) ────────────────
     {
         "slot": "gpu-pcie-0",
         "category": "gpu",
-        "model": "NVIDIA GeForce RTX 4090",
+        "model": "NVIDIA RTX PRO 6000 Blackwell Max-Q",
         "vendor": "NVIDIA",
-        "vram_gib": 24,
-        "board_slot": "PCIE_1 or PCIE_3 (operator choice)",
-        "tgp_w": 350,
-        "sustained_w": 420,
+        "vram_gib": 96,
+        "board_slot": "PCIEX16_1 (primary, x8 in the two-internal-card split)",
+        "tgp_w": 300,
+        "sustained_w": 300,
         "related_advisor": "R303 (gpu-wattage) + R315 (xmp-oc-room)",
-        "operator_caveat": "When dual GPU active, pair with PRO 6000 "
-                            "+ enable PCIe bifurcation per R312.",
+        "operator_caveat": "Primary Oracle Core (main card, Max-Q 300 W — NOT "
+                            "the 600 W workstation card). PCIEX16_1 x8 because "
+                            "PCIEX16_2 is populated by the RTX 5090; M.2_2 must "
+                            "stay empty. Enable PCIe bifurcation per R312.",
     },
     {
         "slot": "gpu-pcie-1",
         "category": "gpu",
-        "model": "NVIDIA RTX PRO 6000",
+        "model": "NVIDIA GeForce RTX 5090",
         "vendor": "NVIDIA",
-        "vram_gib": 98,
-        "board_slot": "PCIE_1 (primary)",
-        "tgp_w": 600,
-        "sustained_w": 600,
+        "vram_gib": 32,
+        "board_slot": "PCIEX16_2 (secondary, x8)",
+        "tgp_w": 350,
+        "sustained_w": 350,
         "related_advisor": "R303 (gpu-wattage) + R315 (xmp-oc-room)",
-        "operator_caveat": "Primary GPU — gets PCIE_1 full Gen5 x16 "
-                            "by operator preference per R312.",
+        "operator_caveat": "Internal secondary Logic Engine (Blackwell GB202, "
+                            "power-limited ~350 W from 575 W stock). Shares lanes "
+                            "with M.2_2 — that slot must stay empty. Took the "
+                            "4090's vacated internal slot per SDD-993.",
+    },
+    {
+        "slot": "gpu-egpu-0",
+        "category": "gpu",
+        "model": "NVIDIA GeForce RTX 4090",
+        "vendor": "NVIDIA",
+        "vram_gib": 24,
+        "board_slot": "chipset M.2 (OcuLink-to-M.2 adapter, PCIe 4.0 x4)",
+        "tgp_w": 320,
+        "sustained_w": 320,
+        "related_advisor": "R303 (gpu-wattage) + R315 (xmp-oc-room)",
+        "operator_caveat": "OcuLink eGPU (host-resident by default; opt-in VFIO "
+                            "sandbox). ~320 W efficiency cap per the SDD-026 Z-5 "
+                            "'slightly reduce' directive. On a CHIPSET M.2 slot, "
+                            "NOT M.2_2, per SDD-993.",
     },
 
     # ── Board ────────────────────────────────────────────

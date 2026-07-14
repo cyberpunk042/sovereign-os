@@ -82,7 +82,9 @@ DEFAULT_BOARDS: list[dict[str, Any]] = [
              "lanes": "x16 (CPU Gen5)",
              "shared_with": "(none — full x16 when M.2_1/M.2_2 not in Gen5 mode)",
              "operator_note": "Primary GPU slot. Use for RTX PRO 6000 "
-                              "(98 GiB) — gets full Gen5 x16."},
+                              "Blackwell Max-Q (96 GiB) — full Gen5 x16 when "
+                              "slot 2 is empty, x8 in the SAIN-01 two-internal-"
+                              "card layout (PRO 6000 + RTX 5090)."},
             {"label": "PCIE_2",
              "lanes": "x4 (chipset Gen4)",
              "shared_with": "(none)",
@@ -91,15 +93,17 @@ DEFAULT_BOARDS: list[dict[str, Any]] = [
             {"label": "PCIE_3",
              "lanes": "x16 (CPU Gen5; physical x16, electrical x4 by default)",
              "shared_with": "M.2_3 (when bifurcated x4/x4/x4/x4)",
-             "operator_note": "Wires for the SECOND GPU. Operator MUST "
-                              "enable PCIe bifurcation in BIOS to get x8 "
-                              "from primary; otherwise GPU2 lands at "
-                              "Gen5 x4 (still fast but suboptimal). "
-                              "See R270 pcie-lanes."},
+             "operator_note": "Wires for the SECOND internal GPU — the RTX "
+                              "5090 (SDD-993). Operator MUST enable PCIe "
+                              "bifurcation in BIOS to get x8/x8; otherwise the "
+                              "5090 lands at Gen5 x4 (still fast but "
+                              "suboptimal). The RTX 4090 is NOT here — it is "
+                              "the OcuLink eGPU on a chipset M.2. See R270 "
+                              "pcie-lanes."},
         ],
         "m2_slots": [
             {"label": "M.2_1", "speed": "Gen5 x4", "operator_note": "Hottest slot — operator's primary NVMe OS."},
-            {"label": "M.2_2", "speed": "Gen5 x4", "operator_note": "Second Gen5 — model storage."},
+            {"label": "M.2_2", "speed": "Gen5 x4", "operator_note": "SDD-993: M.2_2 slot must remain empty — it shares CPU lanes with PCIEX16_2 (the RTX 5090 secondary). Populating it would steal lanes from the second GPU. Use chipset M.2_3/M.2_4 for the second NVMe + the OcuLink 4090 eGPU adapter."},
             {"label": "M.2_3", "speed": "Gen4 x4", "operator_note": "Third — bulk storage / scratch."},
             {"label": "M.2_4", "speed": "Gen4 x4 (chipset)", "operator_note": "Backup / less-hot data."},
         ],

@@ -22,32 +22,32 @@ d = json.loads(sys.stdin.read())
 assert d['round'] == 'R303'
 assert d['schema_version'] == '1.0.0'
 assert d['sdd_vector'] == 'E1.M28'
-assert d['total_count'] == 8  # 4 modes × 2 cards
+assert d['total_count'] == 12  # 4 modes × 3 cards (SDD-993: +RTX 5090)
 " || fail "envelope"
-pass "1. list --json envelope (8 default entries = 4 modes × 2 cards)"
+pass "1. list --json envelope (12 default entries = 4 modes × 3 cards)"
 
-# ── 2. Both operator cards × 4 modes covered ───────────────
+# ── 2. All three cards × 4 modes covered (SDD-993) ─────────
 echo "${out}" | python3 -c "
 import json, sys
 d = json.loads(sys.stdin.read())
 cards = set(d['cards'])
-assert cards == {'RTX 4090', 'RTX PRO 6000'}, cards
+assert cards == {'RTX 4090', 'RTX 5090', 'RTX PRO 6000'}, cards
 # Per card: idle / typical-inference / peak-training / oc-peak.
 by_card_modes = {}
 for e in d['entries']:
     by_card_modes.setdefault(e['card'], set()).add(e['mode'])
-for c in ('RTX 4090', 'RTX PRO 6000'):
+for c in ('RTX 4090', 'RTX 5090', 'RTX PRO 6000'):
     assert by_card_modes[c] == {'idle', 'typical-inference',
                                  'peak-training', 'oc-peak'}, (c, by_card_modes[c])
 " || fail "cards × modes coverage"
-pass "2. RTX 4090 + RTX PRO 6000 each have idle/typical-inference/peak-training/oc-peak"
+pass "2. RTX 4090 + RTX 5090 + RTX PRO 6000 each have idle/typical-inference/peak-training/oc-peak"
 
 # ── 3. Wattage monotonic per card (idle < typical < peak < oc) ──
 echo "${out}" | python3 -c "
 import json, sys
 d = json.loads(sys.stdin.read())
 order = ['idle', 'typical-inference', 'peak-training', 'oc-peak']
-for c in ('RTX 4090', 'RTX PRO 6000'):
+for c in ('RTX 4090', 'RTX 5090', 'RTX PRO 6000'):
     by_mode = {e['mode']: e['watts'] for e in d['entries'] if e['card'] == c}
     watts = [by_mode[m] for m in order]
     assert watts == sorted(watts), (c, watts)

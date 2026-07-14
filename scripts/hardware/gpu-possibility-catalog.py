@@ -56,7 +56,8 @@ SDD_VECTOR = "E1.M23"
 
 # ── Default GPU possibility catalog (operator-overlay replaces) ────
 #
-# Seeded with the operator's §1b dual-rig (RTX 4090 + RTX PRO 6000)
+# Seeded with the operator's §1b rig (RTX 4090 + RTX PRO 6000) + the SDD-993
+# RTX 5090 internal secondary
 # capabilities + status. Operator extends / corrects via overlay.
 DEFAULT_CATALOG: list[dict[str, Any]] = [
     # ── RTX 4090 (Ampere, 24 GB GDDR6X) ─────────────────────────
@@ -255,6 +256,50 @@ DEFAULT_CATALOG: list[dict[str, Any]] = [
                     "structurally absent on the operator's AMD Zen rig. "
                     "Listed explicitly so operator doesn't plan a CPU-AMX "
                     "inference path on this hardware.",
+        "related_round": None,
+        "related_mandate_module": None,
+        "related_sdd": None,
+    },
+
+    # ── RTX 5090 (Blackwell GB202, 32 GB GDDR7) — SDD-993 internal secondary ──
+    {
+        "card": "RTX 5090",
+        "capability": "Native FP4 / NVFP4 tensor cores (Blackwell)",
+        "status": "established",
+        "evidence": "GB202 (sm_120) — same Blackwell FP4/NVFP4 family as the "
+                    "PRO 6000; vLLM/TensorRT-LLM NVFP4 paths run natively. "
+                    "Hosts NVFP4-quantized oracle/logic models in its 32 GB.",
+        "related_round": None,
+        "related_mandate_module": "E11.M993",
+        "related_sdd": "docs/sdd/993-sain-gpu-topology-5090-primary-4090-oculink-egpu.md",
+    },
+    {
+        "card": "RTX 5090",
+        "capability": "Internal secondary at PCIe 5.0 x8 (x8/x8 with the PRO 6000)",
+        "status": "established",
+        "evidence": "SDD-993: took the 4090's vacated internal slot (PCIEX16_2). "
+                    "Two internal cards run x8/x8; M.2_2 must stay empty (shares "
+                    "lanes with PCIEX16_2).",
+        "related_round": None,
+        "related_mandate_module": "E11.M993",
+        "related_sdd": "docs/sdd/993-sain-gpu-topology-5090-primary-4090-oculink-egpu.md",
+    },
+    {
+        "card": "RTX 5090",
+        "capability": "~350 W operating cap (power-limited from 575 W stock)",
+        "status": "established",
+        "evidence": "SDD-993: nvidia-smi -pl 350 (~61% of stock TGP, near the "
+                    "Blackwell efficiency knee). Recorded in the gpu-wattage-catalog.",
+        "related_round": None,
+        "related_mandate_module": "E11.M993",
+        "related_sdd": "scripts/hardware/gpu-wattage-catalog.py",
+    },
+    {
+        "card": "RTX 5090",
+        "capability": "ECC memory",
+        "status": "non-established",
+        "evidence": "RTX 5090 (GeForce SKU) lacks ECC — the PRO 6000 primary "
+                    "carries ECC; the 5090 is the non-ECC internal secondary.",
         "related_round": None,
         "related_mandate_module": None,
         "related_sdd": None,

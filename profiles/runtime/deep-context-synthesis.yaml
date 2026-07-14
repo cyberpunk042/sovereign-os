@@ -61,10 +61,10 @@ runtime_profile:
 
   expected_power_draw_watts:
     cpu: 80
-    gpu_primary: 600   # RTX PRO 6000 (primary Oracle, SDD-993)
+    gpu_primary: 300   # RTX PRO 6000 Blackwell Max-Q (primary Oracle, 300W Max-Q — NOT 600W, SDD-993)
     gpu_secondary: 350   # RTX 5090 (internal secondary, power-limited)
     gpu_egpu: 350        # RTX 4090 (OcuLink eGPU)
-    system_total: ~1130
+    system_total: ~1080
 
   observability:
     primary_metric: sovereign_os_inference_route_total{tier="oracle"}

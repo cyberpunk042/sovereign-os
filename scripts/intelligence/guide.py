@@ -178,7 +178,8 @@ DEFAULT_TOPICS: list[dict[str, Any]] = [
             "rtx-4090-sustained-w":
                 "~420W under sustained load; +10% per OC notch (R315 default)",
             "rtx-pro-6000-sustained-w":
-                "~600W TGP — operator's high-VRAM workhorse for training",
+                "~300W TDP (Max-Q edition — NOT the 600W workstation card) — "
+                "operator's high-VRAM primary/Oracle workhorse",
             "single-gpu-idle":
                 "R338 'idle' mode = PRO 6000 only (4090 in VFIO standby); "
                 "drops estimated_total_w by ≥400W vs 'training'",
@@ -188,8 +189,10 @@ DEFAULT_TOPICS: list[dict[str, Any]] = [
         "bios_or_hw_caveats": [
             "RTX 4090: established sustained 420W under PSU OC mode; "
             "non-established: shunt-mod could lift to 480W but voids warranty.",
-            "RTX PRO 6000 Blackwell: 600W TGP confirmed; PCIe Gen5 x16 on "
-            "PCIE_1 OR x8 if dual-GPU sharing — check ASUS BIOS lane split.",
+            "RTX PRO 6000 Blackwell Max-Q: 300W TDP confirmed (Max-Q edition — "
+            "NOT the 600W workstation card); PCIe Gen5 x16 on PCIEX16_1, but x8 "
+            "in the SAIN-01 two-internal-card layout (PRO 6000 + RTX 5090) — "
+            "check ASUS BIOS lane split; M.2_2 must stay empty.",
         ],
     },
     {

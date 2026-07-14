@@ -98,7 +98,7 @@ hardware:
       vram_gb: 96
       role: primary   # MAIN card — Oracle Core (large-VRAM); installed, in the build
       driver: nvidia-570-open   # Blackwell needs >=570 (trixie's 550 predates it)
-      tdp_watts: 600
+      tdp_watts: 300   # Max-Q edition (300W), NOT the 600W workstation card — the installed SAIN card is the RTX PRO 6000 Blackwell Max-Q
       link: pcie-5.0-x8   # internal, PCIEX16_1 — x8 in the two-internal-card bifurcation
     - vendor: nvidia
       model: rtx-5090

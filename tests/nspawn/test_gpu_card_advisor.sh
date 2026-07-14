@@ -26,6 +26,8 @@ grep -q "RTX 4090" "${SCRIPT}" && ok "KNOWN_CARDS contains RTX 4090" \
   || ko "RTX 4090 missing"
 grep -q "RTX PRO 6000" "${SCRIPT}" && ok "KNOWN_CARDS contains RTX PRO 6000" \
   || ko "RTX PRO 6000 missing"
+grep -q "RTX 5090" "${SCRIPT}" && ok "KNOWN_CARDS contains RTX 5090 (SDD-993)" \
+  || ko "RTX 5090 missing"
 grep -q "^  gpu-card-advisor)" "${OSCTL}" \
   && ok "osctl bridges 'gpu-card-advisor'" || ko "osctl dispatch missing"
 
@@ -85,7 +87,7 @@ import importlib.util
 spec = importlib.util.spec_from_file_location('gca','${SCRIPT}')
 m = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(m)
-for key in ('RTX 4090','RTX PRO 6000'):
+for key in ('RTX 4090','RTX 5090','RTX PRO 6000'):
     assert key in m.KNOWN_CARDS, key
     c = m.KNOWN_CARDS[key]
     for f in ('architecture','vram_gb','vram_type','stock_tdp_watts',

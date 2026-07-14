@@ -126,6 +126,43 @@ DEFAULT_CATALOG: list[dict[str, Any]] = [
         "operator_note": "Available when BIOS PBO + driver allow; "
                          "operator must verify thermals via R296.",
     },
+
+    # ── RTX 5090 (Blackwell, GB202, 32 GB GDDR7) — SDD-993 internal secondary ──
+    {
+        "card": "RTX 5090",
+        "mode": "idle",
+        "watts": 30,
+        "source": "datasheet + Blackwell desktop idle baseline",
+        "operator_note": "Display-capable idle; GB202 consumer SKU (lower "
+                         "idle than the ECC PRO 6000).",
+    },
+    {
+        "card": "RTX 5090",
+        "mode": "typical-inference",
+        "watts": 300,
+        "source": "operator-pinned: NVFP4/FP8 inference at ~85% util under "
+                  "the ~350 W power-limit (SDD-993)",
+        "operator_note": "Steady-state Logic/secondary-Oracle serving on the "
+                         "internal secondary; sits under the operator cap.",
+    },
+    {
+        "card": "RTX 5090",
+        "mode": "peak-training",
+        "watts": 350,
+        "source": "operator power-limit (SDD-993): nvidia-smi -pl 350 "
+                  "(~61% of the 575 W stock TGP, near the efficiency knee)",
+        "operator_note": "The SAIN runs the 5090 capped at ~350 W — this IS "
+                         "its operating peak, not the factory 575 W.",
+    },
+    {
+        "card": "RTX 5090",
+        "mode": "oc-peak",
+        "watts": 575,
+        "source": "datasheet stock TGP (GB202 consumer) — the card's ceiling "
+                  "if the operator lifts the ~350 W cap",
+        "operator_note": "Not used on the SAIN by default (power-limited to "
+                         "~350 W); documented as the hardware ceiling.",
+    },
 ]
 
 

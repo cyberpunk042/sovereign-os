@@ -11,8 +11,8 @@ This doc is regenerated from `profiles/runtime/*.yaml` on every invocation of `s
 | ID | Name | Hardware compat | System total (W) |
 |----|------|-----------------|------------------|
 | `ultra-sovereign-efficiency` | Ultra-Sovereign Efficiency | sain-01 | ~150 |
-| `high-concurrency-burst` | High-Concurrency Agent Burst | sain-01 | ~1240 |
-| `deep-context-synthesis` | Deep Context Synthesis | sain-01 | ~1130 |
+| `high-concurrency-burst` | High-Concurrency Agent Burst | sain-01 | ~1170 |
+| `deep-context-synthesis` | Deep Context Synthesis | sain-01 | ~1080 |
 
 ## Ultra-Sovereign Efficiency
 
@@ -85,10 +85,10 @@ scripts/operator/generate-runtime-profile.py. See docs/sdd/993-*.md.
 **Expected power draw (W):**
 
 - cpu: 170
-- gpu_primary: 600
+- gpu_primary: 300
 - gpu_secondary: 350
 - gpu_egpu: 350
-- system_total: ~1240
+- system_total: ~1170
 
 **Observability:**
 
@@ -128,10 +128,10 @@ is the large-oracle placement on the PRO 6000. See docs/sdd/993-*.md.
 **Expected power draw (W):**
 
 - cpu: 80
-- gpu_primary: 600
+- gpu_primary: 300
 - gpu_secondary: 350
 - gpu_egpu: 350
-- system_total: ~1130
+- system_total: ~1080
 
 **Observability:**
 

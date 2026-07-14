@@ -105,19 +105,19 @@ _rtmodes = _import_optional("_runtimemodes_api", _REPO_ROOT / "scripts" / "opera
 
 # The panel's four hardware cells (M075 SRP topology + the sketched Ext-GPU).
 # SDD-993 three-card build mapped onto the fixed 4 cells (all cards installed):
-#   GPU0    = RTX PRO 6000 96 GB → Oracle Core (primary/main; internal x8). This
-#             is the biggest card, so model-health assigns it role "oracle".
-#   GPU1    = RTX 5090 32 GB → internal secondary (Blackwell; internal x8). The
-#             next-biggest GPU, so model-health assigns it role "logic".
-#   EXT_GPU = RTX 4090 on the OcuLink eGPU → speculative-decoding draft / scout
-#             (host-resident by default; opt-in VFIO). model-health assigns oracle
-#             + logic only, so this cell binds a draft model manually.
+#   GPU0    = RTX PRO 6000 Max-Q 96 GB → Oracle Core (primary/main; internal x8).
+#             The biggest Blackwell, so model-health assigns it role "oracle".
+#   GPU1    = RTX 5090 32 GB → NEW internal secondary (Blackwell; internal x8) —
+#             extra capacity, NOT one of the three named SRP tiers. role None.
+#   EXT_GPU = RTX 4090 on the OcuLink eGPU → Logic Engine (operator §17.1;
+#             host-resident by default, opt-in VFIO) + DSpark draft. model-health
+#             binds the "logic" role to the 4090 (by name), so this cell is logic.
 #   CPU0    = Ryzen 9 9900X → Conductor / Pulse.
-# One primary (PRO 6000) + two secondaries (RTX 5090 internal + RTX 4090 eGPU).
+# One primary (PRO 6000) + one internal secondary (RTX 5090) + one eGPU (RTX 4090).
 GRID = [
-    {"slot": "GPU0", "role": "oracle", "label": "Oracle Core — RTX PRO 6000 96GB (primary, internal)"},
-    {"slot": "GPU1", "role": "logic", "label": "Logic / secondary — RTX 5090 32GB (Blackwell, internal)"},
-    {"slot": "EXT_GPU", "role": None, "label": "RTX 4090 (OcuLink eGPU) — draft / scout"},
+    {"slot": "GPU0", "role": "oracle", "label": "Oracle Core — RTX PRO 6000 Max-Q 96GB (primary, internal)"},
+    {"slot": "GPU1", "role": None, "label": "RTX 5090 32GB (internal secondary — extra Blackwell capacity)"},
+    {"slot": "EXT_GPU", "role": "logic", "label": "Logic Engine — RTX 4090 24GB (OcuLink eGPU, §17.1)"},
     {"slot": "CPU0", "role": "conductor", "label": "Ryzen 9 9900X AM5 AVX-512"},
 ]
 

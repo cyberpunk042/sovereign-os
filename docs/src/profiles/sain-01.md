@@ -7,7 +7,7 @@ The SAIN-01 AI Workstation. See [`profiles/sain-01.yaml`](https://github.com/cyb
 | Component | Spec |
 |---|---|
 | **CPU** | AMD Ryzen 9 9900X — Zen 5; 12C/24T dual-CCD; `-march=znver5` with single-cycle 512-bit AVX-512 + VNNI |
-| **Primary GPU (internal, main card)** | NVIDIA RTX PRO 6000 Blackwell 96 GB, ~600 W — hosts the Oracle Core (large-VRAM); internal, PCIEX16_1 x8 (SDD-993). Installed. |
+| **Primary GPU (internal, main card)** | NVIDIA RTX PRO 6000 Blackwell **Max-Q** 96 GB, ~300 W (Max-Q edition — NOT the 600 W workstation card) — hosts the Oracle Core (large-VRAM); internal, PCIEX16_1 x8 (SDD-993). Installed. |
 | **Secondary GPU (internal)** | NVIDIA RTX 5090 32 GB (TUF-RTX5090-O32G-GAMING), power-limited ~350 W — new card; Blackwell GB202 / 512-bit (same FP4/NVFP4 family as the PRO 6000); internal, PCIEX16_2 x8 |
 | **Secondary GPU (OcuLink eGPU)** | NVIDIA RTX 4090 24 GB, ~350 W — **host-resident by default** (Logic Engine / speculative-decoding draft, worked-on locally); the `vfio-pci`-bound sandbox is an **opt-in** mode (`role: vfio`); on an OcuLink-to-M.2 adapter in a **chipset M.2 slot** at PCIe 4.0 x4 |
 | **Memory** | 256 GB DDR5 (128 GB minimum); ECC unavailable on consumer DDR5 |

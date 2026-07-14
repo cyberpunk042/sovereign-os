@@ -25,7 +25,7 @@ Sequencing (operator, same session): **SAIN / eGPU first; DSpark second.** This 
 
 | Card | Role | Bus | Power |
 |---|---|---|---|
-| **RTX PRO 6000 Blackwell 96 GB** | **PRIMARY — Oracle Core (main card)** | internal, PCIEX16_1 **x8** | ~600 W |
+| **RTX PRO 6000 Blackwell Max-Q 96 GB** | **PRIMARY — Oracle Core (main card)** | internal, PCIEX16_1 **x8** | **~300 W** (Max-Q edition — NOT the 600 W workstation card) |
 | **RTX 5090 32 GB (TUF-RTX5090-O32G-GAMING)** | **secondary** (new card; Blackwell GB202, 512-bit) | internal, PCIEX16_2 **x8** | **~350 W** (power-limited from 575 W stock) |
 | **RTX 4090 24 GB** | **secondary / eGPU** (Logic Engine / speculative-decoding draft) | **OcuLink-to-M.2 on a chipset M.2 slot, PCIe 4.0 x4** | ~350 W |
 
@@ -44,12 +44,12 @@ One primary (PRO 6000) + **two secondaries** (the 5090 internal + the 4090 eGPU)
 ## Researched facts (grounded, not invented)
 
 - **RTX 5090 (TUF-RTX5090-O32G-GAMING)** — the secondary: 32 GB GDDR7, 512-bit, 28 Gbps; 21,760 CUDA cores; Blackwell GB202; PCIe 5.0; **stock TGP 575 W**. Same Blackwell FP4/NVFP4 family + 512-bit bus as the PRO 6000 primary — a capable second Blackwell card, not a downgrade. [ASUS techspec]
-- **RTX PRO 6000 Blackwell 96 GB** — the primary/main Oracle Core: 96 GB GDDR7 / 512-bit / 1.8 TB/s / FP4 Tensor Cores / ~600 W. Unchanged by this directive; it remains the large-VRAM Oracle.
+- **RTX PRO 6000 Blackwell Max-Q 96 GB** — the primary/main Oracle Core: 96 GB GDDR7 / 512-bit / 1.8 TB/s / FP4 Tensor Cores / **~300 W (Max-Q edition — NOT the 600 W workstation card)**. Unchanged by this directive; it remains the large-VRAM Oracle.
 - **OcuLink-to-M.2 adapter (SFF-8612 host → SFF-8611)**: exposes a chipset M.2 M-key slot's **PCIe 4.0 x4** as an external OcuLink link — **64 Gbps ≈ 7.9 GB/s**, native PCIe, far above Thunderbolt's effective eGPU bandwidth. Adequate for **inference** (weights VRAM-resident; host↔device traffic is model-load + token I/O); **not** suited to training or cross-link tensor-parallel.
 
 ## The ~350 W power limit — the maths (applies to the RTX 5090 secondary)
 
-The 5090's stock TGP is **575 W**. Target ≈ **350 W → 350 / 575 ≈ 61 % of stock.** Blackwell's voltage/frequency curve is steep near stock: the top ~40 % of the power budget buys only single-digit-percent extra throughput, so a limit near ~60 % sits close to the efficiency knee — it keeps the large majority of inference throughput while cutting heat, noise, and sustained draw. It also fits the whole-box budget: PRO 6000 ~600 W (primary) + 5090 ~350 W + 4090 ~350 W + Ryzen 9 9900X ~120 W under the 1600 W-minimum PSU. Applied with `nvidia-smi -pl 350` (persisted via the runtime profile); tunable per measured perf/thermals per the operator's "based on the right maths and need for performance." This extends the operator's prior "the RTX 4090 which should be sli[ght]ly reduce[d]" power-limit discipline to the new 5090.
+The 5090's stock TGP is **575 W**. Target ≈ **350 W → 350 / 575 ≈ 61 % of stock.** Blackwell's voltage/frequency curve is steep near stock: the top ~40 % of the power budget buys only single-digit-percent extra throughput, so a limit near ~60 % sits close to the efficiency knee — it keeps the large majority of inference throughput while cutting heat, noise, and sustained draw. It also fits the whole-box budget with wide headroom: PRO 6000 Max-Q ~300 W (primary) + 5090 ~350 W + 4090 ~320 W + Ryzen 9 9900X ~120 W ≈ ~1090 W under the 1600 W-minimum PSU (the Max-Q primary is why the real draw sits well under the 1600 W-planning envelope). Applied with `nvidia-smi -pl 350` (persisted via the runtime profile); tunable per measured perf/thermals per the operator's "based on the right maths and need for performance." This extends the operator's prior "the RTX 4090 which should be sli[ght]ly reduce[d]" power-limit discipline to the new 5090.
 
 ## The PRO 6000 is the main card (not future)
 
