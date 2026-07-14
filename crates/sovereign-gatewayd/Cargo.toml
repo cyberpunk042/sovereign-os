@@ -40,6 +40,9 @@ sovereign-tool-bridge = { path = "../sovereign-tool-bridge" }
 # Option A: a Responder over the daemon's existing shared Generator (no clone).
 sovereign-agent-loop = { path = "../sovereign-agent-loop" }
 sovereign-tool-dispatch = { path = "../sovereign-tool-dispatch" }
+# SDD-713: the daemon's built-in agent tools — `calc` reuses the pure
+# dependency-free arithmetic evaluator (wires a previously demo-only island).
+sovereign-calc = { path = "../sovereign-calc" }
 sovereign-hf-tokenizer = { path = "../sovereign-hf-tokenizer" }
 sovereign-logit-mask = { path = "../sovereign-logit-mask" }
 sovereign-stream-decode = { path = "../sovereign-stream-decode" }

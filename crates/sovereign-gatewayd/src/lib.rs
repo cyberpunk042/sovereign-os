@@ -552,7 +552,10 @@ impl ThoughtSource for ModelThoughts<'_> {
 /// [`Ledger`] (the cost/route surface) for the whole process, behind the
 /// [`sovereign_gateway`] manifest contract.
 pub struct GatewayServer {
-    cortex: Mutex<Cortex>,
+    // Arc<Mutex> (SDD-713): the base still locks per request exactly as before,
+    // but an owned handle can be cloned out for a 'static tool closure (the
+    // `recall` agent tool) without threading &GatewayServer through the loop.
+    cortex: Arc<Mutex<Cortex>>,
     ledger: Mutex<Ledger>,
     manifest: GatewayManifest,
     /// When set, every request is forced local (`allow_cloud = false`) before
@@ -1028,7 +1031,7 @@ impl GatewayServer {
             );
         }
         Self {
-            cortex: Mutex::new(cortex),
+            cortex: Arc::new(Mutex::new(cortex)),
             ledger: Mutex::new(Ledger::default()),
             manifest,
             force_local,
@@ -1452,6 +1455,15 @@ impl GatewayServer {
         })
     }
 
+    /// An owned handle to the shared learning Cortex (SDD-713). Clones the Arc so
+    /// a `'static` closure — the `recall` agent tool — can query memory
+    /// (`Cortex::recall_text`) without borrowing `&self`. The same mutex every
+    /// request locks; recall is read-only + best-effort (a poisoned lock → no
+    /// recall, never a panic).
+    pub fn cortex_handle(&self) -> Arc<Mutex<Cortex>> {
+        Arc::clone(&self.cortex)
+    }
+
     /// Lock the Ledger (pure request counters). F-2026-065: unlike the Cortex, a
     /// poisoned Ledger holds no torn state worth declining a request over — the
     /// guarded ops are counter increments — so RECOVER the guard (`into_inner`)
@@ -1668,6 +1680,7 @@ impl GatewayServer {
             // now locks per recall (F-2026-063/090), so a model-backed CoAT's ≤12
             // expansions never serialize `/v1/infer` and friends behind one lock.
             let memory = CortexRecall {
+                // deref the Arc to the &Mutex<Cortex> the adapter borrows.
                 cortex: &self.cortex,
                 now,
                 half_life,
