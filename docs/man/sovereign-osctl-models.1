@@ -14,7 +14,7 @@
 . ftr VB CB
 . ftr VBI CBI
 .\}
-.TH "SOVEREIGN-OSCTL-MODELS" "1" "2026-07-14" "sovereign-os 0.2.0" "sovereign-os Operator Manual"
+.TH "SOVEREIGN-OSCTL-MODELS" "1" "2026-07-14" "sovereign-os 0.3.0" "sovereign-os Operator Manual"
 .hy
 .SH NAME
 .PP
@@ -28,12 +28,13 @@ sovereign-osctl-models - models, inference, and scientific compute
 Model discovery, placement, serving, routing, evaluation, adaptation,
 gateway behavior, and non-LLM scientific compute.
 .PP
-This page owns 17 top-level commands.
+This page owns 19 top-level commands.
 Ownership is defined in
 \f[V]docs/man/sovereign-osctl-command-topics.json\f[R] and checked
 against the real dispatcher.
-\f[B]sovereign-osctl help\f[R] remains authoritative for the exact
-syntax shipped by the installed version.
+The synopsis and descriptions are grounded in the command handler or
+delegated-script contract at this build revision.
+The top-level help is a discovery summary, not an exhaustive grammar.
 .SH SAFETY MODEL
 .PP
 Model pulls consume storage; serving and evaluation consume VRAM and
@@ -46,16 +47,16 @@ JSON output, when offered, is the stable surface for automation; human
 output is intended for direct operator use.
 .SH COMMON WORKFLOW
 .IP "1." 3
+Confirm the installed revision with \f[B]sovereign-osctl version\f[R].
+.IP "2." 3
 Inspect the relevant \f[B]status\f[R], \f[B]show\f[R], \f[B]list\f[R],
 \f[B]info\f[R], \f[B]plan\f[R], or \f[B]doctor\f[R] surface.
-.IP "2." 3
-Save machine-readable output when \f[V]--json\f[R] is available.
 .IP "3." 3
-Review profile, device, backend, policy, and target selection.
+Save machine-readable output when \f[V]--json\f[R] is available.
 .IP "4." 3
-Apply the smallest scoped mutation.
+Review profile, device, backend, policy, and target selection.
 .IP "5." 3
-Re-run health/status and inspect alerts or journal output.
+Apply the smallest scoped mutation, then re-run health/status.
 .SH EXAMPLES
 .IP
 .nf
@@ -68,72 +69,72 @@ sovereign-osctl model-serve list
 .fi
 .SH COMMAND REFERENCE
 .SS models
+.PP
+The default resident-model directory is \f[V]/mnt/vault/models\f[R];
+override it with \f[V]SOVEREIGN_OS_MODELS_DIR\f[R].
 .TP
 \f[B]sovereign-osctl models docs [\[en]check|\[en]stdout]\f[R]
 Regenerate docs/src/model-catalog.md (R206, SDD-028 pattern)
 .TP
 \f[B]sovereign-osctl models query [\[en]class C] [\[en]tier T] [\[en]purpose P] [\[en]size-class S] [\[en]quantization Q] [\[en]status S] [\[en]max-vram N] [\[en]min-context N] [\[en]engine E] [\[en]base-model B] [\[en]json]\f[R]
-See the live help for behavior and options.
+See the handler for behavior and options.
 .TP
 \f[B]sovereign-osctl models suggest \[en]runtime-profile  [\[en]json]\f[R]
-See the live help for behavior and options.
+See the handler for behavior and options.
 .TP
 \f[B]sovereign-osctl models suggest \[en]list\f[R]
 R214: profile-aware suggester \[em] flags
 .TP
 \f[B]sovereign-osctl models select \[en]class C[,C] \[en]vram N [\[en]tier T] [\[en]purpose P] [\[en]json]\f[R]
-See the live help for behavior and options.
+See the handler for behavior and options.
 .TP
 \f[B]sovereign-osctl models info  [\[en]json]\f[R]
 R231 (SDD-026 Z-2): LM-Studio-equivalent
 .TP
 \f[B]sovereign-osctl models eval list-benchmarks [\[en]json]\f[R]
-See the live help for behavior and options.
+See the handler for behavior and options.
 .TP
 \f[B]sovereign-osctl models eval plan  \[en]benchmark B [\[en]json]\f[R]
-See the live help for behavior and options.
+See the handler for behavior and options.
 .TP
 \f[B]sovereign-osctl models eval run  \[en]benchmark B [\[en]dry-run] [\[en]json]\f[R]
-See the live help for behavior and options.
+See the handler for behavior and options.
 .TP
 \f[B]sovereign-osctl models eval history [\[en]slug S] [\[en]benchmark B] [\[en]limit N] [\[en]json]\f[R]
-See the live help for behavior and options.
+See the handler for behavior and options.
 .TP
 \f[B]sovereign-osctl models toolchains list [\[en]kind K] [\[en]installed-only] [\[en]json]\f[R]
-See the live help for behavior and options.
+See the handler for behavior and options.
 .TP
 \f[B]sovereign-osctl models toolchains info  [\[en]json]\f[R]
-See the live help for behavior and options.
+See the handler for behavior and options.
 .TP
 \f[B]sovereign-osctl models fine-tune list-methods [\[en]json]\f[R]
-See the live help for behavior and options.
+See the handler for behavior and options.
 .TP
 \f[B]sovereign-osctl models fine-tune plan  \[en]method M \[en]dataset D [\[en]output-dir D] [\[en]json]\f[R]
-See the live help for behavior and options.
+See the handler for behavior and options.
 .TP
 \f[B]sovereign-osctl models fine-tune run  \[en]method M \[en]dataset D [\[en]dry-run] [\[en]json]\f[R]
-See the live help for behavior and options.
+See the handler for behavior and options.
 .TP
 \f[B]sovereign-osctl models fine-tune history [\[en]base B] [\[en]method M] [\[en]limit N] [\[en]json]\f[R]
-See the live help for behavior and options.
+See the handler for behavior and options.
 .TP
 \f[B]sovereign-osctl models list\f[R]
-List resident models (tank/models)
+List resident models (the model directory)
 .TP
 \f[B]sovereign-osctl models pull \f[R]
-Pull model from HuggingFace into tank/models
+Pull model from HuggingFace into the model directory
 .TP
 \f[B]sovereign-osctl models verify\f[R]
 Verify resident-model integrity
 .TP
 \f[B]sovereign-osctl models size\f[R]
-Disk-usage breakdown of tank/models
+Disk-usage breakdown of the model directory
 .TP
 \f[B]sovereign-osctl models remove \f[R]
 Delete a resident model (confirms)
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
 .SS inference
 .TP
 \f[B]sovereign-osctl inference status\f[R]
@@ -159,9 +160,6 @@ Run a single prompt through the router (streams tokens; SDD-062 M058)
 .TP
 \f[B]sovereign-osctl inference logs \f[R]
 Tail systemd journal for the tier
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
 .SS router
 .TP
 \f[B]sovereign-osctl router status\f[R]
@@ -171,7 +169,7 @@ R516 router surface (SDD-011) \[em] service + listen check
 Show routing decision for a prompt (delegates to inference route)
 .TP
 \f[B]sovereign-osctl router plan  [\[en]task-type T] [\[en]think] [\[en]json]\f[R]
-See the live help for behavior and options.
+See the handler for behavior and options.
 .TP
 \f[B]sovereign-osctl router rules\f[R]
 Print the 5 routing rules verbatim (SDD-011)
@@ -181,9 +179,6 @@ R517 \[em] routing decision counts from Layer B textfile
 .TP
 \f[B]sovereign-osctl router watch\f[R]
 R516 refresh-loop TUI (router + 4 tiers at a glance)
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
 .SS science
 .TP
 \f[B]sovereign-osctl science list [\[en]json]\f[R]
@@ -194,118 +189,100 @@ NVIDIA Warp installed?
 + device (cuda:0 or CPU) + version
 .TP
 \f[B]sovereign-osctl science run [\[en]device cpu|cuda] [\[en]particles N] [\[en]steps M] [\[en]json]\f[R]
-See the live help for behavior and options.
+See the handler for behavior and options.
 .TP
 \f[B]sovereign-osctl science info  [\[en]json]\f[R]
 Full detail for one science tool
 .TP
 \f[B]sovereign-osctl science install [\[en]json]\f[R]
 How each integrated tool is obtained (advisory)
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
 .SS gateway
 .TP
 \f[B]sovereign-osctl gateway [\[en]addr host:port] [\[en]json]\f[R]
-See the live help for behavior and options.
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
+See the handler for behavior and options.
 .SS model-serve
 .TP
-\f[B]sovereign-osctl model-serve [arguments]\f[R]
-The Sovereign Compute Plane (via jobs-api :8142) \[em] the box\[cq]s
-devices with LIVE free VRAM + the outstanding claims (model residents +
-running GPU jobs), placed by the M075 SRP doctrine.
-Read-only.
-A GPU job is placed on a device that fits, or waits, so it never OOMs
-the box.
-plane human summary
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
-.SS wasm-aot
+\f[B]sovereign-osctl model-serve start  \[en]model  \[en]vram N [\[en]engine llama-server|vllm] [\[en]port P] [\[en]dialect openai|anthropic] [\[en]device auto|logic|oracle]\f[R]
+Launch / stop / list a GPU serve-process model (SDD-902): the ergonomic
+front to the jobs-api model-serve job kind.
+start places a model on a GPU by free VRAM (the compute plane), launches
+llama-server / vLLM, and registers it as a gateway PROXY backend so
+/v1/messages + the OpenAI shim reach it; stop cancels (unregister +
+release VRAM); background designates the \[lq]background\[rq] alias.
+.TP
+\f[B]sovereign-osctl model-serve stop \f[R]
+Additional supported form.
+.TP
+\f[B]sovereign-osctl model-serve list\f[R]
+Additional supported form.
+.TP
+\f[B]sovereign-osctl model-serve background [ | \[en]clear]\f[R]
+Additional supported form.
+## wasm-aot
 .TP
 \f[B]sovereign-osctl wasm-aot status|compile-cmd |advisory [\[en]json]\f[R]
-See the live help for behavior and options.
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
+See the handler for behavior and options.
 .SS zmm-ternary
 .TP
 \f[B]sovereign-osctl zmm-ternary status|perf-cmd|advisory [\[en]json]\f[R]
-See the live help for behavior and options.
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
+See the handler for behavior and options.
 .SS model-params
 .TP
-\f[B]sovereign-osctl model-params [arguments]\f[R]
-R312 (E1.M32): operator\[cq]s exact board ASUS ProArt X870E-CREATOR WIFI
-specific tuning advisor.
-PCIe slot allocation + M.2 speed matrix + dual-GPU bifurcation modes +
-BIOS-flashback recipe + memory training timeout + known issues.
-Operator-named (§1b verbatim).
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
-.SS model-adapt
+\f[B]sovereign-osctl model-params {list|show|recommend}\f[R]
+R311 (E5.M7 closure): LLM-runtime parametrization advisor.
+Per-parameter catalog with hardware-aware recommended values
+(context_size / n_gpu_layers / cache_type_k+v / batch_size / parallel /
+mlock / mmap / flash_attn / rope_freq_base / temperature / top_p).
+Operator-named (§1b verbatim: \[lq]Model variants + quantizations +
+advanced features parametrization\[rq]).
+## model-adapt
 .TP
-\f[B]sovereign-osctl model-adapt [arguments]\f[R]
-R349 (E10.M1): AI-as-guide topic catalog \[em] operator-pull \[lq]guide
-me into the kernel / hardware / gpu / psu / ups / memory / workload-mode
-/ inference / network\[rq].
-Each topic carries layers + verbs + thresholds + BIOS/HW caveats.
-Operator-named (§1b verbatim: \[lq]only a guide into the experience,
-into the field, into the kernel, into the hardware, into the OS, into
-the modules\&...\[rq]).
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
-.SS model-build
+\f[B]sovereign-osctl model-adapt {tasks|recipes|recommend|show}\f[R]
+R350 (E5.M17): task → (base, method, target GPU) recommender.
+Operator-named §1b verbatim: \[lq]download, fine-tune, parameters,
+build, run, use and train and adapt and use and eval and etc.\[rq] ADAPT
+sits upstream of R244 fine-tune + R232 eval; consults R317 catalog GPU
+VRAM via R348 inventory_consult helper.
+## model-build
 .TP
-\f[B]sovereign-osctl model-build [arguments]\f[R]
-R351 (E2.M34): \[lq]what have I installed but not yet configured?\[rq]
-Operator-named §1b verbatim: \[lq]installs, non-configured, modules or
-features and how configure them\[rq].
-16-module default catalog; per-module verdict (fully-configured /
-installed-not-configured / running-without-overlay /
-config-only-no-runtime / shipped-but- untouched) + the verb to close
-each gap.
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
-.SS model-health
+\f[B]sovereign-osctl model-build {recipes|plan|show|history}\f[R]
+R353 (E5.M18): fills the \[lq]build\[rq] verb in the §1b 9-verb AI tools
+pipeline (download/fine-tune/parameters/BUILD/run/use/train/
+adapt/eval).
+Plans merge/quantize/export of a deployable model artifact from {base +
+adapter + recipe}.
+Hardware-aware via the same declared-GPUs pattern as R350 adapt.
+## lifecycle
+.TP
+\f[B]sovereign-osctl lifecycle [arguments]\f[R]
+R290 (E5.M6): end-to-end fine-tune lifecycle \[em] threads R244
+fine-tune + R232 eval + R182 selfdef registry into ONE operator-pull
+workflow.
+Operator-named (§1b mandate): \[lq]End-to-end fine-tune lifecycle
+(operator triggers training → eval → register)\[rq].
+Read-only; emits the next pending command for the operator to run.
+## workflow
+.TP
+\f[B]sovereign-osctl workflow [arguments]\f[R]
+R291 (E5.M9): operator-mutable flexible profile \[em] full 9-stage
+workflow (download / fine-tune / parameters / build / run / use / train
+/ adapt / eval) the operator named in §1b verbatim.
+Sibling to lifecycle (R290 / E5.M6); covers the broader operator surface
+beyond the fine-tune-focused 5-stage subset.
+## model-health
 .TP
 \f[B]sovereign-osctl model-health [arguments]\f[R]
-M060 D-09 (R10102-R10105): unified hardware-pressure core \[em] Linux
-PSI (/proc/pressure cpu/mem/io) + dual-CCD topology (M070) + GPU
-(nvidia-smi) + ZFS pool/dataset latency (M068) + scheduler backpressure
-(M058).
-Read -only; the sovereign-hardware-pressure-api daemon serves the D-09
-cockpit dashboard from this same core.
-Verbs: status / psi / zfs (+ \[en]json).
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
-.SS costs
+M060 D-03 (R10069-R10074): unified model-health core \[em] joins the
+model catalog (models/catalog.yaml) to the SRP hardware topology (M075
+Conductor/Logic/Oracle), overlays live GPU telemetry (nvidia-smi) +
+optional inference-fabric runtime state (loaded models, KV cache,
+p50/p95/p99 latency).
+Read-only; the sovereign-model-health-api daemon serves the D-03 cockpit
+dashboard from this same core.
+Verbs: status / catalog / gpus (+ \[en]json).
+## costs
 .TP
 \f[B]sovereign-osctl costs [arguments]\f[R]
-M060 D-05 (R10083-R10087): M049 13-field span store + query core \[em]
-reads the observability fabric\[cq]s append-only span log
-(/var/log/sovereign-os/spans.jsonl), filters by time window / text /
-severity / OCSF class (MS026 16-event taxonomy), assembles per-trace
-span trees.
-Read-only; the sovereign-traces-api daemon serves the D-05 cockpit
-dashboard from this same core.
-Verbs: spans / trace / summary (+ \[en]json, \[en]window, \[en]q,
-\[en]severity, \[en]ocsf-class).
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
-.SS cost-policy
-.TP
-\f[B]sovereign-osctl cost-policy [arguments]\f[R]
 M060 D-04 (R10075-R10082): cost aggregation core \[em] joins the
 operator cost policy (/etc/sovereign-os/cost-policy.toml, dump
 9885-9930) to the per-span cost attribute of the M049 span log,
@@ -315,12 +292,9 @@ Read-only; the sovereign-costs-api daemon serves the D-04 cockpit
 dashboard from this same core.
 Verbs: summary / policy / today / export {csv|json} (+ \[en]json).
 Read-only \[em] the WRITE side is cost-policy.
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
-.SS adapters
+## cost-policy
 .TP
-\f[B]sovereign-osctl adapters [arguments]\f[R]
+\f[B]sovereign-osctl cost-policy [arguments]\f[R]
 M060 D-04 write surface \[em] flip cloud_enabled in
 /etc/sovereign-os/cost-policy.toml so the operator can HALT (or resume)
 all cloud spend from the cockpit.
@@ -328,38 +302,47 @@ DRY-RUN by default; a real write needs \[en]confirm (baked into the
 control-systems change_cli) AND, via the exec daemon, the operator key +
 type-to-confirm + SOVEREIGN_OS_ACTION_EXEC_LIVE.
 Verbs: show / halt-cloud / resume-cloud.
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
-.SS evals
+## adapters
+.TP
+\f[B]sovereign-osctl adapters {inventory|list|history|promote|demote|rollback|register|gate}\f[R]
+M060 D-11 (R10109-R10111): LoRA adapter inventory + promotion status
+\[em] joins the model catalog\[cq]s class=lora-adapter entries (M046
+LoRA Foundry) to the promotion registry (per-adapter status + MS041
+triple-gate + eval gain + NVFP4 recipe (M077) + promotion/rollback
+history).
+Read-only; the sovereign-adapters-api daemon serves the D-11 cockpit
+dashboard from this same core.
+READ verbs (inventory / list / history) → adapter-foundry.py (never
+mutates).
+WRITE verbs (promote / demote / rollback / register, SDD-051) →
+adapter-decide.py: transition the promotion registry (MS041 triple-gate
+on promote) + record a durable, audited decision.
+Decisions are \[en]confirm + operator-key + type-to-confirm gated (via
+the cockpit exec daemon) and DRY-RUN by default; MS003 signing is
+defe\&...
+## evals
 .TP
 \f[B]sovereign-osctl evals [arguments]\f[R]
-SDD-061 (M046): the GATE-PRODUCER \[em] advance an adapter\[cq]s MS041
-gate from REAL evidence.
-adapters gate {human|snapshot|eval|oracle} → adapter-gate.py: human =
-operator attestation (the sole cockpit control, adapter-gate-human);
-snapshot = a real ZFS rollback-point (SDD-050); eval = a real passing
-evals.jsonl record (D-10); oracle = an oracle-backend judge.
-SB-077: honest-defer (gate stays pending) when the evidence/backend is
-absent \[em] never fabricates a pass.
-eval/snapshot/oracle are CLI-\&...
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
-.SS super-model
+M060 D-10 (R10106-R10108): eval-history aggregation \[em] reads the
+Eval-Value fabric\[cq]s eval-run log, aggregates per-task pass/fail +
+per-model trend + benchmark-suite progress (M078 HölderPO + M080 HRM
+targets) + adapter-promotion candidates (from the D-11 adapter core).
+Enforces the M079 WB/BB disaggregation invariant (white-box benchmarks
+NEVER averaged with black-box).
+Read-only; the sovereign-evals-api daemon serves the D-10 cockpit
+dashboard from this same core.
+Verbs: summary / suites / candidates (+ \[en]json, \[en]window).
+## super-model
 .TP
 \f[B]sovereign-osctl super-model [arguments]\f[R]
-M060 chain health observability \[em] proxies the selfdef daemon\[cq]s
-GET /v1/m060/health endpoint reporting publish-freshness of all 10
-mirror artifacts (offline/degraded/stale/online plus this script\[cq]s
-own \[lq]unreachable\[rq] when the daemon is down).
-Used by the D-00 master-dashboard\[cq]s chain-health banner, the MCP
-tool selfdef-m060-health, and ops/smoke scripts.
-Read-only.
-Verbs: probe / state (+ \[en]json).
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
+M060 D-19 (R10124-R10125): super-model manifest \[em]
+sovereign-os-native version + module-version table computed LIVE from
+git HEAD + the milestone catalog (M001..M080 ids/titles/R-row counts) +
+config/super-model- manifest.toml editorial overlay (M053 11
+build-phases + per-milestone family/status).
+Read-only; the sovereign-super-model-api daemon serves the D-19 cockpit
+dashboard from this same core.
+Verbs: snapshot / version / milestones (+ \[en]json).
 .SH FILES
 .TP
 \f[B]/etc/sovereign-os/\f[R]
