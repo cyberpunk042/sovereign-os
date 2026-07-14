@@ -3,13 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>sovereign-os D-18 trust scores</title>
-<meta name="x-sovereign-module" content="d-18-trust-scores-webapp">
-<meta name="x-sovereign-shipped-in" content="R-impl-SDD040-phaseD-item5">
+<title>sovereign-os D-28 perimeter fence</title>
+<meta name="x-sovereign-module" content="d-28-perimeter-webapp">
+<meta name="x-sovereign-shipped-in" content="R-impl-SDD040-phaseE-item2">
 <meta name="x-sovereign-standing-rule" content="We do not minimize anything.">
-<meta name="x-sovereign-catalog-source" content="M060 R10123 D-18 trust scores + selfdef MS042 trust-score-tracker (M01095 + R09999 + R10039) + MS040 profile evaluation input + MS007 typed-mirror selfdef-trust-score-mirror (7 of 9)">
-<meta name="x-sovereign-doctrine" content="MS043 R10212 web NEVER mutates IPS state — READ-ONLY mirror consumer; score adjust/decay via selfdefctl + operator MS003 only">
-<meta name="x-sovereign-mirror-source" content="selfdef-trust-score-mirror @ schema 1.0.0">
+<meta name="x-sovereign-catalog-source" content="selfdef IPS security perimeter (Tetragon sovereign-kernel-fence) — SIGKILL/allowlist/extension-allowed verdicts + active signed extensions rendered by sovereign-cockpit-perimeter-panel; selfdef owns the verdict ring + TracingPolicy, cockpit renders only">
 <!-- M060 R10137/R10140/R10141 personalization apply-snippet — same
      ~20 lines that ship in master-dashboard's <head>; reads prefs
      from localStorage and applies them pre-paint so the operator's
@@ -369,7 +367,7 @@ a11y; contract test catches drift.
   :root {
     --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --accent:#9bd1ff;
     --good:#7ad17a; --bad:#ff7676; --warn:#e6c062;
-    --trusted:#7ad17a; --watched:#9bd1ff; --suspect:#e6c062; --untrusted:#ff7676;
+    --p-powerful:#9bd1ff; --p-disciplined:#7ad17a; --p-reversible:#e6c062; --p-flexible:#c4a8e0; --p-sovereign:#f4a460;
     --panel:#171717; --border:#262626;
     --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   }
@@ -384,43 +382,41 @@ a11y; contract test catches drift.
   th,td{text-align:left;padding:.4rem .55rem;border-bottom:1px solid var(--border);vertical-align:top}
   th{color:var(--muted);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
   tr:last-child td{border-bottom:none}
-  tr:hover{background:rgba(155,209,255,0.03)}
   .ok{color:var(--good)} .bad{color:var(--bad)} .warn{color:var(--warn)} .muted{color:var(--muted)}
   .num{font-variant-numeric:tabular-nums;text-align:right}
   .row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:stretch}
-  .stat{flex:1 1 200px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.7rem .9rem}
-  .stat .k{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em}
-  .stat .v{font-size:1.4rem;font-weight:600;margin-top:.2rem;font-variant-numeric:tabular-nums}
-  .stat .u{color:var(--muted);font-size:.78rem}
   .pill{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.72rem;background:var(--border);font-weight:500}
   .pill.ok{background:#143d14;color:var(--good)} .pill.bad{background:#3d1414;color:var(--bad)} .pill.warn{background:#3d2f14;color:var(--warn)}
-  .pill.accent{background:#143d3d;color:var(--accent)} .pill.muted{background:#1c1c1c;color:var(--muted)}
-  .pill.trusted{background:#143d14;color:var(--trusted)} .pill.watched{background:#143d3d;color:var(--watched)}
-  .pill.suspect{background:#3d2f14;color:var(--suspect)} .pill.untrusted{background:#3d1414;color:var(--untrusted)}
+  .pill.accent{background:#143d3d;color:var(--accent)}
+  .property-card{flex:1 1 200px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.8rem 1rem;border-left:4px solid currentColor;position:relative}
+  .property-card.powerful{color:var(--p-powerful)} .property-card.disciplined{color:var(--p-disciplined)}
+  .property-card.reversible{color:var(--p-reversible)} .property-card.flexible{color:var(--p-flexible)}
+  .property-card.sovereign{color:var(--p-sovereign)}
+  .property-card .nm{font-size:.95rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+  .property-card .quote{color:var(--muted);font-size:.78rem;font-style:italic;margin:.3rem 0;border-left:2px solid var(--border);padding-left:.5rem}
+  .property-card .status{font-size:1.6rem;font-weight:700;color:var(--fg);margin-top:.3rem}
+  .property-card .backed{color:var(--muted);font-size:.7rem;margin-top:.4rem;line-height:1.3}
+  .property-card.healthy .status{color:var(--good)}
+  .property-card.degraded .status{color:var(--warn)}
+  .property-card.failing .status{color:var(--bad)}
+  .property-card .check-list{margin-top:.4rem;padding-top:.4rem;border-top:1px solid var(--border)}
+  .check-row{font-size:.74rem;color:var(--muted);display:flex;gap:.3rem;align-items:center;padding:.1rem 0}
+  .check-row.ok::before{content:"✓";color:var(--good);width:1ch}
+  .check-row.warn::before{content:"!";color:var(--warn);width:1ch}
+  .check-row.bad::before{content:"✗";color:var(--bad);width:1ch}
+  .validator-output{background:#0a0a0a;border:1px solid var(--border);border-radius:3px;padding:.6rem .8rem;font-family:var(--mono);font-size:.78rem;white-space:pre;color:var(--fg);max-height:280px;overflow-y:auto}
+  .validator-line.ok{color:var(--good)} .validator-line.bad{color:var(--bad)} .validator-line.warn{color:var(--warn)} .validator-line.muted{color:var(--muted)}
   button{background:var(--panel);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:.35rem .8rem;font-family:inherit;font-size:.85rem;cursor:pointer}
   button:hover{border-color:var(--accent)}
-  button.danger:hover{border-color:var(--bad);color:var(--bad)}
-  .filters{display:flex;gap:.4rem;flex-wrap:wrap;margin:.5rem 0;align-items:center}
-  .filter{padding:.25rem .6rem;border-radius:3px;font-size:.78rem;background:var(--panel);border:1px solid var(--border);cursor:pointer;user-select:none}
-  .filter.on{background:#143d3d;color:var(--accent);border-color:var(--accent)}
-  .badge-mirror{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.7rem;background:#1c1c1c;color:var(--muted);border:1px dashed var(--border)}
-  .band-card{flex:1 1 200px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.55rem .8rem;border-top:3px solid currentColor}
-  .band-card.trusted{color:var(--trusted)} .band-card.watched{color:var(--watched)}
-  .band-card.suspect{color:var(--suspect)} .band-card.untrusted{color:var(--untrusted)}
-  .band-card .nm{font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.05em}
-  .band-card .v{font-size:1.4rem;font-weight:600;color:var(--fg);margin-top:.2rem;font-variant-numeric:tabular-nums}
-  .band-card .d{color:var(--muted);font-size:.7rem}
-  .sparkline{display:inline-block;height:24px;width:120px;vertical-align:middle}
+  .verdict-banner{padding:1rem 1.2rem;border-radius:4px;font-size:1.1rem;font-weight:600;text-align:center;margin:.5rem 0;border:2px solid currentColor}
+  .verdict-banner.healthy{color:var(--good);background:rgba(122,209,122,.07)}
+  .verdict-banner.degraded{color:var(--warn);background:rgba(230,192,98,.07)}
+  .verdict-banner.failing{color:var(--bad);background:rgba(255,118,118,.07)}
   .footer{margin-top:2rem;padding-top:1rem;border-top:1px solid var(--border);color:var(--muted);font-size:.78rem}
   a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
   code{color:var(--accent);background:#0a0a0a;padding:0 3px;border-radius:2px;font-size:.82rem}
   .toast{position:fixed;bottom:1rem;right:1rem;background:var(--panel);border:1px solid var(--accent);color:var(--fg);padding:.5rem .9rem;border-radius:4px;font-size:.78rem;opacity:0;transition:opacity .2s ease;pointer-events:none}
   .toast.show{opacity:1}
-  .score-bar{position:relative;background:#0a0a0a;border:1px solid var(--border);border-radius:3px;height:8px;overflow:hidden;min-width:120px}
-  .score-bar .fill{position:absolute;top:0;left:0;bottom:0;transition:width .25s ease}
-  .score-bar .fill.trusted{background:var(--trusted)} .score-bar .fill.watched{background:var(--watched)}
-  .score-bar .fill.suspect{background:var(--suspect)} .score-bar .fill.untrusted{background:var(--untrusted)}
-  .trend-down{color:var(--bad)} .trend-up{color:var(--good)} .trend-flat{color:var(--muted)}
 </style>
 <!-- SDD-116/119 shared demo-mode helper (inlined verbatim from webapp/_shared/demo-mode.{css,js}; opt-in, always-badged sample data — SB-077 reconciliation). -->
 <style>
@@ -672,15 +668,15 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
       {id:'—', dir:'router', label:'Router', ico:'⎈', desc:'The deterministic request router (SDD-011): which tier answers a prompt, per-rule classification, routing-decision metrics. Pairs with the thinking-router planner (CLI: router plan).', menuHover:'The loopback traffic cop every prompt passes through — the deterministic request router (SDD-011) that decides, in a fixed rule order, which tier answers a given prompt. It classifies each request against an ordered rule set (first match wins, so the same prompt always routes the same way) and dispatches it to Pulse (cheap ternary), the Logic engine (mid-scale Q4), or the Oracle (deep reasoning). The doctrine it enforces is that most prompts do not deserve the expensive model. Open it to see the routing rules, the backends’ health as route targets, and the live counts of where prompts actually landed — and to catch a rules-vs-reality mismatch (everything piling onto Oracle, or the cheap tier being bypassed). It pairs with the thinking-router (orchestration) which adds reasoning escalation on top of this tier choice.'},
       {id:'—', dir:'runtime-modes', label:'Runtime Modes', ico:'◑', desc:'The master-spec §18 runtime profiles (ultra-sovereign-efficiency / high-concurrency / deep-context) — pick the mode; it drives core pinning, GPU power, model allocation.', menuHover:'The runtime posture chooser, seen from the mode angle — the same M076 profiles as D-21 but framed as ‘what mode is the box in.’ Each mode (ultra-sovereign-efficiency, high-concurrency, deep-context) is a whole coherent stance that drives core pinning, GPU power, and model allocation together, so switching mode reshapes how the entire machine thinks rather than tweaking one knob. Open it when you want to change the box’s character — cheapest cognition, most parallel agents, or longest contexts — and to understand the trade-off each mode makes (you cannot have all three at once). It is the plain-language sibling of D-21 (which shows the same choice as a model-to-hardware grid) and of profile-generation (which produces these modes from hardware and strategy).'},
       {id:'D-01', dir:'d-01-active-sessions', label:'D-01 Active Sessions', ico:'▣', desc:'The 12-step task lifecycle per live operator session (init → inference → response → validation → cleanup).', menuHover:'The live-sessions board — every operator session in flight and where each one sits in the 12-step task lifecycle (M057), from init through inference, response, validation, to cleanup. It answers ‘what is the box actually working on right now, and is anything stuck.’ Each session walks the same lifecycle, so a session parked at one step is a session that needs attention — a stalled validation, an inference that never returned. Open it to see concurrency at a glance, to find a hung session, or to confirm work is draining through the lifecycle cleanly rather than piling up. It is the per-session counterpart to D-03 (which shows the models those sessions are hitting) and D-09 (the pressure a burst of sessions produces).'},
-      {id:'D-03', dir:'d-03-model-health', label:'D-03 Model Health', ico:'♥', desc:'Per-tier inference health — SRP role, GPU binding, KV-cache pressure, latency. The live-serving view (distinct from the catalog).', menuHover:'How well the models are actually SERVING right now — the live-inference counterpart to the catalog. Where D-23 tells you which models exist, this tells you how the loaded ones are performing across the three SRP tiers (M075): the Conductor on CPU ternary, the Logic engine on the RTX 4090 (OcuLink eGPU), and the Oracle on the Blackwell PRO 6000. It reads each tier’s utilization and headroom, per-model latency at the p50/p95/p99 tails (because the tail is what a user feels, not the average), KV-cache occupancy and prefill-hit rate per model, and a 24-hour availability heatmap that turns momentary blips into a pattern. Open it when a response felt slow and you need to know which tier and which model was the cause; open it before loading a new model to see which tier has room; open it after a profile change to confirm the reassignment is serving cleanly. It pairs with D-09 (the raw hardware pressure underneath these numbers), D-21 (the profile that assigned models to tiers), and D-23 (the portfolio these live models are drawn from).'},
+      {id:'D-03', dir:'d-03-model-health', label:'D-03 Model Health', ico:'♥', desc:'Per-tier inference health — SRP role, GPU binding, KV-cache pressure, latency. The live-serving view (distinct from the catalog).', menuHover:'How well the models are actually SERVING right now — the live-inference counterpart to the catalog. Where D-23 tells you which models exist, this tells you how the loaded ones are performing across the three SRP tiers (M075): the Conductor on CPU ternary, the Logic engine on the sandboxed 4090, and the Oracle on the Blackwell. It reads each tier’s utilization and headroom, per-model latency at the p50/p95/p99 tails (because the tail is what a user feels, not the average), KV-cache occupancy and prefill-hit rate per model, and a 24-hour availability heatmap that turns momentary blips into a pattern. Open it when a response felt slow and you need to know which tier and which model was the cause; open it before loading a new model to see which tier has room; open it after a profile change to confirm the reassignment is serving cleanly. It pairs with D-09 (the raw hardware pressure underneath these numbers), D-21 (the profile that assigned models to tiers), and D-23 (the portfolio these live models are drawn from).'},
       {id:'D-05', dir:'d-05-traces', label:'D-05 Traces', ico:'⋮', desc:'Distributed span search — 13-field trace tree, OCSF export. Debug why a request went where it did.', menuHover:'The debugger’s panel — distributed span search across the box, where you reconstruct exactly what happened to one request. It gives you the 13-field trace tree per request and an OCSF export, so when something went wrong or slow you can follow the span-by-span path: which tier classified it, which model served it, where the time went, where it errored. It answers ‘why did THIS request behave this way’ rather than ‘how is the box in aggregate.’ Open it after a bad response, a mysterious latency, or a routing surprise — the trace is the ground truth that the summary dashboards abstract away. It complements D-01 (the session the trace belongs to) and D-04 (the cost that trace incurred), and its OCSF output is the security-legible form auditors consume.'},
     ]},
     {name:'Models & Compute', items:[
-      {id:'D-21', dir:'d-21-lm-orchestration', label:'D-21 LM Orchestration', ico:'⛭', desc:'Profiles + model→hardware assignment grid (GPU0/GPU1/EXT_GPU/CPU0 = Oracle/secondary/Logic/Conductor per M075, SDD-993) + CPU AVX-512 / GPU capability panel. Read-only: Apply copies the signed profile verb.', menuHover:'Where you choose the whole machine’s inference posture in one move. A runtime profile (M076) is not a setting — it is a coherent bundle that assigns every model to a device and pins the CPU cores to match (the SRP split, M075), so picking one rebalances the Conductor, Logic, and Oracle tiers together. This panel lets you preview a profile as a concrete model→hardware grid before you commit it, and shows the silicon it’s built to exploit (the CPU’s AVX-512 extensions for the ternary path, the GPUs’ capabilities like NVFP4). Open it when you want to change how the box thinks as a whole — trade deep-context reach for concurrency, or park the GPUs and run cheap on CPU — rather than tweaking one model. It’s the strategic counterpart to D-03 (which shows how the current assignment is actually serving) and D-09 (which shows the pressure each posture produces). Read-only: applying a profile is a signed verb-chain through osctl, because reshuffling models across devices is a real, heavy operation, not a web click.'},
+      {id:'D-21', dir:'d-21-lm-orchestration', label:'D-21 LM Orchestration', ico:'⛭', desc:'Profiles + model→hardware assignment grid (GPU0/GPU1/CPU0 = Logic/Oracle/Conductor per M075) + CPU AVX-512 / GPU capability panel. Read-only: Apply copies the signed profile verb.', menuHover:'Where you choose the whole machine’s inference posture in one move. A runtime profile (M076) is not a setting — it is a coherent bundle that assigns every model to a device and pins the CPU cores to match (the SRP split, M075), so picking one rebalances the Conductor, Logic, and Oracle tiers together. This panel lets you preview a profile as a concrete model→hardware grid before you commit it, and shows the silicon it’s built to exploit (the CPU’s AVX-512 extensions for the ternary path, the GPUs’ capabilities like NVFP4). Open it when you want to change how the box thinks as a whole — trade deep-context reach for concurrency, or park the GPUs and run cheap on CPU — rather than tweaking one model. It’s the strategic counterpart to D-03 (which shows how the current assignment is actually serving) and D-09 (which shows the pressure each posture produces). Read-only: applying a profile is a signed verb-chain through osctl, because reshuffling models across devices is a real, heavy operation, not a web click.'},
       {id:'D-24', dir:'d-24-cpu-features', label:'D-24 CPU Features', ico:'⊞', desc:'The deep AVX-512 capability view — extension map, per-AI-workload fit verdict, and advisory. Reuses avx512-advisor. Distinct from D-21 Features-CPU summary.', menuHover:'The deep read on what the CPU can actually do for AI — the full AVX-512 extension map and, more usefully, a verdict on how well this exact silicon fits each AI workload. It matters because the whole cheap-cognition story rests on ternary inference running fast on CPU, and that speed comes from specific AVX-512 instructions (VNNI for integer dot-products, BF16 for half-precision, VPOPCNTDQ for bit-counting the ternary path leans on). If an extension is missing, the Conductor tier silently falls back to a slower path — so this panel is where you learn whether \u201cefficiency mode\u201d will actually be efficient on THIS chip. It goes deeper than D-21\u2019s at-a-glance CPU-features summary: here each extension is mapped to the workloads it enables, with a fit verdict and an advisory (from the avx512-advisor, R272). Open it when deciding whether to lean on CPU inference, diagnosing why the Conductor is slower than expected, or planning a build for specific silicon. It pairs with D-09 (the CCD load these instructions drive) and D-21 (the efficiency profile that depends on them).'},
       {id:'D-23', dir:'d-23-models-catalog', label:'D-23 Model Catalog', ico:'▤', desc:'The canonical model registry (models/catalog.yaml) browsed by SRP tier — id, class, engine, precision, params, context, license, purpose, status. The portfolio view (distinct from D-03 live health).', menuHover:'The full portfolio of models the box COULD run, browsed by SRP tier — the catalog, as opposed to D-03 which shows the few that are loaded and serving. Every entry comes straight from the canonical registry (models/catalog.yaml) with its real attributes: id, class (ternary-lm / RLM / SLM / LLM / mixture), engine, precision, parameter count, context window, license, purpose, and status. This is where you shop before you load: to find a model that fits a tier\u2019s VRAM budget, to compare two candidates\u2019 context windows or licenses, or to understand what the box is capable of beyond what happens to be resident right now. It is deliberately read-only reference \u2014 loading a model you find here is done from D-03 or D-21, as a signed action. Open it when you\u2019re choosing what to run, auditing licenses across the fleet, or answering \u201cdo we even have a model for this?\u201d It pairs with D-03 (which of these are live) and D-21 (which tier/device a chosen model would land on).'},
       {id:'D-22', dir:'d-22-lm-status-operability', label:'D-22 LM Status & Operability', ico:'◐', desc:'Per-device (CPU0/GPU0/GPU1) Model 0/1/2 status + History|Selected latency + operability Actions/Tests + render-only Chat. Reuses the model-health core; Actions copy signed CLI verbs.', menuHover:'The device-by-device operability view — and the one place in the whole cockpit where you actually talk to the box\u2019s brain. Where D-03 aggregates model health by SRP tier, this pins it to the physical devices (CPU0, GPU0, GPU1) and adds the thing that proves the machine is more than dashboards: a sovereign loopback chat that sends a prompt straight to the local LM over 127.0.0.1 and shows the answer. That chat is the single deliberate exception to the read-only rule \u2014 it is a real compute call, but it never leaves the box, which is the whole sovereignty argument made tangible: your AI, on your silicon, answering with nothing crossing the network. Open it to confirm a device is not just loaded but actually responding; open it to sanity-check the box end to end after a profile change; open the chat when you want to feel the machine think without a cloud in the loop. It pairs with D-03 (tier health), D-21 (the profile that placed these models on these devices), and D-09 (the pressure a chat request produces).'},
-      {id:'—', dir:'code-console', label:'Code Console', ico:'⌘', desc:'A claude.ai/code-style interface for the box’s OWN local LM — a left M057 session rail, a center conversation over the loopback router, a right Plan/artifact pane, and a bottom composer with an M075 device target. Read-only (R10212): the one sanctioned POST is the loopback chat.', menuHover:'The one panel where you sit down and CODE with your sovereign machine instead of a cloud. It re-creates the claude.ai/code shape natively — a session rail on the left (real M057 OS task-sessions), a conversation in the middle, a plan/artifact pane on the right, and a composer at the bottom with a device target (CPU0 Conductor / GPU0 Oracle / EXT_GPU Logic) — but every token is served by the box’s own local LM over 127.0.0.1, nothing crossing the network. It is honest by construction: the rail and the composer are live, while the persisted conversation, the Plan pane, and the repo chips have no producer on the box yet and say so plainly rather than faking them (SB-077). It is read-only like every panel (R10212): the single mutating-looking call is the loopback chat, a non-mutating inference read-compute; any real action is a signed CLI verb you copy. Open it to talk to the machine directly, to sanity-check that a device actually responds, or to feel the box think with no cloud in the loop. It extends D-22, whose per-device chat this grows into a full IDE-style surface.'},
+      {id:'—', dir:'code-console', label:'Code Console', ico:'⌘', desc:'A claude.ai/code-style interface for the box’s OWN local LM — a left M057 session rail, a center conversation over the loopback router, a right Plan/artifact pane, and a bottom composer with an M075 device target. Read-only (R10212): the one sanctioned POST is the loopback chat.', menuHover:'The one panel where you sit down and CODE with your sovereign machine instead of a cloud. It re-creates the claude.ai/code shape natively — a session rail on the left (real M057 OS task-sessions), a conversation in the middle, a plan/artifact pane on the right, and a composer at the bottom with a device target (CPU0 Conductor / GPU0 Logic / GPU1 Oracle) — but every token is served by the box’s own local LM over 127.0.0.1, nothing crossing the network. It is honest by construction: the rail and the composer are live, while the persisted conversation, the Plan pane, and the repo chips have no producer on the box yet and say so plainly rather than faking them (SB-077). It is read-only like every panel (R10212): the single mutating-looking call is the loopback chat, a non-mutating inference read-compute; any real action is a signed CLI verb you copy. Open it to talk to the machine directly, to sanity-check that a device actually responds, or to feel the box think with no cloud in the loop. It extends D-22, whose per-device chat this grows into a full IDE-style surface.'},
       {id:'—', dir:'models-catalog', label:'Models & Catalog', ico:'▤', desc:'The full model catalog (68 models across ternary-lm/RLM/SLM/LLM/mixture, every quantization) with VRAM-aware selection — browse and filter by class/quant/tier/purpose/VRAM. Backed by models/catalog.yaml (served at /models-catalog.json); operator CLI e.g. models select --class rlm --vram 48.', menuHover:'The full model shelf with VRAM-aware selection — the complete catalog (68 models across ternary-lm, RLM, SLM, LLM, and mixture, at every quantization) that you browse and filter to choose what to run. Where D-23 is the tier-grouped portfolio view, this is the working selector: filter by class, quant, tier, purpose, or VRAM budget and it shows you what actually fits. It answers ‘which model should I load for this job on this hardware’ — the VRAM filter is the key, because a model that will not fit is not a candidate no matter how good. Open it when picking a model to load, comparing quantizations of the same base, or checking whether a workload has a model that fits a tier’s memory. It feeds D-03 and D-21, where a chosen model becomes a signed load.'},
       {id:'—', dir:'cpu-features', label:'CPU / AVX-512 Choice', ico:'⊞', desc:'The tiered AVX-512 exploitation surface — which instructions (F/VL/BW/VNNI/BF16/VPOPCNTDQ…) THIS CPU exposes and how they map to the AI workloads they enable (Pulse ternary path). Live probe via avx512-advisor (R272), served at /cpu-avx.json.', menuHover:'The CPU-as-AI-accelerator chooser — the tiered AVX-512 exploitation surface that shows which instruction families this chip exposes (F, VL, BW, VNNI, BF16, VPOPCNTDQ…) and how they map to the AI workloads they enable. It matters because the box’s cheap-cognition claim rests on ternary inference running fast on CPU, and that speed comes from these specific extensions — a missing one silently downgrades the Pulse path. Open it to decide whether to lean on CPU inference on this silicon, or to understand why the Conductor is slower than expected. It is the selection-oriented sibling of D-24 (the deep per-workload fit and advisory) and it grounds the efficiency profile on runtime-modes / D-21, which only makes sense if the instructions it needs are present.'},
       {id:'—', dir:'orchestration', label:'Thinking Router / Orchestration', ico:'⧉', desc:'The thinking-router / orchestration view — the 7-axis routing rules (SDD-011) + live routing metrics (which tier/class/task-type requests landed on) + the per-profile escalation (CoT → Validator → self-consistency → MoE). Served at /orchestration.json (router rules|metrics).', menuHover:'The thinking-router — the layer above tier choice that decides HOW HARD to reason, not just which model answers. It applies the 7-axis routing rules (SDD-011) and then the per-profile escalation ladder: chain-of-thought, then a validator, then self-consistency (multiple samples), then mixture-of-experts, each rung costing more but reasoning harder. It answers ‘is the box thinking as deeply as this prompt deserves, and no deeper.’ Open it to see which tier/class/task-type requests landed on, and how far up the escalation ladder the active profile climbs — too eager wastes compute, too shy gives shallow answers. It sits on top of the plain router (which picks the tier) and its escalation depth is set by the runtime profile you choose on D-21 / runtime-modes.'},
@@ -732,7 +728,7 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
       {id:'—', dir:'personalization', label:'Personalization', ico:'✦', desc:'Theme / accent / typography control (localStorage-backed) applied across all panels before paint.', menuHover:'Operator comfort, kept deliberately apart from machine state — theme, accent color, and typography scale for the cockpit, and nothing that touches the box’s behavior. It is the one panel where you genuinely cannot break anything: everything here is presentation, saved locally, so you can make the cockpit easy to read at the bench (larger, high-contrast) or dense at the desk without any risk to the machine. It answers ‘how do I make the cockpit comfortable for me.’ Open it to set the look, or to export and import your preferences as a cosmetic JSON that carries your look between machines with no box state or secrets in it. The strict separation of presentation from state is the point — this is the safe panel, on purpose.'},
     ]},
     {name:'Science & Simulation', items:[
-      {id:'—', dir:'science', label:'Science Tools', ico:'⚛', desc:'The operator\'s science catalog — DNA / protein / particle tools. NVIDIA Warp (particles) is integrated: a differentiable particle sim on GPU (RTX PRO 6000) or CPU fallback. Read-only; running a sim is the gated sovereign-osctl science run.', menuHover:'The GPU as a scientific instrument — NVIDIA Warp compiling Python kernels to run simulation and numeric compute on the same Blackwell silicon (RTX PRO 6000 + RTX 5090) and RTX 4090 that serve inference, so the machine is a compute instrument, not only an inference server. It answers ‘what can the box compute for me beyond serving models, and is that capability ready.’ Open it to confirm Warp is live and which GPU it targets, to browse the available science tools, or to run a simulation — remembering that a heavy run competes for the very VRAM inference needs (watch D-09). It is the panel that shows the box is general-purpose compute you own, not a single-purpose appliance, and it draws on the same GPU budget the orchestration and hardware-pressure panels track.'},
+      {id:'—', dir:'science', label:'Science Tools', ico:'⚛', desc:'The operator\'s science catalog — DNA / protein / particle tools. NVIDIA Warp (particles) is integrated: a differentiable particle sim on GPU (RTX PRO 6000) or CPU fallback. Read-only; running a sim is the gated sovereign-osctl science run.', menuHover:'The GPU as a scientific instrument — NVIDIA Warp compiling Python kernels to run simulation and numeric compute on the same Blackwell and 4090 silicon that serves inference, so the machine is a compute instrument, not only an inference server. It answers ‘what can the box compute for me beyond serving models, and is that capability ready.’ Open it to confirm Warp is live and which GPU it targets, to browse the available science tools, or to run a simulation — remembering that a heavy run competes for the very VRAM inference needs (watch D-09). It is the panel that shows the box is general-purpose compute you own, not a single-purpose appliance, and it draws on the same GPU budget the orchestration and hardware-pressure panels track.'},
     ]},
   ];
   // Expose the catalog (labels + rich per-panel narratives) so the course
@@ -801,8 +797,8 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
           '<select class="so-ask-dev" id="so-ask-dev" title="local-AI target (M075 SRP device / model)" aria-label="local AI target">'+
             '<option value="auto">auto · router picks</option>'+
             '<option value="CPU0">CPU0 · Conductor</option>'+
-            '<option value="GPU0">GPU0 · Oracle (PRO 6000)</option>'+
-            '<option value="GPU1">GPU1 · secondary (RTX 5090)</option>'+
+            '<option value="GPU0">GPU0 · Logic</option>'+
+            '<option value="GPU1">GPU1 · Oracle</option>'+
           '</select>'+
           '<button class="so-ask-btn local" id="so-ask-local" title="query the box\'s own local AI over loopback (127.0.0.1) — question + assistant guide as context">✦ Local AI</button>'+
           '<button class="so-ask-btn" id="so-ask-gpt" title="open your question + this panel\'s assistant guide in ChatGPT (external — leaves the box)">ChatGPT ↗</button>'+
@@ -1234,275 +1230,157 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
 <!-- APP-SHELL:END M067 -->
 
 
-<h1>D-18 — trust scores <span class="badge-mirror" style="font-size:.7rem">read-only via selfdef-trust-score-mirror</span></h1>
-<div class="sub">per-tool trust score history · 0..1000 fixed-point · 4-band classification · MS042 telemetry input · MS040 profile evaluation — <a href="../master-dashboard/">D-00 main</a></div>
 
-<!-- M060 mirror-status banner -->
-<div id="mirror-status-banner" class="mirror-banner offline" role="status" aria-live="polite">
+
+
+<h1>D-28 — perimeter fence</h1>
+<div class="sub">the selfdef IPS security perimeter (Tetragon sovereign-kernel-fence) — recent SIGKILL / allowlist / extension-allowed verdicts + the active signed extensions, rendered by <code>sovereign-cockpit-perimeter-panel</code> in-browser (wasm) · selfdef owns the verdict ring + the TracingPolicy; the cockpit only renders it — <a href="../master-dashboard/">D-00 main</a></div>
+
+<!-- Data-source status banner -->
+<div id="datasource-banner" class="ds-banner unknown" role="status" aria-live="polite">
   <span class="dot"></span>
-  <strong id="mirror-state-label">mirror: offline</strong>
-  <span id="mirror-state-detail" class="muted">
-    no <code>trust-scores.json</code> published yet — enable
-    <code>[deployment].selfdef_mirror_dir</code> in <code>selfdef.toml</code>
-    (deltas daemon-populated by scoring; operator admit/adjust via
-    <code>selfdefctl trust-scores admit|operator-delta</code>)
-  </span>
+  <strong id="ds-state-label">data source: ?</strong>
+  <span id="ds-state-detail" class="muted">checking <code>/api/d-28/snapshot</code>…</span>
   <span class="spacer"></span>
-  <span class="muted" id="mirror-last-update">last update: —</span>
-  <span class="muted">· schema <code id="mirror-schema-version">1.0.0</code></span>
+  <span class="muted" id="ds-last-update">last fetch: —</span>
 </div>
 <style>
-  .mirror-banner { display:flex; align-items:center; gap:.6rem; padding:.55rem .85rem;
+  .ds-banner { display:flex; align-items:center; gap:.6rem; padding:.55rem .85rem;
     border:1px solid var(--border, #2a2a2a); border-radius:.4rem; margin:.55rem 0 1rem;
     font-size:.85rem; background:rgba(255,255,255,.02); }
-  .mirror-banner.online  { border-color:#1f7a3a; background:rgba(31,122,58,.10); }
-  .mirror-banner.offline { border-color:#7a3a1f; background:rgba(122,58,31,.10); }
-  .mirror-banner .dot { width:.55rem; height:.55rem; border-radius:50%;
-    background:#7a3a1f; box-shadow:0 0 .35rem rgba(122,58,31,.5); }
-  .mirror-banner.online .dot { background:#1f7a3a; box-shadow:0 0 .35rem rgba(31,122,58,.7); }
-  .mirror-banner .spacer { flex:1; }
+  .ds-banner .dot { width:.6rem; height:.6rem; border-radius:50%; background:var(--muted,#888); flex:none; }
+  .ds-banner.online  { border-color:#1f7a3a; background:rgba(31,122,58,.10); }
+  .ds-banner.online  .dot { background:#2ecc71; }
+  .ds-banner.offline { border-color:#7a1f1f; background:rgba(122,31,31,.10); }
+  .ds-banner.offline .dot { background:#e74c3c; }
+  .ds-banner .spacer { flex:1; }
+  .pp-agg { display:inline-flex; align-items:center; gap:.5rem; padding:.4rem .8rem; border-radius:.4rem;
+    font-weight:600; letter-spacing:.02em; border:1px solid var(--border,#2a2a2a); }
+  .pp-agg.green  { color:#2ecc71; border-color:#1f7a3a; background:rgba(31,122,58,.10); }
+  .pp-agg.yellow { color:#e0a800; border-color:#7a5c1f; background:rgba(122,92,31,.10); }
+  .pp-agg.red    { color:#e74c3c; border-color:#7a1f1f; background:rgba(122,31,31,.10); }
+  .pp-agg.gray   { color:var(--muted,#888); }
+  table.pp-rows { width:100%; border-collapse:collapse; font-size:.86rem; margin-top:.4rem; }
+  table.pp-rows th, table.pp-rows td { text-align:left; padding:.45rem .6rem; border-bottom:1px solid var(--border,#222); }
+  table.pp-rows th { color:var(--muted,#888); font-weight:600; font-size:.74rem; text-transform:uppercase; letter-spacing:.04em; }
+  table.pp-rows tr.agg td { font-weight:600; background:rgba(255,255,255,.02); }
+  table.pp-rows tr.ext td { background:rgba(224,168,0,.04); }
+  .pp-badge { font-weight:700; font-size:.72rem; padding:.1rem .45rem; border-radius:.3rem; }
+  .pp-badge.green  { color:#2ecc71; background:rgba(31,122,58,.14); }
+  .pp-badge.yellow { color:#e0a800; background:rgba(122,92,31,.14); }
+  .pp-badge.red    { color:#e74c3c; background:rgba(122,31,31,.14); }
+  .pp-badge.gray   { color:var(--muted,#888); background:rgba(255,255,255,.04); }
 </style>
 
-<h2>4-band classification</h2>
-<div class="row">
-  <div class="band-card trusted">
-    <div class="nm">Trusted (≥ 800)</div>
-    <div class="v" id="b-trusted">0</div>
-    <div class="d">Tier A/B auto-approve eligible · mean <span id="m-trusted">—</span></div>
-  </div>
-  <div class="band-card watched">
-    <div class="nm">Watched (500–799)</div>
-    <div class="v" id="b-watched">0</div>
-    <div class="d">telemetry retained · profile-gated · mean <span id="m-watched">—</span></div>
-  </div>
-  <div class="band-card suspect">
-    <div class="nm">Suspect (200–499)</div>
-    <div class="v" id="b-suspect">0</div>
-    <div class="d">operator-ask · Tier C/D escalation · mean <span id="m-suspect">—</span></div>
-  </div>
-  <div class="band-card untrusted">
-    <div class="nm">Untrusted (< 200)</div>
-    <div class="v" id="b-untrusted">0</div>
-    <div class="d">auto-quarantine · forfeit candidate · mean <span id="m-untrusted">—</span></div>
-  </div>
-</div>
+<h2>overall verdict</h2>
+<div><span class="pp-agg gray" id="p-aggregate">perimeter: —</span></div>
 
-<h2>summary</h2>
-<div class="row">
-  <div class="stat"><div class="k">total tools</div><div class="v" id="s-total">0</div><div class="u">tracked</div></div>
-  <div class="stat"><div class="k">mean score</div><div class="v" id="s-mean">0</div><div class="u">across all tools</div></div>
-  <div class="stat"><div class="k">trending down</div><div class="v warn" id="s-down">0</div><div class="u">last 5 deltas net &lt; 0</div></div>
-  <div class="stat"><div class="k">executions (24h)</div><div class="v ok" id="s-exec">0</div><div class="u">successful</div></div>
-  <div class="stat"><div class="k">mismatches (24h)</div><div class="v bad" id="s-miss">0</div><div class="u">declaration drift</div></div>
-</div>
-
-<h2>per-tool scores</h2>
+<h2>perimeter — active extensions + recent verdicts (crate-rendered)</h2>
 <div class="panel">
-  <div class="filters" id="band-filters">
-    <span style="font-size:.72rem;color:var(--muted)">band:</span>
-    <div class="filter on" data-band="trusted">trusted</div>
-    <div class="filter on" data-band="watched">watched</div>
-    <div class="filter on" data-band="suspect">suspect</div>
-    <div class="filter on" data-band="untrusted">untrusted</div>
-    <span style="font-size:.72rem;color:var(--muted);margin-left:1rem">sort:</span>
-    <div class="filter" data-sort="score-desc">↓ score</div>
-    <div class="filter on" data-sort="trend">trend</div>
-    <div class="filter" data-sort="tool">name</div>
-  </div>
-  <table>
-    <thead>
-      <tr>
-        <th>tool</th>
-        <th>band</th>
-        <th>score</th>
-        <th>trend</th>
-        <th>history</th>
-        <th class="num">exec</th>
-        <th class="num">mismatch</th>
-        <th class="num">reliability</th>
-        <th>actions</th>
-      </tr>
-    </thead>
-    <tbody id="tool-tbody"></tbody>
+  <table class="pp-rows">
+    <thead><tr><th>what</th><th>status</th><th>detail</th><th>runbook</th></tr></thead>
+    <tbody id="p-rows"><tr><td colspan="4" class="muted">loading…</td></tr></tbody>
   </table>
 </div>
 
-<h2>actions <span class="muted" style="font-size:.75rem;font-weight:400">— web is READ-ONLY mirror consumer; score adjust/decay via selfdefctl + operator MS003 (R10212)</span></h2>
-<div class="row">
-  <button onclick="emit('selfdefctl trust list --band trusted')">copy: list trusted</button>
-  <button onclick="emit('selfdefctl trust show --tool <name> --history 30d')">copy: 30d history</button>
-  <button class="warn" onclick="emit('selfdefctl trust adjust --tool <name> --delta -200 --reason \"...\"')">copy: penalty (-200)</button>
-  <button onclick="emit('selfdefctl trust adjust --tool <name> --delta +50 --reason \"operator endorse\"')">copy: bonus (+50)</button>
-  <button class="danger" onclick="emit('selfdefctl trust forfeit --tool <name> --confirm')">copy: forfeit (cap to 0)</button>
-</div>
-
 <div class="footer">
-  D-18 · <a href="../master-dashboard/">D-00 main</a> · <a href="../d-17-quarantine/">D-17 quarantine</a> · <a href="../d-14-capability-tokens/">D-14 capability</a><br>
-  mirror source: <code>selfdef-trust-score-mirror @ 1.0.0</code> · MS042 trust-score-tracker · MS040 profile evaluation · MS007 typed-mirror crate #7 of 9
+  D-28 · <a href="../master-dashboard/">D-00 main</a> · <a href="../d-27-guardian/">D-27 guardian</a> · <a href="../d-26-friction-audit/">D-26 friction-audit</a> · <a href="../auditor/">auditor</a><br>
+  source: selfdef IPS security perimeter (Tetragon sovereign-kernel-fence) · rendered by sovereign-cockpit-perimeter-panel (wasm) · selfdef owns /var/cache/selfdef/perimeter/ring + the TracingPolicy — the cockpit renders, never fabricates
 </div>
 
 <div class="toast" id="toast">copied</div>
 
 <script>
-  // Live data from the read-only selfdef-trust-score-mirror publisher API
-  // (scripts/operator/trust-mirror-api.py). Schema mirrors
-  // selfdef-trust-score-mirror::TrustScoreMirrorSnapshot 1.0.0. No mutations
-  // from this surface — R10212 (score reset is selfdefctl + MS003 on the IPS).
-  let seed = { schema_version: "1.0.0", mirror_status: "offline", captured_at: null, summaries: [], tools: [] };
-
-  function renderMirrorBanner() {
-    const b = document.getElementById('mirror-status-banner'); if (!b) return;
-    const label = document.getElementById('mirror-state-label');
-    const detail = document.getElementById('mirror-state-detail');
-    const last = document.getElementById('mirror-last-update');
-    const sch = document.getElementById('mirror-schema-version');
-    const online = seed.mirror_status === 'online';
-    b.classList.toggle('online', online); b.classList.toggle('offline', !online);
-    if (online) { label.textContent = 'mirror: online';
-      detail.innerHTML = 'consuming <code>selfdef-trust-score-mirror</code> via <code>selfdefd</code> export'; }
-    else { label.textContent = 'mirror: offline';
-      detail.innerHTML = 'no <code>trust-scores.json</code> published yet — enable ' +
-        '<code>[deployment].selfdef_mirror_dir</code> in <code>selfdef.toml</code> ' +
-        '(deltas daemon-populated by scoring; operator admit/adjust via ' +
-        '<code>selfdefctl trust-scores admit|operator-delta</code>)'; }
-    last.textContent = seed.captured_at
-      ? 'last update: ' + new Date(seed.captured_at).toLocaleString()
-      : 'last update: never';
-    if (seed.schema_version) sch.textContent = seed.schema_version;
+  // globals for inline onclick + the shared control surface below
+  function jumpToControl(cid) {
+    const s = document.getElementById('control-surface');
+    const c = s && s.querySelector('[data-cid="' + cid + '"]');
+    (c || s || document.body).scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (c) { c.style.outline = '2px solid var(--accent,#9bd1ff)'; setTimeout(() => { c.style.outline = ''; }, 1600); }
   }
-
-  function demoActive() { return !!(window.soDemo && window.soDemo.on()); }
-  const DEMO_D18 = {
-    schema_version:"1.0.0", mirror_status:"online", captured_at:"2026-06-30T14:00:00Z", summaries:[],
-    tools:[
-      {tool:"demo/exec-rail", declarer:"control-exec", band:"trusted", current_score:940, executions_total:1200, mismatches_total:3, history:[{score_after:900},{score_after:915},{score_after:928},{score_after:940}]},
-      {tool:"demo/session-reaper", declarer:"m057", band:"trusted", current_score:880, executions_total:640, mismatches_total:5, history:[{score_after:860},{score_after:870},{score_after:880}]},
-      {tool:"demo/memory-janitor", declarer:"m028", band:"watched", current_score:610, executions_total:210, mismatches_total:18, history:[{score_after:640},{score_after:625},{score_after:610}]},
-      {tool:"demo/flash-writer", declarer:"selfdef", band:"suspect", current_score:340, executions_total:44, mismatches_total:22, history:[{score_after:400},{score_after:370},{score_after:340}]}
-    ]
-  };
-  async function load() {
-    if (demoActive()) { seed = Object.assign(seed, DEMO_D18); renderMirrorBanner(); renderTiles(); renderTools(); const _l=document.getElementById('mirror-state-label'); if(_l)_l.textContent='mirror: DEMO — sample data'; if(window.soDemo)window.soDemo.badge(); return; }
-    try {
-      const r = await fetch('/api/d-18/snapshot', { credentials: 'same-origin' });
-      if (r.ok) seed = Object.assign(seed, await r.json());
-    } catch (e) { /* mirror offline — keep empty-safe defaults */ }
-    renderMirrorBanner();
-    renderTiles();
-    renderTools();
-  }
-
-  function reliability(t) { const total = t.executions_total + t.mismatches_total; return total === 0 ? 1.0 : t.executions_total / total; }
-  function trend(t) {
-    const tail = t.history.slice(-5);
-    if (tail.length < 2) return 0;
-    return tail[tail.length - 1].score_after - tail[0].score_after;
-  }
-
-  // band tiles + summary tiles (rendered from the live mirror snapshot)
-  function renderTiles() {
-    const tools = seed.tools || [];
-    const bands = { trusted: [], watched: [], suspect: [], untrusted: [] };
-    for (const t of tools) (bands[t.band] = bands[t.band] || []).push(t);
-    for (const [name, list] of Object.entries(bands)) {
-      const bEl = document.getElementById('b-' + name);
-      if (bEl) bEl.textContent = list.length;
-      const mean = list.length === 0 ? 0 : Math.round(list.reduce((a, t) => a + t.current_score, 0) / list.length);
-      const mEl = document.getElementById('m-' + name);
-      if (mEl) mEl.textContent = mean || '—';
-    }
-    document.getElementById('s-total').textContent = tools.length;
-    const totalMean = tools.length ? Math.round(tools.reduce((a, t) => a + t.current_score, 0) / tools.length) : '—';
-    document.getElementById('s-mean').textContent = totalMean;
-    document.getElementById('s-down').textContent = tools.filter(t => trend(t) < 0).length;
-    document.getElementById('s-exec').textContent = tools.reduce((a, t) => a + t.executions_total, 0);
-    document.getElementById('s-miss').textContent = tools.reduce((a, t) => a + t.mismatches_total, 0);
-  }
-
-  function drawSparkline(scores) {
-    const w = 120, h = 24;
-    const max = 1000, min = 0;
-    const pts = scores.map((s, i) => {
-      const x = (i / Math.max(1, scores.length - 1)) * w;
-      const y = h - ((s - min) / (max - min)) * h;
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
-    }).join(' ');
-    return `<svg class="sparkline" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
-      <polyline points="${pts}" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>`;
-  }
-
-  function renderTools() {
-    const activeBands = new Set([...document.querySelectorAll('#band-filters .filter.on[data-band]')].map(f => f.dataset.band));
-    const sortFilter = [...document.querySelectorAll('#band-filters .filter.on[data-sort]')].map(f => f.dataset.sort)[0] || 'trend';
-    let tools = (seed.tools || []).filter(t => activeBands.has(t.band));
-    if (sortFilter === 'score-desc') tools.sort((a, b) => b.current_score - a.current_score);
-    else if (sortFilter === 'trend') tools.sort((a, b) => trend(a) - trend(b));  // worst-trending first
-    else tools.sort((a, b) => a.tool.localeCompare(b.tool));
-
-    const tb = document.getElementById('tool-tbody');
-    tb.innerHTML = '';
-    for (const t of tools) {
-      const tr_ = trend(t);
-      const trendCls = tr_ < -10 ? 'trend-down' : (tr_ > 10 ? 'trend-up' : 'trend-flat');
-      const trendStr = tr_ > 0 ? '+' + tr_ : tr_;
-      const rel = reliability(t);
-      const rel_pct = (rel * 100).toFixed(1) + '%';
-      const scoreFillCls = t.band;
-      const scores = t.history.map(h => h.score_after);
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td><code>${t.tool}</code><br><span class="muted" style="font-size:.7rem">${t.declarer}</span></td>
-        <td><span class="pill ${t.band}">${t.band}</span></td>
-        <td>
-          <div class="num">${t.current_score}</div>
-          <div class="score-bar"><div class="fill ${scoreFillCls}" style="width:${(t.current_score/10)}%"></div></div>
-        </td>
-        <td class="num ${trendCls}">${trendStr}</td>
-        <td style="color:var(--${t.band === 'trusted' ? 'trusted' : (t.band === 'watched' ? 'watched' : (t.band === 'suspect' ? 'suspect' : 'untrusted'))})">${drawSparkline(scores)}</td>
-        <td class="num">${t.executions_total.toLocaleString()}</td>
-        <td class="num">${t.mismatches_total}</td>
-        <td class="num ${rel < 0.9 ? 'bad' : (rel < 0.98 ? 'warn' : 'ok')}">${rel_pct}</td>
-        <td>
-          <button onclick="emit('selfdefctl trust show --tool ${t.tool} --history 30d')">history</button>
-          <button class="danger" onclick="emit('selfdefctl trust adjust --tool ${t.tool} --delta -200 --reason penalty')">penalty</button>
-        </td>
-      `;
-      tb.appendChild(tr);
-    }
-    if (!tb.children.length) {
-      tb.innerHTML = '<tr><td colspan="9" class="muted">' +
-        (seed.mirror_status === 'offline'
-          ? 'selfdef-trust-score-mirror offline — no per-tool trust scores published yet'
-          : 'no tools match the band filter') + '</td></tr>';
-    }
-  }
-
-  // filter behaviors
-  document.querySelectorAll('#band-filters .filter[data-band]').forEach(f => f.addEventListener('click', () => { f.classList.toggle('on'); renderTools(); }));
-  document.querySelectorAll('#band-filters .filter[data-sort]').forEach(f => f.addEventListener('click', () => {
-    document.querySelectorAll('#band-filters .filter[data-sort]').forEach(x => x.classList.remove('on'));
-    f.classList.add('on');
-    renderTools();
-  }));
-
   function emit(cmd) {
     navigator.clipboard.writeText(cmd).then(() => showToast('copied: ' + cmd.slice(0, 60) + (cmd.length > 60 ? '…' : '')));
   }
   function showToast(msg) {
-    const t = document.getElementById('toast');
-    t.textContent = msg;
-    t.classList.add('show');
-    clearTimeout(showToast._h);
-    showToast._h = setTimeout(() => t.classList.remove('show'), 1800);
+    const t = document.getElementById('toast'); if (!t) return;
+    t.textContent = msg; t.classList.add('show');
+    clearTimeout(showToast._h); showToast._h = setTimeout(() => t.classList.remove('show'), 1800);
   }
   window.addEventListener('keydown', e => {
     if ((e.metaKey || e.ctrlKey) && e.key === '0') { e.preventDefault(); window.location.href = '../master-dashboard/'; }
   });
+</script>
 
-  // initial load + 30s refresh from the read-only selfdef-trust-score-mirror
-  load();
-  setInterval(load, 30000);
+<script type="module">
+  // The perimeter table is rendered by the REAL sovereign-cockpit-perimeter-panel crate in wasm
+  // (F-2026-001): fetch the Panel snapshot, hand it to perimeter_panel_render(), draw its
+  // RenderRow[] (an aggregate row + one row per active extension + one per recent verdict).
+  // Read-only + honest — no data renders just the aggregate (Gray), never a fabricated kill.
+  import { bridge } from '/_shared/cockpit-runtime.js';
+  const esc = s => String(s == null ? '' : s).replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
+  let seed = { schema_version: '1.0.0', now_ms: 0, policy_present: false, active_extensions: [], recent_verdicts: [] };
+
+  const DEMO = (() => {
+    const now = 1789000000000;
+    return {
+      schema_version: '1.0.0', now_ms: now, policy_present: true,
+      active_extensions: [{ extension_id: 'demo/ext-vpn', binary_paths: ['/opt/ext/vpn'], expires_at_ms: now + 86400000, signer_kid: 'demo/kid-sign', auditor_kid: 'demo/kid-aud' }],
+      recent_verdicts: [
+        { outcome: { outcome: 'sigkill' }, attempted_binary_path: '/usr/bin/demo-evil', attempting_pid: 4242, process_cmdline: 'demo-evil --x', ts_ms: now - 60000, hostname: 'demo/sain-01' },
+        { outcome: { outcome: 'allowlisted' }, attempted_binary_path: '/usr/bin/ssh', attempting_pid: 51, process_cmdline: 'ssh host', ts_ms: now - 120000, hostname: 'demo/sain-01' },
+        { outcome: { outcome: 'extension-allowed', detail: { manifest_sha256: 'demo0abc', expires_at_ms: now + 3600000 } }, attempted_binary_path: '/opt/ext/vpn', attempting_pid: 77, process_cmdline: 'vpn up', ts_ms: now - 180000, hostname: 'demo/sain-01' },
+      ],
+    };
+  })();
+  function demoActive() { return !!(window.soDemo && window.soDemo.on()); }
+
+  async function renderViaCrate() {
+    const rowsEl = document.getElementById('p-rows'), aggEl = document.getElementById('p-aggregate');
+    const m = await bridge();
+    if (!m || typeof m.perimeter_panel_render !== 'function') {
+      rowsEl.innerHTML = '<tr><td colspan="4" class="muted">crate bridge unavailable — run <code>make cockpit-wasm</code></td></tr>'; return;
+    }
+    let rows = [], agg = 'gray';
+    try {
+      const r = JSON.parse(m.perimeter_panel_render(JSON.stringify(seed))); if (r.ok) rows = r.value || [];
+      const a = JSON.parse(m.perimeter_panel_aggregate(JSON.stringify(seed))); if (a.ok) agg = a.value || 'gray';
+    } catch (_) {}
+    aggEl.className = 'pp-agg ' + agg;
+    aggEl.textContent = 'perimeter: ' + agg.toUpperCase();
+    rowsEl.innerHTML = rows.map(row =>
+      `<tr class="${row.kind === 'aggregate' ? 'agg' : (row.kind === 'extension' ? 'ext' : '')}"><td>${esc(row.label)}</td>`
+      + `<td><span class="pp-badge ${esc(row.color)}">${esc(row.badge)}</span></td>`
+      + `<td class="muted">${esc(row.detail)}</td>`
+      + `<td>${row.runbook_route ? `<a href="${esc(row.runbook_route)}">runbook</a>` : '<span class="muted">—</span>'}</td></tr>`
+    ).join('') || '<tr><td colspan="4" class="muted">no verdicts</td></tr>';
+  }
+  function dsBanner(ok, errMsg) {
+    const b = document.getElementById('datasource-banner'); if (!b) return;
+    b.classList.remove('online', 'offline', 'unknown'); b.classList.add(ok ? 'online' : 'offline');
+    document.getElementById('ds-state-label').textContent = ok ? 'data source: online' : 'data source: unreachable';
+    document.getElementById('ds-state-detail').innerHTML = ok
+      ? 'consuming <code>/api/d-28/snapshot</code> from the perimeter API daemon'
+      : 'cannot reach <code>/api/d-28/snapshot</code> — is the perimeter API daemon running? ' + (errMsg ? '<span class="muted">(' + esc(errMsg) + ')</span>' : '');
+    document.getElementById('ds-last-update').textContent = 'last fetch: ' + new Date().toLocaleTimeString();
+  }
+  async function load() {
+    if (demoActive()) {
+      seed = DEMO; await renderViaCrate();
+      const b = document.getElementById('datasource-banner'); if (b) { b.classList.remove('online', 'offline'); b.classList.add('unknown'); }
+      document.getElementById('ds-state-label').textContent = 'data source: DEMO — sample data';
+      document.getElementById('ds-state-detail').innerHTML = 'DEMO mode — sample data, not real telemetry (SB-077)';
+      if (window.soDemo) window.soDemo.badge(); return;
+    }
+    let ok = false, errMsg = '';
+    try {
+      const r = await fetch('/api/d-28/snapshot', { credentials: 'same-origin' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      seed = Object.assign({ schema_version: '1.0.0', now_ms: 0, policy_present: false, active_extensions: [], recent_verdicts: [] }, await r.json()); ok = true;
+    } catch (e) { errMsg = e.message; seed = { schema_version: '1.0.0', now_ms: Date.now(), policy_present: false, active_extensions: [], recent_verdicts: [] }; }
+    dsBanner(ok, errMsg);
+    await renderViaCrate();
+  }
+  load(); setInterval(load, 30000);
 </script>
 
 
@@ -1926,7 +1804,7 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
   global.SovereignControlSurface = { render: render, load: load };
 })(window);
 </script>
-<script>SovereignControlSurface.load(document.getElementById('control-surface'),{filterSlug:'d-18-trust-scores'});</script>
+<script>SovereignControlSurface.load(document.getElementById('control-surface'),{filterSlug:'d-28-perimeter'});</script>
 
 
 
@@ -1935,182 +1813,43 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
 <script>
 window.SO_ASSIST = {
  "context": {
-  "icon": "◐",
-  "title": "D-18 · Trust Scores",
-  "content": "A read-only mirror of selfdef's trust scoring (MS042). Every tool earns a trust score by its behaviour, and that score sorts it into one of four bands — Trusted (≥800, auto-approve), Watched, Suspect, Untrusted (<200, auto-quarantine). Trust is earned and decays over time, so tools move between bands as they act; the band is the policy applied to them.\n\nRead it to see which tools the box trusts to run freely and which it's watching or gating — and, via trending-down, which are losing trust before they change band. Scores are adjusted/decayed in selfdef (signed selfdefctl + MS003), never here."
+  "icon": "⬡",
+  "title": "D-28 · Perimeter Fence",
+  "content": "The selfdef IPS security perimeter — the Tetragon sovereign-kernel-fence that decides, at the kernel boundary, what may run: SIGKILL an unknown binary, allowlist a known-good one, or grant a signed, time-boxed extension. This panel shows its recent verdicts and the extensions currently in force.\n\nThe verdicts, the extension manifests, and the TracingPolicy are owned by selfdef, written to its perimeter ring; this panel only renders them (the sacrosanct cross-repo rule), running the real sovereign-cockpit-perimeter-panel crate in your browser — an aggregate row, one row per active extension, one per recent verdict. No data renders just the aggregate — never a fabricated kill. Read-only."
  },
  "nodes": [
   {
    "icon": "◆",
-   "title": "Mirror status",
-   "content": "Whether this read-only mirror of selfdef's trust scores is live or stale. If offline, everything below is history, not the current IPS state.",
+   "title": "Data source",
+   "content": "Whether verdicts + extensions are live from selfdef's perimeter ring, or the ring/policy is absent (the aggregate then reports the degraded state).",
    "children": [
     {
-     "selector": "#mirror-status-banner",
-     "title": "Mirror live vs offline",
-     "content": "This panel is a READ-ONLY mirror of selfdef's trust scores (M060 bridge). Green = live; offline = stale. The box never manages trust scores here — that's selfdefctl trust-scores + MS003 on the selfdef side.",
-     "icon": "◆",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A mirror, not a control</div>selfdef owns trust scores; sovereign-os only reflects it so you can see the IPS in one cockpit. Changes happen in selfdef (signed), never from this panel.<div class=\"so-xref\"><span class=\"x\">→</span> D-00 — M060 chain health<br><span class=\"x\">→</span> D-25 — mirror-chain detail</div></div>",
-     "variants": [
-      {
-       "when": {
-        "textContains": "live"
-       },
-       "content": "Live — selfdef is feeding this mirror; the trust scores is current.",
-       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Mirror live</div>Reflecting the real IPS trust scores now.</div>"
-      },
-      {
-       "when": {
-        "textContains": "offline"
-       },
-       "content": "Offline — the bridge is stale; treat the trust scores below as history.",
-       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Mirror offline</div>Stale bridge — not the current IPS state.</div>"
-      }
-     ]
-    },
-    {
-     "selector": "#mirror-state-label",
-     "title": "Mirror label",
-     "content": "One-word mirror state — live or offline; whether the trust scores can be trusted as current.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">One-word trust-mirror health</div>Live or offline — whether the trust scores are current. Bands shift as tools earn and lose trust, so a stale read can misplace a tool that just crossed a boundary.</div>"
-    },
-    {
-     "selector": "#mirror-state-detail",
-     "title": "Mirror detail",
-     "content": "The producer/endpoint behind the mirror and why it's live or offline. Managed via selfdefctl trust-scores on the selfdef side.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The M060 bridge status</div>The producer behind the mirror and why it's live or offline — the bridge carrying selfdef's trust scoring here.</div>"
-    },
-    {
-     "selector": "#mirror-last-update",
-     "title": "Mirror freshness",
-     "content": "When selfdef last captured this snapshot (ISO captured_at). On an offline mirror, how stale it is.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">When selfdef last captured</div>The snapshot time. A tool's trajectory can flip within a few executions, so an old timestamp means a band change may not show yet.</div>"
-    },
-    {
-     "selector": "#mirror-schema-version",
-     "title": "Mirror schema",
-     "content": "The MS007 typed-mirror-crate schema version — confirms mirror and consumer agree on the data shape.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">MS007 crate compatibility</div>The typed-mirror-crate schema version — confirms mirror and consumer agree on the score shape, so bands and means render correctly.</div>"
+     "selector": "#datasource-banner",
+     "content": "Online = consuming /api/d-28/snapshot from the perimeter daemon. Unreachable = the daemon is not running; the panel still renders whatever the crate reports.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">selfdef owns the authority</div>selfdef enforces the Tetragon fence and writes its verdict ring at /var/cache/selfdef/perimeter/ring; sovereign-os only reads and renders it. If selfdef is not writing on this box, the honest state is an empty list — never an invented verdict.</div>"
     }
    ]
   },
   {
-   "icon": "◐",
-   "title": "4-band classification",
-   "content": "selfdef scores every tool's trustworthiness and sorts it into four bands — Trusted, Watched, Suspect, Untrusted. The band isn't a label, it's the policy: Trusted tools auto-approve, Untrusted ones auto-quarantine. Trust is earned by good behaviour and decays over time, so a tool moves between bands as it acts.",
+   "icon": "⬡",
+   "title": "Overall verdict",
+   "content": "The aggregate colour computed by the crate: red when a SIGKILL is recent, yellow when only extensions/allowlists are in play, green when nominal, gray when nothing has reported.",
    "children": [
     {
-     "selector": "#b-trusted",
-     "title": "Trusted (≥ 800)",
-     "content": "Tools in the Trusted band — Tier A/B auto-approve eligible — earned enough trust to act with less friction. Trust is earned and decays: a tool's score determines how much friction its actions get, from auto-approve (Trusted) to auto-quarantine (Untrusted). The band IS the policy applied to it.",
-     "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">Trusted band · auto-approve eligible</div>Tools that earned enough trust to be Tier A/B auto-approve eligible — routine, proven-safe. The band a tool WANTS to be in; getting here takes a clean history.</div>"
-    },
-    {
-     "selector": "#m-trusted",
-     "title": "Trusted mean",
-     "content": "The mean trust score within the Trusted band — how deep into the band its tools sit. A Trusted-band mean near the 800 floor is different from one near 1000; it tells you how solid the band's trust really is.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Mean depth within a band</div>Not just how many tools are Trusted, but how far into the band they sit. A Trusted band with a low mean is full of tools barely over the line — closer to demotion than the count suggests.</div>"
-    },
-    {
-     "selector": "#b-watched",
-     "title": "Watched (500–799)",
-     "content": "Tools in the Watched band — telemetry retained · profile-gated — trusted but observed. Trust is earned and decays: a tool's score determines how much friction its actions get, from auto-approve (Trusted) to auto-quarantine (Untrusted). The band IS the policy applied to it.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Watched band · telemetry retained</div>Trust-building tools — allowed but with telemetry kept and profile-gating. Not yet auto-approve; the probationary middle where a tool proves itself before promotion.</div>"
-    },
-    {
-     "selector": "#m-watched",
-     "title": "Watched mean",
-     "content": "The mean trust score within the Watched band — how deep into the band its tools sit. A Trusted-band mean near the 800 floor is different from one near 1000; it tells you how solid the band's trust really is.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Depth within the Watched band</div>The mean score inside Watched — how close its tools are to promotion vs demotion. A mean near the Trusted boundary means the band is graduating; near Suspect means it's slipping.</div>"
-    },
-    {
-     "selector": "#b-suspect",
-     "title": "Suspect (200–499)",
-     "content": "Tools in the Suspect band — operator-ask · Tier C/D escalation — actions need your say-so. Trust is earned and decays: a tool's score determines how much friction its actions get, from auto-approve (Trusted) to auto-quarantine (Untrusted). The band IS the policy applied to it.",
-     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Suspect band · operator-ask</div>Tools that trigger an operator-ask and Tier C/D escalation — trust is low enough that the box won't run them unsupervised. Actions here land in your queue.<div class=\"so-xref\"><span class=\"x\">→</span> D-06 pending approvals — where suspect-tool actions escalate</div></div>"
-    },
-    {
-     "selector": "#m-suspect",
-     "title": "Suspect mean",
-     "content": "The mean trust score within the Suspect band — how deep into the band its tools sit. A Trusted-band mean near the 800 floor is different from one near 1000; it tells you how solid the band's trust really is.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">How deep the suspicion runs</div>The mean score inside the Suspect band. A mean near the Watched boundary means these tools are recoverable; a mean near Untrusted means they're one bad run from auto-quarantine.<div class=\"so-xref\"><span class=\"x\">→</span> b-untrusted — the band below, where these could fall</div></div>"
-    },
-    {
-     "selector": "#b-untrusted",
-     "title": "Untrusted (< 200)",
-     "content": "Tools in the Untrusted band — auto-quarantine · forfeit candidate — too little trust to run freely. Trust is earned and decays: a tool's score determines how much friction its actions get, from auto-approve (Trusted) to auto-quarantine (Untrusted). The band IS the policy applied to it.",
-     "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">Untrusted band · auto-quarantine</div>The bottom band — auto-quarantine and forfeit-candidate. A tool here is treated as hostile by default; it can't act without containment.<div class=\"so-xref\"><span class=\"x\">→</span> D-17 quarantine — where untrusted tools land</div></div>"
-    },
-    {
-     "selector": "#m-untrusted",
-     "title": "Untrusted mean",
-     "content": "The mean trust score within the Untrusted band — how deep into the band its tools sit. A Trusted-band mean near the 800 floor is different from one near 1000; it tells you how solid the band's trust really is.",
-     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">How deep the distrust runs</div>The mean score inside the Untrusted band — how far below the line its tools sit. A mean near the Suspect boundary means some are recoverable; a mean at the floor means they're firmly auto-quarantine material.<div class=\"so-xref\"><span class=\"x\">→</span> D-17 quarantine — where untrusted tools land</div></div>"
+     "selector": "#p-aggregate",
+     "content": "perimeter: RED (a recent SIGKILL) · YELLOW (extensions active / degraded) · GREEN (nominal) · GRAY (no data yet). This is perimeter_panel_aggregate() from the crate — the panel does not compute it."
     }
    ]
   },
   {
    "icon": "▤",
-   "title": "Summary",
-   "content": "The trust population — how many tools, the overall mean, how many are trending down, and recent execution volume. Trending-down is the early warning: tools losing trust before they hit a lower band.",
+   "title": "Extensions + verdicts",
+   "content": "The aggregate row, then one row per active signed extension (highlighted), then one per recent verdict — SIGKILL, allowlisted, or extension-allowed — newest first, rendered by perimeter_panel_render().",
    "children": [
     {
-     "selector": "#s-total",
-     "title": "Total tools",
-     "content": "How many tools are being trust-scored — the full population selfdef tracks. Every tool that acts has a score.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The scored population</div>Every tool selfdef is trust-scoring. Trust isn't assigned once — it's continuously earned and lost, so this is the live population whose bands shift as behaviour changes.<div class=\"so-xref\"><span class=\"x\">→</span> MS039 authority rings — how trust maps to what a tool may do</div></div>"
-    },
-    {
-     "selector": "#s-mean",
-     "title": "Mean score",
-     "content": "The average trust across all tools. The box's overall trust health — a falling mean means tools are collectively losing trust, worth understanding why.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The box's overall trust health</div>Average trust across all tools. A high mean means a well-behaved population; a falling mean is the early signal that tools are collectively losing trust — worth catching before individual tools cross a band boundary.</div>"
-    },
-    {
-     "selector": "#s-down",
-     "title": "Trending down",
-     "content": "How many tools' last 5 score-deltas net negative — tools actively losing trust. The leading indicator: these will drop bands (and gain friction) if the trend continues.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Trending-down is the early warning</div>A tool doesn't fall from Trusted to Suspect instantly — it trends down first. Catching a tool here, before it changes band, is the chance to understand why it's misbehaving.</div>"
-    },
-    {
-     "selector": "#s-exec",
-     "title": "Executions (24h)",
-     "content": "How many tool executions ran in the last day (successful) — the activity volume the scores are computed from. More executions = more evidence, so more meaningful scores.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Yesterday's activity base</div>Successful tool executions in the last day — the denominator behind trust movement. A tool can only earn or lose trust by running; low activity means slow trust change.</div>"
-    }
-   ]
-  },
-  {
-   "icon": "≣",
-   "title": "Per-tool scores",
-   "content": "Every scored tool with its band and trajectory.",
-   "children": [
-    {
-     "selector": "#tool-tbody",
-     "title": "Per-tool scores",
-     "content": "Each tool with its trust score, band, and recent trajectory. Hover a row for how trusted the tool is and which way it's heading — a Trusted tool trending down is more interesting than a stable Suspect one.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A tool's score is its earned autonomy</div>The score decides how much friction the tool's actions get. Read it with the trajectory: direction matters as much as the current number.<div class=\"so-xref\"><span class=\"x\">→</span> a tool that drops to Untrusted becomes an auto-quarantine candidate (D-17)</div></div>",
-     "dynamic": true,
-     "childTemplate": {
-      "selector": "#tool-tbody > tr",
-      "nameSelector": "td:first-child,td",
-      "title": "Tool · {{name}}",
-      "content": "Tool {{name}} — its trust score, band, and recent trajectory. The trajectory matters more than the number: a high score trending down is a tool to watch before it crosses into Suspect.",
-      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Tool · {{name}}</div>One trust-scored tool. Band decides how it's treated (auto-approve → auto-quarantine); trajectory says which way it's heading.</div>"
-     }
-    }
-   ]
-  },
-  {
-   "icon": "⎈",
-   "title": "Actions & controls",
-   "content": "Web is a READ-ONLY mirror consumer — trust scores via selfdefctl trust-scores + MS003 on the selfdef side.",
-   "children": [
-    {
-     "selector": "#control-surface",
-     "title": "Controls rail",
-     "content": "Mirror controls — each copies its selfdefctl trust-scores verb (§1g / R10212). Reads the mirror; every change runs through the signed selfdef CLI, never the web.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copy-command mirror boundary</div>Each control copies its selfdefctl trust-scores verb (§1g / R10212). Trust is earned by behaviour, not set by hand — the web mirrors the scores read-only.</div>"
+     "selector": "#p-rows",
+     "content": "Each verdict shows the attempted binary, the attempting PID, freshness, and cmdline; each extension shows its id, binary paths, expiry, and signer. Badge, colour, detail, and runbook route come straight from the crate's RenderRow.",
+     "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">Three outcomes at the fence</div>SIGKILL (an unknown binary was stopped at the boundary), ALLOWED (a known-good binary), or EXTEND (a signed, time-boxed extension manifest permitted it). A recent SIGKILL turns the aggregate red. The crate decides all of it — the same logic selfdef's own tooling uses.<div class=\"so-xref\"><span class=\"x\">→</span> D-27 guardian — the runtime circuit-breaker beside this fence<br><span class=\"x\">→</span> D-14 capability tokens — what a permitted binary is then allowed to do</div></div>"
     }
    ]
   }

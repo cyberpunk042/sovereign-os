@@ -1,0 +1,35 @@
+[Unit]
+Description=Sovereign scheduler read-only API + D-29 dashboard host (selfdef IPS Goldilocks Scheduler)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/operator/scheduler-api.py
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/lib/sovereign-os/scripts/operator/scheduler-api.py
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+Environment=SCHEDULER_API_BIND=127.0.0.1
+Environment=SCHEDULER_API_PORT=8146
+ProtectSystem=strict
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/lib/node_exporter/textfile_collector
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+
+[Install]
+WantedBy=multi-user.target

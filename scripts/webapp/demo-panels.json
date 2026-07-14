@@ -389,6 +389,27 @@
       "apiPrefix": "/api/d-26",
       "rowSelector": "#fa-rows *",
       "sdd": "F-2026-001"
+    },
+    {
+      "slug": "d-27-guardian",
+      "demoConst": "DEMO",
+      "apiPrefix": "/api/d-27",
+      "rowSelector": "#g-rows *",
+      "sdd": "F-2026-001"
+    },
+    {
+      "slug": "d-28-perimeter",
+      "demoConst": "DEMO",
+      "apiPrefix": "/api/d-28",
+      "rowSelector": "#p-rows *",
+      "sdd": "F-2026-001"
+    },
+    {
+      "slug": "d-29-scheduler",
+      "demoConst": "DEMO",
+      "apiPrefix": "/api/d-29",
+      "rowSelector": "#sch-rows *",
+      "sdd": "F-2026-001"
     }
   ]
 }
