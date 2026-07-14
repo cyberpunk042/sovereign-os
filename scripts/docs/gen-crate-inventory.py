@@ -57,14 +57,16 @@ def load() -> dict[str, dict]:
     return out
 
 
-def closure(crates: dict[str, dict], roots: list[str]) -> set[str]:
-    def deps(n: str) -> set[str]:
-        return {
-            m.group(1)
-            for m in re.finditer(r"(?m)^\s*(sovereign-[a-z0-9-]+)\s*(=|\.)", crates.get(n, {}).get("manifest", ""))
-            if m.group(1) in crates and m.group(1) != n
-        }
+def direct_deps(crates: dict[str, dict], n: str) -> set[str]:
+    """The sovereign-* crates crate `n` directly declares as dependencies."""
+    return {
+        m.group(1)
+        for m in re.finditer(r"(?m)^\s*(sovereign-[a-z0-9-]+)\s*(=|\.)", crates.get(n, {}).get("manifest", ""))
+        if m.group(1) in crates and m.group(1) != n
+    }
 
+
+def closure(crates: dict[str, dict], roots: list[str]) -> set[str]:
     seen: set[str] = set()
     stack = [r for r in roots if r in crates]
     while stack:
@@ -72,8 +74,26 @@ def closure(crates: dict[str, dict], roots: list[str]) -> set[str]:
         if n in seen:
             continue
         seen.add(n)
-        stack.extend(deps(n))
+        stack.extend(direct_deps(crates, n))
     return seen
+
+
+def usage_explanation(crates: dict[str, dict], prod: set[str]) -> dict[str, str]:
+    """For each production-reachable (INTEGRATED) crate, a short note naming the
+    concrete usage that VALIDATES the integration — its production consumer(s),
+    and/or that it is itself a running production binary. Being merely referenced
+    (a declared-but-unwired panel bridge) never lands a crate in `prod`, so it
+    never gets an explanation here."""
+    out: dict[str, str] = {}
+    for c in prod:
+        consumers = sorted(p for p in prod if c in direct_deps(crates, p))
+        parts: list[str] = []
+        if crates[c]["bin"]:
+            parts.append("runs as a production binary")
+        if consumers:
+            parts.append("used by " + ", ".join(f"`{p}`" for p in consumers))
+        out[c] = "; ".join(parts) if parts else "in the production closure"
+    return out
 
 
 def bridge_status() -> dict[str, str]:
@@ -101,9 +121,31 @@ def family(name: str, prefix: str) -> str:
     return slug.split("-", 1)[0]
 
 
-def emit_group(lines: list[str], crates: dict, names: list[str], prefix: str, tag=None, min_group: int = 3) -> None:
+# The per-crate "done / integrated" flag. A crate is INTEGRATED only when it is
+# actually USED by a running production binary — i.e. it is in the dependency
+# closure of gatewayd / telemetry / resource-control, so its code compiles and
+# links into a process that runs. This is a stricter bar than "referenced":
+#   - a cockpit crate merely wasm-BRIDGED for a panel (SDD-800) is NOT integrated
+#     — a panel referencing a crate is not the same as a running path using it,
+#     and today 0 panels are wired;
+#   - a crate reached only through a demo/dev binary or a hub tree
+#     (sovereign-llm / sovereign-retrieval) is NOT integrated.
+# Rendered as a ✅ badge on every integrated crate's line. Enforced by
+# tests/lint/test_crate_inventory_integrated_flag.py against the same closure.
+INTEGRATED = "✅"
+
+
+def emit_group(lines: list[str], crates: dict, names: list[str], prefix: str,
+               tag=None, min_group: int = 3, integrated: set[str] | None = None,
+               usage: dict[str, str] | None = None) -> None:
     """Sub-header only for families of >= min_group crates; the rest go in one
-    flat 'assorted' list, so diverse sections don't fragment into 1-item headers."""
+    flat 'assorted' list, so diverse sections don't fragment into 1-item headers.
+
+    `integrated`: crates in this set are production-reachable and get the ✅
+    done/integrated badge. `usage`: per-crate note explaining the usage that
+    validates that integration (appended after the badge)."""
+    integrated = integrated or set()
+    usage = usage or {}
     fams: dict[str, list[str]] = defaultdict(list)
     for n in names:
         fams[family(n, prefix)].append(n)
@@ -112,6 +154,9 @@ def emit_group(lines: list[str], crates: dict, names: list[str], prefix: str, ta
 
     def line(n: str) -> str:
         t = f" — _{tag(n)}_" if tag else ""
+        if n in integrated:
+            note = f" — {INTEGRATED} **integrated**: {usage[n]}" if usage.get(n) else f" — {INTEGRATED} **integrated**"
+            return f"- **`{n}`** — {crates[n]['desc']}{t}{note}"
         return f"- **`{n}`** — {crates[n]['desc']}{t}"
 
     for fam in sorted(big, key=lambda x: (-len(big[x]), x)):
@@ -129,6 +174,7 @@ def render() -> str:
     prod = closure(crates, PROD_ROOTS)
     hub = closure(crates, HUB_ROOTS) - prod
     bstat = bridge_status()
+    usage = usage_explanation(crates, prod)
 
     binaries = sorted(n for n, c in crates.items() if c["bin"])
     cockpit = sorted(n for n, c in crates.items() if c["cockpit"] and not c["bin"])
@@ -159,6 +205,14 @@ def render() -> str:
     L.append(f"| Other libraries | {len(misc_libs)} | reached only through other non-production trees |")
     L.append(f"| **Total** | **{total}** | **{len(prod)} crates ({100*len(prod)//total}%) are production-reachable today** |")
     L.append("")
+    L.append(f"**{INTEGRATED} integrated** marks the **{len(prod)}** crates that are actually _used_ by a "
+             "running production binary (in the gatewayd / telemetry / resource-control dependency closure). "
+             "Each carries a short note naming the usage that validates it — its production consumer(s) "
+             "and/or that it runs as a binary. **Used, not merely referenced**: a cockpit crate wasm-bridged "
+             "for a panel (SDD-800, 0 panels wired) or a crate reached only through a demo/dev binary or the "
+             "`sovereign-llm` / `sovereign-retrieval` hubs is NOT integrated. The flag is generated from the "
+             "closure and enforced by `tests/lint/test_crate_inventory_integrated_flag.py`.")
+    L.append("")
     L.append("Families below cluster by the first token of the crate name (`alert-*`, `zfs-*`, …).")
 
     L.append("\n---\n\n## 1. Binaries — the executable surface\n")
@@ -167,13 +221,13 @@ def render() -> str:
     prod_bins = [n for n in binaries if n in prod]
     other_bins = [n for n in binaries if n not in prod]
     L.append(f"\n### Production / runtime ({len(prod_bins)})\n")
-    emit_group(L, crates, prod_bins, "sovereign-")
+    emit_group(L, crates, prod_bins, "sovereign-", integrated=prod, usage=usage)
     L.append(f"\n### Dev / demo / config-generators ({len(other_bins)})\n")
     emit_group(L, crates, other_bins, "sovereign-")
 
     L.append(f"\n---\n\n## 2. Production libraries ({len(prod_libs)}) — these actually run\n")
     L.append("In the dependency closure of the three production binaries, so they execute today.")
-    emit_group(L, crates, prod_libs, "sovereign-")
+    emit_group(L, crates, prod_libs, "sovereign-", integrated=prod, usage=usage)
 
     L.append(f"\n---\n\n## 3. Cockpit UX-state crates ({len(cockpit)})\n")
     L.append("Typed, tested UI-state models. Compiled to wasm by `cockpit-wasm` (SDD-974) so a panel "
