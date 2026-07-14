@@ -7,7 +7,7 @@ PROFILE ?= sain-01
 
 .PHONY: help setup dev-deps validate lint unit l3 l3-fast test smoke dry-run \
         preflight ci all clean clean-pyc dashboards-lint install install-units uninstall uninstall-units bins panel bootstrap \
-        operator-sudo operator-sudo-uninstall demo-capture demo-preflight cockpit-wasm cockpit-wasm-all _require-pytest
+        operator-sudo operator-sudo-uninstall man man-check demo-capture demo-preflight cockpit-wasm cockpit-wasm-all _require-pytest
 
 .DEFAULT_GOAL := help
 
@@ -120,6 +120,12 @@ clean-pyc:  ## Remove Python bytecode cruft (__pycache__ dirs + *.pyc) from the 
 PREFIX ?= /usr/local
 SOVEREIGN_OS_LIB ?= $(PREFIX)/lib/sovereign-os
 
+man:  ## Regenerate the committed sovereign-osctl(1) roff artifact (requires pandoc)
+	bash scripts/docs/build-sovereign-osctl-manpage.sh build
+
+man-check:  ## Verify the committed roff artifact matches the Markdown source
+	bash scripts/docs/build-sovereign-osctl-manpage.sh check
+
 install:  ## Install sovereign-osctl + manpage to PREFIX (default: /usr/local)
 	@echo "Installing to PREFIX=$(PREFIX)"
 	@install -d "$(DESTDIR)$(PREFIX)/bin" \
@@ -139,17 +145,11 @@ install:  ## Install sovereign-osctl + manpage to PREFIX (default: /usr/local)
 	@cp -r scripts/inference "$(DESTDIR)$(SOVEREIGN_OS_LIB)/"
 	@cp -r profiles/* "$(DESTDIR)$(SOVEREIGN_OS_LIB)/profiles/"
 	@cp -r whitelabel "$(DESTDIR)$(SOVEREIGN_OS_LIB)/"
-	@if command -v pandoc >/dev/null 2>&1; then \
-	  echo "Building manpage via pandoc"; \
-	  pandoc -s -t man docs/man/sovereign-osctl.1.md \
-	    -o "$(DESTDIR)$(PREFIX)/share/man/man1/sovereign-osctl.1"; \
-	else \
-	  echo "Skipping manpage (pandoc not installed; install pandoc + re-run for man page)"; \
-	fi
+	@install -m 644 docs/man/sovereign-osctl*.1 "$(DESTDIR)$(PREFIX)/share/man/man1/"
 	@echo "Installed:"
 	@echo "  $(DESTDIR)$(PREFIX)/bin/sovereign-osctl"
 	@echo "  $(DESTDIR)$(SOVEREIGN_OS_LIB)/  (lib + hooks + profiles + inference + whitelabel)"
-	@echo "  $(DESTDIR)$(PREFIX)/share/man/man1/sovereign-osctl.1  (if pandoc)"
+	@echo "  $(DESTDIR)$(PREFIX)/share/man/man1/sovereign-osctl*.1"
 	@echo "Note: this installs the shared libs + osctl. The systemd fleet (111 units)"
 	@echo "      + the script trees the units reference is installed by 'make install-units'."
 
@@ -210,7 +210,7 @@ bins:  ## Build + install the Rust binaries (CPU-tuned for PROFILE) to PREFIX/bi
 
 uninstall:  ## Remove sovereign-osctl + manpage + the `bins` binaries from PREFIX
 	@rm -f  "$(DESTDIR)$(PREFIX)/bin/sovereign-osctl"
-	@rm -f  "$(DESTDIR)$(PREFIX)/share/man/man1/sovereign-osctl.1"
+	@rm -f  "$(DESTDIR)$(PREFIX)/share/man/man1/sovereign-osctl"*.1
 	@rm -rf "$(DESTDIR)$(SOVEREIGN_OS_LIB)"
 	@rm -f  "$(DESTDIR)$(PREFIX)/bin/sovereign-telemetry"
 	@rm -f  "$(DESTDIR)$(PREFIX)/bin/sovereign-resource-control"

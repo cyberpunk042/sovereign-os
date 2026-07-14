@@ -190,10 +190,10 @@ COMMANDS:
                                SEED) + append to JSONL state file.
   models fine-tune history [--base B] [--method M] [--limit N] [--json]
                                R244: render the fine-tune state file.
-  models list                  List resident models (tank/models)
-  models pull <hf-id>          Pull model from HuggingFace into tank/models
+  models list                  List resident models (/mnt/vault/models by default)
+  models pull <hf-id>          Pull model into SOVEREIGN_OS_MODELS_DIR
   models verify                Verify resident-model integrity
-  models size                  Disk-usage breakdown of tank/models
+  models size                  Disk usage of SOVEREIGN_OS_MODELS_DIR
   models remove <name>         Delete a resident model (confirms)
 
   science list [--json]        R558 (SDD-070): science-tools catalog by domain
@@ -238,15 +238,17 @@ COMMANDS:
   hooks remove <id> [--profile <id>]
                                Remove a hook by id from the profile YAML
 
-  decommission start           Begin decommission flow (interactive; confirms)
-  decommission --plan          Preview ALL 3 decommission phases (paths, sizes, commands); writes nothing
+  decommission --plan          Preview ALL 3 decommission phases; writes nothing
+  decommission start           Phase 1: wipe state fabric (interactive; confirms)
+  decommission pool            Phase 2: destroy configured ZFS pool (destructive gate)
+  decommission wipe            Phase 3: wipe SOVEREIGN_OS_WIPE_DEVICES (destructive gate)
 
   install image <img> --to <dev>  Safely dd a built image to a target device
                                   (gates: not-mounted-root + fingerprint + SOVEREIGN_OS_CONFIRM_DESTROY=YES)
   install image --plan <img> --to <dev>  Show fingerprint + plan, do nothing
 
-  init [--non-interactive]     Interactive setup wizard — walk through 5 decisions
-                               (profile · substrate · secure-boot · encryption · whitelabel)
+  init [--non-interactive]     Interactive setup wizard — walk through 6 decisions
+                               (profile · substrate · secure-boot · encryption · whitelabel · agent layer)
                                and write .sovereign-os/init-state.yaml
 
   secure-boot gen-keys --out <dir>  Generate PK/KEK/db key triple (SDD-015 'signed' posture).
