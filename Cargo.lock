@@ -4819,6 +4819,7 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
+ "sovereign-agent-loop",
  "sovereign-coat",
  "sovereign-cortex",
  "sovereign-gateway",
@@ -4836,6 +4837,7 @@ dependencies = [
  "sovereign-srp-scheduler",
  "sovereign-stream-decode",
  "sovereign-tool-bridge",
+ "sovereign-tool-dispatch",
  "sovereign-toxicity",
  "sovereign-trace-context",
  "sovereign-value-plane",
