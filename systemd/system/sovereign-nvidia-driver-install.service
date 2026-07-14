@@ -1,0 +1,52 @@
+[Unit]
+Description=sovereign-os NVIDIA ≥570 open-kernel driver install (one-shot, first boot)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/hooks/post-install/nvidia-driver-install.sh
+ConditionFirstBoot=yes
+# SAIN-01 bare-metal — skip cleanly on a VM/emulator (no Blackwell GPU to drive).
+ConditionVirtualization=no
+After=sovereign-friction-audit.service
+# Install the ≥570 driver BEFORE the nouveau-blacklist bind runs, so the bind's
+# nvidia-smi check sees the freshly-installed driver.
+Before=sovereign-nvidia-driver-bind.service
+PartOf=sovereign-firstboot.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+EnvironmentFile=-/etc/sovereign-os/active-profile.env
+# Downloads the pinned NVIDIA .run, purges the conflicting distro driver, builds
+# + MOK-signs the open modules via --dkms. After it runs a reboot is required to
+# bind the GPUs — the flag the completion service surfaces on the console.
+ExecStart=/opt/sovereign-os/scripts/hooks/post-install/nvidia-driver-install.sh
+ExecStartPost=/bin/touch /var/lib/sovereign-os/.nvidia-driver-install-needs-reboot
+StandardOutput=journal
+StandardError=journal
+TimeoutStartSec=1800
+# A driver install is inherently system-wide (writes /usr libs+binaries, builds
+# kernel modules into /lib/modules, updates /boot initramfs, writes /etc/dkms +
+# /etc/modprobe.d, runs apt). ProtectSystem=full keeps the root read-only by
+# default; ReadWritePaths re-opens exactly the trees a driver install must touch.
+# HARDENING-WAIVER: a driver installer builds + (un)loads kernel modules and
+#   writes /usr — it cannot carry ProtectKernelModules=true (it would block the
+#   nouveau unload + nvidia module build/load) nor a strict/RWP-free root. Every
+#   other R171 clause IS carried; ConditionFirstBoot limits it to a single run.
+# R171 defense-in-depth (Layer 1 lint enforced, waived above)
+ProtectSystem=full
+ProtectHome=true
+ProtectControlGroups=true
+ProtectKernelTunables=true
+# ProtectKernelModules MUST stay off — this unit's job is to build + load the
+# nvidia kernel modules; true would seccomp-block finit_module/delete_module.
+ProtectKernelModules=false
+ProtectClock=true
+ProtectHostname=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
+ReadWritePaths=/usr /boot /etc /var
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=sovereign-firstboot.target

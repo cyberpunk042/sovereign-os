@@ -402,6 +402,16 @@ The docs already promise these; they need owners/ordering, not rediscovery:
 > **Status (2026-07-14):** **CLOSED by SDD-700**. Docstring corrected to `config/sudoers.d/…`.
 - `scripts/operator/_action_exec.py:23` (pre-fix): `systemd/sudoers.d/…`. Action: point at the real `config/sudoers.d/…`.
 
+### F-2026-109 · HIGH · The flashed image installs no ≥570 Blackwell driver; the GPUs stay dark
+> **Surfaced (2026-07-14)** by the build-and-flash readiness review (GPU bring-up). The profile bakes `nvidia-open-kernel-dkms` + `nvidia-driver`, but trixie ships 550.163, which predates the Blackwell GB202 (RTX PRO 6000 Max-Q + RTX 5090) — the profile itself notes the ≥570 driver must arrive at first boot, and NOTHING installed it (`nvidia-driver-bind.sh` only blacklists nouveau + rebuilds initramfs). So a flashed SAIN-01 boots with `nvidia-smi` failing and both Blackwell cards unusable — the AI node has no GPUs.
+> **Status (2026-07-14):** **CLOSED by SDD-701** (`docs/sdd/701-nvidia-gpu-bringup.md`). A first-boot `nvidia-driver-install.sh` hook (before the nouveau bind) installs the pinned open-kernel `.run` (version from a new `provisioning.nvidia` block; refuses <570; fails loudly on 404), purges the distro 550, installs `--dkms --kernel-module-type=open`, and under secure boot MOK-signs the modules (`/var/lib/sovereign-os/mok`, `--module-signing-*`) + writes `/etc/dkms/nvidia.conf` so kernel-update rebuilds re-sign. Static-verified (real driver install needs the physical machine). Operator driver-channel choice: CUDA-repo-pinned `.run` ≥570.
+- `scripts/hooks/post-install/nvidia-driver-bind.sh` (pre-fix): blacklists nouveau only, no ≥570 install. Action: a pinned-`.run` MOK-signed first-boot installer.
+
+### F-2026-110 · MED · The profile GPU power caps (tdp_watts) are declared but never applied
+> **Surfaced (2026-07-14)** by the build-and-flash readiness review. Each GPU declares `tdp_watts` (PRO 6000 Max-Q 300W, 5090 350W — power-limited from its 575W stock TGP), and the profile even names `nvidia-smi -pl 350`, but nothing ran it. A flashed box runs the 5090 at 575W — ~225W over intent, on a 1600W PSU shared with the PRO 6000 + a 9900X (power/thermal-budget + efficiency-knee miss).
+> **Status (2026-07-14):** **CLOSED by SDD-701**. An every-boot `nvidia-power-limit.sh` hook + `sovereign-nvidia-power-limit.service` (multi-user.target, not a first-boot member, since `-pl` doesn't persist) enables persistence mode + applies each card's `tdp_watts` via `nvidia-smi -pl`, matched by PCI device-id so order never mis-assigns; skips `role: vfio` GPUs; idempotent + VM-skipped.
+- profile `hardware.gpu[].tdp_watts` (pre-fix): declared, applied by nothing. Action: an every-boot per-card `nvidia-smi -pl` unit matched by device-id.
+
 ## H. Cross-cutting themes + recommended sequencing
 
 **The five recurring patterns across all findings:**

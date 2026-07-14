@@ -291,7 +291,8 @@ if [ "${SOVEREIGN_OS_BAKE_FIRSTBOOT:-}" = "1" ] && [ -d "${REPO}/systemd/system"
   FB_UNITS=(sovereign-firstboot.target sovereign-firstboot.service
             sovereign-friction-audit.service sovereign-vfio-bind.service
             sovereign-network-vlan.service sovereign-tetragon-policy-load.service
-            sovereign-zfs-arc-clamp.service sovereign-nvidia-driver-bind.service
+            sovereign-zfs-arc-clamp.service sovereign-nvidia-driver-install.service
+            sovereign-nvidia-driver-bind.service
             sovereign-warp-setup.service
             sovereign-workstation-shell-setup.service)
   n=0
@@ -312,6 +313,14 @@ if [ "${SOVEREIGN_OS_BAKE_FIRSTBOOT:-}" = "1" ] && [ -d "${REPO}/systemd/system"
     fi
   else
     crit "first-boot target enable FAILED — the flashed image would boot inert (no vfio/nvidia/vlan/zfs/tetragon); ${n} units installed"
+  fi
+  # SDD-701: the GPU power-limit unit runs EVERY boot (nvidia-smi -pl is not
+  # persistent), so it is enabled at multi-user.target, not a first-boot member.
+  if [ -f "${REPO}/systemd/system/sovereign-nvidia-power-limit.service" ]; then
+    install -m 644 "${REPO}/systemd/system/sovereign-nvidia-power-limit.service" /etc/systemd/system/ 2>/dev/null || true
+    systemctl enable sovereign-nvidia-power-limit.service >/dev/null 2>&1 \
+      && log "nvidia power-limit unit enabled (every-boot GPU caps from profile tdp_watts)" \
+      || log "nvidia power-limit enable failed (non-fatal)"
   fi
 fi
 

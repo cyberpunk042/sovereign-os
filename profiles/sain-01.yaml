@@ -361,6 +361,16 @@ provisioning:
                                    # (no kill) on an edit to its own .py. Set false for a locked, non-dev image.
   firstboot: true                  # install + enable sovereign-firstboot.target + hardware hooks
   posture: installed-off           # selfdef + ghostproxy installed but NOT started on boot
+  # NVIDIA ≥570 driver (SDD-701). trixie ships 550.163, which predates the
+  # Blackwell GB202 (PRO 6000 Max-Q + 5090) — the baked nvidia-open-kernel-dkms
+  # (550) is SUPERSEDED at first boot by the pinned open-kernel .run that
+  # nvidia-driver-install.sh installs (operator choice: CUDA-repo-pinned runfile,
+  # not distro backports). Under secure_boot=signed the .run signs the built
+  # modules with the enrolled MOK (/var/lib/sovereign-os/mok) so nvidia loads.
+  nvidia:
+    driver_runfile_version: "570.172.08"   # pinned ≥570 open-kernel runfile — VERIFY the latest ≥570 patch exists at build (the hook fails loudly if the pinned URL 404s)
+    runfile_url_base: "https://us.download.nvidia.com/XFree86/Linux-x86_64"
+    kernel_module_type: open               # Blackwell REQUIRES the open kernel modules (proprietary modules do not support GB202)
   # APC Smart-UPS (SMT2200C, SmartConnect) power management. provision-bake arms
   # the graceful soft-shutdown guard (power.toml) + lays down the NUT base config
   # (skips the daemons on VMs); the ups-apc-setup first-boot hook auto-detects the
