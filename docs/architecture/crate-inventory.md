@@ -8,13 +8,13 @@ The workspace is large — most of it does not run yet. This is the complete map
 | bucket | count | connection state |
 |---|---:|---|
 | Binaries (`main.rs`/`bin/`) | 41 | the executables; a few run in prod, the rest are dev/demo/config-gen |
-| Production libraries | 60 | run inside the gatewayd / telemetry / resource-control closure |
+| Production libraries | 61 | run inside the gatewayd / telemetry / resource-control closure |
 | Cockpit UX-state crates | 418 | wasm-bridged in source (SDD-974); **0 of ~55 panels wired** |
-| Demo-hub-only libraries | 51 | reached only via `sovereign-llm` / `sovereign-retrieval` (nothing runs them) |
+| Demo-hub-only libraries | 50 | reached only via `sovereign-llm` / `sovereign-retrieval` (nothing runs them) |
 | Other libraries | 148 | reached only through other non-production trees |
-| **Total** | **718** | **64 crates (8%) are production-reachable today** |
+| **Total** | **718** | **65 crates (9%) are production-reachable today** |
 
-**✅ integrated** marks the **64** crates that are actually _used_ by a running production binary (in the gatewayd / telemetry / resource-control dependency closure). Each carries a short note naming the usage that validates it — its production consumer(s) and/or that it runs as a binary. **Used, not merely referenced**: a cockpit crate wasm-bridged for a panel (SDD-800, 0 panels wired) or a crate reached only through a demo/dev binary or the `sovereign-llm` / `sovereign-retrieval` hubs is NOT integrated. The flag is generated from the closure and enforced by `tests/lint/test_crate_inventory_integrated_flag.py`.
+**✅ integrated** marks the **65** crates that are actually _used_ by a running production binary (in the gatewayd / telemetry / resource-control dependency closure). Each carries a short note naming the usage that validates it — its production consumer(s) and/or that it runs as a binary. **Used, not merely referenced**: a cockpit crate wasm-bridged for a panel (SDD-800, 0 panels wired) or a crate reached only through a demo/dev binary or the `sovereign-llm` / `sovereign-retrieval` hubs is NOT integrated. The flag is generated from the closure and enforced by `tests/lint/test_crate_inventory_integrated_flag.py`.
 
 Families below cluster by the first token of the crate name (`alert-*`, `zfs-*`, …).
 
@@ -79,7 +79,7 @@ Full runtime role + how each is invoked lives in [`docs/src/binaries.md`](../src
 
 ---
 
-## 2. Production libraries (60) — these actually run
+## 2. Production libraries (61) — these actually run
 
 In the dependency closure of the three production binaries, so they execute today.
 
@@ -100,10 +100,11 @@ In the dependency closure of the three production binaries, so they execute toda
 
 - **`sovereign-tool-bridge`** — Schema bridge between the two tool-call dialects: converts OpenAI/Anthropic tool_use JSON (sovereign-tool-call-parse) and the [[tool:NAME|ARGS]] convention (sovereign-tool-dispatch) in both directions, and renders a dispatched ToolOutcome back into OpenAI tool_calls or Anthropic tool_use response blocks. The wire-format adapter an OpenAI/Anthropic-compatible daemon needs to run the ReAct loop with tools. — ✅ **integrated**: used by `sovereign-gatewayd`
 - **`sovereign-tool-call-parse`** — Parse OpenAI-style function/tool calls from model output: pull a tool name and its JSON arguments out of a tool_calls array or a bare {name, arguments} object, tolerating fenced or slightly-malformed JSON via json-repair. The JSON-format counterpart to a [[tool:...]] dispatcher, for agentic runtimes. — ✅ **integrated**: used by `sovereign-tool-bridge`
-- **`sovereign-tool-dispatch`** — Tool-call parsing and dispatch: extracts a [[tool:NAME|ARGS]] call from model output and invokes the registered handler for it, returning the result to feed back into the conversation. The live execution layer above the tool catalog — turns generated text into an action and its result. — ✅ **integrated**: used by `sovereign-tool-bridge`
+- **`sovereign-tool-dispatch`** — Tool-call parsing and dispatch: extracts a [[tool:NAME|ARGS]] call from model output and invokes the registered handler for it, returning the result to feed back into the conversation. The live execution layer above the tool catalog — turns generated text into an action and its result. — ✅ **integrated**: used by `sovereign-agent-loop`, `sovereign-gatewayd`, `sovereign-tool-bridge`
 
-#### assorted (50)
+#### assorted (51)
 
+- **`sovereign-agent-loop`** — A ReAct-style agent control loop: generate a response, and if it contains a tool call dispatch it and feed the observation back, repeating until a final answer or a step cap. Generic over a Responder (any text generator) and driven by a ToolRegistry. The control structure that turns a language model plus tools into an agent. Composes sovereign-tool-dispatch. — ✅ **integrated**: used by `sovereign-gatewayd`
 - **`sovereign-aho-corasick`** — Aho-Corasick multi-pattern string matching: build a trie of all patterns, add BFS failure links, then scan any text once to find every occurrence of every pattern in O(text + matches) — instead of running one search per pattern. For scanning generations against many banned phrases, stop sequences, or injection markers simultaneously. — ✅ **integrated**: used by `sovereign-injection-detect`, `sovereign-toxicity`
 - **`sovereign-attention`** — Numerically-stable scaled-dot-product attention engine: the naive full-softmax kernel plus the online-softmax (FlashAttention) recurrence that computes the identical result in one streaming pass without ever materializing the score row, and an incremental decode-time accumulator that attends a query against a growing KV cache one token at a time. — ✅ **integrated**: used by `sovereign-cortex`, `sovereign-mha`, `sovereign-quant-block`, `sovereign-transformer-block`
 - **`sovereign-bitlinear-core`** — M073 BitLinear ternary core — BitNet b1.58 {-1,0,+1} absmean quantization, information-theoretic-limit bit-packing (5 trits/byte ≈ 1.6 bits/param), and multiplication-free ternary GEMM (mul → conditional add/sub). Pure-Rust CPU reference; no de-quantization at execution. Targets the Pulse Core (M070 CCD 0) AVX-512 path (M067). — ✅ **integrated**: used by `sovereign-cortex`, `sovereign-linear`
@@ -674,10 +675,9 @@ Typed, tested UI-state models. Compiled to wasm by `cockpit-wasm` (SDD-974) so a
 
 ---
 
-## 4. Demo-hub-only libraries (51) — reached only via the island hubs
+## 4. Demo-hub-only libraries (50) — reached only via the island hubs
 
 Consumed only through `sovereign-llm` / `sovereign-retrieval`, which the daemon does not use — so nothing that runs reaches them. Wiring a hub into production, or giving these real consumers, is the open work (audit F-2026-083/088/089).
-- **`sovereign-agent-loop`** — A ReAct-style agent control loop: generate a response, and if it contains a tool call dispatch it and feed the observation back, repeating until a final answer or a step cap. Generic over a Responder (any text generator) and driven by a ToolRegistry. The control structure that turns a language model plus tools into an agent. Composes sovereign-tool-dispatch.
 - **`sovereign-answer-extract`** — Final-answer extraction from chain-of-thought output: pulls the answer out of a model's reasoning by honoring 'Answer:'/'Final answer:'/'the answer is' markers (falling back to the last line), and extracts the last numeric value for math tasks. The step between reasoning and a usable answer — pairs with self-consistency voting.
 - **`sovereign-best-of-n`** — Inference-time scaling by sampling N candidates and picking a winner: best-of-N by a score (logprob or reward), top-k selection, and weighted self-consistency that sums each distinct answer's candidate scores and takes the highest. The aggregation layer for spending more compute at decode time to get a better answer.
 - **`sovereign-binary-quant`** — Binary (1-bit) embedding quantization: replace each float component with its sign packed into u64 words, shrinking an embedding 32x, and compare with Hamming distance (a fast proxy for cosine after centering). For memory-frugal billion-scale vector search with a full-precision rerank step. Distinct from codebook (PQ) and scalar quantization.

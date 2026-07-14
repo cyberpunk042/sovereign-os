@@ -12,6 +12,29 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — the daemon can run the agent loop itself (server-side agentic tool use) (2026-07-14)
+
+Operator-directed (*"go with A"*) (SDD-712). Closes the multi-step half of F-2026-088 — with SDD-711
+(single-turn, client-driven) this **fully closes F-2026-088**. Where SDD-711 returns `tool_calls` for the
+client to execute, this runs the ReAct loop **inside** the daemon over built-in tools it executes, and
+returns only the final answer.
+
+Model-sharing is **Option A** (the operator's choice): a new `crates/sovereign-gatewayd/src/agentic.rs`
+provides `GatewayResponder`, a `sovereign_agent_loop::Responder` that wraps the daemon's existing
+`GatewayServer` and calls its `generate_chat` per step — the **same shared generator every request uses, with
+no per-step model clone** — so the SDD-206 safety spine screens every step. The loop composes `AgentLoop`
+(step cap + repeat-guard) with a **pure, side-effect-free** built-in tool set (`upper`/`lower`/`reverse`/
+`wordcount`/`charcount` — no shell, fs, or network) and the SDD-711 bridge's prompt preamble.
+`/v1/chat/completions` gains an agentic path: a request with `"sovereign_agentic": true` runs the loop and
+returns the final answer (`finish_reason:"stop"`); without the field the existing paths are unchanged.
+
+Sovereignty posture — the capability is gated twice: a per-request opt-in AND an env kill-switch
+`SOVEREIGN_GATEWAY_AGENTIC=1` (**default OFF**, documented in the daemon USAGE), matching the installed-off
+doctrine; a bounded step cap keeps a runaway loop from pinning the shared generator. A curated production
+tool catalog (calc, time, local retrieval), streaming intermediate steps, and Anthropic `/v1/messages`
+agentic parity are scoped as follow-ups; any side-effecting tool needs the sandbox + capability-gating story
+(selfdef territory), deliberately not folded in.
+
 ### Added — `/v1/chat/completions` can use tools (OpenAI-compatible, single-turn) (2026-07-14)
 
 Operator-directed (*"yes of course we want tools, good catch, so many things come from tools"*) (SDD-711).

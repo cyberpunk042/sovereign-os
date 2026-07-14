@@ -39,6 +39,8 @@ use sovereign_cortex::demo_requests;
 use sovereign_gatewayd::GatewayServer;
 use sovereign_gatewayd::http;
 
+mod agentic;
+
 const DEFAULT_ADDR: &str = "127.0.0.1:8787";
 
 /// Upper bound on a single dechunked block AND on the total buffered by a proxy
@@ -69,6 +71,9 @@ ENVIRONMENT:
     SOVEREIGN_GATEWAY_TOKEN        require Authorization: Bearer <token> on the HTTP surface (unset = open)
     SOVEREIGN_GATEWAY_RATE_CAPACITY  generation burst size — token-bucket capacity (default 60; 0 disables)
     SOVEREIGN_GATEWAY_RATE_PER_SEC   sustained generation rate — tokens/sec refill (default 20)
+    SOVEREIGN_GATEWAY_AGENTIC        enable server-side agentic tool use (default OFF); when on, a
+                                     /v1/chat/completions request with \"sovereign_agentic\":true runs the
+                                     ReAct loop inside the daemon over the built-in pure tools (SDD-712)
 
   Safety spine (input screening + output redaction; all default on):
     SOVEREIGN_GATEWAY_GUARD                  master switch (0 disables the spine)
@@ -1116,6 +1121,25 @@ fn stream_chat_completions(
         .unwrap_or(96)
         .clamp(1, 1024) as usize;
 
+    // SDD-712 (F-2026-088): server-side agentic tool use. When the request opts
+    // in (`sovereign_agentic: true`) AND the daemon enables the capability
+    // (SOVEREIGN_GATEWAY_AGENTIC=1, default OFF), run the ReAct loop INSIDE the
+    // daemon over the built-in tools (Option A: a Responder over the shared
+    // Generator, no clone) and return the final answer. Otherwise fall through.
+    if req
+        .get("sovereign_agentic")
+        .and_then(serde_json::Value::as_bool)
+        == Some(true)
+        && agentic::agentic_enabled()
+    {
+        let max_steps = req
+            .get("max_steps")
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or(agentic::DEFAULT_MAX_STEPS as u64)
+            .clamp(1, 16) as usize;
+        return agentic_chat_completion(server, writer, &model, &prompt, max_new, max_steps);
+    }
+
     // SDD-711 (F-2026-088): OpenAI-compatible tool use. When the request
     // advertises `tools`, take the tool-aware path — generate buffered, then
     // return a `tool_calls` response the CLIENT executes (standard client-driven
@@ -1257,6 +1281,46 @@ fn tool_aware_chat_completion(
     if !delta.is_null() {
         let _ = write_sse(writer, &delta);
     }
+    let _ = write_sse(writer, &final_obj);
+    let _ = writer.write_all(b"data: [DONE]\n\n");
+    let _ = writer.flush();
+    Ok(())
+}
+
+/// SDD-712 (F-2026-088): serve a server-side agentic turn. Runs the ReAct loop
+/// inside the daemon over the built-in tools (Option A — a Responder over the
+/// shared generator, no clone) and returns only the final answer as an ordinary
+/// assistant message (`finish_reason:"stop"`); the tool calls happened
+/// internally. The loop's per-step generation goes through `generate_chat`, so
+/// the safety spine screens every step.
+fn agentic_chat_completion(
+    server: &GatewayServer,
+    writer: &mut TcpStream,
+    model: &str,
+    prompt: &str,
+    max_new: usize,
+    max_steps: usize,
+) -> std::io::Result<()> {
+    // Deterministic seed: the daemon's generation is deterministic and the loop
+    // breaks cycles with its repeat-guard, so a fixed seed keeps turns reproducible.
+    let answer = agentic::run_agent(server, Some(model), prompt, max_new, max_steps, 0);
+
+    writer.write_all(
+        b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n\
+          Cache-Control: no-store\r\nConnection: close\r\n\r\n",
+    )?;
+    writer.flush()?;
+
+    let id = "chatcmpl-sovereign";
+    let content = serde_json::json!({
+        "id": id, "object": "chat.completion.chunk",
+        "choices": [{"index": 0, "delta": {"role": "assistant", "content": answer}}],
+    });
+    let _ = write_sse(writer, &content);
+    let final_obj = serde_json::json!({
+        "id": id, "object": "chat.completion.chunk",
+        "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+    });
     let _ = write_sse(writer, &final_obj);
     let _ = writer.write_all(b"data: [DONE]\n\n");
     let _ = writer.flush();
