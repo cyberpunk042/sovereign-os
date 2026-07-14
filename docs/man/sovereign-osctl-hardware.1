@@ -512,9 +512,11 @@ Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
 grammar.
 .SS psu-oc-mode
 .TP
-\f[B]sovereign-osctl psu-oc-mode [arguments]\f[R]
-Operator command in the hardware surface.
-Inspect the live help and status/plan forms before use.
+\f[B]sovereign-osctl psu-oc-mode {status|recipe|recommend}\f[R]
+Combine the operator-declared physical OC-switch state of the be quiet!
+Dark Power Pro 13 1600W with the hardware overlay and return
+safe-ceiling recommendations for overclocking composition.
+The OS cannot detect the physical switch.
 .PP
 Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
 grammar.
@@ -564,9 +566,10 @@ Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
 grammar.
 .SS cpu-hotswap
 .TP
-\f[B]sovereign-osctl cpu-hotswap [arguments]\f[R]
-Operator command in the hardware surface.
-Inspect the live help and status/plan forms before use.
+\f[B]sovereign-osctl cpu-hotswap {status|per-cpu|transitions|swap-hint}\f[R]
+Inspect per-CPU governor, EPP, and driver state; enumerate available
+transitions; and emit an operator-runnable swap hint.
+The command is the detection side of CPU mode switching.
 .PP
 Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
 grammar.
