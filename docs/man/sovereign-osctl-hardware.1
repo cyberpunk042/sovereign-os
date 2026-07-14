@@ -118,7 +118,7 @@ status is read-only; enable/disable persist
 /etc/sovereign-os/dspark.toml, which the dspark-wrap.sh gate + the D-21
 lm-orchestration features API both read.
 Verbs: status [\[en]json] / enable / disable.
-## gpu-remediate
+.SS gpu-remediate
 .TP
 \f[B]sovereign-osctl gpu-remediate [\[en]apply] [\[en]policy P] [\[en]json]\f[R]
 See the handler for behavior and options.
@@ -130,7 +130,7 @@ Shares each non-MIG GPU across concurrent inference processes (pulse /
 logic-engine / oracle-core + ad-hoc) without time-slicer context
 switches.
 Operator §1g: \[lq]Multi mode AI, multiple mode for the AI loadout\[rq].
-## hugepages
+.SS hugepages
 .TP
 \f[B]sovereign-osctl hugepages [arguments]\f[R]
 R552 (E11.M15): HugePages sizer.
@@ -138,7 +138,7 @@ Reserves 2MiB (or 1GiB) huge pages for inference engines (llama.cpp /
 vllm / bitnet) to reduce TLB pressure.
 Operator §1g: AVX-512 + 256GB RAM + ZMM ternary models \[em] all benefit
 from huge-page-backed buffers.
-## thp-mode
+.SS thp-mode
 .TP
 \f[B]sovereign-osctl thp-mode [arguments]\f[R]
 R553 (E11.M16): Transparent HugePage controller.
@@ -146,7 +146,7 @@ Orthogonal to R552 \[em] THP is the opportunistic path; reserved
 hugepages are the static path.
 inference policy = madvise+defer (no compaction stalls).
 Operator §1g: predictable inference latency.
-## irq-affinity
+.SS irq-affinity
 .TP
 \f[B]sovereign-osctl irq-affinity [arguments]\f[R]
 R554 (E11.M17): IRQ affinity controller.
@@ -154,7 +154,7 @@ Moves all non-locked hardware-interrupt vectors onto a housekeeping CPU
 set so the inference cores (pulse / logic-engine / oracle-core)
 aren\[cq]t preempted by NIC RX, NVMe completion, USB poll, etc.
 Operator §1g: peak-inference / sustained-burst latency hygiene.
-## cpu-isolation
+.SS cpu-isolation
 .TP
 \f[B]sovereign-osctl cpu-isolation [arguments]\f[R]
 R557 (E11.M20): CPU isolation cmdline emitter.
@@ -164,14 +164,14 @@ callback processing.
 Stronger than R554 IRQ pinning alone.
 Never edits GRUB (operator sovereignty boundary); emits a fragment file
 the operator merges on their own terms.
-## nvidia-persistence
+.SS nvidia-persistence
 .TP
 \f[B]sovereign-osctl nvidia-persistence [arguments]\f[R]
 R556 (E11.M19): NVIDIA persistence mode controller.
 Without persistence ON, the driver tears down GPU state every time the
 last CUDA context exits → next first-prompt pays \[ti]2s reinit latency.
 Operator §1g: zero first-prompt thermal spike + inference-ready warmup.
-## workload-knobs
+.SS workload-knobs
 .TP
 \f[B]sovereign-osctl workload-knobs [arguments]\f[R]
 R555 (E11.M18): atomic orchestrator of the R551-R554 inference-latency
@@ -179,7 +179,7 @@ primitives (MPS / hugepages / THP / IRQ).
 Reads R338 active workload mode, maps it to a bundle preset, and fans
 out to each underlying controller in one verb so the operator never has
 to remember four commands per mode switch.
-## memory-profile
+.SS memory-profile
 .TP
 \f[B]sovereign-osctl memory-profile status [\[en]json]\f[R]
 See the handler for behavior and options.
@@ -298,7 +298,7 @@ Composes logrotate posture + /proc/mdstat RAID + df partition free space
 Operator-named (§1b verbatim): \[lq]logs, log rotate, system usage,
 partitions and global and such.
 insights\[rq].
-## kernel-cmdline
+.SS kernel-cmdline
 .TP
 \f[B]sovereign-osctl kernel-cmdline {status|diff|apply-hint}\f[R]
 R305 (E1.M30): kernel cmdline parameter advisor \[em] parse
@@ -306,13 +306,13 @@ R305 (E1.M30): kernel cmdline parameter advisor \[em] parse
 (iommu=pt, amd_iommu=on, thp=madvise, etc.).
 Complements R239 kernel/tuning.py (which emits sysctl presets) with the
 loaded-cmdline-vs-recommended diff layer.
-## memory-pressure-damper
+.SS memory-pressure-damper
 .TP
 \f[B]sovereign-osctl memory-pressure-damper {status|advisory}\f[R]
 R304 (E1.M29): memory-pressure → OC-profile dampening advisor.
 Composes R269 + R292 to emit \[lq]dampen by N steps\[rq] recommendation
 when memory pressure spikes.
-## gpu-wattage
+.SS gpu-wattage
 .TP
 \f[B]sovereign-osctl gpu-wattage {list|show|budget}\f[R]
 Catalog idle, typical, peak, and OC-peak wattage for each GPU declared
@@ -326,7 +326,7 @@ cascade beyond R293\[cq]s single-profile registry: pre-alert at rem ≥
 30, warn-watch 20-30, drain-infer 10-20, drain-all 5-10, hard-shutdown <
 5.
 Operator-named (§1b verbatim).
-## pcie-lane-detect
+.SS pcie-lane-detect
 .TP
 \f[B]sovereign-osctl pcie-lane-detect {status|gpu|degraded}\f[R]
 R301 (E1.M26): actual lspci -vv parse of per-device PCIe LnkCap vs
@@ -334,7 +334,7 @@ LnkSta.
 Complements R270 pcie-policy advisory with concrete runtime measurement.
 Operator-named (§1b verbatim): \[lq]pci lane splits and whatever like
 virtualization or what we find relevant via search online and such\[rq].
-## network-stack
+.SS network-stack
 .TP
 \f[B]sovereign-osctl network-stack {list|status|troubleshoot}\f[R]
 R319 (E3.M7): network runtime-stack advisor.
@@ -345,7 +345,7 @@ Per-service runtime probe + troubleshoot guide beyond install-mode
 Operator-named (§1b verbatim: \[lq]networks and in and out, the DNS, the
 Cloudflared ?
 the tailscale, Traefik\[rq]).
-## heat-oc-throttle
+.SS heat-oc-throttle
 .TP
 \f[B]sovereign-osctl heat-oc-throttle {status|recommend|apply}\f[R]
 R318 (E1.M38): heat-tied OC auto-throttle with triple-gate.
@@ -354,7 +354,7 @@ apply mutates only when \[en]apply + \[en]confirm-throttle +
 SOVEREIGN_OS_CONFIRM_DESTROY=YES all present.
 Operator-named (preserves NEVER-AUTO-MUTATES doctrine via explicit
 gate).
-## inventory
+.SS inventory
 .TP
 \f[B]sovereign-osctl inventory {list|show|audit}\f[R]
 R317 (E1.M37): hardware-inventory catalog \[em] single source of truth
@@ -363,7 +363,7 @@ Defaults from operator\[cq]s verbatim spec drop; overlay support for
 swapping any slot.
 Other advisors compose against this catalog.
 Operator-named (§1b spec drop verbatim).
-## wattage-heat-trend
+.SS wattage-heat-trend
 .TP
 \f[B]sovereign-osctl wattage-heat-trend {tick|status|history}\f[R]
 R316 (E1.M36): real-time wattage+heat trend watcher.
@@ -371,7 +371,7 @@ Periodic-sample daemon: wattage + GPU/CPU temp tuples to JSONL +
 rolling-window trend intelligence.
 Operator-named (§1b verbatim: \[lq]real time tracking and intelligence
 around it\[rq]).
-## xmp-oc-room
+.SS xmp-oc-room
 .TP
 \f[B]sovereign-osctl xmp-oc-room {status|budget|recommend}\f[R]
 R315 (E1.M35): XMP/OC profile room estimator under dual-GPU sustained
@@ -380,7 +380,7 @@ Composes PSU rated W + estimated XMP/EXPO extra + CPU OC extra +
 dual-GPU sustained → budget-left + safe-(xmp, cpu_oc,
 gpu_oc)-combination matrix.
 Operator-named (§1b verbatim).
-## apc-profile
+.SS apc-profile
 .TP
 \f[B]sovereign-osctl apc-profile {list|show|apply-hint}\f[R]
 R314 (E1.M34): PSU/APC default-profile orchestration \[em] 3 curated
@@ -389,7 +389,7 @@ battery_pct thresholds × per-threshold actions × drain ordering × notify
 dispatch × shutdown commit.
 Composes R253 graceful-shutdown + R302 battery-ladder + R262 drain.
 Operator-named (§1b verbatim).
-## psu-oc-mode
+.SS psu-oc-mode
 .TP
 \f[B]sovereign-osctl psu-oc-mode {status|recipe|recommend}\f[R]
 R313 (E1.M33): be Quiet!
@@ -406,7 +406,7 @@ specific tuning advisor.
 PCIe slot allocation + M.2 speed matrix + dual-GPU bifurcation modes +
 BIOS-flashback recipe + memory training timeout + known issues.
 Operator-named (§1b verbatim).
-## workload-mode
+.SS workload-mode
 .TP
 \f[B]sovereign-osctl workload-mode {status|modes|affected-advisors|set}\f[R]
 R338 (E2.M27): workload-mode coordinator.
@@ -414,7 +414,7 @@ Single source of truth for current operator workload mode
 (idle/inference-ready/ training/oc-burst).
 set mutates under triple-gate via R328 safe_apply helper.
 affected-advisors lists downstream surfaces.
-## fan-advisor
+.SS fan-advisor
 .TP
 \f[B]sovereign-osctl fan-advisor {status|recommend|modes|bios-gate}\f[R]
 R337 (E1.M39): fan/cooling awareness advisor.
@@ -422,7 +422,7 @@ lm-sensors fan readout + per-mode
 (idle/inference-ready/training/oc-burst) recommended curves + per-board
 BIOS-gate advice for software fan override.
 Operator-named §1b spec drop.
-## ccd-pinning
+.SS ccd-pinning
 .TP
 \f[B]sovereign-osctl ccd-pinning [sub]\f[R]
 R356 (§19.2): operator-verbatim CCD
@@ -443,14 +443,14 @@ specific settings (EXPO, SVM, IOMMU, ReBAR, Above 4G, PCIe Gen5,
 AVX-512, Fast Boot, CSM, etc) with per-setting rationale + runtime probe
 surface where possible.
 Operator-named (§1b verbatim).
-## thermal-oc-budget
+.SS thermal-oc-budget
 .TP
 \f[B]sovereign-osctl thermal-oc-budget {status|advisory|inputs}\f[R]
 R296 (E2.M10): heat budget tied to OC profile \[em] composes R172
 thermal-watch + R292 oc-headroom + R294 psu-oc into ONE combined \[lq]is
 your OC posture thermally + electrically safe?\[rq] verdict.
 Operator-named (§1b verbatim, on heat tracking under OC posture).
-## gpu-possibility
+.SS gpu-possibility
 .TP
 \f[B]sovereign-osctl gpu-possibility {list|show|gaps}\f[R]
 Report established and unverified capabilities for each GPU declared by
@@ -464,7 +464,7 @@ Dark Power Pro 13 1600W + operator-declared OC-mode state +
 wattage-budget shift.
 Operator-named (§1b verbatim): \[lq]My PSU even have an overclock mode
 which might be important\[rq].
-## power-profiles
+.SS power-profiles
 .TP
 \f[B]sovereign-osctl power-profiles {list|show|simulate|active}\f[R]
 R293 (E1.M21): operator-pull power-management default-profile registry
@@ -473,7 +473,8 @@ R293 (E1.M21): operator-pull power-management default-profile registry
 ac-loss-graceful-suspend, thermal-budget-throttle, psu-headroom-warn).
 Operator-named (§1b verbatim): \[lq]the PSU/APC integration with the
 power mangement and the scheduled shutdown when battery reach a certain
-point as one default profile.\[rq] ## oc-headroom
+point as one default profile.\[rq]
+.SS oc-headroom
 .TP
 \f[B]sovereign-osctl oc-headroom {status|advisory|inputs}\f[R]
 R292 (E1.M20): operator\[cq]s XMP + OC headroom model.
@@ -482,7 +483,8 @@ power_limit) + power-status (PSU rated + real-time draw) into a
 100%-usage projection + real-time deviance verdict.
 Operator-named (§1b verbatim): \[lq]considering XMP profile and OC
 profile and room for each and estimated at 100% usage and then real time
-tracking and intelligence around it.\[rq] ## hardware-pressure
+tracking and intelligence around it.\[rq]
+.SS hardware-pressure
 .TP
 \f[B]sovereign-osctl hardware-pressure [arguments]\f[R]
 M060 D-09 (R10102-R10105): unified hardware-pressure core \[em] Linux
