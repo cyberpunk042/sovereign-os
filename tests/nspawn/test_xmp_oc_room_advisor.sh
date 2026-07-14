@@ -67,7 +67,11 @@ python3 "${SCRIPT}" status --json >/dev/null || RC=$?
 [[ "${RC}" == "0" ]] || fail "expected has-budget rc=0; got ${RC}"
 pass "4. default config (XMP on + stock CPU/GPU OC) → has-budget (rc=0)"
 
-# ── 5. Aggressive OC → over-budget verdict ─────────────────
+# ── 5. Aggressive OC rises above default but STAYS within budget ───
+# SDD-993: with the RTX PRO 6000 Max-Q (300 W) primary + RTX 5090 (350 W)
+# secondary, even 1.2x CPU + +20% GPU OC under dual GPU stays comfortably
+# under the 1600 W PSU — the Max-Q part is why the rig has wide headroom.
+# (The over-budget verdict path is exercised by the 850 W-PSU test below.)
 cfg=$(mk_cfg 'xmp_enabled = true
 cpu_oc_multiplier = 1.2
 gpu_oc_notch = 2
@@ -77,13 +81,13 @@ out_a="$(python3 "${SCRIPT}" status --config "${cfg}" --json)" || RC=$?
 echo "${out_a}" | python3 -c "
 import json, sys
 d = json.loads(sys.stdin.read())
-# 1.2x CPU + 20% GPU + XMP under dual GPU likely exceeds 1600W.
-assert d['verdict'] in ('over-budget', 'tight'), d
-assert d['estimated_total_w'] > 1300
+# Aggressive OC lifts the total above the ~907 W default but stays in budget.
+assert d['verdict'] in ('has-budget', 'tight'), d
+assert 1000 < d['estimated_total_w'] < 1600, d['estimated_total_w']
 " || fail "aggressive"
 rm -f "${cfg}"
-[[ "${RC}" == "1" || "${RC}" == "2" ]] || fail "expected rc 1 or 2; got ${RC}"
-pass "5. aggressive (1.2x CPU + +20% GPU + XMP + dual GPU) → tight or over-budget"
+[[ "${RC}" == "0" || "${RC}" == "1" ]] || fail "expected rc 0 or 1 (within budget); got ${RC}"
+pass "5. aggressive (1.2x CPU + +20% GPU + XMP + dual GPU) → above default, still within 1600W (Max-Q headroom)"
 
 # ── 6. Single-GPU config drops total significantly ─────────
 cfg=$(mk_cfg 'dual_gpu_active = false')

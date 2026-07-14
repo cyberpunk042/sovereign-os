@@ -333,8 +333,8 @@ By the end you have:
 ### 4.2 Hook order (sain-01)
 
 ```
-friction-audit-runtime    — confirms x8/x8 lanes · ZFS health · AVX-512 present
-vfio-bind-4090            — binds 4090 to vfio-pci (master spec § 4.3)
+friction-audit-runtime    — confirms PCIe topology (PRO 6000 + 5090 x8/x8, M.2_2 empty, OcuLink 4090 on chipset M.2, SDD-993) · ZFS health · AVX-512 present
+vfio-bind-4090            — opt-in only (role: vfio): binds 4090 to vfio-pci (master spec § 4.3); no-op by default
 network-vlan-config       — applies asymmetric VLAN (master spec § 8; opinionated per R158)
 tetragon-policy-load      — loads sovereign-kernel-fence (master spec § 6)
 arc-clamp-128gb           — clamps ZFS ARC to 128GB (master spec § 4.2)
@@ -365,7 +365,7 @@ with `sovereign-osctl assistant full` (force) or `assistant reset`.
 
 | Failure | Recovery |
 |---|---|
-| Friction-audit FAIL on PCIe x8/x8 | Power down · verify M.2_2 is empty · check BIOS bifurcation setting |
+| Friction-audit FAIL on PCIe topology | Power down · confirm PRO 6000 (PCIEX16_1) + RTX 5090 (PCIEX16_2) seat at x8/x8 · confirm **M.2_2 is empty** · confirm the OcuLink-to-M.2 adapter is on a chipset M.2 slot (not M.2_2) · check BIOS bifurcation (SDD-993) |
 | VFIO bind FAIL | Check kernel cmdline has `vfio-pci.ids=10de:2684,10de:22ba` · `dmesg` for IOMMU group issues |
 | Tetragon FAIL | `systemctl status tetragon` · `journalctl -u tetragon` |
 | Hardening apply FAIL on sshd reload | `sshd -t` first — the hook gates reload behind sshd_config validation |

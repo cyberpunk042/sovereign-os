@@ -12,6 +12,30 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Changed — SAIN GPU topology: RTX PRO 6000 primary + RTX 5090 internal secondary + RTX 4090 OcuLink eGPU; VFIO now opt-in (2026-07-13)
+
+Operator-directed hardware change (SDD-993, decision **D-021**). All **three cards are in the build**: the **RTX PRO
+6000 Blackwell 96GB (~600W)** is the **primary / main Oracle Core** (internal, PCIEX16_1 x8) — unchanged; the **RTX 4090
+24GB** moves OUT of its internal slot to an **OcuLink eGPU** (OcuLink-to-M.2 adapter on a **chipset M.2 slot**, PCIe 4.0
+x4 / 64 Gbps); and the new **RTX 5090 32GB (TUF-RTX5090-O32G-GAMING)**, power-limited **~350W** (Blackwell GB202,
+512-bit — same FP4/NVFP4 family as the PRO 6000), takes the 4090's vacated **internal x8 slot** (PCIEX16_2). Two internal
+cards ⇒ **x8/x8 bifurcation stands**, and **M.2_2 MUST remain empty** (it shares lanes with PCIEX16_2 / the 5090) — the
+OcuLink adapter is on a chipset M.2 slot, NOT M.2_2. One primary + **two secondaries** (5090 internal + 4090 eGPU); no
+future/missing card. Grounded in researched specs (5090 stock TGP 575W → 350/575 ≈ 61%, near the Blackwell efficiency
+knee; OcuLink-M.2 ≈ 7.9 GB/s, fine for inference).
+
+**VFIO is now opt-in** (operator: *"not in a VM by default"*): the 4090's default `role` is host-resident (bare-metal,
+directly usable by the host inference stack); the VFIO-isolated sandbox is an opt-in mode (`role: vfio`), and
+`vfio-bind-4090.sh` no-ops unless opted in. The isolation machinery is preserved — a default-flip, not a removal.
+
+**Reconcile landed this session**: `profiles/sain-01.yaml` GPU block (PRO 6000 primary + 5090 secondary + 4090 egpu;
+`m2_2_empty` restored) + `schemas/profile.schema.yaml` (`egpu` role) + `crates/sovereign-pcie-topology` +
+`sovereign-pcie-advisor` (x8/x8 layout, M.2_2 empty) + `friction-audit-spec.sh` + pinning lints; `sain-01-master-spec.md`
++ `profiles/sain-01.md`; `config/hardware/m003` + `config/inference/m077` additive reconciles (both internal cards are
+Blackwell FP4; the Oracle stays on the PRO 6000); M040 additive OcuLink note (verbatim rows untouched);
+`profiles/runtime/*.yaml` + `trinity-runtime-profiles.md`; the D-21 LM-orchestration panel (three cards); `model-catalog.md`;
+`docs/decisions.md` D-021. DSpark-from-DeepSeek is a separate follow-up SDD (PR 2).
+
 ### Fixed — gateway daemon survives a poisoned lock instead of cascading (2026-07-13)
 
 Operator-directed (phase-1 audit continuation) (SDD-992). Closes F-2026-065 (LOW, daemon-path half). Every mutex access

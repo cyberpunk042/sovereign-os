@@ -161,16 +161,19 @@ fi
 # ----------------- Motherboard PCIe constraints -----------------
 
 if [ "${SOVEREIGN_OS_PROFILE}" = "sain-01" ]; then
-  # M.2_2-must-empty is a sain-01-specific blocker (ASUS ProArt X870E-Creator)
-  m2_empty_present="$(python3 -c "
+  # SDD-993: TWO internal cards (RTX PRO 6000 + RTX 5090) run x8/x8. M.2_2 shares
+  # lanes with PCIEX16_2 (the 5090's slot), so it MUST remain empty or the 5090
+  # drops to x4. The OcuLink 4090 eGPU is on a separate chipset M.2 slot, not
+  # M.2_2. The profile must DECLARE the m2_2_empty PCIe constraint.
+  m2_2_declared="$(python3 -c "
 import yaml, os
 with open(os.environ['SOVEREIGN_OS_PROFILE_FILE']) as f:
     data = yaml.safe_load(f)
 constraints = data.get('hardware', {}).get('motherboard', {}).get('pcie_constraints', []) or []
-print('yes' if any(c.get('check') == 'm2_2_empty' for c in constraints) else 'no')
+print('yes' if any(c.get('check') in ('m2_2_empty', 'm2_2_oculink_egpu') for c in constraints) else 'no')
 ")"
-  check "sain-01 declares m2_2_empty PCIe constraint" \
-    test "${m2_empty_present}" = "yes"
+  check "sain-01 declares the M.2_2-empty PCIe constraint (x8/x8, two internal cards per SDD-993)" \
+    test "${m2_2_declared}" = "yes"
 fi
 
 # ----------------- Result -----------------

@@ -10,7 +10,7 @@ Dimensions (all from master spec § 1 + § 22):
   - cpu_avx512_vnni      (required: master spec § 22 check 01)
   - cpu_avx512_bf16      (bonus, but required for FullMatch when present)
   - memory_at_least_256gb
-  - gpu_count_at_least_2  (RTX PRO 6000 + RTX 4090 per master spec § 1.1)
+  - gpu_count_at_least_2  (RTX PRO 6000 primary + RTX 5090 secondary + RTX 4090 OcuLink eGPU = 3 cards per SDD-993; the >=2 predicate still holds)
   - pcie_dual_x8_present  (master spec § 1.2 — best-effort via lspci)
   - motherboard_proart_x870e (bonus when DMI readable)
 

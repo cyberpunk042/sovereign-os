@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 # scripts/inference/start-logic-engine.sh — start the Logic Engine
-# tier on the RTX 4090 (VFIO-bound). Backend pluggable:
+# tier on the RTX 5090 (32 GB Blackwell GB202, internal secondary,
+# PCIEX16_2 x8). Per operator directive 2026-07-14 (D-022) the Logic
+# tier runs on the internal 5090 — more bandwidth than the RTX 4090 on
+# the PCIe 4.0 x4 OcuLink eGPU. The RTX 4090 (operator §17.1's original
+# Logic card) is now the OcuLink eGPU / opt-in VFIO sandbox and the
+# DSpark speculative-decode draft target. Backend pluggable:
 #   - vllm (default; podman-launched)
 #   - llama_cpp (fallback for hardware constraints / debugging)
 #
@@ -39,7 +44,7 @@ runtime_profile_override LOGIC_MODEL logic model
 # Export so the inline python3 (subshell) sees them via os.environ.
 export SOVEREIGN_OS_LOGIC_BACKEND LOGIC_MODEL LOGIC_HOST LOGIC_PORT
 
-log_step_header "${STEP_ID}" "start Logic Engine (backend=${SOVEREIGN_OS_LOGIC_BACKEND}, RTX 4090 VFIO)"
+log_step_header "${STEP_ID}" "start Logic Engine (backend=${SOVEREIGN_OS_LOGIC_BACKEND}, RTX 5090 internal secondary — operator D-022; the RTX 4090 is now the OcuLink eGPU / opt-in VFIO DSpark draft)"
 runtime_profile_log_active
 
 emit_start_metric() {

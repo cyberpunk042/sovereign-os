@@ -1097,8 +1097,10 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 > Operator-flagged §1g (2026-05-18) quantization variant.
 > Same Nemotron 3 Nano Omni 30B-A3B multimodal model as the
 > BF16 entry above; this is the NVIDIA-published FP8 checkpoint
-> for native Blackwell FP8 tensor-core paths (RTX PRO 6000)
-> and FP8-capable Hopper/Ada hardware.
+> for native Blackwell FP8 tensor-core paths — the SAIN runs two
+> Blackwell cards (SDD-993): the RTX PRO 6000 96GB primary Oracle
+> Core + the RTX 5090 32GB internal secondary (both GB202) — plus
+> FP8-capable Hopper/Ada hardware.
 > Per HF model card: 30B total / 3B active per token (MoE).
 > Modalities: text + image + video + audio.
 > Trade-off: slight accuracy drop vs BF16; ~2× the VRAM
@@ -1130,10 +1132,12 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 > B200, etc.). Checkpoint size: 22.4 GiB on HF.
 > Same Nemotron 3 Nano Omni 30B-A3B multimodal model as the
 > BF16 + FP8 entries above; this is the operator's
-> smallest-footprint variant — fits the secondary RTX 4090
-> (24GB VRAM) with thin margin (offload + careful KV
-> management) AND leaves substantial headroom on the
-> RTX PRO 6000 for parallel workloads.
+> smallest-footprint variant — fits the RTX 4090 (24GB VRAM, now
+> an OcuLink eGPU per SDD-993) with thin margin (offload + careful
+> KV management), lands comfortably on the internal RTX 5090 (32GB)
+> secondary, AND runs with substantial headroom on the RTX PRO 6000
+> 96GB (the primary/main Oracle Core). All three are Blackwell-family
+> FP4/NVFP4 cards.
 > Caveat: Blackwell-native FP4 path; older Ada/Hopper
 > deployment requires fallback dequant which loses the
 > NVFP4 performance advantage.

@@ -14,10 +14,18 @@ runtime_profile:
   description: |
     Asymmetric load balancing across all three hardware planes:
     BitNet-13B on full CCD0+CCD1 (CPU cores 0-11),
-    Qwen-32B-Ternary on RTX 4090 (vfio sandbox via vllm-vulkan),
-    DeepSeek-R1-Distill-Llama-70B on Blackwell (llama.cpp FP16).
+    Qwen-32B-Ternary on RTX 4090 (host-resident by default; opt-in vfio
+    sandbox; via vllm-vulkan),
+    DeepSeek-R1-Distill-Llama-70B on the large-VRAM oracle GPU (llama.cpp FP16).
     Use for: multi-agent code-repo processing · long-running parallel
     inference tasks · burst workloads.
+
+    RECONCILE NOTE (SDD-993, 2026-07-13): the large-VRAM oracle GPU is the
+    RTX PRO 6000 96 GB primary/main card (installed) — the DeepSeek-R1-70B-FP16
+    (88 GB) placement is on it. The RTX 5090 32 GB (~350 W) is the new internal
+    secondary (Blackwell); the RTX 4090 is a host-resident OcuLink eGPU (opt-in
+    vfio). Two internal cards run x8/x8. To size any tier to real VRAM use
+    scripts/operator/generate-runtime-profile.py. See docs/sdd/993-*.md.
 
   hardware_profile_compat:
     - sain-01
@@ -70,9 +78,10 @@ runtime_profile:
 
   expected_power_draw_watts:
     cpu: 170
-    gpu_primary: 600
-    gpu_secondary: 350
-    system_total: ~1200
+    gpu_primary: 300   # RTX PRO 6000 Blackwell Max-Q (primary Oracle, 300W Max-Q — NOT 600W, SDD-993)
+    gpu_secondary: 350   # RTX 5090 (internal secondary, power-limited)
+    gpu_egpu: 350        # RTX 4090 (OcuLink eGPU)
+    system_total: ~1170
 
   observability:
     primary_metric: sovereign_os_inference_route_total

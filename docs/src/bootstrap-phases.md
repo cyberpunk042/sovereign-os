@@ -88,18 +88,18 @@ This doc is regenerated from `config/bootstrap/phases.yaml` on every invocation 
 
 ## Phase IV — Container + Network Edge Isolation
 
-**Description.** Master spec § 12 Phase IV + §§ 4.3, 8 — Podman, VFIO 4090 detach, asymmetric net
+**Description.** Master spec § 12 Phase IV + §§ 4.3, 8 — Podman, optional VFIO 4090 sandbox, asymmetric net (SDD-993)
 
 **Preconditions** (must hold BEFORE this phase runs):
 
 - Phase III complete (tank pool hosts the container storage driver)
 - IOMMU enabled in UEFI (intel_iommu / amd_iommu kernel cmdline)
-- 4090 PCI ID identified for vfio-pci binding
+- 4090 PCI ID identified (needed only if the operator opts into the VFIO sandbox)
 
 **Postconditions** (state AFTER this phase completes):
 
-- 4090 detached from nouveau/nvidia, bound to vfio-pci for guest passthrough
-- PRO 6000 owned by host nvidia driver
+- PRO 6000 (primary Oracle) + RTX 5090 (internal secondary) + RTX 4090 (OcuLink eGPU) all owned by the host nvidia driver by default (SDD-993)
+- If the VFIO sandbox is opted into (role vfio), the 4090 is detached from nouveau/nvidia and bound to vfio-pci for guest passthrough; otherwise vfio-bind is a no-op
 - Asymmetric network rendered (data vs control plane on separate VLANs)
 - Podman storage driver pointed at the tank ai-workspace dataset
 

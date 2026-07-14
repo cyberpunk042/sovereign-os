@@ -79,21 +79,55 @@ hardware:
         ccd1_mask: "0xff000"
         host_mask: "0xf00000"
 
+  # GPU topology per SDD-993 (operator hardware change 2026-07-13) — three cards,
+  # all installed in the build:
+  #   PRIMARY (main)  = RTX PRO 6000 Blackwell 96GB — Oracle Core, internal x8.
+  #   secondary       = RTX 5090 32GB (Blackwell GB202, 512-bit, power-limited
+  #                     ~350W) — internal x8; the new card that took the 4090's
+  #                     vacated internal slot.
+  #   secondary/eGPU  = RTX 4090 24GB — OcuLink-to-M.2 on a CHIPSET M.2 slot
+  #                     (PCIe 4.0 x4); host-resident by default, opt-in VFIO.
+  # Two internal cards (PRO 6000 + 5090) => x8/x8 bifurcation; M.2_2 MUST stay
+  # empty (it shares lanes with PCIEX16_2 where the 5090 sits) — the OcuLink 4090
+  # is on a different (chipset) M.2 slot, NOT M.2_2.
   gpu:
     - vendor: nvidia
-      model: rtx-pro-6000-blackwell-max-q
-      pci_id: "10de:2bb4"   # GB202GL — verified via lspci -nn on the physical host 2026-06-10
+      model: rtx-pro-6000-blackwell
+      pci_id: "10de:2bb4"   # GB202GL RTX PRO 6000 Blackwell — verify via lspci -nn at the physical build
       audio_fn: "10de:22e8"
       vram_gb: 96
-      role: primary
-      driver: nvidia-560-open
-      tdp_watts: 300   # Max-Q (300W) edition — NOT the 600W workstation card
+      role: primary   # MAIN card — Oracle Core (large-VRAM); installed, in the build
+      driver: nvidia-570-open   # Blackwell needs >=570 (trixie's 550 predates it)
+      tdp_watts: 300   # Max-Q edition (300W), NOT the 600W workstation card — the installed SAIN card is the RTX PRO 6000 Blackwell Max-Q
+      link: pcie-5.0-x8   # internal, PCIEX16_1 — x8 in the two-internal-card bifurcation
+    - vendor: nvidia
+      model: rtx-5090
+      sku: TUF-RTX5090-O32G-GAMING
+      pci_id: "10de:2b85"   # GB202 GeForce RTX 5090 — spec ID; verify via lspci -nn at the physical build
+      vram_gb: 32
+      role: secondary   # new card; Blackwell 512-bit like the PRO 6000; internal x8
+      driver: nvidia-570-open
+      tdp_watts: 350   # power-limited from the 575W stock TGP via `nvidia-smi -pl 350` (~61% of stock, near the efficiency knee)
+      link: pcie-5.0-x8   # internal, PCIEX16_2 — x8; shares lanes with M.2_2 (which MUST stay empty)
     - vendor: nvidia
       model: rtx-4090
       pci_id: "10de:2684"
       vram_gb: 24
-      role: vfio
-      vfio_companion: "10de:22ba"
+      # DEFAULT: host-resident (bare-metal) — the operator works locally on the
+      # workstation, so the 4090 is directly available to the host inference stack
+      # (Logic Engine / speculative-decoding draft). SDD-993 + operator directive
+      # 2026-07-13: "I want to be able to work locally on my workstation most of
+      # the time, not in a VM by default."
+      #
+      # OPT-IN VFIO SANDBOX: set `role: vfio` to hand this GPU to the isolated
+      # sandbox (§17 dual-GPU SRP perimeter) — vfio-bind-4090.sh then binds it to
+      # vfio-pci at boot using vfio_companion. With role=egpu the bind hook is a
+      # clean no-op. The isolation machinery is preserved either way.
+      role: egpu
+      vfio_companion: "10de:22ba"   # audio fn — used only when role=vfio (opt-in sandbox)
+      connection: oculink-m2   # OcuLink-to-M.2 (SFF-8612 -> SFF-8611) adapter in a CHIPSET M.2 slot (the "remaining nvme slot") — NOT M.2_2
+      tdp_watts: 350
+      link: pcie-4.0-x4   # 64 Gbps; adequate for inference (weights VRAM-resident), not for training/cross-link tensor-parallel
 
   memory:
     minimum_gb: 128
@@ -156,10 +190,15 @@ hardware:
     model: proart-x870e-creator
     bios_pinned: false
     pcie_constraints:
-      - description: "M.2_2 must remain empty to preserve x8/x8 GPU bifurcation (PCIEX16_2 shares lanes with M.2_2)"
+      # SDD-993: TWO internal cards — RTX PRO 6000 (PCIEX16_1) + RTX 5090
+      # (PCIEX16_2) — run x8/x8. M.2_2 physically shares lanes with PCIEX16_2, so
+      # populating M.2_2 would drop the 5090 to x4. M.2_2 MUST stay empty. The
+      # 4090 OcuLink-to-M.2 adapter goes on a CHIPSET M.2 slot (the "remaining
+      # nvme slot"), NOT M.2_2.
+      - description: "M.2_2 MUST remain empty — it shares lanes with PCIEX16_2 (the RTX 5090 secondary); populating it drops the 5090 to x4. The OcuLink 4090 eGPU is on a separate chipset M.2 slot, not M.2_2."
         check: m2_2_empty
         severity: blocker
-      - description: "Blackwell + 4090 must be in distinct IOMMU groups for clean VFIO binding"
+      - description: "RTX PRO 6000 + RTX 5090 (both internal, x8/x8) + RTX 4090 (OcuLink eGPU) must be in distinct IOMMU groups for clean VFIO binding; the eGPU sits on its own downstream PCIe path (naturally distinct group)"
         check: iommu_groups_distinct
         severity: blocker
 

@@ -36,13 +36,19 @@
 safe_limit_watts = 300
 tolerance_watts  = 10
 max_sustained_draw_watts = 290
-note = "RTX PRO 6000 Blackwell Max-Q 96 GiB — the 300 W edition, NOT the 600 W workstation card. Full Max-Q TDP allowed; warn if sustained draw within 10 W of cap."
+note = "RTX PRO 6000 Blackwell Max-Q 96 GiB — the 300 W Max-Q edition, NOT the 600 W workstation card (primary Oracle Core, PCIEX16_1 x8 per SDD-993). Full Max-Q TDP allowed; warn if sustained draw within 10 W of cap. Apply with: nvidia-smi -i 0 -pl 300"
+
+[gpu."GeForce RTX 5090"]
+safe_limit_watts = 350
+tolerance_watts  = 10
+max_sustained_draw_watts = 340
+note = "RTX 5090 Blackwell GB202 32 GiB (internal secondary, PCIEX16_2 x8 per SDD-993). Stock cap is 575 W; operator power-limits to ~350 W for the x8/x8 dual-internal thermal + power envelope. Apply with: nvidia-smi -i 1 -pl 350"
 
 [gpu."GeForce RTX 4090"]
 safe_limit_watts = 320
 tolerance_watts  = 10
 max_sustained_draw_watts = 310
-note = "RTX 4090 stock cap is 450 W; operator-agreed optimization to the ~320 W efficiency point (~95% inference perf) per the SDD-026 Z-5 slightly-reduce directive, applied to the 4090 that replaced the 3090. Apply with: nvidia-smi -i 1 -pl 320"
+note = "RTX 4090 24 GiB OcuLink eGPU (chipset M.2, PCIe 4.0 x4 per SDD-993; host-resident by default, opt-in VFIO sandbox). Stock cap is 450 W; operator-agreed optimization to the ~320 W efficiency point (~95% inference perf) per the SDD-026 Z-5 slightly-reduce directive. Apply with: nvidia-smi -i 2 -pl 320"
 
 # Operators add more tables as they install other GPU classes.
 # Examples (commented):

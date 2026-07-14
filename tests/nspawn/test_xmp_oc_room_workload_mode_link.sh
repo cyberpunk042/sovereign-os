@@ -101,7 +101,7 @@ train_out=$(python3 "${XMP}" status --config "${cfg_train}" --json 2>&1 || true)
 idle_w=$(echo "${idle_out}" | python3 -c "import json,sys; print(int(json.loads(sys.stdin.read())['estimated_total_w']))")
 train_w=$(echo "${train_out}" | python3 -c "import json,sys; print(int(json.loads(sys.stdin.read())['estimated_total_w']))")
 [[ "${idle_w}" -lt "${train_w}" ]] || fail "idle (${idle_w}W) should be < training (${train_w}W)"
-# Idle should be substantially less (PRO 6000 only ≈ 880W vs training dual+OC ≈ 1400W).
+# Idle should be substantially less (PRO 6000 Max-Q only ≈ 557W vs training dual+OC ≈ 1002W per SDD-993).
 [[ $((train_w - idle_w)) -gt 400 ]] || fail "expected ≥400W gap; got $((train_w - idle_w))W"
 rm -f "${wm_idle}" "${wm_train}" "${cfg_idle}" "${cfg_train}"
 pass "5. idle estimated_total_w << training (≥400W gap from dual-GPU + OC)"

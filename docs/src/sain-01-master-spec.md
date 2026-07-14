@@ -30,21 +30,24 @@ from; everything else is operator-customized.
 |---|---|---|
 | **CPU** | AMD Ryzen 9 9900X (Zen 5) | Single-cycle native AVX-512 (true 512-bit ZMM registers; legacy Zens double-pumped 256-bit) |
 | **Motherboard** | ASUS ProArt X870E-Creator | Dual PCIe 5.0 slots in x8/x8 symmetric · IOMMU topology for VFIO |
-| **GPU primary** | RTX PRO 6000 Blackwell (96GB GDDR7) | Oracle Core — large-scale model residence; FP16 / un-quantized |
-| **GPU secondary** | RTX 4090 (24GB GDDR6X) | Logic Engine — VFIO-isolated sandbox; speculative decoding |
+| **GPU primary (internal, main card)** | RTX PRO 6000 Blackwell **Max-Q** 96GB GDDR7, ~300W (Max-Q edition — NOT the 600W workstation card) | Oracle Core — the large-VRAM primary; internal, PCIEX16_1 x8 (SDD-993). Installed. |
+| **GPU secondary (internal) — Logic Engine** | RTX 5090 32GB GDDR7 (TUF-RTX5090-O32G-GAMING), power-limited ~350W | New card; Blackwell GB202, 512-bit — same FP4/NVFP4 family as the PRO 6000; internal, PCIEX16_2 x8. Took the 4090's vacated internal slot. **Runs the Logic Engine tier** (operator D-022, 2026-07-14 — more bandwidth than the eGPU). |
+| **GPU eGPU (OcuLink)** | RTX 4090 (24GB GDDR6X), ~320W | **DSpark speculative-decode draft** (the Logic tier moved to the 5090, D-022) — **host-resident by default** (work locally); VFIO-isolated sandbox is an **opt-in** mode (§17); on an OcuLink-to-M.2 adapter in a **chipset M.2 slot**, PCIe 4.0 x4 |
 | **Memory** | 256GB DDR5 (initial 128GB) | High system context + ZFS ARC headroom |
 | **Storage** | 2× NVMe PCIe 5.0 in ZFS RAID-0 | 31.5 GB/s sequential target |
 | **Network** | Marvell AQC113C 10GbE + Intel I226-V 2.5GbE | Asymmetric VLAN — mgmt vs data |
 
 ### Hardware constraints (operator MUST honor these)
 
-- **PCIe lane symmetry**: Slot 1 (Blackwell) and Slot 2 (4090) MUST operate
-  at x8/x8. The CPU has 24 usable PCIe lanes; this is the only symmetric
-  configuration that runs both GPUs at full bandwidth.
-- **M.2_2 MUST remain empty**. Populating it triggers bifurcation that drops
-  Slot 2 to x4 and destroys execution symmetry. The friction-audit at
-  build-time AND boot-time checks for this — see
-  `scripts/hooks/pre-install/friction-audit-spec.sh` and
+- **PCIe topology (SDD-993)**: TWO internal cards — RTX PRO 6000 (PCIEX16_1) +
+  RTX 5090 (PCIEX16_2) — run **x8/x8**. The RTX 4090 moved OUT to an **OcuLink
+  eGPU** on a **chipset M.2 slot** (PCIe 4.0 x4 — enough for inference, not for
+  training). The 4090 vacated its internal slot; the RTX 5090 took it.
+- **M.2_2 MUST remain empty (SDD-993)**. M.2_2 shares lanes with PCIEX16_2 (the
+  RTX 5090's slot); populating M.2_2 drops the 5090 to x4. So the OcuLink-to-M.2
+  adapter for the 4090 eGPU goes on a **chipset M.2 slot** (the "remaining nvme
+  slot"), **NOT** M.2_2. The friction-audit checks the M.2_2-empty constraint —
+  see `scripts/hooks/pre-install/friction-audit-spec.sh` and
   `scripts/hooks/post-install/friction-audit-runtime.sh`.
 - **Dual-CCD aware execution**: the 9900X has 2 Core-Complex-Dies
   (CCD0 = cores 0–5 → 32MB L3; CCD1 = cores 6–11 → 32MB L3). Crossing the
@@ -114,7 +117,14 @@ avoids constant small-kernel context-switching on the GPUs.
 
 **Runtime selection**:
 - Rootless Podman for sub-agent containers (no Docker daemon overhead)
-- VFIO 4090 for the Logic Engine sandbox
+- The **Logic Engine runs on the RTX 5090** (internal secondary, PCIEX16_2 x8)
+  per operator directive 2026-07-14 (D-022) — more bandwidth than the 4090 eGPU.
+  The **RTX 4090 is the OcuLink eGPU**, the DSpark speculative-decode draft,
+  **host-resident by default** (bare-metal, worked-on locally). The **opt-in**
+  VFIO sandbox (set `role: vfio` in the profile) hands the 4090 to an isolated
+  sandbox instead — a config choice, not a mandatory posture (SDD-993; operator
+  directive 2026-07-13: "not in a VM by default"). See §4.3 /
+  `vfio-bind-4090.sh` — a clean no-op unless opted in.
 - Atomic state writes via O_DIRECT + POSIX AIO + ZFS `sync=always` on
   `tank/context`
 
@@ -271,8 +281,10 @@ ZFS ARC clamped to 128GB (half of 256GB) via
 
 **Master spec sections**: 12 Phase IV + §§ 4.3 (VFIO), 8 (asymmetric networking).
 
-**What happens**: Podman installed (rootless ready) → VFIO 4090 bound at
-boot (`vfio-pci.ids=10de:2684,10de:22ba` in kernel cmdline) → asymmetric
+**What happens**: Podman installed (rootless ready) → **if** the profile opts
+into the VFIO sandbox (`role: vfio` on the 4090), it is bound to vfio-pci at
+boot (`vfio-pci.ids=10de:2684,10de:22ba` in kernel cmdline); by default the
+4090 is host-resident and the bind hook is a no-op (SDD-993) → asymmetric
 networking applied:
 - `enp6s0` (Intel 2.5GbE) → mgmt VLAN 100, default gateway, DNS
 - `enp5s0` (Marvell 10GbE) → data VLAN 200, MTU 9000 jumbo, no default gateway
@@ -369,7 +381,7 @@ podman run --device nvidia.com/gpu=all -v /mnt/vault/models:/models:ro \
 |---|---|---|---|
 | **BitNet-b1.58-3B** | Conductor (low-power) | Pulse / CPU | Backend stub at `scripts/inference/backends/bitnet.py` (R152) |
 | **BitNet-b1.58-13B** | Conductor (high-concurrency) | Pulse / CPU | same |
-| **Qwen-32B-Ternary-Quant** | Translator / Logic Engine | vllm-vulkan / 4090 | not configured (R156) |
+| **Qwen-32B-Ternary-Quant** | Translator / Logic Engine | vllm / RTX 5090 (D-022) | not configured (R156) |
 | **DeepSeek-R1-Distill-Llama-70B-FP16** | Deep Reasoner | llama.cpp / Blackwell | not configured (R156) |
 | **DeepSeek-V3-Quant** | Unified-memory inference | vLLM tensor-parallel | not configured (R156) |
 | **Ling-2.6-flash** (107B bailing_hybrid; MIT) | Operator-added candidate | TBD | not configured (R156) |

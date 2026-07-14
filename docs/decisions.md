@@ -881,6 +881,63 @@ mutex) + F-2026-062/091 (per-kind jobs sandbox + growth).
 
 ---
 
+### D-021 — 2026-07-13 — SAIN GPU topology: RTX PRO 6000 primary (main) + RTX 5090 internal secondary (~350W) + RTX 4090 OcuLink eGPU; VFIO opt-in (SDD-993)
+
+**Question**: How does the SAIN-01 GPU topology change now that the RTX 4090 becomes an OcuLink eGPU and a new RTX 5090 (power-limited ~350 W) is added — and should the eGPU be VFIO-isolated by default or a bare-metal opt-in?
+
+**Source**: docs/sdd/993-sain-gpu-topology-5090-primary-4090-oculink-egpu.md (operator directive 2026-07-13 + topology correction; VFIO-opt-in section)
+
+**Decision**: Per the operator's 2026-07-13 hardware-change directive, all **three
+cards are in the build**: the **RTX PRO 6000 Blackwell Max-Q 96 GB (~300 W — the Max-Q edition,
+NOT the 600 W workstation card) is the primary/main Oracle Core** (internal, PCIEX16_1 x8) — unchanged; the **RTX 4090
+24 GB** moves OUT of its internal slot to an **OcuLink eGPU** (OcuLink-to-M.2
+adapter on a **chipset M.2 slot**, PCIe 4.0 x4 / 64 Gbps); and the new **RTX 5090
+32 GB (TUF-RTX5090-O32G-GAMING), power-limited ~350 W** (Blackwell GB202, 512-bit
+— same FP4/NVFP4 family as the PRO 6000) takes the 4090's vacated **internal x8
+slot** (PCIEX16_2). Two internal cards ⇒ **x8/x8 bifurcation stands**, and
+**M.2_2 MUST remain empty** (it shares lanes with PCIEX16_2 / the 5090) — the
+OcuLink adapter is on a chipset M.2, NOT M.2_2. One primary (PRO 6000) + **two
+secondaries** (5090 internal + 4090 eGPU). No future/missing card.
+
+**VFIO is opt-in (operator directive, verbatim)**: *"I want to be able to work
+locally on my workstation most of the time, not in a VM by default."* The 4090's
+default `role` is **host-resident** (bare-metal, directly usable by the host
+inference stack); the VFIO-isolated sandbox (§17 dual-GPU SRP perimeter) is an
+**opt-in** mode (`role: vfio`), and `vfio-bind-4090.sh` is a clean no-op unless
+opted in. The isolation machinery is preserved, not removed — this flips the
+*default*, consistent with the operator's own M040 E0384 "performance profile:
+4090 on host" verbatim.
+
+**Affected items** (the SDD-993 reconcile, this session): `profiles/sain-01.yaml`
+GPU block (PRO 6000 primary + 5090 secondary + 4090 egpu; `m2_2_empty` constraint
+restored) + `schemas/profile.schema.yaml` (sku/connection/link props + `egpu`
+role) + `crates/sovereign-pcie-topology` + `sovereign-pcie-advisor` (recommended
+layout x8/x8, M.2_2 empty) + friction-audit + pinning lints + `sain-01-master-spec.md`
++ `profiles/sain-01.md` + `config/hardware/m003` + `config/inference/m077` additive
+reconciles (both internal cards are Blackwell FP4; PRO 6000 stays the Oracle) +
+M040 additive OcuLink note + `profiles/runtime/*.yaml` + `model-catalog.md` + the
+D-21 LM-orchestration panel (three cards) + install/journey runbooks. **The
+`any_gpu_vram_at_least_80gib` predicate is satisfied by the 96 GB PRO 6000
+primary.** **DSpark-from-DeepSeek is a separate follow-up SDD (PR 2)** per operator
+sequencing (SAIN/eGPU first).
+
+**Reversibility**: high for the docs/labels; medium for the profile role default
+(operator can re-enable the mandatory-VFIO posture by setting `role: vfio`). No
+irreversible runtime change; the physical build validates the PCI IDs / power
+limit.
+
+---
+
+### D-022 — 2026-07-14 — Logic Engine tier runs on the RTX 5090 (not the 4090 eGPU)
+
+**Question**: Which GPU hosts the SRP Logic Engine tier after the SDD-993 three-card reshape — the RTX 4090 (now the OcuLink eGPU, per master-spec §17.1) or the new internal RTX 5090?
+
+**Source**: operator directive 2026-07-14 (verbatim: "you can do point 1 yes, rtx 5090 will be better"); supersedes the D-021 / SDD-993 interim Logic=4090 framing.
+
+**Decision**: **Logic Engine = RTX 5090** (internal secondary, PCIEX16_2 x8). The internal 5090 has far more bandwidth (PCIe 5.0 x8) than the RTX 4090 on the OcuLink eGPU (PCIe 4.0 x4), so the mid-scale Logic workload belongs on the 5090. The RTX 4090 eGPU becomes the DSpark speculative-decode draft / scout (draft on the eGPU, verify on the internal PRO 6000 + 5090). This evolves the master-spec §17.1 verbatim ("Logic Engine (GPU 0 - RTX 4090)"), which was written before the 5090 existed; §17.1 text is preserved as the pre-reshape record (adding ≠ discarding), and this decision records the current reality. Oracle Core stays on the PRO 6000 Max-Q.
+
+**Reversibility**: fully-reversible — the tier→device mapping is config + panel labels + role-assignment; no data migration.
+
 ## Cross-references
 
 - Charter: `docs/sdd/000-charter.md`

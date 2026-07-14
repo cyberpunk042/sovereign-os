@@ -5,7 +5,7 @@
 > page drifts from `docs/sdd/`, so the published book can never freeze behind the
 > design record again (F-2026-033).
 
-Every Spec-Driven-Development design doc in `docs/sdd/` (175 total), by number.
+Every Spec-Driven-Development design doc in `docs/sdd/` (176 total), by number.
 
 - [SDD-000 — Project charter](../sdd/000-charter.md)
 - [SDD-001 — Cross-repo boundaries: contract between sovereign-os, info-hub, selfdef](../sdd/001-cross-repo-boundaries.md)
@@ -182,3 +182,4 @@ Every Spec-Driven-Development design doc in `docs/sdd/` (175 total), by number.
 - [SDD-990 — MS003 writer sweep: wire the signing primitive into the decision-writers (F-2026-034)](../sdd/990-ms003-writer-sweep.md)
 - [SDD-991 — CoAT no longer serializes generation: narrow the cortex lock to per-recall (F-2026-063/090)](../sdd/991-coat-cortex-lock-narrowing.md)
 - [SDD-992 — the gateway daemon survives a poisoned lock instead of cascading (F-2026-065)](../sdd/992-daemon-lock-poison-graceful.md)
+- [SDD-993 — SAIN GPU topology: RTX PRO 6000 primary (main) + RTX 5090 internal secondary (~350 W) + RTX 4090 OcuLink eGPU](../sdd/993-sain-gpu-topology-5090-primary-4090-oculink-egpu.md)

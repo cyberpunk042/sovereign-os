@@ -9,11 +9,19 @@ workstation exposes:
 
   - SRP topology (M075)      tier pulse→Conductor (CPU/CCD0 cores 0-5,
                              bitnet.cpp ternary), tier logic→Logic Engine
-                             (RTX 4090 24GB, VFIO), tier oracle→Oracle Core
-                             (RTX PRO 6000 Blackwell 96GB, NVFP4-capable).
+                             (RTX 5090 32GB internal secondary, Blackwell GB202
+                             NVFP4-capable, PCIEX16_2 x8 — operator directive
+                             2026-07-14 / D-022), tier oracle→Oracle Core (RTX
+                             PRO 6000 Blackwell Max-Q 96GB, NVFP4-capable,
+                             primary). The RTX 4090 24GB OcuLink eGPU is the
+                             DSpark speculative-decode draft — host-resident by
+                             default, opt-in VFIO — and is NOT one of the three
+                             named SRP tiers (left unassigned by model-health).
   - GPU live (nvidia-smi)    per-GPU util / VRAM-used / temp / power /
-                             compute-capability. Blackwell (cc≥10.0) is the
-                             Oracle GPU; the other CUDA GPU is the Logic GPU.
+                             compute-capability. Both internal cards are
+                             Blackwell (GB202); the highest-VRAM Blackwell
+                             (RTX PRO 6000) is the Oracle GPU, the next
+                             (RTX 5090) is the Logic GPU (D-022).
   - Catalog (M073/M077/M080) per-role configured models + precision class
                              (ternary / nvfp4 / fp8 / fp16 / bf16 / hrm) +
                              declared VRAM footprint.
@@ -70,9 +78,11 @@ TIER_TO_ROLE = {
     "router": "logic",  # RAG/draft helpers ride the Logic GPU by default
 }
 
-# Oracle = Blackwell (NVFP4); Logic = RTX 4090 (24GB). Declared VRAM ceilings
-# the dashboard gauges divide against (frontend hard-codes 24 / 96).
-ROLE_VRAM_CEILING_GB = {"logic": 24.0, "oracle": 96.0}
+# Oracle = RTX PRO 6000 Blackwell Max-Q (96GB, primary); Logic = RTX 5090
+# (32GB, internal secondary Blackwell GB202) per D-022 (operator 2026-07-14).
+# Declared VRAM ceilings the dashboard gauges divide against (frontend
+# hard-codes 32 / 96).
+ROLE_VRAM_CEILING_GB = {"logic": 32.0, "oracle": 96.0}
 
 
 def _run(cmd: list[str], timeout: float = 4.0) -> str | None:
@@ -268,23 +278,42 @@ def collect_gpus() -> list[dict[str, Any]]:
 
 
 def _assign_gpu_roles(gpus: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
-    """oracle ← Blackwell (cc≥10.0) else highest-VRAM GPU; logic ← the other.
-    Mirrors start-oracle-core.sh's Blackwell-detection + start-logic-engine.sh
-    (RTX 4090) role split. Empty when no GPUs present."""
+    """oracle ← highest-VRAM Blackwell (the RTX PRO 6000 96 GB primary) else
+    highest-VRAM GPU; logic ← the next Blackwell (the RTX 5090 32 GB internal
+    secondary) else the next-highest-VRAM non-oracle GPU. Per D-022 (operator
+    2026-07-14) the Logic Engine runs on the internal RTX 5090; the RTX 4090
+    OcuLink eGPU is the DSpark draft (not a named SRP tier), left unassigned
+    when the 5090 is present. Mirrors start-oracle-core.sh's Blackwell-detection
+    + start-logic-engine.sh (RTX 5090). Empty when no GPUs present."""
     role_gpu: dict[str, dict[str, Any]] = {}
     if not gpus:
         return role_gpu
-    blackwell = [g for g in gpus if g.get("is_blackwell")]
+    # Rank Blackwell cards by VRAM so the 96 GB PRO 6000 is the Oracle and the
+    # 32 GB RTX 5090 is the Logic engine (D-022) — not merely list order.
+    blackwell = sorted(
+        (g for g in gpus if g.get("is_blackwell")),
+        key=lambda g: (g.get("vram_total_gb") or 0),
+        reverse=True,
+    )
     if blackwell:
         role_gpu["oracle"] = blackwell[0]
-        rest = [g for g in gpus if g is not blackwell[0]]
+        rest_bw = blackwell[1:]
+        if rest_bw:
+            role_gpu["logic"] = rest_bw[0]
+        else:
+            others = sorted(
+                (g for g in gpus if g is not blackwell[0]),
+                key=lambda g: (g.get("vram_total_gb") or 0),
+                reverse=True,
+            )
+            if others:
+                role_gpu["logic"] = others[0]
     else:
         # No Blackwell present: highest total-VRAM GPU is the Oracle stand-in.
         ranked = sorted(gpus, key=lambda g: (g.get("vram_total_gb") or 0), reverse=True)
         role_gpu["oracle"] = ranked[0]
-        rest = ranked[1:]
-    if rest:
-        role_gpu["logic"] = rest[0]
+        if ranked[1:]:
+            role_gpu["logic"] = ranked[1]
     return role_gpu
 
 

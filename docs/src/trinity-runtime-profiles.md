@@ -11,8 +11,8 @@ This doc is regenerated from `profiles/runtime/*.yaml` on every invocation of `s
 | ID | Name | Hardware compat | System total (W) |
 |----|------|-----------------|------------------|
 | `ultra-sovereign-efficiency` | Ultra-Sovereign Efficiency | sain-01 | ~150 |
-| `high-concurrency-burst` | High-Concurrency Agent Burst | sain-01 | ~1200 |
-| `deep-context-synthesis` | Deep Context Synthesis | sain-01 | ~1100 |
+| `high-concurrency-burst` | High-Concurrency Agent Burst | sain-01 | ~1170 |
+| `deep-context-synthesis` | Deep Context Synthesis | sain-01 | ~1080 |
 
 ## Ultra-Sovereign Efficiency
 
@@ -54,10 +54,18 @@ maintenance · idle hours.
 
 Asymmetric load balancing across all three hardware planes:
 BitNet-13B on full CCD0+CCD1 (CPU cores 0-11),
-Qwen-32B-Ternary on RTX 4090 (vfio sandbox via vllm-vulkan),
-DeepSeek-R1-Distill-Llama-70B on Blackwell (llama.cpp FP16).
+Qwen-32B-Ternary on RTX 4090 (host-resident by default; opt-in vfio
+sandbox; via vllm-vulkan),
+DeepSeek-R1-Distill-Llama-70B on the large-VRAM oracle GPU (llama.cpp FP16).
 Use for: multi-agent code-repo processing · long-running parallel
 inference tasks · burst workloads.
+
+RECONCILE NOTE (SDD-993, 2026-07-13): the large-VRAM oracle GPU is the
+RTX PRO 6000 96 GB primary/main card (installed) — the DeepSeek-R1-70B-FP16
+(88 GB) placement is on it. The RTX 5090 32 GB (~350 W) is the new internal
+secondary (Blackwell); the RTX 4090 is a host-resident OcuLink eGPU (opt-in
+vfio). Two internal cards run x8/x8. To size any tier to real VRAM use
+scripts/operator/generate-runtime-profile.py. See docs/sdd/993-*.md.
 
 **Hardware-profile compatibility:** sain-01
 
@@ -77,9 +85,10 @@ inference tasks · burst workloads.
 **Expected power draw (W):**
 
 - cpu: 170
-- gpu_primary: 600
+- gpu_primary: 300
 - gpu_secondary: 350
-- system_total: ~1200
+- gpu_egpu: 350
+- system_total: ~1170
 
 **Observability:**
 
@@ -95,6 +104,13 @@ to fp8 to maximize active context length.
 Use for: whole-application source parsing · telemetry-wide reasoning ·
 long-context architectural analysis · codebase validation across
 1M+ token windows.
+
+RECONCILE NOTE (SDD-993, 2026-07-13): cross-GPU tensor-parallel spans the
+two INTERNAL cards — RTX PRO 6000 96 GB (primary) + RTX 5090 32 GB
+(secondary) — which run x8/x8 and can P2P. The RTX 4090 is an OcuLink eGPU
+(PCIe 4.0 x4): fine for VRAM-resident inference, but do NOT tensor-parallel
+across it (the x4 eGPU link is bandwidth-bound). DeepSeek-V3-Quant (120 GB)
+is the large-oracle placement on the PRO 6000. See docs/sdd/993-*.md.
 
 **Hardware-profile compatibility:** sain-01
 
@@ -112,9 +128,10 @@ long-context architectural analysis · codebase validation across
 **Expected power draw (W):**
 
 - cpu: 80
-- gpu_primary: 600
+- gpu_primary: 300
 - gpu_secondary: 350
-- system_total: ~1100
+- gpu_egpu: 350
+- system_total: ~1080
 
 **Observability:**
 

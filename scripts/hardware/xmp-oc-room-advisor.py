@@ -75,9 +75,12 @@ DEFAULTS = {
     "xmp_extra_w_per_dimm": 8,               # ~8W per DIMM at EXPO
     "dimm_count": 4,                        # operator's 4-DIMM kit
 
-    # GPU sustained draw under load — RTX 4090 + RTX PRO 6000.
-    "gpu1_sustained_w": 420,                # RTX 4090 OC headroom
-    "gpu2_sustained_w": 600,                # RTX PRO 6000 TGP
+    # GPU sustained draw under load (SDD-993). gpu1 = the always-on PRIMARY
+    # (RTX PRO 6000 Blackwell Max-Q, 300 W — NOT the 600 W workstation card);
+    # gpu2 = the SECONDARY that powers down in idle (RTX 5090, ~350 W). The
+    # RTX 4090 OcuLink eGPU is a separate host-resident card, not modeled here.
+    "gpu1_sustained_w": 300,                # RTX PRO 6000 Max-Q (primary)
+    "gpu2_sustained_w": 350,                # RTX 5090 (internal secondary)
     "gpu_oc_extra_pct": 10,                 # +10% per OC notch
 
     # Operator-declared knobs (runtime input).
@@ -102,7 +105,7 @@ WORKLOAD_MODE_TO_RUNTIME_KNOBS: dict[str, dict[str, Any]] = {
         "xmp_enabled": True,
         "cpu_oc_multiplier": 1.0,
         "gpu_oc_notch": 0,
-        "dual_gpu_active": False,   # idle = PRO 6000 only; 4090 powered down
+        "dual_gpu_active": False,   # idle = PRO 6000 only; RTX 5090 powered down
         "rationale": ("Idle: single-GPU only (PRO 6000); zero OC; "
                        "XMP kept (memory bandwidth always helpful)."),
     },
@@ -321,8 +324,8 @@ def render_status_human(cfg: dict, load: dict, verdict: dict) -> str:
     lines.append("  estimated 100% load breakdown:")
     lines.append(f"    CPU (base+OC+AVX):   {load['cpu_total_w']:.0f}W")
     lines.append(f"    XMP/EXPO memory:     {load['xmp_extra_w']}W")
-    lines.append(f"    GPU1 (RTX 4090):     {load['gpu1_w']:.0f}W")
-    lines.append(f"    GPU2 (PRO 6000):     {load['gpu2_w']:.0f}W")
+    lines.append(f"    GPU1 (RTX PRO 6000): {load['gpu1_w']:.0f}W")
+    lines.append(f"    GPU2 (RTX 5090):     {load['gpu2_w']:.0f}W")
     lines.append(f"    misc (NVMe/fans):    {load['misc_w']}W")
     lines.append(f"    ----------------- ")
     lines.append(f"    TOTAL:               {load['estimated_total_w']:.0f}W")

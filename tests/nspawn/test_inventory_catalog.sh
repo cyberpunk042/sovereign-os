@@ -55,9 +55,9 @@ d = json.loads(sys.stdin.read())
 totals = d['totals']
 assert totals['ram_gib'] == 256, totals
 assert totals['nvme_gb'] == 4000, totals
-assert totals['gpu_vram_gib'] == 122, totals  # 24 + 98
+assert totals['gpu_vram_gib'] == 152, totals  # SDD-993: 96 (PRO 6000) + 32 (RTX 5090) + 24 (RTX 4090 eGPU)
 " || fail "totals"
-pass "3. audit totals: RAM=256 GiB, NVMe=4000 GB, GPU VRAM=122 GiB"
+pass "3. audit totals: RAM=256 GiB, NVMe=4000 GB, GPU VRAM=152 GiB"
 
 # ── 4. --category filter narrows ───────────────────────────
 out_r="$(python3 "${SCRIPT}" list --category ram --json)"

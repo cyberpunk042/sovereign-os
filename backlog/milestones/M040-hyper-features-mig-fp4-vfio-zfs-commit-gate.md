@@ -4,6 +4,16 @@
 > Source: `raw/dumps/2026-05-18-the-ultimate-exploitation-of-the-tech-stack-AVX-plus-plus.md` lines 11410–11790. Operator directive 11410: "Great Great. continue. do resaerchs online too. Think of hyper features".
 > All entries below extract verbatim. No invention.
 
+> **Reconcile note (SDD-993, operator directive 2026-07-13 — additive, verbatim rows below UNCHANGED):**
+> The eGPU transport is now **OcuLink** (OcuLink-to-M.2, PCIe 4.0 x4 / 64 Gbps), **not USB4**.
+> E0383's "possible eGPU experiments not ideal" (R06708) described the *USB4* eGPU option; the
+> RTX 4090 now runs on a PCIe-native OcuLink eGPU — a real inference path, not the not-ideal USB4
+> one. E0384's **"performance profile: 4090 on host"** (R06722/R06725) is now the **default posture**
+> (bare-metal / worked-on-locally); **"security profile: 4090 in VM"** (R06723/R06726) and the
+> passthrough/experiment profiles remain the **opt-in** VFIO modes — exactly the profile-level choice
+> the operator specified here (E0387 "NONE should be hardcoded"). See
+> `docs/sdd/993-sain-gpu-topology-5090-primary-4090-oculink-egpu.md`.
+
 ## Epics (E0378–E0387)
 
 | Epic ID | Phrase | Dump line |
