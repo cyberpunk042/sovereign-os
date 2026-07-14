@@ -1,4 +1,4 @@
-% SOVEREIGN-OSCTL-GOVERNANCE(1) sovereign-os 0.2.0 | sovereign-os Operator Manual
+% SOVEREIGN-OSCTL-GOVERNANCE(1) sovereign-os 0.3.0 | sovereign-os Operator Manual
 % cyberpunk042 and sovereign-os contributors
 % 2026-07-14
 
@@ -14,10 +14,11 @@ sovereign-osctl-governance - governance, documentation, and surface contracts
 
 Architecture questions, doctrine, documentation coverage, UX, anti-minimization, surface maps, compliance, dashboards, and cross-module health.
 
-This page owns 16 top-level commands. Ownership is defined in
+This page owns 18 top-level commands. Ownership is defined in
 `docs/man/sovereign-osctl-command-topics.json` and checked against the
-real dispatcher. **sovereign-osctl help** remains authoritative for the
-exact syntax shipped by the installed version.
+real dispatcher. The synopsis and descriptions are grounded in the
+command handler or delegated-script contract at this build revision.
+The top-level help is a discovery summary, not an exhaustive grammar.
 
 # SAFETY MODEL
 
@@ -29,12 +30,12 @@ operator use.
 
 # COMMON WORKFLOW
 
-1. Inspect the relevant **status**, **show**, **list**, **info**, **plan**,
+1. Confirm the installed revision with **sovereign-osctl version**.
+2. Inspect the relevant **status**, **show**, **list**, **info**, **plan**,
    or **doctor** surface.
-2. Save machine-readable output when `--json` is available.
-3. Review profile, device, backend, policy, and target selection.
-4. Apply the smallest scoped mutation.
-5. Re-run health/status and inspect alerts or journal output.
+3. Save machine-readable output when `--json` is available.
+4. Review profile, device, backend, policy, and target selection.
+5. Apply the smallest scoped mutation, then re-run health/status.
 
 # EXAMPLES
 
@@ -49,66 +50,54 @@ operator use.
 ## operator-rules
 
 **sovereign-osctl operator-rules status|apply|capture|compat [--dry-run] [--json]**
-:   See the live help for behavior and options.
-
-Run `sovereign-osctl help` for the complete version-matched grammar.
+:   See the handler for behavior and options.
 
 ## apply-audit
 
-**sovereign-osctl apply-audit [arguments]**
-:   R329 (E2.M22): next-action advisor — composes R322 state snapshot + emits ranked operator-pull recommendations of most-impactful verb to run next. "What should I do now?" decision support.
+**sovereign-osctl apply-audit {list|tail|by-verb|audit}**
+:   R327 (E9.M11): central apply-audit log query CLI. Reads /var/lib/sovereign-os/apply-audit.jsonl appended by every mutating verb. Operator-pull "who mutated what when?"
+## rounds
 
-Run `sovereign-osctl help` for the complete version-matched grammar.
+**sovereign-osctl rounds {list|show|by-epic|recent}**
+:   R321 (E9.M9): operator-pull rounds catalog — meta-navigation over the now-300+ round codebase. Parses mandate.md, exposes list / show / by-epic / recent verbs. Operator-named (§1.0 meta-navigation for perpetual E9.M3 intake loop).
+## search
+
+**sovereign-osctl search [arguments]**
+:   R386 (E10.M30): unified operator-pull search across all 3 verbatim-catalog taxonomies (architecture-qa + coverage-map + layers). One verb queries all catalogs at once + ranks results.
+## layers
+
+**sovereign-osctl layers [sub]**
+:   R382: operator-verbatim 11-layer
 
 ## quarterly-review
 
 **sovereign-osctl quarterly-review [sub]**
 :   R377: composed coverage + doctrine +
 
-Run `sovereign-osctl help` for the complete version-matched grammar.
-
 ## doctrine-status
 
 **sovereign-osctl doctrine-status [sub]**
 :   R376: SDD-037 8-lint family health at
-
-Run `sovereign-osctl help` for the complete version-matched grammar.
 
 ## verbatim-render
 
 **sovereign-osctl verbatim-render [sub]**
 :   R369: consolidated render of all 9
 
-Run `sovereign-osctl help` for the complete version-matched grammar.
-
 ## coverage
 
 **sovereign-osctl coverage [sub]**
 :   R365: 32 operator-stated demand axes
-
-Run `sovereign-osctl help` for the complete version-matched grammar.
 
 ## architecture-qa
 
 **sovereign-osctl architecture-qa [sub]**
 :   R355+ verbatim catalog (27 concepts +
 
-Run `sovereign-osctl help` for the complete version-matched grammar.
-
-## m060-health
-
-**sovereign-osctl m060-health [arguments]**
-:   MS043 R10281 + R10297: READ-ONLY consumer of the selfdef CLI schema mirror (MS007 typed-mirror crate selfdef-cli-mirror). Projects the selfdefctl clap App tree (140+ subcommands classified into 8 effect classes per MS039 authority ladder) the selfdef daemon publishes by shelling out + caching selfdefctl cli-mirror snapshot. Used by sovereign-os for IPS-operator-surface introspection, completion generation, "how do I do X" cross-links, MCP-client tool-pickers. Doctrine surface "Fullstack at th...
-
-Run `sovereign-osctl help` for the complete version-matched grammar.
-
 ## dashboards
 
 **sovereign-osctl dashboards [arguments]**
-:   SDD-132: thin wrapper so the D-20 "re-run" control can execute via the exec-rail (change_cli must start with sovereign-osctl). Execs the standalone validator binary /usr/bin/sovereign-os-peace-check (R09980-R09982). Read-only: the validator computes the 5-property verdict + publishes it; nothing mutates host state. Verbs/flags pass through (the control models the one-shot --json).
-
-Run `sovereign-osctl help` for the complete version-matched grammar.
-
+:   M060 R10038 + R10129-R10132: operator dashboard on/off toggles — "everything can be turned on and off". Lists every cockpit dashboard + its enabled bit, toggles them on/off (persisted to /etc/sovereign-os/ dashboards.toml, R10130), emitting an M049 trace + OCSF 5001 Configuration Change (R10132) into the D-05 span log on each change. enable/disable are the operator (MS003-signed) path (R10131); web surfaces never mutate. Verbs: list / status <slug> / enable <slug> / disable <slug> [--rationale].
 ## compliance
 
 **sovereign-osctl compliance status**
@@ -128,8 +117,6 @@ Run `sovereign-osctl help` for the complete version-matched grammar.
 
 **sovereign-osctl compliance watch**
 :   R519 (E5++): refresh-loop TUI surface
-
-Run `sovereign-osctl help` for the complete version-matched grammar.
 
 ## ux-design-audit
 
@@ -154,8 +141,6 @@ Run `sovereign-osctl help` for the complete version-matched grammar.
 **sovereign-osctl ux-design-audit watch**
 :   R528 (E5++): refresh-loop TUI surface
 
-Run `sovereign-osctl help` for the complete version-matched grammar.
-
 ## anti-minimization-audit
 
 **sovereign-osctl anti-minimization-audit patterns**
@@ -168,7 +153,7 @@ Run `sovereign-osctl help` for the complete version-matched grammar.
 :   Per-module audit: surface gaps +
 
 **sovereign-osctl anti-minimization-audit cross-module Modules short on BOTH surface AND doc**
-:   See the live help for behavior and options.
+:   See the handler for behavior and options.
 
 **sovereign-osctl anti-minimization-audit report**
 :   One-screen summary: total matches per
@@ -181,8 +166,6 @@ Run `sovereign-osctl help` for the complete version-matched grammar.
 
 **sovereign-osctl anti-minimization-audit watch**
 :   R522 (E5++): refresh-loop TUI surface
-
-Run `sovereign-osctl help` for the complete version-matched grammar.
 
 ## doc-coverage
 
@@ -203,8 +186,6 @@ Run `sovereign-osctl help` for the complete version-matched grammar.
 
 **sovereign-osctl doc-coverage watch**
 :   R525 (E5++): refresh-loop TUI surface
-
-Run `sovereign-osctl help` for the complete version-matched grammar.
 
 ## surface-map
 
@@ -229,8 +210,6 @@ Run `sovereign-osctl help` for the complete version-matched grammar.
 **sovereign-osctl surface-map watch**
 :   R531 (E5++): refresh-loop TUI surface
 
-Run `sovereign-osctl help` for the complete version-matched grammar.
-
 ## master-dashboard
 
 **sovereign-osctl master-dashboard list**
@@ -254,8 +233,6 @@ Run `sovereign-osctl help` for the complete version-matched grammar.
 **sovereign-osctl master-dashboard watch**
 :   R488 (E11.M2+): refresh-loop TUI (ANSI-clear)
 
-Run `sovereign-osctl help` for the complete version-matched grammar.
-
 ## global-history
 
 **sovereign-osctl global-history recent**
@@ -272,8 +249,6 @@ Run `sovereign-osctl help` for the complete version-matched grammar.
 
 **sovereign-osctl global-history tail**
 :   R481 (E11.M5+): live-tail TUI surface —
-
-Run `sovereign-osctl help` for the complete version-matched grammar.
 
 # FILES
 
