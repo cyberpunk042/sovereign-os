@@ -1,6 +1,6 @@
 % SOVEREIGN-OSCTL(1) sovereign-os 0.2.0 | sovereign-os Operator Manual
-% cyberpunk042
-% 2026-05-16
+% cyberpunk042 and sovereign-os contributors
+% 2026-07-14
 
 # NAME
 
@@ -8,195 +8,230 @@ sovereign-osctl - lifecycle management CLI for sovereign-os
 
 # SYNOPSIS
 
-**sovereign-osctl** [_command_] [_subcommand_] [_options_]
+**sovereign-osctl** *command* [*subcommand*] [*options*]
+
+**sovereign-osctl** {**help** | **version**}
 
 # DESCRIPTION
 
-**sovereign-osctl** is the single operator entry-point for managing
-an installed sovereign-os system. It surfaces every recurrent hook,
-every audit verb, every inference-tier control, and the management
-flows for profiles / whitelabels / models / perimeter / decommission.
+**sovereign-osctl** is the single operator entry point for inspecting,
+configuring, auditing, maintaining, and decommissioning an installed
+sovereign-os system. It operates both from a source checkout and from an
+installed library tree.
 
-Designed to be installed at `/usr/local/bin/sovereign-osctl` on the
-target system; in-repo it dispatches to scripts under
-`scripts/hooks/*` via the common library.
+The active OS profile is read from
+`/etc/sovereign-os/active-profile` and falls back to `sain-01`.
+Commands that mutate state retain their command-specific confirmation,
+privilege, and dry-run gates. Consult **sovereign-osctl help** for the
+complete version-matched syntax of every subcommand.
 
-# COMMANDS
+# PRIMARY COMMAND FAMILIES
 
-## Top-level
-**status**
-:   System state overview: profile · OS · kernel · uptime · ZFS pool ·
-    Tetragon · GPU · network · whitelabel.
+**status** [**--json**], **overview**, **doctor**
+:   Inspect system state and run profile-conditioned health checks.
 
-**doctor**
-:   Profile-conditioned multi-section health audit covering tooling,
-    systemd, ZFS (zfs-tiered profiles only), TPM2 (signed/shim profiles),
-    observability, inference reachability, and build-state freshness.
-    Exits non-zero on any issue (warnings don't block).
+**assistant**, **init**, **wizard**, **next-steps**
+:   Run onboarding, first-login, and guided operator flows.
 
-**version** [**--json**]
-:   Print sovereign-osctl + system version info. Use `--json` for
-    fleet-tool integration (7-key stable contract).
+**profiles**, **whitelabel**, **hooks**, **env**
+:   Inspect and customize profiles, branding, lifecycle hooks, and
+    `SOVEREIGN_OS_*` configuration.
 
-**help**, **--help**, **-h**
-:   This help.
+**models**, **model-serve**, **inference**, **gateway**, **router**
+:   Operate model catalogs, serving processes, inference tiers, the
+    provider-inversion gateway, and routing.
 
-## Profile management
-**profiles list**
-:   List declared profiles.
+**frontend**, **openclaw**, **open-computer**, **jobs**, **plane**
+:   Operate the desktop/agent layer, background jobs, and the sovereign
+    compute plane.
 
-**profiles show** _id_
-:   Print raw profile YAML.
+**trinity**, **weaver**, **auditor**, **selfdef**, **perimeter**
+:   Inspect and manage Pulse, Weaver, Auditor, selfdef, and the Tetragon
+    security perimeter.
 
-**profiles show-effective** _id_
-:   Print profile with mixins + parent resolved (via profile_merger).
+**audit**, **diagnose**, **health**, **alerts**, **journal**, **history**
+:   Run audit and diagnostic surfaces and inspect operational findings.
 
-**profiles active**
-:   Echo the active profile ID.
+**maintenance**, **snapshot**, **config-snapshot**, **config-restore**
+:   Run recurrent maintenance and configuration recovery workflows.
 
-**profiles switch** _id_
-:   Swap active profile (flags items requiring rebuild).
+**install image** [**--plan**] *image* **--to** *device*
+:   Plan or write a built image. The write path refuses the running root
+    device and requires the explicit destructive confirmation gate.
 
-**profiles validate**
-:   Schema-validate all profiles (raw + resolved).
+**decommission --plan**
+:   Preview every decommission phase without changing state.
 
-## Whitelabel
-**whitelabel list**, **whitelabel show**, **whitelabel apply** _id_,
-**whitelabel diff** _id_
-:   Manage the operator's whitelabel selection. `diff` shows a
-    unified diff between active and `id` before applying.
+**decommission start**
+:   Begin the interactive, confirmation-gated decommission flow.
 
-## Models (HuggingFace + on-disk catalog)
-**models list**, **models pull** _hf-id_, **models verify**,
-**models size**, **models remove** _name_
-:   List residents, pull from HuggingFace, verify manifest.sha256,
-    show per-model disk usage, delete (confirms; SOVEREIGN_OS_ASSUME_YES=1
-    bypasses).
+**doc-coverage**, **surface-map**, **ux-design-audit**,
+**anti-minimization-audit**, **architecture-qa**, **coverage**
+:   Inspect the project's governance and operator-surface contracts.
 
-## Perimeter (Tetragon)
-**perimeter status**, **perimeter verify**, **perimeter reload**
+# COMPLETE TOP-LEVEL COMMAND INDEX
 
-## Inference (Pulse + Logic Engine + Oracle Core + Router)
-**inference status**
-:   Per-tier systemd unit state.
+This index is pinned by a lint contract to the real top-level dispatcher.
+For subcommands and options, run **sovereign-osctl help**.
 
-**inference health**
-:   HTTP `/healthz` probe + TCP fallback for every tier.
+**status**,  **overview**,  **doctor**,  **assistant**,  **profiles**,  **whitelabel**
 
-**inference start** {**pulse** | **logic** | **oracle** | **router** | **all**}
-:   Start a tier (requires root).
+**perimeter**,  **selfdef**,  **openclaw**,  **open-computer**,  **models**,  **audit**
 
-**inference stop** _tier_, **inference restart** _tier_
+**hooks**,  **maintenance**,  **decommission**,  **install**,  **secure-boot**,  **bootstrap**
 
-**inference route** _prompt_
-:   Show which tier the router would pick for a sample prompt
-    (deterministic classify() result; no actual dispatch).
+**trinity**,  **init**,  **wizard**,  **env**,  **inference**,  **router**
 
-**inference logs** _tier_
-:   Tail systemd journal for the tier.
+**metrics**,  **alerts**,  **journal**,  **history**,  **thermals**,  **gpu-watch**
 
-## Audit
-**audit friction**
-:   Runtime hardware audit (lspci / lscpu / IOMMU).
+**science**,  **gateway**,  **permission**,  **jobs**,  **plane**,  **model-serve**
 
-**audit perimeter**
-:   Tetragon policy integrity.
+**network**,  **cpu-mode**,  **gpu-mode**,  **dspark**,  **gpu-remediate**,  **nvidia-mps**
 
-**audit storage**
-:   ZFS pool + dataset health.
+**hugepages**,  **thp-mode**,  **irq-affinity**,  **cpu-isolation**,  **nvidia-persistence**,  **workload-knobs**
 
-**audit provenance** [_manifest-path_]
-:   Inspect SLSA v1 build-provenance.json + cross-check sha256sums.txt.
-    Exits 2 on digest mismatch (alarm signal).
+**memory-profile**,  **bios-info**,  **diagnose**,  **operator-deps**,  **operator-rules**,  **next-steps**
 
-## Maintenance (on-demand recurrent ops)
-**maintenance list**, **maintenance scrub**, **maintenance arc-status**,
-**maintenance log-rotate**, **maintenance snapshot**,
-**maintenance security-check**, **maintenance models-sync**,
-**maintenance perimeter-check**
-:   Each subverb runs the matching recurrent hook on demand. Useful
-    when you don't want to wait for the systemd timer cadence.
+**wasm-aot**,  **zmm-ternary**,  **ram-advisor**,  **service-deps**,  **net-perf**,  **reverse-proxy**
 
-## Assistant (first-login flow)
-**assistant full**, **assistant status**, **assistant reset**,
-**assistant list**
+**severity**,  **avx512-advisor**,  **gpu-card-advisor**,  **pcie-policy**,  **memory-pressure**,  **dns-advisor**
 
-## Decommission (destructive — gated)
-**decommission start**, **decommission pool**, **decommission wipe**
-:   Three-phase destructive flow. All gates require
-    `SOVEREIGN_OS_CONFIRM_DESTROY=YES` env + interactive confirm.
+**services-advisor**,  **power-shutdown**,  **power-status**,  **virt-info**,  **fs**,  **raid**
+
+**health**,  **insights**,  **install-paths**,  **kernel**,  **services**,  **events**
+
+**notify**,  **dashboard**,  **mcp-aggregate**,  **storage-health**,  **network-install-advisor**,  **kernel-cmdline**
+
+**memory-pressure-damper**,  **gpu-wattage**,  **battery-ladder**,  **pcie-lane-detect**,  **operator-posture**,  **network-stack**
+
+**heat-oc-throttle**,  **inventory**,  **wattage-heat-trend**,  **xmp-oc-room**,  **apc-profile**,  **psu-oc-mode**
+
+**board-advisor**,  **model-params**,  **install-mode**,  **workload-mode**,  **fan-advisor**,  **config-snapshot-diff**
+
+**snapshot-diff**,  **config-restore**,  **config-snapshot**,  **self-test**,  **next-action**,  **apply-audit**
+
+**overlay-drift**,  **fleet-aggregate**,  **maintenance-window**,  **snapshot**,  **rounds**,  **cot**
+
+**guide**,  **model-adapt**,  **module-state**,  **model-build**,  **morning-brief**,  **network-topology**
+
+**state-fabric**,  **ccd-pinning**,  **repl**,  **search**,  **layers**,  **quarterly-review**
+
+**doctrine-status**,  **verbatim-render**,  **coverage**,  **architecture-qa**,  **autohealth**,  **cpu-hotswap**
+
+**hardening-base**,  **bios-directives**,  **thermal-oc-budget**,  **gpu-possibility**,  **psu-oc**,  **power-profiles**
+
+**oc-headroom**,  **research-loop**,  **lifecycle**,  **workflow**,  **auth-tier**,  **hardware-pressure**
+
+**model-health**,  **traces**,  **costs**,  **cost-policy**,  **adapters**,  **evals**
+
+**sessions**,  **approvals**,  **rollback**,  **memory-changes**,  **grants-mirror**,  **quarantine-mirror**
+
+**trust-mirror**,  **sandbox-mirror**,  **profile-mirror**,  **capability-mirror**,  **audit-mirror**,  **rules-mirror**
+
+**tui-mirror**,  **cli-mirror**,  **m060-health**,  **super-model**,  **peace-machine**,  **peace-check**
+
+**dashboards**,  **frontend**,  **compliance**,  **ux-design-audit**,  **anti-minimization-audit**,  **doc-coverage**
+
+**surface-map**,  **weaver**,  **auditor**,  **master-dashboard**,  **edge-firewall**,  **network-edge**
+
+**global-history**,  **bashrc**,  **ms022-doctor**,  **m060-doctor**
 
 # ENVIRONMENT
 
+**SOVEREIGN_OS_LIB**
+:   Override the library directory. The selected directory must contain
+    `lib/common.sh`.
+
 **SOVEREIGN_OS_PROFILE**
-:   Active profile (default: contents of `/etc/sovereign-os/active-profile`,
-    falling back to `sain-01`).
+:   Override the active OS profile for the current invocation.
 
 **SOVEREIGN_OS_NONINTERACTIVE**
-:   When set, skip interactive prompts; `confirm default-yes` succeeds,
-    `confirm default-no` refuses.
+:   Disable interactive prompting where supported. Individual destructive
+    operations may still require their dedicated confirmation gate.
 
 **SOVEREIGN_OS_ASSUME_YES**
-:   Set to `1` to bypass `confirm` for scripted invocations of
-    state-mutating commands (rewind, skip, models remove, assistant
-    reset, etc.).
+:   Set to `1` for commands that explicitly support non-interactive
+    confirmation. It does not replace destructive-operation gates.
+
+**SOVEREIGN_OS_CONFIRM_DESTROY**
+:   Must be set to `YES` where a destructive install or decommission
+    operation explicitly requires it.
 
 **SOVEREIGN_OS_LOG_LEVEL**
-:   `debug` | `info` | `warn` | `error` (default `info`).
+:   Logging threshold: `debug`, `info`, `warn`, or `error`.
 
 **SOVEREIGN_OS_METRICS_DIR**
-:   Prometheus textfile collector dir (default:
-    `/var/lib/node_exporter/textfile_collector`).
+:   Prometheus textfile collector directory.
 
 **SOVEREIGN_OS_METRICS_DISABLE**
-:   Set to `1` to suppress all Layer B metric emission.
+:   Set to `1` to suppress Layer B metric emission.
 
-# EXAMPLES
-
-Verify the system after fresh install:
-
-    sudo sovereign-osctl doctor
-    sovereign-osctl status
-
-Verify the build is reproducible:
-
-    sovereign-osctl audit provenance build/sain-01/output/build-provenance.json
-
-Probe inference tiers:
-
-    sovereign-osctl inference health
-    sovereign-osctl inference route "compute 2+2 in python"
-
-Switch whitelabel after previewing the change:
-
-    sovereign-osctl whitelabel diff custom-brand
-    sudo sovereign-osctl whitelabel apply custom-brand
-
-Trigger ZFS snapshot + log rotation on demand:
-
-    sudo sovereign-osctl maintenance snapshot
-    sudo sovereign-osctl maintenance log-rotate
+All supported variables and their consumers are discoverable through
+**sovereign-osctl env list**.
 
 # FILES
 
 **/etc/sovereign-os/active-profile**
-:   One-line profile id; read by sovereign-osctl on startup.
+:   Installed active-profile selector.
 
 **/etc/sovereign-os/active-whitelabel**
-:   One-line whitelabel id.
+:   Installed whitelabel selector.
+
+**/usr/local/lib/sovereign-os**
+:   Default installed library tree.
+
+**/usr/lib/sovereign-os**
+:   Legacy library location.
+
+**/opt/sovereign-os**
+:   Alternate vendor tree used by installed services.
+
+**.sovereign-os/init-state.yaml**
+:   Setup-wizard state in a repository or operator working directory.
 
 **/var/lib/sovereign-os/**
-:   Per-machine runtime state (assistant state, first-boot markers).
+:   Per-machine runtime state.
 
 **/mnt/vault/models/**
-:   HuggingFace model catalog (for zfs-tiered profiles).
+:   Model catalog on ZFS-tiered profiles.
 
-**/var/lib/node_exporter/textfile_collector/sovereign-os-*.prom**
-:   Layer B Prometheus metrics output.
+# EXAMPLES
+
+Inspect system state in machine-readable form:
+
+    sovereign-osctl status --json
+    sovereign-osctl doctor
+
+Inspect the effective primary profile:
+
+    sovereign-osctl profiles show-effective sain-01
+
+Inspect model placement options:
+
+    sovereign-osctl models suggest --runtime-profile high-concurrency --json
+
+Verify build provenance deeply:
+
+    sovereign-osctl audit provenance --deep       build/sain-01/output/build-provenance.json
+
+Plan image installation without writing:
+
+    sovereign-osctl install image --plan       build/sain-01/output/sain-01.raw --to /dev/nvme1n1
+
+# EXIT STATUS
+
+Zero indicates success. Non-zero indicates invalid input, a failed check,
+an unavailable dependency, a refused safety gate, or an operational
+failure. Some audit and coverage commands use status 2 to report findings
+or gaps.
 
 # SEE ALSO
 
-**orchestrate.sh**(1) — build pipeline driver
+**systemctl**(1), **journalctl**(1), **podman**(1), **zpool**(8),
+**zfs**(8)
+
+Project guides: `docs/src/ops/manage.md` and
+`docs/src/operator-journey.md`.
 
 # REPORTING BUGS
 
