@@ -12,6 +12,19 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Changed — SDD INDEX status completeness: merged SDDs marked `complete`, enforced by a lint (2026-07-14)
+
+Operator-directed (phase-1 audit continuation, "continue" → "merged → complete") (SDD-996). Closes
+F-2026-099 (LOW). SDD-961 gave the INDEX status hygiene (valid vocabulary + no stale branch refs) but left
+the draft→complete transition unenforced — only 2 of 178 rows were `complete` while 44 declared "shipped on
+branch". 42 rows flipped `draft→complete` (exactly the draft rows with a clean shipped-marker and no caveat
+— the reliable in-band merged signal). Deliberately not flipped: 3 caveated shipped rows (awaiting-decision
+/ stale stacked-PR), the 76 older rows carrying no shipped claim (inferring complete without evidence would
+fabricate status — a per-row operator pass is the honest close), and the deliberate non-draft statuses
+(40 review / 4 active / 4 accepted / 1 scoping). Now 44 complete (was 2). New
+`tests/lint/test_sdd_index_status_completeness.py` enforces that a clean shipped-marker row never sits at
+`draft`. No SDD content changed — only status cells that already declared shipped.
+
 ### Added — crate-inventory generator gains a `--check` freshness gate + sync lint (2026-07-14)
 
 Operator-directed (phase-1 audit continuation, "continue") (SDD-995). Closes F-2026-098 (LOW).
