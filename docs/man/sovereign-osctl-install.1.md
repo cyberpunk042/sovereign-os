@@ -1,4 +1,4 @@
-% SOVEREIGN-OSCTL-INSTALL(1) sovereign-os 0.2.0 | sovereign-os Operator Manual
+% SOVEREIGN-OSCTL-INSTALL(1) sovereign-os 0.3.0 | sovereign-os Operator Manual
 % cyberpunk042 and sovereign-os contributors
 % 2026-07-14
 
@@ -16,8 +16,9 @@ Bootstrap, profile selection, initialization, hooks, whitelabeling, image instal
 
 This page owns 19 top-level commands. Ownership is defined in
 `docs/man/sovereign-osctl-command-topics.json` and checked against the
-real dispatcher. **sovereign-osctl help** remains authoritative for the
-exact syntax shipped by the installed version.
+real dispatcher. The synopsis and descriptions are grounded in the
+command handler or delegated-script contract at this build revision.
+The top-level help is a discovery summary, not an exhaustive grammar.
 
 # SAFETY MODEL
 
@@ -29,12 +30,12 @@ operator use.
 
 # COMMON WORKFLOW
 
-1. Inspect the relevant **status**, **show**, **list**, **info**, **plan**,
+1. Confirm the installed revision with **sovereign-osctl version**.
+2. Inspect the relevant **status**, **show**, **list**, **info**, **plan**,
    or **doctor** surface.
-2. Save machine-readable output when `--json` is available.
-3. Review profile, device, backend, policy, and target selection.
-4. Apply the smallest scoped mutation.
-5. Re-run health/status and inspect alerts or journal output.
+3. Save machine-readable output when `--json` is available.
+4. Review profile, device, backend, policy, and target selection.
+5. Apply the smallest scoped mutation, then re-run health/status.
 
 # EXAMPLES
 
@@ -55,7 +56,7 @@ operator use.
 :   Print profile YAML (raw, no mixin resolution)
 
 **sovereign-osctl profiles show-effective <id> Print profile with mixins + parent resolved**
-:   See the live help for behavior and options.
+:   See the handler for behavior and options.
 
 **sovereign-osctl profiles compare <a> <b>**
 :   Unified diff of two profiles' EFFECTIVE (resolved) state
@@ -73,30 +74,28 @@ operator use.
 :   Schema-validate all profiles (raw + resolved)
 
 **sovereign-osctl profiles generate-runtime <os-profile> <strategy> [--out <path>]**
-:   See the live help for behavior and options.
+:   See the handler for behavior and options.
 
 **sovereign-osctl profiles create-orchestration <id> [--intent <i>] [--conductor <m>]**
-:   See the live help for behavior and options.
+:   See the handler for behavior and options.
 
 **sovereign-osctl profiles flex show [--json]**
 :   R224 (SDD-026 Z-3): print active profile +
 
 **sovereign-osctl profiles flex set <key> <value> [--json]**
-:   See the live help for behavior and options.
+:   See the handler for behavior and options.
 
 **sovereign-osctl profiles flex reset [--json] R224: clear every delta — revert to YAML**
-:   See the live help for behavior and options.
+:   See the handler for behavior and options.
 
 **sovereign-osctl profiles flex history [--json]**
-:   See the live help for behavior and options.
+:   See the handler for behavior and options.
 
 **sovereign-osctl profiles flex export [--output PATH] [--json]**
-:   See the live help for behavior and options.
+:   See the handler for behavior and options.
 
 **sovereign-osctl profiles flex import <bundle> [--mode replace|merge] [--json]**
-:   See the live help for behavior and options.
-
-Run `sovereign-osctl help` for the complete version-matched grammar.
+:   See the handler for behavior and options.
 
 ## whitelabel
 
@@ -112,31 +111,30 @@ Run `sovereign-osctl help` for the complete version-matched grammar.
 **sovereign-osctl whitelabel diff <id>**
 :   Unified diff: active whitelabel → <id>
 
-Run `sovereign-osctl help` for the complete version-matched grammar.
-
 ## hooks
 
 **sovereign-osctl hooks list [<profile>]**
 :   List hooks declared in a profile (default: active)
 
 **sovereign-osctl hooks add <stage> <script-path> [--id <id>] [--mandatory] [--profile <id>]**
-:   See the live help for behavior and options.
+:   See the handler for behavior and options.
 
 **sovereign-osctl hooks remove <id> [--profile <id>]**
-:   See the live help for behavior and options.
-
-Run `sovereign-osctl help` for the complete version-matched grammar.
+:   See the handler for behavior and options.
 
 ## decommission
 
+**sovereign-osctl decommission {--plan|plan}**
+:   Preview all three destructive phases, targets, sizes, and commands. Writes nothing and requires no destructive environment gate.
+
 **sovereign-osctl decommission start**
-:   Begin decommission flow (interactive; confirms)
+:   Begin phase 1 interactively: confirm, then securely wipe the state fabric at `tank/context`.
 
-**sovereign-osctl decommission --plan**
-:   Preview ALL 3 decommission phases (paths, sizes, commands); writes nothing
+**sovereign-osctl decommission pool**
+:   Run phase 2 and destroy the configured ZFS pool. Requires `SOVEREIGN_OS_CONFIRM_DESTROY=YES` and the hook's confirmation gates.
 
-Run `sovereign-osctl help` for the complete version-matched grammar.
-
+**sovereign-osctl decommission wipe**
+:   Run phase 3 against block devices declared in `SOVEREIGN_OS_WIPE_DEVICES`. Uses `blkdiscard` for SSDs or `shred` otherwise and requires the destructive confirmation gate.
 ## install
 
 **sovereign-osctl install image <img> --to <dev>**
@@ -145,111 +143,74 @@ Run `sovereign-osctl help` for the complete version-matched grammar.
 **sovereign-osctl install image --plan <img> --to <dev>**
 :   Show fingerprint + plan, do nothing
 
-Run `sovereign-osctl help` for the complete version-matched grammar.
-
 ## bootstrap
 
 **sovereign-osctl bootstrap [arguments]**
-:   || exit keeps doctor's nonzero exit (FAIL report) without firing the lib's ERR trap — a failing health report is a finding, not a crash (spurious "command failed: 'return 1'" on first installed run 2026-06-12).
-
-Run `sovereign-osctl help` for the complete version-matched grammar.
+:   Inspect and operate the master-spec bootstrap surface. Use the command's own help/status path before applying a bootstrap action.
 
 ## init
 
 **sovereign-osctl init [--non-interactive]**
-:   Interactive setup wizard — walk through 5 decisions
-
-Run `sovereign-osctl help` for the complete version-matched grammar.
+:   Interactive setup wizard covering six decisions: profile, substrate, Secure Boot, encryption, whitelabel, and agent layer
 
 ## wizard
 
 **sovereign-osctl wizard [arguments]**
-:   || exit keeps doctor's nonzero exit (FAIL report) without firing the lib's ERR trap — a failing health report is a finding, not a crash (spurious "command failed: 'return 1'" on first installed run 2026-06-12).
-
-Run `sovereign-osctl help` for the complete version-matched grammar.
+:   Run the guided operator wizard surface. It is distinct from `init`, which writes the six-decision build configuration.
 
 ## operator-deps
 
 **sovereign-osctl operator-deps list|plan|apply [--confirm] [--confirm-curl-shell] [--json]**
-:   See the live help for behavior and options.
-
-Run `sovereign-osctl help` for the complete version-matched grammar.
+:   See the handler for behavior and options.
 
 ## service-deps
 
 **sovereign-osctl service-deps graph|drain|dot [--unit ...|--prefix P] [--json]**
-:   See the live help for behavior and options.
-
-Run `sovereign-osctl help` for the complete version-matched grammar.
+:   See the handler for behavior and options.
 
 ## install-paths
 
 **sovereign-osctl install-paths show [--feature F] [--json]**
-:   See the live help for behavior and options.
+:   See the handler for behavior and options.
 
 **sovereign-osctl install-paths grey-out [--json]**
-:   See the live help for behavior and options.
+:   See the handler for behavior and options.
 
 **sovereign-osctl install-paths choose <feat> --layer L [--json]**
-:   See the live help for behavior and options.
-
-Run `sovereign-osctl help` for the complete version-matched grammar.
+:   See the handler for behavior and options.
 
 ## network-install-advisor
 
-**sovereign-osctl network-install-advisor [arguments]**
-:   R298 (E2.M12): unified storage health rollup. Composes logrotate posture + /proc/mdstat RAID + df partition free space + journal SystemMaxUse= into ONE operator-pull verdict (healthy / watch / degraded). Operator-named (§1b verbatim): "logs, log rotate, system usage, partitions and global and such. insights".
-
-Run `sovereign-osctl help` for the complete version-matched grammar.
-
+**sovereign-osctl network-install-advisor {list|show|coexist|recommend}**
+:   R297 (E2.M11): operator-pull network install-layer advisor — DNS / Cloudflared / Tailscale / Traefik with docker-vs-system install matrix + per-layer pros/cons + recommended defaults. Operator-named (§1b verbatim): "the DNS, the Cloudflared ? the tailscale, Traefik, non docker vs docker install ? when possible ? container level vs system level".
 ## operator-posture
 
-**sovereign-osctl operator-posture [arguments]**
-:   R301 (E1.M26): actual lspci -vv parse of per-device PCIe LnkCap vs LnkSta. Complements R270 pcie-policy advisory with concrete runtime measurement. Operator-named (§1b verbatim): "pci lane splits and whatever like virtualization or what we find relevant via search online and such".
-
-Run `sovereign-osctl help` for the complete version-matched grammar.
-
+**sovereign-osctl operator-posture {status|advisory}**
+:   R300 (E1.M25): holistic operator-posture rollup. Synthesizes R292 (oc-headroom) + R294 (psu-oc) + R296 (thermal-oc-budget) + R298 (storage-health) + R299 (bios-directives) into ONE worst-axis verdict. Operator-named (§1b verbatim).
 ## install-mode
 
-**sovereign-osctl install-mode [arguments]**
-:   R311 (E5.M7 closure): LLM-runtime parametrization advisor. Per-parameter catalog with hardware-aware recommended values (context_size / n_gpu_layers / cache_type_k+v / batch_size / parallel / mlock / mmap / flash_attn / rope_freq_base / temperature / top_p). Operator-named (§1b verbatim: "Model variants + quantizations + advanced features parametrization").
-
-Run `sovereign-osctl help` for the complete version-matched grammar.
-
+**sovereign-osctl install-mode {list|show|recommend}**
+:   R310 (E2.M16): container-vs-system install-mode advisor. Per-installable component, advises system vs container based on isolation_need + dependency_footprint + ipc_requirement + root_required + gpu_passthrough + kernel_module. Emits operator-readable tradeoff matrix. Operator-named (§1b verbatim: "non docker vs docker install ? when possible ? container level vs system level").
 ## config-snapshot-diff
 
-**sovereign-osctl config-snapshot-diff [arguments]**
-:   R337 (E1.M39): fan/cooling awareness advisor. lm-sensors fan readout + per-mode (idle/inference-ready/training/oc-burst) recommended curves + per-board BIOS-gate advice for software fan override. Operator-named §1b spec drop.
-
-Run `sovereign-osctl help` for the complete version-matched grammar.
-
+**sovereign-osctl config-snapshot-diff {diff}**
+:   R335 (E2.M26): config-snapshot-diff verb. Given two R332 snapshots, emits per-overlay drift (added / removed / changed + per-key dotted-path diff). Sibling to R334 runtime diff.
 ## snapshot-diff
 
-**sovereign-osctl snapshot-diff [arguments]**
-:   R335 (E2.M26): config-snapshot-diff verb. Given two R332 snapshots, emits per-overlay drift (added / removed / changed + per-key dotted-path diff). Sibling to R334 runtime diff.
-
-Run `sovereign-osctl help` for the complete version-matched grammar.
-
+**sovereign-osctl snapshot-diff {diff}**
+:   R334 (E2.M25): snapshot-diff verb. Given two R322 state snapshots, emits per-probe diff (rc/verdict changes, new/ resolved attention items). Pre/post-change auditing.
 ## config-restore
 
-**sovereign-osctl config-restore [arguments]**
-:   R334 (E2.M25): snapshot-diff verb. Given two R322 state snapshots, emits per-probe diff (rc/verdict changes, new/ resolved attention items). Pre/post-change auditing.
-
-Run `sovereign-osctl help` for the complete version-matched grammar.
-
+**sovereign-osctl config-restore {verify|apply}**
+:   R333 (E2.M24): config-restore companion to R332. Reads R332 snapshot JSON + verifies sha256s + replays overlays back to disk under triple-gate. Records to R327 audit log.
 ## config-snapshot
 
-**sovereign-osctl config-snapshot [arguments]**
-:   R333 (E2.M24): config-restore companion to R332. Reads R332 snapshot JSON + verifies sha256s + replays overlays back to disk under triple-gate. Records to R327 audit log.
-
-Run `sovereign-osctl help` for the complete version-matched grammar.
-
+**sovereign-osctl config-snapshot {capture|audit}**
+:   R332 (E2.M23): config-snapshot for backup/migration. Captures complete operator-customized state into ONE portable JSON: overlays + audit + windows + inventory + helper-library manifest. Distinct from R322 state-snapshot (runtime-state).
 ## overlay-drift
 
-**sovereign-osctl overlay-drift [arguments]**
-:   R327 (E9.M11): central apply-audit log query CLI. Reads /var/lib/sovereign-os/apply-audit.jsonl appended by every mutating verb. Operator-pull "who mutated what when?"
-
-Run `sovereign-osctl help` for the complete version-matched grammar.
+**sovereign-osctl overlay-drift {list|show|audit}**
+:   R325 (E2.M21): operator-overlay drift detector. Scans /etc/sovereign-os/*.toml + reports which knobs the operator has overridden vs shipped defaults. Operator-pull "what have I customized on this host?" — companion to R283 overlay doctrine + R322 state snapshot.
 
 # FILES
 
