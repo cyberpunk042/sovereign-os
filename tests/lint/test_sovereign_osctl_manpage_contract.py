@@ -106,3 +106,58 @@ def test_generation_and_installation_cover_the_whole_suite():
     assert "install -m 644 docs/man/sovereign-osctl*.1" in makefile
     assert "sovereign-osctl*.1" in makefile
     assert "Skipping manpage" not in makefile
+
+def _cli_version() -> str:
+    body = _read(CLI)
+    match = re.search(r'local sovereign_version="([^"]+)"', body)
+    assert match, "cmd_version no longer exposes sovereign_version"
+    return match.group(1)
+
+
+def test_manual_headers_match_the_runtime_cli_version():
+    version = _cli_version()
+    for source in sorted(MAN_DIR.glob("sovereign-osctl*.1.md")):
+        first_line = _read(source).splitlines()[0]
+        assert f"sovereign-os {version} |" in first_line, (
+            f"{source.name} version drift: CLI is {version!r}, header is {first_line!r}"
+        )
+
+
+def test_critical_runtime_facts_are_not_inherited_from_stale_help():
+    cli = _read(CLI)
+    install = _read(MAN_DIR / "sovereign-osctl-install.1.md")
+    models = _read(MAN_DIR / "sovereign-osctl-models.1.md")
+
+    init_handler = cli.split("cmd_init() {", 1)[1].split("\n}", 1)[0]
+    assert "Walks you through 6 decisions" in init_handler
+    assert "six decisions" in install
+    assert "5 decisions" not in install
+
+    decommission_handler = cli.split("cmd_decommission() {", 1)[1].split(
+        "# ------------------------------ inference", 1
+    )[0]
+    expected_decommission = {
+        "--plan|plan": "decommission {--plan|plan}",
+        "start": "decommission start",
+        "pool": "decommission pool",
+        "wipe": "decommission wipe",
+    }
+    for handler_token, manual_form in expected_decommission.items():
+        assert handler_token in decommission_handler
+        assert manual_form in install
+
+    assert 'SOVEREIGN_OS_MODELS_DIR:=/mnt/vault/models' in cli
+    assert "The default resident-model directory is `/mnt/vault/models`" in models
+    assert "tank/models" not in models
+
+
+def test_manual_does_not_claim_top_level_help_is_exhaustive():
+    forbidden = (
+        "complete version-matched syntax of every subcommand",
+        "help remains authoritative",
+        "Run `sovereign-osctl help` for the complete version-matched grammar",
+    )
+    for source in sorted(MAN_DIR.glob("sovereign-osctl*.1.md")):
+        body = _read(source)
+        for phrase in forbidden:
+            assert phrase not in body, f"{source.name} contains stale claim: {phrase}"
