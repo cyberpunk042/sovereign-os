@@ -80,20 +80,21 @@ See the handler for behavior and options.
 R327 (E9.M11): central apply-audit log query CLI.
 Reads /var/lib/sovereign-os/apply-audit.jsonl appended by every mutating
 verb.
-Operator-pull \[lq]who mutated what when?\[rq] ## rounds
+Operator-pull \[lq]who mutated what when?\[rq]
+.SS rounds
 .TP
 \f[B]sovereign-osctl rounds {list|show|by-epic|recent}\f[R]
 R321 (E9.M9): operator-pull rounds catalog \[em] meta-navigation over
 the now-300+ round codebase.
 Parses mandate.md, exposes list / show / by-epic / recent verbs.
 Operator-named (§1.0 meta-navigation for perpetual E9.M3 intake loop).
-## search
+.SS search
 .TP
 \f[B]sovereign-osctl search [arguments]\f[R]
 R386 (E10.M30): unified operator-pull search across all 3
 verbatim-catalog taxonomies (architecture-qa + coverage-map + layers).
 One verb queries all catalogs at once + ranks results.
-## layers
+.SS layers
 .TP
 \f[B]sovereign-osctl layers [sub]\f[R]
 R382: operator-verbatim 11-layer
@@ -129,7 +130,7 @@ log on each change.
 enable/disable are the operator (MS003-signed) path (R10131); web
 surfaces never mutate.
 Verbs: list / status / enable / disable [\[en]rationale].
-## compliance
+.SS compliance
 .TP
 \f[B]sovereign-osctl compliance status\f[R]
 R458: §1g/§1h compliance dashboard
