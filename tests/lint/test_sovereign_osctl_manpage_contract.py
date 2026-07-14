@@ -1,23 +1,32 @@
-"""Contract for the sovereign-osctl(1) source and generated manual."""
+"""Contracts for the sovereign-osctl(1) manual-page suite."""
 from pathlib import Path
+import json
 import re
 
 ROOT = Path(__file__).resolve().parents[2]
 CLI = ROOT / "scripts" / "sovereign-osctl"
-SOURCE = ROOT / "docs" / "man" / "sovereign-osctl.1.md"
-MANPAGE = ROOT / "docs" / "man" / "sovereign-osctl.1"
+MAN_DIR = ROOT / "docs" / "man"
+REGISTRY = MAN_DIR / "sovereign-osctl-command-topics.json"
 GENERATOR = ROOT / "scripts" / "docs" / "build-sovereign-osctl-manpage.sh"
 MAKEFILE = ROOT / "Makefile"
-
+TOPICS = (
+    "models",
+    "agents",
+    "hardware",
+    "security",
+    "operations",
+    "governance",
+    "install",
+)
 REQUIRED_SECTIONS = (
     "NAME",
     "SYNOPSIS",
     "DESCRIPTION",
-    "PRIMARY COMMAND FAMILIES",
-    "COMPLETE TOP-LEVEL COMMAND INDEX",
-    "ENVIRONMENT",
-    "FILES",
+    "SAFETY MODEL",
+    "COMMON WORKFLOW",
     "EXAMPLES",
+    "COMMAND REFERENCE",
+    "FILES",
     "EXIT STATUS",
     "SEE ALSO",
     "REPORTING BUGS",
@@ -33,49 +42,67 @@ def _read(path: Path) -> str:
 def _dispatcher_commands() -> set[str]:
     body = _read(CLI)
     marker = "# ------------------------------ dispatch"
-    assert marker in body, "sovereign-osctl dispatch marker moved or disappeared"
+    assert marker in body
     dispatch = body.split(marker, 1)[1]
     commands = set(re.findall(r"^  ([a-z][a-z0-9-]*)\)", dispatch, re.MULTILINE))
-    assert len(commands) >= 100, (
-        "dispatcher extraction unexpectedly found fewer than 100 top-level commands"
-    )
+    assert len(commands) >= 100
     return commands
 
 
-def test_markdown_remains_the_canonical_editable_source():
-    body = _read(SOURCE)
-    assert body.startswith("% SOVEREIGN-OSCTL(1)")
-    for section in REQUIRED_SECTIONS:
-        assert f"# {section}" in body, f"Markdown source missing {section!r}"
+def _registry() -> dict[str, list[str]]:
+    data = json.loads(_read(REGISTRY))
+    assert data["schema_version"] == 1
+    assert tuple(data["pages"]) == TOPICS
+    return data["pages"]
 
 
-def test_generated_roff_is_a_valid_section_one_shape():
-    body = _read(MANPAGE)
-    assert '.TH "SOVEREIGN-OSCTL" "1"' in body
-    for section in REQUIRED_SECTIONS:
-        assert f".SH {section}" in body, f"generated roff missing {section!r}"
+def test_every_dispatcher_command_has_exactly_one_manual_owner():
+    pages = _registry()
+    owned = [command for commands in pages.values() for command in commands]
+    assert len(owned) == len(set(owned)), "a command is owned by multiple man pages"
+    assert set(owned) == _dispatcher_commands(), (
+        f"manual ownership drift: missing={sorted(_dispatcher_commands() - set(owned))}, "
+        f"extra={sorted(set(owned) - _dispatcher_commands())}"
+    )
 
 
-def test_every_dispatched_top_level_command_is_documented_in_both_forms():
-    source = _read(SOURCE)
-    roff = _read(MANPAGE)
-    for command in sorted(_dispatcher_commands()):
-        assert f"**{command}**" in source, (
-            f"Markdown man source missing dispatched command {command!r}"
-        )
-        assert f"\\f[B]{command}\\f[R]" in roff, (
-            f"generated roff missing dispatched command {command!r}"
-        )
+def test_each_topic_has_editable_source_generated_roff_and_owned_commands():
+    for topic, commands in _registry().items():
+        source = _read(MAN_DIR / f"sovereign-osctl-{topic}.1.md")
+        roff = _read(MAN_DIR / f"sovereign-osctl-{topic}.1")
+        assert source.startswith(f"% SOVEREIGN-OSCTL-{topic.upper()}(1)")
+        assert f'.TH "SOVEREIGN-OSCTL-{topic.upper()}" "1"' in roff
+        for section in REQUIRED_SECTIONS:
+            assert f"# {section}" in source
+            assert f".SH {section}" in roff
+        for command in commands:
+            assert f"## {command}\n" in source, (
+                f"{topic} Markdown missing owned command {command!r}"
+            )
+            assert f".SS {command}\n" in roff, (
+                f"{topic} roff missing owned command {command!r}"
+            )
 
 
-def test_generator_and_install_contract():
+def test_main_page_routes_operators_to_every_topic():
+    source = _read(MAN_DIR / "sovereign-osctl.1.md")
+    roff = _read(MAN_DIR / "sovereign-osctl.1")
+    assert "# MANUAL SUITE" in source
+    assert ".SH MANUAL SUITE" in roff
+    for topic in TOPICS:
+        name = f"sovereign-osctl-{topic}"
+        assert f"**{name}**(1)" in source
+        assert name in roff
+
+
+def test_generation_and_installation_cover_the_whole_suite():
     generator = _read(GENERATOR)
     makefile = _read(MAKEFILE)
+    assert 'docs/man/sovereign-osctl*.1.md' in generator
     assert "pandoc -s -t man" in generator
     assert "cmp -s" in generator
+    assert "make man" in generator
     assert "man:" in makefile and "man-check:" in makefile
-    assert (
-        'install -m 644 docs/man/sovereign-osctl.1 '
-        '"$(DESTDIR)$(PREFIX)/share/man/man1/sovereign-osctl.1"'
-    ) in makefile
+    assert "install -m 644 docs/man/sovereign-osctl*.1" in makefile
+    assert "sovereign-osctl*.1" in makefile
     assert "Skipping manpage" not in makefile
