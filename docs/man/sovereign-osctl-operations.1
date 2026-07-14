@@ -292,23 +292,23 @@ See the handler for behavior and options.
 R331 (E9.M14): operator-pull self-test verb.
 Runs L1 lint suites + unit tests + curated L3 sample + emits health
 summary.
-\[lq]Is sovereign-os itself working correctly on this host?\[rq] ##
-next-action
+\[lq]Is sovereign-os itself working correctly on this host?\[rq]
+.SS next-action
 .TP
 \f[B]sovereign-osctl next-action {list|top}\f[R]
 R329 (E2.M22): next-action advisor \[em] composes R322 state snapshot +
 emits ranked operator-pull recommendations of most-impactful verb to run
 next.
 \[lq]What should I do now?\[rq] decision support.
-## fleet-aggregate
+.SS fleet-aggregate
 .TP
 \f[B]sovereign-osctl fleet-aggregate {aggregate|by-axis|outliers}\f[R]
 R324 (E2.M20): fleet snapshot aggregator.
 Ingests R322 unified state snapshots from multiple hosts; emits
 cross-host rollup (per-axis verdict distribution, host-level summary,
 outlier detection).
-Operator-pull \[lq]how is my whole fleet doing?\[rq] ##
-maintenance-window
+Operator-pull \[lq]how is my whole fleet doing?\[rq]
+.SS maintenance-window
 .TP
 \f[B]sovereign-osctl maintenance-window {list|show|can-run-now|active}\f[R]
 R323 (E2.M19): maintenance-window scheduler.
@@ -316,13 +316,14 @@ Operator declares named time windows; other advisors / autohealth /
 heat-oc- throttle query can-run-now before acting.
 Operator-named (§1b verbatim: \[lq]schedule/planifest/graceful on all
 levels, orderly\[rq]).
-## snapshot
+.SS snapshot
 .TP
 \f[B]sovereign-osctl snapshot {snapshot|audit}\f[R]
 R322 (E2.M18): unified state snapshot \[em] runs all read-only advisors
 in parallel + emits one consolidated JSON document.
 Operator-pull \[lq]what\[cq]s the COMPLETE state of this host right
-now?\[rq] ## module-state
+now?\[rq]
+.SS module-state
 .TP
 \f[B]sovereign-osctl module-state {list|show|recommend}\f[R]
 R351 (E2.M34): \[lq]what have I installed but not yet configured?\[rq]
@@ -332,7 +333,7 @@ features and how configure them\[rq].
 installed-not-configured / running-without-overlay /
 config-only-no-runtime / shipped-but- untouched) + the verb to close
 each gap.
-## morning-brief
+.SS morning-brief
 .TP
 \f[B]sovereign-osctl morning-brief {rollup}\f[R]
 R352 (E10.M2): meta-rollup composing R329 next-action + R351
@@ -340,7 +341,7 @@ module-state + R308 autohealth + R349 guide-suggestion into a single
 operator-readable \[lq]what should I look at first this morning?\[rq]
 report.
 NEVER-raise on missing sub-probes.
-## network-topology
+.SS network-topology
 .TP
 \f[B]sovereign-osctl network-topology [sub]\f[R]
 R359 (§8+§8.1): operator-verbatim ASCII
@@ -354,7 +355,7 @@ that persists state + emits notify-dispatch commands when severity
 crosses threshold.
 Operator-named (§1b verbatim: \[lq]autohealth and doctor, notification
 and messaging\[rq]).
-## research-loop
+.SS research-loop
 .TP
 \f[B]sovereign-osctl research-loop status [\[en]config P] [\[en]json|\[en]human]\f[R]
 See the handler for behavior and options.
@@ -373,7 +374,7 @@ Read-only; the sovereign-traces-api daemon serves the D-05 cockpit
 dashboard from this same core.
 Verbs: spans / trace / summary (+ \[en]json, \[en]window, \[en]q,
 \[en]severity, \[en]ocsf-class).
-## m060-health
+.SS m060-health
 .TP
 \f[B]sovereign-osctl m060-health [arguments]\f[R]
 M060 chain health observability \[em] proxies the selfdef daemon\[cq]s
@@ -384,7 +385,7 @@ Used by the D-00 master-dashboard\[cq]s chain-health banner, the MCP
 tool selfdef-m060-health, and ops/smoke scripts.
 Read-only.
 Verbs: probe / state (+ \[en]json).
-## bashrc
+.SS bashrc
 .TP
 \f[B]sovereign-osctl bashrc install\f[R]
 R447 (E11.M6): install operator-discoverable
@@ -411,7 +412,7 @@ Flags: \[en]strict requires state=ok everywhere; \[en]json for
 machine-readable triage.
 See scripts/diagnostics/ms022-doctor.py \[en]help for the full flag
 surface.
-## m060-doctor
+.SS m060-doctor
 .TP
 \f[B]sovereign-osctl m060-doctor [arguments]\f[R]
 M060 cross-repo mirror chain smoke check \[em] pings each
