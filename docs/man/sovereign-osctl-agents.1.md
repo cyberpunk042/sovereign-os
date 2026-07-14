@@ -97,18 +97,22 @@ operator use.
 
 **sovereign-osctl jobs [--json] cancel <id>**
 :   Additional supported form.
+
 ## plane
 
 **sovereign-osctl plane**
 :   The Sovereign Compute Plane (via jobs-api :8142) — the box's devices with LIVE free VRAM + the outstanding claims (model residents + running GPU jobs), placed by the M075 SRP doctrine. Read-only. A GPU job is placed on a device that fits, or waits, so it never OOMs the box.
+
 ## cot
 
 **sovereign-osctl cot {list|show|run}**
 :   R309 (E2.M15): integrated-intelligence CoT registry — named CoT routines that compose multiple sovereign-os verbs into single decision flows (oc-go-no-go / health-triage / psu-budget / storage-cleanup / pre-shutdown / boot-troubleshoot). Sovereign-os counterpart to selfdef SD-R98 @selfdef_macro. Operator-named (§1b verbatim).
+
 ## guide
 
 **sovereign-osctl guide {list|topics|show|walkthrough}**
 :   R349 (E10.M1): AI-as-guide topic catalog — operator-pull "guide me into the kernel / hardware / gpu / psu / ups / memory / workload-mode / inference / network". Each topic carries layers + verbs + thresholds + BIOS/HW caveats. Operator-named (§1b verbatim: "only a guide into the experience, into the field, into the kernel, into the hardware, into the OS, into the modules…").
+
 ## state-fabric
 
 **sovereign-osctl state-fabric [sub]**
@@ -123,14 +127,17 @@ operator use.
 
 **sovereign-osctl sessions {active|summary|steps|hibernate|resume|kill|hibernate-all|save-state|restore|start|stop|list|reap}**
 :   M060 D-01 (R10059-R10062): active-session registry — reads the M057 lifecycle engine's published session registry (/run/sovereign-os/sessions.json) and projects each task session onto its M057 12-step lifecycle position + profile envelope + SRP agent (M075) + ETA + branch count. Read-only; the sovereign-sessions-api daemon serves the D-01 cockpit dashboard from this same core. READ verbs (active / summary / steps) → session-registry.py (never mutates). WRITE verbs (hibernate / resume / kill / hibernate-all, SDD-053) → session-decide.py: transition a session's M057 state + record a durable, audited decision. Decisions are --confirm + operator-key + type-to-confirm gated (via the cockpit exec daemon) and DRY-RUN by default; the real M047 CRIU+ZFS effect is the M057 en...
+
 ## approvals
 
 **sovereign-osctl approvals {pending|gates|key|approve|deny|defer|request}**
 :   M060 D-06 (R10088-R10092): operator approval-queue + stage-gate core. READ verbs (pending / gates / key) → approval-queue.py (never mutates, never reads key material). WRITE verbs (approve / deny / defer / request, SDD-048) → approval-decide.py: transition the M065 SG1-SG5 gate + record a durable, audited decision. Decisions are --confirm + operator-key + type-to-confirm gated (via the cockpit exec daemon) and DRY-RUN by default; MS003 signing is deferred to selfdef (signature "unsigned-pending-MS003"). The sovereign-approvals-api daemon stays read-only (405) — the ONLY write path is control-exec-api → approvals approve|deny|defer.
+
 ## rollback
 
 **sovereign-osctl rollback [arguments]**
 :   M060 D-08 (R10097-R10101): ZFS-snapshot + commit-history rollback-points — joins the ZFS snapshot inventory (M068, zfs list -t snapshot) to the MS041 commit history (git log) + a dry-run rollback preview (R10099, the zfs rollback plan + git commits that would be reverted, READ-ONLY). rollback-apply (R10100) is gated behind --confirm + MS003 signature. The sovereign-rollback-api daemon serves the D-08 cockpit dashboard from this same core. Verbs: snapshot / preview --to <id> / commits (+ --json).
+
 ## memory-changes
 
 **sovereign-osctl memory-changes janitor <dedup|edges|contradict|tag|extract-facts|topic|summarize|classify|advance|sweep> [id|--all] [--confirm]**
@@ -141,14 +148,17 @@ operator use.
 
 **sovereign-osctl memory-changes observe run [--confirm] [--limit N] | observe status**
 :   Additional supported form.
+
 ## sandbox-mirror
 
 **sovereign-osctl sandbox-mirror [arguments]**
 :   M060 D-15 (R10118-R10119): READ-ONLY consumer of the selfdef sandbox mirror (MS007 typed-mirror crate selfdef-sandbox-mirror). Projects selfdef MS032 sandbox-tiers + MS036 tool-sandboxes allocation state (4 tiers + 8-level isolation ladder + TTL + CRIU checkpoint) for the D-15 cockpit dashboard. sovereign-os NEVER mutates IPS state; checkpoint/release are selfdefctl + MS003 only. Verbs: snapshot / summaries (+ --json).
+
 ## profile-mirror
 
 **sovereign-osctl profile-mirror [arguments]**
 :   M060 D-02 (R10063-R10068): READ-ONLY consumer of the selfdef active- profile mirror (MS007 typed-mirror crate selfdef-profile-mirror). Projects selfdef MS040 six-profile authority matrix active selection + MS039 L0..L6 envelope + transition history for the D-02 cockpit dashboard. sovereign-os NEVER mutates IPS state; profile switch is sovereign profile set + MS003 only. Offline → MS040 R09535 default (Private). Verb: show (+ --json).
+
 ## tui-mirror
 
 **sovereign-osctl tui-mirror [arguments]**
@@ -158,6 +168,7 @@ operator use.
 
 **sovereign-osctl cli-mirror [arguments]**
 :   MS043 R10281 + R10297: READ-ONLY consumer of the selfdef CLI schema mirror (MS007 typed-mirror crate selfdef-cli-mirror). Projects the selfdefctl clap App tree (140+ subcommands classified into 8 effect classes per MS039 authority ladder) the selfdef daemon publishes by shelling out + caching selfdefctl cli-mirror snapshot. Used by sovereign-os for IPS-operator-surface introspection, completion generation, "how do I do X" cross-links, MCP-client tool-pickers. Doctrine surface "Fullstack at the edges" preserved verbatim per R10297. Verbs: snapshot / summaries / mutating (+ --json). The mutating verb filters to subcommands that require MS003 signature — operator clipboard-copy only; sovereign-os never invokes them.
+
 ## frontend
 
 **sovereign-osctl frontend status [--json]**
