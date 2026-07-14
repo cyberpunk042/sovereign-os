@@ -168,6 +168,26 @@ if [ "${SOVEREIGN_OS_BAKE_GHOSTPROXY:-}" = "1" ] && [ -d /opt/root-ghostproxy ];
   fi
 fi
 
+# ── 4b. OpenClaw Node gateway daemon (SDD-705 — installed-off, first-boot install) ──
+# OpenClaw needs Node ≥22 + `npm install -g openclaw` — neither reachable at postinst
+# (no network in the image build). So the bake here only STAGES the two units; the
+# actual install (Node + npm + preconfig → the local endpoint) runs at FIRST BOOT via
+# sovereign-openclaw-install.service (network available), non-fatal + resumable. The
+# runtime daemon (sovereign-openclaw.service) stays installed-off — `sovereign-osctl
+# openclaw on` starts it. Gated on bake.openclaw.
+if [ "${SOVEREIGN_OS_BAKE_OPENCLAW:-}" = "1" ]; then
+  _oc_n=0
+  for u in sovereign-openclaw-install.service sovereign-openclaw.service; do
+    if [ -f "${REPO}/systemd/system/${u}" ]; then
+      install -m 644 "${REPO}/systemd/system/${u}" /etc/systemd/system/ 2>/dev/null && _oc_n=$((_oc_n+1))
+    fi
+  done
+  # Enable ONLY the first-boot installer (the runtime daemon stays installed-off).
+  systemctl enable sovereign-openclaw-install.service >/dev/null 2>&1 \
+    && log "OpenClaw staged — ${_oc_n} unit(s); first-boot installer enabled (runtime daemon installed-off; turn on: sovereign-osctl openclaw on)" \
+    || log "OpenClaw units staged (${_oc_n}) — installer enable deferred (no running systemd)"
+fi
+
 # ── 5. dashboards hub + panel APIs (dashboards LIVE on boot — ON by default) ──
 # The hub (build-configurator) serves every panel's HTML; each panel's live data
 # comes from its own read-only sovereign-<x>-api daemon. Enable the hub + master
@@ -205,8 +225,13 @@ fi
 # flashed image boots straight to a desktop + the dashboards. NON-FATAL — a
 # desktop apt hiccup must never brick the image build (it stays headless).
 if [ "${SOVEREIGN_OS_BAKE_GUI:-}" = "1" ] && [ -x "${REPO}/scripts/install/install-gui-dashboards.sh" ]; then
-  log "installing desktop on the image (bake.gui=1) — ${SOVEREIGN_OS_DESKTOP:-gnome} + graphical.target"
+  # SDD-704: the profile's provisioning.frontend.default (SOVEREIGN_OS_FRONTEND) picks
+  # what the image presents (gnome | dashboards-kiosk | open-computer-kiosk | none);
+  # install-gui-dashboards.sh reads it and stages the matching stack. Absent → gnome.
+  log "installing frontend on the image (bake.gui=1) — frontend=${SOVEREIGN_OS_FRONTEND:-gnome}, de=${SOVEREIGN_OS_DESKTOP:-gnome}"
   if SOVEREIGN_OS_SRC="${REPO}" SOVEREIGN_OS_DESKTOP="${SOVEREIGN_OS_DESKTOP:-gnome}" \
+       SOVEREIGN_OS_FRONTEND="${SOVEREIGN_OS_FRONTEND:-gnome}" \
+       SOVEREIGN_OS_FRONTEND_INSTALL="${SOVEREIGN_OS_FRONTEND_INSTALL:-gnome}" \
        bash "${REPO}/scripts/install/install-gui-dashboards.sh" 2>&1 | sed 's/^/provision-bake:   /' >&2; then
     log "desktop installed on the image"
   else

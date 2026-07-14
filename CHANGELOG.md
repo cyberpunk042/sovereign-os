@@ -12,6 +12,43 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — OpenClaw agent runtime: Node gateway daemon, preconfigured to the local model (2026-07-14)
+
+Operator-directed (*"include OpenClaw in the options of the build … add the preconfiguration
+options"*) (SDD-705, the service axis of the SDD-703 arc). Closes F-2026-115. OpenClaw (npm
+`openclaw`, MIT; the :18789 Node gateway, NOT Anthropic) is now a build option shipping
+**installed-off** + **preconfigured to the local vLLM endpoint** (SDD-702). A `provisioning.bake.openclaw`
+toggle + a `provisioning.openclaw` block ({endpoint, model_id, gateway_port, node_major}) is threaded
+through mkosi-emit → provision-bake (stages the units, enables only the first-boot installer — no
+install at postinst since NodeSource/npm are unreachable in the image build). A first-boot
+`openclaw-install.sh` hook (VM-tolerant, non-fatal, resumable) ensures a band-satisfying Node
+(NodeSource 24; OpenClaw's engines exclude 24.0–24.14), `npm install -g openclaw`, and renders
+`~/.openclaw/openclaw.json` (JSON5, `api: openai-completions`, `"vllm/*"` auto-discovery) pointed at
+the local endpoint — no external channels (SDD-703 D5). The runtime `sovereign-openclaw.service` runs
+`openclaw gateway` installed-off with HOME relocated to `/var/lib/sovereign-os/openclaw` so it stays
+ProtectHome=read-only + ProtectSystem=strict (no waiver); `sovereign-osctl openclaw {status|on|off|install|logs|doctor}`
+is the lifecycle. New 10-case `test_openclaw_provision_contract.py`; grounding verified against the
+npm registry + repo docs; systemd README count 120→122 (100→102 service). Ships OFF — nothing runs
+until `openclaw on`; the real Node/npm install + gateway boot are unverified in CI (no network/registry).
+The open-computer QEMU sandbox is the arc's remaining round.
+
+### Added — swappable boot-frontend selector: GNOME ↔ dashboards-kiosk, live (2026-07-14)
+
+Operator-directed (*"be able to chose at any point to start in one or another or even disable both"*)
+(SDD-703 design + SDD-704 implementation). Closes F-2026-113 (MED); scopes F-2026-114 (open-computer,
+→ SDD-706) + F-2026-115 (OpenClaw, → SDD-705). The boot frontend was hard-wired GNOME — an env-only
+`SOVEREIGN_OS_DESKTOP` knob unreachable from the profile, no runtime switch. Now a `provisioning.frontend`
+block ({`default`, `install`}) + schema is threaded through mkosi-emit → the installer (restructured to
+*stage each `install:` stack → activate the `default`*), a new `sovereign-frontend-kiosk.service`
+(cage + fullscreen browser at a URL from an env file, seatd-seated, R171-hardened + a graphical-session
+waiver), and a new `sovereign-osctl frontend {status|list|set}` verb (`scripts/operator/frontend.py`) that
+flips gnome ↔ dashboards-kiosk ↔ open-computer-kiosk ↔ none live — no reflash. Default stays `gnome`
+(behaviour-preserving; SDD-703 D1 adopted provisionally + overridable). New 14-case
+`test_frontend_selector_contract.py`; systemd fleet README count 119→120 (99→100 service). The kiosk ships
+disabled by default, so boot is unchanged for the shipping profile; a real kiosk session on hardware is
+unverified (no seat/GPU/display in CI). OpenClaw (SDD-705) + open-computer sandbox service (SDD-706) are the
+next big rounds of the arc.
+
 ### Added — inference model provisioning: the vLLM Oracle tier gets a real model at first boot (2026-07-14)
 
 Operator-directed build-and-flash readiness, inference (operator upgraded the Oracle model to Llama 4 Scout)

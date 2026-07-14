@@ -1,0 +1,55 @@
+[Unit]
+Description=sovereign-os frontend kiosk — fullscreen browser → FRONTEND_KIOSK_URL (SDD-704)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/docs/sdd/704-frontend-selector.md
+# A kiosk OWNS the display. The selector (sovereign-osctl frontend set …) disables
+# gdm when a kiosk is the chosen frontend so the two never contend for the seat.
+# The env file carries the target URL; without it there is nothing to show.
+After=systemd-user-sessions.service seatd.service sovereign-dashboards.service
+Wants=sovereign-dashboards.service
+ConditionPathExists=/etc/sovereign-os/frontend-kiosk.env
+
+[Service]
+Type=simple
+# FRONTEND_KIOSK_URL — rewritten by `sovereign-osctl frontend set <value>` without
+# touching this unit (dashboards-kiosk → :8100 hub; open-computer-kiosk → sandbox UI).
+EnvironmentFile=-/etc/sovereign-os/frontend-kiosk.env
+# Runs the compositor (cage) + browser as the operator on the seat. seatd (not PAM)
+# grants DRM/input access, which keeps NoNewPrivileges=true viable. User name matches
+# profiles/<id>.yaml provisioning.operator.username (default 'operator').
+User=operator
+Group=operator
+SupplementaryGroups=video render input seat
+RuntimeDirectory=sovereign-frontend-kiosk
+Environment=XDG_RUNTIME_DIR=/run/sovereign-frontend-kiosk
+ExecStart=/usr/local/lib/sovereign-os/scripts/operator/frontend-kiosk.sh
+# A browser crash re-opens the kiosk rather than dropping to a black VT.
+Restart=always
+RestartSec=3
+TimeoutStopSec=10
+StandardOutput=journal
+StandardError=journal
+
+# HARDENING-WAIVER: a kiosk is a live graphical session — it needs DRM/KMS
+#   (/dev/dri via seatd) and the browser's unprivileged-namespace sandbox, and it runs
+#   long-lived with a WRITABLE browser home (here an ephemeral ProtectHome=tmpfs, not
+#   the true|read-only a long-running unit is otherwise held to). Those two — a
+#   non-read-only home and user namespaces — are why the strict R171/long-running gates
+#   are waived. Every OTHER R171 defense-in-depth clause IS carried below, and the unit
+#   only runs when the operator explicitly selects a kiosk frontend (disabled otherwise).
+# R171 defense-in-depth (carried in full; the two waived aspects noted inline):
+ProtectSystem=full
+ProtectHome=tmpfs            # ephemeral browser profile; real /home + /root stay hidden
+ProtectControlGroups=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectClock=true
+ProtectHostname=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RestrictNamespaces=false     # the kiosk browser needs user namespaces for its content-process sandbox
+LockPersonality=true
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=graphical.target

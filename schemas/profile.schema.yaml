@@ -379,6 +379,7 @@ properties:
           dev_tools: { type: boolean }
           selfdef: { type: boolean }
           root_ghostproxy: { type: boolean }
+          openclaw: { type: boolean }   # SDD-705: stage the OpenClaw Node gateway daemon (installed-off; first-boot npm install + preconfig)
           dashboards: { type: boolean }
           gui: { type: boolean }   # install a desktop on the mkosi image (root-reflash always installs GUI)
           livereload: { type: boolean }   # SDD-203 live-reload on the installed box (default ON; false = locked build)
@@ -386,6 +387,26 @@ properties:
       posture:
         type: string
         description: installed-off = software present but security daemons not started on boot.
+      # Swappable boot frontend (SDD-704). Selects what the box PRESENTS on the
+      # display, independent of which AI runtimes are installed. `default` is baked
+      # in; `install` lists the frontends whose stacks are staged so a later
+      # `sovereign-osctl frontend set <value>` can switch live (no reflash).
+      #   gnome               = the near-stock GNOME desktop + dashboards launcher (today's behaviour)
+      #   dashboards-kiosk     = fullscreen kiosk to the :8100 dashboards hub
+      #   open-computer-kiosk  = fullscreen kiosk to the open-computer sandbox UI (needs SDD-706 service)
+      #   none                 = headless (multi-user.target)
+      frontend:
+        type: object
+        additionalProperties: false
+        properties:
+          default:
+            type: string
+            enum: [gnome, dashboards-kiosk, open-computer-kiosk, none]
+          install:
+            type: array
+            items:
+              type: string
+              enum: [gnome, dashboards-kiosk, open-computer-kiosk]
       # Pinned NVIDIA ≥570 open-kernel driver (SDD-701). trixie ships 550, which
       # predates Blackwell GB202 — nvidia-driver-install.sh installs the pinned .run at first boot.
       nvidia:
@@ -405,6 +426,19 @@ properties:
           local_dir: { type: string }            # where the weights land (under tank/models)
           quantization: { type: string }         # vLLM --quantization (e.g. fp8)
           min_free_gb: { type: number, minimum: 0 }  # refuse download below this free space
+      # OpenClaw preconfiguration (SDD-705). When bake.openclaw is set, a first-boot
+      # hook installs the Node gateway daemon and renders ~/.openclaw/openclaw.json
+      # pointing at the LOCAL OpenAI-compatible endpoint below. Installed-off:
+      # `sovereign-osctl openclaw on` starts it. No external channels are baked
+      # (SDD-703 D5 — avoid baking credentials); the operator adds those later.
+      openclaw:
+        type: object
+        additionalProperties: false
+        properties:
+          endpoint: { type: string }             # local OpenAI-compatible base URL (e.g. http://127.0.0.1:8000/v1)
+          model_id: { type: string }             # model id to advertise to OpenClaw (matches the served model)
+          gateway_port: { type: integer, minimum: 1, maximum: 65535 }   # OpenClaw gateway bind port (default 18789)
+          node_major: { type: integer, minimum: 18 }   # NodeSource major to install if the baked node is too old for OpenClaw
       # APC Smart-UPS / graceful soft-shutdown (SDD-026). NUT apc_modbus:
       # Modbus over TCP (:502, SmartConnect) or serial, auto-detected.
       power:
