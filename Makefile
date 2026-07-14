@@ -7,7 +7,7 @@ PROFILE ?= sain-01
 
 .PHONY: help setup dev-deps validate lint unit l3 l3-fast test smoke dry-run \
         preflight ci all clean clean-pyc dashboards-lint install install-units uninstall uninstall-units bins panel bootstrap \
-        operator-sudo operator-sudo-uninstall demo-capture demo-preflight cockpit-wasm cockpit-wasm-all _require-pytest
+        operator-sudo operator-sudo-uninstall man man-check demo-capture demo-preflight cockpit-wasm cockpit-wasm-all _require-pytest
 
 .DEFAULT_GOAL := help
 
@@ -119,6 +119,12 @@ clean-pyc:  ## Remove Python bytecode cruft (__pycache__ dirs + *.pyc) from the 
 
 PREFIX ?= /usr/local
 SOVEREIGN_OS_LIB ?= $(PREFIX)/lib/sovereign-os
+
+man:  ## Regenerate the committed sovereign-osctl(1) roff artifact (requires pandoc)
+	scripts/docs/build-sovereign-osctl-manpage.sh build
+
+man-check:  ## Verify the committed roff artifact matches the Markdown source
+	scripts/docs/build-sovereign-osctl-manpage.sh check
 
 install:  ## Install sovereign-osctl + manpage to PREFIX (default: /usr/local)
 	@echo "Installing to PREFIX=$(PREFIX)"
