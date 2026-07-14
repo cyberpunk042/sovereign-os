@@ -386,6 +386,15 @@ properties:
       posture:
         type: string
         description: installed-off = software present but security daemons not started on boot.
+      # Pinned NVIDIA ≥570 open-kernel driver (SDD-701). trixie ships 550, which
+      # predates Blackwell GB202 — nvidia-driver-install.sh installs the pinned .run at first boot.
+      nvidia:
+        type: object
+        additionalProperties: false
+        properties:
+          driver_runfile_version: { type: string }   # pinned ≥570 open-kernel runfile version
+          runfile_url_base: { type: string }          # NVIDIA download server base URL
+          kernel_module_type: { type: string, enum: [open, proprietary] }  # Blackwell requires 'open'
       # APC Smart-UPS / graceful soft-shutdown (SDD-026). NUT apc_modbus:
       # Modbus over TCP (:502, SmartConnect) or serial, auto-detected.
       power:
