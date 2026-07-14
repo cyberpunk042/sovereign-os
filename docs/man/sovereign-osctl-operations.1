@@ -14,7 +14,7 @@
 . ftr VB CB
 . ftr VBI CBI
 .\}
-.TH "SOVEREIGN-OSCTL-OPERATIONS" "1" "2026-07-14" "sovereign-os 0.2.0" "sovereign-os Operator Manual"
+.TH "SOVEREIGN-OSCTL-OPERATIONS" "1" "2026-07-14" "sovereign-os 0.3.0" "sovereign-os Operator Manual"
 .hy
 .SH NAME
 .PP
@@ -29,12 +29,13 @@ System status, diagnostics, maintenance, metrics, alerts, journals,
 histories, snapshots, notifications, dashboards, and daily operator
 workflows.
 .PP
-This page owns 35 top-level commands.
+This page owns 37 top-level commands.
 Ownership is defined in
 \f[V]docs/man/sovereign-osctl-command-topics.json\f[R] and checked
 against the real dispatcher.
-\f[B]sovereign-osctl help\f[R] remains authoritative for the exact
-syntax shipped by the installed version.
+The synopsis and descriptions are grounded in the command handler or
+delegated-script contract at this build revision.
+The top-level help is a discovery summary, not an exhaustive grammar.
 .SH SAFETY MODEL
 .PP
 Most inspection verbs are read-only.
@@ -47,16 +48,16 @@ JSON output, when offered, is the stable surface for automation; human
 output is intended for direct operator use.
 .SH COMMON WORKFLOW
 .IP "1." 3
+Confirm the installed revision with \f[B]sovereign-osctl version\f[R].
+.IP "2." 3
 Inspect the relevant \f[B]status\f[R], \f[B]show\f[R], \f[B]list\f[R],
 \f[B]info\f[R], \f[B]plan\f[R], or \f[B]doctor\f[R] surface.
-.IP "2." 3
-Save machine-readable output when \f[V]--json\f[R] is available.
 .IP "3." 3
-Review profile, device, backend, policy, and target selection.
+Save machine-readable output when \f[V]--json\f[R] is available.
 .IP "4." 3
-Apply the smallest scoped mutation.
+Review profile, device, backend, policy, and target selection.
 .IP "5." 3
-Re-run health/status and inspect alerts or journal output.
+Apply the smallest scoped mutation, then re-run health/status.
 .SH EXAMPLES
 .IP
 .nf
@@ -73,33 +74,20 @@ sovereign-osctl maintenance list
 .TP
 \f[B]sovereign-osctl status [\[en]json]\f[R]
 System state overview (\[en]json for fleet aggregation)
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
 .SS overview
 .TP
 \f[B]sovereign-osctl overview [\[en]json]\f[R]
-Show a consolidated single-screen snapshot of pipeline phases, bootstrap
-verification, Trinity state, model residency, active profile and
-whitelabel, kernel, and Tetragon perimeter.
-Use \f[V]--json\f[R] for fleet aggregation.
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
+Show a consolidated snapshot of pipeline phases, bootstrap verification,
+Trinity state, model residency, active profile and whitelabel, kernel,
+and Tetragon perimeter.
 .SS doctor
 .TP
 \f[B]sovereign-osctl doctor\f[R]
 Sanity checks across the system
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
 .SS assistant
 .TP
 \f[B]sovereign-osctl assistant []\f[R]
 First-login assistant: full | status | reset | list
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
 .SS maintenance
 .TP
 \f[B]sovereign-osctl maintenance list\f[R]
@@ -128,9 +116,6 @@ Verify Tetragon perimeter policy now
 .TP
 \f[B]sovereign-osctl maintenance alerts-check\f[R]
 Derive alerts + emit meta-counters now
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
 .SS trinity
 .TP
 \f[B]sovereign-osctl trinity status\f[R]
@@ -160,9 +145,6 @@ Show the currently-active runtime profile
 .TP
 \f[B]sovereign-osctl trinity profile switch \f[R]
 Switch to a different runtime profile
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
 .SS env
 .TP
 \f[B]sovereign-osctl env list [\[en]filter ]\f[R]
@@ -170,9 +152,6 @@ List every SOVEREIGN_OS_* env var with its default
 .TP
 \f[B]sovereign-osctl env show \f[R]
 Detail one env var (default · all consumers · currently-set value)
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
 .SS metrics
 .TP
 \f[B]sovereign-osctl metrics list\f[R]
@@ -186,16 +165,10 @@ Tail the N most-recently-updated .prom files (default: 5)
 .TP
 \f[B]sovereign-osctl metrics health\f[R]
 Sanity-check the textfile collector dir (presence, age, format)
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
 .SS alerts
 .TP
 \f[B]sovereign-osctl alerts [\[en]json]\f[R]
 Derive operator alerts from .prom files (no Alertmanager needed)
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
 .SS journal
 .TP
 \f[B]sovereign-osctl journal list [\[en]all-dirs]\f[R]
@@ -209,9 +182,6 @@ Tail the N most recent log files (default: 3)
 .TP
 \f[B]sovereign-osctl journal errors [\[en]all-dirs]\f[R]
 Show every error/warn entry across all log files
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
 .SS history
 .TP
 \f[B]sovereign-osctl history list\f[R]
@@ -220,73 +190,52 @@ duration)
 .TP
 \f[B]sovereign-osctl history show \f[R]
 Drill into one run (step-by-step pass/fail)
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
 .SS diagnose
 .TP
 \f[B]sovereign-osctl diagnose run [\[en]severity S] [\[en]limit N] [\[en]all] [\[en]json]\f[R]
-See the live help for behavior and options.
+See the handler for behavior and options.
 .TP
 \f[B]sovereign-osctl diagnose probes [\[en]json]\f[R]
 R266: list available sub-probes.
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
 .SS next-steps
 .TP
 \f[B]sovereign-osctl next-steps next|packs|apply-pack [\[en]severity S] [\[en]limit N] [\[en]json]\f[R]
-See the live help for behavior and options.
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
+See the handler for behavior and options.
 .SS severity
 .TP
 \f[B]sovereign-osctl severity evaluate [\[en]escalate-after-seconds N] [\[en]json]\f[R]
-See the live help for behavior and options.
+See the handler for behavior and options.
 .TP
 \f[B]sovereign-osctl severity state [\[en]json]\f[R]
 R273: dump current escalation state.
 .TP
 \f[B]sovereign-osctl severity reset [\[en]confirm]\f[R]
 R273: clear state file (operator-confirm).
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
 .SS health
 .TP
 \f[B]sovereign-osctl health scan [\[en]json] [\[en]probe NAME]\f[R]
-See the live help for behavior and options.
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
+See the handler for behavior and options.
 .SS insights
 .TP
 \f[B]sovereign-osctl insights [\[en]threshold-bytes N] [\[en]root D] [\[en]limit N] [\[en]all] [\[en]json]\f[R]
-See the live help for behavior and options.
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
+See the handler for behavior and options.
 .SS kernel
 .TP
 \f[B]sovereign-osctl kernel list [\[en]json]\f[R]
 R239 (SDD-026 Z-14): enumerate kernel-
 .TP
 \f[B]sovereign-osctl kernel show [\[en]preset P] [\[en]json]\f[R]
-See the live help for behavior and options.
+See the handler for behavior and options.
 .TP
 \f[B]sovereign-osctl kernel apply  [\[en]dry-run] [\[en]json]\f[R]
-See the live help for behavior and options.
+See the handler for behavior and options.
 .TP
 \f[B]sovereign-osctl kernel cmdline-hints  [\[en]json]\f[R]
-See the live help for behavior and options.
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
+See the handler for behavior and options.
 .SS services
 .TP
 \f[B]sovereign-osctl services list [\[en]prefix P] [\[en]state S] [\[en]json]\f[R]
-See the live help for behavior and options.
+See the handler for behavior and options.
 .TP
 \f[B]sovereign-osctl services failures [\[en]json]\f[R]
 R240: only units in failed state.
@@ -297,168 +246,145 @@ R240: next/last fire times via
 .TP
 \f[B]sovereign-osctl services shipped [\[en]json]\f[R]
 R240: catalog of units this repo
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
 .SS events
 .TP
 \f[B]sovereign-osctl events timeline [\[en]source S] [\[en]since ISO] [\[en]limit N] [\[en]json]\f[R]
-See the live help for behavior and options.
+See the handler for behavior and options.
 .TP
 \f[B]sovereign-osctl events summary [\[en]json]\f[R]
 R246: per-source counts + last-event
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
 .SS notify
 .TP
 \f[B]sovereign-osctl notify dispatch [\[en]from-file P] [\[en]dry-run] [\[en]json]\f[R]
-See the live help for behavior and options.
+See the handler for behavior and options.
 .TP
 \f[B]sovereign-osctl notify test \[en]channel C [\[en]severity S]\f[R]
-See the live help for behavior and options.
+See the handler for behavior and options.
 .TP
 \f[B]sovereign-osctl notify list-channels [\[en]json]\f[R]
-See the live help for behavior and options.
+See the handler for behavior and options.
 .TP
 \f[B]sovereign-osctl notify state [\[en]json]\f[R]
 R228: dump the dedup state file.
 .TP
 \f[B]sovereign-osctl notify send \[en]message M [\[en]severity S] [\[en]title T]\f[R]
-See the live help for behavior and options.
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
+See the handler for behavior and options.
 .SS dashboard
 .TP
 \f[B]sovereign-osctl dashboard serve [\[en]bind HOST:PORT] [\[en]once]\f[R]
-See the live help for behavior and options.
+See the handler for behavior and options.
 .TP
 \f[B]sovereign-osctl dashboard render\f[R]
 R225: render the dashboard HTML to
 .TP
 \f[B]sovereign-osctl dashboard grid [\[en]json] [\[en]watch] [\[en]interval SEC]\f[R]
-See the live help for behavior and options.
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
+See the handler for behavior and options.
 .SS mcp-aggregate
 .TP
 \f[B]sovereign-osctl mcp-aggregate manifest [\[en]upstream-selfdef H:P] [\[en]config P] [\[en]json|\[en]human]\f[R]
-See the live help for behavior and options.
+See the handler for behavior and options.
 .TP
 \f[B]sovereign-osctl mcp-aggregate probe-upstream H:P [\[en]timeout SECS] [\[en]json]\f[R]
-See the live help for behavior and options.
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
+See the handler for behavior and options.
 .SS self-test
 .TP
-\f[B]sovereign-osctl self-test [arguments]\f[R]
-R332 (E2.M23): config-snapshot for backup/migration.
-Captures complete operator-customized state into ONE portable JSON:
-overlays + audit + windows + inventory + helper-library manifest.
-Distinct from R322 state-snapshot (runtime-state).
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
-.SS next-action
-.TP
-\f[B]sovereign-osctl next-action [arguments]\f[R]
+\f[B]sovereign-osctl self-test {run|list}\f[R]
 R331 (E9.M14): operator-pull self-test verb.
 Runs L1 lint suites + unit tests + curated L3 sample + emits health
 summary.
-\[lq]Is sovereign-os itself working correctly on this host?\[rq]
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
-.SS fleet-aggregate
+\[lq]Is sovereign-os itself working correctly on this host?\[rq] ##
+next-action
 .TP
-\f[B]sovereign-osctl fleet-aggregate [arguments]\f[R]
-R325 (E2.M21): operator-overlay drift detector.
-Scans /etc/sovereign-os/*.toml + reports which knobs the operator has
-overridden vs shipped defaults.
-Operator-pull \[lq]what have I customized on this host?\[rq] \[em]
-companion to R283 overlay doctrine + R322 state snapshot.
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
-.SS maintenance-window
+\f[B]sovereign-osctl next-action {list|top}\f[R]
+R329 (E2.M22): next-action advisor \[em] composes R322 state snapshot +
+emits ranked operator-pull recommendations of most-impactful verb to run
+next.
+\[lq]What should I do now?\[rq] decision support.
+## fleet-aggregate
 .TP
-\f[B]sovereign-osctl maintenance-window [arguments]\f[R]
+\f[B]sovereign-osctl fleet-aggregate {aggregate|by-axis|outliers}\f[R]
 R324 (E2.M20): fleet snapshot aggregator.
 Ingests R322 unified state snapshots from multiple hosts; emits
 cross-host rollup (per-axis verdict distribution, host-level summary,
 outlier detection).
-Operator-pull \[lq]how is my whole fleet doing?\[rq]
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
-.SS snapshot
+Operator-pull \[lq]how is my whole fleet doing?\[rq] ##
+maintenance-window
 .TP
-\f[B]sovereign-osctl snapshot [arguments]\f[R]
+\f[B]sovereign-osctl maintenance-window {list|show|can-run-now|active}\f[R]
 R323 (E2.M19): maintenance-window scheduler.
 Operator declares named time windows; other advisors / autohealth /
 heat-oc- throttle query can-run-now before acting.
 Operator-named (§1b verbatim: \[lq]schedule/planifest/graceful on all
 levels, orderly\[rq]).
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
-.SS module-state
+## snapshot
 .TP
-\f[B]sovereign-osctl module-state [arguments]\f[R]
-R350 (E5.M17): task → (base, method, target GPU) recommender.
-Operator-named §1b verbatim: \[lq]download, fine-tune, parameters,
-build, run, use and train and adapt and use and eval and etc.\[rq] ADAPT
-sits upstream of R244 fine-tune + R232 eval; consults R317 catalog GPU
-VRAM via R348 inventory_consult helper.
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
-.SS network-topology
+\f[B]sovereign-osctl snapshot {snapshot|audit}\f[R]
+R322 (E2.M18): unified state snapshot \[em] runs all read-only advisors
+in parallel + emits one consolidated JSON document.
+Operator-pull \[lq]what\[cq]s the COMPLETE state of this host right
+now?\[rq] ## module-state
+.TP
+\f[B]sovereign-osctl module-state {list|show|recommend}\f[R]
+R351 (E2.M34): \[lq]what have I installed but not yet configured?\[rq]
+Operator-named §1b verbatim: \[lq]installs, non-configured, modules or
+features and how configure them\[rq].
+16-module default catalog; per-module verdict (fully-configured /
+installed-not-configured / running-without-overlay /
+config-only-no-runtime / shipped-but- untouched) + the verb to close
+each gap.
+## morning-brief
+.TP
+\f[B]sovereign-osctl morning-brief {rollup}\f[R]
+R352 (E10.M2): meta-rollup composing R329 next-action + R351
+module-state + R308 autohealth + R349 guide-suggestion into a single
+operator-readable \[lq]what should I look at first this morning?\[rq]
+report.
+NEVER-raise on missing sub-probes.
+## network-topology
 .TP
 \f[B]sovereign-osctl network-topology [sub]\f[R]
 R359 (§8+§8.1): operator-verbatim ASCII
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
 .SS autohealth
 .TP
-\f[B]sovereign-osctl autohealth [arguments]\f[R]
-R355 (E10.M3) + R357 (E10.M4): operator-pull SAIN-01 master spec §13
-Architectural Q&A Matrix + §14 Critical Edge Cases & Operational Gotchas
-+ §15-16 1-Bit Paradigm & Hardware Fusion concepts + §19 dual-CCD
-doctrine + Trinity Genesis (Block 6 Modules 1/2/3) \[em] verbatim
-operator-stated content surfaced as discoverable verbs.
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
-.SS research-loop
+\f[B]sovereign-osctl autohealth {tick|status|history|advisory}\f[R]
+R308 (E2.M14): doctor / autohealth periodic synthesizer.
+Composes R226 (health-scan) + R296 (thermal-oc) + R298 (storage-health)
++ R300 (operator-posture) + R304 (memory- pressure-damper) into ONE tick
+that persists state + emits notify-dispatch commands when severity
+crosses threshold.
+Operator-named (§1b verbatim: \[lq]autohealth and doctor, notification
+and messaging\[rq]).
+## research-loop
 .TP
 \f[B]sovereign-osctl research-loop status [\[en]config P] [\[en]json|\[en]human]\f[R]
-See the live help for behavior and options.
+See the handler for behavior and options.
 .TP
 \f[B]sovereign-osctl research-loop topics [\[en]config P] [\[en]json|\[en]human]\f[R]
-See the live help for behavior and options.
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
+See the handler for behavior and options.
 .SS traces
 .TP
 \f[B]sovereign-osctl traces [arguments]\f[R]
-M060 D-03 (R10069-R10074): unified model-health core \[em] joins the
-model catalog (models/catalog.yaml) to the SRP hardware topology (M075
-Conductor/Logic/Oracle), overlays live GPU telemetry (nvidia-smi) +
-optional inference-fabric runtime state (loaded models, KV cache,
-p50/p95/p99 latency).
-Read-only; the sovereign-model-health-api daemon serves the D-03 cockpit
+M060 D-05 (R10083-R10087): M049 13-field span store + query core \[em]
+reads the observability fabric\[cq]s append-only span log
+(/var/log/sovereign-os/spans.jsonl), filters by time window / text /
+severity / OCSF class (MS026 16-event taxonomy), assembles per-trace
+span trees.
+Read-only; the sovereign-traces-api daemon serves the D-05 cockpit
 dashboard from this same core.
-Verbs: status / catalog / gpus (+ \[en]json).
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
-.SS bashrc
+Verbs: spans / trace / summary (+ \[en]json, \[en]window, \[en]q,
+\[en]severity, \[en]ocsf-class).
+## m060-health
+.TP
+\f[B]sovereign-osctl m060-health [arguments]\f[R]
+M060 chain health observability \[em] proxies the selfdef daemon\[cq]s
+GET /v1/m060/health endpoint reporting publish-freshness of all 10
+mirror artifacts (offline/degraded/stale/online plus this script\[cq]s
+own \[lq]unreachable\[rq] when the daemon is down).
+Used by the D-00 master-dashboard\[cq]s chain-health banner, the MCP
+tool selfdef-m060-health, and ops/smoke scripts.
+Read-only.
+Verbs: probe / state (+ \[en]json).
+## bashrc
 .TP
 \f[B]sovereign-osctl bashrc install\f[R]
 R447 (E11.M6): install operator-discoverable
@@ -471,24 +397,9 @@ Report install state (installed | absent)
 .TP
 \f[B]sovereign-osctl bashrc dump\f[R]
 Print the block to stdout (pipe to
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
 .SS ms022-doctor
 .TP
 \f[B]sovereign-osctl ms022-doctor [arguments]\f[R]
-R447 (E11.M6): operator-discoverable bashrc integration \[em]
-autocompletes + aliases + helper menu.
-Operator §1g verbatim: \[lq]the bashrc we can offer to configure it too
-and we can add our autocompletes and aliases and manual / helps and
-menus\[rq].
-Idempotent + reversible (sentinel-bounded block).
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
-.SS m060-doctor
-.TP
-\f[B]sovereign-osctl m060-doctor [arguments]\f[R]
 MS022 SSE subscriber-quota chain triage \[em] probes the 4 consumer-
 side surfaces (proxy daemon, master-dashboard banner, systemd unit)
 against the selfdef-side producer state (selfdef commit 77b4499 6
@@ -500,9 +411,24 @@ Flags: \[en]strict requires state=ok everywhere; \[en]json for
 machine-readable triage.
 See scripts/diagnostics/ms022-doctor.py \[en]help for the full flag
 surface.
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
+## m060-doctor
+.TP
+\f[B]sovereign-osctl m060-doctor [arguments]\f[R]
+M060 cross-repo mirror chain smoke check \[em] pings each
+/api/d-NN/snapshot endpoint through the sovereign-os master-dashboard
+proxy AND probes the selfdef-side doctor textfile observers
+(selfdef-cli-mirror-doctor.timer + selfdef-m060-doctor.timer, selfdef
+commits e9ab056 + ce58154) via node_exporter\[cq]s /metrics so one
+operator command verifies the full producer→consumer→observer chain
+end-to-end.
+Read-only (web-is-read- only doctrine MS043 R10212 + R10115).
+Stdlib-only Python; no deps.
+See scripts/diagnostics/m060-smoke.py \[en]help for flags
+(\[en]base-url, \[en]node-exporter-url, \[en]strict,
+\[en]skip-doctor-observers, \[en]json).
+NEW: cross-vertical observability triage.
+Probes ALL 6 verticals shipped to date (M060 chain-health, MS022 SSE
+quota, four-watchdog IPS spine, selfdef-modul\&...
 .SH FILES
 .TP
 \f[B]/etc/sovereign-os/\f[R]
