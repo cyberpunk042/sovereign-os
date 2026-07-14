@@ -4835,6 +4835,7 @@ dependencies = [
  "sovereign-secret-scan",
  "sovereign-srp-scheduler",
  "sovereign-stream-decode",
+ "sovereign-tool-bridge",
  "sovereign-toxicity",
  "sovereign-trace-context",
  "sovereign-value-plane",
@@ -6577,6 +6578,16 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+]
+
+[[package]]
+name = "sovereign-tool-bridge"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-tool-call-parse",
+ "sovereign-tool-dispatch",
 ]
 
 [[package]]

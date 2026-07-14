@@ -5,7 +5,7 @@
 > page drifts from `docs/sdd/`, so the published book can never freeze behind the
 > design record again (F-2026-033).
 
-Every Spec-Driven-Development design doc in `docs/sdd/` (193 total), by number.
+Every Spec-Driven-Development design doc in `docs/sdd/` (194 total), by number.
 
 - [SDD-000 — Project charter](../sdd/000-charter.md)
 - [SDD-001 — Cross-repo boundaries: contract between sovereign-os, info-hub, selfdef](../sdd/001-cross-repo-boundaries.md)
@@ -148,6 +148,7 @@ Every Spec-Driven-Development design doc in `docs/sdd/` (193 total), by number.
 - [SDD-708 — document the agent layer for the operator (+ a drift lint) (IMPLEMENTATION)](../sdd/708-agent-layer-operator-docs.md)
 - [SDD-709 — wire the agent layer into the setup wizard + build configurator (IMPLEMENTATION)](../sdd/709-agent-layer-wizard-and-build-configurator.md)
 - [SDD-710 — enforce the `unsafe` ban at compile time across all 202 cockpit crates (IMPLEMENTATION)](../sdd/710-workspace-unsafe-ban-repo-wide.md)
+- [SDD-711 — OpenAI/Anthropic tool use: the schema bridge + single-turn `/v1/chat/completions` (IMPLEMENTATION + arc design)](../sdd/711-openai-tool-use-bridge-and-single-turn.md)
 - [SDD-800 — Cockpit wasm bridge: the typed cockpit crates run in the browser](../sdd/800-cockpit-wasm-bridge.md)
 - [SDD-902 — Compute Plane Phase 2: multi-model gateway (secondary-model hosting)](../sdd/902-compute-plane-phase2-multi-model.md)
 - [SDD-950 — Real RoPE: `rope_theta` + `rope_scaling` from the model config (make modern models decode coherently)](../sdd/950-real-rope-theta-scaling.md)

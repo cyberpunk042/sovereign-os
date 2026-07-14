@@ -377,17 +377,32 @@ def test_gaps_verb_low_threshold_clean():
     assert data["count"] == 0
 
 
-def test_gaps_verb_full_coverage_is_clean():
-    """Every tracked module must retain all six documentation surfaces."""
+def test_gaps_verb_high_threshold_is_clean_all_modules_fully_documented():
+    """Milestone: every tracked module is now documented across ALL 6 doc-kinds,
+    so `gaps --threshold 6` is clean (exit 0, count 0).
+
+    This assertion FLIPPED: it previously required exit 2 ("no module has all 6"),
+    an invariant that assumed the docs were perpetually incomplete. The
+    `sovereign-osctl` man-page arc (PR #177) added the `docs/man/` stubs that were
+    the last-missing `man-page` kind for the final under-documented modules, so
+    all 9 modules reached 6/6. A NEW under-documented module (or a removed
+    doc-surface) re-introduces a gap and flips this back to exit 2 — the contract
+    still guards coverage, it just now records the fully-covered state as the
+    baseline rather than the aspiration.
+    """
     result = subprocess.run(
         ["python3", str(DC_PY), "gaps", "--threshold", "6", "--json"],
         capture_output=True, text=True, timeout=15,
     )
-    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.returncode == 0, (
+        f"gaps --threshold 6 should be clean now that every module is fully "
+        f"documented (PR #177 man-page arc closed the last gap); got rc="
+        f"{result.returncode}, stdout={result.stdout[:300]!r}"
+    )
     data = json.loads(result.stdout)
-    assert data["threshold"] == 6
-    assert data["count"] == 0
-    assert data["below_threshold"] == []
+    assert data["count"] == 0, (
+        f"expected 0 modules below the full-6 threshold; got {data!r}"
+    )
 
 
 def test_scan_unknown_module_fails():
