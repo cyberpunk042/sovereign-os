@@ -12,6 +12,36 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — the agent layer reaches the setup wizard + build configurator (2026-07-14)
+
+Operator-directed (*"I like when we have a proper IaC and scripts and integrations and setup wizard and
+auto-installs and auto-configuration."* → *"continue"*, Round B) (SDD-709). Closes F-2026-118 and the
+wizard/configurator half of F-2026-117. SDD-703..707 wired the agent layer IaC→CLI and SDD-708 documented
+it, but its build-time knobs still reached the operator only through hand-edited profile YAML or exported
+env vars — the two surfaces the operator named didn't drive them: `sovereign-osctl init` had 5 fixed
+decisions (no desktop/runtime), and `webapp/build-configurator` surfaced only 3 of the bake toggles
+(the frontend selector + both agent-runtime bakes were absent from the page, its POST body, and the API).
+
+Now one chain wires that last mile: `scripts/build/adapters/mkosi-emit.sh` gains a tri-state env-override
+seam (`_env_bake`) so `SOVEREIGN_OS_BAKE_OPENCLAW`/`_OPEN_COMPUTER` (`1`/`0`/unset) and `SOVEREIGN_OS_FRONTEND`
+override the profile's declared bakes (the profile stays source-of-truth; the surfaces are overlays);
+`scripts/operator/build-configurator-api.py` translates the run POST body's `frontend`/`bake_openclaw`/
+`bake_open_computer` into those env vars (frontend validated against a canonical `FRONTEND_CHOICES` set);
+`webapp/build-configurator/index.html` grows an agent-layer row (a frontend `<select>` + two bake
+checkboxes) that POSTs with the run + live-previews in the build-command pane; and `sovereign-osctl init`
+gains a 6th "AGENT LAYER" decision (frontend + bake each runtime, recorded in the init state file and
+folded into NEXT STEPS — the API key is never collected here, runtime-only per SDD-707).
+`tests/lint/test_agent_layer_build_config_contract.py` (11 cases) pins the whole chain and
+`tests/nspawn/test_sovereign_osctl_init.sh` is updated to the 6-decision reality.
+
+An honest finding is recorded rather than forced: the third Round-B item — registering
+frontend/openclaw/open-computer in `surface-map.py`/`doc-coverage.py` with a `cli_only` waiver — is
+**retired as mis-shaped**. Those trackers enforce a `gaps=0` structural-ceiling invariant (every surface
+shipped or "not applicable"-waived), but the agent layer's unshipped api/mcp/webapp surfaces are honestly
+FUTURE, not structural-NA, and the system has no `cli_only` ceiling category — so a forced entry would
+either falsely mark futures "not applicable" (gaming the anti-minimization audit) or redden CI. The
+trackers are left untouched; a proper fix would add a new classifier waiver-category, decided deliberately.
+
 ### Added — operator documentation for the agent layer + a drift lint (2026-07-14)
 
 Operator-directed (*"is it even all documented and how deep does the configuration goes?"*) (SDD-708).

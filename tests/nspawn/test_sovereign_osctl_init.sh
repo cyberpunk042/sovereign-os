@@ -47,8 +47,8 @@ else
   ko "--non-interactive broken (rc=${rc})"
 fi
 
-# 5 decisions present in output
-for n in "1/5" "2/5" "3/5" "4/5" "5/5"; do
+# 6 decisions present in output (SDD-709 added the agent-layer decision)
+for n in "1/6" "2/6" "3/6" "4/6" "5/6" "6/6"; do
   if grep -q "\[${n}\]" <<< "${out}"; then
     ok "decision ${n} presented"
   else
@@ -57,7 +57,7 @@ for n in "1/5" "2/5" "3/5" "4/5" "5/5"; do
 done
 
 # All decision categories surfaced
-for kw in PROFILE SUBSTRATE SECURE-BOOT "DISK ENCRYPTION" WHITELABEL; do
+for kw in PROFILE SUBSTRATE SECURE-BOOT "DISK ENCRYPTION" WHITELABEL "AGENT LAYER"; do
   if grep -q "${kw}" <<< "${out}"; then
     ok "category: ${kw}"
   else
@@ -108,9 +108,12 @@ assert d.get('substrate') == 'mkosi', f'substrate wrong: {d.get(\"substrate\")}'
 assert d.get('secure_boot') == 'signed', f'secure_boot wrong: {d.get(\"secure_boot\")}'
 assert d.get('encrypt') == 'yes', f'encrypt wrong: {d.get(\"encrypt\")}'
 assert d.get('whitelabel') == 'default', f'whitelabel wrong: {d.get(\"whitelabel\")}'
+assert d.get('frontend') == '', f'frontend should default empty (profile-inherit): {d.get(\"frontend\")!r}'
+assert d.get('bake_openclaw') == 'no', f'bake_openclaw wrong: {d.get(\"bake_openclaw\")}'
+assert d.get('bake_open_computer') == 'no', f'bake_open_computer wrong: {d.get(\"bake_open_computer\")}'
 assert 'init_completed_at' in data, 'timestamp missing'
 " 2>&1; then
-  ok "state file has all 5 decisions with sain-01 defaults"
+  ok "state file has all 8 decisions with sain-01 defaults"
 else
   ko "state file shape wrong"
 fi

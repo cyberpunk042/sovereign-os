@@ -4069,12 +4069,12 @@ cmd_init() {
   echo "  sovereign-osctl init — operator setup wizard"
   echo "  ============================================="
   echo
-  echo "  Walks you through 5 decisions. Defaults shown in [brackets]."
+  echo "  Walks you through 6 decisions. Defaults shown in [brackets]."
   echo "  Press Enter at any prompt to accept the default."
   echo
 
   # ---- Decision 1: profile ----
-  echo "  [1/5] PROFILE — which hardware archetype?"
+  echo "  [1/6] PROFILE — which hardware archetype?"
   echo "    sain-01         AI workstation (Zen 5 · 128GB · 2x NVMe-PCIe-5 · 3090 + 5090 VFIO + Tetragon)"
   echo "    old-workstation constrained dev box (single 3090, ext4)"
   echo "    minimal         VM baseline (generic x86-64-v3, virtio-blk)"
@@ -4095,7 +4095,7 @@ cmd_init() {
   echo
 
   # ---- Decision 2: substrate ----
-  echo "  [2/5] SUBSTRATE — image-build backend"
+  echo "  [2/6] SUBSTRATE — image-build backend"
   echo "    mkosi           SDD-003 primary; Debian 13 trixie"
   echo "    live-build      ALT-A; substrate-agnostic content"
   echo "    recommendation: mkosi (primary path; faster builds; reproducibility-tested)"
@@ -4122,7 +4122,7 @@ try:
     print((data.get('kernel') or {}).get('cmdline', {}).get('secure_boot', 'none'))
 except: print('none')
 " 2>/dev/null)"
-  echo "  [3/5] SECURE-BOOT — UEFI signing posture (SDD-015)"
+  echo "  [3/6] SECURE-BOOT — UEFI signing posture (SDD-015)"
   echo "    none            no signing chain (dev / VM)"
   echo "    shim            Microsoft-CA shim + operator MOK (most operators)"
   echo "    signed          operator-owned PK chain (advanced; pre-enrolled hardware)"
@@ -4140,7 +4140,7 @@ except: print('none')
   echo
 
   # ---- Decision 4: disk encryption opt-in ----
-  echo "  [4/5] DISK ENCRYPTION — opt-in toggle (SDD-022)"
+  echo "  [4/6] DISK ENCRYPTION — opt-in toggle (SDD-022)"
   echo "    yes             ZFS-native (zfs-tiered profiles) or LUKS2 (ext4)"
   echo "    no              clear-text rootfs (dev/VM only)"
   echo "    recommendation: yes for sain-01 + headless; profile-specific for others"
@@ -4159,7 +4159,7 @@ except: print('none')
   echo
 
   # ---- Decision 5: whitelabel ----
-  echo "  [5/5] WHITELABEL — operator branding identity"
+  echo "  [5/6] WHITELABEL — operator branding identity"
   echo "    default         sovereign-os default whitelabel (motd · plymouth · grub)"
   echo "    fork            operator-owned fork (you author whitelabel/<id>.yaml later)"
   echo "    recommendation: default (operator can fork later via 'profiles fork')"
@@ -4169,6 +4169,36 @@ except: print('none')
     [ -n "${ans}" ] && whitelabel="${ans}"
   fi
   echo "    → ${whitelabel}"
+  echo
+
+  # ---- Decision 6: agent layer (SDD-703..709) ----
+  # The desktop the box boots into + whether the two agent runtimes are
+  # baked in (installed-off — staged on the image, enabled later with
+  # 'sovereign-osctl openclaw/open-computer on'). These drive the same
+  # SOVEREIGN_OS_FRONTEND / _BAKE_OPENCLAW / _BAKE_OPEN_COMPUTER env the
+  # build-configurator webapp sets; unset here inherits the profile.
+  echo "  [6/6] AGENT LAYER — desktop + agent runtimes (SDD-703..709)"
+  echo "    frontend        gnome · dashboards-kiosk · open-computer-kiosk · none"
+  echo "                    (Enter = profile default)"
+  echo "    openclaw        bake the OpenClaw agent runtime in (installed-off)"
+  echo "    open-computer   bake the open-computer QEMU AI sandbox in (installed-off)"
+  echo "    recommendation: profile default frontend; bake a runtime only if you want it staged"
+  local frontend="" bake_openclaw="no" bake_open_computer="no"
+  if [ "${non_interactive}" -eq 0 ]; then
+    read -rp "  frontend [profile default]: " ans
+    [ -n "${ans}" ] && frontend="${ans}"
+    read -rp "  bake openclaw [no]: " ans
+    [ -n "${ans}" ] && bake_openclaw="${ans}"
+    read -rp "  bake open-computer [no]: " ans
+    [ -n "${ans}" ] && bake_open_computer="${ans}"
+  fi
+  case "${frontend}" in
+    ""|gnome|dashboards-kiosk|open-computer-kiosk|none) ;;
+    *) log_error "  invalid frontend: ${frontend} (valid: gnome, dashboards-kiosk, open-computer-kiosk, none)"; return 1 ;;
+  esac
+  case "${bake_openclaw}" in yes|no) ;; *) log_error "  invalid (yes|no): ${bake_openclaw}"; return 1 ;; esac
+  case "${bake_open_computer}" in yes|no) ;; *) log_error "  invalid (yes|no): ${bake_open_computer}"; return 1 ;; esac
+  echo "    → frontend=${frontend:-<profile default>} · openclaw=${bake_openclaw} · open-computer=${bake_open_computer}"
   echo
 
   # ---- Write state file ----
@@ -4184,6 +4214,9 @@ decisions:
   secure_boot: "${secure_boot}"
   encrypt: "${encrypt}"
   whitelabel: "${whitelabel}"
+  frontend: "${frontend}"
+  bake_openclaw: "${bake_openclaw}"
+  bake_open_computer: "${bake_open_computer}"
 EOF
   log_info "init state written: ${state_file}"
   echo
@@ -4192,7 +4225,14 @@ EOF
   echo "    SOVEREIGN_OS_PROFILE=${profile_id} scripts/build/orchestrate.sh preflight"
   echo
   echo "    # 2. Build the image (dry-run first; remove --dry-run when ready)"
+  # SDD-709: fold the agent-layer decisions into the recommended build env
+  # (only when they diverge from the profile default — unset inherits it).
+  local agent_env=""
+  [ -n "${frontend}" ] && agent_env="${agent_env}SOVEREIGN_OS_FRONTEND=${frontend} "
+  [ "${bake_openclaw}" = "yes" ] && agent_env="${agent_env}SOVEREIGN_OS_BAKE_OPENCLAW=1 "
+  [ "${bake_open_computer}" = "yes" ] && agent_env="${agent_env}SOVEREIGN_OS_BAKE_OPEN_COMPUTER=1 "
   echo "    SOVEREIGN_OS_PROFILE=${profile_id} SOVEREIGN_OS_SUBSTRATE=${substrate} \\"
+  [ -n "${agent_env}" ] && echo "      ${agent_env}\\"
   echo "      scripts/build/orchestrate.sh run --dry-run"
   echo
   echo "    # 3. After build succeeds, dump to target device (gated):"

@@ -88,6 +88,11 @@ VERSION = "0.1.0"
 
 REPO = Path(__file__).resolve().parents[2]
 PROFILES_DIR = REPO / "profiles"
+# SDD-709: the frontend the built image boots into by default. Mirrors the
+# canonical set in scripts/operator/frontend.py (FRONTENDS) — kept as a plain
+# literal so the API stays import-light; the frontend-selector contract lint
+# guards the two lists from drifting apart.
+FRONTEND_CHOICES = frozenset({"gnome", "dashboards-kiosk", "open-computer-kiosk", "none"})
 WEBAPP_ROOT = REPO / "webapp"
 WEBAPP = WEBAPP_ROOT / "build-configurator" / "index.html"
 
@@ -1011,6 +1016,21 @@ class Handler(BaseHTTPRequestHandler):
             # for this build (mkosi-emit honors SOVEREIGN_OS_POWER_FEATURE=0).
             if body.get("graceful_shutdown") is False:
                 bake_env["SOVEREIGN_OS_POWER_FEATURE"] = "0"
+            # SDD-709 agent layer — the page can bake the agent runtimes in and
+            # pick the default frontend. Tri-state: present+true forces the bake
+            # ON, present+false forces it OFF, absent inherits the profile.
+            # mkosi-emit honors SOVEREIGN_OS_BAKE_OPENCLAW / _OPEN_COMPUTER ("1"/"0").
+            if "bake_openclaw" in body:
+                bake_env["SOVEREIGN_OS_BAKE_OPENCLAW"] = "1" if body.get("bake_openclaw") else "0"
+            if "bake_open_computer" in body:
+                bake_env["SOVEREIGN_OS_BAKE_OPEN_COMPUTER"] = "1" if body.get("bake_open_computer") else "0"
+            frontend = body.get("frontend") or ""
+            if frontend:
+                if frontend not in FRONTEND_CHOICES:
+                    return self._send(400, json.dumps(
+                        {"error": f"unknown frontend {frontend!r}",
+                         "allowed": sorted(FRONTEND_CHOICES)}))
+                bake_env["SOVEREIGN_OS_FRONTEND"] = frontend
         argv_fn, needs_root = RUN_ACTIONS[action]
         argv = argv_fn()
         elevation_note = ""

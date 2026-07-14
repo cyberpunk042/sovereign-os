@@ -55,8 +55,20 @@ bake_dev_tools = bake_dev_tools or bool(prov_bake.get("dev_tools"))
 bake_selfdef = bake_selfdef or bool(prov_bake.get("selfdef"))
 bake_repo = bool(prov_bake.get("repo"))
 bake_ghostproxy = bool(prov_bake.get("root_ghostproxy"))
-bake_openclaw = bool(prov_bake.get("openclaw"))  # SDD-705: OpenClaw Node gateway daemon (installed-off, first-boot install)
-bake_open_computer = bool(prov_bake.get("open_computer"))  # SDD-706: open-computer QEMU AI-sandbox (installed-off, first-boot install)
+def _env_bake(name, profile_val):
+    """SDD-709: let the build configurator / operator override a bake toggle from the
+    build-host env — '1' forces on, '0' forces off, unset inherits the profile. So the
+    wizard's checkboxes drive the same knobs the profile declares."""
+    e = os.environ.get(name)
+    if e == "1":
+        return True
+    if e == "0":
+        return False
+    return profile_val
+
+
+bake_openclaw = _env_bake("SOVEREIGN_OS_BAKE_OPENCLAW", bool(prov_bake.get("openclaw")))  # SDD-705/709
+bake_open_computer = _env_bake("SOVEREIGN_OS_BAKE_OPEN_COMPUTER", bool(prov_bake.get("open_computer")))  # SDD-706/709
 bake_dashboards = bool(prov_bake.get("dashboards"))
 bake_gui = bool(prov_bake.get("gui"))  # install a desktop on the image (else headless appliance)
 # Live-reload on the installed box (SDD-203) — DEFAULT ON so the operator can keep
@@ -69,7 +81,9 @@ posture = prov.get("posture", "installed-off")
 # the display; `install` lists the frontend stacks staged so a live switch can
 # pick among them. Absent → gnome default + [gnome] staged (today's behaviour).
 prov_frontend = (prov.get("frontend") or {})
-frontend_default = str(prov_frontend.get("default", "gnome") or "gnome")
+# SDD-709: the build configurator / operator may pick the default frontend from the
+# build-host env (SOVEREIGN_OS_FRONTEND) — unset inherits the profile's declared default.
+frontend_default = os.environ.get("SOVEREIGN_OS_FRONTEND") or str(prov_frontend.get("default", "gnome") or "gnome")
 frontend_install = ",".join(prov_frontend.get("install", ["gnome"]) or ["gnome"])
 prov_power = (prov.get("power") or {})
 # Master toggle for the whole UPS + graceful-shutdown feature (default ON).

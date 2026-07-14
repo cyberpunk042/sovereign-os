@@ -1409,6 +1409,19 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
         <label class="chk" style="margin:0"><input type="checkbox" id="bake-selfdef"> bake selfdef <span class="muted small">(built + ready to enable)</span></label>
         <label class="chk" style="margin:0" title="UPS monitoring (NUT apc_modbus) + the staged graceful soft-exit (drain inference · finish in-flight · unload models · warn all mediums) armed at the profile's shutdown_minutes. A good default — uncheck to build without it."><input type="checkbox" id="bake-graceful" checked> UPS + graceful shutdown <span class="muted small">(default on)</span></label>
       </div>
+      <div style="display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:.5rem; align-items:center" title="The agent layer (SDD-703..709): pick the desktop the box boots into, and optionally bake the agent runtimes in so a flashed box has them staged (installed-off — enable with sovereign-osctl openclaw/open-computer on).">
+        <label class="chk" style="margin:0">frontend&nbsp;
+          <select id="bake-frontend" style="font:inherit; padding:.15rem .3rem">
+            <option value="">(profile default)</option>
+            <option value="gnome">gnome — desktop + dashboards launcher</option>
+            <option value="dashboards-kiosk">dashboards-kiosk — fullscreen :8100 hub</option>
+            <option value="open-computer-kiosk">open-computer-kiosk — fullscreen sandbox UI</option>
+            <option value="none">none — headless appliance</option>
+          </select>
+        </label>
+        <label class="chk" style="margin:0"><input type="checkbox" id="bake-openclaw"> bake OpenClaw <span class="muted small">(agent runtime, installed-off)</span></label>
+        <label class="chk" style="margin:0"><input type="checkbox" id="bake-open_computer"> bake open-computer <span class="muted small">(QEMU AI sandbox, installed-off)</span></label>
+      </div>
       <pre class="out" id="run-log" style="max-height:280px; min-height:2.2rem; margin:0">(idle — output streams here live)</pre>
       <div class="banner danger" id="run-errors" style="display:none; margin:.55rem 0 0"></div>
     </div>
@@ -2152,6 +2165,12 @@ function buildCommand(){
   var bd = document.getElementById("bake-dev"), bs = document.getElementById("bake-selfdef");
   if (bd && bd.checked) lines.push("SOVEREIGN_OS_BAKE_DEV_TOOLS=1 \\");
   if (bs && bs.checked) lines.push("SOVEREIGN_OS_BAKE_SELFDEF=1 \\");
+  // SDD-709 agent layer — surface the same knobs the page POSTs to /api/run.
+  var bf = document.getElementById("bake-frontend");
+  if (bf && bf.value) lines.push("SOVEREIGN_OS_FRONTEND=" + bf.value + " \\");
+  var boc = document.getElementById("bake-openclaw"), bocp = document.getElementById("bake-open_computer");
+  if (boc && boc.checked) lines.push("SOVEREIGN_OS_BAKE_OPENCLAW=1 \\");
+  if (bocp && bocp.checked) lines.push("SOVEREIGN_OS_BAKE_OPEN_COMPUTER=1 \\");
   lines.push(
     "SOVEREIGN_OS_OVERLAY_PROFILE=overlay.yaml \\",
     "SOVEREIGN_OS_OVERLAY_OPERATOR_DEPS=operator-deps.toml \\",
@@ -2474,7 +2493,10 @@ function runAction(action){
                           snapshot: document.getElementById("snapshot").value || "",
                           bake_dev: document.getElementById("bake-dev").checked,
                           bake_selfdef: document.getElementById("bake-selfdef").checked,
-                          graceful_shutdown: document.getElementById("bake-graceful").checked}),
+                          graceful_shutdown: document.getElementById("bake-graceful").checked,
+                          frontend: document.getElementById("bake-frontend").value || "",
+                          bake_openclaw: document.getElementById("bake-openclaw").checked,
+                          bake_open_computer: document.getElementById("bake-open_computer").checked}),
   }).then(function(r){
     if (r.status === 409){ return attachRun(); }   // one already running → attach to it
     if (!r.ok) return r.text().then(function(t){
@@ -2507,6 +2529,9 @@ else restoreRun();
 document.getElementById("bake-dev").addEventListener("change", regenerate);
 document.getElementById("bake-selfdef").addEventListener("change", regenerate);
 document.getElementById("bake-graceful").addEventListener("change", regenerate);
+document.getElementById("bake-frontend").addEventListener("change", regenerate);
+document.getElementById("bake-openclaw").addEventListener("change", regenerate);
+document.getElementById("bake-open_computer").addEventListener("change", regenerate);
 document.getElementById("run-dry").addEventListener("click", function(){ runAction("dry-run"); });
 document.getElementById("run-preflight").addEventListener("click", function(){ runAction("preflight"); });
 document.getElementById("run-build").addEventListener("click", function(){ runAction("build"); });
