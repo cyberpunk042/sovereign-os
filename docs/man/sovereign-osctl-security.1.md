@@ -1,4 +1,4 @@
-% SOVEREIGN-OSCTL-SECURITY(1) sovereign-os 0.2.0 | sovereign-os Operator Manual
+% SOVEREIGN-OSCTL-SECURITY(1) sovereign-os 0.3.0 | sovereign-os Operator Manual
 % cyberpunk042 and sovereign-os contributors
 % 2026-07-14
 
@@ -16,8 +16,9 @@ Tetragon perimeter, selfdef, Secure Boot, permission classification, authenticat
 
 This page owns 18 top-level commands. Ownership is defined in
 `docs/man/sovereign-osctl-command-topics.json` and checked against the
-real dispatcher. **sovereign-osctl help** remains authoritative for the
-exact syntax shipped by the installed version.
+real dispatcher. The synopsis and descriptions are grounded in the
+command handler or delegated-script contract at this build revision.
+The top-level help is a discovery summary, not an exhaustive grammar.
 
 # SAFETY MODEL
 
@@ -29,12 +30,12 @@ operator use.
 
 # COMMON WORKFLOW
 
-1. Inspect the relevant **status**, **show**, **list**, **info**, **plan**,
+1. Confirm the installed revision with **sovereign-osctl version**.
+2. Inspect the relevant **status**, **show**, **list**, **info**, **plan**,
    or **doctor** surface.
-2. Save machine-readable output when `--json` is available.
-3. Review profile, device, backend, policy, and target selection.
-4. Apply the smallest scoped mutation.
-5. Re-run health/status and inspect alerts or journal output.
+3. Save machine-readable output when `--json` is available.
+4. Review profile, device, backend, policy, and target selection.
+5. Apply the smallest scoped mutation, then re-run health/status.
 
 # EXAMPLES
 
@@ -56,8 +57,6 @@ operator use.
 
 **sovereign-osctl perimeter reload**
 :   Reload Tetragon TracingPolicies
-
-Run `sovereign-osctl help` for the complete version-matched grammar.
 
 ## selfdef
 
@@ -82,8 +81,6 @@ Run `sovereign-osctl help` for the complete version-matched grammar.
 **sovereign-osctl selfdef install-units**
 :   Wire selfdef's shipped systemd units into /etc/systemd/system (root)
 
-Run `sovereign-osctl help` for the complete version-matched grammar.
-
 ## audit
 
 **sovereign-osctl audit friction**
@@ -102,9 +99,7 @@ Run `sovereign-osctl help` for the complete version-matched grammar.
 :   Compare deployed hardening drop-ins vs config/server + config/workstation sources
 
 **sovereign-osctl audit customization [--json] Did my profile/whitelabel/hostname customization actually land?**
-:   See the live help for behavior and options.
-
-Run `sovereign-osctl help` for the complete version-matched grammar.
+:   See the handler for behavior and options.
 
 ## secure-boot
 
@@ -114,22 +109,15 @@ Run `sovereign-osctl help` for the complete version-matched grammar.
 **sovereign-osctl secure-boot status**
 :   Inspect current PK/KEK/db enrollment + MOK state
 
-Run `sovereign-osctl help` for the complete version-matched grammar.
-
 ## permission
 
 **sovereign-osctl permission [--mode manual|auto|bypass] <command…>**
-:   See the live help for behavior and options.
-
-Run `sovereign-osctl help` for the complete version-matched grammar.
+:   See the handler for behavior and options.
 
 ## hardening-base
 
-**sovereign-osctl hardening-base [arguments]**
-:   R307 (E1.M31): CPU hotswap mode detection — per-CPU current governor / EPP / driver state + available transitions + swap-hint operator-runnable command. Complements R221/R230 (E1.M10 cpu-mode + auto-recommender) with the detect side. Operator-named (§1b verbatim).
-
-Run `sovereign-osctl help` for the complete version-matched grammar.
-
+**sovereign-osctl hardening-base {list|show|check}**
+:   R306 (E2.M13): Debian 13 base-system hardening catalog — 12 OS-level items (sysctl hardening + AppArmor + unattended- upgrades + auditd + fail2ban + sshd config). Per-item runtime probe + recommended value + operator-readable rationale. Complements R299 (BIOS layer) + R171 (systemd unit layer).
 ## auth-tier
 
 **sovereign-osctl auth-tier list-tiers**
@@ -147,64 +135,38 @@ Run `sovereign-osctl help` for the complete version-matched grammar.
 **sovereign-osctl auth-tier set <dashboard>**
 :   Triple-gated tier mutation (requires
 
-Run `sovereign-osctl help` for the complete version-matched grammar.
-
 ## grants-mirror
 
 **sovereign-osctl grants-mirror [arguments]**
-:   SDD-069 (M028): the observation event stream — auto-feed admission from the ONE real event source, the OCSF span log (/var/log/sovereign-os/spans.jsonl). Tails it via a persisted cursor + maps each new span → a memory admission + feeds the existing admit value-gate (R04672 — not every observation becomes memory). COMPREHENSIVE mapping (session_reap→task-outcome/episodic, cockpit_action ok→ tool-worked, fail→model-mistake, *_decision→preference, save-state→high-value- reuse, gate→task-outcome,...
-
-Run `sovereign-osctl help` for the complete version-matched grammar.
-
+:   M060 D-13 (R10114-R10115): READ-ONLY consumer of the selfdef grants mirror (MS007 typed-mirror crate selfdef-grants-mirror) — projects selfdef's MS037/MS038/MS035/MS034/MS032 grant state (filesystem/network/ capability/communication/sandbox) for the D-13 cockpit dashboard. sovereign-os NEVER mutates IPS state; grant ops are selfdefctl + MS003 on the IPS side only. Verbs: snapshot / summaries (+ --json).
 ## quarantine-mirror
 
 **sovereign-osctl quarantine-mirror [arguments]**
-:   M060 D-13 (R10114-R10115): READ-ONLY consumer of the selfdef grants mirror (MS007 typed-mirror crate selfdef-grants-mirror) — projects selfdef's MS037/MS038/MS035/MS034/MS032 grant state (filesystem/network/ capability/communication/sandbox) for the D-13 cockpit dashboard. sovereign-os NEVER mutates IPS state; grant ops are selfdefctl + MS003 on the IPS side only. Verbs: snapshot / summaries (+ --json).
-
-Run `sovereign-osctl help` for the complete version-matched grammar.
-
+:   M060 D-17 (R10121-R10122): READ-ONLY consumer of the selfdef tool- quarantine mirror (MS007 typed-mirror crate selfdef-quarantine-mirror). Projects selfdef MS042 declaration-vs-observed quarantine archive (4 severities + per-field mismatches + block/quarantine/trace) for the D-17 cockpit dashboard. sovereign-os NEVER mutates IPS state; trace/release/ forfeit are selfdefctl + MS003 only. Verbs: snapshot / summaries (+ --json).
 ## trust-mirror
 
 **sovereign-osctl trust-mirror [arguments]**
-:   M060 D-17 (R10121-R10122): READ-ONLY consumer of the selfdef tool- quarantine mirror (MS007 typed-mirror crate selfdef-quarantine-mirror). Projects selfdef MS042 declaration-vs-observed quarantine archive (4 severities + per-field mismatches + block/quarantine/trace) for the D-17 cockpit dashboard. sovereign-os NEVER mutates IPS state; trace/release/ forfeit are selfdefctl + MS003 only. Verbs: snapshot / summaries (+ --json).
-
-Run `sovereign-osctl help` for the complete version-matched grammar.
-
+:   M060 D-18 (R10123): READ-ONLY consumer of the selfdef tool trust-score mirror (MS007 typed-mirror crate selfdef-trust-score-mirror). Projects selfdef MS042 per-tool trust scores (declaration-fidelity over time, 0-1000 scale, 4 bands + score history) for the D-18 cockpit dashboard. sovereign-os NEVER mutates IPS state; score reset is selfdefctl + MS003 only. Verbs: snapshot / bands (+ --json).
 ## capability-mirror
 
 **sovereign-osctl capability-mirror [arguments]**
-:   M060 D-02 (R10063-R10068): READ-ONLY consumer of the selfdef active- profile mirror (MS007 typed-mirror crate selfdef-profile-mirror). Projects selfdef MS040 six-profile authority matrix active selection + MS039 L0..L6 envelope + transition history for the D-02 cockpit dashboard. sovereign-os NEVER mutates IPS state; profile switch is sovereign profile set + MS003 only. Offline → MS040 R09535 default (Private). Verb: show (+ --json).
-
-Run `sovereign-osctl help` for the complete version-matched grammar.
-
+:   M060 D-14 (R10116-R10117): READ-ONLY consumer of the selfdef capability- token mirror (MS007 typed-mirror crate selfdef-capability-mirror). Projects selfdef MS035 64-bit capability_word tokens + MS039 Ring 0..4 + L0..L6 authority + F04146 parent-child inheritance for the D-14 cockpit dashboard. sovereign-os NEVER mutates IPS state; token issue/revoke are selfdefctl + MS003 only. Verbs: snapshot / summaries (+ --json).
 ## audit-mirror
 
 **sovereign-osctl audit-mirror [arguments]**
-:   M060 D-14 (R10116-R10117): READ-ONLY consumer of the selfdef capability- token mirror (MS007 typed-mirror crate selfdef-capability-mirror). Projects selfdef MS035 64-bit capability_word tokens + MS039 Ring 0..4 + L0..L6 authority + F04146 parent-child inheritance for the D-14 cockpit dashboard. sovereign-os NEVER mutates IPS state; token issue/revoke are selfdefctl + MS003 only. Verbs: snapshot / summaries (+ --json).
-
-Run `sovereign-osctl help` for the complete version-matched grammar.
-
+:   M060 D-16 (R10120): READ-ONLY consumer of the selfdef audit-chain mirror (MS007 typed-mirror crate selfdef-audit-mirror). Projects selfdef MS016 SHA-256-chained, MS049 13-field-spanned, MS026 OCSF-categorized, MS003 verify-only audit chain for the D-16 cockpit dashboard. Chain is APPEND- ONLY by MS016 R03567 doctrine — the operator has NO mutation surface; verify / show / export are selfdefctl + MS003 only. Verbs: snapshot / integrity (+ --json).
 ## rules-mirror
 
 **sovereign-osctl rules-mirror [arguments]**
-:   M060 D-16 (R10120): READ-ONLY consumer of the selfdef audit-chain mirror (MS007 typed-mirror crate selfdef-audit-mirror). Projects selfdef MS016 SHA-256-chained, MS049 13-field-spanned, MS026 OCSF-categorized, MS003 verify-only audit chain for the D-16 cockpit dashboard. Chain is APPEND- ONLY by MS016 R03567 doctrine — the operator has NO mutation surface; verify / show / export are selfdefctl + MS003 only. Verbs: snapshot / integrity (+ --json).
-
-Run `sovereign-osctl help` for the complete version-matched grammar.
-
+:   M060 D-12 (MS024 + MS038 + MS039): READ-ONLY consumer of the selfdef nftables rules mirror (MS007 typed-mirror crate selfdef-rules-mirror). Projects the daemon's Ring 0..4 nftables rule projection for the D-12 networking dashboards (edge-firewall + network-edge). Rule installation lives in selfdefctl + nft at the IPS layer (operator MS003 only) — this dispatch only OBSERVES the live state. Verbs: snapshot / summaries (+ --json).
 ## peace-machine
 
 **sovereign-osctl peace-machine [arguments]**
-:   M060 D-19 (R10124-R10125): super-model manifest — sovereign-os-native version + module-version table computed LIVE from git HEAD + the milestone catalog (M001..M080 ids/titles/R-row counts) + config/super-model- manifest.toml editorial overlay (M053 11 build-phases + per-milestone family/status). Read-only; the sovereign-super-model-api daemon serves the D-19 cockpit dashboard from this same core. Verbs: snapshot / version / milestones (+ --json).
-
-Run `sovereign-osctl help` for the complete version-matched grammar.
-
+:   M060 D-20 (R10126-R10128): peace-machine health — sovereign-os-native (M059 sovereign close). Surfaces the 5 peace-machine properties (powerful/ disciplined/reversible/flexible/sovereign, dump 18338-18341) + the live verdict read from the sovereign-os-peace-check validator (R09980-R09982). Read-only; the sovereign-peace-machine-api daemon serves the D-20 cockpit dashboard from this same core. Verbs: snapshot / properties (+ --json).
 ## peace-check
 
 **sovereign-osctl peace-check [arguments]**
-:   M060 D-20 (R10126-R10128): peace-machine health — sovereign-os-native (M059 sovereign close). Surfaces the 5 peace-machine properties (powerful/ disciplined/reversible/flexible/sovereign, dump 18338-18341) + the live verdict read from the sovereign-os-peace-check validator (R09980-R09982). Read-only; the sovereign-peace-machine-api daemon serves the D-20 cockpit dashboard from this same core. Verbs: snapshot / properties (+ --json).
-
-Run `sovereign-osctl help` for the complete version-matched grammar.
-
+:   SDD-132: thin wrapper so the D-20 "re-run" control can execute via the exec-rail (change_cli must start with sovereign-osctl). Execs the standalone validator binary /usr/bin/sovereign-os-peace-check (R09980-R09982). Read-only: the validator computes the 5-property verdict + publishes it; nothing mutates host state. Verbs/flags pass through (the control models the one-shot --json).
 ## auditor
 
 **sovereign-osctl auditor status**
@@ -221,8 +183,6 @@ Run `sovereign-osctl help` for the complete version-matched grammar.
 
 **sovereign-osctl auditor watch**
 :   R537 (E5++): refresh-loop TUI surface
-
-Run `sovereign-osctl help` for the complete version-matched grammar.
 
 ## edge-firewall
 
@@ -244,8 +204,6 @@ Run `sovereign-osctl help` for the complete version-matched grammar.
 **sovereign-osctl edge-firewall wizard**
 :   R482 (E11.M9+): install-wizard TUI surface —
 
-Run `sovereign-osctl help` for the complete version-matched grammar.
-
 ## network-edge
 
 **sovereign-osctl network-edge detect**
@@ -265,8 +223,6 @@ Run `sovereign-osctl help` for the complete version-matched grammar.
 
 **sovereign-osctl network-edge nat-chain**
 :   NAT layers visible from workstation
-
-Run `sovereign-osctl help` for the complete version-matched grammar.
 
 # FILES
 
