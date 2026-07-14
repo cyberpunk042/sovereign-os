@@ -1,0 +1,221 @@
+.TH SOVEREIGN-OSCTL 1 "July 2026" "sovereign-os" "Operator Commands"
+.SH NAME
+sovereign-osctl \- manage the sovereign-os lifecycle
+.SH SYNOPSIS
+.B sovereign-osctl
+.I command
+.RI [ subcommand ]
+.RI [ arguments ]
+.PP
+.B sovereign-osctl
+.RB { help | version }
+.SH DESCRIPTION
+.B sovereign-osctl
+is the operator-facing entry point for inspecting, configuring, auditing,
+maintaining, and decommissioning a sovereign-os installation.
+It selects the active profile from
+.I /etc/sovereign-os/active-profile
+and defaults to
+.B sain-01
+when that file is absent.
+.PP
+Commands that mutate system state are explicitly gated. Read the plan or status
+form first, and use root privileges only where the selected command requires them.
+The complete, version-matched command inventory is available through
+.BR "sovereign-osctl help" .
+.SH CORE COMMANDS
+.TP
+.B status [--json]
+Show a system state overview. JSON output is suitable for fleet aggregation.
+.TP
+.B doctor
+Run profile-conditioned sanity checks across the installed system.
+.TP
+.B assistant [full|status|reset|list]
+Run or inspect the first-login assistant.
+.TP
+.B init [--non-interactive]
+Run the setup wizard and write
+.IR .sovereign-os/init-state.yaml .
+.TP
+.B overview
+Show the consolidated operator overview.
+.SH PROFILES AND CUSTOMIZATION
+.TP
+.B profiles list|show|show-effective|compare|fork|active|switch|validate
+Inspect, compare, create, activate, and validate OS profiles.
+.TP
+.B whitelabel show|apply|list|diff
+Inspect or apply operator-owned branding.
+.TP
+.B hooks list|add|remove
+Manage profile lifecycle hooks.
+.TP
+.B env list|show
+Discover supported
+.B SOVEREIGN_OS_*
+configuration variables and their consumers.
+.SH AI AND RUNTIME
+.TP
+.B models
+Query, select, pull, verify, evaluate, fine-tune, and remove models.
+Use
+.B sovereign-osctl help
+for the complete model command tree.
+.TP
+.B inference
+Manage local inference surfaces.
+.TP
+.B gateway [--addr host:port] [--json]
+Probe the sovereign provider-inversion gateway.
+.TP
+.B frontend status|list|set
+Inspect or switch the boot frontend.
+.TP
+.B openclaw status|on|off|install|backend|logs|doctor
+Manage the OpenClaw agent runtime and its local/Anthropic backend selection.
+.TP
+.B open-computer status|on|off|install|backend|url|logs|doctor
+Manage the open-computer QEMU AI sandbox.
+.TP
+.B trinity
+Inspect and operate Pulse, Weaver, and Auditor.
+.TP
+.B science
+Inspect and run the non-LLM science tool surface.
+.SH SECURITY AND AUDIT
+.TP
+.B perimeter status|verify|reload
+Inspect or reload the Tetragon perimeter.
+.TP
+.B selfdef
+Operate the selfdef intrusion-prevention integration.
+.TP
+.B audit friction|perimeter|storage|provenance|drift|customization
+Run hardware, security, storage, provenance, and configuration audits.
+.TP
+.B secure-boot gen-keys|status
+Generate operator-owned Secure Boot keys or inspect enrollment state.
+.TP
+.B permission
+Classify a command under the manual, auto, or bypass approval mode.
+.TP
+.B auth-tier
+Inspect and manage dashboard authentication tiers.
+.TP
+.B compliance
+Inspect the consolidated compliance surface.
+.SH OPERATIONS
+.TP
+.B maintenance
+Run on-demand storage, logging, security, model, perimeter, and alert maintenance.
+.TP
+.B metrics
+Inspect exported sovereign-os metrics.
+.TP
+.B journal
+Inspect the sovereign-os journal and error surfaces.
+.TP
+.B history
+Inspect recorded operator history.
+.TP
+.B thermals
+Inspect thermal state.
+.TP
+.B alerts
+Show rule-derived alerts.
+.TP
+.B install image [--plan] image --to device
+Plan or write a built image to a target device. The write path refuses the
+running root device and requires the explicit destructive confirmation gate.
+.TP
+.B decommission --plan
+Preview all decommission phases without changing state.
+.TP
+.B decommission start
+Begin the interactive, confirmation-gated decommission flow.
+.SH GOVERNANCE AND DISCOVERY
+.TP
+.B doc-coverage
+Inspect documentation coverage by operator-facing module.
+.TP
+.B surface-map
+Inspect module coverage across core, CLI, TUI, API, MCP, dashboard, web, and service surfaces.
+.TP
+.B ux-design-audit
+Audit operator-facing modules against the UX contract.
+.TP
+.B anti-minimization-audit
+Scan for known minimization patterns and explicit waivers.
+.TP
+.B architecture-qa
+Inspect architecture questions and their status.
+.TP
+.B coverage
+Inspect implementation coverage.
+.TP
+.B layers
+Inspect the project layer model.
+.TP
+.B search
+Search project knowledge from the operator surface.
+.SH ENVIRONMENT
+.TP
+.B SOVEREIGN_OS_LIB
+Override the library directory. It must contain
+.IR lib/common.sh .
+.TP
+.B SOVEREIGN_OS_PROFILE
+Override the active OS profile for the current invocation.
+.TP
+.B SOVEREIGN_OS_CONFIRM_DESTROY
+Must be set to
+.B YES
+for destructive image installation after the plan and device safety checks pass.
+.PP
+Additional variables are discoverable with
+.BR "sovereign-osctl env list" .
+.SH FILES
+.TP
+.I /etc/sovereign-os/active-profile
+Installed active-profile selector.
+.TP
+.I /usr/local/lib/sovereign-os
+Default installed library tree.
+.TP
+.I /usr/lib/sovereign-os
+Legacy library location.
+.TP
+.I /opt/sovereign-os
+Alternate vendor tree used by installed services.
+.TP
+.I .sovereign-os/init-state.yaml
+Setup-wizard state in a repository or operator working directory.
+.SH EXAMPLES
+.nf
+sovereign-osctl status --json
+sovereign-osctl doctor
+sovereign-osctl profiles show-effective sain-01
+sovereign-osctl models suggest --runtime-profile high-concurrency --json
+sovereign-osctl audit provenance --deep build/sain-01/output/build-provenance.json
+sovereign-osctl install image --plan build/sain-01/output/sain-01.raw --to /dev/nvme1n1
+.fi
+.SH EXIT STATUS
+Zero indicates success. Non-zero indicates invalid input, a failed check,
+an unavailable dependency, a refused safety gate, or an operational failure.
+Some audit and coverage commands use status 2 to report detected gaps.
+.SH SEE ALSO
+.BR systemctl (1),
+.BR journalctl (1),
+.BR zpool (8),
+.BR zfs (8),
+.BR podman (1)
+.PP
+Project documentation:
+.I docs/src/ops/manage.md
+and
+.IR docs/src/operator-journey.md .
+.SH AUTHORS
+The sovereign-os project contributors.
+.SH LICENSE
+AGPL-3.0-or-later.
