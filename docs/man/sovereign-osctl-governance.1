@@ -14,7 +14,7 @@
 . ftr VB CB
 . ftr VBI CBI
 .\}
-.TH "SOVEREIGN-OSCTL-GOVERNANCE" "1" "2026-07-14" "sovereign-os 0.2.0" "sovereign-os Operator Manual"
+.TH "SOVEREIGN-OSCTL-GOVERNANCE" "1" "2026-07-14" "sovereign-os 0.3.0" "sovereign-os Operator Manual"
 .hy
 .SH NAME
 .PP
@@ -30,12 +30,13 @@ Architecture questions, doctrine, documentation coverage, UX,
 anti-minimization, surface maps, compliance, dashboards, and
 cross-module health.
 .PP
-This page owns 16 top-level commands.
+This page owns 18 top-level commands.
 Ownership is defined in
 \f[V]docs/man/sovereign-osctl-command-topics.json\f[R] and checked
 against the real dispatcher.
-\f[B]sovereign-osctl help\f[R] remains authoritative for the exact
-syntax shipped by the installed version.
+The synopsis and descriptions are grounded in the command handler or
+delegated-script contract at this build revision.
+The top-level help is a discovery summary, not an exhaustive grammar.
 .SH SAFETY MODEL
 .PP
 Scanners and reports are generally read-only.
@@ -47,16 +48,16 @@ JSON output, when offered, is the stable surface for automation; human
 output is intended for direct operator use.
 .SH COMMON WORKFLOW
 .IP "1." 3
+Confirm the installed revision with \f[B]sovereign-osctl version\f[R].
+.IP "2." 3
 Inspect the relevant \f[B]status\f[R], \f[B]show\f[R], \f[B]list\f[R],
 \f[B]info\f[R], \f[B]plan\f[R], or \f[B]doctor\f[R] surface.
-.IP "2." 3
-Save machine-readable output when \f[V]--json\f[R] is available.
 .IP "3." 3
-Review profile, device, backend, policy, and target selection.
+Save machine-readable output when \f[V]--json\f[R] is available.
 .IP "4." 3
-Apply the smallest scoped mutation.
+Review profile, device, backend, policy, and target selection.
 .IP "5." 3
-Re-run health/status and inspect alerts or journal output.
+Apply the smallest scoped mutation, then re-run health/status.
 .SH EXAMPLES
 .IP
 .nf
@@ -72,84 +73,63 @@ sovereign-osctl compliance status --json
 .SS operator-rules
 .TP
 \f[B]sovereign-osctl operator-rules status|apply|capture|compat [\[en]dry-run] [\[en]json]\f[R]
-See the live help for behavior and options.
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
+See the handler for behavior and options.
 .SS apply-audit
 .TP
-\f[B]sovereign-osctl apply-audit [arguments]\f[R]
-R329 (E2.M22): next-action advisor \[em] composes R322 state snapshot +
-emits ranked operator-pull recommendations of most-impactful verb to run
-next.
-\[lq]What should I do now?\[rq] decision support.
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
+\f[B]sovereign-osctl apply-audit {list|tail|by-verb|audit}\f[R]
+R327 (E9.M11): central apply-audit log query CLI.
+Reads /var/lib/sovereign-os/apply-audit.jsonl appended by every mutating
+verb.
+Operator-pull \[lq]who mutated what when?\[rq] ## rounds
+.TP
+\f[B]sovereign-osctl rounds {list|show|by-epic|recent}\f[R]
+R321 (E9.M9): operator-pull rounds catalog \[em] meta-navigation over
+the now-300+ round codebase.
+Parses mandate.md, exposes list / show / by-epic / recent verbs.
+Operator-named (§1.0 meta-navigation for perpetual E9.M3 intake loop).
+## search
+.TP
+\f[B]sovereign-osctl search [arguments]\f[R]
+R386 (E10.M30): unified operator-pull search across all 3
+verbatim-catalog taxonomies (architecture-qa + coverage-map + layers).
+One verb queries all catalogs at once + ranks results.
+## layers
+.TP
+\f[B]sovereign-osctl layers [sub]\f[R]
+R382: operator-verbatim 11-layer
 .SS quarterly-review
 .TP
 \f[B]sovereign-osctl quarterly-review [sub]\f[R]
 R377: composed coverage + doctrine +
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
 .SS doctrine-status
 .TP
 \f[B]sovereign-osctl doctrine-status [sub]\f[R]
 R376: SDD-037 8-lint family health at
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
 .SS verbatim-render
 .TP
 \f[B]sovereign-osctl verbatim-render [sub]\f[R]
 R369: consolidated render of all 9
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
 .SS coverage
 .TP
 \f[B]sovereign-osctl coverage [sub]\f[R]
 R365: 32 operator-stated demand axes
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
 .SS architecture-qa
 .TP
 \f[B]sovereign-osctl architecture-qa [sub]\f[R]
 R355+ verbatim catalog (27 concepts +
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
-.SS m060-health
-.TP
-\f[B]sovereign-osctl m060-health [arguments]\f[R]
-MS043 R10281 + R10297: READ-ONLY consumer of the selfdef CLI schema
-mirror (MS007 typed-mirror crate selfdef-cli-mirror).
-Projects the selfdefctl clap App tree (140+ subcommands classified into
-8 effect classes per MS039 authority ladder) the selfdef daemon
-publishes by shelling out + caching selfdefctl cli-mirror snapshot.
-Used by sovereign-os for IPS-operator-surface introspection, completion
-generation, \[lq]how do I do X\[rq] cross-links, MCP-client
-tool-pickers.
-Doctrine surface \[lq]Fullstack at th\&...
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
 .SS dashboards
 .TP
 \f[B]sovereign-osctl dashboards [arguments]\f[R]
-SDD-132: thin wrapper so the D-20 \[lq]re-run\[rq] control can execute
-via the exec-rail (change_cli must start with sovereign-osctl).
-Execs the standalone validator binary /usr/bin/sovereign-os-peace-check
-(R09980-R09982).
-Read-only: the validator computes the 5-property verdict + publishes it;
-nothing mutates host state.
-Verbs/flags pass through (the control models the one-shot \[en]json).
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
-.SS compliance
+M060 R10038 + R10129-R10132: operator dashboard on/off toggles \[em]
+\[lq]everything can be turned on and off\[rq].
+Lists every cockpit dashboard + its enabled bit, toggles them on/off
+(persisted to /etc/sovereign-os/ dashboards.toml, R10130), emitting an
+M049 trace + OCSF 5001 Configuration Change (R10132) into the D-05 span
+log on each change.
+enable/disable are the operator (MS003-signed) path (R10131); web
+surfaces never mutate.
+Verbs: list / status / enable / disable [\[en]rationale].
+## compliance
 .TP
 \f[B]sovereign-osctl compliance status\f[R]
 R458: §1g/§1h compliance dashboard
@@ -168,9 +148,6 @@ Record current state to history journal.
 .TP
 \f[B]sovereign-osctl compliance watch\f[R]
 R519 (E5++): refresh-loop TUI surface
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
 .SS ux-design-audit
 .TP
 \f[B]sovereign-osctl ux-design-audit dimensions\f[R]
@@ -193,9 +170,6 @@ R464 cross-repo: scan /etc/selfdef/
 .TP
 \f[B]sovereign-osctl ux-design-audit watch\f[R]
 R528 (E5++): refresh-loop TUI surface
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
 .SS anti-minimization-audit
 .TP
 \f[B]sovereign-osctl anti-minimization-audit patterns\f[R]
@@ -208,7 +182,7 @@ Scan repo for matches (all 8 or one
 Per-module audit: surface gaps +
 .TP
 \f[B]sovereign-osctl anti-minimization-audit cross-module Modules short on BOTH surface AND doc\f[R]
-See the live help for behavior and options.
+See the handler for behavior and options.
 .TP
 \f[B]sovereign-osctl anti-minimization-audit report\f[R]
 One-screen summary: total matches per
@@ -221,9 +195,6 @@ R466 cross-repo: scan /etc/selfdef/
 .TP
 \f[B]sovereign-osctl anti-minimization-audit watch\f[R]
 R522 (E5++): refresh-loop TUI surface
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
 .SS doc-coverage
 .TP
 \f[B]sovereign-osctl doc-coverage kinds\f[R]
@@ -243,9 +214,6 @@ Modules below doc-surface threshold
 .TP
 \f[B]sovereign-osctl doc-coverage watch\f[R]
 R525 (E5++): refresh-loop TUI surface
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
 .SS surface-map
 .TP
 \f[B]sovereign-osctl surface-map surfaces\f[R]
@@ -268,9 +236,6 @@ R462 cross-repo: scan /etc/selfdef/
 .TP
 \f[B]sovereign-osctl surface-map watch\f[R]
 R531 (E5++): refresh-loop TUI surface
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
 .SS master-dashboard
 .TP
 \f[B]sovereign-osctl master-dashboard list\f[R]
@@ -293,9 +258,6 @@ R460 cross-repo: scan /etc/selfdef/
 .TP
 \f[B]sovereign-osctl master-dashboard watch\f[R]
 R488 (E11.M2+): refresh-loop TUI (ANSI-clear)
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
 .SS global-history
 .TP
 \f[B]sovereign-osctl global-history recent\f[R]
@@ -312,9 +274,6 @@ R448: events since timestamp (operator
 .TP
 \f[B]sovereign-osctl global-history tail\f[R]
 R481 (E11.M5+): live-tail TUI surface \[em]
-.PP
-Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
-grammar.
 .SH FILES
 .TP
 \f[B]/etc/sovereign-os/\f[R]
