@@ -128,6 +128,13 @@ def test_critical_runtime_facts_are_not_inherited_from_stale_help():
     install = _read(MAN_DIR / "sovereign-osctl-install.1.md")
     models = _read(MAN_DIR / "sovereign-osctl-models.1.md")
 
+    help_text = cli.split("cmd_help() {", 1)[1].split("\nEOF", 1)[0]
+    assert "walk through 6 decisions" in help_text
+    assert "walk through 5 decisions" not in help_text
+    assert "models list                  List resident models (/mnt/vault/models by default)" in help_text
+    assert "decommission pool" in help_text
+    assert "decommission wipe" in help_text
+
     init_handler = cli.split("cmd_init() {", 1)[1].split("\n}", 1)[0]
     assert "Walks you through 6 decisions" in init_handler
     assert "six decisions" in install
