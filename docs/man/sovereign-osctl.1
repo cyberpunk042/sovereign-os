@@ -14,7 +14,7 @@
 . ftr VB CB
 . ftr VBI CBI
 .\}
-.TH "SOVEREIGN-OSCTL" "1" "2026-07-14" "sovereign-os 0.2.0" "sovereign-os Operator Manual"
+.TH "SOVEREIGN-OSCTL" "1" "2026-07-14" "sovereign-os 0.3.0" "sovereign-os Operator Manual"
 .hy
 .SH NAME
 .PP
@@ -38,8 +38,9 @@ The active OS profile is read from
 \f[V]sain-01\f[R].
 Commands that mutate state retain their command-specific confirmation,
 privilege, and dry-run gates.
-Consult \f[B]sovereign-osctl help\f[R] for the complete version-matched
-syntax of every subcommand.
+\f[B]sovereign-osctl help\f[R] is a discovery summary, not an exhaustive
+grammar; use the topic pages below and the command-specific help
+implemented by delegated tools where available.
 .SH PRIMARY COMMAND FAMILIES
 .TP
 \f[B]status\f[R] [\f[B]\[en]json\f[R]], \f[B]overview\f[R], \f[B]doctor\f[R]
@@ -121,7 +122,9 @@ configuration snapshots, and decommissioning.
 .PP
 This index is pinned by a lint contract to the real top-level
 dispatcher.
-For subcommands and options, run \f[B]sovereign-osctl help\f[R].
+For subcommands and options, consult the owning topic page.
+The live \f[B]sovereign-osctl help\f[R] output summarizes the primary
+surface but does not currently enumerate every delegated command.
 .PP
 \f[B]status\f[R], \f[B]overview\f[R], \f[B]doctor\f[R],
 \f[B]assistant\f[R], \f[B]profiles\f[R], \f[B]whitelabel\f[R]
