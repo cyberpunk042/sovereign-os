@@ -4,6 +4,13 @@ Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/aud
 # Master spec § 10.2 verbatim dependency declaration:
 After=tetragon.service
 Requires=tetragon.service
+# G3 (SDD-998): the unit is ProtectSystem=strict with ReadWritePaths=/mnt/vault/context.
+# If /mnt/vault (a ZFS dataset) is not yet mounted when the daemon starts, the
+# mount-namespace setup for that ReadWritePaths entry fails → 226/NAMESPACE and a
+# Restart=always crash-loop until the pool mounts. Order after the pool + require
+# the vault mount so the namespace is always buildable when we run.
+After=zfs.target
+RequiresMountsFor=/mnt/vault/context
 # Transposition-dump OPNsense/Tetragon-dropout prevention (verbatim:
 # "must include explicit service binding controls (BindsTo=tetragon.service)"):
 # if tetragon stops during a network reconfiguration event, stop with it
@@ -27,7 +34,11 @@ ProtectClock=true
 ProtectHostname=true
 RestrictSUIDSGID=true
 ReadOnlyPaths=/var/run/tetragon
-ReadWritePaths=/mnt/vault/context /var/lib/node_exporter/textfile_collector
+# `-` prefix: tolerate the paths not existing yet at namespace-setup time
+# (RequiresMountsFor above guarantees the vault mount is present; the context
+# subdir + textfile_collector dir are created on first write). Without the
+# prefix a missing dir is a hard 226/NAMESPACE failure.
+ReadWritePaths=-/mnt/vault/context -/var/lib/node_exporter/textfile_collector
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectHome=true

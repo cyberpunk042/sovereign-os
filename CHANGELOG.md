@@ -12,6 +12,29 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Fixed — first-boot orchestration correctness: the flashed image must actually run its hooks (2026-07-14)
+
+Operator-directed build-and-flash readiness review ("we need to fix everything before I build and flash
+like I said … the IaC is ready through and through and will be done properly and in proper timing and
+sequence?") (SDD-998). Closes F-2026-101 (CRIT) + F-2026-102 (HIGH) + F-2026-103 (MED) + F-2026-104 (LOW).
+**F-2026-101 (CRIT)**: `sovereign-firstboot.target` grouped 10 first-boot oneshots, but the install path
+enables only the target — and `systemctl enable <target>` never processes the members' `[Install]
+WantedBy=`, while `PartOf=` propagates stop/restart only. So 10 units declared membership and 0 were
+reachable: on first boot no hook ran and the flashed box came up as bare Debian (no VLAN/network, no
+NVIDIA/VFIO bind, no ZFS ARC clamp, no Tetragon policy). Fixed by giving the target `Wants=` for all 10
+members (each still self-gates `ConditionFirstBoot=yes`+`ConditionVirtualization=no`). **F-2026-102 (HIGH)**:
+three members regenerate the initramfs on first boot with no ordering between them → parallel
+`update-initramfs -u` corrupts it → unbootable. Fixed with a shared `boot_regen` helper in `common.sh`
+that `flock`-serializes every `update-initramfs`/`update-grub`. **F-2026-103 (MED)**: nvidia-driver-bind
+warned "may need reboot" only in the journal while vfio surfaced a console flag; the nvidia unit now writes
+`.nvidia-bind-needs-reboot` and the completion service prints one `/dev/console` notice covering both GPU
+markers. **F-2026-104 (LOW)**: the opt-in `sovereign-guardian-core.service` (post-deploy, not flashed) could
+226/NAMESPACE crash-loop if started before `/mnt/vault` mounts — added `After=zfs.target` +
+`RequiresMountsFor=/mnt/vault/context` + `-`-prefixed ReadWritePaths (ExecStart verified correct). New
+`tests/lint/test_firstboot_target_membership.py` (4 cases) keeps the target's `Wants=` == the
+`WantedBy=`-declaring member set both directions. 4 systemd units + `common.sh` + 3 hooks + 1 lint; no crate
+or gatewayd/cockpit/webapp change; no new dependency.
+
 ### Added — per-crate `✅ integrated` flag on the crate-inventory, validated by named usage (2026-07-14)
 
 Operator-directed (phase-1 audit continuation — "were you not suppoed to flag the crates that are done /

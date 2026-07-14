@@ -130,6 +130,33 @@ else:
 PY
 }
 
+# Serialize boot-config regeneration across concurrently-running first-boot hooks.
+#
+# R1 (SDD-998): `update-initramfs -u` is NOT safe to run in parallel — two
+# invocations race on the same /boot/initrd.img-* build dir + atomic rename and
+# can leave a truncated/half-written initramfs → the box does not boot. Three
+# first-boot oneshots regenerate initramfs (nvidia-driver-bind, vfio-bind,
+# zfs-arc-clamp) and are all pulled in together by sovereign-firstboot.target
+# with no ordering between them (their only After= is friction-audit), so systemd
+# starts them in parallel and their initramfs rebuilds overlap. update-grub has
+# the same single-writer property on grub.cfg. `boot_regen` funnels every such
+# call through one flock so they run strictly one-at-a-time.
+SOVEREIGN_OS_BOOT_REGEN_LOCK="${SOVEREIGN_OS_BOOT_REGEN_LOCK:-/run/lock/sovereign-os-boot-regen.lock}"
+
+boot_regen() {
+  # boot_regen <cmd> [args...] — run a boot-config regeneration command
+  # (update-initramfs / update-grub) under the shared serialization lock.
+  # `-w 300` keeps a wedged holder from hanging first boot forever (it fails
+  # the wait instead, and the caller's `|| log_warn` records it). If flock is
+  # unavailable (minimal image), run directly — a missing lock must never mean
+  # a skipped regeneration.
+  if command -v flock >/dev/null 2>&1; then
+    flock -w 300 "${SOVEREIGN_OS_BOOT_REGEN_LOCK}" "$@"
+  else
+    "$@"
+  fi
+}
+
 # Confirmation prompt (interactive only)
 confirm() {
   # confirm <prompt> [<default-yes|default-no>] → returns 0 on yes

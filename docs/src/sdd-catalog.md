@@ -5,7 +5,7 @@
 > page drifts from `docs/sdd/`, so the published book can never freeze behind the
 > design record again (F-2026-033).
 
-Every Spec-Driven-Development design doc in `docs/sdd/` (180 total), by number.
+Every Spec-Driven-Development design doc in `docs/sdd/` (181 total), by number.
 
 - [SDD-000 — Project charter](../sdd/000-charter.md)
 - [SDD-001 — Cross-repo boundaries: contract between sovereign-os, info-hub, selfdef](../sdd/001-cross-repo-boundaries.md)
@@ -187,3 +187,4 @@ Every Spec-Driven-Development design doc in `docs/sdd/` (180 total), by number.
 - [SDD-995 — the crate-inventory generator gains a `--check` freshness gate + sync lint (F-2026-098)](../sdd/995-crate-inventory-check-gate.md)
 - [SDD-996 — SDD INDEX status completeness: merged SDDs are marked `complete`, enforced by a lint (F-2026-099)](../sdd/996-sdd-index-status-completeness.md)
 - [SDD-997 — a per-crate `✅ integrated` flag on the crate-inventory, validated by named usage (F-2026-100)](../sdd/997-crate-inventory-integrated-flag.md)
+- [SDD-998 — first-boot orchestration correctness: the flashed image must actually run its hooks (F-2026-101..104)](../sdd/998-firstboot-orchestration-correctness.md)

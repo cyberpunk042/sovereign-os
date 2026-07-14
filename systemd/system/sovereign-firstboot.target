@@ -7,6 +7,18 @@ Wants=zfs.target
 # This target groups all sovereign-os first-boot oneshot services.
 # Reaching it means every required first-boot hook has run successfully.
 # The first-login-assistant runs separately (only at actual first login).
+#
+# G1 (SDD-998): the target MUST explicitly Wants= its member oneshots. Enabling
+# only the target (`systemctl enable sovereign-firstboot.target`, as the bake +
+# preseed do) does NOT process the members' own `[Install] WantedBy=` sections,
+# and `PartOf=` propagates stop/restart only (never start) — so without this
+# Wants= the members never start and first boot silently does NOTHING (bare
+# Debian). Each member self-gates via `ConditionFirstBoot=yes`, so this is a
+# no-op on every subsequent boot. Ordering among members is their own `After=`;
+# the completion marker `sovereign-firstboot.service` is `After=` all of them.
+# `tests/lint/test_firstboot_target_membership.py` keeps this list == the set of
+# units declaring `WantedBy=sovereign-firstboot.target`.
+Wants=sovereign-friction-audit.service sovereign-network-vlan.service sovereign-nvidia-driver-bind.service sovereign-vfio-bind.service sovereign-warp-setup.service sovereign-ups-setup.service sovereign-zfs-arc-clamp.service sovereign-tetragon-policy-load.service sovereign-workstation-shell-setup.service sovereign-firstboot.service
 
 [Install]
 WantedBy=multi-user.target

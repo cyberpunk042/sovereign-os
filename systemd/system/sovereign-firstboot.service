@@ -11,7 +11,7 @@ Type=oneshot
 RemainAfterExit=yes
 ExecStartPre=/bin/mkdir -p /var/lib/sovereign-os
 ExecStart=/bin/sh -c 'date -u --iso-8601=seconds > /var/lib/sovereign-os/first-boot-complete'
-ExecStartPost=/bin/sh -c '[ -f /var/lib/sovereign-os/.vfio-bind-needs-reboot ] && echo "NOTICE: reboot required for VFIO binding to take effect" > /dev/console || true'
+ExecStartPost=/bin/sh -c 'for f in .vfio-bind-needs-reboot .nvidia-bind-needs-reboot; do [ -f "/var/lib/sovereign-os/$f" ] && echo "NOTICE: reboot required for GPU binding to take effect ($f)" > /dev/console; done; true'
 StandardOutput=journal
 StandardError=journal
 # Defense-in-depth — completion marker only writes /var/lib/sovereign-os

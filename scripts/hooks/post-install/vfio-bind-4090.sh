@@ -58,7 +58,8 @@ if [ -f "${grub_cfg}" ]; then
     # Trim duplicate spaces
     sed -i -E 's/  +/ /g' "${grub_cfg}"
   fi
-  update-grub 2>&1 | sed 's/^/  /' || log_warn "update-grub not present; skipping (substrate-dependent)"
+  # R1 (SDD-998): serialized via boot_regen (shared lock with initramfs rebuilds).
+  boot_regen update-grub 2>&1 | sed 's/^/  /' || log_warn "update-grub not present; skipping (substrate-dependent)"
 else
   log_warn "no /etc/default/grub; assuming systemd-boot (mkosi default)"
   # For systemd-boot: edit /boot/loader/entries/*.conf
@@ -84,9 +85,10 @@ softdep nouveau pre: vfio-pci
 EOF
 log_info "  wrote ${modprobe_dir}/vfio.conf"
 
-# Update initramfs so vfio-pci loads early enough
+# Update initramfs so vfio-pci loads early enough.
+# R1 (SDD-998): serialized via boot_regen (concurrent first-boot initramfs rebuilds corrupt it).
 if command -v update-initramfs >/dev/null 2>&1; then
-  update-initramfs -u 2>&1 | sed 's/^/  /' || log_warn "update-initramfs failed; manual rebuild may be needed"
+  boot_regen update-initramfs -u 2>&1 | sed 's/^/  /' || log_warn "update-initramfs failed; manual rebuild may be needed"
 fi
 
 log_info "VFIO binding configured; reboot to apply"
