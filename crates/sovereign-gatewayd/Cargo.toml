@@ -32,6 +32,9 @@ sovereign-value-plane = { path = "../sovereign-value-plane" }
 # (/v1/chat/completions) itself — the sovereign brain generates, not just routes.
 sovereign-safetensors-loader = { path = "../sovereign-safetensors-loader" }
 sovereign-quant-model = { path = "../sovereign-quant-model" }
+# SDD-711 (F-2026-088): OpenAI/Anthropic tool_use ⇄ [[tool:…]] schema bridge, so
+# /v1/chat/completions can accept request `tools` and return `tool_calls`.
+sovereign-tool-bridge = { path = "../sovereign-tool-bridge" }
 sovereign-hf-tokenizer = { path = "../sovereign-hf-tokenizer" }
 sovereign-logit-mask = { path = "../sovereign-logit-mask" }
 sovereign-stream-decode = { path = "../sovereign-stream-decode" }

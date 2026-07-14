@@ -12,6 +12,28 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — `/v1/chat/completions` can use tools (OpenAI-compatible, single-turn) (2026-07-14)
+
+Operator-directed (*"yes of course we want tools, good catch, so many things come from tools"*) (SDD-711).
+Closes the single-turn half of F-2026-088. A workspace map corrected the finding: the daemon
+(`sovereign-gatewayd`) has its own `QuantModel` stack (separate from the agent-loop's `SovereignLlm`),
+`/v1/chat/completions` read no `tools` field, and OpenAI tool use is *client-driven* (the server returns
+`tool_calls`, the client executes the tool) — so single-turn tool use needs no server-side ReAct loop and
+no model-sharing change.
+
+A new model-free crate `sovereign-tool-bridge` adapts between the bespoke `[[tool:NAME|ARGS]]` dialect
+(`sovereign-tool-dispatch`) and OpenAI/Anthropic `tool_calls`/`tool_use` JSON (bridging the previously
+zero-consumer `sovereign-tool-call-parse`): parse request `tools`, teach the bracket convention, extract a
+call in either dialect gated on the offered tools, and shape the response blocks (18 unit tests). The
+`/v1/chat/completions` handler is now tool-aware: when a request carries `tools`, it generates the reply
+buffered and returns a `tool_calls` response the client executes (or plain content) — reusing `generate_chat`
+with the SDD-206 safety spine intact; a request without `tools` runs the existing token-streaming path
+byte-identically. The bridge is genuinely consumed by gatewayd in the same change (the workspace forbids
+orphan non-cockpit crates), following the MS003 reviewed-in-isolation-then-wired pattern.
+
+The multi-step server-side ReAct loop, streaming tool-call deltas, and `/v1/messages` tool parity are scoped
+as a gated increment in SDD-711 (with the daemon model-sharing decision surfaced), not built here.
+
 ### Changed — the `unsafe` ban is now compiler-enforced across all 202 cockpit crates (2026-07-14)
 
 Operator-directed (*"lets do a big round"*, phase-1 audit continuation) (SDD-710). Closes F-2026-096 and

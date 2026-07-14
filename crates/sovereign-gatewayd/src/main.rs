@@ -1116,6 +1116,17 @@ fn stream_chat_completions(
         .unwrap_or(96)
         .clamp(1, 1024) as usize;
 
+    // SDD-711 (F-2026-088): OpenAI-compatible tool use. When the request
+    // advertises `tools`, take the tool-aware path — generate buffered, then
+    // return a `tool_calls` response the CLIENT executes (standard client-driven
+    // loop; the daemon does NOT run the tool). Absent/empty `tools` → the
+    // existing token-streaming path below runs byte-identically.
+    let tools_val = req.get("tools").cloned().unwrap_or(serde_json::Value::Null);
+    let tool_specs = sovereign_tool_bridge::openai_tools_to_specs(&tools_val);
+    if !tool_specs.is_empty() {
+        return tool_aware_chat_completion(server, writer, &model, &prompt, max_new, &tool_specs);
+    }
+
     // SSE response head, then stream.
     writer.write_all(
         b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n\
@@ -1159,9 +1170,103 @@ fn stream_chat_completions(
     Ok(())
 }
 
+/// SDD-711 (F-2026-088): shape the SSE payloads for a completed tool-aware turn.
+/// Pure + model-free (so it is unit-tested without a model): given the full
+/// buffered model output, the advertised tools, an id, and the token count,
+/// returns `(delta_chunk, final_chunk)`. If the output contains a call to an
+/// ADVERTISED tool, the delta carries an OpenAI `tool_calls` block and the final
+/// chunk's `finish_reason` is `"tool_calls"` (the client runs the tool); else the
+/// delta carries the plain content and the finish is `"stop"`.
+fn shape_tool_completion(
+    output: &str,
+    specs: &[sovereign_tool_bridge::ToolSpec],
+    id: &str,
+    n: usize,
+) -> (serde_json::Value, serde_json::Value) {
+    match sovereign_tool_bridge::extract_advertised_call(output, specs) {
+        Some(call) => {
+            let delta = serde_json::json!({
+                "id": id, "object": "chat.completion.chunk",
+                "choices": [{"index": 0, "delta": {"role": "assistant", "tool_calls": [{
+                    "index": 0, "id": "call_0", "type": "function",
+                    "function": {"name": call.name, "arguments": call.args},
+                }]}}],
+            });
+            let final_obj = serde_json::json!({
+                "id": id, "object": "chat.completion.chunk",
+                "choices": [{"index": 0, "delta": {}, "finish_reason": "tool_calls"}],
+                "usage": {"completion_tokens": n, "prompt_tokens": 0, "total_tokens": n},
+            });
+            (delta, final_obj)
+        }
+        None => {
+            let delta = serde_json::json!({
+                "id": id, "object": "chat.completion.chunk",
+                "choices": [{"index": 0, "delta": {"content": output}}],
+            });
+            let final_obj = serde_json::json!({
+                "id": id, "object": "chat.completion.chunk",
+                "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+                "usage": {"completion_tokens": n, "prompt_tokens": 0, "total_tokens": n},
+            });
+            (delta, final_obj)
+        }
+    }
+}
+
+/// SDD-711 (F-2026-088): serve `/v1/chat/completions` when the request carries
+/// `tools`. Teaches the model the bracket convention, generates the reply
+/// BUFFERED (a tool call is only detectable once the whole reply is in hand),
+/// then emits either a `tool_calls` response or plain content via
+/// [`shape_tool_completion`]. Reuses `generate_chat` (safety spine intact); no
+/// multi-step agent loop and no model-sharing change — the client executes the
+/// tool and calls back, per the standard OpenAI tool loop.
+fn tool_aware_chat_completion(
+    server: &GatewayServer,
+    writer: &mut TcpStream,
+    model: &str,
+    base_prompt: &str,
+    max_new: usize,
+    specs: &[sovereign_tool_bridge::ToolSpec],
+) -> std::io::Result<()> {
+    let preamble = sovereign_tool_bridge::tool_specs_to_prompt(specs);
+    let prompt = format!("{preamble}\n{base_prompt}");
+
+    writer.write_all(
+        b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n\
+          Cache-Control: no-store\r\nConnection: close\r\n\r\n",
+    )?;
+    writer.flush()?;
+
+    let id = "chatcmpl-sovereign";
+    let mut buf = String::new();
+    let gen_res = server.generate_chat(Some(model), &prompt, max_new, |chunk| buf.push_str(chunk));
+    let (delta, final_obj) = match gen_res {
+        Ok(n) => shape_tool_completion(&buf, specs, id, n),
+        Err(e) => {
+            // No delta on error; report it in the final chunk as content.
+            let err = serde_json::json!({
+                "id": id, "object": "chat.completion.chunk",
+                "choices": [{"index": 0,
+                    "delta": {"content": format!("[gateway generation error: {e}]")},
+                    "finish_reason": "stop"}],
+            });
+            (serde_json::Value::Null, err)
+        }
+    };
+    if !delta.is_null() {
+        let _ = write_sse(writer, &delta);
+    }
+    let _ = write_sse(writer, &final_obj);
+    let _ = writer.write_all(b"data: [DONE]\n\n");
+    let _ = writer.flush();
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{authorized, conn_timeout, constant_time_eq};
+    use super::{authorized, conn_timeout, constant_time_eq, shape_tool_completion};
+    use sovereign_tool_bridge::openai_tools_to_specs;
 
     #[test]
     fn constant_time_eq_matches_std_eq() {
@@ -1195,5 +1300,44 @@ mod tests {
         if std::env::var_os("SOVEREIGN_GATEWAY_TIMEOUT_SECS").is_none() {
             assert_eq!(conn_timeout(), Some(std::time::Duration::from_secs(30)));
         }
+    }
+
+    // SDD-711 (F-2026-088): tool-aware chat-completion response shaping.
+
+    #[test]
+    fn shape_tool_completion_emits_tool_calls_for_an_advertised_call() {
+        let specs = openai_tools_to_specs(&serde_json::json!([
+            {"function": {"name": "upper", "description": "uppercase"}}
+        ]));
+        let (delta, final_obj) =
+            shape_tool_completion("sure: [[tool:upper|hi]]", &specs, "chatcmpl-x", 7);
+        let tc = &delta["choices"][0]["delta"]["tool_calls"][0];
+        assert_eq!(tc["type"], "function");
+        assert_eq!(tc["function"]["name"], "upper");
+        assert_eq!(tc["function"]["arguments"], "hi");
+        assert_eq!(final_obj["choices"][0]["finish_reason"], "tool_calls");
+        assert_eq!(final_obj["usage"]["completion_tokens"], 7);
+    }
+
+    #[test]
+    fn shape_tool_completion_falls_back_to_content_for_plain_output() {
+        let specs = openai_tools_to_specs(&serde_json::json!([{"function": {"name": "upper"}}]));
+        let (delta, final_obj) = shape_tool_completion("just a plain answer", &specs, "id", 3);
+        assert_eq!(
+            delta["choices"][0]["delta"]["content"],
+            "just a plain answer"
+        );
+        assert!(delta["choices"][0]["delta"].get("tool_calls").is_none());
+        assert_eq!(final_obj["choices"][0]["finish_reason"], "stop");
+    }
+
+    #[test]
+    fn shape_tool_completion_ignores_a_call_to_an_unadvertised_tool() {
+        // A model emitting a tool the caller never offered must NOT produce a
+        // tool_calls response — it's treated as ordinary text.
+        let specs = openai_tools_to_specs(&serde_json::json!([{"function": {"name": "upper"}}]));
+        let (delta, final_obj) = shape_tool_completion("[[tool:rm_rf|/]]", &specs, "id", 4);
+        assert!(delta["choices"][0]["delta"].get("tool_calls").is_none());
+        assert_eq!(final_obj["choices"][0]["finish_reason"], "stop");
     }
 }
