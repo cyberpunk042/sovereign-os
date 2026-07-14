@@ -238,7 +238,7 @@ mod tests {
             t.get(HardwareTarget::NoHardware).unwrap().reason,
             Some(ExclusionReason::InsufficientVram)
         );
-        // 4090 (24GB) and Blackwell (96GB) eligible
+        // Logic (RTX 5090, 32GB) and Blackwell (96GB) eligible
         assert!(t.get(HardwareTarget::Rocm4090).unwrap().eligible);
         assert!(t.get(HardwareTarget::BlackwellOracle).unwrap().eligible);
     }
@@ -298,11 +298,11 @@ mod tests {
         let mut load = empty_load();
         for l in load.loads.iter_mut() {
             if l.target == HardwareTarget::Rocm4090 {
-                l.vram_used_gb = 20;
+                l.vram_used_gb = 28;
             }
         }
         let mut req = request_default();
-        req.vram_needed_gb = 8; // need 8GB, 4090 has 4GB free (24-20) → excluded
+        req.vram_needed_gb = 8; // need 8GB, Logic 5090 has 4GB free (32-28) → excluded
         let t = EligibilityTableau::compute(&req, &reg(), &load).unwrap();
         assert_eq!(
             t.get(HardwareTarget::Rocm4090).unwrap().reason,

@@ -7,7 +7,7 @@ Direct-stack architecture per SDD-011 (Q-017 resolution path).
 | Tier | Backend | Hardware | Start script |
 |---|---|---|---|
 | **Pulse** | `bitnet.cpp` | CCD 0 cores 0-5 (CPU) | [`start-pulse.sh`](start-pulse.sh) |
-| **Logic Engine** | `vLLM` (primary) + `llama.cpp` (fallback) | RTX 4090 24 GB (VFIO-bound) | [`start-logic-engine.sh`](start-logic-engine.sh) |
+| **Logic Engine** | `vLLM` (primary) + `llama.cpp` (fallback) | RTX 5090 32 GB (host-resident, D-022) | [`start-logic-engine.sh`](start-logic-engine.sh) |
 | **Oracle Core** | `vLLM` + DFlash drafts | RTX PRO 6000 Blackwell 96 GB | [`start-oracle-core.sh`](start-oracle-core.sh) |
 
 ## Router

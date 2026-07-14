@@ -231,17 +231,17 @@ mod tests {
     #[test]
     fn vram_overflow_caught() {
         let mut s = LoadSnapshot::empty_canonical("t");
-        // rocm-4090 has 24GB capacity in canonical registry
+        // rocm-4090 (the RTX 5090 Logic device, D-022) has 32GB capacity
         for l in s.loads.iter_mut() {
             if l.target == HardwareTarget::Rocm4090 {
-                l.vram_used_gb = 30;
+                l.vram_used_gb = 34;
             }
         }
         match s.validate_against(&reg()).unwrap_err() {
             LoadError::VramOverflow { target, used, cap } => {
                 assert_eq!(target, HardwareTarget::Rocm4090);
-                assert_eq!(used, 30);
-                assert_eq!(cap, 24);
+                assert_eq!(used, 34);
+                assert_eq!(cap, 32);
             }
             other => panic!("unexpected: {other:?}"),
         }

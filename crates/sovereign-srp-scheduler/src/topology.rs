@@ -8,8 +8,13 @@
 //! | Role | Device | Precision it hosts | VRAM | Context ceiling |
 //! |------|--------|--------------------|------|-----------------|
 //! | Conductor | Host CPU (CCD 0) | ternary / bitnet.cpp (F06221) | — | small blocks (F06225) |
-//! | Logic | GPU 0 — RTX 4090 24 GB | quantized Q4/IQ4 (F06235) | 24 GB (F06239) | mid |
-//! | Oracle | GPU 1 — Blackwell PRO 6000 | un-quantized FP16 (F06214) | 96 GB | deep (F06244) |
+//! | Logic | GPU 1 — RTX 5090 32 GB | quantized Q4/IQ4 (F06235) | 32 GB (F06239) | mid |
+//! | Oracle | GPU 0 — Blackwell PRO 6000 Max-Q | un-quantized FP16 (F06214) | 96 GB | deep (F06244) |
+//!
+//! Per D-022 (SDD-993 GPU-topology reconcile) the Logic Engine tier runs on
+//! the internal RTX 5090 (PCIEX16_2, PCIe 5.0 x8) — more bandwidth than the
+//! RTX 4090 OcuLink eGPU, which is the DSpark speculative-decode draft target,
+//! not a Trinity tier.
 //!
 //! So a pressure-only fallback is wrong: you cannot run an un-quantized,
 //! 100k-token reasoning job on the ternary CPU just because the Oracle GPU
@@ -31,7 +36,7 @@ use thiserror::Error;
 pub enum Precision {
     /// 1.58-bit ternary (bitnet.cpp on CPU) — F06221.
     Ternary,
-    /// Quantized Q4/IQ4 mid-scale (RTX 4090) — F06235.
+    /// Quantized Q4/IQ4 mid-scale (RTX 5090, per D-022) — F06235.
     Quantized,
     /// Un-quantized FP16 (Blackwell PRO 6000) — F06214.
     Fp16,
@@ -65,14 +70,14 @@ impl HardwareTarget {
             },
             SrpRole::Logic => HardwareTarget {
                 role,
-                device: "GPU 0 — RTX 4090 24GB",
-                vram_gb: 24,
+                device: "GPU 1 — RTX 5090 32GB",
+                vram_gb: 32,
                 max_precision: Precision::Quantized,
                 max_context_tokens: 32_768,
             },
             SrpRole::Oracle => HardwareTarget {
                 role,
-                device: "GPU 1 — Blackwell PRO 6000 96GB",
+                device: "GPU 0 — Blackwell PRO 6000 Max-Q 96GB",
                 vram_gb: 96,
                 max_precision: Precision::Fp16,
                 max_context_tokens: 200_000,
@@ -294,7 +299,7 @@ mod tests {
 
     #[test]
     fn vram_hungry_job_excludes_logic() {
-        // 40 GB model: Logic's 24 GB can't hold it; only Oracle (96 GB) can.
+        // 40 GB model: Logic's 32 GB can't hold it; only Oracle (96 GB) can.
         let w = workload(WorkloadClass::TokenStream, Precision::Quantized, 8_000, 40);
         let p = place(&w, &all_free(), false).unwrap();
         assert_eq!(p.role, SrpRole::Oracle);

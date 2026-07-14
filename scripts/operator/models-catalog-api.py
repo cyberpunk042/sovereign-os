@@ -77,8 +77,8 @@ _CONTROL_SYSTEMS_FILE = _REPO_ROOT / "config" / "control-systems.yaml"
 TIER_ORDER = ["pulse", "logic", "oracle", "router"]
 TIER_LABEL = {
     "pulse": "Pulse — Conductor (CPU / bitnet.cpp ternary)",
-    "logic": "Logic — Logic Engine (GPU 0)",
-    "oracle": "Oracle — Oracle Core (GPU 1, Blackwell)",
+    "logic": "Logic — Logic Engine (GPU 1, RTX 5090)",
+    "oracle": "Oracle — Oracle Core (GPU 0, Blackwell PRO 6000 Max-Q)",
     "router": "Router — RAG / draft / rerank helpers",
 }
 

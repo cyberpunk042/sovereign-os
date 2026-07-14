@@ -60,8 +60,9 @@ non-mutating decide/chat — `forget`/`clear` stay CLI-gated.
 ## Background Tasks — run work off the request path
 
 Long-running work — a background deliberation, a model eval, a secondary-model
-load, a GPU job, or a job mirrored from the RTX-4090 passthrough VM — runs in the
-**jobs runtime** (`jobs-api`, loopback `:8142`) and shows up in the Code Console.
+load, a GPU job, or a job mirrored from the RTX-4090 OcuLink eGPU sandbox (when
+VFIO-opted-in) — runs in the **jobs runtime** (`jobs-api`, loopback `:8142`) and
+shows up in the Code Console.
 
 ```bash
 sovereign-osctl jobs submit deliberation --problem "prove the routing invariant"
@@ -76,8 +77,9 @@ sovereign-osctl jobs submit eval -- python3 scripts/models/eval.py …
   sanctioned execute daemon (`control-exec-api`), never a web mutation (R10212).
 - The registry **persists** (survives a restart); an orphaned job is marked failed
   on restart, never a zombie.
-- **RTX 4090 / 3090** are VFIO-passed to a guest VM, so the host can't see their
-  GPU jobs directly. `scripts/jobs/vm-bridge-guest.py` runs inside the guest,
+- When the **RTX 4090 OcuLink eGPU** is opted into the VFIO sandbox (a guest VM;
+  host-resident by default per SDD-993 / D-022), the host can't see its GPU jobs
+  directly. `scripts/jobs/vm-bridge-guest.py` runs inside the guest,
   probes its `nvidia-smi`, and reports back to the host runtime — so those jobs
   appear too. (Wiring the guest→host channel, `SOVEREIGN_JOBS_HOST`, is a
   deployment step; until then the agent is inert and says so.)

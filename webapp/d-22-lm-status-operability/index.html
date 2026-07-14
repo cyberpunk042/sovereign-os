@@ -1139,8 +1139,8 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
   // collapsing to nothing (SB-077: never fabricate, never minimize the layout).
   const FIXED_DEVICES = [
     {slot:'CPU0', role:'conductor', label:'Ryzen 9 9900X AM5 AVX-512', model_source:'—', models:[{},{},{}]},
-    {slot:'GPU0', role:'logic', label:'Logic Engine', model_source:'—', models:[{},{},{}]},
-    {slot:'GPU1', role:'oracle', label:'Oracle Core (Blackwell)', model_source:'—', models:[{},{},{}]},
+    {slot:'GPU0', role:'oracle', label:'Oracle Core (Blackwell PRO 6000 Max-Q)', model_source:'—', models:[{},{},{}]},
+    {slot:'GPU1', role:'logic', label:'Logic Engine (RTX 5090)', model_source:'—', models:[{},{},{}]},
   ];
 
   // ── SDD-118 DEMO mode: opt-in, always-badged sample data (never real; SB-077).
@@ -1151,13 +1151,13 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
     {slot:'CPU0', role:'conductor', label:'Ryzen 9 9900X AM5 AVX-512', util_pct:16, model_source:'demo', models:[
       {slot:0, id:'demo/bitnet-2b', precision:'ternary', status:'loaded', context_window_tokens:8192, p50_ms:42, p95_ms:88, p99_ms:130, req_per_min:12, kv_pct:22, history:[1,1,1,0,1,1,1,1,1,1,1,1]},
       {slot:1}, {slot:2}]},
-    {slot:'GPU0', role:'logic', label:'Logic Engine (RTX 5090)', util_pct:64, vram_used_gb:14.2, vram_total_gb:32, model_source:'demo', models:[
+    {slot:'GPU0', role:'oracle', label:'Oracle Core (RTX PRO 6000 Blackwell Max-Q)', util_pct:38, vram_used_gb:41.0, vram_total_gb:96, model_source:'demo', models:[
+      {slot:0, id:'demo/deepseek-r1-32b', precision:'NVFP4', status:'serving', context_window_tokens:65536, p50_ms:210, p95_ms:520, p99_ms:900, req_per_min:5, kv_pct:44, history:[1,1,0,1,1,1,1,1,1,1,1,1]},
+      {slot:1}, {slot:2}]},
+    {slot:'GPU1', role:'logic', label:'Logic Engine (RTX 5090)', util_pct:64, vram_used_gb:14.2, vram_total_gb:32, model_source:'demo', models:[
       {slot:0, id:'demo/qwen3-coder-14b', precision:'NVFP4', status:'serving', context_window_tokens:32768, p50_ms:120, p95_ms:240, p99_ms:410, req_per_min:34, kv_pct:57, history:[1,1,1,1,1,1,0,1,1,1,1,1]},
       {slot:1, id:'demo/glm-4-9b', precision:'Q4', status:'loaded', context_window_tokens:16384, p50_ms:95, p95_ms:180, p99_ms:300, req_per_min:8, kv_pct:31, history:[1,1,1,1,1,1,1,1,1,1,1,1]},
       {slot:2}]},
-    {slot:'GPU1', role:'oracle', label:'Oracle Core (RTX 6000 Blackwell)', util_pct:38, vram_used_gb:41.0, vram_total_gb:96, model_source:'demo', models:[
-      {slot:0, id:'demo/deepseek-r1-32b', precision:'NVFP4', status:'serving', context_window_tokens:65536, p50_ms:210, p95_ms:520, p99_ms:900, req_per_min:5, kv_pct:44, history:[1,1,0,1,1,1,1,1,1,1,1,1]},
-      {slot:1}, {slot:2}]},
   ]};
 
   let LAST = {devices: []};
@@ -1369,7 +1369,7 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
   const DEMO_PLANE = {
     plane: { devices: [
         { key:'gpu0', role:'oracle', name:'Blackwell PRO 6000', total_gb:96, live_free_gb:90, claimed_gb:40, effective_free_gb:50 },
-        { key:'gpu1', role:'logic', name:'RTX 4090', total_gb:24, live_free_gb:20, claimed_gb:0, effective_free_gb:20 },
+        { key:'gpu1', role:'logic', name:'RTX 5090', total_gb:32, live_free_gb:30, claimed_gb:0, effective_free_gb:30 },
         { key:'cpu', role:'conductor', name:'Host CPU (bitnet.cpp)', total_gb:0, live_free_gb:0, claimed_gb:0, effective_free_gb:null },
       ],
       claims: [{ id:'job-1', vram_gb:40, device:'gpu0', kind:'model-serve', job:'big-llama' }] },

@@ -15,14 +15,14 @@ show/list/set/auto verbs, advisory-by-default policy.
 Modes (per-GPU power-limit watt targets):
 
   conservative   reduce TDP to operator-friendly cool baseline
-                 (4090 → 250 W, RTX PRO 6000 → 450 W). Designed
+                 (4090 → 250 W, RTX PRO 6000 Max-Q → 255 W). Designed
                  to keep cooling headroom for sustained inference.
 
-  balanced       split-the-difference (4090 → 300 W, 6000 → 500 W).
+  balanced       split-the-difference (4090 → 300 W, 6000 Max-Q → 300 W).
                  Default for mixed workloads — chat + light agent.
 
   sustained      stock TDP, but cap any post-overclock excursion
-                 (4090 → 350 W, 6000 → 600 W).
+                 (4090 → 350 W, 6000 Max-Q → 300 W, the card's max).
 
   peak           full TDP every card supports. Operator-driven for
                  synchronous low-batch inference where every watt
