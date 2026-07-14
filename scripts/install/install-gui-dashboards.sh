@@ -147,7 +147,7 @@ case "${FRONTEND}" in
   dashboards-kiosk|open-computer-kiosk)
     _url="${FRONTEND_KIOSK_URL}"
     [ "${FRONTEND}" = open-computer-kiosk ] && \
-      _url="${SOVEREIGN_OS_FRONTEND_KIOSK_URL:-http://127.0.0.1:3000/}"
+      _url="${SOVEREIGN_OS_FRONTEND_KIOSK_URL:-http://127.0.0.1:9800/}"
     write_kiosk_env "${_url}"
     # A kiosk owns the display — disable gdm so it doesn't contend for the seat.
     systemctl disable gdm3.service 2>/dev/null || true

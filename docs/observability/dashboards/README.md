@@ -145,6 +145,7 @@ panel queries lock to them.
 - `sovereign_os_post_install_model_provision_total{profile,result}` — inference model download outcome (SDD-702)
 - `sovereign_os_post_install_model_info{profile,repo}` — provisioned model repo id
 - `sovereign_os_post_install_openclaw_total{profile,result}` — OpenClaw first-boot install outcome (SDD-705; result=installed|already-present|no-node|npm-failed)
+- `sovereign_os_post_install_open_computer_total{profile,result}` — open-computer first-boot install outcome (SDD-706; result=installed|already-present|no-qemu|no-node|clone-failed|base-image-incomplete|base-image-bad-sha)
 - `sovereign_os_post_install_vfio_bind_total{profile,result}`
 - `sovereign_os_post_install_arc_clamp_total{profile,result}`
 - `sovereign_os_post_install_arc_max_bytes{profile}` — applied ZFS ARC ceiling

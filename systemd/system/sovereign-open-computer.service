@@ -1,0 +1,52 @@
+[Unit]
+Description=sovereign-os open-computer QEMU AI-sandbox (SDD-706, installed-off)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/docs/sdd/706-open-computer-sandbox.md
+# Installed-off: staged by bake.open_computer + provisioned by the first-boot installer,
+# but NOT enabled — `sovereign-osctl open-computer on` starts it. The sandbox's agent
+# reaches the local vLLM endpoint (127.0.0.1 auto-rewritten to the QEMU host gateway
+# 10.0.2.2 for the guest), so the router should be up first (best-effort ordering).
+After=network-online.target sovereign-router.service
+Wants=network-online.target
+ConditionPathExists=/etc/sovereign-os/open-computer.env
+# KVM acceleration — the runtime needs /dev/kvm (the VM won't accelerate without it).
+ConditionPathExists=/dev/kvm
+
+[Service]
+Type=simple
+User=operator
+Group=operator
+# HOME relocated to the state root so the CLI's checkout + base image + agent overlays
+# live under a writable tree OUTSIDE /home (keeps ProtectHome=read-only viable).
+EnvironmentFile=-/etc/sovereign-os/open-computer.env
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/local/lib/sovereign-os/scripts/operator/open-computer-run.sh
+Restart=on-failure
+RestartSec=10
+TimeoutStartSec=0
+StandardOutput=journal
+StandardError=journal
+
+# HARDENING-WAIVER: this is a QEMU/KVM VM-HOST service — it needs /dev/kvm device
+#   access and runs a full guest VM (user-mode networking, vCPU threads). It therefore
+#   cannot carry PrivateDevices, and a hardened KVM host may need RestrictNamespaces
+#   relaxed for QEMU's networking/thread setup (set =false with a rationale below). It
+#   DOES carry every other R171 clause; state lives under /var/lib (ProtectHome=read-only
+#   holds), and it only runs when the operator selects it (installed-off; disabled otherwise).
+# R171 defense-in-depth (carried; the two VM-host relaxations noted inline):
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectControlGroups=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectClock=true
+ProtectHostname=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RestrictNamespaces=false     # QEMU/KVM VM host — user-net + device setup may need namespaces
+LockPersonality=true
+ReadWritePaths=/var/lib/sovereign-os/open-computer
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

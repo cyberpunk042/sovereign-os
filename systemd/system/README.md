@@ -1,7 +1,7 @@
 # systemd unit files
 
 These are the systemd units shipped with sovereign-os. The full fleet is
-**122 units** (102 `.service` · 19 `.timer` · 1 `.target`) — the inference tier
+**124 units** (104 `.service` · 19 `.timer` · 1 `.target`) — the inference tier
 below is only 4 of them.
 
 ## The full fleet + `make install-units`
@@ -48,7 +48,7 @@ within the two documented roots, `make install-units` stages all three script
 trees, and the fleet counts here match the tree — so the fleet can't grow a unit
 that points at a missing script or an undocumented prefix.
 
-## The inference tier (4 of the 122 units)
+## The inference tier (4 of the 124 units)
 
 | Unit | Tier | Default port |
 |---|---|---|

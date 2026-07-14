@@ -188,6 +188,24 @@ if [ "${SOVEREIGN_OS_BAKE_OPENCLAW:-}" = "1" ]; then
     || log "OpenClaw units staged (${_oc_n}) — installer enable deferred (no running systemd)"
 fi
 
+# ── 4c. open-computer QEMU AI-sandbox (SDD-706 — installed-off, first-boot install) ──
+# Like OpenClaw: QEMU/KVM + Node + a repo build + a ~3GB base image are unreachable at
+# postinst, so the bake only STAGES the two units; the install (qemu/node/clone/build/
+# base-image/preconfig) runs at FIRST BOOT via sovereign-open-computer-install.service.
+# The runtime daemon (sovereign-open-computer.service) stays installed-off. Gated on
+# bake.open_computer.
+if [ "${SOVEREIGN_OS_BAKE_OPEN_COMPUTER:-}" = "1" ]; then
+  _ocp_n=0
+  for u in sovereign-open-computer-install.service sovereign-open-computer.service; do
+    if [ -f "${REPO}/systemd/system/${u}" ]; then
+      install -m 644 "${REPO}/systemd/system/${u}" /etc/systemd/system/ 2>/dev/null && _ocp_n=$((_ocp_n+1))
+    fi
+  done
+  systemctl enable sovereign-open-computer-install.service >/dev/null 2>&1 \
+    && log "open-computer staged — ${_ocp_n} unit(s); first-boot installer enabled (runtime daemon installed-off; turn on: sovereign-osctl open-computer on)" \
+    || log "open-computer units staged (${_ocp_n}) — installer enable deferred (no running systemd)"
+fi
+
 # ── 5. dashboards hub + panel APIs (dashboards LIVE on boot — ON by default) ──
 # The hub (build-configurator) serves every panel's HTML; each panel's live data
 # comes from its own read-only sovereign-<x>-api daemon. Enable the hub + master
