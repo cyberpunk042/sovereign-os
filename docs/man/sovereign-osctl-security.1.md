@@ -118,6 +118,7 @@ operator use.
 
 **sovereign-osctl hardening-base {list|show|check}**
 :   R306 (E2.M13): Debian 13 base-system hardening catalog — 12 OS-level items (sysctl hardening + AppArmor + unattended- upgrades + auditd + fail2ban + sshd config). Per-item runtime probe + recommended value + operator-readable rationale. Complements R299 (BIOS layer) + R171 (systemd unit layer).
+
 ## auth-tier
 
 **sovereign-osctl auth-tier list-tiers**
@@ -139,34 +140,42 @@ operator use.
 
 **sovereign-osctl grants-mirror [arguments]**
 :   M060 D-13 (R10114-R10115): READ-ONLY consumer of the selfdef grants mirror (MS007 typed-mirror crate selfdef-grants-mirror) — projects selfdef's MS037/MS038/MS035/MS034/MS032 grant state (filesystem/network/ capability/communication/sandbox) for the D-13 cockpit dashboard. sovereign-os NEVER mutates IPS state; grant ops are selfdefctl + MS003 on the IPS side only. Verbs: snapshot / summaries (+ --json).
+
 ## quarantine-mirror
 
 **sovereign-osctl quarantine-mirror [arguments]**
 :   M060 D-17 (R10121-R10122): READ-ONLY consumer of the selfdef tool- quarantine mirror (MS007 typed-mirror crate selfdef-quarantine-mirror). Projects selfdef MS042 declaration-vs-observed quarantine archive (4 severities + per-field mismatches + block/quarantine/trace) for the D-17 cockpit dashboard. sovereign-os NEVER mutates IPS state; trace/release/ forfeit are selfdefctl + MS003 only. Verbs: snapshot / summaries (+ --json).
+
 ## trust-mirror
 
 **sovereign-osctl trust-mirror [arguments]**
 :   M060 D-18 (R10123): READ-ONLY consumer of the selfdef tool trust-score mirror (MS007 typed-mirror crate selfdef-trust-score-mirror). Projects selfdef MS042 per-tool trust scores (declaration-fidelity over time, 0-1000 scale, 4 bands + score history) for the D-18 cockpit dashboard. sovereign-os NEVER mutates IPS state; score reset is selfdefctl + MS003 only. Verbs: snapshot / bands (+ --json).
+
 ## capability-mirror
 
 **sovereign-osctl capability-mirror [arguments]**
 :   M060 D-14 (R10116-R10117): READ-ONLY consumer of the selfdef capability- token mirror (MS007 typed-mirror crate selfdef-capability-mirror). Projects selfdef MS035 64-bit capability_word tokens + MS039 Ring 0..4 + L0..L6 authority + F04146 parent-child inheritance for the D-14 cockpit dashboard. sovereign-os NEVER mutates IPS state; token issue/revoke are selfdefctl + MS003 only. Verbs: snapshot / summaries (+ --json).
+
 ## audit-mirror
 
 **sovereign-osctl audit-mirror [arguments]**
 :   M060 D-16 (R10120): READ-ONLY consumer of the selfdef audit-chain mirror (MS007 typed-mirror crate selfdef-audit-mirror). Projects selfdef MS016 SHA-256-chained, MS049 13-field-spanned, MS026 OCSF-categorized, MS003 verify-only audit chain for the D-16 cockpit dashboard. Chain is APPEND- ONLY by MS016 R03567 doctrine — the operator has NO mutation surface; verify / show / export are selfdefctl + MS003 only. Verbs: snapshot / integrity (+ --json).
+
 ## rules-mirror
 
 **sovereign-osctl rules-mirror [arguments]**
 :   M060 D-12 (MS024 + MS038 + MS039): READ-ONLY consumer of the selfdef nftables rules mirror (MS007 typed-mirror crate selfdef-rules-mirror). Projects the daemon's Ring 0..4 nftables rule projection for the D-12 networking dashboards (edge-firewall + network-edge). Rule installation lives in selfdefctl + nft at the IPS layer (operator MS003 only) — this dispatch only OBSERVES the live state. Verbs: snapshot / summaries (+ --json).
+
 ## peace-machine
 
 **sovereign-osctl peace-machine [arguments]**
 :   M060 D-20 (R10126-R10128): peace-machine health — sovereign-os-native (M059 sovereign close). Surfaces the 5 peace-machine properties (powerful/ disciplined/reversible/flexible/sovereign, dump 18338-18341) + the live verdict read from the sovereign-os-peace-check validator (R09980-R09982). Read-only; the sovereign-peace-machine-api daemon serves the D-20 cockpit dashboard from this same core. Verbs: snapshot / properties (+ --json).
+
 ## peace-check
 
 **sovereign-osctl peace-check [arguments]**
 :   SDD-132: thin wrapper so the D-20 "re-run" control can execute via the exec-rail (change_cli must start with sovereign-osctl). Execs the standalone validator binary /usr/bin/sovereign-os-peace-check (R09980-R09982). Read-only: the validator computes the 5-property verdict + publishes it; nothing mutates host state. Verbs/flags pass through (the control models the one-shot --json).
+
 ## auditor
 
 **sovereign-osctl auditor status**
