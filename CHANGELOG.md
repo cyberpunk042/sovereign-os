@@ -12,6 +12,21 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Changed — the `unsafe` ban is now compiler-enforced across all 202 cockpit crates (2026-07-14)
+
+Operator-directed (*"lets do a big round"*, phase-1 audit continuation) (SDD-710). Closes F-2026-096 and
+makes F-2026-004's "all inherit workspace lints" claim fully true. The root `[workspace.lints.rust]`
+declares `unsafe_code = "forbid"`, but a crate inherits that lint only if it declares `[lints] workspace =
+true` — and the audit (SDD-974) found the whole `sovereign-cockpit-*` family (202 of 717 crates) declared
+no `[lints]` table, so the compiler would not have stopped a future `unsafe` in them; the ban rested on a
+CI grep alone. A parse-verified sweep appended `[lints] workspace = true` to all 202 cockpit manifests, so
+**716/717 crates now enforce the ban at compile time** and `sovereign-simd` keeps its sanctioned
+`unsafe_code = "allow"` carve-out. `test_workspace_hygiene_baseline.py` gains invariant 7 (every crate must
+inherit except the carve-out, which must declare its `allow` explicitly), so a new crate that forgets the
+inherit line now fails CI. The change is provably inert (forbid is unused by the 202, `missing_docs` is
+warn-level, and the workspace clippy table is all-`allow`), verified by a clean `cargo check` of a
+representative swept crate + `cargo metadata` resolving the workspace.
+
 ### Added — the agent layer reaches the setup wizard + build configurator (2026-07-14)
 
 Operator-directed (*"I like when we have a proper IaC and scripts and integrations and setup wizard and
