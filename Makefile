@@ -145,11 +145,11 @@ install:  ## Install sovereign-osctl + manpage to PREFIX (default: /usr/local)
 	@cp -r scripts/inference "$(DESTDIR)$(SOVEREIGN_OS_LIB)/"
 	@cp -r profiles/* "$(DESTDIR)$(SOVEREIGN_OS_LIB)/profiles/"
 	@cp -r whitelabel "$(DESTDIR)$(SOVEREIGN_OS_LIB)/"
-	@install -m 644 docs/man/sovereign-osctl.1 "$(DESTDIR)$(PREFIX)/share/man/man1/sovereign-osctl.1"
+	@install -m 644 docs/man/sovereign-osctl*.1 "$(DESTDIR)$(PREFIX)/share/man/man1/"
 	@echo "Installed:"
 	@echo "  $(DESTDIR)$(PREFIX)/bin/sovereign-osctl"
 	@echo "  $(DESTDIR)$(SOVEREIGN_OS_LIB)/  (lib + hooks + profiles + inference + whitelabel)"
-	@echo "  $(DESTDIR)$(PREFIX)/share/man/man1/sovereign-osctl.1"
+	@echo "  $(DESTDIR)$(PREFIX)/share/man/man1/sovereign-osctl*.1"
 	@echo "Note: this installs the shared libs + osctl. The systemd fleet (111 units)"
 	@echo "      + the script trees the units reference is installed by 'make install-units'."
 
@@ -210,7 +210,7 @@ bins:  ## Build + install the Rust binaries (CPU-tuned for PROFILE) to PREFIX/bi
 
 uninstall:  ## Remove sovereign-osctl + manpage + the `bins` binaries from PREFIX
 	@rm -f  "$(DESTDIR)$(PREFIX)/bin/sovereign-osctl"
-	@rm -f  "$(DESTDIR)$(PREFIX)/share/man/man1/sovereign-osctl.1"
+	@rm -f  "$(DESTDIR)$(PREFIX)/share/man/man1/sovereign-osctl"*.1
 	@rm -rf "$(DESTDIR)$(SOVEREIGN_OS_LIB)"
 	@rm -f  "$(DESTDIR)$(PREFIX)/bin/sovereign-telemetry"
 	@rm -f  "$(DESTDIR)$(PREFIX)/bin/sovereign-resource-control"
