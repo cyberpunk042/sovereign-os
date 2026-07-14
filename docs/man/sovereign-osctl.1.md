@@ -69,6 +69,35 @@ complete version-matched syntax of every subcommand.
 **anti-minimization-audit**, **architecture-qa**, **coverage**
 :   Inspect the project's governance and operator-surface contracts.
 
+# MANUAL SUITE
+
+The main page explains the lifecycle and safety model. Detailed syntax,
+workflows, ownership, and examples are divided by operator concern:
+
+**sovereign-osctl-models**(1)
+:   Models, inference, routing, serving, evaluation, adaptation, and science.
+
+**sovereign-osctl-agents**(1)
+:   Frontends, agent runtimes, background jobs, compute-plane placement,
+    state fabric, sessions, approvals, and rollback.
+
+**sovereign-osctl-hardware**(1)
+:   CPU, GPU, memory, storage, network, PCIe, thermals, power, and BIOS.
+
+**sovereign-osctl-security**(1)
+:   Perimeter, selfdef, Secure Boot, authentication, permissions, hardening,
+    firewall, trust, and audit.
+
+**sovereign-osctl-operations**(1)
+:   Status, diagnostics, observability, maintenance, recovery, and daily use.
+
+**sovereign-osctl-governance**(1)
+:   Architecture, doctrine, compliance, UX, documentation, and surface audits.
+
+**sovereign-osctl-install**(1)
+:   Bootstrap, profiles, initialization, customization, image installation,
+    configuration snapshots, and decommissioning.
+
 # COMPLETE TOP-LEVEL COMMAND INDEX
 
 This index is pinned by a lint contract to the real top-level dispatcher.
@@ -227,8 +256,11 @@ or gaps.
 
 # SEE ALSO
 
-**systemctl**(1), **journalctl**(1), **podman**(1), **zpool**(8),
-**zfs**(8)
+**sovereign-osctl-models**(1), **sovereign-osctl-agents**(1),
+**sovereign-osctl-hardware**(1), **sovereign-osctl-security**(1),
+**sovereign-osctl-operations**(1), **sovereign-osctl-governance**(1),
+**sovereign-osctl-install**(1), **systemctl**(1), **journalctl**(1),
+**podman**(1), **zpool**(8), **zfs**(8)
 
 Project guides: `docs/src/ops/manage.md` and
 `docs/src/operator-journey.md`.
