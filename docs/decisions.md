@@ -888,8 +888,8 @@ mutex) + F-2026-062/091 (per-kind jobs sandbox + growth).
 **Source**: docs/sdd/993-sain-gpu-topology-5090-primary-4090-oculink-egpu.md (operator directive 2026-07-13 + topology correction; VFIO-opt-in section)
 
 **Decision**: Per the operator's 2026-07-13 hardware-change directive, all **three
-cards are in the build**: the **RTX PRO 6000 Blackwell 96 GB (~600 W) is the
-primary/main Oracle Core** (internal, PCIEX16_1 x8) — unchanged; the **RTX 4090
+cards are in the build**: the **RTX PRO 6000 Blackwell Max-Q 96 GB (~300 W — the Max-Q edition,
+NOT the 600 W workstation card) is the primary/main Oracle Core** (internal, PCIEX16_1 x8) — unchanged; the **RTX 4090
 24 GB** moves OUT of its internal slot to an **OcuLink eGPU** (OcuLink-to-M.2
 adapter on a **chipset M.2 slot**, PCIe 4.0 x4 / 64 Gbps); and the new **RTX 5090
 32 GB (TUF-RTX5090-O32G-GAMING), power-limited ~350 W** (Blackwell GB202, 512-bit
@@ -927,6 +927,16 @@ irreversible runtime change; the physical build validates the PCI IDs / power
 limit.
 
 ---
+
+### D-022 — 2026-07-14 — Logic Engine tier runs on the RTX 5090 (not the 4090 eGPU)
+
+**Question**: Which GPU hosts the SRP Logic Engine tier after the SDD-993 three-card reshape — the RTX 4090 (now the OcuLink eGPU, per master-spec §17.1) or the new internal RTX 5090?
+
+**Source**: operator directive 2026-07-14 (verbatim: "you can do point 1 yes, rtx 5090 will be better"); supersedes the D-021 / SDD-993 interim Logic=4090 framing.
+
+**Decision**: **Logic Engine = RTX 5090** (internal secondary, PCIEX16_2 x8). The internal 5090 has far more bandwidth (PCIe 5.0 x8) than the RTX 4090 on the OcuLink eGPU (PCIe 4.0 x4), so the mid-scale Logic workload belongs on the 5090. The RTX 4090 eGPU becomes the DSpark speculative-decode draft / scout (draft on the eGPU, verify on the internal PRO 6000 + 5090). This evolves the master-spec §17.1 verbatim ("Logic Engine (GPU 0 - RTX 4090)"), which was written before the 5090 existed; §17.1 text is preserved as the pre-reshape record (adding ≠ discarding), and this decision records the current reality. Oracle Core stays on the PRO 6000 Max-Q.
+
+**Reversibility**: fully-reversible — the tier→device mapping is config + panel labels + role-assignment; no data migration.
 
 ## Cross-references
 

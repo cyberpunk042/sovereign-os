@@ -16,16 +16,15 @@ panel. It composes three already-shipped sources — no new data model:
 | Assignment grid | `scripts/inference/model-health.py` snapshot (shared with D-03) reshaped to GPU0/GPU1/Ext-GPU/CPU0 cells with Model 0/1/2 + Mode |
 | Features CPU / GPUs | `/proc/cpuinfo` AVX-512 flags (VNNI/VPDPBUSD, VPOPCNTDQ…) + GPU compute-cap (NVFP4 on Blackwell) |
 
-Device → SRP role (SDD-993 three-card build — one primary + one internal
-secondary + one eGPU, all installed): **GPU0 = Oracle Core — RTX PRO 6000
-Max-Q 96 GB** (primary/main card, internal x8; model-health assigns the biggest
-Blackwell role `oracle`); **GPU1 = RTX 5090 32 GB** (Blackwell GB202, internal
-x8) — a NEW internal secondary / extra Blackwell capacity, **not** one of the
-three named SRP tiers (role `null`); **Ext-GPU = Logic Engine — RTX 4090
-(OcuLink eGPU)** (operator §17.1; host-resident by default, opt-in VFIO;
-also the DSpark speculative-decode draft — model-health binds the `logic`
-role to the 4090 by name); **CPU0 = Conductor** (Ryzen 9 9900X, cores split
-1-7 / 8-15 / 16-24 across Model 0/1/2).
+Device → SRP role (SDD-993 three-card build + D-022, all installed): **GPU0 =
+Oracle Core — RTX PRO 6000 Max-Q 96 GB** (primary/main card, internal x8;
+model-health assigns the biggest Blackwell role `oracle`); **GPU1 = Logic
+Engine — RTX 5090 32 GB** (Blackwell GB202, internal x8, PCIEX16_2; operator
+directive 2026-07-14 / D-022 — more bandwidth than the eGPU; model-health binds
+the `logic` role to the next Blackwell, the 5090); **Ext-GPU = RTX 4090
+(OcuLink eGPU)** — the DSpark speculative-decode draft / scout (host-resident by
+default, opt-in VFIO; role `null`); **CPU0 = Conductor** (Ryzen 9 9900X, cores
+split 1-7 / 8-15 / 16-24 across Model 0/1/2).
 
 ## Read-only boundary (R10212)
 

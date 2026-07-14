@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # scripts/inference/start-oracle-core.sh — Oracle Core on RTX PRO 6000
 # Blackwell Max-Q (96 GB primary; vLLM native, host-resident; DFlash/DSpark
-# drafts when configured). Per SDD-993 the SAIN-01 has a SECOND Blackwell
-# card — the RTX 5090 32 GB internal secondary (extra Blackwell capacity, not
-# a named SRP tier) — plus the RTX 4090 OcuLink eGPU (the Logic Engine card,
-# operator §17.1). The Oracle Core stays on the 96 GB PRO 6000.
+# drafts when configured). Per SDD-993 + D-022 the SAIN-01 has a SECOND
+# Blackwell card — the RTX 5090 32 GB internal secondary, which runs the Logic
+# Engine tier (operator 2026-07-14) — plus the RTX 4090 OcuLink eGPU (the DSpark
+# speculative-decode draft). The Oracle Core stays on the 96 GB PRO 6000.
 #
 # Per E110: target model is Ling-2.6-flash (MoE-active-only) or
 # Nemotron-3-Nano-Omni (BF16 native fit). Operator picks at deployment.

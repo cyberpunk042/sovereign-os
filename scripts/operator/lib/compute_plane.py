@@ -8,7 +8,7 @@ CPU); Phase 2 adds model residents, Phase 3 the RTX-4090 passthrough VM as a
 device.
 
 It mirrors the M075 SRP doctrine (`crates/sovereign-srp-scheduler`): the roles
-Conductor (CPU, ternary), Logic (RTX 4090, quantized, 24 GB), Oracle (Blackwell
+Conductor (CPU, ternary), Logic (RTX 5090, 32 GB, D-022), Oracle (Blackwell
 PRO 6000, fp16, 96 GB), and placement by precision + VRAM fit. The canonical
 placement rule lives in the Rust `place()`; this is the runtime the jobs daemon
 consults for host-side, live-VRAM fit. Stdlib only.

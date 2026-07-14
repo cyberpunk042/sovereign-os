@@ -1,4 +1,4 @@
-"""vLLM adapter — Logic Engine (4090 VFIO) + Oracle Core (Blackwell).
+"""vLLM adapter — Logic Engine (RTX 5090 internal secondary, D-022) + Oracle Core (Blackwell PRO 6000).
 
 Per SDD-011 + E109 (DFlash integration): vLLM v0.20.1+ pinned.
 DFlash speculative-decoding drafts wired when the target model has a
@@ -41,8 +41,10 @@ class VllmBackend(Backend):
     def start_command(self) -> list[str]:
         argv: list[str] = []
 
-        # Podman wrapping for VFIO-isolated 4090 (Logic Engine);
-        # native for Blackwell (Oracle Core).
+        # Podman wrapping for the Logic Engine (RTX 5090 internal secondary
+        # per D-022; the container path is retained per §17.1 and is also the
+        # opt-in VFIO-isolation path for the RTX 4090 eGPU DSpark draft);
+        # native for the Blackwell PRO 6000 (Oracle Core).
         if self.config.podman:
             argv += [
                 "podman", "run", "--rm",

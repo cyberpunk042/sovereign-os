@@ -27,7 +27,7 @@ Sequencing (operator, same session): **SAIN / eGPU first; DSpark second.** This 
 |---|---|---|---|
 | **RTX PRO 6000 Blackwell Max-Q 96 GB** | **PRIMARY — Oracle Core (main card)** | internal, PCIEX16_1 **x8** | **~300 W** (Max-Q edition — NOT the 600 W workstation card) |
 | **RTX 5090 32 GB (TUF-RTX5090-O32G-GAMING)** | **secondary** (new card; Blackwell GB202, 512-bit) | internal, PCIEX16_2 **x8** | **~350 W** (power-limited from 575 W stock) |
-| **RTX 4090 24 GB** | **secondary / eGPU** (Logic Engine / speculative-decoding draft) | **OcuLink-to-M.2 on a chipset M.2 slot, PCIe 4.0 x4** | ~350 W |
+| **RTX 4090 24 GB** | **eGPU** (DSpark speculative-decode draft — per D-022 the Logic tier moved to the 5090) | **OcuLink-to-M.2 on a chipset M.2 slot, PCIe 4.0 x4** | ~320 W |
 
 One primary (PRO 6000) + **two secondaries** (the 5090 internal + the 4090 eGPU). No future/missing card — everything is installed.
 
@@ -57,7 +57,7 @@ Earlier spec text framed the PRO 6000 as *future* ("your **future** NVIDIA RTX P
 
 ## VRAM + role implications (for the reconcile)
 
-- The Oracle Core stays on the **PRO 6000 (96 GB)** — the large-VRAM primary, unchanged. The **RTX 5090 (32 GB, Blackwell)** is the new internal secondary (a second Oracle-capable / Logic card); the **RTX 4090 (24 GB)** is the OcuLink eGPU (Logic / speculative-decoding draft).
+- The Oracle Core stays on the **PRO 6000 (96 GB)** — the large-VRAM primary, unchanged. The **RTX 5090 (32 GB, Blackwell)** is the new internal secondary and — per operator D-022 (2026-07-14) — runs the **Logic Engine** tier (more bandwidth than the eGPU); the **RTX 4090 (24 GB)** is the OcuLink eGPU, now the **DSpark speculative-decode draft**.
 - Both internal cards are Blackwell (PRO 6000 GB202GL + 5090 GB202) → FP4/NVFP4 native paths run on both.
 - The fleet predicate `any_gpu_vram_at_least_80gib` (predicate-coverage dashboard) is satisfied by the 96 GB PRO 6000 primary — no change needed to the threshold.
 
@@ -69,7 +69,7 @@ The 4090 was VFIO-isolated as an internal card. On the OcuLink eGPU it sits on i
 
 Operator, verbatim: *"also what is this VFIO GPU thing … I like the idea of a sandbox but at the same time it should be an option, a config I can opt in or not … I want to be able to work locally on my workstation most of the time, not in a VM by default."*
 
-The reconcile flips the **default** from "4090 VFIO-isolated" to **host-resident / bare-metal**: the 4090's declared `role` is `secondary` (directly usable by the host inference stack — Logic Engine / speculative-decoding draft, worked-on locally). The VFIO-isolated sandbox (§17 dual-GPU SRP perimeter) is an **opt-in** mode — set `role: vfio` in the profile and `vfio-bind-4090.sh` binds it at boot; with the default role the bind hook is a clean no-op. **The isolation machinery is preserved, not removed** — this is a default-flip, and it is consistent with the operator's own M040 E0384 "performance profile: 4090 on host" verbatim.
+The reconcile flips the **default** from "4090 VFIO-isolated" to **host-resident / bare-metal**: the 4090's declared `role` is `secondary` (directly usable by the host inference stack — DSpark speculative-decode draft, worked-on locally; the Logic Engine tier itself runs on the internal 5090 per D-022). The VFIO-isolated sandbox (§17 dual-GPU SRP perimeter) is an **opt-in** mode — set `role: vfio` in the profile and `vfio-bind-4090.sh` binds it at boot; with the default role the bind hook is a clean no-op. **The isolation machinery is preserved, not removed** — this is a default-flip, and it is consistent with the operator's own M040 E0384 "performance profile: 4090 on host" verbatim.
 
 ## Scope of THIS SDD — reconcile SHIPPED
 

@@ -326,10 +326,11 @@ def cmd_dual_card(args: argparse.Namespace) -> int:
         findings.append(
             "Inference router config: Oracle Core (long-context / 70B-class at FP8, "
             "200B-class at FP4 with vLLM 0.6+) on the RTX PRO 6000 96 GB primary; "
-            "Logic Engine (mid-scale Q4, operator §17.1) on the RTX 4090 24 GB — now "
-            "the OcuLink eGPU (host-resident by default, opt-in VFIO); the RTX 5090 "
-            "32 GB internal secondary is extra Blackwell capacity (also the DSpark "
-            "draft target). Ternary (bitnet.cpp) stays on the CPU Conductor tier."
+            "Logic Engine (mid-scale Q4 / NVFP4) on the RTX 5090 32 GB internal "
+            "secondary (operator D-022, 2026-07-14 — better bandwidth than the eGPU); "
+            "the RTX 4090 24 GB OcuLink eGPU is the DSpark speculative-decode draft "
+            "(host-resident by default, opt-in VFIO). Ternary (bitnet.cpp) stays on "
+            "the CPU Conductor tier."
         )
     elif has_pro_6000:
         findings.append(

@@ -65,17 +65,17 @@ decay_prevention:
   module: M01252
   rule: "SRP boundary enforced to prevent code maintenance decay"
 
-# ── SDD-993 reconcile (operator directive 2026-07-13) — ADDITIVE ──────────────
+# ── SDD-993 + D-022 reconcile (operator directives 2026-07-13 / 2026-07-14) — ADDITIVE ──
 # The verbatim agents/topology above map Oracle=PRO 6000 + Logic="GPU 0 RTX 4090"
-# (operator §17.1, verbatim-preserved). Under SDD-993 that TIER mapping HOLDS:
-# the PRO 6000 Max-Q stays the Oracle Core (primary/main), and the RTX 4090
-# stays the Logic Engine — but the 4090 now runs on an OcuLink eGPU (host-
-# resident by default, opt-in VFIO). A NEW card is added: the RTX 5090, the
-# internal secondary that took the 4090's vacated internal slot (extra Blackwell
-# capacity, not one of the three named SRP tiers). Verbatim untouched (§1g).
-# The PRO 6000 is the Max-Q 300 W edition (NOT the 600 W workstation card).
+# (operator §17.1, verbatim-preserved — written before the 5090 existed). The
+# Oracle Core is UNCHANGED (PRO 6000 Max-Q, primary/main). Per operator directive
+# 2026-07-14 (D-022: "rtx 5090 will be better"), the LOGIC ENGINE tier now runs on
+# the internal RTX 5090 (PCIEX16_2 x8) — far more bandwidth than the 4090 on the
+# PCIe 4.0 x4 OcuLink eGPU. The RTX 4090 eGPU becomes the DSpark speculative-decode
+# DRAFT card. §17.1's original 4090 framing is the pre-reshape record (kept, §1g);
+# this reconcile records the current reality. The PRO 6000 is the Max-Q 300 W edition.
 sdd_993_reconcile:
   oracle: "RTX PRO 6000 Blackwell Max-Q 96 GB (300 W edition, NOT the 600 W workstation card) — Oracle Core (primary/main), internal PCIEX16_1 x8. Unchanged."
-  logic: "RTX 4090 24 GB — Logic Engine (operator §17.1), now on an OcuLink eGPU (chipset M.2, PCIe 4.0 x4); host-resident by default, opt-in VFIO. Also the DSpark speculative-decoding DRAFT card. ~320 W 'slightly reduce' cap."
-  new_secondary: "RTX 5090 32 GB (Blackwell GB202, ~350 W) — NEW internal secondary (PCIEX16_2 x8); a second Blackwell card (FP4/NVFP4) between Logic and Oracle in capability. Took the 4090's vacated internal slot. Not one of the three named SRP tiers — extra capacity."
+  logic: "RTX 5090 32 GB (Blackwell GB202, ~350 W) — Logic Engine (internal secondary, PCIEX16_2 x8). Per operator D-022 (2026-07-14) the Logic tier runs here (PCIe 5.0 x8 bandwidth beats the 4090 eGPU's PCIe 4.0 x4). A second Blackwell FP4/NVFP4 card; took the 4090's vacated internal slot."
+  draft_egpu: "RTX 4090 24 GB — displaced to the OcuLink eGPU (chipset M.2, PCIe 4.0 x4); host-resident by default, opt-in VFIO. Now the DSpark speculative-decode DRAFT card (draft on the eGPU, verify on the internal PRO 6000 + 5090). ~320 W 'slightly reduce' cap. Retains the §17.1 Logic-lineage as its historical role."
   pcie_now: "Two internal cards (PRO 6000 PCIEX16_1 + RTX 5090 PCIEX16_2) run x8/x8; M.2_2 MUST stay empty (shares lanes with PCIEX16_2/the 5090). The OcuLink 4090 eGPU rides a chipset M.2 slot, NOT M.2_2."
