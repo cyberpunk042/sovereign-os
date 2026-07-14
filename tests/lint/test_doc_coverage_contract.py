@@ -377,13 +377,17 @@ def test_gaps_verb_low_threshold_clean():
     assert data["count"] == 0
 
 
-def test_gaps_verb_high_threshold_exits_2():
-    """gaps with threshold=6 MUST exit 2 (no module has all 6)."""
+def test_gaps_verb_full_coverage_is_clean():
+    """Every tracked module must retain all six documentation surfaces."""
     result = subprocess.run(
         ["python3", str(DC_PY), "gaps", "--threshold", "6", "--json"],
         capture_output=True, text=True, timeout=15,
     )
-    assert result.returncode == 2
+    assert result.returncode == 0, result.stdout + result.stderr
+    data = json.loads(result.stdout)
+    assert data["threshold"] == 6
+    assert data["count"] == 0
+    assert data["below_threshold"] == []
 
 
 def test_scan_unknown_module_fails():
