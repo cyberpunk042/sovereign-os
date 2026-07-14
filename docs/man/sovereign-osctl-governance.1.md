@@ -56,14 +56,17 @@ operator use.
 
 **sovereign-osctl apply-audit {list|tail|by-verb|audit}**
 :   R327 (E9.M11): central apply-audit log query CLI. Reads /var/lib/sovereign-os/apply-audit.jsonl appended by every mutating verb. Operator-pull "who mutated what when?"
+
 ## rounds
 
 **sovereign-osctl rounds {list|show|by-epic|recent}**
 :   R321 (E9.M9): operator-pull rounds catalog — meta-navigation over the now-300+ round codebase. Parses mandate.md, exposes list / show / by-epic / recent verbs. Operator-named (§1.0 meta-navigation for perpetual E9.M3 intake loop).
+
 ## search
 
 **sovereign-osctl search [arguments]**
 :   R386 (E10.M30): unified operator-pull search across all 3 verbatim-catalog taxonomies (architecture-qa + coverage-map + layers). One verb queries all catalogs at once + ranks results.
+
 ## layers
 
 **sovereign-osctl layers [sub]**
@@ -98,6 +101,7 @@ operator use.
 
 **sovereign-osctl dashboards [arguments]**
 :   M060 R10038 + R10129-R10132: operator dashboard on/off toggles — "everything can be turned on and off". Lists every cockpit dashboard + its enabled bit, toggles them on/off (persisted to /etc/sovereign-os/ dashboards.toml, R10130), emitting an M049 trace + OCSF 5001 Configuration Change (R10132) into the D-05 span log on each change. enable/disable are the operator (MS003-signed) path (R10131); web surfaces never mutate. Verbs: list / status <slug> / enable <slug> / disable <slug> [--rationale].
+
 ## compliance
 
 **sovereign-osctl compliance status**
