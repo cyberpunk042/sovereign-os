@@ -121,10 +121,10 @@ PREFIX ?= /usr/local
 SOVEREIGN_OS_LIB ?= $(PREFIX)/lib/sovereign-os
 
 man:  ## Regenerate the committed sovereign-osctl(1) roff artifact (requires pandoc)
-	scripts/docs/build-sovereign-osctl-manpage.sh build
+	bash scripts/docs/build-sovereign-osctl-manpage.sh build
 
 man-check:  ## Verify the committed roff artifact matches the Markdown source
-	scripts/docs/build-sovereign-osctl-manpage.sh check
+	bash scripts/docs/build-sovereign-osctl-manpage.sh check
 
 install:  ## Install sovereign-osctl + manpage to PREFIX (default: /usr/local)
 	@echo "Installing to PREFIX=$(PREFIX)"
