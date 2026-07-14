@@ -12,6 +12,19 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — operator documentation for the agent layer + a drift lint (2026-07-14)
+
+Operator-directed (*"is it even all documented and how deep does the configuration goes?"*) (SDD-708).
+Closes the doc half of F-2026-117. A surface map found the agent layer (SDD-704 frontend / 705 OpenClaw /
+706 open-computer / 707 backend hotswap) fully wired into the IaC + `sovereign-osctl` and contract-pinned —
+but the contracts stop at CLI `--help`, so it had reached no operator-facing surface. Now `docs/src/ai-backend.md`
+gains a cohesive "The desktop + the agent runtimes" section (the `frontend set` face-swap, both installed-off
+runtimes, and the `backend {local|anthropic}` hotswap, with the build-time knobs + the key-never-baked
+discipline); `ops/manage.md` + `profiles/sain-01.md` gain the verbs; and a new 6-case
+`test_agent_layer_docs_contract.py` drift-guards it (every agent-layer verb the CLI dispatches must be
+documented). Docs-only — no code/units/metrics changed. Scoped follow-ons (Round B): the setup
+wizard + build-configurator webapp integration and registering the subsystems in the §1g governance trackers.
+
 ### Added — agent-runtime backend hotswap: local model ↔ hosted Claude (2026-07-14)
 
 Operator-directed (*"there should be a hotswap for [the] anthropic local ai API vs the claude ai anthropic

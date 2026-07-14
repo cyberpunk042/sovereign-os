@@ -102,6 +102,21 @@ sovereign-osctl maintenance scrub            # ZFS scrub
 sovereign-osctl maintenance arc-status       # ZFS ARC stats
 ```
 
+### Agent layer (SDD-704–707)
+
+sain-01's `provisioning:` block bakes the swappable **face** (`frontend`) + both
+**agent runtimes** (`bake.openclaw`, `bake.open_computer`), all installed-off and
+preconfigured to the local model. Switch the face, turn the runtimes on, or flip a
+runtime between the local model and hosted Claude — no reflash:
+
+```sh
+sudo sovereign-osctl frontend set dashboards-kiosk
+sudo sovereign-osctl openclaw on
+sudo sovereign-osctl openclaw backend anthropic --key sk-ant-...
+```
+
+Full guide: [Use the box as your AI backend](../ai-backend.md) § "The desktop + the agent runtimes".
+
 ## What to do if it fails
 
 | Failure | Recovery |
