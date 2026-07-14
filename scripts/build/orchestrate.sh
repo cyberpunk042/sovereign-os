@@ -422,8 +422,24 @@ cmd_run() {
   for step in "${STEPS[@]}"; do
     local script="${__SCRIPT_DIR}/${step}.sh"
     if [ ! -x "${script}" ]; then
-      log_warn "step ${step}: script not found or not executable (${script}) — skipping (will land in subsequent PR)"
-      continue
+      # R2 (SDD-999): a missing/non-executable step is FATAL on a real run — the
+      # dry-run (cmd_preflight) already returns 1 for it, and a `run` that silently
+      # skips a build stage then reports "pipeline complete" would emit an image
+      # missing that stage (e.g. no image-sign, no image-verify) while claiming
+      # success. This was a development-era leftover ("will land in subsequent PR");
+      # every step script now exists. To deliberately run a partial pipeline during
+      # development, set SOVEREIGN_OS_ALLOW_MISSING_STEPS=1 (records the gap, keeps
+      # the old skip behaviour); the default now matches the dry-run contract.
+      if [ "${SOVEREIGN_OS_ALLOW_MISSING_STEPS:-}" = "1" ]; then
+        log_warn "step ${step}: script not found or not executable (${script}) — SKIPPING (SOVEREIGN_OS_ALLOW_MISSING_STEPS=1)"
+        steps_failed=$((steps_failed + 1))
+        continue
+      fi
+      log_error "step ${step}: script not found or not executable (${script})"
+      log_error "  a build step is missing — refusing to emit an incomplete image."
+      log_error "  fix the missing step, or set SOVEREIGN_OS_ALLOW_MISSING_STEPS=1 to run a partial pipeline on purpose."
+      _emit_pipeline_metrics "${pipeline_start}" "${steps_run}" "${steps_failed}" "fail"
+      exit 1
     fi
 
     local step_start; step_start="$(date +%s)"

@@ -12,6 +12,22 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Fixed — build-pipeline safety: a missing/critical step must fail the build, not silently pass (2026-07-14)
+
+Operator-directed build-and-flash readiness review (SDD-999). Closes F-2026-105 (HIGH) + F-2026-106 (HIGH).
+**F-2026-105**: `scripts/build/orchestrate.sh` had an inconsistent contract — the dry-run (`cmd_preflight`)
+treats a missing/non-executable step as failure, but the real build (`cmd_run`) silently skipped it ("will
+land in subsequent PR") and still reported "pipeline complete", so a missing `08-image-sign`/`09-image-verify`
+(or any step) would emit an unsigned/unverified image while succeeding. `cmd_run` now treats a missing step as
+fatal (matching the dry-run); `SOVEREIGN_OS_ALLOW_MISSING_STEPS=1` keeps the old skip for deliberate partial
+dev builds. **F-2026-106**: `scripts/build/provision-bake.sh` is NON-FATAL BY DESIGN (`set -uo pipefail`, every
+step `|| log …`) — correct for the many optional steps — but the blanket `exit 0` made even image-bricking
+steps non-fatal, so a failed operator-account create or a failed `systemctl enable sovereign-firstboot.target`
+would still "succeed", yielding an image with no operator login or an inert first boot. Added a `crit` tracker:
+the operator-account and first-boot-enable steps now verify (the latter checks the `multi-user.target.wants`
+symlink, since an offline enable can no-op silently) and `crit` on failure, and provision-bake exits non-zero
+when any critical step failed. Optional steps stay non-fatal. 2 build scripts, no crate/webapp change.
+
 ### Fixed — first-boot orchestration correctness: the flashed image must actually run its hooks (2026-07-14)
 
 Operator-directed build-and-flash readiness review ("we need to fix everything before I build and flash
