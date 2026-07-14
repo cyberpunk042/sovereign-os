@@ -20,7 +20,7 @@ validated args + single-flight lock + operator-key injection + streamed result.
 
 **Sudoer strategy (mechanism A, operator-review-pending):** privileged verbs run
 via `sudo -n` against the NOPASSWD allowlist in
-`systemd/sudoers.d/sovereign-os-cockpit` (DRAFT — must be reviewed before any
+`config/sudoers.d/sovereign-os-cockpit` (DRAFT — must be reviewed before any
 daemon is wired and before the `*-api` systemd units drop `NoNewPrivileges=true`,
 which currently blocks sudo). Until then this module DRY-RUNs by default and is
 imported by nothing live. Execution mechanism is isolated in `_privileged_argv()`

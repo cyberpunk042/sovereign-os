@@ -12,6 +12,22 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Fixed — operator sudoers: risk-tier the OPS grants + lock them against privilege-escalation drift (2026-07-14)
+
+Operator-directed build-and-flash readiness review ("everything that needs to be in the sudoer are there
+too?") (SDD-700). Closes F-2026-107 (MED) + F-2026-108 (LOW). **F-2026-107**: `operator-sudoers.sh`'s per-verb
+cockpit alias was lockstep-linted, but the OPS bucket (one opaque `SOVEREIGN_OS_OPS` alias) had no coverage
+lint and no privesc guard — `test_operator_sudoers.py` only checked "not `NOPASSWD: ALL`" + absolute paths, so
+adding `bash`/`dd`/`systemctl`/`tee`/`chmod` to a bucket would silently make the scoped drop-in
+root-equivalent while every lint passed. Fixed by (1) splitting the opaque alias into three self-documenting
+risk tiers — `SOVEREIGN_OS_DIAG` (read-only probes), `SOVEREIGN_OS_IMAGE` (HIGH-RISK loop-mount),
+`SOVEREIGN_OS_PROC` (kill) — and (2) rewriting the lint to lock each tier's command set to the reviewed set and
+forbid any privilege-escalating binary (shells, interpreters, `dd`/`tee`/`chmod`/`chroot`/`systemctl`/pkg
+managers/pagers/`find`/`tar`/`su`/`sudo`…) from appearing in any NOPASSWD grant. Same commands granted, only
+split across named aliases; `visudo`-valid. **F-2026-108**: `_action_exec.py`'s docstring pointed at a
+non-existent `systemd/sudoers.d/…` path; corrected to `config/sudoers.d/…`. Band note: the 950–999 audit band
+filled, so this readiness arc continues in the newly-registered 700–799 block.
+
 ### Fixed — build-pipeline safety: a missing/critical step must fail the build, not silently pass (2026-07-14)
 
 Operator-directed build-and-flash readiness review (SDD-999). Closes F-2026-105 (HIGH) + F-2026-106 (HIGH).

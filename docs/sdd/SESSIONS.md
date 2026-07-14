@@ -24,10 +24,11 @@
 | cockpit-wasm | 800–899 | E11.M800–M899 | `claude/*cockpit-wasm*` | cockpit-wasm bridge (F-2026-001) | active |
 | compute-plane | 900–949 | E11.M900–M949 | `claude/*compute-plane*` | multi-model / GPU compute plane | active |
 | phase-1-audit | 950–999 | E11.M950–M999 | `claude/sovereign-os-audit-*` | phase-1 audit / improvement | active |
+| phase-1-audit-cont | 700–799 | E11.M700–M799 | `claude/sovereign-os-audit-*` | phase-1 audit continuation — build-and-flash readiness (950–999 band filled) | active |
 
 > **No shared catch-all band.** Every new unassigned session claims its **own
-> disjoint 100-wide block** and adds a row here BEFORE taking numbers (next free
-> block: `800–899` taken → `700–799`, then `600–699`, …). This is the rule that
+> disjoint 100-wide block** and adds a row here BEFORE taking numbers (`800–899` +
+> `700–799` taken → next free block: `600–699`, then `500–599`, …). This is the rule that
 > makes collisions the exception the resolver cleans up, not the norm.
 
 ## How a session identifies itself

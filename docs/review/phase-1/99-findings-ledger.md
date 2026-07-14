@@ -392,6 +392,16 @@ The docs already promise these; they need owners/ordering, not rediscovery:
 > **Status (2026-07-14):** **CLOSED by SDD-999**. A `crit` helper + `_CRIT_FAILURES` counter (not a blanket `set -e`, which would wrongly make every optional hiccup fatal): the operator-account step verifies `id` succeeds and the first-boot-enable step verifies the `multi-user.target.wants/sovereign-firstboot.target` symlink exists (an offline enable can no-op silently), each `crit`-ing on failure; provision-bake `exit 1`s when any critical step failed, so the mkosi postinst fails loudly. Optional steps stay non-fatal.
 - `scripts/build/provision-bake.sh` (pre-fix): blanket `exit 0` regardless of operator-account / first-boot-enable outcome. Action: verify the two load-bearing steps + fail the build on their failure only.
 
+### F-2026-107 · MED · The OPS sudoers bucket has no coverage lint and no privilege-escalation guard
+> **Surfaced (2026-07-14)** by the build-and-flash readiness review (operator: *"everything that needs to be in the sudoer are there too?"*). `scripts/operator/operator-sudoers.sh` installs a scoped NOPASSWD drop-in (the panels + the AI agent run as the operator user). Its per-verb `SOVEREIGN_OS_COCKPIT` alias is lockstep-linted (selfdef/perimeter proven absent by `test_cockpit_action_exec_sudoers.py`). But the OPS bucket (one opaque `SOVEREIGN_OS_OPS` alias built from the `DIAG`/`IMAGE`/`PROC` shell arrays) had NO coverage lint: `test_operator_sudoers.py` only asserted it wasn't `NOPASSWD: ALL` + entries were absolute paths, so adding `bash`/`dd`/`systemctl`/`tee`/`chmod` to a bucket would silently turn the "scoped, never-ALL" drop-in into a NOPASSWD root shell while every lint still passed.
+> **Status (2026-07-14):** **CLOSED by SDD-700** (`docs/sdd/700-operator-sudoers-privesc-guard.md`). Two moves: (1) risk-tier the one alias into `SOVEREIGN_OS_DIAG` (read-only), `SOVEREIGN_OS_IMAGE` (HIGH-RISK loop-mount), `SOVEREIGN_OS_PROC` so the sudoers file self-documents danger; (2) rewrite `test_operator_sudoers.py` to lock each tier to the reviewed `EXPECTED_*` set (drift-lock) AND forbid a curated privesc denylist (shells/interpreters/`dd`/`tee`/`chmod`/`chroot`/`systemctl`/pkg-managers/pagers/`find`/`tar`/`su`/`sudo`…) from any tier. Same commands granted; `visudo`-valid.
+- `scripts/operator/operator-sudoers.sh` OPS bucket (pre-fix): one alias, no lockstep, no denylist. Action: tier + lockstep + privesc-denylist lint.
+
+### F-2026-108 · LOW · `_action_exec.py` docstring points at a non-existent sudoers path
+> **Surfaced (2026-07-14)** by the build-and-flash readiness review. `scripts/operator/_action_exec.py`'s "Sudoer strategy" docstring referenced `systemd/sudoers.d/sovereign-os-cockpit` — a path that does not exist; the reviewed draft lives at `config/sudoers.d/sovereign-os-cockpit` (where `operator-sudoers.sh` + the cockpit lint both read it). A wrong path in the doc that explains the execution primitive's trust model sends a reviewer to the wrong file.
+> **Status (2026-07-14):** **CLOSED by SDD-700**. Docstring corrected to `config/sudoers.d/…`.
+- `scripts/operator/_action_exec.py:23` (pre-fix): `systemd/sudoers.d/…`. Action: point at the real `config/sudoers.d/…`.
+
 ## H. Cross-cutting themes + recommended sequencing
 
 **The five recurring patterns across all findings:**

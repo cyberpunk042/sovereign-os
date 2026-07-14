@@ -18,11 +18,12 @@ on 2026-07-09 — SDD-070), each session allocates numbers **within its own disj
 | **cockpit-wasm bridge** (F-2026-001) | **800–899** | **E11.M800–M899** |
 | **compute-plane** (multi-model / GPU) | **900–949** | **E11.M900–M949** |
 | **phase-1 audit** / improvement | **950–999** | **E11.M950–M999** |
+| **phase-1 audit — continuation** (build-and-flash readiness) | **700–799** | **E11.M700–M799** |
 
 > There is **no shared "any new / unassigned → 900–999" catch-all** — it was itself a collision
 > source (two unassigned sessions both grabbed the next free 900-number: SDD-900 on 2026-07-12,
 > SDD-969 on 2026-07-13). **Every new unassigned session claims its OWN disjoint 100-wide block**
-> and adds a row here (next free block: `800–899` is taken → `700–799`, then `600–699`, …).
+> and adds a row here (`800–899` + `700–799` are taken → next free block: `600–699`, then `500–599`, …).
 > See SDD-100 amendments (2026-07-12, 2026-07-13).
 
 The historical `064–071` / `E11.M32–M38` numbers (allocated before banding) stay as-is — the
