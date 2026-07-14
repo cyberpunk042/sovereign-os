@@ -21,6 +21,18 @@ shopt -s nullglob
 export PATH="/usr/sbin:/usr/bin:/sbin:/bin:${PATH:-}"
 log() { echo "provision-bake: $*" >&2; }
 
+# R3 (SDD-999): provisioning is NON-FATAL BY DESIGN for the many OPTIONAL steps
+# (dashboards, GUI, live-reload, gatewayd, ghostproxy, UPS, node-exporter, config
+# defaults…) — a hiccup there must never brick the image build; they degrade and
+# are recoverable post-flash. But a few steps are LOAD-BEARING for a usable image:
+# if they silently fail the flashed box boots broken (no operator login, or a
+# first boot that runs no hardware setup) while the build still reports success.
+# `crit` records such a failure so provision-bake exits non-zero at the end
+# (failing the mkosi postinst loudly) instead of the blanket `exit 0`, without
+# turning every optional hiccup fatal (which `set -e` would wrongly do).
+_CRIT_FAILURES=0
+crit() { _CRIT_FAILURES=$((_CRIT_FAILURES + 1)); log "CRITICAL: $*"; }
+
 REPO="${SOVEREIGN_OS_IMAGE_REPO:-/opt/sovereign-os}"
 OPERATOR="${SOVEREIGN_OS_OPERATOR_USER:-operator}"
 OPERATOR_GROUPS="${SOVEREIGN_OS_OPERATOR_GROUPS:-sudo,podman,render,video,adm}"
@@ -84,8 +96,14 @@ else
   if useradd -m -N -s "${OPERATOR_SHELL}" ${grps:+-G "${grps}"} "${OPERATOR}"; then
     log "created operator '${OPERATOR}' (uid $(id -u "${OPERATOR}" 2>/dev/null), groups: ${grps:-none})"
   else
-    log "useradd '${OPERATOR}' failed (non-fatal)"
+    log "useradd '${OPERATOR}' failed"
   fi
+fi
+# R3: verify the operator account actually exists now — a flashed image with no
+# operator login is a broken deliverable (root-console still works, but the
+# operator promise is core). Only a genuine absence is critical.
+if ! id "${OPERATOR}" >/dev/null 2>&1; then
+  crit "operator account '${OPERATOR}' does not exist after provisioning — the flashed image would have no operator login"
 fi
 # password = root's (copy the hash — no plaintext needed) unless opted out
 if [ "${SOVEREIGN_OS_OPERATOR_PASSWORD_FROM_ROOT:-1}" = "1" ] && id "${OPERATOR}" >/dev/null 2>&1; then
@@ -283,9 +301,17 @@ if [ "${SOVEREIGN_OS_BAKE_FIRSTBOOT:-}" = "1" ] && [ -d "${REPO}/systemd/system"
     fi
   done
   if systemctl enable sovereign-firstboot.target 2>/dev/null; then
-    log "first-boot automation installed (${n} units) + target enabled"
+    # R3: verify the enable actually created the wants symlink — an offline
+    # `systemctl enable` can no-op silently, and the WHOLE hardware first boot
+    # (vfio/nvidia/vlan/zfs/tetragon) hinges on the target being reachable from
+    # multi-user.target (the SDD-998 Wants= fix is upstream of this).
+    if [ -L /etc/systemd/system/multi-user.target.wants/sovereign-firstboot.target ]; then
+      log "first-boot automation installed (${n} units) + target enabled + wants-symlink verified"
+    else
+      crit "sovereign-firstboot.target enabled but no multi-user.target.wants symlink — first boot would run no hardware setup"
+    fi
   else
-    log "first-boot target enable failed (non-fatal) — ${n} units installed"
+    crit "first-boot target enable FAILED — the flashed image would boot inert (no vfio/nvidia/vlan/zfs/tetragon); ${n} units installed"
   fi
 fi
 
@@ -377,5 +403,9 @@ if [ "${SOVEREIGN_OS_UPS:-}" = "1" ]; then
   fi
 fi
 
+if [ "${_CRIT_FAILURES}" -gt 0 ]; then
+  log "done WITH ${_CRIT_FAILURES} CRITICAL failure(s) — refusing to certify the image (see the CRITICAL line(s) above)"
+  exit 1
+fi
 log "done — operator=${OPERATOR} posture=${POSTURE}"
 exit 0

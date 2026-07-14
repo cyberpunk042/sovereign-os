@@ -12,6 +12,61 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Fixed — operator sudoers: risk-tier the OPS grants + lock them against privilege-escalation drift (2026-07-14)
+
+Operator-directed build-and-flash readiness review ("everything that needs to be in the sudoer are there
+too?") (SDD-700). Closes F-2026-107 (MED) + F-2026-108 (LOW). **F-2026-107**: `operator-sudoers.sh`'s per-verb
+cockpit alias was lockstep-linted, but the OPS bucket (one opaque `SOVEREIGN_OS_OPS` alias) had no coverage
+lint and no privesc guard — `test_operator_sudoers.py` only checked "not `NOPASSWD: ALL`" + absolute paths, so
+adding `bash`/`dd`/`systemctl`/`tee`/`chmod` to a bucket would silently make the scoped drop-in
+root-equivalent while every lint passed. Fixed by (1) splitting the opaque alias into three self-documenting
+risk tiers — `SOVEREIGN_OS_DIAG` (read-only probes), `SOVEREIGN_OS_IMAGE` (HIGH-RISK loop-mount),
+`SOVEREIGN_OS_PROC` (kill) — and (2) rewriting the lint to lock each tier's command set to the reviewed set and
+forbid any privilege-escalating binary (shells, interpreters, `dd`/`tee`/`chmod`/`chroot`/`systemctl`/pkg
+managers/pagers/`find`/`tar`/`su`/`sudo`…) from appearing in any NOPASSWD grant. Same commands granted, only
+split across named aliases; `visudo`-valid. **F-2026-108**: `_action_exec.py`'s docstring pointed at a
+non-existent `systemd/sudoers.d/…` path; corrected to `config/sudoers.d/…`. Band note: the 950–999 audit band
+filled, so this readiness arc continues in the newly-registered 700–799 block.
+
+### Fixed — build-pipeline safety: a missing/critical step must fail the build, not silently pass (2026-07-14)
+
+Operator-directed build-and-flash readiness review (SDD-999). Closes F-2026-105 (HIGH) + F-2026-106 (HIGH).
+**F-2026-105**: `scripts/build/orchestrate.sh` had an inconsistent contract — the dry-run (`cmd_preflight`)
+treats a missing/non-executable step as failure, but the real build (`cmd_run`) silently skipped it ("will
+land in subsequent PR") and still reported "pipeline complete", so a missing `08-image-sign`/`09-image-verify`
+(or any step) would emit an unsigned/unverified image while succeeding. `cmd_run` now treats a missing step as
+fatal (matching the dry-run); `SOVEREIGN_OS_ALLOW_MISSING_STEPS=1` keeps the old skip for deliberate partial
+dev builds. **F-2026-106**: `scripts/build/provision-bake.sh` is NON-FATAL BY DESIGN (`set -uo pipefail`, every
+step `|| log …`) — correct for the many optional steps — but the blanket `exit 0` made even image-bricking
+steps non-fatal, so a failed operator-account create or a failed `systemctl enable sovereign-firstboot.target`
+would still "succeed", yielding an image with no operator login or an inert first boot. Added a `crit` tracker:
+the operator-account and first-boot-enable steps now verify (the latter checks the `multi-user.target.wants`
+symlink, since an offline enable can no-op silently) and `crit` on failure, and provision-bake exits non-zero
+when any critical step failed. Optional steps stay non-fatal. 2 build scripts, no crate/webapp change.
+
+### Fixed — first-boot orchestration correctness: the flashed image must actually run its hooks (2026-07-14)
+
+Operator-directed build-and-flash readiness review ("we need to fix everything before I build and flash
+like I said … the IaC is ready through and through and will be done properly and in proper timing and
+sequence?") (SDD-998). Closes F-2026-101 (CRIT) + F-2026-102 (HIGH) + F-2026-103 (MED) + F-2026-104 (LOW).
+**F-2026-101 (CRIT)**: `sovereign-firstboot.target` grouped 10 first-boot oneshots, but the install path
+enables only the target — and `systemctl enable <target>` never processes the members' `[Install]
+WantedBy=`, while `PartOf=` propagates stop/restart only. So 10 units declared membership and 0 were
+reachable: on first boot no hook ran and the flashed box came up as bare Debian (no VLAN/network, no
+NVIDIA/VFIO bind, no ZFS ARC clamp, no Tetragon policy). Fixed by giving the target `Wants=` for all 10
+members (each still self-gates `ConditionFirstBoot=yes`+`ConditionVirtualization=no`). **F-2026-102 (HIGH)**:
+three members regenerate the initramfs on first boot with no ordering between them → parallel
+`update-initramfs -u` corrupts it → unbootable. Fixed with a shared `boot_regen` helper in `common.sh`
+that `flock`-serializes every `update-initramfs`/`update-grub`. **F-2026-103 (MED)**: nvidia-driver-bind
+warned "may need reboot" only in the journal while vfio surfaced a console flag; the nvidia unit now writes
+`.nvidia-bind-needs-reboot` and the completion service prints one `/dev/console` notice covering both GPU
+markers. **F-2026-104 (LOW)**: the opt-in `sovereign-guardian-core.service` (post-deploy, not flashed) could
+226/NAMESPACE crash-loop if started before `/mnt/vault` mounts — added `After=zfs.target` +
+`RequiresMountsFor=/mnt/vault/context` + `-`-prefixed ReadWritePaths (ExecStart verified correct). New
+`tests/lint/test_firstboot_target_membership.py` (4 cases) keeps the target's `Wants=` == the
+`WantedBy=`-declaring member set both directions. 4 systemd units + `common.sh` + 3 hooks + 1 lint; no crate
+or gatewayd/cockpit/webapp change; no new dependency.
+
 ### Added — per-crate `✅ integrated` flag on the crate-inventory, validated by named usage (2026-07-14)
 
 Operator-directed (phase-1 audit continuation — "were you not suppoed to flag the crates that are done /

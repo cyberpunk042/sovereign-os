@@ -27,9 +27,11 @@ EOF
   log_info "  blacklisted nouveau"
 fi
 
-# Update initramfs so the blacklist applies at boot
+# Update initramfs so the blacklist applies at boot.
+# R1 (SDD-998): serialized via boot_regen — vfio-bind + zfs-arc-clamp rebuild
+# the initramfs concurrently on first boot; parallel update-initramfs corrupts it.
 if command -v update-initramfs >/dev/null 2>&1; then
-  update-initramfs -u 2>&1 | sed 's/^/  /' || log_warn "update-initramfs failed"
+  boot_regen update-initramfs -u 2>&1 | sed 's/^/  /' || log_warn "update-initramfs failed"
 fi
 
 # Check nvidia driver

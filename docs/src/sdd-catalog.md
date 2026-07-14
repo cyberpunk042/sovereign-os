@@ -5,7 +5,7 @@
 > page drifts from `docs/sdd/`, so the published book can never freeze behind the
 > design record again (F-2026-033).
 
-Every Spec-Driven-Development design doc in `docs/sdd/` (180 total), by number.
+Every Spec-Driven-Development design doc in `docs/sdd/` (183 total), by number.
 
 - [SDD-000 — Project charter](../sdd/000-charter.md)
 - [SDD-001 — Cross-repo boundaries: contract between sovereign-os, info-hub, selfdef](../sdd/001-cross-repo-boundaries.md)
@@ -137,6 +137,7 @@ Every Spec-Driven-Development design doc in `docs/sdd/` (180 total), by number.
 - [SDD-205 — The Anthropic Messages API on the gateway (use the box from VS Code / Claude Code)](../sdd/205-anthropic-messages-api.md)
 - [SDD-206 — The gateway safety spine (input screening + output redaction, made real on the daemon)](../sdd/206-gateway-safety-spine.md)
 - [SDD-207 — The Sovereign Compute Plane (Phase 1: VRAM-fit job placement)](../sdd/207-compute-plane.md)
+- [SDD-700 — operator sudoers: risk-tier the OPS grants + lock them against privilege-escalation drift (F-2026-107..108)](../sdd/700-operator-sudoers-privesc-guard.md)
 - [SDD-800 — Cockpit wasm bridge: the typed cockpit crates run in the browser](../sdd/800-cockpit-wasm-bridge.md)
 - [SDD-902 — Compute Plane Phase 2: multi-model gateway (secondary-model hosting)](../sdd/902-compute-plane-phase2-multi-model.md)
 - [SDD-950 — Real RoPE: `rope_theta` + `rope_scaling` from the model config (make modern models decode coherently)](../sdd/950-real-rope-theta-scaling.md)
@@ -187,3 +188,5 @@ Every Spec-Driven-Development design doc in `docs/sdd/` (180 total), by number.
 - [SDD-995 — the crate-inventory generator gains a `--check` freshness gate + sync lint (F-2026-098)](../sdd/995-crate-inventory-check-gate.md)
 - [SDD-996 — SDD INDEX status completeness: merged SDDs are marked `complete`, enforced by a lint (F-2026-099)](../sdd/996-sdd-index-status-completeness.md)
 - [SDD-997 — a per-crate `✅ integrated` flag on the crate-inventory, validated by named usage (F-2026-100)](../sdd/997-crate-inventory-integrated-flag.md)
+- [SDD-998 — first-boot orchestration correctness: the flashed image must actually run its hooks (F-2026-101..104)](../sdd/998-firstboot-orchestration-correctness.md)
+- [SDD-999 — build-pipeline safety: a missing/critical step must fail the build, not silently pass (F-2026-105..106)](../sdd/999-build-pipeline-safety.md)

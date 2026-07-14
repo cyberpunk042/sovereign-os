@@ -50,6 +50,7 @@ produces two independent conflict classes — both hit repeatedly on 2026-07-09:
   | science-tools | 300–399 | E11.M300–M399 |
   | compute-plane (multi-model / GPU) | 900–949 | E11.M900–M949 |
   | phase-1 audit / improvement | 950–999 | E11.M950–M999 |
+  | phase-1 audit — continuation (build-and-flash readiness) | 700–799 | E11.M700–M799 |
   | cockpit-wasm bridge (F-2026-001) | 800–899 | E11.M800–M899 |
 
   > **Amendment (2026-07-12):** the single "any new / general / unassigned → 900–999" catch-all was itself a

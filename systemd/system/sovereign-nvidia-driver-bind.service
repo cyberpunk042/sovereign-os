@@ -13,6 +13,13 @@ Type=oneshot
 RemainAfterExit=yes
 EnvironmentFile=-/etc/sovereign-os/active-profile.env
 ExecStart=/opt/sovereign-os/scripts/hooks/post-install/nvidia-driver-bind.sh
+# G2 (SDD-998): after this runs a reboot is required — the nouveau blacklist and
+# the freshly rebuilt initramfs only take effect on the next boot (nouveau may
+# already be bound this boot, so nvidia-smi can legitimately fail here). Mirror
+# vfio-bind's flag so the completion service prints one reboot notice covering
+# both GPU-binding hooks; without this the operator got a silent "driver may
+# need reboot" only in the journal, never on the console.
+ExecStartPost=/bin/touch /var/lib/sovereign-os/.nvidia-bind-needs-reboot
 StandardOutput=journal
 StandardError=journal
 # Defense-in-depth — writes /etc/modprobe.d for nouveau blacklist;

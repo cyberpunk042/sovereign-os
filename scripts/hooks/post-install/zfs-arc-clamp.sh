@@ -100,9 +100,10 @@ if [ -w "${runtime_file}" ]; then
   log_info "runtime ARC max set to ${arc_max_bytes}"
 fi
 
-# Rebuild initramfs so the option applies at boot
+# Rebuild initramfs so the option applies at boot.
+# R1 (SDD-998): serialized via boot_regen (concurrent first-boot initramfs rebuilds corrupt it).
 if command -v update-initramfs >/dev/null 2>&1; then
-  update-initramfs -u 2>&1 | sed 's/^/  /' || log_warn "update-initramfs failed; manual run may be needed"
+  boot_regen update-initramfs -u 2>&1 | sed 's/^/  /' || log_warn "update-initramfs failed; manual run may be needed"
 fi
 
 emit_metric sovereign_os_post_install_arc_clamp_total 1 \
