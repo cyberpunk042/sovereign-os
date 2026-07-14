@@ -12,6 +12,18 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — per-crate `✅ integrated` flag on the crate-inventory, validated by named usage (2026-07-14)
+
+Operator-directed (phase-1 audit continuation — "were you not suppoed to flag the crates that are done /
+integrated?") (SDD-997). Closes F-2026-100 (LOW). After SDD-996 flagged done SDDs, the crate map gained the
+parallel: `gen-crate-inventory.py` now renders a per-crate ✅ **integrated** badge for the 57 crates in the
+production-binary closure (gatewayd/telemetry/resource-control), each with a usage note naming the concrete
+consumer(s) / that it runs as a binary — the usage validates the integration. Per the operator's definition,
+integrated means actually USED by a running path, not merely referenced: a cockpit crate wasm-bridged for a
+panel (SDD-800, 0 wired) or a demo/hub-only crate is not in the closure and never flagged. New
+`tests/lint/test_crate_inventory_integrated_flag.py` keeps the flagged set == the closure, requires a usage
+note per flag, and guards the used-not-referenced boundary. Generator + regenerated inventory + 1 lint.
+
 ### Changed — SDD INDEX status completeness: merged SDDs marked `complete`, enforced by a lint (2026-07-14)
 
 Operator-directed (phase-1 audit continuation, "continue" → "merged → complete") (SDD-996). Closes
