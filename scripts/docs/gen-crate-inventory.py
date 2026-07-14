@@ -123,7 +123,7 @@ def emit_group(lines: list[str], crates: dict, names: list[str], prefix: str, ta
         lines.extend(line(n) for n in assorted)
 
 
-def main() -> int:
+def render() -> str:
     crates = load()
     total = len(crates)
     prod = closure(crates, PROD_ROOTS)
@@ -192,11 +192,30 @@ def main() -> int:
     emit_group(L, crates, misc_libs, "sovereign-")
     L.append("")
 
+    return "\n".join(L) + "\n"
+
+
+def main() -> int:
+    # `--check` regenerates in-memory and compares to the committed page,
+    # exiting non-zero on drift (CI gate) — the same regen-and-compare
+    # discipline as gen-sdd-catalog.py / the counts-contract / island register.
+    # Without it, the page is (re)written.
+    check = "--check" in sys.argv[1:]
+    rendered = render()
+    current = OUT.read_text(encoding="utf-8") if OUT.exists() else None
+    if rendered == current:
+        if not check:
+            print(f"{OUT.relative_to(REPO)} already up to date")
+        return 0
+    if check:
+        print(
+            f"DRIFT: {OUT.relative_to(REPO)} is stale — regenerate with "
+            "`python3 scripts/docs/gen-crate-inventory.py` (do not hand-edit it)."
+        )
+        return 1
     OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text("\n".join(L) + "\n", encoding="utf-8")
-    print(f"wrote {OUT.relative_to(REPO)}: {total} crates "
-          f"({len(binaries)} bin, {len(prod_libs)} prod-lib, {len(cockpit)} cockpit, "
-          f"{len(hub_libs)} hub, {len(misc_libs)} other)")
+    OUT.write_text(rendered, encoding="utf-8")
+    print(f"wrote {OUT.relative_to(REPO)}")
     return 0
 
 
