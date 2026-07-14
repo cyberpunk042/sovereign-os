@@ -81,6 +81,7 @@ def test_at_least_the_known_hooks_are_members():
     members = _members_by_wantedby()
     for required in (
         "sovereign-network-vlan.service",
+        "sovereign-nvidia-driver-install.service",
         "sovereign-nvidia-driver-bind.service",
         "sovereign-vfio-bind.service",
         "sovereign-zfs-arc-clamp.service",

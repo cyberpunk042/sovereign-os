@@ -12,6 +12,24 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — NVIDIA GPU bring-up: install the pinned ≥570 driver + apply the power caps at boot (2026-07-14)
+
+Operator-directed build-and-flash readiness review, GPU bring-up (driver channel: CUDA-repo-pinned `.run`
+≥570) (SDD-701). Closes F-2026-109 (HIGH) + F-2026-110 (MED). **F-2026-109**: trixie ships nvidia 550.163,
+which predates the Blackwell GB202 (RTX PRO 6000 Max-Q + RTX 5090), and nothing installed a ≥570 driver — a
+flashed box booted with both cards dark. New first-boot `nvidia-driver-install.sh` hook + unit installs the
+pinned open-kernel `.run` (version from a new `provisioning.nvidia` profile block; refuses <570; fails loudly
+on a bad URL), purges the conflicting distro 550, installs `--dkms --kernel-module-type=open`, and under
+secure boot signs the built modules with the enrolled MOK (`/var/lib/sovereign-os/mok`) + writes
+`/etc/dkms/nvidia.conf` so kernel-update rebuilds re-sign (else the kernel rejects the modules). Serialized
+initramfs via SDD-998 `boot_regen`; reboot marker surfaced on the console. **F-2026-110**: each GPU's
+`tdp_watts` (300W / 350W-from-575W-stock) was declared but never applied — the 5090 would run at 575W, ~225W
+over intent. New every-boot `nvidia-power-limit.sh` hook + unit (multi-user.target, since `-pl` doesn't
+persist) enables persistence mode + applies each card's cap via `nvidia-smi -pl`, matched by PCI device-id.
+New `test_nvidia_gpu_bringup_contract.py` (8 cases) pins the MOK-signing / ≥570-floor / per-card-cap
+properties. Static-verified (bash -n, lints); the real driver install + power draw need the physical machine
+(no Blackwell/NVIDIA in CI). 2 hooks + 2 units + 1 lint + profile block + firstboot rewiring.
+
 ### Fixed — operator sudoers: risk-tier the OPS grants + lock them against privilege-escalation drift (2026-07-14)
 
 Operator-directed build-and-flash readiness review ("everything that needs to be in the sudoer are there
