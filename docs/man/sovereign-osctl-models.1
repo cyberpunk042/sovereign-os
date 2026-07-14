@@ -218,7 +218,7 @@ Additional supported form.
 .TP
 \f[B]sovereign-osctl model-serve background [ | \[en]clear]\f[R]
 Additional supported form.
-## wasm-aot
+.SS wasm-aot
 .TP
 \f[B]sovereign-osctl wasm-aot status|compile-cmd |advisory [\[en]json]\f[R]
 See the handler for behavior and options.
@@ -235,7 +235,7 @@ Per-parameter catalog with hardware-aware recommended values
 mlock / mmap / flash_attn / rope_freq_base / temperature / top_p).
 Operator-named (§1b verbatim: \[lq]Model variants + quantizations +
 advanced features parametrization\[rq]).
-## model-adapt
+.SS model-adapt
 .TP
 \f[B]sovereign-osctl model-adapt {tasks|recipes|recommend|show}\f[R]
 R350 (E5.M17): task → (base, method, target GPU) recommender.
@@ -243,7 +243,7 @@ Operator-named §1b verbatim: \[lq]download, fine-tune, parameters,
 build, run, use and train and adapt and use and eval and etc.\[rq] ADAPT
 sits upstream of R244 fine-tune + R232 eval; consults R317 catalog GPU
 VRAM via R348 inventory_consult helper.
-## model-build
+.SS model-build
 .TP
 \f[B]sovereign-osctl model-build {recipes|plan|show|history}\f[R]
 R353 (E5.M18): fills the \[lq]build\[rq] verb in the §1b 9-verb AI tools
@@ -252,7 +252,7 @@ adapt/eval).
 Plans merge/quantize/export of a deployable model artifact from {base +
 adapter + recipe}.
 Hardware-aware via the same declared-GPUs pattern as R350 adapt.
-## lifecycle
+.SS lifecycle
 .TP
 \f[B]sovereign-osctl lifecycle [arguments]\f[R]
 R290 (E5.M6): end-to-end fine-tune lifecycle \[em] threads R244
@@ -261,7 +261,7 @@ workflow.
 Operator-named (§1b mandate): \[lq]End-to-end fine-tune lifecycle
 (operator triggers training → eval → register)\[rq].
 Read-only; emits the next pending command for the operator to run.
-## workflow
+.SS workflow
 .TP
 \f[B]sovereign-osctl workflow [arguments]\f[R]
 R291 (E5.M9): operator-mutable flexible profile \[em] full 9-stage
@@ -269,7 +269,7 @@ workflow (download / fine-tune / parameters / build / run / use / train
 / adapt / eval) the operator named in §1b verbatim.
 Sibling to lifecycle (R290 / E5.M6); covers the broader operator surface
 beyond the fine-tune-focused 5-stage subset.
-## model-health
+.SS model-health
 .TP
 \f[B]sovereign-osctl model-health [arguments]\f[R]
 M060 D-03 (R10069-R10074): unified model-health core \[em] joins the
@@ -280,7 +280,7 @@ p50/p95/p99 latency).
 Read-only; the sovereign-model-health-api daemon serves the D-03 cockpit
 dashboard from this same core.
 Verbs: status / catalog / gpus (+ \[en]json).
-## costs
+.SS costs
 .TP
 \f[B]sovereign-osctl costs [arguments]\f[R]
 M060 D-04 (R10075-R10082): cost aggregation core \[em] joins the
@@ -292,7 +292,7 @@ Read-only; the sovereign-costs-api daemon serves the D-04 cockpit
 dashboard from this same core.
 Verbs: summary / policy / today / export {csv|json} (+ \[en]json).
 Read-only \[em] the WRITE side is cost-policy.
-## cost-policy
+.SS cost-policy
 .TP
 \f[B]sovereign-osctl cost-policy [arguments]\f[R]
 M060 D-04 write surface \[em] flip cloud_enabled in
@@ -302,7 +302,7 @@ DRY-RUN by default; a real write needs \[en]confirm (baked into the
 control-systems change_cli) AND, via the exec daemon, the operator key +
 type-to-confirm + SOVEREIGN_OS_ACTION_EXEC_LIVE.
 Verbs: show / halt-cloud / resume-cloud.
-## adapters
+.SS adapters
 .TP
 \f[B]sovereign-osctl adapters {inventory|list|history|promote|demote|rollback|register|gate}\f[R]
 M060 D-11 (R10109-R10111): LoRA adapter inventory + promotion status
@@ -320,7 +320,7 @@ on promote) + record a durable, audited decision.
 Decisions are \[en]confirm + operator-key + type-to-confirm gated (via
 the cockpit exec daemon) and DRY-RUN by default; MS003 signing is
 defe\&...
-## evals
+.SS evals
 .TP
 \f[B]sovereign-osctl evals [arguments]\f[R]
 M060 D-10 (R10106-R10108): eval-history aggregation \[em] reads the
@@ -332,7 +332,7 @@ NEVER averaged with black-box).
 Read-only; the sovereign-evals-api daemon serves the D-10 cockpit
 dashboard from this same core.
 Verbs: summary / suites / candidates (+ \[en]json, \[en]window).
-## super-model
+.SS super-model
 .TP
 \f[B]sovereign-osctl super-model [arguments]\f[R]
 M060 D-19 (R10124-R10125): super-model manifest \[em]
