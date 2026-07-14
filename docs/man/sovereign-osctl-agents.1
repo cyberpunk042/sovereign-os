@@ -326,9 +326,11 @@ Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
 grammar.
 .SS tui-mirror
 .TP
-\f[B]sovereign-osctl tui-mirror [arguments]\f[R]
-Operator command in the agents surface.
-Inspect the live help and status/plan forms before use.
+\f[B]sovereign-osctl tui-mirror {snapshot|panels} [\[en]json]\f[R]
+Read the selfdef TUI-layout mirror and project its canonical rules,
+grants, quarantine, and authority quadrants.
+This surface is read-only; panel actions expose copyable
+\f[V]selfdefctl\f[R] commands rather than mutating state.
 .PP
 Run \f[V]sovereign-osctl help\f[R] for the complete version-matched
 grammar.
