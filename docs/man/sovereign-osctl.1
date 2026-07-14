@@ -85,6 +85,38 @@ Begin the interactive, confirmation-gated decommission flow.
 \f[B]ux-design-audit\f[R], \f[B]anti-minimization-audit\f[R],
 \f[B]architecture-qa\f[R], \f[B]coverage\f[R] : Inspect the
 project\[cq]s governance and operator-surface contracts.
+.SH MANUAL SUITE
+.PP
+The main page explains the lifecycle and safety model.
+Detailed syntax, workflows, ownership, and examples are divided by
+operator concern:
+.TP
+\f[B]sovereign-osctl-models\f[R](1)
+Models, inference, routing, serving, evaluation, adaptation, and
+science.
+.TP
+\f[B]sovereign-osctl-agents\f[R](1)
+Frontends, agent runtimes, background jobs, compute-plane placement,
+state fabric, sessions, approvals, and rollback.
+.TP
+\f[B]sovereign-osctl-hardware\f[R](1)
+CPU, GPU, memory, storage, network, PCIe, thermals, power, and BIOS.
+.TP
+\f[B]sovereign-osctl-security\f[R](1)
+Perimeter, selfdef, Secure Boot, authentication, permissions, hardening,
+firewall, trust, and audit.
+.TP
+\f[B]sovereign-osctl-operations\f[R](1)
+Status, diagnostics, observability, maintenance, recovery, and daily
+use.
+.TP
+\f[B]sovereign-osctl-governance\f[R](1)
+Architecture, doctrine, compliance, UX, documentation, and surface
+audits.
+.TP
+\f[B]sovereign-osctl-install\f[R](1)
+Bootstrap, profiles, initialization, customization, image installation,
+configuration snapshots, and decommissioning.
 .SH COMPLETE TOP-LEVEL COMMAND INDEX
 .PP
 This index is pinned by a lint contract to the real top-level
@@ -310,8 +342,15 @@ Some audit and coverage commands use status 2 to report findings or
 gaps.
 .SH SEE ALSO
 .PP
-\f[B]systemctl\f[R](1), \f[B]journalctl\f[R](1), \f[B]podman\f[R](1),
-\f[B]zpool\f[R](8), \f[B]zfs\f[R](8)
+\f[B]sovereign-osctl-models\f[R](1),
+\f[B]sovereign-osctl-agents\f[R](1),
+\f[B]sovereign-osctl-hardware\f[R](1),
+\f[B]sovereign-osctl-security\f[R](1),
+\f[B]sovereign-osctl-operations\f[R](1),
+\f[B]sovereign-osctl-governance\f[R](1),
+\f[B]sovereign-osctl-install\f[R](1), \f[B]systemctl\f[R](1),
+\f[B]journalctl\f[R](1), \f[B]podman\f[R](1), \f[B]zpool\f[R](8),
+\f[B]zfs\f[R](8)
 .PP
 Project guides: \f[V]docs/src/ops/manage.md\f[R] and
 \f[V]docs/src/operator-journey.md\f[R].
