@@ -32,6 +32,21 @@ DESKTOP_ENV="${SOVEREIGN_OS_DESKTOP:-gnome}"
 DASH_PORT="${SOVEREIGN_OS_DASHBOARD_PORT:-8100}"
 SKEL="/etc/skel"
 
+# SDD-704 swappable frontend selector. FRONTEND = what the box PRESENTS at boot
+# (gnome | dashboards-kiosk | open-computer-kiosk | none); FRONTEND_INSTALL =
+# which stacks to STAGE so `sovereign-osctl frontend set <value>` can switch live.
+# Back-compat: if SOVEREIGN_OS_FRONTEND is unset, derive from the legacy
+# SOVEREIGN_OS_DESKTOP (none→none, else gnome) so pre-SDD-704 callers are unchanged.
+FRONTEND="${SOVEREIGN_OS_FRONTEND:-}"
+if [ -z "${FRONTEND}" ]; then
+  case "${DESKTOP_ENV}" in none) FRONTEND=none ;; *) FRONTEND=gnome ;; esac
+fi
+FRONTEND_INSTALL="${SOVEREIGN_OS_FRONTEND_INSTALL:-${FRONTEND}}"
+# The dashboards-kiosk points here; open-computer-kiosk overrides it to the sandbox UI.
+FRONTEND_KIOSK_URL="${SOVEREIGN_OS_FRONTEND_KIOSK_URL:-http://127.0.0.1:${DASH_PORT}/}"
+KIOSK_ENV_FILE="/etc/sovereign-os/frontend-kiosk.env"
+KIOSK_UNIT_SRC="${SRC}/systemd/system/sovereign-frontend-kiosk.service"
+
 red()  { printf '\033[31m%s\033[0m\n' "$*"; }
 grn()  { printf '\033[32m%s\033[0m\n' "$*"; }
 info() { printf '  %s\n' "$*"; }
@@ -40,12 +55,15 @@ step() { printf '\n\033[36m━━━ %s\033[0m\n' "$*"; }
 [ "$(id -u)" -eq 0 ] || { red "must run as root: sudo $0"; exit 1; }
 [ -d "${SRC}/webapp" ] || { red "ABORT: ${SRC}/webapp not found (set SOVEREIGN_OS_SRC)"; exit 1; }
 
-# ── (1) desktop environment ──
-step "1/5 desktop environment (${DESKTOP_ENV})"
-if [ "${DESKTOP_ENV}" = none ]; then
-  info "SOVEREIGN_OS_DESKTOP=none — skipping desktop install (headless dashboards only)"
-else
-  export DEBIAN_FRONTEND=noninteractive
+# ── (1) frontend: stage each requested stack, then activate the default ──
+# SDD-704: two concerns kept distinct — INSTALL the stacks in FRONTEND_INSTALL so a
+# later live switch works, then ACTIVATE the FRONTEND default (target + which units
+# are enabled). Every apt/systemctl step is best-effort so a hiccup never bricks the
+# build (the image just lands headless or on a partial frontend, recoverable post-flash).
+export DEBIAN_FRONTEND=noninteractive
+step "1/5 frontend stacks (install: ${FRONTEND_INSTALL} · default: ${FRONTEND})"
+
+install_gnome_de() {
   case "${DESKTOP_ENV}" in
     gnome)
       # gnome-core = a lean but complete GNOME (shell + gdm3 + settings). Swap
@@ -56,17 +74,93 @@ else
       apt-get install -y --no-install-recommends xfce4 lightdm firefox-esr xdg-utils
       ;;
     *)
-      red "ABORT: unknown SOVEREIGN_OS_DESKTOP='${DESKTOP_ENV}' (gnome|minimal|none)"; exit 1
+      red "unknown SOVEREIGN_OS_DESKTOP='${DESKTOP_ENV}' (gnome|minimal) — defaulting to gnome-core"
+      apt-get install -y --no-install-recommends gnome-core gdm3 firefox-esr xdg-utils
       ;;
   esac
-  # Boot into the GUI. In a chroot without systemd as PID 1 this is a no-op we
-  # tolerate — the display-manager package already wires graphical.target.
-  if systemctl set-default graphical.target 2>/dev/null; then
-    info "default target → graphical.target"
+}
+
+install_kiosk_stack() {
+  # A kiosk = a minimal Wayland compositor (cage) + a browser, launched fullscreen
+  # at a URL by sovereign-frontend-kiosk.service. No full desktop shell. seatd gives
+  # the compositor seat/DRM access without a login manager. Non-fatal — if cage isn't
+  # available the unit still installs (disabled) and the operator can install it later.
+  apt-get install -y --no-install-recommends cage seatd firefox-esr xdg-utils || \
+    info "kiosk stack apt hiccup (cage/seatd) — unit still staged; install post-flash"
+  systemctl enable seatd.service 2>/dev/null || true
+  # Stage the kiosk unit (DISABLED — the default-activation step below enables it
+  # only when a kiosk frontend is the chosen default).
+  if [ -f "${KIOSK_UNIT_SRC}" ]; then
+    install -Dm644 "${KIOSK_UNIT_SRC}" /etc/systemd/system/sovereign-frontend-kiosk.service
+    info "kiosk unit staged: /etc/systemd/system/sovereign-frontend-kiosk.service (disabled until selected)"
   else
-    info "set-default deferred (no running systemd); display manager still enabled by its package"
+    info "kiosk unit source not found at ${KIOSK_UNIT_SRC} (staged separately)"
   fi
-fi
+}
+
+write_kiosk_env() {
+  # The kiosk unit reads FRONTEND_KIOSK_URL from here; the runtime switch
+  # (sovereign-osctl frontend set) rewrites it without touching the unit.
+  install -d -m 755 /etc/sovereign-os
+  cat > "${KIOSK_ENV_FILE}" <<EOF
+# /etc/sovereign-os/frontend-kiosk.env — SDD-704 kiosk target (rewritten by
+# 'sovereign-osctl frontend set <value>'). FRONTEND_KIOSK_URL is what the
+# fullscreen browser opens.
+FRONTEND_KIOSK_URL=${1}
+EOF
+  info "kiosk target → ${1}  (${KIOSK_ENV_FILE})"
+}
+
+set_target() {
+  # Boot target. In a chroot (no systemd as PID 1) set-default is a tolerated no-op —
+  # the display-manager/kiosk unit's [Install] already wires graphical.target.
+  if systemctl set-default "${1}" 2>/dev/null; then
+    info "default target → ${1}"
+  else
+    info "set-default ${1} deferred (no running systemd); [Install] wiring still applies"
+  fi
+}
+
+# (1a) stage every requested stack
+for _f in ${FRONTEND_INSTALL//,/ }; do
+  case "${_f}" in
+    gnome)                             info "stage: gnome desktop"; install_gnome_de ;;
+    dashboards-kiosk|open-computer-kiosk) info "stage: kiosk stack (${_f})"; install_kiosk_stack ;;
+    none)                              : ;;
+    *)                                 red "unknown frontend stack '${_f}' — skipping" ;;
+  esac
+done
+
+# (1b) activate the default
+case "${FRONTEND}" in
+  none)
+    info "frontend=none — headless (multi-user.target); gdm + kiosk disabled"
+    systemctl disable gdm3.service 2>/dev/null || true
+    systemctl disable sovereign-frontend-kiosk.service 2>/dev/null || true
+    set_target multi-user.target
+    ;;
+  gnome)
+    info "frontend=gnome — desktop + dashboards launcher (gdm on graphical.target)"
+    systemctl disable sovereign-frontend-kiosk.service 2>/dev/null || true
+    set_target graphical.target
+    ;;
+  dashboards-kiosk|open-computer-kiosk)
+    _url="${FRONTEND_KIOSK_URL}"
+    [ "${FRONTEND}" = open-computer-kiosk ] && \
+      _url="${SOVEREIGN_OS_FRONTEND_KIOSK_URL:-http://127.0.0.1:3000/}"
+    write_kiosk_env "${_url}"
+    # A kiosk owns the display — disable gdm so it doesn't contend for the seat.
+    systemctl disable gdm3.service 2>/dev/null || true
+    systemctl enable sovereign-frontend-kiosk.service 2>/dev/null \
+      && info "kiosk ENABLED (default frontend=${FRONTEND})" \
+      || info "kiosk enable deferred (no running systemd / unit absent)"
+    set_target graphical.target
+    ;;
+  *)
+    red "unknown SOVEREIGN_OS_FRONTEND='${FRONTEND}' — falling back to gnome default"
+    set_target graphical.target
+    ;;
+esac
 
 # ── (1b) build the cockpit-wasm full bridge so the panels' crate features run ──
 # The panels load webapp/_shared/cockpit-wasm/cockpit_wasm_full.js (~3.8 MB) to run the real
@@ -234,14 +328,19 @@ command -v update-desktop-database >/dev/null 2>&1 \
 
 # ── (5) done ──
 step "5/5 done"
-grn "GUI + dashboards installed."
+grn "Frontend + dashboards installed."
 cat <<EOF
 
-  Desktop     : ${DESKTOP_ENV} (boots to graphical.target)
+  Frontend    : ${FRONTEND} (default; staged: ${FRONTEND_INSTALL})
   Dashboards  : running on boot, loopback only
   Entry point : http://127.0.0.1:${DASH_PORT}/   ← the hub (every panel + /panels/ index)
   Find it     : "Sovereign Dashboards" in the app menu, on the desktop,
-                and auto-opened on first login.
+                and auto-opened on first login (gnome frontend).
+
+  Switch frontend live (no reflash):
+    sovereign-osctl frontend list                  # what's staged / active
+    sovereign-osctl frontend set dashboards-kiosk  # fullscreen kiosk → the hub
+    sovereign-osctl frontend set gnome             # back to the desktop
 
   Expose beyond loopback (headless / LAN / tailscale) by dropping an override:
     /etc/systemd/system/sovereign-dashboards.service.d/bind.conf

@@ -361,6 +361,14 @@ provisioning:
                                    # (no kill) on an edit to its own .py. Set false for a locked, non-dev image.
   firstboot: true                  # install + enable sovereign-firstboot.target + hardware hooks
   posture: installed-off           # selfdef + ghostproxy installed but NOT started on boot
+  # Swappable boot frontend (SDD-704). The box boots to GNOME by default (today's
+  # behaviour, least surprise); the dashboards-kiosk stack is ALSO staged so the
+  # operator can flip to a fullscreen :8100 kiosk at any time with
+  # `sovereign-osctl frontend set dashboards-kiosk` — no reflash. open-computer-kiosk
+  # lands with its sandbox service (SDD-706); until then, selecting it hints to install it.
+  frontend:
+    default: gnome                 # gnome | dashboards-kiosk | open-computer-kiosk | none
+    install: [gnome, dashboards-kiosk]   # stage both stacks so the live switch can pick either
   # Oracle-tier inference model (SDD-702). The vLLM Oracle Core (Blackwell,
   # sovereign-oracle-core.service) serves this from /mnt/vault/models;
   # inference-model-provision.sh downloads it there at first boot and points

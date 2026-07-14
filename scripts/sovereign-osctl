@@ -118,6 +118,11 @@ COMMANDS:
   selfdef doctor               Run selfdef's own doctor (or freshness sync)
   selfdef install-units        Wire selfdef's shipped systemd units into /etc/systemd/system (root)
 
+  frontend status [--json]     SDD-704 boot-frontend selector: what's installed / default / active
+  frontend list [--json]       The frontends (gnome · dashboards-kiosk · open-computer-kiosk · none) + staged/active
+  frontend set <value> [--url U]  Switch the boot frontend live, no reflash (root):
+                               gnome | dashboards-kiosk | open-computer-kiosk | none
+
   models docs [--check|--stdout]  Regenerate docs/src/model-catalog.md (R206, SDD-028 pattern)
   models query [--class C] [--tier T] [--purpose P] [--size-class S] [--quantization Q] [--status S] [--max-vram N] [--min-context N] [--engine E] [--base-model B] [--json]
                                R213: filter catalog by R212 taxonomy
@@ -8697,6 +8702,15 @@ case "${cmd}" in
     # the operator (MS003-signed) path (R10131); web surfaces never mutate.
     # Verbs: list / status <slug> / enable <slug> / disable <slug> [--rationale].
     "${__REPO_ROOT}/scripts/manifest/dashboard-toggles.py" "$@"
+    ;;
+  frontend)
+    # SDD-704: swappable boot-frontend selector — "chose at any point to start in
+    # one or another or even disable both". Flips the display between the GNOME
+    # desktop, a fullscreen kiosk to the :8100 dashboards hub, a kiosk to the
+    # open-computer sandbox UI (SDD-706), or headless — live, no reflash. Toggles
+    # gdm3 vs the kiosk unit, rewrites the kiosk target URL, sets the boot target.
+    # Verbs: status / list / set {gnome|dashboards-kiosk|open-computer-kiosk|none} [--url U] [--json].
+    exec python3 "${__REPO_ROOT}/scripts/operator/frontend.py" "$@"
     ;;
   compliance)
     # R458: §1g/§1h compliance dashboard aggregator. Consolidates the

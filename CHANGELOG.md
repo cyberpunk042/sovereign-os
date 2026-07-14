@@ -12,6 +12,23 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — swappable boot-frontend selector: GNOME ↔ dashboards-kiosk, live (2026-07-14)
+
+Operator-directed (*"be able to chose at any point to start in one or another or even disable both"*)
+(SDD-703 design + SDD-704 implementation). Closes F-2026-113 (MED); scopes F-2026-114 (open-computer,
+→ SDD-706) + F-2026-115 (OpenClaw, → SDD-705). The boot frontend was hard-wired GNOME — an env-only
+`SOVEREIGN_OS_DESKTOP` knob unreachable from the profile, no runtime switch. Now a `provisioning.frontend`
+block ({`default`, `install`}) + schema is threaded through mkosi-emit → the installer (restructured to
+*stage each `install:` stack → activate the `default`*), a new `sovereign-frontend-kiosk.service`
+(cage + fullscreen browser at a URL from an env file, seatd-seated, R171-hardened + a graphical-session
+waiver), and a new `sovereign-osctl frontend {status|list|set}` verb (`scripts/operator/frontend.py`) that
+flips gnome ↔ dashboards-kiosk ↔ open-computer-kiosk ↔ none live — no reflash. Default stays `gnome`
+(behaviour-preserving; SDD-703 D1 adopted provisionally + overridable). New 14-case
+`test_frontend_selector_contract.py`; systemd fleet README count 119→120 (99→100 service). The kiosk ships
+disabled by default, so boot is unchanged for the shipping profile; a real kiosk session on hardware is
+unverified (no seat/GPU/display in CI). OpenClaw (SDD-705) + open-computer sandbox service (SDD-706) are the
+next big rounds of the arc.
+
 ### Added — inference model provisioning: the vLLM Oracle tier gets a real model at first boot (2026-07-14)
 
 Operator-directed build-and-flash readiness, inference (operator upgraded the Oracle model to Llama 4 Scout)

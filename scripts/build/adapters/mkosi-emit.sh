@@ -63,6 +63,12 @@ bake_gui = bool(prov_bake.get("gui"))  # install a desktop on the image (else he
 bake_livereload = bool(prov_bake.get("livereload", True))
 bake_firstboot = bool(prov.get("firstboot"))
 posture = prov.get("posture", "installed-off")
+# Swappable boot frontend (SDD-704). `default` picks what the image presents on
+# the display; `install` lists the frontend stacks staged so a live switch can
+# pick among them. Absent → gnome default + [gnome] staged (today's behaviour).
+prov_frontend = (prov.get("frontend") or {})
+frontend_default = str(prov_frontend.get("default", "gnome") or "gnome")
+frontend_install = ",".join(prov_frontend.get("install", ["gnome"]) or ["gnome"])
 prov_power = (prov.get("power") or {})
 # Master toggle for the whole UPS + graceful-shutdown feature (default ON).
 # Uncheck provisioning.power.enabled to build without any of it. The build
@@ -435,6 +441,8 @@ if run_provision:
               SOVEREIGN_OS_BAKE_GHOSTPROXY="{'1' if bake_ghostproxy else ''}" \\
               SOVEREIGN_OS_BAKE_DASHBOARDS="{'1' if bake_dashboards else ''}" \\
               SOVEREIGN_OS_BAKE_GUI="{'1' if bake_gui else ''}" \\
+              SOVEREIGN_OS_FRONTEND="{frontend_default}" \\
+              SOVEREIGN_OS_FRONTEND_INSTALL="{frontend_install}" \\
               SOVEREIGN_OS_BAKE_LIVERELOAD="{'1' if bake_livereload else '0'}" \\
               SOVEREIGN_OS_BAKE_FIRSTBOOT="{'1' if bake_firstboot else ''}" \\
               SOVEREIGN_OS_UPS="{'1' if ups_enabled else ''}" \\

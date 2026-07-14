@@ -123,3 +123,4 @@ cli_only:
   - {verb: operator-rules, rationale: "the rules-retention tool itself (versioned memory apply/capture) — an install-time CLI, no live panel"}
   - {verb: help, rationale: "the CLI help command itself"}
   - {verb: permission, rationale: "the Plan Mode / User Approval Auto-mode safety classifier — a CLI + library gate enforced in control-exec-api (the mode toggle + plan-render live inside the chat/control surfaces, not a standalone panel)"}
+  - {verb: frontend, rationale: "SDD-704 boot-frontend selector (gnome | dashboards-kiosk | open-computer-kiosk | none) — toggles gdm vs the kiosk unit + the boot target via systemctl; a boot-presentation CLI action, not itself a viewable panel (it CHOOSES what is shown, incl. the dashboards hub in kiosk mode)"}
