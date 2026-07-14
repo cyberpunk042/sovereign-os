@@ -12,6 +12,27 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — open-computer: a QEMU AI-sandbox service, preconfigured to the local model (2026-07-14)
+
+Operator-directed (*"this open-computer interesting alternative … integrate in the build"*)
+(SDD-706 — the service axis of the SDD-703 arc; its heaviest + final round). Closes F-2026-114 and
+**closes the SDD-703 frontend+agent-runtimes arc** (SDD-704 selector + SDD-705 OpenClaw + SDD-706
+open-computer). open-computer (Mintplex-Labs, AGPL-3.0) is a QEMU VM (Debian guest + XFCE + Chromium)
+an AI agent drives; now a build option shipping **installed-off** + **preconfigured to the local vLLM
+endpoint** (SDD-702). A `provisioning.bake.open_computer` toggle + a `provisioning.open_computer` block
+is threaded through mkosi-emit → provision-bake (stages the units, enables only the first-boot
+installer). A first-boot `open-computer-install.sh` hook (non-fatal, resumable) installs QEMU/KVM +
+OVMF + Node, sparse-clones + builds the open-computer CLI, downloads the ~3GB `base.qcow2` (resumable
+`curl -C -` + sha256), and renders the LLM env (`OPENAI_BASE_URL` → the local endpoint; open-computer
+auto-rewrites host `127.0.0.1` → the QEMU gateway `10.0.2.2` for the guest). The runtime
+`sovereign-open-computer.service` runs `open-computer up` installed-off, `/dev/kvm`-gated, HOME
+relocated to `/var/lib/sovereign-os/open-computer` (VM-host hardening waiver + every compatible
+clause); `sovereign-osctl open-computer {status|on|off|install|url|logs|doctor}` is the lifecycle. The
+SDD-704 selector's `open-computer-kiosk` value is wired to the verified `:9800` UI. New 11-case
+`test_open_computer_provision_contract.py`; grounding verified against the repo's CLI/service code;
+systemd README count 122→124 (102→104 service). Ships OFF + `/dev/kvm`-gated; the real QEMU/KVM
+install + base download + booted sandbox are unverified in CI (no network/KVM/display).
+
 ### Added — OpenClaw agent runtime: Node gateway daemon, preconfigured to the local model (2026-07-14)
 
 Operator-directed (*"include OpenClaw in the options of the build … add the preconfiguration

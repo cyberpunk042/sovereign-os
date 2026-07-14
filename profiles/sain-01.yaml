@@ -352,6 +352,7 @@ provisioning:
     selfdef: true                  # stage ~/selfdef → /opt/selfdef, build, install units
     root_ghostproxy: true          # stage ~/root-ghostproxy → /opt/root-ghostproxy, install (endpoint)
     openclaw: true                 # SDD-705: stage the OpenClaw Node gateway daemon (installed-off; first-boot npm install + preconfig → local endpoint)
+    open_computer: true            # SDD-706: stage the open-computer QEMU AI-sandbox (installed-off; first-boot QEMU/KVM + clone/build + base image + preconfig → local endpoint)
     dashboards: true               # deploy panels + enable the dashboard hub + all read-only panel APIs
     gui: true                      # install a desktop (GNOME) on the mkosi IMAGE so it boots to the dashboards.
                                    # NOTE: adds ~1GB+ (gnome-core + gdm3 + firefox). The root-reflash install
@@ -396,6 +397,17 @@ provisioning:
     model_id: local-oracle                     # id advertised to OpenClaw; maps to the served Oracle model
     gateway_port: 18789                        # OpenClaw gateway bind (loopback)
     node_major: 24                             # NodeSource major (OpenClaw engines: >=24.15 <25 recommended, or >=22.22.3 <23); 24.x satisfies the recommended band
+  # open-computer preconfig (SDD-706). The QEMU AI-sandbox runs on-box; its LLM backend
+  # is our local vLLM endpoint (127.0.0.1 is auto-rewritten to the QEMU host gateway
+  # 10.0.2.2 for the guest). Installed-off: `sovereign-osctl open-computer on`. Heavy
+  # (~3GB base image + QEMU/KVM); provisioned at first boot, non-fatal + idempotent.
+  open_computer:
+    endpoint: http://127.0.0.1:8000/v1         # the local vLLM router/Oracle endpoint (host side)
+    model_id: local-oracle                     # OPENAI_MODEL advertised to open-computer
+    web_port: 9800                             # open-computer agent UI/control base port (kiosk target)
+    repo: https://github.com/Mintplex-Labs/anything-llm   # sparse-cloned for the open-computer/ subdir
+    base_image_url: https://cdn.anythingllm.com/support/open-computer/base-images/06_08_2026/x64-base-image.tar
+    node_major: 22                             # open-computer declares no engines pin; Node 22 LTS is the safe target
   # NVIDIA ≥570 driver (SDD-701). trixie ships 550.163, which predates the
   # Blackwell GB202 (PRO 6000 Max-Q + 5090) — the baked nvidia-open-kernel-dkms
   # (550) is SUPERSEDED at first boot by the pinned open-kernel .run that

@@ -1,0 +1,43 @@
+[Unit]
+Description=sovereign-os open-computer install + preconfig (one-shot, first boot) (SDD-706)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/hooks/post-install/open-computer-install.sh
+ConditionFirstBoot=yes
+# VM-tolerant at the unit level (it provisions software); nested KVM is usually absent
+# on a VM, so the runtime just won't accelerate there — provisioning still runs.
+After=network-online.target sovereign-friction-audit.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+EnvironmentFile=-/etc/sovereign-os/active-profile.env
+# Installs QEMU/KVM + OVMF + Node, sparse-clones + builds the open-computer CLI,
+# downloads the ~3GB base image (resumable), renders the LLM preconfig → the local
+# endpoint, stages the runtime unit installed-off. Best-effort + resumable: no network
+# / apt / npm / git each skip cleanly. Re-run: sovereign-osctl open-computer install.
+ExecStart=/opt/sovereign-os/scripts/hooks/post-install/open-computer-install.sh
+StandardOutput=journal
+StandardError=journal
+# A ~3GB base-image pull + a repo build can take a long time — don't time it out.
+TimeoutStartSec=0
+# Writes /usr (apt: qemu/ovmf/node), /var/lib/sovereign-os/open-computer (checkout +
+# base image + config), /etc/sovereign-os (env). It writes NO /home, so ProtectHome=true
+# holds — full R171, no waiver (the PROVISIONER doesn't run the VM; the runtime does).
+# R171 defense-in-depth (Layer 1 lint enforced)
+ProtectSystem=full
+ProtectHome=true
+ProtectControlGroups=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectClock=true
+ProtectHostname=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
+ReadWritePaths=/usr /var /etc
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

@@ -128,6 +128,11 @@ COMMANDS:
   openclaw install             Run the first-boot installer now (Node + npm + preconfig → local endpoint; root)
   openclaw logs [N] | doctor   Tail the gateway journal / check node+openclaw+config health
 
+  open-computer status         SDD-706 open-computer QEMU AI-sandbox: installed · active · /dev/kvm · UI port
+  open-computer on | off       Enable+start / stop+disable the sandbox VM (installed-off; root)
+  open-computer install        Run the first-boot installer now (QEMU/KVM + Node + build + ~3GB base image; root)
+  open-computer url | logs | doctor   Print the UI URL / tail the journal / check qemu+kvm+node+base health
+
   models docs [--check|--stdout]  Regenerate docs/src/model-catalog.md (R206, SDD-028 pattern)
   models query [--class C] [--tier T] [--purpose P] [--size-class S] [--quantization Q] [--status S] [--max-vram N] [--min-context N] [--engine E] [--base-model B] [--json]
                                R213: filter catalog by R212 taxonomy
@@ -2107,6 +2112,102 @@ cmd_openclaw() {
     *)
       log_error "unknown openclaw subcommand: ${sub}"
       echo "usage: sovereign-osctl openclaw {status|on|off|start|stop|restart|logs|install|install-units|doctor}" >&2
+      exit 2
+      ;;
+  esac
+}
+
+# SDD-706: open-computer QEMU AI-sandbox lifecycle (installed-off, selfdef shape). The
+# runtime (sovereign-open-computer.service) is staged by bake.open_computer + provisioned
+# by the first-boot installer (QEMU/KVM + Node + clone/build + ~3GB base image + preconfig
+# → the local endpoint); it stays OFF until `sovereign-osctl open-computer on`.
+cmd_open_computer() {
+  local sub="${1:-status}"
+  shift || true
+  local RUNTIME="sovereign-open-computer.service"
+  local INSTALLER="sovereign-open-computer-install.service"
+  local ENVF="/etc/sovereign-os/open-computer.env"
+  local web_port; web_port="$( [ -s "${ENVF}" ] && awk -F= '/^PORT=/{print $2}' "${ENVF}" || true )"
+  : "${web_port:=9800}"
+
+  case "${sub}" in
+    status)
+      local present="ABSENT" en="no" act="no" cfg="absent" kvm="no" verdict
+      systemctl list-unit-files --no-legend "${RUNTIME}" 2>/dev/null | grep -q . && present="installed"
+      systemctl is-enabled --quiet "${RUNTIME}" 2>/dev/null && en="yes"
+      systemctl is-active  --quiet "${RUNTIME}" 2>/dev/null && act="yes"
+      [ -s "${ENVF}" ] && cfg="${ENVF}"
+      [ -e /dev/kvm ] && kvm="yes"
+      if [ "${present}" = ABSENT ]; then verdict="OFF — runtime unit not installed (bake.open_computer + first boot installs it)"
+      elif [ "${act}" = yes ]; then verdict="ON — sandbox running (UI: http://localhost:${web_port})"
+      else verdict="OFF — installed but stopped"; fi
+      echo "open-computer status"
+      echo "===================="
+      echo
+      echo "  runtime unit: ${present} · enabled=${en} · active=${act}"
+      echo "  /dev/kvm:     ${kvm}"
+      echo "  config:       ${cfg}"
+      echo "  UI base port: ${web_port}"
+      echo
+      echo "  ${verdict}"
+      [ "${present}" = ABSENT ] && echo "  → provision it:  sovereign-osctl open-computer install   (QEMU/KVM + ~3GB base image; needs network)"
+      [ "${present}" != ABSENT ] && [ "${act}" != yes ] && echo "  → start it:      sovereign-osctl open-computer on"
+      ;;
+    install-units)
+      require_root
+      local src="${__REPO_ROOT}/systemd/system" n=0
+      for u in "${INSTALLER}" "${RUNTIME}"; do
+        [ -f "${src}/${u}" ] && install -m 644 "${src}/${u}" /etc/systemd/system/ && n=$((n+1))
+      done
+      systemctl daemon-reload
+      log_info "installed ${n} open-computer unit file(s) → /etc/systemd/system (runtime stays installed-off)"
+      ;;
+    install|provision)
+      require_root
+      if systemctl list-unit-files --no-legend "${INSTALLER}" 2>/dev/null | grep -q .; then
+        systemctl start "${INSTALLER}" && journalctl -u "${INSTALLER}" -n 40 --no-pager
+      else
+        log_error "installer unit ${INSTALLER} not present — run: sovereign-osctl open-computer install-units"
+        return 1
+      fi
+      ;;
+    on|enable)
+      require_root
+      systemctl list-unit-files --no-legend "${RUNTIME}" 2>/dev/null | grep -q . \
+        || { log_error "open-computer runtime not installed — run: sovereign-osctl open-computer install"; return 1; }
+      [ -e /dev/kvm ] || log_warn "/dev/kvm absent — the VM will not accelerate (install may still start, slowly)"
+      systemctl enable --now "${RUNTIME}"
+      log_info "open-computer ON"; cmd_open_computer status
+      ;;
+    off|disable)
+      require_root
+      systemctl disable --now "${RUNTIME}" 2>/dev/null || log_warn "open-computer runtime not installed — nothing to disable"
+      log_info "open-computer OFF"
+      ;;
+    start|stop|restart)
+      require_root
+      systemctl "${sub}" "${RUNTIME}"
+      log_info "open-computer ${sub} issued"
+      ;;
+    url)
+      echo "http://localhost:${web_port}"
+      ;;
+    logs)
+      journalctl -u "${RUNTIME}" -n "${1:-50}" --no-pager 2>/dev/null \
+        || log_error "no open-computer journal (runtime installed?)"
+      ;;
+    doctor)
+      echo "open-computer doctor"
+      echo "===================="
+      command -v qemu-system-x86_64 >/dev/null 2>&1 && echo "  qemu:    $(command -v qemu-system-x86_64)" || echo "  qemu:    MISSING — run: sovereign-osctl open-computer install"
+      [ -e /dev/kvm ] && echo "  /dev/kvm: present (accelerated)" || echo "  /dev/kvm: ABSENT (no hardware virt / nested-KVM off)"
+      command -v node >/dev/null 2>&1 && echo "  node:    $(node --version 2>/dev/null)" || echo "  node:    MISSING"
+      [ -s /var/lib/sovereign-os/open-computer/base_image/base.qcow2 ] && echo "  base:    present" || echo "  base:    absent (~3GB — run: sovereign-osctl open-computer install)"
+      [ -s "${ENVF}" ] && echo "  config:  ${ENVF}" || echo "  config:  absent"
+      ;;
+    *)
+      log_error "unknown open-computer subcommand: ${sub}"
+      echo "usage: sovereign-osctl open-computer {status|on|off|start|stop|restart|logs|install|install-units|url|doctor}" >&2
       exit 2
       ;;
   esac
@@ -6622,6 +6723,7 @@ case "${cmd}" in
   perimeter)     cmd_perimeter "$@" ;;
   selfdef)       cmd_selfdef "$@" ;;
   openclaw)      cmd_openclaw "$@" ;;
+  open-computer) cmd_open_computer "$@" ;;
   models)        cmd_models "$@" ;;
   audit)         cmd_audit "$@" ;;
   hooks)         cmd_hooks "$@" ;;

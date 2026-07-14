@@ -51,7 +51,8 @@ KIOSK_FRONTENDS = {"dashboards-kiosk", "open-computer-kiosk"}
 # Default URL each kiosk targets (the operator can override with --url).
 DEFAULT_KIOSK_URL: dict[str, str] = {
     "dashboards-kiosk": "http://127.0.0.1:8100/",
-    "open-computer-kiosk": "http://127.0.0.1:3000/",
+    # open-computer serves its agent UI from base port 9800 (SDD-706, verified).
+    "open-computer-kiosk": "http://127.0.0.1:9800/",
 }
 
 STATE_FILE = Path(os.environ.get(

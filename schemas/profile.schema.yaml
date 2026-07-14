@@ -380,6 +380,7 @@ properties:
           selfdef: { type: boolean }
           root_ghostproxy: { type: boolean }
           openclaw: { type: boolean }   # SDD-705: stage the OpenClaw Node gateway daemon (installed-off; first-boot npm install + preconfig)
+          open_computer: { type: boolean }   # SDD-706: stage the open-computer QEMU AI-sandbox service (installed-off; first-boot clone+build+base-image+preconfig)
           dashboards: { type: boolean }
           gui: { type: boolean }   # install a desktop on the mkosi image (root-reflash always installs GUI)
           livereload: { type: boolean }   # SDD-203 live-reload on the installed box (default ON; false = locked build)
@@ -439,6 +440,22 @@ properties:
           model_id: { type: string }             # model id to advertise to OpenClaw (matches the served model)
           gateway_port: { type: integer, minimum: 1, maximum: 65535 }   # OpenClaw gateway bind port (default 18789)
           node_major: { type: integer, minimum: 18 }   # NodeSource major to install if the baked node is too old for OpenClaw
+      # open-computer preconfiguration (SDD-706). When bake.open_computer is set, a
+      # first-boot hook installs QEMU/KVM + Node, clones + builds Mintplex open-computer
+      # (a QEMU AI-VM sandbox), downloads its base.qcow2, and points its LLM backend at
+      # the LOCAL endpoint below (the QEMU user-net rewrites 127.0.0.1 → 10.0.2.2 for the
+      # guest). Installed-off: `sovereign-osctl open-computer on`. AGPL-3.0 — cloned at
+      # first boot from upstream (not redistributed in our image).
+      open_computer:
+        type: object
+        additionalProperties: false
+        properties:
+          endpoint: { type: string }             # local OpenAI-compatible base URL (host 127.0.0.1 — auto-rewritten to 10.0.2.2 in-guest)
+          model_id: { type: string }             # OPENAI_MODEL advertised to open-computer
+          web_port: { type: integer, minimum: 1, maximum: 65535 }   # agent UI/control base port (open-computer default 9800)
+          repo: { type: string }                 # upstream git repo to clone (sparse: the open-computer subdir)
+          base_image_url: { type: string }        # base.qcow2 tar CDN url (updatable; sha256-verified)
+          node_major: { type: integer, minimum: 18 }   # NodeSource major for the CLI + interface-service
       # APC Smart-UPS / graceful soft-shutdown (SDD-026). NUT apc_modbus:
       # Modbus over TCP (:502, SmartConnect) or serial, auto-detected.
       power:
