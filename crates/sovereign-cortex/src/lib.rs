@@ -374,6 +374,25 @@ pub struct SearchOutcome {
     pub summary: String,
 }
 
+/// FNV-1a over `text`'s alphanumeric tokens → a 64-bit sketch (one set bit per
+/// token). The keying kernel behind [`Cortex::recall_text`] — different text
+/// probes different memory. Case-insensitive.
+fn text_sketch(text: &str) -> u64 {
+    let mut bits = 0u64;
+    for tok in text
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|t| !t.is_empty())
+    {
+        let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+        for b in tok.as_bytes() {
+            h ^= b.to_ascii_lowercase() as u64;
+            h = h.wrapping_mul(0x0000_0100_0000_01b3);
+        }
+        bits |= 1u64 << (h % 64);
+    }
+    bits
+}
+
 /// The cortex. Owns the memory store; stateless engines are called
 /// functionally per tick.
 #[derive(Debug, Default)]
@@ -799,6 +818,26 @@ impl Cortex {
             .retrieve(&Query::new(topic, entity, now, half_life), k)
             .into_iter()
             .map(|hit| (hit.id, hit.relevance))
+            .collect()
+    }
+
+    /// Text-keyed recall — the string-query counterpart to [`Cortex::recall`],
+    /// so a caller with a plain query (e.g. a `recall` agent tool, SDD-713) can
+    /// pull relevant memory back as **text** without hand-computing sketches.
+    /// Sketches `query` (topic = the sketch, entity = a rotated copy — the same
+    /// keying the CoAT steering path uses), retrieves the top-`k` hits, and maps
+    /// each surviving id to its ground-truth text ([`GroundTruth::best_available`]).
+    /// `now`/`half_life` drive freshness decay (pass the store's own clock).
+    /// Read-only.
+    pub fn recall_text(&self, query: &str, now: u64, half_life: u64, k: usize) -> Vec<String> {
+        let bits = text_sketch(query);
+        self.recall(bits, bits.rotate_left(29), now, half_life, k)
+            .into_iter()
+            .filter_map(|(id, _rel)| {
+                self.memory
+                    .ground_truth(id)
+                    .map(|g| g.best_available().to_string())
+            })
             .collect()
     }
 
@@ -1798,5 +1837,52 @@ mod tests {
         // local Trinity Pulse can't run remote work → rejected, only 1 report
         assert!(!cycle.committed());
         assert_eq!(cycle.reports.len(), 1);
+    }
+
+    #[test]
+    fn recall_text_returns_ground_truth_for_a_matching_query() {
+        // Admit one memory keyed on the sketch of a known phrase, then recall it
+        // by that phrase — proving the string→sketch→retrieve→ground-truth path.
+        let mut store = MemoryStore::new();
+        let bits = text_sketch("blackwell gpu bringup");
+        store.admit(
+            HotMeta::new(
+                42,
+                MemoryType::Semantic,
+                0,
+                0,
+                900,
+                100,
+                bits,
+                bits.rotate_left(29),
+                800,
+                FLAG_READABLE,
+            ),
+            GroundTruth {
+                raw_episode: "the RTX PRO 6000 Blackwell bringup notes".into(),
+                derived_facts: vec![],
+                summary: "gpu bringup summary".into(),
+                graph_edges: vec![],
+                embedding: vec![],
+                trust: 900,
+                freshness: 100,
+                summary_suspect: false,
+            },
+        );
+        let cortex = Cortex {
+            memory: store,
+            ..Default::default()
+        };
+        let hits = cortex.recall_text("blackwell gpu bringup", 100, 1000, 3);
+        assert!(
+            hits.iter().any(|h| h.contains("gpu bringup")),
+            "expected the seeded memory back, got {hits:?}"
+        );
+    }
+
+    #[test]
+    fn recall_text_is_empty_on_an_empty_store() {
+        let cortex = Cortex::default();
+        assert!(cortex.recall_text("anything", 100, 1000, 3).is_empty());
     }
 }

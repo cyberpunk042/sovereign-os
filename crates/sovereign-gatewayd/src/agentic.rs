@@ -1,4 +1,4 @@
-//! SDD-712 (F-2026-088): server-side agentic tool use.
+//! SDD-712/713 (F-2026-088): server-side agentic tool use.
 //!
 //! Where SDD-711 made `/v1/chat/completions` return `tool_calls` for the CLIENT
 //! to execute (single-turn, client-driven), this runs the ReAct loop **inside
@@ -12,15 +12,23 @@
 //! `generate_chat` exactly as an ordinary request would; the safety spine stays
 //! in the loop for every step.
 //!
+//! **Tool catalog (SDD-713)** — beyond the pure string transforms, the daemon
+//! offers `calc` (the pure `sovereign-calc` arithmetic evaluator), `time` (a
+//! read-only wall-clock read), and `recall` (queries the daemon's own learning
+//! Cortex memory via [`sovereign_cortex::Cortex::recall_text`] through an owned
+//! `Arc<Mutex<Cortex>>` handle — the only state-carrying tool). Everything else
+//! is pure and side-effect-free; `recall` is read-only. No shell / fs / network
+//! tool exists — those need the sandbox + capability-gating story (selfdef).
+//!
 //! **Sovereignty posture**: a root-adjacent daemon that autonomously executes
 //! tools is gated two ways — a per-request opt-in (`sovereign_agentic: true`)
-//! AND an env kill-switch (`SOVEREIGN_GATEWAY_AGENTIC=1`, **default OFF**). The
-//! built-in tools are deliberately **pure and side-effect-free** (no shell, fs,
-//! or network), so executing them carries no security surface; the gate exists
-//! for the *capability* (an autonomous loop), not these specific tools. A
-//! curated production tool catalog (calc, time, local retrieval) is a follow-up.
+//! AND an env kill-switch (`SOVEREIGN_GATEWAY_AGENTIC=1`, **default OFF**).
+
+use std::sync::{Arc, Mutex};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use sovereign_agent_loop::{AgentLoop, Responder, StopReason};
+use sovereign_cortex::Cortex;
 use sovereign_gatewayd::GatewayServer;
 use sovereign_tool_bridge::ToolSpec;
 use sovereign_tool_dispatch::ToolRegistry;
@@ -31,6 +39,12 @@ pub const DEFAULT_MAX_STEPS: usize = 4;
 /// Repeat-guard: stop if the model calls the same tool with the same args this
 /// many times (a cheap cycle breaker on top of the step cap).
 pub const DEFAULT_MAX_REPEATS: usize = 2;
+/// Epoch tick + half-life for `recall` freshness decay (match the CoAT recall
+/// defaults so tool recall and steering recall see the same clock), and the
+/// number of memories a `recall` returns.
+const RECALL_NOW: u64 = 100;
+const RECALL_HALF_LIFE: u64 = 1000;
+const RECALL_K: usize = 3;
 
 /// Is the agentic capability enabled on this daemon? `SOVEREIGN_GATEWAY_AGENTIC`
 /// must be a truthy value (`1`/`true`/`yes`/`on`, case-insensitive). Default OFF
@@ -45,24 +59,60 @@ pub fn agentic_enabled() -> bool {
     }
 }
 
-/// The daemon's built-in tool set — **pure, deterministic, side-effect-free**
-/// string transforms. Safe to execute on a root daemon; the whole point of
-/// keeping slice-1 tools pure is that no sandbox is needed to run them.
-pub fn builtin_tools() -> ToolRegistry {
+/// Format an `f64` calc result without a trailing `.0` for whole numbers, so the
+/// model sees `4` not `4.0` (and `2.5` stays `2.5`).
+fn fmt_calc(v: f64) -> String {
+    if v.fract() == 0.0 && v.is_finite() {
+        format!("{}", v as i64)
+    } else {
+        format!("{v}")
+    }
+}
+
+/// The daemon's built-in tool set. Pure string transforms + `calc` (pure
+/// arithmetic) + `time` (read-only wall clock) are always present; `recall`
+/// (read-only Cortex memory) is added only when a `cortex` handle is supplied.
+/// The `recall` closure OWNS an `Arc<Mutex<Cortex>>` (a `'static` capture), which
+/// is why the daemon threads a handle in rather than a borrow.
+pub fn builtin_registry(cortex: Option<Arc<Mutex<Cortex>>>) -> ToolRegistry {
     let mut r = ToolRegistry::new();
     r.register("upper", |a| a.to_uppercase());
     r.register("lower", |a| a.to_lowercase());
     r.register("reverse", |a| a.chars().rev().collect::<String>());
     r.register("wordcount", |a| a.split_whitespace().count().to_string());
     r.register("charcount", |a| a.chars().count().to_string());
+    r.register("calc", |a| match sovereign_calc::eval(a) {
+        Ok(v) => fmt_calc(v),
+        Err(e) => format!("[calc error: {e}]"),
+    });
+    r.register("time", |_a| {
+        match SystemTime::now().duration_since(UNIX_EPOCH) {
+            Ok(d) => format!("{} (unix seconds, UTC)", d.as_secs()),
+            Err(_) => "[time error: clock before epoch]".to_string(),
+        }
+    });
+    if let Some(cx) = cortex {
+        r.register("recall", move |q| match cx.lock() {
+            Ok(c) => {
+                let hits = c.recall_text(q, RECALL_NOW, RECALL_HALF_LIFE, RECALL_K);
+                if hits.is_empty() {
+                    "[no relevant memory]".to_string()
+                } else {
+                    hits.join("\n---\n")
+                }
+            }
+            Err(_) => "[recall unavailable: memory lock poisoned]".to_string(),
+        });
+    }
     r
 }
 
-/// The [`ToolSpec`]s advertised to the model for the built-in tools, in the same
-/// shape SDD-711's bridge renders into a prompt preamble. Kept in lockstep with
-/// [`builtin_tools`] (the contract lint asserts the two agree).
-pub fn builtin_specs() -> Vec<ToolSpec> {
-    [
+/// The [`ToolSpec`]s advertised to the model, in the shape SDD-711's bridge
+/// renders into a prompt preamble. `include_recall` mirrors whether
+/// [`builtin_registry`] was built with a cortex handle, so the advertised set
+/// always matches the executable set (a test asserts the two agree).
+pub fn builtin_specs(include_recall: bool) -> Vec<ToolSpec> {
+    let mut specs: Vec<(&str, &str)> = vec![
         ("upper", "uppercase the argument text"),
         ("lower", "lowercase the argument text"),
         ("reverse", "reverse the argument text"),
@@ -71,14 +121,26 @@ pub fn builtin_specs() -> Vec<ToolSpec> {
             "count whitespace-separated words in the argument",
         ),
         ("charcount", "count characters in the argument"),
-    ]
-    .into_iter()
-    .map(|(name, desc)| ToolSpec {
-        name: name.to_string(),
-        description: desc.to_string(),
-        parameters: serde_json::json!({}),
-    })
-    .collect()
+        ("calc", "evaluate an arithmetic expression, e.g. (2+3)*4"),
+        (
+            "time",
+            "current time as unix seconds (UTC); takes no argument",
+        ),
+    ];
+    if include_recall {
+        specs.push((
+            "recall",
+            "search the daemon's own learned memory for text relevant to the argument",
+        ));
+    }
+    specs
+        .into_iter()
+        .map(|(name, desc)| ToolSpec {
+            name: name.to_string(),
+            description: desc.to_string(),
+            parameters: serde_json::json!({}),
+        })
+        .collect()
 }
 
 /// Format a completed [`sovereign_agent_loop::AgentResult`] into the text a chat
@@ -130,23 +192,31 @@ impl Responder for GatewayResponder<'_> {
     }
 }
 
-/// Run the ReAct loop over the built-in tools with any [`Responder`], returning
-/// the answer text. Split out from [`run_agent`] so the loop wiring is testable
-/// with a scripted responder (no model). Prepends the built-in tool preamble so
-/// the model knows the `[[tool:…]]` convention + the available tools.
-pub fn run_loop<R: Responder>(responder: R, user: &str, max_steps: usize, seed: u64) -> String {
-    let preamble = sovereign_tool_bridge::tool_specs_to_prompt(&builtin_specs());
-    let mut agent = AgentLoop::new(responder, builtin_tools(), max_steps)
-        .with_repeat_guard(DEFAULT_MAX_REPEATS);
+/// Run the ReAct loop with a given registry + advertised specs and any
+/// [`Responder`], returning the answer text. Split out from [`run_agent`] so the
+/// loop wiring is testable with a scripted responder (no model). Prepends the
+/// tool preamble so the model knows the `[[tool:…]]` convention + the tools.
+pub fn run_loop<R: Responder>(
+    responder: R,
+    registry: ToolRegistry,
+    specs: &[ToolSpec],
+    user: &str,
+    max_steps: usize,
+    seed: u64,
+) -> String {
+    let preamble = sovereign_tool_bridge::tool_specs_to_prompt(specs);
+    let mut agent =
+        AgentLoop::new(responder, registry, max_steps).with_repeat_guard(DEFAULT_MAX_REPEATS);
     match agent.run(&format!("{preamble}\n\nUser: {user}"), seed) {
         Ok(result) => format_agent_answer(&result),
         Err(e) => format!("[agentic error: {e}]"),
     }
 }
 
-/// Run a server-side agentic turn against the daemon's shared model (Option A).
-/// Returns the final answer text. Caller has already checked [`agentic_enabled`]
-/// and the per-request opt-in.
+/// Run a server-side agentic turn against the daemon's shared model (Option A)
+/// with the full built-in tool catalog (incl. `recall` over the daemon's own
+/// Cortex memory). Returns the final answer text. Caller has already checked
+/// [`agentic_enabled`] and the per-request opt-in.
 pub fn run_agent(
     server: &GatewayServer,
     model: Option<&str>,
@@ -155,8 +225,10 @@ pub fn run_agent(
     max_steps: usize,
     seed: u64,
 ) -> String {
+    let registry = builtin_registry(Some(server.cortex_handle()));
+    let specs = builtin_specs(true);
     let responder = GatewayResponder::new(server, model.map(str::to_string), max_new);
-    run_loop(responder, user, max_steps, seed)
+    run_loop(responder, registry, &specs, user, max_steps, seed)
 }
 
 #[cfg(test)]
@@ -166,7 +238,7 @@ mod tests {
 
     #[test]
     fn builtin_tools_are_pure_and_dispatch() {
-        let r = builtin_tools();
+        let r = builtin_registry(None);
         assert_eq!(r.call("upper", "hi").unwrap(), "HI");
         assert_eq!(r.call("reverse", "abc").unwrap(), "cba");
         assert_eq!(r.call("wordcount", "a b c").unwrap(), "3");
@@ -178,48 +250,100 @@ mod tests {
     }
 
     #[test]
+    fn calc_tool_evaluates_and_reports_errors() {
+        let r = builtin_registry(None);
+        assert_eq!(r.call("calc", "(2+3)*4").unwrap(), "20");
+        assert_eq!(r.call("calc", "5/2").unwrap(), "2.5");
+        assert!(r.call("calc", "2+").unwrap().contains("calc error"));
+    }
+
+    #[test]
+    fn time_tool_returns_unix_seconds() {
+        let r = builtin_registry(None);
+        let out = r.call("time", "").unwrap();
+        assert!(out.contains("unix seconds"), "got {out}");
+        // the numeric prefix parses as a plausible (post-2020) epoch
+        let secs: u64 = out.split_whitespace().next().unwrap().parse().unwrap();
+        assert!(secs > 1_600_000_000, "clock looks wrong: {secs}");
+    }
+
+    #[test]
+    fn recall_tool_present_only_with_a_cortex_and_queries_memory() {
+        // No cortex → no recall tool.
+        assert!(builtin_registry(None).call("recall", "x").is_err());
+        // With a cortex handle → recall queries it (empty store → the note).
+        let cx = Arc::new(Mutex::new(Cortex::default()));
+        let r = builtin_registry(Some(cx));
+        assert_eq!(
+            r.call("recall", "anything").unwrap(),
+            "[no relevant memory]"
+        );
+    }
+
+    #[test]
     fn builtin_specs_match_the_registry_names() {
-        let names: Vec<String> = builtin_tools().names();
-        let spec_names: Vec<String> = builtin_specs().into_iter().map(|s| s.name).collect();
+        let names: Vec<String> = builtin_registry(None).names();
+        let spec_names: Vec<String> = builtin_specs(false).into_iter().map(|s| s.name).collect();
         let mut a = names.clone();
         a.sort();
         let mut b = spec_names.clone();
         b.sort();
         assert_eq!(
             a, b,
-            "builtin_tools() and builtin_specs() must list the same tools"
+            "registry(None) and specs(false) must list the same tools"
         );
+        // recall appears in both the with-cortex registry and specs(true).
+        let cx = Arc::new(Mutex::new(Cortex::default()));
+        assert!(builtin_registry(Some(cx)).has("recall"));
+        assert!(builtin_specs(true).iter().any(|s| s.name == "recall"));
     }
 
     #[test]
     fn run_loop_dispatches_a_tool_then_returns_the_final_answer() {
-        // Step 1: the model calls a tool. Step 2: it answers with no tool call.
-        let responder = ScriptedResponder::new([
-            "I'll uppercase it. [[tool:upper|sovereign]]",
-            "The result is SOVEREIGN.",
-        ]);
-        let out = run_loop(responder, "uppercase 'sovereign'", DEFAULT_MAX_STEPS, 7);
-        assert_eq!(out, "The result is SOVEREIGN.");
+        let responder =
+            ScriptedResponder::new(["I'll add them. [[tool:calc|2+3]]", "The sum is 5."]);
+        let out = run_loop(
+            responder,
+            builtin_registry(None),
+            &builtin_specs(false),
+            "add 2 and 3",
+            DEFAULT_MAX_STEPS,
+            7,
+        );
+        assert_eq!(out, "The sum is 5.");
     }
 
     #[test]
     fn run_loop_answers_directly_when_no_tool_is_called() {
         let responder = ScriptedResponder::new(["Just an answer, no tools."]);
-        let out = run_loop(responder, "hello", DEFAULT_MAX_STEPS, 1);
+        let out = run_loop(
+            responder,
+            builtin_registry(None),
+            &builtin_specs(false),
+            "hello",
+            DEFAULT_MAX_STEPS,
+            1,
+        );
         assert_eq!(out, "Just an answer, no tools.");
     }
 
     #[test]
     fn run_loop_reports_the_step_cap() {
-        // Always calls a (different) tool → never a final answer → hits the cap.
         let responder = ScriptedResponder::new([
             "[[tool:upper|a]]",
             "[[tool:lower|B]]",
             "[[tool:reverse|c]]",
-            "[[tool:wordcount|d e]]",
+            "[[tool:calc|1+1]]",
             "[[tool:charcount|fff]]",
         ]);
-        let out = run_loop(responder, "loop", 3, 0);
+        let out = run_loop(
+            responder,
+            builtin_registry(None),
+            &builtin_specs(false),
+            "loop",
+            3,
+            0,
+        );
         assert!(
             out.contains("step cap"),
             "expected a step-cap note, got: {out}"
@@ -228,9 +352,6 @@ mod tests {
 
     #[test]
     fn agentic_enabled_defaults_off_and_reads_truthy() {
-        // The default-off behaviour is asserted indirectly: with the var unset the
-        // helper is false. (Env is process-global; we only assert the parse of an
-        // explicit value here to avoid cross-test env races.)
         assert!(!matches!(
             "".to_string().as_str(),
             "1" | "true" | "yes" | "on"

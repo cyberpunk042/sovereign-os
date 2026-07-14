@@ -12,6 +12,31 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — a production agent tool catalog: calc + time + recall (2026-07-14)
+
+Operator-directed (*"go. lets do everything, another big round. take your time to do this right"*) (SDD-713).
+Lands the curated production tool catalog that SDD-712 named as a slice-2 non-goal — the first three real,
+still-side-effect-free tools on the server-side ReAct loop (F-2026-088 stays closed; no finding re-opens):
+
+- **`calc`** reuses `sovereign-calc::eval`, the pure dependency-free shunting-yard evaluator that was a
+  demo-only island — real arithmetic (`[[tool:calc|2*(3+4)]]` → `14`); a parse error returns
+  `[calc error: …]` as a recoverable observation; whole-number results render as integers.
+- **`time`** returns `SystemTime::now()` as `"<n> (unix seconds, UTC)"` — the first real wall-clock read
+  inside gatewayd, non-reproducible by design (a clock read is the point).
+- **`recall`** queries the daemon's one process-wide learning `Cortex` (M016): the best-available text of the
+  top memories whose text-sketch overlaps the query, or `[no relevant memory]`.
+
+`recall` is registered only when a cortex handle is supplied, and `builtin_specs(include_recall)` mirrors that
+so the model's advertised toolset never drifts from what the daemon dispatches (a test asserts they agree).
+The one structural change: `GatewayServer.cortex` becomes `Arc<Mutex<Cortex>>` with a `cortex_handle()`
+accessor (registry handlers are `'static` and can't borrow the server), and a new string-level
+`Cortex::recall_text` keeps the FNV-1a sketch logic in the cortex crate. A poisoned lock degrades to
+`[recall unavailable: …]` rather than a panic. The two SDD-712 sovereignty gates (per-request opt-in +
+`SOVEREIGN_GATEWAY_AGENTIC` kill-switch, default OFF) are unchanged; side-effecting tools stay deferred to
+selfdef. Verified: `cargo test -p sovereign-gatewayd` (9 agentic tests, was 6) + `-p sovereign-cortex` (+2);
+fmt/clippy clean; gatewayd consumes `sovereign-calc` (was demo-only); no new crate; full tests + 5 profiles +
+ruff green. Not model-verified (no weights in CI).
+
 ### Added — the daemon can run the agent loop itself (server-side agentic tool use) (2026-07-14)
 
 Operator-directed (*"go with A"*) (SDD-712). Closes the multi-step half of F-2026-088 — with SDD-711

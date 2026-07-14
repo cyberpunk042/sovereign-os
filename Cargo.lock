@@ -4820,6 +4820,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sovereign-agent-loop",
+ "sovereign-calc",
  "sovereign-coat",
  "sovereign-cortex",
  "sovereign-gateway",
