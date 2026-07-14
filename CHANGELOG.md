@@ -12,6 +12,20 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Fixed — inference router bounds the request body instead of crashing / over-allocating (2026-07-14)
+
+Operator-directed (phase-1 audit continuation, "we continue") (SDD-994). Closes F-2026-097 (LOW). The
+OpenAI-compatible front door `scripts/inference/router.py` read its POST body as
+`length = int(self.headers.get("Content-Length", 0)); raw = self.rfile.read(length)` — a non-numeric
+`Content-Length` raised an uncaught `ValueError` (handler crash + dropped connection), and the read
+trusted the client length unbounded (a huge value → memory-DoS). A pure `parse_content_length()` helper
+now returns `(length, error)` — malformed/negative → 400, oversize → 413, absent/valid → the length —
+and `_do_post_inner` rejects before reading. Cap is a generous 16 MiB (the router proxies inference
+requests; long prompts are legitimately large). New 11-case boundary regression
+`tests/unit/test_router_body_bounds.py`; 42 router tests pass; ruff clean. Router-only + 1 test — no
+cockpit/webapp/crate/other-daemon change. Brings the one unguarded body-read up to the sibling operator
+daemons' existing bar (`control-exec-api` `_MAX_BODY`, `code-console-api`, `brain-api`).
+
 ### Changed — SAIN GPU topology: RTX PRO 6000 primary + RTX 5090 internal secondary + RTX 4090 OcuLink eGPU; VFIO now opt-in (2026-07-13)
 
 Operator-directed hardware change (SDD-993, decision **D-021**). All **three cards are in the build**: the **RTX PRO
