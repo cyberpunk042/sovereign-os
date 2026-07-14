@@ -127,7 +127,7 @@ Additional supported form.
 .TP
 \f[B]sovereign-osctl jobs [\[en]json] cancel \f[R]
 Additional supported form.
-## plane
+.SS plane
 .TP
 \f[B]sovereign-osctl plane\f[R]
 The Sovereign Compute Plane (via jobs-api :8142) \[em] the box\[cq]s
@@ -136,7 +136,7 @@ running GPU jobs), placed by the M075 SRP doctrine.
 Read-only.
 A GPU job is placed on a device that fits, or waits, so it never OOMs
 the box.
-## cot
+.SS cot
 .TP
 \f[B]sovereign-osctl cot {list|show|run}\f[R]
 R309 (E2.M15): integrated-intelligence CoT registry \[em] named CoT
@@ -145,7 +145,7 @@ flows (oc-go-no-go / health-triage / psu-budget / storage-cleanup /
 pre-shutdown / boot-troubleshoot).
 Sovereign-os counterpart to selfdef SD-R98 \[at]selfdef_macro.
 Operator-named (§1b verbatim).
-## guide
+.SS guide
 .TP
 \f[B]sovereign-osctl guide {list|topics|show|walkthrough}\f[R]
 R349 (E10.M1): AI-as-guide topic catalog \[em] operator-pull \[lq]guide
@@ -155,7 +155,7 @@ Each topic carries layers + verbs + thresholds + BIOS/HW caveats.
 Operator-named (§1b verbatim: \[lq]only a guide into the experience,
 into the field, into the kernel, into the hardware, into the OS, into
 the modules\&...\[rq]).
-## state-fabric
+.SS state-fabric
 .TP
 \f[B]sovereign-osctl state-fabric [sub]\f[R]
 R358 (§7.1+§7.2): file-state matrix +
@@ -181,7 +181,7 @@ durable, audited decision.
 Decisions are \[en]confirm + operator-key + type-to-confirm gated (via
 the cockpit exec daemon) and DRY-RUN by default; the real M047 CRIU+ZFS
 effect is the M057 en\&...
-## approvals
+.SS approvals
 .TP
 \f[B]sovereign-osctl approvals {pending|gates|key|approve|deny|defer|request}\f[R]
 M060 D-06 (R10088-R10092): operator approval-queue + stage-gate core.
@@ -195,7 +195,7 @@ the cockpit exec daemon) and DRY-RUN by default; MS003 signing is
 deferred to selfdef (signature \[lq]unsigned-pending-MS003\[rq]).
 The sovereign-approvals-api daemon stays read-only (405) \[em] the ONLY
 write path is control-exec-api → approvals approve|deny|defer.
-## rollback
+.SS rollback
 .TP
 \f[B]sovereign-osctl rollback [arguments]\f[R]
 M060 D-08 (R10097-R10101): ZFS-snapshot + commit-history rollback-points
@@ -206,7 +206,7 @@ rollback-apply (R10100) is gated behind \[en]confirm + MS003 signature.
 The sovereign-rollback-api daemon serves the D-08 cockpit dashboard from
 this same core.
 Verbs: snapshot / preview \[en]to / commits (+ \[en]json).
-## memory-changes
+.SS memory-changes
 .TP
 \f[B]sovereign-osctl memory-changes janitor <dedup|edges|contradict|tag|extract-facts|topic|summarize|classify|advance|sweep> [id|\[en]all] [\[en]confirm]\f[R]
 M060 D-07 (R10093-R10096): Memory OS graph-diff + admission core \[em]
@@ -228,7 +228,7 @@ Additional supported form.
 .TP
 \f[B]sovereign-osctl memory-changes observe run [\[en]confirm] [\[en]limit N] | observe status\f[R]
 Additional supported form.
-## sandbox-mirror
+.SS sandbox-mirror
 .TP
 \f[B]sovereign-osctl sandbox-mirror [arguments]\f[R]
 M060 D-15 (R10118-R10119): READ-ONLY consumer of the selfdef sandbox
@@ -239,7 +239,7 @@ the D-15 cockpit dashboard.
 sovereign-os NEVER mutates IPS state; checkpoint/release are selfdefctl
 + MS003 only.
 Verbs: snapshot / summaries (+ \[en]json).
-## profile-mirror
+.SS profile-mirror
 .TP
 \f[B]sovereign-osctl profile-mirror [arguments]\f[R]
 M060 D-02 (R10063-R10068): READ-ONLY consumer of the selfdef active-
@@ -251,7 +251,7 @@ sovereign-os NEVER mutates IPS state; profile switch is sovereign
 profile set + MS003 only.
 Offline → MS040 R09535 default (Private).
 Verb: show (+ \[en]json).
-## tui-mirror
+.SS tui-mirror
 .TP
 \f[B]sovereign-osctl tui-mirror [arguments]\f[R]
 MS043 R10141 + F05081 + R10298: READ-ONLY consumer of the selfdef TUI
@@ -282,7 +282,7 @@ R10297.
 Verbs: snapshot / summaries / mutating (+ \[en]json).
 The mutating verb filters to subcommands that require MS003 signature
 \[em] operator clipboard-copy only; sovereign-os never invokes them.
-## frontend
+.SS frontend
 .TP
 \f[B]sovereign-osctl frontend status [\[en]json]\f[R]
 SDD-704 boot-frontend selector: what\[cq]s installed / default / active
