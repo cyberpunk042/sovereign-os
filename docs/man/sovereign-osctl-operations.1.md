@@ -284,30 +284,37 @@ operator use.
 
 **sovereign-osctl self-test {run|list}**
 :   R331 (E9.M14): operator-pull self-test verb. Runs L1 lint suites + unit tests + curated L3 sample + emits health summary. "Is sovereign-os itself working correctly on this host?"
+
 ## next-action
 
 **sovereign-osctl next-action {list|top}**
 :   R329 (E2.M22): next-action advisor — composes R322 state snapshot + emits ranked operator-pull recommendations of most-impactful verb to run next. "What should I do now?" decision support.
+
 ## fleet-aggregate
 
 **sovereign-osctl fleet-aggregate {aggregate|by-axis|outliers}**
 :   R324 (E2.M20): fleet snapshot aggregator. Ingests R322 unified state snapshots from multiple hosts; emits cross-host rollup (per-axis verdict distribution, host-level summary, outlier detection). Operator-pull "how is my whole fleet doing?"
+
 ## maintenance-window
 
 **sovereign-osctl maintenance-window {list|show|can-run-now|active}**
 :   R323 (E2.M19): maintenance-window scheduler. Operator declares named time windows; other advisors / autohealth / heat-oc- throttle query can-run-now <window> before acting. Operator-named (§1b verbatim: "schedule/planifest/graceful on all levels, orderly").
+
 ## snapshot
 
 **sovereign-osctl snapshot {snapshot|audit}**
 :   R322 (E2.M18): unified state snapshot — runs all read-only advisors in parallel + emits one consolidated JSON document. Operator-pull "what's the COMPLETE state of this host right now?"
+
 ## module-state
 
 **sovereign-osctl module-state {list|show|recommend}**
 :   R351 (E2.M34): "what have I installed but not yet configured?" Operator-named §1b verbatim: "installs, non-configured, modules or features and how configure them". 16-module default catalog; per-module verdict (fully-configured / installed-not-configured / running-without-overlay / config-only-no-runtime / shipped-but- untouched) + the verb to close each gap.
+
 ## morning-brief
 
 **sovereign-osctl morning-brief {rollup}**
 :   R352 (E10.M2): meta-rollup composing R329 next-action + R351 module-state + R308 autohealth + R349 guide-suggestion into a single operator-readable "what should I look at first this morning?" report. NEVER-raise on missing sub-probes.
+
 ## network-topology
 
 **sovereign-osctl network-topology [sub]**
@@ -317,6 +324,7 @@ operator use.
 
 **sovereign-osctl autohealth {tick|status|history|advisory}**
 :   R308 (E2.M14): doctor / autohealth periodic synthesizer. Composes R226 (health-scan) + R296 (thermal-oc) + R298 (storage-health) + R300 (operator-posture) + R304 (memory- pressure-damper) into ONE tick that persists state + emits notify-dispatch commands when severity crosses threshold. Operator-named (§1b verbatim: "autohealth and doctor, notification and messaging").
+
 ## research-loop
 
 **sovereign-osctl research-loop status [--config P] [--json|--human]**
@@ -329,10 +337,12 @@ operator use.
 
 **sovereign-osctl traces [arguments]**
 :   M060 D-05 (R10083-R10087): M049 13-field span store + query core — reads the observability fabric's append-only span log (/var/log/sovereign-os/spans.jsonl), filters by time window / text / severity / OCSF class (MS026 16-event taxonomy), assembles per-trace span trees. Read-only; the sovereign-traces-api daemon serves the D-05 cockpit dashboard from this same core. Verbs: spans / trace <id> / summary (+ --json, --window, --q, --severity, --ocsf-class).
+
 ## m060-health
 
 **sovereign-osctl m060-health [arguments]**
 :   M060 chain health observability — proxies the selfdef daemon's GET /v1/m060/health endpoint reporting publish-freshness of all 10 mirror artifacts (offline/degraded/stale/online plus this script's own "unreachable" when the daemon is down). Used by the D-00 master-dashboard's chain-health banner, the MCP tool selfdef-m060-health, and ops/smoke scripts. Read-only. Verbs: probe / state (+ --json).
+
 ## bashrc
 
 **sovereign-osctl bashrc install**
@@ -351,6 +361,7 @@ operator use.
 
 **sovereign-osctl ms022-doctor [arguments]**
 :   MS022 SSE subscriber-quota chain triage — probes the 4 consumer- side surfaces (proxy daemon, master-dashboard banner, systemd unit) against the selfdef-side producer state (selfdef commit 77b4499 6 gauges). Read-only (R10212 + R10115). Stdlib-only Python; no deps. Exit codes: 0=GREEN / 1=YELLOW / 2=RED. Flags: --strict requires state=ok everywhere; --json for machine-readable triage. See scripts/diagnostics/ms022-doctor.py --help for the full flag surface.
+
 ## m060-doctor
 
 **sovereign-osctl m060-doctor [arguments]**
