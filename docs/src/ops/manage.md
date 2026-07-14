@@ -67,6 +67,34 @@ sovereign-osctl inference route "```python def f(): pass ```"   # → oracle_cor
 sovereign-osctl inference logs oracle
 ```
 
+## Desktop + agent runtimes (SDD-704–707)
+
+The box's **face** and two **AI agent runtimes** are build-time-selectable (in the
+profile's `provisioning:` block) and runtime-switchable — no reflash. Full guide:
+[Use the box as your AI backend](../ai-backend.md).
+
+```sh
+# the face — what boots on the display
+sovereign-osctl frontend list
+sudo sovereign-osctl frontend set {gnome|dashboards-kiosk|open-computer-kiosk|none}
+
+# OpenClaw — Node agent gateway (installed-off; SDD-705)
+sovereign-osctl openclaw status
+sudo sovereign-osctl openclaw install          # first-boot installer (Node + npm + preconfig)
+sudo sovereign-osctl openclaw {on|off}
+sudo sovereign-osctl openclaw backend {local|anthropic|show} [--key K]   # local model ↔ hosted Claude
+
+# open-computer — QEMU AI-sandbox VM (installed-off; SDD-706)
+sovereign-osctl open-computer status
+sudo sovereign-osctl open-computer install     # QEMU/KVM + Node + ~3GB base image
+sudo sovereign-osctl open-computer {on|off}
+sovereign-osctl open-computer url               # the sandbox UI (http://localhost:9800)
+sudo sovereign-osctl open-computer backend {local|anthropic|show} [--key K]
+```
+
+The hosted-Claude key is operator-supplied (`--key` → root-only
+`/etc/sovereign-os/anthropic-key.env`), **never baked** into the image.
+
 ## Maintenance
 
 ```sh

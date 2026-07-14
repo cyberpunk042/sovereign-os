@@ -194,8 +194,87 @@ curl -s http://127.0.0.1:8787/v1/messages \
   the *answers* are only as good as the model you loaded. A small base model
   (SmolLM-135M) rambles; load a stronger instruct model for real work.
 
+## The desktop + the agent runtimes (SDD-704–707)
+
+The gateway above is the *engine*. On top of it the box ships a **swappable face**
+and two **AI agent runtimes**, all built-time-selectable in the profile and
+runtime-switchable with `sovereign-osctl` — no reflash.
+
+### The face — what the box shows at boot (SDD-704)
+
+```bash
+sovereign-osctl frontend list                    # what's staged / active
+sovereign-osctl frontend set gnome               # the GNOME desktop + dashboards launcher (default)
+sovereign-osctl frontend set dashboards-kiosk    # fullscreen kiosk → the :8100 dashboards hub
+sovereign-osctl frontend set open-computer-kiosk # fullscreen kiosk → the open-computer sandbox UI
+sovereign-osctl frontend set none                # headless (multi-user.target)
+```
+
+Build-time default + staged set come from `profiles/<id>.yaml`:
+```yaml
+provisioning:
+  frontend:
+    default: gnome                        # what boots
+    install: [gnome, dashboards-kiosk]    # which stacks are staged so the live switch works
+```
+
+### The agent runtimes — installed-off, preconfigured to the local model
+
+Both consume the local gateway by default and ship **installed-off** (staged at
+build, started on your word). Turn on with a bake toggle in the profile
+(`provisioning.bake.openclaw` / `provisioning.bake.open_computer`), then:
+
+```bash
+# OpenClaw — a Node gateway daemon (SDD-705)
+sovereign-osctl openclaw status
+sudo sovereign-osctl openclaw install        # first-boot installer (Node + npm + preconfig)
+sudo sovereign-osctl openclaw on             # start it (installed-off until now)
+
+# open-computer — a QEMU AI-sandbox VM the agent drives (SDD-706)
+sovereign-osctl open-computer status
+sudo sovereign-osctl open-computer install   # QEMU/KVM + Node + ~3GB base image
+sudo sovereign-osctl open-computer on
+sovereign-osctl open-computer url             # the sandbox UI (http://localhost:9800)
+```
+
+### The backend hotswap — local model ↔ hosted Claude (SDD-707)
+
+Each runtime flips between the **local** model (the on-box `:8787` safety-spine
+gateway) and **hosted Claude** (`api.anthropic.com`) — clear and easy, parallel to
+`frontend set`:
+
+```bash
+sovereign-osctl openclaw       backend show
+sudo sovereign-osctl openclaw       backend anthropic --key sk-ant-...   # → hosted Claude
+sudo sovereign-osctl openclaw       backend local                       # → back to the sovereign model
+sudo sovereign-osctl open-computer  backend anthropic --key sk-ant-...
+```
+
+- **`local`** routes every agent turn through the box's own safety spine (auth +
+  injection/secret/PII/toxicity — SDD-206) — nothing leaves the box.
+- **`anthropic`** uses the real Claude API. The key is a real secret: it lives in a
+  root-only `/etc/sovereign-os/anthropic-key.env` (supplied via `--key`), **never baked
+  into the image**. Swapping to `anthropic` without a key still works but warns.
+
+Under the hood one engine (`scripts/operator/agent-backend.py`) renders both configs:
+for OpenClaw (Anthropic-native) it flips `agents.defaults.model.primary` between two
+coexisting providers; for open-computer (OpenAI-format) it flips `OPENAI_BASE_URL`
+between the local shim and Anthropic's OpenAI-compat endpoint.
+
+## The sovereign posture (what makes this different from a cloud endpoint)
+
+- **Loopback by default.** Bound to `127.0.0.1`; exposing it beyond loopback is
+  your explicit §1g decision (a systemd drop-in setting the bind address).
+- **Installed-off optional components.** The agent runtimes are present but dormant
+  until you turn them on — nothing you didn't ask for runs at boot.
+- **No baked credentials.** The hosted-Claude key is operator-supplied at runtime,
+  never in the image (same discipline as external channels).
+
 ## See also
 
 - Design: `docs/sdd/205-anthropic-messages-api.md`, `docs/sdd/011-inference-backend-stack.md`,
   `docs/sdd/062-functional-lm-chat.md`.
+- The agent layer: `docs/sdd/704-frontend-selector.md`, `705-openclaw-agent-runtime.md`,
+  `706-open-computer-sandbox.md`, `707-agent-runtime-backend-hotswap.md`.
+- Lifecycle verbs: [Lifecycle management](./ops/manage.md).
 - The box's reasoning + operability surfaces: [Reasoning & operability](./reasoning-operability.md).
