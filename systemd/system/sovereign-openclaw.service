@@ -1,0 +1,47 @@
+[Unit]
+Description=sovereign-os OpenClaw gateway daemon (SDD-705, installed-off)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/docs/sdd/705-openclaw-agent-runtime.md
+# Installed-off: staged by bake.openclaw + provisioned by the first-boot installer,
+# but NOT enabled — `sovereign-osctl openclaw on` starts it. The gateway talks to the
+# local vLLM endpoint on loopback, so the router should be up first (best-effort ordering).
+After=network-online.target sovereign-router.service
+Wants=network-online.target
+ConditionPathExists=/etc/sovereign-os/openclaw.env
+
+[Service]
+Type=simple
+User=operator
+Group=operator
+# HOME is relocated to /var/lib/sovereign-os/openclaw (set in the env file), so
+# ~/.openclaw — OpenClaw's config + state + hot-reload dir — resolves under a writable
+# tree OUTSIDE /home. That lets the daemon keep ProtectHome=read-only (it never writes
+# real /home or /root) while still persisting its config across restarts (not tmpfs).
+EnvironmentFile=-/etc/sovereign-os/openclaw.env
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+StateDirectory=sovereign-os/openclaw
+# `openclaw gateway` reads the bind/port from ~/.openclaw/openclaw.json (rendered by
+# the installer). Foreground — systemd is the supervisor (not OpenClaw's own user daemon).
+ExecStart=/usr/bin/env openclaw gateway
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+# The daemon reads /usr (node + openclaw) and writes only its relocated HOME under
+# /var/lib. ProtectSystem=strict + a narrow RWP. R171 + long-running extended hardening.
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectControlGroups=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectClock=true
+ProtectHostname=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
+ReadWritePaths=/var/lib/sovereign-os/openclaw
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

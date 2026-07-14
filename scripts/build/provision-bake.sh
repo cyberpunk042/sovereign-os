@@ -168,6 +168,26 @@ if [ "${SOVEREIGN_OS_BAKE_GHOSTPROXY:-}" = "1" ] && [ -d /opt/root-ghostproxy ];
   fi
 fi
 
+# ── 4b. OpenClaw Node gateway daemon (SDD-705 — installed-off, first-boot install) ──
+# OpenClaw needs Node ≥22 + `npm install -g openclaw` — neither reachable at postinst
+# (no network in the image build). So the bake here only STAGES the two units; the
+# actual install (Node + npm + preconfig → the local endpoint) runs at FIRST BOOT via
+# sovereign-openclaw-install.service (network available), non-fatal + resumable. The
+# runtime daemon (sovereign-openclaw.service) stays installed-off — `sovereign-osctl
+# openclaw on` starts it. Gated on bake.openclaw.
+if [ "${SOVEREIGN_OS_BAKE_OPENCLAW:-}" = "1" ]; then
+  _oc_n=0
+  for u in sovereign-openclaw-install.service sovereign-openclaw.service; do
+    if [ -f "${REPO}/systemd/system/${u}" ]; then
+      install -m 644 "${REPO}/systemd/system/${u}" /etc/systemd/system/ 2>/dev/null && _oc_n=$((_oc_n+1))
+    fi
+  done
+  # Enable ONLY the first-boot installer (the runtime daemon stays installed-off).
+  systemctl enable sovereign-openclaw-install.service >/dev/null 2>&1 \
+    && log "OpenClaw staged — ${_oc_n} unit(s); first-boot installer enabled (runtime daemon installed-off; turn on: sovereign-osctl openclaw on)" \
+    || log "OpenClaw units staged (${_oc_n}) — installer enable deferred (no running systemd)"
+fi
+
 # ── 5. dashboards hub + panel APIs (dashboards LIVE on boot — ON by default) ──
 # The hub (build-configurator) serves every panel's HTML; each panel's live data
 # comes from its own read-only sovereign-<x>-api daemon. Enable the hub + master

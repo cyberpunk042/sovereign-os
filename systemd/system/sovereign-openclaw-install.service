@@ -1,0 +1,44 @@
+[Unit]
+Description=sovereign-os OpenClaw install + preconfig (one-shot, first boot) (SDD-705)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/hooks/post-install/openclaw-install.sh
+ConditionFirstBoot=yes
+# A Node daemon runs fine on a VM — unlike the GPU hooks this is NOT
+# ConditionVirtualization=no. Needs the network up to reach NodeSource + the npm registry.
+After=network-online.target sovereign-friction-audit.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+EnvironmentFile=-/etc/sovereign-os/active-profile.env
+# Installs Node (NodeSource if the baked node is outside OpenClaw's engines band) +
+# `npm install -g openclaw`, renders the preconfig → the local endpoint, stages the
+# runtime unit installed-off. Best-effort + resumable: no network / npm / a too-old
+# Node each skip cleanly (never bricks first boot). Re-run: sovereign-osctl openclaw install.
+ExecStart=/opt/sovereign-os/scripts/hooks/post-install/openclaw-install.sh
+StandardOutput=journal
+StandardError=journal
+# npm-global + NodeSource apt can take a while on a slow link — don't time it out.
+TimeoutStartSec=0
+# Writes /usr (npm global + apt), /var/lib/sovereign-os/openclaw (state + config),
+# /etc/sovereign-os (env). ProtectSystem=full keeps root read-only by default;
+# ReadWritePaths re-opens exactly the trees the install touches. It writes NO /home
+# (the config lands under /var/lib), so ProtectHome=true holds — no waiver needed.
+# R171 defense-in-depth (Layer 1 lint enforced)
+ProtectSystem=full
+ProtectHome=true
+ProtectControlGroups=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectClock=true
+ProtectHostname=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
+ReadWritePaths=/usr /var /etc
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

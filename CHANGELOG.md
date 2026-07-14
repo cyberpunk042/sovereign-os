@@ -12,6 +12,26 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — OpenClaw agent runtime: Node gateway daemon, preconfigured to the local model (2026-07-14)
+
+Operator-directed (*"include OpenClaw in the options of the build … add the preconfiguration
+options"*) (SDD-705, the service axis of the SDD-703 arc). Closes F-2026-115. OpenClaw (npm
+`openclaw`, MIT; the :18789 Node gateway, NOT Anthropic) is now a build option shipping
+**installed-off** + **preconfigured to the local vLLM endpoint** (SDD-702). A `provisioning.bake.openclaw`
+toggle + a `provisioning.openclaw` block ({endpoint, model_id, gateway_port, node_major}) is threaded
+through mkosi-emit → provision-bake (stages the units, enables only the first-boot installer — no
+install at postinst since NodeSource/npm are unreachable in the image build). A first-boot
+`openclaw-install.sh` hook (VM-tolerant, non-fatal, resumable) ensures a band-satisfying Node
+(NodeSource 24; OpenClaw's engines exclude 24.0–24.14), `npm install -g openclaw`, and renders
+`~/.openclaw/openclaw.json` (JSON5, `api: openai-completions`, `"vllm/*"` auto-discovery) pointed at
+the local endpoint — no external channels (SDD-703 D5). The runtime `sovereign-openclaw.service` runs
+`openclaw gateway` installed-off with HOME relocated to `/var/lib/sovereign-os/openclaw` so it stays
+ProtectHome=read-only + ProtectSystem=strict (no waiver); `sovereign-osctl openclaw {status|on|off|install|logs|doctor}`
+is the lifecycle. New 10-case `test_openclaw_provision_contract.py`; grounding verified against the
+npm registry + repo docs; systemd README count 120→122 (100→102 service). Ships OFF — nothing runs
+until `openclaw on`; the real Node/npm install + gateway boot are unverified in CI (no network/registry).
+The open-computer QEMU sandbox is the arc's remaining round.
+
 ### Added — swappable boot-frontend selector: GNOME ↔ dashboards-kiosk, live (2026-07-14)
 
 Operator-directed (*"be able to chose at any point to start in one or another or even disable both"*)

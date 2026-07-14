@@ -55,6 +55,7 @@ bake_dev_tools = bake_dev_tools or bool(prov_bake.get("dev_tools"))
 bake_selfdef = bake_selfdef or bool(prov_bake.get("selfdef"))
 bake_repo = bool(prov_bake.get("repo"))
 bake_ghostproxy = bool(prov_bake.get("root_ghostproxy"))
+bake_openclaw = bool(prov_bake.get("openclaw"))  # SDD-705: OpenClaw Node gateway daemon (installed-off, first-boot install)
 bake_dashboards = bool(prov_bake.get("dashboards"))
 bake_gui = bool(prov_bake.get("gui"))  # install a desktop on the image (else headless appliance)
 # Live-reload on the installed box (SDD-203) — DEFAULT ON so the operator can keep
@@ -439,6 +440,7 @@ if run_provision:
               SOVEREIGN_OS_POSTURE="{posture}" \\
               SOVEREIGN_OS_BAKE_SELFDEF="{'1' if bake_selfdef else ''}" \\
               SOVEREIGN_OS_BAKE_GHOSTPROXY="{'1' if bake_ghostproxy else ''}" \\
+              SOVEREIGN_OS_BAKE_OPENCLAW="{'1' if bake_openclaw else ''}" \\
               SOVEREIGN_OS_BAKE_DASHBOARDS="{'1' if bake_dashboards else ''}" \\
               SOVEREIGN_OS_BAKE_GUI="{'1' if bake_gui else ''}" \\
               SOVEREIGN_OS_FRONTEND="{frontend_default}" \\

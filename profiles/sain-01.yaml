@@ -351,6 +351,7 @@ provisioning:
     dev_tools: true                # node + @anthropic-ai/claude-code (global)
     selfdef: true                  # stage ~/selfdef → /opt/selfdef, build, install units
     root_ghostproxy: true          # stage ~/root-ghostproxy → /opt/root-ghostproxy, install (endpoint)
+    openclaw: true                 # SDD-705: stage the OpenClaw Node gateway daemon (installed-off; first-boot npm install + preconfig → local endpoint)
     dashboards: true               # deploy panels + enable the dashboard hub + all read-only panel APIs
     gui: true                      # install a desktop (GNOME) on the mkosi IMAGE so it boots to the dashboards.
                                    # NOTE: adds ~1GB+ (gnome-core + gdm3 + firefox). The root-reflash install
@@ -387,6 +388,14 @@ provisioning:
     local_dir: /mnt/vault/models/llama-4-scout-17b-16e-instruct   # where the Oracle Core (ReadOnlyPaths=/mnt/vault/models) reads it
     quantization: fp8              # vLLM --quantization; fp8 fits the 96GB card with wide KV headroom
     min_free_gb: 120              # refuse the download if /mnt/vault/models has less headroom than this
+  # OpenClaw preconfig (SDD-705). Points the Node gateway daemon at the LOCAL vLLM
+  # Oracle endpoint so agents run on-box against the sovereign model — no external
+  # provider, no baked channel credentials. Installed-off: `sovereign-osctl openclaw on`.
+  openclaw:
+    endpoint: http://127.0.0.1:8000/v1        # the local OpenAI-compatible vLLM router/Oracle endpoint
+    model_id: local-oracle                     # id advertised to OpenClaw; maps to the served Oracle model
+    gateway_port: 18789                        # OpenClaw gateway bind (loopback)
+    node_major: 24                             # NodeSource major (OpenClaw engines: >=24.15 <25 recommended, or >=22.22.3 <23); 24.x satisfies the recommended band
   # NVIDIA ≥570 driver (SDD-701). trixie ships 550.163, which predates the
   # Blackwell GB202 (PRO 6000 Max-Q + 5090) — the baked nvidia-open-kernel-dkms
   # (550) is SUPERSEDED at first boot by the pinned open-kernel .run that

@@ -123,6 +123,11 @@ COMMANDS:
   frontend set <value> [--url U]  Switch the boot frontend live, no reflash (root):
                                gnome | dashboards-kiosk | open-computer-kiosk | none
 
+  openclaw status              SDD-705 OpenClaw gateway daemon: installed · enabled · active · config
+  openclaw on | off            Enable+start / stop+disable the OpenClaw daemon (installed-off; root)
+  openclaw install             Run the first-boot installer now (Node + npm + preconfig → local endpoint; root)
+  openclaw logs [N] | doctor   Tail the gateway journal / check node+openclaw+config health
+
   models docs [--check|--stdout]  Regenerate docs/src/model-catalog.md (R206, SDD-028 pattern)
   models query [--class C] [--tier T] [--purpose P] [--size-class S] [--quantization Q] [--status S] [--max-vram N] [--min-context N] [--engine E] [--base-model B] [--json]
                                R213: filter catalog by R212 taxonomy
@@ -2014,6 +2019,94 @@ cmd_selfdef() {
     *)
       log_error "unknown selfdef subcommand: ${sub}"
       echo "usage: sovereign-osctl selfdef {status|on|off|start|stop|restart|logs|sync|doctor|install-units}" >&2
+      exit 2
+      ;;
+  esac
+}
+
+# SDD-705: OpenClaw Node gateway daemon lifecycle (installed-off, selfdef shape).
+# The daemon (sovereign-openclaw.service) is staged by bake.openclaw + installed by
+# the first-boot installer (Node + npm + preconfig → the local endpoint); it stays
+# OFF until `sovereign-osctl openclaw on`.
+cmd_openclaw() {
+  local sub="${1:-status}"
+  shift || true
+  local RUNTIME="sovereign-openclaw.service"
+  local INSTALLER="sovereign-openclaw-install.service"
+
+  case "${sub}" in
+    status)
+      local present="ABSENT" en="no" act="no" cfg="absent" bin="not on PATH" verdict
+      systemctl list-unit-files --no-legend "${RUNTIME}" 2>/dev/null | grep -q . && present="installed"
+      systemctl is-enabled --quiet "${RUNTIME}" 2>/dev/null && en="yes"
+      systemctl is-active  --quiet "${RUNTIME}" 2>/dev/null && act="yes"
+      [ -s /etc/sovereign-os/openclaw.env ] && cfg="/etc/sovereign-os/openclaw.env"
+      command -v openclaw >/dev/null 2>&1 && bin="$(command -v openclaw)"
+      if [ "${present}" = ABSENT ]; then verdict="OFF — daemon unit not installed (bake.openclaw + first boot installs it)"
+      elif [ "${act}" = yes ]; then verdict="ON — gateway active"
+      else verdict="OFF — installed but stopped"; fi
+      echo "openclaw status"
+      echo "==============="
+      echo
+      echo "  daemon unit: ${present} · enabled=${en} · active=${act}"
+      echo "  binary:      ${bin}"
+      echo "  config:      ${cfg}"
+      echo
+      echo "  ${verdict}"
+      [ "${present}" = ABSENT ] && echo "  → provision it:  sovereign-osctl openclaw install   (first-boot installer; needs network)"
+      [ "${present}" != ABSENT ] && [ "${act}" != yes ] && echo "  → start it:      sovereign-osctl openclaw on"
+      ;;
+    install-units)
+      require_root
+      local src="${__REPO_ROOT}/systemd/system" n=0
+      for u in "${INSTALLER}" "${RUNTIME}"; do
+        [ -f "${src}/${u}" ] && install -m 644 "${src}/${u}" /etc/systemd/system/ && n=$((n+1))
+      done
+      systemctl daemon-reload
+      log_info "installed ${n} openclaw unit file(s) → /etc/systemd/system (runtime stays installed-off)"
+      ;;
+    install|provision)
+      # Run the first-boot installer NOW (Node + npm + preconfig). Non-fatal + resumable.
+      require_root
+      if systemctl list-unit-files --no-legend "${INSTALLER}" 2>/dev/null | grep -q .; then
+        systemctl start "${INSTALLER}" && journalctl -u "${INSTALLER}" -n 40 --no-pager
+      else
+        log_error "installer unit ${INSTALLER} not present — run: sovereign-osctl openclaw install-units"
+        return 1
+      fi
+      ;;
+    on|enable)
+      require_root
+      systemctl list-unit-files --no-legend "${RUNTIME}" 2>/dev/null | grep -q . \
+        || { log_error "openclaw daemon not installed — run: sovereign-osctl openclaw install"; return 1; }
+      systemctl enable --now "${RUNTIME}"
+      log_info "openclaw ON"; cmd_openclaw status
+      ;;
+    off|disable)
+      require_root
+      systemctl disable --now "${RUNTIME}" 2>/dev/null || log_warn "openclaw daemon not installed — nothing to disable"
+      log_info "openclaw OFF"
+      ;;
+    start|stop|restart)
+      require_root
+      systemctl "${sub}" "${RUNTIME}"
+      log_info "openclaw ${sub} issued"
+      ;;
+    logs)
+      journalctl -u "${RUNTIME}" -n "${1:-50}" --no-pager 2>/dev/null \
+        || log_error "no openclaw journal (daemon installed?)"
+      ;;
+    doctor)
+      echo "openclaw doctor"
+      echo "==============="
+      if command -v node >/dev/null 2>&1; then echo "  node:    $(node --version 2>/dev/null)"; else echo "  node:    MISSING (first-boot installer provisions it)"; fi
+      if command -v openclaw >/dev/null 2>&1; then echo "  openclaw: $(command -v openclaw)"; else echo "  openclaw: MISSING — run: sovereign-osctl openclaw install"; fi
+      [ -s /etc/sovereign-os/openclaw.env ] && echo "  env:     /etc/sovereign-os/openclaw.env" || echo "  env:     absent"
+      [ -f "${HOME}/.openclaw/openclaw.json" ] && echo "  config:  ${HOME}/.openclaw/openclaw.json" || echo "  config:  ~/.openclaw/openclaw.json absent (installer renders it)"
+      ;;
+    *)
+      log_error "unknown openclaw subcommand: ${sub}"
+      echo "usage: sovereign-osctl openclaw {status|on|off|start|stop|restart|logs|install|install-units|doctor}" >&2
       exit 2
       ;;
   esac
@@ -6528,6 +6621,7 @@ case "${cmd}" in
   whitelabel)    cmd_whitelabel "$@" ;;
   perimeter)     cmd_perimeter "$@" ;;
   selfdef)       cmd_selfdef "$@" ;;
+  openclaw)      cmd_openclaw "$@" ;;
   models)        cmd_models "$@" ;;
   audit)         cmd_audit "$@" ;;
   hooks)         cmd_hooks "$@" ;;
