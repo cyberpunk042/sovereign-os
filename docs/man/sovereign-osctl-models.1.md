@@ -194,6 +194,7 @@ The default resident-model directory is `/mnt/vault/models`; override it with `S
 
 **sovereign-osctl model-serve background [<id> | --clear]**
 :   Additional supported form.
+
 ## wasm-aot
 
 **sovereign-osctl wasm-aot status|compile-cmd <wasm>|advisory [--json]**
@@ -208,42 +209,52 @@ The default resident-model directory is `/mnt/vault/models`; override it with `S
 
 **sovereign-osctl model-params {list|show|recommend}**
 :   R311 (E5.M7 closure): LLM-runtime parametrization advisor. Per-parameter catalog with hardware-aware recommended values (context_size / n_gpu_layers / cache_type_k+v / batch_size / parallel / mlock / mmap / flash_attn / rope_freq_base / temperature / top_p). Operator-named (§1b verbatim: "Model variants + quantizations + advanced features parametrization").
+
 ## model-adapt
 
 **sovereign-osctl model-adapt {tasks|recipes|recommend|show}**
 :   R350 (E5.M17): task → (base, method, target GPU) recommender. Operator-named §1b verbatim: "download, fine-tune, parameters, build, run, use and train and adapt and use and eval and etc." ADAPT sits upstream of R244 fine-tune + R232 eval; consults R317 catalog GPU VRAM via R348 inventory_consult helper.
+
 ## model-build
 
 **sovereign-osctl model-build {recipes|plan|show|history}**
 :   R353 (E5.M18): fills the "build" verb in the §1b 9-verb AI tools pipeline (download/fine-tune/parameters/BUILD/run/use/train/ adapt/eval). Plans merge/quantize/export of a deployable model artifact from {base + adapter + recipe}. Hardware-aware via the same declared-GPUs pattern as R350 adapt.
+
 ## lifecycle
 
 **sovereign-osctl lifecycle [arguments]**
 :   R290 (E5.M6): end-to-end fine-tune lifecycle — threads R244 fine-tune + R232 eval + R182 selfdef registry into ONE operator-pull workflow. Operator-named (§1b mandate): "End-to-end fine-tune lifecycle (operator triggers training → eval → register)". Read-only; emits the next pending command for the operator to run.
+
 ## workflow
 
 **sovereign-osctl workflow [arguments]**
 :   R291 (E5.M9): operator-mutable flexible profile — full 9-stage workflow (download / fine-tune / parameters / build / run / use / train / adapt / eval) the operator named in §1b verbatim. Sibling to lifecycle (R290 / E5.M6); covers the broader operator surface beyond the fine-tune-focused 5-stage subset.
+
 ## model-health
 
 **sovereign-osctl model-health [arguments]**
 :   M060 D-03 (R10069-R10074): unified model-health core — joins the model catalog (models/catalog.yaml) to the SRP hardware topology (M075 Conductor/Logic/Oracle), overlays live GPU telemetry (nvidia-smi) + optional inference-fabric runtime state (loaded models, KV cache, p50/p95/p99 latency). Read-only; the sovereign-model-health-api daemon serves the D-03 cockpit dashboard from this same core. Verbs: status / catalog / gpus (+ --json).
+
 ## costs
 
 **sovereign-osctl costs [arguments]**
 :   M060 D-04 (R10075-R10082): cost aggregation core — joins the operator cost policy (/etc/sovereign-os/cost-policy.toml, dump 9885-9930) to the per-span cost attribute of the M049 span log, aggregating daily / project / MS040-profile / model spend + 30-day trend + end-of-day forecast. Read-only; the sovereign-costs-api daemon serves the D-04 cockpit dashboard from this same core. Verbs: summary / policy / today / export {csv|json} (+ --json). Read-only — the WRITE side is cost-policy.
+
 ## cost-policy
 
 **sovereign-osctl cost-policy [arguments]**
 :   M060 D-04 write surface — flip cloud_enabled in /etc/sovereign-os/cost-policy.toml so the operator can HALT (or resume) all cloud spend from the cockpit. DRY-RUN by default; a real write needs --confirm (baked into the control-systems change_cli) AND, via the exec daemon, the operator key + type-to-confirm + SOVEREIGN_OS_ACTION_EXEC_LIVE. Verbs: show / halt-cloud / resume-cloud.
+
 ## adapters
 
 **sovereign-osctl adapters {inventory|list|history|promote|demote|rollback|register|gate}**
 :   M060 D-11 (R10109-R10111): LoRA adapter inventory + promotion status — joins the model catalog's class=lora-adapter entries (M046 LoRA Foundry) to the promotion registry (per-adapter status + MS041 triple-gate + eval gain + NVFP4 recipe (M077) + promotion/rollback history). Read-only; the sovereign-adapters-api daemon serves the D-11 cockpit dashboard from this same core. READ verbs (inventory / list / history) → adapter-foundry.py (never mutates). WRITE verbs (promote / demote / rollback / register, SDD-051) → adapter-decide.py: transition the promotion registry (MS041 triple-gate on promote) + record a durable, audited decision. Decisions are --confirm + operator-key + type-to-confirm gated (via the cockpit exec daemon) and DRY-RUN by default; MS003 signing is defe...
+
 ## evals
 
 **sovereign-osctl evals [arguments]**
 :   M060 D-10 (R10106-R10108): eval-history aggregation — reads the Eval-Value fabric's eval-run log, aggregates per-task pass/fail + per-model trend + benchmark-suite progress (M078 HölderPO + M080 HRM targets) + adapter-promotion candidates (from the D-11 adapter core). Enforces the M079 WB/BB disaggregation invariant (white-box benchmarks NEVER averaged with black-box). Read-only; the sovereign-evals-api daemon serves the D-10 cockpit dashboard from this same core. Verbs: summary / suites / candidates (+ --json, --window).
+
 ## super-model
 
 **sovereign-osctl super-model [arguments]**
