@@ -69,7 +69,8 @@ done
 
 # ----------- SOVEREIGN_OS_LIB override (valid) ---------------
 
-# Build a tmpdir that LOOKS like an installed-system layout
+# Build a tmpdir that LOOKS like an installed-system layout. VERSION is a
+# required runtime artifact, just like the shared shell libraries.
 inst="${tmp}/sovereign-os-install"
 mkdir -p "${inst}/lib"
 cp "${__REPO_ROOT}/scripts/build/lib/common.sh" "${inst}/lib/common.sh"
