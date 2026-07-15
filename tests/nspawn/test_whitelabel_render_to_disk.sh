@@ -22,6 +22,13 @@
 
 set -euo pipefail
 
+PYTHON3="${PYTHON3:-python3}"
+if ! "${PYTHON3}" -c "import yaml" >/dev/null 2>&1; then
+  if /usr/bin/python3 -c "import yaml" >/dev/null 2>&1; then
+    PYTHON3=/usr/bin/python3
+  fi
+fi
+
 __SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 __REPO_ROOT="$(cd "${__SCRIPT_DIR}/../.." && pwd)"
 
@@ -39,7 +46,7 @@ tmpdir="$(mktemp -d)"
 trap 'rm -rf "${tmpdir}"' EXIT
 
 # Run the render engine
-python3 "${__REPO_ROOT}/scripts/whitelabel/render.py" \
+"${PYTHON3}" "${__REPO_ROOT}/scripts/whitelabel/render.py" \
   --profile "${profile_file}" \
   --whitelabel "${wl_file}" \
   --out "${tmpdir}" \

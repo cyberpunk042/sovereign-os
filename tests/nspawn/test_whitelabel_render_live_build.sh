@@ -18,6 +18,13 @@
 
 set -euo pipefail
 
+PYTHON3="${PYTHON3:-python3}"
+if ! "${PYTHON3}" -c "import yaml" >/dev/null 2>&1; then
+  if /usr/bin/python3 -c "import yaml" >/dev/null 2>&1; then
+    PYTHON3=/usr/bin/python3
+  fi
+fi
+
 __SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 __REPO_ROOT="$(cd "${__SCRIPT_DIR}/../.." && pwd)"
 
@@ -31,7 +38,7 @@ wl_file="${__REPO_ROOT}/whitelabel/default.yaml"
 tmpdir="$(mktemp -d)"
 trap 'rm -rf "${tmpdir}"' EXIT
 
-python3 "${__REPO_ROOT}/scripts/whitelabel/render.py" \
+"${PYTHON3}" "${__REPO_ROOT}/scripts/whitelabel/render.py" \
   --profile "${profile_file}" \
   --whitelabel "${wl_file}" \
   --out "${tmpdir}" \
@@ -144,7 +151,7 @@ fi
 mkosi_dir="$(mktemp -d)"
 trap 'rm -rf "${tmpdir}" "${mkosi_dir}"' EXIT
 
-python3 "${__REPO_ROOT}/scripts/whitelabel/render.py" \
+"${PYTHON3}" "${__REPO_ROOT}/scripts/whitelabel/render.py" \
   --profile "${profile_file}" \
   --whitelabel "${wl_file}" \
   --out "${mkosi_dir}" \

@@ -4,6 +4,13 @@
 
 set -euo pipefail
 
+PYTHON3="${PYTHON3:-python3}"
+if ! "${PYTHON3}" -c "import yaml" >/dev/null 2>&1; then
+  if /usr/bin/python3 -c "import yaml" >/dev/null 2>&1; then
+    PYTHON3=/usr/bin/python3
+  fi
+fi
+
 __SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 __REPO_ROOT="$(cd "${__SCRIPT_DIR}/../.." && pwd)"
 
@@ -31,8 +38,8 @@ trap 'rm -rf "${TMP}"' EXIT
 export SOVEREIGN_OS_MODELS_EVAL_STATE="${TMP}/evals.jsonl"
 
 # ---- list-benchmarks: 6 entries minimum ----
-out="$(python3 "${SCRIPT}" list-benchmarks --json)"
-echo "${out}" | python3 -c "
+out="$("${PYTHON3}" "${SCRIPT}" list-benchmarks --json)"
+echo "${out}" | "${PYTHON3}" -c "
 import json,sys
 d=json.load(sys.stdin)
 assert d['round']=='R232', d
@@ -47,8 +54,8 @@ for k in ('mmlu','humaneval','gsm8k','arc-challenge','truthfulqa','mteb-retrieva
   || ko "list-benchmarks shape wrong"
 
 # ---- plan: known slug + applicable benchmark ----
-out="$(python3 "${SCRIPT}" plan BitNet-b1.58-2B-4T --benchmark mmlu --json)"
-echo "${out}" | python3 -c "
+out="$("${PYTHON3}" "${SCRIPT}" plan BitNet-b1.58-2B-4T --benchmark mmlu --json)"
+echo "${out}" | "${PYTHON3}" -c "
 import json,sys
 d=json.load(sys.stdin)
 assert d['model']['id']=='BitNet-b1.58-2B-4T', d
@@ -64,7 +71,7 @@ assert 'sovereign-osctl models eval run' in d['next_step']
 
 # ---- plan: benchmark not applicable to model class → rc=2 ----
 set +e
-out_bad="$(python3 "${SCRIPT}" plan BitNet-b1.58-2B-4T --benchmark mteb-retrieval --json 2>&1)"
+out_bad="$("${PYTHON3}" "${SCRIPT}" plan BitNet-b1.58-2B-4T --benchmark mteb-retrieval --json 2>&1)"
 rc_bad=$?
 set -e
 [ "${rc_bad}" -eq 2 ] && ok "plan with non-applicable benchmark → rc=2" \
@@ -75,7 +82,7 @@ echo "${out_bad}" | grep -q "not applicable" \
 
 # ---- plan: unknown slug → rc=2 ----
 set +e
-out_bad="$(python3 "${SCRIPT}" plan never-existed --benchmark mmlu 2>&1)"
+out_bad="$("${PYTHON3}" "${SCRIPT}" plan never-existed --benchmark mmlu 2>&1)"
 rc_bad=$?
 set -e
 [ "${rc_bad}" -eq 2 ] && ok "plan with unknown slug → rc=2" \
@@ -83,15 +90,15 @@ set -e
 
 # ---- plan: unknown benchmark → rc=2 ----
 set +e
-out_bad="$(python3 "${SCRIPT}" plan BitNet-b1.58-2B-4T --benchmark nope 2>&1)"
+out_bad="$("${PYTHON3}" "${SCRIPT}" plan BitNet-b1.58-2B-4T --benchmark nope 2>&1)"
 rc_bad=$?
 set -e
 [ "${rc_bad}" -eq 2 ] && ok "plan with unknown benchmark → rc=2" \
   || ko "expected rc=2 on bad benchmark, got ${rc_bad}"
 
 # ---- run --dry-run: records intent without executing ----
-out="$(python3 "${SCRIPT}" run BitNet-b1.58-2B-4T --benchmark mmlu --dry-run --json)"
-echo "${out}" | python3 -c "
+out="$("${PYTHON3}" "${SCRIPT}" run BitNet-b1.58-2B-4T --benchmark mmlu --dry-run --json)"
+echo "${out}" | "${PYTHON3}" -c "
 import json,sys
 d=json.load(sys.stdin)
 assert d['outcome']=='dry-run', d
@@ -113,14 +120,14 @@ assert d['command'][0]=='lm-eval', d
   || ko "unexpected row count"
 
 # ---- run a second dry-run with a different benchmark ----
-python3 "${SCRIPT}" run BitNet-b1.58-2B-4T --benchmark gsm8k --dry-run > /dev/null
+"${PYTHON3}" "${SCRIPT}" run BitNet-b1.58-2B-4T --benchmark gsm8k --dry-run > /dev/null
 [ "$(wc -l < "${SOVEREIGN_OS_MODELS_EVAL_STATE}")" -eq 2 ] \
   && ok "second dry-run appended (state file has 2 rows)" \
   || ko "state file did not grow"
 
 # ---- history: lists both rows ----
-out="$(python3 "${SCRIPT}" history --json)"
-echo "${out}" | python3 -c "
+out="$("${PYTHON3}" "${SCRIPT}" history --json)"
+echo "${out}" | "${PYTHON3}" -c "
 import json,sys
 d=json.load(sys.stdin)
 assert d['round']=='R232', d
@@ -132,8 +139,8 @@ assert benches == ['gsm8k', 'mmlu'], benches
   || ko "history shape wrong"
 
 # ---- history --slug filter ----
-out="$(python3 "${SCRIPT}" history --slug BitNet-b1.58-2B-4T --json)"
-echo "${out}" | python3 -c "
+out="$("${PYTHON3}" "${SCRIPT}" history --slug BitNet-b1.58-2B-4T --json)"
+echo "${out}" | "${PYTHON3}" -c "
 import json,sys
 d=json.load(sys.stdin)
 assert d['count']==2, d
@@ -142,8 +149,8 @@ assert d['count']==2, d
   || ko "history --slug filter wrong"
 
 # ---- history --benchmark filter ----
-out="$(python3 "${SCRIPT}" history --benchmark mmlu --json)"
-echo "${out}" | python3 -c "
+out="$("${PYTHON3}" "${SCRIPT}" history --benchmark mmlu --json)"
+echo "${out}" | "${PYTHON3}" -c "
 import json,sys
 d=json.load(sys.stdin)
 assert d['count']==1, d
@@ -153,8 +160,8 @@ assert d['rows'][0]['benchmark']=='mmlu', d
   || ko "history --benchmark filter wrong"
 
 # ---- history --limit ----
-out="$(python3 "${SCRIPT}" history --limit 1 --json)"
-echo "${out}" | python3 -c "
+out="$("${PYTHON3}" "${SCRIPT}" history --limit 1 --json)"
+echo "${out}" | "${PYTHON3}" -c "
 import json,sys
 d=json.load(sys.stdin)
 assert d['count']==1, d
@@ -169,7 +176,7 @@ rc=$?
 set -e
 [ "${rc}" -eq 0 ] && ok "osctl models eval list-benchmarks rc=0" \
   || ko "osctl bridge rc=${rc}: $(cat "${TMP}/osctl.out")"
-python3 -c "
+"${PYTHON3}" -c "
 import json
 d=json.load(open('${TMP}/osctl.out'))
 assert d['round']=='R232', d
@@ -178,7 +185,7 @@ assert d['round']=='R232', d
   || ko "osctl JSON wrong"
 
 # ---- human render: plan banner ----
-out="$(python3 "${SCRIPT}" plan BitNet-b1.58-2B-4T --benchmark mmlu)"
+out="$("${PYTHON3}" "${SCRIPT}" plan BitNet-b1.58-2B-4T --benchmark mmlu)"
 echo "${out}" | grep -q "R232 sovereign-os models eval plan" \
   && ok "plan human banner shipped" || ko "no plan banner"
 echo "${out}" | grep -q "lm-eval --model hf" \

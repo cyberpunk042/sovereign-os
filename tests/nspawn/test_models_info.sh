@@ -4,6 +4,13 @@
 
 set -euo pipefail
 
+PYTHON3="${PYTHON3:-python3}"
+if ! "${PYTHON3}" -c "import yaml" >/dev/null 2>&1; then
+  if /usr/bin/python3 -c "import yaml" >/dev/null 2>&1; then
+    PYTHON3=/usr/bin/python3
+  fi
+fi
+
 __SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 __REPO_ROOT="$(cd "${__SCRIPT_DIR}/../.." && pwd)"
 
@@ -31,7 +38,7 @@ grep -q "    info)" "${OSCTL}" \
 SLUG="BitNet-b1.58-2B-4T"
 
 # ---- human render carries every required section ----
-out="$("${SCRIPT}" "${SLUG}")"
+out="$("${PYTHON3}" "${SCRIPT}" "${SLUG}")"
 for needle in \
     "R231 sovereign-os models info" \
     "IDENTITY" \
@@ -52,8 +59,8 @@ for needle in \
 done
 
 # ---- JSON shape matches the dashboard contract ----
-json="$("${SCRIPT}" "${SLUG}" --json)"
-echo "${json}" | python3 -c "
+json="$("${PYTHON3}" "${SCRIPT}" "${SLUG}" --json)"
+echo "${json}" | "${PYTHON3}" -c "
 import json,sys
 d = json.load(sys.stdin)
 assert d['round'] == 'R231', d
@@ -76,8 +83,8 @@ assert d['actions']['pull'].endswith('${SLUG}')
   || ko "JSON shape wrong"
 
 # ---- hf_repo_id fragment match resolves the slug ----
-out="$("${SCRIPT}" "bitnet-b1.58-2b" --json)"
-echo "${out}" | python3 -c "
+out="$("${PYTHON3}" "${SCRIPT}" "bitnet-b1.58-2b" --json)"
+echo "${out}" | "${PYTHON3}" -c "
 import json,sys
 d=json.load(sys.stdin)
 # Fragment matches the verified-real entry.
@@ -87,7 +94,7 @@ assert d['model']['id'] == '${SLUG}', d['model']
   || ko "fragment resolve wrong"
 
 # ---- variants surfaced when purpose tags overlap ----
-echo "${json}" | python3 -c "
+echo "${json}" | "${PYTHON3}" -c "
 import json,sys
 d=json.load(sys.stdin)
 v=d['variants']
@@ -100,7 +107,7 @@ for x in v:
 
 # ---- unknown slug → rc=2 with operator-readable hint ----
 set +e
-out_bad="$("${SCRIPT}" definitely-not-a-real-slug-xxx 2>&1)"
+out_bad="$("${PYTHON3}" "${SCRIPT}" definitely-not-a-real-slug-xxx 2>&1)"
 rc_bad=$?
 set -e
 [ "${rc_bad}" -eq 2 ] && ok "unknown slug → rc=2" \
@@ -125,7 +132,7 @@ set +e
 "${OSCTL}" models info "${SLUG}" --json > /tmp/r231-osctl.json 2>&1
 rc=$?
 set -e
-python3 -c "
+"${PYTHON3}" -c "
 import json
 d=json.load(open('/tmp/r231-osctl.json'))
 assert d['round']=='R231', d
@@ -157,8 +164,8 @@ catalog:
       license: mit
       runtime_profile_bindings: []
 YAML
-out="$("${SCRIPT}" tiny-test --catalog "${TMP}" --json)"
-echo "${out}" | python3 -c "
+out="$("${PYTHON3}" "${SCRIPT}" tiny-test --catalog "${TMP}" --json)"
+echo "${out}" | "${PYTHON3}" -c "
 import json,sys
 d=json.load(sys.stdin)
 assert d['model']['id']=='tiny-test', d

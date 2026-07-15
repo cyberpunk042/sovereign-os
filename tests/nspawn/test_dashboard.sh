@@ -5,6 +5,11 @@
 
 set -euo pipefail
 
+# Ensure python stdout is unbuffered so background server logs are
+# immediately visible to the test assertions (buffered stdout on a
+# redirected file causes the "serving" banner to be invisible).
+export PYTHONUNBUFFERED=1
+
 __SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 __REPO_ROOT="$(cd "${__SCRIPT_DIR}/../.." && pwd)"
 

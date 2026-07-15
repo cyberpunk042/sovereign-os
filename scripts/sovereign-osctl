@@ -1882,7 +1882,7 @@ PY
       # delta knobs under the canonical profiles surface.
       local sub2="${1:-show}"
       shift || true
-      "${__REPO_ROOT}/scripts/hardware/profile-flex.py" "${sub2}" "$@"
+      "${PYTHON3}" "${__REPO_ROOT}/scripts/hardware/profile-flex.py" "${sub2}" "$@"
       ;;
     generate-runtime)
       # SDD-043 Phase 3: generate a runtime profile from an OS profile's
@@ -1891,7 +1891,7 @@ PY
       local hw="${1:?usage: profiles generate-runtime <os-profile> <efficiency|high-concurrency|deep-context> [--out <path>]}"
       local strat="${2:?usage: profiles generate-runtime <os-profile> <efficiency|high-concurrency|deep-context> [--out <path>]}"
       shift 2 || true
-      python3 "${__REPO_ROOT}/scripts/operator/generate-runtime-profile.py" \
+      "${PYTHON3}" "${__REPO_ROOT}/scripts/operator/generate-runtime-profile.py" \
         --hardware "${hw}" --strategy "${strat}" "$@"
       ;;
     create-orchestration)
@@ -1900,7 +1900,7 @@ PY
       # catalog id of the matching tier. Writes a draft (user dir) or into the
       # repo (--target repo); DRY-RUN unless --confirm. The cockpit path runs
       # this through the signed exec rail (operator-key + type-to-confirm).
-      python3 "${__REPO_ROOT}/scripts/operator/create-orchestration-profile.py" "$@"
+      "${PYTHON3}" "${__REPO_ROOT}/scripts/operator/create-orchestration-profile.py" "$@"
       ;;
     *)
       log_error "unknown profiles subcommand: ${sub}"
@@ -1958,7 +1958,7 @@ cmd_whitelabel() {
 
       # Use render engine in "live-apply" mode (Stage-2+ path; for now,
       # just re-render and let the orchestrator pick up).
-      python3 "${__REPO_ROOT}/scripts/whitelabel/render.py" \
+      "${PYTHON3}" "${__REPO_ROOT}/scripts/whitelabel/render.py" \
         --profile "${profile_file}" \
         --whitelabel "${wl_file}" \
         --out "/tmp/sovereign-os-whitelabel-${id}" \
@@ -2202,12 +2202,12 @@ cmd_openclaw() {
       if command -v openclaw >/dev/null 2>&1; then echo "  openclaw: $(command -v openclaw)"; else echo "  openclaw: MISSING — run: sovereign-osctl openclaw install"; fi
       [ -s /etc/sovereign-os/openclaw.env ] && echo "  env:     /etc/sovereign-os/openclaw.env" || echo "  env:     absent"
       [ -f "${HOME}/.openclaw/openclaw.json" ] && echo "  config:  ${HOME}/.openclaw/openclaw.json" || echo "  config:  ~/.openclaw/openclaw.json absent (installer renders it)"
-      python3 "${__REPO_ROOT}/scripts/operator/agent-backend.py" openclaw show 2>/dev/null || true
+      "${PYTHON3}" "${__REPO_ROOT}/scripts/operator/agent-backend.py" openclaw show 2>/dev/null || true
       ;;
     backend)
       # SDD-707: hotswap local (safety-spine gateway) ↔ anthropic (hosted Claude).
       # `backend show` is read-only; local/anthropic write config + restart (root).
-      exec python3 "${__REPO_ROOT}/scripts/operator/agent-backend.py" openclaw "$@"
+      exec "${PYTHON3}" "${__REPO_ROOT}/scripts/operator/agent-backend.py" openclaw "$@"
       ;;
     *)
       log_error "unknown openclaw subcommand: ${sub}"
@@ -2304,11 +2304,11 @@ cmd_open_computer() {
       command -v node >/dev/null 2>&1 && echo "  node:    $(node --version 2>/dev/null)" || echo "  node:    MISSING"
       [ -s /var/lib/sovereign-os/open-computer/base_image/base.qcow2 ] && echo "  base:    present" || echo "  base:    absent (~3GB — run: sovereign-osctl open-computer install)"
       [ -s "${ENVF}" ] && echo "  config:  ${ENVF}" || echo "  config:  absent"
-      python3 "${__REPO_ROOT}/scripts/operator/agent-backend.py" open-computer show 2>/dev/null || true
+      "${PYTHON3}" "${__REPO_ROOT}/scripts/operator/agent-backend.py" open-computer show 2>/dev/null || true
       ;;
     backend)
       # SDD-707: hotswap local (gateway OpenAI shim) ↔ anthropic (hosted Claude OpenAI-compat).
-      exec python3 "${__REPO_ROOT}/scripts/operator/agent-backend.py" open-computer "$@"
+      exec "${PYTHON3}" "${__REPO_ROOT}/scripts/operator/agent-backend.py" open-computer "$@"
       ;;
     *)
       log_error "unknown open-computer subcommand: ${sub}"
@@ -2438,12 +2438,12 @@ cmd_models() {
       # R183: surface the R182 selfdef SD-R34 model-registry catalog
       # via osctl. Operators ALSO get the gate dry-run from here so
       # `sovereign-osctl models` becomes the single discovery surface.
-      "${__REPO_ROOT}/scripts/models/selfdef-models.py" list "$@"
+      "${PYTHON3}" "${__REPO_ROOT}/scripts/models/selfdef-models.py" list "$@"
       ;;
     check-hardware)
       # R183: bridge to R182 selfdef-models.py — shows which
       # registered models WOULD apply on this host.
-      "${__REPO_ROOT}/scripts/models/selfdef-models.py" check-hardware "$@"
+      "${PYTHON3}" "${__REPO_ROOT}/scripts/models/selfdef-models.py" check-hardware "$@"
       ;;
     fetch)
       # R196: bridge to selfdef SD-R57 — HTTP fetch + sha256 verify
@@ -2459,7 +2459,7 @@ cmd_models() {
       # use this AFTER a manual download (huggingface-cli, curl) to
       # confirm artifact integrity against the manifest's sha256 pin.
       # Distinct from `models verify` (catalog-sync) — this is per-artifact.
-      "${__REPO_ROOT}/scripts/models/verify-checksum.py" "$@"
+      "${PYTHON3}" "${__REPO_ROOT}/scripts/models/verify-checksum.py" "$@"
       ;;
     docs)
       # R206: regenerate docs/src/model-catalog.md from models/catalog.yaml.
@@ -2471,37 +2471,37 @@ cmd_models() {
       # R213: filter the model catalog by R212 taxonomy (class /
       # tier / purpose / size / quantization / max-vram / min-context).
       # Operator surface for "find me the right model for this job".
-      "${__REPO_ROOT}/scripts/models/catalog-query.py" "$@"
+      "${PYTHON3}" "${__REPO_ROOT}/scripts/models/catalog-query.py" "$@"
       ;;
     suggest)
       # R214: profile-aware model suggester — cross-reference a
       # master-spec § 18 runtime profile's allocations against the
       # R212 catalog, flag aspirational entries + VRAM overruns, and
       # suggest smaller-quantization alternatives.
-      "${__REPO_ROOT}/scripts/models/suggest-by-profile.py" "$@"
+      "${PYTHON3}" "${__REPO_ROOT}/scripts/models/suggest-by-profile.py" "$@"
       ;;
     select)
       # SDD-043 Phase 2: VRAM-aware tier_intent resolution — "give me the
       # best model of class C that fits N GiB". The engine behind
       # tier_intent-driven runtime profiles.
-      "${__REPO_ROOT}/scripts/models/select-by-intent.py" "$@"
+      "${PYTHON3}" "${__REPO_ROOT}/scripts/models/select-by-intent.py" "$@"
       ;;
     load)
       # SDD-049: load model <id> into its tier — resolve id → (tier, on-disk
       # path), VRAM-fit gate (refuse unless --force), write the tier env
       # drop-in, restart the tier unit, publish model-state.json. DRY-RUN by
       # default; --confirm applies. The D-03 model-load control targets this.
-      "${__REPO_ROOT}/scripts/models/load.py" "$@"
+      "${PYTHON3}" "${__REPO_ROOT}/scripts/models/load.py" "$@"
       ;;
     unload)
       # SDD-049: unload {logic|oracle} — stop the role's tier unit + clear its
       # model-state.json entry. DRY-RUN by default; --confirm applies.
-      "${__REPO_ROOT}/scripts/models/unload.py" "$@"
+      "${PYTHON3}" "${__REPO_ROOT}/scripts/models/unload.py" "$@"
       ;;
     warm)
       # SDD-049: warm {logic|oracle} — prime the tier's running vLLM server with
       # a 1-token /v1/completions request (load weights + KV). Non-privileged.
-      "${__REPO_ROOT}/scripts/models/warm.py" "$@"
+      "${PYTHON3}" "${__REPO_ROOT}/scripts/models/warm.py" "$@"
       ;;
     info)
       # R231 (SDD-026 Z-2): LM-Studio-equivalent rich detail for one
@@ -2510,7 +2510,7 @@ cmd_models() {
       # operator_note / variants / LoRA adapters) + actionable
       # next-steps (pull / verify / suggest commands). Operator
       # gets the full surface in one verb.
-      "${__REPO_ROOT}/scripts/models/info.py" "$@"
+      "${PYTHON3}" "${__REPO_ROOT}/scripts/models/info.py" "$@"
       ;;
     eval)
       # R232 (SDD-026 Z-2 expansion): model eval planner + dispatcher
@@ -2518,7 +2518,7 @@ cmd_models() {
       # expansion. Cycle-8 SEED: benchmark catalog + plan/run (dry-run
       # default) + JSONL history; harness execution (lm-eval / mteb)
       # lands when SAIN-01 hardware comes online.
-      "${__REPO_ROOT}/scripts/models/eval.py" "$@"
+      "${PYTHON3}" "${__REPO_ROOT}/scripts/models/eval.py" "$@"
       ;;
     toolchains)
       # R242 (SDD-026 Z-2 expansion): inference + fine-tune toolchain
@@ -2530,7 +2530,7 @@ cmd_models() {
       shift || true
       case "${sub_t}" in
         list|info)
-          "${__REPO_ROOT}/scripts/models/toolchains.py" "${sub_t}" "$@"
+          "${PYTHON3}" "${__REPO_ROOT}/scripts/models/toolchains.py" "${sub_t}" "$@"
           ;;
         *)
           log_error "unknown models toolchains subverb: ${sub_t} (available: list, info)"
@@ -2547,7 +2547,7 @@ cmd_models() {
       shift || true
       case "${sub_f}" in
         list-methods|plan|run|history)
-          "${__REPO_ROOT}/scripts/models/fine_tune.py" "${sub_f}" "$@"
+          "${PYTHON3}" "${__REPO_ROOT}/scripts/models/fine_tune.py" "${sub_f}" "$@"
           ;;
         *)
           log_error "unknown models fine-tune subverb: ${sub_f} (available: list-methods, plan, run, history)"
@@ -2971,15 +2971,15 @@ print(len(all_pkgs))
       printf '═══ R200: comprehensive cycle-2+3 audit ═══\n'
 
       printf '\n── selfdef modules signing posture (R195/SD-R55) ──\n'
-      "${__REPO_ROOT}/scripts/hardware/selfdef-signing-audit.py" \
+      "${PYTHON3}" "${__REPO_ROOT}/scripts/hardware/selfdef-signing-audit.py" \
         --dir "${SOVEREIGN_OS_SELFDEF_MODULES_DIR:-/usr/share/selfdef/modules}" || cycle_rc=1
 
       printf '\n── selfdef modules resource quotas (R198/SD-R61) ──\n'
-      "${__REPO_ROOT}/scripts/hardware/selfdef-resources-audit.py" \
+      "${PYTHON3}" "${__REPO_ROOT}/scripts/hardware/selfdef-resources-audit.py" \
         --dir "${SOVEREIGN_OS_SELFDEF_MODULES_DIR:-/usr/share/selfdef/modules}" || cycle_rc=1
 
       printf '\n── selfdef cycle-2+3 readiness (R187) ──\n'
-      "${__REPO_ROOT}/scripts/hardware/cycle2-status.py" || cycle_rc=1
+      "${PYTHON3}" "${__REPO_ROOT}/scripts/hardware/cycle2-status.py" || cycle_rc=1
 
       if [ "${cycle_rc}" -eq 0 ]; then
         printf '\n✓ R200: cycle-2+3 audit clean across all sub-tools\n'
@@ -4363,7 +4363,7 @@ cmd_trinity() {
   case "${sub}" in
     status|pulse|weaver|auditor)
       if [[ "${want_json}" -eq 1 ]]; then
-        "${__REPO_ROOT}/scripts/trinity/trinity-inspect.py" "${sub}"
+        "${PYTHON3}" "${__REPO_ROOT}/scripts/trinity/trinity-inspect.py" "${sub}"
         return $?
       fi
       ;;
@@ -4405,7 +4405,7 @@ cmd_trinity() {
     docs)
       # R208: regenerate docs/src/trinity-runtime-profiles.md from
       # profiles/runtime/*.yaml. Fourth SDD-028 application.
-      "${__REPO_ROOT}/scripts/trinity/render-runtime-profiles-md.py" "$@"
+      "${PYTHON3}" "${__REPO_ROOT}/scripts/trinity/render-runtime-profiles-md.py" "$@"
       ;;
     *)
       log_error "unknown trinity subcommand: ${sub}"
@@ -4552,7 +4552,7 @@ cmd_router() {
   case "${sub}" in
     status|rules|metrics)
       if [[ "${want_json}" -eq 1 ]]; then
-        "${__REPO_ROOT}/scripts/inference/router-inspect.py" "${sub}"
+        "${PYTHON3}" "${__REPO_ROOT}/scripts/inference/router-inspect.py" "${sub}"
         return $?
       fi
       ;;
@@ -4570,13 +4570,13 @@ cmd_router() {
       # route tier + escalation (CoT / validator / self-consistency / MoE).
       local prompt="${1:?usage: router plan <prompt> [--task-type T] [--think] [--json]}"
       shift || true
-      python3 "${__REPO_ROOT}/scripts/inference/thinking-plan.py" --prompt "${prompt}" "$@"
+      "${PYTHON3}" "${__REPO_ROOT}/scripts/inference/thinking-plan.py" --prompt "${prompt}" "$@"
       ;;
     rules)
       _router_rules
       ;;
     metrics)
-      "${__REPO_ROOT}/scripts/inference/router-inspect.py" metrics
+      "${PYTHON3}" "${__REPO_ROOT}/scripts/inference/router-inspect.py" metrics
       ;;
     watch)
       _router_watch "$@"
@@ -4807,7 +4807,7 @@ COMPLIANCE_WATCH_HELP
     now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
     echo "── compliance.watch (frame ${frame}, refresh=${refresh}s, ${now}) ──"
     echo
-    "${__REPO_ROOT}/scripts/operator/compliance.py" status 2>/dev/null \
+    "${PYTHON3}" "${__REPO_ROOT}/scripts/operator/compliance.py" status 2>/dev/null \
       || echo "  (compliance status emit failed — instruments missing?)"
     echo
     if [[ "${iterations}" -gt 0 && "${frame}" -ge "${iterations}" ]]; then
@@ -4887,7 +4887,7 @@ ANTI_MIN_WATCH_HELP
     now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
     echo "── anti-min.watch (frame ${frame}, refresh=${refresh}s, ${now}) ──"
     echo
-    "${__REPO_ROOT}/scripts/operator/anti-minimization-audit.py" report 2>/dev/null \
+    "${PYTHON3}" "${__REPO_ROOT}/scripts/operator/anti-minimization-audit.py" report 2>/dev/null \
       || echo "  (anti-min report emit failed — patterns missing?)"
     echo
     if [[ "${iterations}" -gt 0 && "${frame}" -ge "${iterations}" ]]; then
@@ -4974,11 +4974,11 @@ SURFACE_MAP_WATCH_HELP
     # data source — operator-§1g UX rule: high-signal information at
     # the top of the refresh loop, surfaced BEFORE the per-module
     # matrix). Same R539 invariants the API + webapp surfaces show.
-    "${__REPO_ROOT}/scripts/operator/surface-map.py" milestone 2>/dev/null \
+    "${PYTHON3}" "${__REPO_ROOT}/scripts/operator/surface-map.py" milestone 2>/dev/null \
       | sed 's/^/  /' \
       || echo "  (surface-map milestone emit failed)"
     echo
-    "${__REPO_ROOT}/scripts/operator/surface-map.py" coverage 2>/dev/null \
+    "${PYTHON3}" "${__REPO_ROOT}/scripts/operator/surface-map.py" coverage 2>/dev/null \
       || echo "  (surface-map coverage emit failed — module data missing?)"
     echo
     if [[ "${iterations}" -gt 0 && "${frame}" -ge "${iterations}" ]]; then
@@ -5082,7 +5082,7 @@ WEAVER_WATCH_HELP
     _trinity_weaver_brief
     echo
     echo "  STATE FABRIC (master spec § 7 — operator-readable):"
-    if "${__REPO_ROOT}/scripts/weaver/atomic-state.py" list 2>/dev/null \
+    if "${PYTHON3}" "${__REPO_ROOT}/scripts/weaver/atomic-state.py" list 2>/dev/null \
         | sed 's/^/    /'; then
       :
     else
@@ -5288,7 +5288,7 @@ UX_AUDIT_WATCH_HELP
     now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
     echo "── ux-design-audit.watch (frame ${frame}, refresh=${refresh}s, ${now}) ──"
     echo
-    "${__REPO_ROOT}/scripts/operator/ux-design-audit.py" score 2>/dev/null \
+    "${PYTHON3}" "${__REPO_ROOT}/scripts/operator/ux-design-audit.py" score 2>/dev/null \
       || echo "  (ux-design-audit score emit failed — module data missing?)"
     echo
     if [[ "${iterations}" -gt 0 && "${frame}" -ge "${iterations}" ]]; then
@@ -5361,7 +5361,7 @@ DOC_COVERAGE_WATCH_HELP
     now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
     echo "── doc-coverage.watch (frame ${frame}, refresh=${refresh}s, ${now}) ──"
     echo
-    "${__REPO_ROOT}/scripts/operator/doc-coverage.py" coverage 2>/dev/null \
+    "${PYTHON3}" "${__REPO_ROOT}/scripts/operator/doc-coverage.py" coverage 2>/dev/null \
       || echo "  (doc-coverage coverage emit failed — module data missing?)"
     echo
     if [[ "${iterations}" -gt 0 && "${frame}" -ge "${iterations}" ]]; then
@@ -6404,7 +6404,7 @@ EOF
       [ "${has_avx512}" = "1" ] && _avx_flag="--has-avx512"
       local rec_out rec_rc
       set +e
-      rec_out="$(python3 "${__REPO_ROOT}/scripts/hardware/lib/module-recommendations.py" \
+      rec_out="$("${PYTHON3}" "${__REPO_ROOT}/scripts/hardware/lib/module-recommendations.py" \
         --profile "${profile}" ${_avx_flag} --gpu-count "${gpu_count}" 2>&1)"
       rec_rc=$?
       set -e
@@ -6827,7 +6827,7 @@ PY
       # set) so D-22's device grid shows live stats. A NON-MUTATING read-compute
       # (R10212); honest error when the router/backend is unreachable (SB-077). The
       # D-22 web chat proxy reuses this same engine.
-      "${__REPO_ROOT}/scripts/inference/prompt.py" "$@"
+      "${PYTHON3}" "${__REPO_ROOT}/scripts/inference/prompt.py" "$@"
       ;;
 
     health)
@@ -7011,7 +7011,7 @@ case "${cmd}" in
     # /etc/sovereign-os/gpu-policy.toml (or the example for dev runs),
     # polls nvidia-smi for live power.draw + power.limit, and warns
     # when actual config diverges from the operator's safe limits.
-    "${__REPO_ROOT}/scripts/hardware/gpu-watch.py" "$@"
+    "${PYTHON3}" "${__REPO_ROOT}/scripts/hardware/gpu-watch.py" "$@"
     ;;
   science)
     # R558 (SDD-070): science-tools catalog + NVIDIA Warp particle-sim.
@@ -7020,7 +7020,7 @@ case "${cmd}" in
     #   science list | status | run | install | info <id>
     # `run` delegates to scripts/science/warp-runner.py (GPU cuda:0 or CPU
     # fallback); everything else is stdlib-only.
-    "${__REPO_ROOT}/scripts/science/science.py" "$@"
+    "${PYTHON3}" "${__REPO_ROOT}/scripts/science/science.py" "$@"
     ;;
   gateway)
     # Live read-only probe of sovereign-gatewayd (:8787): the M048 provider-
@@ -7030,7 +7030,7 @@ case "${cmd}" in
     # add --json for the machine shape. Same server-side probe the trinity +
     # model-health cockpit panels render (scripts/operator/lib/gateway_probe.py).
     #   gateway [--addr host:port] [--json]
-    exec python3 "${__REPO_ROOT}/scripts/operator/lib/gateway_probe.py" "$@"
+    exec "${PYTHON3}" "${__REPO_ROOT}/scripts/operator/lib/gateway_probe.py" "$@"
     ;;
   permission)
     # Plan Mode / User Approval — the Auto-mode safety classifier
@@ -7039,7 +7039,7 @@ case "${cmd}" in
     # confirm under a permission mode (manual/auto/bypass). Enforced live in
     # control-exec-api; this is the CLI + library face.
     #   permission [--mode manual|auto|bypass] <command…>
-    exec python3 "${__REPO_ROOT}/scripts/operator/lib/permission_classifier.py" "$@"
+    exec "${PYTHON3}" "${__REPO_ROOT}/scripts/operator/lib/permission_classifier.py" "$@"
     ;;
   jobs)
     # Background Tasks runtime (jobs-api :8142) — the long-running work the box
@@ -7053,7 +7053,7 @@ case "${cmd}" in
     #   jobs [--json] submit deliberation --problem "…" [--rung coat]
     #   jobs [--json] submit eval -- python3 scripts/models/eval.py …
     #   jobs [--json] cancel <id>
-    exec python3 "${__REPO_ROOT}/scripts/operator/lib/jobs_cli.py" "$@"
+    exec "${PYTHON3}" "${__REPO_ROOT}/scripts/operator/lib/jobs_cli.py" "$@"
     ;;
   plane)
     # The Sovereign Compute Plane (via jobs-api :8142) — the box's devices with
@@ -7061,7 +7061,7 @@ case "${cmd}" in
     # jobs), placed by the M075 SRP doctrine. Read-only. A GPU job is placed on a
     # device that fits, or waits, so it never OOMs the box.
     #   plane            human summary
-    exec python3 "${__REPO_ROOT}/scripts/operator/lib/jobs_cli.py" plane "$@"
+    exec "${PYTHON3}" "${__REPO_ROOT}/scripts/operator/lib/jobs_cli.py" plane "$@"
     ;;
   model-serve)
     # Launch / stop / list a GPU serve-process model (SDD-902): the ergonomic front
@@ -7073,7 +7073,7 @@ case "${cmd}" in
     #   model-serve stop <id>
     #   model-serve list
     #   model-serve background [<id> | --clear]
-    exec python3 "${__REPO_ROOT}/scripts/operator/lib/model_serve_cli.py" "$@"
+    exec "${PYTHON3}" "${__REPO_ROOT}/scripts/operator/lib/model_serve_cli.py" "$@"
     ;;
   network)
     # R220 (SDD-026 Z-7): per-component network state surface.
@@ -7082,7 +7082,7 @@ case "${cmd}" in
     shift || true
     case "${sub}" in
       status)
-        "${__REPO_ROOT}/scripts/hardware/network-status.py" "$@"
+        "${PYTHON3}" "${__REPO_ROOT}/scripts/hardware/network-status.py" "$@"
         ;;
       verify)
         # E105 closure: runtime verification that live network state matches
@@ -7195,7 +7195,7 @@ PYEOF
     # read-only; set <mode> requires root.
     sub="${1:-show}"
     shift || true
-    "${__REPO_ROOT}/scripts/hardware/cpu-mode.py" "${sub}" "$@"
+    "${PYTHON3}" "${__REPO_ROOT}/scripts/hardware/cpu-mode.py" "${sub}" "$@"
     ;;
   gpu-mode)
     # R236 (SDD-026 Z-5 extension): GPU hotswap modes. conservative /
@@ -7204,7 +7204,7 @@ PYEOF
     # the GPU I guess" + R230 auto pattern.
     sub="${1:-show}"
     shift || true
-    "${__REPO_ROOT}/scripts/hardware/gpu-mode.py" "${sub}" "$@"
+    "${PYTHON3}" "${__REPO_ROOT}/scripts/hardware/gpu-mode.py" "${sub}" "$@"
     ;;
   dspark)
     # DSpark speculative decoding on/off — the DFlash (M083) successor
@@ -7215,12 +7215,12 @@ PYEOF
     # enable / disable.
     sub="${1:-status}"
     shift || true
-    "${__REPO_ROOT}/scripts/inference/dspark-ctl.py" "${sub}" "$@"
+    "${PYTHON3}" "${__REPO_ROOT}/scripts/inference/dspark-ctl.py" "${sub}" "$@"
     ;;
   gpu-remediate)
     # R249 (SDD-026 Z-5 closure): auto-apply R219 fix commands.
     # Operator-named "warn deviance from perfection" loop closure.
-    "${__REPO_ROOT}/scripts/hardware/gpu-remediate.py" "$@"
+    "${PYTHON3}" "${__REPO_ROOT}/scripts/hardware/gpu-remediate.py" "$@"
     ;;
   nvidia-mps)
     # R551 (E11.M14): NVIDIA MPS controller. Shares each non-MIG GPU
@@ -7229,7 +7229,7 @@ PYEOF
     # Operator §1g: "Multi mode AI, multiple mode for the AI loadout".
     sub="${1:-status}"
     shift || true
-    "${__REPO_ROOT}/scripts/hardware/nvidia-mps.py" "${sub}" "$@"
+    "${PYTHON3}" "${__REPO_ROOT}/scripts/hardware/nvidia-mps.py" "${sub}" "$@"
     ;;
   hugepages)
     # R552 (E11.M15): HugePages sizer. Reserves 2MiB (or 1GiB) huge
@@ -7238,7 +7238,7 @@ PYEOF
     # ternary models — all benefit from huge-page-backed buffers.
     sub="${1:-show}"
     shift || true
-    "${__REPO_ROOT}/scripts/hardware/hugepages-sizer.py" "${sub}" "$@"
+    "${PYTHON3}" "${__REPO_ROOT}/scripts/hardware/hugepages-sizer.py" "${sub}" "$@"
     ;;
   thp-mode)
     # R553 (E11.M16): Transparent HugePage controller. Orthogonal to
@@ -7247,7 +7247,7 @@ PYEOF
     # stalls). Operator §1g: predictable inference latency.
     sub="${1:-show}"
     shift || true
-    "${__REPO_ROOT}/scripts/hardware/thp-mode.py" "${sub}" "$@"
+    "${PYTHON3}" "${__REPO_ROOT}/scripts/hardware/thp-mode.py" "${sub}" "$@"
     ;;
   irq-affinity)
     # R554 (E11.M17): IRQ affinity controller. Moves all non-locked
@@ -9268,7 +9268,7 @@ PYEOF
     # open-computer sandbox UI (SDD-706), or headless — live, no reflash. Toggles
     # gdm3 vs the kiosk unit, rewrites the kiosk target URL, sets the boot target.
     # Verbs: status / list / set {gnome|dashboards-kiosk|open-computer-kiosk|none} [--url U] [--json].
-    exec python3 "${__REPO_ROOT}/scripts/operator/frontend.py" "$@"
+    exec "${PYTHON3}" "${__REPO_ROOT}/scripts/operator/frontend.py" "$@"
     ;;
   compliance)
     # R458: §1g/§1h compliance dashboard aggregator. Consolidates the
@@ -9285,7 +9285,7 @@ PYEOF
         _compliance_watch "$@"
         ;;
       *)
-        "${__REPO_ROOT}/scripts/operator/compliance.py" "$@"
+        "${PYTHON3}" "${__REPO_ROOT}/scripts/operator/compliance.py" "$@"
         ;;
     esac
     ;;
@@ -9308,7 +9308,7 @@ PYEOF
         _ux_design_audit_watch "$@"
         ;;
       *)
-        "${__REPO_ROOT}/scripts/operator/ux-design-audit.py" "$@"
+        "${PYTHON3}" "${__REPO_ROOT}/scripts/operator/ux-design-audit.py" "$@"
         ;;
     esac
     ;;
@@ -9333,7 +9333,7 @@ PYEOF
         _anti_min_watch "$@"
         ;;
       *)
-        "${__REPO_ROOT}/scripts/operator/anti-minimization-audit.py" "$@"
+        "${PYTHON3}" "${__REPO_ROOT}/scripts/operator/anti-minimization-audit.py" "$@"
         ;;
     esac
     ;;
@@ -9355,7 +9355,7 @@ PYEOF
         _doc_coverage_watch "$@"
         ;;
       *)
-        "${__REPO_ROOT}/scripts/operator/doc-coverage.py" "$@"
+        "${PYTHON3}" "${__REPO_ROOT}/scripts/operator/doc-coverage.py" "$@"
         ;;
     esac
     ;;
@@ -9376,7 +9376,7 @@ PYEOF
         _surface_map_watch "$@"
         ;;
       *)
-        "${__REPO_ROOT}/scripts/operator/surface-map.py" "$@"
+        "${PYTHON3}" "${__REPO_ROOT}/scripts/operator/surface-map.py" "$@"
         ;;
     esac
     ;;
@@ -9404,7 +9404,7 @@ PYEOF
         _trinity_weaver_brief
         ;;
       list|read|write|state-files)
-        "${__REPO_ROOT}/scripts/weaver/atomic-state.py" "$@"
+        "${PYTHON3}" "${__REPO_ROOT}/scripts/weaver/atomic-state.py" "$@"
         ;;
       -h|--help|help)
         cat <<'WEAVER_HELP'
@@ -9467,7 +9467,7 @@ WEAVER_HELP
         ;;
       status|"")
         if [[ "${_AUDITOR_WANT_JSON}" -eq 1 ]]; then
-          "${__REPO_ROOT}/scripts/trinity/trinity-inspect.py" auditor
+          "${PYTHON3}" "${__REPO_ROOT}/scripts/trinity/trinity-inspect.py" auditor
         else
           _trinity_auditor_brief
         fi

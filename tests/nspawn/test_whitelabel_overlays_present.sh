@@ -18,6 +18,13 @@
 
 set -euo pipefail
 
+PYTHON3="${PYTHON3:-python3}"
+if ! "${PYTHON3}" -c "import yaml" >/dev/null 2>&1; then
+  if /usr/bin/python3 -c "import yaml" >/dev/null 2>&1; then
+    PYTHON3=/usr/bin/python3
+  fi
+fi
+
 __SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 __REPO_ROOT="$(cd "${__SCRIPT_DIR}/../.." && pwd)"
 
@@ -111,7 +118,7 @@ fi
 # ----------- render to mkosi → overlays land in mkosi.extra ---------------
 
 tmp_mkosi="$(mktemp -d)"
-python3 "${__REPO_ROOT}/scripts/whitelabel/render.py" \
+"${PYTHON3}" "${__REPO_ROOT}/scripts/whitelabel/render.py" \
   --profile "${__REPO_ROOT}/profiles/sain-01.yaml" \
   --whitelabel "${__REPO_ROOT}/whitelabel/default.yaml" \
   --out "${tmp_mkosi}" --substrate mkosi >/dev/null
@@ -144,7 +151,7 @@ rm -rf "${tmp_mkosi}"
 # ----------- render to live-build → overlays land in includes.chroot ---------------
 
 tmp_lb="$(mktemp -d)"
-python3 "${__REPO_ROOT}/scripts/whitelabel/render.py" \
+"${PYTHON3}" "${__REPO_ROOT}/scripts/whitelabel/render.py" \
   --profile "${__REPO_ROOT}/profiles/sain-01.yaml" \
   --whitelabel "${__REPO_ROOT}/whitelabel/default.yaml" \
   --out "${tmp_lb}" --substrate live-build >/dev/null
