@@ -77,6 +77,8 @@ MANPAGER=cat PAGER=cat man --manpath "${MAN_ROOT}" sovereign-osctl > "${work}/ma
 grep -q 'sovereign-osctl' "${work}/manual.txt"
 
 # Ask each shell's native loader to discover and use the installed completion.
+zsh -n "${ZSH_COMPLETION}"
+fish -n "${FISH_COMPLETION}"
 bash --noprofile --norc -c '
   set -euo pipefail
   source /usr/share/bash-completion/bash_completion
@@ -94,6 +96,7 @@ zsh -f -c '
   compinit -D
   [[ "${_comps[sovereign-osctl]}" == "_sovereign-osctl" ]]
   autoload -Uz _sovereign-osctl
+  autoload +X _sovereign-osctl
   whence -w _sovereign-osctl | grep -q "function"
 '
 fish -c 'complete -C "sovereign-osctl he" | string match -qr "^help"'
