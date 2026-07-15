@@ -104,8 +104,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          version="$(<dist/$(find dist -maxdepth 1 -name 'sovereign-os-*.tar.gz' -printf '%f\n' | sed -E 's/^sovereign-os-(.*)\.tar\.gz$/\1/' | head -1 2>/dev/null || true))"
-          version="$(<VERSION 2>/dev/null || printf '%s' "${GITHUB_REF_NAME#v}")"
+          version="${GITHUB_REF_NAME#v}"
           flags=(--verify-tag --generate-notes --title "sovereign-os ${GITHUB_REF_NAME}")
           [[ "${version}" == 0.* ]] && flags+=(--prerelease)
           gh release create "${GITHUB_REF_NAME}" "${flags[@]}" dist/*
