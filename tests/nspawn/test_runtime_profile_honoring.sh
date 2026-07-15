@@ -7,6 +7,13 @@
 
 set -euo pipefail
 
+PYTHON3="${PYTHON3:-python3}"
+if ! "${PYTHON3}" -c "import yaml" >/dev/null 2>&1; then
+  if /usr/bin/python3 -c "import yaml" >/dev/null 2>&1; then
+    PYTHON3=/usr/bin/python3
+  fi
+fi
+
 __SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 __REPO_ROOT="$(cd "${__SCRIPT_DIR}/../.." && pwd)"
 
@@ -205,7 +212,7 @@ fi
 GEN="${__REPO_ROOT}/scripts/operator/generate-runtime-profile.py"
 INTENT_YAML="${__REPO_ROOT}/profiles/runtime/_test_intent_honoring.yaml"
 if [ -x "${GEN}" ]; then
-  "${GEN}" --hardware sain-01 --strategy high-concurrency \
+  "${PYTHON3}" "${GEN}" --hardware sain-01 --strategy high-concurrency \
     --out "${INTENT_YAML}" --no-validate >/dev/null 2>&1 || true
   sed -i 's/^  id: .*/  id: _test_intent_honoring/' "${INTENT_YAML}" 2>/dev/null || true
   set +e
