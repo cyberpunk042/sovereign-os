@@ -6,6 +6,13 @@
 # and the osctl bridge + R citation.
 
 set -euo pipefail
+PYTHON3="${PYTHON3:-python3}"
+if ! "${PYTHON3}" -c "import yaml" >/dev/null 2>&1; then
+  if /usr/bin/"${PYTHON3}" -c "import yaml" >/dev/null 2>&1; then
+    PYTHON3=/usr/bin/python3
+  fi
+fi
+
 __SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 __REPO_ROOT="$(cd "${__SCRIPT_DIR}/../.." && pwd)"
 
@@ -28,17 +35,17 @@ echo
 grep -q "warp-lang" "${CATALOG}" && ok "catalog declares warp-lang" || ko "warp-lang absent from catalog"
 
 # ---------- science.py list ----------
-out="$(python3 "${SCIENCE}" list 2>&1)"
+out="$("${PYTHON3}" "${SCIENCE}" list 2>&1)"
 { echo "${out}" | grep -q "warp-lang" && echo "${out}" | grep -qi "particles"; } \
   && ok "science list shows warp-lang under particles" || ko "science list wrong: ${out}"
 
-out="$(python3 "${SCIENCE}" list --json 2>&1)"
-n="$(echo "${out}" | python3 -c 'import sys,json; print(len(json.load(sys.stdin)["tools"]))' 2>/dev/null || echo 0)"
+out="$("${PYTHON3}" "${SCIENCE}" list --json 2>&1)"
+n="$(echo "${out}" | "${PYTHON3}" -c 'import sys,json; print(len(json.load(sys.stdin)["tools"]))' 2>/dev/null || echo 0)"
 [ "${n}" = "7" ] && ok "science list --json enumerates 7 tools" || ko "expected 7 tools, got ${n}"
 
 # ---------- science.py status ----------
 set +e
-out="$(python3 "${SCIENCE}" status --json 2>/dev/null)"; rc=$?
+out="$("${PYTHON3}" "${SCIENCE}" status --json 2>/dev/null)"; rc=$?
 set -e
 if [ "${rc}" -eq 0 ] && echo "${out}" | grep -q '"integrated_tools"' && echo "${out}" | grep -q '"warp"'; then
   ok "science status --json is structured (integrated_tools + warp)"
@@ -47,16 +54,16 @@ else
 fi
 
 # ---------- science.py info ----------
-python3 "${SCIENCE}" info warp-lang 2>&1 | grep -qi "particles" \
+"${PYTHON3}" "${SCIENCE}" info warp-lang 2>&1 | grep -qi "particles" \
   && ok "science info warp-lang shows the particles domain" || ko "science info warp-lang wrong"
 set +e
-python3 "${SCIENCE}" info no-such-tool >/dev/null 2>&1; rc=$?
+"${PYTHON3}" "${SCIENCE}" info no-such-tool >/dev/null 2>&1; rc=$?
 set -e
 [ "${rc}" -eq 2 ] && ok "science info <unknown> exits 2 (usage error)" || ko "unknown tool rc=${rc}, expected 2"
 
 # ---------- warp-runner.py graceful degradation (the GPU/CPU/absent invariant) ----------
 set +e
-out="$(python3 "${RUNNER}" status --json 2>/dev/null)"; rc=$?
+out="$("${PYTHON3}" "${RUNNER}" status --json 2>/dev/null)"; rc=$?
 set -e
 if [ "${rc}" -eq 0 ] && echo "${out}" | grep -q '"installed"'; then
   ok "warp-runner status --json is exit-0 + structured (installed flag)"
@@ -66,7 +73,7 @@ fi
 
 # run MUST be exit-0 clean whether warp is installed (GPU/CPU) or absent.
 set +e
-out="$(python3 "${RUNNER}" run --particles 1000 --steps 5 --json 2>/dev/null)"; rc=$?
+out="$("${PYTHON3}" "${RUNNER}" run --particles 1000 --steps 5 --json 2>/dev/null)"; rc=$?
 set -e
 if [ "${rc}" -eq 0 ] && echo "${out}" | grep -q '"installed"'; then
   if echo "${out}" | grep -q '"installed": true'; then
@@ -82,15 +89,15 @@ fi
 
 # ---------- science-api.py --self-check + live HTTP ----------
 set +e
-out="$(python3 "${API}" --self-check 2>/dev/null)"; rc=$?
+out="$("${PYTHON3}" "${API}" --self-check 2>/dev/null)"; rc=$?
 set -e
-tc="$(echo "${out}" | python3 -c 'import sys,json; print(json.load(sys.stdin)["tool_count"])' 2>/dev/null || echo 0)"
+tc="$(echo "${out}" | "${PYTHON3}" -c 'import sys,json; print(json.load(sys.stdin)["tool_count"])' 2>/dev/null || echo 0)"
 { [ "${rc}" -eq 0 ] && [ "${tc}" = "7" ]; } \
   && ok "science-api --self-check reports 7 tools" || ko "self-check rc=${rc} tool_count=${tc}"
 
 # ephemeral-port live serve (hang-proof: background, poll, curl, kill-then-wait)
 PORT=$(( (RANDOM % 2000) + 18600 ))
-SCIENCE_API_PORT="${PORT}" python3 "${API}" >/tmp/sci-panel-api.$$ 2>&1 &
+SCIENCE_API_PORT="${PORT}" "${PYTHON3}" "${API}" >/tmp/sci-panel-api.$$ 2>&1 &
 apipid=$!
 served=0
 for _ in $(seq 1 15); do

@@ -172,6 +172,7 @@ for m in doc['catalog']['models']:
 for d in "${VERIFIED_REAL_IDS[@]}"; do
   mkdir -p "${TMP_FULL}/${d}"
   printf 'fixture for %s\n' "${d}" > "${TMP_FULL}/${d}/weights.fixture"
+  touch "${TMP_FULL}/${d}/.resident"
 done
 EXPECTED_N=${#VERIFIED_REAL_IDS[@]}
 set +e

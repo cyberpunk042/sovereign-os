@@ -5745,6 +5745,7 @@ PY
       # E108 closure: actuate the runtime profile — generate env file,
       # restart inference services, reconfigure GPU power states.
       local env_file="${state_dir}/active-runtime-profile-env.sh"
+      [ -w /etc 2>/dev/null ] || env_file="${HOME}/.sovereign-os/active-runtime-profile-env.sh"
       mkdir -p "$(dirname "${env_file}")" 2>/dev/null || true
 
       # Parse the runtime profile YAML and generate shell env exports
