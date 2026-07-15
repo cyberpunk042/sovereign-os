@@ -1,10 +1,13 @@
 """Contracts for the sovereign-osctl(1) manual-page suite."""
 from pathlib import Path
 import json
+import os
 import re
+import subprocess
 
 ROOT = Path(__file__).resolve().parents[2]
 CLI = ROOT / "scripts" / "sovereign-osctl"
+VERSION_FILE = ROOT / "VERSION"
 MAN_DIR = ROOT / "docs" / "man"
 REGISTRY = MAN_DIR / "sovereign-osctl-command-topics.json"
 GENERATOR = ROOT / "scripts" / "docs" / "build-sovereign-osctl-manpage.sh"
@@ -101,26 +104,64 @@ def test_generation_and_installation_cover_the_whole_suite():
     assert 'docs/man/sovereign-osctl*.1.md' in generator
     assert "pandoc -s -t man" in generator
     assert "cmp -s" in generator
+    assert 'VERSION_FILE="${ROOT}/VERSION"' in generator
     assert "make man" in generator
     assert "man:" in makefile and "man-check:" in makefile
     assert "install -m 644 docs/man/sovereign-osctl*.1" in makefile
+    assert 'install -m 644 VERSION "$(DESTDIR)$(SOVEREIGN_OS_LIB)/VERSION"' in makefile
     assert "sovereign-osctl*.1" in makefile
     assert "Skipping manpage" not in makefile
 
-def _cli_version() -> str:
+
+def _canonical_version() -> str:
+    version = _read(VERSION_FILE).strip()
+    assert re.fullmatch(
+        r"[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?",
+        version,
+    ), f"VERSION is not a supported SemVer value: {version!r}"
+    return version
+
+
+def test_operator_runtime_uses_the_canonical_version_file():
     body = _read(CLI)
-    match = re.search(r'local sovereign_version="([^"]+)"', body)
-    assert match, "cmd_version no longer exposes sovereign_version"
-    return match.group(1)
+    assert 'local sovereign_version="' not in body
+    assert 'sovereign_version="$(_sovereign_os_version)"' in body
+    assert '"${__REPO_ROOT}/VERSION"' in body
+    assert "SOVEREIGN_OS_VERSION_FILE" in body
 
 
-def test_manual_headers_match_the_runtime_cli_version():
-    version = _cli_version()
+def test_manual_headers_match_the_canonical_version():
+    version = _canonical_version()
     for source in sorted(MAN_DIR.glob("sovereign-osctl*.1.md")):
         first_line = _read(source).splitlines()[0]
         assert f"sovereign-os {version} |" in first_line, (
-            f"{source.name} version drift: CLI is {version!r}, header is {first_line!r}"
+            f"{source.name} version drift: VERSION is {version!r}, header is {first_line!r}"
         )
+
+
+def test_runtime_rejects_invalid_or_missing_version_override(tmp_path: Path):
+    env = os.environ.copy()
+    version_file = tmp_path / "VERSION"
+    for contents, expected_error in (
+        ("not-a-version\n", "invalid sovereign-os version"),
+        (None, "VERSION file not found"),
+    ):
+        if contents is None:
+            version_file.unlink(missing_ok=True)
+        else:
+            version_file.write_text(contents, encoding="utf-8")
+        env["SOVEREIGN_OS_VERSION_FILE"] = str(version_file)
+        result = subprocess.run(
+            [str(CLI), "version", "--json"],
+            cwd=ROOT,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+        assert result.returncode != 0
+        assert expected_error in result.stderr
 
 
 def test_critical_runtime_facts_are_not_inherited_from_stale_help():

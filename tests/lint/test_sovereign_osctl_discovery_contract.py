@@ -138,6 +138,7 @@ def test_staged_install_and_uninstall_are_symmetric(tmp_path: Path):
     lib = staged / "lib/sovereign-os"
     expected_files = (
         cli,
+        lib / "VERSION",
         lib / "operator/command-discovery.py",
         lib / "share/sovereign-osctl-command-topics.json",
         staged / "share/bash-completion/completions/sovereign-osctl",
@@ -161,6 +162,18 @@ def test_staged_install_and_uninstall_are_symmetric(tmp_path: Path):
     )
     assert inventory.returncode == 0, inventory.stderr
     assert json.loads(inventory.stdout)["command_count"] == len(_owned_commands() | BUILTINS)
+
+    version = subprocess.run(
+        [str(cli), "version", "--json"],
+        cwd=ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False,
+    )
+    assert version.returncode == 0, version.stderr
+    assert json.loads(version.stdout)["sovereign_osctl_version"] == (lib / "VERSION").read_text().strip()
 
     uninstall = subprocess.run(
         ["make", "uninstall", f"DESTDIR={tmp_path}", f"PREFIX={prefix}"],
