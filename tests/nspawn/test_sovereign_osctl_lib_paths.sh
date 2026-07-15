@@ -12,6 +12,7 @@ set -euo pipefail
 
 __SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 __REPO_ROOT="$(cd "${__SCRIPT_DIR}/../.." && pwd)"
+IFS= read -r expected_version < "${__REPO_ROOT}/VERSION"
 
 fail=0
 pass=0
@@ -27,7 +28,7 @@ set +e
 out="$("${__REPO_ROOT}/scripts/sovereign-osctl" version 2>&1)"
 rc=$?
 set -e
-if [ "${rc}" -eq 0 ] && grep -q "sovereign-osctl 0\." <<< "${out}"; then
+if [ "${rc}" -eq 0 ] && grep -qF "sovereign-osctl ${expected_version} " <<< "${out}"; then
   ok "in-repo run finds sibling lib (no SOVEREIGN_OS_LIB needed)"
 else
   ko "in-repo run failed: rc=${rc}"
@@ -74,6 +75,7 @@ mkdir -p "${inst}/lib"
 cp "${__REPO_ROOT}/scripts/build/lib/common.sh" "${inst}/lib/common.sh"
 cp "${__REPO_ROOT}/scripts/build/lib/state.sh"  "${inst}/lib/state.sh"
 cp "${__REPO_ROOT}/scripts/build/lib/logging.sh" "${inst}/lib/logging.sh"
+cp "${__REPO_ROOT}/VERSION"                      "${inst}/VERSION"
 # Profiles + whitelabel are needed for some sovereign-osctl verbs but
 # not for 'version' — just verify lib lookup succeeds.
 
@@ -81,7 +83,7 @@ set +e
 out="$(SOVEREIGN_OS_LIB="${inst}" "${tmp}/sovereign-osctl" version 2>&1)"
 rc=$?
 set -e
-if [ "${rc}" -eq 0 ] && grep -q "sovereign-osctl 0\." <<< "${out}"; then
+if [ "${rc}" -eq 0 ] && grep -qF "sovereign-osctl ${expected_version} " <<< "${out}"; then
   ok "SOVEREIGN_OS_LIB env override loads from tmpdir layout"
 else
   ko "SOVEREIGN_OS_LIB override broken: rc=${rc} out=${out:0:200}"
@@ -96,7 +98,7 @@ set +e
 out="$(SOVEREIGN_OS_LIB="/nonexistent/path/$$" "${__REPO_ROOT}/scripts/sovereign-osctl" version 2>&1)"
 rc=$?
 set -e
-if [ "${rc}" -eq 0 ] && grep -q "sovereign-osctl 0\." <<< "${out}"; then
+if [ "${rc}" -eq 0 ] && grep -qF "sovereign-osctl ${expected_version} " <<< "${out}"; then
   ok "SOVEREIGN_OS_LIB pointing at junk → falls through to in-repo successfully"
 else
   ko "fallthrough broken: rc=${rc}"
