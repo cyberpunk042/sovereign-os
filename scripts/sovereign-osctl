@@ -5592,8 +5592,11 @@ _trinity_profile() {
   # Operator-authored drafts live outside the repo (composer Save-draft target;
   # mirrors LM_ORCH_USER_PROFILES_DIR in the D-21 daemon).
   local user_dir="${SOVEREIGN_OS_USER_PROFILES_DIR:-${HOME}/.sovereign-os/profiles/orchestration}"
-  local active_file="/etc/sovereign-os/active-runtime-profile"
-  [ -w /etc 2>/dev/null ] || active_file="${HOME}/.sovereign-os/active-runtime-profile"
+  local state_dir="${SOVEREIGN_OS_STATE_DIR:-/etc/sovereign-os}"
+  if [ -z "${SOVEREIGN_OS_STATE_DIR:-}" ] && [ ! -w /etc 2>/dev/null ]; then
+    state_dir="${HOME}/.sovereign-os"
+  fi
+  local active_file="${state_dir}/active-runtime-profile"
 
   # Resolve a profile id to (path, family) across ALL on-disk families —
   # runtime (§18), orchestration (repo), user (drafts). Generated combos are
@@ -5741,7 +5744,7 @@ PY
 
       # E108 closure: actuate the runtime profile — generate env file,
       # restart inference services, reconfigure GPU power states.
-      local env_file="/etc/sovereign-os/active-runtime-profile-env.sh"
+      local env_file="${state_dir}/active-runtime-profile-env.sh"
       mkdir -p "$(dirname "${env_file}")" 2>/dev/null || true
 
       # Parse the runtime profile YAML and generate shell env exports
