@@ -3,6 +3,13 @@
 # LoRA / QLoRA / SFT / DPO planner + DRY-RUN dispatcher + history.
 
 set -euo pipefail
+PYTHON3="${PYTHON3:-python3}"
+if ! "${PYTHON3}" -c "import yaml" >/dev/null 2>&1; then
+  if /usr/bin/python3 -c "import yaml" >/dev/null 2>&1; then
+    PYTHON3=/usr/bin/python3
+  fi
+fi
+
 
 __SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 __REPO_ROOT="$(cd "${__SCRIPT_DIR}/../.." && pwd)"
@@ -32,8 +39,8 @@ trap 'rm -rf "${TMP}"' EXIT
 export SOVEREIGN_OS_FINE_TUNE_STATE="${TMP}/ft.jsonl"
 
 # ---- list-methods: 4 methods ----
-out="$(python3 "${SCRIPT}" list-methods --json)"
-echo "${out}" | python3 -c "
+out="$("${PYTHON3}" "${SCRIPT}" list-methods --json)"
+echo "${out}" | "${PYTHON3}" -c "
 import json,sys
 d=json.load(sys.stdin)
 assert d['round']=='R244', d
@@ -50,8 +57,8 @@ for k in ('lora-unsloth','qlora-trl','sft-trl','dpo-trl'):
   || ko "list-methods shape wrong"
 
 # ---- plan with applicable base + method ----
-out="$(python3 "${SCRIPT}" plan Phi-4-mini-instruct --method lora-unsloth --dataset op/ds --json)"
-echo "${out}" | python3 -c "
+out="$("${PYTHON3}" "${SCRIPT}" plan Phi-4-mini-instruct --method lora-unsloth --dataset op/ds --json)"
+echo "${out}" | "${PYTHON3}" -c "
 import json,sys
 d=json.load(sys.stdin)
 assert d['base']['id']=='Phi-4-mini-instruct', d
@@ -70,7 +77,7 @@ assert d['next_step'].startswith('sovereign-osctl models fine-tune run'), d
 # ---- plan with non-applicable base class → rc=2 ----
 # BitNet is class=ternary-lm; lora-unsloth applies to llm/slm/code only.
 set +e
-out_bad="$(python3 "${SCRIPT}" plan BitNet-b1.58-2B-4T --method lora-unsloth --dataset op/ds 2>&1)"
+out_bad="$("${PYTHON3}" "${SCRIPT}" plan BitNet-b1.58-2B-4T --method lora-unsloth --dataset op/ds 2>&1)"
 rc_bad=$?
 set -e
 [ "${rc_bad}" -eq 2 ] && ok "plan with non-applicable base class → rc=2" \
@@ -80,7 +87,7 @@ echo "${out_bad}" | grep -q "not applicable" \
 
 # ---- plan with unknown base → rc=2 ----
 set +e
-python3 "${SCRIPT}" plan never-existed --method lora-unsloth --dataset op/ds > /dev/null 2>&1
+"${PYTHON3}" "${SCRIPT}" plan never-existed --method lora-unsloth --dataset op/ds > /dev/null 2>&1
 rc_bad=$?
 set -e
 [ "${rc_bad}" -eq 2 ] && ok "plan with unknown base → rc=2" \
@@ -88,15 +95,15 @@ set -e
 
 # ---- plan with unknown method → rc=2 ----
 set +e
-python3 "${SCRIPT}" plan Phi-4-mini-instruct --method nope --dataset op/ds > /dev/null 2>&1
+"${PYTHON3}" "${SCRIPT}" plan Phi-4-mini-instruct --method nope --dataset op/ds > /dev/null 2>&1
 rc_bad=$?
 set -e
 [ "${rc_bad}" -eq 2 ] && ok "plan with unknown method → rc=2" \
   || ko "expected rc=2, got ${rc_bad}"
 
 # ---- run --dry-run: records intent without exec ----
-out="$(python3 "${SCRIPT}" run Phi-4-mini-instruct --method lora-unsloth --dataset op/ds --dry-run --json)"
-echo "${out}" | python3 -c "
+out="$("${PYTHON3}" "${SCRIPT}" run Phi-4-mini-instruct --method lora-unsloth --dataset op/ds --dry-run --json)"
+echo "${out}" | "${PYTHON3}" -c "
 import json,sys
 d=json.load(sys.stdin)
 assert d['outcome']=='dry-run', d
@@ -116,14 +123,14 @@ assert d['command'][0]=='unsloth', d
 
 # ---- second dry-run different method appends ----
 # sft-trl applies to llm/slm — Phi-4-mini is class=slm.
-python3 "${SCRIPT}" run Phi-4-mini-instruct --method sft-trl --dataset op/ds --dry-run > /dev/null
+"${PYTHON3}" "${SCRIPT}" run Phi-4-mini-instruct --method sft-trl --dataset op/ds --dry-run > /dev/null
 [ "$(wc -l < "${SOVEREIGN_OS_FINE_TUNE_STATE}")" -eq 2 ] \
   && ok "second dry-run appends to state (2 lines now)" \
   || ko "state file did not grow"
 
 # ---- history --json: 2 rows ----
-out="$(python3 "${SCRIPT}" history --json)"
-echo "${out}" | python3 -c "
+out="$("${PYTHON3}" "${SCRIPT}" history --json)"
+echo "${out}" | "${PYTHON3}" -c "
 import json,sys
 d=json.load(sys.stdin)
 assert d['round']=='R244', d
@@ -135,8 +142,8 @@ assert methods==['lora-unsloth','sft-trl'], methods
   || ko "history shape wrong"
 
 # ---- history --method filter ----
-out="$(python3 "${SCRIPT}" history --method lora-unsloth --json)"
-echo "${out}" | python3 -c "
+out="$("${PYTHON3}" "${SCRIPT}" history --method lora-unsloth --json)"
+echo "${out}" | "${PYTHON3}" -c "
 import json,sys
 d=json.load(sys.stdin)
 assert d['count']==1, d
@@ -146,8 +153,8 @@ assert d['rows'][0]['method']=='lora-unsloth', d
   || ko "history --method wrong"
 
 # ---- history --base filter ----
-out="$(python3 "${SCRIPT}" history --base Phi-4-mini-instruct --json)"
-echo "${out}" | python3 -c "
+out="$("${PYTHON3}" "${SCRIPT}" history --base Phi-4-mini-instruct --json)"
+echo "${out}" | "${PYTHON3}" -c "
 import json,sys
 d=json.load(sys.stdin)
 assert d['count']==2, d
@@ -157,7 +164,7 @@ assert d['count']==2, d
 
 # ---- toolchains catalog also lists lm-link (R244 expansion) ----
 out="$(python3 "${TOOLCHAINS}" list --json)"
-echo "${out}" | python3 -c "
+echo "${out}" | "${PYTHON3}" -c "
 import json,sys
 d=json.load(sys.stdin)
 names={t['name'] for t in d['toolchains']}
@@ -173,7 +180,7 @@ rc=$?
 set -e
 [ "${rc}" -eq 0 ] && ok "osctl models fine-tune list-methods rc=0" \
   || ko "osctl bridge rc=${rc}"
-python3 -c "
+"${PYTHON3}" -c "
 import json
 d=json.load(open('${TMP}/osctl.out'))
 assert d['round']=='R244', d

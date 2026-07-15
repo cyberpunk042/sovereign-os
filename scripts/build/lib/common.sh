@@ -43,6 +43,16 @@ export SOVEREIGN_OS_SCRIPTS_DIR="${SOVEREIGN_OS_ROOT}/scripts"
 # Strict mode for all scripts that source this lib
 set -euo pipefail
 
+# python3 resolver: some environments ship a first-in-PATH python3
+# without PyYAML. Pick the first python3 that can import yaml; fall
+# back to /usr/bin/python3.
+PYTHON3="${PYTHON3:-python3}"
+if ! "${PYTHON3}" -c "import yaml" >/dev/null 2>&1; then
+  if /usr/bin/python3 -c "import yaml" >/dev/null 2>&1; then
+    PYTHON3="/usr/bin/python3"
+  fi
+fi
+
 # Trap to convert uncaught errors into clean failure log entries.
 __sovereign_os_trap_err() {
   local line="$1" status="$2" cmd="$3"
@@ -102,7 +112,7 @@ profile_field() {
   # profile_field <yaml-path> — extract a field from the active
   # profile. yaml-path is dot-separated (e.g. "identity.name",
   # "hardware.cpu.march"). Uses python3 yaml; no yq dependency.
-  python3 - "$@" <<'PY'
+  "${PYTHON3}" - "$@" <<'PY'
 import sys
 try:
     import yaml

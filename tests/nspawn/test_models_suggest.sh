@@ -4,6 +4,13 @@
 # the R212 catalog and produces operator-actionable advice.
 
 set -euo pipefail
+PYTHON3="${PYTHON3:-python3}"
+if ! "${PYTHON3}" -c "import yaml" >/dev/null 2>&1; then
+  if /usr/bin/python3 -c "import yaml" >/dev/null 2>&1; then
+    PYTHON3=/usr/bin/python3
+  fi
+fi
+
 
 __SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 __REPO_ROOT="$(cd "${__SCRIPT_DIR}/../.." && pwd)"
@@ -30,7 +37,7 @@ grep -q "models suggest --runtime-profile" "${OSCTL}" \
 
 # --- --list ---
 set +e
-list_out="$(python3 "${SCRIPT}" --list)"
+list_out="$("${PYTHON3}" "${SCRIPT}" --list)"
 rc=$?
 set -e
 [ "${rc}" -eq 0 ] && ok "--list rc=0" || ko "--list rc=${rc}"
@@ -43,7 +50,7 @@ done
 WORK="$(mktemp -d)"
 trap 'rm -rf "${WORK}"' EXIT
 set +e
-python3 "${SCRIPT}" --runtime-profile high-concurrency-burst > "${WORK}/hcb.txt"
+"${PYTHON3}" "${SCRIPT}" --runtime-profile high-concurrency-burst > "${WORK}/hcb.txt"
 rc=$?
 set -e
 [ "${rc}" -eq 1 ] && ok "high-concurrency-burst rc=1 (flagged allocations)" \
@@ -76,11 +83,11 @@ grep -q "At least one allocation flagged" "${WORK}/hcb.txt" \
 
 # --- JSON mode ---
 set +e
-python3 "${SCRIPT}" --runtime-profile high-concurrency-burst --json > "${WORK}/hcb.json"
+"${PYTHON3}" "${SCRIPT}" --runtime-profile high-concurrency-burst --json > "${WORK}/hcb.json"
 rc=$?
 set -e
 [ "${rc}" -eq 1 ] && ok "--json rc=1 on flagged profile" || ko "--json rc=${rc}"
-python3 - "${WORK}/hcb.json" <<'PY' 2>/dev/null \
+"${PYTHON3}" - "${WORK}/hcb.json" <<'PY' 2>/dev/null \
   && ok "JSON shape correct + any_flagged=True + 3 allocations" \
   || ko "JSON shape wrong"
 import json, sys
@@ -95,7 +102,7 @@ PY
 
 # --- unknown profile → rc=2 ---
 set +e
-python3 "${SCRIPT}" --runtime-profile does-not-exist >/dev/null 2>&1
+"${PYTHON3}" "${SCRIPT}" --runtime-profile does-not-exist >/dev/null 2>&1
 rc=$?
 set -e
 [ "${rc}" -eq 2 ] && ok "unknown profile → rc=2" \
@@ -103,7 +110,7 @@ set -e
 
 # --- usage error (no flag) → rc=2 ---
 set +e
-python3 "${SCRIPT}" >/dev/null 2>&1
+"${PYTHON3}" "${SCRIPT}" >/dev/null 2>&1
 rc=$?
 set -e
 [ "${rc}" -eq 2 ] && ok "missing flag → rc=2" \
@@ -121,7 +128,7 @@ grep -qF "ultra-sovereign-efficiency" <<< "${out_osctl}" \
 
 # --- R216: --gpu-vram-gib host budget override ---
 set +e
-python3 "${SCRIPT}" --runtime-profile high-concurrency-burst \
+"${PYTHON3}" "${SCRIPT}" --runtime-profile high-concurrency-burst \
   --gpu-vram-gib 8,8 > "${WORK}/r216.txt"
 rc=$?
 set -e
@@ -140,10 +147,10 @@ grep -q "VRAM requirement 24 GiB exceeds allocation limit 8.0 GiB" "${WORK}/r216
 
 # JSON shape carries host_gpu_vram_gib echo
 set +e
-python3 "${SCRIPT}" --runtime-profile high-concurrency-burst \
+"${PYTHON3}" "${SCRIPT}" --runtime-profile high-concurrency-burst \
   --gpu-vram-gib 24,96 --json > "${WORK}/r216.json"
 set -e
-python3 - "${WORK}/r216.json" <<'PY' 2>/dev/null \
+"${PYTHON3}" - "${WORK}/r216.json" <<'PY' 2>/dev/null \
   && ok "R216 JSON carries host_gpu_vram_gib echo + matches input" \
   || ko "R216 JSON shape wrong"
 import json, sys
@@ -153,7 +160,7 @@ PY
 
 # Bad budget → rc=2
 set +e
-python3 "${SCRIPT}" --runtime-profile high-concurrency-burst \
+"${PYTHON3}" "${SCRIPT}" --runtime-profile high-concurrency-burst \
   --gpu-vram-gib "junk" >/dev/null 2>&1
 rc=$?
 set -e
