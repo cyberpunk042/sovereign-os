@@ -81,7 +81,7 @@ jobs:
         run: |
           apt-get update
           DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y \
-            bash-completion ca-certificates fish git make man-db python3 zsh
+            bash-completion ca-certificates fish git groff make man-db python3 zsh
           rm -rf /var/lib/apt/lists/*
 
       - name: checkout exact source
