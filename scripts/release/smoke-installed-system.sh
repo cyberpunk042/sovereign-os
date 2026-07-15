@@ -112,6 +112,8 @@ fish -c '
   complete -C "sovereign-osctl he"
 ' > "${work}/fish-completion.txt"
 cat -- "${work}/fish-completion.txt"
+grep -Eq '^help([[:space:]]|$)' "${work}/fish-completion.txt"
+printf 'all completion loaders passed\\n'
 
 # A second install must be byte-for-byte and mode-for-mode identical.
 make -C "${ROOT}" install PREFIX="${PREFIX}" >/dev/null
