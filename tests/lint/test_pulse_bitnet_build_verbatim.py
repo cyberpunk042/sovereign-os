@@ -45,17 +45,37 @@ def test_cflags_znver5_verbatim():
     )
 
 
-def test_all_6_mavx512_extensions_present():
-    """§16 + §9.1 verbatim 6-flag -mavx512* extension list MUST appear
-    complete (operator's exact list — silent shortening to fewer flags
-    silently disables specific instructions)."""
+def test_all_mavx512_extensions_present():
+    """§16 + §9.1 verbatim 5-flag -mavx512* extension list for Zen 5.
+    -mavx512fp16 is INTENTIONALLY ABSENT — verified absent on the physical
+    9900X (SDD-043, profiles/sain-01.yaml:41); emitting FP16 instructions
+    would SIGILL on the target itself. The remaining five flags are the
+    operator-verbatim AVX-512 surface for Zen 5."""
     body = _read_pulse_build()
     extensions = ["-mavx512f", "-mavx512dq", "-mavx512bw",
-                  "-mavx512vl", "-mavx512bf16", "-mavx512fp16"]
+                  "-mavx512vl", "-mavx512bf16"]
     missing = [e for e in extensions if e not in body]
     assert not missing, (
         f"build-bitnet.sh missing operator-verbatim §16+§9.1 -mavx512* "
-        f"extensions: {missing}. The complete 6-flag list is required."
+        f"extensions: {missing}. The Zen-5 five-flag list is required."
+    )
+
+
+def test_mavx512fp16_absent():
+    """SDD-043 / profiles/sain-01.yaml:41 — Zen 5 (9900X) does NOT ship
+    AVX512-FP16. Compiling with -mavx512fp16 risks SIGILL at runtime if
+    the compiler emits FP16 EVEX instructions. This test guards against
+    silent re-addition."""
+    body = _read_pulse_build()
+    import re
+    # Only match as an actual compiler flag (space-separated in CFLAGS or
+    # a shell variable assignment), not in comments or log messages.
+    flag_re = re.compile(r'(?<![A-Za-z0-9_-])-mavx512fp16(?![A-Za-z0-9_-])')
+    matches = flag_re.findall(body)
+    assert not matches, (
+        "build-bitnet.sh contains -mavx512fp16 as a compiler flag — "
+        "this flag is FORBIDDEN on Zen 5 targets (verified absent on "
+        "physical 9900X). Remove it from CFLAGS."
     )
 
 

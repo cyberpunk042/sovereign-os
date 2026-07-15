@@ -152,6 +152,40 @@ for g in (d.get('hardware') or {}).get('gpu') or []:
     log_warn "  SKIP — GPU pci_ids missing or identical in profile (primary='${primary_pid:-unset}' vfio='${vfio_pid:-unset}') — IOMMU-distinct blocker NOT verified"
     warn=$((warn + 1))
   fi
+
+  # E103 extension: even when no GPU is explicitly role=vfio, check if any
+  # egpu card carries vfio_companion (opt-in isolation candidate). If so,
+  # verify its IOMMU group is distinct from the primary — informational only,
+  # so the operator knows the physical isolation is possible before flipping
+  # role=vfio.
+  egpu_vfio_pids="$(python3 -c "
+import os, yaml
+with open(os.environ['SOVEREIGN_OS_PROFILE_FILE']) as f:
+    d = yaml.safe_load(f)
+for g in (d.get('hardware') or {}).get('gpu') or []:
+    if g.get('role') == 'egpu' and g.get('vfio_companion'):
+        print(g.get('pci_id', '') + ':' + g.get('vfio_companion', ''))
+")"
+  if [ -n "${egpu_vfio_pids}" ] && [ -n "${primary_pid}" ]; then
+    for pair in ${egpu_vfio_pids}; do
+      egpu_pid="${pair%%:*}"
+      egpu_audio="${pair##*:}"
+      egpu_bdf="$(lspci -nn | grep -i \"\[${egpu_pid}\]\" | awk '{print $1}' | head -1)"
+      primary_bdf="$(lspci -nn | grep -i \"\[${primary_pid}\]\" | awk '{print $1}' | head -1)"
+      if [ -n "${egpu_bdf}" ] && [ -n "${primary_bdf}" ]; then
+        egpu_group="$(readlink /sys/bus/pci/devices/0000:${egpu_bdf/:/:}/iommu_group 2>/dev/null | xargs -n1 basename)"
+        primary_group="$(readlink /sys/bus/pci/devices/0000:${primary_bdf/:/:}/iommu_group 2>/dev/null | xargs -n1 basename)"
+        if [ -n "${egpu_group}" ] && [ -n "${primary_group}" ]; then
+          if [ "${egpu_group}" != "${primary_group}" ]; then
+            log_info "  INFO — egpu ${egpu_pid} (group ${egpu_group}) and primary (group ${primary_group}) are in distinct IOMMU groups — VFIO isolation is physically possible (set role=vfio to enable)"
+          else
+            log_warn "  WARN — egpu ${egpu_pid} SHARES IOMMU group ${egpu_group} with primary — VFIO isolation would FAIL even if role=vfio is set"
+            warn=$((warn + 1))
+          fi
+        fi
+      fi
+    done
+  fi
 fi
 
 # ----------------- Memory check -----------------

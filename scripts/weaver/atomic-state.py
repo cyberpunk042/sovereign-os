@@ -38,6 +38,8 @@ Env vars (all overridable):
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
 import os
 import sys
 import time
@@ -165,6 +167,26 @@ def commit_state_atomically(file_name: str, payload: bytes) -> None:
 
     # Atomic rename: master spec § 21.1's load-bearing guarantee
     os.rename(tmp_path, context_path)
+
+    # E107: best-effort notification to the Weaver gRPC broadcast server
+    # so sub-agents learn of the change without filesystem polling.
+    try:
+        import urllib.request
+        notify_body = json.dumps({
+            "file_name": file_name,
+            "change_timestamp": int(time.time()),
+            "content_sha256": hashlib.sha256(payload).hexdigest(),
+            "trigger": "atomic-state.py write",
+        }).encode("utf-8")
+        req = urllib.request.Request(
+            "http://127.0.0.1:8103/_notify",
+            data=notify_body,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        urllib.request.urlopen(req, timeout=0.5)
+    except Exception:
+        pass  # gRPC server may not be running; silent degradation
 
     _emit_metric(
         "sovereign_os_weaver_atomic_write_total", 1,

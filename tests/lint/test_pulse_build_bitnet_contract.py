@@ -104,7 +104,11 @@ def test_uses_znver5_march_flag():
 
 
 def test_uses_avx512_flags():
-    """§ 16 verbatim: AVX-512 family (f + dq + bw + vl + bf16 + fp16)."""
+    """§ 16 verbatim: AVX-512 family (f + dq + bw + vl + bf16).
+    -mavx512fp16 is INTENTIONALLY ABSENT — Zen 5 (9900X) lacks AVX512-FP16
+    (SDD-043 / profiles/sain-01.yaml:41); emitting FP16 EVEX instructions
+    would SIGILL on the physical target. The remaining five flags are the
+    operator-verbatim AVX-512 surface for Zen 5."""
     body = _read(BUILD_SH)
     expected_flags = [
         "-mavx512f",
@@ -112,7 +116,6 @@ def test_uses_avx512_flags():
         "-mavx512bw",
         "-mavx512vl",
         "-mavx512bf16",
-        "-mavx512fp16",
     ]
     for flag in expected_flags:
         assert flag in body, (

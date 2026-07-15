@@ -52,6 +52,7 @@ log_info "==== sovereign-os Pulse runtime build (bitnet.cpp) ===="
 log_info "  master spec § 15-16 (1-Bit Paradigm + 512-bit AVX-512 Fusion)"
 log_info "  master spec § 17 Module 1 (The Pulse)"
 log_info "  compile target: -march=znver5 -O3 -mavx512* (per master spec § 16)"
+log_info "  NOTE: FP16 AVX-512 extension intentionally OMITTED — Zen 5 (9900X) lacks it"
 log_info "  repo:     ${BITNET_REPO}"
 log_info "  tag:      ${BITNET_TAG}"
 log_info "  build:    ${BITNET_BUILD_DIR}"
@@ -134,7 +135,7 @@ else
         ;;
     esac
   fi
-  : "${BITNET_CFLAGS:=-march=znver5 -O3 -mavx512f -mavx512dq -mavx512bw -mavx512vl -mavx512bf16 -mavx512fp16}"
+  : "${BITNET_CFLAGS:=-march=znver5 -O3 -mavx512f -mavx512dq -mavx512bw -mavx512vl -mavx512bf16}"
   log_info "configuring with CFLAGS=${BITNET_CFLAGS}"
   cd "${BITNET_BUILD_DIR}/BitNet"
   export CFLAGS="${BITNET_CFLAGS}"

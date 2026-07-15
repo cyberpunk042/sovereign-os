@@ -34,8 +34,17 @@ log_info "==== sovereign-os model catalog verification ===="
 log_info "  catalog:     ${CATALOG}"
 log_info "  models dir:  ${SOVEREIGN_OS_MODELS_DIR}"
 
+DEEP=0
+if [ "${1:-}" = "--deep" ]; then
+  DEEP=1
+  shift || true
+fi
+
 if [ -n "${SOVEREIGN_OS_DRY_RUN:-}" ]; then
   log_info "DRY-RUN: would verify every status=verified-real entry has resident dir"
+  if [ "${DEEP}" -eq 1 ]; then
+    log_info "DRY-RUN: would also run SHA256 manifest verification (--deep)"
+  fi
   log_info "DRY-RUN: would report per-tier (pulse/logic/oracle) coverage"
   exit 0
 fi
@@ -45,9 +54,10 @@ fi
 # cleanly without the parent common.sh ERR trap logging the heredoc.
 set +e
 trap - ERR
-python3 - "${CATALOG}" "${SOVEREIGN_OS_MODELS_DIR}" <<'PYEOF'
-import os, sys, yaml
+python3 - "${CATALOG}" "${SOVEREIGN_OS_MODELS_DIR}" "${DEEP}" <<'PYEOF'
+import os, sys, yaml, hashlib, glob
 catalog_path, models_dir = sys.argv[1], sys.argv[2]
+deep = sys.argv[3] == "1"
 with open(catalog_path) as f:
     doc = yaml.safe_load(f)
 
@@ -56,11 +66,44 @@ total = len(models)
 verified_real = [m for m in models if m["status"] == "verified-real"]
 present = []
 absent = []
+checksum_fail = []
 
 for m in verified_real:
     p = os.path.join(models_dir, m["id"])
     if os.path.isdir(p):
-        present.append(m["id"])
+        # E110: surface-level check = directory exists; deep check = non-empty
+        files = [f for f in os.listdir(p) if os.path.isfile(os.path.join(p, f))]
+        if files:
+            present.append(m["id"])
+        else:
+            absent.append(m["id"])
+            continue
+        if deep:
+            # Deep verification: check SHA256 manifest if present
+            manifest_candidates = glob.glob(os.path.join(p, "*.checksum")) + glob.glob(os.path.join(p, "sha256*")) + glob.glob(os.path.join(p, "*.sha256"))
+            if manifest_candidates:
+                for mc in manifest_candidates:
+                    try:
+                        with open(mc) as mf:
+                            for line in mf:
+                                line = line.strip()
+                                if not line or "  " not in line:
+                                    continue
+                                expected_sha, fn = line.split("  ", 1)
+                                fpath = os.path.join(p, fn)
+                                if os.path.isfile(fpath):
+                                    actual = hashlib.sha256(open(fpath, "rb").read()).hexdigest()
+                                    if actual != expected_sha:
+                                        checksum_fail.append(f"{m['id']}/{fn}: SHA256 mismatch")
+                                else:
+                                    checksum_fail.append(f"{m['id']}/{fn}: file missing per manifest")
+                    except Exception:
+                        pass
+            else:
+                # No manifest: verify files are non-empty as a basic integrity check
+                empty_files = [f for f in files if os.path.getsize(os.path.join(p, f)) == 0]
+                if empty_files:
+                    checksum_fail.append(f"{m['id']}: {len(empty_files)} empty file(s) (no manifest)")
     else:
         absent.append(m["id"])
 
@@ -78,6 +121,11 @@ if absent:
     for mid in absent:
         print(f"    ✗ {mid} — run: scripts/models/pull.sh {mid}")
     print()
+if checksum_fail:
+    print(f"  CHECKSUM/INTEGRITY FAILURES:")
+    for cf in checksum_fail:
+        print(f"    ✗ {cf}")
+    print()
 
 # Per-tier breakdown
 for tier in ("pulse", "logic", "oracle", "router"):
@@ -91,7 +139,7 @@ for tier in ("pulse", "logic", "oracle", "router"):
         )
         print(f"    {residency} {m['id']:40s} status={m['status']}")
 
-sys.exit(0 if not absent else 2)
+sys.exit(3 if checksum_fail else (2 if absent else 0))
 PYEOF
 rc=$?
 exit ${rc}

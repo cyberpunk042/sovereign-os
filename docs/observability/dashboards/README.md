@@ -285,6 +285,8 @@ Model catalog (R156 — master spec § 17/18):
 DFlash speculative decoding (R157 — master spec Block 7):
 - `sovereign_os_dflash_decision_total{task_type,decision}` — per-task-type gating decisions from `scripts/inference/dflash-wrap.sh` (enabled/disabled/disabled-no-install)
 - `sovereign_os_dflash_last_invocation_timestamp{task_type}` — last DFlash decision per task type
+- `sovereign_os_dflash_install_total{result}` — outcomes of `scripts/hooks/post-install/dflash-install.sh` (success/skip/fail)
+- `sovereign_os_dflash_bench_ratio` — vanilla vs DFlash decode-time ratio from `scripts/inference/bench-dflash.sh`
 
 DSpark speculative decoding (the DFlash successor — DeepSeek 2026-06-27; opt-in, on-by-default):
 - `sovereign_os_dspark_decision_total{task_type,decision}` — per-task-type gating decisions from `scripts/inference/dspark-wrap.sh` (enabled/disabled/downshift-dflash/disabled-no-install)

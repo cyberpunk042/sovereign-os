@@ -1,0 +1,40 @@
+syntax = "proto3";
+package weaver;
+
+option go_package = "github.com/cyberpunk042/sovereign-os/proto/weaver";
+
+// StateSynced is broadcast by the Weaver gRPC server whenever one of the
+// four state-fabric files (IDENTITY.md / SOUL.md / AGENTS.md / CLAUDE.md)
+// changes on disk. Sub-agents subscribe to this stream and react to
+// mutations without polling the filesystem.
+message StateSynced {
+  // Which state file changed.
+  string file_name = 1;
+
+  // Unix timestamp (seconds) of the change.
+  int64 change_timestamp = 2;
+
+  // SHA-256 of the file content after the change (best-effort; empty if
+  // hashing is disabled or the file was removed).
+  string content_sha256 = 3;
+
+  // Human-readable description of what triggered the change
+  // (e.g. "atomic-state.py write CLAUDE.md", "operator manual edit").
+  string trigger = 4;
+}
+
+// Empty request for subscription — the server streams all StateSynced events
+// to every subscriber.
+message SubscribeRequest {
+  // Optional: filter to a specific file name (empty = all files).
+  string filter_file = 1;
+}
+
+// WeaverStateService — the gRPC broadcast contract for the Weaver state fabric.
+// Podman sub-agents reach Weaver via this service.
+service WeaverStateService {
+  // Subscribe to a stream of StateSynced events. The server keeps the stream
+  // open and pushes events as they occur. Reconnect is the subscriber's
+  // responsibility.
+  rpc SubscribeStateChanges(SubscribeRequest) returns (stream StateSynced);
+}

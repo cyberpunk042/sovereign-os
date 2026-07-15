@@ -1,0 +1,45 @@
+[Unit]
+Description=Sovereign Weaver gRPC state-sync broadcast server (E107)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/operator/weaver-grpc.py
+# Broadcasts StateSynced events to subscribing sub-agents whenever
+# IDENTITY.md / SOUL.md / AGENTS.md / CLAUDE.md change. Complements
+# the read-only HTTP API (sovereign-weaver-api.service) with a
+# push-oriented transport for live state-fabric observers.
+#
+# Operator §17 sovereignty boundary: this service ONLY broadcasts;
+# it does not expose mutation verbs.
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/lib/sovereign-os/scripts/operator/weaver-grpc.py
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+Environment=WEAVER_GRPC_BIND=127.0.0.1:8103
+Environment=WEAVER_CONTEXT_DIR=/mnt/vault/context
+
+# Defense-in-depth — broadcast-only surface
+ProtectSystem=strict
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/lib/node_exporter/textfile_collector
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+
+[Install]
+WantedBy=multi-user.target

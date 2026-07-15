@@ -79,6 +79,13 @@ for ds in datasets:
         args += ['-o', f'sync={ds[\"sync\"]}']
     if 'redundant_metadata' in ds:
         args += ['-o', f'redundant_metadata={ds[\"redundant_metadata\"]}']
+    if ds.get('encryption') and ds['encryption'] != 'off':
+        enc = ds['encryption']
+        key_pass = os.environ.get('SOVEREIGN_OS_ENCRYPT_PASSPHRASE', '')
+        if key_pass:
+            args += ['-o', f'encryption={enc}', '-o', 'keyformat=passphrase']
+        else:
+            print(f'  [WARN] dataset {name} requests encryption={enc} but SOVEREIGN_OS_ENCRYPT_PASSPHRASE is unset; creating UNENCRYPTED (degraded)')
     args += [name]
     # Check existence
     chk = subprocess.run(['zfs', 'list', name], capture_output=True)
@@ -86,7 +93,13 @@ for ds in datasets:
         print(f'  [SKIP] {name} already exists')
         continue
     print(f'  [CREATE] {\" \".join(args)}')
-    subprocess.run(args, check=True)
+    if ds.get('encryption') and ds['encryption'] != 'off' and os.environ.get('SOVEREIGN_OS_ENCRYPT_PASSPHRASE', ''):
+        proc = subprocess.Popen(args, stdin=subprocess.PIPE, text=True)
+        proc.communicate(input=os.environ['SOVEREIGN_OS_ENCRYPT_PASSPHRASE'] + '\n' + os.environ['SOVEREIGN_OS_ENCRYPT_PASSPHRASE'] + '\n')
+        if proc.returncode != 0:
+            raise subprocess.CalledProcessError(proc.returncode, args)
+    else:
+        subprocess.run(args, check=True)
     print(f'           purpose: {ds.get(\"purpose\", \"-\")}')
 " || datasets_rc=$?
 if [ "${datasets_rc}" -ne 0 ]; then

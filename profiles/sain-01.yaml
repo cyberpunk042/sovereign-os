@@ -153,10 +153,12 @@ hardware:
         compression: zstd-9
         copies: 2
         sync: always
+        encryption: aes-256-gcm
         purpose: "state-fabric race-free atomic transitions (Weaver writes; Pulse + Auditor read)"
       - name: tank/agents
         recordsize: 128k
         compression: zstd-3
+        encryption: aes-256-gcm
         purpose: "runtime cache + sub-agent scratch"
 
   network:
@@ -380,15 +382,15 @@ provisioning:
   # operator-launched per posture. (Pulse tier = BitNet ternary, Logic = Qwen3-Coder
   # keep their own defaults.)
   model:
-    # Llama 4 Scout — 109B total / 17B-active MoE: ~55-60GB at Q4, fits the 96GB
-    # card with wide KV-cache headroom, MoE-fast decode, 10M context (agentic/
-    # long-context reasoning). GATED on HF: needs SOVEREIGN_OS_HF_TOKEN — the hook
-    # degrades gracefully (non-fatal, resumable post-flash) when absent. An
-    # ungated alternative that also fits: a 70B-dense at FP8, or a Qwen3 large model.
-    repo: meta-llama/Llama-4-Scout-17B-16E-Instruct
-    local_dir: /mnt/vault/models/llama-4-scout-17b-16e-instruct   # where the Oracle Core (ReadOnlyPaths=/mnt/vault/models) reads it
-    quantization: fp8              # vLLM --quantization; fp8 fits the 96GB card with wide KV headroom
-    min_free_gb: 120              # refuse the download if /mnt/vault/models has less headroom than this
+    # E110: Nemotron-3-Nano-Omni-30B-Reasoning-BF16 — NVIDIA public HF repo,
+    # ungated, verified-real. 60GB at BF16 fits the 96GB card with 36GB KV-
+    # cache headroom; multimodal (vision+audio+text) any-to-any. Operator can
+    # upgrade live to Llama-4-Scout (gated, needs HF token) via
+    # sovereign-osctl models pull after setting SOVEREIGN_OS_HF_TOKEN.
+    repo: nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-BF16
+    local_dir: /mnt/vault/models/nemotron-3-nano-omni-30b-reasoning-bf16
+    quantization: bf16
+    min_free_gb: 80
   # OpenClaw preconfig (SDD-705). Points the Node gateway daemon at the LOCAL vLLM
   # Oracle endpoint so agents run on-box against the sovereign model — no external
   # provider, no baked channel credentials. Installed-off: `sovereign-osctl openclaw on`.
@@ -508,6 +510,12 @@ hooks:
     - id: root-ghostproxy-endpoint-install
       type: security
       script: scripts/hooks/post-install/root-ghostproxy-endpoint-install.sh
+      mandatory: false
+    # E109: DFlash speculative-decoding library (optional; installed-off
+    # if the operator hasn't requested it explicitly).
+    - id: dflash-install
+      type: setup
+      script: scripts/hooks/post-install/dflash-install.sh
       mandatory: false
 
   post_install_recurrent:
