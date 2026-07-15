@@ -98,6 +98,10 @@ def test_shell_completions_are_generated_from_the_complete_inventory():
         result = _run_helper("completion", shell)
         assert result.returncode == 0, result.stderr
         assert "sovereign-osctl" in result.stdout
+        if shell == "zsh":
+            assert result.stdout.startswith("#compdef sovereign-osctl sosctl\\n")
+            assert "_sovereign_osctl()" not in result.stdout
+            assert "compdef _sovereign_osctl" not in result.stdout
         for command in expected:
             if shell == "bash":
                 # Bash deliberately resolves the registry at completion time.
