@@ -119,6 +119,9 @@ clean-pyc:  ## Remove Python bytecode cruft (__pycache__ dirs + *.pyc) from the 
 
 PREFIX ?= /usr/local
 SOVEREIGN_OS_LIB ?= $(PREFIX)/lib/sovereign-os
+# Fish resolves vendor completions from its build-time data root, not PREFIX.
+# Keep this platform path overrideable and DESTDIR-stageable.
+FISH_COMPLETION_DIR ?= /usr/share/fish/vendor_completions.d
 
 man:  ## Regenerate the committed sovereign-osctl(1) roff artifact (requires pandoc)
 	bash scripts/docs/build-sovereign-osctl-manpage.sh build
@@ -139,7 +142,7 @@ install:  ## Install sovereign-osctl + manpages + command discovery to PREFIX (d
 	            "$(DESTDIR)$(PREFIX)/share/man/man1" \
 	            "$(DESTDIR)$(PREFIX)/share/bash-completion/completions" \
 	            "$(DESTDIR)$(PREFIX)/share/zsh/site-functions" \
-	            "$(DESTDIR)$(PREFIX)/share/fish/vendor_completions.d"
+	            "$(DESTDIR)$(FISH_COMPLETION_DIR)"
 	@install -m 755 scripts/sovereign-osctl "$(DESTDIR)$(PREFIX)/bin/sovereign-osctl"
 	@install -m 644 VERSION "$(DESTDIR)$(SOVEREIGN_OS_LIB)/VERSION"
 	@install -m 755 scripts/operator/command-discovery.py "$(DESTDIR)$(SOVEREIGN_OS_LIB)/operator/command-discovery.py"
@@ -156,12 +159,12 @@ install:  ## Install sovereign-osctl + manpages + command discovery to PREFIX (d
 	@install -m 644 docs/man/sovereign-osctl*.1 "$(DESTDIR)$(PREFIX)/share/man/man1/"
 	@python3 scripts/operator/command-discovery.py --registry docs/man/sovereign-osctl-command-topics.json completion bash > "$(DESTDIR)$(PREFIX)/share/bash-completion/completions/sovereign-osctl"
 	@python3 scripts/operator/command-discovery.py --registry docs/man/sovereign-osctl-command-topics.json completion zsh > "$(DESTDIR)$(PREFIX)/share/zsh/site-functions/_sovereign-osctl"
-	@python3 scripts/operator/command-discovery.py --registry docs/man/sovereign-osctl-command-topics.json completion fish > "$(DESTDIR)$(PREFIX)/share/fish/vendor_completions.d/sovereign-osctl.fish"
+	@python3 scripts/operator/command-discovery.py --registry docs/man/sovereign-osctl-command-topics.json completion fish > "$(DESTDIR)$(FISH_COMPLETION_DIR)/sovereign-osctl.fish"
 	@echo "Installed:"
 	@echo "  $(DESTDIR)$(PREFIX)/bin/sovereign-osctl"
 	@echo "  $(DESTDIR)$(SOVEREIGN_OS_LIB)/  (lib + hooks + profiles + inference + whitelabel)"
 	@echo "  $(DESTDIR)$(PREFIX)/share/man/man1/sovereign-osctl*.1"
-	@echo "  Bash/Zsh/Fish completion files under $(DESTDIR)$(PREFIX)/share/"
+	@echo "  Bash/Zsh completions under $(DESTDIR)$(PREFIX)/share/; Fish under $(DESTDIR)$(FISH_COMPLETION_DIR)/"
 	@echo "Note: this installs the shared libs + osctl. The systemd fleet (111 units)"
 	@echo "      + the script trees the units reference is installed by 'make install-units'."
 
@@ -225,7 +228,7 @@ uninstall:  ## Remove sovereign-osctl + manpages + completions + the `bins` bina
 	@rm -f  "$(DESTDIR)$(PREFIX)/share/man/man1/sovereign-osctl"*.1
 	@rm -f  "$(DESTDIR)$(PREFIX)/share/bash-completion/completions/sovereign-osctl"
 	@rm -f  "$(DESTDIR)$(PREFIX)/share/zsh/site-functions/_sovereign-osctl"
-	@rm -f  "$(DESTDIR)$(PREFIX)/share/fish/vendor_completions.d/sovereign-osctl.fish"
+	@rm -f  "$(DESTDIR)$(FISH_COMPLETION_DIR)/sovereign-osctl.fish"
 	@rm -rf "$(DESTDIR)$(SOVEREIGN_OS_LIB)"
 	@rm -f  "$(DESTDIR)$(PREFIX)/bin/sovereign-telemetry"
 	@rm -f  "$(DESTDIR)$(PREFIX)/bin/sovereign-resource-control"

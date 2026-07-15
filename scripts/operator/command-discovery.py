@@ -161,12 +161,9 @@ _sovereign_osctl_complete() {
 complete -F _sovereign_osctl_complete sovereign-osctl sosctl""")
     elif args.shell == "zsh":
         print(f"""#compdef sovereign-osctl sosctl
-_sovereign_osctl() {{
-  local -a commands
-  commands=({words})
-  _describe 'sovereign-osctl command' commands
-}}
-compdef _sovereign_osctl sovereign-osctl sosctl""")
+local -a commands
+commands=({words})
+_describe 'sovereign-osctl command' commands""")
     else:
         print("# fish completion for sovereign-osctl (registry-backed)")
         print("complete -c sovereign-osctl -f -n '__fish_use_subcommand' -a '%s'" % words)

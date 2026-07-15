@@ -54,6 +54,9 @@ def test_release_bundle_is_rebuilt_and_smoked_before_publication():
     assert workflow.index("smoke-release.sh dist") < workflow.index("gh release create")
     assert "subject-path:" in workflow
     assert "sbom-path:" in workflow
+    assert "container: debian:13-slim" in workflow
+    assert "needs: [package, installed-system]" in workflow
+    assert "smoke-installed-system.sh" in workflow
 
 
 def test_release_scripts_are_syntax_valid_and_fail_closed():
@@ -61,6 +64,7 @@ def test_release_scripts_are_syntax_valid_and_fail_closed():
         RELEASE_DIR / "validate-release-tag.sh",
         RELEASE_DIR / "build-release.sh",
         RELEASE_DIR / "smoke-release.sh",
+        RELEASE_DIR / "smoke-installed-system.sh",
     )
     result = subprocess.run(
         ["bash", "-n", *(str(path) for path in shell_scripts)],
@@ -92,6 +96,22 @@ def test_release_scripts_are_syntax_valid_and_fail_closed():
     assert "sha256sum -c SHA256SUMS" in smoke
     assert "unsafe archive member" in smoke
     assert "make -C" in smoke and "install" in smoke and "uninstall" in smoke
+
+
+def test_clean_install_smoke_exercises_real_system_integrations():
+    smoke = _read(RELEASE_DIR / "smoke-installed-system.sh")
+    for required in (
+        "mandb --create --quiet",
+        "man --where --manpath",
+        "whatis --manpath",
+        "_completion_loader sovereign-osctl",
+        "compinit -D",
+        'complete -C "sovereign-osctl he"',
+        "first.manifest",
+        "second.manifest",
+        'make -C "${ROOT}" uninstall',
+    ):
+        assert required in smoke
 
 
 def test_operator_release_documentation_covers_trust_verification():
