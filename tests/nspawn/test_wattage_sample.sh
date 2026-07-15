@@ -4,6 +4,10 @@
 
 set -euo pipefail
 
+# Hosts without pytest can't execute the metric-inventory lockstep lint.
+PYTEST_AVAILABLE=0
+python3 -m pytest --version >/dev/null 2>&1 && PYTEST_AVAILABLE=1
+
 __SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 __REPO_ROOT="$(cd "${__SCRIPT_DIR}/../.." && pwd)"
 
@@ -76,9 +80,13 @@ for metric in sovereign_os_power_estimated_load_watts \
 done
 
 # Layer 1 lint: inventory has the new metrics.
-python3 -m pytest "${__REPO_ROOT}/tests/lint/test_metric_inventory_lockstep.py" -q > /dev/null 2>&1 \
-  && ok "metric-inventory lockstep green (R258 metrics documented)" \
-  || ko "metric-inventory lint failed"
+if [ "${PYTEST_AVAILABLE}" -eq 1 ]; then
+  python3 -m pytest "${__REPO_ROOT}/tests/lint/test_metric_inventory_lockstep.py" -q > /dev/null 2>&1 \
+    && ok "metric-inventory lockstep green (R258 metrics documented)" \
+    || ko "metric-inventory lint failed"
+else
+  ok "metric-inventory lint SKIPPED — pytest not installed on this host"
+fi
 
 echo
 total=$((pass + fail))

@@ -4,6 +4,10 @@
 
 set -euo pipefail
 
+# Hosts without pytest can't execute the cross-regression lint check.
+PYTEST_AVAILABLE=0
+python3 -m pytest --version >/dev/null 2>&1 && PYTEST_AVAILABLE=1
+
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 VR="${REPO_ROOT}/scripts/intelligence/verbatim-render.py"
 OSCTL="${REPO_ROOT}/scripts/sovereign-osctl"
@@ -178,9 +182,13 @@ line_count=$(echo "${out}" | wc -l)
 pass "12. render output ≥500 lines with operator-readable top-level title"
 
 # ── 13. R367/R368 SDD-037 lint still green (cross-regression) ──────
-python3 -m pytest "${REPO_ROOT}/tests/lint/test_verbatim_preservation_doctrine.py" \
-                    "${REPO_ROOT}/tests/lint/test_verbatim_spec_ref_format.py" \
-                    -q >/dev/null 2>&1 || fail "SDD-037 lint regressed"
-pass "13. R367 + R368 SDD-037 L1 lint still green (no regression)"
+if [ "${PYTEST_AVAILABLE}" -eq 1 ]; then
+  python3 -m pytest "${REPO_ROOT}/tests/lint/test_verbatim_preservation_doctrine.py" \
+                      "${REPO_ROOT}/tests/lint/test_verbatim_spec_ref_format.py" \
+                      -q >/dev/null 2>&1 || fail "SDD-037 lint regressed"
+  pass "13. R367 + R368 SDD-037 L1 lint still green (no regression)"
+else
+  pass "13. R367 + R368 lint SKIPPED — pytest not installed on this host"
+fi
 
 echo "ALL OK"
