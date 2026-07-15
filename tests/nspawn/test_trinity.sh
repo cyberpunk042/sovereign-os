@@ -17,6 +17,9 @@ ok() { echo "  PASS — $1"; pass=$((pass + 1)); }
 ko() { echo "  FAIL — $1"; fail=$((fail + 1)); }
 
 OSCTL="${__REPO_ROOT}/scripts/sovereign-osctl"
+state_dir="$(mktemp -d)"
+trap 'rm -rf "${state_dir}"' EXIT
+export SOVEREIGN_OS_STATE_DIR="${state_dir}"
 
 echo "tests/nspawn/test_trinity.sh"
 echo
@@ -209,6 +212,13 @@ if [ "${rc}" -eq 0 ] && grep -q "active profile set to: high-concurrency-burst" 
   ok "profile switch → exit 0 + confirmation"
 else
   ko "profile switch broken (rc=${rc})"
+fi
+
+env_file="${state_dir}/active-runtime-profile-env.sh"
+if [ -s "${env_file}" ] && grep -qF "# profile: high-concurrency-burst" "${env_file}"; then
+  ok "profile switch writes env state beside the active-profile marker"
+else
+  ko "profile switch did not write the runtime env file under SOVEREIGN_OS_STATE_DIR"
 fi
 
 set +e
