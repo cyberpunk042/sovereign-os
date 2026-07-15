@@ -45,6 +45,14 @@ __REPO_ROOT="$(cd "${__SCRIPT_DIR}/.." && pwd)"
 # shellcheck source=../build/lib/observability.sh
 . "${__REPO_ROOT}/build/lib/observability.sh" 2>/dev/null || true
 
+# ---------- python3 resolver ----------
+PYTHON3="${PYTHON3:-python3}"
+if ! "${PYTHON3}" -c "import yaml" >/dev/null 2>&1; then
+  if /usr/bin/python3 -c "import yaml" >/dev/null 2>&1; then
+    PYTHON3="/usr/bin/python3"
+  fi
+fi
+
 type log_info >/dev/null 2>&1 || log_info() { echo "INFO  [network/render-asymmetric] $*"; }
 type log_warn >/dev/null 2>&1 || log_warn() { echo "WARN  [network/render-asymmetric] $*"; }
 type log_error >/dev/null 2>&1 || log_error() { echo "ERROR [network/render-asymmetric] $*" >&2; }
@@ -78,7 +86,7 @@ log_info "  out dir:     ${SOVEREIGN_OS_NET_OUT_DIR}"
 log_info "  mode:        ${MODE}"
 
 # ---------- read network entries from profile ----------
-network_entries="$(python3 - "${PROFILE_FILE}" <<'PYEOF'
+network_entries="$(${PYTHON3} - "${PROFILE_FILE}" <<'PYEOF'
 import sys, yaml
 with open(sys.argv[1]) as f:
     doc = yaml.safe_load(f)

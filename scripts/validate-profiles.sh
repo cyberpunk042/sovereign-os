@@ -13,8 +13,16 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PROFILE_DIR="${REPO_ROOT}/profiles"
 SCHEMA="${REPO_ROOT}/schemas/profile.schema.yaml"
 
+# ---------- python3 resolver ----------
+PYTHON3="${PYTHON3:-python3}"
+if ! "${PYTHON3}" -c "import yaml, jsonschema" >/dev/null 2>&1; then
+  if /usr/bin/python3 -c "import yaml, jsonschema" >/dev/null 2>&1; then
+    PYTHON3="/usr/bin/python3"
+  fi
+fi
+
 # Quick dep check
-python3 -c "import yaml, jsonschema" 2>/dev/null || {
+"${PYTHON3}" -c "import yaml, jsonschema" 2>/dev/null || {
   echo "error: missing python3 deps (yaml + jsonschema)"
   echo "  install: pip install pyyaml jsonschema"
   exit 2
@@ -29,7 +37,7 @@ for p in "${PROFILE_DIR}"/*.yaml; do
   total=$((total + 1))
 
   # 1. Raw-profile schema check
-  if ! python3 -c "
+  if ! "${PYTHON3}" -c "
 import yaml, jsonschema, sys
 schema = yaml.safe_load(open('${SCHEMA}'))
 instance = yaml.safe_load(open('${p}'))
@@ -41,7 +49,7 @@ jsonschema.Draft202012Validator(schema).validate(instance)
   fi
 
   # 2. Mixin-resolved profile schema check
-  if ! python3 -c "
+  if ! "${PYTHON3}" -c "
 import sys
 sys.path.insert(0, '${REPO_ROOT}')
 import yaml, jsonschema

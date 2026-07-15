@@ -17,6 +17,15 @@ set -euo pipefail
 
 __SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 __REPO_ROOT="$(cd "${__SCRIPT_DIR}/.." && pwd)"
+
+# ---------- python3 resolver ----------
+PYTHON3="${PYTHON3:-python3}"
+if ! "${PYTHON3}" -c "import yaml" >/dev/null 2>&1; then
+  if /usr/bin/python3 -c "import yaml" >/dev/null 2>&1; then
+    PYTHON3="/usr/bin/python3"
+  fi
+fi
+
 # shellcheck source=../build/lib/common.sh
 . "${__REPO_ROOT}/build/lib/common.sh" 2>/dev/null || true
 
@@ -54,7 +63,7 @@ fi
 # cleanly without the parent common.sh ERR trap logging the heredoc.
 set +e
 trap - ERR
-python3 - "${CATALOG}" "${SOVEREIGN_OS_MODELS_DIR}" "${DEEP}" <<'PYEOF'
+"${PYTHON3}" - "${CATALOG}" "${SOVEREIGN_OS_MODELS_DIR}" "${DEEP}" <<'PYEOF'
 import os, sys, yaml, hashlib, glob
 catalog_path, models_dir = sys.argv[1], sys.argv[2]
 deep = sys.argv[3] == "1"

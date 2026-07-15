@@ -15,6 +15,14 @@ __SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=../lib/common.sh
 . "${__SCRIPT_DIR}/../lib/common.sh"
 
+# ---------- python3 resolver ----------
+PYTHON3="${PYTHON3:-python3}"
+if ! "${PYTHON3}" -c "import yaml" >/dev/null 2>&1; then
+  if /usr/bin/python3 -c "import yaml" >/dev/null 2>&1; then
+    PYTHON3="/usr/bin/python3"
+  fi
+fi
+
 profile_yaml="${1:?usage: mkosi-emit.sh <profile.yaml> <out-dir>}"
 out_dir="${2:?usage: mkosi-emit.sh <profile.yaml> <out-dir>}"
 
@@ -22,7 +30,7 @@ require_file "${profile_yaml}"
 mkdir -p "${out_dir}"/{mkosi.conf.d,mkosi.skeleton,mkosi.extra,mkosi.repart}
 
 # Use python to translate YAML → mkosi .conf (INI-style)
-SOVEREIGN_OS_PROFILE_FILE="${profile_yaml}" python3 - "${out_dir}" <<'PY'
+SOVEREIGN_OS_PROFILE_FILE="${profile_yaml}" "${PYTHON3}" - "${out_dir}" <<'PY'
 import os, sys, yaml, pathlib, textwrap, shutil, subprocess
 
 out_dir = pathlib.Path(sys.argv[1])

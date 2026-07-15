@@ -1791,7 +1791,7 @@ cmd_profiles() {
       fi
       # Read base, mutate identity.{id, parent}, write new
       BASE_FILE="${base_file}" NEW_FILE="${new_file}" BASE_ID="${base}" NEW_ID="${new}" \
-      python3 - <<'PY'
+      ${PYTHON3} - <<'PY'
 import os, yaml
 with open(os.environ["BASE_FILE"]) as f:
     data = yaml.safe_load(f) or {}
@@ -2356,7 +2356,7 @@ cmd_perimeter() {
       #   2. non-sovereign-os policies asserting on host-scoped
       #      syscalls without container scope (would conflict with
       #      sovereign-kernel-fence)
-      exec python3 "${__REPO_ROOT}/scripts/perimeter/check-overlap.py" "$@"
+      exec "${PYTHON3}" "${__REPO_ROOT}/scripts/perimeter/check-overlap.py" "$@"
       ;;
     *)
       log_error "unknown perimeter subcommand: ${sub}"
@@ -2465,7 +2465,7 @@ cmd_models() {
       # R206: regenerate docs/src/model-catalog.md from models/catalog.yaml.
       # Applies the SDD-028 canonical-source pattern — same data the puller
       # + verifier consume, also drives the operator-readable doc.
-      "${__REPO_ROOT}/scripts/models/render-catalog-md.py" "$@"
+      "${PYTHON3}" "${__REPO_ROOT}/scripts/models/render-catalog-md.py" "$@"
       ;;
     query)
       # R213: filter the model catalog by R212 taxonomy (class /
@@ -2625,7 +2625,7 @@ cmd_audit() {
       log_info "manifest: ${manifest}"
       [ -f "${sums}" ] && log_info "sha256sums: ${sums}" || log_warn "sha256sums.txt absent — content-verify skipped"
       [ "${deep_mode}" -eq 1 ] && log_info "deep mode: will recompute SHA256 of files on disk"
-      python3 - "${manifest}" "${sums:-/dev/null}" "${deep_mode}" <<'PY'
+      ${PYTHON3} - "${manifest}" "${sums:-/dev/null}" "${deep_mode}" <<'PY'
 import json, sys, hashlib, pathlib
 manifest_path = pathlib.Path(sys.argv[1])
 sums_path = pathlib.Path(sys.argv[2]) if sys.argv[2] != '/dev/null' else None
@@ -2856,7 +2856,7 @@ PY
       fi
 
       # Check 2: /etc/os-release ID matches whitelabel.branding.os_id (if rendered)
-      local declared_os_id; declared_os_id="$(PROFILE_FILE="${profile_file}" REPO_ROOT="${__REPO_ROOT}" python3 -c "
+      local declared_os_id; declared_os_id="$(PROFILE_FILE="${profile_file}" REPO_ROOT="${__REPO_ROOT}" ${PYTHON3} -c "
 import os, yaml, pathlib
 with open(os.environ['PROFILE_FILE']) as f:
     pdata = yaml.safe_load(f) or {}
@@ -2884,7 +2884,7 @@ else:
       # in the profile, check the dest files match the source. Reuses R111's
       # logic at a high level: just check if the file is present + size > 0.
       local has_hardening
-      has_hardening="$(PROFILE_FILE="${profile_file}" python3 -c "
+      has_hardening="$(PROFILE_FILE="${profile_file}" ${PYTHON3} -c "
 import os, yaml
 with open(os.environ['PROFILE_FILE']) as f:
     data = yaml.safe_load(f) or {}
@@ -2911,7 +2911,7 @@ else: print('none')
       # Check 4: number of installed packages vs profile.packages.base + role
       # (informational — package set is mutable in service of operator workflow)
       local declared_pkgs
-      declared_pkgs="$(PROFILE_FILE="${profile_file}" python3 -c "
+      declared_pkgs="$(PROFILE_FILE="${profile_file}" ${PYTHON3} -c "
 import os, yaml
 with open(os.environ['PROFILE_FILE']) as f:
     data = yaml.safe_load(f) or {}
@@ -3823,7 +3823,7 @@ cmd_alerts() {
   local alerts_jsonl
   alerts_jsonl="$(SOVEREIGN_OS_METRICS_DIR="${SOVEREIGN_OS_METRICS_DIR}" \
                   STALE_CUTOFF="${stale_cutoff}" \
-                  python3 - <<'PY'
+                  ${PYTHON3} - <<'PY'
 import os, re, json, glob
 
 mdir = os.environ["SOVEREIGN_OS_METRICS_DIR"]
@@ -4012,7 +4012,7 @@ cmd_env() {
       done
 
       # Scan + dedupe + present
-      ENV_FILTER="${filter}" REPO_ROOT="${__REPO_ROOT}" python3 - <<'PY'
+      ENV_FILTER="${filter}" REPO_ROOT="${__REPO_ROOT}" ${PYTHON3} - <<'PY'
 import os, re, pathlib, collections
 
 repo = pathlib.Path(os.environ["REPO_ROOT"])
@@ -4068,7 +4068,7 @@ PY
         log_error "usage: sovereign-osctl env show <NAME>"
         return 2
       fi
-      ENV_NAME="${name}" REPO_ROOT="${__REPO_ROOT}" CURRENT="${!name:-(unset)}" python3 - <<'PY'
+      ENV_NAME="${name}" REPO_ROOT="${__REPO_ROOT}" CURRENT="${!name:-(unset)}" ${PYTHON3} - <<'PY'
 import os, re, pathlib, sys
 
 repo = pathlib.Path(os.environ["REPO_ROOT"])
@@ -5662,7 +5662,7 @@ _trinity_profile() {
         return 1
       }
       fam="${resolved%%$'\t'*}"; f="${resolved#*$'\t'}"
-      RUNTIME_FILE="${f}" python3 - <<'PY'
+      RUNTIME_FILE="${f}" ${PYTHON3} - <<'PY'
 import os, yaml
 with open(os.environ["RUNTIME_FILE"]) as fh:
     data = yaml.safe_load(fh) or {}
@@ -5745,7 +5745,7 @@ PY
       mkdir -p "$(dirname "${env_file}")" 2>/dev/null || true
 
       # Parse the runtime profile YAML and generate shell env exports
-      RUNTIME_FILE="${f}" ENV_FILE="${env_file}" python3 - <<'PYEOF'
+      RUNTIME_FILE="${f}" ENV_FILE="${env_file}" ${PYTHON3} - <<'PYEOF'
 import os, yaml
 
 with open(os.environ["RUNTIME_FILE"]) as fh:
@@ -6459,7 +6459,7 @@ cmd_hooks() {
         log_error "no such profile: ${id}"
         return 1
       fi
-      PROFILE_FILE="${f}" python3 - <<'PY'
+      PROFILE_FILE="${f}" ${PYTHON3} - <<'PY'
 import os, yaml
 with open(os.environ["PROFILE_FILE"]) as fh:
     data = yaml.safe_load(fh) or {}
@@ -6532,7 +6532,7 @@ PY
       fi
       # Mutate the profile YAML
       PROFILE_FILE="${f}" STAGE="${stage}" HOOK_ID="${id}" SCRIPT="${script}" \
-      MAND="${mandatory}" python3 - <<'PY'
+      MAND="${mandatory}" ${PYTHON3} - <<'PY'
 import os, yaml, sys
 pfile = os.environ["PROFILE_FILE"]
 stage = os.environ["STAGE"]
@@ -6597,7 +6597,7 @@ PY
         log_error "no such profile: ${profile}"
         return 1
       fi
-      PROFILE_FILE="${f}" HOOK_ID="${id}" python3 - <<'PY'
+      PROFILE_FILE="${f}" HOOK_ID="${id}" ${PYTHON3} - <<'PY'
 import os, yaml, sys
 pfile = os.environ["PROFILE_FILE"]
 hook_id = os.environ["HOOK_ID"]
@@ -6807,7 +6807,7 @@ cmd_inference() {
 
     route)
       local prompt="${*:-hello}"
-      python3 - <<PY
+      ${PYTHON3} - <<PY
 import sys
 sys.path.insert(0, "${__REPO_ROOT}/scripts/inference")
 from router import classify

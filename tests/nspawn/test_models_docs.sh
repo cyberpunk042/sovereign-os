@@ -9,6 +9,14 @@ set -euo pipefail
 __SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 __REPO_ROOT="$(cd "${__SCRIPT_DIR}/../.." && pwd)"
 
+# python3 resolver — some CI envs lack PyYAML in the first python3.
+PYTHON3="${PYTHON3:-python3}"
+if ! "${PYTHON3}" -c "import yaml" >/dev/null 2>&1; then
+  if /usr/bin/python3 -c "import yaml" >/dev/null 2>&1; then
+    PYTHON3="/usr/bin/python3"
+  fi
+fi
+
 fail=0
 pass=0
 ok() { echo "  PASS — $1"; pass=$((pass + 1)); }
@@ -28,7 +36,7 @@ echo
   || { ko "doc not committed"; exit 1; }
 
 set +e
-python3 "${RENDER}" --check >/dev/null 2>&1
+"${PYTHON3}" "${RENDER}" --check >/dev/null 2>&1
 rc=$?
 set -e
 [ "${rc}" -eq 0 ] && ok "--check rc=0 on fresh tree" \
@@ -59,7 +67,7 @@ grep -q "◌ aspirational" "${DOC}" \
   && ok "aspirational badge present" || ko "no aspirational badge"
 
 # Model count matches YAML
-yaml_count=$(python3 -c "import yaml; print(len(yaml.safe_load(open('${YAML}'))['catalog']['models']))")
+yaml_count=$(${PYTHON3} -c "import yaml; print(len(yaml.safe_load(open('${YAML}'))['catalog']['models']))")
 doc_count=$(grep -cE "^### " "${DOC}")
 [ "${doc_count}" -eq "${yaml_count}" ] \
   && ok "all ${yaml_count} models rendered (one ### header each)" \
@@ -68,7 +76,7 @@ doc_count=$(grep -cE "^### " "${DOC}")
 # --stdout parity
 WORK="$(mktemp -d)"
 trap 'rm -rf "${WORK}"' EXIT
-python3 "${RENDER}" --stdout > "${WORK}/rendered.md"
+"${PYTHON3}" "${RENDER}" --stdout > "${WORK}/rendered.md"
 diff -q "${DOC}" "${WORK}/rendered.md" >/dev/null \
   && ok "--stdout parity with on-disk doc" \
   || ko "--stdout drift"
@@ -77,7 +85,7 @@ diff -q "${DOC}" "${WORK}/rendered.md" >/dev/null \
 cp "${DOC}" "${WORK}/backup.md"
 echo "STALE" >> "${DOC}"
 set +e
-python3 "${RENDER}" --check >/dev/null 2>&1
+"${PYTHON3}" "${RENDER}" --check >/dev/null 2>&1
 rc=$?
 set -e
 cp "${WORK}/backup.md" "${DOC}"

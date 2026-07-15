@@ -12,6 +12,14 @@
 if [ -n "${__SOVEREIGN_OS_RUNTIME_PROFILE_LOADED:-}" ]; then return 0; fi
 __SOVEREIGN_OS_RUNTIME_PROFILE_LOADED=1
 
+# ---------- python3 resolver ----------
+PYTHON3="${PYTHON3:-python3}"
+if ! "${PYTHON3}" -c "import yaml" >/dev/null 2>&1; then
+  if /usr/bin/python3 -c "import yaml" >/dev/null 2>&1; then
+    PYTHON3="/usr/bin/python3"
+  fi
+fi
+
 # Find the active runtime profile YAML path (or empty if none active).
 # Resolution: /etc/sovereign-os/active-runtime-profile → file content
 # is the id; we then resolve to profiles/runtime/<id>.yaml.
@@ -46,7 +54,7 @@ runtime_profile_get_tier_field() {
   local tier="$1" field="$2"
   local yaml; yaml="$(runtime_profile_active_file)" || return 0
 
-  YAML_FILE="${yaml}" TIER="${tier}" FIELD="${field}" python3 - <<'PY'
+  YAML_FILE="${yaml}" TIER="${tier}" FIELD="${field}" "${PYTHON3}" - <<'PY'
 import os, yaml
 from pathlib import Path
 

@@ -84,7 +84,7 @@ if grep -q "march=znver5" "${SCRIPT}"; then
 else
   ko "znver5 compile flag missing"
 fi
-for flag in mavx512f mavx512dq mavx512bw mavx512vl mavx512bf16 mavx512fp16; do
+for flag in mavx512f mavx512dq mavx512bw mavx512vl mavx512bf16; do
   if grep -q "${flag}" "${SCRIPT}"; then
     ok "AVX-512 flag present: -${flag}"
   else

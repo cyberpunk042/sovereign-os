@@ -13,6 +13,14 @@ set -euo pipefail
 __SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 __REPO_ROOT="$(cd "${__SCRIPT_DIR}/../.." && pwd)"
 
+# python3 resolver — some CI envs lack PyYAML in the first python3.
+PYTHON3="${PYTHON3:-python3}"
+if ! "${PYTHON3}" -c "import yaml" >/dev/null 2>&1; then
+  if /usr/bin/"${PYTHON3}" -c "import yaml" >/dev/null 2>&1; then
+    PYTHON3="/usr/bin/python3"
+  fi
+fi
+
 fail=0
 pass=0
 ok() { echo "  PASS — $1"; pass=$((pass + 1)); }
@@ -32,14 +40,14 @@ grep -q "SDD-015" "${SCRIPT}" && ok "script cites selfdef SDD-015 (cross-repo mi
   || ko "SDD-015 citation missing"
 
 # python3 + yaml available
-python3 -c "import yaml" 2>/dev/null && ok "python3-yaml importable" \
+"${PYTHON3}" -c "import yaml" 2>/dev/null && ok "python3-yaml importable" \
   || ko "python3-yaml not installed"
 
 # ---------- empty dir → PASS, rc=0 ----------
 TMP="$(mktemp -d)"
 trap 'rm -rf "${TMP}"' EXIT
 set +e
-out="$(python3 "${SCRIPT}" --policies-dir "${TMP}" 2>&1)"
+out="$("${PYTHON3}" "${SCRIPT}" --policies-dir "${TMP}" 2>&1)"
 rc=$?
 set -e
 [ "${rc}" -eq 0 ] && grep -q "PASS" <<< "${out}" \
@@ -48,7 +56,7 @@ set -e
 
 # ---------- non-existent dir → PASS, rc=0 (operator without Tetragon) ----------
 set +e
-out="$(python3 "${SCRIPT}" --policies-dir /no/such/path 2>&1)"
+out="$("${PYTHON3}" "${SCRIPT}" --policies-dir /no/such/path 2>&1)"
 rc=$?
 set -e
 [ "${rc}" -eq 0 ] && ok "non-existent dir → rc=0 (graceful)" \
@@ -65,7 +73,7 @@ spec:
     - call: sys_execve
 EOF
 set +e
-out="$(python3 "${SCRIPT}" --policies-dir "${TMP}" 2>&1)"
+out="$("${PYTHON3}" "${SCRIPT}" --policies-dir "${TMP}" 2>&1)"
 rc=$?
 set -e
 [ "${rc}" -eq 0 ] && ok "sovereign-kernel-fence alone → rc=0 (host-scoped is OK from sovereign-os itself)" \
@@ -82,7 +90,7 @@ spec:
     - call: sys_execve
 EOF
 set +e
-out="$(python3 "${SCRIPT}" --policies-dir "${TMP}" 2>&1)"
+out="$("${PYTHON3}" "${SCRIPT}" --policies-dir "${TMP}" 2>&1)"
 rc=$?
 set -e
 if [ "${rc}" -eq 1 ] && grep -q "agent-guard-bad" <<< "${out}" \
@@ -108,7 +116,7 @@ spec:
               values: [container]
 EOF
 set +e
-out="$(python3 "${SCRIPT}" --policies-dir "${TMP}" 2>&1)"
+out="$("${PYTHON3}" "${SCRIPT}" --policies-dir "${TMP}" 2>&1)"
 rc=$?
 set -e
 [ "${rc}" -eq 0 ] && grep -q "PASS" <<< "${out}" \
@@ -131,7 +139,7 @@ spec:
 EOF
 cp "${TMP}/agent-guard-dup-a.yaml" "${TMP}/agent-guard-dup-b.yaml"
 set +e
-out="$(python3 "${SCRIPT}" --policies-dir "${TMP}" 2>&1)"
+out="$("${PYTHON3}" "${SCRIPT}" --policies-dir "${TMP}" 2>&1)"
 rc=$?
 set -e
 if [ "${rc}" -eq 1 ] && grep -q "duplicate metadata.name" <<< "${out}"; then
@@ -154,7 +162,7 @@ spec:
     - call: sys_execve
 EOF
 set +e
-out="$(python3 "${SCRIPT}" --policies-dir "${TMP}" --warn-only 2>&1)"
+out="$("${PYTHON3}" "${SCRIPT}" --policies-dir "${TMP}" --warn-only 2>&1)"
 rc=$?
 set -e
 [ "${rc}" -eq 0 ] && grep -q "FAIL" <<< "${out}" \
@@ -163,9 +171,9 @@ set -e
 
 # ---------- --json output ----------
 set +e
-out="$(python3 "${SCRIPT}" --policies-dir "${TMP}" --json 2>&1)"
+out="$("${PYTHON3}" "${SCRIPT}" --policies-dir "${TMP}" --json 2>&1)"
 set -e
-if python3 -c "import json; d=json.loads('''${out}'''); assert 'findings' in d; assert 'policies' in d; assert 'pass' in d" 2>/dev/null; then
+if "${PYTHON3}" -c "import json; d=json.loads('''${out}'''); assert 'findings' in d; assert 'policies' in d; assert 'pass' in d" 2>/dev/null; then
   ok "--json output parseable + has expected keys"
 else
   ko "--json output broken"
@@ -183,7 +191,7 @@ spec:
     - call: sys_execve
 EOF
 set +e
-out="$(python3 "${SCRIPT}" --policies-dir "${TMP}" 2>&1)"
+out="$("${PYTHON3}" "${SCRIPT}" --policies-dir "${TMP}" 2>&1)"
 rc=$?
 set -e
 if [ "${rc}" -eq 1 ] && grep -q "third-party" <<< "${out}"; then
@@ -209,7 +217,7 @@ spec:
               values: [container]
 EOF
 set +e
-out="$(python3 "${SCRIPT}" --policies-dir "${TMP}" 2>&1)"
+out="$("${PYTHON3}" "${SCRIPT}" --policies-dir "${TMP}" 2>&1)"
 rc=$?
 set -e
 [ "${rc}" -eq 0 ] && grep -q "PASS" <<< "${out}" \

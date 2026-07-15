@@ -25,6 +25,15 @@ set -euo pipefail
 
 __SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 __REPO_ROOT="$(cd "${__SCRIPT_DIR}/.." && pwd)"
+
+# ---------- python3 resolver ----------
+PYTHON3="${PYTHON3:-python3}"
+if ! "${PYTHON3}" -c "import yaml" >/dev/null 2>&1; then
+  if /usr/bin/python3 -c "import yaml" >/dev/null 2>&1; then
+    PYTHON3="/usr/bin/python3"
+  fi
+fi
+
 # shellcheck source=../build/lib/common.sh
 . "${__REPO_ROOT}/build/lib/common.sh" 2>/dev/null || true
 # shellcheck source=../build/lib/observability.sh
@@ -44,7 +53,7 @@ CATALOG="${__REPO_ROOT}/../models/catalog.yaml"
 # ---------- catalog query helpers (python3 + PyYAML) ----------
 catalog_query() {
   local query="$1"
-  python3 - "${CATALOG}" "${query}" <<'PYEOF'
+  "${PYTHON3}" - "${CATALOG}" "${query}" <<'PYEOF'
 import sys, yaml
 path, query = sys.argv[1], sys.argv[2]
 with open(path) as f:
