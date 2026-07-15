@@ -5,6 +5,13 @@
 
 set -euo pipefail
 
+PYTHON3="${PYTHON3:-python3}"
+if ! "${PYTHON3}" -c "import yaml" >/dev/null 2>&1; then
+  if /usr/bin/python3 -c "import yaml" >/dev/null 2>&1; then
+    PYTHON3="/usr/bin/python3"
+  fi
+fi
+
 __SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 __REPO_ROOT="$(cd "${__SCRIPT_DIR}/../.." && pwd)"
 
@@ -27,7 +34,7 @@ echo
 
 # --check on a fresh tree must pass
 set +e
-python3 "${RENDER}" --check >/dev/null 2>&1
+"${PYTHON3}" "${RENDER}" --check >/dev/null 2>&1
 rc=$?
 set -e
 [ "${rc}" -eq 0 ] && ok "--check rc=0 on fresh tree" \
@@ -62,7 +69,7 @@ grep -qE "^\| III \| Storage Layer \+ DKMS \(ZFS\) \| 7 \|" "${DOC}" \
 # --stdout writes to stdout without touching the file
 WORK="$(mktemp -d)"
 trap 'rm -rf "${WORK}"' EXIT
-python3 "${RENDER}" --stdout > "${WORK}/rendered.md" 2>&1
+"${PYTHON3}" "${RENDER}" --stdout > "${WORK}/rendered.md" 2>&1
 diff -q "${DOC}" "${WORK}/rendered.md" >/dev/null \
   && ok "--stdout output matches on-disk doc" \
   || ko "--stdout drift vs on-disk doc"
@@ -71,7 +78,7 @@ diff -q "${DOC}" "${WORK}/rendered.md" >/dev/null \
 cp "${DOC}" "${WORK}/backup.md"
 echo "STALE-EDIT" >> "${DOC}"
 set +e
-python3 "${RENDER}" --check >/dev/null 2>&1
+"${PYTHON3}" "${RENDER}" --check >/dev/null 2>&1
 rc=$?
 set -e
 cp "${WORK}/backup.md" "${DOC}"

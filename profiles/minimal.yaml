@@ -16,157 +16,133 @@
 # AI-workstation specific). Does NOT carry SAIN-01-specific hardware
 # constraints (motherboard pcie_constraints, dual-CCD masks, etc.).
 
-schema_version: "1.0.0"
-
+schema_version: 1.0.0
 mixins:
-  - role-headless
-  - whitelabel-default
-
+- role-headless
+- whitelabel-default
 identity:
   id: minimal
-  name: "Minimal (headless / VM baseline)"
-  version: "0.1.0"
+  name: Minimal (headless / VM baseline)
+  version: 0.1.0
   parent: null
   status: draft
   maintainer: cyberpunk042
-  description: |
-    Constrained baseline profile for headless VMs and small boxes.
-    Generic x86-64-v3 march (works on any post-2015 x86). No GPU
-    requirement. ext4 root. Standard Debian/substrate kernel; no
-    custom build. Boots to a working sovereign-os surface ready for
-    cloud-init/preseed-driven configuration. Demonstrates schema
-    pluralism — same schema, same mixin merger, fundamentally
-    different deployment shape (no GPU, no ZFS, no Tetragon perimeter).
-
+  description: "Constrained baseline profile for headless VMs and small boxes.\nGeneric\
+    \ x86-64-v3 march (works on any post-2015 x86). No GPU\nrequirement. ext4 root.\
+    \ Standard Debian/substrate kernel; no\ncustom build. Boots to a working sovereign-os\
+    \ surface ready for\ncloud-init/preseed-driven configuration. Demonstrates schema\n\
+    pluralism \u2014 same schema, same mixin merger, fundamentally\ndifferent deployment\
+    \ shape (no GPU, no ZFS, no Tetragon perimeter).\n"
 hardware:
   cpu:
     architecture: x86_64
     family: generic
-    march: x86-64-v3      # safe across all post-2015 x86_64
+    march: x86-64-v3
     features:
       required:
-        - sse4_2
-        - avx2
+      - sse4_2
+      - avx2
       preferred:
-        - avx
-        - fma
+      - avx
+      - fma
     cores:
       physical: 2
       threads: 4
       topology: monolithic
-
-  # No GPU declared. Profile schema allows the field to be absent /
-  # an empty list — minimal exercises that.
   gpu: []
-
   memory:
     minimum_gb: 2
     target_gb: 4
     type: ddr4
     ecc: false
-
   storage:
     layout: ext4
     devices:
-      - role: rootfs
-        type: virtio-blk
-        count: 1
-        topology: single
-
+    - role: rootfs
+      type: virtio-blk
+      count: 1
+      topology: single
   network:
-    - role: lan
-      speed_gbps: 1
-      default_gateway: true
-
+  - role: lan
+    speed_gbps: 1
+    default_gateway: true
   motherboard:
     vendor: virtual
-    model: "qemu / generic"
+    model: qemu / generic
     bios_pinned: false
-
 kernel:
   source: substrate-default
-  version_minimum: "6.1"
+  version_minimum: '6.1'
   packaging: substrate-default
   config:
     enable: []
     require_microcode: none
   cmdline:
     base:
-      - quiet
-      - splash
-    secure_boot: signed   # may sign even on minimal — substrate may default to it
-
+    - quiet
+    - splash
+    secure_boot: signed
 packages:
   base:
-    - openssh-server
-    - sudo
-    - ca-certificates
-    - curl
-    - python3-minimal
-    - htop
-  profile: []             # No profile-specific surface; mixin role-headless covers the role
+  - openssh-server
+  - sudo
+  - ca-certificates
+  - curl
+  - python3-minimal
+  - htop
+  profile: []
   deny:
-    - popularity-contest
-    - apport
-    - whoopsie
-    - snapd
-    - ubuntu-advantage-tools
-    # No NVIDIA drivers, no podman, no GUI — minimal stays minimal
-    - nvidia-driver
-
+  - popularity-contest
+  - apport
+  - whoopsie
+  - snapd
+  - ubuntu-advantage-tools
+  - nvidia-driver
 hooks:
   pre_install:
-    - id: friction-audit-spec
-      type: validation
-      script: scripts/hooks/pre-install/friction-audit-spec.sh
-      mandatory: true
-    - id: preflight-network
-      type: validation
-      script: scripts/hooks/pre-install/preflight-network.sh
-      mandatory: false
-    - id: preflight-storage
-      type: validation
-      script: scripts/hooks/pre-install/preflight-storage.sh
-      mandatory: true
-
+  - id: friction-audit-spec
+    type: validation
+    script: scripts/hooks/pre-install/friction-audit-spec.sh
+    mandatory: true
+  - id: preflight-network
+    type: validation
+    script: scripts/hooks/pre-install/preflight-network.sh
+    mandatory: false
+  - id: preflight-storage
+    type: validation
+    script: scripts/hooks/pre-install/preflight-storage.sh
+    mandatory: true
   during_install:
-    - id: rootfs-format
-      type: setup
-      script: scripts/hooks/during-install/rootfs-format-ext4.sh
-      mandatory: true
-
+  - id: rootfs-format
+    type: setup
+    script: scripts/hooks/during-install/rootfs-format-ext4.sh
+    mandatory: true
   post_install_first_boot:
-    - id: friction-audit-runtime
-      type: validation
-      script: scripts/hooks/post-install/friction-audit-runtime.sh
-      mandatory: false
-    # No first-login-assistant: minimal boots to a quiet ready state.
-    # No vfio / nvidia / tetragon / zfs hooks: not applicable.
-
+  - id: friction-audit-runtime
+    type: validation
+    script: scripts/hooks/post-install/friction-audit-runtime.sh
+    mandatory: false
   decommission:
-    - id: secure-wipe
-      type: cleanup
-      script: scripts/hooks/decommission/secure-wipe.sh
-      mandatory: true
-
+  - id: secure-wipe
+    type: cleanup
+    script: scripts/hooks/decommission/secure-wipe.sh
+    mandatory: true
 lifecycle:
   evolution_policy: replaceable
   supported_substrate:
-    - "mkosi >= 23.0"
-    - "live-build >= 20240101"
+  - mkosi >= 23.0
+  - live-build >= 20240101
   supported_kernel:
-    - "6.1.x"
-    - "6.6.x"
-    - "6.12.x"
+  - 6.1.x
+  - 6.6.x
+  - 6.12.x
   deprecation_target: null
   successor_profile: null
-
 whitelabel:
   profile: default
   surfaces:
-    - all
+  - all
   legal_compliance: dfsg-only
-
 observability:
   telemetry_sink: prometheus-local
   log_retention_days: 7

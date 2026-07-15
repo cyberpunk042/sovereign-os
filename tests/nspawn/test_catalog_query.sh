@@ -5,6 +5,13 @@
 
 set -euo pipefail
 
+PYTHON3="${PYTHON3:-python3}"
+if ! "${PYTHON3}" -c "import yaml" >/dev/null 2>&1; then
+  if /usr/bin/python3 -c "import yaml" >/dev/null 2>&1; then
+    PYTHON3="/usr/bin/python3"
+  fi
+fi
+
 __SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 __REPO_ROOT="$(cd "${__SCRIPT_DIR}/../.." && pwd)"
 
@@ -31,7 +38,7 @@ grep -q "models query \[--class" "${OSCTL}" \
 
 # --- single-flag filters ---
 set +e
-rlm_out="$(python3 "${SCRIPT}" --class rlm)"
+rlm_out="$("${PYTHON3}" "${SCRIPT}" --class rlm)"
 rc=$?
 set -e
 [ "${rc}" -eq 0 ] && ok "--class rlm rc=0" || ko "--class rlm rc=${rc}"
@@ -41,7 +48,7 @@ grep -q "DeepSeek-R1-Distill-Llama-70B-Q4_K_M" <<< "${rlm_out}" \
   && ok "rlm filter returns Q4_K_M variant" || ko "missing Q4_K_M"
 
 set +e
-code_out="$(python3 "${SCRIPT}" --purpose code --status verified-real)"
+code_out="$("${PYTHON3}" "${SCRIPT}" --purpose code --status verified-real)"
 rc=$?
 set -e
 [ "${rc}" -eq 0 ] && ok "--purpose code --status verified-real rc=0" \
@@ -51,7 +58,7 @@ grep -q "Qwen3-Coder-32B-Instruct" <<< "${code_out}" \
 
 # --- composing AND filters ---
 set +e
-budget_out="$(python3 "${SCRIPT}" --max-vram 5)"
+budget_out="$("${PYTHON3}" "${SCRIPT}" --max-vram 5)"
 rc=$?
 set -e
 [ "${rc}" -eq 0 ] && ok "--max-vram 5 rc=0" || ko "max-vram rc=${rc}"
@@ -66,7 +73,7 @@ grep -q "BitNet-b1.58-2B-4T" <<< "${budget_out}" \
 
 # --- min-context ---
 set +e
-ctx_out="$(python3 "${SCRIPT}" --min-context 131072)"
+ctx_out="$("${PYTHON3}" "${SCRIPT}" --min-context 131072)"
 rc=$?
 set -e
 [ "${rc}" -eq 0 ] && ok "--min-context 131072 rc=0" || ko "min-context rc=${rc}"
@@ -76,7 +83,7 @@ grep -q "Phi-4-mini-instruct" <<< "${ctx_out}" \
 
 # --- LoRA adapter filtering ---
 set +e
-lora_out="$(python3 "${SCRIPT}" --class lora-adapter)"
+lora_out="$("${PYTHON3}" "${SCRIPT}" --class lora-adapter)"
 rc=$?
 set -e
 [ "${rc}" -eq 0 ] && ok "--class lora-adapter rc=0" || ko "lora filter rc=${rc}"
@@ -86,7 +93,7 @@ grep -q "deepseek-coder-loras-rust-systems" <<< "${lora_out}" \
 
 # --- zero matches → rc=1 ---
 set +e
-python3 "${SCRIPT}" --class rlm --tier pulse >/dev/null 2>&1
+"${PYTHON3}" "${SCRIPT}" --class rlm --tier pulse >/dev/null 2>&1
 rc=$?
 set -e
 [ "${rc}" -eq 1 ] && ok "zero-match query → rc=1" \
@@ -96,11 +103,11 @@ set -e
 WORK="$(mktemp -d)"
 trap 'rm -rf "${WORK}"' EXIT
 set +e
-python3 "${SCRIPT}" --purpose reasoning --json > "${WORK}/q.json"
+"${PYTHON3}" "${SCRIPT}" --purpose reasoning --json > "${WORK}/q.json"
 rc=$?
 set -e
 [ "${rc}" -eq 0 ] && ok "--json --purpose reasoning rc=0" || ko "json rc=${rc}"
-python3 - "${WORK}/q.json" <<'PY' 2>/dev/null \
+"${PYTHON3}" - "${WORK}/q.json" <<'PY' 2>/dev/null \
   && ok "JSON shape correct + every entry has purpose=reasoning" \
   || ko "JSON shape wrong"
 import json, sys
