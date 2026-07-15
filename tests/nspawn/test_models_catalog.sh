@@ -153,6 +153,7 @@ else
 fi
 
 # ---------- verify.sh on fully-resident dir → rc=0 ----------
+# E110 defines resident as a model directory containing at least one file.
 # Compute the resident-dir set + expected count from models/catalog.yaml
 # directly — the verified-real model count has grown from 5 (Round 156
 # initial) to 15+ as the master-spec § 17 model catalog expanded. The
@@ -170,6 +171,7 @@ for m in doc['catalog']['models']:
 ")
 for d in "${VERIFIED_REAL_IDS[@]}"; do
   mkdir -p "${TMP_FULL}/${d}"
+  printf 'fixture for %s\n' "${d}" > "${TMP_FULL}/${d}/weights.fixture"
 done
 EXPECTED_N=${#VERIFIED_REAL_IDS[@]}
 set +e
