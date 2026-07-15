@@ -127,21 +127,21 @@ Full guide: [Use the box as your AI backend](../ai-backend.md) § "The desktop +
 | Tetragon not active | `systemctl status tetragon` · `sovereign-osctl perimeter reload` |
 | Hardening drop-in mismatch | `sovereign-osctl audit drift` to see which; re-apply with the post-install hook |
 
-## What's NOT yet built specific to sain-01 (master-spec materialization arc)
+## Master-spec materialization arc (R149–R159) — status
 
-| Master spec | Round | Status |
-|---|---|---|
-| Trinity surfaced as `trinity` verb | R149 | not started |
-| 3 runtime profiles selectable (Ultra-Sovereign · High-Concurrency · Deep Context) | R150 | not started |
-| CCD-pinned start scripts | R151 | not started |
-| Real bitnet.cpp build from source | R152 | not started |
-| Wasm-to-AVX-512 AOT pipeline | R153 | not started |
-| Atomic state transition protocol | R154 | not started |
-| Guardian Daemon | R155 | not started |
-| Real model catalog (Qwen-32B · DeepSeek-V3/R1 · Ling-2.6 · Nemotron-3-Nano) | R156 | not started |
-| DFlash speculative decoding | R157 | not started |
-| Asymmetric networking opinionated to master-spec values | R158 | not started |
-| `bootstrap verify` (master spec § 22 checklist) | R159 | not started |
+| Master spec | Round | Status | Artifact |
+|---|---|---|---|
+| Trinity surfaced as `trinity` verb | R149 | **DONE** | `sovereign-osctl trinity {status,pulse,weaver,auditor,profile}` |
+| 3 runtime profiles selectable (Ultra-Sovereign · High-Concurrency · Deep Context) | R150 | **DONE** | `profiles/runtime/*.yaml` + `trinity profile <name>` |
+| CCD-pinned start scripts | R151 | **DONE** | `scripts/inference/start-{pulse,logic-engine,oracle-core}.sh` |
+| Real bitnet.cpp build from source | R152 | **DONE** | `scripts/pulse/build-bitnet.sh` |
+| Wasm-to-AVX-512 AOT pipeline | R153 | **DONE** | `scripts/pulse/wasm-aot.sh` |
+| Atomic state transition protocol | R154 | **DONE** | `scripts/weaver/atomic-state.py` |
+| Guardian Daemon | R155 | **DONE** | `scripts/auditor/guardian-core.py` + `systemd/system/sovereign-guardian-core.service` |
+| Real model catalog (Qwen-32B · DeepSeek-V3/R1 · Ling-2.6 · Nemotron-3-Nano) | R156 | **DONE** | `models/catalog.yaml` (schema 1.1.0, 9 entries) |
+| DFlash speculative decoding | R157 | **DONE** | `scripts/inference/dflash-wrap.sh` + `dflash-install.sh` + `bench-dflash.sh` |
+| Asymmetric networking opinionated to master-spec values | R158 | **DONE** | `scripts/network/render-asymmetric.sh` |
+| `bootstrap verify` (master spec § 22 checklist) | R159 | **DONE** | `scripts/bootstrap/verify.sh` + `sovereign-osctl bootstrap verify` |
 
 ## Customization
 

@@ -103,10 +103,10 @@ avoids constant small-kernel context-switching on the GPUs.
 **In-repo state**:
 - `scripts/inference/backends/bitnet.py` exists as a placeholder.
 - `scripts/inference/start-pulse.sh` exists with affinity-pinning groundwork.
-- **NOT YET BUILT** as of this writing: real bitnet.cpp build (from source,
-  znver5 flags, model fetch); Wasm AOT pipeline (Cranelift/wasmtime
-  binary fetch, znver5 target wiring, sample `pulse_core.wasm`).
-  Tracked in arc R152-R153.
+- **BUILT** (R152-R153): `scripts/pulse/build-bitnet.sh` compiles bitnet.cpp
+  from source with `-march=znver5` + AVX-512 flags, fetches the default
+  BitNet model, and installs `bitnet-cli` to `/usr/local/bin/`.
+  `scripts/pulse/wasm-aot.sh` implements the Wasm-to-AVX-512 AOT pipeline.
 
 ### Module 2 — The Weaver (Sandboxed Fabric)
 
@@ -152,9 +152,10 @@ zfs set logbias=latency tank/context
 - `scripts/hooks/during-install/zfs-datasets-create.sh` creates `tank/context`
   with the prescribed recordsize/compression/copies/sync settings per SDD-017.
 - VFIO bind exists at `scripts/hooks/post-install/vfio-bind-4090.sh`.
-- **NOT YET BUILT**: the atomic state transition protocol primitives
-  (`scripts/weaver/atomic-state.py` per master spec § 21.1's Python blueprint).
-  Tracked in R154.
+- **BUILT** (R154): `scripts/weaver/atomic-state.py` implements the Atomic
+  State Transition Protocol with `O_DIRECT | O_SYNC | O_TRUNC` writes,
+  4K-aligned buffers, atomic `os.rename()`, and per-file Layer B metrics.
+  Best-effort Weaver gRPC/SSE notification added in SDD-714.
 
 ### Module 3 — The Auditor (Immutable Gatekeeper)
 
@@ -181,11 +182,14 @@ Perimeter Engine), 10 (Native Guardian Event Loop), 17 (the Auditor module).
 - `scripts/hooks/post-install/tetragon-policy-load.sh` loads the policy.
 - `scripts/hooks/recurrent/tetragon-policy-verify.sh` re-checks daily.
 - `sovereign-osctl perimeter {status, verify, reload}` operator surface.
-- **NOT YET BUILT**: Guardian Daemon proper. The Tetragon policy alone is
-  most of what the master spec demands — the Guardian's `podman kill +
-  log + native bell` flow is the missing 30%. Tracked in R155.
-  (Possible the operator's `selfdef` repo is the actual home for this;
-  cross-repo decision pending.)
+- **BUILT** (R155): `scripts/auditor/guardian-core.py` implements the full
+  Native Guardian Event Loop. It tails the Tetragon UNIX socket
+  (`/var/run/tetragon/tetragon.events`), parses JSON kernel eBPF events,
+  triggers `podman kill` on SIGKILL/process violations, and atomically
+  appends to `/mnt/vault/context/security_audit.log` via `O_APPEND`.
+  Install script: `scripts/auditor/install.sh`. Systemd unit:
+  `systemd/system/sovereign-guardian-core.service` (After/Requires/BindsTo
+  `tetragon.service`). Layer B metrics emitted to the textfile collector.
 
 ---
 
@@ -381,12 +385,12 @@ podman run --device nvidia.com/gpu=all -v /mnt/vault/models:/models:ro \
 |---|---|---|---|
 | **BitNet-b1.58-3B** | Conductor (low-power) | Pulse / CPU | Backend stub at `scripts/inference/backends/bitnet.py` (R152) |
 | **BitNet-b1.58-13B** | Conductor (high-concurrency) | Pulse / CPU | same |
-| **Qwen-32B-Ternary-Quant** | Translator / Logic Engine | vllm / RTX 5090 (D-022) | not configured (R156) |
-| **DeepSeek-R1-Distill-Llama-70B-FP16** | Deep Reasoner | llama.cpp / Blackwell | not configured (R156) |
-| **DeepSeek-V3-Quant** | Unified-memory inference | vLLM tensor-parallel | not configured (R156) |
-| **Ling-2.6-flash** (107B bailing_hybrid; MIT) | Operator-added candidate | TBD | not configured (R156) |
-| **Nemotron-3-Nano-Omni-30B-Reasoning-BF16** | Operator-added candidate (multimodal any-to-any) | TBD | not configured (R156) |
-| **DFlash** speculative decoder | 3× speedup on code/math (operator-added) | layered on top of Pulse/Logic | not integrated (R157) |
+| **Qwen-32B-Ternary-Quant** | Translator / Logic Engine | vllm / RTX 5090 (D-022) | configured in `models/catalog.yaml` (R156) |
+| **DeepSeek-R1-Distill-Llama-70B-FP16** | Deep Reasoner | llama.cpp / Blackwell | configured in `models/catalog.yaml` (R156) |
+| **DeepSeek-V3-Quant** | Unified-memory inference | vLLM tensor-parallel | configured in `models/catalog.yaml` (R156) |
+| **Ling-2.6-flash** (107B bailing_hybrid; MIT) | Operator-added candidate | TBD | configured in `models/catalog.yaml` (R156) |
+| **Nemotron-3-Nano-Omni-30B-Reasoning-BF16** | Operator-added candidate (multimodal any-to-any) | TBD | configured in `models/catalog.yaml` (R156) |
+| **DFlash** speculative decoder | 3× speedup on code/math (operator-added) | layered on top of Pulse/Logic | integrated via `scripts/inference/dflash-wrap.sh` (R157) + install hook `scripts/hooks/post-install/dflash-install.sh` + benchmark `scripts/inference/bench-dflash.sh` (SDD-714) |
 
 ---
 
@@ -404,9 +408,12 @@ hardware. Six checks; any anomaly → lock-state until the Architect clears.
 | 05 | Security core | Tetragon UNIX socket active + streaming | `ls -la /var/run/tetragon/tetragon.events` |
 | 06 | Network line | enp5s0 at Jumbo MTU 9000 | `ip link show enp5s0 \| grep -i "mtu 9000"` |
 
-**In repo**: piecewise covered by preflight + audit + status verbs.
-**NOT YET BUILT** as one single `sovereign-osctl bootstrap verify`
-command. Tracked in R159.
+**BUILT** (R159): `scripts/bootstrap/verify.sh` implements the full 6-check
+operational grid. Dispatched via `sovereign-osctl bootstrap verify`.
+Supports `--json`, `--only`, `--strict` (promotes SKIP to FAIL), and
+env overrides `BOOTSTRAP_VERIFY_DATA_IFACE` / `BOOTSTRAP_VERIFY_ARC_MAX_BYTES`.
+Canonical metadata lives in `config/bootstrap/verify-grid.yaml` (SDD-028
+single source of truth).
 
 ---
 
@@ -436,14 +443,14 @@ Tracked rounds in the arc:
 | § 17 — Trinity surfaced as first-class | `sovereign-osctl trinity {status,pulse,weaver,auditor}` verb | R149 |
 | § 18 — 3 runtime profiles selectable | `profiles/runtime/*.yaml` + `trinity profile <name>` | R150 |
 | § 19 — CCD-pinned core masks | Per-profile `taskset` wiring in start scripts | R151 |
-| §§ 15-16 — Real bitnet.cpp | Build-from-source + znver5 flags + model fetch | R152 |
-| § 20 — Wasm-to-AVX-512 AOT | Cranelift/wasmtime + sample pulse_core.wasm | R153 |
-| § 21 — Atomic state transition protocol | `scripts/weaver/atomic-state.py` (O_DIRECT + atomic rename) | R154 |
-| § 10 — Guardian Daemon | `/usr/local/bin/guardian-core` (or selfdef wire) | R155 |
-| Model catalog | Pre-configured BitNet + Qwen + DeepSeek + Ling + Nemotron | R156 |
-| DFlash integration | Speculative-decoder fast-path for code/math | R157 |
-| § 8 — Asymmetric networking opinionated | VLAN 100/200 + MTU 9000 master-spec defaults | R158 |
-| § 22 — Bootstrap verification checklist | `sovereign-osctl bootstrap verify` (6 checks) | R159 |
+| §§ 15-16 — Real bitnet.cpp | Build-from-source + znver5 flags + model fetch | R152 | **DONE** |
+| § 20 — Wasm-to-AVX-512 AOT | Cranelift/wasmtime + sample pulse_core.wasm | R153 | **DONE** |
+| § 21 — Atomic state transition protocol | `scripts/weaver/atomic-state.py` (O_DIRECT + atomic rename) | R154 | **DONE** |
+| § 10 — Guardian Daemon | `/usr/local/bin/guardian-core` (or selfdef wire) | R155 | **DONE** |
+| Model catalog | Pre-configured BitNet + Qwen + DeepSeek + Ling + Nemotron | R156 | **DONE** |
+| DFlash integration | Speculative-decoder fast-path for code/math | R157 | **DONE** |
+| § 8 — Asymmetric networking opinionated | VLAN 100/200 + MTU 9000 master-spec defaults | R158 | **DONE** |
+| § 22 — Bootstrap verification checklist | `sovereign-osctl bootstrap verify` (6 checks) | R159 | **DONE** |
 
 Each round lands as a substantive direct-to-main commit with tests
 + inline doc updates. The R145-R148 documentation arc surfaces the
