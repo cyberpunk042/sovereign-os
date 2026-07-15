@@ -82,7 +82,9 @@ fish -n "${FISH_COMPLETION}"
 bash --noprofile --norc -c '
   set -euo pipefail
   source /usr/share/bash-completion/bash_completion
-  _completion_loader sovereign-osctl
+  loader_status=0
+  _completion_loader sovereign-osctl || loader_status=$?
+  [[ ${loader_status} -eq 0 || ${loader_status} -eq 124 ]]
   complete -p sovereign-osctl | grep -q "_sovereign_osctl_complete"
   COMP_WORDS=(sovereign-osctl he)
   COMP_CWORD=1
