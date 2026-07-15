@@ -3,6 +3,13 @@
 # Graceful-shutdown manifest: list, plan (dry-run), apply (gated).
 
 set -euo pipefail
+PYTHON3="${PYTHON3:-python3}"
+if ! "${PYTHON3}" -c "import yaml" >/dev/null 2>&1; then
+  if /usr/bin/"${PYTHON3}" -c "import yaml" >/dev/null 2>&1; then
+    PYTHON3=/usr/bin/python3
+  fi
+fi
+
 
 __SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 __REPO_ROOT="$(cd "${__SCRIPT_DIR}/../.." && pwd)"
@@ -32,27 +39,27 @@ TMP="$(mktemp -d -t r262.XXXXXX)"
 trap 'rm -rf "${TMP}"' EXIT
 
 # ---- list --json: example manifest shape ----
-out="$(python3 "${SCRIPT}" list --json)"
-echo "${out}" | python3 -c "
+out="$("${PYTHON3}" "${SCRIPT}" list --json)"
+echo "${out}" | "${PYTHON3}" -c "
 import json, sys
 d = json.load(sys.stdin)
 assert d['round'] == 'R262', d
 assert d['valid'] is True, d
-assert d['step_count'] == 6, d
+assert d['step_count'] == 14, d
 names = [s['name'] for s in d['steps']]
-assert 'drain-inference-router' in names, names
+assert 'drain-inference-inflight' in names, names
 assert 'poweroff' in names, names
 " \
-  && ok "list --json: example has 6 steps incl. drain-inference-router + poweroff" \
+  && ok "list --json: example has 6 steps incl. drain-inference-inflight + poweroff" \
   || ko "list shape wrong"
 
 # ---- plan --json: dry-run plan ----
-out="$(python3 "${SCRIPT}" plan --json)"
-echo "${out}" | python3 -c "
+out="$("${PYTHON3}" "${SCRIPT}" plan --json)"
+echo "${out}" | "${PYTHON3}" -c "
 import json, sys
 d = json.load(sys.stdin)
 assert d['valid'] is True, d
-assert len(d['plan']) == 6, d
+assert len(d['plan']) == 14, d
 for r in d['plan']:
     assert 'order' in r and 'name' in r and 'would_do' in r
 " \
@@ -61,7 +68,7 @@ for r in d['plan']:
 
 # ---- apply without --confirm rc=2 ----
 set +e
-python3 "${SCRIPT}" apply > /dev/null 2>&1
+"${PYTHON3}" "${SCRIPT}" apply > /dev/null 2>&1
 rc=$?
 set -e
 [ "${rc}" -eq 2 ] && ok "apply without --confirm → rc=2" \
@@ -69,16 +76,16 @@ set -e
 
 # ---- apply --dry-run (no confirm needed) ----
 set +e
-out="$(python3 "${SCRIPT}" apply --dry-run --json 2>&1)"
+out="$("${PYTHON3}" "${SCRIPT}" apply --dry-run --json 2>&1)"
 rc=$?
 set -e
 [ "${rc}" -eq 0 ] && ok "apply --dry-run rc=0" || ko "dry-run rc=${rc}"
-echo "${out}" | python3 -c "
+echo "${out}" | "${PYTHON3}" -c "
 import json, sys
 d = json.load(sys.stdin)
 assert d['dry_run'] is True, d
 assert d['failure_count'] == 0, d
-assert d['executed_count'] == 6, d
+assert d['executed_count'] == 14, d
 for r in d['results']:
     assert r['outcome'] == 'dry-run', r
 " \
@@ -106,11 +113,11 @@ fail_action = "continue"
 TOML
 
 set +e
-out="$(python3 "${SCRIPT}" apply --manifest "${TMP}/safe.toml" --confirm --json 2>&1)"
+out="$("${PYTHON3}" "${SCRIPT}" apply --manifest "${TMP}/safe.toml" --confirm --json 2>&1)"
 rc=$?
 set -e
 [ "${rc}" -eq 0 ] && ok "apply --confirm rc=0 on safe manifest" || ko "rc=${rc}"
-echo "${out}" | python3 -c "
+echo "${out}" | "${PYTHON3}" -c "
 import json, sys
 d = json.load(sys.stdin)
 assert d['dry_run'] is False, d
@@ -139,11 +146,11 @@ fail_action = "continue"
 TOML
 
 set +e
-out="$(python3 "${SCRIPT}" apply --manifest "${TMP}/fail-continue.toml" --confirm --json 2>&1)"
+out="$("${PYTHON3}" "${SCRIPT}" apply --manifest "${TMP}/fail-continue.toml" --confirm --json 2>&1)"
 rc=$?
 set -e
 [ "${rc}" -eq 1 ] && ok "fail+continue: rc=1 (≥1 failure)" || ko "expected rc=1, got ${rc}"
-echo "${out}" | python3 -c "
+echo "${out}" | "${PYTHON3}" -c "
 import json, sys
 d = json.load(sys.stdin)
 assert d['failure_count'] == 1, d
@@ -173,11 +180,11 @@ fail_action = "continue"
 TOML
 
 set +e
-out="$(python3 "${SCRIPT}" apply --manifest "${TMP}/fail-abort.toml" --confirm --json 2>&1)"
+out="$("${PYTHON3}" "${SCRIPT}" apply --manifest "${TMP}/fail-abort.toml" --confirm --json 2>&1)"
 rc=$?
 set -e
 [ "${rc}" -eq 1 ] && ok "fail+abort: rc=1 (failure)" || ko "expected rc=1, got ${rc}"
-echo "${out}" | python3 -c "
+echo "${out}" | "${PYTHON3}" -c "
 import json, sys
 d = json.load(sys.stdin)
 assert d['aborted'] is True, d
@@ -197,14 +204,14 @@ kind = "not-a-real-kind"
 TOML
 
 set +e
-python3 "${SCRIPT}" apply --manifest "${TMP}/invalid.toml" --confirm --json > /dev/null 2>&1
+"${PYTHON3}" "${SCRIPT}" apply --manifest "${TMP}/invalid.toml" --confirm --json > /dev/null 2>&1
 rc=$?
 set -e
 [ "${rc}" -eq 2 ] && ok "invalid manifest → apply rc=2" || ko "expected rc=2, got ${rc}"
 
 # ---- list surfaces validation errors ----
-out="$(python3 "${SCRIPT}" list --manifest "${TMP}/invalid.toml" --json)"
-echo "${out}" | python3 -c "
+out="$("${PYTHON3}" "${SCRIPT}" list --manifest "${TMP}/invalid.toml" --json)"
+echo "${out}" | "${PYTHON3}" -c "
 import json, sys
 d = json.load(sys.stdin)
 assert d['valid'] is False, d
@@ -215,7 +222,7 @@ assert len(d['validation_errors']) > 0, d
 
 # ---- SOVEREIGN_OS_CONFIRM_DESTROY=YES alternative gate ----
 set +e
-out="$(SOVEREIGN_OS_CONFIRM_DESTROY=YES python3 "${SCRIPT}" apply --manifest "${TMP}/safe.toml" --json 2>&1)"
+out="$(SOVEREIGN_OS_CONFIRM_DESTROY=YES "${PYTHON3}" "${SCRIPT}" apply --manifest "${TMP}/safe.toml" --json 2>&1)"
 rc=$?
 set -e
 [ "${rc}" -eq 0 ] && ok "SOVEREIGN_OS_CONFIRM_DESTROY=YES alt-gate works" \
@@ -228,7 +235,7 @@ rc=$?
 set -e
 [ "${rc}" -eq 0 ] && ok "osctl power-shutdown list rc=0" \
   || ko "osctl bridge rc=${rc}"
-python3 -c "
+"${PYTHON3}" -c "
 import json
 d = json.load(open('${TMP}/osctl.out'))
 assert d['round'] == 'R262', d

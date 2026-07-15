@@ -176,11 +176,15 @@ python3 -c "
 import json
 a = json.loads('''$(echo "${out}" | sed "s/'/'\"'\"'/g")''')
 b = json.loads('''$(echo "${out2}" | sed "s/'/'\"'\"'/g")''')
-# Strip the volatile field (real-time sampler value).
+# Strip volatile real-time sampler fields (CPU current draw + per-GPU
+# power draw fluctuates between calls; we only care that probes don't
+# mutate persistent state).
 for d in (a, b):
     d['inputs'].pop('current_draw_watts', None)
     d['headroom'].pop('current_draw_watts', None)
     d['headroom'].pop('current_deviance_pct', None)
+    for g in d['inputs'].get('gpus') or []:
+        g.pop('power_draw_watts', None)
 assert a == b, 'two status calls diverge beyond the real-time sampler field'
 " || fail "two status calls diverge (probes mutated state?)"
 pass "10. probes are read-only (two status calls match modulo real-time sampler)"

@@ -21,6 +21,13 @@
 
 set -euo pipefail
 
+PYTHON3="${PYTHON3:-python3}"
+if ! "${PYTHON3}" -c "import yaml" >/dev/null 2>&1; then
+  if /usr/bin/"${PYTHON3}" -c "import yaml" >/dev/null 2>&1; then
+    PYTHON3=/usr/bin/python3
+  fi
+fi
+
 __SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 __REPO_ROOT="$(cd "${__SCRIPT_DIR}/.." && pwd)"
 cd "${__REPO_ROOT}"
@@ -58,7 +65,7 @@ fi
 profile="sain-01"
 state_file="${__REPO_ROOT}/.sovereign-os/init-state.yaml"
 if [ -f "${state_file}" ]; then
-  parsed_profile="$(python3 -c "
+  parsed_profile="$("${PYTHON3}" -c "
 import yaml, sys
 try:
     with open('${state_file}') as f:

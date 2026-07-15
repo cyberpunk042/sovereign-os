@@ -24,7 +24,7 @@ require_file "${profile_yaml}"
 
 mkdir -p "${out_dir}"/config/{auto,package-lists,includes.chroot,hooks/normal,bootloaders}
 
-profile_id="$(python3 -c "
+profile_id="$("${PYTHON3}" -c "
 import yaml, sys
 with open('${profile_yaml}') as f:
     print(yaml.safe_load(f)['identity']['id'])
@@ -69,7 +69,7 @@ EOF
 chmod +x "${out_dir}/config/auto/clean"
 
 # ---- package-lists/sovereign.list.chroot — from profile.packages ----
-python3 - <<PY > "${out_dir}/config/package-lists/sovereign.list.chroot"
+"${PYTHON3}" - <<PY > "${out_dir}/config/package-lists/sovereign.list.chroot"
 import yaml
 with open("${profile_yaml}") as f:
     p = yaml.safe_load(f)
@@ -100,7 +100,7 @@ PY
 # enforce it: an apt pin (Pin-Priority -1 = never install; blocks Recommends/
 # Suggests) plus a belt-and-suspenders purge hook that runs after package install.
 mkdir -p "${out_dir}/config/archives"
-python3 - <<PY
+"${PYTHON3}" - <<PY
 import yaml, pathlib
 with open("${profile_yaml}") as f:
     p = yaml.safe_load(f)
