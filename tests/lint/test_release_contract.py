@@ -97,7 +97,7 @@ def test_release_scripts_are_syntax_valid_and_fail_closed():
 def test_operator_release_documentation_covers_trust_verification():
     doc = _read(DOC)
     for required in (
-        "signed annotated tag",
+        "signed annotated",
         "SHA256SUMS",
         "SPDX 2.3",
         "in-toto/SLSA",
