@@ -1,7 +1,9 @@
 """Contracts for the sovereign-osctl(1) manual-page suite."""
 from pathlib import Path
 import json
+import os
 import re
+import subprocess
 
 ROOT = Path(__file__).resolve().parents[2]
 CLI = ROOT / "scripts" / "sovereign-osctl"
@@ -110,6 +112,7 @@ def test_generation_and_installation_cover_the_whole_suite():
     assert "sovereign-osctl*.1" in makefile
     assert "Skipping manpage" not in makefile
 
+
 def _canonical_version() -> str:
     version = _read(VERSION_FILE).strip()
     assert re.fullmatch(
@@ -134,6 +137,31 @@ def test_manual_headers_match_the_canonical_version():
         assert f"sovereign-os {version} |" in first_line, (
             f"{source.name} version drift: VERSION is {version!r}, header is {first_line!r}"
         )
+
+
+def test_runtime_rejects_invalid_or_missing_version_override(tmp_path: Path):
+    env = os.environ.copy()
+    version_file = tmp_path / "VERSION"
+    for contents, expected_error in (
+        ("not-a-version\n", "invalid sovereign-os version"),
+        (None, "VERSION file not found"),
+    ):
+        if contents is None:
+            version_file.unlink(missing_ok=True)
+        else:
+            version_file.write_text(contents, encoding="utf-8")
+        env["SOVEREIGN_OS_VERSION_FILE"] = str(version_file)
+        result = subprocess.run(
+            [str(CLI), "version", "--json"],
+            cwd=ROOT,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+        assert result.returncode != 0
+        assert expected_error in result.stderr
 
 
 def test_critical_runtime_facts_are_not_inherited_from_stale_help():
