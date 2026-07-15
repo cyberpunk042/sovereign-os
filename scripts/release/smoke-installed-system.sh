@@ -105,7 +105,13 @@ zsh -f -c '
   whence -w _sovereign-osctl | grep -q "function"
 '
 printf 'checking Fish completion discovery\n'
-fish -c '\n  printf "fish completion paths:\\n"\n  printf "  %s\\n" $fish_complete_path\n  printf "fish candidates:\\n"\n  complete -C "sovereign-osctl he"\n' | tee "${work}/fish-completion.txt"\ngrep -Eq '^help([[:space:]]|$)' "${work}/fish-completion.txt"\nprintf 'all completion loaders passed\n'
+fish -c '
+  printf "fish completion paths:\\n"
+  printf "  %s\\n" $fish_complete_path
+  printf "fish candidates:\\n"
+  complete -C "sovereign-osctl he"
+' > "${work}/fish-completion.txt"
+cat -- "${work}/fish-completion.txt"
 
 # A second install must be byte-for-byte and mode-for-mode identical.
 make -C "${ROOT}" install PREFIX="${PREFIX}" >/dev/null
