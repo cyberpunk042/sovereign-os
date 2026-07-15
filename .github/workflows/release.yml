@@ -1,0 +1,111 @@
+name: release
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - VERSION
+      - Cargo.lock
+      - .github/workflows/release.yml
+      - scripts/release/**
+      - tests/lint/test_release_contract.py
+      - docs/release.md
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    name: validate reproducible release bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: checkout exact source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
+
+      - name: validate release ref
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            bash scripts/release/validate-release-tag.sh --require-git-tag "${GITHUB_REF_NAME}"
+          else
+            bash scripts/release/validate-release-tag.sh "v$(<VERSION)"
+          fi
+
+      - name: establish reproducible timestamp
+        shell: bash
+        run: echo "SOURCE_DATE_EPOCH=$(git show -s --format=%ct HEAD)" >> "${GITHUB_ENV}"
+
+      - name: build bundle twice
+        shell: bash
+        run: |
+          export RELEASE_TAG="v$(<VERSION)"
+          bash scripts/release/build-release.sh dist
+          bash scripts/release/build-release.sh dist-rebuild
+          diff -qr dist dist-rebuild
+          rm -rf dist-rebuild
+
+      - name: smoke release as an installed consumer
+        shell: bash
+        run: bash scripts/release/smoke-release.sh dist
+
+      - name: retain validated bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: release-bundle-${{ github.sha }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    name: attest and publish tagged release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: package
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - name: download validated bundle
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: release-bundle-${{ github.sha }}
+          path: dist
+
+      - name: attest every release asset
+        uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763
+        with:
+          subject-path: |
+            dist/*.tar.gz
+            dist/*.spdx.json
+            dist/*.provenance.json
+            dist/SHA256SUMS
+
+      - name: attach SBOM attestation to source archive
+        uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763
+        with:
+          subject-path: dist/*.tar.gz
+          sbom-path: dist/*.spdx.json
+
+      - name: create immutable-tag GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="$(<dist/$(find dist -maxdepth 1 -name 'sovereign-os-*.tar.gz' -printf '%f\n' | sed -E 's/^sovereign-os-(.*)\.tar\.gz$/\1/' | head -1 2>/dev/null || true))"
+          version="$(<VERSION 2>/dev/null || printf '%s' "${GITHUB_REF_NAME#v}")"
+          flags=(--verify-tag --generate-notes --title "sovereign-os ${GITHUB_REF_NAME}")
+          [[ "${version}" == 0.* ]] && flags+=(--prerelease)
+          gh release create "${GITHUB_REF_NAME}" "${flags[@]}" dist/*
