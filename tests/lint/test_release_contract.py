@@ -106,10 +106,10 @@ def test_clean_install_smoke_exercises_real_system_integrations():
         "whatis --manpath",
         "_completion_loader sovereign-osctl",
         "compinit -D",
-        \'complete -C "sovereign-osctl he"\',
+        'complete -C "sovereign-osctl he"',
         "first.manifest",
         "second.manifest",
-        \'make -C "${ROOT}" uninstall\',
+        'make -C "${ROOT}" uninstall',
     ):
         assert required in smoke
 
