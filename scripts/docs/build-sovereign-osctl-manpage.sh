@@ -4,6 +4,17 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 MODE="${1:-build}"
+VERSION_FILE="${ROOT}/VERSION"
+
+[ -r "${VERSION_FILE}" ] || {
+  echo "error: canonical VERSION file is missing" >&2
+  exit 1
+}
+IFS= read -r VERSION < "${VERSION_FILE}"
+if [[ ! "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
+  echo "error: invalid canonical version in ${VERSION_FILE}: ${VERSION:-<empty>}" >&2
+  exit 1
+fi
 
 command -v pandoc >/dev/null 2>&1 || {
   echo "error: pandoc is required to regenerate the man-page suite" >&2
@@ -25,6 +36,12 @@ sources=("${ROOT}"/docs/man/sovereign-osctl*.1.md)
 
 for source in "${sources[@]}"; do
   target="${source%.md}"
+  IFS= read -r header < "${source}"
+  if [[ "${header}" != *" sovereign-os ${VERSION} |"* ]]; then
+    echo "error: ${source} header does not match canonical version ${VERSION}" >&2
+    status=1
+    continue
+  fi
   tmp="$(mktemp)"
   trap 'rm -f "${tmp}"' EXIT
   pandoc -s -t man "${source}" -o "${tmp}"
