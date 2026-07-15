@@ -67,6 +67,14 @@ bash scripts/release/build-release.sh dist
 bash scripts/release/smoke-release.sh dist
 ```
 
-The smoke contract verifies checksum and metadata integrity, archive path
-safety, script syntax, a staged installation, the installed CLI version, all
-manual pages, shell-completion artifacts, and uninstall symmetry.
+The bundle smoke contract verifies checksum and metadata integrity, archive
+path safety, script syntax, a staged installation, the installed CLI version,
+all manual pages, shell-completion artifacts, and uninstall symmetry.
+
+A second release job installs into a clean Debian 13 container. It builds the
+real man-db cache, resolves and renders the manual, checks the whatis index,
+asks Bash, Zsh, and Fish to discover their installed completions, repeats the
+install and rejects file or mode drift, then uninstalls and proves the operator
+surface is no longer discoverable. This is an idempotent source-install
+contract; transactional upgrade and rollback guarantees require a future
+package format and are not claimed here.
