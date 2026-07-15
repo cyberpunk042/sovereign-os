@@ -81,7 +81,7 @@ check "CPU topology declared" \
 # rules apply (exactly one primary, vfio_companion required for vfio
 # entries, etc.).
 
-gpu_count="$(python3 -c "
+gpu_count="$("${PYTHON3}" -c "
 import yaml, os
 with open(os.environ['SOVEREIGN_OS_PROFILE_FILE']) as f:
     data = yaml.safe_load(f)
@@ -94,7 +94,7 @@ if [ "${gpu_count}" -eq 0 ]; then
 else
   log_info "  ${gpu_count} GPU(s) declared — applying GPU structural checks"
 
-  primary_gpu_count="$(python3 -c "
+  primary_gpu_count="$("${PYTHON3}" -c "
 import yaml, os
 with open(os.environ['SOVEREIGN_OS_PROFILE_FILE']) as f:
     data = yaml.safe_load(f)
@@ -107,7 +107,7 @@ print(sum(1 for g in gpus if g.get('role') == 'primary'))
 fi
 
 if [ "${gpu_count}" -gt 0 ]; then
-  vfio_companion_check="$(python3 -c "
+  vfio_companion_check="$("${PYTHON3}" -c "
 import yaml, os, sys
 with open(os.environ['SOVEREIGN_OS_PROFILE_FILE']) as f:
     data = yaml.safe_load(f)
@@ -130,7 +130,7 @@ fi
 
 # ----------------- Storage checks -----------------
 
-rootfs_count="$(python3 -c "
+rootfs_count="$("${PYTHON3}" -c "
 import yaml, os
 with open(os.environ['SOVEREIGN_OS_PROFILE_FILE']) as f:
     data = yaml.safe_load(f)
@@ -146,7 +146,7 @@ check "at least one storage device with role=rootfs (found ${rootfs_count})" \
 storage_layout="$(profile_field hardware.storage.layout)"
 if [ "${storage_layout}" = "zfs-tiered" ]; then
   log_info "  storage layout is zfs-tiered — checking dataset declarations"
-  context_sync="$(python3 -c "
+  context_sync="$("${PYTHON3}" -c "
 import yaml, os
 with open(os.environ['SOVEREIGN_OS_PROFILE_FILE']) as f:
     data = yaml.safe_load(f)
@@ -165,7 +165,7 @@ if [ "${SOVEREIGN_OS_PROFILE}" = "sain-01" ]; then
   # lanes with PCIEX16_2 (the 5090's slot), so it MUST remain empty or the 5090
   # drops to x4. The OcuLink 4090 eGPU is on a separate chipset M.2 slot, not
   # M.2_2. The profile must DECLARE the m2_2_empty PCIe constraint.
-  m2_2_declared="$(python3 -c "
+  m2_2_declared="$("${PYTHON3}" -c "
 import yaml, os
 with open(os.environ['SOVEREIGN_OS_PROFILE_FILE']) as f:
     data = yaml.safe_load(f)
