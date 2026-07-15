@@ -16,6 +16,11 @@
 set -euo pipefail
 
 PROFILE="${1:-sain-01}"
+LOOP_MODE=""
+if [ "${PROFILE}" = "--destructive-loop" ]; then
+  LOOP_MODE=1
+  PROFILE="${2:-sain-01}"
+fi
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 
 bold='\033[1m'; green='\033[32m'; yellow='\033[33m'; reset='\033[0m'
@@ -103,6 +108,19 @@ Q-014 destructive-loop status:
     Layer 4 driver (QEMU boot smoke; the destructive-loop verb extends
     that path).
 EOF
+
+# If --destructive-loop requested, delegate to the dedicated probe.
+if [ -n "${LOOP_MODE}" ]; then
+  if [ "${qemu_ok}" -eq 1 ] && [ "${image_ok}" -eq 1 ]; then
+    echo
+    echo -e "${bold}--destructive-loop requested — running destructive-loop.sh${reset}"
+    "${REPO_ROOT}/tests/qemu/destructive-loop.sh" "${PROFILE}"
+    exit $?
+  else
+    echo
+    echo -e "${yellow}--destructive-loop skipped: qemu or image missing${reset}"
+  fi
+fi
 
 # ----------- substantive run ---------------
 

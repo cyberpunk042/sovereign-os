@@ -42,6 +42,16 @@ __SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 __REPO_ROOT="$(cd "${__SCRIPT_DIR}/.." && pwd)"
 __REPO_ROOT="$(cd "${__REPO_ROOT}/.." && pwd)"
 
+# ---------- python3 resolver ----------
+# Some environments (linuxbrew) ship a python3 without PyYAML. Pick the
+# first python3 in PATH that can import yaml; fall back to /usr/bin/python3.
+PYTHON3="${PYTHON3:-python3}"
+if ! "${PYTHON3}" -c "import yaml" >/dev/null 2>&1; then
+  if /usr/bin/python3 -c "import yaml" >/dev/null 2>&1; then
+    PYTHON3="/usr/bin/python3"
+  fi
+fi
+
 JSON_OUT=0
 PHASE_FILTER=""
 while [ $# -gt 0 ]; do
@@ -70,7 +80,7 @@ esac
 # ---------- phase definitions ----------
 # R202: canonical phase table lives in config/bootstrap/phases.yaml.
 # Format emitted by load-phases.py: id|name|description|artifact...
-mapfile -t PHASES < <(python3 "${__REPO_ROOT}/scripts/bootstrap/lib/load-phases.py")
+mapfile -t PHASES < <("${PYTHON3}" "${__REPO_ROOT}/scripts/bootstrap/lib/load-phases.py")
 if [ "${#PHASES[@]}" -eq 0 ]; then
   echo "ERROR phases.yaml loader returned empty table" >&2
   exit 2

@@ -66,6 +66,16 @@ if [ -z "${__REPO_ROOT:-}" ]; then
 fi
 unset _lib_candidates _cand
 
+# ---------- python3 resolver ----------
+# Some environments ship a python3 without PyYAML. Pick the first python3
+# in PATH that can import yaml; fall back to /usr/bin/python3.
+PYTHON3="${PYTHON3:-python3}"
+if ! "${PYTHON3}" -c "import yaml" >/dev/null 2>&1; then
+  if /usr/bin/python3 -c "import yaml" >/dev/null 2>&1; then
+    PYTHON3="/usr/bin/python3"
+  fi
+fi
+
 : "${SOVEREIGN_OS_PROFILE:=$(cat /etc/sovereign-os/active-profile 2>/dev/null || echo sain-01)}"
 
 # ------------------------------ help -----------------------------------------
@@ -1305,7 +1315,7 @@ EOF
   # Catalog declared vs resident
   local catalog_declared=0 catalog_resident=0
   if [ -f "${script_dir}/../models/catalog.yaml" ]; then
-    catalog_declared="$(python3 -c "import yaml; print(sum(1 for m in yaml.safe_load(open('${script_dir}/../models/catalog.yaml'))['catalog']['models'] if m['status']=='verified-real'))" 2>/dev/null || echo 0)"
+    catalog_declared="$(${PYTHON3} -c "import yaml; print(sum(1 for m in yaml.safe_load(open('${script_dir}/../models/catalog.yaml'))['catalog']['models'] if m['status']=='verified-real'))" 2>/dev/null || echo 0)"
     if [ -d "${SOVEREIGN_OS_MODELS_DIR:-/mnt/vault/models}" ]; then
       while IFS= read -r d; do
         catalog_resident=$((catalog_resident + 1))
@@ -1925,7 +1935,7 @@ cmd_whitelabel() {
       find "${__REPO_ROOT}/whitelabel" -maxdepth 1 -name '*.yaml' -type f 2>/dev/null | sort | while read -r w; do
         local id name
         id="$(basename "$w" .yaml)"
-        name="$(python3 -c "import yaml;d=yaml.safe_load(open('$w'));print(d.get('identity',{}).get('name',''))" 2>/dev/null)"
+        name="$(${PYTHON3} -c "import yaml;d=yaml.safe_load(open('$w'));print(d.get('identity',{}).get('name',''))" 2>/dev/null)"
         printf "  %-20s %s\n" "${id}" "${name}"
       done
       ;;
@@ -4194,7 +4204,7 @@ cmd_init() {
   # ---- Decision 3: secure-boot posture ----
   # Pull profile default if set
   local secure_boot_default
-  secure_boot_default="$(python3 -c "
+  secure_boot_default="$(${PYTHON3} -c "
 try:
     import yaml
     with open('${repo_root}/profiles/${profile_id}.yaml') as f:
@@ -5884,7 +5894,7 @@ cmd_bootstrap() {
         log_error "verify-grid doc renderer missing: ${grid_render}"
         return 1
       fi
-      exec python3 "${grid_render}" "$@"
+      exec "${PYTHON3}" "${grid_render}" "$@"
       ;;
     docs)
       # R203: regenerate docs/src/bootstrap-phases.md from phases.yaml.
@@ -5896,7 +5906,7 @@ cmd_bootstrap() {
         log_error "phase doc renderer missing or not executable: ${render_script}"
         return 1
       fi
-      exec python3 "${render_script}" "$@"
+      exec "${PYTHON3}" "${render_script}" "$@"
       ;;
     run)
       # R201: master spec § 12 phase executor — DRY-RUN-ONLY first cut.

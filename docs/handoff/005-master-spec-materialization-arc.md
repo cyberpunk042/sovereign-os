@@ -2,7 +2,8 @@
 
 > Read this first if you are starting a new session on `sovereign-os`.
 > Supersedes: `004-operator-friction-audit.md` (Round 144 close).
-> Last updated: R163 close — extended past the original R145-R159 arc
+> Last updated: R201 --apply gate + Q-014 destructive-loop scaffold
+> closure (2026-07-15). Extended past the original R145-R159 arc
 > with R160 hardening + lint extension + doc-drift closure, R161
 > router task_type (closes R157 follow-up), R162 master spec § 12
 > 5-phase pipeline surface, R163 sovereign-osctl overview consolidator.
@@ -265,12 +266,19 @@ Resume the NEVER STOP `/goal` directive. Status of prior follow-ups:
 
 Genuinely open + concrete:
 
-- **R201 --apply gate** — Phase III-V real execution behind
-  `SOVEREIGN_OS_CONFIRM_DESTROY=YES` + interactive prompt. Needs
-  Layer 5 SAIN-01 hardware testbed; operator-driven only.
-- **Q-014 Layer 5 destructive-loop test** — QEMU harness for the
-  full destroy/rebuild cycle; gates are tested in L3 but the
-  destruction is operator-driven on real hardware.
+- ~~**R201 --apply gate**~~ — DONE. Triple-gate (`--apply` +
+  `--confirm-apply` + `SOVEREIGN_OS_CONFIRM_DESTROY=YES`) wired in
+  `run.sh` with interactive confirm / `--force` override. Phase I
+  safe-skip test passes L3 (build-step + config skipped). Phase
+  III-V execution requires Layer 5 SAIN-01 hardware; gate semantics
+  verified in CI.
+- ~~**Q-014 Layer 4/5 destructive-loop test**~~ — DONE (scaffold +
+  disk-safe probe). `tests/qemu/destructive-loop.sh` boots the image
+  with `-snapshot` (disk writes discarded) + serial-socket monitor,
+  verifies the guest reaches the login prompt and carries sovereign
+  branding. Full SSH-injection destructive command loop remains
+  operator-driven on real hardware; the scaffold is now executable
+  code, not a comment block.
 - **SDD-021 W-5 sigstore integration** — LOW priority; minisign is
   the in-tree signing primitive, sigstore is the cross-fleet option.
 - **Cross-repo: selfdef SDD-020 V-3/V-4/V-6** — out of scope for the
@@ -313,3 +321,10 @@ Each round's L3 test passes locally before push; CI on `main`
 (now 28+ L3 + Layer 1 + Layer 2 + shellcheck + 3 dashboard contract
 gates) stays green. Any new bug surfaced during L3 authoring gets
 fixed in the same commit.
+
+## Trajectory update
+
+R201 --apply gate wired (triple-gate + interactive confirm + --force)
++ Q-014 destructive-loop.sh expanded from comment-scaffold to
+snapshot-boot + serial-socket monitor + login-prompt probe.
+Both items removed from open-gaps list; handoff updated.

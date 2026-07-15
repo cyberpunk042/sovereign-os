@@ -9,6 +9,14 @@ set -euo pipefail
 __SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 __REPO_ROOT="$(cd "${__SCRIPT_DIR}/../.." && pwd)"
 
+# python3 resolver — some CI envs lack PyYAML in the first python3.
+PYTHON3="python3"
+if ! "${PYTHON3}" -c "import yaml" >/dev/null 2>&1; then
+  if /usr/bin/python3 -c "import yaml" >/dev/null 2>&1; then
+    PYTHON3="/usr/bin/python3"
+  fi
+fi
+
 fail=0
 pass=0
 ok() { echo "  PASS — $1"; pass=$((pass + 1)); }
@@ -115,7 +123,7 @@ print('JSON-OK')
   || ko "JSON shape failed: $(cat ${WORK}/json.check)"
 
 # ---- R202: phases.sh + run.sh share canonical YAML loader ----
-loader_count=$(python3 "${__REPO_ROOT}/scripts/bootstrap/lib/load-phases.py" | wc -l)
+loader_count=$(${PYTHON3} "${__REPO_ROOT}/scripts/bootstrap/lib/load-phases.py" | wc -l)
 [ "${loader_count}" -eq 5 ] \
   && ok "YAML loader emits 5/5 phases (R202 canonical source)" \
   || ko "YAML loader phase count mismatch: ${loader_count}"
@@ -152,6 +160,69 @@ mv "${WORK}/sain-01.preseed.example.cfg" \
 grep -q "MISSING" "${WORK}/miss.out" \
   && ok "MISSING marker surfaces in plan" \
   || ko "MISSING marker absent"
+
+# ---- apply gate tests ----
+# --apply alone (no --confirm-apply, no env) → rc=2
+set +e
+"${RUN}" --phase 1 --apply >"${WORK}/gate1.out" 2>&1
+rc=$?
+set -e
+[ "${rc}" -eq 2 ] && ok "--apply alone → rc=2 (gate failure)" \
+  || ko "expected rc=2 on --apply alone, got ${rc}"
+grep -q "APPLY GATE FAILURE" "${WORK}/gate1.out" \
+  && ok "gate failure banner emitted" || ko "gate banner missing"
+
+# --apply --confirm-apply without env → rc=2
+set +e
+"${RUN}" --phase 1 --apply --confirm-apply >"${WORK}/gate2.out" 2>&1
+rc=$?
+set -e
+[ "${rc}" -eq 2 ] && ok "--apply --confirm-apply (no env) → rc=2" \
+  || ko "expected rc=2, got ${rc}"
+grep -q "SOVEREIGN_OS_CONFIRM_DESTROY=YES" "${WORK}/gate2.out" \
+  && ok "gate failure cites env var" || ko "env citation missing"
+
+# --apply --confirm-apply + env + NONINTERACTIVE default-no → rc=2
+set +e
+SOVEREIGN_OS_CONFIRM_DESTROY=YES SOVEREIGN_OS_NONINTERACTIVE=1 \
+  "${RUN}" --phase 1 --apply --confirm-apply >"${WORK}/gate3.out" 2>&1
+rc=$?
+set -e
+[ "${rc}" -eq 2 ] && ok "apply + all gates + NONINTERACTIVE default-no → rc=2" \
+  || ko "expected rc=2 on default-no, got ${rc}"
+
+# --apply --confirm-apply --force + env + NONINTERACTIVE on Phase I
+# Phase I = build-step + config only → safe to "apply" (skips them).
+set +e
+SOVEREIGN_OS_CONFIRM_DESTROY=YES SOVEREIGN_OS_NONINTERACTIVE=1 \
+  "${RUN}" --phase 1 --apply --confirm-apply --force >"${WORK}/gate4.out" 2>&1
+rc=$?
+set -e
+[ "${rc}" -eq 0 ] && ok "apply --force Phase I → rc=0 (safe skip-only)" \
+  || ko "expected rc=0 on forced apply, got ${rc}: $(cat ${WORK}/gate4.out)"
+grep -q "APPLYING\|APPLY COMPLETE" "${WORK}/gate4.out" \
+  && ok "apply mode banner surfaces" || ko "apply banner missing"
+grep -q "build-step skipped\|build-step skipped" "${WORK}/gate4.out" \
+  && ok "build-step artifact skipped" || ko "build-step not skipped"
+
+# JSON mode in apply
+set +e
+SOVEREIGN_OS_CONFIRM_DESTROY=YES SOVEREIGN_OS_NONINTERACTIVE=1 \
+  "${RUN}" --phase 1 --apply --confirm-apply --force --json >"${WORK}/gate4.json" 2>"${WORK}/gate4.err"
+rc=$?
+set -e
+[ "${rc}" -eq 0 ] && ok "apply --json --force Phase I rc=0" || ko "json apply rc=${rc}: $(cat ${WORK}/gate4.err)"
+python3 -c "
+import json,sys
+d=json.load(open('${WORK}/gate4.json'))
+assert d['mode']=='apply', d['mode']
+assert 'overall_apply_failures' in d, d
+assert d['overall_apply_failures']==0, d
+print('JSON-APPLY-OK')
+" >"${WORK}/json-apply.check" 2>&1 \
+  && grep -q "JSON-APPLY-OK" "${WORK}/json-apply.check" \
+  && ok "apply JSON shape conforms" \
+  || ko "apply JSON shape failed: $(cat ${WORK}/json-apply.check)"
 
 echo
 total=$((pass + fail))

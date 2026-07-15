@@ -10,6 +10,14 @@ set -euo pipefail
 __SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 __REPO_ROOT="$(cd "${__SCRIPT_DIR}/../.." && pwd)"
 
+# python3 resolver — some CI envs lack PyYAML in the first python3.
+PYTHON3="${PYTHON3:-python3}"
+if ! "${PYTHON3}" -c "import yaml" >/dev/null 2>&1; then
+  if /usr/bin/python3 -c "import yaml" >/dev/null 2>&1; then
+    PYTHON3="/usr/bin/python3"
+  fi
+fi
+
 fail=0
 pass=0
 ok() { echo "  PASS — $1"; pass=$((pass + 1)); }
@@ -29,18 +37,18 @@ echo
 [ -f "${DOC}" ] && ok "doc committed" || { ko "doc absent"; exit 1; }
 
 # Loader emits 6 rows
-loader_rows=$(python3 "${LOADER}" | wc -l)
+loader_rows=$(${PYTHON3} "${LOADER}" | wc -l)
 [ "${loader_rows}" -eq 6 ] && ok "loader emits 6 check rows" \
   || ko "loader rows: ${loader_rows}"
 
 # Loader format: id|name|spec|checks_what
-python3 "${LOADER}" | head -1 | grep -qE "^01\|" \
+${PYTHON3} "${LOADER}" | head -1 | grep -qE "^01\|" \
   && ok "loader row format starts with id" \
   || ko "loader format broken"
 
 # --check on fresh tree
 set +e
-python3 "${RENDER}" --check >/dev/null 2>&1
+${PYTHON3} "${RENDER}" --check >/dev/null 2>&1
 rc=$?
 set -e
 [ "${rc}" -eq 0 ] && ok "--check rc=0 on fresh tree" \
@@ -79,7 +87,7 @@ trap 'rm -rf "${WORK}"' EXIT
 cp "${DOC}" "${WORK}/backup.md"
 echo "STALE" >> "${DOC}"
 set +e
-python3 "${RENDER}" --check >/dev/null 2>&1
+${PYTHON3} "${RENDER}" --check >/dev/null 2>&1
 rc=$?
 set -e
 cp "${WORK}/backup.md" "${DOC}"
@@ -101,7 +109,7 @@ grep -q "docs-grid \[--check" "${OSCTL}" \
 # Loader fallback: verify.sh must still work if YAML missing.
 # (Defensive: simulate by pointing at empty PATH)
 set +e
-PYTHONPATH=/dev/null python3 -c "
+PYTHONPATH=/dev/null ${PYTHON3} -c "
 import subprocess
 r = subprocess.run(['${VERIFY}', '--only', '01'], capture_output=True, text=True, timeout=30)
 print('rc=', r.returncode)
