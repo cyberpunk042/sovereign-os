@@ -5749,6 +5749,13 @@ PY
       local env_file="${state_dir}/active-runtime-profile-env.sh"
       mkdir -p "$(dirname "${env_file}")" 2>/dev/null || true
 
+      # An explicit state root is authoritative. Reassert it after any
+      # platform fallback merged above so Trinity state cannot split roots.
+      if [ -n "${SOVEREIGN_OS_STATE_DIR:-}" ]; then
+        env_file="${SOVEREIGN_OS_STATE_DIR}/active-runtime-profile-env.sh"
+        mkdir -p "$(dirname "${env_file}")" 2>/dev/null || true
+      fi
+
       # Parse the runtime profile YAML and generate shell env exports
       RUNTIME_FILE="${f}" ENV_FILE="${env_file}" ${PYTHON3} - <<'PYEOF'
 import os, yaml
