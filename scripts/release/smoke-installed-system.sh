@@ -77,8 +77,10 @@ MANPAGER=cat PAGER=cat man --manpath "${MAN_ROOT}" sovereign-osctl > "${work}/ma
 grep -q 'sovereign-osctl' "${work}/manual.txt"
 
 # Ask each shell's native loader to discover and use the installed completion.
+printf 'checking completion syntax\n'
 zsh -n "${ZSH_COMPLETION}"
 fish -n "${FISH_COMPLETION}"
+printf 'checking Bash completion discovery\n'
 bash --noprofile --norc -c '
   set -euo pipefail
   source /usr/share/bash-completion/bash_completion
@@ -91,6 +93,7 @@ bash --noprofile --norc -c '
   _sovereign_osctl_complete
   printf "%s\n" "${COMPREPLY[@]}" | grep -Fxq help
 '
+printf 'checking Zsh completion discovery\n'
 zsh -f -c '
   set -eu
   fpath=(/usr/local/share/zsh/site-functions $fpath)
@@ -101,7 +104,9 @@ zsh -f -c '
   autoload +X _sovereign-osctl
   whence -w _sovereign-osctl | grep -q "function"
 '
+printf 'checking Fish completion discovery\n'
 fish -c 'complete -C "sovereign-osctl he" | string match -qr "^help"'
+printf 'all completion loaders passed\n'
 
 # A second install must be byte-for-byte and mode-for-mode identical.
 make -C "${ROOT}" install PREFIX="${PREFIX}" >/dev/null
