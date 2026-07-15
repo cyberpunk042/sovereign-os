@@ -8,7 +8,7 @@ MAN_ROOT="${PREFIX}/share/man"
 MAN1="${MAN_ROOT}/man1"
 BASH_COMPLETION="${PREFIX}/share/bash-completion/completions/sovereign-osctl"
 ZSH_COMPLETION="${PREFIX}/share/zsh/site-functions/_sovereign-osctl"
-FISH_COMPLETION="${PREFIX}/share/fish/vendor_completions.d/sovereign-osctl.fish"
+FISH_COMPLETION="/usr/share/fish/vendor_completions.d/sovereign-osctl.fish"
 CLI="${PREFIX}/bin/sovereign-osctl"
 LIB="${PREFIX}/lib/sovereign-os"
 
@@ -96,7 +96,7 @@ bash --noprofile --norc -c '
 printf 'checking Zsh completion discovery\n'
 zsh -f -c '
   set -eu
-  fpath=(/usr/local/share/zsh/site-functions $fpath)
+  [[ " ${fpath[*]} " == *" /usr/local/share/zsh/site-functions "* ]]
   autoload -Uz compinit
   compinit -D
   [[ "${_comps[sovereign-osctl]}" == "_sovereign-osctl" ]]
