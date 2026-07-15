@@ -2,11 +2,13 @@
 
 > Read this first if you are starting a new session on `sovereign-os`.
 > Supersedes: `004-operator-friction-audit.md` (Round 144 close).
-> Last updated: R201 --apply gate + Q-014 destructive-loop scaffold
-> closure (2026-07-15). Extended past the original R145-R159 arc
-> with R160 hardening + lint extension + doc-drift closure, R161
-> router task_type (closes R157 follow-up), R162 master spec § 12
-> 5-phase pipeline surface, R163 sovereign-osctl overview consolidator.
+> Last updated: SDD-716 python3 resolver sweep closure (2026-07-15).
+> R201 --apply gate + Q-014 destructive-loop scaffold were closed in the
+> prior session. This session completed a systematic linuxbrew-PyYAML-gap
+> fix across 15+ scripts and 10+ tests (common.sh, osctl, onboard,
+> live-build-emit, friction-audit-spec, eval/info/suggest/fine-tune tests,
+> dashboard buffering, oc-headroom GPU-sampler tolerance, stale
+> schedule-manifest step counts, first-login-assistant resolver).
 
 ## TL;DR — what's at HEAD now
 
@@ -279,6 +281,11 @@ Genuinely open + concrete:
   branding. Full SSH-injection destructive command loop remains
   operator-driven on real hardware; the scaffold is now executable
   code, not a comment block.
+- ~~**SDD-716 python3 resolver sweep**~~ — DONE. linuxbrew Python 3.14
+  lacks PyYAML; first-in-PATH python3 on the dev host caused ~15 scripts
+  and ~10 tests to fail. Centralized resolver in `common.sh` + targeted
+  fixes in `osctl`, `onboard.sh`, `live-build-emit.sh`,
+  `friction-audit-spec.sh`, and the affected L3 tests.
 - **SDD-021 W-5 sigstore integration** — LOW priority; minisign is
   the in-tree signing primitive, sigstore is the cross-fleet option.
 - **Cross-repo: selfdef SDD-020 V-3/V-4/V-6** — out of scope for the
