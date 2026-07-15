@@ -6896,8 +6896,42 @@ PY
 
 # ------------------------------ version --------------------------------------
 
+_sovereign_os_version() {
+  local candidate version
+  local -a candidates
+
+  if [ -n "${SOVEREIGN_OS_VERSION_FILE:-}" ]; then
+    candidates=("${SOVEREIGN_OS_VERSION_FILE}")
+  else
+    candidates=(
+      "${__REPO_ROOT}/VERSION"
+      "${__REPO_ROOT}/share/VERSION"
+      "/usr/local/share/sovereign-os/VERSION"
+      "/usr/share/sovereign-os/VERSION"
+    )
+  fi
+
+  for candidate in "${candidates[@]}"; do
+    [ -r "${candidate}" ] || continue
+    IFS= read -r version < "${candidate}" || {
+      log_error "cannot read sovereign-os version from ${candidate}"
+      return 1
+    }
+    if [[ "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
+      printf '%s\n' "${version}"
+      return 0
+    fi
+    log_error "invalid sovereign-os version in ${candidate}: ${version:-<empty>}"
+    return 1
+  done
+
+  log_error "sovereign-os VERSION file not found; reinstall or set SOVEREIGN_OS_VERSION_FILE"
+  return 1
+}
+
 cmd_version() {
-  local sovereign_version="0.3.0"
+  local sovereign_version
+  sovereign_version="$(_sovereign_os_version)" || return 1
   local phase="Stage-2 operator-observability + hardening complete"
   local active_profile="${SOVEREIGN_OS_PROFILE:-unknown}"
   local active_whitelabel="default"
