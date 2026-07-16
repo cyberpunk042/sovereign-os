@@ -468,6 +468,21 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
   else badge();
 })();
 </script>
+/* HELPERS:BEGIN M073 — canonical per-panel JS helpers
+ *
+ * SDD-073: the deduplicated helper surface. These functions are copy-pasted
+ * into every panel that adopts them (sovereignty-clean doctrine: no shared
+ * runtime asset). The canonical source lives here; drift is enforced by
+ * tests/lint/test_helpers_contract.py and kept in sync by
+ * scripts/webapp/sync-helpers.py.
+ *
+ * Adopted panels MUST remove their local definitions of these helpers so
+ * the canonical block is the single source of truth.
+ */
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+function fmtBytes(b) { if (!b && b !== 0) return '—'; const u=['B','K','M','G','T']; let i=0; while(b>=1024&&i<u.length-1){b/=1024;i++;} return `${b.toFixed(b<10?1:0)} ${u[i]}`; }
+function fmtNum(v) { return v == null ? '—' : Number(v).toLocaleString(); }
+/* HELPERS:END M073 */
 </head>
 <body>
 <!-- APP-SHELL:BEGIN M067 -->
@@ -1395,7 +1410,6 @@ function clearView() {
 }
 
 function escapeHtml(s) { if (s == null) return ''; return String(s).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
-function fmtBytes(b) { if (!b && b !== 0) return '—'; const u=['B','K','M','G','T']; let i=0; while(b>=1024&&i<u.length-1){b/=1024;i++;} return `${b.toFixed(b<10?1:0)} ${u[i]}`; }
 function fmtAge(ts) { if (!ts) return '—'; const ms = Date.now() - new Date(ts).getTime(); const m=Math.floor(ms/60000); if(m<60) return `${m}m`; const h=Math.floor(m/60); if(h<24) return `${h}h`; return `${Math.floor(h/24)}d`; }
 
 function precisionPill(p) {
