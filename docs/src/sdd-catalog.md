@@ -5,7 +5,7 @@
 > page drifts from `docs/sdd/`, so the published book can never freeze behind the
 > design record again (F-2026-033).
 
-Every Spec-Driven-Development design doc in `docs/sdd/` (206 total), by number.
+Every Spec-Driven-Development design doc in `docs/sdd/` (207 total), by number.
 
 - [SDD-000 — Project charter](../sdd/000-charter.md)
 - [SDD-001 — Cross-repo boundaries: contract between sovereign-os, info-hub, selfdef](../sdd/001-cross-repo-boundaries.md)
@@ -161,6 +161,7 @@ Every Spec-Driven-Development design doc in `docs/sdd/` (206 total), by number.
 - [SDD-721 — the adapter training producer (unsloth on the unpacked base) (IMPLEMENTATION)](../sdd/721-adapter-training-producer.md)
 - [SDD-722 — the trace→dataset curator (E0444: success examples → training data) (IMPLEMENTATION)](../sdd/722-adapter-dataset-curator.md)
 - [SDD-723 — the goal-loop trace sink (the M046 trace source) (IMPLEMENTATION)](../sdd/723-goal-loop-trace-sink.md)
+- [SDD-724 — the adapter eval runner (the MS041 eval gate-producer) (IMPLEMENTATION)](../sdd/724-adapter-eval-gate-producer.md)
 - [SDD-800 — Cockpit wasm bridge: the typed cockpit crates run in the browser](../sdd/800-cockpit-wasm-bridge.md)
 - [SDD-902 — Compute Plane Phase 2: multi-model gateway (secondary-model hosting)](../sdd/902-compute-plane-phase2-multi-model.md)
 - [SDD-950 — Real RoPE: `rope_theta` + `rope_scaling` from the model config (make modern models decode coherently)](../sdd/950-real-rope-theta-scaling.md)

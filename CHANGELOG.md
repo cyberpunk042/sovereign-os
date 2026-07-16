@@ -12,6 +12,35 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — the adapter eval runner: the MS041 eval gate-producer (2026-07-16)
+
+Operator-directed (*"go"*) (SDD-724) — after SDD-721/722/723 closed the loop's data spine, make the MS041 eval
+gate reachable from real evidence. `adapter-gate.py`'s eval gate reads a *passing* eval record from `evals.jsonl`
+and honest-defers (SB-077 — never fabricate) when none exists; nothing wrote one, so the gate could only pass
+from an operator/stub record. This ships the producer.
+
+- **`scripts/inference/adapter-eval.py`** — a **CLI runner**: runs a benchmark suite (JSONL, one item per line
+  — `{"prompt", "expect", "grader": contains|exact|regex}`) against a served adapter and writes the eval-run
+  record the gate reads. Split like the rest of the foundry: **the only hardware-gated step is querying the
+  served adapter** (`/v1/chat/completions`); grading, scoring, and record-assembly are pure and CI-tested via an
+  injected `Responder` (real = HTTP to the daemon; tests = a scripted responder). **DRY-RUN by default**;
+  `--apply` appends the record.
+- **The pass rule is the gate's own rule.** `passed = score ≥ threshold`, and the record carries
+  `gate_agrees = (eval_tracker._passed(record) == passed)` — the runner reuses `eval-tracker._passed` itself, so
+  the runner and the MS041 gate can never disagree on whether an eval passed. The record is written in
+  `eval-tracker.py`'s exact shape, so it lands on the D-10 dashboard and is discoverable by the gate's
+  `_eval_evidence` in one write. Bounded (trimmed to `eval-tracker.MAX_RUNS`) + atomic append to
+  `SOVEREIGN_OS_EVAL_STORE` (default `/var/log/sovereign-os/evals.jsonl`).
+- **`tests/lint/test_adapter_eval_contract.py`** (7) — present/executable/stdlib; reuses eval-tracker; the three
+  graders (bad regex fails safe); score = fraction passed + `gate_agrees`; below-threshold fails; the written
+  record is discoverable by `eval-tracker.load_runs` + `_passed` for the adapter; bounded + atomic append.
+
+Verified: 7 passed; end-to-end (real, in CI) — a scripted 3-item suite (2/3) → score 0.667 ≥ 0.5 → passed +
+gate_agrees → `append_record` → `eval-tracker.load_runs` + `_passed` find it as a passing run for the adapter
+(the gate's own evidence path); a 0/4 suite → fail, still gate_agrees. Full `tests/` + ruff green. Not
+hardware-verified — a real benchmark run against a *served* adapter needs the model + GPUs; scoring, grading,
+gate-agreement, record shape, and store discovery are proven with the scripted responder.
+
 ### Added — the goal-loop trace sink: the M046 trace source (2026-07-16)
 
 Operator-directed (*"go"*) (SDD-723) — close the last software gap in the M046 loop after SDD-721 (train) +
