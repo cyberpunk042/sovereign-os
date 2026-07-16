@@ -406,6 +406,13 @@
     "status": "no-actions"
   },
   {
+    "slug": "warp",
+    "exec_rail": 0,
+    "proxy_copy": false,
+    "wireable_gap": false,
+    "status": "no-actions"
+  },
+  {
     "slug": "weaver",
     "exec_rail": 0,
     "proxy_copy": false,

@@ -1,89 +1,186 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>sovereign-os D-25 selfdef management</title>
-<meta name="x-sovereign-module" content="d-25-selfdef-management-webapp">
-<meta name="x-sovereign-shipped-in" content="D-25-selfdef-management">
-<meta name="x-sovereign-standing-rule" content="We do not minimize anything.">
-<meta name="x-sovereign-catalog-source" content="reuses scripts/operator/m060-health.py probe() (READ-ONLY M060 consumer proxy — R10212)">
-<meta name="x-sovereign-boundary" content="READ-ONLY consumer of the selfdef IPS producer (R10212); on/off is a clipboard-copied signed CLI verb, never an HTTP mutation">
-<script>
-  (function(){
-    var KEY = 'sovereign-os.personalization', SCHEMA_V = 1;
-    var DEF = { schema: SCHEMA_V, theme: 'auto', accent: '#9bd1ff', font_scale: 1 };
-    var p;
-    try { var raw = localStorage.getItem(KEY); p = raw ? JSON.parse(raw) : null; if (!p || p.schema !== SCHEMA_V) p = null; } catch(e) { p = null; }
-    if (!p) p = DEF;
-    var resolved = (p.theme === 'dark' || p.theme === 'light') ? p.theme
-      : ((window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark');
-    document.documentElement.setAttribute('data-theme', resolved);
-    document.documentElement.style.setProperty('--so-accent', p.accent || DEF.accent);
-    document.documentElement.style.setProperty('--accent', p.accent || DEF.accent);
-    document.documentElement.style.setProperty('--font-scale', String(p.font_scale || 1));
-  })();
-</script>
-<style>
-  :root {
-    --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --panel:#171717;
-    --border:#262626; --mono:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; --accent:#9bd1ff; --good:#7ad17a; --warn:#e6c062;
-    --bad:#ff7676; --font-scale:1;
-  }
-  html[data-theme="light"] { --bg:#f6f6f6; --fg:#0e0e0e; --muted:#555; --panel:#ffffff; --border:#d8d8d8; }
-  * { box-sizing:border-box; }
-  body { margin:0; background:var(--bg); color:var(--fg); font-family: var(--mono); font-size: calc(14px * var(--font-scale)); line-height:1.5; }
-  header { padding:1rem 1.25rem; border-bottom:1px solid var(--border); }
-  h1 { margin:0; font-size:1.1rem; }
-  h1 .sub { color:var(--muted); font-weight:400; font-size:.8rem; margin-left:.5rem; }
-  main { padding:1rem 1.25rem; max-width:1100px; }
-  h2 { font-size:.9rem; margin:1.2rem 0 .4rem; color:var(--accent); }
-  .banner { font-size:.78rem; color:var(--muted); margin:.5rem 0; }
-  .muted { color:var(--muted); }
-  code { color:var(--accent); }
-  .big { font-size:1.35rem; font-weight:600; }
-  .pill { display:inline-block; border:1px solid var(--border); border-radius:3px; padding:0 .4rem; font-size:.74rem; }
-  .grid2 { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:.3rem; } /* SDD-137 */
-  .card { border:1px solid var(--border); border-radius:4px; padding:.5rem .6rem; font-size:.8rem; }
-  .row { display:flex; justify-content:space-between; gap:.5rem; align-items:baseline; }
-  table { width:100%; border-collapse:collapse; font-size:.8rem; }
-  th, td { text-align:left; padding:.3rem .5rem; border-bottom:1px solid var(--border); }
-  th { color:var(--muted); font-weight:600; }
-  .s-running { color:var(--good); } .s-degraded { color:var(--warn); }
-  .s-not-running { color:var(--bad); } .s-unreachable { color:var(--muted); }
-  .st-online { color:var(--good); } .st-degraded { color:var(--warn); } .st-stale { color:var(--warn); }
-  .st-offline { color:var(--bad); } .st-unreachable { color:var(--muted); }
-  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
-  footer { padding:1rem 1.25rem; border-top:1px solid var(--border); color:var(--muted); font-size:.75rem; }
+<!-- SDD-300 Warp management panel. Standing rule (operator §1g, sacrosanct):
+     We do not minimize anything. -->
+<meta name="x-sovereign-module" content="warp-management-webapp">
+<meta name="x-sovereign-shipped-in" content="SDD-300">
+<title>Warp Management · sovereign-os</title>
+<style id="cs-style">
+/* webapp/_shared/control-surface.css — SDD-045 shared control-surface.
+ * Renders the control-systems registry (profiles / modes / feature toggles)
+ * as a grid of control cards. Monochrome, framework-free; inherits the
+ * panel palette variables (--bg/--fg/--muted/--accent/--border/--mono).
+ *
+ * R10274 (functional cockpit): a control can now be EXECUTED from the card
+ * (the sanctioned same-origin control-exec-api POST) — the copyable command
+ * is demoted to a labelled fallback. R10212 is preserved: proxy-only controls
+ * (selfdef / perimeter) render NO execute affordance, and every per-panel
+ * daemon stays read-only — the ONLY write path is the dedicated exec daemon. */
+.cs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: .5rem; }
+.cs-card {
+  display: flex; flex-direction: column; gap: .35rem;
+  padding: .6rem .75rem; border: 1px solid var(--border, #262626);
+  border-radius: .4rem; background: rgba(255, 255, 255, .02);
+  transition: border-color .12s ease;
+}
+.cs-card:hover { border-color: rgba(255, 255, 255, .12); }
+.cs-head { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.cs-label { font-weight: 600; flex: 1; }
+.cs-kind {
+  font-size: .7rem; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--muted, #888); border: 1px solid var(--border, #262626);
+  border-radius: 3px; padding: 0 .35rem;
+}
+.cs-global {
+  font-size: .7rem; color: var(--accent, #9bd1ff);
+  border: 1px solid var(--accent, #9bd1ff); border-radius: 3px; padding: 0 .35rem;
+}
+.cs-proxy {
+  font-size: .7rem; color: #e0b050; border: 1px solid #e0b050;
+  border-radius: 3px; padding: 0 .35rem; letter-spacing: .02em;
+}
+.cs-desc { color: var(--muted, #888); font-size: .8rem; line-height: 1.45; }
+.cs-opts { display: flex; flex-wrap: wrap; gap: .3rem; }
+.cs-opt { font-size: .72rem; background: var(--border, #262626); border-radius: 3px; padding: 1px 6px; }
+
+/* ── argument rail: one control per change_cli placeholder ──────────────── */
+.cs-args { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; margin: .1rem 0; }
+.cs-lit { font-family: var(--mono, ui-monospace, monospace); font-size: .74rem; color: var(--muted, #888); }
+.cs-verbs { display: inline-flex; border: 1px solid var(--border, #262626); border-radius: 4px; overflow: hidden; }
+.cs-verb {
+  font-family: var(--mono, ui-monospace, monospace); font-size: .72rem;
+  color: var(--fg, #e6e6e6); background: var(--bg, #0e0e0e);
+  border: 0; border-right: 1px solid var(--border, #262626);
+  padding: .2rem .5rem; cursor: pointer;
+}
+.cs-verb:last-child { border-right: 0; }
+.cs-verb[aria-pressed="true"] { background: var(--accent, #9bd1ff); color: #0a0a0a; font-weight: 600; }
+.cs-arg {
+  font-family: var(--mono, ui-monospace, monospace); font-size: .74rem;
+  color: var(--fg, #e6e6e6); background: var(--bg, #0e0e0e);
+  border: 1px solid var(--border, #262626); border-radius: 4px;
+  padding: .2rem .4rem; min-width: 6ch; max-width: 16ch;
+}
+.cs-arg:focus { outline: 0; border-color: var(--accent, #9bd1ff); }
+
+/* ── action row: Execute (primary) + Copy (fallback) ───────────────────── */
+.cs-actions { display: flex; gap: .35rem; align-items: stretch; margin-top: .1rem; }
+.cs-exec {
+  font-size: .76rem; font-weight: 600; cursor: pointer;
+  color: #0a0a0a; background: var(--accent, #9bd1ff);
+  border: 1px solid var(--accent, #9bd1ff); border-radius: 4px;
+  padding: .28rem .6rem; white-space: nowrap;
+}
+.cs-exec:hover { filter: brightness(1.08); }
+.cs-exec:disabled { opacity: .45; cursor: not-allowed; filter: none; }
+.cs-cmd {
+  font-family: var(--mono, ui-monospace, monospace); font-size: .74rem;
+  text-align: left; color: var(--fg, #e6e6e6); background: var(--bg, #0e0e0e);
+  border: 1px solid var(--border, #262626); border-radius: 4px;
+  padding: .25rem .4rem; cursor: pointer; overflow-x: auto; white-space: nowrap; flex: 1;
+}
+.cs-cmd:hover { border-color: var(--accent, #9bd1ff); }
+.cs-copy { flex: 1; }
+/* result line — dry-run / executed / rejected feedback, always visible */
+.cs-result { font-size: .72rem; line-height: 1.4; min-height: 1em; word-break: break-word; }
+.cs-result.ok { color: #6fcf6f; }
+.cs-result.dry { color: var(--accent, #9bd1ff); }
+.cs-result.warn { color: #e0b050; }
+.cs-result.err { color: #e06a6a; }
+.cs-result.muted { color: var(--muted, #888); }
+/* inline type-to-confirm gate for privileged controls */
+.cs-confirm {
+  display: flex; flex-wrap: wrap; align-items: center; gap: .35rem;
+  padding: .35rem .4rem; margin-top: .1rem;
+  border: 1px dashed var(--accent, #9bd1ff); border-radius: 4px;
+}
+.cs-confirm-msg { font-size: .72rem; color: var(--muted, #888); }
+.cs-confirm-msg code { color: var(--fg, #e6e6e6); }
+.cs-confirm-in { max-width: 14ch; }
+.cs-confirm-cancel { flex: 0 0 auto; }
+.cs-empty { color: var(--muted, #888); }
+
 </style>
-<!-- SDD-116/119 shared demo-mode helper (inlined verbatim from webapp/_shared/demo-mode.{css,js}; opt-in, always-badged sample data — SB-077 reconciliation). -->
 <style>
-/* webapp/_shared/demo-mode.css — SDD-116 DEMO badge.
- * DEMO mode is opt-in sample data for exploring panels with no daemon. The badge
- * is a persistent, unmistakable ribbon so DEMO data is NEVER mistaken for real
- * telemetry (the SB-077 reconciliation). Inlined verbatim into demo-capable
- * panels alongside demo-mode.js. */
+  :root{
+    --bg:#0b0d10; --panel:#12151a; --line:#232a33; --ink:#d7dee7; --dim:#8b98a8;
+    --accent:#7fb2ff; --accent2:#9be7c4; --warn:#e7c07f; --chip:#1b222c;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  a{color:var(--accent)}
+  .wrap{max-width:1200px;margin:0 auto;padding:20px}
+  h1{font-size:20px;margin:0 0 2px}
+  .sub{color:var(--dim);margin:0 0 16px}
+  .strip{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 18px}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:8px;
+    padding:8px 12px;min-width:120px}
+  .stat b{display:block;font-size:18px;color:var(--accent2)}
+  .stat span{color:var(--dim);font-size:12px}
+  section{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    padding:14px 16px;margin:0 0 16px}
+  section h2{font-size:14px;margin:0 0 10px;color:var(--ink);
+    text-transform:uppercase;letter-spacing:.06em}
+  section h2 small{color:var(--dim);text-transform:none;letter-spacing:0;font-weight:normal}
+  /* relation graph */
+  #graph{width:100%;height:440px;display:block;background:#0e1116;border-radius:8px}
+  .edge{stroke:#2c3644;stroke-width:1}
+  .libnode{cursor:pointer}
+  .libnode circle{fill:#16202c;stroke:#3a4a5e;stroke-width:1.5;transition:.15s}
+  .libnode.sel circle,.libnode:hover circle{fill:#25415f;stroke:var(--accent)}
+  .libnode text{fill:var(--ink);font-size:11px;text-anchor:middle;pointer-events:none}
+  .libnode .cnt{fill:var(--dim);font-size:9px}
+  .legend{color:var(--dim);font-size:12px;margin-top:6px}
+  /* scene table */
+  .controls{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 10px;align-items:center}
+  .controls input,.controls select{background:#0e1116;color:var(--ink);
+    border:1px solid var(--line);border-radius:6px;padding:6px 9px;font:inherit}
+  .count{color:var(--dim);font-size:12px;margin-left:auto}
+  table{width:100%;border-collapse:collapse}
+  th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--dim);font-weight:normal;font-size:12px;position:sticky;top:0;background:var(--panel)}
+  .scenes-scroll{max-height:520px;overflow:auto;border:1px solid var(--line);border-radius:8px}
+  .name{color:var(--accent2)}
+  .chip{display:inline-block;background:var(--chip);border:1px solid var(--line);
+    border-radius:12px;padding:1px 8px;margin:1px 2px;font-size:11px;color:var(--ink);cursor:pointer}
+  .chip:hover{border-color:var(--accent)}
+  .sum{color:var(--dim)}
+  .btn{background:#16202c;color:var(--ink);border:1px solid #3a4a5e;border-radius:6px;
+    padding:3px 9px;font:inherit;cursor:pointer;margin-right:4px}
+  .btn:hover{border-color:var(--accent);color:#fff}
+  .btn.bench{border-color:#4e5a3a}
+  .err{color:var(--warn)}
+  .flash{animation:fl 1.2s ease}
+  @keyframes fl{0%{box-shadow:0 0 0 2px var(--accent)}100%{box-shadow:none}}
+  footer{color:var(--dim);font-size:12px;margin-top:20px;border-top:1px solid var(--line);padding-top:10px}
+  @media (prefers-color-scheme:light){
+    :root{--bg:#f5f7fa;--panel:#fff;--line:#dde3ea;--ink:#1c2430;--dim:#5a6675;--chip:#eef2f7}
+    #graph{background:#eef2f7}.edge{stroke:#c4cfda}.libnode circle{fill:#e2ecf6;stroke:#a9bccf}
+  }
+  /* Explicit light override for the app-shell theme toggle (html[data-theme="light"]),
+     which must win over the dark :root default regardless of OS preference. */
+  html[data-theme="light"]{--bg:#f5f7fa;--panel:#fff;--line:#dde3ea;--ink:#1c2430;--dim:#5a6675;--chip:#eef2f7}
+  html[data-theme="light"] #graph{background:#eef2f7}
+  html[data-theme="light"] .edge{stroke:#c4cfda}
+  html[data-theme="light"] .libnode circle{fill:#e2ecf6;stroke:#a9bccf}
+</style>
+<!-- SDD-116/119 shared demo-mode helper (inlined verbatim from webapp/_shared/demo-mode.{css,js};
+     opt-in, always-badged sample data — SB-077). window.soDemo + the DEMO badge in <head>. -->
+<style>
 #so-demo-badge {
   position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); z-index: 9600;
   background: #e6c062; color: #0a0a0a; font-weight: 700; font-size: .72rem; letter-spacing: .03em;
   padding: .28rem .65rem; border-radius: 6px; box-shadow: 0 2px 12px rgba(0, 0, 0, .38);
   font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif; pointer-events: none;
 }
-/* Lift clear of the guided-course rail when it is showing (SDD-203) — the rail
-   occupies the bottom band, so raise the badge above it + a small margin rather
-   than letting it sit directly on the rail. Inert on panels with no course rail. */
 body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 12px); }
 #so-demo-badge .sub { font-weight: 400; opacity: .82; }
 </style>
 <script>
-/* webapp/_shared/demo-mode.js — SDD-116 shared DEMO-mode helper (opt-in sample data).
- *
- * Reads the `sovereign-os.demo` localStorage flag (schema-guarded) and renders a
- * persistent DEMO badge. Demo-capable panels call `soDemo.on()` to branch to their
- * clearly-labelled sample data. The SB-077 reconciliation: DEMO is opt-in (off by
- * default; never self-enables), ALWAYS badged, and makes ZERO network calls
- * (R10212 strengthened — the demo render path never fetches). Inlined verbatim into
- * demo-capable panels alongside demo-mode.css. */
 (function () {
   "use strict";
   var DKEY = 'sovereign-os.demo', DSCHEMA = 1;
@@ -867,217 +964,201 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
   window.__cockpitKeystrokeResolve = keystrokeResolve;
 </script>
 <!-- APP-SHELL:END M067 -->
+<div class="wrap">
+  <h1>Warp Management</h1>
+  <p class="sub">The <code>warp-solar-system-shaders</code> NVIDIA-Warp engine —
+     scenes, libs, their relations, and per-scene execution. (SDD-300)</p>
 
-<header>
-  <h1>D-25 · Self-Defense Management
-    <span class="sub">READ-ONLY consumer view of the selfdef IPS · on/off + M060 mirror-chain health (R10212)</span></h1>
-</header>
-<main>
-  <div class="banner" id="data-source-banner">connecting to <code>/api/selfdef-management/state</code>…</div>
+  <div class="strip" id="strip"><div class="stat"><b>…</b><span>loading</span></div></div>
 
-  <h2>Self-defense IPS</h2>
-  <div class="grid2">
-    <div class="card">
-      <div class="row"><span class="muted">enablement</span><span class="big" id="sd-enablement">…</span></div>
-      <div class="muted" id="sd-detail"></div>
+  <section>
+    <h2>Relations <small>— lib → lib dependency graph (node size ∝ scenes using it); click a lib to filter</small></h2>
+    <svg id="graph" viewBox="0 0 1000 440" preserveAspectRatio="xMidYMid meet"></svg>
+    <div class="legend" id="glegend">Each scene depends on libs via its Python imports; each lib depends on other libs. This is the real import graph, extracted by <code>scripts/warp/gen_catalog.py</code>.</div>
+  </section>
+
+  <section>
+    <h2>Scenes <small>— render.py --scene &lt;name&gt;</small></h2>
+    <div class="controls">
+      <input id="q" placeholder="search name / summary…" autocomplete="off">
+      <select id="libsel"><option value="">all libs</option></select>
+      <button class="btn" id="clear">clear</button>
+      <span class="count" id="scount"></span>
     </div>
-    <div class="card">
-      <div class="row"><span class="muted">on / off</span><span id="sd-oncli" class="pill">—</span></div>
-      <div class="banner">turn the producer on/off via the signed control below — the cockpit never mutates selfdef (R10212).</div>
+    <div class="scenes-scroll">
+      <table>
+        <thead><tr><th>scene</th><th>libs</th><th>summary</th><th>run</th></tr></thead>
+        <tbody id="rows"><tr><td colspan="4" class="sum">loading…</td></tr></tbody>
+      </table>
     </div>
-  </div>
+  </section>
 
-  <h2>M060 mirror-chain health</h2>
-  <div class="card">
-    <div class="row"><span class="muted">chain state</span><span class="big" id="m060-state">…</span></div>
-    <div class="banner"><span id="m060-fresh">—</span> · newest artifact age: <span id="m060-age">—</span></div>
-  </div>
+  <section>
+    <h2>Execute <small>— render / bench through the sanctioned control-exec rail</small></h2>
+    <p class="sub" style="margin:0 0 10px">Pick a scene (or use a per-scene <b>Render</b>/<b>Bench</b> button above — it fills the card below), then Execute. Where this panel is not fronted by the exec daemon, the command is copied instead. Rendering is real GPU/CPU compute (privileged: operator-key + type-to-confirm).</p>
+    <div id="control-surface" class="cs-grid"><div class="cs-empty">loading controls…</div></div>
+  </section>
 
-  <h2>Per-domain security panels</h2>
-  <div class="banner muted">the six selfdef-domain cockpit surfaces (mirror consumers) — open a domain for detail.</div>
-  <div id="mirror-panels"></div>
+  <footer>
+    Catalog generated from the project by <code>scripts/warp/gen_catalog.py</code>;
+    the shaders checkout is not resident on the host, so
+    <code>config/warp-catalog.yaml</code> is the source of truth. Data:
+    <a href="/warp.json">/warp.json</a>. — <em>We do not minimize anything.</em>
+  </footer>
+</div>
 
-  <p class="banner" id="last-fetch"></p>
-</main>
-<footer>
-  sovereign-os cockpit · D-25 · READ-ONLY consumer of the selfdef IPS producer — nothing here mutates selfdef (R10212).
-  Operator §1g standing rule (sacrosanct): <strong>We do not minimize anything.</strong>
-</footer>
 <script>
-  const $ = id => document.getElementById(id);
-  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const cls = s => 's-' + String(s || 'unreachable').replace(/[^a-z-]/gi, '-');
-  const stcls = s => 'st-' + String(s || 'unreachable').replace(/[^a-z-]/gi, '-');
-  const agefmt = sec => sec == null ? '—' : (sec < 90 ? sec + 's' : Math.round(sec / 60) + 'm');
+/* SDD-300 panel logic — same-origin reads of /warp.json only. */
+(function(){
+  "use strict";
+  var DATA = {scenes:[], libs:[], relations:{scene_to_lib:[],lib_to_lib:[]}, status:{}, counts:{}};
+  var selLib = "";
 
-  function render(state) {
-    state = state || {};
-    // SDD-115 — the tiles + mirror-panels stay visible even with the daemon
-    // offline (the SDD-111/113 "seeing all sections" lesson): an honest
-    // unreachable state, never blank/seed-frozen (SB-077).
-    if (state.offline) {
-      $('sd-enablement').textContent = 'unreachable'; $('sd-enablement').className = 'big';
-      $('sd-detail').textContent = 'selfdef-management daemon unreachable';
-      $('sd-oncli').innerHTML = '—';
-      $('m060-state').textContent = 'unreachable'; $('m060-state').className = 'big';
-      $('m060-fresh').textContent = '—'; $('m060-age').textContent = '—';
-      $('mirror-panels').innerHTML = '<div class="muted">the selfdef-management daemon is unreachable — the enablement state, the M060 mirror-chain health, and the per-domain panels (D-13..D-18) populate when it\'s reachable. Nothing is fabricated (SB-077).</div>';
+  function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
+
+  function renderStrip(){
+    var st = DATA.status || {}, c = DATA.counts || {};
+    var resident = st.checkout_resident;
+    var el = document.getElementById("strip");
+    el.innerHTML =
+      stat(c.scenes!=null?c.scenes:DATA.scenes.length, "scenes") +
+      stat(c.libs!=null?c.libs:DATA.libs.length, "libs") +
+      stat(resident ? "resident" : "absent", "shaders checkout") +
+      stat(st.warp_installed ? "installed" : "absent", "warp-lang");
+  }
+  function stat(v,l){ return '<div class="stat"><b>'+esc(v)+'</b><span>'+esc(l)+'</span></div>'; }
+
+  // ── relation graph: 20 libs on a circle, sized by scene_count, lib→lib edges ──
+  function renderGraph(){
+    var libs = DATA.libs.slice().sort(function(a,b){return b.scene_count-a.scene_count;});
+    var svg = document.getElementById("graph");
+    var W=1000,H=440,cx=W/2,cy=H/2,R=170;
+    var pos={}, n=libs.length;
+    libs.forEach(function(l,i){
+      var a=(i/n)*2*Math.PI - Math.PI/2;
+      pos[l.id]={x:cx+R*Math.cos(a), y:cy+R*Math.sin(a)};
+    });
+    var maxc=Math.max.apply(null, libs.map(function(l){return l.scene_count;}).concat([1]));
+    var parts=[];
+    // edges first
+    (DATA.relations.lib_to_lib||[]).forEach(function(e){
+      var from=pos[e.from]; if(!from) return;
+      (e.to||[]).forEach(function(t){
+        var to=pos[t]; if(!to) return;
+        parts.push('<line class="edge" x1="'+from.x.toFixed(1)+'" y1="'+from.y.toFixed(1)+
+          '" x2="'+to.x.toFixed(1)+'" y2="'+to.y.toFixed(1)+'"/>');
+      });
+    });
+    // nodes
+    libs.forEach(function(l){
+      var p=pos[l.id], r=6+Math.sqrt(l.scene_count/maxc)*22;
+      parts.push('<g class="libnode" data-lib="'+esc(l.id)+'" transform="translate('+
+        p.x.toFixed(1)+','+p.y.toFixed(1)+')"><title>'+esc(l.id)+' — '+l.scene_count+
+        ' scenes\n'+esc(l.summary)+'</title>'+
+        '<circle r="'+r.toFixed(1)+'"></circle>'+
+        '<text y="'+(-r-4).toFixed(1)+'">'+esc(l.id)+'</text>'+
+        '<text class="cnt" y="4">'+l.scene_count+'</text></g>');
+    });
+    svg.innerHTML=parts.join("");
+    Array.prototype.forEach.call(svg.querySelectorAll(".libnode"), function(g){
+      g.addEventListener("click", function(){
+        var lib=g.getAttribute("data-lib");
+        selLib = (selLib===lib)?"":lib;
+        document.getElementById("libsel").value = selLib;
+        syncGraphSel(); renderRows();
+      });
+    });
+    syncGraphSel();
+  }
+  function syncGraphSel(){
+    Array.prototype.forEach.call(document.querySelectorAll(".libnode"), function(g){
+      g.classList.toggle("sel", g.getAttribute("data-lib")===selLib && selLib!=="");
+    });
+  }
+
+  function renderLibSelect(){
+    var s=document.getElementById("libsel");
+    var libs=DATA.libs.slice().sort(function(a,b){return b.scene_count-a.scene_count;});
+    s.innerHTML='<option value="">all libs ('+DATA.scenes.length+' scenes)</option>' +
+      libs.map(function(l){return '<option value="'+esc(l.id)+'">'+esc(l.id)+' ('+l.scene_count+')</option>';}).join("");
+  }
+
+  function renderRows(){
+    var q=(document.getElementById("q").value||"").toLowerCase();
+    var rows=DATA.scenes.filter(function(s){
+      if(selLib && (s.libs||[]).indexOf(selLib)<0) return false;
+      if(q && s.name.toLowerCase().indexOf(q)<0 && (s.summary||"").toLowerCase().indexOf(q)<0) return false;
+      return true;
+    });
+    document.getElementById("scount").textContent = rows.length+" / "+DATA.scenes.length+" scenes";
+    var tb=document.getElementById("rows");
+    if(!rows.length){ tb.innerHTML='<tr><td colspan="4" class="sum">no scenes match</td></tr>'; return; }
+    tb.innerHTML = rows.map(function(s){
+      var chips=(s.libs||[]).map(function(l){return '<span class="chip" data-lib="'+esc(l)+'">'+esc(l)+'</span>';}).join("");
+      return '<tr><td class="name">'+esc(s.name)+(s.multi?' <span class="sum">(multi)</span>':'')+'</td>'+
+        '<td>'+chips+'</td>'+
+        '<td class="sum">'+esc(s.summary)+'</td>'+
+        '<td style="white-space:nowrap">'+
+          '<button class="btn" data-run="render" data-scene="'+esc(s.name)+'">Render</button>'+
+          '<button class="btn bench" data-run="bench" data-scene="'+esc(s.name)+'">Bench</button>'+
+        '</td></tr>';
+    }).join("");
+    Array.prototype.forEach.call(tb.querySelectorAll(".chip"), function(c){
+      c.addEventListener("click", function(){ selLib=c.getAttribute("data-lib");
+        document.getElementById("libsel").value=selLib; syncGraphSel(); renderRows(); });
+    });
+    Array.prototype.forEach.call(tb.querySelectorAll("[data-run]"), function(b){
+      b.addEventListener("click", function(){ fillControl(b.getAttribute("data-run"), b.getAttribute("data-scene")); });
+    });
+  }
+
+  // Deep-link a per-scene button into the sanctioned control-surface card:
+  // set the card's <scene> input + scroll/flash it. The operator then Executes
+  // (the shared component is the ONLY mutating path). Falls back to copy.
+  function fillControl(verb, scene){
+    var cid = verb==="bench" ? "warp-bench" : "warp-render";
+    var card = document.querySelector('#control-surface [data-cid="'+cid+'"]');
+    if(card){
+      var inp = card.querySelector('input.cs-arg[data-argkey="scene"]') || card.querySelector('input.cs-arg');
+      if(inp){ inp.value = scene; inp.dispatchEvent(new Event("input",{bubbles:true})); }
+      card.scrollIntoView({behavior:"smooth",block:"center"});
+      card.classList.remove("flash"); void card.offsetWidth; card.classList.add("flash");
       return;
     }
-    const sd = state.selfdef || {};
-    $('sd-enablement').textContent = sd.enablement || '?';
-    $('sd-enablement').className = 'big ' + cls(sd.enablement);
-    $('sd-detail').textContent = sd.detail || '';
-    $('sd-oncli').innerHTML = sd.on_off_cli ? '<code>' + esc(sd.on_off_cli) + '</code>' : '—';
-
-    const m = state.m060_chain || {};
-    $('m060-state').textContent = m.state || '?';
-    $('m060-state').className = 'big ' + stcls(m.state);
-    $('m060-fresh').textContent = (m.artifacts_present ?? 0) + ' / ' + (m.artifacts_expected ?? 0) + ' mirrors present';
-    $('m060-age').textContent = agefmt(m.newest_age_seconds);
-
-    $('mirror-panels').innerHTML = (state.mirror_panels || []).length
-      ? '<table><thead><tr><th>Slot</th><th>Domain</th><th>Panel</th></tr></thead><tbody>' +
-        state.mirror_panels.map(p =>
-          `<tr><td class="muted">${esc(p.slot)}</td><td>${esc(p.label)}</td>` +
-          `<td><a href="/webapp/../${esc(p.dir)}/" title="${esc(p.dir)}">${esc(p.dir)}</a></td></tr>`).join('') +
-        '</tbody></table>'
-      : '<div class="muted">no per-domain panels registered</div>';
+    // fallback: copy the exact gated command
+    var cmd = "sovereign-osctl warp "+verb+" "+scene;
+    if(navigator.clipboard) navigator.clipboard.writeText(cmd);
   }
 
-  async function fetchJson(path) { const r = await fetch(path, {credentials:'same-origin'}); if (!r.ok) throw new Error('HTTP '+r.status); return r.json(); }
-
-    function demoActive(){return !!(window.soDemo&&window.soDemo.on());}
-  const DEMO_D25 = {
-    selfdef:{enablement:'enabled', detail:'demo/ selfdef active — 4 mirror producers publishing', on_off_cli:'sovereign-osctl selfdef disable'},
-    m060_chain:{state:'online', artifacts_present:10, artifacts_expected:10, newest_age_seconds:42},
-    mirror_panels:[
-      {slot:1, label:'demo/ Networking (D-12)', dir:'d-12-networking'},
-      {slot:2, label:'demo/ Filesystem grants (D-13)', dir:'d-13-filesystem-grants'},
-      {slot:3, label:'demo/ Capability tokens (D-14)', dir:'d-14-capability-tokens'},
-      {slot:4, label:'demo/ Audit (D-16)', dir:'d-16-audit'}
-    ]
-  };
-  async function refresh() {
-    if (demoActive()) { render(DEMO_D25); $('data-source-banner').innerHTML='DEMO — sample data, not real telemetry (SB-077)'; $('last-fetch').textContent='last fetch: '+new Date().toLocaleTimeString(); if(window.soDemo)window.soDemo.badge(); return; }
-    try {
-      const state = await fetchJson('/api/selfdef-management/state');
-      $('data-source-banner').innerHTML = 'consuming <code>/api/selfdef-management/state</code> from the selfdef-management API daemon · selfdef is the producer, this panel only reads';
-      render(state);
-    } catch (e) {
-      $('data-source-banner').innerHTML = 'cannot reach <code>/api/selfdef-management/state</code> — is the selfdef-management API daemon running? <span class="muted">('+esc(e.message)+')</span>';
-      render({offline: true});   // SDD-115 — keep the tiles + mirror-panels visible, never blank
-    }
-    $('last-fetch').textContent = 'last fetch: ' + new Date().toLocaleTimeString();
+  function boot(){
+    document.getElementById("q").addEventListener("input", renderRows);
+    document.getElementById("libsel").addEventListener("change", function(e){
+      selLib=e.target.value; syncGraphSel(); renderRows(); });
+    document.getElementById("clear").addEventListener("click", function(){
+      selLib=""; document.getElementById("q").value=""; document.getElementById("libsel").value="";
+      syncGraphSel(); renderRows(); });
+    fetch("/warp.json", {headers:{Accept:"application/json"}})
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        DATA = {
+          scenes:d.scenes||[], libs:d.libs||[],
+          relations:d.relations||{scene_to_lib:[],lib_to_lib:[]},
+          status:d.status||{}, counts:d.counts||{}
+        };
+        renderStrip(); renderGraph(); renderLibSelect(); renderRows();
+      })
+      .catch(function(e){
+        document.getElementById("rows").innerHTML =
+          '<tr><td colspan="4" class="err">could not load /warp.json — is sovereign-warp-api up? ('+esc(e)+')</td></tr>';
+      });
   }
-
-  // SDD-115 — initial paint so the panel is ALWAYS visible; refresh() then fills
-  // live data (or the catch keeps the honest offline scaffold).
-  render({offline: true});
-
-  if (!demoActive()) try { const es = new EventSource('/api/selfdef-management/stream'); es.addEventListener('state-change', refresh); es.addEventListener('error', () => setInterval(refresh, 60000)); }
-  catch (e) { setInterval(refresh, 60000); }
-  refresh();
+  if(document.readyState!=="loading") boot(); else document.addEventListener("DOMContentLoaded", boot);
+})();
 </script>
 
-<!-- SDD-045 shared control-surface (inlined verbatim). -->
-<section style="max-width:1100px;padding:0 1.25rem 1rem"><h2>Controls · self-defense</h2>
-<div id="control-surface" class="cs-grid"><div class="cs-empty">loading controls…</div></div></section>
-<style>
-/* webapp/_shared/control-surface.css — SDD-045 shared control-surface.
- * Renders the control-systems registry (profiles / modes / feature toggles)
- * as a grid of control cards. Monochrome, framework-free; inherits the
- * panel palette variables (--bg/--fg/--muted/--accent/--border/--mono).
- *
- * R10274 (functional cockpit): a control can now be EXECUTED from the card
- * (the sanctioned same-origin control-exec-api POST) — the copyable command
- * is demoted to a labelled fallback. R10212 is preserved: proxy-only controls
- * (selfdef / perimeter) render NO execute affordance, and every per-panel
- * daemon stays read-only — the ONLY write path is the dedicated exec daemon. */
-.cs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: .5rem; }
-.cs-card {
-  display: flex; flex-direction: column; gap: .35rem;
-  padding: .6rem .75rem; border: 1px solid var(--border, #262626);
-  border-radius: .4rem; background: rgba(255, 255, 255, .02);
-  transition: border-color .12s ease;
-}
-.cs-card:hover { border-color: rgba(255, 255, 255, .12); }
-.cs-head { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
-.cs-label { font-weight: 600; flex: 1; }
-.cs-kind {
-  font-size: .7rem; text-transform: uppercase; letter-spacing: .04em;
-  color: var(--muted, #888); border: 1px solid var(--border, #262626);
-  border-radius: 3px; padding: 0 .35rem;
-}
-.cs-global {
-  font-size: .7rem; color: var(--accent, #9bd1ff);
-  border: 1px solid var(--accent, #9bd1ff); border-radius: 3px; padding: 0 .35rem;
-}
-.cs-proxy {
-  font-size: .7rem; color: #e0b050; border: 1px solid #e0b050;
-  border-radius: 3px; padding: 0 .35rem; letter-spacing: .02em;
-}
-.cs-desc { color: var(--muted, #888); font-size: .8rem; line-height: 1.45; }
-.cs-opts { display: flex; flex-wrap: wrap; gap: .3rem; }
-.cs-opt { font-size: .72rem; background: var(--border, #262626); border-radius: 3px; padding: 1px 6px; }
-
-/* ── argument rail: one control per change_cli placeholder ──────────────── */
-.cs-args { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; margin: .1rem 0; }
-.cs-lit { font-family: var(--mono, ui-monospace, monospace); font-size: .74rem; color: var(--muted, #888); }
-.cs-verbs { display: inline-flex; border: 1px solid var(--border, #262626); border-radius: 4px; overflow: hidden; }
-.cs-verb {
-  font-family: var(--mono, ui-monospace, monospace); font-size: .72rem;
-  color: var(--fg, #e6e6e6); background: var(--bg, #0e0e0e);
-  border: 0; border-right: 1px solid var(--border, #262626);
-  padding: .2rem .5rem; cursor: pointer;
-}
-.cs-verb:last-child { border-right: 0; }
-.cs-verb[aria-pressed="true"] { background: var(--accent, #9bd1ff); color: #0a0a0a; font-weight: 600; }
-.cs-arg {
-  font-family: var(--mono, ui-monospace, monospace); font-size: .74rem;
-  color: var(--fg, #e6e6e6); background: var(--bg, #0e0e0e);
-  border: 1px solid var(--border, #262626); border-radius: 4px;
-  padding: .2rem .4rem; min-width: 6ch; max-width: 16ch;
-}
-.cs-arg:focus { outline: 0; border-color: var(--accent, #9bd1ff); }
-
-/* ── action row: Execute (primary) + Copy (fallback) ───────────────────── */
-.cs-actions { display: flex; gap: .35rem; align-items: stretch; margin-top: .1rem; }
-.cs-exec {
-  font-size: .76rem; font-weight: 600; cursor: pointer;
-  color: #0a0a0a; background: var(--accent, #9bd1ff);
-  border: 1px solid var(--accent, #9bd1ff); border-radius: 4px;
-  padding: .28rem .6rem; white-space: nowrap;
-}
-.cs-exec:hover { filter: brightness(1.08); }
-.cs-exec:disabled { opacity: .45; cursor: not-allowed; filter: none; }
-.cs-cmd {
-  font-family: var(--mono, ui-monospace, monospace); font-size: .74rem;
-  text-align: left; color: var(--fg, #e6e6e6); background: var(--bg, #0e0e0e);
-  border: 1px solid var(--border, #262626); border-radius: 4px;
-  padding: .25rem .4rem; cursor: pointer; overflow-x: auto; white-space: nowrap; flex: 1;
-}
-.cs-cmd:hover { border-color: var(--accent, #9bd1ff); }
-.cs-copy { flex: 1; }
-/* result line — dry-run / executed / rejected feedback, always visible */
-.cs-result { font-size: .72rem; line-height: 1.4; min-height: 1em; word-break: break-word; }
-.cs-result.ok { color: #6fcf6f; }
-.cs-result.dry { color: var(--accent, #9bd1ff); }
-.cs-result.warn { color: #e0b050; }
-.cs-result.err { color: #e06a6a; }
-.cs-result.muted { color: var(--muted, #888); }
-/* inline type-to-confirm gate for privileged controls */
-.cs-confirm {
-  display: flex; flex-wrap: wrap; align-items: center; gap: .35rem;
-  padding: .35rem .4rem; margin-top: .1rem;
-  border: 1px dashed var(--accent, #9bd1ff); border-radius: 4px;
-}
-.cs-confirm-msg { font-size: .72rem; color: var(--muted, #888); }
-.cs-confirm-msg code { color: var(--fg, #e6e6e6); }
-.cs-confirm-in { max-width: 14ch; }
-.cs-confirm-cancel { flex: 0 0 auto; }
-.cs-empty { color: var(--muted, #888); }
-</style>
+<!-- SDD-045 shared control-surface, inlined verbatim from webapp/_shared/control-surface.js
+     (single-file doctrine + lockstep, enforced by tests/lint/test_control_surface_component.py). -->
 <script>
 /* webapp/_shared/control-surface.js — SDD-045 shared control-surface renderer.
  *
@@ -1394,160 +1475,10 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
 
   global.SovereignControlSurface = { render: render, load: load };
 })(window);
+
 </script>
 <script>
-(function(){
-  var el = document.getElementById("control-surface");
-  if (el && window.SovereignControlSurface) { SovereignControlSurface.load(el, {filterSlug:'selfdef-management'}); }
-})();
-</script>
-
-
-
-<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
-<script>
-window.SO_ASSIST = {
- "context": {
-  "icon": "⛨",
-  "title": "D-25 · Self-Defense Management",
-  "content": "The top-level view of selfdef — the intrusion-prevention system that watches this box. It's a read-only consumer view: selfdef is a separate project that owns enforcement (the guardian daemon, Tetragon eBPF, the four watchdogs), and sovereign-os reads its state over the M060 mirror bridge. This panel answers three things: is self-defense enabled, is the mirror chain healthy, and where do the six per-domain mirrors live.\n\nThink of it as the selfdef front door. From here you confirm the IPS is on and its mirror is fresh, then drill into a specific domain (grants, sandboxes, audit, quarantine, trust, capabilities) via D-13…D-18. Enforcement itself is selfdefctl under your MS003 key — sovereign-os watches, it does not arm."
- },
- "nodes": [
-  {
-   "icon": "◆",
-   "title": "Data source",
-   "content": "Whether this view is a live read of selfdef or a snapshot. Everything here is mirrored, so freshness decides how much to trust the 'enabled/healthy' picture.",
-   "children": [
-    {
-     "selector": "#data-source-banner",
-     "title": "Data source",
-     "content": "Live selfdef read vs snapshot. Because enforcement state is safety-critical, a stale banner is a reason to refresh before trusting that self-defense is on.",
-     "icon": "◆",
-     "variants": [
-      {
-       "when": {
-        "textContains": "live"
-       },
-       "content": "Live — selfdef is answering; the IPS state is current.",
-       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Live</div>selfdef reachable; enablement and mirror health are now.</div>"
-      },
-      {
-       "when": {
-        "textContains": "snapshot"
-       },
-       "content": "Snapshot — selfdef unreachable; the IPS state shown may be stale.",
-       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Snapshot</div>Can't reach selfdef — 'enabled' here is last-known, not confirmed live.</div>"
-      }
-     ],
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Live vs snapshot, for an IPS</div>Whether this is a live selfdef read or a snapshot. For intrusion prevention, 'is it on' must be current — a snapshot's 'enabled' is last-known, not confirmed, so this gates trust in the headline.</div>"
-    },
-    {
-     "selector": "#last-fetch",
-     "title": "Last fetch",
-     "content": "When selfdef was last read. For an IPS, 'is it on?' must be current — treat an old timestamp as unverified and refresh.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Freshness for a safety read</div>When selfdef was last read. Enablement state is safety-critical — treat an old timestamp as unverified and refresh before trusting that self-defense is active.</div>"
-    }
-   ]
-  },
-  {
-   "icon": "⛨",
-   "title": "Self-defense IPS",
-   "content": "Is intrusion prevention enabled, the detail behind that state, and the CLI it's driven from. This is the headline: is the box defending itself right now.",
-   "children": [
-    {
-     "selector": "#sd-enablement",
-     "title": "IPS enabled",
-     "content": "Whether self-defense is on. This is the single most important bit on the panel — if enforcement is disabled, the box's watchdogs, Tetragon kills, and audit chain are all inactive, and it's running unguarded.",
-     "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">Disabled means unguarded</div>Self-defense off is not a minor state — it means no process watchdog, no in-kernel SIGKILL on a violation, no live audit enforcement. The box still runs, but nothing is watching it. Re-enable via selfdefctl before trusting it with anything sensitive.<div class=\"so-xref\"><span class=\"x\">→</span> auditor panel — Tetragon/guardian status when enabled</div></div>",
-     "variants": [
-      {
-       "when": {
-        "textContains": "enabled"
-       },
-       "content": "Self-defense ENABLED — the IPS is active and watching."
-      },
-      {
-       "when": {
-        "textContains": "disabled"
-       },
-       "content": "Self-defense DISABLED — the box is running unguarded; re-enable via selfdefctl."
-      }
-     ]
-    },
-    {
-     "selector": "#sd-detail",
-     "title": "IPS detail",
-     "content": "The specifics behind the enablement state — which components are up, or why it's off. Reads the 'why' so 'enabled' isn't just a green light but an accountable claim.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The 'why' behind enabled</div>The specifics behind the enablement state — which components are up, or why it's off. It makes 'enabled' an accountable claim (these are running) rather than an unexplained green light.<div class=\"so-xref\"><span class=\"x\">→</span> auditor — Tetragon + guardian per-check status</div></div>"
-    },
-    {
-     "selector": "#sd-oncli",
-     "title": "Driven via CLI",
-     "content": "The selfdefctl entry point self-defense is managed from. Enforcement is armed/disarmed there under your MS003 key — never from this web view, by the R10212 boundary.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Managed in selfdef, not here</div>sovereign-os shows selfdef's state but can't change it — the watched box must not control its own watcher. Arming, disarming, and policy changes are selfdefctl operations signed by your key; this panel copies the verb, it doesn't run it.<div class=\"so-xref\"><span class=\"x\">→</span> §1g R10212 — the watched-cannot-arm-the-watcher boundary</div></div>"
-    }
-   ]
-  },
-  {
-   "icon": "⇄",
-   "title": "M060 mirror-chain health",
-   "content": "The health of the bridge that carries selfdef's state into sovereign-os. Every D-13…D-18 mirror rides this chain — if it's stale, all six domain views are stale together.",
-   "children": [
-    {
-     "selector": "#m060-state",
-     "title": "Mirror-chain state",
-     "content": "Whether the M060 bridge (selfdef → sovereign-os) is healthy. This is the trust root for every selfdef panel: a broken chain means the grants, sandboxes, audit, and quarantine views are all reading stale data.",
-     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">One chain feeds six panels</div>M060 is the single bridge selfdef's state crosses. When it's healthy, D-13…D-18 are live; when it degrades, they ALL lag at once. So this one indicator is the freshness guarantee behind the entire selfdef mirror set.<div class=\"so-xref\"><span class=\"x\">→</span> D-13…D-18 — the six domain mirrors this chain feeds</div></div>",
-     "variants": [
-      {
-       "when": {
-        "textContains": "healthy"
-       },
-       "content": "M060 chain healthy — all selfdef mirrors are current."
-      },
-      {
-       "when": {
-        "textContains": "degraded"
-       },
-       "content": "M060 chain degraded — every selfdef mirror may be stale; enforcement itself is unaffected."
-      }
-     ]
-    },
-    {
-     "selector": "#m060-fresh",
-     "title": "Mirror freshness",
-     "content": "How current the mirror data is. Distinct from whether selfdef is enabled — the IPS can be running fine while the mirror that reports it lags.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Mirror-freshness vs IPS-liveness</div>How current the mirror data is — distinct from whether the IPS is enabled. The self-defense can be running fine while the mirror reporting it lags, so this separates 'is it on' from 'is my view of it current'.</div>"
-    },
-    {
-     "selector": "#m060-age",
-     "title": "Mirror age",
-     "content": "How long since the last successful mirror sync. A rising age is the early warning that the chain is degrading before it flips to fully stale.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Age is the leading indicator</div>State flips healthy→degraded at a threshold; age climbs continuously toward it. Watching age catches a slowing mirror before it goes stale, which is why it's shown separately from the binary state.<div class=\"so-xref\"><span class=\"x\">→</span> mirror-chain state — the binary this age feeds</div></div>"
-    }
-   ]
-  },
-  {
-   "icon": "▤",
-   "title": "Per-domain mirrors & controls",
-   "content": "The six domain security panels and the read-only controls. selfdef's surface is split by concern; this is the index into it.",
-   "children": [
-    {
-     "selector": "#mirror-panels",
-     "title": "Per-domain security panels",
-     "content": "Links to the six selfdef mirror dashboards — grants (D-13), network (D-14?), sandboxes (D-15), audit (D-16), quarantine (D-17), trust (D-18). Each is a read-only view into one enforcement domain; this is the map into them.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Six domains, one IPS</div>Self-defense isn't one dashboard — it's split by concern so each domain is legible on its own.<div class=\"so-li\"><span class=\"ok\">✓</span> D-13 filesystem grants · D-14 capability tokens</div><div class=\"so-li\"><span class=\"ok\">✓</span> D-15 sandboxes · D-16 audit</div><div class=\"so-li\"><span class=\"ok\">✓</span> D-17 quarantine · D-18 trust scores</div><div class=\"so-tip\">💡 Start here to confirm the IPS is on, then drill into the domain your question is about.</div></div>"
-    },
-    {
-     "selector": "#control-surface",
-     "title": "Controls rail",
-     "content": "selfdef management verbs — each copies its exact selfdefctl command (§1g / R10212) under your MS003 key. Enable, disable, and policy changes run there; this panel reflects state and hands you the verb.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Reflect, then hand you the verb</div>Consistent with every selfdef panel: sovereign-os is a read-only consumer of the IPS. The controls copy selfdefctl commands for you to run under your key — the web never arms or disarms enforcement itself.<div class=\"so-xref\"><span class=\"x\">→</span> §1g R10212 — the cross-project read-only boundary</div></div>"
-    }
-   ]
-  }
- ]
-};
+  SovereignControlSurface.load(document.getElementById("control-surface"), {filterSlug:"warp"});
 </script>
 <!-- COURSE:BEGIN M090 -->
 <style id="so-course-style">
@@ -2053,10 +1984,5 @@ window.SO_ASSIST = {
 })();
 </script>
 <!-- COURSE:END M090 -->
-<script type="module">
-  // cockpit-crate runtime (F-2026-001): run the real sovereign-cockpit-* crates.
-  import { enhance } from '/_shared/cockpit-runtime.js';
-  enhance(document).catch(() => {});   // additive + graceful: no-op if the bridge is absent
-</script>
 </body>
 </html>

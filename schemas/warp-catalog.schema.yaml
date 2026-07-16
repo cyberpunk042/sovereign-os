@@ -1,0 +1,129 @@
+# JSON Schema (Draft 2020-12) for the sovereign-os warp-catalog.
+#
+# config/warp-catalog.yaml is a GENERATED catalog of the
+# warp-solar-system-shaders project (an NVIDIA-Warp procedural rendering
+# engine) surfaced by the Warp management panel (SDD-300). It is produced by
+# scripts/warp/gen_catalog.py from a project checkout — the shaders project is
+# not resident on the host, so the committed catalog is the panel's source of
+# truth (the same pattern config/science-tools.yaml uses).
+#
+# The relation graph the panel draws is `scenes[].libs` (scene→lib) plus
+# `libs[].depends_on` (lib→lib).
+#
+# Companion:
+#   - config/warp-catalog.yaml — instance document (generated)
+#   - scripts/warp/gen_catalog.py — the generator
+#   - scripts/warp/warp_manage.py — operator CLI (list / libs / relations / render / bench)
+#   - scripts/operator/warp-api.py — read-only HTTP daemon + panel host
+#   - webapp/warp/index.html — the management panel
+#   - tests/schema/test_warp_catalog_schema_conformance.py — L1 conformance
+
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://github.com/cyberpunk042/sovereign-os/schemas/warp-catalog.schema.yaml"
+title: "sovereign-os warp-catalog"
+type: object
+required: [schema_version, catalog]
+additionalProperties: false
+
+properties:
+  schema_version:
+    type: string
+    enum: ["1.0.0"]
+
+  catalog:
+    type: object
+    required: [version, project, source, engine, description, runners, counts, libs, scenes]
+    additionalProperties: false
+    properties:
+      version:
+        type: string
+      project:
+        type: string
+      source:
+        type: string
+        pattern: "^https?://"
+      engine:
+        type: string
+      description:
+        type: string
+        minLength: 30
+      runners:
+        type: array
+        minItems: 1
+        items:
+          $ref: "#/$defs/runner"
+      counts:
+        type: object
+        required: [scenes, libs]
+        additionalProperties: false
+        properties:
+          scenes: {type: integer, minimum: 0}
+          libs: {type: integer, minimum: 0}
+      libs:
+        type: array
+        minItems: 1
+        items:
+          $ref: "#/$defs/lib"
+      scenes:
+        type: array
+        minItems: 1
+        items:
+          $ref: "#/$defs/scene"
+
+$defs:
+  runner:
+    type: object
+    required: [id, cmd, desc]
+    additionalProperties: false
+    properties:
+      id: {type: string, pattern: "^[a-z0-9][a-z0-9-]*$"}
+      cmd: {type: string}
+      desc: {type: string}
+
+  lib:
+    type: object
+    required: [id, kind, summary, scene_count, depends_on]
+    additionalProperties: false
+    properties:
+      id:
+        description: "warp_shaders sub-package/module name (join key)."
+        type: string
+        pattern: "^[a-z0-9][a-z0-9_]*$"
+      kind:
+        type: string
+        enum: [package, module]
+      summary:
+        type: string
+      scene_count:
+        type: integer
+        minimum: 0
+      depends_on:
+        description: "Other libs this lib imports (lib→lib edges)."
+        type: array
+        items:
+          type: string
+          pattern: "^[a-z0-9][a-z0-9_]*$"
+
+  scene:
+    type: object
+    required: [name, file, summary, libs]
+    additionalProperties: false
+    properties:
+      name:
+        description: "Scene registry name (render.py --scene <name>)."
+        type: string
+        pattern: "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+      file:
+        type: string
+        pattern: "^warp_shaders/scenes/.+\\.py$"
+      summary:
+        type: string
+      libs:
+        description: "warp_shaders libs this scene imports (scene→lib edges)."
+        type: array
+        items:
+          type: string
+          pattern: "^[a-z0-9][a-z0-9_]*$"
+      multi:
+        description: "True when the module exposes a SCENES list (several registry names)."
+        type: boolean
