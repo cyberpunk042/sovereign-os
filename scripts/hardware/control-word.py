@@ -1,0 +1,167 @@
+#!/usr/bin/env python3
+"""scripts/hardware/control-word.py — the M00013 control-word engine (M002).
+
+THIS IS THE REAL, TESTABLE BIT-MACHINE — no AVX-512 required. The parallelism
+(evaluating 8 words per masked ZMM op) is future hardware work; the bit
+SEMANTICS are just u64 shift-and-AND and run correctly scalar, today.
+
+Canonical layout (M00013 / R00180 — non-negotiable):
+
+    bits  0..3   mode          (4)   0..15
+    bits  4..7   event         (4)   0..15
+    bits  8..15  intensity     (8)   0..255
+    bits 16..23  cooldown      (8)   0..255
+    bits 24..31  neighborhood  (8)   0..255
+    bits 32..47  paramA        (16)  0..65535
+    bits 48..63  paramB        (16)  0..65535
+
+Verbs:
+  layout                  → the field schema (F00096)
+  encode --mode N …       → pack fields → the u64 control word (M00025/M00027);
+                            rejects any field over its range (R00189 overflow)
+  decode <u64>            → unpack the u64 → the 8 typed fields (M00026/M00028)
+  lut --rule-word W --condition C
+                          → the M00017 64-entry boolean LUT: (W >> (C & 63)) & 1
+                            — one branchless decision bit
+
+Sovereignty: stdlib-only. Round-trip exact: decode(encode(x)) == x.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+
+# (name, shift, width) — canonical M00013 layout, R00180. Sums to exactly 64.
+FIELDS: list[tuple[str, int, int]] = [
+    ("mode", 0, 4),
+    ("event", 4, 4),
+    ("intensity", 8, 8),
+    ("cooldown", 16, 8),
+    ("neighborhood", 24, 8),
+    ("paramA", 32, 16),
+    ("paramB", 48, 16),
+]
+SCHEMA_VERSION = "1.0.0"
+
+
+def layout() -> dict:
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "word_bits": 64,
+        "fields": [
+            {"name": n, "bits": f"{s}..{s + w}", "width": w, "max": (1 << w) - 1}
+            for n, s, w in FIELDS
+        ],
+    }
+
+
+def encode(values: dict[str, int]) -> int:
+    """Pack fields → u64. Raises on overflow (a field value past its width)."""
+    word = 0
+    for name, shift, width in FIELDS:
+        v = int(values.get(name, 0))
+        hi = (1 << width) - 1
+        if v < 0 or v > hi:
+            raise ValueError(f"field {name!r} = {v} overflows its {width}-bit range (0..{hi})")
+        word |= (v & hi) << shift
+    return word
+
+
+def decode(word: int) -> dict[str, int]:
+    """Unpack u64 → the typed fields."""
+    word &= (1 << 64) - 1
+    return {name: (word >> shift) & ((1 << width) - 1) for name, shift, width in FIELDS}
+
+
+def lut(rule_word: int, condition: int) -> int:
+    """M00017: a 64-entry boolean rule table inside one u64. The decision for a
+    6-bit condition is a single bit: (rule_word >> (condition & 63)) & 1."""
+    return (int(rule_word) >> (int(condition) & 63)) & 1
+
+
+def _fmt_word(word: int) -> str:
+    return f"0x{word:016X}"
+
+
+def main(argv: list[str] | None = None) -> int:
+    p = argparse.ArgumentParser(description="M00013 control-word engine (M002)")
+    sub = p.add_subparsers(dest="cmd")
+
+    sp_layout = sub.add_parser("layout", help="print the field schema")
+    sp_layout.add_argument("--json", action="store_true")
+
+    sp_enc = sub.add_parser("encode", help="pack fields → the u64 control word")
+    for name, _s, _w in FIELDS:
+        sp_enc.add_argument(f"--{name}", type=int, default=0)
+    sp_enc.add_argument("--json", action="store_true")
+
+    sp_dec = sub.add_parser("decode", help="unpack a u64 control word → fields")
+    sp_dec.add_argument("word", help="the control word (0x… hex or decimal)")
+    sp_dec.add_argument("--json", action="store_true")
+
+    sp_lut = sub.add_parser("lut", help="M00017 64-entry LUT decision bit")
+    sp_lut.add_argument("--rule-word", required=True, help="the 64-bit rule word (0x… or decimal)")
+    sp_lut.add_argument("--condition", type=int, required=True, help="the 6-bit condition (0..63)")
+    sp_lut.add_argument("--json", action="store_true")
+
+    args = p.parse_args(argv)
+    cmd = args.cmd or "layout"
+
+    def _int(s: str) -> int:
+        return int(s, 16) if s.lower().startswith("0x") else int(s)
+
+    if cmd == "layout":
+        lay = layout()
+        if getattr(args, "json", False):
+            print(json.dumps(lay, indent=2))
+        else:
+            print(f"control word — {lay['word_bits']} bits (M00013, schema {lay['schema_version']})")
+            for f in lay["fields"]:
+                print(f"  bits {f['bits']:>7}  {f['name']:<13} width {f['width']:>2}  max {f['max']}")
+        return 0
+
+    if cmd == "encode":
+        vals = {name: getattr(args, name) for name, _s, _w in FIELDS}
+        try:
+            word = encode(vals)
+        except ValueError as e:
+            print(f"error: {e}", file=sys.stderr)
+            return 2
+        rt = decode(word)  # prove the round-trip inline
+        if getattr(args, "json", False):
+            print(json.dumps({"word": word, "hex": _fmt_word(word), "fields": vals,
+                              "roundtrip_ok": rt == vals}, indent=2))
+        else:
+            print(f"control word = {_fmt_word(word)}  ({word})")
+            print("  " + "  ".join(f"{k}={v}" for k, v in vals.items()))
+            print(f"  round-trip: decode → {'exact ✓' if rt == vals else 'MISMATCH ✗'}")
+        return 0
+
+    if cmd == "decode":
+        word = _int(args.word)
+        fields = decode(word)
+        if getattr(args, "json", False):
+            print(json.dumps({"word": word, "hex": _fmt_word(word), "fields": fields}, indent=2))
+        else:
+            print(f"{_fmt_word(word)}:")
+            for name, _s, _w in FIELDS:
+                print(f"  {name:<13} {fields[name]}")
+        return 0
+
+    if cmd == "lut":
+        rw = _int(args.rule_word)
+        bit = lut(rw, args.condition)
+        if getattr(args, "json", False):
+            print(json.dumps({"rule_word": rw, "hex": _fmt_word(rw),
+                              "condition": args.condition, "decision": bit}, indent=2))
+        else:
+            print(f"lut({_fmt_word(rw)}, cond={args.condition}) = {bit}  "
+                  f"(bit {args.condition & 63} of the rule word)")
+        return 0
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

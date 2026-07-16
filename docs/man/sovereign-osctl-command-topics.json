@@ -50,6 +50,7 @@
       "network",
       "cpu-mode",
       "avx-mode",
+      "control-word",
       "gpu-mode",
       "dspark",
       "gpu-remediate",

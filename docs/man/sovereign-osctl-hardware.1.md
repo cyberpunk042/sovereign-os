@@ -90,6 +90,20 @@ operator use.
 **sovereign-osctl avx-mode set <mode>**
 :   SDD-600: pick how the box uses AVX-512. Custom = the M002/M007/M008 bit-machine (policy becomes bits, token-by-token routing); BuiltIn-Features = stock AVX-512 math; Hybrid = both; Off = scalar. Custom/Hybrid kernels are scaffold today — the switch is recorded and gates them downstream.
 
+## control-word
+
+**sovereign-osctl control-word layout [--json]**
+:   The M00013 64-bit control-word field schema (mode/event/intensity/cooldown/neighborhood/paramA/paramB).
+
+**sovereign-osctl control-word encode --mode N --event N … [--json]**
+:   M00025/M00027: pack the fields into the u64 control word; rejects any field past its bit range (R00189 overflow); prints the exact decode round-trip.
+
+**sovereign-osctl control-word decode <u64> [--json]**
+:   M00026/M00028: unpack a control word (hex 0x… or decimal) into its 8 typed fields.
+
+**sovereign-osctl control-word lut --rule-word W --condition C [--json]**
+:   M00017: the 64-entry boolean rule LUT inside one u64 — the branchless decision bit (W >> (C & 63)) & 1. The real bit-machine, scalar (no AVX-512 needed).
+
 ## gpu-mode
 
 **sovereign-osctl gpu-mode show [--json]**

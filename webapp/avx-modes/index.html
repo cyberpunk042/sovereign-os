@@ -119,6 +119,16 @@ table.avx-tbl{width:100%;border-collapse:collapse;font-size:.83rem;}
 table.avx-tbl td{border-bottom:1px solid color-mix(in srgb,var(--border,#262626) 60%,transparent);padding:.32rem .5rem;vertical-align:top;}
 table.avx-tbl td.mono{font-family:ui-monospace,Menlo,monospace;color:var(--accent,#9bd1ff);white-space:nowrap;width:1%;}
 .avx-honest{color:var(--muted,#8a8a8a);font-size:.8rem;border:1px dashed var(--border,#3a3a3a);border-radius:8px;padding:.55rem .8rem;margin:1rem 0;}
+.cw-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.5rem;margin:.6rem 0;}
+.cw-fld{display:flex;flex-direction:column;gap:.15rem;font-size:.78rem;}
+.cw-fld label{color:var(--muted,#8a8a8a);} .cw-fld .cw-rng{font-size:.68rem;color:var(--muted,#7a7a7a);}
+.cw-fld input{font:inherit;font-size:.82rem;padding:.25rem .4rem;background:var(--bg,#0c0c0c);color:var(--fg,#e6e6e6);border:1px solid var(--border,#3a3a3a);border-radius:6px;}
+.cw-out{border:1px solid var(--border,#262626);border-radius:9px;padding:.7rem .8rem;background:var(--card,#151515);}
+.cw-hi{color:var(--accent,#9bd1ff);font-weight:600;}
+.cw-bits{font-family:ui-monospace,Menlo,monospace;font-size:.62rem;line-height:1.5;margin:.4rem 0;word-break:break-word;color:var(--muted,#8a8a8a);}
+.cw-bits b{color:var(--accent,#9bd1ff);}
+.cw-lut{display:flex;flex-wrap:wrap;align-items:center;gap:.9rem;font-size:.82rem;margin:.5rem 0;}
+.cw-lut label{display:flex;flex-direction:column;gap:.15rem;color:var(--muted,#8a8a8a);}
 html[data-theme="light"] {
   --bg:#f6f6f6; --fg:#0e0e0e; --muted:#555; --panel:#ffffff; --card:#ffffff; --border:#d8d8d8;
 }
@@ -1039,6 +1049,23 @@ html[data-theme="light"] {
 
   <h2 class="avx-h">BuiltIn precision tiers (3)</h2>
   <table class="avx-tbl"><tbody><tr><td class="mono">t1-quant-dot</td><td>T1 quantization & dot product (VPDPBUSD INT8 / VDPBF16PS BF16)</td></tr><tr><td class="mono">t2-bitwise-attn</td><td>T2 bitwise logic & attention masking (VPTERNLOG / VP2INTERSECT)</td></tr><tr><td class="mono">t3-structure-kv</td><td>T3 structure / prune / KV (VPCOMPRESS / VPEXPAND / VPERMB)</td></tr></tbody></table>
+
+  <h2 class="avx-h">Control word (M00013) — REAL &amp; testable now</h2>
+  <p class="avx-lead">This is the actual bit-machine — pack the 8 fields into one 64-bit word and read the LUT decision bit. Pure u64 shift-and-AND, no AVX-512 needed (the parallelism is what the ZMM kernels add later). Every value here is computed the same way as <span class="mono">sovereign-osctl control-word</span> — change a field and watch the word.</p>
+  <div class="cw-grid" id="cw-fields"></div>
+  <div class="cw-out">
+    <div>packed control word: <span class="mono cw-hi" id="cw-word">0x0000000000000000</span></div>
+    <div id="cw-bits" class="cw-bits"></div>
+    <div class="avx-lead" id="cw-decode" style="margin-top:.4rem;"></div>
+    <div class="avx-lead" style="margin-top:.2rem;">verify at the CLI: <span class="mono" id="cw-cli">sovereign-osctl control-word encode</span></div>
+  </div>
+  <h2 class="avx-h">LUT decision (M00017) — 64-entry rule table in one u64</h2>
+  <p class="avx-lead">The branchless decision: <span class="mono">(rule_word &gt;&gt; (condition &amp; 63)) &amp; 1</span>. One bit, no branch — this is how 64 rules live inside a single word.</p>
+  <div class="cw-lut">
+    <label>rule word <input id="cw-lut-rw" class="so-set-mini" value="0x2A" size="18"></label>
+    <label>condition (0–63) <input id="cw-lut-c" class="so-set-mini" type="number" min="0" max="63" value="1" style="width:5rem;"></label>
+    <span>decision bit: <span class="mono cw-hi" id="cw-lut-out">?</span></span>
+  </div>
 </main>
 
 <!-- SDD-045 shared control-surface, inlined verbatim from webapp/_shared/control-surface.js -->
@@ -1362,6 +1389,53 @@ html[data-theme="light"] {
 </script>
 <script>
   SovereignControlSurface.load(document.getElementById("control-surface"), {filterSlug:"avx-modes"});
+
+  // ── Control-word engine (M00013) — client-side BigInt bit-ops, IDENTICAL to
+  //    scripts/hardware/control-word.py. This is the real, testable bit-machine. ──
+  var CW_FIELDS=[["mode",0,4],["event",4,4],["intensity",8,8],["cooldown",16,8],
+                 ["neighborhood",24,8],["paramA",32,16],["paramB",48,16]];
+  function cwEncode(vals){ var w=0n; CW_FIELDS.forEach(function(f){
+    var hi=(1n<<BigInt(f[2]))-1n; var v=BigInt(vals[f[0]]||0); if(v<0n)v=0n; if(v>hi)v=hi;
+    w|=(v&hi)<<BigInt(f[1]); }); return w; }
+  function cwDecode(w){ var o={}; CW_FIELDS.forEach(function(f){
+    o[f[0]]=Number((w>>BigInt(f[1]))&((1n<<BigInt(f[2]))-1n)); }); return o; }
+  function cwHex(w){ var s=w.toString(16).toUpperCase(); while(s.length<16)s="0"+s; return "0x"+s; }
+  function cwParse(s){ s=(s||"").trim(); try{ return s.toLowerCase().indexOf("0x")===0?BigInt(s):BigInt(s||"0"); }catch(e){ return 0n; } }
+  var cwHost=document.getElementById("cw-fields");
+  if(cwHost){
+    CW_FIELDS.forEach(function(f){
+      var hi=(1<<f[2])-1;
+      var d=document.createElement("div"); d.className="cw-fld";
+      d.innerHTML='<label for="cw-'+f[0]+'">'+f[0]+' <span class="cw-rng">('+f[1]+'..'+(f[1]+f[2])+', 0–'+hi+')</span></label>'+
+        '<input id="cw-'+f[0]+'" type="number" min="0" max="'+hi+'" value="0">';
+      cwHost.appendChild(d);
+    });
+    var cwWord=document.getElementById("cw-word"), cwBits=document.getElementById("cw-bits"),
+        cwDec=document.getElementById("cw-decode"), cwCli=document.getElementById("cw-cli");
+    function cwRefresh(){
+      var vals={}; CW_FIELDS.forEach(function(f){ var el=document.getElementById("cw-"+f[0]);
+        var v=parseInt(el.value,10); if(isNaN(v))v=0; var hi=(1<<f[2])-1; if(v<0)v=0; if(v>hi){v=hi; el.value=hi;} vals[f[0]]=v; });
+      var w=cwEncode(vals);
+      cwWord.textContent=cwHex(w)+"  ("+w.toString()+")";
+      // per-field bit strip (MSB→LSB), each field's bits shown grouped
+      var bin=w.toString(2); while(bin.length<64)bin="0"+bin;
+      var groups=[]; // paramB..mode (high→low)
+      for(var i=CW_FIELDS.length-1;i>=0;i--){ var f=CW_FIELDS[i];
+        var seg=bin.substr(64-(f[1]+f[2]), f[2]); groups.push('<b>'+f[0]+'</b>:'+seg); }
+      cwBits.innerHTML=groups.join(" · ");
+      var dec=cwDecode(w);
+      cwDec.textContent="decode → "+CW_FIELDS.map(function(f){return f[0]+"="+dec[f[0]];}).join("  ");
+      var args=CW_FIELDS.filter(function(f){return vals[f[0]];}).map(function(f){return "--"+f[0]+" "+vals[f[0]];}).join(" ");
+      cwCli.textContent="sovereign-osctl control-word encode "+(args||"(all zero)");
+    }
+    CW_FIELDS.forEach(function(f){ document.getElementById("cw-"+f[0]).addEventListener("input",cwRefresh); });
+    cwRefresh();
+  }
+  // LUT (M00017)
+  var lutRw=document.getElementById("cw-lut-rw"), lutC=document.getElementById("cw-lut-c"), lutOut=document.getElementById("cw-lut-out");
+  function lutRefresh(){ if(!lutOut)return; var rw=cwParse(lutRw.value); var c=BigInt((parseInt(lutC.value,10)||0)&63);
+    lutOut.textContent=Number((rw>>c)&1n)+"  (bit "+c.toString()+")"; }
+  if(lutRw){ lutRw.addEventListener("input",lutRefresh); lutC.addEventListener("input",lutRefresh); lutRefresh(); }
 </script>
 <!-- COURSE:BEGIN M090 -->
 <style id="so-course-style">

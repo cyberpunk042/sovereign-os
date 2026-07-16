@@ -108,6 +108,19 @@ The full mode inventory \[en] the M008 bit-cheats + cpu-dispatch paths + precisi
 .TP
 \f[B]sovereign-osctl avx-mode set \f[R]
 SDD-600: pick how the box uses AVX-512. Custom = the M002/M007/M008 bit-machine (policy becomes bits, token-by-token routing); BuiltIn-Features = stock AVX-512 math; Hybrid = both; Off = scalar. Custom/Hybrid kernels are scaffold today \[en] the switch is recorded and gates them downstream.
+.SS control-word
+.TP
+\f[B]sovereign-osctl control-word layout [\[en]json]\f[R]
+The M00013 64-bit control-word field schema (mode/event/intensity/cooldown/neighborhood/paramA/paramB).
+.TP
+\f[B]sovereign-osctl control-word encode \[en]mode N \[en]event N \&... [\[en]json]\f[R]
+M00025/M00027: pack the fields into the u64 control word; rejects any field past its bit range (R00189 overflow); prints the exact decode round-trip.
+.TP
+\f[B]sovereign-osctl control-word decode <u64> [\[en]json]\f[R]
+M00026/M00028: unpack a control word (hex 0x... or decimal) into its 8 typed fields.
+.TP
+\f[B]sovereign-osctl control-word lut \[en]rule-word W \[en]condition C [\[en]json]\f[R]
+M00017: the 64-entry boolean rule LUT inside one u64 \[en] the branchless decision bit (W >> (C & 63)) & 1. The real bit-machine, scalar (no AVX-512 needed).
 .SS gpu-mode
 .TP
 \f[B]sovereign-osctl gpu-mode show [\[en]json]\f[R]
