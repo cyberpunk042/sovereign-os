@@ -460,6 +460,21 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
   else badge();
 })();
 </script>
+/* HELPERS:BEGIN M073 — canonical per-panel JS helpers
+ *
+ * SDD-073: the deduplicated helper surface. These functions are copy-pasted
+ * into every panel that adopts them (sovereignty-clean doctrine: no shared
+ * runtime asset). The canonical source lives here; drift is enforced by
+ * tests/lint/test_helpers_contract.py and kept in sync by
+ * scripts/webapp/sync-helpers.py.
+ *
+ * Adopted panels MUST remove their local definitions of these helpers so
+ * the canonical block is the single source of truth.
+ */
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+function fmtBytes(b) { if (!b && b !== 0) return '—'; const u=['B','K','M','G','T']; let i=0; while(b>=1024&&i<u.length-1){b/=1024;i++;} return `${b.toFixed(b<10?1:0)} ${u[i]}`; }
+function fmtNum(v) { return v == null ? '—' : Number(v).toLocaleString(); }
+/* HELPERS:END M073 */
 </head>
 <body>
 <!-- APP-SHELL:BEGIN M067 -->
@@ -1344,7 +1359,6 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
 <script>
 const $ = (id) => document.getElementById(id);
 function fmtUsd(v) { return v == null ? '—' : `$${Number(v).toFixed(v < 1 ? 4 : 2)}`; }
-function fmtNum(v) { return v == null ? '—' : Number(v).toLocaleString(); }
 function pct(spent, budget) { if (!budget) return 0; return Math.min(100, (spent/budget)*100); }
 function fillCls(p) { p = Number(p); if (p >= 90) return 'bad'; if (p >= 70) return 'warn'; return ''; }
 
