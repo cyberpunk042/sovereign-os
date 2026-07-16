@@ -156,6 +156,7 @@ def _run_frontend(args: list[str], tmp: Path) -> subprocess.CompletedProcess:
     env["SOVEREIGN_OS_FRONTEND_DRYRUN"] = "1"
     env["SOVEREIGN_OS_FRONTEND_STATE"] = str(tmp / "frontend.active")
     env["SOVEREIGN_OS_FRONTEND_KIOSK_ENV"] = str(tmp / "kiosk.env")
+    env["SOVEREIGN_OS_FRONTEND_LOGIN_HINT"] = str(tmp / "hint.sh")
     return subprocess.run(
         [sys.executable, str(FRONTEND_PY), *args],
         capture_output=True, text=True, env=env, timeout=30,
@@ -190,3 +191,42 @@ def test_frontend_list_json_is_pure(tmp_path: Path):
 def test_frontend_rejects_unknown(tmp_path: Path):
     r = _run_frontend(["set", "bogus"], tmp_path)
     assert r.returncode != 0, "frontend.py accepted an unknown frontend value"
+
+
+# SDD-600: when the GUI goes off, the restore command must reach the CONSOLE
+# (the web settings pane is unreachable headless).
+
+RESTORE = "sovereign-osctl frontend set gnome && sudo systemctl isolate graphical.target"
+
+
+def test_set_none_surfaces_restore_at_the_cli(tmp_path: Path):
+    r = _run_frontend(["set", "none"], tmp_path)
+    assert r.returncode == 0, r.stderr
+    out = r.stdout + r.stderr
+    assert RESTORE in out, "going headless must print the restore command at the CLI"
+    assert "hint.sh" in r.stderr, "set none must (re)write the console login hint"
+
+
+def _load_frontend_module(tmp: Path):
+    import importlib.util
+    env_hint = str(tmp / "hint.sh")
+    os.environ["SOVEREIGN_OS_FRONTEND_LOGIN_HINT"] = env_hint
+    os.environ.pop("SOVEREIGN_OS_FRONTEND_DRYRUN", None)  # real write
+    spec = importlib.util.spec_from_file_location("_fe_mod", FRONTEND_PY)
+    m = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(m)
+    return m
+
+
+def test_login_hint_self_gates_on_headless_target(tmp_path: Path):
+    m = _load_frontend_module(tmp_path)
+    m._write_login_hint()
+    hint = (tmp_path / "hint.sh").read_text(encoding="utf-8")
+    # only speaks when the boot target is headless (silent under a GUI)
+    assert 'systemctl get-default' in hint and 'multi-user.target' in hint, (
+        "login hint must self-gate on the headless boot target")
+    assert RESTORE in hint, "login hint must carry the restore command"
+    # valid shell
+    import subprocess as _sp
+    assert _sp.run(["bash", "-n", str(tmp_path / "hint.sh")]).returncode == 0, (
+        "login hint is not valid shell")

@@ -59,6 +59,16 @@ STATE_FILE = Path(os.environ.get(
     "SOVEREIGN_OS_FRONTEND_STATE", "/etc/sovereign-os/frontend.active"))
 KIOSK_ENV_FILE = Path(os.environ.get(
     "SOVEREIGN_OS_FRONTEND_KIOSK_ENV", "/etc/sovereign-os/frontend-kiosk.env"))
+# SDD-600: the command to bring the desktop back — surfaced AT THE CONSOLE (a
+# login hint), because when the GUI is off the web settings pane is unreachable.
+# `set gnome` fixes the default target (next boot); `isolate` brings it up in the
+# CURRENT session.
+RESTORE_CMD = "sudo sovereign-osctl frontend set gnome && sudo systemctl isolate graphical.target"
+# A /etc/profile.d drop-in that self-gates on the boot target, so it prints ONLY
+# when the box is headless (multi-user.target) — silent under a GUI. It shows on
+# every console/tty login while GUI is off ("after a login").
+LOGIN_HINT_FILE = Path(os.environ.get(
+    "SOVEREIGN_OS_FRONTEND_LOGIN_HINT", "/etc/profile.d/sovereign-frontend-restore.sh"))
 DRYRUN = os.environ.get("SOVEREIGN_OS_FRONTEND_DRYRUN") == "1"
 
 
@@ -136,6 +146,32 @@ def _write_kiosk_url(url: str) -> None:
         KIOSK_ENV_FILE.write_text(body, encoding="utf-8")
     except OSError as e:
         print(f"  warning: could not write {KIOSK_ENV_FILE}: {e}", file=sys.stderr)
+
+
+def _write_login_hint() -> None:
+    """Install the console login hint (idempotent). It self-gates on the boot
+    target so it only speaks when the box is headless — telling the operator, at
+    the CLI, how to bring the desktop back. Under a GUI it stays silent."""
+    body = (
+        "# /etc/profile.d/sovereign-frontend-restore.sh — SDD-600.\n"
+        "# When the GUI is off (headless boot target), remind the operator AT THE\n"
+        "# CONSOLE how to restore the desktop — the web settings pane is unreachable\n"
+        "# without a GUI. Self-gating: silent under graphical.target. Managed by\n"
+        "# 'sovereign-osctl frontend set'; safe to delete.\n"
+        'if [ \"$(systemctl get-default 2>/dev/null)\" = \"multi-user.target\" ]; then\n'
+        "  printf '\\n\\033[1msovereign-os\\033[0m \\342\\200\\224 GUI is off. Bring the desktop back:\\n"
+        f"  {RESTORE_CMD}\\n\\n'\n"
+        "fi\n"
+    )
+    if DRYRUN:
+        print(f"  [dry-run] would write {LOGIN_HINT_FILE}", file=sys.stderr)
+        return
+    try:
+        LOGIN_HINT_FILE.parent.mkdir(parents=True, exist_ok=True)
+        LOGIN_HINT_FILE.write_text(body, encoding="utf-8")
+        os.chmod(LOGIN_HINT_FILE, 0o644)
+    except OSError as e:
+        print(f"  warning: could not write {LOGIN_HINT_FILE}: {e}", file=sys.stderr)
 
 
 def _kiosk_url() -> str:
@@ -217,8 +253,13 @@ def set_frontend(value: str, url: str | None = None) -> dict[str, Any]:
         _sc(["disable", "--now", KIOSK_UNIT])
         _sc(["disable", GDM_UNIT])
         _sc(["set-default", "multi-user.target"])
+        # surface the restore command right when going headless AND at the console
+        notes.append(f"headless — restore the desktop with: {RESTORE_CMD}")
 
     _write_state(value)
+    # the console login hint is self-gating (silent under a GUI) — keep it fresh
+    # on every switch so a headless login always shows how to get back.
+    _write_login_hint()
     return {"ok": True, "frontend": value, "dryrun": DRYRUN, "notes": notes}
 
 
@@ -237,6 +278,8 @@ def _human_status(s: dict[str, Any]) -> None:
     print(f"  cage compositor: {'installed' if s['cage_installed'] else 'absent'}")
     print(f"  kiosk url:       {s['kiosk_url'] or '(unset)'}")
     print()
+    if s.get("default_target") == "multi-user.target" or s.get("active") == "none":
+        print(f"  GUI is off — restore the desktop:  {RESTORE_CMD}")
     print("  switch:  sovereign-osctl frontend set {gnome|dashboards-kiosk|open-computer-kiosk|none}")
 
 
