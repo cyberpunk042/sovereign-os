@@ -83,13 +83,21 @@ else
 fi
 
 # ----------- make lint ---------------
+#
+# This is a WIRING+EXECUTION smoke: it proves the `lint` target dispatches to
+# pytest, runs, and reports "passed". It runs against a fast subset
+# (LINT_PATHS=tests/schema, ~0.2s) ON PURPOSE — the FULL tests/schema+tests/lint
+# suite is the standalone Layer-1 CI job (test.yml `layer 1 — schema + lint`,
+# which invokes pytest directly). Re-running the whole ~4-min suite here was
+# pure duplication that made this (layer-3) the critical-path job. The subset
+# still exercises the target's make→pytest→jsonschema machinery end-to-end.
 
 set +e
-out="$(make lint 2>&1)"
+out="$(make lint LINT_PATHS=tests/schema 2>&1)"
 rc=$?
 set -e
 if [ "${rc}" -eq 0 ] && grep -qE "passed" <<< "${out}"; then
-  ok "make lint passes Layer 1"
+  ok "make lint dispatches + executes (fast subset; full suite is Layer-1 CI job)"
 else
   ko "make lint failed"
   # Without this, the only CI evidence is "make lint failed" — surface
