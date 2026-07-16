@@ -506,14 +506,47 @@ catalog:
       vram_gib_min: 3
       context_window_tokens: 32768
       master_spec_section: "operator handwritten catalog addition 2026-07-02"
-      runtime_profile_bindings: []
+      runtime_profile_bindings: [dual-turing-serving]
       operator_note: |
         Operator handwritten catalog 2026-07-02 ("Prism ML: Ternary
         Bonsai"). prism-ml/Ternary-Bonsai is a real active HF line
         (1.7B/4B/8B; unpacked + gguf + mlx-2bit; Qwen3-based, ternary
-        1.58-bit). The note said "70B" — no 70B exists; largest is 8B
-        (this entry). gguf variant prism-ml/Ternary-Bonsai-8B-gguf
-        ships for llama.cpp. vram + context estimated (Qwen3-8B lineage).
+        1.58-bit). gguf variant prism-ml/Ternary-Bonsai-8B-gguf ships
+        for llama.cpp. vram + context estimated (Qwen3-8B lineage).
+        SCOUT tier of the dual-turing-serving runtime profile (SDD-714).
+        UPDATE 2026-07-16: the 2026-07-02 note said "largest is 8B" —
+        prism-ml released a 27B on 2026-07-04 (HF-verified); see the
+        Ternary-Bonsai-27B entry below.
+
+    - id: Ternary-Bonsai-27B
+      tier: oracle
+      engine: llama.cpp
+      class: ternary-lm
+      quantization: ternary-1.58bit
+      size_class: l
+      purpose: [chat, code, agent]
+      status: verified-real
+      license: apache-2.0
+      hf_repo_id: prism-ml/Ternary-Bonsai-27B-gguf
+      parameters_millions: 27000
+      vram_gib_min: 11
+      context_window_tokens: 32768
+      master_spec_section: "operator directive 2026-07-16 (dual-turing serving plan, SDD-714)"
+      runtime_profile_bindings: [dual-turing-serving]
+      operator_note: |
+        HF-verified 2026-07-16: prism-ml/Ternary-Bonsai-27B-gguf, released
+        2026-07-04 (base Qwen/Qwen3.6-27B, ternary; llama.cpp/GGUF; cuda +
+        metal + on-device tags). The Q2_0 GGUF (~9-10 GB packed) is the entry
+        this row points at — the ORACLE tier of the dual-turing-serving runtime
+        profile (11 GB RTX 2080 Ti). vram_gib_min 11 = the Q2_0 weights + a
+        modest KV budget on one card; longer context uses llama.cpp
+        --tensor-split across both Turing cards. Upstream also ships -unpacked
+        (safetensors → transformers/vLLM) + -AWQ-4bit + -mlx-2bit; the mmproj
+        (vision) + dspark (spec-decode draft) variants are BF16 and would need
+        F16 conversion on Turing — deferred (SDD-714 Slice 3). quantization
+        recorded as ternary-1.58bit (the base form; Q2_0 is the GGUF packing —
+        the catalog quant enum has no gguf-q2_0, and the 8B sibling is likewise
+        recorded ternary-1.58bit).
 
     - id: Spectra-TriLM-3.9B
       tier: pulse
