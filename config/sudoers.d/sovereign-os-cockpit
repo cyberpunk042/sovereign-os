@@ -74,7 +74,9 @@ Cmnd_Alias SOVEREIGN_OS_COCKPIT = \
     /usr/local/bin/sovereign-osctl sessions kill *, \
     /usr/local/bin/sovereign-osctl sessions hibernate-all --confirm, \
     /usr/local/bin/sovereign-osctl sessions save-state *, \
-    /usr/local/bin/sovereign-osctl sessions restore *
+    /usr/local/bin/sovereign-osctl sessions restore *, \
+    /usr/local/bin/sovereign-osctl warp render *, \
+    /usr/local/bin/sovereign-osctl warp bench *
 
 # Granted to the OPERATOR USER (the account the panel APIs + agent run as), per
 # operator-sudoers.sh's model — NOT a dedicated service account. `%operator` is

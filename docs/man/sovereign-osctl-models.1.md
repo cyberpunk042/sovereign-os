@@ -176,6 +176,17 @@ The default resident-model directory is `/mnt/vault/models`; override it with `S
 **sovereign-osctl science install [--json]**
 :   How each integrated tool is obtained (advisory)
 
+## warp
+
+**sovereign-osctl warp list|libs|relations|info <scene>|status [--json]**
+:   SDD-300: Warp management — the warp-solar-system-shaders engine (scenes, libs, and the scene→lib / lib→lib relation graph) read from config/warp-catalog.yaml
+
+**sovereign-osctl warp render <scene> [--json]**
+:   Render a scene (GPU cuda:0 or CPU) — exec-rail-gated; needs a shaders checkout (WARP_SHADERS_ROOT) or prints an honest no-op
+
+**sovereign-osctl warp bench <scene> [--json]**
+:   Benchmark a scene (ms/frame) — exec-rail-gated
+
 ## gateway
 
 **sovereign-osctl gateway [--addr host:port] [--json]**

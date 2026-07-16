@@ -172,3 +172,5 @@ dashboards:
   # ── Science & Simulation ────────────────────────────────────────────
   - {slug: science, category: science, label: "Science Tools (NVIDIA Warp)", path: /science/, api: sovereign-science-api, status: live,
      description: "The operator's science catalog — DNA / protein / particle tools. NVIDIA Warp (particles) is integrated: a differentiable particle sim on GPU (RTX PRO 6000) or CPU fallback. Read-only; running a sim is the gated `sovereign-osctl science run`.", refs: [R558, SDD-070]}
+  - {slug: warp, category: science, label: "Warp Management", path: /warp/, api: sovereign-warp-api, status: live,
+     description: "Real management of the warp-solar-system-shaders NVIDIA-Warp engine — 217 auto-discovered scenes + 20 lib packages, with the scene→lib and lib→lib RELATION GRAPH drawn inline, and per-scene Render / Bench EXECUTION wired through the control-exec rail (`sovereign-osctl warp render|bench <scene>`, GPU or CPU fallback; copies the command where the panel isn't fronted by the exec daemon). Catalog is generated from the project by scripts/warp/gen_catalog.py.", refs: [SDD-300]}

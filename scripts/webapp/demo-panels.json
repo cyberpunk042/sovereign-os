@@ -1,5 +1,5 @@
 {
-  "_comment": "Single source of truth for DEMO-capable cockpit panels (SDD-116 rollout). Consumed by scripts/webapp/demo-capture.mjs (capture + verify) AND tests/lint/test_demo_mode_contract.py (generic contract checks). Per panel: slug = webapp/<slug>/index.html; demoConst = the client-side DEMO_<X> sample constant; apiPrefix = the panel's OWN data endpoint that MUST see zero calls in the demo path (not /api/control/registry, not /api/code-console/chat \u2014 those are chrome, fired on user action only); rowSelector = a selector whose count proves sample rows rendered (null = skip the row assertion, still assert badge + zero-api + no-errors); headInjected = whether the shared helper is inlined in <head> (the SDD-119 rule; the three SDD-116/117/118 panels predate it and inline in <body> \u2014 they still pass at runtime, verified by demo-capture.mjs); kind = 'rich' (default; has DEMO_<X> sample data) or 'badge-only' (SDD-127; static/chrome panels with no telemetry to sample \u2014 the inlined helper just auto-renders the badge, demoConst/apiPrefix/rowSelector are null, nothing is fabricated per SB-077); sdd = the SDD that shipped the demo treatment.",
+  "_comment": "Single source of truth for DEMO-capable cockpit panels (SDD-116 rollout). Consumed by scripts/webapp/demo-capture.mjs (capture + verify) AND tests/lint/test_demo_mode_contract.py (generic contract checks). Per panel: slug = webapp/<slug>/index.html; demoConst = the client-side DEMO_<X> sample constant; apiPrefix = the panel's OWN data endpoint that MUST see zero calls in the demo path (not /api/control/registry, not /api/code-console/chat — those are chrome, fired on user action only); rowSelector = a selector whose count proves sample rows rendered (null = skip the row assertion, still assert badge + zero-api + no-errors); headInjected = whether the shared helper is inlined in <head> (the SDD-119 rule; the three SDD-116/117/118 panels predate it and inline in <body> — they still pass at runtime, verified by demo-capture.mjs); kind = 'rich' (default; has DEMO_<X> sample data) or 'badge-only' (SDD-127; static/chrome panels with no telemetry to sample — the inlined helper just auto-renders the badge, demoConst/apiPrefix/rowSelector are null, nothing is fabricated per SB-077); sdd = the SDD that shipped the demo treatment.",
   "schema": 1,
   "panels": [
     {
@@ -410,6 +410,14 @@
       "apiPrefix": "/api/d-29",
       "rowSelector": "#sch-rows *",
       "sdd": "F-2026-001"
+    },
+    {
+      "slug": "warp",
+      "demoConst": null,
+      "apiPrefix": null,
+      "rowSelector": null,
+      "kind": "badge-only",
+      "sdd": "SDD-300"
     }
   ]
 }

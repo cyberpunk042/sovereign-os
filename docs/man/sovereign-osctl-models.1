@@ -196,6 +196,16 @@ Full detail for one science tool
 .TP
 \f[B]sovereign-osctl science install [\[en]json]\f[R]
 How each integrated tool is obtained (advisory)
+.SS warp
+.TP
+\f[B]sovereign-osctl warp list|libs|relations|info  |status [\[en]json]\f[R]
+SDD-300: Warp management \[en] the warp-solar-system-shaders engine (scenes, libs, and the scene\[->]lib / lib\[->]lib relation graph) read from config/warp-catalog.yaml
+.TP
+\f[B]sovereign-osctl warp render  [\[en]json]\f[R]
+Render a scene (GPU cuda:0 or CPU) \[en] exec-rail-gated; needs a shaders checkout (WARP_SHADERS_ROOT) or prints an honest no-op
+.TP
+\f[B]sovereign-osctl warp bench  [\[en]json]\f[R]
+Benchmark a scene (ms/frame) \[en] exec-rail-gated
 .SS gateway
 .TP
 \f[B]sovereign-osctl gateway [\[en]addr host:port] [\[en]json]\f[R]

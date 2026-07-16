@@ -1,0 +1,50 @@
+[Unit]
+Description=Sovereign Warp management read-only REST API + panel (SDD-300)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/operator/warp-api.py
+# Read-only observability over the warp-catalog (warp-solar-system-shaders
+# scenes + libs + relation graph). Rendering/benchmarking a scene stays the
+# exec-rail-gated CLI (`sovereign-osctl warp render|bench <scene>`) — operator
+# §17 sacrosanct sovereignty boundary.
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/lib/sovereign-os/scripts/operator/warp-api.py
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+# Loopback-by-default — operator-§1g exposure decision is theirs.
+# To expose beyond loopback, drop an override at
+# /etc/systemd/system/sovereign-warp-api.service.d/bind.conf:
+#   [Service]
+#   Environment=WARP_API_BIND=0.0.0.0
+Environment=WARP_API_BIND=127.0.0.1
+Environment=WARP_API_PORT=8138
+
+# Defense-in-depth — read-only HTTP surface; the daemon reads the webapp +
+# config and shells warp_manage.py (which reads config/warp-catalog.yaml).
+# R171 defense-in-depth (Layer 1 lint enforced)
+ProtectSystem=strict
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/lib/node_exporter/textfile_collector
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+# Loopback default — capability lockdown matches.
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+
+[Install]
+WantedBy=multi-user.target
