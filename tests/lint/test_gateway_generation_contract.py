@@ -70,3 +70,74 @@ def test_serve_and_gateway_share_the_one_tokenizer_crate():
                      "crates/sovereign-serve/Cargo.toml"):
         assert "sovereign-hf-tokenizer" in _read(manifest), \
             f"{manifest} must load real models via sovereign-hf-tokenizer"
+
+
+def test_gateway_uses_worker_pool_for_concurrent_generation():
+    """F-2026-083: the primary model loads N independent worker copies
+    (SOVEREIGN_GATEWAY_WORKERS) so concurrent requests no longer serialize
+    behind a single Arc<Mutex<>>."""
+    lib = _read("crates/sovereign-gatewayd/src/lib.rs")
+    assert "workers: Vec<Arc<Mutex<Generator>>>" in lib, \
+        "must declare a worker pool instead of a single generator"
+    assert "SOVEREIGN_GATEWAY_WORKERS" in lib, \
+        "must read worker count from env"
+    assert "worker_idx: std::sync::atomic::AtomicUsize" in lib, \
+        "must track round-robin slot atomically"
+    assert "acquire_worker" in lib, \
+        "must have a worker-acquisition method"
+    assert "try_lock" in lib, \
+        "must prefer idle workers via try_lock (F-2026-083)"
+
+
+def test_gateway_runs_memory_decay_thread():
+    """F-2026-084: a unified monotonic clock stamps every request's `now`, and a
+    periodic decay thread ages stale memories so they don't accumulate forever."""
+    lib = _read("crates/sovereign-gatewayd/src/lib.rs")
+    main = _read("crates/sovereign-gatewayd/src/main.rs")
+    assert "born: std::time::Instant" in lib, \
+        "must track process birth for unified clock"
+    assert "clock_now" in lib, \
+        "must expose unified clock method"
+    assert "SOVEREIGN_GATEWAY_MAINTAIN_SECS" in main, \
+        "must configure decay cadence"
+    assert "SOVEREIGN_GATEWAY_MEMORY_TTL" in main, \
+        "must configure decay TTL"
+    assert "maintainer.maintain" in main, \
+        "must spawn a decay thread calling maintain"
+
+
+def test_gateway_openai_shim_threads_sampling_params():
+    """F-2026-086: the OpenAI shim must parse temperature/top_p/top_k from the
+    request and thread them into the generation sampler, not ignore them."""
+    main = _read("crates/sovereign-gatewayd/src/main.rs")
+    lib = _read("crates/sovereign-gatewayd/src/lib.rs")
+    assert "generate_chat_with_sampler" in lib, \
+        "must expose a sampler-aware generation path"
+    assert "extract_sampler_config" in main, \
+        "must parse sampling params from the request"
+    assert "temperature" in main, \
+        "must read temperature from request"
+    assert "top_p" in main, \
+        "must read top_p from request"
+    assert "top_k" in main, \
+        "must read top_k from request"
+    assert "SamplerConfig" in main, \
+        "must construct a SamplerConfig from parsed params"
+    assert "generate_chat_with_sampler" in main, \
+        "must call the sampler-aware path from the shim"
+
+
+def test_gateway_openai_shim_supports_non_streaming_json():
+    """F-2026-086: the OpenAI shim must return a full JSON object when
+    `stream: false` instead of always streaming SSE."""
+    main = _read("crates/sovereign-gatewayd/src/main.rs")
+    assert "stream" in main, \
+        "must inspect the stream parameter"
+    assert 'chat.completion' in main, \
+        "non-streaming response must use chat.completion object"
+    assert "application/json" in main, \
+        "non-streaming response must have application/json content type"
+    assert '"message"' in main, \
+        "non-streaming response must contain a message object"
+    assert "choices" in main, \
+        "non-streaming response must contain choices array"

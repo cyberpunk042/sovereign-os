@@ -565,11 +565,15 @@ pub struct GatewayServer {
     /// it reaches the router — the gateway owning Privacy + Routing on the
     /// client's behalf (the doctrine: the client never holds provider keys).
     force_local: bool,
-    /// The PRIMARY local generation engine (real weights + real tokenizer),
-    /// loaded from `SOVEREIGN_GATEWAY_MODEL`; `None` ⇒ a pure decision surface.
-    /// `Arc<Mutex>` so a generation clones the Arc and releases the registry lock
-    /// (load/unload never blocks an in-flight generation).
-    generator: Option<Arc<Mutex<Generator>>>,
+    /// The PRIMARY local generation worker pool (real weights + real tokenizer),
+    /// loaded from `SOVEREIGN_GATEWAY_MODEL`. Each worker is an independent copy
+    /// of the model behind its own `Arc<Mutex<…>>`; requests round-robin across
+    /// workers so N in-flight generations can proceed concurrently (F-2026-083).
+    /// The count is controlled by `SOVEREIGN_GATEWAY_WORKERS` (default 1).
+    workers: Vec<Arc<Mutex<Generator>>>,
+    /// Round-robin index for worker selection. Incremented atomically so concurrent
+    /// requests naturally spread across the pool without a central lock.
+    worker_idx: std::sync::atomic::AtomicUsize,
     /// Secondary in-process CPU models (Phase 2 multi-model), by id. A request
     /// whose `model` names one routes to it; otherwise the primary. GPU models
     /// are proxied serve-processes (Phase 2 increment 2), not held here.
@@ -607,6 +611,10 @@ pub struct GatewayServer {
     /// for the injected `now_ms` the bucket takes.
     rate: Option<Mutex<TokenBucket>>,
     rate_start: std::time::Instant,
+    /// Process birth instant — the unified monotonic clock for memory freshness
+    /// decay (M028). Every request's `now` is stamped from this origin so the decay
+    /// thread and the admission thread share one clock (F-2026-084).
+    born: std::time::Instant,
     /// Count of requests refused by the rate limiter (surfaced on `/metrics`).
     rate_limited: std::sync::atomic::AtomicU64,
     /// Structured runtime observability: a bounded ring of the most recent
@@ -860,20 +868,6 @@ impl<'a, F: FnMut(&str)> StreamGuard<'a, F> {
     }
 }
 
-/// Load the model dir named by `SOVEREIGN_GATEWAY_MODEL` (`config.json` + a
-/// `*.safetensors` + `tokenizer.json`) into a [`Generator`].
-///
-/// `Ok(None)` when no model is configured, or the dir is configured but not yet
-/// fetched (silent — the gateway simply stays a decision surface). `Err` only
-/// when a present model is malformed / vocab-mismatched, so a real
-/// misconfiguration is loud but never crashes the daemon.
-fn load_generator_from_env() -> Result<Option<Generator>, String> {
-    let Some(dir) = std::env::var_os("SOVEREIGN_GATEWAY_MODEL") else {
-        return Ok(None);
-    };
-    load_generator_from_dir(&dir.to_string_lossy())
-}
-
 /// Load a model dir (`config.json` + a `*.safetensors` + `tokenizer.json`) into a
 /// [`Generator`]. `Ok(None)` when the dir has no `config.json` (configured but not
 /// fetched); `Err` on a malformed / vocab-mismatched model. Shared by the primary
@@ -1106,24 +1100,54 @@ impl GatewayServer {
         memory.set_capacity(memory_capacity_from_env());
         let cortex = Cortex::with_memory(memory);
         // Optional local generation: when a model dir is configured + present,
-        // the gateway generates locally and the OpenAI chat shim goes Live.
-        let generator = match load_generator_from_env() {
-            Ok(Some(g)) => {
+        // the gateway loads N independent worker copies (SOVEREIGN_GATEWAY_WORKERS,
+        // default 1) so concurrent requests no longer serialize behind a single
+        // Arc<Mutex<>> (F-2026-083). Each worker is a full in-memory replica.
+        let workers_count = std::env::var("SOVEREIGN_GATEWAY_WORKERS")
+            .ok()
+            .and_then(|s| s.parse::<usize>().ok())
+            .unwrap_or(1)
+            .max(1);
+        let mut workers = Vec::new();
+        if let Some(dir) = std::env::var_os("SOVEREIGN_GATEWAY_MODEL") {
+            let dir = dir.to_string_lossy();
+            for i in 0..workers_count {
+                match load_generator_from_dir(&dir) {
+                    Ok(Some(g)) => {
+                        eprintln!(
+                            "sovereign-gatewayd: local generator worker {}/{} loaded (vocab {}, {} layers)",
+                            i + 1,
+                            workers_count,
+                            g.model.vocab(),
+                            g.model.layers()
+                        );
+                        workers.push(Arc::new(Mutex::new(g)));
+                    }
+                    Ok(None) => {
+                        if i == 0 {
+                            eprintln!("sovereign-gatewayd: model dir configured but no config.json found, generation disabled");
+                        }
+                        break;
+                    }
+                    Err(e) => {
+                        eprintln!(
+                            "sovereign-gatewayd: model worker {}/{} load failed, generation disabled: {e}",
+                            i + 1,
+                            workers_count
+                        );
+                        break;
+                    }
+                }
+            }
+            if !workers.is_empty() {
                 eprintln!(
-                    "sovereign-gatewayd: local generator loaded (vocab {}, {} layers) \
-                     — /v1/chat/completions live",
-                    g.model.vocab(),
-                    g.model.layers()
+                    "sovereign-gatewayd: /v1/chat/completions live ({} worker{})",
+                    workers.len(),
+                    if workers.len() > 1 { "s" } else { "" }
                 );
-                Some(g)
             }
-            Ok(None) => None,
-            Err(e) => {
-                eprintln!("sovereign-gatewayd: model load failed, generation disabled: {e}");
-                None
-            }
-        };
-        let gen_live = generator.is_some();
+        }
+        let gen_live = !workers.is_empty();
 
         let mut manifest = GatewayManifest::empty_canonical();
         for record in &mut manifest.surfaces {
@@ -1169,7 +1193,8 @@ impl GatewayServer {
             ledger: Mutex::new(Ledger::default()),
             manifest,
             force_local,
-            generator: generator.map(|g| Arc::new(Mutex::new(g))),
+            workers,
+            worker_idx: std::sync::atomic::AtomicUsize::new(0),
             secondaries: RwLock::new(BTreeMap::new()),
             proxies: RwLock::new(BTreeMap::new()),
             background: RwLock::new(
@@ -1199,20 +1224,22 @@ impl GatewayServer {
                 (cap > 0.0).then(|| Mutex::new(TokenBucket::new(cap, per_sec.max(0.0), 0)))
             },
             rate_start: std::time::Instant::now(),
+            born: std::time::Instant::now(),
             rate_limited: std::sync::atomic::AtomicU64::new(0),
             events: Mutex::new(VecDeque::new()),
             trace_seq: std::sync::atomic::AtomicU64::new(1),
         }
     }
 
-    /// Whether the PRIMARY local generation model is loaded (the default route).
+    /// Whether the PRIMARY local generation worker pool is loaded (the default route).
     pub fn has_generator(&self) -> bool {
-        self.generator.is_some()
+        !self.workers.is_empty()
     }
 
     /// Resolve a request's `model` id to a loaded generator: a named secondary if
-    /// it matches, otherwise the primary. `None` when nothing is loaded. Clones
-    /// the `Arc` so the caller holds no registry lock while generating.
+    /// it matches, otherwise a primary worker chosen by round-robin. `None` when
+    /// nothing is loaded. Clones the `Arc` so the caller holds no registry lock
+    /// while generating.
     fn resolve_model(&self, model: Option<&str>) -> Option<Arc<Mutex<Generator>>> {
         if let Some(id) = model
             && id != self.primary_id
@@ -1221,7 +1248,32 @@ impl GatewayServer {
         {
             return Some(Arc::clone(g));
         }
-        self.generator.clone()
+        let n = self.workers.len();
+        if n == 0 {
+            return None;
+        }
+        let idx = self.worker_idx.fetch_add(1, std::sync::atomic::Ordering::Relaxed) % n;
+        Some(Arc::clone(&self.workers[idx]))
+    }
+
+    /// Acquire a guard on a primary worker, preferring an idle worker via
+    /// round-robin. If all workers are busy, blocks on the round-robin slot
+    /// (natural backpressure). Returns `None` when no workers are loaded.
+    fn acquire_worker(&self) -> Option<std::sync::MutexGuard<'_, Generator>> {
+        let n = self.workers.len();
+        if n == 0 {
+            return None;
+        }
+        let start = self.worker_idx.fetch_add(1, std::sync::atomic::Ordering::Relaxed) % n;
+        // Try each worker once, starting from the round-robin slot.
+        for i in 0..n {
+            let idx = (start + i) % n;
+            if let Ok(guard) = self.workers[idx].try_lock() {
+                return Some(guard);
+            }
+        }
+        // All busy — block on the designated slot.
+        self.workers[start].lock().ok()
     }
 
     /// Load a SECONDARY in-process CPU model from `dir` under `id` (Phase 2
@@ -1414,8 +1466,13 @@ impl GatewayServer {
     /// CPU residents report `device="cpu"`, GPU proxies their placed device + VRAM.
     pub fn list_models(&self) -> Vec<(String, &'static str, String, f64)> {
         let mut out = Vec::new();
-        if self.generator.is_some() {
-            out.push((self.primary_id.clone(), "primary", "cpu".to_string(), 0.0));
+        if !self.workers.is_empty() {
+            let device = if self.workers.len() > 1 {
+                format!("cpu ({} workers)", self.workers.len())
+            } else {
+                "cpu".to_string()
+            };
+            out.push((self.primary_id.clone(), "primary", device, 0.0));
         }
         if let Ok(map) = self.secondaries.read() {
             out.extend(
@@ -1436,11 +1493,34 @@ impl GatewayServer {
     /// `on_chunk` as tokens are produced (multi-byte characters are never split
     /// across chunks). Returns the number of tokens generated, or an error
     /// string when no model is loaded / generation fails. BOS is prepended.
+    ///
+    /// Uses the model's current sampler (greedy by default). For per-request
+    /// temperature / top-p / top-k control, use [`generate_chat_with_sampler`].
     pub fn generate_chat<F: FnMut(&str)>(
         &self,
         model: Option<&str>,
         prompt: &str,
         max_new: usize,
+        on_chunk: F,
+    ) -> Result<usize, String> {
+        self.generate_chat_with_sampler(
+            model,
+            prompt,
+            max_new,
+            sovereign_safetensors_loader::SamplerConfig::greedy(),
+            on_chunk,
+        )
+    }
+
+    /// Same as [`generate_chat`] but with a caller-supplied [`SamplerConfig`].
+    /// The sampler is applied to the acquired worker *before* generation starts
+    /// so concurrent requests on other workers are unaffected.
+    pub fn generate_chat_with_sampler<F: FnMut(&str)>(
+        &self,
+        model: Option<&str>,
+        prompt: &str,
+        max_new: usize,
+        sampler_config: sovereign_safetensors_loader::SamplerConfig,
         mut on_chunk: F,
     ) -> Result<usize, String> {
         use std::sync::atomic::Ordering;
@@ -1507,13 +1587,22 @@ impl GatewayServer {
         // works from every caller.
         let target = self.expand_alias(model);
         let model_label = target.clone().unwrap_or_else(|| self.primary_id.clone());
-        let Some(engine) = self.resolve_model(target.as_deref()) else {
-            return Err("no local model loaded".to_string());
+
+        // Secondary models are single-instance (no worker pool); the primary uses
+        // N independent workers with round-robin + try_lock so concurrent requests
+        // no longer serialize behind one Arc<Mutex<>> (F-2026-083).
+        let is_secondary = target.as_deref().is_some_and(|id| id != self.primary_id);
+        let engine_arc = self.resolve_model(target.as_deref());
+        let mut guard = if is_secondary {
+            let engine = engine_arc.as_ref()
+                .ok_or_else(|| "no local model loaded".to_string())?;
+            engine.lock().map_err(|_| "generator poisoned".to_string())?
+        } else {
+            self.acquire_worker()
+                .ok_or_else(|| "no local model loaded".to_string())?
         };
-        let mut guard = engine
-            .lock()
-            .map_err(|_| "generator poisoned".to_string())?;
         let Generator { model, tokenizer } = &mut *guard;
+        model.set_sampler(sovereign_safetensors_loader::Sampler::new(sampler_config));
 
         let mut ids: Vec<usize> = Vec::new();
         if let Some(bos) = tokenizer.bos_id() {
@@ -1688,22 +1777,43 @@ impl GatewayServer {
     /// NDJSON line protocol ([`Self::handle_line`]) and the HTTP surface
     /// ([`crate::http`]) both route through here, so they can never diverge.
     pub fn handle(&self, req: GatewayRequest) -> GatewayResponse {
+        // Stamp every engine-bound request with the unified monotonic clock
+        // so memory freshness decay (M028) uses one consistent origin across
+        // the decay thread and all admission paths (F-2026-084).
+        let now = self.clock_now();
         match req {
-            GatewayRequest::Infer { request } => self.infer(*request),
-            GatewayRequest::SimpleInfer { request } => self.infer(request.into_cortex()),
-            GatewayRequest::SimpleExplain { request } => self.decide(request.into_cortex()),
-            GatewayRequest::Explain { request } => self.explain(*request),
+            GatewayRequest::Infer { mut request } => {
+                request.now = now;
+                self.infer(*request)
+            }
+            GatewayRequest::SimpleInfer { request } => {
+                let mut cx = request.into_cortex();
+                cx.now = now;
+                self.infer(cx)
+            }
+            GatewayRequest::SimpleExplain { request } => {
+                let mut cx = request.into_cortex();
+                cx.now = now;
+                self.decide(cx)
+            }
+            GatewayRequest::Explain { mut request } => {
+                request.now = now;
+                self.explain(*request)
+            }
             GatewayRequest::Deliberate {
-                request,
+                mut request,
                 candidates,
                 tier,
-            } => self.deliberate(*request, candidates, tier),
+            } => {
+                request.now = now;
+                self.deliberate(*request, candidates, tier)
+            }
             GatewayRequest::Coat {
                 problem,
                 topic,
                 entity,
                 rung,
-                now,
+                now: _,
                 half_life,
                 model,
             } => self.coat(problem, topic, entity, &rung, now, half_life, model),
@@ -1940,6 +2050,13 @@ impl GatewayServer {
                 }
             }
         }
+    }
+
+    /// The unified monotonic clock tick for memory freshness decay.
+    /// Every request and the decay thread share this origin so stale-memory
+    /// detection is consistent (F-2026-084).
+    pub fn clock_now(&self) -> u64 {
+        self.born.elapsed().as_secs()
     }
 
     /// Long-running memory hygiene (M028 decay): age out memories older than
@@ -2792,6 +2909,40 @@ mod tests {
         let aged = s.maintain(u64::MAX / 2, 1);
         // It returns a count without panicking; the exact number is engine-owned.
         let _ = aged;
+    }
+
+    #[test]
+    fn clock_now_is_zero_at_birth_and_advances() {
+        let s = GatewayServer::new();
+        assert_eq!(s.clock_now(), 0, "clock must start at 0");
+        std::thread::sleep(std::time::Duration::from_millis(1100));
+        assert!(
+            s.clock_now() >= 1,
+            "clock must advance after ~1s (got {})",
+            s.clock_now()
+        );
+    }
+
+    #[test]
+    fn handle_stamps_unified_clock_on_requests() {
+        let s = GatewayServer::new();
+        // Before any request, the clock is at 0.
+        assert_eq!(s.clock_now(), 0);
+        // Sleep briefly so the clock would be non-zero if stamped.
+        std::thread::sleep(std::time::Duration::from_millis(1100));
+        // An infer stamps `now` internally; we verify by observing that a
+        // maintain with ttl=0 and now=clock_now() does NOT age the freshly-
+        // learned memory (because now - freshness <= 0).
+        let _ = s.handle_line(&infer_line(&demo_requests()[0]));
+        let aged = s.maintain(s.clock_now(), 0);
+        assert_eq!(aged, 0, "fresh memory (stamp == now) must not age with ttl=0");
+        // Advance the clock and age with ttl=0 should now catch it.
+        std::thread::sleep(std::time::Duration::from_millis(1100));
+        let aged = s.maintain(s.clock_now(), 0);
+        assert!(
+            aged >= 1,
+            "memory should age after clock advances past its stamp"
+        );
     }
 
     #[test]

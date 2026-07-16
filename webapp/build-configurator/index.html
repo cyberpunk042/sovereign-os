@@ -2978,7 +2978,7 @@ document.getElementById("btn-xall").addEventListener("click", function(){
    Paper survives the firmware screens; the panel doesn't. Filled at print
    time from live state: confirmed items print as filled boxes, the rest as
    empty boxes to tick with a pen. */
-function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;"); }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
 function buildPrintSheet(){
   var b = D.hw.board, p = psuByModel(state.psuModel), power = powerCalc(), pw = powerInputs();
   var H = [];

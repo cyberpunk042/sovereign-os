@@ -16,9 +16,9 @@
 
 Full doctrine: `docs/standing-directives/two-ultimate-solutions.md`.
 
-## Current state (2026-07-12 — counts machine-verified)
+## Current state (2026-07-16 — counts machine-verified)
 
-> **Last updated: 2026-07-12.** This section supersedes the historical-arc log below it. The counts here are enforced by `tests/lint/test_context_md_counts.py` — if the tree changes and these drift, CI fails, so this "read me first" surface can never silently rot again (the recurring `F-2026-030` drift closed by SDD-952).
+> **Last updated: 2026-07-16.** This section supersedes the historical-arc log below it. The counts here are enforced by `tests/lint/test_context_md_counts.py` — if the tree changes and these drift, CI fails, so this "read me first" surface can never silently rot again (the recurring `F-2026-030` drift closed by SDD-952).
 
 <!-- COUNTS-CONTRACT: each row is verified against the filesystem by tests/lint/test_context_md_counts.py.
      Update the numbers here when the tree changes — the lint fails on drift. Do NOT rename the labels
@@ -36,7 +36,7 @@ Full doctrine: `docs/standing-directives/two-ultimate-solutions.md`.
 
 **Recent arcs (newest first), beyond the 2026-05 M060 historical arc below:**
 
-- **Phase-1 whole-repo improvement audit** (`docs/review/phase-1/`) — 100+ ranked findings `F-2026-NNN`; the map for ongoing SDD work. In-flight closures (this general/audit session, SDD **900-band** per SDD-100): **SDD-950** real RoPE (`rope_theta`/`rope_scaling` — modern models decode coherently, F-2026-080); **SDD-206** gateway safety spine (injection screen + secret/PII redaction + auth/timeouts, F-2026-081/082); **SDD-951** durable-memory corruption recovery + bounded growth (F-2026-084); **SDD-952** this drift fix (F-2026-030).
+- **Phase-1 whole-repo improvement audit** (`docs/review/phase-1/`) — 87 ranked findings `F-2026-NNN`; the map for ongoing SDD work. In-flight closures this session (SDD **950–999** band per SDD-100): **SDD-950** real RoPE (`rope_theta`/`rope_scaling` — modern models decode coherently, F-2026-080 **stale — already wired**); **SDD-206** gateway safety spine extended (input-side secret/PII screening + Zero-Trust NIC validation, F-2026-081); **SDD-951** durable-memory corruption recovery + bounded growth (F-2026-084); **direct implementation** break generation mutex (F-2026-083 — worker pool + round-robin) + wire memory decay thread (F-2026-084 — unified monotonic clock + M028 maintain thread); **SDD-952** context.md counts-as-contract (F-2026-030); **SDD-958** mdbook catalog sync (F-2026-033); **SDD-959** MASTER-PLAN count reconciliation (F-2026-032); **SDD-961** SDD INDEX status hygiene (F-2026-031). Remaining open findings being worked sequentially: F-2026-070 deduplicate panel-fork clusters · F-2026-073 webapp build/sync tooling · F-2026-086 OpenAI shim sampling · F-2026-087 SSE robustness · F-2026-025 split sovereign-osctl · F-2026-052 qemu/chroot test tiers · F-2026-071 dead node-exporter fetch · F-2026-072 aggregator route table · F-2026-074 skip-link a11y · F-2026-066 cross-daemon integration test.
 - **The July intelligence layer** — the Sovereign Brain observatory, the CoAT reasoning engine (`sovereign-coat`, CoT→ToT→MCTS→C-MCTS→CoAT), the Background-Tasks job runtime + compute plane, Plan Mode / User Approval / the auto-mode safety classifier, QCFA + interactive AUQ clarification, the HF-BPE tokenizer, and durable gateway memory. The Anthropic Messages API (`/v1/messages`, **SDD-205**) makes the box drive VS Code / Claude Code against its own local model. **Cold-start anchor: [`docs/handoff/008-july-intelligence-layer-arc.md`](docs/handoff/008-july-intelligence-layer-arc.md)** (SDD-983 — closes F-2026-060/036); gateway `/v1` API reference: [`docs/src/gateway-api-reference.md`](docs/src/gateway-api-reference.md) (F-2026-064). Follow-up hardening open: F-2026-034 (MS003 signing) · F-2026-063/090 (route model-backed CoAT through jobs) · F-2026-062/091 (jobs sandbox + growth).
 - Parallel sessions run per the **SDD-100 number-band convention** (`recover 100–199`, `header-sidemenu 200–299`, `science-tools 300–399`, `compute-plane 900–949`, `phase-1 audit 950–999`, `cockpit-wasm 800–899`) so SDD numbers can't collide; each unassigned session claims its own disjoint 100-wide block (never a shared catch-all), and `test_sdd_numbers_unique` is the backstop. Sessions **identify themselves** in `docs/sdd/SESSIONS.md`, an out-of-band slip **self-heals** via `scripts/git/sdd_conflict_resolver.py` (SDD-980), and sessions **talk to each other + the operator** on `docs/sdd/MESSAGES.md` via `scripts/git/session_comms.py` (SDD-981). See "Parallel-session conventions" below.
 
@@ -188,31 +188,42 @@ Per operator: *"little piece by little piece and progress in this massive endles
 | D-01 active sessions | ✓ shipped | `webapp/d-01-active-sessions/index.html` |
 | D-02 profile choices | ✓ shipped | `webapp/d-02-profile-choices/index.html` |
 | D-03 model health | ✓ shipped | `webapp/d-03-model-health/index.html` |
+| D-04 costs | ✓ shipped | `webapp/d-04-costs/index.html` |
+| D-05 traces | ✓ shipped | `webapp/d-05-traces/index.html` |
+| D-06 pending approvals | ✓ shipped | `webapp/d-06-pending-approvals/index.html` |
 | D-07 memory changes | ✓ shipped | `webapp/d-07-memory-changes/index.html` |
 | D-08 rollback points | ✓ shipped | `webapp/d-08-rollback-points/index.html` |
+| D-09 hardware pressure | ✓ shipped | `webapp/d-09-hardware-pressure/index.html` |
+| D-10 eval history | ✓ shipped | `webapp/d-10-eval-history/index.html` |
+| D-11 adapter status | ✓ shipped | `webapp/d-11-adapter-status/index.html` |
 | D-12 networking | ✓ shipped (consumes selfdef-rules-mirror) | `webapp/d-12-networking/index.html` |
 | D-13 filesystem grants | ✓ shipped (consumes selfdef-grants-mirror) | `webapp/d-13-filesystem-grants/index.html` |
 | D-14 capability tokens | ✓ shipped (consumes selfdef-capability-mirror) | `webapp/d-14-capability-tokens/index.html` |
 | D-15 sandboxes | ✓ shipped (consumes selfdef-sandbox-mirror) | `webapp/d-15-sandboxes/index.html` |
+| D-16 audit cycles | ✓ shipped | `webapp/d-16-audit/index.html` |
 | D-17 quarantine | ✓ shipped (consumes selfdef-quarantine-mirror) | `webapp/d-17-quarantine/index.html` |
 | D-18 trust scores | ✓ shipped (consumes selfdef-trust-score-mirror) | `webapp/d-18-trust-scores/index.html` |
 | D-19 super-model manifest | ✓ shipped | `webapp/d-19-super-model-manifest/index.html` |
 | D-20 peace machine health | ✓ shipped | `webapp/d-20-peace-machine-health/index.html` |
-| **17 of 21 dashboards SHIPPED** (operator target "20+ and a main one" surpassed — R10128) | ✓ MILESTONE | — |
-| D-04 costs | ✓ shipped | `webapp/d-04-costs/index.html` |
-| D-05 traces | ✓ shipped | `webapp/d-05-traces/index.html` |
-| D-06 pending approvals | ✓ shipped | `webapp/d-06-pending-approvals/index.html` |
-| D-09 hardware pressure | ✓ shipped | `webapp/d-09-hardware-pressure/index.html` |
-| D-10 eval history | ✓ shipped | `webapp/d-10-eval-history/index.html` |
-| D-11 adapter status | ✓ shipped | `webapp/d-11-adapter-status/index.html` |
+| D-21 LM orchestration | ✓ shipped | `webapp/d-21-lm-orchestration/index.html` |
+| D-22 LM status operability | ✓ shipped | `webapp/d-22-lm-status-operability/index.html` |
+| D-23 models catalog | ✓ shipped | `webapp/d-23-models-catalog/index.html` |
+| D-24 CPU features | ✓ shipped | `webapp/d-24-cpu-features/index.html` |
+| D-25 selfdef management | ✓ shipped | `webapp/d-25-selfdef-management/index.html` |
+| D-26 friction audit | ✓ shipped | `webapp/d-26-friction-audit/index.html` |
+| D-27 guardian | ✓ shipped | `webapp/d-27-guardian/index.html` |
+| D-28 perimeter | ✓ shipped | `webapp/d-28-perimeter/index.html` |
+| D-29 scheduler | ✓ shipped | `webapp/d-29-scheduler/index.html` |
+| Sovereign Brain observatory | ✓ shipped | `webapp/brain/index.html` |
+| Code Console | ✓ shipped | `webapp/code-console/index.html` |
+| **31 dashboards + 2 orthogonal observatories SHIPPED** (operator target "20+ and a main one" surpassed — R10128) | ✓ MILESTONE | — |
 | D-12 networking (partial via network-edge + edge-firewall) | ✓ partial | `webapp/network-edge/`, `webapp/edge-firewall/` |
 | D-14 capability tokens (partial via auth-tier) | ✓ partial | `webapp/auth-tier/` |
-| D-16 audit cycles | ✓ shipped | `webapp/auditor/` |
 | D-19 super-model manifest (partial via trinity) | ✓ partial | `webapp/trinity/` |
 | D-20 peace machine health (partial via compliance) | ✓ partial | `webapp/compliance/` |
-| Orthogonal dashboards (not in M060 D-00..D-20) | ✓ retained | `webapp/anti-minimization-audit/`, `doc-coverage/`, `global-history/`, `router/`, `surface-map/`, `ux-design-audit/`, `weaver/` |
-| 29 SDDs (000-039) | ✓ shipped | `docs/sdd/` |
-| 6 handoff anchors (001-006) | ✓ shipped | `docs/handoff/` |
+| Orthogonal dashboards (not in M060 D-00..D-29) | ✓ retained | `webapp/anti-minimization-audit/`, `auditor/`, `auth-tier/`, `build-configurator/`, `course/`, `doc-coverage/`, `edge-firewall/`, `emulate/`, `feature-test-lab/`, `flash/`, `global-history/`, `models-catalog/`, `network-edge/`, `orchestration/`, `personalization/`, `profile-generation/`, `router/`, `runtime-modes/`, `science/`, `selfdef-management/`, `surface-map/`, `trinity/`, `ups/`, `ux-design-audit/`, `weaver/` |
+| 196 SDDs (000–071, 100–149, 200–207, 800–899, 950–999) | ✓ shipped/review/in-flight | `docs/sdd/` |
+| 8 handoff anchors (001–008) | ✓ shipped | `docs/handoff/` |
 
 #### selfdef implementation status
 
@@ -249,69 +260,100 @@ Per operator: *"little piece by little piece and progress in this massive endles
 > historical record; treat its ✓-less items as needing a presence-check
 > before any (re)work.
 
+### Current forward queue (Phase-1 audit — in flight, 2026-07-16)
+
+Determined from `docs/review/phase-1/99-findings-ledger.md` open items; worked sequentially:
+
+1. **F-2026-082** — Gateway auth + timeouts (`sovereign-gatewayd` bearer validation, request timeout, connection limit)
+2. **F-2026-083** — Break generation mutex (concurrent request handling, back-pressure)
+3. **F-2026-070** — Deduplicate panel-fork clusters (`webapp/` copy-paste dashboard families → shared build)
+4. **F-2026-073** — Add webapp build/sync tooling (esbuild/vite pipeline, asset hashing, CI artifact)
+5. **F-2026-086** — OpenAI shim sampling params + chat template (`temperature`/`top_p`/stop-sequences, Jinja chat template)
+6. **F-2026-087** — SSE robustness gaps (reconnect, idempotency, last-event-ID)
+7. **F-2026-025** — Split `sovereign-osctl` monolith (per-subcommand crate factor)
+8. **F-2026-052** — Build qemu/chroot test tiers (integration-test matrix: host → qemu-x86_64 → chroot)
+9. **F-2026-071** — Fix dead node-exporter fetch (metrics scraping timeout / fallback)
+10. **F-2026-072** — Reconcile aggregator route table (`sovereign-aggregator` route consistency)
+11. **F-2026-074** — Back-port skip-link a11y (WCAG 2.4.1 bypass blocks to all D-NN dashboards)
+12. **F-2026-066** — Add cross-daemon integration test (gatewayd ↔ inference ↔ memory ↔ mirror lifecycle)
+
+### Historical queue (retained per "layered ON TOP — never discarded")
+
+> **STALE-QUEUE CORRECTION (2026-05-27, verified):** most of the list below
+> has SHIPPED but was never removed from this queue (update-protocol drift).
+> Verified present + substantive this session:
+> - **Phase D selfdef-mirror dashboards (D-13..D-20): ALL BUILT**
+> - **Stage 2 ISO build pipeline: BUILT**
+> - **MS044 Guardian Daemon: BUILT (selfdef repo)**
+> - **MS045 UX coherence harness: shipped**
+> - **Cockpit wasm bridge (SDD-800): 418/418 crates bridged**
+> - **D-21..D-29 + brain + code-console: SHIPPED**
+>
+> So items 1–47 below are DONE. Treat as historical record only.
+
 Per SDD-040 Phase A → E ordering + selfdef Guardian/UX-harness implementations.
 
-### Immediate next pieces (Phase D — selfdef-mirror dashboards)
+#### Immediate next pieces (Phase D — selfdef-mirror dashboards) — DONE
 
-1. **D-14 capability tokens dashboard** — consumes `selfdef-capability-mirror`
-2. **D-15 sandboxes dashboard** — consumes `selfdef-sandbox-mirror`
-3. **D-17 quarantine dashboard** — needs `selfdef-quarantine-mirror` (5 of 9, not yet shipped)
+1. ~~D-14 capability tokens dashboard~~ ✓
+2. ~~D-15 sandboxes dashboard~~ ✓
+3. ~~D-17 quarantine dashboard~~ ✓
 
-### Phase D (selfdef-mirror dashboards via MS007)
+#### Phase D (selfdef-mirror dashboards via MS007) — DONE
 
-9. selfdef 9 mirror crates implementation (rules / grants / capability / sandbox / audit / quarantine / trust-score / cli / tui)
-10. D-13 filesystem grants dashboard (consumes selfdef-grants-mirror)
-11. D-15 sandboxes dashboard (consumes selfdef-sandbox-mirror)
-12. D-17 quarantine dashboard (consumes selfdef-quarantine-mirror)
-13. D-18 trust scores dashboard (consumes selfdef-trust-score-mirror)
+9. ~~selfdef 9 mirror crates implementation~~ ✓
+10. ~~D-13 filesystem grants dashboard~~ ✓
+11. ~~D-15 sandboxes dashboard~~ ✓
+12. ~~D-17 quarantine dashboard~~ ✓
+13. ~~D-18 trust scores dashboard~~ ✓
 
-### Phase E (close-out + partial-completion)
+#### Phase E (close-out + partial-completion) — DONE
 
-14. D-08 rollback points dashboard — ZFS snapshot list
-15. D-14 capability tokens completion — extend `webapp/auth-tier/`
-16. D-19 super-model manifest completion — extend `webapp/trinity/`
-17. D-20 peace machine health completion — extend `webapp/compliance/`
+14. ~~D-08 rollback points dashboard~~ ✓
+15. ~~D-14 capability tokens completion~~ ✓
+16. ~~D-19 super-model manifest completion~~ ✓
+17. ~~D-20 peace machine health completion~~ ✓
 
-### selfdef implementations
+#### selfdef implementations — DONE
 
-18. **MS044 Guardian Daemon** Python impl at `/usr/local/bin/guardian-core` + systemd unit `/etc/systemd/system/guardian-core.service` (Tetragon eBPF event loop + SIGKILL + atomic ZFS audit log)
-19. **MS045 UX coherence test harness** binary at `/usr/bin/selfdef-ux-harness` + systemd timer
+18. ~~MS044 Guardian Daemon~~ ✓
+19. ~~MS045 UX coherence test harness~~ ✓
 
-### sovereign-os runtime crates
+#### sovereign-os runtime crates — DONE
 
-20. ~~M077 NVFP4 runtime crate~~ ✓ shipped 2026-05-19 — `crates/sovereign-nvfp4-runtime/` 5 recipes (NVFP4-S/M/L/XL/XXL) + E2M1 + E4M3 + 1x16 block quantize/dequantize + stochastic rounding unbiased ±2% verified (13 passing tests)
-21. ~~M078 HölderPO runtime crate~~ ✓ shipped 2026-05-19 — `crates/sovereign-holderpo/` Hölder-mean aggregator (p ∈ ℝ with geom/arith/quad/max/min limits verified) + 4 anneal schedules (Constant/Linear/Cosine/Step) + GRPO group-relative advantages with optional std normalisation (17 passing tests)
-22. ~~M079 Intervention-class typed mirror crate~~ ✓ shipped 2026-05-19 — `crates/sovereign-intervention-class-mirror/` per arXiv 2604.09839 + 5-variant InterventionClass enum + protocol-separation enforcement (WB↔BB generalisation refused) + DOCTRINE_NON_SURJECTIVE verbatim ("almost surely, no prompt can reproduce") + tamper detection (13 passing tests)
-23. ~~M080 HRM runtime crate~~ ✓ shipped 2026-05-19 — `crates/sovereign-hrm-runtime/` 4th architectural class + 3 variants (HrmCanonical 27M / HrmText1B 1.18B / Trm7M) + two-timescale recurrence cadence stepper (outer × inner) + validators (13 passing tests)
+20. ~~M077 NVFP4 runtime crate~~ ✓ shipped 2026-05-19
+21. ~~M078 HölderPO runtime crate~~ ✓ shipped 2026-05-19
+22. ~~M079 Intervention-class typed mirror crate~~ ✓ shipped 2026-05-19
+23. ~~M080 HRM runtime crate~~ ✓ shipped 2026-05-19
 
-### Cockpit + runtime crates (post-/goal arc — 17 new crates)
+#### Cockpit + runtime crates (post-/goal arc — 17 new crates) — DONE
 
-24. ~~sovereign-mirror-publisher~~ ✓ (12 tests) — 9-endpoint MS007 binding manifest
-25. ~~sovereign-dashboard-coverage~~ ✓ (12+1 tests) — 21-slot D-NN coverage verifier
-26. ~~sovereign-dashboard-toggle~~ ✓ (15 tests) — M060 R10038 per-dashboard visibility
-27. ~~sovereign-cockpit-personalization~~ ✓ (19 tests) — M060 R10137 + R10140 + R10141 per-profile UX
-28. ~~sovereign-router-7axis~~ ✓ (13 tests + 192-combo walk) — M042 NadirClaw 7-axis routing
-29. ~~sovereign-environment-maps~~ ✓ (14 tests) — M042 7-map "Build a map first" doctrine
-30. ~~sovereign-memory-os~~ ✓ (17 tests) — M028 8-type Memory OS + 11-stage lifecycle
-31. ~~sovereign-value-plane~~ ✓ (18 tests) — M027 12-axis reward + 5-tier Intelligence Dial
-32. ~~sovereign-inheritance-contracts~~ ✓ (14 tests) — M042 Symphony 6-contract schema
-33. ~~sovereign-trinity~~ ✓ (12 tests) — M066 Pulse/Weaver/Auditor genesis
-34. ~~sovereign-module-catalog~~ ✓ (15 tests) — M048 10-module catalog + KEY LINE
-35. ~~sovereign-policy-questions~~ ✓ (15 tests) — M049 7 policy questions
-36. ~~sovereign-cognitive-compiler~~ ✓ (17 tests + cycle detection) — M025 intent-to-DAG
-37. ~~sovereign-cockpit-state~~ ✓ (12 tests) — composite envelope of 6 sub-crates
-38. ~~sovereign-srp-scheduler~~ ✓ (15 tests) — M075 SRP work-placement
-39. ~~sovereign-lora-foundry~~ ✓ (11 tests) — M046 8-adapter + 7-step pipeline + 6-decision
-40. ~~sovereign-pressure-sensors~~ ✓ (14 tests) — M045 PSI-DCGM-runtime 6-axis pressure model
-41. ~~sovereign-eval-plane~~ ✓ (11 tests) — M048 Module 7 10-dim + 8-profile weighting
-42. ~~sovereign-continuity-manager~~ ✓ (11 tests) — M048 Module 8 6-primitive + 8-state lifecycle
-43. ~~sovereign-observability-fabric~~ ✓ (11 tests) — M048 Module 9 9-source + 6-question
-44. ~~sovereign-gateway~~ ✓ (12 tests) — M048 Module 4 6-surface + 7-responsibility Anthropic-first
-45. ~~sovereign-zfs-commit-gate~~ ✓ (14 tests) — M040 4-stage snapshot/apply/test/commit-or-rollback
-46. ~~sovereign-doctrinal-preservation~~ ✓ (8 tests) — 16-doctrine verbatim registry composite
-47. ~~sovereign-cgroup-systemd~~ ✓ (11 tests) — M045 8-OS-primitive substrate snapshot
+24. ~~sovereign-mirror-publisher~~ ✓
+25. ~~sovereign-dashboard-coverage~~ ✓
+26. ~~sovereign-dashboard-toggle~~ ✓
+27. ~~sovereign-cockpit-personalization~~ ✓
+28. ~~sovereign-router-7axis~~ ✓
+29. ~~sovereign-environment-maps~~ ✓
+30. ~~sovereign-memory-os~~ ✓
+31. ~~sovereign-value-plane~~ ✓
+32. ~~sovereign-inheritance-contracts~~ ✓
+33. ~~sovereign-trinity~~ ✓
+34. ~~sovereign-module-catalog~~ ✓
+35. ~~sovereign-policy-questions~~ ✓
+36. ~~sovereign-cognitive-compiler~~ ✓
+37. ~~sovereign-cockpit-state~~ ✓
+38. ~~sovereign-srp-scheduler~~ ✓
+39. ~~sovereign-lora-foundry~~ ✓
+40. ~~sovereign-pressure-sensors~~ ✓
+41. ~~sovereign-eval-plane~~ ✓
+42. ~~sovereign-continuity-manager~~ ✓
+43. ~~sovereign-observability-fabric~~ ✓
+44. ~~sovereign-gateway~~ ✓
+45. ~~sovereign-zfs-commit-gate~~ ✓
+46. ~~sovereign-doctrinal-preservation~~ ✓
+47. ~~sovereign-cgroup-systemd~~ ✓
 
-**sovereign-os Rust workspace: 29 crates total**
+**sovereign-os Rust workspace: 718 crates total** (counts-as-contract enforced by `tests/lint/test_context_md_counts.py`)
 
 ### Stage 2+ build scripts (per M062 PR 10 → Stage Gate 5 → Stage 2)
 
@@ -593,7 +635,7 @@ Earlier history: see `git log --oneline backlog/milestones/` and `CHANGELOG.md`.
 
 ---
 
-**Last updated**: 2026-05-19 (commit `81724bd` + this file `context.md`)
+**Last updated**: 2026-07-16 (commits `3c1cebc2` through this session + this file `context.md`)
 **Next AI session**: read this file → read two-ultimate-solutions.md → pick next item from "What's ahead" → execute → update this file.
 
 ## Latest cycle (post-resume 2026-05-19)

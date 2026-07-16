@@ -125,6 +125,35 @@ fn main() {
         });
     }
 
+    // M028 long-running hygiene: age out stale memories periodically.
+    // The decay thread shares the unified monotonic clock with every request
+    // (F-2026-084) so stale-memory detection is consistent.
+    {
+        let maintainer = Arc::clone(&server);
+        let secs = std::env::var("SOVEREIGN_GATEWAY_MAINTAIN_SECS")
+            .ok()
+            .and_then(|s| s.parse::<u64>().ok())
+            .filter(|&n| n > 0)
+            .unwrap_or(60);
+        let ttl = std::env::var("SOVEREIGN_GATEWAY_MEMORY_TTL")
+            .ok()
+            .and_then(|s| s.parse::<u64>().ok())
+            .filter(|&n| n > 0)
+            .unwrap_or(3600);
+        std::thread::spawn(move || {
+            loop {
+                std::thread::sleep(std::time::Duration::from_secs(secs));
+                let now = maintainer.clock_now();
+                let aged = maintainer.maintain(now, ttl);
+                if aged > 0 {
+                    eprintln!(
+                        "sovereign-gatewayd: memory decay aged {aged} stale memory(s) (ttl={ttl}s)"
+                    );
+                }
+            }
+        });
+    }
+
     let addr = arg_value(&args, "--addr")
         .or_else(|| std::env::var("SOVEREIGN_GATEWAY_ADDR").ok())
         .unwrap_or_else(|| DEFAULT_ADDR.to_string());
@@ -570,6 +599,15 @@ fn handle_http_conn(server: &GatewayServer, stream: TcpStream) -> std::io::Resul
 
     let reply = http::respond(server, &method, &path, &body);
     write_http(&mut writer, &reply)
+}
+
+/// Generate a unique chat-completion id for each request so clients can
+/// correlate chunks and detect replays.
+fn chat_completion_id() -> String {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    let n = COUNTER.fetch_add(1, Ordering::Relaxed);
+    format!("chatcmpl-sovereign-{n:016x}")
 }
 
 /// Write one SSE event (`data: {json}\n\n`) and flush.
@@ -1059,6 +1097,37 @@ fn chat_prompt(req: &serde_json::Value) -> String {
     parts.join("\n")
 }
 
+/// Extract sampling parameters from an OpenAI-style request body.
+/// Unspecified or out-of-range fields fall back to greedy-equivalent defaults.
+fn extract_sampler_config(req: &serde_json::Value) -> sovereign_safetensors_loader::SamplerConfig {
+    let temperature = req
+        .get("temperature")
+        .and_then(|v| v.as_f64())
+        .map(|t| t.clamp(0.0, 2.0) as f32)
+        .unwrap_or(0.0);
+    let top_p = req
+        .get("top_p")
+        .and_then(|v| v.as_f64())
+        .map(|p| {
+            let c = p.clamp(0.0, 1.0) as f32;
+            if c > 0.0 && c <= 1.0 { Some(c) } else { None }
+        })
+        .unwrap_or(None);
+    let top_k = req
+        .get("top_k")
+        .and_then(|v| v.as_u64())
+        .map(|k| {
+            if k > 0 { Some(k as usize) } else { None }
+        })
+        .unwrap_or(None);
+    sovereign_safetensors_loader::SamplerConfig {
+        temperature,
+        top_p,
+        top_k,
+        ..sovereign_safetensors_loader::SamplerConfig::default()
+    }
+}
+
 /// Serve `POST /v1/chat/completions` as OpenAI-compatible SSE — the exact shape
 /// `scripts/inference/prompt.py` consumes: `data: {chunk}` per decoded delta, a
 /// final chunk carrying `finish_reason:"stop"` + `usage.completion_tokens`, then
@@ -1120,6 +1189,8 @@ fn stream_chat_completions(
         .and_then(serde_json::Value::as_u64)
         .unwrap_or(96)
         .clamp(1, 1024) as usize;
+    let sampler_cfg = extract_sampler_config(&req);
+    let stream = req.get("stream").and_then(|v| v.as_bool()).unwrap_or(true);
 
     // SDD-712 (F-2026-088): server-side agentic tool use. When the request opts
     // in (`sovereign_agentic: true`) AND the daemon enables the capability
@@ -1148,50 +1219,105 @@ fn stream_chat_completions(
     let tools_val = req.get("tools").cloned().unwrap_or(serde_json::Value::Null);
     let tool_specs = sovereign_tool_bridge::openai_tools_to_specs(&tools_val);
     if !tool_specs.is_empty() {
-        return tool_aware_chat_completion(server, writer, &model, &prompt, max_new, &tool_specs);
+        return tool_aware_chat_completion(
+            server, writer, &model, &prompt, max_new, &tool_specs, sampler_cfg,
+        );
     }
 
-    // SSE response head, then stream.
-    writer.write_all(
-        b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n\
-          Cache-Control: no-store\r\nConnection: close\r\n\r\n",
-    )?;
-    writer.flush()?;
+    if stream {
+        // SSE response head, then stream.
+        writer.write_all(
+            b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n\
+              Cache-Control: no-store\r\nConnection: close\r\n\r\n",
+        )?;
+        writer.flush()?;
 
-    let id = "chatcmpl-sovereign";
-    let mut io_err: Option<std::io::Error> = None;
-    let gen_res = server.generate_chat(Some(model.as_str()), &prompt, max_new, |chunk| {
-        if io_err.is_some() {
-            return;
+        // Heartbeat before first-token latency so client idle-timeouts don't fire.
+        let _ = writer.write_all(b":keepalive\n\n");
+        let _ = writer.flush();
+
+        let id = chat_completion_id();
+        let mut io_err: Option<std::io::Error> = None;
+        let gen_res = server.generate_chat_with_sampler(
+            Some(model.as_str()),
+            &prompt,
+            max_new,
+            sampler_cfg,
+            |chunk| {
+                if io_err.is_some() {
+                    return;
+                }
+                let obj = serde_json::json!({
+                    "id": &id, "object": "chat.completion.chunk",
+                    "choices": [{"index": 0, "delta": {"content": chunk}}],
+                });
+                if let Err(e) = write_sse(writer, &obj) {
+                    io_err = Some(e);
+                }
+            },
+        );
+        if let Some(e) = io_err {
+            return Err(e); // client hung up mid-stream
         }
-        let obj = serde_json::json!({
-            "id": id, "object": "chat.completion.chunk",
-            "choices": [{"index": 0, "delta": {"content": chunk}}],
-        });
-        if let Err(e) = write_sse(writer, &obj) {
-            io_err = Some(e);
-        }
-    });
-    if let Some(e) = io_err {
-        return Err(e); // client hung up mid-stream
+        let final_obj = match gen_res {
+            Ok(n) => serde_json::json!({
+                "id": &id, "object": "chat.completion.chunk",
+                "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+                "usage": {"completion_tokens": n, "prompt_tokens": 0, "total_tokens": n},
+            }),
+            Err(e) => serde_json::json!({
+                "id": &id, "object": "chat.completion.chunk",
+                "choices": [{"index": 0,
+                    "delta": {"content": format!("[gateway generation error: {e}]")},
+                    "finish_reason": "error"}],
+            }),
+        };
+        let _ = write_sse(writer, &final_obj);
+        let _ = writer.write_all(b"data: [DONE]\n\n");
+        let _ = writer.flush();
+        Ok(())
+    } else {
+        // Non-streaming JSON shape (F-2026-086).
+        let mut buf = String::new();
+        let id = chat_completion_id();
+        let gen_res = server.generate_chat_with_sampler(
+            Some(model.as_str()),
+            &prompt,
+            max_new,
+            sampler_cfg,
+            |chunk| buf.push_str(chunk),
+        );
+        let body = match gen_res {
+            Ok(n) => serde_json::json!({
+                "id": &id,
+                "object": "chat.completion",
+                "choices": [{
+                    "index": 0,
+                    "message": {"role": "assistant", "content": buf},
+                    "finish_reason": "stop"
+                }],
+                "usage": {"prompt_tokens": 0, "completion_tokens": n, "total_tokens": n},
+            }),
+            Err(e) => serde_json::json!({
+                "id": &id,
+                "object": "chat.completion",
+                "choices": [{
+                    "index": 0,
+                    "message": {"role": "assistant", "content": format!("[gateway generation error: {e}]")},
+                    "finish_reason": "error"
+                }],
+                "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+            }),
+        };
+        write_http(
+            writer,
+            &http::HttpReply {
+                status: 200,
+                content_type: "application/json",
+                body: body.to_string(),
+            },
+        )
     }
-    let final_obj = match gen_res {
-        Ok(n) => serde_json::json!({
-            "id": id, "object": "chat.completion.chunk",
-            "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
-            "usage": {"completion_tokens": n, "prompt_tokens": 0, "total_tokens": n},
-        }),
-        Err(e) => serde_json::json!({
-            "id": id, "object": "chat.completion.chunk",
-            "choices": [{"index": 0,
-                "delta": {"content": format!("[gateway generation error: {e}]")},
-                "finish_reason": "stop"}],
-        }),
-    };
-    let _ = write_sse(writer, &final_obj);
-    let _ = writer.write_all(b"data: [DONE]\n\n");
-    let _ = writer.flush();
-    Ok(())
 }
 
 /// SDD-711 (F-2026-088): shape the SSE payloads for a completed tool-aware turn.
@@ -1252,6 +1378,7 @@ fn tool_aware_chat_completion(
     base_prompt: &str,
     max_new: usize,
     specs: &[sovereign_tool_bridge::ToolSpec],
+    sampler_cfg: sovereign_safetensors_loader::SamplerConfig,
 ) -> std::io::Result<()> {
     let preamble = sovereign_tool_bridge::tool_specs_to_prompt(specs);
     let prompt = format!("{preamble}\n{base_prompt}");
@@ -1262,18 +1389,24 @@ fn tool_aware_chat_completion(
     )?;
     writer.flush()?;
 
-    let id = "chatcmpl-sovereign";
+    let id = chat_completion_id();
     let mut buf = String::new();
-    let gen_res = server.generate_chat(Some(model), &prompt, max_new, |chunk| buf.push_str(chunk));
+    let gen_res = server.generate_chat_with_sampler(
+        Some(model),
+        &prompt,
+        max_new,
+        sampler_cfg,
+        |chunk| buf.push_str(chunk),
+    );
     let (delta, final_obj) = match gen_res {
-        Ok(n) => shape_tool_completion(&buf, specs, id, n),
+        Ok(n) => shape_tool_completion(&buf, specs, &id, n),
         Err(e) => {
             // No delta on error; report it in the final chunk as content.
             let err = serde_json::json!({
-                "id": id, "object": "chat.completion.chunk",
+                "id": &id, "object": "chat.completion.chunk",
                 "choices": [{"index": 0,
                     "delta": {"content": format!("[gateway generation error: {e}]")},
-                    "finish_reason": "stop"}],
+                    "finish_reason": "error"}],
             });
             (serde_json::Value::Null, err)
         }
@@ -1311,14 +1444,17 @@ fn agentic_chat_completion(
     )?;
     writer.flush()?;
 
-    let id = "chatcmpl-sovereign";
+    let _ = writer.write_all(b":keepalive\n\n");
+    let _ = writer.flush();
+
+    let id = chat_completion_id();
     let content = serde_json::json!({
-        "id": id, "object": "chat.completion.chunk",
+        "id": &id, "object": "chat.completion.chunk",
         "choices": [{"index": 0, "delta": {"role": "assistant", "content": answer}}],
     });
     let _ = write_sse(writer, &content);
     let final_obj = serde_json::json!({
-        "id": id, "object": "chat.completion.chunk",
+        "id": &id, "object": "chat.completion.chunk",
         "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
     });
     let _ = write_sse(writer, &final_obj);

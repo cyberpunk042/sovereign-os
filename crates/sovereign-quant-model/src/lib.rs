@@ -213,6 +213,12 @@ impl QuantModel {
         self
     }
 
+    /// Replace the token sampler on an existing model (mutable; use this when
+    /// the model is already loaded and you need per-request sampling).
+    pub fn set_sampler(&mut self, sampler: Sampler) {
+        self.sampler = sampler;
+    }
+
     /// The active token sampler. Its [`config`] carries the temperature /
     /// top-k / top-p / penalties actually used at decode time, so callers (and
     /// tests) can introspect how this model will sample.

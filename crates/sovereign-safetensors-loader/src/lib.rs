@@ -52,7 +52,7 @@ use sovereign_tokenizer::Tokenizer;
 // Re-exported so callers of the precision- / sampler-selectable loaders can name
 // the knobs without adding a direct dependency on the underlying crates.
 pub use sovereign_linear::Precision;
-pub use sovereign_sampler::Sampler;
+pub use sovereign_sampler::{Sampler, SamplerConfig};
 
 /// Schema version of the loader surface.
 pub const SCHEMA_VERSION: &str = "1.0.0";

@@ -795,7 +795,13 @@ fn anthropic_message(server: &GatewayServer, body: &str) -> HttpReply {
     let prompt = anthropic_prompt(&req);
     let max_new = anthropic_max_tokens(&req);
     let mut out = String::new();
-    let generated = server.generate_chat(Some(&model), &prompt, max_new, |c| out.push_str(c));
+    let generated = server.generate_chat_with_sampler(
+        Some(&model),
+        &prompt,
+        max_new,
+        sovereign_safetensors_loader::SamplerConfig::greedy(),
+        |c| out.push_str(c),
+    );
     match generated {
         Ok(n) => json_reply(
             200,
