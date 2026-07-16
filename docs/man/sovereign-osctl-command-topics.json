@@ -49,6 +49,7 @@
       "gpu-watch",
       "network",
       "cpu-mode",
+      "avx-mode",
       "gpu-mode",
       "dspark",
       "gpu-remediate",
