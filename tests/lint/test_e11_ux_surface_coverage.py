@@ -65,7 +65,9 @@ META_MODULES = {
     # the cockpit goal/mode surface, the in-loop gate) land in the implementation
     # SDDs, which will declare their surfaces then.
     "E11.M718",  # local-agent autonomy harness architecture (design)
-    "E11.M719",  # /goal lock + loop-until-goal (design)
+    # E11.M719 — implemented in SDD-719 slice 1: ships the `goal` CLI surface
+    # (goal-ctl.py + goal-driver.py + sovereign-osctl goal), so it is no longer
+    # a surface-less design module — removed from META_MODULES.
     "E11.M720",  # permission modes wired into the agent loop (design)
 }
 

@@ -70,6 +70,29 @@ sovereign-osctl weaver list --json
 \f[R]
 .fi
 .SH COMMAND REFERENCE
+.SS goal
+.TP
+\f[B]sovereign-osctl goal set "<text>" [\[en]plan step ...]\f[R]
+SDD-719: lock one durable, operator-verbatim goal (status active) the
+agent pursues on its own.
+State: /etc/sovereign-os/agent-state.json.
+.TP
+\f[B]sovereign-osctl goal show [\[en]json]\f[R]
+Show the current goal, status, iteration count, plan, and last progress.
+.TP
+\f[B]sovereign-osctl goal pause | resume | done | abandon\f[R]
+Stop / restart the loop pursuing the goal (stays locked) / close it done
+/ close it abandoned.
+.TP
+\f[B]sovereign-osctl goal progress "<line>"\f[R]
+Append a progress note (the loop writes these each iteration; never
+rewrites the goal text).
+.TP
+\f[B]sovereign-osctl goal run [\[en]max-iters 50] [\[en]no-progress 3] [\[en]model NAME] [\[en]port 8083]\f[R]
+Loop-until-goal (goal-driver.py, the SDD-718 self-loop tier): iterate
+toward the active goal via the gateway agentic endpoint until done
+([[GOAL_DONE]]) / max-iters / no-progress.
+Gated on an active goal.
 .SS openclaw
 .TP
 \f[B]sovereign-osctl openclaw status\f[R]

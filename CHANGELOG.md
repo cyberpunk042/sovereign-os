@@ -12,6 +12,124 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — the goal-loop trace sink: the M046 trace source (2026-07-16)
+
+Operator-directed (*"go"*) (SDD-723) — close the last software gap in the M046 loop after SDD-721 (train) +
+SDD-722 (dataset). The curator reads a JSONL trace log but nothing wrote one (fixtures only); this ships the
+producer so the loop is whole **and self-feeding**: `traces (this) → dataset (SDD-722) → train (SDD-721) →
+register → gate → transport → serve --lora`.
+
+- **`goal-driver.py` `run_loop(…, trace_sink=None)`** — the `/goal` loop now records the trajectory. It
+  accumulates `messages` (user prompt + assistant reply per iteration) and, at termination, emits **one record**
+  through an injected sink: `{"messages":[…], "outcome":"success"|"failure", "goal":<text>, …}` — exactly the
+  shape `adapter-dataset.py` curates. The sink lives here, not in the raw daemon, because **success/failure is
+  already known at the loop** (`done → success`, `paused → failure` — the same signal the curator keys on), so
+  the label falls out of the terminal state with no oracle, and it stays stdlib-only + CI-testable (scripted
+  responder, no daemon/GPU).
+- **`append_trace()` / `file_trace_sink()`** — append to the trace log (`SOVEREIGN_OS_TRACE_LOG`, default
+  `/var/lib/sovereign-os/traces/agentic.jsonl`), **bounded** (keeps the last `SOVEREIGN_OS_TRACE_MAX_LINES`,
+  default 10 000, so an always-on loop can't grow it unbounded) and **atomic** (`os.replace`, like goal-ctl's
+  state write). CLI `goal run` wires it by default; `--no-trace` opts out. The signature change is
+  backward-compatible (`trace_sink` defaults `None` — the goal-lock tests pass unchanged).
+- **`tests/lint/test_trace_sink_contract.py`** (5) — trajectory emitted with alternating roles;
+  done→success / paused→failure; the record curates cleanly through `adapter-dataset.py`; `append_trace`
+  bounded + atomic; `trace_sink=None` emits nothing.
+
+Verified: trace-sink 5 + goal-lock 8 passed; **end-to-end (real, in CI)** — a scripted 2-step goal run writes a
+trajectory to the log, `adapter-dataset.py curate` keeps it as one success example (sentinel stripped), and
+`adapter-train.py plan … --dataset <log>` consumes it. The M046 loop now runs from a live goal pursuit all the
+way to a training-ready dataset with zero fixtures; full `tests/` + ruff green. With SDD-721/722/723 the loop is
+whole in CI-testable Python — a pursued goal becomes training data becomes the next adapter. Only the GPU run +
+real gate scores remain, both genuinely SAIN-01-side.
+
+### Added — the trace→dataset curator: success examples become training data (2026-07-16)
+
+Operator-directed (*"go"*) (SDD-722) — continue the M046 loop upstream after SDD-721 landed the trainer. The
+trainer assumes a `--dataset` exists; E0444 (*"trace → success/failure examples → curated dataset"*) is what
+produces it. This closes the **input** hole symmetric to the training hole SDD-721 closed on the output side:
+`traces → DATASET (this) → TRAIN (SDD-721) → register → MS041 gate → transport → serve --lora`.
+
+- **`scripts/inference/adapter-dataset.py`** — a **CLI curator** (a real producer, not a planner: curation is
+  pure I/O so — unlike GPU training — it **runs in CI**). `curate <id> --traces <log.jsonl> [--out <path>]
+  [--label success|all] [--min-turns N]` reads a JSONL trace log (one agentic interaction per line —
+  `{"messages":[…], "outcome":…, "goal":…}`) and writes a curated chat-format dataset (`{"messages":[…]}`) that
+  unsloth/TRL consume as `--dataset`. **DRY-RUN by default** (reports kept/dropped + reasons + previews the
+  first example); `--apply` writes to `--out` (default `/var/lib/sovereign-os/adapters/<id>/dataset/train.jsonl`).
+  Stdlib-only.
+- **The success label is the `/goal` loop's own completion token.** A positive example is `outcome=="success"`
+  **or** its final assistant message carries `DONE_SENTINEL`, imported from `goal-driver.py` (SDD-719) — "the
+  goal loop said it finished" *is* the label; no separate oracle. The sentinel is **stripped from the emitted
+  target** so the model learns the behaviour, not the token.
+- **Curation rails**: drop interactions shorter than `--min-turns`, drop ones with no assistant reply, **dedup**
+  identical message sequences (SHA-256). `--label all` keeps failures too, tagged `label: success|failure`, for
+  later contrastive/DPO datasets.
+- **`tests/lint/test_adapter_dataset_contract.py`** (8) — present/executable/stdlib; reuses the goal-driver
+  sentinel; success-filter + dedup + too-short drop; sentinel stripped from the target; `all` includes
+  failures; DRY-RUN default vs `--apply` writes.
+
+Verified: `pytest tests/lint/test_adapter_dataset_contract.py` 8 passed; functional (5 fixture traces → 2 kept
+success-mode with dedup + sentinel-strip; `--apply` writes JSONL that `adapter-train … --dataset` consumes
+unchanged); full `tests/` + ruff green. Not runtime-verified — the gateway/goal-loop doesn't yet *persist*
+traces; the curator reads the shape they emit, and wiring the trace sink is the follow-up. With SDD-721 (train)
+and this (dataset), the M046 loop is whole in CI-testable producers; only the runtime trace-sink + the GPU run
+remain.
+
+### Added — the adapter training producer: unsloth/QLoRA on the unpacked base (2026-07-16)
+
+Operator-directed (*"what about custom training, doesn't it take unsloth ? … did we handle that already ? like a
+real support for it and LoRA management and observability and operability ?"*; then *"ready"*) (SDD-721). LoRA
+**management + observability + operability** were already shipped — `adapter-foundry` (inventory → D-11),
+`adapter-gate` (MS041 triple-gate → D-10), `adapter-decide` (promote/demote/rollback + `register`),
+`adapter-transport` (ship + ZFS, SDD-716), `--lora` serving (SDD-715), the registry — but nothing actually
+**trained**: `register` only minted a *pending* adapter. This closes the last gap so the loop is whole:
+`traces → dataset → TRAIN (this) → register → MS041 gate → transport → serve --lora → rollback`.
+
+- **`scripts/inference/adapter-train.py`** — a **CLI planner** (the standalone `adapter-transport` pattern, not
+  an osctl verb): `plan <id> --base <unpacked> --dataset <path> [--method qlora|lora] [--trainer unsloth|trl]
+  [--epochs N]` prints the exact commands — an `adapter-decide register` step (mint the pending adapter) + the
+  trainer invocation + the output layout `/var/lib/sovereign-os/adapters/<id>/train/` — **DRY-RUN by default**,
+  `--apply` runs them. QLoRA defaults (r=16, α=32, lr=2e-4, 4-bit) are operator-overridable. Trainer metadata
+  (install/detect/hardware-fit) is read from the existing `scripts/models/toolchains.py` registry (unsloth is
+  catalogued there) — never reinvented. Stdlib-only (no trainer imported at load).
+- **The ternary caveat is enforced, not just documented.** A packed ternary/GGUF `--base` **warns**: you cannot
+  LoRA-train a 1.58-bit base — train the FP16 LoRA on the **unpacked** safetensors (`prism-ml/Ternary-Bonsai-*-
+  unpacked`), base frozen, then serve the adapter over the ternary GGUF (SDD-715). A CUDA trainer also warns it
+  belongs on **SAIN-01** (E0446: "4090 → train small LoRAs / QLoRA"), not the serving box.
+- **`tests/lint/test_adapter_train_contract.py`** (7) — present/executable/stdlib; reuses toolchains +
+  adapter-decide; plan shape `[register, train]` with base/dataset/output/hyperparams; the ternary warning
+  fires; QLoRA=4-bit vs LoRA≠4-bit; DRY-RUN default.
+
+Why a planner, not the trainer: GPU training (unsloth/TRL on the 4090/Blackwell) can't run in CI — no GPUs, no
+weights — which is exactly why M046 deferred it. The deliverable is the **plan** (argv-tested) plus the
+correctness rails; the GPU-side trainer entry point (`train/<trainer>-lora.py`) is the operator-supplied Stage-4
+piece the plan invokes. Verified: `pytest tests/lint/test_adapter_train_contract.py` 7 passed + full `tests/` +
+ruff green. Not GPU-verified (no CUDA/weights in CI).
+
+### Added — `/goal`: a locked goal the agent pursues on its own (2026-07-16)
+
+Operator-directed (*"the '/ goal' command … set a goal and have it stay locked … I don't want … to
+continuously have to tell it to continue or to re-state what I want"*; then *"ready"*) (SDD-719, implementation
+slice 1 — the first behavior built from the autonomy design arc). Recommended Q-719 defaults taken: one active
+goal, 50 iterations / 3 no-progress → pause.
+
+- **`sovereign-osctl goal {set,show,pause,resume,done,abandon,progress,run}`** — set one durable, operator-
+  verbatim goal; it stays locked until you close it.
+- **`scripts/inference/goal-ctl.py`** — the goal state at `/etc/sovereign-os/agent-state.json` (atomic write,
+  stdlib-only). The goal `text` is written only by `set`; the loop only appends progress + bumps the iteration
+  count, **never rewriting the objective** (sacrosanct-verbatim, enforced by a test).
+- **`scripts/inference/goal-driver.py`** (`goal run`) — loop-until-goal: the SDD-718 self-loop tier realized as
+  an orchestrator over the existing gateway agentic endpoint (SDD-712). While the goal is `active` it re-arms
+  one agentic request per iteration (goal + recent progress fed back) and stops on **done** (the model ends a
+  reply with `[[GOAL_DONE]]`), the **max-iterations** ceiling, or the **no-progress** guard — the two guards are
+  goal-level (distinct from SDD-712's per-step repeat-guard) and both *pause* (not abandon) the goal, so "keep
+  going until done" can never pin the box.
+
+No daemon change (it orchestrates the endpoint that already exists). The per-iteration call is a `Responder` —
+tests inject a scripted one, so the loop control + guards are proven without a model. Verified: `pytest
+tests/lint/test_goal_lock_contract.py` 8 passed + full `tests/` + ruff green. Not model-verified (no weights in
+CI). Slice 2 (mode-gating in the tools per SDD-720, the OpenClaw tier, an unattended systemd/cockpit runner,
+Plan→lock seeding) is deferred.
+
 ### Scoped (design, no code) — local-agent autonomy: modes, /goal lock, sub-agents (2026-07-16)
 
 Operator-directed (*"I want it like Claude Opus and able to set the Auto mode … work multiple query and launch

@@ -7192,6 +7192,21 @@ PYEOF
     shift || true
     "${PYTHON3}" "${__REPO_ROOT}/scripts/inference/dspark-ctl.py" "${sub}" "$@"
     ;;
+  goal)
+    # /goal locked-goal + loop-until-goal (SDD-719; SDD-718 self-loop tier).
+    # Set one durable, operator-verbatim goal the agent pursues on its own.
+    # State: /etc/sovereign-os/agent-state.json. Verbs: set "<text>" [--plan …] /
+    # show [--json] / pause / resume / done / abandon / progress "<line>" — plus
+    # `run` (goal-driver.py) which iterates toward the active goal until done /
+    # max-iters / no-progress. `run` is gated on an active goal.
+    sub="${1:-show}"
+    shift || true
+    if [ "${sub}" = "run" ]; then
+      "${PYTHON3}" "${__REPO_ROOT}/scripts/inference/goal-driver.py" run "$@"
+    else
+      "${PYTHON3}" "${__REPO_ROOT}/scripts/inference/goal-ctl.py" "${sub}" "$@"
+    fi
+    ;;
   gpu-remediate)
     # R249 (SDD-026 Z-5 closure): auto-apply R219 fix commands.
     # Operator-named "warn deviance from perfection" loop closure.

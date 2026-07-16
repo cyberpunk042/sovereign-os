@@ -1,6 +1,6 @@
-# SDD-719 — `/goal`: a locked goal the Auto loop pursues (DESIGN)
+# SDD-719 — `/goal`: a locked goal the Auto loop pursues (IMPLEMENTATION — slice 1)
 
-> Status: **scoping — design for operator review; pending Q-719-A..C** (implementation track of SDD-718)
+> Status: **active — slice 1 shipped** (goal state + verbs + loop-until-goal core; Q-719 defaults taken, below)
 > Owner: operator-supervised; agent-authored (design pass, no code)
 > Owner directive 2026-07-16 (verbatim): *"I would also like the '/ goal' command to be able to set a goal and
 > have it stay locked in a bit like it does in Auto mode after a plan."* + *"I don't want to be blocker for
@@ -90,6 +90,33 @@ surfaces when N iterations produce no new progress — so "keep going until done
   (matches "stay locked"); a stack is a later extension.
 - **Q-719-C** — Should a completed/paused goal notify the operator (cockpit toast / log), and how loud?
   Recommendation: cockpit status + a log line; no push in slice 1.
+
+## Implementation (slice 1 — shipped 2026-07-16, operator "ready")
+
+Q-719 defaults taken (operator "start with the recommended defaults"): **one active goal** (Q-719-B), **max
+50 iterations / 3 no-progress → pause** (Q-719-A), cockpit status + log (no push) for completion (Q-719-C).
+
+- **`scripts/inference/goal-ctl.py`** — the durable goal state + verbs (`set`/`show`/`pause`/`resume`/`done`/
+  `abandon`/`progress`) at `/etc/sovereign-os/agent-state.json` (atomic `os.replace`; stdlib-only; non-root →
+  rc 2). The goal `text` is written only by `set`; `progress` bumps iterations + records `last_progress`,
+  **never rewrites text** (sacrosanct-verbatim — a test enforces it).
+- **`scripts/inference/goal-driver.py`** — `run_loop`: the SDD-718 **self-loop tier** realized as an
+  orchestrator over the existing gateway agentic endpoint (SDD-712, `sovereign_agentic:true`). While the goal is
+  `active` it re-arms one agentic request per iteration (goal + recent progress fed back), stopping on
+  **done** (the model ends a reply with `[[GOAL_DONE]]`) / **max-iters** / **no-progress** — the two guards are
+  goal-level (distinct from SDD-712's per-step repeat-guard), and both **pause** (not abandon) the goal. The
+  per-iteration call is a `Responder` — real = HTTP to the daemon; **tests inject a scripted responder** (no
+  model, no network — proven without weights).
+- **`sovereign-osctl goal <verb>`** — the CLI surface (`run` → goal-driver; the rest → goal-ctl).
+- **`tests/lint/test_goal_lock_contract.py`** — verbs; goal-text-sacrosanct; loop stops on done/max-iters/
+  no-progress and pauses the goal; no-op without an active goal.
+
+**Not model-verified** (no weights in CI): a real model driving a real goal to `[[GOAL_DONE]]`. The state, the
+verbs, the loop control + guards, and the prompt shaping are proven with the scripted responder.
+
+**Deferred to slice 2** (still open): the mode-gating *inside* the per-iteration tools (SDD-720); the OpenClaw
+tier pursuing the same goal (SDD-718); a systemd unit / cockpit surface to run the driver unattended; Plan-mode
+seeding the goal from an approved plan (the `plan` field exists; the Plan→lock wiring is the follow-up).
 
 ## Non-goals
 

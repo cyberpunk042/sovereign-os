@@ -24,6 +24,7 @@
       "super-model"
     ],
     "agents": [
+      "goal",
       "openclaw",
       "open-computer",
       "jobs",
