@@ -97,9 +97,6 @@ _source_osctl_module() {
   return 1
 }
 
-_source_osctl_module version || exit 1
-unset -f _source_osctl_module
-
 # ------------------------------ help -----------------------------------------
 
 _command_discovery_helper() {
@@ -9637,7 +9634,10 @@ AUDITOR_HELP
     ;;
   commands) _run_command_discovery commands "$@" ;;
   completion) _run_command_discovery completion "$@" ;;
-  version|--version|-V) cmd_version "$@" ;;
+  version|--version|-V)
+    _source_osctl_module version
+    cmd_version "$@"
+    ;;
   help|--help|-h|"") _contextual_help "$@" ;;
   *)
     log_error "unknown command: ${cmd}"
