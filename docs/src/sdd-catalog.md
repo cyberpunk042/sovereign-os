@@ -5,7 +5,7 @@
 > page drifts from `docs/sdd/`, so the published book can never freeze behind the
 > design record again (F-2026-033).
 
-Every Spec-Driven-Development design doc in `docs/sdd/` (200 total), by number.
+Every Spec-Driven-Development design doc in `docs/sdd/` (203 total), by number.
 
 - [SDD-000 — Project charter](../sdd/000-charter.md)
 - [SDD-001 — Cross-repo boundaries: contract between sovereign-os, info-hub, selfdef](../sdd/001-cross-repo-boundaries.md)
@@ -155,6 +155,9 @@ Every Spec-Driven-Development design doc in `docs/sdd/` (200 total), by number.
 - [SDD-715 — LoRA-adapter serving on the dual-Turing node (IMPLEMENTATION)](../sdd/715-lora-adapter-serving-on-dual-turing.md)
 - [SDD-716 — adapter transport + ZFS lineage (Slice 2b) (IMPLEMENTATION)](../sdd/716-adapter-transport-and-zfs-lineage.md)
 - [SDD-717 — vision + speculative-draft serving on the dual-Turing node (Slice 3) (IMPLEMENTATION)](../sdd/717-vision-and-speculative-serving-on-dual-turing.md)
+- [SDD-718 — local-agent autonomy: harness architecture (both-tiered) (DESIGN)](../sdd/718-local-agent-autonomy-harness-architecture.md)
+- [SDD-719 — `/goal`: a locked goal the Auto loop pursues (DESIGN)](../sdd/719-goal-lock-and-loop-until-goal.md)
+- [SDD-720 — permission modes wired into the agent loop (DESIGN)](../sdd/720-permission-modes-in-the-agent-loop.md)
 - [SDD-800 — Cockpit wasm bridge: the typed cockpit crates run in the browser](../sdd/800-cockpit-wasm-bridge.md)
 - [SDD-902 — Compute Plane Phase 2: multi-model gateway (secondary-model hosting)](../sdd/902-compute-plane-phase2-multi-model.md)
 - [SDD-950 — Real RoPE: `rope_theta` + `rope_scaling` from the model config (make modern models decode coherently)](../sdd/950-real-rope-theta-scaling.md)
