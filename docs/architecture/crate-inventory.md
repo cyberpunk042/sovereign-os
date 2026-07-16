@@ -8,13 +8,13 @@ The workspace is large — most of it does not run yet. This is the complete map
 | bucket | count | connection state |
 |---|---:|---|
 | Binaries (`main.rs`/`bin/`) | 41 | the executables; a few run in prod, the rest are dev/demo/config-gen |
-| Production libraries | 62 | run inside the gatewayd / telemetry / resource-control closure |
+| Production libraries | 63 | run inside the gatewayd / telemetry / resource-control closure |
 | Cockpit UX-state crates | 418 | wasm-bridged in source (SDD-974); **0 of ~55 panels wired** |
 | Demo-hub-only libraries | 50 | reached only via `sovereign-llm` / `sovereign-retrieval` (nothing runs them) |
 | Other libraries | 147 | reached only through other non-production trees |
-| **Total** | **718** | **66 crates (9%) are production-reachable today** |
+| **Total** | **718** | **67 crates (9%) are production-reachable today** |
 
-**✅ integrated** marks the **66** crates that are actually _used_ by a running production binary (in the gatewayd / telemetry / resource-control dependency closure). Each carries a short note naming the usage that validates it — its production consumer(s) and/or that it runs as a binary. **Used, not merely referenced**: a cockpit crate wasm-bridged for a panel (SDD-800, 0 panels wired) or a crate reached only through a demo/dev binary or the `sovereign-llm` / `sovereign-retrieval` hubs is NOT integrated. The flag is generated from the closure and enforced by `tests/lint/test_crate_inventory_integrated_flag.py`.
+**✅ integrated** marks the **67** crates that are actually _used_ by a running production binary (in the gatewayd / telemetry / resource-control dependency closure). Each carries a short note naming the usage that validates it — its production consumer(s) and/or that it runs as a binary. **Used, not merely referenced**: a cockpit crate wasm-bridged for a panel (SDD-800, 0 panels wired) or a crate reached only through a demo/dev binary or the `sovereign-llm` / `sovereign-retrieval` hubs is NOT integrated. The flag is generated from the closure and enforced by `tests/lint/test_crate_inventory_integrated_flag.py`.
 
 Families below cluster by the first token of the crate name (`alert-*`, `zfs-*`, …).
 
@@ -31,7 +31,7 @@ Full runtime role + how each is invoked lives in [`docs/src/binaries.md`](../src
 - **`sovereign-resource-control`** — E0429 / M00756 — systemd resource-control profiles (CPUWeight / MemoryMax / IOWeight / TasksMax / slices+scopes) for the 5 operator-named service boundaries (oracle / scout / sandbox / eval / gateway). Emits deployable systemd drop-in directives: how 'profiles become real OS behavior'. — ✅ **integrated**: runs as a production binary
 - **`sovereign-telemetry`** — Live hardware-telemetry probe — reads real kernel/vendor telemetry (Linux PSI, /proc/stat, nvidia-smi) and emits a validated PressureSnapshot + LoadSnapshot as JSON. The first runnable binary in the sovereign-os observability lane; exercises the pressure-sensors + hardware-load-sample ingestion end-to-end. — ✅ **integrated**: runs as a production binary
 
-### Dev / demo / config-generators (37)
+### Dev / demo / config-generators (36)
 
 
 #### `zfs-·` (3)
@@ -40,7 +40,7 @@ Full runtime role + how each is invoked lives in [`docs/src/binaries.md`](../src
 - **`sovereign-zfs-provisioning-plan`** — M068 M01141/M01142 — emit the ordered zpool create + zfs create/set command plan for the canonical tank layout, setting only the properties that differ from the inherited ZFS/pool defaults (recordsize!=128k, compression!=lz4, sync!=standard) so the provisioning script stays minimal and readable.
 - **`sovereign-zfs-snapshot-policy`** — M068 E0667 — ZFS snapshot retention policy: classify snapshots (pre-commit / daily / weekly / monthly), the catalogued retention windows (365 / 30 / 90 / 365 days, F05731-F05737), and a pure prune planner that keeps anything younger than its window and never prunes an unclassifiable snapshot.
 
-#### assorted (34)
+#### assorted (33)
 
 - **`sovereign-agent-runtime`** — Bridges the real LLM runtime into the agent loop: an LlmResponder that drives sovereign-agent-loop with sovereign-llm, so a tool-using ReAct agent runs on the actual quantized inference engine instead of a scripted responder. The wiring that turns the inference stack and the agentic layer into one running agent. Composes sovereign-agent-loop and sovereign-llm.
 - **`sovereign-base-os`** — E0459 / M00800 — Base OS module: the 10 responsibilities (kernel / firmware / NVIDIA drivers / AppArmor / cgroup-v2 / systemd / ZFS / LUKS / networking / VFIO-IOMMU) and the 5 config modes (stable / ai-driver-latest / secure / developer / offline).
@@ -65,7 +65,6 @@ Full runtime role + how each is invoked lives in [`docs/src/binaries.md`](../src
 - **`sovereign-mode-transition-log`** — Runtime mode-transition audit log — append-only record of every ExecutionMode switch (from, to, reason, operator signature, timestamp, trace_id). Enables the cockpit to render the day's mode timeline and the daemon to assert no illegal transitions occurred.
 - **`sovereign-module-facets`** — E0477 / M00828 — Continuity of Control: the uniform module interface. Every module MUST expose 6 facets (state / events / policy hooks / profile knobs / rollback story / learning signal). A descriptor + completeness validator so no module is unobservable, uncontrollable, or unrollback-able.
 - **`sovereign-network-boundary`** — E0124 / M00232 — Network Boundary: the 5-rung network-profile ladder (offline / package-registries / docs-web / arbitrary-web / authenticated-browser) and the per-branch ToolIntent (network_scope + reason), with the scope-within-allowed gate.
-- **`sovereign-network-zerotrust`** — Master spec §8 asymmetric Zero-Trust NIC segregation: the canonical two-NIC layout (mgmt Intel 2.5GbE VLAN 100 carries the default route; data Marvell 10GbE VLAN 200 MUST NOT) from profiles/sain-01.yaml hardware.network (R401-tested §8.1), plus a validator that flags a default route on the data plane as a Zero-Trust egress breach.
 - **`sovereign-pcie-advisor`** — Emit the recommended ProArt X870E-Creator PCIe layout and validate a proposed one against the lane-sharing trap (E0027/E0028), from the single-source-of-truth sovereign-pcie-topology slot map. Catches populating PCIEX16_2 + M.2_2 together before it silently halves a GPU's bandwidth.
 - **`sovereign-replay-export-bundle`** — Exportable replay bundle — packs (ConversationThread + ReplayCursor + BookmarkSet) into one envelope so the operator can hand a debug session to a colleague. Cross-validates that the cursor + bookmarks reference the bundled thread.
 - **`sovereign-replay-playback-rate`** — Cockpit replay playback rate — discrete operator-selectable rates (0.25x / 0.5x / 1x / 2x / 4x / 8x). The replay cursor advances at the multiplied wall-time intervals between turns. Pure UX; replay correctness owned by selfdef-replay-source-authority.
@@ -79,7 +78,7 @@ Full runtime role + how each is invoked lives in [`docs/src/binaries.md`](../src
 
 ---
 
-## 2. Production libraries (62) — these actually run
+## 2. Production libraries (63) — these actually run
 
 In the dependency closure of the three production binaries, so they execute today.
 
@@ -102,7 +101,7 @@ In the dependency closure of the three production binaries, so they execute toda
 - **`sovereign-tool-call-parse`** — Parse OpenAI-style function/tool calls from model output: pull a tool name and its JSON arguments out of a tool_calls array or a bare {name, arguments} object, tolerating fenced or slightly-malformed JSON via json-repair. The JSON-format counterpart to a [[tool:...]] dispatcher, for agentic runtimes. — ✅ **integrated**: used by `sovereign-tool-bridge`
 - **`sovereign-tool-dispatch`** — Tool-call parsing and dispatch: extracts a [[tool:NAME|ARGS]] call from model output and invokes the registered handler for it, returning the result to feed back into the conversation. The live execution layer above the tool catalog — turns generated text into an action and its result. — ✅ **integrated**: used by `sovereign-agent-loop`, `sovereign-gatewayd`, `sovereign-tool-bridge`
 
-#### assorted (52)
+#### assorted (53)
 
 - **`sovereign-agent-loop`** — A ReAct-style agent control loop: generate a response, and if it contains a tool call dispatch it and feed the observation back, repeating until a final answer or a step cap. Generic over a Responder (any text generator) and driven by a ToolRegistry. The control structure that turns a language model plus tools into an agent. Composes sovereign-tool-dispatch. — ✅ **integrated**: used by `sovereign-gatewayd`
 - **`sovereign-aho-corasick`** — Aho-Corasick multi-pattern string matching: build a trie of all patterns, add BFS failure links, then scan any text once to find every occurrence of every pattern in O(text + matches) — instead of running one search per pattern. For scanning generations against many banned phrases, stop sequences, or injection markers simultaneously. — ✅ **integrated**: used by `sovereign-injection-detect`, `sovereign-toxicity`
@@ -128,6 +127,7 @@ In the dependency closure of the three production binaries, so they execute toda
 - **`sovereign-memory-os`** — M028 Memory OS — 8 memory types (Working/Episodic/Semantic/Procedural/TemporalGraph/Value/KV/Reward) per M00459-M00465 + E0265 + 11-stage admission lifecycle per E0264 + M00471. Doctrine 'Intelligence improves when memory stops being recall and becomes adaptive state' verbatim per E0267 dump 8423-8474. — ✅ **integrated**: used by `sovereign-cortex`, `sovereign-gatewayd`
 - **`sovereign-mha`** — Multi-head attention with grouped-query (GQA) and multi-query (MQA) support: splits the query into heads, maps each query head onto a shared key/value head group, runs the per-head scaled-dot-product attention, and concatenates. GQA is the KV-cache-saving attention real decoders use; this generalizes the single-head kernel to the head layout a production model runs. Composes sovereign-attention. — ✅ **integrated**: used by `sovereign-mha-block`
 - **`sovereign-mha-block`** — The production decoder block: multi-head attention with grouped-query (GQA/MQA) KV sharing, per-head RoPE, precision-selectable projections (f32/ternary/NVFP4), and a SwiGLU FFN, in the pre-norm + residual structure. This is the block real models actually run — many query heads, fewer KV heads, low-bit weights. Composes sovereign-mha, sovereign-rope, sovereign-rmsnorm, sovereign-ffn, and sovereign-linear. — ✅ **integrated**: used by `sovereign-decoder-layer`, `sovereign-quant-llm`, `sovereign-quant-model`, `sovereign-safetensors-loader`
+- **`sovereign-network-zerotrust`** — Master spec §8 asymmetric Zero-Trust NIC segregation: the canonical two-NIC layout (mgmt Intel 2.5GbE VLAN 100 carries the default route; data Marvell 10GbE VLAN 200 MUST NOT) from profiles/sain-01.yaml hardware.network (R401-tested §8.1), plus a validator that flags a default route on the data plane as a Zero-Trust egress breach. — ✅ **integrated**: used by `sovereign-gatewayd`
 - **`sovereign-nvfp4-runtime`** — M077 NVFP4 (E2M1 4-bit + E4M3 scale) pretraining + inference runtime per arXiv 2509.25149 + arXiv 2505.19115. 1x16 block allocator + RHT + 2D quantization + stochastic rounding + selective HP. Five recipe variants (NVFP4-S/M/L/XL/XXL). Targets Blackwell sm_120. — ✅ **integrated**: used by `sovereign-cortex`, `sovereign-linear`, `sovereign-mha-block`
 - **`sovereign-observability-events`** — E0470 / M00818 + M00819 — the runtime observability event taxonomy (model_call … cost_event) + the 13-field span schema (profile/model/provider/hardware/tokens/latency/cost/risk/memory_refs/tool_refs/policy_result/branch_id/trace_id). OTel-aligned; branch_id/trace_id are the sovereign-trace-context types. — ✅ **integrated**: used by `sovereign-gatewayd`
 - **`sovereign-observability-fabric`** — M048 Module 9 Observability Fabric — 9 sources + 6 questions answered per E0465 + M00811 + R08149-R08150 dump 14728-14744. Sources: OpenTelemetry traces / journald / DCGM / PSI / eBPF / ZFS events / test output / gateway logs / cost ledger. — ✅ **integrated**: used by `sovereign-telemetry`
