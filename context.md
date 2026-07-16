@@ -264,18 +264,15 @@ Per operator: *"little piece by little piece and progress in this massive endles
 
 Determined from `docs/review/phase-1/99-findings-ledger.md` open items; worked sequentially:
 
-1. **F-2026-082** — Gateway auth + timeouts (`sovereign-gatewayd` bearer validation, request timeout, connection limit)
-2. **F-2026-083** — Break generation mutex (concurrent request handling, back-pressure)
-3. **F-2026-070** — Deduplicate panel-fork clusters (`webapp/` copy-paste dashboard families → shared build)
-4. **F-2026-073** — Add webapp build/sync tooling (esbuild/vite pipeline, asset hashing, CI artifact)
-5. **F-2026-086** — OpenAI shim sampling params + chat template (`temperature`/`top_p`/stop-sequences, Jinja chat template)
-6. **F-2026-087** — SSE robustness gaps (reconnect, idempotency, last-event-ID)
-7. **F-2026-025** — Split `sovereign-osctl` monolith (per-subcommand crate factor)
-8. **F-2026-052** — Build qemu/chroot test tiers (integration-test matrix: host → qemu-x86_64 → chroot)
-9. **F-2026-071** — Fix dead node-exporter fetch (metrics scraping timeout / fallback)
-10. **F-2026-072** — Reconcile aggregator route table (`sovereign-aggregator` route consistency)
-11. **F-2026-074** — Back-port skip-link a11y (WCAG 2.4.1 bypass blocks to all D-NN dashboards)
-12. **F-2026-066** — Add cross-daemon integration test (gatewayd ↔ inference ↔ memory ↔ mirror lifecycle)
+1. **F-2026-070** — Finish panel-fork consolidation (the networking triplet still needs API-level merging)
+2. **F-2026-073** — Continue helper adoption and add sync/drift tooling for the 5 unmanaged snippet families
+3. **F-2026-086** — Finish real chat templates + pre-tokenizer support (sampling and non-streaming JSON are shipped)
+4. **F-2026-025** — Continue splitting `sovereign-osctl` into installed, contract-tested verb modules
+5. **F-2026-052** — Build qemu/chroot test tiers (integration-test matrix: host → qemu-x86_64 → chroot)
+6. **F-2026-071** — Fix dead node-exporter fetch (metrics scraping timeout / fallback)
+7. **F-2026-072** — Reconcile aggregator route table (`sovereign-aggregator` route consistency)
+8. **F-2026-074** — Back-port skip-link a11y (WCAG 2.4.1 bypass blocks to all D-NN dashboards)
+9. **F-2026-066** — Add cross-daemon integration test (gatewayd ↔ inference ↔ memory ↔ mirror lifecycle)
 
 ### Historical queue (retained per "layered ON TOP — never discarded")
 
