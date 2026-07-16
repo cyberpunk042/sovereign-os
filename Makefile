@@ -54,8 +54,13 @@ _require-pytest:  # internal: fail with a friendly hint if pytest isn't installe
 	  echo "pytest is not installed — run 'make dev-deps' (installs pytest pyyaml jsonschema from requirements-dev.txt)"; \
 	  exit 1; }
 
+# Layer 1 lint paths — overridable so a caller can run the target's machinery
+# against a fast subset (e.g. the layer-3 makefile-execution smoke uses
+# LINT_PATHS=tests/schema to prove `make lint` dispatches + executes without
+# re-running the full ~4-min suite the standalone layer-1 CI job already runs).
+LINT_PATHS ?= tests/schema tests/lint
 lint: _require-pytest  ## Run all Layer 1 lint suites
-	python3 -m pytest tests/schema tests/lint -v
+	python3 -m pytest $(LINT_PATHS) -v
 
 unit: _require-pytest  ## Run all Layer 2 unit tests
 	python3 -m pytest tests/unit -v
