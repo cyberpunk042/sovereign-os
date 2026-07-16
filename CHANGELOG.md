@@ -12,6 +12,38 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — the trace→dataset curator: success examples become training data (2026-07-16)
+
+Operator-directed (*"go"*) (SDD-722) — continue the M046 loop upstream after SDD-721 landed the trainer. The
+trainer assumes a `--dataset` exists; E0444 (*"trace → success/failure examples → curated dataset"*) is what
+produces it. This closes the **input** hole symmetric to the training hole SDD-721 closed on the output side:
+`traces → DATASET (this) → TRAIN (SDD-721) → register → MS041 gate → transport → serve --lora`.
+
+- **`scripts/inference/adapter-dataset.py`** — a **CLI curator** (a real producer, not a planner: curation is
+  pure I/O so — unlike GPU training — it **runs in CI**). `curate <id> --traces <log.jsonl> [--out <path>]
+  [--label success|all] [--min-turns N]` reads a JSONL trace log (one agentic interaction per line —
+  `{"messages":[…], "outcome":…, "goal":…}`) and writes a curated chat-format dataset (`{"messages":[…]}`) that
+  unsloth/TRL consume as `--dataset`. **DRY-RUN by default** (reports kept/dropped + reasons + previews the
+  first example); `--apply` writes to `--out` (default `/var/lib/sovereign-os/adapters/<id>/dataset/train.jsonl`).
+  Stdlib-only.
+- **The success label is the `/goal` loop's own completion token.** A positive example is `outcome=="success"`
+  **or** its final assistant message carries `DONE_SENTINEL`, imported from `goal-driver.py` (SDD-719) — "the
+  goal loop said it finished" *is* the label; no separate oracle. The sentinel is **stripped from the emitted
+  target** so the model learns the behaviour, not the token.
+- **Curation rails**: drop interactions shorter than `--min-turns`, drop ones with no assistant reply, **dedup**
+  identical message sequences (SHA-256). `--label all` keeps failures too, tagged `label: success|failure`, for
+  later contrastive/DPO datasets.
+- **`tests/lint/test_adapter_dataset_contract.py`** (8) — present/executable/stdlib; reuses the goal-driver
+  sentinel; success-filter + dedup + too-short drop; sentinel stripped from the target; `all` includes
+  failures; DRY-RUN default vs `--apply` writes.
+
+Verified: `pytest tests/lint/test_adapter_dataset_contract.py` 8 passed; functional (5 fixture traces → 2 kept
+success-mode with dedup + sentinel-strip; `--apply` writes JSONL that `adapter-train … --dataset` consumes
+unchanged); full `tests/` + ruff green. Not runtime-verified — the gateway/goal-loop doesn't yet *persist*
+traces; the curator reads the shape they emit, and wiring the trace sink is the follow-up. With SDD-721 (train)
+and this (dataset), the M046 loop is whole in CI-testable producers; only the runtime trace-sink + the GPU run
+remain.
+
 ### Added — the adapter training producer: unsloth/QLoRA on the unpacked base (2026-07-16)
 
 Operator-directed (*"what about custom training, doesn't it take unsloth ? … did we handle that already ? like a
