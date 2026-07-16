@@ -5047,6 +5047,7 @@ dependencies = [
  "sovereign-format-mask",
  "sovereign-graph-path",
  "sovereign-heavy-hitters",
+ "sovereign-hf-tokenizer",
  "sovereign-histogram",
  "sovereign-holt-winters",
  "sovereign-huffman",
@@ -5113,6 +5114,7 @@ dependencies = [
  "sovereign-routing-preference",
  "sovereign-running-stats",
  "sovereign-runtime-reactions",
+ "sovereign-safetensors-loader",
  "sovereign-sampler",
  "sovereign-segment-tree",
  "sovereign-semantic-checkpoint",
@@ -5151,6 +5153,7 @@ dependencies = [
  "sovereign-wordpiece",
  "sovereign-workflow-graph",
  "sovereign-workspace-folder-registry",
+ "tempfile",
 ]
 
 [[package]]

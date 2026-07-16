@@ -58,7 +58,7 @@ none is a persistent service.
 |---|---|
 | **`sovereign-cortex`** | CLI/demo over the routing brain. NOTE the cortex **library** is the routing engine wired into `gatewayd`; this binary is a standalone driver, not the production path. |
 | **`sovereign-agent-runtime`** | ReAct agent-loop demo (LlmResponder). Built + tested; not wired into the daemon (F-2026-088). |
-| **`sovereign-inference-demo`** | End-to-end quantized-inference composition demo on **synthetic** weights (a plumbing proof, not a real model run — F-2026-006). |
+| **`sovereign-inference-demo`** | End-to-end quantized-inference composition demo. Default run uses synthetic weights (a plumbing proof). With `--model-dir DIR` it loads a real Llama-family safetensors model (`config.json` + `*.safetensors` + optional `tokenizer.json`) and runs genuine generation — the repo's proof-of-life for real weights (F-2026-006, completed 2026-07-15). |
 | **`sovereign-chat`** | Interactive chat CLI over the local model. |
 | **`sovereign-serve`** | The parallel serving orchestrator (cache → complexity → budget). Currently **dead relative to the daemon** — see the SDD-957 decision package (F-2026-089). |
 

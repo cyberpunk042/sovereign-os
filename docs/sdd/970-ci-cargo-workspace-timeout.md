@@ -1,8 +1,8 @@
 # SDD-970 — cargo-workspace CI timeout headroom + floor guard
 
-> Status: draft
+> Status: completed
 > Owner: operator-directed ("we continue" — Phase-1 audit); agent-authored
-> Last updated: 2026-07-13
+> Last updated: 2026-07-15
 > Closes findings: **F-2026-050** (cargo-workspace job: whole workspace under `timeout-minutes: 10`) — core risk.
 > Mandate module: **E11.M970** (operator-mandate cross-link).
 > Number band: **950–999 (general / audit session)** per SDD-100.
@@ -34,9 +34,12 @@ Parses the workflow and asserts the `cargo-workspace` job declares a `timeout-mi
 - `python3 -m pytest tests/lint/test_ci_cargo_timeout.py` — **2 passed** (job exists; timeout ≥ 20).
 - `ruff` clean; full `tests/lint` + `tests/schema` green.
 
-## Non-goals — the follow-up split
+## Completed follow-up — the split (2026-07-15)
 
-- **Splitting `cargo build --release --workspace` into its own parallel job** (the finding's option 2) — this would give faster fmt/clippy/test feedback (the common failure modes) without waiting on the slow release build, each with its own budget. It's the better long-term structure but a larger, coverage-sensitive workflow change that can't be validated locally (no GitHub Actions runner here); scoped as a follow-up so the timeout risk is closed now without a risky restructure.
+- **Splitting `cargo build --release --workspace` into its own parallel job** (the finding's option 2) — **done**. The `cargo-workspace` job now runs only fmt + clippy + test (`timeout-minutes: 15`), and a new `cargo-workspace-release` job runs the release build (`timeout-minutes: 30`) in parallel. This gives faster fmt/clippy/test feedback (the common failure modes) without waiting on the slow release build, each with its own budget and cache key. The floor guard in `tests/lint/test_ci_cargo_timeout.py` now watches `cargo-workspace-release`.
+
+## Non-goals
+
 - **Scoping the release build to the shipping binaries** (option 3) — reduces cost but drops release-mode compile coverage for library crates; deliberately not done (coverage preserved).
 - **Retiring unconsumed crates to shrink the job** (F-2026-001 relation) — a separate, larger effort; the parallel session's de-islanding is already reducing the island set.
 

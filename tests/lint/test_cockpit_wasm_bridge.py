@@ -102,6 +102,16 @@ def test_api_serves_wasm_mime_read_only_on_its_port():
     assert "405" in src, "api must be read-only (POST -> 405)"
 
 
+def test_api_sends_cors_headers():
+    """The master-dashboard fetches /signals.json cross-origin during local
+    dev (different ports). CORS must be present on all responses."""
+    src = API.read_text(encoding="utf-8")
+    assert "Access-Control-Allow-Origin" in src, (
+        "api must send CORS headers so the master-dashboard can fetch "
+        "/signals.json when served from a different port"
+    )
+
+
 def test_unit_matches_the_api_port():
     assert UNIT.is_file(), f"missing {UNIT}"
     unit = UNIT.read_text(encoding="utf-8")

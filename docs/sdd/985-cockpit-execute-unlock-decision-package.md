@@ -1,10 +1,19 @@
 # SDD-985 — cockpit functional-execution close-out: decision-package (F-2026-035)
 
-> Status: draft — **DECISION-PACKAGE (reconciliation + operator ratifications; the build is ~90% already shipped)**
+> Status: complete — **DECISION-PACKAGE RATIFIED + BUILD INCREMENT LANDED (2026-07-15)**
 > Owner: operator-directed 2026-07-13 ("scope F-2026-035"); agent-authored.
 > Addresses: **F-2026-035** (HIGH) — "Handoff 007's cockpit-execution plan is stalled and blocked on one operator word."
 > Mandate module: **E11.M985**.
 > Number band: **950–999 (phase-1 audit session)** per SDD-100.
+>
+> **Operator ratifications recorded (2026-07-15):**
+> - **D1** Q-047-D closed as obsolete.
+> - **D2** Q-047-B ratified — selfdef/perimeter stay signed-proxy.
+> - **D3** Phase-0.5 reversal ratified — DRAFT sudoers kept as lockstep source.
+> - **D4** `cockpit_action_total` alert rules landed (the one remaining build increment).
+> - **D5** F-2026-035 sequenced independently of MS003.
+>
+> **F-2026-035 formally retired.**
 
 ## Why this is a decision-package (and the surprise inside it)
 

@@ -1487,4 +1487,422 @@ mod tests {
         let back: CoatTrace = serde_json::from_str(&j).unwrap();
         assert_eq!(back.summary, t.summary);
     }
+
+    // --- Config validation edge cases ---
+
+    #[test]
+    fn config_validate_rejects_zero_iterations() {
+        let cfg = CoatConfig {
+            iterations: 0,
+            ..CoatConfig::cot()
+        };
+        assert!(matches!(cfg.validate(), Err(CoatError::InvalidConfig(_))));
+    }
+
+    #[test]
+    fn config_validate_rejects_zero_max_depth() {
+        let cfg = CoatConfig {
+            max_depth: 0,
+            ..CoatConfig::cot()
+        };
+        assert!(matches!(cfg.validate(), Err(CoatError::InvalidConfig(_))));
+    }
+
+    #[test]
+    fn config_validate_accepts_valid() {
+        CoatConfig::cot().validate().unwrap();
+        CoatConfig::tot().validate().unwrap();
+        CoatConfig::mcts().validate().unwrap();
+        CoatConfig::coat().validate().unwrap();
+    }
+
+    // --- Internal Tree mechanics ---
+
+    #[test]
+    fn tree_best_uct_child_skips_abandoned() {
+        let mut tree = Tree::new();
+        // root → child_a, child_b
+        let a = tree.push_child(
+            tree.root,
+            10,
+            Thought {
+                category: ThoughtCategory::Plan,
+                text: "a".into(),
+                prior: 0.5,
+                recall: vec![],
+            },
+        );
+        let b = tree.push_child(
+            tree.root,
+            11,
+            Thought {
+                category: ThoughtCategory::Plan,
+                text: "b".into(),
+                prior: 0.5,
+                recall: vec![],
+            },
+        );
+        // give both visits so UCT scores are defined
+        tree.backprop(a, 0.6);
+        tree.backprop(b, 0.4);
+        // abandon child_a; best_uct_child should pick child_b
+        tree.abandon(a);
+        assert_eq!(
+            tree.best_uct_child(tree.root, std::f64::consts::SQRT_2),
+            Some(b)
+        );
+    }
+
+    #[test]
+    fn tree_best_uct_child_none_when_all_abandoned() {
+        let mut tree = Tree::new();
+        let a = tree.push_child(
+            tree.root,
+            10,
+            Thought {
+                category: ThoughtCategory::Plan,
+                text: "a".into(),
+                prior: 0.5,
+                recall: vec![],
+            },
+        );
+        tree.abandon(a);
+        assert_eq!(tree.best_uct_child(tree.root, 1.0), None);
+    }
+
+    #[test]
+    fn tree_select_frontier_returns_root_when_nothing_expandable() {
+        let mut tree = Tree::new();
+        // root has no untried seeds and is at depth 0 < max_depth,
+        // but it has no children and seeds_generated is false → still expandable
+        // so this test needs a node that IS at max_depth.
+        let child = tree.push_child(
+            tree.root,
+            10,
+            Thought {
+                category: ThoughtCategory::Plan,
+                text: "c".into(),
+                prior: 0.5,
+                recall: vec![],
+            },
+        );
+        tree.nodes[child].depth = 4; // simulate max_depth
+        tree.nodes[child].seeds_generated = true;
+        let sel = tree.select_frontier(4, true);
+        assert_eq!(
+            sel, tree.root,
+            "only root is expandable when child is at max_depth"
+        );
+    }
+
+    #[test]
+    fn tree_select_frontier_bfs_prefers_shallowest() {
+        let mut tree = Tree::new();
+        // root is fully expanded (no more seeds), so frontier moves to children
+        tree.nodes[tree.root].seeds_generated = true;
+        let a = tree.push_child(
+            tree.root,
+            10,
+            Thought {
+                category: ThoughtCategory::Plan,
+                text: "a".into(),
+                prior: 0.5,
+                recall: vec![],
+            },
+        );
+        let _b = tree.push_child(
+            tree.root,
+            11,
+            Thought {
+                category: ThoughtCategory::Plan,
+                text: "b".into(),
+                prior: 0.5,
+                recall: vec![],
+            },
+        );
+        let _a1 = tree.push_child(
+            a,
+            12,
+            Thought {
+                category: ThoughtCategory::Plan,
+                text: "a1".into(),
+                prior: 0.5,
+                recall: vec![],
+            },
+        );
+        // all children have untried seeds (seeds_generated=false by default)
+        // BFS picks shallowest expandable → depth 1 (a or _b), never depth 2 (_a1)
+        let sel = tree.select_frontier(10, true);
+        assert_eq!(
+            tree.nodes[sel].depth, 1,
+            "BFS must pick depth 1 over depth 2"
+        );
+        assert!(sel == a, "BFS should pick a (depth 1, earliest in arena)");
+    }
+
+    #[test]
+    fn tree_select_frontier_dfs_prefers_deepest() {
+        let mut tree = Tree::new();
+        tree.nodes[tree.root].seeds_generated = true;
+        let a = tree.push_child(
+            tree.root,
+            10,
+            Thought {
+                category: ThoughtCategory::Plan,
+                text: "a".into(),
+                prior: 0.5,
+                recall: vec![],
+            },
+        );
+        let _b = tree.push_child(
+            tree.root,
+            11,
+            Thought {
+                category: ThoughtCategory::Plan,
+                text: "b".into(),
+                prior: 0.5,
+                recall: vec![],
+            },
+        );
+        let a1 = tree.push_child(
+            a,
+            12,
+            Thought {
+                category: ThoughtCategory::Plan,
+                text: "a1".into(),
+                prior: 0.5,
+                recall: vec![],
+            },
+        );
+        // DFS picks deepest expandable → a1 at depth 2
+        let sel = tree.select_frontier(10, false);
+        assert_eq!(sel, a1, "DFS should prefer the deepest expandable node");
+    }
+
+    #[test]
+    fn tree_path_text_with_empty_next() {
+        let mut tree = Tree::new();
+        let a = tree.push_child(
+            tree.root,
+            10,
+            Thought {
+                category: ThoughtCategory::Plan,
+                text: "first".into(),
+                prior: 0.5,
+                recall: vec![],
+            },
+        );
+        let _b = tree.push_child(
+            a,
+            11,
+            Thought {
+                category: ThoughtCategory::Plan,
+                text: "second".into(),
+                prior: 0.5,
+                recall: vec![],
+            },
+        );
+        let txt = tree.path_text(tree.root, "");
+        assert_eq!(txt, "", "empty next on root should yield empty text");
+        let txt_a = tree.path_text(a, "");
+        assert_eq!(
+            txt_a, "first",
+            "path_text without next excludes the node itself"
+        );
+    }
+
+    #[test]
+    fn tree_settle_empty_best_path_commits_nothing() {
+        let mut tree = Tree::new();
+        let (committed, pruned) = tree.settle(&[]);
+        assert_eq!(committed, 0);
+        assert_eq!(pruned, 0);
+    }
+
+    #[test]
+    fn tree_abandon_increments_count() {
+        let mut tree = Tree::new();
+        let a = tree.push_child(
+            tree.root,
+            10,
+            Thought {
+                category: ThoughtCategory::Plan,
+                text: "a".into(),
+                prior: 0.5,
+                recall: vec![],
+            },
+        );
+        assert_eq!(tree.abandoned_count, 0);
+        tree.abandon(a);
+        assert_eq!(tree.abandoned_count, 1);
+        tree.abandon(a); // idempotent
+        assert_eq!(tree.abandoned_count, 1);
+    }
+
+    #[test]
+    fn tree_mean_value_is_zero_for_unvisited() {
+        let tree = Tree::new();
+        assert_eq!(tree.mean_value(tree.root), 0.0);
+    }
+
+    #[test]
+    fn tree_backprop_updates_ancestry() {
+        let mut tree = Tree::new();
+        let a = tree.push_child(
+            tree.root,
+            10,
+            Thought {
+                category: ThoughtCategory::Plan,
+                text: "a".into(),
+                prior: 0.5,
+                recall: vec![],
+            },
+        );
+        let b = tree.push_child(
+            a,
+            11,
+            Thought {
+                category: ThoughtCategory::Plan,
+                text: "b".into(),
+                prior: 0.5,
+                recall: vec![],
+            },
+        );
+        tree.backprop(b, 0.7);
+        assert_eq!(tree.nodes[b].visits, 1);
+        assert_eq!(tree.nodes[a].visits, 1);
+        assert_eq!(tree.nodes[tree.root].visits, 1);
+        assert!((tree.nodes[b].value_sum - 0.7).abs() < 1e-9);
+        assert!((tree.nodes[a].value_sum - 0.7).abs() < 1e-9);
+    }
+
+    // --- Problem and helpers ---
+
+    #[test]
+    fn problem_new_has_zero_sketch_bits() {
+        let p = Problem::new("test");
+        assert_eq!(p.statement, "test");
+        assert_eq!(p.topic, 0);
+        assert_eq!(p.entity, 0);
+    }
+
+    // --- ThoughtCategory boundaries ---
+
+    #[test]
+    fn allowed_at_depth_zero_is_early_phase() {
+        let cats = ThoughtCategory::allowed_at(0, 4);
+        assert!(cats.contains(&ThoughtCategory::Understand));
+        assert!(cats.contains(&ThoughtCategory::Plan));
+        assert!(!cats.contains(&ThoughtCategory::Code));
+    }
+
+    #[test]
+    fn allowed_at_last_depth_is_late_phase() {
+        let cats = ThoughtCategory::allowed_at(3, 4);
+        assert!(cats.contains(&ThoughtCategory::Reflect));
+        assert!(cats.contains(&ThoughtCategory::Summarize));
+        assert!(!cats.contains(&ThoughtCategory::Code));
+    }
+
+    #[test]
+    fn allowed_at_saturating_sub_handles_zero_max_depth() {
+        let cats = ThoughtCategory::allowed_at(0, 0);
+        assert_eq!(cats.len(), 2); // Understand + Plan (the early-phase default)
+    }
+
+    // --- Serde roundtrips for individual types ---
+
+    #[test]
+    fn thought_seed_serde_roundtrip() {
+        let s = ThoughtSeed {
+            category: ThoughtCategory::Code,
+            text: "hello".into(),
+            prior: 0.75,
+        };
+        let j = serde_json::to_string(&s).unwrap();
+        let back: ThoughtSeed = serde_json::from_str(&j).unwrap();
+        assert_eq!(s.category, back.category);
+        assert_eq!(s.text, back.text);
+        assert!((s.prior - back.prior).abs() < 1e-9);
+    }
+
+    #[test]
+    fn recall_serde_roundtrip() {
+        let r = Recall {
+            id: 7,
+            relevance: 0.95,
+            note: "note".into(),
+        };
+        let j = serde_json::to_string(&r).unwrap();
+        let back: Recall = serde_json::from_str(&j).unwrap();
+        assert_eq!(r.id, back.id);
+        assert!((r.relevance - back.relevance).abs() < 1e-9);
+    }
+
+    #[test]
+    fn trace_step_serde_roundtrip() {
+        let s = TraceStep {
+            depth: 2,
+            category: ThoughtCategory::Reflect,
+            text: "text".into(),
+            prior: 0.6,
+            value: 0.55,
+            visits: 3,
+            recall: vec![Recall {
+                id: 1,
+                relevance: 0.8,
+                note: "".into(),
+            }],
+        };
+        let j = serde_json::to_string(&s).unwrap();
+        let back: TraceStep = serde_json::from_str(&j).unwrap();
+        assert_eq!(s.depth, back.depth);
+        assert_eq!(s.category, back.category);
+        assert!((s.value - back.value).abs() < 1e-9);
+    }
+
+    #[test]
+    fn trace_node_serde_roundtrip() {
+        let n = TraceNode {
+            id: 5,
+            branch_id: 99,
+            parent: Some(2),
+            depth: 3,
+            category: Some(ThoughtCategory::Plan),
+            text: "plan".into(),
+            prior: 0.7,
+            value: 0.65,
+            visits: 4,
+            recall_count: 1,
+            abandoned: false,
+            on_best_path: true,
+        };
+        let j = serde_json::to_string(&n).unwrap();
+        let back: TraceNode = serde_json::from_str(&j).unwrap();
+        assert_eq!(n.id, back.id);
+        assert_eq!(n.parent, back.parent);
+        assert_eq!(n.on_best_path, back.on_best_path);
+    }
+
+    #[test]
+    fn search_strategy_serde_roundtrip() {
+        for s in [
+            SearchStrategy::Uct,
+            SearchStrategy::Bfs,
+            SearchStrategy::Dfs,
+        ] {
+            let j = serde_json::to_string(&s).unwrap();
+            let back: SearchStrategy = serde_json::from_str(&j).unwrap();
+            assert_eq!(s, back);
+        }
+    }
+
+    #[test]
+    fn thought_category_serde_roundtrip() {
+        for c in ThoughtCategory::ALL {
+            let j = serde_json::to_string(&c).unwrap();
+            let back: ThoughtCategory = serde_json::from_str(&j).unwrap();
+            assert_eq!(c, back);
+        }
+    }
 }

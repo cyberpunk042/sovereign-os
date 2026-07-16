@@ -3869,6 +3869,114 @@ checkout + deployed envelope paths are readable under the service's
 `ProtectHome=read-only` sandbox. The alert clears when the next run refreshes
 the timestamp.
 
+### cockpit action-execution alerts (SDD-047 / F-2026-035)
+
+These fire on the textfile counter `sovereign_os_operator_cockpit_action_total`
+shipped by `scripts/operator/_action_exec.py` — the cockpit Execute rail's
+observability surface. They surface misuse, drift, and pipeline health for the
+~175 per-panel actions.
+
+Deploy alongside the other rule files:
+
+```bash
+sudo install -m 0644 \
+    config/prometheus/alerts/cockpit-action-execution.rules.yml \
+    /etc/prometheus/alerts/
+# Add to /etc/prometheus/prometheus.yml under rule_files:
+#   - /etc/prometheus/alerts/cockpit-action-execution.rules.yml
+sudo systemctl reload prometheus
+```
+
+#### CockpitActionBoundaryReject (warning)
+
+**Meaning:** `increase(...{outcome="boundary-reject"}[5m]) > 0` — a selfdef-owned
+control was attempted locally. The cockpit Execute rail blocks these at the R10212
+boundary (selfdef is the READ-ONLY consumer; mutation is a signed proxy to the
+selfdef producer, never executed locally).
+
+**Diagnosis:**
+
+```bash
+# Which control and how often
+grep 'boundary-reject' /var/lib/node_exporter/textfile_collector/sovereign-os-cockpit-action-exec.prom
+# Review the control registry
+scripts/operator/_action_exec.py --list | grep -i selfdef
+```
+
+**Fix:** if the panel is sending these, verify `control-surface.js` still marks
+`selfdef` and `perimeter` as `PROXY_ONLY`. If a script is calling directly,
+route through the selfdef proxy CLI instead.
+
+#### CockpitActionValidationRejectRateHigh (warning)
+
+**Meaning:** `increase(...{outcome="validation-reject"}[5m]) > 3` — repeated
+argument validation failures. Suggests a drifted control schema, fuzzing, or
+malformed panel submissions.
+
+**Diagnosis:**
+
+```bash
+# Review the emitted metrics
+grep 'validation-reject' /var/lib/node_exporter/textfile_collector/sovereign-os-cockpit-action-exec.prom
+# Check the registry schema for the failing control
+cat scripts/operator/control-registry.json | jq '.[] | select(.id=="THE_CONTROL")'
+```
+
+**Fix:** update the panel form to match the registry schema, or update the
+registry if the control's interface changed.
+
+#### CockpitActionKeyMissing (warning)
+
+**Meaning:** `increase(...{outcome="key-missing"}[5m]) > 0` — a privileged
+control was attempted without the operator key loaded (MS003 presence gate).
+
+**Diagnosis:**
+
+```bash
+# Confirm key status
+sovereign-osctl operator key status
+# Or read the metric
+grep 'key-missing' /var/lib/node_exporter/textfile_collector/sovereign-os-cockpit-action-exec.prom
+```
+
+**Fix:** load the operator key, or use a non-privileged control if the action
+does not require privilege.
+
+#### CockpitActionErrorRateHigh (critical)
+
+**Meaning:** `increase(...{outcome="error"}[5m]) > 2` — executed controls are
+returning non-zero exit codes. The pipeline or the underlying scripts are broken.
+
+**Diagnosis:**
+
+```bash
+# Read the audit spans (OCSF-5001)
+jq 'select(.operation=="cockpit_action" and .severity=="error")' \
+  /var/log/sovereign-os/spans.jsonl | tail -20
+# Review the failing control's script
+scripts/operator/_action_exec.py --list | jq '.[] | select(.id=="THE_CONTROL") | .change_cli'
+```
+
+**Fix:** fix the underlying control script, or revert a recent registry drift.
+The alert clears when the error rate drops below the threshold.
+
+#### CockpitActionUnknownControl (warning)
+
+**Meaning:** `increase(...{outcome="unknown-control"}[5m]) > 0` — a control_id
+was submitted that does not exist in the registry. Immediate drift signal.
+
+**Diagnosis:**
+
+```bash
+# Identify the unknown id
+grep 'unknown-control' /var/lib/node_exporter/textfile_collector/sovereign-os-cockpit-action-exec.prom
+# List known controls
+scripts/operator/_action_exec.py --list | jq -r '.[].id' | sort
+```
+
+**Fix:** remove the stale reference from the panel or caller, or add the
+control to `scripts/operator/control-registry.json` if it is legitimate.
+
 ### sovereign-os auditor alerts (Tetragon-dropout resilience, M084)
 
 These fire on the guardian's textfile metrics (`sovereign-os-auditor.prom`).

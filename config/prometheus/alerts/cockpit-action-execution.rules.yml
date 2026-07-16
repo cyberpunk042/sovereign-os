@@ -1,0 +1,112 @@
+# Cockpit action-execution Prometheus alerting rules.
+#
+# Fires on the textfile counter shipped by scripts/operator/_action_exec.py:
+#   sovereign_os_operator_cockpit_action_total{control_id,outcome}
+#
+# Outcomes (emitter-defined, kept in lockstep by the contract test):
+#   executed        — control ran successfully
+#   dry-run         — control validated but not executed (DRY_RUN default)
+#   boundary-reject — selfdef-owned control blocked locally (R10212)
+#   validation-reject — args failed control schema validation
+#   confirm-required  — privileged control missing confirm=true
+#   key-missing     — privileged control with no operator key loaded
+#   busy            — single-flight lock held by another action
+#   error           — control subprocess exited non-zero
+#   unknown-control — control_id not in registry
+#
+# These alerts surface misuse, drift, and pipeline health for the cockpit
+# Execute rail (SDD-047 / Handoff-007 / F-2026-035).
+
+groups:
+  - name: cockpit-action-execution
+    interval: 30s
+    rules:
+
+      # Warning: any attempt to execute a selfdef-owned control locally.
+      # These controls are READ-ONLY proxy (R10212); local execution is
+      # forbidden. A boundary-reject means the panel or a caller attempted
+      # a local mutation that must instead be routed to the selfdef producer.
+      - alert: CockpitActionBoundaryReject
+        expr: increase(sovereign_os_operator_cockpit_action_total{outcome="boundary-reject"}[5m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+          subsystem: cockpit-execution
+        annotations:
+          summary: "Cockpit boundary-reject on {{ $labels.instance }} (control {{ $labels.control_id }})"
+          description: >
+            A selfdef-owned control ({{ $labels.control_id }}) was rejected
+            at the R10212 boundary. The cockpit Execute rail refuses local
+            execution for selfdef-owned controls; they must be proxied to the
+            selfdef producer. Review the caller and the control registry.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#cockpitactionboundaryreject-warning"
+
+      # Warning: repeated validation rejections (> 3 in 5m).
+      # Suggests bad arguments, fuzzing, or a drifted control schema.
+      - alert: CockpitActionValidationRejectRateHigh
+        expr: increase(sovereign_os_operator_cockpit_action_total{outcome="validation-reject"}[5m]) > 3
+        for: 2m
+        labels:
+          severity: warning
+          subsystem: cockpit-execution
+        annotations:
+          summary: "Cockpit validation-reject rate high on {{ $labels.instance }}"
+          description: >
+            More than 3 cockpit actions failed argument validation in the last
+            5 minutes. This may indicate a mismatched panel schema, fuzzing,
+            or an operator repeatedly submitting malformed args. Review
+            scripts/operator/control-registry.json for the control definitions.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#cockpitactionvalidationrejectratehigh-warning"
+
+      # Warning: operator key missing when a privileged control was attempted.
+      # The MS003 presence gate requires the operator key to be loaded.
+      - alert: CockpitActionKeyMissing
+        expr: increase(sovereign_os_operator_cockpit_action_total{outcome="key-missing"}[5m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+          subsystem: cockpit-execution
+        annotations:
+          summary: "Cockpit key-missing on {{ $labels.instance }} (control {{ $labels.control_id }})"
+          description: >
+            A privileged cockpit action ({{ $labels.control_id }}) was
+            attempted without the operator key loaded. The MS003 presence
+            gate blocked execution. Load the operator key or use a
+            non-privileged control.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#cockpitactionkeymissing-warning"
+
+      # Critical: executed controls are failing (subprocess non-zero).
+      # > 2 errors in 5m means the pipeline is broken or a control script is
+      # misbehaving — the operator pressed Execute and it did not succeed.
+      - alert: CockpitActionErrorRateHigh
+        expr: increase(sovereign_os_operator_cockpit_action_total{outcome="error"}[5m]) > 2
+        for: 2m
+        labels:
+          severity: critical
+          subsystem: cockpit-execution
+        annotations:
+          summary: "Cockpit action error rate high on {{ $labels.instance }}"
+          description: >
+            More than 2 cockpit actions exited with a non-zero status in the
+            last 5 minutes. The Execute pipeline or the underlying control
+            scripts are failing. Review the audit spans
+            (/var/log/sovereign-os/spans.jsonl) and the control registry.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#cockpitactionerrorratehigh-critical"
+
+      # Warning: an unknown control_id was submitted.
+      # Immediate drift signal — the panel or a caller references a control
+      # that does not exist in the registry. Zero-tolerance (any occurrence).
+      - alert: CockpitActionUnknownControl
+        expr: increase(sovereign_os_operator_cockpit_action_total{outcome="unknown-control"}[5m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+          subsystem: cockpit-execution
+        annotations:
+          summary: "Cockpit unknown-control on {{ $labels.instance }} (id {{ $labels.control_id }})"
+          description: >
+            A cockpit action referenced an unknown control_id
+            ({{ $labels.control_id }}). This is a drift or misconfiguration
+            signal — the control registry does not contain this id. Check
+            scripts/operator/control-registry.json and the panel source.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#cockpitactionunknowncontrol-warning"

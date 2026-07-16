@@ -169,3 +169,8 @@ sovereign-choice-envelope = { path = "../sovereign-choice-envelope" }
 sovereign-rope = { path = "../sovereign-rope" }
 sovereign-attention = { path = "../sovereign-attention" }
 sovereign-decode-loop = { path = "../sovereign-decode-loop" }
+sovereign-safetensors-loader = { path = "../sovereign-safetensors-loader" }
+sovereign-hf-tokenizer = { path = "../sovereign-hf-tokenizer" }
+
+[dev-dependencies]
+tempfile = "3"

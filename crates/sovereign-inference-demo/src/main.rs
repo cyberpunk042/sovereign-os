@@ -19,6 +19,7 @@ use sovereign_checkpoint::{load, save};
 use sovereign_decoder_layer::{DecoderLayer, LayerStack};
 use sovereign_decoder_stack::{DecoderStack, StackConfig};
 use sovereign_ffn::SwiGlu;
+use sovereign_hf_tokenizer::HfBpeTokenizer;
 use sovereign_linear::Precision;
 use sovereign_llm::LlmConfig;
 use sovereign_logit_mask::LogitMask;
@@ -28,6 +29,7 @@ use sovereign_quant_block::{QuantBlockWeights, QuantDecoderBlock};
 use sovereign_quant_llm::QuantLlm;
 use sovereign_quant_model::QuantModel;
 use sovereign_rmsnorm::RmsNorm;
+use sovereign_safetensors_loader::{Config, load as load_model, load_llm};
 use sovereign_sampler::{Mirostat, Sampler, SamplerConfig};
 use sovereign_speculative::Speculative;
 use sovereign_tokenizer::Tokenizer;
@@ -2189,14 +2191,166 @@ fn run_rag_quality_demo() -> String {
     out
 }
 
+/// Load a real Llama-family model from `dir` (`config.json` + `*.safetensors` +
+/// optional `tokenizer.json`) and run a small generation, returning the report.
+/// This is the real-weights counterpart to the synthetic [`run_demo`].
+fn run_real_weights_demo(dir: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let _ = writeln!(out, "=== sovereign real-weights inference demo ===");
+
+    let cfg_path = format!("{dir}/config.json");
+    let cfg_bytes = match std::fs::read(&cfg_path) {
+        Ok(b) => b,
+        Err(e) => {
+            let _ = writeln!(out, "config read ERR : {cfg_path}: {e}");
+            return out;
+        }
+    };
+    let config = match Config::from_json(&cfg_bytes) {
+        Ok(c) => c,
+        Err(e) => {
+            let _ = writeln!(out, "config parse ERR: {e}");
+            return out;
+        }
+    };
+
+    let st_path = std::fs::read_dir(dir).ok().and_then(|rd| {
+        rd.filter_map(Result::ok)
+            .map(|e| e.path())
+            .find(|p| p.extension().is_some_and(|x| x == "safetensors"))
+    });
+    let Some(st_path) = st_path else {
+        let _ = writeln!(out, "safetensors ERR : no *.safetensors found in {dir}");
+        return out;
+    };
+    let st_bytes = match std::fs::read(&st_path) {
+        Ok(b) => b,
+        Err(e) => {
+            let _ = writeln!(
+                out,
+                "safetensors ERR : cannot read {}: {e}",
+                st_path.display()
+            );
+            return out;
+        }
+    };
+
+    let tok_path = format!("{dir}/tokenizer.json");
+    let has_tok = std::path::Path::new(&tok_path).exists();
+
+    if has_tok {
+        let tok_bytes = match std::fs::read(&tok_path) {
+            Ok(b) => b,
+            Err(e) => {
+                let _ = writeln!(out, "tokenizer ERR   : {tok_path}: {e}");
+                return out;
+            }
+        };
+        let tok = match HfBpeTokenizer::from_tokenizer_json(&tok_bytes) {
+            Ok(t) => t,
+            Err(e) => {
+                let _ = writeln!(out, "tokenizer ERR   : {e}");
+                return out;
+            }
+        };
+        let mut model = match load_model(&st_bytes, &config) {
+            Ok(m) => m,
+            Err(e) => {
+                let _ = writeln!(out, "load ERR        : {e}");
+                return out;
+            }
+        };
+        if model.vocab() != tok.vocab_size() {
+            let _ = writeln!(
+                out,
+                "vocab mismatch  : tokenizer {} vs model {}",
+                tok.vocab_size(),
+                model.vocab()
+            );
+            return out;
+        }
+        let _ = writeln!(
+            out,
+            "model loaded    : vocab={} layers={} (real tokenizer: {} pieces)",
+            model.vocab(),
+            model.layers(),
+            tok.vocab_size()
+        );
+
+        let mask = LogitMask::new();
+        let prompt = "hello";
+        let mut ids: Vec<usize> = Vec::new();
+        if let Some(bos) = tok.bos_id() {
+            ids.push(bos as usize);
+        }
+        ids.extend(tok.encode(prompt).into_iter().map(|t| t as usize));
+        match model.generate_masked(&ids, 12, 42, &mask) {
+            Ok(out_ids) => {
+                let out_u32: Vec<u32> = out_ids.iter().map(|&t| t as u32).collect();
+                let text = tok.decode(&out_u32);
+                let _ = writeln!(out, "prompt          : {prompt:?}");
+                let _ = writeln!(out, "generated ids   : {out_u32:?}");
+                let _ = writeln!(out, "generated text  : {text:?}");
+            }
+            Err(e) => {
+                let _ = writeln!(out, "generate ERR    : {e}");
+            }
+        }
+    } else {
+        let mut llm = match load_llm(&st_bytes, &config, Tokenizer::default()) {
+            Ok(l) => l,
+            Err(e) => {
+                let _ = writeln!(
+                    out,
+                    "load ERR        : {e}\n\
+                         (note: no tokenizer.json found; using vocab-256 byte tokenizer)"
+                );
+                return out;
+            }
+        };
+        let _ = writeln!(
+            out,
+            "model loaded    : vocab={} layers={} (byte tokenizer: vocab 256)",
+            llm.vocab_size(),
+            llm.layers()
+        );
+        let prompt = "hello";
+        match llm.complete(prompt, 12, 42) {
+            Ok(text) => {
+                let _ = writeln!(out, "prompt          : {prompt:?}");
+                let _ = writeln!(out, "generated text  : {text:?}");
+            }
+            Err(e) => {
+                let _ = writeln!(out, "generate ERR    : {e}");
+            }
+        }
+    }
+
+    out
+}
+
 fn main() {
-    if std::env::args().any(|a| a == "--help" || a == "-h") {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.iter().any(|a| a == "--help" || a == "-h") {
         println!(
             "sovereign-inference-demo — quantized-inference + decoding-strategies + agentic demos\n\n\
              USAGE:\n\
-             \x20   sovereign-inference-demo        run the demos, print, exit\n\
-             \x20   sovereign-inference-demo --help print this help and exit"
+             \x20   sovereign-inference-demo              run the demos, print, exit\n\
+             \x20   sovereign-inference-demo --model-dir DIR  load a real Llama-family\n\
+             \x20                                           safetensors model from DIR\n\
+             \x20                                           (config.json + *.safetensors)\n\
+             \x20   sovereign-inference-demo --help       print this help and exit"
         );
+        return;
+    }
+    if let Some(i) = args.iter().position(|a| a == "--model-dir") {
+        let dir = args.get(i + 1).map(String::as_str).unwrap_or("");
+        if dir.is_empty() {
+            eprintln!("--model-dir requires a directory path");
+            std::process::exit(1);
+        }
+        print!("{}", run_real_weights_demo(dir));
         return;
     }
     print!("{}", run_demo());
@@ -2601,5 +2755,235 @@ mod tests {
             .unwrap();
         let beam1 = BeamSearch::new(1, 8).search(&model, &prompt).unwrap();
         assert_eq!(spec.tokens, beam1.tokens);
+    }
+
+    // ── real-weights integration tests (synthetic fixtures on disk) ────────────
+
+    /// A minimal safetensors writer (F32 only) used only for offline test fixtures.
+    fn write_safetensors(tensors: &[(String, Vec<usize>, Vec<f32>)]) -> Vec<u8> {
+        let mut data = Vec::new();
+        let mut entries = Vec::new();
+        for (name, shape, vals) in tensors {
+            let start = data.len();
+            for v in vals {
+                data.extend_from_slice(&v.to_le_bytes());
+            }
+            let end = data.len();
+            let shape_json = shape
+                .iter()
+                .map(|d| d.to_string())
+                .collect::<Vec<_>>()
+                .join(",");
+            entries.push(format!(
+                "\"{name}\":{{\"dtype\":\"F32\",\"shape\":[{shape_json}],\"data_offsets\":[{start},{end}]}}"
+            ));
+        }
+        let header = format!("{{{}}}", entries.join(","));
+        let mut out = (header.len() as u64).to_le_bytes().to_vec();
+        out.extend_from_slice(header.as_bytes());
+        out.extend_from_slice(&data);
+        out
+    }
+
+    /// Deterministic pseudo-weights for fixtures.
+    fn seq(seed: f32, n: usize) -> Vec<f32> {
+        (0..n)
+            .map(|i| (((i as f32) + seed) * 0.017).sin() * 0.1)
+            .collect()
+    }
+
+    /// Build a temp-dir fixture: `model.safetensors` + `config.json` (byte tokenizer,
+    /// vocab 256 — matches [`Tokenizer::default`]).
+    fn make_byte_fixture_dir() -> (tempfile::TempDir, Vec<u8>, Vec<u8>) {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let md = 8usize;
+        let nl = 1usize;
+        let nq = 2usize;
+        let nkv = 1usize;
+        let hd = 4usize;
+        let hid = 16usize;
+        let v = 256usize;
+        let qd = nq * hd;
+        let kvd = nkv * hd;
+        let mut t: Vec<(String, Vec<usize>, Vec<f32>)> = vec![
+            (
+                "model.embed_tokens.weight".into(),
+                vec![v, md],
+                seq(0.5, v * md),
+            ),
+            ("model.norm.weight".into(), vec![md], vec![1.0; md]),
+            ("lm_head.weight".into(), vec![v, md], seq(0.9, v * md)),
+        ];
+        for i in 0..nl {
+            let base = 10.0 + i as f32 * 7.0;
+            let p = |s: &str| format!("model.layers.{i}.{s}");
+            t.push((
+                p("self_attn.q_proj.weight"),
+                vec![qd, md],
+                seq(base, qd * md),
+            ));
+            t.push((
+                p("self_attn.k_proj.weight"),
+                vec![kvd, md],
+                seq(base + 1.0, kvd * md),
+            ));
+            t.push((
+                p("self_attn.v_proj.weight"),
+                vec![kvd, md],
+                seq(base + 2.0, kvd * md),
+            ));
+            t.push((
+                p("self_attn.o_proj.weight"),
+                vec![md, qd],
+                seq(base + 3.0, md * qd),
+            ));
+            t.push((
+                p("mlp.gate_proj.weight"),
+                vec![hid, md],
+                seq(base + 4.0, hid * md),
+            ));
+            t.push((
+                p("mlp.up_proj.weight"),
+                vec![hid, md],
+                seq(base + 5.0, hid * md),
+            ));
+            t.push((
+                p("mlp.down_proj.weight"),
+                vec![md, hid],
+                seq(base + 6.0, md * hid),
+            ));
+            t.push((p("input_layernorm.weight"), vec![md], vec![1.0; md]));
+            t.push((
+                p("post_attention_layernorm.weight"),
+                vec![md],
+                vec![1.0; md],
+            ));
+        }
+        let st = write_safetensors(&t);
+        let cfg = format!(
+            r#"{{"hidden_size":{md},"num_hidden_layers":{nl},"num_attention_heads":{nq},"num_key_value_heads":{nkv},"vocab_size":{v},"intermediate_size":{hid},"rms_norm_eps":1e-6,"tie_word_embeddings":false,"head_dim":{hd}}}"#
+        );
+        (dir, st, cfg.into_bytes())
+    }
+
+    #[test]
+    fn real_weights_byte_tokenizer_demo_runs_with_synthetic_fixture() {
+        let (dir, st, cfg) = make_byte_fixture_dir();
+        let dir_path = dir.path();
+        std::fs::write(dir_path.join("model.safetensors"), &st).expect("write st");
+        std::fs::write(dir_path.join("config.json"), &cfg).expect("write cfg");
+
+        let report = run_real_weights_demo(dir_path.to_str().unwrap());
+        assert!(
+            report.contains("=== sovereign real-weights inference demo ==="),
+            "{report}"
+        );
+        assert!(report.contains("model loaded    :"), "{report}");
+        assert!(report.contains("byte tokenizer: vocab 256"), "{report}");
+        assert!(report.contains("prompt          : \"hello\""), "{report}");
+        assert!(report.contains("generated text  :"), "{report}");
+    }
+
+    #[test]
+    fn real_weights_hf_tokenizer_demo_runs_with_synthetic_fixture() {
+        let (dir, _st, cfg) = make_byte_fixture_dir();
+        // Replace vocab 256 with vocab 101 to match the MINI tokenizer.json
+        let cfg101 = String::from_utf8(cfg)
+            .unwrap()
+            .replace("\"vocab_size\":256", "\"vocab_size\":101");
+        // Rebuild embed + head tensors for vocab 101
+        let md = 8usize;
+        let nl = 1usize;
+        let nq = 2usize;
+        let nkv = 1usize;
+        let hd = 4usize;
+        let hid = 16usize;
+        let v = 101usize;
+        let qd = nq * hd;
+        let kvd = nkv * hd;
+        let mut t: Vec<(String, Vec<usize>, Vec<f32>)> = vec![
+            (
+                "model.embed_tokens.weight".into(),
+                vec![v, md],
+                seq(0.5, v * md),
+            ),
+            ("model.norm.weight".into(), vec![md], vec![1.0; md]),
+            ("lm_head.weight".into(), vec![v, md], seq(0.9, v * md)),
+        ];
+        for i in 0..nl {
+            let base = 10.0 + i as f32 * 7.0;
+            let p = |s: &str| format!("model.layers.{i}.{s}");
+            t.push((
+                p("self_attn.q_proj.weight"),
+                vec![qd, md],
+                seq(base, qd * md),
+            ));
+            t.push((
+                p("self_attn.k_proj.weight"),
+                vec![kvd, md],
+                seq(base + 1.0, kvd * md),
+            ));
+            t.push((
+                p("self_attn.v_proj.weight"),
+                vec![kvd, md],
+                seq(base + 2.0, kvd * md),
+            ));
+            t.push((
+                p("self_attn.o_proj.weight"),
+                vec![md, qd],
+                seq(base + 3.0, md * qd),
+            ));
+            t.push((
+                p("mlp.gate_proj.weight"),
+                vec![hid, md],
+                seq(base + 4.0, hid * md),
+            ));
+            t.push((
+                p("mlp.up_proj.weight"),
+                vec![hid, md],
+                seq(base + 5.0, hid * md),
+            ));
+            t.push((
+                p("mlp.down_proj.weight"),
+                vec![md, hid],
+                seq(base + 6.0, md * hid),
+            ));
+            t.push((p("input_layernorm.weight"), vec![md], vec![1.0; md]));
+            t.push((
+                p("post_attention_layernorm.weight"),
+                vec![md],
+                vec![1.0; md],
+            ));
+        }
+        let st101 = write_safetensors(&t);
+
+        let dir_path = dir.path();
+        std::fs::write(dir_path.join("model.safetensors"), &st101).expect("write st");
+        std::fs::write(dir_path.join("config.json"), cfg101.as_bytes()).expect("write cfg");
+        std::fs::write(
+            dir_path.join("tokenizer.json"),
+            r#"{
+                "added_tokens": [{"id": 100, "content": "<|endoftext|>", "special": true}],
+                "model": {
+                    "type": "BPE",
+                    "vocab": {"a": 1, "b": 2, "c": 3, "Ġ": 4, "ab": 5, "Ġa": 6, "abc": 7},
+                    "merges": ["a b", "Ġ a", "ab c"]
+                }
+            }"#
+            .as_bytes(),
+        )
+        .expect("write tok");
+
+        let report = run_real_weights_demo(dir_path.to_str().unwrap());
+        assert!(
+            report.contains("=== sovereign real-weights inference demo ==="),
+            "{report}"
+        );
+        assert!(report.contains("model loaded    :"), "{report}");
+        assert!(report.contains("real tokenizer: 101 pieces"), "{report}");
+        assert!(report.contains("prompt          : \"hello\""), "{report}");
+        assert!(report.contains("generated text  :"), "{report}");
+        // The MINI tokenizer encodes "hello" as individual bytes (no merges for those letters),
+        // so generation should still run deterministically.
     }
 }
