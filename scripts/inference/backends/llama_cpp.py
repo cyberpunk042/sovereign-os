@@ -29,6 +29,8 @@ class LlamaCppBackend(Backend):
         ctx_size: int = 8192,
         tier: str = "logic_engine",
         tensor_split: str | None = None,
+        lora_path: str | None = None,
+        lora_scale: float | None = None,
     ):
         super().__init__(config)
         self.n_gpu_layers = n_gpu_layers
@@ -39,6 +41,12 @@ class LlamaCppBackend(Backend):
         # llama.cpp handles UNEVEN VRAM by ratio — the key reason it, not vLLM
         # (symmetric tensor-parallel), fits an asymmetric consumer-GPU pair.
         self.tensor_split = tensor_split
+        # SDD-715 LoRA-as-profiles (M046 E0442): overlay a GGUF adapter on the
+        # frozen ternary base WITHOUT merging (E0443 "Do Not Merge Too Early").
+        # lora_scale None → plain `--lora`; a float → `--lora-scaled <path> <s>`.
+        # The base stays shared; the adapter is a hot-swappable behavioral overlay.
+        self.lora_path = lora_path
+        self.lora_scale = lora_scale
 
     def start_command(self) -> list[str]:
         # llama.cpp's server binary; operator-installed (apt or build)
@@ -60,6 +68,12 @@ class LlamaCppBackend(Backend):
 
         if self.tensor_split:
             argv += ["--tensor-split", self.tensor_split]
+
+        if self.lora_path:
+            if self.lora_scale is not None:
+                argv += ["--lora-scaled", self.lora_path, str(self.lora_scale)]
+            else:
+                argv += ["--lora", self.lora_path]
 
         argv += self.config.extra_args
         return argv
@@ -84,11 +98,14 @@ class LlamaCppBackend(Backend):
         port: int = 8083,
         tensor_split: str | None = None,
         ctx_size: int = 4096,
+        lora_path: str | None = None,
+        lora_scale: float | None = None,
     ) -> "LlamaCppBackend":
         """dual-turing-serving runtime profile (SDD-714): a ternary GGUF on the
         operator's RTX 2080 Ti + RTX 2080 pair. Both cards visible; pass
         tensor_split='11,8' to span a model too large for one card (long
-        context), or leave None to keep one model per card."""
+        context), or leave None to keep one model per card. Pass lora_path to
+        overlay an M046 LoRA adapter on the frozen base (SDD-715, unmerged)."""
         cfg = BackendConfig(
             model_path=model_path,
             host="127.0.0.1",
@@ -101,6 +118,8 @@ class LlamaCppBackend(Backend):
             ctx_size=ctx_size,
             tier="oracle_core",
             tensor_split=tensor_split,
+            lora_path=lora_path,
+            lora_scale=lora_scale,
         )
 
     @classmethod
