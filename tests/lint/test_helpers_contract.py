@@ -26,7 +26,18 @@ _BLOCK_RE = re.compile(re.escape(BEGIN) + r".*?" + re.escape(END), re.DOTALL)
 
 # Opt-in adoption list — grow one/few at a time (lockstep with the generator).
 ADOPTED_HELPERS_PANELS = [
+    "d-03-model-health",
+    "d-04-costs",
+    "d-09-hardware-pressure",
+    "d-11-adapter-status",
 ]
+
+PANEL_HELPER = {
+    "d-03-model-health": "fmtBytes",
+    "d-04-costs": "fmtNum",
+    "d-09-hardware-pressure": "fmtBytes",
+    "d-11-adapter-status": "fmtBytes",
+}
 
 
 def _canonical_block() -> str:
@@ -34,6 +45,26 @@ def _canonical_block() -> str:
     m = _BLOCK_RE.search(src)
     assert m, f"canonical helpers block markers missing in {SHARED}"
     return m.group(0)
+
+
+def test_adoption_lists_are_nonempty_and_in_lockstep():
+    """A vacuous rollout must never pass CI: generator and contract own the same,
+    non-empty panel set."""
+    import runpy
+
+    sync = runpy.run_path(str(REPO_ROOT / "scripts" / "webapp" / "sync-helpers.py"))
+    assert ADOPTED_HELPERS_PANELS, "helpers rollout must adopt at least one panel"
+    assert sync["ADOPTED_PANELS"] == ADOPTED_HELPERS_PANELS
+
+
+def test_adopted_panel_helper_has_one_definition():
+    """The helper adopted by each pilot panel is defined exactly once: in the
+    canonical block, never again in panel-specific code."""
+    for slug, helper in PANEL_HELPER.items():
+        html = (REPO_ROOT / "webapp" / slug / "index.html").read_text(encoding="utf-8")
+        assert html.count(f"function {helper}(") == 1, (
+            f"{slug}: {helper} must be defined only by the canonical helpers block"
+        )
 
 
 def test_shared_helpers_snippet_exists():
