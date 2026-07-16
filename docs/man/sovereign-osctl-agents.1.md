@@ -47,6 +47,23 @@ operator use.
 
 # COMMAND REFERENCE
 
+## goal
+
+**sovereign-osctl goal set "\<text\>" [--plan step ...]**
+:   SDD-719: lock one durable, operator-verbatim goal (status active) the agent pursues on its own. State: /etc/sovereign-os/agent-state.json.
+
+**sovereign-osctl goal show [--json]**
+:   Show the current goal, status, iteration count, plan, and last progress.
+
+**sovereign-osctl goal pause | resume | done | abandon**
+:   Stop / restart the loop pursuing the goal (stays locked) / close it done / close it abandoned.
+
+**sovereign-osctl goal progress "\<line\>"**
+:   Append a progress note (the loop writes these each iteration; never rewrites the goal text).
+
+**sovereign-osctl goal run [--max-iters 50] [--no-progress 3] [--model NAME] [--port 8083]**
+:   Loop-until-goal (goal-driver.py, the SDD-718 self-loop tier): iterate toward the active goal via the gateway agentic endpoint until done ([[GOAL_DONE]]) / max-iters / no-progress. Gated on an active goal.
+
 ## openclaw
 
 **sovereign-osctl openclaw status**

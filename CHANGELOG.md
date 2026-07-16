@@ -12,6 +12,31 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — `/goal`: a locked goal the agent pursues on its own (2026-07-16)
+
+Operator-directed (*"the '/ goal' command … set a goal and have it stay locked … I don't want … to
+continuously have to tell it to continue or to re-state what I want"*; then *"ready"*) (SDD-719, implementation
+slice 1 — the first behavior built from the autonomy design arc). Recommended Q-719 defaults taken: one active
+goal, 50 iterations / 3 no-progress → pause.
+
+- **`sovereign-osctl goal {set,show,pause,resume,done,abandon,progress,run}`** — set one durable, operator-
+  verbatim goal; it stays locked until you close it.
+- **`scripts/inference/goal-ctl.py`** — the goal state at `/etc/sovereign-os/agent-state.json` (atomic write,
+  stdlib-only). The goal `text` is written only by `set`; the loop only appends progress + bumps the iteration
+  count, **never rewriting the objective** (sacrosanct-verbatim, enforced by a test).
+- **`scripts/inference/goal-driver.py`** (`goal run`) — loop-until-goal: the SDD-718 self-loop tier realized as
+  an orchestrator over the existing gateway agentic endpoint (SDD-712). While the goal is `active` it re-arms
+  one agentic request per iteration (goal + recent progress fed back) and stops on **done** (the model ends a
+  reply with `[[GOAL_DONE]]`), the **max-iterations** ceiling, or the **no-progress** guard — the two guards are
+  goal-level (distinct from SDD-712's per-step repeat-guard) and both *pause* (not abandon) the goal, so "keep
+  going until done" can never pin the box.
+
+No daemon change (it orchestrates the endpoint that already exists). The per-iteration call is a `Responder` —
+tests inject a scripted one, so the loop control + guards are proven without a model. Verified: `pytest
+tests/lint/test_goal_lock_contract.py` 8 passed + full `tests/` + ruff green. Not model-verified (no weights in
+CI). Slice 2 (mode-gating in the tools per SDD-720, the OpenClaw tier, an unattended systemd/cockpit runner,
+Plan→lock seeding) is deferred.
+
 ### Scoped (design, no code) — local-agent autonomy: modes, /goal lock, sub-agents (2026-07-16)
 
 Operator-directed (*"I want it like Claude Opus and able to set the Auto mode … work multiple query and launch
