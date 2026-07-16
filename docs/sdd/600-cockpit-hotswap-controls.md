@@ -71,8 +71,8 @@ Per SDD-067 + R10212: the app-shell chrome navigates/explains and **does not mut
 ### 1.2 The settings-pane row (NEW)
 A third `.so-set-row` in `#so-settings-pane` (beside DEMO + course):
 - Reads current mode from `sovereign-osctl frontend status --json` (rendered as a badge — `with-GUI` / `kiosk` / `headless`).
-- A native `<select>` of the four modes. Choosing one **copies** `sudo sovereign-osctl frontend set <mode>` to the clipboard (doctrine-safe; no POST from the shell).
-- A `.so-set-sub` "restore after console login" line that copies the **two-step** recovery:
+- A native `<select>` of the four modes + an **Apply** button that EXECUTES `frontend set <mode>` through the control-exec-api (`/api/control/execute`) — dry-run until the box is live; privileged → Confirm. (Operator directive: a hotswap that swaps, not a copied command.)
+- A `.so-set-sub` "restore after console login" line that DISPLAYS the **two-step** recovery command as selectable text (this case has no GUI to click — the operator reads it at the tty):
   ```
   sudo sovereign-osctl frontend set gnome && sudo systemctl isolate graphical.target
   ```
@@ -101,7 +101,7 @@ Extend `RUNTIMES = ("openclaw", "open-computer")` → add `"claude-code"`, `"vsc
 
 ### 2.3 Four controls + the drill-in modal
 - `config/control-systems.yaml` gains four `kind: mode` controls (`openclaw-backend`, `open-computer-backend`, `claude-code-backend`, `vscode-backend`), each `options: [local, anthropic]`, `change_cli: "sovereign-osctl <runtime> backend <origin>"`, `state_cli: "sovereign-osctl <runtime> backend show --json"`, `privileged: true`, `applies_to: [settings-pane]`.
-- Settings-pane **Provider** row → opens a modal listing the four consumers, each with its current origin badge + a local/official toggle. Editing one **copies that consumer's exact `change_cli`** (e.g. `sudo sovereign-osctl open-computer backend local`). This is the "open a modal if you want to edit one individually" the operator asked for, doctrine-safe (copy, not POST).
+- Settings-pane **Provider** row → opens a modal listing the four consumers, each with its current origin badge + a local/official toggle. Editing one selects its origin + **Apply** EXECUTES `sovereign-osctl <consumer> backend <origin>` through the exec-rail (dry-run until live; privileged → Confirm). This is the "open a modal if you want to edit one individually" the operator asked for — a real swap, not a copied command.
 - `config/sudoers.d/sovereign-os-cockpit` (via `operator-sudoers.sh`) gains `sovereign-osctl {openclaw|open-computer|claude-code|vscode} backend *`.
 
 ### 2.4 The OpenAI-only follow-on (operator-anticipated)
@@ -140,7 +140,7 @@ The panel's master hotswap is a `<select>` with the four modes above. The panel 
 - **Control** `avx-mode` in `config/control-systems.yaml`, `kind: mode`, `options: [custom, builtin, hybrid, off]`, `change_cli: "sovereign-osctl avx-mode set <mode>"`, `state_cli: "sovereign-osctl avx-mode show --json"`, `privileged: true`, `applies_to: [cpu-features, settings-pane]`. The swap flips the M008 profile-knob family (`bitfields_microcode_enabled` etc. / `SOVEREIGN_BITFIELDS_MICROCODE_ENABLED`) — the toggle infra is already specced (M008 F00596–F00600). The **switch is real**; what it gates is scaffold until the ZMM kernels land.
 - **NEW backing script** `scripts/hardware/avx-mode.py` (stdlib-only) — `list`/`show`/`set`, persisting to `/etc/sovereign-os/avx-mode.active`, degrading exit-0 with an honest banner where a mode's kernel is not yet built (warp/science-panel doctrine).
 - **NEW panel** `webapp/avx-modes/index.html` — the master `<select>`, the full mode inventory (3.4), a "why it's a superpower" explainer (3.2) with the M002/M007/M008 + M061 citations, and the shared control-surface inlined (SDD-045). Degrades honestly on a box without the crates built.
-- **Settings-pane row** — a compact AVX-mode badge + `<select>` that copies `sudo sovereign-osctl avx-mode set <mode>` and links to the full `avx-modes` panel.
+- **Settings-pane row** — a `<select>` of every master mode + **Apply** that EXECUTES `avx-mode set <mode>` through the exec-rail (dry-run until live; privileged → Confirm).
 
 ### 3.6 Honesty ledger (do-not-minimize)
 control-word is **u64** (not 128/256/ZMM); branch-tree is **scalar** (not the AVX-512 masked SoA scheduler); M008 bit-cheats have **no crate**. The panel therefore surfaces **spec + a real mode switch over scaffold**, and says so — it does not claim live ZMM kernels. Building those kernels is downstream (M002 E0018/E0019, M007 M00104, M008) and out of this SDD.
@@ -150,7 +150,7 @@ control-word is **u64** (not 128/256/ZMM); branch-tree is **scalar** (not the AV
 ## Wiring (all three parts — build phase, after approval)
 - `config/control-systems.yaml` — +6 controls (frontend, 4× *-backend, avx-mode). Registry lint `test_control_systems_registry.py` `EXPECTED_IDS` extended; every `applies_to` slug must exist (add `settings-pane` as a recognized surface).
 - `config/sudoers.d/sovereign-os-cockpit` (via `operator-sudoers.sh`) — + frontend + 4 backend + avx-mode verbs; `test_cockpit_action_exec_sudoers.py` kept in lockstep (selfdef/perimeter still excluded — R10212).
-- `webapp/_shared/app-shell-snippet.html` — +3 settings-pane rows (frontend / provider-modal / avx-mode), copy-CLI only (no new network → app-shell contract lint stays green). Re-synced by `sync-app-shell.py`.
+- `webapp/_shared/app-shell-snippet.html` — +3 settings-pane rows (frontend / provider-modal / avx-mode) that EXECUTE via `/api/control/execute` (the exec-rail). `test_app_shell_contract` carves out that sanctioned loopback POST alongside the chat. Re-synced by `sync-app-shell.py`.
 - `scripts/operator/agent-backend.py` — +2 renderers (claude-code, vscode).
 - NEW: `scripts/hardware/avx-mode.py`, `webapp/avx-modes/index.html`, `systemd/system/sovereign-avx-modes-api.service` (if the panel needs a read API like warp), `config/dashboard-catalog.yaml` entry.
 - Docs/man/course/demo/INDEX lockstep re-synced (the ~8 registries the warp panel exercised).
@@ -159,7 +159,7 @@ control-word is **u64** (not 128/256/ZMM); branch-tree is **scalar** (not the AV
 
 | Q | question | proposed | status |
 |---|---|---|---|
-| Q-600-A | Settings-pane behavior: **copy-CLI only** (doctrine-safe, no lint carve-out) vs live-exec-in-pane (needs a contract-lint carve-out) vs hybrid-by-risk. | **copy-CLI in pane + modal; live exec lives in the dedicated panels (warp precedent)** | proposed — **needs operator** |
+| Q-600-A | Settings-pane behavior: copy-CLI only vs **live-exec-in-pane** (contract-lint carve-out) vs hybrid. | **answered — LIVE EXEC in the pane** (operator directive: *"I will not copy and paste any commands"* / *"DO WHAT I SAID"*). The hotswaps POST to the sanctioned control-exec-api (`/api/control/execute`), the same rail the panels use — dry-run until the box's live flag is set, privileged → Confirm. `test_app_shell_contract` carves out `/api/control/execute` alongside the chat fetch. | **answered 2026-07-16** |
 | Q-600-B | Provider: which config for Claude Code (env vs `~/.claude/settings.json`) and which VSCode extension (Cline / Claude Dev vs Continue/Copilot). | CC = env + settings.json; VSCode = Cline/Claude Dev (Anthropic) | proposed — **needs operator** |
 | Q-600-C | True-OpenAI cloud provider (Part 2b) — build now or Stage-N. | Stage-N (matches SDD-707 non-goal) | proposed — **needs operator** |
 | Q-600-D | AVX: functional switch over scaffold now (this SDD) vs defer whole AVX to SDD-601. | functional switch now; kernels downstream | proposed (operator earlier chose "functional swap") |
