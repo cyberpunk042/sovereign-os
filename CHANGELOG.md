@@ -12,6 +12,42 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — vision + speculative-draft serving on the dual-Turing node (2026-07-16)
+
+Operator-directed (*"2b and 3 now, one PR. take your time"*) (SDD-717, Slice 3). Lands the last two of the
+operator's originally-named Bonsai-27B files:
+
+- **Vision** — `llama_cpp` backend gains `mmproj_path` → `--mmproj`; a projector makes the 27B oracle
+  image-capable (the operator's `…-mmproj-BF16.gguf`, Qwen3-VL lineage). Catalog: `Ternary-Bonsai-27B-vision`
+  (`class: multimodal`, base 27B), bound to `dual-turing-serving`.
+- **Speculative draft** — `draft_model_path` → `--model-draft`; a small draft the 27B verifies, accelerating
+  decode (the operator's `…-dspark-bf16.gguf`). Catalog: `Ternary-Bonsai-27B-dspark` (`class: speculative`,
+  base 27B). This is the **llama.cpp analogue** of SAIN-01's DFlash/DSpark (M083), which drafts via vLLM
+  `--speculative-config`; the M083 path + `dspark-ctl.py` are untouched.
+
+Both `operator-must-confirm`, BF16→F16 on Turing (no native BF16). The SDD-715 serving-coherence lint now covers
+any base_model-carrying entry (lora / speculative / vision). Serve-only. Verified: backend verbatim pins +
+`for_dual_turing` argv + full `tests/` + 5 profiles + ruff green. Not hardware-verified (no Turing GPUs / real
+weights in CI).
+
+### Added — adapter transport + ZFS lineage (2026-07-16)
+
+Operator-directed (*"2b and 3 now, one PR. take your time"*) (SDD-716, Slice 2b). Closes the missing "ship a
+promoted adapter SAIN-01 → box, versioned for rollback" link in the M046 foundry (E0444 pipeline; E0446 ZFS
+"adapter versions + rollback"). Between *promote* (SDD-051 `adapter-decide`, MS041 triple-gate) and *serve*
+(SDD-715 `--lora`), nothing moved or versioned the weights.
+
+- **New `scripts/inference/adapter-transport.py`** — a stdlib-only **planner** (reuses `adapter-foundry.py`'s
+  registry reader): `plan <id>` → the `rsync` pull into `/var/lib/sovereign-os/adapters/<id>/<version>/` **plus**
+  a `zfs snapshot <dataset>@adapter-<id>-<version>` for lineage; `list` → local versions; `rollback <id>
+  <version>` → `zfs rollback`. **DRY-RUN by default**; `--apply` executes. The ZFS dataset is profile-declared
+  (not hardcoded) — the planner snapshots whatever backs the adapters path.
+- **New contract lint** — present/executable/stdlib, registry reuse, plan/rollback shape, DRY-RUN default.
+
+A planner rather than an executor because cross-box rsync/ssh + ZFS can't run in CI (one box, no pool); the
+operator runs `--apply` on the real box. Verified: the lint + functional plan/list/rollback; full `tests/` +
+5 profiles + ruff green.
+
 ### Added — LoRA-adapter serving on the dual-Turing node (2026-07-16)
 
 Operator-directed (*"go"* — Slice 2 of the personal-workstation LoRA plan) (SDD-715). Closes the *serving* gap

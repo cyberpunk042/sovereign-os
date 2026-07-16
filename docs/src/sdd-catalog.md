@@ -5,7 +5,7 @@
 > page drifts from `docs/sdd/`, so the published book can never freeze behind the
 > design record again (F-2026-033).
 
-Every Spec-Driven-Development design doc in `docs/sdd/` (198 total), by number.
+Every Spec-Driven-Development design doc in `docs/sdd/` (200 total), by number.
 
 - [SDD-000 — Project charter](../sdd/000-charter.md)
 - [SDD-001 — Cross-repo boundaries: contract between sovereign-os, info-hub, selfdef](../sdd/001-cross-repo-boundaries.md)
@@ -153,6 +153,8 @@ Every Spec-Driven-Development design doc in `docs/sdd/` (198 total), by number.
 - [SDD-713 — production agent tool catalog: calc + time + recall (IMPLEMENTATION)](../sdd/713-production-agent-tool-catalog.md)
 - [SDD-714 — dual-Turing workstation serving profile + Bonsai catalog (IMPLEMENTATION)](../sdd/714-dual-turing-workstation-serving-profile.md)
 - [SDD-715 — LoRA-adapter serving on the dual-Turing node (IMPLEMENTATION)](../sdd/715-lora-adapter-serving-on-dual-turing.md)
+- [SDD-716 — adapter transport + ZFS lineage (Slice 2b) (IMPLEMENTATION)](../sdd/716-adapter-transport-and-zfs-lineage.md)
+- [SDD-717 — vision + speculative-draft serving on the dual-Turing node (Slice 3) (IMPLEMENTATION)](../sdd/717-vision-and-speculative-serving-on-dual-turing.md)
 - [SDD-800 — Cockpit wasm bridge: the typed cockpit crates run in the browser](../sdd/800-cockpit-wasm-bridge.md)
 - [SDD-902 — Compute Plane Phase 2: multi-model gateway (secondary-model hosting)](../sdd/902-compute-plane-phase2-multi-model.md)
 - [SDD-950 — Real RoPE: `rope_theta` + `rope_scaling` from the model config (make modern models decode coherently)](../sdd/950-real-rope-theta-scaling.md)

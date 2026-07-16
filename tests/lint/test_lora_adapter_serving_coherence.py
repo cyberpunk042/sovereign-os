@@ -54,21 +54,25 @@ def _profile_served_models(profile_id: str) -> set[str]:
     return {a["model"] for a in (rp.get("allocations") or []) if a.get("model")}
 
 
-def test_lora_adapter_base_model_resolves():
+def test_base_model_carrying_entries_resolve():
+    """Any entry that declares base_model (lora-adapter, and SDD-717's
+    speculative draft + vision-projector companions) must point at a REAL
+    catalog model — an overlay/draft/projector on a non-existent base can
+    never be served."""
     entries = _catalog_entries()
     ids = {e["id"] for e in entries}
-    adapters = [e for e in entries if e.get("class") == "lora-adapter"]
-    assert adapters, "expected at least one lora-adapter entry"
-    for a in adapters:
+    with_base = [e for e in entries if e.get("base_model")]
+    assert with_base, "expected at least one base_model-carrying entry"
+    for a in with_base:
         base = a.get("base_model")
         assert base in ids, (
-            f"lora-adapter {a['id']!r} base_model={base!r} does not resolve to a "
-            f"real catalog model id (orphan adapter — can never be served)"
+            f"{a.get('class')} {a['id']!r} base_model={base!r} does not resolve "
+            f"to a real catalog model id (orphan — can never be served)"
         )
 
 
-def test_bound_profile_serves_the_adapter_base():
-    for a in (e for e in _catalog_entries() if e.get("class") == "lora-adapter"):
+def test_bound_profile_serves_the_base():
+    for a in (e for e in _catalog_entries() if e.get("base_model")):
         base = a.get("base_model")
         for profile_id in a.get("runtime_profile_bindings") or []:
             p = RUNTIME_DIR / f"{profile_id}.yaml"
@@ -82,9 +86,10 @@ def test_bound_profile_serves_the_adapter_base():
             if not served:
                 continue
             assert base in served, (
-                f"lora-adapter {a['id']!r} (base {base!r}) is bound to profile "
-                f"{profile_id!r}, but that profile does not serve {base!r} "
-                f"(serves {sorted(served)}) — E0442 overlay-on-unserved-base"
+                f"{a.get('class')} {a['id']!r} (base {base!r}) is bound to "
+                f"profile {profile_id!r}, but that profile does not serve "
+                f"{base!r} (serves {sorted(served)}) — E0442 companion-on-"
+                f"unserved-base (LoRA overlay / speculative draft / vision proj)"
             )
 
 
