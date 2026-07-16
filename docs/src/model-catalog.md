@@ -2,7 +2,7 @@
 
 # Model catalog — Genesis Trinity (master spec § 17)
 
-Canonical declaration of the 71 models this system intends to host across Pulse / Logic / Oracle / Router tiers, spanning the full R212 taxonomy (class × quantization × size_class × purpose).
+Canonical declaration of the 73 models this system intends to host across Pulse / Logic / Oracle / Router tiers, spanning the full R212 taxonomy (class × quantization × size_class × purpose).
 
 This doc is regenerated from `models/catalog.yaml` on every invocation of `scripts/models/render-catalog-md.py`. The same YAML drives `scripts/models/pull.sh` (operator-driven pull) and `scripts/models/verify.sh` (resident integrity check), so the doc, the puller, and the verifier can never drift.
 
@@ -12,7 +12,7 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 |------|-------|---------------|--------------|
 | pulse | 29 | 9 | 14 |
 | logic | 22 | 6 | 7 |
-| oracle | 15 | 8 | 5 |
+| oracle | 17 | 8 | 5 |
 | router | 5 | 4 | 0 |
 
 ## Catalog by class (R212 taxonomy)
@@ -24,11 +24,11 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 | `llm` — LLM (general) | 1 |
 | `lora-adapter` — LoRA adapter | 3 |
 | `mixture` — Mixture-of-Experts | 5 |
-| `multimodal` — Multimodal | 3 |
+| `multimodal` — Multimodal | 4 |
 | `reranker` — Reranker (cross-encoder) | 1 |
 | `rlm` — RLM (reasoning) | 9 |
 | `slm` — SLM (small) | 6 |
-| `speculative` — Speculative draft | 2 |
+| `speculative` — Speculative draft | 3 |
 | `ternary-lm` — Ternary LM (1.58-bit) | 33 |
 | `vision` — Vision | 1 |
 
@@ -38,17 +38,17 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 |---------|-------|
 | `agent` | 19 |
 | `audio` | 3 |
-| `chat` | 34 |
-| `code` | 20 |
+| `chat` | 35 |
+| `code` | 21 |
 | `distillation-base` | 1 |
 | `embedding` | 2 |
 | `function-calling` | 6 |
-| `multimodal` | 4 |
+| `multimodal` | 5 |
 | `rag` | 3 |
 | `reasoning` | 27 |
 | `reranking` | 1 |
 | `speculation` | 2 |
-| `vision` | 4 |
+| `vision` | 5 |
 
 ## Pulse tier (master spec § 17)
 
@@ -1194,6 +1194,57 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 > served here on the 2080 Ti via `llama-server --lora`. bf16 adapter →
 > convert to F16 for Turing serving (no native BF16). operator-must-confirm:
 > real weights + MS041 triple-gate promotion pending (adapter-foundry.py).
+
+### Ternary-Bonsai-27B-vision
+
+- **Status:** ? operator-must-confirm
+- **Class:** `multimodal` — Multimodal
+- **Quantization:** `bf16`
+- **Size class:** `xs`
+- **Purpose:** `multimodal`, `vision`
+- **Engine:** `llama.cpp`
+- **License:** apache-2.0
+- **Base model (LoRA):** `Ternary-Bonsai-27B`
+- **Parameters:** 600.0 M
+- **VRAM minimum (GiB):** 1
+- **Context window (tokens):** 32,768
+- **Master spec:** SDD-717 — vision projector (mmproj) for Ternary-Bonsai-27B
+- **Runtime profiles:** dual-turing-serving
+
+**Operator note:**
+
+> The `Ternary-Bonsai-27B-mmproj-BF16.gguf` the operator named — a vision
+> projector that makes the 27B oracle image-capable (Qwen3-VL lineage;
+> prism-ml/Ternary-Bonsai-27B has image-text-to-text variants). Served via
+> `llama-server --mmproj <projector.gguf>` alongside the base on the 11 GB
+> 2080 Ti. bf16 → convert to F16 for Turing. operator-must-confirm: real
+> projector weights + a multimodal serving smoke pending.
+
+### Ternary-Bonsai-27B-dspark
+
+- **Status:** ? operator-must-confirm
+- **Class:** `speculative` — Speculative draft
+- **Quantization:** `bf16`
+- **Size class:** `xs`
+- **Purpose:** `chat`, `code`
+- **Engine:** `llama.cpp`
+- **License:** apache-2.0
+- **Base model (LoRA):** `Ternary-Bonsai-27B`
+- **Parameters:** 1700.0 M
+- **VRAM minimum (GiB):** 1
+- **Context window (tokens):** 32,768
+- **Master spec:** SDD-717 — speculative draft (DSpark) for Ternary-Bonsai-27B on the dual-Turing node
+- **Runtime profiles:** dual-turing-serving
+
+**Operator note:**
+
+> The `Ternary-Bonsai-27B-dspark-bf16.gguf` the operator named — a small
+> speculative-decoding DRAFT model that drafts tokens the 27B oracle
+> verifies, accelerating decode. On the dual-Turing box it runs via
+> `llama-server --model-draft <draft.gguf>` — the local analogue of
+> SAIN-01's DFlash/DSpark path (M083), which drafts through vLLM
+> `--speculative-config` on the OcuLink eGPU. bf16 → F16 for Turing.
+> operator-must-confirm: real draft weights + an accept-rate smoke pending.
 
 ### Ternary-Bonsai-27B
 

@@ -279,6 +279,21 @@ def test_llama_cpp_lora_overlay_serving():
     )
 
 
+def test_llama_cpp_vision_and_speculative_serving():
+    """SDD-717 Slice 3: the dual-Turing node serves the 27B's vision projector
+    (--mmproj) and speculative draft (--model-draft, the local analogue of
+    SAIN-01's DFlash/DSpark path). Dropping either silently loses image
+    capability or the decode-acceleration draft path."""
+    body = _read(LLAMA)
+    assert "--mmproj" in body and "mmproj_path" in body, (
+        "llama_cpp.py missing --mmproj / mmproj_path (SDD-717 vision projector)"
+    )
+    assert "--model-draft" in body and "draft_model_path" in body, (
+        "llama_cpp.py missing --model-draft / draft_model_path (SDD-717 "
+        "speculative draft)"
+    )
+
+
 # --- Cross-adapter invariants ---
 
 

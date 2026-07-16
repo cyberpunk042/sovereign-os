@@ -532,6 +532,58 @@ catalog:
         2080 via `llama-server --lora`. operator-must-confirm: real weights +
         MS041 triple-gate promotion pending.
 
+    # SDD-717 Slice 3 — the vision + speculative companions of the 27B oracle
+    # on the dual-Turing node. Both are the operator's originally-named files
+    # (mmproj-BF16, dspark-bf16); served via llama.cpp --mmproj / --model-draft.
+    # BF16 → F16 conversion on Turing (SM 7.5 has no native BF16).
+
+    - id: Ternary-Bonsai-27B-vision
+      tier: oracle
+      engine: llama.cpp
+      class: multimodal
+      quantization: bf16
+      size_class: xs
+      purpose: [multimodal, vision]
+      status: operator-must-confirm
+      license: apache-2.0
+      base_model: Ternary-Bonsai-27B
+      parameters_millions: 600
+      vram_gib_min: 1
+      context_window_tokens: 32768
+      master_spec_section: "SDD-717 — vision projector (mmproj) for Ternary-Bonsai-27B"
+      runtime_profile_bindings: [dual-turing-serving]
+      operator_note: |
+        The `Ternary-Bonsai-27B-mmproj-BF16.gguf` the operator named — a vision
+        projector that makes the 27B oracle image-capable (Qwen3-VL lineage;
+        prism-ml/Ternary-Bonsai-27B has image-text-to-text variants). Served via
+        `llama-server --mmproj <projector.gguf>` alongside the base on the 11 GB
+        2080 Ti. bf16 → convert to F16 for Turing. operator-must-confirm: real
+        projector weights + a multimodal serving smoke pending.
+
+    - id: Ternary-Bonsai-27B-dspark
+      tier: oracle
+      engine: llama.cpp
+      class: speculative
+      quantization: bf16
+      size_class: xs
+      purpose: [chat, code]
+      status: operator-must-confirm
+      license: apache-2.0
+      base_model: Ternary-Bonsai-27B
+      parameters_millions: 1700
+      vram_gib_min: 1
+      context_window_tokens: 32768
+      master_spec_section: "SDD-717 — speculative draft (DSpark) for Ternary-Bonsai-27B on the dual-Turing node"
+      runtime_profile_bindings: [dual-turing-serving]
+      operator_note: |
+        The `Ternary-Bonsai-27B-dspark-bf16.gguf` the operator named — a small
+        speculative-decoding DRAFT model that drafts tokens the 27B oracle
+        verifies, accelerating decode. On the dual-Turing box it runs via
+        `llama-server --model-draft <draft.gguf>` — the local analogue of
+        SAIN-01's DFlash/DSpark path (M083), which drafts through vLLM
+        `--speculative-config` on the OcuLink eGPU. bf16 → F16 for Turing.
+        operator-must-confirm: real draft weights + an accept-rate smoke pending.
+
     # ============================================================
     # Operator handwritten catalog additions (2026-07-02)
     # Folded in from the operator's photos (via research wiki

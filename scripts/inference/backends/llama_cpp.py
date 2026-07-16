@@ -31,6 +31,8 @@ class LlamaCppBackend(Backend):
         tensor_split: str | None = None,
         lora_path: str | None = None,
         lora_scale: float | None = None,
+        mmproj_path: str | None = None,
+        draft_model_path: str | None = None,
     ):
         super().__init__(config)
         self.n_gpu_layers = n_gpu_layers
@@ -47,6 +49,14 @@ class LlamaCppBackend(Backend):
         # The base stays shared; the adapter is a hot-swappable behavioral overlay.
         self.lora_path = lora_path
         self.lora_scale = lora_scale
+        # SDD-717 Slice 3. Vision: a multimodal projector (mmproj) makes the base
+        # image-capable (llama.cpp --mmproj). Speculative: a small draft model
+        # (llama.cpp --model-draft) accelerates decode by drafting tokens the
+        # base verifies — the dual-Turing analogue of SAIN-01's DFlash/DSpark
+        # path (M083), which runs via vLLM --speculative-config. BF16 mmproj /
+        # dspark assets need F16 conversion on Turing (no native BF16).
+        self.mmproj_path = mmproj_path
+        self.draft_model_path = draft_model_path
 
     def start_command(self) -> list[str]:
         # llama.cpp's server binary; operator-installed (apt or build)
@@ -75,6 +85,12 @@ class LlamaCppBackend(Backend):
             else:
                 argv += ["--lora", self.lora_path]
 
+        if self.mmproj_path:
+            argv += ["--mmproj", self.mmproj_path]
+
+        if self.draft_model_path:
+            argv += ["--model-draft", self.draft_model_path]
+
         argv += self.config.extra_args
         return argv
 
@@ -100,12 +116,16 @@ class LlamaCppBackend(Backend):
         ctx_size: int = 4096,
         lora_path: str | None = None,
         lora_scale: float | None = None,
+        mmproj_path: str | None = None,
+        draft_model_path: str | None = None,
     ) -> "LlamaCppBackend":
         """dual-turing-serving runtime profile (SDD-714): a ternary GGUF on the
         operator's RTX 2080 Ti + RTX 2080 pair. Both cards visible; pass
         tensor_split='11,8' to span a model too large for one card (long
         context), or leave None to keep one model per card. Pass lora_path to
-        overlay an M046 LoRA adapter on the frozen base (SDD-715, unmerged)."""
+        overlay an M046 LoRA adapter on the frozen base (SDD-715, unmerged);
+        mmproj_path for a vision projector; draft_model_path for a speculative
+        draft (SDD-717)."""
         cfg = BackendConfig(
             model_path=model_path,
             host="127.0.0.1",
@@ -120,6 +140,8 @@ class LlamaCppBackend(Backend):
             tensor_split=tensor_split,
             lora_path=lora_path,
             lora_scale=lora_scale,
+            mmproj_path=mmproj_path,
+            draft_model_path=draft_model_path,
         )
 
     @classmethod
