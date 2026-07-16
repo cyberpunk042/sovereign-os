@@ -134,7 +134,10 @@ def test_core_registry_overlay():
         assert nv["precision"] == "nvfp4"
         assert nv["vram_4bit_bytes"] == 1_200_000_000
         assert nv["vram_bf16_bytes"] == 4_800_000_000
-        assert d["summary"]["promoted"] == 1 and d["summary"]["pending"] == 1
+        # promoted: deepseek (registry active). pending: nvfp4 (registry-only)
+        # + the 2 catalog-only Bonsai adapters SDD-715 added (sovereign-os-admin-lora
+        # + coding-style-lora), which this fixture registry does not promote.
+        assert d["summary"]["promoted"] == 1 and d["summary"]["pending"] == 3
         assert d["hrm"]["text_1b"]["installed"] is True
         assert d["history"][0]["action"] == "promote"
     finally:

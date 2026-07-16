@@ -12,6 +12,28 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — LoRA-adapter serving on the dual-Turing node (2026-07-16)
+
+Operator-directed (*"go"* — Slice 2 of the personal-workstation LoRA plan) (SDD-715). Closes the *serving* gap
+in the M046 LoRA foundry: the inventory/governance side was already built (`adapter-foundry.py` + the MS041
+triple-gate + the D-11 dashboard), but `LlamaCppBackend` had no `--lora`, so a promoted adapter had nowhere to
+load, and none was bound to the SDD-714 dual-Turing node.
+
+- **llama.cpp backend** gains `lora_path`/`lora_scale` → `--lora <path>` (or `--lora-scaled <path> <scale>`),
+  plumbed through `for_dual_turing()`. The adapter overlays the frozen ternary base **unmerged** (E0443), a
+  hot-swappable behavioral overlay — the argv-layer analogue of Slice 1's `--tensor-split`.
+- **Catalog** registers two real E0442 candidate adapters (`class: lora-adapter`, `engine: llama.cpp`) bound to
+  `dual-turing-serving`: `sovereign-os-admin-lora` (base `Ternary-Bonsai-27B`) + `coding-style-lora` (base
+  `Prism-Ternary-Bonsai-8B`), both `operator-must-confirm` (real weights + MS041 promotion pending).
+  `adapter-foundry.py list` inventories all three automatically.
+- **New serving-coherence lint** — every lora-adapter `base_model` resolves to a real catalog model, a bound
+  profile actually serves that base (E0442), and the llama.cpp adapter exposes `--lora`.
+
+Serve-only (training on SAIN-01); bf16 adapters → F16 for Turing serving. M046 spec (E0441–E0447) untouched.
+Transport (SAIN-01 → box) + E0446 ZFS versioning are Slice 2b (runtime/ops). Verified: touched-contract pytest
++ `for_dual_turing` argv + full `tests/` + 5 profiles + ruff green. Not hardware-verified (no Turing GPUs /
+real adapter weights in CI).
+
 ### Added — dual-Turing workstation serving profile + Bonsai catalog (2026-07-16)
 
 Operator-directed (*"I might wanna re-use those later with LORA customization for my personal (2080 + 2080 Ti

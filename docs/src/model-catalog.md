@@ -2,7 +2,7 @@
 
 # Model catalog — Genesis Trinity (master spec § 17)
 
-Canonical declaration of the 69 models this system intends to host across Pulse / Logic / Oracle / Router tiers, spanning the full R212 taxonomy (class × quantization × size_class × purpose).
+Canonical declaration of the 71 models this system intends to host across Pulse / Logic / Oracle / Router tiers, spanning the full R212 taxonomy (class × quantization × size_class × purpose).
 
 This doc is regenerated from `models/catalog.yaml` on every invocation of `scripts/models/render-catalog-md.py`. The same YAML drives `scripts/models/pull.sh` (operator-driven pull) and `scripts/models/verify.sh` (resident integrity check), so the doc, the puller, and the verifier can never drift.
 
@@ -10,9 +10,9 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 
 | Tier | Count | Verified-real | Aspirational |
 |------|-------|---------------|--------------|
-| pulse | 28 | 9 | 14 |
+| pulse | 29 | 9 | 14 |
 | logic | 22 | 6 | 7 |
-| oracle | 14 | 8 | 5 |
+| oracle | 15 | 8 | 5 |
 | router | 5 | 4 | 0 |
 
 ## Catalog by class (R212 taxonomy)
@@ -22,7 +22,7 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 | `code` — Code-specialised | 5 |
 | `embed` — Embedding | 2 |
 | `llm` — LLM (general) | 1 |
-| `lora-adapter` — LoRA adapter | 1 |
+| `lora-adapter` — LoRA adapter | 3 |
 | `mixture` — Mixture-of-Experts | 5 |
 | `multimodal` — Multimodal | 3 |
 | `reranker` — Reranker (cross-encoder) | 1 |
@@ -36,10 +36,10 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 
 | Purpose | Count |
 |---------|-------|
-| `agent` | 18 |
+| `agent` | 19 |
 | `audio` | 3 |
 | `chat` | 34 |
-| `code` | 19 |
+| `code` | 20 |
 | `distillation-base` | 1 |
 | `embedding` | 2 |
 | `function-calling` | 6 |
@@ -158,6 +158,28 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 > R212 — Phi-4-mini-instruct (3.8B). 128k context window at a
 > small footprint; ideal for code-heavy agent loops with a long
 > instruction buffer. GGUF Q5_K_M ships well-quantized.
+
+### coding-style-lora
+
+- **Status:** ? operator-must-confirm
+- **Class:** `lora-adapter` — LoRA adapter
+- **Quantization:** `bf16`
+- **Size class:** `xs`
+- **Purpose:** `code`
+- **Engine:** `llama.cpp`
+- **License:** apache-2.0
+- **Base model (LoRA):** `Prism-Ternary-Bonsai-8B`
+- **Parameters:** 60.0 M
+- **VRAM minimum (GiB):** 0.3
+- **Master spec:** M046 E0442 candidate adapter (coding-style LoRA)
+- **Runtime profiles:** dual-turing-serving
+
+**Operator note:**
+
+> M046 E0442 "coding-style LoRA" candidate — a house-style overlay on the
+> 8B scout for fast, on-style code. Trained on SAIN-01, served here on the
+> 2080 via `llama-server --lora`. operator-must-confirm: real weights +
+> MS041 triple-gate promotion pending.
 
 ### Prism-Ternary-Bonsai-8B
 
@@ -1149,6 +1171,29 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 > catalog candidate for the §1g 'all the best selection of
 > models adapted for various size and at various
 > quantization' directive.
+
+### sovereign-os-admin-lora
+
+- **Status:** ? operator-must-confirm
+- **Class:** `lora-adapter` — LoRA adapter
+- **Quantization:** `bf16`
+- **Size class:** `xs`
+- **Purpose:** `agent`
+- **Engine:** `llama.cpp`
+- **License:** apache-2.0
+- **Base model (LoRA):** `Ternary-Bonsai-27B`
+- **Parameters:** 120.0 M
+- **VRAM minimum (GiB):** 0.5
+- **Master spec:** M046 E0442 candidate adapter (sovereign-os/admin LoRA)
+- **Runtime profiles:** dual-turing-serving
+
+**Operator note:**
+
+> M046 E0442 "sovereign-os/admin LoRA" candidate — an admin/ops behavioral
+> overlay on the 27B oracle. Trained on SAIN-01 (E0446 4090/Blackwell),
+> served here on the 2080 Ti via `llama-server --lora`. bf16 adapter →
+> convert to F16 for Turing serving (no native BF16). operator-must-confirm:
+> real weights + MS041 triple-gate promotion pending (adapter-foundry.py).
 
 ### Ternary-Bonsai-27B
 

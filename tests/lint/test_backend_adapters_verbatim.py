@@ -265,6 +265,20 @@ def test_llama_cpp_dual_turing_tensor_split():
     )
 
 
+def test_llama_cpp_lora_overlay_serving():
+    """SDD-715 (M046 LoRA-as-profiles): the adapter MUST be able to overlay a
+    GGUF LoRA on the frozen ternary base WITHOUT merging (E0443). Dropping
+    --lora silently loses the whole adapter-serving half of the LoRA foundry —
+    adapters would be inventoried/gated but never actually loadable."""
+    body = _read(LLAMA)
+    assert "--lora" in body, (
+        "llama_cpp.py missing --lora (SDD-715 M046 LoRA adapter overlay serving)"
+    )
+    assert "lora_path" in body, (
+        "llama_cpp.py missing lora_path parameter (SDD-715 adapter overlay)"
+    )
+
+
 # --- Cross-adapter invariants ---
 
 

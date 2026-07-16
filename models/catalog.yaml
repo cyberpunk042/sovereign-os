@@ -484,6 +484,54 @@ catalog:
         operator review). The `base_model` field is REQUIRED for
         class=lora-adapter per schema 1.1.0.
 
+    # SDD-715 — first Bonsai-based adapters for the dual-Turing serving node
+    # (M046 E0442 LoRA-as-profiles candidates). Each overlays a frozen ternary
+    # base already served by the dual-turing-serving runtime profile; llama.cpp
+    # loads them via --lora (unmerged, E0443). Adapters are trained on SAIN-01
+    # (E0446) and shipped over; status operator-must-confirm until real weights
+    # + the MS041 triple-gate promotion (adapter-foundry.py) pass.
+
+    - id: sovereign-os-admin-lora
+      tier: oracle
+      engine: llama.cpp
+      class: lora-adapter
+      base_model: Ternary-Bonsai-27B
+      quantization: bf16
+      size_class: xs
+      purpose: [agent]
+      status: operator-must-confirm
+      license: apache-2.0
+      parameters_millions: 120
+      vram_gib_min: 0.5
+      master_spec_section: "M046 E0442 candidate adapter (sovereign-os/admin LoRA)"
+      runtime_profile_bindings: [dual-turing-serving]
+      operator_note: |
+        M046 E0442 "sovereign-os/admin LoRA" candidate — an admin/ops behavioral
+        overlay on the 27B oracle. Trained on SAIN-01 (E0446 4090/Blackwell),
+        served here on the 2080 Ti via `llama-server --lora`. bf16 adapter →
+        convert to F16 for Turing serving (no native BF16). operator-must-confirm:
+        real weights + MS041 triple-gate promotion pending (adapter-foundry.py).
+
+    - id: coding-style-lora
+      tier: pulse
+      engine: llama.cpp
+      class: lora-adapter
+      base_model: Prism-Ternary-Bonsai-8B
+      quantization: bf16
+      size_class: xs
+      purpose: [code]
+      status: operator-must-confirm
+      license: apache-2.0
+      parameters_millions: 60
+      vram_gib_min: 0.3
+      master_spec_section: "M046 E0442 candidate adapter (coding-style LoRA)"
+      runtime_profile_bindings: [dual-turing-serving]
+      operator_note: |
+        M046 E0442 "coding-style LoRA" candidate — a house-style overlay on the
+        8B scout for fast, on-style code. Trained on SAIN-01, served here on the
+        2080 via `llama-server --lora`. operator-must-confirm: real weights +
+        MS041 triple-gate promotion pending.
+
     # ============================================================
     # Operator handwritten catalog additions (2026-07-02)
     # Folded in from the operator's photos (via research wiki
