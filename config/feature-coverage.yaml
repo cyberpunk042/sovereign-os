@@ -113,6 +113,8 @@ coverage:
     [whitelabel]
   science:
     [science]
+  warp:
+    [warp]
 
 cli_only:
   - {verb: assistant, rationale: "first-login interactive guide (modal onboarding flow), not a persistent dashboard surface"}

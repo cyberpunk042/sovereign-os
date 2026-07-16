@@ -33,6 +33,7 @@ EXPECTED_IDS = {
     "approvals-request", "memory-request",
     "profiles-generate-runtime", "peace-check",
     "profile-compose",
+    "warp-render", "warp-bench",
 }
 VALID_KINDS = {"profile", "mode", "toggle", "lifecycle"}
 VALID_SCOPES = {"global", "scoped"}

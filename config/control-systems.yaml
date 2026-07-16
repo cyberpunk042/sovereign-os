@@ -785,3 +785,46 @@ systems:
     privileged: false
     applies_to: [d-20-peace-machine-health]
     refs: [scripts/manifest/peace-machine.py]
+
+  # ── Warp management — render / bench a warp-solar-system-shaders scene ──
+  # SDD-300. The Warp panel surfaces the shaders engine (scenes + libs +
+  # relations); these two lifecycle controls execute a chosen scene through the
+  # exec-rail. The scene is a free <scene> placeholder validated by
+  # _action_exec's _SAFE_VALUE token (all 217 catalog names pass) — `options`
+  # seeds the datalist with a hero set; the panel offers the full catalog.
+  # privileged: a render/bench is real GPU/CPU compute → operator-key + confirm.
+  - id: warp-render
+    kind: lifecycle
+    scope: scoped
+    label: "Warp Render"
+    description: >-
+      Render one scene of the warp-solar-system-shaders NVIDIA-Warp engine to an
+      image (GPU on the RTX PRO 6000, CPU fallback otherwise). Dispatched by
+      `sovereign-osctl warp render <scene>`; degrades to an honest no-op when the
+      shaders checkout is not resident on the host.
+    options: [neutron_star, black_hole, aurora, big_bang, cosmic_web, binary_bh, comet, atom, cornell_box, alien]
+    options_cli: "sovereign-osctl warp list"
+    state_cli: "sovereign-osctl warp status"
+    change_cli: "sovereign-osctl warp render <scene>"
+    state_path: "config/warp-catalog.yaml (scene registry) + WARP_SHADERS_ROOT checkout"
+    privileged: true
+    applies_to: [warp]
+    refs: [SDD-300, config/warp-catalog.yaml]
+
+  - id: warp-bench
+    kind: lifecycle
+    scope: scoped
+    label: "Warp Bench"
+    description: >-
+      Benchmark one scene of the warp-solar-system-shaders engine (ms/frame,
+      warm-up excluded), GPU or CPU. Dispatched by
+      `sovereign-osctl warp bench <scene>`; degrades to an honest no-op when the
+      shaders checkout is not resident on the host.
+    options: [neutron_star, black_hole, aurora, big_bang, cosmic_web, binary_bh, comet, atom, cornell_box, alien]
+    options_cli: "sovereign-osctl warp list"
+    state_cli: "sovereign-osctl warp status"
+    change_cli: "sovereign-osctl warp bench <scene>"
+    state_path: "config/warp-catalog.yaml (scene registry) + WARP_SHADERS_ROOT checkout"
+    privileged: true
+    applies_to: [warp]
+    refs: [SDD-300, config/warp-catalog.yaml]

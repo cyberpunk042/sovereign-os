@@ -264,6 +264,14 @@ COMMANDS:
   science info <id> [--json]   Full detail for one science tool
   science install [--json]     How each integrated tool is obtained (advisory)
 
+  warp list|libs|relations|info <scene>|status [--json]
+                               SDD-300: Warp management — the warp-solar-system-shaders
+                               engine (217 scenes, 20 libs) + the scene→lib / lib→lib
+                               relation graph, read from config/warp-catalog.yaml
+  warp render <scene> [--json] Render a scene (GPU cuda:0 or CPU) — exec-rail-gated;
+                               needs a shaders checkout (WARP_SHADERS_ROOT) or no-ops
+  warp bench <scene> [--json]  Benchmark a scene (ms/frame) — exec-rail-gated
+
   gateway [--addr host:port] [--json]
                                Live probe of sovereign-gatewayd (:8787) — the M048
                                provider-inversion gateway over the cortex: sovereignty
@@ -6979,6 +6987,15 @@ case "${cmd}" in
     # `run` delegates to scripts/science/warp-runner.py (GPU cuda:0 or CPU
     # fallback); everything else is stdlib-only.
     "${PYTHON3}" "${__REPO_ROOT}/scripts/science/science.py" "$@"
+    ;;
+  warp)
+    # SDD-300: Warp management — the warp-solar-system-shaders engine (scenes +
+    # libs + relations) surfaced for the cockpit Warp panel. list/libs/relations/
+    # info/status are stdlib-only reads of config/warp-catalog.yaml; render/bench
+    # shell the project's own runners when a checkout is resident
+    # (WARP_SHADERS_ROOT), else print an honest no-op. render/bench are the
+    # exec-rail-gated verbs (config/control-systems.yaml warp-render/warp-bench).
+    "${PYTHON3}" "${__REPO_ROOT}/scripts/warp/warp_manage.py" "$@"
     ;;
   gateway)
     # Live read-only probe of sovereign-gatewayd (:8787): the M048 provider-

@@ -5,7 +5,7 @@
 > page drifts from `docs/sdd/`, so the published book can never freeze behind the
 > design record again (F-2026-033).
 
-Every Spec-Driven-Development design doc in `docs/sdd/` (203 total), by number.
+Every Spec-Driven-Development design doc in `docs/sdd/` (204 total), by number.
 
 - [SDD-000 — Project charter](../sdd/000-charter.md)
 - [SDD-001 — Cross-repo boundaries: contract between sovereign-os, info-hub, selfdef](../sdd/001-cross-repo-boundaries.md)
@@ -137,6 +137,7 @@ Every Spec-Driven-Development design doc in `docs/sdd/` (203 total), by number.
 - [SDD-205 — The Anthropic Messages API on the gateway (use the box from VS Code / Claude Code)](../sdd/205-anthropic-messages-api.md)
 - [SDD-206 — The gateway safety spine (input screening + output redaction, made real on the daemon)](../sdd/206-gateway-safety-spine.md)
 - [SDD-207 — The Sovereign Compute Plane (Phase 1: VRAM-fit job placement)](../sdd/207-compute-plane.md)
+- [SDD-300 — Warp management panel (warp-solar-system-shaders: catalog, relations & execution)](../sdd/300-warp-management-panel.md)
 - [SDD-700 — operator sudoers: risk-tier the OPS grants + lock them against privilege-escalation drift (F-2026-107..108)](../sdd/700-operator-sudoers-privesc-guard.md)
 - [SDD-701 — NVIDIA GPU bring-up: install the pinned ≥570 driver + apply the power caps at boot (F-2026-109..110)](../sdd/701-nvidia-gpu-bringup.md)
 - [SDD-702 — inference model provisioning: the vLLM Oracle tier gets a real model at first boot (F-2026-112)](../sdd/702-inference-model-provisioning.md)
