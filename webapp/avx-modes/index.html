@@ -1,86 +1,127 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>sovereign-os Course</title>
-<meta name="x-sovereign-module" content="course-webapp">
-<meta name="x-sovereign-shipped-in" content="M090 guided-course">
-<meta name="x-sovereign-standing-rule" content="We do not minimize anything.">
-<meta name="x-sovereign-catalog-source" content="config/dashboard-catalog.yaml (learn/course) + webapp/_shared/course-snippet.html curriculum (window.__soCourseCurriculum)">
-<!-- M060 R10137/R10140/R10141 personalization apply-snippet — reads prefs
-     from localStorage and applies them pre-paint so the operator's
-     theme/accent/typography render with no FOUC. Canonical control surface
-     is /webapp/personalization/. -->
-<script>
-  (function(){
-    var KEY = 'sovereign-os.personalization', SCHEMA_V = 1;
-    var DEF = { schema: SCHEMA_V, theme: 'auto', accent: '#9bd1ff', font_scale: 1 };
-    var p;
-    try {
-      var raw = localStorage.getItem(KEY);
-      p = raw ? JSON.parse(raw) : null;
-      if (!p || p.schema !== SCHEMA_V) p = null;
-    } catch(e) { p = null; }
-    if (!p) p = DEF;
-    var resolved = (p.theme === 'dark' || p.theme === 'light') ? p.theme
-      : ((window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark');
-    document.documentElement.setAttribute('data-theme', resolved);
-    document.documentElement.style.setProperty('--so-accent', p.accent || DEF.accent);
-    document.documentElement.style.setProperty('--accent', p.accent || DEF.accent);
-    document.documentElement.style.setProperty('--font-scale', String(p.font_scale || 1));
-  })();
-</script>
+<meta name="x-sovereign-module" content="avx-modes-webapp">
+<title>AVX Modes · sovereign-os</title>
 <style>
-  :root{
-    --bg:#0c0c0c; --fg:#e6e6e6; --fg-2:#c8c8c8; --muted:#8a8a8a; --border:#262626;
-    --panel:#171717; --card:#151515; --accent:#9bd1ff; --good:#7ad17a; --warn:#e6c062; --bad:#ff7676;
-    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-  }
-  html[data-theme="light"]{ --bg:#f6f6f6; --fg:#0e0e0e; --fg-2:#333; --muted:#555; --panel:#ffffff; --card:#ffffff; --border:#d8d8d8; }
-  *{box-sizing:border-box;}
-  body{margin:0; background:var(--bg); color:var(--fg); font-family:ui-sans-serif,-apple-system,Segoe UI,Roboto,sans-serif; font-size:calc(1rem*var(--font-scale,1)); line-height:1.55;}
-  .wrap{max-width:900px; margin:0 auto; padding:1.4rem 1.2rem 4rem;}
-  .c-hero{border:1px solid var(--border); background:linear-gradient(180deg,rgba(155,209,255,.06),transparent); border-radius:12px; padding:1.1rem 1.2rem 1.2rem;}
-  .c-hero h1{margin:0 0 .3rem; font-size:1.35rem; letter-spacing:.01em;} .c-hero h1 .sp{color:var(--accent);}
-  .c-hero p{margin:.2rem 0 .8rem; color:var(--fg-2); max-width:64ch;}
-  .c-prog{display:flex; align-items:center; gap:.7rem; margin:.7rem 0 .9rem;}
-  .c-bar{flex:1; height:8px; border-radius:999px; background:var(--bg); border:1px solid var(--border); overflow:hidden;}
-  .c-bar > i{display:block; height:100%; width:0; background:var(--accent);}
-  .c-pct{color:var(--muted); font-variant-numeric:tabular-nums; white-space:nowrap; font-size:.85rem;}
-  .c-cta{display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;}
-  .cbtn{display:inline-flex; align-items:center; gap:.4rem; height:34px; padding:0 .8rem; cursor:pointer; font:inherit; font-size:.85rem;
-    background:transparent; color:var(--fg); border:1px solid var(--border); border-radius:7px;}
-  .cbtn:hover{background:color-mix(in srgb,var(--accent) 14%,transparent); border-color:color-mix(in srgb,var(--accent) 40%,transparent);}
-  .cbtn.primary{background:var(--accent); border-color:var(--accent); color:#08131f; font-weight:600;}
-  .cbtn.primary:hover{filter:brightness(1.06);}
-  .c-note{color:var(--muted); font-size:.78rem; margin-top:.6rem;}
-  .c-mods{margin-top:1.3rem; display:flex; flex-direction:column; gap:.8rem;}
-  .c-mod{border:1px solid var(--border); background:var(--card); border-radius:10px; overflow:hidden;}
-  .c-mod-h{display:flex; align-items:center; gap:.6rem; padding:.7rem .9rem; border-bottom:1px solid var(--border);}
-  .c-mod-h .mid{color:var(--accent); font-weight:600; font-variant-numeric:tabular-nums;}
-  .c-mod-h .mname{font-weight:600;}
-  .c-tier{font-size:.62rem; text-transform:uppercase; letter-spacing:.05em; border:1px solid var(--border); border-radius:999px; padding:.06rem .5rem; color:var(--muted);}
-  .c-tier.core{color:#8fd9ff; border-color:color-mix(in srgb,var(--accent) 55%,transparent);}
-  .c-tier.standard{color:#7fd18f; border-color:rgba(127,209,143,.5);}
-  .c-tier.advanced{color:#e0c07a; border-color:rgba(224,192,122,.5);}
-  .c-tier.optional{color:#a8a8a8;}
-  .c-mod-h .mprog{margin-left:auto; color:var(--muted); font-size:.78rem; font-variant-numeric:tabular-nums;}
-  .c-les{display:flex; align-items:center; gap:.6rem; width:100%; text-align:left; background:transparent; border:0; border-top:1px solid var(--border); cursor:pointer; color:var(--fg); font:inherit; font-size:.85rem; padding:.55rem .9rem;}
-  .c-les:first-child{border-top:0;}
-  .c-les:hover{background:color-mix(in srgb,var(--accent) 10%,transparent);}
-  .c-les .ck{width:1.2rem; text-align:center; flex:none; color:var(--good);}
-  .c-les .ck.todo{color:var(--muted); opacity:.5;}
-  .c-les .lid{color:var(--accent); font-size:.72rem; font-variant-numeric:tabular-nums; min-width:2.4rem;}
-  .c-les .ltx{flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
-  .c-les .lk{font-size:.66rem; color:var(--muted); border:1px solid var(--border); border-radius:4px; padding:.02rem .35rem;}
-  .c-les.here{background:color-mix(in srgb,var(--accent) 16%,transparent);}
-  .c-les.here .ltx{font-weight:600;}
-  .c-les .arrow{color:var(--muted); flex:none;}
-  .c-les .try{font-size:.62rem; color:var(--good); border:1px solid rgba(127,209,143,.5); border-radius:4px; padding:.02rem .3rem; flex:none;}
-  .c-done{margin:1.1rem 0 .2rem; border:1px solid rgba(127,209,143,.5); background:rgba(127,209,143,.07); border-radius:10px; padding:.8rem 1rem; display:flex; align-items:center; gap:.7rem;}
-  .c-done .em{font-size:1.35rem; flex:none;}
-  .c-done .tx{color:var(--fg-2); font-size:.9rem;} .c-done .tx b{color:var(--good);}
+/* webapp/_shared/control-surface.css — SDD-045 shared control-surface.
+ * Renders the control-systems registry (profiles / modes / feature toggles)
+ * as a grid of control cards. Monochrome, framework-free; inherits the
+ * panel palette variables (--bg/--fg/--muted/--accent/--border/--mono).
+ *
+ * R10274 (functional cockpit): a control can now be EXECUTED from the card
+ * (the sanctioned same-origin control-exec-api POST) — the copyable command
+ * is demoted to a labelled fallback. R10212 is preserved: proxy-only controls
+ * (selfdef / perimeter) render NO execute affordance, and every per-panel
+ * daemon stays read-only — the ONLY write path is the dedicated exec daemon. */
+.cs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: .5rem; }
+.cs-card {
+  display: flex; flex-direction: column; gap: .35rem;
+  padding: .6rem .75rem; border: 1px solid var(--border, #262626);
+  border-radius: .4rem; background: rgba(255, 255, 255, .02);
+  transition: border-color .12s ease;
+}
+.cs-card:hover { border-color: rgba(255, 255, 255, .12); }
+.cs-head { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.cs-label { font-weight: 600; flex: 1; }
+.cs-kind {
+  font-size: .7rem; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--muted, #888); border: 1px solid var(--border, #262626);
+  border-radius: 3px; padding: 0 .35rem;
+}
+.cs-global {
+  font-size: .7rem; color: var(--accent, #9bd1ff);
+  border: 1px solid var(--accent, #9bd1ff); border-radius: 3px; padding: 0 .35rem;
+}
+.cs-proxy {
+  font-size: .7rem; color: #e0b050; border: 1px solid #e0b050;
+  border-radius: 3px; padding: 0 .35rem; letter-spacing: .02em;
+}
+.cs-desc { color: var(--muted, #888); font-size: .8rem; line-height: 1.45; }
+.cs-opts { display: flex; flex-wrap: wrap; gap: .3rem; }
+.cs-opt { font-size: .72rem; background: var(--border, #262626); border-radius: 3px; padding: 1px 6px; }
+
+/* ── argument rail: one control per change_cli placeholder ──────────────── */
+.cs-args { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; margin: .1rem 0; }
+.cs-lit { font-family: var(--mono, ui-monospace, monospace); font-size: .74rem; color: var(--muted, #888); }
+.cs-verbs { display: inline-flex; border: 1px solid var(--border, #262626); border-radius: 4px; overflow: hidden; }
+.cs-verb {
+  font-family: var(--mono, ui-monospace, monospace); font-size: .72rem;
+  color: var(--fg, #e6e6e6); background: var(--bg, #0e0e0e);
+  border: 0; border-right: 1px solid var(--border, #262626);
+  padding: .2rem .5rem; cursor: pointer;
+}
+.cs-verb:last-child { border-right: 0; }
+.cs-verb[aria-pressed="true"] { background: var(--accent, #9bd1ff); color: #0a0a0a; font-weight: 600; }
+.cs-arg {
+  font-family: var(--mono, ui-monospace, monospace); font-size: .74rem;
+  color: var(--fg, #e6e6e6); background: var(--bg, #0e0e0e);
+  border: 1px solid var(--border, #262626); border-radius: 4px;
+  padding: .2rem .4rem; min-width: 6ch; max-width: 16ch;
+}
+.cs-arg:focus { outline: 0; border-color: var(--accent, #9bd1ff); }
+
+/* ── action row: Execute (primary) + Copy (fallback) ───────────────────── */
+.cs-actions { display: flex; gap: .35rem; align-items: stretch; margin-top: .1rem; }
+.cs-exec {
+  font-size: .76rem; font-weight: 600; cursor: pointer;
+  color: #0a0a0a; background: var(--accent, #9bd1ff);
+  border: 1px solid var(--accent, #9bd1ff); border-radius: 4px;
+  padding: .28rem .6rem; white-space: nowrap;
+}
+.cs-exec:hover { filter: brightness(1.08); }
+.cs-exec:disabled { opacity: .45; cursor: not-allowed; filter: none; }
+.cs-cmd {
+  font-family: var(--mono, ui-monospace, monospace); font-size: .74rem;
+  text-align: left; color: var(--fg, #e6e6e6); background: var(--bg, #0e0e0e);
+  border: 1px solid var(--border, #262626); border-radius: 4px;
+  padding: .25rem .4rem; cursor: pointer; overflow-x: auto; white-space: nowrap; flex: 1;
+}
+.cs-cmd:hover { border-color: var(--accent, #9bd1ff); }
+.cs-copy { flex: 1; }
+/* result line — dry-run / executed / rejected feedback, always visible */
+.cs-result { font-size: .72rem; line-height: 1.4; min-height: 1em; word-break: break-word; }
+.cs-result.ok { color: #6fcf6f; }
+.cs-result.dry { color: var(--accent, #9bd1ff); }
+.cs-result.warn { color: #e0b050; }
+.cs-result.err { color: #e06a6a; }
+.cs-result.muted { color: var(--muted, #888); }
+/* inline type-to-confirm gate for privileged controls */
+.cs-confirm {
+  display: flex; flex-wrap: wrap; align-items: center; gap: .35rem;
+  padding: .35rem .4rem; margin-top: .1rem;
+  border: 1px dashed var(--accent, #9bd1ff); border-radius: 4px;
+}
+.cs-confirm-msg { font-size: .72rem; color: var(--muted, #888); }
+.cs-confirm-msg code { color: var(--fg, #e6e6e6); }
+.cs-confirm-in { max-width: 14ch; }
+.cs-confirm-cancel { flex: 0 0 auto; }
+.cs-empty { color: var(--muted, #888); }
+
+/* avx-modes panel (SDD-600 Part 3) */
+main.avx-wrap{max-width:1100px;margin:0 auto;padding:1rem 1.1rem 3rem;}
+.avx-lead{color:var(--muted,#8a8a8a);line-height:1.55;max-width:78ch;}
+.avx-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:.7rem;margin:1rem 0;}
+.avx-card{border:1px solid var(--border,#262626);border-radius:10px;padding:.7rem .8rem;background:var(--card,#151515);}
+.avx-card.avx-scaffold{border-style:dashed;}
+.avx-ct{display:flex;align-items:center;justify-content:space-between;gap:.5rem;}
+.avx-card p{color:var(--muted,#8a8a8a);font-size:.85rem;line-height:1.5;margin:.35rem 0 .3rem;}
+.avx-tag{font-size:.66rem;text-transform:uppercase;letter-spacing:.04em;padding:.05rem .4rem;border-radius:999px;
+  border:1px solid var(--border,#3a3a3a);color:var(--muted,#8a8a8a);}
+.avx-card.avx-real .avx-tag{color:#8fd694;border-color:#3d6b41;}
+.avx-anchors{font-size:.72rem;color:var(--muted,#7a7a7a);}
+.avx-why{border-left:3px solid var(--accent,#9bd1ff);padding:.4rem .9rem;margin:1rem 0;background:color-mix(in srgb,var(--accent,#9bd1ff) 7%,transparent);border-radius:0 8px 8px 0;}
+.avx-why b{color:var(--accent,#9bd1ff);}
+h2.avx-h{margin:1.4rem 0 .5rem;font-size:1.02rem;}
+table.avx-tbl{width:100%;border-collapse:collapse;font-size:.83rem;}
+table.avx-tbl td{border-bottom:1px solid color-mix(in srgb,var(--border,#262626) 60%,transparent);padding:.32rem .5rem;vertical-align:top;}
+table.avx-tbl td.mono{font-family:ui-monospace,Menlo,monospace;color:var(--accent,#9bd1ff);white-space:nowrap;width:1%;}
+.avx-honest{color:var(--muted,#8a8a8a);font-size:.8rem;border:1px dashed var(--border,#3a3a3a);border-radius:8px;padding:.55rem .8rem;margin:1rem 0;}
+html[data-theme="light"] {
+  --bg:#f6f6f6; --fg:#0e0e0e; --muted:#555; --panel:#ffffff; --card:#ffffff; --border:#d8d8d8;
+}
 </style>
 </head>
 <body>
@@ -963,121 +1004,44 @@
   window.__cockpitKeystrokeResolve = keystrokeResolve;
 </script>
 <!-- APP-SHELL:END M067 -->
-<main id="course-syllabus" class="wrap">
-  <section class="c-hero">
-    <h1><span class="sp">✦</span> The sovereign-os Course</h1>
-    <p>A guided journey through the whole cockpit — most-important pieces first (the Trinity, the build pipeline, security &amp; selfdef), then the rest, every module clearly tier-labelled. The course opens a slim rail along the bottom and, on <b>Next</b>, travels you to each lesson's panel and resumes there. Your place is saved on this device. It works in <b>DEMO mode</b>, so you can take the whole tour with no daemon running.</p>
-    <div class="c-prog"><span class="c-bar"><i id="c-bar-fill"></i></span><span class="c-pct" id="c-pct">0 of 0 · 0%</span></div>
-    <div class="c-cta">
-      <button class="cbtn primary" id="c-start">▶ Start the tour</button>
-      <button class="cbtn" id="c-reset" title="Clear saved progress on this device">↺ Reset progress</button>
-    </div>
-    <div class="c-note">Not the Assistant — that's the ✦ drawer on the right, contextual help for the panel you're on. The Course is a tour <i>across</i> panels.</div>
-  </section>
-  <div class="c-mods" id="c-mods"></div>
-  <!-- SDD-045 Phase C — control surface (INLINED per the single-file doctrine).
-     Renders config/control-systems.yaml (served at /control-systems): the
-     global controls (profile / dashboard on-off / auth tier) + the modes &
-     feature toggles that govern THIS panel. Read-only: each control copies
-     its exact sovereign-osctl command. Canonical source (lockstep-linted):
-     webapp/_shared/control-surface.{css,js}. -->
-<h2>controls — the box's toggles &amp; profiles, for reference</h2>
-<div id="control-surface" class="cs-grid"><div class="cs-empty">loading controls…</div></div>
-<style>
-/* webapp/_shared/control-surface.css — SDD-045 shared control-surface.
- * Renders the control-systems registry (profiles / modes / feature toggles)
- * as a grid of control cards. Monochrome, framework-free; inherits the
- * panel palette variables (--bg/--fg/--muted/--accent/--border/--mono).
- *
- * R10274 (functional cockpit): a control can now be EXECUTED from the card
- * (the sanctioned same-origin control-exec-api POST) — the copyable command
- * is demoted to a labelled fallback. R10212 is preserved: proxy-only controls
- * (selfdef / perimeter) render NO execute affordance, and every per-panel
- * daemon stays read-only — the ONLY write path is the dedicated exec daemon. */
-.cs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: .5rem; }
-.cs-card {
-  display: flex; flex-direction: column; gap: .35rem;
-  padding: .6rem .75rem; border: 1px solid var(--border, #262626);
-  border-radius: .4rem; background: rgba(255, 255, 255, .02);
-  transition: border-color .12s ease;
-}
-.cs-card:hover { border-color: rgba(255, 255, 255, .12); }
-.cs-head { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
-.cs-label { font-weight: 600; flex: 1; }
-.cs-kind {
-  font-size: .7rem; text-transform: uppercase; letter-spacing: .04em;
-  color: var(--muted, #888); border: 1px solid var(--border, #262626);
-  border-radius: 3px; padding: 0 .35rem;
-}
-.cs-global {
-  font-size: .7rem; color: var(--accent, #9bd1ff);
-  border: 1px solid var(--accent, #9bd1ff); border-radius: 3px; padding: 0 .35rem;
-}
-.cs-proxy {
-  font-size: .7rem; color: #e0b050; border: 1px solid #e0b050;
-  border-radius: 3px; padding: 0 .35rem; letter-spacing: .02em;
-}
-.cs-desc { color: var(--muted, #888); font-size: .8rem; line-height: 1.45; }
-.cs-opts { display: flex; flex-wrap: wrap; gap: .3rem; }
-.cs-opt { font-size: .72rem; background: var(--border, #262626); border-radius: 3px; padding: 1px 6px; }
+<main class="avx-wrap">
+  <h1>AVX Modes</h1>
+  <p class="avx-lead">How this box uses AVX-512 — pick the mode in one place. Two very different powers: the
+    <b>Custom</b> bit-machine (M002 control-word + M007 branch scheduler + M008 bit-cheats) where
+    <em>policy becomes bits</em>, and <b>BuiltIn-Features</b> — stock AVX-512 math (VNNI / BF16 / tiers).
+    <b>Hybrid</b> runs both; <b>Off</b> is the scalar baseline.</p>
 
-/* ── argument rail: one control per change_cli placeholder ──────────────── */
-.cs-args { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; margin: .1rem 0; }
-.cs-lit { font-family: var(--mono, ui-monospace, monospace); font-size: .74rem; color: var(--muted, #888); }
-.cs-verbs { display: inline-flex; border: 1px solid var(--border, #262626); border-radius: 4px; overflow: hidden; }
-.cs-verb {
-  font-family: var(--mono, ui-monospace, monospace); font-size: .72rem;
-  color: var(--fg, #e6e6e6); background: var(--bg, #0e0e0e);
-  border: 0; border-right: 1px solid var(--border, #262626);
-  padding: .2rem .5rem; cursor: pointer;
-}
-.cs-verb:last-child { border-right: 0; }
-.cs-verb[aria-pressed="true"] { background: var(--accent, #9bd1ff); color: #0a0a0a; font-weight: 600; }
-.cs-arg {
-  font-family: var(--mono, ui-monospace, monospace); font-size: .74rem;
-  color: var(--fg, #e6e6e6); background: var(--bg, #0e0e0e);
-  border: 1px solid var(--border, #262626); border-radius: 4px;
-  padding: .2rem .4rem; min-width: 6ch; max-width: 16ch;
-}
-.cs-arg:focus { outline: 0; border-color: var(--accent, #9bd1ff); }
+  <div class="avx-why">
+    <p><b>Why it's a superpower.</b> Instead of interpreting rules as branchy code per token, the Custom
+    mode packs the rule into a control word and decides with one AVX-512 masked op across many branches at
+    once — <b>token-by-token routing at hardware speed</b>, with the remaining bits carrying profile + route.
+    "Instructions become data, policy becomes bits, reasoning becomes state transitions" (M008 M00105).</p>
+  </div>
 
-/* ── action row: Execute (primary) + Copy (fallback) ───────────────────── */
-.cs-actions { display: flex; gap: .35rem; align-items: stretch; margin-top: .1rem; }
-.cs-exec {
-  font-size: .76rem; font-weight: 600; cursor: pointer;
-  color: #0a0a0a; background: var(--accent, #9bd1ff);
-  border: 1px solid var(--accent, #9bd1ff); border-radius: 4px;
-  padding: .28rem .6rem; white-space: nowrap;
-}
-.cs-exec:hover { filter: brightness(1.08); }
-.cs-exec:disabled { opacity: .45; cursor: not-allowed; filter: none; }
-.cs-cmd {
-  font-family: var(--mono, ui-monospace, monospace); font-size: .74rem;
-  text-align: left; color: var(--fg, #e6e6e6); background: var(--bg, #0e0e0e);
-  border: 1px solid var(--border, #262626); border-radius: 4px;
-  padding: .25rem .4rem; cursor: pointer; overflow-x: auto; white-space: nowrap; flex: 1;
-}
-.cs-cmd:hover { border-color: var(--accent, #9bd1ff); }
-.cs-copy { flex: 1; }
-/* result line — dry-run / executed / rejected feedback, always visible */
-.cs-result { font-size: .72rem; line-height: 1.4; min-height: 1em; word-break: break-word; }
-.cs-result.ok { color: #6fcf6f; }
-.cs-result.dry { color: var(--accent, #9bd1ff); }
-.cs-result.warn { color: #e0b050; }
-.cs-result.err { color: #e06a6a; }
-.cs-result.muted { color: var(--muted, #888); }
-/* inline type-to-confirm gate for privileged controls */
-.cs-confirm {
-  display: flex; flex-wrap: wrap; align-items: center; gap: .35rem;
-  padding: .35rem .4rem; margin-top: .1rem;
-  border: 1px dashed var(--accent, #9bd1ff); border-radius: 4px;
-}
-.cs-confirm-msg { font-size: .72rem; color: var(--muted, #888); }
-.cs-confirm-msg code { color: var(--fg, #e6e6e6); }
-.cs-confirm-in { max-width: 14ch; }
-.cs-confirm-cancel { flex: 0 0 auto; }
-.cs-empty { color: var(--muted, #888); }
-</style>
+  <div class="avx-grid"><div class="avx-card avx-scaffold"><div class="avx-ct"><b>Custom-AVX (bit-machine)</b><span class="avx-tag">scaffold</span></div><p>M002 control-word + M007 branch scheduler + M008 bit-cheats — policy becomes bits.</p><div class="avx-anchors">M002 · M007 · M008 · M061</div></div><div class="avx-card avx-real"><div class="avx-ct"><b>BuiltIn-Features-AVX</b><span class="avx-tag">real</span></div><p>Stock AVX-512 math — sovereign-simd/vnni/bitops, cpu-dispatch tiers, M085/M086.</p><div class="avx-anchors">M085 · M086 · sovereign-simd · sovereign-vnni</div></div><div class="avx-card avx-scaffold"><div class="avx-ct"><b>Hybrid-AVX</b><span class="avx-tag">scaffold</span></div><p>Both — the bit-machine routes, the math tiers compute.</p><div class="avx-anchors">M002 · M007 · M008 · M085</div></div><div class="avx-card avx-real"><div class="avx-ct"><b>Off (scalar baseline)</b><span class="avx-tag">real</span></div><p>No AVX — the portable scalar path (cpu-dispatch ScalarBaseline), any x86-64.</p><div class="avx-anchors">sovereign-cpu-dispatch</div></div></div>
+
+  <p class="avx-lead">Swap the mode below — <b>Execute</b> applies it live through the sanctioned control-exec-api
+    (dry-run until the box is live; privileged → type-to-confirm). Same rail as the settings-pane AVX hotswap.</p>
+  <div id="control-surface" class="cs-grid"><div class="cs-empty">loading controls…</div></div>
+
+  <div class="avx-honest"><b>Honest ledger (do-not-minimize).</b> The Custom bit-machine is spec-rich but
+    crate-light today — <span class="mono">sovereign-control-word</span> is a <span class="mono">u64</span>
+    (not the 128/256/ZMM limbs the spec wants), <span class="mono">sovereign-branch-tree</span> is a scalar
+    tree (not the AVX-512 masked SoA scheduler), and the M008 bit-cheats have no crate yet. Selecting
+    <b>custom</b>/<b>hybrid</b> RECORDS the mode and gates the profile knobs, but the ZMM kernels it drives are
+    scaffold — the switch is real; the kernels land downstream (M002 E0018/E0019 · M007 M00104 · M008).</p>
+
+  <h2 class="avx-h">Custom sub-modes — the M008 bit-cheats (13)</h2>
+  <table class="avx-tbl"><tbody><tr><td class="mono">bitfields-microcode</td><td>64-bit control word as executable policy (M00113)</td></tr><tr><td class="mono">vpternlog-fused-policy</td><td>VPTERNLOG fuses model-wants + policy-allows + oracle-verified into one mask (M00114)</td></tr><tr><td class="mono">kmask-routing</td><td>k-mask registers k1..k7 as decision/routing planes (M00115)</td></tr><tr><td class="mono">vpcompress-pack</td><td>VPCOMPRESS packs alive branches into dense GPU batches (M00116)</td></tr><tr><td class="mono">token-law-bitset</td><td>grammar/tool/safety/schema/route packed as a token bitset (M00117)</td></tr><tr><td class="mono">inline-lut</td><td>decision = (rule_word >> condition) & 1 — a LUT inside 64 bits (M00118)</td></tr><tr><td class="mono">two-level-rule-table</td><td>rule_id -> cached table[rule_id][event_class] (M00119)</td></tr><tr><td class="mono">speculative-commit</td><td>accept = oracle & grammar & tool & budget & memory (M00120)</td></tr><tr><td class="mono">branch-prediction</td><td>predictor / retirement / reorder-commit analogy (M00121)</td></tr><tr><td class="mono">bloom-sketch</td><td>popcount(query & memory) overlap sketches (M00122)</td></tr><tr><td class="mono">simd-fsm</td><td>8 branches through a finite-state machine at once (M00123)</td></tr><tr><td class="mono">token-class-mini-lut</td><td>token-class mini lookup table (M00124)</td></tr><tr><td class="mono">filter-cascade</td><td>cheapest-first filter cascade ordering (M00125)</td></tr></tbody></table>
+
+  <h2 class="avx-h">BuiltIn dispatch paths (4)</h2>
+  <table class="avx-tbl"><tbody><tr><td class="mono">scalar-baseline</td><td>portable x86-64 (cpu-dispatch ScalarBaseline)</td></tr><tr><td class="mono">avx2</td><td>AVX2 path</td></tr><tr><td class="mono">avx512-generic</td><td>generic AVX-512</td></tr><tr><td class="mono">zen5-avx512</td><td>Zen5-tuned AVX-512 (-march=znver5)</td></tr></tbody></table>
+
+  <h2 class="avx-h">BuiltIn precision tiers (3)</h2>
+  <table class="avx-tbl"><tbody><tr><td class="mono">t1-quant-dot</td><td>T1 quantization & dot product (VPDPBUSD INT8 / VDPBF16PS BF16)</td></tr><tr><td class="mono">t2-bitwise-attn</td><td>T2 bitwise logic & attention masking (VPTERNLOG / VP2INTERSECT)</td></tr><tr><td class="mono">t3-structure-kv</td><td>T3 structure / prune / KV (VPCOMPRESS / VPEXPAND / VPERMB)</td></tr></tbody></table>
+</main>
+
+<!-- SDD-045 shared control-surface, inlined verbatim from webapp/_shared/control-surface.js -->
 <script>
 /* webapp/_shared/control-surface.js — SDD-045 shared control-surface renderer.
  *
@@ -1394,92 +1358,10 @@
 
   global.SovereignControlSurface = { render: render, load: load };
 })(window);
+
 </script>
-<script>SovereignControlSurface.load(document.getElementById('control-surface'),{filterSlug:'course'});</script>
-</main>
 <script>
-(function(){
-  "use strict";
-  var CKEY='sovereign-os.course', CSCHEMA=1;
-  function defState(){ return {schema:CSCHEMA, started:false, open:false, mi:0, li:0, done:{}, dismissed:false}; }
-  function load(){ try{ var p=JSON.parse(localStorage.getItem(CKEY)); if(!p||p.schema!==CSCHEMA) return defState(); if(typeof p.done!=='object'||!p.done)p.done={}; return p; }catch(e){ return defState(); } }
-  function save(st){ try{ localStorage.setItem(CKEY, JSON.stringify(st)); }catch(e){} }
-  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
-  function catPanel(dir){ var G=window.__soCatalog||[]; for(var g=0;g<G.length;g++){ var it=G[g].items||[]; for(var i=0;i<it.length;i++){ if(it[i].dir===dir) return it[i]; } } return null; }
-
-  function render(){
-    var CUR = window.__soCourseCurriculum || [];
-    var st = load();
-    var total=0, done=0;
-    for(var m=0;m<CUR.length;m++){ for(var l=0;l<CUR[m].lessons.length;l++){ total++; if(st.done[CUR[m].id+'.'+l]) done++; } }
-    var pct = total? Math.round(done/total*100) : 0;
-    var fill=document.getElementById('c-bar-fill'); if(fill) fill.style.width=pct+'%';
-    var pc=document.getElementById('c-pct'); if(pc) pc.textContent=done+' of '+total+' · '+pct+'%';
-
-    // primary button: Start (fresh) or Resume (in progress)
-    var startBtn=document.getElementById('c-start');
-    if(startBtn){
-      if(st.started){
-        var m2=CUR[st.mi]||CUR[0], L=m2?m2.lessons[st.li]:null;
-        var lbl = L ? (L.c ? L.t : ((catPanel(L.dir)||{}).label||L.dir)) : '';
-        startBtn.innerHTML='▷ Resume · '+esc((m2?m2.id:'')+' '+lbl);
-      } else {
-        startBtn.innerHTML='▶ Start the tour';
-      }
-    }
-
-    // modules
-    var host=document.getElementById('c-mods'); if(!host) return;
-    var out='';
-    for(var mi=0; mi<CUR.length; mi++){
-      var mod=CUR[mi];
-      var md=0; for(var k=0;k<mod.lessons.length;k++){ if(st.done[mod.id+'.'+k]) md++; }
-      out+='<div class="c-mod">'+
-        '<div class="c-mod-h"><span class="mid">'+esc(mod.id)+'</span><span class="mname">'+esc(mod.name)+'</span>'+
-          '<span class="c-tier '+esc(mod.tier)+'">'+esc(mod.tier)+'</span>'+
-          '<span class="mprog">'+md+'/'+mod.lessons.length+'</span></div>';
-      for(var li=0; li<mod.lessons.length; li++){
-        var L=mod.lessons[li];
-        var isDone=!!st.done[mod.id+'.'+li];
-        var isHere = st.started && st.mi===mi && st.li===li;
-        var title, idtxt='', kind;
-        if(L.c){ title=L.t; kind='concept'; }
-        else { var p=catPanel(L.dir); title=p?p.label:L.dir; idtxt=(p&&p.id&&p.id!=='—')?p.id:''; kind='panel'; }
-        var tried = L.todo && (st.checks||{})[mod.id+'.'+li];
-        out+='<button class="c-les'+(isHere?' here':'')+'" data-mi="'+mi+'" data-li="'+li+'">'+
-          '<span class="ck'+(isDone?'':' todo')+'">'+(isDone?'✓':'○')+'</span>'+
-          '<span class="lid">'+esc(idtxt)+'</span>'+
-          '<span class="ltx">'+esc(title)+'</span>'+
-          (tried?'<span class="try">✓ tried</span>':'')+
-          '<span class="lk">'+kind+'</span>'+
-          '<span class="arrow">›</span></button>';
-      }
-      out+='</div>';
-    }
-    var banner = (total>0 && done>=total)
-      ? '<div class="c-done"><span class="em">🎓</span><span class="tx"><b>Course complete.</b> You’ve toured all '+total+' lessons of sovereign-os. Restart anytime with “Reset progress”, or revisit any single lesson below.</span></div>'
-      : '';
-    host.innerHTML=banner+out;
-    var rows=host.querySelectorAll('.c-les');
-    Array.prototype.forEach.call(rows,function(el){ el.addEventListener('click',function(){ openLesson(parseInt(el.getAttribute('data-mi'),10)||0, parseInt(el.getAttribute('data-li'),10)||0); }); });
-  }
-
-  function openLesson(mi,li){
-    var CUR=window.__soCourseCurriculum||[]; var st=load();
-    st.started=true; st.open=true; st.dismissed=false; st.mi=mi; st.li=li; save(st);
-    var mod=CUR[mi]; var L=mod?mod.lessons[li]:null;
-    if(L && !L.c && L.dir){ location.href='../'+L.dir+'/'; }      // panel lesson → travel there
-    else { location.href='../course/'; }                          // concept lesson → open the rail here
-  }
-
-  document.addEventListener('DOMContentLoaded', function(){
-    render();
-    var s=document.getElementById('c-start');
-    if(s) s.addEventListener('click', function(){ var st=load(); if(st.started){ openLesson(st.mi,st.li); } else { openLesson(0,0); } });
-    var r=document.getElementById('c-reset');
-    if(r) r.addEventListener('click', function(){ save(defState()); render(); });
-  });
-})();
+  SovereignControlSurface.load(document.getElementById("control-surface"), {filterSlug:"avx-modes"});
 </script>
 <!-- COURSE:BEGIN M090 -->
 <style id="so-course-style">
@@ -1985,10 +1867,5 @@
 })();
 </script>
 <!-- COURSE:END M090 -->
-<script type="module">
-  // cockpit-crate runtime (F-2026-001): run the real sovereign-cockpit-* crates.
-  import { enhance } from '/_shared/cockpit-runtime.js';
-  enhance(document).catch(() => {});   // additive + graceful: no-op if the bridge is absent
-</script>
 </body>
 </html>

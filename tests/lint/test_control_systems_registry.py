@@ -37,6 +37,7 @@ EXPECTED_IDS = {
     "frontend",
     "openclaw-backend", "open-computer-backend",
     "claude-code-backend", "vscode-backend",
+    "avx-mode",
 }
 VALID_KINDS = {"profile", "mode", "toggle", "lifecycle"}
 VALID_SCOPES = {"global", "scoped"}

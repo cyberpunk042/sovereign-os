@@ -87,6 +87,9 @@ dashboards:
   - {slug: cpu-features, category: models, label: "CPU / AVX-512 Choice", path: /cpu-features/, status: live,
      cli: "scripts/build/cpu-features.py · scripts/hardware/avx512-advisor.py · sovereign-osctl cpu-mode",
      description: "The tiered AVX-512 exploitation surface — which instructions (F/VL/BW/VNNI/BF16/VPOPCNTDQ…) THIS CPU exposes and how they map to the AI workloads they enable (Pulse ternary path). Live probe via avx512-advisor (R272), served at /cpu-avx.json.", refs: [SDD-043, R272]}
+  - {slug: avx-modes, category: models, label: "AVX Modes (custom bit-machine)", path: /avx-modes/, status: live,
+     cli: "sovereign-osctl avx-mode {list|show|inventory|set}",
+     description: "The AVX execution-mode surface (SDD-600) — Custom-AVX (the M002/M007/M008 bit-machine: policy becomes bits, token-by-token routing) vs BuiltIn-Features-AVX (stock AVX-512 math) vs Hybrid vs Off, in one select, with the full mode inventory (M008 13 bit-cheats + cpu-dispatch paths + precision tiers). The Custom bit-machine has no other panel; honest-degrade — the ZMM kernels are scaffold today. Sibling of the CPU/AVX-512 Choice panel (which surfaces the BuiltIn hardware side).", refs: [SDD-600, M002, M007, M008, M061]}
   - {slug: orchestration, category: models, label: "Thinking Router / Orchestration", path: /orchestration/, status: live,
      cli: "sovereign-osctl router plan <prompt>",
      description: "The thinking-router / orchestration view — the 7-axis routing rules (SDD-011) + live routing metrics (which tier/class/task-type requests landed on) + the per-profile escalation (CoT → Validator → self-consistency → MoE). Served at /orchestration.json (router rules|metrics).", refs: [SDD-043 P4]}

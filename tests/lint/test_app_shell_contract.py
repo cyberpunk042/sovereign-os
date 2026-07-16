@@ -44,6 +44,7 @@ ADOPTED_APP_SHELL_PANELS = [
     "models-catalog", "network-edge", "orchestration", "personalization",
     "profile-generation", "router", "runtime-modes", "selfdef-management",
     "science", "surface-map", "trinity", "ups", "ux-design-audit", "warp", "weaver",
+    "avx-modes",
     "feature-test-lab", "d-26-friction-audit", "d-27-guardian", "d-28-perimeter", "d-29-scheduler",
 ]
 
@@ -88,22 +89,31 @@ def test_app_shell_reuses_personalization_key():
 
 
 SANCTIONED_CHAT_FETCH = "/api/code-console/chat"
+# SDD-600: the settings-pane hotswaps (frontend / provider / avx-mode) FLIP state
+# through the SAME sanctioned control-exec-api the panels use — a same-origin
+# loopback POST to the control-exec daemon (:8130), which itself enforces the
+# real gates (sudoers allowlist + the live flag + privileged type/Confirm). This
+# is the operator's explicit directive (a "hotswap" that swaps, not a copied
+# command), so the exec-rail path is allow-listed alongside the chat.
+SANCTIONED_EXEC_FETCH = "/api/control/execute"
+SANCTIONED_FETCHES = {SANCTIONED_CHAT_FETCH, SANCTIONED_EXEC_FETCH}
 
 
 def test_app_shell_chrome_is_non_mutating():
-    """Per the design grammar the chrome navigates + explains; it MUST NOT
-    execute anything server-side — with ONE sanctioned exception (R10212):
-    the Assistant "Ask" footer may POST to the loopback chat
-    (/api/code-console/chat, 127.0.0.1 only), the same non-mutating inference
-    read-compute the Code Console / D-22 panels use. No XHR / sendBeacon /
-    form-POST, and no other or external fetch, is permitted."""
+    """Per the design grammar the chrome navigates + explains; server-side
+    mutation is limited to two sanctioned same-origin loopback paths (R10212 +
+    SDD-600): the Assistant "Ask" footer POST to the chat
+    (/api/code-console/chat), and the settings-pane hotswap POST to the
+    control-exec-api (/api/control/execute — the sanctioned write daemon that
+    gates on sudoers + the live flag). No XHR / sendBeacon / form-POST, and no
+    other or external fetch, is permitted."""
     block = _canonical_block()
     low = block.lower()
     for forbidden in ("xmlhttprequest", "navigator.sendbeacon", 'method="post"', "method='post'"):
         assert forbidden not in low, (
             f"app-shell block must be non-mutating; found: {forbidden}"
         )
-    # every fetch() target MUST be the single sanctioned loopback chat path — a
+    # every fetch() target MUST be one of the sanctioned loopback paths — a
     # string literal, never a template/variable/external URL that could hide egress.
     fetches = re.findall(r"fetch\(\s*(['\"])(.*?)\1", block)
     literal_fetch_count = len(re.findall(r"fetch\(", block))
@@ -112,9 +122,9 @@ def test_app_shell_chrome_is_non_mutating():
         "(no template/variable target that could hide external egress)"
     )
     for _quote, url in fetches:
-        assert url == SANCTIONED_CHAT_FETCH, (
-            f"only the sanctioned loopback chat fetch ({SANCTIONED_CHAT_FETCH}) "
-            f"is allowed in the app-shell; found fetch to: {url!r}"
+        assert url in SANCTIONED_FETCHES, (
+            f"only the sanctioned loopback fetches {sorted(SANCTIONED_FETCHES)} "
+            f"are allowed in the app-shell; found fetch to: {url!r}"
         )
 
 

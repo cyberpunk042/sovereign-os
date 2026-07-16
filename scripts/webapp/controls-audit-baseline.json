@@ -21,6 +21,13 @@
     "status": "no-actions"
   },
   {
+    "slug": "avx-modes",
+    "exec_rail": 0,
+    "proxy_copy": false,
+    "wireable_gap": false,
+    "status": "no-actions"
+  },
+  {
     "slug": "brain",
     "exec_rail": 0,
     "proxy_copy": false,
