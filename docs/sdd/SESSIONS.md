@@ -25,6 +25,7 @@
 | compute-plane | 900–949 | E11.M900–M949 | `claude/*compute-plane*` | multi-model / GPU compute plane | active |
 | phase-1-audit | 950–999 | E11.M950–M999 | `claude/sovereign-os-audit-*` | phase-1 audit / improvement | active |
 | phase-1-audit-cont | 700–799 | E11.M700–M799 | `claude/sovereign-os-audit-*` | phase-1 audit continuation — build-and-flash readiness (950–999 band filled) | active |
+| cockpit-hotswap | 600–699 | E11.M600–M699 | `claude/sovereign-os-test-perf-*` | top-right settings-pane hotswaps — frontend/GUI · provider/origin · AVX modes (design-lock) | active |
 
 > **No shared catch-all band.** Every new unassigned session claims its **own
 > disjoint 100-wide block** and adds a row here BEFORE taking numbers (`800–899` +
