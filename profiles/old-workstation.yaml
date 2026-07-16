@@ -24,12 +24,14 @@ identity:
   maintainer: cyberpunk042
   description: |
     Constrained-hardware profile targeting the operator's existing
-    workstation (~11 GB system RAM + ~8 GB GPU). Used to validate
-    schema-pluralism and to host smaller-model deployments (SLMs /
-    RLMs / quantized variants) per the operator's overnight goal
-    directive. Substantive hardware specifics filled in once the
-    operator supplies the actual machine details (CPU model + GPU
-    model + storage layout).
+    dual-Turing workstation (RTX 2080 Ti 11 GB + RTX 2080 8 GB =
+    19 GB across two uneven cards; ~11 GB system RAM). Used to
+    validate schema-pluralism and to host smaller-model / ternary
+    GGUF deployments (SLMs / RLMs / quantized variants) per the
+    operator's goal directive. GPU details operator-supplied
+    2026-07-16; CPU model + storage layout still TBD. The llama.cpp
+    two-tier serving mode for this box is the `dual-turing-serving`
+    runtime profile (profiles/runtime/).
 
 hardware:
   cpu:
@@ -48,10 +50,18 @@ hardware:
       topology: monolithic
 
   gpu:
+    # Operator-supplied 2026-07-16: dual Turing consumer GPUs (uneven VRAM).
+    # cuda:0 = the larger card (Oracle/27B tier); cuda:1 = the smaller (Scout/8B).
+    # Turing (SM 7.5): FP16 + INT8/INT4 native; NO native BF16/FP8 — BF16 assets
+    # (e.g. mmproj/dspark) must be converted to F16 for this class.
     - vendor: nvidia
-      model: unknown-8gb
-      vram_gb: 8
+      model: rtx-2080-ti
+      vram_gb: 11
       role: primary
+    - vendor: nvidia
+      model: rtx-2080
+      vram_gb: 8
+      role: secondary
 
   memory:
     minimum_gb: 8

@@ -1,0 +1,76 @@
+# yaml-language-server: $schema=../../schemas/runtime-profile.schema.yaml
+#
+# Master spec § 18 — operator-additive runtime profile (NOT one of the 3
+# master-spec Trinity modes; § 18 explicitly allows operator-additive profiles).
+#
+# dual-turing-serving — the operator's personal dual-Turing workstation
+# (RTX 2080 Ti 11 GB + RTX 2080 8 GB) as a llama.cpp two-tier SERVING node:
+# an 8B scout + a 27B oracle, both ternary GGUF, one model per card, serving
+# hot-swappable LoRA adapters trained elsewhere (SAIN-01's big GPU per M046
+# E0446). Turing (SM 7.5) has no native BF16/FP8 — llama.cpp GGUF is the engine
+# here, not vLLM (whose fast kernels + symmetric tensor-parallel don't fit an
+# uneven 8+11 GB Turing pair). See docs/sdd/714-*.md.
+
+schema_version: "1.0.0"
+
+runtime_profile:
+  id: dual-turing-serving
+  name: "Dual-Turing Workstation Serving (llama.cpp, 8B scout + 27B oracle)"
+  description: |
+    Personal dual-Turing workstation serving node. Two ternary GGUF models on
+    llama.cpp, one per card: Prism-Ternary-Bonsai-8B (scout/fast) on the 8 GB
+    RTX 2080, Ternary-Bonsai-27B Q2_0 (oracle/quality) on the 11 GB RTX 2080 Ti.
+    LoRA adapters are trained on SAIN-01 and served here (adapt-by-serving, not
+    training). For context longer than the 11 GB card holds, the 27B can split
+    across both cards via llama.cpp --tensor-split (see the backend adapter).
+
+  hardware_profile_compat:
+    - old-workstation
+
+  allocations:
+    # Oracle tier — the 27B on the larger card (11 GB RTX 2080 Ti). Q2_0 ternary
+    # ~9-10 GB weights fit one card at modest context; --tensor-split 11,8 is the
+    # long-context fallback across both cards (see LlamaCppBackend.for_dual_turing).
+    - agent_id: oracle_01
+      tier: oracle
+      target_hardware: cuda:0
+      vram_limit_bytes: 11811160064   # 11 GB (RTX 2080 Ti)
+      engine: llama.cpp
+      model: Ternary-Bonsai-27B
+      runtime_invocation: |
+        CUDA_VISIBLE_DEVICES=0 \
+        llama-server \
+          -m /mnt/vault/models/ternary-bonsai-27b/Ternary-Bonsai-27B-Q2_0.gguf \
+          -ngl 999 --ctx-size 4096 --port 8083 --host 127.0.0.1
+
+    # Scout tier — the 8B on the smaller card (8 GB RTX 2080). Fast ternary path
+    # for routing/perception/draft; adapters hot-swap here first.
+    - agent_id: scout_01
+      tier: pulse
+      target_hardware: cuda:1
+      vram_limit_bytes: 8589934592    # 8 GB (RTX 2080)
+      engine: llama.cpp
+      model: Prism-Ternary-Bonsai-8B
+      runtime_invocation: |
+        CUDA_VISIBLE_DEVICES=1 \
+        llama-server \
+          -m /mnt/vault/models/ternary-bonsai-8b/Ternary-Bonsai-8B-Q2_0.gguf \
+          -ngl 999 --ctx-size 8192 --port 8081 --host 127.0.0.1
+
+  gpu_state:
+    primary:
+      mode: full-power
+      command: "nvidia-smi -i 0 -pm 1"   # RTX 2080 Ti (Turing; no -lgc clock lock as on Blackwell)
+    secondary:
+      mode: full-power
+      command: "nvidia-smi -i 1 -pm 1"   # RTX 2080
+
+  expected_power_draw_watts:
+    cpu: 65
+    gpu_primary: 250     # RTX 2080 Ti TBP
+    gpu_secondary: 215   # RTX 2080 TBP
+    system_total: ~600
+
+  observability:
+    primary_metric: sovereign_os_inference_route_total
+    expected_concurrency: "2 tiers (8B scout + 27B oracle) resident simultaneously"

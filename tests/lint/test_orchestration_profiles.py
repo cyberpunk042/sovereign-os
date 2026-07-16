@@ -105,9 +105,21 @@ def test_each_profile_conforms():
 
 
 def test_runtime_profile_family_untouched():
-    """Guard: the verbatim-locked §18 runtime family still has exactly 3
-    profiles — the new orchestration family must not have leaked into it."""
+    """Guard: the runtime family holds exactly the 3 master-spec §18 profiles
+    plus any tracked operator-additive §18 profiles — and the orchestration
+    family must not have leaked into it. The exact allowlist (not a bare count)
+    is the real guard; see tests/lint/test_runtime_profiles_verbatim.py."""
+    # Master-spec §18 (verbatim-locked) + operator-additive §18 (SDD-714).
+    expected = sorted([
+        "ultra-sovereign-efficiency",
+        "deep-context-synthesis",
+        "high-concurrency-burst",
+        "dual-turing-serving",  # SDD-714 — operator-additive
+    ])
     runtime = sorted(p.stem for p in (REPO_ROOT / "profiles" / "runtime").glob("*.yaml"))
-    assert len(runtime) == 3, (
-        f"runtime profile family must stay at 3 (verbatim §18); got {runtime}"
+    assert runtime == expected, (
+        f"runtime profile family drift: got {runtime} vs expected {expected} "
+        f"(§18 master-spec 3 + tracked operator-additive; a new profile must be "
+        f"registered here + in test_runtime_profiles_verbatim.py, and an "
+        f"orchestration profile must NOT land in profiles/runtime/)"
     )

@@ -12,6 +12,30 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — dual-Turing workstation serving profile + Bonsai catalog (2026-07-16)
+
+Operator-directed (*"I might wanna re-use those later with LORA customization for my personal (2080 + 2080 Ti
+workstation)"* → serve base + LoRAs, training offloaded; both tiered → *"yes. pull the latest main and start"*)
+(SDD-714, Slice 1). Makes the operator's personal dual-Turing workstation (RTX 2080 Ti 11 GB + RTX 2080 8 GB) a
+real, catalogued llama.cpp serving target — an 8B scout + a 27B oracle, both ternary GGUF, one model per card,
+serving hot-swap LoRA adapters trained on SAIN-01 (M046 E0446).
+
+- **NEW runtime profile** `profiles/runtime/dual-turing-serving.yaml` (operator-additive § 18): `Ternary-Bonsai-27B`
+  Q2_0 (oracle) on the 11 GB card, `Prism-Ternary-Bonsai-8B` (scout) on the 8 GB card — mirrors the M018
+  Scout/Oracle tiering on Turing.
+- **Catalog** adds HF-verified `Ternary-Bonsai-27B` (`prism-ml/Ternary-Bonsai-27B-gguf`, released 2026-07-04,
+  base Qwen3.6-27B, ternary/GGUF), binds both Bonsai entries to the new profile, and corrects the stale
+  2026-07-02 "largest is 8B" note (the 27B post-dates it by two days).
+- **llama.cpp backend** gains `--tensor-split` + a `for_dual_turing()` constructor — llama.cpp splits UNEVEN
+  VRAM by ratio (8 + 11 GB), the concrete reason it, not vLLM (symmetric tensor-parallel + Ampere+ kernels;
+  Turing has no native BF16/FP8), serves this box. Ternary is not engine-bound — the catalog already runs
+  `ternary-1.58bit` on vllm + llama.cpp + bitnet.cpp.
+
+Serve-only (training offloaded, operator-chosen); M046 E0446 (sacrosanct spec) left untouched. Vision (`mmproj`)
+and the `dspark` speculative-decode draft are deferred (Slice 3 — BF16→F16 on Turing). Verified: touched-contract
+pytest + `for_dual_turing` argv + full `tests/` + 5 profiles + ruff green. Not hardware-verified (no Turing
+GPUs/weights in CI).
+
 ### Added — a production agent tool catalog: calc + time + recall (2026-07-14)
 
 Operator-directed (*"go. lets do everything, another big round. take your time to do this right"*) (SDD-713).

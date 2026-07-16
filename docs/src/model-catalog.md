@@ -2,7 +2,7 @@
 
 # Model catalog — Genesis Trinity (master spec § 17)
 
-Canonical declaration of the 68 models this system intends to host across Pulse / Logic / Oracle / Router tiers, spanning the full R212 taxonomy (class × quantization × size_class × purpose).
+Canonical declaration of the 69 models this system intends to host across Pulse / Logic / Oracle / Router tiers, spanning the full R212 taxonomy (class × quantization × size_class × purpose).
 
 This doc is regenerated from `models/catalog.yaml` on every invocation of `scripts/models/render-catalog-md.py`. The same YAML drives `scripts/models/pull.sh` (operator-driven pull) and `scripts/models/verify.sh` (resident integrity check), so the doc, the puller, and the verifier can never drift.
 
@@ -12,7 +12,7 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 |------|-------|---------------|--------------|
 | pulse | 28 | 9 | 14 |
 | logic | 22 | 6 | 7 |
-| oracle | 13 | 7 | 5 |
+| oracle | 14 | 8 | 5 |
 | router | 5 | 4 | 0 |
 
 ## Catalog by class (R212 taxonomy)
@@ -29,17 +29,17 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 | `rlm` — RLM (reasoning) | 9 |
 | `slm` — SLM (small) | 6 |
 | `speculative` — Speculative draft | 2 |
-| `ternary-lm` — Ternary LM (1.58-bit) | 32 |
+| `ternary-lm` — Ternary LM (1.58-bit) | 33 |
 | `vision` — Vision | 1 |
 
 ## Catalog by purpose (R212 taxonomy)
 
 | Purpose | Count |
 |---------|-------|
-| `agent` | 17 |
+| `agent` | 18 |
 | `audio` | 3 |
-| `chat` | 33 |
-| `code` | 18 |
+| `chat` | 34 |
+| `code` | 19 |
 | `distillation-base` | 1 |
 | `embedding` | 2 |
 | `function-calling` | 6 |
@@ -173,15 +173,19 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 - **VRAM minimum (GiB):** 3
 - **Context window (tokens):** 32,768
 - **Master spec:** operator handwritten catalog addition 2026-07-02
+- **Runtime profiles:** dual-turing-serving
 
 **Operator note:**
 
 > Operator handwritten catalog 2026-07-02 ("Prism ML: Ternary
 > Bonsai"). prism-ml/Ternary-Bonsai is a real active HF line
 > (1.7B/4B/8B; unpacked + gguf + mlx-2bit; Qwen3-based, ternary
-> 1.58-bit). The note said "70B" — no 70B exists; largest is 8B
-> (this entry). gguf variant prism-ml/Ternary-Bonsai-8B-gguf
-> ships for llama.cpp. vram + context estimated (Qwen3-8B lineage).
+> 1.58-bit). gguf variant prism-ml/Ternary-Bonsai-8B-gguf ships
+> for llama.cpp. vram + context estimated (Qwen3-8B lineage).
+> SCOUT tier of the dual-turing-serving runtime profile (SDD-714).
+> UPDATE 2026-07-16: the 2026-07-02 note said "largest is 8B" —
+> prism-ml released a 27B on 2026-07-04 (HF-verified); see the
+> Ternary-Bonsai-27B entry below.
 
 ### Spectra-TriLM-3.9B
 
@@ -1145,6 +1149,38 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 > catalog candidate for the §1g 'all the best selection of
 > models adapted for various size and at various
 > quantization' directive.
+
+### Ternary-Bonsai-27B
+
+- **Status:** ✓ verified-real
+- **Class:** `ternary-lm` — Ternary LM (1.58-bit)
+- **Quantization:** `ternary-1.58bit`
+- **Size class:** `l`
+- **Purpose:** `chat`, `code`, `agent`
+- **Engine:** `llama.cpp`
+- **License:** apache-2.0
+- **HF repo id:** `prism-ml/Ternary-Bonsai-27B-gguf`
+- **Parameters:** 27000.0 M
+- **VRAM minimum (GiB):** 11
+- **Context window (tokens):** 32,768
+- **Master spec:** operator directive 2026-07-16 (dual-turing serving plan, SDD-714)
+- **Runtime profiles:** dual-turing-serving
+
+**Operator note:**
+
+> HF-verified 2026-07-16: prism-ml/Ternary-Bonsai-27B-gguf, released
+> 2026-07-04 (base Qwen/Qwen3.6-27B, ternary; llama.cpp/GGUF; cuda +
+> metal + on-device tags). The Q2_0 GGUF (~9-10 GB packed) is the entry
+> this row points at — the ORACLE tier of the dual-turing-serving runtime
+> profile (11 GB RTX 2080 Ti). vram_gib_min 11 = the Q2_0 weights + a
+> modest KV budget on one card; longer context uses llama.cpp
+> --tensor-split across both Turing cards. Upstream also ships -unpacked
+> (safetensors → transformers/vLLM) + -AWQ-4bit + -mlx-2bit; the mmproj
+> (vision) + dspark (spec-decode draft) variants are BF16 and would need
+> F16 conversion on Turing — deferred (SDD-714 Slice 3). quantization
+> recorded as ternary-1.58bit (the base form; Q2_0 is the GGUF packing —
+> the catalog quant enum has no gguf-q2_0, and the 8B sibling is likewise
+> recorded ternary-1.58bit).
 
 ### BitNet-70B
 

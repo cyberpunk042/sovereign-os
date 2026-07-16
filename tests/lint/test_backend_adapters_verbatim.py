@@ -248,6 +248,23 @@ def test_llama_cpp_offloads_all_layers_to_gpu():
     )
 
 
+def test_llama_cpp_dual_turing_tensor_split():
+    """SDD-714: the dual-turing-serving profile needs uneven multi-GPU splits
+    (RTX 2080 Ti 11 GB + RTX 2080 8 GB). The adapter MUST emit --tensor-split
+    and expose a for_dual_turing() constructor. Dropping either silently loses
+    the operator's dual-Turing serving path (llama.cpp, not vLLM, for uneven
+    Turing pairs)."""
+    body = _read(LLAMA)
+    assert "--tensor-split" in body, (
+        "llama_cpp.py missing --tensor-split (SDD-714 dual-Turing uneven "
+        "multi-GPU split)"
+    )
+    assert "for_dual_turing" in body, (
+        "llama_cpp.py missing for_dual_turing() constructor (SDD-714 "
+        "dual-turing-serving runtime profile)"
+    )
+
+
 # --- Cross-adapter invariants ---
 
 

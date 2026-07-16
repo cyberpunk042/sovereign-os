@@ -41,6 +41,13 @@ EXPECTED_PROFILES = [
     "high-concurrency-burst",
 ]
 
+# Operator-additive § 18 profiles — NOT the master-spec Trinity 3, but § 18
+# (and the schema-conformance test) explicitly permit operator-additive
+# profiles. Tracked here so drift detection still fails on any UNtracked file.
+OPERATOR_ADDITIVE_PROFILES = [
+    "dual-turing-serving",  # SDD-714 — dual-Turing workstation llama.cpp serving
+]
+
 # Tier identifiers that runtime_profile.allocations[].tier may take.
 # Aligned with § 17.1 Trinity (pulse / logic / oracle).
 KNOWN_TIERS = {"pulse", "logic", "oracle"}
@@ -80,10 +87,37 @@ def test_all_three_runtime_profiles_exist():
 
 def test_runtime_profile_count_matches():
     actual = sorted(p.stem for p in RUNTIME_DIR.glob("*.yaml"))
-    assert actual == sorted(EXPECTED_PROFILES), (
-        f"profiles/runtime/ drift: actual={actual} vs "
-        f"expected={EXPECTED_PROFILES} (§ 18 verbatim 3-profile set)"
+    tracked = sorted(EXPECTED_PROFILES + OPERATOR_ADDITIVE_PROFILES)
+    assert actual == tracked, (
+        f"profiles/runtime/ drift: actual={actual} vs tracked={tracked} "
+        f"(§ 18 master-spec 3 + operator-additive: {OPERATOR_ADDITIVE_PROFILES}). "
+        f"A new profile must be registered in OPERATOR_ADDITIVE_PROFILES."
     )
+
+
+def test_operator_additive_profiles_pass_generic_invariants():
+    """Operator-additive § 18 profiles get the same generic consistency
+    checks as the master-spec 3 (id↔filename, engines known, tiers known,
+    hardware_profile_compat resolves) — the master-spec-specific verbatim
+    quotes below deliberately do NOT apply to them."""
+    profiles_dir = REPO_ROOT / "profiles"
+    for pid in OPERATOR_ADDITIVE_PROFILES:
+        data = _load(pid)
+        rp = data.get("runtime_profile") or {}
+        assert rp.get("id") == pid, f"{pid}.yaml id={rp.get('id')!r} != filename"
+        allocs = rp.get("allocations") or []
+        assert allocs, f"{pid}.yaml has no allocations"
+        for alloc in allocs:
+            assert alloc.get("engine") in KNOWN_ENGINES, (
+                f"{pid}.yaml engine={alloc.get('engine')!r} not in {KNOWN_ENGINES}"
+            )
+            assert alloc.get("tier") in KNOWN_TIERS, (
+                f"{pid}.yaml tier={alloc.get('tier')!r} not in {KNOWN_TIERS}"
+            )
+        for hw_profile in rp.get("hardware_profile_compat") or []:
+            assert (profiles_dir / f"{hw_profile}.yaml").is_file(), (
+                f"{pid}.yaml hardware_profile_compat {hw_profile!r} doesn't exist"
+            )
 
 
 def test_every_profile_has_schema_version():

@@ -28,11 +28,17 @@ class LlamaCppBackend(Backend):
         n_gpu_layers: int = DEFAULT_N_GPU_LAYERS,
         ctx_size: int = 8192,
         tier: str = "logic_engine",
+        tensor_split: str | None = None,
     ):
         super().__init__(config)
         self.n_gpu_layers = n_gpu_layers
         self.ctx_size = ctx_size
         self.tier = tier
+        # Comma-separated per-GPU layer ratio for multi-GPU splits, e.g. "11,8"
+        # for the dual-Turing workstation (RTX 2080 Ti 11 GB + RTX 2080 8 GB).
+        # llama.cpp handles UNEVEN VRAM by ratio — the key reason it, not vLLM
+        # (symmetric tensor-parallel), fits an asymmetric consumer-GPU pair.
+        self.tensor_split = tensor_split
 
     def start_command(self) -> list[str]:
         # llama.cpp's server binary; operator-installed (apt or build)
@@ -52,6 +58,9 @@ class LlamaCppBackend(Backend):
             "-ngl", str(self.n_gpu_layers),
         ]
 
+        if self.tensor_split:
+            argv += ["--tensor-split", self.tensor_split]
+
         argv += self.config.extra_args
         return argv
 
@@ -66,6 +75,33 @@ class LlamaCppBackend(Backend):
             port=8084,
         )
         return cls(cfg, n_gpu_layers=999, ctx_size=4096, tier="logic_engine")
+
+    @classmethod
+    def for_dual_turing(
+        cls,
+        model_path: str,
+        *,
+        port: int = 8083,
+        tensor_split: str | None = None,
+        ctx_size: int = 4096,
+    ) -> "LlamaCppBackend":
+        """dual-turing-serving runtime profile (SDD-714): a ternary GGUF on the
+        operator's RTX 2080 Ti + RTX 2080 pair. Both cards visible; pass
+        tensor_split='11,8' to span a model too large for one card (long
+        context), or leave None to keep one model per card."""
+        cfg = BackendConfig(
+            model_path=model_path,
+            host="127.0.0.1",
+            port=port,
+            cuda_visible_devices="0,1",
+        )
+        return cls(
+            cfg,
+            n_gpu_layers=999,
+            ctx_size=ctx_size,
+            tier="oracle_core",
+            tensor_split=tensor_split,
+        )
 
     @classmethod
     def for_sain01_fallback(cls, model_path: str) -> "LlamaCppBackend":

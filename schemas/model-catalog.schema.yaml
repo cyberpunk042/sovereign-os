@@ -123,6 +123,7 @@ $defs:
             - ultra-sovereign-efficiency
             - high-concurrency-burst
             - deep-context-synthesis
+            - dual-turing-serving   # SDD-714 — operator-additive § 18 profile
 
       operator_note:
         description: "Free-text operator-facing note (provenance, caveat, swap rationale)."
