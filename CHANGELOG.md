@@ -12,6 +12,37 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — the adapter training producer: unsloth/QLoRA on the unpacked base (2026-07-16)
+
+Operator-directed (*"what about custom training, doesn't it take unsloth ? … did we handle that already ? like a
+real support for it and LoRA management and observability and operability ?"*; then *"ready"*) (SDD-721). LoRA
+**management + observability + operability** were already shipped — `adapter-foundry` (inventory → D-11),
+`adapter-gate` (MS041 triple-gate → D-10), `adapter-decide` (promote/demote/rollback + `register`),
+`adapter-transport` (ship + ZFS, SDD-716), `--lora` serving (SDD-715), the registry — but nothing actually
+**trained**: `register` only minted a *pending* adapter. This closes the last gap so the loop is whole:
+`traces → dataset → TRAIN (this) → register → MS041 gate → transport → serve --lora → rollback`.
+
+- **`scripts/inference/adapter-train.py`** — a **CLI planner** (the standalone `adapter-transport` pattern, not
+  an osctl verb): `plan <id> --base <unpacked> --dataset <path> [--method qlora|lora] [--trainer unsloth|trl]
+  [--epochs N]` prints the exact commands — an `adapter-decide register` step (mint the pending adapter) + the
+  trainer invocation + the output layout `/var/lib/sovereign-os/adapters/<id>/train/` — **DRY-RUN by default**,
+  `--apply` runs them. QLoRA defaults (r=16, α=32, lr=2e-4, 4-bit) are operator-overridable. Trainer metadata
+  (install/detect/hardware-fit) is read from the existing `scripts/models/toolchains.py` registry (unsloth is
+  catalogued there) — never reinvented. Stdlib-only (no trainer imported at load).
+- **The ternary caveat is enforced, not just documented.** A packed ternary/GGUF `--base` **warns**: you cannot
+  LoRA-train a 1.58-bit base — train the FP16 LoRA on the **unpacked** safetensors (`prism-ml/Ternary-Bonsai-*-
+  unpacked`), base frozen, then serve the adapter over the ternary GGUF (SDD-715). A CUDA trainer also warns it
+  belongs on **SAIN-01** (E0446: "4090 → train small LoRAs / QLoRA"), not the serving box.
+- **`tests/lint/test_adapter_train_contract.py`** (7) — present/executable/stdlib; reuses toolchains +
+  adapter-decide; plan shape `[register, train]` with base/dataset/output/hyperparams; the ternary warning
+  fires; QLoRA=4-bit vs LoRA≠4-bit; DRY-RUN default.
+
+Why a planner, not the trainer: GPU training (unsloth/TRL on the 4090/Blackwell) can't run in CI — no GPUs, no
+weights — which is exactly why M046 deferred it. The deliverable is the **plan** (argv-tested) plus the
+correctness rails; the GPU-side trainer entry point (`train/<trainer>-lora.py`) is the operator-supplied Stage-4
+piece the plan invokes. Verified: `pytest tests/lint/test_adapter_train_contract.py` 7 passed + full `tests/` +
+ruff green. Not GPU-verified (no CUDA/weights in CI).
+
 ### Added — `/goal`: a locked goal the agent pursues on its own (2026-07-16)
 
 Operator-directed (*"the '/ goal' command … set a goal and have it stay locked … I don't want … to
