@@ -58,7 +58,10 @@ def test_multi_model_registry_and_load_unload():
     lib = _read(REPO / "crates" / "sovereign-gatewayd" / "src" / "lib.rs")
     http = _read(HTTP)
     # the single generator became a registry with routing (Phase 2 increment 1)
-    assert "secondaries" in lib and "fn resolve_model" in lib, "gateway must route by model id"
+    assert "secondaries" in lib and "fn resolve_secondary" in lib, (
+        "gateway must route named secondary models without advancing the primary worker pool"
+    )
+    assert "fn acquire_worker" in lib, "gateway must route primary models through the worker pool"
     assert "fn load_model" in lib and "fn unload_model" in lib and "fn list_models" in lib, \
         "the gateway must load/unload/list secondary models"
     # generate_chat takes a model id (routing), preserving the safety spine
