@@ -12,6 +12,36 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — the goal-loop trace sink: the M046 trace source (2026-07-16)
+
+Operator-directed (*"go"*) (SDD-723) — close the last software gap in the M046 loop after SDD-721 (train) +
+SDD-722 (dataset). The curator reads a JSONL trace log but nothing wrote one (fixtures only); this ships the
+producer so the loop is whole **and self-feeding**: `traces (this) → dataset (SDD-722) → train (SDD-721) →
+register → gate → transport → serve --lora`.
+
+- **`goal-driver.py` `run_loop(…, trace_sink=None)`** — the `/goal` loop now records the trajectory. It
+  accumulates `messages` (user prompt + assistant reply per iteration) and, at termination, emits **one record**
+  through an injected sink: `{"messages":[…], "outcome":"success"|"failure", "goal":<text>, …}` — exactly the
+  shape `adapter-dataset.py` curates. The sink lives here, not in the raw daemon, because **success/failure is
+  already known at the loop** (`done → success`, `paused → failure` — the same signal the curator keys on), so
+  the label falls out of the terminal state with no oracle, and it stays stdlib-only + CI-testable (scripted
+  responder, no daemon/GPU).
+- **`append_trace()` / `file_trace_sink()`** — append to the trace log (`SOVEREIGN_OS_TRACE_LOG`, default
+  `/var/lib/sovereign-os/traces/agentic.jsonl`), **bounded** (keeps the last `SOVEREIGN_OS_TRACE_MAX_LINES`,
+  default 10 000, so an always-on loop can't grow it unbounded) and **atomic** (`os.replace`, like goal-ctl's
+  state write). CLI `goal run` wires it by default; `--no-trace` opts out. The signature change is
+  backward-compatible (`trace_sink` defaults `None` — the goal-lock tests pass unchanged).
+- **`tests/lint/test_trace_sink_contract.py`** (5) — trajectory emitted with alternating roles;
+  done→success / paused→failure; the record curates cleanly through `adapter-dataset.py`; `append_trace`
+  bounded + atomic; `trace_sink=None` emits nothing.
+
+Verified: trace-sink 5 + goal-lock 8 passed; **end-to-end (real, in CI)** — a scripted 2-step goal run writes a
+trajectory to the log, `adapter-dataset.py curate` keeps it as one success example (sentinel stripped), and
+`adapter-train.py plan … --dataset <log>` consumes it. The M046 loop now runs from a live goal pursuit all the
+way to a training-ready dataset with zero fixtures; full `tests/` + ruff green. With SDD-721/722/723 the loop is
+whole in CI-testable Python — a pursued goal becomes training data becomes the next adapter. Only the GPU run +
+real gate scores remain, both genuinely SAIN-01-side.
+
 ### Added — the trace→dataset curator: success examples become training data (2026-07-16)
 
 Operator-directed (*"go"*) (SDD-722) — continue the M046 loop upstream after SDD-721 landed the trainer. The

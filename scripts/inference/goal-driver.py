@@ -30,6 +30,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import os
 import sys
 import urllib.request
 from pathlib import Path
@@ -46,6 +47,39 @@ DONE_SENTINEL = "[[GOAL_DONE]]"
 
 # A Responder takes the built prompt and returns {"text": str, "done": bool}.
 Responder = Callable[[str], dict[str, Any]]
+
+# A TraceSink takes one completed-trajectory record (the shape adapter-dataset.py
+# curates: {"messages":[…], "outcome":…, "goal":…}). None disables tracing.
+TraceSink = Callable[[dict[str, Any]], None]
+
+# The M046 trace log (SDD-723): the goal loop is where success/failure is KNOWN
+# (done → success, paused → failure), so it is the natural trace source that
+# feeds adapter-dataset.py. Bounded + atomic (like goal-ctl's state write).
+TRACE_LOG = Path(os.environ.get("SOVEREIGN_OS_TRACE_LOG", "/var/lib/sovereign-os/traces/agentic.jsonl"))
+TRACE_MAX_LINES = int(os.environ.get("SOVEREIGN_OS_TRACE_MAX_LINES", "10000"))
+
+
+def append_trace(record: dict[str, Any], *, path: Path = TRACE_LOG, max_lines: int = TRACE_MAX_LINES) -> None:
+    """Append one trajectory record to the JSONL trace log, keeping at most
+    `max_lines` (oldest trimmed) so an always-on loop can't grow it unbounded.
+    Atomic replace — a crashed write never corrupts the log."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lines = []
+    if path.exists():
+        lines = [ln for ln in path.read_text(encoding="utf-8").splitlines() if ln.strip()]
+    lines.append(json.dumps(record, ensure_ascii=False))
+    if len(lines) > max_lines:
+        lines = lines[-max_lines:]
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    os.replace(tmp, path)
+
+
+def file_trace_sink(path: Path = TRACE_LOG, max_lines: int = TRACE_MAX_LINES) -> TraceSink:
+    """The real sink: append each completed trajectory to the trace log."""
+    def sink(record: dict[str, Any]) -> None:
+        append_trace(record, path=path, max_lines=max_lines)
+    return sink
 
 
 def build_prompt(goal: dict[str, Any]) -> str:
@@ -87,27 +121,52 @@ def run_loop(
     *,
     max_iters: int = 50,
     no_progress_limit: int = 3,
+    trace_sink: TraceSink | None = None,
 ) -> dict[str, Any]:
     """Loop-until-goal. Returns {stop_reason, iterations, final_status}.
-    stop_reason ∈ {done, max-iters, no-progress, not-active}."""
+    stop_reason ∈ {done, max-iters, no-progress, not-active}.
+
+    When `trace_sink` is given, the full trajectory (alternating user prompt /
+    assistant reply across iterations) is emitted once at termination as a single
+    training example — outcome `success` iff the goal reached `done`, else
+    `failure`. This is the M046 trace source (SDD-723) that feeds
+    adapter-dataset.py. A run that never took a step (no active goal) emits
+    nothing."""
     g = _goal._get_goal()
     if not g or g.get("status") != "active":
         return {"stop_reason": "not-active", "iterations": g.get("iterations", 0) if g else 0,
                 "final_status": g.get("status") if g else None}
 
+    goal_text = g.get("text", "")
+    messages: list[dict[str, Any]] = []
+
+    def _finish(stop_reason: str, iterations: int, final_status: str | None) -> dict[str, Any]:
+        if trace_sink is not None and messages:
+            trace_sink({
+                "messages": messages,
+                "outcome": "success" if stop_reason == "done" else "failure",
+                "goal": goal_text,
+                "iterations": iterations,
+                "stop_reason": stop_reason,
+            })
+        return {"stop_reason": stop_reason, "iterations": iterations, "final_status": final_status}
+
     no_progress = 0
     while True:
         g = _goal._get_goal()
         if not g or g.get("status") != "active":
-            return {"stop_reason": "not-active", "iterations": g.get("iterations", 0) if g else 0,
-                    "final_status": g.get("status") if g else None}
+            return _finish("not-active", g.get("iterations", 0) if g else 0,
+                           g.get("status") if g else None)
         if int(g.get("iterations", 0)) >= max_iters:
             _goal._set_status("paused")
-            return {"stop_reason": "max-iters", "iterations": g["iterations"], "final_status": "paused"}
+            return _finish("max-iters", g["iterations"], "paused")
 
         prev = g.get("last_progress", "")
-        result = responder(build_prompt(g))
+        prompt = build_prompt(g)
+        messages.append({"role": "user", "content": prompt})
+        result = responder(prompt)
         text = (result.get("text") or "").strip()
+        messages.append({"role": "assistant", "content": text})
         made_progress = bool(text) and text != prev
         # add_progress bumps iterations + records last_progress (never touches text).
         _goal.add_progress(text[:200] if text else "(no output)")
@@ -116,11 +175,11 @@ def run_loop(
         if result.get("done"):
             _goal._set_status("done")
             g = _goal._get_goal()
-            return {"stop_reason": "done", "iterations": g["iterations"], "final_status": "done"}
+            return _finish("done", g["iterations"], "done")
         if no_progress >= no_progress_limit:
             _goal._set_status("paused")
             g = _goal._get_goal()
-            return {"stop_reason": "no-progress", "iterations": g["iterations"], "final_status": "paused"}
+            return _finish("no-progress", g["iterations"], "paused")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -131,6 +190,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--no-progress", type=int, default=3)
     p.add_argument("--model", default="local")
     p.add_argument("--port", type=int, default=8083)
+    p.add_argument("--no-trace", action="store_true",
+                   help=f"do not record the trajectory to the trace log ({TRACE_LOG})")
     p.add_argument("--json", action="store_true")
     args = ap.parse_args(argv)
 
@@ -143,6 +204,7 @@ def main(argv: list[str] | None = None) -> int:
             gateway_responder(args.model, args.port),
             max_iters=args.max_iters,
             no_progress_limit=args.no_progress,
+            trace_sink=None if args.no_trace else file_trace_sink(),
         )
         print(json.dumps(out, indent=2) if args.json
               else f"stopped: {out['stop_reason']} after {out['iterations']} iterations "
