@@ -87,6 +87,12 @@ def test_gateway_uses_worker_pool_for_concurrent_generation():
         "must have a worker-acquisition method"
     assert "try_lock" in lib, \
         "must prefer idle workers via try_lock (F-2026-083)"
+    assert "resolve_secondary" in lib, \
+        "secondary lookup must be separate from primary worker selection"
+    assert "resolve_model" not in lib, \
+        "combined resolution advances the primary counter before acquire_worker"
+    assert "next_worker_index" in lib, \
+        "round-robin progression must be independently unit-testable"
 
 
 def test_gateway_runs_memory_decay_thread():
