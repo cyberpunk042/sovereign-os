@@ -134,6 +134,7 @@ install:  ## Install sovereign-osctl + manpages + command discovery to PREFIX (d
 	@install -d "$(DESTDIR)$(PREFIX)/bin" \
 	            "$(DESTDIR)$(SOVEREIGN_OS_LIB)/lib" \
 	            "$(DESTDIR)$(SOVEREIGN_OS_LIB)/operator" \
+	            "$(DESTDIR)$(SOVEREIGN_OS_LIB)/osctl.d" \
 	            "$(DESTDIR)$(SOVEREIGN_OS_LIB)/share" \
 	            "$(DESTDIR)$(SOVEREIGN_OS_LIB)/hooks" \
 	            "$(DESTDIR)$(SOVEREIGN_OS_LIB)/whitelabel" \
@@ -146,6 +147,7 @@ install:  ## Install sovereign-osctl + manpages + command discovery to PREFIX (d
 	@install -m 755 scripts/sovereign-osctl "$(DESTDIR)$(PREFIX)/bin/sovereign-osctl"
 	@install -m 644 VERSION "$(DESTDIR)$(SOVEREIGN_OS_LIB)/VERSION"
 	@install -m 755 scripts/operator/command-discovery.py "$(DESTDIR)$(SOVEREIGN_OS_LIB)/operator/command-discovery.py"
+	@install -m 644 scripts/osctl.d/*.sh "$(DESTDIR)$(SOVEREIGN_OS_LIB)/osctl.d/"
 	@install -m 644 docs/man/sovereign-osctl-command-topics.json "$(DESTDIR)$(SOVEREIGN_OS_LIB)/share/sovereign-osctl-command-topics.json"
 	@install -m 644 scripts/build/lib/common.sh "$(DESTDIR)$(SOVEREIGN_OS_LIB)/lib/common.sh"
 	@install -m 644 scripts/build/lib/observability.sh "$(DESTDIR)$(SOVEREIGN_OS_LIB)/lib/observability.sh"
