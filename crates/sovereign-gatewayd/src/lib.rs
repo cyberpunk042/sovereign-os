@@ -1125,7 +1125,9 @@ impl GatewayServer {
                     }
                     Ok(None) => {
                         if i == 0 {
-                            eprintln!("sovereign-gatewayd: model dir configured but no config.json found, generation disabled");
+                            eprintln!(
+                                "sovereign-gatewayd: model dir configured but no config.json found, generation disabled"
+                            );
                         }
                         break;
                     }
@@ -1240,11 +1242,7 @@ impl GatewayServer {
     /// kept in `acquire_worker` so one request advances the round-robin counter
     /// exactly once (F-2026-083).
     fn resolve_secondary(&self, model: &str) -> Option<Arc<Mutex<Generator>>> {
-        self.secondaries
-            .read()
-            .ok()?
-            .get(model)
-            .map(Arc::clone)
+        self.secondaries.read().ok()?.get(model).map(Arc::clone)
     }
 
     /// Advance the primary worker round-robin exactly once. Kept separate so the
@@ -1597,9 +1595,7 @@ impl GatewayServer {
         // no longer serialize behind one Arc<Mutex<>> (F-2026-083).
         let is_secondary = target.as_deref().is_some_and(|id| id != self.primary_id);
         let secondary_engine = if is_secondary {
-            target
-                .as_deref()
-                .and_then(|id| self.resolve_secondary(id))
+            target.as_deref().and_then(|id| self.resolve_secondary(id))
         } else {
             None
         };
@@ -1607,7 +1603,9 @@ impl GatewayServer {
             let engine = secondary_engine
                 .as_ref()
                 .ok_or_else(|| "no local model loaded".to_string())?;
-            engine.lock().map_err(|_| "generator poisoned".to_string())?
+            engine
+                .lock()
+                .map_err(|_| "generator poisoned".to_string())?
         } else {
             self.acquire_worker()
                 .ok_or_else(|| "no local model loaded".to_string())?
@@ -2955,7 +2953,10 @@ mod tests {
         // learned memory (because now - freshness <= 0).
         let _ = s.handle_line(&infer_line(&demo_requests()[0]));
         let aged = s.maintain(s.clock_now(), 0);
-        assert_eq!(aged, 0, "fresh memory (stamp == now) must not age with ttl=0");
+        assert_eq!(
+            aged, 0,
+            "fresh memory (stamp == now) must not age with ttl=0"
+        );
         // Advance the clock and age with ttl=0 should now catch it.
         std::thread::sleep(std::time::Duration::from_millis(1100));
         let aged = s.maintain(s.clock_now(), 0);
