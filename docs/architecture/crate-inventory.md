@@ -12,9 +12,9 @@ The workspace is large — most of it does not run yet. This is the complete map
 | Cockpit UX-state crates | 418 | wasm-bridged in source (SDD-974); **0 of ~55 panels wired** |
 | Demo-hub-only libraries | 50 | reached only via `sovereign-llm` / `sovereign-retrieval` (nothing runs them) |
 | Other libraries | 147 | reached only through other non-production trees |
-| **Total** | **718** | **66 crates (9%) are production-reachable today** |
+| **Total** | **718** | **67 crates (9%) are production-reachable today** |
 
-**✅ integrated** marks the **66** crates that are actually _used_ by a running production binary (in the gatewayd / telemetry / resource-control dependency closure). Each carries a short note naming the usage that validates it — its production consumer(s) and/or that it runs as a binary. **Used, not merely referenced**: a cockpit crate wasm-bridged for a panel (SDD-800, 0 panels wired) or a crate reached only through a demo/dev binary or the `sovereign-llm` / `sovereign-retrieval` hubs is NOT integrated. The flag is generated from the closure and enforced by `tests/lint/test_crate_inventory_integrated_flag.py`.
+**✅ integrated** marks the **67** crates that are actually _used_ by a running production binary (in the gatewayd / telemetry / resource-control dependency closure). Each carries a short note naming the usage that validates it — its production consumer(s) and/or that it runs as a binary. **Used, not merely referenced**: a cockpit crate wasm-bridged for a panel (SDD-800, 0 panels wired) or a crate reached only through a demo/dev binary or the `sovereign-llm` / `sovereign-retrieval` hubs is NOT integrated. The flag is generated from the closure and enforced by `tests/lint/test_crate_inventory_integrated_flag.py`.
 
 Families below cluster by the first token of the crate name (`alert-*`, `zfs-*`, …).
 
@@ -24,14 +24,15 @@ Families below cluster by the first token of the crate name (`alert-*`, `zfs-*`,
 
 Full runtime role + how each is invoked lives in [`docs/src/binaries.md`](../src/binaries.md); this lists them with their own one-line descriptions.
 
-### Production / runtime (4)
+### Production / runtime (5)
 
 - **`sovereign-cortex`** — Sovereign cortex — the first runnable assembly that composes the real engine crates into one request pipeline: 7-axis router (role) -> SRP scheduler (hardware-capability placement) -> Memory OS (recall feeds evidence) -> Value Plane PRM critic (commit/expand/prune). Provides the `sovereign-cortex` binary. — ✅ **integrated**: runs as a production binary; used by `sovereign-gatewayd`
 - **`sovereign-gatewayd`** — The first persistent runnable service: promotes the one-shot sovereign-cortex engine into a long-lived daemon behind the M048 Module 4 sovereign-gateway contract. Newline-delimited JSON over TCP/stdio; one process-wide learning Cortex (memory persists + learns across requests, M016); a live cost/route ledger (gateway surface 6); the never-cloud-spill safety invariant tracked as a process tripwire. Doctrine: 'client → Sovereign Gateway → local/cloud/model router'. Provides the `sovereign-gatewayd` binary. — ✅ **integrated**: runs as a production binary
+- **`sovereign-network-zerotrust`** — Master spec §8 asymmetric Zero-Trust NIC segregation: the canonical two-NIC layout (mgmt Intel 2.5GbE VLAN 100 carries the default route; data Marvell 10GbE VLAN 200 MUST NOT) from profiles/sain-01.yaml hardware.network (R401-tested §8.1), plus a validator that flags a default route on the data plane as a Zero-Trust egress breach. — ✅ **integrated**: runs as a production binary; used by `sovereign-gatewayd`
 - **`sovereign-resource-control`** — E0429 / M00756 — systemd resource-control profiles (CPUWeight / MemoryMax / IOWeight / TasksMax / slices+scopes) for the 5 operator-named service boundaries (oracle / scout / sandbox / eval / gateway). Emits deployable systemd drop-in directives: how 'profiles become real OS behavior'. — ✅ **integrated**: runs as a production binary
 - **`sovereign-telemetry`** — Live hardware-telemetry probe — reads real kernel/vendor telemetry (Linux PSI, /proc/stat, nvidia-smi) and emits a validated PressureSnapshot + LoadSnapshot as JSON. The first runnable binary in the sovereign-os observability lane; exercises the pressure-sensors + hardware-load-sample ingestion end-to-end. — ✅ **integrated**: runs as a production binary
 
-### Dev / demo / config-generators (37)
+### Dev / demo / config-generators (36)
 
 
 #### `zfs-·` (3)
@@ -40,7 +41,7 @@ Full runtime role + how each is invoked lives in [`docs/src/binaries.md`](../src
 - **`sovereign-zfs-provisioning-plan`** — M068 M01141/M01142 — emit the ordered zpool create + zfs create/set command plan for the canonical tank layout, setting only the properties that differ from the inherited ZFS/pool defaults (recordsize!=128k, compression!=lz4, sync!=standard) so the provisioning script stays minimal and readable.
 - **`sovereign-zfs-snapshot-policy`** — M068 E0667 — ZFS snapshot retention policy: classify snapshots (pre-commit / daily / weekly / monthly), the catalogued retention windows (365 / 30 / 90 / 365 days, F05731-F05737), and a pure prune planner that keeps anything younger than its window and never prunes an unclassifiable snapshot.
 
-#### assorted (34)
+#### assorted (33)
 
 - **`sovereign-agent-runtime`** — Bridges the real LLM runtime into the agent loop: an LlmResponder that drives sovereign-agent-loop with sovereign-llm, so a tool-using ReAct agent runs on the actual quantized inference engine instead of a scripted responder. The wiring that turns the inference stack and the agentic layer into one running agent. Composes sovereign-agent-loop and sovereign-llm.
 - **`sovereign-base-os`** — E0459 / M00800 — Base OS module: the 10 responsibilities (kernel / firmware / NVIDIA drivers / AppArmor / cgroup-v2 / systemd / ZFS / LUKS / networking / VFIO-IOMMU) and the 5 config modes (stable / ai-driver-latest / secure / developer / offline).
@@ -65,7 +66,6 @@ Full runtime role + how each is invoked lives in [`docs/src/binaries.md`](../src
 - **`sovereign-mode-transition-log`** — Runtime mode-transition audit log — append-only record of every ExecutionMode switch (from, to, reason, operator signature, timestamp, trace_id). Enables the cockpit to render the day's mode timeline and the daemon to assert no illegal transitions occurred.
 - **`sovereign-module-facets`** — E0477 / M00828 — Continuity of Control: the uniform module interface. Every module MUST expose 6 facets (state / events / policy hooks / profile knobs / rollback story / learning signal). A descriptor + completeness validator so no module is unobservable, uncontrollable, or unrollback-able.
 - **`sovereign-network-boundary`** — E0124 / M00232 — Network Boundary: the 5-rung network-profile ladder (offline / package-registries / docs-web / arbitrary-web / authenticated-browser) and the per-branch ToolIntent (network_scope + reason), with the scope-within-allowed gate.
-- **`sovereign-network-zerotrust`** — Master spec §8 asymmetric Zero-Trust NIC segregation: the canonical two-NIC layout (mgmt Intel 2.5GbE VLAN 100 carries the default route; data Marvell 10GbE VLAN 200 MUST NOT) from profiles/sain-01.yaml hardware.network (R401-tested §8.1), plus a validator that flags a default route on the data plane as a Zero-Trust egress breach.
 - **`sovereign-pcie-advisor`** — Emit the recommended ProArt X870E-Creator PCIe layout and validate a proposed one against the lane-sharing trap (E0027/E0028), from the single-source-of-truth sovereign-pcie-topology slot map. Catches populating PCIEX16_2 + M.2_2 together before it silently halves a GPU's bandwidth.
 - **`sovereign-replay-export-bundle`** — Exportable replay bundle — packs (ConversationThread + ReplayCursor + BookmarkSet) into one envelope so the operator can hand a debug session to a colleague. Cross-validates that the cursor + bookmarks reference the bundled thread.
 - **`sovereign-replay-playback-rate`** — Cockpit replay playback rate — discrete operator-selectable rates (0.25x / 0.5x / 1x / 2x / 4x / 8x). The replay cursor advances at the multiplied wall-time intervals between turns. Pure UX; replay correctness owned by selfdef-replay-source-authority.

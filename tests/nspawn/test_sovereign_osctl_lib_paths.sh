@@ -72,10 +72,11 @@ done
 # Build a tmpdir that LOOKS like an installed-system layout. VERSION is a
 # required runtime artifact, just like the shared shell libraries.
 inst="${tmp}/sovereign-os-install"
-mkdir -p "${inst}/lib"
+mkdir -p "${inst}/lib" "${inst}/osctl.d"
 cp "${__REPO_ROOT}/scripts/build/lib/common.sh" "${inst}/lib/common.sh"
 cp "${__REPO_ROOT}/scripts/build/lib/state.sh"  "${inst}/lib/state.sh"
 cp "${__REPO_ROOT}/scripts/build/lib/logging.sh" "${inst}/lib/logging.sh"
+cp "${__REPO_ROOT}/scripts/osctl.d/version.sh"    "${inst}/osctl.d/version.sh"
 cp "${__REPO_ROOT}/VERSION"                      "${inst}/VERSION"
 # Profiles + whitelabel are needed for some sovereign-osctl verbs but
 # not for 'version' — just verify lib lookup succeeds.

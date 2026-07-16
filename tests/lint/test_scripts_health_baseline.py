@@ -67,6 +67,10 @@ def test_osctl_dispatch_targets_resolve():
     """Every `cmd_*` sovereign-osctl calls must be defined — a dispatch verb
     routed to a missing handler is a runtime break at the operator's terminal."""
     body = OSCTL.read_text(encoding="utf-8")
+    modules = REPO_ROOT / "scripts" / "osctl.d"
+    body += "\n" + "\n".join(
+        path.read_text(encoding="utf-8") for path in sorted(modules.glob("*.sh"))
+    )
     defined = set(re.findall(r"^(cmd_[a-z0-9_]+)\(\)", body, re.MULTILINE))
     called = set(re.findall(r"\b(cmd_[a-z0-9_]+)\b", body))
     assert defined, "no cmd_* functions defined in sovereign-osctl"

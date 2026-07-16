@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # scripts/osctl.d/version.sh — sovereign-osctl `version` verb module.
 # Sourced by the main sovereign-osctl dispatcher; do not run directly.
 #

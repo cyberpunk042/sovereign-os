@@ -4,11 +4,10 @@
 //! Every test builds a tiny synthetic model (deterministic pseudo-weights) so the
 //! suite is fast, requires no real checkpoint, and is fully reproducible.
 
-use sovereign_decoder_stack::{DecoderStack, StackConfig};
+use sovereign_decoder_stack::StackConfig;
 use sovereign_ffn::SwiGlu;
 use sovereign_llm::{
-    Calibration, ConfidenceReport, LlmConfig, SampleDiversity, SemanticCachedLlm, SovereignLlm,
-    Vote,
+    ConfidenceReport, LlmConfig, SampleDiversity, SemanticCachedLlm, SovereignLlm, Vote,
 };
 use sovereign_rmsnorm::RmsNorm;
 use sovereign_sampler::{Sampler, SamplerConfig};
@@ -61,12 +60,6 @@ fn model_config(vocab: usize, layers: usize, sampler: Sampler) -> StackConfig {
 
 fn runtime(sampler: Sampler) -> SovereignLlm {
     let tok = Tokenizer::default();
-    let cfg = model_config(tok.vocab_size(), 2, sampler);
-    SovereignLlm::new(tok, cfg).unwrap()
-}
-
-fn runtime_with_eos(sampler: Sampler) -> SovereignLlm {
-    let tok = Tokenizer::default().with_specials(["<eos>"]);
     let cfg = model_config(tok.vocab_size(), 2, sampler);
     SovereignLlm::new(tok, cfg).unwrap()
 }

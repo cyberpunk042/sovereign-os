@@ -44,6 +44,10 @@ END = "/* HELPERS:END M073 */"
 # panels are touched. Each adopted panel MUST remove its local definitions of
 # esc(), fmtBytes(), fmtNum() so the canonical block is the single source.
 ADOPTED_PANELS = [
+    "d-03-model-health",
+    "d-04-costs",
+    "d-09-hardware-pressure",
+    "d-11-adapter-status",
 ]
 
 _BLOCK_RE = re.compile(re.escape(BEGIN) + r".*?" + re.escape(END), re.DOTALL)

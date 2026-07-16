@@ -1125,7 +1125,9 @@ impl GatewayServer {
                     }
                     Ok(None) => {
                         if i == 0 {
-                            eprintln!("sovereign-gatewayd: model dir configured but no config.json found, generation disabled");
+                            eprintln!(
+                                "sovereign-gatewayd: model dir configured but no config.json found, generation disabled"
+                            );
                         }
                         break;
                     }
@@ -1236,24 +1238,24 @@ impl GatewayServer {
         !self.workers.is_empty()
     }
 
-    /// Resolve a request's `model` id to a loaded generator: a named secondary if
-    /// it matches, otherwise a primary worker chosen by round-robin. `None` when
-    /// nothing is loaded. Clones the `Arc` so the caller holds no registry lock
-    /// while generating.
-    fn resolve_model(&self, model: Option<&str>) -> Option<Arc<Mutex<Generator>>> {
-        if let Some(id) = model
-            && id != self.primary_id
-            && let Ok(map) = self.secondaries.read()
-            && let Some(g) = map.get(id)
-        {
-            return Some(Arc::clone(g));
-        }
-        let n = self.workers.len();
-        if n == 0 {
+    /// Resolve only a named secondary generator. Primary selection is deliberately
+    /// kept in `acquire_worker` so one request advances the round-robin counter
+    /// exactly once (F-2026-083).
+    fn resolve_secondary(&self, model: &str) -> Option<Arc<Mutex<Generator>>> {
+        self.secondaries.read().ok()?.get(model).map(Arc::clone)
+    }
+
+    /// Advance the primary worker round-robin exactly once. Kept separate so the
+    /// two-worker 0,1,0,1 sequence is directly unit-testable without model weights.
+    fn next_worker_index(&self, worker_count: usize) -> Option<usize> {
+        if worker_count == 0 {
             return None;
         }
-        let idx = self.worker_idx.fetch_add(1, std::sync::atomic::Ordering::Relaxed) % n;
-        Some(Arc::clone(&self.workers[idx]))
+        Some(
+            self.worker_idx
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+                % worker_count,
+        )
     }
 
     /// Acquire a guard on a primary worker, preferring an idle worker via
@@ -1264,7 +1266,7 @@ impl GatewayServer {
         if n == 0 {
             return None;
         }
-        let start = self.worker_idx.fetch_add(1, std::sync::atomic::Ordering::Relaxed) % n;
+        let start = self.next_worker_index(n)?;
         // Try each worker once, starting from the round-robin slot.
         for i in 0..n {
             let idx = (start + i) % n;
@@ -1592,11 +1594,18 @@ impl GatewayServer {
         // N independent workers with round-robin + try_lock so concurrent requests
         // no longer serialize behind one Arc<Mutex<>> (F-2026-083).
         let is_secondary = target.as_deref().is_some_and(|id| id != self.primary_id);
-        let engine_arc = self.resolve_model(target.as_deref());
+        let secondary_engine = if is_secondary {
+            target.as_deref().and_then(|id| self.resolve_secondary(id))
+        } else {
+            None
+        };
         let mut guard = if is_secondary {
-            let engine = engine_arc.as_ref()
+            let engine = secondary_engine
+                .as_ref()
                 .ok_or_else(|| "no local model loaded".to_string())?;
-            engine.lock().map_err(|_| "generator poisoned".to_string())?
+            engine
+                .lock()
+                .map_err(|_| "generator poisoned".to_string())?
         } else {
             self.acquire_worker()
                 .ok_or_else(|| "no local model loaded".to_string())?
@@ -2546,8 +2555,17 @@ mod tests {
             "unload of an absent model is false"
         );
         // with nothing loaded, resolution yields nothing (an honest error at generate).
-        assert!(s.resolve_model(Some("anything")).is_none());
-        assert!(s.resolve_model(None).is_none());
+        assert!(s.resolve_secondary("anything").is_none());
+    }
+
+    #[test]
+    fn primary_worker_round_robin_advances_once_per_selection() {
+        let s = GatewayServer::new();
+        assert_eq!(s.next_worker_index(0), None);
+        assert_eq!(s.next_worker_index(2), Some(0));
+        assert_eq!(s.next_worker_index(2), Some(1));
+        assert_eq!(s.next_worker_index(2), Some(0));
+        assert_eq!(s.next_worker_index(2), Some(1));
     }
 
     #[test]
@@ -2935,7 +2953,10 @@ mod tests {
         // learned memory (because now - freshness <= 0).
         let _ = s.handle_line(&infer_line(&demo_requests()[0]));
         let aged = s.maintain(s.clock_now(), 0);
-        assert_eq!(aged, 0, "fresh memory (stamp == now) must not age with ttl=0");
+        assert_eq!(
+            aged, 0,
+            "fresh memory (stamp == now) must not age with ttl=0"
+        );
         // Advance the clock and age with ttl=0 should now catch it.
         std::thread::sleep(std::time::Duration::from_millis(1100));
         let aged = s.maintain(s.clock_now(), 0);

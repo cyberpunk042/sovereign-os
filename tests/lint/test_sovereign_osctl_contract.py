@@ -51,7 +51,10 @@ EXPECTED_COMMANDS = [
 
 def _read() -> str:
     assert OSCTL.is_file(), f"missing {OSCTL}"
-    return OSCTL.read_text(encoding="utf-8")
+    modules = REPO_ROOT / "scripts" / "osctl.d"
+    return OSCTL.read_text(encoding="utf-8") + "\n" + "\n".join(
+        path.read_text(encoding="utf-8") for path in sorted(modules.glob("*.sh"))
+    )
 
 
 def test_osctl_exists():

@@ -17,6 +17,7 @@ import yaml
 
 REPO = Path(__file__).resolve().parents[2]
 OSCTL = REPO / "scripts" / "sovereign-osctl"
+OSCTL_MODULES = REPO / "scripts" / "osctl.d"
 COVERAGE = REPO / "config" / "feature-coverage.yaml"
 CATALOG = REPO / "config" / "dashboard-catalog.yaml"
 
@@ -25,7 +26,8 @@ def _dispatch_verbs() -> set[str]:
     """Every top-level verb family, extracted the robust way: the branch labels
     of the main `case "${cmd}" in` dispatch (depth-tracked so nested subcommand
     cases are excluded), unioned with the cmd_<name> handler functions."""
-    lines = OSCTL.read_text(encoding="utf-8").splitlines()
+    sources = [OSCTL, *sorted(OSCTL_MODULES.glob("*.sh"))]
+    lines = "\n".join(path.read_text(encoding="utf-8") for path in sources).splitlines()
     verbs: set[str] = set()
     # (a) cmd_<name> handlers → hyphenated CLI names
     for m in re.finditer(r"^cmd_([a-z0-9_]+)\(\)", "\n".join(lines), re.M):

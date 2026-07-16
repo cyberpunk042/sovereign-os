@@ -1116,9 +1116,7 @@ fn extract_sampler_config(req: &serde_json::Value) -> sovereign_safetensors_load
     let top_k = req
         .get("top_k")
         .and_then(|v| v.as_u64())
-        .map(|k| {
-            if k > 0 { Some(k as usize) } else { None }
-        })
+        .map(|k| if k > 0 { Some(k as usize) } else { None })
         .unwrap_or(None);
     sovereign_safetensors_loader::SamplerConfig {
         temperature,
@@ -1220,7 +1218,13 @@ fn stream_chat_completions(
     let tool_specs = sovereign_tool_bridge::openai_tools_to_specs(&tools_val);
     if !tool_specs.is_empty() {
         return tool_aware_chat_completion(
-            server, writer, &model, &prompt, max_new, &tool_specs, sampler_cfg,
+            server,
+            writer,
+            &model,
+            &prompt,
+            max_new,
+            &tool_specs,
+            sampler_cfg,
         );
     }
 
@@ -1391,13 +1395,10 @@ fn tool_aware_chat_completion(
 
     let id = chat_completion_id();
     let mut buf = String::new();
-    let gen_res = server.generate_chat_with_sampler(
-        Some(model),
-        &prompt,
-        max_new,
-        sampler_cfg,
-        |chunk| buf.push_str(chunk),
-    );
+    let gen_res =
+        server.generate_chat_with_sampler(Some(model), &prompt, max_new, sampler_cfg, |chunk| {
+            buf.push_str(chunk)
+        });
     let (delta, final_obj) = match gen_res {
         Ok(n) => shape_tool_completion(&buf, specs, &id, n),
         Err(e) => {
