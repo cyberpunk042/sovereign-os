@@ -13,6 +13,14 @@ env:
 permissions:
   contents: read
 
+# Cancel superseded PR runs so a rapid series of pushes to the same PR
+# doesn't pile up N full ~8-min runs in parallel (throughput + cost). Main-
+# branch runs are NEVER cancelled — each merged commit keeps its own green
+# record (mirrors release.yml's deliberate cancel-in-progress: false).
+concurrency:
+  group: test-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   schema-lint:
     name: layer 1 — schema + lint
