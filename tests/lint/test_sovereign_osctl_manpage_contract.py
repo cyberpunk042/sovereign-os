@@ -123,7 +123,7 @@ def _canonical_version() -> str:
 
 
 def test_operator_runtime_uses_the_canonical_version_file():
-    body = _read(CLI)
+    body = _read(CLI) + _read(REPO_ROOT / "scripts" / "osctl.d" / "version.sh")
     assert 'local sovereign_version="' not in body
     assert 'sovereign_version="$(_sovereign_os_version)"' in body
     assert '"${__REPO_ROOT}/VERSION"' in body
