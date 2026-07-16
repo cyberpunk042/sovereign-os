@@ -344,6 +344,9 @@ pub struct Health {
     pub cloud_spills: u64,
     /// The headline safety invariant: `cloud_spills == 0`.
     pub never_cloud_spill_holds: bool,
+    /// Whether the station's NIC topology matches the master-spec §8.1
+    /// Zero-Trust model (true when no violations were detected at startup).
+    pub nic_topology_compliant: bool,
 }
 
 /// Adapts the daemon's live Cortex Memory-OS to the CoAT
@@ -592,6 +595,12 @@ pub struct GatewayServer {
     guard_injections: std::sync::atomic::AtomicU64,
     guard_secrets: std::sync::atomic::AtomicU64,
     guard_pii: std::sync::atomic::AtomicU64,
+    guard_prompt_secrets: std::sync::atomic::AtomicU64,
+    guard_prompt_pii: std::sync::atomic::AtomicU64,
+    /// NIC Zero-Trust topology violations found at startup (empty = compliant).
+    /// Stored so `/metrics` and `/health` can report them without re-running the
+    /// detection on every request.
+    nic_violations: Vec<sovereign_network_zerotrust::ZeroTrustViolation>,
     /// Admission control on generation requests: a token bucket that bounds how fast
     /// the expensive generate endpoints are admitted, so a runaway client can't peg
     /// the box. `None` disables it (capacity 0). `rate_start` is the monotonic origin
@@ -660,6 +669,16 @@ pub struct GuardConfig {
     pub injection_threshold: f64,
     /// Score generated output for toxicity (flag-only; never censors).
     pub score_toxicity: bool,
+    /// Scan the incoming prompt for secrets (API keys, tokens, private keys).
+    pub screen_prompt_secrets: bool,
+    /// Scan the incoming prompt for PII (emails, phones, cards, …).
+    pub screen_prompt_pii: bool,
+    /// When the prompt secret screen trips, refuse the request (`true`) or
+    /// record-and-proceed (`false`, default).
+    pub block_prompt_secrets: bool,
+    /// When the prompt PII screen trips, refuse the request (`true`) or
+    /// record-and-proceed (`false`, default).
+    pub block_prompt_pii: bool,
 }
 
 impl Default for GuardConfig {
@@ -672,6 +691,10 @@ impl Default for GuardConfig {
             block_injection: false,
             injection_threshold: 0.5,
             score_toxicity: true,
+            screen_prompt_secrets: true,
+            screen_prompt_pii: true,
+            block_prompt_secrets: false,
+            block_prompt_pii: false,
         }
     }
 }
@@ -716,6 +739,22 @@ impl GuardConfig {
             block_injection: env_bool("SOVEREIGN_GATEWAY_GUARD_BLOCK_INJECTION", d.block_injection),
             injection_threshold: threshold,
             score_toxicity: env_bool("SOVEREIGN_GATEWAY_GUARD_TOXICITY", d.score_toxicity),
+            screen_prompt_secrets: env_bool(
+                "SOVEREIGN_GATEWAY_GUARD_SCREEN_PROMPT_SECRETS",
+                d.screen_prompt_secrets,
+            ),
+            screen_prompt_pii: env_bool(
+                "SOVEREIGN_GATEWAY_GUARD_SCREEN_PROMPT_PII",
+                d.screen_prompt_pii,
+            ),
+            block_prompt_secrets: env_bool(
+                "SOVEREIGN_GATEWAY_GUARD_BLOCK_PROMPT_SECRETS",
+                d.block_prompt_secrets,
+            ),
+            block_prompt_pii: env_bool(
+                "SOVEREIGN_GATEWAY_GUARD_BLOCK_PROMPT_PII",
+                d.block_prompt_pii,
+            ),
         }
     }
 
@@ -892,6 +931,88 @@ fn memory_capacity_from_env() -> Option<usize> {
     (cap > 0).then_some(cap)
 }
 
+/// Best-effort auto-detect the station's NIC topology from Linux sysfs so the
+/// daemon can validate it against the master-spec §8.1 Zero-Trust model at startup.
+/// This is pure (no unsafe, no external commands) — it reads `/sys/class/net/` +
+/// `/proc/net/route` and constructs [`sovereign_network_zerotrust::Nic`] structs.
+/// Returns `None` when the OS layout can't be read (non-Linux, container without
+/// sysfs, etc.) — the validation is skipped gracefully in that case.
+fn detect_nics_from_sys() -> Option<Vec<(String, sovereign_network_zerotrust::Nic)>> {
+    let net = std::path::Path::new("/sys/class/net");
+    let Ok(entries) = std::fs::read_dir(net) else {
+        return None;
+    };
+    let mut nics = Vec::new();
+    for entry in entries.filter_map(Result::ok) {
+        let name = entry.file_name().to_string_lossy().to_string();
+        if name == "lo" {
+            continue;
+        }
+        let base = entry.path();
+        let mtu = std::fs::read_to_string(base.join("mtu"))
+            .ok()
+            .and_then(|s| s.trim().parse::<u32>().ok());
+        let speed_mbps = std::fs::read_to_string(base.join("speed"))
+            .ok()
+            .and_then(|s| s.trim().parse::<u64>().ok())
+            .unwrap_or(0);
+        let speed_decigbps = if speed_mbps > 0 {
+            ((speed_mbps * 10) / 1000) as u16
+        } else {
+            0
+        };
+        let vlan = name
+            .rsplit_once('.')
+            .and_then(|(_, num)| num.parse::<u16>().ok())
+            .unwrap_or(0);
+        nics.push((
+            name,
+            sovereign_network_zerotrust::Nic {
+                role: sovereign_network_zerotrust::NicRole::Mgmt,
+                vlan,
+                speed_decigbps,
+                default_gateway: false,
+                mtu,
+            },
+        ));
+    }
+    if nics.is_empty() {
+        return None;
+    }
+    let route = std::fs::read_to_string("/proc/net/route").ok()?;
+    for line in route.lines().skip(1) {
+        let mut cols = line.split_whitespace();
+        let iface = match cols.next() {
+            Some(s) => s.to_string(),
+            None => continue,
+        };
+        let dest = match cols.next() {
+            Some(s) => s,
+            None => continue,
+        };
+        let _gw = cols.next();
+        let flags = match cols.next() {
+            Some(s) => s,
+            None => continue,
+        };
+        if dest == "00000000" && flags == "0003" {
+            if let Some((_, nic)) = nics.iter_mut().find(|(n, _)| *n == iface) {
+                nic.default_gateway = true;
+            }
+        }
+    }
+    Some(nics)
+}
+
+/// Validate the station's NIC topology against the master-spec §8.1 Zero-Trust model.
+/// Returns the list of violations (empty = compliant). `None` when auto-detection
+/// fails, so the caller can skip the check gracefully.
+fn validate_nic_topology() -> Option<Vec<sovereign_network_zerotrust::ZeroTrustViolation>> {
+    let nics = detect_nics_from_sys()?;
+    let slice: Vec<_> = nics.into_iter().map(|(_, nic)| nic).collect();
+    Some(sovereign_network_zerotrust::validate(&slice))
+}
+
 /// How the durable memory at a path was resolved.
 #[derive(Debug, PartialEq, Eq)]
 pub enum MemoryLoadOutcome {
@@ -1021,13 +1142,26 @@ impl GatewayServer {
         let guard = GuardConfig::from_env();
         if gen_live && guard.enabled {
             eprintln!(
-                "sovereign-gatewayd: safety spine active — screen_injection={} (block={}, threshold={:.2}), redact_secrets={}, redact_pii={}, score_toxicity={}",
+                "sovereign-gatewayd: safety spine active — screen_injection={} (block={}, threshold={:.2}), \
+                 redact_secrets={}, redact_pii={}, score_toxicity={}, \
+                 screen_prompt_secrets={}, screen_prompt_pii={}",
                 guard.screen_injection,
                 guard.block_injection,
                 guard.injection_threshold,
                 guard.redact_secrets,
                 guard.redact_pii,
                 guard.score_toxicity,
+                guard.screen_prompt_secrets,
+                guard.screen_prompt_pii,
+            );
+        }
+        // Zero-Trust NIC topology validation at startup (best-effort; non-fatal).
+        let nic_violations = validate_nic_topology().unwrap_or_default();
+        if !nic_violations.is_empty() {
+            eprintln!(
+                "sovereign-gatewayd: ZERO-TRUST NIC TOPOLOGY BREACH — {:?}; \
+                 see master spec §8.1 and profiles/sain-01.yaml",
+                nic_violations
             );
         }
         Self {
@@ -1049,6 +1183,9 @@ impl GatewayServer {
             guard_injections: std::sync::atomic::AtomicU64::new(0),
             guard_secrets: std::sync::atomic::AtomicU64::new(0),
             guard_pii: std::sync::atomic::AtomicU64::new(0),
+            guard_prompt_secrets: std::sync::atomic::AtomicU64::new(0),
+            guard_prompt_pii: std::sync::atomic::AtomicU64::new(0),
+            nic_violations,
             rate: {
                 // capacity = burst size, per_sec = sustained rate; capacity 0 disables.
                 let cap = std::env::var("SOVEREIGN_GATEWAY_RATE_CAPACITY")
@@ -1335,6 +1472,36 @@ impl GatewayServer {
             }
         }
 
+        // ---- safety spine, input side: screen the prompt for secrets + PII ----
+        if self.guard.enabled && self.guard.screen_prompt_secrets {
+            let findings = sovereign_secret_scan::scan(prompt);
+            if !findings.is_empty() {
+                let n = findings.len() as u64;
+                self.guard_prompt_secrets.fetch_add(n, Ordering::Relaxed);
+                eprintln!("sovereign-gatewayd: safety spine — prompt contains {n} secret(s)");
+                if self.guard.block_prompt_secrets {
+                    return Err(format!(
+                        "blocked by safety spine: prompt contains {n} secret(s); \
+                         unset SOVEREIGN_GATEWAY_GUARD_BLOCK_PROMPT_SECRETS to allow"
+                    ));
+                }
+            }
+        }
+        if self.guard.enabled && self.guard.screen_prompt_pii {
+            let findings = sovereign_pii_redact::detect(prompt);
+            if !findings.is_empty() {
+                let n = findings.len() as u64;
+                self.guard_prompt_pii.fetch_add(n, Ordering::Relaxed);
+                eprintln!("sovereign-gatewayd: safety spine — prompt contains {n} PII span(s)");
+                if self.guard.block_prompt_pii {
+                    return Err(format!(
+                        "blocked by safety spine: prompt contains {n} PII span(s); \
+                         unset SOVEREIGN_GATEWAY_GUARD_BLOCK_PROMPT_PII to allow"
+                    ));
+                }
+            }
+        }
+
         // Expand the reserved "background" alias to the designated model (else the
         // primary), so background work routes to the secondary and the same alias
         // works from every caller.
@@ -1427,13 +1594,16 @@ impl GatewayServer {
     }
 
     /// Snapshot of the safety-spine tallies `(injections_flagged, secrets_redacted,
-    /// pii_redacted)` accumulated over the process lifetime.
-    pub fn guard_stats(&self) -> (u64, u64, u64) {
+    /// pii_redacted, prompt_secrets_flagged, prompt_pii_flagged)` accumulated over
+    /// the process lifetime.
+    pub fn guard_stats(&self) -> (u64, u64, u64, u64, u64) {
         use std::sync::atomic::Ordering;
         (
             self.guard_injections.load(Ordering::Relaxed),
             self.guard_secrets.load(Ordering::Relaxed),
             self.guard_pii.load(Ordering::Relaxed),
+            self.guard_prompt_secrets.load(Ordering::Relaxed),
+            self.guard_prompt_pii.load(Ordering::Relaxed),
         )
     }
 
@@ -1794,6 +1964,7 @@ impl GatewayServer {
             total_requests: ledger.total_requests,
             cloud_spills: ledger.cloud_spills,
             never_cloud_spill_holds: ledger.cloud_spills == 0,
+            nic_topology_compliant: self.nic_violations.is_empty(),
         }
     }
 
@@ -1888,7 +2059,7 @@ impl GatewayServer {
         ));
 
         // Safety spine (M048 Privacy + Redaction, made real on the daemon path).
-        let (inj, secrets, pii) = self.guard_stats();
+        let (inj, secrets, pii, prompt_secrets, prompt_pii) = self.guard_stats();
         s.push_str(
             "# HELP sovereign_gateway_guard_injections_total Prompts flagged by the injection screen.\n",
         );
@@ -1904,6 +2075,16 @@ impl GatewayServer {
         s.push_str(&format!(
             "sovereign_gateway_guard_redactions_total{{kind=\"pii\"}} {pii}\n"
         ));
+        s.push_str(
+            "# HELP sovereign_gateway_guard_prompt_flags_total Prompts flagged on input, by kind.\n",
+        );
+        s.push_str("# TYPE sovereign_gateway_guard_prompt_flags_total counter\n");
+        s.push_str(&format!(
+            "sovereign_gateway_guard_prompt_flags_total{{kind=\"secret\"}} {prompt_secrets}\n"
+        ));
+        s.push_str(&format!(
+            "sovereign_gateway_guard_prompt_flags_total{{kind=\"pii\"}} {prompt_pii}\n"
+        ));
         s.push_str("# HELP sovereign_gateway_guard_enabled 1 while the safety spine is active.\n");
         s.push_str("# TYPE sovereign_gateway_guard_enabled gauge\n");
         s.push_str(&format!(
@@ -1917,6 +2098,14 @@ impl GatewayServer {
         s.push_str(&format!(
             "sovereign_gateway_rate_limited_total {}\n",
             self.rate_limited_count()
+        ));
+        s.push_str(
+            "# HELP sovereign_gateway_nic_topology_compliant 1 when the station's NIC layout \\n             matches the master-spec §8.1 Zero-Trust model.\n",
+        );
+        s.push_str("# TYPE sovereign_gateway_nic_topology_compliant gauge\n");
+        s.push_str(&format!(
+            "sovereign_gateway_nic_topology_compliant {}\n",
+            u8::from(self.nic_violations.is_empty())
         ));
 
         s
@@ -2049,6 +2238,8 @@ mod tests {
             !g.block_injection,
             "injection blocking must default off (fail-open)"
         );
+        assert!(g.screen_prompt_secrets && g.screen_prompt_pii);
+        assert!(!g.block_prompt_secrets && !g.block_prompt_pii);
         assert!(g.redacts_output());
     }
 
@@ -2156,6 +2347,66 @@ mod tests {
             .unwrap_err();
         assert!(err.contains("no local model loaded"), "got: {err}");
         assert_eq!(s.guard_stats().0, 1, "flag recorded despite proceeding");
+    }
+
+    #[test]
+    fn prompt_secret_screen_blocks_when_configured() {
+        let mut s = GatewayServer::new();
+        s.guard = GuardConfig {
+            enabled: true,
+            screen_prompt_secrets: true,
+            block_prompt_secrets: true,
+            ..GuardConfig::default()
+        };
+        let err = s
+            .generate_chat(None, "my key is AKIAIOSFODNN7EXAMPLE", 8, |_| {})
+            .unwrap_err();
+        assert!(err.contains("blocked by safety spine"), "got: {err}");
+        assert_eq!(
+            s.guard_stats().3,
+            1,
+            "the block should tally a prompt-secret flag"
+        );
+    }
+
+    #[test]
+    fn prompt_secret_screen_records_but_proceeds_when_not_blocking() {
+        let s = GatewayServer::new(); // block_prompt_secrets defaults off
+        let err = s
+            .generate_chat(None, "token ghp_abcdefghijklmnopqrstuvwxyz", 8, |_| {})
+            .unwrap_err();
+        assert!(err.contains("no local model loaded"), "got: {err}");
+        assert_eq!(s.guard_stats().3, 1, "flag recorded despite proceeding");
+    }
+
+    #[test]
+    fn prompt_pii_screen_blocks_when_configured() {
+        let mut s = GatewayServer::new();
+        s.guard = GuardConfig {
+            enabled: true,
+            screen_prompt_pii: true,
+            block_prompt_pii: true,
+            ..GuardConfig::default()
+        };
+        let err = s
+            .generate_chat(None, "contact me at alice@example.com", 8, |_| {})
+            .unwrap_err();
+        assert!(err.contains("blocked by safety spine"), "got: {err}");
+        assert_eq!(
+            s.guard_stats().4,
+            1,
+            "the block should tally a prompt-pii flag"
+        );
+    }
+
+    #[test]
+    fn prompt_pii_screen_records_but_proceeds_when_not_blocking() {
+        let s = GatewayServer::new(); // block_prompt_pii defaults off
+        let err = s
+            .generate_chat(None, "my ssn is 123-45-6789", 8, |_| {})
+            .unwrap_err();
+        assert!(err.contains("no local model loaded"), "got: {err}");
+        assert_eq!(s.guard_stats().4, 1, "flag recorded despite proceeding");
     }
 
     #[test]
@@ -2271,6 +2522,8 @@ mod tests {
         assert!(m.contains("sovereign_gateway_guard_enabled"));
         assert!(m.contains("sovereign_gateway_guard_redactions_total{kind=\"secret\"}"));
         assert!(m.contains("sovereign_gateway_guard_injections_total"));
+        assert!(m.contains("sovereign_gateway_guard_prompt_flags_total{kind=\"secret\"}"));
+        assert!(m.contains("sovereign_gateway_guard_prompt_flags_total{kind=\"pii\"}"));
     }
 
     #[test]

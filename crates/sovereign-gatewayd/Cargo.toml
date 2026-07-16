@@ -54,6 +54,11 @@ sovereign-injection-detect = { path = "../sovereign-injection-detect" }
 sovereign-secret-scan = { path = "../sovereign-secret-scan" }
 sovereign-pii-redact = { path = "../sovereign-pii-redact" }
 sovereign-toxicity = { path = "../sovereign-toxicity" }
+# Network Zero-Trust topology validation: at startup the daemon checks whether the
+# station's NIC layout matches the master-spec §8.1 asymmetric trust model (one mgmt
+# NIC with default route, one data NIC without). A breach is surfaced as a health
+# metric, not a fatal error, so the daemon stays up for forensics.
+sovereign-network-zerotrust = { path = "../sovereign-network-zerotrust" }
 # Admission control: bound how fast expensive generation requests are admitted, so a
 # runaway/buggy client can't peg the box's CPU/GPU (a token bucket in front of generate).
 sovereign-rate-limit = { path = "../sovereign-rate-limit" }

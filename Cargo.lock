@@ -4828,6 +4828,7 @@ dependencies = [
  "sovereign-injection-detect",
  "sovereign-logit-mask",
  "sovereign-memory-os",
+ "sovereign-network-zerotrust",
  "sovereign-observability-events",
  "sovereign-pii-redact",
  "sovereign-quant-model",
