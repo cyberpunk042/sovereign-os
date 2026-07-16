@@ -472,6 +472,19 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
         '<div class="so-set-row"><div class="so-set-lbl"><b>DEMO mode</b>'+
           '<span class="so-set-sub">Explore panels with no daemon — badged sample data, never real telemetry. Off by default.</span></div>'+
           '<button class="so-set-switch" id="so-demo-switch" role="switch" aria-checked="false" aria-label="Toggle DEMO mode"><span class="knob"></span></button></div>'+
+        // ── Cockpit hotswaps (SDD-600). The shell never mutates privileged state
+        //    (R10212) — each row COPIES the exact CLI to run. The controls also
+        //    render live (with the exec-rail) on their home panels. ──
+        '<div class="so-set-row"><div class="so-set-lbl"><b>Frontend / GUI</b>'+
+          '<span class="so-set-sub">with-GUI (GNOME) · dashboards kiosk · Open-Computer kiosk · headless. Copies the command to run.</span>'+
+          '<span class="so-set-sub" id="so-fe-restore-line">Locked out at a console? Copy <b>restore GNOME</b> to bring the desktop back.</span></div>'+
+          '<div class="so-set-ctl"><select class="so-set-mini" id="so-fe-select" aria-label="Frontend mode">'+
+            '<option value="gnome">with-GUI (GNOME)</option>'+
+            '<option value="dashboards-kiosk">dashboards kiosk</option>'+
+            '<option value="open-computer-kiosk">Open-Computer kiosk</option>'+
+            '<option value="none">headless (non-GUI)</option></select>'+
+          '<button class="so-set-mini" id="so-fe-copy" type="button" title="Copy the set command">Copy</button>'+
+          '<button class="so-set-mini" id="so-fe-restore" type="button" title="Copy the restore-GNOME command">Restore GNOME</button></div></div>'+
         '<div class="so-set-row" id="so-course-set-row" hidden><div class="so-set-lbl"><b>Guided course</b>'+
           '<span class="so-set-sub">The bottom journey-rail that tours the box. Toggle it here (updates live); Reset starts the tour over.</span></div>'+
           '<div class="so-set-ctl"><button class="so-set-mini" id="so-course-reset" type="button">Reset</button>'+
@@ -488,6 +501,17 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
       if(!api){ if(courseRow) courseRow.hidden=true; return; }
       if(courseRow) courseRow.hidden=false;
       var on=!!api.isOn(); courseSw.setAttribute('aria-checked',on?'true':'false'); courseSw.classList.toggle('on',on); }
+    // ── Hotswap copy helper (SDD-600) — clipboard only, never a network call.
+    //    Flashes the button label so the operator sees the copy landed. ──
+    function soCopyCmd(text, btn){
+      function flash(){ if(!btn) return; var o=btn.textContent; btn.textContent='copied ✓'; setTimeout(function(){ btn.textContent=o; },1100); }
+      try{ if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(text).then(flash,flash); return; } }catch(e){}
+      try{ var ta=document.createElement('textarea'); ta.value=text; ta.setAttribute('readonly',''); ta.style.position='absolute'; ta.style.left='-9999px'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); flash(); }catch(e){}
+    }
+    // Frontend / GUI hotswap row.
+    var feSel=document.getElementById('so-fe-select'), feCopy=document.getElementById('so-fe-copy'), feRestore=document.getElementById('so-fe-restore');
+    if(feCopy) feCopy.addEventListener('click',function(){ soCopyCmd('sudo sovereign-osctl frontend set '+(feSel?feSel.value:'gnome'), feCopy); });
+    if(feRestore) feRestore.addEventListener('click',function(){ soCopyCmd('sudo sovereign-osctl frontend set gnome && sudo systemctl isolate graphical.target', feRestore); });
     function setPaneOpen(open){ setPane.hidden=!open; setBtn.setAttribute('aria-expanded',open?'true':'false'); if(open){ syncDemoSwitch(); syncCourseSwitch(); } }
     setBtn.addEventListener('click',function(e){ e.stopPropagation(); setPaneOpen(setPane.hidden); });
     demoSw.addEventListener('click',function(){ demoSet(!demoOn()); });

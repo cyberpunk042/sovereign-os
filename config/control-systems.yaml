@@ -828,3 +828,27 @@ systems:
     privileged: true
     applies_to: [warp]
     refs: [SDD-300, config/warp-catalog.yaml]
+
+  # ── Cockpit hotswaps (SDD-600) — surfaced in the top-right settings pane ──
+  # The settings pane copies each control's change_cli (the shell never mutates
+  # privileged state — R10212); these controls ALSO render live on their home
+  # panel via the exec-rail like every other control.
+
+  # Frontend / GUI hotswap (SDD-704 machinery, now a first-class control).
+  - id: frontend
+    kind: mode
+    scope: global
+    label: "Frontend / GUI"
+    description: >-
+      Boot frontend — GNOME desktop (with-GUI), the dashboards kiosk, the
+      Open-Computer kiosk, or headless (non-GUI, multi-user.target). Restore the
+      desktop after a console/tty login by copying `set gnome` (+ `systemctl
+      isolate graphical.target` to bring it up in the current session).
+    options: [gnome, dashboards-kiosk, open-computer-kiosk, none]
+    options_cli: "sovereign-osctl frontend list"
+    state_cli: "sovereign-osctl frontend status --json"
+    change_cli: "sovereign-osctl frontend set <mode>"
+    state_path: "/etc/sovereign-os/frontend.active"
+    privileged: true
+    applies_to: [runtime-modes]
+    refs: [SDD-600, SDD-704, scripts/operator/frontend.py]
