@@ -22,6 +22,54 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # Change-aware gate. Computes which parts of the tree a PR touched so the
+  # heavy jobs (cargo build/test, layer-3 nspawn, shellcheck) can skip on a PR
+  # that doesn't touch their inputs — e.g. a docs-only PR no longer rebuilds the
+  # 718-crate workspace (handoff 009 / SDD-008 §Layer-3 original intent).
+  #
+  # Merge-safe by construction: this workflow ALWAYS triggers, and the heavy
+  # jobs use a job-level `if:` (a *skipped* required job satisfies branch
+  # protection — only whole-workflow `paths:` skips leave a required check stuck
+  # Pending). push/workflow_dispatch always run everything, so `main` keeps the
+  # full suite as the safety net; only pull_request events get the skipping.
+  changes:
+    name: change-aware gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      rust: ${{ steps.filter.outputs.rust }}
+      nspawn: ${{ steps.filter.outputs.nspawn }}
+      shell: ${{ steps.filter.outputs.shell }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history so the PR range (base...head) is diffable.
+          fetch-depth: 0
+      - id: filter
+        # Pure git+bash — no third-party action (sovereign-os keeps external
+        # trust minimal). A change to the workflow itself sets every filter true.
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            files="$(git diff --name-only \
+              "${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}")"
+          else
+            # push / workflow_dispatch run everything via the heavy jobs' `if:`,
+            # so the filter result is irrelevant here — leave it empty.
+            files=""
+          fi
+          echo "changed files:"; printf '%s\n' "$files" | sed 's/^/  /'
+          m() { printf '%s\n' "$files" | grep -qE "$1"; }
+          rust=false; nspawn=false; shell=false
+          m '^(crates/|Cargo\.toml|Cargo\.lock|rust-toolchain\.toml|\.github/workflows/test\.yml)' && rust=true
+          m '^(scripts/|profiles/|whitelabel/|schemas/|config/|models/|share/|systemd/|tools/|tests/nspawn/|Makefile|\.github/workflows/test\.yml)' && nspawn=true
+          m '(\.sh$|^\.github/workflows/test\.yml$)' && shell=true
+          echo "→ rust=$rust nspawn=$nspawn shell=$shell"
+          {
+            echo "rust=$rust"
+            echo "nspawn=$nspawn"
+            echo "shell=$shell"
+          } >> "$GITHUB_OUTPUT"
+
   schema-lint:
     name: layer 1 — schema + lint
     runs-on: ubuntu-latest
@@ -109,6 +157,9 @@ jobs:
 
   layer3-stage-acceptance:
     name: layer 3 — stage acceptance (nspawn-style)
+    # PR-only skip when nothing nspawn-relevant changed; push/dispatch always run.
+    needs: changes
+    if: needs.changes.outputs.nspawn == 'true' || github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     # 5 min was only ever enough because an early test failure (e.g. gpu-watch)
     # aborted the run before the full suite ran. With every nspawn test now
@@ -483,6 +534,9 @@ jobs:
 
   shellcheck:
     name: shellcheck
+    # PR-only skip when no shell scripts changed; push/dispatch always run.
+    needs: changes
+    if: needs.changes.outputs.shell == 'true' || github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -536,6 +590,9 @@ jobs:
 
   cargo-workspace:
     name: cargo workspace — fmt + clippy + test
+    # PR-only skip when no Rust inputs changed; push/dispatch always run.
+    needs: changes
+    if: needs.changes.outputs.rust == 'true' || github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     # fmt + clippy + test over 717+ crates. Warm (Swatinem/rust-cache) runs finish
     # in ~3-5 min. A cold-cache run (toolchain bump / lockfile change) rebuilds the
@@ -560,6 +617,9 @@ jobs:
 
   cargo-workspace-release:
     name: cargo workspace — release build
+    # PR-only skip when no Rust inputs changed; push/dispatch always run.
+    needs: changes
+    if: needs.changes.outputs.rust == 'true' || github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     # Headroom for a COLD-CACHE release build over 717+ crates. Warm runs finish
     # in ~6-7 min, but a toolchain bump / lockfile change / cache eviction rebuilds
