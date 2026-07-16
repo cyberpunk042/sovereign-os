@@ -852,3 +852,75 @@ systems:
     privileged: true
     applies_to: [runtime-modes]
     refs: [SDD-600, SDD-704, scripts/operator/frontend.py]
+
+  # Provider / origin hotswap (SDD-600 Part 2 + SDD-707) — per AI consumer, swap
+  # between the on-box gateway (:8787) and the hosted cloud endpoint. The pane
+  # opens a modal to edit one consumer individually. OpenClaw + Claude Code speak
+  # Anthropic Messages; Open Computer speaks the OpenAI shim; VSCode = Cline/Claude
+  # Dev (Anthropic). A true non-Anthropic OpenAI cloud provider is the Stage-N
+  # follow-on (SDD-707 non-goal).
+  - id: openclaw-backend
+    kind: mode
+    scope: scoped
+    label: "OpenClaw provider"
+    description: >-
+      OpenClaw's model backend — the on-box safety-spine gateway (local,
+      Anthropic Messages at :8787) or hosted Claude (anthropic). Flips the
+      primary provider in ~/.openclaw/openclaw.json.
+    options: [local, anthropic]
+    options_cli: "sovereign-osctl openclaw backend show"
+    state_cli: "sovereign-osctl openclaw backend show --json"
+    change_cli: "sovereign-osctl openclaw backend <origin>"
+    state_path: "/etc/sovereign-os/openclaw-backends.json"
+    privileged: true
+    applies_to: [orchestration]
+    refs: [SDD-600, SDD-707, scripts/operator/agent-backend.py]
+  - id: open-computer-backend
+    kind: mode
+    scope: scoped
+    label: "Open Computer provider"
+    description: >-
+      Open Computer's LLM backend — the local gateway OpenAI shim (local,
+      :8787/v1) or Anthropic's OpenAI-compat cloud endpoint (anthropic). Flips
+      OPENAI_BASE_URL in /etc/sovereign-os/open-computer.env.
+    options: [local, anthropic]
+    options_cli: "sovereign-osctl open-computer backend show"
+    state_cli: "sovereign-osctl open-computer backend show --json"
+    change_cli: "sovereign-osctl open-computer backend <origin>"
+    state_path: "/etc/sovereign-os/open-computer-backends.json"
+    privileged: true
+    applies_to: [orchestration]
+    refs: [SDD-600, SDD-707, scripts/operator/agent-backend.py]
+  - id: claude-code-backend
+    kind: mode
+    scope: scoped
+    label: "Claude Code provider"
+    description: >-
+      Claude Code's endpoint — the on-box gateway (local, ANTHROPIC_BASE_URL
+      :8787) or hosted Claude (anthropic, cloud default). Rewrites the managed
+      /etc/sovereign-os/claude-code.env the CLI reads.
+    options: [local, anthropic]
+    options_cli: "sovereign-osctl claude-code backend show"
+    state_cli: "sovereign-osctl claude-code backend show --json"
+    change_cli: "sovereign-osctl claude-code backend <origin>"
+    state_path: "/etc/sovereign-os/claude-code-backends.json"
+    privileged: true
+    applies_to: [orchestration]
+    refs: [SDD-600, scripts/operator/agent-backend.py]
+  - id: vscode-backend
+    kind: mode
+    scope: scoped
+    label: "VSCode provider"
+    description: >-
+      VSCode's Cline / Claude Dev extension endpoint — the on-box gateway
+      (local) or cloud (anthropic). Renders the settings fragment to apply in
+      /etc/sovereign-os/vscode-cline-settings.json (honest-degrade: a live editor
+      profile can't be written for you).
+    options: [local, anthropic]
+    options_cli: "sovereign-osctl vscode backend show"
+    state_cli: "sovereign-osctl vscode backend show --json"
+    change_cli: "sovereign-osctl vscode backend <origin>"
+    state_path: "/etc/sovereign-os/vscode-backends.json"
+    privileged: true
+    applies_to: [orchestration]
+    refs: [SDD-600, scripts/operator/agent-backend.py]

@@ -77,7 +77,11 @@ Cmnd_Alias SOVEREIGN_OS_COCKPIT = \
     /usr/local/bin/sovereign-osctl sessions restore *, \
     /usr/local/bin/sovereign-osctl warp render *, \
     /usr/local/bin/sovereign-osctl warp bench *, \
-    /usr/local/bin/sovereign-osctl frontend set *
+    /usr/local/bin/sovereign-osctl frontend set *, \
+    /usr/local/bin/sovereign-osctl openclaw backend *, \
+    /usr/local/bin/sovereign-osctl open-computer backend *, \
+    /usr/local/bin/sovereign-osctl claude-code backend *, \
+    /usr/local/bin/sovereign-osctl vscode backend *
 
 # Granted to the OPERATOR USER (the account the panel APIs + agent run as), per
 # operator-sudoers.sh's model — NOT a dedicated service account. `%operator` is

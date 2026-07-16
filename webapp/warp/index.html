@@ -260,6 +260,17 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
   .so-set-mini{height:24px; padding:0 .5rem; font:inherit; font-size:.72rem; cursor:pointer; color:var(--fg,#e6e6e6); background:transparent; border:1px solid var(--border,#3a3a3a); border-radius:6px;}
   .so-set-mini:hover{background:color-mix(in srgb,var(--accent,#9bd1ff) 14%,transparent); border-color:color-mix(in srgb,var(--accent,#9bd1ff) 40%,transparent);}
   #so-settings-pane .so-set-foot{color:var(--muted,#8a8a8a); font-size:.72rem; padding:.1rem .7rem .5rem;}
+  /* Provider drill-in modal (SDD-600 Part 2) — edit one AI consumer's origin. Copy-CLI only. */
+  #so-prov-modal{position:fixed; inset:0; z-index:9600; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.5);}
+  #so-prov-modal[hidden]{display:none;}
+  #so-prov-modal .so-prov-card{width:520px; max-width:94vw; max-height:86vh; overflow:auto; background:var(--card,#151515);
+    color:var(--fg,#e6e6e6); border:1px solid var(--border,#262626); border-radius:11px; box-shadow:0 18px 50px rgba(0,0,0,.55); padding:.2rem 0 .5rem;}
+  #so-prov-modal .so-prov-h{display:flex; align-items:center; justify-content:space-between; font-weight:600; padding:.6rem .9rem; border-bottom:1px solid var(--border,#262626);}
+  #so-prov-modal .so-prov-row{display:flex; align-items:flex-start; gap:.6rem; padding:.6rem .9rem; border-bottom:1px solid color-mix(in srgb,var(--border,#262626) 55%,transparent);}
+  #so-prov-modal .so-prov-row:last-child{border-bottom:0;}
+  #so-prov-modal .so-prov-lbl{flex:1; min-width:0;} #so-prov-modal .so-prov-lbl b{display:block;}
+  #so-prov-modal .so-prov-lbl small{color:var(--muted,#8a8a8a); font-size:.72rem;}
+  #so-prov-modal .so-prov-foot{color:var(--muted,#8a8a8a); font-size:.72rem; padding:.5rem .9rem 0;}
   .so-brand{display:flex; align-items:center; gap:.4rem; font-weight:600; letter-spacing:.02em;}
   .so-brand .mark{color:var(--accent,#9bd1ff);}
   .so-crumb{color:var(--muted,#8a8a8a); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:40vw;}
@@ -582,6 +593,9 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
             '<option value="none">headless (non-GUI)</option></select>'+
           '<button class="so-set-mini" id="so-fe-copy" type="button" title="Copy the set command">Copy</button>'+
           '<button class="so-set-mini" id="so-fe-restore" type="button" title="Copy the restore-GNOME command">Restore GNOME</button></div></div>'+
+        '<div class="so-set-row"><div class="so-set-lbl"><b>Provider / origin</b>'+
+          '<span class="so-set-sub">Swap each AI consumer (OpenClaw · Claude Code · VSCode · Open Computer) between the on-box gateway and its hosted cloud endpoint.</span></div>'+
+          '<div class="so-set-ctl"><button class="so-set-mini" id="so-prov-open" type="button" title="Edit one consumer">Edit consumers…</button></div></div>'+
         '<div class="so-set-row" id="so-course-set-row" hidden><div class="so-set-lbl"><b>Guided course</b>'+
           '<span class="so-set-sub">The bottom journey-rail that tours the box. Toggle it here (updates live); Reset starts the tour over.</span></div>'+
           '<div class="so-set-ctl"><button class="so-set-mini" id="so-course-reset" type="button">Reset</button>'+
@@ -609,6 +623,39 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
     var feSel=document.getElementById('so-fe-select'), feCopy=document.getElementById('so-fe-copy'), feRestore=document.getElementById('so-fe-restore');
     if(feCopy) feCopy.addEventListener('click',function(){ soCopyCmd('sudo sovereign-osctl frontend set '+(feSel?feSel.value:'gnome'), feCopy); });
     if(feRestore) feRestore.addEventListener('click',function(){ soCopyCmd('sudo sovereign-osctl frontend set gnome && sudo systemctl isolate graphical.target', feRestore); });
+    // ── Provider / origin drill-in modal (SDD-600 Part 2) — edit ONE consumer.
+    //    Each consumer speaks its own protocol; the copy is the exact swap CLI. ──
+    var SO_PROVIDERS=[
+      {rt:'openclaw', label:'OpenClaw', proto:'Anthropic Messages'},
+      {rt:'claude-code', label:'Claude Code', proto:'Anthropic · ANTHROPIC_BASE_URL'},
+      {rt:'vscode', label:'VSCode (Cline / Claude Dev)', proto:'Anthropic'},
+      {rt:'open-computer', label:'Open Computer', proto:'OpenAI shim'}
+    ];
+    var provRows=SO_PROVIDERS.map(function(p){
+      return '<div class="so-prov-row"><div class="so-prov-lbl"><b>'+p.label+'</b><small>'+p.proto+' · '+p.rt+'</small></div>'+
+        '<div class="so-set-ctl"><select class="so-set-mini" data-prov="'+p.rt+'" aria-label="'+p.label+' origin">'+
+          '<option value="local">local (on-box :8787)</option><option value="anthropic">official (cloud)</option></select>'+
+        '<button class="so-set-mini so-prov-copy" data-prov="'+p.rt+'" type="button">Copy</button></div></div>';
+    }).join('');
+    document.body.appendChild(el(
+      '<div id="so-prov-modal" role="dialog" aria-modal="true" aria-label="Provider / origin" hidden>'+
+        '<div class="so-prov-card">'+
+          '<div class="so-prov-h"><span>⇄ Provider / origin — edit one consumer</span>'+
+            '<button class="so-set-mini" id="so-prov-close" type="button">Close ✕</button></div>'+
+          provRows+
+          '<div class="so-prov-foot">Copies the exact <code>sudo sovereign-osctl &lt;consumer&gt; backend &lt;origin&gt;</code> to run — the cockpit never mutates provider config from the browser (R10212). A true non-Anthropic OpenAI cloud provider is the Stage-N follow-on.</div>'+
+        '</div></div>'));
+    var provModal=document.getElementById('so-prov-modal'), provOpen=document.getElementById('so-prov-open'), provClose=document.getElementById('so-prov-close');
+    function provSet(open){ provModal.hidden=!open; }
+    if(provOpen) provOpen.addEventListener('click',function(){ setPaneOpen(false); provSet(true); });
+    if(provClose) provClose.addEventListener('click',function(){ provSet(false); });
+    provModal.addEventListener('click',function(e){ if(e.target===provModal) provSet(false); });
+    Array.prototype.forEach.call(provModal.querySelectorAll('.so-prov-copy'),function(btn){
+      btn.addEventListener('click',function(){ var rt=btn.getAttribute('data-prov');
+        var sel=provModal.querySelector('select[data-prov="'+rt+'"]'); var origin=sel?sel.value:'local';
+        soCopyCmd('sudo sovereign-osctl '+rt+' backend '+origin, btn); });
+    });
+    document.addEventListener('keydown',function(e){ if(provModal && !provModal.hidden && e.key==='Escape') provSet(false); });
     function setPaneOpen(open){ setPane.hidden=!open; setBtn.setAttribute('aria-expanded',open?'true':'false'); if(open){ syncDemoSwitch(); syncCourseSwitch(); } }
     setBtn.addEventListener('click',function(e){ e.stopPropagation(); setPaneOpen(setPane.hidden); });
     demoSw.addEventListener('click',function(){ demoSet(!demoOn()); });

@@ -94,9 +94,11 @@ def test_hooks_delegate_and_drop_raw_vllm():
 
 def test_osctl_backend_verbs():
     body = OSCTL.read_text(encoding="utf-8")
-    # both runtimes dispatch a backend sub-verb to the engine
-    assert body.count("agent-backend.py") >= 2, "osctl does not delegate backend to agent-backend.py for both runtimes"
-    assert "openclaw backend" in body and "open-computer backend" in body, "osctl help missing the backend verbs"
+    # all four consumers dispatch a backend sub-verb to the engine
+    assert body.count("agent-backend.py") >= 2, "osctl does not delegate backend to agent-backend.py"
+    for verb in ("openclaw backend", "open-computer backend",
+                 "claude-code backend", "vscode backend"):
+        assert verb in body, f"osctl help missing the {verb!r} verb (SDD-600 Part 2)"
 
 
 # ---------- 6. units carry the key file ----------
@@ -120,6 +122,8 @@ def _run(runtime: str, args: list[str], tmp: Path) -> subprocess.CompletedProces
         "SOVEREIGN_OS_OPEN_COMPUTER_ROOT": str(tmp / "ocmp"),
         "SOVEREIGN_OS_OPEN_COMPUTER_ENV": str(tmp / "open-computer.env"),
         "SOVEREIGN_OS_ANTHROPIC_KEY_ENV": str(tmp / "anthropic-key.env"),
+        "SOVEREIGN_OS_CLAUDE_CODE_ENV": str(tmp / "claude-code.env"),
+        "SOVEREIGN_OS_VSCODE_CLINE_JSON": str(tmp / "vscode-cline-settings.json"),
     })
     return subprocess.run([sys.executable, str(ENGINE), runtime, *args],
                           capture_output=True, text=True, env=env, timeout=30)
@@ -167,3 +171,44 @@ def test_anthropic_without_key_warns(tmp_path: Path):
     r = _run("openclaw", ["anthropic"], tmp_path)
     assert r.returncode == 0
     assert "no ANTHROPIC_API_KEY" in (r.stdout + r.stderr), "swapping to anthropic without a key should warn"
+
+
+# ---------- SDD-600 Part 2: Claude Code + VSCode renderers ----------
+
+def test_engine_has_the_two_new_renderers():
+    body = ENGINE.read_text(encoding="utf-8")
+    for tok in ("def render_claude_code", "def render_vscode",
+                '"claude-code"', '"vscode"'):
+        assert tok in body, f"agent-backend.py missing {tok!r} (SDD-600 Part 2)"
+
+
+def _provision(runtime: str, tmp: Path, local_endpoint: str):
+    return _run(runtime, ["provision", "--backend", "local",
+                          "--local-endpoint", local_endpoint, "--local-model", "local-oracle",
+                          "--anthropic-endpoint", "https://api.anthropic.com",
+                          "--anthropic-model", "claude-sonnet-4-6"], tmp)
+
+
+def test_claude_code_swap_writes_base_url(tmp_path: Path):
+    assert _provision("claude-code", tmp_path, "http://127.0.0.1:8787").returncode == 0
+    env_local = (tmp_path / "claude-code.env").read_text(encoding="utf-8")
+    assert "ANTHROPIC_BASE_URL=http://127.0.0.1:8787" in env_local, "local must point at the on-box gateway"
+    assert ":8000" not in env_local, "must not point at raw vLLM :8000"
+    # swap to cloud → ANTHROPIC_BASE_URL cleared so Claude Code uses its default
+    r = _run("claude-code", ["anthropic", "--key", "sk-ant-TESTONLY"], tmp_path)
+    assert r.returncode == 0
+    env_cloud = (tmp_path / "claude-code.env").read_text(encoding="utf-8")
+    assert "ANTHROPIC_BASE_URL=\n" in env_cloud, "cloud must clear ANTHROPIC_BASE_URL"
+    assert "ANTHROPIC_API_KEY=sk-ant-TESTONLY" in env_cloud, "cloud key not injected on swap"
+
+
+def test_vscode_swap_renders_cline_fragment(tmp_path: Path):
+    assert _provision("vscode", tmp_path, "http://127.0.0.1:8787").returncode == 0
+    frag_local = (tmp_path / "vscode-cline-settings.json").read_text(encoding="utf-8")
+    assert '"cline.anthropicBaseUrl": "http://127.0.0.1:8787"' in frag_local, "local must target the on-box gateway"
+    assert '"cline.apiProvider": "anthropic"' in frag_local, "VSCode consumer speaks Anthropic (Cline/Claude Dev)"
+    # swap to cloud
+    r = _run("vscode", ["anthropic"], tmp_path)
+    assert r.returncode == 0
+    frag_cloud = (tmp_path / "vscode-cline-settings.json").read_text(encoding="utf-8")
+    assert "api.anthropic.com" in frag_cloud, "cloud must target the hosted Claude endpoint"

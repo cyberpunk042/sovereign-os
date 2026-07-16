@@ -35,6 +35,8 @@ EXPECTED_IDS = {
     "profile-compose",
     "warp-render", "warp-bench",
     "frontend",
+    "openclaw-backend", "open-computer-backend",
+    "claude-code-backend", "vscode-backend",
 }
 VALID_KINDS = {"profile", "mode", "toggle", "lifecycle"}
 VALID_SCOPES = {"global", "scoped"}
