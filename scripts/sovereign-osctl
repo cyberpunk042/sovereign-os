@@ -197,6 +197,13 @@ COMMANDS:
                                SDD-707 hotswap: local gateway shim ↔ hosted Claude (root)
   open-computer url | logs | doctor   Print the UI URL / tail the journal / check qemu+kvm+node+base health
 
+  claude-code backend {local|anthropic|show} [--key K]
+                               SDD-600 hotswap: writes ANTHROPIC_BASE_URL (local gateway ↔ hosted Claude)
+  vscode backend {local|anthropic|show} [--key K]
+                               SDD-600 hotswap: renders the Cline/Claude-Dev settings fragment (local ↔ cloud)
+  avx-mode list | show [--json] | inventory [--json] | set {custom|builtin|hybrid|off}
+                               SDD-600 AVX execution-mode swap: Custom bit-machine ↔ BuiltIn math ↔ Hybrid ↔ Off
+
   models docs [--check|--stdout]  Regenerate docs/src/model-catalog.md (R206, SDD-028 pattern)
   models query [--class C] [--tier T] [--purpose P] [--size-class S] [--quantization Q] [--status S] [--max-vram N] [--min-context N] [--engine E] [--base-model B] [--json]
                                R213: filter catalog by R212 taxonomy
@@ -6953,6 +6960,13 @@ case "${cmd}" in
   selfdef)       cmd_selfdef "$@" ;;
   openclaw)      cmd_openclaw "$@" ;;
   open-computer) cmd_open_computer "$@" ;;
+  claude-code|vscode)  # SDD-600 Part 2: provider/origin hotswap (Anthropic protocol).
+    # `$cmd` is the runtime; drop a leading `backend` word so
+    # `... claude-code backend local` maps to agent-backend.py's `<rt> local`.
+    if [ "${1:-}" = "backend" ]; then shift; fi
+    exec "${PYTHON3}" "${__REPO_ROOT}/scripts/operator/agent-backend.py" "${cmd}" "${@:-show}" ;;
+  avx-mode)  # SDD-600 Part 3: AVX execution-mode hotswap (custom/builtin/hybrid/off).
+    exec "${PYTHON3}" "${__REPO_ROOT}/scripts/hardware/avx-mode.py" "$@" ;;
   models)        cmd_models "$@" ;;
   audit)         cmd_audit "$@" ;;
   hooks)         cmd_hooks "$@" ;;

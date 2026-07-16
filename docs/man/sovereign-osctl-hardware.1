@@ -95,6 +95,19 @@ R221 (SDD-026 Z-4): switch CPU governor
 .TP
 \f[B]sovereign-osctl cpu-mode auto [\[en]apply] [\[en]aggressive] [\[en]json]\f[R]
 See the handler for behavior and options.
+.SS avx-mode
+.TP
+\f[B]sovereign-osctl avx-mode show [\[en]json]\f[R]
+The active AVX execution mode + whether its kernels are real or scaffold.
+.TP
+\f[B]sovereign-osctl avx-mode list\f[R]
+The master modes \[en] custom / builtin / hybrid / off.
+.TP
+\f[B]sovereign-osctl avx-mode inventory [\[en]json]\f[R]
+The full mode inventory \[en] the M008 bit-cheats + cpu-dispatch paths + precision tiers.
+.TP
+\f[B]sovereign-osctl avx-mode set \f[R]
+SDD-600: pick how the box uses AVX-512. Custom = the M002/M007/M008 bit-machine (policy becomes bits, token-by-token routing); BuiltIn-Features = stock AVX-512 math; Hybrid = both; Off = scalar. Custom/Hybrid kernels are scaffold today \[en] the switch is recorded and gates them downstream.
 .SS gpu-mode
 .TP
 \f[B]sovereign-osctl gpu-mode show [\[en]json]\f[R]

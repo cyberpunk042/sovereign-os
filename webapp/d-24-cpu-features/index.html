@@ -157,6 +157,31 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
   .so-set-mini{height:24px; padding:0 .5rem; font:inherit; font-size:.72rem; cursor:pointer; color:var(--fg,#e6e6e6); background:transparent; border:1px solid var(--border,#3a3a3a); border-radius:6px;}
   .so-set-mini:hover{background:color-mix(in srgb,var(--accent,#9bd1ff) 14%,transparent); border-color:color-mix(in srgb,var(--accent,#9bd1ff) 40%,transparent);}
   #so-settings-pane .so-set-foot{color:var(--muted,#8a8a8a); font-size:.72rem; padding:.1rem .7rem .5rem;}
+  /* Hotswap rows (SDD-600) stack — a select + buttons don't fit beside the label in a 300px pane. */
+  .so-set-row.so-set-stack{flex-direction:column; align-items:stretch; gap:.2rem;}
+  .so-set-row.so-set-stack .so-set-ctl{margin-top:.45rem; flex-wrap:wrap; gap:.4rem;}
+  .so-set-row.so-set-stack select.so-set-mini{flex:1; min-width:8rem;}
+  /* Hotswap EXECUTE (SDD-600) — the pane flips state via the exec-rail; result line + Apply accent. */
+  .so-apply{border-color:color-mix(in srgb,var(--accent,#9bd1ff) 55%,transparent);}
+  .so-apply:hover{background:color-mix(in srgb,var(--accent,#9bd1ff) 20%,transparent);}
+  .so-exec-result{font-size:.72rem; margin-top:.3rem; line-height:1.4;}
+  .so-exec-result:empty{display:none;}
+  .so-exec-muted{color:var(--muted,#8a8a8a);} .so-exec-ok{color:#7fbf85;} .so-exec-dry{color:var(--accent,#9bd1ff);}
+  .so-exec-warn{color:#d6a95f;} .so-exec-err{color:#d67f7f;}
+  .so-cmd{display:block; font-family:ui-monospace,Menlo,monospace; font-size:.7rem; background:var(--bg,#0c0c0c);
+    border:1px solid var(--border,#3a3a3a); border-radius:6px; padding:.35rem .5rem; margin-top:.3rem;
+    white-space:pre-wrap; overflow-wrap:anywhere; color:var(--fg,#e6e6e6); user-select:all;}
+  /* Provider drill-in modal (SDD-600 Part 2) — edit one AI consumer's origin. Copy-CLI only. */
+  #so-prov-modal{position:fixed; inset:0; z-index:9600; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.5);}
+  #so-prov-modal[hidden]{display:none;}
+  #so-prov-modal .so-prov-card{width:520px; max-width:94vw; max-height:86vh; overflow:auto; background:var(--card,#151515);
+    color:var(--fg,#e6e6e6); border:1px solid var(--border,#262626); border-radius:11px; box-shadow:0 18px 50px rgba(0,0,0,.55); padding:.2rem 0 .5rem;}
+  #so-prov-modal .so-prov-h{display:flex; align-items:center; justify-content:space-between; font-weight:600; padding:.6rem .9rem; border-bottom:1px solid var(--border,#262626);}
+  #so-prov-modal .so-prov-row{display:flex; align-items:flex-start; gap:.6rem; padding:.6rem .9rem; border-bottom:1px solid color-mix(in srgb,var(--border,#262626) 55%,transparent);}
+  #so-prov-modal .so-prov-row:last-child{border-bottom:0;}
+  #so-prov-modal .so-prov-lbl{flex:1; min-width:0;} #so-prov-modal .so-prov-lbl b{display:block;}
+  #so-prov-modal .so-prov-lbl small{color:var(--muted,#8a8a8a); font-size:.72rem;}
+  #so-prov-modal .so-prov-foot{color:var(--muted,#8a8a8a); font-size:.72rem; padding:.5rem .9rem 0;}
   .so-brand{display:flex; align-items:center; gap:.4rem; font-weight:600; letter-spacing:.02em;}
   .so-brand .mark{color:var(--accent,#9bd1ff);}
   .so-crumb{color:var(--muted,#8a8a8a); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:40vw;}
@@ -311,6 +336,7 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
       {id:'—', dir:'code-console', label:'Code Console', ico:'⌘', desc:'A claude.ai/code-style interface for the box’s OWN local LM — a left M057 session rail, a center conversation over the loopback router, a right Plan/artifact pane, and a bottom composer with an M075 device target. Read-only (R10212): the one sanctioned POST is the loopback chat.', menuHover:'The one panel where you sit down and CODE with your sovereign machine instead of a cloud. It re-creates the claude.ai/code shape natively — a session rail on the left (real M057 OS task-sessions), a conversation in the middle, a plan/artifact pane on the right, and a composer at the bottom with a device target (CPU0 Conductor / GPU0 Oracle / GPU1 Logic) — but every token is served by the box’s own local LM over 127.0.0.1, nothing crossing the network. It is honest by construction: the rail and the composer are live, while the persisted conversation, the Plan pane, and the repo chips have no producer on the box yet and say so plainly rather than faking them (SB-077). It is read-only like every panel (R10212): the single mutating-looking call is the loopback chat, a non-mutating inference read-compute; any real action is a signed CLI verb you copy. Open it to talk to the machine directly, to sanity-check that a device actually responds, or to feel the box think with no cloud in the loop. It extends D-22, whose per-device chat this grows into a full IDE-style surface.'},
       {id:'—', dir:'models-catalog', label:'Models & Catalog', ico:'▤', desc:'The full model catalog (68 models across ternary-lm/RLM/SLM/LLM/mixture, every quantization) with VRAM-aware selection — browse and filter by class/quant/tier/purpose/VRAM. Backed by models/catalog.yaml (served at /models-catalog.json); operator CLI e.g. models select --class rlm --vram 48.', menuHover:'The full model shelf with VRAM-aware selection — the complete catalog (68 models across ternary-lm, RLM, SLM, LLM, and mixture, at every quantization) that you browse and filter to choose what to run. Where D-23 is the tier-grouped portfolio view, this is the working selector: filter by class, quant, tier, purpose, or VRAM budget and it shows you what actually fits. It answers ‘which model should I load for this job on this hardware’ — the VRAM filter is the key, because a model that will not fit is not a candidate no matter how good. Open it when picking a model to load, comparing quantizations of the same base, or checking whether a workload has a model that fits a tier’s memory. It feeds D-03 and D-21, where a chosen model becomes a signed load.'},
       {id:'—', dir:'cpu-features', label:'CPU / AVX-512 Choice', ico:'⊞', desc:'The tiered AVX-512 exploitation surface — which instructions (F/VL/BW/VNNI/BF16/VPOPCNTDQ…) THIS CPU exposes and how they map to the AI workloads they enable (Pulse ternary path). Live probe via avx512-advisor (R272), served at /cpu-avx.json.', menuHover:'The CPU-as-AI-accelerator chooser — the tiered AVX-512 exploitation surface that shows which instruction families this chip exposes (F, VL, BW, VNNI, BF16, VPOPCNTDQ…) and how they map to the AI workloads they enable. It matters because the box’s cheap-cognition claim rests on ternary inference running fast on CPU, and that speed comes from these specific extensions — a missing one silently downgrades the Pulse path. Open it to decide whether to lean on CPU inference on this silicon, or to understand why the Conductor is slower than expected. It is the selection-oriented sibling of D-24 (the deep per-workload fit and advisory) and it grounds the efficiency profile on runtime-modes / D-21, which only makes sense if the instructions it needs are present.'},
+      {id:'—', dir:'avx-modes', label:'AVX Modes', ico:'⋔', desc:'The AVX execution-mode surface (SDD-600) — Custom-AVX (the M002/M007/M008 bit-machine: policy becomes bits, token-by-token routing) vs BuiltIn-Features-AVX (stock AVX-512 math) vs Hybrid vs Off, in one select, with the full mode inventory (M008 13 bit-cheats + cpu-dispatch paths + precision tiers). Custom kernels are scaffold today (honest-degrade).', menuHover:'Where the box picks HOW it uses AVX-512. Two very different powers live here: the Custom bit-machine (a packed control word per branch — M002/M007/M008 — where policy becomes bits and one masked AVX-512 op routes many branches at once, token-by-token, at hardware speed) and the BuiltIn math side (stock VNNI/BF16/tier acceleration the CPU/AVX-512 Choice panel already surfaces). It matters because the custom bit-machine is the "using the bits for various purposes" superpower and it had no panel until now. Open it to swap the mode, read why it is a superpower, and see the full inventory of sub-modes — remembering the honest ledger: the custom ZMM kernels are scaffold today, so the switch is real but what it gates lands downstream.'},
       {id:'—', dir:'orchestration', label:'Thinking Router / Orchestration', ico:'⧉', desc:'The thinking-router / orchestration view — the 7-axis routing rules (SDD-011) + live routing metrics (which tier/class/task-type requests landed on) + the per-profile escalation (CoT → Validator → self-consistency → MoE). Served at /orchestration.json (router rules|metrics).', menuHover:'The thinking-router — the layer above tier choice that decides HOW HARD to reason, not just which model answers. It applies the 7-axis routing rules (SDD-011) and then the per-profile escalation ladder: chain-of-thought, then a validator, then self-consistency (multiple samples), then mixture-of-experts, each rung costing more but reasoning harder. It answers ‘is the box thinking as deeply as this prompt deserves, and no deeper.’ Open it to see which tier/class/task-type requests landed on, and how far up the escalation ladder the active profile climbs — too eager wastes compute, too shy gives shallow answers. It sits on top of the plain router (which picks the tier) and its escalation depth is set by the runtime profile you choose on D-21 / runtime-modes.'},
       {id:'—', dir:'profile-generation', label:'Runtime-Profile Generation', ico:'⌘', desc:'Generate a whole runtime profile from hardware × strategy, with tier_intent resolved against the catalog (the \'20+ combos\' producer) — shows the resolved allocations each strategy produces + the generate command. Served at /profile-generation.json from profiles/runtime/*.yaml.', menuHover:'The profile foundry — where a whole runtime profile is generated from hardware × strategy, resolving each tier’s intent against the real catalog. It is the producer behind the ‘20+ combos’: give it this silicon and a strategy and it computes the concrete model-to-device allocations that strategy implies, plus the exact generate command. It answers ‘what would a deep-context (or high-concurrency, or efficiency) profile actually look like on THIS box,’ before you ever apply one. Open it when you want to create or understand a profile rather than just pick from existing ones — it is the design-time counterpart to D-21 (which previews and applies a chosen profile) and runtime-modes (which switches between them). The output is what those panels then let you commit as a signed chain.'},
       {id:'D-10', dir:'d-10-eval-history', label:'D-10 Eval History', ico:'∿', desc:'Per-task/model eval results (mmlu/humaneval/gsm8k/…), white-box + black-box.', menuHover:'The report card — per-task and per-model eval results over time (MATH, HumanEval, GSM8K and the rest), in both white-box and black-box form. It answers the question no live dashboard can: ‘is the box actually getting better, or just changing.’ Black-box pass (outcome only) is the number that cannot be gamed; the per-task trends turn a single accuracy figure into a diagnosis of which model regressed on which task. Open it before promoting an adapter (to see if it earned it), after a model change (to confirm improvement, not drift), or when a suite result looks off. It is where measurement lives, feeding D-11 (adapter promotion decisions rest on these scores) and grounding the M078/M080 benchmark targets the box is tuned against.'},
@@ -466,11 +492,37 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
         '<div class="so-set-row"><div class="so-set-lbl"><b>DEMO mode</b>'+
           '<span class="so-set-sub">Explore panels with no daemon — badged sample data, never real telemetry. Off by default.</span></div>'+
           '<button class="so-set-switch" id="so-demo-switch" role="switch" aria-checked="false" aria-label="Toggle DEMO mode"><span class="knob"></span></button></div>'+
+        // ── Cockpit hotswaps (SDD-600). The shell never mutates privileged state
+        //    (R10212) — each row COPIES the exact CLI to run. The controls also
+        //    render live (with the exec-rail) on their home panels. ──
+        '<div class="so-set-row so-set-stack"><div class="so-set-lbl"><b>Frontend / GUI</b>'+
+          '<span class="so-set-sub">with-GUI (GNOME) · dashboards kiosk · Open-Computer kiosk · headless. Applies live on this box.</span></div>'+
+          '<div class="so-set-ctl"><select class="so-set-mini" id="so-fe-select" aria-label="Frontend mode">'+
+            '<option value="gnome">with-GUI (GNOME)</option>'+
+            '<option value="dashboards-kiosk">dashboards kiosk</option>'+
+            '<option value="open-computer-kiosk">Open-Computer kiosk</option>'+
+            '<option value="none">headless (non-GUI)</option></select>'+
+          '<button class="so-set-mini so-apply" id="so-fe-apply" type="button" title="Apply the frontend mode">Apply</button></div>'+
+          '<div class="so-exec-result" id="so-fe-result"></div>'+
+          '<span class="so-set-sub">After a console/tty login (no GUI to click), bring GNOME back with:</span>'+
+          '<code class="so-cmd">sudo sovereign-osctl frontend set gnome &amp;&amp; sudo systemctl isolate graphical.target</code></div>'+
+        '<div class="so-set-row"><div class="so-set-lbl"><b>Provider / origin</b>'+
+          '<span class="so-set-sub">Swap each AI consumer (OpenClaw · Claude Code · VSCode · Open Computer) between the on-box gateway and its hosted cloud endpoint — applies live.</span></div>'+
+          '<div class="so-set-ctl"><button class="so-set-mini" id="so-prov-open" type="button" title="Edit one consumer">Edit consumers…</button></div></div>'+
+        '<div class="so-set-row so-set-stack"><div class="so-set-lbl"><b>AVX Mode</b>'+
+          '<span class="so-set-sub">Custom bit-machine (M002/M007/M008) · BuiltIn math · Hybrid · Off. Applies live (custom/hybrid gate scaffold kernels).</span></div>'+
+          '<div class="so-set-ctl"><select class="so-set-mini" id="so-avx-select" aria-label="AVX mode">'+
+            '<option value="custom">Custom-AVX (bit-machine)</option>'+
+            '<option value="builtin">BuiltIn-Features-AVX</option>'+
+            '<option value="hybrid">Hybrid-AVX</option>'+
+            '<option value="off">Off (scalar)</option></select>'+
+          '<button class="so-set-mini so-apply" id="so-avx-apply" type="button" title="Apply the AVX mode">Apply</button></div>'+
+          '<div class="so-exec-result" id="so-avx-result"></div></div>'+
         '<div class="so-set-row" id="so-course-set-row" hidden><div class="so-set-lbl"><b>Guided course</b>'+
           '<span class="so-set-sub">The bottom journey-rail that tours the box. Toggle it here (updates live); Reset starts the tour over.</span></div>'+
           '<div class="so-set-ctl"><button class="so-set-mini" id="so-course-reset" type="button">Reset</button>'+
           '<button class="so-set-switch" id="so-course-switch" role="switch" aria-checked="false" aria-label="Toggle the guided course"><span class="knob"></span></button></div></div>'+
-        '<div class="so-set-foot">not for production · saved on this device</div>'+
+        '<div class="so-set-foot">Hotswaps apply live via the control-exec-api (dry-run until the box is live; privileged → Confirm) · DEMO &amp; course are dev toggles saved on this device</div>'+
       '</div>'));
     var setPane=document.getElementById('so-settings-pane'), setBtn=document.getElementById('so-settings-toggle'), demoSw=document.getElementById('so-demo-switch');
     function syncDemoSwitch(){ var on=demoOn(); demoSw.setAttribute('aria-checked',on?'true':'false'); demoSw.classList.toggle('on',on); }
@@ -482,6 +534,80 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
       if(!api){ if(courseRow) courseRow.hidden=true; return; }
       if(courseRow) courseRow.hidden=false;
       var on=!!api.isOn(); courseSw.setAttribute('aria-checked',on?'true':'false'); courseSw.classList.toggle('on',on); }
+    // ── Hotswap EXECUTE helper (SDD-600) — the pane FLIPS state through the
+    //    sanctioned control-exec-api (POST /api/control/execute :8130), the same
+    //    rail the panels use. No copy-paste. Privileged controls get a Confirm
+    //    step; the server also gates (sudoers + the live flag). Dry-run by default
+    //    (SOVEREIGN_OS_ACTION_EXEC_LIVE=1 makes it real). ──
+    function soExecMsg(el,cls,msg){ if(el){ el.className='so-exec-result so-exec-'+cls; el.textContent=msg; } }
+    function soExec(controlId, args, resultEl){
+      soExecMsg(resultEl,'muted','executing…');
+      function post(confirmed){
+        return fetch('/api/control/execute',{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},
+          body:JSON.stringify({control_id:controlId,args:args,confirm:!!confirmed})})
+          .then(function(r){ return r.json().then(function(j){return{status:r.status,body:j||{}};},function(){return{status:r.status,body:{}};}); },
+                function(){ return {status:0,body:{}}; });
+      }
+      function render(res,confirmed){
+        var b=res.body||{};
+        if(res.status===200){
+          if(b.dry_run) soExecMsg(resultEl,'dry','dry-run ✓ would run: '+((b.would_run||[]).join(' ')||(controlId+' '+args.join(' '))));
+          else soExecMsg(resultEl,'ok','applied ✓ '+controlId+' → '+args.join(' ')+(b.exit_code!=null?(' (exit '+b.exit_code+')'):''));
+        } else if(res.status===403 && !confirmed){
+          soExecMsg(resultEl,'warn','privileged — Confirm to apply: ');
+          var btn=document.createElement('button'); btn.type='button'; btn.className='so-set-mini so-apply'; btn.textContent='Confirm';
+          resultEl.appendChild(btn);
+          btn.addEventListener('click',function(){ post(true).then(function(r){ render(r,true); }); });
+        } else if(res.status===403){ soExecMsg(resultEl,'warn',b.error||'not permitted (operator key required)'); }
+        else if(res.status===0){ soExecMsg(resultEl,'err','control-exec-api unreachable (:8130) — start sovereign-control-exec-api'); }
+        else if(res.status===404){ soExecMsg(resultEl,'err',b.error||'unknown control'); }
+        else if(res.status===400){ soExecMsg(resultEl,'warn',b.error||'invalid argument'); }
+        else if(res.status===405||res.status===409){ soExecMsg(resultEl,'warn','execution not available on this origin (R10212)'); }
+        else soExecMsg(resultEl,'err','error '+res.status);
+      }
+      post(false).then(function(r){ render(r,false); });
+    }
+    // Frontend / GUI hotswap row — Apply flips the frontend mode.
+    var feSel=document.getElementById('so-fe-select'), feApply=document.getElementById('so-fe-apply'), feResult=document.getElementById('so-fe-result');
+    if(feApply) feApply.addEventListener('click',function(){ soExec('frontend',[feSel?feSel.value:'gnome'], feResult); });
+    // AVX Mode hotswap row.
+    var avxSel=document.getElementById('so-avx-select'), avxApply=document.getElementById('so-avx-apply'), avxResult=document.getElementById('so-avx-result');
+    if(avxApply) avxApply.addEventListener('click',function(){ soExec('avx-mode',[avxSel?avxSel.value:'builtin'], avxResult); });
+    // ── Provider / origin drill-in modal (SDD-600 Part 2) — edit ONE consumer.
+    //    Each consumer speaks its own protocol; the copy is the exact swap CLI. ──
+    var SO_PROVIDERS=[
+      {rt:'openclaw', label:'OpenClaw', proto:'Anthropic Messages'},
+      {rt:'claude-code', label:'Claude Code', proto:'Anthropic · ANTHROPIC_BASE_URL'},
+      {rt:'vscode', label:'VSCode (Cline / Claude Dev)', proto:'Anthropic'},
+      {rt:'open-computer', label:'Open Computer', proto:'OpenAI shim'}
+    ];
+    var provRows=SO_PROVIDERS.map(function(p){
+      return '<div class="so-prov-row"><div class="so-prov-lbl"><b>'+p.label+'</b><small>'+p.proto+' · '+p.rt+'</small>'+
+          '<div class="so-exec-result" data-provresult="'+p.rt+'"></div></div>'+
+        '<div class="so-set-ctl"><select class="so-set-mini" data-prov="'+p.rt+'" aria-label="'+p.label+' origin">'+
+          '<option value="local">local (on-box :8787)</option><option value="anthropic">official (cloud)</option></select>'+
+        '<button class="so-set-mini so-apply so-prov-apply" data-prov="'+p.rt+'" type="button">Apply</button></div></div>';
+    }).join('');
+    document.body.appendChild(el(
+      '<div id="so-prov-modal" role="dialog" aria-modal="true" aria-label="Provider / origin" hidden>'+
+        '<div class="so-prov-card">'+
+          '<div class="so-prov-h"><span>⇄ Provider / origin — edit one consumer</span>'+
+            '<button class="so-set-mini" id="so-prov-close" type="button">Close ✕</button></div>'+
+          provRows+
+          '<div class="so-prov-foot">Apply runs <code>sovereign-osctl &lt;consumer&gt; backend &lt;origin&gt;</code> through the control-exec-api (dry-run until the box is live; privileged → Confirm). A true non-Anthropic OpenAI cloud provider is the Stage-N follow-on.</div>'+
+        '</div></div>'));
+    var provModal=document.getElementById('so-prov-modal'), provOpen=document.getElementById('so-prov-open'), provClose=document.getElementById('so-prov-close');
+    function provSet(open){ provModal.hidden=!open; }
+    if(provOpen) provOpen.addEventListener('click',function(){ setPaneOpen(false); provSet(true); });
+    if(provClose) provClose.addEventListener('click',function(){ provSet(false); });
+    provModal.addEventListener('click',function(e){ if(e.target===provModal) provSet(false); });
+    Array.prototype.forEach.call(provModal.querySelectorAll('.so-prov-apply'),function(btn){
+      btn.addEventListener('click',function(){ var rt=btn.getAttribute('data-prov');
+        var sel=provModal.querySelector('select[data-prov="'+rt+'"]'); var origin=sel?sel.value:'local';
+        var res=provModal.querySelector('[data-provresult="'+rt+'"]');
+        soExec(rt+'-backend',[origin], res); });
+    });
+    document.addEventListener('keydown',function(e){ if(provModal && !provModal.hidden && e.key==='Escape') provSet(false); });
     function setPaneOpen(open){ setPane.hidden=!open; setBtn.setAttribute('aria-expanded',open?'true':'false'); if(open){ syncDemoSwitch(); syncCourseSwitch(); } }
     setBtn.addEventListener('click',function(e){ e.stopPropagation(); setPaneOpen(setPane.hidden); });
     demoSw.addEventListener('click',function(){ demoSet(!demoOn()); });

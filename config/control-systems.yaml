@@ -828,3 +828,124 @@ systems:
     privileged: true
     applies_to: [warp]
     refs: [SDD-300, config/warp-catalog.yaml]
+
+  # ── Cockpit hotswaps (SDD-600) — surfaced in the top-right settings pane ──
+  # The settings pane copies each control's change_cli (the shell never mutates
+  # privileged state — R10212); these controls ALSO render live on their home
+  # panel via the exec-rail like every other control.
+
+  # Frontend / GUI hotswap (SDD-704 machinery, now a first-class control).
+  - id: frontend
+    kind: mode
+    scope: global
+    label: "Frontend / GUI"
+    description: >-
+      Boot frontend — GNOME desktop (with-GUI), the dashboards kiosk, the
+      Open-Computer kiosk, or headless (non-GUI, multi-user.target). Restore the
+      desktop after a console/tty login by copying `set gnome` (+ `systemctl
+      isolate graphical.target` to bring it up in the current session).
+    options: [gnome, dashboards-kiosk, open-computer-kiosk, none]
+    options_cli: "sovereign-osctl frontend list"
+    state_cli: "sovereign-osctl frontend status --json"
+    change_cli: "sovereign-osctl frontend set <mode>"
+    state_path: "/etc/sovereign-os/frontend.active"
+    privileged: true
+    applies_to: [runtime-modes]
+    refs: [SDD-600, SDD-704, scripts/operator/frontend.py]
+
+  # Provider / origin hotswap (SDD-600 Part 2 + SDD-707) — per AI consumer, swap
+  # between the on-box gateway (:8787) and the hosted cloud endpoint. The pane
+  # opens a modal to edit one consumer individually. OpenClaw + Claude Code speak
+  # Anthropic Messages; Open Computer speaks the OpenAI shim; VSCode = Cline/Claude
+  # Dev (Anthropic). A true non-Anthropic OpenAI cloud provider is the Stage-N
+  # follow-on (SDD-707 non-goal).
+  - id: openclaw-backend
+    kind: mode
+    scope: scoped
+    label: "OpenClaw provider"
+    description: >-
+      OpenClaw's model backend — the on-box safety-spine gateway (local,
+      Anthropic Messages at :8787) or hosted Claude (anthropic). Flips the
+      primary provider in ~/.openclaw/openclaw.json.
+    options: [local, anthropic]
+    options_cli: "sovereign-osctl openclaw backend show"
+    state_cli: "sovereign-osctl openclaw backend show --json"
+    change_cli: "sovereign-osctl openclaw backend <origin>"
+    state_path: "/etc/sovereign-os/openclaw-backends.json"
+    privileged: true
+    applies_to: [orchestration]
+    refs: [SDD-600, SDD-707, scripts/operator/agent-backend.py]
+  - id: open-computer-backend
+    kind: mode
+    scope: scoped
+    label: "Open Computer provider"
+    description: >-
+      Open Computer's LLM backend — the local gateway OpenAI shim (local,
+      :8787/v1) or Anthropic's OpenAI-compat cloud endpoint (anthropic). Flips
+      OPENAI_BASE_URL in /etc/sovereign-os/open-computer.env.
+    options: [local, anthropic]
+    options_cli: "sovereign-osctl open-computer backend show"
+    state_cli: "sovereign-osctl open-computer backend show --json"
+    change_cli: "sovereign-osctl open-computer backend <origin>"
+    state_path: "/etc/sovereign-os/open-computer-backends.json"
+    privileged: true
+    applies_to: [orchestration]
+    refs: [SDD-600, SDD-707, scripts/operator/agent-backend.py]
+  - id: claude-code-backend
+    kind: mode
+    scope: scoped
+    label: "Claude Code provider"
+    description: >-
+      Claude Code's endpoint — the on-box gateway (local, ANTHROPIC_BASE_URL
+      :8787) or hosted Claude (anthropic, cloud default). Rewrites the managed
+      /etc/sovereign-os/claude-code.env the CLI reads.
+    options: [local, anthropic]
+    options_cli: "sovereign-osctl claude-code backend show"
+    state_cli: "sovereign-osctl claude-code backend show --json"
+    change_cli: "sovereign-osctl claude-code backend <origin>"
+    state_path: "/etc/sovereign-os/claude-code-backends.json"
+    privileged: true
+    applies_to: [orchestration]
+    refs: [SDD-600, scripts/operator/agent-backend.py]
+  - id: vscode-backend
+    kind: mode
+    scope: scoped
+    label: "VSCode provider"
+    description: >-
+      VSCode's Cline / Claude Dev extension endpoint — the on-box gateway
+      (local) or cloud (anthropic). Renders the settings fragment to apply in
+      /etc/sovereign-os/vscode-cline-settings.json (honest-degrade: a live editor
+      profile can't be written for you).
+    options: [local, anthropic]
+    options_cli: "sovereign-osctl vscode backend show"
+    state_cli: "sovereign-osctl vscode backend show --json"
+    change_cli: "sovereign-osctl vscode backend <origin>"
+    state_path: "/etc/sovereign-os/vscode-backends.json"
+    privileged: true
+    applies_to: [orchestration]
+    refs: [SDD-600, scripts/operator/agent-backend.py]
+
+  # AVX execution-mode hotswap (SDD-600 Part 3) — which way the box uses AVX-512.
+  # custom = the M002/M007/M008 bit-machine (policy becomes bits); builtin = stock
+  # AVX-512 math (sovereign-simd/vnni + M085/M086 tiers); hybrid = both; off =
+  # scalar. HONEST: custom/hybrid kernels are scaffold (control-word u64, branch-
+  # tree scalar, M008 crate-less) — the switch is real, the ZMM kernels land
+  # downstream. Not every runtime mode is compatible (M061 profiles = authority
+  # gate), which is why this hotswap exists.
+  - id: avx-mode
+    kind: mode
+    scope: global
+    label: "AVX Mode"
+    description: >-
+      How the box uses AVX-512 — Custom (the M002/M007/M008 bit-machine: policy
+      becomes bits, token-by-token routing), BuiltIn-Features (stock AVX-512 math:
+      VNNI/BF16/tiers), Hybrid (both), or Off (scalar baseline). Custom/Hybrid
+      kernels are scaffold today; the switch is recorded and gates them downstream.
+    options: [custom, builtin, hybrid, "off"]  # quote 'off' — YAML 1.1 parses bare off as false
+    options_cli: "sovereign-osctl avx-mode list"
+    state_cli: "sovereign-osctl avx-mode show --json"
+    change_cli: "sovereign-osctl avx-mode set <mode>"
+    state_path: "/etc/sovereign-os/avx-mode.active"
+    privileged: true
+    applies_to: [cpu-features, avx-modes]
+    refs: [SDD-600, scripts/hardware/avx-mode.py, "backlog/milestones/M008-bit-level-cheats-avx512-features.md"]

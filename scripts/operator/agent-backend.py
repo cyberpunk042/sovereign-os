@@ -36,8 +36,11 @@ import sys
 from pathlib import Path
 from typing import Any
 
-RUNTIMES = ("openclaw", "open-computer")
+RUNTIMES = ("openclaw", "open-computer", "claude-code", "vscode")
 BACKENDS = ("local", "anthropic")
+# Only service-backed runtimes have a unit to restart on swap. Claude Code (a
+# CLI) and VSCode (an editor extension) read their config on next launch — no
+# unit to bounce (SDD-600 Part 2).
 UNIT = {"openclaw": "sovereign-openclaw.service", "open-computer": "sovereign-open-computer.service"}
 
 DRYRUN = os.environ.get("SOVEREIGN_OS_BACKEND_DRYRUN") == "1"
@@ -46,6 +49,13 @@ KEY_FILE = Path(os.environ.get("SOVEREIGN_OS_ANTHROPIC_KEY_ENV", str(ETC / "anth
 OPENCLAW_HOME = Path(os.environ.get("SOVEREIGN_OS_OPENCLAW_HOME", "/var/lib/sovereign-os/openclaw"))
 OC_ROOT = Path(os.environ.get("SOVEREIGN_OS_OPEN_COMPUTER_ROOT", "/var/lib/sovereign-os/open-computer"))
 OC_ENV = Path(os.environ.get("SOVEREIGN_OS_OPEN_COMPUTER_ENV", str(ETC / "open-computer.env")))
+# Claude Code reads ANTHROPIC_BASE_URL/ANTHROPIC_API_KEY from the environment;
+# we render a managed env file the operator sources (or the launcher unit reads).
+CC_ENV = Path(os.environ.get("SOVEREIGN_OS_CLAUDE_CODE_ENV", str(ETC / "claude-code.env")))
+# VSCode's Cline / Claude Dev extension is configured in the user's VSCode
+# settings — we can't reach into a live editor profile, so we render the exact
+# settings fragment to apply (honest-degrade: the swap flips the Base URL here).
+VSCODE_CFG = Path(os.environ.get("SOVEREIGN_OS_VSCODE_CLINE_JSON", str(ETC / "vscode-cline-settings.json")))
 
 
 def _desc_path(runtime: str) -> Path:
@@ -96,7 +106,11 @@ def _write_key(key: str) -> None:
 
 
 def _restart_if_active(runtime: str) -> None:
-    unit = UNIT[runtime]
+    unit = UNIT.get(runtime)
+    if unit is None:
+        # Claude Code / VSCode have no service to bounce — config is read on
+        # the tool's next launch.
+        return
     if DRYRUN or not shutil.which("systemctl"):
         print(f"  [dry-run] systemctl try-restart {unit}", file=sys.stderr)
         return
@@ -173,8 +187,75 @@ def render_open_computer(desc: dict[str, Any]) -> str:
     return str(OC_ENV)
 
 
+def render_claude_code(desc: dict[str, Any]) -> str:
+    """Write /etc/sovereign-os/claude-code.env — Claude Code honors
+    ANTHROPIC_BASE_URL + ANTHROPIC_API_KEY (Anthropic Messages protocol).
+
+    local     → the on-box safety-spine gateway (:8787, POSTs /v1/messages).
+    anthropic → cloud default: unset ANTHROPIC_BASE_URL + the real key.
+    """
+    backend = desc.get("backend", "local")
+    sel = desc.get(backend, {})
+    if backend == "local":
+        base = sel.get("endpoint", "http://127.0.0.1:8787")
+        key = "sovereign-local"
+        base_line = f"ANTHROPIC_BASE_URL={base}\n"
+    else:
+        # cloud: ANTHROPIC_BASE_URL is left empty so Claude Code uses its default
+        # (https://api.anthropic.com); the real key is operator-supplied.
+        key = _anthropic_key()
+        base_line = "ANTHROPIC_BASE_URL=\n"
+    env = (
+        f"# /etc/sovereign-os/claude-code.env — Claude Code CLI backend (SDD-600 Part 2). backend={backend}.\n"
+        f"# Source this before launching `claude`, or reference it from the launcher unit.\n"
+        f"# Rewritten by `sovereign-osctl claude-code backend`.\n"
+        f"{base_line}"
+        f"ANTHROPIC_API_KEY={key}\n"
+    )
+    CC_ENV.parent.mkdir(parents=True, exist_ok=True)
+    CC_ENV.write_text(env, encoding="utf-8")
+    return str(CC_ENV)
+
+
+def render_vscode(desc: dict[str, Any]) -> str:
+    """Write /etc/sovereign-os/vscode-cline-settings.json — the settings fragment
+    to apply to the VSCode Cline / Claude Dev extension (Anthropic protocol).
+
+    We can't write a live editor profile, so this is the exact fragment the
+    operator pastes into VSCode settings (honest-degrade). local → the on-box
+    gateway; anthropic → the extension's cloud default.
+    """
+    backend = desc.get("backend", "local")
+    sel = desc.get(backend, {})
+    if backend == "local":
+        base = sel.get("endpoint", "http://127.0.0.1:8787")
+        key = "sovereign-local"
+    else:
+        base = sel.get("endpoint", "https://api.anthropic.com")
+        key = _anthropic_key() or "${ANTHROPIC_API_KEY}"
+    frag = {
+        "_comment": "sovereign-os SDD-600 Part 2 — paste into VSCode settings.json "
+                    "(Cline / Claude Dev). Rewritten by `sovereign-osctl vscode backend`.",
+        "_backend": backend,
+        "cline.apiProvider": "anthropic",
+        "cline.anthropicBaseUrl": base,
+        "cline.anthropicApiKey": key,
+    }
+    VSCODE_CFG.parent.mkdir(parents=True, exist_ok=True)
+    VSCODE_CFG.write_text(json.dumps(frag, indent=2) + "\n", encoding="utf-8")
+    return str(VSCODE_CFG)
+
+
+_RENDERERS = {
+    "openclaw": render_openclaw,
+    "open-computer": render_open_computer,
+    "claude-code": render_claude_code,
+    "vscode": render_vscode,
+}
+
+
 def _render(runtime: str, desc: dict[str, Any]) -> str:
-    return render_openclaw(desc) if runtime == "openclaw" else render_open_computer(desc)
+    return _RENDERERS[runtime](desc)
 
 
 # ---------- operations ----------

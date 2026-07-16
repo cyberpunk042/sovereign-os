@@ -1,120 +1,128 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>sovereign-os D-23 model catalog</title>
-<meta name="x-sovereign-module" content="d-23-models-catalog-webapp">
-<meta name="x-sovereign-shipped-in" content="D-23-models-catalog">
-<meta name="x-sovereign-standing-rule" content="We do not minimize anything.">
-<meta name="x-sovereign-catalog-source" content="reuses scripts/inference/model-health.py load_catalog (models/catalog.yaml); M075 SRP tiers">
-<script>
-  (function(){
-    var KEY = 'sovereign-os.personalization', SCHEMA_V = 1;
-    var DEF = { schema: SCHEMA_V, theme: 'auto', accent: '#9bd1ff', font_scale: 1 };
-    var p;
-    try {
-      var raw = localStorage.getItem(KEY);
-      p = raw ? JSON.parse(raw) : null;
-      if (!p || p.schema !== SCHEMA_V) p = null;
-    } catch(e) { p = null; }
-    if (!p) p = DEF;
-    var resolved = (p.theme === 'dark' || p.theme === 'light') ? p.theme
-      : ((window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark');
-    document.documentElement.setAttribute('data-theme', resolved);
-    document.documentElement.style.setProperty('--so-accent', p.accent || DEF.accent);
-    document.documentElement.style.setProperty('--accent', p.accent || DEF.accent);
-    document.documentElement.style.setProperty('--font-scale', String(p.font_scale || 1));
-  })();
-</script>
+<meta name="x-sovereign-module" content="avx-modes-webapp">
+<title>AVX Modes · sovereign-os</title>
 <style>
-  :root {
-    --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --panel:#171717;
-    --border:#262626; --mono:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; --accent:#9bd1ff; --good:#7ad17a; --warn:#e6c062;
-    --bad:#ff7676; --font-scale:1;
-  }
-  html[data-theme="light"] {
-    --bg:#f6f6f6; --fg:#0e0e0e; --muted:#555; --panel:#ffffff; --border:#d8d8d8;
-  }
-  * { box-sizing:border-box; }
-  body {
-    margin:0; background:var(--bg); color:var(--fg);
-    font-family: var(--mono); font-size: calc(14px * var(--font-scale)); line-height:1.5;
-  }
-  header { padding:1rem 1.25rem; border-bottom:1px solid var(--border); }
-  h1 { margin:0; font-size:1.1rem; }
-  h1 .sub { color:var(--muted); font-weight:400; font-size:.8rem; margin-left:.5rem; }
-  main { padding:1rem 1.25rem; max-width:1200px; }
-  h2 { font-size:.9rem; margin:1.2rem 0 .4rem; color:var(--accent); }
-  .banner { font-size:.78rem; color:var(--muted); margin:.5rem 0; }
-  .muted { color:var(--muted); }
-  code { color:var(--accent); }
-  table { width:100%; border-collapse:collapse; font-size:.8rem; margin-bottom:.5rem; }
-  th, td { text-align:left; padding:.3rem .5rem; border-bottom:1px solid var(--border); vertical-align:top; }
-  th { color:var(--muted); font-weight:600; }
-  td.num { text-align:right; }
-  .pill { display:inline-block; padding:0 .4rem; border-radius:3px; border:1px solid var(--border); font-size:.7rem; color:var(--muted); }
-  .st-verified-real { color:var(--good); }
-  .st-aspirational { color:var(--warn); }
-  .st-operator-must-confirm { color:var(--bad); }
-  footer { padding:1rem 1.25rem; border-top:1px solid var(--border); color:var(--muted); font-size:.75rem; }
-</style>
-<!-- SDD-116/120 shared demo-mode helper (inlined verbatim from webapp/_shared/demo-mode.{css,js}; opt-in, always-badged sample data — SB-077 reconciliation). -->
-<style>
-/* webapp/_shared/demo-mode.css — SDD-116 DEMO badge.
- * DEMO mode is opt-in sample data for exploring panels with no daemon. The badge
- * is a persistent, unmistakable ribbon so DEMO data is NEVER mistaken for real
- * telemetry (the SB-077 reconciliation). Inlined verbatim into demo-capable
- * panels alongside demo-mode.js. */
-#so-demo-badge {
-  position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); z-index: 9600;
-  background: #e6c062; color: #0a0a0a; font-weight: 700; font-size: .72rem; letter-spacing: .03em;
-  padding: .28rem .65rem; border-radius: 6px; box-shadow: 0 2px 12px rgba(0, 0, 0, .38);
-  font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif; pointer-events: none;
-}
-/* Lift clear of the guided-course rail when it is showing (SDD-203) — the rail
-   occupies the bottom band, so raise the badge above it + a small margin rather
-   than letting it sit directly on the rail. Inert on panels with no course rail. */
-body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 12px); }
-#so-demo-badge .sub { font-weight: 400; opacity: .82; }
-</style>
-<script>
-/* webapp/_shared/demo-mode.js — SDD-116 shared DEMO-mode helper (opt-in sample data).
+/* webapp/_shared/control-surface.css — SDD-045 shared control-surface.
+ * Renders the control-systems registry (profiles / modes / feature toggles)
+ * as a grid of control cards. Monochrome, framework-free; inherits the
+ * panel palette variables (--bg/--fg/--muted/--accent/--border/--mono).
  *
- * Reads the `sovereign-os.demo` localStorage flag (schema-guarded) and renders a
- * persistent DEMO badge. Demo-capable panels call `soDemo.on()` to branch to their
- * clearly-labelled sample data. The SB-077 reconciliation: DEMO is opt-in (off by
- * default; never self-enables), ALWAYS badged, and makes ZERO network calls
- * (R10212 strengthened — the demo render path never fetches). Inlined verbatim into
- * demo-capable panels alongside demo-mode.css. */
-(function () {
-  "use strict";
-  var DKEY = 'sovereign-os.demo', DSCHEMA = 1;
-  function on() {
-    try {
-      var r = localStorage.getItem(DKEY); var p = r ? JSON.parse(r) : null;
-      return !!(p && p.schema === DSCHEMA && p.on);
-    } catch (e) { return false; }
-  }
-  function set(v) {
-    try { localStorage.setItem(DKEY, JSON.stringify({ schema: DSCHEMA, on: !!v })); } catch (e) {}
-  }
-  function badge() {
-    var b = document.getElementById('so-demo-badge');
-    if (on()) {
-      if (!b) {
-        b = document.createElement('div'); b.id = 'so-demo-badge';
-        b.innerHTML = 'DEMO <span class="sub">· sample data — not real telemetry</span>';
-        b.setAttribute('role', 'status');
-        (document.body || document.documentElement).appendChild(b);
-      }
-    } else if (b) { b.remove(); }
-  }
-  window.soDemo = { on: on, set: set, badge: badge, KEY: DKEY, SCHEMA: DSCHEMA };
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', badge);
-  else badge();
-})();
-</script>
+ * R10274 (functional cockpit): a control can now be EXECUTED from the card
+ * (the sanctioned same-origin control-exec-api POST) — the copyable command
+ * is demoted to a labelled fallback. R10212 is preserved: proxy-only controls
+ * (selfdef / perimeter) render NO execute affordance, and every per-panel
+ * daemon stays read-only — the ONLY write path is the dedicated exec daemon. */
+.cs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: .5rem; }
+.cs-card {
+  display: flex; flex-direction: column; gap: .35rem;
+  padding: .6rem .75rem; border: 1px solid var(--border, #262626);
+  border-radius: .4rem; background: rgba(255, 255, 255, .02);
+  transition: border-color .12s ease;
+}
+.cs-card:hover { border-color: rgba(255, 255, 255, .12); }
+.cs-head { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.cs-label { font-weight: 600; flex: 1; }
+.cs-kind {
+  font-size: .7rem; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--muted, #888); border: 1px solid var(--border, #262626);
+  border-radius: 3px; padding: 0 .35rem;
+}
+.cs-global {
+  font-size: .7rem; color: var(--accent, #9bd1ff);
+  border: 1px solid var(--accent, #9bd1ff); border-radius: 3px; padding: 0 .35rem;
+}
+.cs-proxy {
+  font-size: .7rem; color: #e0b050; border: 1px solid #e0b050;
+  border-radius: 3px; padding: 0 .35rem; letter-spacing: .02em;
+}
+.cs-desc { color: var(--muted, #888); font-size: .8rem; line-height: 1.45; }
+.cs-opts { display: flex; flex-wrap: wrap; gap: .3rem; }
+.cs-opt { font-size: .72rem; background: var(--border, #262626); border-radius: 3px; padding: 1px 6px; }
+
+/* ── argument rail: one control per change_cli placeholder ──────────────── */
+.cs-args { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; margin: .1rem 0; }
+.cs-lit { font-family: var(--mono, ui-monospace, monospace); font-size: .74rem; color: var(--muted, #888); }
+.cs-verbs { display: inline-flex; border: 1px solid var(--border, #262626); border-radius: 4px; overflow: hidden; }
+.cs-verb {
+  font-family: var(--mono, ui-monospace, monospace); font-size: .72rem;
+  color: var(--fg, #e6e6e6); background: var(--bg, #0e0e0e);
+  border: 0; border-right: 1px solid var(--border, #262626);
+  padding: .2rem .5rem; cursor: pointer;
+}
+.cs-verb:last-child { border-right: 0; }
+.cs-verb[aria-pressed="true"] { background: var(--accent, #9bd1ff); color: #0a0a0a; font-weight: 600; }
+.cs-arg {
+  font-family: var(--mono, ui-monospace, monospace); font-size: .74rem;
+  color: var(--fg, #e6e6e6); background: var(--bg, #0e0e0e);
+  border: 1px solid var(--border, #262626); border-radius: 4px;
+  padding: .2rem .4rem; min-width: 6ch; max-width: 16ch;
+}
+.cs-arg:focus { outline: 0; border-color: var(--accent, #9bd1ff); }
+
+/* ── action row: Execute (primary) + Copy (fallback) ───────────────────── */
+.cs-actions { display: flex; gap: .35rem; align-items: stretch; margin-top: .1rem; }
+.cs-exec {
+  font-size: .76rem; font-weight: 600; cursor: pointer;
+  color: #0a0a0a; background: var(--accent, #9bd1ff);
+  border: 1px solid var(--accent, #9bd1ff); border-radius: 4px;
+  padding: .28rem .6rem; white-space: nowrap;
+}
+.cs-exec:hover { filter: brightness(1.08); }
+.cs-exec:disabled { opacity: .45; cursor: not-allowed; filter: none; }
+.cs-cmd {
+  font-family: var(--mono, ui-monospace, monospace); font-size: .74rem;
+  text-align: left; color: var(--fg, #e6e6e6); background: var(--bg, #0e0e0e);
+  border: 1px solid var(--border, #262626); border-radius: 4px;
+  padding: .25rem .4rem; cursor: pointer; overflow-x: auto; white-space: nowrap; flex: 1;
+}
+.cs-cmd:hover { border-color: var(--accent, #9bd1ff); }
+.cs-copy { flex: 1; }
+/* result line — dry-run / executed / rejected feedback, always visible */
+.cs-result { font-size: .72rem; line-height: 1.4; min-height: 1em; word-break: break-word; }
+.cs-result.ok { color: #6fcf6f; }
+.cs-result.dry { color: var(--accent, #9bd1ff); }
+.cs-result.warn { color: #e0b050; }
+.cs-result.err { color: #e06a6a; }
+.cs-result.muted { color: var(--muted, #888); }
+/* inline type-to-confirm gate for privileged controls */
+.cs-confirm {
+  display: flex; flex-wrap: wrap; align-items: center; gap: .35rem;
+  padding: .35rem .4rem; margin-top: .1rem;
+  border: 1px dashed var(--accent, #9bd1ff); border-radius: 4px;
+}
+.cs-confirm-msg { font-size: .72rem; color: var(--muted, #888); }
+.cs-confirm-msg code { color: var(--fg, #e6e6e6); }
+.cs-confirm-in { max-width: 14ch; }
+.cs-confirm-cancel { flex: 0 0 auto; }
+.cs-empty { color: var(--muted, #888); }
+
+/* avx-modes panel (SDD-600 Part 3) */
+main.avx-wrap{max-width:1100px;margin:0 auto;padding:1rem 1.1rem 3rem;}
+.avx-lead{color:var(--muted,#8a8a8a);line-height:1.55;max-width:78ch;}
+.avx-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:.7rem;margin:1rem 0;}
+.avx-card{border:1px solid var(--border,#262626);border-radius:10px;padding:.7rem .8rem;background:var(--card,#151515);}
+.avx-card.avx-scaffold{border-style:dashed;}
+.avx-ct{display:flex;align-items:center;justify-content:space-between;gap:.5rem;}
+.avx-card p{color:var(--muted,#8a8a8a);font-size:.85rem;line-height:1.5;margin:.35rem 0 .3rem;}
+.avx-tag{font-size:.66rem;text-transform:uppercase;letter-spacing:.04em;padding:.05rem .4rem;border-radius:999px;
+  border:1px solid var(--border,#3a3a3a);color:var(--muted,#8a8a8a);}
+.avx-card.avx-real .avx-tag{color:#8fd694;border-color:#3d6b41;}
+.avx-anchors{font-size:.72rem;color:var(--muted,#7a7a7a);}
+.avx-why{border-left:3px solid var(--accent,#9bd1ff);padding:.4rem .9rem;margin:1rem 0;background:color-mix(in srgb,var(--accent,#9bd1ff) 7%,transparent);border-radius:0 8px 8px 0;}
+.avx-why b{color:var(--accent,#9bd1ff);}
+h2.avx-h{margin:1.4rem 0 .5rem;font-size:1.02rem;}
+table.avx-tbl{width:100%;border-collapse:collapse;font-size:.83rem;}
+table.avx-tbl td{border-bottom:1px solid color-mix(in srgb,var(--border,#262626) 60%,transparent);padding:.32rem .5rem;vertical-align:top;}
+table.avx-tbl td.mono{font-family:ui-monospace,Menlo,monospace;color:var(--accent,#9bd1ff);white-space:nowrap;width:1%;}
+.avx-honest{color:var(--muted,#8a8a8a);font-size:.8rem;border:1px dashed var(--border,#3a3a3a);border-radius:8px;padding:.55rem .8rem;margin:1rem 0;}
+html[data-theme="light"] {
+  --bg:#f6f6f6; --fg:#0e0e0e; --muted:#555; --panel:#ffffff; --card:#ffffff; --border:#d8d8d8;
+}
+</style>
 </head>
 <body>
 <!-- APP-SHELL:BEGIN M067 -->
@@ -996,203 +1004,44 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
   window.__cockpitKeystrokeResolve = keystrokeResolve;
 </script>
 <!-- APP-SHELL:END M067 -->
+<main class="avx-wrap">
+  <h1>AVX Modes</h1>
+  <p class="avx-lead">How this box uses AVX-512 — pick the mode in one place. Two very different powers: the
+    <b>Custom</b> bit-machine (M002 control-word + M007 branch scheduler + M008 bit-cheats) where
+    <em>policy becomes bits</em>, and <b>BuiltIn-Features</b> — stock AVX-512 math (VNNI / BF16 / tiers).
+    <b>Hybrid</b> runs both; <b>Off</b> is the scalar baseline.</p>
 
-<header>
-  <h1>D-23 · Model Catalog
-    <span class="sub">the canonical model registry (models/catalog.yaml) by SRP tier — browse the portfolio</span></h1>
-</header>
-<main>
-  <div class="banner" id="data-source-banner">connecting to <code>/api/models-catalog/catalog</code>…</div>
-  <div class="banner" id="summary"></div>
-  <div id="tiers"></div>
-  <p class="banner" id="last-fetch"></p>
+  <div class="avx-why">
+    <p><b>Why it's a superpower.</b> Instead of interpreting rules as branchy code per token, the Custom
+    mode packs the rule into a control word and decides with one AVX-512 masked op across many branches at
+    once — <b>token-by-token routing at hardware speed</b>, with the remaining bits carrying profile + route.
+    "Instructions become data, policy becomes bits, reasoning becomes state transitions" (M008 M00105).</p>
+  </div>
+
+  <div class="avx-grid"><div class="avx-card avx-scaffold"><div class="avx-ct"><b>Custom-AVX (bit-machine)</b><span class="avx-tag">scaffold</span></div><p>M002 control-word + M007 branch scheduler + M008 bit-cheats — policy becomes bits.</p><div class="avx-anchors">M002 · M007 · M008 · M061</div></div><div class="avx-card avx-real"><div class="avx-ct"><b>BuiltIn-Features-AVX</b><span class="avx-tag">real</span></div><p>Stock AVX-512 math — sovereign-simd/vnni/bitops, cpu-dispatch tiers, M085/M086.</p><div class="avx-anchors">M085 · M086 · sovereign-simd · sovereign-vnni</div></div><div class="avx-card avx-scaffold"><div class="avx-ct"><b>Hybrid-AVX</b><span class="avx-tag">scaffold</span></div><p>Both — the bit-machine routes, the math tiers compute.</p><div class="avx-anchors">M002 · M007 · M008 · M085</div></div><div class="avx-card avx-real"><div class="avx-ct"><b>Off (scalar baseline)</b><span class="avx-tag">real</span></div><p>No AVX — the portable scalar path (cpu-dispatch ScalarBaseline), any x86-64.</p><div class="avx-anchors">sovereign-cpu-dispatch</div></div></div>
+
+  <p class="avx-lead">Swap the mode below — <b>Execute</b> applies it live through the sanctioned control-exec-api
+    (dry-run until the box is live; privileged → type-to-confirm). Same rail as the settings-pane AVX hotswap.</p>
+  <div id="control-surface" class="cs-grid"><div class="cs-empty">loading controls…</div></div>
+
+  <div class="avx-honest"><b>Honest ledger (do-not-minimize).</b> The Custom bit-machine is spec-rich but
+    crate-light today — <span class="mono">sovereign-control-word</span> is a <span class="mono">u64</span>
+    (not the 128/256/ZMM limbs the spec wants), <span class="mono">sovereign-branch-tree</span> is a scalar
+    tree (not the AVX-512 masked SoA scheduler), and the M008 bit-cheats have no crate yet. Selecting
+    <b>custom</b>/<b>hybrid</b> RECORDS the mode and gates the profile knobs, but the ZMM kernels it drives are
+    scaffold — the switch is real; the kernels land downstream (M002 E0018/E0019 · M007 M00104 · M008).</p>
+
+  <h2 class="avx-h">Custom sub-modes — the M008 bit-cheats (13)</h2>
+  <table class="avx-tbl"><tbody><tr><td class="mono">bitfields-microcode</td><td>64-bit control word as executable policy (M00113)</td></tr><tr><td class="mono">vpternlog-fused-policy</td><td>VPTERNLOG fuses model-wants + policy-allows + oracle-verified into one mask (M00114)</td></tr><tr><td class="mono">kmask-routing</td><td>k-mask registers k1..k7 as decision/routing planes (M00115)</td></tr><tr><td class="mono">vpcompress-pack</td><td>VPCOMPRESS packs alive branches into dense GPU batches (M00116)</td></tr><tr><td class="mono">token-law-bitset</td><td>grammar/tool/safety/schema/route packed as a token bitset (M00117)</td></tr><tr><td class="mono">inline-lut</td><td>decision = (rule_word >> condition) & 1 — a LUT inside 64 bits (M00118)</td></tr><tr><td class="mono">two-level-rule-table</td><td>rule_id -> cached table[rule_id][event_class] (M00119)</td></tr><tr><td class="mono">speculative-commit</td><td>accept = oracle & grammar & tool & budget & memory (M00120)</td></tr><tr><td class="mono">branch-prediction</td><td>predictor / retirement / reorder-commit analogy (M00121)</td></tr><tr><td class="mono">bloom-sketch</td><td>popcount(query & memory) overlap sketches (M00122)</td></tr><tr><td class="mono">simd-fsm</td><td>8 branches through a finite-state machine at once (M00123)</td></tr><tr><td class="mono">token-class-mini-lut</td><td>token-class mini lookup table (M00124)</td></tr><tr><td class="mono">filter-cascade</td><td>cheapest-first filter cascade ordering (M00125)</td></tr></tbody></table>
+
+  <h2 class="avx-h">BuiltIn dispatch paths (4)</h2>
+  <table class="avx-tbl"><tbody><tr><td class="mono">scalar-baseline</td><td>portable x86-64 (cpu-dispatch ScalarBaseline)</td></tr><tr><td class="mono">avx2</td><td>AVX2 path</td></tr><tr><td class="mono">avx512-generic</td><td>generic AVX-512</td></tr><tr><td class="mono">zen5-avx512</td><td>Zen5-tuned AVX-512 (-march=znver5)</td></tr></tbody></table>
+
+  <h2 class="avx-h">BuiltIn precision tiers (3)</h2>
+  <table class="avx-tbl"><tbody><tr><td class="mono">t1-quant-dot</td><td>T1 quantization & dot product (VPDPBUSD INT8 / VDPBF16PS BF16)</td></tr><tr><td class="mono">t2-bitwise-attn</td><td>T2 bitwise logic & attention masking (VPTERNLOG / VP2INTERSECT)</td></tr><tr><td class="mono">t3-structure-kv</td><td>T3 structure / prune / KV (VPCOMPRESS / VPEXPAND / VPERMB)</td></tr></tbody></table>
 </main>
-<footer>
-  sovereign-os cockpit · D-23 · read-only mirror of the model catalog. Model
-  lifecycle is signed <code>sovereign-osctl models …</code> verbs (R10212 — web never mutates).
-  Operator §1g standing rule (sacrosanct): <strong>We do not minimize anything.</strong>
-</footer>
-<script>
-  const $ = id => document.getElementById(id);
-  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
-    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const stCls = s => 'st-' + String(s || '').replace(/[^a-z-]/g,'');
 
-  // ── SDD-120 DEMO mode: opt-in, always-badged sample data (never real; SB-077).
-  function demoActive() { return !!(window.soDemo && window.soDemo.on()); }
-  const DEMO_CATALOG = { total: 6, catalog_path: 'models/catalog.yaml (DEMO)', tiers: [
-    { label: 'Conductor · CPU ternary', models: [
-      { id: 'demo/bitnet-2b', class: 'ternary-lm', engine: 'bitnet.cpp', precision: 'ternary', params_b: 2, context_window_tokens: 8192, license: 'MIT', status: 'verified-real', purpose: 'fast CPU draft/route' } ] },
-    { label: 'Logic · GPU1 (RTX 5090)', models: [
-      { id: 'demo/qwen3-coder-14b', class: 'llm', engine: 'vllm', precision: 'NVFP4', params_b: 14, context_window_tokens: 32768, license: 'Apache-2.0', status: 'verified-real', purpose: 'coding' },
-      { id: 'demo/glm-4-9b', class: 'llm', engine: 'vllm', precision: 'Q4', params_b: 9, context_window_tokens: 16384, license: 'MIT', status: 'aspirational', purpose: 'general' } ] },
-    { label: 'Oracle · GPU1 (Blackwell)', models: [
-      { id: 'demo/deepseek-r1-32b', class: 'rlm', engine: 'vllm', precision: 'NVFP4', params_b: 32, context_window_tokens: 65536, license: 'MIT', status: 'verified-real', purpose: 'deep reasoning' } ] },
-  ] };
-  function renderTiers(data) {
-    data = data || {};
-    // The catalog scaffold stays visible even with the daemon offline (SDD-113 —
-    // the SDD-111 "seeing all sections" lesson): an honest offline/empty card,
-    // never a blank #tiers (SB-077).
-    if (data.offline) {
-      $('summary').innerHTML = '<span class="muted">models-catalog daemon unreachable</span>';
-      $('tiers').innerHTML = '<div class="muted">the models-catalog daemon is unreachable — the registry (models/catalog.yaml, by SRP tier) populates when it\'s reachable. Nothing is fabricated (SB-077).</div>';
-      return;
-    }
-    $('summary').innerHTML = `<strong>${data.total ?? 0}</strong> models · source <code>${esc(data.catalog_path || 'models/catalog.yaml')}</code>`;
-    $('tiers').innerHTML = (data.tiers || []).map(t => `
-      <h2>${esc(t.label)} <span class="muted">(${(t.models||[]).length})</span></h2>
-      <table>
-        <thead><tr><th>Model</th><th>Class</th><th>Engine</th><th>Precision</th><th class="num">Params (B)</th><th class="num">Context</th><th>License</th><th>Status</th></tr></thead>
-        <tbody>${(t.models||[]).map(m => `
-          <tr>
-            <td><code>${esc(m.id)}</code>${m.purpose ? '<div class="muted" style="font-size:.72rem">'+esc(m.purpose)+'</div>' : ''}</td>
-            <td class="muted">${esc(m.class || '—')}</td>
-            <td class="muted">${esc(m.engine || '—')}</td>
-            <td>${m.precision ? '<span class="pill">'+esc(m.precision)+'</span>' : '—'}</td>
-            <td class="num">${m.params_b ?? '—'}</td>
-            <td class="num">${m.context_window_tokens ? m.context_window_tokens.toLocaleString() : '—'}</td>
-            <td class="muted" style="font-size:.72rem">${esc(m.license || '—')}</td>
-            <td class="${stCls(m.status)}">${esc(m.status || '—')}</td>
-          </tr>`).join('')}</tbody>
-      </table>`).join('') || '<div class="muted">catalog empty or unreadable</div>';
-  }
-
-  async function refresh() {
-    // SDD-120 DEMO short-circuit: badged sample catalog, ZERO network calls.
-    if (demoActive()) {
-      $('data-source-banner').innerHTML = '<strong>DEMO mode</strong> — sample data, not a live daemon. Disable it in Personalization.';
-      renderTiers(DEMO_CATALOG);
-      if (window.soDemo) window.soDemo.badge();
-      $('last-fetch').textContent = 'DEMO · sample data';
-      return;
-    }
-    try {
-      const res = await fetch('/api/models-catalog/catalog', {credentials:'same-origin'});
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      $('data-source-banner').innerHTML = 'consuming <code>/api/models-catalog/catalog</code> from the models-catalog API daemon';
-      renderTiers(data);
-    } catch (e) {
-      $('data-source-banner').innerHTML = 'cannot reach <code>/api/models-catalog/catalog</code> — is the models-catalog API daemon running? <span class="muted">('+esc(e.message)+')</span>';
-      renderTiers({offline: true});   // SDD-113 — keep the catalog scaffold visible, never blank
-    }
-    $('last-fetch').textContent = 'last fetch: ' + new Date().toLocaleTimeString();
-  }
-
-  // SDD-113 — initial paint of the section scaffold so the catalog is ALWAYS
-  // visible; refresh() then fills live data (or the catch keeps it visible).
-  renderTiers({offline: true});
-
-  if (!demoActive()) {
-    try {
-      const es = new EventSource('/api/models-catalog/stream');
-      es.addEventListener('catalog-change', refresh);
-      es.addEventListener('error', () => setInterval(refresh, 30000));
-    } catch (e) { setInterval(refresh, 30000); }
-  }
-
-  refresh();
-</script>
-
-<!-- SDD-045 shared control-surface (inlined verbatim from webapp/_shared/control-surface.{css,js}; lockstep-linted). -->
-<section style="max-width:1200px;padding:0 1.25rem 1rem"><h2>Controls · features &amp; profiles</h2>
-<div id="control-surface" class="cs-grid"><div class="cs-empty">loading controls…</div></div></section>
-<style>
-/* webapp/_shared/control-surface.css — SDD-045 shared control-surface.
- * Renders the control-systems registry (profiles / modes / feature toggles)
- * as a grid of control cards. Monochrome, framework-free; inherits the
- * panel palette variables (--bg/--fg/--muted/--accent/--border/--mono).
- *
- * R10274 (functional cockpit): a control can now be EXECUTED from the card
- * (the sanctioned same-origin control-exec-api POST) — the copyable command
- * is demoted to a labelled fallback. R10212 is preserved: proxy-only controls
- * (selfdef / perimeter) render NO execute affordance, and every per-panel
- * daemon stays read-only — the ONLY write path is the dedicated exec daemon. */
-.cs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: .5rem; }
-.cs-card {
-  display: flex; flex-direction: column; gap: .35rem;
-  padding: .6rem .75rem; border: 1px solid var(--border, #262626);
-  border-radius: .4rem; background: rgba(255, 255, 255, .02);
-  transition: border-color .12s ease;
-}
-.cs-card:hover { border-color: rgba(255, 255, 255, .12); }
-.cs-head { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
-.cs-label { font-weight: 600; flex: 1; }
-.cs-kind {
-  font-size: .7rem; text-transform: uppercase; letter-spacing: .04em;
-  color: var(--muted, #888); border: 1px solid var(--border, #262626);
-  border-radius: 3px; padding: 0 .35rem;
-}
-.cs-global {
-  font-size: .7rem; color: var(--accent, #9bd1ff);
-  border: 1px solid var(--accent, #9bd1ff); border-radius: 3px; padding: 0 .35rem;
-}
-.cs-proxy {
-  font-size: .7rem; color: #e0b050; border: 1px solid #e0b050;
-  border-radius: 3px; padding: 0 .35rem; letter-spacing: .02em;
-}
-.cs-desc { color: var(--muted, #888); font-size: .8rem; line-height: 1.45; }
-.cs-opts { display: flex; flex-wrap: wrap; gap: .3rem; }
-.cs-opt { font-size: .72rem; background: var(--border, #262626); border-radius: 3px; padding: 1px 6px; }
-
-/* ── argument rail: one control per change_cli placeholder ──────────────── */
-.cs-args { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; margin: .1rem 0; }
-.cs-lit { font-family: var(--mono, ui-monospace, monospace); font-size: .74rem; color: var(--muted, #888); }
-.cs-verbs { display: inline-flex; border: 1px solid var(--border, #262626); border-radius: 4px; overflow: hidden; }
-.cs-verb {
-  font-family: var(--mono, ui-monospace, monospace); font-size: .72rem;
-  color: var(--fg, #e6e6e6); background: var(--bg, #0e0e0e);
-  border: 0; border-right: 1px solid var(--border, #262626);
-  padding: .2rem .5rem; cursor: pointer;
-}
-.cs-verb:last-child { border-right: 0; }
-.cs-verb[aria-pressed="true"] { background: var(--accent, #9bd1ff); color: #0a0a0a; font-weight: 600; }
-.cs-arg {
-  font-family: var(--mono, ui-monospace, monospace); font-size: .74rem;
-  color: var(--fg, #e6e6e6); background: var(--bg, #0e0e0e);
-  border: 1px solid var(--border, #262626); border-radius: 4px;
-  padding: .2rem .4rem; min-width: 6ch; max-width: 16ch;
-}
-.cs-arg:focus { outline: 0; border-color: var(--accent, #9bd1ff); }
-
-/* ── action row: Execute (primary) + Copy (fallback) ───────────────────── */
-.cs-actions { display: flex; gap: .35rem; align-items: stretch; margin-top: .1rem; }
-.cs-exec {
-  font-size: .76rem; font-weight: 600; cursor: pointer;
-  color: #0a0a0a; background: var(--accent, #9bd1ff);
-  border: 1px solid var(--accent, #9bd1ff); border-radius: 4px;
-  padding: .28rem .6rem; white-space: nowrap;
-}
-.cs-exec:hover { filter: brightness(1.08); }
-.cs-exec:disabled { opacity: .45; cursor: not-allowed; filter: none; }
-.cs-cmd {
-  font-family: var(--mono, ui-monospace, monospace); font-size: .74rem;
-  text-align: left; color: var(--fg, #e6e6e6); background: var(--bg, #0e0e0e);
-  border: 1px solid var(--border, #262626); border-radius: 4px;
-  padding: .25rem .4rem; cursor: pointer; overflow-x: auto; white-space: nowrap; flex: 1;
-}
-.cs-cmd:hover { border-color: var(--accent, #9bd1ff); }
-.cs-copy { flex: 1; }
-/* result line — dry-run / executed / rejected feedback, always visible */
-.cs-result { font-size: .72rem; line-height: 1.4; min-height: 1em; word-break: break-word; }
-.cs-result.ok { color: #6fcf6f; }
-.cs-result.dry { color: var(--accent, #9bd1ff); }
-.cs-result.warn { color: #e0b050; }
-.cs-result.err { color: #e06a6a; }
-.cs-result.muted { color: var(--muted, #888); }
-/* inline type-to-confirm gate for privileged controls */
-.cs-confirm {
-  display: flex; flex-wrap: wrap; align-items: center; gap: .35rem;
-  padding: .35rem .4rem; margin-top: .1rem;
-  border: 1px dashed var(--accent, #9bd1ff); border-radius: 4px;
-}
-.cs-confirm-msg { font-size: .72rem; color: var(--muted, #888); }
-.cs-confirm-msg code { color: var(--fg, #e6e6e6); }
-.cs-confirm-in { max-width: 14ch; }
-.cs-confirm-cancel { flex: 0 0 auto; }
-.cs-empty { color: var(--muted, #888); }
-</style>
+<!-- SDD-045 shared control-surface, inlined verbatim from webapp/_shared/control-surface.js -->
 <script>
 /* webapp/_shared/control-surface.js — SDD-045 shared control-surface renderer.
  *
@@ -1509,125 +1358,10 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
 
   global.SovereignControlSurface = { render: render, load: load };
 })(window);
+
 </script>
 <script>
-(function(){
-  var el = document.getElementById("control-surface");
-  if (el && window.SovereignControlSurface) {
-    SovereignControlSurface.load(el, {filterSlug:'d-23-models-catalog'});
-  }
-})();
-</script>
-
-
-
-<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
-<script>
-window.SO_ASSIST = {
- "context": {
-  "icon": "▤",
-  "title": "D-23 · Model Catalog",
-  "content": "The whole portfolio of models the box could run, browsed by SRP tier — the reference shelf, not the live floor. Where D-03 shows the handful of models currently loaded and serving, this shows everything in the canonical registry (models/catalog.yaml), each with its real attributes: class (ternary-lm / RLM / SLM / LLM / mixture), engine, precision, parameters, context window, license, purpose, and status. It’s where you shop before you load — to find a model that fits a tier’s VRAM, compare two candidates’ contexts or licenses, or answer ‘do we even have a model for this?’\n\nDeliberately read-only reference: nothing here loads a model. When you’ve picked one, you load it from D-03 or D-21 as a signed action. The catalog is the source of truth those panels draw from."
- },
- "nodes": [
-  {
-   "icon": "◆",
-   "title": "Live source",
-   "content": "Whether the catalog is read live from the registry or a snapshot — a stale catalog can offer a model that’s since been removed, or hide one just added.",
-   "children": [
-    {
-     "selector": "#data-source-banner",
-     "title": "Live vs snapshot",
-     "content": "Whether /api/models-catalog/catalog is answering live from models/catalog.yaml. The catalog changes less often than health metrics, but it still matters: a snapshot could list a model that was pulled, or omit one just registered — and picking a model to load off a stale list wastes the load attempt.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A catalog is only as useful as it is current</div>Unlike pressure or latency, the catalog is near-static — so a stale read is easy to trust by mistake. But the registry does change: models get added, deprecated, or have their status flipped. This banner is the check that what you’re browsing is the current shelf, not last week’s.</div><div class=\"so-xref\"><span class=\"x\">→</span> #last-fetch — when the registry was last read</div>",
-     "variants": [
-      {
-       "when": {
-        "textContains": "connecting"
-       },
-       "content": "Reaching the catalog endpoint — the model list isn’t confirmed current yet.",
-       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Connecting</div>Waiting on /api/models-catalog/catalog. The portfolio below is unconfirmed until this goes live.</div>"
-      },
-      {
-       "when": {
-        "textContains": "live"
-       },
-       "content": "Live — the catalog reflects the current registry.",
-       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Live</div>The registry is answering; the model portfolio is current.</div>"
-      },
-      {
-       "when": {
-        "textContains": "offline"
-       },
-       "content": "No answer — the catalog is a snapshot that may not match the current registry.",
-       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Offline</div>The catalog feed is down. A model listed here might be gone, or a new one missing — verify before loading.</div>"
-      }
-     ]
-    }
-   ]
-  },
-  {
-   "icon": "▦",
-   "title": "Summary",
-   "content": "The portfolio census — how many models the registry holds and how they spread across classes and tiers. It’s the shape of the box’s capability: heavy on cheap ternary means most work can stay on the Conductor; a rich LLM shelf means deep reasoning is well-supplied. Read it as an inventory, not a live status.",
-   "children": [
-    {
-     "selector": "#summary",
-     "title": "Catalog summary",
-     "content": "The roll-up of the whole registry — model counts by class and SRP tier. This is the box’s capability inventory: what kinds of cognition it can field and how deep the bench is in each. A tier with few catalog entries is a tier with little to choose from when you need to load something there, which is a portfolio gap worth knowing before you hit it.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Inventory, not status</div><div class=\"so-grid\"><span class=\"k\">ternary-lm</span><span>the cheapest class — CPU/Pulse Conductor work</span><span class=\"k\">RLM / SLM</span><span>small/retrieval language models — mid-scale, often the Logic tier</span><span class=\"k\">LLM</span><span>the large models — Oracle-tier deep reasoning</span><span class=\"k\">mixture</span><span>mixture-of-experts — routed capacity</span></div>The census tells you how many of each the box owns. It says nothing about what’s loaded — that’s D-03 — only about what you have to choose from.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-03 — which of these the box is actually running now</div>"
-    }
-   ]
-  },
-  {
-   "icon": "▤",
-   "title": "Models by tier",
-   "content": "The catalog itself, grouped by SRP tier — every model with its real registry attributes. Browsing by tier matches how you’d actually pick one: you need a model FOR a tier (something that fits the Conductor’s CPU path, or the Oracle’s VRAM), so the tier grouping is the shopping aisle. Hover a model to read its full spec.",
-   "children": [
-    {
-     "selector": "#tiers",
-     "title": "Tier groups",
-     "content": "The models grouped by SRP tier, each entry carrying its class, engine, precision, parameters, context window, license, purpose, and status. Read a tier’s list as the menu of what you could load there — filtered implicitly by what fits that tier’s hardware. The attributes are the decision criteria: params and precision for whether it fits, context for how much it can hold, license for whether you may use it as intended.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Every attribute is a decision criterion</div><div class=\"so-grid\"><span class=\"k\">class / engine</span><span>what kind of model and what runs it</span><span class=\"k\">precision / params</span><span>does it fit the tier’s VRAM (NVFP4 4-bit stretches this far)</span><span class=\"k\">context</span><span>how long a prompt it can hold</span><span class=\"k\">license</span><span>whether your use is permitted</span><span class=\"k\">status</span><span>ready, experimental, deprecated — whether to rely on it</span></div>These aren’t decoration — they’re how you choose. A model with the right purpose but a too-short context, or a too-large param count for the tier, is the wrong pick, and the catalog is where you catch that before loading.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-21 — which device/tier a chosen model would be assigned to<br><span class=\"x\">→</span> D-03 — how it performs once loaded and serving</div>",
-     "dynamic": true,
-     "childTemplate": {
-      "selector": "#tiers .model, #tiers tr, #tiers li",
-      "nameSelector": "strong,code,.id,.name,td",
-      "title": "Model · {{name}}",
-      "content": "The {{name}} model from the registry — its class, precision, parameters, context, license, and status. Read the attributes as fit criteria: whether it suits the tier’s hardware, how long a context it holds, and whether its license and status let you rely on it. This is a spec sheet, not a live reading.",
-      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Model · {{name}}</div>One catalog entry, straight from models/catalog.yaml. Its params + precision say whether it fits a tier’s VRAM; its context says how much it can hold; its status says whether it’s production-ready or experimental. Loading it is a signed action on D-03/D-21.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-03 — {{name}}’s live health if it’s loaded</div>"
-     }
-    }
-   ]
-  },
-  {
-   "icon": "⚲",
-   "title": "Freshness",
-   "content": "When the registry was last read — the staleness caveat on the portfolio above.",
-   "children": [
-    {
-     "selector": "#last-fetch",
-     "title": "Catalog freshness",
-     "content": "When the catalog was last read from the registry. Because the registry is near-static this is rarely the thing you check — but after adding or deprecating a model, it’s the confirmation that the shelf you’re browsing reflects that change rather than the state before it.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Registry freshness</div>When the catalog was last read from the registry. The registry changes when models are added or deprecated, so an old timestamp means a newly-registered model may not appear yet.</div>"
-    }
-   ]
-  },
-  {
-   "icon": "⎈",
-   "title": "Controls",
-   "content": "The shared control rail. On a read-only reference panel it’s the least of the view — the catalog is for browsing, not acting — but it’s where loading a model you’ve chosen turns into a signed verb. You pick here; you commit on D-03/D-21 through the CLI.",
-   "children": [
-    {
-     "selector": "#control-surface",
-     "title": "Controls rail",
-     "content": "The profile/mode/feature control rail. The catalog itself loads nothing — it’s reference — so this rail’s role here is the handoff: having found a model, the signed verb to load it is copied from here (or from D-03/D-21), and the box only loads it when you run that command. Browsing is free; loading is a deliberate, signed act.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Browse here, load elsewhere, sign always</div>The catalog is deliberately inert — you can explore the whole portfolio with zero risk of changing what’s loaded. Acting on a choice is a separate, signed step on the tier panels. That separation keeps the reference safe to browse while keeping model loads — which claim real VRAM — behind the operator signature.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-03 / D-21 — where a catalog choice becomes a loaded model</div>"
-    }
-   ]
-  }
- ]
-};
+  SovereignControlSurface.load(document.getElementById("control-surface"), {filterSlug:"avx-modes"});
 </script>
 <!-- COURSE:BEGIN M090 -->
 <style id="so-course-style">
@@ -2133,10 +1867,5 @@ window.SO_ASSIST = {
 })();
 </script>
 <!-- COURSE:END M090 -->
-<script type="module">
-  // cockpit-crate runtime (F-2026-001): run the real sovereign-cockpit-* crates.
-  import { enhance } from '/_shared/cockpit-runtime.js';
-  enhance(document).catch(() => {});   // additive + graceful: no-op if the bridge is absent
-</script>
 </body>
 </html>

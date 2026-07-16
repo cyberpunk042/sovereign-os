@@ -76,6 +76,20 @@ operator use.
 **sovereign-osctl cpu-mode auto [--apply] [--aggressive] [--json]**
 :   See the handler for behavior and options.
 
+## avx-mode
+
+**sovereign-osctl avx-mode show [--json]**
+:   The active AVX execution mode + whether its kernels are real or scaffold.
+
+**sovereign-osctl avx-mode list**
+:   The master modes — custom / builtin / hybrid / off.
+
+**sovereign-osctl avx-mode inventory [--json]**
+:   The full mode inventory — the M008 bit-cheats + cpu-dispatch paths + precision tiers.
+
+**sovereign-osctl avx-mode set <mode>**
+:   SDD-600: pick how the box uses AVX-512. Custom = the M002/M007/M008 bit-machine (policy becomes bits, token-by-token routing); BuiltIn-Features = stock AVX-512 math; Hybrid = both; Off = scalar. Custom/Hybrid kernels are scaffold today — the switch is recorded and gates them downstream.
+
 ## gpu-mode
 
 **sovereign-osctl gpu-mode show [--json]**

@@ -115,6 +115,8 @@ coverage:
     [science]
   warp:
     [warp]
+  avx-modes:
+    [avx-mode]
 
 cli_only:
   - {verb: assistant, rationale: "first-login interactive guide (modal onboarding flow), not a persistent dashboard surface"}
@@ -131,3 +133,5 @@ cli_only:
   - {verb: frontend, rationale: "SDD-704 boot-frontend selector (gnome | dashboards-kiosk | open-computer-kiosk | none) — toggles gdm vs the kiosk unit + the boot target via systemctl; a boot-presentation CLI action, not itself a viewable panel (it CHOOSES what is shown, incl. the dashboards hub in kiosk mode)"}
   - {verb: openclaw, rationale: "SDD-705 OpenClaw Node gateway daemon lifecycle (status/on/off/install/logs/doctor) — an installed-off component manager over systemd units (selfdef shape); OpenClaw ships its own Control UI on :18789 when running, so a sovereign panel would duplicate it. CLI is the sovereign management surface, no dashboard home."}
   - {verb: open-computer, rationale: "SDD-706 open-computer QEMU AI-sandbox lifecycle (status/on/off/install/url/logs/doctor) — an installed-off VM-host manager over systemd units (selfdef shape); open-computer serves its own agent UI on :9800 (kiosk/browser target), so a sovereign panel would duplicate it. CLI is the sovereign management surface, no dashboard home."}
+  - {verb: claude-code, rationale: "SDD-600 Part 2 provider/origin hotswap (backend {local|anthropic|show}) — rewrites the managed claude-code.env (ANTHROPIC_BASE_URL); a config-swap CLI action. Surfaced as copy-CLI in the settings-pane provider modal + the orchestration control, not its own panel."}
+  - {verb: vscode, rationale: "SDD-600 Part 2 provider/origin hotswap (backend {local|anthropic|show}) — renders the Cline/Claude-Dev settings fragment; a config-swap CLI action (a live editor profile can't be written for you). Surfaced as copy-CLI in the settings-pane provider modal + the orchestration control, not its own panel."}
