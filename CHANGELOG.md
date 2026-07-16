@@ -12,6 +12,29 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Scoped (design, no code) — local-agent autonomy: modes, /goal lock, sub-agents (2026-07-16)
+
+Operator-directed (*"I want it like Claude Opus and able to set the Auto mode … work multiple query and launch
+sub-agents and continue and do real round, real iterations … the '/ goal' command … stay locked"*). Decision:
+harness = **both, tiered**; **scope both first as SDDs**. Three design SDDs (no implementation) so the operator
+can review the whole arc before code:
+
+- **SDD-718** — the architecture spine: **the model has no modes, the harness does.** vLLM/llama.cpp are token
+  generators; Auto/Plan/Bypass + iteration + sub-agents + goal-lock are *harness* behaviors, pointed at the
+  gateway's OpenAI endpoint instead of Anthropic's. Decision: **both-tiered** — the gatewayd self-loop (SDD-712,
+  single-agent, zero-dependency) + OpenClaw (SDD-705, full harness with sub-agents), sharing one model +
+  `permission-modes.yaml` + `/goal` state.
+- **SDD-719** — `/goal`: a durable, sacrosanct-verbatim goal in `/etc/sovereign-os/agent-state.json` + a
+  loop-until-goal control (goal-level max-iters + no-progress guard) so "set it and it stays locked, iterating
+  on its own" works. Plan-approval seeds the goal ("approve the plan" = "lock the goal and go").
+- **SDD-720** — wire the existing permission classifier into the agent loop's tool dispatch, so Auto mode
+  actually auto-runs safe tools + blocks destructive ones *inside the iteration* ("Auto Edit On" = a preset).
+
+What already exists (reused, not rebuilt): `config/permission-modes.yaml` (manual/auto/bypass — the operator's
+own 2026-07-11 directive), `permission_classifier.py` (SDD-954), the `sovereign-agent-loop` crate, the gatewayd
+agentic loop (SDD-712), and OpenClaw (SDD-705). The real enforcement boundary (sandbox) stays selfdef's;
+these are the UX/workflow layer on top. No code — `scoping` status; implementation follows operator review.
+
 ### Added — vision + speculative-draft serving on the dual-Turing node (2026-07-16)
 
 Operator-directed (*"2b and 3 now, one PR. take your time"*) (SDD-717, Slice 3). Lands the last two of the

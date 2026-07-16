@@ -60,6 +60,13 @@ META_MODULES = {
     "E11.M10",  # UX Design stage upstream — process
     "E11.M11",  # Anti-minimization audit — process
     "E11.M12",  # selfdef branch + never-ending PR setup — meta
+    # SDD-718/719/720 (2026-07-16) — DESIGN/SCOPING modules: they ship design
+    # docs only (no code, no surface). The surfaces they SCOPE (the /goal CLI,
+    # the cockpit goal/mode surface, the in-loop gate) land in the implementation
+    # SDDs, which will declare their surfaces then.
+    "E11.M718",  # local-agent autonomy harness architecture (design)
+    "E11.M719",  # /goal lock + loop-until-goal (design)
+    "E11.M720",  # permission modes wired into the agent loop (design)
 }
 
 
