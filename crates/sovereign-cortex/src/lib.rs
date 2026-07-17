@@ -56,6 +56,7 @@ use thiserror::Error;
 use sovereign_branch_tree::{BranchTree, ROOT};
 use sovereign_control_word::{
     ControlWord, FLAG_AUDIT, FLAG_COMMIT_GATE, FLAG_SANDBOX, FLAG_SPECULATIVE, PrecisionCode,
+    m00013,
 };
 use sovereign_hrm_runtime::{HrmConfig, HrmRun, HrmStepper, RecurrentState};
 use sovereign_lora_foundry::{AdapterSlot, RuntimeDecision, ServeRequest, decide_serving};
@@ -166,6 +167,12 @@ pub struct CortexDecision {
     /// decision's precision lane + flags (commit-gate / sandbox / audit /
     /// speculative) + opcode + recall count.
     pub control_word: ControlWord,
+    /// The SAME decision, encoded in the M00013 field layout (M002): mode ←
+    /// next-action, event ← role, intensity ← step-score, cooldown ← reasoning
+    /// steps, neighborhood ← risk-score, paramA ← recall count, paramB ← flags.
+    /// Emitted alongside `control_word`; the `avx-mode` switch (custom/hybrid)
+    /// selects this layout downstream via [`CortexDecision::control_word_bits`].
+    pub control_word_m00013: m00013::Fields,
     /// Learned-dynamics prior for this `(topic, role)` (M030). `Some` once the
     /// pair has resolved before; `None` for a cold pair.
     pub prediction: Option<WorldModelPrediction>,
@@ -230,7 +237,43 @@ fn precision_for_role(role: SrpRole) -> PrecisionCode {
     }
 }
 
+/// Which control-word layout the runtime emits (F00092 / R00269 — the
+/// `control_word_layout_version` knob, driven by the `avx-mode` switch).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ControlWordLayout {
+    /// The opcode / precision / flags / operand word (M002 crate default).
+    #[default]
+    Legacy,
+    /// The M00013 field layout (mode / event / intensity / … / paramA / paramB).
+    M00013,
+}
+
+/// Map the `avx-mode` switch (`custom` / `builtin` / `hybrid` / `off`) to the
+/// control-word layout: the bit-machine modes (`custom` / `hybrid`) emit the
+/// M00013 word; the math / scalar modes keep the legacy word. This is the
+/// switch the operator flips — `sovereign-osctl avx-mode set custom`.
+pub fn control_word_layout_for_avx_mode(avx_mode: &str) -> ControlWordLayout {
+    match avx_mode.trim() {
+        "custom" | "hybrid" => ControlWordLayout::M00013,
+        _ => ControlWordLayout::Legacy,
+    }
+}
+
 impl CortexDecision {
+    /// The control word this decision emits under `layout` — the legacy packed
+    /// u64, or the M00013 word. This is where the `avx-mode` switch takes effect:
+    /// `custom` / `hybrid` → M00013, else legacy. Both are always computed from
+    /// the same decision; the layout only selects which one is authoritative.
+    pub fn control_word_bits(&self, layout: ControlWordLayout) -> u64 {
+        match layout {
+            ControlWordLayout::Legacy => self.control_word.raw(),
+            // pack() only errors on field overflow; the fields are constructed
+            // in-range from the decision, so this never fails in practice.
+            ControlWordLayout::M00013 => self.control_word_m00013.pack().unwrap_or(0),
+        }
+    }
+
     /// A plain-language operator rationale (M015 human-gate: "plain-language
     /// reasons" + a cost/rollback preview), distinct from the terse
     /// machine `summary`. This is what a human approver reads.
@@ -523,6 +566,16 @@ impl Cortex {
             cw_flags,
             recalled.len() as u32,
         );
+        // The M00013 view of the same decision — real fields, not placeholders.
+        let control_word_m00013 = m00013::Fields {
+            mode: opcode as u16,                              // next-action
+            event: role_action_id(route.role).min(15) as u16, // role
+            intensity: (assessment.step_score.clamp(0.0, 1.0) * 255.0).round() as u16,
+            cooldown: reasoning.as_ref().map(|r| r.steps).unwrap_or(0).min(255) as u16,
+            neighborhood: (assessment.risk_score.clamp(0.0, 1.0) * 255.0).round() as u16,
+            param_a: (recalled.len() as u64).min(u16::MAX as u64) as u16, // recall count
+            param_b: cw_flags as u16, // commit/sandbox/audit/spec
+        };
 
         let summary = format!(
             "route={:?} → device='{}'{} | recalled={} | action={:?} (score={:.3}, uncertainty={:.3}) | serve={:?} | reasoning={} | compute={} ({:.1} bits/param, {} MB)",
@@ -549,6 +602,7 @@ impl Cortex {
             reasoning,
             compute,
             control_word,
+            control_word_m00013,
             prediction,
             summary,
         })
@@ -1281,6 +1335,38 @@ mod tests {
         assert_eq!(d.control_word.precision(), PrecisionCode::Ternary);
         assert!(d.control_word.has_flag(FLAG_COMMIT_GATE));
         assert_eq!(d.control_word.operand(), d.recalled.len() as u32);
+    }
+
+    #[test]
+    fn decision_emits_m00013_word_and_avx_switch_selects_it() {
+        let d = Cortex::with_memory(seed_memory()).tick(&req()).unwrap();
+        let f = d.control_word_m00013;
+        // committed decision → mode = opcode Commit (1); paramA = recall count;
+        // paramB carries the flags (the Auditor bit is always set).
+        assert_eq!(f.mode, 1, "committed → mode == Commit opcode");
+        assert_eq!(f.param_a, d.recalled.len() as u16, "paramA == recall count");
+        assert!(
+            f.param_b & (sovereign_control_word::FLAG_AUDIT as u16) != 0,
+            "paramB must carry the audit flag"
+        );
+        // the avx-mode switch drives the layout choice…
+        assert_eq!(
+            control_word_layout_for_avx_mode("custom"),
+            ControlWordLayout::M00013
+        );
+        assert_eq!(
+            control_word_layout_for_avx_mode("builtin"),
+            ControlWordLayout::Legacy
+        );
+        // …and selecting a layout yields the matching word, from ONE decision.
+        assert_eq!(
+            d.control_word_bits(ControlWordLayout::Legacy),
+            d.control_word.raw()
+        );
+        assert_eq!(
+            d.control_word_bits(ControlWordLayout::M00013),
+            f.pack().unwrap()
+        );
     }
 
     #[test]

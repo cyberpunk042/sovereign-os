@@ -359,6 +359,39 @@ pub mod m00013 {
         ((rule_word >> (condition & 63)) & 1) as u8
     }
 
+    /// M00017/M00015 — evaluate one rule word against MANY conditions at once.
+    ///
+    /// This is the parallelism primitive: the AVX-512 lift broadcasts `rule_word`
+    /// into a ZMM, shifts by the 8 per-lane conditions (`VPSHLDVQ`) and masks
+    /// bit 0, deciding 8 branches per instruction. The scalar loop here is the
+    /// portable fallback (`sovereign-cpu-dispatch` ScalarBaseline) — same result,
+    /// one lane at a time. The intrinsic backend lives behind `sovereign-simd`
+    /// (the only crate allowed `unsafe`) + runtime CPU dispatch; this crate stays
+    /// `forbid(unsafe_code)` and always-correct.
+    pub fn lut_batch(rule_word: u64, conditions: &[u32]) -> Vec<u8> {
+        conditions.iter().map(|&c| lut(rule_word, c)).collect()
+    }
+
+    /// M00104 — a branch query over many control words: the bitmask of which of
+    /// the first ≤64 branches have `field == value`.
+    ///
+    /// This is how "which branches are shell-allowed / commit-mode / risky" is
+    /// answered in ONE pass: extract the field from each word, compare, set the
+    /// branch's bit. The AVX-512 lift does 8 words per masked compare
+    /// (`VPCMPEQ` → k-mask); the scalar loop is the portable fallback. Branch `i`
+    /// maps to bit `i` of the returned mask (branches past 64 are ignored — a
+    /// 64-branch frontier is one `u64` mask, the natural k-register width).
+    pub fn field_query_mask(words: &[u64], shift: u32, width: u32, value: u16) -> u64 {
+        let field_mask = (1u64 << width) - 1;
+        let mut out = 0u64;
+        for (i, &w) in words.iter().take(64).enumerate() {
+            if ((w >> shift) & field_mask) as u16 == value {
+                out |= 1u64 << i;
+            }
+        }
+        out
+    }
+
     #[cfg(test)]
     mod tests {
         use super::*;
@@ -427,6 +460,38 @@ pub mod m00013 {
                 param_b: 0,
             };
             assert_eq!(f.pack().unwrap(), 0x0000_1092_0000_C803);
+        }
+
+        fn zero() -> Fields {
+            Fields {
+                mode: 0,
+                event: 0,
+                intensity: 0,
+                cooldown: 0,
+                neighborhood: 0,
+                param_a: 0,
+                param_b: 0,
+            }
+        }
+
+        #[test]
+        fn lut_batch_decides_many_conditions_at_once() {
+            // 0b101010 = 0x2A → conditions 0..6 decide 0,1,0,1,0,1 in ONE call
+            assert_eq!(lut_batch(0x2A, &[0, 1, 2, 3, 4, 5]), vec![0, 1, 0, 1, 0, 1]);
+            assert!(lut_batch(0x2A, &[]).is_empty());
+        }
+
+        #[test]
+        fn field_query_mask_selects_matching_branches() {
+            // three branches with mode = 1, 3, 3 → query mode==3 hits branches 1 & 2
+            let words = [
+                Fields { mode: 1, ..zero() }.pack().unwrap(),
+                Fields { mode: 3, ..zero() }.pack().unwrap(),
+                Fields { mode: 3, ..zero() }.pack().unwrap(),
+            ];
+            assert_eq!(field_query_mask(&words, 0, 4, 3), 0b110); // mode bits 0..4
+            assert_eq!(field_query_mask(&words, 0, 4, 1), 0b001);
+            assert_eq!(field_query_mask(&words, 0, 4, 9), 0); // no branch matches
         }
     }
 }
