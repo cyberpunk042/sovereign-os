@@ -159,8 +159,11 @@ def test_osctl_dispatches_trust_mirror():
 
 
 def test_master_dashboard_route_registered():
-    body = (REPO_ROOT / "scripts" / "operator" / "master-dashboard.py").read_text(encoding="utf-8")
-    assert '"trust-mirror"' in body and "8115" in body
+    # F-2026-072: the aggregator route table moved to the generated
+    # config/dashboard-routes.yaml and uses the canonical catalog slug.
+    routes = (REPO_ROOT / "config" / "dashboard-routes.yaml").read_text(encoding="utf-8")
+    assert "d-18-trust-scores" in routes, "aggregator table missing d-18-trust-scores route"
+    assert "8115" in routes, "d-18-trust-scores route must declare port 8115"
 
 
 # ---- live endpoints --------------------------------------------------------

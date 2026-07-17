@@ -197,9 +197,11 @@ def test_osctl_dispatches_approvals():
 
 
 def test_master_dashboard_route_registered():
-    body = (REPO_ROOT / "scripts" / "operator" / "master-dashboard.py").read_text(encoding="utf-8")
-    assert '"approvals"' in body, "master-dashboard missing approvals route"
-    assert "8110" in body, "approvals route must declare port 8110"
+    # F-2026-072: the aggregator route table moved to the generated
+    # config/dashboard-routes.yaml and uses the canonical catalog slug.
+    routes = (REPO_ROOT / "config" / "dashboard-routes.yaml").read_text(encoding="utf-8")
+    assert "d-06-pending-approvals" in routes, "aggregator table missing d-06-pending-approvals route"
+    assert "8110" in routes, "d-06-pending-approvals route must declare port 8110"
 
 
 # ---- live endpoints (the exact d-06 fetch contract) -----------------------

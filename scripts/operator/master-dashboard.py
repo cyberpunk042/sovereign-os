@@ -110,190 +110,73 @@ SUPPORTED_BACKENDS = ["nginx", "caddy", "traefik"]
 
 # Per-dashboard routing table (sister to auth-tier DEFAULT_REGISTRY).
 # slug → {port, healthz_path, subpath, label, source_repo}
-DASHBOARD_ROUTES = {
-    "trinity-pulse": {
-        "port": 8081,
-        "healthz_path": "/v1/models",
-        "subpath": "/pulse/",
-        "label": "Trinity Pulse (bitnet.cpp HTTP)",
-        "source_repo": "sovereign-os",
-    },
-    "trinity-logic-engine": {
-        "port": 8082,
-        "healthz_path": "/v1/models",
-        "subpath": "/logic/",
-        "label": "Trinity Logic Engine (vLLM)",
-        "source_repo": "sovereign-os",
-    },
-    "trinity-oracle-core": {
-        "port": 8083,
-        "healthz_path": "/v1/models",
-        "subpath": "/oracle/",
-        "label": "Trinity Oracle Core (vLLM Blackwell)",
-        "source_repo": "sovereign-os",
-    },
-    "router": {
-        "port": 8080,
-        "healthz_path": "/healthz",
-        "subpath": "/router/",
-        "label": "SDD-011 Deterministic Router",
-        "source_repo": "sovereign-os",
-    },
-    "grafana-dashboard": {
-        "port": 3000,
-        "healthz_path": "/api/health",
-        "subpath": "/grafana/",
-        "label": "Grafana",
-        "source_repo": "sovereign-os",
-    },
-    "metrics-textfile-collector": {
-        "port": 9100,
-        "healthz_path": "/metrics",
-        "subpath": "/metrics/",
-        "label": "node_exporter (textfile collector)",
-        "source_repo": "sovereign-os",
-    },
-    "hardware-pressure": {
-        "port": 8131,
-        "healthz_path": "/healthz",
-        "subpath": "/hardware-pressure/",
-        "label": "D-09 Hardware Pressure (PSI/CCD/GPU/ZFS/backpressure)",
-        "source_repo": "sovereign-os",
-    },
-    "model-health": {
-        "port": 8104,
-        "healthz_path": "/healthz",
-        "subpath": "/model-health/",
-        "label": "D-03 Model Health (SRP roles/GPU/KV cache/latency)",
-        "source_repo": "sovereign-os",
-    },
-    "traces": {
-        "port": 8105,
-        "healthz_path": "/healthz",
-        "subpath": "/traces/",
-        "label": "D-05 Traces (M049 13-field span search/tree/OCSF detail)",
-        "source_repo": "sovereign-os",
-    },
-    "costs": {
-        "port": 8106,
-        "healthz_path": "/healthz",
-        "subpath": "/costs/",
-        "label": "D-04 Costs (budget/project/profile/model breakdown + forecast)",
-        "source_repo": "sovereign-os",
-    },
-    "adapters": {
-        "port": 8107,
-        "healthz_path": "/healthz",
-        "subpath": "/adapters/",
-        "label": "D-11 Adapter Status (LoRA inventory/MS041 gates/rollback)",
-        "source_repo": "sovereign-os",
-    },
-    "evals": {
-        "port": 8108,
-        "healthz_path": "/healthz",
-        "subpath": "/evals/",
-        "label": "D-10 Eval History (per-task/model + WB/BB + promotion candidates)",
-        "source_repo": "sovereign-os",
-    },
-    "sessions": {
-        "port": 8109,
-        "healthz_path": "/healthz",
-        "subpath": "/sessions/",
-        "label": "D-01 Active Sessions (M057 12-step lifecycle per task)",
-        "source_repo": "sovereign-os",
-    },
-    "approvals": {
-        "port": 8110,
-        "healthz_path": "/healthz",
-        "subpath": "/approvals/",
-        "label": "D-06 Pending Approvals (operator queue + M065 stage gates)",
-        "source_repo": "sovereign-os",
-    },
-    "rollback": {
-        "port": 8111,
-        "healthz_path": "/healthz",
-        "subpath": "/rollback/",
-        "label": "D-08 Rollback Points (ZFS snapshots + commit history + dry-run)",
-        "source_repo": "sovereign-os",
-    },
-    "memory-changes": {
-        "port": 8112,
-        "healthz_path": "/healthz",
-        "subpath": "/memory-changes/",
-        "label": "D-07 Memory Changes (M028 8-type graph diff + promote/forget/pin)",
-        "source_repo": "sovereign-os",
-    },
-    "grants-mirror": {
-        "port": 8113,
-        "healthz_path": "/healthz",
-        "subpath": "/grants-mirror/",
-        "label": "D-13 Filesystem Grants (read-only selfdef MS007 mirror)",
-        "source_repo": "selfdef-mirror",
-    },
-    "quarantine-mirror": {
-        "port": 8114,
-        "healthz_path": "/healthz",
-        "subpath": "/quarantine-mirror/",
-        "label": "D-17 Quarantine (read-only selfdef MS042 mirror)",
-        "source_repo": "selfdef-mirror",
-    },
-    "trust-mirror": {
-        "port": 8115,
-        "healthz_path": "/healthz",
-        "subpath": "/trust-mirror/",
-        "label": "D-18 Trust Scores (read-only selfdef MS042 mirror)",
-        "source_repo": "selfdef-mirror",
-    },
-    "sandbox-mirror": {
-        "port": 8116,
-        "healthz_path": "/healthz",
-        "subpath": "/sandbox-mirror/",
-        "label": "D-15 Sandboxes (read-only selfdef MS032/MS036 mirror)",
-        "source_repo": "selfdef-mirror",
-    },
-    "profile-mirror": {
-        "port": 8117,
-        "healthz_path": "/healthz",
-        "subpath": "/profile-mirror/",
-        "label": "D-02 Profile Choices (read-only selfdef MS040 mirror)",
-        "source_repo": "selfdef-mirror",
-    },
-    "capability-mirror": {
-        "port": 8118,
-        "healthz_path": "/healthz",
-        "subpath": "/capability-mirror/",
-        "label": "D-14 Capability Tokens (read-only selfdef MS035 mirror)",
-        "source_repo": "selfdef-mirror",
-    },
-    "super-model": {
-        "port": 8119,
-        "healthz_path": "/healthz",
-        "subpath": "/super-model/",
-        "label": "D-19 Super-Model Manifest (live version + M001..M080 table)",
-        "source_repo": "sovereign-os",
-    },
-    "peace-machine": {
-        "port": 8120,
-        "healthz_path": "/healthz",
-        "subpath": "/peace-machine/",
-        "label": "D-20 Peace Machine Health (M059 5-property live verdict)",
-        "source_repo": "sovereign-os",
-    },
-    "audit-mirror": {
-        "port": 8121,
-        "healthz_path": "/healthz",
-        "subpath": "/audit-mirror/",
-        "label": "D-16 Audit Chain (read-only selfdef MS016 append-only mirror)",
-        "source_repo": "selfdef-mirror",
-    },
-    "rules-mirror": {
-        "port": 8133,
-        "healthz_path": "/healthz",
-        "subpath": "/rules-mirror/",
-        "label": "D-12 Networking (read-only selfdef MS039 Ring-0-4 nftables mirror)",
-        "source_repo": "selfdef-mirror",
-    },
+#
+# F-2026-072: this table used to be a 26-entry hand-maintained dict that went
+# stale against the 55-panel reality. It is now GENERATED into
+# config/dashboard-routes.yaml by scripts/operator/gen-dashboard-routes.py
+# (joining config/dashboard-catalog.yaml with each panel API's own listen port)
+# and CI-locked by tests/lint/test_dashboard_routes.py. We load it here with a
+# dependency-free parser (the generated flow-map is a fixed single-line shape),
+# so the aggregator never fails to route because PyYAML is absent.
+ROUTES_FILE = Path(__file__).resolve().parent.parent.parent / "config" / "dashboard-routes.yaml"
+
+
+def _load_routes() -> dict:
+    """Parse config/dashboard-routes.yaml → {slug: {port, healthz_path,
+    subpath, label, source_repo}}. Regex-based (no PyYAML dependency): the file
+    is generator-emitted with a fixed `- {slug: …, port: …, …}` shape per line,
+    under the `routes:` key (the `static_only:`/`skipped:` blocks are operator-
+    visibility metadata, not proxied, and are ignored here)."""
+    import re
+    routes: dict[str, dict] = {}
+    try:
+        text = ROUTES_FILE.read_text(encoding="utf-8")
+    except OSError:
+        return routes
+    # Only the `routes:` section (stop at the next top-level `static_only:` key).
+    start = text.find("\nroutes:")
+    if start == -1:
+        return routes
+    section = text[start:]
+    end = section.find("\nstatic_only:")
+    if end != -1:
+        section = section[:end]
+    line_re = re.compile(
+        r'- \{slug: (?P<slug>[^,]+), port: (?P<port>\d+), '
+        r'healthz_path: "(?P<healthz>[^"]*)", subpath: "(?P<subpath>[^"]*)", '
+        r'source_repo: (?P<repo>[^,]+), label: "(?P<label>[^"]*)"\}'
+    )
+    for m in line_re.finditer(section):
+        routes[m.group("slug")] = {
+            "port": int(m.group("port")),
+            "healthz_path": m.group("healthz"),
+            "subpath": m.group("subpath"),
+            "label": m.group("label"),
+            "source_repo": m.group("repo"),
+        }
+    return routes
+
+
+# Fallback infra set — the always-on non-panel upstreams. If the generated table
+# is unreadable (deleted / corrupt), the aggregator still fronts the core
+# services rather than serving an empty route table. The Trinity tiers + router
+# daemon are the contract-required minimum (test_master_dashboard_contract.py).
+_FALLBACK_ROUTES = {
+    "trinity-pulse": {"port": 8081, "healthz_path": "/v1/models",
+                      "subpath": "/pulse/", "label": "Trinity Pulse (bitnet.cpp HTTP)",
+                      "source_repo": "sovereign-os"},
+    "trinity-logic-engine": {"port": 8082, "healthz_path": "/v1/models",
+                             "subpath": "/logic/", "label": "Trinity Logic Engine (vLLM)",
+                             "source_repo": "sovereign-os"},
+    "trinity-oracle-core": {"port": 8083, "healthz_path": "/v1/models",
+                            "subpath": "/oracle/", "label": "Trinity Oracle Core (vLLM Blackwell)",
+                            "source_repo": "sovereign-os"},
+    "router-engine": {"port": 8080, "healthz_path": "/healthz",
+                      "subpath": "/router-engine/", "label": "SDD-011 Deterministic Router daemon",
+                      "source_repo": "sovereign-os"},
 }
+
+DASHBOARD_ROUTES = _load_routes() or dict(_FALLBACK_ROUTES)
 
 KNOWN_SLUGS = list(DASHBOARD_ROUTES.keys())
 
@@ -428,9 +311,10 @@ def render_nginx(routes: dict) -> str:
             "",
         ])
     lines.extend([
-        "    # Root: index page listing all aggregated dashboards",
+        "    # Root: index page — count only (each dashboard has its own",
+        "    # location block above; enumerating 50+ subpaths here is noise).",
         "    location = / {",
-        "        return 200 'sovereign-os master-dashboard — see /pulse/ /logic/ /oracle/ /router/ /grafana/ /metrics/';",
+        f"        return 200 'sovereign-os master-dashboard — {len(routes)} dashboards aggregated under :{AGGREGATOR_PORT}';",
         "        add_header Content-Type text/plain;",
         "    }",
         "}",
@@ -535,46 +419,25 @@ def _load_toggle_core():
     return mod
 
 
-# M060 R10129 / SDD-040 D-040.5 — map each aggregator route slug to its webapp
-# dashboard slug (the toggle catalog key). Routes ABSENT here are always-on
-# infrastructure (trinity engines, router, grafana, node_exporter) — not part
-# of the operator-toggleable cockpit catalog.
-_ROUTE_WEBAPP = {
-    "hardware-pressure": "d-09-hardware-pressure",
-    "model-health": "d-03-model-health",
-    "traces": "d-05-traces",
-    "costs": "d-04-costs",
-    "adapters": "d-11-adapter-status",
-    "evals": "d-10-eval-history",
-    "sessions": "d-01-active-sessions",
-    "approvals": "d-06-pending-approvals",
-    "rollback": "d-08-rollback-points",
-    "memory-changes": "d-07-memory-changes",
-    "grants-mirror": "d-13-filesystem-grants",
-    "quarantine-mirror": "d-17-quarantine",
-    "trust-mirror": "d-18-trust-scores",
-    "sandbox-mirror": "d-15-sandboxes",
-    "profile-mirror": "d-02-profile-choices",
-    "capability-mirror": "d-14-capability-tokens",
-    "super-model": "d-19-super-model-manifest",
-    "peace-machine": "d-20-peace-machine-health",
-    "audit-mirror": "d-16-audit",
-    "rules-mirror": "d-12-networking",
-}
+# M060 R10129 / SDD-040 D-040.5 — since F-2026-072 the aggregator route slug IS
+# the webapp dashboard slug (both derive from config/dashboard-catalog.yaml), so
+# the route slug is the toggle-catalog key directly — no indirection map. Infra
+# upstreams (trinity engines, router-engine, grafana, node_exporter) are not in
+# the toggle catalog, and is_enabled() fail-opens on an absent slug (→ True), so
+# they are always kept.
 
 
 def _enabled_routes(routes: dict) -> tuple[dict, list[str]]:
     """Filter routes to operator-enabled ones (M060 R10129). Returns
-    (enabled_routes, disabled_slugs). Infra routes (no webapp mapping) are
-    always kept. Toggle core unavailable → everything kept (fail-open: the
-    aggregator never hides a dashboard because the toggle file is missing)."""
+    (enabled_routes, disabled_slugs). A route slug absent from the toggle catalog
+    (infra) fail-opens to enabled. Toggle core unavailable → everything kept
+    (the aggregator never hides a dashboard because the toggle file is missing)."""
     core = _load_toggle_core()
     if core is None:
         return routes, []
     enabled, disabled = {}, []
     for slug, r in routes.items():
-        webapp = _ROUTE_WEBAPP.get(slug)
-        if webapp is not None and not core.is_enabled(webapp):
+        if not core.is_enabled(slug):
             disabled.append(slug)
             continue
         enabled[slug] = r

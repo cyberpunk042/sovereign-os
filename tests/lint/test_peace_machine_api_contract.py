@@ -165,8 +165,11 @@ def test_osctl_dispatches_peace_machine():
 
 
 def test_master_dashboard_route_registered():
-    body = (REPO_ROOT / "scripts" / "operator" / "master-dashboard.py").read_text(encoding="utf-8")
-    assert '"peace-machine"' in body and "8120" in body
+    # F-2026-072: the aggregator route table moved to the generated
+    # config/dashboard-routes.yaml and uses the canonical catalog slug.
+    routes = (REPO_ROOT / "config" / "dashboard-routes.yaml").read_text(encoding="utf-8")
+    assert "d-20-peace-machine-health" in routes, "aggregator table missing d-20-peace-machine-health route"
+    assert "8120" in routes, "d-20-peace-machine-health route must declare port 8120"
 
 
 def test_frontend_rewired_to_live_api():

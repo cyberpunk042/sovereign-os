@@ -158,8 +158,11 @@ def test_osctl_dispatches_sandbox_mirror():
 
 
 def test_master_dashboard_route_registered():
-    body = (REPO_ROOT / "scripts" / "operator" / "master-dashboard.py").read_text(encoding="utf-8")
-    assert '"sandbox-mirror"' in body and "8116" in body
+    # F-2026-072: the aggregator route table moved to the generated
+    # config/dashboard-routes.yaml and uses the canonical catalog slug.
+    routes = (REPO_ROOT / "config" / "dashboard-routes.yaml").read_text(encoding="utf-8")
+    assert "d-15-sandboxes" in routes, "aggregator table missing d-15-sandboxes route"
+    assert "8116" in routes, "d-15-sandboxes route must declare port 8116"
 
 
 # ---- live endpoints --------------------------------------------------------

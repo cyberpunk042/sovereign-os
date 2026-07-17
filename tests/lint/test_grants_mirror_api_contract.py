@@ -188,9 +188,11 @@ def test_osctl_dispatches_grants_mirror():
 
 
 def test_master_dashboard_route_registered():
-    body = (REPO_ROOT / "scripts" / "operator" / "master-dashboard.py").read_text(encoding="utf-8")
-    assert '"grants-mirror"' in body, "master-dashboard missing grants-mirror route"
-    assert "8113" in body, "grants-mirror route must declare port 8113"
+    # F-2026-072: the aggregator route table moved to the generated
+    # config/dashboard-routes.yaml and uses the canonical catalog slug.
+    routes = (REPO_ROOT / "config" / "dashboard-routes.yaml").read_text(encoding="utf-8")
+    assert "d-13-filesystem-grants" in routes, "aggregator table missing d-13-filesystem-grants route"
+    assert "8113" in routes, "d-13-filesystem-grants route must declare port 8113"
 
 
 # ---- live endpoints (the exact d-13 fetch contract) -----------------------

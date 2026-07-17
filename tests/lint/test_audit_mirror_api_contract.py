@@ -202,9 +202,11 @@ def test_osctl_dispatches_audit_mirror():
 
 
 def test_master_dashboard_route_registered():
-    body = (REPO_ROOT / "scripts" / "operator" / "master-dashboard.py").read_text(encoding="utf-8")
-    assert '"audit-mirror"' in body and "8121" in body
-    assert '"audit-mirror": "d-16-audit"' in body
+    # F-2026-072: the aggregator route table moved to the generated
+    # config/dashboard-routes.yaml and uses the canonical catalog slug.
+    routes = (REPO_ROOT / "config" / "dashboard-routes.yaml").read_text(encoding="utf-8")
+    assert "d-16-audit" in routes, "aggregator table missing d-16-audit route"
+    assert "8121" in routes, "d-16-audit route must declare port 8121"
 
 
 # ---- live endpoints --------------------------------------------------------

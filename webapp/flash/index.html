@@ -110,6 +110,114 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
   else badge();
 })();
 </script>
+<!-- A11Y:BEGIN M060 -->
+<!-- ─────────────────────────────────────────────────────────────────
+M060 F05100 + R10100 WCAG 2.1 AA accessibility snippet — canonical
+small CSS block embedded in every cockpit dashboard's <head> right
+after the nav-snippet.
+
+Covers the focus-visible piece of WCAG 2.1 AA: every interactive
+element (button, link, input, select, textarea, [role=button]) gets
+a clearly-visible focus ring when reached via keyboard. The :focus-
+visible pseudo-class fires for keyboard focus but NOT mouse-click,
+so sighted mouse users don't see an unnecessary ring while keyboard
++ screen-reader users get the indicator the standard requires.
+
+Also ships:
+  - Skip-to-content link (operator-§1g a11y: jump past nav to
+    main content; visually hidden until focused, then becomes a
+    high-contrast badge)
+  - prefers-reduced-motion guard (operator-§1g a11y: respect
+    operator's OS-level motion preference)
+
+Per "Respect the projects": pure CSS + 1 anchor tag, no JS, no
+mutation. Drops in next to the nav-snippet via the same canonical
+adoption pattern.
+-->
+<style>
+  /* WCAG 2.1 AA — focus-visible ring on every interactive element. */
+  a:focus-visible,
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  details:focus-visible,
+  summary:focus-visible,
+  [role="button"]:focus-visible,
+  [tabindex]:focus-visible {
+    outline: 2px solid var(--accent, #9bd1ff);
+    outline-offset: 2px;
+    border-radius: 3px;
+  }
+
+  /* The palette input had `outline: none` for design reasons; the
+     visible focus ring above resupplies the a11y requirement. */
+  .so-palette-input:focus-visible {
+    outline: 2px solid var(--accent, #9bd1ff);
+    outline-offset: -2px;
+  }
+
+  /* Skip-to-content — visually hidden until keyboard-focused,
+     then becomes a high-contrast badge in the top-left corner. */
+  .so-skip-link {
+    position: absolute;
+    left: -10000px;
+    top: auto;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    z-index: 10000;
+  }
+  .so-skip-link:focus {
+    left: 0.5rem;
+    top: 0.5rem;
+    width: auto;
+    height: auto;
+    padding: 0.5rem 1rem;
+    background: var(--accent, #9bd1ff);
+    color: var(--bg, #0e0e0e);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-weight: 600;
+    text-decoration: none;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  }
+
+  /* Respect operator's prefers-reduced-motion preference. */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+</style>
+<script>
+  (function(){
+    // Inject the skip-to-content link as the first child of <body>
+    // so screen readers + tabbing users land on it first. Targets
+    // <main> if present, else falls back to <h1>.
+    function init() {
+      if (document.querySelector('.so-skip-link')) return;
+      var a = document.createElement('a');
+      a.className = 'so-skip-link';
+      a.href = '#so-skip-target';
+      a.textContent = 'skip to content';
+      document.body.insertBefore(a, document.body.firstChild);
+      // Add an id to the first <main>/<h1> so the anchor resolves.
+      var tgt = document.querySelector('main') || document.querySelector('h1');
+      if (tgt && !tgt.id) tgt.id = 'so-skip-target';
+      else if (tgt && tgt.id !== 'so-skip-target') {
+        // Existing id — point the link to it instead.
+        a.href = '#' + tgt.id;
+      }
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+    else init();
+  })();
+</script>
+<!-- A11Y:END M060 -->
 </head>
 <body>
 <!-- APP-SHELL:BEGIN M067 -->

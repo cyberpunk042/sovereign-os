@@ -160,8 +160,11 @@ def test_osctl_dispatches_capability_mirror():
 
 
 def test_master_dashboard_route_registered():
-    body = (REPO_ROOT / "scripts" / "operator" / "master-dashboard.py").read_text(encoding="utf-8")
-    assert '"capability-mirror"' in body and "8118" in body
+    # F-2026-072: the aggregator route table moved to the generated
+    # config/dashboard-routes.yaml and uses the canonical catalog slug.
+    routes = (REPO_ROOT / "config" / "dashboard-routes.yaml").read_text(encoding="utf-8")
+    assert "d-14-capability-tokens" in routes, "aggregator table missing d-14-capability-tokens route"
+    assert "8118" in routes, "d-14-capability-tokens route must declare port 8118"
 
 
 # ---- live endpoints --------------------------------------------------------

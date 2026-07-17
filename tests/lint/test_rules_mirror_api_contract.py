@@ -178,9 +178,11 @@ def test_osctl_dispatches_rules_mirror():
 
 
 def test_master_dashboard_route_registered():
-    body = (REPO_ROOT / "scripts" / "operator" / "master-dashboard.py").read_text(encoding="utf-8")
-    assert '"rules-mirror"' in body, "master-dashboard missing rules-mirror route"
-    assert "8133" in body, "rules-mirror route must declare port 8133"
+    # F-2026-072: the aggregator route table moved to the generated
+    # config/dashboard-routes.yaml and uses the canonical catalog slug.
+    routes = (REPO_ROOT / "config" / "dashboard-routes.yaml").read_text(encoding="utf-8")
+    assert "d-12-networking" in routes, "aggregator table missing d-12-networking route"
+    assert "8133" in routes, "d-12-networking route must declare port 8133"
 
 
 # ---- live endpoints (the exact d-12 fetch contract) -----------------------

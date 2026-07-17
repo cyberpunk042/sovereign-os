@@ -148,9 +148,11 @@ def test_osctl_dispatches_rollback():
 
 
 def test_master_dashboard_route_registered():
-    body = (REPO_ROOT / "scripts" / "operator" / "master-dashboard.py").read_text(encoding="utf-8")
-    assert '"rollback"' in body, "master-dashboard missing rollback route"
-    assert "8111" in body, "rollback route must declare port 8111"
+    # F-2026-072: the aggregator route table moved to the generated
+    # config/dashboard-routes.yaml and uses the canonical catalog slug.
+    routes = (REPO_ROOT / "config" / "dashboard-routes.yaml").read_text(encoding="utf-8")
+    assert "d-08-rollback-points" in routes, "aggregator table missing d-08-rollback-points route"
+    assert "8111" in routes, "d-08-rollback-points route must declare port 8111"
 
 
 # ---- live endpoints (the exact d-08 fetch contract) -----------------------

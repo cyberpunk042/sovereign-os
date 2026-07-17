@@ -61,6 +61,15 @@ else
   fails=$((fails+1))
 fi
 
+# 2c — shared-snippet sync (a11y skip-link distribution + drift gate; F-2026-073/074)
+if out="$(python3 scripts/webapp/sync-snippet.py --check 2>&1)"; then
+  line "shared-snippet sync" "OK    $(printf '%s' "$out" | tail -1)"
+else
+  line "shared-snippet sync" "DRIFT (run: python3 scripts/webapp/sync-snippet.py --apply)"
+  printf '%s\n' "$out" | tail -5 | sed 's/^/    /'
+  fails=$((fails+1))
+fi
+
 # 3 — doc lints
 DOC_LINTS="tests/lint/test_round_refs.py tests/lint/test_sdd_index_consistency.py tests/lint/test_epic_e11_cross_repo_coverage.py tests/lint/test_e11_ux_surface_coverage.py"
 if out="$(python3 -m pytest $DOC_LINTS -q 2>&1)"; then

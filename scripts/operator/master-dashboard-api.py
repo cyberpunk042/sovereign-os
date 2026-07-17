@@ -28,6 +28,8 @@ Read-only endpoints (R498 v1, R500 webapp):
   GET /healthz                 — API daemon liveness (always 200)
   GET /webapp/                 — single-file operator-§1g webapp (R500)
   GET /webapp/index.html       — alias for /webapp/
+  GET /api/node-exporter/metrics — proxy node_exporter /metrics for the webapp
+                                   banners (F-2026-071); honest 502 when down
 
 All responses are JSON (Content-Type: application/json). On error the
 body is {"error": "..."} with a 4xx/5xx status. Loopback CIDR ACL
@@ -61,6 +63,21 @@ DRY_RUN = bool(os.environ.get("MASTER_DASHBOARD_API_DRY_RUN"))
 METRICS_DIR = os.environ.get(
     "SOVEREIGN_OS_METRICS_DIR",
     "/var/lib/node_exporter/textfile_collector",
+)
+
+# F-2026-071 — the master-dashboard webapp's AppArmor + four-watchdog +
+# selfdef-metrics banners fetch /api/node-exporter/metrics to read the canonical
+# gauges node_exporter exposes (from the textfile collector above). Nothing
+# served that path, so those banners were permanently stuck "offline" — a live-
+# data pretension with no backing handler. This daemon now proxies the panel's
+# same-origin /api/node-exporter/metrics to the real node_exporter /metrics
+# endpoint (loopback), and returns an HONEST 502 when node_exporter isn't up
+# (the banner then reads "node_exporter unreachable", not a fabricated value).
+NODE_EXPORTER_URL = os.environ.get(
+    "SOVEREIGN_OS_NODE_EXPORTER_URL", "http://127.0.0.1:9100/metrics"
+)
+NODE_EXPORTER_TIMEOUT = float(
+    os.environ.get("SOVEREIGN_OS_NODE_EXPORTER_TIMEOUT", "2.0")
 )
 
 # HELP sovereign_os_operator_master_dashboard_api_request_total master-dashboard
@@ -175,20 +192,31 @@ def _discover_payload() -> dict:
 def _toggles_payload() -> dict:
     """M060 R10129 — the dashboard directory + each route's operator on/off
     state, so the D-00 "main dashboard" reflects 'everything can be turned on
-    and off'. Routes without a webapp mapping are always-on infrastructure."""
+    and off'. Since F-2026-072 the aggregator route slug IS the webapp toggle
+    slug (both derive from dashboard-catalog.yaml); a route whose slug is not in
+    the toggle catalog is always-on infrastructure (trinity engines, router-
+    engine, grafana, node_exporter)."""
     core = _md._load_toggle_core()
+    # The set of genuinely toggleable slugs (real webapp/<slug>/ panels) — from
+    # the toggle core's own catalog, so "toggleable" tracks the shipped panels.
+    toggleable = set()
+    if core is not None:
+        try:
+            toggleable = {row["slug"] for row in core.toggles()["dashboards"]}
+        except Exception:  # noqa: BLE001 — degrade to "nothing toggleable"
+            toggleable = set()
     rows = []
     for slug, r in _md.DASHBOARD_ROUTES.items():
-        webapp = _md._ROUTE_WEBAPP.get(slug)
-        enabled = True if (core is None or webapp is None) else core.is_enabled(webapp)
+        is_toggleable = slug in toggleable
+        enabled = True if (core is None or not is_toggleable) else core.is_enabled(slug)
         rows.append({
             "slug": slug,
             "subpath": r["subpath"],
             "label": r["label"],
             "port": r["port"],
             "source_repo": r["source_repo"],
-            "webapp": webapp,
-            "toggleable": webapp is not None,
+            "webapp": slug if is_toggleable else None,
+            "toggleable": is_toggleable,
             "enabled": enabled,
         })
     enabled_count = sum(1 for x in rows if x["enabled"])
@@ -480,6 +508,56 @@ class MasterDashboardAPIHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
         _emit_metric("webapp", "ok")
 
+    def _proxy_node_exporter(self) -> None:
+        """F-2026-071 — proxy the panel's same-origin /api/node-exporter/metrics
+        to the real node_exporter /metrics (loopback). Returns the raw exposition
+        text unchanged so the webapp can grep its gauges. On any failure returns
+        an HONEST 502 with a text/plain reason (never a fabricated metric), so the
+        AppArmor / four-watchdog / selfdef-metrics banners read a real 'offline'
+        state instead of a live-data pretension."""
+        import urllib.error
+        import urllib.request
+
+        # Only ever reach node_exporter over loopback — this proxy must not be a
+        # generic SSRF hop. NODE_EXPORTER_URL defaults to 127.0.0.1:9100 and is
+        # operator-overridable, but a non-loopback override is refused.
+        from urllib.parse import urlparse
+        host = urlparse(NODE_EXPORTER_URL).hostname or ""
+        if host not in ("127.0.0.1", "::1", "localhost"):
+            self.send_response(502)
+            body = (f"# node-exporter proxy refuses non-loopback target "
+                    f"{host!r}\n").encode("utf-8")
+            self.send_header("Content-Type", "text/plain; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            _emit_metric("node-exporter", "refused-nonloopback")
+            return
+        try:
+            with urllib.request.urlopen(
+                NODE_EXPORTER_URL, timeout=NODE_EXPORTER_TIMEOUT
+            ) as resp:
+                data = resp.read()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain; charset=utf-8")
+            self.send_header("Content-Length", str(len(data)))
+            self.send_header("X-Sovereign-Module", "master-dashboard-api")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.end_headers()
+            self.wfile.write(data)
+            _emit_metric("node-exporter", "ok")
+        except (urllib.error.URLError, OSError, ValueError) as e:
+            # node_exporter not up (the common case) → honest 502, not a 200 with
+            # invented values. The banner shows the real gap.
+            self.send_response(502)
+            body = (f"# node_exporter unreachable at {NODE_EXPORTER_URL}: "
+                    f"{e}\n").encode("utf-8")
+            self.send_header("Content-Type", "text/plain; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            _emit_metric("node-exporter", "502")
+
     def do_GET(self) -> None:  # noqa: N802 (BaseHTTPRequestHandler API)
         # Strip query string + trailing slash
         path = self.path.split("?", 1)[0].rstrip("/") or "/"
@@ -493,13 +571,18 @@ class MasterDashboardAPIHandler(BaseHTTPRequestHandler):
             self._send_webapp()
             return
 
+        # F-2026-071 — node_exporter metrics proxy for the webapp banners.
+        if path == "/api/node-exporter/metrics":
+            self._proxy_node_exporter()
+            return
+
         handler = _ENDPOINT_HANDLERS.get(path)
         if handler is None:
             self._send_json(404, {
                 "error": f"unknown endpoint: {path!r}",
                 "available": (
                     sorted(_ENDPOINT_HANDLERS.keys())
-                    + ["/healthz", "/webapp/"]
+                    + ["/healthz", "/webapp/", "/api/node-exporter/metrics"]
                 ),
             })
             _emit_metric(path.lstrip("/") or "unknown", "404")

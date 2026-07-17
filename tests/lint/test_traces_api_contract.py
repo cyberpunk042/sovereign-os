@@ -185,9 +185,11 @@ def test_osctl_dispatches_traces():
 
 
 def test_master_dashboard_route_registered():
-    body = (REPO_ROOT / "scripts" / "operator" / "master-dashboard.py").read_text(encoding="utf-8")
-    assert '"traces"' in body, "master-dashboard missing traces route"
-    assert "8105" in body, "traces route must declare port 8105"
+    # F-2026-072: the aggregator route table moved to the generated
+    # config/dashboard-routes.yaml and uses the canonical catalog slug.
+    routes = (REPO_ROOT / "config" / "dashboard-routes.yaml").read_text(encoding="utf-8")
+    assert "d-05-traces" in routes, "aggregator table missing d-05-traces route"
+    assert "8105" in routes, "d-05-traces route must declare port 8105"
 
 
 # ---- live endpoints (the exact d-05 fetch contract) -----------------------

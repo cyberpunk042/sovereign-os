@@ -162,8 +162,11 @@ def test_osctl_dispatches_profile_mirror():
 
 
 def test_master_dashboard_route_registered():
-    body = (REPO_ROOT / "scripts" / "operator" / "master-dashboard.py").read_text(encoding="utf-8")
-    assert '"profile-mirror"' in body and "8117" in body
+    # F-2026-072: the aggregator route table moved to the generated
+    # config/dashboard-routes.yaml and uses the canonical catalog slug.
+    routes = (REPO_ROOT / "config" / "dashboard-routes.yaml").read_text(encoding="utf-8")
+    assert "d-02-profile-choices" in routes, "aggregator table missing d-02-profile-choices route"
+    assert "8117" in routes, "d-02-profile-choices route must declare port 8117"
 
 
 # ---- live endpoints --------------------------------------------------------

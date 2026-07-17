@@ -1190,96 +1190,6 @@ EOF
 
 # ------------------------------ status ---------------------------------------
 
-cmd_status() {
-  # --json mode: machine-readable status for fleet aggregation
-  if [ "${1:-}" = "--json" ]; then
-    local profile="${SOVEREIGN_OS_PROFILE:-unknown}"
-    local active_whitelabel="default"
-    [ -r /etc/sovereign-os/active-whitelabel ] && \
-      active_whitelabel="$(cat /etc/sovereign-os/active-whitelabel)"
-    local zfs_state="absent"
-    if command -v zpool >/dev/null 2>&1 && zpool list tank >/dev/null 2>&1; then
-      if zpool status tank | grep -q "state: ONLINE"; then zfs_state="online"; else zfs_state="degraded"; fi
-    fi
-    local tetragon_state="not-installed"
-    if command -v tetragon >/dev/null 2>&1; then
-      systemctl is-active --quiet tetragon && tetragon_state="active" || tetragon_state="inactive"
-    fi
-    local kernel; kernel="$(uname -r)"
-    local os_pretty="unknown"
-    [ -r /etc/os-release ] && os_pretty="$(grep PRETTY_NAME /etc/os-release | cut -d= -f2- | tr -d '"')"
-    local first_boot_done="false"
-    [ -r /var/lib/sovereign-os/first-boot-complete ] && first_boot_done="true"
-    cat <<EOF
-{
-  "profile": "${profile}",
-  "active_whitelabel": "${active_whitelabel}",
-  "kernel_release": "${kernel}",
-  "os_pretty_name": "${os_pretty}",
-  "zfs_pool_state": "${zfs_state}",
-  "tetragon_state": "${tetragon_state}",
-  "first_boot_complete": ${first_boot_done},
-  "timestamp": $(date +%s)
-}
-EOF
-    return 0
-  fi
-
-  echo "sovereign-os status"
-  echo "==================="
-  echo
-  echo "Profile:    ${SOVEREIGN_OS_PROFILE}"
-  if [ -r /etc/os-release ]; then
-    echo "OS release: $(grep PRETTY_NAME /etc/os-release | cut -d= -f2-)"
-  fi
-  echo "Kernel:     $(uname -r)"
-  echo "Uptime:     $(uptime -p 2>/dev/null || uptime)"
-  echo
-
-  # ZFS pool
-  if command -v zpool >/dev/null 2>&1; then
-    echo "[ZFS pool 'tank']"
-    if zpool list tank >/dev/null 2>&1; then
-      zpool list tank
-      echo
-      zfs list -r tank -o name,used,available,refer,mountpoint 2>/dev/null
-    else
-      echo "  pool 'tank' not present"
-    fi
-    echo
-  fi
-
-  # Tetragon
-  if command -v tetragon >/dev/null 2>&1; then
-    echo "[Tetragon]"
-    if systemctl is-active --quiet tetragon; then
-      echo "  status: active"
-    else
-      echo "  status: INACTIVE"
-    fi
-    echo
-  fi
-
-  # GPUs (host-visible)
-  if command -v nvidia-smi >/dev/null 2>&1; then
-    echo "[NVIDIA GPUs (host-visible)]"
-    nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader 2>/dev/null | sed 's/^/  /' || echo "  nvidia-smi present but no GPUs visible (VFIO bound?)"
-    echo
-  fi
-
-  # Network
-  echo "[Network]"
-  ip -brief addr show | grep -v '^lo' | sed 's/^/  /'
-  echo
-
-  # Whitelabel
-  echo "[Whitelabel]"
-  if [ -r /etc/sovereign-os/active-whitelabel ]; then
-    echo "  active: $(cat /etc/sovereign-os/active-whitelabel)"
-  else
-    echo "  active: default (no /etc/sovereign-os/active-whitelabel)"
-  fi
-}
 
 # ----------------------------------------------------------------------------
 # overview — consolidated single-screen status snapshot across the
@@ -1719,56 +1629,6 @@ PYEOF
 
 # ------------------------------ assistant ------------------------------------
 
-cmd_assistant() {
-  local sub="${1:-full}"
-  shift || true
-  case "${sub}" in
-    full)
-      # Re-run the entire first-login-assistant flow
-      SOVEREIGN_OS_ASSISTANT_FORCE=1 "${__REPO_ROOT}/scripts/hooks/post-install/first-login-assistant.sh"
-      ;;
-    status)
-      # Read the persisted assistant state if present
-      local state_file="${SOVEREIGN_OS_ASSISTANT_STATE_DIR:-/var/lib/sovereign-os/assistant}/state.yaml"
-      if [ -r "${state_file}" ]; then
-        echo "Assistant state at ${state_file}:"
-        echo
-        cat "${state_file}"
-      else
-        echo "Assistant has not been run yet (no state at ${state_file})"
-      fi
-      ;;
-    reset)
-      local state_file="${SOVEREIGN_OS_ASSISTANT_STATE_DIR:-/var/lib/sovereign-os/assistant}/state.yaml"
-      if [ "${SOVEREIGN_OS_ASSUME_YES:-}" != "1" ]; then
-        if ! confirm "Reset assistant state at ${state_file}?" default-no; then
-          log_info "reset cancelled"
-          return 0
-        fi
-      fi
-      rm -f "${state_file}"
-      log_info "assistant state cleared; next run will execute full flow"
-      ;;
-    list)
-      cat <<EOF
-Assistant subverbs:
-  full        Re-run the complete first-login assistant flow (default)
-  status      Show persisted state.yaml (when did it run? what choices?)
-  reset       Clear state.yaml (next run executes full flow)
-  list        This list.
-
-Env vars (consumed by the underlying first-login-assistant.sh):
-  SOVEREIGN_OS_NONINTERACTIVE    skip prompts (use defaults)
-  SOVEREIGN_OS_ASSISTANT_FORCE   ignore completed:true sentinel
-EOF
-      ;;
-    *)
-      log_error "unknown assistant subcommand: ${sub}"
-      log_error "  available: full / status / reset / list"
-      exit 2
-      ;;
-  esac
-}
 
 # ------------------------------ profiles -------------------------------------
 
@@ -3034,65 +2894,6 @@ print(len(all_pkgs))
 
 # ------------------------------ maintenance ----------------------------------
 
-cmd_maintenance() {
-  local sub="${1:-list}"
-  shift || true
-  case "${sub}" in
-    list)
-      cat <<EOF
-Maintenance subverbs (each runs the matching recurrent hook on demand):
-
-  list                   This list.
-  scrub                  Trigger ZFS scrub of the tank pool now.
-  arc-status             Show ZFS ARC stats (size + c + c_min + c_max).
-  log-rotate             Manually rotate ~/.sovereign-os/log/*.jsonl now.
-  snapshot               Manually take a tank/context ZFS snapshot now.
-  security-check         Manually scan for pending security updates now.
-  models-sync            Manually verify the resident model catalog now.
-  perimeter-check        Manually verify Tetragon perimeter policy now.
-  alerts-check           Derive alerts + emit meta-counters now (hourly timer).
-
-All of these run via the matching systemd timer (daily/weekly cadence);
-this surface gives operators on-demand control when they need it.
-
-Most subverbs require root; honor SOVEREIGN_OS_DRY_RUN=1.
-EOF
-      ;;
-    scrub)
-      "${__REPO_ROOT}/scripts/hooks/recurrent/zfs-scrub.sh"
-      ;;
-    arc-status)
-      if [ -r /proc/spl/kstat/zfs/arcstats ]; then
-        grep -E "^(size|c$|c_min|c_max)" /proc/spl/kstat/zfs/arcstats
-      else
-        echo "ARC stats not available (ZFS not loaded)"
-      fi
-      ;;
-    log-rotate)
-      "${__REPO_ROOT}/scripts/hooks/recurrent/log-rotate.sh"
-      ;;
-    snapshot)
-      "${__REPO_ROOT}/scripts/hooks/recurrent/backup-snapshot.sh"
-      ;;
-    security-check)
-      "${__REPO_ROOT}/scripts/hooks/recurrent/security-update-check.sh"
-      ;;
-    models-sync)
-      "${__REPO_ROOT}/scripts/hooks/recurrent/model-catalog-sync.sh"
-      ;;
-    perimeter-check)
-      "${__REPO_ROOT}/scripts/hooks/recurrent/tetragon-policy-verify.sh"
-      ;;
-    alerts-check)
-      "${__REPO_ROOT}/scripts/hooks/recurrent/alerts-check.sh"
-      ;;
-    *)
-      log_error "unknown maintenance subcommand: ${sub}"
-      log_error "  available: list / scrub / arc-status / log-rotate / snapshot / security-check / models-sync / perimeter-check / alerts-check"
-      exit 2
-      ;;
-  esac
-}
 
 # ------------------------------ metrics --------------------------------------
 #
@@ -3102,136 +2903,6 @@ EOF
 # authoritative; Grafana dashboards are convenience. This verb makes
 # the authoritative surface readable from the shell.
 
-cmd_metrics() {
-  local sub="${1:-list}"
-  shift || true
-
-  : "${SOVEREIGN_OS_METRICS_DIR:=/var/lib/node_exporter/textfile_collector}"
-
-  case "${sub}" in
-    list)
-      if [ ! -d "${SOVEREIGN_OS_METRICS_DIR}" ]; then
-        echo "metrics dir absent: ${SOVEREIGN_OS_METRICS_DIR}"
-        echo "  (node_exporter textfile collector may not be installed,"
-        echo "   or no hook has emitted a metric yet)"
-        return 0
-      fi
-      local files
-      mapfile -t files < <(find "${SOVEREIGN_OS_METRICS_DIR}" -maxdepth 1 -name 'sovereign-os-*.prom' -type f 2>/dev/null | sort)
-      if [ "${#files[@]}" -eq 0 ]; then
-        echo "no sovereign-os-*.prom files in ${SOVEREIGN_OS_METRICS_DIR}"
-        return 0
-      fi
-      printf "%-50s  %-20s  %s\n" "FILE" "LAST UPDATE" "METRICS"
-      for f in "${files[@]}"; do
-        local bn mtime n
-        bn="$(basename "${f}")"
-        mtime="$(date -r "${f}" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || echo unknown)"
-        n="$(grep -vc '^#\|^$' "${f}" 2>/dev/null || echo 0)"
-        printf "%-50s  %-20s  %s\n" "${bn}" "${mtime}" "${n}"
-      done
-      ;;
-    show)
-      local name="${1:-}"
-      if [ -z "${name}" ]; then
-        log_error "usage: sovereign-osctl metrics show <basename>"
-        log_error "  example: sovereign-osctl metrics show log-rotation"
-        log_error "  (.prom suffix optional; sovereign-os- prefix optional)"
-        return 2
-      fi
-      # Resolve: try exact, then with sovereign-os- prefix, then with .prom suffix
-      local file=""
-      for candidate in \
-        "${SOVEREIGN_OS_METRICS_DIR}/${name}" \
-        "${SOVEREIGN_OS_METRICS_DIR}/${name}.prom" \
-        "${SOVEREIGN_OS_METRICS_DIR}/sovereign-os-${name}" \
-        "${SOVEREIGN_OS_METRICS_DIR}/sovereign-os-${name}.prom"; do
-        if [ -f "${candidate}" ]; then
-          file="${candidate}"
-          break
-        fi
-      done
-      if [ -z "${file}" ]; then
-        log_error "no .prom file matches '${name}' in ${SOVEREIGN_OS_METRICS_DIR}"
-        log_error "  run 'sovereign-osctl metrics list' to see what's available"
-        return 1
-      fi
-      echo "# file:  ${file}"
-      echo "# mtime: $(date -r "${file}" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || echo unknown)"
-      echo
-      cat "${file}"
-      ;;
-    tail)
-      local n="${1:-5}"
-      if ! [[ "${n}" =~ ^[0-9]+$ ]]; then
-        log_error "tail count must be a non-negative integer (got: ${n})"
-        return 2
-      fi
-      if [ ! -d "${SOVEREIGN_OS_METRICS_DIR}" ]; then
-        echo "metrics dir absent: ${SOVEREIGN_OS_METRICS_DIR}"
-        return 0
-      fi
-      # Newest-first ordering by mtime; cap at N
-      mapfile -t recent < <(find "${SOVEREIGN_OS_METRICS_DIR}" -maxdepth 1 -name 'sovereign-os-*.prom' -type f -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -n "${n}" | awk '{print $2}')
-      if [ "${#recent[@]}" -eq 0 ]; then
-        echo "no sovereign-os-*.prom files in ${SOVEREIGN_OS_METRICS_DIR}"
-        return 0
-      fi
-      for f in "${recent[@]}"; do
-        echo "===== $(basename "${f}")  ($(date -r "${f}" '+%Y-%m-%d %H:%M:%S')) ====="
-        grep -v '^#' "${f}" | grep -v '^$' || true
-        echo
-      done
-      ;;
-    health)
-      local issues=0
-      if [ ! -d "${SOVEREIGN_OS_METRICS_DIR}" ]; then
-        log_warn "metrics dir absent: ${SOVEREIGN_OS_METRICS_DIR}"
-        log_warn "  install node_exporter and create the dir, or set"
-        log_warn "  SOVEREIGN_OS_METRICS_DIR to an alternate path"
-        return 1
-      fi
-      log_info "metrics dir: ${SOVEREIGN_OS_METRICS_DIR}"
-      mapfile -t files < <(find "${SOVEREIGN_OS_METRICS_DIR}" -maxdepth 1 -name 'sovereign-os-*.prom' -type f 2>/dev/null | sort)
-      if [ "${#files[@]}" -eq 0 ]; then
-        log_warn "  no sovereign-os-*.prom files present (no hook has emitted yet)"
-        return 0
-      fi
-      log_info "  ${#files[@]} sovereign-os-*.prom files"
-      local now stale_threshold
-      now="$(date +%s)"
-      stale_threshold="${SOVEREIGN_OS_METRICS_STALE_DAYS:-7}"
-      for f in "${files[@]}"; do
-        local mtime age_days
-        mtime="$(stat -c '%Y' "${f}" 2>/dev/null || echo "${now}")"
-        age_days=$(( (now - mtime) / 86400 ))
-        if [ "${age_days}" -gt "${stale_threshold}" ]; then
-          log_warn "  STALE — $(basename "${f}") (${age_days}d old, threshold ${stale_threshold}d)"
-          issues=$((issues + 1))
-        fi
-        # format sanity: each non-comment, non-empty line should be 'name value' or 'name{labels} value'
-        local bad_lines
-        bad_lines="$(grep -v '^#' "${f}" | grep -v '^$' | grep -cvE '^[a-zA-Z_:][a-zA-Z0-9_:]*(\{[^}]*\})?\s+[-0-9.eE+]+(\s+[0-9]+)?\s*$' || true)"
-        if [ "${bad_lines:-0}" -gt 0 ]; then
-          log_error "  MALFORMED — $(basename "${f}") has ${bad_lines} non-conforming line(s)"
-          issues=$((issues + 1))
-        fi
-      done
-      if [ "${issues}" -eq 0 ]; then
-        log_info "  all files fresh + well-formed"
-        return 0
-      else
-        log_error "  ${issues} issue(s) found"
-        return 1
-      fi
-      ;;
-    *)
-      log_error "unknown metrics subcommand: ${sub}"
-      log_error "  available: list / show <name> / tail [N] / health"
-      return 2
-      ;;
-  esac
-}
 
 # ------------------------------ journal --------------------------------------
 #
@@ -3721,114 +3392,6 @@ PY
 #   2   at least one CRITICAL
 #   3   no sensors readable / thermal-watch not yet run
 
-cmd_thermals() {
-  local json_mode=0
-  local probe_mode=0
-  while [ "$#" -gt 0 ]; do
-    case "$1" in
-      --json) json_mode=1; shift ;;
-      --probe) probe_mode=1; shift ;;
-      -h|--help)
-        cat <<'EOF'
-sovereign-osctl thermals — per-sensor thermal status (R175)
-
-Usage:
-  sovereign-osctl thermals           Show cached .prom-file readings
-  sovereign-osctl thermals --json    Re-probe and emit JSON
-  sovereign-osctl thermals --probe   Re-probe NOW (off the timer)
-
-Exit codes:
-  0   all sensors OK
-  1   at least one WARN
-  2   at least one CRITICAL
-  3   no sensors / thermal-watch not run yet
-
-Underlying source: scripts/hardware/thermal-watch.py (R172).
-EOF
-        return 0
-        ;;
-      *) log_error "unknown thermals flag: $1"; return 2 ;;
-    esac
-  done
-
-  local script="${__REPO_ROOT:-/opt/sovereign-os}/scripts/hardware/thermal-watch.py"
-  if [ ! -x "${script}" ]; then
-    script="/opt/sovereign-os/scripts/hardware/thermal-watch.py"
-  fi
-
-  if [ "${probe_mode}" -eq 1 ] || [ "${json_mode}" -eq 1 ]; then
-    if [ ! -x "${script}" ]; then
-      log_error "thermal-watch.py not found at ${script}"
-      exit 3
-    fi
-    if [ "${json_mode}" -eq 1 ]; then
-      python3 "${script}" --json --dry-run-events
-      exit $?
-    fi
-    python3 "${script}" --dry-run-events
-    exit $?
-  fi
-
-  # Cached-.prom path: read the latest sovereign-os-thermal-watch.prom
-  # written by the timer.
-  : "${SOVEREIGN_OS_METRICS_DIR:=/var/lib/node_exporter/textfile_collector}"
-  local prom="${SOVEREIGN_OS_METRICS_DIR}/sovereign-os-thermal-watch.prom"
-  if [ ! -f "${prom}" ]; then
-    echo "no cached thermal readings yet at ${prom}"
-    echo "  run 'sovereign-osctl thermals --probe' for a live read,"
-    echo "  or wait for the sovereign-thermal-watch.timer 5-min tick."
-    exit 3
-  fi
-  local mtime
-  mtime="$(date -r "${prom}" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || echo unknown)"
-  echo "# sovereign-osctl thermals (cached read; mtime ${mtime})"
-  echo "# source: ${prom}"
-  echo
-  printf "%-32s  %8s  %8s\n" "SENSOR" "C" "STATUS"
-
-  # Parse the textfile-collector emission. Two relevant series:
-  #   sovereign_os_thermal_celsius{sensor="..."} <N>
-  #   sovereign_os_thermal_severity{sensor="...",level="..."} 0|1
-  local worst=0  # 0 ok, 1 warn, 2 critical
-  local sensors=()
-  declare -A celsius severity 2>/dev/null || true
-  while IFS= read -r line; do
-    case "${line}" in
-      \#*|"") continue ;;
-    esac
-    if [[ "${line}" =~ ^sovereign_os_thermal_celsius\{sensor=\"([^\"]+)\"\}[[:space:]]+(-?[0-9]+) ]]; then
-      celsius["${BASH_REMATCH[1]}"]="${BASH_REMATCH[2]}"
-      sensors+=("${BASH_REMATCH[1]}")
-    elif [[ "${line}" =~ ^sovereign_os_thermal_severity\{sensor=\"([^\"]+)\",level=\"([^\"]+)\"\}[[:space:]]+1 ]]; then
-      severity["${BASH_REMATCH[1]}"]="${BASH_REMATCH[2]}"
-    fi
-  done < "${prom}"
-
-  # Dedup sensors list while preserving order.
-  local seen=""
-  for s in "${sensors[@]}"; do
-    case ":${seen}:" in
-      *":${s}:"*) continue ;;
-    esac
-    seen="${seen}:${s}"
-    local c="${celsius[${s}]:-?}"
-    local sev="${severity[${s}]:-?}"
-    local marker=" "
-    case "${sev}" in
-      critical) marker="✗"; [ "${worst}" -lt 2 ] && worst=2 ;;
-      warn)     marker="!"; [ "${worst}" -lt 1 ] && worst=1 ;;
-      ok)       marker="✓" ;;
-    esac
-    printf "%-32s  %8s  %s %s\n" "${s}" "${c}" "${marker}" "${sev}"
-  done
-
-  echo
-  case "${worst}" in
-    0) echo "ALL OK"; exit 0 ;;
-    1) echo "WARN — at least one sensor above warn threshold"; exit 1 ;;
-    2) echo "CRITICAL — at least one sensor above critical threshold"; exit 2 ;;
-  esac
-}
 
 cmd_alerts() {
   local json_mode=0
@@ -4032,131 +3595,6 @@ for line in sys.stdin.read().splitlines():
 # hunting for "what env var changes X" used to grep the codebase
 # manually. This verb does that scan + presents the result.
 
-cmd_env() {
-  local sub="${1:-list}"
-  shift || true
-
-  case "${sub}" in
-    list)
-      local filter=""
-      while [ $# -gt 0 ]; do
-        case "$1" in
-          --filter) filter="${2:-}"; shift 2 ;;
-          -*) log_error "unknown env list flag: $1"; return 2 ;;
-          *) shift ;;
-        esac
-      done
-
-      # Scan + dedupe + present
-      ENV_FILTER="${filter}" REPO_ROOT="${__REPO_ROOT}" ${PYTHON3} - <<'PY'
-import os, re, pathlib, collections
-
-repo = pathlib.Path(os.environ["REPO_ROOT"])
-flt  = os.environ.get("ENV_FILTER", "")
-flt_re = re.compile(flt) if flt else None
-
-# Two patterns:
-#   defaults  — `: "${VAR:=value}"` or `: ${VAR:=value}`
-#   reads     — bare `${VAR}` or `$VAR` references
-DEFAULT_RE = re.compile(r':\s*"?\$\{(SOVEREIGN_OS_[A-Z0-9_]+):=([^}]*)\}"?')
-READ_RE    = re.compile(r'\bSOVEREIGN_OS_[A-Z0-9_]+\b')
-
-defaults = {}     # var → (default-value, file)
-consumers = collections.defaultdict(set)   # var → set(file)
-
-for path in repo.glob("scripts/**/*"):
-    if not path.is_file(): continue
-    try:
-        text = path.read_text(errors="ignore")
-    except OSError:
-        continue
-    rel = str(path.relative_to(repo))
-    for m in DEFAULT_RE.finditer(text):
-        var, default = m.group(1), m.group(2)
-        if var not in defaults:
-            defaults[var] = (default, rel)
-    for var in READ_RE.findall(text):
-        consumers[var].add(rel)
-
-all_vars = sorted(set(defaults) | set(consumers))
-if flt_re:
-    all_vars = [v for v in all_vars if flt_re.search(v)]
-
-# Header
-print(f"{'NAME':<46} {'DEFAULT':<32} CONSUMERS")
-for var in all_vars:
-    default, _ = defaults.get(var, ("(no default; set by operator)", ""))
-    default_short = default[:30] + ".." if len(default) > 32 else default
-    consumer_count = len(consumers.get(var, ()))
-    print(f"{var:<46} {default_short:<32} {consumer_count}")
-
-print()
-print(f"  total: {len(all_vars)} env var(s)")
-if flt_re:
-    print(f"  filter: /{flt}/")
-print(f"  for details: sovereign-osctl env show <NAME>")
-PY
-      ;;
-
-    show)
-      local name="${1:-}"
-      if [ -z "${name}" ]; then
-        log_error "usage: sovereign-osctl env show <NAME>"
-        return 2
-      fi
-      ENV_NAME="${name}" REPO_ROOT="${__REPO_ROOT}" CURRENT="${!name:-(unset)}" ${PYTHON3} - <<'PY'
-import os, re, pathlib, sys
-
-repo = pathlib.Path(os.environ["REPO_ROOT"])
-name = os.environ["ENV_NAME"]
-current = os.environ["CURRENT"]
-
-if not name.startswith("SOVEREIGN_OS_"):
-    print(f"warn: '{name}' does not start with SOVEREIGN_OS_ — env-var discovery limited", file=sys.stderr)
-
-DEFAULT_RE = re.compile(rf':\s*"?\$\{{{re.escape(name)}:=([^}}]*)\}}"?')
-READ_RE = re.compile(rf'\b{re.escape(name)}\b')
-
-default_value = None
-default_file = None
-consumers = []
-for path in repo.glob("scripts/**/*"):
-    if not path.is_file(): continue
-    try:
-        text = path.read_text(errors="ignore")
-    except OSError:
-        continue
-    rel = str(path.relative_to(repo))
-    m = DEFAULT_RE.search(text)
-    if m and default_value is None:
-        default_value = m.group(1)
-        default_file = rel
-    if READ_RE.search(text):
-        consumers.append(rel)
-
-print(f"  name:           {name}")
-print(f"  default:        {default_value if default_value else '(no default; set by operator)'}")
-if default_file:
-    print(f"  default-from:   {default_file}")
-print(f"  currently set:  {current}")
-print(f"  consumed by:    {len(consumers)} file(s)")
-for c in sorted(set(consumers))[:20]:
-    print(f"                  - {c}")
-if len(set(consumers)) > 20:
-    print(f"                  ... and {len(set(consumers)) - 20} more")
-if not default_value and not consumers:
-    print(f"  WARNING: env var '{name}' not found anywhere in scripts/")
-    sys.exit(1)
-PY
-      ;;
-
-    *)
-      log_error "unknown env subcommand: ${sub}"
-      log_error "  available: list [--filter <regex>] | show <NAME>"
-      return 2
-      ;;
-  esac
-}
 
 # ------------------------------ init -----------------------------------------
 #
@@ -6952,13 +6390,13 @@ cmd="${1:-help}"
 shift || true
 
 case "${cmd}" in
-  status)        cmd_status "$@" ;;
+  status)        _source_osctl_module status && cmd_status "$@" ;;
   overview)      cmd_overview "$@" ;;
   # `|| exit` keeps doctor's nonzero exit (FAIL report) without firing the
   # lib's ERR trap — a failing health report is a finding, not a crash
   # (spurious "command failed: 'return 1'" on first installed run 2026-06-12).
   doctor)        cmd_doctor "$@" || exit $? ;;
-  assistant)     cmd_assistant "$@" ;;
+  assistant)     _source_osctl_module assistant && cmd_assistant "$@" ;;
   profiles)      cmd_profiles "$@" ;;
   whitelabel)    cmd_whitelabel "$@" ;;
   perimeter)     cmd_perimeter "$@" ;;
@@ -6978,7 +6416,7 @@ case "${cmd}" in
   models)        cmd_models "$@" ;;
   audit)         cmd_audit "$@" ;;
   hooks)         cmd_hooks "$@" ;;
-  maintenance)   cmd_maintenance "$@" ;;
+  maintenance)   _source_osctl_module maintenance && cmd_maintenance "$@" ;;
   decommission)  cmd_decommission "$@" ;;
   install)       cmd_install "$@" ;;
   secure-boot)   cmd_secure_boot "$@" ;;
@@ -6986,14 +6424,14 @@ case "${cmd}" in
   trinity)       cmd_trinity "$@" ;;
   init)          cmd_init "$@" ;;
   wizard)        cmd_wizard "$@" ;;
-  env)           cmd_env "$@" ;;
+  env)           _source_osctl_module env && cmd_env "$@" ;;
   inference)     cmd_inference "$@" ;;
   router)        cmd_router "$@" ;;
-  metrics)       cmd_metrics "$@" ;;
+  metrics)       _source_osctl_module metrics && cmd_metrics "$@" ;;
   alerts)        cmd_alerts "$@" ;;
   journal)       cmd_journal "$@" ;;
   history)       cmd_history "$@" ;;
-  thermals)      cmd_thermals "$@" ;;
+  thermals)      _source_osctl_module thermals && cmd_thermals "$@" ;;
   gpu-watch)
     # R219 (SDD-026 Z-5): GPU watt deviance watcher. Reads
     # /etc/sovereign-os/gpu-policy.toml (or the example for dev runs),
