@@ -5557,9 +5557,9 @@ _trinity_auditor_brief() {
     fi
   fi
   echo "    tetragon:           ${tetra_state}"
-  local guardian_state="not built (R155)"
+  local guardian_state="not installed (R155 — install: make install-units)"
   [ -x /usr/local/bin/guardian-core ] && {
-    if systemctl is-active --quiet guardian-core 2>/dev/null; then
+    if systemctl is-active --quiet sovereign-guardian-core 2>/dev/null; then
       guardian_state="installed + active"
     else
       guardian_state="installed but inactive"
@@ -5591,13 +5591,16 @@ _trinity_auditor_full() {
     echo "      apply via: scripts/hooks/post-install/tetragon-policy-load.sh"
   fi
   echo
-  echo "  GUARDIAN DAEMON (master spec § 10 — R155, not yet built):"
+  echo "  GUARDIAN DAEMON (master spec § 10 — R155):"
   if [ -x /usr/local/bin/guardian-core ]; then
     echo "    ✓ /usr/local/bin/guardian-core present"
-    systemctl is-active guardian-core 2>/dev/null | sed 's/^/    state: /'
+    systemctl is-active sovereign-guardian-core 2>/dev/null | sed 's/^/    state: /'
   else
-    echo "    NOT yet implemented — tracked in R155"
-    echo "    when built: reads /var/run/tetragon/tetragon.events;"
+    echo "    NOT installed on this host (daemon ships in the repo at"
+    echo "    scripts/auditor/guardian-core.py — R155)"
+    echo "    install: make install-units   (or scripts/auditor/install.sh)"
+    echo "    enable:  sudo systemctl enable --now sovereign-guardian-core.service"
+    echo "    when running: reads /var/run/tetragon/tetragon.events;"
     echo "    SIGKILL on policy violation via 'podman kill';"
     echo "    atomic append to /mnt/vault/context/security_audit.log"
   fi

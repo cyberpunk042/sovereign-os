@@ -2,13 +2,16 @@
 # scripts/hooks/post-install/tetragon-policy-load.sh
 #
 # Load Tetragon TracingPolicy for the sovereign-kernel-fence. Allowlists
-# ~4 binaries for sys_execve in containerized agents; SIGKILL on
-# violation.
+# ~4 binaries for sys_execve; SIGKILL on violation. Current scope is
+# HOST-WIDE minus PID 1 (matchPIDs NotIn [1]) — container/namespace
+# scoping of the fence is a Stage-2 refinement, not what ships today.
 #
-# Per SAIN-01 milestone (info-hub E104). Policy lives in
-# scripts/hooks/post-install/policies/sovereign-kernel-fence.yaml
-# (Stage-2 fills in the substantive list; this script ensures the
-# daemon + policy are loaded).
+# Per SAIN-01 milestone (info-hub E104). The policy is INLINED in the
+# heredoc below (operator-verbatim content pinned by R390/R419 lint)
+# and installed to /etc/tetragon/tracing-policies/. Stage-2 tunes the
+# substantive allowlist. The daemon itself is installed by the
+# preceding first-boot hook, tetragon-install.sh (Cilium release
+# tarball — tetragon is not in the Debian archive).
 
 __SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 __REPO_ROOT="$(cd "${__SCRIPT_DIR}/../../.." && pwd)"
@@ -39,7 +42,9 @@ emit_tetragon_metric() {
 require_root
 
 if ! command -v tetragon >/dev/null 2>&1; then
-  log_error "tetragon binary not found; install via profile packages"
+  log_error "tetragon binary not found (not in the Debian archive)"
+  log_error "REMEDIATION: run the installer hook, then re-run this one:"
+  log_error "  sudo ${__REPO_ROOT}/scripts/hooks/post-install/tetragon-install.sh"
   emit_tetragon_metric fail
   exit 1
 fi
@@ -52,8 +57,9 @@ if [ ! -f "${policy_file}" ]; then
   log_info "installing sovereign-kernel-fence policy → ${policy_file}"
   cat > "${policy_file}" <<'EOF'
 # Sovereign-os kernel-fence Tetragon TracingPolicy.
-# Allowlists ~4 binaries for sys_execve inside containerized agents;
-# SIGKILL on any other execve attempt.
+# Allowlists ~4 binaries for sys_execve; SIGKILL on any other execve
+# attempt. Scope: HOST-WIDE minus PID 1 (matchPIDs NotIn [1]) —
+# container/namespace scoping is a Stage-2 refinement.
 # Per SAIN-01 milestone E104.
 #
 # Substantive policy refinement: Stage 2+ tunes the allowlist per

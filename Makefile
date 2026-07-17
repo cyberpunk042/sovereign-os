@@ -172,7 +172,7 @@ install:  ## Install sovereign-osctl + manpages + command discovery to PREFIX (d
 	@echo "  $(DESTDIR)$(SOVEREIGN_OS_LIB)/  (lib + hooks + profiles + inference + whitelabel)"
 	@echo "  $(DESTDIR)$(PREFIX)/share/man/man1/sovereign-osctl*.1"
 	@echo "  Bash/Zsh completions under $(DESTDIR)$(PREFIX)/share/; Fish under $(DESTDIR)$(FISH_COMPLETION_DIR)/"
-	@echo "Note: this installs the shared libs + osctl. The systemd fleet (111 units)"
+	@echo "Note: this installs the shared libs + osctl. The systemd fleet ($(words $(wildcard systemd/system/*.service) $(wildcard systemd/system/*.timer) $(wildcard systemd/system/*.target)) units)"
 	@echo "      + the script trees the units reference is installed by 'make install-units'."
 
 # Absolute install roots the systemd units reference in their ExecStart lines.
@@ -201,7 +201,15 @@ install-units:  ## Install the full systemd unit fleet + the script trees the un
 	@cp -r scripts/hooks/*     "$(DESTDIR)$(SOVEREIGN_OS_OPT)/scripts/hooks/"
 	@cp -r scripts/inference/* "$(DESTDIR)$(SOVEREIGN_OS_OPT)/scripts/inference/"
 	@cp -r scripts/hardware/*  "$(DESTDIR)$(SOVEREIGN_OS_OPT)/scripts/hardware/"
+	@# sovereign-guardian-core.service ExecStart=/usr/local/bin/guardian-core:
+	@# the fleet install must carry the binary the unit points at, or the
+	@# unit ships as an orphan (enable → start failure). Was previously only
+	@# installed by the standalone scripts/auditor/install.sh, which nothing
+	@# in the make flow invoked (found + fixed 2026-07-17).
+	@install -d "$(DESTDIR)$(PREFIX)/bin"
+	@install -m 755 scripts/auditor/guardian-core.py "$(DESTDIR)$(PREFIX)/bin/guardian-core"
 	@echo "Installed $(words $(wildcard systemd/system/*.service)) service + $(words $(wildcard systemd/system/*.timer)) timer + $(words $(wildcard systemd/system/*.target)) target units + their script trees."
+	@echo "  + $(DESTDIR)$(PREFIX)/bin/guardian-core  (sovereign-guardian-core.service)"
 	@echo "Activate as root, selectively per profile:"
 	@echo "  sudo systemctl daemon-reload"
 	@echo "  sudo systemctl enable --now <unit>   # e.g. sovereign-gatewayd.service"
@@ -250,4 +258,5 @@ uninstall-units:  ## Remove the systemd unit files + the install-units script tr
 	        "$(DESTDIR)$(SOVEREIGN_OS_OPT)/scripts/hooks" \
 	        "$(DESTDIR)$(SOVEREIGN_OS_OPT)/scripts/inference" \
 	        "$(DESTDIR)$(SOVEREIGN_OS_OPT)/scripts/hardware"
+	@rm -f  "$(DESTDIR)$(PREFIX)/bin/guardian-core"
 	@echo "Removed the systemd fleet unit files + install-units script trees (run 'systemctl daemon-reload')."

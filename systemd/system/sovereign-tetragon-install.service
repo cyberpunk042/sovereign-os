@@ -1,0 +1,41 @@
+[Unit]
+Description=sovereign-os Tetragon daemon install (one-shot, first boot)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/hooks/post-install/tetragon-install.sh
+ConditionFirstBoot=yes
+# SAIN-01 bare-metal hardware setup — skip cleanly on a VM/emulator (the
+# kernel fence protects the real machine). Runs on the real machine only.
+ConditionVirtualization=no
+# Needs network to fetch Cilium's release tarball; MUST complete before
+# the policy-load hook tries to enable the (freshly installed) daemon.
+Wants=network-online.target
+After=network-online.target
+Before=sovereign-tetragon-policy-load.service
+PartOf=sovereign-firstboot.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+EnvironmentFile=-/etc/sovereign-os/active-profile.env
+ExecStart=/opt/sovereign-os/scripts/hooks/post-install/tetragon-install.sh
+StandardOutput=journal
+StandardError=journal
+# ProtectSystem intentionally OFF: the vendor install.sh writes the
+# tetragon binaries to /usr/local/bin + its systemd unit under /usr —
+# a strict/full sandbox would break exactly the install this unit exists
+# to perform. Remaining defense-in-depth kept (R171 / Layer 1 lint).
+ProtectSystem=off
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+RestrictNamespaces=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=sovereign-firstboot.target

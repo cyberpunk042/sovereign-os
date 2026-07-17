@@ -18,7 +18,7 @@ Wants=zfs.target
 # the completion marker `sovereign-firstboot.service` is `After=` all of them.
 # `tests/lint/test_firstboot_target_membership.py` keeps this list == the set of
 # units declaring `WantedBy=sovereign-firstboot.target`.
-Wants=sovereign-friction-audit.service sovereign-network-vlan.service sovereign-nvidia-driver-install.service sovereign-nvidia-driver-bind.service sovereign-vfio-bind.service sovereign-warp-setup.service sovereign-ups-setup.service sovereign-zfs-arc-clamp.service sovereign-tetragon-policy-load.service sovereign-workstation-shell-setup.service sovereign-inference-model-provision.service sovereign-firstboot.service
+Wants=sovereign-friction-audit.service sovereign-network-vlan.service sovereign-nvidia-driver-install.service sovereign-nvidia-driver-bind.service sovereign-vfio-bind.service sovereign-warp-setup.service sovereign-ups-setup.service sovereign-zfs-arc-clamp.service sovereign-tetragon-install.service sovereign-tetragon-policy-load.service sovereign-workstation-shell-setup.service sovereign-inference-model-provision.service sovereign-firstboot.service
 
 [Install]
 WantedBy=multi-user.target
