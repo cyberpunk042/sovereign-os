@@ -16,6 +16,7 @@ maintenance + alerting cadence:
   notify-dispatch        — 1min        (operator notification queue)
   power-shutdown-guard   — 1min        (UPS / battery monitor)
   security-update-check  — daily 02:30 (security patch posture)
+  ms003-verify           — daily 04:30 (MS003 ledger-signature integrity)
   tetragon-policy-verify — hourly      (security perimeter check)
   thermal-watch          — 5min        (chassis/CPU/GPU thermal sample)
   memory-pressure-sample — 1min        (PSI / OOM Layer B sample, E1.M15)
@@ -55,6 +56,7 @@ EXPECTED_RECURRENT_HOOKS = [
     "memory-observe.sh",
     "memory-pressure-sample.sh",
     "model-catalog-sync.sh",
+    "ms003-verify.sh",
     "notify-dispatch.sh",
     "power-shutdown-guard.sh",
     "root-ghostproxy-verify.sh",
@@ -80,6 +82,7 @@ HOOK_TO_TIMER_SLUG = {
     "memory-observe.sh": "sovereign-memory-observe",
     "memory-pressure-sample.sh": "sovereign-memory-pressure-sample",
     "model-catalog-sync.sh": "sovereign-models-sync",
+    "ms003-verify.sh": "sovereign-ms003-verify",
     "notify-dispatch.sh": "sovereign-notify-dispatch",
     "power-shutdown-guard.sh": "sovereign-power-shutdown-guard",
     "root-ghostproxy-verify.sh": "sovereign-ghostproxy-verify",
@@ -228,7 +231,8 @@ def test_ongoing_doc_lists_every_recurrent_timer():
     if not ONGOING_DOC.is_file():
         return  # doc layout changed; structural lints cover that elsewhere
     body = ONGOING_DOC.read_text(encoding="utf-8")
-    listed = set(re.findall(r"sovereign-[a-z-]+\.timer", body))
+    # timer slugs can carry digits (e.g. sovereign-ms003-verify) — [a-z0-9-]
+    listed = set(re.findall(r"sovereign-[a-z0-9-]+\.timer", body))
     canonical = {f"{slug}.timer" for slug in HOOK_TO_TIMER_SLUG.values()}
     missing = sorted(canonical - listed)
     assert not missing, (

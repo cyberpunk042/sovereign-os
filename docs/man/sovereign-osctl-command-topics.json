@@ -105,6 +105,7 @@
     ],
     "security": [
       "perimeter",
+      "ms003",
       "selfdef",
       "audit",
       "secure-boot",

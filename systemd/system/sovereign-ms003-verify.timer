@@ -1,0 +1,12 @@
+[Unit]
+Description=Daily MS003 ledger-signature verification
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/hooks/recurrent/ms003-verify.sh
+
+[Timer]
+OnCalendar=*-*-* 04:30:00
+RandomizedDelaySec=900
+Persistent=true
+Unit=sovereign-ms003-verify.service
+
+[Install]
+WantedBy=timers.target

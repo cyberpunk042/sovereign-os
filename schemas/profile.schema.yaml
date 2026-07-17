@@ -392,6 +392,18 @@ properties:
       posture:
         type: string
         description: installed-off = software present but security daemons not started on boot.
+      # Tetragon kernel-fence tuning (Stage-2 policy depth). Both default
+      # to the shipped host-wide L0 policy; tetragon-policy-load.sh reads them.
+      tetragon:
+        type: object
+        additionalProperties: false
+        properties:
+          scope:
+            type: string
+            enum: [host, container]   # container = enforce only in non-host mount namespaces
+          extra_allowed_binaries:
+            type: array
+            items: { type: string }   # ABSOLUTE binary paths appended to the base 4-binary allowlist
       # Swappable boot frontend (SDD-704). Selects what the box PRESENTS on the
       # display, independent of which AI runtimes are installed. `default` is baked
       # in; `install` lists the frontends whose stacks are staged so a later
