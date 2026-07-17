@@ -40,11 +40,17 @@ Endpoints:
   GET /panels.json      — discovery: every webapp/ panel (id + title)
   GET /panels/          — generated HTML index of all panels
   GET /api/<svc>/...    — DEV GATEWAY: proxies to the local sovereign-*-api
-                          process for that prefix (ports mirror the systemd
-                          units). Lets statically-served panels reach their
-                          live data without sovereign-gatewayd. 502 with a
-                          JSON error when the backing API isn't running —
-                          panels then fall back to their baked snapshots.
+                          process for that prefix. The COMPLETE prefix→port
+                          table is generated into config/panel-api-routes.yaml
+                          (gen-panel-routes.py, CI-locked) from every
+                          scripts/operator/*-api.py, so ALL panel routes proxy
+                          — not a hand-picked few. 502 with a JSON error when
+                          the backing API isn't running — panels then fall
+                          back to their baked snapshots.
+  POST /api/<svc>/...   — DEV GATEWAY (POST): forwards the body to the backing
+                          API so /api/control/execute + /api/code-console/chat
+                          work. Cross-site / non-loopback callers refused (the
+                          backing daemon enforces its own action gate on top).
   GET /version          — service version + module identity
   GET /healthz          — liveness (always 200)
 
@@ -808,16 +814,48 @@ def operator_key_env() -> dict[str, str]:
     return {}
 ANSI_RE = re.compile(rb"\x1b\[[0-9;]*[A-Za-z]")
 
-# ── dev gateway: /api/<prefix>/ → local service port. Ports mirror the
-#    Environment=*_PORT lines in systemd/system/sovereign-*-api.service;
-#    services serve their full /api/... paths, so forwarding is verbatim.
-#    sovereign-gatewayd (Rust, port 8000) replaces this in production. ──
-DEV_GATEWAY_ROUTES = {
-    "/api/m060/": 8160,            # sovereign-m060-health-api
-    "/api/ms022/": 7711,           # sovereign-ms022-sse-quota-api
-    "/api/four-watchdog/": 7712,   # sovereign-four-watchdog-api
-    "/api/node-exporter/": 9100,   # node_exporter (path rewritten below)
+# ── dev gateway: /api/<prefix>/ → local service port. The complete prefix→port
+#    table is GENERATED into config/panel-api-routes.yaml by
+#    scripts/operator/gen-panel-routes.py (CI-locked) from every
+#    scripts/operator/*-api.py — so ALL panel-API routes proxy through the hub,
+#    not just a hand-picked few. Before this the table listed 4 of ~59 routes,
+#    so /api/control/execute + /api/code-console/chat + ~50 per-panel data
+#    endpoints 404'd here and the interactive control surface was dead on the
+#    documented `make panel` path. node_exporter (a binary, not an *-api.py) is
+#    the one hardcoded extra — its /api/node-exporter/X path is rewritten to /X.
+PANEL_ROUTES_FILE = REPO / "config" / "panel-api-routes.yaml"
+_NODE_EXPORTER = {"/api/node-exporter": 9100}
+_FALLBACK_ROUTES = {  # only if the generated registry is unreadable
+    "/api/m060": 8160, "/api/ms022": 7711, "/api/four-watchdog": 7712,
 }
+
+
+def _load_panel_routes() -> dict[str, int]:
+    """prefix (no trailing slash) → backing port, from the generated registry
+    plus node_exporter. Degrades to the historical minimum if PyYAML or the
+    file is unavailable, so the hub still serves the core routes."""
+    routes: dict[str, int] = dict(_NODE_EXPORTER)
+    doc = _load_yaml(PANEL_ROUTES_FILE)
+    if isinstance(doc, dict) and isinstance(doc.get("routes"), list):
+        for r in doc["routes"]:
+            if isinstance(r, dict) and r.get("prefix") and r.get("port"):
+                routes[str(r["prefix"]).rstrip("/")] = int(r["port"])
+    else:
+        routes.update(_FALLBACK_ROUTES)
+    return routes
+
+
+DEV_GATEWAY_ROUTES = _load_panel_routes()
+
+
+def _route_for(path: str) -> int | None:
+    """The backing port for a proxied `/api/<prefix>/…` path, or None. Matches a
+    prefix exactly or as a path segment (`/api/control` matches `/api/control`
+    and `/api/control/execute`, never `/api/controlX`)."""
+    for prefix, port in DEV_GATEWAY_ROUTES.items():
+        if path == prefix or path.startswith(prefix + "/"):
+            return port
+    return None
 # Exact paths the master-dashboard expects on ITS origin (it is designed
 # to be served by master-dashboard-api at :8090). NOTE: this deliberately
 # shadows this server's own /version — the cockpit's registry identity
@@ -887,9 +925,9 @@ class Handler(BaseHTTPRequestHandler):
         # Gateway routes come BEFORE this server's own /version — the
         # cockpit's registry identity deliberately shadows it (use
         # /healthz for this server's liveness).
-        for prefix, port in DEV_GATEWAY_ROUTES.items():
-            if path.startswith(prefix):
-                return self._proxy(port, path)
+        hit = _route_for(path)
+        if hit is not None:
+            return self._proxy(hit, path)
         if path in DEV_GATEWAY_EXACT:
             return self._proxy(DEV_GATEWAY_EXACT[path], path)
         if path == "/version":
@@ -942,18 +980,30 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, target.read_bytes(), ctype)
         return self._send(404, json.dumps({"error": "not found", "path": path}))
 
-    def _proxy(self, port: int, path: str):
-        """Forward a GET to the local backing API verbatim (node_exporter
-        is the one path-rewrite: /api/node-exporter/X → /X)."""
+    def _proxy(self, port: int, path: str, method: str = "GET",
+               body: bytes | None = None, ctype: str | None = None):
+        """Forward a request to the local backing API verbatim (node_exporter
+        is the one path-rewrite: /api/node-exporter/X → /X). GET has no body;
+        POST forwards the raw body + Content-Type so /api/control/execute +
+        /api/code-console/chat reach their daemon."""
         import urllib.error
         import urllib.request
-        if path.startswith("/api/node-exporter/"):
-            path = path[len("/api/node-exporter"):]
+        if path == "/api/node-exporter" or path.startswith("/api/node-exporter/"):
+            path = path[len("/api/node-exporter"):] or "/"
         url = f"http://127.0.0.1:{port}{path}"
+        headers = {"Content-Type": ctype} if (method == "POST" and ctype) else {}
+        req = urllib.request.Request(
+            url, data=body if method == "POST" else None, method=method,
+            headers=headers)
         try:
-            with urllib.request.urlopen(url, timeout=5) as r:
+            with urllib.request.urlopen(req, timeout=30) as r:  # noqa: S310 loopback
                 self._send(r.status, r.read(),
                            r.headers.get("Content-Type", "application/json"))
+        except urllib.error.HTTPError as e:
+            # a real error RESPONSE from the backing API (4xx/5xx) — relay it,
+            # don't mask it as a 502 (the panel needs the actual message).
+            self._send(e.code, e.read(),
+                       e.headers.get("Content-Type", "application/json"))
         except (urllib.error.URLError, OSError) as e:
             self._send(502, json.dumps({
                 "error": f"backing API on :{port} not reachable",
@@ -997,6 +1047,24 @@ class Handler(BaseHTTPRequestHandler):
             if reject:
                 return self._send(reject[0], json.dumps({"error": reject[1]}))
             return self._run_action()
+        # Proxy every OTHER /api/<prefix> POST to its backing panel API
+        # (/api/control/execute, /api/code-console/chat, …). Cross-site + non-
+        # loopback callers are refused here (the same CSRF defense as /api/run)
+        # so a browser page can't drive a panel action through the hub; the
+        # backing daemon enforces its own action gate on top.
+        hit = _route_for(path)
+        if hit is not None:
+            reject = _guard.guard(self.headers, self.client_address[0],
+                                  require_json=False)
+            if reject:
+                return self._send(reject[0], json.dumps({"error": reject[1]}))
+            try:
+                n = int(self.headers.get("Content-Length", "0"))
+            except ValueError:
+                n = 0
+            raw = self.rfile.read(n) if n else b""
+            return self._proxy(hit, path, "POST", raw,
+                               self.headers.get("Content-Type"))
         return self._send(404, json.dumps({"error": "not found", "path": path}))
 
     def _run_action(self):
