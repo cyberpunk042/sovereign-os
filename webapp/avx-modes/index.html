@@ -127,6 +127,12 @@ table.avx-tbl td.mono{font-family:ui-monospace,Menlo,monospace;color:var(--accen
 .cw-hi{color:var(--accent,#9bd1ff);font-weight:600;}
 .cw-bits{font-family:ui-monospace,Menlo,monospace;font-size:.62rem;line-height:1.5;margin:.4rem 0;word-break:break-word;color:var(--muted,#8a8a8a);}
 .cw-bits b{color:var(--accent,#9bd1ff);}
+.cw-flags{display:flex;flex-wrap:wrap;gap:.5rem 1rem;font-size:.8rem;margin:.5rem 0;}
+.cw-flags label{display:flex;align-items:center;gap:.3rem;cursor:pointer;color:var(--muted,#8a8a8a);}
+.cw-perms{display:flex;flex-wrap:wrap;gap:.5rem;margin:.6rem 0;}
+.cw-perm{font-size:.76rem;padding:.2rem .6rem;border-radius:999px;border:1px solid var(--border,#3a3a3a);}
+.cw-perm.allow{color:#8fd694;border-color:#3d6b41;background:color-mix(in srgb,#3d6b41 14%,transparent);}
+.cw-perm.deny{color:#d68f8f;border-color:#6b3d3d;background:color-mix(in srgb,#6b3d3d 14%,transparent);}
 .cw-lut{display:flex;flex-wrap:wrap;align-items:center;gap:.9rem;font-size:.82rem;margin:.5rem 0;}
 .cw-lut label{display:flex;flex-direction:column;gap:.15rem;color:var(--muted,#8a8a8a);}
 html[data-theme="light"] {
@@ -1059,6 +1065,12 @@ html[data-theme="light"] {
     <div class="avx-lead" id="cw-decode" style="margin-top:.4rem;"></div>
     <div class="avx-lead" style="margin-top:.2rem;">verify at the CLI: <span class="mono" id="cw-cli">sovereign-osctl control-word encode</span></div>
   </div>
+
+  <h2 class="avx-h">Permissions the bits grant (M00104) — the word GATES execution</h2>
+  <p class="avx-lead">The control word stops being audit and becomes policy: it reads <b>mode</b> (bits 0..4) + the flag bits packed in <b>paramB</b> (bits 48..64) and decides what the branch may do. Set <b>mode = 1 (Commit)</b> and toggle the flags — the gate updates live, identical to the Rust <span class="mono">m00013::branch_permissions</span> that <span class="mono">CortexDecision::permissions()</span> calls before a branch runs.</p>
+  <div class="cw-flags" id="cw-flags"></div>
+  <div class="cw-perms" id="cw-perms"></div>
+
   <h2 class="avx-h">LUT decision (M00017) — 64-entry rule table in one u64</h2>
   <p class="avx-lead">The branchless decision: <span class="mono">(rule_word &gt;&gt; (condition &amp; 63)) &amp; 1</span>. One bit, no branch — this is how 64 rules live inside a single word.</p>
   <div class="cw-lut">
@@ -1412,6 +1424,27 @@ html[data-theme="light"] {
     });
     var cwWord=document.getElementById("cw-word"), cwBits=document.getElementById("cw-bits"),
         cwDec=document.getElementById("cw-decode"), cwCli=document.getElementById("cw-cli");
+    // ── Flags (paramB) + the M00104 permission gate — mirrors the Rust
+    //    m00013::branch_permissions() that CortexDecision::permissions() calls. ──
+    var CW_FLAGS=[["commit-gate",1],["sandbox",2],["replay",4],["audit",8],["speculative",16]];
+    var cwFlagHost=document.getElementById("cw-flags"), cwPerms=document.getElementById("cw-perms");
+    if(cwFlagHost){
+      CW_FLAGS.forEach(function(fl){ var lab=document.createElement("label");
+        lab.innerHTML='<input type="checkbox" id="cw-flag-'+fl[1]+'"> '+fl[0]+' <span class="cw-rng">('+fl[1]+')</span>';
+        cwFlagHost.appendChild(lab); });
+      cwFlagHost.addEventListener("change",function(){ var pb=0;
+        CW_FLAGS.forEach(function(fl){ var el=document.getElementById("cw-flag-"+fl[1]); if(el&&el.checked) pb|=fl[1]; });
+        var pbi=document.getElementById("cw-paramB"); if(pbi){ pbi.value=pb; } cwRefresh(); });
+    }
+    var FLAG_COMMIT_GATE=1,FLAG_SANDBOX=2,FLAG_SPECULATIVE=16,MODE_COMMIT=1;
+    function permsOf(w){ var mode=Number(w&0xFn), flags=Number((w>>48n)&0xFFFFn);
+      var committed=mode===MODE_COMMIT, spec=(flags&FLAG_SPECULATIVE)!==0, sand=(flags&FLAG_SANDBOX)!==0;
+      return { shell_allowed:committed&&!spec, file_write_allowed:committed&&!spec&&!sand,
+        network_allowed:!sand, verification_required:(flags&FLAG_COMMIT_GATE)!==0, speculative_only:spec }; }
+    function renderPerms(w){ if(!cwPerms)return; var p=permsOf(w);
+      var rows=[["shell",p.shell_allowed],["file-write",p.file_write_allowed],["network",p.network_allowed],
+                ["verification-required",p.verification_required],["speculative-only",p.speculative_only]];
+      cwPerms.innerHTML=rows.map(function(r){ return '<span class="cw-perm '+(r[1]?"allow":"deny")+'">'+r[0]+': '+(r[1]?"✓":"✗")+'</span>'; }).join(""); }
     function cwRefresh(){
       var vals={}; CW_FIELDS.forEach(function(f){ var el=document.getElementById("cw-"+f[0]);
         var v=parseInt(el.value,10); if(isNaN(v))v=0; var hi=(1<<f[2])-1; if(v<0)v=0; if(v>hi){v=hi; el.value=hi;} vals[f[0]]=v; });
@@ -1427,6 +1460,7 @@ html[data-theme="light"] {
       cwDec.textContent="decode → "+CW_FIELDS.map(function(f){return f[0]+"="+dec[f[0]];}).join("  ");
       var args=CW_FIELDS.filter(function(f){return vals[f[0]];}).map(function(f){return "--"+f[0]+" "+vals[f[0]];}).join(" ");
       cwCli.textContent="sovereign-osctl control-word encode "+(args||"(all zero)");
+      renderPerms(w);
     }
     CW_FIELDS.forEach(function(f){ document.getElementById("cw-"+f[0]).addEventListener("input",cwRefresh); });
     cwRefresh();
