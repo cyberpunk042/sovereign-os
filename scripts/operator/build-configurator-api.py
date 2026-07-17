@@ -88,6 +88,9 @@ VERSION = "0.1.0"
 
 REPO = Path(__file__).resolve().parents[2]
 PROFILES_DIR = REPO / "profiles"
+
+sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
+import request_guard as _guard  # noqa: E402
 # SDD-709: the frontend the built image boots into by default. Mirrors the
 # canonical set in scripts/operator/frontend.py (FRONTENDS) — kept as a plain
 # literal so the API stays import-light; the frontend-selector contract lint
@@ -973,6 +976,10 @@ class Handler(BaseHTTPRequestHandler):
         # (/build-configurator/api/run). Match the endpoint by SUFFIX so it
         # routes identically from either path (and survives a stale cached page).
         if path.endswith("/api/cancel"):
+            reject = _guard.guard(self.headers, self.client_address[0],
+                                  require_json=False)
+            if reject:
+                return self._send(reject[0], json.dumps({"error": reject[1]}))
             st = _run_status_read()
             pid = st.get("pid")
             if pid and _run_active():
@@ -983,6 +990,12 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, json.dumps({"cancelled": st.get("action")}))
             return self._send(200, json.dumps({"cancelled": None}))
         if path.endswith("/api/run"):
+            # /api/run triggers a ROOT OS build — refuse browser-driven /
+            # non-loopback callers (CSRF) before launching anything. The Run
+            # console posts application/json from the same origin.
+            reject = _guard.guard(self.headers, self.client_address[0])
+            if reject:
+                return self._send(reject[0], json.dumps({"error": reject[1]}))
             return self._run_action()
         return self._send(404, json.dumps({"error": "not found", "path": path}))
 

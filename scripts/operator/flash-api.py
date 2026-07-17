@@ -64,6 +64,9 @@ VERSION = "0.1.0"
 REPO = Path(__file__).resolve().parents[2]
 WEBAPP_ROOT = REPO / "webapp"
 WEBAPP = WEBAPP_ROOT / "flash" / "index.html"
+
+sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
+import request_guard as _guard  # noqa: E402
 OSCTL = REPO / "scripts" / "sovereign-osctl"
 
 STATIC_TYPES = {
@@ -313,6 +316,10 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         path = self.path.split("?", 1)[0].rstrip("/")
         if path == "/api/cancel":
+            reject = _guard.guard(self.headers, self.client_address[0],
+                                  require_json=False)
+            if reject:
+                return self._send(reject[0], json.dumps({"error": reject[1]}))
             proc = CURRENT_JOB.get("proc")
             if proc and proc.poll() is None:
                 try:
@@ -322,6 +329,12 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, json.dumps({"cancelled": CURRENT_JOB.get("action")}))
             return self._send(200, json.dumps({"cancelled": None}))
         if path == "/api/run":
+            # /api/run writes a physical USB device — refuse browser-driven /
+            # non-loopback callers (CSRF) before any device write. The flash
+            # console posts application/json from the same origin.
+            reject = _guard.guard(self.headers, self.client_address[0])
+            if reject:
+                return self._send(reject[0], json.dumps({"error": reject[1]}))
             return self._run_action()
         return self._send(404, json.dumps({"error": "not found", "path": path}))
 

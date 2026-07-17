@@ -36,7 +36,14 @@ VISUDO="$(command -v visudo 2>/dev/null || true)"; [ -n "${VISUDO}" ] || VISUDO=
 
 # ── the allow-list: command name → resolved full path (absent tools skipped) ──
 # diagnostics (read-only): the hardware/system probes the panels + doctor want
-DIAG=(dmidecode lshw lspci lsusb lsblk nvme smartctl sensors nvidia-smi zpool zfs journalctl)
+DIAG=(dmidecode lshw lspci lsusb lsblk nvme smartctl sensors nvidia-smi zpool zfs)
+# journalctl is its OWN tier (SOVEREIGN_OS_JOURNAL) because a bare NOPASSWD
+# journalctl is a GTFOBins root escape: on a tty it spawns a pager (less), and
+# `!sh` in less yields a root shell. The grant forces `--no-pager` as the first
+# argument so no pager is ever launched (env_reset already drops $PAGER), closing
+# the escape while keeping passwordless log reads. Callers MUST pass --no-pager
+# first (nothing in-repo uses `sudo journalctl`; interactive use adapts).
+JOURNAL=(journalctl)
 # image inspection: loop-mount a built .raw to verify it (shadow / os-release /
 # boot chain) BEFORE flashing. HIGH-RISK primitives — enabled because image
 # verification is the whole point; drop them if you'd rather verify only in QEMU.
@@ -120,11 +127,12 @@ build_body() {
   # drop-in is self-auditing: a reviewer sees exactly which grants are read-only
   # vs powerful. `tests/lint/test_operator_sudoers.py` locks the reviewed command
   # set of each tier and forbids any privilege-escalating binary from appearing.
-  local diag image proc grants=()
+  local diag image proc journal grants=()
   diag="$(_resolve_bucket "${DIAG[@]}")"
   image="$(_resolve_bucket "${IMAGE[@]}")"
   proc="$(_resolve_bucket "${PROC[@]}")"
-  if [ -z "${diag}${image}${proc}" ]; then
+  journal="$(_resolve_bucket "${JOURNAL[@]}")"
+  if [ -z "${diag}${image}${proc}${journal}" ]; then
     echo "# (no allow-listed commands found on PATH)" >&2
     return 1
   fi
@@ -135,7 +143,24 @@ build_body() {
     echo "Cmnd_Alias $1 = ${joined}"
     grants+=("$1")
   }
+  # journalctl: each resolved path becomes ONE sudoers Cmnd `<path> --no-pager *`
+  # (forced first arg) — a dedicated emitter because the entry carries internal
+  # spaces (the `_alias` join splits on space) and a literal `*` that must NOT
+  # be glob-expanded. Assignments below are quoted, so the `*` stays literal.
+  _journal_alias() {  # _journal_alias <newline-separated-paths>
+    [ -n "$1" ] || return 0
+    local line joined=""
+    while IFS= read -r line; do
+      [ -n "${line}" ] || continue
+      joined="${joined}${line} --no-pager *, "
+    done <<< "$1"
+    joined="${joined%, }"
+    echo "# journal reads, pager-escape-guarded (forced --no-pager)"
+    echo "Cmnd_Alias SOVEREIGN_OS_JOURNAL = ${joined}"
+    grants+=("SOVEREIGN_OS_JOURNAL")
+  }
   _alias SOVEREIGN_OS_DIAG  "read-only hardware/system diagnostics (low risk)" "${diag}"
+  _journal_alias "${journal}"
   _alias SOVEREIGN_OS_IMAGE "HIGH-RISK: loop-mount + inspect a built image before flashing" "${image}"
   _alias SOVEREIGN_OS_PROC  "process control: reclaim a prior root-owned panel server's port" "${proc}"
   # second surface: the per-verb cockpit control aliases (R10212-safe — selfdef +

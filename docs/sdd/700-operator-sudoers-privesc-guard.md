@@ -43,6 +43,16 @@ never `ALL`," that is the real hole behind the operator's question.
    `SOVEREIGN_OS_PROC` (process control). A reviewer now sees at a glance which grants are
    powerful; the grant line lists only scoped aliases, never a raw command.
 
+   **Follow-up (2026-07-17):** `journalctl` was split out of `DIAG` into its own
+   `SOVEREIGN_OS_JOURNAL` tier with a **forced `--no-pager` first argument**. A bare
+   NOPASSWD `journalctl` is a GTFOBins pager→root escape — on a tty it auto-launches a
+   pager (`less`), and `!sh` in `less` yields a root shell, invisible to the basename
+   privesc-denylist (which blocks `less` as an *entry* but can't see journalctl's *internal*
+   pager spawn). The `journalctl --no-pager *` grant never launches a pager, closing the
+   escape while keeping passwordless log reads. This is the one sanctioned exception to the
+   "no arg-scoping" non-goal below: forcing a *safe* flag is the opposite of the dangerous
+   pattern (a wildcard that *widens* a grant).
+
 2. **Lock + guard the command set** in `test_operator_sudoers.py`:
    - **lockstep**: each tier's command set must equal the reviewed set (`EXPECTED_DIAG` /
      `EXPECTED_IMAGE` / `EXPECTED_PROC`) — a new grant requires a deliberate, reviewed change
