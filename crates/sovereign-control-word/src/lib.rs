@@ -243,3 +243,190 @@ mod tests {
         assert_eq!(cw, back);
     }
 }
+
+/// M00013 — the canonical control-word field layout (M002 milestone).
+///
+/// The dump's M00013 layout packs 7 typed fields into one `u64`:
+/// `mode / event / intensity / cooldown / neighborhood / paramA / paramB`
+/// (R00180). This is a SECOND, *versioned* layout alongside [`ControlWord`]
+/// (the opcode/precision/flags/operand word cortex emits today) — the spec makes
+/// the layout a versioned knob (`control_word_layout_version`, F00092 / R00269),
+/// so both coexist rather than one replacing the other.
+///
+/// This is the SAME bit-machine as `scripts/hardware/control-word.py` and the
+/// `webapp/avx-modes` panel: a parity test pins all three to one word, so the
+/// crate the runtime links, the CLI the operator runs, and the panel the operator
+/// clicks can never disagree.
+pub mod m00013 {
+    use serde::{Deserialize, Serialize};
+    use thiserror::Error;
+
+    /// Layout version tag (F00092 / R00269).
+    pub const LAYOUT_VERSION: u32 = 1;
+
+    /// `(name, shift, width)` — R00180 canonical layout; sums to exactly 64 bits.
+    pub const FIELDS: [(&str, u32, u32); 7] = [
+        ("mode", 0, 4),
+        ("event", 4, 4),
+        ("intensity", 8, 8),
+        ("cooldown", 16, 8),
+        ("neighborhood", 24, 8),
+        ("paramA", 32, 16),
+        ("paramB", 48, 16),
+    ];
+
+    /// The 7 decoded M00013 fields.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+    pub struct Fields {
+        /// bits 0..4 (0..=15)
+        pub mode: u16,
+        /// bits 4..8 (0..=15)
+        pub event: u16,
+        /// bits 8..16 (0..=255)
+        pub intensity: u16,
+        /// bits 16..24 (0..=255)
+        pub cooldown: u16,
+        /// bits 24..32 (0..=255)
+        pub neighborhood: u16,
+        /// bits 32..48 (0..=65535)
+        pub param_a: u16,
+        /// bits 48..64 (0..=65535)
+        pub param_b: u16,
+    }
+
+    /// A field value exceeded its bit width (R00189).
+    #[derive(Debug, Error, PartialEq, Eq)]
+    #[error("field {field} = {value} overflows its {width}-bit range (0..={max})")]
+    pub struct Overflow {
+        /// Which field overflowed.
+        pub field: &'static str,
+        /// The offending value.
+        pub value: u16,
+        /// The field's bit width.
+        pub width: u32,
+        /// The field's max value.
+        pub max: u16,
+    }
+
+    impl Fields {
+        /// Pack the fields into the u64 control word, rejecting any field past
+        /// its width (M00025 compose-without-overflow / R00189).
+        pub fn pack(&self) -> Result<u64, Overflow> {
+            let vals: [(&'static str, u16, u32, u32); 7] = [
+                ("mode", self.mode, 0, 4),
+                ("event", self.event, 4, 4),
+                ("intensity", self.intensity, 8, 8),
+                ("cooldown", self.cooldown, 16, 8),
+                ("neighborhood", self.neighborhood, 24, 8),
+                ("paramA", self.param_a, 32, 16),
+                ("paramB", self.param_b, 48, 16),
+            ];
+            let mut word = 0u64;
+            for (field, value, shift, width) in vals {
+                let max = ((1u32 << width) - 1) as u16;
+                if value > max {
+                    return Err(Overflow {
+                        field,
+                        value,
+                        width,
+                        max,
+                    });
+                }
+                word |= (value as u64) << shift;
+            }
+            Ok(word)
+        }
+
+        /// Decode a control word into its 7 fields (M00026 decompose).
+        pub fn unpack(word: u64) -> Fields {
+            let f = |shift: u32, width: u32| ((word >> shift) & ((1u64 << width) - 1)) as u16;
+            Fields {
+                mode: f(0, 4),
+                event: f(4, 4),
+                intensity: f(8, 8),
+                cooldown: f(16, 8),
+                neighborhood: f(24, 8),
+                param_a: f(32, 16),
+                param_b: f(48, 16),
+            }
+        }
+    }
+
+    /// M00017 — the 64-entry boolean rule LUT inside one u64: the branchless
+    /// decision bit `(rule_word >> (condition & 63)) & 1`. Scalar today; the
+    /// AVX-512 masked form evaluates 8 lanes of this per instruction.
+    pub fn lut(rule_word: u64, condition: u32) -> u8 {
+        ((rule_word >> (condition & 63)) & 1) as u8
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn fields_tile_64_bits_with_no_gap_or_overlap() {
+            let mut covered = 0u64;
+            for (_n, shift, width) in FIELDS {
+                let mask = ((1u64 << width) - 1) << shift;
+                assert_eq!(covered & mask, 0, "fields overlap");
+                covered |= mask;
+            }
+            assert_eq!(covered, u64::MAX, "fields must fill exactly 64 bits");
+        }
+
+        #[test]
+        fn pack_unpack_round_trips_exactly() {
+            let f = Fields {
+                mode: 3,
+                event: 1,
+                intensity: 200,
+                cooldown: 17,
+                neighborhood: 255,
+                param_a: 4242,
+                param_b: 65535,
+            };
+            let w = f.pack().unwrap();
+            assert_eq!(Fields::unpack(w), f);
+        }
+
+        #[test]
+        fn overflow_is_rejected_per_field() {
+            let bad_mode = Fields {
+                mode: 16,
+                event: 0,
+                intensity: 0,
+                cooldown: 0,
+                neighborhood: 0,
+                param_a: 0,
+                param_b: 0,
+            };
+            assert_eq!(bad_mode.pack().unwrap_err().field, "mode");
+        }
+
+        #[test]
+        fn lut_is_the_shift_and_and_decision_bit() {
+            // 0b101010 = 0x2A → bits 0..5 = 0,1,0,1,0,1
+            for (cond, expect) in [(0, 0), (1, 1), (2, 0), (3, 1), (4, 0), (5, 1)] {
+                assert_eq!(lut(0x2A, cond), expect, "LUT bit {cond}");
+            }
+            assert_eq!(lut(0x2A, 64), lut(0x2A, 0)); // 6-bit wrap
+        }
+
+        #[test]
+        fn parity_with_python_engine_and_panel() {
+            // scripts/hardware/control-word.py AND webapp/avx-modes both produce
+            // THIS word for mode=3 / intensity=200 / paramA=4242. The crate the
+            // runtime links MUST agree with the CLI + panel — one bit-machine.
+            let f = Fields {
+                mode: 3,
+                event: 0,
+                intensity: 200,
+                cooldown: 0,
+                neighborhood: 0,
+                param_a: 4242,
+                param_b: 0,
+            };
+            assert_eq!(f.pack().unwrap(), 0x0000_1092_0000_C803);
+        }
+    }
+}

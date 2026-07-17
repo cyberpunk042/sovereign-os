@@ -74,6 +74,17 @@ def test_lut_is_the_right_shift_and_and_decision_bit():
     assert m.lut(0x2A, 64) == m.lut(0x2A, 0)
 
 
+def test_parity_with_rust_crate_and_panel():
+    """The Rust crate (crates/sovereign-control-word m00013::Fields), the panel
+    (webapp/avx-modes), and this engine MUST agree on the word for the same
+    fields. All three pin THIS constant — none can drift without a test failing.
+    """
+    m = _mod()
+    word = m.encode({"mode": 3, "intensity": 200, "paramA": 4242})
+    assert word == 0x0000_1092_0000_C803, (
+        "control-word layout diverged from the Rust crate / panel parity constant")
+
+
 def test_cli_encode_decode_lut_end_to_end():
     def run(*a):
         return subprocess.run([sys.executable, str(ENGINE), *a],
