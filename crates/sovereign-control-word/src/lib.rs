@@ -276,7 +276,7 @@ pub mod m00013 {
     ];
 
     /// The 7 decoded M00013 fields.
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
     pub struct Fields {
         /// bits 0..4 (0..=15)
         pub mode: u16,
@@ -392,6 +392,50 @@ pub mod m00013 {
         out
     }
 
+    // ── M00104 — the control word GATES what a branch may do ──
+    // The word stops being an audit artifact and becomes policy: these masks
+    // decide, from the bits alone, whether a branch may touch the shell / files
+    // / network. `mode` is the next-action (bits 0..4); `paramB` (bits 48..64)
+    // carries the FLAG_* bits cortex packs (commit-gate / sandbox / audit /
+    // speculative). This is "policy becomes bits" made executable.
+
+    /// `mode` value for a committed branch (NextAction::Commit → opcode 1).
+    pub const MODE_COMMIT: u16 = 1;
+
+    /// The permissions a branch's control word grants (M00104 branch queries).
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+    pub struct Permissions {
+        /// May run a shell command (committed, non-speculative).
+        pub shell_allowed: bool,
+        /// May write files (committed, non-speculative, non-sandboxed).
+        pub file_write_allowed: bool,
+        /// May reach the network (not sandboxed).
+        pub network_allowed: bool,
+        /// Must pass the Auditor commit-gate before any durable effect.
+        pub verification_required: bool,
+        /// A draft/speculative branch — no durable side effects.
+        pub speculative_only: bool,
+    }
+
+    /// Decode the M00013 word's permissions (M00104). Reads `mode` (bits 0..4)
+    /// and the flag bits packed in `paramB` (bits 48..64). Pure bit-tests — the
+    /// same shift-and-AND the AVX-512 scheduler runs 8-wide.
+    pub fn branch_permissions(word: u64) -> Permissions {
+        let mode = (word & 0xF) as u16;
+        let flags = ((word >> 48) & 0xFFFF) as u16;
+        let has = |flag: u8| flags & (flag as u16) != 0;
+        let committed = mode == MODE_COMMIT;
+        let speculative = has(crate::FLAG_SPECULATIVE);
+        let sandboxed = has(crate::FLAG_SANDBOX);
+        Permissions {
+            shell_allowed: committed && !speculative,
+            file_write_allowed: committed && !speculative && !sandboxed,
+            network_allowed: !sandboxed,
+            verification_required: has(crate::FLAG_COMMIT_GATE),
+            speculative_only: speculative,
+        }
+    }
+
     #[cfg(test)]
     mod tests {
         use super::*;
@@ -492,6 +536,47 @@ pub mod m00013 {
             assert_eq!(field_query_mask(&words, 0, 4, 3), 0b110); // mode bits 0..4
             assert_eq!(field_query_mask(&words, 0, 4, 1), 0b001);
             assert_eq!(field_query_mask(&words, 0, 4, 9), 0); // no branch matches
+        }
+
+        #[test]
+        fn branch_permissions_gate_from_the_bits() {
+            // committed, audit+commit-gate set, not sandboxed, not speculative
+            let committed = Fields {
+                mode: MODE_COMMIT,
+                param_b: (crate::FLAG_COMMIT_GATE | crate::FLAG_AUDIT) as u16,
+                ..zero()
+            }
+            .pack()
+            .unwrap();
+            let p = branch_permissions(committed);
+            assert!(p.shell_allowed && p.file_write_allowed && p.network_allowed);
+            assert!(p.verification_required && !p.speculative_only);
+
+            // speculative branch → may not run shell / write files (draft only)
+            let spec = Fields {
+                mode: MODE_COMMIT,
+                param_b: crate::FLAG_SPECULATIVE as u16,
+                ..zero()
+            }
+            .pack()
+            .unwrap();
+            let p = branch_permissions(spec);
+            assert!(!p.shell_allowed && !p.file_write_allowed && p.speculative_only);
+
+            // sandboxed (risky) branch → no file-write, no network
+            let sandboxed = Fields {
+                mode: MODE_COMMIT,
+                param_b: crate::FLAG_SANDBOX as u16,
+                ..zero()
+            }
+            .pack()
+            .unwrap();
+            let p = branch_permissions(sandboxed);
+            assert!(!p.file_write_allowed && !p.network_allowed && p.shell_allowed);
+
+            // non-committed (expand) → no shell
+            let expand = Fields { mode: 2, ..zero() }.pack().unwrap();
+            assert!(!branch_permissions(expand).shell_allowed);
         }
     }
 }

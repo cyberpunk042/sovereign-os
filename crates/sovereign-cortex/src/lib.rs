@@ -274,6 +274,15 @@ impl CortexDecision {
         }
     }
 
+    /// The permissions this decision's control word GRANTS (M00104) — decoded
+    /// straight from the M00013 bits: whether the branch may touch the shell,
+    /// write files, or reach the network, whether it must pass the commit-gate,
+    /// and whether it is speculative-only. This is the control word acting as
+    /// policy, not just audit — the tool layer consults it before executing.
+    pub fn permissions(&self) -> m00013::Permissions {
+        m00013::branch_permissions(self.control_word_m00013.pack().unwrap_or(0))
+    }
+
     /// A plain-language operator rationale (M015 human-gate: "plain-language
     /// reasons" + a cost/rollback preview), distinct from the terse
     /// machine `summary`. This is what a human approver reads.
@@ -1367,6 +1376,23 @@ mod tests {
             d.control_word_bits(ControlWordLayout::M00013),
             f.pack().unwrap()
         );
+    }
+
+    #[test]
+    fn control_word_permissions_gate_a_committed_decision() {
+        // simple/local/safe → committed → the bits GRANT shell + file-write, and
+        // require the commit-gate. This is the control word acting as policy.
+        let d = Cortex::with_memory(seed_memory()).tick(&req()).unwrap();
+        let p = d.permissions();
+        assert!(
+            p.shell_allowed,
+            "committed non-speculative branch may shell"
+        );
+        assert!(
+            p.verification_required,
+            "commit routes through the Auditor gate"
+        );
+        assert!(!p.speculative_only);
     }
 
     #[test]
