@@ -232,6 +232,111 @@ pub fn filter_cascade(filters: &[Filter]) -> (u8, usize, u32) {
     (acc, evaluated, cost)
 }
 
+// ── M00122 bloom / sketch — popcount overlap ──
+
+/// M00122 — the overlap sketch `popcount(query & memory)` over a bitset of `w`
+/// u64 words. This is the "is this seen before" cheap-check: a high overlap
+/// means the query's set bits are already in memory. Dispatches to AVX-512's
+/// `VPOPCNTQ` when the host has `avx512vpopcntdq`, else the scalar
+/// `u64::count_ones` (which lowers to `POPCNT` on any modern x86). Bit-identical.
+#[must_use]
+pub fn bloom_overlap(query: &[u64], memory: &[u64]) -> u32 {
+    let n = query.len().min(memory.len());
+    #[cfg(target_arch = "x86_64")]
+    {
+        if std::is_x86_feature_detected!("avx512vpopcntdq")
+            && std::is_x86_feature_detected!("avx512f")
+        {
+            // SAFETY: gated by the runtime feature checks immediately above.
+            return unsafe { bloom_overlap_avx512(&query[..n], &memory[..n]) };
+        }
+    }
+    bloom_overlap_scalar(&query[..n], &memory[..n])
+}
+
+/// Scalar reference for [`bloom_overlap`] — the source of truth.
+#[must_use]
+pub fn bloom_overlap_scalar(query: &[u64], memory: &[u64]) -> u32 {
+    query
+        .iter()
+        .zip(memory)
+        .map(|(&q, &m)| (q & m).count_ones())
+        .sum()
+}
+
+/// # Safety
+/// Caller must ensure the host supports `avx512vpopcntdq` + `avx512f`.
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "avx512vpopcntdq,avx512f")]
+unsafe fn bloom_overlap_avx512(query: &[u64], memory: &[u64]) -> u32 {
+    use std::arch::x86_64::*;
+    let mut total = 0u32;
+    let chunks = query.len() / 8;
+    // SAFETY: AVX-512F + VPOPCNTDQ intrinsics enabled by target_feature + caller
+    // gate; each load reads 8 contiguous u64 within bounds.
+    unsafe {
+        for c in 0..chunks {
+            let q = _mm512_loadu_si512(query.as_ptr().add(c * 8) as *const __m512i);
+            let m = _mm512_loadu_si512(memory.as_ptr().add(c * 8) as *const __m512i);
+            let pc = _mm512_popcnt_epi64(_mm512_and_si512(q, m));
+            total += _mm512_reduce_add_epi64(pc) as u32;
+        }
+    }
+    // tail — scalar, same predicate.
+    for (&q, &m) in query
+        .iter()
+        .skip(chunks * 8)
+        .zip(memory.iter().skip(chunks * 8))
+    {
+        total += (q & m).count_ones();
+    }
+    total
+}
+
+// ── M00117 token-law bitset combination ──
+
+/// How the token-law planes combine (F00619).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LawCombine {
+    /// A token is allowed only if **every** law allows it (grammar ∧ schema ∧ …).
+    And,
+    /// A token is allowed if **any** law allows it.
+    Or,
+}
+
+/// M00117 — combine the token-law planes (grammar / schema / tool / safety /
+/// route), each a vocab bitset of `w` u64 words, into one allowed-token mask
+/// (F00625). `And` is the safe default: a token survives only if all laws pass.
+/// Returns a bitset the same width as the inputs.
+#[must_use]
+pub fn token_law_combine(laws: &[&[u64]], combine: LawCombine) -> Vec<u64> {
+    let width = laws.iter().map(|l| l.len()).max().unwrap_or(0);
+    let mut out = match combine {
+        LawCombine::And => vec![u64::MAX; width],
+        LawCombine::Or => vec![0u64; width],
+    };
+    if laws.is_empty() {
+        return vec![0u64; width];
+    }
+    for law in laws {
+        for (i, slot) in out.iter_mut().enumerate() {
+            let bits = law.get(i).copied().unwrap_or(0);
+            match combine {
+                LawCombine::And => *slot &= bits,
+                LawCombine::Or => *slot |= bits,
+            }
+        }
+    }
+    out
+}
+
+/// The number of allowed tokens in a combined mask (F00624
+/// `sovereign_os_token_law_allowed_tokens`).
+#[must_use]
+pub fn allowed_token_count(mask: &[u64]) -> u32 {
+    mask.iter().map(|w| w.count_ones()).sum()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -342,6 +447,43 @@ mod tests {
         assert_eq!(next, [1, 0, 0, 1, 1, 0, 0, 1]);
         // out-of-range index holds the branch
         assert_eq!(fsm_step(&[9; 8], &[9; 8], &table, 2), [9; 8]);
+    }
+
+    #[test]
+    fn bloom_overlap_counts_shared_bits() {
+        // popcount(query & memory) — the seen-before sketch.
+        let query = [0xFFFF_0000_FFFF_0000u64, 0x00FF_00FF_00FF_00FF];
+        let memory = [0xF0F0_0000_FFFF_0000u64, 0x000F_00FF_0000_00FF];
+        assert_eq!(
+            bloom_overlap(&query, &memory),
+            bloom_overlap_scalar(&query, &memory)
+        );
+        // no overlap → 0; full overlap → total set bits
+        assert_eq!(bloom_overlap(&[0xFF, 0], &[0x00, 0xFF]), 0);
+        let all = [u64::MAX; 8];
+        assert_eq!(bloom_overlap(&all, &all), 8 * 64);
+        // mismatched lengths use the shorter
+        assert_eq!(bloom_overlap(&[u64::MAX; 3], &[u64::MAX; 1]), 64);
+    }
+
+    #[test]
+    fn token_law_combines_all_planes() {
+        // F00625 — grammar ∧ schema ∧ tool ∧ safety ∧ route.
+        let grammar = [0b1111_1111u64];
+        let schema = [0b0111_1111u64];
+        let tool = [0b1111_1110u64];
+        let safety = [0b1011_1111u64];
+        let route = [0b1111_1100u64];
+        let laws: [&[u64]; 5] = [&grammar, &schema, &tool, &safety, &route];
+        let allowed = token_law_combine(&laws, LawCombine::And);
+        // AND of all five = 0b0011_1100
+        assert_eq!(allowed, vec![0b0011_1100u64]);
+        assert_eq!(allowed_token_count(&allowed), 4);
+        // OR admits more
+        let any = token_law_combine(&laws, LawCombine::Or);
+        assert_eq!(any, vec![0b1111_1111u64]);
+        // empty law set → nothing allowed
+        assert_eq!(token_law_combine(&[], LawCombine::And), Vec::<u64>::new());
     }
 
     #[test]
