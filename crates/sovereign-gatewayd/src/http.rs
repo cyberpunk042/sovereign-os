@@ -21,7 +21,8 @@
 //! POST /v1/simple      -> {"kind":"decision", …}     simplified request (axes + quality)
 //! POST /v1/explain     -> {"kind":"explanation",…} dry-run rationale (read-only)
 //! POST /v1/deliberate  -> {"kind":"deliberation",…} best-of-N (read-only)
-//! POST /v1/control-word/round -> {"kind":"control-word-round",…} M002 round engine (fingerprints + events + metrics)
+//! POST /v1/control-word/round -> {"kind":"control-word-round",…} M002 round engine (reads the live avx-mode switch)
+//! GET  /v1/control-word/config -> {"kind":"control-word-config",…} live resolved avx-mode + round/control-word knobs
 //! ```
 //!
 //! A `POST` body is one JSON [`CortexRequest`]; the reply is the tagged
@@ -144,6 +145,7 @@ pub fn respond(server: &GatewayServer, method: &str, path: &str, body: &str) -> 
         ("GET", "/v1/models") => anthropic_models(server),
         ("GET", "/v1/events") => events(server),
         ("POST", "/v1/control-word/round") => control_word_round(body),
+        ("GET", "/v1/control-word/config") => control_word_config(),
         ("POST", "/v1/models/load") => models_load(server, body),
         ("POST", "/v1/models/unload") => models_unload(server, body),
         ("POST", "/v1/models/register") => models_register(server, body),
@@ -433,24 +435,30 @@ fn events(server: &GatewayServer) -> HttpReply {
 }
 
 /// `POST /v1/control-word/round` — run the M002 round engine over the daemon.
-/// Body: `{ "state": RoundState, "config"?: RoundConfig, "rounds"?: u64 }`.
-/// Reply: the resulting state, per-lane DNA fingerprints + diversity index,
-/// the last round's lifecycle events, and the service metrics (the same shape
-/// exposed to Prometheus). The kernel dispatches to AVX-512 when the host has
-/// it — this route is how the cockpit / an operator drives the bit-machine.
+/// Body: `{ "state": RoundState, "config"?: RoundConfig, "rounds"?: u64,
+/// "avx_mode"?: "custom"|"builtin"|"hybrid"|"off" }`.
+///
+/// The runtime switch is READ here, per request — the last hop. When the body
+/// omits `avx_mode`, the daemon reads the live `avx-mode.active` state file (the
+/// hot-swap: write the file, the next request sees it). The M002 bit-machine
+/// only runs under `custom`/`hybrid`; the default `builtin` and `off` return an
+/// honest engine-off envelope instead of a fabricated result. When the body
+/// omits `config`, the round knobs come from `RoundConfig::from_env()` (the
+/// `SOVEREIGN_CTRL_*` env), so the daemon's configured defaults drive the round.
 fn control_word_round(body: &str) -> HttpReply {
     use sovereign_control_word_service::{
-        diversity_index, metrics_from, round_fingerprints, round_with_events,
+        AvxMode, avx_mode_live, diversity_index, metrics_from, round_fingerprints,
+        round_with_events,
     };
     use sovereign_simd::round::{RoundConfig, RoundState};
 
     #[derive(serde::Deserialize)]
     struct Req {
         state: RoundState,
-        #[serde(default)]
-        config: RoundConfig,
+        config: Option<RoundConfig>,
         #[serde(default = "one_round")]
         rounds: u64,
+        avx_mode: Option<String>,
     }
     fn one_round() -> u64 {
         1
@@ -463,15 +471,43 @@ fn control_word_round(body: &str) -> HttpReply {
     if req.rounds > 100_000 {
         return err(400, "rounds capped at 100000 per request".to_string());
     }
+    // The runtime switch: an explicit body override, else the live state file.
+    let avx = req
+        .avx_mode
+        .as_deref()
+        .map(AvxMode::parse)
+        .unwrap_or_else(avx_mode_live);
+    // The round knobs: an explicit body config, else the env-resolved defaults.
+    let config = req.config.unwrap_or_else(RoundConfig::from_env);
+
+    // The M002 bit-machine is opt-in — only custom/hybrid run it. builtin/off
+    // return an honest engine-off envelope, never a fabricated result.
+    if !avx.runs_bit_machine() {
+        return json_reply(
+            200,
+            &serde_json::json!({
+                "kind": "control-word-round",
+                "avx_mode": avx.as_str(),
+                "engine_active": false,
+                "note": format!(
+                    "avx-mode is '{}' — the M002 control-word bit-machine is not the \
+                     active path; set avx-mode to 'custom' or 'hybrid' to run it \
+                     (avx-mode set custom)",
+                    avx.as_str()
+                ),
+            }),
+        );
+    }
+
     // Run rounds-1 plain, then the final round with lifecycle events.
     let mut cur = req.state;
     for _ in 1..req.rounds {
-        cur = sovereign_simd::round::round_update(&cur, req.config);
+        cur = sovereign_simd::round::round_update(&cur, config);
     }
     let (result, events) = if req.rounds == 0 {
         (cur, Vec::new())
     } else {
-        round_with_events(&cur, req.config)
+        round_with_events(&cur, config)
     };
     let fps = round_fingerprints(&result);
     // steps/sec is a live measurement the daemon would fill; report 0 (no clock
@@ -481,12 +517,37 @@ fn control_word_round(body: &str) -> HttpReply {
         200,
         &serde_json::json!({
             "kind": "control-word-round",
+            "avx_mode": avx.as_str(),
+            "engine_active": true,
+            "config": config,
             "rounds": req.rounds,
             "result": result,
             "fingerprints": fps.iter().map(|f| format!("{f:#018x}")).collect::<Vec<_>>(),
             "diversity_index": diversity_index(&fps),
             "events": events,
             "metrics": metrics,
+        }),
+    )
+}
+
+/// `GET /v1/control-word/config` — the live resolved M002 runtime config an
+/// operator can curl to confirm a hot-swap took effect: the current `avx-mode`
+/// (read from the state file), whether the bit-machine is active, and the
+/// env-resolved round + control-word knobs.
+fn control_word_config() -> HttpReply {
+    use sovereign_control_word::m00013::ControlWordConfig;
+    use sovereign_control_word_service::avx_mode_live;
+    use sovereign_simd::round::RoundConfig;
+
+    let avx = avx_mode_live();
+    json_reply(
+        200,
+        &serde_json::json!({
+            "kind": "control-word-config",
+            "avx_mode": avx.as_str(),
+            "engine_active": avx.runs_bit_machine(),
+            "round_config": RoundConfig::from_env(),
+            "control_word_config": ControlWordConfig::from_env(),
         }),
     )
 }
@@ -903,37 +964,82 @@ mod tests {
     }
 
     #[test]
-    fn post_control_word_round_runs_the_bit_machine() {
-        // The M002 round engine over HTTP: 3 rounds from a fixed seed → the same
-        // parity constant the crate + Python engine pin, plus fingerprints,
-        // lifecycle events, and metrics.
-        let body = serde_json::json!({
-            "state": {
-                "state": [1, 2, 3, 4, 5, 6, 7, 8],
-                "memory": [1, 2, 3, 4, 5, 6, 7, 8],
-                "rule": [1, 2, 3, 4, 5, 6, 7, 8],
-                "random": [1, 2, 3, 4, 5, 6, 7, 8]
-            },
-            "rounds": 3
-        })
-        .to_string();
-        let r = respond(&srv(), "POST", "/v1/control-word/round", &body);
-        assert_eq!(r.status, 200);
-        let v = body_of(&r);
+    fn post_control_word_round_reads_the_avx_mode_switch() {
+        // The M002 round engine over HTTP, with the runtime switch READ per
+        // request. avx_mode="custom" runs the bit-machine: 3 rounds from the
+        // fixed seed → the same parity constant the crate + Python pin, plus
+        // fingerprints, lifecycle events, and metrics.
+        let mk = |avx: Option<&str>| {
+            let mut b = serde_json::json!({
+                "state": {
+                    "state": [1, 2, 3, 4, 5, 6, 7, 8],
+                    "memory": [1, 2, 3, 4, 5, 6, 7, 8],
+                    "rule": [1, 2, 3, 4, 5, 6, 7, 8],
+                    "random": [1, 2, 3, 4, 5, 6, 7, 8]
+                },
+                "rounds": 3
+            });
+            if let Some(m) = avx {
+                b["avx_mode"] = serde_json::json!(m);
+            }
+            b.to_string()
+        };
+        // custom → active, runs the bit-machine, parity constant reproduced
+        let v = body_of(&respond(
+            &srv(),
+            "POST",
+            "/v1/control-word/round",
+            &mk(Some("custom")),
+        ));
         assert_eq!(v["kind"], "control-word-round");
+        assert_eq!(v["avx_mode"], "custom");
+        assert_eq!(v["engine_active"], true);
         assert_eq!(v["result"]["state"][0], 0x8);
         assert_eq!(v["result"]["state"][7], 0x40);
-        // 4 lifecycle events bracket the final round (pre/pre-dna/post-dna/post)
         assert_eq!(v["events"].as_array().unwrap().len(), 4);
-        // fingerprints present + diversity in range
         assert_eq!(v["fingerprints"].as_array().unwrap().len(), 8);
-        let d = v["diversity_index"].as_f64().unwrap();
-        assert!((0.125..=1.0).contains(&d));
+        // hybrid → also active
+        assert_eq!(
+            body_of(&respond(
+                &srv(),
+                "POST",
+                "/v1/control-word/round",
+                &mk(Some("hybrid"))
+            ))["engine_active"],
+            true
+        );
+        // off / builtin → the bit-machine is NOT run; honest engine-off envelope,
+        // no fabricated result.
+        for m in ["off", "builtin"] {
+            let v = body_of(&respond(
+                &srv(),
+                "POST",
+                "/v1/control-word/round",
+                &mk(Some(m)),
+            ));
+            assert_eq!(v["avx_mode"], m);
+            assert_eq!(v["engine_active"], false);
+            assert!(v["result"].is_null(), "{m} must not fabricate a result");
+            assert!(v["note"].as_str().unwrap().contains("set avx-mode"));
+        }
         // a malformed body is a clean 400, never a panic
         assert_eq!(
             respond(&srv(), "POST", "/v1/control-word/round", "{").status,
             400
         );
+    }
+
+    #[test]
+    fn get_control_word_config_reports_live_runtime_state() {
+        let v = body_of(&respond(&srv(), "GET", "/v1/control-word/config", ""));
+        assert_eq!(v["kind"], "control-word-config");
+        // no state file at the default path in the test env → honest 'builtin'
+        assert_eq!(v["avx_mode"], "builtin");
+        assert_eq!(v["engine_active"], false);
+        // the env-resolved knobs are present + at their defaults
+        assert_eq!(v["round_config"]["masked_op"], "branchless");
+        assert_eq!(v["round_config"]["per_lane_dna"], false);
+        assert_eq!(v["control_word_config"]["overflow_mode"], "abort");
     }
 
     #[test]

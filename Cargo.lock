@@ -4831,6 +4831,7 @@ dependencies = [
  "sovereign-agent-loop",
  "sovereign-calc",
  "sovereign-coat",
+ "sovereign-control-word",
  "sovereign-control-word-service",
  "sovereign-cortex",
  "sovereign-gateway",

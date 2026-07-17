@@ -38,6 +38,97 @@ fn fnv1a(bytes: &[u8]) -> u64 {
     h
 }
 
+// ── runtime switch: the avx-mode state file (the hot-swap call site) ──
+
+/// The AVX mode the daemon runs under — the master switch `avx-mode` persists to
+/// its state file (`/etc/sovereign-os/avx-mode.active`). Reading it at a request
+/// call site is the *hot-swap*: write the file, the next request sees the new
+/// mode — no restart. Mirrors `scripts/hardware/avx-mode.py` (same modes, same
+/// default, same state path + env override).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum AvxMode {
+    /// M002 control-word bit-machine — policy becomes bits.
+    Custom,
+    /// Stock AVX-512 math tiers (the honest default).
+    BuiltIn,
+    /// Both — the bit-machine routes, the math tiers compute.
+    Hybrid,
+    /// Scalar baseline, no AVX.
+    Off,
+}
+
+impl AvxMode {
+    /// Parse a mode string; anything unrecognised falls back to the honest
+    /// default (`builtin`), matching `avx-mode.py`'s `DEFAULT_MODE`.
+    #[must_use]
+    pub fn parse(s: &str) -> AvxMode {
+        match s.trim() {
+            "custom" => AvxMode::Custom,
+            "hybrid" => AvxMode::Hybrid,
+            "off" => AvxMode::Off,
+            _ => AvxMode::BuiltIn,
+        }
+    }
+
+    /// The canonical mode string (matches the state-file contents).
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
+        match self {
+            AvxMode::Custom => "custom",
+            AvxMode::BuiltIn => "builtin",
+            AvxMode::Hybrid => "hybrid",
+            AvxMode::Off => "off",
+        }
+    }
+
+    /// Whether the **M002 control-word bit-machine** (the M00013 round engine) is
+    /// the active path. True only for `custom` + `hybrid` — so the bit-machine is
+    /// opt-in: the default `builtin` and `off` do NOT run it. This is the switch
+    /// the round route reads.
+    #[must_use]
+    pub fn runs_bit_machine(self) -> bool {
+        matches!(self, AvxMode::Custom | AvxMode::Hybrid)
+    }
+}
+
+/// Resolve the AVX mode from a state-file body (the file's text). Pure —
+/// testable without touching the filesystem. Missing/blank/invalid → `builtin`.
+#[must_use]
+pub fn avx_mode_from_contents(contents: Option<&str>) -> AvxMode {
+    match contents {
+        Some(s) => AvxMode::parse(s),
+        None => AvxMode::BuiltIn,
+    }
+}
+
+/// Read the AVX mode from a specific state-file path (pure w.r.t. env — the
+/// caller supplies the path). A missing/unreadable file → `builtin`.
+#[must_use]
+pub fn avx_mode_from_path(path: &std::path::Path) -> AvxMode {
+    match std::fs::read_to_string(path) {
+        Ok(s) => AvxMode::parse(&s),
+        Err(_) => AvxMode::BuiltIn,
+    }
+}
+
+/// The state-file path — `$SOVEREIGN_OS_AVX_MODE_STATE` or the default
+/// `/etc/sovereign-os/avx-mode.active` (matches `avx-mode.py`). Reading an env
+/// var is safe; only *setting* one is `unsafe` on edition 2024.
+#[must_use]
+pub fn avx_mode_state_path() -> std::path::PathBuf {
+    std::env::var("SOVEREIGN_OS_AVX_MODE_STATE")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| std::path::PathBuf::from("/etc/sovereign-os/avx-mode.active"))
+}
+
+/// Read the live AVX mode from the hot-swappable state file. This is the runtime
+/// call site the daemon reads per request — write the file, the next call sees it.
+#[must_use]
+pub fn avx_mode_live() -> AvxMode {
+    avx_mode_from_path(&avx_mode_state_path())
+}
+
 // ── M00018 per-lane DNA fingerprint (R00280-284) ──
 
 /// R00280 — the per-lane DNA fingerprint `hash(control_word ‖ rule_word ‖
@@ -471,6 +562,45 @@ mod tests {
         if let Event::PostRound { fingerprints, .. } = &events[3] {
             assert_eq!(*fingerprints, round_fingerprints(&next));
         }
+    }
+
+    #[test]
+    fn avx_mode_parse_and_bit_machine_gate() {
+        // parse + canonical round-trip
+        for (s, m) in [
+            ("custom", AvxMode::Custom),
+            ("builtin", AvxMode::BuiltIn),
+            ("hybrid", AvxMode::Hybrid),
+            ("off", AvxMode::Off),
+        ] {
+            assert_eq!(AvxMode::parse(s), m);
+            assert_eq!(m.as_str(), s);
+            assert_eq!(AvxMode::parse(m.as_str()), m);
+        }
+        // whitespace tolerated (the state file has a trailing newline)
+        assert_eq!(AvxMode::parse(" custom\n"), AvxMode::Custom);
+        // unknown / blank → honest default builtin (matches avx-mode.py)
+        assert_eq!(AvxMode::parse("nonsense"), AvxMode::BuiltIn);
+        assert_eq!(avx_mode_from_contents(None), AvxMode::BuiltIn);
+        // the bit-machine is opt-in: only custom + hybrid run it
+        assert!(AvxMode::Custom.runs_bit_machine());
+        assert!(AvxMode::Hybrid.runs_bit_machine());
+        assert!(!AvxMode::BuiltIn.runs_bit_machine());
+        assert!(!AvxMode::Off.runs_bit_machine());
+    }
+
+    #[test]
+    fn avx_mode_reads_a_state_file() {
+        // a real temp file — no env-set (unsafe on edition 2024), no fs mocks.
+        let dir = std::env::temp_dir();
+        let path = dir.join(format!("cws-avx-mode-test-{}.active", std::process::id()));
+        std::fs::write(&path, "custom\n").unwrap();
+        assert_eq!(avx_mode_from_path(&path), AvxMode::Custom);
+        std::fs::write(&path, "off").unwrap();
+        assert_eq!(avx_mode_from_path(&path), AvxMode::Off);
+        let _ = std::fs::remove_file(&path);
+        // a missing file → builtin
+        assert_eq!(avx_mode_from_path(&path), AvxMode::BuiltIn);
     }
 
     #[test]

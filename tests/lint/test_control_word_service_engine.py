@@ -78,6 +78,20 @@ def test_prometheus_text_has_all_four_gauges():
     assert 'plane="random",register="zmm3"' in text
 
 
+def test_avx_mode_gate_matches_the_crate():
+    m = _mod()
+    # parse + default (mirror crate AvxMode::parse / avx-mode.py DEFAULT_MODE)
+    assert m.avx_mode_parse("custom") == "custom"
+    assert m.avx_mode_parse(" hybrid\n") == "hybrid"
+    assert m.avx_mode_parse("nonsense") == "builtin"
+    assert m.avx_mode_parse("") == "builtin"
+    # the bit-machine is opt-in: only custom + hybrid run it
+    assert m.runs_bit_machine("custom") is True
+    assert m.runs_bit_machine("hybrid") is True
+    assert m.runs_bit_machine("builtin") is False
+    assert m.runs_bit_machine("off") is False
+
+
 def test_cli_fingerprint_quarantine_metrics():
     import json
 

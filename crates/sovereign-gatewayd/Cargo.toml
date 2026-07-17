@@ -21,6 +21,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 sovereign-cortex = { path = "../sovereign-cortex" }
 sovereign-control-word-service = { path = "../sovereign-control-word-service" }
+sovereign-control-word = { path = "../sovereign-control-word" }
 sovereign-simd = { path = "../sovereign-simd" }
 # The durable-memory store type, for corruption-safe load + a capacity bound.
 sovereign-memory-os = { path = "../sovereign-memory-os" }

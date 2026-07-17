@@ -89,6 +89,22 @@ def render_prometheus(m: dict) -> str:
     return "\n".join(out) + "\n"
 
 
+# avx-mode gate — mirrors crate AvxMode (custom/builtin/hybrid/off, default
+# builtin). The M002 bit-machine runs only under custom/hybrid (opt-in).
+AVX_MODES = ("custom", "builtin", "hybrid", "off")
+
+
+def avx_mode_parse(s: str) -> str:
+    """Parse an avx-mode string; unknown → the honest default 'builtin'."""
+    v = (s or "").strip()
+    return v if v in AVX_MODES else "builtin"
+
+
+def runs_bit_machine(mode: str) -> bool:
+    """Whether the M00013 bit-machine is the active path (custom/hybrid only)."""
+    return mode in ("custom", "hybrid")
+
+
 def _int(s: str) -> int:
     return int(s, 16) if s.lower().startswith("0x") else int(s)
 
