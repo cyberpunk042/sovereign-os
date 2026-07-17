@@ -26,7 +26,7 @@ Full doctrine: `docs/standing-directives/two-ultimate-solutions.md`.
 
 | metric | count | source of truth |
 |---|---:|---|
-| workspace crates | 719 | `crates/*/` |
+| workspace crates | 720 | `crates/*/` |
 | dashboards (d-nn) | 29 | `webapp/d-*/` |
 | cockpit panels (total) | 61 | `webapp/*/index.html` |
 | sdd files | 208 | `docs/sdd/<NNN>-*.md` |
@@ -350,7 +350,7 @@ Per SDD-040 Phase A → E ordering + selfdef Guardian/UX-harness implementations
 46. ~~sovereign-doctrinal-preservation~~ ✓
 47. ~~sovereign-cgroup-systemd~~ ✓
 
-**sovereign-os Rust workspace: 719 crates total** (counts-as-contract enforced by `tests/lint/test_context_md_counts.py`)
+**sovereign-os Rust workspace: 720 crates total** (counts-as-contract enforced by `tests/lint/test_context_md_counts.py`)
 
 ### Stage 2+ build scripts (per M062 PR 10 → Stage Gate 5 → Stage 2)
 
