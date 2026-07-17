@@ -1,0 +1,18 @@
+[package]
+name = "sovereign-control-word-service"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "M002 service layer for the control-word round engine: per-lane DNA fingerprints (FNV-1a, dependency-free per the replay-ledger precedent), quarantine on fingerprint drift, forward/rewind round replay, hand-rolled Prometheus text metrics, and pre/post lifecycle events. Wraps the safe sovereign-simd round API — this crate itself forbids unsafe."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+sovereign-simd = { path = "../sovereign-simd" }
+sovereign-control-word = { path = "../sovereign-control-word" }

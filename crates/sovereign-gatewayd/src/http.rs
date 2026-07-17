@@ -21,6 +21,7 @@
 //! POST /v1/simple      -> {"kind":"decision", …}     simplified request (axes + quality)
 //! POST /v1/explain     -> {"kind":"explanation",…} dry-run rationale (read-only)
 //! POST /v1/deliberate  -> {"kind":"deliberation",…} best-of-N (read-only)
+//! POST /v1/control-word/round -> {"kind":"control-word-round",…} M002 round engine (fingerprints + events + metrics)
 //! ```
 //!
 //! A `POST` body is one JSON [`CortexRequest`]; the reply is the tagged
@@ -142,6 +143,7 @@ pub fn respond(server: &GatewayServer, method: &str, path: &str, body: &str) -> 
         ("POST", "/v1/messages") => anthropic_message(server, body),
         ("GET", "/v1/models") => anthropic_models(server),
         ("GET", "/v1/events") => events(server),
+        ("POST", "/v1/control-word/round") => control_word_round(body),
         ("POST", "/v1/models/load") => models_load(server, body),
         ("POST", "/v1/models/unload") => models_unload(server, body),
         ("POST", "/v1/models/register") => models_register(server, body),
@@ -427,6 +429,65 @@ fn events(server: &GatewayServer) -> HttpReply {
     json_reply(
         200,
         &serde_json::json!({ "count": events.len(), "events": events }),
+    )
+}
+
+/// `POST /v1/control-word/round` — run the M002 round engine over the daemon.
+/// Body: `{ "state": RoundState, "config"?: RoundConfig, "rounds"?: u64 }`.
+/// Reply: the resulting state, per-lane DNA fingerprints + diversity index,
+/// the last round's lifecycle events, and the service metrics (the same shape
+/// exposed to Prometheus). The kernel dispatches to AVX-512 when the host has
+/// it — this route is how the cockpit / an operator drives the bit-machine.
+fn control_word_round(body: &str) -> HttpReply {
+    use sovereign_control_word_service::{
+        diversity_index, metrics_from, round_fingerprints, round_with_events,
+    };
+    use sovereign_simd::round::{RoundConfig, RoundState};
+
+    #[derive(serde::Deserialize)]
+    struct Req {
+        state: RoundState,
+        #[serde(default)]
+        config: RoundConfig,
+        #[serde(default = "one_round")]
+        rounds: u64,
+    }
+    fn one_round() -> u64 {
+        1
+    }
+
+    let req: Req = match serde_json::from_str(body) {
+        Ok(r) => r,
+        Err(e) => return err(400, format!("invalid control-word round request: {e}")),
+    };
+    if req.rounds > 100_000 {
+        return err(400, "rounds capped at 100000 per request".to_string());
+    }
+    // Run rounds-1 plain, then the final round with lifecycle events.
+    let mut cur = req.state;
+    for _ in 1..req.rounds {
+        cur = sovereign_simd::round::round_update(&cur, req.config);
+    }
+    let (result, events) = if req.rounds == 0 {
+        (cur, Vec::new())
+    } else {
+        round_with_events(&cur, req.config)
+    };
+    let fps = round_fingerprints(&result);
+    // steps/sec is a live measurement the daemon would fill; report 0 (no clock
+    // in this pure handler) so the metric is honest, not fabricated.
+    let metrics = metrics_from(&result, req.rounds, 0.0, 1.0);
+    json_reply(
+        200,
+        &serde_json::json!({
+            "kind": "control-word-round",
+            "rounds": req.rounds,
+            "result": result,
+            "fingerprints": fps.iter().map(|f| format!("{f:#018x}")).collect::<Vec<_>>(),
+            "diversity_index": diversity_index(&fps),
+            "events": events,
+            "metrics": metrics,
+        }),
     )
 }
 
@@ -839,6 +900,40 @@ mod tests {
         assert_eq!(r.status, 200);
         assert_eq!(body_of(&r)["kind"], "health");
         assert_eq!(body_of(&r)["health"]["never_cloud_spill_holds"], true);
+    }
+
+    #[test]
+    fn post_control_word_round_runs_the_bit_machine() {
+        // The M002 round engine over HTTP: 3 rounds from a fixed seed → the same
+        // parity constant the crate + Python engine pin, plus fingerprints,
+        // lifecycle events, and metrics.
+        let body = serde_json::json!({
+            "state": {
+                "state": [1, 2, 3, 4, 5, 6, 7, 8],
+                "memory": [1, 2, 3, 4, 5, 6, 7, 8],
+                "rule": [1, 2, 3, 4, 5, 6, 7, 8],
+                "random": [1, 2, 3, 4, 5, 6, 7, 8]
+            },
+            "rounds": 3
+        })
+        .to_string();
+        let r = respond(&srv(), "POST", "/v1/control-word/round", &body);
+        assert_eq!(r.status, 200);
+        let v = body_of(&r);
+        assert_eq!(v["kind"], "control-word-round");
+        assert_eq!(v["result"]["state"][0], 0x8);
+        assert_eq!(v["result"]["state"][7], 0x40);
+        // 4 lifecycle events bracket the final round (pre/pre-dna/post-dna/post)
+        assert_eq!(v["events"].as_array().unwrap().len(), 4);
+        // fingerprints present + diversity in range
+        assert_eq!(v["fingerprints"].as_array().unwrap().len(), 8);
+        let d = v["diversity_index"].as_f64().unwrap();
+        assert!((0.125..=1.0).contains(&d));
+        // a malformed body is a clean 400, never a panic
+        assert_eq!(
+            respond(&srv(), "POST", "/v1/control-word/round", "{").status,
+            400
+        );
     }
 
     #[test]

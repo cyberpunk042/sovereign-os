@@ -1084,6 +1084,22 @@ html[data-theme="light"] {
   <div class="cw-lut" id="cw-cfg-fields"></div>
   <div class="cw-cli" style="margin:.4rem 0;">env: <span class="mono cw-hi" id="cw-cfg-env">(all defaults)</span></div>
   <pre class="mono" id="cw-cfg-json" style="font-size:.8rem;overflow-x:auto;"></pre>
+
+  <h2 class="avx-h">DNA fingerprint &amp; service metrics (M00018 / service layer)</h2>
+  <p class="avx-lead">The per-lane DNA fingerprint <span class="mono">FNV-1a(control_word ‖ rule_word ‖ state)</span> (R00280) — identical to the Rust <span class="mono">sovereign-control-word-service::lane_fingerprint</span>, <span class="mono">control-word-service.py fingerprint</span>, and the daemon's <span class="mono">POST /v1/control-word/round</span>. Drift in this fingerprint is what quarantine (R00282) and the diversity metric (F00129) watch. FNV-1a matches the repo's dependency-free tamper-evidence stance (blake3 is a flagged future hardening).</p>
+  <div class="cw-lut">
+    <label>control_word <input id="cw-fp-cw" class="so-set-mini" value="0x1" size="18"></label>
+    <label>rule_word <input id="cw-fp-rule" class="so-set-mini" value="0x2" size="18"></label>
+    <label>state <input id="cw-fp-state" class="so-set-mini" value="0x3" size="18"></label>
+    <span>fingerprint: <span class="mono cw-hi" id="cw-fp-out">?</span></span>
+  </div>
+  <p class="avx-lead" style="margin-top:.4rem;">Prometheus gauges the service exposes (via <span class="mono">/v1/control-word/round</span> → <span class="mono">metrics</span>):</p>
+  <ul class="mono" style="font-size:.82rem;line-height:1.5;">
+    <li>sovereign_os_per_lane_dna_diversity_index <span style="color:var(--muted,#8a8a8a)">(F00129)</span></li>
+    <li>sovereign_os_round_update_steps_per_sec <span style="color:var(--muted,#8a8a8a)">(F00145)</span></li>
+    <li>sovereign_os_variable_shift_cost_ratio <span style="color:var(--muted,#8a8a8a)">(F00154)</span></li>
+    <li>sovereign_os_zmm_layout_register_assignment <span style="color:var(--muted,#8a8a8a)">(F00138, info: state→zmm0 memory→zmm1 rule→zmm2 random→zmm3)</span></li>
+  </ul>
 </main>
 
 <!-- SDD-045 shared control-surface, inlined verbatim from webapp/_shared/control-surface.js -->
@@ -1512,6 +1528,19 @@ html[data-theme="light"] {
     }
     cfgRefresh();
   }
+
+  // DNA fingerprint (M00018) — FNV-1a over control_word ‖ rule_word ‖ state,
+  // LE bytes; mirrors sovereign-control-word-service::lane_fingerprint (u64 wrap).
+  var M64=(1n<<64n)-1n, FNV_OFF=0xcbf29ce484222325n, FNV_PRIME=0x00000100000001b3n;
+  function fnv1a(bytes){ var h=FNV_OFF; for(var i=0;i<bytes.length;i++){ h^=BigInt(bytes[i]); h=(h*FNV_PRIME)&M64; } return h; }
+  function leBytes(v){ v&=M64; var b=[]; for(var i=0;i<8;i++){ b.push(Number((v>>BigInt(i*8))&0xffn)); } return b; }
+  function laneFingerprint(cw,rule,state){ return fnv1a(leBytes(cw).concat(leBytes(rule),leBytes(state))); }
+  var fpCw=document.getElementById("cw-fp-cw"), fpRule=document.getElementById("cw-fp-rule"),
+      fpState=document.getElementById("cw-fp-state"), fpOut=document.getElementById("cw-fp-out");
+  function fpParse(s){ s=(s||"").trim(); try{ return (s.toLowerCase().indexOf("0x")===0? BigInt(s): BigInt(s||"0"))&M64; }catch(e){ return 0n; } }
+  function fpRefresh(){ if(!fpOut)return; var f=laneFingerprint(fpParse(fpCw.value),fpParse(fpRule.value),fpParse(fpState.value));
+    fpOut.textContent="0x"+f.toString(16).padStart(16,"0"); }
+  if(fpOut){ [fpCw,fpRule,fpState].forEach(function(el){ el.addEventListener("input",fpRefresh); }); fpRefresh(); }
 </script>
 <!-- COURSE:BEGIN M090 -->
 <style id="so-course-style">

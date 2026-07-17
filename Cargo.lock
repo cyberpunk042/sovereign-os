@@ -4399,6 +4399,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-control-word-service"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "sovereign-control-word",
+ "sovereign-simd",
+]
+
+[[package]]
 name = "sovereign-conversation-fork-event"
 version = "0.1.0"
 dependencies = [
@@ -4822,6 +4831,7 @@ dependencies = [
  "sovereign-agent-loop",
  "sovereign-calc",
  "sovereign-coat",
+ "sovereign-control-word-service",
  "sovereign-cortex",
  "sovereign-gateway",
  "sovereign-hf-tokenizer",
@@ -4836,6 +4846,7 @@ dependencies = [
  "sovereign-router-7axis",
  "sovereign-safetensors-loader",
  "sovereign-secret-scan",
+ "sovereign-simd",
  "sovereign-srp-scheduler",
  "sovereign-stream-decode",
  "sovereign-tool-bridge",
@@ -6360,6 +6371,7 @@ version = "0.1.0"
 dependencies = [
  "rand",
  "rand_chacha",
+ "serde",
  "sovereign-control-word",
 ]
 

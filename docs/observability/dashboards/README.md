@@ -252,6 +252,15 @@ Emitted by `warp-runner.py run --emit-metrics` (and `sovereign-osctl science run
 - `sovereign_os_inference_backend_start_total{tier,backend,result}`
 - `sovereign_os_inference_backend_pid{tier}`
 
+### M002 control-word service (scripts/hardware/control-word-service.py, crate sovereign-control-word-service)
+
+Info/dashboard-tier gauges from the M002 control-word round engine — surfaced on the `/avx-modes` panel and returned by the daemon's `POST /v1/control-word/round`. Demonstration-tier telemetry of the 8-lane bit-machine, not paging health signals (see the info-tier exemption in `tests/lint/test_metric_observability_coverage.py`).
+
+- `sovereign_os_per_lane_dna_diversity_index` — fraction of lanes with a distinct DNA fingerprint (F00129; 0.125 = all identical, 1.0 = all unique)
+- `sovereign_os_round_update_steps_per_sec` — round-update steps executed per second (F00145; 5 steps × rounds ÷ elapsed)
+- `sovereign_os_variable_shift_cost_ratio` — variable-shift (VPSLLVQ) cost vs the AND/XOR baseline (F00154, R00298)
+- `sovereign_os_zmm_layout_register_assignment{plane,register}` — strong-layout plane→ZMM register assignment, info gauge value 1 (F00138; state→zmm0 memory→zmm1 rule→zmm2 random→zmm3)
+
 ### Perimeter
 
 - `sovereign_os_perimeter_status`

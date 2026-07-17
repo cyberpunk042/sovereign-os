@@ -104,6 +104,7 @@ and read-only surfaces run on the deterministic engine and never need one.
 | `POST /v1/explain` | dry-run rationale (read-only) | cortex request → `{kind:"explanation"}` |
 | `POST /v1/deliberate` | best-of-N deliberation (read-only) | `{request, candidates[], tier}` → `{kind:"deliberation"}` |
 | `POST /v1/coat` | **CoAT reasoning** (read-only) — see [Reasoning & operability](./reasoning-operability.md) | `{problem, rung, topic?}` → `{kind:"coat-trace", trace:{best_path, …}}` |
+| `POST /v1/control-word/round` | **M002 control-word round engine** — runs the 8-lane bit-machine (AVX-512 when present), returns per-lane DNA fingerprints + lifecycle events + service metrics | `{state:{state[],memory[],rule[],random[]}, config?, rounds?}` → `{kind:"control-word-round", result, fingerprints[], diversity_index, events[], metrics}` |
 | `GET /health` · `/manifest` · `/admin/ledger` · `/metrics` | liveness · 6-surface manifest · cost/route ledger · Prometheus | — |
 
 ### Try it with curl

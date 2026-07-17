@@ -27,10 +27,11 @@
 //! Composes M00012 lane-fields, M00014 masked-op mode, M00016 condition, M00018
 //! per-lane DNA, and M00021 variable-shift — the F00165 composite kernel.
 
+use serde::{Deserialize, Serialize};
 use sovereign_control_word::m00013::MaskedOpMode;
 
 /// The four ZMM planes of a round (M00019 strong layout), 8 lanes each.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RoundState {
     /// zmm0 — the evolving cell state per lane.
     pub state: [u64; 8],
@@ -43,7 +44,7 @@ pub struct RoundState {
 }
 
 /// Knobs that select round behavior (all opt-in; defaults are the strong path).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RoundConfig {
     /// M00014 — branchless (default) vs branchy decision. Both produce the same
     /// output (proven by test); branchy is the obvious scalar reference form.
