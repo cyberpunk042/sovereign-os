@@ -42,8 +42,9 @@ from pathlib import Path
 MASTER_MODES: dict[str, dict[str, object]] = {
     "custom": {
         "label": "Custom-AVX (bit-machine)",
-        "summary": "M002 control-word + M007 branch scheduler + M008 bit-cheats — policy becomes bits.",
-        "built": "scaffold",
+        "summary": "M002 control-word + M007 branch scheduler + M008 bit-cheats — policy becomes bits. "
+                   "Kernels real + live-verified; per-token inference integration is downstream.",
+        "built": "real",
         "anchors": ["M002", "M007", "M008", "M061"],
     },
     "builtin": {
@@ -54,8 +55,9 @@ MASTER_MODES: dict[str, dict[str, object]] = {
     },
     "hybrid": {
         "label": "Hybrid-AVX",
-        "summary": "Both — the bit-machine routes, the math tiers compute.",
-        "built": "scaffold",
+        "summary": "Both — the bit-machine routes, the math tiers compute. "
+                   "Kernels real + live-verified; per-token inference integration is downstream.",
+        "built": "real",
         "anchors": ["M002", "M007", "M008", "M085"],
     },
     "off": {
