@@ -15,4 +15,5 @@ workspace = true
 [dependencies]
 serde = { workspace = true }
 sovereign-control-word = { path = "../sovereign-control-word" }
+sovereign-bit-cheats = { path = "../sovereign-bit-cheats" }
 sovereign-simd = { path = "../sovereign-simd" }

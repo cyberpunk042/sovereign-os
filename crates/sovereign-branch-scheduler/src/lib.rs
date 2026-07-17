@@ -140,9 +140,137 @@ fn mask_from(pred: impl Fn(usize) -> bool) -> u8 {
     m
 }
 
+// ── scheduler v2 — the tick that CONSUMES the M008 building blocks ──
+
+/// The state a v2 tick carries across ticks: a branch predictor that learns
+/// (M00121), a two-level rule table for the Verify decision (M00119), and a
+/// memory bank the Retrieve step recalls against (M00122 bloom). This is what
+/// makes the M002+M007+M008 composition earn its parts — v1 only wired the
+/// commit gate + compress; v2 pulls prediction, rule-table decisions, memory
+/// recall, and microcode into the loop.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SchedulerContext {
+    /// M00121 — predicts which branches will commit; retired (learns) each tick.
+    pub predictor: sovereign_bit_cheats::BranchPredictor,
+    /// M00119 — `route → table[route][event_class]` decides Verify.
+    pub rule_table: sovereign_bit_cheats::TwoLevelTable,
+    /// The event class per branch (the rule-table inner index).
+    pub event_class: [usize; 8],
+    /// The memory bitset the Retrieve step recalls against (bloom overlap).
+    pub memory_bank: Vec<u64>,
+}
+
+impl SchedulerContext {
+    /// A context with a fresh predictor over 8 slots, the given rule table +
+    /// event classes, and a memory bank.
+    #[must_use]
+    pub fn new(
+        rule_table: sovereign_bit_cheats::TwoLevelTable,
+        event_class: [usize; 8],
+        memory_bank: Vec<u64>,
+    ) -> Self {
+        SchedulerContext {
+            predictor: sovereign_bit_cheats::BranchPredictor::new(8),
+            rule_table,
+            event_class,
+            memory_bank,
+        }
+    }
+}
+
+/// A v2 tick result — the v1 masks plus what the building blocks produced.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TickResultV2 {
+    /// The v1 result (steps, filter/verify/commit masks, packed survivors).
+    pub base: TickResult,
+    /// M00122 — per-branch memory recall (bloom overlap with the bank) at Retrieve.
+    pub recall: [u32; 8],
+    /// M00121 — the predictor's commit prediction mask at Draft (pre-outcome).
+    pub predicted_commit: u8,
+    /// M00119 — the rule-table Verify mask (route × event-class decision).
+    pub rule_verified: u8,
+    /// M00121 — predictor accuracy after this tick's Learn (retirement).
+    pub predictor_accuracy: f64,
+}
+
+/// Run one tick of the **v2** loop, consuming the M008 building blocks:
+/// - **Retrieve** — bloom-overlap each branch's memory ref against the bank.
+/// - **Draft** — the predictor forecasts which branches will commit.
+/// - **Filter** — grammar ∧ budget (as v1).
+/// - **Verify** — the two-level rule table decides per `(route, event_class)`;
+///   a branch also needs `score ≥ verify_min_score`.
+/// - **Commit** — the control word's *microcode* program (M00113) decides commit
+///   (the executable-policy view of the same bits v1 read as permissions).
+/// - **Learn** — retire the predictor against the actual commit outcomes.
+#[must_use]
+pub fn tick_v2(
+    batch: &BranchBatch,
+    ctx: &mut SchedulerContext,
+    verify_min_score: u32,
+) -> TickResultV2 {
+    use sovereign_bit_cheats::{decode_microcode, execute_microcode};
+
+    // Retrieve (M00122): recall = popcount(branch.memory & bank-word-0…).
+    let mut recall = [0u32; 8];
+    for i in 0..8 {
+        recall[i] = sovereign_simd::cheats::bloom_overlap(&[batch.memory[i]], &ctx.memory_bank);
+    }
+
+    // Draft (M00121): the predictor's forecast (pre-outcome).
+    let predicted_commit = mask_from(|i| ctx.predictor.predict(i));
+
+    // Filter (as v1): grammar ∧ budget, short-circuited.
+    let grammar_mask = mask_from(|i| batch.grammar[i] != 0);
+    let budget_mask = mask_from(|i| batch.budget[i] > 0);
+    let (alive_after_filter, ev_filter) = speculative_accept(&[0xFF, grammar_mask, budget_mask]);
+
+    // Verify (M00119): the rule table decides per (route, event_class); a missing
+    // entry defers to the score cutoff (the table is advisory where unset).
+    let score_mask = mask_from(|i| batch.score[i] >= verify_min_score);
+    let rule_verified = mask_from(|i| {
+        match ctx
+            .rule_table
+            .lookup(batch.route[i] as usize, ctx.event_class[i])
+        {
+            Some(0) => false,                   // rule explicitly denies
+            Some(_) => true,                    // rule explicitly allows
+            None => score_mask & (1 << i) != 0, // unset → score decides
+        }
+    });
+    let (alive_after_verify, ev_verify) = speculative_accept(&[alive_after_filter, rule_verified]);
+
+    // Commit (M00113): the microcode program decides — the executable view of the
+    // control-word bits (equivalent to v1's branch_permissions gate).
+    let commit_gate = mask_from(|i| execute_microcode(&decode_microcode(batch.control[i])).commit);
+    let committed = alive_after_verify & commit_gate;
+
+    // Learn (M00121): retire the predictor against the actual commit outcomes.
+    for i in 0..8 {
+        ctx.predictor.retire(i, committed & (1 << i) != 0);
+    }
+
+    let (committed_ids, survivors) = compress_survivors(&batch.id, committed);
+    TickResultV2 {
+        base: TickResult {
+            steps: STEPS.iter().map(|s| (*s).to_string()).collect(),
+            alive_after_filter,
+            alive_after_verify,
+            committed,
+            predicates_evaluated: ev_filter + ev_verify,
+            committed_ids,
+            survivors,
+        },
+        recall,
+        predicted_commit,
+        rule_verified,
+        predictor_accuracy: ctx.predictor.accuracy(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sovereign_bit_cheats::TwoLevelTable;
     use sovereign_control_word::FLAG_SPECULATIVE;
     use sovereign_control_word::m00013::{Fields, MODE_COMMIT};
 
@@ -211,6 +339,64 @@ mod tests {
         assert_eq!(r.alive_after_filter, 0b1101_1011); // lanes 2 and 5 dropped
         assert_eq!(r.committed & (1 << 2), 0);
         assert_eq!(r.committed & (1 << 5), 0);
+    }
+
+    #[test]
+    fn v2_microcode_commit_matches_v1_permissions() {
+        // the microcode commit gate (M00113) must agree with v1's branch_permissions.
+        let mut c = [draft_word(); 8];
+        for x in c.iter_mut().take(4) {
+            *x = committed_word();
+        }
+        c[4] = speculative_word();
+        let batch = BranchBatch::from_controls(c);
+        let v1 = tick(&batch, 50);
+        let mut ctx = SchedulerContext::new(TwoLevelTable::default(), [0; 8], vec![]);
+        let v2 = tick_v2(&batch, &mut ctx, 50);
+        assert_eq!(
+            v2.base.committed, v1.committed,
+            "microcode gate ≡ permissions gate"
+        );
+        assert_eq!(v2.base.committed, 0b0000_1111);
+    }
+
+    #[test]
+    fn v2_rule_table_decides_verify() {
+        // route 0 event 0 → deny (0); route 1 event 0 → allow (1). Branches on
+        // route 0 are pruned at Verify regardless of score.
+        let batch = BranchBatch {
+            route: [0, 0, 1, 1, 0, 1, 0, 1],
+            ..BranchBatch::from_controls([committed_word(); 8])
+        };
+        let table = TwoLevelTable::new(vec![vec![0], vec![1]]); // rule 0 deny, rule 1 allow
+        let mut ctx = SchedulerContext::new(table, [0; 8], vec![]);
+        let v2 = tick_v2(&batch, &mut ctx, 50);
+        // only route-1 lanes (2,3,5,7) survive Verify → commit
+        assert_eq!(v2.rule_verified, 0b1010_1100);
+        assert_eq!(v2.base.committed, 0b1010_1100);
+    }
+
+    #[test]
+    fn v2_memory_recall_and_predictor_learns() {
+        // Retrieve: branch memory bits overlapping the bank → recall > 0.
+        let batch = BranchBatch {
+            memory: [0xF, 0, 0xFF, 0, 0, 0, 0, 0],
+            ..BranchBatch::from_controls([committed_word(); 8])
+        };
+        let bank = vec![0xFFu64];
+        let mut ctx = SchedulerContext::new(TwoLevelTable::default(), [0; 8], bank);
+        let first = tick_v2(&batch, &mut ctx, 50);
+        assert_eq!(first.recall[0], 4); // popcount(0xF & 0xFF)
+        assert_eq!(first.recall[2], 8); // popcount(0xFF & 0xFF)
+        assert_eq!(first.recall[1], 0);
+        // the predictor starts weakly-not-taken → predicts nothing at first draft,
+        // but after ticks where all 8 commit, it learns to predict commit.
+        let mut last = first;
+        for _ in 0..4 {
+            last = tick_v2(&batch, &mut ctx, 50);
+        }
+        assert_eq!(last.predicted_commit, 0xFF, "predictor learned all commit");
+        assert!(last.predictor_accuracy > 0.5);
     }
 
     #[test]
