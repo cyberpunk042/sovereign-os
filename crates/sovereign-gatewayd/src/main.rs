@@ -1081,9 +1081,30 @@ fn stream_proxy_chat_completions(
     Ok(())
 }
 
-/// Flatten OpenAI `messages` into a single prompt for the base model (join each
-/// turn's non-empty content with newlines; a base completion model continues it).
-fn chat_prompt(req: &serde_json::Value) -> String {
+/// Build the prompt from OpenAI `messages`. When the model ships a `chat_template`
+/// we recognize (`template` = Some, F-2026-086), render the turns with the model's
+/// real markers (ChatML / Llama-3 / Llama-2) so an instruction-tuned checkpoint
+/// behaves. Otherwise — no template, or an exotic one — fall back to the original
+/// newline-join of non-empty content (a base completion model continues it). The
+/// fallback is byte-identical to the pre-F-2026-086 behavior.
+fn chat_prompt(req: &serde_json::Value, template: Option<&str>) -> String {
+    if let Some(tmpl) = template
+        && let Some(fmt) = sovereign_chat_template::detect_format(tmpl)
+        && let Some(msgs) = req.get("messages").and_then(|m| m.as_array())
+    {
+        let messages: Vec<sovereign_chat_template::Message> = msgs
+            .iter()
+            .filter_map(|m| {
+                let role = m.get("role").and_then(|r| r.as_str()).unwrap_or("user");
+                let content = m.get("content").and_then(|c| c.as_str())?;
+                Some(sovereign_chat_template::Message::from_role(role, content))
+            })
+            .collect();
+        if !messages.is_empty() {
+            return sovereign_chat_template::render(&messages, &fmt, true);
+        }
+    }
+    // Fallback: newline-join non-empty message content (unchanged base behavior).
     let mut parts: Vec<String> = Vec::new();
     if let Some(msgs) = req.get("messages").and_then(|m| m.as_array()) {
         for m in msgs {
@@ -1181,7 +1202,7 @@ fn stream_chat_completions(
             ),
         );
     }
-    let prompt = chat_prompt(&req);
+    let prompt = chat_prompt(&req, server.chat_template_for(Some(&model)).as_deref());
     let max_new = req
         .get("max_tokens")
         .and_then(serde_json::Value::as_u64)
@@ -1466,8 +1487,48 @@ fn agentic_chat_completion(
 
 #[cfg(test)]
 mod tests {
-    use super::{authorized, conn_timeout, constant_time_eq, shape_tool_completion};
+    use super::{authorized, chat_prompt, conn_timeout, constant_time_eq, shape_tool_completion};
     use sovereign_tool_bridge::openai_tools_to_specs;
+
+    #[test]
+    fn chat_prompt_falls_back_to_newline_join_without_template() {
+        // F-2026-086: no template ⇒ byte-identical to the original newline-join.
+        let req = serde_json::json!({"messages": [
+            {"role": "system", "content": "You are helpful."},
+            {"role": "user", "content": "Hi"}
+        ]});
+        assert_eq!(chat_prompt(&req, None), "You are helpful.\nHi");
+    }
+
+    #[test]
+    fn chat_prompt_renders_chatml_when_template_present() {
+        // A ChatML template ⇒ the prompt carries the model's real turn markers.
+        let req = serde_json::json!({"messages": [
+            {"role": "system", "content": "You are helpful."},
+            {"role": "user", "content": "Hi"}
+        ]});
+        let tmpl = "{% for m in messages %}<|im_start|>{{ m.role }}\n{{ m.content }}<|im_end|>\n{% endfor %}";
+        let out = chat_prompt(&req, Some(tmpl));
+        assert!(out.contains("<|im_start|>system\nYou are helpful.<|im_end|>\n"));
+        assert!(out.contains("<|im_start|>user\nHi<|im_end|>\n"));
+        assert!(out.ends_with("<|im_start|>assistant\n")); // generation prompt
+    }
+
+    #[test]
+    fn chat_prompt_llama3_template_uses_header_markers() {
+        let req = serde_json::json!({"messages": [{"role": "user", "content": "Hi"}]});
+        let tmpl = "{{ '<|start_header_id|>' + message['role'] + '<|end_header_id|>' }}";
+        let out = chat_prompt(&req, Some(tmpl));
+        assert!(out.starts_with("<|begin_of_text|>"));
+        assert!(out.contains("<|start_header_id|>user<|end_header_id|>\n\nHi<|eot_id|>"));
+    }
+
+    #[test]
+    fn chat_prompt_unknown_template_falls_back() {
+        // An exotic template we can't detect ⇒ newline-join, never a wrong render.
+        let req = serde_json::json!({"messages": [{"role": "user", "content": "Hi"}]});
+        assert_eq!(chat_prompt(&req, Some("{{ exotic }}")), "Hi");
+    }
 
     #[test]
     fn constant_time_eq_matches_std_eq() {

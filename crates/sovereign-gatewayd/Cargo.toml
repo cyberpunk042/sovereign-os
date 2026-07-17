@@ -49,6 +49,7 @@ sovereign-tool-dispatch = { path = "../sovereign-tool-dispatch" }
 # dependency-free arithmetic evaluator (wires a previously demo-only island).
 sovereign-calc = { path = "../sovereign-calc" }
 sovereign-hf-tokenizer = { path = "../sovereign-hf-tokenizer" }
+sovereign-chat-template = { path = "../sovereign-chat-template" }
 sovereign-logit-mask = { path = "../sovereign-logit-mask" }
 sovereign-stream-decode = { path = "../sovereign-stream-decode" }
 # Safety spine: the gateway is the ecosystem's declared privacy + redaction
