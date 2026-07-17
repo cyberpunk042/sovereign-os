@@ -77,10 +77,23 @@ def test_shipped_file_present():
 
 
 def test_rollup_table_present():
+    """The roll-up must reference the LIVE catalogue total. Derived from
+    the generated backlog/INDEX.md (itself tree-locked by
+    test_backlog_index.py) instead of a hardcoded literal — the old
+    pinned "14,080" was itself stale drift: it froze a superseded
+    count and then failed when SHIPPED.md was corrected to the real
+    figure (found 2026-07-17)."""
     text = _shipped_text()
     assert "## Roll-up" in text, "SHIPPED.md missing the Roll-up section"
     assert "Catalogued (total)" in text
-    assert "14,080" in text, "roll-up must reference the catalogue total"
+    index_text = (SHIPPED.parent / "INDEX.md").read_text(encoding="utf-8")
+    m = re.search(r"milestone files · \*\*([\d,]+) distinct R-rows", index_text)
+    assert m, "backlog/INDEX.md missing its generated totals line"
+    total = m.group(1)
+    assert total in text, (
+        f"SHIPPED.md roll-up must reference the live catalogue total "
+        f"{total} (per the generated backlog/INDEX.md)"
+    )
 
 
 def test_referenced_local_commits_exist():
