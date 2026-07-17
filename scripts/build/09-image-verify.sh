@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # scripts/build/09-image-verify.sh — boot the image in QEMU for a smoke
-# test. Skipped when SOVEREIGN_OS_SKIP_QEMU is set (e.g., CI runners
-# without KVM).
+# test. The boot is skipped when SOVEREIGN_OS_SKIP_QEMU is set (e.g., CI
+# runners without KVM); the SDD-019 reproducibility artifacts
+# (sha256sums.txt + build-provenance.json) are emitted either way.
 #
 # Minimal smoke: boot → login as root via console → check
 # /etc/os-release matches whitelabel → reboot. Timeout: 5 minutes.
@@ -30,17 +31,17 @@ if ! state_step_should_run "${STEP_ID}" "${inputs_hash}"; then
   exit 0
 fi
 
-if [ -n "${SOVEREIGN_OS_SKIP_QEMU:-}" ]; then
-  log_warn "SOVEREIGN_OS_SKIP_QEMU set — skipping QEMU smoke test"
-  state_step_start "${STEP_ID}" "${inputs_hash}"
-  state_step_complete "${STEP_ID}"
-  exit 0
-fi
-
 log_step_header "${STEP_ID}" "QEMU smoke test"
 state_step_start "${STEP_ID}" "${inputs_hash}"
 
-require_command qemu-system-x86_64
+# SOVEREIGN_OS_SKIP_QEMU skips ONLY the boot smoke — the SDD-019
+# reproducibility artifacts (sha256sums.txt + build-provenance.json)
+# below MUST still be emitted. The old early-exit here starved every
+# no-KVM/CI build of provenance, breaking `sovereign-osctl audit
+# provenance` on exactly the runners the env var exists for.
+if [ -z "${SOVEREIGN_OS_SKIP_QEMU:-}" ]; then
+  require_command qemu-system-x86_64
+fi
 
 if [ -z "${SOVEREIGN_OS_IMAGE_DIR:-}" ] || [ ! -d "${SOVEREIGN_OS_IMAGE_DIR}" ]; then
   log_error "image dir not found (set SOVEREIGN_OS_IMAGE_DIR or rerun step 07)"
@@ -69,6 +70,10 @@ log_info "QEMU boot test of: ${image_file}"
 
 if [ -n "${SOVEREIGN_OS_DRY_RUN:-}" ]; then
   log_warn "SOVEREIGN_OS_DRY_RUN set — skipping QEMU boot"
+elif [ -n "${SOVEREIGN_OS_SKIP_QEMU:-}" ]; then
+  log_warn "SOVEREIGN_OS_SKIP_QEMU set — skipping QEMU boot smoke test"
+  log_warn "  checksums + provenance still emitted; boot test falls to real hardware"
+  : > "${SOVEREIGN_OS_LOG_DIR}/qemu-boot-${SOVEREIGN_OS_BUILD_ID}.log"
 else
   : "${SOVEREIGN_OS_QEMU_TIMEOUT:=300}"
   : "${SOVEREIGN_OS_QEMU_MEM:=4G}"
@@ -228,5 +233,12 @@ fi
 
 emit_metric sovereign_os_build_step_image_verify_total 1 \
   "profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"success\""
-state_step_complete "${STEP_ID}"
-log_info "step ${STEP_ID} complete"
+if [ -n "${SOVEREIGN_OS_DRY_RUN:-}" ]; then
+  # Boot smoke did not run — record 'dry-run', NOT 'completed', so the
+  # next real run still executes it (resume-state poisoning guard).
+  state_step_dry_run "${STEP_ID}"
+  log_info "step ${STEP_ID} dry-run pass complete (boot smoke pending real run)"
+else
+  state_step_complete "${STEP_ID}"
+  log_info "step ${STEP_ID} complete"
+fi

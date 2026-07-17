@@ -241,10 +241,39 @@ def test_state_defines_step_lifecycle_functions():
     """R405 9-step pipeline asserts state_step_start / _complete /
     _fail are called. They MUST exist in state.sh."""
     body = _read(STATE)
-    for fn in ("state_step_start", "state_step_complete", "state_step_fail"):
+    for fn in (
+        "state_step_start",
+        "state_step_complete",
+        "state_step_fail",
+        "state_step_dry_run",
+    ):
         assert re.search(rf"^{re.escape(fn)}\(\)", body, re.M), (
             f"state.sh missing {fn}() — R405 build pipeline depends on it"
         )
+
+
+def test_state_dry_run_never_records_completed():
+    """state_step_dry_run MUST record a non-'completed' status —
+    state_step_should_run only skips on 'completed', so a dry-run
+    record must never make a later REAL run skip the step body
+    (resume-state poisoning, found + fixed 2026-07-17)."""
+    body = _read(STATE)
+    m = re.search(
+        r"^state_step_dry_run\(\)\s*\{(.*?)^\}", body, re.M | re.S
+    )
+    assert m, "state.sh missing state_step_dry_run() body"
+    fn_body = "\n".join(
+        ln for ln in m.group(1).splitlines()
+        if not ln.lstrip().startswith("#")
+    )
+    assert "'completed'" not in fn_body and '"completed"' not in fn_body, (
+        "state_step_dry_run writes 'completed' — that re-introduces "
+        "dry-run resume poisoning (real runs would skip the step body)"
+    )
+    assert "dry-run" in fn_body, (
+        "state_step_dry_run must record the 'dry-run' status marker "
+        "(operator-discoverable in state.yaml)"
+    )
 
 
 def test_state_defines_should_run():

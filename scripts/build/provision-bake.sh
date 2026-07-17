@@ -333,7 +333,8 @@ if [ "${SOVEREIGN_OS_BAKE_FIRSTBOOT:-}" = "1" ] && [ -d "${REPO}/systemd/system"
     "${SOVEREIGN_OS_PROFILE:-sain-01}" "${REPO}" > /etc/sovereign-os/active-profile.env
   FB_UNITS=(sovereign-firstboot.target sovereign-firstboot.service
             sovereign-friction-audit.service sovereign-vfio-bind.service
-            sovereign-network-vlan.service sovereign-tetragon-policy-load.service
+            sovereign-network-vlan.service
+            sovereign-tetragon-install.service sovereign-tetragon-policy-load.service
             sovereign-zfs-arc-clamp.service sovereign-nvidia-driver-install.service
             sovereign-nvidia-driver-bind.service
             sovereign-warp-setup.service

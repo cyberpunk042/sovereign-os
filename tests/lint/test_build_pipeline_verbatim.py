@@ -131,6 +131,35 @@ def test_each_step_uses_state_step_complete():
         )
 
 
+def test_dry_run_branches_use_state_step_dry_run_not_complete():
+    """A SOVEREIGN_OS_DRY_RUN branch MUST close out with
+    state_step_dry_run, never state_step_complete — completing a
+    dry-run with the real inputs_hash makes the next REAL run skip the
+    step body entirely (resume-state poisoning, found + fixed
+    2026-07-17). Checks every step that short-circuits on DRY_RUN."""
+    for step_id in STEPS_EXPECTED:
+        body = _read_step(step_id)
+        if "SOVEREIGN_OS_DRY_RUN" not in body:
+            continue  # step has no dry-run branch; orchestrator gates it
+        lines = body.splitlines()
+        for i, ln in enumerate(lines):
+            if "SOVEREIGN_OS_DRY_RUN:-" in ln and not ln.lstrip().startswith("#"):
+                # Scan only the dry-run ARM: stop at the else/fi that
+                # closes it (the else arm is the real-run path, where
+                # state_step_complete is correct).
+                branch: list[str] = []
+                for nxt in lines[i + 1 : i + 11]:
+                    if nxt.strip() in ("else", "fi") or nxt.strip().startswith("elif "):
+                        break
+                    branch.append(nxt)
+                window = "\n".join(branch)
+                assert "state_step_complete" not in window, (
+                    f"{step_id}.sh dry-run branch calls state_step_complete "
+                    f"— must call state_step_dry_run instead (resume-state "
+                    f"poisoning: real run would skip the step body)"
+                )
+
+
 def test_each_step_handles_failure_via_state_step_fail():
     """Each step that can fail MUST call state_step_fail with a
     kebab-case reason (operator-discovery: state.yaml shows WHY)."""

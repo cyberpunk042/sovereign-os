@@ -105,6 +105,30 @@ p.write_text(out)
 "
 }
 
+state_step_dry_run() {
+  # state_step_dry_run <step-id>
+  # Close out a dry-run pass. The step BODY was not executed, so the
+  # record must NOT read 'completed' — state_step_should_run only skips
+  # on 'completed', and a later REAL run has to execute the body.
+  # (Steps 05/06/08 previously called state_step_complete under
+  # SOVEREIGN_OS_DRY_RUN=1 with the real inputs_hash; the next real run
+  # then skipped the step body entirely — resume-state poisoning,
+  # found + fixed 2026-07-17.)
+  local step="$1"
+  local now
+  now="$(date -u --iso-8601=seconds)"
+  python3 -c "
+import sys, re, pathlib
+p = pathlib.Path('${SOVEREIGN_OS_STATE_FILE}')
+txt = p.read_text()
+pat = re.compile(r'(  ${step}:\n    status: )running(\n    started_at: \"[^\"]+\"\n    inputs_hash: \"[^\"]*\")(.*?)(\n  [a-z]|\Z)', re.S)
+def sub(m):
+    return m.group(1) + 'dry-run' + m.group(2) + '\n    dry_run_at: \"${now}\"' + m.group(3) + m.group(4)
+out = pat.sub(sub, txt, count=1)
+p.write_text(out)
+"
+}
+
 state_step_fail() {
   # state_step_fail <step-id> <error-message>
   local step="$1" error_msg="${2:-unknown}"

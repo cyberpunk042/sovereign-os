@@ -108,7 +108,9 @@ if [ -n "${SOVEREIGN_OS_DRY_RUN:-}" ]; then
   log_info "DRY-RUN — would sbsign with key=${sign_key} cert=${sign_cert}"
   log_info "DRY-RUN — would sbverify each signed binary"
   emit_sign_metric skip
-  state_step_complete "${STEP_ID}"
+  # Record 'dry-run', NOT 'completed' — completing here with the real
+  # inputs_hash makes the next REAL run skip this step body entirely.
+  state_step_dry_run "${STEP_ID}"
   exit 0
 fi
 

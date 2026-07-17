@@ -122,6 +122,24 @@ else
   ko "should_run should return 0 when inputs change (force rerun)"
 fi
 
+# --- state_step_dry_run: must NOT read completed; real run still executes ---
+state_step_start "test-step-dry" "cafebabe"
+state_step_dry_run "test-step-dry"
+status="$(state_step_status test-step-dry)"
+if [ "${status}" = "dry-run" ]; then
+  ok "state_step_dry_run transitions status to dry-run (not completed)"
+else
+  ko "after state_step_dry_run, status='${status}' (want 'dry-run')"
+fi
+grep -q "dry_run_at:" "${SOVEREIGN_OS_STATE_FILE}" \
+  && ok "state file records dry_run_at timestamp" \
+  || ko "dry_run_at not recorded"
+if state_step_should_run test-step-dry "cafebabe"; then
+  ok "should_run returns 0 (run) after dry-run with same hash — no resume poisoning"
+else
+  ko "should_run should return 0 after dry-run (dry-run must never skip a real run)"
+fi
+
 # --- state_step_fail ---
 state_step_start "test-step-2" "feedface"
 state_step_fail "test-step-2" "synthetic-error-for-test"

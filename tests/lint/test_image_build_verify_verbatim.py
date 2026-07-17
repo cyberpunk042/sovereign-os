@@ -305,6 +305,37 @@ def test_step_09_in_toto_statement_v1():
     )
 
 
+def test_step_09_skip_qemu_still_emits_provenance():
+    """SOVEREIGN_OS_SKIP_QEMU skips ONLY the boot smoke — the SDD-019
+    reproducibility artifacts MUST still be emitted. Drift back to an
+    early `state_step_complete; exit 0` guard starves every no-KVM/CI
+    build of sha256sums.txt + build-provenance.json, breaking
+    `sovereign-osctl audit provenance` on exactly the runners the env
+    var exists for (found + fixed 2026-07-17)."""
+    body = _read(STEP_09)
+    lines = body.splitlines()
+    guard_idx = [
+        i for i, ln in enumerate(lines)
+        if "SOVEREIGN_OS_SKIP_QEMU:-" in ln and not ln.lstrip().startswith("#")
+    ]
+    assert guard_idx, (
+        "09-image-verify.sh lost its SOVEREIGN_OS_SKIP_QEMU guard entirely"
+    )
+    for i in guard_idx:
+        window = "\n".join(lines[i : i + 6])
+        assert "exit 0" not in window, (
+            "09-image-verify.sh SKIP_QEMU guard early-exits again — "
+            "provenance emission (SDD-019) must run even when QEMU is "
+            "skipped; skip only the boot section"
+        )
+    # The skip branch must live INSIDE the boot section (elif of the
+    # dry-run/boot dispatcher), before the reproducibility block.
+    assert 'elif [ -n "${SOVEREIGN_OS_SKIP_QEMU:-}" ]' in body, (
+        "09-image-verify.sh missing elif SKIP_QEMU boot-skip branch "
+        "(the sanctioned shape: skip boot only, keep provenance)"
+    )
+
+
 def test_step_09_qemu_timeout_exit_124():
     """When QEMU hits the timeout, exit code is 124 (operator-verbatim
     GNU coreutils 'timeout' convention). Drift breaks the per-rc

@@ -40,7 +40,9 @@ if [ -n "${SOVEREIGN_OS_DRY_RUN:-}" ]; then
   log_warn "SOVEREIGN_OS_DRY_RUN set — skipping defconfig + olddefconfig"
   emit_metric sovereign_os_build_step_kernel_config_total 1 \
     "profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"dry-run\""
-  state_step_complete "${STEP_ID}"
+  # Record 'dry-run', NOT 'completed' — completing here with the real
+  # inputs_hash makes the next REAL run skip this step body entirely.
+  state_step_dry_run "${STEP_ID}"
   exit 0
 fi
 
