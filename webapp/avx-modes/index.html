@@ -1216,6 +1216,26 @@ html[data-theme="light"] {
       <div class="mono" id="m8-mc-out" style="font-size:.74rem;"></div>
     </div>
   </div>
+
+  <h2 class="avx-h">M085 / M086 — the AVX-512 math tiers (builtin / hybrid)</h2>
+  <p class="avx-lead">The stock-AVX-512 <em>math</em> half the <span class="mono">builtin</span>/<span class="mono">hybrid</span> modes advertise — the M086 SIMD lift of the M085 three-tier references. Each computes live from the same logic as <span class="mono">sovereign-simd::lift</span> and the daemon's <span class="mono">/v1/math/*</span> routes. (The VNNI/BF16 AVX paths need CPU flags absent on this CI baseline, so they run scalar here + on capable hardware; the T2 VPTERNLOG fuse runs on any avx512f host.)</p>
+  <div class="m2-grid">
+    <div class="m2-card">
+      <h3>T1 VNNI INT8 dot (M085 / VPDPBUSD)</h3>
+      <p>Single-cycle INT8 matvec dot: <span class="mono">Σ a[i]·b[i]</span>. Comma-separated bytes.</p>
+      <label class="mono" style="font-size:.72rem;">a (u8) <input id="m85-a" class="so-set-mini" value="1,2,3,4" size="16"></label>
+      <label class="mono" style="font-size:.72rem;">b (i8) <input id="m85-b" class="so-set-mini" value="1,1,1,1" size="16"></label>
+      <div class="mono" id="m85-dot" style="font-size:.82rem;margin-top:.3rem;"></div>
+    </div>
+    <div class="m2-card">
+      <h3>T2 attention-mask fuse (M085 / VPTERNLOG)</h3>
+      <p>One instruction fuses <span class="mono">query ∧ key ∧ causal</span> into the attention-allow mask (imm8 = 0x80).</p>
+      <label class="mono" style="font-size:.72rem;">query <input id="m85-q" class="so-set-mini" value="0xFF" size="8"></label>
+      <label class="mono" style="font-size:.72rem;">key <input id="m85-k" class="so-set-mini" value="0x3C" size="8"></label>
+      <label class="mono" style="font-size:.72rem;">causal <input id="m85-c" class="so-set-mini" value="0x0F" size="8"></label>
+      <div class="mono" id="m85-attn" style="font-size:.82rem;margin-top:.3rem;"></div>
+    </div>
+  </div>
 </main>
 
 <!-- SDD-045 shared control-surface, inlined verbatim from webapp/_shared/control-surface.js -->
@@ -1722,6 +1742,22 @@ html[data-theme="light"] {
     mc.innerHTML=""; ops.forEach(function(o,k){ if(k){var a=document.createElement("span");a.className="arrow";a.textContent="→";mc.appendChild(a);}
       var e=document.createElement("span");e.className="s";e.textContent=o;mc.appendChild(e); });
     mcOut.innerHTML="outcome: commit="+commit+" sandboxed="+sand+" audited="+((flags&8)!==0)+" gate="+((flags&1)!==0); }
+
+  // ── M085/M086 math tiers ──
+  // T1 VNNI INT8 dot — Σ a[i]·b[i] (a unsigned, b signed), mirrors sovereign-simd::lift::dot_i8
+  var m85a=document.getElementById("m85-a"),m85b=document.getElementById("m85-b"),m85dot=document.getElementById("m85-dot");
+  function m85DotRefresh(){ if(!m85dot)return;
+    var pa=(m85a.value||"").split(",").map(function(x){return (parseInt(x.trim(),10)||0)&0xFF;});
+    var pb=(m85b.value||"").split(",").map(function(x){var v=parseInt(x.trim(),10)||0; v&=0xFF; return v>127?v-256:v;}); // i8
+    var n=Math.min(pa.length,pb.length),dot=0; for(var i=0;i<n;i++) dot+=pa[i]*pb[i];
+    m85dot.innerHTML="dot = <span class=\"cw-hi\">"+dot+"</span>  (Σ over "+n+" lanes)"; }
+  if(m85a){ [m85a,m85b].forEach(function(e){ e.addEventListener("input",m85DotRefresh); }); m85DotRefresh(); }
+
+  // T2 VPTERNLOG attention fuse — query & key & causal
+  var m85q=document.getElementById("m85-q"),m85k=document.getElementById("m85-k"),m85c=document.getElementById("m85-c"),m85attn=document.getElementById("m85-attn");
+  function m85AttnRefresh(){ if(!m85attn)return; var allow=fpParse(m85q.value)&fpParse(m85k.value)&fpParse(m85c.value);
+    m85attn.innerHTML="allow = query &amp; key &amp; causal = <span class=\"cw-hi\">0x"+allow.toString(16).toUpperCase()+"</span>  (0b"+allow.toString(2).padStart(8,"0")+")"; }
+  if(m85q){ [m85q,m85k,m85c].forEach(function(e){ e.addEventListener("input",m85AttnRefresh); }); m85AttnRefresh(); }
 
   // ── M002 dashboards (F00090/108/137/144/153/162/128) ──
   // round_update mirror (BigInt u64) — identical to sovereign-simd::round + simd-round.py.

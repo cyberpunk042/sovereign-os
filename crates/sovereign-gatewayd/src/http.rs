@@ -24,7 +24,9 @@
 //! POST /v1/control-word/round -> {"kind":"control-word-round",…} M002 round engine (reads the live avx-mode switch)
 //! GET  /v1/control-word/config -> {"kind":"control-word-config",…} live resolved avx-mode + round/control-word knobs
 //! POST /v1/branch-scheduler/tick -> {"kind":"branch-scheduler-tick",…} M007 8-step branch loop (M002+M007+M008 capstone)
-//! POST /v1/branch-scheduler/tick-v2 -> {"kind":"branch-scheduler-tick-v2",…} v2 tick consuming predictor + rule-table + recall + microcode
+//! POST /v1/branch-scheduler/tick-v2 -> {"kind":"branch-scheduler-tick-v2",…} v2 tick (predictor + rule-table + recall + microcode; session_id = stateful learning)
+//! POST /v1/math/dot-i8 -> {"kind":"math-dot-i8",…} M085 T1 VNNI INT8 dot (VPDPBUSD)
+//! POST /v1/math/attention-fuse -> {"kind":"math-attention-fuse",…} M085 T2 VPTERNLOG attention-mask fuse
 //! POST /v1/token-law/allowed-mask -> {"kind":"token-law-allowed-mask",…} M008 token-law bitset combine (F00623)
 //! POST /v1/microcode/decode -> {"kind":"microcode-decode",…} M008 control word as executable micro-op program (M00113)
 //! ```
@@ -153,6 +155,8 @@ pub fn respond(server: &GatewayServer, method: &str, path: &str, body: &str) -> 
         ("POST", "/v1/branch-scheduler/tick") => branch_scheduler_tick(body),
         ("POST", "/v1/branch-scheduler/tick-v2") => branch_scheduler_tick_v2(body),
         ("POST", "/v1/token-law/allowed-mask") => token_law_allowed_mask(body),
+        ("POST", "/v1/math/dot-i8") => math_dot_i8(body),
+        ("POST", "/v1/math/attention-fuse") => math_attention_fuse(body),
         ("POST", "/v1/microcode/decode") => microcode_decode(body),
         ("POST", "/v1/models/load") => models_load(server, body),
         ("POST", "/v1/models/unload") => models_unload(server, body),
@@ -577,7 +581,7 @@ fn branch_scheduler_tick(body: &str) -> HttpReply {
 /// The predictor starts fresh per request (stateless HTTP); its learn happens
 /// within the tick, so `predictor_accuracy` reflects this tick's retirement.
 fn branch_scheduler_tick_v2(body: &str) -> HttpReply {
-    use sovereign_bit_cheats::TwoLevelTable;
+    use sovereign_bit_cheats::{BranchPredictor, TwoLevelTable};
     use sovereign_branch_scheduler::{BranchBatch, SchedulerContext, tick_v2};
 
     #[derive(serde::Deserialize)]
@@ -591,6 +595,9 @@ fn branch_scheduler_tick_v2(body: &str) -> HttpReply {
         memory_bank: Vec<u64>,
         #[serde(default = "default_min_score_v2")]
         verify_min_score: u32,
+        /// When present, the branch predictor persists under this key across
+        /// requests, so M00121 prediction *learns across ticks* (stateful).
+        session_id: Option<String>,
     }
     fn default_min_score_v2() -> u32 {
         1
@@ -605,15 +612,95 @@ fn branch_scheduler_tick_v2(body: &str) -> HttpReply {
             );
         }
     };
-    let mut ctx = SchedulerContext::new(
+
+    // Load the session's predictor (or a fresh one) so learning continues.
+    let predictor = match &req.session_id {
+        Some(id) => scheduler_sessions()
+            .lock()
+            .unwrap()
+            .get(id)
+            .cloned()
+            .unwrap_or_else(|| BranchPredictor::new(8)),
+        None => BranchPredictor::new(8),
+    };
+    let mut ctx = SchedulerContext::with_predictor(
+        predictor,
         TwoLevelTable::new(req.rule_table),
         req.event_class,
         req.memory_bank,
     );
     let result = tick_v2(&req.batch, &mut ctx, req.verify_min_score);
+    // Persist the learned predictor back under the session key.
+    if let Some(id) = &req.session_id {
+        scheduler_sessions()
+            .lock()
+            .unwrap()
+            .insert(id.clone(), ctx.predictor.clone());
+    }
     json_reply(
         200,
-        &serde_json::json!({ "kind": "branch-scheduler-tick-v2", "result": result }),
+        &serde_json::json!({
+            "kind": "branch-scheduler-tick-v2",
+            "session_id": req.session_id,
+            "result": result,
+        }),
+    )
+}
+
+/// The process-global predictor session store (M00121 cross-request learning).
+/// Keyed by `session_id`; holds only the predictor (the state worth persisting).
+fn scheduler_sessions() -> &'static std::sync::Mutex<
+    std::collections::HashMap<String, sovereign_bit_cheats::BranchPredictor>,
+> {
+    use std::sync::{Mutex, OnceLock};
+    static SESSIONS: OnceLock<
+        Mutex<std::collections::HashMap<String, sovereign_bit_cheats::BranchPredictor>>,
+    > = OnceLock::new();
+    SESSIONS.get_or_init(|| Mutex::new(std::collections::HashMap::new()))
+}
+
+/// `POST /v1/math/dot-i8` — M085 T1 VNNI INT8 dot product (`Σ a[i]·b[i]`),
+/// dispatching to `_mm512_dpbusd_epi32` (VPDPBUSD) when the host has `avx512vnni`
+/// else the scalar reference. Body: `{ "a": [u8,…], "b": [i8,…] }`.
+fn math_dot_i8(body: &str) -> HttpReply {
+    #[derive(serde::Deserialize)]
+    struct Req {
+        a: Vec<u8>,
+        b: Vec<i8>,
+    }
+    let req: Req = match serde_json::from_str(body) {
+        Ok(r) => r,
+        Err(e) => return err(400, format!("invalid dot-i8 request: {e}")),
+    };
+    json_reply(
+        200,
+        &serde_json::json!({
+            "kind": "math-dot-i8",
+            "dot": sovereign_simd::lift::dot_i8(&req.a, &req.b),
+            "avx512vnni": cfg!(target_arch = "x86_64")
+                && std::is_x86_feature_detected!("avx512vnni"),
+        }),
+    )
+}
+
+/// `POST /v1/math/attention-fuse` — M085 T2 VPTERNLOG attention-mask fusion
+/// (`query ∧ key ∧ causal`), a single-instruction fuse per 8 words on any
+/// `avx512f` host. Body: `{ "query": [u64,…], "key": [u64,…], "causal": [u64,…] }`.
+fn math_attention_fuse(body: &str) -> HttpReply {
+    #[derive(serde::Deserialize)]
+    struct Req {
+        query: Vec<u64>,
+        key: Vec<u64>,
+        causal: Vec<u64>,
+    }
+    let req: Req = match serde_json::from_str(body) {
+        Ok(r) => r,
+        Err(e) => return err(400, format!("invalid attention-fuse request: {e}")),
+    };
+    let allow = sovereign_simd::lift::attention_mask_fuse(&req.query, &req.key, &req.causal);
+    json_reply(
+        200,
+        &serde_json::json!({ "kind": "math-attention-fuse", "allow": allow }),
     )
 }
 
@@ -1248,6 +1335,80 @@ mod tests {
             respond(&srv(), "POST", "/v1/branch-scheduler/tick-v2", "{").status,
             400
         );
+    }
+
+    #[test]
+    fn tick_v2_session_predictor_learns_across_requests() {
+        // all 8 branches commit every tick; with a session_id the predictor
+        // persists, so predicted_commit climbs from 0 (fresh) toward 0xFF.
+        let body = serde_json::json!({
+            "batch": {
+                "id": [0,1,2,3,4,5,6,7],
+                "control": [1,1,1,1,1,1,1,1],
+                "budget": [1,1,1,1,1,1,1,1],
+                "score": [100,100,100,100,100,100,100,100],
+                "grammar": [1,1,1,1,1,1,1,1],
+                "memory": [0,0,0,0,0,0,0,0],
+                "route": [0,0,0,0,0,0,0,0]
+            },
+            "verify_min_score": 50,
+            "session_id": "sess-learn"
+        })
+        .to_string();
+        let first = body_of(&respond(
+            &srv(),
+            "POST",
+            "/v1/branch-scheduler/tick-v2",
+            &body,
+        ));
+        // fresh predictor predicts nothing at the first draft
+        assert_eq!(first["result"]["predicted_commit"], 0);
+        // drive several ticks under the same session
+        let mut last = first;
+        for _ in 0..4 {
+            last = body_of(&respond(
+                &srv(),
+                "POST",
+                "/v1/branch-scheduler/tick-v2",
+                &body,
+            ));
+        }
+        assert_eq!(last["session_id"], "sess-learn");
+        assert_eq!(
+            last["result"]["predicted_commit"], 0xFF,
+            "predictor learned across requests"
+        );
+        // a DIFFERENT session starts fresh (isolation)
+        let other = body.replace("sess-learn", "sess-other");
+        let o = body_of(&respond(
+            &srv(),
+            "POST",
+            "/v1/branch-scheduler/tick-v2",
+            &other,
+        ));
+        assert_eq!(o["result"]["predicted_commit"], 0, "sessions are isolated");
+    }
+
+    #[test]
+    fn post_math_dot_i8_and_attention_fuse() {
+        // VNNI INT8 dot: [1,2,3,4]·[1,1,1,1] = 10
+        let v = body_of(&respond(
+            &srv(),
+            "POST",
+            "/v1/math/dot-i8",
+            &serde_json::json!({ "a": [1,2,3,4], "b": [1,1,1,1] }).to_string(),
+        ));
+        assert_eq!(v["kind"], "math-dot-i8");
+        assert_eq!(v["dot"], 10);
+        // VPTERNLOG attention fuse: query ∧ key ∧ causal
+        let a = body_of(&respond(
+            &srv(),
+            "POST",
+            "/v1/math/attention-fuse",
+            &serde_json::json!({ "query": [0xFF], "key": [0x3C], "causal": [0x0F] }).to_string(),
+        ));
+        assert_eq!(a["allow"][0], 0x0C); // 0xFF & 0x3C & 0x0F
+        assert_eq!(respond(&srv(), "POST", "/v1/math/dot-i8", "{").status, 400);
     }
 
     #[test]
