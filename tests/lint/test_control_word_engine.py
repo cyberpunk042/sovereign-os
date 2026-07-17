@@ -85,6 +85,31 @@ def test_parity_with_rust_crate_and_panel():
         "control-word layout diverged from the Rust crate / panel parity constant")
 
 
+def test_generic_pack_unpack_and_overflow_modes():
+    m = _mod()
+    lanes = [0, 1, 2, 200, 255, 128, 7, 42]
+    assert m.unpack_u64(m.pack_u64(lanes)) == lanes
+    # overflow modes (R00318-320): mode field is 4-bit (max 15)
+    import pytest
+    with pytest.raises(ValueError):
+        m.encode_mode({"mode": 20}, "abort")
+    assert m.encode_mode({"mode": 20}, "wrap") & 0xF == 20 & 0xF   # 4
+    assert m.encode_mode({"mode": 20}, "saturate") & 0xF == 15     # clamp
+
+
+def test_rule_word_widths():
+    m = _mod()
+    # 0x2A = 0b101010 → bit1=1, bit2=0 in every width
+    for width in (32, 64, 128):
+        assert m.rule_decide(width, 0x2A, 0, 1) == 1
+        assert m.rule_decide(width, 0x2A, 0, 2) == 0
+    # 128-bit: condition 64 selects the hi limb
+    assert m.rule_decide(128, 0, 1, 64) == 1
+    # 32-bit and 64-bit agree on the first 32 conditions (R00258)
+    for c in range(32):
+        assert m.rule_decide(32, 0xDEADBEEF, 0, c) == m.rule_decide(64, 0xDEADBEEF, 0, c)
+
+
 def test_cli_encode_decode_lut_end_to_end():
     def run(*a):
         return subprocess.run([sys.executable, str(ENGINE), *a],

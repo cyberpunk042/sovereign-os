@@ -436,6 +436,121 @@ pub mod m00013 {
         }
     }
 
+    // ── M00027 / M00028 — the generic bit-packing helper (R00263 / R00264) ──
+
+    /// Generic bit-packer (M00027, R00263): pack 8 lanes (low byte of each) into
+    /// one u64 — lane `i` occupies bits `i*8 .. i*8+8`. The layout-agnostic helper
+    /// the typed [`Fields`] builds on.
+    pub fn pack_u64(lanes: &[u16; 8]) -> u64 {
+        let mut w = 0u64;
+        for (i, &v) in lanes.iter().enumerate() {
+            w |= ((v & 0xFF) as u64) << (i * 8);
+        }
+        w
+    }
+
+    /// Generic bit-extract (M00028, R00264): the inverse of [`pack_u64`].
+    pub fn unpack_u64(word: u64) -> [u16; 8] {
+        let mut out = [0u16; 8];
+        for (i, o) in out.iter_mut().enumerate() {
+            *o = ((word >> (i * 8)) & 0xFF) as u16;
+        }
+        out
+    }
+
+    // ── Overflow policy (R00318 / R00319 / R00320) ──
+
+    /// How field packing treats a value past its bit width.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+    #[serde(rename_all = "kebab-case")]
+    pub enum OverflowMode {
+        /// Reject (the safe default cortex relies on). R00320.
+        #[default]
+        Abort,
+        /// Mask to the field width. R00319.
+        Wrap,
+        /// Clamp to the field's max. R00318.
+        Saturate,
+    }
+
+    impl Fields {
+        /// Pack under an explicit [`OverflowMode`] (R00318-320). `Abort` matches
+        /// [`Fields::pack`]; `Wrap` masks; `Saturate` clamps.
+        pub fn pack_mode(&self, mode: OverflowMode) -> Result<u64, Overflow> {
+            let vals: [(&'static str, u16, u32, u32); 7] = [
+                ("mode", self.mode, 0, 4),
+                ("event", self.event, 4, 4),
+                ("intensity", self.intensity, 8, 8),
+                ("cooldown", self.cooldown, 16, 8),
+                ("neighborhood", self.neighborhood, 24, 8),
+                ("paramA", self.param_a, 32, 16),
+                ("paramB", self.param_b, 48, 16),
+            ];
+            let mut word = 0u64;
+            for (field, value, shift, width) in vals {
+                let max = ((1u32 << width) - 1) as u16;
+                let v = match mode {
+                    OverflowMode::Abort if value > max => {
+                        return Err(Overflow {
+                            field,
+                            value,
+                            width,
+                            max,
+                        });
+                    }
+                    OverflowMode::Saturate => value.min(max),
+                    _ => value & max, // Wrap (and the in-range Abort case)
+                };
+                word |= (v as u64) << shift;
+            }
+            Ok(word)
+        }
+    }
+
+    // ── M00022 / M00023 / M00024 — rule words of 32 / 64 / 128 bits ──
+
+    /// A boolean rule table of 32, 64, or 128 entries — one bit per condition.
+    /// 32-bit → 5-bit condition, 64-bit → 6-bit, 128-bit → 7-bit (two u64 limbs).
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+    pub enum RuleWord {
+        /// 32-entry table (R00250 / R00300-301).
+        U32(u32),
+        /// 64-entry table (R00251 / R00302-303).
+        U64(u64),
+        /// 128-entry table across two limbs (R00252 / R00304-307).
+        U128 {
+            /// entries 0..64
+            lo: u64,
+            /// entries 64..128
+            hi: u64,
+        },
+    }
+
+    impl RuleWord {
+        /// The condition width in bits (5 / 6 / 7).
+        pub fn condition_bits(&self) -> u32 {
+            match self {
+                RuleWord::U32(_) => 5,
+                RuleWord::U64(_) => 6,
+                RuleWord::U128 { .. } => 7,
+            }
+        }
+
+        /// The decision bit for `condition` (masked to this width). The generic
+        /// M00017 LUT across all three widths (R00300-307).
+        pub fn decide(&self, condition: u32) -> u8 {
+            match self {
+                RuleWord::U32(w) => ((w >> (condition & 31)) & 1) as u8,
+                RuleWord::U64(w) => ((w >> (condition & 63)) & 1) as u8,
+                RuleWord::U128 { lo, hi } => {
+                    let c = condition & 127; // 7-bit
+                    let limb = if c < 64 { lo } else { hi }; // bit-6 selects limb
+                    ((limb >> (c & 63)) & 1) as u8 // bits 0..5 select entry
+                }
+            }
+        }
+    }
+
     #[cfg(test)]
     mod tests {
         use super::*;
@@ -577,6 +692,64 @@ pub mod m00013 {
             // non-committed (expand) → no shell
             let expand = Fields { mode: 2, ..zero() }.pack().unwrap();
             assert!(!branch_permissions(expand).shell_allowed);
+        }
+
+        #[test]
+        fn generic_pack_unpack_round_trips() {
+            let lanes = [0u16, 1, 2, 200, 255, 128, 7, 42];
+            assert_eq!(unpack_u64(pack_u64(&lanes)), lanes);
+            // each lane is one byte at i*8
+            assert_eq!(pack_u64(&[0xFF, 0, 0, 0, 0, 0, 0, 0]) & 0xFF, 0xFF);
+            assert_eq!(pack_u64(&[0, 0, 0, 0, 0, 0, 0, 0xFF]) >> 56, 0xFF);
+        }
+
+        #[test]
+        fn overflow_modes_wrap_saturate_abort() {
+            // paramA (16-bit, max 65535) is fine; mode (4-bit, max 15) overflows at 16
+            let f = Fields { mode: 20, ..zero() };
+            assert!(f.pack_mode(OverflowMode::Abort).is_err());
+            assert_eq!(f.pack_mode(OverflowMode::Saturate).unwrap() & 0xF, 15); // clamp
+            assert_eq!(f.pack_mode(OverflowMode::Wrap).unwrap() & 0xF, 20 & 0xF); // 4
+            // in-range value is identical across all modes
+            let g = Fields {
+                mode: 3,
+                param_a: 4242,
+                ..zero()
+            };
+            let w = g.pack().unwrap();
+            for m in [
+                OverflowMode::Abort,
+                OverflowMode::Wrap,
+                OverflowMode::Saturate,
+            ] {
+                assert_eq!(g.pack_mode(m).unwrap(), w);
+            }
+        }
+
+        #[test]
+        fn rule_word_widths_32_64_128() {
+            assert_eq!(RuleWord::U32(0).condition_bits(), 5);
+            assert_eq!(RuleWord::U64(0).condition_bits(), 6);
+            assert_eq!(RuleWord::U128 { lo: 0, hi: 0 }.condition_bits(), 7);
+            // 0b101010 = 0x2A in each width → bit 1 = 1, bit 2 = 0
+            for rw in [
+                RuleWord::U32(0x2A),
+                RuleWord::U64(0x2A),
+                RuleWord::U128 { lo: 0x2A, hi: 0 },
+            ] {
+                assert_eq!(rw.decide(1), 1);
+                assert_eq!(rw.decide(2), 0);
+            }
+            // 128-bit: condition 64 selects the hi limb, bit 0
+            assert_eq!(RuleWord::U128 { lo: 0, hi: 1 }.decide(64), 1);
+            assert_eq!(RuleWord::U128 { lo: 1, hi: 0 }.decide(0), 1);
+            // 32-bit and 64-bit agree on the first 32 conditions (R00258)
+            for c in 0..32 {
+                assert_eq!(
+                    RuleWord::U32(0xDEAD_BEEF).decide(c),
+                    RuleWord::U64(0xDEAD_BEEF).decide(c)
+                );
+            }
         }
     }
 }

@@ -80,6 +80,47 @@ def lut(rule_word: int, condition: int) -> int:
     return (int(rule_word) >> (int(condition) & 63)) & 1
 
 
+def pack_u64(lanes: list[int]) -> int:
+    """M00027/R00263 generic packer — 8 lanes, low byte each, lane i at bits i*8."""
+    w = 0
+    for i, v in enumerate(lanes[:8]):
+        w |= (int(v) & 0xFF) << (i * 8)
+    return w
+
+
+def unpack_u64(word: int) -> list[int]:
+    """M00028/R00264 — the inverse of pack_u64."""
+    return [(int(word) >> (i * 8)) & 0xFF for i in range(8)]
+
+
+def rule_decide(width: int, lo: int, hi: int, condition: int) -> int:
+    """M00022-24 — the decision bit for a 32/64/128-bit rule word."""
+    if width == 32:
+        return (int(lo) >> (int(condition) & 31)) & 1
+    if width == 64:
+        return (int(lo) >> (int(condition) & 63)) & 1
+    c = int(condition) & 127  # 128-bit: bit 6 selects limb, bits 0..5 the entry
+    limb = lo if c < 64 else hi
+    return (int(limb) >> (c & 63)) & 1
+
+
+def encode_mode(values: dict[str, int], mode: str) -> int:
+    """R00318-320 overflow policy: abort (default) / wrap / saturate."""
+    word = 0
+    for name, shift, width in FIELDS:
+        v = int(values.get(name, 0))
+        hi = (1 << width) - 1
+        if mode == "abort":
+            if v < 0 or v > hi:
+                raise ValueError(f"field {name!r} = {v} overflows its {width}-bit range (0..{hi})")
+        elif mode == "saturate":
+            v = max(0, min(v, hi))
+        else:  # wrap
+            v &= hi
+        word |= (v & hi) << shift
+    return word
+
+
 def _fmt_word(word: int) -> str:
     return f"0x{word:016X}"
 
@@ -94,6 +135,8 @@ def main(argv: list[str] | None = None) -> int:
     sp_enc = sub.add_parser("encode", help="pack fields → the u64 control word")
     for name, _s, _w in FIELDS:
         sp_enc.add_argument(f"--{name}", type=int, default=0)
+    sp_enc.add_argument("--overflow", choices=["abort", "wrap", "saturate"], default="abort",
+                        help="R00318-320 overflow policy (default abort)")
     sp_enc.add_argument("--json", action="store_true")
 
     sp_dec = sub.add_parser("decode", help="unpack a u64 control word → fields")
@@ -104,6 +147,21 @@ def main(argv: list[str] | None = None) -> int:
     sp_lut.add_argument("--rule-word", required=True, help="the 64-bit rule word (0x… or decimal)")
     sp_lut.add_argument("--condition", type=int, required=True, help="the 6-bit condition (0..63)")
     sp_lut.add_argument("--json", action="store_true")
+
+    sp_pack = sub.add_parser("pack", help="M00027 generic pack — 8 lanes (low byte each) → u64")
+    sp_pack.add_argument("--lanes", required=True, help="8 comma-separated values")
+    sp_pack.add_argument("--json", action="store_true")
+
+    sp_unpack = sub.add_parser("unpack", help="M00028 generic unpack — u64 → 8 lanes")
+    sp_unpack.add_argument("word", help="the packed word (0x… or decimal)")
+    sp_unpack.add_argument("--json", action="store_true")
+
+    sp_rule = sub.add_parser("rule", help="M00022-24 rule-word decision (32/64/128-bit)")
+    sp_rule.add_argument("--width", type=int, choices=[32, 64, 128], default=64)
+    sp_rule.add_argument("--lo", required=True, help="rule word (32/64) or low limb (128)")
+    sp_rule.add_argument("--hi", default="0", help="high limb (128-bit only)")
+    sp_rule.add_argument("--condition", type=int, required=True)
+    sp_rule.add_argument("--json", action="store_true")
 
     args = p.parse_args(argv)
     cmd = args.cmd or "layout"
@@ -124,7 +182,7 @@ def main(argv: list[str] | None = None) -> int:
     if cmd == "encode":
         vals = {name: getattr(args, name) for name, _s, _w in FIELDS}
         try:
-            word = encode(vals)
+            word = encode_mode(vals, getattr(args, "overflow", "abort"))
         except ValueError as e:
             print(f"error: {e}", file=sys.stderr)
             return 2
@@ -158,6 +216,38 @@ def main(argv: list[str] | None = None) -> int:
         else:
             print(f"lut({_fmt_word(rw)}, cond={args.condition}) = {bit}  "
                   f"(bit {args.condition & 63} of the rule word)")
+        return 0
+
+    if cmd == "pack":
+        lanes = [int(x, 0) for x in args.lanes.split(",")]
+        if len(lanes) != 8:
+            print("error: --lanes needs exactly 8 comma-separated values", file=sys.stderr)
+            return 2
+        w = pack_u64(lanes)
+        if getattr(args, "json", False):
+            print(json.dumps({"lanes": lanes, "word": w, "hex": _fmt_word(w),
+                              "roundtrip_ok": unpack_u64(w) == [x & 0xFF for x in lanes]}, indent=2))
+        else:
+            print(f"pack {lanes} = {_fmt_word(w)}  ({w})")
+        return 0
+
+    if cmd == "unpack":
+        w = _int(args.word)
+        lanes = unpack_u64(w)
+        if getattr(args, "json", False):
+            print(json.dumps({"word": w, "hex": _fmt_word(w), "lanes": lanes}, indent=2))
+        else:
+            print(f"{_fmt_word(w)} → lanes {lanes}")
+        return 0
+
+    if cmd == "rule":
+        lo, hi = _int(args.lo), _int(args.hi)
+        bit = rule_decide(args.width, lo, hi, args.condition)
+        if getattr(args, "json", False):
+            print(json.dumps({"width": args.width, "lo": lo, "hi": hi,
+                              "condition": args.condition, "decision": bit}, indent=2))
+        else:
+            print(f"rule[{args.width}-bit].decide(cond={args.condition}) = {bit}")
         return 0
 
     return 0
