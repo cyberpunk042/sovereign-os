@@ -19,11 +19,13 @@ EnvironmentFile=-/etc/sovereign-os/active-profile.env
 ExecStart=/opt/sovereign-os/scripts/hooks/post-install/tetragon-install.sh
 StandardOutput=journal
 StandardError=journal
-# ProtectSystem intentionally OFF: the vendor install.sh writes the
-# tetragon binaries to /usr/local/bin + its systemd unit under /usr —
-# a strict/full sandbox would break exactly the install this unit exists
-# to perform. Remaining defense-in-depth kept (R171 / Layer 1 lint).
-ProtectSystem=off
+# ProtectSystem=full keeps the root read-only by default; ReadWritePaths
+# re-opens the trees the vendor install.sh writes (tetragon binaries +
+# libs under /usr/local, its systemd unit under /usr|/etc, config under
+# /etc/tetragon) — same pattern as the nvidia-driver / openclaw install
+# units. Remaining R171 defense-in-depth kept.
+ProtectSystem=full
+ReadWritePaths=/usr /etc /var
 ProtectHome=true
 ProtectKernelTunables=true
 ProtectKernelModules=true
