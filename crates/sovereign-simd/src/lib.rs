@@ -39,6 +39,8 @@
 /// Schema version of the SIMD surface.
 pub const SCHEMA_VERSION: &str = "1.0.0";
 
+pub mod round;
+
 /// Whether the host CPU supports the AVX-512 Foundation feature set — the gate
 /// for [`sum_of_squares`]'s fast path. Always `false` off x86-64.
 #[must_use]

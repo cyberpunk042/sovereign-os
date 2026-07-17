@@ -1484,7 +1484,8 @@ html[data-theme="light"] {
     ["overflow_mode","SOVEREIGN_CTRL_OVERFLOW_MODE","abort",["abort","wrap","saturate"]],
     ["rule_word_width","SOVEREIGN_CTRL_RULE_WORD_WIDTH","64",["32","64","128"]],
     ["lut_condition_width","SOVEREIGN_CTRL_LUT_CONDITION_WIDTH","6",["5","6","7"]],
-    ["masked_op_mode","SOVEREIGN_CTRL_MASKED_OP_MODE","branchless",["branchless","branchy"]]
+    ["masked_op_mode","SOVEREIGN_CTRL_MASKED_OP_MODE","branchless",["branchless","branchy"]],
+    ["per_lane_dna","SOVEREIGN_CTRL_PER_LANE_DNA_ENABLED","off",["off","on"]]
   ];
   var cfgHost=document.getElementById("cw-cfg-fields");
   if(cfgHost){
@@ -1500,11 +1501,13 @@ html[data-theme="light"] {
       var resolved={}, envParts=[];
       CW_CFG.forEach(function(c){
         var v=document.getElementById("cw-cfg-"+c[0]).value;
-        var key=(c[0]==="rule_word_width"||c[0]==="lut_condition_width")?parseInt(v,10):v;
+        var key=v;
+        if(c[0]==="rule_word_width"||c[0]==="lut_condition_width") key=parseInt(v,10);
+        else if(c[0]==="per_lane_dna") key=(v==="on");   // boolean, matches crate/CLI
         resolved[c[0]]=key;
         if(v!==c[2]) envParts.push(c[1]+"="+v);   // only non-defaults are opt-in overrides
       });
-      cfgEnv.textContent=envParts.length? envParts.join(" ")+" control-word.py config" : "(all defaults)";
+      cfgEnv.textContent=envParts.length? "export "+envParts.join(" ") : "(all defaults)";
       cfgJson.textContent=JSON.stringify(resolved,null,2);
     }
     cfgRefresh();
