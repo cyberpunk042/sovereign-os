@@ -121,6 +121,49 @@ def encode_mode(values: dict[str, int], mode: str) -> int:
     return word
 
 
+LAYOUT_VERSION_SEMVER = "1.0.0"
+
+# The built-knob defaults — mirror crate m00013::ControlWordConfig::default().
+CONFIG_DEFAULTS: dict[str, object] = {
+    "layout_version": LAYOUT_VERSION_SEMVER,
+    "overflow_mode": "abort",
+    "rule_word_width": 64,
+    "lut_condition_width": 6,
+    "masked_op_mode": "branchless",
+}
+
+
+def resolve_config(get) -> dict[str, object]:
+    """R00183/196/206/254 — resolve the control-word runtime config over the
+    defaults using a getter (pure; parity with crate ControlWordConfig::resolve).
+    Invalid values are ignored so the loader never fails."""
+    c = dict(CONFIG_DEFAULTS)
+    v = get("SOVEREIGN_CTRL_WORD_LAYOUT_VERSION")
+    if v is not None:
+        parts = v.split(".")
+        if len(parts) == 3 and all(p.isdigit() for p in parts):
+            c["layout_version"] = v
+    v = get("SOVEREIGN_CTRL_OVERFLOW_MODE")
+    if v in ("abort", "wrap", "saturate"):
+        c["overflow_mode"] = v
+    v = get("SOVEREIGN_CTRL_RULE_WORD_WIDTH")
+    if v is not None and v.isdigit() and int(v) in (32, 64, 128):
+        c["rule_word_width"] = int(v)
+    v = get("SOVEREIGN_CTRL_LUT_CONDITION_WIDTH")
+    if v is not None and v.isdigit() and int(v) in (5, 6, 7):
+        c["lut_condition_width"] = int(v)
+    v = get("SOVEREIGN_CTRL_MASKED_OP_MODE")
+    if v in ("branchless", "branchy"):
+        c["masked_op_mode"] = v
+    return c
+
+
+def config_from_env() -> dict[str, object]:
+    import os
+
+    return resolve_config(lambda k: os.environ.get(k))
+
+
 def _fmt_word(word: int) -> str:
     return f"0x{word:016X}"
 
@@ -162,6 +205,10 @@ def main(argv: list[str] | None = None) -> int:
     sp_rule.add_argument("--hi", default="0", help="high limb (128-bit only)")
     sp_rule.add_argument("--condition", type=int, required=True)
     sp_rule.add_argument("--json", action="store_true")
+
+    sp_cfg = sub.add_parser(
+        "config", help="resolve the runtime config (SOVEREIGN_CTRL_* env → built knobs)")
+    sp_cfg.add_argument("--json", action="store_true")
 
     args = p.parse_args(argv)
     cmd = args.cmd or "layout"
@@ -248,6 +295,19 @@ def main(argv: list[str] | None = None) -> int:
                               "condition": args.condition, "decision": bit}, indent=2))
         else:
             print(f"rule[{args.width}-bit].decide(cond={args.condition}) = {bit}")
+        return 0
+
+    if cmd == "config":
+        cfg = config_from_env()
+        if getattr(args, "json", False):
+            print(json.dumps(cfg, indent=2))
+        else:
+            print("control-word runtime config (defaults + SOVEREIGN_CTRL_* env):")
+            for k, v in cfg.items():
+                env = "SOVEREIGN_CTRL_" + (
+                    "WORD_LAYOUT_VERSION" if k == "layout_version" else k.upper())
+                overridden = "" if v == CONFIG_DEFAULTS[k] else "  (overridden)"
+                print(f"  {k:<20} {v}{overridden}   [{env}]")
         return 0
 
     return 0

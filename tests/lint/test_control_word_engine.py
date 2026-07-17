@@ -110,6 +110,57 @@ def test_rule_word_widths():
         assert m.rule_decide(32, 0xDEADBEEF, 0, c) == m.rule_decide(64, 0xDEADBEEF, 0, c)
 
 
+def test_config_resolution_matches_crate_semantics():
+    m = _mod()
+    # Defaults (no env) — mirror crate ControlWordConfig::default().
+    d = m.resolve_config(lambda _k: None)
+    assert d == {
+        "layout_version": "1.0.0", "overflow_mode": "abort",
+        "rule_word_width": 64, "lut_condition_width": 6,
+        "masked_op_mode": "branchless",
+    }
+    # Every knob hot-swaps via its env var (opt-in override).
+    env = {
+        "SOVEREIGN_CTRL_WORD_LAYOUT_VERSION": "2.1.0",
+        "SOVEREIGN_CTRL_OVERFLOW_MODE": "saturate",
+        "SOVEREIGN_CTRL_RULE_WORD_WIDTH": "128",
+        "SOVEREIGN_CTRL_LUT_CONDITION_WIDTH": "7",
+        "SOVEREIGN_CTRL_MASKED_OP_MODE": "branchy",
+    }
+    full = m.resolve_config(lambda k: env.get(k))
+    assert full == {
+        "layout_version": "2.1.0", "overflow_mode": "saturate",
+        "rule_word_width": 128, "lut_condition_width": 7,
+        "masked_op_mode": "branchy",
+    }
+    # Invalid values are ignored — loader never fails, keeps defaults.
+    bad = {
+        "SOVEREIGN_CTRL_WORD_LAYOUT_VERSION": "not-a-semver",
+        "SOVEREIGN_CTRL_OVERFLOW_MODE": "explode",
+        "SOVEREIGN_CTRL_RULE_WORD_WIDTH": "17",
+        "SOVEREIGN_CTRL_LUT_CONDITION_WIDTH": "9",
+        "SOVEREIGN_CTRL_MASKED_OP_MODE": "sideways",
+    }
+    assert m.resolve_config(lambda k: bad.get(k)) == d
+
+
+def test_cli_config_verb_reads_env():
+    def run(env_extra):
+        import os
+        e = dict(os.environ)
+        e.update(env_extra)
+        return subprocess.run([sys.executable, str(ENGINE), "config", "--json"],
+                              capture_output=True, text=True, timeout=20, env=e)
+    import json as _json
+    r = run({})
+    assert r.returncode == 0
+    assert _json.loads(r.stdout)["overflow_mode"] == "abort"
+    r = run({"SOVEREIGN_CTRL_OVERFLOW_MODE": "wrap",
+             "SOVEREIGN_CTRL_RULE_WORD_WIDTH": "128"})
+    got = _json.loads(r.stdout)
+    assert got["overflow_mode"] == "wrap" and got["rule_word_width"] == 128
+
+
 def test_cli_encode_decode_lut_end_to_end():
     def run(*a):
         return subprocess.run([sys.executable, str(ENGINE), *a],

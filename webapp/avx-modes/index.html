@@ -1078,6 +1078,12 @@ html[data-theme="light"] {
     <label>condition (0–63) <input id="cw-lut-c" class="so-set-mini" type="number" min="0" max="63" value="1" style="width:5rem;"></label>
     <span>decision bit: <span class="mono cw-hi" id="cw-lut-out">?</span></span>
   </div>
+
+  <h2 class="avx-h">Runtime knobs (M002) — every built knob is opt-in + hot-swappable</h2>
+  <p class="avx-lead">Each knob resolves from a <span class="mono">SOVEREIGN_CTRL_*</span> env var over the default. Setting the env is the hot-swap: change it, re-read, no rebuild — identical to the Rust <span class="mono">m00013::ControlWordConfig::resolve</span> and <span class="mono">control-word.py config</span>. Invalid values are ignored (the loader never fails). Pick values below to preview the resolved config + the env line that produces it.</p>
+  <div class="cw-lut" id="cw-cfg-fields"></div>
+  <div class="cw-cli" style="margin:.4rem 0;">env: <span class="mono cw-hi" id="cw-cfg-env">(all defaults)</span></div>
+  <pre class="mono" id="cw-cfg-json" style="font-size:.8rem;overflow-x:auto;"></pre>
 </main>
 
 <!-- SDD-045 shared control-surface, inlined verbatim from webapp/_shared/control-surface.js -->
@@ -1470,6 +1476,39 @@ html[data-theme="light"] {
   function lutRefresh(){ if(!lutOut)return; var rw=cwParse(lutRw.value); var c=BigInt((parseInt(lutC.value,10)||0)&63);
     lutOut.textContent=Number((rw>>c)&1n)+"  (bit "+c.toString()+")"; }
   if(lutRw){ lutRw.addEventListener("input",lutRefresh); lutC.addEventListener("input",lutRefresh); lutRefresh(); }
+
+  // Runtime knobs (M002) — mirrors resolve_config in the crate + control-word.py.
+  // (name, env-var, default, choices) — a select of choices previews the hot-swap.
+  var CW_CFG=[
+    ["layout_version","SOVEREIGN_CTRL_WORD_LAYOUT_VERSION","1.0.0",["1.0.0","2.1.0"]],
+    ["overflow_mode","SOVEREIGN_CTRL_OVERFLOW_MODE","abort",["abort","wrap","saturate"]],
+    ["rule_word_width","SOVEREIGN_CTRL_RULE_WORD_WIDTH","64",["32","64","128"]],
+    ["lut_condition_width","SOVEREIGN_CTRL_LUT_CONDITION_WIDTH","6",["5","6","7"]],
+    ["masked_op_mode","SOVEREIGN_CTRL_MASKED_OP_MODE","branchless",["branchless","branchy"]]
+  ];
+  var cfgHost=document.getElementById("cw-cfg-fields");
+  if(cfgHost){
+    CW_CFG.forEach(function(c){
+      var lab=document.createElement("label"); lab.textContent=c[0];
+      var sel=document.createElement("select"); sel.className="so-set-mini"; sel.id="cw-cfg-"+c[0];
+      c[3].forEach(function(o){ var op=document.createElement("option"); op.value=o; op.textContent=o; sel.appendChild(op); });
+      sel.value=c[2]; lab.appendChild(sel); cfgHost.appendChild(lab);
+      sel.addEventListener("change",cfgRefresh);
+    });
+    var cfgEnv=document.getElementById("cw-cfg-env"), cfgJson=document.getElementById("cw-cfg-json");
+    function cfgRefresh(){
+      var resolved={}, envParts=[];
+      CW_CFG.forEach(function(c){
+        var v=document.getElementById("cw-cfg-"+c[0]).value;
+        var key=(c[0]==="rule_word_width"||c[0]==="lut_condition_width")?parseInt(v,10):v;
+        resolved[c[0]]=key;
+        if(v!==c[2]) envParts.push(c[1]+"="+v);   // only non-defaults are opt-in overrides
+      });
+      cfgEnv.textContent=envParts.length? envParts.join(" ")+" control-word.py config" : "(all defaults)";
+      cfgJson.textContent=JSON.stringify(resolved,null,2);
+    }
+    cfgRefresh();
+  }
 </script>
 <!-- COURSE:BEGIN M090 -->
 <style id="so-course-style">

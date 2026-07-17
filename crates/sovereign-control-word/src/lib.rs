@@ -551,6 +551,104 @@ pub mod m00013 {
         }
     }
 
+    // ── Runtime knob layer (M002 opt-in + hot-swap) ──
+    // Every built knob is toggleable via a `SOVEREIGN_CTRL_*` env var (spec
+    // R00183/196/206/254). Reading the env is the hot-swap: change it, re-read,
+    // no rebuild. Invalid values fall back to the default (a config loader never
+    // panics). Knobs for features that aren't built yet are deliberately NOT
+    // here — they arrive with their feature, so nothing reads as "opt-in" while
+    // being inert.
+
+    /// M00014 masked-op execution mode (R00195): branchless (default) or branchy.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+    #[serde(rename_all = "kebab-case")]
+    pub enum MaskedOpMode {
+        /// k-mask / shift-and-AND, no branches (default).
+        #[default]
+        Branchless,
+        /// A branchy scalar fallback (opt-in).
+        Branchy,
+    }
+
+    /// The resolved control-word runtime configuration (the built knobs only).
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+    pub struct ControlWordConfig {
+        /// F00092 semver layout version (R00181).
+        pub layout_version: String,
+        /// R00318-320 overflow policy.
+        pub overflow_mode: OverflowMode,
+        /// M00022-24 rule-word width (32 / 64 / 128).
+        pub rule_word_width: u32,
+        /// M00017 LUT condition width (5 / 6 / 7).
+        pub lut_condition_width: u32,
+        /// M00014 masked-op mode.
+        pub masked_op_mode: MaskedOpMode,
+    }
+
+    impl Default for ControlWordConfig {
+        fn default() -> Self {
+            ControlWordConfig {
+                layout_version: LAYOUT_VERSION_SEMVER.to_string(),
+                overflow_mode: OverflowMode::Abort,
+                rule_word_width: 64,
+                lut_condition_width: 6,
+                masked_op_mode: MaskedOpMode::Branchless,
+            }
+        }
+    }
+
+    /// Semver form of the layout version (R00181).
+    pub const LAYOUT_VERSION_SEMVER: &str = "1.0.0";
+
+    impl ControlWordConfig {
+        /// Resolve over the defaults using a getter (pure — testable without
+        /// touching the process env). Any invalid value is ignored (keeps its
+        /// default) so the loader never fails.
+        pub fn resolve(get: impl Fn(&str) -> Option<String>) -> Self {
+            let mut c = ControlWordConfig::default();
+            if let Some(v) = get("SOVEREIGN_CTRL_WORD_LAYOUT_VERSION") {
+                if v.split('.').count() == 3 && v.split('.').all(|p| p.parse::<u32>().is_ok()) {
+                    c.layout_version = v;
+                }
+            }
+            if let Some(v) = get("SOVEREIGN_CTRL_OVERFLOW_MODE") {
+                c.overflow_mode = match v.as_str() {
+                    "wrap" => OverflowMode::Wrap,
+                    "saturate" => OverflowMode::Saturate,
+                    "abort" => OverflowMode::Abort,
+                    _ => c.overflow_mode,
+                };
+            }
+            if let Some(w) =
+                get("SOVEREIGN_CTRL_RULE_WORD_WIDTH").and_then(|v| v.parse::<u32>().ok())
+            {
+                if [32, 64, 128].contains(&w) {
+                    c.rule_word_width = w;
+                }
+            }
+            if let Some(w) =
+                get("SOVEREIGN_CTRL_LUT_CONDITION_WIDTH").and_then(|v| v.parse::<u32>().ok())
+            {
+                if [5, 6, 7].contains(&w) {
+                    c.lut_condition_width = w;
+                }
+            }
+            if let Some(v) = get("SOVEREIGN_CTRL_MASKED_OP_MODE") {
+                c.masked_op_mode = match v.as_str() {
+                    "branchy" => MaskedOpMode::Branchy,
+                    "branchless" => MaskedOpMode::Branchless,
+                    _ => c.masked_op_mode,
+                };
+            }
+            c
+        }
+
+        /// Resolve from `SOVEREIGN_CTRL_*` process env vars over the defaults.
+        pub fn from_env() -> Self {
+            Self::resolve(|k| std::env::var(k).ok())
+        }
+    }
+
     #[cfg(test)]
     mod tests {
         use super::*;
@@ -750,6 +848,54 @@ pub mod m00013 {
                     RuleWord::U64(0xDEAD_BEEF).decide(c)
                 );
             }
+        }
+
+        #[test]
+        fn config_defaults_and_env_resolution() {
+            // Defaults (no env set) match the canonical built-knob values.
+            let d = ControlWordConfig::resolve(|_| None);
+            assert_eq!(d, ControlWordConfig::default());
+            assert_eq!(d.layout_version, "1.0.0");
+            assert_eq!(d.overflow_mode, OverflowMode::Abort);
+            assert_eq!(d.rule_word_width, 64);
+            assert_eq!(d.lut_condition_width, 6);
+            assert_eq!(d.masked_op_mode, MaskedOpMode::Branchless);
+
+            // Every knob hot-swaps via its env var (opt-in override).
+            let full = ControlWordConfig::resolve(|k| {
+                Some(
+                    match k {
+                        "SOVEREIGN_CTRL_WORD_LAYOUT_VERSION" => "2.1.0",
+                        "SOVEREIGN_CTRL_OVERFLOW_MODE" => "saturate",
+                        "SOVEREIGN_CTRL_RULE_WORD_WIDTH" => "128",
+                        "SOVEREIGN_CTRL_LUT_CONDITION_WIDTH" => "7",
+                        "SOVEREIGN_CTRL_MASKED_OP_MODE" => "branchy",
+                        _ => return None,
+                    }
+                    .to_string(),
+                )
+            });
+            assert_eq!(full.layout_version, "2.1.0");
+            assert_eq!(full.overflow_mode, OverflowMode::Saturate);
+            assert_eq!(full.rule_word_width, 128);
+            assert_eq!(full.lut_condition_width, 7);
+            assert_eq!(full.masked_op_mode, MaskedOpMode::Branchy);
+
+            // Invalid values are ignored — the loader never fails, keeps default.
+            let bad = ControlWordConfig::resolve(|k| {
+                Some(
+                    match k {
+                        "SOVEREIGN_CTRL_WORD_LAYOUT_VERSION" => "not-a-semver",
+                        "SOVEREIGN_CTRL_OVERFLOW_MODE" => "explode",
+                        "SOVEREIGN_CTRL_RULE_WORD_WIDTH" => "17",
+                        "SOVEREIGN_CTRL_LUT_CONDITION_WIDTH" => "9",
+                        "SOVEREIGN_CTRL_MASKED_OP_MODE" => "sideways",
+                        _ => return None,
+                    }
+                    .to_string(),
+                )
+            });
+            assert_eq!(bad, ControlWordConfig::default());
         }
     }
 }
