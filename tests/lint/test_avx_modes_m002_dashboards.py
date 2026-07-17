@@ -61,6 +61,8 @@ M78_SURFACES = [
     ("F00623", "Token-law bitset (M00117"),
     ("M00122", "Bloom overlap (M00122"),
     ("M00113", "Bitfields-as-microcode (M00113"),
+    ("M085-T1", "T1 VNNI INT8 dot (M085"),
+    ("M085-T2", "T2 attention-mask fuse (M085"),
 ]
 
 

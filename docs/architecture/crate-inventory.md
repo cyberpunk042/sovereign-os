@@ -8,13 +8,13 @@ The workspace is large — most of it does not run yet. This is the complete map
 | bucket | count | connection state |
 |---|---:|---|
 | Binaries (`main.rs`/`bin/`) | 41 | the executables; a few run in prod, the rest are dev/demo/config-gen |
-| Production libraries | 65 | run inside the gatewayd / telemetry / resource-control closure |
+| Production libraries | 66 | run inside the gatewayd / telemetry / resource-control closure |
 | Cockpit UX-state crates | 418 | wasm-bridged in source (SDD-974); **0 of ~55 panels wired** |
 | Demo-hub-only libraries | 50 | reached only via `sovereign-llm` / `sovereign-retrieval` (nothing runs them) |
-| Other libraries | 147 | reached only through other non-production trees |
-| **Total** | **721** | **70 crates (9%) are production-reachable today** |
+| Other libraries | 146 | reached only through other non-production trees |
+| **Total** | **721** | **71 crates (9%) are production-reachable today** |
 
-**✅ integrated** marks the **70** crates that are actually _used_ by a running production binary (in the gatewayd / telemetry / resource-control dependency closure). Each carries a short note naming the usage that validates it — its production consumer(s) and/or that it runs as a binary. **Used, not merely referenced**: a cockpit crate wasm-bridged for a panel (SDD-800, 0 panels wired) or a crate reached only through a demo/dev binary or the `sovereign-llm` / `sovereign-retrieval` hubs is NOT integrated. The flag is generated from the closure and enforced by `tests/lint/test_crate_inventory_integrated_flag.py`.
+**✅ integrated** marks the **71** crates that are actually _used_ by a running production binary (in the gatewayd / telemetry / resource-control dependency closure). Each carries a short note naming the usage that validates it — its production consumer(s) and/or that it runs as a binary. **Used, not merely referenced**: a cockpit crate wasm-bridged for a panel (SDD-800, 0 panels wired) or a crate reached only through a demo/dev binary or the `sovereign-llm` / `sovereign-retrieval` hubs is NOT integrated. The flag is generated from the closure and enforced by `tests/lint/test_crate_inventory_integrated_flag.py`.
 
 Families below cluster by the first token of the crate name (`alert-*`, `zfs-*`, …).
 
@@ -79,7 +79,7 @@ Full runtime role + how each is invoked lives in [`docs/src/binaries.md`](../src
 
 ---
 
-## 2. Production libraries (65) — these actually run
+## 2. Production libraries (66) — these actually run
 
 In the dependency closure of the three production binaries, so they execute today.
 
@@ -102,13 +102,14 @@ In the dependency closure of the three production binaries, so they execute toda
 - **`sovereign-tool-call-parse`** — Parse OpenAI-style function/tool calls from model output: pull a tool name and its JSON arguments out of a tool_calls array or a bare {name, arguments} object, tolerating fenced or slightly-malformed JSON via json-repair. The JSON-format counterpart to a [[tool:...]] dispatcher, for agentic runtimes. — ✅ **integrated**: used by `sovereign-tool-bridge`
 - **`sovereign-tool-dispatch`** — Tool-call parsing and dispatch: extracts a [[tool:NAME|ARGS]] call from model output and invokes the registered handler for it, returning the result to feed back into the conversation. The live execution layer above the tool catalog — turns generated text into an action and its result. — ✅ **integrated**: used by `sovereign-agent-loop`, `sovereign-gatewayd`, `sovereign-tool-bridge`
 
-#### assorted (55)
+#### assorted (56)
 
 - **`sovereign-agent-loop`** — A ReAct-style agent control loop: generate a response, and if it contains a tool call dispatch it and feed the observation back, repeating until a final answer or a step cap. Generic over a Responder (any text generator) and driven by a ToolRegistry. The control structure that turns a language model plus tools into an agent. Composes sovereign-tool-dispatch. — ✅ **integrated**: used by `sovereign-gatewayd`
 - **`sovereign-aho-corasick`** — Aho-Corasick multi-pattern string matching: build a trie of all patterns, add BFS failure links, then scan any text once to find every occurrence of every pattern in O(text + matches) — instead of running one search per pattern. For scanning generations against many banned phrases, stop sequences, or injection markers simultaneously. — ✅ **integrated**: used by `sovereign-injection-detect`, `sovereign-toxicity`
 - **`sovereign-attention`** — Numerically-stable scaled-dot-product attention engine: the naive full-softmax kernel plus the online-softmax (FlashAttention) recurrence that computes the identical result in one streaming pass without ever materializing the score row, and an incremental decode-time accumulator that attends a query against a growing KV cache one token at a time. — ✅ **integrated**: used by `sovereign-cortex`, `sovereign-mha`, `sovereign-quant-block`, `sovereign-transformer-block`
 - **`sovereign-bit-cheats`** — M008 bit-level cheats — the policy/logic half (the SIMD half lives in sovereign-simd::cheats). Bitfields-as-microcode (M00113 — the control word as executable policy), two-level rule tables (M00119), the branch-prediction analogy (M00121), and the three-representation layout (M00126 — hot numeric / hot bitfield / cold text). Safe — forbids unsafe. — ✅ **integrated**: used by `sovereign-branch-scheduler`, `sovereign-gatewayd`
 - **`sovereign-bitlinear-core`** — M073 BitLinear ternary core — BitNet b1.58 {-1,0,+1} absmean quantization, information-theoretic-limit bit-packing (5 trits/byte ≈ 1.6 bits/param), and multiplication-free ternary GEMM (mul → conditional add/sub). Pure-Rust CPU reference; no de-quantization at execution. Targets the Pulse Core (M070 CCD 0) AVX-512 path (M067). — ✅ **integrated**: used by `sovereign-cortex`, `sovereign-linear`
+- **`sovereign-bitops`** — M008 bit-level cheats — portable references for the AVX-512 bit ops the dump exploits: VPTERNLOG (arbitrary 3-input boolean via 8-bit LUT), VPOPCNTDQ (popcount), VPCOMPRESS (mask-gather), VP2INTERSECT (set intersection masks). Numerics match the hardware instructions. — ✅ **integrated**: used by `sovereign-simd`
 - **`sovereign-branch-scheduler`** — M007 execution model — the 8-step branch loop (Spawn/Retrieve/Draft/Filter/Verify/Act/Commit/Learn) over a SoA batch of 8 branches, gated by M002 control-word permissions (M00104) and driven by the M008 AVX-512 cheats (VPTERNLOG fuse-policy, speculative-accept short-circuit, VPCOMPRESS survivor-pack). The capstone that ties M002 + M007 + M008 into one tick. Forbids unsafe — wraps the safe sovereign-simd + control-word APIs. — ✅ **integrated**: used by `sovereign-gatewayd`
 - **`sovereign-branch-tree`** — M007 branch primitive — the fork/join execution unit of the deterministic runtime: a branch tree you fork, commit, or prune (cascading to descendants), with lineage + active-set queries. The structure the value plane scores and the control word annotates. — ✅ **integrated**: used by `sovereign-coat`, `sovereign-cortex`
 - **`sovereign-calc`** — A safe arithmetic expression evaluator: a dependency-free recursive-descent parser for +, -, *, /, parentheses, unary minus, and decimals, with correct precedence and typed errors. The real calculator tool an agent calls instead of trusting a language model to do arithmetic. — ✅ **integrated**: used by `sovereign-gatewayd`
@@ -157,7 +158,7 @@ In the dependency closure of the three production binaries, so they execute toda
 - **`sovereign-trie`** — A prefix trie over strings: insert words and query exact membership, prefix existence, and all completions of a prefix (sorted). The autocomplete / prefix-routing primitive — what powers tool-name completion and command matching. — ✅ **integrated**: used by `sovereign-tool-dispatch`
 - **`sovereign-trinity`** — M066 Trinity Framework — The Pulse / The Weaver / The Auditor. Project boundary per E0645: Pulse + Weaver live in sovereign-os; Auditor implementation lives in selfdef MS044 (this crate carries only the typed-mirror surface). — ✅ **integrated**: used by `sovereign-cortex`
 - **`sovereign-value-plane`** — M027 Value Plane — 12-axis reward vector + 7-question test + 5-tier Intelligence Dial per E0248-E0257 dump 7731-8121. PRM doctrine: 'PRM proposes value, CPU applies law, Oracle verifies high-stakes commitments' (E0252). Closing rule: 'Intelligence is knowing which thoughts deserve more life' (E0257 dump 8120 verbatim). — ✅ **integrated**: used by `sovereign-cortex`, `sovereign-gatewayd`
-- **`sovereign-vnni`** — AVX-512 VNNI (VPDPBUSD) INT8 fusion (M074) — the fused 4-way unsigned×signed byte multiply-accumulate into i32, plus an INT8 matvec built on it. Pure-Rust reference whose numerics match the hardware VPDPBUSD path; the INT8 compute kernel beside the ternary (bitlinear) and 4-bit (nvfp4) kernels. — ✅ **integrated**: used by `sovereign-linear`, `sovereign-safetensors-loader`
+- **`sovereign-vnni`** — AVX-512 VNNI (VPDPBUSD) INT8 fusion (M074) — the fused 4-way unsigned×signed byte multiply-accumulate into i32, plus an INT8 matvec built on it. Pure-Rust reference whose numerics match the hardware VPDPBUSD path; the INT8 compute kernel beside the ternary (bitlinear) and 4-bit (nvfp4) kernels. — ✅ **integrated**: used by `sovereign-linear`, `sovereign-safetensors-loader`, `sovereign-simd`
 - **`sovereign-world-model`** — M030 World Model plane — a learned tabular state/action/transition model: observe transitions, predict the most-likely next state, roll out trajectories, and measure prediction accuracy. Distinct from the symbolic planner (fixed effects); this learns dynamics from data (Dreamer-style). — ✅ **integrated**: used by `sovereign-cortex`
 
 ---
@@ -735,7 +736,7 @@ Consumed only through `sovereign-llm` / `sovereign-retrieval`, which the daemon 
 
 ---
 
-## 5. Other libraries (147) — reached only through non-production trees
+## 5. Other libraries (146) — reached only through non-production trees
 
 
 #### `conversation-·` (3)
@@ -762,7 +763,7 @@ Consumed only through `sovereign-llm` / `sovereign-retrieval`, which the daemon 
 - **`sovereign-prompt-rationale`** — Runtime prompt-dispatch rationale envelope — every model dispatch carries (provider, template_name, bundle, mode, doctrine_tag) explaining which router decision produced it. The cockpit surfaces it next to every model output for transparency.
 - **`sovereign-prompt-template-registry`** — Runtime prompt-template registry — operator-curated reusable prompts with named variable slots ({{name}}) and rendering. Each template carries (name, body, declared variables, allowed profile bundles, allowed modes). Composes with sovereign-execution-mode-registry + sovereign-profile-bundles for context-gated availability.
 
-#### assorted (135)
+#### assorted (134)
 
 - **`sovereign-aimd-limiter`** — Adaptive concurrency limiter using AIMD (additive-increase / multiplicative-decrease), the TCP congestion-control law applied to in-flight requests: the limit grows by a fixed step while the system is healthy and saturated, and is cut by a multiplicative factor on overload (a timeout, a drop, or a latency breach), converging on the real capacity without a hand-tuned constant. For backpressure in front of a model server — distinct from a fixed-rate token bucket and from a circuit breaker.
 - **`sovereign-alias-sampler`** — Walker-Vose alias method for O(1) categorical sampling: preprocess a weighted distribution in O(n) into a probability/alias table, then draw each sample in constant time with one coin flip — far faster than a linear CDF scan when you sample the same distribution many times. Seeded for deterministic, reproducible draws.
@@ -771,7 +772,6 @@ Consumed only through `sovereign-llm` / `sovereign-retrieval`, which the daemon 
 - **`sovereign-bandit`** — Multi-armed bandit selection: epsilon-greedy, UCB1, and Thompson sampling over arms with online reward updates, for learning which model, prompt, or strategy performs best while still exploring. Seeded and deterministic — the adaptive-routing core for a system that improves with use.
 - **`sovereign-beam-search`** — Beam-search decoding: the deterministic, search-based alternative to stochastic sampling — keeps the top-B partial hypotheses by cumulative log-probability, forking each decoder's KV state to extend them, and returns the highest-scoring sequence. Composes sovereign-decoder-stack (its Clone-able model is what lets a beam fork).
 - **`sovereign-bin-packing`** — One-dimensional bin packing: fit variable-size items into the fewest fixed-capacity bins by next-fit, first-fit, best-fit, or the decreasing (sorted-largest-first) heuristics, with a lower bound to gauge how close a packing is to optimal. For batching sequences into a KV-cache memory budget, placing jobs onto fixed-size workers, and any fit-as-much-as-you-can allocation.
-- **`sovereign-bitops`** — M008 bit-level cheats — portable references for the AVX-512 bit ops the dump exploits: VPTERNLOG (arbitrary 3-input boolean via 8-bit LUT), VPOPCNTDQ (popcount), VPCOMPRESS (mask-gather), VP2INTERSECT (set intersection masks). Numerics match the hardware instructions.
 - **`sovereign-bloom`** — A Bloom filter for cheap probabilistic set membership: tells you an item is definitely-absent or probably-present in constant space, with a tunable false-positive rate and no false negatives. For deduplicating prompts/documents/seen-IDs without storing them all. Optimal sizing from expected item count and target FP rate; deterministic FNV double-hashing.
 - **`sovereign-bounded-block`** — A bounded-memory decoder block: the same precision-selectable pre-norm structure as quant-block, but its KV cache is a sliding window with attention sinks, so it runs for an unbounded number of steps in O(1) memory. The block for endless operation. While within the window it reproduces the unbounded quant-block exactly. Composes sovereign-linear, sovereign-rmsnorm, sovereign-rope, sovereign-attention, sovereign-ffn, and sovereign-kv-window.
 - **`sovereign-bpe-train`** — Byte-pair-encoding training: learns merge rules from a corpus by iteratively fusing the most frequent adjacent symbol pair, producing a ready-to-use byte-level tokenizer. The training counterpart to sovereign-tokenizer (which only applies merges). Composes sovereign-tokenizer.

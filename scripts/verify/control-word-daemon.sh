@@ -74,6 +74,19 @@ MC=$(curl -s -X POST "$B/v1/microcode/decode" -H 'content-type: application/json
   -d "{\"control_word\": $((1 | (8 << 48)))}")
 [ "$(echo "$MC" | jq_get '["outcome"]["commit"]')" = "True" ] && ok "microcode commit" || bad "microcode"
 
+echo "── M007 tick-v2 stateful (predictor learns across requests) ──"
+V2='{"batch":{"id":[0,1,2,3,4,5,6,7],"control":[1,1,1,1,1,1,1,1],"budget":[1,1,1,1,1,1,1,1],"score":[100,100,100,100,100,100,100,100],"grammar":[1,1,1,1,1,1,1,1],"memory":[0,0,0,0,0,0,0,0],"route":[0,0,0,0,0,0,0,0]},"verify_min_score":50,"session_id":"verify-sess"}'
+FIRST=$(curl -s -X POST "$B/v1/branch-scheduler/tick-v2" -H 'content-type: application/json' -d "$V2")
+[ "$(echo "$FIRST" | jq_get '["result"]["predicted_commit"]')" = "0" ] && ok "fresh predictor predicts 0" || bad "v2 fresh"
+for _ in 1 2 3 4; do LASTV2=$(curl -s -X POST "$B/v1/branch-scheduler/tick-v2" -H 'content-type: application/json' -d "$V2"); done
+[ "$(echo "$LASTV2" | jq_get '["result"]["predicted_commit"]')" = "255" ] && ok "predictor learned → 0xFF across requests" || bad "v2 learn"
+
+echo "── M085 math tiers (VNNI dot + VPTERNLOG attention-fuse) ──"
+D=$(curl -s -X POST "$B/v1/math/dot-i8" -H 'content-type: application/json' -d '{"a":[1,2,3,4],"b":[1,1,1,1]}')
+[ "$(echo "$D" | jq_get '["dot"]')" = "10" ] && ok "VNNI dot=10" || bad "dot-i8"
+AF=$(curl -s -X POST "$B/v1/math/attention-fuse" -H 'content-type: application/json' -d '{"query":[255],"key":[60],"causal":[15]}')
+[ "$(echo "$AF" | jq_get '["allow"][0]')" = "12" ] && ok "attention-fuse allow=0x0C" || bad "attention-fuse"
+
 echo "── live avx-mode HOT-SWAP (write the state file, no restart) ──"
 echo custom > "$STATE"
 [ "$(curl -s "$B/v1/control-word/config" | jq_get '["avx_mode"]')" = "custom" ] && ok "custom → active" || bad "hot-swap custom"

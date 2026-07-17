@@ -20,6 +20,8 @@ missing_docs = "warn"
 [dependencies]
 serde = { workspace = true }
 sovereign-control-word = { path = "../sovereign-control-word" }
+sovereign-vnni = { path = "../sovereign-vnni" }
+sovereign-bitops = { path = "../sovereign-bitops" }
 
 [dev-dependencies]
 rand = { workspace = true }

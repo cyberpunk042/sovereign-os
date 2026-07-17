@@ -41,6 +41,7 @@ pub const SCHEMA_VERSION: &str = "1.0.0";
 
 pub mod bench;
 pub mod cheats;
+pub mod lift;
 pub mod round;
 
 /// Whether the host CPU supports the AVX-512 Foundation feature set — the gate

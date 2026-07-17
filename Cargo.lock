@@ -6458,7 +6458,9 @@ dependencies = [
  "rand",
  "rand_chacha",
  "serde",
+ "sovereign-bitops",
  "sovereign-control-word",
+ "sovereign-vnni",
 ]
 
 [[package]]

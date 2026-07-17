@@ -169,8 +169,26 @@ impl SchedulerContext {
         event_class: [usize; 8],
         memory_bank: Vec<u64>,
     ) -> Self {
+        Self::with_predictor(
+            sovereign_bit_cheats::BranchPredictor::new(8),
+            rule_table,
+            event_class,
+            memory_bank,
+        )
+    }
+
+    /// A context carrying an *existing* predictor — the hook a session store uses
+    /// to continue predictor learning across ticks (the predictor is the only
+    /// state worth persisting; the rule table / memory bank come per request).
+    #[must_use]
+    pub fn with_predictor(
+        predictor: sovereign_bit_cheats::BranchPredictor,
+        rule_table: sovereign_bit_cheats::TwoLevelTable,
+        event_class: [usize; 8],
+        memory_bank: Vec<u64>,
+    ) -> Self {
         SchedulerContext {
-            predictor: sovereign_bit_cheats::BranchPredictor::new(8),
+            predictor,
             rule_table,
             event_class,
             memory_bank,
