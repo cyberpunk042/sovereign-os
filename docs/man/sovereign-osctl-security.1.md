@@ -58,6 +58,26 @@ operator use.
 **sovereign-osctl perimeter reload**
 :   Reload Tetragon TracingPolicies
 
+## ms003
+
+**sovereign-osctl ms003 status**
+:   MS003 signing state + trust-anchor summary (F-2026-034)
+
+**sovereign-osctl ms003 gen-key**
+:   Mint the operator ed25519 signing key
+
+**sovereign-osctl ms003 pubkey**
+:   Print this node's public trust anchor
+
+**sovereign-osctl ms003 anchor-add** *pubkey-b64url* | **--from-key**
+:   Install a trust anchor used for verification
+
+**sovereign-osctl ms003 anchor-list**
+:   List installed trust anchors
+
+**sovereign-osctl ms003 verify** [**--strict**] [*root*]
+:   Verify ledger signatures under *root* (default /var/lib/sovereign-os); exit 2 on tamper/unknown-signer, 3 with --strict when unsigned records are present
+
 ## selfdef
 
 **sovereign-osctl selfdef status**

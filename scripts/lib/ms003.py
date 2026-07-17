@@ -160,6 +160,183 @@ def verify(record: dict, signature: str, public_key_raw: bytes) -> bool:
         return False
 
 
+# --- trust-anchor store (verifier half, 2026-07-17) --------------------------
+# F-2026-034's open half. The producer (sign) half shipped in SDD-989/990;
+# this adds the LOCAL trust-anchor store + record/ledger verification so a
+# sovereign-os node can audit its own durable ledgers (and selfdef can reuse
+# the same store layout + statuses as the cross-repo verifier contract).
+#
+# Store layout: one file per anchor at
+#   $SOVEREIGN_OS_MS003_TRUST_ANCHORS/<keyid>.pub   (default
+#   /etc/sovereign-os/ms003-trust-anchors/), containing the base64url raw
+#   32-byte ed25519 public key (the `pubkey` line gen-key/pubkey print).
+#
+# Verification statuses (the exhaustive enum consumers switch on):
+#   verified            — real signature, anchor found, openssl verify OK
+#   unsigned-placeholder — the historical `unsigned-pending-MS003`
+#   no-signature-field  — record carries no `signature` key at all
+#   unknown-keyid       — signed, but no anchor file for its keyid
+#   invalid-signature   — signed, anchor found, verification FAILED (tamper!)
+
+VERIFY_STATUSES = ("verified", "unsigned-placeholder", "no-signature-field",
+                   "unknown-keyid", "invalid-signature")
+
+
+def _anchor_dir() -> Path:
+    return Path(os.environ.get("SOVEREIGN_OS_MS003_TRUST_ANCHORS",
+                               "/etc/sovereign-os/ms003-trust-anchors"))
+
+
+def anchors() -> dict[str, bytes]:
+    """keyid → raw 32-byte public key, from the trust-anchor store.
+    Missing/unreadable store degrades to {} (never raises)."""
+    out: dict[str, bytes] = {}
+    try:
+        for f in sorted(_anchor_dir().glob("*.pub")):
+            try:
+                raw = _b64u_dec(f.read_text(encoding="utf-8").strip())
+            except Exception:
+                continue
+            if len(raw) == 32 and f.stem == keyid(raw):
+                out[f.stem] = raw
+    except OSError:
+        pass
+    return out
+
+
+def anchor_add(pub_b64u: str) -> str | None:
+    """Install a base64url raw public key as a trust anchor; returns its
+    keyid, or None when the input is not a valid 32-byte key."""
+    try:
+        raw = _b64u_dec(pub_b64u.strip())
+    except Exception:
+        return None
+    if len(raw) != 32:
+        return None
+    d = _anchor_dir()
+    d.mkdir(parents=True, exist_ok=True)
+    kid = keyid(raw)
+    (d / f"{kid}.pub").write_text(_b64u(raw) + "\n", encoding="utf-8")
+    return kid
+
+
+def verify_record(record: dict) -> str:
+    """Classify one record against the trust-anchor store → one of
+    VERIFY_STATUSES. Never raises."""
+    try:
+        sig = record.get("signature")
+        if sig is None:
+            return "no-signature-field"
+        if sig == UNSIGNED:
+            return "unsigned-placeholder"
+        if not is_signed(sig):
+            return "invalid-signature"
+        kid = sig.split(":", 3)[2]
+        store = anchors()
+        if kid not in store:
+            return "unknown-keyid"
+        return "verified" if verify(record, sig, store[kid]) else "invalid-signature"
+    except Exception:
+        return "invalid-signature"
+
+
+def _iter_records(node) -> list[dict]:
+    """Every dict carrying a `signature` key inside a parsed JSON document
+    (records may sit at top level or nested in ledger arrays)."""
+    found: list[dict] = []
+    if isinstance(node, dict):
+        if "signature" in node:
+            found.append(node)
+        for v in node.values():
+            found.extend(_iter_records(v))
+    elif isinstance(node, list):
+        for v in node:
+            found.extend(_iter_records(v))
+    return found
+
+
+def sweep(root: Path) -> dict[str, int]:
+    """Walk `root` for .json/.jsonl documents, verify every signed record
+    against the trust-anchor store. Returns counts per VERIFY_STATUSES
+    (+ 'files' scanned, 'unreadable' documents). Never raises."""
+    counts = {s: 0 for s in VERIFY_STATUSES}
+    counts["files"] = 0
+    counts["unreadable"] = 0
+    try:
+        paths = sorted(list(root.rglob("*.json")) + list(root.rglob("*.jsonl")))
+    except OSError:
+        return counts
+    for p in paths:
+        counts["files"] += 1
+        try:
+            text = p.read_text(encoding="utf-8")
+        except Exception:
+            counts["unreadable"] += 1
+            continue
+        docs = []
+        if p.suffix == ".jsonl":
+            for line in text.splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    docs.append(json.loads(line))
+                except Exception:
+                    counts["unreadable"] += 1
+        else:
+            try:
+                docs.append(json.loads(text))
+            except Exception:
+                counts["unreadable"] += 1
+        for doc in docs:
+            for rec in _iter_records(doc):
+                counts[verify_record(rec)] += 1
+    return counts
+
+
+def _cmd_anchor_add(argv: list[str]) -> int:
+    if argv and argv[0] == "--from-key":
+        if not _have_key():
+            print(f"no usable operator key at {_key_path()}")
+            return 1
+        pub_b64u = _b64u(_pub_raw_from_key(_key_path()))
+    elif argv:
+        pub_b64u = argv[0]
+    else:
+        print("usage: ms003.py anchor-add (<pubkey-b64url> | --from-key)")
+        return 1
+    kid = anchor_add(pub_b64u)
+    if kid is None:
+        print("error: not a valid base64url 32-byte ed25519 public key")
+        return 1
+    print(f"anchor installed: {_anchor_dir() / (kid + '.pub')}")
+    return 0
+
+
+def _cmd_anchor_list() -> int:
+    store = anchors()
+    print(f"trust-anchor store: {_anchor_dir()} ({len(store)} anchor(s))")
+    for kid in store:
+        print(f"  {kid}")
+    return 0
+
+
+def _cmd_verify_sweep(argv: list[str]) -> int:
+    strict = "--strict" in argv
+    args = [a for a in argv if a != "--strict"]
+    root = Path(args[0]) if args else Path(
+        os.environ.get("SOVEREIGN_OS_MS003_SWEEP_ROOT", "/var/lib/sovereign-os"))
+    counts = sweep(root)
+    print(f"sweep root: {root}")
+    for k in ("files", "unreadable", *VERIFY_STATUSES):
+        print(f"  {k}: {counts[k]}")
+    if counts["invalid-signature"] or counts["unknown-keyid"]:
+        return 2  # tamper / untrusted signer — always an error
+    if strict and counts["unsigned-placeholder"]:
+        return 3  # unsigned records present and the operator demands none
+    return 0
+
+
 # --- provisioning CLI --------------------------------------------------------
 def _gen_key() -> int:
     p = _key_path()
@@ -198,9 +375,18 @@ def main(argv: list[str]) -> int:
         return _gen_key()
     if cmd == "pubkey":
         return _print_pubkey()
+    if cmd == "anchor-add":
+        return _cmd_anchor_add(argv[1:])
+    if cmd == "anchor-list":
+        return _cmd_anchor_list()
+    if cmd == "verify-sweep":
+        return _cmd_verify_sweep(argv[1:])
     print(f"openssl: {'available' if _openssl(['version']) else 'absent'}")
     print(f"key path: {_key_path()}")
     print(f"signing: {'ACTIVE (real ed25519)' if _have_key() else 'placeholder (unsigned-pending-MS003)'}")
+    store = anchors()
+    print(f"trust anchors: {len(store)} at {_anchor_dir()}"
+          + (f" [{', '.join(store)}]" if store else ""))
     return 0
 
 

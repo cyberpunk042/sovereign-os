@@ -83,10 +83,11 @@ First-boot hook order:
 1. `friction-audit-runtime` — confirms the PCIe topology (PRO 6000 + 5090 x8/x8 + OcuLink 4090; M.2_2 empty) + AVX-512 + ZFS health
 2. `vfio-bind-4090` — **only if opted in** (`role: vfio`): binds the 4090 to vfio-pci; a no-op by default (host-resident)
 3. `network-vlan-config` — applies asymmetric VLAN (R158 lands master-spec defaults)
-4. `tetragon-policy-load` — loads sovereign-kernel-fence
-5. `arc-clamp-128gb` — clamps ZFS ARC at 128 GB
-6. `apply-workstation-hardening` — 4 IaC drop-ins (auditd · pwquality · unattended · sshd)
-7. `first-login-assistant` — interactive operator flow
+4. `tetragon-install` — installs the Tetragon daemon (Cilium release tarball, checksum-verified — not in the Debian archive)
+5. `tetragon-policy-load` — loads sovereign-kernel-fence (execve allowlist → SIGKILL). Two optional knobs tune it without weakening the pinned base (4-binary allowlist + Sigkill + PID-1 exclusion): `provisioning.tetragon.scope: container` narrows enforcement to non-host mount namespaces (`matchNamespaces Mnt NotIn host_ns`), and `provisioning.tetragon.extra_allowed_binaries` appends operator ABSOLUTE binary paths to the allowlist (non-absolute entries are refused). `sovereign-osctl ms003 verify` audits the signed decision ledgers alongside.
+6. `arc-clamp-128gb` — clamps ZFS ARC at 128 GB
+7. `apply-workstation-hardening` — 4 IaC drop-ins (auditd · pwquality · unattended · sshd)
+8. `first-login-assistant` — interactive operator flow
 
 ## Activation + daily use
 

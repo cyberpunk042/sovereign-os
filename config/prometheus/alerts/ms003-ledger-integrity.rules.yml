@@ -1,0 +1,78 @@
+# MS003 ledger-signature integrity — Prometheus alerting rules (F-2026-034).
+#
+# These fire on the textfile metrics the daily verifier hook
+# (scripts/hooks/recurrent/ms003-verify.sh, sovereign-ms003-verify.timer)
+# writes to
+# /var/lib/node_exporter/textfile_collector/sovereign-os-ms003.prom
+# after sweeping the durable decision/mutation ledgers under
+# /var/lib/sovereign-os and verifying every signed record against the
+# operator trust-anchor store.
+#
+#   sovereign_os_ms003_ledger_status              1=healthy, 0=integrity issue
+#   sovereign_os_ms003_records{status}            per-status record counts
+#   sovereign_os_ms003_key_loaded                 operator signing key present
+#   sovereign_os_ms003_verify_last_run_timestamp  last sweep unix time
+#
+# Standing rule: We do not minimize anything. Operator boundary: pure
+# observability; no mutation surface (R10212).
+
+groups:
+  - name: ms003-ledger-integrity
+    interval: 30s
+    rules:
+
+      # Critical: a durable record failed signature verification OR was
+      # signed by a key not in the trust-anchor store. Either is a tamper
+      # / provenance signal on the decision ledgers — page immediately.
+      # Fires after 2 scrapes (~1 min) to guard a single-scrape blip.
+      - alert: MS003LedgerTamper
+        expr: |
+          sum(sovereign_os_ms003_records{status="invalid-signature"})
+            + sum(sovereign_os_ms003_records{status="unknown-keyid"}) > 0
+        for: 2m
+        labels:
+          severity: critical
+          subsystem: ms003
+        annotations:
+          summary: "MS003 ledger tamper / untrusted signer detected"
+          description: >
+            The MS003 verifier found record(s) that fail signature
+            verification or are signed by a key absent from the trust-anchor
+            store. This is a tamper or provenance-drift signal on the durable
+            decision/mutation ledgers.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/ms003-ledger-integrity.md#ms003ledgertamper-critical"
+
+      # Warning: the overall ledger-integrity gauge is unhealthy (includes
+      # the "operator key loaded but unsigned records still present" case
+      # that isn't tamper but IS an integrity gap worth surfacing).
+      - alert: MS003LedgerUnhealthy
+        expr: sovereign_os_ms003_ledger_status == 0
+        for: 10m
+        labels:
+          severity: warning
+          subsystem: ms003
+        annotations:
+          summary: "MS003 ledger integrity gauge is unhealthy"
+          description: >
+            sovereign_os_ms003_ledger_status is 0. With
+            sovereign_os_ms003_key_loaded=1 this usually means signed records
+            are expected but unsigned-pending-MS003 placeholders remain in the
+            ledgers; check the per-status record breakdown.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/ms003-ledger-integrity.md#ms003ledgerunhealthy-warning"
+
+      # Warning: the daily verifier hasn't run in over 36h — the integrity
+      # signal has gone stale (timer disabled, host down at fire time, etc.).
+      - alert: MS003VerifierOverdue
+        expr: |
+          (time() - sovereign_os_ms003_verify_last_run_timestamp) > 129600
+        for: 1h
+        labels:
+          severity: warning
+          subsystem: ms003
+        annotations:
+          summary: "MS003 ledger verifier overdue (>36h since last sweep)"
+          description: >
+            The daily sovereign-ms003-verify sweep has not reported in over
+            36 hours; the ledger-integrity signal is stale. Check the timer
+            and the last run's journal.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/ms003-ledger-integrity.md#ms003verifieroverdue-warning"

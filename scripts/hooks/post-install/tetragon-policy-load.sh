@@ -2,15 +2,31 @@
 # scripts/hooks/post-install/tetragon-policy-load.sh
 #
 # Load Tetragon TracingPolicy for the sovereign-kernel-fence. Allowlists
-# ~4 binaries for sys_execve; SIGKILL on violation. Current scope is
-# HOST-WIDE minus PID 1 (matchPIDs NotIn [1]) — container/namespace
-# scoping of the fence is a Stage-2 refinement, not what ships today.
+# execve binaries; SIGKILL on violation.
 #
-# Per SAIN-01 milestone (info-hub E104). The policy is INLINED in the
-# heredoc below (operator-verbatim content pinned by R390/R419 lint)
-# and installed to /etc/tetragon/tracing-policies/. Stage-2 tunes the
-# substantive allowlist. The daemon itself is installed by the
-# preceding first-boot hook, tetragon-install.sh (Cilium release
+# Per SAIN-01 milestone (info-hub E104). The base policy (pinned by
+# R390/R419 lint — the 4-binary allowlist, __x64_sys_execve, Sigkill,
+# PID-1 exclusion, followForks) is the literal template below; two
+# operator knobs make it a real (not L0-minimum) fence without touching
+# the pinned base:
+#
+#   SOVEREIGN_OS_TETRAGON_SCOPE   host (default) | container
+#     host      — the shipped behavior: host-wide minus PID 1.
+#     container — ALSO require the process be in a non-host mount
+#                 namespace (matchNamespaces Mnt NotIn host_ns), i.e.
+#                 the fence enforces only inside containers. This
+#                 NARROWS coverage; opt-in for hosts that run agents
+#                 exclusively in podman.
+#   provisioning.tetragon.extra_allowed_binaries  (profile) OR
+#   SOVEREIGN_OS_TETRAGON_EXTRA_BINS (colon-separated env)
+#     — extra ABSOLUTE binary paths appended to the base 4-binary
+#       allowlist, so a legitimate 5th+ workload isn't SIGKILLed.
+#       Non-absolute entries are refused (never widen the fence on a
+#       typo). The base 4 always remain.
+#
+# Both default to today's exact output, so a node that sets neither
+# gets the byte-identical shipped policy. The daemon itself is installed
+# by the preceding first-boot hook, tetragon-install.sh (Cilium release
 # tarball — tetragon is not in the Debian archive).
 
 __SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -53,17 +69,63 @@ mkdir -p "${SOVEREIGN_OS_TETRAGON_POLICY_DIR}"
 
 policy_file="${SOVEREIGN_OS_TETRAGON_POLICY_DIR}/sovereign-kernel-fence.yaml"
 
+# --- resolve the two operator knobs (both default to shipped behavior) ---
+: "${SOVEREIGN_OS_TETRAGON_SCOPE:=$(profile_field provisioning.tetragon.scope)}"
+: "${SOVEREIGN_OS_TETRAGON_SCOPE:=host}"
+
+# Collect operator-declared extra allowed binaries from BOTH sources:
+# profile provisioning.tetragon.extra_allowed_binaries (JSON list) +
+# SOVEREIGN_OS_TETRAGON_EXTRA_BINS (colon-separated). Validated to
+# absolute paths — a relative/garbage entry must never silently widen
+# the fence, so it is refused with a warning, not templated in.
+extra_bins_yaml=""
+_add_extra_bin() {
+  local b="$1"
+  case "${b}" in
+    /*) extra_bins_yaml="${extra_bins_yaml}        - \"${b}\""$'\n' ;;
+    "") : ;;
+    *)  log_warn "ignoring non-absolute extra_allowed_binaries entry: '${b}'" ;;
+  esac
+}
+_extra_json="$(profile_field provisioning.tetragon.extra_allowed_binaries)"
+if [ -n "${_extra_json}" ] && [ "${_extra_json}" != "null" ]; then
+  while IFS= read -r _b; do _add_extra_bin "${_b}"; done < <(
+    printf '%s' "${_extra_json}" | "${PYTHON3}" -c \
+      'import sys,json;
+d=json.load(sys.stdin);
+[print(x) for x in (d if isinstance(d,list) else [])]' 2>/dev/null)
+fi
+if [ -n "${SOVEREIGN_OS_TETRAGON_EXTRA_BINS:-}" ]; then
+  IFS=':' read -ra _envbins <<< "${SOVEREIGN_OS_TETRAGON_EXTRA_BINS}"
+  for _b in "${_envbins[@]}"; do _add_extra_bin "${_b}"; done
+fi
+
+# container scope adds a matchNamespaces clause AND-ed into the selector
+# (Tetragon ANDs match* clauses within one selector) — enforce only for
+# processes whose mount namespace is NOT the host's.
+ns_block=""
+if [ "${SOVEREIGN_OS_TETRAGON_SCOPE}" = "container" ]; then
+  ns_block=$'      matchNamespaces:\n      - namespace: Mnt\n        operator: "NotIn"\n        values:\n        - "host_ns"\n'
+  log_info "tetragon scope=container — fence enforces inside non-host mount namespaces only"
+elif [ "${SOVEREIGN_OS_TETRAGON_SCOPE}" != "host" ]; then
+  log_warn "unknown SOVEREIGN_OS_TETRAGON_SCOPE='${SOVEREIGN_OS_TETRAGON_SCOPE}' — using host scope"
+  SOVEREIGN_OS_TETRAGON_SCOPE="host"
+fi
+
 if [ ! -f "${policy_file}" ]; then
-  log_info "installing sovereign-kernel-fence policy → ${policy_file}"
-  cat > "${policy_file}" <<'EOF'
+  log_info "installing sovereign-kernel-fence policy → ${policy_file} (scope=${SOVEREIGN_OS_TETRAGON_SCOPE})"
+  # The base 4-binary allowlist + Sigkill + matchPIDs NotIn [1] +
+  # followForks: true are pinned by R390/R419 and appear literally
+  # below. ${extra_bins_yaml} appends operator-validated absolute paths;
+  # ${ns_block} is empty for host scope. Unquoted heredoc for the two
+  # interpolations; the YAML carries no other $.
+  cat > "${policy_file}" <<EOF
 # Sovereign-os kernel-fence Tetragon TracingPolicy.
-# Allowlists ~4 binaries for sys_execve; SIGKILL on any other execve
-# attempt. Scope: HOST-WIDE minus PID 1 (matchPIDs NotIn [1]) —
-# container/namespace scoping is a Stage-2 refinement.
-# Per SAIN-01 milestone E104.
-#
-# Substantive policy refinement: Stage 2+ tunes the allowlist per
-# operator workload. This default is the L0-dump minimum.
+# Allowlists execve binaries; SIGKILL on any other execve attempt.
+# Base scope: HOST-WIDE minus PID 1 (matchPIDs NotIn [1]); with
+# SOVEREIGN_OS_TETRAGON_SCOPE=container it ALSO requires a non-host
+# mount namespace. Base allowlist is the pinned 4; operator extras
+# (validated absolute paths) append. Per SAIN-01 milestone E104.
 
 apiVersion: cilium.io/v1alpha1
 kind: TracingPolicy
@@ -84,14 +146,14 @@ spec:
         followForks: true
         isNamespacePID: false
         values: [1]
-      matchBinaries:
+${ns_block}      matchBinaries:
       - operator: "NotIn"
         values:
         - "/usr/bin/python3"
         - "/usr/bin/nvidia-smi"
         - "/usr/local/bin/vllm"
         - "/usr/bin/podman"
-      matchActions:
+${extra_bins_yaml}      matchActions:
       - action: Sigkill
 EOF
 else

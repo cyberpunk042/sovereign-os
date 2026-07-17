@@ -47,6 +47,7 @@ Ordered most-frequent first:
 | `sovereign-log-rotate.timer` | Daily 03:30 | Log rotation trigger |
 | `sovereign-tetragon-verify.timer` | Daily 04:00 | Perimeter TracingPolicy integrity check |
 | `sovereign-security-update-check.timer` | Daily 04:15 | Security-update availability check |
+| `sovereign-ms003-verify.timer` | Daily 04:30 | MS003 ledger-signature integrity sweep (F-2026-034) |
 | `sovereign-zfs-scrub.timer` | Weekly (Sun 02:00) | ZFS pool scrub |
 | `sovereign-selfdef-sync.timer` | Weekly (Sun 05:30) | selfdef checkout freshness check (SDD-001) |
 | `sovereign-ghostproxy-verify.timer` | Weekly (Sun 06:00) | root-ghostproxy AI-agent envelope drift verify — read-only `--check`, endpoint mode (SDD-046) |

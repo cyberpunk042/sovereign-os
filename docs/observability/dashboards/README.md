@@ -267,6 +267,13 @@ Info/dashboard-tier gauges from the M002 control-word round engine — surfaced 
 - `sovereign_os_perimeter_status`
 - `sovereign_os_perimeter_verify_last_run_timestamp`
 
+### MS003 ledger-signature integrity (F-2026-034 verifier half)
+
+- `sovereign_os_ms003_ledger_status` — 1=healthy, 0=invalid/unknown-signer, or (when the operator key is loaded) unsigned records present
+- `sovereign_os_ms003_records{status}` — records seen by the last sweep per status (verified / unsigned-placeholder / unknown-keyid / invalid-signature)
+- `sovereign_os_ms003_key_loaded{}` — operator MS003 signing-key presence (1=loaded)
+- `sovereign_os_ms003_verify_last_run_timestamp` — Unix timestamp of the last verifier run
+
 ### Trinity execution machinery (R152-R155 — master spec §§ 10, 17, 20, 21)
 
 Pulse (CPU ternary inference; bitnet.cpp + Wasm AOT):

@@ -79,6 +79,25 @@ Run perimeter integrity audit
 .TP
 \f[B]sovereign-osctl perimeter reload\f[R]
 Reload Tetragon TracingPolicies
+.SS ms003
+.TP
+\f[B]sovereign-osctl ms003 status\f[R]
+MS003 signing state + trust-anchor summary (F-2026-034)
+.TP
+\f[B]sovereign-osctl ms003 gen-key\f[R]
+Mint the operator ed25519 signing key
+.TP
+\f[B]sovereign-osctl ms003 pubkey\f[R]
+Print this node\[cq]s public trust anchor
+.TP
+\f[B]sovereign-osctl ms003 anchor-add\f[R] \f[I]pubkey-b64url\f[R] | \f[B]--from-key\f[R]
+Install a trust anchor used for verification
+.TP
+\f[B]sovereign-osctl ms003 anchor-list\f[R]
+List installed trust anchors
+.TP
+\f[B]sovereign-osctl ms003 verify\f[R] [\f[B]--strict\f[R]] [\f[I]root\f[R]]
+Verify ledger signatures under \f[I]root\f[R] (default /var/lib/sovereign-os); exit 2 on tamper/unknown-signer, 3 with --strict when unsigned records are present
 .SS selfdef
 .TP
 \f[B]sovereign-osctl selfdef status\f[R]

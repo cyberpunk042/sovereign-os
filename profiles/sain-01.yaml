@@ -366,6 +366,13 @@ provisioning:
                                    # (no kill) on an edit to its own .py. Set false for a locked, non-dev image.
   firstboot: true                  # install + enable sovereign-firstboot.target + hardware hooks
   posture: installed-off           # selfdef + ghostproxy installed but NOT started on boot
+  # Tetragon kernel-fence tuning (tetragon-policy-load.sh, Stage-2 depth).
+  # Both keys are OPTIONAL and default to the shipped host-wide policy;
+  # shown here as the documented tuning surface (commented = shipped default).
+  # tetragon:
+  #   scope: host                  # host (default) | container (enforce only in non-host mount namespaces)
+  #   extra_allowed_binaries:      # ABSOLUTE paths appended to the base 4-binary allowlist
+  #     - /usr/local/bin/ollama
   # Swappable boot frontend (SDD-704). The box boots to GNOME by default (today's
   # behaviour, least surprise); the dashboards-kiosk stack is ALSO staged so the
   # operator can flip to a fullscreen :8100 kiosk at any time with

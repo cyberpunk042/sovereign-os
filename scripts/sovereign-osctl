@@ -6962,6 +6962,7 @@ case "${cmd}" in
   profiles)      cmd_profiles "$@" ;;
   whitelabel)    cmd_whitelabel "$@" ;;
   perimeter)     cmd_perimeter "$@" ;;
+  ms003)         _source_osctl_module ms003 && cmd_ms003 "$@" ;;
   selfdef)       cmd_selfdef "$@" ;;
   openclaw)      cmd_openclaw "$@" ;;
   open-computer) cmd_open_computer "$@" ;;
