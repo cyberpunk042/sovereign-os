@@ -39,6 +39,8 @@
 /// Schema version of the SIMD surface.
 pub const SCHEMA_VERSION: &str = "1.0.0";
 
+pub mod round;
+
 /// Whether the host CPU supports the AVX-512 Foundation feature set — the gate
 /// for [`sum_of_squares`]'s fast path. Always `false` off x86-64.
 #[must_use]
@@ -173,5 +175,103 @@ mod tests {
             // fallback path must still match
             assert!(close(sum_of_squares(&x), scalar));
         }
+    }
+}
+
+/// M00104 branch-query with a real AVX-512 fast path — the bitmask of which of
+/// the first ≤64 control words have `field == value`.
+///
+/// This is the parallelism the bit-machine is for: the AVX-512F path evaluates
+/// **8 control words per instruction** (`VPSRLVQ` shift → `VPANDQ` mask →
+/// `VPCMPEQQ` → k-mask), packing the 8 lane results into 8 bits of the output.
+/// The scalar reference — the source of truth — is
+/// [`sovereign_control_word::m00013::field_query_mask`], and the SIMD path is
+/// proven equal to it by this crate's tests. Same result on a CPU with AVX-512
+/// and one without; the SIMD path is an optimization, never new behavior.
+#[must_use]
+pub fn field_query_mask(words: &[u64], shift: u32, width: u32, value: u16) -> u64 {
+    #[cfg(target_arch = "x86_64")]
+    {
+        if has_avx512f() {
+            // SAFETY: gated by runtime is_x86_feature_detected!("avx512f").
+            return unsafe { field_query_mask_avx512(words, shift, width, value) };
+        }
+    }
+    sovereign_control_word::m00013::field_query_mask(words, shift, width, value)
+}
+
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "avx512f")]
+unsafe fn field_query_mask_avx512(words: &[u64], shift: u32, width: u32, value: u16) -> u64 {
+    use std::arch::x86_64::*;
+    let field_mask = ((1u64 << width) - 1) as i64;
+    let n = words.len().min(64);
+    let chunks = n / 8;
+    let mut out = 0u64;
+    // SAFETY: the AVX-512F intrinsics below are enabled by the fn's
+    // `#[target_feature]` + the caller's runtime `is_x86_feature_detected!`
+    // gate; each load reads 8 contiguous u64 within `c*8 + 8 <= n <= len`.
+    unsafe {
+        let shift_vec = _mm512_set1_epi64(shift as i64);
+        let mask_vec = _mm512_set1_epi64(field_mask);
+        let value_vec = _mm512_set1_epi64(value as i64);
+        for c in 0..chunks {
+            let v = _mm512_loadu_si512(words.as_ptr().add(c * 8) as *const __m512i);
+            let shifted = _mm512_srlv_epi64(v, shift_vec);
+            let masked = _mm512_and_si512(shifted, mask_vec);
+            let m: __mmask8 = _mm512_cmpeq_epi64_mask(masked, value_vec);
+            out |= (m as u64) << (c * 8);
+        }
+    }
+    // tail (n not a multiple of 8) — scalar, same predicate.
+    for (i, &w) in words.iter().take(n).enumerate().skip(chunks * 8) {
+        if ((w >> shift) & (field_mask as u64)) as u16 == value {
+            out |= 1u64 << i;
+        }
+    }
+    out
+}
+
+#[cfg(test)]
+mod field_query_tests {
+    use super::*;
+
+    fn reference(words: &[u64], shift: u32, width: u32, value: u16) -> u64 {
+        sovereign_control_word::m00013::field_query_mask(words, shift, width, value)
+    }
+
+    #[test]
+    fn avx512_field_query_equals_scalar_reference() {
+        // 20 words, mode field (bits 0..4) = i % 4; query mode==3 → every 4th
+        let words: Vec<u64> = (0..20u64)
+            .map(|i| {
+                sovereign_control_word::m00013::Fields {
+                    mode: (i % 4) as u16,
+                    param_a: i as u16,
+                    ..Default::default()
+                }
+                .pack()
+                .unwrap()
+            })
+            .collect();
+        for value in [0u16, 1, 2, 3, 9] {
+            assert_eq!(
+                field_query_mask(&words, 0, 4, value),
+                reference(&words, 0, 4, value),
+                "SIMD != scalar for mode=={value}"
+            );
+        }
+        // empty + exactly-8 (one full ZMM) + 64 (full mask width)
+        assert_eq!(field_query_mask(&[], 0, 4, 0), 0);
+        let full: Vec<u64> = vec![
+            sovereign_control_word::m00013::Fields {
+                mode: 3,
+                ..Default::default()
+            }
+            .pack()
+            .unwrap();
+            64
+        ];
+        assert_eq!(field_query_mask(&full, 0, 4, 3), u64::MAX);
     }
 }

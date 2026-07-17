@@ -104,6 +104,8 @@ and read-only surfaces run on the deterministic engine and never need one.
 | `POST /v1/explain` | dry-run rationale (read-only) | cortex request → `{kind:"explanation"}` |
 | `POST /v1/deliberate` | best-of-N deliberation (read-only) | `{request, candidates[], tier}` → `{kind:"deliberation"}` |
 | `POST /v1/coat` | **CoAT reasoning** (read-only) — see [Reasoning & operability](./reasoning-operability.md) | `{problem, rung, topic?}` → `{kind:"coat-trace", trace:{best_path, …}}` |
+| `POST /v1/control-word/round` | **M002 control-word round engine** — reads the live `avx-mode` switch (state file, or `avx_mode` body override); runs the 8-lane bit-machine only under `custom`/`hybrid` (AVX-512 when present), else an honest engine-off envelope. Returns per-lane DNA fingerprints + lifecycle events + service metrics | `{state:{state[],memory[],rule[],random[]}, config?, rounds?, avx_mode?}` → `{kind:"control-word-round", avx_mode, engine_active, result?, fingerprints[], diversity_index, events[], metrics}` |
+| `GET /v1/control-word/config` | **M002 live runtime config** — the resolved `avx-mode` (from the hot-swappable state file), whether the bit-machine is active, and the env-resolved round + control-word knobs. Curl it to confirm a hot-swap took effect | — → `{kind:"control-word-config", avx_mode, engine_active, round_config, control_word_config}` |
 | `GET /health` · `/manifest` · `/admin/ledger` · `/metrics` | liveness · 6-surface manifest · cost/route ledger · Prometheus | — |
 
 ### Try it with curl

@@ -18,6 +18,8 @@ unsafe_code = "allow"
 missing_docs = "warn"
 
 [dependencies]
+serde = { workspace = true }
+sovereign-control-word = { path = "../sovereign-control-word" }
 
 [dev-dependencies]
 rand = { workspace = true }

@@ -143,6 +143,13 @@ EXEMPT_PATTERNS: list[tuple[str, str]] = [
      "dflash decision/invocation telemetry; operator-tool usage, not health."),
     (r"^sovereign_os_dspark_[a-z0-9_]+$",
      "dspark decision/invocation telemetry (the DFlash successor); operator-tool usage, not health."),
+    (r"^sovereign_os_(per_lane_dna_diversity_index|round_update_steps_per_sec|"
+     r"variable_shift_cost_ratio|zmm_layout_register_assignment)$",
+     "M002 control-word round-engine gauges (diversity index, steps/sec, "
+     "variable-shift cost ratio, and the ZMM register-assignment info gauge); "
+     "demonstration/dashboard-tier telemetry surfaced on the /avx-modes panel + "
+     "the POST /v1/control-word/round route — an operator-driven bit-machine, "
+     "not a paging runtime-health signal."),
     (r"^sovereign_os_notify_[a-z0-9_]+$",
      "notify-dispatch out-of-band echo telemetry (delivery ok/fail/events + "
      "last-run); the PRIMARY alerting path IS Prometheus (these rules) — notify "

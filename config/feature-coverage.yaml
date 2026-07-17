@@ -116,7 +116,7 @@ coverage:
   warp:
     [warp]
   avx-modes:
-    [avx-mode]
+    [avx-mode, control-word]
 
 cli_only:
   - {verb: assistant, rationale: "first-login interactive guide (modal onboarding flow), not a persistent dashboard surface"}

@@ -203,6 +203,8 @@ COMMANDS:
                                SDD-600 hotswap: renders the Cline/Claude-Dev settings fragment (local ↔ cloud)
   avx-mode list | show [--json] | inventory [--json] | set {custom|builtin|hybrid|off}
                                SDD-600 AVX execution-mode swap: Custom bit-machine ↔ BuiltIn math ↔ Hybrid ↔ Off
+  control-word layout | encode --mode N … | decode <u64> | lut --rule-word W --condition C
+                               M00013 control-word engine — pack/unpack the 64-bit word + the M00017 LUT (real, scalar)
 
   models docs [--check|--stdout]  Regenerate docs/src/model-catalog.md (R206, SDD-028 pattern)
   models query [--class C] [--tier T] [--purpose P] [--size-class S] [--quantization Q] [--status S] [--max-vram N] [--min-context N] [--engine E] [--base-model B] [--json]
@@ -6967,6 +6969,8 @@ case "${cmd}" in
     exec "${PYTHON3}" "${__REPO_ROOT}/scripts/operator/agent-backend.py" "${cmd}" "${@:-show}" ;;
   avx-mode)  # SDD-600 Part 3: AVX execution-mode hotswap (custom/builtin/hybrid/off).
     exec "${PYTHON3}" "${__REPO_ROOT}/scripts/hardware/avx-mode.py" "$@" ;;
+  control-word)  # M002/M00013: the real control-word engine (encode/decode/lut/layout).
+    exec "${PYTHON3}" "${__REPO_ROOT}/scripts/hardware/control-word.py" "$@" ;;
   models)        cmd_models "$@" ;;
   audit)         cmd_audit "$@" ;;
   hooks)         cmd_hooks "$@" ;;

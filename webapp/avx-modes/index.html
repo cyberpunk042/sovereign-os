@@ -119,6 +119,22 @@ table.avx-tbl{width:100%;border-collapse:collapse;font-size:.83rem;}
 table.avx-tbl td{border-bottom:1px solid color-mix(in srgb,var(--border,#262626) 60%,transparent);padding:.32rem .5rem;vertical-align:top;}
 table.avx-tbl td.mono{font-family:ui-monospace,Menlo,monospace;color:var(--accent,#9bd1ff);white-space:nowrap;width:1%;}
 .avx-honest{color:var(--muted,#8a8a8a);font-size:.8rem;border:1px dashed var(--border,#3a3a3a);border-radius:8px;padding:.55rem .8rem;margin:1rem 0;}
+.cw-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.5rem;margin:.6rem 0;}
+.cw-fld{display:flex;flex-direction:column;gap:.15rem;font-size:.78rem;}
+.cw-fld label{color:var(--muted,#8a8a8a);} .cw-fld .cw-rng{font-size:.68rem;color:var(--muted,#7a7a7a);}
+.cw-fld input{font:inherit;font-size:.82rem;padding:.25rem .4rem;background:var(--bg,#0c0c0c);color:var(--fg,#e6e6e6);border:1px solid var(--border,#3a3a3a);border-radius:6px;}
+.cw-out{border:1px solid var(--border,#262626);border-radius:9px;padding:.7rem .8rem;background:var(--card,#151515);}
+.cw-hi{color:var(--accent,#9bd1ff);font-weight:600;}
+.cw-bits{font-family:ui-monospace,Menlo,monospace;font-size:.62rem;line-height:1.5;margin:.4rem 0;word-break:break-word;color:var(--muted,#8a8a8a);}
+.cw-bits b{color:var(--accent,#9bd1ff);}
+.cw-flags{display:flex;flex-wrap:wrap;gap:.5rem 1rem;font-size:.8rem;margin:.5rem 0;}
+.cw-flags label{display:flex;align-items:center;gap:.3rem;cursor:pointer;color:var(--muted,#8a8a8a);}
+.cw-perms{display:flex;flex-wrap:wrap;gap:.5rem;margin:.6rem 0;}
+.cw-perm{font-size:.76rem;padding:.2rem .6rem;border-radius:999px;border:1px solid var(--border,#3a3a3a);}
+.cw-perm.allow{color:#8fd694;border-color:#3d6b41;background:color-mix(in srgb,#3d6b41 14%,transparent);}
+.cw-perm.deny{color:#d68f8f;border-color:#6b3d3d;background:color-mix(in srgb,#6b3d3d 14%,transparent);}
+.cw-lut{display:flex;flex-wrap:wrap;align-items:center;gap:.9rem;font-size:.82rem;margin:.5rem 0;}
+.cw-lut label{display:flex;flex-direction:column;gap:.15rem;color:var(--muted,#8a8a8a);}
 html[data-theme="light"] {
   --bg:#f6f6f6; --fg:#0e0e0e; --muted:#555; --panel:#ffffff; --card:#ffffff; --border:#d8d8d8;
 }
@@ -1039,6 +1055,121 @@ html[data-theme="light"] {
 
   <h2 class="avx-h">BuiltIn precision tiers (3)</h2>
   <table class="avx-tbl"><tbody><tr><td class="mono">t1-quant-dot</td><td>T1 quantization & dot product (VPDPBUSD INT8 / VDPBF16PS BF16)</td></tr><tr><td class="mono">t2-bitwise-attn</td><td>T2 bitwise logic & attention masking (VPTERNLOG / VP2INTERSECT)</td></tr><tr><td class="mono">t3-structure-kv</td><td>T3 structure / prune / KV (VPCOMPRESS / VPEXPAND / VPERMB)</td></tr></tbody></table>
+
+  <h2 class="avx-h">Control word (M00013) — REAL &amp; testable now</h2>
+  <p class="avx-lead">This is the actual bit-machine — pack the 8 fields into one 64-bit word and read the LUT decision bit. Pure u64 shift-and-AND, no AVX-512 needed (the parallelism is what the ZMM kernels add later). Every value here is computed the same way as <span class="mono">sovereign-osctl control-word</span> — change a field and watch the word.</p>
+  <div class="cw-grid" id="cw-fields"></div>
+  <div class="cw-out">
+    <div>packed control word: <span class="mono cw-hi" id="cw-word">0x0000000000000000</span></div>
+    <div id="cw-bits" class="cw-bits"></div>
+    <div class="avx-lead" id="cw-decode" style="margin-top:.4rem;"></div>
+    <div class="avx-lead" style="margin-top:.2rem;">verify at the CLI: <span class="mono" id="cw-cli">sovereign-osctl control-word encode</span></div>
+  </div>
+
+  <h2 class="avx-h">Permissions the bits grant (M00104) — the word GATES execution</h2>
+  <p class="avx-lead">The control word stops being audit and becomes policy: it reads <b>mode</b> (bits 0..4) + the flag bits packed in <b>paramB</b> (bits 48..64) and decides what the branch may do. Set <b>mode = 1 (Commit)</b> and toggle the flags — the gate updates live, identical to the Rust <span class="mono">m00013::branch_permissions</span> that <span class="mono">CortexDecision::permissions()</span> calls before a branch runs.</p>
+  <div class="cw-flags" id="cw-flags"></div>
+  <div class="cw-perms" id="cw-perms"></div>
+
+  <h2 class="avx-h">LUT decision (M00017) — 64-entry rule table in one u64</h2>
+  <p class="avx-lead">The branchless decision: <span class="mono">(rule_word &gt;&gt; (condition &amp; 63)) &amp; 1</span>. One bit, no branch — this is how 64 rules live inside a single word.</p>
+  <div class="cw-lut">
+    <label>rule word <input id="cw-lut-rw" class="so-set-mini" value="0x2A" size="18"></label>
+    <label>condition (0–63) <input id="cw-lut-c" class="so-set-mini" type="number" min="0" max="63" value="1" style="width:5rem;"></label>
+    <span>decision bit: <span class="mono cw-hi" id="cw-lut-out">?</span></span>
+  </div>
+
+  <h2 class="avx-h">Runtime knobs (M002) — every built knob is opt-in + hot-swappable</h2>
+  <p class="avx-lead">Each knob resolves from a <span class="mono">SOVEREIGN_CTRL_*</span> env var over the default. Setting the env is the hot-swap: change it, re-read, no rebuild — identical to the Rust <span class="mono">m00013::ControlWordConfig::resolve</span> and <span class="mono">control-word.py config</span>. Invalid values are ignored (the loader never fails). Pick values below to preview the resolved config + the env line that produces it.</p>
+  <div class="cw-lut" id="cw-cfg-fields"></div>
+  <div class="cw-cli" style="margin:.4rem 0;">env: <span class="mono cw-hi" id="cw-cfg-env">(all defaults)</span></div>
+  <pre class="mono" id="cw-cfg-json" style="font-size:.8rem;overflow-x:auto;"></pre>
+
+  <h2 class="avx-h">DNA fingerprint &amp; service metrics (M00018 / service layer)</h2>
+  <p class="avx-lead">The per-lane DNA fingerprint <span class="mono">FNV-1a(control_word ‖ rule_word ‖ state)</span> (R00280) — identical to the Rust <span class="mono">sovereign-control-word-service::lane_fingerprint</span>, <span class="mono">control-word-service.py fingerprint</span>, and the daemon's <span class="mono">POST /v1/control-word/round</span>. Drift in this fingerprint is what quarantine (R00282) and the diversity metric (F00129) watch. FNV-1a matches the repo's dependency-free tamper-evidence stance (blake3 is a flagged future hardening).</p>
+  <div class="cw-lut">
+    <label>control_word <input id="cw-fp-cw" class="so-set-mini" value="0x1" size="18"></label>
+    <label>rule_word <input id="cw-fp-rule" class="so-set-mini" value="0x2" size="18"></label>
+    <label>state <input id="cw-fp-state" class="so-set-mini" value="0x3" size="18"></label>
+    <span>fingerprint: <span class="mono cw-hi" id="cw-fp-out">?</span></span>
+  </div>
+  <p class="avx-lead" style="margin-top:.4rem;">Prometheus gauges the service exposes (via <span class="mono">/v1/control-word/round</span> → <span class="mono">metrics</span>):</p>
+  <ul class="mono" style="font-size:.82rem;line-height:1.5;">
+    <li>sovereign_os_per_lane_dna_diversity_index <span style="color:var(--muted,#8a8a8a)">(F00129)</span></li>
+    <li>sovereign_os_round_update_steps_per_sec <span style="color:var(--muted,#8a8a8a)">(F00145)</span></li>
+    <li>sovereign_os_variable_shift_cost_ratio <span style="color:var(--muted,#8a8a8a)">(F00154)</span></li>
+    <li>sovereign_os_zmm_layout_register_assignment <span style="color:var(--muted,#8a8a8a)">(F00138, info: state→zmm0 memory→zmm1 rule→zmm2 random→zmm3)</span></li>
+  </ul>
+
+  <style>
+    .m2-grid{display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));margin:.7rem 0;}
+    .m2-card{border:1px solid var(--border,#262626);border-radius:10px;padding:.7rem .8rem;background:var(--card,#151515);}
+    .m2-card h3{margin:.1rem 0 .3rem;font-size:.88rem;}
+    .m2-card p{color:var(--muted,#8a8a8a);font-size:.78rem;line-height:1.45;margin:.2rem 0 .5rem;}
+    .m2-heat{display:grid;grid-template-columns:repeat(8,1fr);gap:3px;}
+    .m2-cell{aspect-ratio:1;border-radius:3px;border:1px solid var(--border,#262626);display:flex;align-items:center;justify-content:center;font-size:.62rem;color:var(--muted,#8a8a8a);}
+    .m2-cell.on{background:var(--accent,#9bd1ff);color:#0a0a0a;border-color:var(--accent,#9bd1ff);}
+    .m2-tab{width:100%;border-collapse:collapse;font-size:.76rem;}
+    .m2-tab th,.m2-tab td{border:1px solid var(--border,#262626);padding:.22rem .45rem;text-align:left;}
+    .m2-tab th{color:var(--muted,#8a8a8a);font-weight:600;}
+    .m2-tab td.mono,.m2-tab td .mono{font-family:var(--mono,ui-monospace,monospace);}
+    .m2-step{display:flex;gap:.35rem;flex-wrap:wrap;align-items:center;}
+    .m2-step .s{border:1px solid var(--border,#262626);border-radius:6px;padding:.28rem .5rem;font-size:.7rem;}
+    .m2-step .s b{color:var(--accent,#9bd1ff);}
+    .m2-step .arrow{color:var(--muted,#8a8a8a);}
+    .m2-barrow{display:flex;align-items:center;gap:.5rem;margin:.25rem 0;font-size:.74rem;}
+    .m2-barrow .lbl{min-width:9rem;color:var(--muted,#8a8a8a);}
+    .m2-barbg{flex:1;height:12px;background:var(--bg,#0e0e0e);border:1px solid var(--border,#262626);border-radius:6px;overflow:hidden;}
+    .m2-bar{height:100%;background:var(--accent,#9bd1ff);}
+    .m2-fp{display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:.7rem;}
+    .m2-fp .lane{border:1px solid var(--border,#262626);border-radius:4px;padding:.2rem .4rem;overflow-wrap:anywhere;}
+    .m2-lf{display:flex;height:22px;border-radius:5px;overflow:hidden;border:1px solid var(--border,#262626);font-size:.62rem;}
+    .m2-lf > span{display:flex;align-items:center;justify-content:center;color:#0a0a0a;}
+  </style>
+
+  <h2 class="avx-h">M002 dashboards — the 9 per-feature surfaces</h2>
+  <p class="avx-lead">Every M002 module's operator-facing surface, each computing live from the same mirrored bit-logic as the crate + CLI + daemon. The <b>control-word bit-inspector</b> (M00013 / F00095) and the <b>64-entry LUT inspector</b> (M00017 / F00118) are the interactive sections higher up this page; the seven below complete the set. All seed from state=memory=rule=random=[1..8] (the 3-round parity seed).</p>
+  <div class="m2-grid">
+    <div class="m2-card">
+      <h3>Lane fields (M00012 / F00090)</h3>
+      <p>The u64 lane split into 4×16-bit fields: state_lo / state_hi / control / scratch.</p>
+      <label class="mono" style="font-size:.72rem;">word <input id="m2-lf-in" class="so-set-mini" value="0xDEF09ABC56781234" size="20"></label>
+      <div class="m2-lf" id="m2-lf" style="margin-top:.4rem;"></div>
+      <div class="mono" id="m2-lf-txt" style="font-size:.7rem;color:var(--muted,#8a8a8a);margin-top:.3rem;"></div>
+    </div>
+    <div class="m2-card">
+      <h3>Masked-op per-lane heatmap (M00015 / F00108)</h3>
+      <p>The decision bit each of the 8 lanes takes — <span class="mono">(rule &gt;&gt; features) &amp; 1</span>, branchless. Rule = 0xAAAA…AAAA (alternating LUT); features from state⊕memory⊕random = [1..8].</p>
+      <div class="m2-heat" id="m2-heat"></div>
+    </div>
+    <div class="m2-card">
+      <h3>ZMM layout assignment (M00019 / F00137)</h3>
+      <p>The strong-layout register assignment — immutable during a kernel (R00285).</p>
+      <table class="m2-tab" id="m2-zmm"><thead><tr><th>plane</th><th>register</th><th>role</th></tr></thead><tbody></tbody></table>
+    </div>
+    <div class="m2-card">
+      <h3>Round-update step timeline (M00020 / F00144)</h3>
+      <p>The 5 steps for lane 0, one round (R00289-293).</p>
+      <div class="m2-step" id="m2-timeline"></div>
+    </div>
+    <div class="m2-card">
+      <h3>Shift-cost comparison (M00021 / F00153)</h3>
+      <p>Variable per-lane shift (VPSLLVQ) vs the AND/XOR baseline — the reported cost ratio (R00298).</p>
+      <label class="mono" style="font-size:.72rem;">cost ratio <input id="m2-sc-in" class="so-set-mini" type="number" min="0" step="0.1" value="1.8" style="width:5rem;"></label>
+      <div id="m2-shiftcost" style="margin-top:.4rem;"></div>
+    </div>
+    <div class="m2-card">
+      <h3>Rule-word width comparison (M00022 / F00162)</h3>
+      <p>32 / 64 / 128-bit rule words: condition bits + a sample decision.</p>
+      <table class="m2-tab" id="m2-width"><thead><tr><th>width</th><th>cond bits</th><th>decide(0x2A, c=1)</th></tr></thead><tbody></tbody></table>
+    </div>
+    <div class="m2-card">
+      <h3>Per-lane DNA visualizer (M00018 / F00128)</h3>
+      <p>The 8 lane fingerprints after 3 rounds + the diversity index (F00129).</p>
+      <div class="m2-fp" id="m2-dna"></div>
+      <div class="m2-barrow" style="margin-top:.4rem;"><span class="lbl">diversity index</span><div class="m2-barbg"><div class="m2-bar" id="m2-dna-bar"></div></div><span class="mono" id="m2-dna-val"></span></div>
+    </div>
+  </div>
 </main>
 
 <!-- SDD-045 shared control-surface, inlined verbatim from webapp/_shared/control-surface.js -->
@@ -1362,6 +1493,192 @@ html[data-theme="light"] {
 </script>
 <script>
   SovereignControlSurface.load(document.getElementById("control-surface"), {filterSlug:"avx-modes"});
+
+  // ── Control-word engine (M00013) — client-side BigInt bit-ops, IDENTICAL to
+  //    scripts/hardware/control-word.py. This is the real, testable bit-machine. ──
+  var CW_FIELDS=[["mode",0,4],["event",4,4],["intensity",8,8],["cooldown",16,8],
+                 ["neighborhood",24,8],["paramA",32,16],["paramB",48,16]];
+  function cwEncode(vals){ var w=0n; CW_FIELDS.forEach(function(f){
+    var hi=(1n<<BigInt(f[2]))-1n; var v=BigInt(vals[f[0]]||0); if(v<0n)v=0n; if(v>hi)v=hi;
+    w|=(v&hi)<<BigInt(f[1]); }); return w; }
+  function cwDecode(w){ var o={}; CW_FIELDS.forEach(function(f){
+    o[f[0]]=Number((w>>BigInt(f[1]))&((1n<<BigInt(f[2]))-1n)); }); return o; }
+  function cwHex(w){ var s=w.toString(16).toUpperCase(); while(s.length<16)s="0"+s; return "0x"+s; }
+  function cwParse(s){ s=(s||"").trim(); try{ return s.toLowerCase().indexOf("0x")===0?BigInt(s):BigInt(s||"0"); }catch(e){ return 0n; } }
+  var cwHost=document.getElementById("cw-fields");
+  if(cwHost){
+    CW_FIELDS.forEach(function(f){
+      var hi=(1<<f[2])-1;
+      var d=document.createElement("div"); d.className="cw-fld";
+      d.innerHTML='<label for="cw-'+f[0]+'">'+f[0]+' <span class="cw-rng">('+f[1]+'..'+(f[1]+f[2])+', 0–'+hi+')</span></label>'+
+        '<input id="cw-'+f[0]+'" type="number" min="0" max="'+hi+'" value="0">';
+      cwHost.appendChild(d);
+    });
+    var cwWord=document.getElementById("cw-word"), cwBits=document.getElementById("cw-bits"),
+        cwDec=document.getElementById("cw-decode"), cwCli=document.getElementById("cw-cli");
+    // ── Flags (paramB) + the M00104 permission gate — mirrors the Rust
+    //    m00013::branch_permissions() that CortexDecision::permissions() calls. ──
+    var CW_FLAGS=[["commit-gate",1],["sandbox",2],["replay",4],["audit",8],["speculative",16]];
+    var cwFlagHost=document.getElementById("cw-flags"), cwPerms=document.getElementById("cw-perms");
+    if(cwFlagHost){
+      CW_FLAGS.forEach(function(fl){ var lab=document.createElement("label");
+        lab.innerHTML='<input type="checkbox" id="cw-flag-'+fl[1]+'"> '+fl[0]+' <span class="cw-rng">('+fl[1]+')</span>';
+        cwFlagHost.appendChild(lab); });
+      cwFlagHost.addEventListener("change",function(){ var pb=0;
+        CW_FLAGS.forEach(function(fl){ var el=document.getElementById("cw-flag-"+fl[1]); if(el&&el.checked) pb|=fl[1]; });
+        var pbi=document.getElementById("cw-paramB"); if(pbi){ pbi.value=pb; } cwRefresh(); });
+    }
+    var FLAG_COMMIT_GATE=1,FLAG_SANDBOX=2,FLAG_SPECULATIVE=16,MODE_COMMIT=1;
+    function permsOf(w){ var mode=Number(w&0xFn), flags=Number((w>>48n)&0xFFFFn);
+      var committed=mode===MODE_COMMIT, spec=(flags&FLAG_SPECULATIVE)!==0, sand=(flags&FLAG_SANDBOX)!==0;
+      return { shell_allowed:committed&&!spec, file_write_allowed:committed&&!spec&&!sand,
+        network_allowed:!sand, verification_required:(flags&FLAG_COMMIT_GATE)!==0, speculative_only:spec }; }
+    function renderPerms(w){ if(!cwPerms)return; var p=permsOf(w);
+      var rows=[["shell",p.shell_allowed],["file-write",p.file_write_allowed],["network",p.network_allowed],
+                ["verification-required",p.verification_required],["speculative-only",p.speculative_only]];
+      cwPerms.innerHTML=rows.map(function(r){ return '<span class="cw-perm '+(r[1]?"allow":"deny")+'">'+r[0]+': '+(r[1]?"✓":"✗")+'</span>'; }).join(""); }
+    function cwRefresh(){
+      var vals={}; CW_FIELDS.forEach(function(f){ var el=document.getElementById("cw-"+f[0]);
+        var v=parseInt(el.value,10); if(isNaN(v))v=0; var hi=(1<<f[2])-1; if(v<0)v=0; if(v>hi){v=hi; el.value=hi;} vals[f[0]]=v; });
+      var w=cwEncode(vals);
+      cwWord.textContent=cwHex(w)+"  ("+w.toString()+")";
+      // per-field bit strip (MSB→LSB), each field's bits shown grouped
+      var bin=w.toString(2); while(bin.length<64)bin="0"+bin;
+      var groups=[]; // paramB..mode (high→low)
+      for(var i=CW_FIELDS.length-1;i>=0;i--){ var f=CW_FIELDS[i];
+        var seg=bin.substr(64-(f[1]+f[2]), f[2]); groups.push('<b>'+f[0]+'</b>:'+seg); }
+      cwBits.innerHTML=groups.join(" · ");
+      var dec=cwDecode(w);
+      cwDec.textContent="decode → "+CW_FIELDS.map(function(f){return f[0]+"="+dec[f[0]];}).join("  ");
+      var args=CW_FIELDS.filter(function(f){return vals[f[0]];}).map(function(f){return "--"+f[0]+" "+vals[f[0]];}).join(" ");
+      cwCli.textContent="sovereign-osctl control-word encode "+(args||"(all zero)");
+      renderPerms(w);
+    }
+    CW_FIELDS.forEach(function(f){ document.getElementById("cw-"+f[0]).addEventListener("input",cwRefresh); });
+    cwRefresh();
+  }
+  // LUT (M00017)
+  var lutRw=document.getElementById("cw-lut-rw"), lutC=document.getElementById("cw-lut-c"), lutOut=document.getElementById("cw-lut-out");
+  function lutRefresh(){ if(!lutOut)return; var rw=cwParse(lutRw.value); var c=BigInt((parseInt(lutC.value,10)||0)&63);
+    lutOut.textContent=Number((rw>>c)&1n)+"  (bit "+c.toString()+")"; }
+  if(lutRw){ lutRw.addEventListener("input",lutRefresh); lutC.addEventListener("input",lutRefresh); lutRefresh(); }
+
+  // Runtime knobs (M002) — mirrors resolve_config in the crate + control-word.py.
+  // (name, env-var, default, choices) — a select of choices previews the hot-swap.
+  var CW_CFG=[
+    ["layout_version","SOVEREIGN_CTRL_WORD_LAYOUT_VERSION","1.0.0",["1.0.0","2.1.0"]],
+    ["overflow_mode","SOVEREIGN_CTRL_OVERFLOW_MODE","abort",["abort","wrap","saturate"]],
+    ["rule_word_width","SOVEREIGN_CTRL_RULE_WORD_WIDTH","64",["32","64","128"]],
+    ["lut_condition_width","SOVEREIGN_CTRL_LUT_CONDITION_WIDTH","6",["5","6","7"]],
+    ["masked_op_mode","SOVEREIGN_CTRL_MASKED_OP_MODE","branchless",["branchless","branchy"]],
+    ["per_lane_dna","SOVEREIGN_CTRL_PER_LANE_DNA_ENABLED","off",["off","on"]]
+  ];
+  var cfgHost=document.getElementById("cw-cfg-fields");
+  if(cfgHost){
+    CW_CFG.forEach(function(c){
+      var lab=document.createElement("label"); lab.textContent=c[0];
+      var sel=document.createElement("select"); sel.className="so-set-mini"; sel.id="cw-cfg-"+c[0];
+      c[3].forEach(function(o){ var op=document.createElement("option"); op.value=o; op.textContent=o; sel.appendChild(op); });
+      sel.value=c[2]; lab.appendChild(sel); cfgHost.appendChild(lab);
+      sel.addEventListener("change",cfgRefresh);
+    });
+    var cfgEnv=document.getElementById("cw-cfg-env"), cfgJson=document.getElementById("cw-cfg-json");
+    function cfgRefresh(){
+      var resolved={}, envParts=[];
+      CW_CFG.forEach(function(c){
+        var v=document.getElementById("cw-cfg-"+c[0]).value;
+        var key=v;
+        if(c[0]==="rule_word_width"||c[0]==="lut_condition_width") key=parseInt(v,10);
+        else if(c[0]==="per_lane_dna") key=(v==="on");   // boolean, matches crate/CLI
+        resolved[c[0]]=key;
+        if(v!==c[2]) envParts.push(c[1]+"="+v);   // only non-defaults are opt-in overrides
+      });
+      cfgEnv.textContent=envParts.length? "export "+envParts.join(" ") : "(all defaults)";
+      cfgJson.textContent=JSON.stringify(resolved,null,2);
+    }
+    cfgRefresh();
+  }
+
+  // DNA fingerprint (M00018) — FNV-1a over control_word ‖ rule_word ‖ state,
+  // LE bytes; mirrors sovereign-control-word-service::lane_fingerprint (u64 wrap).
+  var M64=(1n<<64n)-1n, FNV_OFF=0xcbf29ce484222325n, FNV_PRIME=0x00000100000001b3n;
+  function fnv1a(bytes){ var h=FNV_OFF; for(var i=0;i<bytes.length;i++){ h^=BigInt(bytes[i]); h=(h*FNV_PRIME)&M64; } return h; }
+  function leBytes(v){ v&=M64; var b=[]; for(var i=0;i<8;i++){ b.push(Number((v>>BigInt(i*8))&0xffn)); } return b; }
+  function laneFingerprint(cw,rule,state){ return fnv1a(leBytes(cw).concat(leBytes(rule),leBytes(state))); }
+  var fpCw=document.getElementById("cw-fp-cw"), fpRule=document.getElementById("cw-fp-rule"),
+      fpState=document.getElementById("cw-fp-state"), fpOut=document.getElementById("cw-fp-out");
+  function fpParse(s){ s=(s||"").trim(); try{ return (s.toLowerCase().indexOf("0x")===0? BigInt(s): BigInt(s||"0"))&M64; }catch(e){ return 0n; } }
+  function fpRefresh(){ if(!fpOut)return; var f=laneFingerprint(fpParse(fpCw.value),fpParse(fpRule.value),fpParse(fpState.value));
+    fpOut.textContent="0x"+f.toString(16).padStart(16,"0"); }
+  if(fpOut){ [fpCw,fpRule,fpState].forEach(function(el){ el.addEventListener("input",fpRefresh); }); fpRefresh(); }
+
+  // ── M002 dashboards (F00090/108/137/144/153/162/128) ──
+  // round_update mirror (BigInt u64) — identical to sovereign-simd::round + simd-round.py.
+  function extractFeatures(st,me,rn){ return (st^me^rn)&0x3Fn; }
+  function decideBit(rule,feat){ return (rule>>(feat&63n))&1n; }
+  function applyState(st,d){ return ((st<<1n)|(d&1n))&M64; }
+  function updateMemory(me,old){ return ((me>>1n)|((old&1n)<<63n))&M64; }
+  function advanceRng(x){ x&=M64; x^=(x<<13n)&M64; x^=x>>7n; x^=(x<<17n)&M64; return x&M64; }
+  function roundUpdate(s){ var o={state:s.state.slice(),memory:s.memory.slice(),rule:s.rule.slice(),random:s.random.slice()};
+    for(var i=0;i<8;i++){ var f=extractFeatures(s.state[i],s.memory[i],s.random[i]); var d=decideBit(s.rule[i],f);
+      o.state[i]=applyState(s.state[i],d); o.memory[i]=updateMemory(s.memory[i],s.state[i]); o.random[i]=advanceRng(s.random[i]); }
+    return o; }
+  function seed(){ var a=function(){ return [1n,2n,3n,4n,5n,6n,7n,8n]; };
+    return {state:a(),memory:a(),rule:a(),random:a()}; }
+
+  // F00090 — lane fields (state_lo/state_hi/control/scratch)
+  var lfIn=document.getElementById("m2-lf-in"), lfBox=document.getElementById("m2-lf"), lfTxt=document.getElementById("m2-lf-txt");
+  var LF=[["state_lo","#9bd1ff"],["state_hi","#7fd6a3"],["control","#e6b45a"],["scratch","#d98ca0"]];
+  function lfRefresh(){ if(!lfBox)return; var w=fpParse(lfIn.value); lfBox.innerHTML=""; var parts=[];
+    for(var i=0;i<4;i++){ var v=(w>>BigInt(i*16))&0xFFFFn; var el=document.createElement("span");
+      el.style.flex="1"; el.style.background=LF[i][1]; el.textContent=LF[i][0]; lfBox.appendChild(el);
+      parts.push(LF[i][0]+"=0x"+v.toString(16).toUpperCase()); }
+    lfTxt.textContent=parts.join("  "); }
+  if(lfIn){ lfIn.addEventListener("input",lfRefresh); lfRefresh(); }
+
+  // F00108 — masked-op per-lane decision heatmap (one round from the seed)
+  var heat=document.getElementById("m2-heat");
+  if(heat){ var s0=seed(); var altRule=0xAAAAAAAAAAAAAAAAn; heat.innerHTML="";
+    for(var i=0;i<8;i++){ var f=extractFeatures(s0.state[i],s0.memory[i],s0.random[i]); var d=decideBit(altRule,f);
+      var c=document.createElement("div"); c.className="m2-cell"+(d===1n?" on":""); c.textContent=d.toString();
+      c.title="lane "+i+": features="+f.toString()+" → decision="+d.toString(); heat.appendChild(c); } }
+
+  // F00137 — ZMM assignment table
+  var zmm=document.querySelector("#m2-zmm tbody");
+  if(zmm){ [["state","zmm0","evolving cell state"],["memory","zmm1","64-deep state history"],
+    ["rule","zmm2","per-lane rule LUT"],["random","zmm3","per-lane xorshift RNG"]].forEach(function(r){
+    var tr=document.createElement("tr"); tr.innerHTML="<td>"+r[0]+"</td><td class=\"mono\">"+r[1]+"</td><td>"+r[2]+"</td>"; zmm.appendChild(tr); }); }
+
+  // F00144 — round-update step timeline (lane 0, one round)
+  var tl=document.getElementById("m2-timeline");
+  if(tl){ var s=seed(),i0=0; var st=s.state[i0],me=s.memory[i0],ru=s.rule[i0],rn=s.random[i0];
+    var f=extractFeatures(st,me,rn), d=decideBit(ru,f), ns=applyState(st,d), nm=updateMemory(me,st), nr=advanceRng(rn);
+    var steps=[["1 extract","features=0x"+f.toString(16)],["2 decision","bit="+d.toString()],
+      ["3 apply","state=0x"+ns.toString(16)],["4 memory","mem=0x"+nm.toString(16)],["5 advance","rng=0x"+nr.toString(16)]];
+    tl.innerHTML=""; steps.forEach(function(sp,k){ if(k){ var a=document.createElement("span"); a.className="arrow"; a.textContent="→"; tl.appendChild(a); }
+      var e=document.createElement("span"); e.className="s"; e.innerHTML="<b>"+sp[0]+"</b> "+sp[1]; tl.appendChild(e); }); }
+
+  // F00153 — shift-cost comparison bars (reported cost ratio)
+  var scIn=document.getElementById("m2-sc-in"), scBox=document.getElementById("m2-shiftcost");
+  function scRefresh(){ if(!scBox)return; var ratio=parseFloat(scIn.value)||1; var max=Math.max(ratio,1);
+    function bar(lbl,val){ var pct=Math.min(100,val/max*100);
+      return "<div class=\"m2-barrow\"><span class=\"lbl\">"+lbl+"</span><div class=\"m2-barbg\"><div class=\"m2-bar\" style=\"width:"+pct+"%\"></div></div><span class=\"mono\">"+val.toFixed(2)+"×</span></div>"; }
+    scBox.innerHTML=bar("AND/XOR baseline",1)+bar("variable shift (VPSLLVQ)",ratio); }
+  if(scIn){ scIn.addEventListener("input",scRefresh); scRefresh(); }
+
+  // F00162 — rule-word width comparison (condition bits + sample decide)
+  var wt=document.querySelector("#m2-width tbody");
+  if(wt){ [[32,5],[64,6],[128,7]].forEach(function(r){ var cbits=BigInt(r[1]); var mask=(1n<<cbits)-1n;
+    var dec=(0x2An>>(1n&mask))&1n; // decide(0x2A, cond=1) — bit 1 of 0b101010 = 1
+    var tr=document.createElement("tr"); tr.innerHTML="<td>"+r[0]+"-bit</td><td>"+r[1]+"</td><td class=\"mono\">"+dec.toString()+"</td>"; wt.appendChild(tr); }); }
+
+  // F00128 — per-lane DNA visualizer (8 fingerprints after 3 rounds + diversity)
+  var dna=document.getElementById("m2-dna"), dnaBar=document.getElementById("m2-dna-bar"), dnaVal=document.getElementById("m2-dna-val");
+  if(dna){ var sd=seed(); for(var r=0;r<3;r++){ sd=roundUpdate(sd); }
+    var fps=[], set={}; dna.innerHTML="";
+    for(var i=0;i<8;i++){ var fp=laneFingerprint(sd.memory[i],sd.rule[i],sd.state[i]); fps.push(fp); set[fp.toString()]=1;
+      var el=document.createElement("div"); el.className="lane"; el.innerHTML="<span style=\"color:var(--muted,#8a8a8a)\">L"+i+"</span> 0x"+fp.toString(16).padStart(16,"0"); dna.appendChild(el); }
+    var div=Object.keys(set).length/8; dnaBar.style.width=(div*100)+"%"; dnaVal.textContent=div.toFixed(3); }
 </script>
 <!-- COURSE:BEGIN M090 -->
 <style id="so-course-style">
