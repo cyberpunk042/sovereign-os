@@ -400,6 +400,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-bit-cheats"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "sovereign-control-word",
+]
+
+[[package]]
 name = "sovereign-bitlinear-core"
 version = "0.1.0"
 dependencies = [
@@ -4903,6 +4911,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sovereign-agent-loop",
+ "sovereign-bit-cheats",
  "sovereign-branch-scheduler",
  "sovereign-calc",
  "sovereign-coat",

@@ -23,6 +23,7 @@ sovereign-cortex = { path = "../sovereign-cortex" }
 sovereign-control-word-service = { path = "../sovereign-control-word-service" }
 sovereign-control-word = { path = "../sovereign-control-word" }
 sovereign-branch-scheduler = { path = "../sovereign-branch-scheduler" }
+sovereign-bit-cheats = { path = "../sovereign-bit-cheats" }
 sovereign-simd = { path = "../sovereign-simd" }
 # The durable-memory store type, for corruption-safe load + a capacity bound.
 sovereign-memory-os = { path = "../sovereign-memory-os" }

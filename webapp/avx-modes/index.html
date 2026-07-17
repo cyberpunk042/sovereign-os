@@ -1197,6 +1197,24 @@ html[data-theme="light"] {
       <div class="m2-step" id="m7-loop"></div>
       <div class="mono" id="m7-out" style="font-size:.72rem;color:var(--muted,#8a8a8a);margin-top:.35rem;"></div>
     </div>
+    <div class="m2-card">
+      <h3>Token-law bitset (M00117 / F00623)</h3>
+      <p>grammar ∧ schema ∧ tool ∧ safety ∧ route over a vocab bitset → the allowed-token mask. Also the daemon's <span class="mono">POST /v1/token-law/allowed-mask</span>.</p>
+      <div class="mono" id="m8-tlaw" style="font-size:.76rem;"></div>
+    </div>
+    <div class="m2-card">
+      <h3>Bloom overlap (M00122)</h3>
+      <p>The seen-before sketch: <span class="mono">popcount(query &amp; memory)</span>. Toggle bits; the overlap count is the shared set-bits.</p>
+      <label class="mono" style="font-size:.72rem;">query <input id="m8-bl-q" class="so-set-mini" value="0xFF00FF00" size="14"></label>
+      <label class="mono" style="font-size:.72rem;">memory <input id="m8-bl-m" class="so-set-mini" value="0x0F0FF0F0" size="14"></label>
+      <div class="mono" id="m8-bl-out" style="font-size:.8rem;margin-top:.3rem;"></div>
+    </div>
+    <div class="m2-card">
+      <h3>Bitfields-as-microcode (M00113)</h3>
+      <p>The control word decoded as an executable micro-op program. Set mode + flags; the program and its policy outcome update live.</p>
+      <div class="m2-step" id="m8-mc" style="margin-bottom:.3rem;"></div>
+      <div class="mono" id="m8-mc-out" style="font-size:.74rem;"></div>
+    </div>
   </div>
 </main>
 
@@ -1679,6 +1697,31 @@ html[data-theme="light"] {
     var n=0; for(var i=0;i<8;i++) if(committed&(1<<i)) n++;
     m7out.textContent="committed = "+bits(committed)+" → "+n+" survivors (lanes 0-3 mode=1 commit; 4-7 draft gated out)"; }
   if(m7loop){ m7Refresh(); }
+
+  // M00117 token-law bitset (AND of 5 planes over one vocab word)
+  var tlaw=document.getElementById("m8-tlaw");
+  if(tlaw){ var laws=[0xFF,0x7F,0xFE,0xBF,0xFC]; var m=0xFF; laws.forEach(function(l){ m&=l; });
+    var cnt=0; for(var i=0;i<8;i++) if(m&(1<<i)) cnt++;
+    tlaw.innerHTML="planes: "+laws.map(function(l){return "0b"+l.toString(2).padStart(8,"0");}).join(" &amp; ")+
+      "<br>allowed = <span class=\"cw-hi\">0b"+m.toString(2).padStart(8,"0")+"</span> ("+cnt+" tokens)"; }
+
+  // M00122 bloom overlap: popcount(query & memory)
+  var blQ=document.getElementById("m8-bl-q"),blM=document.getElementById("m8-bl-m"),blOut=document.getElementById("m8-bl-out");
+  function blRefresh(){ if(!blOut)return; var q=fpParse(blQ.value),mm=fpParse(blM.value),ov=q&mm;
+    var n=0; while(ov>0n){ n+=Number(ov&1n); ov>>=1n; }
+    blOut.innerHTML="overlap = popcount(query &amp; memory) = <span class=\"cw-hi\">"+n+"</span> shared bits"; }
+  if(blQ){ [blQ,blM].forEach(function(e){ e.addEventListener("input",blRefresh); }); blRefresh(); }
+
+  // M00113 bitfields-as-microcode: decode mode+flags → micro-op program.
+  var mc=document.getElementById("m8-mc"),mcOut=document.getElementById("m8-mc-out");
+  if(mc){ // committed (mode=1) + audit(8) + commit-gate(1) flags in paramB
+    var mode=1, flags=1|8; // FLAG_COMMIT_GATE|FLAG_AUDIT
+    var FL=[[1,"RequireGate"],[2,"Sandbox"],[4,"Replay"],[8,"Audit"],[16,"Speculate"]];
+    var ops=[]; if(mode===1) ops.push("Commit"); FL.forEach(function(f){ if(flags&f[0]) ops.push(f[1]); });
+    var spec=(flags&16)!==0, sand=(flags&2)!==0, commit=(mode===1)&&!spec&&!sand;
+    mc.innerHTML=""; ops.forEach(function(o,k){ if(k){var a=document.createElement("span");a.className="arrow";a.textContent="→";mc.appendChild(a);}
+      var e=document.createElement("span");e.className="s";e.textContent=o;mc.appendChild(e); });
+    mcOut.innerHTML="outcome: commit="+commit+" sandboxed="+sand+" audited="+((flags&8)!==0)+" gate="+((flags&1)!==0); }
 
   // ── M002 dashboards (F00090/108/137/144/153/162/128) ──
   // round_update mirror (BigInt u64) — identical to sovereign-simd::round + simd-round.py.

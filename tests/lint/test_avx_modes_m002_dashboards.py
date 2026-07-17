@@ -58,6 +58,9 @@ M78_SURFACES = [
     ("F00605", "VPTERNLOG fuse-policy (M00114"),
     ("F00615", "VPCOMPRESS sparse→dense (M00116"),
     ("M007", "M007 8-step branch loop (E0052"),
+    ("F00623", "Token-law bitset (M00117"),
+    ("M00122", "Bloom overlap (M00122"),
+    ("M00113", "Bitfields-as-microcode (M00113"),
 ]
 
 

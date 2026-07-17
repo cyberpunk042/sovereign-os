@@ -24,6 +24,8 @@
 //! POST /v1/control-word/round -> {"kind":"control-word-round",…} M002 round engine (reads the live avx-mode switch)
 //! GET  /v1/control-word/config -> {"kind":"control-word-config",…} live resolved avx-mode + round/control-word knobs
 //! POST /v1/branch-scheduler/tick -> {"kind":"branch-scheduler-tick",…} M007 8-step branch loop (M002+M007+M008 capstone)
+//! POST /v1/token-law/allowed-mask -> {"kind":"token-law-allowed-mask",…} M008 token-law bitset combine (F00623)
+//! POST /v1/microcode/decode -> {"kind":"microcode-decode",…} M008 control word as executable micro-op program (M00113)
 //! ```
 //!
 //! A `POST` body is one JSON [`CortexRequest`]; the reply is the tagged
@@ -148,6 +150,8 @@ pub fn respond(server: &GatewayServer, method: &str, path: &str, body: &str) -> 
         ("POST", "/v1/control-word/round") => control_word_round(body),
         ("GET", "/v1/control-word/config") => control_word_config(),
         ("POST", "/v1/branch-scheduler/tick") => branch_scheduler_tick(body),
+        ("POST", "/v1/token-law/allowed-mask") => token_law_allowed_mask(body),
+        ("POST", "/v1/microcode/decode") => microcode_decode(body),
         ("POST", "/v1/models/load") => models_load(server, body),
         ("POST", "/v1/models/unload") => models_unload(server, body),
         ("POST", "/v1/models/register") => models_register(server, body),
@@ -501,7 +505,10 @@ fn control_word_round(body: &str) -> HttpReply {
         );
     }
 
-    // Run rounds-1 plain, then the final round with lifecycle events.
+    // Run rounds-1 plain, then the final round with lifecycle events — timed
+    // with a real clock so steps/sec (F00145) is a live measurement at this
+    // daemon call site, not a fabricated 0.
+    let t0 = std::time::Instant::now();
     let mut cur = req.state;
     for _ in 1..req.rounds {
         cur = sovereign_simd::round::round_update(&cur, config);
@@ -511,10 +518,9 @@ fn control_word_round(body: &str) -> HttpReply {
     } else {
         round_with_events(&cur, config)
     };
+    let elapsed = t0.elapsed().as_secs_f64();
     let fps = round_fingerprints(&result);
-    // steps/sec is a live measurement the daemon would fill; report 0 (no clock
-    // in this pure handler) so the metric is honest, not fabricated.
-    let metrics = metrics_from(&result, req.rounds, 0.0, 1.0);
+    let metrics = metrics_from(&result, req.rounds, elapsed, 1.0);
     json_reply(
         200,
         &serde_json::json!({
@@ -558,6 +564,69 @@ fn branch_scheduler_tick(body: &str) -> HttpReply {
     json_reply(
         200,
         &serde_json::json!({ "kind": "branch-scheduler-tick", "result": result }),
+    )
+}
+
+/// `POST /v1/token-law/allowed-mask` (F00623) — combine the M008 token-law
+/// planes (grammar / schema / tool / safety / route), each a vocab bitset, into
+/// one allowed-token mask (M00117). Body: `{ "laws": [[u64,…],…], "combine"?:
+/// "and"|"or" }`. Reply: the combined mask + allowed-token count (F00624).
+fn token_law_allowed_mask(body: &str) -> HttpReply {
+    use sovereign_simd::cheats::{LawCombine, allowed_token_count, token_law_combine};
+
+    #[derive(serde::Deserialize)]
+    struct Req {
+        laws: Vec<Vec<u64>>,
+        #[serde(default)]
+        combine: String,
+    }
+    let req: Req = match serde_json::from_str(body) {
+        Ok(r) => r,
+        Err(e) => return err(400, format!("invalid token-law request: {e}")),
+    };
+    let combine = if req.combine == "or" {
+        LawCombine::Or
+    } else {
+        LawCombine::And
+    };
+    let law_refs: Vec<&[u64]> = req.laws.iter().map(|l| l.as_slice()).collect();
+    let mask = token_law_combine(&law_refs, combine);
+    json_reply(
+        200,
+        &serde_json::json!({
+            "kind": "token-law-allowed-mask",
+            "combine": if req.combine == "or" { "or" } else { "and" },
+            "mask": mask,
+            "allowed_tokens": allowed_token_count(&mask),
+        }),
+    )
+}
+
+/// `POST /v1/microcode/decode` (M00113) — decode a control word's bitfields as
+/// an executable micro-op program and run it to a policy outcome. Body:
+/// `{ "control_word": u64 }`. The control word isn't data the policy reads —
+/// it's a program the policy runs.
+fn microcode_decode(body: &str) -> HttpReply {
+    use sovereign_bit_cheats::{decode_microcode, execute_microcode};
+
+    #[derive(serde::Deserialize)]
+    struct Req {
+        control_word: u64,
+    }
+    let req: Req = match serde_json::from_str(body) {
+        Ok(r) => r,
+        Err(e) => return err(400, format!("invalid microcode request: {e}")),
+    };
+    let ops = decode_microcode(req.control_word);
+    let outcome = execute_microcode(&ops);
+    json_reply(
+        200,
+        &serde_json::json!({
+            "kind": "microcode-decode",
+            "control_word": format!("{:#018x}", req.control_word),
+            "program": ops,
+            "outcome": outcome,
+        }),
     )
 }
 
@@ -1089,6 +1158,86 @@ mod tests {
         assert_eq!(
             respond(&srv(), "POST", "/v1/branch-scheduler/tick", "{").status,
             400
+        );
+    }
+
+    #[test]
+    fn post_token_law_allowed_mask_combines_planes() {
+        // grammar ∧ schema ∧ tool ∧ safety ∧ route over a 1-word vocab bitset.
+        let body = serde_json::json!({
+            "laws": [[0b1111_1111u64], [0b0111_1111u64], [0b1111_1110u64],
+                     [0b1011_1111u64], [0b1111_1100u64]],
+            "combine": "and"
+        })
+        .to_string();
+        let v = body_of(&respond(
+            &srv(),
+            "POST",
+            "/v1/token-law/allowed-mask",
+            &body,
+        ));
+        assert_eq!(v["kind"], "token-law-allowed-mask");
+        assert_eq!(v["mask"][0], 0b0011_1100);
+        assert_eq!(v["allowed_tokens"], 4);
+        // OR admits more
+        let orbody =
+            serde_json::json!({ "laws": [[0b1u64],[0b10u64]], "combine": "or" }).to_string();
+        assert_eq!(
+            body_of(&respond(
+                &srv(),
+                "POST",
+                "/v1/token-law/allowed-mask",
+                &orbody
+            ))["mask"][0],
+            0b11
+        );
+        assert_eq!(
+            respond(&srv(), "POST", "/v1/token-law/allowed-mask", "{").status,
+            400
+        );
+    }
+
+    #[test]
+    fn post_microcode_decode_runs_the_program() {
+        // committed (mode=1) + audit flag (bit 3 of paramB at bits 48..64).
+        let committed_audited: u64 = 1 | ((8u64) << 48);
+        let body = serde_json::json!({ "control_word": committed_audited }).to_string();
+        let v = body_of(&respond(&srv(), "POST", "/v1/microcode/decode", &body));
+        assert_eq!(v["kind"], "microcode-decode");
+        assert_eq!(v["outcome"]["commit"], true);
+        assert_eq!(v["outcome"]["audited"], true);
+        let prog = v["program"].as_array().unwrap();
+        assert!(prog.iter().any(|o| o == "commit"));
+        assert!(prog.iter().any(|o| o == "audit"));
+        // sandboxed → cannot durably commit
+        let sandboxed: u64 = 1 | ((2u64) << 48);
+        let v = body_of(&respond(
+            &srv(),
+            "POST",
+            "/v1/microcode/decode",
+            &serde_json::json!({ "control_word": sandboxed }).to_string(),
+        ));
+        assert_eq!(v["outcome"]["commit"], false);
+        assert_eq!(
+            respond(&srv(), "POST", "/v1/microcode/decode", "{").status,
+            400
+        );
+    }
+
+    #[test]
+    fn round_route_reports_live_steps_per_sec() {
+        // the metric is now measured with a real clock (not a fabricated 0).
+        let body = serde_json::json!({
+            "state": { "state": [1,2,3,4,5,6,7,8], "memory": [1,2,3,4,5,6,7,8],
+                       "rule": [1,2,3,4,5,6,7,8], "random": [1,2,3,4,5,6,7,8] },
+            "rounds": 500, "avx_mode": "custom"
+        })
+        .to_string();
+        let v = body_of(&respond(&srv(), "POST", "/v1/control-word/round", &body));
+        let sps = v["metrics"]["round_update_steps_per_sec"].as_f64().unwrap();
+        assert!(
+            sps.is_finite() && sps > 0.0,
+            "live steps/sec should be > 0, got {sps}"
         );
     }
 
