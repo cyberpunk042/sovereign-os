@@ -1,6 +1,8 @@
 # The cockpit — dashboards + control surface
 
-> Operator guide to the sovereign-os dashboard cockpit: the ~43 dashboards,
+> Operator guide to the sovereign-os dashboard cockpit: the 61 dashboard
+> panels (29 `d-nn` dashboards among them — live counts-contract in
+> `context.md`; SDD-045 specced 43 at design time and the cockpit has grown),
 > the control surface on every one of them, the modes/profiles/toggles you can
 > drive, and the guarantee that nothing is invisible. Built by SDD-045.
 
@@ -75,7 +77,7 @@ The single source of truth is `config/control-systems.yaml`. The systems:
 
 ## The dashboards
 
-~43 dashboards across five categories (Trinity & orchestration · Models &
+61 dashboard panels across five categories (Trinity & orchestration · Models &
 compute · Hardware & operations · Security & selfdef · Governance & meta). The
 described catalog on the front door is the live index. Notable net-new ones
 (SDD-045 §5) that fill the "where are the Models / AVX / orchestration" gaps:

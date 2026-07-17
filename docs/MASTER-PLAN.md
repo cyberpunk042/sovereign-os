@@ -12,7 +12,7 @@
 | dimension | selfdef | sovereign-os | combined |
 |---|---:|---:|---:|
 | Milestones (M*.md files) | 48 | 84 | **132** |
-| R-rows | 11,520 | 14,080 | **25,600** |
+| R-rows | 11,520 | 14,079 | **25,599** |
 | Each R-row is a non-negotiable requirement; combined catalog satisfies the operator's stated "10,000+ requirements" mandate (~2.5× over). |
 
 ## Stage Gates (sovereign-os build phases — synthesized from M053 + Pulse-Tooling)
@@ -24,7 +24,7 @@
 | **SG3** substrate kernel + storage | M008-M020 kernel/ZFS/dataset layers | catalog ✓ |
 | **SG4** intelligence layer | M004 SRP roles, M058 scheduler, M075 SRP topology | catalog ✓ |
 | **SG5** image-build TDD | M033 TDD discipline, M082 hardware-free validation | catalog ✓ |
-| **SG6** cockpit + dashboards | **M060 (DONE this session, see PR #200 + #12)** + the 20 D-NN dashboards | **producer→consumer chain at prod end-to-end** |
+| **SG6** cockpit + dashboards | **M060 (DONE this session, see PR #200 + #12)** + the d-nn dashboards (29 as of 2026-07-17; 20 at the time of that session) | **producer→consumer chain at prod end-to-end** |
 | **SG7** inference paradigms | M046 LoRA Foundry, M048 modules map, M077 NVFP4, M073 ternary BitLinear, M078 HölderPO post-training | catalog ✓ |
 | **SG8** interpretability + safety | M079 activation steering (cross-cutting MS039+MS042+MS044) | catalog ✓ |
 
@@ -97,7 +97,7 @@
 - [MS047-real-time-security-perimeter-engine-tetragon-kernel-fence](../../selfdef/backlog/milestones/MS047-real-time-security-perimeter-engine-tetragon-kernel-fence.md)  ·  240 R-rows  ·  MS047 — Real-Time Security Perimeter Engine — Tetragon kernel-fence (sain-01 §6)
 - [MS048-goldilocks-scheduler-hardware-aware-resource-routing](../../selfdef/backlog/milestones/MS048-goldilocks-scheduler-hardware-aware-resource-routing.md)  ·  240 R-rows  ·  MS048 — Goldilocks Scheduler — hardware-aware resource routing
 
-### sovereign-os · 82 milestones (14,080 R-rows)
+### sovereign-os · 84 milestones (14,079 R-rows)
 
 - [M002-control-word-injected-logic](../backlog/milestones/M002-control-word-injected-logic.md)  ·  170 R-rows  ·  M002 — 32/64-bit injected logic / control word per branch
 - [M003-hardware-topology-pcie-discipline](../backlog/milestones/M003-hardware-topology-pcie-discipline.md)  ·  170 R-rows  ·  M003 — Hardware topology + PCIe lane discipline

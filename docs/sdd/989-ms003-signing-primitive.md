@@ -145,5 +145,5 @@ records sovereign-os already authors. Collision-safe.
 - `scripts/lib/ms003.py` — the primitive
 - `tests/unit/test_ms003_sign.py` — the tests
 - `docs/review/phase-1/99-findings-ledger.md` — F-2026-034 (advanced here), F-2026-063/090 (the CoAT-runtime fix, the other operator-chosen next target)
-- `docs/sdd/984-ms003-decision-package.md` — the decision package that surfaced Option B
+- `docs/sdd/984-ms003-commit-authority-decision-package.md` — the decision package that surfaced Option B
 - R10212 (web-never-arbitrarily-mutates) / MS043 (offline survivability) — the invariants preserved

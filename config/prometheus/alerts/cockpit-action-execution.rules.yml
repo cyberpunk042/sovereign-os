@@ -55,7 +55,7 @@ groups:
             More than 3 cockpit actions failed argument validation in the last
             5 minutes. This may indicate a mismatched panel schema, fuzzing,
             or an operator repeatedly submitting malformed args. Review
-            scripts/operator/control-registry.json for the control definitions.
+            config/control-systems.yaml for the control definitions.
           runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#cockpitactionvalidationrejectratehigh-warning"
 
       # Warning: operator key missing when a privileged control was attempted.
@@ -108,5 +108,5 @@ groups:
             A cockpit action referenced an unknown control_id
             ({{ $labels.control_id }}). This is a drift or misconfiguration
             signal — the control registry does not contain this id. Check
-            scripts/operator/control-registry.json and the panel source.
+            config/control-systems.yaml and the panel source.
           runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#cockpitactionunknowncontrol-warning"

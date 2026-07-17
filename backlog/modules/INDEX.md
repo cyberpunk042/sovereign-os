@@ -16,6 +16,10 @@
 
 ## Enumeration — M001–M008 (first batch, fully populated)
 
+> **M001 note (2026-07-17):** no `backlog/milestones/M001-*.md` page exists —
+> the milestone-file catalog starts at M002. M001 here is the dump-range 1–117
+> lineage; see the fuller note in `backlog/epics/INDEX.md`.
+
 ### M001 — AVX-512 batching (epics E0001–E0010)
 
 | Mod ID | Phrase | Dump line | Parent epic |

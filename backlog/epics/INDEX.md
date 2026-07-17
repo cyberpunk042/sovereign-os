@@ -14,6 +14,13 @@
 | Average epics per milestone | 7.1 |
 | Milestones covered | 59 (M001–M059) |
 
+> **M001 note (2026-07-17):** "M001 — AVX-512 batching" exists here (and in the
+> modules/features/requirements catalogs) as the dump-range 1–117 lineage, but
+> NO `backlog/milestones/M001-*.md` page was ever authored — the milestone-file
+> catalog starts at M002. The epic/module/feature/requirement rows below are
+> real; only the milestone PAGE is absent (its content was folded into the
+> M002+ pages and MASTER-PLAN "M001 lineage").
+
 ## Enumeration
 
 ### M001 — AVX-512 batching (dump 1–117)
