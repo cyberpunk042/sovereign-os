@@ -1491,7 +1491,10 @@ mod tests {
             s.insert(format!("f-{i}"), BranchPredictor::new(8));
             let _ = s.get("keep"); // mark recently used
         }
-        assert!(s.get("keep").is_some(), "a continuously-used session must survive");
+        assert!(
+            s.get("keep").is_some(),
+            "a continuously-used session must survive"
+        );
         assert_eq!(s.len(), MAX_SESSIONS);
     }
 
