@@ -92,6 +92,12 @@ pub enum LoaderError {
     /// `head_dim` was odd — RoPE pairs require an even head dimension.
     #[error("head_dim must be even for RoPE, got {0}")]
     OddHeadDim(usize),
+    /// A `config.json` field was structurally invalid (a zero dimension that
+    /// divides or indexes — e.g. `num_attention_heads: 0` divides by zero in
+    /// `head_dim`). Rejected up front so a malformed model dir can't panic the
+    /// loader thread on `/v1/models/load`.
+    #[error("invalid config: {0}")]
+    InvalidConfig(String),
     /// The runtime harness rejected the assembled weights.
     #[error("model assembly failed: {0}")]
     Build(String),
@@ -181,9 +187,44 @@ pub struct RopeScalingCfg {
 }
 
 impl Config {
-    /// Parse an HF `config.json`.
+    /// Parse an HF `config.json`, then structurally validate it — so a
+    /// malformed model dir fails with a clean [`LoaderError::InvalidConfig`]
+    /// instead of panicking the loader thread deeper in (div-by-zero in
+    /// `head_dim`, zero-length allocations, etc.).
     pub fn from_json(bytes: &[u8]) -> Result<Self, LoaderError> {
-        serde_json::from_slice(bytes).map_err(|e| LoaderError::Json(e.to_string()))
+        let cfg: Self =
+            serde_json::from_slice(bytes).map_err(|e| LoaderError::Json(e.to_string()))?;
+        cfg.validate()?;
+        Ok(cfg)
+    }
+
+    /// Reject structurally-invalid dimensions: every field below either DIVIDES
+    /// (`head_dim = model_dim / n_heads`) or sizes a required tensor, so a zero
+    /// is a panic or a nonsensical model — surface it as an error at the door.
+    pub fn validate(&self) -> Result<(), LoaderError> {
+        let zero = |name: &str| Err(LoaderError::InvalidConfig(format!("{name} must be > 0")));
+        if self.n_heads == 0 {
+            return zero("num_attention_heads");
+        }
+        if self.model_dim == 0 {
+            return zero("hidden_size");
+        }
+        if self.n_layers == 0 {
+            return zero("num_hidden_layers");
+        }
+        if self.vocab == 0 {
+            return zero("vocab_size");
+        }
+        if self.hidden == 0 {
+            return zero("intermediate_size");
+        }
+        if self.n_kv_heads == Some(0) {
+            return zero("num_key_value_heads");
+        }
+        if self.head_dim == Some(0) {
+            return zero("head_dim");
+        }
+        Ok(())
     }
 
     /// Resolve `rope_scaling` into the runtime [`RopeScaling`] the block builder
@@ -212,10 +253,13 @@ impl Config {
     pub fn kv_heads(&self) -> usize {
         self.n_kv_heads.unwrap_or(self.n_heads)
     }
-    /// Effective per-head dimension.
+    /// Effective per-head dimension. `n_heads` is validated `> 0` by
+    /// [`Config::validate`]; `.max(1)` keeps this panic-free even if a caller
+    /// constructs a `Config` directly and skips validation.
     #[must_use]
     pub fn head_dim(&self) -> usize {
-        self.head_dim.unwrap_or(self.model_dim / self.n_heads)
+        self.head_dim
+            .unwrap_or(self.model_dim / self.n_heads.max(1))
     }
 }
 
@@ -287,8 +331,18 @@ impl<'a> SafeTensors<'a> {
             .get(name)
             .ok_or_else(|| LoaderError::MissingTensor(name.to_string()))?;
         let [start, end] = info.data_offsets;
-        let a = self.data_start + start;
-        let b = self.data_start + end;
+        // `checked_add`: the offsets come from the untrusted JSON header, so a
+        // hostile `data_offsets: [usize::MAX, …]` would wrap `data_start + start`
+        // and could slip past the range check below — decode the wrong bytes as
+        // weights (release) or panic (debug). Overflow → out-of-range error.
+        let (Some(a), Some(b)) = (
+            self.data_start.checked_add(start),
+            self.data_start.checked_add(end),
+        ) else {
+            return Err(LoaderError::Truncated(format!(
+                "tensor `{name}` data_offsets [{start},{end}] overflow the data buffer"
+            )));
+        };
         if b > self.data.len() || a > b {
             return Err(LoaderError::Truncated(format!(
                 "tensor `{name}` data_offsets [{start},{end}] out of range"
@@ -438,6 +492,17 @@ pub fn load_with_sampler(
 /// Load with both a caller-chosen runtime `precision` and `sampler` — the full
 /// configurable entry point the convenience loaders delegate to.
 ///
+/// Checked product of tensor dimensions → element count. A crafted config with
+/// huge-but-nonzero dims must not wrap `usize` into a small `expected` that a
+/// malicious tensor could then match (silently loading the wrong shape); an
+/// overflow is an [`LoaderError::InvalidConfig`] instead.
+fn elems(dims: &[usize]) -> Result<usize, LoaderError> {
+    dims.iter()
+        .copied()
+        .try_fold(1usize, |acc, d| acc.checked_mul(d))
+        .ok_or_else(|| LoaderError::InvalidConfig("tensor element count overflows usize".into()))
+}
+
 /// Applies the HF→interleaved RoPE permutation to q/k, threads the model's real
 /// `rope_theta` + `rope_scaling` into every block, and honors
 /// `tie_word_embeddings`.
@@ -447,6 +512,9 @@ pub fn load_configured(
     precision: Precision,
     sampler: Sampler,
 ) -> Result<QuantModel, LoaderError> {
+    // Defense if a caller built `Config` directly (not via `from_json`): the
+    // multiplies + `head_dim` division below assume non-zero dimensions.
+    config.validate()?;
     let st = SafeTensors::parse(model_bytes)?;
     let md = config.model_dim;
     let hd = config.head_dim();
@@ -457,20 +525,20 @@ pub fn load_configured(
     let nkv = config.kv_heads();
     let hidden = config.hidden;
     let vocab = config.vocab;
-    let q_dim = nq * hd;
-    let kv_dim = nkv * hd;
+    let q_dim = elems(&[nq, hd])?;
+    let kv_dim = elems(&[nkv, hd])?;
 
     let mut layers: Vec<Box<dyn DecoderLayer>> = Vec::with_capacity(config.n_layers);
     for i in 0..config.n_layers {
         let p = |suffix: &str| format!("model.layers.{i}.{suffix}");
         let w_q = permute_qk_hf_to_interleaved(
-            &st.tensor_exact(&p("self_attn.q_proj.weight"), q_dim * md)?,
+            &st.tensor_exact(&p("self_attn.q_proj.weight"), elems(&[q_dim, md])?)?,
             nq,
             hd,
             md,
         )?;
         let w_k = permute_qk_hf_to_interleaved(
-            &st.tensor_exact(&p("self_attn.k_proj.weight"), kv_dim * md)?,
+            &st.tensor_exact(&p("self_attn.k_proj.weight"), elems(&[kv_dim, md])?)?,
             nkv,
             hd,
             md,
@@ -491,11 +559,11 @@ pub fn load_configured(
             ),
             w_q,
             w_k,
-            w_v: st.tensor_exact(&p("self_attn.v_proj.weight"), kv_dim * md)?,
-            w_o: st.tensor_exact(&p("self_attn.o_proj.weight"), md * q_dim)?,
-            w_gate: st.tensor_exact(&p("mlp.gate_proj.weight"), hidden * md)?,
-            w_up: st.tensor_exact(&p("mlp.up_proj.weight"), hidden * md)?,
-            w_down: st.tensor_exact(&p("mlp.down_proj.weight"), md * hidden)?,
+            w_v: st.tensor_exact(&p("self_attn.v_proj.weight"), elems(&[kv_dim, md])?)?,
+            w_o: st.tensor_exact(&p("self_attn.o_proj.weight"), elems(&[md, q_dim])?)?,
+            w_gate: st.tensor_exact(&p("mlp.gate_proj.weight"), elems(&[hidden, md])?)?,
+            w_up: st.tensor_exact(&p("mlp.up_proj.weight"), elems(&[hidden, md])?)?,
+            w_down: st.tensor_exact(&p("mlp.down_proj.weight"), elems(&[md, hidden])?)?,
         };
         let block = MhaDecoderBlock::from_weights(&weights, precision)
             .map_err(|e| LoaderError::Build(format!("layer {i}: {e}")))?
@@ -506,14 +574,14 @@ pub fn load_configured(
     }
 
     let stack = LayerStack::new(layers).map_err(|e| LoaderError::Build(e.to_string()))?;
-    let embedding = st.tensor_exact("model.embed_tokens.weight", vocab * md)?;
+    let embedding = st.tensor_exact("model.embed_tokens.weight", elems(&[vocab, md])?)?;
     let final_norm = RmsNorm::with_gain(st.tensor_exact("model.norm.weight", md)?, config.eps);
 
     if config.tied {
         QuantModel::new_tied(vocab, md, embedding, stack, final_norm, sampler)
             .map_err(|e| LoaderError::Build(e.to_string()))
     } else {
-        let head = st.tensor_exact("lm_head.weight", vocab * md)?;
+        let head = st.tensor_exact("lm_head.weight", elems(&[vocab, md])?)?;
         QuantModel::new(vocab, md, embedding, stack, final_norm, head, sampler)
             .map_err(|e| LoaderError::Build(e.to_string()))
     }
@@ -942,5 +1010,120 @@ mod tests {
             cfg.rope_scaling_resolved().is_none(),
             "but resolves to no scaling"
         );
+    }
+
+    // ── malformed / adversarial input hardening (2026-07-17) ─────────────────
+    // Everything below is reachable via `/v1/models/load` (a crafted model dir
+    // or a corrupt download). None may panic — each returns a clean error.
+
+    #[test]
+    fn config_rejects_zero_num_attention_heads() {
+        // the div-by-zero: head_dim = model_dim / n_heads.
+        let r = Config::from_json(
+            br#"{"hidden_size":8,"num_hidden_layers":1,"num_attention_heads":0,
+                 "vocab_size":16,"intermediate_size":16}"#,
+        );
+        assert!(matches!(r, Err(LoaderError::InvalidConfig(_))));
+    }
+
+    #[test]
+    fn config_rejects_every_zero_dimension() {
+        let base = |field: &str| {
+            let mut m = std::collections::BTreeMap::from([
+                ("hidden_size", 8),
+                ("num_hidden_layers", 1),
+                ("num_attention_heads", 2),
+                ("vocab_size", 16),
+                ("intermediate_size", 16),
+            ]);
+            m.insert(field, 0);
+            let body = m
+                .iter()
+                .map(|(k, v)| format!("\"{k}\":{v}"))
+                .collect::<Vec<_>>()
+                .join(",");
+            Config::from_json(format!("{{{body}}}").as_bytes())
+        };
+        for field in [
+            "hidden_size",
+            "num_hidden_layers",
+            "num_attention_heads",
+            "vocab_size",
+            "intermediate_size",
+        ] {
+            assert!(
+                matches!(base(field), Err(LoaderError::InvalidConfig(_))),
+                "zero {field} must be rejected"
+            );
+        }
+    }
+
+    #[test]
+    fn head_dim_never_divides_by_zero() {
+        // even a directly-constructed (validation-skipping) Config must not panic.
+        let cfg = Config {
+            model_dim: 8,
+            n_layers: 1,
+            n_heads: 0,
+            n_kv_heads: None,
+            vocab: 16,
+            hidden: 16,
+            eps: 1e-6,
+            tied: false,
+            head_dim: None,
+            rope_theta: 10000.0,
+            rope_scaling: None,
+        };
+        let _ = cfg.head_dim(); // must not panic
+    }
+
+    #[test]
+    fn overflowing_data_offsets_are_out_of_range_not_a_panic() {
+        // a header whose data_offsets wrap `data_start + offset` in usize must be
+        // rejected, never wrap-around into a valid-looking slice.
+        let header = format!(
+            "{{\"t\":{{\"dtype\":\"F32\",\"shape\":[1],\"data_offsets\":[{},{}]}}}}",
+            usize::MAX,
+            usize::MAX
+        );
+        let mut bytes = (header.len() as u64).to_le_bytes().to_vec();
+        bytes.extend_from_slice(header.as_bytes());
+        bytes.extend_from_slice(&[0u8; 4]);
+        let st = SafeTensors::parse(&bytes).expect("header parses");
+        assert!(matches!(st.tensor_f32("t"), Err(LoaderError::Truncated(_))));
+    }
+
+    #[test]
+    fn giant_but_non_overflowing_offsets_are_out_of_range() {
+        let header =
+            "{\"t\":{\"dtype\":\"F32\",\"shape\":[1],\"data_offsets\":[0,1000000000]}}".to_string();
+        let mut bytes = (header.len() as u64).to_le_bytes().to_vec();
+        bytes.extend_from_slice(header.as_bytes());
+        bytes.extend_from_slice(&[0u8; 4]);
+        let st = SafeTensors::parse(&bytes).expect("header parses");
+        assert!(matches!(st.tensor_f32("t"), Err(LoaderError::Truncated(_))));
+    }
+
+    #[test]
+    fn elems_rejects_overflowing_product() {
+        // a small product is fine…
+        assert_eq!(elems(&[3, 4, 5]).unwrap(), 60);
+        // …but a product that overflows usize is an error, never a wrap.
+        assert!(matches!(
+            elems(&[usize::MAX, 2]),
+            Err(LoaderError::InvalidConfig(_))
+        ));
+    }
+
+    #[test]
+    fn load_rejects_zero_head_config_without_panicking() {
+        // end-to-end: a real fixture body but a config with n_heads=0 → the
+        // assembly path's validate() gate catches it before head_dim divides.
+        let (bytes, mut cfg) = fixture(Dt::F32);
+        cfg.n_heads = 0;
+        assert!(matches!(
+            load(&bytes, &cfg),
+            Err(LoaderError::InvalidConfig(_))
+        ));
     }
 }

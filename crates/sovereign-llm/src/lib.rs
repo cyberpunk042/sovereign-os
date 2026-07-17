@@ -334,7 +334,9 @@ impl SovereignLlm {
         let n = n.max(1);
         let mut candidates: Vec<(String, f64)> = Vec::with_capacity(n);
         for i in 0..n {
-            let seed = base_seed + i as u64;
+            // wrapping_add for consistency with generate_ids_n's diverse-seed
+            // loop — a large base_seed must not debug-panic on overflow.
+            let seed = base_seed.wrapping_add(i as u64);
             let text = self.complete(prompt, max_new, seed)?;
             // score each candidate by the model's own mean log-prob over the
             // generated tokens (higher = more confident); an empty generation
