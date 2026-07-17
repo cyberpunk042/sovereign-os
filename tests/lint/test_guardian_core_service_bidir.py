@@ -326,3 +326,42 @@ def test_script_emits_last_neutralization_timestamp():
         "guardian-core.py missing last_neutralization_timestamp gauge "
         "(staleness/never-fired detection surface)"
     )
+
+
+# --- make-flow install coverage (orphan-unit closure, 2026-07-17) ---
+
+
+def test_make_install_units_stages_guardian_binary():
+    """`make install-units` ships sovereign-guardian-core.service, whose
+    ExecStart=/usr/local/bin/guardian-core — so the SAME target must
+    stage the binary. Before 2026-07-17 only the standalone
+    scripts/auditor/install.sh installed it, and nothing in the make
+    flow invoked that script: enabling the unit after `make
+    install-units` failed on a missing binary (orphan unit). The
+    two-prefix install-coverage lint (SDD-964) only watches the
+    sovereign-os script prefixes, which is exactly how this slipped
+    through — this test covers the /usr/local/bin ExecStart."""
+    makefile = (REPO_ROOT / "Makefile").read_text(encoding="utf-8")
+    assert "scripts/auditor/guardian-core.py" in makefile, (
+        "Makefile no longer stages guardian-core.py — "
+        "sovereign-guardian-core.service ships as an orphan unit"
+    )
+    assert "bin/guardian-core" in makefile, (
+        "Makefile must install guardian-core.py as PREFIX/bin/"
+        "guardian-core (the unit's verbatim ExecStart path)"
+    )
+
+
+def test_osctl_uses_real_guardian_unit_name():
+    """sovereign-osctl status surfaces must query the REAL unit name
+    (sovereign-guardian-core), not the bare 'guardian-core' — the wrong
+    name made `systemctl is-active` always report inactive even with
+    the daemon running (found + fixed 2026-07-17)."""
+    osctl = (REPO_ROOT / "scripts" / "sovereign-osctl").read_text(encoding="utf-8")
+    import re as _re
+    bare = _re.findall(r"systemctl is-active[^\n]*\bguardian-core\b[^\n]*", osctl)
+    for line in bare:
+        assert "sovereign-guardian-core" in line, (
+            f"sovereign-osctl queries the wrong unit name: {line!r} "
+            f"(unit file is sovereign-guardian-core.service)"
+        )

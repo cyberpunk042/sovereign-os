@@ -152,7 +152,8 @@ case "${SOVEREIGN_OS_SUBSTRATE}" in
     if [ -n "${SOVEREIGN_OS_DRY_RUN:-}" ]; then
       log_warn "SOVEREIGN_OS_DRY_RUN — skipping 'mkosi build'"
       emit_build_metric skip
-      state_step_complete "${STEP_ID}"
+      # Record 'dry-run', NOT 'completed' — resume-poisoning guard.
+      state_step_dry_run "${STEP_ID}"
       exit 0
     fi
     require_command mkosi
@@ -178,7 +179,8 @@ case "${SOVEREIGN_OS_SUBSTRATE}" in
     if [ -n "${SOVEREIGN_OS_DRY_RUN:-}" ]; then
       log_warn "SOVEREIGN_OS_DRY_RUN — skipping 'lb build'"
       emit_build_metric skip
-      state_step_complete "${STEP_ID}"
+      # Record 'dry-run', NOT 'completed' — resume-poisoning guard.
+      state_step_dry_run "${STEP_ID}"
       exit 0
     fi
     require_command lb

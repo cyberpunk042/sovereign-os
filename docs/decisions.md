@@ -853,7 +853,7 @@ wiki/log/2026-07-03-sovereign-os-endpoint-prep-directive.md`.
 architecture for the box's reasoning + external-agent surface. Its shape:
 structured deliberation via a single MCTS engine parameterized into CoT→ToT→
 MCTS→C-MCTS→CoAT presets (`crates/sovereign-coat`, wired to `POST /v1/coat`);
-durable background deliberation via the jobs runtime (`scripts/operator/jobs_store.py`
+durable background deliberation via the jobs runtime (`scripts/operator/lib/jobs_store.py`
 + `jobs-api.py:8142`); a read-only Brain observatory (`brain-api.py:8141`); an
 Anthropic-compatible surface (`/v1/messages`, SDD-205) so external agents drive
 the local model; Plan-mode / AUQ / the auto-mode classifier for approval gating;

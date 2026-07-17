@@ -143,5 +143,12 @@ log_info "env handoff: ${env_file_out}"
 
 emit_metric sovereign_os_build_step_kernel_compile_total 1 \
   "profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"success\""
-state_step_complete "${STEP_ID}"
-log_info "step ${STEP_ID} complete"
+if [ -n "${SOVEREIGN_OS_DRY_RUN:-}" ]; then
+  # Compile did not run — record 'dry-run', NOT 'completed', so the
+  # next real run still executes it (resume-state poisoning guard).
+  state_step_dry_run "${STEP_ID}"
+  log_info "step ${STEP_ID} dry-run pass complete (compile pending real run)"
+else
+  state_step_complete "${STEP_ID}"
+  log_info "step ${STEP_ID} complete"
+fi

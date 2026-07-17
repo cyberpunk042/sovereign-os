@@ -33,6 +33,10 @@ Each requirement row carries:
 
 ## Enumeration — M001 first batch (R00001–R00170)
 
+> **M001 note (2026-07-17):** no `backlog/milestones/M001-*.md` page exists —
+> the milestone-file catalog starts at M002. M001 here is the dump-range 1–117
+> lineage; see the fuller note in `backlog/epics/INDEX.md`.
+
 Parent milestone: M001 AVX-512 batching (epics E0001–E0010, modules M00001–M00011, features F00001–F00085, dump 1–117).
 
 | R ID | Phrase | Dump line | Parent F | Class | Opt-in | Sub-req min |

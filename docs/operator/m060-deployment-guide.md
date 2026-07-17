@@ -3918,8 +3918,9 @@ malformed panel submissions.
 ```bash
 # Review the emitted metrics
 grep 'validation-reject' /var/lib/node_exporter/textfile_collector/sovereign-os-cockpit-action-exec.prom
-# Check the registry schema for the failing control
-cat scripts/operator/control-registry.json | jq '.[] | select(.id=="THE_CONTROL")'
+# Check the registry schema for the failing control (config/control-systems.yaml
+# is the registry _action_exec.py loads; there is no control-registry.json)
+python3 -c "import yaml,sys; [print(yaml.dump(s)) for s in yaml.safe_load(open('config/control-systems.yaml'))['systems'] if s['id']=='THE_CONTROL']"
 ```
 
 **Fix:** update the panel form to match the registry schema, or update the
@@ -3975,7 +3976,7 @@ scripts/operator/_action_exec.py --list | jq -r '.[].id' | sort
 ```
 
 **Fix:** remove the stale reference from the panel or caller, or add the
-control to `scripts/operator/control-registry.json` if it is legitimate.
+control to `config/control-systems.yaml` if it is legitimate.
 
 ### sovereign-os auditor alerts (Tetragon-dropout resilience, M084)
 

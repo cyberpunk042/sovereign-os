@@ -412,7 +412,9 @@ number collision + INDEX/mandate append conflicts):
 ## Build/test hygiene (environment caveat — 2026-05-27)
 
 **DO NOT run `cargo test --workspace` / `cargo build --workspace` here.** This
-repo has **475 crates** and the sibling selfdef has **535**; a full-workspace
+repo has **721 crates** (was 475 when this caveat was written 2026-05-27 —
+live figure: the COUNTS-CONTRACT block above) and the sibling selfdef has
+**535+**; a full-workspace
 build produces a `target/` of ~13 GB *per repo*. The container has ~16 GB
 free headroom, so a workspace build of both (or one on top of an existing
 selfdef `target/`) **fills the disk** (`No space left on device` — the shell

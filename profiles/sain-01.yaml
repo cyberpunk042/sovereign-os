@@ -297,8 +297,9 @@ packages:
     #     installs at first boot from NVIDIA's libnvidia-container repo
     #     (operator-deps / first-boot layer)
     #   tetragon removed — not in the Debian archive; installs at first
-    #     boot from Cilium's release tarball (tetragon-policy-load hook
-    #     documents the dependency)
+    #     boot from Cilium's release tarball (tetragon-install hook —
+    #     pinned version, checksum-verified — runs before
+    #     tetragon-policy-load in the first-boot chain)
     # KNOWN LIMITATION: trixie ships nvidia 550.163, which predates the
     # Blackwell GB202 (PRO 6000 Max-Q). The image builds + boots; the
     # primary GPU needs a ≥570 driver at first boot (backports or NVIDIA
@@ -484,6 +485,13 @@ hooks:
     - id: network-vlan-config
       type: network
       script: scripts/hooks/post-install/network-vlan-config.sh
+      mandatory: true
+    # Tetragon is not in the Debian archive — the daemon installs here
+    # from Cilium's release tarball (pinned version, checksum-verified)
+    # BEFORE tetragon-policy-load enables the kernel fence.
+    - id: tetragon-install
+      type: security
+      script: scripts/hooks/post-install/tetragon-install.sh
       mandatory: true
     - id: tetragon-policy-load
       type: security

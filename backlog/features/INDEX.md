@@ -28,6 +28,10 @@ Each feature row carries:
 
 ## Enumeration — M001 first batch (features F00001–F00085)
 
+> **M001 note (2026-07-17):** no `backlog/milestones/M001-*.md` page exists —
+> the milestone-file catalog starts at M002. M001 here is the dump-range 1–117
+> lineage; see the fuller note in `backlog/epics/INDEX.md`.
+
 Parent: M001 AVX-512 batching (epics E0001–E0010, modules M00001–M00011, dump 1–117).
 
 | F ID | Phrase | Dump line | Parent module | Category | Opt-in |

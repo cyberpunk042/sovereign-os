@@ -151,6 +151,7 @@ panel queries lock to them.
 - `sovereign_os_post_install_arc_max_bytes{profile}` — applied ZFS ARC ceiling
 - `sovereign_os_post_install_network_vlan_total{profile,result}`
 - `sovereign_os_post_install_shell_setup_total{profile,result}`
+- `sovereign_os_post_install_tetragon_install_total{profile,result}` — Cilium release-tarball daemon install (first boot): installed / already-present / download-failed / checksum-mismatch / no-checksum-source / bad-tarball / vendor-install-failed / post-install-missing
 - `sovereign_os_post_install_tetragon_policy_load_total{profile,result}`
 - `sovereign_os_post_install_first_login_assistant_total{profile,result}`
 - `sovereign_os_post_install_first_login_assistant_choices{profile}` — number of opt-in choices the operator made

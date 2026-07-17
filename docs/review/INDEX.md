@@ -27,7 +27,7 @@ Each `docs/review/phase-N/` directory contains:
 - `00-charter.md` — what the phase covers, its scope, its non-goals.
 - `01-explorer-<area>.md` — one or more area-specific exploration
   reports (codebase walk, docs walk, workflow walk, test walk, …).
-- `99-findings-ledger.md` — consolidated findings with IDs
+- `phase-1/99-findings-ledger.md` — consolidated findings with IDs
   (`F-YYYY-NNN`), severity, status (open / shipped / deferred /
   rejected), and links to the closing PR or follow-up SDD.
 
