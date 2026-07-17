@@ -21,9 +21,15 @@ ADDR = os.environ.get("SOVEREIGN_JOBS_API_ADDR", "127.0.0.1:8142")
 
 def _call(method: str, path: str, body: dict | None = None) -> dict:
     data = json.dumps(body).encode() if body is not None else None
+    headers = {"Content-Type": "application/json"} if data else {}
+    # Forward the shared token when the operator has provisioned one — the
+    # daemon's mutation_guard requires it for command-executing submits. No
+    # token configured → header omitted → daemon relies on loopback+origin.
+    _tok = os.environ.get("SOVEREIGN_OS_JOBS_TOKEN", "").strip()
+    if _tok:
+        headers["X-Sovereign-Jobs-Token"] = _tok
     req = urllib.request.Request(
-        f"http://{ADDR}{path}", data=data, method=method,
-        headers={"Content-Type": "application/json"} if data else {})
+        f"http://{ADDR}{path}", data=data, method=method, headers=headers)
     try:
         with urllib.request.urlopen(req, timeout=15) as r:  # noqa: S310 (loopback)
             return json.loads(r.read().decode("utf-8", "replace"))

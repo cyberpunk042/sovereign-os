@@ -613,13 +613,28 @@ fn branch_scheduler_tick_v2(body: &str) -> HttpReply {
         }
     };
 
+    // Reject an over-long session_id up front: the key is stored process-global,
+    // so an unbounded key is a memory-amplification lever (a 1 MiB key ×N ticks).
+    if let Some(id) = &req.session_id {
+        if id.len() > MAX_SESSION_ID_LEN {
+            return err(
+                400,
+                format!(
+                    "session_id too long ({} bytes; max {MAX_SESSION_ID_LEN})",
+                    id.len()
+                ),
+            );
+        }
+    }
+
     // Load the session's predictor (or a fresh one) so learning continues.
+    // F-2026-065: recover a poisoned lock (the guarded state is a predictor cache,
+    // nothing torn worth declining an already-parsed request over).
     let predictor = match &req.session_id {
         Some(id) => scheduler_sessions()
             .lock()
-            .unwrap()
+            .unwrap_or_else(|e| e.into_inner())
             .get(id)
-            .cloned()
             .unwrap_or_else(|| BranchPredictor::new(8)),
         None => BranchPredictor::new(8),
     };
@@ -630,11 +645,13 @@ fn branch_scheduler_tick_v2(body: &str) -> HttpReply {
         req.memory_bank,
     );
     let result = tick_v2(&req.batch, &mut ctx, req.verify_min_score);
-    // Persist the learned predictor back under the session key.
+    // Persist the learned predictor back under the session key. The store is a
+    // bounded LRU (MAX_SESSIONS): unique-session_id floods can no longer grow it
+    // without bound (was an unbounded HashMap → OOM lever).
     if let Some(id) = &req.session_id {
         scheduler_sessions()
             .lock()
-            .unwrap()
+            .unwrap_or_else(|e| e.into_inner())
             .insert(id.clone(), ctx.predictor.clone());
     }
     json_reply(
@@ -647,16 +664,73 @@ fn branch_scheduler_tick_v2(body: &str) -> HttpReply {
     )
 }
 
-/// The process-global predictor session store (M00121 cross-request learning).
-/// Keyed by `session_id`; holds only the predictor (the state worth persisting).
-fn scheduler_sessions() -> &'static std::sync::Mutex<
-    std::collections::HashMap<String, sovereign_bit_cheats::BranchPredictor>,
-> {
+/// Max predictor sessions retained; the store is an LRU past this. A tick-v2
+/// predictor is tiny, so this bounds the store to a few MB even when full.
+const MAX_SESSIONS: usize = 4096;
+/// Max accepted `session_id` byte length (a stored key must not be a memory lever).
+const MAX_SESSION_ID_LEN: usize = 256;
+
+/// Bounded LRU predictor session store (M00121 cross-request learning). Keyed by
+/// `session_id`; holds only the predictor (the state worth persisting). Past
+/// MAX_SESSIONS the least-recently-used session is evicted — so a flood of unique
+/// session_ids can no longer grow the process without bound (the prior unbounded
+/// HashMap was an OOM lever on an unauthenticated endpoint).
+struct SessionStore {
+    map: std::collections::HashMap<String, sovereign_bit_cheats::BranchPredictor>,
+    /// recency queue, front = least-recently-used, back = most-recent.
+    order: std::collections::VecDeque<String>,
+}
+
+impl SessionStore {
+    fn new() -> Self {
+        Self {
+            map: std::collections::HashMap::new(),
+            order: std::collections::VecDeque::new(),
+        }
+    }
+
+    fn touch(&mut self, id: &str) {
+        if let Some(pos) = self.order.iter().position(|k| k == id) {
+            self.order.remove(pos);
+        }
+        self.order.push_back(id.to_string());
+    }
+
+    /// A clone of the session's predictor, marking it most-recently-used.
+    fn get(&mut self, id: &str) -> Option<sovereign_bit_cheats::BranchPredictor> {
+        let p = self.map.get(id).cloned();
+        if p.is_some() {
+            self.touch(id);
+        }
+        p
+    }
+
+    /// Insert/update a session, evicting the LRU entry when over capacity.
+    fn insert(&mut self, id: String, predictor: sovereign_bit_cheats::BranchPredictor) {
+        if !self.map.contains_key(&id) {
+            while self.map.len() >= MAX_SESSIONS {
+                match self.order.pop_front() {
+                    Some(lru) => {
+                        self.map.remove(&lru);
+                    }
+                    None => break,
+                }
+            }
+        }
+        self.touch(&id);
+        self.map.insert(id, predictor);
+    }
+
+    #[cfg(test)]
+    fn len(&self) -> usize {
+        self.map.len()
+    }
+}
+
+fn scheduler_sessions() -> &'static std::sync::Mutex<SessionStore> {
     use std::sync::{Mutex, OnceLock};
-    static SESSIONS: OnceLock<
-        Mutex<std::collections::HashMap<String, sovereign_bit_cheats::BranchPredictor>>,
-    > = OnceLock::new();
-    SESSIONS.get_or_init(|| Mutex::new(std::collections::HashMap::new()))
+    static SESSIONS: OnceLock<Mutex<SessionStore>> = OnceLock::new();
+    SESSIONS.get_or_init(|| Mutex::new(SessionStore::new()))
 }
 
 /// `POST /v1/math/dot-i8` — M085 T1 VNNI INT8 dot product (`Σ a[i]·b[i]`),
@@ -1182,6 +1256,7 @@ fn anthropic_message(server: &GatewayServer, body: &str) -> HttpReply {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sovereign_bit_cheats::BranchPredictor;
     use sovereign_cortex::demo_requests;
 
     fn srv() -> GatewayServer {
@@ -1387,6 +1462,54 @@ mod tests {
             &other,
         ));
         assert_eq!(o["result"]["predicted_commit"], 0, "sessions are isolated");
+    }
+
+    #[test]
+    fn session_store_is_bounded_lru() {
+        // Inserting MAX_SESSIONS+extra distinct sessions never grows past the cap;
+        // the least-recently-used entries are evicted (OOM-lever closed).
+        let mut s = SessionStore::new();
+        for i in 0..(MAX_SESSIONS + 100) {
+            s.insert(format!("sess-{i}"), BranchPredictor::new(8));
+        }
+        assert_eq!(s.len(), MAX_SESSIONS, "store must not exceed MAX_SESSIONS");
+        // the earliest inserted (LRU) are gone; the latest survive.
+        assert!(s.get("sess-0").is_none(), "LRU entry should be evicted");
+        assert!(
+            s.get(&format!("sess-{}", MAX_SESSIONS + 99)).is_some(),
+            "most-recent entry must survive"
+        );
+    }
+
+    #[test]
+    fn session_store_lru_keeps_recently_used() {
+        let mut s = SessionStore::new();
+        s.insert("keep".into(), BranchPredictor::new(8));
+        // fill to capacity with fresh sessions, touching "keep" each round so it
+        // stays most-recently-used and is never the eviction victim.
+        for i in 0..(MAX_SESSIONS + 50) {
+            s.insert(format!("f-{i}"), BranchPredictor::new(8));
+            let _ = s.get("keep"); // mark recently used
+        }
+        assert!(
+            s.get("keep").is_some(),
+            "a continuously-used session must survive"
+        );
+        assert_eq!(s.len(), MAX_SESSIONS);
+    }
+
+    #[test]
+    fn tick_v2_rejects_overlong_session_id() {
+        let long = "x".repeat(MAX_SESSION_ID_LEN + 1);
+        let body = serde_json::json!({
+            "batch": {"id":[0],"control":[1],"budget":[1],"score":[100],
+                      "grammar":[1],"memory":[0],"route":[0]},
+            "verify_min_score": 50,
+            "session_id": long,
+        })
+        .to_string();
+        let r = respond(&srv(), "POST", "/v1/branch-scheduler/tick-v2", &body);
+        assert_eq!(r.status, 400, "an over-long session_id must be rejected");
     }
 
     #[test]

@@ -32,8 +32,11 @@ SCRIPT = REPO / "scripts" / "operator" / "operator-sudoers.sh"
 # deliberate, reviewed change (edit the script AND this set together, in a PR).
 EXPECTED_DIAG = {
     "dmidecode", "lshw", "lspci", "lsusb", "lsblk", "nvme",
-    "smartctl", "sensors", "nvidia-smi", "zpool", "zfs", "journalctl",
+    "smartctl", "sensors", "nvidia-smi", "zpool", "zfs",
 }
+# journalctl moved to its OWN tier (SOVEREIGN_OS_JOURNAL) with a forced
+# `--no-pager` arg — a bare NOPASSWD journalctl is a GTFOBins pager→root escape.
+EXPECTED_JOURNAL = {"journalctl"}
 EXPECTED_IMAGE = {"losetup", "mount", "umount"}   # HIGH-RISK: loop-mount an image to verify it
 EXPECTED_PROC = {"kill"}                          # reclaim a prior root-owned panel port
 
@@ -54,6 +57,15 @@ PRIVESC_DENYLIST = {
     "gdb", "strace", "ltrace", "nmap", "socat", "ncat", "nc",
     "crontab", "at", "visudo", "passwd", "useradd", "usermod", "su", "sudo",
 }
+
+
+def _render_body(operator: str = "testop") -> str:
+    """Run `operator-sudoers.sh --print` and return the emitted sudoers body."""
+    r = subprocess.run(
+        [str(SCRIPT), "--print"], capture_output=True, text=True,
+        env={**os.environ, "SOVEREIGN_OS_OPERATOR_USER": operator},
+    )
+    return r.stdout
 
 
 def _array(name: str) -> set[str]:
@@ -83,11 +95,37 @@ def test_reviewed_command_set_is_locked():
     )
     assert _array("IMAGE") == EXPECTED_IMAGE, "IMAGE bucket drifted from the reviewed set"
     assert _array("PROC") == EXPECTED_PROC, "PROC bucket drifted from the reviewed set"
+    assert _array("JOURNAL") == EXPECTED_JOURNAL, "JOURNAL bucket drifted from the reviewed set"
+
+
+def test_journalctl_grant_forces_no_pager():
+    """A bare NOPASSWD journalctl spawns a pager (less) on a tty; `!sh` in less
+    yields a root shell (GTFOBins). The grant MUST force `--no-pager` as the
+    first argument so no pager is ever launched — and journalctl must NOT appear
+    in the plain DIAG bucket (which grants ANY args)."""
+    body = _render_body()
+    # DIAG line must not grant a bare journalctl (any-args) path.
+    diag_line = next((l for l in body.splitlines()
+                      if l.startswith("Cmnd_Alias SOVEREIGN_OS_DIAG")), "")
+    assert "journalctl" not in diag_line, (
+        "journalctl must not be in the any-args DIAG bucket — it is a pager escape"
+    )
+    journal_line = next((l for l in body.splitlines()
+                         if l.startswith("Cmnd_Alias SOVEREIGN_OS_JOURNAL")), "")
+    assert journal_line, "SOVEREIGN_OS_JOURNAL alias missing"
+    assert "journalctl --no-pager *" in journal_line, (
+        "SOVEREIGN_OS_JOURNAL must force `journalctl --no-pager *` (pager-escape guard); "
+        f"got: {journal_line!r}"
+    )
+    # never a bare `/…/journalctl,` (no --no-pager) or `/…/journalctl` at line end
+    assert not re.search(r"/journalctl(,|\s*$)", journal_line), (
+        "SOVEREIGN_OS_JOURNAL grants a bare journalctl (no forced --no-pager)"
+    )
 
 
 def test_no_privilege_escalating_binary_in_any_bucket():
     """No NOPASSWD grant may be a trivial root-shell / arbitrary-write escape."""
-    for name in ("DIAG", "IMAGE", "PROC"):
+    for name in ("DIAG", "IMAGE", "PROC", "JOURNAL"):
         bad = _array(name) & PRIVESC_DENYLIST
         assert not bad, (
             f"{name} bucket grants privilege-escalating binaries NOPASSWD: "

@@ -12,7 +12,13 @@ Doctrine:
   - SUBMIT / CANCEL are ACTIONS: the webapp never POSTs here directly — it goes
     through the ONE sanctioned execute daemon (control-exec-api) which runs
     `sovereign-osctl jobs submit|cancel`, which calls the localhost runtime
-    endpoints here. A job is authorized at submission; the worker then runs it.
+    endpoints here. This is now ENFORCED, not merely documented: `mutation_guard`
+    refuses non-loopback peers and any request carrying a cross-site
+    Origin/Referer (browser CSRF), and the command-executing submit path
+    additionally requires Content-Type: application/json (no browser
+    simple-request vector) plus, when SOVEREIGN_OS_JOBS_TOKEN is provisioned,
+    a matching X-Sovereign-Jobs-Token. The machine callers (osctl, the gateway's
+    /plane/* calls, the VM /jobs/ingest bridge) send no Origin and pass cleanly.
   - The worker runs each kind's runner in a bounded pool; progress + output land
     in the persisted registry (scripts/operator/lib/jobs_store.py).
 
@@ -30,6 +36,8 @@ ENVIRONMENT:
   SOVEREIGN_OS_JOBS_DIR      registry dir (default /var/lib/sovereign-os/jobs)
   SOVEREIGN_GATEWAY_ADDR     for deliberation jobs (default 127.0.0.1:8787)
   SOVEREIGN_OS_JOBS_WORKERS  max concurrent jobs (default 2)
+  SOVEREIGN_OS_JOBS_TOKEN    optional shared secret required on command submits
+  SOVEREIGN_OS_JOBS_ALLOW_NONLOOPBACK  '1' to permit non-loopback peers (unsafe)
 """
 from __future__ import annotations
 
@@ -51,6 +59,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
 import jobs_store as _js  # noqa: E402
 import compute_plane as _plane  # noqa: E402
+import request_guard as _guard  # noqa: E402
 
 VERSION = "1"
 PORT = int(os.environ.get("SOVEREIGN_JOBS_API_PORT", "8142"))
@@ -61,6 +70,48 @@ CONTROL_SYSTEMS = REPO / "config" / "control-systems.yaml"
 
 STORE = _js.JobStore()
 PLANE = _plane.ComputePlane()   # the Sovereign Compute Plane — VRAM-fit placement
+
+# ── request-authenticity guard (F-2026-1xx: jobs-api RCE hardening) ──────────
+# `POST /jobs {kind:"eval",meta:{command:[...]}}` launches an argv as this
+# daemon's user (root under the shipped unit). Before this guard it had NO
+# authenticity check and `_body()` parses JSON regardless of Content-Type, so a
+# web page the operator visits could drive it cross-origin (a "simple request"
+# CSRF) — arbitrary command execution as root from the browser. The daemon is
+# meant to be reached only by the loopback osctl/control-exec path, never a
+# browser. This guard enforces exactly that, without breaking the machine
+# callers (osctl, the gateway's /plane/* calls, the VM /jobs/ingest bridge)
+# which send NO Origin and connect over loopback.
+_ALLOW_NONLOOPBACK = os.environ.get("SOVEREIGN_OS_JOBS_ALLOW_NONLOOPBACK") == "1"
+# Optional shared secret: when set, the command-executing submit path ALSO
+# requires it (jobs_cli.py forwards it). Same-host defense beyond loopback.
+_JOBS_TOKEN = os.environ.get("SOVEREIGN_OS_JOBS_TOKEN", "").strip()
+# kinds whose runner executes an operator-supplied argv (the RCE surface).
+_COMMAND_KINDS = frozenset({"eval", "model-load", "gpu-job", "model-serve"})
+
+
+def mutation_guard(headers, client_host: str, *, path: str = "",
+                   body: dict | None = None) -> tuple[int, str] | None:
+    """Return (code, reason) to REJECT a mutating request, or None to allow.
+    Pure over (headers, peer, path, body) so it is unit-testable without a
+    live socket. The command-executing submit path is the RCE surface, so it
+    requires application/json (via the shared guard) + an optional token; other
+    mutations get the universal loopback + cross-site-Origin refusal only (the
+    gateway's /plane/* + the VM /jobs/ingest bridge send no Content-Type)."""
+    is_command_submit = path.rstrip("/") == "/jobs" and isinstance(body, dict) and (
+        str(body.get("kind", "")) in _COMMAND_KINDS
+        or isinstance((body.get("meta") or {}).get("command"), list)
+    )
+    rej = _guard.guard(headers, client_host,
+                       require_json=is_command_submit,
+                       allow_nonloopback=_ALLOW_NONLOOPBACK)
+    if rej:
+        return rej
+    if is_command_submit and _JOBS_TOKEN:
+        import hmac
+        tok = (headers.get("X-Sovereign-Jobs-Token") or "").strip()
+        if not hmac.compare_digest(tok, _JOBS_TOKEN):
+            return 401, "command submit requires a valid X-Sovereign-Jobs-Token"
+    return None
 _POOL = ThreadPoolExecutor(max_workers=MAX_WORKERS)
 _CANCELS: dict[str, threading.Event] = {}
 _CANCELS_LOCK = threading.Lock()
@@ -457,6 +508,13 @@ class Handler(BaseHTTPRequestHandler):
         parsed = urllib.parse.urlsplit(self.path)
         path = parsed.path.rstrip("/") or "/"
         body = self._body()
+        # Authenticity gate — refuse browser-driven / non-loopback mutations
+        # before any side effect (esp. the command-executing /jobs submit).
+        reject = mutation_guard(self.headers, self.client_address[0],
+                                path=path, body=body)
+        if reject:
+            code, reason = reject
+            return self._send(code, json.dumps({"error": reason}))
         if path == "/jobs":
             kind = str(body.get("kind", ""))
             if kind not in _js.KINDS:

@@ -427,3 +427,98 @@ def test_vm_bridge_guest_ships_and_is_degrade_safe(tmp_path):
     s = js.JobStore(tmp_path / "vm.json")
     v = s.ingest({"id": "vm-9", "title": "finetune", "device": "rtx-4090-vm", "state": "running", "progress": 12})
     assert v["kind"] == "vm-job" and v["device"] == "rtx-4090-vm"
+
+
+# ── mutation_guard: jobs-api RCE hardening (2026-07-17) ──────────────────────
+# `POST /jobs {kind:"eval",meta:{command:[...]}}` runs an argv as the daemon's
+# user (root under the shipped unit). Before the guard it had NO authenticity
+# check and _body() parses JSON regardless of Content-Type, so a web page the
+# operator visited could drive it cross-origin — RCE-as-root via browser CSRF.
+
+def test_guard_allows_legit_loopback_osctl_submit(tmp_path):
+    api = _api_mod(tmp_path / "g1")
+    # osctl/control-exec: loopback peer, no Origin, application/json.
+    assert api.mutation_guard(
+        {"Content-Type": "application/json"}, "127.0.0.1",
+        path="/jobs", body={"kind": "eval", "meta": {"command": ["echo", "hi"]}}
+    ) is None
+
+
+def test_guard_blocks_cross_site_origin(tmp_path):
+    api = _api_mod(tmp_path / "g2")
+    r = api.mutation_guard(
+        {"Origin": "https://evil.example", "Content-Type": "text/plain"},
+        "127.0.0.1", path="/jobs",
+        body={"kind": "eval", "meta": {"command": ["rm", "-rf", "/"]}})
+    assert r is not None and r[0] == 403, "browser CSRF (cross-site Origin) must be refused"
+
+
+def test_guard_blocks_referer_cross_site(tmp_path):
+    api = _api_mod(tmp_path / "g2b")
+    r = api.mutation_guard(
+        {"Referer": "https://evil.example/x", "Content-Type": "application/json"},
+        "127.0.0.1", path="/jobs", body={"kind": "eval", "meta": {"command": ["x"]}})
+    assert r is not None and r[0] == 403
+
+
+def test_guard_blocks_text_plain_command_submit(tmp_path):
+    """The browser 'simple request' CSRF vector: a text/plain POST needs no
+    preflight. The command submit path must reject non-application/json."""
+    api = _api_mod(tmp_path / "g3")
+    r = api.mutation_guard(
+        {"Content-Type": "text/plain"}, "127.0.0.1",
+        path="/jobs", body={"kind": "eval", "meta": {"command": ["x"]}})
+    assert r is not None and r[0] == 415
+
+
+def test_guard_blocks_non_loopback_peer(tmp_path):
+    api = _api_mod(tmp_path / "g4")
+    r = api.mutation_guard(
+        {"Content-Type": "application/json"}, "10.0.0.9",
+        path="/jobs", body={"kind": "eval", "meta": {"command": ["x"]}})
+    assert r is not None and r[0] == 403
+
+
+def test_guard_allows_gateway_plane_calls(tmp_path):
+    """The gateway's /plane/* machine calls (no Origin, loopback) must pass —
+    the guard hardens without breaking the compute-plane authority path."""
+    api = _api_mod(tmp_path / "g5")
+    assert api.mutation_guard({}, "127.0.0.1", path="/plane/place",
+                              body={"need_gb": 4}) is None
+
+
+def test_guard_token_required_when_configured(tmp_path, monkeypatch):
+    monkeypatch.setenv("SOVEREIGN_OS_JOBS_TOKEN", "s3cr3t")
+    api = _api_mod(tmp_path / "g6")
+    base = {"Content-Type": "application/json"}
+    body = {"kind": "eval", "meta": {"command": ["x"]}}
+    # missing token → 401
+    r = api.mutation_guard(base, "127.0.0.1", path="/jobs", body=body)
+    assert r is not None and r[0] == 401
+    # correct token → allowed
+    ok = dict(base, **{"X-Sovereign-Jobs-Token": "s3cr3t"})
+    assert api.mutation_guard(ok, "127.0.0.1", path="/jobs", body=body) is None
+    # wrong token → 401
+    bad = dict(base, **{"X-Sovereign-Jobs-Token": "nope"})
+    assert api.mutation_guard(bad, "127.0.0.1", path="/jobs", body=body)[0] == 401
+
+
+def test_cli_forwards_token_when_set(monkeypatch):
+    monkeypatch.setenv("SOVEREIGN_OS_JOBS_TOKEN", "abc")
+    cli = _load("jobs_cli_ut", LIB / "jobs_cli.py")
+    captured = {}
+
+    class _FakeResp:
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def read(self): return b'{"ok": true}'
+
+    def _fake_urlopen(req, timeout=0):
+        captured["headers"] = {k.lower(): v for k, v in req.header_items()}
+        return _FakeResp()
+
+    monkeypatch.setattr(cli.urllib.request, "urlopen", _fake_urlopen)
+    cli._call("POST", "/jobs", {"kind": "eval"})
+    assert captured["headers"].get("X-sovereign-jobs-token".lower()) == "abc", (
+        "jobs_cli must forward the shared token so the sanctioned path still works"
+    )
