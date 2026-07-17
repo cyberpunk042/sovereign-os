@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-bit-cheats"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "M008 bit-level cheats — the policy/logic half (the SIMD half lives in sovereign-simd::cheats). Bitfields-as-microcode (M00113 — the control word as executable policy), two-level rule tables (M00119), the branch-prediction analogy (M00121), and the three-representation layout (M00126 — hot numeric / hot bitfield / cold text). Safe — forbids unsafe."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+sovereign-control-word = { path = "../sovereign-control-word" }
