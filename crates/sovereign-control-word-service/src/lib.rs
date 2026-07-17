@@ -131,17 +131,49 @@ pub fn avx_mode_live() -> AvxMode {
 
 // ── M00018 per-lane DNA fingerprint (R00280-284) ──
 
+/// The fingerprint algorithm (R00280). `Fnv1a` is the default — dependency-free,
+/// deterministic, tamper-*evident* (the repo's replay-ledger precedent). `Blake3`
+/// is the opt-in crypto-grade upgrade the spec names: a keyless BLAKE3 digest,
+/// truncated to the low 8 bytes to keep the u64 fingerprint API. Same inputs →
+/// same fingerprint either way; only the collision-resistance differs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum FingerprintAlgo {
+    /// FNV-1a 64-bit — dependency-free default.
+    #[default]
+    Fnv1a,
+    /// BLAKE3 (crypto-grade), low-8-byte truncation to a u64.
+    Blake3,
+}
+
 /// R00280 — the per-lane DNA fingerprint `hash(control_word ‖ rule_word ‖
-/// state)`. (Spec names blake3; we use FNV-1a per the repo's dependency-free
-/// precedent — see the crate docs.) Deterministic: same inputs → same
-/// fingerprint, so drift is meaningful.
+/// state)` under the default FNV-1a algorithm. See [`lane_fingerprint_with`] to
+/// pick BLAKE3. Deterministic: same inputs → same fingerprint, so drift is
+/// meaningful.
 #[must_use]
 pub fn lane_fingerprint(control_word: u64, rule_word: u64, state: u64) -> u64 {
+    lane_fingerprint_with(FingerprintAlgo::Fnv1a, control_word, rule_word, state)
+}
+
+/// R00280 — the per-lane DNA fingerprint under a chosen algorithm.
+#[must_use]
+pub fn lane_fingerprint_with(
+    algo: FingerprintAlgo,
+    control_word: u64,
+    rule_word: u64,
+    state: u64,
+) -> u64 {
     let mut buf = [0u8; 24];
     buf[0..8].copy_from_slice(&control_word.to_le_bytes());
     buf[8..16].copy_from_slice(&rule_word.to_le_bytes());
     buf[16..24].copy_from_slice(&state.to_le_bytes());
-    fnv1a(&buf)
+    match algo {
+        FingerprintAlgo::Fnv1a => fnv1a(&buf),
+        FingerprintAlgo::Blake3 => {
+            let digest = blake3::hash(&buf);
+            u64::from_le_bytes(digest.as_bytes()[0..8].try_into().unwrap())
+        }
+    }
 }
 
 /// The eight per-lane fingerprints of a round state. The lane's `memory` plane
@@ -276,6 +308,22 @@ impl RoundReplay {
         self.cursor = pos.min(self.snapshots.len() - 1);
         &self.snapshots[self.cursor]
     }
+
+    /// Persist the whole ledger (snapshots + cursor + config) to a JSON file.
+    /// This is the persistence shape a ZFS snapshot / CRIU checkpoint would carry
+    /// — serialize-to-file is real here; the OS-level ZFS/CRIU integration is a
+    /// deliberate future step, not stubbed.
+    pub fn save_json(&self, path: &std::path::Path) -> std::io::Result<()> {
+        let json = serde_json::to_string(self).map_err(std::io::Error::other)?;
+        std::fs::write(path, json)
+    }
+
+    /// Restore a ledger previously written by [`save_json`] — resumes replay at
+    /// the saved cursor (R00283/284 forward/rewind continue across the reload).
+    pub fn load_json(path: &std::path::Path) -> std::io::Result<Self> {
+        let text = std::fs::read_to_string(path)?;
+        serde_json::from_str(&text).map_err(std::io::Error::other)
+    }
 }
 
 // ── M00020 lifecycle events (F00131/132/147/148, R00281) ──
@@ -338,6 +386,92 @@ pub fn round_with_events(s: &RoundState, cfg: RoundConfig) -> (RoundState, Vec<E
         changed_lanes: changed,
     });
     (next, events)
+}
+
+// ── R00294 OTel-shaped round-step spans + R00330-333 strict/relaxed ──
+
+/// An OpenTelemetry-shaped span for one round step (R00294) — observable step
+/// boundaries without pulling the `opentelemetry` crate in. The fields mirror an
+/// OTLP span so an exporter can forward them 1:1.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Span {
+    /// The step name (`extract` / `decision` / `apply` / `memory` / `advance`).
+    pub name: String,
+    /// The step index within the round (0..5), the span's ordinal.
+    pub step: u8,
+    /// `ok` normally; `error` when a strict-mode step aborted (R00331).
+    pub status: String,
+}
+
+/// The five round steps, in order (R00289-293) — the span names.
+pub const ROUND_STEPS: [&str; 5] = ["extract", "decision", "apply", "memory", "advance"];
+
+/// R00330-333 — how a round handles a step "failure" (a per-lane quarantine
+/// trip, the only failure a pure round can raise).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum RoundMode {
+    /// R00330/R00331 — abort the round on the first quarantine trip, emit an
+    /// error span with the failing step.
+    Strict,
+    /// R00332/R00333 — log the trip, continue to the next step (the default).
+    #[default]
+    Relaxed,
+}
+
+/// The outcome of a guarded round (R00330-333).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RoundOutcome {
+    /// The resulting state (present in both modes — relaxed always completes,
+    /// strict completes unless it aborted).
+    pub state: RoundState,
+    /// One span per step (R00294); the aborting step (strict) carries `error`.
+    pub spans: Vec<Span>,
+    /// Lanes that tripped quarantine this round (fingerprint drift > threshold).
+    pub quarantined: Vec<usize>,
+    /// Whether strict mode aborted the round.
+    pub aborted: bool,
+}
+
+/// R00330-333 — run one round with OTel-shaped step spans (R00294) and a
+/// strict/relaxed quarantine gate. A lane whose DNA fingerprint drifts more than
+/// `quarantine_threshold_bits` this round is a "step failure": strict aborts and
+/// marks the `decision` span `error`; relaxed records it and completes. With a
+/// threshold of 64 (never trips) this is a plain traced round.
+#[must_use]
+pub fn round_guarded(
+    s: &RoundState,
+    cfg: RoundConfig,
+    mode: RoundMode,
+    quarantine_threshold_bits: u32,
+) -> RoundOutcome {
+    let before = round_fingerprints(s);
+    let next = round_update(s, cfg);
+    let after = round_fingerprints(&next);
+    let report = quarantine(&before, &after, quarantine_threshold_bits);
+    let tripped = !report.flagged.is_empty();
+    let abort = tripped && mode == RoundMode::Strict;
+
+    let mut spans = Vec::with_capacity(5);
+    for (i, name) in ROUND_STEPS.iter().enumerate() {
+        // strict abort surfaces on the `decision` step (the gate point)
+        let status = if abort && *name == "decision" {
+            "error"
+        } else {
+            "ok"
+        };
+        spans.push(Span {
+            name: (*name).to_string(),
+            step: i as u8,
+            status: status.to_string(),
+        });
+    }
+    RoundOutcome {
+        state: if abort { *s } else { next }, // strict abort rolls back to entry
+        spans,
+        quarantined: report.flagged,
+        aborted: abort,
+    }
 }
 
 // ── metrics (F00129/138/145/154) — hand-rolled Prometheus text exposition ──
@@ -601,6 +735,66 @@ mod tests {
         let _ = std::fs::remove_file(&path);
         // a missing file → builtin
         assert_eq!(avx_mode_from_path(&path), AvxMode::BuiltIn);
+    }
+
+    #[test]
+    fn blake3_fingerprint_is_opt_in_and_distinct() {
+        // default stays FNV-1a (unchanged behavior — the parity constant holds)
+        assert_eq!(
+            lane_fingerprint(1, 2, 3),
+            lane_fingerprint_with(FingerprintAlgo::Fnv1a, 1, 2, 3)
+        );
+        assert_eq!(
+            lane_fingerprint_with(FingerprintAlgo::Fnv1a, 1, 2, 3),
+            0xda2b_fb22_5e0d_1f05
+        );
+        // blake3 is deterministic, input-sensitive, and differs from FNV-1a
+        let b = lane_fingerprint_with(FingerprintAlgo::Blake3, 1, 2, 3);
+        assert_eq!(b, lane_fingerprint_with(FingerprintAlgo::Blake3, 1, 2, 3));
+        assert_ne!(b, lane_fingerprint_with(FingerprintAlgo::Blake3, 1, 2, 4));
+        assert_ne!(b, lane_fingerprint(1, 2, 3), "blake3 differs from fnv1a");
+    }
+
+    #[test]
+    fn guarded_round_strict_aborts_relaxed_continues() {
+        let s = state(5);
+        // threshold 64 never trips → both modes complete a plain traced round
+        let relaxed = round_guarded(&s, RoundConfig::default(), RoundMode::Relaxed, 64);
+        assert!(!relaxed.aborted);
+        assert_eq!(relaxed.spans.len(), 5);
+        assert!(relaxed.spans.iter().all(|sp| sp.status == "ok"));
+        assert_eq!(
+            relaxed.state,
+            round_update_scalar(&s, RoundConfig::default())
+        );
+        // threshold 0 trips on any drift → strict aborts + rolls back, error span
+        let strict = round_guarded(&s, RoundConfig::default(), RoundMode::Strict, 0);
+        if !strict.quarantined.is_empty() {
+            assert!(strict.aborted);
+            assert_eq!(strict.state, s, "strict abort rolls back to entry");
+            assert!(strict.spans.iter().any(|sp| sp.status == "error"));
+            // relaxed with the same threshold records but completes
+            let relaxed0 = round_guarded(&s, RoundConfig::default(), RoundMode::Relaxed, 0);
+            assert!(!relaxed0.aborted);
+            assert_eq!(relaxed0.quarantined, strict.quarantined);
+        }
+    }
+
+    #[test]
+    fn replay_persists_and_restores() {
+        let mut r = RoundReplay::new(state(9), RoundConfig::default());
+        for _ in 0..4 {
+            r.forward();
+        }
+        let path = std::env::temp_dir().join(format!("cws-replay-{}.json", std::process::id()));
+        r.save_json(&path).unwrap();
+        let loaded = RoundReplay::load_json(&path).unwrap();
+        assert_eq!(loaded.position(), r.position());
+        assert_eq!(loaded.current(), r.current());
+        // replay continues across the reload — forward from the restored cursor
+        let mut l = loaded;
+        assert_eq!(l.forward(), r.clone().forward());
+        let _ = std::fs::remove_file(&path);
     }
 
     #[test]
