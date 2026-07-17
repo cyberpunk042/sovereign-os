@@ -34,6 +34,12 @@ OUT = REPO / "config" / "panel-api-routes.yaml"
 HUB = "build-configurator-api"
 # Endpoints the hub serves LOCALLY (its own build/flash run console); never proxy.
 HUB_LOCAL_PREFIXES = {"/api/run", "/api/cancel"}
+# Special-cased prefixes handled outside the panel-API scan: node_exporter is a
+# fixed :9100 target the hub hardcodes (build-configurator-api `_NODE_EXPORTER`),
+# and master-dashboard-api PROXIES /api/node-exporter/metrics to it (F-2026-071).
+# That proxy path must NOT register /api/node-exporter → master-dashboard's own
+# port — the prefix belongs to node_exporter, not a panel API.
+SPECIAL_PREFIXES = {"/api/node-exporter"}
 
 _PORT_RE = re.compile(r'_PORT",\s*"(\d+)"')
 _PREFIX_RE = re.compile(r'"(/api/[a-z0-9][a-z0-9-]*)')
@@ -55,7 +61,7 @@ def build_routes() -> dict[str, dict]:
         port = int(m.group(1))
         service = f"sovereign-{f.stem}"
         for prefix in sorted(set(_PREFIX_RE.findall(src))):
-            if prefix in HUB_LOCAL_PREFIXES:
+            if prefix in HUB_LOCAL_PREFIXES or prefix in SPECIAL_PREFIXES:
                 continue
             existing = routes.get(prefix)
             if existing and existing["port"] != port:

@@ -1,11 +1,32 @@
 # SDD-008 — TDD harness specification (Plan-agent PR 9)
 
-> Status: **review** (specification; harness scaffold ships at PR 10)
+> Status: **active** (Layers 1–2 substantive; Layer 3 nspawn substantive, chroot harness-with-skip-clean; Layer 4 qemu harness bridging to the real driver; Layer 5 operator-only)
 > Owner: operator-supervised; agent-authored
-> Last updated: 2026-05-16
-> Closes findings: none
+> Last updated: 2026-07-17
+> Closes findings: F-2026-052 (tier-status honesty)
 > Resolves at Gate 5: contributes to **Q-010** (CI infrastructure) + **Q-014** (decommission test scope) + **Q-015** (reproducibility target)
 > Derived from: SDD-003 substrate survey; SDD-004 profile schema; SDD-006 surface audit; SDD-007 whitelabel mechanism; Plan-agent macro-arc § PR 9
+
+## Tier status (2026-07-17 — F-2026-052 reconciliation)
+
+The five-layer pyramid below is the SPEC. This section states what each tier
+ACTUALLY is today, so the docs stop over-claiming a fully-built three-tier
+harness (F-2026-052). The honest rule for every tier that needs a resource CI
+may lack (KVM, a built image, a rootfs): **skip clean when the precondition is
+absent — never a false green, never a hard fail.**
+
+| Tier | Reality (2026-07-17) |
+|---|---|
+| **L1 schema/lint** | **Substantive.** Hundreds of `tests/lint` + `tests/schema` cases; every PR, blocking. |
+| **L2 unit** | **Substantive.** `tests/unit` + the Rust crate `cargo test` suites. |
+| **L3 stage-acceptance — nspawn** | **Substantive.** `tests/nspawn/` (200+ scripts) is the real Layer-3 body, incl. the cross-daemon integration test (F-2026-066). |
+| **L3 stage-acceptance — chroot** | **Harness + skip-clean.** `tests/chroot/run.sh` probes a chroot mechanism (root `chroot` OR rootless `unshare -r`) + a built rootfs; runs real filesystem assertions (os-release branding, dpkg presence) against a rootfs when present, skip-cleans otherwise. Was a bare scaffold before F-2026-052. |
+| **L4 integration — qemu** | **Harness + real driver bridge.** `tests/qemu/scaffold.sh` probes KVM + qemu + a built image, then bridges to `scripts/build/09-image-verify.sh` (the substantive boot) or the `SOVEREIGN_OS_LAYER4_SLOW` KVM-less path; `destructive-loop.sh` extends it. Skip-cleans without preconditions. |
+| **L5 hardware** | **Operator-only, by design.** Not in CI; runs on real SAIN-01 with operator opt-in. Never mocks (spec goal #4). |
+
+`tests/lint/test_test_tier_harnesses.py` locks this honesty: it asserts each L3/L4
+harness exists, is executable, probes its preconditions, and skip-cleans — and
+that this status section stays present so the claim can't silently regress.
 
 ## Problem
 
