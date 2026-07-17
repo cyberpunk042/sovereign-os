@@ -24,6 +24,7 @@
 //! POST /v1/control-word/round -> {"kind":"control-word-round",…} M002 round engine (reads the live avx-mode switch)
 //! GET  /v1/control-word/config -> {"kind":"control-word-config",…} live resolved avx-mode + round/control-word knobs
 //! POST /v1/branch-scheduler/tick -> {"kind":"branch-scheduler-tick",…} M007 8-step branch loop (M002+M007+M008 capstone)
+//! POST /v1/branch-scheduler/tick-v2 -> {"kind":"branch-scheduler-tick-v2",…} v2 tick consuming predictor + rule-table + recall + microcode
 //! POST /v1/token-law/allowed-mask -> {"kind":"token-law-allowed-mask",…} M008 token-law bitset combine (F00623)
 //! POST /v1/microcode/decode -> {"kind":"microcode-decode",…} M008 control word as executable micro-op program (M00113)
 //! ```
@@ -150,6 +151,7 @@ pub fn respond(server: &GatewayServer, method: &str, path: &str, body: &str) -> 
         ("POST", "/v1/control-word/round") => control_word_round(body),
         ("GET", "/v1/control-word/config") => control_word_config(),
         ("POST", "/v1/branch-scheduler/tick") => branch_scheduler_tick(body),
+        ("POST", "/v1/branch-scheduler/tick-v2") => branch_scheduler_tick_v2(body),
         ("POST", "/v1/token-law/allowed-mask") => token_law_allowed_mask(body),
         ("POST", "/v1/microcode/decode") => microcode_decode(body),
         ("POST", "/v1/models/load") => models_load(server, body),
@@ -564,6 +566,54 @@ fn branch_scheduler_tick(body: &str) -> HttpReply {
     json_reply(
         200,
         &serde_json::json!({ "kind": "branch-scheduler-tick", "result": result }),
+    )
+}
+
+/// `POST /v1/branch-scheduler/tick-v2` — the richer M007 tick that consumes the
+/// M008 building blocks: memory recall (bloom), the branch predictor (M00121),
+/// the two-level rule table (M00119) for Verify, and microcode (M00113) for
+/// Commit. Body: `{ "batch": BranchBatch, "rule_table": [[u8,…],…],
+/// "event_class": [usize;8], "memory_bank": [u64,…], "verify_min_score"?: u32 }`.
+/// The predictor starts fresh per request (stateless HTTP); its learn happens
+/// within the tick, so `predictor_accuracy` reflects this tick's retirement.
+fn branch_scheduler_tick_v2(body: &str) -> HttpReply {
+    use sovereign_bit_cheats::TwoLevelTable;
+    use sovereign_branch_scheduler::{BranchBatch, SchedulerContext, tick_v2};
+
+    #[derive(serde::Deserialize)]
+    struct Req {
+        batch: BranchBatch,
+        #[serde(default)]
+        rule_table: Vec<Vec<u8>>,
+        #[serde(default)]
+        event_class: [usize; 8],
+        #[serde(default)]
+        memory_bank: Vec<u64>,
+        #[serde(default = "default_min_score_v2")]
+        verify_min_score: u32,
+    }
+    fn default_min_score_v2() -> u32 {
+        1
+    }
+
+    let req: Req = match serde_json::from_str(body) {
+        Ok(r) => r,
+        Err(e) => {
+            return err(
+                400,
+                format!("invalid branch-scheduler tick-v2 request: {e}"),
+            );
+        }
+    };
+    let mut ctx = SchedulerContext::new(
+        TwoLevelTable::new(req.rule_table),
+        req.event_class,
+        req.memory_bank,
+    );
+    let result = tick_v2(&req.batch, &mut ctx, req.verify_min_score);
+    json_reply(
+        200,
+        &serde_json::json!({ "kind": "branch-scheduler-tick-v2", "result": result }),
     )
 }
 
@@ -1157,6 +1207,45 @@ mod tests {
         // malformed → clean 400
         assert_eq!(
             respond(&srv(), "POST", "/v1/branch-scheduler/tick", "{").status,
+            400
+        );
+    }
+
+    #[test]
+    fn post_branch_scheduler_tick_v2_consumes_the_building_blocks() {
+        // route 0 → rule deny, route 1 → rule allow; committed control words (mode=1).
+        let batch = serde_json::json!({
+            "id": [0,1,2,3,4,5,6,7],
+            "control": [1,1,1,1,1,1,1,1],
+            "budget": [1,1,1,1,1,1,1,1],
+            "score": [100,100,100,100,100,100,100,100],
+            "grammar": [1,1,1,1,1,1,1,1],
+            "memory": [0xF,0,0xFF,0,0,0,0,0],
+            "route": [0,0,1,1,0,1,0,1]
+        });
+        let body = serde_json::json!({
+            "batch": batch,
+            "rule_table": [[0],[1]],   // rule 0 deny, rule 1 allow
+            "event_class": [0,0,0,0,0,0,0,0],
+            "memory_bank": [0xFF],
+            "verify_min_score": 50
+        })
+        .to_string();
+        let v = body_of(&respond(
+            &srv(),
+            "POST",
+            "/v1/branch-scheduler/tick-v2",
+            &body,
+        ));
+        assert_eq!(v["kind"], "branch-scheduler-tick-v2");
+        // rule table pruned route-0 lanes → only route-1 (2,3,5,7) commit
+        assert_eq!(v["result"]["rule_verified"], 0b1010_1100);
+        assert_eq!(v["result"]["base"]["committed"], 0b1010_1100);
+        // memory recall (bloom) surfaced
+        assert_eq!(v["result"]["recall"][0], 4); // popcount(0xF & 0xFF)
+        assert_eq!(v["result"]["recall"][2], 8);
+        assert_eq!(
+            respond(&srv(), "POST", "/v1/branch-scheduler/tick-v2", "{").status,
             400
         );
     }

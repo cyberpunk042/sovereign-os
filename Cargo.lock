@@ -471,6 +471,7 @@ name = "sovereign-branch-scheduler"
 version = "0.1.0"
 dependencies = [
  "serde",
+ "sovereign-bit-cheats",
  "sovereign-control-word",
  "sovereign-simd",
 ]
