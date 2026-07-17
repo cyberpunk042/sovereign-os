@@ -49,12 +49,12 @@ Env vars (all overridable):
 from __future__ import annotations
 
 import importlib.util
-import json
 import os
 import sys
-import urllib.parse
-from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
+
+# The HTTP plumbing (json / http.server / urllib) lives in _api_daemon.py now
+# (F-2026-070) — imported below once the module dir is on sys.path.
 
 API_BIND = os.environ.get("EDGE_FIREWALL_API_BIND", "127.0.0.1")
 API_PORT = int(os.environ.get("EDGE_FIREWALL_API_PORT", "8092"))
@@ -96,28 +96,11 @@ if _spec is None or _spec.loader is None:
 _ef = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_ef)
 
-
-def _emit_metric(endpoint: str, result: str) -> None:
-    """Best-effort textfile-collector emit (Layer B per SDD-016)."""
-    if DRY_RUN:
-        sys.stderr.write(
-            f"  would emit: {METRIC_NAME}"
-            f"{{endpoint=\"{endpoint}\",result=\"{result}\"}} 1\n"
-        )
-        return
-    try:
-        os.makedirs(METRICS_DIR, exist_ok=True)
-        prom_path = os.path.join(
-            METRICS_DIR, "sovereign-os-edge-firewall-api.prom"
-        )
-        line = (
-            f"{METRIC_NAME}{{endpoint=\"{endpoint}\","
-            f"result=\"{result}\"}} 1\n"
-        )
-        with open(prom_path, "a") as f:
-            f.write(line)
-    except OSError:
-        pass
+# Shared read-only daemon scaffold (F-2026-070) — the HTTP plumbing every
+# sovereign-*-api carried verbatim now lives in _api_daemon.py. This module keeps
+# its own identity, port, routes, and 405 message.
+sys.path.insert(0, str(_THIS_DIR))
+import _api_daemon  # noqa: E402
 
 
 def _state_payload() -> dict:
@@ -203,157 +186,45 @@ def _version_payload() -> dict:
     }
 
 
-class EdgeFirewallAPIHandler(BaseHTTPRequestHandler):
-    server_version = f"sovereign-os-edge-firewall-api/{API_VERSION}"
-    sys_version = ""
-
-    def log_message(self, format: str, *args) -> None:
-        sys.stderr.write(
-            f"[api] {self.address_string()} {format % args}\n"
-        )
-
-    def _send_json(self, status: int, payload: dict) -> None:
-        body = json.dumps(payload, indent=2).encode("utf-8")
-        self.send_response(status)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(body)))
-        self.send_header("X-Sovereign-Module", "edge-firewall-api")
-        self.send_header("X-Sovereign-Version", API_VERSION)
-        self.end_headers()
-        self.wfile.write(body)
-
-    def _send_webapp(self) -> None:
-        """R506 — serve the single-file monochrome webapp from disk.
-        Read-only; same-origin with the JSON endpoints (no CORS dance,
-        no CDN, no cross-origin script loads — operator-§1g UX rule)."""
-        try:
-            body = WEBAPP_PATH.read_bytes()
-        except OSError as e:
-            self._send_json(500, {
-                "error": f"webapp asset unreadable: {e}",
-                "expected_path": str(WEBAPP_PATH),
-            })
-            _emit_metric("webapp", "500")
-            return
-        self.send_response(200)
-        self.send_header("Content-Type", "text/html; charset=utf-8")
-        self.send_header("Content-Length", str(len(body)))
-        self.send_header("X-Sovereign-Module", "edge-firewall-webapp")
-        self.send_header("X-Sovereign-Version", API_VERSION)
-        self.send_header("X-Content-Type-Options", "nosniff")
-        self.send_header("X-Frame-Options", "DENY")
-        self.end_headers()
-        self.wfile.write(body)
-        _emit_metric("webapp", "ok")
-
-    def do_GET(self) -> None:  # noqa: N802
-        parsed = urllib.parse.urlsplit(self.path)
-        path = parsed.path.rstrip("/") or "/"
-        query = urllib.parse.parse_qs(parsed.query)
-
-        if path == "/healthz" or path == "/":
-            self._send_json(200, {"status": "ok", "version": API_VERSION})
-            _emit_metric("healthz" if path == "/healthz" else "root", "ok")
-            return
-
-        if path in ("/webapp", "/webapp/", "/webapp/index.html"):
-            self._send_webapp()
-            return
-
-        try:
-            if path == "/version":
-                self._send_json(200, _version_payload())
-                _emit_metric("version", "ok")
-                return
-            if path == "/state":
-                self._send_json(200, _state_payload())
-                _emit_metric("state", "ok")
-                return
-            if path == "/candidates":
-                self._send_json(200, _candidates_payload())
-                _emit_metric("candidates", "ok")
-                return
-            if path == "/recommend":
-                self._send_json(200, _recommend_payload())
-                _emit_metric("recommend", "ok")
-                return
-            if path == "/install-plan":
-                cid = (query.get("candidate") or [""])[0]
-                status, payload = _install_plan_payload(cid)
-                self._send_json(status, payload)
-                _emit_metric(
-                    "install_plan",
-                    "ok" if status == 200
-                    else ("400" if status == 400 else "404"),
-                )
-                return
-        except Exception as e:  # noqa: BLE001
-            self._send_json(500, {"error": str(e)})
-            _emit_metric(path.lstrip("/").replace("-", "_") or "unknown",
-                         "500")
-            return
-
-        self._send_json(404, {
-            "error": f"unknown endpoint: {path!r}",
-            "available": ["/version", "/state", "/candidates",
-                          "/recommend", "/install-plan", "/healthz",
-                          "/webapp/"],
-        })
-        _emit_metric(path.lstrip("/").replace("-", "_") or "unknown",
-                     "404")
-
-    def do_HEAD(self) -> None:  # noqa: N802
-        self.do_GET()
-
-    def do_POST(self):    self._reject_mutation()  # noqa: E704 N802
-    def do_PUT(self):     self._reject_mutation()  # noqa: E704 N802
-    def do_DELETE(self):  self._reject_mutation()  # noqa: E704 N802
-    def do_PATCH(self):   self._reject_mutation()  # noqa: E704 N802
-
-    def _reject_mutation(self) -> None:
-        self._send_json(405, {
-            "error": "read-only surface — mutation verbs `install` and "
-                     "interactive `wizard` stay CLI-only (operator §17 "
-                     "sovereignty boundary). Use sovereign-osctl "
-                     "edge-firewall install/wizard.",
-            "allowed": ["GET", "HEAD"],
-        })
-        _emit_metric(self.command.lower(), "405")
+def _spec_for() -> "_api_daemon.DaemonSpec":
+    """Build this daemon's DaemonSpec. Every endpoint (including /install-plan's
+    query-param 400/404 semantics), status code, header, and metric label is
+    preserved from the prior hand-written handler; only the shared HTTP plumbing
+    moved to _api_daemon."""
+    return _api_daemon.DaemonSpec(
+        module="edge-firewall-api",
+        webapp_module="edge-firewall-webapp",
+        version=API_VERSION,
+        metric_name=METRIC_NAME,
+        prom_basename="sovereign-os-edge-firewall-api.prom",
+        metrics_dir=METRICS_DIR,
+        webapp_path=WEBAPP_PATH,
+        data_source=str(_EF_PATH),
+        endpoints_line=("/version /state /candidates /recommend "
+                        "/install-plan + /healthz"),
+        reject_error=(
+            "read-only surface — mutation verbs `install` and interactive "
+            "`wizard` stay CLI-only (operator §17 sovereignty boundary). Use "
+            "sovereign-osctl edge-firewall install/wizard."),
+        available=["/version", "/state", "/candidates", "/recommend",
+                   "/install-plan", "/healthz", "/webapp/"],
+        routes={
+            "/version": ("version", lambda q: (200, _version_payload())),
+            "/state": ("state", lambda q: (200, _state_payload())),
+            "/candidates": ("candidates", lambda q: (200, _candidates_payload())),
+            "/recommend": ("recommend", lambda q: (200, _recommend_payload())),
+            # /install-plan preserves the query-param + 400/404 contract: the
+            # handler returns (status, payload) straight from _install_plan_payload.
+            "/install-plan": ("install_plan",
+                              lambda q: _install_plan_payload(
+                                  (q.get("candidate") or [""])[0])),
+        },
+        is_dry_run=lambda: DRY_RUN,
+    )
 
 
 def serve(bind: str = API_BIND, port: int = API_PORT) -> int:
-    print(
-        f"[*] edge-firewall-api {API_VERSION} listening "
-        f"on http://{bind}:{port}/",
-        flush=True,
-    )
-    print(f"  data source: {_EF_PATH}", flush=True)
-    print(f"  endpoints:   /version /state /candidates /recommend "
-          f"/install-plan + /healthz", flush=True)
-    if bind != "127.0.0.1":
-        print(
-            f"  WARNING: bind={bind!r} is NOT loopback — operator "
-            f"explicitly exposed this surface beyond the host.",
-            flush=True,
-        )
-    if DRY_RUN:
-        print("  DRY-RUN: configuration validated, not serving.", flush=True)
-        return 0
-
-    try:
-        httpd = HTTPServer((bind, port), EdgeFirewallAPIHandler)
-    except OSError as e:
-        sys.stderr.write(
-            f"[FATAL STRUCTURAL FRICTION] cannot bind {bind}:{port} — {e}\n"
-        )
-        return 1
-
-    try:
-        httpd.serve_forever()
-    except KeyboardInterrupt:
-        print("\n[*] edge-firewall-api shutdown requested.", flush=True)
-        httpd.server_close()
-        return 0
+    return _api_daemon.serve(_spec_for(), bind, port)
 
 
 def main() -> int:

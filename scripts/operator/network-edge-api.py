@@ -57,12 +57,12 @@ Env vars (all overridable):
 from __future__ import annotations
 
 import importlib.util
-import json
 import os
 import sys
-import urllib.parse
-from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
+
+# The HTTP plumbing (json / http.server / urllib) lives in _api_daemon.py now
+# (F-2026-070) — imported below once the module dir is on sys.path.
 
 API_BIND = os.environ.get("NETWORK_EDGE_API_BIND", "127.0.0.1")
 API_PORT = int(os.environ.get("NETWORK_EDGE_API_PORT", "8093"))
@@ -101,28 +101,11 @@ if _spec is None or _spec.loader is None:
 _ne = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_ne)
 
-
-def _emit_metric(endpoint: str, result: str) -> None:
-    """Best-effort textfile-collector emit (Layer B per SDD-016)."""
-    if DRY_RUN:
-        sys.stderr.write(
-            f"  would emit: {METRIC_NAME}"
-            f"{{endpoint=\"{endpoint}\",result=\"{result}\"}} 1\n"
-        )
-        return
-    try:
-        os.makedirs(METRICS_DIR, exist_ok=True)
-        prom_path = os.path.join(
-            METRICS_DIR, "sovereign-os-network-edge-api.prom"
-        )
-        line = (
-            f"{METRIC_NAME}{{endpoint=\"{endpoint}\","
-            f"result=\"{result}\"}} 1\n"
-        )
-        with open(prom_path, "a") as f:
-            f.write(line)
-    except OSError:
-        pass
+# Shared read-only daemon scaffold (F-2026-070) — the HTTP plumbing every
+# sovereign-*-api carried verbatim now lives in _api_daemon.py. This module keeps
+# its own identity, port, routes, and 405 message.
+sys.path.insert(0, str(_THIS_DIR))
+import _api_daemon  # noqa: E402
 
 
 def _detect_payload() -> dict:
@@ -177,167 +160,48 @@ def _version_payload() -> dict:
     }
 
 
-class NetworkEdgeAPIHandler(BaseHTTPRequestHandler):
-    server_version = f"sovereign-os-network-edge-api/{API_VERSION}"
-    sys_version = ""
-
-    def log_message(self, format: str, *args) -> None:
-        sys.stderr.write(
-            f"[api] {self.address_string()} {format % args}\n"
-        )
-
-    def _send_json(self, status: int, payload: dict) -> None:
-        body = json.dumps(payload, indent=2).encode("utf-8")
-        self.send_response(status)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(body)))
-        self.send_header("X-Sovereign-Module", "network-edge-api")
-        self.send_header("X-Sovereign-Version", API_VERSION)
-        self.end_headers()
-        self.wfile.write(body)
-
-    def _send_webapp(self) -> None:
-        """Serve the R509 single-file SPA from the SAME host:port as
-        the JSON endpoints (operator-§1g: same-origin, zero CORS).
-        Headers carry the webapp module identity + framing/MIME hardening
-        (X-Frame-Options=DENY, X-Content-Type-Options=nosniff)."""
-        try:
-            body = WEBAPP_PATH.read_bytes()
-        except OSError as e:
-            self._send_json(500, {
-                "error": f"webapp asset unreadable: {e}",
-                "webapp_path": str(WEBAPP_PATH),
-            })
-            _emit_metric("webapp", "500")
-            return
-        self.send_response(200)
-        self.send_header("Content-Type", "text/html; charset=utf-8")
-        self.send_header("Content-Length", str(len(body)))
-        self.send_header("X-Sovereign-Module", "network-edge-webapp")
-        self.send_header("X-Sovereign-Version", API_VERSION)
-        self.send_header("X-Frame-Options", "DENY")
-        self.send_header("X-Content-Type-Options", "nosniff")
-        self.end_headers()
-        self.wfile.write(body)
-        _emit_metric("webapp", "ok")
-
-    def do_GET(self) -> None:  # noqa: N802
-        parsed = urllib.parse.urlsplit(self.path)
-        path = parsed.path.rstrip("/") or "/"
-
-        if path == "/healthz" or path == "/":
-            self._send_json(200, {"status": "ok", "version": API_VERSION})
-            _emit_metric("healthz" if path == "/healthz" else "root", "ok")
-            return
-
-        if path in ("/webapp", "/webapp/index.html"):
-            self._send_webapp()
-            return
-
-        try:
-            if path == "/version":
-                self._send_json(200, _version_payload())
-                _emit_metric("version", "ok")
-                return
-            if path == "/detect":
-                self._send_json(200, _detect_payload())
-                _emit_metric("detect", "ok")
-                return
-            if path == "/interfaces":
-                self._send_json(200, _interfaces_payload())
-                _emit_metric("interfaces", "ok")
-                return
-            if path == "/nat-chain":
-                self._send_json(200, _nat_chain_payload())
-                _emit_metric("nat_chain", "ok")
-                return
-            if path == "/opnsense/status":
-                self._send_json(200, _opnsense_status_payload())
-                _emit_metric("opnsense_status", "ok")
-                return
-            if path == "/opnsense/capabilities":
-                self._send_json(200, _opnsense_capabilities_payload())
-                _emit_metric("opnsense_capabilities", "ok")
-                return
-        except Exception as e:  # noqa: BLE001
-            self._send_json(500, {"error": str(e)})
-            _emit_metric(
-                path.lstrip("/").replace("-", "_").replace("/", "_")
-                or "unknown",
-                "500",
-            )
-            return
-
-        self._send_json(404, {
-            "error": f"unknown endpoint: {path!r}",
-            "available": ["/version", "/detect", "/interfaces",
-                          "/nat-chain", "/opnsense/status",
-                          "/opnsense/capabilities", "/webapp/",
-                          "/healthz"],
-        })
-        _emit_metric(
-            path.lstrip("/").replace("-", "_").replace("/", "_")
-            or "unknown",
-            "404",
-        )
-
-    def do_HEAD(self) -> None:  # noqa: N802
-        self.do_GET()
-
-    def do_POST(self):    self._reject_mutation()  # noqa: E704 N802
-    def do_PUT(self):     self._reject_mutation()  # noqa: E704 N802
-    def do_DELETE(self):  self._reject_mutation()  # noqa: E704 N802
-    def do_PATCH(self):   self._reject_mutation()  # noqa: E704 N802
-
-    def _reject_mutation(self) -> None:
-        self._send_json(405, {
-            "error": "read-only surface — network-edge has no mutation "
-                     "verbs at any surface (operator §17 sovereignty "
-                     "boundary). OPNsense config changes are operator-"
-                     "driven via the OPNsense UI / API directly, "
-                     "outside the sovereign-os boundary.",
-            "allowed": ["GET", "HEAD"],
-        })
-        _emit_metric(self.command.lower(), "405")
+def _spec_for(port_placeholder: None = None) -> "_api_daemon.DaemonSpec":
+    """Build this daemon's DaemonSpec (identity + routes + 405 message). Every
+    endpoint, status code, header, and metric label is preserved from the prior
+    hand-written handler; only the shared HTTP plumbing moved to _api_daemon."""
+    return _api_daemon.DaemonSpec(
+        module="network-edge-api",
+        webapp_module="network-edge-webapp",
+        version=API_VERSION,
+        metric_name=METRIC_NAME,
+        prom_basename="sovereign-os-network-edge-api.prom",
+        metrics_dir=METRICS_DIR,
+        webapp_path=WEBAPP_PATH,
+        data_source=str(_NE_PATH),
+        endpoints_line=("/version /detect /interfaces /nat-chain "
+                        "/opnsense/status /opnsense/capabilities /webapp/ "
+                        "+ /healthz"),
+        extra_banner=[f"  webapp:      {WEBAPP_PATH}"],
+        reject_error=(
+            "read-only surface — network-edge has no mutation verbs at any "
+            "surface (operator §17 sovereignty boundary). OPNsense config "
+            "changes are operator-driven via the OPNsense UI / API directly, "
+            "outside the sovereign-os boundary."),
+        available=["/version", "/detect", "/interfaces", "/nat-chain",
+                   "/opnsense/status", "/opnsense/capabilities", "/webapp/",
+                   "/healthz"],
+        routes={
+            "/version": ("version", lambda q: (200, _version_payload())),
+            "/detect": ("detect", lambda q: (200, _detect_payload())),
+            "/interfaces": ("interfaces", lambda q: (200, _interfaces_payload())),
+            "/nat-chain": ("nat_chain", lambda q: (200, _nat_chain_payload())),
+            "/opnsense/status":
+                ("opnsense_status", lambda q: (200, _opnsense_status_payload())),
+            "/opnsense/capabilities":
+                ("opnsense_capabilities",
+                 lambda q: (200, _opnsense_capabilities_payload())),
+        },
+        is_dry_run=lambda: DRY_RUN,
+    )
 
 
 def serve(bind: str = API_BIND, port: int = API_PORT) -> int:
-    print(
-        f"[*] network-edge-api {API_VERSION} listening "
-        f"on http://{bind}:{port}/",
-        flush=True,
-    )
-    print(f"  data source: {_NE_PATH}", flush=True)
-    print(f"  endpoints:   /version /detect /interfaces /nat-chain "
-          f"/opnsense/status /opnsense/capabilities /webapp/ + /healthz",
-          flush=True)
-    print(f"  webapp:      {WEBAPP_PATH}", flush=True)
-    if bind != "127.0.0.1":
-        print(
-            f"  WARNING: bind={bind!r} is NOT loopback — operator "
-            f"explicitly exposed this surface beyond the host.",
-            flush=True,
-        )
-    if DRY_RUN:
-        print("  DRY-RUN: configuration validated, not serving.",
-              flush=True)
-        return 0
-
-    try:
-        httpd = HTTPServer((bind, port), NetworkEdgeAPIHandler)
-    except OSError as e:
-        sys.stderr.write(
-            f"[FATAL STRUCTURAL FRICTION] cannot bind {bind}:{port} — "
-            f"{e}\n"
-        )
-        return 1
-
-    try:
-        httpd.serve_forever()
-    except KeyboardInterrupt:
-        print("\n[*] network-edge-api shutdown requested.", flush=True)
-        httpd.server_close()
-        return 0
+    return _api_daemon.serve(_spec_for(), bind, port)
 
 
 def main() -> int:
