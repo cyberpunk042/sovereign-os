@@ -51,3 +51,17 @@ def test_no_aggressive_word_break():
     # cousin of test_text_wrap_contract — the new viz uses overflow-wrap:anywhere
     html = PANEL.read_text(encoding="utf-8")
     assert "word-break:break-all" not in html.replace(" ", "")
+
+
+# M007 + M008 surfaces (the branch scheduler + AVX-512 cheats)
+M78_SURFACES = [
+    ("F00605", "VPTERNLOG fuse-policy (M00114"),
+    ("F00615", "VPCOMPRESS sparse→dense (M00116"),
+    ("M007", "M007 8-step branch loop (E0052"),
+]
+
+
+def test_m007_m008_surfaces_present():
+    html = PANEL.read_text(encoding="utf-8")
+    missing = [f"{fid} ({marker!r})" for fid, marker in M78_SURFACES if marker not in html]
+    assert not missing, "avx-modes panel is missing M007/M008 surface(s): " + ", ".join(missing)

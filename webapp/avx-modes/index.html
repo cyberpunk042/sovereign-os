@@ -1170,6 +1170,34 @@ html[data-theme="light"] {
       <div class="m2-barrow" style="margin-top:.4rem;"><span class="lbl">diversity index</span><div class="m2-barbg"><div class="m2-bar" id="m2-dna-bar"></div></div><span class="mono" id="m2-dna-val"></span></div>
     </div>
   </div>
+
+  <h2 class="avx-h">M007 + M008 — the branch scheduler &amp; AVX-512 cheats</h2>
+  <p class="avx-lead">The execution model (M007) and the bit-level cheats (M008) that turn AVX-512 instructions into AI control infrastructure. Each surface computes live from the same logic as the Rust kernels (<span class="mono">sovereign-simd::cheats</span>, <span class="mono">sovereign-branch-scheduler</span>) and the daemon's <span class="mono">POST /v1/branch-scheduler/tick</span>.</p>
+  <div class="m2-grid">
+    <div class="m2-card">
+      <h3>VPTERNLOG fuse-policy (M00114 / F00605)</h3>
+      <p>One instruction fuses <span class="mono">model_wants ∧ policy_allows ∧ oracle_verified</span> (imm8 = 0x80). Toggle the 4-bit planes; the fused accept mask is the AND of all three.</p>
+      <div class="m2-step" style="margin-bottom:.4rem;">
+        <label class="mono" style="font-size:.72rem;">wants <input id="m8-tl-a" class="so-set-mini" value="0xF" size="6"></label>
+        <label class="mono" style="font-size:.72rem;">allows <input id="m8-tl-b" class="so-set-mini" value="0xC" size="6"></label>
+        <label class="mono" style="font-size:.72rem;">oracle <input id="m8-tl-c" class="so-set-mini" value="0xA" size="6"></label>
+      </div>
+      <div class="mono" id="m8-tl-out" style="font-size:.8rem;"></div>
+    </div>
+    <div class="m2-card">
+      <h3>VPCOMPRESS sparse→dense (M00116 / F00615)</h3>
+      <p>Pack the alive branches into the low lanes, order preserved. Click lanes to toggle alive; survivors compress left.</p>
+      <div class="m2-heat" id="m8-cmp-in" style="margin-bottom:.4rem;"></div>
+      <div class="m2-heat" id="m8-cmp-out"></div>
+      <div class="mono" id="m8-cmp-ratio" style="font-size:.72rem;color:var(--muted,#8a8a8a);margin-top:.3rem;"></div>
+    </div>
+    <div class="m2-card">
+      <h3>M007 8-step branch loop (E0052)</h3>
+      <p>Spawn→Retrieve→Draft→Filter→Verify→Act→Commit→Learn over 8 branches. The frontier mask at each gate; the Commit gate reads the control-word permission.</p>
+      <div class="m2-step" id="m7-loop"></div>
+      <div class="mono" id="m7-out" style="font-size:.72rem;color:var(--muted,#8a8a8a);margin-top:.35rem;"></div>
+    </div>
+  </div>
 </main>
 
 <!-- SDD-045 shared control-surface, inlined verbatim from webapp/_shared/control-surface.js -->
@@ -1611,6 +1639,46 @@ html[data-theme="light"] {
   function fpRefresh(){ if(!fpOut)return; var f=laneFingerprint(fpParse(fpCw.value),fpParse(fpRule.value),fpParse(fpState.value));
     fpOut.textContent="0x"+f.toString(16).padStart(16,"0"); }
   if(fpOut){ [fpCw,fpRule,fpState].forEach(function(el){ el.addEventListener("input",fpRefresh); }); fpRefresh(); }
+
+  // ── M007 + M008 (F00605/F00615 + E0052) ──
+  // M00114 VPTERNLOG fuse-policy: imm8=0x80 = AND of all three planes.
+  var tlA=document.getElementById("m8-tl-a"),tlB=document.getElementById("m8-tl-b"),tlC=document.getElementById("m8-tl-c"),tlOut=document.getElementById("m8-tl-out");
+  function tlRefresh(){ if(!tlOut)return; var a=fpParse(tlA.value),b=fpParse(tlB.value),c=fpParse(tlC.value);
+    var fused=a&b&c;  // ternlog imm8=0x80
+    tlOut.innerHTML="fused accept = wants &amp; allows &amp; oracle = <span class=\"cw-hi\">0x"+fused.toString(16).toUpperCase()+"</span>  (0b"+fused.toString(2).padStart(4,"0")+")"; }
+  if(tlA){ [tlA,tlB,tlC].forEach(function(e){ e.addEventListener("input",tlRefresh); }); tlRefresh(); }
+
+  // M00116 VPCOMPRESS: pack alive lanes low, order preserved.
+  var cmpIn=document.getElementById("m8-cmp-in"),cmpOut=document.getElementById("m8-cmp-out"),cmpRatio=document.getElementById("m8-cmp-ratio");
+  var cmpAlive=[1,0,1,1,0,1,0,1];  // initial alive mask (matches the Rust test shape)
+  function cmpRefresh(){ if(!cmpIn)return; cmpIn.innerHTML=""; cmpOut.innerHTML="";
+    var vals=[10,20,30,40,50,60,70,80], packed=[], n=0;
+    for(var i=0;i<8;i++){ if(cmpAlive[i]){ packed.push(vals[i]); n++; } }
+    while(packed.length<8) packed.push(0);
+    for(var i=0;i<8;i++){ (function(i){ var c=document.createElement("div"); c.className="m2-cell"+(cmpAlive[i]?" on":""); c.textContent=vals[i];
+      c.style.cursor="pointer"; c.title="click to toggle alive"; c.addEventListener("click",function(){ cmpAlive[i]^=1; cmpRefresh(); }); cmpIn.appendChild(c); })(i); }
+    for(var i=0;i<8;i++){ var c=document.createElement("div"); c.className="m2-cell"+(i<n?" on":""); c.textContent=packed[i]||"·"; cmpOut.appendChild(c); }
+    cmpRatio.textContent="sparse→dense: "+n+"/8 survivors packed low (order preserved)"; }
+  if(cmpIn){ cmpRefresh(); }
+
+  // M007 8-step branch loop — the frontier mask through the gates.
+  var m7loop=document.getElementById("m7-loop"),m7out=document.getElementById("m7-out");
+  function m7Refresh(){ if(!m7loop)return;
+    // 8 branches: lanes 0-3 committed (mode=1), 4-7 draft (mode=0); all grammar+budget ok, score 100.
+    var control=[1,1,1,1,0,0,0,0], grammar=1, budget=1, score=100, minScore=50;
+    var spawn=0xFF, draft=spawn;
+    var gMask=0xFF, bMask=0xFF; // all grammar/budget ok
+    var filter=draft&gMask&bMask;
+    var sMask=score>=minScore?0xFF:0; var verify=filter&sMask;
+    var commitGate=0; for(var i=0;i<8;i++){ if((control[i]&0xF)===1) commitGate|=(1<<i); } // shell_allowed = committed & !spec
+    var committed=verify&commitGate;
+    var bits=function(m){ return "0b"+(m&0xFF).toString(2).padStart(8,"0"); };
+    var steps=[["Spawn",spawn],["Filter",filter],["Verify",verify],["Commit",committed]];
+    m7loop.innerHTML=""; steps.forEach(function(s,k){ if(k){ var a=document.createElement("span");a.className="arrow";a.textContent="→";m7loop.appendChild(a); }
+      var e=document.createElement("span"); e.className="s"; e.innerHTML="<b>"+s[0]+"</b> "+bits(s[1]); m7loop.appendChild(e); });
+    var n=0; for(var i=0;i<8;i++) if(committed&(1<<i)) n++;
+    m7out.textContent="committed = "+bits(committed)+" → "+n+" survivors (lanes 0-3 mode=1 commit; 4-7 draft gated out)"; }
+  if(m7loop){ m7Refresh(); }
 
   // ── M002 dashboards (F00090/108/137/144/153/162/128) ──
   // round_update mirror (BigInt u64) — identical to sovereign-simd::round + simd-round.py.

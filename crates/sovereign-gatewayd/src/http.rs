@@ -23,6 +23,7 @@
 //! POST /v1/deliberate  -> {"kind":"deliberation",…} best-of-N (read-only)
 //! POST /v1/control-word/round -> {"kind":"control-word-round",…} M002 round engine (reads the live avx-mode switch)
 //! GET  /v1/control-word/config -> {"kind":"control-word-config",…} live resolved avx-mode + round/control-word knobs
+//! POST /v1/branch-scheduler/tick -> {"kind":"branch-scheduler-tick",…} M007 8-step branch loop (M002+M007+M008 capstone)
 //! ```
 //!
 //! A `POST` body is one JSON [`CortexRequest`]; the reply is the tagged
@@ -146,6 +147,7 @@ pub fn respond(server: &GatewayServer, method: &str, path: &str, body: &str) -> 
         ("GET", "/v1/events") => events(server),
         ("POST", "/v1/control-word/round") => control_word_round(body),
         ("GET", "/v1/control-word/config") => control_word_config(),
+        ("POST", "/v1/branch-scheduler/tick") => branch_scheduler_tick(body),
         ("POST", "/v1/models/load") => models_load(server, body),
         ("POST", "/v1/models/unload") => models_unload(server, body),
         ("POST", "/v1/models/register") => models_register(server, body),
@@ -527,6 +529,35 @@ fn control_word_round(body: &str) -> HttpReply {
             "events": events,
             "metrics": metrics,
         }),
+    )
+}
+
+/// `POST /v1/branch-scheduler/tick` — run one tick of the M007 8-step branch
+/// loop over an 8-branch SoA batch (the capstone tying M002 + M007 + M008). The
+/// Commit gate reads each branch's M002 control-word permissions; Filter/Verify
+/// short-circuit via the M008 speculative-accept cheat; survivors are packed
+/// dense via VPCOMPRESS. Body: `{ "batch": BranchBatch, "verify_min_score"?: u32 }`.
+fn branch_scheduler_tick(body: &str) -> HttpReply {
+    use sovereign_branch_scheduler::{BranchBatch, tick};
+
+    #[derive(serde::Deserialize)]
+    struct Req {
+        batch: BranchBatch,
+        #[serde(default = "default_min_score")]
+        verify_min_score: u32,
+    }
+    fn default_min_score() -> u32 {
+        1
+    }
+
+    let req: Req = match serde_json::from_str(body) {
+        Ok(r) => r,
+        Err(e) => return err(400, format!("invalid branch-scheduler tick request: {e}")),
+    };
+    let result = tick(&req.batch, req.verify_min_score);
+    json_reply(
+        200,
+        &serde_json::json!({ "kind": "branch-scheduler-tick", "result": result }),
     )
 }
 
@@ -1025,6 +1056,38 @@ mod tests {
         // a malformed body is a clean 400, never a panic
         assert_eq!(
             respond(&srv(), "POST", "/v1/control-word/round", "{").status,
+            400
+        );
+    }
+
+    #[test]
+    fn post_branch_scheduler_tick_runs_the_loop() {
+        // committed control word: mode=1 (bits 0..4). paramB flags = 0 → not
+        // speculative/sandboxed → shell_allowed → passes the Commit gate.
+        let committed: u64 = 1;
+        let batch = serde_json::json!({
+            "id": [0,1,2,3,4,5,6,7],
+            "control": [committed,committed,committed,committed,0,0,0,0],
+            "budget": [1,1,1,1,1,1,1,1],
+            "score": [100,100,100,100,100,100,100,100],
+            "grammar": [1,1,1,1,1,1,1,1],
+            "memory": [0,0,0,0,0,0,0,0],
+            "route": [0,0,0,0,0,0,0,0]
+        });
+        let body = serde_json::json!({ "batch": batch, "verify_min_score": 50 }).to_string();
+        let v = body_of(&respond(&srv(), "POST", "/v1/branch-scheduler/tick", &body));
+        assert_eq!(v["kind"], "branch-scheduler-tick");
+        assert_eq!(v["result"]["steps"].as_array().unwrap().len(), 8);
+        // lanes 0-3 committed (mode=1), 4-7 draft (mode=0) → committed mask 0b1111
+        assert_eq!(v["result"]["committed"], 0b0000_1111);
+        assert_eq!(v["result"]["survivors"], 4);
+        // survivors packed dense, order preserved
+        let ids = v["result"]["committed_ids"].as_array().unwrap();
+        assert_eq!(ids[0], 0);
+        assert_eq!(ids[3], 3);
+        // malformed → clean 400
+        assert_eq!(
+            respond(&srv(), "POST", "/v1/branch-scheduler/tick", "{").status,
             400
         );
     }

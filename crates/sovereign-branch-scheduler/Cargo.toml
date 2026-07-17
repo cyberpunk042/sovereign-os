@@ -1,0 +1,18 @@
+[package]
+name = "sovereign-branch-scheduler"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "M007 execution model — the 8-step branch loop (Spawn/Retrieve/Draft/Filter/Verify/Act/Commit/Learn) over a SoA batch of 8 branches, gated by M002 control-word permissions (M00104) and driven by the M008 AVX-512 cheats (VPTERNLOG fuse-policy, speculative-accept short-circuit, VPCOMPRESS survivor-pack). The capstone that ties M002 + M007 + M008 into one tick. Forbids unsafe — wraps the safe sovereign-simd + control-word APIs."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+sovereign-control-word = { path = "../sovereign-control-word" }
+sovereign-simd = { path = "../sovereign-simd" }
