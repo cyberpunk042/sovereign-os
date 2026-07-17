@@ -565,6 +565,102 @@ fn fmt_f64(v: f64) -> String {
     }
 }
 
+// ── OS integrations: OTLP export (R00294) + ZFS/CRIU persistence ──
+
+/// R00294 — export round-step [`Span`]s as an OTLP/HTTP JSON payload (the shape
+/// an OpenTelemetry collector ingests at `/v1/traces`). This is a real exporter
+/// — a collector can POST-forward this verbatim — built without pulling the
+/// `opentelemetry` crate. `trace_id_hex` is a 32-hex-char trace id; spans get
+/// sequential span ids under it. Timestamps are caller-supplied (`base_unix_nano`
+/// + step index) so the payload is deterministic and testable.
+#[must_use]
+pub fn otlp_export(spans: &[Span], trace_id_hex: &str, base_unix_nano: u64) -> String {
+    let otlp_spans: Vec<serde_json::Value> = spans
+        .iter()
+        .map(|sp| {
+            let start = base_unix_nano + sp.step as u64;
+            serde_json::json!({
+                "traceId": trace_id_hex,
+                "spanId": format!("{:016x}", sp.step as u64 + 1),
+                "name": sp.name,
+                "kind": 1, // SPAN_KIND_INTERNAL
+                "startTimeUnixNano": start.to_string(),
+                "endTimeUnixNano": (start + 1).to_string(),
+                "status": { "code": if sp.status == "error" { 2 } else { 1 } }, // ERROR / OK
+            })
+        })
+        .collect();
+    serde_json::json!({
+        "resourceSpans": [{
+            "resource": { "attributes": [{
+                "key": "service.name",
+                "value": { "stringValue": "sovereign-control-word" }
+            }]},
+            "scopeSpans": [{
+                "scope": { "name": "m002.round" },
+                "spans": otlp_spans
+            }]
+        }]
+    })
+    .to_string()
+}
+
+/// The persistence backend for a replay ledger. Real ZFS snapshot / CRIU
+/// checkpoint when the tool is on `PATH`; a JSON file otherwise.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum PersistBackend {
+    /// `zfs snapshot` (a dataset must be given as the target).
+    Zfs,
+    /// `criu dump` (a pid must be given as the target).
+    Criu,
+    /// A plain JSON file (the always-available fallback).
+    File,
+}
+
+/// Detect the best available persistence backend: `zfs` if on `PATH`, else
+/// `criu`, else the file fallback. Checks the `PATH` dirs for the executable —
+/// no process is spawned, so this is side-effect-free.
+#[must_use]
+pub fn detect_persist_backend() -> PersistBackend {
+    if on_path("zfs") {
+        PersistBackend::Zfs
+    } else if on_path("criu") {
+        PersistBackend::Criu
+    } else {
+        PersistBackend::File
+    }
+}
+
+fn on_path(exe: &str) -> bool {
+    std::env::var_os("PATH")
+        .map(|paths| std::env::split_paths(&paths).any(|dir| dir.join(exe).is_file()))
+        .unwrap_or(false)
+}
+
+/// The command a ZFS/CRIU backend would run to snapshot `target` under `label`.
+/// Pure — constructs the argv, runs nothing (the caller executes it). `File`
+/// returns `None` (it persists via [`RoundReplay::save_json`], not a command).
+#[must_use]
+pub fn snapshot_command(backend: PersistBackend, target: &str, label: &str) -> Option<Vec<String>> {
+    match backend {
+        PersistBackend::Zfs => Some(vec![
+            "zfs".into(),
+            "snapshot".into(),
+            format!("{target}@{label}"),
+        ]),
+        PersistBackend::Criu => Some(vec![
+            "criu".into(),
+            "dump".into(),
+            "--tree".into(),
+            target.into(),
+            "--images-dir".into(),
+            label.into(),
+        ]),
+        PersistBackend::File => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -778,6 +874,55 @@ mod tests {
             assert!(!relaxed0.aborted);
             assert_eq!(relaxed0.quarantined, strict.quarantined);
         }
+    }
+
+    #[test]
+    fn otlp_export_is_valid_and_carries_the_spans() {
+        let outcome = round_guarded(&state(3), RoundConfig::default(), RoundMode::Relaxed, 64);
+        let json = otlp_export(&outcome.spans, &"a".repeat(32), 1_000);
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let spans = &v["resourceSpans"][0]["scopeSpans"][0]["spans"];
+        assert_eq!(spans.as_array().unwrap().len(), 5);
+        assert_eq!(spans[0]["name"], "extract");
+        assert_eq!(spans[0]["status"]["code"], 1); // OK
+        assert_eq!(
+            v["resourceSpans"][0]["resource"]["attributes"][0]["value"]["stringValue"],
+            "sovereign-control-word"
+        );
+        // a strict-abort span exports status ERROR (2)
+        let strict = round_guarded(&state(3), RoundConfig::default(), RoundMode::Strict, 0);
+        if strict.aborted {
+            let ej = otlp_export(&strict.spans, &"b".repeat(32), 0);
+            let ev: serde_json::Value = serde_json::from_str(&ej).unwrap();
+            let decision = ev["resourceSpans"][0]["scopeSpans"][0]["spans"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|s| s["name"] == "decision")
+                .unwrap()
+                .clone();
+            assert_eq!(decision["status"]["code"], 2);
+        }
+    }
+
+    #[test]
+    fn persist_backend_detects_and_builds_commands() {
+        // in CI there is no zfs/criu → the file fallback (the tested path)
+        assert_eq!(detect_persist_backend(), PersistBackend::File);
+        assert_eq!(snapshot_command(PersistBackend::File, "x", "y"), None);
+        // the ZFS/CRIU command construction is pure + exact
+        assert_eq!(
+            snapshot_command(PersistBackend::Zfs, "tank/replay", "round-42"),
+            Some(vec![
+                "zfs".into(),
+                "snapshot".into(),
+                "tank/replay@round-42".into()
+            ])
+        );
+        assert_eq!(
+            snapshot_command(PersistBackend::Criu, "1234", "/var/lib/sovereign/ckpt").unwrap()[0],
+            "criu"
+        );
     }
 
     #[test]
