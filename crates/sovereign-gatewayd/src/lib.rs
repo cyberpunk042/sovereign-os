@@ -2839,6 +2839,32 @@ mod tests {
     }
 
     #[test]
+    fn tiny_gguf_model_dir_loads_and_generates() {
+        // F-2026-085 had daemon-level GGUF coverage only in the loader crate; this
+        // exercises the daemon's own GGUF path (load_generator_from_dir → load_gguf
+        // + a sidecar tokenizer) end-to-end: a real .gguf container loads and runs a
+        // forward pass through the daemon, not just the loader unit tests.
+        let dir = TinyModelDir::new_gguf().expect("materialize gguf fixture");
+        let mut s = GatewayServer::new();
+        let (vocab, layers) = s
+            .inject_worker_from_dir(&dir.path_str())
+            .expect("the GGUF model dir must load through the daemon path");
+        assert_eq!(
+            (vocab, layers),
+            (256, 1),
+            "the gguf fixture is a vocab-256, 1-layer model"
+        );
+        let mut out = String::new();
+        let n = s
+            .generate_chat(None, "hello", 6, |c| out.push_str(c))
+            .expect("GGUF-backed generation must succeed");
+        assert!(
+            n > 0 && !out.is_empty(),
+            "a GGUF-loaded model must emit tokens"
+        );
+    }
+
+    #[test]
     fn model_backed_generation_is_nonempty_and_deterministic() {
         let dir = TinyModelDir::new().expect("materialize fixture");
         let mut s = GatewayServer::new();
