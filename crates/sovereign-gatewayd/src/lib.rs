@@ -2178,14 +2178,24 @@ impl GatewayServer {
             .map_or((0, 0, 0), |c| (c.hits(), c.misses(), c.len()))
     }
 
+    /// Drop all cached completions and return how many entries were dropped
+    /// (`0` when caching is disabled). Exposed for `POST /v1/cache/clear` so an
+    /// operator can flush the cache without a daemon restart.
+    pub fn clear_cache(&self) -> usize {
+        if let Some(cache) = &self.completion_cache {
+            if let Ok(mut c) = cache.lock() {
+                let n = c.len();
+                c.clear();
+                return n;
+            }
+        }
+        0
+    }
+
     /// Drop all cached completions — called when the model set changes (load /
     /// unload), since the same prompt can produce different output on new weights.
     fn clear_completion_cache(&self) {
-        if let Some(cache) = &self.completion_cache {
-            if let Ok(mut c) = cache.lock() {
-                c.clear();
-            }
-        }
+        let _ = self.clear_cache();
     }
 
     /// Same as [`generate_chat`] but with a caller-supplied [`SamplerConfig`].
@@ -2949,6 +2959,27 @@ impl GatewayServer {
             self.corpus_len()
         ));
 
+        // Opt-in completion cache (all zero when disabled). Hit-rate is
+        // hits/(hits+misses) — what an operator graphs to tune the capacity.
+        let (cache_hits, cache_misses, cache_entries) = self.cache_stats();
+        s.push_str(
+            "# HELP sovereign_gateway_cache_hits_total Completion-cache hits (a $0 replay, no model call).\n",
+        );
+        s.push_str("# TYPE sovereign_gateway_cache_hits_total counter\n");
+        s.push_str(&format!(
+            "sovereign_gateway_cache_hits_total {cache_hits}\n"
+        ));
+        s.push_str("# HELP sovereign_gateway_cache_misses_total Completion-cache misses (a generation ran).\n");
+        s.push_str("# TYPE sovereign_gateway_cache_misses_total counter\n");
+        s.push_str(&format!(
+            "sovereign_gateway_cache_misses_total {cache_misses}\n"
+        ));
+        s.push_str("# HELP sovereign_gateway_cache_entries Completion-cache resident entries (0 = cache off).\n");
+        s.push_str("# TYPE sovereign_gateway_cache_entries gauge\n");
+        s.push_str(&format!(
+            "sovereign_gateway_cache_entries {cache_entries}\n"
+        ));
+
         s
     }
 }
@@ -3153,6 +3184,25 @@ mod tests {
             "a cache hit replays the identical completion"
         );
         assert_eq!(s.cache_stats().0, 1, "the second identical call is a hit");
+    }
+
+    #[test]
+    fn prometheus_metrics_expose_cache_stats() {
+        let dir = TinyModelDir::new().expect("materialize fixture");
+        let mut s = GatewayServer::new();
+        s.inject_worker_from_dir(&dir.path_str())
+            .expect("load fixture");
+        s.enable_cache_for_test(8);
+        let greedy = sovereign_safetensors_loader::SamplerConfig::greedy();
+        // miss then hit → 1 hit, 1 miss, 1 entry
+        s.generate_chat_cached(None, "hello", 6, greedy, |_| {})
+            .expect("gen");
+        s.generate_chat_cached(None, "hello", 6, greedy, |_| {})
+            .expect("gen");
+        let m = s.metrics_prometheus();
+        assert!(m.contains("sovereign_gateway_cache_hits_total 1"), "{m}");
+        assert!(m.contains("sovereign_gateway_cache_misses_total 1"), "{m}");
+        assert!(m.contains("sovereign_gateway_cache_entries 1"), "{m}");
     }
 
     #[test]

@@ -163,6 +163,7 @@ pub fn respond(server: &GatewayServer, method: &str, path: &str, body: &str) -> 
         ("POST", "/v1/models/register") => models_register(server, body),
         ("POST", "/v1/models/background") => models_background(server, body),
         ("POST", "/v1/corpus/reload") => corpus_reload(server),
+        ("POST", "/v1/cache/clear") => cache_clear(server),
         ("POST", "/v1/messages/count_tokens") => anthropic_count_tokens(body),
 
         ("POST", "/v1/infer") | ("POST", "/mcp") | ("POST", "/v1/explain") => {
@@ -266,6 +267,7 @@ pub fn respond(server: &GatewayServer, method: &str, path: &str, body: &str) -> 
         | (_, "/v1/models/register")
         | (_, "/v1/models/background")
         | (_, "/v1/corpus/reload")
+        | (_, "/v1/cache/clear")
         | (_, "/v1/infer")
         | (_, "/mcp")
         | (_, "/v1/explain")
@@ -999,6 +1001,16 @@ fn corpus_reload(server: &GatewayServer) -> HttpReply {
     }
 }
 
+/// `POST /v1/cache/clear` — flush the opt-in completion cache without a daemon
+/// restart (a no-op returning `0` when caching is disabled). No body; returns how
+/// many entries were dropped.
+fn cache_clear(server: &GatewayServer) -> HttpReply {
+    json_reply(
+        200,
+        &serde_json::json!({"cleared": true, "entries_dropped": server.clear_cache()}),
+    )
+}
+
 /// `POST /v1/models/register` — a `model-serve` job registers a GPU serve-process
 /// backend: `{id, endpoint, device?, vram_gb?}`. Future `{model: id}` requests are
 /// proxied to `endpoint`. Loopback-trust.
@@ -1405,6 +1417,19 @@ mod tests {
         assert_eq!(v["corpus_docs"], 0);
         // wrong verb on the resource is a clean 405, not a 404.
         assert_eq!(respond(&s, "GET", "/v1/corpus/reload", "").status, 405);
+    }
+
+    #[test]
+    fn cache_clear_route_reports_entries_dropped() {
+        // Caching disabled in a fresh test server ⇒ 0 entries dropped, but the
+        // route must dispatch and report the count (the wiring contract).
+        let s = srv();
+        let r = respond(&s, "POST", "/v1/cache/clear", "");
+        assert_eq!(r.status, 200);
+        let v = body_of(&r);
+        assert_eq!(v["cleared"], true);
+        assert_eq!(v["entries_dropped"], 0);
+        assert_eq!(respond(&s, "GET", "/v1/cache/clear", "").status, 405);
     }
 
     #[test]
