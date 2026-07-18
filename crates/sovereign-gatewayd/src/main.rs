@@ -78,6 +78,9 @@ ENVIRONMENT:
     SOVEREIGN_GATEWAY_RAG_OVERLAP  chunk overlap in chars (default 120)
     SOVEREIGN_GATEWAY_RATE_CAPACITY  generation burst size — token-bucket capacity (default 60; 0 disables)
     SOVEREIGN_GATEWAY_RATE_PER_SEC   sustained generation rate — tokens/sec refill (default 20)
+    SOVEREIGN_GATEWAY_COAT_TIMEOUT_MS  wall-clock budget for a model-backed /v1/coat deliberation on
+                                     the request thread (default 25000; 0 disables). Past the budget the
+                                     search stops issuing model calls and returns its best-so-far.
     SOVEREIGN_GATEWAY_AGENTIC        enable server-side agentic tool use (default OFF); when on, a
                                      /v1/chat/completions request with \"sovereign_agentic\":true runs the
                                      ReAct loop inside the daemon (SDD-712). Read-only/pure tool catalog:

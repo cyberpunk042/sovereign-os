@@ -15,6 +15,11 @@
 //! The tensor layout mirrors the loader's own `fixture()` unit test; the
 //! tokenizer is a vocab-256 byte-level BPE (the GPT-2 byte↔unicode alphabet),
 //! matching the model's 256 vocab so the daemon's vocab-equality check passes.
+//!
+//! `TinyModelDir::new_gguf` writes the same-shaped model as a real GGUF v3
+//! container (metadata-derived hyperparameters, F32 tensors) + a sidecar
+//! `tokenizer.json`, so the daemon's *GGUF* load path (`load_gguf`) has
+//! end-to-end coverage too (F-2026-085), not just the loader crate's unit tests.
 
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -184,7 +189,133 @@ pub(crate) fn tokenizer_json() -> Vec<u8> {
     serde_json::to_vec(&doc).expect("tokenizer json serializes")
 }
 
-/// A temp model dir that removes itself on drop. Writes the three loadable files.
+// ── GGUF fixture (F-2026-085 daemon-level coverage) ──────────────────────────
+// The daemon's GGUF load path (`load_generator_from_dir` → `load_gguf`) had no
+// daemon-level model-backed test — only the loader crate's unit tests. This builds
+// a tiny, real GGUF container (metadata + F32 tensors, GGUF v3) the daemon loads,
+// paired with a sidecar `tokenizer.json` (the daemon prefers a sidecar over the
+// GGUF's embedded tokenizer). A minimal port of the loader's own `GgufWriter`.
+
+const GGUF_MAGIC: u32 = 0x4655_4747; // "GGUF" little-endian
+const GGML_F32: u32 = 0;
+
+struct GgufWriter {
+    kv: Vec<u8>,
+    n_kv: u64,
+    infos: Vec<u8>,
+    n_tensors: u64,
+    data: Vec<u8>,
+}
+
+impl GgufWriter {
+    fn new() -> Self {
+        Self {
+            kv: vec![],
+            n_kv: 0,
+            infos: vec![],
+            n_tensors: 0,
+            data: vec![],
+        }
+    }
+    fn gstr(buf: &mut Vec<u8>, s: &str) {
+        buf.extend_from_slice(&(s.len() as u64).to_le_bytes());
+        buf.extend_from_slice(s.as_bytes());
+    }
+    fn kv_u32(&mut self, key: &str, v: u32) {
+        Self::gstr(&mut self.kv, key);
+        self.kv.extend_from_slice(&4u32.to_le_bytes()); // UINT32
+        self.kv.extend_from_slice(&v.to_le_bytes());
+        self.n_kv += 1;
+    }
+    fn kv_f32(&mut self, key: &str, v: f32) {
+        Self::gstr(&mut self.kv, key);
+        self.kv.extend_from_slice(&6u32.to_le_bytes()); // FLOAT32
+        self.kv.extend_from_slice(&v.to_le_bytes());
+        self.n_kv += 1;
+    }
+    fn kv_str(&mut self, key: &str, v: &str) {
+        Self::gstr(&mut self.kv, key);
+        self.kv.extend_from_slice(&8u32.to_le_bytes()); // STRING
+        Self::gstr(&mut self.kv, v);
+        self.n_kv += 1;
+    }
+    /// Add an F32 tensor with the given `ne` dims (fastest-varying first).
+    fn tensor_f32(&mut self, name: &str, dims: &[usize], vals: &[f32]) {
+        Self::gstr(&mut self.infos, name);
+        self.infos
+            .extend_from_slice(&(dims.len() as u32).to_le_bytes());
+        for &d in dims {
+            self.infos.extend_from_slice(&(d as u64).to_le_bytes());
+        }
+        self.infos.extend_from_slice(&GGML_F32.to_le_bytes());
+        self.infos
+            .extend_from_slice(&(self.data.len() as u64).to_le_bytes());
+        for &v in vals {
+            self.data.extend_from_slice(&v.to_le_bytes());
+        }
+        while self.data.len() % 32 != 0 {
+            self.data.push(0);
+        }
+        self.n_tensors += 1;
+    }
+    fn finish(self) -> Vec<u8> {
+        let mut out = Vec::new();
+        out.extend_from_slice(&GGUF_MAGIC.to_le_bytes());
+        out.extend_from_slice(&3u32.to_le_bytes()); // version
+        out.extend_from_slice(&self.n_tensors.to_le_bytes());
+        out.extend_from_slice(&self.n_kv.to_le_bytes());
+        out.extend_from_slice(&self.kv);
+        out.extend_from_slice(&self.infos);
+        while out.len() % 32 != 0 {
+            out.push(0);
+        }
+        out.extend_from_slice(&self.data);
+        out
+    }
+}
+
+/// A tiny llama-architecture GGUF (1 layer, `model_dim` 4, 2 heads, vocab 256 to
+/// match the sidecar byte-level tokenizer), deterministic F32 weights. The daemon
+/// derives its hyperparameters from the GGUF metadata (no config.json needed).
+pub(crate) fn gguf_bytes() -> Vec<u8> {
+    let md = 4usize;
+    let heads = 2usize;
+    let hidden = 8usize;
+    let vocab = VOCAB; // 256, matches the sidecar tokenizer
+    let mut w = GgufWriter::new();
+    w.kv_str("general.architecture", "llama");
+    w.kv_u32("llama.embedding_length", md as u32);
+    w.kv_u32("llama.block_count", 1);
+    w.kv_u32("llama.attention.head_count", heads as u32);
+    w.kv_u32("llama.attention.head_count_kv", heads as u32);
+    w.kv_u32("llama.feed_forward_length", hidden as u32);
+    w.kv_f32("llama.attention.layer_norm_rms_epsilon", 1e-5);
+    w.kv_f32("llama.rope.freq_base", 500000.0);
+    let e = |scale: f32, n: usize| seq(scale, n);
+    w.tensor_f32("token_embd.weight", &[md, vocab], &e(0.5, md * vocab));
+    w.tensor_f32("output_norm.weight", &[md], &vec![1.0f32; md]);
+    w.tensor_f32("output.weight", &[md, vocab], &e(0.9, md * vocab));
+    w.tensor_f32("blk.0.attn_norm.weight", &[md], &vec![1.0f32; md]);
+    w.tensor_f32("blk.0.ffn_norm.weight", &[md], &vec![1.0f32; md]);
+    w.tensor_f32("blk.0.attn_q.weight", &[md, md], &e(10.0, md * md));
+    w.tensor_f32("blk.0.attn_k.weight", &[md, md], &e(11.0, md * md));
+    w.tensor_f32("blk.0.attn_v.weight", &[md, md], &e(12.0, md * md));
+    w.tensor_f32("blk.0.attn_output.weight", &[md, md], &e(13.0, md * md));
+    w.tensor_f32(
+        "blk.0.ffn_gate.weight",
+        &[md, hidden],
+        &e(14.0, hidden * md),
+    );
+    w.tensor_f32("blk.0.ffn_up.weight", &[md, hidden], &e(15.0, hidden * md));
+    w.tensor_f32(
+        "blk.0.ffn_down.weight",
+        &[hidden, md],
+        &e(16.0, md * hidden),
+    );
+    w.finish()
+}
+
+/// A temp model dir that removes itself on drop. Writes the loadable files.
 pub(crate) struct TinyModelDir {
     dir: PathBuf,
 }
@@ -192,8 +323,26 @@ pub(crate) struct TinyModelDir {
 static COUNTER: AtomicU64 = AtomicU64::new(0);
 
 impl TinyModelDir {
-    /// Materialize the fixture into a fresh unique temp dir.
+    /// Materialize the safetensors fixture (config.json + model.safetensors +
+    /// tokenizer.json) into a fresh unique temp dir.
     pub(crate) fn new() -> std::io::Result<Self> {
+        let dir = Self::fresh_dir()?;
+        std::fs::write(dir.join("config.json"), config_json())?;
+        std::fs::write(dir.join("model.safetensors"), safetensors_bytes())?;
+        std::fs::write(dir.join("tokenizer.json"), tokenizer_json())?;
+        Ok(Self { dir })
+    }
+
+    /// Materialize the GGUF fixture (model.gguf + a sidecar tokenizer.json) — the
+    /// daemon derives hyperparameters from the GGUF metadata, no config.json.
+    pub(crate) fn new_gguf() -> std::io::Result<Self> {
+        let dir = Self::fresh_dir()?;
+        std::fs::write(dir.join("model.gguf"), gguf_bytes())?;
+        std::fs::write(dir.join("tokenizer.json"), tokenizer_json())?;
+        Ok(Self { dir })
+    }
+
+    fn fresh_dir() -> std::io::Result<PathBuf> {
         let uniq = format!(
             "sovereign-tiny-model-{}-{}",
             std::process::id(),
@@ -201,10 +350,7 @@ impl TinyModelDir {
         );
         let dir = std::env::temp_dir().join(uniq);
         std::fs::create_dir_all(&dir)?;
-        std::fs::write(dir.join("config.json"), config_json())?;
-        std::fs::write(dir.join("model.safetensors"), safetensors_bytes())?;
-        std::fs::write(dir.join("tokenizer.json"), tokenizer_json())?;
-        Ok(Self { dir })
+        Ok(dir)
     }
 
     pub(crate) fn path_str(&self) -> String {

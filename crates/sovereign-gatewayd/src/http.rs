@@ -162,6 +162,7 @@ pub fn respond(server: &GatewayServer, method: &str, path: &str, body: &str) -> 
         ("POST", "/v1/models/unload") => models_unload(server, body),
         ("POST", "/v1/models/register") => models_register(server, body),
         ("POST", "/v1/models/background") => models_background(server, body),
+        ("POST", "/v1/corpus/reload") => corpus_reload(server),
         ("POST", "/v1/messages/count_tokens") => anthropic_count_tokens(body),
 
         ("POST", "/v1/infer") | ("POST", "/mcp") | ("POST", "/v1/explain") => {
@@ -264,6 +265,7 @@ pub fn respond(server: &GatewayServer, method: &str, path: &str, body: &str) -> 
         | (_, "/v1/models/unload")
         | (_, "/v1/models/register")
         | (_, "/v1/models/background")
+        | (_, "/v1/corpus/reload")
         | (_, "/v1/infer")
         | (_, "/mcp")
         | (_, "/v1/explain")
@@ -982,6 +984,21 @@ fn models_unload(server: &GatewayServer, body: &str) -> HttpReply {
     )
 }
 
+/// `POST /v1/corpus/reload` — re-index the RAG corpus from
+/// `SOVEREIGN_GATEWAY_CORPUS` and swap it in without a daemon restart, so an
+/// operator who edits the corpus dir picks up the change live. Takes no body:
+/// the corpus dir is operator-fixed (env), not client-supplied, so there is no
+/// path/SSRF surface here. Returns the new passage count.
+fn corpus_reload(server: &GatewayServer) -> HttpReply {
+    match server.reload_corpus() {
+        Ok(n) => json_reply(
+            200,
+            &serde_json::json!({"reloaded": true, "corpus_docs": n}),
+        ),
+        Err(e) => err(500, e),
+    }
+}
+
 /// `POST /v1/models/register` — a `model-serve` job registers a GPU serve-process
 /// backend: `{id, endpoint, device?, vram_gb?}`. Future `{model: id}` requests are
 /// proxied to `endpoint`. Loopback-trust.
@@ -1373,6 +1390,21 @@ mod tests {
         assert!(proxy_endpoint_allowed("127.0.0.1:8081").is_ok());
         assert!(proxy_endpoint_allowed("192.168.1.5:8000").is_ok());
         assert!(proxy_endpoint_allowed("10.0.0.2:9000").is_ok());
+    }
+
+    #[test]
+    fn corpus_reload_route_returns_the_passage_count() {
+        // No SOVEREIGN_GATEWAY_CORPUS in test ⇒ reload yields an empty corpus, but
+        // the route must dispatch and report the count (the wiring contract). The
+        // in-place re-index behaviour is covered by the lib-crate reload test.
+        let s = srv();
+        let r = respond(&s, "POST", "/v1/corpus/reload", "");
+        assert_eq!(r.status, 200);
+        let v = body_of(&r);
+        assert_eq!(v["reloaded"], true);
+        assert_eq!(v["corpus_docs"], 0);
+        // wrong verb on the resource is a clean 405, not a 404.
+        assert_eq!(respond(&s, "GET", "/v1/corpus/reload", "").status, 405);
     }
 
     #[test]

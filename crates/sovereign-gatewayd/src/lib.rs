@@ -491,6 +491,15 @@ struct ModelThoughts<'a> {
     /// deliberation passes `"background"` so it runs on the secondary, leaving the
     /// primary free for interactive chat. `None` uses the primary.
     model: Option<String>,
+    /// Wall-clock budget for the whole deliberation (F-2026-063). Each expansion
+    /// is one model call on the request thread; once the deadline passes, `expand`
+    /// short-circuits (no further model calls), so the search finishes early with
+    /// the best path found so far instead of blocking the caller unbounded. `None`
+    /// disables the budget (unbounded, the prior behaviour).
+    deadline: Option<std::time::Instant>,
+    /// Set to `true` the first time an expansion is skipped because the budget was
+    /// spent — so the caller can see the deliberation was time-bounded.
+    timed_out: &'a std::sync::atomic::AtomicBool,
 }
 
 /// Structure a raw model completion into up to `k` seeds: split into fragments,
@@ -533,6 +542,16 @@ impl ThoughtSource for ModelThoughts<'_> {
         associated: &[Recall],
         k: usize,
     ) -> Vec<ThoughtSeed> {
+        // Wall-clock budget (F-2026-063): once spent, stop issuing model calls so
+        // the request thread can't block unbounded — the search returns its
+        // best-so-far. Checked BEFORE the (expensive) generate call.
+        if let Some(deadline) = self.deadline {
+            if std::time::Instant::now() >= deadline {
+                self.timed_out
+                    .store(true, std::sync::atomic::Ordering::Relaxed);
+                return Vec::new();
+            }
+        }
         let mut prompt = format!("Problem: {}\n", problem.statement);
         if !path.is_empty() {
             prompt.push_str("Reasoning so far:\n");
@@ -634,10 +653,11 @@ pub struct GatewayServer {
     /// `SOVEREIGN_GATEWAY_CORPUS` directory, with each file chunked into passages.
     /// A candidate pool is drawn from it and coverage-**reranked** before the
     /// top-k passages ground the prompt. Deterministic (no model needed). Used
-    /// BEFORE generation; read-only after construction, so no lock is needed.
-    /// Behind an `Arc` so the agent's `search` tool can own a `'static` handle.
-    /// `None` ⇒ RAG off (prompts pass through).
-    corpus: Option<Arc<sovereign_retrieval::HybridStore>>,
+    /// BEFORE generation. Behind an `Arc` so the agent's `search` tool can own a
+    /// `'static` handle; behind a `RwLock` so `POST /v1/corpus/reload` can
+    /// re-index the operator's corpus dir in place without a daemon restart (a
+    /// reader gets the old or new snapshot atomically). `None` ⇒ RAG off.
+    corpus: RwLock<Option<Arc<sovereign_retrieval::HybridStore>>>,
 }
 
 /// A loaded local generation engine: real weights + a real byte-level BPE
@@ -1235,6 +1255,22 @@ fn rag_top_k() -> usize {
         .unwrap_or(DEFAULT_RAG_TOP_K)
 }
 
+/// Default wall-clock budget (ms) for a model-backed CoAT deliberation on the
+/// request thread (F-2026-063). Overridable via `SOVEREIGN_GATEWAY_COAT_TIMEOUT_MS`;
+/// `0` disables the budget (unbounded — the prior behaviour).
+const DEFAULT_COAT_TIMEOUT_MS: u64 = 25_000;
+
+/// The deadline a model-backed CoAT must finish issuing model calls by, or `None`
+/// when the budget is disabled (`SOVEREIGN_GATEWAY_COAT_TIMEOUT_MS=0`). Pure read
+/// of the env each call so an operator can retune without a restart.
+fn coat_deadline() -> Option<std::time::Instant> {
+    let ms = std::env::var("SOVEREIGN_GATEWAY_COAT_TIMEOUT_MS")
+        .ok()
+        .and_then(|v| v.trim().parse::<u64>().ok())
+        .unwrap_or(DEFAULT_COAT_TIMEOUT_MS);
+    (ms > 0).then(|| std::time::Instant::now() + std::time::Duration::from_millis(ms))
+}
+
 /// Default chunk target / overlap (chars) for splitting corpus files into
 /// retrievable passages. Overridable via `SOVEREIGN_GATEWAY_RAG_CHUNK` /
 /// `SOVEREIGN_GATEWAY_RAG_OVERLAP`.
@@ -1264,6 +1300,14 @@ fn rag_chunk_params() -> (usize, usize) {
 /// it holds no eligible files — each case logged, never a hard failure.
 fn load_corpus_from_env() -> Option<Arc<sovereign_retrieval::HybridStore>> {
     let dir = std::path::PathBuf::from(std::env::var_os("SOVEREIGN_GATEWAY_CORPUS")?);
+    build_corpus_from(&dir)
+}
+
+/// Build the hybrid RAG store from a corpus directory (chunk every `.md`/`.txt`
+/// file into passages, index them). `None` when the dir is missing or holds no
+/// eligible content. Split out from [`load_corpus_from_env`] so both the env
+/// bootstrap and the `reload_corpus` in-place swap share one builder.
+fn build_corpus_from(dir: &std::path::Path) -> Option<Arc<sovereign_retrieval::HybridStore>> {
     if !dir.is_dir() {
         eprintln!(
             "sovereign-gatewayd: SOVEREIGN_GATEWAY_CORPUS={} is not a directory — RAG disabled",
@@ -1271,7 +1315,7 @@ fn load_corpus_from_env() -> Option<Arc<sovereign_retrieval::HybridStore>> {
         );
         return None;
     }
-    let mut paths: Vec<std::path::PathBuf> = std::fs::read_dir(&dir)
+    let mut paths: Vec<std::path::PathBuf> = std::fs::read_dir(dir)
         .ok()?
         .filter_map(Result::ok)
         .map(|e| e.path())
@@ -1640,7 +1684,7 @@ impl GatewayServer {
             rate_limited: std::sync::atomic::AtomicU64::new(0),
             events: Mutex::new(VecDeque::new()),
             trace_seq: std::sync::atomic::AtomicU64::new(1),
-            corpus,
+            corpus: RwLock::new(corpus),
         }
     }
 
@@ -1652,21 +1696,60 @@ impl GatewayServer {
     /// and any backend without touching the generation core.
     #[must_use]
     pub fn rag_augment(&self, prompt: &str) -> String {
-        rag_augment_with(self.corpus.as_deref(), prompt, rag_top_k())
+        // Hold the read guard across the call: the borrowed `&HybridStore` derefs
+        // through the guard's Arc, and a concurrent reload only swaps the Arc.
+        match self.corpus.read() {
+            Ok(guard) => rag_augment_with(guard.as_deref(), prompt, rag_top_k()),
+            Err(_) => prompt.to_string(),
+        }
     }
 
     /// A shared handle to the RAG corpus (for the agent's `search` tool), or
-    /// `None` when no corpus is loaded.
+    /// `None` when no corpus is loaded. The clone is a snapshot — a later reload
+    /// swaps the daemon's Arc but a tool already holding this handle keeps its own.
     #[must_use]
     pub fn corpus_handle(&self) -> Option<Arc<sovereign_retrieval::HybridStore>> {
-        self.corpus.clone()
+        self.corpus.read().ok().and_then(|g| g.clone())
     }
 
     /// Number of retrievable passages (chunks) in the RAG corpus (0 when none is
     /// loaded).
     #[must_use]
     pub fn corpus_len(&self) -> usize {
-        self.corpus.as_ref().map_or(0, |c| c.len())
+        self.corpus
+            .read()
+            .ok()
+            .and_then(|g| g.as_ref().map(|c| c.len()))
+            .unwrap_or(0)
+    }
+
+    /// Re-index the RAG corpus from `SOVEREIGN_GATEWAY_CORPUS` and swap it in
+    /// atomically — so an operator who edits the corpus dir picks up the change
+    /// without restarting the daemon. Returns the new passage count. A rebuild
+    /// happens BEFORE the write lock is taken, so readers only block for the
+    /// pointer swap, never for the (potentially slow) re-chunk + index.
+    pub fn reload_corpus(&self) -> Result<usize, String> {
+        let fresh = load_corpus_from_env();
+        let n = fresh.as_ref().map_or(0, |c| c.len());
+        match self.corpus.write() {
+            Ok(mut guard) => {
+                *guard = fresh;
+                Ok(n)
+            }
+            Err(_) => Err("corpus lock poisoned".to_string()),
+        }
+    }
+
+    /// Test-only: rebuild the corpus from an explicit dir and swap it in — the
+    /// `reload_corpus` mechanism without the process-global `SOVEREIGN_GATEWAY_CORPUS`
+    /// env (which can't be set in-test under `#![forbid(unsafe_code)]` +
+    /// edition-2024). Returns the new passage count.
+    #[cfg(test)]
+    fn reload_corpus_from_dir(&self, dir: &std::path::Path) -> usize {
+        let fresh = build_corpus_from(dir);
+        let n = fresh.as_ref().map_or(0, |c| c.len());
+        *self.corpus.write().expect("corpus lock") = fresh;
+        n
     }
 
     /// Whether the PRIMARY local generation worker pool is loaded (the default route).
@@ -2474,15 +2557,29 @@ impl GatewayServer {
                     iterations: config.iterations.min(12),
                     ..config
                 };
-                CoatEngine::new(
+                // Wall-clock budget on the request thread (F-2026-063): a slow
+                // model-backed deliberation returns its best-so-far at the deadline
+                // instead of blocking the caller unbounded.
+                let timed_out = std::sync::atomic::AtomicBool::new(false);
+                let deadline = coat_deadline();
+                let out = CoatEngine::new(
                     ModelThoughts {
                         server: self,
                         model,
+                        deadline,
+                        timed_out: &timed_out,
                     },
                     memory,
                     cfg,
                 )
-                .deliberate(&prob)
+                .deliberate(&prob);
+                if timed_out.load(std::sync::atomic::Ordering::Relaxed) {
+                    eprintln!(
+                        "sovereign-gatewayd: model-backed CoAT hit its wall-clock budget \
+                         (SOVEREIGN_GATEWAY_COAT_TIMEOUT_MS) — returning best-so-far"
+                    );
+                }
+                out
             } else {
                 CoatEngine::new(HeuristicThoughts, memory, config).deliberate(&prob)
             }
@@ -2790,6 +2887,32 @@ mod tests {
     }
 
     #[test]
+    fn tiny_gguf_model_dir_loads_and_generates() {
+        // F-2026-085 had daemon-level GGUF coverage only in the loader crate; this
+        // exercises the daemon's own GGUF path (load_generator_from_dir → load_gguf
+        // + a sidecar tokenizer) end-to-end: a real .gguf container loads and runs a
+        // forward pass through the daemon, not just the loader unit tests.
+        let dir = TinyModelDir::new_gguf().expect("materialize gguf fixture");
+        let mut s = GatewayServer::new();
+        let (vocab, layers) = s
+            .inject_worker_from_dir(&dir.path_str())
+            .expect("the GGUF model dir must load through the daemon path");
+        assert_eq!(
+            (vocab, layers),
+            (256, 1),
+            "the gguf fixture is a vocab-256, 1-layer model"
+        );
+        let mut out = String::new();
+        let n = s
+            .generate_chat(None, "hello", 6, |c| out.push_str(c))
+            .expect("GGUF-backed generation must succeed");
+        assert!(
+            n > 0 && !out.is_empty(),
+            "a GGUF-loaded model must emit tokens"
+        );
+    }
+
+    #[test]
     fn model_backed_generation_is_nonempty_and_deterministic() {
         let dir = TinyModelDir::new().expect("materialize fixture");
         let mut s = GatewayServer::new();
@@ -2833,6 +2956,101 @@ mod tests {
             ),
             other => panic!("expected a CoatTrace, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn corpus_hot_reload_picks_up_new_docs_without_a_restart() {
+        // A fresh server has no corpus. After writing docs to a dir and reloading
+        // in place, corpus_len reflects them and rag_augment grounds from them —
+        // proving the RwLock swap re-indexes without a daemon restart.
+        static N: AtomicU64 = AtomicU64::new(0);
+        let dir = std::env::temp_dir().join(format!(
+            "sov-corpus-{}-{}",
+            std::process::id(),
+            N.fetch_add(1, Ordering::Relaxed)
+        ));
+        std::fs::create_dir_all(&dir).expect("mk corpus dir");
+        struct Cleanup(std::path::PathBuf);
+        impl Drop for Cleanup {
+            fn drop(&mut self) {
+                let _ = std::fs::remove_dir_all(&self.0);
+            }
+        }
+        let _cleanup = Cleanup(dir.clone());
+
+        let s = GatewayServer::new();
+        assert_eq!(s.corpus_len(), 0, "a fresh server has no corpus");
+
+        std::fs::write(
+            dir.join("mars.txt"),
+            "The Mars rover Perseverance collected rock samples in Jezero crater.",
+        )
+        .unwrap();
+        let n = s.reload_corpus_from_dir(&dir);
+        assert!(
+            n > 0 && s.corpus_len() == n,
+            "reload must index the new passages"
+        );
+        let grounded = s.rag_augment("Where did Perseverance collect samples?");
+        assert!(
+            grounded.contains("Jezero")
+                && grounded.len() > "Where did Perseverance collect samples?".len(),
+            "the reloaded corpus must ground the prompt with retrieved context"
+        );
+
+        // Adding another doc + reloading again grows the index live.
+        std::fs::write(
+            dir.join("moon.txt"),
+            "Apollo 11 landed on the Moon in 1969.",
+        )
+        .unwrap();
+        let n2 = s.reload_corpus_from_dir(&dir);
+        assert!(n2 > n, "a second reload must pick up the added document");
+    }
+
+    #[test]
+    fn coat_wall_clock_budget_defaults_to_enabled() {
+        // F-2026-063: absent SOVEREIGN_GATEWAY_COAT_TIMEOUT_MS, a model-backed CoAT
+        // carries a default budget (so the request thread can't block unbounded).
+        assert!(
+            coat_deadline().is_some(),
+            "the CoAT deliberation must be time-bounded by default"
+        );
+    }
+
+    #[test]
+    fn model_backed_coat_expansion_stops_issuing_calls_past_the_budget() {
+        // The heart of F-2026-063: once the wall-clock deadline is spent, a model
+        // expansion short-circuits — no further (expensive) model call — and flags
+        // that the deliberation was time-bounded, so the search returns best-so-far
+        // instead of blocking the caller.
+        use sovereign_coat::{Problem, ThoughtSource};
+        let dir = TinyModelDir::new().expect("materialize fixture");
+        let mut s = GatewayServer::new();
+        s.inject_worker_from_dir(&dir.path_str())
+            .expect("load fixture");
+        let flag = std::sync::atomic::AtomicBool::new(false);
+        let mut mt = ModelThoughts {
+            server: &s,
+            model: None,
+            // already spent
+            deadline: Some(std::time::Instant::now() - std::time::Duration::from_millis(1)),
+            timed_out: &flag,
+        };
+        let prob = Problem {
+            statement: "plan a migration".into(),
+            topic: 0,
+            entity: 0,
+        };
+        let seeds = mt.expand(&prob, &[], &[], 3);
+        assert!(
+            seeds.is_empty(),
+            "a spent budget must skip the model call and yield no new thoughts"
+        );
+        assert!(
+            flag.load(std::sync::atomic::Ordering::Relaxed),
+            "hitting the budget must set the timed_out flag"
+        );
     }
 
     /// A unique temp path per call (process id + a counter), so parallel tests
