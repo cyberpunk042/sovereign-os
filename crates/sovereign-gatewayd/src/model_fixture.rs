@@ -20,6 +20,12 @@
 //! container (metadata-derived hyperparameters, F32 tensors) + a sidecar
 //! `tokenizer.json`, so the daemon's *GGUF* load path (`load_gguf`) has
 //! end-to-end coverage too (F-2026-085), not just the loader crate's unit tests.
+//!
+//! `TinyModelDir::new_moe` / `new_moe_gguf` write **mixture-of-experts** variants
+//! — each layer's FFN is a router + expert bank (safetensors: per-expert
+//! `mlp.experts.{e}.*`; GGUF: stacked `ffn_*_exps` + expert-count metadata) —
+//! so the daemon's model-load-and-generate path has end-to-end MoE coverage
+//! across both checkpoint formats (MoE Increments 2–3).
 
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -32,6 +38,12 @@ const N_KV_HEADS: usize = 1;
 const HEAD_DIM: usize = 4;
 const HIDDEN: usize = 16;
 const VOCAB: usize = 256;
+
+// MoE geometry for the mixture-of-experts fixtures (`*_moe_*`). A 4-expert,
+// top-2 bank with a per-expert width distinct from the dense `HIDDEN`.
+const MOE_N_EXPERTS: usize = 4;
+const MOE_EXPERTS_PER_TOK: usize = 2;
+const MOE_EXPERT_HIDDEN: usize = 12;
 
 /// Deterministic pseudo-weights so the fixture is reproducible without `rand`.
 fn seq(seed: f32, n: usize) -> Vec<f32> {
@@ -138,6 +150,105 @@ pub(crate) fn safetensors_bytes() -> Vec<u8> {
         ));
     }
     write_safetensors(&t)
+}
+
+/// The MoE weights as safetensors bytes — same attention half as
+/// [`safetensors_bytes`], but each layer's FFN is a router (`mlp.gate.weight`)
+/// plus per-expert `mlp.experts.{e}.{gate,up,down}_proj.weight` SwiGLUs (the
+/// Qwen3-MoE / Mixtral layout). No dense `mlp.*_proj`, so a load that succeeds
+/// proves the daemon assembled MoE blocks.
+pub(crate) fn moe_safetensors_bytes() -> Vec<u8> {
+    let qd = N_Q_HEADS * HEAD_DIM;
+    let kvd = N_KV_HEADS * HEAD_DIM;
+    let mut t: Vec<(String, Vec<usize>, Vec<f32>)> = vec![
+        (
+            "model.embed_tokens.weight".into(),
+            vec![VOCAB, MODEL_DIM],
+            seq(0.5, VOCAB * MODEL_DIM),
+        ),
+        (
+            "model.norm.weight".into(),
+            vec![MODEL_DIM],
+            vec![1.0; MODEL_DIM],
+        ),
+        (
+            "lm_head.weight".into(),
+            vec![VOCAB, MODEL_DIM],
+            seq(0.9, VOCAB * MODEL_DIM),
+        ),
+    ];
+    for i in 0..N_LAYERS {
+        let base = 10.0 + i as f32 * 7.0;
+        let p = |s: &str| format!("model.layers.{i}.{s}");
+        t.push((
+            p("self_attn.q_proj.weight"),
+            vec![qd, MODEL_DIM],
+            seq(base, qd * MODEL_DIM),
+        ));
+        t.push((
+            p("self_attn.k_proj.weight"),
+            vec![kvd, MODEL_DIM],
+            seq(base + 1.0, kvd * MODEL_DIM),
+        ));
+        t.push((
+            p("self_attn.v_proj.weight"),
+            vec![kvd, MODEL_DIM],
+            seq(base + 2.0, kvd * MODEL_DIM),
+        ));
+        t.push((
+            p("self_attn.o_proj.weight"),
+            vec![MODEL_DIM, qd],
+            seq(base + 3.0, MODEL_DIM * qd),
+        ));
+        t.push((
+            p("input_layernorm.weight"),
+            vec![MODEL_DIM],
+            vec![1.0; MODEL_DIM],
+        ));
+        t.push((
+            p("post_attention_layernorm.weight"),
+            vec![MODEL_DIM],
+            vec![1.0; MODEL_DIM],
+        ));
+        t.push((
+            p("mlp.gate.weight"),
+            vec![MOE_N_EXPERTS, MODEL_DIM],
+            seq(base + 4.0, MOE_N_EXPERTS * MODEL_DIM),
+        ));
+        for e in 0..MOE_N_EXPERTS {
+            let ep = |s: &str| format!("model.layers.{i}.mlp.experts.{e}.{s}");
+            let eb = base + 5.0 + e as f32 * 3.0;
+            t.push((
+                ep("gate_proj.weight"),
+                vec![MOE_EXPERT_HIDDEN, MODEL_DIM],
+                seq(eb, MOE_EXPERT_HIDDEN * MODEL_DIM),
+            ));
+            t.push((
+                ep("up_proj.weight"),
+                vec![MOE_EXPERT_HIDDEN, MODEL_DIM],
+                seq(eb + 1.0, MOE_EXPERT_HIDDEN * MODEL_DIM),
+            ));
+            t.push((
+                ep("down_proj.weight"),
+                vec![MODEL_DIM, MOE_EXPERT_HIDDEN],
+                seq(eb + 2.0, MODEL_DIM * MOE_EXPERT_HIDDEN),
+            ));
+        }
+    }
+    write_safetensors(&t)
+}
+
+/// The MoE `config.json` — the dense fields plus `num_experts` /
+/// `num_experts_per_tok` / `moe_intermediate_size`.
+pub(crate) fn moe_config_json() -> String {
+    format!(
+        "{{\"hidden_size\":{MODEL_DIM},\"num_hidden_layers\":{N_LAYERS},\
+         \"num_attention_heads\":{N_Q_HEADS},\"num_key_value_heads\":{N_KV_HEADS},\
+         \"vocab_size\":{VOCAB},\"intermediate_size\":{HIDDEN},\"head_dim\":{HEAD_DIM},\
+         \"rms_norm_eps\":1e-6,\"tie_word_embeddings\":false,\"rope_theta\":10000.0,\
+         \"num_experts\":{MOE_N_EXPERTS},\"num_experts_per_tok\":{MOE_EXPERTS_PER_TOK},\
+         \"moe_intermediate_size\":{MOE_EXPERT_HIDDEN}}}"
+    )
 }
 
 /// The HF `config.json` (field names the loader's `Config::from_json` expects).
@@ -315,6 +426,63 @@ pub(crate) fn gguf_bytes() -> Vec<u8> {
     w.finish()
 }
 
+/// A tiny llama-architecture **MoE** GGUF: same shape as [`gguf_bytes`] but the
+/// FFN is a router (`ffn_gate_inp`) + stacked expert tensors
+/// (`ffn_{gate,up,down}_exps`, expert-major in ne order) with the expert counts
+/// in metadata. No dense `ffn_{gate,up,down}`, so a load that runs proves the
+/// daemon assembled MoE blocks from GGUF.
+pub(crate) fn moe_gguf_bytes() -> Vec<u8> {
+    let md = 4usize;
+    let heads = 2usize;
+    let hidden = 8usize; // dense feed_forward_length (metadata-required)
+    let ehid = 6usize; // per-expert width
+    let n_exp = MOE_N_EXPERTS;
+    let vocab = VOCAB; // 256, matches the sidecar tokenizer
+    let mut w = GgufWriter::new();
+    w.kv_str("general.architecture", "llama");
+    w.kv_u32("llama.embedding_length", md as u32);
+    w.kv_u32("llama.block_count", 1);
+    w.kv_u32("llama.attention.head_count", heads as u32);
+    w.kv_u32("llama.attention.head_count_kv", heads as u32);
+    w.kv_u32("llama.feed_forward_length", hidden as u32);
+    w.kv_f32("llama.attention.layer_norm_rms_epsilon", 1e-5);
+    w.kv_f32("llama.rope.freq_base", 500000.0);
+    w.kv_u32("llama.expert_count", n_exp as u32);
+    w.kv_u32("llama.expert_used_count", MOE_EXPERTS_PER_TOK as u32);
+    w.kv_u32("llama.expert_feed_forward_length", ehid as u32);
+    let e = |scale: f32, n: usize| seq(scale, n);
+    w.tensor_f32("token_embd.weight", &[md, vocab], &e(0.5, md * vocab));
+    w.tensor_f32("output_norm.weight", &[md], &vec![1.0f32; md]);
+    w.tensor_f32("output.weight", &[md, vocab], &e(0.9, md * vocab));
+    w.tensor_f32("blk.0.attn_norm.weight", &[md], &vec![1.0f32; md]);
+    w.tensor_f32("blk.0.ffn_norm.weight", &[md], &vec![1.0f32; md]);
+    w.tensor_f32("blk.0.attn_q.weight", &[md, md], &e(10.0, md * md));
+    w.tensor_f32("blk.0.attn_k.weight", &[md, md], &e(11.0, md * md));
+    w.tensor_f32("blk.0.attn_v.weight", &[md, md], &e(12.0, md * md));
+    w.tensor_f32("blk.0.attn_output.weight", &[md, md], &e(13.0, md * md));
+    w.tensor_f32(
+        "blk.0.ffn_gate_inp.weight",
+        &[md, n_exp],
+        &e(14.0, n_exp * md),
+    );
+    w.tensor_f32(
+        "blk.0.ffn_gate_exps.weight",
+        &[md, ehid, n_exp],
+        &e(15.0, n_exp * ehid * md),
+    );
+    w.tensor_f32(
+        "blk.0.ffn_up_exps.weight",
+        &[md, ehid, n_exp],
+        &e(16.0, n_exp * ehid * md),
+    );
+    w.tensor_f32(
+        "blk.0.ffn_down_exps.weight",
+        &[ehid, md, n_exp],
+        &e(17.0, n_exp * md * ehid),
+    );
+    w.finish()
+}
+
 /// A temp model dir that removes itself on drop. Writes the loadable files.
 pub(crate) struct TinyModelDir {
     dir: PathBuf,
@@ -338,6 +506,25 @@ impl TinyModelDir {
     pub(crate) fn new_gguf() -> std::io::Result<Self> {
         let dir = Self::fresh_dir()?;
         std::fs::write(dir.join("model.gguf"), gguf_bytes())?;
+        std::fs::write(dir.join("tokenizer.json"), tokenizer_json())?;
+        Ok(Self { dir })
+    }
+
+    /// Materialize the **MoE** safetensors fixture (moe config.json +
+    /// model.safetensors + tokenizer.json) — a router + per-expert bank per layer.
+    pub(crate) fn new_moe() -> std::io::Result<Self> {
+        let dir = Self::fresh_dir()?;
+        std::fs::write(dir.join("config.json"), moe_config_json())?;
+        std::fs::write(dir.join("model.safetensors"), moe_safetensors_bytes())?;
+        std::fs::write(dir.join("tokenizer.json"), tokenizer_json())?;
+        Ok(Self { dir })
+    }
+
+    /// Materialize the **MoE** GGUF fixture (model.gguf with stacked expert
+    /// tensors + expert metadata, + a sidecar tokenizer.json).
+    pub(crate) fn new_moe_gguf() -> std::io::Result<Self> {
+        let dir = Self::fresh_dir()?;
+        std::fs::write(dir.join("model.gguf"), moe_gguf_bytes())?;
         std::fs::write(dir.join("tokenizer.json"), tokenizer_json())?;
         Ok(Self { dir })
     }
