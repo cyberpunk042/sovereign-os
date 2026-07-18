@@ -419,13 +419,12 @@ fn http_streams_a_proxy_backend_as_anthropic_sse() {
         sbody.contains("event: content_block_delta"),
         "sse:\n{sbody}"
     );
+    // The output-redaction spine (on by default) holds back a trailing window and
+    // flushes at end-of-stream, so a short proxy response coalesces into one delta
+    // rather than per-upstream-chunk. The content is fully preserved.
     assert!(
-        sbody.contains("\"text\":\"Hello\""),
-        "first delta transcoded; sse:\n{sbody}"
-    );
-    assert!(
-        sbody.contains("\"text\":\" from the GPU\""),
-        "second delta; sse:\n{sbody}"
+        sbody.contains("\"text\":\"Hello from the GPU\""),
+        "transcoded delta content (redaction-batched); sse:\n{sbody}"
     );
     assert!(sbody.contains("event: message_stop"), "sse:\n{sbody}");
     // finish_reason:stop → anthropic end_turn
@@ -457,16 +456,74 @@ fn http_streams_a_proxy_backend_through_the_openai_shim() {
     .to_string();
     let (sstatus, sbody) = http_request(&d.addr, "POST", "/v1/chat/completions", &streamed);
     assert!(sstatus.starts_with("HTTP/1.1 200"), "stream: {sstatus}");
-    // the upstream OpenAI SSE relayed verbatim — bare `data:` chunks, not Anthropic events
+    // The upstream OpenAI SSE is relayed as bare `data:` chunks (not Anthropic
+    // events). The output-redaction spine holds back a trailing window and flushes
+    // the tail at [DONE], so a short response coalesces into one content delta —
+    // fully preserved, just redaction-batched.
     assert!(
-        sbody.contains("\"content\":\"Hello\""),
-        "relayed openai chunk; sse:\n{sbody}"
-    );
-    assert!(
-        sbody.contains("\"content\":\" from the GPU\""),
-        "sse:\n{sbody}"
+        sbody.contains("\"content\":\"Hello from the GPU\""),
+        "relayed openai chunk (redaction-batched); sse:\n{sbody}"
     );
     assert!(sbody.contains("[DONE]"), "sse:\n{sbody}");
+}
+
+/// A mock OpenAI SSE upstream whose content carries a secret (an AWS key) — used
+/// to prove the proxy-relay redaction actually scrubs it.
+fn spawn_mock_openai_sse_secret_upstream() -> String {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let addr = listener.local_addr().unwrap().to_string();
+    std::thread::spawn(move || {
+        for conn in listener.incoming() {
+            let Ok(mut sock) = conn else { break };
+            let mut buf = [0u8; 4096];
+            let _ = sock.read(&mut buf);
+            let frames = [
+                r#"data: {"choices":[{"delta":{"content":"key AKIAIOSFODNN7EXAMPLE end"},"finish_reason":"stop"}]}"#,
+                "data: [DONE]",
+            ];
+            let mut body = String::new();
+            for f in frames {
+                let frame = format!("{f}\n\n");
+                body.push_str(&format!("{:x}\r\n{}\r\n", frame.len(), frame));
+            }
+            body.push_str("0\r\n\r\n");
+            let resp = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n{body}"
+            );
+            let _ = sock.write_all(resp.as_bytes());
+        }
+    });
+    addr
+}
+
+#[test]
+fn http_proxy_stream_redacts_a_secret_in_relayed_output() {
+    // F-2026-082 proxy-relay redaction gap: a secret in a proxy-backed model's
+    // streamed output MUST be scrubbed before it reaches the client (the proxy path
+    // never passes through the local generate spine).
+    let up = spawn_mock_openai_sse_secret_upstream();
+    let d = spawn("--http");
+    let reg = serde_json::json!({
+        "id": "gpu-secret", "endpoint": up, "device": "logic", "vram_gb": 18.0, "dialect": "openai",
+    })
+    .to_string();
+    let (rstatus, _) = http_request(&d.addr, "POST", "/v1/models/register", &reg);
+    assert!(rstatus.starts_with("HTTP/1.1 200"), "register: {rstatus}");
+    let streamed = serde_json::json!({
+        "model": "gpu-secret", "max_tokens": 32, "stream": true,
+        "messages": [{"role": "user", "content": "hi"}],
+    })
+    .to_string();
+    let (sstatus, sbody) = http_request(&d.addr, "POST", "/v1/chat/completions", &streamed);
+    assert!(sstatus.starts_with("HTTP/1.1 200"), "stream: {sstatus}");
+    assert!(
+        !sbody.contains("AKIAIOSFODNN7EXAMPLE"),
+        "secret leaked in proxy stream:\n{sbody}"
+    );
+    assert!(
+        sbody.contains("[AWS_KEY]"),
+        "secret not redacted in proxy stream:\n{sbody}"
+    );
 }
 
 #[test]
@@ -654,6 +711,28 @@ fn http_oversized_content_length_is_413_without_allocating() {
     );
 
     // The daemon survived the oversized claim — a normal request still works.
+    let (status, _) = http_request(&d.addr, "GET", "/health", "");
+    assert!(status.starts_with("HTTP/1.1 200"), "status: {status}");
+}
+
+#[test]
+fn http_malformed_content_length_is_400() {
+    // A non-numeric Content-Length was silently treated as 0 (body read empty,
+    // then a misleading downstream error); now it's an explicit 400.
+    let d = spawn("--http");
+    let req = "POST /v1/messages HTTP/1.1\r\nHost: x\r\n\
+               Content-Length: not-a-number\r\nConnection: close\r\n\r\n";
+    let mut stream = connect_retry(&d.addr);
+    stream.write_all(req.as_bytes()).unwrap();
+    stream.flush().unwrap();
+    let mut raw = String::new();
+    stream.read_to_string(&mut raw).unwrap();
+    assert!(
+        raw.lines().next().unwrap_or("").starts_with("HTTP/1.1 400"),
+        "expected 400, got: {}",
+        raw.lines().next().unwrap_or("")
+    );
+    // still responsive
     let (status, _) = http_request(&d.addr, "GET", "/health", "");
     assert!(status.starts_with("HTTP/1.1 200"), "status: {status}");
 }

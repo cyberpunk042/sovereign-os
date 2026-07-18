@@ -863,6 +863,77 @@ fn control_word_config() -> HttpReply {
     )
 }
 
+/// Reject a proxy `endpoint` that targets **link-local / cloud-metadata** space
+/// (169.254.0.0/16 — incl. 169.254.169.254 — and `fe80::/10`): the classic SSRF
+/// pivot, since `/v1/models/register` lets a caller point the daemon's outbound
+/// connections anywhere. When `SOVEREIGN_GATEWAY_PROXY_ALLOW` is set (comma-
+/// separated `host` / `host:port` prefixes) the endpoint must additionally match
+/// it. Loopback + LAN stay allowed — the GPU serve tiers live there.
+fn proxy_endpoint_allowed(endpoint: &str) -> Result<(), String> {
+    use std::net::IpAddr;
+    let host = match endpoint.rsplit_once(':') {
+        Some((h, _)) => h,
+        None => endpoint,
+    }
+    .trim_start_matches('[')
+    .trim_end_matches(']');
+    if let Ok(ip) = host.parse::<IpAddr>() {
+        let link_local = match ip {
+            IpAddr::V4(v4) => v4.is_link_local(),
+            IpAddr::V6(v6) => (v6.segments()[0] & 0xffc0) == 0xfe80, // fe80::/10
+        };
+        if link_local {
+            return Err(format!(
+                "endpoint {endpoint} targets link-local/metadata space (SSRF-blocked)"
+            ));
+        }
+    }
+    if let Ok(allow) = std::env::var("SOVEREIGN_GATEWAY_PROXY_ALLOW") {
+        let permitted = allow
+            .split(',')
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .any(|entry| endpoint == entry || host == entry || endpoint.starts_with(entry));
+        if !permitted {
+            return Err(format!(
+                "endpoint {endpoint} not in SOVEREIGN_GATEWAY_PROXY_ALLOW"
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Reject a model-load `dir` that escapes the allowed tree: any parent-dir (`..`)
+/// component is refused outright, and when `SOVEREIGN_GATEWAY_MODEL_ROOT` is set
+/// the (canonicalized) dir must live inside it — so an authenticated caller can't
+/// turn `/v1/models/load` into an arbitrary-directory read.
+fn model_load_dir_allowed(dir: &str) -> Result<(), String> {
+    use std::path::{Component, Path};
+    if Path::new(dir)
+        .components()
+        .any(|c| matches!(c, Component::ParentDir))
+    {
+        return Err(format!(
+            "model dir {dir} contains a parent-dir (..) component"
+        ));
+    }
+    if let Ok(root) = std::env::var("SOVEREIGN_GATEWAY_MODEL_ROOT") {
+        let root = root.trim();
+        if !root.is_empty() {
+            let canon_root =
+                std::fs::canonicalize(root).unwrap_or_else(|_| Path::new(root).to_path_buf());
+            let canon_dir =
+                std::fs::canonicalize(dir).unwrap_or_else(|_| Path::new(dir).to_path_buf());
+            if !canon_dir.starts_with(&canon_root) {
+                return Err(format!(
+                    "model dir {dir} is outside SOVEREIGN_GATEWAY_MODEL_ROOT"
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
 /// `POST /v1/models/load` — load a SECONDARY in-process CPU model (Phase 2
 /// multi-model): `{id, dir}`. Loopback-trust; an operator action.
 fn models_load(server: &GatewayServer, body: &str) -> HttpReply {
@@ -886,6 +957,9 @@ fn models_load(server: &GatewayServer, body: &str) -> HttpReply {
             "load needs {id, dir}".to_string(),
         );
     };
+    if let Err(e) = model_load_dir_allowed(dir) {
+        return anthropic_err(403, "permission_error", e);
+    }
     match server.load_model(id, dir) {
         Ok(()) => json_reply(200, &serde_json::json!({"loaded": id, "dir": dir})),
         Err(e) => anthropic_err(422, "api_error", format!("load failed: {e}")),
@@ -932,6 +1006,9 @@ fn models_register(server: &GatewayServer, body: &str) -> HttpReply {
             "register needs {id, endpoint}".to_string(),
         );
     };
+    if let Err(e) = proxy_endpoint_allowed(endpoint) {
+        return anthropic_err(403, "permission_error", e);
+    }
     let device = req.get("device").and_then(|v| v.as_str()).unwrap_or("gpu");
     let vram = req
         .get("vram_gb")
@@ -1214,7 +1291,15 @@ fn anthropic_message(server: &GatewayServer, body: &str) -> HttpReply {
     // `/v1/chat/completions` and its reply translated back to the Anthropic shape; an
     // `anthropic` backend (another sovereign-gatewayd) is forwarded verbatim.
     if let Some((endpoint, dialect)) = server.resolve_proxy(&model) {
-        return proxy_message(&endpoint, &dialect, &model, &req, body);
+        let mut reply = proxy_message(&endpoint, &dialect, &model, &req, body);
+        // Close the redaction bypass: proxy-relayed output never passes through
+        // the local generate path's safety spine, so redact secrets/PII from the
+        // relayed body here. No-op when the spine (or both passes) is off.
+        let guard = crate::GuardConfig::from_env();
+        if guard.redacts_output() {
+            reply.body = guard.redact_full(&reply.body);
+        }
+        return reply;
     }
     if !server.has_generator() {
         return anthropic_err(
@@ -1265,6 +1350,25 @@ mod tests {
 
     fn body_of(reply: &HttpReply) -> serde_json::Value {
         serde_json::from_str(&reply.body).unwrap()
+    }
+
+    #[test]
+    fn proxy_endpoint_blocks_link_local_and_metadata() {
+        // SSRF pivots: cloud-metadata + link-local are refused regardless of allowlist.
+        assert!(proxy_endpoint_allowed("169.254.169.254:80").is_err());
+        assert!(proxy_endpoint_allowed("169.254.1.1:8080").is_err());
+        assert!(proxy_endpoint_allowed("[fe80::1]:80").is_err());
+        // loopback + LAN are the legitimate GPU serve tiers → allowed.
+        assert!(proxy_endpoint_allowed("127.0.0.1:8081").is_ok());
+        assert!(proxy_endpoint_allowed("192.168.1.5:8000").is_ok());
+        assert!(proxy_endpoint_allowed("10.0.0.2:9000").is_ok());
+    }
+
+    #[test]
+    fn model_load_dir_rejects_parent_traversal() {
+        assert!(model_load_dir_allowed("../../etc").is_err());
+        assert!(model_load_dir_allowed("models/../../../etc/shadow").is_err());
+        assert!(model_load_dir_allowed("/var/lib/sovereign-os/models/foo").is_ok());
     }
 
     #[test]
