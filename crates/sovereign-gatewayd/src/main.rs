@@ -71,6 +71,8 @@ ENVIRONMENT:
     SOVEREIGN_GATEWAY_TOKEN        shared bearer secret. HTTP clients send `Authorization: Bearer <token>`;
                                    NDJSON clients send `{\"op\":\"auth\",\"token\":\"<token>\"}` as their first frame.
                                    REQUIRED to bind a non-loopback address (0.0.0.0/LAN); unset = keyless loopback-only.
+    SOVEREIGN_GATEWAY_CORPUS       directory of .md/.txt docs to ground generation in (RAG); unset = off
+    SOVEREIGN_GATEWAY_RAG_TOPK     documents prepended as Context: per prompt (default 3)
     SOVEREIGN_GATEWAY_RATE_CAPACITY  generation burst size — token-bucket capacity (default 60; 0 disables)
     SOVEREIGN_GATEWAY_RATE_PER_SEC   sustained generation rate — tokens/sec refill (default 20)
     SOVEREIGN_GATEWAY_AGENTIC        enable server-side agentic tool use (default OFF); when on, a
@@ -777,7 +779,8 @@ fn stream_anthropic_messages(
             ),
         );
     }
-    let prompt = http::anthropic_prompt(&req);
+    // Ground in the RAG corpus (no-op when none is loaded) before generation.
+    let prompt = server.rag_augment(&http::anthropic_prompt(&req));
     let max_new = http::anthropic_max_tokens(&req);
     let input_tokens = http::approx_tokens(&prompt);
     let id = "msg_sovereign";
@@ -1403,7 +1406,11 @@ fn stream_chat_completions(
             ),
         );
     }
-    let prompt = chat_prompt(&req, server.chat_template_for(Some(&model)).as_deref());
+    // Ground in the RAG corpus (no-op when none is loaded) before generation.
+    let prompt = server.rag_augment(&chat_prompt(
+        &req,
+        server.chat_template_for(Some(&model)).as_deref(),
+    ));
     let max_new = req
         .get("max_tokens")
         .and_then(serde_json::Value::as_u64)
