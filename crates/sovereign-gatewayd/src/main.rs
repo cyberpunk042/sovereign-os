@@ -1007,6 +1007,12 @@ fn stream_proxy_message(
     }
 
     // ---- stream the body: dechunk, and for openai transcode each delta ----
+    // Redact secrets/PII from relayed openai deltas (F-2026-082 proxy-relay gap):
+    // the proxy path never passes through the local generate spine. `None` when
+    // the spine is off ⇒ deltas relay untouched. (An `anthropic`-dialect upstream
+    // is relayed verbatim below; the operator registered it as Anthropic-speaking.)
+    let mut redactor =
+        sovereign_gatewayd::ProxyRedactor::from_guard(&sovereign_gatewayd::GuardConfig::from_env());
     let mut line_buf: Vec<u8> = Vec::new();
     let mut out_chars = 0usize;
     let mut stop_reason = "end_turn".to_string();
@@ -1057,15 +1063,21 @@ fn stream_proxy_message(
                 && !delta.is_empty()
             {
                 out_chars += delta.chars().count();
-                if write_sse_event(
-                    writer,
-                    "content_block_delta",
-                    &serde_json::json!({
-                        "type": "content_block_delta", "index": 0,
-                        "delta": { "type": "text_delta", "text": delta },
-                    }),
-                )
-                .is_err()
+                // Redact across delta boundaries; `emit` is the safe-to-send span.
+                let emit = match redactor.as_mut() {
+                    Some(r) => r.push(delta),
+                    None => delta.to_string(),
+                };
+                if !emit.is_empty()
+                    && write_sse_event(
+                        writer,
+                        "content_block_delta",
+                        &serde_json::json!({
+                            "type": "content_block_delta", "index": 0,
+                            "delta": { "type": "text_delta", "text": emit },
+                        }),
+                    )
+                    .is_err()
                 {
                     break 'body; // client hung up
                 }
@@ -1082,6 +1094,20 @@ fn stream_proxy_message(
 
     // ---- openai: close the Anthropic envelope ----
     if openai {
+        // Flush the redactor's held-back tail as a final delta before we close.
+        if let Some(r) = redactor.take() {
+            let tail = r.finish();
+            if !tail.is_empty() {
+                let _ = write_sse_event(
+                    writer,
+                    "content_block_delta",
+                    &serde_json::json!({
+                        "type": "content_block_delta", "index": 0,
+                        "delta": { "type": "text_delta", "text": tail },
+                    }),
+                );
+            }
+        }
         // An upstream that died/timed out mid-stream ended WITHOUT a terminal marker;
         // surface that honestly rather than presenting a clean `end_turn` (F6).
         if !saw_terminal {
@@ -1153,21 +1179,95 @@ fn stream_proxy_chat_completions(
           Cache-Control: no-store\r\nConnection: close\r\n\r\n",
     )?;
     writer.flush()?;
-    // relay the upstream's OpenAI SSE verbatim (already the shape prompt.py consumes)
-    loop {
+    // Redact secrets/PII from relayed content deltas (F-2026-082 proxy-relay gap).
+    // `None` when the spine is off ⇒ the upstream SSE is relayed VERBATIM (the
+    // byte-for-byte shape prompt.py consumes; unchanged behavior).
+    let mut redactor =
+        sovereign_gatewayd::ProxyRedactor::from_guard(&sovereign_gatewayd::GuardConfig::from_env());
+    let mut line_buf: Vec<u8> = Vec::new();
+    'outer: loop {
         let block = next_proxy_block(&mut reader, chunked);
         if block.is_empty() {
             break;
         }
-        if writer
-            .write_all(&block)
-            .and_then(|()| writer.flush())
-            .is_err()
-        {
-            break; // client hung up
+        // Fast path: no redaction ⇒ verbatim relay.
+        if redactor.is_none() {
+            if writer
+                .write_all(&block)
+                .and_then(|()| writer.flush())
+                .is_err()
+            {
+                break;
+            }
+            continue;
+        }
+        // Redacting: process complete `data:` lines, rewriting content deltas.
+        line_buf.extend_from_slice(&block);
+        if line_buf.len() > MAX_PROXY_BYTES {
+            break;
+        }
+        while let Some(pos) = line_buf.iter().position(|&b| b == b'\n') {
+            let line_bytes: Vec<u8> = line_buf.drain(..=pos).collect();
+            let line = String::from_utf8_lossy(&line_bytes);
+            let Some(payload) = line.trim().strip_prefix("data:") else {
+                // blank line / comment — pass through verbatim (SSE framing).
+                if writer.write_all(&line_bytes).is_err() {
+                    break 'outer;
+                }
+                continue;
+            };
+            let payload = payload.trim();
+            if payload == "[DONE]" {
+                // flush the held-back tail as one last content chunk, then close.
+                if let Some(r) = redactor.take() {
+                    let tail = r.finish();
+                    if !tail.is_empty() {
+                        let _ = write!(writer, "data: {}\n\n", openai_content_chunk(&tail));
+                    }
+                }
+                let _ = writer.write_all(b"data: [DONE]\n\n");
+                let _ = writer.flush();
+                break 'outer;
+            }
+            let out = match redactor.as_mut() {
+                Some(r) => redact_openai_sse_chunk(payload, r),
+                None => payload.to_string(),
+            };
+            if write!(writer, "data: {out}\n\n")
+                .and_then(|()| writer.flush())
+                .is_err()
+            {
+                break 'outer;
+            }
         }
     }
     Ok(())
+}
+
+/// A minimal OpenAI chat SSE chunk carrying only a content delta — used to emit
+/// the redactor's flushed tail as a final `data:` event.
+fn openai_content_chunk(text: &str) -> String {
+    serde_json::json!({
+        "object": "chat.completion.chunk",
+        "choices": [{"index": 0, "delta": {"content": text}, "finish_reason": serde_json::Value::Null}],
+    })
+    .to_string()
+}
+
+/// Rewrite one OpenAI chat SSE `data:` payload, replacing `choices[0].delta.content`
+/// with its redactor-processed span (secret/PII-safe across chunk boundaries). All
+/// other fields (role, finish_reason, usage, …) are preserved. A non-JSON or
+/// content-less payload is returned unchanged.
+fn redact_openai_sse_chunk(payload: &str, r: &mut sovereign_gatewayd::ProxyRedactor) -> String {
+    let Ok(mut v) = serde_json::from_str::<serde_json::Value>(payload) else {
+        return payload.to_string();
+    };
+    if let Some(content) = v.pointer_mut("/choices/0/delta/content")
+        && let Some(s) = content.as_str()
+    {
+        *content = serde_json::Value::String(r.push(s));
+    }
+    v.to_string()
 }
 
 /// Build the prompt from OpenAI `messages`. When the model ships a `chat_template`
@@ -1598,6 +1698,30 @@ mod tests {
         // unparseable host → fail safe (require token)
         assert!(!bind_is_loopback("not-an-addr"));
         assert!(!bind_is_loopback("example.com:80"));
+    }
+
+    #[test]
+    fn openai_sse_chunk_redaction_preserves_structure() {
+        use super::{openai_content_chunk, redact_openai_sse_chunk};
+        let mut r = sovereign_gatewayd::ProxyRedactor::from_guard(
+            &sovereign_gatewayd::GuardConfig::default(),
+        )
+        .expect("redaction on by default");
+        // A parseable chunk keeps id/index/finish_reason; content becomes a string
+        // (held back inside the window ⇒ empty this chunk, flushed later).
+        let chunk =
+            r#"{"id":"abc","choices":[{"index":0,"delta":{"content":"hi"},"finish_reason":null}]}"#;
+        let out = redact_openai_sse_chunk(chunk, &mut r);
+        let v: serde_json::Value = serde_json::from_str(&out).unwrap();
+        assert_eq!(v["id"], "abc");
+        assert_eq!(v["choices"][0]["index"], 0);
+        assert!(v["choices"][0]["delta"]["content"].is_string());
+        // Non-JSON payload passes through unchanged.
+        assert_eq!(redact_openai_sse_chunk("[weird]", &mut r), "[weird]");
+        // The tail chunk is valid JSON carrying the flushed text.
+        let tail = openai_content_chunk("bye");
+        let tv: serde_json::Value = serde_json::from_str(&tail).unwrap();
+        assert_eq!(tv["choices"][0]["delta"]["content"], "bye");
     }
 
     #[test]

@@ -1214,7 +1214,15 @@ fn anthropic_message(server: &GatewayServer, body: &str) -> HttpReply {
     // `/v1/chat/completions` and its reply translated back to the Anthropic shape; an
     // `anthropic` backend (another sovereign-gatewayd) is forwarded verbatim.
     if let Some((endpoint, dialect)) = server.resolve_proxy(&model) {
-        return proxy_message(&endpoint, &dialect, &model, &req, body);
+        let mut reply = proxy_message(&endpoint, &dialect, &model, &req, body);
+        // Close the redaction bypass: proxy-relayed output never passes through
+        // the local generate path's safety spine, so redact secrets/PII from the
+        // relayed body here. No-op when the spine (or both passes) is off.
+        let guard = crate::GuardConfig::from_env();
+        if guard.redacts_output() {
+            reply.body = guard.redact_full(&reply.body);
+        }
+        return reply;
     }
     if !server.has_generator() {
         return anthropic_err(

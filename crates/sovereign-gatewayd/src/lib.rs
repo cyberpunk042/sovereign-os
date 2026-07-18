@@ -772,8 +772,91 @@ impl GuardConfig {
     }
 
     /// Whether any output-redaction pass is enabled.
-    fn redacts_output(&self) -> bool {
+    pub fn redacts_output(&self) -> bool {
         self.enabled && (self.redact_secrets || self.redact_pii)
+    }
+
+    /// Redact secrets + PII from a COMPLETE text under this policy — the
+    /// non-streaming analogue of [`StreamGuard`]. Returns the text unchanged when
+    /// the spine (or both redaction passes) is off. Used to close the redaction
+    /// gap on **proxy-relayed** output, which never passes through the local
+    /// generate path's spine.
+    #[must_use]
+    pub fn redact_full(&self, text: &str) -> String {
+        if !self.enabled {
+            return text.to_string();
+        }
+        let mut out = text.to_string();
+        if self.redact_secrets {
+            out = sovereign_secret_scan::redact(&out);
+        }
+        if self.redact_pii {
+            out = sovereign_pii_redact::redact(&out);
+        }
+        out
+    }
+}
+
+/// A streaming secret/PII redactor for **relayed proxy output** — the public,
+/// span-returning analogue of the internal [`StreamGuard`]. It holds back a
+/// trailing [`STREAM_GUARD_WINDOW`] so a secret/PII token split across two
+/// relayed chunks is still caught, and only ever releases up to the last
+/// ASCII-whitespace boundary before that window (every guarded pattern is a
+/// whitespace-free token, so no match spans a release). Feed each delta to
+/// [`push`](Self::push) and emit the returned span; flush the tail with
+/// [`finish`](Self::finish).
+pub struct ProxyRedactor {
+    pending: String,
+    redact_secrets: bool,
+    redact_pii: bool,
+}
+
+impl ProxyRedactor {
+    /// Build from a guard policy, or `None` when output redaction is disabled
+    /// (the relay then passes bytes through untouched, byte-for-byte).
+    #[must_use]
+    pub fn from_guard(guard: &GuardConfig) -> Option<Self> {
+        guard.redacts_output().then(|| Self {
+            pending: String::new(),
+            redact_secrets: guard.redact_secrets,
+            redact_pii: guard.redact_pii,
+        })
+    }
+
+    fn redact(&self, span: &str) -> String {
+        let mut t = span.to_string();
+        if self.redact_secrets {
+            t = sovereign_secret_scan::redact(&t);
+        }
+        if self.redact_pii {
+            t = sovereign_pii_redact::redact(&t);
+        }
+        t
+    }
+
+    /// Accept a text delta; return the redacted text that is safe to emit NOW
+    /// (everything up to the last whitespace boundary before the trailing
+    /// window). May be empty when everything is still inside the window.
+    pub fn push(&mut self, delta: &str) -> String {
+        self.pending.push_str(delta);
+        if self.pending.len() <= STREAM_GUARD_WINDOW {
+            return String::new();
+        }
+        let limit = self.pending.len() - STREAM_GUARD_WINDOW;
+        if let Some(w) = self.pending[..limit].rfind(|c: char| c.is_ascii_whitespace()) {
+            let cut = w + 1;
+            let span = self.pending[..cut].to_string();
+            self.pending.drain(..cut);
+            self.redact(&span)
+        } else {
+            String::new()
+        }
+    }
+
+    /// Flush and redact the held-back tail (call once at end-of-stream).
+    #[must_use]
+    pub fn finish(self) -> String {
+        self.redact(&self.pending)
     }
 }
 
@@ -2683,6 +2766,43 @@ mod tests {
             run_stream_guard(&["contact alice@example.com now"], false, true);
         assert!(!out.contains("alice@example.com"), "email leaked: {out:?}");
         assert_eq!(pii, 1);
+    }
+
+    #[test]
+    fn redact_full_scrubs_relayed_pii_and_secrets() {
+        // The non-streaming proxy analogue: a complete relayed body is scrubbed.
+        let g = GuardConfig::default();
+        let out = g.redact_full("contact alice@example.com key AKIAIOSFODNN7EXAMPLE");
+        assert!(out.contains("[EMAIL]"), "{out}");
+        assert!(out.contains("[AWS_KEY]"), "{out}");
+        assert!(!out.contains("alice@example.com"), "{out}");
+        // disabled spine ⇒ untouched passthrough
+        let off = GuardConfig {
+            enabled: false,
+            ..GuardConfig::default()
+        };
+        assert_eq!(off.redact_full("alice@example.com"), "alice@example.com");
+    }
+
+    #[test]
+    fn proxy_redactor_catches_pii_split_across_deltas() {
+        let g = GuardConfig::default();
+        let mut r = ProxyRedactor::from_guard(&g).expect("redaction on by default");
+        let mut got = String::new();
+        // A long lead forces a release; then an email straddles two pushes and must
+        // still be caught whole (the trailing window guarantees it).
+        got.push_str(&r.push(&"word ".repeat(120)));
+        got.push_str(&r.push("mail alice@exa"));
+        got.push_str(&r.push("mple.com and more words follow here to flush"));
+        got.push_str(&r.finish());
+        assert!(got.contains("[EMAIL]"), "email leaked: {got}");
+        assert!(!got.contains("alice@example.com"), "email leaked: {got}");
+        // disabled spine ⇒ no redactor (relay stays byte-for-byte)
+        let off = GuardConfig {
+            enabled: false,
+            ..GuardConfig::default()
+        };
+        assert!(ProxyRedactor::from_guard(&off).is_none());
     }
 
     #[test]
