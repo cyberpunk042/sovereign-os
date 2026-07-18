@@ -12,9 +12,14 @@
 //! Sovereignty-clean: pure Rust, `unsafe_code = "forbid"` (all reads are
 //! bounds-checked little-endian), only `half` for the f16 block scales.
 //!
-//! Supported quant types: `F32`, `F16`, `Q8_0`, `Q4_0`, `Q4_K`, `Q6_K` — the set
-//! a `Q4_K_M` mixed checkpoint uses (Q6_K for a few sensitive tensors, Q4_K for
-//! the rest). Other ggml types are rejected with a clear error, not mis-decoded.
+//! Supported quant types: the dense `F32`/`F16`, the legacy round-to-nearest
+//! quants `Q4_0`/`Q4_1`/`Q5_0`/`Q5_1`/`Q8_0`/`Q8_1`, and the k-quants
+//! `Q2_K`/`Q3_K`/`Q4_K`/`Q5_K`/`Q6_K`. That covers every mainstream GGUF weight
+//! encoding — a `Q4_K_M` mixes Q4_K + Q6_K, `Q5_K_M` mixes Q5_K + Q6_K, the
+//! legacy `Q4_0`/`Q5_1` files are single-type, etc. Each kernel is byte-exact
+//! against the ggml `dequantize_row_*` reference (see the fixtures in `tests`).
+//! Deprecated (`Q4_2`/`Q4_3`) and intermediate (`Q8_K`) types are rejected with
+//! a clear error, not mis-decoded.
 //!
 //! **q/k permutation:** unlike HF safetensors (rotate-half convention, permuted
 //! by [`permute_qk_hf_to_interleaved`]), GGUF stores q/k already in the runtime's
@@ -33,12 +38,22 @@ use crate::{Config, LoaderError, Precision, Sampler, elems};
 const GGUF_MAGIC: u32 = 0x4655_4747; // "GGUF" little-endian
 const DEFAULT_ALIGNMENT: usize = 32;
 
-// ggml_type enum values (subset we decode).
+// ggml_type enum values. The full weight-bearing set is decoded: the legacy
+// "type-0/1" quants (Q4_0/Q4_1/Q5_0/Q5_1/Q8_0/Q8_1) and the k-quants
+// (Q2_K/Q3_K/Q4_K/Q5_K/Q6_K). Types 4/5 (deprecated Q4_2/Q4_3) and Q8_K (15,
+// an intermediate never stored as weights) are intentionally unsupported.
 const GGML_F32: u32 = 0;
 const GGML_F16: u32 = 1;
 const GGML_Q4_0: u32 = 2;
+const GGML_Q4_1: u32 = 3;
+const GGML_Q5_0: u32 = 6;
+const GGML_Q5_1: u32 = 7;
 const GGML_Q8_0: u32 = 8;
+const GGML_Q8_1: u32 = 9;
+const GGML_Q2_K: u32 = 10;
+const GGML_Q3_K: u32 = 11;
 const GGML_Q4_K: u32 = 12;
+const GGML_Q5_K: u32 = 13;
 const GGML_Q6_K: u32 = 14;
 
 const QK_K: usize = 256;
@@ -456,17 +471,59 @@ fn type_byte_len(t: u32, n: usize) -> Result<usize, LoaderError> {
             }
             (n / 32) * 18 // f16 scale (2) + 16 packed nibbles
         }
+        GGML_Q4_1 => {
+            if n % 32 != 0 {
+                return Err(bad_block(32));
+            }
+            (n / 32) * 20 // d(2) + m(2) + 16 packed nibbles
+        }
+        GGML_Q5_0 => {
+            if n % 32 != 0 {
+                return Err(bad_block(32));
+            }
+            (n / 32) * 22 // d(2) + qh(4) + 16 packed nibbles
+        }
+        GGML_Q5_1 => {
+            if n % 32 != 0 {
+                return Err(bad_block(32));
+            }
+            (n / 32) * 24 // d(2) + m(2) + qh(4) + 16 packed nibbles
+        }
         GGML_Q8_0 => {
             if n % 32 != 0 {
                 return Err(bad_block(32));
             }
             (n / 32) * 34 // f16 scale (2) + 32 int8
         }
+        GGML_Q8_1 => {
+            if n % 32 != 0 {
+                return Err(bad_block(32));
+            }
+            (n / 32) * 36 // d(2) + s(2) + 32 int8
+        }
+        GGML_Q2_K => {
+            if n % QK_K != 0 {
+                return Err(bad_block(QK_K));
+            }
+            (n / QK_K) * 84 // scales(16)+qs(64)+d(2)+dmin(2)
+        }
+        GGML_Q3_K => {
+            if n % QK_K != 0 {
+                return Err(bad_block(QK_K));
+            }
+            (n / QK_K) * 110 // hmask(32)+qs(64)+scales(12)+d(2)
+        }
         GGML_Q4_K => {
             if n % QK_K != 0 {
                 return Err(bad_block(QK_K));
             }
             (n / QK_K) * 144 // d(2)+dmin(2)+scales(12)+qs(128)
+        }
+        GGML_Q5_K => {
+            if n % QK_K != 0 {
+                return Err(bad_block(QK_K));
+            }
+            (n / QK_K) * 176 // d(2)+dmin(2)+scales(12)+qh(32)+qs(128)
         }
         GGML_Q6_K => {
             if n % QK_K != 0 {
@@ -477,7 +534,10 @@ fn type_byte_len(t: u32, n: usize) -> Result<usize, LoaderError> {
         other => {
             return Err(LoaderError::UnsupportedDtype {
                 name: "<gguf tensor>".into(),
-                dtype: format!("ggml type {other} (support F32/F16/Q8_0/Q4_0/Q4_K/Q6_K)"),
+                dtype: format!(
+                    "ggml type {other} (support F32/F16/Q4_0/Q4_1/Q5_0/Q5_1/\
+                     Q8_0/Q8_1/Q2_K/Q3_K/Q4_K/Q5_K/Q6_K)"
+                ),
             });
         }
     })
@@ -524,9 +584,86 @@ fn dequant(t: u32, raw: &[u8], n: usize, _name: &str) -> Result<Vec<f32>, Loader
                 out.extend_from_slice(&hi);
             }
         }
+        GGML_Q4_1 => {
+            for blk in raw.chunks_exact(20) {
+                let d = f16(blk, 0);
+                let m = f16(blk, 2);
+                let qs = &blk[4..20];
+                let mut lo = [0f32; 16];
+                let mut hi = [0f32; 16];
+                for (j, &byte) in qs.iter().enumerate() {
+                    lo[j] = d * (byte & 0x0F) as f32 + m;
+                    hi[j] = d * (byte >> 4) as f32 + m;
+                }
+                out.extend_from_slice(&lo);
+                out.extend_from_slice(&hi);
+            }
+        }
+        GGML_Q5_0 => {
+            for blk in raw.chunks_exact(22) {
+                let d = f16(blk, 0);
+                let qh = u32::from_le_bytes(blk[2..6].try_into().unwrap());
+                let qs = &blk[6..22];
+                let mut lo = [0f32; 16];
+                let mut hi = [0f32; 16];
+                for (j, &byte) in qs.iter().enumerate() {
+                    // 5th bit of each quant lives in qh (low 16 bits → lo lane,
+                    // bits 16..32 → hi lane).
+                    let xh0 = (((qh >> j) << 4) & 0x10) as i32;
+                    let xh1 = ((qh >> (j + 12)) & 0x10) as i32;
+                    lo[j] = d * ((((byte & 0x0F) as i32) | xh0) - 16) as f32;
+                    hi[j] = d * ((((byte >> 4) as i32) | xh1) - 16) as f32;
+                }
+                out.extend_from_slice(&lo);
+                out.extend_from_slice(&hi);
+            }
+        }
+        GGML_Q5_1 => {
+            for blk in raw.chunks_exact(24) {
+                let d = f16(blk, 0);
+                let m = f16(blk, 2);
+                let qh = u32::from_le_bytes(blk[4..8].try_into().unwrap());
+                let qs = &blk[8..24];
+                let mut lo = [0f32; 16];
+                let mut hi = [0f32; 16];
+                for (j, &byte) in qs.iter().enumerate() {
+                    let xh0 = (((qh >> j) << 4) & 0x10) as i32;
+                    let xh1 = ((qh >> (j + 12)) & 0x10) as i32;
+                    lo[j] = d * (((byte & 0x0F) as i32) | xh0) as f32 + m;
+                    hi[j] = d * (((byte >> 4) as i32) | xh1) as f32 + m;
+                }
+                out.extend_from_slice(&lo);
+                out.extend_from_slice(&hi);
+            }
+        }
+        GGML_Q8_1 => {
+            // d(f16) + s(f16, the block sum — used only for dot-product speedups,
+            // irrelevant to dequant) + 32 int8.
+            for blk in raw.chunks_exact(36) {
+                let d = f16(blk, 0);
+                for &q in &blk[4..36] {
+                    out.push(d * (q as i8) as f32);
+                }
+            }
+        }
+        GGML_Q2_K => {
+            for blk in raw.chunks_exact(84) {
+                dequant_q2_k(blk, &mut out);
+            }
+        }
+        GGML_Q3_K => {
+            for blk in raw.chunks_exact(110) {
+                dequant_q3_k(blk, &mut out);
+            }
+        }
         GGML_Q4_K => {
             for blk in raw.chunks_exact(144) {
                 dequant_q4_k(blk, &mut out);
+            }
+        }
+        GGML_Q5_K => {
+            for blk in raw.chunks_exact(176) {
+                dequant_q5_k(blk, &mut out);
             }
         }
         GGML_Q6_K => {
@@ -581,6 +718,143 @@ fn dequant_q4_k(blk: &[u8], out: &mut Vec<f32>) {
         q_off += 32;
         is += 2;
     }
+}
+
+/// Dequant one Q2_K superblock (256 values) — matches ggml `dequantize_row_q2_K`.
+/// Layout: scales[16] qs[64] d(f16) dmin(f16). Each value is 2-bit; the 4-bit
+/// scale/min pair per 16-lane comes from a `scales` byte (low nibble = scale,
+/// high nibble = min).
+fn dequant_q2_k(blk: &[u8], out: &mut Vec<f32>) {
+    let scales = &blk[0..16];
+    let qs = &blk[16..80];
+    let d = f16(blk, 80);
+    let dmin = f16(blk, 82);
+    let mut y = [0f32; QK_K];
+    let mut yi = 0usize;
+    let mut is = 0usize;
+    let mut q_base = 0usize;
+    for _ in 0..2 {
+        // two 128-value halves
+        let mut shift = 0u32;
+        for _ in 0..4 {
+            let sc = scales[is];
+            is += 1;
+            let dl = d * (sc & 0xF) as f32;
+            let ml = dmin * (sc >> 4) as f32;
+            for l in 0..16 {
+                y[yi] = dl * ((qs[q_base + l] >> shift) & 3) as f32 - ml;
+                yi += 1;
+            }
+            let sc = scales[is];
+            is += 1;
+            let dl = d * (sc & 0xF) as f32;
+            let ml = dmin * (sc >> 4) as f32;
+            for l in 0..16 {
+                y[yi] = dl * ((qs[q_base + 16 + l] >> shift) & 3) as f32 - ml;
+                yi += 1;
+            }
+            shift += 2;
+        }
+        q_base += 32;
+    }
+    out.extend_from_slice(&y);
+}
+
+/// Dequant one Q3_K superblock (256 values) — matches ggml `dequantize_row_q3_K`.
+/// Layout: hmask[32] qs[64] scales[12] d(f16). The 12 scale bytes pack 16 signed
+/// 6-bit scales (unpacked via the ggml `aux[]` bit-shuffle below); the 3rd quant
+/// bit for each value lives in `hmask` (an UNSET hmask bit means subtract 4).
+fn dequant_q3_k(blk: &[u8], out: &mut Vec<f32>) {
+    const KMASK1: u32 = 0x0303_0303;
+    const KMASK2: u32 = 0x0f0f_0f0f;
+    let hmask = &blk[0..32];
+    let qs = &blk[32..96];
+    let d_all = f16(blk, 108);
+    // Unpack the 12 packed bytes into 16 signed 6-bit scales (ggml aux shuffle).
+    let mut aux = [
+        u32::from_le_bytes(blk[96..100].try_into().unwrap()),
+        u32::from_le_bytes(blk[100..104].try_into().unwrap()),
+        u32::from_le_bytes(blk[104..108].try_into().unwrap()),
+        0u32,
+    ];
+    let tmp = aux[2];
+    aux[2] = ((aux[0] >> 4) & KMASK2) | (((tmp >> 4) & KMASK1) << 4);
+    aux[3] = ((aux[1] >> 4) & KMASK2) | (((tmp >> 6) & KMASK1) << 4);
+    aux[0] = (aux[0] & KMASK2) | ((tmp & KMASK1) << 4);
+    aux[1] = (aux[1] & KMASK2) | (((tmp >> 2) & KMASK1) << 4);
+    let mut scales = [0i8; 16];
+    for (i, s) in scales.iter_mut().enumerate() {
+        *s = ((aux[i / 4] >> ((i % 4) * 8)) & 0xff) as u8 as i8;
+    }
+    let mut y = [0f32; QK_K];
+    let mut yi = 0usize;
+    let mut is = 0usize;
+    let mut m: u8 = 1;
+    let mut q_base = 0usize;
+    for _ in 0..2 {
+        let mut shift = 0u32;
+        for _ in 0..4 {
+            let dl = d_all * (scales[is] as i32 - 32) as f32;
+            is += 1;
+            for l in 0..16 {
+                let sub = if hmask[l] & m != 0 { 0 } else { 4 };
+                y[yi] = dl * (((qs[q_base + l] >> shift) & 3) as i32 - sub) as f32;
+                yi += 1;
+            }
+            let dl = d_all * (scales[is] as i32 - 32) as f32;
+            is += 1;
+            for l in 0..16 {
+                let sub = if hmask[16 + l] & m != 0 { 0 } else { 4 };
+                y[yi] = dl * (((qs[q_base + 16 + l] >> shift) & 3) as i32 - sub) as f32;
+                yi += 1;
+            }
+            shift += 2;
+            m <<= 1; // value overflow (128<<1) truncates to 0 — matches C
+        }
+        q_base += 32;
+    }
+    out.extend_from_slice(&y);
+}
+
+/// Dequant one Q5_K superblock (256 values) — matches ggml `dequantize_row_q5_K`.
+/// Layout: d(f16) dmin(f16) scales[12] qh[32] qs[128]. Same 6-bit scale/min
+/// unpack as Q4_K (`get_scale_min_k4`), plus a 5th high bit per value in `qh`.
+fn dequant_q5_k(blk: &[u8], out: &mut Vec<f32>) {
+    let d = f16(blk, 0);
+    let dmin = f16(blk, 2);
+    let scales = &blk[4..16];
+    let qh = &blk[16..48];
+    let ql = &blk[48..176];
+    let mut y = [0f32; QK_K];
+    let mut yi = 0usize;
+    let mut is = 0usize;
+    let mut u1: u8 = 1;
+    let mut u2: u8 = 2;
+    let mut ql_base = 0usize;
+    for _ in 0..4 {
+        // four 64-value groups
+        let (sc1, m1) = get_scale_min_k4(is, scales);
+        let d1 = d * sc1 as f32;
+        let mn1 = dmin * m1 as f32;
+        let (sc2, m2) = get_scale_min_k4(is + 1, scales);
+        let d2 = d * sc2 as f32;
+        let mn2 = dmin * m2 as f32;
+        for l in 0..32 {
+            let hi = if qh[l] & u1 != 0 { 16 } else { 0 };
+            y[yi] = d1 * ((ql[ql_base + l] & 0x0F) as i32 + hi) as f32 - mn1;
+            yi += 1;
+        }
+        for l in 0..32 {
+            let hi = if qh[l] & u2 != 0 { 16 } else { 0 };
+            y[yi] = d2 * ((ql[ql_base + l] >> 4) as i32 + hi) as f32 - mn2;
+            yi += 1;
+        }
+        ql_base += 32;
+        is += 2;
+        u1 <<= 2; // value overflow truncates to 0 on the last group — matches C
+        u2 <<= 2;
+    }
+    out.extend_from_slice(&y);
 }
 
 /// Dequant one Q6_K superblock (256 values) — matches ggml `dequantize_row_q6_K`.
@@ -787,9 +1061,181 @@ mod tests {
     }
 
     #[test]
+    fn q4_1_dequant_is_exact() {
+        // d=1, m=0.5; each byte lo-nibble 2, hi-nibble 5. lo lane fills [0..16],
+        // hi lane [16..32]. value = d*nibble + m.
+        let mut blk = Vec::new();
+        blk.extend_from_slice(&f16_bytes(1.0)); // d
+        blk.extend_from_slice(&f16_bytes(0.5)); // m
+        for _ in 0..16 {
+            blk.push((5 << 4) | 2);
+        }
+        let got = dequant(GGML_Q4_1, &blk, 32, "t").unwrap();
+        let d = half::f16::from_f32(1.0).to_f32();
+        let m = half::f16::from_f32(0.5).to_f32();
+        for v in &got[0..16] {
+            assert!((v - (d * 2.0 + m)).abs() < 1e-3, "lo v={v}");
+        }
+        for v in &got[16..32] {
+            assert!((v - (d * 5.0 + m)).abs() < 1e-3, "hi v={v}");
+        }
+    }
+
+    #[test]
+    fn q5_0_dequant_is_exact() {
+        // d=1, qs byte lo=2/hi=5, qh bit0 set → lane-0-lo gains the 5th bit (+16).
+        // value = d*((nibble | 5th_bit) - 16).
+        let mut blk = Vec::new();
+        blk.extend_from_slice(&f16_bytes(1.0)); // d
+        blk.extend_from_slice(&1u32.to_le_bytes()); // qh: only bit 0 set
+        for _ in 0..16 {
+            blk.push((5 << 4) | 2);
+        }
+        let got = dequant(GGML_Q5_0, &blk, 32, "t").unwrap();
+        // lane-0-lo: (2 | 16) - 16 = 2
+        assert!((got[0] - 2.0).abs() < 1e-3, "got[0]={}", got[0]);
+        // other lo lanes: (2) - 16 = -14
+        for v in &got[1..16] {
+            assert!((v - -14.0).abs() < 1e-3, "lo v={v}");
+        }
+        // hi lanes: (5) - 16 = -11 (qh bits 16..32 all clear)
+        for v in &got[16..32] {
+            assert!((v - -11.0).abs() < 1e-3, "hi v={v}");
+        }
+    }
+
+    #[test]
+    fn q5_1_dequant_is_exact() {
+        // d=1, m=0.5, qh=0; byte lo=2/hi=5. value = d*nibble + m.
+        let mut blk = Vec::new();
+        blk.extend_from_slice(&f16_bytes(1.0)); // d
+        blk.extend_from_slice(&f16_bytes(0.5)); // m
+        blk.extend_from_slice(&0u32.to_le_bytes()); // qh: no 5th bits
+        for _ in 0..16 {
+            blk.push((5 << 4) | 2);
+        }
+        let got = dequant(GGML_Q5_1, &blk, 32, "t").unwrap();
+        let m = half::f16::from_f32(0.5).to_f32();
+        for v in &got[0..16] {
+            assert!((v - (2.0 + m)).abs() < 1e-3, "lo v={v}");
+        }
+        for v in &got[16..32] {
+            assert!((v - (5.0 + m)).abs() < 1e-3, "hi v={v}");
+        }
+    }
+
+    #[test]
+    fn q8_1_dequant_ignores_sum_field() {
+        // d=2, s=garbage (must be ignored), q[i]=i-16 → value = 2*(i-16).
+        let mut blk = Vec::new();
+        blk.extend_from_slice(&f16_bytes(2.0)); // d
+        blk.extend_from_slice(&f16_bytes(999.0)); // s — MUST NOT affect output
+        for i in 0..32i32 {
+            blk.push(((i - 16) as i8) as u8);
+        }
+        let got = dequant(GGML_Q8_1, &blk, 32, "t").unwrap();
+        let d = half::f16::from_f32(2.0).to_f32();
+        for i in 0..32 {
+            assert!((got[i] - d * (i as i32 - 16) as f32).abs() < 1e-3, "i={i}");
+        }
+    }
+
+    #[test]
+    fn q2_k_dequant_matches_formula() {
+        // d=1, dmin=1; every scale byte 0x21 (scale-nibble 1, min-nibble 2);
+        // qs 0xAA → each 2-bit quant is 0b10 = 2. value = (1*1)*2 - (1*2) = 0.
+        // A nonzero result would mean the min term was dropped.
+        let mut blk = vec![0u8; 84];
+        for s in blk.iter_mut().take(16) {
+            *s = 0x21;
+        }
+        for q in blk.iter_mut().take(80).skip(16) {
+            *q = 0xAA;
+        }
+        blk[80..82].copy_from_slice(&f16_bytes(1.0)); // d
+        blk[82..84].copy_from_slice(&f16_bytes(1.0)); // dmin
+        let got = dequant(GGML_Q2_K, &blk, QK_K, "t").unwrap();
+        assert_eq!(got.len(), QK_K);
+        for (idx, &v) in got.iter().enumerate() {
+            assert!(v.abs() < 1e-3, "idx={idx} v={v}");
+        }
+    }
+
+    #[test]
+    fn q3_k_dequant_matches_formula() {
+        // Craft the 12 packed scale bytes so the aux[] unpack yields all-33 scales
+        // (→ scale-32 = 1). hmask all 0 → every value subtracts 4. qs 0 → quant 0.
+        // value = d_all * (0 - 4) = -4. A bug in the aux shuffle → wrong scale →
+        // wrong magnitude; a bug in the hmask sub → 0 not -4.
+        let mut blk = vec![0u8; 110];
+        // hmask[0..32] = 0, qs[32..96] = 0 (already zero).
+        // scales[96..108]: bytes 96..100 = 0x11, 100..104 = 0x11, 104..108 = 0xAA.
+        for b in blk.iter_mut().take(100).skip(96) {
+            *b = 0x11;
+        }
+        for b in blk.iter_mut().take(104).skip(100) {
+            *b = 0x11;
+        }
+        for b in blk.iter_mut().take(108).skip(104) {
+            *b = 0xAA;
+        }
+        blk[108..110].copy_from_slice(&f16_bytes(1.0)); // d_all
+        let got = dequant(GGML_Q3_K, &blk, QK_K, "t").unwrap();
+        assert_eq!(got.len(), QK_K);
+        for (idx, &v) in got.iter().enumerate() {
+            assert!((v - -4.0).abs() < 1e-3, "idx={idx} v={v}");
+        }
+    }
+
+    #[test]
+    fn q5_k_dequant_matches_formula() {
+        // d=1, dmin=0 (min term drops out); scales set so every get_scale_min_k4
+        // sub-scale = 1 (same trick as the Q4_K fixture). ql byte lo=3/hi=5. qh
+        // bit0 set → the very first lo-lane value gains the 5th bit (+16).
+        let mut blk = vec![0u8; 176];
+        blk[0..2].copy_from_slice(&f16_bytes(1.0)); // d
+        blk[2..4].copy_from_slice(&f16_bytes(0.0)); // dmin → mins ignored
+        // scales[4..16]: sc=1 for every sub-block (scales[0..4]=1, scales[8..12] low
+        // nibble=1), mirroring get_scale_min_k4's two index regimes.
+        for j in 0..4 {
+            blk[4 + j] = 1;
+        }
+        for j in 8..12 {
+            blk[4 + j] = 0x01;
+        }
+        blk[16] = 0x01; // qh[0] bit0 → 5th bit on first lo-lane value
+        for q in blk.iter_mut().take(176).skip(48) {
+            *q = (5 << 4) | 3; // ql: lo nibble 3, hi nibble 5
+        }
+        let got = dequant(GGML_Q5_K, &blk, QK_K, "t").unwrap();
+        assert_eq!(got.len(), QK_K);
+        // first value: (3 + 16) = 19
+        assert!((got[0] - 19.0).abs() < 1e-3, "got[0]={}", got[0]);
+        // rest of the first 32 (lo lane, no 5th bit): 3
+        for v in &got[1..32] {
+            assert!((v - 3.0).abs() < 1e-3, "lo v={v}");
+        }
+        // next 32 (hi lane): 5
+        for v in &got[32..64] {
+            assert!((v - 5.0).abs() < 1e-3, "hi v={v}");
+        }
+    }
+
+    #[test]
     fn rejects_unknown_ggml_type() {
-        // Q5_0 (type 6) is not supported → clean error, not a mis-decode.
-        assert!(type_byte_len(6, 32).is_err());
+        // Type 4 (deprecated Q4_2) and 15 (Q8_K, intermediate, never a weight
+        // encoding) are not supported → clean error, not a mis-decode.
+        assert!(type_byte_len(4, 32).is_err());
+        assert!(type_byte_len(15, QK_K).is_err());
+        // …but the whole mainstream family now decodes.
+        for t in [
+            GGML_Q4_0, GGML_Q4_1, GGML_Q5_0, GGML_Q5_1, GGML_Q8_0, GGML_Q8_1,
+        ] {
+            assert!(type_byte_len(t, 32).is_ok(), "type {t} should size-ok");
+        }
+        for t in [GGML_Q2_K, GGML_Q3_K, GGML_Q4_K, GGML_Q5_K, GGML_Q6_K] {
+            assert!(type_byte_len(t, QK_K).is_ok(), "type {t} should size-ok");
+        }
     }
 
     #[test]
