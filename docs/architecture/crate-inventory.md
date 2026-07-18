@@ -8,13 +8,13 @@ The workspace is large — most of it does not run yet. This is the complete map
 | bucket | count | connection state |
 |---|---:|---|
 | Binaries (`main.rs`/`bin/`) | 41 | the executables; a few run in prod, the rest are dev/demo/config-gen |
-| Production libraries | 89 | run inside the gatewayd / telemetry / resource-control closure |
+| Production libraries | 90 | run inside the gatewayd / telemetry / resource-control closure |
 | Cockpit UX-state crates | 418 | wasm-bridged in source (SDD-974); **0 of ~55 panels wired** |
 | Demo-hub-only libraries | 29 | reached only via `sovereign-llm` / `sovereign-retrieval` (nothing runs them) |
-| Other libraries | 144 | reached only through other non-production trees |
-| **Total** | **721** | **94 crates (13%) are production-reachable today** |
+| Other libraries | 143 | reached only through other non-production trees |
+| **Total** | **721** | **95 crates (13%) are production-reachable today** |
 
-**✅ integrated** marks the **94** crates that are actually _used_ by a running production binary (in the gatewayd / telemetry / resource-control dependency closure). Each carries a short note naming the usage that validates it — its production consumer(s) and/or that it runs as a binary. **Used, not merely referenced**: a cockpit crate wasm-bridged for a panel (SDD-800, 0 panels wired) or a crate reached only through a demo/dev binary or the `sovereign-llm` / `sovereign-retrieval` hubs is NOT integrated. The flag is generated from the closure and enforced by `tests/lint/test_crate_inventory_integrated_flag.py`.
+**✅ integrated** marks the **95** crates that are actually _used_ by a running production binary (in the gatewayd / telemetry / resource-control dependency closure). Each carries a short note naming the usage that validates it — its production consumer(s) and/or that it runs as a binary. **Used, not merely referenced**: a cockpit crate wasm-bridged for a panel (SDD-800, 0 panels wired) or a crate reached only through a demo/dev binary or the `sovereign-llm` / `sovereign-retrieval` hubs is NOT integrated. The flag is generated from the closure and enforced by `tests/lint/test_crate_inventory_integrated_flag.py`.
 
 Families below cluster by the first token of the crate name (`alert-*`, `zfs-*`, …).
 
@@ -79,7 +79,7 @@ Full runtime role + how each is invoked lives in [`docs/src/binaries.md`](../src
 
 ---
 
-## 2. Production libraries (89) — these actually run
+## 2. Production libraries (90) — these actually run
 
 In the dependency closure of the three production binaries, so they execute today.
 
@@ -102,7 +102,7 @@ In the dependency closure of the three production binaries, so they execute toda
 - **`sovereign-tool-call-parse`** — Parse OpenAI-style function/tool calls from model output: pull a tool name and its JSON arguments out of a tool_calls array or a bare {name, arguments} object, tolerating fenced or slightly-malformed JSON via json-repair. The JSON-format counterpart to a [[tool:...]] dispatcher, for agentic runtimes. — ✅ **integrated**: used by `sovereign-tool-bridge`
 - **`sovereign-tool-dispatch`** — Tool-call parsing and dispatch: extracts a [[tool:NAME|ARGS]] call from model output and invokes the registered handler for it, returning the result to feed back into the conversation. The live execution layer above the tool catalog — turns generated text into an action and its result. — ✅ **integrated**: used by `sovereign-agent-loop`, `sovereign-gatewayd`, `sovereign-tool-bridge`
 
-#### assorted (79)
+#### assorted (80)
 
 - **`sovereign-agent-loop`** — A ReAct-style agent control loop: generate a response, and if it contains a tool call dispatch it and feed the observation back, repeating until a final answer or a step cap. Generic over a Responder (any text generator) and driven by a ToolRegistry. The control structure that turns a language model plus tools into an agent. Composes sovereign-tool-dispatch. — ✅ **integrated**: used by `sovereign-gatewayd`, `sovereign-retrieval`
 - **`sovereign-aho-corasick`** — Aho-Corasick multi-pattern string matching: build a trie of all patterns, add BFS failure links, then scan any text once to find every occurrence of every pattern in O(text + matches) — instead of running one search per pattern. For scanning generations against many banned phrases, stop sequences, or injection markers simultaneously. — ✅ **integrated**: used by `sovereign-injection-detect`, `sovereign-toxicity`
@@ -120,11 +120,12 @@ In the dependency closure of the three production binaries, so they execute toda
 - **`sovereign-chunker`** — Sentence-aware text chunking for RAG ingestion: splits a document into overlapping chunks near a target size, breaking at sentence boundaries rather than mid-sentence, with a configurable overlap so context isn't lost at the seams. The ingestion step that prepares documents for the retriever and embedder. — ✅ **integrated**: used by `sovereign-gatewayd`, `sovereign-retrieval`
 - **`sovereign-classification-metrics`** — Classification evaluation metrics: a confusion matrix with accuracy, per-class precision/recall/F1 and macro/micro/weighted averages, Cohen's kappa, plus binary ROC-AUC by the rank (Mann-Whitney) method. For evaluating classifiers and routers such as the complexity router and intent detection. — ✅ **integrated**: used by `sovereign-injection-detect`
 - **`sovereign-coat`** — CoAT — Chain-of-Associated-Thoughts: iterative MCTS deliberation over the M007 branch tree, where every expansion recalls associative memory that modulates a thought's value. One engine that IS the whole reasoning ladder — CoT (branch=1) -> ToT (branch>1) -> MCTS (UCT select/expand/simulate/backprop) -> C-MCTS (bounded action categories) -> CoAT (memory recall). Generic over a thought source + an associative memory, so the search harness is deterministic and testable without a model. — ✅ **integrated**: used by `sovereign-gatewayd`
+- **`sovereign-completion-cache`** — An LRU cache for model completions keyed by (prompt, params): identical deterministic requests hit the cache instead of re-running the model, so repeats cost nothing — the cheapest form of $0 inference. Tracks hit/miss stats and bounds memory by evicting the least-recently-used entry. — ✅ **integrated**: used by `sovereign-gatewayd`
 - **`sovereign-control-word`** — M002 control-word injected logic — a 64-bit control word per branch packing opcode + precision selector + flags + operand into typed bitfields. The deterministic bit-level microcode that gates each branch's behavior; exact encode/decode. — ✅ **integrated**: used by `sovereign-bit-cheats`, `sovereign-branch-scheduler`, `sovereign-control-word-service`, `sovereign-cortex`, `sovereign-gatewayd`, `sovereign-simd`
 - **`sovereign-control-word-service`** — M002 service layer for the control-word round engine: per-lane DNA fingerprints (FNV-1a, dependency-free per the replay-ledger precedent), quarantine on fingerprint drift, forward/rewind round replay, hand-rolled Prometheus text metrics, and pre/post lifecycle events. Wraps the safe sovereign-simd round API — this crate itself forbids unsafe. — ✅ **integrated**: used by `sovereign-gatewayd`
 - **`sovereign-decoder-layer`** — A uniform DecoderLayer contract over the decoder-block family (f32 transformer-block, precision-selectable quant-block, multi-head GQA mha-block) plus a heterogeneous LayerStack runner — so one model can mix precisions and head layouts per layer, the mixed-precision assignment quant-calibration recommends. Composes sovereign-transformer-block, sovereign-quant-block, and sovereign-mha-block. — ✅ **integrated**: used by `sovereign-quant-llm`, `sovereign-quant-model`, `sovereign-safetensors-loader`
 - **`sovereign-edit-distance`** — Levenshtein edit distance and fuzzy matching: distance, a normalized similarity ratio, nearest-candidate selection, and a 'did you mean' suggestion within a threshold. The fuzzy-match utility for correcting a model's misspelled tool/command names against a known set. — ✅ **integrated**: used by `sovereign-bktree`, `sovereign-tool-dispatch`
-- **`sovereign-embed`** — Subword embeddings via character n-gram feature hashing: maps text to a fixed-dimension dense vector by hashing its char n-grams (with word boundaries) into signed buckets and L2-normalizing, so morphologically related words land close in cosine space — semantic-ish retrieval that the exact-term lexical retriever misses. Includes an EmbedStore for cosine top-k retrieval. — ✅ **integrated**: used by `sovereign-retrieval`
+- **`sovereign-embed`** — Subword embeddings via character n-gram feature hashing: maps text to a fixed-dimension dense vector by hashing its char n-grams (with word boundaries) into signed buckets and L2-normalizing, so morphologically related words land close in cosine space — semantic-ish retrieval that the exact-term lexical retriever misses. Includes an EmbedStore for cosine top-k retrieval. — ✅ **integrated**: used by `sovereign-completion-cache`, `sovereign-retrieval`
 - **`sovereign-ffn`** — SwiGLU feed-forward network: the gated MLP that follows attention in every modern transformer block — two parallel up-projections, one passed through SiLU and used to gate the other, then a down-projection back to model width. The position-wise non-linearity half of a transformer block. — ✅ **integrated**: used by `sovereign-decoder-layer`, `sovereign-mha-block`, `sovereign-quant-block`, `sovereign-quant-llm`, `sovereign-quant-model`, `sovereign-transformer-block`
 - **`sovereign-gateway`** — M048 Module 4 Anthropic-first gateway per E0462 + M00806 + dump 14584-14610. 6 surfaces (Anthropic Messages API / OpenAI shim / MCP bridge / Claude Code / OpenCode-Cline / cost+route ledger) + 7-responsibility provider-inversion ownership. Doctrine: 'Instead of tools owning provider keys: client → Sovereign Gateway → local/cloud/model router.' — ✅ **integrated**: used by `sovereign-gatewayd`
 - **`sovereign-hf-tokenizer`** — Loads a HuggingFace `tokenizer.json` (GPT-2 byte-level BPE: explicit vocab + ranked merges + byte↔unicode map) and provides faithful encode/decode, so the sovereign quant runtime can run REAL trained models (Llama/SmolLM-family) instead of only the 256-vocab byte tokenizer. Pure Rust + serde_json — no external tokenizer, regex, or sentencepiece dependency (sovereignty-clean). — ✅ **integrated**: used by `sovereign-gatewayd`
@@ -738,7 +739,7 @@ Consumed only through `sovereign-llm` / `sovereign-retrieval`, which the daemon 
 
 ---
 
-## 5. Other libraries (144) — reached only through non-production trees
+## 5. Other libraries (143) — reached only through non-production trees
 
 
 #### `conversation-·` (3)
@@ -765,7 +766,7 @@ Consumed only through `sovereign-llm` / `sovereign-retrieval`, which the daemon 
 - **`sovereign-prompt-rationale`** — Runtime prompt-dispatch rationale envelope — every model dispatch carries (provider, template_name, bundle, mode, doctrine_tag) explaining which router decision produced it. The cockpit surfaces it next to every model output for transparency.
 - **`sovereign-prompt-template-registry`** — Runtime prompt-template registry — operator-curated reusable prompts with named variable slots ({{name}}) and rendering. Each template carries (name, body, declared variables, allowed profile bundles, allowed modes). Composes with sovereign-execution-mode-registry + sovereign-profile-bundles for context-gated availability.
 
-#### assorted (132)
+#### assorted (131)
 
 - **`sovereign-aimd-limiter`** — Adaptive concurrency limiter using AIMD (additive-increase / multiplicative-decrease), the TCP congestion-control law applied to in-flight requests: the limit grows by a fixed step while the system is healthy and saturated, and is cut by a multiplicative factor on overload (a timeout, a drop, or a latency breach), converging on the real capacity without a hand-tuned constant. For backpressure in front of a model server — distinct from a fixed-rate token bucket and from a circuit breaker.
 - **`sovereign-alias-sampler`** — Walker-Vose alias method for O(1) categorical sampling: preprocess a weighted distribution in O(n) into a probability/alias table, then draw each sample in constant time with one coin flip — far faster than a linear CDF scan when you sample the same distribution many times. Seeded for deterministic, reproducible draws.
@@ -783,7 +784,6 @@ Consumed only through `sovereign-llm` / `sovereign-retrieval`, which the daemon 
 - **`sovereign-codegen-pipeline`** — E0216 — Generated Code Path: the 7-step pipeline (propose → validate-caps → run-in-tier → capture-io → validate-schema → attach-trace → commit-or-reject) and the 5-rung promotion ladder (ad-hoc → sandboxed-script → tested-tool → WASM-plugin → trusted-primitive), with ordered advance + no-skip promotion.
 - **`sovereign-cognitive-compiler`** — M025 Cognitive Compiler — intent to DAG. 7-input / 5-output typed compile contract + 7-field DAG node schema + 8-axis ready-node scheduler per E0230-E0237 + M00410-M00416 + dump 7000-7378. Doctrine: 'AI intent → compiler → executable cognitive DAG → scheduler → experts/tools → observations → adaptive recompile' (E0230 dump 7026-7030).
 - **`sovereign-community-detect`** — Graph community detection by label propagation: each node iteratively adopts the most common label among its neighbours until the partition stabilizes, finding densely-connected groups in near-linear time, plus a modularity score to judge the partition's quality. For clustering a knowledge graph into communities (GraphRAG) and grouping related entities or documents.
-- **`sovereign-completion-cache`** — An LRU cache for model completions keyed by (prompt, params): identical deterministic requests hit the cache instead of re-running the model, so repeats cost nothing — the cheapest form of $0 inference. Tracks hit/miss stats and bounds memory by evicting the least-recently-used entry.
 - **`sovereign-complexity`** — Request-complexity estimation for cost-aware routing: scores a prompt's difficulty from length, lexical diversity, reasoning markers, technical markers, and question count, and maps the score to a tier (trivial/simple/moderate/complex) — so a runtime can send easy work to a cheap local model and reserve the expensive path for hard requests. The estimator behind complexity-routed, \$0-target inference.
 - **`sovereign-config-resolver`** — E0476 / M00827 — Configuration Continuity: the 7 layered config types (hardware/os/runtime/policy/workflow/user/project) resolved per action by precedence, encoding the 5 conflict-resolution rules. 'The runtime resolves these layers per action … that prevents flexibility from becoming chaos.'
 - **`sovereign-consistent-hash`** — Consistent hashing with virtual nodes: map keys (requests, cache shards, sessions) to nodes on a hash ring so that adding or removing a node only relocates a small fraction of keys, not the whole keyspace. For sharding KV cache and routing requests across workers with minimal reshuffling.

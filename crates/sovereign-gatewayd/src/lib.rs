@@ -353,6 +353,13 @@ pub struct Health {
     /// Number of retrievable passages (chunks) in the RAG corpus (`0` ⇒ RAG off —
     /// prompts pass through ungrounded).
     pub rag_corpus_docs: usize,
+    /// Opt-in completion-cache stats `(hits, misses, entries)` — all `0` when the
+    /// cache is disabled (`SOVEREIGN_GATEWAY_CACHE_CAPACITY` unset / `0`).
+    pub cache_hits: u64,
+    /// Completion-cache misses (see [`Health::cache_hits`]).
+    pub cache_misses: u64,
+    /// Completion-cache resident entries (see [`Health::cache_hits`]).
+    pub cache_entries: usize,
 }
 
 /// Adapts the daemon's live Cortex Memory-OS to the CoAT
@@ -658,6 +665,13 @@ pub struct GatewayServer {
     /// re-index the operator's corpus dir in place without a daemon restart (a
     /// reader gets the old or new snapshot atomically). `None` ⇒ RAG off.
     corpus: RwLock<Option<Arc<sovereign_retrieval::HybridStore>>>,
+    /// Opt-in completion cache (`SOVEREIGN_GATEWAY_CACHE_CAPACITY` > 0). Only
+    /// **deterministic** (greedy) generations are cached — a temperature/top-p/
+    /// top-k request must vary, so it bypasses the cache. Keyed by `(model,
+    /// grounded-prompt, max_new)`, so a different model or a reloaded RAG corpus
+    /// (which changes the grounded prompt) never returns a stale hit; the cache is
+    /// also cleared on any model load/unload. `None` ⇒ caching off.
+    completion_cache: Option<Mutex<sovereign_completion_cache::CompletionCache>>,
 }
 
 /// A loaded local generation engine: real weights + a real byte-level BPE
@@ -1685,6 +1699,11 @@ impl GatewayServer {
             events: Mutex::new(VecDeque::new()),
             trace_seq: std::sync::atomic::AtomicU64::new(1),
             corpus: RwLock::new(corpus),
+            completion_cache: std::env::var("SOVEREIGN_GATEWAY_CACHE_CAPACITY")
+                .ok()
+                .and_then(|s| s.trim().parse::<usize>().ok())
+                .filter(|&c| c > 0)
+                .map(|c| Mutex::new(sovereign_completion_cache::CompletionCache::new(c))),
         }
     }
 
@@ -1843,6 +1862,9 @@ impl GatewayServer {
             .write()
             .map_err(|_| "registry poisoned".to_string())?;
         map.insert(id.to_string(), Arc::new(Mutex::new(g)));
+        drop(map);
+        // A new model in the set can produce different output for a cached prompt.
+        self.clear_completion_cache();
         Ok(())
     }
 
@@ -2022,6 +2044,10 @@ impl GatewayServer {
             .write()
             .map(|mut m| m.remove(id).is_some())
             .unwrap_or(false);
+        if local || proxy {
+            // The model set changed — drop possibly-stale cached completions.
+            self.clear_completion_cache();
+        }
         local || proxy
     }
 
@@ -2074,6 +2100,102 @@ impl GatewayServer {
             sovereign_safetensors_loader::SamplerConfig::greedy(),
             on_chunk,
         )
+    }
+
+    /// Cache-aware generation: on a repeated **deterministic** (greedy) request
+    /// the completion is replayed from the opt-in cache for `$0` (no model call);
+    /// otherwise it generates and — if greedy — stores the result. Non-greedy
+    /// (temperature / top-p / top-k) requests always bypass the cache (their
+    /// output must vary), as does a daemon with caching disabled — in which case
+    /// this is exactly [`generate_chat_with_sampler`]. The cache key folds in the
+    /// resolved `model` name, so two models never share an entry.
+    ///
+    /// A cache hit returns an approximate token count (the exact count isn't
+    /// re-derived — no tokenizer pass runs on a hit); a miss returns the real one.
+    pub fn generate_chat_cached<F: FnMut(&str)>(
+        &self,
+        model: Option<&str>,
+        prompt: &str,
+        max_new: usize,
+        sampler_config: sovereign_safetensors_loader::SamplerConfig,
+        mut on_chunk: F,
+    ) -> Result<usize, String> {
+        let greedy = sampler_config.temperature == 0.0
+            && sampler_config.top_p.is_none()
+            && sampler_config.top_k.is_none();
+        // Model-scoped key so a secondary model never serves a primary's entry.
+        let keyed = format!("{}\u{0}{prompt}", model.unwrap_or(""));
+
+        if greedy {
+            if let Some(cache) = &self.completion_cache {
+                let hit = cache
+                    .lock()
+                    .ok()
+                    .and_then(|mut c| c.get_request(&keyed, max_new, 0));
+                if let Some(text) = hit {
+                    let est = text.len().div_ceil(4) as u64;
+                    on_chunk(&text);
+                    self.record_call("cache", model.unwrap_or("local"), est, 0);
+                    return Ok(est as usize);
+                }
+            }
+        }
+
+        // Miss (or non-greedy / disabled): generate, forwarding chunks to the
+        // caller while accumulating the full text so a greedy result can be stored.
+        let mut acc = String::new();
+        let n = self.generate_chat_with_sampler(model, prompt, max_new, sampler_config, |c| {
+            acc.push_str(c);
+            on_chunk(c);
+        })?;
+        if greedy {
+            if let Some(cache) = &self.completion_cache {
+                if let Ok(mut c) = cache.lock() {
+                    c.put_request(&keyed, max_new, 0, acc);
+                }
+            }
+        }
+        Ok(n)
+    }
+
+    /// Test-only: enable the completion cache with `capacity` entries (the env
+    /// `SOVEREIGN_GATEWAY_CACHE_CAPACITY` can't be set in-test under edition-2024's
+    /// unsafe-`set_var` + this crate's `#![forbid(unsafe_code)]`).
+    #[cfg(test)]
+    fn enable_cache_for_test(&mut self, capacity: usize) {
+        self.completion_cache = Some(Mutex::new(
+            sovereign_completion_cache::CompletionCache::new(capacity),
+        ));
+    }
+
+    /// Completion-cache stats `(hits, misses, entries)` — all zero when caching is
+    /// disabled. Surfaced in the health report.
+    #[must_use]
+    pub fn cache_stats(&self) -> (u64, u64, usize) {
+        self.completion_cache
+            .as_ref()
+            .and_then(|c| c.lock().ok())
+            .map_or((0, 0, 0), |c| (c.hits(), c.misses(), c.len()))
+    }
+
+    /// Drop all cached completions and return how many entries were dropped
+    /// (`0` when caching is disabled). Exposed for `POST /v1/cache/clear` so an
+    /// operator can flush the cache without a daemon restart.
+    pub fn clear_cache(&self) -> usize {
+        if let Some(cache) = &self.completion_cache {
+            if let Ok(mut c) = cache.lock() {
+                let n = c.len();
+                c.clear();
+                return n;
+            }
+        }
+        0
+    }
+
+    /// Drop all cached completions — called when the model set changes (load /
+    /// unload), since the same prompt can produce different output on new weights.
+    fn clear_completion_cache(&self) {
+        let _ = self.clear_cache();
     }
 
     /// Same as [`generate_chat`] but with a caller-supplied [`SamplerConfig`].
@@ -2672,6 +2794,7 @@ impl GatewayServer {
     /// Current health snapshot, including the never-cloud-spill invariant.
     pub fn health(&self) -> Health {
         let ledger = self.ledger_guard();
+        let (cache_hits, cache_misses, cache_entries) = self.cache_stats();
         Health {
             schema_version: SCHEMA_VERSION,
             live_surfaces: self.manifest.live_count(),
@@ -2681,6 +2804,9 @@ impl GatewayServer {
             never_cloud_spill_holds: ledger.cloud_spills == 0,
             nic_topology_compliant: self.nic_violations.is_empty(),
             rag_corpus_docs: self.corpus_len(),
+            cache_hits,
+            cache_misses,
+            cache_entries,
         }
     }
 
@@ -2831,6 +2957,27 @@ impl GatewayServer {
         s.push_str(&format!(
             "sovereign_gateway_rag_corpus_docs {}\n",
             self.corpus_len()
+        ));
+
+        // Opt-in completion cache (all zero when disabled). Hit-rate is
+        // hits/(hits+misses) — what an operator graphs to tune the capacity.
+        let (cache_hits, cache_misses, cache_entries) = self.cache_stats();
+        s.push_str(
+            "# HELP sovereign_gateway_cache_hits_total Completion-cache hits (a $0 replay, no model call).\n",
+        );
+        s.push_str("# TYPE sovereign_gateway_cache_hits_total counter\n");
+        s.push_str(&format!(
+            "sovereign_gateway_cache_hits_total {cache_hits}\n"
+        ));
+        s.push_str("# HELP sovereign_gateway_cache_misses_total Completion-cache misses (a generation ran).\n");
+        s.push_str("# TYPE sovereign_gateway_cache_misses_total counter\n");
+        s.push_str(&format!(
+            "sovereign_gateway_cache_misses_total {cache_misses}\n"
+        ));
+        s.push_str("# HELP sovereign_gateway_cache_entries Completion-cache resident entries (0 = cache off).\n");
+        s.push_str("# TYPE sovereign_gateway_cache_entries gauge\n");
+        s.push_str(&format!(
+            "sovereign_gateway_cache_entries {cache_entries}\n"
         ));
 
         s
@@ -3006,6 +3153,116 @@ mod tests {
         .unwrap();
         let n2 = s.reload_corpus_from_dir(&dir);
         assert!(n2 > n, "a second reload must pick up the added document");
+    }
+
+    #[test]
+    fn completion_cache_serves_a_repeated_greedy_request_for_free() {
+        // A greedy (deterministic) request is cached: the second identical call is
+        // a $0 hit that replays the same text without a model call.
+        let dir = TinyModelDir::new().expect("materialize fixture");
+        let mut s = GatewayServer::new();
+        s.inject_worker_from_dir(&dir.path_str())
+            .expect("load fixture");
+        s.enable_cache_for_test(8);
+        let greedy = sovereign_safetensors_loader::SamplerConfig::greedy();
+
+        let run_once = |s: &GatewayServer| {
+            let mut out = String::new();
+            s.generate_chat_cached(None, "hello", 6, greedy, |c| out.push_str(c))
+                .expect("gen");
+            out
+        };
+        let first = run_once(&s);
+        assert_eq!(
+            s.cache_stats(),
+            (0, 1, 1),
+            "first call misses + stores one entry"
+        );
+        let second = run_once(&s);
+        assert_eq!(
+            second, first,
+            "a cache hit replays the identical completion"
+        );
+        assert_eq!(s.cache_stats().0, 1, "the second identical call is a hit");
+    }
+
+    #[test]
+    fn prometheus_metrics_expose_cache_stats() {
+        let dir = TinyModelDir::new().expect("materialize fixture");
+        let mut s = GatewayServer::new();
+        s.inject_worker_from_dir(&dir.path_str())
+            .expect("load fixture");
+        s.enable_cache_for_test(8);
+        let greedy = sovereign_safetensors_loader::SamplerConfig::greedy();
+        // miss then hit → 1 hit, 1 miss, 1 entry
+        s.generate_chat_cached(None, "hello", 6, greedy, |_| {})
+            .expect("gen");
+        s.generate_chat_cached(None, "hello", 6, greedy, |_| {})
+            .expect("gen");
+        let m = s.metrics_prometheus();
+        assert!(m.contains("sovereign_gateway_cache_hits_total 1"), "{m}");
+        assert!(m.contains("sovereign_gateway_cache_misses_total 1"), "{m}");
+        assert!(m.contains("sovereign_gateway_cache_entries 1"), "{m}");
+    }
+
+    #[test]
+    fn completion_cache_bypasses_nongreedy_and_disabled() {
+        let dir = TinyModelDir::new().expect("materialize fixture");
+        let mut s = GatewayServer::new();
+        s.inject_worker_from_dir(&dir.path_str())
+            .expect("load fixture");
+
+        // Disabled cache ⇒ passthrough, stats stay zero.
+        let greedy = sovereign_safetensors_loader::SamplerConfig::greedy();
+        let mut out = String::new();
+        s.generate_chat_cached(None, "hi", 4, greedy, |c| out.push_str(c))
+            .expect("gen");
+        assert_eq!(
+            s.cache_stats(),
+            (0, 0, 0),
+            "a disabled cache records nothing"
+        );
+
+        // Enabled, but a non-greedy (temperature) request must never be cached.
+        s.enable_cache_for_test(8);
+        let hot = sovereign_safetensors_loader::SamplerConfig {
+            temperature: 1.2,
+            ..sovereign_safetensors_loader::SamplerConfig::default()
+        };
+        let mut o = String::new();
+        s.generate_chat_cached(None, "hi", 4, hot, |c| o.push_str(c))
+            .expect("gen");
+        assert_eq!(
+            s.cache_stats(),
+            (0, 0, 0),
+            "non-greedy generation bypasses the cache"
+        );
+    }
+
+    #[test]
+    fn loading_a_model_clears_the_completion_cache() {
+        // A changed model set can produce different output for a cached prompt, so
+        // load/unload must drop cached completions.
+        let dir = TinyModelDir::new().expect("materialize fixture");
+        let mut s = GatewayServer::new();
+        s.inject_worker_from_dir(&dir.path_str())
+            .expect("load fixture");
+        s.enable_cache_for_test(8);
+        let greedy = sovereign_safetensors_loader::SamplerConfig::greedy();
+        s.generate_chat_cached(None, "hello", 6, greedy, |_| {})
+            .expect("gen");
+        assert_eq!(s.cache_stats().2, 1, "one entry cached");
+        // unloading a (non-existent) id is a no-op that must not clear; loading a
+        // secondary from the fixture dir must clear.
+        assert!(!s.unload_model("nope"));
+        assert_eq!(
+            s.cache_stats().2,
+            1,
+            "a no-op unload leaves the cache intact"
+        );
+        s.load_model("second", &dir.path_str())
+            .expect("load secondary");
+        assert_eq!(s.cache_stats().2, 0, "loading a model clears the cache");
     }
 
     #[test]
