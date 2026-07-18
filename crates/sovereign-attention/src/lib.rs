@@ -165,6 +165,38 @@ impl Attention {
         Ok(softmax(&scores))
     }
 
+    /// The softmax attention weights with a learned **attention sink** — a
+    /// virtual logit that joins the softmax denominator but has no value vector,
+    /// so it absorbs probability mass the query would rather send "nowhere".
+    /// The returned weights are the real-position weights and therefore sum to
+    /// `1 − sink_share ≤ 1` (the deficit is the mass the sink took). This is the
+    /// GPT-OSS / StreamingLLM per-head sink. `sink = f32::NEG_INFINITY` recovers
+    /// the plain [`weights`](Self::weights) exactly.
+    pub fn weights_with_sink(
+        &self,
+        q: &[f32],
+        keys: &[Vec<f32>],
+        sink: f32,
+    ) -> Result<Vec<f32>, AttentionError> {
+        self.check_vec(q)?;
+        if keys.is_empty() {
+            return Err(AttentionError::EmptyContext);
+        }
+        for k in keys {
+            self.check_vec(k)?;
+        }
+        let scores: Vec<f32> = keys.iter().map(|k| self.scale * dot(q, k)).collect();
+        // max over the scores AND the sink logit, for numerical stability.
+        let max = scores
+            .iter()
+            .copied()
+            .fold(f32::NEG_INFINITY, f32::max)
+            .max(sink);
+        let exps: Vec<f32> = scores.iter().map(|s| (s - max).exp()).collect();
+        let denom: f32 = exps.iter().sum::<f32>() + (sink - max).exp();
+        Ok(exps.iter().map(|e| e / denom).collect())
+    }
+
     /// Naive full attention: `softmax(scale · q·Kᵀ) · V`.
     ///
     /// Materializes the score row, subtracts its max, softmaxes, then mixes
@@ -177,6 +209,28 @@ impl Attention {
     ) -> Result<Vec<f32>, AttentionError> {
         let value_dim = self.check_context(q, keys, values)?;
         let w = self.weights(q, keys)?;
+        let mut out = vec![0.0f32; value_dim];
+        for (wi, v) in w.iter().zip(values) {
+            for (o, vi) in out.iter_mut().zip(v) {
+                *o += wi * vi;
+            }
+        }
+        Ok(out)
+    }
+
+    /// Full attention with a per-head learned **attention sink** (GPT-OSS): like
+    /// [`attend`](Self::attend) but the softmax denominator includes the sink
+    /// logit, so the output is scaled down by the mass the sink absorbed.
+    /// `sink = f32::NEG_INFINITY` reduces to [`attend`](Self::attend) exactly.
+    pub fn attend_with_sink(
+        &self,
+        q: &[f32],
+        keys: &[Vec<f32>],
+        values: &[Vec<f32>],
+        sink: f32,
+    ) -> Result<Vec<f32>, AttentionError> {
+        let value_dim = self.check_context(q, keys, values)?;
+        let w = self.weights_with_sink(q, keys, sink)?;
         let mut out = vec![0.0f32; value_dim];
         for (wi, v) in w.iter().zip(values) {
             for (o, vi) in out.iter_mut().zip(v) {
@@ -375,6 +429,45 @@ mod tests {
         // the two keys aligned with q get equal, larger weight than the orthogonal one
         assert!(w[0] > w[1]);
         assert!((w[0] - w[2]).abs() < 1e-6);
+    }
+
+    #[test]
+    fn sink_neg_infinity_recovers_plain_attention() {
+        // An infinitely-negative sink contributes nothing, so the sink variants
+        // must equal the plain ones exactly.
+        let h = Attention::with_scale(2, 1.0);
+        let q = vec![0.7, -0.3];
+        let keys = vec![vec![1.0, 0.0], vec![0.0, 1.0], vec![0.5, 0.5]];
+        let values = vec![vec![1.0, 2.0], vec![3.0, 4.0], vec![5.0, 6.0]];
+        let w = h.weights(&q, &keys).unwrap();
+        let ws = h.weights_with_sink(&q, &keys, f32::NEG_INFINITY).unwrap();
+        assert!(approx(&w, &ws, 1e-6));
+        let a = h.attend(&q, &keys, &values).unwrap();
+        let asink = h
+            .attend_with_sink(&q, &keys, &values, f32::NEG_INFINITY)
+            .unwrap();
+        assert!(approx(&a, &asink, 1e-6));
+    }
+
+    #[test]
+    fn sink_absorbs_mass_and_matches_the_formula() {
+        // Single key: score = scale·q·k. With a sink logit `s`, the real weight
+        // is exp(score) / (exp(score) + exp(s)); the remainder is the sink share.
+        let h = Attention::with_scale(2, 1.0);
+        let q = vec![1.0, 0.0];
+        let keys = vec![vec![2.0, 0.0]]; // score = 1.0·(1·2) = 2.0
+        let sink = 1.0f32;
+        let w = h.weights_with_sink(&q, &keys, sink).unwrap();
+        let expected = 2.0f32.exp() / (2.0f32.exp() + 1.0f32.exp());
+        assert!(
+            (w[0] - expected).abs() < 1e-6,
+            "got {}, want {expected}",
+            w[0]
+        );
+        assert!(w[0] < 1.0, "the sink must absorb some mass");
+        // A larger sink absorbs more mass → smaller real weight.
+        let w_big = h.weights_with_sink(&q, &keys, 5.0).unwrap();
+        assert!(w_big[0] < w[0], "a bigger sink logit takes more mass");
     }
 
     #[test]

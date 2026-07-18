@@ -39,12 +39,24 @@
 //! `ffn_{gate,up}_exps` at conversion, so those load through this same path).
 //! MoE-vs-dense is decided **per layer** by expert-tensor presence
 //! (`ffn_gate_exps.weight`), so a model that interleaves dense and sparse layers
-//! assembles each layer correctly.
+//! assembles each layer correctly. When a MoE layer additionally carries expert
+//! biases (`ffn_{gate,up,down}_exps.bias` + `ffn_gate_inp.bias`), it is built as
+//! a **GPT-OSS** block — per-expert + router biases and the clamped-α SwiGLU
+//! activation — via [`MhaDecoderBlock::from_weights_moe_gpt_oss`]. GPT-OSS's
+//! attention extras load too when present: the q/k/v/o projection biases
+//! (`blk.{i}.attn_{q,k,v,output}.bias`) and the per-head attention sink
+//! (`blk.{i}.attn_sinks`). YaRN threads through the shared `rope_scaling` path.
+//! (The one remaining GPT-OSS piece is per-layer **sliding-window** attention —
+//! the block supports it via `with_sliding_window`, but wiring the per-layer
+//! pattern from GGUF metadata is a named follow-up.)
 
 use std::collections::BTreeMap;
 
 use sovereign_decoder_layer::{DecoderLayer, LayerStack};
-use sovereign_mha_block::{MhaBlockWeights, MhaDecoderBlock, MoeBlockWeights, MoeExpertWeights};
+use sovereign_mha_block::{
+    GptOssExpertBias, GptOssMoeWeights, MhaBlockWeights, MhaDecoderBlock, MoeBlockWeights,
+    MoeExpertWeights,
+};
 use sovereign_quant_model::QuantModel;
 use sovereign_rmsnorm::RmsNorm;
 
@@ -52,6 +64,12 @@ use crate::{Config, LoaderError, Precision, Sampler, elems};
 
 const GGUF_MAGIC: u32 = 0x4655_4747; // "GGUF" little-endian
 const DEFAULT_ALIGNMENT: usize = 32;
+
+/// GPT-OSS FFN activation constants (fixed across the released 20b / 120b
+/// checkpoints): the GLU gate scale α (the sigmoid-GELU approximation) and the
+/// `swiglu_limit` clamp bound. Applied when a MoE layer carries expert biases.
+const GPT_OSS_ALPHA: f32 = 1.702;
+const GPT_OSS_SWIGLU_LIMIT: f32 = 7.0;
 
 // ggml_type enum values. The full weight-bearing set is decoded: the legacy
 // "type-0/1" quants (Q4_0/Q4_1/Q5_0/Q5_1/Q8_0/Q8_1) and the k-quants
@@ -1192,8 +1210,67 @@ pub fn load_gguf(
                 w_router: f.tensor_exact(&t("ffn_gate_inp.weight"), elems(&[n_exp, md])?)?,
                 experts,
             };
-            MhaDecoderBlock::from_weights_moe(&weights, precision)
-                .map_err(|e| LoaderError::Build(format!("layer {i}: {e}")))?
+            // GPT-OSS carries a bias on every expert + router projection (and its
+            // FFN uses a clamped-α SwiGLU). When those bias tensors are present,
+            // build the GPT-OSS block; otherwise the standard SwiGLU MoE. Bias
+            // tensors are stacked per expert (`ffn_{gate,up}_exps.bias`:
+            // `[moe_hid]` per expert, `ffn_down_exps.bias`: `[model_dim]`),
+            // expert-major in ne order like their weight tensors.
+            if f.has_tensor(&t("ffn_gate_exps.bias")) {
+                let gate_b = f.tensor_exact(&t("ffn_gate_exps.bias"), elems(&[n_exp, moe_hid])?)?;
+                let up_b = f.tensor_exact(&t("ffn_up_exps.bias"), elems(&[n_exp, moe_hid])?)?;
+                let down_b = f.tensor_exact(&t("ffn_down_exps.bias"), elems(&[n_exp, md])?)?;
+                let router_bias = f.tensor_exact(&t("ffn_gate_inp.bias"), n_exp)?;
+                let expert_biases = (0..n_exp)
+                    .map(|e| GptOssExpertBias {
+                        gate: gate_b[e * moe_hid..(e + 1) * moe_hid].to_vec(),
+                        up: up_b[e * moe_hid..(e + 1) * moe_hid].to_vec(),
+                        down: down_b[e * md..(e + 1) * md].to_vec(),
+                    })
+                    .collect();
+                // Attention half: GPT-OSS biases every attention projection and
+                // has a per-query-head learned attention sink. Read them when
+                // present (they travel with the FFN biases in a gpt-oss GGUF).
+                let attn_q_bias = f
+                    .has_tensor(&t("attn_q.bias"))
+                    .then(|| f.tensor_exact(&t("attn_q.bias"), q_dim))
+                    .transpose()?;
+                let attn_k_bias = f
+                    .has_tensor(&t("attn_k.bias"))
+                    .then(|| f.tensor_exact(&t("attn_k.bias"), kv_dim))
+                    .transpose()?;
+                let attn_v_bias = f
+                    .has_tensor(&t("attn_v.bias"))
+                    .then(|| f.tensor_exact(&t("attn_v.bias"), kv_dim))
+                    .transpose()?;
+                let attn_o_bias = f
+                    .has_tensor(&t("attn_output.bias"))
+                    .then(|| f.tensor_exact(&t("attn_output.bias"), md))
+                    .transpose()?;
+                let attn_sinks = f
+                    .has_tensor(&t("attn_sinks"))
+                    .then(|| f.tensor_exact(&t("attn_sinks"), nq))
+                    .transpose()?;
+                let go = GptOssMoeWeights {
+                    base: weights,
+                    router_bias,
+                    expert_biases,
+                    // The released GPT-OSS constants (α = sigmoid-GELU approx;
+                    // swiglu_limit = 7.0 for gpt-oss-20b / 120b).
+                    alpha: GPT_OSS_ALPHA,
+                    limit: GPT_OSS_SWIGLU_LIMIT,
+                    attn_q_bias,
+                    attn_k_bias,
+                    attn_v_bias,
+                    attn_o_bias,
+                    attn_sinks,
+                };
+                MhaDecoderBlock::from_weights_moe_gpt_oss(&go, precision)
+                    .map_err(|e| LoaderError::Build(format!("layer {i}: {e}")))?
+            } else {
+                MhaDecoderBlock::from_weights_moe(&weights, precision)
+                    .map_err(|e| LoaderError::Build(format!("layer {i}: {e}")))?
+            }
         } else {
             let weights = MhaBlockWeights {
                 model_dim: md,
@@ -1778,6 +1855,12 @@ mod tests {
     }
 
     fn tiny_moe_gguf(used: u32) -> Vec<u8> {
+        tiny_moe_gguf_opt(used, false)
+    }
+
+    // `gpt_oss = true` adds the GPT-OSS expert + router bias tensors, so the
+    // loader builds the block via the clamped-α GPT-OSS FFN path.
+    fn tiny_moe_gguf_opt(used: u32, gpt_oss: bool) -> Vec<u8> {
         let (md, hid, ehid, n_exp, vocab) = (MOE_MD, MOE_HID, MOE_EXP_HID, MOE_N_EXP, MOE_VOCAB);
         let mut w = GgufWriter::new();
         w.kv_str("general.architecture", "llama");
@@ -1831,6 +1914,34 @@ mod tests {
             &[ehid, md, n_exp],
             &varying(8.0, n_exp * md * ehid),
         );
+        if gpt_oss {
+            // GPT-OSS biases: gate/up per-expert `[ehid]` (ne [ehid, n_exp]),
+            // down per-expert `[md]` (ne [md, n_exp]), router `[n_exp]`.
+            w.tensor_f32(
+                "blk.0.ffn_gate_exps.bias",
+                &[ehid, n_exp],
+                &varying(9.0, n_exp * ehid),
+            );
+            w.tensor_f32(
+                "blk.0.ffn_up_exps.bias",
+                &[ehid, n_exp],
+                &varying(10.0, n_exp * ehid),
+            );
+            w.tensor_f32(
+                "blk.0.ffn_down_exps.bias",
+                &[md, n_exp],
+                &varying(11.0, n_exp * md),
+            );
+            w.tensor_f32("blk.0.ffn_gate_inp.bias", &[n_exp], &varying(12.0, n_exp));
+            // GPT-OSS attention biases + per-head sinks. heads=2 → hd=md/2,
+            // q_dim=kv_dim=heads·hd=md, nq=heads.
+            let (qd, kvd, nq) = (md, md, MOE_HEADS);
+            w.tensor_f32("blk.0.attn_q.bias", &[qd], &varying(13.0, qd));
+            w.tensor_f32("blk.0.attn_k.bias", &[kvd], &varying(14.0, kvd));
+            w.tensor_f32("blk.0.attn_v.bias", &[kvd], &varying(15.0, kvd));
+            w.tensor_f32("blk.0.attn_output.bias", &[md], &varying(16.0, md));
+            w.tensor_f32("blk.0.attn_sinks", &[nq], &varying(17.0, nq));
+        }
         w.finish()
     }
 
@@ -1872,6 +1983,48 @@ mod tests {
                     "top-{used} {p:?} finite"
                 );
             }
+        }
+    }
+
+    #[test]
+    fn gpt_oss_gguf_uses_the_biased_clamped_ffn() {
+        // A GGUF MoE whose experts carry biases loads via the GPT-OSS FFN path
+        // (per-expert + router biases, clamped-α activation) and must decode
+        // differently from the same weights loaded without the bias tensors
+        // (the standard SwiGLU path) — proving the GPT-OSS branch was taken.
+        let with_bias = tiny_moe_gguf_opt(2, true);
+        let no_bias = tiny_moe_gguf_opt(2, false);
+        let mut a =
+            load_gguf(&with_bias, Precision::F32, Sampler::greedy()).expect("gpt-oss gguf loads");
+        let mut b =
+            load_gguf(&no_bias, Precision::F32, Sampler::greedy()).expect("standard gguf loads");
+        assert_eq!(a.vocab(), MOE_VOCAB);
+        let mut differed = false;
+        for tok in [0usize, 1, 2, 3] {
+            let ya = a.forward(tok).expect("gpt-oss forward");
+            let yb = b.forward(tok).expect("standard forward");
+            assert_eq!(ya.len(), MOE_VOCAB);
+            assert!(ya.iter().all(|x| x.is_finite()), "gpt-oss logits finite");
+            if ya != yb {
+                differed = true;
+            }
+        }
+        assert!(
+            differed,
+            "the GPT-OSS biased/clamped FFN must decode differently from SwiGLU"
+        );
+    }
+
+    #[test]
+    fn gpt_oss_gguf_quantized_runs() {
+        // The biased GPT-OSS experts also re-quantize to a runtime precision.
+        let bytes = tiny_moe_gguf_opt(2, true);
+        for p in [Precision::Int8, Precision::Nvfp4] {
+            let mut model = load_gguf(&bytes, p, Sampler::greedy())
+                .unwrap_or_else(|e| panic!("gpt-oss gguf at {p:?}: {e:?}"));
+            let logits = model.forward(1).expect("forward");
+            assert_eq!(logits.len(), MOE_VOCAB);
+            assert!(logits.iter().all(|x| x.is_finite()), "{p:?} finite");
         }
     }
 
