@@ -25,11 +25,21 @@
 //! by [`permute_qk_hf_to_interleaved`]), GGUF stores q/k already in the runtime's
 //! **interleaved** RoPE convention — so GGUF q/k are fed through verbatim, with
 //! NO permutation. Applying the safetensors permute here would corrupt rotation.
+//!
+//! **Mixture-of-experts (MoE Increment 3):** when the GGUF metadata declares
+//! `<arch>.expert_count > 1`, each layer's FFN is assembled as a MoE bank. GGUF
+//! stores the experts as one stacked 3-D tensor each —
+//! `blk.{i}.ffn_{gate,up,down}_exps.weight`, expert-major in `ne` order — plus a
+//! router `blk.{i}.ffn_gate_inp.weight`; every expert quantizes back to `f32`
+//! and slices out as a contiguous per-expert matrix, feeding
+//! [`MhaDecoderBlock::from_weights_moe`]. Top-k is `expert_used_count`, the
+//! per-expert width `expert_feed_forward_length`. This is the on-card quantized
+//! path for the Qwen3-30B-A3B / Mixtral / GPT-OSS class (their `.gguf` builds).
 
 use std::collections::BTreeMap;
 
 use sovereign_decoder_layer::{DecoderLayer, LayerStack};
-use sovereign_mha_block::{MhaBlockWeights, MhaDecoderBlock};
+use sovereign_mha_block::{MhaBlockWeights, MhaDecoderBlock, MoeBlockWeights, MoeExpertWeights};
 use sovereign_quant_model::QuantModel;
 use sovereign_rmsnorm::RmsNorm;
 
@@ -610,6 +620,20 @@ impl<'a> GgufFile<'a> {
 
         let tied = !self.infos.contains_key("output.weight");
 
+        // MoE metadata: `<arch>.expert_count` (n_expert), `.expert_used_count`
+        // (top-k), `.expert_feed_forward_length` (per-expert FFN width). Absent /
+        // 0 experts ⇒ a dense model (fields stay `None`).
+        let num_experts = self
+            .meta_u64(&format!("{arch}.expert_count"))
+            .map(|v| v as usize)
+            .filter(|&n| n > 0);
+        let num_experts_per_tok = self
+            .meta_u64(&format!("{arch}.expert_used_count"))
+            .map(|v| v as usize);
+        let moe_intermediate_size = self
+            .meta_u64(&format!("{arch}.expert_feed_forward_length"))
+            .map(|v| v as usize);
+
         Ok(Config {
             model_dim,
             n_layers,
@@ -622,12 +646,9 @@ impl<'a> GgufFile<'a> {
             head_dim,
             rope_theta,
             rope_scaling: None,
-            // GGUF MoE (stacked `ffn_*_exps` tensors + `expert_count` metadata)
-            // is a named follow-up — the GGUF path assembles dense blocks
-            // directly (not via `load_configured`), so these stay `None` here.
-            num_experts: None,
-            num_experts_per_tok: None,
-            moe_intermediate_size: None,
+            num_experts,
+            num_experts_per_tok,
+            moe_intermediate_size,
         })
     }
 }
@@ -1105,26 +1126,76 @@ pub fn load_gguf(
     let mut layers: Vec<Box<dyn DecoderLayer>> = Vec::with_capacity(config.n_layers);
     for i in 0..config.n_layers {
         let t = |suffix: &str| format!("blk.{i}.{suffix}");
-        let weights = MhaBlockWeights {
-            model_dim: md,
-            head_dim: hd,
-            num_q_heads: nq,
-            num_kv_heads: nkv,
-            hidden_dim: hidden,
-            attn_norm: RmsNorm::with_gain(f.tensor_exact(&t("attn_norm.weight"), md)?, config.eps),
-            ffn_norm: RmsNorm::with_gain(f.tensor_exact(&t("ffn_norm.weight"), md)?, config.eps),
-            // GGUF q/k are ALREADY interleaved — feed verbatim (no HF permute).
-            w_q: f.tensor_exact(&t("attn_q.weight"), elems(&[q_dim, md])?)?,
-            w_k: f.tensor_exact(&t("attn_k.weight"), elems(&[kv_dim, md])?)?,
-            w_v: f.tensor_exact(&t("attn_v.weight"), elems(&[kv_dim, md])?)?,
-            w_o: f.tensor_exact(&t("attn_output.weight"), elems(&[md, q_dim])?)?,
-            w_gate: f.tensor_exact(&t("ffn_gate.weight"), elems(&[hidden, md])?)?,
-            w_up: f.tensor_exact(&t("ffn_up.weight"), elems(&[hidden, md])?)?,
-            w_down: f.tensor_exact(&t("ffn_down.weight"), elems(&[md, hidden])?)?,
+        // Attention half — identical for dense and MoE layers. GGUF q/k are
+        // ALREADY interleaved, so (unlike safetensors) NO permute is applied.
+        let attn_norm = RmsNorm::with_gain(f.tensor_exact(&t("attn_norm.weight"), md)?, config.eps);
+        let ffn_norm = RmsNorm::with_gain(f.tensor_exact(&t("ffn_norm.weight"), md)?, config.eps);
+        let w_q = f.tensor_exact(&t("attn_q.weight"), elems(&[q_dim, md])?)?;
+        let w_k = f.tensor_exact(&t("attn_k.weight"), elems(&[kv_dim, md])?)?;
+        let w_v = f.tensor_exact(&t("attn_v.weight"), elems(&[kv_dim, md])?)?;
+        let w_o = f.tensor_exact(&t("attn_output.weight"), elems(&[md, q_dim])?)?;
+
+        // FFN half — a MoE bank of stacked expert tensors when the model
+        // declares experts, otherwise the dense SwiGLU. GGUF stores the experts
+        // as one 3-D tensor each (`ffn_{gate,up,down}_exps`), expert-major in ne
+        // order, so expert `e` is a contiguous per-expert slice.
+        let block = if config.is_moe() {
+            let n_exp = config.experts();
+            let moe_hid = config.moe_hidden();
+            let per_gate = elems(&[moe_hid, md])?; // [moe_hid, md] per expert
+            let per_down = elems(&[md, moe_hid])?; // [md, moe_hid] per expert
+            let gate_exps =
+                f.tensor_exact(&t("ffn_gate_exps.weight"), elems(&[n_exp, per_gate])?)?;
+            let up_exps = f.tensor_exact(&t("ffn_up_exps.weight"), elems(&[n_exp, per_gate])?)?;
+            let down_exps =
+                f.tensor_exact(&t("ffn_down_exps.weight"), elems(&[n_exp, per_down])?)?;
+            let mut experts = Vec::with_capacity(n_exp);
+            for e in 0..n_exp {
+                experts.push(MoeExpertWeights {
+                    w_gate: gate_exps[e * per_gate..(e + 1) * per_gate].to_vec(),
+                    w_up: up_exps[e * per_gate..(e + 1) * per_gate].to_vec(),
+                    w_down: down_exps[e * per_down..(e + 1) * per_down].to_vec(),
+                });
+            }
+            let weights = MoeBlockWeights {
+                model_dim: md,
+                head_dim: hd,
+                num_q_heads: nq,
+                num_kv_heads: nkv,
+                hidden_dim: moe_hid,
+                experts_per_tok: config.experts_per_tok(),
+                attn_norm,
+                ffn_norm,
+                w_q,
+                w_k,
+                w_v,
+                w_o,
+                w_router: f.tensor_exact(&t("ffn_gate_inp.weight"), elems(&[n_exp, md])?)?,
+                experts,
+            };
+            MhaDecoderBlock::from_weights_moe(&weights, precision)
+                .map_err(|e| LoaderError::Build(format!("layer {i}: {e}")))?
+        } else {
+            let weights = MhaBlockWeights {
+                model_dim: md,
+                head_dim: hd,
+                num_q_heads: nq,
+                num_kv_heads: nkv,
+                hidden_dim: hidden,
+                attn_norm,
+                ffn_norm,
+                w_q,
+                w_k,
+                w_v,
+                w_o,
+                w_gate: f.tensor_exact(&t("ffn_gate.weight"), elems(&[hidden, md])?)?,
+                w_up: f.tensor_exact(&t("ffn_up.weight"), elems(&[hidden, md])?)?,
+                w_down: f.tensor_exact(&t("ffn_down.weight"), elems(&[md, hidden])?)?,
+            };
+            MhaDecoderBlock::from_weights(&weights, precision)
+                .map_err(|e| LoaderError::Build(format!("layer {i}: {e}")))?
         };
-        let block = MhaDecoderBlock::from_weights(&weights, precision)
-            .map_err(|e| LoaderError::Build(format!("layer {i}: {e}")))?
-            .with_rope(config.rope_theta, config.rope_scaling_resolved().as_ref());
+        let block = block.with_rope(config.rope_theta, config.rope_scaling_resolved().as_ref());
         layers.push(Box::new(block));
     }
 
@@ -1666,5 +1737,188 @@ mod tests {
             logits.iter().all(|x| x.is_finite()),
             "logits must be finite"
         );
+    }
+
+    // ── GGUF mixture-of-experts (MoE Increment 3) ────────────────────────────
+
+    // A 1-layer MoE GGUF: router `ffn_gate_inp` + stacked expert tensors
+    // `ffn_{gate,up,down}_exps` (one 3-D tensor each, expert-major in ne order),
+    // and NO dense `ffn_{gate,up,down}` — so a successful load proves the MoE
+    // branch (not the dense one) was taken.
+    const MOE_MD: usize = 4;
+    const MOE_HEADS: usize = 2;
+    const MOE_HID: usize = 8; // dense feed_forward_length (metadata-required)
+    const MOE_EXP_HID: usize = 6; // per-expert width
+    const MOE_N_EXP: usize = 4;
+    const MOE_VOCAB: usize = 6;
+
+    fn varying(seed: f32, n: usize) -> Vec<f32> {
+        (0..n)
+            .map(|i| (((i as f32) + seed) * 0.05).sin() * 0.1)
+            .collect()
+    }
+
+    fn tiny_moe_gguf(used: u32) -> Vec<u8> {
+        let (md, hid, ehid, n_exp, vocab) = (MOE_MD, MOE_HID, MOE_EXP_HID, MOE_N_EXP, MOE_VOCAB);
+        let mut w = GgufWriter::new();
+        w.kv_str("general.architecture", "llama");
+        w.kv_u32("llama.embedding_length", md as u32);
+        w.kv_u32("llama.block_count", 1);
+        w.kv_u32("llama.attention.head_count", MOE_HEADS as u32);
+        w.kv_u32("llama.attention.head_count_kv", MOE_HEADS as u32);
+        w.kv_u32("llama.feed_forward_length", hid as u32);
+        w.kv_f32("llama.attention.layer_norm_rms_epsilon", 1e-5);
+        w.kv_f32("llama.rope.freq_base", 500000.0);
+        // MoE metadata.
+        w.kv_u32("llama.expert_count", n_exp as u32);
+        w.kv_u32("llama.expert_used_count", used);
+        w.kv_u32("llama.expert_feed_forward_length", ehid as u32);
+        // embedding + output norm + head
+        w.tensor_f32("token_embd.weight", &[md, vocab], &varying(0.5, md * vocab));
+        w.tensor_f32("output_norm.weight", &[md], &vec![1.0f32; md]);
+        w.tensor_f32("output.weight", &[md, vocab], &varying(0.9, md * vocab));
+        // one block — attention half
+        w.tensor_f32("blk.0.attn_norm.weight", &[md], &vec![1.0f32; md]);
+        w.tensor_f32("blk.0.ffn_norm.weight", &[md], &vec![1.0f32; md]);
+        w.tensor_f32("blk.0.attn_q.weight", &[md, md], &varying(1.0, md * md));
+        w.tensor_f32("blk.0.attn_k.weight", &[md, md], &varying(2.0, md * md));
+        w.tensor_f32("blk.0.attn_v.weight", &[md, md], &varying(3.0, md * md));
+        w.tensor_f32(
+            "blk.0.attn_output.weight",
+            &[md, md],
+            &varying(4.0, md * md),
+        );
+        // MoE FFN — router (ne [md, n_exp]) + stacked experts.
+        w.tensor_f32(
+            "blk.0.ffn_gate_inp.weight",
+            &[md, n_exp],
+            &varying(5.0, n_exp * md),
+        );
+        // ffn_gate_exps / ffn_up_exps: ne [md, ehid, n_exp], expert-major
+        // [ehid, md] row-major slices. ffn_down_exps: ne [ehid, md, n_exp],
+        // [md, ehid] slices.
+        w.tensor_f32(
+            "blk.0.ffn_gate_exps.weight",
+            &[md, ehid, n_exp],
+            &varying(6.0, n_exp * ehid * md),
+        );
+        w.tensor_f32(
+            "blk.0.ffn_up_exps.weight",
+            &[md, ehid, n_exp],
+            &varying(7.0, n_exp * ehid * md),
+        );
+        w.tensor_f32(
+            "blk.0.ffn_down_exps.weight",
+            &[ehid, md, n_exp],
+            &varying(8.0, n_exp * md * ehid),
+        );
+        w.finish()
+    }
+
+    #[test]
+    fn moe_config_derived_from_gguf_metadata() {
+        let bytes = tiny_moe_gguf(2);
+        let c = GgufFile::parse(&bytes).unwrap().config().unwrap();
+        assert!(c.is_moe());
+        assert_eq!(c.experts(), MOE_N_EXP);
+        assert_eq!(c.experts_per_tok(), 2);
+        assert_eq!(c.moe_hidden(), MOE_EXP_HID);
+    }
+
+    #[test]
+    fn loads_moe_gguf_end_to_end() {
+        // The FFN tensors present are ONLY the router + stacked experts, so a
+        // load that runs proves the loader built MoE blocks from GGUF.
+        let bytes = tiny_moe_gguf(2);
+        let mut model = load_gguf(&bytes, Precision::F32, Sampler::greedy())
+            .expect("MoE gguf should load into a runnable QuantModel");
+        assert_eq!(model.vocab(), MOE_VOCAB);
+        let logits = model.forward(0).expect("forward on GGUF MoE model");
+        assert_eq!(logits.len(), MOE_VOCAB);
+        assert!(logits.iter().all(|x| x.is_finite()), "logits finite");
+    }
+
+    #[test]
+    fn moe_gguf_top1_and_full_topk_and_quantized_all_run() {
+        // top-1, top-N, and a quantized runtime precision all assemble + run.
+        for used in [1u32, MOE_N_EXP as u32] {
+            let bytes = tiny_moe_gguf(used);
+            for p in [Precision::F32, Precision::Int8, Precision::Nvfp4] {
+                let mut model = load_gguf(&bytes, p, Sampler::greedy())
+                    .unwrap_or_else(|e| panic!("MoE gguf top-{used} at {p:?}: {e:?}"));
+                let logits = model.forward(1).expect("forward");
+                assert_eq!(logits.len(), MOE_VOCAB);
+                assert!(
+                    logits.iter().all(|x| x.is_finite()),
+                    "top-{used} {p:?} finite"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn moe_gguf_missing_expert_tensor_errors() {
+        // MoE metadata but a dense body (no `ffn_gate_exps`) must fail on the
+        // absent stacked expert tensor — proving the loader switched names.
+        let mut w = GgufWriter::new();
+        w.kv_str("general.architecture", "llama");
+        w.kv_u32("llama.embedding_length", MOE_MD as u32);
+        w.kv_u32("llama.block_count", 1);
+        w.kv_u32("llama.attention.head_count", MOE_HEADS as u32);
+        w.kv_u32("llama.attention.head_count_kv", MOE_HEADS as u32);
+        w.kv_u32("llama.feed_forward_length", MOE_HID as u32);
+        w.kv_u32("llama.expert_count", MOE_N_EXP as u32);
+        w.kv_u32("llama.expert_used_count", 2);
+        w.kv_u32("llama.expert_feed_forward_length", MOE_EXP_HID as u32);
+        let md = MOE_MD;
+        w.tensor_f32(
+            "token_embd.weight",
+            &[md, MOE_VOCAB],
+            &vec![0.02; md * MOE_VOCAB],
+        );
+        w.tensor_f32("output_norm.weight", &[md], &vec![1.0; md]);
+        w.tensor_f32(
+            "output.weight",
+            &[md, MOE_VOCAB],
+            &vec![0.02; md * MOE_VOCAB],
+        );
+        w.tensor_f32("blk.0.attn_norm.weight", &[md], &vec![1.0; md]);
+        w.tensor_f32("blk.0.ffn_norm.weight", &[md], &vec![1.0; md]);
+        w.tensor_f32("blk.0.attn_q.weight", &[md, md], &vec![0.02; md * md]);
+        w.tensor_f32("blk.0.attn_k.weight", &[md, md], &vec![0.02; md * md]);
+        w.tensor_f32("blk.0.attn_v.weight", &[md, md], &vec![0.02; md * md]);
+        w.tensor_f32("blk.0.attn_output.weight", &[md, md], &vec![0.02; md * md]);
+        // dense ffn tensors instead of the expert bank
+        w.tensor_f32(
+            "blk.0.ffn_gate.weight",
+            &[md, MOE_HID],
+            &vec![0.02; MOE_HID * md],
+        );
+        w.tensor_f32(
+            "blk.0.ffn_up.weight",
+            &[md, MOE_HID],
+            &vec![0.02; MOE_HID * md],
+        );
+        w.tensor_f32(
+            "blk.0.ffn_down.weight",
+            &[MOE_HID, md],
+            &vec![0.02; md * MOE_HID],
+        );
+        let bytes = w.finish();
+        assert!(matches!(
+            load_gguf(&bytes, Precision::F32, Sampler::greedy()),
+            Err(LoaderError::MissingTensor(_))
+        ));
+    }
+
+    #[test]
+    fn dense_gguf_stays_dense() {
+        // The existing dense fixture has no expert metadata → not MoE.
+        let c = GgufFile::parse(&tiny_model_gguf())
+            .unwrap()
+            .config()
+            .unwrap();
+        assert!(!c.is_moe());
+        assert_eq!(c.experts_per_tok(), 0);
     }
 }
