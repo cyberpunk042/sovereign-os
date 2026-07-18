@@ -522,3 +522,158 @@ def test_cli_forwards_token_when_set(monkeypatch):
     assert captured["headers"].get("X-sovereign-jobs-token".lower()) == "abc", (
         "jobs_cli must forward the shared token so the sanctioned path still works"
     )
+
+
+# ── F-2026-091: grow the runtime (workdir sandbox / rlimits+timeout / priority /
+#    checkpoint-resume) ──────────────────────────────────────────────────────
+
+def test_priority_persists_and_summary_counts(tmp_path):
+    js = _store_mod()
+    s = js.JobStore(tmp_path / "p.json")
+    s.create("demo", "hi", priority="high")
+    s.create("demo", "lo", priority="low")
+    s.create("demo", "def")  # default normal
+    by = js.summary(s.list())["by_priority"]
+    assert by == {"high": 1, "low": 1, "normal": 1}
+    # an unknown priority is rejected at create
+    try:
+        s.create("demo", "x", priority="bogus")
+        raise AssertionError("unknown priority must raise")
+    except ValueError:
+        pass
+
+
+def test_priority_queue_orders_high_before_low(tmp_path):
+    """The dispatch queue drains high before normal before low (the ordering
+    contract), independent of submit order — tested deterministically over the
+    priority tuple so it never races the worker threads."""
+    import queue as _q
+    api = _api_mod(tmp_path / "pq")
+    pq: _q.PriorityQueue = _q.PriorityQueue()
+    for prio, jid in [("low", "a"), ("high", "b"), ("normal", "c")]:
+        pq.put((api._PRIORITY_RANK[prio], 0, jid))
+    drained = [pq.get()[2] for _ in range(3)]
+    assert drained == ["b", "c", "a"], "must drain high → normal → low"
+    # and a submitted job carries its priority into the registry
+    j = api.submit("demo", "hp", meta={"steps": 1, "delay": 0.01}, priority="high")
+    assert api.STORE.get(j["id"])["priority"] == "high"
+
+
+def test_command_job_output_is_confined_to_the_jobs_tree(tmp_path):
+    """A command runner's cwd + log live under WORK_ROOT/<id> (inside the one
+    ReadWritePaths the unit grants), not read-only REPO or PrivateTmp — the
+    F-2026-091 sandbox-breakage fix. The job records its workdir."""
+    api = _api_mod(tmp_path / "wd")
+    j = api.submit("eval", "write-a-file", meta={"command": [
+        sys.executable, "-c", "open('out.txt','w').write('hi'); print('wrote out.txt')"]})
+    for _ in range(500):
+        cur = api.STORE.get(j["id"])
+        if cur and cur["state"] in api._js.TERMINAL:
+            break
+        time.sleep(0.02)
+    cur = api.STORE.get(j["id"])
+    assert cur["state"] == "done", cur.get("error")
+    wd = Path(cur["workdir"])
+    # the scratch dir is under the registry's own tree (WORK_ROOT), not REPO/tmp
+    assert api.STORE.path.parent.resolve() in wd.resolve().parents, \
+        "workdir must be under the jobs tree"
+    assert wd == api.STORE.work_root / cur["id"]
+    # the child wrote its relative file INTO the scratch dir (cwd == workdir)
+    assert (wd / "out.txt").read_text() == "hi"
+    assert (wd / "run.log").exists(), "the job log lives in the scratch dir"
+
+
+def test_command_job_is_killed_at_its_wall_clock_deadline(tmp_path):
+    api = _api_mod(tmp_path / "to")
+    t0 = time.monotonic()
+    j = api.submit("eval", "sleeper", meta={
+        "command": [sys.executable, "-c", "import time; time.sleep(60)"],
+        "timeout_secs": 1})
+    for _ in range(600):
+        cur = api.STORE.get(j["id"])
+        if cur and cur["state"] in api._js.TERMINAL:
+            break
+        time.sleep(0.02)
+    cur = api.STORE.get(j["id"])
+    assert cur["state"] == "failed" and "timeout" in cur["error"].lower()
+    assert time.monotonic() - t0 < 10, "must terminate near the 1s deadline, not run 60s"
+
+
+def test_resource_limits_resolve_defaults_meta_and_env_ceiling(tmp_path, monkeypatch):
+    api = _api_mod(tmp_path / "rl")
+    # per-kind default
+    d = api._resolve_limits({"kind": "eval", "meta": {}})
+    assert d["cpu_secs"] == 900 and d["mem_bytes"] == 4 * api.GB
+    # meta tightens
+    m = api._resolve_limits({"kind": "eval", "meta": {"limits": {"cpu_secs": 30}}})
+    assert m["cpu_secs"] == 30
+    # env ceiling clamps DOWN (a job can't loosen past it)
+    monkeypatch.setenv("SOVEREIGN_OS_JOBS_MAX_CPU_SECS", "10")
+    c = api._resolve_limits({"kind": "eval", "meta": {"limits": {"cpu_secs": 999}}})
+    assert c["cpu_secs"] == 10, "env ceiling must clamp the per-job cap down"
+
+
+def test_resource_limit_is_enforced_on_the_child(tmp_path):
+    """A memory cap actually applies in the child (RLIMIT_AS trips a MemoryError),
+    proving the preexec rlimits reach the subprocess."""
+    if getattr(__import__("resource", fromlist=["x"]), "RLIMIT_AS", None) is None:
+        return  # non-POSIX; skip
+    api = _api_mod(tmp_path / "rlim")
+    # 64 MiB address-space cap; the child tries to grab ~512 MiB → dies non-zero.
+    j = api.submit("eval", "hog", meta={
+        "command": [sys.executable, "-c", "b = bytearray(512*1024*1024); print(len(b))"],
+        "limits": {"mem_bytes": 64 * 1024 * 1024}})
+    for _ in range(600):
+        cur = api.STORE.get(j["id"])
+        if cur and cur["state"] in api._js.TERMINAL:
+            break
+        time.sleep(0.02)
+    cur = api.STORE.get(j["id"])
+    assert cur["state"] == "failed", "a job exceeding its memory cap must fail, not succeed"
+
+
+def test_resume_resumes_idempotent_from_checkpoint_and_fails_command_kinds(tmp_path):
+    """resume_orphans re-runs a crashed idempotent job from its checkpoint (attempt
+    bumped) but fails a side-effecting command kind loudly."""
+    api = _api_mod(tmp_path / "rr")
+    # seed two crashed (state=running) jobs directly in the runtime's own store
+    d = api.STORE.create("demo", "crashed", meta={"steps": 3, "delay": 0.01})
+    api.STORE.update(d["id"], state="running", progress=66, checkpoint={"step": 2})
+    c = api.STORE.create("eval", "cmd", meta={"command": ["true"]})
+    api.STORE.update(c["id"], state="running")
+
+    api.resume_orphans()
+    for _ in range(400):
+        dd = api.STORE.get(d["id"])
+        if dd and dd["state"] in api._js.TERMINAL:
+            break
+        time.sleep(0.02)
+    dd = api.STORE.get(d["id"])
+    cc = api.STORE.get(c["id"])
+    assert dd["state"] == "done" and dd["attempt"] == 2 and "resumed" in dd["output"]
+    assert cc["state"] == "failed" and "non-resumable" in cc["error"]
+
+
+def test_resume_gives_up_after_the_attempt_cap(tmp_path):
+    api = _api_mod(tmp_path / "cap")
+    d = api.STORE.create("demo", "flaky", meta={"steps": 1}, max_attempts=2)
+    api.STORE.update(d["id"], state="running", attempt=2)  # already at the cap
+    api.resume_orphans()
+    time.sleep(0.1)
+    cur = api.STORE.get(d["id"])
+    assert cur["state"] == "failed" and "max attempts" in cur["error"]
+
+
+def test_prune_removes_the_job_scratch_dir(tmp_path):
+    js = _store_mod()
+    s = js.JobStore(tmp_path / "pr" / "registry.json")
+    j = s.create("demo", "leaves-a-dir")
+    wd = s.workdir(j["id"])
+    (wd / "run.log").write_text("noise")
+    assert wd.exists()
+    s.update(j["id"], state="done")
+    for i in range(3):
+        x = s.create("demo", f"x{i}")
+        s.update(x["id"], state="done")
+    s.prune(keep=1)
+    assert not wd.exists(), "a pruned job's scratch dir must be removed"

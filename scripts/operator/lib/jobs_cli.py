@@ -54,7 +54,10 @@ def _print(obj: dict, as_json: bool) -> int:
         s = obj.get("summary", {})
         print(f"{s.get('total', 0)} job(s) — {s.get('running', 0)} running, {s.get('queued', 0)} queued")
         for j in obj["jobs"][:40]:
-            print(f"  {j['id']}  {j['state']:<9} {j['progress']:>3}%  {j['kind']:<12} "
+            prio = j.get("priority", "normal")
+            att = j.get("attempt", 1)
+            tag = f"{prio[:4]:<4}" + (f" a{att}" if att > 1 else "   ")
+            print(f"  {j['id']}  {j['state']:<9} {j['progress']:>3}%  {tag}  {j['kind']:<12} "
                   f"{j['device']:<12} {j['title']}")
     else:
         print(f"{obj.get('id', '?')}  {obj.get('state', '?')}  {obj.get('progress', 0)}%  "
@@ -81,6 +84,10 @@ def main(argv: list[str]) -> int:
     p_sub.add_argument("kind", choices=["deliberation", "eval", "model-load", "gpu-job", "demo"])
     p_sub.add_argument("--title", default="")
     p_sub.add_argument("--device", default="cpu")
+    p_sub.add_argument("--priority", choices=["high", "normal", "low"], default="normal",
+                       help="scheduling priority (high runs before normal before low)")
+    p_sub.add_argument("--timeout-secs", type=int, default=0,
+                       help="wall-clock cap for a command job (0 = per-kind default)")
     p_sub.add_argument("--problem", default="")   # deliberation
     p_sub.add_argument("--rung", default="coat")
     p_sub.add_argument("--topic", type=int, default=15)
@@ -132,9 +139,12 @@ def main(argv: list[str]) -> int:
                 print("error: this kind needs a command: … submit eval -- python3 scripts/…", file=sys.stderr)
                 return 2
             meta = {"command": cmd_tail}
+            if args.timeout_secs > 0:
+                meta["timeout_secs"] = args.timeout_secs
         title = args.title or (args.problem if args.kind == "deliberation" else args.kind)
         return _print(_call("POST", "/jobs", {
-            "kind": args.kind, "title": title, "device": args.device, "meta": meta}), args.json)
+            "kind": args.kind, "title": title, "device": args.device,
+            "priority": args.priority, "meta": meta}), args.json)
     ap.print_help()
     return 0
 
