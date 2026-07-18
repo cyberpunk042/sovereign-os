@@ -34,7 +34,12 @@
 //! and slices out as a contiguous per-expert matrix, feeding
 //! [`MhaDecoderBlock::from_weights_moe`]. Top-k is `expert_used_count`, the
 //! per-expert width `expert_feed_forward_length`. This is the on-card quantized
-//! path for the Qwen3-30B-A3B / Mixtral / GPT-OSS class (their `.gguf` builds).
+//! path for the Qwen3-30B-A3B / Mixtral / GPT-OSS class (their `.gguf` builds;
+//! llama.cpp de-interleaves GPT-OSS's fused gate_up into separate
+//! `ffn_{gate,up}_exps` at conversion, so those load through this same path).
+//! MoE-vs-dense is decided **per layer** by expert-tensor presence
+//! (`ffn_gate_exps.weight`), so a model that interleaves dense and sparse layers
+//! assembles each layer correctly.
 
 use std::collections::BTreeMap;
 
@@ -516,6 +521,12 @@ impl<'a> GgufFile<'a> {
             .and_then(MetaValue::as_str)
     }
 
+    /// Whether a tensor by that exact name is present.
+    #[must_use]
+    pub fn has_tensor(&self, name: &str) -> bool {
+        self.infos.contains_key(name)
+    }
+
     /// The tensor names present.
     #[must_use]
     pub fn names(&self) -> Vec<&str> {
@@ -649,6 +660,10 @@ impl<'a> GgufFile<'a> {
             num_experts,
             num_experts_per_tok,
             moe_intermediate_size,
+            // GGUF per-layer dense/MoE interleaving is detected by expert-tensor
+            // presence at assembly time, not from config metadata.
+            mlp_only_layers: None,
+            decoder_sparse_step: None,
         })
     }
 }
@@ -1135,11 +1150,15 @@ pub fn load_gguf(
         let w_v = f.tensor_exact(&t("attn_v.weight"), elems(&[kv_dim, md])?)?;
         let w_o = f.tensor_exact(&t("attn_output.weight"), elems(&[md, q_dim])?)?;
 
-        // FFN half — a MoE bank of stacked expert tensors when the model
-        // declares experts, otherwise the dense SwiGLU. GGUF stores the experts
-        // as one 3-D tensor each (`ffn_{gate,up,down}_exps`), expert-major in ne
-        // order, so expert `e` is a contiguous per-expert slice.
-        let block = if config.is_moe() {
+        // FFN half — a MoE bank of stacked expert tensors when THIS layer has
+        // them, otherwise the dense SwiGLU. GGUF stores the experts as one 3-D
+        // tensor each (`ffn_{gate,up,down}_exps`), expert-major in ne order, so
+        // expert `e` is a contiguous per-expert slice. Detection is per-layer by
+        // tensor presence, so a model that interleaves dense and sparse layers
+        // (some `blk.{i}` carry `ffn_gate.weight`, others `ffn_gate_exps.weight`)
+        // assembles each layer correctly.
+        let layer_is_moe = config.is_moe() && f.has_tensor(&t("ffn_gate_exps.weight"));
+        let block = if layer_is_moe {
             let n_exp = config.experts();
             let moe_hid = config.moe_hidden();
             let per_gate = elems(&[moe_hid, md])?; // [moe_hid, md] per expert
@@ -1856,21 +1875,24 @@ mod tests {
         }
     }
 
-    #[test]
-    fn moe_gguf_missing_expert_tensor_errors() {
-        // MoE metadata but a dense body (no `ffn_gate_exps`) must fail on the
-        // absent stacked expert tensor — proving the loader switched names.
+    // A MoE-metadata GGUF whose single block carries the chosen FFN tensors.
+    // `moe=true` writes the expert bank; `moe=false` writes dense ffn tensors
+    // (the per-layer-dense case that interleaving must accept). `full_bank`
+    // controls whether the expert bank is complete.
+    fn moe_meta_gguf(moe: bool, full_bank: bool) -> Vec<u8> {
+        let md = MOE_MD;
+        let ehid = MOE_EXP_HID;
+        let n_exp = MOE_N_EXP;
         let mut w = GgufWriter::new();
         w.kv_str("general.architecture", "llama");
-        w.kv_u32("llama.embedding_length", MOE_MD as u32);
+        w.kv_u32("llama.embedding_length", md as u32);
         w.kv_u32("llama.block_count", 1);
         w.kv_u32("llama.attention.head_count", MOE_HEADS as u32);
         w.kv_u32("llama.attention.head_count_kv", MOE_HEADS as u32);
         w.kv_u32("llama.feed_forward_length", MOE_HID as u32);
-        w.kv_u32("llama.expert_count", MOE_N_EXP as u32);
+        w.kv_u32("llama.expert_count", n_exp as u32);
         w.kv_u32("llama.expert_used_count", 2);
-        w.kv_u32("llama.expert_feed_forward_length", MOE_EXP_HID as u32);
-        let md = MOE_MD;
+        w.kv_u32("llama.expert_feed_forward_length", ehid as u32);
         w.tensor_f32(
             "token_embd.weight",
             &[md, MOE_VOCAB],
@@ -1888,23 +1910,69 @@ mod tests {
         w.tensor_f32("blk.0.attn_k.weight", &[md, md], &vec![0.02; md * md]);
         w.tensor_f32("blk.0.attn_v.weight", &[md, md], &vec![0.02; md * md]);
         w.tensor_f32("blk.0.attn_output.weight", &[md, md], &vec![0.02; md * md]);
-        // dense ffn tensors instead of the expert bank
-        w.tensor_f32(
-            "blk.0.ffn_gate.weight",
-            &[md, MOE_HID],
-            &vec![0.02; MOE_HID * md],
-        );
-        w.tensor_f32(
-            "blk.0.ffn_up.weight",
-            &[md, MOE_HID],
-            &vec![0.02; MOE_HID * md],
-        );
-        w.tensor_f32(
-            "blk.0.ffn_down.weight",
-            &[MOE_HID, md],
-            &vec![0.02; md * MOE_HID],
-        );
-        let bytes = w.finish();
+        if moe {
+            w.tensor_f32(
+                "blk.0.ffn_gate_inp.weight",
+                &[md, n_exp],
+                &vec![0.02; n_exp * md],
+            );
+            w.tensor_f32(
+                "blk.0.ffn_gate_exps.weight",
+                &[md, ehid, n_exp],
+                &vec![0.02; n_exp * ehid * md],
+            );
+            if full_bank {
+                w.tensor_f32(
+                    "blk.0.ffn_up_exps.weight",
+                    &[md, ehid, n_exp],
+                    &vec![0.02; n_exp * ehid * md],
+                );
+                w.tensor_f32(
+                    "blk.0.ffn_down_exps.weight",
+                    &[ehid, md, n_exp],
+                    &vec![0.02; n_exp * md * ehid],
+                );
+            }
+            // full_bank=false omits ffn_up_exps / ffn_down_exps → incomplete.
+        } else {
+            // Dense FFN tensors instead of the expert bank.
+            w.tensor_f32(
+                "blk.0.ffn_gate.weight",
+                &[md, MOE_HID],
+                &vec![0.02; MOE_HID * md],
+            );
+            w.tensor_f32(
+                "blk.0.ffn_up.weight",
+                &[md, MOE_HID],
+                &vec![0.02; MOE_HID * md],
+            );
+            w.tensor_f32(
+                "blk.0.ffn_down.weight",
+                &[MOE_HID, md],
+                &vec![0.02; md * MOE_HID],
+            );
+        }
+        w.finish()
+    }
+
+    #[test]
+    fn moe_gguf_dense_layer_loads_via_interleaving() {
+        // A MoE-metadata GGUF whose only block has DENSE ffn tensors (no expert
+        // bank) is treated as a dense layer by per-layer tensor-presence
+        // detection — the interleaving case — and loads + runs.
+        let bytes = moe_meta_gguf(false, false);
+        let mut model = load_gguf(&bytes, Precision::F32, Sampler::greedy())
+            .expect("a dense-FFN layer under MoE metadata must load as dense");
+        let logits = model.forward(0).expect("forward");
+        assert_eq!(logits.len(), MOE_VOCAB);
+        assert!(logits.iter().all(|x| x.is_finite()));
+    }
+
+    #[test]
+    fn moe_gguf_incomplete_expert_bank_errors() {
+        // A layer that HAS `ffn_gate_exps` (so it's detected as MoE) but is
+        // missing `ffn_up_exps` must fail on the absent stacked tensor.
+        let bytes = moe_meta_gguf(true, false);
         assert!(matches!(
             load_gguf(&bytes, Precision::F32, Sampler::greedy()),
             Err(LoaderError::MissingTensor(_))
