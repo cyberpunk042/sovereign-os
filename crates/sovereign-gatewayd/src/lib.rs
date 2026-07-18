@@ -3060,6 +3060,53 @@ mod tests {
     }
 
     #[test]
+    fn moe_safetensors_model_dir_loads_and_generates() {
+        // A mixture-of-experts safetensors dir (router + per-expert bank, no dense
+        // mlp.*) loads through the SAME production path and runs a forward pass —
+        // proving MoE Increment 2 composes end-to-end through the daemon.
+        let dir = TinyModelDir::new_moe().expect("materialize MoE fixture");
+        let mut s = GatewayServer::new();
+        let (vocab, layers) = s
+            .inject_worker_from_dir(&dir.path_str())
+            .expect("the MoE model dir must load through the daemon path");
+        assert_eq!(
+            (vocab, layers),
+            (256, 2),
+            "the MoE fixture is a vocab-256, 2-layer model"
+        );
+        let mut out = String::new();
+        let n = s
+            .generate_chat(None, "hello", 6, |c| out.push_str(c))
+            .expect("MoE-backed generation must succeed");
+        assert!(n > 0 && !out.is_empty(), "a MoE model must emit tokens");
+    }
+
+    #[test]
+    fn moe_gguf_model_dir_loads_and_generates() {
+        // The on-card path: a MoE GGUF (stacked ffn_*_exps + expert metadata)
+        // loads through load_generator_from_dir → load_gguf and generates —
+        // MoE Increment 3 end-to-end through the daemon.
+        let dir = TinyModelDir::new_moe_gguf().expect("materialize MoE gguf fixture");
+        let mut s = GatewayServer::new();
+        let (vocab, layers) = s
+            .inject_worker_from_dir(&dir.path_str())
+            .expect("the MoE GGUF model dir must load through the daemon path");
+        assert_eq!(
+            (vocab, layers),
+            (256, 1),
+            "the MoE gguf fixture is a vocab-256, 1-layer model"
+        );
+        let mut out = String::new();
+        let n = s
+            .generate_chat(None, "hello", 6, |c| out.push_str(c))
+            .expect("MoE GGUF-backed generation must succeed");
+        assert!(
+            n > 0 && !out.is_empty(),
+            "a MoE GGUF-loaded model must emit tokens"
+        );
+    }
+
+    #[test]
     fn model_backed_generation_is_nonempty_and_deterministic() {
         let dir = TinyModelDir::new().expect("materialize fixture");
         let mut s = GatewayServer::new();
