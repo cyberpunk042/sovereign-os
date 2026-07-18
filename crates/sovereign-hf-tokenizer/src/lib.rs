@@ -321,6 +321,59 @@ impl HfBpeTokenizer {
         })
     }
 
+    /// Build directly from a GGUF checkpoint's embedded byte-level BPE tokenizer
+    /// (`tokenizer.ggml.model = "gpt2"`/`"bpe"`). `tokens[i]` is the piece for id
+    /// `i` (already in the GPT-2 byte-level alphabet, exactly as `tokenizer.json`
+    /// stores it); `merges` are `"left right"` rank-ordered rules; `special_ids`
+    /// are the control/user-defined tokens to keep atomic. This lets a bare
+    /// `*.gguf` tokenize standalone — no sidecar `tokenizer.json` needed.
+    ///
+    /// # Errors
+    /// Returns [`HfTokenizerError::NotBpe`] if `tokens` is empty or a merge rule
+    /// is malformed (not a `"left right"` pair).
+    pub fn from_gguf_bpe(
+        tokens: &[String],
+        merges: &[String],
+        special_ids: &[u32],
+        bos_id: Option<u32>,
+    ) -> Result<Self, HfTokenizerError> {
+        if tokens.is_empty() {
+            return Err(HfTokenizerError::NotBpe);
+        }
+        let (byte_encoder, byte_decoder) = bytes_to_unicode();
+
+        let mut vocab: HashMap<String, u32> = HashMap::with_capacity(tokens.len());
+        let mut decoder: HashMap<u32, String> = HashMap::with_capacity(tokens.len());
+        for (id, piece) in tokens.iter().enumerate() {
+            let id = id as u32;
+            vocab.insert(piece.clone(), id);
+            decoder.insert(id, piece.clone());
+        }
+
+        let mut merge_ranks = HashMap::with_capacity(merges.len());
+        for (rank, m) in merges.iter().enumerate() {
+            let mut it = m.splitn(2, ' ');
+            let a = it.next().ok_or(HfTokenizerError::NotBpe)?.to_string();
+            let b = it.next().ok_or(HfTokenizerError::NotBpe)?.to_string();
+            merge_ranks.insert((a, b), rank);
+        }
+
+        let special_ids: HashSet<u32> = special_ids.iter().copied().collect();
+        let vocab_size = decoder.keys().copied().max().map_or(0, |m| m as usize + 1);
+        Ok(Self {
+            vocab,
+            decoder,
+            merge_ranks,
+            byte_encoder,
+            byte_decoder,
+            special_ids,
+            vocab_size,
+            bos_id,
+            // GGUF gpt2/bpe tokenizers use the byte-level alphabet (not Metaspace).
+            pretok: Pretok::Gpt2,
+        })
+    }
+
     /// True when this tokenizer uses SentencePiece Metaspace segmentation
     /// (`▁`-for-space) rather than the GPT-2 byte-level alphabet.
     pub fn is_metaspace(&self) -> bool {
@@ -683,6 +736,43 @@ mod tests {
         assert_eq!(t.bos_id(), Some(100));
         assert_eq!(t.vocab_size(), 101); // max id 100 + 1
         assert_eq!(t.decode(&[100, 5]), "ab"); // special skipped
+    }
+
+    #[test]
+    fn from_gguf_bpe_matches_json_path() {
+        // The same byte-level BPE tokenizer as MINI, but expressed as GGUF parts:
+        // a dense id→piece array + "left right" merges. Behavior must match the
+        // tokenizer.json path exactly.
+        let tokens: Vec<String> = ["<unk>", "a", "b", "c", "Ġ", "ab", "Ġa", "abc"]
+            .iter()
+            .map(|s| (*s).to_string())
+            .collect();
+        let merges: Vec<String> = ["a b", "Ġ a", "ab c"]
+            .iter()
+            .map(|s| (*s).to_string())
+            .collect();
+        let t = HfBpeTokenizer::from_gguf_bpe(&tokens, &merges, &[0], Some(0)).unwrap();
+        assert_eq!(t.vocab_size(), 8);
+        assert_eq!(t.bos_id(), Some(0));
+        assert!(!t.is_metaspace());
+        // merge ranks apply identically to the json path
+        assert_eq!(t.encode("ab"), vec![5]);
+        assert_eq!(t.encode("abc"), vec![7]);
+        assert_eq!(t.encode(" a"), vec![6]); // space → Ġ, then Ġ+a
+        // decode inverts the byte-level alphabet; special id 0 is dropped
+        assert_eq!(t.decode(&[5]), "ab");
+        assert_eq!(t.decode(&[0, 7]), "abc");
+        assert_eq!(t.decode(&t.encode("abc")), "abc");
+    }
+
+    #[test]
+    fn from_gguf_bpe_rejects_empty_and_malformed() {
+        // empty vocab → NotBpe
+        assert!(HfBpeTokenizer::from_gguf_bpe(&[], &[], &[], None).is_err());
+        // a merge without a space separator is malformed → NotBpe
+        let toks = vec!["a".to_string(), "b".to_string()];
+        let bad = vec!["ab".to_string()];
+        assert!(HfBpeTokenizer::from_gguf_bpe(&toks, &bad, &[], None).is_err());
     }
 
     #[test]

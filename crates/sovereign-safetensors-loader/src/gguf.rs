@@ -113,8 +113,11 @@ impl<'a> Cur<'a> {
 
 // ── metadata value ───────────────────────────────────────────────────────────
 
-/// A parsed GGUF metadata value (only the scalar accessors the loader needs are
-/// exposed; arrays are parsed + skipped so the tensor table is reached).
+/// A parsed GGUF metadata value. Scalars back the [`Config`] derivation; string
+/// and numeric arrays are retained (not just skipped) so the **embedded
+/// tokenizer** (`tokenizer.ggml.tokens` / `.merges` / `.token_type` / `.scores`)
+/// can be extracted — a GGUF that carries its own tokenizer loads standalone,
+/// with no sidecar `tokenizer.json`.
 #[derive(Debug, Clone)]
 enum MetaValue {
     U(u64),
@@ -125,8 +128,18 @@ enum MetaValue {
     #[allow(dead_code)]
     Bool(bool),
     Str(String),
-    /// An array — retained only as its length (we never need array contents for
-    /// the Config; tokenizer arrays are consumed by the tokenizer path).
+    /// A `STRING` array — the tokenizer's token pieces and merge rules.
+    StrArray(Vec<String>),
+    /// An integer array (any int/bool element type, widened to `i64`) — the
+    /// tokenizer's `token_type` lanes.
+    IntArray(Vec<i64>),
+    /// A float array — the tokenizer's SentencePiece `scores`. Retained so the
+    /// array parse stays lossless; the byte-level BPE path needs no scores, so
+    /// the payload is intentionally unread today.
+    #[allow(dead_code)]
+    FloatArray(Vec<f64>),
+    /// A nested / otherwise-unmodeled array, retained only as a marker (its
+    /// contents were skipped so the tensor table is still reached).
     Array,
 }
 
@@ -167,21 +180,87 @@ fn read_meta_value(cur: &mut Cur) -> Result<MetaValue, LoaderError> {
         6 => MetaValue::F(cur.f32()? as f64), // FLOAT32
         7 => MetaValue::Bool(cur.u8()? != 0), // BOOL
         8 => MetaValue::Str(cur.gstr()?),    // STRING
-        9 => {
-            // ARRAY: element_type u32, len u64, then len elements.
-            let elem_t = cur.u32()?;
-            let n = cur.u64()? as usize;
-            for _ in 0..n {
-                skip_typed_value(cur, elem_t)?;
-            }
-            MetaValue::Array
-        }
+        9 => read_array(cur)?,
         10 => MetaValue::U(cur.u64()?),        // UINT64
         11 => MetaValue::I(cur.u64()? as i64), // INT64
         12 => MetaValue::F(cur.f64()?),        // FLOAT64
         other => {
             return Err(LoaderError::Truncated(format!(
                 "gguf: unknown metadata value type {other}"
+            )));
+        }
+    })
+}
+
+/// Read a GGUF `ARRAY` value (element_type u32, len u64, then the elements).
+/// String and numeric element arrays are retained (the tokenizer needs them);
+/// nested / unmodeled element arrays are skipped to a bare marker. Capacity is
+/// clamped so a corrupt length can't force a huge up-front allocation — the
+/// element loop is still bounds-checked and errors on a truncated file.
+fn read_array(cur: &mut Cur) -> Result<MetaValue, LoaderError> {
+    const CAP_CLAMP: usize = 1 << 20;
+    let elem_t = cur.u32()?;
+    let n = cur.u64()? as usize;
+    Ok(match elem_t {
+        8 => {
+            let mut v = Vec::with_capacity(n.min(CAP_CLAMP));
+            for _ in 0..n {
+                v.push(cur.gstr()?);
+            }
+            MetaValue::StrArray(v)
+        }
+        6 => {
+            let mut v = Vec::with_capacity(n.min(CAP_CLAMP));
+            for _ in 0..n {
+                v.push(cur.f32()? as f64);
+            }
+            MetaValue::FloatArray(v)
+        }
+        12 => {
+            let mut v = Vec::with_capacity(n.min(CAP_CLAMP));
+            for _ in 0..n {
+                v.push(cur.f64()?);
+            }
+            MetaValue::FloatArray(v)
+        }
+        // any integer / bool element type → widen to i64
+        0 | 1 | 2 | 3 | 4 | 5 | 7 | 10 | 11 => {
+            let mut v = Vec::with_capacity(n.min(CAP_CLAMP));
+            for _ in 0..n {
+                v.push(read_int_elem(cur, elem_t)?);
+            }
+            MetaValue::IntArray(v)
+        }
+        9 => {
+            // nested array — skip each element (we never need arrays-of-arrays).
+            for _ in 0..n {
+                skip_typed_value(cur, 9)?;
+            }
+            MetaValue::Array
+        }
+        other => {
+            return Err(LoaderError::Truncated(format!(
+                "gguf: unknown array element type {other}"
+            )));
+        }
+    })
+}
+
+/// Read one integer/bool array element of primitive type `t`, widened to `i64`.
+fn read_int_elem(cur: &mut Cur, t: u32) -> Result<i64, LoaderError> {
+    Ok(match t {
+        0 => cur.u8()? as i64,
+        1 => cur.i8()? as i64,
+        2 => u16::from_le_bytes(cur.take(2)?.try_into().unwrap()) as i64,
+        3 => i16::from_le_bytes(cur.take(2)?.try_into().unwrap()) as i64,
+        4 => cur.u32()? as i64,
+        5 => cur.u32()? as i32 as i64,
+        7 => (cur.u8()? != 0) as i64,
+        10 => cur.u64()? as i64,
+        11 => cur.u64()? as i64,
+        _ => {
+            return Err(LoaderError::Truncated(format!(
+                "gguf: non-integer array element type {t}"
             )));
         }
     })
@@ -234,6 +313,52 @@ struct TensorInfo {
 impl TensorInfo {
     fn elems(&self) -> usize {
         self.dims.iter().product()
+    }
+}
+
+/// The tokenizer embedded in a GGUF checkpoint's metadata. A modern GGUF (Llama-3,
+/// Qwen2, Mistral, …) carries its full vocab + merges here, so no sidecar
+/// `tokenizer.json` is required to run it.
+///
+/// `model` names the segmentation family — `"gpt2"` (byte-level BPE, the
+/// mainstream case) or `"llama"` (SentencePiece). `tokens[i]` is the piece for id
+/// `i`; `token_types[i]` classifies it (1 normal, 2 unknown, 3 control, 4
+/// user-defined, 6 byte). `merges` are the ranked BPE merge rules ("left right").
+#[derive(Debug, Clone)]
+pub struct GgufTokenizer {
+    /// The ggml tokenizer model name (`gpt2` / `llama` / `bpe`).
+    pub model: String,
+    /// id → token piece (index is the id).
+    pub tokens: Vec<String>,
+    /// Ranked BPE merge rules, each `"left right"` (rank = position).
+    pub merges: Vec<String>,
+    /// Per-token type lane (ggml `llama_token_type`); empty if absent.
+    pub token_types: Vec<i32>,
+    /// Beginning-of-sequence token id, if declared.
+    pub bos: Option<u32>,
+    /// End-of-sequence token id, if declared.
+    pub eos: Option<u32>,
+}
+
+impl GgufTokenizer {
+    /// True when this is a byte-level BPE tokenizer (`gpt2`/`bpe`) — the family
+    /// the runtime [`sovereign_hf_tokenizer`] GPT-2 path handles directly.
+    #[must_use]
+    pub fn is_byte_level_bpe(&self) -> bool {
+        self.model == "gpt2" || self.model == "bpe"
+    }
+
+    /// Token ids classified as control/user-defined/unknown (ggml types 2/3/4) —
+    /// the tokens a byte-level tokenizer must treat as atomic "special" pieces
+    /// rather than BPE-merge candidates.
+    #[must_use]
+    pub fn special_ids(&self) -> Vec<u32> {
+        self.token_types
+            .iter()
+            .enumerate()
+            .filter(|&(_, &t)| t == 2 || t == 3 || t == 4)
+            .map(|(i, _)| i as u32)
+            .collect()
     }
 }
 
@@ -324,6 +449,54 @@ impl<'a> GgufFile<'a> {
     }
     fn meta_f32(&self, key: &str) -> Option<f32> {
         self.meta.get(key).and_then(MetaValue::as_f32)
+    }
+    fn meta_str_array(&self, key: &str) -> Option<&[String]> {
+        match self.meta.get(key) {
+            Some(MetaValue::StrArray(v)) => Some(v),
+            _ => None,
+        }
+    }
+    fn meta_int_array(&self, key: &str) -> Option<&[i64]> {
+        match self.meta.get(key) {
+            Some(MetaValue::IntArray(v)) => Some(v),
+            _ => None,
+        }
+    }
+
+    /// Extract the embedded tokenizer, if this GGUF carries one
+    /// (`tokenizer.ggml.tokens` present). Returns `None` for a weights-only GGUF
+    /// (the caller then falls back to a sidecar `tokenizer.json`).
+    #[must_use]
+    pub fn tokenizer(&self) -> Option<GgufTokenizer> {
+        let tokens = self.meta_str_array("tokenizer.ggml.tokens")?.to_vec();
+        let model = self
+            .meta
+            .get("tokenizer.ggml.model")
+            .and_then(MetaValue::as_str)
+            .unwrap_or("")
+            .to_string();
+        let merges = self
+            .meta_str_array("tokenizer.ggml.merges")
+            .map(<[String]>::to_vec)
+            .unwrap_or_default();
+        let token_types = self
+            .meta_int_array("tokenizer.ggml.token_type")
+            .map(|v| v.iter().map(|&x| x as i32).collect())
+            .unwrap_or_default();
+        let bos = self
+            .meta_u64("tokenizer.ggml.bos_token_id")
+            .map(|v| v as u32);
+        let eos = self
+            .meta_u64("tokenizer.ggml.eos_token_id")
+            .map(|v| v as u32);
+        Some(GgufTokenizer {
+            model,
+            tokens,
+            merges,
+            token_types,
+            bos,
+            eos,
+        })
     }
 
     /// The model architecture (`general.architecture`), e.g. `llama`, `qwen2`.
@@ -1286,6 +1459,28 @@ mod tests {
             Self::gstr(&mut self.kv, v);
             self.n_kv += 1;
         }
+        fn kv_str_array(&mut self, key: &str, vals: &[&str]) {
+            Self::gstr(&mut self.kv, key);
+            self.kv.extend_from_slice(&9u32.to_le_bytes()); // ARRAY
+            self.kv.extend_from_slice(&8u32.to_le_bytes()); // element type STRING
+            self.kv
+                .extend_from_slice(&(vals.len() as u64).to_le_bytes());
+            for v in vals {
+                Self::gstr(&mut self.kv, v);
+            }
+            self.n_kv += 1;
+        }
+        fn kv_i32_array(&mut self, key: &str, vals: &[i32]) {
+            Self::gstr(&mut self.kv, key);
+            self.kv.extend_from_slice(&9u32.to_le_bytes()); // ARRAY
+            self.kv.extend_from_slice(&5u32.to_le_bytes()); // element type INT32
+            self.kv
+                .extend_from_slice(&(vals.len() as u64).to_le_bytes());
+            for v in vals {
+                self.kv.extend_from_slice(&v.to_le_bytes());
+            }
+            self.n_kv += 1;
+        }
         /// Add an F32 tensor with the given `ne` dims (fastest-varying first).
         fn tensor_f32(&mut self, name: &str, dims: &[usize], vals: &[f32]) {
             Self::gstr(&mut self.infos, name);
@@ -1338,6 +1533,45 @@ mod tests {
         let t = f.tensor_f32("token_embd.weight").unwrap();
         assert_eq!(t.len(), 40);
         assert!((t[0] - 0.5).abs() < 1e-6);
+    }
+
+    #[test]
+    fn extracts_embedded_tokenizer() {
+        // A GGUF that carries its own byte-level BPE tokenizer in metadata.
+        // token_type 3 = CONTROL (special); 1 = NORMAL.
+        let mut w = GgufWriter::new();
+        w.kv_str("general.architecture", "llama");
+        w.kv_str("tokenizer.ggml.model", "gpt2");
+        w.kv_str_array(
+            "tokenizer.ggml.tokens",
+            &["<unk>", "a", "b", "c", "\u{0120}", "ab"],
+        );
+        w.kv_str_array("tokenizer.ggml.merges", &["a b"]);
+        w.kv_i32_array("tokenizer.ggml.token_type", &[3, 1, 1, 1, 1, 1]);
+        w.kv_u32("tokenizer.ggml.bos_token_id", 0);
+        w.kv_u32("tokenizer.ggml.eos_token_id", 2);
+        let bytes = w.finish();
+
+        let f = GgufFile::parse(&bytes).unwrap();
+        let tk = f.tokenizer().expect("tokenizer metadata present");
+        assert_eq!(tk.model, "gpt2");
+        assert!(tk.is_byte_level_bpe());
+        assert_eq!(tk.tokens.len(), 6);
+        assert_eq!(tk.tokens[5], "ab");
+        assert_eq!(tk.merges, vec!["a b".to_string()]);
+        assert_eq!(tk.bos, Some(0));
+        assert_eq!(tk.eos, Some(2));
+        // only id 0 is CONTROL (type 3) → the single special id
+        assert_eq!(tk.special_ids(), vec![0]);
+    }
+
+    #[test]
+    fn weights_only_gguf_has_no_tokenizer() {
+        // The tiny model fixture carries no tokenizer.ggml.* keys → None (caller
+        // falls back to a sidecar tokenizer.json).
+        let bytes = tiny_model_gguf();
+        let f = GgufFile::parse(&bytes).unwrap();
+        assert!(f.tokenizer().is_none());
     }
 
     /// Build a tiny but COMPLETE 1-layer llama GGUF and load it end-to-end into a
