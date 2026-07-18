@@ -976,6 +976,9 @@ mod tests {
         // (no-permute) block assembly, and RoPE all compose into a live model.
         let logits = model.forward(0).expect("forward pass on GGUF-loaded model");
         assert_eq!(logits.len(), 6);
-        assert!(logits.iter().all(|x| x.is_finite()), "logits must be finite");
+        assert!(
+            logits.iter().all(|x| x.is_finite()),
+            "logits must be finite"
+        );
     }
 }
