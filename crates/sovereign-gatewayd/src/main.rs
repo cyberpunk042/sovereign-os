@@ -68,7 +68,9 @@ ENVIRONMENT:
     SOVEREIGN_GATEWAY_ADDR         bind address (default 127.0.0.1:8787)
     SOVEREIGN_GATEWAY_MAX_CONN     max concurrent connections (default 256)
     SOVEREIGN_GATEWAY_TIMEOUT_SECS per-connection read/write deadline (default 30; 0 disables)
-    SOVEREIGN_GATEWAY_TOKEN        require Authorization: Bearer <token> on the HTTP surface (unset = open)
+    SOVEREIGN_GATEWAY_TOKEN        shared bearer secret. HTTP clients send `Authorization: Bearer <token>`;
+                                   NDJSON clients send `{\"op\":\"auth\",\"token\":\"<token>\"}` as their first frame.
+                                   REQUIRED to bind a non-loopback address (0.0.0.0/LAN); unset = keyless loopback-only.
     SOVEREIGN_GATEWAY_RATE_CAPACITY  generation burst size — token-bucket capacity (default 60; 0 disables)
     SOVEREIGN_GATEWAY_RATE_PER_SEC   sustained generation rate — tokens/sec refill (default 20)
     SOVEREIGN_GATEWAY_AGENTIC        enable server-side agentic tool use (default OFF); when on, a
@@ -157,6 +159,22 @@ fn main() {
     let addr = arg_value(&args, "--addr")
         .or_else(|| std::env::var("SOVEREIGN_GATEWAY_ADDR").ok())
         .unwrap_or_else(|| DEFAULT_ADDR.to_string());
+
+    // Refuse to expose a KEYLESS daemon. A loopback bind (127.0.0.1) is reachable
+    // only from this host, so keyless is fine for local dev; a non-loopback bind
+    // (0.0.0.0, a LAN IP, ::) is reachable by other hosts and would leave the
+    // memory-mutating /v1/infer, model load/register, and /admin/ledger surfaces
+    // open to anyone who can reach the port. Require a token in that case rather
+    // than silently coming up open.
+    if !bind_is_loopback(&addr) && auth_token().is_none() {
+        eprintln!(
+            "sovereign-gatewayd: refusing to bind non-loopback address {addr} without \
+             authentication.\n  Set SOVEREIGN_GATEWAY_TOKEN to a shared secret (clients then \
+             send `Authorization: Bearer <token>`),\n  or bind a loopback address \
+             (e.g. 127.0.0.1:8787) for keyless local-only use."
+        );
+        std::process::exit(2);
+    }
 
     let result = if args.iter().any(|a| a == "--http") {
         run_http(&server, &addr)
@@ -258,17 +276,45 @@ fn conn_timeout() -> Option<std::time::Duration> {
     (secs > 0).then(|| std::time::Duration::from_secs(secs))
 }
 
-/// The shared secret required on the HTTP surface, from `SOVEREIGN_GATEWAY_TOKEN`.
-/// Unset ⇒ no auth (loopback-default deployments). When set, every HTTP request
-/// must carry `Authorization: Bearer <token>` or it is refused `401`. This is the
-/// minimum gate that lets the daemon bind beyond loopback (`--addr 0.0.0.0:…`)
-/// without exposing memory-mutating + ledger surfaces to any reachable client,
-/// and matches what real OpenAI/Anthropic clients already send.
+/// The shared secret from `SOVEREIGN_GATEWAY_TOKEN`. Unset ⇒ no auth (keyless
+/// loopback-only deployments; a non-loopback bind without it is refused at
+/// startup — see `bind_is_loopback`). When set, every request must present it:
+/// HTTP via `Authorization: Bearer <token>` (else `401`), NDJSON via an
+/// `{"op":"auth","token":…}` handshake frame. Matches what real OpenAI/Anthropic
+/// clients already send.
 fn auth_token() -> Option<String> {
     std::env::var("SOVEREIGN_GATEWAY_TOKEN")
         .ok()
         .map(|t| t.trim().to_string())
         .filter(|t| !t.is_empty())
+}
+
+/// Whether `addr` (a `HOST:PORT` bind spec) is loopback-only — reachable solely
+/// from this host. A loopback bind is safe to run keyless; a non-loopback bind
+/// (`0.0.0.0`, `::`, a specific LAN/public IP) exposes the daemon to other hosts
+/// and must carry a token. An unparseable / unresolved host is treated as
+/// non-loopback (fail safe — require the token rather than assume local).
+fn bind_is_loopback(addr: &str) -> bool {
+    use std::net::{IpAddr, SocketAddr};
+    // Literal socket address: 127.0.0.1:8787, [::1]:8787, 0.0.0.0:9000.
+    if let Ok(sa) = addr.parse::<SocketAddr>() {
+        return sa.ip().is_loopback();
+    }
+    // Otherwise split off the trailing :port and classify the host. `[::1]:p`
+    // keeps the brackets until we strip them; a bare host has no colon.
+    let host = match addr.rsplit_once(':') {
+        Some((h, _)) => h,
+        None => addr,
+    }
+    .trim_start_matches('[')
+    .trim_end_matches(']');
+    if host.eq_ignore_ascii_case("localhost") {
+        return true;
+    }
+    match host.parse::<IpAddr>() {
+        Ok(ip) => ip.is_loopback(), // 127.0.0.0/8, ::1 — but NOT 0.0.0.0 (unspecified)
+        Err(_) => false,            // unknown host — require a token
+    }
 }
 
 /// Whether the presented `Authorization` header carries the expected bearer
@@ -396,10 +442,33 @@ fn reject_http_overloaded(mut stream: TcpStream) {
     let _ = stream.flush();
 }
 
+/// Parse a first-line NDJSON auth handshake `{"op":"auth","token":"<token>"}` and
+/// check the token against `expected` in constant time. Returns true only for a
+/// well-formed `op:auth` frame whose token matches. The NDJSON transport carries
+/// no HTTP headers, so this frame is how a client presents the bearer secret.
+fn ndjson_authenticate(line: &str, expected: &str) -> bool {
+    let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else {
+        return false;
+    };
+    if v.get("op").and_then(serde_json::Value::as_str) != Some("auth") {
+        return false;
+    }
+    match v.get("token").and_then(serde_json::Value::as_str) {
+        Some(tok) => constant_time_eq(tok.as_bytes(), expected.as_bytes()),
+        None => false,
+    }
+}
+
 fn handle_conn(server: &GatewayServer, stream: TcpStream) -> std::io::Result<()> {
     let peer = stream.peer_addr().ok();
     let mut reader = BufReader::new(stream.try_clone()?);
     let mut writer = stream;
+    // When a token is configured the NDJSON transport requires an auth handshake
+    // as its first frame (it has no HTTP headers to carry a bearer). Unset token
+    // ⇒ already authed (keyless loopback dev; a non-loopback bind can't reach
+    // here without a token — see `bind_is_loopback` guard in `main`).
+    let expected = auth_token();
+    let mut authed = expected.is_none();
     loop {
         // Cap each NDJSON line so a client can't exhaust memory with one
         // unterminated line (the same DoS class the HTTP body cap covers). A
@@ -422,6 +491,26 @@ fn handle_conn(server: &GatewayServer, stream: TcpStream) -> std::io::Result<()>
         }
         if line.trim().is_empty() {
             continue;
+        }
+        // Until authenticated, the ONLY accepted frame is the auth handshake.
+        // A bad/absent handshake gets one error line, then the connection closes
+        // (no oracle for probing other ops).
+        if !authed {
+            if expected
+                .as_deref()
+                .is_some_and(|exp| ndjson_authenticate(&line, exp))
+            {
+                authed = true;
+                writeln!(writer, "{{\"kind\":\"auth\",\"ok\":true}}")?;
+                writer.flush()?;
+                continue;
+            }
+            writeln!(
+                writer,
+                "{{\"kind\":\"error\",\"message\":\"authentication required: send {{\\\"op\\\":\\\"auth\\\",\\\"token\\\":\\\"<token>\\\"}} first\"}}"
+            )?;
+            writer.flush()?;
+            break;
         }
         let reply = server.handle_line(&line);
         writeln!(writer, "{reply}")?;
@@ -1487,8 +1576,50 @@ fn agentic_chat_completion(
 
 #[cfg(test)]
 mod tests {
-    use super::{authorized, chat_prompt, conn_timeout, constant_time_eq, shape_tool_completion};
+    use super::{
+        authorized, bind_is_loopback, chat_prompt, conn_timeout, constant_time_eq,
+        ndjson_authenticate, shape_tool_completion,
+    };
     use sovereign_tool_bridge::openai_tools_to_specs;
+
+    #[test]
+    fn bind_is_loopback_classifies_addrs() {
+        // loopback → keyless allowed
+        assert!(bind_is_loopback("127.0.0.1:8787"));
+        assert!(bind_is_loopback("127.0.0.5:1"));
+        assert!(bind_is_loopback("[::1]:8787"));
+        assert!(bind_is_loopback("localhost:8787"));
+        assert!(bind_is_loopback("LocalHost:9000"));
+        // exposed → token required
+        assert!(!bind_is_loopback("0.0.0.0:9000")); // unspecified = all interfaces
+        assert!(!bind_is_loopback("[::]:9000"));
+        assert!(!bind_is_loopback("192.168.1.10:8787"));
+        assert!(!bind_is_loopback("10.0.0.2:8787"));
+        // unparseable host → fail safe (require token)
+        assert!(!bind_is_loopback("not-an-addr"));
+        assert!(!bind_is_loopback("example.com:80"));
+    }
+
+    #[test]
+    fn ndjson_auth_handshake() {
+        // well-formed matching frame
+        assert!(ndjson_authenticate(
+            r#"{"op":"auth","token":"s3cr3t"}"#,
+            "s3cr3t"
+        ));
+        // wrong token / wrong op / missing token / not-json / non-auth op
+        assert!(!ndjson_authenticate(
+            r#"{"op":"auth","token":"nope"}"#,
+            "s3cr3t"
+        ));
+        assert!(!ndjson_authenticate(
+            r#"{"op":"infer","token":"s3cr3t"}"#,
+            "s3cr3t"
+        ));
+        assert!(!ndjson_authenticate(r#"{"op":"auth"}"#, "s3cr3t"));
+        assert!(!ndjson_authenticate("not json", "s3cr3t"));
+        assert!(!ndjson_authenticate(r#"{"op":"health"}"#, "s3cr3t"));
+    }
 
     #[test]
     fn chat_prompt_falls_back_to_newline_join_without_template() {
