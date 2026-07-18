@@ -9,7 +9,9 @@
 //! harness matches real HF Llama tensor shapes at f32. This crate is the missing
 //! piece: parse a safetensors file, dequantize `BF16`/`F16` → `f32`, permute the
 //! HF rotate-half q/k layout into the runtime's interleaved-RoPE layout, and
-//! populate that harness.
+//! populate that harness. Packed **MXFP4** weights (the `*_blocks` / `*_scales`
+//! `U8` tensor pairs `gpt-oss` ships its experts in) decode through
+//! [`SafeTensors::tensor_mxfp4`] / the [`mxfp4`] module.
 //!
 //! ## Scope (honest)
 //!
@@ -62,6 +64,7 @@ use std::collections::BTreeMap;
 use serde::Deserialize;
 
 mod gguf;
+pub mod mxfp4;
 pub use gguf::{GgufFile, GgufTokenizer, load_gguf};
 use sovereign_decoder_layer::{DecoderLayer, LayerStack};
 use sovereign_mha_block::{
@@ -125,6 +128,14 @@ pub enum LoaderError {
     /// The runtime harness rejected the assembled weights.
     #[error("model assembly failed: {0}")]
     Build(String),
+    /// An MXFP4 `*_blocks` / `*_scales` tensor pair failed to decode.
+    #[error("mxfp4 decode failed for `{name}`: {reason}")]
+    Mxfp4 {
+        /// The `*_blocks` tensor name.
+        name: String,
+        /// The underlying [`mxfp4::Mxfp4Error`] rendered.
+        reason: String,
+    },
 }
 
 fn default_eps() -> f32 {
@@ -558,6 +569,69 @@ impl<'a> SafeTensors<'a> {
         }
     }
 
+    /// The raw bytes + dtype string of a tensor, bounds-checked exactly like
+    /// [`tensor_f32`](Self::tensor_f32). Used by decoders (e.g. MXFP4) that read
+    /// a dtype `tensor_f32` does not element-decode.
+    fn raw_tensor(&self, name: &str) -> Result<(&[u8], &str), LoaderError> {
+        let info = self
+            .infos
+            .get(name)
+            .ok_or_else(|| LoaderError::MissingTensor(name.to_string()))?;
+        let [start, end] = info.data_offsets;
+        let (Some(a), Some(b)) = (
+            self.data_start.checked_add(start),
+            self.data_start.checked_add(end),
+        ) else {
+            return Err(LoaderError::Truncated(format!(
+                "tensor `{name}` data_offsets [{start},{end}] overflow the data buffer"
+            )));
+        };
+        if b > self.data.len() || a > b {
+            return Err(LoaderError::Truncated(format!(
+                "tensor `{name}` data_offsets [{start},{end}] out of range"
+            )));
+        }
+        Ok((&self.data[a..b], info.dtype.as_str()))
+    }
+
+    /// The raw bytes of a `U8` tensor (an MXFP4 `*_blocks` / `*_scales` tensor).
+    fn tensor_u8(&self, name: &str) -> Result<&[u8], LoaderError> {
+        let (raw, dtype) = self.raw_tensor(name)?;
+        if dtype != "U8" {
+            return Err(LoaderError::UnsupportedDtype {
+                name: name.to_string(),
+                dtype: dtype.to_string(),
+            });
+        }
+        Ok(raw)
+    }
+
+    /// Decode an MXFP4-packed weight — an HF `*_blocks` `U8` tensor plus its
+    /// `*_scales` `U8` tensor — to `expected` `f32` elements. MXFP4 stores 4-bit
+    /// E2M1 values, 32 per block sharing one E8M0 (`2^(s-127)`) scale; it is the
+    /// format `gpt-oss` ships its MoE experts in. See [`mxfp4`].
+    pub fn tensor_mxfp4(
+        &self,
+        blocks: &str,
+        scales: &str,
+        expected: usize,
+    ) -> Result<Vec<f32>, LoaderError> {
+        let b = self.tensor_u8(blocks)?;
+        let s = self.tensor_u8(scales)?;
+        let v = mxfp4::dequant(b, s).map_err(|e| LoaderError::Mxfp4 {
+            name: blocks.to_string(),
+            reason: e.to_string(),
+        })?;
+        if v.len() != expected {
+            return Err(LoaderError::ShapeMismatch {
+                name: blocks.to_string(),
+                expected,
+                got: v.len(),
+            });
+        }
+        Ok(v)
+    }
+
     /// Decode a tensor and check it holds exactly `expected` elements.
     fn tensor_exact(&self, name: &str, expected: usize) -> Result<Vec<f32>, LoaderError> {
         let v = self.tensor_f32(name)?;
@@ -944,6 +1018,66 @@ mod tests {
         out.extend_from_slice(header.as_bytes());
         out.extend_from_slice(&data);
         out
+    }
+
+    // Minimal writer for raw-byte tensors (e.g. U8 MXFP4 `*_blocks` / `*_scales`).
+    fn write_raw_safetensors(tensors: &[(&str, &str, Vec<usize>, Vec<u8>)]) -> Vec<u8> {
+        let mut data = Vec::new();
+        let mut entries = Vec::new();
+        for (name, dtype, shape, bytes) in tensors {
+            let start = data.len();
+            data.extend_from_slice(bytes);
+            let end = data.len();
+            let shape_json = shape
+                .iter()
+                .map(|d| d.to_string())
+                .collect::<Vec<_>>()
+                .join(",");
+            entries.push(format!(
+                "\"{name}\":{{\"dtype\":\"{dtype}\",\"shape\":[{shape_json}],\"data_offsets\":[{start},{end}]}}"
+            ));
+        }
+        let header = format!("{{{}}}", entries.join(","));
+        let mut out = (header.len() as u64).to_le_bytes().to_vec();
+        out.extend_from_slice(header.as_bytes());
+        out.extend_from_slice(&data);
+        out
+    }
+
+    #[test]
+    fn tensor_mxfp4_reads_a_block_pair() {
+        // One 32-value MXFP4 block (16 packed bytes) + one E8M0 scale byte, read
+        // back through the safetensors U8 path and dequantized. byte 0x21 with
+        // scale 128 (×2^1): low nibble 1 (0.5)→1.0, high nibble 2 (1.0)→2.0.
+        let mut blocks = vec![0u8; mxfp4::BLOCK_BYTES];
+        blocks[0] = 0x21;
+        let bytes = write_raw_safetensors(&[
+            ("w_blocks", "U8", vec![mxfp4::BLOCK_BYTES], blocks),
+            ("w_scales", "U8", vec![1], vec![128u8]),
+        ]);
+        let st = SafeTensors::parse(&bytes).unwrap();
+        let v = st
+            .tensor_mxfp4("w_blocks", "w_scales", mxfp4::BLOCK_ELEMS)
+            .expect("mxfp4 pair decodes");
+        assert_eq!(v.len(), mxfp4::BLOCK_ELEMS);
+        assert_eq!(&v[0..2], &[1.0, 2.0]);
+
+        // A wrong `expected` count surfaces as a ShapeMismatch, not a panic.
+        assert!(matches!(
+            st.tensor_mxfp4("w_blocks", "w_scales", 999),
+            Err(LoaderError::ShapeMismatch { .. })
+        ));
+    }
+
+    #[test]
+    fn tensor_mxfp4_rejects_non_u8_dtype() {
+        // A `*_blocks` tensor that isn't U8 is refused rather than mis-decoded.
+        let bytes = write_safetensors(&[("w_blocks".into(), Dt::F32, vec![4], seq(0.1, 4))]);
+        let st = SafeTensors::parse(&bytes).unwrap();
+        assert!(matches!(
+            st.tensor_mxfp4("w_blocks", "w_scales", 8),
+            Err(LoaderError::UnsupportedDtype { .. })
+        ));
     }
 
     // deterministic pseudo-weights so the fixture is reproducible without rand
