@@ -1291,6 +1291,7 @@ fn anthropic_message(server: &GatewayServer, body: &str) -> HttpReply {
     // `/v1/chat/completions` and its reply translated back to the Anthropic shape; an
     // `anthropic` backend (another sovereign-gatewayd) is forwarded verbatim.
     if let Some((endpoint, dialect)) = server.resolve_proxy(&model) {
+        let t0 = std::time::Instant::now();
         let mut reply = proxy_message(&endpoint, &dialect, &model, &req, body);
         // Close the redaction bypass: proxy-relayed output never passes through
         // the local generate path's safety spine, so redact secrets/PII from the
@@ -1299,6 +1300,14 @@ fn anthropic_message(server: &GatewayServer, body: &str) -> HttpReply {
         if guard.redacts_output() {
             reply.body = guard.redact_full(&reply.body);
         }
+        // Record a proxy observability span so a proxy-backed model's calls show
+        // up on /v1/events (tokens approximated from the relayed body length; the
+        // local generate path that records local spans is never touched here).
+        server.record_proxy_call(
+            &model,
+            (reply.body.len() / 4) as u64,
+            t0.elapsed().as_millis() as u64,
+        );
         return reply;
     }
     if !server.has_generator() {

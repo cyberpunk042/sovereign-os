@@ -14,11 +14,13 @@
 //!
 //! **Tool catalog (SDD-713)** — beyond the pure string transforms, the daemon
 //! offers `calc` (the pure `sovereign-calc` arithmetic evaluator), `time` (a
-//! read-only wall-clock read), and `recall` (queries the daemon's own learning
-//! Cortex memory via [`sovereign_cortex::Cortex::recall_text`] through an owned
-//! `Arc<Mutex<Cortex>>` handle — the only state-carrying tool). Everything else
-//! is pure and side-effect-free; `recall` is read-only. No shell / fs / network
-//! tool exists — those need the sandbox + capability-gating story (selfdef).
+//! read-only wall-clock read), `recall` (queries the daemon's own learning
+//! Cortex memory via [`sovereign_cortex::Cortex::recall_text`]), and `search`
+//! (read-only retrieval over the operator's RAG corpus — the same hybrid
+//! BM25+embedding, coverage-reranked passages that ground a prompt, now callable
+//! on demand). `recall`/`search` each own an `Arc` handle (a `'static` capture);
+//! everything else is pure. All tools are read-only or pure — no shell / fs /
+//! network tool exists (those need the sandbox + capability story in selfdef).
 //!
 //! **Sovereignty posture**: a root-adjacent daemon that autonomously executes
 //! tools is gated two ways — a per-request opt-in (`sovereign_agentic: true`)
@@ -69,12 +71,20 @@ fn fmt_calc(v: f64) -> String {
     }
 }
 
+/// Passages a `search` tool call returns from the RAG corpus.
+const SEARCH_K: usize = 3;
+
 /// The daemon's built-in tool set. Pure string transforms + `calc` (pure
 /// arithmetic) + `time` (read-only wall clock) are always present; `recall`
-/// (read-only Cortex memory) is added only when a `cortex` handle is supplied.
-/// The `recall` closure OWNS an `Arc<Mutex<Cortex>>` (a `'static` capture), which
-/// is why the daemon threads a handle in rather than a borrow.
-pub fn builtin_registry(cortex: Option<Arc<Mutex<Cortex>>>) -> ToolRegistry {
+/// (read-only Cortex memory) is added only when a `cortex` handle is supplied,
+/// and `search` (read-only RAG-corpus retrieval) only when a `corpus` handle is.
+/// Each state-carrying closure OWNS its `Arc` handle (a `'static` capture), which
+/// is why the daemon threads handles in rather than borrows. All tools are
+/// read-only or pure — no shell / fs / network tool exists.
+pub fn builtin_registry(
+    cortex: Option<Arc<Mutex<Cortex>>>,
+    corpus: Option<Arc<sovereign_retrieval::HybridStore>>,
+) -> ToolRegistry {
     let mut r = ToolRegistry::new();
     r.register("upper", |a| a.to_uppercase());
     r.register("lower", |a| a.to_lowercase());
@@ -104,6 +114,19 @@ pub fn builtin_registry(cortex: Option<Arc<Mutex<Cortex>>>) -> ToolRegistry {
             Err(_) => "[recall unavailable: memory lock poisoned]".to_string(),
         });
     }
+    if let Some(corpus) = corpus {
+        // Read-only retrieval over the operator's RAG corpus (hybrid BM25 +
+        // embedding, coverage-reranked) — the same passages that ground a prompt,
+        // now callable as a tool so the agent can pull facts on demand.
+        r.register("search", move |q| {
+            let hits = sovereign_gatewayd::corpus_retrieve(&corpus, q, SEARCH_K);
+            if hits.is_empty() {
+                "[no relevant passages in the corpus]".to_string()
+            } else {
+                hits.join("\n---\n")
+            }
+        });
+    }
     r
 }
 
@@ -111,7 +134,7 @@ pub fn builtin_registry(cortex: Option<Arc<Mutex<Cortex>>>) -> ToolRegistry {
 /// renders into a prompt preamble. `include_recall` mirrors whether
 /// [`builtin_registry`] was built with a cortex handle, so the advertised set
 /// always matches the executable set (a test asserts the two agree).
-pub fn builtin_specs(include_recall: bool) -> Vec<ToolSpec> {
+pub fn builtin_specs(include_recall: bool, include_search: bool) -> Vec<ToolSpec> {
     let mut specs: Vec<(&str, &str)> = vec![
         ("upper", "uppercase the argument text"),
         ("lower", "lowercase the argument text"),
@@ -131,6 +154,12 @@ pub fn builtin_specs(include_recall: bool) -> Vec<ToolSpec> {
         specs.push((
             "recall",
             "search the daemon's own learned memory for text relevant to the argument",
+        ));
+    }
+    if include_search {
+        specs.push((
+            "search",
+            "search the operator's document corpus (RAG) for passages relevant to the argument",
         ));
     }
     specs
@@ -225,8 +254,10 @@ pub fn run_agent(
     max_steps: usize,
     seed: u64,
 ) -> String {
-    let registry = builtin_registry(Some(server.cortex_handle()));
-    let specs = builtin_specs(true);
+    let corpus = server.corpus_handle();
+    let has_corpus = corpus.is_some();
+    let registry = builtin_registry(Some(server.cortex_handle()), corpus);
+    let specs = builtin_specs(true, has_corpus);
     let responder = GatewayResponder::new(server, model.map(str::to_string), max_new);
     run_loop(responder, registry, &specs, user, max_steps, seed)
 }
@@ -238,7 +269,7 @@ mod tests {
 
     #[test]
     fn builtin_tools_are_pure_and_dispatch() {
-        let r = builtin_registry(None);
+        let r = builtin_registry(None, None);
         assert_eq!(r.call("upper", "hi").unwrap(), "HI");
         assert_eq!(r.call("reverse", "abc").unwrap(), "cba");
         assert_eq!(r.call("wordcount", "a b c").unwrap(), "3");
@@ -251,7 +282,7 @@ mod tests {
 
     #[test]
     fn calc_tool_evaluates_and_reports_errors() {
-        let r = builtin_registry(None);
+        let r = builtin_registry(None, None);
         assert_eq!(r.call("calc", "(2+3)*4").unwrap(), "20");
         assert_eq!(r.call("calc", "5/2").unwrap(), "2.5");
         assert!(r.call("calc", "2+").unwrap().contains("calc error"));
@@ -259,7 +290,7 @@ mod tests {
 
     #[test]
     fn time_tool_returns_unix_seconds() {
-        let r = builtin_registry(None);
+        let r = builtin_registry(None, None);
         let out = r.call("time", "").unwrap();
         assert!(out.contains("unix seconds"), "got {out}");
         // the numeric prefix parses as a plausible (post-2020) epoch
@@ -270,10 +301,10 @@ mod tests {
     #[test]
     fn recall_tool_present_only_with_a_cortex_and_queries_memory() {
         // No cortex → no recall tool.
-        assert!(builtin_registry(None).call("recall", "x").is_err());
+        assert!(builtin_registry(None, None).call("recall", "x").is_err());
         // With a cortex handle → recall queries it (empty store → the note).
         let cx = Arc::new(Mutex::new(Cortex::default()));
-        let r = builtin_registry(Some(cx));
+        let r = builtin_registry(Some(cx), None);
         assert_eq!(
             r.call("recall", "anything").unwrap(),
             "[no relevant memory]"
@@ -282,8 +313,11 @@ mod tests {
 
     #[test]
     fn builtin_specs_match_the_registry_names() {
-        let names: Vec<String> = builtin_registry(None).names();
-        let spec_names: Vec<String> = builtin_specs(false).into_iter().map(|s| s.name).collect();
+        let names: Vec<String> = builtin_registry(None, None).names();
+        let spec_names: Vec<String> = builtin_specs(false, false)
+            .into_iter()
+            .map(|s| s.name)
+            .collect();
         let mut a = names.clone();
         a.sort();
         let mut b = spec_names.clone();
@@ -294,8 +328,41 @@ mod tests {
         );
         // recall appears in both the with-cortex registry and specs(true).
         let cx = Arc::new(Mutex::new(Cortex::default()));
-        assert!(builtin_registry(Some(cx)).has("recall"));
-        assert!(builtin_specs(true).iter().any(|s| s.name == "recall"));
+        assert!(builtin_registry(Some(cx), None).has("recall"));
+        assert!(
+            builtin_specs(true, false)
+                .iter()
+                .any(|s| s.name == "recall")
+        );
+    }
+
+    #[test]
+    fn search_tool_present_only_with_a_corpus_and_retrieves() {
+        use sovereign_retrieval::HybridStore;
+        // No corpus → no search tool (and it's absent from the specs).
+        assert!(builtin_registry(None, None).call("search", "x").is_err());
+        assert!(
+            !builtin_specs(true, false)
+                .iter()
+                .any(|s| s.name == "search")
+        );
+        // With a corpus handle → search retrieves the relevant passage.
+        let mut store = HybridStore::new();
+        store.add("a", "The capital of France is Paris.");
+        store.add("b", "Mitochondria are the powerhouse of the cell.");
+        let corpus = Arc::new(store);
+        let r = builtin_registry(None, Some(corpus));
+        let out = r.call("search", "capital of France").unwrap();
+        assert!(out.contains("Paris"), "got: {out}");
+        // The relevant passage ranks first even if backfill (k > corpus size)
+        // also includes the irrelevant one.
+        let paris = out.find("Paris").unwrap();
+        assert!(
+            out.find("Mitochondria").is_none_or(|m| paris < m),
+            "France passage should rank first: {out}"
+        );
+        // search is advertised only when include_search.
+        assert!(builtin_specs(true, true).iter().any(|s| s.name == "search"));
     }
 
     #[test]
@@ -304,8 +371,8 @@ mod tests {
             ScriptedResponder::new(["I'll add them. [[tool:calc|2+3]]", "The sum is 5."]);
         let out = run_loop(
             responder,
-            builtin_registry(None),
-            &builtin_specs(false),
+            builtin_registry(None, None),
+            &builtin_specs(false, false),
             "add 2 and 3",
             DEFAULT_MAX_STEPS,
             7,
@@ -318,8 +385,8 @@ mod tests {
         let responder = ScriptedResponder::new(["Just an answer, no tools."]);
         let out = run_loop(
             responder,
-            builtin_registry(None),
-            &builtin_specs(false),
+            builtin_registry(None, None),
+            &builtin_specs(false, false),
             "hello",
             DEFAULT_MAX_STEPS,
             1,
@@ -338,8 +405,8 @@ mod tests {
         ]);
         let out = run_loop(
             responder,
-            builtin_registry(None),
-            &builtin_specs(false),
+            builtin_registry(None, None),
+            &builtin_specs(false, false),
             "loop",
             3,
             0,
