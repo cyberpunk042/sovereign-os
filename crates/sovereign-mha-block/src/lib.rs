@@ -439,6 +439,18 @@ pub struct GptOssMoeWeights {
     pub alpha: f32,
     /// Clamp bound `swiglu_limit` (GPT-OSS: `7.0`).
     pub limit: f32,
+    /// Attention Q-projection bias, `[num_q_heads·head_dim]` (GPT-OSS). `None`
+    /// leaves attention unbiased.
+    pub attn_q_bias: Option<Vec<f32>>,
+    /// Attention K-projection bias, `[num_kv_heads·head_dim]`.
+    pub attn_k_bias: Option<Vec<f32>>,
+    /// Attention V-projection bias, `[num_kv_heads·head_dim]`.
+    pub attn_v_bias: Option<Vec<f32>>,
+    /// Attention output-projection bias, `[model_dim]`.
+    pub attn_o_bias: Option<Vec<f32>>,
+    /// Per-query-head learned attention-sink logits, `[num_q_heads]`. `None`
+    /// leaves the softmax standard.
+    pub attn_sinks: Option<Vec<f32>>,
 }
 
 /// A multi-head GQA decoder block + its autoregressive KV cache.
@@ -455,6 +467,16 @@ pub struct MhaDecoderBlock {
     k: Linear,
     v: Linear,
     o: Linear,
+    /// Optional attention-projection biases (GPT-OSS biases q/k/v/o; Llama/Qwen
+    /// do not). Applied right after each projection — q/k/v before RoPE, o after.
+    q_bias: Option<Vec<f32>>,
+    k_bias: Option<Vec<f32>>,
+    v_bias: Option<Vec<f32>>,
+    o_bias: Option<Vec<f32>>,
+    /// Optional per-query-head learned **attention sink** logits (GPT-OSS): each
+    /// head's softmax denominator gains its sink term, letting it attend to
+    /// "nothing". `None` = standard softmax.
+    attn_sinks: Option<Vec<f32>>,
     ffn: Ffn,
     rope: Rope,
     mha: Mha,
@@ -575,6 +597,11 @@ impl MhaDecoderBlock {
             k: build("k", &weights.w_k, kv_dim, md)?,
             v: build("v", &weights.w_v, kv_dim, md)?,
             o: build("o", &weights.w_o, md, q_dim)?,
+            q_bias: None,
+            k_bias: None,
+            v_bias: None,
+            o_bias: None,
+            attn_sinks: None,
             ffn: Ffn::Dense(SwiGlu {
                 gate: build("gate", &weights.w_gate, hid, md)?,
                 up: build("up", &weights.w_up, hid, md)?,
@@ -657,6 +684,11 @@ impl MhaDecoderBlock {
             k: build(&weights.w_k, kv_dim, md)?,
             v: build(&weights.w_v, kv_dim, md)?,
             o: build(&weights.w_o, md, q_dim)?,
+            q_bias: None,
+            k_bias: None,
+            v_bias: None,
+            o_bias: None,
+            attn_sinks: None,
             ffn: Ffn::Moe(MoeFfn {
                 router,
                 router_bias: None,
@@ -679,7 +711,9 @@ impl MhaDecoderBlock {
     /// [`from_weights_moe`](Self::from_weights_moe) but with GPT-OSS's FFN math:
     /// a router bias, per-expert projection biases, and the clamped-α SwiGLU
     /// activation (`out = (up+1)·(gate·σ(α·gate))`, gate capped at `limit`, up
-    /// clamped to `±limit`). The attention half is built identically.
+    /// clamped to `±limit`). The attention half additionally applies GPT-OSS's
+    /// optional q/k/v/o projection biases and per-query-head learned attention
+    /// sinks when supplied (`None` leaves attention standard).
     ///
     /// Errors if the expert bank is empty, `experts_per_tok` is zero, or the
     /// per-expert bias count does not match the expert count.
@@ -741,6 +775,11 @@ impl MhaDecoderBlock {
             k: build(&base.w_k, kv_dim, md)?,
             v: build(&base.w_v, kv_dim, md)?,
             o: build(&base.w_o, md, q_dim)?,
+            q_bias: weights.attn_q_bias.clone(),
+            k_bias: weights.attn_k_bias.clone(),
+            v_bias: weights.attn_v_bias.clone(),
+            o_bias: weights.attn_o_bias.clone(),
+            attn_sinks: weights.attn_sinks.clone(),
             ffn: Ffn::Moe(MoeFfn {
                 router,
                 router_bias: Some(weights.router_bias.clone()),
@@ -1004,7 +1043,11 @@ impl MhaDecoderBlock {
         let n1 = self.attn_norm.normalize(hidden)?;
         let mut q = self.q.forward(&n1)?;
         let mut k = self.k.forward(&n1)?;
-        let v = self.v.forward(&n1)?;
+        let mut v = self.v.forward(&n1)?;
+        // GPT-OSS attention biases (q/k/v before RoPE); no-op when unset.
+        add_bias(&mut q, &self.q_bias);
+        add_bias(&mut k, &self.k_bias);
+        add_bias(&mut v, &self.v_bias);
         self.rope_heads(&mut q, self.num_q_heads, pos)?;
         self.rope_heads(&mut k, self.num_kv_heads, pos)?;
         self.rotated_keys.push(k)?;
@@ -1024,8 +1067,13 @@ impl MhaDecoderBlock {
 
         let keys = self.rotated_keys.materialize();
         let vals = self.values.materialize();
-        let ctx = self.mha.attend(&q, &keys, &vals)?;
-        let attn_out = self.o.forward(&ctx)?;
+        // GPT-OSS per-head attention sinks when present, else standard softmax.
+        let ctx = match &self.attn_sinks {
+            Some(sinks) => self.mha.attend_with_sinks(&q, &keys, &vals, sinks)?,
+            None => self.mha.attend(&q, &keys, &vals)?,
+        };
+        let mut attn_out = self.o.forward(&ctx)?;
+        add_bias(&mut attn_out, &self.o_bias);
         let h1: Vec<f32> = hidden.iter().zip(&attn_out).map(|(a, b)| a + b).collect();
 
         // feed-forward sublayer (pre-norm) — dense SwiGLU or routed MoE bank.
@@ -1949,12 +1997,21 @@ mod tests {
                 down: bias(e as f32 + 1.0, 8),
             })
             .collect();
+        // Attention biases + sinks only in the non-zero case, so the zero-bias
+        // fixture isolates the FFN activation. q_dim=4·2=8, kv_dim=2·2=4,
+        // model_dim=8, num_q_heads=4.
+        let attn = |seed: f32, n: usize| (!zero_bias).then(|| mat(seed, n));
         GptOssMoeWeights {
             base,
             router_bias: bias(9.0, GO_EXPERTS),
             expert_biases,
             alpha: 1.702,
             limit: 7.0,
+            attn_q_bias: attn(20.0, 8),
+            attn_k_bias: attn(21.0, 4),
+            attn_v_bias: attn(22.0, 4),
+            attn_o_bias: attn(23.0, 8),
+            attn_sinks: attn(24.0, 4),
         }
     }
 
@@ -1999,5 +2056,35 @@ mod tests {
         w.expert_biases.pop(); // now len != num_experts
         let err = MhaDecoderBlock::from_weights_moe_gpt_oss(&w, Precision::F32).unwrap_err();
         assert!(matches!(err, MhaBlockError::MoeConfig(_)), "got {err:?}");
+    }
+
+    #[test]
+    fn gpt_oss_attention_biases_and_sinks_change_decode() {
+        // Identical FFN (GPT-OSS biases + activation), but one block has the
+        // attention q/k/v/o biases + per-head sinks and the other does not — so
+        // decode must differ, proving the attention path is wired.
+        let with_attn = gpt_oss_weights(2, false);
+        let mut no_attn_w = gpt_oss_weights(2, false);
+        no_attn_w.attn_q_bias = None;
+        no_attn_w.attn_k_bias = None;
+        no_attn_w.attn_v_bias = None;
+        no_attn_w.attn_o_bias = None;
+        no_attn_w.attn_sinks = None;
+        let mut a = MhaDecoderBlock::from_weights_moe_gpt_oss(&with_attn, Precision::F32).unwrap();
+        let mut b = MhaDecoderBlock::from_weights_moe_gpt_oss(&no_attn_w, Precision::F32).unwrap();
+        let mut differed = false;
+        for step in 0..5 {
+            let x: Vec<f32> = (0..8).map(|i| ((i + step) as f32 * 0.25).sin()).collect();
+            let ya = a.step(&x).unwrap();
+            let yb = b.step(&x).unwrap();
+            assert!(ya.iter().all(|v| v.is_finite()));
+            if ya != yb {
+                differed = true;
+            }
+        }
+        assert!(
+            differed,
+            "attention biases + sinks must change the decode output"
+        );
     }
 }

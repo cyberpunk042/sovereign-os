@@ -199,6 +199,77 @@ impl Mha {
         }
         Ok(out)
     }
+
+    /// Multi-head attention with a per-query-head learned **attention sink**
+    /// (GPT-OSS): identical to [`attend`](Self::attend) but each head's softmax
+    /// denominator includes its sink logit, so a head can attend to "nothing".
+    /// `sinks.len()` must equal the number of query heads. All-`NEG_INFINITY`
+    /// sinks reduce to [`attend`](Self::attend) exactly.
+    pub fn attend_with_sinks(
+        &self,
+        query: &[f32],
+        keys: &[Vec<f32>],
+        values: &[Vec<f32>],
+        sinks: &[f32],
+    ) -> Result<Vec<f32>, MhaError> {
+        if sinks.len() != self.num_q_heads {
+            return Err(MhaError::QueryWidth {
+                expected: self.num_q_heads,
+                got: sinks.len(),
+            });
+        }
+        if query.len() != self.query_width() {
+            return Err(MhaError::QueryWidth {
+                expected: self.query_width(),
+                got: query.len(),
+            });
+        }
+        if keys.len() != values.len() {
+            return Err(MhaError::KeyValueCountMismatch {
+                keys: keys.len(),
+                values: values.len(),
+            });
+        }
+        if keys.is_empty() {
+            return Err(MhaError::EmptyContext);
+        }
+        let kvw = self.kv_width();
+        for (index, (k, v)) in keys.iter().zip(values).enumerate() {
+            if k.len() != kvw {
+                return Err(MhaError::KvWidth {
+                    index,
+                    expected: kvw,
+                    got: k.len(),
+                });
+            }
+            if v.len() != kvw {
+                return Err(MhaError::KvWidth {
+                    index,
+                    expected: kvw,
+                    got: v.len(),
+                });
+            }
+        }
+
+        let head = Attention::with_scale(self.head_dim, self.scale);
+        let d = self.head_dim;
+        let mut out = vec![0.0f32; self.query_width()];
+        for q_head in 0..self.num_q_heads {
+            let q_slice = &query[q_head * d..(q_head + 1) * d];
+            let kvh = self.kv_head_for(q_head);
+            let keys_h: Vec<Vec<f32>> = keys
+                .iter()
+                .map(|k| k[kvh * d..(kvh + 1) * d].to_vec())
+                .collect();
+            let values_h: Vec<Vec<f32>> = values
+                .iter()
+                .map(|v| v[kvh * d..(kvh + 1) * d].to_vec())
+                .collect();
+            let ctx = head.attend_with_sink(q_slice, &keys_h, &values_h, sinks[q_head])?;
+            out[q_head * d..(q_head + 1) * d].copy_from_slice(&ctx);
+        }
+        Ok(out)
+    }
 }
 
 #[cfg(test)]
@@ -246,6 +317,34 @@ mod tests {
         let values = vec![vec![5.0, 6.0], vec![7.0, 8.0]];
         let out = mha.attend(&q, &keys, &values).unwrap();
         assert_eq!(out.len(), 6);
+    }
+
+    #[test]
+    fn sinks_reduce_to_plain_and_validate_count() {
+        let mha = Mha::new(4, 2, 8).unwrap();
+        let q = vec![0.2f32; mha.query_width()];
+        let keys = vec![vec![0.1f32; mha.kv_width()], vec![-0.2f32; mha.kv_width()]];
+        let values = vec![vec![1.0f32; mha.kv_width()], vec![2.0f32; mha.kv_width()]];
+        // all-(-inf) sinks == plain attend.
+        let plain = mha.attend(&q, &keys, &values).unwrap();
+        let sunk = mha
+            .attend_with_sinks(&q, &keys, &values, &[f32::NEG_INFINITY; 4])
+            .unwrap();
+        assert!(approx(&plain, &sunk, 1e-6));
+        // a real sink attenuates the output magnitude.
+        let attenuated = mha
+            .attend_with_sinks(&q, &keys, &values, &[2.0; 4])
+            .unwrap();
+        let mag = |v: &[f32]| v.iter().map(|x| x * x).sum::<f32>().sqrt();
+        assert!(
+            mag(&attenuated) < mag(&plain),
+            "sink must shrink the output"
+        );
+        // wrong sink count is rejected.
+        assert!(
+            mha.attend_with_sinks(&q, &keys, &values, &[0.0; 3])
+                .is_err()
+        );
     }
 
     #[test]

@@ -42,9 +42,13 @@
 //! assembles each layer correctly. When a MoE layer additionally carries expert
 //! biases (`ffn_{gate,up,down}_exps.bias` + `ffn_gate_inp.bias`), it is built as
 //! a **GPT-OSS** block — per-expert + router biases and the clamped-α SwiGLU
-//! activation — via [`MhaDecoderBlock::from_weights_moe_gpt_oss`]. (Real GPT-OSS
-//! also needs its attention stack — biases, sinks, sliding window, YaRN — a
-//! named follow-up; this covers the FFN.)
+//! activation — via [`MhaDecoderBlock::from_weights_moe_gpt_oss`]. GPT-OSS's
+//! attention extras load too when present: the q/k/v/o projection biases
+//! (`blk.{i}.attn_{q,k,v,output}.bias`) and the per-head attention sink
+//! (`blk.{i}.attn_sinks`). YaRN threads through the shared `rope_scaling` path.
+//! (The one remaining GPT-OSS piece is per-layer **sliding-window** attention —
+//! the block supports it via `with_sliding_window`, but wiring the per-layer
+//! pattern from GGUF metadata is a named follow-up.)
 
 use std::collections::BTreeMap;
 
@@ -1224,6 +1228,29 @@ pub fn load_gguf(
                         down: down_b[e * md..(e + 1) * md].to_vec(),
                     })
                     .collect();
+                // Attention half: GPT-OSS biases every attention projection and
+                // has a per-query-head learned attention sink. Read them when
+                // present (they travel with the FFN biases in a gpt-oss GGUF).
+                let attn_q_bias = f
+                    .has_tensor(&t("attn_q.bias"))
+                    .then(|| f.tensor_exact(&t("attn_q.bias"), q_dim))
+                    .transpose()?;
+                let attn_k_bias = f
+                    .has_tensor(&t("attn_k.bias"))
+                    .then(|| f.tensor_exact(&t("attn_k.bias"), kv_dim))
+                    .transpose()?;
+                let attn_v_bias = f
+                    .has_tensor(&t("attn_v.bias"))
+                    .then(|| f.tensor_exact(&t("attn_v.bias"), kv_dim))
+                    .transpose()?;
+                let attn_o_bias = f
+                    .has_tensor(&t("attn_output.bias"))
+                    .then(|| f.tensor_exact(&t("attn_output.bias"), md))
+                    .transpose()?;
+                let attn_sinks = f
+                    .has_tensor(&t("attn_sinks"))
+                    .then(|| f.tensor_exact(&t("attn_sinks"), nq))
+                    .transpose()?;
                 let go = GptOssMoeWeights {
                     base: weights,
                     router_bias,
@@ -1232,6 +1259,11 @@ pub fn load_gguf(
                     // swiglu_limit = 7.0 for gpt-oss-20b / 120b).
                     alpha: GPT_OSS_ALPHA,
                     limit: GPT_OSS_SWIGLU_LIMIT,
+                    attn_q_bias,
+                    attn_k_bias,
+                    attn_v_bias,
+                    attn_o_bias,
+                    attn_sinks,
                 };
                 MhaDecoderBlock::from_weights_moe_gpt_oss(&go, precision)
                     .map_err(|e| LoaderError::Build(format!("layer {i}: {e}")))?
@@ -1901,6 +1933,14 @@ mod tests {
                 &varying(11.0, n_exp * md),
             );
             w.tensor_f32("blk.0.ffn_gate_inp.bias", &[n_exp], &varying(12.0, n_exp));
+            // GPT-OSS attention biases + per-head sinks. heads=2 → hd=md/2,
+            // q_dim=kv_dim=heads·hd=md, nq=heads.
+            let (qd, kvd, nq) = (md, md, MOE_HEADS);
+            w.tensor_f32("blk.0.attn_q.bias", &[qd], &varying(13.0, qd));
+            w.tensor_f32("blk.0.attn_k.bias", &[kvd], &varying(14.0, kvd));
+            w.tensor_f32("blk.0.attn_v.bias", &[kvd], &varying(15.0, kvd));
+            w.tensor_f32("blk.0.attn_output.bias", &[md], &varying(16.0, md));
+            w.tensor_f32("blk.0.attn_sinks", &[nq], &varying(17.0, nq));
         }
         w.finish()
     }
