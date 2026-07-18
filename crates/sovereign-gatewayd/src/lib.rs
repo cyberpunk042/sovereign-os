@@ -347,6 +347,9 @@ pub struct Health {
     /// Whether the station's NIC topology matches the master-spec §8.1
     /// Zero-Trust model (true when no violations were detected at startup).
     pub nic_topology_compliant: bool,
+    /// Number of documents in the RAG corpus (`0` ⇒ RAG off — prompts pass
+    /// through ungrounded).
+    pub rag_corpus_docs: usize,
 }
 
 /// Adapts the daemon's live Cortex Memory-OS to the CoAT
@@ -623,6 +626,11 @@ pub struct GatewayServer {
     events: Mutex<VecDeque<ObservabilitySpan>>,
     /// Monotonic per-request trace-id source for the spans.
     trace_seq: std::sync::atomic::AtomicU64,
+    /// Optional RAG corpus: a lexical retriever built once from the
+    /// `SOVEREIGN_GATEWAY_CORPUS` directory (deterministic + embedding-free), used
+    /// to prepend grounding context to a prompt BEFORE generation. Read-only after
+    /// construction, so no lock is needed. `None` ⇒ RAG off (prompts pass through).
+    corpus: Option<sovereign_retrieval::DocStore>,
 }
 
 /// A loaded local generation engine: real weights + a real byte-level BPE
@@ -1125,6 +1133,85 @@ fn memory_store_path() -> Option<std::path::PathBuf> {
     std::env::var_os("SOVEREIGN_GATEWAY_MEMORY").map(std::path::PathBuf::from)
 }
 
+/// Pure core of [`GatewayServer::rag_augment`]: prepend the top-`k` corpus
+/// documents as a `Context:` block, or return `prompt` unchanged when there is
+/// no corpus (or it retrieves nothing). Split out so the wiring is unit-testable
+/// without touching process env.
+fn rag_augment_with(
+    corpus: Option<&sovereign_retrieval::DocStore>,
+    prompt: &str,
+    k: usize,
+) -> String {
+    match corpus {
+        Some(store) => sovereign_retrieval::augment_prompt(store, prompt, k),
+        None => prompt.to_string(),
+    }
+}
+
+/// Default number of corpus documents prepended as RAG context per prompt.
+const DEFAULT_RAG_TOP_K: usize = 3;
+
+/// Resolve the RAG top-k from `SOVEREIGN_GATEWAY_RAG_TOPK` (absent / invalid /
+/// `0` ⇒ [`DEFAULT_RAG_TOP_K`]).
+fn rag_top_k() -> usize {
+    std::env::var("SOVEREIGN_GATEWAY_RAG_TOPK")
+        .ok()
+        .and_then(|v| v.trim().parse::<usize>().ok())
+        .filter(|&k| k > 0)
+        .unwrap_or(DEFAULT_RAG_TOP_K)
+}
+
+/// Build the RAG corpus from `SOVEREIGN_GATEWAY_CORPUS`: each `.md`/`.markdown`/
+/// `.txt` file in that directory becomes one retrievable document (id = file
+/// name), loaded in sorted order so the store is deterministic. Returns `None`
+/// (RAG off) when the var is unset, the path isn't a directory, or it holds no
+/// eligible files — each case logged, never a hard failure.
+fn load_corpus_from_env() -> Option<sovereign_retrieval::DocStore> {
+    let dir = std::path::PathBuf::from(std::env::var_os("SOVEREIGN_GATEWAY_CORPUS")?);
+    if !dir.is_dir() {
+        eprintln!(
+            "sovereign-gatewayd: SOVEREIGN_GATEWAY_CORPUS={} is not a directory — RAG disabled",
+            dir.display()
+        );
+        return None;
+    }
+    let mut paths: Vec<std::path::PathBuf> = std::fs::read_dir(&dir)
+        .ok()?
+        .filter_map(Result::ok)
+        .map(|e| e.path())
+        .filter(|p| {
+            p.extension()
+                .and_then(|x| x.to_str())
+                .is_some_and(|x| matches!(x, "md" | "markdown" | "txt"))
+        })
+        .collect();
+    paths.sort();
+    let mut store = sovereign_retrieval::DocStore::new();
+    let mut n = 0usize;
+    for p in &paths {
+        if let Ok(text) = std::fs::read_to_string(p) {
+            let id = p
+                .file_name()
+                .map(|s| s.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            store.add(id, text);
+            n += 1;
+        }
+    }
+    if n == 0 {
+        eprintln!(
+            "sovereign-gatewayd: SOVEREIGN_GATEWAY_CORPUS={} holds no .md/.txt files — RAG disabled",
+            dir.display()
+        );
+        return None;
+    }
+    eprintln!(
+        "sovereign-gatewayd: RAG corpus loaded — {n} document(s) from {}",
+        dir.display()
+    );
+    Some(store)
+}
+
 /// Default cap on resident learned memories. A long-running daemon that learns
 /// on every request would otherwise grow the store without bound (and re-persist
 /// the whole thing every snapshot). The cap keeps the highest-value memories and
@@ -1397,6 +1484,10 @@ impl GatewayServer {
                 guard.screen_prompt_pii,
             );
         }
+        // Optional RAG corpus: build a lexical retriever from the operator's
+        // corpus dir once at startup (deterministic; no model needed).
+        let corpus = load_corpus_from_env();
+
         // Zero-Trust NIC topology validation at startup (best-effort; non-fatal).
         let nic_violations = validate_nic_topology().unwrap_or_default();
         if !nic_violations.is_empty() {
@@ -1446,7 +1537,27 @@ impl GatewayServer {
             rate_limited: std::sync::atomic::AtomicU64::new(0),
             events: Mutex::new(VecDeque::new()),
             trace_seq: std::sync::atomic::AtomicU64::new(1),
+            corpus,
         }
+    }
+
+    /// Prepend retrieved corpus context to `prompt` (a `Context:` block) when a RAG
+    /// corpus is loaded; returns `prompt` unchanged otherwise. Retrieval is
+    /// deterministic + embedding-free (lexical term overlap over the corpus), so
+    /// grounding is reproducible. **Called at the handler layer, before
+    /// `generate_chat`** — never inside it, so it composes with the safety spine
+    /// and any backend without touching the generation core.
+    #[must_use]
+    pub fn rag_augment(&self, prompt: &str) -> String {
+        rag_augment_with(self.corpus.as_ref(), prompt, rag_top_k())
+    }
+
+    /// Number of documents in the RAG corpus (0 when none is loaded).
+    #[must_use]
+    pub fn corpus_len(&self) -> usize {
+        self.corpus
+            .as_ref()
+            .map_or(0, sovereign_retrieval::DocStore::len)
     }
 
     /// Whether the PRIMARY local generation worker pool is loaded (the default route).
@@ -2326,6 +2437,7 @@ impl GatewayServer {
             cloud_spills: ledger.cloud_spills,
             never_cloud_spill_holds: ledger.cloud_spills == 0,
             nic_topology_compliant: self.nic_violations.is_empty(),
+            rag_corpus_docs: self.corpus_len(),
         }
     }
 
@@ -2467,6 +2579,15 @@ impl GatewayServer {
         s.push_str(&format!(
             "sovereign_gateway_nic_topology_compliant {}\n",
             u8::from(self.nic_violations.is_empty())
+        ));
+
+        s.push_str(
+            "# HELP sovereign_gateway_rag_corpus_docs Documents in the RAG corpus (0 = RAG off).\n",
+        );
+        s.push_str("# TYPE sovereign_gateway_rag_corpus_docs gauge\n");
+        s.push_str(&format!(
+            "sovereign_gateway_rag_corpus_docs {}\n",
+            self.corpus_len()
         ));
 
         s
@@ -2803,6 +2924,23 @@ mod tests {
             ..GuardConfig::default()
         };
         assert!(ProxyRedactor::from_guard(&off).is_none());
+    }
+
+    #[test]
+    fn rag_augment_injects_retrieved_context() {
+        use sovereign_retrieval::DocStore;
+        let mut store = DocStore::new();
+        store.add("capital", "The capital of France is Paris.");
+        store.add("weather", "It often rains in Seattle.");
+        // A France query retrieves the capital doc and prepends it as context.
+        let out = rag_augment_with(Some(&store), "capital of France", 1);
+        assert!(out.starts_with("Context:\n"), "{out}");
+        assert!(out.contains("capital of France is Paris"), "{out}");
+        assert!(out.trim_end().ends_with("capital of France"), "{out}");
+        // Irrelevant doc is NOT the top hit.
+        assert!(!out.contains("Seattle"), "{out}");
+        // No corpus ⇒ passthrough unchanged.
+        assert_eq!(rag_augment_with(None, "hello", 3), "hello");
     }
 
     #[test]

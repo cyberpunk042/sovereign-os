@@ -1310,7 +1310,9 @@ fn anthropic_message(server: &GatewayServer, body: &str) -> HttpReply {
                 .to_string(),
         );
     }
-    let prompt = anthropic_prompt(&req);
+    // Ground the prompt in the RAG corpus (no-op when none is loaded) BEFORE
+    // generation, so the model answers from retrieved facts, not just the prompt.
+    let prompt = server.rag_augment(&anthropic_prompt(&req));
     let max_new = anthropic_max_tokens(&req);
     let mut out = String::new();
     let generated = server.generate_chat_with_sampler(

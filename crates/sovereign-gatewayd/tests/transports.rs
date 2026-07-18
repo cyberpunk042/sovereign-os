@@ -303,6 +303,33 @@ fn http_health_get_is_200_invariant_holds() {
     assert!(status.starts_with("HTTP/1.1 200"), "status: {status}");
     let v: serde_json::Value = serde_json::from_str(&body).unwrap();
     assert_eq!(v["health"]["never_cloud_spill_holds"], true);
+    // No corpus configured for a plain spawn ⇒ RAG off.
+    assert_eq!(v["health"]["rag_corpus_docs"], 0);
+}
+
+#[test]
+fn http_health_reports_loaded_rag_corpus() {
+    // Write a 2-doc corpus, spawn with SOVEREIGN_GATEWAY_CORPUS pointed at it, and
+    // confirm the daemon loaded it end-to-end (surfaced on /health). This is the
+    // whole RAG wiring: dir → DocStore → live count. (.log is ignored; only 2 of 3.)
+    static N: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let uniq = N.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let dir = std::env::temp_dir().join(format!("sov-rag-{}-{uniq}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("a.md"), "The capital of France is Paris.").unwrap();
+    std::fs::write(dir.join("b.txt"), "Seattle is rainy.").unwrap();
+    std::fs::write(dir.join("ignore.log"), "not indexed").unwrap();
+
+    let d = spawn_with_env(
+        "--http",
+        &[("SOVEREIGN_GATEWAY_CORPUS", dir.to_str().unwrap())],
+    );
+    let (status, body) = http_request(&d.addr, "GET", "/health", "");
+    assert!(status.starts_with("HTTP/1.1 200"), "status: {status}");
+    let v: serde_json::Value = serde_json::from_str(&body).unwrap();
+    assert_eq!(v["health"]["rag_corpus_docs"], 2, "body: {body}");
+
+    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]

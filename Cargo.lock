@@ -4930,6 +4930,7 @@ dependencies = [
  "sovereign-pii-redact",
  "sovereign-quant-model",
  "sovereign-rate-limit",
+ "sovereign-retrieval",
  "sovereign-router-7axis",
  "sovereign-safetensors-loader",
  "sovereign-secret-scan",
