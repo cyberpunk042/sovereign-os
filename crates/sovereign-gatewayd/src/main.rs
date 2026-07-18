@@ -80,7 +80,9 @@ ENVIRONMENT:
     SOVEREIGN_GATEWAY_RATE_PER_SEC   sustained generation rate — tokens/sec refill (default 20)
     SOVEREIGN_GATEWAY_AGENTIC        enable server-side agentic tool use (default OFF); when on, a
                                      /v1/chat/completions request with \"sovereign_agentic\":true runs the
-                                     ReAct loop inside the daemon over the built-in pure tools (SDD-712)
+                                     ReAct loop inside the daemon (SDD-712). Read-only/pure tool catalog:
+                                     calc, time, upper/lower/reverse/wordcount/charcount, recall (learned
+                                     memory), and search (the RAG corpus, when SOVEREIGN_GATEWAY_CORPUS is set)
 
   Safety spine (input screening + output redaction; all default on):
     SOVEREIGN_GATEWAY_GUARD                  master switch (0 disables the spine)

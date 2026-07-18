@@ -632,8 +632,9 @@ pub struct GatewayServer {
     /// A candidate pool is drawn from it and coverage-**reranked** before the
     /// top-k passages ground the prompt. Deterministic (no model needed). Used
     /// BEFORE generation; read-only after construction, so no lock is needed.
+    /// Behind an `Arc` so the agent's `search` tool can own a `'static` handle.
     /// `None` ⇒ RAG off (prompts pass through).
-    corpus: Option<sovereign_retrieval::HybridStore>,
+    corpus: Option<Arc<sovereign_retrieval::HybridStore>>,
 }
 
 /// A loaded local generation engine: real weights + a real byte-level BPE
@@ -1159,21 +1160,44 @@ fn rag_augment_with(
     let Some(store) = corpus else {
         return prompt.to_string();
     };
-    if k == 0 {
+    let chosen = corpus_retrieve(store, prompt, k);
+    if chosen.is_empty() {
         return prompt.to_string();
     }
-    // Wide recall pool from the hybrid (BM25 + embedding) retriever.
+    // Mirror sovereign_retrieval::augment_prompt's `Context:` block format.
+    let mut out = String::from("Context:\n");
+    for c in &chosen {
+        out.push_str("- ");
+        out.push_str(c);
+        out.push('\n');
+    }
+    out.push('\n');
+    out.push_str(prompt);
+    out
+}
+
+/// Retrieve the top-`k` corpus passages for `query`: a wide hybrid (BM25 +
+/// embedding) recall pool, coverage-**reranked** for precision, with any slot the
+/// rerank drops (zero-overlap paraphrase hits) backfilled from the fused order so
+/// recall is preserved. Returns the passage texts, best-first. Shared by
+/// [`rag_augment_with`] (prompt grounding) and the agent's `search` tool.
+pub fn corpus_retrieve(
+    store: &sovereign_retrieval::HybridStore,
+    query: &str,
+    k: usize,
+) -> Vec<String> {
+    if k == 0 {
+        return Vec::new();
+    }
     let pool: Vec<(String, String)> = store
-        .retrieve(prompt, (k * 4).max(RAG_POOL_MIN))
+        .retrieve(query, (k * 4).max(RAG_POOL_MIN))
         .into_iter()
         .map(|(id, text, _)| (id, text))
         .collect();
     if pool.is_empty() {
-        return prompt.to_string();
+        return Vec::new();
     }
-    // Precision rerank by query-term coverage, then backfill from fused order for
-    // any slot the (coverage-filtering) rerank left empty.
-    let reranked = sovereign_rerank::rerank(prompt, &pool, k);
+    let reranked = sovereign_rerank::rerank(query, &pool, k);
     let mut chosen: Vec<String> = Vec::with_capacity(k);
     let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
     for h in reranked {
@@ -1192,19 +1216,7 @@ fn rag_augment_with(
             chosen.push(text);
         }
     }
-    if chosen.is_empty() {
-        return prompt.to_string();
-    }
-    // Mirror sovereign_retrieval::augment_prompt's `Context:` block format.
-    let mut out = String::from("Context:\n");
-    for c in &chosen {
-        out.push_str("- ");
-        out.push_str(c);
-        out.push('\n');
-    }
-    out.push('\n');
-    out.push_str(prompt);
-    out
+    chosen
 }
 
 /// Default number of corpus documents prepended as RAG context per prompt.
@@ -1247,7 +1259,7 @@ fn rag_chunk_params() -> (usize, usize) {
 /// sorted order and chunk ids are `{file}#{i}`, so the store is deterministic.
 /// Returns `None` (RAG off) when the var is unset, the path isn't a directory, or
 /// it holds no eligible files — each case logged, never a hard failure.
-fn load_corpus_from_env() -> Option<sovereign_retrieval::HybridStore> {
+fn load_corpus_from_env() -> Option<Arc<sovereign_retrieval::HybridStore>> {
     let dir = std::path::PathBuf::from(std::env::var_os("SOVEREIGN_GATEWAY_CORPUS")?);
     if !dir.is_dir() {
         eprintln!(
@@ -1297,7 +1309,7 @@ fn load_corpus_from_env() -> Option<sovereign_retrieval::HybridStore> {
         store.len(),
         dir.display()
     );
-    Some(store)
+    Some(Arc::new(store))
 }
 
 /// Default cap on resident learned memories. A long-running daemon that learns
@@ -1637,16 +1649,21 @@ impl GatewayServer {
     /// and any backend without touching the generation core.
     #[must_use]
     pub fn rag_augment(&self, prompt: &str) -> String {
-        rag_augment_with(self.corpus.as_ref(), prompt, rag_top_k())
+        rag_augment_with(self.corpus.as_deref(), prompt, rag_top_k())
+    }
+
+    /// A shared handle to the RAG corpus (for the agent's `search` tool), or
+    /// `None` when no corpus is loaded.
+    #[must_use]
+    pub fn corpus_handle(&self) -> Option<Arc<sovereign_retrieval::HybridStore>> {
+        self.corpus.clone()
     }
 
     /// Number of retrievable passages (chunks) in the RAG corpus (0 when none is
     /// loaded).
     #[must_use]
     pub fn corpus_len(&self) -> usize {
-        self.corpus
-            .as_ref()
-            .map_or(0, sovereign_retrieval::HybridStore::len)
+        self.corpus.as_ref().map_or(0, |c| c.len())
     }
 
     /// Whether the PRIMARY local generation worker pool is loaded (the default route).
@@ -1859,6 +1876,18 @@ impl GatewayServer {
     /// (Phase-1 de-island of `sovereign-observability-events`). Surfaced on
     /// `GET /v1/events`. Cheap + non-blocking; a poisoned ring is skipped.
     pub fn record_model_call(&self, model: &str, tokens: u64, latency_ms: u64) {
+        self.record_call("local", model, tokens, latency_ms);
+    }
+
+    /// Record a `model_call` span for a completed PROXY-relayed generation
+    /// (provider `proxy`), so a proxy-backed model's calls are visible on
+    /// `GET /v1/events` alongside local ones — they never pass through the local
+    /// generate path that records the local spans.
+    pub fn record_proxy_call(&self, model: &str, tokens: u64, latency_ms: u64) {
+        self.record_call("proxy", model, tokens, latency_ms);
+    }
+
+    fn record_call(&self, provider: &str, model: &str, tokens: u64, latency_ms: u64) {
         let mut span = ObservabilitySpan::new(
             EventKind::ModelCall,
             "sovereign-gateway",
@@ -1866,7 +1895,7 @@ impl GatewayServer {
             BranchId(0),
         );
         span.model = Some(model.to_string());
-        span.provider = Some("local".to_string());
+        span.provider = Some(provider.to_string());
         span.tokens = Some(tokens);
         span.latency_ms = Some(latency_ms);
         self.record_event(span);
@@ -2410,6 +2439,17 @@ impl GatewayServer {
                 half_life,
             };
             if self.has_generator() {
+                // Admission control: a model-backed CoAT fires up to 12 generate
+                // calls per request, and it is reachable on BOTH the HTTP /v1/coat
+                // route and the NDJSON transport — neither of which passes the HTTP
+                // handler's generation gate. Charge the same token bucket here so a
+                // runaway CoAT client can't peg the box (a plain `/v1/messages`
+                // stays gated at the handler; this closes the CoAT + NDJSON gap).
+                if !self.admit_generation() {
+                    return GatewayResponse::Error {
+                        message: "rate limit exceeded — too many generation requests".to_string(),
+                    };
+                }
                 // Model calls are expensive: one per expansion, no rollout, capped
                 // budget — so a deliberation stays bounded when model-backed.
                 let cfg = CoatConfig {
@@ -3284,6 +3324,27 @@ mod tests {
             ev.first().unwrap().trace_id.0 < ev.last().unwrap().trace_id.0,
             "trace ids must advance"
         );
+    }
+
+    #[test]
+    fn proxy_calls_record_a_distinct_provider_span() {
+        // Proxy-relayed generation is now observable on /v1/events too, labeled
+        // provider=proxy (vs local for the in-process generate path).
+        let s = GatewayServer::new();
+        s.record_model_call("m", 5, 10);
+        s.record_proxy_call("gpu-oai", 7, 20);
+        let ev = s.recent_events();
+        assert_eq!(ev.len(), 2);
+        let providers: Vec<&str> = ev.iter().filter_map(|e| e.provider.as_deref()).collect();
+        assert!(providers.contains(&"local"), "{providers:?}");
+        assert!(providers.contains(&"proxy"), "{providers:?}");
+        // the proxy span carries its model + metrics
+        let proxy = ev
+            .iter()
+            .find(|e| e.provider.as_deref() == Some("proxy"))
+            .unwrap();
+        assert_eq!(proxy.model.as_deref(), Some("gpu-oai"));
+        assert_eq!(proxy.tokens, Some(7));
     }
 
     #[test]
