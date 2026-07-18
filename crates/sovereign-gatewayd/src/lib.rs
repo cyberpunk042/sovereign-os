@@ -873,11 +873,64 @@ impl<'a, F: FnMut(&str)> StreamGuard<'a, F> {
     }
 }
 
-/// Load a model dir (`config.json` + a `*.safetensors` + `tokenizer.json`) into a
-/// [`Generator`]. `Ok(None)` when the dir has no `config.json` (configured but not
-/// fetched); `Err` on a malformed / vocab-mismatched model. Shared by the primary
-/// (env) and secondary ([`GatewayServer::load_model`]) load paths.
+/// Read the dir's `tokenizer.json` (required) + optional `tokenizer_config.json`
+/// chat template. Shared by the safetensors + GGUF load paths (F-2026-085).
+fn load_tokenizer_and_template(
+    dir: &str,
+) -> Result<(sovereign_hf_tokenizer::HfBpeTokenizer, Option<String>), String> {
+    let tok_bytes = std::fs::read(format!("{dir}/tokenizer.json"))
+        .map_err(|e| format!("read tokenizer.json: {e}"))?;
+    let tokenizer = sovereign_hf_tokenizer::HfBpeTokenizer::from_tokenizer_json(&tok_bytes)
+        .map_err(|e| format!("tokenizer.json: {e}"))?;
+    // F-2026-086: chat template from tokenizer_config.json if present.
+    let chat_template = std::fs::read(format!("{dir}/tokenizer_config.json"))
+        .ok()
+        .and_then(|b| sovereign_hf_tokenizer::TokenizerConfig::from_json(&b).ok())
+        .and_then(|c| c.chat_template().map(str::to_string));
+    Ok((tokenizer, chat_template))
+}
+
+/// Find a single `*.<ext>` file in `dir` (returns its path, or None).
+fn find_by_ext(dir: &str, ext: &str) -> Option<std::path::PathBuf> {
+    std::fs::read_dir(dir)
+        .ok()?
+        .filter_map(Result::ok)
+        .map(|e| e.path())
+        .find(|p| p.extension().is_some_and(|x| x == ext))
+}
+
+/// Load a model dir into a [`Generator`]. Two on-disk layouts are supported.
+///
+/// - **GGUF** (F-2026-085): a `*.gguf` (already-quantized weights + embedded
+///   hyperparameters) + a `tokenizer.json`. Preferred when present.
+/// - **safetensors**: `config.json` + a `*.safetensors` + `tokenizer.json`.
+///
+/// `Ok(None)` when the dir has neither a `*.gguf` nor a `config.json` (configured
+/// but not fetched); `Err` on a malformed / vocab-mismatched model.
 fn load_generator_from_dir(dir: &str) -> Result<Option<Generator>, String> {
+    // F-2026-085: prefer an already-quantized GGUF checkpoint if the dir has one.
+    // The GGUF carries its own hyperparameters (no config.json needed); it pairs
+    // with a tokenizer.json for the runtime tokenizer.
+    if let Some(gguf_path) = find_by_ext(dir, "gguf") {
+        use sovereign_safetensors_loader::{Precision, Sampler, load_gguf};
+        let bytes = std::fs::read(&gguf_path).map_err(|e| format!("read gguf: {e}"))?;
+        let model = load_gguf(&bytes, Precision::F32, Sampler::greedy())
+            .map_err(|e| format!("gguf load: {e}"))?;
+        let (tokenizer, chat_template) = load_tokenizer_and_template(dir)?;
+        if model.vocab() != tokenizer.vocab_size() {
+            return Err(format!(
+                "vocab mismatch: gguf model {} vs tokenizer {}",
+                model.vocab(),
+                tokenizer.vocab_size()
+            ));
+        }
+        return Ok(Some(Generator {
+            model,
+            tokenizer,
+            chat_template,
+        }));
+    }
+
     let cfg_path = format!("{dir}/config.json");
     if !std::path::Path::new(&cfg_path).exists() {
         return Ok(None); // configured but not fetched — not an error
@@ -893,10 +946,7 @@ fn load_generator_from_dir(dir: &str) -> Result<Option<Generator>, String> {
         .ok_or_else(|| format!("no *.safetensors in {dir}"))?;
     let st = std::fs::read(&st_path).map_err(|e| format!("read weights: {e}"))?;
     let model = load(&st, &config).map_err(|e| format!("weight load: {e}"))?;
-    let tok_bytes = std::fs::read(format!("{dir}/tokenizer.json"))
-        .map_err(|e| format!("read tokenizer.json: {e}"))?;
-    let tokenizer = sovereign_hf_tokenizer::HfBpeTokenizer::from_tokenizer_json(&tok_bytes)
-        .map_err(|e| format!("tokenizer.json: {e}"))?;
+    let (tokenizer, chat_template) = load_tokenizer_and_template(dir)?;
     if model.vocab() != tokenizer.vocab_size() {
         return Err(format!(
             "vocab mismatch: model {} vs tokenizer {}",
@@ -904,13 +954,6 @@ fn load_generator_from_dir(dir: &str) -> Result<Option<Generator>, String> {
             tokenizer.vocab_size()
         ));
     }
-    // F-2026-086: load the model's chat template from tokenizer_config.json if
-    // present. Absent / unparseable ⇒ None (the chat path newline-joins as
-    // before — never a hard failure on an older model dir).
-    let chat_template = std::fs::read(format!("{dir}/tokenizer_config.json"))
-        .ok()
-        .and_then(|b| sovereign_hf_tokenizer::TokenizerConfig::from_json(&b).ok())
-        .and_then(|c| c.chat_template().map(str::to_string));
     Ok(Some(Generator {
         model,
         tokenizer,
