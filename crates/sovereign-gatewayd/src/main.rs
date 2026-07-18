@@ -610,7 +610,19 @@ fn handle_http_conn(server: &GatewayServer, stream: TcpStream) -> std::io::Resul
         if let Some((k, v)) = trimmed.split_once(':') {
             let k = k.trim();
             if k.eq_ignore_ascii_case("content-length") {
-                content_length = v.trim().parse().unwrap_or(0);
+                // A malformed Content-Length was silently treated as 0 — the body
+                // then read as empty and the request usually 400'd downstream for
+                // the wrong reason. Reject the bad header explicitly.
+                let raw = v.trim();
+                match raw.parse::<usize>() {
+                    Ok(n) => content_length = n,
+                    Err(_) => {
+                        return write_http(
+                            &mut writer,
+                            &http::err(400, format!("invalid Content-Length header: {raw:?}")),
+                        );
+                    }
+                }
             } else if k.eq_ignore_ascii_case("authorization") {
                 authorization = Some(v.trim().to_string());
             }

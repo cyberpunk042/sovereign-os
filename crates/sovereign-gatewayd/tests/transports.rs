@@ -714,3 +714,25 @@ fn http_oversized_content_length_is_413_without_allocating() {
     let (status, _) = http_request(&d.addr, "GET", "/health", "");
     assert!(status.starts_with("HTTP/1.1 200"), "status: {status}");
 }
+
+#[test]
+fn http_malformed_content_length_is_400() {
+    // A non-numeric Content-Length was silently treated as 0 (body read empty,
+    // then a misleading downstream error); now it's an explicit 400.
+    let d = spawn("--http");
+    let req = "POST /v1/messages HTTP/1.1\r\nHost: x\r\n\
+               Content-Length: not-a-number\r\nConnection: close\r\n\r\n";
+    let mut stream = connect_retry(&d.addr);
+    stream.write_all(req.as_bytes()).unwrap();
+    stream.flush().unwrap();
+    let mut raw = String::new();
+    stream.read_to_string(&mut raw).unwrap();
+    assert!(
+        raw.lines().next().unwrap_or("").starts_with("HTTP/1.1 400"),
+        "expected 400, got: {}",
+        raw.lines().next().unwrap_or("")
+    );
+    // still responsive
+    let (status, _) = http_request(&d.addr, "GET", "/health", "");
+    assert!(status.starts_with("HTTP/1.1 200"), "status: {status}");
+}
