@@ -28,7 +28,7 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
-use sovereign_decoder_layer::{LayerError, LayerStack};
+use sovereign_decoder_layer::{LayerError, LayerStack, MoeSummary};
 use sovereign_logit_mask::LogitMask;
 use sovereign_rmsnorm::{RmsNorm, RmsNormError};
 use sovereign_sampler::{Sampler, SamplerError};
@@ -231,6 +231,18 @@ impl QuantModel {
     /// Number of layers.
     pub fn layers(&self) -> usize {
         self.stack.depth()
+    }
+
+    /// The model dimension (residual-stream width).
+    pub fn model_dim(&self) -> usize {
+        self.model_dim
+    }
+
+    /// The mixture-of-experts shape of this model, or `None` if it is fully
+    /// dense. Lets a daemon / operator surface report expert count, top-k, and
+    /// how many layers are sparse for a loaded MoE checkpoint.
+    pub fn moe_summary(&self) -> Option<MoeSummary> {
+        self.stack.moe_summary()
     }
 
     /// Vocabulary size.

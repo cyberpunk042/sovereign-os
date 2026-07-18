@@ -90,7 +90,7 @@ and read-only surfaces run on the deterministic engine and never need one.
 | Method + path | Purpose | Shape |
 |---|---|---|
 | `POST /v1/messages` | **Anthropic Messages API** (generate) | `{model, max_tokens, system?, messages[], stream?}` → `{type:"message", content:[{type:"text",text}], stop_reason, usage}`; `stream:true` = Anthropic SSE |
-| `GET /v1/models` | Anthropic models list (loaded residents + proxies, with `device`/`vram_gb`) | `{data:[{type:"model", id, display_name, device, vram_gb}], has_more:false}` |
+| `GET /v1/models` | Anthropic models list (loaded residents + proxies, with `device`/`vram_gb`); `architecture` describes the primary in-process model (`layers`/`vocab`/`model_dim`, plus a `mixture_of_experts` block — experts / top-k / sparse-layer count — when it is a MoE, else `null`) | `{data:[{type:"model", id, display_name, device, vram_gb}], has_more:false, architecture:{layers, vocab, model_dim, mixture_of_experts}\|null}` |
 | `POST /v1/messages/count_tokens` | Anthropic token count | `{input_tokens:N}` |
 | `POST /v1/models/load` | load a **secondary** CPU model | `{id, dir}` → `{loaded:id}` |
 | `POST /v1/models/unload` | unload a secondary / unregister a proxy | `{id}` → `{unloaded:bool}` |
