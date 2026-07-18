@@ -40,10 +40,14 @@
 //!   tensor presence and de-interleaved/transposed into per-expert SwiGLUs. (2)
 //!   **Per-layer dense/MoE interleaving** via `mlp_only_layers` /
 //!   `decoder_sparse_step` (Qwen3-MoE): those layers build a dense SwiGLU while
-//!   the rest build the expert bank. **Still follow-ups for full GPT-OSS
-//!   coherence:** MXFP4 weight packing, per-projection + router biases, and the
-//!   clamped (`swiglu_limit`) α-scaled activation — this increment lands the
-//!   fused *layout*, not GPT-OSS's exact FFN math.
+//!   the rest build the expert bank. The fused branch also reads the
+//!   **MXFP4-packed** form the real GPT-OSS release ships (`gate_up_proj_blocks`
+//!   / `_scales`, dequantized via [`SafeTensors::tensor_mxfp4`]). **Still
+//!   follow-ups for full GPT-OSS coherence:** per-projection + router biases, the
+//!   clamped (`swiglu_limit`) α-scaled activation, and attention sinks — the
+//!   fused experts still route through the standard SwiGLU MoE here, so a
+//!   *coherent* safetensors gpt-oss decoder is the remaining, checkpoint-gated
+//!   follow-up.
 //! - **Out (named follow-ups):** GGUF Q4_K/Q8_0 dequant (needs a from-scratch
 //!   block-dequant); a real **tokenizer bridge** (the runtime tokenizer is
 //!   byte-BPE — a real model's SentencePiece/BPE vocab needs translating);
@@ -755,10 +759,14 @@ fn elems(dims: &[usize]) -> Result<usize, LoaderError> {
 ///   single `mlp.experts.down_proj` (`[n_exp, moe_hid, model_dim]`). Each expert
 ///   is de-interleaved and transposed into the runtime `[out, in]` layout.
 ///
-/// The fused branch handles GPT-OSS's expert **tensor layout**; GPT-OSS's other
-/// specifics (per-projection biases, the clamped `swiglu_limit`/α activation,
-/// MXFP4 weight packing) are separate follow-ups — a fused-layout model whose
-/// experts are plain F32/F16/BF16 SwiGLUs assembles correctly today.
+/// The fused branch has two forms: the **MXFP4-packed** expert bank the real
+/// GPT-OSS release ships (`gate_up_proj_blocks` / `_scales` + `down_proj_blocks`
+/// / `_scales`, dequantized via [`SafeTensors::tensor_mxfp4`]), and the
+/// unquantized `gate_up_proj` / `down_proj` form. Both yield the same
+/// [`MoeExpertWeights`]. GPT-OSS's remaining specifics (per-projection + router
+/// biases, the clamped `swiglu_limit`/α activation, attention sinks) still route
+/// through the standard SwiGLU MoE here — folding them in for a coherent
+/// safetensors gpt-oss decoder is the remaining, checkpoint-gated follow-up.
 fn read_moe_layer(
     st: &SafeTensors,
     i: usize,
@@ -766,9 +774,54 @@ fn read_moe_layer(
     moe_hid: usize,
     md: usize,
 ) -> Result<(Vec<f32>, Vec<MoeExpertWeights>), LoaderError> {
+    // MXFP4-packed fused stacked layout (the real GPT-OSS release). The experts
+    // ship as `*_blocks` / `*_scales` `U8` tensor pairs (see [`mxfp4`]). Per HF
+    // transformers `Mxfp4GptOssExperts`, the packed tensors are stored
+    // **out-major** (packed along the contracted `in` dim, 32 per block), the
+    // transpose of the unquantized `[in, out]` param — so a dequant lands
+    // directly in the runtime `[out, in]` layout, no further transpose:
+    //   - `gate_up_proj_blocks`: `[n_exp, 2·moe_hid, md/32, 16]` ⇒ `[2·moe_hid, md]`
+    //     per expert, gate on even out-rows, up on odd;
+    //   - `down_proj_blocks`:    `[n_exp, md, moe_hid/32, 16]`  ⇒ `[md, moe_hid]`.
+    // (`md` and `moe_hid` must be multiples of 32, the MXFP4 block width.)
+    // Real-model coherence is checkpoint-gated; the layout is source-traced, not
+    // yet verified against a running gpt-oss.
+    let fused_blocks = format!("model.layers.{i}.mlp.experts.gate_up_proj_blocks");
+    if st.has_tensor(&fused_blocks) {
+        let gu_scales = format!("model.layers.{i}.mlp.experts.gate_up_proj_scales");
+        let down_blocks = format!("model.layers.{i}.mlp.experts.down_proj_blocks");
+        let down_scales = format!("model.layers.{i}.mlp.experts.down_proj_scales");
+        let per_gu = elems(&[2 * moe_hid, md])?; // [2·moe_hid (out), md (in)] per expert
+        let per_down = elems(&[md, moe_hid])?; // [md (out), moe_hid (in)] per expert
+        let gate_up = st.tensor_mxfp4(&fused_blocks, &gu_scales, elems(&[n_exp, per_gu])?)?;
+        let down = st.tensor_mxfp4(&down_blocks, &down_scales, elems(&[n_exp, per_down])?)?;
+        let router = st.tensor_exact(
+            &format!("model.layers.{i}.mlp.router.weight"),
+            elems(&[n_exp, md])?,
+        )?;
+        let mut experts = Vec::with_capacity(n_exp);
+        for e in 0..n_exp {
+            let gu = &gate_up[e * per_gu..(e + 1) * per_gu]; // [2·moe_hid][md] (out, in)
+            let dn = &down[e * per_down..(e + 1) * per_down]; // [md][moe_hid] (out, in)
+            let mut w_gate = vec![0.0f32; moe_hid * md];
+            let mut w_up = vec![0.0f32; moe_hid * md];
+            for k in 0..moe_hid {
+                // gate = even out-row 2k, up = odd out-row 2k+1; already [out, in].
+                w_gate[k * md..(k + 1) * md].copy_from_slice(&gu[(2 * k) * md..(2 * k + 1) * md]);
+                w_up[k * md..(k + 1) * md].copy_from_slice(&gu[(2 * k + 1) * md..(2 * k + 2) * md]);
+            }
+            experts.push(MoeExpertWeights {
+                w_gate,
+                w_up,
+                w_down: dn.to_vec(), // [md, moe_hid] is already runtime [out, in]
+            });
+        }
+        return Ok((router, experts));
+    }
+
     let fused = format!("model.layers.{i}.mlp.experts.gate_up_proj");
     if st.has_tensor(&fused) {
-        // Fused stacked layout (GPT-OSS).
+        // Fused stacked layout (GPT-OSS), unquantized.
         let two_h = elems(&[2, moe_hid])?;
         let per_gu = elems(&[md, two_h])?; // [model_dim, 2·moe_hid] per expert
         let per_down = elems(&[moe_hid, md])?; // [moe_hid, model_dim] per expert
@@ -1078,6 +1131,75 @@ mod tests {
             st.tensor_mxfp4("w_blocks", "w_scales", 8),
             Err(LoaderError::UnsupportedDtype { .. })
         ));
+    }
+
+    // Encode f32 values (each an exact positive FP4 value) as MXFP4 blocks +
+    // scales, one E8M0 scale byte of 127 (×2^0 = 1) per 32-value block. `vals`
+    // must be a multiple of 32.
+    fn mxfp4_encode(vals: &[f32]) -> (Vec<u8>, Vec<u8>) {
+        const POS: [f32; 8] = [0.0, 0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0];
+        let nib = |v: f32| POS.iter().position(|&x| x == v).expect("FP4 value") as u8;
+        let blocks = vals
+            .chunks_exact(2)
+            .map(|p| nib(p[0]) | (nib(p[1]) << 4))
+            .collect();
+        (blocks, vec![127u8; vals.len() / 32])
+    }
+
+    #[test]
+    fn read_moe_layer_reads_mxfp4_fused_experts() {
+        // The real GPT-OSS release ships experts MXFP4-packed. Prove read_moe_layer
+        // takes the packed branch and de-interleaves it: gate_up is stored
+        // out-major `[2·moe_hid, md]` with gate on even out-rows, up on odd; down
+        // is stored `[md, moe_hid]` (already runtime `[out, in]`). Both md and
+        // moe_hid must be multiples of 32 (the MXFP4 block width).
+        const N_EXP: usize = 2;
+        const MD: usize = 32;
+        const MOE_HID: usize = 32;
+
+        // gate rows (even out) → 1.0, up rows (odd out) → 2.0; down → 3.0. So a
+        // correct de-interleave yields w_gate ≡ 1.0, w_up ≡ 2.0, w_down ≡ 3.0.
+        let mut gate_up = vec![0.0f32; N_EXP * 2 * MOE_HID * MD];
+        for e in 0..N_EXP {
+            for out in 0..2 * MOE_HID {
+                let v = if out % 2 == 0 { 1.0 } else { 2.0 };
+                for h in 0..MD {
+                    gate_up[(e * 2 * MOE_HID + out) * MD + h] = v;
+                }
+            }
+        }
+        let down = vec![3.0f32; N_EXP * MD * MOE_HID];
+        let (gu_b, gu_s) = mxfp4_encode(&gate_up);
+        let (dn_b, dn_s) = mxfp4_encode(&down);
+        let router: Vec<u8> = (0..N_EXP * MD)
+            .flat_map(|i| (i as f32).to_le_bytes())
+            .collect();
+
+        let p = |s: &str| format!("model.layers.0.mlp.experts.{s}");
+        let bytes = write_raw_safetensors(&[
+            (&p("gate_up_proj_blocks"), "U8", vec![gu_b.len()], gu_b),
+            (&p("gate_up_proj_scales"), "U8", vec![gu_s.len()], gu_s),
+            (&p("down_proj_blocks"), "U8", vec![dn_b.len()], dn_b),
+            (&p("down_proj_scales"), "U8", vec![dn_s.len()], dn_s),
+            (
+                "model.layers.0.mlp.router.weight",
+                "F32",
+                vec![N_EXP, MD],
+                router,
+            ),
+        ]);
+        let st = SafeTensors::parse(&bytes).unwrap();
+        let (router, experts) = read_moe_layer(&st, 0, N_EXP, MOE_HID, MD).expect("mxfp4 experts");
+        assert_eq!(router.len(), N_EXP * MD);
+        assert_eq!(experts.len(), N_EXP);
+        for x in &experts {
+            assert_eq!(x.w_gate.len(), MOE_HID * MD);
+            assert_eq!(x.w_up.len(), MOE_HID * MD);
+            assert_eq!(x.w_down.len(), MD * MOE_HID);
+            assert!(x.w_gate.iter().all(|&v| v == 1.0), "gate = even out-rows");
+            assert!(x.w_up.iter().all(|&v| v == 2.0), "up = odd out-rows");
+            assert!(x.w_down.iter().all(|&v| v == 3.0), "down passes through");
+        }
     }
 
     // deterministic pseudo-weights so the fixture is reproducible without rand
