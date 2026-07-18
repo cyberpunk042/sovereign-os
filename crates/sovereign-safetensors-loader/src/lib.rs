@@ -42,6 +42,9 @@
 use std::collections::BTreeMap;
 
 use serde::Deserialize;
+
+mod gguf;
+pub use gguf::{GgufFile, GgufTokenizer, load_gguf};
 use sovereign_decoder_layer::{DecoderLayer, LayerStack};
 use sovereign_mha_block::{MhaBlockWeights, MhaDecoderBlock, RopeScaling, RopeScalingKind};
 use sovereign_quant_llm::QuantLlm;

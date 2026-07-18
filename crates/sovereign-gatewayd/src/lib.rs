@@ -873,11 +873,138 @@ impl<'a, F: FnMut(&str)> StreamGuard<'a, F> {
     }
 }
 
-/// Load a model dir (`config.json` + a `*.safetensors` + `tokenizer.json`) into a
-/// [`Generator`]. `Ok(None)` when the dir has no `config.json` (configured but not
-/// fetched); `Err` on a malformed / vocab-mismatched model. Shared by the primary
-/// (env) and secondary ([`GatewayServer::load_model`]) load paths.
+/// Read the dir's `tokenizer.json` (required) + optional `tokenizer_config.json`
+/// chat template. Shared by the safetensors + GGUF load paths (F-2026-085).
+fn load_tokenizer_and_template(
+    dir: &str,
+) -> Result<(sovereign_hf_tokenizer::HfBpeTokenizer, Option<String>), String> {
+    let tok_bytes = std::fs::read(format!("{dir}/tokenizer.json"))
+        .map_err(|e| format!("read tokenizer.json: {e}"))?;
+    let tokenizer = sovereign_hf_tokenizer::HfBpeTokenizer::from_tokenizer_json(&tok_bytes)
+        .map_err(|e| format!("tokenizer.json: {e}"))?;
+    // F-2026-086: chat template from tokenizer_config.json if present.
+    let chat_template = std::fs::read(format!("{dir}/tokenizer_config.json"))
+        .ok()
+        .and_then(|b| sovereign_hf_tokenizer::TokenizerConfig::from_json(&b).ok())
+        .and_then(|c| c.chat_template().map(str::to_string));
+    Ok((tokenizer, chat_template))
+}
+
+/// The runtime precision GGUF weights are re-quantized to, from
+/// `SOVEREIGN_GGUF_PRECISION` (`f32` | `bf16` | `int8` | `nvfp4` | `ternary`).
+/// Defaults to `f32` (lossless vs the dequantized weights) when unset or
+/// unrecognized — the operator opts into a lower precision for the memory /
+/// throughput win. Case-insensitive; `-`/`_` accepted (`nv-fp4`, `bf_16`).
+fn gguf_runtime_precision() -> sovereign_safetensors_loader::Precision {
+    parse_gguf_precision(std::env::var("SOVEREIGN_GGUF_PRECISION").ok().as_deref())
+}
+
+/// Pure mapping of the `SOVEREIGN_GGUF_PRECISION` value to a [`Precision`].
+/// `None` / empty / unrecognized → `F32`. Case-insensitive; `-`/`_` ignored.
+fn parse_gguf_precision(v: Option<&str>) -> sovereign_safetensors_loader::Precision {
+    use sovereign_safetensors_loader::Precision;
+    match v
+        .unwrap_or("")
+        .trim()
+        .to_ascii_lowercase()
+        .replace(['-', '_'], "")
+        .as_str()
+    {
+        "bf16" | "bfloat16" => Precision::Bf16,
+        "int8" | "i8" => Precision::Int8,
+        "nvfp4" | "fp4" => Precision::Nvfp4,
+        "ternary" | "bitnet" => Precision::Ternary,
+        _ => Precision::F32, // "f32", empty, None, or anything unrecognized
+    }
+}
+
+/// Resolve the tokenizer for a GGUF model dir. Prefers a sidecar `tokenizer.json`
+/// (with its `tokenizer_config.json` chat template); otherwise falls back to the
+/// tokenizer embedded in the GGUF metadata (`tokenizer.ggml.*`), so a bare
+/// `*.gguf` runs standalone with no sidecar files (F-2026-085). The embedded
+/// path currently supports byte-level BPE (`gpt2`/`bpe`) — the mainstream Llama-3
+/// / Qwen2 / Mistral family; a SentencePiece GGUF still needs a sidecar.
+fn load_gguf_tokenizer_or_sidecar(
+    dir: &str,
+    gguf_bytes: &[u8],
+) -> Result<(sovereign_hf_tokenizer::HfBpeTokenizer, Option<String>), String> {
+    if std::path::Path::new(&format!("{dir}/tokenizer.json")).exists() {
+        return load_tokenizer_and_template(dir);
+    }
+    let f = sovereign_safetensors_loader::GgufFile::parse(gguf_bytes)
+        .map_err(|e| format!("gguf parse: {e}"))?;
+    let tk = f.tokenizer().ok_or_else(|| {
+        "no tokenizer.json and the gguf carries no embedded tokenizer".to_string()
+    })?;
+    if !tk.is_byte_level_bpe() {
+        return Err(format!(
+            "gguf embedded tokenizer model {:?} is not byte-level BPE \
+             (add a sidecar tokenizer.json)",
+            tk.model
+        ));
+    }
+    let tokenizer = sovereign_hf_tokenizer::HfBpeTokenizer::from_gguf_bpe(
+        &tk.tokens,
+        &tk.merges,
+        &tk.special_ids(),
+        tk.bos,
+    )
+    .map_err(|e| format!("gguf embedded tokenizer: {e}"))?;
+    // A chat template may still be supplied out-of-band via tokenizer_config.json.
+    let chat_template = std::fs::read(format!("{dir}/tokenizer_config.json"))
+        .ok()
+        .and_then(|b| sovereign_hf_tokenizer::TokenizerConfig::from_json(&b).ok())
+        .and_then(|c| c.chat_template().map(str::to_string));
+    Ok((tokenizer, chat_template))
+}
+
+/// Find a single `*.<ext>` file in `dir` (returns its path, or None).
+fn find_by_ext(dir: &str, ext: &str) -> Option<std::path::PathBuf> {
+    std::fs::read_dir(dir)
+        .ok()?
+        .filter_map(Result::ok)
+        .map(|e| e.path())
+        .find(|p| p.extension().is_some_and(|x| x == ext))
+}
+
+/// Load a model dir into a [`Generator`]. Two on-disk layouts are supported.
+///
+/// - **GGUF** (F-2026-085): a `*.gguf` (already-quantized weights + embedded
+///   hyperparameters) + a `tokenizer.json`. Preferred when present.
+/// - **safetensors**: `config.json` + a `*.safetensors` + `tokenizer.json`.
+///
+/// `Ok(None)` when the dir has neither a `*.gguf` nor a `config.json` (configured
+/// but not fetched); `Err` on a malformed / vocab-mismatched model.
 fn load_generator_from_dir(dir: &str) -> Result<Option<Generator>, String> {
+    // F-2026-085: prefer an already-quantized GGUF checkpoint if the dir has one.
+    // The GGUF carries its own hyperparameters (no config.json needed); it pairs
+    // with a tokenizer.json for the runtime tokenizer.
+    if let Some(gguf_path) = find_by_ext(dir, "gguf") {
+        use sovereign_safetensors_loader::{Sampler, load_gguf};
+        let bytes = std::fs::read(&gguf_path).map_err(|e| format!("read gguf: {e}"))?;
+        // The GGUF dequantizes to f32, then the block assembly re-quantizes to the
+        // operator-chosen RUNTIME precision — so a downloaded Q4_K_M can be RUN at
+        // int8/bf16/nvfp4/ternary for the memory + throughput win, not just f32.
+        let precision = gguf_runtime_precision();
+        let model = load_gguf(&bytes, precision, Sampler::greedy())
+            .map_err(|e| format!("gguf load: {e}"))?;
+        // Prefer a sidecar tokenizer.json; else use the tokenizer embedded in the
+        // GGUF metadata so a bare *.gguf runs standalone (F-2026-085).
+        let (tokenizer, chat_template) = load_gguf_tokenizer_or_sidecar(dir, &bytes)?;
+        if model.vocab() != tokenizer.vocab_size() {
+            return Err(format!(
+                "vocab mismatch: gguf model {} vs tokenizer {}",
+                model.vocab(),
+                tokenizer.vocab_size()
+            ));
+        }
+        return Ok(Some(Generator {
+            model,
+            tokenizer,
+            chat_template,
+        }));
+    }
+
     let cfg_path = format!("{dir}/config.json");
     if !std::path::Path::new(&cfg_path).exists() {
         return Ok(None); // configured but not fetched — not an error
@@ -893,10 +1020,7 @@ fn load_generator_from_dir(dir: &str) -> Result<Option<Generator>, String> {
         .ok_or_else(|| format!("no *.safetensors in {dir}"))?;
     let st = std::fs::read(&st_path).map_err(|e| format!("read weights: {e}"))?;
     let model = load(&st, &config).map_err(|e| format!("weight load: {e}"))?;
-    let tok_bytes = std::fs::read(format!("{dir}/tokenizer.json"))
-        .map_err(|e| format!("read tokenizer.json: {e}"))?;
-    let tokenizer = sovereign_hf_tokenizer::HfBpeTokenizer::from_tokenizer_json(&tok_bytes)
-        .map_err(|e| format!("tokenizer.json: {e}"))?;
+    let (tokenizer, chat_template) = load_tokenizer_and_template(dir)?;
     if model.vocab() != tokenizer.vocab_size() {
         return Err(format!(
             "vocab mismatch: model {} vs tokenizer {}",
@@ -904,13 +1028,6 @@ fn load_generator_from_dir(dir: &str) -> Result<Option<Generator>, String> {
             tokenizer.vocab_size()
         ));
     }
-    // F-2026-086: load the model's chat template from tokenizer_config.json if
-    // present. Absent / unparseable ⇒ None (the chat path newline-joins as
-    // before — never a hard failure on an older model dir).
-    let chat_template = std::fs::read(format!("{dir}/tokenizer_config.json"))
-        .ok()
-        .and_then(|b| sovereign_hf_tokenizer::TokenizerConfig::from_json(&b).ok())
-        .and_then(|c| c.chat_template().map(str::to_string));
     Ok(Some(Generator {
         model,
         tokenizer,
@@ -2306,6 +2423,109 @@ mod tests {
         static N: AtomicU64 = AtomicU64::new(0);
         let n = N.fetch_add(1, Ordering::Relaxed);
         std::env::temp_dir().join(format!("sov-gwd-mem-{}-{n}.json", std::process::id()))
+    }
+
+    // ---- GGUF-embedded tokenizer: standalone *.gguf (F-2026-085) ----
+
+    /// Hand-build a GGUF byte stream carrying ONLY tokenizer metadata (no tensors
+    /// — `GgufFile::parse` doesn't require any). Enough to exercise the embedded
+    /// tokenizer extraction + build without a full quantized weight fixture.
+    fn gguf_with_tokenizer_only() -> Vec<u8> {
+        fn gstr(buf: &mut Vec<u8>, s: &str) {
+            buf.extend_from_slice(&(s.len() as u64).to_le_bytes());
+            buf.extend_from_slice(s.as_bytes());
+        }
+        let mut kv = Vec::new();
+        let mut n_kv = 0u64;
+        // tokenizer.ggml.model = "gpt2"
+        gstr(&mut kv, "tokenizer.ggml.model");
+        kv.extend_from_slice(&8u32.to_le_bytes()); // STRING
+        gstr(&mut kv, "gpt2");
+        n_kv += 1;
+        // tokens (byte-level alphabet: Ġ = U+0120)
+        let toks = ["<unk>", "a", "b", "c", "\u{0120}", "ab"];
+        gstr(&mut kv, "tokenizer.ggml.tokens");
+        kv.extend_from_slice(&9u32.to_le_bytes()); // ARRAY
+        kv.extend_from_slice(&8u32.to_le_bytes()); // STRING elems
+        kv.extend_from_slice(&(toks.len() as u64).to_le_bytes());
+        for t in toks {
+            gstr(&mut kv, t);
+        }
+        n_kv += 1;
+        // merges
+        gstr(&mut kv, "tokenizer.ggml.merges");
+        kv.extend_from_slice(&9u32.to_le_bytes());
+        kv.extend_from_slice(&8u32.to_le_bytes());
+        kv.extend_from_slice(&1u64.to_le_bytes());
+        gstr(&mut kv, "a b");
+        n_kv += 1;
+        // token_type: id0 CONTROL(3), rest NORMAL(1)
+        gstr(&mut kv, "tokenizer.ggml.token_type");
+        kv.extend_from_slice(&9u32.to_le_bytes());
+        kv.extend_from_slice(&5u32.to_le_bytes()); // INT32 elems
+        kv.extend_from_slice(&(toks.len() as u64).to_le_bytes());
+        for t in [3i32, 1, 1, 1, 1, 1] {
+            kv.extend_from_slice(&t.to_le_bytes());
+        }
+        n_kv += 1;
+
+        let mut gguf = Vec::new();
+        gguf.extend_from_slice(&0x4655_4747u32.to_le_bytes()); // "GGUF"
+        gguf.extend_from_slice(&3u32.to_le_bytes()); // version
+        gguf.extend_from_slice(&0u64.to_le_bytes()); // n_tensors
+        gguf.extend_from_slice(&n_kv.to_le_bytes());
+        gguf.extend_from_slice(&kv);
+        // pad to the 32-byte data-section alignment boundary (parse requires it)
+        while gguf.len() % 32 != 0 {
+            gguf.push(0);
+        }
+        gguf
+    }
+
+    #[test]
+    fn gguf_embedded_tokenizer_builds_without_sidecar() {
+        // A dir with no tokenizer.json → the tokenizer comes from GGUF metadata.
+        let dir = temp_mem_path(); // unique path, never created (no sidecar files)
+        let gguf = gguf_with_tokenizer_only();
+        let (tok, tmpl) =
+            load_gguf_tokenizer_or_sidecar(dir.to_str().unwrap(), &gguf).expect("embedded build");
+        assert_eq!(tok.vocab_size(), 6);
+        assert!(!tok.is_metaspace());
+        assert_eq!(tok.encode("ab"), vec![5]); // a+b merge → id 5
+        assert!(tmpl.is_none()); // no tokenizer_config.json present
+    }
+
+    #[test]
+    fn gguf_missing_tokenizer_and_sidecar_errors() {
+        // A weights-shaped GGUF (no tokenizer.ggml.* keys) with no sidecar → a
+        // clear error, not a panic.
+        let dir = temp_mem_path();
+        let mut gguf = Vec::new();
+        gguf.extend_from_slice(&0x4655_4747u32.to_le_bytes());
+        gguf.extend_from_slice(&3u32.to_le_bytes());
+        gguf.extend_from_slice(&0u64.to_le_bytes()); // n_tensors
+        gguf.extend_from_slice(&0u64.to_le_bytes()); // n_kv
+        while gguf.len() % 32 != 0 {
+            gguf.push(0);
+        }
+        let err = load_gguf_tokenizer_or_sidecar(dir.to_str().unwrap(), &gguf).unwrap_err();
+        assert!(err.contains("no tokenizer.json"), "err was: {err}");
+    }
+
+    #[test]
+    fn gguf_precision_env_parsing() {
+        use sovereign_safetensors_loader::Precision;
+        // default / absent / unrecognized → F32
+        assert_eq!(parse_gguf_precision(None), Precision::F32);
+        assert_eq!(parse_gguf_precision(Some("")), Precision::F32);
+        assert_eq!(parse_gguf_precision(Some("f32")), Precision::F32);
+        assert_eq!(parse_gguf_precision(Some("wat")), Precision::F32);
+        // recognized, case + separator insensitive
+        assert_eq!(parse_gguf_precision(Some("bf16")), Precision::Bf16);
+        assert_eq!(parse_gguf_precision(Some("  BF-16 ")), Precision::Bf16);
+        assert_eq!(parse_gguf_precision(Some("Int8")), Precision::Int8);
+        assert_eq!(parse_gguf_precision(Some("nv_fp4")), Precision::Nvfp4);
+        assert_eq!(parse_gguf_precision(Some("TERNARY")), Precision::Ternary);
     }
 
     // ---- durable memory: corruption recovery (F-2026-084) ----
