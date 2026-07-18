@@ -4938,6 +4938,7 @@ dependencies = [
  "sovereign-secret-scan",
  "sovereign-simd",
  "sovereign-srp-scheduler",
+ "sovereign-stop-sequence",
  "sovereign-stream-decode",
  "sovereign-tool-bridge",
  "sovereign-tool-dispatch",

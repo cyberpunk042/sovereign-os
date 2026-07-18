@@ -1359,6 +1359,22 @@ fn extract_sampler_config(req: &serde_json::Value) -> sovereign_safetensors_load
     }
 }
 
+/// Parse the OpenAI `stop` parameter into a [`StopSequences`]. Accepts a single
+/// string or an array of strings (OpenAI allows up to 4; extras are harmless).
+/// Absent / null / empty ⇒ an empty set, which is a no-op (generation is
+/// byte-identical to before). Non-string array elements are ignored.
+fn parse_stop(req: &serde_json::Value) -> sovereign_stop_sequence::StopSequences {
+    match req.get("stop") {
+        Some(serde_json::Value::String(s)) => {
+            sovereign_stop_sequence::StopSequences::from([s.clone()])
+        }
+        Some(serde_json::Value::Array(a)) => sovereign_stop_sequence::StopSequences::from(
+            a.iter().filter_map(|v| v.as_str().map(str::to_string)),
+        ),
+        _ => sovereign_stop_sequence::StopSequences::new(),
+    }
+}
+
 /// Serve `POST /v1/chat/completions` as OpenAI-compatible SSE — the exact shape
 /// `scripts/inference/prompt.py` consumes: `data: {chunk}` per decoded delta, a
 /// final chunk carrying `finish_reason:"stop"` + `usage.completion_tokens`, then
@@ -1425,6 +1441,7 @@ fn stream_chat_completions(
         .unwrap_or(96)
         .clamp(1, 1024) as usize;
     let sampler_cfg = extract_sampler_config(&req);
+    let stops = parse_stop(&req);
     let stream = req.get("stream").and_then(|v| v.as_bool()).unwrap_or(true);
 
     // SDD-712 (F-2026-088): server-side agentic tool use. When the request opts
@@ -1479,18 +1496,27 @@ fn stream_chat_completions(
 
         let id = chat_completion_id();
         let mut io_err: Option<std::io::Error> = None;
+        // Honor `stop`: a StreamStop holds back a minimal tail, emits only the
+        // safe prefix, and once a stop sequence completes it swallows the rest —
+        // so the client's stream ends AT the stop. An empty stop set is a no-op
+        // (emits every chunk immediately, byte-identical to before).
+        let mut scan = sovereign_stop_sequence::StreamStop::new(stops);
         let gen_res = server.generate_chat_with_sampler(
             Some(model.as_str()),
             &prompt,
             max_new,
             sampler_cfg,
             |chunk| {
-                if io_err.is_some() {
+                if io_err.is_some() || scan.is_stopped() {
+                    return;
+                }
+                let out = scan.push(chunk);
+                if out.text.is_empty() {
                     return;
                 }
                 let obj = serde_json::json!({
                     "id": &id, "object": "chat.completion.chunk",
-                    "choices": [{"index": 0, "delta": {"content": chunk}}],
+                    "choices": [{"index": 0, "delta": {"content": out.text}}],
                 });
                 if let Err(e) = write_sse(writer, &obj) {
                     io_err = Some(e);
@@ -1499,6 +1525,15 @@ fn stream_chat_completions(
         );
         if let Some(e) = io_err {
             return Err(e); // client hung up mid-stream
+        }
+        // Flush any held-back tail (generation ended without hitting a stop).
+        let tail = scan.finish();
+        if !tail.is_empty() {
+            let obj = serde_json::json!({
+                "id": &id, "object": "chat.completion.chunk",
+                "choices": [{"index": 0, "delta": {"content": tail}}],
+            });
+            let _ = write_sse(writer, &obj);
         }
         let final_obj = match gen_res {
             Ok(n) => serde_json::json!({
@@ -1528,13 +1563,16 @@ fn stream_chat_completions(
             sampler_cfg,
             |chunk| buf.push_str(chunk),
         );
+        // Honor `stop`: truncate the completion at the earliest stop sequence
+        // (no-op when none configured).
+        let content = stops.cut(&buf).to_string();
         let body = match gen_res {
             Ok(n) => serde_json::json!({
                 "id": &id,
                 "object": "chat.completion",
                 "choices": [{
                     "index": 0,
-                    "message": {"role": "assistant", "content": buf},
+                    "message": {"role": "assistant", "content": content},
                     "finish_reason": "stop"
                 }],
                 "usage": {"prompt_tokens": 0, "completion_tokens": n, "total_tokens": n},
@@ -1705,9 +1743,26 @@ fn agentic_chat_completion(
 mod tests {
     use super::{
         authorized, bind_is_loopback, chat_prompt, conn_timeout, constant_time_eq,
-        ndjson_authenticate, shape_tool_completion,
+        ndjson_authenticate, parse_stop, shape_tool_completion,
     };
     use sovereign_tool_bridge::openai_tools_to_specs;
+
+    #[test]
+    fn parse_stop_accepts_string_array_and_absent() {
+        // a single string stop
+        let s = parse_stop(&serde_json::json!({"stop": "\nUser:"}));
+        assert_eq!(s.cut("reply\nUser: next"), "reply");
+        // an array of stops — the earliest wins
+        let s = parse_stop(&serde_json::json!({"stop": ["END", "\nUser:"]}));
+        assert_eq!(s.cut("hi\nUser: x END y"), "hi");
+        // absent / null / wrong-type ⇒ empty set (no-op, generation unchanged)
+        assert!(parse_stop(&serde_json::json!({})).is_empty());
+        assert!(parse_stop(&serde_json::json!({"stop": serde_json::Value::Null})).is_empty());
+        assert!(parse_stop(&serde_json::json!({"stop": 42})).is_empty());
+        // non-string array elements are ignored; empty strings dropped
+        let s = parse_stop(&serde_json::json!({"stop": ["", 7, "STOP"]}));
+        assert_eq!(s.cut("keep STOP drop"), "keep ");
+    }
 
     #[test]
     fn bind_is_loopback_classifies_addrs() {

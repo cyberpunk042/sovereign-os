@@ -8,13 +8,13 @@ The workspace is large — most of it does not run yet. This is the complete map
 | bucket | count | connection state |
 |---|---:|---|
 | Binaries (`main.rs`/`bin/`) | 41 | the executables; a few run in prod, the rest are dev/demo/config-gen |
-| Production libraries | 88 | run inside the gatewayd / telemetry / resource-control closure |
+| Production libraries | 89 | run inside the gatewayd / telemetry / resource-control closure |
 | Cockpit UX-state crates | 418 | wasm-bridged in source (SDD-974); **0 of ~55 panels wired** |
 | Demo-hub-only libraries | 29 | reached only via `sovereign-llm` / `sovereign-retrieval` (nothing runs them) |
-| Other libraries | 145 | reached only through other non-production trees |
-| **Total** | **721** | **93 crates (12%) are production-reachable today** |
+| Other libraries | 144 | reached only through other non-production trees |
+| **Total** | **721** | **94 crates (13%) are production-reachable today** |
 
-**✅ integrated** marks the **93** crates that are actually _used_ by a running production binary (in the gatewayd / telemetry / resource-control dependency closure). Each carries a short note naming the usage that validates it — its production consumer(s) and/or that it runs as a binary. **Used, not merely referenced**: a cockpit crate wasm-bridged for a panel (SDD-800, 0 panels wired) or a crate reached only through a demo/dev binary or the `sovereign-llm` / `sovereign-retrieval` hubs is NOT integrated. The flag is generated from the closure and enforced by `tests/lint/test_crate_inventory_integrated_flag.py`.
+**✅ integrated** marks the **94** crates that are actually _used_ by a running production binary (in the gatewayd / telemetry / resource-control dependency closure). Each carries a short note naming the usage that validates it — its production consumer(s) and/or that it runs as a binary. **Used, not merely referenced**: a cockpit crate wasm-bridged for a panel (SDD-800, 0 panels wired) or a crate reached only through a demo/dev binary or the `sovereign-llm` / `sovereign-retrieval` hubs is NOT integrated. The flag is generated from the closure and enforced by `tests/lint/test_crate_inventory_integrated_flag.py`.
 
 Families below cluster by the first token of the crate name (`alert-*`, `zfs-*`, …).
 
@@ -79,7 +79,7 @@ Full runtime role + how each is invoked lives in [`docs/src/binaries.md`](../src
 
 ---
 
-## 2. Production libraries (88) — these actually run
+## 2. Production libraries (89) — these actually run
 
 In the dependency closure of the three production binaries, so they execute today.
 
@@ -102,7 +102,7 @@ In the dependency closure of the three production binaries, so they execute toda
 - **`sovereign-tool-call-parse`** — Parse OpenAI-style function/tool calls from model output: pull a tool name and its JSON arguments out of a tool_calls array or a bare {name, arguments} object, tolerating fenced or slightly-malformed JSON via json-repair. The JSON-format counterpart to a [[tool:...]] dispatcher, for agentic runtimes. — ✅ **integrated**: used by `sovereign-tool-bridge`
 - **`sovereign-tool-dispatch`** — Tool-call parsing and dispatch: extracts a [[tool:NAME|ARGS]] call from model output and invokes the registered handler for it, returning the result to feed back into the conversation. The live execution layer above the tool catalog — turns generated text into an action and its result. — ✅ **integrated**: used by `sovereign-agent-loop`, `sovereign-gatewayd`, `sovereign-tool-bridge`
 
-#### assorted (78)
+#### assorted (79)
 
 - **`sovereign-agent-loop`** — A ReAct-style agent control loop: generate a response, and if it contains a tool call dispatch it and feed the observation back, repeating until a final answer or a step cap. Generic over a Responder (any text generator) and driven by a ToolRegistry. The control structure that turns a language model plus tools into an agent. Composes sovereign-tool-dispatch. — ✅ **integrated**: used by `sovereign-gatewayd`, `sovereign-retrieval`
 - **`sovereign-aho-corasick`** — Aho-Corasick multi-pattern string matching: build a trie of all patterns, add BFS failure links, then scan any text once to find every occurrence of every pattern in O(text + matches) — instead of running one search per pattern. For scanning generations against many banned phrases, stop sequences, or injection markers simultaneously. — ✅ **integrated**: used by `sovereign-injection-detect`, `sovereign-toxicity`
@@ -169,6 +169,7 @@ In the dependency closure of the three production binaries, so they execute toda
 - **`sovereign-simhash`** — SimHash near-duplicate fingerprinting: collapse a document's features into a single 64-bit signature by random-hyperplane projection, so similarity is read off the Hamming distance between fingerprints — near-duplicates share most bits. A compact single-word alternative to MinHash for fast dedup and clustering by cosine-like similarity. — ✅ **integrated**: used by `sovereign-retrieval`
 - **`sovereign-spec-decode`** — Speculative decoding verification (DFlash family) — greedy draft-then-verify accept rule: accept the longest draft prefix matching the target's greedy tokens, then emit one corrected/bonus token. Pure-Rust reference; the acceleration primitive the AVX++ dump flags as DFlash (3x faster code). — ✅ **integrated**: used by `sovereign-cortex`
 - **`sovereign-srp-scheduler`** — M075 SRP work-placement scheduler — Conductor (CPU) / Logic Engine (RTX 4090) / Oracle Core (Blackwell PRO 6000). Maps incoming workload class to physical-hardware SRP role per E0719-E0721 + dump 813-837. Doctrine: 'we map the Single Responsibility Principle (SRP) directly to physical hardware layers' (verbatim dump 813). — ✅ **integrated**: used by `sovereign-cortex`, `sovereign-gatewayd`
+- **`sovereign-stop-sequence`** — Stop-sequence detection for generation control: finds the earliest occurrence of any configured stop string in generated text (to truncate a reply), plus a streaming scanner that detects stops split across token chunks while holding back only the minimum tail. The 'when to stop generating' boundary above the decode loop. — ✅ **integrated**: used by `sovereign-gatewayd`
 - **`sovereign-stream-decode`** — Incremental UTF-8 decoding for token streaming: feed token bytes one chunk at a time and it emits the valid-UTF-8 prefix immediately while buffering any trailing incomplete multi-byte sequence until it completes. The streaming-output boundary that lets a byte-level tokenizer emit text token-by-token without splitting a character. — ✅ **integrated**: used by `sovereign-gatewayd`, `sovereign-quant-llm`
 - **`sovereign-symbolic-plan`** — M031 Symbolic Planning plane — a STRIPS/PDDL forward planner (BFS over grounded actions with precondition/add/delete effects) plus plan verification ('prove things before acting'). Facts are a 64-bit set; pure-Rust reference. The bones the dump says give models formal structure. — ✅ **integrated**: used by `sovereign-cortex`
 - **`sovereign-tokenizer`** — Byte-level BPE tokenizer: encodes text to token ids by starting from raw bytes and greedily applying the highest-priority merge rule until none remain, and decodes ids back to bytes. The input/output boundary of the decode stack — every byte has an id, so encoding is lossless and round-trips exactly. — ✅ **integrated**: used by `sovereign-quant-llm`, `sovereign-safetensors-loader`, `sovereign-stream-decode`
@@ -737,7 +738,7 @@ Consumed only through `sovereign-llm` / `sovereign-retrieval`, which the daemon 
 
 ---
 
-## 5. Other libraries (145) — reached only through non-production trees
+## 5. Other libraries (144) — reached only through non-production trees
 
 
 #### `conversation-·` (3)
@@ -764,7 +765,7 @@ Consumed only through `sovereign-llm` / `sovereign-retrieval`, which the daemon 
 - **`sovereign-prompt-rationale`** — Runtime prompt-dispatch rationale envelope — every model dispatch carries (provider, template_name, bundle, mode, doctrine_tag) explaining which router decision produced it. The cockpit surfaces it next to every model output for transparency.
 - **`sovereign-prompt-template-registry`** — Runtime prompt-template registry — operator-curated reusable prompts with named variable slots ({{name}}) and rendering. Each template carries (name, body, declared variables, allowed profile bundles, allowed modes). Composes with sovereign-execution-mode-registry + sovereign-profile-bundles for context-gated availability.
 
-#### assorted (133)
+#### assorted (132)
 
 - **`sovereign-aimd-limiter`** — Adaptive concurrency limiter using AIMD (additive-increase / multiplicative-decrease), the TCP congestion-control law applied to in-flight requests: the limit grows by a fixed step while the system is healthy and saturated, and is cut by a multiplicative factor on overload (a timeout, a drop, or a latency breach), converging on the real capacity without a hand-tuned constant. For backpressure in front of a model server — distinct from a fixed-rate token bucket and from a circuit breaker.
 - **`sovereign-alias-sampler`** — Walker-Vose alias method for O(1) categorical sampling: preprocess a weighted distribution in O(n) into a probability/alias table, then draw each sample in constant time with one coin flip — far faster than a linear CDF scan when you sample the same distribution many times. Seeded for deterministic, reproducible draws.
@@ -874,7 +875,6 @@ Consumed only through `sovereign-llm` / `sovereign-retrieval`, which the daemon 
 - **`sovereign-speculative`** — Speculative decoding over real models: a cheap draft model proposes K tokens, the target model verifies them, and the longest matching prefix (plus one free corrected/bonus token) is committed each round. Greedy verification is lossless — the output is identical to decoding the target alone, just faster. Composes sovereign-decoder-stack (Clone-able models let the draft propose without committing).
 - **`sovereign-sprt`** — Wald's sequential probability ratio test for Bernoulli outcomes: accumulate the log-likelihood ratio one observation at a time and stop the moment the evidence crosses an accept-H0 or accept-H1 boundary set by the target error rates. Decides whether a success rate is closer to p0 or p1 with far fewer samples than a fixed-size test — for early-stopping online evaluation and A/B comparisons.
 - **`sovereign-sse-parse`** — Streaming Server-Sent Events parser: feed it response chunks as they arrive and it yields complete events (event/data/id/retry fields, multi-line data joined with newlines), buffering partial events across chunk boundaries. For consuming the SSE wire format that streaming LLM APIs use.
-- **`sovereign-stop-sequence`** — Stop-sequence detection for generation control: finds the earliest occurrence of any configured stop string in generated text (to truncate a reply), plus a streaming scanner that detects stops split across token chunks while holding back only the minimum tail. The 'when to stop generating' boundary above the decode loop.
 - **`sovereign-suffix-automaton`** — Suffix automaton: the minimal deterministic automaton recognizing every substring of a string, built online in linear time. Answers substring membership in O(pattern), counts the distinct substrings of the text in O(n), and finds the longest common substring with another string in one pass. For substring search, near-duplicate and overlap analysis, and string indexing — distinct from a suffix array.
 - **`sovereign-task-lifecycle`** — E0548 / E0556 — the Task Lifecycle: the 12 lifecycle steps (Intake … Resume/Archive) and the 9 task states (active/paused/waiting_user/waiting_tool/hibernated/completed/failed/rolled_back/archived) with a validated state machine + resume requirements.
 - **`sovereign-task-map`** — E0551 — Map (lifecycle step 4): the 4 domain-specific maps (code / research / GUI / OS-admin) and the components each gathers. 'MAP prevents blind action.'
