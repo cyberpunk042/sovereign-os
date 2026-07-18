@@ -154,29 +154,101 @@ impl SwiGlu {
     }
 }
 
+/// Logistic sigmoid, `1 / (1 + e^-x)`.
+fn sigmoid(x: f32) -> f32 {
+    1.0 / (1.0 + (-x).exp())
+}
+
+/// Add a bias vector to `v` in place when present (a no-op for `None`).
+fn add_bias(v: &mut [f32], bias: &Option<Vec<f32>>) {
+    if let Some(b) = bias {
+        for (x, bb) in v.iter_mut().zip(b) {
+            *x += bb;
+        }
+    }
+}
+
+/// The gated-activation an expert applies to `(gate, up)`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum MoeActivation {
+    /// Standard SwiGLU: `SiLU(gate) · up` (Mixtral / Qwen3-MoE).
+    SwiGlu,
+    /// GPT-OSS's clamped variant: `gate` capped at `limit`, `up` clamped to
+    /// `±limit`, then `out = (up + 1) · (gate · σ(α·gate))`.
+    GptOssClamped {
+        /// GLU gate scale α (GPT-OSS uses `1.702`, the sigmoid-GELU approximation).
+        alpha: f32,
+        /// Clamp bound (`swiglu_limit`, GPT-OSS uses `7.0`).
+        limit: f32,
+    },
+}
+
+/// One MoE expert: a SwiGLU with optional per-projection biases (GPT-OSS has
+/// them; Mixtral / Qwen3-MoE do not). The activation is chosen at the bank level.
+#[derive(Debug, Clone)]
+struct MoeExpert {
+    gate: Linear,
+    up: Linear,
+    down: Linear,
+    gate_bias: Option<Vec<f32>>,
+    up_bias: Option<Vec<f32>>,
+    down_bias: Option<Vec<f32>>,
+}
+
+impl MoeExpert {
+    fn forward(&self, x: &[f32], act: MoeActivation) -> Result<Vec<f32>, MhaBlockError> {
+        let mut gate = self.gate.forward(x)?;
+        let mut up = self.up.forward(x)?;
+        add_bias(&mut gate, &self.gate_bias);
+        add_bias(&mut up, &self.up_bias);
+        let activated: Vec<f32> = match act {
+            MoeActivation::SwiGlu => gate.iter().zip(&up).map(|(g, u)| silu(*g) * u).collect(),
+            MoeActivation::GptOssClamped { alpha, limit } => gate
+                .iter()
+                .zip(&up)
+                .map(|(g, u)| {
+                    let g = g.min(limit);
+                    let u = u.clamp(-limit, limit);
+                    (u + 1.0) * (g * sigmoid(alpha * g))
+                })
+                .collect(),
+        };
+        let mut out = self.down.forward(&activated)?;
+        add_bias(&mut out, &self.down_bias);
+        Ok(out)
+    }
+}
+
 /// A mixture-of-experts feed-forward network: a router scores every expert, the
 /// top-`experts_per_tok` are selected and softmax-weighted (via
-/// [`sovereign_moe_gate::top_k_gate`]), and their SwiGLU outputs are blended by
+/// [`sovereign_moe_gate::top_k_gate`]), and their expert outputs are blended by
 /// weight into the residual-width output. Only the routed experts run per token
 /// — the active-vs-total-parameter split that makes MoE memory-bound rather than
-/// compute-bound, and thus a good local-inference fit.
+/// compute-bound, and thus a good local-inference fit. Carries an optional router
+/// bias and a per-bank activation so both the standard (SwiGLU) and the GPT-OSS
+/// (biased, clamped-α) FFN math run through one path.
 #[derive(Debug, Clone)]
 struct MoeFfn {
     /// Router projection, `num_experts × model_dim`, producing per-expert logits.
     router: Linear,
-    /// Expert SwiGLU banks, one per expert.
-    experts: Vec<SwiGlu>,
+    /// Optional router bias, `[num_experts]` (GPT-OSS has one).
+    router_bias: Option<Vec<f32>>,
+    /// Expert banks, one per expert.
+    experts: Vec<MoeExpert>,
     /// Number of experts activated per token (top-`k`).
     experts_per_tok: usize,
     /// Residual-stream dimension (each expert's output width).
     model_dim: usize,
+    /// The gated activation the experts apply.
+    activation: MoeActivation,
 }
 
 impl MoeFfn {
     /// Route a pre-normalized vector to its top-`k` experts and blend their
-    /// SwiGLU outputs by softmax weight.
+    /// outputs by softmax weight.
     fn forward(&self, x: &[f32]) -> Result<Vec<f32>, MhaBlockError> {
-        let logits = self.router.forward(x)?;
+        let mut logits = self.router.forward(x)?;
+        add_bias(&mut logits, &self.router_bias);
         let routing = top_k_gate(&logits, self.experts_per_tok);
         let mut out = vec![0.0f32; self.model_dim];
         for r in &routing {
@@ -187,7 +259,7 @@ impl MoeFfn {
                     self.experts.len()
                 ))
             })?;
-            let ey = expert.forward(x)?;
+            let ey = expert.forward(x, self.activation)?;
             for (o, y) in out.iter_mut().zip(&ey) {
                 *o += r.weight * y;
             }
@@ -327,6 +399,46 @@ pub struct MoeBlockWeights {
     pub w_router: Vec<f32>,
     /// Per-expert SwiGLU weights; `len()` is the number of experts.
     pub experts: Vec<MoeExpertWeights>,
+}
+
+/// Per-expert biases for a GPT-OSS MoE block (GPT-OSS biases every expert
+/// projection; Mixtral / Qwen3-MoE do not). Row lengths: `gate`/`up` are the
+/// per-expert hidden width, `down` is the model dimension.
+#[derive(Debug, Clone)]
+pub struct GptOssExpertBias {
+    /// Gate bias, `[hidden_dim]`.
+    pub gate: Vec<f32>,
+    /// Up bias, `[hidden_dim]`.
+    pub up: Vec<f32>,
+    /// Down bias, `[model_dim]`.
+    pub down: Vec<f32>,
+}
+
+/// GPT-OSS mixture-of-experts weights: the same attention + router + expert
+/// weight matrices as [`MoeBlockWeights`], plus GPT-OSS's extras — a router
+/// bias, per-expert projection biases, and the clamped-α SwiGLU activation
+/// parameters. Build a block from this via
+/// [`MhaDecoderBlock::from_weights_moe_gpt_oss`].
+///
+/// The activation GPT-OSS runs is `out = (up + 1) · (gate · σ(α·gate))` with
+/// `gate` capped at `limit` and `up` clamped to `±limit` — distinct from the
+/// standard `SiLU(gate)·up`. `alpha` is `1.702`, `limit` (`swiglu_limit`) is
+/// `7.0` in the released checkpoints.
+#[derive(Debug, Clone)]
+pub struct GptOssMoeWeights {
+    /// Attention + router + expert weight matrices (the router and experts here
+    /// are the de-interleaved gate/up/down, exactly as [`from_weights_moe`] takes).
+    ///
+    /// [`from_weights_moe`]: MhaDecoderBlock::from_weights_moe
+    pub base: MoeBlockWeights,
+    /// Router bias, `[num_experts]`.
+    pub router_bias: Vec<f32>,
+    /// Per-expert projection biases; `len()` must equal `base.experts.len()`.
+    pub expert_biases: Vec<GptOssExpertBias>,
+    /// GLU gate scale α (GPT-OSS: `1.702`).
+    pub alpha: f32,
+    /// Clamp bound `swiglu_limit` (GPT-OSS: `7.0`).
+    pub limit: f32,
 }
 
 /// A multi-head GQA decoder block + its autoregressive KV cache.
@@ -524,10 +636,13 @@ impl MhaDecoderBlock {
         let router = build(&weights.w_router, num_experts, md)?;
         let mut experts = Vec::with_capacity(num_experts);
         for e in &weights.experts {
-            experts.push(SwiGlu {
+            experts.push(MoeExpert {
                 gate: build(&e.w_gate, hid, md)?,
                 up: build(&e.w_up, hid, md)?,
                 down: build(&e.w_down, md, hid)?,
+                gate_bias: None,
+                up_bias: None,
+                down_bias: None,
             });
         }
         Ok(Self {
@@ -544,9 +659,98 @@ impl MhaDecoderBlock {
             o: build(&weights.w_o, md, q_dim)?,
             ffn: Ffn::Moe(MoeFfn {
                 router,
+                router_bias: None,
                 experts,
                 experts_per_tok: weights.experts_per_tok.min(num_experts),
                 model_dim: md,
+                activation: MoeActivation::SwiGlu,
+            }),
+            rope: Rope::new(hd),
+            mha,
+            rotated_keys: KvStore::Full(Vec::new()),
+            values: KvStore::Full(Vec::new()),
+            window: None,
+            sink_count: 0,
+            position: 0,
+        })
+    }
+
+    /// Quantize a **GPT-OSS** mixture-of-experts block. Like
+    /// [`from_weights_moe`](Self::from_weights_moe) but with GPT-OSS's FFN math:
+    /// a router bias, per-expert projection biases, and the clamped-α SwiGLU
+    /// activation (`out = (up+1)·(gate·σ(α·gate))`, gate capped at `limit`, up
+    /// clamped to `±limit`). The attention half is built identically.
+    ///
+    /// Errors if the expert bank is empty, `experts_per_tok` is zero, or the
+    /// per-expert bias count does not match the expert count.
+    pub fn from_weights_moe_gpt_oss(
+        weights: &GptOssMoeWeights,
+        precision: Precision,
+    ) -> Result<Self, MhaBlockError> {
+        let base = &weights.base;
+        let md = base.model_dim;
+        let hd = base.head_dim;
+        let hid = base.hidden_dim;
+        let q_dim = base.num_q_heads * hd;
+        let kv_dim = base.num_kv_heads * hd;
+        let num_experts = base.experts.len();
+        if num_experts == 0 {
+            return Err(MhaBlockError::MoeConfig(
+                "MoE block needs at least one expert".to_string(),
+            ));
+        }
+        if base.experts_per_tok == 0 {
+            return Err(MhaBlockError::MoeConfig(
+                "experts_per_tok must be at least 1".to_string(),
+            ));
+        }
+        if weights.expert_biases.len() != num_experts {
+            return Err(MhaBlockError::MoeConfig(format!(
+                "expert_biases ({}) must match experts ({num_experts})",
+                weights.expert_biases.len()
+            )));
+        }
+        let mha = Mha::new(base.num_q_heads, base.num_kv_heads, hd)?;
+        let build = |w: &[f32], out: usize, inp: usize| -> Result<Linear, LinearError> {
+            match precision {
+                Precision::Nvfp4 => Linear::from_f32_nvfp4_auto(w, out, inp),
+                _ => Linear::from_f32(w, out, inp, precision),
+            }
+        };
+        let router = build(&base.w_router, num_experts, md)?;
+        let mut experts = Vec::with_capacity(num_experts);
+        for (e, b) in base.experts.iter().zip(&weights.expert_biases) {
+            experts.push(MoeExpert {
+                gate: build(&e.w_gate, hid, md)?,
+                up: build(&e.w_up, hid, md)?,
+                down: build(&e.w_down, md, hid)?,
+                gate_bias: Some(b.gate.clone()),
+                up_bias: Some(b.up.clone()),
+                down_bias: Some(b.down.clone()),
+            });
+        }
+        Ok(Self {
+            model_dim: md,
+            head_dim: hd,
+            num_q_heads: base.num_q_heads,
+            num_kv_heads: base.num_kv_heads,
+            precision,
+            attn_norm: base.attn_norm.clone(),
+            ffn_norm: base.ffn_norm.clone(),
+            q: build(&base.w_q, q_dim, md)?,
+            k: build(&base.w_k, kv_dim, md)?,
+            v: build(&base.w_v, kv_dim, md)?,
+            o: build(&base.w_o, md, q_dim)?,
+            ffn: Ffn::Moe(MoeFfn {
+                router,
+                router_bias: Some(weights.router_bias.clone()),
+                experts,
+                experts_per_tok: base.experts_per_tok.min(num_experts),
+                model_dim: md,
+                activation: MoeActivation::GptOssClamped {
+                    alpha: weights.alpha,
+                    limit: weights.limit,
+                },
             }),
             rope: Rope::new(hd),
             mha,
@@ -1641,5 +1845,159 @@ mod tests {
         // An f32 MoE block reports none.
         let f32_block = MhaDecoderBlock::from_weights_moe(&w, Precision::F32).unwrap();
         assert!(f32_block.nvfp4_recipes().is_empty());
+    }
+
+    // ---- GPT-OSS FFN math (biases + clamped-α activation) -------------------
+
+    fn lin1(w: f32) -> Linear {
+        Linear::from_f32(&[w], 1, 1, Precision::F32).unwrap()
+    }
+
+    #[test]
+    fn gpt_oss_activation_matches_the_reference_formula() {
+        // A 1-in / 1-hidden / 1-out expert with identity weights: gate = up = x,
+        // so the output is directly checkable against the written-out formula
+        // `(up + 1) · (gate · σ(α·gate))`.
+        let expert = MoeExpert {
+            gate: lin1(1.0),
+            up: lin1(1.0),
+            down: lin1(1.0),
+            gate_bias: Some(vec![0.0]),
+            up_bias: Some(vec![0.0]),
+            down_bias: Some(vec![0.0]),
+        };
+        let (alpha, limit) = (1.702f32, 7.0f32);
+        let g = 0.5f32; // gate = up = 0.5, both inside ±limit (no clamp)
+        let expected = (g + 1.0) * (g * (1.0 / (1.0 + (-(alpha * g)).exp())));
+        let y = expert
+            .forward(&[0.5], MoeActivation::GptOssClamped { alpha, limit })
+            .unwrap();
+        assert!(
+            (y[0] - expected).abs() < 1e-6,
+            "got {}, want {expected}",
+            y[0]
+        );
+    }
+
+    #[test]
+    fn gpt_oss_activation_clamps_gate_and_up() {
+        // With a tight limit, gate is capped at `limit` and up clamped to
+        // `±limit` before the GLU.
+        let expert = MoeExpert {
+            gate: lin1(1.0),
+            up: lin1(1.0),
+            down: lin1(1.0),
+            gate_bias: Some(vec![0.0]),
+            up_bias: Some(vec![0.0]),
+            down_bias: Some(vec![0.0]),
+        };
+        let (alpha, limit) = (1.702f32, 0.3f32);
+        let g = 0.5f32.min(limit); // 0.3
+        let u = 0.5f32.clamp(-limit, limit); // 0.3
+        let expected = (u + 1.0) * (g * (1.0 / (1.0 + (-(alpha * g)).exp())));
+        let y = expert
+            .forward(&[0.5], MoeActivation::GptOssClamped { alpha, limit })
+            .unwrap();
+        assert!(
+            (y[0] - expected).abs() < 1e-6,
+            "got {}, want {expected}",
+            y[0]
+        );
+    }
+
+    #[test]
+    fn gpt_oss_down_bias_is_added() {
+        // A nonzero down bias shifts the output by exactly that bias.
+        let base = MoeExpert {
+            gate: lin1(1.0),
+            up: lin1(1.0),
+            down: lin1(1.0),
+            gate_bias: Some(vec![0.0]),
+            up_bias: Some(vec![0.0]),
+            down_bias: Some(vec![0.0]),
+        };
+        let biased = MoeExpert {
+            down_bias: Some(vec![2.5]),
+            ..base.clone()
+        };
+        let act = MoeActivation::GptOssClamped {
+            alpha: 1.702,
+            limit: 7.0,
+        };
+        let a = base.forward(&[0.5], act).unwrap()[0];
+        let b = biased.forward(&[0.5], act).unwrap()[0];
+        assert!((b - a - 2.5).abs() < 1e-6, "down bias must add 2.5");
+    }
+
+    // GPT-OSS MoE weights: 4 experts, per-expert hidden 16, model_dim 8.
+    const GO_EXPERTS: usize = 4;
+    const GO_HID: usize = 16;
+
+    fn gpt_oss_weights(experts_per_tok: usize, zero_bias: bool) -> GptOssMoeWeights {
+        let base = moe_weights(8, 2, 4, 2, GO_HID, GO_EXPERTS, experts_per_tok);
+        let bias = |seed: f32, n: usize| {
+            if zero_bias {
+                vec![0.0; n]
+            } else {
+                mat(seed, n)
+            }
+        };
+        let expert_biases = (0..GO_EXPERTS)
+            .map(|e| GptOssExpertBias {
+                gate: bias(e as f32, GO_HID),
+                up: bias(e as f32 + 0.5, GO_HID),
+                down: bias(e as f32 + 1.0, 8),
+            })
+            .collect();
+        GptOssMoeWeights {
+            base,
+            router_bias: bias(9.0, GO_EXPERTS),
+            expert_biases,
+            alpha: 1.702,
+            limit: 7.0,
+        }
+    }
+
+    #[test]
+    fn gpt_oss_moe_block_runs_and_reports_shape() {
+        let w = gpt_oss_weights(2, false);
+        let mut block = MhaDecoderBlock::from_weights_moe_gpt_oss(&w, Precision::F32).unwrap();
+        assert!(block.is_moe());
+        assert_eq!(block.num_experts(), GO_EXPERTS);
+        assert_eq!(block.experts_per_tok(), 2);
+        for step in 0..6 {
+            let x: Vec<f32> = (0..8).map(|i| ((i + step) as f32 * 0.2).sin()).collect();
+            let y = block.step(&x).unwrap();
+            assert_eq!(y.len(), 8);
+            assert!(y.iter().all(|v| v.is_finite()), "step {step}");
+        }
+    }
+
+    #[test]
+    fn gpt_oss_differs_from_standard_moe() {
+        // Same weights + zero biases, but the GPT-OSS clamped-α activation is a
+        // different function than SwiGLU, so decode differs.
+        let w = gpt_oss_weights(2, true); // zero biases → only the activation differs
+        let mut gpt = MhaDecoderBlock::from_weights_moe_gpt_oss(&w, Precision::F32).unwrap();
+        let mut std = MhaDecoderBlock::from_weights_moe(&w.base, Precision::F32).unwrap();
+        let mut differed = false;
+        for step in 0..6 {
+            let x: Vec<f32> = (0..8).map(|i| ((i + step) as f32 * 0.3).sin()).collect();
+            if gpt.step(&x).unwrap() != std.step(&x).unwrap() {
+                differed = true;
+            }
+        }
+        assert!(
+            differed,
+            "the GPT-OSS activation must decode differently from SwiGLU"
+        );
+    }
+
+    #[test]
+    fn gpt_oss_rejects_mismatched_bias_count() {
+        let mut w = gpt_oss_weights(2, false);
+        w.expert_biases.pop(); // now len != num_experts
+        let err = MhaDecoderBlock::from_weights_moe_gpt_oss(&w, Precision::F32).unwrap_err();
+        assert!(matches!(err, MhaBlockError::MoeConfig(_)), "got {err:?}");
     }
 }
