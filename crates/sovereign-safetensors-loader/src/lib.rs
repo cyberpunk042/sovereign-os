@@ -198,6 +198,20 @@ pub struct Config {
     /// Qwen3-30B-A3B, Mixtral, GPT-OSS).
     #[serde(rename = "decoder_sparse_step", default)]
     pub decoder_sparse_step: Option<usize>,
+    /// Sliding-window attention span (`sliding_window`): a layer using it attends
+    /// to (and caches) only the most recent `sliding_window` positions instead of
+    /// the full causal history (Mistral / GPT-OSS local attention). `None` / `0` ⇒
+    /// full causal. WHICH layers use it is governed by `layer_types` (GPT-OSS
+    /// interleaves sliding + full); absent `layer_types` ⇒ every layer (uniform
+    /// SWA, e.g. Mistral).
+    #[serde(rename = "sliding_window", default)]
+    pub sliding_window: Option<usize>,
+    /// Per-layer attention type (`layer_types`, GPT-OSS): each entry is
+    /// `"sliding_attention"` (uses `sliding_window`) or `"full_attention"` (full
+    /// causal). One entry per decoder layer, in order. Absent ⇒ no per-layer
+    /// interleaving (the `sliding_window` span, if any, applies uniformly).
+    #[serde(rename = "layer_types", default)]
+    pub layer_types: Option<Vec<String>>,
 }
 
 /// Default frequency base when `config.json` omits `rope_theta`.
@@ -330,6 +344,29 @@ impl Config {
     pub fn head_dim(&self) -> usize {
         self.head_dim
             .unwrap_or(self.model_dim / self.n_heads.max(1))
+    }
+
+    /// The sliding-window span in effect for decoder layer `idx`, or `None` for
+    /// full causal attention. A span applies only when `sliding_window` is set
+    /// (and `> 0`) AND this layer is a sliding layer:
+    ///
+    /// - with `layer_types` (GPT-OSS interleaves sliding + full), the layer is
+    ///   sliding iff `layer_types[idx] == "sliding_attention"`;
+    /// - without `layer_types`, a set span applies to *every* layer (uniform SWA,
+    ///   e.g. Mistral).
+    ///
+    /// An out-of-range `idx` (more layers than `layer_types` entries) is treated
+    /// as full attention rather than panicking.
+    #[must_use]
+    pub fn sliding_window_for_layer(&self, idx: usize) -> Option<usize> {
+        let span = self.sliding_window.filter(|&w| w > 0)?;
+        match &self.layer_types {
+            Some(types) => match types.get(idx).map(String::as_str) {
+                Some("sliding_attention") => Some(span),
+                _ => None,
+            },
+            None => Some(span),
+        }
     }
 
     /// Whether this model's FFN is a mixture of experts (`num_experts` present
@@ -820,6 +857,12 @@ pub fn load_configured(
         // Thread the model's real RoPE base + scaling into every block (the fix
         // for modern models — default 10000 decodes them as garbage).
         let block = block.with_rope(config.rope_theta, config.rope_scaling_resolved().as_ref());
+        // Per-layer sliding window (GPT-OSS interleaves sliding + full attention
+        // via `layer_types`; Mistral-style uniform SWA applies to every layer).
+        let block = match config.sliding_window_for_layer(i) {
+            Some(w) => block.with_sliding_window(w),
+            None => block,
+        };
         layers.push(Box::new(block));
     }
 
@@ -1016,6 +1059,8 @@ mod tests {
             moe_intermediate_size: None,
             mlp_only_layers: None,
             decoder_sparse_step: None,
+            sliding_window: None,
+            layer_types: None,
         };
         (bytes, cfg)
     }
@@ -1192,6 +1237,44 @@ mod tests {
     }
 
     #[test]
+    fn sliding_window_for_layer_follows_layer_types() {
+        // GPT-OSS: `sliding_window` + interleaved `layer_types` ⇒ the span applies
+        // only to `sliding_attention` layers (even), full causal on `full_attention`
+        // (odd). Also proves the two new fields deserialize.
+        let cfg = Config::from_json(
+            br#"{"hidden_size":8,"num_hidden_layers":4,"num_attention_heads":2,
+                 "vocab_size":6,"intermediate_size":8,"sliding_window":128,
+                 "layer_types":["sliding_attention","full_attention",
+                                "sliding_attention","full_attention"]}"#,
+        )
+        .unwrap();
+        assert_eq!(cfg.sliding_window, Some(128));
+        assert_eq!(cfg.sliding_window_for_layer(0), Some(128)); // sliding
+        assert_eq!(cfg.sliding_window_for_layer(1), None); // full
+        assert_eq!(cfg.sliding_window_for_layer(2), Some(128));
+        assert_eq!(cfg.sliding_window_for_layer(3), None);
+        assert_eq!(cfg.sliding_window_for_layer(99), None); // out of range → full
+
+        // No `layer_types` ⇒ uniform SWA (Mistral): the span applies to every layer.
+        let uni = Config::from_json(
+            br#"{"hidden_size":8,"num_hidden_layers":2,"num_attention_heads":2,
+                 "vocab_size":6,"intermediate_size":8,"sliding_window":4096}"#,
+        )
+        .unwrap();
+        assert_eq!(uni.sliding_window_for_layer(0), Some(4096));
+        assert_eq!(uni.sliding_window_for_layer(1), Some(4096));
+
+        // No `sliding_window` ⇒ always full causal, regardless of layer_types.
+        let none = Config::from_json(
+            br#"{"hidden_size":8,"num_hidden_layers":1,"num_attention_heads":2,
+                 "vocab_size":6,"intermediate_size":8}"#,
+        )
+        .unwrap();
+        assert_eq!(none.sliding_window, None);
+        assert_eq!(none.sliding_window_for_layer(0), None);
+    }
+
+    #[test]
     fn rope_theta_parsed_from_config() {
         // A Llama-3-shaped base must survive the round trip.
         let cfg = Config::from_json(
@@ -1333,6 +1416,8 @@ mod tests {
             moe_intermediate_size: None,
             mlp_only_layers: None,
             decoder_sparse_step: None,
+            sliding_window: None,
+            layer_types: None,
         };
         let _ = cfg.head_dim(); // must not panic
     }
@@ -1502,6 +1587,8 @@ mod tests {
             moe_intermediate_size: Some(MOE_HID),
             mlp_only_layers: None,
             decoder_sparse_step: None,
+            sliding_window: None,
+            layer_types: None,
         };
         (bytes, cfg)
     }
@@ -1764,6 +1851,8 @@ mod tests {
             moe_intermediate_size: Some(MOE_HID),
             mlp_only_layers: None,
             decoder_sparse_step: None,
+            sliding_window: None,
+            layer_types: None,
         };
         (write_safetensors(&t), cfg)
     }
@@ -1955,6 +2044,8 @@ mod tests {
             moe_intermediate_size: Some(MOE_HID),
             mlp_only_layers: Some(vec![0]),
             decoder_sparse_step: None,
+            sliding_window: None,
+            layer_types: None,
         };
         assert!(!cfg.layer_is_moe(0) && cfg.layer_is_moe(1));
         let bytes = write_safetensors(&t);

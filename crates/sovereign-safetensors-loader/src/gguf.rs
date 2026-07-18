@@ -46,9 +46,14 @@
 //! attention extras load too when present: the q/k/v/o projection biases
 //! (`blk.{i}.attn_{q,k,v,output}.bias`) and the per-head attention sink
 //! (`blk.{i}.attn_sinks`). YaRN threads through the shared `rope_scaling` path.
-//! (The one remaining GPT-OSS piece is per-layer **sliding-window** attention —
-//! the block supports it via `with_sliding_window`, but wiring the per-layer
-//! pattern from GGUF metadata is a named follow-up.)
+//! Per-layer **sliding-window** attention also wires: the span comes from
+//! `<arch>.attention.sliding_window`, and — since the GGUF omits the per-layer
+//! pattern — GPT-OSS's interleaved `layer_types` (sliding on even layers, full on
+//! odd; llama.cpp's `set_swa_pattern(2)`) is synthesized so each block chains
+//! `with_sliding_window` on its sliding layers. A bare span with no gpt-oss
+//! signal applies uniformly (Mistral-style SWA). The remaining GPT-OSS piece is
+//! the **MXFP4** dequant kernel for the safetensors release (the GGUF path uses
+//! standard k-quants and sidesteps it).
 
 use std::collections::BTreeMap;
 
@@ -663,6 +668,37 @@ impl<'a> GgufFile<'a> {
             .meta_u64(&format!("{arch}.expert_feed_forward_length"))
             .map(|v| v as usize);
 
+        // Sliding-window attention: llama.cpp writes the span under
+        // `<arch>.attention.sliding_window` (Mistral / Gemma-2 / GPT-OSS local
+        // attention). The per-layer sliding-vs-full PATTERN is NOT in the GGUF —
+        // llama.cpp derives it per-arch in code. GPT-OSS (LLM_ARCH_OPENAI_MOE)
+        // uses `set_swa_pattern(2)`: alternating, sliding on even layers and full
+        // on odd — which matches the released config.json's `layer_types` (24
+        // layers, `sliding_attention` on even). We synthesize that here so the
+        // shared `layer_types` machinery drives both loaders identically. GPT-OSS
+        // is recognized the same way the FFN path recognizes it — by its
+        // signature `attn_sinks` tensor (real gpt-oss GGUFs also set arch
+        // `gpt-oss`, checked too). For any other arch that declares a span but no
+        // pattern, `layer_types` stays `None` so the span applies uniformly (the
+        // Mistral case). Models with no span key are unaffected.
+        let sliding_window = self
+            .meta_u64(&format!("{arch}.attention.sliding_window"))
+            .map(|v| v as usize)
+            .filter(|&w| w > 0);
+        let is_gpt_oss = arch == "gpt-oss" || self.has_tensor("blk.0.attn_sinks");
+        let layer_types = sliding_window.filter(|_| is_gpt_oss).map(|_| {
+            (0..n_layers)
+                .map(|l| {
+                    if l % 2 == 0 {
+                        "sliding_attention"
+                    } else {
+                        "full_attention"
+                    }
+                    .to_string()
+                })
+                .collect()
+        });
+
         Ok(Config {
             model_dim,
             n_layers,
@@ -682,6 +718,8 @@ impl<'a> GgufFile<'a> {
             // presence at assembly time, not from config metadata.
             mlp_only_layers: None,
             decoder_sparse_step: None,
+            sliding_window,
+            layer_types,
         })
     }
 }
@@ -1292,6 +1330,13 @@ pub fn load_gguf(
                 .map_err(|e| LoaderError::Build(format!("layer {i}: {e}")))?
         };
         let block = block.with_rope(config.rope_theta, config.rope_scaling_resolved().as_ref());
+        // Per-layer sliding window. GPT-OSS interleaves sliding + full attention
+        // (synthesized into `layer_types` from the GGUF span for arch `gpt-oss`);
+        // a bare span with no pattern applies uniformly (Mistral-style SWA).
+        let block = match config.sliding_window_for_layer(i) {
+            Some(w) => block.with_sliding_window(w),
+            None => block,
+        };
         layers.push(Box::new(block));
     }
 
@@ -1861,6 +1906,13 @@ mod tests {
     // `gpt_oss = true` adds the GPT-OSS expert + router bias tensors, so the
     // loader builds the block via the clamped-α GPT-OSS FFN path.
     fn tiny_moe_gguf_opt(used: u32, gpt_oss: bool) -> Vec<u8> {
+        tiny_moe_gguf_swa(used, gpt_oss, None)
+    }
+
+    // Adds `sliding_window` metadata (span) when `swa` is `Some`. With `gpt_oss`
+    // (which writes the signature `attn_sinks` tensor), the loader synthesizes the
+    // GPT-OSS interleaved `layer_types` and applies the per-layer window.
+    fn tiny_moe_gguf_swa(used: u32, gpt_oss: bool, swa: Option<u32>) -> Vec<u8> {
         let (md, hid, ehid, n_exp, vocab) = (MOE_MD, MOE_HID, MOE_EXP_HID, MOE_N_EXP, MOE_VOCAB);
         let mut w = GgufWriter::new();
         w.kv_str("general.architecture", "llama");
@@ -1875,6 +1927,9 @@ mod tests {
         w.kv_u32("llama.expert_count", n_exp as u32);
         w.kv_u32("llama.expert_used_count", used);
         w.kv_u32("llama.expert_feed_forward_length", ehid as u32);
+        if let Some(win) = swa {
+            w.kv_u32("llama.attention.sliding_window", win);
+        }
         // embedding + output norm + head
         w.tensor_f32("token_embd.weight", &[md, vocab], &varying(0.5, md * vocab));
         w.tensor_f32("output_norm.weight", &[md], &vec![1.0f32; md]);
@@ -2013,6 +2068,48 @@ mod tests {
             differed,
             "the GPT-OSS biased/clamped FFN must decode differently from SwiGLU"
         );
+    }
+
+    #[test]
+    fn gpt_oss_gguf_synthesizes_sliding_window_pattern() {
+        // A gpt-oss GGUF that declares `attention.sliding_window` gets the
+        // GPT-OSS interleaved `layer_types` synthesized (sliding on even layers,
+        // full on odd — matching the released config's `layer_types`), and the
+        // span reads through. `block_count` is 1 here, so only layer 0 (even →
+        // sliding) exists; the alternation itself is covered by the Config unit
+        // test in lib.rs.
+        let bytes = tiny_moe_gguf_swa(2, true, Some(2));
+        let c = GgufFile::parse(&bytes).unwrap().config().unwrap();
+        assert_eq!(c.sliding_window, Some(2), "span read from GGUF metadata");
+        assert_eq!(
+            c.layer_types.as_deref(),
+            Some(&["sliding_attention".to_string()][..]),
+            "gpt-oss synthesizes the interleaved layer_types",
+        );
+        assert_eq!(c.sliding_window_for_layer(0), Some(2), "even layer slides");
+
+        // A non-gpt-oss MoE with the same span key gets NO synthesized pattern
+        // (its `layer_types` stays None ⇒ uniform SWA would apply, but here we
+        // only assert the pattern is not gpt-oss-shaped).
+        let plain = tiny_moe_gguf_swa(2, false, Some(2));
+        let pc = GgufFile::parse(&plain).unwrap().config().unwrap();
+        assert_eq!(pc.sliding_window, Some(2));
+        assert_eq!(pc.layer_types, None, "no attn_sinks ⇒ no gpt-oss pattern");
+    }
+
+    #[test]
+    fn gpt_oss_gguf_with_sliding_window_still_loads_and_runs() {
+        // End-to-end: a gpt-oss GGUF whose layer 0 is a sliding layer assembles
+        // (the loader chains `.with_sliding_window` onto the block) and decodes
+        // finite logits across several positions.
+        let bytes = tiny_moe_gguf_swa(2, true, Some(2));
+        let mut m = load_gguf(&bytes, Precision::F32, Sampler::greedy())
+            .expect("gpt-oss gguf with sliding window loads");
+        for tok in [0usize, 1, 2, 3] {
+            let y = m.forward(tok).expect("forward");
+            assert_eq!(y.len(), MOE_VOCAB);
+            assert!(y.iter().all(|x| x.is_finite()), "logits finite at {tok}");
+        }
     }
 
     #[test]
