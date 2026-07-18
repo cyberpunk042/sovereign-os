@@ -687,6 +687,23 @@ struct Generator {
     chat_template: Option<String>,
 }
 
+/// Architecture summary of the primary in-process model, surfaced on
+/// `/v1/models` so an operator panel can distinguish a dense model from an
+/// N-expert MoE (and a fully-sparse model from one that interleaves dense and
+/// sparse layers).
+#[derive(Debug, Clone, Copy)]
+pub struct PrimaryArch {
+    /// Number of decoder layers.
+    pub layers: usize,
+    /// Vocabulary size.
+    pub vocab: usize,
+    /// Residual-stream (model) dimension.
+    pub model_dim: usize,
+    /// `(moe_layers, num_experts, experts_per_tok)` when the model is a mixture
+    /// of experts, else `None` (a fully dense model).
+    pub moe: Option<(usize, usize, usize)>,
+}
+
 /// A GPU serve-process backend the gateway proxies to (Phase 2 increment 2): a
 /// `model-serve` job placed a llama-server / vLLM on a GPU + registered it here.
 #[derive(Clone, Debug)]
@@ -1774,6 +1791,23 @@ impl GatewayServer {
     /// Whether the PRIMARY local generation worker pool is loaded (the default route).
     pub fn has_generator(&self) -> bool {
         !self.workers.is_empty()
+    }
+
+    /// Architecture summary of the primary in-process model (layers, vocab,
+    /// model_dim, and — for a MoE checkpoint — the expert shape), or `None` when
+    /// no in-process model is loaded. A brief lock reads scalar fields; it never
+    /// blocks generation meaningfully (read once when a UI polls `/v1/models`).
+    pub fn primary_model_arch(&self) -> Option<PrimaryArch> {
+        let g = self.workers.first()?.lock().ok()?;
+        let m = &g.model;
+        Some(PrimaryArch {
+            layers: m.layers(),
+            vocab: m.vocab(),
+            model_dim: m.model_dim(),
+            moe: m
+                .moe_summary()
+                .map(|s| (s.moe_layers, s.num_experts, s.experts_per_tok)),
+        })
     }
 
     /// Test-only: load a model from `dir` through the PRODUCTION path

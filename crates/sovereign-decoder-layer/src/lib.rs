@@ -65,6 +65,15 @@ pub trait DecoderLayer: std::fmt::Debug + Send {
 
     /// Number of positions currently in this layer's KV cache.
     fn cached_positions(&self) -> usize;
+
+    /// `(num_experts, experts_per_tok)` when this layer's FFN is a mixture of
+    /// experts, else `None` for a dense layer. Lets a [`LayerStack`] report a
+    /// model's MoE shape (how many layers are sparse, the expert count / top-k)
+    /// to an operator surface without downcasting the trait objects. Defaults to
+    /// `None`; only the MoE-capable block overrides it.
+    fn moe_layer_info(&self) -> Option<(usize, usize)> {
+        None
+    }
 }
 
 impl DecoderLayer for DecoderBlock {
@@ -92,6 +101,26 @@ impl DecoderLayer for MhaDecoderBlock {
     fn cached_positions(&self) -> usize {
         self.len()
     }
+    fn moe_layer_info(&self) -> Option<(usize, usize)> {
+        self.is_moe()
+            .then(|| (self.num_experts(), self.experts_per_tok()))
+    }
+}
+
+/// A mixture-of-experts summary of a stack: how many layers are sparse (vs the
+/// total) and the expert shape they run. `None` from
+/// [`LayerStack::moe_summary`] means the model is fully dense.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MoeSummary {
+    /// Number of layers whose FFN is a mixture of experts.
+    pub moe_layers: usize,
+    /// Total number of layers.
+    pub total_layers: usize,
+    /// Experts per MoE layer (from the first sparse layer; uniform in every
+    /// mainstream MoE architecture).
+    pub num_experts: usize,
+    /// Experts activated per token (top-k) in the MoE layers.
+    pub experts_per_tok: usize,
 }
 
 /// A heterogeneous stack of decoder layers sharing one residual stream.
@@ -112,6 +141,28 @@ impl LayerStack {
     /// Number of layers.
     pub fn depth(&self) -> usize {
         self.layers.len()
+    }
+
+    /// The mixture-of-experts shape of this stack, or `None` if every layer is
+    /// dense. Counts the sparse layers and reports the expert count / top-k from
+    /// the first MoE layer — the data an operator surface shows to distinguish a
+    /// dense model from an N-expert MoE (and a fully-sparse model from one that
+    /// interleaves dense and sparse layers).
+    pub fn moe_summary(&self) -> Option<MoeSummary> {
+        let mut moe_layers = 0;
+        let mut shape = None;
+        for l in &self.layers {
+            if let Some((experts, top_k)) = l.moe_layer_info() {
+                moe_layers += 1;
+                shape.get_or_insert((experts, top_k));
+            }
+        }
+        shape.map(|(num_experts, experts_per_tok)| MoeSummary {
+            moe_layers,
+            total_layers: self.layers.len(),
+            num_experts,
+            experts_per_tok,
+        })
     }
 
     /// Decode positions seen so far (the first layer's KV depth; every layer
@@ -268,6 +319,31 @@ mod tests {
             assert!(y.iter().all(|v| v.is_finite()), "step {step}");
         }
         assert_eq!(stack.positions(), 5);
+    }
+
+    #[test]
+    fn moe_summary_counts_sparse_layers() {
+        // A mixed stack (dense transformer + dense MHA + one MoE) reports exactly
+        // one sparse layer of three, with the MoE layer's expert shape.
+        let layers: Vec<Box<dyn DecoderLayer>> = vec![
+            Box::new(transformer_layer()),
+            Box::new(mha_layer(Precision::F32)),
+            Box::new(moe_layer(Precision::F32)),
+        ];
+        let stack = LayerStack::new(layers).unwrap();
+        let s = stack
+            .moe_summary()
+            .expect("a stack with a MoE layer has a summary");
+        assert_eq!(s.moe_layers, 1);
+        assert_eq!(s.total_layers, 3);
+        assert_eq!(s.num_experts, 4); // moe_layer builds a 4-expert bank
+        assert_eq!(s.experts_per_tok, 2); // top-2
+        // A fully-dense stack has no MoE summary.
+        let dense = LayerStack::new(vec![Box::new(transformer_layer())]).unwrap();
+        assert!(dense.moe_summary().is_none());
+        // A dense block reports no per-layer MoE info; a MoE block does.
+        assert_eq!(transformer_layer().moe_layer_info(), None);
+        assert_eq!(moe_layer(Precision::F32).moe_layer_info(), Some((4, 2)));
     }
 
     #[test]

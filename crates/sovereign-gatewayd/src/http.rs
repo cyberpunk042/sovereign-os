@@ -14,7 +14,7 @@
 //! GET  /admin/ledger   -> {"kind":"ledger", …}     cost/route ledger (surface 6)
 //! GET  /metrics        -> Prometheus text          ledger + health for the cockpit
 //! POST /v1/messages    -> {"type":"message", …}    Anthropic Messages API (surface 1); stream:true = SSE
-//! GET  /v1/models      -> {"data":[…]}             Anthropic models list (the local model)
+//! GET  /v1/models      -> {"data":[…],"architecture":…} Anthropic models list + primary-model arch (MoE shape)
 //! POST /v1/messages/count_tokens -> {"input_tokens":N}  Anthropic token count (best-effort)
 //! POST /v1/infer       -> {"kind":"decision", …}   raw engine alias (the routing DECISION)
 //! POST /mcp            -> {"kind":"decision", …}   MCP-bridge bind (surface 3)
@@ -428,6 +428,24 @@ fn anthropic_models(server: &GatewayServer) -> HttpReply {
         .and_then(|m| m["id"].as_str())
         .unwrap_or("")
         .to_string();
+    // Architecture of the primary in-process model (layers / vocab / model_dim,
+    // and the MoE shape when it is a mixture of experts) so a UI can show whether
+    // the loaded model is dense or an N-expert MoE. `null` when nothing is loaded.
+    let architecture = server.primary_model_arch().map(|a| {
+        serde_json::json!({
+            "layers": a.layers,
+            "vocab": a.vocab,
+            "model_dim": a.model_dim,
+            "mixture_of_experts": a.moe.map(|(moe_layers, num_experts, experts_per_tok)| {
+                serde_json::json!({
+                    "moe_layers": moe_layers,
+                    "total_layers": a.layers,
+                    "num_experts": num_experts,
+                    "experts_per_tok": experts_per_tok,
+                })
+            }),
+        })
+    });
     json_reply(
         200,
         &serde_json::json!({
@@ -435,6 +453,7 @@ fn anthropic_models(server: &GatewayServer) -> HttpReply {
             // the model the "background" alias resolves to (null = none designated /
             // designated-but-unloaded → the primary), so a UI can show it (inc.3/UX loop)
             "background": server.background_id(),
+            "architecture": architecture,
         }),
     )
 }
@@ -1879,6 +1898,41 @@ mod tests {
             anthropic_max_tokens(&serde_json::json!({"max_tokens": 5})),
             5
         );
+    }
+
+    #[test]
+    fn v1_models_surfaces_model_architecture() {
+        use crate::model_fixture::TinyModelDir;
+
+        // No model loaded → architecture is null.
+        let empty = GatewayServer::new();
+        let m = body_of(&respond(&empty, "GET", "/v1/models", ""));
+        assert!(m["architecture"].is_null(), "no model → null architecture");
+
+        // A dense model → architecture present, no MoE block.
+        let dense = TinyModelDir::new().expect("dense fixture");
+        let mut s = GatewayServer::new();
+        s.inject_worker_from_dir(&dense.path_str())
+            .expect("load dense");
+        let m = body_of(&respond(&s, "GET", "/v1/models", ""));
+        assert_eq!(m["architecture"]["layers"], 2);
+        assert_eq!(m["architecture"]["vocab"], 256);
+        assert!(
+            m["architecture"]["mixture_of_experts"].is_null(),
+            "a dense model has no MoE block"
+        );
+
+        // A MoE model → the mixture_of_experts shape is surfaced for a panel.
+        let moe = TinyModelDir::new_moe().expect("moe fixture");
+        let mut s2 = GatewayServer::new();
+        s2.inject_worker_from_dir(&moe.path_str())
+            .expect("load moe");
+        let m2 = body_of(&respond(&s2, "GET", "/v1/models", ""));
+        let x = &m2["architecture"]["mixture_of_experts"];
+        assert_eq!(x["num_experts"], 4);
+        assert_eq!(x["experts_per_tok"], 2);
+        assert_eq!(x["moe_layers"], 2);
+        assert_eq!(x["total_layers"], 2);
     }
 
     #[test]
