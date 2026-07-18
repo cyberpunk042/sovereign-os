@@ -653,10 +653,11 @@ pub struct GatewayServer {
     /// `SOVEREIGN_GATEWAY_CORPUS` directory, with each file chunked into passages.
     /// A candidate pool is drawn from it and coverage-**reranked** before the
     /// top-k passages ground the prompt. Deterministic (no model needed). Used
-    /// BEFORE generation; read-only after construction, so no lock is needed.
-    /// Behind an `Arc` so the agent's `search` tool can own a `'static` handle.
-    /// `None` ⇒ RAG off (prompts pass through).
-    corpus: Option<Arc<sovereign_retrieval::HybridStore>>,
+    /// BEFORE generation. Behind an `Arc` so the agent's `search` tool can own a
+    /// `'static` handle; behind a `RwLock` so `POST /v1/corpus/reload` can
+    /// re-index the operator's corpus dir in place without a daemon restart (a
+    /// reader gets the old or new snapshot atomically). `None` ⇒ RAG off.
+    corpus: RwLock<Option<Arc<sovereign_retrieval::HybridStore>>>,
 }
 
 /// A loaded local generation engine: real weights + a real byte-level BPE
@@ -1299,6 +1300,14 @@ fn rag_chunk_params() -> (usize, usize) {
 /// it holds no eligible files — each case logged, never a hard failure.
 fn load_corpus_from_env() -> Option<Arc<sovereign_retrieval::HybridStore>> {
     let dir = std::path::PathBuf::from(std::env::var_os("SOVEREIGN_GATEWAY_CORPUS")?);
+    build_corpus_from(&dir)
+}
+
+/// Build the hybrid RAG store from a corpus directory (chunk every `.md`/`.txt`
+/// file into passages, index them). `None` when the dir is missing or holds no
+/// eligible content. Split out from [`load_corpus_from_env`] so both the env
+/// bootstrap and the `reload_corpus` in-place swap share one builder.
+fn build_corpus_from(dir: &std::path::Path) -> Option<Arc<sovereign_retrieval::HybridStore>> {
     if !dir.is_dir() {
         eprintln!(
             "sovereign-gatewayd: SOVEREIGN_GATEWAY_CORPUS={} is not a directory — RAG disabled",
@@ -1306,7 +1315,7 @@ fn load_corpus_from_env() -> Option<Arc<sovereign_retrieval::HybridStore>> {
         );
         return None;
     }
-    let mut paths: Vec<std::path::PathBuf> = std::fs::read_dir(&dir)
+    let mut paths: Vec<std::path::PathBuf> = std::fs::read_dir(dir)
         .ok()?
         .filter_map(Result::ok)
         .map(|e| e.path())
@@ -1675,7 +1684,7 @@ impl GatewayServer {
             rate_limited: std::sync::atomic::AtomicU64::new(0),
             events: Mutex::new(VecDeque::new()),
             trace_seq: std::sync::atomic::AtomicU64::new(1),
-            corpus,
+            corpus: RwLock::new(corpus),
         }
     }
 
@@ -1687,21 +1696,60 @@ impl GatewayServer {
     /// and any backend without touching the generation core.
     #[must_use]
     pub fn rag_augment(&self, prompt: &str) -> String {
-        rag_augment_with(self.corpus.as_deref(), prompt, rag_top_k())
+        // Hold the read guard across the call: the borrowed `&HybridStore` derefs
+        // through the guard's Arc, and a concurrent reload only swaps the Arc.
+        match self.corpus.read() {
+            Ok(guard) => rag_augment_with(guard.as_deref(), prompt, rag_top_k()),
+            Err(_) => prompt.to_string(),
+        }
     }
 
     /// A shared handle to the RAG corpus (for the agent's `search` tool), or
-    /// `None` when no corpus is loaded.
+    /// `None` when no corpus is loaded. The clone is a snapshot — a later reload
+    /// swaps the daemon's Arc but a tool already holding this handle keeps its own.
     #[must_use]
     pub fn corpus_handle(&self) -> Option<Arc<sovereign_retrieval::HybridStore>> {
-        self.corpus.clone()
+        self.corpus.read().ok().and_then(|g| g.clone())
     }
 
     /// Number of retrievable passages (chunks) in the RAG corpus (0 when none is
     /// loaded).
     #[must_use]
     pub fn corpus_len(&self) -> usize {
-        self.corpus.as_ref().map_or(0, |c| c.len())
+        self.corpus
+            .read()
+            .ok()
+            .and_then(|g| g.as_ref().map(|c| c.len()))
+            .unwrap_or(0)
+    }
+
+    /// Re-index the RAG corpus from `SOVEREIGN_GATEWAY_CORPUS` and swap it in
+    /// atomically — so an operator who edits the corpus dir picks up the change
+    /// without restarting the daemon. Returns the new passage count. A rebuild
+    /// happens BEFORE the write lock is taken, so readers only block for the
+    /// pointer swap, never for the (potentially slow) re-chunk + index.
+    pub fn reload_corpus(&self) -> Result<usize, String> {
+        let fresh = load_corpus_from_env();
+        let n = fresh.as_ref().map_or(0, |c| c.len());
+        match self.corpus.write() {
+            Ok(mut guard) => {
+                *guard = fresh;
+                Ok(n)
+            }
+            Err(_) => Err("corpus lock poisoned".to_string()),
+        }
+    }
+
+    /// Test-only: rebuild the corpus from an explicit dir and swap it in — the
+    /// `reload_corpus` mechanism without the process-global `SOVEREIGN_GATEWAY_CORPUS`
+    /// env (which can't be set in-test under `#![forbid(unsafe_code)]` +
+    /// edition-2024). Returns the new passage count.
+    #[cfg(test)]
+    fn reload_corpus_from_dir(&self, dir: &std::path::Path) -> usize {
+        let fresh = build_corpus_from(dir);
+        let n = fresh.as_ref().map_or(0, |c| c.len());
+        *self.corpus.write().expect("corpus lock") = fresh;
+        n
     }
 
     /// Whether the PRIMARY local generation worker pool is loaded (the default route).
@@ -2908,6 +2956,56 @@ mod tests {
             ),
             other => panic!("expected a CoatTrace, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn corpus_hot_reload_picks_up_new_docs_without_a_restart() {
+        // A fresh server has no corpus. After writing docs to a dir and reloading
+        // in place, corpus_len reflects them and rag_augment grounds from them —
+        // proving the RwLock swap re-indexes without a daemon restart.
+        static N: AtomicU64 = AtomicU64::new(0);
+        let dir = std::env::temp_dir().join(format!(
+            "sov-corpus-{}-{}",
+            std::process::id(),
+            N.fetch_add(1, Ordering::Relaxed)
+        ));
+        std::fs::create_dir_all(&dir).expect("mk corpus dir");
+        struct Cleanup(std::path::PathBuf);
+        impl Drop for Cleanup {
+            fn drop(&mut self) {
+                let _ = std::fs::remove_dir_all(&self.0);
+            }
+        }
+        let _cleanup = Cleanup(dir.clone());
+
+        let s = GatewayServer::new();
+        assert_eq!(s.corpus_len(), 0, "a fresh server has no corpus");
+
+        std::fs::write(
+            dir.join("mars.txt"),
+            "The Mars rover Perseverance collected rock samples in Jezero crater.",
+        )
+        .unwrap();
+        let n = s.reload_corpus_from_dir(&dir);
+        assert!(
+            n > 0 && s.corpus_len() == n,
+            "reload must index the new passages"
+        );
+        let grounded = s.rag_augment("Where did Perseverance collect samples?");
+        assert!(
+            grounded.contains("Jezero")
+                && grounded.len() > "Where did Perseverance collect samples?".len(),
+            "the reloaded corpus must ground the prompt with retrieved context"
+        );
+
+        // Adding another doc + reloading again grows the index live.
+        std::fs::write(
+            dir.join("moon.txt"),
+            "Apollo 11 landed on the Moon in 1969.",
+        )
+        .unwrap();
+        let n2 = s.reload_corpus_from_dir(&dir);
+        assert!(n2 > n, "a second reload must pick up the added document");
     }
 
     #[test]
