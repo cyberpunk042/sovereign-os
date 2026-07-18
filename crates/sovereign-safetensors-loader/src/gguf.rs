@@ -883,7 +883,7 @@ mod tests {
         w.kv_u32("llama.embedding_length", 8);
         w.kv_u32("llama.block_count", 1);
         w.kv_u32("llama.attention.head_count", 2);
-        w.tensor_f32("token_embd.weight", &[8, 5], &vec![0.5f32; 40]); // ne=[n_embd, n_vocab]
+        w.tensor_f32("token_embd.weight", &[8, 5], &[0.5f32; 40]); // ne=[n_embd, n_vocab]
         let bytes = w.finish();
 
         let f = GgufFile::parse(&bytes).unwrap();
