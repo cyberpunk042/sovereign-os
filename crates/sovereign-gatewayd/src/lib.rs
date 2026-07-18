@@ -31,6 +31,9 @@
 
 pub mod http;
 
+#[cfg(test)]
+mod model_fixture;
+
 use std::collections::{BTreeMap, VecDeque};
 use std::sync::{Arc, Mutex, RwLock};
 
@@ -1671,6 +1674,20 @@ impl GatewayServer {
         !self.workers.is_empty()
     }
 
+    /// Test-only: load a model from `dir` through the PRODUCTION path
+    /// (`load_generator_from_dir` — config.json + *.safetensors + tokenizer.json)
+    /// and add it as a primary worker, so model-backed generation / CoAT / agent
+    /// tests exercise a real forward pass without racing a shared env var
+    /// (`SOVEREIGN_GATEWAY_MODEL`). Returns the loaded model's `(vocab, layers)`.
+    #[cfg(test)]
+    fn inject_worker_from_dir(&mut self, dir: &str) -> Result<(usize, usize), String> {
+        let g =
+            load_generator_from_dir(dir)?.ok_or_else(|| format!("no loadable model in {dir}"))?;
+        let (vocab, layers) = (g.model.vocab(), g.model.layers());
+        self.workers.push(Arc::new(Mutex::new(g)));
+        Ok((vocab, layers))
+    }
+
     /// The chat template of the generator that would serve `model` (a named
     /// secondary, else the primary), if it ships one (F-2026-086). A brief lock
     /// clones the small `Option<String>`; `None` ⇒ the caller newline-joins the
@@ -2744,10 +2761,78 @@ mod tests {
     use std::sync::atomic::{AtomicU64, Ordering};
 
     use super::*;
+    use crate::model_fixture::TinyModelDir;
     use sovereign_cortex::demo_requests;
 
     fn infer_line(req: &CortexRequest) -> String {
         serde_json::json!({ "op": "infer", "request": req }).to_string()
+    }
+
+    // ── F-2026-090 / F-2026-066: model-backed daemon tests on a real, loadable,
+    //    tiny fixture (was heuristic-only for want of a small model to load) ──
+
+    #[test]
+    fn tiny_model_dir_loads_through_the_production_path() {
+        // The fixture is a real on-disk config.json + *.safetensors + tokenizer.json;
+        // it loads via the SAME load_generator_from_dir the daemon uses at boot.
+        let dir = TinyModelDir::new().expect("materialize fixture");
+        let mut s = GatewayServer::new();
+        assert!(!s.has_generator(), "starts with no model");
+        let (vocab, layers) = s
+            .inject_worker_from_dir(&dir.path_str())
+            .expect("the synthetic model dir must load");
+        assert_eq!(
+            (vocab, layers),
+            (256, 2),
+            "the fixture is a vocab-256, 2-layer model"
+        );
+        assert!(s.has_generator(), "a loaded worker flips has_generator on");
+    }
+
+    #[test]
+    fn model_backed_generation_is_nonempty_and_deterministic() {
+        let dir = TinyModelDir::new().expect("materialize fixture");
+        let mut s = GatewayServer::new();
+        s.inject_worker_from_dir(&dir.path_str())
+            .expect("load fixture");
+
+        let run = |s: &GatewayServer| {
+            let mut out = String::new();
+            let n = s
+                .generate_chat(None, "hello", 8, |c| out.push_str(c))
+                .expect("model-backed generation must succeed");
+            (n, out)
+        };
+        let (n1, out1) = run(&s);
+        assert!(
+            n1 > 0 && !out1.is_empty(),
+            "a real forward pass must emit tokens"
+        );
+        // greedy decoding is deterministic — the same prompt yields the same text
+        let (n2, out2) = run(&s);
+        assert_eq!(
+            (n1, out1),
+            (n2, out2),
+            "greedy generation must be reproducible"
+        );
+    }
+
+    #[test]
+    fn model_backed_coat_flags_thought_source_model() {
+        // With a generator loaded, CoAT deliberates through the model (ModelThoughts)
+        // and the trace must honestly flag thought_source="model" — the path that was
+        // untestable until a loadable fixture existed (F-2026-090).
+        let dir = TinyModelDir::new().expect("materialize fixture");
+        let mut s = GatewayServer::new();
+        s.inject_worker_from_dir(&dir.path_str())
+            .expect("load fixture");
+        match s.coat("plan a migration".into(), 15, 0, "cot", 100, 1000, None) {
+            GatewayResponse::CoatTrace { trace } => assert_eq!(
+                trace.thought_source, "model",
+                "a model-backed CoAT must flag its trace as model-sourced, not heuristic"
+            ),
+            other => panic!("expected a CoatTrace, got {other:?}"),
+        }
     }
 
     /// A unique temp path per call (process id + a counter), so parallel tests
