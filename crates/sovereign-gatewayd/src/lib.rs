@@ -491,6 +491,15 @@ struct ModelThoughts<'a> {
     /// deliberation passes `"background"` so it runs on the secondary, leaving the
     /// primary free for interactive chat. `None` uses the primary.
     model: Option<String>,
+    /// Wall-clock budget for the whole deliberation (F-2026-063). Each expansion
+    /// is one model call on the request thread; once the deadline passes, `expand`
+    /// short-circuits (no further model calls), so the search finishes early with
+    /// the best path found so far instead of blocking the caller unbounded. `None`
+    /// disables the budget (unbounded, the prior behaviour).
+    deadline: Option<std::time::Instant>,
+    /// Set to `true` the first time an expansion is skipped because the budget was
+    /// spent — so the caller can see the deliberation was time-bounded.
+    timed_out: &'a std::sync::atomic::AtomicBool,
 }
 
 /// Structure a raw model completion into up to `k` seeds: split into fragments,
@@ -533,6 +542,16 @@ impl ThoughtSource for ModelThoughts<'_> {
         associated: &[Recall],
         k: usize,
     ) -> Vec<ThoughtSeed> {
+        // Wall-clock budget (F-2026-063): once spent, stop issuing model calls so
+        // the request thread can't block unbounded — the search returns its
+        // best-so-far. Checked BEFORE the (expensive) generate call.
+        if let Some(deadline) = self.deadline {
+            if std::time::Instant::now() >= deadline {
+                self.timed_out
+                    .store(true, std::sync::atomic::Ordering::Relaxed);
+                return Vec::new();
+            }
+        }
         let mut prompt = format!("Problem: {}\n", problem.statement);
         if !path.is_empty() {
             prompt.push_str("Reasoning so far:\n");
@@ -1233,6 +1252,22 @@ fn rag_top_k() -> usize {
         .and_then(|v| v.trim().parse::<usize>().ok())
         .filter(|&k| k > 0)
         .unwrap_or(DEFAULT_RAG_TOP_K)
+}
+
+/// Default wall-clock budget (ms) for a model-backed CoAT deliberation on the
+/// request thread (F-2026-063). Overridable via `SOVEREIGN_GATEWAY_COAT_TIMEOUT_MS`;
+/// `0` disables the budget (unbounded — the prior behaviour).
+const DEFAULT_COAT_TIMEOUT_MS: u64 = 25_000;
+
+/// The deadline a model-backed CoAT must finish issuing model calls by, or `None`
+/// when the budget is disabled (`SOVEREIGN_GATEWAY_COAT_TIMEOUT_MS=0`). Pure read
+/// of the env each call so an operator can retune without a restart.
+fn coat_deadline() -> Option<std::time::Instant> {
+    let ms = std::env::var("SOVEREIGN_GATEWAY_COAT_TIMEOUT_MS")
+        .ok()
+        .and_then(|v| v.trim().parse::<u64>().ok())
+        .unwrap_or(DEFAULT_COAT_TIMEOUT_MS);
+    (ms > 0).then(|| std::time::Instant::now() + std::time::Duration::from_millis(ms))
 }
 
 /// Default chunk target / overlap (chars) for splitting corpus files into
@@ -2474,15 +2509,29 @@ impl GatewayServer {
                     iterations: config.iterations.min(12),
                     ..config
                 };
-                CoatEngine::new(
+                // Wall-clock budget on the request thread (F-2026-063): a slow
+                // model-backed deliberation returns its best-so-far at the deadline
+                // instead of blocking the caller unbounded.
+                let timed_out = std::sync::atomic::AtomicBool::new(false);
+                let deadline = coat_deadline();
+                let out = CoatEngine::new(
                     ModelThoughts {
                         server: self,
                         model,
+                        deadline,
+                        timed_out: &timed_out,
                     },
                     memory,
                     cfg,
                 )
-                .deliberate(&prob)
+                .deliberate(&prob);
+                if timed_out.load(std::sync::atomic::Ordering::Relaxed) {
+                    eprintln!(
+                        "sovereign-gatewayd: model-backed CoAT hit its wall-clock budget \
+                         (SOVEREIGN_GATEWAY_COAT_TIMEOUT_MS) — returning best-so-far"
+                    );
+                }
+                out
             } else {
                 CoatEngine::new(HeuristicThoughts, memory, config).deliberate(&prob)
             }
@@ -2833,6 +2882,51 @@ mod tests {
             ),
             other => panic!("expected a CoatTrace, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn coat_wall_clock_budget_defaults_to_enabled() {
+        // F-2026-063: absent SOVEREIGN_GATEWAY_COAT_TIMEOUT_MS, a model-backed CoAT
+        // carries a default budget (so the request thread can't block unbounded).
+        assert!(
+            coat_deadline().is_some(),
+            "the CoAT deliberation must be time-bounded by default"
+        );
+    }
+
+    #[test]
+    fn model_backed_coat_expansion_stops_issuing_calls_past_the_budget() {
+        // The heart of F-2026-063: once the wall-clock deadline is spent, a model
+        // expansion short-circuits — no further (expensive) model call — and flags
+        // that the deliberation was time-bounded, so the search returns best-so-far
+        // instead of blocking the caller.
+        use sovereign_coat::{Problem, ThoughtSource};
+        let dir = TinyModelDir::new().expect("materialize fixture");
+        let mut s = GatewayServer::new();
+        s.inject_worker_from_dir(&dir.path_str())
+            .expect("load fixture");
+        let flag = std::sync::atomic::AtomicBool::new(false);
+        let mut mt = ModelThoughts {
+            server: &s,
+            model: None,
+            // already spent
+            deadline: Some(std::time::Instant::now() - std::time::Duration::from_millis(1)),
+            timed_out: &flag,
+        };
+        let prob = Problem {
+            statement: "plan a migration".into(),
+            topic: 0,
+            entity: 0,
+        };
+        let seeds = mt.expand(&prob, &[], &[], 3);
+        assert!(
+            seeds.is_empty(),
+            "a spent budget must skip the model call and yield no new thoughts"
+        );
+        assert!(
+            flag.load(std::sync::atomic::Ordering::Relaxed),
+            "hitting the budget must set the timed_out flag"
+        );
     }
 
     /// A unique temp path per call (process id + a counter), so parallel tests
