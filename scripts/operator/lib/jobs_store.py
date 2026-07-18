@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import threading
 import time
 import uuid
@@ -24,6 +25,10 @@ from pathlib import Path
 
 JOBS_DIR = Path(os.environ.get("SOVEREIGN_OS_JOBS_DIR", "/var/lib/sovereign-os/jobs"))
 REGISTRY = JOBS_DIR / "registry.json"
+# Per-job scratch lives UNDER the jobs dir (already the unit's sole ReadWritePaths)
+# so a runner's cwd + log never hit read-only REPO or PrivateTmp — the F-2026-091
+# sandbox-breakage fix. One subdir per job id; dropped when the job is pruned.
+WORK_ROOT = JOBS_DIR / "work"
 
 # The v1 job kinds. `vm-job` entries are mirrored from the passthrough VM bridge
 # and are not executed by the host worker.
@@ -32,6 +37,13 @@ KINDS = ("deliberation", "eval", "model-load", "gpu-job", "vm-job", "demo", "mod
 STATES = ("queued", "running", "done", "failed", "cancelled")
 # Terminal states (the worker never resumes these).
 TERMINAL = ("done", "failed", "cancelled")
+# Scheduling priorities (high runs before normal runs before low); best-effort
+# ordering at admission, not preemption.
+PRIORITIES = ("high", "normal", "low")
+_DEFAULT_PRIORITY = "normal"
+# The default attempt ceiling for a resumable job that is re-enqueued after a
+# runtime restart (see jobs-api.resume_orphans).
+DEFAULT_MAX_ATTEMPTS = 3
 
 _lock = threading.RLock()
 
@@ -52,6 +64,23 @@ class JobStore:
         self._jobs: dict[str, dict] = {}
         self.load()
 
+    @property
+    def work_root(self) -> Path:
+        """The per-job scratch root, sibling to the registry (so it lands under
+        the same ReadWritePaths-granted jobs dir the registry lives in)."""
+        return self.path.parent / "work"
+
+    def workdir(self, jid: str) -> Path:
+        """The scratch dir for one job (created on demand). A runner sets its cwd
+        + log here so all job output stays inside the sandbox-granted jobs tree."""
+        wd = self.work_root / jid
+        wd.mkdir(parents=True, exist_ok=True)
+        return wd
+
+    def drop_workdir(self, jid: str) -> None:
+        """Best-effort removal of a job's scratch dir (called on prune)."""
+        shutil.rmtree(self.work_root / jid, ignore_errors=True)
+
     def load(self) -> None:
         with _lock:
             try:
@@ -67,9 +96,12 @@ class JobStore:
             tmp.write_text(json.dumps({"jobs": self._jobs}, indent=2), encoding="utf-8")
             os.replace(tmp, self.path)  # atomic — a crash never leaves a torn file
 
-    def create(self, kind: str, title: str, device: str = "cpu", meta: dict | None = None) -> dict:
+    def create(self, kind: str, title: str, device: str = "cpu", meta: dict | None = None,
+               priority: str = _DEFAULT_PRIORITY, max_attempts: int = DEFAULT_MAX_ATTEMPTS) -> dict:
         if kind not in KINDS:
             raise ValueError(f"unknown job kind {kind!r} (want {'/'.join(KINDS)})")
+        if priority not in PRIORITIES:
+            raise ValueError(f"unknown priority {priority!r} (want {'/'.join(PRIORITIES)})")
         jid = new_id()
         job = {
             "id": jid,
@@ -77,6 +109,7 @@ class JobStore:
             "title": title,
             "device": device,
             "state": "queued",
+            "priority": priority,
             "progress": 0,
             "created": _now(),
             "updated": _now(),
@@ -85,6 +118,14 @@ class JobStore:
             "output": "",
             "error": "",
             "pid": None,
+            "workdir": None,
+            # Restart bookkeeping: `attempt` counts runs; a resumable job that is
+            # re-enqueued after a runtime restart bumps it, up to `max_attempts`.
+            # `checkpoint` is a per-runner opaque dict the worker persists so a
+            # resumed run can skip already-finished work instead of redoing it.
+            "attempt": 1,
+            "max_attempts": max(1, int(max_attempts)),
+            "checkpoint": {},
             "meta": meta or {},
         }
         with _lock:
@@ -120,6 +161,7 @@ class JobStore:
                 "title": job.get("title", "vm job"),
                 "device": job.get("device", "rtx-4090-vm"),
                 "state": job.get("state", "running"),
+                "priority": _DEFAULT_PRIORITY,
                 "progress": int(job.get("progress", 0)),
                 "created": self._jobs.get(jid, {}).get("created", _now()),
                 "updated": _now(),
@@ -128,6 +170,10 @@ class JobStore:
                 "output": job.get("output", ""),
                 "error": job.get("error", ""),
                 "pid": job.get("pid"),
+                "workdir": None,
+                "attempt": 1,
+                "max_attempts": DEFAULT_MAX_ATTEMPTS,
+                "checkpoint": {},
                 "meta": job.get("meta", {}),
             }
             self._jobs[jid] = merged
@@ -135,7 +181,9 @@ class JobStore:
             return dict(merged)
 
     def prune(self, keep: int = 200) -> int:
-        """Drop the oldest terminal jobs beyond `keep`. Returns how many removed."""
+        """Drop the oldest terminal jobs beyond `keep`. Returns how many removed.
+        A pruned job's scratch dir (WORK_ROOT/<id>) is removed too, so log files
+        can't accumulate under the jobs tree after the registry row is gone."""
         with _lock:
             terminal = [j for j in self._jobs.values() if j["state"] in TERMINAL]
             terminal.sort(key=lambda j: j["updated"])
@@ -143,6 +191,7 @@ class JobStore:
             while len(self._jobs) > keep and terminal:
                 victim = terminal.pop(0)
                 self._jobs.pop(victim["id"], None)
+                self.drop_workdir(victim["id"])
                 removed += 1
             if removed:
                 self.save()
@@ -153,13 +202,17 @@ def summary(jobs: list[dict]) -> dict:
     """Counts by state + by device, for the pane header."""
     by_state: dict[str, int] = {}
     by_device: dict[str, int] = {}
+    by_priority: dict[str, int] = {}
     for j in jobs:
         by_state[j["state"]] = by_state.get(j["state"], 0) + 1
         by_device[j["device"]] = by_device.get(j["device"], 0) + 1
+        by_priority[j.get("priority", _DEFAULT_PRIORITY)] = \
+            by_priority.get(j.get("priority", _DEFAULT_PRIORITY), 0) + 1
     return {
         "total": len(jobs),
         "running": by_state.get("running", 0),
         "queued": by_state.get("queued", 0),
         "by_state": by_state,
         "by_device": by_device,
+        "by_priority": by_priority,
     }

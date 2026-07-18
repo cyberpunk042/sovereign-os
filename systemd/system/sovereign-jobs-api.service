@@ -40,6 +40,11 @@ RestrictRealtime=true
 LockPersonality=true
 ReadWritePaths=/var/lib/sovereign-os/jobs
 ReadWritePaths=/var/lib/node_exporter/textfile_collector
+# Per-kind writable roots BEYOND the jobs tree (jobs-api.py KIND_WRITABLE_ROOTS):
+# model-load / gpu-job / model-serve stage weights here. Leading '-' keeps boot
+# resilient if the models dir isn't present. Kept in lockstep with the runtime by
+# tests/lint/test_jobs_sandbox_readwrite_lockstep.py.
+ReadWritePaths=-/var/lib/sovereign-os/models
 NoNewPrivileges=true
 PrivateTmp=true
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
