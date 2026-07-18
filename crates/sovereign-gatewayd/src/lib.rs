@@ -890,6 +890,34 @@ fn load_tokenizer_and_template(
     Ok((tokenizer, chat_template))
 }
 
+/// The runtime precision GGUF weights are re-quantized to, from
+/// `SOVEREIGN_GGUF_PRECISION` (`f32` | `bf16` | `int8` | `nvfp4` | `ternary`).
+/// Defaults to `f32` (lossless vs the dequantized weights) when unset or
+/// unrecognized — the operator opts into a lower precision for the memory /
+/// throughput win. Case-insensitive; `-`/`_` accepted (`nv-fp4`, `bf_16`).
+fn gguf_runtime_precision() -> sovereign_safetensors_loader::Precision {
+    parse_gguf_precision(std::env::var("SOVEREIGN_GGUF_PRECISION").ok().as_deref())
+}
+
+/// Pure mapping of the `SOVEREIGN_GGUF_PRECISION` value to a [`Precision`].
+/// `None` / empty / unrecognized → `F32`. Case-insensitive; `-`/`_` ignored.
+fn parse_gguf_precision(v: Option<&str>) -> sovereign_safetensors_loader::Precision {
+    use sovereign_safetensors_loader::Precision;
+    match v
+        .unwrap_or("")
+        .trim()
+        .to_ascii_lowercase()
+        .replace(['-', '_'], "")
+        .as_str()
+    {
+        "bf16" | "bfloat16" => Precision::Bf16,
+        "int8" | "i8" => Precision::Int8,
+        "nvfp4" | "fp4" => Precision::Nvfp4,
+        "ternary" | "bitnet" => Precision::Ternary,
+        _ => Precision::F32, // "f32", empty, None, or anything unrecognized
+    }
+}
+
 /// Resolve the tokenizer for a GGUF model dir. Prefers a sidecar `tokenizer.json`
 /// (with its `tokenizer_config.json` chat template); otherwise falls back to the
 /// tokenizer embedded in the GGUF metadata (`tokenizer.ggml.*`), so a bare
@@ -952,9 +980,13 @@ fn load_generator_from_dir(dir: &str) -> Result<Option<Generator>, String> {
     // The GGUF carries its own hyperparameters (no config.json needed); it pairs
     // with a tokenizer.json for the runtime tokenizer.
     if let Some(gguf_path) = find_by_ext(dir, "gguf") {
-        use sovereign_safetensors_loader::{Precision, Sampler, load_gguf};
+        use sovereign_safetensors_loader::{Sampler, load_gguf};
         let bytes = std::fs::read(&gguf_path).map_err(|e| format!("read gguf: {e}"))?;
-        let model = load_gguf(&bytes, Precision::F32, Sampler::greedy())
+        // The GGUF dequantizes to f32, then the block assembly re-quantizes to the
+        // operator-chosen RUNTIME precision — so a downloaded Q4_K_M can be RUN at
+        // int8/bf16/nvfp4/ternary for the memory + throughput win, not just f32.
+        let precision = gguf_runtime_precision();
+        let model = load_gguf(&bytes, precision, Sampler::greedy())
             .map_err(|e| format!("gguf load: {e}"))?;
         // Prefer a sidecar tokenizer.json; else use the tokenizer embedded in the
         // GGUF metadata so a bare *.gguf runs standalone (F-2026-085).
@@ -2478,6 +2510,22 @@ mod tests {
         }
         let err = load_gguf_tokenizer_or_sidecar(dir.to_str().unwrap(), &gguf).unwrap_err();
         assert!(err.contains("no tokenizer.json"), "err was: {err}");
+    }
+
+    #[test]
+    fn gguf_precision_env_parsing() {
+        use sovereign_safetensors_loader::Precision;
+        // default / absent / unrecognized → F32
+        assert_eq!(parse_gguf_precision(None), Precision::F32);
+        assert_eq!(parse_gguf_precision(Some("")), Precision::F32);
+        assert_eq!(parse_gguf_precision(Some("f32")), Precision::F32);
+        assert_eq!(parse_gguf_precision(Some("wat")), Precision::F32);
+        // recognized, case + separator insensitive
+        assert_eq!(parse_gguf_precision(Some("bf16")), Precision::Bf16);
+        assert_eq!(parse_gguf_precision(Some("  BF-16 ")), Precision::Bf16);
+        assert_eq!(parse_gguf_precision(Some("Int8")), Precision::Int8);
+        assert_eq!(parse_gguf_precision(Some("nv_fp4")), Precision::Nvfp4);
+        assert_eq!(parse_gguf_precision(Some("TERNARY")), Precision::Ternary);
     }
 
     // ---- durable memory: corruption recovery (F-2026-084) ----
