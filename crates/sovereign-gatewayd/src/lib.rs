@@ -629,9 +629,10 @@ pub struct GatewayServer {
     /// Optional RAG corpus: a HYBRID retriever (BM25 lexical + char-n-gram
     /// embeddings fused by Reciprocal Rank Fusion) built once from the
     /// `SOVEREIGN_GATEWAY_CORPUS` directory, with each file chunked into passages.
-    /// Deterministic (no model needed). Used to prepend grounding context to a
-    /// prompt BEFORE generation. Read-only after construction, so no lock is
-    /// needed. `None` ⇒ RAG off (prompts pass through).
+    /// A candidate pool is drawn from it and coverage-**reranked** before the
+    /// top-k passages ground the prompt. Deterministic (no model needed). Used
+    /// BEFORE generation; read-only after construction, so no lock is needed.
+    /// `None` ⇒ RAG off (prompts pass through).
     corpus: Option<sovereign_retrieval::HybridStore>,
 }
 
@@ -1135,19 +1136,75 @@ fn memory_store_path() -> Option<std::path::PathBuf> {
     std::env::var_os("SOVEREIGN_GATEWAY_MEMORY").map(std::path::PathBuf::from)
 }
 
-/// Pure core of [`GatewayServer::rag_augment`]: prepend the top-`k` corpus
-/// documents as a `Context:` block, or return `prompt` unchanged when there is
-/// no corpus (or it retrieves nothing). Split out so the wiring is unit-testable
-/// without touching process env.
+/// Minimum candidate pool pulled from the hybrid retriever before reranking, so
+/// even a small `top_k` reranks over enough breadth to reorder meaningfully.
+const RAG_POOL_MIN: usize = 12;
+
+/// Pure core of [`GatewayServer::rag_augment`]: retrieve a wide candidate pool
+/// from the hybrid corpus, apply a coverage **rerank** for precision, then
+/// prepend the resulting top-`k` passages as a `Context:` block. Returns `prompt`
+/// unchanged when there is no corpus (or it retrieves nothing). Split out so the
+/// wiring is unit-testable without touching process env.
+///
+/// The rerank promotes passages that cover more of the query's *distinct* terms
+/// (so `rust ownership memory` beats `rust rust rust`), but it drops zero-overlap
+/// candidates — which would discard the embedding-only paraphrase hits the hybrid
+/// retriever exists to catch. To keep that recall, any `top_k` slot the rerank
+/// leaves empty is **backfilled** from the fused retrieval order.
 fn rag_augment_with(
     corpus: Option<&sovereign_retrieval::HybridStore>,
     prompt: &str,
     k: usize,
 ) -> String {
-    match corpus {
-        Some(store) => sovereign_retrieval::augment_prompt(store, prompt, k),
-        None => prompt.to_string(),
+    let Some(store) = corpus else {
+        return prompt.to_string();
+    };
+    if k == 0 {
+        return prompt.to_string();
     }
+    // Wide recall pool from the hybrid (BM25 + embedding) retriever.
+    let pool: Vec<(String, String)> = store
+        .retrieve(prompt, (k * 4).max(RAG_POOL_MIN))
+        .into_iter()
+        .map(|(id, text, _)| (id, text))
+        .collect();
+    if pool.is_empty() {
+        return prompt.to_string();
+    }
+    // Precision rerank by query-term coverage, then backfill from fused order for
+    // any slot the (coverage-filtering) rerank left empty.
+    let reranked = sovereign_rerank::rerank(prompt, &pool, k);
+    let mut chosen: Vec<String> = Vec::with_capacity(k);
+    let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+    for h in reranked {
+        if chosen.len() >= k {
+            break;
+        }
+        if seen.insert(h.id) {
+            chosen.push(h.text);
+        }
+    }
+    for (id, text) in pool {
+        if chosen.len() >= k {
+            break;
+        }
+        if seen.insert(id) {
+            chosen.push(text);
+        }
+    }
+    if chosen.is_empty() {
+        return prompt.to_string();
+    }
+    // Mirror sovereign_retrieval::augment_prompt's `Context:` block format.
+    let mut out = String::from("Context:\n");
+    for c in &chosen {
+        out.push_str("- ");
+        out.push_str(c);
+        out.push('\n');
+    }
+    out.push('\n');
+    out.push_str(prompt);
+    out
 }
 
 /// Default number of corpus documents prepended as RAG context per prompt.
@@ -2993,6 +3050,20 @@ mod tests {
         let out = rag_augment_with(Some(&store), "capital of France", 1);
         assert!(out.contains("Paris"), "{out}");
         assert!(!out.contains("Photosynthesis"), "{out}");
+    }
+
+    #[test]
+    fn rag_rerank_prefers_coverage_over_term_frequency() {
+        use sovereign_retrieval::HybridStore;
+        let mut store = HybridStore::new();
+        // "freq" repeats one query term many times; "cover" touches all three.
+        store.add("freq", "rust rust rust rust rust rust rust");
+        store.add("cover", "rust ownership and memory safety in practice");
+        // The coverage rerank promotes the passage that covers the whole query
+        // into the single context slot, over the term-spamming one.
+        let out = rag_augment_with(Some(&store), "rust ownership memory", 1);
+        assert!(out.contains("ownership and memory"), "{out}");
+        assert!(!out.contains("rust rust rust"), "{out}");
     }
 
     #[test]

@@ -72,7 +72,7 @@ ENVIRONMENT:
                                    NDJSON clients send `{\"op\":\"auth\",\"token\":\"<token>\"}` as their first frame.
                                    REQUIRED to bind a non-loopback address (0.0.0.0/LAN); unset = keyless loopback-only.
     SOVEREIGN_GATEWAY_CORPUS       directory of .md/.txt docs to ground generation in (RAG); unset = off
-                                   (files are chunked + indexed hybrid BM25 + char-n-gram embeddings)
+                                   (files chunked, indexed hybrid BM25 + char-n-gram embeddings, coverage-reranked)
     SOVEREIGN_GATEWAY_RAG_TOPK     passages prepended as Context: per prompt (default 3)
     SOVEREIGN_GATEWAY_RAG_CHUNK    chunk target size in chars (default 900)
     SOVEREIGN_GATEWAY_RAG_OVERLAP  chunk overlap in chars (default 120)
