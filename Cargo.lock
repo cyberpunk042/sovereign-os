@@ -4931,6 +4931,7 @@ dependencies = [
  "sovereign-pii-redact",
  "sovereign-quant-model",
  "sovereign-rate-limit",
+ "sovereign-rerank",
  "sovereign-retrieval",
  "sovereign-router-7axis",
  "sovereign-safetensors-loader",
