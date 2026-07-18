@@ -5637,6 +5637,7 @@ dependencies = [
  "sovereign-ffn",
  "sovereign-linear",
  "sovereign-mha",
+ "sovereign-moe-gate",
  "sovereign-nvfp4-runtime",
  "sovereign-quant-block",
  "sovereign-rmsnorm",

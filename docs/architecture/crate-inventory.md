@@ -8,13 +8,13 @@ The workspace is large — most of it does not run yet. This is the complete map
 | bucket | count | connection state |
 |---|---:|---|
 | Binaries (`main.rs`/`bin/`) | 41 | the executables; a few run in prod, the rest are dev/demo/config-gen |
-| Production libraries | 90 | run inside the gatewayd / telemetry / resource-control closure |
+| Production libraries | 91 | run inside the gatewayd / telemetry / resource-control closure |
 | Cockpit UX-state crates | 418 | wasm-bridged in source (SDD-974); **0 of ~55 panels wired** |
 | Demo-hub-only libraries | 29 | reached only via `sovereign-llm` / `sovereign-retrieval` (nothing runs them) |
-| Other libraries | 143 | reached only through other non-production trees |
-| **Total** | **721** | **95 crates (13%) are production-reachable today** |
+| Other libraries | 142 | reached only through other non-production trees |
+| **Total** | **721** | **96 crates (13%) are production-reachable today** |
 
-**✅ integrated** marks the **95** crates that are actually _used_ by a running production binary (in the gatewayd / telemetry / resource-control dependency closure). Each carries a short note naming the usage that validates it — its production consumer(s) and/or that it runs as a binary. **Used, not merely referenced**: a cockpit crate wasm-bridged for a panel (SDD-800, 0 panels wired) or a crate reached only through a demo/dev binary or the `sovereign-llm` / `sovereign-retrieval` hubs is NOT integrated. The flag is generated from the closure and enforced by `tests/lint/test_crate_inventory_integrated_flag.py`.
+**✅ integrated** marks the **96** crates that are actually _used_ by a running production binary (in the gatewayd / telemetry / resource-control dependency closure). Each carries a short note naming the usage that validates it — its production consumer(s) and/or that it runs as a binary. **Used, not merely referenced**: a cockpit crate wasm-bridged for a panel (SDD-800, 0 panels wired) or a crate reached only through a demo/dev binary or the `sovereign-llm` / `sovereign-retrieval` hubs is NOT integrated. The flag is generated from the closure and enforced by `tests/lint/test_crate_inventory_integrated_flag.py`.
 
 Families below cluster by the first token of the crate name (`alert-*`, `zfs-*`, …).
 
@@ -79,7 +79,7 @@ Full runtime role + how each is invoked lives in [`docs/src/binaries.md`](../src
 
 ---
 
-## 2. Production libraries (90) — these actually run
+## 2. Production libraries (91) — these actually run
 
 In the dependency closure of the three production binaries, so they execute today.
 
@@ -102,7 +102,7 @@ In the dependency closure of the three production binaries, so they execute toda
 - **`sovereign-tool-call-parse`** — Parse OpenAI-style function/tool calls from model output: pull a tool name and its JSON arguments out of a tool_calls array or a bare {name, arguments} object, tolerating fenced or slightly-malformed JSON via json-repair. The JSON-format counterpart to a [[tool:...]] dispatcher, for agentic runtimes. — ✅ **integrated**: used by `sovereign-tool-bridge`
 - **`sovereign-tool-dispatch`** — Tool-call parsing and dispatch: extracts a [[tool:NAME|ARGS]] call from model output and invokes the registered handler for it, returning the result to feed back into the conversation. The live execution layer above the tool catalog — turns generated text into an action and its result. — ✅ **integrated**: used by `sovereign-agent-loop`, `sovereign-gatewayd`, `sovereign-tool-bridge`
 
-#### assorted (80)
+#### assorted (81)
 
 - **`sovereign-agent-loop`** — A ReAct-style agent control loop: generate a response, and if it contains a tool call dispatch it and feed the observation back, repeating until a final answer or a step cap. Generic over a Responder (any text generator) and driven by a ToolRegistry. The control structure that turns a language model plus tools into an agent. Composes sovereign-tool-dispatch. — ✅ **integrated**: used by `sovereign-gatewayd`, `sovereign-retrieval`
 - **`sovereign-aho-corasick`** — Aho-Corasick multi-pattern string matching: build a trie of all patterns, add BFS failure links, then scan any text once to find every occurrence of every pattern in O(text + matches) — instead of running one search per pattern. For scanning generations against many banned phrases, stop sequences, or injection markers simultaneously. — ✅ **integrated**: used by `sovereign-injection-detect`, `sovereign-toxicity`
@@ -148,6 +148,7 @@ In the dependency closure of the three production binaries, so they execute toda
 - **`sovereign-mha-block`** — The production decoder block: multi-head attention with grouped-query (GQA/MQA) KV sharing, per-head RoPE, precision-selectable projections (f32/ternary/NVFP4), and a SwiGLU FFN, in the pre-norm + residual structure. This is the block real models actually run — many query heads, fewer KV heads, low-bit weights. Composes sovereign-mha, sovereign-rope, sovereign-rmsnorm, sovereign-ffn, and sovereign-linear. — ✅ **integrated**: used by `sovereign-decoder-layer`, `sovereign-quant-llm`, `sovereign-quant-model`, `sovereign-safetensors-loader`
 - **`sovereign-minhash`** — MinHash signatures for fast Jaccard-similarity estimation: reduce a set (e.g. the word shingles of a document) to a fixed-length signature so two sets can be compared in O(signature length) instead of O(set size). For near-duplicate detection — deduping retrieved RAG chunks or training documents — without storing or scanning the full sets. — ✅ **integrated**: used by `sovereign-lsh`, `sovereign-retrieval`
 - **`sovereign-mmr`** — Maximal Marginal Relevance re-ranking: greedily select results that are relevant to the query yet diverse from those already chosen, trading the two off with a lambda parameter. Stops a retrieval-augmented context from filling with near-duplicate passages. Works from a cosine over document vectors or a precomputed similarity matrix. — ✅ **integrated**: used by `sovereign-retrieval`
+- **`sovereign-moe-gate`** — M022 Cognitive Frame — system-level MoE gating: top-k expert selection with softmax-normalized weights over the selected experts, plus load-balance tracking (per-expert utilization + imbalance). The expert router, distinct from the hardware-role router (M075). — ✅ **integrated**: used by `sovereign-mha-block`
 - **`sovereign-nvfp4-runtime`** — M077 NVFP4 (E2M1 4-bit + E4M3 scale) pretraining + inference runtime per arXiv 2509.25149 + arXiv 2505.19115. 1x16 block allocator + RHT + 2D quantization + stochastic rounding + selective HP. Five recipe variants (NVFP4-S/M/L/XL/XXL). Targets Blackwell sm_120. — ✅ **integrated**: used by `sovereign-cortex`, `sovereign-linear`, `sovereign-mha-block`
 - **`sovereign-observability-events`** — E0470 / M00818 + M00819 — the runtime observability event taxonomy (model_call … cost_event) + the 13-field span schema (profile/model/provider/hardware/tokens/latency/cost/risk/memory_refs/tool_refs/policy_result/branch_id/trace_id). OTel-aligned; branch_id/trace_id are the sovereign-trace-context types. — ✅ **integrated**: used by `sovereign-gatewayd`
 - **`sovereign-observability-fabric`** — M048 Module 9 Observability Fabric — 9 sources + 6 questions answered per E0465 + M00811 + R08149-R08150 dump 14728-14744. Sources: OpenTelemetry traces / journald / DCGM / PSI / eBPF / ZFS events / test output / gateway logs / cost ledger. — ✅ **integrated**: used by `sovereign-telemetry`
@@ -739,7 +740,7 @@ Consumed only through `sovereign-llm` / `sovereign-retrieval`, which the daemon 
 
 ---
 
-## 5. Other libraries (143) — reached only through non-production trees
+## 5. Other libraries (142) — reached only through non-production trees
 
 
 #### `conversation-·` (3)
@@ -766,7 +767,7 @@ Consumed only through `sovereign-llm` / `sovereign-retrieval`, which the daemon 
 - **`sovereign-prompt-rationale`** — Runtime prompt-dispatch rationale envelope — every model dispatch carries (provider, template_name, bundle, mode, doctrine_tag) explaining which router decision produced it. The cockpit surfaces it next to every model output for transparency.
 - **`sovereign-prompt-template-registry`** — Runtime prompt-template registry — operator-curated reusable prompts with named variable slots ({{name}}) and rendering. Each template carries (name, body, declared variables, allowed profile bundles, allowed modes). Composes with sovereign-execution-mode-registry + sovereign-profile-bundles for context-gated availability.
 
-#### assorted (131)
+#### assorted (130)
 
 - **`sovereign-aimd-limiter`** — Adaptive concurrency limiter using AIMD (additive-increase / multiplicative-decrease), the TCP congestion-control law applied to in-flight requests: the limit grows by a fixed step while the system is healthy and saturated, and is cut by a multiplicative factor on overload (a timeout, a drop, or a latency breach), converging on the real capacity without a hand-tuned constant. For backpressure in front of a model server — distinct from a fixed-rate token bucket and from a circuit breaker.
 - **`sovereign-alias-sampler`** — Walker-Vose alias method for O(1) categorical sampling: preprocess a weighted distribution in O(n) into a probability/alias table, then draw each sample in constant time with one coin flip — far faster than a linear CDF scan when you sample the same distribution many times. Seeded for deterministic, reproducible draws.
@@ -833,7 +834,6 @@ Consumed only through `sovereign-llm` / `sovereign-retrieval`, which the daemon 
 - **`sovereign-mirror-publisher`** — Typed mirror-endpoint manifest for the cockpit (D-12..D-18 dashboards) — enumerates the 9 selfdef-mirror crates, their D-NN dashboard binding, schema versions, and HTTP/SSE endpoints. Per M060 R10114-R10128 + MS043 R10182-R10193 (cross-repo SATURATED set).
 - **`sovereign-mode-default-policy`** — Runtime mode-default policy — declares per-BundleName landing ExecutionMode at cockpit boot. Private lands in Plan; Careful in DryRun; Fast in Execute; Sovereign in Execute. Operator can override per-session.
 - **`sovereign-module-catalog`** — M048 sovereign-os 10-module base catalog per M00800-M00812 + dump 14402-14812. Modules: BaseOS / ComputeFabric / SandboxFabric / Gateway / MemoryOS / WorkflowCompiler / EvalValue / ContinuityManager / Observability / LoraFoundry. KEY LINE per E0467 dump 14810: 'Every module is a controlled continuation of user intent across hardware, software, memory, and time' verbatim.
-- **`sovereign-moe-gate`** — M022 Cognitive Frame — system-level MoE gating: top-k expert selection with softmax-normalized weights over the selected experts, plus load-balance tracking (per-expert utilization + imbalance). The expert router, distinct from the hardware-role router (M075).
 - **`sovereign-ngram-lm`** — A trained statistical n-gram language model with add-k (Lidstone) smoothing and backoff to shorter contexts: counts token n-grams, gives a proper next-token probability distribution, and scores sequence perplexity. A cheap, deterministic LM for draft proposals, perplexity baselines, and detecting out-of-distribution text — distinct from neural-logit scoring.
 - **`sovereign-ngram-speculative`** — Prompt-lookup speculative drafting: propose the model's next tokens with no draft model by finding the most recent earlier occurrence of the last few tokens in the context and reusing what followed. Pairs with a verification step (accept the matching prefix) to speed up repetitive generation for free.
 - **`sovereign-online-regression`** — Online simple linear regression: fit a least-squares line to a stream of (x, y) points incrementally, in constant memory, tracking slope, intercept, correlation, and R-squared without storing the data. Supports weighted and removable samples. For live trend estimation and extrapolation — latency vs load, throughput drift, cost vs tokens — updated one observation at a time.

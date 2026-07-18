@@ -141,7 +141,7 @@ mod tests {
     use super::*;
     use sovereign_ffn::SwiGlu;
     use sovereign_linear::Precision;
-    use sovereign_mha_block::MhaBlockWeights;
+    use sovereign_mha_block::{MhaBlockWeights, MoeBlockWeights, MoeExpertWeights};
     use sovereign_quant_block::QuantBlockWeights;
     use sovereign_rmsnorm::RmsNorm;
     use sovereign_transformer_block::BlockWeights;
@@ -212,6 +212,80 @@ mod tests {
             w_down: mat(21.0, MD * MD),
         };
         MhaDecoderBlock::from_weights(&mw, p).unwrap()
+    }
+
+    fn moe_layer(p: Precision) -> MhaDecoderBlock {
+        // 2 query heads, 1 kv head (MQA), head_dim 2 → q_dim 4 = MD; a 4-expert,
+        // top-2 MoE FFN in place of the dense SwiGLU.
+        let (nq, nkv, hd, hid, experts) = (2, 1, 2, MD, 4);
+        let expert_bank = (0..experts)
+            .map(|e| {
+                let base = 30.0 + e as f32 * 3.0;
+                MoeExpertWeights {
+                    w_gate: mat(base, hid * MD),
+                    w_up: mat(base + 1.0, hid * MD),
+                    w_down: mat(base + 2.0, MD * hid),
+                }
+            })
+            .collect();
+        let mw = MoeBlockWeights {
+            model_dim: MD,
+            head_dim: hd,
+            num_q_heads: nq,
+            num_kv_heads: nkv,
+            hidden_dim: hid,
+            experts_per_tok: 2,
+            attn_norm: RmsNorm::new(MD),
+            ffn_norm: RmsNorm::new(MD),
+            w_q: mat(22.0, nq * hd * MD),
+            w_k: mat(23.0, nkv * hd * MD),
+            w_v: mat(24.0, nkv * hd * MD),
+            w_o: mat(25.0, MD * nq * hd),
+            w_router: mat(26.0, experts * MD),
+            experts: expert_bank,
+        };
+        MhaDecoderBlock::from_weights_moe(&mw, p).unwrap()
+    }
+
+    #[test]
+    fn moe_block_composes_into_a_heterogeneous_stack() {
+        // The Increment-1 headline: an MoE decoder block satisfies the same
+        // DecoderLayer contract, so it threads through a mixed stack — dense f32,
+        // ternary quant, NVFP4 multi-head, and an f32 MoE — sharing one residual
+        // stream, with finite output and lockstep KV advance.
+        let layers: Vec<Box<dyn DecoderLayer>> = vec![
+            Box::new(transformer_layer()),
+            Box::new(quant_layer(Precision::Ternary)),
+            Box::new(mha_layer(Precision::Nvfp4)),
+            Box::new(moe_layer(Precision::F32)),
+        ];
+        let mut stack = LayerStack::new(layers).unwrap();
+        assert_eq!(stack.depth(), 4);
+        for step in 0..5 {
+            let x: Vec<f32> = (0..MD).map(|i| ((i + step) as f32 * 0.25).sin()).collect();
+            let y = stack.run(&x).unwrap();
+            assert_eq!(y.len(), MD);
+            assert!(y.iter().all(|v| v.is_finite()), "step {step}");
+        }
+        assert_eq!(stack.positions(), 5);
+    }
+
+    #[test]
+    fn all_moe_stack_runs_finite() {
+        // A stack of only MoE layers (NVFP4 + f32) also runs — the MoE block is a
+        // first-class layer, not just a one-off mixed-in variant.
+        let layers: Vec<Box<dyn DecoderLayer>> = vec![
+            Box::new(moe_layer(Precision::Nvfp4)),
+            Box::new(moe_layer(Precision::F32)),
+        ];
+        let mut stack = LayerStack::new(layers).unwrap();
+        for step in 0..4 {
+            let x: Vec<f32> = (0..MD).map(|i| ((i + step) as f32 * 0.3).cos()).collect();
+            let y = stack.run(&x).unwrap();
+            assert_eq!(y.len(), MD);
+            assert!(y.iter().all(|v| v.is_finite()), "step {step}");
+        }
+        assert_eq!(stack.positions(), 4);
     }
 
     #[test]
