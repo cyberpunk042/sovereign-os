@@ -622,6 +622,12 @@ impl<'a> GgufFile<'a> {
             head_dim,
             rope_theta,
             rope_scaling: None,
+            // GGUF MoE (stacked `ffn_*_exps` tensors + `expert_count` metadata)
+            // is a named follow-up — the GGUF path assembles dense blocks
+            // directly (not via `load_configured`), so these stay `None` here.
+            num_experts: None,
+            num_experts_per_tok: None,
+            moe_intermediate_size: None,
         })
     }
 }

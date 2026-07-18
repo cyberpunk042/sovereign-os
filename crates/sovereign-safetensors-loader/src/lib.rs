@@ -24,6 +24,17 @@
 //!   10000. Linear / dynamic-NTK / YaRN scaling are applied; llama3 scaling
 //!   applies the exact base (short-context coherent; the freq ramp is a noted
 //!   follow-up).
+//! - **In (MoE Increment 2):** mixture-of-experts models assemble too. When
+//!   `config.json` declares `num_experts` (`> 1`; the Mixtral `num_local_experts`
+//!   spelling is accepted), every layer's FFN is built as a MoE bank via
+//!   [`MhaDecoderBlock::from_weights_moe`] — a router `mlp.gate.weight` plus
+//!   per-expert `mlp.experts.{e}.{gate,up,down}_proj.weight` SwiGLUs, top-k'd by
+//!   `num_experts_per_tok` at `moe_intermediate_size` width. This is the
+//!   Qwen3-30B-A3B / Mixtral class of on-card MoE. **Follow-ups:** GGUF stacked
+//!   expert tensors (`ffn_*_exps` + `expert_count` metadata); GPT-OSS fused
+//!   `gate_up_proj`; and per-layer dense/MoE interleaving (`mlp_only_layers` /
+//!   `decoder_sparse_step`) — this increment builds every layer as MoE, correct
+//!   for the fully-sparse A3B/Mixtral families.
 //! - **Out (named follow-ups):** GGUF Q4_K/Q8_0 dequant (needs a from-scratch
 //!   block-dequant); a real **tokenizer bridge** (the runtime tokenizer is
 //!   byte-BPE — a real model's SentencePiece/BPE vocab needs translating);
@@ -46,7 +57,10 @@ use serde::Deserialize;
 mod gguf;
 pub use gguf::{GgufFile, GgufTokenizer, load_gguf};
 use sovereign_decoder_layer::{DecoderLayer, LayerStack};
-use sovereign_mha_block::{MhaBlockWeights, MhaDecoderBlock, RopeScaling, RopeScalingKind};
+use sovereign_mha_block::{
+    MhaBlockWeights, MhaDecoderBlock, MoeBlockWeights, MoeExpertWeights, RopeScaling,
+    RopeScalingKind,
+};
 use sovereign_quant_llm::QuantLlm;
 use sovereign_quant_model::QuantModel;
 use sovereign_rmsnorm::RmsNorm;
@@ -150,6 +164,21 @@ pub struct Config {
     /// Optional RoPE position scaling (`rope_scaling`), for long-context models.
     #[serde(rename = "rope_scaling", default)]
     pub rope_scaling: Option<RopeScalingCfg>,
+    /// Number of experts for a mixture-of-experts FFN (`num_experts`, or the
+    /// Mixtral spelling `num_local_experts`). `None` / `0` = a dense model.
+    /// Present ⇒ every decoder layer's FFN is built as a MoE bank instead of a
+    /// single SwiGLU (the Qwen3-30B-A3B / Mixtral class of on-card models).
+    #[serde(rename = "num_experts", alias = "num_local_experts", default)]
+    pub num_experts: Option<usize>,
+    /// Experts activated per token (`num_experts_per_tok`), the MoE top-`k`.
+    /// Required when `num_experts` is set.
+    #[serde(rename = "num_experts_per_tok", default)]
+    pub num_experts_per_tok: Option<usize>,
+    /// Per-expert FFN hidden dimension (`moe_intermediate_size`). Falls back to
+    /// the dense `intermediate_size` when absent (Mixtral reuses the dense
+    /// width; Qwen3-MoE gives experts a distinct, smaller width).
+    #[serde(rename = "moe_intermediate_size", default)]
+    pub moe_intermediate_size: Option<usize>,
 }
 
 /// Default frequency base when `config.json` omits `rope_theta`.
@@ -227,6 +256,25 @@ impl Config {
         if self.head_dim == Some(0) {
             return zero("head_dim");
         }
+        // MoE fields: if the model declares experts, the count and the per-token
+        // activation must be sane, and `experts_per_tok` cannot exceed the bank.
+        if let Some(n) = self.num_experts {
+            if n > 1 {
+                if self.moe_intermediate_size == Some(0) {
+                    return zero("moe_intermediate_size");
+                }
+                if let Some(k) = self.num_experts_per_tok {
+                    if k == 0 {
+                        return zero("num_experts_per_tok");
+                    }
+                    if k > n {
+                        return Err(LoaderError::InvalidConfig(format!(
+                            "num_experts_per_tok ({k}) exceeds num_experts ({n})"
+                        )));
+                    }
+                }
+            }
+        }
         Ok(())
     }
 
@@ -263,6 +311,38 @@ impl Config {
     pub fn head_dim(&self) -> usize {
         self.head_dim
             .unwrap_or(self.model_dim / self.n_heads.max(1))
+    }
+
+    /// Whether this model's FFN is a mixture of experts (`num_experts` present
+    /// and `> 1`). A `num_experts` of `0` or `1` is treated as dense — a
+    /// 1-expert "MoE" is just a dense SwiGLU with a redundant router.
+    #[must_use]
+    pub fn is_moe(&self) -> bool {
+        self.num_experts.is_some_and(|n| n > 1)
+    }
+
+    /// Number of experts (`0` when dense).
+    #[must_use]
+    pub fn experts(&self) -> usize {
+        self.num_experts.unwrap_or(0)
+    }
+
+    /// Experts activated per token (top-`k`); defaults to `2` (the Mixtral /
+    /// Qwen3-MoE convention) when a MoE config omits it. `0` for a dense model.
+    #[must_use]
+    pub fn experts_per_tok(&self) -> usize {
+        if self.is_moe() {
+            self.num_experts_per_tok.unwrap_or(2)
+        } else {
+            0
+        }
+    }
+
+    /// Per-expert FFN hidden width — `moe_intermediate_size` when present, else
+    /// the dense `intermediate_size`.
+    #[must_use]
+    pub fn moe_hidden(&self) -> usize {
+        self.moe_intermediate_size.unwrap_or(self.hidden)
     }
 }
 
@@ -534,6 +614,7 @@ pub fn load_configured(
     let mut layers: Vec<Box<dyn DecoderLayer>> = Vec::with_capacity(config.n_layers);
     for i in 0..config.n_layers {
         let p = |suffix: &str| format!("model.layers.{i}.{suffix}");
+        // Attention half — identical for dense and MoE layers.
         let w_q = permute_qk_hf_to_interleaved(
             &st.tensor_exact(&p("self_attn.q_proj.weight"), elems(&[q_dim, md])?)?,
             nq,
@@ -546,33 +627,74 @@ pub fn load_configured(
             hd,
             md,
         )?;
-        let weights = MhaBlockWeights {
-            model_dim: md,
-            head_dim: hd,
-            num_q_heads: nq,
-            num_kv_heads: nkv,
-            hidden_dim: hidden,
-            attn_norm: RmsNorm::with_gain(
-                st.tensor_exact(&p("input_layernorm.weight"), md)?,
-                config.eps,
-            ),
-            ffn_norm: RmsNorm::with_gain(
-                st.tensor_exact(&p("post_attention_layernorm.weight"), md)?,
-                config.eps,
-            ),
-            w_q,
-            w_k,
-            w_v: st.tensor_exact(&p("self_attn.v_proj.weight"), elems(&[kv_dim, md])?)?,
-            w_o: st.tensor_exact(&p("self_attn.o_proj.weight"), elems(&[md, q_dim])?)?,
-            w_gate: st.tensor_exact(&p("mlp.gate_proj.weight"), elems(&[hidden, md])?)?,
-            w_up: st.tensor_exact(&p("mlp.up_proj.weight"), elems(&[hidden, md])?)?,
-            w_down: st.tensor_exact(&p("mlp.down_proj.weight"), elems(&[md, hidden])?)?,
+        let w_v = st.tensor_exact(&p("self_attn.v_proj.weight"), elems(&[kv_dim, md])?)?;
+        let w_o = st.tensor_exact(&p("self_attn.o_proj.weight"), elems(&[md, q_dim])?)?;
+        let attn_norm = RmsNorm::with_gain(
+            st.tensor_exact(&p("input_layernorm.weight"), md)?,
+            config.eps,
+        );
+        let ffn_norm = RmsNorm::with_gain(
+            st.tensor_exact(&p("post_attention_layernorm.weight"), md)?,
+            config.eps,
+        );
+
+        // FFN half — a mixture-of-experts bank when the model declares experts,
+        // otherwise the dense SwiGLU. The MoE layout is the Qwen3-MoE / Mixtral
+        // one: a router `mlp.gate.weight` scoring every expert, plus per-expert
+        // `mlp.experts.{e}.{gate,up,down}_proj.weight` SwiGLUs.
+        let block = if config.is_moe() {
+            let n_exp = config.experts();
+            let moe_hid = config.moe_hidden();
+            let mut experts = Vec::with_capacity(n_exp);
+            for e in 0..n_exp {
+                let ep = |s: &str| format!("model.layers.{i}.mlp.experts.{e}.{s}");
+                experts.push(MoeExpertWeights {
+                    w_gate: st.tensor_exact(&ep("gate_proj.weight"), elems(&[moe_hid, md])?)?,
+                    w_up: st.tensor_exact(&ep("up_proj.weight"), elems(&[moe_hid, md])?)?,
+                    w_down: st.tensor_exact(&ep("down_proj.weight"), elems(&[md, moe_hid])?)?,
+                });
+            }
+            let weights = MoeBlockWeights {
+                model_dim: md,
+                head_dim: hd,
+                num_q_heads: nq,
+                num_kv_heads: nkv,
+                hidden_dim: moe_hid,
+                experts_per_tok: config.experts_per_tok(),
+                attn_norm,
+                ffn_norm,
+                w_q,
+                w_k,
+                w_v,
+                w_o,
+                w_router: st.tensor_exact(&p("mlp.gate.weight"), elems(&[n_exp, md])?)?,
+                experts,
+            };
+            MhaDecoderBlock::from_weights_moe(&weights, precision)
+                .map_err(|e| LoaderError::Build(format!("layer {i}: {e}")))?
+        } else {
+            let weights = MhaBlockWeights {
+                model_dim: md,
+                head_dim: hd,
+                num_q_heads: nq,
+                num_kv_heads: nkv,
+                hidden_dim: hidden,
+                attn_norm,
+                ffn_norm,
+                w_q,
+                w_k,
+                w_v,
+                w_o,
+                w_gate: st.tensor_exact(&p("mlp.gate_proj.weight"), elems(&[hidden, md])?)?,
+                w_up: st.tensor_exact(&p("mlp.up_proj.weight"), elems(&[hidden, md])?)?,
+                w_down: st.tensor_exact(&p("mlp.down_proj.weight"), elems(&[md, hidden])?)?,
+            };
+            MhaDecoderBlock::from_weights(&weights, precision)
+                .map_err(|e| LoaderError::Build(format!("layer {i}: {e}")))?
         };
-        let block = MhaDecoderBlock::from_weights(&weights, precision)
-            .map_err(|e| LoaderError::Build(format!("layer {i}: {e}")))?
-            // Thread the model's real RoPE base + scaling into every block (the
-            // fix for modern models — default 10000 decodes them as garbage).
-            .with_rope(config.rope_theta, config.rope_scaling_resolved().as_ref());
+        // Thread the model's real RoPE base + scaling into every block (the fix
+        // for modern models — default 10000 decodes them as garbage).
+        let block = block.with_rope(config.rope_theta, config.rope_scaling_resolved().as_ref());
         layers.push(Box::new(block));
     }
 
@@ -764,6 +886,9 @@ mod tests {
             head_dim: Some(HD),
             rope_theta: 10000.0,
             rope_scaling: None,
+            num_experts: None,
+            num_experts_per_tok: None,
+            moe_intermediate_size: None,
         };
         (bytes, cfg)
     }
@@ -1076,6 +1201,9 @@ mod tests {
             head_dim: None,
             rope_theta: 10000.0,
             rope_scaling: None,
+            num_experts: None,
+            num_experts_per_tok: None,
+            moe_intermediate_size: None,
         };
         let _ = cfg.head_dim(); // must not panic
     }
@@ -1128,5 +1256,236 @@ mod tests {
             load(&bytes, &cfg),
             Err(LoaderError::InvalidConfig(_))
         ));
+    }
+
+    // ---- Mixture-of-experts assembly (MoE Increment 2) ---------------------
+
+    // A MoE variant of `fixture`: identical attention half, but each layer's
+    // FFN is a router (`mlp.gate.weight`, `[N_EXP, MD]`) plus `N_EXP` expert
+    // SwiGLUs (`mlp.experts.{e}.{gate,up,down}_proj.weight`) at width `MOE_HID`.
+    // It deliberately writes NO `mlp.gate_proj/up_proj/down_proj`, so a load
+    // that succeeds proves the MoE branch (not the dense one) was taken.
+    const N_EXP: usize = 4;
+    const MOE_HID: usize = 12;
+
+    fn moe_fixture(experts_per_tok: usize) -> (Vec<u8>, Config) {
+        let qd = NQ * HD;
+        let kvd = NKV * HD;
+        let mut t: Vec<(String, Dt, Vec<usize>, Vec<f32>)> = vec![
+            (
+                "model.embed_tokens.weight".into(),
+                Dt::F32,
+                vec![V, MD],
+                seq(0.5, V * MD),
+            ),
+            ("model.norm.weight".into(), Dt::F32, vec![MD], vec![1.0; MD]),
+            (
+                "lm_head.weight".into(),
+                Dt::F32,
+                vec![V, MD],
+                seq(0.9, V * MD),
+            ),
+        ];
+        for i in 0..NL {
+            let base = 10.0 + i as f32 * 7.0;
+            let p = |s: &str| format!("model.layers.{i}.{s}");
+            t.push((
+                p("self_attn.q_proj.weight"),
+                Dt::F32,
+                vec![qd, MD],
+                seq(base, qd * MD),
+            ));
+            t.push((
+                p("self_attn.k_proj.weight"),
+                Dt::F32,
+                vec![kvd, MD],
+                seq(base + 1.0, kvd * MD),
+            ));
+            t.push((
+                p("self_attn.v_proj.weight"),
+                Dt::F32,
+                vec![kvd, MD],
+                seq(base + 2.0, kvd * MD),
+            ));
+            t.push((
+                p("self_attn.o_proj.weight"),
+                Dt::F32,
+                vec![MD, qd],
+                seq(base + 3.0, MD * qd),
+            ));
+            t.push((
+                p("input_layernorm.weight"),
+                Dt::F32,
+                vec![MD],
+                vec![1.0; MD],
+            ));
+            t.push((
+                p("post_attention_layernorm.weight"),
+                Dt::F32,
+                vec![MD],
+                vec![1.0; MD],
+            ));
+            // MoE FFN: router + per-expert SwiGLU bank.
+            t.push((
+                p("mlp.gate.weight"),
+                Dt::F32,
+                vec![N_EXP, MD],
+                seq(base + 4.0, N_EXP * MD),
+            ));
+            for e in 0..N_EXP {
+                let ep = |s: &str| format!("model.layers.{i}.mlp.experts.{e}.{s}");
+                let eb = base + 5.0 + e as f32 * 3.0;
+                t.push((
+                    ep("gate_proj.weight"),
+                    Dt::F32,
+                    vec![MOE_HID, MD],
+                    seq(eb, MOE_HID * MD),
+                ));
+                t.push((
+                    ep("up_proj.weight"),
+                    Dt::F32,
+                    vec![MOE_HID, MD],
+                    seq(eb + 1.0, MOE_HID * MD),
+                ));
+                t.push((
+                    ep("down_proj.weight"),
+                    Dt::F32,
+                    vec![MD, MOE_HID],
+                    seq(eb + 2.0, MD * MOE_HID),
+                ));
+            }
+        }
+        let bytes = write_safetensors(&t);
+        let cfg = Config {
+            model_dim: MD,
+            n_layers: NL,
+            n_heads: NQ,
+            n_kv_heads: Some(NKV),
+            vocab: V,
+            hidden: HID,
+            eps: 1e-6,
+            tied: false,
+            head_dim: Some(HD),
+            rope_theta: 10000.0,
+            rope_scaling: None,
+            num_experts: Some(N_EXP),
+            num_experts_per_tok: Some(experts_per_tok),
+            moe_intermediate_size: Some(MOE_HID),
+        };
+        (bytes, cfg)
+    }
+
+    #[test]
+    fn assembles_a_runnable_moe_model() {
+        // Loads a model whose ONLY FFN tensors are the MoE router + experts —
+        // success means the loader built MoE blocks (a dense build would fail on
+        // the absent `mlp.gate_proj.weight`).
+        let (bytes, cfg) = moe_fixture(2);
+        assert!(cfg.is_moe());
+        assert_eq!(cfg.experts(), N_EXP);
+        assert_eq!(cfg.experts_per_tok(), 2);
+        assert_eq!(cfg.moe_hidden(), MOE_HID);
+        let mut model = load(&bytes, &cfg).expect("MoE fixture loads");
+        assert_eq!(model.layers(), NL);
+        let logits = model.forward(1).expect("forward");
+        assert_eq!(logits.len(), V);
+        assert!(logits.iter().all(|v: &f32| v.is_finite()));
+    }
+
+    #[test]
+    fn moe_deterministic_decode_through_quantllm() {
+        let (bytes, cfg) = moe_fixture(2);
+        let mut llm =
+            load_llm(&bytes, &cfg, Tokenizer::default()).expect("MoE llm builds (vocab 256)");
+        let a = llm.generate_ids("hello", 6, 42).expect("gen a");
+        let b = llm.generate_ids("hello", 6, 42).expect("gen b");
+        assert_eq!(a, b, "greedy MoE decode must be reproducible per seed");
+        assert_eq!(a.len(), 6);
+    }
+
+    #[test]
+    fn moe_top1_and_full_topk_both_run() {
+        // top-1 (one expert per token) and top-N (all experts blended) are both
+        // valid activation counts and both produce finite logits.
+        for k in [1, N_EXP] {
+            let (bytes, cfg) = moe_fixture(k);
+            let mut model = load(&bytes, &cfg).unwrap_or_else(|e| panic!("top-{k} load: {e:?}"));
+            let logits = model.forward(2).expect("forward");
+            assert_eq!(logits.len(), V);
+            assert!(logits.iter().all(|v: &f32| v.is_finite()), "top-{k} finite");
+        }
+    }
+
+    #[test]
+    fn moe_load_at_precision_quantizes_experts() {
+        // The expert bank + router quantize DOWN into the runtime block at a
+        // caller-chosen precision, exactly like the dense path.
+        let (bytes, cfg) = moe_fixture(2);
+        for p in [Precision::Int8, Precision::Nvfp4, Precision::Ternary] {
+            let mut model = load_at_precision(&bytes, &cfg, p)
+                .unwrap_or_else(|e| panic!("MoE load at {p:?} failed: {e:?}"));
+            let logits = model.forward(1).expect("forward");
+            assert_eq!(logits.len(), V, "{p:?} vocab width");
+            assert!(logits.iter().all(|v: &f32| v.is_finite()), "{p:?} finite");
+        }
+    }
+
+    #[test]
+    fn moe_config_missing_router_tensor_errors() {
+        // A MoE config pointed at a DENSE fixture body must fail on the absent
+        // router tensor — proving the loader switched to the MoE tensor names.
+        let (bytes, dense_cfg) = fixture(Dt::F32);
+        let mut moe_cfg = dense_cfg;
+        moe_cfg.num_experts = Some(N_EXP);
+        moe_cfg.num_experts_per_tok = Some(2);
+        moe_cfg.moe_intermediate_size = Some(HID);
+        assert!(matches!(
+            load(&bytes, &moe_cfg),
+            Err(LoaderError::MissingTensor(_))
+        ));
+    }
+
+    #[test]
+    fn moe_config_rejects_bad_topk() {
+        // top-k over the expert count, or zero, is rejected at validate().
+        let (_, mut cfg) = moe_fixture(2);
+        cfg.num_experts_per_tok = Some(N_EXP + 1);
+        assert!(matches!(cfg.validate(), Err(LoaderError::InvalidConfig(_))));
+        cfg.num_experts_per_tok = Some(0);
+        assert!(matches!(cfg.validate(), Err(LoaderError::InvalidConfig(_))));
+    }
+
+    #[test]
+    fn moe_config_parses_both_expert_spellings() {
+        // `num_experts` (Qwen3-MoE) and `num_local_experts` (Mixtral) both map to
+        // the same field; `num_experts_per_tok` and `moe_intermediate_size` too.
+        let qwen = br#"{"hidden_size":8,"num_hidden_layers":2,"num_attention_heads":2,
+             "num_key_value_heads":1,"vocab_size":256,"intermediate_size":16,
+             "num_experts":4,"num_experts_per_tok":2,"moe_intermediate_size":12}"#;
+        let c = Config::from_json(qwen).expect("qwen moe config");
+        assert!(c.is_moe());
+        assert_eq!(c.experts(), 4);
+        assert_eq!(c.experts_per_tok(), 2);
+        assert_eq!(c.moe_hidden(), 12);
+
+        let mixtral = br#"{"hidden_size":8,"num_hidden_layers":2,"num_attention_heads":2,
+             "num_key_value_heads":1,"vocab_size":256,"intermediate_size":16,
+             "num_local_experts":8,"num_experts_per_tok":2}"#;
+        let m = Config::from_json(mixtral).expect("mixtral moe config");
+        assert!(m.is_moe());
+        assert_eq!(m.experts(), 8);
+        // moe_intermediate_size absent → falls back to the dense intermediate.
+        assert_eq!(m.moe_hidden(), 16);
+    }
+
+    #[test]
+    fn dense_config_is_not_moe() {
+        // No experts, or a degenerate single expert, is a dense model.
+        let (_, dense) = fixture(Dt::F32);
+        assert!(!dense.is_moe());
+        assert_eq!(dense.experts_per_tok(), 0);
+        let (_, mut one) = moe_fixture(1);
+        one.num_experts = Some(1); // a 1-expert "MoE" is just dense
+        assert!(!one.is_moe());
     }
 }
