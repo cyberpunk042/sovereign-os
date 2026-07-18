@@ -79,6 +79,18 @@ impl CompletionCache {
         self.entries.is_empty()
     }
 
+    /// The maximum number of entries this cache holds.
+    pub fn capacity(&self) -> usize {
+        self.capacity
+    }
+
+    /// Drop all cached entries (keeps the capacity + hit/miss counters). Used
+    /// when upstream state changes so cached completions could be stale.
+    pub fn clear(&mut self) {
+        self.entries.clear();
+        self.order.clear();
+    }
+
     /// Cache hits so far.
     pub fn hits(&self) -> u64 {
         self.hits

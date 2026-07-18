@@ -57,6 +57,8 @@ sovereign-logit-mask = { path = "../sovereign-logit-mask" }
 sovereign-stream-decode = { path = "../sovereign-stream-decode" }
 # Honor OpenAI `stop` sequences on the chat shim (streaming + buffered).
 sovereign-stop-sequence = { path = "../sovereign-stop-sequence" }
+# Opt-in completion cache: a repeated deterministic (greedy) request is a $0 hit.
+sovereign-completion-cache = { path = "../sovereign-completion-cache" }
 # Safety spine: the gateway is the ecosystem's declared privacy + redaction
 # chokepoint (see sovereign-gateway GatewayResponsibility). These crates make
 # that real on the running daemon — input prompts are screened for injection,

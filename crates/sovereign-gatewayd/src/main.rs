@@ -81,6 +81,10 @@ ENVIRONMENT:
     SOVEREIGN_GATEWAY_COAT_TIMEOUT_MS  wall-clock budget for a model-backed /v1/coat deliberation on
                                      the request thread (default 25000; 0 disables). Past the budget the
                                      search stops issuing model calls and returns its best-so-far.
+    SOVEREIGN_GATEWAY_CACHE_CAPACITY   opt-in completion cache size (entries; default 0 = OFF). A repeated
+                                     DETERMINISTIC (greedy) /v1/chat/completions request is replayed for
+                                     $0 (no model call). Non-greedy requests + a changed model set bypass /
+                                     clear it. Hit/miss stats appear in the health report.
     SOVEREIGN_GATEWAY_AGENTIC        enable server-side agentic tool use (default OFF); when on, a
                                      /v1/chat/completions request with \"sovereign_agentic\":true runs the
                                      ReAct loop inside the daemon (SDD-712). Read-only/pure tool catalog:
@@ -1501,7 +1505,7 @@ fn stream_chat_completions(
         // so the client's stream ends AT the stop. An empty stop set is a no-op
         // (emits every chunk immediately, byte-identical to before).
         let mut scan = sovereign_stop_sequence::StreamStop::new(stops);
-        let gen_res = server.generate_chat_with_sampler(
+        let gen_res = server.generate_chat_cached(
             Some(model.as_str()),
             &prompt,
             max_new,
@@ -1556,7 +1560,7 @@ fn stream_chat_completions(
         // Non-streaming JSON shape (F-2026-086).
         let mut buf = String::new();
         let id = chat_completion_id();
-        let gen_res = server.generate_chat_with_sampler(
+        let gen_res = server.generate_chat_cached(
             Some(model.as_str()),
             &prompt,
             max_new,
