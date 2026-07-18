@@ -107,6 +107,41 @@ for fn in "${functions[@]}"; do
   fi
 done
 
+# F-2026-025 — extracted verb modules (scripts/osctl.d/*.sh) are sourced on
+# demand. The monolith scan above no longer sees their cmd_<name>, so verify the
+# modularized surface reciprocally: (a) every osctl.d/<verb>.sh defines the
+# cmd_<verb> the dispatcher will call, and (b) every `_source_osctl_module
+# <verb>` dispatcher line has a matching module file. This closes the coverage
+# hole that extraction would otherwise open.
+OSCTL_D="${__REPO_ROOT}/scripts/osctl.d"
+if [ -d "${OSCTL_D}" ]; then
+  for mod in "${OSCTL_D}"/*.sh; do
+    [ -f "${mod}" ] || continue
+    verb="$(basename "${mod}" .sh)"
+    verb_u="${verb//-/_}"
+    if grep -qE "^cmd_${verb_u}\(\)" "${mod}"; then
+      ok "osctl.d module defines cmd_${verb_u}: ${verb}.sh"
+    else
+      ko "osctl.d/${verb}.sh does not define cmd_${verb_u}()"
+    fi
+    # the dispatcher must source-and-call this module (ms003/version form)
+    if grep -qE "_source_osctl_module ${verb}\b" "${CTL}"; then
+      ok "dispatcher sources module: ${verb}"
+    else
+      ko "osctl.d/${verb}.sh present but dispatcher never sources it"
+    fi
+  done
+  # Reciprocal: every `_source_osctl_module X` line resolves to a module file.
+  while IFS= read -r verb; do
+    [ -n "${verb}" ] || continue
+    if [ -f "${OSCTL_D}/${verb}.sh" ]; then
+      ok "sourced module exists on disk: ${verb}"
+    else
+      ko "dispatcher sources _source_osctl_module ${verb} but ${verb}.sh is missing"
+    fi
+  done < <(grep -oE "_source_osctl_module [a-z0-9-]+" "${CTL}" | awk '{print $2}' | sort -u)
+fi
+
 # Unknown top-level command → exit 2
 set +e
 "${CTL}" totally-bogus-verb >/dev/null 2>&1

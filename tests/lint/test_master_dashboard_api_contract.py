@@ -161,10 +161,13 @@ def test_api_endpoint_toggles():
         assert data["count"] == len(data["dashboards"])
         assert data["enabled_count"] + data["disabled_count"] == data["count"]
         by = {r["slug"]: r for r in data["dashboards"]}
-        # a cockpit dashboard is toggleable + has a webapp mapping
-        assert by["costs"]["toggleable"] is True and by["costs"]["webapp"] == "d-04-costs"
-        # infra is always-on (no webapp mapping → not toggleable, enabled)
-        assert by["router"]["toggleable"] is False and by["router"]["enabled"] is True
+        # F-2026-072: the aggregator route slug IS the canonical webapp slug —
+        # a cockpit dashboard is toggleable and its webapp mapping is itself.
+        assert by["d-04-costs"]["toggleable"] is True and by["d-04-costs"]["webapp"] == "d-04-costs"
+        # infra is always-on (not a webapp panel → not toggleable, enabled).
+        # The SDD-011 router daemon is the infra upstream `router-engine`
+        # (the catalog `router` panel is now a real toggleable dashboard).
+        assert by["router-engine"]["toggleable"] is False and by["router-engine"]["enabled"] is True
         # default (no toml) → everything enabled
         assert data["disabled_count"] == 0
     finally:

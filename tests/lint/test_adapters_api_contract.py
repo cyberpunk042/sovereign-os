@@ -179,9 +179,11 @@ def test_osctl_dispatches_adapters():
 
 
 def test_master_dashboard_route_registered():
-    body = (REPO_ROOT / "scripts" / "operator" / "master-dashboard.py").read_text(encoding="utf-8")
-    assert '"adapters"' in body, "master-dashboard missing adapters route"
-    assert "8107" in body, "adapters route must declare port 8107"
+    # F-2026-072: the aggregator route table moved to the generated
+    # config/dashboard-routes.yaml and uses the canonical catalog slug.
+    routes = (REPO_ROOT / "config" / "dashboard-routes.yaml").read_text(encoding="utf-8")
+    assert "d-11-adapter-status" in routes, "aggregator table missing d-11-adapter-status route"
+    assert "8107" in routes, "d-11-adapter-status route must declare port 8107"
 
 
 # ---- live endpoints (the exact d-11 fetch contract) -----------------------

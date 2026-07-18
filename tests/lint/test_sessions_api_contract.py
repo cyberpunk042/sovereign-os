@@ -167,9 +167,11 @@ def test_osctl_dispatches_sessions():
 
 
 def test_master_dashboard_route_registered():
-    body = (REPO_ROOT / "scripts" / "operator" / "master-dashboard.py").read_text(encoding="utf-8")
-    assert '"sessions"' in body, "master-dashboard missing sessions route"
-    assert "8109" in body, "sessions route must declare port 8109"
+    # F-2026-072: the aggregator route table moved to the generated
+    # config/dashboard-routes.yaml and uses the canonical catalog slug.
+    routes = (REPO_ROOT / "config" / "dashboard-routes.yaml").read_text(encoding="utf-8")
+    assert "d-01-active-sessions" in routes, "aggregator table missing d-01-active-sessions route"
+    assert "8109" in routes, "d-01-active-sessions route must declare port 8109"
 
 
 # ---- live endpoints (the exact d-01 fetch contract) -----------------------

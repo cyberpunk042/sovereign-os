@@ -44,6 +44,73 @@ struct RawTokenizer {
     model: RawModel,
     #[serde(default)]
     added_tokens: Vec<RawAdded>,
+    /// The `pre_tokenizer` block — determines whether text is segmented the
+    /// GPT-2 byte-level way (default) or the SentencePiece **Metaspace** way
+    /// (`▁`-for-space, direct-unicode vocab). Parsed leniently as a Value so an
+    /// unknown pre-tokenizer degrades to the GPT-2 default rather than failing.
+    #[serde(default)]
+    pre_tokenizer: Option<serde_json::Value>,
+}
+
+/// How a model segments raw text before BPE. GPT-2 byte-level (spaces → `Ġ`, the
+/// hand-rolled contraction/letter/digit/punct scanner) vs SentencePiece
+/// **Metaspace** (spaces → `▁`, direct-unicode vocab pieces + `<0xXX>` byte
+/// fallback). Llama/Mistral/Gemma SentencePiece checkpoints need Metaspace; a
+/// GPT-2-only tokenizer mis-segments them (F-2026-086).
+#[derive(Debug, Clone, PartialEq)]
+enum Pretok {
+    /// GPT-2 byte-level BPE (the original, unchanged default path).
+    Gpt2,
+    /// SentencePiece Metaspace: `replacement` (usually `▁` U+2581) substitutes
+    /// spaces; `prepend` adds one `replacement` at the very start (the
+    /// `prepend_scheme: first|always` behavior).
+    Metaspace { replacement: char, prepend: bool },
+}
+
+/// Parse the `pre_tokenizer` block into a [`Pretok`]. Handles a bare Metaspace,
+/// a `Sequence` that contains one, and falls back to [`Pretok::Gpt2`] for
+/// ByteLevel / absent / anything unrecognized (never fail the load on it).
+fn parse_pretok(v: Option<&serde_json::Value>) -> Pretok {
+    fn as_metaspace(node: &serde_json::Value) -> Option<Pretok> {
+        if node.get("type").and_then(|t| t.as_str()) != Some("Metaspace") {
+            return None;
+        }
+        let replacement = node
+            .get("replacement")
+            .and_then(|r| r.as_str())
+            .and_then(|s| s.chars().next())
+            .unwrap_or('\u{2581}');
+        // prepend_scheme: "first" | "always" | "never" (older tokenizers used a
+        // bare `add_prefix_space: bool`). first/always both prepend one leading
+        // replacement for our single-sequence render; never/false does not.
+        let prepend = match node.get("prepend_scheme").and_then(|p| p.as_str()) {
+            Some("never") => false,
+            Some(_) => true,
+            None => node
+                .get("add_prefix_space")
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(true),
+        };
+        Some(Pretok::Metaspace {
+            replacement,
+            prepend,
+        })
+    }
+    let Some(node) = v else { return Pretok::Gpt2 };
+    if let Some(ms) = as_metaspace(node) {
+        return ms;
+    }
+    // Sequence: scan its children for a Metaspace.
+    if node.get("type").and_then(|t| t.as_str()) == Some("Sequence")
+        && let Some(list) = node.get("pretokenizers").and_then(|p| p.as_array())
+    {
+        for child in list {
+            if let Some(ms) = as_metaspace(child) {
+                return ms;
+            }
+        }
+    }
+    Pretok::Gpt2
 }
 
 #[derive(Deserialize)]
@@ -91,6 +158,86 @@ fn bytes_to_unicode() -> ([char; 256], HashMap<char, u8>) {
     (enc, dec)
 }
 
+/// The raw bytes a Metaspace vocab piece decodes to. A `<0xXX>` byte-fallback
+/// token yields that single byte; any other piece has its `replacement` chars
+/// turned back into spaces and its remaining UTF-8 emitted verbatim.
+fn metaspace_piece_bytes(piece: &str, replacement: char) -> Vec<u8> {
+    if let Some(hex) = piece.strip_prefix("<0x").and_then(|s| s.strip_suffix('>'))
+        && hex.len() == 2
+        && let Ok(b) = u8::from_str_radix(hex, 16)
+    {
+        return vec![b];
+    }
+    let mut out = Vec::with_capacity(piece.len());
+    for ch in piece.chars() {
+        if ch == replacement {
+            out.push(b' ');
+        } else {
+            let mut buf = [0u8; 4];
+            out.extend_from_slice(ch.encode_utf8(&mut buf).as_bytes());
+        }
+    }
+    out
+}
+
+/// A model's `tokenizer_config.json` — the sibling of `tokenizer.json` that
+/// carries the **chat template** (the Jinja string the gateway must apply to
+/// render a real prompt instead of a newline-join) plus the bos/eos special
+/// tokens. Parsed leniently: every field is optional so a model dir without a
+/// `tokenizer_config.json` (or an older one) still loads (F-2026-086).
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct TokenizerConfig {
+    /// The Jinja `chat_template` string, if the model ships one.
+    #[serde(default)]
+    pub chat_template: Option<String>,
+    /// The beginning-of-sequence token text (e.g. `<|begin_of_text|>`).
+    #[serde(default)]
+    pub bos_token: Option<StringOrMap>,
+    /// The end-of-sequence token text (e.g. `<|eot_id|>`).
+    #[serde(default)]
+    pub eos_token: Option<StringOrMap>,
+}
+
+/// `bos_token`/`eos_token` may be a bare string OR an `AddedToken` object with a
+/// `content` field — accept either.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(untagged)]
+pub enum StringOrMap {
+    /// A bare `"<|eot_id|>"` string.
+    Str(String),
+    /// An `{"content": "<|eot_id|>", ...}` object.
+    Obj {
+        /// The token text.
+        content: String,
+    },
+}
+
+impl StringOrMap {
+    /// The token text, whichever shape it arrived in.
+    pub fn text(&self) -> &str {
+        match self {
+            StringOrMap::Str(s) => s,
+            StringOrMap::Obj { content } => content,
+        }
+    }
+}
+
+impl TokenizerConfig {
+    /// Parse from the raw bytes of a `tokenizer_config.json`. Unknown fields are
+    /// ignored; a parse failure is surfaced (the caller may choose to proceed
+    /// without a template on error).
+    pub fn from_json(bytes: &[u8]) -> Result<Self, HfTokenizerError> {
+        serde_json::from_slice(bytes).map_err(|e| HfTokenizerError::Json(e.to_string()))
+    }
+
+    /// The chat template string, if present and non-empty.
+    pub fn chat_template(&self) -> Option<&str> {
+        self.chat_template
+            .as_deref()
+            .filter(|s| !s.trim().is_empty())
+    }
+}
+
 fn parse_merge(v: &serde_json::Value) -> Result<(String, String), HfTokenizerError> {
     match v {
         // Older tokenizer.json: a single "a b" string.
@@ -123,6 +270,8 @@ pub struct HfBpeTokenizer {
     special_ids: HashSet<u32>,
     vocab_size: usize,
     bos_id: Option<u32>,
+    /// Segmentation strategy (GPT-2 byte-level vs SentencePiece Metaspace).
+    pretok: Pretok,
 }
 
 impl HfBpeTokenizer {
@@ -158,6 +307,7 @@ impl HfBpeTokenizer {
         }
 
         let vocab_size = decoder.keys().copied().max().map_or(0, |m| m as usize + 1);
+        let pretok = parse_pretok(raw.pre_tokenizer.as_ref());
         Ok(Self {
             vocab,
             decoder,
@@ -167,7 +317,14 @@ impl HfBpeTokenizer {
             special_ids,
             vocab_size,
             bos_id,
+            pretok,
         })
+    }
+
+    /// True when this tokenizer uses SentencePiece Metaspace segmentation
+    /// (`▁`-for-space) rather than the GPT-2 byte-level alphabet.
+    pub fn is_metaspace(&self) -> bool {
+        matches!(self.pretok, Pretok::Metaspace { .. })
     }
 
     /// The vocabulary size (max id + 1) — must equal the model's `vocab()`.
@@ -180,8 +337,20 @@ impl HfBpeTokenizer {
         self.bos_id
     }
 
-    /// Encode text to token ids (GPT-2 pre-tokenize → byte-map → BPE → vocab).
+    /// Encode text to token ids. GPT-2 path: pre-tokenize → byte-map → BPE →
+    /// vocab. Metaspace path: `▁`-normalize → per-word BPE over direct-unicode
+    /// pieces → vocab, with `<0xXX>` byte fallback (F-2026-086).
     pub fn encode(&self, text: &str) -> Vec<u32> {
+        match self.pretok {
+            Pretok::Gpt2 => self.encode_gpt2(text),
+            Pretok::Metaspace {
+                replacement,
+                prepend,
+            } => self.encode_metaspace(text, replacement, prepend),
+        }
+    }
+
+    fn encode_gpt2(&self, text: &str) -> Vec<u32> {
         let mut ids = Vec::new();
         for pre in self.pretokenize(text) {
             // Map the pre-token's UTF-8 bytes through the byte-level alphabet.
@@ -202,6 +371,57 @@ impl HfBpeTokenizer {
         ids
     }
 
+    /// Split `▁`-normalized text into SentencePiece words, each keeping its
+    /// leading `▁`: "▁hi▁there" → ["▁hi", "▁there"].
+    fn metaspace_words(&self, text: &str, replacement: char, prepend: bool) -> Vec<String> {
+        let mut s: String = text
+            .chars()
+            .map(|c| if c == ' ' { replacement } else { c })
+            .collect();
+        if prepend && !s.starts_with(replacement) {
+            s.insert(0, replacement);
+        }
+        let mut words: Vec<String> = Vec::new();
+        let mut cur = String::new();
+        for ch in s.chars() {
+            if ch == replacement && !cur.is_empty() {
+                words.push(std::mem::take(&mut cur));
+            }
+            cur.push(ch);
+        }
+        if !cur.is_empty() {
+            words.push(cur);
+        }
+        words
+    }
+
+    fn encode_metaspace(&self, text: &str, replacement: char, prepend: bool) -> Vec<u32> {
+        let mut ids = Vec::new();
+        for word in self.metaspace_words(text, replacement, prepend) {
+            for sym in self.bpe(&word) {
+                if let Some(&id) = self.vocab.get(&sym) {
+                    ids.push(id);
+                    continue;
+                }
+                // Piece not in vocab: try each char directly, then fall back to
+                // the `<0xXX>` byte tokens SentencePiece models ship for coverage.
+                for ch in sym.chars() {
+                    if let Some(&id) = self.vocab.get(&ch.to_string()) {
+                        ids.push(id);
+                    } else {
+                        let mut buf = [0u8; 4];
+                        for &b in ch.encode_utf8(&mut buf).as_bytes() {
+                            if let Some(&id) = self.vocab.get(&format!("<0x{b:02X}>")) {
+                                ids.push(id);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        ids
+    }
+
     /// The raw bytes a single token decodes to (empty for special/unknown
     /// tokens) — the primitive for incremental streaming decode, where a
     /// [`sovereign_stream_decode::Utf8Stream`]-style buffer accumulates bytes
@@ -211,10 +431,13 @@ impl HfBpeTokenizer {
             return Vec::new();
         }
         match self.decoder.get(&id) {
-            Some(piece) => piece
-                .chars()
-                .filter_map(|c| self.byte_decoder.get(&c).copied())
-                .collect(),
+            Some(piece) => match self.pretok {
+                Pretok::Gpt2 => piece
+                    .chars()
+                    .filter_map(|c| self.byte_decoder.get(&c).copied())
+                    .collect(),
+                Pretok::Metaspace { replacement, .. } => metaspace_piece_bytes(piece, replacement),
+            },
             None => Vec::new(),
         }
     }
@@ -227,14 +450,29 @@ impl HfBpeTokenizer {
                 continue;
             }
             if let Some(piece) = self.decoder.get(&id) {
-                for ch in piece.chars() {
-                    if let Some(&b) = self.byte_decoder.get(&ch) {
-                        bytes.push(b);
+                match self.pretok {
+                    Pretok::Gpt2 => {
+                        for ch in piece.chars() {
+                            if let Some(&b) = self.byte_decoder.get(&ch) {
+                                bytes.push(b);
+                            }
+                        }
+                    }
+                    Pretok::Metaspace { replacement, .. } => {
+                        bytes.extend(metaspace_piece_bytes(piece, replacement));
                     }
                 }
             }
         }
-        String::from_utf8_lossy(&bytes).into_owned()
+        let mut text = String::from_utf8_lossy(&bytes).into_owned();
+        // Metaspace prepends one leading `▁`→space; SentencePiece decode strips
+        // that single leading space so "▁Hi" round-trips to "Hi", not " Hi".
+        if let Pretok::Metaspace { prepend: true, .. } = self.pretok
+            && text.starts_with(' ')
+        {
+            text.remove(0);
+        }
+        text
     }
 
     /// Byte-pair-merge a byte-mapped word into its final pieces.
@@ -456,5 +694,83 @@ mod tests {
         // first id is 'a' (1); the run keeps generation stable (no panic, ids valid)
         assert_eq!(ids.first(), Some(&1));
         assert!(ids.iter().all(|&x| x <= 100));
+    }
+
+    #[test]
+    fn gpt2_is_the_default_pretokenizer() {
+        // MINI has no pre_tokenizer block → GPT-2 path, unchanged behavior.
+        assert!(!mini().is_metaspace());
+    }
+
+    // ── Metaspace (SentencePiece) path (F-2026-086) ──────────────────────────
+    // A tiny Metaspace tokenizer: `▁`-for-space, direct-unicode vocab, `<0xXX>`
+    // byte fallback. Merges build "▁hi" and "▁ab" from their chars.
+    const MINI_METASPACE: &str = r#"{
+      "pre_tokenizer": {"type": "Metaspace", "replacement": "▁", "prepend_scheme": "first"},
+      "model": {
+        "type": "BPE",
+        "vocab": {"▁": 1, "h": 2, "i": 3, "a": 4, "b": 5,
+                  "▁h": 6, "▁hi": 7, "▁a": 8, "▁ab": 9,
+                  "<0x5A>": 10},
+        "merges": ["▁ h", "▁h i", "▁ a", "▁a b"]
+      }
+    }"#;
+
+    fn mini_ms() -> HfBpeTokenizer {
+        HfBpeTokenizer::from_tokenizer_json(MINI_METASPACE.as_bytes()).unwrap()
+    }
+
+    #[test]
+    fn metaspace_detected_from_pre_tokenizer() {
+        assert!(mini_ms().is_metaspace());
+    }
+
+    #[test]
+    fn metaspace_encodes_via_underscore_words() {
+        let t = mini_ms();
+        // "hi ab" → "▁hi▁ab" → words ["▁hi","▁ab"] → ids [7, 9]
+        assert_eq!(t.encode("hi ab"), vec![7, 9]);
+    }
+
+    #[test]
+    fn metaspace_byte_fallback_for_unknown_char() {
+        let t = mini_ms();
+        // "Z" is not a vocab piece; its byte 0x5A falls back to the <0x5A> token.
+        // Prepend adds a leading ▁ (id 1) first.
+        assert_eq!(t.encode("Z"), vec![1, 10]);
+    }
+
+    #[test]
+    fn metaspace_decode_round_trips_and_strips_prepend() {
+        let t = mini_ms();
+        // ▁→space on decode; the single prepended leading space is stripped.
+        assert_eq!(t.decode(&[7, 9]), "hi ab");
+        assert_eq!(t.decode(&t.encode("hi ab")), "hi ab");
+        // byte-fallback token decodes back to its raw byte
+        assert_eq!(t.decode(&[10]), "Z");
+    }
+
+    // ── tokenizer_config.json (chat template) ────────────────────────────────
+
+    #[test]
+    fn tokenizer_config_parses_chat_template_and_tokens() {
+        let json = r#"{
+          "chat_template": "{% for m in messages %}<|im_start|>{{ m.role }}{% endfor %}",
+          "bos_token": "<|begin_of_text|>",
+          "eos_token": {"content": "<|eot_id|>", "lstrip": false}
+        }"#;
+        let cfg = TokenizerConfig::from_json(json.as_bytes()).unwrap();
+        assert!(cfg.chat_template().unwrap().contains("<|im_start|>"));
+        assert_eq!(cfg.bos_token.unwrap().text(), "<|begin_of_text|>");
+        assert_eq!(cfg.eos_token.unwrap().text(), "<|eot_id|>");
+    }
+
+    #[test]
+    fn tokenizer_config_absent_fields_are_none() {
+        let cfg = TokenizerConfig::from_json(b"{}").unwrap();
+        assert!(cfg.chat_template().is_none());
+        // an empty/whitespace template counts as absent
+        let cfg2 = TokenizerConfig::from_json(br#"{"chat_template": "  "}"#).unwrap();
+        assert!(cfg2.chat_template().is_none());
     }
 }

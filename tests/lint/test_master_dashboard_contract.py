@@ -105,43 +105,81 @@ def test_renderer_per_backend():
 
 
 # --- Dashboard routes table ---
+#
+# F-2026-072: DASHBOARD_ROUTES is no longer a hand-maintained inline dict — it is
+# GENERATED into config/dashboard-routes.yaml (from the panel catalog + each
+# panel API's own port) and LOADED at import. So these tests load the module and
+# assert on the live table, not on `.py` string literals. The generated-table
+# freshness + coverage is enforced by tests/lint/test_dashboard_routes.py.
+
+
+def _load_md():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("_md_routes", str(MD_PY))
+    m = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(m)
+    return m
 
 
 def test_dashboard_routes_table_defined():
     body = _read(MD_PY)
     assert "DASHBOARD_ROUTES" in body, "missing DASHBOARD_ROUTES table"
+    assert "_load_routes" in body, (
+        "DASHBOARD_ROUTES must be loaded from the generated table"
+    )
 
 
 def test_routes_include_trinity_tiers():
-    body = _read(MD_PY)
+    routes = _load_md().DASHBOARD_ROUTES
     for name in ("trinity-pulse", "trinity-logic-engine",
                  "trinity-oracle-core"):
-        assert f'"{name}"' in body, (
+        assert name in routes, (
             f"DASHBOARD_ROUTES missing Trinity tier {name!r}"
         )
 
 
 def test_routes_include_router():
-    body = _read(MD_PY)
-    assert '"router"' in body, "DASHBOARD_ROUTES missing router"
+    routes = _load_md().DASHBOARD_ROUTES
+    assert "router" in routes, "DASHBOARD_ROUTES missing router"
 
 
 def test_each_route_has_port():
-    body = _read(MD_PY)
-    n = body.count('"port":')
-    assert n >= 6, f"only {n} 'port' fields (expected ≥6 dashboards)"
+    routes = _load_md().DASHBOARD_ROUTES
+    assert len(routes) >= 6, f"only {len(routes)} routes (expected ≥6)"
+    assert all(isinstance(r.get("port"), int) for r in routes.values()), (
+        "every route must carry an int port"
+    )
 
 
 def test_each_route_has_subpath():
-    body = _read(MD_PY)
-    n = body.count('"subpath":')
-    assert n >= 6, f"only {n} 'subpath' fields (expected ≥6)"
+    routes = _load_md().DASHBOARD_ROUTES
+    assert all(r.get("subpath", "").startswith("/") for r in routes.values()), (
+        "every route must carry a subpath"
+    )
 
 
 def test_each_route_has_label():
-    body = _read(MD_PY)
-    n = body.count('"label":')
-    assert n >= 6, f"only {n} 'label' fields (expected ≥6)"
+    routes = _load_md().DASHBOARD_ROUTES
+    assert all(r.get("label") for r in routes.values()), (
+        "every route must carry a label"
+    )
+
+
+def test_routes_cover_the_full_panel_catalog():
+    """The reconciliation's whole point (F-2026-072): the aggregator table is no
+    longer stale-at-26 — it now fronts the api-backed panels + infra (well past
+    the old 26). Assert it covers the d-21..d-29 batch that used to be aggregator-
+    invisible."""
+    routes = _load_md().DASHBOARD_ROUTES
+    assert len(routes) >= 40, (
+        f"aggregator table has only {len(routes)} routes — the 55-panel "
+        f"reconciliation regressed"
+    )
+    for slug in ("d-25-selfdef-management", "d-29-scheduler", "brain", "weaver"):
+        assert slug in routes, (
+            f"panel {slug!r} missing from the aggregator table (F-2026-072 "
+            f"reconciliation must include it)"
+        )
 
 
 # --- CLI surface (5 verbs) ---

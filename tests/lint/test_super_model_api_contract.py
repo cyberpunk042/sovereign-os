@@ -141,8 +141,11 @@ def test_osctl_dispatches_super_model():
 
 
 def test_master_dashboard_route_registered():
-    body = (REPO_ROOT / "scripts" / "operator" / "master-dashboard.py").read_text(encoding="utf-8")
-    assert '"super-model"' in body and "8119" in body
+    # F-2026-072: the aggregator route table moved to the generated
+    # config/dashboard-routes.yaml and uses the canonical catalog slug.
+    routes = (REPO_ROOT / "config" / "dashboard-routes.yaml").read_text(encoding="utf-8")
+    assert "d-19-super-model-manifest" in routes, "aggregator table missing d-19-super-model-manifest route"
+    assert "8119" in routes, "d-19-super-model-manifest route must declare port 8119"
 
 
 def test_frontend_rewired_to_live_api():

@@ -631,6 +631,11 @@ pub struct GatewayServer {
 struct Generator {
     model: sovereign_quant_model::QuantModel,
     tokenizer: sovereign_hf_tokenizer::HfBpeTokenizer,
+    /// The model's chat template (from `tokenizer_config.json`), if it ships one
+    /// (F-2026-086). `None` ⇒ the OpenAI chat path newline-joins message content
+    /// exactly as before; `Some` ⇒ the prompt is rendered with the model's real
+    /// turn markers so an instruction-tuned checkpoint behaves.
+    chat_template: Option<String>,
 }
 
 /// A GPU serve-process backend the gateway proxies to (Phase 2 increment 2): a
@@ -899,7 +904,18 @@ fn load_generator_from_dir(dir: &str) -> Result<Option<Generator>, String> {
             tokenizer.vocab_size()
         ));
     }
-    Ok(Some(Generator { model, tokenizer }))
+    // F-2026-086: load the model's chat template from tokenizer_config.json if
+    // present. Absent / unparseable ⇒ None (the chat path newline-joins as
+    // before — never a hard failure on an older model dir).
+    let chat_template = std::fs::read(format!("{dir}/tokenizer_config.json"))
+        .ok()
+        .and_then(|b| sovereign_hf_tokenizer::TokenizerConfig::from_json(&b).ok())
+        .and_then(|c| c.chat_template().map(str::to_string));
+    Ok(Some(Generator {
+        model,
+        tokenizer,
+        chat_template,
+    }))
 }
 
 /// The durable memory-store path, from `SOVEREIGN_GATEWAY_MEMORY` (the systemd
@@ -1236,6 +1252,23 @@ impl GatewayServer {
     /// Whether the PRIMARY local generation worker pool is loaded (the default route).
     pub fn has_generator(&self) -> bool {
         !self.workers.is_empty()
+    }
+
+    /// The chat template of the generator that would serve `model` (a named
+    /// secondary, else the primary), if it ships one (F-2026-086). A brief lock
+    /// clones the small `Option<String>`; `None` ⇒ the caller newline-joins the
+    /// messages exactly as before. Never blocks generation meaningfully — it is
+    /// read once per chat request before a worker is engaged.
+    pub fn chat_template_for(&self, model: Option<&str>) -> Option<String> {
+        if let Some(m) = model
+            && let Some(sec) = self.resolve_secondary(m)
+        {
+            return sec.lock().ok().and_then(|g| g.chat_template.clone());
+        }
+        self.workers
+            .first()
+            .and_then(|w| w.lock().ok())
+            .and_then(|g| g.chat_template.clone())
     }
 
     /// Resolve only a named secondary generator. Primary selection is deliberately
@@ -1610,7 +1643,9 @@ impl GatewayServer {
             self.acquire_worker()
                 .ok_or_else(|| "no local model loaded".to_string())?
         };
-        let Generator { model, tokenizer } = &mut *guard;
+        let Generator {
+            model, tokenizer, ..
+        } = &mut *guard;
         model.set_sampler(sovereign_safetensors_loader::Sampler::new(sampler_config));
 
         let mut ids: Vec<usize> = Vec::new();

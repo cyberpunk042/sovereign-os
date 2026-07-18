@@ -140,10 +140,15 @@ def test_all_expected_commands_in_dispatcher():
     body = _read()
     for cmd in EXPECTED_COMMANDS:
         handler = "cmd_" + cmd.replace("-", "_")
-        # Pattern: '  status)        cmd_status "$@" ;;'
+        # Two dispatch forms are valid (F-2026-025):
+        #   resident: '  status)   cmd_status "$@" ;;'
+        #   modular:  '  ms003)     _source_osctl_module ms003 && cmd_ms003 "$@" ;;'
+        # (the extracted verbs source their osctl.d/<verb>.sh module first).
         pattern = re.compile(
-            rf"^\s*{re.escape(cmd)}\)\s+{re.escape(handler)}\b",
-            re.M
+            rf"^\s*{re.escape(cmd)}\)\s+"
+            rf"(?:_source_osctl_module\s+{re.escape(cmd)}\s+&&\s+)?"
+            rf"{re.escape(handler)}\b",
+            re.M,
         )
         assert pattern.search(body), (
             f"sovereign-osctl dispatcher missing '{cmd}) {handler}' "

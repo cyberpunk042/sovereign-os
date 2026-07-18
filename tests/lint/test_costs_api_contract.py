@@ -181,9 +181,11 @@ def test_osctl_dispatches_costs():
 
 
 def test_master_dashboard_route_registered():
-    body = (REPO_ROOT / "scripts" / "operator" / "master-dashboard.py").read_text(encoding="utf-8")
-    assert '"costs"' in body, "master-dashboard missing costs route"
-    assert "8106" in body, "costs route must declare port 8106"
+    # F-2026-072: the aggregator route table moved to the generated
+    # config/dashboard-routes.yaml and uses the canonical catalog slug.
+    routes = (REPO_ROOT / "config" / "dashboard-routes.yaml").read_text(encoding="utf-8")
+    assert "d-04-costs" in routes, "aggregator table missing d-04-costs route"
+    assert "8106" in routes, "d-04-costs route must declare port 8106"
 
 
 # ---- live endpoints (the exact d-04 fetch contract) -----------------------

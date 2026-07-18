@@ -134,9 +134,11 @@ def test_osctl_dispatches_model_health():
 
 
 def test_master_dashboard_route_registered():
-    body = (REPO_ROOT / "scripts" / "operator" / "master-dashboard.py").read_text(encoding="utf-8")
-    assert '"model-health"' in body, "master-dashboard missing model-health route"
-    assert "8104" in body, "model-health route must declare port 8104"
+    # F-2026-072: the aggregator route table moved to the generated
+    # config/dashboard-routes.yaml and uses the canonical catalog slug.
+    routes = (REPO_ROOT / "config" / "dashboard-routes.yaml").read_text(encoding="utf-8")
+    assert "d-03-model-health" in routes, "aggregator table missing d-03-model-health route"
+    assert "8104" in routes, "d-03-model-health route must declare port 8104"
 
 
 # ---- live endpoints (the exact d-03 fetch contract) -----------------------

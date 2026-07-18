@@ -171,9 +171,11 @@ def test_render_omits_disabled_dashboard():
             env={**os.environ, "SOVEREIGN_OS_DASHBOARDS_TOML": toml},
         )
         bd = json.loads(base.stdout)
-        assert bd["config_preview"].count("/costs/") == 1
+        # F-2026-072: the aggregator subpath is the canonical catalog path
+        # (/d-04-costs/), and the disabled slug is the canonical slug.
+        assert bd["config_preview"].count("/d-04-costs/") == 1
         assert bd["dashboards_disabled"] == []
-        # disable costs, re-render — /costs/ omitted, others remain
+        # disable costs, re-render — /d-04-costs/ omitted, others remain
         subprocess.run(
             ["python3", str(CORE), "disable", "d-04-costs"],
             capture_output=True, text=True, timeout=15, check=True,
@@ -186,7 +188,7 @@ def test_render_omits_disabled_dashboard():
             env={**os.environ, "SOVEREIGN_OS_DASHBOARDS_TOML": toml},
         )
         ad = json.loads(after.stdout)
-        assert ad["config_preview"].count("/costs/") == 0, "disabled dashboard must be omitted"
-        assert ad["config_preview"].count("/model-health/") == 1, "enabled dashboards must remain"
-        assert "costs" in ad["dashboards_disabled"]
+        assert ad["config_preview"].count("/d-04-costs/") == 0, "disabled dashboard must be omitted"
+        assert ad["config_preview"].count("/d-03-model-health/") == 1, "enabled dashboards must remain"
+        assert "d-04-costs" in ad["dashboards_disabled"]
         assert ad["dashboards_aggregated"] == bd["dashboards_aggregated"] - 1

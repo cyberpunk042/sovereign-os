@@ -69,6 +69,17 @@ impl Message {
     pub fn assistant(c: impl Into<String>) -> Self {
         Self::new(Role::Assistant, c)
     }
+    /// Build a message from an OpenAI-style role string. Unknown roles map to
+    /// [`Role::User`] (a base model still continues the turn; we never drop
+    /// content on an unrecognized role).
+    pub fn from_role(role: &str, content: impl Into<String>) -> Self {
+        let r = match role {
+            "system" => Role::System,
+            "assistant" => Role::Assistant,
+            _ => Role::User,
+        };
+        Self::new(r, content)
+    }
 }
 
 /// Per-role prefix/suffix wrapping for a [`ChatFormat::Custom`] template.
@@ -91,10 +102,32 @@ pub enum ChatFormat {
     ChatML,
     /// Llama-2 (`[INST]` / `<<SYS>>`).
     Llama2,
+    /// Llama-3 (`<|start_header_id|>role<|end_header_id|>` / `<|eot_id|>`).
+    Llama3,
     /// Alpaca (`### Instruction:` / `### Response:`).
     Alpaca,
     /// A custom per-role template.
     Custom(RoleTemplate),
+}
+
+/// Detect the [`ChatFormat`] from a model's raw `chat_template` string (the
+/// Jinja template shipped in `tokenizer_config.json`). We sniff the format's
+/// signature turn-markers rather than evaluating arbitrary Jinja — enough to
+/// route ChatML / Llama-3 / Llama-2 family templates to the right renderer.
+/// Returns `None` for an unrecognized template (the caller falls back to a
+/// plain newline-join so an exotic template never yields a wrong-but-plausible
+/// prompt). Order matters: Llama-3's `<|start_header_id|>` is checked before the
+/// Llama-2 `[INST]` marker since some Llama-3 templates also mention `[INST]`.
+pub fn detect_format(chat_template: &str) -> Option<ChatFormat> {
+    if chat_template.contains("<|im_start|>") {
+        Some(ChatFormat::ChatML)
+    } else if chat_template.contains("<|start_header_id|>") {
+        Some(ChatFormat::Llama3)
+    } else if chat_template.contains("[INST]") {
+        Some(ChatFormat::Llama2)
+    } else {
+        None
+    }
 }
 
 /// Render `messages` into a prompt string for `format`. If `add_generation_prompt`
@@ -103,9 +136,33 @@ pub fn render(messages: &[Message], format: &ChatFormat, add_generation_prompt: 
     match format {
         ChatFormat::ChatML => render_chatml(messages, add_generation_prompt),
         ChatFormat::Llama2 => render_llama2(messages, add_generation_prompt),
+        ChatFormat::Llama3 => render_llama3(messages, add_generation_prompt),
         ChatFormat::Alpaca => render_alpaca(messages, add_generation_prompt),
         ChatFormat::Custom(t) => render_custom(messages, t, add_generation_prompt),
     }
+}
+
+fn render_llama3(messages: &[Message], add_gen: bool) -> String {
+    // Llama-3 instruct format: a single <|begin_of_text|>, then each turn as
+    // <|start_header_id|>role<|end_header_id|>\n\ncontent<|eot_id|>, then the
+    // assistant header if a generation prompt is requested.
+    let mut out = String::from("<|begin_of_text|>");
+    for m in messages {
+        let role = match m.role {
+            Role::System => "system",
+            Role::User => "user",
+            Role::Assistant => "assistant",
+        };
+        out.push_str("<|start_header_id|>");
+        out.push_str(role);
+        out.push_str("<|end_header_id|>\n\n");
+        out.push_str(m.content.trim());
+        out.push_str("<|eot_id|>");
+    }
+    if add_gen {
+        out.push_str("<|start_header_id|>assistant<|end_header_id|>\n\n");
+    }
+    out
 }
 
 fn render_chatml(messages: &[Message], add_gen: bool) -> String {
@@ -238,6 +295,57 @@ mod tests {
         let s = render(&convo(), &ChatFormat::ChatML, false);
         assert!(!s.ends_with("<|im_start|>assistant\n"));
         assert!(s.ends_with("<|im_end|>\n"));
+    }
+
+    #[test]
+    fn llama3_format_exact() {
+        let msgs = vec![Message::system("You are helpful."), Message::user("Hi")];
+        let s = render(&msgs, &ChatFormat::Llama3, true);
+        assert_eq!(
+            s,
+            "<|begin_of_text|>\
+             <|start_header_id|>system<|end_header_id|>\n\nYou are helpful.<|eot_id|>\
+             <|start_header_id|>user<|end_header_id|>\n\nHi<|eot_id|>\
+             <|start_header_id|>assistant<|end_header_id|>\n\n"
+        );
+    }
+
+    #[test]
+    fn llama3_no_generation_prompt_ends_on_eot() {
+        let msgs = vec![Message::user("Hi")];
+        let s = render(&msgs, &ChatFormat::Llama3, false);
+        assert!(s.ends_with("<|eot_id|>"));
+        assert!(!s.contains("<|start_header_id|>assistant"));
+    }
+
+    #[test]
+    fn detect_format_by_marker() {
+        // ChatML (Qwen)
+        assert_eq!(
+            detect_format("{% for message in messages %}{{ '<|im_start|>' + message['role'] }}"),
+            Some(ChatFormat::ChatML)
+        );
+        // Llama-3 header markers
+        assert_eq!(
+            detect_format("{{ '<|start_header_id|>' + message['role'] + '<|end_header_id|>' }}"),
+            Some(ChatFormat::Llama3)
+        );
+        // Llama-2 [INST]
+        assert_eq!(
+            detect_format("{{ bos_token + '[INST] ' + message['content'] + ' [/INST]' }}"),
+            Some(ChatFormat::Llama2)
+        );
+        // Unknown → None (caller newline-joins)
+        assert_eq!(detect_format("{{ some_exotic_thing }}"), None);
+    }
+
+    #[test]
+    fn from_role_maps_openai_roles() {
+        assert_eq!(Message::from_role("system", "x").role, Role::System);
+        assert_eq!(Message::from_role("assistant", "x").role, Role::Assistant);
+        assert_eq!(Message::from_role("user", "x").role, Role::User);
+        // unknown role never drops content — maps to user
+        assert_eq!(Message::from_role("tool", "x").role, Role::User);
     }
 
     #[test]

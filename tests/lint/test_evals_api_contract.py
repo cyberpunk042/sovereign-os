@@ -196,9 +196,11 @@ def test_osctl_dispatches_evals():
 
 
 def test_master_dashboard_route_registered():
-    body = (REPO_ROOT / "scripts" / "operator" / "master-dashboard.py").read_text(encoding="utf-8")
-    assert '"evals"' in body, "master-dashboard missing evals route"
-    assert "8108" in body, "evals route must declare port 8108"
+    # F-2026-072: the aggregator route table moved to the generated
+    # config/dashboard-routes.yaml and uses the canonical catalog slug.
+    routes = (REPO_ROOT / "config" / "dashboard-routes.yaml").read_text(encoding="utf-8")
+    assert "d-10-eval-history" in routes, "aggregator table missing d-10-eval-history route"
+    assert "8108" in routes, "d-10-eval-history route must declare port 8108"
 
 
 # ---- live endpoints (the exact d-10 fetch contract) -----------------------

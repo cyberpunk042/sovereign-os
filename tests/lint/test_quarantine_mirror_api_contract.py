@@ -163,8 +163,11 @@ def test_osctl_dispatches_quarantine_mirror():
 
 
 def test_master_dashboard_route_registered():
-    body = (REPO_ROOT / "scripts" / "operator" / "master-dashboard.py").read_text(encoding="utf-8")
-    assert '"quarantine-mirror"' in body and "8114" in body
+    # F-2026-072: the aggregator route table moved to the generated
+    # config/dashboard-routes.yaml and uses the canonical catalog slug.
+    routes = (REPO_ROOT / "config" / "dashboard-routes.yaml").read_text(encoding="utf-8")
+    assert "d-17-quarantine" in routes, "aggregator table missing d-17-quarantine route"
+    assert "8114" in routes, "d-17-quarantine route must declare port 8114"
 
 
 # ---- live endpoints --------------------------------------------------------
