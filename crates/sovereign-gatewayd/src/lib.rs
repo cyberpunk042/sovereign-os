@@ -347,8 +347,8 @@ pub struct Health {
     /// Whether the station's NIC topology matches the master-spec §8.1
     /// Zero-Trust model (true when no violations were detected at startup).
     pub nic_topology_compliant: bool,
-    /// Number of documents in the RAG corpus (`0` ⇒ RAG off — prompts pass
-    /// through ungrounded).
+    /// Number of retrievable passages (chunks) in the RAG corpus (`0` ⇒ RAG off —
+    /// prompts pass through ungrounded).
     pub rag_corpus_docs: usize,
 }
 
@@ -626,11 +626,13 @@ pub struct GatewayServer {
     events: Mutex<VecDeque<ObservabilitySpan>>,
     /// Monotonic per-request trace-id source for the spans.
     trace_seq: std::sync::atomic::AtomicU64,
-    /// Optional RAG corpus: a lexical retriever built once from the
-    /// `SOVEREIGN_GATEWAY_CORPUS` directory (deterministic + embedding-free), used
-    /// to prepend grounding context to a prompt BEFORE generation. Read-only after
-    /// construction, so no lock is needed. `None` ⇒ RAG off (prompts pass through).
-    corpus: Option<sovereign_retrieval::DocStore>,
+    /// Optional RAG corpus: a HYBRID retriever (BM25 lexical + char-n-gram
+    /// embeddings fused by Reciprocal Rank Fusion) built once from the
+    /// `SOVEREIGN_GATEWAY_CORPUS` directory, with each file chunked into passages.
+    /// Deterministic (no model needed). Used to prepend grounding context to a
+    /// prompt BEFORE generation. Read-only after construction, so no lock is
+    /// needed. `None` ⇒ RAG off (prompts pass through).
+    corpus: Option<sovereign_retrieval::HybridStore>,
 }
 
 /// A loaded local generation engine: real weights + a real byte-level BPE
@@ -1138,7 +1140,7 @@ fn memory_store_path() -> Option<std::path::PathBuf> {
 /// no corpus (or it retrieves nothing). Split out so the wiring is unit-testable
 /// without touching process env.
 fn rag_augment_with(
-    corpus: Option<&sovereign_retrieval::DocStore>,
+    corpus: Option<&sovereign_retrieval::HybridStore>,
     prompt: &str,
     k: usize,
 ) -> String {
@@ -1161,12 +1163,34 @@ fn rag_top_k() -> usize {
         .unwrap_or(DEFAULT_RAG_TOP_K)
 }
 
+/// Default chunk target / overlap (chars) for splitting corpus files into
+/// retrievable passages. Overridable via `SOVEREIGN_GATEWAY_RAG_CHUNK` /
+/// `SOVEREIGN_GATEWAY_RAG_OVERLAP`.
+const DEFAULT_RAG_CHUNK_CHARS: usize = 900;
+const DEFAULT_RAG_OVERLAP_CHARS: usize = 120;
+
+fn rag_chunk_params() -> (usize, usize) {
+    let target = std::env::var("SOVEREIGN_GATEWAY_RAG_CHUNK")
+        .ok()
+        .and_then(|v| v.trim().parse::<usize>().ok())
+        .filter(|&n| n > 0)
+        .unwrap_or(DEFAULT_RAG_CHUNK_CHARS);
+    let overlap = std::env::var("SOVEREIGN_GATEWAY_RAG_OVERLAP")
+        .ok()
+        .and_then(|v| v.trim().parse::<usize>().ok())
+        .unwrap_or(DEFAULT_RAG_OVERLAP_CHARS)
+        .min(target.saturating_sub(1)); // overlap must stay below the target
+    (target, overlap)
+}
+
 /// Build the RAG corpus from `SOVEREIGN_GATEWAY_CORPUS`: each `.md`/`.markdown`/
-/// `.txt` file in that directory becomes one retrievable document (id = file
-/// name), loaded in sorted order so the store is deterministic. Returns `None`
-/// (RAG off) when the var is unset, the path isn't a directory, or it holds no
-/// eligible files — each case logged, never a hard failure.
-fn load_corpus_from_env() -> Option<sovereign_retrieval::DocStore> {
+/// `.txt` file in that directory is **chunked** into sentence-aware passages
+/// (with overlap) and each passage indexed into a HYBRID retriever — BM25 lexical
+/// retrieval fused with char-n-gram embedding retrieval by RRF. Files are read in
+/// sorted order and chunk ids are `{file}#{i}`, so the store is deterministic.
+/// Returns `None` (RAG off) when the var is unset, the path isn't a directory, or
+/// it holds no eligible files — each case logged, never a hard failure.
+fn load_corpus_from_env() -> Option<sovereign_retrieval::HybridStore> {
     let dir = std::path::PathBuf::from(std::env::var_os("SOVEREIGN_GATEWAY_CORPUS")?);
     if !dir.is_dir() {
         eprintln!(
@@ -1186,27 +1210,34 @@ fn load_corpus_from_env() -> Option<sovereign_retrieval::DocStore> {
         })
         .collect();
     paths.sort();
-    let mut store = sovereign_retrieval::DocStore::new();
-    let mut n = 0usize;
+    let (target, overlap) = rag_chunk_params();
+    let mut store = sovereign_retrieval::HybridStore::new();
+    let mut files = 0usize;
     for p in &paths {
         if let Ok(text) = std::fs::read_to_string(p) {
             let id = p
                 .file_name()
                 .map(|s| s.to_string_lossy().into_owned())
                 .unwrap_or_default();
-            store.add(id, text);
-            n += 1;
+            for (i, chunk) in sovereign_chunker::chunk(&text, target, overlap)
+                .iter()
+                .enumerate()
+            {
+                store.add(format!("{id}#{i}"), chunk.clone());
+            }
+            files += 1;
         }
     }
-    if n == 0 {
+    if store.is_empty() {
         eprintln!(
-            "sovereign-gatewayd: SOVEREIGN_GATEWAY_CORPUS={} holds no .md/.txt files — RAG disabled",
+            "sovereign-gatewayd: SOVEREIGN_GATEWAY_CORPUS={} holds no .md/.txt content — RAG disabled",
             dir.display()
         );
         return None;
     }
     eprintln!(
-        "sovereign-gatewayd: RAG corpus loaded — {n} document(s) from {}",
+        "sovereign-gatewayd: RAG corpus loaded — {} passage(s) from {files} file(s) in {} (hybrid BM25+embedding)",
+        store.len(),
         dir.display()
     );
     Some(store)
@@ -1552,12 +1583,13 @@ impl GatewayServer {
         rag_augment_with(self.corpus.as_ref(), prompt, rag_top_k())
     }
 
-    /// Number of documents in the RAG corpus (0 when none is loaded).
+    /// Number of retrievable passages (chunks) in the RAG corpus (0 when none is
+    /// loaded).
     #[must_use]
     pub fn corpus_len(&self) -> usize {
         self.corpus
             .as_ref()
-            .map_or(0, sovereign_retrieval::DocStore::len)
+            .map_or(0, sovereign_retrieval::HybridStore::len)
     }
 
     /// Whether the PRIMARY local generation worker pool is loaded (the default route).
@@ -2928,8 +2960,8 @@ mod tests {
 
     #[test]
     fn rag_augment_injects_retrieved_context() {
-        use sovereign_retrieval::DocStore;
-        let mut store = DocStore::new();
+        use sovereign_retrieval::HybridStore;
+        let mut store = HybridStore::new();
         store.add("capital", "The capital of France is Paris.");
         store.add("weather", "It often rains in Seattle.");
         // A France query retrieves the capital doc and prepends it as context.
@@ -2941,6 +2973,26 @@ mod tests {
         assert!(!out.contains("Seattle"), "{out}");
         // No corpus ⇒ passthrough unchanged.
         assert_eq!(rag_augment_with(None, "hello", 3), "hello");
+    }
+
+    #[test]
+    fn rag_chunks_a_long_doc_and_retrieves_the_right_passage() {
+        use sovereign_retrieval::HybridStore;
+        // A long multi-topic document, chunked the way the loader does.
+        let doc = "Photosynthesis converts sunlight into chemical energy in plants. \
+                   Chlorophyll absorbs light in the leaves. \
+                   The capital of France is Paris, a major European city. \
+                   The Eiffel Tower stands on the Champ de Mars. \
+                   Mitochondria are the powerhouse of the cell.";
+        let mut store = HybridStore::new();
+        for (i, c) in sovereign_chunker::chunk(doc, 60, 10).iter().enumerate() {
+            store.add(format!("doc#{i}"), c.clone());
+        }
+        assert!(store.len() > 1, "long doc should split into passages");
+        // The France passage is retrieved, not the biology ones.
+        let out = rag_augment_with(Some(&store), "capital of France", 1);
+        assert!(out.contains("Paris"), "{out}");
+        assert!(!out.contains("Photosynthesis"), "{out}");
     }
 
     #[test]

@@ -4916,6 +4916,7 @@ dependencies = [
  "sovereign-branch-scheduler",
  "sovereign-calc",
  "sovereign-chat-template",
+ "sovereign-chunker",
  "sovereign-coat",
  "sovereign-control-word",
  "sovereign-control-word-service",
