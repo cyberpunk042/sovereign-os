@@ -107,9 +107,13 @@ def _parse_scalar(raw: str):
     return raw
 
 
-def cmd_show(args: argparse.Namespace) -> int:
+def show_payload() -> dict:
+    """The effective-settings payload (base TOML + JSON overlay) —
+    shared by `show --json` and the cockpit's read-only live-state
+    endpoint (GET /api/control/notifykit on the control-exec-api), so
+    the overlay panel prefills from the SAME truth the CLI prints."""
     cfg = _load_config()
-    payload = {
+    return {
         "base": str(_base_path()),
         "overrides": str(_overrides_path()),
         "sms_present": cfg.sms_present(),
@@ -125,6 +129,11 @@ def cmd_show(args: argparse.Namespace) -> int:
         },
         "triggers": cfg.triggers,
     }
+
+
+def cmd_show(args: argparse.Namespace) -> int:
+    cfg = _load_config()
+    payload = show_payload()
     if args.json:
         print(json.dumps(payload, indent=2))
         return 0
