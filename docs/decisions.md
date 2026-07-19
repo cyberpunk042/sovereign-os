@@ -970,6 +970,22 @@ limit.
 
 **Linked**: SDD-985 (decision package); F-2026-035 retirement.
 
+### D-025 — 2026-07-19 — MS003 commit-authority: Option B — sovereign-os mints ed25519 locally, selfdef verifies
+
+**Decision**: For sovereign-os's own locally-executed privileged mutations + decision-writers (the surface that stamped `signature: "unsigned-pending-MS003"`), adopt **Option B** — sovereign-os mints a real ed25519 signature over each mutation/decision record using a local operator key; selfdef (the producer) verifies. selfdef-owned controls (`selfdef`, `perimeter`) stay a pure signed-proxy (Option A) — unchanged. Resolves the "open sub-decision (operator-gated)" flagged in D-020. Originally chosen 2026-07-13; re-affirmed by the operator 2026-07-19.
+
+**Question**: SDD-984 core decision — for locally-executed sovereign-os-owned mutations, what does "signed" mean: A (selfdef mints every signature, couples to selfdef uptime), B (sovereign-os mints ed25519 locally, selfdef verifies), or C (formalize honestly-unsigned)?
+
+**Source**: `docs/sdd/984-ms003-commit-authority-decision-package.md` (the core decision); resolves the D-020 open sub-decision on F-2026-034.
+
+**Rationale**: Option B delivers real commit-authority **now** without breaking **MS043 offline-survivability** — the box signs locally, so a mutation never round-trips to selfdef on the hot path (Option A's fatal coupling). It respects **R10212** (signs only records sovereign-os already authors; selfdef-owned surfaces stay proxy) and slots into the existing `signature` field + `sovereign-zfs-commit-gate` envelope. Option C leaves the CRIT finding closed-in-name-only with no tamper-evidence on the record itself. B was already implemented on the sovereign-os side after the original pick: **SDD-989** (producer primitive `scripts/lib/ms003.py`, real ed25519 via system openssl, no new dep) + **SDD-990** (wired into all 8 decision/mutation writers) + the 2026-07-17 local verifier (trust-anchor store + `sovereign-osctl ms003` + daily sweep).
+
+**Affected items**: `docs/sdd/984-*` (status → accepted); `scripts/lib/ms003.py` + the 8 writers (SDD-989/990, already shipped); `docs/review/phase-1/99-findings-ledger.md` (F-2026-034 — producer + local-verifier halves done; stays open on the selfdef-side verifier).
+
+**Reversibility**: partial — the producer signing is shipped + tests-locked; reversing would mean removing SDD-989/990, and the wire-format contract `ms003:ed25519:<keyid>:<sig>` is now something selfdef is being asked to consume (cross-repo commitment).
+
+**Linked**: SDD-984 (decision package) → SDD-989 + SDD-990 (implementation); F-2026-034 (open on the selfdef verifier half).
+
 ## Cross-references
 
 - Charter: `docs/sdd/000-charter.md`
