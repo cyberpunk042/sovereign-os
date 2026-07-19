@@ -1,0 +1,22 @@
+/* webapp/_shared/quant-picker.css — SDD-049 load-time quantization picker.
+ * Palette vars mirror control-surface.css (--bg/--fg/--muted/--accent/--border)
+ * so the picker is theme-consistent in light + dark. Inlined verbatim per panel
+ * (lockstep, tests/lint/test_quant_picker_contract.py) alongside quant-picker.js. */
+#quant-picker.qp { margin: 1.2rem 0 .6rem; }
+.qp .qp-sub { color: var(--muted, #888); font-size: .85rem; max-width: 62ch; margin: .2rem 0 .7rem; }
+.qp .qp-lbl { display: inline-flex; flex-direction: column; gap: .25rem; font-size: .8rem; color: var(--muted, #888); }
+.qp #qp-base { font: inherit; padding: .35rem .5rem; background: var(--bg, #0e0e0e); color: var(--fg, #e6e6e6);
+               border: 1px solid var(--border, #262626); border-radius: 5px; min-width: 22rem; max-width: 100%; }
+.qp #qp-base:focus { outline: 0; border-color: var(--accent, #9bd1ff); }
+.qp .qp-variants { display: flex; flex-wrap: wrap; gap: .5rem; margin: .7rem 0 0; }
+.qp .qp-variant { display: inline-flex; flex-direction: column; align-items: flex-start; gap: .1rem;
+                  font: inherit; text-align: left; padding: .4rem .6rem; cursor: pointer;
+                  background: var(--bg, #0e0e0e); color: var(--fg, #e6e6e6);
+                  border: 1px solid var(--border, #262626); border-radius: 6px; }
+.qp .qp-variant:hover { border-color: var(--accent, #9bd1ff); }
+.qp .qp-variant[aria-pressed="true"] { background: var(--accent, #9bd1ff); color: #0a0a0a; border-color: var(--accent, #9bd1ff); }
+.qp .qp-variant[aria-pressed="true"] .qp-meta { color: #0a0a0a; opacity: .85; }
+.qp .qp-variant .qp-q { font-weight: 600; font-size: .82rem; }
+.qp .qp-variant .qp-meta { font-size: .72rem; color: var(--muted, #888); }
+.qp .qp-chosen { margin: .7rem 0 0; font-size: .82rem; color: var(--muted, #888); }
+.qp .qp-chosen code { background: var(--border, #262626); padding: 1px 5px; border-radius: 3px; }
