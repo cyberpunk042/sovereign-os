@@ -446,3 +446,98 @@ def test_brain_files_route_the_methodology_surfaces():
         assert marker in agents, f"AGENTS.md missing {marker}"
     claude = (REPO_ROOT / "CLAUDE.md").read_text(encoding="utf-8")
     assert "AGENTS.md" in claude
+
+
+# ── 2026-07-19 R228 → notifykit bridge (the "what's next" #6 seam) ──────
+
+
+DISPATCH = REPO_ROOT / "scripts" / "notify" / "dispatch.py"
+
+
+def _scan_json(tmp_path: Path) -> Path:
+    p = tmp_path / "scan.json"
+    p.write_text(json.dumps({
+        "summary": {"ok": 0, "attention": 1, "informational": 0, "total": 1},
+        "needs_attention": True,
+        "probes": [{"probe": "network", "severity": "down",
+                    "round": "R226", "vector": "Z", "detail": "link down"}],
+    }))
+    return p
+
+
+def _bridge_env(tmp_path: Path, with_config: bool) -> dict:
+    import os
+    env = dict(os.environ)
+    env["SOVEREIGN_OS_NOTIFY_CONFIG"] = str(tmp_path / "absent-notify.toml")
+    env["SOVEREIGN_OS_NOTIFY_STATE"] = str(tmp_path / "state.json")
+    env.pop("SOVEREIGN_OS_DRY_RUN", None)
+    if with_config:
+        sink = tmp_path / "bridge-sink.jsonl"
+        nk = tmp_path / "notifykit.toml"
+        nk.write_text(
+            "[channels.file]\nkind = \"file\"\nenabled = true\n"
+            f"path = \"{sink}\"\n"
+            "[channels.sms]\nkind = \"mock\"\nenabled = true\n"
+            "min_priority = \"high\"\nmin_urgency = \"high\"\n")
+        env["SOVEREIGN_OS_NOTIFYKIT_CONFIG"] = str(nk)
+    else:
+        env["SOVEREIGN_OS_NOTIFYKIT_CONFIG"] = str(tmp_path / "absent-nk.toml")
+    return env
+
+
+def test_bridge_inactive_keeps_legacy_contract(tmp_path):
+    env = _bridge_env(tmp_path, with_config=False)
+    r = subprocess.run(
+        [sys.executable, str(DISPATCH), "dispatch",
+         "--from-file", str(_scan_json(tmp_path)), "--json"],
+        capture_output=True, text=True, env=env)
+    d = json.loads(r.stdout)
+    assert d["events_emitted"] == 1
+    assert all(x["channel"] != "notifykit-bridge" for x in d["deliveries"])
+
+
+def test_bridge_dispatches_health_events_with_severity_axes(tmp_path):
+    env = _bridge_env(tmp_path, with_config=True)
+    r = subprocess.run(
+        [sys.executable, str(DISPATCH), "dispatch",
+         "--from-file", str(_scan_json(tmp_path)), "--json"],
+        capture_output=True, text=True, env=env)
+    d = json.loads(r.stdout)
+    bridge = [x for x in d["deliveries"] if x["channel"] == "notifykit-bridge"]
+    assert bridge and bridge[0]["ok"], d["deliveries"]
+    rows = [json.loads(line) for line in
+            (tmp_path / "bridge-sink.jsonl").read_text().splitlines()]
+    assert rows[0]["source"] == "r228-health"
+    # down → max/urgent (mirrors legacy ntfy Priority 5)
+    assert rows[0]["priority"] == "max" and rows[0]["urgency"] == "urgent"
+
+
+def test_bridge_zero_events_appends_no_delivery(tmp_path):
+    env = _bridge_env(tmp_path, with_config=True)
+    scan = _scan_json(tmp_path)
+    a1 = subprocess.run([sys.executable, str(DISPATCH), "dispatch",
+                         "--from-file", str(scan), "--json"],
+                        capture_output=True, text=True, env=env)
+    assert json.loads(a1.stdout)["events_emitted"] == 1
+    a2 = subprocess.run([sys.executable, str(DISPATCH), "dispatch",
+                         "--from-file", str(scan), "--json"],
+                        capture_output=True, text=True, env=env)
+    d2 = json.loads(a2.stdout)
+    assert d2["events_emitted"] == 0
+    assert d2["deliveries"] == []      # the pinned legacy dedup contract
+
+
+def test_notify_test_channel_notifykit(tmp_path):
+    env = _bridge_env(tmp_path, with_config=True)
+    r = subprocess.run(
+        [sys.executable, str(DISPATCH), "test", "--channel", "notifykit",
+         "--severity", "attention"],
+        capture_output=True, text=True, env=env)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "notifykit" in r.stdout and "delivered" in r.stdout
+    env2 = _bridge_env(tmp_path / "sub", with_config=False)
+    (tmp_path / "sub").mkdir(exist_ok=True)
+    r2 = subprocess.run(
+        [sys.executable, str(DISPATCH), "test", "--channel", "notifykit"],
+        capture_output=True, text=True, env=env2)
+    assert r2.returncode == 2 and "bridge inactive" in r2.stdout
