@@ -12,6 +12,29 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — GPT-OSS real-model coherence harness (2026-07-19)
+
+Caps the GPT-OSS decoder line (the block FFN math, the full GGUF path, and the
+safetensors MXFP4 → fused-expert → clamped-α/biases/sinks assembly) with the one
+check no synthetic fixture can stand in for: does a **real** gpt-oss checkpoint,
+loaded by `sovereign-safetensors-loader`, produce sane autoregressive logits?
+
+- **`crates/sovereign-safetensors-loader/tests/gpt_oss_coherence.rs`** — an
+  **env-gated** integration test (`SOVEREIGN_GPT_OSS_GGUF=/path/to/gpt-oss.gguf`,
+  optional `SOVEREIGN_GPT_OSS_PROMPT_IDS`). CI compiles it and **skips** cleanly
+  (no multi-GB checkpoint on the runner); point it at a GGUF and run it to close
+  the coherence gate. It loads via `load_gguf`, greedily rolls out ~25 tokens
+  over the stateful KV cache, and at every step **asserts** the mechanical
+  invariants a broken dequant/assembly would trip (logits finite, non-degenerate,
+  valid argmax) while **emitting** the greedy rollout for human coherence
+  judgement — the harness produces the evidence, it does not fabricate a
+  coherence threshold. A GGUF is the tractable real path: k-quant experts this
+  crate already dequants byte-exact + the tokenizer in metadata, so no MXFP4 and
+  no vocab bridge are needed to smoke it. The **safetensors** arm
+  (`openai/gpt-oss-20b`, multi-shard MXFP4) is a documented follow-up gated on the
+  loader's multi-shard/index assembly. Real-model coherence stays checkpoint-gated
+  until this is run against one; the GGUF path is the coherence anchor.
+
 ### Added — the goal-loop trace sink: the M046 trace source (2026-07-16)
 
 Operator-directed (*"go"*) (SDD-723) — close the last software gap in the M046 loop after SDD-721 (train) +
