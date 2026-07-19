@@ -29,6 +29,11 @@ Sovereignty (stdlib-only, zero deps):
 Endpoints:
   GET  /api/control/registry     which controls execute-locally vs proxy-only
                                  (+ the control-systems list the UI renders)
+  GET  /api/control/compat       ?control_id=X — per-option compat preview
+                                 against best-effort current state (the rail
+                                 GREYS force-incompatible options; warn/suggest
+                                 annotate). Read-only; same registry truth as
+                                 the execute() pre-change gate.
   POST /api/control/execute      body {control_id, args?, confirm?} ->
                                  _action_exec.execute() ; HTTP status mirrors
                                  the primitive's result code (200/400/403/404/409/…)
@@ -50,9 +55,14 @@ import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-# _action_exec lives beside this file (scripts/operator/). Import it directly.
+# _action_exec + compat live beside this file (scripts/operator/). Import directly.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import _action_exec  # noqa: E402
+
+try:
+    import compat as _compat  # noqa: E402 — the compat preview is optional
+except Exception:  # noqa: BLE001 — a broken compat module never kills the rail
+    _compat = None
 
 # The Plan Mode / User Approval Auto-mode safety classifier (lib/). Import
 # directly so this daemon can gate destructive controls before they execute.
@@ -132,10 +142,26 @@ class ControlExecAPIHandler(BaseHTTPRequestHandler):
         if path == "/api/control/registry":
             self._send_json(200, _registry_payload())
             return
+        if path == "/api/control/compat":
+            qs = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+            control_id = (qs.get("control_id") or [""])[0]
+            if not control_id:
+                self._send_json(400, {"error": "pass ?control_id=<id>"})
+                return
+            if _compat is None:
+                self._send_json(503, {"error": "compat module unavailable",
+                                      "control_id": control_id})
+                return
+            preview = _compat.option_preview(control_id)
+            if preview is None:
+                self._send_json(404, {"error": f"unknown control {control_id!r}"})
+                return
+            self._send_json(200, preview)
+            return
         self._send_json(404, {
             "error": f"unknown endpoint: {path!r}",
-            "available": ["/api/control/registry", "/api/control/execute (POST)",
-                          "/version", "/healthz"],
+            "available": ["/api/control/registry", "/api/control/compat",
+                          "/api/control/execute (POST)", "/version", "/healthz"],
         })
 
     def do_HEAD(self) -> None:  # noqa: N802

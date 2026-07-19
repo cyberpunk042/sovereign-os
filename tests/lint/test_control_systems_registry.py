@@ -42,6 +42,9 @@ EXPECTED_IDS = {
     "jobs-store",
     # 2026-07-19 — notification settings (shared header-settings overlay)
     "notify-channel", "notify-override", "notify-trigger",
+    # 2026-07-19 — compat integration pass: the two inference surfaces the
+    # C006/C007 compat rules relate (both unprivileged operator-user scripts)
+    "oracle-hybrid", "dflash-speculative-decoding",
 }
 VALID_KINDS = {"profile", "mode", "toggle", "lifecycle"}
 VALID_SCOPES = {"global", "scoped"}

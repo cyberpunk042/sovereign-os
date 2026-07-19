@@ -73,6 +73,52 @@ _OPERATOR_KEY_PATH = Path(
                    str(Path.home() / ".sovereign-os" / "operator.key")))
 _OPERATOR_KEY_STATUS = Path("/run/sovereign-os/operator-key-status.json")
 
+# ── compat pre-change gate (2026-07-19 follow-on to the compat module) ──────
+# Before a control mutates, the proposed change is overlaid on best-effort
+# current state and evaluated against config/compatibility.yaml. A
+# force-severity finding REFUSES with reason + remediation (the operator's
+# "suggest or even force something else off in order to enable one thing"),
+# override-able per call with args={"compat_override": "true"} (audited via
+# the compat-override metric outcome). warn/suggest findings ride the result.
+# SOVEREIGN_OS_COMPAT_GATE=off disables; an unreadable compat registry
+# degrades OPEN (the rail must not die with the gate).
+
+
+def _compat_pre_change(control: dict, control_id: str,
+                       args: dict[str, str]) -> dict[str, Any] | None:
+    """Compat findings for this action, or None when the gate is off /
+    unavailable / the proposed option cannot be derived. Never raises."""
+    if os.environ.get("SOVEREIGN_OS_COMPAT_GATE", "on").lower() in ("off", "0"):
+        return None
+    try:
+        import sys as _sys
+        _here = str(Path(__file__).resolve().parent)
+        if _here not in _sys.path:
+            _sys.path.insert(0, _here)
+        import compat  # scripts/operator/compat.py — same directory
+    except Exception:  # noqa: BLE001 — gate degrades open, rail survives
+        return None
+    options = {str(o).lower() if isinstance(o, bool) else str(o)
+               for o in (control.get("options") or [])}
+    proposed_opt = next(
+        (str(v) for v in args.values() if str(v) in options), None)
+    if proposed_opt is None:
+        # Toggle CLIs verb differently from their state options
+        # (`dspark {enable|disable}` flips options ["on","off"]).
+        verb_map = {"enable": "on", "disable": "off"}
+        proposed_opt = next(
+            (verb_map[str(v)] for v in args.values()
+             if str(v) in verb_map and verb_map[str(v)] in options), None)
+    try:
+        res = compat.pre_change({control_id: proposed_opt})
+    except Exception:  # noqa: BLE001
+        return None
+    if not isinstance(res, dict) or not res.get("available"):
+        return None
+    if not res.get("findings"):
+        return None
+    return res
+
 
 # ── registry ────────────────────────────────────────────────────────────────
 
@@ -184,7 +230,8 @@ def _emit_metric(control_id: str, outcome: str) -> None:
     """Best-effort Prometheus counter to the node_exporter textfile collector so
     the operator has observability into cockpit action attempts + rejects
     (outcome ∈ executed / dry-run / boundary-reject / validation-reject /
-    confirm-required / key-missing / busy / error / unknown-control). Reads
+    compat-reject / compat-override / confirm-required / key-missing / busy /
+    error / unknown-control). Reads
     SOVEREIGN_OS_METRICS_DIR at call time; never raises."""
     metrics_dir = os.environ.get(
         "SOVEREIGN_OS_METRICS_DIR", "/var/lib/node_exporter/textfile_collector")
@@ -275,6 +322,26 @@ def execute(control_id: str, args: dict[str, str] | None = None, *,
         return {"ok": False, "code": 400, "control_id": control_id, "error": err,
                 "options": control.get("options")}
 
+    # ── compat pre-change gate — force findings refuse (with reason +
+    #    remediation + audited override); warn/suggest ride the result ──
+    compat_res = _compat_pre_change(control, control_id, args)
+    if compat_res is not None and compat_res.get("gating"):
+        override = str(args.get("compat_override", "")).lower() in ("1", "true", "yes")
+        if not override:
+            first = next(f for f in compat_res["findings"]
+                         if f["severity"] == "force")
+            _emit_metric(control_id, "compat-reject")
+            return {
+                "ok": False, "code": 409, "control_id": control_id,
+                "compat": compat_res,
+                "error": (f"compat gate: {first['rule_id']} ({first['verb']}) — "
+                          f"{first['reason']}"),
+                "remediation": first["remediation"],
+                "override": "pass args={'compat_override': 'true'} to proceed "
+                            "anyway (audited)",
+            }
+        _emit_metric(control_id, "compat-override")
+
     privileged = bool(control.get("privileged"))
     if privileged:
         if not operator_key_loaded():
@@ -292,8 +359,11 @@ def execute(control_id: str, args: dict[str, str] | None = None, *,
     run_argv = _privileged_argv(argv, privileged)
     if dry_run:
         _emit_metric(control_id, "dry-run")
-        return {"ok": True, "code": 200, "control_id": control_id, "dry_run": True,
-                "argv": argv, "would_run": run_argv}
+        result = {"ok": True, "code": 200, "control_id": control_id,
+                  "dry_run": True, "argv": argv, "would_run": run_argv}
+        if compat_res is not None:
+            result["compat"] = compat_res
+        return result
 
     if not _RUN_LOCK.acquire(blocking=False):
         _emit_metric(control_id, "busy")
@@ -304,10 +374,14 @@ def execute(control_id: str, args: dict[str, str] | None = None, *,
                               text=True, timeout=timeout, check=False)
         _emit_audit(control_id, argv, proc.returncode, actor, dry_run=False)
         _emit_metric(control_id, "executed" if proc.returncode == 0 else "error")
-        return {"ok": proc.returncode == 0, "code": 200 if proc.returncode == 0 else 500,
-                "control_id": control_id, "argv": argv, "dry_run": False,
-                "exit_code": proc.returncode,
-                "stdout": proc.stdout[-4000:], "stderr": proc.stderr[-2000:]}
+        result = {"ok": proc.returncode == 0,
+                  "code": 200 if proc.returncode == 0 else 500,
+                  "control_id": control_id, "argv": argv, "dry_run": False,
+                  "exit_code": proc.returncode,
+                  "stdout": proc.stdout[-4000:], "stderr": proc.stderr[-2000:]}
+        if compat_res is not None:
+            result["compat"] = compat_res
+        return result
     except subprocess.TimeoutExpired:
         _emit_metric(control_id, "error")
         return {"ok": False, "code": 504, "control_id": control_id, "argv": argv,

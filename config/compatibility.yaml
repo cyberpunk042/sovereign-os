@@ -20,6 +20,19 @@
 #     kind=mode/profile system is ALREADY an implicit pick-one group
 #     (the compiler emits an exclusivity mask per such system); the
 #     rules below add the CROSS-system relations the registry lacks.
+#   scope v2 (2026-07-19 follow-on) — the PROVISIONING universe: the
+#     image-build modules (profiles/*.yaml + profiles/mixins/) join the
+#     bit universe as two virtual systems (provisioning-profile
+#     pick-one + provisioning-mixin), with IMPLICIT per-profile
+#     `requires` relations derived from each profile's own declared
+#     mixins list. Rules may reference the virtual systems like any
+#     registry system.
+#   pre-change gate — scripts/operator/_action_exec.py overlays every
+#     exec-rail control change on best-effort current state and
+#     evaluates these rules BEFORE executing: force refuses (with
+#     reason + remediation + an audited compat_override), warn/suggest
+#     ride the result; the cockpit greys force-incompatible options via
+#     GET /api/control/compat on the control-exec-api.
 #
 # Surfaces:
 #   sovereign-osctl compat {list, compile, check, explain, why}
@@ -140,3 +153,59 @@ compatibility:
       refs:
         - config/control-systems.yaml (cpu-mode, gpu-mode)
         - scripts/power/ (workload-mode coordinator R338/R345)
+
+    # ── oracle-hybrid bench serve vs the pure-VRAM tiers ──────────────
+    # The 2026-07-19 hybrid trial endpoint claims BOTH internal GPUs
+    # (dense layers + KV, tensor-split 3,1 across the RTX PRO 6000
+    # 96 GB + RTX 5090 32 GB) — the same Blackwell pair the pure-VRAM
+    # Oracle (vLLM, ~90 GB envelope on the PRO 6000) and Logic (vLLM on
+    # the 5090) tiers occupy. Starting the hybrid while either tier
+    # serves is VRAM contention on the same silicon.
+    - id: C006-oracle-hybrid-conflicts-vram-tiers
+      verb: conflicts_with
+      when: {system: oracle-hybrid, option: start}
+      targets:
+        - {system: inference-tier, option: oracle}
+        - {system: inference-tier, option: logic}
+      severity: warn
+      reason: >-
+        The oracle-hybrid bench serve loads dense layers + KV cache
+        across the internal Blackwell pair (tensor-split 3,1); the
+        pure-VRAM Oracle and Logic tiers occupy the same two GPUs, so
+        running the hybrid alongside a serving tier contends for the
+        VRAM the tier's model is sized to fill.
+      remediation: >-
+        Stop the pure-VRAM tiers first (sovereign-osctl inference stop
+        oracle / stop logic), run the hybrid bench, then restart the
+        tiers — or skip the hybrid trial while the tiers must stay up.
+      refs:
+        - scripts/inference/start-oracle-hybrid.sh
+        - docs/evaluations/oracle-alternatives-glm47-m3-gptoss-2026-07-19.md
+
+    # ── one draft strategy per invocation: DSpark xor DFlash ──────────
+    # DSpark is the M083 successor built ON the DFlash backbone; both
+    # ship as argv-prefix wrappers around the same backend invocation.
+    # Stacking both wrappers on one invocation double-applies
+    # speculative-decoding flags to the same backend argv.
+    - id: C007-one-draft-strategy-dspark-xor-dflash
+      verb: one_of
+      when: {system: dspark-speculative-decoding}
+      targets:
+        - {system: dspark-speculative-decoding, option: "on"}
+        - {system: dflash-speculative-decoding, option: "on"}
+      severity: warn
+      reason: >-
+        DSpark and DFlash are both argv-prefix speculative-decoding
+        wrappers over the same backend invocation (DSpark is the M083
+        successor built on the DFlash draft backbone); enabling both at
+        once stacks two draft strategies onto one backend argv, and the
+        second wrapper's flags fight the first's.
+      remediation: >-
+        Pick one draft strategy — DSpark (lossless, default-on for all
+        task types) is the shipped successor; use DFlash only for the
+        task-type-gated 3x code/math trial (bench-dflash.sh), with
+        DSpark disabled for that invocation.
+      refs:
+        - config/inference/m083-dflash-speculative-decoding.yaml
+        - scripts/inference/dspark-wrap.sh
+        - scripts/inference/dflash-wrap.sh

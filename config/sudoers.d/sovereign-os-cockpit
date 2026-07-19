@@ -28,6 +28,10 @@
 
 # ── The sovereign-os-OWNED control verbs (config/control-systems.yaml) ──
 # selfdef + perimeter are DELIBERATELY absent (R10212: proxy-only, never granted).
+# `privileged: false` controls (oracle-hybrid bench serve, dflash wrapper) are
+# ALSO deliberately absent: _action_exec wraps only privileged controls in
+# `sudo -n`; unprivileged operator-user scripts must never gain NOPASSWD root
+# (guarded both ways by tests/lint/test_cockpit_action_exec_sudoers.py).
 Cmnd_Alias SOVEREIGN_OS_COCKPIT = \
     /usr/local/bin/sovereign-osctl profiles switch *, \
     /usr/local/bin/sovereign-osctl profiles generate-runtime *, \

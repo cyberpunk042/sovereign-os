@@ -53,17 +53,46 @@ def test_sudoers_present_and_draft():
 
 
 def test_every_sovereign_os_owned_verb_is_allowlisted():
+    """Scoped to PRIVILEGED controls: `_action_exec._privileged_argv()` wraps
+    only `privileged: true` controls in `sudo -n`, so only those need a
+    NOPASSWD entry. Non-privileged controls (unprivileged operator-user
+    scripts, e.g. oracle-hybrid / dflash) never elevate — requiring them in
+    the sudoers allowlist would grant root to verbs that must not have it."""
     ae = _ae()
     reg = _registry()
     body = SUDOERS.read_text()
     for cid, ctl in reg.items():
         if cid in ae.SELFDEF_OWNED:
             continue
+        if not ctl.get("privileged"):
+            continue
         prefix = _verb_prefix(ctl.get("change_cli", ""))
         assert prefix, f"{cid}: no verb prefix parsed from change_cli"
         assert prefix in body, (
             f"sovereign-os-owned control {cid!r} verb {prefix!r} is NOT in the "
             f"sudoers allowlist — a wired control must have a reviewed entry")
+
+
+def test_script_path_controls_are_never_granted_root():
+    """The inverse guard, scoped to script-path controls: a repo-relative
+    `scripts/…` change_cli (oracle-hybrid, dflash — unprivileged
+    operator-user scripts) must NEVER appear in the NOPASSWD allowlist.
+    (Some historical osctl verbs are allow-listed despite privileged:false —
+    that pre-dates this guard and is part of the DRAFT operator review; a
+    repo-relative script granted root would be new and always wrong.)"""
+    reg = _registry()
+    body = SUDOERS.read_text()
+    for cid, ctl in reg.items():
+        cli = ctl.get("change_cli", "")
+        if not cli.startswith("scripts/"):
+            continue
+        assert not ctl.get("privileged"), (
+            f"script-path control {cid!r} is marked privileged — repo-relative "
+            f"scripts run as the operator user, never under sudo")
+        prefix = _verb_prefix(cli)
+        assert prefix and prefix not in body, (
+            f"script-path control {cid!r} ({prefix!r}) appears in the sudoers "
+            f"allowlist — repo-relative scripts must not be granted NOPASSWD root")
 
 
 def test_selfdef_owned_verbs_never_allowlisted():

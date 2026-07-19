@@ -953,12 +953,40 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
       }
       post(false).then(function(r){ render(r,false); });
     }
+    // ── Compat greying (2026-07-19 compat integration): GET
+    //    /api/control/compat previews each option of a control against the
+    //    box's best-effort CURRENT state — force-incompatible options are
+    //    DISABLED (⛔ + the rule's reason/remediation as tooltip), warn/
+    //    suggest findings annotate (⚠) without disabling. Same registry
+    //    truth as the execute() pre-change gate, so the rail refuses
+    //    nothing the gate would allow. Silent no-op when the exec API is
+    //    absent (static / DEMO serving) — the selects stay fully usable. ──
+    function soCompatMark(controlId, sel){
+      if(!sel) return;
+      fetch('/api/control/compat?control_id='+encodeURIComponent(controlId),{headers:{Accept:'application/json'}})
+        .then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(p){
+          if(!p || !p.available || !p.options) return;
+          p.options.forEach(function(row){
+            for(var i=0;i<sel.options.length;i++){
+              var o=sel.options[i];
+              if(o.value!==row.option) continue;
+              var f=(row.findings&&row.findings[0])||null;
+              if(row.gating){ o.disabled=true; if(o.textContent.indexOf('⛔')!==0) o.textContent='⛔ '+o.textContent; }
+              else if(f && o.textContent.indexOf('⚠')!==0){ o.textContent='⚠ '+o.textContent; }
+              if(f) o.title=f.rule_id+': '+f.reason+' — '+f.remediation;
+            }
+          });
+        },function(){}).catch(function(){});
+    }
     // Frontend / GUI hotswap row — Apply flips the frontend mode.
     var feSel=document.getElementById('so-fe-select'), feApply=document.getElementById('so-fe-apply'), feResult=document.getElementById('so-fe-result');
     if(feApply) feApply.addEventListener('click',function(){ soExec('frontend',[feSel?feSel.value:'gnome'], feResult); });
+    soCompatMark('frontend', feSel);
     // AVX Mode hotswap row.
     var avxSel=document.getElementById('so-avx-select'), avxApply=document.getElementById('so-avx-apply'), avxResult=document.getElementById('so-avx-result');
     if(avxApply) avxApply.addEventListener('click',function(){ soExec('avx-mode',[avxSel?avxSel.value:'builtin'], avxResult); });
+    soCompatMark('avx-mode', avxSel);
     var AVX_BACKING={
       custom:{m:'M002 · M007 · M008',c:'sovereign-control-word · sovereign-simd::round/cheats · sovereign-branch-scheduler · sovereign-bit-cheats',r:'/v1/control-word/round · /v1/branch-scheduler/tick[-v2] · /v1/token-law/allowed-mask · /v1/microcode/decode',n:'the bit-machine (policy becomes bits) — runs only in custom/hybrid'},
       builtin:{m:'M085 · M086',c:'sovereign-simd::lift · sovereign-vnni · sovereign-bitops',r:'/v1/math/dot-i8 · /v1/math/attention-fuse',n:'stock AVX-512 math tiers (VNNI/BF16/VPTERNLOG)'},
@@ -995,7 +1023,8 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
         '</div></div>'));
     var provModal=document.getElementById('so-prov-modal'), provOpen=document.getElementById('so-prov-open'), provClose=document.getElementById('so-prov-close');
     function provSet(open){ provModal.hidden=!open; }
-    if(provOpen) provOpen.addEventListener('click',function(){ setPaneOpen(false); provSet(true); });
+    if(provOpen) provOpen.addEventListener('click',function(){ setPaneOpen(false); provSet(true);
+      SO_PROVIDERS.forEach(function(p){ soCompatMark(p.rt+'-backend', provModal.querySelector('select[data-prov="'+p.rt+'"]')); }); });
     if(provClose) provClose.addEventListener('click',function(){ provSet(false); });
     provModal.addEventListener('click',function(e){ if(e.target===provModal) provSet(false); });
     Array.prototype.forEach.call(provModal.querySelectorAll('.so-prov-apply'),function(btn){
