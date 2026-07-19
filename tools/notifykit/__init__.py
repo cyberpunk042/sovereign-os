@@ -13,7 +13,7 @@ is."
 Operator-confirmed design (2026-07-19 evaluation):
   - a NEW SHARED LIBRARY (this package) that sovereign-os R228 and
     sister projects both consume — stdlib-only core (urllib; no SDKs),
-    secrets by env-var NAME indirection per SDD-009, mock channels for
+    secrets by env-var NAME indirection (docs/src/operator-env-files.md), mock channels for
     credential-free testing (continuity-orchestrator registry pattern);
   - TWO AXES, ntfy-style 5 levels each:
       priority ∈ {min, low, normal, high, max}

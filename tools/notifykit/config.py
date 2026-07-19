@@ -50,7 +50,7 @@ Resolution order per gate key (weakest wins first, later layers win):
 Static pins beat the global override; that is the whole point of rule 3.
 
 Secrets: config carries env-var NAMES ("env:VAR_NAME" values), never
-values — SDD-009, same contract as sovereign-os notify.toml.
+values — the /etc/sovereign-os/*.env convention (docs/src/operator-env-files.md), same contract as sovereign-os notify.toml.
 """
 
 from __future__ import annotations
@@ -100,8 +100,9 @@ class ChannelConfig:
     options: dict[str, Any] = field(default_factory=dict)  # channel-specific
 
     def resolve_env(self, key: str, default: str = "") -> str:
-        """SDD-009 env-var indirection: option values of the form
-        'env:VAR' resolve to os.environ['VAR'] at delivery time."""
+        """Env-var NAME indirection (docs/src/operator-env-files.md):
+        option values of the form 'env:VAR' resolve to os.environ['VAR']
+        at delivery time; values live in /etc/sovereign-os/notify.env."""
         raw = str(self.options.get(key, default) or default)
         if raw.startswith("env:"):
             return os.environ.get(raw[4:], "")

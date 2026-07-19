@@ -67,6 +67,7 @@
 # Using the box (AI backend & reasoning)
 
 - [Use the box as your AI backend](./ai-backend.md)
+- [Operator env files & secrets](./operator-env-files.md)
 - [The AVX-mode bit-machine](./avx-mode-bit-machine.md)
 - [Reasoning & operability](./reasoning-operability.md)
 - [Runtime binaries](./binaries.md)

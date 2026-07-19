@@ -118,6 +118,37 @@ def _append_ledger(record: dict[str, Any]) -> None:
         pass
 
 
+def _notify_gate(decision: dict[str, Any]) -> None:
+    """2026-07-19 methodology-respect pass: every SG gate decision emits
+    through the notifykit channel stack when a config exists — the
+    `stage-gate` trigger, so the operator can set frontmatter props on it
+    (e.g. `sovereign-osctl notifykit trigger stage-gate important true`).
+    Notification must NEVER break the decision path (same contract as
+    wikiops.notify_outcome)."""
+    cfg_path = os.environ.get(
+        "SOVEREIGN_OS_NOTIFYKIT_CONFIG", "/etc/sovereign-os/notifykit.toml")
+    if not os.path.isfile(cfg_path):
+        return
+    try:
+        repo_root = Path(__file__).resolve().parents[2]
+        if str(repo_root) not in sys.path:
+            sys.path.insert(0, str(repo_root))
+        from tools.notifykit import ChannelRegistry, Event, NotifyConfig
+        gate = decision.get("gate") or ""
+        registry = ChannelRegistry(NotifyConfig.load(cfg_path))
+        registry.dispatch(Event(
+            title=(f"stage-gate {decision.get('verb')}: {decision.get('id')}"
+                   + (f" — {gate}" if gate else "")),
+            message=(f"status={decision.get('status')} "
+                     f"by {decision.get('decided_by')}"),
+            priority="high" if decision.get("verb") == "approve" else "normal",
+            urgency="normal",
+            source="stage-gate",
+        ))
+    except Exception as e:  # never mask the decision result
+        print(f"WARN stage-gate notify failed: {e}", file=sys.stderr)
+
+
 def _emit_span(decision: dict[str, Any]) -> None:
     """Best-effort OCSF-5001 (Configuration Change) M049 span so the decision
     surfaces in D-05 traces + D-16 audit (same store trace-store.py reads).
@@ -223,6 +254,7 @@ def decide(id_or_latest: str, verb: str, *, actor: str = "operator",
                             "trace_id": target.get("trace_id")})
         _append_ledger(decision)
         _emit_span(decision)
+        _notify_gate(decision)
         return _signed({"ok": True, "code": 200, "verb": verb, "id": rid, "status": new_status,
                         "gate_signed": gate if gate_signs else None, "signature": _UNSIGNED})
 

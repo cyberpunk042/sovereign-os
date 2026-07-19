@@ -31,7 +31,11 @@
 #   ntfy / file / webhook    min/min (everything flows)
 #
 # SECRETS: values of the form "env:VAR_NAME" resolve from the
-# environment at delivery time — keys NEVER live in this file (SDD-009).
+# environment at delivery time — keys NEVER live in this file (docs/src/operator-env-files.md).
+# The VALUES live in /etc/sovereign-os/notify.env (see
+# config/notify.env.example — the ups.env-style operator env file,
+# 0600 root-owned, loaded by systemd EnvironmentFile= and sourceable
+# into a shell for `sovereign-osctl notifykit test`).
 
 # Global default override — sweeps every channel gate key below EXCEPT
 # static-pinned ones. Commented out = no override.
@@ -78,3 +82,18 @@ to_number   = "env:SOVEREIGN_OS_OPERATOR_SMS"
 # min_urgency  = "high"
 # Pin against any global override:
 # min_urgency = { value = "high", static = true }
+
+# ── triggers ─── markdown-frontmatter-style props & metadata per trigger
+# (operator verbatim 2026-07-19: "important:true and such markdown
+# properties & metadata as much has in the header"). Known keys map onto
+# event defaults (important=true → priority high; urgent=true → urgency
+# urgent); unknown props ride along as Event.props metadata.
+#
+# `stage-gate` fires on every M065 SG1-SG5 approval decision
+# (approval-decide.py); `wikiops` fires on applied wiki mutations.
+[triggers.stage-gate]
+important = true
+
+# [triggers.wikiops]
+# important = true
+# reviewer = "cyberpunk042"

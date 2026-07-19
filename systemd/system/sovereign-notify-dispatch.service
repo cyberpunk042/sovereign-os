@@ -5,6 +5,11 @@ After=network-online.target
 
 [Service]
 Type=oneshot
+# Operator notification secrets (ntfy/webhook/Resend/Twilio values whose
+# NAMES the TOML configs reference as "env:VAR"). 0600 root-owned per the
+# /etc/sovereign-os/*.env convention (ups.env precedent); '-' tolerates
+# the file being absent (channels then stay disabled/invalid — no crash).
+EnvironmentFile=-/etc/sovereign-os/notify.env
 ExecStart=/opt/sovereign-os/scripts/hooks/recurrent/notify-dispatch.sh
 TimeoutStartSec=120s
 StandardOutput=journal
