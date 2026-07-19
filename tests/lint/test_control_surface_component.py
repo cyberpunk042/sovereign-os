@@ -132,6 +132,26 @@ def test_every_panel_inlines_the_control_surface():
     assert not has_src, f"panels with a forbidden external <script src=.js>: {has_src}"
 
 
+def test_live_exec_surfaces_tool_warning():
+    """A live control exec echoes the tool's JSON on stdout; the component must
+    lift a tool-level `warning` (e.g. model-warm's dtype/state drift, SDD-049
+    Stage 4) into the result line instead of hiding it behind a bare 'exit 0'.
+    Guards the fix that made #250's drift-detection actually reach the operator."""
+    body = JS_SRC.read_text(encoding="utf-8")
+    assert "function toolWarning(" in body, (
+        "control-surface must parse tool stdout for a `warning` (toolWarning helper)"
+    )
+    # the helper reads the JSON `warning` field off stdout
+    assert re.search(r"toolWarning\s*\(\s*b\.stdout\s*\)", body), (
+        "the 200 branch must call toolWarning(b.stdout) on a live exec"
+    )
+    assert "j.warning" in body, "toolWarning must read the tool's `warning` field"
+    # a warning downgrades the result to the warn class (visible), not silent ok
+    assert re.search(r'warn\s*\?\s*"warn"\s*:\s*"ok"', body), (
+        "a surfaced tool warning must render with the 'warn' class, not silent 'ok'"
+    )
+
+
 def test_master_dashboard_shows_all_controls_others_filter():
     """The aggregator renders ALL controls (renderControls, no filter); every
     other panel filters to its slug via filterSlug."""

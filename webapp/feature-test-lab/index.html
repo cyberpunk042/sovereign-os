@@ -1599,6 +1599,16 @@ adoption pattern.
     el.textContent = msg;
   }
 
+  function toolWarning(stdout) {
+    // Best-effort: the sanctioned exec-api echoes the tool's stdout; if it is
+    // JSON carrying a truthy `warning`, return it for the result line (e.g.
+    // model-warm's dtype/state drift, SDD-049 Stage 4). Never throws — a
+    // non-JSON / warning-less tool just yields no banner.
+    if (!stdout) return null;
+    try { var j = JSON.parse(stdout); return (j && j.warning) ? String(j.warning) : null; }
+    catch (e) { return null; }
+  }
+
   function execute(url, controlId, args, confirmed) {
     return fetch(url, {
       method: "POST",
@@ -1649,7 +1659,14 @@ adoption pattern.
       var b = res.body || {};
       if (res.status === 200) {
         if (b.dry_run) setResult(result, "dry", "dry-run ✓ would run: " + ((b.would_run || []).join(" ") || assembleCmd(sys.change_cli, args)));
-        else setResult(result, "ok", "executed ✓ exit " + (b.exit_code != null ? b.exit_code : 0));
+        else {
+          // A live exec echoes the tool's JSON on stdout; surface a tool-level
+          // `warning` (model-warm's dtype/state drift, SDD-049 Stage 4) so it
+          // reaches the operator instead of hiding behind a bare "exit 0".
+          var warn = toolWarning(b.stdout);
+          setResult(result, warn ? "warn" : "ok",
+            "executed ✓ exit " + (b.exit_code != null ? b.exit_code : 0) + (warn ? " — ⚠ " + warn : ""));
+        }
       } else if (res.status === 403) {
         if (confirmed) {
           // already type-confirmed → 403 is a server-side gate (e.g. the
