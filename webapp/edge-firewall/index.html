@@ -1720,8 +1720,17 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
 
   function cardHtml(sys) {
     var proxy = isProxyOnly(sys);
-    var pills = (sys.options || []).map(function (o) {
-      return '<span class="cs-opt">' + esc(o) + "</span>"; }).join("");
+    // Options already rendered as one-click buttons must NOT ALSO appear as inert
+    // grey pills — a duplicated value reads as clickable-but-dead. Keep pills only
+    // for options with no button (free-input controls where the pill is the sole
+    // hint, or a semantic label like a toggle's on/off vs its enable/disable verb).
+    var buttonVals = {};
+    parseTemplate(sys.change_cli).forEach(function (t) {
+      if (t.kind === "enum") { t.alts.forEach(function (a) { buttonVals[a] = true; }); }
+    });
+    var pills = (sys.options || [])
+      .filter(function (o) { return !buttonVals[String(o)]; })
+      .map(function (o) { return '<span class="cs-opt">' + esc(o) + "</span>"; }).join("");
     var change = sys.change_cli || "";
     var actions = change
       ? '<div class="cs-actions">'
