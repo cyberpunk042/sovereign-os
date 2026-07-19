@@ -938,6 +938,38 @@ limit.
 
 **Reversibility**: fully-reversible — the tier→device mapping is config + panel labels + role-assignment; no data migration.
 
+### D-023 — 2026-07-15 — Q-047-D closed as obsolete: the F-2026-035 "recreate the branch" landing gate is answered-by-events
+
+**Decision**: Close Q-047-D as **obsolete**. The dev branch whose unrelated-history-vs-main landing strategy the question weighed (`claude/recover-projects-b0oT6`) has since been merged to `main` via PRs #110–#118 (SDD-144..149 on main; no live branch ref remains), and `operator-sudoers.sh` — the piece the "recreate" option existed to pull in — is already on main. The gate is answered by events, not by a choice.
+
+**Question**: Q-047-D — "Landing strategy: recreate the branch from `origin/main` + re-apply the 40-file deliverable, vs patch drift against a moving `main`?"
+
+**Source**: `docs/sdd/047-cockpit-functional-execution.md`:82 (Q-047-D row); ratified in `docs/sdd/985-cockpit-execute-unlock-decision-package.md` (D1).
+
+**Rationale**: A landing-strategy question is moot once the landing has happened. Verified: the branch is merged; `operator-sudoers.sh` is on main; the F-2026-035 deliverable shipped. No alternative remains to choose.
+
+**Affected items**: `docs/sdd/047-cockpit-functional-execution.md` (Q-047-D annotated); `docs/review/phase-1/99-findings-ledger.md` (F-2026-035 closed); `docs/sdd/985-*` (decision package).
+
+**Reversibility**: fully-reversible — a documentation/status decision; reopens trivially if the history record is ever contested.
+
+**Linked**: SDD-985 (decision package); F-2026-035 retirement.
+
+### D-024 — 2026-07-15 — Q-047-B ratified: selfdef/perimeter cockpit controls stay a signed proxy (never executed locally)
+
+**Decision**: **Ratify** the default — selfdef- and perimeter-owned controls (and the D-12..D-18 mirror surfaces) stay a **signed proxy** to selfdef and are never executed locally by sovereign-os. This blesses already-shipped, already-linted behavior and preserves the R10212 producer/consumer boundary (sovereign-os is the READ-ONLY consumer of selfdef state).
+
+**Question**: Q-047-B — "selfdef-owned controls: stay a signed proxy to selfdef (preserves R10212 producer/consumer) vs execute locally?"
+
+**Source**: `docs/sdd/047-cockpit-functional-execution.md`:80 (Q-047-B row); ratified in `docs/sdd/985-cockpit-execute-unlock-decision-package.md` (D2).
+
+**Rationale**: Executing selfdef-owned mutations from sovereign-os would invert the R10212 boundary and duplicate authority that belongs to selfdef. The proxy default is already enforced in code — `_action_exec.py:53,260-270` returns 409 for selfdef-owned controls, `control-surface.js:36` hardcodes `PROXY_ONLY=["selfdef","perimeter"]`, and `test_control_surface_execute_boundary.py` locks it — so ratification records intent already realized rather than changing behavior.
+
+**Affected items**: `docs/sdd/047-cockpit-functional-execution.md` (Q-047-B annotated); enforced by `scripts/operator/_action_exec.py` + `webapp/_shared/control-surface.js` + `tests/lint/test_control_surface_execute_boundary.py` (unchanged).
+
+**Reversibility**: fully-reversible — the proxy-only set is a small allowlist in code + lint; revisiting means an explicit new decision that supersedes this one.
+
+**Linked**: SDD-985 (decision package); F-2026-035 retirement.
+
 ## Cross-references
 
 - Charter: `docs/sdd/000-charter.md`
