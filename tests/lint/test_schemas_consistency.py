@@ -46,6 +46,7 @@ EXPECTED_SCHEMAS = [
     "orchestration-profile",
     "science-tools",   # R558/SDD-070 — non-LLM science-tools catalog
     "warp-catalog",    # SDD-300 — warp-solar-system-shaders scene/lib catalog
+    "compatibility",   # 2026-07-19 — cross-system compatibility rules (PR #245)
 ]
 
 
