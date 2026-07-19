@@ -1,6 +1,7 @@
-"""tests/lint/test_root_ghostproxy_binding_contract.py — SDD-046 binding gate.
+"""tests/lint/test_root_modules_binding_contract.py — SDD-046 binding gate.
 
-Locks the root-ghostproxy endpoint binding (proxy mode DISABLED, per the
+Locks the root-modules (formerly root-ghostproxy; renamed 2026-07-19)
+endpoint binding (proxy mode DISABLED, per the
 operator directive 2026-07-03 verbatim: "Lets prepare root-ghostproxy for
 sovereign-os usage, we will use use the repo without the proxy mode
 enabled."):
@@ -11,7 +12,8 @@ enabled."):
     bridge, silently re-enabling the proxy half);
   - the install hook is triple-gated (report-only default; explicit
     CONFIRM env; SOVEREIGN_OS_DRY_RUN honored) and absent-tolerant;
-  - the checkout dir is env-overridable (SOVEREIGN_OS_ROOT_GHOSTPROXY_DIR);
+  - the checkout dir is env-overridable (SOVEREIGN_OS_ROOT_MODULES_DIR;
+    legacy SOVEREIGN_OS_ROOT_GHOSTPROXY_DIR honored as fallback);
   - both hooks emit their Layer B metric families (A4);
   - the sain-01 profile wires the install hook at post_install_first_boot
     and the verify hook at post_install_recurrent with a schedule (A3);
@@ -31,13 +33,13 @@ from pathlib import Path
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-INSTALL_HOOK = REPO_ROOT / "scripts/hooks/post-install/root-ghostproxy-endpoint-install.sh"
-VERIFY_HOOK = REPO_ROOT / "scripts/hooks/recurrent/root-ghostproxy-verify.sh"
+INSTALL_HOOK = REPO_ROOT / "scripts/hooks/post-install/root-modules-endpoint-install.sh"
+VERIFY_HOOK = REPO_ROOT / "scripts/hooks/recurrent/root-modules-verify.sh"
 SAIN01 = REPO_ROOT / "profiles/sain-01.yaml"
-SDD_046 = REPO_ROOT / "docs/sdd/046-root-ghostproxy-endpoint-binding.md"
+SDD_046 = REPO_ROOT / "docs/sdd/046-root-modules-endpoint-binding.md"
 
 
-class RootGhostproxyBindingContract(unittest.TestCase):
+class RootModulesBindingContract(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.install_src = INSTALL_HOOK.read_text(encoding="utf-8")
@@ -82,7 +84,9 @@ class RootGhostproxyBindingContract(unittest.TestCase):
     # --- env-overridable checkout dir --------------------------------
     def test_checkout_dir_env_overridable(self):
         for src in (self.install_src, self.verify_src):
-            self.assertIn("SOVEREIGN_OS_ROOT_GHOSTPROXY_DIR", src)
+            self.assertIn("SOVEREIGN_OS_ROOT_MODULES_DIR", src)
+            self.assertIn("SOVEREIGN_OS_ROOT_GHOSTPROXY_DIR", src,
+                          "legacy env-var name must stay honored as fallback (rename 2026-07-19)")
 
     # --- verify hook is observation, not remediation ------------------
     def test_verify_hook_read_only(self):
@@ -101,27 +105,27 @@ class RootGhostproxyBindingContract(unittest.TestCase):
     # --- profile wiring ------------------------------------------------
     def test_sain01_wires_first_boot_install_hook(self):
         hooks = self.profile["hooks"]["post_install_first_boot"]
-        entry = next((h for h in hooks if h["id"] == "root-ghostproxy-endpoint-install"), None)
-        self.assertIsNotNone(entry, "sain-01 must wire root-ghostproxy-endpoint-install at first boot")
+        entry = next((h for h in hooks if h["id"] == "root-modules-endpoint-install"), None)
+        self.assertIsNotNone(entry, "sain-01 must wire root-modules-endpoint-install at first boot")
         self.assertEqual(entry["type"], "security")
         self.assertEqual(entry["script"],
-                         "scripts/hooks/post-install/root-ghostproxy-endpoint-install.sh")
+                         "scripts/hooks/post-install/root-modules-endpoint-install.sh")
 
     def test_sain01_wires_recurrent_verify_hook(self):
         hooks = self.profile["hooks"]["post_install_recurrent"]
-        entry = next((h for h in hooks if h["id"] == "root-ghostproxy-verify"), None)
-        self.assertIsNotNone(entry, "sain-01 must wire root-ghostproxy-verify recurrent")
+        entry = next((h for h in hooks if h["id"] == "root-modules-verify"), None)
+        self.assertIsNotNone(entry, "sain-01 must wire root-modules-verify recurrent")
         self.assertEqual(entry["type"], "security")
         self.assertIn("schedule", entry)
         self.assertEqual(entry["script"],
-                         "scripts/hooks/recurrent/root-ghostproxy-verify.sh")
+                         "scripts/hooks/recurrent/root-modules-verify.sh")
 
     # --- SDD anchor ------------------------------------------------------
     def test_sdd_046_exists_and_names_both_hooks(self):
         self.assertTrue(SDD_046.is_file(), "SDD-046 must exist")
         sdd = SDD_046.read_text(encoding="utf-8")
-        self.assertIn("root-ghostproxy-endpoint-install.sh", sdd)
-        self.assertIn("root-ghostproxy-verify.sh", sdd)
+        self.assertIn("root-modules-endpoint-install.sh", sdd)
+        self.assertIn("root-modules-verify.sh", sdd)
         self.assertIn("--mode endpoint", sdd)
 
 

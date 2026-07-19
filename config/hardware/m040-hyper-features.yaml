@@ -8,7 +8,7 @@
 # line range.
 #
 # Ties: the Multi-tenant MIG profile (Claude Code + OpenCode/Cline + background
-# evals) connects to root-ghostproxy endpoint safety (SDD-046); the ZFS commit
+# evals) connects to root-modules endpoint safety (SDD-046); the ZFS commit
 # gate connects to crates/sovereign-zfs-commit-gate; the 6 hot tables extend
 # M039's hot-path SoA + M024's 5 registries.
 # STATUS: spec-materialization (SDD+TDD — hyper-feature contract).

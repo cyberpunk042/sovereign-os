@@ -24,7 +24,7 @@ maintenance + alerting cadence:
   wattage-sample         — daily 04:15 (RAPL/IPMI wattage sample)
   zfs-scrub              — weekly Sun  (ZFS pool scrub kick)
   selfdef-sync           — weekly Sun  (selfdef checkout freshness, SDD-001)
-  root-ghostproxy-verify — weekly Sun  (AI-agent envelope drift verify, SDD-046)
+  root-modules-verify — weekly Sun  (AI-agent envelope drift verify, SDD-046)
 
 7th bidirectional-consistency lint:
   Every hook in scripts/hooks/recurrent/ MUST have a matching timer
@@ -59,7 +59,7 @@ EXPECTED_RECURRENT_HOOKS = [
     "ms003-verify.sh",
     "notify-dispatch.sh",
     "power-shutdown-guard.sh",
-    "root-ghostproxy-verify.sh",
+    "root-modules-verify.sh",
     "security-update-check.sh",
     "selfdef-sync.sh",
     "session-reap.sh",
@@ -85,7 +85,7 @@ HOOK_TO_TIMER_SLUG = {
     "ms003-verify.sh": "sovereign-ms003-verify",
     "notify-dispatch.sh": "sovereign-notify-dispatch",
     "power-shutdown-guard.sh": "sovereign-power-shutdown-guard",
-    "root-ghostproxy-verify.sh": "sovereign-ghostproxy-verify",
+    "root-modules-verify.sh": "sovereign-ghostproxy-verify",
     "security-update-check.sh": "sovereign-security-update-check",
     "selfdef-sync.sh": "sovereign-selfdef-sync",
     "session-reap.sh": "sovereign-session-reaper",

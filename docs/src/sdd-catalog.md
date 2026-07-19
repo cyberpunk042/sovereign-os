@@ -53,7 +53,7 @@ Every Spec-Driven-Development design doc in `docs/sdd/` (208 total), by number.
 - [SDD-043 — Flexible tiered feature+model exploitation](../sdd/043-flexible-tiered-feature-model-exploitation.md)
 - [SDD-044 — Unified dashboard surface](../sdd/044-unified-dashboard-surface.md)
 - [SDD-045 — Dashboard control-surface buildout (every dashboard a full control surface)](../sdd/045-dashboard-control-surface-buildout.md)
-- [SDD-046 — root-ghostproxy endpoint binding (proxy mode disabled)](../sdd/046-root-ghostproxy-endpoint-binding.md)
+- [SDD-046 — root-modules endpoint binding (proxy mode disabled)](../sdd/046-root-modules-endpoint-binding.md)
 - [SDD-047 — Cockpit functional execution (realize R10274: panels EXECUTE, command becomes the fallback)](../sdd/047-cockpit-functional-execution.md)
 - [SDD-048 — Approval authority (functional approve/deny/defer for D-06)](../sdd/048-approval-authority.md)
 - [SDD-049 — Model runtime actuation (functional load / unload / warm for D-03)](../sdd/049-model-runtime-actuation.md)

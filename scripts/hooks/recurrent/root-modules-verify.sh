@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# scripts/hooks/recurrent/root-ghostproxy-verify.sh
+# scripts/hooks/recurrent/root-modules-verify.sh
 #
-# Weekly read-only drift verify of the root-ghostproxy endpoint
+# Weekly read-only drift verify of the root-modules (formerly
+# root-ghostproxy) endpoint
 # AI-agent safety envelope (SDD-046).
 #
 # Runs the upstream installer's --check (read-only op_verify) in the
@@ -9,7 +10,7 @@
 # operator directive 2026-07-03). The contract is OBSERVATION, not
 # REMEDIATION (same as `sovereign-osctl audit drift`, D-018): this hook
 # never re-applies or overwrites — remediation is the install hook
-# (scripts/hooks/post-install/root-ghostproxy-endpoint-install.sh)
+# (scripts/hooks/post-install/root-modules-endpoint-install.sh)
 # under its explicit confirm gate.
 #
 #   - Absent checkout is a REPORT, not a hook failure (exit 0;
@@ -28,12 +29,25 @@ __REPO_ROOT="$(cd "${__SCRIPT_DIR}/../../.." && pwd)"
 # shellcheck source=../../build/lib/observability.sh
 . "${__REPO_ROOT}/scripts/build/lib/observability.sh"
 
-: "${SOVEREIGN_OS_ROOT_GHOSTPROXY_DIR:=${HOME}/root-ghostproxy}"
+# Renamed 2026-07-19: the upstream project root-ghostproxy is now root-modules
+# ("ghostproxy" now names the proxy module combo this binding keeps OFF).
+# Canonical env: SOVEREIGN_OS_ROOT_MODULES_DIR; legacy SOVEREIGN_OS_ROOT_GHOSTPROXY_DIR
+# honored; a pre-rename ~/root-ghostproxy checkout is still found.
+if [ -z "${SOVEREIGN_OS_ROOT_MODULES_DIR:-}" ] && [ -n "${SOVEREIGN_OS_ROOT_GHOSTPROXY_DIR:-}" ]; then
+  SOVEREIGN_OS_ROOT_MODULES_DIR="${SOVEREIGN_OS_ROOT_GHOSTPROXY_DIR}"
+fi
+if [ -z "${SOVEREIGN_OS_ROOT_MODULES_DIR:-}" ]; then
+  if [ -d "${HOME}/root-modules" ] || [ ! -d "${HOME}/root-ghostproxy" ]; then
+    SOVEREIGN_OS_ROOT_MODULES_DIR="${HOME}/root-modules"
+  else
+    SOVEREIGN_OS_ROOT_MODULES_DIR="${HOME}/root-ghostproxy"
+  fi
+fi
 : "${SOVEREIGN_OS_GHOSTPROXY_PROFILE:=base}"
 # Pinned per SDD-046 A2 — see the install hook's header for why.
 GHOSTPROXY_MODE="endpoint"
 
-log_step_header "root-ghostproxy-verify" \
+log_step_header "root-modules-verify" \
   "read-only drift check of AI-agent safety envelope (mode=${GHOSTPROXY_MODE})"
 
 emit_summary() {
@@ -47,15 +61,15 @@ emit_summary() {
     "sovereign_os_ghostproxy_endpoint_verify_last_run_timestamp $(date +%s)"
 }
 
-INSTALLER="${SOVEREIGN_OS_ROOT_GHOSTPROXY_DIR}/install.sh"
+INSTALLER="${SOVEREIGN_OS_ROOT_MODULES_DIR}/install.sh"
 
 if [ ! -x "${INSTALLER}" ]; then
-  log_warn "no root-ghostproxy checkout at ${SOVEREIGN_OS_ROOT_GHOSTPROXY_DIR} (set SOVEREIGN_OS_ROOT_GHOSTPROXY_DIR)"
+  log_warn "no root-modules checkout at ${SOVEREIGN_OS_ROOT_MODULES_DIR} (set SOVEREIGN_OS_ROOT_MODULES_DIR)"
   emit_summary absent
   exit 0   # absent is a report, not a hook failure
 fi
 
-cd "${SOVEREIGN_OS_ROOT_GHOSTPROXY_DIR}"
+cd "${SOVEREIGN_OS_ROOT_MODULES_DIR}"
 require_command bash
 
 if bash "${INSTALLER}" --check --profile "${SOVEREIGN_OS_GHOSTPROXY_PROFILE}" --mode "${GHOSTPROXY_MODE}"; then

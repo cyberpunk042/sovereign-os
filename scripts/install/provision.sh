@@ -18,14 +18,14 @@
 #   4. operator-deps    declared apt/pip/npm overlay           (operator-deps.py)
 #   5. ups / power      APC Smart-UPS via NUT apc_modbus        (ups-apc-setup.sh)
 #   6. operator-rules   re-apply Claude Code interaction rules (operator-rules.py)
-#   7. root-ghostproxy  OPTIONAL agent-safety env — endpoint mode, NO proxy (opt-out)
+#   7. root-modules  OPTIONAL agent-safety env — endpoint mode, NO proxy (opt-out)
 #
 # Tunable env:
 #   PROVISION_DRY_RUN=1              preview
 #   PROVISION_SKIP="build,dev,selfdef,intelligence,deps,ups,rules,ghostproxy"  comma-list to skip
-#   PROVISION_GHOSTPROXY=0           opt OUT of the default-on root-ghostproxy step
+#   PROVISION_GHOSTPROXY=0           opt OUT of the default-on root-modules step
 #   SOVEREIGN_OS_SELFDEF_DIR=<path>     selfdef checkout (default ~/selfdef)
-#   SOVEREIGN_OS_GHOSTPROXY_DIR=<path>  root-ghostproxy checkout (default ~/root-ghostproxy)
+#   SOVEREIGN_OS_GHOSTPROXY_DIR=<path>  root-modules checkout (default ~/root-modules; legacy ~/root-ghostproxy found)
 
 set -euo pipefail
 
@@ -190,7 +190,7 @@ fi
 # ── (6) operator rules: re-apply Claude Code interaction rules ───────
 # The operator's behaviour rules live in per-project Claude memory, which a
 # fresh flash wipes. Re-apply them from the versioned store (self-contained —
-# NO dependency on root-ghostproxy). Idempotent; runs as the operator so the
+# NO dependency on root-modules). Idempotent; runs as the operator so the
 # rules land in the operator's ~/.claude, never /root.
 step "[6/7] operator rules (Claude Code interaction rules → ~/.claude memory)"
 if skipped rules; then warn "skipped (PROVISION_SKIP)"
@@ -201,24 +201,26 @@ else
     || warn "operator-rules apply returned non-zero (non-fatal; re-runnable)"
 fi
 
-# ── (6) root-ghostproxy: OPTIONAL agent-safety env (endpoint, NO proxy) ─
+# ── (6) root-modules: OPTIONAL agent-safety env (endpoint, NO proxy) ─
 # Complementary AI-agent safety at ~/.claude (settings/hooks/rules). We install
 # it in ENDPOINT mode with --no-bridge --no-wifi so NONE of the L2 bridge /
 # Suricata / PolarProxy proxy half comes along. Default-selected but fully
 # opt-out (PROVISION_GHOSTPROXY=0), and skipped silently if not checked out —
 # everything works fine without it. Disjoint from our rules (it owns ~/.claude
 # global config; we own ~/.claude/projects/<project>/memory) so no collision.
-step "[7/7] root-ghostproxy (optional — endpoint mode, NO proxy)"
-GHOSTPROXY_DIR="${SOVEREIGN_OS_GHOSTPROXY_DIR:-${HOME}/root-ghostproxy}"
+step "[7/7] root-modules (optional — endpoint mode, NO proxy)"
+_gp_default="${HOME}/root-modules"
+[ -d "${_gp_default}" ] || { [ -d "${HOME}/root-ghostproxy" ] && _gp_default="${HOME}/root-ghostproxy"; }   # legacy pre-rename checkout
+GHOSTPROXY_DIR="${SOVEREIGN_OS_GHOSTPROXY_DIR:-${_gp_default}}"
 if skipped ghostproxy; then warn "skipped (PROVISION_SKIP)"
 elif [ "${PROVISION_GHOSTPROXY:-1}" != "1" ]; then warn "opt-out (PROVISION_GHOSTPROXY=0)"
 elif [ ! -x "${GHOSTPROXY_DIR}/install.sh" ]; then
-  warn "no root-ghostproxy checkout at ${GHOSTPROXY_DIR} — skipping (optional; not required)"
+  warn "no root-modules checkout at ${GHOSTPROXY_DIR} — skipping (optional; not required)"
 elif [ -n "${DRY_RUN}" ]; then
   echo -e "  ${cyn}dry-run\$${rst} ${GHOSTPROXY_DIR}/install.sh --mode endpoint --no-bridge --no-wifi  (as ${SUDO_USER:-$(id -un)})"
 else
   as_user_ "${GHOSTPROXY_DIR}/install.sh" --mode endpoint --no-bridge --no-wifi \
-    || warn "root-ghostproxy endpoint install returned non-zero (non-fatal; optional)"
+    || warn "root-modules endpoint install returned non-zero (non-fatal; optional)"
 fi
 
 # ── done ─────────────────────────────────────────────────────────────

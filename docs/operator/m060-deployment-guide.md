@@ -3829,25 +3829,25 @@ when the next run refreshes the timestamp.
 #### SovereignOsGhostproxyEnvelopeUnhealthy (warning)
 
 **Meaning:** `sovereign_os_ghostproxy_endpoint_verify_result{result=~"drift|absent"} == 1` —
-the root-ghostproxy AI-agent safety envelope (SDD-046: machine-level Claude
+the root-modules AI-agent safety envelope (SDD-046: machine-level Claude
 Code + opencode hooks, agent brain, integrity sentinel — endpoint mode, proxy
 half OFF) either no longer matches its upstream spec (*drift*) or the weekly
 verify found no checkout at `SOVEREIGN_OS_ROOT_GHOSTPROXY_DIR` (*absent*). The
 envelope keeps running as-installed, but AI-agent sessions on the host are
-governed by a policy that root-ghostproxy's installer would no longer produce.
+governed by a policy that root-modules's installer would no longer produce.
 
 **Diagnosis:**
 
 ```bash
 systemctl status sovereign-ghostproxy-verify.timer sovereign-ghostproxy-verify.service
-cd "${SOVEREIGN_OS_ROOT_GHOSTPROXY_DIR:-$HOME/root-ghostproxy}" && ./install.sh --check --profile base --mode endpoint
+cd "${SOVEREIGN_OS_ROOT_GHOSTPROXY_DIR:-$HOME/root-modules}" && ./install.sh --check --profile base --mode endpoint
 ```
 
 **Fix:** for *drift*, re-apply the envelope through the gated install hook —
-`SOVEREIGN_OS_CONFIRM_GHOSTPROXY_INSTALL=YES scripts/hooks/post-install/root-ghostproxy-endpoint-install.sh`
+`SOVEREIGN_OS_CONFIRM_GHOSTPROXY_INSTALL=YES scripts/hooks/post-install/root-modules-endpoint-install.sh`
 (idempotent; backs up out-of-sync files; the hook pins `--mode endpoint`, so
 the proxy/IPS half stays OFF per the operator directive). For *absent*, clone
-root-ghostproxy to the expected path (or point
+root-modules to the expected path (or point
 `SOVEREIGN_OS_ROOT_GHOSTPROXY_DIR` at the real checkout). The gauge clears on
 the next weekly verify.
 

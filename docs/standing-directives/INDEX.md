@@ -12,6 +12,7 @@ work on?".
 | 2026-07-11 | [qcfa-interactive-clarification.md](./2026-07-11-qcfa-interactive-clarification.md) | active | interaction framework — QCFA + AskUserQuestion + suggestions (E4 UX / E5 AI) |
 | 2026-07-11 | [plan-mode-user-approval.md](./2026-07-11-plan-mode-user-approval.md) | active | safety framework — Plan Mode + User Approval + permission modes (manual/auto/bypass) (E4 UX / E5 AI / E6 Health) |
 | 2026-07-12 | [deliberate-reasoning.md](./2026-07-12-deliberate-reasoning.md) | active | reasoning framework — CoT → ToT → MCTS → C-MCTS → CoAT (centerpiece); maps onto branch-tree + value-plane + cortex.deliberate + Memory-OS recall (E5 AI) |
+| 2026-07-19 | [root-modules-rename.md](./2026-07-19-root-modules-rename.md) | active | upstream rename root-ghostproxy → root-modules; SDD-046 binding tracks it (D-023 — lockstep renames + kept wire identifiers) |
 
 ## Re-arming /goal autopilot
 

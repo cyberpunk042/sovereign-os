@@ -8,7 +8,7 @@
 #
 # "Anthropic-first": the /v1/messages surface is primary, OpenAI-compat secondary
 # (inverts M033's ordering by design). The Claude Code hooks/MCP/subagents
-# extension points connect to root-ghostproxy's endpoint safety envelope (SDD-046)
+# extension points connect to root-modules's endpoint safety envelope (SDD-046)
 # + the sovereign-os cockpit.
 # STATUS: spec-materialization (SDD+TDD — precedes the gateway).
 # Locked to spec by tests/lint/test_m034_anthropic_first_gateway.py.

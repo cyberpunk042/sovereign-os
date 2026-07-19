@@ -382,7 +382,8 @@ properties:
           repo: { type: boolean }
           dev_tools: { type: boolean }
           selfdef: { type: boolean }
-          root_ghostproxy: { type: boolean }
+          root_modules: { type: boolean }
+          root_ghostproxy: { type: boolean }   # legacy pre-2026-07-19 key name; root_modules preferred
           openclaw: { type: boolean }   # SDD-705: stage the OpenClaw Node gateway daemon (installed-off; first-boot npm install + preconfig)
           open_computer: { type: boolean }   # SDD-706: stage the open-computer QEMU AI-sandbox service (installed-off; first-boot clone+build+base-image+preconfig)
           dashboards: { type: boolean }

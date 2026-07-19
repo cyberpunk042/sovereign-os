@@ -353,7 +353,7 @@ provisioning:
     repo: true                     # stage the sovereign-os tree (+ .git + origin) → /opt/sovereign-os
     dev_tools: true                # node + @anthropic-ai/claude-code (global)
     selfdef: true                  # stage ~/selfdef → /opt/selfdef, build, install units
-    root_ghostproxy: true          # stage ~/root-ghostproxy → /opt/root-ghostproxy, install (endpoint)
+    root_modules: true             # stage ~/root-modules → /opt/root-modules, install (endpoint); legacy key root_ghostproxy still honored
     openclaw: true                 # SDD-705: stage the OpenClaw Node gateway daemon (installed-off; first-boot npm install + preconfig → local endpoint)
     open_computer: true            # SDD-706: stage the open-computer QEMU AI-sandbox (installed-off; first-boot QEMU/KVM + clone/build + base image + preconfig → local endpoint)
     dashboards: true               # deploy panels + enable the dashboard hub + all read-only panel APIs
@@ -516,15 +516,15 @@ hooks:
       type: interactive
       script: scripts/hooks/post-install/first-login-assistant.sh
       mandatory: false
-    # SDD-046 — root-ghostproxy endpoint AI-agent safety envelope
+    # SDD-046 — root-modules endpoint AI-agent safety envelope
     # (proxy mode DISABLED per operator directive 2026-07-03; mode
     # pinned endpoint inside the hook — auto-detect would promote this
     # dual-NIC host to bridge). Triple-gated: report-only until
     # SOVEREIGN_OS_CONFIRM_GHOSTPROXY_INSTALL=YES. mandatory: false
     # per Q-046-001 (checkout may not exist at first boot).
-    - id: root-ghostproxy-endpoint-install
+    - id: root-modules-endpoint-install
       type: security
-      script: scripts/hooks/post-install/root-ghostproxy-endpoint-install.sh
+      script: scripts/hooks/post-install/root-modules-endpoint-install.sh
       mandatory: false
     # E109: DFlash speculative-decoding library (optional; installed-off
     # if the operator hasn't requested it explicitly).
@@ -550,10 +550,10 @@ hooks:
       type: maintenance
       schedule: weekly
       script: scripts/hooks/recurrent/selfdef-sync.sh
-    - id: root-ghostproxy-verify
+    - id: root-modules-verify
       type: security
       schedule: weekly
-      script: scripts/hooks/recurrent/root-ghostproxy-verify.sh
+      script: scripts/hooks/recurrent/root-modules-verify.sh
     # R253 (SDD-026) — every minute, check the UPS advisory (NUT upsc → power-
     # status) and fire a GRACEFUL soft shutdown when battery runtime < 30 min.
     # Armed via /etc/sovereign-os/power.toml [graceful_shutdown] (provisioning

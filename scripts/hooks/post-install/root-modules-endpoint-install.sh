@@ -1,19 +1,20 @@
 #!/usr/bin/env bash
-# scripts/hooks/post-install/root-ghostproxy-endpoint-install.sh
+# scripts/hooks/post-install/root-modules-endpoint-install.sh
 #
-# First-boot install of the root-ghostproxy endpoint AI-agent safety
+# First-boot install of the root-modules (formerly root-ghostproxy)
+# endpoint AI-agent safety
 # envelope — PROXY MODE DISABLED (SDD-046).
 #
 # Cross-repo contract (SDD-001 + SDD-046): sovereign-os BUILDS, selfdef
-# RUNS the OS runtime defense, root-ghostproxy governs the AI-AGENT
+# RUNS the OS runtime defense, root-modules governs the AI-AGENT
 # TOOL-CALL surface (machine-level Claude Code + opencode safety
 # envelope, agent brain, integrity sentinel). This hook consumes
-# root-ghostproxy through its OWN install surface per its canonical
-# guide (root-ghostproxy docs/sovereign-os-endpoint-usage.md) — never
+# root-modules through its OWN install surface per its canonical
+# guide (root-modules docs/sovereign-os-endpoint-usage.md) — never
 # forks or re-derives the safety envelope.
 #
 # MODE IS PINNED: --mode endpoint. Never auto — SAIN-01 has two NICs
-# (mgmt i226-v + data aqc113c) and root-ghostproxy's auto-detection
+# (mgmt i226-v + data aqc113c) and root-modules's auto-detection
 # promotes multi-NIC hosts to bridge mode, which would enable the
 # proxy/IPS half the operator directed OFF (operator verbatim
 # 2026-07-03: "we will use use the repo without the proxy mode
@@ -41,14 +42,27 @@ __REPO_ROOT="$(cd "${__SCRIPT_DIR}/../../.." && pwd)"
 # shellcheck source=../../build/lib/observability.sh
 . "${__REPO_ROOT}/scripts/build/lib/observability.sh"
 
-: "${SOVEREIGN_OS_ROOT_GHOSTPROXY_DIR:=${HOME}/root-ghostproxy}"
+# Renamed 2026-07-19: the upstream project root-ghostproxy is now root-modules
+# ("ghostproxy" now names the proxy module combo this binding keeps OFF).
+# Canonical env: SOVEREIGN_OS_ROOT_MODULES_DIR; legacy SOVEREIGN_OS_ROOT_GHOSTPROXY_DIR
+# honored; a pre-rename ~/root-ghostproxy checkout is still found.
+if [ -z "${SOVEREIGN_OS_ROOT_MODULES_DIR:-}" ] && [ -n "${SOVEREIGN_OS_ROOT_GHOSTPROXY_DIR:-}" ]; then
+  SOVEREIGN_OS_ROOT_MODULES_DIR="${SOVEREIGN_OS_ROOT_GHOSTPROXY_DIR}"
+fi
+if [ -z "${SOVEREIGN_OS_ROOT_MODULES_DIR:-}" ]; then
+  if [ -d "${HOME}/root-modules" ] || [ ! -d "${HOME}/root-ghostproxy" ]; then
+    SOVEREIGN_OS_ROOT_MODULES_DIR="${HOME}/root-modules"
+  else
+    SOVEREIGN_OS_ROOT_MODULES_DIR="${HOME}/root-ghostproxy"
+  fi
+fi
 : "${SOVEREIGN_OS_GHOSTPROXY_PROFILE:=base}"
 # NOT env-overridable by design (SDD-046 A2): the mode is the operator
 # directive itself. Changing it means editing this hook deliberately.
 GHOSTPROXY_MODE="endpoint"
 
-log_step_header "root-ghostproxy-endpoint-install" \
-  "AI-agent safety envelope (mode=${GHOSTPROXY_MODE}, proxy OFF) from ${SOVEREIGN_OS_ROOT_GHOSTPROXY_DIR}"
+log_step_header "root-modules-endpoint-install" \
+  "AI-agent safety envelope (mode=${GHOSTPROXY_MODE}, proxy OFF) from ${SOVEREIGN_OS_ROOT_MODULES_DIR}"
 
 emit_summary() {
   local result="$1"
@@ -61,16 +75,16 @@ emit_summary() {
     "sovereign_os_ghostproxy_endpoint_install_last_run_timestamp $(date +%s)"
 }
 
-INSTALLER="${SOVEREIGN_OS_ROOT_GHOSTPROXY_DIR}/install.sh"
+INSTALLER="${SOVEREIGN_OS_ROOT_MODULES_DIR}/install.sh"
 
 if [ ! -x "${INSTALLER}" ]; then
-  log_warn "no root-ghostproxy checkout at ${SOVEREIGN_OS_ROOT_GHOSTPROXY_DIR} (set SOVEREIGN_OS_ROOT_GHOSTPROXY_DIR)"
-  log_warn "clone it, then re-run: git clone https://github.com/cyberpunk042/root-ghostproxy ${SOVEREIGN_OS_ROOT_GHOSTPROXY_DIR}"
+  log_warn "no root-modules checkout at ${SOVEREIGN_OS_ROOT_MODULES_DIR} (set SOVEREIGN_OS_ROOT_MODULES_DIR)"
+  log_warn "clone it, then re-run: git clone https://github.com/cyberpunk042/root-modules ${SOVEREIGN_OS_ROOT_MODULES_DIR}"
   emit_summary absent
   exit 0   # absent is a report, not a hook failure
 fi
 
-cd "${SOVEREIGN_OS_ROOT_GHOSTPROXY_DIR}"
+cd "${SOVEREIGN_OS_ROOT_MODULES_DIR}"
 require_command bash
 
 if [ "${SOVEREIGN_OS_CONFIRM_GHOSTPROXY_INSTALL:-}" != "YES" ] || [ "${SOVEREIGN_OS_DRY_RUN:-0}" = "1" ]; then
@@ -83,7 +97,7 @@ fi
 
 log_info "  applying: upstream endpoint install (profile=${SOVEREIGN_OS_GHOSTPROXY_PROFILE} mode=${GHOSTPROXY_MODE})"
 if ! bash "${INSTALLER}" --profile "${SOVEREIGN_OS_GHOSTPROXY_PROFILE}" --mode "${GHOSTPROXY_MODE}" --yes; then
-  log_error "root-ghostproxy install failed — see upstream output above."
+  log_error "root-modules install failed — see upstream output above."
   emit_summary install-failed
   exit 1
 fi
@@ -93,5 +107,5 @@ if ! bash "${INSTALLER}" --check --profile "${SOVEREIGN_OS_GHOSTPROXY_PROFILE}" 
   log_warn "  post-install --check reported drift; inspect upstream output."
 fi
 
-log_info "  root-ghostproxy endpoint envelope installed (proxy half OFF)."
+log_info "  root-modules endpoint envelope installed (proxy half OFF)."
 emit_summary installed
