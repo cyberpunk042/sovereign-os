@@ -967,7 +967,7 @@ systems:
     options: [json, sqlite]
     options_cli: "sovereign-osctl jobs store"
     state_cli: "sovereign-osctl jobs store"
-    change_cli: "sovereign-osctl jobs store <id>"
+    change_cli: "sovereign-osctl jobs store {json|sqlite}"
     state_path: "/var/lib/sovereign-os/jobs/store.backend"
     privileged: true
     applies_to: [code-console]

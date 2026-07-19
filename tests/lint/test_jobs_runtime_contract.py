@@ -185,7 +185,9 @@ def test_jobs_store_is_a_registered_signed_control():
     # Console via applies_to.
     reg = (REPO / "config" / "control-systems.yaml").read_text(encoding="utf-8")
     assert "id: jobs-store" in reg, "the backend toggle must be in the control registry"
-    assert "sovereign-osctl jobs store <id>" in reg, "change_cli must be the store verb"
+    assert "sovereign-osctl jobs store {json|sqlite}" in reg, (
+        "change_cli must be the store verb with an ENUM placeholder so the card "
+        "renders one-click json|sqlite segmented buttons (not a generic free input)")
     assert "applies_to: [code-console]" in reg, "must surface on the Code Console pane"
     cli = (REPO / "scripts/operator/lib/jobs_cli.py").read_text(encoding="utf-8")
     assert '"store"' in cli, "osctl jobs must expose the `store` verb"
