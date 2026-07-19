@@ -90,8 +90,15 @@ def test_selfdef_boundary_holds_even_live_and_confirmed():
 # ── placeholder validation ───────────────────────────────────────────────────
 
 def test_free_placeholder_accepts_option_value():
-    argv, err = AE.resolve_argv(AE.load_registry()["cpu-mode"], {"mode": "balanced"})
-    assert err is None and argv == ["sovereign-osctl", "cpu-mode", "set", "balanced"]
+    # flex-profile keeps a FREE <key> (its options contain a dot —
+    # `gpu.utilization` — so it can't be an enum): a free placeholder accepts a
+    # value that IS in the control's options even when the strict regex would
+    # reject it (the dot). cpu-mode is no longer a valid example — it's a
+    # one-click enum now (arg-key 'verb').
+    argv, err = AE.resolve_argv(
+        AE.load_registry()["flex-profile"], {"key": "gpu.utilization", "value": "fp8"})
+    assert err is None and argv == [
+        "sovereign-osctl", "profiles", "flex", "set", "gpu.utilization", "fp8"]
 
 
 def test_enum_placeholder_validates_verb():
@@ -107,7 +114,7 @@ def test_enum_placeholder_validates_verb():
     "balanced|tee", "`id`",
 ])
 def test_shell_injection_rejected(bad):
-    r = AE.execute("cpu-mode", {"mode": bad}, dry_run=True)
+    r = AE.execute("cpu-mode", {"verb": bad}, dry_run=True)
     assert r["ok"] is False and r["code"] == 400
 
 
@@ -127,19 +134,19 @@ def test_privileged_requires_operator_key(monkeypatch):
     monkeypatch.delenv("SOVEREIGN_OS_MOK_KEY", raising=False)
     monkeypatch.delenv("SOVEREIGN_OS_PK_KEY", raising=False)
     monkeypatch.setattr(AE, "operator_key_loaded", lambda: False)
-    r = AE.execute("cpu-mode", {"mode": "balanced"}, confirm=True, dry_run=True)
+    r = AE.execute("cpu-mode", {"verb": "balanced"}, confirm=True, dry_run=True)
     assert r["ok"] is False and r["code"] == 403 and "operator key" in r["error"]
 
 
 def test_privileged_requires_confirm(monkeypatch):
     monkeypatch.setattr(AE, "operator_key_loaded", lambda: True)
-    r = AE.execute("cpu-mode", {"mode": "balanced"}, confirm=False, dry_run=True)
+    r = AE.execute("cpu-mode", {"verb": "balanced"}, confirm=False, dry_run=True)
     assert r["ok"] is False and r["code"] == 403 and r.get("confirm_required") is True
 
 
 def test_privileged_dry_run_ok_with_key_and_confirm(monkeypatch):
     monkeypatch.setattr(AE, "operator_key_loaded", lambda: True)
-    r = AE.execute("cpu-mode", {"mode": "balanced"}, confirm=True, dry_run=True)
+    r = AE.execute("cpu-mode", {"verb": "balanced"}, confirm=True, dry_run=True)
     assert r["ok"] is True and r["dry_run"] is True
     assert r["argv"] == ["sovereign-osctl", "cpu-mode", "set", "balanced"]
     # would_run is either the bare argv (already root) or sudo -n wrapped.
@@ -161,7 +168,7 @@ def test_default_dry_run_is_safe():
 
 @pytest.mark.parametrize("cid,args,confirm,outcome", [
     ("selfdef", {"verb": "on"}, True, "boundary-reject"),
-    ("cpu-mode", {"mode": "balanced; rm -rf /"}, False, "validation-reject"),
+    ("cpu-mode", {"verb": "balanced; rm -rf /"}, False, "validation-reject"),
     ("no-such", {}, False, "unknown-control"),
     ("flex-profile", {"key": "kv_cache_dtype", "value": "fp8"}, False, "dry-run"),
 ])
@@ -177,7 +184,7 @@ def test_metric_emitted_per_outcome(tmp_path, monkeypatch, cid, args, confirm, o
 def test_confirm_required_metric(tmp_path, monkeypatch):
     monkeypatch.setenv("SOVEREIGN_OS_METRICS_DIR", str(tmp_path))
     monkeypatch.setattr(AE, "operator_key_loaded", lambda: True)
-    AE.execute("cpu-mode", {"mode": "balanced"}, confirm=False, dry_run=True)
+    AE.execute("cpu-mode", {"verb": "balanced"}, confirm=False, dry_run=True)
     prom = (tmp_path / "sovereign-os-cockpit-action-exec.prom").read_text()
     assert 'outcome="confirm-required"' in prom
 

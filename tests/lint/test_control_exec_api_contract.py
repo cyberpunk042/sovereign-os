@@ -148,7 +148,9 @@ def test_execute_privileged_without_confirm_is_403():
     proc = _spawn(port)
     try:
         status, body = _post(port, "/api/control/execute", {
-            "control_id": "cpu-mode", "args": {"mode": "balanced"},
+            # cpu-mode is a pick-one enum now → arg-key is 'verb' (the first
+            # {a|b} placeholder), not the old free 'mode'.
+            "control_id": "cpu-mode", "args": {"verb": "balanced"},
         })
         assert status == 403, body
         assert body["ok"] is False

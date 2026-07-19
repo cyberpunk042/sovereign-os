@@ -80,6 +80,10 @@ def main(argv: list[str]) -> int:
     p_status.add_argument("id")
     p_cancel = sub.add_parser("cancel", help="cancel a job")
     p_cancel.add_argument("id")
+    p_store = sub.add_parser("store", help="show or switch the registry backend (json|sqlite)")
+    p_store.add_argument("backend", nargs="?", choices=["json", "sqlite"],
+                         help="switch to this backend (migrate every job + persist the choice); "
+                              "omit to show the active backend")
     p_sub = sub.add_parser("submit", help="submit a background job")
     p_sub.add_argument("kind", choices=["deliberation", "eval", "model-load", "gpu-job", "demo"])
     p_sub.add_argument("--title", default="")
@@ -121,6 +125,34 @@ def main(argv: list[str]) -> int:
             print(f"  {dev['key']:<6} {dev['role']:<9} {dev.get('name', ''):<28} {eff}")
         for c in d.get("claims", []):
             print(f"  claim {c['id']}  {c['vram_gb']:g}GB on {c['device']}  ({c['kind']}: {c.get('job', '')})")
+        return 0
+    if cmd == "store":
+        # A local config op (not an HTTP runtime call): read or switch the
+        # registry backend. Switching migrates every job + persists the choice;
+        # the running daemon picks it up on its next restart.
+        import jobs_store as _js
+        active = _js.resolve_backend()
+        if not args.backend:
+            out = {"backend": active, "backends": list(_js.BACKENDS),
+                   "persisted": _js.persisted_backend()}
+            if args.json:
+                print(json.dumps(out, indent=2))
+            else:
+                print(f"jobs registry backend: {active} "
+                      f"(persisted: {out['persisted'] or '—'}; options: {'/'.join(_js.BACKENDS)})")
+            return 0
+        target = args.backend
+        cur = _js.open_store()
+        tgt = _js.SqliteStore() if target == "sqlite" else _js.JsonStore()
+        migrated = _js.migrate(cur, tgt)
+        _js.set_persisted_backend(target)
+        out = {"switched_to": target, "from": active, "migrated": migrated,
+               "note": "restart sovereign-jobs-api for the running daemon to use it"}
+        if args.json:
+            print(json.dumps(out, indent=2))
+        else:
+            print(f"jobs registry backend: {active} → {target} — migrated {migrated} job(s); "
+                  f"restart sovereign-jobs-api to apply")
         return 0
     if cmd == "list":
         return _print(_call("GET", "/jobs.json"), args.json)

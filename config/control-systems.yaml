@@ -38,7 +38,7 @@ systems:
     options: [sain-01, developer, minimal, headless, old-workstation]
     options_cli: "sovereign-osctl profiles list"
     state_cli: "sovereign-osctl profiles active"
-    change_cli: "sovereign-osctl profiles switch <id>"
+    change_cli: "sovereign-osctl profiles switch {sain-01|developer|minimal|headless|old-workstation}"
     state_path: "/etc/sovereign-os/active-profile"
     privileged: true
     applies_to: [d-02-profile-choices, build-configurator, personalization]
@@ -58,7 +58,7 @@ systems:
     options: [ultra-sovereign-efficiency, high-concurrency-burst, deep-context-synthesis]
     options_cli: "sovereign-osctl trinity profile list"
     state_cli: "sovereign-osctl trinity profile active"
-    change_cli: "sovereign-osctl trinity profile switch <id>"
+    change_cli: "sovereign-osctl trinity profile switch {ultra-sovereign-efficiency|high-concurrency-burst|deep-context-synthesis}"
     state_path: "/run/sovereign-os/active-runtime-mode"
     privileged: true
     applies_to: [runtime-modes, trinity, d-01-active-sessions, d-03-model-health, router, orchestration, d-21-lm-orchestration, d-22-lm-status-operability]
@@ -96,7 +96,7 @@ systems:
     options: [ultra-low-power, balanced, sustained-burst, peak-inference]
     options_cli: "sovereign-osctl cpu-mode list"
     state_cli: "sovereign-osctl cpu-mode show"
-    change_cli: "sovereign-osctl cpu-mode set <mode>"
+    change_cli: "sovereign-osctl cpu-mode set {ultra-low-power|balanced|sustained-burst|peak-inference}"
     state_path: "/sys/devices/system/cpu/cpu*/cpufreq/scaling_governor"
     privileged: true
     applies_to: [runtime-modes, d-09-hardware-pressure, cpu-features]
@@ -114,7 +114,7 @@ systems:
     options: [conservative, balanced, sustained, peak]
     options_cli: "sovereign-osctl gpu-mode list"
     state_cli: "sovereign-osctl gpu-mode show"
-    change_cli: "sovereign-osctl gpu-mode set <mode>"
+    change_cli: "sovereign-osctl gpu-mode set {conservative|balanced|sustained|peak}"
     state_path: "/etc/sovereign-os/gpu-policy.toml"
     privileged: true
     applies_to: [runtime-modes, d-09-hardware-pressure]
@@ -176,7 +176,7 @@ systems:
     options: [no-auth, basic, advanced, social, enterprise, network-level]
     options_cli: "sovereign-osctl auth-tier list-tiers"
     state_cli: "sovereign-osctl auth-tier show <dashboard>"
-    change_cli: "sovereign-osctl auth-tier set <dashboard> <tier> --apply --confirm-tier-set"
+    change_cli: "sovereign-osctl auth-tier set <dashboard> {no-auth|basic|advanced|social|enterprise|network-level} --apply --confirm-tier-set"
     state_path: "/etc/sovereign-os/auth-tier.toml"
     privileged: true
     applies_to: [auth-tier]
@@ -248,7 +248,7 @@ systems:
     options: [mps, hugepages, thp, irq-affinity, cpu-isolation, nvidia-persistence]
     options_cli: "sovereign-osctl workload-knobs show"
     state_cli: "sovereign-osctl workload-knobs show"
-    change_cli: "sovereign-osctl workload-knobs set <knob> <value>"
+    change_cli: "sovereign-osctl workload-knobs set {mps|hugepages|thp|irq-affinity|cpu-isolation|nvidia-persistence} <value>"
     state_path: "kernel + systemd fragments"
     privileged: true
     applies_to: [runtime-modes, d-09-hardware-pressure]
@@ -288,7 +288,7 @@ systems:
     options: [mmlu, humaneval, gsm8k]
     options_cli: "sovereign-osctl models eval list-benchmarks"
     state_cli: "sovereign-osctl models eval history --limit 5"
-    change_cli: "sovereign-osctl models eval run <slug> --benchmark <benchmark>"
+    change_cli: "sovereign-osctl models eval run <slug> --benchmark {mmlu|humaneval|gsm8k}"
     state_path: "eval history JSONL (R232 · scripts/observability/eval-tracker.py)"
     privileged: true
     applies_to: [d-10-eval-history, d-22-lm-status-operability]
@@ -847,7 +847,7 @@ systems:
     options: [gnome, dashboards-kiosk, open-computer-kiosk, none]
     options_cli: "sovereign-osctl frontend list"
     state_cli: "sovereign-osctl frontend status --json"
-    change_cli: "sovereign-osctl frontend set <mode>"
+    change_cli: "sovereign-osctl frontend set {gnome|dashboards-kiosk|open-computer-kiosk|none}"
     state_path: "/etc/sovereign-os/frontend.active"
     privileged: true
     applies_to: [runtime-modes]
@@ -870,7 +870,7 @@ systems:
     options: [local, anthropic]
     options_cli: "sovereign-osctl openclaw backend show"
     state_cli: "sovereign-osctl openclaw backend show --json"
-    change_cli: "sovereign-osctl openclaw backend <origin>"
+    change_cli: "sovereign-osctl openclaw backend {local|anthropic}"
     state_path: "/etc/sovereign-os/openclaw-backends.json"
     privileged: true
     applies_to: [orchestration]
@@ -886,7 +886,7 @@ systems:
     options: [local, anthropic]
     options_cli: "sovereign-osctl open-computer backend show"
     state_cli: "sovereign-osctl open-computer backend show --json"
-    change_cli: "sovereign-osctl open-computer backend <origin>"
+    change_cli: "sovereign-osctl open-computer backend {local|anthropic}"
     state_path: "/etc/sovereign-os/open-computer-backends.json"
     privileged: true
     applies_to: [orchestration]
@@ -902,7 +902,7 @@ systems:
     options: [local, anthropic]
     options_cli: "sovereign-osctl claude-code backend show"
     state_cli: "sovereign-osctl claude-code backend show --json"
-    change_cli: "sovereign-osctl claude-code backend <origin>"
+    change_cli: "sovereign-osctl claude-code backend {local|anthropic}"
     state_path: "/etc/sovereign-os/claude-code-backends.json"
     privileged: true
     applies_to: [orchestration]
@@ -919,7 +919,7 @@ systems:
     options: [local, anthropic]
     options_cli: "sovereign-osctl vscode backend show"
     state_cli: "sovereign-osctl vscode backend show --json"
-    change_cli: "sovereign-osctl vscode backend <origin>"
+    change_cli: "sovereign-osctl vscode backend {local|anthropic}"
     state_path: "/etc/sovereign-os/vscode-backends.json"
     privileged: true
     applies_to: [orchestration]
@@ -944,8 +944,31 @@ systems:
     options: [custom, builtin, hybrid, "off"]  # quote 'off' — YAML 1.1 parses bare off as false
     options_cli: "sovereign-osctl avx-mode list"
     state_cli: "sovereign-osctl avx-mode show --json"
-    change_cli: "sovereign-osctl avx-mode set <mode>"
+    change_cli: "sovereign-osctl avx-mode set {custom|builtin|hybrid|off}"
     state_path: "/etc/sovereign-os/avx-mode.active"
     privileged: true
     applies_to: [cpu-features, avx-modes]
     refs: [SDD-600, scripts/hardware/avx-mode.py, "backlog/milestones/M008-bit-level-cheats-avx512-features.md"]
+
+  # Background-Tasks registry backend (F-2026-091 durability) — where the jobs
+  # registry METADATA is stored. Switching migrates every job across + persists
+  # the choice to /var/lib/sovereign-os/jobs/store.backend; job OUTPUT dirs are
+  # unaffected. Runs through the signed /api/control/execute → sudo path.
+  - id: jobs-store
+    kind: mode
+    scope: scoped
+    label: "Jobs Registry Backend"
+    description: >-
+      Where the Background-Tasks registry is stored: JSON (one human-readable
+      registry.json rewritten whole per change — the default, fine at pane scale)
+      or SQLite (registry.db, stdlib sqlite3 + WAL — atomic per-row writes,
+      concurrent-safe, scales). Switching migrates every job across and persists
+      the choice; restart the jobs runtime to apply. Job output dirs are untouched.
+    options: [json, sqlite]
+    options_cli: "sovereign-osctl jobs store"
+    state_cli: "sovereign-osctl jobs store"
+    change_cli: "sovereign-osctl jobs store {json|sqlite}"
+    state_path: "/var/lib/sovereign-os/jobs/store.backend"
+    privileged: true
+    applies_to: [code-console]
+    refs: [scripts/operator/lib/jobs_store.py, scripts/operator/lib/jobs_cli.py]
