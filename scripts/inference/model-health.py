@@ -209,6 +209,76 @@ def _precision(model: dict[str, Any]) -> str:
     return q or "—"
 
 
+def _quant_suffix(quantization: Any) -> str:
+    """The id suffix that encodes a quantization value in the catalog's
+    quant-in-id convention (e.g. gguf-q4_k_m → Q4_K_M, fp16 → FP16, nvfp4 →
+    NVFP4). Used to recover a model's base id by stripping its quant suffix."""
+    q = str(quantization or "").lower()
+    if not q:
+        return ""
+    if q.startswith("gguf-"):
+        return q[len("gguf-"):].upper()      # gguf-q4_k_m → Q4_K_M
+    return q.upper()                          # fp16 → FP16, nvfp4 → NVFP4, bf16 → BF16
+
+
+def _base_id(model: dict[str, Any]) -> str:
+    """A model's base id — its id with a trailing `-<QUANT>` suffix removed when
+    that suffix matches the entry's own quantization. Quant variants of one model
+    are separate catalog ids (…-FP16 / …-Q4_K_M, or per-quant HF repos like the
+    Nemotron BF16/FP8/NVFP4 trio), so grouping by hf_repo_id is insufficient;
+    stripping the entry's own quant suffix recovers the shared base. Models whose
+    id carries no quant suffix (e.g. Ling-2.6-flash) are their own base."""
+    mid = str(model.get("id", "") or "")
+    suf = _quant_suffix(model.get("quantization"))
+    if suf and mid.lower().endswith("-" + suf.lower()):
+        return mid[: len(mid) - len(suf) - 1]
+    return mid
+
+
+def group_by_base(models: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
+    """Catalog models grouped by base model, each group carrying its available
+    quantization variants — the shape a load-time quantization picker consumes.
+    A group with one variant is a single-quant model; a group with several
+    (DeepSeek-R1-Distill-Llama-70B → fp16 + gguf-q4_k_m; Nemotron-…-Reasoning →
+    bf16 + fp8 + nvfp4) is where the operator gets a real quant choice. Order is
+    catalog order (stable). Reuses load_catalog (no drift)."""
+    if models is None:
+        models = load_catalog()
+    order: list[str] = []
+    groups: dict[str, list[dict[str, Any]]] = {}
+    for m in models:
+        b = _base_id(m)
+        if b not in groups:
+            groups[b] = []
+            order.append(b)
+        groups[b].append(m)
+    out: list[dict[str, Any]] = []
+    for b in order:
+        variants = groups[b]
+        head = variants[0]
+        out.append({
+            "base": b,
+            "tier": head.get("tier"),
+            "class": head.get("class"),
+            "engine": head.get("engine"),
+            "hf_repo_id": head.get("hf_repo_id"),
+            "variant_count": len(variants),
+            "variants": [{
+                "id": v.get("id"),
+                "quantization": v.get("quantization"),
+                "precision": _precision(v),
+                "vram_gib_min": v.get("vram_gib_min"),
+                "size_class": v.get("size_class"),
+                "status": v.get("status"),
+                "params_b": (round(v["parameters_millions"] / 1000, 1)
+                             if isinstance(v.get("parameters_millions"), (int, float))
+                             else None),
+                "context_window_tokens": v.get("context_window_tokens"),
+            } for v in variants],
+        })
+    return out
+
+
 def _size_bytes(model: dict[str, Any]) -> int | None:
     """Declared on-GPU footprint from catalog vram_gib_min (GiB → bytes)."""
     v = model.get("vram_gib_min")

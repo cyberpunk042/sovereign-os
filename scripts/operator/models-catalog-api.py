@@ -20,6 +20,7 @@ mutations — R10212). do_POST/PUT/DELETE fail-closed 405.
 
 Endpoints (the exact contract webapp/d-23-models-catalog/index.html fetches):
   GET /api/models-catalog/catalog     all models grouped by tier
+  GET /api/models-catalog/by-base     models grouped by base model + quant variants
   GET /api/models-catalog/stream      Server-Sent Events (catalog-change)
   GET /webapp/ | /webapp/index.html   the D-23 single-file dashboard
   GET /version | /healthz | /
@@ -144,6 +145,20 @@ def catalog_view() -> dict[str, Any]:
             "catalog_path": str(_core.CATALOG_PATH)}
 
 
+def by_base_view() -> dict[str, Any]:
+    """The catalog grouped by BASE model, each group carrying its quantization
+    variants — the shape the load-time quantization picker consumes. Reuses
+    model-health.group_by_base (no drift). Read-only; the actual load stays the
+    signed `sovereign-osctl models load <id>` control (R10212)."""
+    bases = _core.group_by_base()
+    return {
+        "total_bases": len(bases),
+        "multi_quant_bases": sum(1 for b in bases if b.get("variant_count", 0) > 1),
+        "bases": bases,
+        "catalog_path": str(_core.CATALOG_PATH),
+    }
+
+
 def _version_payload() -> dict:
     return {
         "service": "models-catalog-api",
@@ -238,6 +253,10 @@ class ModelsCatalogAPIHandler(BaseHTTPRequestHandler):
                 self._send_json(200, catalog_view())
                 _emit_metric("catalog", "ok")
                 return
+            if path == "/api/models-catalog/by-base":
+                self._send_json(200, by_base_view())
+                _emit_metric("by-base", "ok")
+                return
         except Exception as e:  # noqa: BLE001
             self._send_json(500, {"error": str(e)})
             _emit_metric(path.lstrip("/") or "unknown", "500")
@@ -245,6 +264,7 @@ class ModelsCatalogAPIHandler(BaseHTTPRequestHandler):
         self._send_json(404, {
             "error": f"unknown endpoint: {path!r}",
             "available": ["/api/models-catalog/catalog",
+                          "/api/models-catalog/by-base",
                           "/api/models-catalog/stream", "/control-systems",
                           "/version", "/healthz", "/webapp/"],
         })
