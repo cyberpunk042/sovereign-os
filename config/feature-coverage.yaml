@@ -120,6 +120,7 @@ coverage:
 
 cli_only:
   - {verb: assistant, rationale: "first-login interactive guide (modal onboarding flow), not a persistent dashboard surface"}
+  - {verb: compat, rationale: "cross-system compatibility resolver (2026-07-19 operator directive) — validates candidate configurations against config/compatibility.yaml; the control-surface rail consuming its verdicts to grey out incompatible options is the dashboard follow-up, CLI-first this round"}
   - {verb: bashrc, rationale: "shell integration installer (aliases + completion) — a dotfile action, no dashboard"}
   - {verb: commands, rationale: "machine-readable CLI discovery inventory generated from the manual ownership registry; no runtime dashboard state to render"}
   - {verb: completion, rationale: "Bash/Zsh/Fish integration emitted from the command registry; a shell installation artifact, not a dashboard"}

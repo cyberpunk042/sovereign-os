@@ -130,6 +130,27 @@ log on each change.
 enable/disable are the operator (MS003-signed) path (R10131); web
 surfaces never mutate.
 Verbs: list / status / enable / disable [\[en]rationale].
+.SS compat
+.TP
+\f[B]sovereign-osctl compat list [\[en]json]\f[R]
+Cross-system compatibility rules table (2026-07-19 operator directive):
+requires / conflicts_with / forces_off / one_of over the control-systems
+registry.
+.TP
+\f[B]sovereign-osctl compat compile [\[en]json]\f[R]
+The M002 bit-word view \[em] features compiled to bit indexes + u64 mask
+words; implicit pick-one groups per kind=mode/profile system.
+.TP
+\f[B]sovereign-osctl compat check \[en]set SYS=OPT \&... [\[en]on SYS] [\[en]strict]\f[R]
+Validate a candidate configuration.
+rc=0 clean or suggest-only; rc=1 on a force violation (or warn under
+\[en]strict); rc=2 unknown system/option.
+.TP
+\f[B]sovereign-osctl compat explain \f[R]
+One rule in full (reason + remediation + refs).
+.TP
+\f[B]sovereign-osctl compat why <system[=option]>\f[R]
+Every rule touching a feature.
 .SS compliance
 .TP
 \f[B]sovereign-osctl compliance status\f[R]
