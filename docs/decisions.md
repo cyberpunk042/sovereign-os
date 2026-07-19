@@ -945,6 +945,53 @@ limit.
 **Decision**: Identifiers carrying the FULL project name renamed in lockstep — SDD-046 file + hooks (`root-modules-endpoint-install.sh`, `root-modules-verify.sh`) + profile ids/paths + lint gate (`test_root_modules_binding_contract.py`) + clone URL + `SOVEREIGN_OS_ROOT_MODULES_DIR` (legacy `SOVEREIGN_OS_ROOT_GHOSTPROXY_DIR` + pre-rename `~/root-ghostproxy` checkouts stay honored) + profile bake key `root_modules` (legacy `root_ghostproxy` still accepted by schema + mkosi emitter) + staged tree `/opt/root-modules` (bake symlinks + provision-bake accept both names). Plain-"ghostproxy" wire identifiers KEPT — metric families `sovereign_os_ghostproxy_endpoint_*`, unit names `sovereign-ghostproxy-verify.*`, gate envs (`SOVEREIGN_OS_CONFIRM_GHOSTPROXY_INSTALL`, `SOVEREIGN_OS_BAKE_GHOSTPROXY`, `PROVISION_GHOSTPROXY`, `SOVEREIGN_OS_GHOSTPROXY_DIR`) — "ghostproxy" survives upstream as the proxy-combo's name, and these are alert/runbook/host wire contracts. Historical layers (decisions entries, dated standing directives, handoff docs, operator verbatims) untouched.
 
 **Reversibility**: fully-reversible for docs/prose; env + key renames are additive (legacy accepted), so rollback is deleting the new names.
+### D-023 — 2026-07-15 — Q-047-D closed as obsolete: the F-2026-035 "recreate the branch" landing gate is answered-by-events
+
+**Decision**: Close Q-047-D as **obsolete**. The dev branch whose unrelated-history-vs-main landing strategy the question weighed (`claude/recover-projects-b0oT6`) has since been merged to `main` via PRs #110–#118 (SDD-144..149 on main; no live branch ref remains), and `operator-sudoers.sh` — the piece the "recreate" option existed to pull in — is already on main. The gate is answered by events, not by a choice.
+
+**Question**: Q-047-D — "Landing strategy: recreate the branch from `origin/main` + re-apply the 40-file deliverable, vs patch drift against a moving `main`?"
+
+**Source**: `docs/sdd/047-cockpit-functional-execution.md`:82 (Q-047-D row); ratified in `docs/sdd/985-cockpit-execute-unlock-decision-package.md` (D1).
+
+**Rationale**: A landing-strategy question is moot once the landing has happened. Verified: the branch is merged; `operator-sudoers.sh` is on main; the F-2026-035 deliverable shipped. No alternative remains to choose.
+
+**Affected items**: `docs/sdd/047-cockpit-functional-execution.md` (Q-047-D annotated); `docs/review/phase-1/99-findings-ledger.md` (F-2026-035 closed); `docs/sdd/985-*` (decision package).
+
+**Reversibility**: fully-reversible — a documentation/status decision; reopens trivially if the history record is ever contested.
+
+**Linked**: SDD-985 (decision package); F-2026-035 retirement.
+
+### D-024 — 2026-07-15 — Q-047-B ratified: selfdef/perimeter cockpit controls stay a signed proxy (never executed locally)
+
+**Decision**: **Ratify** the default — selfdef- and perimeter-owned controls (and the D-12..D-18 mirror surfaces) stay a **signed proxy** to selfdef and are never executed locally by sovereign-os. This blesses already-shipped, already-linted behavior and preserves the R10212 producer/consumer boundary (sovereign-os is the READ-ONLY consumer of selfdef state).
+
+**Question**: Q-047-B — "selfdef-owned controls: stay a signed proxy to selfdef (preserves R10212 producer/consumer) vs execute locally?"
+
+**Source**: `docs/sdd/047-cockpit-functional-execution.md`:80 (Q-047-B row); ratified in `docs/sdd/985-cockpit-execute-unlock-decision-package.md` (D2).
+
+**Rationale**: Executing selfdef-owned mutations from sovereign-os would invert the R10212 boundary and duplicate authority that belongs to selfdef. The proxy default is already enforced in code — `_action_exec.py:53,260-270` returns 409 for selfdef-owned controls, `control-surface.js:36` hardcodes `PROXY_ONLY=["selfdef","perimeter"]`, and `test_control_surface_execute_boundary.py` locks it — so ratification records intent already realized rather than changing behavior.
+
+**Affected items**: `docs/sdd/047-cockpit-functional-execution.md` (Q-047-B annotated); enforced by `scripts/operator/_action_exec.py` + `webapp/_shared/control-surface.js` + `tests/lint/test_control_surface_execute_boundary.py` (unchanged).
+
+**Reversibility**: fully-reversible — the proxy-only set is a small allowlist in code + lint; revisiting means an explicit new decision that supersedes this one.
+
+**Linked**: SDD-985 (decision package); F-2026-035 retirement.
+
+### D-025 — 2026-07-19 — MS003 commit-authority: Option B — sovereign-os mints ed25519 locally, selfdef verifies
+
+**Decision**: For sovereign-os's own locally-executed privileged mutations + decision-writers (the surface that stamped `signature: "unsigned-pending-MS003"`), adopt **Option B** — sovereign-os mints a real ed25519 signature over each mutation/decision record using a local operator key; selfdef (the producer) verifies. selfdef-owned controls (`selfdef`, `perimeter`) stay a pure signed-proxy (Option A) — unchanged. Resolves the "open sub-decision (operator-gated)" flagged in D-020. Originally chosen 2026-07-13; re-affirmed by the operator 2026-07-19.
+
+**Question**: SDD-984 core decision — for locally-executed sovereign-os-owned mutations, what does "signed" mean: A (selfdef mints every signature, couples to selfdef uptime), B (sovereign-os mints ed25519 locally, selfdef verifies), or C (formalize honestly-unsigned)?
+
+**Source**: `docs/sdd/984-ms003-commit-authority-decision-package.md` (the core decision); resolves the D-020 open sub-decision on F-2026-034.
+
+**Rationale**: Option B delivers real commit-authority **now** without breaking **MS043 offline-survivability** — the box signs locally, so a mutation never round-trips to selfdef on the hot path (Option A's fatal coupling). It respects **R10212** (signs only records sovereign-os already authors; selfdef-owned surfaces stay proxy) and slots into the existing `signature` field + `sovereign-zfs-commit-gate` envelope. Option C leaves the CRIT finding closed-in-name-only with no tamper-evidence on the record itself. B was already implemented on the sovereign-os side after the original pick: **SDD-989** (producer primitive `scripts/lib/ms003.py`, real ed25519 via system openssl, no new dep) + **SDD-990** (wired into all 8 decision/mutation writers) + the 2026-07-17 local verifier (trust-anchor store + `sovereign-osctl ms003` + daily sweep).
+
+**Affected items**: `docs/sdd/984-*` (status → accepted); `scripts/lib/ms003.py` + the 8 writers (SDD-989/990, already shipped); `docs/review/phase-1/99-findings-ledger.md` (F-2026-034 — producer + local-verifier halves done; stays open on the selfdef-side verifier).
+
+**Reversibility**: partial — the producer signing is shipped + tests-locked; reversing would mean removing SDD-989/990, and the wire-format contract `ms003:ed25519:<keyid>:<sig>` is now something selfdef is being asked to consume (cross-repo commitment).
+
+**Linked**: SDD-984 (decision package) → SDD-989 + SDD-990 (implementation); F-2026-034 (open on the selfdef verifier half).
 
 ## Cross-references
 

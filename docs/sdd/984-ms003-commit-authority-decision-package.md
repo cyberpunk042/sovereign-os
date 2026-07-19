@@ -1,6 +1,6 @@
 # SDD-984 — MS003 commit-authority / signed-mutation gating: decision-package (F-2026-034)
 
-> Status: draft — **DECISION-PACKAGE (awaiting operator decision; do not implement until the core decision below is made)**
+> Status: accepted — **DECISION MADE: Option B** (D-025, 2026-07-19; originally 2026-07-13, re-affirmed 2026-07-19). sovereign-os mints ed25519 locally; selfdef verifies. **Implemented sovereign-os-side**: SDD-989 (producer primitive `scripts/lib/ms003.py`) + SDD-990 (8 decision-writers wired) + the 2026-07-17 local verifier (trust-anchor store + `sovereign-osctl ms003` + daily sweep). **F-2026-034 stays OPEN on the selfdef-side verifier half only** — a selfdef-owned milestone that must consume the `ms003:ed25519:<keyid>:<sig>` contract + the exported operator public key.
 > Owner: operator-directed 2026-07-13 ("yes lets go, lets do it" — scope the CRIT cross-cutting blocker); agent-authored.
 > Addresses: **F-2026-034** (CRIT) — the acknowledged cross-cutting hole; every SDD-142..204 ships `unsigned-pending-MS003`.
 > Mandate module: **E11.M984**.

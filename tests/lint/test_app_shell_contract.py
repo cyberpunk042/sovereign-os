@@ -101,8 +101,13 @@ SANCTIONED_EXEC_FETCH = "/api/control/execute"
 # on the control rail. The literal prefix ends at the query key; the value
 # is encodeURIComponent'd — still a fixed loopback path, zero egress.
 SANCTIONED_COMPAT_FETCH = "/api/control/compat?control_id="
+# 2026-07-19 notifykit live-state prefill: the READ-ONLY effective-settings
+# payload (same truth as `sovereign-osctl notifykit show --json`) that
+# prefills the header 🔔 overlay. Fixed loopback path, zero egress.
+SANCTIONED_NOTIFYKIT_FETCH = "/api/control/notifykit"
 SANCTIONED_FETCHES = {
     SANCTIONED_CHAT_FETCH, SANCTIONED_EXEC_FETCH, SANCTIONED_COMPAT_FETCH,
+    SANCTIONED_NOTIFYKIT_FETCH,
 }
 
 
