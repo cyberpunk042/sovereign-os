@@ -34,8 +34,13 @@ Endpoints:
   GET  /brain/daemons        — the intelligence-layer daemon/crate map
   GET  /brain/route?complexity=…&privacy=…&…&expected_quality=0.9
   GET  /brain/coat?problem=…&rung=coat&topic=15 — CoAT deliberation (iterative
-                             MCTS + associative recall from the live Memory-OS)
-                             — one routing decision (decide + learn)
+                             MCTS + associative recall from the live Memory-OS),
+                             SYNCHRONOUS on the request thread (timeout-bounded)
+  GET  /brain/coat/submit?problem=…&rung=…&topic=… — submit the deliberation as a
+                             background-jobs `"deliberation"` job (:8142); returns
+                             {job_id} at once (F-2026-063 — the webapp's path)
+  GET  /brain/coat/result?id=… — poll a submitted deliberation → {done,state,
+                             progress[,trace|error]} in the CoAT render shape
   POST /brain/chat           — {messages:[…]} → streamed SSE from the :8787 shim
   GET  /version /healthz /control-systems
 
@@ -61,6 +66,7 @@ API_BIND = os.environ.get("BRAIN_API_BIND", "127.0.0.1")
 API_PORT = int(os.environ.get("BRAIN_API_PORT", "8141"))
 VERSION = "0.1.0"
 GATEWAY_ADDR = os.environ.get("SOVEREIGN_GATEWAY_ADDR", "127.0.0.1:8787")
+JOBS_ADDR = os.environ.get("SOVEREIGN_JOBS_ADDR", "127.0.0.1:8142")
 
 REPO = Path(__file__).resolve().parents[2]
 WEBAPP_ROOT = REPO / "webapp"
@@ -287,6 +293,89 @@ def coat_deliberate(params: dict) -> dict:
     return trace
 
 
+def coat_submit(params: dict) -> dict:
+    """Steer a CoAT deliberation onto the background-jobs runtime (:8142) instead
+    of blocking on the synchronous /brain/coat call (F-2026-063): submit a
+    `"deliberation"` job and return its id, so the request thread returns at once
+    and the webapp polls /brain/coat/result. A deliberation is NOT a command kind,
+    so the jobs mutation-guard needs only loopback + same-origin (no token), and
+    it is read-only over memory (a deliberation never learns) — consistent with
+    this daemon's read-only-over-memory contract."""
+    def _one(key, default):
+        v = params.get(key, default)
+        return v[0] if isinstance(v, list) else v
+
+    problem = (_one("problem", "") or "").strip()
+    if not problem:
+        return {"error": "problem is required"}
+    rung = (_one("rung", "coat") or "coat").strip().lower()
+    try:
+        topic = int(_one("topic", "15") or 15)
+    except (TypeError, ValueError):
+        topic = 15
+    body = json.dumps({
+        "kind": "deliberation", "title": problem[:120], "priority": "normal",
+        "meta": {"problem": problem, "rung": rung, "topic": topic},
+    }).encode()
+    req = urllib.request.Request(f"http://{JOBS_ADDR}/jobs", data=body,
+                                 headers={"Content-Type": "application/json"}, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=10) as r:  # noqa: S310 (loopback)
+            job = json.loads(r.read().decode("utf-8", "replace"))
+    except urllib.error.HTTPError as e:
+        try:
+            msg = json.loads(e.read().decode("utf-8", "replace")).get("error", f"HTTP {e.code}")
+        except (ValueError, OSError):
+            msg = f"HTTP {e.code}"
+        return {"error": f"jobs runtime refused: {msg}"}
+    except (urllib.error.URLError, OSError, ValueError) as e:
+        return {"error": f"jobs runtime unreachable at {JOBS_ADDR}: {e}"}
+    if not isinstance(job, dict) or not job.get("id"):
+        return {"error": "jobs runtime returned no job id"}
+    return {"job_id": job["id"], "state": job.get("state", "queued")}
+
+
+def coat_result(params: dict) -> dict:
+    """Poll a background deliberation job (:8142 GET /jobs/<id>) and shape it for
+    the CoAT observatory. Returns {done,state,progress}; when done, the runner's
+    compact trace (best_path + summary + thought_source + path_value) in the shape
+    the renderer already consumes; on failure, the job's error. The webapp polls
+    this until `done`."""
+    def _one(key, default):
+        v = params.get(key, default)
+        return v[0] if isinstance(v, list) else v
+
+    jid = (_one("id", "") or "").strip()
+    if not jid:
+        return {"error": "id is required", "done": True}
+    url = f"http://{JOBS_ADDR}/jobs/{urllib.parse.quote(jid, safe='')}"
+    try:
+        with urllib.request.urlopen(url, timeout=10) as r:  # noqa: S310 (loopback)
+            job = json.loads(r.read().decode("utf-8", "replace"))
+    except urllib.error.HTTPError as e:
+        return {"error": f"no such job (HTTP {e.code})", "done": True}
+    except (urllib.error.URLError, OSError, ValueError) as e:
+        return {"error": f"jobs runtime unreachable at {JOBS_ADDR}: {e}", "done": True}
+    if not isinstance(job, dict):
+        return {"error": "unexpected jobs response", "done": True}
+    state = job.get("state", "queued")
+    done = state in ("done", "failed", "cancelled")
+    out = {"done": done, "state": state, "progress": job.get("progress", 0)}
+    if state == "done":
+        trace = (job.get("meta") or {}).get("trace") or {}
+        out.update({
+            "rung": trace.get("rung", "CoAT"),
+            "best_path": trace.get("best_path", []),
+            "thought_source": trace.get("thought_source"),
+            "path_value": trace.get("path_value"),
+            "recalled_total": trace.get("recalled_total"),
+            "summary": trace.get("summary"),
+        })
+    elif state in ("failed", "cancelled"):
+        out["error"] = job.get("error") or job.get("output") or f"deliberation {state}"
+    return out
+
+
 def assemble_brain() -> dict:
     """The panel's primary feed: live status + memory summary + daemon map."""
     mem = cortex_memory(limit=0)          # summary only (counts + by_type)
@@ -333,6 +422,12 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/brain/coat":
             q = urllib.parse.parse_qs(parsed.query)
             return self._send(200, json.dumps(coat_deliberate(q), indent=2))
+        if path == "/brain/coat/submit":
+            q = urllib.parse.parse_qs(parsed.query)
+            return self._send(200, json.dumps(coat_submit(q), indent=2))
+        if path == "/brain/coat/result":
+            q = urllib.parse.parse_qs(parsed.query)
+            return self._send(200, json.dumps(coat_result(q), indent=2))
         if path in ("/control-systems", "/control-systems.json"):
             return self._send(200, json.dumps(_load_control_systems()))
         if path == "/":

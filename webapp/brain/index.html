@@ -1668,7 +1668,7 @@ adoption pattern.
 <script>SovereignControlSurface.load(document.getElementById('control-surface'),{filterSlug:'brain'});</script>
 
 <footer>
-  <div>data: <code>GET /brain.json</code> + <code>/brain/memory</code> ← <code>scripts/operator/brain-api.py</code> (probes <code>sovereign-gatewayd :8787</code> + the Memory-OS stores) · operate: <code>/brain/route</code> (decide) · <code>/brain/coat</code> (CoAT deliberate) · <code>POST /brain/chat</code> (the :8787 OpenAI shim)</div>
+  <div>data: <code>GET /brain.json</code> + <code>/brain/memory</code> ← <code>scripts/operator/brain-api.py</code> (probes <code>sovereign-gatewayd :8787</code> + the Memory-OS stores) · operate: <code>/brain/route</code> (decide) · <code>/brain/coat/submit</code>→<code>/brain/coat/result</code> (CoAT deliberate via the background-jobs runtime :8142) · <code>POST /brain/chat</code> (the :8787 OpenAI shim)</div>
   <div class="standing-rule">"We do not minimize anything." — operator §1g standing rule</div>
 </footer>
 
@@ -1829,22 +1829,47 @@ async function probe(){
   } catch (e){ el("probe-result").innerHTML = "<span class='bad'>" + esc(e.message) + "</span>"; }
 }
 
-// CoAT deliberation — run the sovereign-coat reasoning engine (GET /brain/coat →
-// POST :8787 /v1/coat) and render the winning reasoning trace. Read-only: the
-// gateway decides without learning, so a deliberation never pollutes memory.
+// CoAT deliberation — run the sovereign-coat reasoning engine and render the
+// winning reasoning trace. Steered onto the background-jobs runtime (F-2026-063):
+// submit a "deliberation" job (GET /brain/coat/submit → jobs :8142) and poll
+// (GET /brain/coat/result?id=…) so the click never blocks on the multi-second
+// deliberation. Read-only: the gateway decides without learning, so a
+// deliberation never pollutes memory.
 async function coatDeliberate(){
   const problem = el("coat-problem").value.trim();
   if (!problem){ el("coat-result").innerHTML = "<span class='muted'>enter a problem first</span>"; return; }
   if (demoActive()){ renderCoat(DEMO_COAT); return; }
   const rung = el("coat-rung").value;
   const topic = el("coat-topic").value || "15";
-  el("coat-result").textContent = "deliberating…";
+  const btn = el("coat-btn");
+  el("coat-result").textContent = "submitting…";
   try{
     const q = new URLSearchParams({ problem: problem, rung: rung, topic: topic });
-    const d = await (await fetch("/brain/coat?" + q.toString())).json();
-    if (d.error){ el("coat-result").innerHTML = "<span class='bad'>" + esc(d.error) + "</span>"; return; }
-    renderCoat(d);
+    const s = await (await fetch("/brain/coat/submit?" + q.toString())).json();
+    if (s.error || !s.job_id){ el("coat-result").innerHTML = "<span class='bad'>" + esc(s.error || "submit failed") + "</span>"; return; }
+    if (btn) btn.disabled = true;
+    await coatPoll(s.job_id);
   } catch (e){ el("coat-result").innerHTML = "<span class='bad'>" + esc(e.message) + "</span>"; }
+  finally { if (btn) btn.disabled = false; }
+}
+// Poll a submitted deliberation job until it reaches a terminal state, then
+// render its trace. ~3-minute ceiling; the job keeps running in Background Tasks
+// beyond that (the pane shows it), so a slow model never wedges the panel.
+async function coatPoll(jobId){
+  const rq = new URLSearchParams({ id: jobId });
+  for (let i = 0; i < 120; i++){
+    let d;
+    try { d = await (await fetch("/brain/coat/result?" + rq.toString())).json(); }
+    catch (e){ el("coat-result").innerHTML = "<span class='bad'>" + esc(e.message) + "</span>"; return; }
+    if (d.done){
+      if (d.error){ el("coat-result").innerHTML = "<span class='bad'>" + esc(d.error) + "</span>"; return; }
+      renderCoat(d); return;
+    }
+    el("coat-result").innerHTML = "<span class='muted'>deliberating… <span style='opacity:.7'>("
+      + esc(d.state || "queued") + (d.progress ? " " + esc(d.progress) + "%" : "") + ")</span></span>";
+    await new Promise(function(r){ setTimeout(r, 1500); });
+  }
+  el("coat-result").innerHTML = "<span class='bad'>still deliberating — see Background Tasks for the running job</span>";
 }
 function renderCoat(d){
   const path = d.best_path || [];
