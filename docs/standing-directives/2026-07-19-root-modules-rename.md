@@ -16,11 +16,11 @@ sovereign-os follow-up:
 ## What this directive establishes
 
 1. The sister repo `cyberpunk042/root-ghostproxy` is now **`cyberpunk042/root-modules`**. First and by default a root/home folder upgrader + evolver; "ghostproxy" now names the **proxy module combo** (L2 bridge + Suricata + PolarProxy) — exactly the half the SDD-046 binding keeps OFF.
-2. sovereign-os references, hooks, profile wiring, and the lint gate track the new name (see D-023 for the full rename/keep split). Legacy env names + pre-rename checkouts stay honored.
+2. sovereign-os references, hooks, profile wiring, and the lint gate track the new name (see D-026 for the full rename/keep split). Legacy env names + pre-rename checkouts stay honored.
 3. Plain-"ghostproxy" wire identifiers (metrics `sovereign_os_ghostproxy_endpoint_*`, unit `sovereign-ghostproxy-verify.*`, `*_GHOSTPROXY_*` gate envs, legacy profile key) are KEPT for contract stability — a future migration is an operator decision, not implied by this directive.
 
 ## Cross-references
 
-- Decision record: `docs/decisions.md` D-023
+- Decision record: `docs/decisions.md` D-026
 - Binding SDD: `docs/sdd/046-root-modules-endpoint-binding.md`
 - Upstream rename directive log: `cyberpunk042/root-modules wiki/log/2026-07-19-rename-root-modules-directive.md`

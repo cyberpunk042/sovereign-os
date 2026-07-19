@@ -938,13 +938,6 @@ limit.
 
 **Reversibility**: fully-reversible — the tier→device mapping is config + panel labels + role-assignment; no data migration.
 
-### D-023 — 2026-07-19 — SDD-046 binding tracks the upstream root-ghostproxy → root-modules rename (lockstep; wire identifiers kept)
-
-**Question**: The upstream project renamed (operator verbatim: "root-ghostproxy has just been renamed into root-modules. lets update the repo as such. its at first and by default a root or home folder upgrader, evolver and secondly you can install supplementary modules like the ghostproxy combo"; sovereign-os follow-up verbatim: "sovereign-os too think its root-ghostproxy I think, lets solve that"). What renames in this repo, and what stays?
-
-**Decision**: Identifiers carrying the FULL project name renamed in lockstep — SDD-046 file + hooks (`root-modules-endpoint-install.sh`, `root-modules-verify.sh`) + profile ids/paths + lint gate (`test_root_modules_binding_contract.py`) + clone URL + `SOVEREIGN_OS_ROOT_MODULES_DIR` (legacy `SOVEREIGN_OS_ROOT_GHOSTPROXY_DIR` + pre-rename `~/root-ghostproxy` checkouts stay honored) + profile bake key `root_modules` (legacy `root_ghostproxy` still accepted by schema + mkosi emitter) + staged tree `/opt/root-modules` (bake symlinks + provision-bake accept both names). Plain-"ghostproxy" wire identifiers KEPT — metric families `sovereign_os_ghostproxy_endpoint_*`, unit names `sovereign-ghostproxy-verify.*`, gate envs (`SOVEREIGN_OS_CONFIRM_GHOSTPROXY_INSTALL`, `SOVEREIGN_OS_BAKE_GHOSTPROXY`, `PROVISION_GHOSTPROXY`, `SOVEREIGN_OS_GHOSTPROXY_DIR`) — "ghostproxy" survives upstream as the proxy-combo's name, and these are alert/runbook/host wire contracts. Historical layers (decisions entries, dated standing directives, handoff docs, operator verbatims) untouched.
-
-**Reversibility**: fully-reversible for docs/prose; env + key renames are additive (legacy accepted), so rollback is deleting the new names.
 ### D-023 — 2026-07-15 — Q-047-D closed as obsolete: the F-2026-035 "recreate the branch" landing gate is answered-by-events
 
 **Decision**: Close Q-047-D as **obsolete**. The dev branch whose unrelated-history-vs-main landing strategy the question weighed (`claude/recover-projects-b0oT6`) has since been merged to `main` via PRs #110–#118 (SDD-144..149 on main; no live branch ref remains), and `operator-sudoers.sh` — the piece the "recreate" option existed to pull in — is already on main. The gate is answered by events, not by a choice.
@@ -992,6 +985,14 @@ limit.
 **Reversibility**: partial — the producer signing is shipped + tests-locked; reversing would mean removing SDD-989/990, and the wire-format contract `ms003:ed25519:<keyid>:<sig>` is now something selfdef is being asked to consume (cross-repo commitment).
 
 **Linked**: SDD-984 (decision package) → SDD-989 + SDD-990 (implementation); F-2026-034 (open on the selfdef verifier half).
+
+### D-026 — 2026-07-19 — SDD-046 binding tracks the upstream root-ghostproxy → root-modules rename (lockstep; wire identifiers kept)
+
+**Question**: The upstream project renamed (operator verbatim: "root-ghostproxy has just been renamed into root-modules. lets update the repo as such. its at first and by default a root or home folder upgrader, evolver and secondly you can install supplementary modules like the ghostproxy combo"; sovereign-os follow-up verbatim: "sovereign-os too think its root-ghostproxy I think, lets solve that"). What renames in this repo, and what stays?
+
+**Decision**: Identifiers carrying the FULL project name renamed in lockstep — SDD-046 file + hooks (`root-modules-endpoint-install.sh`, `root-modules-verify.sh`) + profile ids/paths + lint gate (`test_root_modules_binding_contract.py`) + clone URL + `SOVEREIGN_OS_ROOT_MODULES_DIR` (legacy `SOVEREIGN_OS_ROOT_GHOSTPROXY_DIR` + pre-rename `~/root-ghostproxy` checkouts stay honored) + profile bake key `root_modules` (legacy `root_ghostproxy` still accepted by schema + mkosi emitter) + staged tree `/opt/root-modules` (bake symlinks + provision-bake accept both names). Plain-"ghostproxy" wire identifiers KEPT — metric families `sovereign_os_ghostproxy_endpoint_*`, unit names `sovereign-ghostproxy-verify.*`, gate envs (`SOVEREIGN_OS_CONFIRM_GHOSTPROXY_INSTALL`, `SOVEREIGN_OS_BAKE_GHOSTPROXY`, `PROVISION_GHOSTPROXY`, `SOVEREIGN_OS_GHOSTPROXY_DIR`) — "ghostproxy" survives upstream as the proxy-combo's name, and these are alert/runbook/host wire contracts. Historical layers (decisions entries, dated standing directives, handoff docs, operator verbatims) untouched.
+
+**Reversibility**: fully-reversible for docs/prose; env + key renames are additive (legacy accepted), so rollback is deleting the new names.
 
 ## Cross-references
 
