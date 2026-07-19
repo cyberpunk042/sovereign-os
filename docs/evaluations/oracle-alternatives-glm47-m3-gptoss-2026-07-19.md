@@ -89,6 +89,32 @@ all pass one of the two envelopes.
 No change proposed to serving defaults; all four land in the catalog as
 `operator-must-confirm` candidates. Bench gates before any promotion.
 
+## Running the bench gate (shipped with this evaluation)
+
+The promotion gate is the `throughput` benchmark added to the R232 eval
+surface (`scripts/models/eval.py` — builtin executor, stdlib-only: streams
+prompts against a live OpenAI-compatible endpoint, measures TTFT + decode
+tok/s, records to the R232 JSONL state the dashboard reads):
+
+```sh
+# 1. serve the candidate (per its engine — vLLM or llama.cpp --n-cpu-moe)
+# 2. bench it (endpoint defaults to the router at 127.0.0.1:8080/v1):
+sovereign-osctl models eval run gpt-oss-120b --benchmark throughput \
+    --endpoint http://127.0.0.1:8083/v1 --min-tok-s 30
+
+sovereign-osctl models eval run GLM-4.7 --benchmark throughput \
+    --endpoint http://127.0.0.1:8083/v1 --min-tok-s 10
+
+# 3. history (mean tok/s per run, promotion audit trail):
+sovereign-osctl models eval history --benchmark throughput
+```
+
+`--min-tok-s` is the operator-set promotion bar (rc=1 / outcome
+`below-gate` when missed — no default is imposed). Knobs:
+`SOVEREIGN_OS_BENCH_ENDPOINT` · `SOVEREIGN_OS_BENCH_MODEL` (served model
+id when it differs from the HF repo id) · `SOVEREIGN_OS_BENCH_PROMPTS`
+(default 3) · `SOVEREIGN_OS_BENCH_MAX_TOKENS` (default 256).
+
 ## Sources
 
 - [unsloth — GLM-4.7 local guide](https://unsloth.ai/docs/models/tutorials/glm-4.7) · [DataCamp — run GLM-4.7 locally](https://www.datacamp.com/tutorial/run-glm-4-7-locally)
