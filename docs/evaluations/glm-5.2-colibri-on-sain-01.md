@@ -3,8 +3,12 @@
 > Operator ask (verbatim, 2026-07-19): *"Lets evaluate the possibility for GLM,
 > like GLM 5.2+ Colibri on the SAIN, on sovereign-os"*
 >
-> Status: **evaluation — operator-must-confirm**. Companion catalog entry:
-> `GLM-5.2-colibri-int4` in [`models/catalog.yaml`](../../models/catalog.yaml).
+> Status: **CLOSED — operator-rejected 2026-07-19** (operator verbatim: *"JUST
+> SAY ITS TRASH... THERE IS CONTEXT"* — trash in the SAIN-01 context: 8× too
+> big for VRAM, single-digit tok/s through the streaming hack). PR #240 closed
+> unmerged; the `GLM-5.2-colibri-int4` catalog entry was withdrawn. Kept as the
+> evaluation record. Successor evaluation:
+> [oracle-alternatives-glm47-m3-gptoss-2026-07-19.md](oracle-alternatives-glm47-m3-gptoss-2026-07-19.md).
 > All facts below HF-/web-verified 2026-07-19; every performance number for
 > SAIN-01 itself is an **agent estimate flagged as such** — no bench has run
 > on the physical box.
