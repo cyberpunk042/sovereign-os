@@ -32,6 +32,10 @@
 #
 # SECRETS: values of the form "env:VAR_NAME" resolve from the
 # environment at delivery time — keys NEVER live in this file (SDD-009).
+# The VALUES live in /etc/sovereign-os/notify.env (see
+# config/notify.env.example — the ups.env-style operator env file,
+# 0600 root-owned, loaded by systemd EnvironmentFile= and sourceable
+# into a shell for `sovereign-osctl notifykit test`).
 
 # Global default override — sweeps every channel gate key below EXCEPT
 # static-pinned ones. Commented out = no override.
