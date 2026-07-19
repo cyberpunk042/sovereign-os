@@ -163,6 +163,36 @@ def test_open_store_toggle_and_autoseed(tmp_path, monkeypatch):
     assert js.resolve_backend() == "json"
 
 
+def test_persisted_backend_choice_wins_over_env(tmp_path, monkeypatch):
+    # The cockpit "Jobs Registry Backend" control persists the choice; it must take
+    # precedence over the env default so a settings switch sticks across restarts.
+    js = _store_mod()
+    js.JOBS_DIR = tmp_path  # point the persisted-choice file at the temp jobs dir
+    monkeypatch.setenv("SOVEREIGN_OS_JOBS_STORE", "json")
+    assert js.resolve_backend() == "json"  # env default, no persisted choice yet
+    js.set_persisted_backend("sqlite", tmp_path)
+    assert js.persisted_backend(tmp_path) == "sqlite"
+    assert js.resolve_backend() == "sqlite"  # persisted settings choice beats the env
+    assert js.resolve_backend("json") == "json"  # an explicit arg still wins over all
+    with pytest.raises(ValueError):
+        js.set_persisted_backend("bogus", tmp_path)
+
+
+def test_jobs_store_is_a_registered_signed_control():
+    # The backend toggle is a first-class control-systems entry (its appropriate
+    # place), executed via the signed /api/control/execute → sudo path — NOT a
+    # webapp mutation and NOT clipboard-only. Surfaced data-driven on the Code
+    # Console via applies_to.
+    reg = (REPO / "config" / "control-systems.yaml").read_text(encoding="utf-8")
+    assert "id: jobs-store" in reg, "the backend toggle must be in the control registry"
+    assert "sovereign-osctl jobs store <id>" in reg, "change_cli must be the store verb"
+    assert "applies_to: [code-console]" in reg, "must surface on the Code Console pane"
+    cli = (REPO / "scripts/operator/lib/jobs_cli.py").read_text(encoding="utf-8")
+    assert '"store"' in cli, "osctl jobs must expose the `store` verb"
+    sudoers = (REPO / "config/sudoers.d/sovereign-os-cockpit").read_text(encoding="utf-8")
+    assert "sovereign-osctl jobs store *" in sudoers, "the store verb must be sudo-allowlisted"
+
+
 def test_jobs_api_uses_the_store_toggle_and_migrate_cli():
     # jobs-api must construct via the factory (so the toggle is honored) and expose
     # the manual migration CLI.

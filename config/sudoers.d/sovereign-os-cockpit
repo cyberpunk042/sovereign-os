@@ -34,6 +34,7 @@ Cmnd_Alias SOVEREIGN_OS_COCKPIT = \
     /usr/local/bin/sovereign-osctl profiles create-orchestration *, \
     /usr/local/bin/sovereign-osctl peace-check --json, \
     /usr/local/bin/sovereign-osctl trinity profile switch *, \
+    /usr/local/bin/sovereign-osctl jobs store *, \
     /usr/local/bin/sovereign-osctl profiles flex set *, \
     /usr/local/bin/sovereign-osctl cpu-mode set *, \
     /usr/local/bin/sovereign-osctl gpu-mode set *, \

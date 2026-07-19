@@ -36,6 +36,13 @@ Pick one with `SOVEREIGN_OS_JOBS_STORE` (default **json**):
 Switching is safe + reversible: enabling sqlite with an empty db AUTO-SEEDS from an
 existing `registry.json` (one-way json→sqlite), and `jobs-api.py --migrate-to
 {json,sqlite}` copies every job either direction on demand (see `migrate`).
+
+The **cockpit** exposes this as the "Jobs Registry Backend" control (SDD-045
+control-systems registry, on the Code Console): `sovereign-osctl jobs store
+<backend>` migrates every job + PERSISTS the choice to `<jobs-dir>/store.backend`,
+which `resolve_backend` honors above the env default — so a settings switch sticks
+across restarts. The control runs through the signed `/api/control/execute` →
+`sudo -n` path (the sudoers allowlist), like every other privileged control.
 """
 from __future__ import annotations
 
@@ -370,11 +377,44 @@ def _store_for(backend: str, path: Path | str | None = None):
     return JsonStore(path if path is not None else REGISTRY)
 
 
+# The operator's persisted backend choice (the cockpit "Jobs Registry Backend"
+# control writes this via `sovereign-osctl jobs store <backend>`). It lives in the
+# jobs dir and takes precedence over the env default, so a settings switch sticks
+# across restarts without hand-editing the environment.
+STORE_CHOICE_FILE = "store.backend"
+
+
+def persisted_backend(jobs_dir: Path | str | None = None) -> str | None:
+    """The persisted settings-toggle choice, or None if unset/invalid."""
+    d = Path(jobs_dir) if jobs_dir is not None else JOBS_DIR
+    try:
+        b = (d / STORE_CHOICE_FILE).read_text(encoding="utf-8").strip().lower()
+    except (FileNotFoundError, OSError):
+        return None
+    return b if b in BACKENDS else None
+
+
+def set_persisted_backend(backend: str, jobs_dir: Path | str | None = None) -> None:
+    """Persist the settings-toggle choice (survives restart; read by open_store)."""
+    if backend not in BACKENDS:
+        raise ValueError(f"unknown backend {backend!r} (want {'/'.join(BACKENDS)})")
+    d = Path(jobs_dir) if jobs_dir is not None else JOBS_DIR
+    d.mkdir(parents=True, exist_ok=True)
+    (d / STORE_CHOICE_FILE).write_text(backend + "\n", encoding="utf-8")
+
+
 def resolve_backend(backend: str | None = None) -> str:
-    """The active backend: the explicit arg, else SOVEREIGN_OS_JOBS_STORE, else the
-    default. An unknown value falls back to the default rather than crashing the
-    daemon at import."""
-    b = (backend or os.environ.get("SOVEREIGN_OS_JOBS_STORE") or DEFAULT_BACKEND).strip().lower()
+    """The active backend, by precedence: explicit arg > persisted settings choice
+    > SOVEREIGN_OS_JOBS_STORE > default. An unknown value falls back to the default
+    rather than crashing the daemon at import."""
+    if backend:
+        b = backend.strip().lower()
+        if b in BACKENDS:
+            return b
+    chosen = persisted_backend()
+    if chosen:
+        return chosen
+    b = (os.environ.get("SOVEREIGN_OS_JOBS_STORE") or DEFAULT_BACKEND).strip().lower()
     return b if b in BACKENDS else DEFAULT_BACKEND
 
 

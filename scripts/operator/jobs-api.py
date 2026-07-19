@@ -690,6 +690,10 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, json.dumps({
                 "jobs": jobs, "summary": _js.summary(jobs), "gateway_addr": GATEWAY_ADDR,
                 "plane": PLANE.state(),
+                # The active registry backend, so the pane can show it (read-only;
+                # switching is the signed `jobs store` control, not a web mutation).
+                "store": {"backend": STORE.backend, "backends": list(_js.BACKENDS),
+                          "path": str(STORE.path)},
             }, indent=2))
         if path == "/plane.json":
             return self._send(200, json.dumps(PLANE.state(), indent=2))

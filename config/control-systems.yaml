@@ -949,3 +949,26 @@ systems:
     privileged: true
     applies_to: [cpu-features, avx-modes]
     refs: [SDD-600, scripts/hardware/avx-mode.py, "backlog/milestones/M008-bit-level-cheats-avx512-features.md"]
+
+  # Background-Tasks registry backend (F-2026-091 durability) — where the jobs
+  # registry METADATA is stored. Switching migrates every job across + persists
+  # the choice to /var/lib/sovereign-os/jobs/store.backend; job OUTPUT dirs are
+  # unaffected. Runs through the signed /api/control/execute → sudo path.
+  - id: jobs-store
+    kind: mode
+    scope: scoped
+    label: "Jobs Registry Backend"
+    description: >-
+      Where the Background-Tasks registry is stored: JSON (one human-readable
+      registry.json rewritten whole per change — the default, fine at pane scale)
+      or SQLite (registry.db, stdlib sqlite3 + WAL — atomic per-row writes,
+      concurrent-safe, scales). Switching migrates every job across and persists
+      the choice; restart the jobs runtime to apply. Job output dirs are untouched.
+    options: [json, sqlite]
+    options_cli: "sovereign-osctl jobs store"
+    state_cli: "sovereign-osctl jobs store"
+    change_cli: "sovereign-osctl jobs store <id>"
+    state_path: "/var/lib/sovereign-os/jobs/store.backend"
+    privileged: true
+    applies_to: [code-console]
+    refs: [scripts/operator/lib/jobs_store.py, scripts/operator/lib/jobs_cli.py]
