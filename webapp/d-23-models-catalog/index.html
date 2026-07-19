@@ -1124,6 +1124,30 @@ adoption pattern.
 <main>
   <div class="banner" id="data-source-banner">connecting to <code>/api/models-catalog/catalog</code>…</div>
   <div class="banner" id="summary"></div>
+  <!-- Quantization variants — the models offered in more than one quant (grouped
+       by base model, from GET /api/models-catalog/by-base). Read-only reference,
+       like the rest of D-23: loading a chosen variant is a signed action on
+       D-03 / D-21. Answers this panel's own "compare quantizations of the same
+       base" purpose at a glance. -->
+  <section id="quant-variants" class="qv" hidden>
+    <h2>quantization variants <span class="muted">— same model, different precision</span></h2>
+    <p class="qv-sub muted">Models offered in more than one quantization — a lighter quant trades quality for VRAM.
+       Load a chosen variant from <b>D-03</b> or <b>D-21</b> (signed action; the web never mutates, R10212).</p>
+    <div id="qv-body"></div>
+  </section>
+  <style>
+    /* palette vars match this panel + control-surface (--bg/--muted/--accent/--border). */
+    #quant-variants.qv { margin: .4rem 0 1rem; }
+    #quant-variants.qv > h2 { margin: .2rem 0 .15rem; }
+    #quant-variants .qv-sub { margin: 0 0 .6rem; font-size: .85rem; max-width: 72ch; }
+    #quant-variants .qv-group { padding: .5rem 0; border-top: 1px solid var(--border, #262626); }
+    #quant-variants .qv-group:first-child { border-top: 0; }
+    #quant-variants .qv-base { font-weight: 600; font-size: .9rem; margin-bottom: .3rem; }
+    #quant-variants .qv-variants { display: flex; flex-wrap: wrap; gap: .4rem; }
+    #quant-variants .qv-chip { font-size: .76rem; padding: 2px 8px; border: 1px solid var(--border, #262626);
+                               border-radius: 4px; background: var(--bg, #0e0e0e); }
+    #quant-variants .qv-chip b { color: var(--accent, #9bd1ff); }
+  </style>
   <div id="tiers"></div>
   <p class="banner" id="last-fetch"></p>
 </main>
@@ -1178,11 +1202,37 @@ adoption pattern.
       </table>`).join('') || '<div class="muted">catalog empty or unreadable</div>';
   }
 
+  // SDD-120 DEMO: one multi-quant base so the section is visible without network.
+  const DEMO_BASES = [{ base: 'DeepSeek-R1-Distill-Llama-70B', variant_count: 2, variants: [
+    { id: 'DeepSeek-R1-Distill-Llama-70B-FP16', quantization: 'fp16', vram_gib_min: 140, status: 'verified-real' },
+    { id: 'DeepSeek-R1-Distill-Llama-70B-Q4_K_M', quantization: 'gguf-q4_k_m', vram_gib_min: 42, status: 'verified-real' } ]}];
+  function renderQuantVariants(bases) {
+    const sec = $('quant-variants'), body = $('qv-body');
+    const multi = (bases || []).filter(b => b.variant_count > 1);
+    if (!multi.length) { sec.hidden = true; return; }
+    sec.hidden = false;
+    body.innerHTML = multi.map(b => `
+      <div class="qv-group">
+        <div class="qv-base">${esc(b.base)} <span class="muted">· ${b.variant_count} quants</span></div>
+        <div class="qv-variants">${b.variants.map(v => `
+          <span class="qv-chip"><b>${esc(v.quantization)}</b> · ${v.vram_gib_min != null ? esc(v.vram_gib_min) + ' GiB' : '—'}${v.status ? ' · ' + esc(v.status) : ''}</span>`).join('')}</div>
+      </div>`).join('');
+  }
+  async function loadQuantVariants() {
+    if (demoActive()) return renderQuantVariants(DEMO_BASES);  // DEMO: no fetch
+    try {
+      const res = await fetch('/api/models-catalog/by-base', { credentials: 'same-origin' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      renderQuantVariants((await res.json()).bases);
+    } catch (e) { $('quant-variants').hidden = true; }
+  }
+
   async function refresh() {
     // SDD-120 DEMO short-circuit: badged sample catalog, ZERO network calls.
     if (demoActive()) {
       $('data-source-banner').innerHTML = '<strong>DEMO mode</strong> — sample data, not a live daemon. Disable it in Personalization.';
       renderTiers(DEMO_CATALOG);
+      renderQuantVariants(DEMO_BASES);
       if (window.soDemo) window.soDemo.badge();
       $('last-fetch').textContent = 'DEMO · sample data';
       return;
@@ -1193,6 +1243,7 @@ adoption pattern.
       const data = await res.json();
       $('data-source-banner').innerHTML = 'consuming <code>/api/models-catalog/catalog</code> from the models-catalog API daemon';
       renderTiers(data);
+      loadQuantVariants();
     } catch (e) {
       $('data-source-banner').innerHTML = 'cannot reach <code>/api/models-catalog/catalog</code> — is the models-catalog API daemon running? <span class="muted">('+esc(e.message)+')</span>';
       renderTiers({offline: true});   // SDD-113 — keep the catalog scaffold visible, never blank
