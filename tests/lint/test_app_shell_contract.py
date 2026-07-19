@@ -96,7 +96,14 @@ SANCTIONED_CHAT_FETCH = "/api/code-console/chat"
 # is the operator's explicit directive (a "hotswap" that swaps, not a copied
 # command), so the exec-rail path is allow-listed alongside the chat.
 SANCTIONED_EXEC_FETCH = "/api/control/execute"
-SANCTIONED_FETCHES = {SANCTIONED_CHAT_FETCH, SANCTIONED_EXEC_FETCH}
+# 2026-07-19 compat integration: the READ-ONLY per-option compat preview
+# (GET, same control-exec-api daemon) that greys force-incompatible options
+# on the control rail. The literal prefix ends at the query key; the value
+# is encodeURIComponent'd — still a fixed loopback path, zero egress.
+SANCTIONED_COMPAT_FETCH = "/api/control/compat?control_id="
+SANCTIONED_FETCHES = {
+    SANCTIONED_CHAT_FETCH, SANCTIONED_EXEC_FETCH, SANCTIONED_COMPAT_FETCH,
+}
 
 
 def test_app_shell_chrome_is_non_mutating():

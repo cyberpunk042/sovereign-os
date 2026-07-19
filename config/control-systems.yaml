@@ -144,6 +144,29 @@ systems:
     applies_to: [d-21-lm-orchestration, d-22-lm-status-operability, orchestration, runtime-modes]
     refs: [config/inference/m083-dflash-speculative-decoding.yaml, scripts/inference/dspark-wrap.sh]
 
+  # ── 6b. DFlash — the M083 predecessor draft strategy (per-invocation) ──
+  - id: dflash-speculative-decoding
+    kind: toggle
+    scope: scoped
+    label: "DFlash Speculative Decoding"
+    description: >-
+      The M083 DFlash task-type-gated draft fast-path (arXiv:2602.06036) —
+      the PREDECESSOR DSpark builds on. Unlike DSpark there is no persistent
+      state store: the gate is decided PER INVOCATION by the argv-prefix
+      wrapper (scripts/inference/dflash-wrap.sh) from --task-type (code+math
+      get the 3x speedup; creative is gated OFF to preserve sampling
+      quality), overridable with DFLASH_ENABLE_OVERRIDE /
+      DFLASH_DISABLE_OVERRIDE (DISABLE wins). Registered here so the compat
+      module can express the one-draft-strategy-per-invocation relation
+      against DSpark (C007); runs unprivileged as the operator user.
+    options: ["on", "off"]
+    options_cli: "SOVEREIGN_OS_DRY_RUN=1 scripts/inference/dflash-wrap.sh --task-type code --backend vllm -- true"
+    state_cli: "SOVEREIGN_OS_DRY_RUN=1 scripts/inference/dflash-wrap.sh --task-type code --backend vllm -- true"
+    change_cli: "scripts/inference/dflash-wrap.sh --task-type {code|math|conversational|creative} --backend {vllm|llama_cpp|transformers} -- <argv>"
+    privileged: false
+    applies_to: [d-21-lm-orchestration, d-22-lm-status-operability, orchestration, runtime-modes]
+    refs: [config/inference/m083-dflash-speculative-decoding.yaml, scripts/inference/dflash-wrap.sh, scripts/inference/bench-dflash.sh]
+
   # ── 6. Dashboard toggles — every dashboard on/off (global) ───────────
   - id: dashboard-toggle
     kind: toggle
@@ -235,6 +258,29 @@ systems:
     privileged: true
     applies_to: [trinity, router, d-03-model-health, d-21-lm-orchestration, d-22-lm-status-operability]
     refs: [SDD-011]
+
+  # ── 10b. Oracle hybrid bench serve — RAM+VRAM big-MoE trial endpoint ──
+  - id: oracle-hybrid
+    kind: lifecycle
+    scope: scoped
+    label: "Oracle Hybrid (bench)"
+    description: >-
+      The llama.cpp RAM+VRAM hybrid serve for big-MoE catalog candidates
+      (GLM-4.7, MiniMax-M3): dense layers + KV on the internal Blackwell
+      pair (tensor-split 3,1 across the RTX PRO 6000 + RTX 5090), routed
+      experts in 256 GB DDR5 via --n-cpu-moe. Port 8086 is a BENCH/TRIAL
+      endpoint, not a router tier — the throughput promotion gate
+      (models eval run --benchmark throughput --min-tok-s N) drives it.
+      Because it claims BOTH internal GPUs it contends with the pure-VRAM
+      Oracle/Logic tiers — the compat module encodes that (C006). Runs
+      unprivileged as the operator user (foreground llama.cpp server).
+    options: [start]
+    options_cli: "SOVEREIGN_OS_DRY_RUN=1 scripts/inference/start-oracle-hybrid.sh"
+    state_cli: "curl -s http://127.0.0.1:8086/health"
+    change_cli: "scripts/inference/start-oracle-hybrid.sh"
+    privileged: false
+    applies_to: [trinity, d-03-model-health, d-21-lm-orchestration]
+    refs: [scripts/inference/start-oracle-hybrid.sh, docs/evaluations/oracle-alternatives-glm47-m3-gptoss-2026-07-19.md]
 
   # ── 11. Workload knobs — inference-latency primitives ────────────────
   - id: workload-knobs

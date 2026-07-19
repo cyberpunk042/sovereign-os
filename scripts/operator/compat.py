@@ -24,11 +24,31 @@ an IMPLICIT pick-one group — the compiler emits an exclusivity mask per
 such system, so "offer the possibility to chose one of many things" is
 structural, not per-rule boilerplate.
 
+Scope v2 (2026-07-19 follow-on): the PROVISIONING universe. The
+image-build provisioning modules (profiles/*.yaml + profiles/mixins/)
+join the bit universe as two virtual systems:
+  provisioning-profile   pick-one over the declared profile ids
+                         (sain-01, developer, minimal, ...) — implicit
+                         exclusivity mask like any kind=profile system
+  provisioning-mixin     the mixin set (role-*, whitelabel-default,
+                         observability-tier-1, ...) — multi-select
+plus IMPLICIT per-profile `requires` relations derived from each
+profile's own declared `mixins:` list — grounded in the profile files
+themselves, not hand-authored rules. Rules in compatibility.yaml may
+reference the two virtual systems like any registry system.
+
+Pre-change gate (consumed by scripts/operator/_action_exec.py + the
+control-exec-api compat preview): `pre_change(proposed)` overlays a
+proposed control change onto the best-effort CURRENT state (single-value
+state_path files + $SOVEREIGN_OS_COMPAT_CURRENT overrides) and returns
+findings; force findings gate the exec rail (with reason + remediation +
+an audited override), warn/suggest ride along.
+
 Verbs:
   list                       rules table (--json for fleet tooling)
   compile [--json]           bit universe + rule masks (hex words)
   check --set sys=opt ...    validate a candidate configuration
-        [--on sys] [--strict] [--json]
+        [--on sys] [--current] [--strict] [--json]
   explain <rule-id>          one rule in full
   why <system>[=option]      every rule touching a feature
 
@@ -41,6 +61,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -54,8 +75,14 @@ except ImportError:  # pragma: no cover
 REPO_ROOT = Path(__file__).resolve().parents[2]
 COMPAT_PATH = REPO_ROOT / "config" / "compatibility.yaml"
 CONTROLS_PATH = REPO_ROOT / "config" / "control-systems.yaml"
+PROFILES_DIR = REPO_ROOT / "profiles"
 
 WORD_BITS = 64
+
+# Scope v2 — the two virtual provisioning systems (never in
+# control-systems.yaml; derived from profiles/ at compile time).
+PROV_PROFILE = "provisioning-profile"
+PROV_MIXIN = "provisioning-mixin"
 
 
 def _norm_opt(value: Any) -> str:
@@ -76,6 +103,31 @@ def load_rules() -> list[dict[str, Any]]:
     return doc["compatibility"]["rules"]
 
 
+def load_provisioning() -> dict[str, Any]:
+    """Scope v2 — scan the image-build provisioning modules.
+
+    Returns {"profiles": {id: [mixin, ...]}, "mixins": [name, ...]}.
+    Grounded in profiles/*.yaml (identity.id + the profile's own
+    `mixins:` list) and profiles/mixins/*.yaml (the mixin inventory).
+    Degrades to empty on a missing tree — the v1 control-systems scope
+    keeps working standalone.
+    """
+    profiles: dict[str, list[str]] = {}
+    mixins: list[str] = []
+    try:
+        for f in sorted(PROFILES_DIR.glob("*.yaml")):
+            doc = yaml.safe_load(f.read_text(encoding="utf-8")) or {}
+            pid = (doc.get("identity") or {}).get("id")
+            if pid:
+                profiles[str(pid)] = [str(m) for m in (doc.get("mixins") or [])]
+        mixins = sorted(
+            p.stem for p in (PROFILES_DIR / "mixins").glob("*.yaml")
+        )
+    except OSError:
+        return {"profiles": {}, "mixins": []}
+    return {"profiles": profiles, "mixins": mixins}
+
+
 def _rule_feature_refs(rule: dict[str, Any]) -> list[dict[str, Any]]:
     refs = [rule["when"]]
     if rule.get("target"):
@@ -85,14 +137,30 @@ def _rule_feature_refs(rule: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def validate_references(
-    rules: list[dict[str, Any]], controls: dict[str, dict[str, Any]]
+    rules: list[dict[str, Any]],
+    controls: dict[str, dict[str, Any]],
+    provisioning: dict[str, Any] | None = None,
 ) -> list[str]:
-    """Every referenced system id must exist in the registry; every
-    referenced option must be one of that system's declared options."""
+    """Every referenced system id must exist in the registry (or be a
+    scope-v2 virtual provisioning system); every referenced option must
+    be one of that system's declared options."""
+    prov = provisioning if provisioning is not None else load_provisioning()
+    virtual = {
+        PROV_PROFILE: sorted(prov.get("profiles", {})),
+        PROV_MIXIN: list(prov.get("mixins", [])),
+    }
     errors: list[str] = []
     for rule in rules:
         for ref in _rule_feature_refs(rule):
             sys_id = ref.get("system")
+            if sys_id in virtual:
+                declared = virtual[sys_id]
+                if "option" in ref and _norm_opt(ref["option"]) not in declared:
+                    errors.append(
+                        f"{rule['id']}: provisioning system {sys_id!r} has no "
+                        f"module {ref['option']!r} (declared: {declared})"
+                    )
+                continue
             if sys_id not in controls:
                 errors.append(f"{rule['id']}: unknown system {sys_id!r}")
                 continue
@@ -117,13 +185,28 @@ class Universe:
     inputs always compile to the same bit layout.
     """
 
-    def __init__(self, controls: dict[str, dict[str, Any]], rules: list[dict[str, Any]]):
+    def __init__(
+        self,
+        controls: dict[str, dict[str, Any]],
+        rules: list[dict[str, Any]],
+        provisioning: dict[str, Any] | None = None,
+    ):
+        prov = provisioning or {"profiles": {}, "mixins": []}
         feats: set[tuple[str, str | None]] = set()
         for sys_id, system in controls.items():
             feats.add((sys_id, None))
             if system.get("kind") in ("mode", "profile"):
                 for o in system.get("options") or []:
                     feats.add((sys_id, _norm_opt(o)))
+        # Scope v2 — the provisioning universe (profiles pick-one + mixins).
+        for pid in prov.get("profiles", {}):
+            feats.add((PROV_PROFILE, pid))
+        for m in prov.get("mixins", []):
+            feats.add((PROV_MIXIN, m))
+        if prov.get("profiles"):
+            feats.add((PROV_PROFILE, None))
+        if prov.get("mixins"):
+            feats.add((PROV_MIXIN, None))
         for rule in rules:
             for ref in _rule_feature_refs(rule):
                 feats.add((ref["system"], _norm_opt(ref["option"])
@@ -144,6 +227,28 @@ class Universe:
                     mask |= 1 << self.index[(sys_id, _norm_opt(o))]
                 if mask:
                     self.one_of_groups[sys_id] = mask
+        # Scope v2 — exactly one image-build profile is realized at a time.
+        if prov.get("profiles"):
+            mask = 0
+            for pid in prov["profiles"]:
+                mask |= 1 << self.index[(PROV_PROFILE, pid)]
+            self.one_of_groups[PROV_PROFILE] = mask
+        # Scope v2 — implicit per-profile requires, grounded in each
+        # profile's own declared mixins list (not hand-authored rules).
+        self.implicit_requires: list[dict[str, Any]] = []
+        for pid, mixin_list in sorted(prov.get("profiles", {}).items()):
+            wanted = [m for m in mixin_list if (PROV_MIXIN, m) in self.index]
+            if not wanted:
+                continue
+            tgt = 0
+            for m in wanted:
+                tgt |= 1 << self.index[(PROV_MIXIN, m)]
+            self.implicit_requires.append({
+                "name": f"profile-mixins:{pid}",
+                "cond": 1 << self.index[(PROV_PROFILE, pid)],
+                "tgt": tgt,
+                "mixins": wanted,
+            })
 
     def bit(self, ref: dict[str, Any]) -> int:
         key = (ref["system"], _norm_opt(ref["option"]) if "option" in ref else None)
@@ -225,6 +330,22 @@ def evaluate(
                     "hits": universe.describe(word & group),
                 }
             )
+    # Scope v2 — implicit profile→mixin requires (derived from profiles/*.yaml).
+    for ir in getattr(universe, "implicit_requires", []):
+        if word & ir["cond"] == ir["cond"] and word & ir["tgt"] != ir["tgt"]:
+            findings.append(
+                {
+                    "rule_id": f"(implicit) {ir['name']}",
+                    "verb": "requires",
+                    "severity": "warn",
+                    "reason": "the image-build profile declares these mixins "
+                    "in profiles/*.yaml — realizing it without them is not "
+                    "the profile the file describes",
+                    "remediation": "include the profile's declared mixins: "
+                    + ", ".join(ir["mixins"]),
+                    "hits": universe.describe(ir["tgt"] & ~word),
+                }
+            )
     for c in compiled:
         rule, cond, tgt = c["rule"], c["cond"], c["tgt"]
         if word & cond != cond:
@@ -258,18 +379,143 @@ def evaluate(
     return findings
 
 
+# ---------------- pre-change gate API (exec-rail + web preview) ----------------
+
+
+def read_current_state(
+    controls: dict[str, dict[str, Any]]
+) -> dict[str, str]:
+    """Best-effort CURRENT assignment {system: option}.
+
+    Two sources, never raising:
+      1. $SOVEREIGN_OS_COMPAT_CURRENT — "sys=opt,sys2=opt2" explicit
+         overrides (tests + operator escape hatch); wins over files.
+      2. Each system's `state_path` when it is an existing regular file
+         whose stripped single-line content equals one of the system's
+         declared options (e.g. /etc/sovereign-os/active-profile).
+         Anything else (unit names, TOML stores, missing files) is
+         simply UNKNOWN — the gate only reasons over what it can read.
+    """
+    current: dict[str, str] = {}
+    # Hermetic switch (tests + operator escape hatch): COMPAT_STATE=off
+    # skips the state_path file scan; explicit $SOVEREIGN_OS_COMPAT_CURRENT
+    # overrides still apply.
+    scan_files = os.environ.get(
+        "SOVEREIGN_OS_COMPAT_STATE", "on").lower() not in ("off", "0")
+    for sys_id, system in (controls.items() if scan_files else ()):
+        sp = system.get("state_path")
+        if not isinstance(sp, str) or not sp.startswith("/"):
+            continue
+        try:
+            p = Path(sp)
+            if not p.is_file() or p.stat().st_size > 4096:
+                continue
+            value = p.read_text(encoding="utf-8").strip().splitlines()
+            value = value[0].strip() if value else ""
+        except (OSError, UnicodeDecodeError):
+            continue
+        declared = [_norm_opt(o) for o in (system.get("options") or [])]
+        if value and value in declared:
+            current[sys_id] = value
+    env = os.environ.get("SOVEREIGN_OS_COMPAT_CURRENT", "")
+    for item in env.split(","):
+        item = item.strip()
+        if "=" in item:
+            k, v = item.split("=", 1)
+            current[k.strip()] = v.strip()
+    return current
+
+
+def pre_change(proposed: dict[str, str | None]) -> dict[str, Any]:
+    """The pre-change compatibility gate: overlay a PROPOSED assignment
+    onto the best-effort current state and evaluate every rule.
+
+    Returns {"available": True, "findings": [...], "gating": bool,
+    "current": {...}, "proposed": {...}} — `gating` is True iff a
+    force-severity finding fired. Never raises: an unreadable registry
+    or config degrades to {"available": False, "error": ...} so the
+    exec rail stays functional (gate degrades OPEN, with the reason on
+    the result for the operator to see).
+    """
+    try:
+        controls = load_controls()
+        rules = load_rules()
+        provisioning = load_provisioning()
+        errors = validate_references(rules, controls, provisioning)
+        if errors:
+            return {"available": False,
+                    "error": f"compat registry references unresolved: {errors}"}
+        universe = Universe(controls, rules, provisioning)
+        compiled = compile_rules(universe, rules)
+        current = read_current_state(controls)
+        merged: dict[str, str | None] = dict(current)
+        # The proposed change REPLACES the changed system's current option
+        # (a switch is a switch, not an addition).
+        for k, v in proposed.items():
+            merged[k] = v
+        # The universe carries every pick-one option + every rule-referenced
+        # option. An option NO rule references has no bit — represent it as
+        # the system's active bit only (identical evaluation semantics), and
+        # skip systems the universe doesn't know at all (best-effort input).
+        safe: dict[str, str | None] = {}
+        for k, v in merged.items():
+            if (k, None) not in universe.index:
+                continue
+            safe[k] = v if (v is None or (k, v) in universe.index) else None
+        word = config_word(universe, safe)
+        findings = evaluate(universe, compiled, word)
+        return {
+            "available": True,
+            "findings": findings,
+            "gating": any(f["severity"] == "force" for f in findings),
+            "current": current,
+            "proposed": {k: v for k, v in proposed.items()},
+        }
+    except (OSError, KeyError, ValueError, yaml.YAMLError) as e:
+        return {"available": False, "error": f"compat gate unavailable: {e}"}
+
+
+def option_preview(control_id: str) -> dict[str, Any] | None:
+    """Per-option compat preview for ONE control against current state —
+    the payload the cockpit uses to GREY incompatible options on the
+    control rail. Returns None for an unknown control; never raises."""
+    try:
+        controls = load_controls()
+    except (OSError, yaml.YAMLError):
+        return None
+    control = controls.get(control_id)
+    if control is None:
+        return None
+    options = [_norm_opt(o) for o in (control.get("options") or [])]
+    rows = []
+    for opt in options:
+        res = pre_change({control_id: opt})
+        if not res.get("available"):
+            return {"control_id": control_id, "available": False,
+                    "error": res.get("error"), "options": []}
+        rows.append({
+            "option": opt,
+            "gating": res["gating"],
+            "findings": res["findings"],
+        })
+    current = read_current_state(controls)
+    return {"control_id": control_id, "available": True,
+            "current": current, "options": rows}
+
+
 # ---------------- CLI verbs ----------------
 
 
 def _load_all() -> tuple[dict[str, dict[str, Any]], list[dict[str, Any]], Universe]:
     controls = load_controls()
     rules = load_rules()
-    errors = validate_references(rules, controls)
+    provisioning = load_provisioning()
+    errors = validate_references(rules, controls, provisioning)
     if errors:
         for e in errors:
             print(f"ERROR {e}", file=sys.stderr)
         sys.exit(2)
-    return controls, rules, Universe(controls, rules)
+    return controls, rules, Universe(controls, rules, provisioning)
 
 
 def cmd_list(args: argparse.Namespace) -> int:
@@ -300,6 +546,10 @@ def cmd_compile(args: argparse.Namespace) -> int:
         "one_of_groups": {
             s: universe.words(m) for s, m in sorted(universe.one_of_groups.items())
         },
+        "implicit_profile_requires": [
+            {"name": ir["name"], "mixins": ir["mixins"]}
+            for ir in universe.implicit_requires
+        ],
         "rules": [
             {
                 "id": c["rule"]["id"],
@@ -317,6 +567,8 @@ def cmd_compile(args: argparse.Namespace) -> int:
     print("── compat compile — the M002 bit-word view ──")
     print(f"  features: {payload['n_features']}  →  {payload['n_words']} × u64 word(s)")
     print(f"  implicit pick-one groups: {len(universe.one_of_groups)}")
+    print(f"  implicit profile→mixin requires (scope v2): "
+          f"{len(universe.implicit_requires)}")
     for r in payload["rules"]:
         print(f"  {r['id']:44s} {r['verb']:14s} sev={r['severity']}")
         print(f"    cond   {' '.join(r['cond_words'])}")
@@ -336,6 +588,10 @@ def cmd_check(args: argparse.Namespace) -> int:
         assignment[k] = v
     for item in args.on or []:
         assignment.setdefault(item, None)
+    if getattr(args, "current", False):
+        controls = load_controls()
+        for sys_id, opt in read_current_state(controls).items():
+            assignment.setdefault(sys_id, opt)
     if not assignment:
         print("ERROR nothing to check — pass --set system=option / --on system",
               file=sys.stderr)
@@ -426,6 +682,10 @@ def build_parser() -> argparse.ArgumentParser:
                     help="feature assignment (repeatable)")
     ck.add_argument("--on", action="append", metavar="SYS",
                     help="mark a system active without picking an option")
+    ck.add_argument("--current", action="store_true",
+                    help="merge the best-effort live state (state_path files "
+                         "+ $SOVEREIGN_OS_COMPAT_CURRENT) under the --set/--on "
+                         "assignment")
     ck.add_argument("--strict", action="store_true",
                     help="warn-severity findings also gate (rc=1)")
     ck.add_argument("--json", action="store_true")
