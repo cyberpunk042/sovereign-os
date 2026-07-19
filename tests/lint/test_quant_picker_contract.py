@@ -14,6 +14,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 PANEL = REPO / "webapp" / "d-03-model-health" / "index.html"
+CATALOG_PANEL = REPO / "webapp" / "d-23-models-catalog" / "index.html"
 API = REPO / "scripts" / "operator" / "models-catalog-api.py"
 
 
@@ -56,4 +57,19 @@ def test_picker_hands_off_to_the_signed_model_load_control():
     picker_js = m.group(1)
     assert "fetch(" in picker_js and "method:'POST'" not in picker_js.replace(" ", ""), (
         "the picker must only READ (GET by-base); the write path stays the signed control"
+    )
+
+
+def test_catalog_browse_surfaces_quantization_variants():
+    """D-23 (the read-only catalog browse) surfaces the multi-quant models as a
+    'quantization variants' section from the same by-base endpoint — its own
+    stated purpose is comparing quantizations of the same base. Read-only: no
+    load here (that's D-03/D-21, a signed action)."""
+    html = CATALOG_PANEL.read_text(encoding="utf-8")
+    assert 'id="quant-variants"' in html, "D-23 must carry the quantization-variants section"
+    assert "/api/models-catalog/by-base" in html, "it must source the section from by-base"
+    assert "renderQuantVariants" in html, "it must render the grouped variants"
+    # D-23 stays read-only — no control-exec POST introduced by this section.
+    assert 'sovereign-osctl models' in html or 'R10212' in html, (
+        "D-23 must keep its read-only / signed-load framing"
     )
