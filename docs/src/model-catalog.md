@@ -2,7 +2,7 @@
 
 # Model catalog — Genesis Trinity (master spec § 17)
 
-Canonical declaration of the 73 models this system intends to host across Pulse / Logic / Oracle / Router tiers, spanning the full R212 taxonomy (class × quantization × size_class × purpose).
+Canonical declaration of the 77 models this system intends to host across Pulse / Logic / Oracle / Router tiers, spanning the full R212 taxonomy (class × quantization × size_class × purpose).
 
 This doc is regenerated from `models/catalog.yaml` on every invocation of `scripts/models/render-catalog-md.py`. The same YAML drives `scripts/models/pull.sh` (operator-driven pull) and `scripts/models/verify.sh` (resident integrity check), so the doc, the puller, and the verifier can never drift.
 
@@ -11,8 +11,8 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 | Tier | Count | Verified-real | Aspirational |
 |------|-------|---------------|--------------|
 | pulse | 29 | 9 | 14 |
-| logic | 22 | 6 | 7 |
-| oracle | 17 | 8 | 5 |
+| logic | 23 | 6 | 7 |
+| oracle | 20 | 8 | 5 |
 | router | 5 | 4 | 0 |
 
 ## Catalog by class (R212 taxonomy)
@@ -23,8 +23,8 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 | `embed` — Embedding | 2 |
 | `llm` — LLM (general) | 1 |
 | `lora-adapter` — LoRA adapter | 3 |
-| `mixture` — Mixture-of-Experts | 5 |
-| `multimodal` — Multimodal | 4 |
+| `mixture` — Mixture-of-Experts | 8 |
+| `multimodal` — Multimodal | 5 |
 | `reranker` — Reranker (cross-encoder) | 1 |
 | `rlm` — RLM (reasoning) | 9 |
 | `slm` — SLM (small) | 6 |
@@ -36,19 +36,19 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 
 | Purpose | Count |
 |---------|-------|
-| `agent` | 19 |
+| `agent` | 23 |
 | `audio` | 3 |
-| `chat` | 35 |
-| `code` | 21 |
+| `chat` | 39 |
+| `code` | 25 |
 | `distillation-base` | 1 |
 | `embedding` | 2 |
-| `function-calling` | 6 |
-| `multimodal` | 5 |
+| `function-calling` | 7 |
+| `multimodal` | 6 |
 | `rag` | 3 |
-| `reasoning` | 27 |
+| `reasoning` | 30 |
 | `reranking` | 1 |
 | `speculation` | 2 |
-| `vision` | 5 |
+| `vision` | 6 |
 
 ## Pulse tier (master spec § 17)
 
@@ -983,6 +983,35 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 
 > Operator handwritten catalog 2026-07-02 — note: ternary quant of CodeLlama-34B (base verified real).
 
+### GLM-4.7-Flash
+
+- **Status:** ? operator-must-confirm
+- **Class:** `mixture` — Mixture-of-Experts
+- **Quantization:** `fp8`
+- **Size class:** `l`
+- **Purpose:** `code`, `agent`, `chat`, `function-calling`
+- **Engine:** `vllm`
+- **License:** mit
+- **Parameters:** 31221.5 M
+- **VRAM minimum (GiB):** 32
+- **Context window (tokens):** 200,000
+- **Master spec:** operator evaluation 2026-07-19 (oracle alternatives that fit SAIN-01)
+
+**Operator note:**
+
+> Evaluation 2026-07-19 — GLM flavor at the interactive Logic
+> tier: 31.2B total / ~3B active MoE (glm4_moe_lite), MIT, 200K
+> context, Jan 2026, 9.5M HF downloads. Open-source SOTA in the
+> 30B class: 59.2 SWE-bench Verified — roughly 3x Qwen3-30B-A3B.
+> FP8 ~32 GB fits the RTX 5090 (32 GB) internal secondary
+> (thin margin — power-limited card, KV on the PRO 6000 spillover
+> or trim context), BF16 ~62 GB lands on the PRO 6000 with
+> headroom; 24 GB-GPU deploy guides exist for further-quantized
+> variants (4090 eGPU viable at int4). Direct competitor to the
+> Qwen3-Coder Logic default and the Nemotron-30B Oracle default
+> at a fraction of the active params. Bench gate before any
+> binding change.
+
 ## Oracle tier (master spec § 17)
 
 ### DeepSeek-R1-Distill-Llama-70B-FP16
@@ -1378,6 +1407,98 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 **Operator note:**
 
 > Operator handwritten catalog 2026-07-02 — note: operator 'Mistral-Ternary 3x70B' — a replicated/ensemble group of 3; captured as a single mixture entry pending real base + composition decision.
+
+### GLM-4.7
+
+- **Status:** ? operator-must-confirm
+- **Class:** `mixture` — Mixture-of-Experts
+- **Quantization:** `gguf-q4_k_m`
+- **Size class:** `xxl`
+- **Purpose:** `code`, `reasoning`, `chat`, `agent`
+- **Engine:** `llama.cpp`
+- **License:** mit
+- **Parameters:** 358337.8 M
+- **Context window (tokens):** 200,000
+- **Master spec:** operator evaluation 2026-07-19 (oracle alternatives that fit SAIN-01)
+
+**Operator note:**
+
+> Evaluation 2026-07-19 — the "GLM on the SAIN done right" pick:
+> 358B total / ~32B active MoE (glm4_moe), MIT, 200K context,
+> Dec 2025; same lineage as the rejected GLM-5.2, reported 73.8%
+> SWE-bench. HF-verified (params 358,337.8M); FP8 sibling
+> zai-org/GLM-4.7-FP8; unsloth ships the GGUF line (UD-Q2_K_XL
+> 135 GB runs on 1x24 GB + 128 GB RAM per unsloth docs). NOT
+> pure-VRAM servable (vram_gib_min intentionally omitted): Q4
+> GGUF ~180-200 GB runs via the llama.cpp --n-cpu-moe RAM+VRAM
+> hybrid (256 GB DDR5 experts + dense/hot-experts/KV on the
+> 96+32 GB Blackwell pair; 4090 eGPU is cache, not TP). Unsloth
+> reference: >=205 GB combined RAM+VRAM -> 5+ tok/s; SAIN-01 at
+> 384 GB combined with a large VRAM fraction -> ~8-15 tok/s
+> decode — AGENT ESTIMATE, physical bench gate before promotion.
+> Strongest open coder that fits the box; borderline interactive
+> (RAM-bandwidth-bound on dual-channel DDR5).
+
+### MiniMax-M3
+
+- **Status:** ? operator-must-confirm
+- **Class:** `multimodal` — Multimodal
+- **Quantization:** `gguf-q4_k_m`
+- **Size class:** `xxl`
+- **Purpose:** `reasoning`, `code`, `chat`, `multimodal`, `vision`, `agent`
+- **Engine:** `llama.cpp`
+- **License:** other
+- **Parameters:** 427040.1 M
+- **Context window (tokens):** 1,000,000
+- **Master spec:** operator evaluation 2026-07-19 (oracle alternatives that fit SAIN-01)
+
+**Operator note:**
+
+> Evaluation 2026-07-19 — the only model in GLM-5.2's Intelligence
+> Index band (M3 scores 44 vs GLM-5.2's 51) that fits a SAIN-01
+> envelope: 427B total / ~23B active MoE (minimax_m3_vl), NATIVELY
+> multimodal, 1M context, June 2026. HF-verified (427,040.1M).
+> unsloth/MiniMax-M3-GGUF: UD-IQ3_XXS ~159 GB is the practical
+> quant (Q4 ~214 GB) — both inside the RAM+VRAM hybrid envelope;
+> vram_gib_min intentionally omitted (hybrid, not VRAM-bound).
+> ~5-15 tok/s hybrid — AGENT ESTIMATE (Apple-Silicon reports
+> 10-30 tok/s). THREE adoption blockers, hence watch-status:
+> (1) llama.cpp support is preliminary (PR #24523, not in a
+> released build); (2) MiniMax Sparse Attention unsupported —
+> falls back to dense attention, hurting long-context; (3) custom
+> minimax-community license (mapped 'other') needs operator
+> review. Re-evaluate when the llama.cpp PR merges.
+
+### gpt-oss-120b
+
+- **Status:** ? operator-must-confirm
+- **Class:** `mixture` — Mixture-of-Experts
+- **Quantization:** `nvfp4`
+- **Size class:** `xl`
+- **Purpose:** `reasoning`, `agent`, `code`, `chat`
+- **Engine:** `vllm`
+- **License:** apache-2.0
+- **Parameters:** 116830.0 M
+- **VRAM minimum (GiB):** 63
+- **Context window (tokens):** 131,072
+- **Master spec:** operator evaluation 2026-07-19 (oracle alternatives that fit SAIN-01)
+
+**Operator note:**
+
+> Evaluation 2026-07-19 — the adopt-ready shape: ~117B total /
+> 5.1B active MoE, native MXFP4 checkpoint ~63 GB, 131K context,
+> Apache-2.0 (OpenAI open-weights, Aug 2025). The ONLY candidate
+> needing zero serving compromise: whole model on the RTX PRO
+> 6000 (96 GB) with ~30 GB KV/batch headroom, mature vLLM
+> support, and with only 5.1B active it is comfortably the
+> fastest of the four — fully interactive. Quantization recorded
+> nvfp4 as the enum's closest 4-bit-FP value — the checkpoint is
+> actually MXFP4 (OCP microscaling FP4, not NVIDIA NVFP4);
+> promote a real 'mxfp4' enum value on adoption (schema 1.1.x
+> bump). Integration quirk: gpt-oss uses the harmony response
+> format — the router/gateway shim needs the harmony chat
+> template wired. Below GLM-4.7 on raw coding class, but the
+> biggest capability-per-effort jump over current defaults.
 
 ## Router tier (master spec § 17)
 

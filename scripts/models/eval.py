@@ -118,7 +118,42 @@ BENCHMARKS: dict[str, dict[str, Any]] = {
         "applicable_classes": ["embed"],
         "cost_estimate_minutes": 30,
     },
+    # 2026-07-19 (oracle-alternatives evaluation) — the serving bench
+    # gate. Unlike the lm-eval/mteb rows this is a BUILTIN executor:
+    # it drives a live OpenAI-compatible endpoint (router :8080 or a
+    # tier port) with streaming requests and measures TTFT + decode
+    # tok/s. This is the promotion gate the operator-must-confirm
+    # catalog candidates (GLM-4.7 / MiniMax-M3 / gpt-oss-120b /
+    # GLM-4.7-Flash) wait on — see
+    # docs/evaluations/oracle-alternatives-glm47-m3-gptoss-2026-07-19.md.
+    # No GB harness install; stdlib-only; safe on any reachable server.
+    "throughput": {
+        "name": "Serving throughput (TTFT + decode tok/s, streaming)",
+        "harness": "builtin",
+        "harness_args": [],
+        "measures": "time-to-first-token + steady-state decode tokens/sec against a live endpoint",
+        "applicable_classes": [
+            "llm", "slm", "rlm", "code", "ternary-lm", "mixture", "multimodal",
+        ],
+        "cost_estimate_minutes": 5,
+    },
 }
+
+# Throughput-bench prompt battery — deliberately mixed shape (short
+# chat, code synthesis, longer reasoning) so decode rate isn't gamed
+# by one prompt style. Operator-overridable count via
+# SOVEREIGN_OS_BENCH_PROMPTS (cycles through this list).
+THROUGHPUT_PROMPTS: list[str] = [
+    "Explain, in three short paragraphs, why ZFS copies=2 on a "
+    "16k-recordsize dataset is a different trade-off than RAID 1.",
+    "Write a Python function `topo_sort(edges: list[tuple[str, str]]) "
+    "-> list[str]` implementing Kahn's algorithm with cycle detection. "
+    "Include type hints and a docstring.",
+    "A workstation has two GPUs (96GB and 32GB) and 256GB RAM. A "
+    "358B-parameter MoE model with 32B active parameters is quantized "
+    "to 4 bits. Walk through whether it fits, and where each part "
+    "should live for best decode speed.",
+]
 
 
 def load_catalog(path: Path) -> list[dict[str, Any]]:
@@ -164,6 +199,16 @@ def cmd_list_benchmarks(args: argparse.Namespace) -> int:
 
 def build_command(model: dict[str, Any], benchmark_key: str) -> list[str]:
     bench = BENCHMARKS[benchmark_key]
+    if bench["harness"] == "builtin":
+        # Self-executed (no external harness). The command shown to the
+        # operator is the eval.py re-invocation itself.
+        return [
+            "scripts/models/eval.py",
+            "run",
+            str(model.get("id")),
+            "--benchmark",
+            benchmark_key,
+        ]
     # Construct an lm-eval / mteb invocation. The model name passed to
     # the harness is the hf_repo_id (or model id as fallback).
     model_name = model.get("hf_repo_id") or model.get("id")
@@ -178,6 +223,111 @@ def build_command(model: dict[str, Any], benchmark_key: str) -> list[str]:
         f"/var/lib/sovereign-os/eval/{model.get('id')}-{benchmark_key}.json",
     ]
     return cmd
+
+
+def run_throughput_bench(
+    model: dict[str, Any],
+    endpoint: str,
+    max_tokens: int,
+    n_prompts: int,
+) -> dict[str, Any]:
+    """Drive a live OpenAI-compatible endpoint with streaming chat
+    completions; measure per-prompt TTFT + decode tok/s. stdlib-only.
+
+    Token counting: prefers the server's `usage.completion_tokens`
+    (vLLM/llama-server emit it with stream_options include_usage);
+    falls back to counting content-bearing SSE chunks (≈1 token each).
+    """
+    import urllib.error
+    import urllib.request
+
+    served_model = os.environ.get("SOVEREIGN_OS_BENCH_MODEL") or (
+        model.get("hf_repo_id") or model.get("id")
+    )
+    per_prompt: list[dict[str, Any]] = []
+    for i in range(n_prompts):
+        prompt = THROUGHPUT_PROMPTS[i % len(THROUGHPUT_PROMPTS)]
+        payload = json.dumps(
+            {
+                "model": served_model,
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": max_tokens,
+                "temperature": 0,
+                "stream": True,
+                "stream_options": {"include_usage": True},
+            }
+        ).encode()
+        req = urllib.request.Request(
+            endpoint.rstrip("/") + "/chat/completions",
+            data=payload,
+            headers={"Content-Type": "application/json"},
+        )
+        t_start = time.time()
+        t_first: float | None = None
+        t_last = t_start
+        chunk_tokens = 0
+        usage_tokens: int | None = None
+        try:
+            with urllib.request.urlopen(req, timeout=600) as resp:
+                for raw in resp:
+                    line = raw.decode("utf-8", "replace").strip()
+                    if not line.startswith("data:"):
+                        continue
+                    data = line[5:].strip()
+                    if data == "[DONE]":
+                        break
+                    try:
+                        obj = json.loads(data)
+                    except json.JSONDecodeError:
+                        continue
+                    usage = obj.get("usage") or {}
+                    if usage.get("completion_tokens"):
+                        usage_tokens = int(usage["completion_tokens"])
+                    choices = obj.get("choices") or []
+                    delta = (choices[0].get("delta") or {}) if choices else {}
+                    if delta.get("content"):
+                        now = time.time()
+                        if t_first is None:
+                            t_first = now
+                        t_last = now
+                        chunk_tokens += 1
+        except (urllib.error.URLError, OSError, TimeoutError) as e:
+            per_prompt.append({"prompt_idx": i, "error": str(e)})
+            continue
+        tokens = usage_tokens if usage_tokens is not None else chunk_tokens
+        ttft = (t_first - t_start) if t_first is not None else None
+        decode_s = (t_last - t_first) if t_first is not None else 0.0
+        decode_tok_s = (
+            (tokens - 1) / decode_s if tokens > 1 and decode_s > 0 else None
+        )
+        per_prompt.append(
+            {
+                "prompt_idx": i,
+                "tokens": tokens,
+                "ttft_s": round(ttft, 3) if ttft is not None else None,
+                "decode_tok_s": round(decode_tok_s, 2)
+                if decode_tok_s is not None
+                else None,
+            }
+        )
+    good = [p for p in per_prompt if p.get("decode_tok_s")]
+    metrics: dict[str, Any] = {
+        "endpoint": endpoint,
+        "served_model": served_model,
+        "n_prompts": n_prompts,
+        "n_ok": len(good),
+        "per_prompt": per_prompt,
+    }
+    if good:
+        metrics["ttft_s_mean"] = round(
+            sum(p["ttft_s"] for p in good if p.get("ttft_s") is not None)
+            / max(1, len([p for p in good if p.get("ttft_s") is not None])),
+            3,
+        )
+        metrics["decode_tok_s_mean"] = round(
+            sum(p["decode_tok_s"] for p in good) / len(good), 2
+        )
+    return metrics
 
 
 def cmd_plan(args: argparse.Namespace) -> int:
@@ -203,7 +353,11 @@ def cmd_plan(args: argparse.Namespace) -> int:
         )
         return 2
     cmd = build_command(target, args.benchmark)
-    harness_present = shutil.which(bench["harness"]) is not None
+    harness_present = (
+        True
+        if bench["harness"] == "builtin"
+        else shutil.which(bench["harness"]) is not None
+    )
     plan = {
         "round": "R232",
         "vector": "SDD-026 Z-2 (eval plan)",
@@ -254,9 +408,45 @@ def cmd_run(args: argparse.Namespace) -> int:
     started_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     rc = 0
     duration_s = 0.0
+    metrics: dict[str, Any] | None = None
     if dry:
         outcome = "dry-run"
-        detail = f"would exec: {' '.join(cmd)}"
+        if bench["harness"] == "builtin":
+            endpoint = args.endpoint or os.environ.get(
+                "SOVEREIGN_OS_BENCH_ENDPOINT", "http://127.0.0.1:8080/v1"
+            )
+            detail = (
+                f"would stream {os.environ.get('SOVEREIGN_OS_BENCH_PROMPTS', '3')} "
+                f"prompts against {endpoint} and measure TTFT + decode tok/s"
+            )
+        else:
+            detail = f"would exec: {' '.join(cmd)}"
+    elif bench["harness"] == "builtin":
+        endpoint = args.endpoint or os.environ.get(
+            "SOVEREIGN_OS_BENCH_ENDPOINT", "http://127.0.0.1:8080/v1"
+        )
+        n_prompts = int(os.environ.get("SOVEREIGN_OS_BENCH_PROMPTS", "3"))
+        max_toks = int(os.environ.get("SOVEREIGN_OS_BENCH_MAX_TOKENS", "256"))
+        t0 = time.time()
+        metrics = run_throughput_bench(target, endpoint, max_toks, n_prompts)
+        duration_s = time.time() - t0
+        if metrics.get("n_ok", 0) == 0:
+            outcome = "failed"
+            rc = 1
+            detail = f"no successful streamed completion from {endpoint}"
+        else:
+            outcome = "ok"
+            detail = (
+                f"decode {metrics.get('decode_tok_s_mean')} tok/s mean, "
+                f"TTFT {metrics.get('ttft_s_mean')}s mean "
+                f"({metrics['n_ok']}/{metrics['n_prompts']} prompts ok)"
+            )
+            if args.min_tok_s is not None and (
+                (metrics.get("decode_tok_s_mean") or 0) < args.min_tok_s
+            ):
+                outcome = "below-gate"
+                rc = 1
+                detail += f" — BELOW --min-tok-s gate ({args.min_tok_s})"
     elif shutil.which(bench["harness"]) is None:
         outcome = "harness-missing"
         detail = f"{bench['harness']} not on PATH"
@@ -286,6 +476,10 @@ def cmd_run(args: argparse.Namespace) -> int:
         "command": cmd,
         "dry_run": bool(dry),
     }
+    if metrics is not None:
+        record["metrics"] = metrics
+    if args.min_tok_s is not None:
+        record["min_tok_s_gate"] = args.min_tok_s
 
     # Append to state file even on failure (audit trail).
     state_path = resolve_state_path()
@@ -307,12 +501,13 @@ def cmd_run(args: argparse.Namespace) -> int:
             "ok": "OK",
             "dry-run": "DRY",
             "failed": "FAIL",
+            "below-gate": "GATE",
             "harness-missing": "MISS",
             "exec-error": "ERR ",
         }.get(outcome, "?")
         print(f"[{mark}] {target.get('id')} / {args.benchmark}  "
               f"({duration_s:.1f}s)  → {outcome}")
-        if outcome in ("dry-run", "harness-missing"):
+        if outcome in ("dry-run", "harness-missing", "ok", "below-gate", "failed"):
             print(f"      {detail}")
     return rc
 
@@ -361,11 +556,14 @@ def cmd_history(args: argparse.Namespace) -> int:
         print("  (no eval runs recorded)")
         return 0
     for r in rows:
+        m = r.get("metrics") or {}
+        tok_s = m.get("decode_tok_s_mean")
+        extra = f"  {tok_s} tok/s" if tok_s is not None else ""
         print(
             f"  {r.get('started_at')}  {r.get('model_id'):30s}  "
             f"{r.get('benchmark'):16s}  rc={r.get('rc')}  "
             f"{r.get('outcome'):14s}  ({r.get('duration_s',0):.1f}s)"
-            f"  {'dry-run' if r.get('dry_run') else ''}"
+            f"  {'dry-run' if r.get('dry_run') else ''}{extra}"
         )
     return 0
 
@@ -395,6 +593,19 @@ def build_parser() -> argparse.ArgumentParser:
         "--dry-run",
         action="store_true",
         help="record intent + print command without executing",
+    )
+    pr.add_argument(
+        "--endpoint",
+        help="throughput benchmark only: OpenAI-compatible base URL "
+        "(default $SOVEREIGN_OS_BENCH_ENDPOINT or http://127.0.0.1:8080/v1)",
+    )
+    pr.add_argument(
+        "--min-tok-s",
+        type=float,
+        default=None,
+        help="throughput benchmark only: promotion gate — rc=1 (outcome "
+        "below-gate) when mean decode tok/s lands under this. Operator "
+        "sets the bar; no default.",
     )
     pr.add_argument("--json", action="store_true")
     pr.set_defaults(func=cmd_run)

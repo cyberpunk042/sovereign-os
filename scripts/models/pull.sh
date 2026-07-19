@@ -10,7 +10,15 @@
 # Usage:
 #   scripts/models/pull.sh                    # list catalog entries
 #   scripts/models/pull.sh <model-id>         # pull one
+#   scripts/models/pull.sh <model-id> --allow-candidate
+#                                             # pull a status=operator-must-confirm
+#                                             # entry that carries a REAL hf_repo_id
+#                                             # (bench-gate trials — the 2026-07-19
+#                                             # oracle-alternatives candidates need
+#                                             # weights resident BEFORE promotion;
+#                                             # entries with no repo stay refused)
 #   scripts/models/pull.sh --all              # pull every verified-real entry
+#                                             # (--allow-candidate never applies to --all)
 #
 # Env vars:
 #   SOVEREIGN_OS_MODELS_DIR   destination (default: /mnt/vault/models)
@@ -105,11 +113,27 @@ pull_one() {
   log_info "  repo:   ${repo:-<none — aspirational>}"
   log_info "  dest:   ${SOVEREIGN_OS_MODELS_DIR}/${model_id}"
 
-  if [ "${status}" != "verified-real" ] || [ -z "${repo}" ]; then
+  if [ -z "${repo}" ]; then
     log_warn "  ${model_id} status='${status}' — no real HF repo to pull"
     log_warn "  see models/catalog.yaml operator_note for the substitution path"
     emit_metric sovereign_os_models_pull_total 1 "model=\"${model_id}\",result=\"skip-aspirational\""
     return 0
+  fi
+
+  if [ "${status}" != "verified-real" ]; then
+    # Candidate entries (operator-must-confirm) CAN carry a real repo —
+    # the 2026-07-19 oracle-alternatives candidates do. Bench-gate
+    # trials need the weights resident BEFORE promotion, so an explicit
+    # --allow-candidate bypass pulls them; the default stays refuse.
+    if [ -z "${ALLOW_CANDIDATE:-}" ]; then
+      log_warn "  ${model_id} status='${status}' — not verified-real; refusing by default"
+      log_warn "  BYPASS (bench-gate trial): scripts/models/pull.sh ${model_id} --allow-candidate"
+      log_warn "  see models/catalog.yaml operator_note + docs/evaluations/ for the promotion path"
+      emit_metric sovereign_os_models_pull_total 1 "model=\"${model_id}\",result=\"skip-candidate\""
+      return 0
+    fi
+    log_warn "  ${model_id} status='${status}' — pulling ANYWAY (--allow-candidate bench-gate trial)"
+    emit_metric sovereign_os_models_pull_total 1 "model=\"${model_id}\",result=\"candidate-bypass\""
   fi
 
   if [ -n "${SOVEREIGN_OS_DRY_RUN:-}" ]; then
@@ -151,11 +175,25 @@ cmd_pull_all() {
 }
 
 # ---------- dispatch ----------
+# --allow-candidate may appear before or after the model id; it only
+# affects single-model pulls (never --all).
+ALLOW_CANDIDATE=""
+ARGS=()
+for a in "$@"; do
+  if [ "${a}" = "--allow-candidate" ]; then
+    ALLOW_CANDIDATE=1
+  else
+    ARGS+=("${a}")
+  fi
+done
+set -- "${ARGS[@]:-}"
+
 case "${1:-}" in
   ""|"list"|"-l"|"--list")
     cmd_list
     ;;
   "--all"|"-a"|"all")
+    ALLOW_CANDIDATE=""   # bypass never applies to bulk pulls
     cmd_pull_all
     ;;
   -*)

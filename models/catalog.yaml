@@ -1394,3 +1394,138 @@ catalog:
       master_spec_section: "operator handwritten catalog addition 2026-07-02"
       runtime_profile_bindings: []
       operator_note: "Operator handwritten catalog 2026-07-02 — note: operator 'Mistral-Ternary 3x70B' — a replicated/ensemble group of 3; captured as a single mixture entry pending real base + composition decision."
+
+    # ============================================================
+    # Operator evaluation 2026-07-19 — Oracle-tier alternatives that
+    # actually fit SAIN-01. GLM-5.2 + Colibri was evaluated first and
+    # OPERATOR-REJECTED (8x too big for VRAM; expert-streaming hack
+    # lands at single-digit tok/s) — record kept at
+    # docs/evaluations/glm-5.2-colibri-on-sain-01.md; its catalog
+    # entry was withdrawn (PR #240 closed). These four candidates all
+    # fit one of the two SAIN-01 envelopes: pure-VRAM vLLM (<= ~90 GB
+    # weights on the PRO 6000) or RAM+VRAM llama.cpp --n-cpu-moe
+    # hybrid (<= ~350 GB GGUF across 256 GB DDR5 + 128 GB VRAM).
+    # Full evaluation:
+    # docs/evaluations/oracle-alternatives-glm47-m3-gptoss-2026-07-19.md
+    # ============================================================
+
+    - id: GLM-4.7
+      tier: oracle
+      engine: llama.cpp
+      class: mixture
+      quantization: gguf-q4_k_m
+      size_class: xxl
+      purpose: [code, reasoning, chat, agent]
+      status: operator-must-confirm
+      license: mit
+      hf_repo_id: zai-org/GLM-4.7
+      parameters_millions: 358337.8
+      context_window_tokens: 200000
+      master_spec_section: "operator evaluation 2026-07-19 (oracle alternatives that fit SAIN-01)"
+      runtime_profile_bindings: []
+      operator_note: |
+        Evaluation 2026-07-19 — the "GLM on the SAIN done right" pick:
+        358B total / ~32B active MoE (glm4_moe), MIT, 200K context,
+        Dec 2025; same lineage as the rejected GLM-5.2, reported 73.8%
+        SWE-bench. HF-verified (params 358,337.8M); FP8 sibling
+        zai-org/GLM-4.7-FP8; unsloth ships the GGUF line (UD-Q2_K_XL
+        135 GB runs on 1x24 GB + 128 GB RAM per unsloth docs). NOT
+        pure-VRAM servable (vram_gib_min intentionally omitted): Q4
+        GGUF ~180-200 GB runs via the llama.cpp --n-cpu-moe RAM+VRAM
+        hybrid (256 GB DDR5 experts + dense/hot-experts/KV on the
+        96+32 GB Blackwell pair; 4090 eGPU is cache, not TP). Unsloth
+        reference: >=205 GB combined RAM+VRAM -> 5+ tok/s; SAIN-01 at
+        384 GB combined with a large VRAM fraction -> ~8-15 tok/s
+        decode — AGENT ESTIMATE, physical bench gate before promotion.
+        Strongest open coder that fits the box; borderline interactive
+        (RAM-bandwidth-bound on dual-channel DDR5).
+
+    - id: MiniMax-M3
+      tier: oracle
+      engine: llama.cpp
+      class: multimodal
+      quantization: gguf-q4_k_m
+      size_class: xxl
+      purpose: [reasoning, code, chat, multimodal, vision, agent]
+      status: operator-must-confirm
+      license: other
+      hf_repo_id: MiniMaxAI/MiniMax-M3
+      parameters_millions: 427040.1
+      context_window_tokens: 1000000
+      master_spec_section: "operator evaluation 2026-07-19 (oracle alternatives that fit SAIN-01)"
+      runtime_profile_bindings: []
+      operator_note: |
+        Evaluation 2026-07-19 — the only model in GLM-5.2's Intelligence
+        Index band (M3 scores 44 vs GLM-5.2's 51) that fits a SAIN-01
+        envelope: 427B total / ~23B active MoE (minimax_m3_vl), NATIVELY
+        multimodal, 1M context, June 2026. HF-verified (427,040.1M).
+        unsloth/MiniMax-M3-GGUF: UD-IQ3_XXS ~159 GB is the practical
+        quant (Q4 ~214 GB) — both inside the RAM+VRAM hybrid envelope;
+        vram_gib_min intentionally omitted (hybrid, not VRAM-bound).
+        ~5-15 tok/s hybrid — AGENT ESTIMATE (Apple-Silicon reports
+        10-30 tok/s). THREE adoption blockers, hence watch-status:
+        (1) llama.cpp support is preliminary (PR #24523, not in a
+        released build); (2) MiniMax Sparse Attention unsupported —
+        falls back to dense attention, hurting long-context; (3) custom
+        minimax-community license (mapped 'other') needs operator
+        review. Re-evaluate when the llama.cpp PR merges.
+
+    - id: gpt-oss-120b
+      tier: oracle
+      engine: vllm
+      class: mixture
+      quantization: nvfp4
+      size_class: xl
+      purpose: [reasoning, agent, code, chat]
+      status: operator-must-confirm
+      license: apache-2.0
+      hf_repo_id: openai/gpt-oss-120b
+      parameters_millions: 116830
+      vram_gib_min: 63
+      context_window_tokens: 131072
+      master_spec_section: "operator evaluation 2026-07-19 (oracle alternatives that fit SAIN-01)"
+      runtime_profile_bindings: []
+      operator_note: |
+        Evaluation 2026-07-19 — the adopt-ready shape: ~117B total /
+        5.1B active MoE, native MXFP4 checkpoint ~63 GB, 131K context,
+        Apache-2.0 (OpenAI open-weights, Aug 2025). The ONLY candidate
+        needing zero serving compromise: whole model on the RTX PRO
+        6000 (96 GB) with ~30 GB KV/batch headroom, mature vLLM
+        support, and with only 5.1B active it is comfortably the
+        fastest of the four — fully interactive. Quantization recorded
+        nvfp4 as the enum's closest 4-bit-FP value — the checkpoint is
+        actually MXFP4 (OCP microscaling FP4, not NVIDIA NVFP4);
+        promote a real 'mxfp4' enum value on adoption (schema 1.1.x
+        bump). Integration quirk: gpt-oss uses the harmony response
+        format — the router/gateway shim needs the harmony chat
+        template wired. Below GLM-4.7 on raw coding class, but the
+        biggest capability-per-effort jump over current defaults.
+
+    - id: GLM-4.7-Flash
+      tier: logic
+      engine: vllm
+      class: mixture
+      quantization: fp8
+      size_class: l
+      purpose: [code, agent, chat, function-calling]
+      status: operator-must-confirm
+      license: mit
+      hf_repo_id: zai-org/GLM-4.7-Flash
+      parameters_millions: 31221.5
+      vram_gib_min: 32
+      context_window_tokens: 200000
+      master_spec_section: "operator evaluation 2026-07-19 (oracle alternatives that fit SAIN-01)"
+      runtime_profile_bindings: []
+      operator_note: |
+        Evaluation 2026-07-19 — GLM flavor at the interactive Logic
+        tier: 31.2B total / ~3B active MoE (glm4_moe_lite), MIT, 200K
+        context, Jan 2026, 9.5M HF downloads. Open-source SOTA in the
+        30B class: 59.2 SWE-bench Verified — roughly 3x Qwen3-30B-A3B.
+        FP8 ~32 GB fits the RTX 5090 (32 GB) internal secondary
+        (thin margin — power-limited card, KV on the PRO 6000 spillover
+        or trim context), BF16 ~62 GB lands on the PRO 6000 with
+        headroom; 24 GB-GPU deploy guides exist for further-quantized
+        variants (4090 eGPU viable at int4). Direct competitor to the
+        Qwen3-Coder Logic default and the Nemotron-30B Oracle default
+        at a fraction of the active params. Bench gate before any
+        binding change.
