@@ -139,6 +139,8 @@ def test_every_example_has_corresponding_overlay_call():
         "ram",                # consumed via R257 memory-profile
         "shutdown-manifest",  # consumed by R262 drain manifest
         "cost-policy",        # read via tomllib by cost-tracker.py + cost-policy.py
+        "notifykit",          # read via tomllib by tools/notifykit/config.py (2026-07-19 shared notification library)
+        "wikis",              # read via tomllib by tools/wikiops.py (2026-07-19 wiki-operability target registry)
     }
     for f in _existing_examples():
         stem = f.stem.replace(".toml", "")
