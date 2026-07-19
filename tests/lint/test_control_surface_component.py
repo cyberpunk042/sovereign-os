@@ -86,6 +86,19 @@ def test_component_renders_the_copy_command():
     )
 
 
+def test_component_does_not_duplicate_buttons_as_inert_pills():
+    """An option already rendered as a one-click button must NOT ALSO appear as a
+    grey `.cs-opt` pill (a duplicated value reads as clickable-but-dead). The
+    component derives the enum button values and filters them out of the pill row,
+    keeping pills only for options with no button (free-input hint / semantic
+    label like a toggle's on/off vs its enable/disable verb)."""
+    body = JS_SRC.read_text(encoding="utf-8")
+    assert "buttonVals" in body and "filter(" in body, (
+        "cardHtml must filter option pills against the enum button values so "
+        "button options aren't duplicated as inert grey pills"
+    )
+
+
 def test_api_serves_control_systems_endpoint():
     body = API.read_text(encoding="utf-8")
     assert "/control-systems" in body and "_load_control_systems" in body, (
