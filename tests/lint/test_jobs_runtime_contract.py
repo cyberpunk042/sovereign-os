@@ -19,6 +19,8 @@ import sys
 import time
 from pathlib import Path
 
+import pytest
+
 REPO = Path(__file__).resolve().parents[2]
 LIB = REPO / "scripts" / "operator" / "lib"
 
@@ -67,6 +69,106 @@ def test_ingest_and_prune(tmp_path):
         s.update(d["id"], state="done")
     removed = s.prune(keep=3)
     assert removed >= 1 and len(s.list()) <= 3 + 1  # vm-1 is non-terminal, kept
+
+
+def _make_store(js, backend, tmp_path):
+    if backend == "sqlite":
+        return js.SqliteStore(tmp_path / "registry.db")
+    return js.JsonStore(tmp_path / "registry.json")
+
+
+@pytest.mark.parametrize("backend", ["json", "sqlite"])
+def test_store_contract_holds_for_both_backends(backend, tmp_path):
+    # The whole create/get/list/update/ingest/prune contract + restart-persistence
+    # must be identical for json and sqlite — nothing downstream can tell them apart.
+    js = _store_mod()
+    s = _make_store(js, backend, tmp_path)
+    assert s.backend == backend
+
+    j = s.create("demo", "warmup", device="cpu", meta={"steps": 3}, priority="high")
+    assert j["state"] == "queued" and j["progress"] == 0 and j["priority"] == "high"
+    assert s.get(j["id"])["meta"] == {"steps": 3}
+
+    # update persists across a reopen (survives restart)
+    s.update(j["id"], state="running", progress=50)
+    s2 = _make_store(js, backend, tmp_path)
+    got = s2.get(j["id"])
+    assert got["state"] == "running" and got["progress"] == 50
+    assert got["updated"] >= got["created"]
+
+    # unknown kind / priority rejected identically
+    with pytest.raises(ValueError):
+        s.create("bogus", "x")
+    with pytest.raises(ValueError):
+        s.create("demo", "x", priority="urgent")
+
+    # ingest upserts by id and preserves the original `created` on re-ingest
+    s.ingest({"id": "vm-1", "state": "running", "progress": 40, "title": "train"})
+    created0 = s.get("vm-1")["created"]
+    s.ingest({"id": "vm-1", "state": "done", "progress": 100})
+    assert s.get("vm-1")["created"] == created0 and s.get("vm-1")["state"] == "done"
+
+    assert {x["id"] for x in s.list()} == {j["id"], "vm-1"}
+    assert js.summary(s.list())["total"] == 2
+
+    # prune drops oldest terminal beyond keep, never the non-terminal running job
+    for i in range(5):
+        d = s.create("demo", f"d{i}")
+        s.update(d["id"], state="done")
+    removed = s.prune(keep=3)
+    assert removed >= 1
+    assert any(x["id"] == j["id"] for x in s.list()), "the running job must survive prune"
+
+
+def test_migrate_round_trips_both_directions(tmp_path):
+    # json→sqlite (enable) and sqlite→json (revert) preserve every id + field.
+    js = _store_mod()
+    jstore = js.JsonStore(tmp_path / "registry.json")
+    jstore.create("demo", "alpha", meta={"k": 1})
+    b = jstore.create("eval", "beta", priority="low")
+    jstore.update(b["id"], state="running", progress=33)
+    before = {x["id"]: x for x in jstore.list()}
+
+    sq = js.SqliteStore(tmp_path / "registry.db")
+    assert js.migrate(jstore, sq) == 2
+    assert {x["id"]: x for x in sq.list()} == before, "json→sqlite must preserve all fields"
+
+    jstore2 = js.JsonStore(tmp_path / "registry2.json")
+    assert js.migrate(sq, jstore2) == 2
+    assert {x["id"]: x for x in jstore2.list()} == before, "sqlite→json must preserve all fields"
+
+
+def test_open_store_toggle_and_autoseed(tmp_path, monkeypatch):
+    js = _store_mod()
+    # a legacy json registry with two jobs
+    jstore = js.JsonStore(tmp_path / "registry.json")
+    jstore.create("demo", "legacy-a")
+    jstore.create("demo", "legacy-b")
+
+    monkeypatch.delenv("SOVEREIGN_OS_JOBS_STORE", raising=False)
+    s_json = js.open_store(tmp_path / "registry.json")
+    assert s_json.backend == "json" and len(s_json.list()) == 2
+
+    # enabling sqlite with an empty db auto-seeds one-way from the sibling json
+    s_sql = js.open_store(tmp_path / "registry.db", backend="sqlite")
+    assert s_sql.backend == "sqlite"
+    assert sorted(x["title"] for x in s_sql.list()) == ["legacy-a", "legacy-b"]
+    # idempotent: a non-empty db is never re-seeded
+    assert len(js.open_store(tmp_path / "registry.db", backend="sqlite").list()) == 2
+
+    # resolve_backend honors the env and falls back on garbage
+    monkeypatch.setenv("SOVEREIGN_OS_JOBS_STORE", "sqlite")
+    assert js.resolve_backend() == "sqlite"
+    monkeypatch.setenv("SOVEREIGN_OS_JOBS_STORE", "nonsense")
+    assert js.resolve_backend() == "json"
+
+
+def test_jobs_api_uses_the_store_toggle_and_migrate_cli():
+    # jobs-api must construct via the factory (so the toggle is honored) and expose
+    # the manual migration CLI.
+    src = (REPO / "scripts" / "operator" / "jobs-api.py").read_text(encoding="utf-8")
+    assert "_js.open_store()" in src, "jobs-api must open the registry via the backend factory"
+    assert "--migrate-to" in src, "jobs-api must expose the migrate CLI"
 
 
 def _api_mod(tmp_dir: Path):

@@ -44,7 +44,14 @@ Endpoints:
 ENVIRONMENT:
   SOVEREIGN_JOBS_API_PORT    (default 8142)
   SOVEREIGN_OS_JOBS_DIR      registry dir (default /var/lib/sovereign-os/jobs)
+  SOVEREIGN_OS_JOBS_STORE    registry backend: json (default, whole-file rewrite,
+                             human-readable) | sqlite (opt-in, per-row atomic, WAL,
+                             stdlib). Enabling sqlite auto-seeds from an existing
+                             registry.json; see jobs_store.py + `--migrate-to`.
   SOVEREIGN_GATEWAY_ADDR     for deliberation jobs (default 127.0.0.1:8787)
+
+CLI: `--self-check` (run a demo job) · `--migrate-to {json,sqlite}` (copy every
+job into that backend from the other — the manual side of the store toggle).
   SOVEREIGN_OS_JOBS_WORKERS  max concurrent jobs (default 2)
   SOVEREIGN_OS_JOBS_TOKEN    optional shared secret required on command submits
   SOVEREIGN_OS_JOBS_ALLOW_NONLOOPBACK  '1' to permit non-loopback peers (unsafe)
@@ -86,7 +93,7 @@ MAX_WORKERS = max(1, int(os.environ.get("SOVEREIGN_OS_JOBS_WORKERS", "2")))
 REPO = Path(__file__).resolve().parents[2]
 CONTROL_SYSTEMS = REPO / "config" / "control-systems.yaml"
 
-STORE = _js.JobStore()
+STORE = _js.open_store()  # the active registry backend (SOVEREIGN_OS_JOBS_STORE)
 PLANE = _plane.ComputePlane()   # the Sovereign Compute Plane — VRAM-fit placement
 
 # ── request-authenticity guard (F-2026-1xx: jobs-api RCE hardening) ──────────
@@ -752,6 +759,22 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     argv = sys.argv[1:]
+    if "--migrate-to" in argv:
+        # Copy every job from the OTHER backend into the named one — the manual
+        # side of the SOVEREIGN_OS_JOBS_STORE toggle. json→sqlite (enable) or
+        # sqlite→json (revert); idempotent, non-destructive to the source.
+        i = argv.index("--migrate-to")
+        dst_b = argv[i + 1] if i + 1 < len(argv) else ""
+        if dst_b not in _js.BACKENDS:
+            print(json.dumps({"error": f"--migrate-to wants {'|'.join(_js.BACKENDS)}"}))
+            sys.exit(2)
+        src_b = "sqlite" if dst_b == "json" else "json"
+        mk = lambda b: _js.SqliteStore() if b == "sqlite" else _js.JsonStore()  # noqa: E731
+        src, dst = mk(src_b), mk(dst_b)
+        n = _js.migrate(src, dst)
+        print(json.dumps({"migrated": n, "from": src_b, "to": dst_b,
+                          "src": str(src.path), "dst": str(dst.path)}, indent=2))
+        sys.exit(0)
     if "--self-check" in argv:
         job = submit("demo", "self-check", meta={"steps": 3, "delay": 0.01})
         for _ in range(200):
@@ -766,7 +789,7 @@ def main():
     resume_orphans()
     srv = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
     print(f"jobs-api on 127.0.0.1:{PORT} (Background Tasks runtime; {MAX_WORKERS} workers) — "
-          f"registry {STORE.path} — gateway {GATEWAY_ADDR} — Ctrl-C to stop")
+          f"registry {STORE.path} ({STORE.backend}) — gateway {GATEWAY_ADDR} — Ctrl-C to stop")
     try:
         srv.serve_forever()
     except KeyboardInterrupt:
