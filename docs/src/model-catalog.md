@@ -2,7 +2,7 @@
 
 # Model catalog — Genesis Trinity (master spec § 17)
 
-Canonical declaration of the 73 models this system intends to host across Pulse / Logic / Oracle / Router tiers, spanning the full R212 taxonomy (class × quantization × size_class × purpose).
+Canonical declaration of the 74 models this system intends to host across Pulse / Logic / Oracle / Router tiers, spanning the full R212 taxonomy (class × quantization × size_class × purpose).
 
 This doc is regenerated from `models/catalog.yaml` on every invocation of `scripts/models/render-catalog-md.py`. The same YAML drives `scripts/models/pull.sh` (operator-driven pull) and `scripts/models/verify.sh` (resident integrity check), so the doc, the puller, and the verifier can never drift.
 
@@ -12,7 +12,7 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 |------|-------|---------------|--------------|
 | pulse | 29 | 9 | 14 |
 | logic | 22 | 6 | 7 |
-| oracle | 17 | 8 | 5 |
+| oracle | 18 | 8 | 5 |
 | router | 5 | 4 | 0 |
 
 ## Catalog by class (R212 taxonomy)
@@ -23,7 +23,7 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 | `embed` — Embedding | 2 |
 | `llm` — LLM (general) | 1 |
 | `lora-adapter` — LoRA adapter | 3 |
-| `mixture` — Mixture-of-Experts | 5 |
+| `mixture` — Mixture-of-Experts | 6 |
 | `multimodal` — Multimodal | 4 |
 | `reranker` — Reranker (cross-encoder) | 1 |
 | `rlm` — RLM (reasoning) | 9 |
@@ -36,16 +36,16 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 
 | Purpose | Count |
 |---------|-------|
-| `agent` | 19 |
+| `agent` | 20 |
 | `audio` | 3 |
-| `chat` | 35 |
-| `code` | 21 |
+| `chat` | 36 |
+| `code` | 22 |
 | `distillation-base` | 1 |
 | `embedding` | 2 |
 | `function-calling` | 6 |
 | `multimodal` | 5 |
 | `rag` | 3 |
-| `reasoning` | 27 |
+| `reasoning` | 28 |
 | `reranking` | 1 |
 | `speculation` | 2 |
 | `vision` | 5 |
@@ -1378,6 +1378,45 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 **Operator note:**
 
 > Operator handwritten catalog 2026-07-02 — note: operator 'Mistral-Ternary 3x70B' — a replicated/ensemble group of 3; captured as a single mixture entry pending real base + composition decision.
+
+### GLM-5.2-colibri-int4
+
+- **Status:** ? operator-must-confirm
+- **Class:** `mixture` — Mixture-of-Experts
+- **Quantization:** `int4`
+- **Size class:** `xxl`
+- **Purpose:** `reasoning`, `code`, `chat`, `agent`
+- **Engine:** `custom`
+- **License:** mit
+- **Parameters:** 753375.8 M
+- **Context window (tokens):** 1,000,000
+- **Master spec:** operator evaluation 2026-07-19 (GLM-5.2 + Colibri on SAIN-01)
+
+**Operator note:**
+
+> Operator evaluation 2026-07-19 — GLM-5.2 (zai-org; 753B MoE,
+> ~40B active, glm_moe_dsa DSA sparse attention, MIT, 1M context,
+> released 2026-06-13) served via the Colibri engine
+> (github.com/JustVugg/colibri — Apache-2.0 pure-C expert-streaming
+> runtime, optional CUDA/Metal): ~9.9 GB dense int4 resident in
+> RAM, ~370 GB routed experts streamed from NVMe. This checkpoint
+> (HF-verified live 2026-07-19, quantized from zai-org/GLM-5.2-FP8)
+> is the int4 + INT8-MTP-heads variant — int4 MTP heads break
+> speculative decoding, so the int8-mtp pack is the candidate.
+> NOT VRAM-bound (vram_gib_min intentionally omitted): needs
+> ~380 GB free on tank/models instead; SAIN-01's 152 GB total VRAM
+> acts as Colibri's top cache tier, 256 GB DDR5 as the expert
+> cache, PCIe 5.0 NVMe RAID0 as the miss path. Reference perf
+> (Colibri-published): 128 GB-RAM CPU-only ~1.8 tok/s warm;
+> 6x RTX 5090 full-residency 5.8-6.8 tok/s. SAIN-01 expectation
+> ~2-6 tok/s warm — AGENT ESTIMATE, physical bench required before
+> promotion. Role if confirmed: batch deep-synthesis companion
+> tier (deep-context-synthesis spirit) — NOT an interactive Oracle
+> Core replacement; Nemotron-3-Nano-Omni default stays. engine:
+> custom pending an operator decision on a first-class 'colibri'
+> engine enum value; Tetragon extra_allowed_binaries entry needed
+> for the colibri binary. status operator-must-confirm per the
+> catalog's own candidate convention.
 
 ## Router tier (master spec § 17)
 

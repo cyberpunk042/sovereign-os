@@ -1394,3 +1394,49 @@ catalog:
       master_spec_section: "operator handwritten catalog addition 2026-07-02"
       runtime_profile_bindings: []
       operator_note: "Operator handwritten catalog 2026-07-02 — note: operator 'Mistral-Ternary 3x70B' — a replicated/ensemble group of 3; captured as a single mixture entry pending real base + composition decision."
+
+    # ============================================================
+    # Operator evaluation 2026-07-19 — GLM-5.2 via Colibri on SAIN-01
+    # (operator verbatim: "Lets evaluate the possibility for GLM,
+    # like GLM 5.2+ Colibri on the SAIN, on sovereign-os").
+    # Full evaluation: docs/evaluations/glm-5.2-colibri-on-sain-01.md
+    # ============================================================
+
+    - id: GLM-5.2-colibri-int4
+      tier: oracle
+      engine: custom
+      class: mixture
+      quantization: int4
+      size_class: xxl
+      purpose: [reasoning, code, chat, agent]
+      status: operator-must-confirm
+      license: mit
+      hf_repo_id: mateogrgic/GLM-5.2-colibri-int4-with-int8-mtp
+      parameters_millions: 753375.8
+      context_window_tokens: 1000000
+      master_spec_section: "operator evaluation 2026-07-19 (GLM-5.2 + Colibri on SAIN-01)"
+      runtime_profile_bindings: []
+      operator_note: |
+        Operator evaluation 2026-07-19 — GLM-5.2 (zai-org; 753B MoE,
+        ~40B active, glm_moe_dsa DSA sparse attention, MIT, 1M context,
+        released 2026-06-13) served via the Colibri engine
+        (github.com/JustVugg/colibri — Apache-2.0 pure-C expert-streaming
+        runtime, optional CUDA/Metal): ~9.9 GB dense int4 resident in
+        RAM, ~370 GB routed experts streamed from NVMe. This checkpoint
+        (HF-verified live 2026-07-19, quantized from zai-org/GLM-5.2-FP8)
+        is the int4 + INT8-MTP-heads variant — int4 MTP heads break
+        speculative decoding, so the int8-mtp pack is the candidate.
+        NOT VRAM-bound (vram_gib_min intentionally omitted): needs
+        ~380 GB free on tank/models instead; SAIN-01's 152 GB total VRAM
+        acts as Colibri's top cache tier, 256 GB DDR5 as the expert
+        cache, PCIe 5.0 NVMe RAID0 as the miss path. Reference perf
+        (Colibri-published): 128 GB-RAM CPU-only ~1.8 tok/s warm;
+        6x RTX 5090 full-residency 5.8-6.8 tok/s. SAIN-01 expectation
+        ~2-6 tok/s warm — AGENT ESTIMATE, physical bench required before
+        promotion. Role if confirmed: batch deep-synthesis companion
+        tier (deep-context-synthesis spirit) — NOT an interactive Oracle
+        Core replacement; Nemotron-3-Nano-Omni default stays. engine:
+        custom pending an operator decision on a first-class 'colibri'
+        engine enum value; Tetragon extra_allowed_binaries entry needed
+        for the colibri binary. status operator-must-confirm per the
+        catalog's own candidate convention.
