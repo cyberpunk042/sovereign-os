@@ -720,6 +720,9 @@ impl<'a> GgufFile<'a> {
             decoder_sparse_step: None,
             sliding_window,
             layer_types,
+            // GGUF gpt-oss uses the constant swiglu_limit in its own path; not a
+            // metadata-derived Config field here.
+            swiglu_limit: None,
         })
     }
 }

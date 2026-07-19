@@ -42,12 +42,15 @@
 //!   `decoder_sparse_step` (Qwen3-MoE): those layers build a dense SwiGLU while
 //!   the rest build the expert bank. The fused branch also reads the
 //!   **MXFP4-packed** form the real GPT-OSS release ships (`gate_up_proj_blocks`
-//!   / `_scales`, dequantized via [`SafeTensors::tensor_mxfp4`]). **Still
-//!   follow-ups for full GPT-OSS coherence:** per-projection + router biases, the
-//!   clamped (`swiglu_limit`) α-scaled activation, and attention sinks — the
-//!   fused experts still route through the standard SwiGLU MoE here, so a
-//!   *coherent* safetensors gpt-oss decoder is the remaining, checkpoint-gated
-//!   follow-up.
+//!   / `_scales`, dequantized via [`SafeTensors::tensor_mxfp4`]).
+//! - **In (GPT-OSS decoder):** a full **GPT-OSS** layer — the clamped
+//!   (`swiglu_limit`) α-scaled FFN, per-projection + router + expert biases, and
+//!   per-head **attention sinks** — assembles when the gpt-oss `self_attn.sinks`
+//!   tensor is present, mirroring the GGUF `from_weights_moe_gpt_oss` path. The
+//!   tensor layout is source-traced to the HF params; **real-model coherence is
+//!   checkpoint-gated** (no runnable gpt-oss here), so the offline test proves
+//!   structure (assembles + decodes + the extras change the output), not
+//!   coherence. The GGUF path runs the same math end-to-end.
 //! - **Out (named follow-ups):** GGUF Q4_K/Q8_0 dequant (needs a from-scratch
 //!   block-dequant); a real **tokenizer bridge** (the runtime tokenizer is
 //!   byte-BPE — a real model's SentencePiece/BPE vocab needs translating);
@@ -72,8 +75,8 @@ pub mod mxfp4;
 pub use gguf::{GgufFile, GgufTokenizer, load_gguf};
 use sovereign_decoder_layer::{DecoderLayer, LayerStack};
 use sovereign_mha_block::{
-    MhaBlockWeights, MhaDecoderBlock, MoeBlockWeights, MoeExpertWeights, RopeScaling,
-    RopeScalingKind,
+    GptOssExpertBias, GptOssMoeWeights, MhaBlockWeights, MhaDecoderBlock, MoeBlockWeights,
+    MoeExpertWeights, RopeScaling, RopeScalingKind,
 };
 use sovereign_quant_llm::QuantLlm;
 use sovereign_quant_model::QuantModel;
@@ -227,7 +230,18 @@ pub struct Config {
     /// interleaving (the `sliding_window` span, if any, applies uniformly).
     #[serde(rename = "layer_types", default)]
     pub layer_types: Option<Vec<String>>,
+    /// GPT-OSS SwiGLU clamp (`swiglu_limit`, 7.0 for gpt-oss-20b/120b): the gate
+    /// is capped at `+limit` and the up-projection clamped to `±limit` before the
+    /// α-scaled activation. Only consulted on the GPT-OSS FFN path; absent ⇒ the
+    /// released default (7.0) is used there.
+    #[serde(rename = "swiglu_limit", default)]
+    pub swiglu_limit: Option<f32>,
 }
+
+/// GPT-OSS activation α (the fixed sigmoid-gate coefficient, 1.702).
+const GPT_OSS_ALPHA: f32 = 1.702;
+/// GPT-OSS SwiGLU clamp default when `config.swiglu_limit` is absent.
+const GPT_OSS_SWIGLU_LIMIT: f32 = 7.0;
 
 /// Default frequency base when `config.json` omits `rope_theta`.
 fn default_rope_theta() -> f32 {
@@ -763,10 +777,12 @@ fn elems(dims: &[usize]) -> Result<usize, LoaderError> {
 /// GPT-OSS release ships (`gate_up_proj_blocks` / `_scales` + `down_proj_blocks`
 /// / `_scales`, dequantized via [`SafeTensors::tensor_mxfp4`]), and the
 /// unquantized `gate_up_proj` / `down_proj` form. Both yield the same
-/// [`MoeExpertWeights`]. GPT-OSS's remaining specifics (per-projection + router
-/// biases, the clamped `swiglu_limit`/α activation, attention sinks) still route
-/// through the standard SwiGLU MoE here — folding them in for a coherent
-/// safetensors gpt-oss decoder is the remaining, checkpoint-gated follow-up.
+/// [`MoeExpertWeights`]. GPT-OSS's other specifics (per-projection + router
+/// biases, the clamped `swiglu_limit`/α activation, attention sinks) are folded
+/// on by [`gpt_oss_moe_block`] when the caller detects the gpt-oss
+/// `self_attn.sinks` tensor. Real-model coherence stays checkpoint-gated (the
+/// layout is source-traced, not yet run against a real gpt-oss); the GGUF path
+/// runs the same math end-to-end.
 fn read_moe_layer(
     st: &SafeTensors,
     i: usize,
@@ -881,6 +897,94 @@ fn read_moe_layer(
     Ok((router, experts))
 }
 
+/// Build a **GPT-OSS** MoE block from safetensors: fold the per-projection +
+/// router biases, per-head attention sinks, and clamped-α activation onto the
+/// already-assembled [`MoeBlockWeights`] `base` (whose experts + router
+/// [`read_moe_layer`] read from the MXFP4 or unquantized fused bank). Detected
+/// by the caller via the gpt-oss-only `self_attn.sinks` tensor.
+///
+/// The gpt-oss expert bias `gate_up_proj_bias` is interleaved like the weights
+/// (gate on even out-columns, up on odd) and is de-interleaved here. The q/k
+/// biases take the same HF→interleaved permutation as their weights (`in_dim`
+/// = 1); v/o biases don't (v isn't RoPE'd; o acts on the attention output).
+///
+/// Coherence is checkpoint-gated (no runnable gpt-oss here); the wiring mirrors
+/// the GGUF `from_weights_moe_gpt_oss` path, which does run end-to-end.
+fn gpt_oss_moe_block(
+    st: &SafeTensors,
+    i: usize,
+    config: &Config,
+    base: MoeBlockWeights,
+    precision: Precision,
+) -> Result<MhaDecoderBlock, LoaderError> {
+    let md = config.model_dim;
+    let hd = config.head_dim();
+    let nq = config.n_heads;
+    let nkv = config.kv_heads();
+    let n_exp = config.experts();
+    let moe_hid = config.moe_hidden();
+    let q_dim = elems(&[nq, hd])?;
+    let kv_dim = elems(&[nkv, hd])?;
+    let p = |s: &str| format!("model.layers.{i}.{s}");
+
+    // Router + per-expert biases. `gate_up_proj_bias` is `[n_exp, 2·moe_hid]`
+    // interleaved (gate on even, up on odd); `down_proj_bias` is `[n_exp, md]`.
+    let router_bias = st.tensor_exact(&p("mlp.router.bias"), n_exp)?;
+    let gu_bias = st.tensor_exact(
+        &p("mlp.experts.gate_up_proj_bias"),
+        elems(&[n_exp, 2 * moe_hid])?,
+    )?;
+    let down_bias = st.tensor_exact(&p("mlp.experts.down_proj_bias"), elems(&[n_exp, md])?)?;
+    let mut expert_biases = Vec::with_capacity(n_exp);
+    for e in 0..n_exp {
+        let gub = &gu_bias[e * 2 * moe_hid..(e + 1) * 2 * moe_hid];
+        let mut gate = vec![0.0f32; moe_hid];
+        let mut up = vec![0.0f32; moe_hid];
+        for k in 0..moe_hid {
+            gate[k] = gub[2 * k];
+            up[k] = gub[2 * k + 1];
+        }
+        expert_biases.push(GptOssExpertBias {
+            gate,
+            up,
+            down: down_bias[e * md..(e + 1) * md].to_vec(),
+        });
+    }
+
+    // Attention biases + per-head sinks. q/k biases take the same HF→interleaved
+    // permutation as their weights (treated as `[out, 1]`); v/o biases don't.
+    let attn_q_bias = Some(permute_qk_hf_to_interleaved(
+        &st.tensor_exact(&p("self_attn.q_proj.bias"), q_dim)?,
+        nq,
+        hd,
+        1,
+    )?);
+    let attn_k_bias = Some(permute_qk_hf_to_interleaved(
+        &st.tensor_exact(&p("self_attn.k_proj.bias"), kv_dim)?,
+        nkv,
+        hd,
+        1,
+    )?);
+    let attn_v_bias = Some(st.tensor_exact(&p("self_attn.v_proj.bias"), kv_dim)?);
+    let attn_o_bias = Some(st.tensor_exact(&p("self_attn.o_proj.bias"), md)?);
+    let attn_sinks = Some(st.tensor_exact(&p("self_attn.sinks"), nq)?);
+
+    let go = GptOssMoeWeights {
+        base,
+        router_bias,
+        expert_biases,
+        alpha: GPT_OSS_ALPHA,
+        limit: config.swiglu_limit.unwrap_or(GPT_OSS_SWIGLU_LIMIT),
+        attn_q_bias,
+        attn_k_bias,
+        attn_v_bias,
+        attn_o_bias,
+        attn_sinks,
+    };
+    MhaDecoderBlock::from_weights_moe_gpt_oss(&go, precision)
+        .map_err(|e| LoaderError::Build(format!("layer {i}: {e}")))
+}
+
 /// Applies the HF→interleaved RoPE permutation to q/k, threads the model's real
 /// `rope_theta` + `rope_scaling` into every block, and honors
 /// `tie_word_embeddings`.
@@ -959,8 +1063,15 @@ pub fn load_configured(
                 w_router,
                 experts,
             };
-            MhaDecoderBlock::from_weights_moe(&weights, precision)
-                .map_err(|e| LoaderError::Build(format!("layer {i}: {e}")))?
+            // GPT-OSS layers carry a per-head attention sink (`self_attn.sinks`) —
+            // the discriminator for its FFN math (clamped-α + biases) and attention
+            // extras. When present, fold them on; otherwise the standard SwiGLU MoE.
+            if st.has_tensor(&p("self_attn.sinks")) {
+                gpt_oss_moe_block(&st, i, config, weights, precision)?
+            } else {
+                MhaDecoderBlock::from_weights_moe(&weights, precision)
+                    .map_err(|e| LoaderError::Build(format!("layer {i}: {e}")))?
+            }
         } else {
             let weights = MhaBlockWeights {
                 model_dim: md,
@@ -1202,6 +1313,212 @@ mod tests {
         }
     }
 
+    fn f32_le(v: &[f32]) -> Vec<u8> {
+        v.iter().flat_map(|x| x.to_le_bytes()).collect()
+    }
+
+    // FP4-representable pseudo-weights (cycle {0.5,1,1.5,2}) so MXFP4 encode is exact.
+    fn fp4_seq(seed: usize, n: usize) -> Vec<f32> {
+        const P: [f32; 4] = [0.5, 1.0, 1.5, 2.0];
+        (0..n).map(|i| P[(i + seed) % 4]).collect()
+    }
+
+    // A tiny GPT-OSS-shaped safetensors: 1 MoE layer, MXFP4-packed fused experts,
+    // and (when `gpt_oss`) the attention sinks + per-projection/router/expert
+    // biases that select the clamped-α GPT-OSS FFN + sink attention path. Dims are
+    // multiples of 32 (the MXFP4 block width). Tied embeddings, vocab 256.
+    fn gpt_oss_st_fixture(gpt_oss: bool) -> (Vec<u8>, Config) {
+        const MD: usize = 32;
+        const MOE_HID: usize = 32;
+        const N_EXP: usize = 2;
+        const NQ: usize = 2;
+        const NKV: usize = 1;
+        const HD: usize = 16;
+        const V: usize = 256;
+        let q_dim = NQ * HD;
+        let kv_dim = NKV * HD;
+
+        let gate_up = fp4_seq(1, N_EXP * 2 * MOE_HID * MD);
+        let down = fp4_seq(2, N_EXP * MD * MOE_HID);
+        let (gu_b, gu_s) = mxfp4_encode(&gate_up);
+        let (dn_b, dn_s) = mxfp4_encode(&down);
+
+        let mut t: Vec<(String, &str, Vec<usize>, Vec<u8>)> = vec![
+            (
+                "model.embed_tokens.weight".into(),
+                "F32",
+                vec![V, MD],
+                f32_le(&seq(0.5, V * MD)),
+            ),
+            (
+                "model.norm.weight".into(),
+                "F32",
+                vec![MD],
+                f32_le(&[1.0f32; MD]),
+            ),
+            (
+                "model.layers.0.input_layernorm.weight".into(),
+                "F32",
+                vec![MD],
+                f32_le(&[1.0f32; MD]),
+            ),
+            (
+                "model.layers.0.post_attention_layernorm.weight".into(),
+                "F32",
+                vec![MD],
+                f32_le(&[1.0f32; MD]),
+            ),
+            (
+                "model.layers.0.self_attn.q_proj.weight".into(),
+                "F32",
+                vec![q_dim, MD],
+                f32_le(&seq(1.0, q_dim * MD)),
+            ),
+            (
+                "model.layers.0.self_attn.k_proj.weight".into(),
+                "F32",
+                vec![kv_dim, MD],
+                f32_le(&seq(2.0, kv_dim * MD)),
+            ),
+            (
+                "model.layers.0.self_attn.v_proj.weight".into(),
+                "F32",
+                vec![kv_dim, MD],
+                f32_le(&seq(3.0, kv_dim * MD)),
+            ),
+            (
+                "model.layers.0.self_attn.o_proj.weight".into(),
+                "F32",
+                vec![MD, q_dim],
+                f32_le(&seq(4.0, MD * q_dim)),
+            ),
+            (
+                "model.layers.0.mlp.router.weight".into(),
+                "F32",
+                vec![N_EXP, MD],
+                f32_le(&seq(5.0, N_EXP * MD)),
+            ),
+            (
+                "model.layers.0.mlp.experts.gate_up_proj_blocks".into(),
+                "U8",
+                vec![gu_b.len()],
+                gu_b,
+            ),
+            (
+                "model.layers.0.mlp.experts.gate_up_proj_scales".into(),
+                "U8",
+                vec![gu_s.len()],
+                gu_s,
+            ),
+            (
+                "model.layers.0.mlp.experts.down_proj_blocks".into(),
+                "U8",
+                vec![dn_b.len()],
+                dn_b,
+            ),
+            (
+                "model.layers.0.mlp.experts.down_proj_scales".into(),
+                "U8",
+                vec![dn_s.len()],
+                dn_s,
+            ),
+        ];
+        if gpt_oss {
+            // Attention biases + per-head sinks + router/expert biases — the gpt-oss
+            // extras. gate_up_proj_bias is [n_exp, 2·moe_hid] (gate even / up odd).
+            let ex =
+                |s: &str, sh: Vec<usize>, v: Vec<u8>| (format!("model.layers.0.{s}"), "F32", sh, v);
+            t.extend([
+                ex(
+                    "self_attn.q_proj.bias",
+                    vec![q_dim],
+                    f32_le(&seq(6.0, q_dim)),
+                ),
+                ex(
+                    "self_attn.k_proj.bias",
+                    vec![kv_dim],
+                    f32_le(&seq(7.0, kv_dim)),
+                ),
+                ex(
+                    "self_attn.v_proj.bias",
+                    vec![kv_dim],
+                    f32_le(&seq(8.0, kv_dim)),
+                ),
+                ex("self_attn.o_proj.bias", vec![MD], f32_le(&seq(9.0, MD))),
+                ex("self_attn.sinks", vec![NQ], f32_le(&seq(10.0, NQ))),
+                ex("mlp.router.bias", vec![N_EXP], f32_le(&seq(11.0, N_EXP))),
+                ex(
+                    "mlp.experts.gate_up_proj_bias",
+                    vec![N_EXP, 2 * MOE_HID],
+                    f32_le(&seq(12.0, N_EXP * 2 * MOE_HID)),
+                ),
+                ex(
+                    "mlp.experts.down_proj_bias",
+                    vec![N_EXP, MD],
+                    f32_le(&seq(13.0, N_EXP * MD)),
+                ),
+            ]);
+        }
+        let bytes = write_raw_safetensors(
+            &t.iter()
+                .map(|(n, d, s, v)| (n.as_str(), *d, s.clone(), v.clone()))
+                .collect::<Vec<_>>(),
+        );
+        let cfg = Config {
+            model_dim: MD,
+            n_layers: 1,
+            n_heads: NQ,
+            n_kv_heads: Some(NKV),
+            vocab: V,
+            hidden: MD,
+            eps: 1e-5,
+            tied: true,
+            head_dim: Some(HD),
+            rope_theta: 500000.0,
+            rope_scaling: None,
+            num_experts: Some(N_EXP),
+            num_experts_per_tok: Some(2),
+            moe_intermediate_size: Some(MOE_HID),
+            mlp_only_layers: None,
+            decoder_sparse_step: None,
+            sliding_window: None,
+            layer_types: None,
+            swiglu_limit: Some(7.0),
+        };
+        (bytes, cfg)
+    }
+
+    #[test]
+    fn gpt_oss_safetensors_decoder_assembles_and_the_extras_matter() {
+        // The GPT-OSS branch (sinks + biases + clamped-α) assembles from a
+        // safetensors checkpoint and decodes finite logits...
+        let (bytes, cfg) = gpt_oss_st_fixture(true);
+        let mut m = load(&bytes, &cfg).expect("gpt-oss safetensors loads");
+        assert_eq!(m.vocab(), 256);
+        let mut differed = false;
+
+        // ...and differs from the SAME experts loaded WITHOUT the gpt-oss extras
+        // (standard SwiGLU MoE, no sinks/biases) — proving the extras are applied.
+        let (plain_bytes, plain_cfg) = gpt_oss_st_fixture(false);
+        let mut plain = load(&plain_bytes, &plain_cfg).expect("standard safetensors loads");
+        for tok in [0usize, 1, 7, 42] {
+            let a = m.forward(tok).expect("gpt-oss forward");
+            let b = plain.forward(tok).expect("standard forward");
+            assert_eq!(a.len(), 256);
+            assert!(
+                a.iter().all(|x| x.is_finite()),
+                "gpt-oss logits finite at {tok}"
+            );
+            if a != b {
+                differed = true;
+            }
+        }
+        assert!(
+            differed,
+            "the GPT-OSS clamped-α + biases + sinks must change the decode"
+        );
+    }
+
     // deterministic pseudo-weights so the fixture is reproducible without rand
     fn seq(seed: f32, n: usize) -> Vec<f32> {
         (0..n)
@@ -1317,6 +1634,7 @@ mod tests {
             decoder_sparse_step: None,
             sliding_window: None,
             layer_types: None,
+            swiglu_limit: None,
         };
         (bytes, cfg)
     }
@@ -1674,6 +1992,7 @@ mod tests {
             decoder_sparse_step: None,
             sliding_window: None,
             layer_types: None,
+            swiglu_limit: None,
         };
         let _ = cfg.head_dim(); // must not panic
     }
@@ -1845,6 +2164,7 @@ mod tests {
             decoder_sparse_step: None,
             sliding_window: None,
             layer_types: None,
+            swiglu_limit: None,
         };
         (bytes, cfg)
     }
@@ -2109,6 +2429,7 @@ mod tests {
             decoder_sparse_step: None,
             sliding_window: None,
             layer_types: None,
+            swiglu_limit: None,
         };
         (write_safetensors(&t), cfg)
     }
@@ -2302,6 +2623,7 @@ mod tests {
             decoder_sparse_step: None,
             sliding_window: None,
             layer_types: None,
+            swiglu_limit: None,
         };
         assert!(!cfg.layer_is_moe(0) && cfg.layer_is_moe(1));
         let bytes = write_safetensors(&t);
