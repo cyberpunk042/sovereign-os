@@ -31,7 +31,7 @@
 #   ntfy / file / webhook    min/min (everything flows)
 #
 # SECRETS: values of the form "env:VAR_NAME" resolve from the
-# environment at delivery time — keys NEVER live in this file (SDD-009).
+# environment at delivery time — keys NEVER live in this file (docs/src/operator-env-files.md).
 # The VALUES live in /etc/sovereign-os/notify.env (see
 # config/notify.env.example — the ups.env-style operator env file,
 # 0600 root-owned, loaded by systemd EnvironmentFile= and sourceable

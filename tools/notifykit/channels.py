@@ -15,7 +15,7 @@ Adapted from the operator-cited prior art (research doc, 2026-07-19):
            records instead of delivering; credential-free tests.
 
 Secrets NEVER live in config values — env-var NAME indirection
-(ChannelConfig.resolve_env, SDD-009).
+(ChannelConfig.resolve_env — docs/src/operator-env-files.md).
 """
 
 from __future__ import annotations
